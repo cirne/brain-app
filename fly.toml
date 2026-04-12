@@ -1,0 +1,30 @@
+app = "brain-app"
+primary_region = "ord"
+
+[build]
+
+[env]
+  PORT = "3000"
+  WIKI_DIR = "/wiki"
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 50
+    soft_limit = 25
+
+[[mounts]]
+  source = "brain_data"
+  destination = "/data"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
