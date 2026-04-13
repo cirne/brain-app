@@ -101,6 +101,10 @@ The agent has these tools (via pi-coding-agent + custom):
 - `git_commit_push` — stage, commit, push wiki changes
 - `web_search` — Exa web search for current info (requires `EXA_API_KEY`)
 
+## Wiki
+
+Wiki content lives in the external brain repo at the path specified by `WIKI_DIR` in `.env` (locally `~/brain`, wiki at `~/brain/wiki`). **Never create or commit wiki/content `.md` files in this repository.** The agent reads and writes wiki files via its scoped file tools, which resolve to `WIKI_DIR` at runtime. Wiki schema and conventions are documented in `~/brain/CLAUDE.md`.
+
 ## Development rules
 
 - **Tests required**: every new feature or bug fix needs test coverage in `src/**/*.test.ts`.
