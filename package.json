@@ -26,6 +26,7 @@
     "@mariozechner/pi-coding-agent": "^0.66.1",
     "@mariozechner/pi-web-ui": "^0.66.1",
     "better-sqlite3": "^11.0.0",
+    "exa-js": "^2.11.0",
     "hono": "^4.12.0",
     "lucide-svelte": "^1.0.1",
     "marked": "^15.0.0",

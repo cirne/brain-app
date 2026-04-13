@@ -6,6 +6,31 @@
   import Calendar from './lib/Calendar.svelte'
   import { parseRoute, navigate, type Route } from './router.js'
 
+  // Types mirrored from Chat.svelte for typing persisted state
+  type ToolCall = { id: string; name: string; args: any; result?: string; isError?: boolean; done: boolean }
+  type MessagePart = { type: 'text'; content: string } | { type: 'tool'; toolCall: ToolCall }
+  type ChatMessage = { role: 'user' | 'assistant'; content: string; parts?: MessagePart[]; thinking?: string }
+
+  const CHAT_STORAGE_KEY = 'brain-chat'
+
+  function loadChat(): { messages: ChatMessage[]; sessionId: string | null } {
+    try {
+      const saved = localStorage.getItem(CHAT_STORAGE_KEY)
+      if (saved) return JSON.parse(saved)
+    } catch { /* ignore */ }
+    return { messages: [], sessionId: null }
+  }
+
+  const savedChat = loadChat()
+  let chatMessages = $state<ChatMessage[]>(savedChat.messages)
+  let chatSessionId = $state<string | null>(savedChat.sessionId)
+
+  $effect(() => {
+    try {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: chatMessages, sessionId: chatSessionId }))
+    } catch { /* ignore */ }
+  })
+
   let route = $state<Route>(parseRoute())
   let syncing = $state(false)
   let syncErrors = $state<string[]>([])
@@ -43,6 +68,12 @@
 
   function onInboxNavigate(id: string | undefined) {
     route = { tab: 'inbox', id }
+  }
+
+  function switchToCalendar(date: string) {
+    const next: Route = { tab: 'calendar', date }
+    navigate(next)
+    route = next
   }
 
   async function syncAll() {
@@ -104,7 +135,7 @@
 
   <main class="surface">
     {#if route.tab === 'chat'}
-      <Chat contextFiles={route.file ? [route.file] : []} initialMessage={route.message} onSwitchToWiki={switchToWiki} />
+      <Chat bind:messages={chatMessages} bind:sessionId={chatSessionId} contextFiles={route.file ? [route.file] : []} initialMessage={route.message} onSwitchToWiki={switchToWiki} onSwitchToCalendar={switchToCalendar} />
     {:else if route.tab === 'wiki'}
       <Wiki
         initialPath={route.path}
@@ -113,7 +144,7 @@
         onNavigate={onWikiNavigate}
       />
     {:else if route.tab === 'calendar'}
-      <Calendar refreshKey={calendarRefreshKey} />
+      <Calendar refreshKey={calendarRefreshKey} initialDate={route.tab === 'calendar' ? route.date : undefined} />
     {:else}
       <Inbox
         initialId={route.id}

@@ -2,12 +2,19 @@
   import { onMount } from 'svelte'
   import DayEvents, { type CalendarEvent } from './DayEvents.svelte'
 
-  let { refreshKey = 0 }: { refreshKey?: number } = $props()
+  let { refreshKey = 0, initialDate }: { refreshKey?: number; initialDate?: string } = $props()
 
   let weekStart = $state(sundayOf(new Date()))
   let events = $state<CalendarEvent[]>([])
   let loading = $state(false)
   let fetchedAt = $state({ travel: '', personal: '' })
+
+  // Jump to initialDate when it changes (e.g. navigating from chat)
+  $effect(() => {
+    if (initialDate) {
+      weekStart = sundayOf(new Date(initialDate + 'T12:00:00'))
+    }
+  })
 
   // Reload when week changes or a global sync completes
   $effect(() => {
@@ -124,7 +131,7 @@
   {:else}
     <div class="days">
       {#each days as { date, ymd }}
-        <div class="day" class:today={ymd === todayYMD}>
+        <div class="day" class:today={ymd === todayYMD} class:linked={ymd === initialDate}>
           <div class="day-header">
             <span class="day-label" class:today-label={ymd === todayYMD}>{formatDayHeader(date)}</span>
             {#if ymd === todayYMD}<span class="today-badge">today</span>{/if}
@@ -216,6 +223,11 @@
 
   .day.today {
     background: color-mix(in srgb, var(--accent) 5%, transparent);
+  }
+
+  .day.linked {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    border-left: 2px solid var(--accent);
   }
 
   .day-header {

@@ -27,20 +27,25 @@
   let {
     contextFiles = [],
     initialMessage,
+    messages = $bindable<ChatMessage[]>([]),
+    sessionId = $bindable<string | null>(null),
     onSwitchToWiki,
+    onSwitchToCalendar,
   }: {
     contextFiles?: string[]
     initialMessage?: string
+    messages?: ChatMessage[]
+    sessionId?: string | null
     onSwitchToWiki?: (_path: string) => void
+    onSwitchToCalendar?: (_date: string) => void
   } = $props()
 
-  let messages = $state<ChatMessage[]>([])
   let input = $state('')
   let streaming = $state(false)
-  let sessionId = $state<string | null>(null)
   let messagesEl: HTMLElement
   let inputEl: HTMLTextAreaElement
   let datePopover = $state<{ date: string; x: number; y: number } | null>(null)
+  let datePopoverTimer: ReturnType<typeof setTimeout> | null = null
 
   // @mention autocomplete
   let wikiFiles = $state<string[]>([])
@@ -266,36 +271,57 @@
     contextFiles = []
   }
 
-  // ISO date regex: YYYY-MM-DD not inside an HTML tag attribute
-  const ISO_DATE_RE = /\b(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))\b(?![^<>]*>)/g
+  // LLM emits [display text](date:YYYY-MM-DD); marked renders it as <a href="date:...">
+  // LLM emits [display text](wiki:path/to/file.md); marked renders it as <a href="wiki:...">
+  // Convert those <a> tags to interactive buttons.
+  const DATE_LINK_RE = /<a href="date:(\d{4}-\d{2}-\d{2})">([\s\S]*?)<\/a>/g
+  const WIKI_LINK_RE = /<a href="(?:wiki:)?([^"]+\.md)">([\s\S]*?)<\/a>/g
 
   function renderMarkdown(text: string): string {
     try {
       const html = marked(text) as string
-      // Wrap ISO dates in clickable buttons
-      return html.replace(ISO_DATE_RE, '<button class="date-link" data-date="$1">$1</button>')
+      return html
+        .replace(DATE_LINK_RE, '<button class="date-link" data-date="$1">$2</button>')
+        .replace(WIKI_LINK_RE, '<button class="wiki-link" data-wiki="$1">$2</button>')
     } catch {
       return text
     }
   }
 
   function handleMessagesClick(e: MouseEvent) {
-    const target = e.target as HTMLElement
-    const btn = target.closest<HTMLElement>('[data-date]')
-    if (!btn) {
-      datePopover = null
+    const dateBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-date]')
+    if (dateBtn) {
+      e.stopPropagation()
+      onSwitchToCalendar?.(dateBtn.dataset.date!)
       return
     }
+    const wikiBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-wiki]')
+    if (wikiBtn) {
+      e.stopPropagation()
+      onSwitchToWiki?.(wikiBtn.dataset.wiki!)
+    }
+  }
+
+  function handleMessagesMouseOver(e: MouseEvent) {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-date]')
+    if (!btn) return
+    clearTimeout(datePopoverTimer!)
     const date = btn.dataset.date!
     const rect = btn.getBoundingClientRect()
-    // Position below the button, clamped to viewport width
     const x = Math.min(rect.left, window.innerWidth - 260)
     const y = rect.bottom + 6
     datePopover = { date, x, y }
-    e.stopPropagation()
   }
 
-  function closeDatePopover() { datePopover = null }
+  function handleMessagesMouseOut(e: MouseEvent) {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-date]')
+    if (!btn) return
+    clearTimeout(datePopoverTimer!)
+    datePopoverTimer = setTimeout(() => { datePopover = null }, 200)
+  }
+
+  function keepPopover() { clearTimeout(datePopoverTimer!) }
+  function startClosePopover() { datePopoverTimer = setTimeout(() => { datePopover = null }, 150) }
 
   function formatArgs(args: any): string {
     if (!args) return ''
@@ -319,8 +345,8 @@
     <button class="new-chat-btn" onclick={newChat}>New Chat</button>
   </header>
 
-  <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-  <div class="messages" bind:this={messagesEl} onclick={handleMessagesClick}>
+  <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events a11y_mouse_events_have_key_events -->
+  <div class="messages" bind:this={messagesEl} onclick={handleMessagesClick} onmouseover={handleMessagesMouseOver} onmouseout={handleMessagesMouseOut}>
     {#if messages.length === 0}
       <div class="empty-state">
         <p>Ask anything about your wiki or email.</p>
@@ -378,9 +404,8 @@
   </div>
 
   {#if datePopover}
-    <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-    <div class="date-popover-backdrop" onclick={closeDatePopover}></div>
-    <div class="date-popover" style="left:{datePopover.x}px;top:{datePopover.y}px">
+    <div class="date-popover" role="tooltip" style="left:{datePopover.x}px;top:{datePopover.y}px"
+      onmouseenter={keepPopover} onmouseleave={startClosePopover}>
       <div class="date-popover-header">
         {new Date(datePopover.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
       </div>
@@ -700,8 +725,9 @@
     cursor: not-allowed;
   }
 
-  /* Date links injected into rendered markdown */
-  .markdown :global(.date-link) {
+  /* Date and wiki links injected into rendered markdown */
+  .markdown :global(.date-link),
+  .markdown :global(.wiki-link) {
     color: var(--accent);
     text-decoration: underline;
     text-decoration-style: dotted;
@@ -713,14 +739,9 @@
     border: none;
   }
 
-  .markdown :global(.date-link:hover) {
+  .markdown :global(.date-link:hover),
+  .markdown :global(.wiki-link:hover) {
     text-decoration-style: solid;
-  }
-
-  .date-popover-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 99;
   }
 
   .date-popover {

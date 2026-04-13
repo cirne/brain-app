@@ -3,6 +3,7 @@ import { Type } from '@mariozechner/pi-ai'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { getCalendarEvents } from '../lib/calendarCache.js'
+import Exa from 'exa-js'
 
 const execAsync = promisify(exec)
 
@@ -179,5 +180,31 @@ export function createAgentTools(wikiDir: string): any[] {
     },
   })
 
-  return [read, edit, write, grep, find, searchEmail, readEmail, gitCommitPush, findPerson, wikiLog, getCalEvents]
+  const webSearch = defineTool({
+    name: 'web_search',
+    label: 'Web Search',
+    description: 'Search the web for current information, news, documentation, or any topic not in the wiki or email.',
+    parameters: Type.Object({
+      query: Type.String({ description: 'Search query' }),
+    }),
+    async execute(_toolCallId: string, params: { query: string }) {
+      const apiKey = process.env.EXA_API_KEY
+      if (!apiKey) throw new Error('EXA_API_KEY is not set')
+      const exa = new Exa(apiKey)
+      const result = await exa.searchAndContents(params.query, {
+        type: 'auto',
+        numResults: 8,
+        contents: { highlights: { maxCharacters: 4000 } },
+      })
+      const formatted = result.results
+        .map((r) => `### ${r.title}\n${r.url}\n${r.highlights?.join('\n') ?? ''}`)
+        .join('\n\n')
+      return {
+        content: [{ type: 'text' as const, text: formatted || 'No results found.' }],
+        details: {},
+      }
+    },
+  })
+
+  return [read, edit, write, grep, find, searchEmail, readEmail, gitCommitPush, findPerson, wikiLog, getCalEvents, webSearch]
 }

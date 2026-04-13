@@ -1,10 +1,11 @@
 import { Hono } from 'hono'
-import { readdir, readFile } from 'node:fs/promises'
-import { join, relative, extname, basename, resolve } from 'node:path'
+import { readFile } from 'node:fs/promises'
+import { join, basename, resolve, relative } from 'node:path'
 import { marked } from 'marked'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { repoDir, wikiDir } from '../lib/wikiDir.js'
+import { listWikiFiles } from '../lib/wikiFiles.js'
 
 const execAsync = promisify(exec)
 
@@ -12,7 +13,9 @@ const wiki = new Hono()
 
 // GET /api/wiki — list all markdown files
 wiki.get('/', async (c) => {
-  const files = await collectMarkdownFiles(wikiDir())
+  const dir = wikiDir()
+  const paths = await listWikiFiles(dir)
+  const files = paths.map(p => ({ path: p, name: basename(p, '.md') }))
   return c.json(files)
 })
 
@@ -139,27 +142,5 @@ function parseFrontmatter(raw: string): { meta: Record<string, string>; body: st
   return { meta, body: match[2] }
 }
 
-async function collectMarkdownFiles(dir: string): Promise<{ path: string; name: string }[]> {
-  const results: { path: string; name: string }[] = []
-
-  async function walk(current: string) {
-    const entries = await readdir(current, { withFileTypes: true })
-    for (const entry of entries) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
-      const full = join(current, entry.name)
-      if (entry.isDirectory()) {
-        await walk(full)
-      } else if (extname(entry.name) === '.md') {
-        results.push({
-          path: relative(dir, full),
-          name: basename(entry.name, '.md'),
-        })
-      }
-    }
-  }
-
-  await walk(dir)
-  return results.sort((a, b) => a.path.localeCompare(b.path))
-}
 
 export default wiki

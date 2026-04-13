@@ -54,6 +54,19 @@ describe('parseRoute', () => {
   })
 })
 
+describe('parseRoute calendar', () => {
+  it('parses /calendar (no date)', () => {
+    expect(parseRoute('http://localhost/calendar')).toEqual({ tab: 'calendar' })
+  })
+
+  it('parses /calendar?date=2026-04-13', () => {
+    expect(parseRoute('http://localhost/calendar?date=2026-04-13')).toEqual({
+      tab: 'calendar',
+      date: '2026-04-13',
+    })
+  })
+})
+
 describe('routeToUrl', () => {
   it('chat without file', () => {
     expect(routeToUrl({ tab: 'chat' })).toBe('/chat')
@@ -94,6 +107,14 @@ describe('routeToUrl', () => {
       '/inbox/msg%3A12345'
     )
   })
+
+  it('calendar without date', () => {
+    expect(routeToUrl({ tab: 'calendar' })).toBe('/calendar')
+  })
+
+  it('calendar with date', () => {
+    expect(routeToUrl({ tab: 'calendar', date: '2026-04-13' })).toBe('/calendar?date=2026-04-13')
+  })
 })
 
 describe('round-trip: routeToUrl → parseRoute', () => {
@@ -104,6 +125,8 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { tab: 'wiki' as const, path: 'folder/sub/file.md' },
     { tab: 'inbox' as const },
     { tab: 'inbox' as const, id: 'msg:12345@mail.example.com' },
+    { tab: 'calendar' as const },
+    { tab: 'calendar' as const, date: '2026-04-13' },
   ]
 
   for (const route of cases) {

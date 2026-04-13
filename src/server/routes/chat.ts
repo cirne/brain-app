@@ -33,7 +33,7 @@ chat.post('/', async (c) => {
     if (parts.length) fileContext = parts.join('\n\n')
   }
 
-  const agent = getOrCreateSession(sessionId, { context: fileContext, timezone })
+  const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone })
 
   return streamSSE(c, async (stream) => {
     // Send session ID so client can continue the conversation

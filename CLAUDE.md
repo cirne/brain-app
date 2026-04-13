@@ -99,6 +99,7 @@ The agent has these tools (via pi-coding-agent + custom):
 - `search_email` — ripmail full-text search
 - `read_email` — read email thread by ID
 - `git_commit_push` — stage, commit, push wiki changes
+- `web_search` — Exa web search for current info (requires `EXA_API_KEY`)
 
 ## Development rules
 

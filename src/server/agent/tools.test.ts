@@ -37,6 +37,15 @@ describe('createAgentTools', () => {
     expect(names).toContain('find_person')
     expect(names).toContain('wiki_log')
     expect(names).toContain('get_calendar_events')
+    expect(names).toContain('web_search')
+  })
+
+  it('web_search tool throws when EXA_API_KEY is not set', async () => {
+    delete process.env.EXA_API_KEY
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t: any) => t.name === 'web_search')!
+    await expect(tool.execute('test-ws-1', { query: 'test' })).rejects.toThrow('EXA_API_KEY')
   })
 
   it('read tool can read a wiki file', async () => {
