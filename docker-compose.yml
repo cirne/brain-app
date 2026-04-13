@@ -1,0 +1,17 @@
+services:
+  brain:
+    build: .
+    ports:
+      - "4000:4000"
+    env_file: .env
+    environment:
+      # Override local paths from .env with container paths
+      - NODE_ENV=production
+      - PORT=4000
+      - WIKI_DIR=/wiki
+      - RIPMAIL_BIN=ripmail
+    volumes:
+      # ripmail SQLite index + rules (persisted across restarts)
+      - ${HOME}/.ripmail:/data
+      # wiki — mount local brain repo to skip git clone on startup
+      - ${LOCAL_WIKI_DIR:-${HOME}/brain}:/wiki

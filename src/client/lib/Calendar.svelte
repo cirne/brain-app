@@ -18,6 +18,7 @@
   let events = $state<CalendarEvent[]>([])
   let loading = $state(false)
   let fetchedAt = $state({ travel: '', personal: '' })
+  let urlsConfigured = $state(false)
 
   // Jump to initialDate when it changes (e.g. navigating from chat)
   $effect(() => {
@@ -67,7 +68,18 @@
         const data = await res.json()
         events = data.events
         fetchedAt = data.fetchedAt
+        urlsConfigured = data.urlsConfigured ?? false
       }
+    } finally {
+      loading = false
+    }
+  }
+
+  async function sync() {
+    loading = true
+    try {
+      await fetch('/api/calendar/sync', { method: 'POST' })
+      await loadEvents()
     } finally {
       loading = false
     }
@@ -114,7 +126,7 @@
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  const configured = $derived(!!fetchedAt.travel || !!fetchedAt.personal)
+  const configured = $derived(!!fetchedAt.travel || !!fetchedAt.personal || events.length > 0)
 
   onMount(() => { loadEvents() })
 </script>
@@ -138,8 +150,13 @@
 
   {#if !configured && !loading}
     <div class="empty-state">
-      <p>No calendar configured.</p>
-      <p class="hint">Set <code>CIRNE_TRAVEL_ICS_URL</code> and <code>LEW_PERSONAL_ICS_URL</code> in your .env, then use the ↻ sync button.</p>
+      {#if urlsConfigured}
+        <p>No calendar data yet.</p>
+        <button class="sync-btn" onclick={sync}>↻ Sync now</button>
+      {:else}
+        <p>No calendar configured.</p>
+        <p class="hint">Set <code>CIRNE_TRAVEL_ICS_URL</code> and <code>LEW_PERSONAL_ICS_URL</code> in your .env.</p>
+      {/if}
     </div>
   {:else}
     <div class="days">
@@ -286,4 +303,15 @@
   .empty-state p { margin: 0; font-size: 14px; }
   .empty-state .hint { font-size: 12px; max-width: 320px; line-height: 1.5; }
   .empty-state code { color: var(--accent); font-family: monospace; }
+
+  .sync-btn {
+    font-size: 13px;
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    color: var(--text);
+    background: var(--bg-3);
+    cursor: pointer;
+  }
+  .sync-btn:hover { border-color: var(--accent); color: var(--accent); }
 </style>

@@ -38,7 +38,8 @@ calendar.get('/', async (c) => {
   const end = c.req.query('end')
 
   const { events, fetchedAt } = await getCalendarEvents({ start, end })
-  return c.json({ events, fetchedAt })
+  const urlsConfigured = !!(process.env.CIRNE_TRAVEL_ICS_URL || process.env.LEW_PERSONAL_ICS_URL)
+  return c.json({ events, fetchedAt, urlsConfigured })
 })
 
 export default calendar

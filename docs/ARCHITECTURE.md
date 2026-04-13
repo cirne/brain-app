@@ -66,7 +66,7 @@ The agent talks to email via `ripmail` CLI subprocesses (`ripmail search`, `ripm
 
 **Why:** ripmail manages its own SQLite index and IMAP sync independently. Treating it as a subprocess means brain-app has no coupling to ripmail's internals and gets the same interface that any other agent or CLI user would get.
 
-**Implication:** `RIPMAIL_BIN` must point to a working ripmail binary. On Fly.io the binary is baked into the Docker image; locally it's assumed to be on `$PATH`.
+**Implication:** `RIPMAIL_BIN` must point to a working ripmail binary. In Docker it is installed at build time via the ripmail installer script. Locally it is assumed to be on `$PATH`.
 
 ---
 
@@ -127,8 +127,14 @@ Auth is skipped entirely in dev (`NODE_ENV !== 'production'`). In production, Ba
 
 ## Deployment
 
-Deployed on Fly.io via Docker. `start.sh` clones/pulls the brain wiki repo at container startup. The ripmail SQLite index lives on the `brain_data` persistent volume at `/data`. The wiki is cloned fresh each deploy (ephemeral container storage).
+The app runs as a Docker container. `start.sh` clones/pulls the brain wiki repo at container startup. The ripmail SQLite index and `rules.json` should be on a persistent volume mounted at `/data`. The wiki can be cloned fresh each deploy or mounted from a local path.
 
+Deployment platform is not yet decided — Fly.io (`fly.toml` exists as a starting point) and DigitalOcean App Platform are both viable options.
+
+### Local container testing
+
+```sh
+docker compose up --build
 ```
-fly deploy    # builds Docker image, deploys to Fly.io
-```
+
+Set `RIPMAIL_HOST_BIN` and `LOCAL_WIKI_DIR` in `.env` (see `.env.example`). The compose file mounts the host ripmail binary and wiki directory into the container, overriding the path-sensitive env vars from `.env`.
