@@ -9,11 +9,13 @@
   let {
     onNewChat,
     onOpenWiki,
+    onOpenInbox,
     dirty = [],
     recent = [],
   }: {
     onNewChat: (_message: string) => void
     onOpenWiki: (_path: string) => void
+    onOpenInbox: (_id: string) => void
     dirty?: string[]
     recent?: { path: string; date: string }[]
   } = $props()
@@ -76,10 +78,12 @@
       {:else}
         <ul class="item-list">
           {#each inboxItems.slice(0, 5) as msg (msg.id)}
-            <li class="inbox-item" class:unread={!msg.read}>
-              <span class="inbox-from">{msg.from}</span>
-              <span class="inbox-subject">{msg.subject}</span>
-              <span class="inbox-date">{formatDate(msg.date)}</span>
+            <li>
+              <button class="inbox-item" class:unread={!msg.read} onclick={() => onOpenInbox(msg.id)}>
+                <span class="inbox-from">{msg.from}</span>
+                <span class="inbox-subject">{msg.subject}</span>
+                <span class="inbox-date">{formatDate(msg.date)}</span>
+              </button>
             </li>
           {/each}
         </ul>
@@ -197,15 +201,26 @@
     grid-template-columns: minmax(0, 130px) 1fr auto;
     gap: 8px;
     align-items: baseline;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
     padding: 5px 6px;
     border-radius: 4px;
     font-size: 12px;
     color: var(--text-2);
   }
 
+  .inbox-item:hover {
+    background: var(--bg-3);
+  }
+
   .inbox-item.unread {
     color: var(--text);
     background: color-mix(in srgb, var(--accent) 6%, transparent);
+  }
+
+  .inbox-item.unread:hover {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
   .inbox-from {

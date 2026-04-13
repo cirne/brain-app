@@ -214,7 +214,7 @@
   <div class="layout">
     <main class="surface">
       {#if route.tab === 'home'}
-        <Home onNewChat={startNewChat} onOpenWiki={openWikiPanel} dirty={dirtyFiles} recent={recentFiles} />
+        <Home onNewChat={startNewChat} onOpenWiki={openWikiPanel} onOpenInbox={onInboxNavigate} dirty={dirtyFiles} recent={recentFiles} />
       {:else if route.tab === 'chat'}
         <Chat bind:messages={chatMessages} bind:sessionId={chatSessionId} contextFiles={route.file ? [route.file] : []} initialMessage={route.message} onSwitchToWiki={openWikiPanel} onSwitchToCalendar={switchToCalendar} />
       {:else if route.tab === 'calendar'}
