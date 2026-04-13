@@ -6,9 +6,21 @@
   import Home from './lib/Home.svelte'
   import WikiFileList from './lib/WikiFileList.svelte'
   import AgentDrawer from './lib/AgentDrawer.svelte'
+  import Search from './lib/Search.svelte'
   import { parseRoute, navigate, type Route, type SurfaceContext } from './router.js'
 
-  type LogEntry = { date: string; type: string; description: string; files: string[] }
+  const AGENT_PANEL_WIDTH_KEY = 'brain-agent-panel-width'
+  const DEFAULT_AGENT_PANEL_WIDTH = 420
+  const MIN_AGENT_PANEL_WIDTH = 280
+
+  function maxAgentPanelWidth(): number {
+    if (typeof window === 'undefined') return 920
+    return Math.min(920, Math.max(MIN_AGENT_PANEL_WIDTH, window.innerWidth - 320))
+  }
+
+  function clampAgentPanelWidth(w: number): number {
+    return Math.min(maxAgentPanelWidth(), Math.max(MIN_AGENT_PANEL_WIDTH, Math.round(w)))
+  }
 
   let route = $state<Route>(parseRoute())
   let syncing = $state(false)
@@ -17,35 +29,26 @@
   let calendarRefreshKey = $state(0)
   let wikiRefreshKey = $state(0)
   let drawerOpen = $state(true)
+  let agentPanelWidth = $state(DEFAULT_AGENT_PANEL_WIDTH)
+  let agentPanelResizing = $state(false)
+  let showSearch = $state(false)
+  let inboxTargetId = $state<string | undefined>()
 
   // Surface context — driven by whichever surface is active
   let agentContext = $state<SurfaceContext>({ type: 'today', date: new Date().toISOString().slice(0, 10) })
 
-  // Wiki recent files (from _log.md) + unsaved dirty files
-  let logEntries = $state<LogEntry[]>([])
+  // Wiki recent files (agent edit/write history in data/) + unsaved dirty files
+  let recentEditFiles = $state<{ path: string; date: string }[]>([])
   let dirtyFiles = $state<string[]>([])
   let showRecentFiles = $state(false)
 
-  const recentFiles = $derived.by(() => {
-    const seen = new Set<string>()
-    const files: { path: string; date: string }[] = []
-    outer: for (const entry of logEntries) {
-      for (const path of (entry.files ?? [])) {
-        if (!seen.has(path)) {
-          seen.add(path)
-          files.push({ path, date: entry.date })
-          if (files.length >= 10) break outer
-        }
-      }
-    }
-    return files
-  })
+  const recentFiles = $derived(recentEditFiles)
 
-  async function loadWikiLog() {
+  async function loadWikiEditHistory() {
     try {
-      const res = await fetch('/api/wiki/log?limit=10')
+      const res = await fetch('/api/wiki/edit-history?limit=10')
       const data = await res.json()
-      logEntries = data.entries ?? []
+      recentEditFiles = data.files ?? []
     } catch { /* ignore */ }
   }
 
@@ -58,12 +61,69 @@
   }
 
   onMount(() => {
-    loadWikiLog()
+    try {
+      const raw = localStorage.getItem(AGENT_PANEL_WIDTH_KEY)
+      if (raw) {
+        const n = parseInt(raw, 10)
+        if (!Number.isNaN(n)) agentPanelWidth = clampAgentPanelWidth(n)
+      }
+    } catch { /* ignore */ }
+
+    loadWikiEditHistory()
     loadGitStatus()
     const onPopState = () => { route = parseRoute() }
     window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
+    const onWinResize = () => {
+      agentPanelWidth = clampAgentPanelWidth(agentPanelWidth)
+    }
+    window.addEventListener('resize', onWinResize)
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        showSearch = true
+      }
+    }
+    window.addEventListener('keydown', onKeydown)
+    return () => {
+      window.removeEventListener('popstate', onPopState)
+      window.removeEventListener('resize', onWinResize)
+      window.removeEventListener('keydown', onKeydown)
+    }
   })
+
+  $effect(() => {
+    try {
+      localStorage.setItem(AGENT_PANEL_WIDTH_KEY, String(agentPanelWidth))
+    } catch { /* ignore */ }
+  })
+
+  function onAgentPanelResizePointerDown(e: PointerEvent) {
+    if (typeof window !== 'undefined' && window.innerWidth <= 767) return
+    e.preventDefault()
+    const el = e.currentTarget as HTMLButtonElement
+    el.setPointerCapture(e.pointerId)
+    const startX = e.clientX
+    const startW = agentPanelWidth
+    agentPanelResizing = true
+    const prevCursor = document.body.style.cursor
+    const prevUserSelect = document.body.style.userSelect
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    function onMove(ev: PointerEvent) {
+      agentPanelWidth = clampAgentPanelWidth(startW + (startX - ev.clientX))
+    }
+    function onUp(ev: PointerEvent) {
+      agentPanelResizing = false
+      document.body.style.cursor = prevCursor
+      document.body.style.userSelect = prevUserSelect
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      if (el.hasPointerCapture(ev.pointerId)) el.releasePointerCapture(ev.pointerId)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   function switchTab(tab: Route['tab']) {
     const next: Route = { tab }
@@ -91,6 +151,14 @@
     agentContext = ctx
   }
 
+  function openEmailFromSearch(id: string, subject: string, from: string) {
+    inboxTargetId = id
+    const next: Route = { tab: 'inbox', id }
+    navigate(next)
+    route = next
+    agentContext = { type: 'email', threadId: id, subject, from }
+  }
+
   async function syncAll() {
     syncing = true
     syncErrors = []
@@ -111,7 +179,7 @@
       syncErrors = errs
       calendarRefreshKey++
       wikiRefreshKey++
-      loadWikiLog()
+      loadWikiEditHistory()
       loadGitStatus()
     } catch (e) {
       syncErrors = [`Unexpected error: ${e}`]
@@ -121,6 +189,14 @@
   }
 </script>
 
+{#if showSearch}
+  <Search
+    onOpenWiki={(path) => { openWikiDoc(path); showSearch = false }}
+    onOpenEmail={(id, subject, from) => { openEmailFromSearch(id, subject, from); showSearch = false }}
+    onClose={() => showSearch = false}
+  />
+{/if}
+
 <div class="app">
   <nav class="tabs">
     <div class="tab-group">
@@ -128,6 +204,13 @@
       <button class:active={route.tab === 'inbox'} onclick={() => switchTab('inbox')}>Inbox</button>
       <button class:active={route.tab === 'wiki'} onclick={() => switchTab('wiki')}>Wiki</button>
       <button class:active={route.tab === 'calendar'} onclick={() => switchTab('calendar')}>Calendar</button>
+    </div>
+    <div class="search-wrap">
+      <button class="search-btn" onclick={() => showSearch = true} title="Search (⌘K)" aria-label="Search">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+      </button>
     </div>
     {#if dirtyFiles.length > 0}
       <div class="log-wrap">
@@ -202,13 +285,29 @@
       {:else}
         <Inbox
           initialId={route.id}
+          targetId={inboxTargetId}
           onNavigate={onInboxNavigate}
           onContextChange={setContext}
+          onOpenSearch={() => showSearch = true}
         />
       {/if}
     </main>
 
-    <div class="agent-panel" class:open={drawerOpen}>
+    <div
+      class="agent-panel"
+      class:open={drawerOpen}
+      class:resizing={agentPanelResizing}
+      style:--panel-w="{agentPanelWidth}px"
+    >
+      <button
+        type="button"
+        class="agent-resize-handle"
+        aria-label="Resize chat panel"
+        title="Drag to resize"
+        onpointerdown={onAgentPanelResizePointerDown}
+      >
+        <span class="agent-resize-grip" aria-hidden="true"></span>
+      </button>
       <AgentDrawer
         context={agentContext}
         open={drawerOpen}
@@ -235,6 +334,26 @@
     background: var(--bg-2);
     flex-shrink: 0;
   }
+
+  /* ── search button ──────────────────────────────────────── */
+
+  .search-wrap {
+    display: flex;
+    align-items: center;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .search-btn {
+    width: 40px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-2);
+    transition: color 0.15s;
+  }
+  .search-btn:hover { color: var(--text); }
 
   /* ── wiki log indicator ──────────────────────────────────── */
 
@@ -411,21 +530,76 @@
     overflow: hidden;
     position: relative;
     min-width: 0;
+    z-index: 0;
   }
 
   /* ── agent panel ─────────────────────────────────────────── */
 
   .agent-panel {
-    width: 420px;
+    --panel-w: 420px;
+    position: relative;
+    z-index: 1;
+    width: var(--panel-w);
     flex-shrink: 0;
     border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    /* allow .agent-resize-handle (negative margin) to paint over .surface — was clipping the grip */
+    overflow: visible;
+  }
+
+  .agent-resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    /* Wider than the 1px panel border so the grip straddles the split */
+    width: 16px;
+    margin-left: -8px;
+    z-index: 3;
+    cursor: col-resize;
+    touch-action: none;
+    border: none;
+    padding: 0;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .agent-resize-handle:hover .agent-resize-grip,
+  .agent-resize-handle:focus-visible .agent-resize-grip {
+    opacity: 0.95;
+  }
+
+  /* Visible grip: 8×30px, sits across the border line */
+  .agent-resize-grip {
+    width: 8px;
+    height: 30px;
+    border-radius: 4px;
+    box-sizing: border-box;
+    opacity: 0.45;
+    background-color: var(--text-2);
+    background-image: repeating-linear-gradient(
+      180deg,
+      transparent 0 4px,
+      rgba(0, 0, 0, 0.1) 4px 5px
+    );
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  }
+
+  .agent-panel.resizing .agent-resize-grip {
+    opacity: 1;
   }
 
   /* Small screens: collapsible bottom sheet */
   @media (max-width: 767px) {
+    .agent-resize-handle {
+      display: none;
+    }
+
     .agent-panel {
       position: fixed;
       bottom: 0;

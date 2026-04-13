@@ -200,6 +200,64 @@ describe('createAgentTools', () => {
     expect(text).toContain('# Home')
   })
 
+  describe('wiki edit history (edit/write)', () => {
+    let histFile: string
+
+    beforeEach(() => {
+      histFile = join(wikiDir, 'wiki-edits-test.jsonl')
+      process.env.WIKI_EDIT_HISTORY_PATH = histFile
+    })
+
+    afterEach(() => {
+      delete process.env.WIKI_EDIT_HISTORY_PATH
+    })
+
+    it('appends a JSONL line when edit tool succeeds', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const edit = tools.find((t: any) => t.name === 'edit')!
+      await edit.execute('edit-hist-1', {
+        path: 'index.md',
+        edits: [{ oldText: 'Welcome to the wiki.', newText: 'Hi.' }],
+      })
+      const { readFile } = await import('node:fs/promises')
+      const raw = await readFile(histFile, 'utf8')
+      const rec = JSON.parse(raw.trim()) as { op: string; path: string; source: string }
+      expect(rec.op).toBe('edit')
+      expect(rec.path).toBe('index.md')
+      expect(rec.source).toBe('agent')
+    })
+
+    it('appends a JSONL line when write tool succeeds', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const write = tools.find((t: any) => t.name === 'write')!
+      await write.execute('write-hist-1', {
+        path: 'scratch/new-note.md',
+        content: '# New\n',
+      })
+      const { readFile } = await import('node:fs/promises')
+      const raw = await readFile(histFile, 'utf8')
+      const rec = JSON.parse(raw.trim()) as { op: string; path: string }
+      expect(rec.op).toBe('write')
+      expect(rec.path).toBe('scratch/new-note.md')
+    })
+
+    it('does not append when edit fails', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const edit = tools.find((t: any) => t.name === 'edit')!
+      await expect(
+        edit.execute('edit-fail', {
+          path: 'index.md',
+          edits: [{ oldText: 'text not in file', newText: 'x' }],
+        })
+      ).rejects.toThrow()
+      const { access } = await import('node:fs/promises')
+      await expect(access(histFile)).rejects.toMatchObject({ code: 'ENOENT' })
+    })
+  })
+
   describe('find_person tool', () => {
     let ripmailScript: string
 

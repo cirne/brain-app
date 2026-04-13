@@ -29,12 +29,16 @@
 
   let {
     initialId,
+    targetId,
     onNavigate,
     onContextChange,
+    onOpenSearch,
   }: {
     initialId?: string
+    targetId?: string
     onNavigate?: (_id: string | undefined) => void
     onContextChange?: (_ctx: SurfaceContext) => void
+    onOpenSearch?: () => void
   } = $props()
 
   let emails = $state<Email[]>([])
@@ -265,6 +269,14 @@
       }
     })
   })
+
+  // Navigate to a specific thread when targetId changes externally (e.g. from search)
+  $effect(() => {
+    if (targetId) {
+      const email = emails.find(e => e.id === targetId)
+      if (email) openThread(email)
+    }
+  })
 </script>
 
 <div class="inbox">
@@ -437,7 +449,19 @@
         </li>
       {:else}
         <li class="empty">
-          {error ? 'Inbox unavailable - ripmail may not be configured.' : 'No messages'}
+          {#if error}
+            Inbox unavailable — ripmail may not be configured.
+          {:else}
+            <span class="empty-label">No messages</span>
+            {#if onOpenSearch}
+              <button class="search-cta" onclick={onOpenSearch}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
+                Search emails
+              </button>
+            {/if}
+          {/if}
         </li>
       {/each}
     </ul>
@@ -491,7 +515,28 @@
   .archive-btn { padding: 12px 16px 12px 8px; color: var(--text-2); }
   .archive-btn:hover { color: var(--danger); }
 
-  .empty { padding: 32px; text-align: center; color: var(--text-2); font-size: 14px; }
+  .empty {
+    padding: 48px 32px;
+    text-align: center;
+    color: var(--text-2);
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .empty-label { color: var(--text-2); }
+  .search-cta {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 14px;
+    color: var(--accent);
+    padding: 10px 20px;
+    border: 1px solid var(--accent-dim);
+    border-radius: 8px;
+  }
+  .search-cta:active { opacity: 0.7; }
 
   /* Thread view */
   .thread-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }

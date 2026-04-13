@@ -4,6 +4,7 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { getCalendarEvents } from '../lib/calendarCache.js'
 import { Exa } from 'exa-js'
+import { appendWikiEditRecord } from '../lib/wikiEditHistory.js'
 
 const execAsync = promisify(exec)
 
@@ -37,10 +38,26 @@ export function buildDraftEditFlags(params: {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createAgentTools(wikiDir: string): any[] {
-  // Pi-coding-agent file tools scoped to wiki directory
+  // Pi-coding-agent file tools scoped to wiki directory (edit/write append to data/wiki-edits.jsonl)
   const read = createReadTool(wikiDir)
-  const edit = createEditTool(wikiDir)
-  const write = createWriteTool(wikiDir)
+  const editTool = createEditTool(wikiDir)
+  const edit = {
+    ...editTool,
+    async execute(toolCallId: string, params: { path: string; edits: { oldText: string; newText: string }[] }) {
+      const result = await editTool.execute(toolCallId, params)
+      await appendWikiEditRecord(wikiDir, 'edit', params.path).catch(() => {})
+      return result
+    },
+  }
+  const writeTool = createWriteTool(wikiDir)
+  const write = {
+    ...writeTool,
+    async execute(toolCallId: string, params: { path: string; content: string }) {
+      const result = await writeTool.execute(toolCallId, params)
+      await appendWikiEditRecord(wikiDir, 'write', params.path).catch(() => {})
+      return result
+    },
+  }
   const grep = createGrepTool(wikiDir)
   const find = createFindTool(wikiDir)
 

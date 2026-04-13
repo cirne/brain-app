@@ -6,6 +6,7 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { repoDir, wikiDir } from '../lib/wikiDir.js'
 import { listWikiFiles } from '../lib/wikiFiles.js'
+import { readRecentWikiEdits } from '../lib/wikiEditHistory.js'
 
 const execAsync = promisify(exec)
 
@@ -150,6 +151,13 @@ wiki.get('/log', async (c) => {
   } catch {
     return c.json({ entries: [] })
   }
+})
+
+// GET /api/wiki/edit-history — agent edit/write tool history (JSONL under data/)
+wiki.get('/edit-history', async (c) => {
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10), 50)
+  const files = await readRecentWikiEdits(limit)
+  return c.json({ files })
 })
 
 // GET /api/wiki/recent — recently committed .md files (deduped, most-recent-first)

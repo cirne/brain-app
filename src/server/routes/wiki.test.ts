@@ -274,6 +274,45 @@ describe('GET /api/wiki/log', () => {
   })
 })
 
+describe('GET /api/wiki/edit-history', () => {
+  let histFile: string
+
+  beforeEach(() => {
+    histFile = join(wikiDir, 'test-wiki-edits.jsonl')
+    process.env.WIKI_EDIT_HISTORY_PATH = histFile
+  })
+
+  afterEach(() => {
+    delete process.env.WIKI_EDIT_HISTORY_PATH
+  })
+
+  it('returns empty files when history file is missing', async () => {
+    const res = await app.request('/api/wiki/edit-history')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.files).toEqual([])
+  })
+
+  it('returns deduped paths newest-first from JSONL', async () => {
+    await writeFile(
+      histFile,
+      [
+        JSON.stringify({ ts: '2026-04-10T12:00:00.000Z', op: 'edit', path: 'ideas/foo.md', source: 'agent' }),
+        JSON.stringify({ ts: '2026-04-13T12:00:00.000Z', op: 'write', path: 'index.md', source: 'agent' }),
+        JSON.stringify({ ts: '2026-04-11T00:00:00.000Z', op: 'edit', path: 'ideas/foo.md', source: 'agent' }),
+      ].join('\n') + '\n',
+      'utf8'
+    )
+    const res = await app.request('/api/wiki/edit-history?limit=10')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.files).toEqual([
+      { path: 'index.md', date: '2026-04-13' },
+      { path: 'ideas/foo.md', date: '2026-04-11' },
+    ])
+  })
+})
+
 describe('GET /api/wiki/recent (non-git)', () => {
   it('returns empty files for a non-git directory', async () => {
     const res = await app.request('/api/wiki/recent')

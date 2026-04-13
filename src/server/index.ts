@@ -25,6 +25,7 @@ import chatRoute from './routes/chat.js'
 import wikiRoute from './routes/wiki.js'
 import inboxRoute from './routes/inbox.js'
 import calendarRoute from './routes/calendar.js'
+import searchRoute from './routes/search.js'
 
 const app = new Hono()
 const isDev = process.env.NODE_ENV !== 'production'
@@ -44,6 +45,7 @@ app.route('/api/chat', chatRoute)
 app.route('/api/wiki', wikiRoute)
 app.route('/api/inbox', inboxRoute)
 app.route('/api/calendar', calendarRoute)
+app.route('/api/search', searchRoute)
 
 async function start() {
   if (isDev) {
