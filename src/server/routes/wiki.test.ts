@@ -181,6 +181,171 @@ describe('POST /api/wiki/sync (git repo)', () => {
   })
 })
 
+describe('GET /api/wiki/log', () => {
+  it('returns empty entries when _log.md does not exist', async () => {
+    const res = await app.request('/api/wiki/log')
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ entries: [] })
+  })
+
+  it('parses entries and extracts file mentions', async () => {
+    await writeFile(join(wikiDir, '_log.md'), [
+      '---',
+      'updated: 2026-04-13',
+      '---',
+      '',
+      '# Log',
+      '',
+      '## [2026-04-13] query | Discussed new feature',
+      '',
+      '- Updated `ideas/brain-app.md`',
+      '- Added `people/alice.md` and `people/bob`',
+      '',
+      '## [2026-04-12] lint | Cleanup',
+      '',
+      '- Fixed `_index.md` frontmatter',
+    ].join('\n'))
+
+    const res = await app.request('/api/wiki/log?limit=10')
+    expect(res.status).toBe(200)
+    const { entries } = await res.json()
+    expect(entries).toHaveLength(2)
+    // most recent first
+    expect(entries[0]).toMatchObject({ date: '2026-04-13', type: 'query' })
+    expect(entries[0].files).toContain('ideas/brain-app.md')
+    expect(entries[0].files).toContain('people/alice.md')
+    expect(entries[0].files).toContain('people/bob.md') // normalized: .md added
+    expect(entries[1]).toMatchObject({ date: '2026-04-12', type: 'lint' })
+    expect(entries[1].files).toContain('_index.md')
+  })
+
+  it('strips wiki/ prefix from file paths in log entries', async () => {
+    await writeFile(join(wikiDir, '_log.md'), [
+      '## [2026-04-13] query | Test',
+      '',
+      '- Updated `wiki/ideas/brain-in-the-cloud.md` and `ideas/other.md`',
+    ].join('\n'))
+
+    const res = await app.request('/api/wiki/log')
+    const { entries } = await res.json()
+    expect(entries[0].files).toContain('ideas/brain-in-the-cloud.md')
+    expect(entries[0].files).not.toContain('wiki/ideas/brain-in-the-cloud.md')
+    expect(entries[0].files).toContain('ideas/other.md')
+  })
+
+  it('respects limit parameter (newest-first file order)', async () => {
+    // entries written newest-first (as they appear in _log.md)
+    const lines = ['# Log', '']
+    for (let i = 5; i >= 1; i--) {
+      lines.push(`## [2026-04-0${i}] edit | Entry ${i}`, '')
+    }
+    await writeFile(join(wikiDir, '_log.md'), lines.join('\n'))
+
+    const res = await app.request('/api/wiki/log?limit=3')
+    const { entries } = await res.json()
+    expect(entries).toHaveLength(3)
+    expect(entries[0].date).toBe('2026-04-05') // most recent first
+  })
+})
+
+describe('GET /api/wiki/recent (non-git)', () => {
+  it('returns empty files for a non-git directory', async () => {
+    const res = await app.request('/api/wiki/recent')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toEqual({ files: [] })
+  })
+})
+
+describe('GET /api/wiki/recent (git repo)', () => {
+  let repoDir: string
+  let gitApp: Hono
+
+  async function git(dir: string, cmd: string) {
+    return execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`)
+  }
+
+  beforeEach(async () => {
+    repoDir = await mkdtemp(join(tmpdir(), 'wiki-recent-'))
+    await execAsync(`git init -b main ${JSON.stringify(repoDir)}`)
+    await git(repoDir, 'config user.email "test@test.com"')
+    await git(repoDir, 'config user.name "Test"')
+
+    // First commit
+    await writeFile(join(repoDir, 'first.md'), '# First')
+    await git(repoDir, 'add -A')
+    await git(repoDir, 'commit -m "add first"')
+
+    // Second commit
+    await writeFile(join(repoDir, 'second.md'), '# Second')
+    await git(repoDir, 'add -A')
+    await git(repoDir, 'commit -m "add second"')
+
+    process.env.WIKI_DIR = repoDir
+    vi.resetModules()
+    const { default: wikiRoute } = await import('./wiki.js')
+    gitApp = new Hono()
+    gitApp.route('/api/wiki', wikiRoute)
+  })
+
+  afterEach(async () => {
+    await rm(repoDir, { recursive: true, force: true })
+    delete process.env.WIKI_DIR
+    vi.resetModules()
+  })
+
+  it('returns recently committed .md files', async () => {
+    const res = await gitApp.request('/api/wiki/recent')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.files).toHaveLength(2)
+    expect(body.files[0]).toMatchObject({ path: 'second.md', date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) })
+    expect(body.files[1]).toMatchObject({ path: 'first.md', date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) })
+  })
+
+  it('deduplicates files across commits', async () => {
+    // Modify first.md again
+    await writeFile(join(repoDir, 'first.md'), '# First updated')
+    await git(repoDir, 'add -A')
+    await git(repoDir, 'commit -m "update first"')
+
+    const res = await gitApp.request('/api/wiki/recent')
+    const body = await res.json()
+    const paths = body.files.map((f: any) => f.path)
+    // first.md should only appear once
+    expect(paths.filter((p: string) => p === 'first.md')).toHaveLength(1)
+  })
+})
+
+describe('GET /api/wiki/dir-icon', () => {
+  it('returns hardcoded icon for known directories', async () => {
+    const cases = [
+      ['people', 'User'],
+      ['companies', 'Building2'],
+      ['ideas', 'Lightbulb'],
+      ['areas', 'Map'],
+      ['health', 'Heart'],
+      ['projects', 'Briefcase'],
+      ['vehicles', 'Car'],
+    ]
+    for (const [dir, expected] of cases) {
+      const res = await app.request(`/api/wiki/dir-icon/${dir}`)
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.icon).toBe(expected)
+    }
+  })
+
+  it('returns Folder for unknown dir when LLM unavailable', async () => {
+    // No ANTHROPIC_API_KEY in test env → LLM call fails → Folder fallback
+    delete process.env.ANTHROPIC_API_KEY
+    const res = await app.request('/api/wiki/dir-icon/unknown-xyz')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.icon).toBe('File')
+  })
+})
+
 describe('GET /api/wiki/search', () => {
   it('returns matching files for a query', async () => {
     const res = await app.request('/api/wiki/search?q=searching')

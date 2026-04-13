@@ -4,7 +4,11 @@
   import Wiki from './lib/Wiki.svelte'
   import Inbox from './lib/Inbox.svelte'
   import Calendar from './lib/Calendar.svelte'
+  import Home from './lib/Home.svelte'
+  import WikiFileName from './lib/WikiFileName.svelte'
   import { parseRoute, navigate, type Route } from './router.js'
+
+  type LogEntry = { date: string; type: string; description: string; files: string[] }
 
   // Types mirrored from Chat.svelte for typing persisted state
   type ToolCall = { id: string; name: string; args: any; result?: string; isError?: boolean; done: boolean }
@@ -38,11 +42,39 @@
   let calendarRefreshKey = $state(0)
   let wikiRefreshKey = $state(0)
 
+  // Wiki recent files (from _log.md)
+  let logEntries = $state<LogEntry[]>([])
+  let showRecentFiles = $state(false)
+
+  const recentFiles = $derived.by(() => {
+    const seen = new Set<string>()
+    const files: { path: string; date: string }[] = []
+    for (const entry of logEntries) {
+      for (const path of (entry.files ?? [])) {
+        if (!seen.has(path)) {
+          seen.add(path)
+          files.push({ path, date: entry.date })
+        }
+      }
+      if (files.length >= 15) break
+    }
+    return files
+  })
+
+  async function loadWikiLog() {
+    try {
+      const res = await fetch('/api/wiki/log?limit=15')
+      const data = await res.json()
+      logEntries = data.entries ?? []
+    } catch { /* ignore */ }
+  }
+
   // Wiki panel — shown as right panel (large) or bottom drawer (small/medium)
   let wikiPanelPath = $state<string | null>(null)
   let wikiPanelOpen = $derived(wikiPanelPath !== null)
 
   onMount(() => {
+    loadWikiLog()
     const onPopState = () => { route = parseRoute() }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
@@ -50,6 +82,14 @@
 
   function switchTab(tab: Route['tab']) {
     const next: Route = { tab }
+    navigate(next)
+    route = next
+  }
+
+  function startNewChat(message: string) {
+    chatMessages = []
+    chatSessionId = null
+    const next: Route = { tab: 'chat', message }
     navigate(next)
     route = next
   }
@@ -92,21 +132,55 @@
       syncErrors = errs
       calendarRefreshKey++
       wikiRefreshKey++
+      loadWikiLog()
     } catch (e) {
       syncErrors = [`Unexpected error: ${e}`]
     } finally {
       syncing = false
     }
   }
+
+  function formatLogDate(dateStr: string): string {
+    const d = new Date(dateStr + 'T12:00:00')
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
 </script>
 
 <div class="app">
   <nav class="tabs">
     <div class="tab-group">
+      <button class:active={route.tab === 'home'} onclick={() => switchTab('home')}>Home</button>
       <button class:active={route.tab === 'chat'} onclick={() => switchTab('chat')}>Chat</button>
       <button class:active={route.tab === 'inbox'} onclick={() => switchTab('inbox')}>Inbox</button>
       <button class:active={route.tab === 'calendar'} onclick={() => switchTab('calendar')}>Calendar</button>
     </div>
+    {#if recentFiles.length > 0}
+      <div class="log-wrap">
+        <button
+          class="log-btn"
+          onclick={() => { showRecentFiles = !showRecentFiles }}
+          title="Recently changed wiki files"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span class="log-date">{recentFiles[0].path.split('/').pop()?.replace(/\.md$/, '')}</span>
+        </button>
+        {#if showRecentFiles}
+          <div class="log-dropdown">
+            {#each recentFiles as file}
+              <button
+                class="log-item"
+                onmousedown={(e) => { e.preventDefault(); openWikiPanel(file.path); showRecentFiles = false }}
+              >
+                <span class="log-item-date">{formatLogDate(file.date)}</span>
+                <WikiFileName path={file.path} />
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {/if}
     <div class="sync-wrap">
       <button class="sync-btn" onclick={syncAll} disabled={syncing} title="Sync wiki, email, and calendar">
         <svg class:spinning={syncing} xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -130,7 +204,9 @@
 
   <div class="layout">
     <main class="surface">
-      {#if route.tab === 'chat'}
+      {#if route.tab === 'home'}
+        <Home onNewChat={startNewChat} onOpenWiki={openWikiPanel} />
+      {:else if route.tab === 'chat'}
         <Chat bind:messages={chatMessages} bind:sessionId={chatSessionId} contextFiles={route.file ? [route.file] : []} initialMessage={route.message} onSwitchToWiki={openWikiPanel} onSwitchToCalendar={switchToCalendar} />
       {:else if route.tab === 'calendar'}
         <Calendar refreshKey={calendarRefreshKey} initialDate={route.tab === 'calendar' ? route.date : undefined} />
@@ -174,6 +250,81 @@
     flex-shrink: 0;
   }
 
+  /* ── wiki log indicator ──────────────────────────────────── */
+
+  .log-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .log-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    height: 100%;
+    color: var(--text-2);
+    transition: background 0.15s;
+  }
+  .log-btn:hover { background: var(--bg-3); }
+  .log-btn svg { flex-shrink: 0; }
+
+  .log-date {
+    font-size: 11px;
+    color: var(--text-2);
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .log-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 260px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 200;
+  }
+
+  .log-item {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .log-item:last-child { border-bottom: none; }
+  .log-item:hover { background: var(--bg-2); color: var(--accent); }
+
+  .log-item-date {
+    font-size: 11px;
+    color: var(--text-2);
+    flex-shrink: 0;
+  }
+
+  .log-item :global(.wfn) {
+    font-size: 12px;
+    color: var(--text);
+    overflow: hidden;
+  }
+  .log-item:hover :global(.wfn-name) { color: var(--accent); }
+  .log-item:hover :global(.wfn-folder) { color: var(--accent); opacity: 0.7; }
+
+  /* ── tabs ────────────────────────────────────────────────── */
+
   .tab-group {
     display: flex;
     flex: 1;
@@ -196,6 +347,8 @@
     color: var(--accent);
     border-bottom: 2px solid var(--accent);
   }
+
+  /* ── sync button ─────────────────────────────────────────── */
 
   .sync-wrap {
     position: relative;
@@ -307,7 +460,7 @@
     border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    background: var(--bg);
+    background: var(--bg-2);
     overflow: hidden;
   }
 
@@ -339,6 +492,8 @@
   /* ── wiki drawer (small/medium screens) ─────────────────── */
 
   @media (max-width: 767px) {
+    .log-date { display: none; }
+
     .wiki-backdrop {
       display: block;
       position: fixed;
@@ -350,9 +505,9 @@
     .wiki-panel {
       position: fixed;
       bottom: 0;
-      left: 0;
-      right: 0;
-      width: auto;
+      left: 5vw;
+      right: 5vw;
+      width: 90vw;
       height: 78vh;
       border-left: none;
       border-top: 1px solid var(--border);

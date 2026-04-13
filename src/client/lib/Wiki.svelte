@@ -1,6 +1,5 @@
 <script lang="ts">
   type WikiFile = { path: string; name: string }
-  type GitStatus = { sha: string | null; date: string | null; dirty: number; changedFiles: string[]; ahead: number; behind: number }
 
   let {
     initialPath,
@@ -23,20 +22,10 @@
   let showSearch = $state(false)
   let selectedSearch = $state(0)
 
-  // Git status
-  let gitStatus = $state<GitStatus | null>(null)
-  let showDirtyFiles = $state(false)
 
   async function loadFiles() {
     const res = await fetch('/api/wiki')
     files = await res.json()
-  }
-
-  async function loadGitStatus() {
-    try {
-      const res = await fetch('/api/wiki/git-status')
-      gitStatus = await res.json()
-    } catch { /* ignore */ }
   }
 
   async function openFile(path: string) {
@@ -111,7 +100,6 @@
 
   $effect(() => {
     void refreshKey // re-run when refreshKey changes
-    loadGitStatus()
     loadFiles().then(() => {
       if (initialized) return
       initialized = true
@@ -153,35 +141,6 @@
         </div>
       {/if}
     </div>
-
-    {#if gitStatus}
-      <div class="git-indicators">
-        {#if gitStatus.dirty > 0}
-          <div class="dirty-wrap">
-            <button
-              class="dirty-count"
-              title="{gitStatus.dirty} file{gitStatus.dirty === 1 ? '' : 's'} with uncommitted changes"
-              onclick={() => { showDirtyFiles = !showDirtyFiles }}
-            >{gitStatus.dirty}</button>
-            {#if showDirtyFiles}
-              <div class="dirty-dropdown">
-                {#each gitStatus.changedFiles as file}
-                  <button
-                    class="dirty-file-item"
-                    class:active={selected === file}
-                    onmousedown={(e) => { e.preventDefault(); openFile(file); showDirtyFiles = false }}
-                  >{file}</button>
-                {:else}
-                  <div class="dirty-file-item muted">No .md files changed</div>
-                {/each}
-              </div>
-            {/if}
-          </div>
-        {/if}
-        {#if (gitStatus.ahead ?? 0) > 0}<span class="git-ahead" title="{gitStatus.ahead} unpushed">↑{gitStatus.ahead}</span>{/if}
-        {#if (gitStatus.behind ?? 0) > 0}<span class="git-behind" title="{gitStatus.behind} to pull">↓{gitStatus.behind}</span>{/if}
-      </div>
-    {/if}
 
     {#if selected}
       <span class="current-path">{selected}</span>
@@ -266,49 +225,6 @@
   }
   .search-item:hover, .search-item.selected { background: var(--accent-dim); color: var(--accent); }
   .search-empty { padding: 8px 12px; font-size: 12px; color: var(--text-2); }
-
-  .git-indicators { display: flex; align-items: center; gap: 4px; font-size: 12px; flex-shrink: 0; }
-
-  .dirty-wrap { position: relative; }
-  .dirty-count {
-    color: #f5a623;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    padding: 2px 5px;
-    border-radius: 4px;
-  }
-  .dirty-count:hover { background: rgba(245, 166, 35, 0.15); }
-
-  .dirty-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    min-width: 220px;
-    max-height: 240px;
-    overflow-y: auto;
-    background: var(--bg-3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 100;
-  }
-  .dirty-file-item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-family: monospace;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .dirty-file-item:hover, .dirty-file-item.active { background: var(--accent-dim); color: var(--accent); }
-  .dirty-file-item.muted { color: var(--text-2); cursor: default; }
-
-  .git-ahead { color: var(--text-2); }
-  .git-behind { color: #e74c3c; }
 
   .current-path {
     font-size: 11px;

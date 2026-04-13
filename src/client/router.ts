@@ -1,4 +1,5 @@
 export type Route =
+  | { tab: 'home' }
   | { tab: 'chat'; file?: string; message?: string }
   | { tab: 'inbox'; id?: string }
   | { tab: 'calendar'; date?: string }
@@ -20,14 +21,18 @@ export function parseRoute(href: string = location.href): Route {
     const date = url.searchParams.get('date') ?? undefined
     return { tab: 'calendar', date }
   }
+  if (seg1 === 'chat') {
+    const file = url.searchParams.get('file') ?? undefined
+    return { tab: 'chat', file }
+  }
 
-  // Default: chat
-  const file = url.searchParams.get('file') ?? undefined
-  return { tab: 'chat', file }
+  // Default: home
+  return { tab: 'home' }
 }
 
 /** Convert a Route back to a URL string. */
 export function routeToUrl(route: Route): string {
+  if (route.tab === 'home') return '/'
   if (route.tab === 'inbox') {
     return route.id ? `/inbox/${encodeURIComponent(route.id)}` : '/inbox'
   }

@@ -4,6 +4,14 @@ Hono + Svelte + pi-agent-core web app. Personal assistant with three surfaces: C
 
 See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for full product spec.
 
+## Developer docs
+
+- [docs/VISION.md](docs/VISION.md) — product vision and long-term direction
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, env vars
+- [docs/BUGS.md](docs/BUGS.md) — known bugs (active + archived)
+- [docs/OPPORTUNITIES.md](docs/OPPORTUNITIES.md) — feature ideas and improvements
+- [docs/PRODUCTIZATION.md](docs/PRODUCTIZATION.md) — blockers and tradeoffs for generalizing to multi-user product
+
 ## Stack
 
 | Layer | Package |

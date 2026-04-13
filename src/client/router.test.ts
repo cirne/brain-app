@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { parseRoute, routeToUrl } from './router.js'
 
 describe('parseRoute', () => {
-  it('defaults to chat for root path', () => {
-    expect(parseRoute('http://localhost/')).toEqual({ tab: 'chat' })
+  it('defaults to home for root path', () => {
+    expect(parseRoute('http://localhost/')).toEqual({ tab: 'home' })
   })
 
   it('parses /chat', () => {
@@ -58,6 +58,10 @@ describe('parseRoute calendar', () => {
 })
 
 describe('routeToUrl', () => {
+  it('home returns /', () => {
+    expect(routeToUrl({ tab: 'home' })).toBe('/')
+  })
+
   it('chat without file', () => {
     expect(routeToUrl({ tab: 'chat' })).toBe('/chat')
   })
@@ -99,6 +103,7 @@ describe('routeToUrl', () => {
 
 describe('round-trip: routeToUrl → parseRoute', () => {
   const cases = [
+    { tab: 'home' as const },
     { tab: 'chat' as const },
     { tab: 'chat' as const, file: 'ideas/my note.md' },
     { tab: 'inbox' as const },
