@@ -2,6 +2,7 @@ export type Route =
   | { tab: 'chat'; file?: string; message?: string }
   | { tab: 'wiki'; path?: string }
   | { tab: 'inbox'; id?: string }
+  | { tab: 'calendar' }
 
 /** Parse a URL (defaults to current location) into a Route. */
 export function parseRoute(href: string = location.href): Route {
@@ -16,6 +17,9 @@ export function parseRoute(href: string = location.href): Route {
     const id = rest[0] ? decodeURIComponent(rest[0]) : undefined
     return { tab: 'inbox', id }
   }
+  if (seg1 === 'calendar') {
+    return { tab: 'calendar' }
+  }
 
   // Default: chat
   const file = url.searchParams.get('file') ?? undefined
@@ -29,6 +33,9 @@ export function routeToUrl(route: Route): string {
   }
   if (route.tab === 'inbox') {
     return route.id ? `/inbox/${encodeURIComponent(route.id)}` : '/inbox'
+  }
+  if (route.tab === 'calendar') {
+    return '/calendar'
   }
   // chat
   return route.file ? `/chat?file=${encodeURIComponent(route.file)}` : '/chat'

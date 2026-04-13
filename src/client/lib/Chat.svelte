@@ -1,6 +1,7 @@
 <script lang="ts">
   import { marked } from 'marked'
   import { onMount } from 'svelte'
+  import DayEvents from './DayEvents.svelte'
 
   type ToolCall = {
     id: string
@@ -11,10 +12,14 @@
     done: boolean
   }
 
+  type TextPart = { type: 'text'; content: string }
+  type ToolPart = { type: 'tool'; toolCall: ToolCall }
+  type MessagePart = TextPart | ToolPart
+
   type ChatMessage = {
     role: 'user' | 'assistant'
-    content: string
-    toolCalls?: ToolCall[]
+    content: string  // kept for user messages
+    parts?: MessagePart[]
     thinking?: string
   }
 
@@ -35,6 +40,7 @@
   let sessionId = $state<string | null>(null)
   let messagesEl: HTMLElement
   let inputEl: HTMLTextAreaElement
+  let datePopover = $state<{ date: string; x: number; y: number } | null>(null)
 
   // @mention autocomplete
   let wikiFiles = $state<string[]>([])
@@ -158,7 +164,7 @@
     scrollToBottom()
 
     // Build request body
-    const body: any = { message: text }
+    const body: any = { message: text, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
     if (sessionId) body.sessionId = sessionId
     if (allContextFiles.length && messages.length === 1) {
       // Only send context files on first message of a session
@@ -166,7 +172,7 @@
     }
 
     // Start streaming — push to $state array so Svelte 5 proxies the object
-    messages.push({ role: 'assistant', content: '', toolCalls: [] })
+    messages.push({ role: 'assistant', content: '', parts: [] })
     const msgIdx = messages.length - 1
 
     try {
@@ -177,7 +183,7 @@
       })
 
       if (!res.ok) {
-        messages[msgIdx].content = `Error: ${res.status} ${res.statusText}`
+        messages[msgIdx].parts!.push({ type: 'text', content: `Error: ${res.status} ${res.statusText}` })
         streaming = false
         return
       }
@@ -208,32 +214,36 @@
               case 'session':
                 sessionId = data.sessionId
                 break
-              case 'text_delta':
-                msg.content += data.delta
+              case 'text_delta': {
+                const parts = msg.parts!
+                const last = parts[parts.length - 1]
+                if (last?.type === 'text') {
+                  last.content += data.delta
+                } else {
+                  parts.push({ type: 'text', content: data.delta })
+                }
                 scrollToBottom()
                 break
+              }
               case 'thinking':
                 msg.thinking = (msg.thinking ?? '') + data.delta
                 break
               case 'tool_start':
-                msg.toolCalls = [
-                  ...(msg.toolCalls ?? []),
-                  { id: data.id, name: data.name, args: data.args, done: false },
-                ]
+                msg.parts!.push({ type: 'tool', toolCall: { id: data.id, name: data.name, args: data.args, done: false } })
                 scrollToBottom()
                 break
               case 'tool_end': {
-                const tc = msg.toolCalls?.find(t => t.id === data.id)
-                if (tc) {
-                  tc.result = data.result
-                  tc.isError = data.isError
-                  tc.done = true
+                const part = msg.parts!.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
+                if (part) {
+                  part.toolCall.result = data.result
+                  part.toolCall.isError = data.isError
+                  part.toolCall.done = true
                   scrollToBottom()
                 }
                 break
               }
               case 'error':
-                msg.content += `\n\n**Error:** ${data.message}`
+                msg.parts!.push({ type: 'text', content: `\n\n**Error:** ${data.message}` })
                 break
               case 'done':
                 break
@@ -242,7 +252,7 @@
         }
       }
     } catch (err: any) {
-      messages[msgIdx].content += `\n\n**Connection error:** ${err.message}`
+      messages[msgIdx].parts!.push({ type: 'text', content: `\n\n**Connection error:** ${err.message}` })
     } finally {
       streaming = false
       scrollToBottom()
@@ -256,13 +266,36 @@
     contextFiles = []
   }
 
+  // ISO date regex: YYYY-MM-DD not inside an HTML tag attribute
+  const ISO_DATE_RE = /\b(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))\b(?![^<>]*>)/g
+
   function renderMarkdown(text: string): string {
     try {
-      return marked(text) as string
+      const html = marked(text) as string
+      // Wrap ISO dates in clickable buttons
+      return html.replace(ISO_DATE_RE, '<button class="date-link" data-date="$1">$1</button>')
     } catch {
       return text
     }
   }
+
+  function handleMessagesClick(e: MouseEvent) {
+    const target = e.target as HTMLElement
+    const btn = target.closest<HTMLElement>('[data-date]')
+    if (!btn) {
+      datePopover = null
+      return
+    }
+    const date = btn.dataset.date!
+    const rect = btn.getBoundingClientRect()
+    // Position below the button, clamped to viewport width
+    const x = Math.min(rect.left, window.innerWidth - 260)
+    const y = rect.bottom + 6
+    datePopover = { date, x, y }
+    e.stopPropagation()
+  }
+
+  function closeDatePopover() { datePopover = null }
 
   function formatArgs(args: any): string {
     if (!args) return ''
@@ -286,7 +319,8 @@
     <button class="new-chat-btn" onclick={newChat}>New Chat</button>
   </header>
 
-  <div class="messages" bind:this={messagesEl}>
+  <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+  <div class="messages" bind:this={messagesEl} onclick={handleMessagesClick}>
     {#if messages.length === 0}
       <div class="empty-state">
         <p>Ask anything about your wiki or email.</p>
@@ -302,40 +336,49 @@
         {:else}
           <div class="msg-label">Assistant</div>
 
-          {#if msg.toolCalls?.length}
-            {#each msg.toolCalls as tc}
-              <details class="tool-call" class:error={tc.isError} open={!tc.done}>
+          {#each msg.parts ?? [] as part}
+            {#if part.type === 'tool'}
+              <details class="tool-call" class:error={part.toolCall.isError} open={!part.toolCall.done}>
                 <summary>
-                  <span class="tool-icon">{tc.done ? (tc.isError ? '!' : '') : '...'}</span>
-                  <span class="tool-name">{tc.name}</span>
-                  {#if !tc.done}
+                  <span class="tool-icon">{part.toolCall.done ? (part.toolCall.isError ? '!' : '') : '...'}</span>
+                  <span class="tool-name">{part.toolCall.name}</span>
+                  {#if !part.toolCall.done}
                     <span class="tool-status">running</span>
                   {/if}
                 </summary>
-                {#if tc.args}
-                  <pre class="tool-args">{formatArgs(tc.args)}</pre>
+                {#if part.toolCall.args}
+                  <pre class="tool-args">{formatArgs(part.toolCall.args)}</pre>
                 {/if}
-                {#if tc.result}
-                  <pre class="tool-result" class:tool-error={tc.isError}>{tc.result}</pre>
+                {#if part.toolCall.result}
+                  <pre class="tool-result" class:tool-error={part.toolCall.isError}>{part.toolCall.result}</pre>
                 {/if}
               </details>
-            {/each}
-          {/if}
+            {:else if part.type === 'text' && part.content}
+              <div class="msg-content markdown">
+                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                {@html renderMarkdown(part.content)}
+              </div>
+            {/if}
+          {/each}
 
-          {#if msg.content}
-            <div class="msg-content markdown">
-              <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-              {@html renderMarkdown(msg.content)}
-            </div>
-          {/if}
-
-          {#if streaming && i === messages.length - 1 && !msg.content && !msg.toolCalls?.length}
+          {#if streaming && i === messages.length - 1 && !msg.parts?.length}
             <div class="msg-content"><span class="cursor">|</span></div>
           {/if}
         {/if}
       </div>
     {/each}
   </div>
+
+  {#if datePopover}
+    <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+    <div class="date-popover-backdrop" onclick={closeDatePopover}></div>
+    <div class="date-popover" style="left:{datePopover.x}px;top:{datePopover.y}px">
+      <div class="date-popover-header">
+        {new Date(datePopover.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+      </div>
+      <DayEvents date={datePopover.date} />
+    </div>
+  {/if}
 
   <div class="input-area">
     {#if showMentions}
@@ -636,5 +679,49 @@
   .send-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  /* Date links injected into rendered markdown */
+  .markdown :global(.date-link) {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    cursor: pointer;
+    font: inherit;
+    font-size: inherit;
+    padding: 0;
+    background: none;
+    border: none;
+  }
+
+  .markdown :global(.date-link:hover) {
+    text-decoration-style: solid;
+  }
+
+  .date-popover-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+  }
+
+  .date-popover {
+    position: fixed;
+    z-index: 100;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    min-width: 240px;
+    max-width: 320px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .date-popover-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
   }
 </style>

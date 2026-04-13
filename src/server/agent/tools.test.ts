@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { join } from 'node:path'
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
+import { mkdtemp, writeFile, mkdir, rm, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { writeCache } from '../lib/calendarCache.js'
 
 // Shared fixture: a temp wiki directory
 let wikiDir: string
@@ -33,6 +34,8 @@ describe('createAgentTools', () => {
     expect(names).toContain('search_email')
     expect(names).toContain('read_email')
     expect(names).toContain('git_commit_push')
+    expect(names).toContain('find_person')
+    expect(names).toContain('get_calendar_events')
   })
 
   it('read tool can read a wiki file', async () => {
@@ -42,6 +45,104 @@ describe('createAgentTools', () => {
     const result = await readTool.execute('test-1', { path: 'index.md' })
     const text = result.content.map((c: any) => c.text).join('')
     expect(text).toContain('# Home')
+  })
+
+  describe('find_person tool', () => {
+    let ripmailScript: string
+
+    beforeEach(async () => {
+      // Create a fake ripmail binary that outputs contact info when called with "who"
+      ripmailScript = join(wikiDir, 'fake-ripmail')
+      await writeFile(
+        ripmailScript,
+        `#!/bin/sh\necho "Alice Example <alice@example.com> (42 emails)"\n`
+      )
+      await chmod(ripmailScript, 0o755)
+      process.env.RIPMAIL_BIN = ripmailScript
+
+      // Add wiki files mentioning the person
+      await writeFile(join(wikiDir, 'people', 'alice.md'), '# Alice\nAlice is a great collaborator.')
+        .catch(async () => {
+          await mkdir(join(wikiDir, 'people'))
+          await writeFile(join(wikiDir, 'people', 'alice.md'), '# Alice\nAlice is a great collaborator.')
+        })
+      await writeFile(join(wikiDir, 'index.md'), '# Home\nMet Alice at the conference.')
+    })
+
+    afterEach(() => {
+      delete process.env.RIPMAIL_BIN
+    })
+
+    it('combines email contacts and wiki notes', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'find_person')!
+      const result = await tool.execute('test-fp-1', { name: 'alice' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toContain('Email Contacts')
+      expect(text).toContain('alice@example.com')
+      expect(text).toContain('Wiki Notes')
+      expect(text).toMatch(/alice\.md|people\/alice/)
+    })
+
+    it('returns not-found message when no results', async () => {
+      // Fake ripmail returns nothing
+      await writeFile(ripmailScript, `#!/bin/sh\nexit 0\n`)
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'find_person')!
+      const result = await tool.execute('test-fp-2', { name: 'nobody' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toContain('No information found for "nobody"')
+    })
+
+    it('returns wiki results even if ripmail fails', async () => {
+      await writeFile(ripmailScript, `#!/bin/sh\nexit 1\n`)
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'find_person')!
+      const result = await tool.execute('test-fp-3', { name: 'alice' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toContain('Wiki Notes')
+      expect(text).not.toContain('Email Contacts')
+    })
+  })
+
+  describe('get_calendar_events tool', () => {
+    let cacheDir: string
+
+    beforeEach(async () => {
+      cacheDir = await mkdtemp(join(tmpdir(), 'cal-test-'))
+      process.env.CALENDAR_CACHE_DIR = cacheDir
+    })
+
+    afterEach(async () => {
+      await rm(cacheDir, { recursive: true, force: true })
+      delete process.env.CALENDAR_CACHE_DIR
+    })
+
+    it('returns events in the requested date range', async () => {
+      await writeCache('personal', [
+        { id: 'e1', title: 'Team Lunch', start: '2026-04-12T12:00:00Z', end: '2026-04-12T13:00:00Z', allDay: false, source: 'personal' },
+        { id: 'e2', title: 'Far Future', start: '2026-05-01T10:00:00Z', end: '2026-05-01T11:00:00Z', allDay: false, source: 'personal' },
+      ])
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
+      const result = await tool.execute('test-cal-1', { start: '2026-04-12', end: '2026-04-12' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toContain('Team Lunch')
+      expect(text).not.toContain('Far Future')
+    })
+
+    it('returns no-events message when cache is empty', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
+      const result = await tool.execute('test-cal-2', { start: '2026-04-12', end: '2026-04-12' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toContain('No events found')
+    })
   })
 
   it('grep tool can search wiki content', async () => {

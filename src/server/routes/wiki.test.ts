@@ -88,6 +88,26 @@ describe('GET /api/wiki/:path', () => {
   })
 })
 
+describe('GET /api/wiki/git-status', () => {
+  it('returns expected shape for a non-git directory', async () => {
+    const res = await app.request('/api/wiki/git-status')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    // temp dir is not a git repo — sha/date are null, numeric fields default to 0/false
+    expect(body).toMatchObject({ sha: null, date: null, dirty: 0, ahead: 0, behind: 0 })
+  })
+})
+
+describe('POST /api/wiki/sync', () => {
+  it('returns ok:false for a non-git directory', async () => {
+    const res = await app.request('/api/wiki/sync', { method: 'POST' })
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.ok).toBe(false)
+    expect(typeof body.error).toBe('string')
+  })
+})
+
 describe('GET /api/wiki/search', () => {
   it('returns matching files for a query', async () => {
     const res = await app.request('/api/wiki/search?q=searching')

@@ -1,7 +1,8 @@
 import { Agent } from '@mariozechner/pi-agent-core'
-import { getModel } from '@mariozechner/pi-ai'
+import { getModel, type KnownProvider } from '@mariozechner/pi-ai'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { createAgentTools } from './tools.js'
+import { wikiDir as getWikiDir } from '../lib/wikiDir.js'
 
 const sessions = new Map<string, Agent>()
 
@@ -20,13 +21,15 @@ const SYSTEM_PROMPT = `You are a personal assistant with access to a markdown wi
 - Keep responses concise and helpful.
 - When asked about wiki content, search first then read relevant files.
 - Format responses in markdown.
-- File paths are relative to the wiki root (e.g. "ideas/brain-in-the-cloud.md").`
+- File paths are relative to the wiki root (e.g. "ideas/brain-in-the-cloud.md"). Do NOT include a "wiki/" prefix — the tools are already scoped to the wiki directory.`
 
 export interface SessionOptions {
   /** Pre-injected file context for file-grounded chat */
   context?: string
   /** Override wiki directory */
   wikiDir?: string
+  /** IANA timezone from the browser client (e.g. "America/Chicago") */
+  timezone?: string
 }
 
 /**
@@ -37,19 +40,23 @@ export function getOrCreateSession(sessionId: string, options: SessionOptions = 
   const existing = sessions.get(sessionId)
   if (existing) return existing
 
-  const wikiDir = options.wikiDir ?? process.env.WIKI_DIR ?? '/wiki'
+  const wikiDir = options.wikiDir ?? getWikiDir()
   const tools = createAgentTools(wikiDir)
 
-  // Build system prompt with optional file context
-  let systemPrompt = SYSTEM_PROMPT
+  // Build system prompt with local date/time in the user's timezone
+  const tz = options.timezone ?? 'UTC'
+  const now = new Date()
+  const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now)  // YYYY-MM-DD
+  const localTime = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(now)
+  let systemPrompt = `${SYSTEM_PROMPT}\n\n## Current date & time\nToday is ${localDate} (${localTime} ${tz}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — always convert to ${tz} when presenting times to the user.`
   if (options.context) {
     systemPrompt += `\n\n## Current file context\nThe user is viewing the following file(s). Use this as context for the conversation.\n\n${options.context}`
   }
 
   // Model from env vars — supports any provider pi-ai knows about
-  const provider = process.env.LLM_PROVIDER ?? 'anthropic'
+  const provider = (process.env.LLM_PROVIDER ?? 'anthropic') as KnownProvider
   const modelId = process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514'
-  const model = getModel(provider, modelId)
+  const model = getModel(provider, modelId as never)
 
   const agent = new Agent({
     initialState: {

@@ -3,6 +3,7 @@ import { streamSSE } from 'hono/streaming'
 import { getOrCreateSession, deleteSession } from '../agent/index.js'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { wikiDir } from '../lib/wikiDir.js'
 
 const chat = new Hono()
 
@@ -11,7 +12,7 @@ const chat = new Hono()
 // Response: SSE stream of agent events
 chat.post('/', async (c) => {
   const body = await c.req.json()
-  const { message, sessionId = crypto.randomUUID(), context } = body
+  const { message, sessionId = crypto.randomUUID(), context, timezone } = body
 
   if (!message || typeof message !== 'string') {
     return c.json({ error: 'message is required' }, 400)
@@ -20,11 +21,10 @@ chat.post('/', async (c) => {
   // Build file context if specified (for file-grounded chat)
   let fileContext: string | undefined
   if (context?.files?.length) {
-    const wikiDir = process.env.WIKI_DIR ?? '/wiki'
     const parts: string[] = []
     for (const filePath of context.files) {
       try {
-        const content = await readFile(join(wikiDir, filePath), 'utf-8')
+        const content = await readFile(join(wikiDir(), filePath), 'utf-8')
         parts.push(`### ${filePath}\n\`\`\`markdown\n${content}\n\`\`\``)
       } catch {
         // Skip files that can't be read
@@ -33,7 +33,7 @@ chat.post('/', async (c) => {
     if (parts.length) fileContext = parts.join('\n\n')
   }
 
-  const agent = getOrCreateSession(sessionId, { context: fileContext })
+  const agent = getOrCreateSession(sessionId, { context: fileContext, timezone })
 
   return streamSSE(c, async (stream) => {
     // Send session ID so client can continue the conversation

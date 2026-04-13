@@ -3,6 +3,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin'
 import tsParser from '@typescript-eslint/parser'
 import sveltePlugin from 'eslint-plugin-svelte'
 import svelteParser from 'svelte-eslint-parser'
+import globals from 'globals'
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -12,6 +13,7 @@ export default [
     languageOptions: {
       parser: tsParser,
       parserOptions: { project: './tsconfig.server.json' },
+      globals: { ...globals.node },
     },
     plugins: { '@typescript-eslint': tsPlugin },
     rules: {
@@ -25,11 +27,13 @@ export default [
     languageOptions: {
       parser: svelteParser,
       parserOptions: { parser: tsParser },
+      globals: { ...globals.browser },
     },
     plugins: { svelte: sveltePlugin },
     rules: {
       ...sveltePlugin.configs.recommended.rules,
       'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'svelte/no-at-html-tags': 'off',
     },
   },
   {

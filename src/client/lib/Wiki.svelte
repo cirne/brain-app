@@ -1,7 +1,9 @@
 <script lang="ts">
   import { navigate } from '../router.js'
+  import { ArrowRight } from 'lucide-svelte'
 
   type WikiFile = { path: string; name: string }
+  type GitStatus = { sha: string | null; date: string | null; dirty: number; changedFiles: string[]; ahead: number; behind: number }
 
   let {
     initialPath,
@@ -18,8 +20,6 @@
   let content = $state<string>('')
   let meta = $state<Record<string, string>>({})
   let loading = $state(false)
-  let searchQuery = $state('')
-  let sidebarOpen = $state(true)
   let chatInput = $state('')
   let chatInputEl = $state<HTMLInputElement | undefined>(undefined)
   let showMentions = $state(false)
@@ -27,9 +27,25 @@
   let mentionStart = $state(-1)
   let selectedMention = $state(0)
 
+  // Header navigation search
+  let headerSearch = $state('')
+  let showSearch = $state(false)
+  let selectedSearch = $state(0)
+
+  // Git status
+  let gitStatus = $state<GitStatus | null>(null)
+  let showDirtyFiles = $state(false)
+
   async function loadFiles() {
     const res = await fetch('/api/wiki')
     files = await res.json()
+  }
+
+  async function loadGitStatus() {
+    try {
+      const res = await fetch('/api/wiki/git-status')
+      gitStatus = await res.json()
+    } catch { /* ignore */ }
   }
 
   async function openFile(path: string) {
@@ -42,10 +58,8 @@
     meta = data.meta ?? {}
     content = renderWikiLinks(data.html)
     loading = false
-    if (window.innerWidth < 768) sidebarOpen = false
   }
 
-  // Convert [[path]] and [[path|label]] to clickable links
   function renderWikiLinks(html: string): string {
     return html.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
       const [path, label] = inner.split('|')
@@ -59,7 +73,6 @@
     if (!a) return
     e.preventDefault()
     const link = a.getAttribute('data-wiki')!
-    // Case-insensitive match against known files (path without .md extension)
     const match = files.find(f =>
       f.path.replace(/\.md$/, '').toLowerCase() === link.toLowerCase()
     )
@@ -67,11 +80,31 @@
   }
 
   function filteredFiles(): WikiFile[] {
-    if (!searchQuery) return files
-    const q = searchQuery.toLowerCase()
+    if (!headerSearch) return files.slice(0, 15)
+    const q = headerSearch.toLowerCase()
     return files.filter(f =>
       f.path.toLowerCase().includes(q) || f.name.toLowerCase().includes(q)
-    )
+    ).slice(0, 15)
+  }
+
+  function handleSearchKeydown(e: KeyboardEvent) {
+    const items = filteredFiles()
+    if (e.key === 'ArrowDown') { e.preventDefault(); selectedSearch = Math.min(selectedSearch + 1, items.length - 1); return }
+    if (e.key === 'ArrowUp') { e.preventDefault(); selectedSearch = Math.max(selectedSearch - 1, 0); return }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const f = items[selectedSearch]
+      if (f) { openFile(f.path); showSearch = false; headerSearch = '' }
+      return
+    }
+    if (e.key === 'Escape') { showSearch = false; return }
+    selectedSearch = 0
+  }
+
+  function selectSearchFile(path: string) {
+    openFile(path)
+    showSearch = false
+    headerSearch = ''
   }
 
   function filteredMentions(): string[] {
@@ -140,25 +173,10 @@
     return tagsStr.replace(/^\[|\]$/g, '').split(',').map(t => t.trim()).filter(Boolean)
   }
 
-  function toggleSidebar() {
-    sidebarOpen = !sidebarOpen
-  }
-
-  function fileTree(): Map<string, WikiFile[]> {
-    const tree = new Map<string, WikiFile[]>()
-    for (const f of filteredFiles()) {
-      const parts = f.path.split('/')
-      const dir = parts.length > 1 ? parts.slice(0, -1).join('/') : ''
-      if (!tree.has(dir)) tree.set(dir, [])
-      tree.get(dir)!.push(f)
-    }
-    return tree
-  }
-
   $effect(() => {
+    loadGitStatus()
     loadFiles().then(() => {
       if (initialPath) {
-        // Deep-link: open the file specified in the URL
         const match = files.find(f => f.path === initialPath)
         if (match) openFile(match.path)
       } else {
@@ -170,44 +188,68 @@
 </script>
 
 <div class="wiki">
-  <aside class="sidebar" class:open={sidebarOpen}>
-    <div class="sidebar-header">
+  <div class="wiki-header">
+    <div class="search-wrap">
       <input
         type="text"
-        class="search-input"
-        placeholder="Filter files..."
-        bind:value={searchQuery}
+        class="header-search"
+        placeholder="Go to file..."
+        bind:value={headerSearch}
+        onfocus={() => { showSearch = true; selectedSearch = 0 }}
+        onblur={() => setTimeout(() => { showSearch = false }, 150)}
+        oninput={() => { selectedSearch = 0 }}
+        onkeydown={handleSearchKeydown}
       />
-    </div>
-    <div class="sidebar-inner">
-      {#each [...fileTree()] as [dir, dirFiles]}
-        {#if dir}
-          <div class="dir-label">{dir}/</div>
-        {/if}
-        {#each dirFiles as f}
-          <button
-            class="file-item"
-            class:active={selected === f.path}
-            class:nested={!!dir}
-            onclick={() => openFile(f.path)}
-          >
-            {f.name}
-          </button>
-        {/each}
-      {/each}
-    </div>
-  </aside>
-
-  <div class="content-area">
-    <div class="content-header">
-      <button class="toggle-sidebar" onclick={toggleSidebar}>
-        {sidebarOpen ? '<' : '>'}
-      </button>
-      {#if selected}
-        <span class="file-path">{selected}</span>
+      {#if showSearch}
+        <div class="search-dropdown">
+          {#each filteredFiles() as f, i}
+            <button
+              class="search-item"
+              class:selected={i === selectedSearch}
+              onmousedown={(e) => { e.preventDefault(); selectSearchFile(f.path) }}
+            >{f.path}</button>
+          {:else}
+            <div class="search-empty">No files found</div>
+          {/each}
+        </div>
       {/if}
     </div>
 
+    {#if gitStatus}
+      <div class="git-indicators">
+        {#if gitStatus.dirty > 0}
+          <div class="dirty-wrap">
+            <button
+              class="dirty-count"
+              title="{gitStatus.dirty} file{gitStatus.dirty === 1 ? '' : 's'} with uncommitted changes"
+              onclick={() => { showDirtyFiles = !showDirtyFiles }}
+            >{gitStatus.dirty}</button>
+            {#if showDirtyFiles}
+              <div class="dirty-dropdown">
+                {#each gitStatus.changedFiles as file}
+                  <button
+                    class="dirty-file-item"
+                    class:active={selected === file}
+                    onmousedown={(e) => { e.preventDefault(); openFile(file); showDirtyFiles = false }}
+                  >{file}</button>
+                {:else}
+                  <div class="dirty-file-item muted">No .md files changed</div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/if}
+        {#if (gitStatus.ahead ?? 0) > 0}<span class="git-ahead" title="{gitStatus.ahead} unpushed">↑{gitStatus.ahead}</span>{/if}
+        {#if (gitStatus.behind ?? 0) > 0}<span class="git-behind" title="{gitStatus.behind} to pull">↓{gitStatus.behind}</span>{/if}
+      </div>
+    {/if}
+
+    {#if selected}
+      <span class="current-path">{selected}</span>
+    {/if}
+  </div>
+
+  <div class="content-area">
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
     <article class="viewer" onclick={handleContentClick}>
       {#if loading}
@@ -223,7 +265,7 @@
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         {@html content}
       {:else}
-        <p class="status">Select a page from the sidebar</p>
+        <p class="status">Select a page from the search above</p>
       {/if}
     </article>
 
@@ -250,73 +292,17 @@
           oninput={handleWikiChatInput}
           onkeydown={handleChatKeydown}
         />
-        <button onclick={submitChatInput} disabled={!chatInput.trim()}>→</button>
+        <button onclick={submitChatInput} disabled={!chatInput.trim()}><ArrowRight size={16} /></button>
       </div>
     {/if}
   </div>
 </div>
 
 <style>
-  .wiki { display: flex; height: 100%; overflow: hidden; }
+  .wiki { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 
-  .sidebar {
-    width: var(--sidebar-w);
-    border-right: 1px solid var(--border);
-    flex-shrink: 0;
-    overflow-y: auto;
-    background: var(--bg-2);
-    display: flex;
-    flex-direction: column;
-    transition: margin-left 0.2s;
-  }
-  .sidebar:not(.open) { margin-left: calc(-1 * var(--sidebar-w)); }
-
-  .sidebar-header {
-    padding: 8px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .search-input {
-    width: 100%;
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg);
-    color: var(--text);
-    font: inherit;
-    font-size: 13px;
-  }
-  .search-input:focus { outline: none; border-color: var(--accent); }
-
-  .sidebar-inner { padding: 4px 0; overflow-y: auto; flex: 1; }
-
-  .dir-label {
-    padding: 8px 12px 2px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-2);
-  }
-
-  .file-item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 5px 12px;
-    font-size: 13px;
-    color: var(--text-2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .file-item.nested { padding-left: 24px; }
-  .file-item:hover, .file-item.active { color: var(--text); background: var(--bg-3); }
-
-  .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-
-  .content-header {
+  /* ── header ──────────────────────────────────────────────── */
+  .wiki-header {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -326,20 +312,109 @@
     flex-shrink: 0;
   }
 
-  .toggle-sidebar { font-size: 12px; color: var(--text-2); padding: 4px; }
+  .search-wrap { flex: 1; position: relative; min-width: 0; }
 
-  .file-path {
+  .header-search {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+  }
+  .header-search:focus { outline: none; border-color: var(--accent); }
+
+  .search-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 240px;
+    overflow-y: auto;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 100;
+  }
+
+  .search-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--text);
+    font-family: monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .search-item:hover, .search-item.selected { background: var(--accent-dim); color: var(--accent); }
+  .search-empty { padding: 8px 12px; font-size: 12px; color: var(--text-2); }
+
+  .git-indicators { display: flex; align-items: center; gap: 4px; font-size: 12px; flex-shrink: 0; }
+
+  .dirty-wrap { position: relative; }
+  .dirty-count {
+    color: #f5a623;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    padding: 2px 5px;
+    border-radius: 4px;
+  }
+  .dirty-count:hover { background: rgba(245, 166, 35, 0.15); }
+
+  .dirty-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 220px;
+    max-height: 240px;
+    overflow-y: auto;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 100;
+  }
+  .dirty-file-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 12px;
     font-size: 12px;
+    font-family: monospace;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dirty-file-item:hover, .dirty-file-item.active { background: var(--accent-dim); color: var(--accent); }
+  .dirty-file-item.muted { color: var(--text-2); cursor: default; }
+
+  .git-ahead { color: var(--text-2); }
+  .git-behind { color: #e74c3c; }
+
+  .current-path {
+    font-size: 11px;
     color: var(--text-2);
     font-family: monospace;
-    flex: 1;
+    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex-shrink: 0;
   }
+
+  /* ── content ─────────────────────────────────────────────── */
+  .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
   .viewer { flex: 1; overflow-y: auto; padding: 24px 32px; max-width: 800px; }
 
+  /* ── chat bar ────────────────────────────────────────────── */
   .wiki-chat-bar {
     position: relative;
     display: flex;
@@ -373,17 +448,8 @@
     color: var(--text);
     font-family: monospace;
   }
-
-  .mention-item:hover, .mention-item.selected {
-    background: var(--accent-dim);
-    color: var(--accent);
-  }
-
-  .mention-empty {
-    padding: 8px 12px;
-    font-size: 12px;
-    color: var(--text-2);
-  }
+  .mention-item:hover, .mention-item.selected { background: var(--accent-dim); color: var(--accent); }
+  .mention-empty { padding: 8px 12px; font-size: 12px; color: var(--text-2); }
 
   .wiki-chat-bar input {
     flex: 1;
@@ -395,11 +461,7 @@
     font: inherit;
     font-size: 14px;
   }
-
-  .wiki-chat-bar input:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
+  .wiki-chat-bar input:focus { outline: none; border-color: var(--accent); }
 
   .wiki-chat-bar button {
     padding: 8px 14px;
@@ -409,11 +471,8 @@
     font-size: 14px;
     flex-shrink: 0;
   }
+  .wiki-chat-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  .wiki-chat-bar button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
   .status { color: var(--text-2); font-size: 14px; }
 
   .page-meta {
@@ -426,12 +485,7 @@
     color: var(--text-2);
   }
   .meta-sep { opacity: 0.5; }
-  .meta-tag {
-    background: var(--bg-3);
-    border-radius: 3px;
-    padding: 1px 6px;
-    font-size: 11px;
-  }
+  .meta-tag { background: var(--bg-3); border-radius: 3px; padding: 1px 6px; font-size: 11px; }
 
   .viewer :global(h1) { font-size: 1.6em; margin-bottom: 0.5em; }
   .viewer :global(h2) { font-size: 1.3em; margin: 1.2em 0 0.4em; }
@@ -450,7 +504,7 @@
   .viewer :global(a.wiki-link) { color: var(--accent); text-decoration: underline; cursor: pointer; }
 
   @media (max-width: 768px) {
-    .sidebar { position: absolute; z-index: 10; height: 100%; }
+    .current-path { display: none; }
     .viewer { padding: 16px; }
   }
 </style>

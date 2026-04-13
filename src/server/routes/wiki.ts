@@ -1,23 +1,14 @@
 import { Hono } from 'hono'
 import { readdir, readFile } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
 import { join, relative, extname, basename, resolve } from 'node:path'
 import { marked } from 'marked'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
+import { repoDir, wikiDir } from '../lib/wikiDir.js'
 
 const execAsync = promisify(exec)
 
 const wiki = new Hono()
-
-// Read lazily so .env loaded in index.ts (before first request) takes effect
-const repoDir = () => process.env.WIKI_DIR ?? '/wiki'
-// Wiki content lives in a `wiki` subdir if present, otherwise use WIKI_DIR directly
-const wikiDir = () => {
-  const repo = repoDir()
-  const sub = join(repo, 'wiki')
-  return existsSync(sub) ? sub : repo
-}
 
 // GET /api/wiki — list all markdown files
 wiki.get('/', async (c) => {
@@ -42,15 +33,60 @@ wiki.get('/search', async (c) => {
   }
 })
 
-// GET /api/wiki/git-status — last sync info
+// GET /api/wiki/git-status — repo sync info
 wiki.get('/git-status', async (c) => {
   try {
     const dir = repoDir()
     const { stdout: sha } = await execAsync(`git -C ${JSON.stringify(dir)} rev-parse --short HEAD`)
     const { stdout: date } = await execAsync(`git -C ${JSON.stringify(dir)} log -1 --format=%ci`)
-    return c.json({ sha: sha.trim(), date: date.trim() })
+
+    let dirty = 0
+    let changedFiles: string[] = []
+    let ahead = 0
+    let behind = 0
+    try {
+      // -uall expands untracked directories into individual files
+      const { stdout } = await execAsync(`git -C ${JSON.stringify(dir)} status --porcelain -uall`)
+      const lines = stdout.split('\n').filter(Boolean)
+      // Parse paths relative to wikiDir, filtering to .md files only
+      const wikiPrefix = relative(dir, wikiDir())
+      const prefix = wikiPrefix ? wikiPrefix + '/' : ''
+      changedFiles = lines
+        .map(line => {
+          let p = line.slice(3).trim()
+          if (p.includes(' -> ')) p = p.split(' -> ')[1].trim()
+          return p
+        })
+        .filter(p => p.endsWith('.md') && (!prefix || p.startsWith(prefix)))
+        .map(p => prefix ? p.slice(prefix.length) : p)
+      dirty = changedFiles.length
+    } catch { /* not a git repo or no commits */ }
+    try {
+      const { stdout } = await execAsync(`git -C ${JSON.stringify(dir)} rev-list @{u}..HEAD --count`)
+      ahead = parseInt(stdout.trim(), 10) || 0
+    } catch { /* no upstream */ }
+    try {
+      const { stdout } = await execAsync(`git -C ${JSON.stringify(dir)} rev-list HEAD..@{u} --count`)
+      behind = parseInt(stdout.trim(), 10) || 0
+    } catch { /* no upstream */ }
+
+    return c.json({ sha: sha.trim(), date: date.trim(), dirty, changedFiles, ahead, behind })
   } catch {
-    return c.json({ sha: null, date: null })
+    return c.json({ sha: null, date: null, dirty: 0, changedFiles: [], ahead: 0, behind: 0 })
+  }
+})
+
+// POST /api/wiki/sync — git pull --rebase + push
+wiki.post('/sync', async (c) => {
+  try {
+    const dir = repoDir()
+    await execAsync(`git -C ${JSON.stringify(dir)} pull --rebase --autostash`)
+    try {
+      await execAsync(`git -C ${JSON.stringify(dir)} push`)
+    } catch { /* push failure is non-fatal (e.g. nothing to push) */ }
+    return c.json({ ok: true })
+  } catch (e) {
+    return c.json({ ok: false, error: String(e) }, 500)
   }
 })
 

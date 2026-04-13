@@ -235,6 +235,18 @@
     draftSending = false
   }
 
+  function linkify(text: string): string {
+    // Escape HTML first, then turn bare URLs into anchor tags
+    const escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    return escaped.replace(
+      /https?:\/\/[^\s)>\]"]+/g,
+      url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
+    )
+  }
+
   $effect(() => {
     load().then(() => {
       if (initialId) {
@@ -246,22 +258,24 @@
 </script>
 
 <div class="inbox">
-  <header class="inbox-header">
-    <span class="title">Inbox</span>
-    <div class="header-actions">
-      {#if error}
-        <span class="error-badge">{error}</span>
-      {/if}
-      <button class="sync-btn" onclick={sync} disabled={syncing}>
-        {syncing ? 'Syncing...' : 'Refresh'}
-      </button>
-    </div>
-  </header>
+  {#if !selectedThread}
+    <header class="inbox-header">
+      <span class="title">Inbox</span>
+      <div class="header-actions">
+        {#if error}
+          <span class="error-badge">{error}</span>
+        {/if}
+        <button class="sync-btn" onclick={sync} disabled={syncing}>
+          {syncing ? 'Syncing...' : 'Refresh'}
+        </button>
+      </div>
+    </header>
+  {/if}
 
   {#if selectedThread}
     <div class="thread-view">
       <div class="thread-header">
-        <button class="back-btn" onclick={closeThread}>Back</button>
+        <button class="back-btn" onclick={closeThread}>Inbox</button>
         <div class="thread-actions">
           {#if !composeMode && !currentDraft}
             <button class="action-btn" onclick={() => startComposeFromThread('reply')} title="Reply">
@@ -380,8 +394,9 @@
           {#if threadLoading}
             <p class="loading">Loading...</p>
           {:else if threadContent}
-            <pre class="thread-headers">{threadContent.headers}</pre>
-            <pre class="thread-body-text">{threadContent.body}</pre>
+            <pre class="thread-headers">{threadContent.headers.split('\n').filter(l => !l.startsWith('Message-ID:')).join('\n')}</pre>
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            <div class="thread-body-text">{@html linkify(threadContent.body)}</div>
           {:else}
             <p class="loading">Failed to load message.</p>
           {/if}
@@ -498,6 +513,7 @@
     color: var(--text-2); border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;
   }
   .thread-body-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .thread-body-text :global(a) { color: var(--accent); text-decoration: underline; }
 
   /* Compose panel */
   .compose-panel {

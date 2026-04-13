@@ -2,6 +2,7 @@ import { createReadTool, createEditTool, createWriteTool, createGrepTool, create
 import { Type } from '@mariozechner/pi-ai'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
+import { getCalendarEvents } from '../lib/calendarCache.js'
 
 const execAsync = promisify(exec)
 
@@ -10,7 +11,8 @@ const execAsync = promisify(exec)
  * Pi-coding-agent provides file tools (read/edit/write/grep/find).
  * Custom tools handle ripmail and git operations.
  */
-export function createAgentTools(wikiDir: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createAgentTools(wikiDir: string): any[] {
   // Pi-coding-agent file tools scoped to wiki directory
   const read = createReadTool(wikiDir)
   const edit = createEditTool(wikiDir)
@@ -67,9 +69,9 @@ export function createAgentTools(wikiDir: string) {
       message: Type.String({ description: 'Commit message' }),
     }),
     async execute(_toolCallId: string, params: { message: string }) {
-      await execAsync(`git -C ${JSON.stringify(wikiDir)} pull --rebase`)
       await execAsync(`git -C ${JSON.stringify(wikiDir)} add -A`)
       await execAsync(`git -C ${JSON.stringify(wikiDir)} commit -m ${JSON.stringify(params.message)}`)
+      await execAsync(`git -C ${JSON.stringify(wikiDir)} pull --rebase`)
       await execAsync(`git -C ${JSON.stringify(wikiDir)} push`)
       return {
         content: [{ type: 'text' as const, text: 'Changes committed and pushed successfully.' }],
@@ -78,5 +80,66 @@ export function createAgentTools(wikiDir: string) {
     },
   })
 
-  return [read, edit, write, grep, find, searchEmail, readEmail, gitCommitPush]
+  const findPerson = defineTool({
+    name: 'find_person',
+    label: 'Find Person',
+    description:
+      'Find information about a person by searching email contacts (ripmail who) and wiki notes. Returns combined results from both sources.',
+    parameters: Type.Object({
+      name: Type.String({ description: 'Person name or partial name to search for' }),
+    }),
+    async execute(_toolCallId: string, params: { name: string }) {
+      const ripmail = process.env.RIPMAIL_BIN ?? 'ripmail'
+
+      const [emailResult, wikiResult] = await Promise.allSettled([
+        execAsync(`${ripmail} who ${JSON.stringify(params.name)} --limit 20`, { timeout: 15000 }),
+        execAsync(
+          `grep -ri ${JSON.stringify(params.name)} ${JSON.stringify(wikiDir)} --include="*.md" -l`,
+          { timeout: 10000 }
+        ),
+      ])
+
+      const parts: string[] = []
+
+      if (emailResult.status === 'fulfilled' && emailResult.value.stdout.trim()) {
+        parts.push(`## Email Contacts\n${emailResult.value.stdout.trim()}`)
+      }
+
+      if (wikiResult.status === 'fulfilled' && wikiResult.value.stdout.trim()) {
+        const files = wikiResult.value.stdout.trim().split('\n').map((f) => f.replace(wikiDir + '/', ''))
+        parts.push(`## Wiki Notes\n${files.join('\n')}`)
+      }
+
+      const text = parts.length
+        ? parts.join('\n\n')
+        : `No information found for "${params.name}".`
+
+      return {
+        content: [{ type: 'text' as const, text }],
+        details: {},
+      }
+    },
+  })
+
+  const getCalEvents = defineTool({
+    name: 'get_calendar_events',
+    label: 'Get Calendar Events',
+    description: 'Get calendar events (travel + personal) for a date range from the local cache. Returns events as JSON. Tip: for scheduling, forward to howie@howie.ai.',
+    parameters: Type.Object({
+      start: Type.String({ description: 'Start date YYYY-MM-DD (inclusive)' }),
+      end: Type.String({ description: 'End date YYYY-MM-DD (inclusive)' }),
+    }),
+    async execute(_toolCallId: string, params: { start: string; end: string }) {
+      const { events, fetchedAt } = await getCalendarEvents({ start: params.start, end: params.end })
+      const text = events.length
+        ? JSON.stringify(events, null, 2)
+        : `No events found between ${params.start} and ${params.end}. Cache last synced: travel=${fetchedAt.travel || 'never'}, personal=${fetchedAt.personal || 'never'}.`
+      return {
+        content: [{ type: 'text' as const, text }],
+        details: {},
+      }
+    },
+  })
+
+  return [read, edit, write, grep, find, searchEmail, readEmail, gitCommitPush, findPerson, getCalEvents]
 }
