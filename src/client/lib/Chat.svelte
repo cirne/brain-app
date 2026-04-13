@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { marked } from 'marked'
+  import { renderMarkdown } from './markdown.js'
   import { onMount } from 'svelte'
   import DayEvents from './DayEvents.svelte'
 
@@ -271,22 +271,6 @@
     contextFiles = []
   }
 
-  // LLM emits [display text](date:YYYY-MM-DD); marked renders it as <a href="date:...">
-  // LLM emits [display text](wiki:path/to/file.md); marked renders it as <a href="wiki:...">
-  // Convert those <a> tags to interactive buttons.
-  const DATE_LINK_RE = /<a href="date:(\d{4}-\d{2}-\d{2})">([\s\S]*?)<\/a>/g
-  const WIKI_LINK_RE = /<a href="(?:wiki:)?([^"]+\.md)">([\s\S]*?)<\/a>/g
-
-  function renderMarkdown(text: string): string {
-    try {
-      const html = marked(text) as string
-      return html
-        .replace(DATE_LINK_RE, '<button class="date-link" data-date="$1">$2</button>')
-        .replace(WIKI_LINK_RE, '<button class="wiki-link" data-wiki="$1">$2</button>')
-    } catch {
-      return text
-    }
-  }
 
   function handleMessagesClick(e: MouseEvent) {
     const dateBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-date]')
