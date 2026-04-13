@@ -19,26 +19,37 @@ afterEach(async () => {
   delete process.env.WIKI_DIR
 })
 
-describe('wikiTools.list_wiki_files', () => {
-  it('returns all markdown files', async () => {
-    const { wikiTools } = await import('./tools.js')
-    const files = await wikiTools.list_wiki_files.execute({})
-    expect(files).toContain('ideas/foo.md')
-    expect(files).toContain('index.md')
+describe('createAgentTools', () => {
+  it('returns an array of tools with expected names', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    expect(Array.isArray(tools)).toBe(true)
+    const names = tools.map((t: any) => t.name)
+    expect(names).toContain('read')
+    expect(names).toContain('edit')
+    expect(names).toContain('write')
+    expect(names).toContain('grep')
+    expect(names).toContain('find')
+    expect(names).toContain('search_email')
+    expect(names).toContain('read_email')
+    expect(names).toContain('git_commit_push')
   })
-})
 
-describe('wikiTools.read_wiki_file', () => {
-  it('reads a valid file', async () => {
-    const { wikiTools } = await import('./tools.js')
-    const content = await wikiTools.read_wiki_file.execute({ path: 'index.md' })
-    expect(content).toContain('# Home')
+  it('read tool can read a wiki file', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const readTool = tools.find((t: any) => t.name === 'read')!
+    const result = await readTool.execute('test-1', { path: 'index.md' })
+    const text = result.content.map((c: any) => c.text).join('')
+    expect(text).toContain('# Home')
   })
 
-  it('throws on path traversal', async () => {
-    const { wikiTools } = await import('./tools.js')
-    await expect(
-      wikiTools.read_wiki_file.execute({ path: '../../etc/passwd' })
-    ).rejects.toThrow('Path traversal denied')
+  it('grep tool can search wiki content', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const grepTool = tools.find((t: any) => t.name === 'grep')!
+    const result = await grepTool.execute('test-2', { pattern: 'foo idea', path: '.' })
+    const text = result.content.map((c: any) => c.text).join('')
+    expect(text).toContain('foo')
   })
 })

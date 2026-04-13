@@ -13,7 +13,7 @@ beforeEach(async () => {
   wikiDir = await mkdtemp(join(tmpdir(), 'wiki-test-'))
   await mkdir(join(wikiDir, 'ideas'))
   await writeFile(join(wikiDir, 'index.md'), '# Home\nWelcome.')
-  await writeFile(join(wikiDir, 'ideas', 'foo.md'), '# Foo\nSome idea.')
+  await writeFile(join(wikiDir, 'ideas', 'foo.md'), '# Foo\nSome idea about searching.')
 
   // Point the wiki route at the temp dir
   process.env.WIKI_DIR = wikiDir
@@ -59,7 +59,28 @@ describe('GET /api/wiki/:path', () => {
   })
 
   it('blocks path traversal attempts', async () => {
+    // URL normalization resolves ../../ before routing (404 from no route match)
+    // or handler blocks it (403). Either way, no file content returned.
     const res = await app.request('/api/wiki/../../etc/passwd')
-    expect(res.status).toBe(403)
+    expect(res.status).toBeGreaterThanOrEqual(400)
+    const text = await res.text()
+    expect(text).not.toContain('root:')
+  })
+})
+
+describe('GET /api/wiki/search', () => {
+  it('returns matching files for a query', async () => {
+    const res = await app.request('/api/wiki/search?q=searching')
+    expect(res.status).toBe(200)
+    const results = await res.json()
+    expect(results).toContain('ideas/foo.md')
+    expect(results).not.toContain('index.md')
+  })
+
+  it('returns empty array for no query', async () => {
+    const res = await app.request('/api/wiki/search')
+    expect(res.status).toBe(200)
+    const results = await res.json()
+    expect(results).toEqual([])
   })
 })

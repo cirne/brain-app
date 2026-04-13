@@ -1,59 +1,80 @@
-// Agent loop using @mariozechner/pi-agent-core + pi-coding-agent.
-// TODO: Adjust imports and API calls once pi packages are installed and
-//       their TypeScript types are available.
-//
-// Expected pi-agent-core usage (verify against installed types):
-//   import { createAgent } from '@mariozechner/pi-agent-core'
-//   import { codingTools } from '@mariozechner/pi-coding-agent'
-//
-// The codingTools from pi-coding-agent provide read/edit/write/grep/find
-// with built-in diff generation and fuzzy matching — same pattern as Claude Code.
+import { Agent } from '@mariozechner/pi-agent-core'
+import { getModel } from '@mariozechner/pi-ai'
+import { convertToLlm } from '@mariozechner/pi-coding-agent'
+import { createAgentTools } from './tools.js'
 
-import { wikiTools, ripMailTools, gitTools } from './tools.js'
+const sessions = new Map<string, Agent>()
 
-export type Message = { role: 'user' | 'assistant'; content: string }
-export type AgentEvent = { type: string; data: unknown }
+const SYSTEM_PROMPT = `You are a personal assistant with access to a markdown wiki and email inbox.
 
-export interface AgentOptions {
-  context?: string  // pre-injected file context (for file-grounded chat)
+## Your capabilities
+- Search and read wiki pages using grep and find tools
+- Edit existing wiki pages using the edit tool (oldText/newText replacement with fuzzy matching)
+- Create new wiki pages using the write tool
+- Search and read emails using search_email and read_email tools
+- Commit and push wiki changes using git_commit_push (only after user confirms)
+
+## Guidelines
+- Use tools to look up information before answering — don't guess.
+- When editing wiki files: make the edit, show the user what changed, then ask before committing.
+- Keep responses concise and helpful.
+- When asked about wiki content, search first then read relevant files.
+- Format responses in markdown.
+- File paths are relative to the wiki root (e.g. "ideas/brain-in-the-cloud.md").`
+
+export interface SessionOptions {
+  /** Pre-injected file context for file-grounded chat */
+  context?: string
+  /** Override wiki directory */
+  wikiDir?: string
 }
 
-export async function* runAgent(
-  messages: Message[],
-  options: AgentOptions = {}
-): AsyncGenerator<AgentEvent> {
-  // TODO: replace this stub with real pi-agent-core invocation.
-  //
-  // Rough shape (adjust to actual API):
-  //
-  //   import { createAgent } from '@mariozechner/pi-agent-core'
-  //   import { createAiApi } from '@mariozechner/pi-ai'
-  //   import { codingTools } from '@mariozechner/pi-coding-agent'
-  //
-  //   const ai = createAiApi({ provider: 'anthropic', apiKey: process.env.ANTHROPIC_API_KEY })
-  //   const agent = createAgent({
-  //     ai,
-  //     model: 'claude-opus-4-6',
-  //     tools: { ...codingTools, ...wikiTools, ...ripMailTools, ...gitTools },
-  //     systemPrompt: buildSystemPrompt(options),
-  //   })
-  //
-  //   for await (const event of agent.run(messages)) {
-  //     yield event
-  //   }
+/**
+ * Get an existing agent session or create a new one.
+ * Sessions are stored in-memory and lost on server restart.
+ */
+export function getOrCreateSession(sessionId: string, options: SessionOptions = {}): Agent {
+  const existing = sessions.get(sessionId)
+  if (existing) return existing
 
-  // Stub: echo back a placeholder until pi packages are wired up
-  yield { type: 'text', data: 'Agent not yet wired up — install pi packages and replace this stub.' }
-}
+  const wikiDir = options.wikiDir ?? process.env.WIKI_DIR ?? '/wiki'
+  const tools = createAgentTools(wikiDir)
 
-function buildSystemPrompt(options: AgentOptions): string {
-  const lines = [
-    'You are a personal assistant with access to a markdown wiki and email inbox.',
-    'Use your tools to look up information before answering.',
-    'When editing wiki files: propose the edit, show the diff, wait for user confirmation before committing.',
-  ]
+  // Build system prompt with optional file context
+  let systemPrompt = SYSTEM_PROMPT
   if (options.context) {
-    lines.push('', '## Current file context', options.context)
+    systemPrompt += `\n\n## Current file context\nThe user is viewing the following file(s). Use this as context for the conversation.\n\n${options.context}`
   }
-  return lines.join('\n')
+
+  // Model from env vars — supports any provider pi-ai knows about
+  const provider = process.env.LLM_PROVIDER ?? 'anthropic'
+  const modelId = process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514'
+  const model = getModel(provider, modelId)
+
+  const agent = new Agent({
+    initialState: {
+      systemPrompt,
+      model,
+      tools,
+    },
+    getApiKey: (p: string) => {
+      // pi-ai uses PROVIDER_API_KEY env convention
+      const envKey = `${p.toUpperCase()}_API_KEY`
+      return process.env[envKey]
+    },
+    convertToLlm,
+  })
+
+  sessions.set(sessionId, agent)
+  return agent
+}
+
+export function deleteSession(sessionId: string): boolean {
+  const agent = sessions.get(sessionId)
+  if (agent) {
+    agent.abort()
+    sessions.delete(sessionId)
+    return true
+  }
+  return false
 }

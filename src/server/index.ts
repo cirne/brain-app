@@ -1,5 +1,19 @@
-// Load .env in dev (no-op in production where the file won't exist)
-try { process.loadEnvFile() } catch { /* no .env file */ }
+// Load .env in dev, overriding existing vars (important: parent shell may
+// set ANTHROPIC_API_KEY to empty, and loadEnvFile won't override it).
+import { readFileSync } from 'node:fs'
+try {
+  const envContent = readFileSync('.env', 'utf-8')
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eqIdx = trimmed.indexOf('=')
+    if (eqIdx > 0) {
+      const key = trimmed.slice(0, eqIdx).trim()
+      const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '')
+      if (val) process.env[key] = val
+    }
+  }
+} catch { /* no .env file */ }
 
 import { Hono } from 'hono'
 import { serve, getRequestListener } from '@hono/node-server'
@@ -16,10 +30,14 @@ const isDev = process.env.NODE_ENV !== 'production'
 const port = parseInt(process.env.PORT ?? '3000')
 
 app.use('*', logger())
-app.use('*', basicAuth({
-  username: process.env.AUTH_USER ?? 'lew',
-  password: process.env.AUTH_PASS ?? 'changeme',
-}))
+
+// Auth: required in production, skipped in dev (localhost only)
+if (!isDev) {
+  app.use('/api/*', basicAuth({
+    username: process.env.AUTH_USER ?? 'lew',
+    password: process.env.AUTH_PASS ?? 'changeme',
+  }))
+}
 
 app.route('/api/chat', chatRoute)
 app.route('/api/wiki', wikiRoute)

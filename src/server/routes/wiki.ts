@@ -1,7 +1,11 @@
 import { Hono } from 'hono'
-import { readdir, readFile, stat } from 'node:fs/promises'
-import { join, relative, extname, basename } from 'node:path'
+import { readdir, readFile } from 'node:fs/promises'
+import { join, relative, extname, basename, resolve } from 'node:path'
 import { marked } from 'marked'
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
+
+const execAsync = promisify(exec)
 
 const wiki = new Hono()
 
@@ -14,14 +18,44 @@ wiki.get('/', async (c) => {
   return c.json(files)
 })
 
-// GET /api/wiki/:path — read and render a specific page
-wiki.get('/:path{.+}', async (c) => {
-  const dir = wikiDir()
-  const filePath = c.req.param('path')
-  const fullPath = join(dir, filePath)
+// GET /api/wiki/search?q=... — search wiki files by content
+wiki.get('/search', async (c) => {
+  const q = c.req.query('q')
+  if (!q) return c.json([])
 
-  // Prevent path traversal
-  if (!fullPath.startsWith(dir)) {
+  const dir = wikiDir()
+  try {
+    const { stdout } = await execAsync(
+      `grep -r --include="*.md" -il ${JSON.stringify(q)} ${JSON.stringify(dir)} 2>/dev/null || true`
+    )
+    const paths = stdout.trim().split('\n').filter(Boolean).map(p => relative(dir, p))
+    return c.json(paths)
+  } catch {
+    return c.json([])
+  }
+})
+
+// GET /api/wiki/git-status — last sync info
+wiki.get('/git-status', async (c) => {
+  try {
+    const dir = wikiDir()
+    const { stdout: sha } = await execAsync(`git -C ${JSON.stringify(dir)} rev-parse --short HEAD`)
+    const { stdout: date } = await execAsync(`git -C ${JSON.stringify(dir)} log -1 --format=%ci`)
+    return c.json({ sha: sha.trim(), date: date.trim() })
+  } catch {
+    return c.json({ sha: null, date: null })
+  }
+})
+
+// GET /api/wiki/:path — read and render a specific page
+// IMPORTANT: this catch-all route must be registered AFTER specific routes above
+wiki.get('/:path{.+}', async (c) => {
+  const dir = resolve(wikiDir())
+  const filePath = c.req.param('path')
+  const fullPath = resolve(join(dir, filePath))
+
+  // Prevent path traversal using resolved absolute paths
+  if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
     return c.json({ error: 'Forbidden' }, 403)
   }
 
@@ -29,22 +63,8 @@ wiki.get('/:path{.+}', async (c) => {
     const raw = await readFile(fullPath, 'utf-8')
     const html = await marked(raw)
     return c.json({ path: filePath, raw, html })
-
   } catch {
     return c.json({ error: 'Not found' }, 404)
-  }
-})
-
-// GET /api/wiki/git-status — last sync info
-wiki.get('/git-status', async (c) => {
-  const { execSync } = await import('node:child_process')
-  try {
-    const dir = wikiDir()
-    const sha = execSync(`git -C ${dir} rev-parse --short HEAD`).toString().trim()
-    const date = execSync(`git -C ${dir} log -1 --format=%ci`).toString().trim()
-    return c.json({ sha, date })
-  } catch {
-    return c.json({ sha: null, date: null })
   }
 })
 

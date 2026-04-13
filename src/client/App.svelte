@@ -5,6 +5,14 @@
 
   type Tab = 'chat' | 'wiki' | 'inbox'
   let active = $state<Tab>('chat')
+
+  // File-grounded chat: when user clicks "Chat about this" in Wiki
+  let chatContextFiles = $state<string[]>([])
+
+  function chatAboutFile(path: string) {
+    chatContextFiles = [path]
+    active = 'chat'
+  }
 </script>
 
 <div class="app">
@@ -16,9 +24,9 @@
 
   <main class="surface">
     {#if active === 'chat'}
-      <Chat />
+      <Chat contextFiles={chatContextFiles} />
     {:else if active === 'wiki'}
-      <Wiki />
+      <Wiki onChatAbout={chatAboutFile} />
     {:else}
       <Inbox />
     {/if}
@@ -61,5 +69,6 @@
   .surface {
     flex: 1;
     overflow: hidden;
+    position: relative;
   }
 </style>
