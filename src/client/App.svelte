@@ -54,12 +54,6 @@
     route = next
   }
 
-  function chatAboutFile(path: string, message?: string) {
-    const next: Route = { tab: 'chat', file: path, message }
-    navigate(next)
-    route = next
-  }
-
   function openWikiPanel(path: string) {
     wikiPanelPath = path
   }
@@ -149,8 +143,7 @@
     </main>
 
     {#if wikiPanelOpen}
-      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
-      <div class="wiki-backdrop" onclick={closeWikiPanel}></div>
+      <div class="wiki-backdrop" role="button" tabindex="-1" onclick={closeWikiPanel} onkeydown={(e) => e.key === 'Escape' && closeWikiPanel()}></div>
       <aside class="wiki-panel">
         <div class="wiki-panel-header">
           <button class="wiki-close-btn" onclick={closeWikiPanel} title="Close wiki">✕</button>

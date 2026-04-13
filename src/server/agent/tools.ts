@@ -62,6 +62,80 @@ export function createAgentTools(wikiDir: string): any[] {
     },
   })
 
+  const draftEmail = defineTool({
+    name: 'draft_email',
+    description: 'Create an email draft. action=new composes a fresh email (requires to); action=reply drafts a reply to an existing message (requires message_id); action=forward forwards an existing message (requires message_id and to). Returns the draft (id, to, subject, body) for review before sending.',
+    label: 'Draft Email',
+    parameters: Type.Object({
+      action: Type.Union([Type.Literal('new'), Type.Literal('reply'), Type.Literal('forward')], { description: '"new" | "reply" | "forward"' }),
+      instruction: Type.String({ description: 'What the email should say (LLM generates subject+body from this)' }),
+      to: Type.Optional(Type.String({ description: 'Recipient address — required for new and forward' })),
+      message_id: Type.Optional(Type.String({ description: 'Message ID to reply to or forward — required for reply and forward' })),
+    }),
+    async execute(_toolCallId: string, params: { action: 'new' | 'reply' | 'forward'; instruction: string; to?: string; message_id?: string }) {
+      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      let cmd: string
+      if (params.action === 'new') {
+        if (!params.to) throw new Error('to is required for action=new')
+        cmd = `${rm} draft new --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json`
+      } else if (params.action === 'reply') {
+        if (!params.message_id) throw new Error('message_id is required for action=reply')
+        cmd = `${rm} draft reply --message-id ${JSON.stringify(params.message_id)} --instruction ${JSON.stringify(params.instruction)} --with-body --json`
+      } else {
+        if (!params.message_id) throw new Error('message_id is required for action=forward')
+        if (!params.to) throw new Error('to is required for action=forward')
+        cmd = `${rm} draft forward --message-id ${JSON.stringify(params.message_id)} --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json`
+      }
+      const { stdout } = await execAsync(cmd, { timeout: 30000 })
+      return {
+        content: [{ type: 'text' as const, text: stdout }],
+        details: JSON.parse(stdout),
+      }
+    },
+  })
+
+  const editDraft = defineTool({
+    name: 'edit_draft',
+    description: 'Refine an existing draft with new instructions. Returns the updated draft.',
+    label: 'Edit Draft',
+    parameters: Type.Object({
+      draft_id: Type.String({ description: 'Draft ID to edit' }),
+      instruction: Type.String({ description: 'Instructions for how to change the draft' }),
+    }),
+    async execute(_toolCallId: string, params: { draft_id: string; instruction: string }) {
+      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      await execAsync(
+        `${rm} draft edit ${JSON.stringify(params.draft_id)} ${JSON.stringify(params.instruction)}`,
+        { timeout: 30000 }
+      )
+      const { stdout } = await execAsync(
+        `${rm} draft view ${JSON.stringify(params.draft_id)} --with-body --json`,
+        { timeout: 15000 }
+      )
+      return {
+        content: [{ type: 'text' as const, text: stdout }],
+        details: JSON.parse(stdout),
+      }
+    },
+  })
+
+  const sendDraft = defineTool({
+    name: 'send_draft',
+    description: 'Send a draft email. Only call this after showing the draft to the user and getting confirmation.',
+    label: 'Send Draft',
+    parameters: Type.Object({
+      draft_id: Type.String({ description: 'Draft ID to send' }),
+    }),
+    async execute(_toolCallId: string, params: { draft_id: string }) {
+      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      await execAsync(`${rm} send ${JSON.stringify(params.draft_id)}`, { timeout: 30000 })
+      return {
+        content: [{ type: 'text' as const, text: 'Email sent.' }],
+        details: { ok: true },
+      }
+    },
+  })
+
   const gitCommitPush = defineTool({
     name: 'git_commit_push',
     label: 'Git Commit & Push',
@@ -287,5 +361,5 @@ export function createAgentTools(wikiDir: string): any[] {
     },
   })
 
-  return [read, edit, write, grep, find, searchEmail, readEmail, gitCommitPush, findPerson, wikiLog, getCalEvents, webSearch, fetchPage, getYoutubeTranscript, youtubeSearch]
+  return [read, edit, write, grep, find, searchEmail, readEmail, draftEmail, editDraft, sendDraft, gitCommitPush, findPerson, wikiLog, getCalEvents, webSearch, fetchPage, getYoutubeTranscript, youtubeSearch]
 }

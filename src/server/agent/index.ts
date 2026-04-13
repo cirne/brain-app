@@ -3,7 +3,6 @@ import { getModel, type KnownProvider } from '@mariozechner/pi-ai'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { createAgentTools } from './tools.js'
 import { wikiDir as getWikiDir } from '../lib/wikiDir.js'
-import { listWikiFiles } from '../lib/wikiFiles.js'
 
 const sessions = new Map<string, Agent>()
 
@@ -26,7 +25,7 @@ const SYSTEM_PROMPT = `You are a personal assistant with access to a markdown wi
 - Format responses in markdown.
 - File paths are relative to the wiki root (e.g. "ideas/brain-in-the-cloud.md"). Do NOT include a "wiki/" prefix — the tools are already scoped to the wiki directory.
 - When mentioning specific calendar dates, format them as markdown date links: [display text](date:YYYY-MM-DD). Use the exact ISO date based on the current date context. Examples: [Friday, April 17](date:2026-04-17), [next Tuesday](date:2026-04-21), [today](date:2026-04-13). This lets the user click dates to see calendar events. Only link dates that refer to specific days, not vague time references.
-- When mentioning people, projects, places, or other nouns that have a wiki page, format them as wiki links: [display text](wiki:path/to/file.md). Only link terms where the exact page path appears in the ## Wiki pages section below. This lets the user click to navigate directly to that page.`
+- When mentioning people, projects, places, or other nouns that have a wiki page, format them as wiki links: [display text](wiki:path/to/file.md). Only link terms where you have confirmed the page exists (e.g. via the find or grep tools). This lets the user click to navigate directly to that page.`
 
 export interface SessionOptions {
   /** Pre-injected file context for file-grounded chat */
@@ -60,16 +59,6 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
     .find(p => p.type === 'timeZoneName')?.value ?? ''  // e.g. "GMT-5"
   const utcOffset = gmtOffset.replace('GMT', 'UTC')  // e.g. "UTC-5"
   let systemPrompt = `${SYSTEM_PROMPT}\n\n## Current date & time\nToday is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — to convert to local time use the ${utcOffset} offset. Do not assume a fixed offset for the timezone name; ${utcOffset} already reflects daylight saving time.`
-
-  // Include wiki file list so the LLM can auto-link references to wiki pages
-  try {
-    const wikiFiles = await listWikiFiles(wikiDir)
-    if (wikiFiles.length > 0) {
-      systemPrompt += `\n\n## Wiki pages\n${wikiFiles.join('\n')}`
-    }
-  } catch {
-    // Non-fatal: wiki dir may not exist yet
-  }
 
   if (options.context) {
     systemPrompt += `\n\n## Current file context\nThe user is viewing the following file(s). Use this as context for the conversation.\n\n${options.context}`
