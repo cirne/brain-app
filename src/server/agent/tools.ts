@@ -68,14 +68,14 @@ export function createAgentTools(wikiDir: string): any[] {
   const readEmail = defineTool({
     name: 'read_email',
     label: 'Read Email',
-    description: 'Read a specific email thread by ID. Returns full thread content.',
+    description: 'Read a specific email message by ID. Returns full message content including body.',
     parameters: Type.Object({
-      id: Type.String({ description: 'Thread ID' }),
+      id: Type.String({ description: 'Message ID' }),
     }),
     async execute(_toolCallId: string, params: { id: string }) {
       const ripmail = process.env.RIPMAIL_BIN ?? 'ripmail'
       const { stdout } = await execAsync(
-        `${ripmail} thread ${JSON.stringify(params.id)} --json`,
+        `${ripmail} read ${JSON.stringify(params.id)} --json`,
         { timeout: 15000 }
       )
       return {

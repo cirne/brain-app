@@ -449,7 +449,7 @@
             class:selected={i === selectedMention}
             onmousedown={(e) => { e.preventDefault(); insertMention(file) }}
           >
-            {file}
+            <WikiFileName path={file} />
           </button>
         {:else}
           <div class="mention-empty">No matching files</div>
@@ -692,7 +692,6 @@
     padding: 6px 12px;
     font-size: 13px;
     color: var(--text);
-    font-family: monospace;
   }
 
   .mention-item:hover, .mention-item.selected {

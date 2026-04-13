@@ -172,7 +172,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
           </svg>
-          <span class="log-date" title="{dirtyFiles.length} unsaved file{dirtyFiles.length === 1 ? '' : 's'}">{dirtyFiles.length} dirty</span>
+          <span class="dirty-badge" title="{dirtyFiles.length} unsaved file{dirtyFiles.length === 1 ? '' : 's'}">{dirtyFiles.length}</span>
         </button>
         {#if showRecentFiles}
           <div class="log-dropdown" role="menu">
@@ -270,20 +270,22 @@
     align-items: center;
     gap: 6px;
     padding: 0 10px;
-    height: 100%;
-    color: var(--text-2);
-    transition: background 0.15s;
   }
-  .log-btn:hover { background: var(--bg-3); }
   .log-btn svg { flex-shrink: 0; }
 
-  .log-date {
+  .dirty-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #e8a020;
+    color: #fff;
     font-size: 11px;
-    color: var(--text-2);
-    max-width: 90px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-weight: 600;
+    line-height: 1;
   }
 
   .log-dropdown {
@@ -336,18 +338,23 @@
     border-left: 1px solid var(--border);
     flex-shrink: 0;
   }
+  .log-wrap + .sync-wrap {
+    border-left: none;
+  }
+
+  .log-btn, .sync-btn {
+    color: var(--text-2);
+    transition: color 0.15s;
+    height: 100%;
+  }
+  .log-btn:hover, .sync-btn:hover:not(:disabled) { color: var(--text); }
 
   .sync-btn {
     width: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-2);
-    transition: color 0.15s;
-    height: 100%;
   }
-
-  .sync-btn:hover:not(:disabled) { color: var(--text); }
   .sync-btn:disabled { opacity: 0.5; cursor: default; }
   .sync-btn svg { display: block; }
 
@@ -471,7 +478,6 @@
   /* ── wiki drawer (small/medium screens) ─────────────────── */
 
   @media (max-width: 767px) {
-    .log-date { display: none; }
 
     .wiki-backdrop {
       display: block;
