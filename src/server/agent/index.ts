@@ -18,6 +18,7 @@ const SYSTEM_PROMPT = `You are a personal assistant with access to a markdown wi
 ## Guidelines
 - Use tools to look up information before answering — don't guess.
 - When editing wiki files: make the edit, show the user what changed, then ask before committing.
+- After any session where you create or significantly update wiki pages, call wiki_log with a one-line summary. Do not call it for read-only queries or email searches that didn't produce wiki edits.
 - Keep responses concise and helpful.
 - When asked about wiki content, search first then read relevant files.
 - Format responses in markdown.
@@ -48,7 +49,13 @@ export function getOrCreateSession(sessionId: string, options: SessionOptions = 
   const now = new Date()
   const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now)  // YYYY-MM-DD
   const localTime = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(now)
-  let systemPrompt = `${SYSTEM_PROMPT}\n\n## Current date & time\nToday is ${localDate} (${localTime} ${tz}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — always convert to ${tz} when presenting times to the user.`
+  const localWeekday = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long' }).format(now)
+  // Compute the actual UTC offset for the user's timezone right now (accounts for DST)
+  const gmtOffset = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' })
+    .formatToParts(now)
+    .find(p => p.type === 'timeZoneName')?.value ?? ''  // e.g. "GMT-5"
+  const utcOffset = gmtOffset.replace('GMT', 'UTC')  // e.g. "UTC-5"
+  let systemPrompt = `${SYSTEM_PROMPT}\n\n## Current date & time\nToday is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — to convert to local time use the ${utcOffset} offset. Do not assume a fixed offset for the timezone name; ${utcOffset} already reflects daylight saving time.`
   if (options.context) {
     systemPrompt += `\n\n## Current file context\nThe user is viewing the following file(s). Use this as context for the conversation.\n\n${options.context}`
   }

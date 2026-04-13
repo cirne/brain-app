@@ -76,14 +76,25 @@ wiki.get('/git-status', async (c) => {
   }
 })
 
-// POST /api/wiki/sync — git pull --rebase + push
+// POST /api/wiki/sync — commit local changes, pull --rebase, push
 wiki.post('/sync', async (c) => {
+  const dir = repoDir()
+  const git = (cmd: string) => execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`, { timeout: 30000 })
   try {
-    const dir = repoDir()
-    await execAsync(`git -C ${JSON.stringify(dir)} pull --rebase --autostash`)
-    try {
-      await execAsync(`git -C ${JSON.stringify(dir)} push`)
-    } catch { /* push failure is non-fatal (e.g. nothing to push) */ }
+    // Commit any local changes (new/modified files) before pulling
+    await git('add -A')
+    const { stdout: status } = await git('status --porcelain')
+    if (status.trim()) {
+      const date = new Date().toISOString().slice(0, 16).replace('T', ' ')
+      await git(`commit -m ${JSON.stringify(`auto-sync: ${date}`)}`)
+    }
+
+    // Pull remote changes, rebasing local commits on top
+    await git('pull --rebase --autostash')
+
+    // Push (non-fatal if nothing to push or no upstream)
+    try { await git('push') } catch { /* nothing to push */ }
+
     return c.json({ ok: true })
   } catch (e) {
     return c.json({ ok: false, error: String(e) }, 500)

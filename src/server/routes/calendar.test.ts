@@ -113,6 +113,53 @@ describe('parseICS', () => {
     }
   })
 
+  it('expands a weekly RRULE into individual occurrences', () => {
+    const ics = `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:weekly-001@test
+SUMMARY:Weekly Standup
+DTSTART:20260413T140000Z
+DTEND:20260413T143000Z
+RRULE:FREQ=WEEKLY;COUNT=3
+END:VEVENT
+END:VCALENDAR`
+    const events = parseICS(ics, 'personal')
+    const standups = events.filter(e => e.title === 'Weekly Standup')
+    expect(standups).toHaveLength(3)
+    expect(standups[0].start).toBe('2026-04-13T14:00:00Z')
+    expect(standups[1].start).toBe('2026-04-20T14:00:00Z')
+    expect(standups[2].start).toBe('2026-04-27T14:00:00Z')
+    // Expanded events get unique IDs
+    expect(new Set(standups.map(e => e.id)).size).toBe(3)
+  })
+
+  it('deduplicates RRULE occurrences that have a RECURRENCE-ID override', () => {
+    const ics = `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:weekly-002@test
+SUMMARY:Weekly Standup
+DTSTART:20260413T140000Z
+DTEND:20260413T143000Z
+RRULE:FREQ=WEEKLY;COUNT=3
+END:VEVENT
+BEGIN:VEVENT
+UID:weekly-002@test
+SUMMARY:Weekly Standup (rescheduled)
+DTSTART:20260420T150000Z
+DTEND:20260420T153000Z
+RECURRENCE-ID:20260420T140000Z
+END:VEVENT
+END:VCALENDAR`
+    const events = parseICS(ics, 'personal')
+    const standups = events.filter(e => e.title.startsWith('Weekly Standup'))
+    // Should have 3 total: Apr 13 (RRULE), Apr 20 override (not duplicated), Apr 27 (RRULE)
+    expect(standups).toHaveLength(3)
+    const apr20 = standups.find(e => e.start.startsWith('2026-04-20'))
+    expect(apr20).toBeDefined()
+    expect(apr20!.title).toBe('Weekly Standup (rescheduled)')
+    expect(apr20!.start).toBe('2026-04-20T15:00:00Z')
+  })
+
   it('unescapes ICS special characters', () => {
     const ics = `BEGIN:VCALENDAR
 BEGIN:VEVENT

@@ -340,7 +340,15 @@
             {#if part.type === 'tool'}
               <details class="tool-call" class:error={part.toolCall.isError} open={!part.toolCall.done}>
                 <summary>
-                  <span class="tool-icon">{part.toolCall.done ? (part.toolCall.isError ? '!' : '') : '...'}</span>
+                  <span class="tool-icon">
+                    {#if part.toolCall.isError}
+                      !
+                    {:else if !part.toolCall.done}
+                      <svg class="spin" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                    {:else}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    {/if}
+                  </span>
                   <span class="tool-name">{part.toolCall.name}</span>
                   {#if !part.toolCall.done}
                     <span class="tool-status">running</span>
@@ -489,6 +497,12 @@
     max-width: 800px;
   }
 
+  .message.user {
+    border-left: 2px solid var(--border);
+    padding-left: 10px;
+    opacity: 0.7;
+  }
+
   .msg-label {
     font-size: 11px;
     font-weight: 600;
@@ -506,9 +520,8 @@
   }
 
   .tool-call {
-    margin: 8px 0;
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    margin: 4px 0;
+    border-radius: 4px;
     font-size: 13px;
     overflow: hidden;
   }
@@ -516,27 +529,33 @@
   .tool-call summary {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
+    gap: 5px;
+    padding: 2px 4px;
     cursor: pointer;
-    background: var(--bg-2);
     user-select: none;
+    list-style: none;
   }
+  .tool-call summary::-webkit-details-marker { display: none; }
 
   .tool-icon {
-    font-size: 12px;
-    width: 16px;
-    text-align: center;
+    width: 12px;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+    color: var(--text-2);
   }
 
-  .tool-call:not(.error) .tool-icon { color: var(--success); }
   .tool-call.error .tool-icon { color: var(--danger); }
+
+  .tool-icon .spin { animation: tool-spin 1s linear infinite; }
+  @keyframes tool-spin { to { transform: rotate(360deg); } }
 
   .tool-name {
     font-family: monospace;
-    font-size: 12px;
-    color: var(--accent);
+    font-size: 11px;
+    color: var(--text-2);
   }
 
   .tool-status {

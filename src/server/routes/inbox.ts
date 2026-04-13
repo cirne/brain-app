@@ -34,7 +34,7 @@ inbox.get('/', async (c) => {
 // POST /api/inbox/sync — trigger IMAP sync
 inbox.post('/sync', async (c) => {
   try {
-    await execAsync(`${ripmail()} sync`)
+    await execAsync(`${ripmail()} refresh`)
     return c.json({ ok: true })
   } catch (err) {
     return c.json({ ok: false, error: String(err) }, 500)

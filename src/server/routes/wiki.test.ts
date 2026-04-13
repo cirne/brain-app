@@ -3,6 +3,10 @@ import { Hono } from 'hono'
 import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
+
+const execAsync = promisify(exec)
 
 // Fixtures shared across tests
 let wikiDir: string
@@ -105,6 +109,75 @@ describe('POST /api/wiki/sync', () => {
     const body = await res.json()
     expect(body.ok).toBe(false)
     expect(typeof body.error).toBe('string')
+  })
+})
+
+describe('POST /api/wiki/sync (git repo)', () => {
+  let repoDir: string
+  let remoteDir: string
+  let gitApp: Hono
+
+  async function git(dir: string, cmd: string) {
+    return execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`)
+  }
+
+  beforeEach(async () => {
+    // Bare remote
+    remoteDir = await mkdtemp(join(tmpdir(), 'wiki-remote-'))
+    await execAsync(`git init --bare -b main ${JSON.stringify(remoteDir)}`)
+
+    // Clone as wiki repo
+    repoDir = await mkdtemp(join(tmpdir(), 'wiki-repo-'))
+    await execAsync(`git clone ${JSON.stringify(remoteDir)} ${JSON.stringify(repoDir)}`)
+    await git(repoDir, 'config user.email "test@test.com"')
+    await git(repoDir, 'config user.name "Test"')
+
+    // Initial commit so the repo has a HEAD and upstream
+    await writeFile(join(repoDir, 'README.md'), '# Wiki')
+    await git(repoDir, 'add -A')
+    await git(repoDir, 'commit -m "init"')
+    await git(repoDir, 'push -u origin main')
+
+    process.env.WIKI_DIR = repoDir
+    vi.resetModules()
+    const { default: wikiRoute } = await import('./wiki.js')
+    gitApp = new Hono()
+    gitApp.route('/api/wiki', wikiRoute)
+  })
+
+  afterEach(async () => {
+    await rm(repoDir, { recursive: true, force: true })
+    await rm(remoteDir, { recursive: true, force: true })
+    delete process.env.WIKI_DIR
+    vi.resetModules()
+  })
+
+  it('commits local changes and returns ok:true', async () => {
+    await writeFile(join(repoDir, 'new-note.md'), '# New Note')
+
+    const res = await gitApp.request('/api/wiki/sync', { method: 'POST' })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+
+    const { stdout } = await git(repoDir, 'log --oneline')
+    expect(stdout).toContain('auto-sync:')
+  })
+
+  it('pushes committed changes to remote', async () => {
+    await writeFile(join(repoDir, 'pushed-note.md'), '# Pushed')
+
+    await gitApp.request('/api/wiki/sync', { method: 'POST' })
+
+    const { stdout } = await git(remoteDir, 'log --oneline')
+    expect(stdout).toContain('auto-sync:')
+  })
+
+  it('returns ok:true with no local changes', async () => {
+    const res = await gitApp.request('/api/wiki/sync', { method: 'POST' })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
   })
 })
 

@@ -1,5 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import rrulePkg from 'rrule'
+const { RRule, RRuleSet } = rrulePkg
 
 export interface CalendarEvent {
   id: string
@@ -27,79 +29,150 @@ function unfold(ics: string): string {
   return ics.replace(/\r?\n[ \t]/g, '')
 }
 
-/** Parse an ICS datetime value + its property key into an ISO string. */
-function parseDateTime(value: string, propKey: string): { iso: string; allDay: boolean } {
+/** Parse an ICS datetime value + its property key into a JS Date (UTC). */
+function parseICSDate(value: string, propKey: string): { date: Date; allDay: boolean } {
   const allDay = propKey.includes('VALUE=DATE') || value.length === 8
-
   if (allDay) {
-    return {
-      iso: `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`,
-      allDay: true,
-    }
+    const iso = `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`
+    return { date: new Date(iso + 'T00:00:00Z'), allDay: true }
   }
+  if (value.endsWith('Z')) {
+    // Explicit UTC: parse directly
+    const iso = `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T` +
+      `${value.slice(9, 11)}:${value.slice(11, 13)}:${value.slice(13, 15)}Z`
+    return { date: new Date(iso), allDay: false }
+  }
+  // TZID local time — extract timezone from propKey, convert to UTC
+  const tzMatch = propKey.match(/TZID=["']?([^"';:]+)["']?/)
+  const tz = tzMatch?.[1] ?? 'UTC'
+  const localIso = `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T` +
+    `${value.slice(9, 11)}:${value.slice(11, 13)}:${value.slice(13, 15)}`
+  // Use Intl to compute UTC offset for this tz at this instant
+  const approx = new Date(localIso + 'Z')
+  const offsetMs = approx.getTime() - new Date(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).format(approx).replace(/(\d{4})-(\d{2})-(\d{2}), (\d{2}):(\d{2}):(\d{2})/, '$1-$2-$3T$4:$5:$6Z')
+  ).getTime()
+  return { date: new Date(approx.getTime() + offsetMs), allDay: false }
+}
 
-  // DATETIME: YYYYMMDDTHHmmss[Z]
-  const clean = value.endsWith('Z') ? value.slice(0, -1) : value
-  const iso = `${clean.slice(0, 4)}-${clean.slice(4, 6)}-${clean.slice(6, 8)}T` +
-    `${clean.slice(9, 11)}:${clean.slice(11, 13)}:${clean.slice(13, 15)}Z`
-  return { iso, allDay: false }
+function toISO(date: Date, allDay: boolean): string {
+  if (allDay) return date.toISOString().slice(0, 10)
+  return date.toISOString().replace(/\.000Z$/, 'Z')
 }
 
 function unescapeICS(s: string): string {
   return s.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\')
 }
 
-/** Parse an ICS text blob into CalendarEvent objects. */
+// Expand recurring events up to this many days into the future from today
+const RRULE_WINDOW_DAYS = 365
+
+interface ParsedVEvent {
+  props: Record<string, string>
+  dtStartKey: string
+  startParsed: { date: Date; allDay: boolean }
+  uid: string
+}
+
+/** Parse an ICS text blob into CalendarEvent objects, expanding RRULE recurrences. */
 export function parseICS(icsText: string, source: 'travel' | 'personal'): CalendarEvent[] {
   const lines = unfold(icsText).split(/\r?\n/)
   const events: CalendarEvent[] = []
+  // uid → set of ISO start strings for RECURRENCE-ID overrides
+  const recurrenceOverrides = new Map<string, Set<string>>()
+  // Collect all VEVENTs first so we can apply overrides when expanding RRULEs
+  const vevents: ParsedVEvent[] = []
   let inEvent = false
   let current: Record<string, string> = {}
 
+  const windowEnd = new Date(Date.now() + RRULE_WINDOW_DAYS * 86400 * 1000)
+
+  // Pass 1: collect raw VEVENTs
   for (const line of lines) {
-    if (line === 'BEGIN:VEVENT') {
-      inEvent = true
+    if (line === 'BEGIN:VEVENT') { inEvent = true; current = {}; continue }
+    if (line === 'END:VEVENT') {
+      inEvent = false
+      const dtStartKey = Object.keys(current).find(k => k === 'DTSTART' || k.startsWith('DTSTART;'))
+      if (dtStartKey) {
+        const uid = current['UID'] ?? crypto.randomUUID()
+        const startParsed = parseICSDate(current[dtStartKey], dtStartKey)
+        // Track RECURRENCE-ID overrides so we can exclude those dates from RRULE expansion
+        const recurrenceIdKey = Object.keys(current).find(k => k === 'RECURRENCE-ID' || k.startsWith('RECURRENCE-ID;'))
+        if (recurrenceIdKey) {
+          const overrideDate = parseICSDate(current[recurrenceIdKey], recurrenceIdKey)
+          if (!recurrenceOverrides.has(uid)) recurrenceOverrides.set(uid, new Set())
+          recurrenceOverrides.get(uid)!.add(overrideDate.date.toISOString())
+        }
+        vevents.push({ props: current, dtStartKey, startParsed, uid })
+      }
       current = {}
       continue
     }
-
-    if (line === 'END:VEVENT') {
-      inEvent = false
-
-      const dtStartKey = Object.keys(current).find(k => k === 'DTSTART' || k.startsWith('DTSTART;'))
-      if (!dtStartKey) continue
-
-      const dtEndKey = Object.keys(current).find(k => k === 'DTEND' || k.startsWith('DTEND;'))
-      const startStr = current[dtStartKey]
-      const endStr = dtEndKey ? current[dtEndKey] : startStr
-
-      const startParsed = parseDateTime(startStr, dtStartKey)
-      const endParsed = parseDateTime(endStr, dtEndKey ?? dtStartKey)
-
-      events.push({
-        id: current['UID'] ?? crypto.randomUUID(),
-        title: unescapeICS(current['SUMMARY'] ?? '(No title)'),
-        start: startParsed.iso,
-        end: endParsed.iso,
-        allDay: startParsed.allDay,
-        source,
-        location: current['LOCATION'] ? unescapeICS(current['LOCATION']) : undefined,
-        description: current['DESCRIPTION']
-          ? unescapeICS(current['DESCRIPTION']).slice(0, 500)
-          : undefined,
-      })
-      continue
-    }
-
     if (!inEvent) continue
-
-    // ICS property: PROPNAME;PARAMS:VALUE — split on first colon only
     const colonIdx = line.indexOf(':')
     if (colonIdx < 0) continue
+    current[line.slice(0, colonIdx)] = line.slice(colonIdx + 1)
+  }
 
-    const key = line.slice(0, colonIdx)
-    const value = line.slice(colonIdx + 1)
-    current[key] = value
+  // Pass 2: emit events
+  for (const { props, dtStartKey, startParsed, uid } of vevents) {
+    const dtEndKey = Object.keys(props).find(k => k === 'DTEND' || k.startsWith('DTEND;'))
+    const endStr = dtEndKey ? props[dtEndKey] : props[dtStartKey]
+    const endParsed = parseICSDate(endStr, dtEndKey ?? dtStartKey)
+    const duration = endParsed.date.getTime() - startParsed.date.getTime()
+
+    const title = unescapeICS(props['SUMMARY'] ?? '(No title)')
+    const location = props['LOCATION'] ? unescapeICS(props['LOCATION']) : undefined
+    const description = props['DESCRIPTION']
+      ? unescapeICS(props['DESCRIPTION']).slice(0, 500)
+      : undefined
+
+    // RECURRENCE-ID overrides are emitted as standalone events (skip RRULE path)
+    const isOverride = Object.keys(props).some(k => k === 'RECURRENCE-ID' || k.startsWith('RECURRENCE-ID;'))
+
+    const rruleStr = props['RRULE']
+    if (rruleStr && !isOverride) {
+      // Expand recurrence into individual occurrences within the window
+      const overrideDates = recurrenceOverrides.get(uid) ?? new Set<string>()
+      try {
+        const rset = new RRuleSet()
+        // Use already-converted UTC date so TZID events expand correctly
+        const rule = new RRule({ ...RRule.parseString(rruleStr), dtstart: startParsed.date })
+        rset.rrule(rule)
+        // Add EXDATEs
+        Object.keys(props).filter(k => k === 'EXDATE' || k.startsWith('EXDATE;')).forEach(k => {
+          props[k].split(',').forEach(v => {
+            try { rset.exdate(parseICSDate(v.trim(), k).date) } catch { /* skip */ }
+          })
+        })
+        const occurrences = rset.between(startParsed.date, windowEnd, true)
+        for (const occ of occurrences) {
+          // Skip dates that have a RECURRENCE-ID override — the override VEVENT is emitted separately
+          if (overrideDates.has(occ.toISOString())) continue
+          events.push({
+            id: `${uid}_${occ.toISOString()}`,
+            title, source, location, description,
+            start: toISO(occ, startParsed.allDay),
+            end: toISO(new Date(occ.getTime() + duration), endParsed.allDay),
+            allDay: startParsed.allDay,
+          })
+        }
+      } catch {
+        // Fall back to storing the master event
+        events.push({ id: uid, title, source, location, description,
+          start: toISO(startParsed.date, startParsed.allDay),
+          end: toISO(endParsed.date, endParsed.allDay),
+          allDay: startParsed.allDay })
+      }
+    } else {
+      events.push({ id: uid, title, source, location, description,
+        start: toISO(startParsed.date, startParsed.allDay),
+        end: toISO(endParsed.date, endParsed.allDay),
+        allDay: startParsed.allDay })
+    }
   }
 
   return events.sort((a, b) => a.start.localeCompare(b.start))

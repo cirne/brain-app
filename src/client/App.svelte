@@ -11,6 +11,7 @@
   let syncErrors = $state<string[]>([])
   let showSyncErrors = $state(false)
   let calendarRefreshKey = $state(0)
+  let wikiRefreshKey = $state(0)
 
   onMount(() => {
     const onPopState = () => { route = parseRoute() }
@@ -63,6 +64,7 @@
       else if (calRes.value && !calRes.value.ok) errs.push(`Calendar: ${calRes.value.error ?? 'sync failed'}`)
       syncErrors = errs
       calendarRefreshKey++
+      wikiRefreshKey++
     } catch (e) {
       syncErrors = [`Unexpected error: ${e}`]
     } finally {
@@ -106,6 +108,7 @@
     {:else if route.tab === 'wiki'}
       <Wiki
         initialPath={route.path}
+        refreshKey={wikiRefreshKey}
         onChatAbout={chatAboutFile}
         onNavigate={onWikiNavigate}
       />

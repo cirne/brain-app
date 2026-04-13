@@ -7,10 +7,12 @@
 
   let {
     initialPath,
+    refreshKey = 0,
     onChatAbout,
     onNavigate,
   }: {
     initialPath?: string
+    refreshKey?: number
     onChatAbout?: (_path: string, _message: string) => void
     onNavigate?: (_path: string | undefined) => void
   } = $props()
@@ -173,9 +175,14 @@
     return tagsStr.replace(/^\[|\]$/g, '').split(',').map(t => t.trim()).filter(Boolean)
   }
 
+  let initialized = false
+
   $effect(() => {
+    void refreshKey // re-run when refreshKey changes
     loadGitStatus()
     loadFiles().then(() => {
+      if (initialized) return
+      initialized = true
       if (initialPath) {
         const match = files.find(f => f.path === initialPath)
         if (match) openFile(match.path)
