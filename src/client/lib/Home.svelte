@@ -1,14 +1,21 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import DayEvents from './DayEvents.svelte'
-  import WikiFileName from './WikiFileName.svelte'
+  import WikiFileList from './WikiFileList.svelte'
+  import { formatDate } from './formatDate.js'
+
+  type InboxItem = { id: string; from: string; subject: string; date: string; read: boolean }
 
   let {
     onNewChat,
     onOpenWiki,
+    dirty = [],
+    recent = [],
   }: {
     onNewChat: (_message: string) => void
     onOpenWiki: (_path: string) => void
+    dirty?: string[]
+    recent?: { path: string; date: string }[]
   } = $props()
 
   const today = new Date().toISOString().slice(0, 10)
@@ -16,40 +23,14 @@
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   })
 
-  type InboxItem = { id: string; from: string; subject: string; date: string; read: boolean }
-  type LogEntry = { date: string; type: string; description: string; files: string[] }
-  type RecentFile = { path: string; date: string }
-
   let inboxItems = $state<InboxItem[]>([])
   let inboxLoading = $state(true)
-  let recentFiles = $state<RecentFile[]>([])
-  let recentLoading = $state(true)
   let chatInput = $state('')
 
   onMount(async () => {
-    const [inboxRes, logRes] = await Promise.allSettled([
-      fetch('/api/inbox').then(r => r.ok ? r.json() : []),
-      fetch('/api/wiki/log?limit=10').then(r => r.ok ? r.json() : { entries: [] }),
-    ])
-    inboxItems = inboxRes.status === 'fulfilled' ? inboxRes.value : []
+    const res = await fetch('/api/inbox').catch(() => null)
+    inboxItems = res?.ok ? await res.json() : []
     inboxLoading = false
-
-    // Collect deduped file mentions from recent log entries
-    if (logRes.status === 'fulfilled') {
-      const seen = new Set<string>()
-      const files: RecentFile[] = []
-      for (const entry of (logRes.value.entries as LogEntry[])) {
-        for (const path of entry.files) {
-          if (!seen.has(path)) {
-            seen.add(path)
-            files.push({ path, date: entry.date })
-          }
-        }
-        if (files.length >= 10) break
-      }
-      recentFiles = files
-    }
-    recentLoading = false
   })
 
   const unreadCount = $derived(inboxItems.filter((m: InboxItem) => !m.read).length)
@@ -98,7 +79,7 @@
             <li class="inbox-item" class:unread={!msg.read}>
               <span class="inbox-from">{msg.from}</span>
               <span class="inbox-subject">{msg.subject}</span>
-              <span class="inbox-date">{msg.date}</span>
+              <span class="inbox-date">{formatDate(msg.date)}</span>
             </li>
           {/each}
         </ul>
@@ -106,23 +87,12 @@
     </section>
 
     <!-- Recent wiki changes -->
-    <section class="card">
-      <h2 class="section-title">Recent Wiki Changes</h2>
-      {#if recentLoading}
-        <div class="muted">Loading…</div>
-      {:else if recentFiles.length === 0}
+    <section class="card card--files">
+      <h2 class="section-title">Wiki</h2>
+      {#if dirty.length === 0 && recent.length === 0}
         <div class="muted">No recent changes</div>
       {:else}
-        <ul class="item-list">
-          {#each recentFiles as file}
-            <li>
-              <button class="file-item" onclick={() => onOpenWiki(file.path)}>
-                <WikiFileName path={file.path} />
-                {#if file.date}<span class="file-date">{file.date}</span>{/if}
-              </button>
-            </li>
-          {/each}
-        </ul>
+        <WikiFileList {dirty} {recent} onOpen={onOpenWiki} showSectionLabels={dirty.length > 0} />
       {/if}
     </section>
 
@@ -261,36 +231,13 @@
     flex-shrink: 0;
   }
 
-  /* ── recent files ─────────────────────────────────────────── */
-
-  .file-item {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    width: 100%;
-    text-align: left;
-    padding: 5px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    color: var(--text);
-    transition: background 0.1s;
-  }
-
-  .file-item:hover {
-    background: var(--accent-dim);
-    color: var(--accent);
-  }
-
-  .file-item :global(.wfn) {
-    flex: 1;
+  /* wiki file list — flush to card edges, WikiFileList handles item styling */
+  .card--files {
+    padding: 14px 0 0;
     overflow: hidden;
   }
-
-  .file-date {
-    font-size: 11px;
-    color: var(--text-2);
-    flex-shrink: 0;
-  }
+  .card--files .section-title { padding: 0 16px 10px; }
+  .card--files .muted { padding: 0 16px 14px; }
 
   /* ── actions ──────────────────────────────────────────────── */
 

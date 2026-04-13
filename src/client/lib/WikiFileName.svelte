@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getDirIcon, SpecialFileIcon } from './dirIcons.js'
 
-  let { path }: { path: string } = $props()
+  let { path, unsaved = false }: { path: string; unsaved?: boolean } = $props()
 
   const { folder, name } = $derived.by(() => {
     const clean = path.replace(/\.md$/, '')
@@ -29,7 +29,7 @@
   })
 </script>
 
-<span class="wfn">
+<span class="wfn" class:wfn--unsaved={unsaved}>
   {#if isSpecial}
     <span class="wfn-icon wfn-icon--special">
       <SpecialFileIcon size={12} />
@@ -84,5 +84,18 @@
 
   .wfn-icon--special {
     opacity: 0.35;
+  }
+
+  /* unsaved (dirty) state — orange tint */
+  .wfn--unsaved .wfn-icon {
+    color: #e8a020;
+    opacity: 0.8;
+  }
+  .wfn--unsaved .wfn-folder {
+    color: #e8a020;
+    opacity: 0.8;
+  }
+  .wfn--unsaved .wfn-name {
+    color: #e8a020;
   }
 </style>

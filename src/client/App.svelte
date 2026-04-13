@@ -5,7 +5,7 @@
   import Inbox from './lib/Inbox.svelte'
   import Calendar from './lib/Calendar.svelte'
   import Home from './lib/Home.svelte'
-  import WikiFileName from './lib/WikiFileName.svelte'
+  import WikiFileList from './lib/WikiFileList.svelte'
   import { parseRoute, navigate, type Route } from './router.js'
 
   type LogEntry = { date: string; type: string; description: string; files: string[] }
@@ -42,30 +42,39 @@
   let calendarRefreshKey = $state(0)
   let wikiRefreshKey = $state(0)
 
-  // Wiki recent files (from _log.md)
+  // Wiki recent files (from _log.md) + unsaved dirty files
   let logEntries = $state<LogEntry[]>([])
+  let dirtyFiles = $state<string[]>([])
   let showRecentFiles = $state(false)
 
   const recentFiles = $derived.by(() => {
     const seen = new Set<string>()
     const files: { path: string; date: string }[] = []
-    for (const entry of logEntries) {
+    outer: for (const entry of logEntries) {
       for (const path of (entry.files ?? [])) {
         if (!seen.has(path)) {
           seen.add(path)
           files.push({ path, date: entry.date })
+          if (files.length >= 10) break outer
         }
       }
-      if (files.length >= 15) break
     }
     return files
   })
 
   async function loadWikiLog() {
     try {
-      const res = await fetch('/api/wiki/log?limit=15')
+      const res = await fetch('/api/wiki/log?limit=10')
       const data = await res.json()
       logEntries = data.entries ?? []
+    } catch { /* ignore */ }
+  }
+
+  async function loadGitStatus() {
+    try {
+      const res = await fetch('/api/wiki/git-status')
+      const data = await res.json()
+      dirtyFiles = data.changedFiles ?? []
     } catch { /* ignore */ }
   }
 
@@ -75,6 +84,7 @@
 
   onMount(() => {
     loadWikiLog()
+    loadGitStatus()
     const onPopState = () => { route = parseRoute() }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
@@ -133,6 +143,7 @@
       calendarRefreshKey++
       wikiRefreshKey++
       loadWikiLog()
+      loadGitStatus()
     } catch (e) {
       syncErrors = [`Unexpected error: ${e}`]
     } finally {
@@ -140,10 +151,7 @@
     }
   }
 
-  function formatLogDate(dateStr: string): string {
-    const d = new Date(dateStr + 'T12:00:00')
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
+
 </script>
 
 <div class="app">
@@ -154,7 +162,7 @@
       <button class:active={route.tab === 'inbox'} onclick={() => switchTab('inbox')}>Inbox</button>
       <button class:active={route.tab === 'calendar'} onclick={() => switchTab('calendar')}>Calendar</button>
     </div>
-    {#if recentFiles.length > 0}
+    {#if recentFiles.length > 0 || dirtyFiles.length > 0}
       <div class="log-wrap">
         <button
           class="log-btn"
@@ -164,19 +172,20 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
           </svg>
-          <span class="log-date">{recentFiles[0].path.split('/').pop()?.replace(/\.md$/, '')}</span>
+          {#if dirtyFiles.length > 0}
+            <span class="dirty-badge" title="{dirtyFiles.length} unsaved file{dirtyFiles.length === 1 ? '' : 's'}">{dirtyFiles.length}</span>
+          {/if}
+          {#if recentFiles.length > 0}
+            <span class="log-date">{recentFiles[0].path.split('/').pop()?.replace(/\.md$/, '')}</span>
+          {/if}
         </button>
         {#if showRecentFiles}
-          <div class="log-dropdown">
-            {#each recentFiles as file}
-              <button
-                class="log-item"
-                onmousedown={(e) => { e.preventDefault(); openWikiPanel(file.path); showRecentFiles = false }}
-              >
-                <span class="log-item-date">{formatLogDate(file.date)}</span>
-                <WikiFileName path={file.path} />
-              </button>
-            {/each}
+          <div class="log-dropdown" role="menu">
+            <WikiFileList
+              dirty={dirtyFiles}
+              recent={recentFiles}
+              onOpen={(path) => { openWikiPanel(path); showRecentFiles = false }}
+            />
           </div>
         {/if}
       </div>
@@ -205,7 +214,7 @@
   <div class="layout">
     <main class="surface">
       {#if route.tab === 'home'}
-        <Home onNewChat={startNewChat} onOpenWiki={openWikiPanel} />
+        <Home onNewChat={startNewChat} onOpenWiki={openWikiPanel} dirty={dirtyFiles} recent={recentFiles} />
       {:else if route.tab === 'chat'}
         <Chat bind:messages={chatMessages} bind:sessionId={chatSessionId} contextFiles={route.file ? [route.file] : []} initialMessage={route.message} onSwitchToWiki={openWikiPanel} onSwitchToCalendar={switchToCalendar} />
       {:else if route.tab === 'calendar'}
@@ -272,6 +281,22 @@
   .log-btn:hover { background: var(--bg-3); }
   .log-btn svg { flex-shrink: 0; }
 
+  .dirty-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #e8a020;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
   .log-date {
     font-size: 11px;
     color: var(--text-2);
@@ -295,33 +320,7 @@
     z-index: 200;
   }
 
-  .log-item {
-    display: grid;
-    grid-template-columns: 52px 1fr;
-    align-items: baseline;
-    gap: 8px;
-    width: 100%;
-    text-align: left;
-    padding: 7px 12px;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
-  }
-  .log-item:last-child { border-bottom: none; }
-  .log-item:hover { background: var(--bg-2); color: var(--accent); }
-
-  .log-item-date {
-    font-size: 11px;
-    color: var(--text-2);
-    flex-shrink: 0;
-  }
-
-  .log-item :global(.wfn) {
-    font-size: 12px;
-    color: var(--text);
-    overflow: hidden;
-  }
-  .log-item:hover :global(.wfn-name) { color: var(--accent); }
-  .log-item:hover :global(.wfn-folder) { color: var(--accent); opacity: 0.7; }
+  /* items styled by WikiFileList.svelte */
 
   /* ── tabs ────────────────────────────────────────────────── */
 
@@ -455,7 +454,7 @@
   }
 
   .wiki-panel {
-    width: 420px;
+    width: 50vw;
     flex-shrink: 0;
     border-left: 1px solid var(--border);
     display: flex;

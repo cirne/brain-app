@@ -219,6 +219,21 @@ describe('GET /api/wiki/log', () => {
     expect(entries[1].files).toContain('_index.md')
   })
 
+  it('skips bare directory paths (ending with /)', async () => {
+    await writeFile(join(wikiDir, '_log.md'), [
+      '## [2026-04-13] query | Test',
+      '',
+      '- Updated files in `areas/` and `people/alice.md`',
+    ].join('\n'))
+
+    const res = await app.request('/api/wiki/log')
+    const { entries } = await res.json()
+    const files: string[] = entries[0]?.files ?? []
+    expect(files).not.toContain('areas/.md')
+    expect(files).not.toContain('areas/')
+    expect(files).toContain('people/alice.md')
+  })
+
   it('strips wiki/ prefix from file paths in log entries', async () => {
     await writeFile(join(wikiDir, '_log.md'), [
       '## [2026-04-13] query | Test',

@@ -128,6 +128,7 @@ wiki.get('/log', async (c) => {
       while ((m = fileRegex.exec(body)) !== null) {
         let p = m[1]
         if (!p.includes('/') && !p.endsWith('.md')) continue
+        if (p.endsWith('/')) continue  // skip bare directory paths
         // Strip leading wiki/ prefix that some log entries include
         if (p.startsWith('wiki/')) p = p.slice(5)
         const normalized = p.endsWith('.md') ? p : p + '.md'
