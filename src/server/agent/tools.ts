@@ -6,8 +6,9 @@ import { promisify } from 'node:util'
 
 const execAsync = promisify(exec)
 
-const WIKI_DIR = process.env.WIKI_DIR ?? '/wiki'
-const RIPMAIL = process.env.RIPMAIL_BIN ?? 'ripmail'
+// Read lazily so .env is loaded before first access
+const wikiDir = () => process.env.WIKI_DIR ?? '/wiki'
+const ripmail = () => process.env.RIPMAIL_BIN ?? 'ripmail'
 
 // Tool definitions in the format expected by pi-agent-core.
 // Adjust the shape to match the actual pi-agent-core ToolDefinition type once installed.
@@ -23,10 +24,11 @@ export const wikiTools = {
       required: ['query'],
     },
     async execute({ query }: { query: string }) {
+      const dir = wikiDir()
       const { stdout } = await execAsync(
-        `grep -r --include="*.md" -l ${JSON.stringify(query)} ${WIKI_DIR} 2>/dev/null || true`
+        `grep -r --include="*.md" -l ${JSON.stringify(query)} ${dir} 2>/dev/null || true`
       )
-      return stdout.trim().split('\n').filter(Boolean).map(p => relative(WIKI_DIR, p))
+      return stdout.trim().split('\n').filter(Boolean).map(p => relative(dir, p))
     },
   },
 
@@ -40,8 +42,9 @@ export const wikiTools = {
       required: ['path'],
     },
     async execute({ path }: { path: string }) {
-      const full = join(WIKI_DIR, path)
-      if (!full.startsWith(WIKI_DIR)) throw new Error('Path traversal denied')
+      const dir = wikiDir()
+      const full = join(dir, path)
+      if (!full.startsWith(dir)) throw new Error('Path traversal denied')
       return await readFile(full, 'utf-8')
     },
   },
@@ -50,17 +53,18 @@ export const wikiTools = {
     description: 'List all markdown files in the wiki.',
     parameters: { type: 'object', properties: {}, required: [] },
     async execute() {
+      const dir = wikiDir()
       const results: string[] = []
-      async function walk(dir: string) {
-        const entries = await readdir(dir, { withFileTypes: true })
+      async function walk(current: string) {
+        const entries = await readdir(current, { withFileTypes: true })
         for (const e of entries) {
           if (e.name.startsWith('.')) continue
-          const full = join(dir, e.name)
+          const full = join(current, e.name)
           if (e.isDirectory()) await walk(full)
-          else if (extname(e.name) === '.md') results.push(relative(WIKI_DIR, full))
+          else if (extname(e.name) === '.md') results.push(relative(dir, full))
         }
       }
-      await walk(WIKI_DIR)
+      await walk(dir)
       return results.sort()
     },
   },
@@ -77,7 +81,7 @@ export const ripMailTools = {
       required: ['query'],
     },
     async execute({ query }: { query: string }) {
-      const { stdout } = await execAsync(`${RIPMAIL} search ${JSON.stringify(query)} --json`)
+      const { stdout } = await execAsync(`${ripmail()} search ${JSON.stringify(query)} --json`)
       return JSON.parse(stdout)
     },
   },
@@ -92,7 +96,7 @@ export const ripMailTools = {
       required: ['id'],
     },
     async execute({ id }: { id: string }) {
-      const { stdout } = await execAsync(`${RIPMAIL} thread ${JSON.stringify(id)} --json`)
+      const { stdout } = await execAsync(`${ripmail()} thread ${JSON.stringify(id)} --json`)
       return JSON.parse(stdout)
     },
   },
@@ -110,9 +114,10 @@ export const gitTools = {
       required: ['message'],
     },
     async execute({ message }: { message: string }) {
-      await execAsync(`git -C ${WIKI_DIR} add -A`)
-      await execAsync(`git -C ${WIKI_DIR} commit -m ${JSON.stringify(message)}`)
-      await execAsync(`git -C ${WIKI_DIR} push`)
+      const dir = wikiDir()
+      await execAsync(`git -C ${dir} add -A`)
+      await execAsync(`git -C ${dir} commit -m ${JSON.stringify(message)}`)
+      await execAsync(`git -C ${dir} push`)
       return { ok: true }
     },
   },

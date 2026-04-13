@@ -1,3 +1,6 @@
+// Load .env in dev (no-op in production where the file won't exist)
+try { process.loadEnvFile() } catch { /* no .env file */ }
+
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'

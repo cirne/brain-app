@@ -5,21 +5,23 @@ import { marked } from 'marked'
 
 const wiki = new Hono()
 
-const WIKI_DIR = process.env.WIKI_DIR ?? '/wiki'
+// Read lazily so .env loaded in index.ts (before first request) takes effect
+const wikiDir = () => process.env.WIKI_DIR ?? '/wiki'
 
 // GET /api/wiki — list all markdown files
 wiki.get('/', async (c) => {
-  const files = await collectMarkdownFiles(WIKI_DIR)
+  const files = await collectMarkdownFiles(wikiDir())
   return c.json(files)
 })
 
 // GET /api/wiki/:path — read and render a specific page
 wiki.get('/:path{.+}', async (c) => {
+  const dir = wikiDir()
   const filePath = c.req.param('path')
-  const fullPath = join(WIKI_DIR, filePath)
+  const fullPath = join(dir, filePath)
 
   // Prevent path traversal
-  if (!fullPath.startsWith(WIKI_DIR)) {
+  if (!fullPath.startsWith(dir)) {
     return c.json({ error: 'Forbidden' }, 403)
   }
 
@@ -27,6 +29,7 @@ wiki.get('/:path{.+}', async (c) => {
     const raw = await readFile(fullPath, 'utf-8')
     const html = await marked(raw)
     return c.json({ path: filePath, raw, html })
+
   } catch {
     return c.json({ error: 'Not found' }, 404)
   }
@@ -36,8 +39,9 @@ wiki.get('/:path{.+}', async (c) => {
 wiki.get('/git-status', async (c) => {
   const { execSync } = await import('node:child_process')
   try {
-    const sha = execSync('git -C /wiki rev-parse --short HEAD').toString().trim()
-    const date = execSync('git -C /wiki log -1 --format=%ci').toString().trim()
+    const dir = wikiDir()
+    const sha = execSync(`git -C ${dir} rev-parse --short HEAD`).toString().trim()
+    const date = execSync(`git -C ${dir} log -1 --format=%ci`).toString().trim()
     return c.json({ sha, date })
   } catch {
     return c.json({ sha: null, date: null })
