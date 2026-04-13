@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
 import { join } from 'node:path'
+import { existsSync } from 'node:fs'
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { exec } from 'node:child_process'
@@ -171,6 +172,26 @@ describe('POST /api/wiki/sync (git repo)', () => {
 
     const { stdout } = await git(remoteDir, 'log --oneline')
     expect(stdout).toContain('auto-sync:')
+  })
+
+  it('pulls new commits from another clone then can push', async () => {
+    const otherDir = await mkdtemp(join(tmpdir(), 'wiki-other-'))
+    await execAsync(`git clone ${JSON.stringify(remoteDir)} ${JSON.stringify(otherDir)}`)
+    await git(otherDir, 'config user.email "test@test.com"')
+    await git(otherDir, 'config user.name "Test"')
+    await writeFile(join(otherDir, 'from-remote.md'), '# From remote')
+    await git(otherDir, 'add from-remote.md')
+    await git(otherDir, 'commit -m "add from other clone"')
+    await git(otherDir, 'push origin main')
+
+    expect(existsSync(join(repoDir, 'from-remote.md'))).toBe(false)
+
+    const res = await gitApp.request('/api/wiki/sync', { method: 'POST' })
+    expect(res.status).toBe(200)
+    expect((await res.json()).ok).toBe(true)
+    expect(existsSync(join(repoDir, 'from-remote.md'))).toBe(true)
+
+    await rm(otherDir, { recursive: true, force: true })
   })
 
   it('returns ok:true with no local changes', async () => {

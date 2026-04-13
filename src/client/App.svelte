@@ -159,6 +159,12 @@
     agentContext = ctx
   }
 
+  function onSummarizeInbox(message: string) {
+    agentContext = { type: 'inbox' }
+    drawerOpen = true
+    void agentColumn?.newChatWithMessage(message)
+  }
+
   function openEmailFromSearch(id: string, subject: string, from: string) {
     inboxTargetId = id
     const next: Route = { tab: 'inbox', id }
@@ -222,6 +228,7 @@
         onContextChange={setContext}
         onOpenSearch={() => { showSearch = true }}
         onRouteChange={(r) => { route = r }}
+        onSummarizeInbox={onSummarizeInbox}
       />
     </main>
 

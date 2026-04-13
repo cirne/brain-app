@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Archive, Reply, Forward } from 'lucide-svelte'
+  import { Archive, Reply, Forward, Sparkles } from 'lucide-svelte'
   import { navigate } from '../router.js'
   import { formatDate } from './formatDate.js'
 
@@ -33,15 +33,20 @@
     onNavigate,
     onContextChange,
     onOpenSearch,
+    onSummarizeInbox,
   }: {
     initialId?: string
     targetId?: string
     onNavigate?: (_id: string | undefined) => void
     onContextChange?: (_ctx: SurfaceContext) => void
     onOpenSearch?: () => void
+    /** Starts a new agent chat with a prompt to summarize current inbox items */
+    onSummarizeInbox?: (_message: string) => void
   } = $props()
 
   let emails = $state<Email[]>([])
+  /** True until the first /api/inbox response completes (success or error). */
+  let inboxListLoading = $state(true)
   let syncing = $state(false)
   let selectedThread = $state<string | null>(null)
   let threadContent = $state<{ headers: string; body: string } | null>(null)
@@ -93,6 +98,8 @@
     } catch {
       error = 'Could not connect to inbox'
       emails = []
+    } finally {
+      inboxListLoading = false
     }
   }
 
@@ -105,6 +112,23 @@
       error = 'Sync failed'
     }
     syncing = false
+  }
+
+  function buildInboxSummarizeMessage(): string {
+    const header =
+      'Summarize my current inbox. For each thread give a one-line summary; then overall themes and anything urgent or actionable. Use read_email with the message ids below to read bodies when needed (or search_email).'
+    if (emails.length === 0) {
+      return `${header}\n\nThe inbox list is currently empty (no rows after refresh).`
+    }
+    const lines = emails.map(
+      (e, i) =>
+        `${i + 1}. id=${JSON.stringify(e.id)} | From: ${e.from} | Subject: ${e.subject} | Date: ${e.date}`
+    )
+    return `${header}\n\nInbox (${emails.length} items):\n${lines.join('\n')}`
+  }
+
+  function summarizeInbox() {
+    onSummarizeInbox?.(buildInboxSummarizeMessage())
   }
 
   async function archive(id: string) {
@@ -287,6 +311,18 @@
         {#if error}
           <span class="error-badge">{error}</span>
         {/if}
+        {#if onSummarizeInbox}
+          <button
+            class="summarize-btn"
+            type="button"
+            onclick={summarizeInbox}
+            disabled={!!error || inboxListLoading}
+            title="New chat: summarize all inbox items"
+          >
+            <Sparkles size={14} aria-hidden="true" />
+            Summarize
+          </button>
+        {/if}
         <button class="sync-btn" onclick={sync} disabled={syncing}>
           {syncing ? 'Syncing...' : 'Refresh'}
         </button>
@@ -428,42 +464,48 @@
 
   {:else}
     <ul class="email-list">
-      {#each emails as email (email.id)}
-        <li class="email-item" class:unread={!email.read}>
-          <button class="email-body" onclick={() => openThread(email)}>
-            <span class="from">{email.from}</span>
-            <span class="subject">{email.subject}</span>
-            <span class="date">{formatDate(email.date)}</span>
-          </button>
-          <div class="email-actions">
-            <button class="action-icon-btn" onclick={() => startCompose('reply', email)} title="Reply">
-              <Reply size={14} />
-            </button>
-            <button class="action-icon-btn" onclick={() => startCompose('forward', email)} title="Forward">
-              <Forward size={14} />
-            </button>
-            <button class="archive-btn" onclick={() => archive(email.id)} title="Archive">
-              <Archive size={16} />
-            </button>
-          </div>
+      {#if inboxListLoading}
+        <li class="list-loading">
+          <p class="loading">Loading…</p>
         </li>
       {:else}
-        <li class="empty">
-          {#if error}
-            Inbox unavailable — ripmail may not be configured.
-          {:else}
-            <span class="empty-label">No messages</span>
-            {#if onOpenSearch}
-              <button class="search-cta" onclick={onOpenSearch}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                </svg>
-                Search emails
+        {#each emails as email (email.id)}
+          <li class="email-item" class:unread={!email.read}>
+            <button class="email-body" onclick={() => openThread(email)}>
+              <span class="from">{email.from}</span>
+              <span class="subject">{email.subject}</span>
+              <span class="date">{formatDate(email.date)}</span>
+            </button>
+            <div class="email-actions">
+              <button class="action-icon-btn" onclick={() => startCompose('reply', email)} title="Reply">
+                <Reply size={14} />
               </button>
+              <button class="action-icon-btn" onclick={() => startCompose('forward', email)} title="Forward">
+                <Forward size={14} />
+              </button>
+              <button class="archive-btn" onclick={() => archive(email.id)} title="Archive">
+                <Archive size={16} />
+              </button>
+            </div>
+          </li>
+        {:else}
+          <li class="empty">
+            {#if error}
+              Inbox unavailable — ripmail may not be configured.
+            {:else}
+              <span class="empty-label">No messages</span>
+              {#if onOpenSearch}
+                <button class="search-cta" onclick={onOpenSearch}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                  </svg>
+                  Search emails
+                </button>
+              {/if}
             {/if}
-          {/if}
-        </li>
-      {/each}
+          </li>
+        {/each}
+      {/if}
     </ul>
   {/if}
 </div>
@@ -484,6 +526,23 @@
   .header-actions { display: flex; align-items: center; gap: 8px; }
   .error-badge { font-size: 11px; color: var(--danger); }
 
+  .summarize-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text);
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-3);
+  }
+  .summarize-btn:hover:not(:disabled) {
+    border-color: var(--accent-dim);
+    color: var(--accent);
+  }
+  .summarize-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
   .sync-btn {
     font-size: 13px; color: var(--accent);
     padding: 4px 10px; border: 1px solid var(--accent-dim); border-radius: 4px;
@@ -492,6 +551,12 @@
 
   /* Email list */
   .email-list { list-style: none; overflow-y: auto; flex: 1; }
+
+  .list-loading {
+    padding: 48px 32px;
+    text-align: center;
+  }
+  .list-loading .loading { margin: 0; }
 
   .email-item { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
   .email-item.unread .from, .email-item.unread .subject { font-weight: 600; color: var(--text); }
@@ -513,7 +578,7 @@
   .action-icon-btn { padding: 12px 8px; color: var(--text-2); }
   .action-icon-btn:hover { color: var(--text); }
   .archive-btn { padding: 12px 16px 12px 8px; color: var(--text-2); }
-  .archive-btn:hover { color: var(--danger); }
+  .archive-btn:hover { color: var(--text); }
 
   .empty {
     padding: 48px 32px;
@@ -559,7 +624,7 @@
     padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px;
     display: flex; align-items: center; gap: 6px;
   }
-  .archive-thread-btn:hover { color: var(--danger); }
+  .archive-thread-btn:hover { color: var(--text); }
 
   .thread-body { flex: 1; overflow-y: auto; padding: 16px; }
   .loading { color: var(--text-2); font-size: 14px; }

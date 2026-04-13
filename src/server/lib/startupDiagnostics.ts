@@ -1,6 +1,7 @@
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { wikiDir, repoDir } from './wikiDir.js'
+import { redactGitRemote } from './redactGitRemote.js'
 
 const execAsync = promisify(exec)
 
@@ -23,7 +24,7 @@ export async function logStartupDiagnostics(): Promise<void> {
 
   try {
     const { stdout: origin } = await execAsync(`git -C ${JSON.stringify(repo)} remote get-url origin`)
-    log(`git origin=${origin.trim()}`)
+    log(`git origin=${redactGitRemote(origin.trim())}`)
   } catch {
     log('git: no origin')
   }

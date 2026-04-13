@@ -17,6 +17,7 @@
     onContextChange: (_ctx: SurfaceContext) => void
     onOpenSearch: () => void
     onRouteChange: (_r: Route) => void
+    onSummarizeInbox: (_message: string) => void
   }
 
   let {
@@ -31,6 +32,7 @@
     onContextChange,
     onOpenSearch,
     onRouteChange,
+    onSummarizeInbox,
   }: Props = $props()
 </script>
 
@@ -68,5 +70,6 @@
     onNavigate={onInboxNavigate}
     onContextChange={onContextChange}
     onOpenSearch={onOpenSearch}
+    onSummarizeInbox={onSummarizeInbox}
   />
 {/if}

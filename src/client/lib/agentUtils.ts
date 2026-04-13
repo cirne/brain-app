@@ -80,6 +80,7 @@ export function contextPlaceholder(ctx: SurfaceContext): string {
   if (ctx.type === 'email') return 'Ask about this email...'
   if (ctx.type === 'wiki') return 'Ask about this doc...'
   if (ctx.type === 'calendar') return 'Ask about your schedule...'
+  if (ctx.type === 'inbox') return 'Inbox summary running...'
   if (ctx.type === 'today') return "What's on your mind?"
   return 'Ask anything...'
 }

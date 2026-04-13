@@ -180,4 +180,11 @@ describe('contextToString', () => {
     const ctx: SurfaceContext = { type: 'calendar', date: '2026-04-14' }
     expect(contextToString(ctx)).toContain('2026-04-14')
   })
+
+  it('formats inbox context', () => {
+    const ctx: SurfaceContext = { type: 'inbox' }
+    const s = contextToString(ctx)!
+    expect(s).toContain('inbox')
+    expect(s).toContain('read_email')
+  })
 })

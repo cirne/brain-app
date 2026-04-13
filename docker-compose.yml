@@ -15,5 +15,3 @@ services:
     volumes:
       # ripmail SQLite index + rules (persisted across restarts)
       - ${HOME}/.ripmail:/ripmail
-      # wiki — mount local brain repo to skip git clone on startup
-      - ${LOCAL_WIKI_DIR:-${HOME}/brain}:/wiki

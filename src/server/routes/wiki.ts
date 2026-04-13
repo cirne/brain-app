@@ -81,12 +81,15 @@ wiki.get('/git-status', async (c) => {
   }
 })
 
-// POST /api/wiki/sync — commit local changes, pull --rebase, push
+// POST /api/wiki/sync — commit local changes, pull --rebase, push (UI “sync” saves wiki edits to git).
 wiki.post('/sync', async (c) => {
   const dir = repoDir()
-  const git = (cmd: string) => execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`, { timeout: 30000 })
+  const git = (cmd: string) =>
+    execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`, {
+      timeout: 120000,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+    })
   try {
-    // Commit any local changes (new/modified files) before pulling
     await git('add -A')
     const { stdout: status } = await git('status --porcelain')
     if (status.trim()) {
@@ -94,11 +97,13 @@ wiki.post('/sync', async (c) => {
       await git(`commit -m ${JSON.stringify(`auto-sync: ${date}`)}`)
     }
 
-    // Pull remote changes, rebasing local commits on top
     await git('pull --rebase --autostash')
 
-    // Push (non-fatal if nothing to push or no upstream)
-    try { await git('push') } catch { /* nothing to push */ }
+    try {
+      await git('push')
+    } catch {
+      /* nothing to push or no upstream */
+    }
 
     return c.json({ ok: true })
   } catch (e) {

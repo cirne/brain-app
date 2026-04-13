@@ -29,7 +29,7 @@
     })
   }
 
-  function handleMessagesClick(e: MouseEvent) {
+  function activateMessagesTarget(e: UIEvent) {
     const dateBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-date]')
     if (dateBtn) {
       e.stopPropagation()
@@ -41,6 +41,15 @@
       e.stopPropagation()
       onOpenWiki?.(wikiBtn.dataset.wiki!)
     }
+  }
+
+  function handleMessagesClick(e: MouseEvent) {
+    activateMessagesTarget(e)
+  }
+
+  function handleMessagesKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    activateMessagesTarget(e)
   }
 
   function handleMessagesMouseOver(e: MouseEvent) {
@@ -70,8 +79,16 @@
   }
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events a11y_mouse_events_have_key_events -->
-<div class="conversation" bind:this={messagesEl} onclick={handleMessagesClick} onmouseover={handleMessagesMouseOver} onmouseout={handleMessagesMouseOut}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_mouse_events_have_key_events -->
+<div
+  class="conversation"
+  bind:this={messagesEl}
+  onclick={handleMessagesClick}
+  onkeydown={handleMessagesKeydown}
+  onmouseover={handleMessagesMouseOver}
+  onmouseout={handleMessagesMouseOut}
+>
   {#if messages.length === 0}
     <div class="empty-state">
       <p>Ask anything about your wiki, email, or calendar.</p>

@@ -9,6 +9,7 @@ export type SurfaceContext =
   | { type: 'email'; threadId: string; subject: string; from: string; body?: string }
   | { type: 'wiki'; path: string; title: string }
   | { type: 'calendar'; date: string; eventId?: string }
+  | { type: 'inbox' }
   | { type: 'none' }
 
 /** Serialize a SurfaceContext to a human-readable string for the agent. */
@@ -21,6 +22,9 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
   }
   if (ctx.type === 'wiki') return `The user is viewing wiki doc: ${ctx.path} (title: "${ctx.title}")`
   if (ctx.type === 'calendar') return `The user is viewing their calendar for ${ctx.date}`
+  if (ctx.type === 'inbox') {
+    return 'The user is on the inbox list and asked for a summary of the triaged inbox items in their message. Use read_email with the message ids provided as needed, or search_email, then answer concisely.'
+  }
   if (ctx.type === 'today') return `The user is on the Today view. Today is ${ctx.date}`
   return undefined
 }

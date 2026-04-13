@@ -44,7 +44,7 @@ Auth is skipped in dev mode (`NODE_ENV !== 'production'`).
 | `AUTH_USER` | `lew` | Basic auth username (prod only) |
 | `AUTH_PASS` | `changeme` | Basic auth password (prod only) |
 | `WIKI_DIR` | `/wiki` | Path to wiki (brain repo root or wiki subdir) |
-| `WIKI_REPO` | `https://github.com/cirne/brain` | Repo to clone on startup |
+| `WIKI_GIT_TOKEN` | — | Authenticated HTTPS git clone URL for the wiki (e.g. `https://x-access-token:PAT@github.com/org/repo.git`). If unset, clones public `cirne/brain` read-only |
 | `RIPMAIL_BIN` | `ripmail` | Path to ripmail binary |
 | `ANTHROPIC_API_KEY` | — | Required for agent |
 | `LLM_PROVIDER` | `anthropic` | LLM provider (anthropic, openai, google, etc.) |

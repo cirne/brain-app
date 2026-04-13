@@ -1,10 +1,10 @@
 /**
  * Shared “leading icon + title” chrome for WikiFileName, search email rows, etc.
- * Keeps 14px-wide icon slots and baseline alignment consistent app-wide.
+ * 14px-wide icon slot; center-align so icon midpoint matches label text cap-height center.
  */
 .wfn-title-row {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   min-width: 0;
   overflow: hidden;
@@ -13,11 +13,17 @@
 .wfn-lead-icon {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 14px;
   color: var(--text-2);
   opacity: 0.55;
   cursor: default;
+}
+
+.wfn-lead-icon :global(svg) {
+  display: block;
+  flex-shrink: 0;
 }
 
 .wfn-lead-icon--special {

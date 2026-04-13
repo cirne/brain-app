@@ -67,14 +67,15 @@
   }
   .wfl-item {
     display: grid;
-    grid-template-columns: 52px 1fr;
-    align-items: baseline;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
     gap: 8px;
     width: 100%;
     text-align: left;
-    padding: 7px 12px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
+    box-sizing: border-box;
   }
   .wfl-item:last-child { border-bottom: none; }
   .wfl-item:hover { background: var(--bg-2); }
@@ -83,15 +84,18 @@
 
 
   .wfl-meta {
+    box-sizing: border-box;
+    padding: 4px;
     font-size: 11px;
     color: var(--text-2);
-    flex-shrink: 0;
+    white-space: nowrap;
+    justify-self: start;
   }
 
   .wfl-meta.dot {
     color: #e8a020;
     font-size: 8px;
-    line-height: 1.8;
+    line-height: 1;
   }
 
   .wfl-item :global(.wfn-title-row) {

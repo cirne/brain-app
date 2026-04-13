@@ -114,7 +114,7 @@ Auth is skipped entirely in dev (`NODE_ENV !== 'production'`). In production, Ba
 | `AUTH_PASS` | `changeme` | Basic auth password (prod only) |
 | `AUTH_DISABLED` | — | Set to `true` to skip auth in prod (private subnet) |
 | `WIKI_DIR` | `/wiki` | Path to wiki directory (brain repo root or wiki subdir) |
-| `WIKI_REPO` | `https://github.com/cirne/brain` | Repo to clone on startup if `WIKI_DIR` doesn't exist |
+| `WIKI_GIT_TOKEN` | — | Authenticated HTTPS clone URL for the wiki (see `start.sh`). If unset, public clone |
 | `RIPMAIL_BIN` | `ripmail` | Path to ripmail binary |
 | `ANTHROPIC_API_KEY` | — | Required when `LLM_PROVIDER=anthropic` |
 | `LLM_PROVIDER` | `anthropic` | LLM provider (`anthropic`, `openai`, `google`, etc.) |
@@ -127,7 +127,7 @@ Auth is skipped entirely in dev (`NODE_ENV !== 'production'`). In production, Ba
 
 ## Deployment
 
-The app runs as a Docker container. `start.sh` clones/pulls the brain wiki repo at container startup. The ripmail SQLite index and `rules.json` should be on a persistent volume mounted at `/ripmail` (`RIPMAIL_HOME`). The wiki can be cloned fresh each deploy or mounted from a local path.
+The app runs as a Docker container. `start.sh` clones/pulls the brain wiki repo at container startup into `/wiki` (no wiki volume; use `WIKI_GIT_TOKEN` for authenticated clone/push). The ripmail SQLite index and `rules.json` live on a persistent volume mounted at `/ripmail` (`RIPMAIL_HOME`).
 
 Deployment platform is not yet decided — Fly.io (`fly.toml` exists as a starting point) and DigitalOcean App Platform are both viable options.
 
@@ -137,4 +137,4 @@ Deployment platform is not yet decided — Fly.io (`fly.toml` exists as a starti
 docker compose up --build
 ```
 
-Set `RIPMAIL_HOST_BIN` and `LOCAL_WIKI_DIR` in `.env` (see `.env.example`). The compose file mounts the host ripmail binary and wiki directory into the container, overriding the path-sensitive env vars from `.env`.
+Set `WIKI_GIT_TOKEN` (optional) and ripmail-related vars in `.env` (see `.env.example`). `docker compose` bind-mounts only host `~/.ripmail` → `/ripmail`; the wiki is cloned inside the container.

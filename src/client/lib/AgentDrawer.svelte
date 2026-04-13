@@ -85,6 +85,14 @@
     void focusAgentTextarea(0)
   }
 
+  /** Clear session and send an initial message (e.g. inbox summarize from another surface). */
+  export async function newChatWithMessage(text: string) {
+    messages = []
+    sessionId = null
+    await tick()
+    await send(text)
+  }
+
   function stopChat() {
     abortController?.abort()
   }
@@ -195,6 +203,7 @@
   const contextChip = $derived.by((): string | null => {
     if (context.type === 'email') return `📧 ${context.subject}`
     if (context.type === 'calendar') return `📅 ${context.date}`
+    if (context.type === 'inbox') return '📥 Inbox'
     return null
   })
 </script>

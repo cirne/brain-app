@@ -28,6 +28,9 @@
   export function newChat() {
     drawer?.newChat()
   }
+  export function newChatWithMessage(text: string) {
+    return drawer?.newChatWithMessage(text)
+  }
 </script>
 
 <div
