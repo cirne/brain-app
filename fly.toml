@@ -7,6 +7,7 @@ primary_region = "ord"
   PORT = "3000"
   WIKI_DIR = "/wiki"
   NODE_ENV = "production"
+  RIPMAIL_HOME = "/ripmail"
 
 [http_service]
   internal_port = 3000
@@ -22,7 +23,7 @@ primary_region = "ord"
 
 [[mounts]]
   source = "brain_data"
-  destination = "/data"
+  destination = "/ripmail"
 
 [[vm]]
   memory = "512mb"

@@ -7,6 +7,7 @@ import { promisify } from 'node:util'
 import { repoDir, wikiDir } from '../lib/wikiDir.js'
 import { listWikiFiles } from '../lib/wikiFiles.js'
 import { readRecentWikiEdits } from '../lib/wikiEditHistory.js'
+import { formatExecError } from '../lib/execError.js'
 
 const execAsync = promisify(exec)
 
@@ -101,7 +102,9 @@ wiki.post('/sync', async (c) => {
 
     return c.json({ ok: true })
   } catch (e) {
-    return c.json({ ok: false, error: String(e) }, 500)
+    const detail = formatExecError(e)
+    console.error('[brain-app] POST /api/wiki/sync failed:', detail)
+    return c.json({ ok: false, error: detail }, 500)
   }
 })
 

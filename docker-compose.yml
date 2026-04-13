@@ -10,8 +10,10 @@ services:
       - PORT=4000
       - WIKI_DIR=/wiki
       - RIPMAIL_BIN=ripmail
+      # Must match volume below — ripmail ignores the mount unless RIPMAIL_HOME is set (default is ~/.ripmail)
+      - RIPMAIL_HOME=/ripmail
     volumes:
       # ripmail SQLite index + rules (persisted across restarts)
-      - ${HOME}/.ripmail:/data
+      - ${HOME}/.ripmail:/ripmail
       # wiki — mount local brain repo to skip git clone on startup
       - ${LOCAL_WIKI_DIR:-${HOME}/brain}:/wiki

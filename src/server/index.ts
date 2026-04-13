@@ -26,6 +26,7 @@ import wikiRoute from './routes/wiki.js'
 import inboxRoute from './routes/inbox.js'
 import calendarRoute from './routes/calendar.js'
 import searchRoute from './routes/search.js'
+import { logStartupDiagnostics } from './lib/startupDiagnostics.js'
 
 const app = new Hono()
 const isDev = process.env.NODE_ENV !== 'production'
@@ -48,6 +49,8 @@ app.route('/api/calendar', calendarRoute)
 app.route('/api/search', searchRoute)
 
 async function start() {
+  await logStartupDiagnostics()
+
   if (isDev) {
     // In dev: Vite runs as middleware inside the same server.
     // API requests go to Hono; everything else goes to Vite (HMR included).

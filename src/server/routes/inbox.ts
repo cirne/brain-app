@@ -3,6 +3,7 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { extractDraftEdits } from '../lib/draftExtract.js'
 import { buildDraftEditFlags } from '../agent/tools.js'
+import { formatExecError } from '../lib/execError.js'
 
 const inbox = new Hono()
 const execAsync = promisify(exec)
@@ -41,7 +42,9 @@ inbox.post('/sync', async (c) => {
     await execAsync(`${ripmail()} refresh`)
     return c.json({ ok: true })
   } catch (err) {
-    return c.json({ ok: false, error: String(err) }, 500)
+    const detail = formatExecError(err)
+    console.error('[brain-app] POST /api/inbox/sync failed:', detail)
+    return c.json({ ok: false, error: detail }, 500)
   }
 })
 

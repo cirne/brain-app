@@ -127,7 +127,7 @@ Auth is skipped entirely in dev (`NODE_ENV !== 'production'`). In production, Ba
 
 ## Deployment
 
-The app runs as a Docker container. `start.sh` clones/pulls the brain wiki repo at container startup. The ripmail SQLite index and `rules.json` should be on a persistent volume mounted at `/data`. The wiki can be cloned fresh each deploy or mounted from a local path.
+The app runs as a Docker container. `start.sh` clones/pulls the brain wiki repo at container startup. The ripmail SQLite index and `rules.json` should be on a persistent volume mounted at `/ripmail` (`RIPMAIL_HOME`). The wiki can be cloned fresh each deploy or mounted from a local path.
 
 Deployment platform is not yet decided — Fly.io (`fly.toml` exists as a starting point) and DigitalOcean App Platform are both viable options.
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { mount, unmount } from 'svelte'
   import WikiFileName from './WikiFileName.svelte'
+  import { normalizeWikiPathForMatch, transformWikiPageHtml } from './wikiPageHtml.js'
 
   type WikiFile = { path: string; name: string }
 
@@ -42,18 +43,10 @@
     const res = await fetch(`/api/wiki/${encodeURIComponent(path)}`)
     const data = await res.json()
     meta = data.meta ?? {}
-    content = renderWikiLinks(data.html)
+    content = transformWikiPageHtml(data.html)
     loading = false
     const title = meta.title ?? path.replace(/\.md$/, '').split('/').pop() ?? path
     onContextChange?.({ type: 'wiki', path, title })
-  }
-
-  function renderWikiLinks(html: string): string {
-    return html.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
-      const [path, label] = inner.split('|')
-      const display = (label ?? path).trim()
-      return `<a href="#" data-wiki="${path.trim()}" class="wiki-link">${display}</a>`
-    })
   }
 
   function handleContentClick(e: MouseEvent) {
@@ -61,9 +54,8 @@
     if (!a) return
     e.preventDefault()
     const link = a.getAttribute('data-wiki')!
-    const match = files.find(f =>
-      f.path.replace(/\.md$/, '').toLowerCase() === link.toLowerCase()
-    )
+    const normalized = normalizeWikiPathForMatch(link)
+    const match = files.find(f => normalizeWikiPathForMatch(f.path) === normalized)
     if (match) openFile(match.path)
   }
 

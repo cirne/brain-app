@@ -108,6 +108,7 @@ The agent has these tools (via pi-coding-agent + custom):
 - `read_email` — read email thread by ID
 - `git_commit_push` — stage, commit, push wiki changes
 - `web_search` — Exa web search for current info (requires `EXA_API_KEY`)
+- `fetch_page`, `youtube_search`, `get_youtube_transcript` — URL article text and YouTube search/transcripts (requires `SUPADATA_API_KEY`)
 
 ## Wiki
 
@@ -130,4 +131,4 @@ fly deploy           # builds Docker image and deploys
 ```
 
 Wiki content is not baked into the image — `start.sh` clones/pulls at runtime.
-Ripmail SQLite index lives on the `brain_data` Fly.io volume at `/data`.
+Ripmail SQLite index lives on the `brain_data` Fly.io volume at `/ripmail`.
