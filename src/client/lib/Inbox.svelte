@@ -128,6 +128,17 @@
     threadLoading = false
   }
 
+  function formatDate(dateStr: string): string {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    const now = new Date()
+    const isToday = d.toDateString() === now.toDateString()
+    const isThisYear = d.getFullYear() === now.getFullYear()
+    if (isToday) return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    if (isThisYear) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
   function closeThread() {
     selectedThread = null
     threadContent = null
@@ -411,7 +422,7 @@
           <button class="email-body" onclick={() => openThread(email)}>
             <span class="from">{email.from}</span>
             <span class="subject">{email.subject}</span>
-            <span class="date">{email.date}</span>
+            <span class="date">{formatDate(email.date)}</span>
           </button>
           <div class="email-actions">
             <button class="action-icon-btn" onclick={() => startCompose('reply', email)} title="Reply">
