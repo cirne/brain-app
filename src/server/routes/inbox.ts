@@ -3,7 +3,7 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { extractDraftEdits } from '../lib/draftExtract.js'
 import { buildDraftEditFlags } from '../agent/tools.js'
-import { formatExecError } from '../lib/execError.js'
+import { syncInboxRipmail } from '../lib/syncAll.js'
 
 const inbox = new Hono()
 const execAsync = promisify(exec)
@@ -38,14 +38,9 @@ inbox.get('/', async (c) => {
 
 // POST /api/inbox/sync — trigger IMAP sync
 inbox.post('/sync', async (c) => {
-  try {
-    await execAsync(`${ripmail()} refresh`)
-    return c.json({ ok: true })
-  } catch (err) {
-    const detail = formatExecError(err)
-    console.error('[brain-app] POST /api/inbox/sync failed:', detail)
-    return c.json({ ok: false, error: detail }, 500)
-  }
+  const result = await syncInboxRipmail()
+  if (result.ok) return c.json({ ok: true })
+  return c.json({ ok: false, error: result.error ?? 'inbox sync failed' }, 500)
 })
 
 // GET /api/inbox/who — contact autocomplete

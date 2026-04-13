@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 import { repoDir, wikiDir } from '../lib/wikiDir.js'
 import { listWikiFiles } from '../lib/wikiFiles.js'
 import { readRecentWikiEdits } from '../lib/wikiEditHistory.js'
-import { formatExecError } from '../lib/execError.js'
+import { syncWikiFromDisk } from '../lib/syncAll.js'
 
 const execAsync = promisify(exec)
 
@@ -83,34 +83,9 @@ wiki.get('/git-status', async (c) => {
 
 // POST /api/wiki/sync — commit local changes, pull --rebase, push (UI “sync” saves wiki edits to git).
 wiki.post('/sync', async (c) => {
-  const dir = repoDir()
-  const git = (cmd: string) =>
-    execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`, {
-      timeout: 120000,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
-    })
-  try {
-    await git('add -A')
-    const { stdout: status } = await git('status --porcelain')
-    if (status.trim()) {
-      const date = new Date().toISOString().slice(0, 16).replace('T', ' ')
-      await git(`commit -m ${JSON.stringify(`auto-sync: ${date}`)}`)
-    }
-
-    await git('pull --rebase --autostash')
-
-    try {
-      await git('push')
-    } catch {
-      /* nothing to push or no upstream */
-    }
-
-    return c.json({ ok: true })
-  } catch (e) {
-    const detail = formatExecError(e)
-    console.error('[brain-app] POST /api/wiki/sync failed:', detail)
-    return c.json({ ok: false, error: detail }, 500)
-  }
+  const result = await syncWikiFromDisk()
+  if (result.ok) return c.json({ ok: true })
+  return c.json({ ok: false, error: result.error ?? 'wiki sync failed' }, 500)
 })
 
 // GET /api/wiki/log — parse last N entries from _log.md

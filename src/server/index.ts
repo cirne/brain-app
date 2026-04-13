@@ -1,20 +1,6 @@
 // Load .env in dev, overriding existing vars (important: parent shell may
 // set ANTHROPIC_API_KEY to empty, and loadEnvFile won't override it).
-import { readFileSync } from 'node:fs'
-try {
-  const envContent = readFileSync('.env', 'utf-8')
-  for (const line of envContent.split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const eqIdx = trimmed.indexOf('=')
-    if (eqIdx > 0) {
-      const key = trimmed.slice(0, eqIdx).trim()
-      const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '')
-      if (val) process.env[key] = val
-    }
-  }
-} catch { /* no .env file */ }
-
+import { loadDotEnv } from './lib/loadDotEnv.js'
 import { Hono } from 'hono'
 import { serve, getRequestListener } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
@@ -27,6 +13,10 @@ import inboxRoute from './routes/inbox.js'
 import calendarRoute from './routes/calendar.js'
 import searchRoute from './routes/search.js'
 import { logStartupDiagnostics } from './lib/startupDiagnostics.js'
+import { verifyLlmAtStartup } from './lib/llmStartupSmoke.js'
+import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
+
+loadDotEnv()
 
 const app = new Hono()
 const isDev = process.env.NODE_ENV !== 'production'
@@ -48,42 +38,97 @@ app.route('/api/inbox', inboxRoute)
 app.route('/api/calendar', calendarRoute)
 app.route('/api/search', searchRoute)
 
-async function start() {
-  await logStartupDiagnostics()
+let shuttingDown = false
+let syncTimer: ReturnType<typeof setInterval> | undefined
 
-  if (isDev) {
-    // In dev: Vite runs as middleware inside the same server.
-    // API requests go to Hono; everything else goes to Vite (HMR included).
-    const { createServer: createViteServer } = await import('vite')
-    const vite = await createViteServer({
-      configFile: 'vite.config.ts',
-      server: { middlewareMode: true },
-      appType: 'spa',
-    })
-
-    const honoHandler = getRequestListener(app.fetch)
-    const server = createServer((req, res) => {
-      if (req.url?.startsWith('/api/')) {
-        honoHandler(req, res)
-      } else {
-        vite.middlewares(req, res, () => {
-          res.statusCode = 404
-          res.end()
-        })
+function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) => void) => void }) {
+  const intervalMs = getSyncIntervalMs()
+  syncTimer = setInterval(() => {
+    if (shuttingDown) return
+    void (async () => {
+      try {
+        await runFullSync()
+      } catch (e) {
+        console.error('[brain-app] periodic sync error:', e)
       }
-    })
+    })()
+  }, intervalMs)
 
-    server.listen(port, () => {
-      console.log(`Dev server (Hono + Vite HMR) → http://localhost:${port}`)
+  const shutdown = async () => {
+    if (shuttingDown) return
+    shuttingDown = true
+    if (syncTimer !== undefined) {
+      clearInterval(syncTimer)
+      syncTimer = undefined
+    }
+    try {
+      await runFullSync()
+    } catch (e) {
+      console.error('[brain-app] shutdown sync error:', e)
+    }
+    server.close(() => {
+      process.exit(0)
     })
-  } else {
-    // In production: serve pre-built client from dist/client
-    app.use('*', serveStatic({ root: './dist/client' }))
-    app.get('*', serveStatic({ path: './dist/client/index.html' }))
-    serve({ fetch: app.fetch, port }, () => {
-      console.log(`Server running on http://localhost:${port}`)
-    })
+    setTimeout(() => process.exit(0), 30_000).unref()
+  }
+
+  process.on('SIGTERM', () => {
+    void shutdown()
+  })
+  process.on('SIGINT', () => {
+    void shutdown()
+  })
+}
+
+async function start() {
+  try {
+    await verifyLlmAtStartup()
+    await logStartupDiagnostics()
+
+    if (isDev) {
+      // In dev: Vite runs as middleware inside the same server.
+      // API requests go to Hono; everything else goes to Vite (HMR included).
+      const { createServer: createViteServer } = await import('vite')
+      const vite = await createViteServer({
+        configFile: 'vite.config.ts',
+        server: { middlewareMode: true },
+        appType: 'spa',
+      })
+
+      const honoHandler = getRequestListener(app.fetch)
+      const server = createServer((req, res) => {
+        if (req.url?.startsWith('/api/')) {
+          honoHandler(req, res)
+        } else {
+          vite.middlewares(req, res, () => {
+            res.statusCode = 404
+            res.end()
+          })
+        }
+      })
+
+      server.listen(port, () => {
+        console.log(`Dev server (Hono + Vite HMR) → http://localhost:${port}`)
+        registerPeriodicSyncAndShutdown(server)
+      })
+    } else {
+      // In production: serve pre-built client from dist/client
+      app.use('*', serveStatic({ root: './dist/client' }))
+      app.get('*', serveStatic({ path: './dist/client/index.html' }))
+      const server = serve({ fetch: app.fetch, port }, () => {
+        console.log(`Server running on http://localhost:${port}`)
+        registerPeriodicSyncAndShutdown(server)
+      })
+    }
+  } catch (e) {
+    console.error(e)
+    process.exitCode = 1
+    process.exit(1)
   }
 }
 
-start()
+void start().catch((e) => {
+  console.error(e)
+  process.exitCode = 1
+  process.exit(1)
+})

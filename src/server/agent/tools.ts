@@ -102,6 +102,48 @@ export function createAgentTools(wikiDir: string): any[] {
     },
   })
 
+  const listInbox = defineTool({
+    name: 'list_inbox',
+    label: 'List Inbox',
+    description:
+      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_email for "everything in my inbox" or when search_email returns no results. JSON includes messageId per item for archive_emails / read_email.',
+    parameters: Type.Object({}),
+    async execute(_toolCallId: string, _params: Record<string, never>) {
+      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const { stdout } = await execAsync(`${rm} inbox`, { timeout: 30000 })
+      const details = JSON.parse(stdout) as Record<string, unknown>
+      return {
+        content: [{ type: 'text' as const, text: stdout }],
+        details,
+      }
+    },
+  })
+
+  const archiveEmails = defineTool({
+    name: 'archive_emails',
+    label: 'Archive Emails',
+    description:
+      'Archive one or more messages by ID (removes them from the inbox view via IMAP). Use IDs from list_inbox, search_email, or read_email.',
+    parameters: Type.Object({
+      message_ids: Type.Array(Type.String({ description: 'Message ID' }), { minItems: 1 }),
+    }),
+    async execute(_toolCallId: string, params: { message_ids: string[] }) {
+      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      for (const id of params.message_ids) {
+        await execAsync(`${rm} archive ${JSON.stringify(id)}`, { timeout: 30000 })
+      }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Archived ${params.message_ids.length} message(s).`,
+          },
+        ],
+        details: { ok: true, archived: params.message_ids },
+      }
+    },
+  })
+
   const draftEmail = defineTool({
     name: 'draft_email',
     description: 'Create an email draft. action=new composes a fresh email (requires to); action=reply drafts a reply to an existing message (requires message_id); action=forward forwards an existing message (requires message_id and to). Returns the draft (id, to, subject, body) for review before sending.',
@@ -418,5 +460,5 @@ export function createAgentTools(wikiDir: string): any[] {
     },
   })
 
-  return [read, edit, write, grep, find, searchEmail, readEmail, draftEmail, editDraft, sendDraft, gitCommitPush, findPerson, wikiLog, getCalEvents, webSearch, fetchPage, getYoutubeTranscript, youtubeSearch]
+  return [read, edit, write, grep, find, searchEmail, readEmail, listInbox, archiveEmails, draftEmail, editDraft, sendDraft, gitCommitPush, findPerson, wikiLog, getCalEvents, webSearch, fetchPage, getYoutubeTranscript, youtubeSearch]
 }

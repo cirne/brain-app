@@ -116,6 +116,10 @@ Auth is skipped entirely in dev (`NODE_ENV !== 'production'`). In production, Ba
 | `WIKI_DIR` | `/wiki` | Path to wiki directory (brain repo root or wiki subdir) |
 | `WIKI_GIT_TOKEN` | — | Authenticated HTTPS clone URL for the wiki (see `start.sh`). If unset, public clone |
 | `RIPMAIL_BIN` | `ripmail` | Path to ripmail binary |
+| `RIPMAIL_HOME` | `~/.ripmail` | Ripmail config + SQLite (Dockerfile sets `/ripmail`) |
+| `RIPMAIL_EMAIL_ADDRESS` | — | Gmail for non-interactive `ripmail setup` in `start.sh` |
+| `RIPMAIL_IMAP_PASSWORD` | — | Gmail app password for setup |
+| `OPENAI_API_KEY` | — | Ripmail setup validation / optional ripmail LLM features |
 | `ANTHROPIC_API_KEY` | — | Required when `LLM_PROVIDER=anthropic` |
 | `LLM_PROVIDER` | `anthropic` | LLM provider (`anthropic`, `openai`, `google`, etc.) |
 | `LLM_MODEL` | `claude-sonnet-4-20250514` | Model ID for the selected provider |
@@ -127,7 +131,7 @@ Auth is skipped entirely in dev (`NODE_ENV !== 'production'`). In production, Ba
 
 ## Deployment
 
-The app runs as a Docker container. `start.sh` clones/pulls the brain wiki repo at container startup into `/wiki` (no wiki volume; use `WIKI_GIT_TOKEN` for authenticated clone/push). The ripmail SQLite index and `rules.json` live on a persistent volume mounted at `/ripmail` (`RIPMAIL_HOME`).
+The app runs as a Docker container. `start.sh` clones/pulls the brain wiki repo at container startup into `/wiki` (no wiki volume; use `WIKI_GIT_TOKEN` for authenticated clone/push). Ripmail config and SQLite live under `/ripmail` (`RIPMAIL_HOME`) inside the image unless you override paths; no default bind mount.
 
 Deployment platform is not yet decided — Fly.io (`fly.toml` exists as a starting point) and DigitalOcean App Platform are both viable options.
 
@@ -137,4 +141,4 @@ Deployment platform is not yet decided — Fly.io (`fly.toml` exists as a starti
 docker compose up --build
 ```
 
-Set `WIKI_GIT_TOKEN` (optional) and ripmail-related vars in `.env` (see `.env.example`). `docker compose` bind-mounts only host `~/.ripmail` → `/ripmail`; the wiki is cloned inside the container.
+Set `WIKI_GIT_TOKEN` (optional) and ripmail-related vars in `.env` (see `.env.example`). The wiki is cloned inside the container; ripmail uses `/ripmail` in the container without a host volume by default.

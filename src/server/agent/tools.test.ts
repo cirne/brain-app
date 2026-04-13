@@ -34,6 +34,8 @@ describe('createAgentTools', () => {
     expect(names).toContain('find')
     expect(names).toContain('search_email')
     expect(names).toContain('read_email')
+    expect(names).toContain('list_inbox')
+    expect(names).toContain('archive_emails')
     expect(names).toContain('git_commit_push')
     expect(names).toContain('find_person')
     expect(names).toContain('wiki_log')
@@ -372,6 +374,74 @@ describe('createAgentTools', () => {
       const tools = createAgentTools(wikiDir)
       const tool = tools.find((t: any) => t.name === 'wiki_log')!
       await expect(tool.execute('test-wl-2', { type: 'ingest', description: 'test' })).rejects.toThrow()
+    })
+  })
+
+  describe('list_inbox tool', () => {
+    let ripmailScript: string
+
+    beforeEach(async () => {
+      ripmailScript = join(wikiDir, 'fake-ripmail-inbox')
+      await writeFile(
+        ripmailScript,
+        `#!/bin/sh
+if [ "$1" = "inbox" ]; then
+  echo '{"mailboxes":[{"id":"mb1","items":[{"messageId":"mid-1","subject":"Hello","action":"inform"}]}]}'
+else
+  exit 1
+fi
+`
+      )
+      await chmod(ripmailScript, 0o755)
+      process.env.RIPMAIL_BIN = ripmailScript
+    })
+
+    afterEach(() => {
+      delete process.env.RIPMAIL_BIN
+    })
+
+    it('runs ripmail inbox and returns JSON in content and details', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'list_inbox')!
+      const result = await tool.execute('li-1', {})
+      expect(result.content[0].text).toContain('mid-1')
+      expect((result.details as { mailboxes?: { items?: { messageId: string }[] }[] }).mailboxes?.[0]?.items?.[0]?.messageId).toBe(
+        'mid-1'
+      )
+    })
+  })
+
+  describe('archive_emails tool', () => {
+    let ripmailScript: string
+
+    beforeEach(async () => {
+      ripmailScript = join(wikiDir, 'fake-ripmail-archive')
+      await writeFile(
+        ripmailScript,
+        `#!/bin/sh
+echo "$@" >> ${join(wikiDir, 'ripmail-archive.log')}
+`
+      )
+      await chmod(ripmailScript, 0o755)
+      process.env.RIPMAIL_BIN = ripmailScript
+    })
+
+    afterEach(() => {
+      delete process.env.RIPMAIL_BIN
+    })
+
+    it('runs ripmail archive for each message id', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'archive_emails')!
+      const result = await tool.execute('ae-1', { message_ids: ['msg-a', 'msg-b'] })
+      expect(result.content[0].text).toContain('Archived 2 message(s)')
+      const { readFile } = await import('node:fs/promises')
+      const log = await readFile(join(wikiDir, 'ripmail-archive.log'), 'utf8')
+      expect(log).toContain('archive')
+      expect(log).toContain('msg-a')
+      expect(log).toContain('msg-b')
     })
   })
 

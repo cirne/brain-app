@@ -26,7 +26,7 @@ RUN chmod +x start.sh
 
 RUN mkdir -p /wiki /ripmail
 
-# ripmail defaults to ~/.ripmail; in containers HOME is /root — mount host index at /ripmail and point here
+# ripmail stores config + SQLite under RIPMAIL_HOME (see start.sh for optional non-interactive setup)
 ENV RIPMAIL_HOME=/ripmail
 
 EXPOSE 4000

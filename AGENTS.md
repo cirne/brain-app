@@ -46,10 +46,15 @@ Auth is skipped in dev mode (`NODE_ENV !== 'production'`).
 | `WIKI_DIR` | `/wiki` | Path to wiki (brain repo root or wiki subdir) |
 | `WIKI_GIT_TOKEN` | — | Authenticated HTTPS git clone URL for the wiki (e.g. `https://x-access-token:PAT@github.com/org/repo.git`). If unset, clones public `cirne/brain` read-only |
 | `RIPMAIL_BIN` | `ripmail` | Path to ripmail binary |
+| `RIPMAIL_HOME` | `~/.ripmail` | Ripmail config + SQLite (Dockerfile sets `/ripmail`) |
+| `RIPMAIL_EMAIL_ADDRESS` | — | Gmail address for non-interactive `ripmail setup` in `start.sh` when no config |
+| `RIPMAIL_IMAP_PASSWORD` | — | Gmail app password for that setup |
+| `OPENAI_API_KEY` | — | Used by ripmail setup validation and optional ripmail LLM features |
 | `ANTHROPIC_API_KEY` | — | Required for agent |
 | `LLM_PROVIDER` | `anthropic` | LLM provider (anthropic, openai, google, etc.) |
 | `LLM_MODEL` | `claude-sonnet-4-20250514` | Model ID |
 | `PORT` | `3000` | HTTP port |
+| `SYNC_INTERVAL_SECONDS` | `300` | Seconds between in-process full syncs (wiki git + ripmail + calendar); invalid/unset uses default |
 
 Create a `.env` file locally (it is gitignored).
 
@@ -59,6 +64,7 @@ Create a `.env` file locally (it is gitignored).
 src/
   server/
     index.ts           # Hono entry point, auth, Vite middleware
+    sync-cli.ts        # `npm run sync` — full sync (wiki + inbox + calendar); used by start.sh
     routes/
       chat.ts          # POST /api/chat — SSE agent stream
       chat.test.ts     # Chat route tests
@@ -106,6 +112,8 @@ The agent has these tools (via pi-coding-agent + custom):
 - `find` — find files by name pattern (pi-coding-agent)
 - `search_email` — ripmail full-text search
 - `read_email` — read email thread by ID
+- `list_inbox` — inbox list via ripmail `inbox` (same as UI; use for bulk actions when search is wrong)
+- `archive_emails` — archive messages by ID (ripmail `archive`, batch)
 - `git_commit_push` — stage, commit, push wiki changes
 - `web_search` — Exa web search for current info (requires `EXA_API_KEY`)
 - `fetch_page`, `youtube_search`, `get_youtube_transcript` — URL article text and YouTube search/transcripts (requires `SUPADATA_API_KEY`)
@@ -131,4 +139,4 @@ fly deploy           # builds Docker image and deploys
 ```
 
 Wiki content is not baked into the image — `start.sh` clones/pulls at runtime.
-Ripmail SQLite index lives on the `brain_data` Fly.io volume at `/ripmail`.
+In Docker, ripmail state lives under `/ripmail` inside the container (see `start.sh` and Dockerfile `RIPMAIL_HOME`); no bind mount or Fly volume by default.

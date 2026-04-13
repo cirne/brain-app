@@ -1,35 +1,14 @@
 import { Hono } from 'hono'
-import { parseICS, writeCache, getCalendarEvents } from '../lib/calendarCache.js'
+import { getCalendarEvents } from '../lib/calendarCache.js'
+import { syncCalendarFromEnv } from '../lib/syncAll.js'
 
 const calendar = new Hono()
 
-async function fetchAndCache(source: 'travel' | 'personal', url: string): Promise<void> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${source} calendar`)
-  const text = await res.text()
-  const events = parseICS(text, source)
-  await writeCache(source, events)
-}
-
 // POST /api/calendar/sync — fetch ICS URLs and update local cache
 calendar.post('/sync', async (c) => {
-  const travelUrl = process.env.CIRNE_TRAVEL_ICS_URL
-  const personalUrl = process.env.LEW_PERSONAL_ICS_URL
-
-  const results = await Promise.allSettled([
-    travelUrl ? fetchAndCache('travel', travelUrl) : Promise.resolve(),
-    personalUrl ? fetchAndCache('personal', personalUrl) : Promise.resolve(),
-  ])
-
-  const errors = results
-    .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-    .map(r => String(r.reason?.message ?? r.reason))
-
-  if (errors.length > 0) {
-    return c.json({ ok: false, error: errors.join('; ') }, 500)
-  }
-
-  return c.json({ ok: true })
+  const result = await syncCalendarFromEnv()
+  if (result.ok) return c.json({ ok: true })
+  return c.json({ ok: false, error: result.error ?? 'calendar sync failed' }, 500)
 })
 
 // GET /api/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD — events in date range

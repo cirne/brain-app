@@ -10,7 +10,7 @@ export interface WikiEditRecord {
   source: 'agent'
 }
 
-/** Default: ./data/wiki-edits.jsonl under cwd. Override with WIKI_EDIT_HISTORY_PATH (e.g. on Fly: /ripmail/wiki-edits.jsonl). */
+/** Default: ./data/wiki-edits.jsonl under cwd. Override with WIKI_EDIT_HISTORY_PATH if needed. */
 export function wikiEditHistoryPath(): string {
   return process.env.WIKI_EDIT_HISTORY_PATH ?? join(process.cwd(), 'data', 'wiki-edits.jsonl')
 }

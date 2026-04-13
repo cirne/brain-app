@@ -52,7 +52,7 @@ export async function logStartupDiagnostics(): Promise<void> {
       log(`ripmail status (truncated): ${stdout.slice(0, 240)}`)
     }
   } catch (e) {
-    log(`ripmail status failed — check RIPMAIL_HOME and mounted ~/.ripmail data: ${String(e)}`)
+    log(`ripmail status failed — check RIPMAIL_HOME and ripmail config: ${String(e)}`)
   }
 
   log('startup diagnostics complete.')
