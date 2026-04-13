@@ -158,7 +158,6 @@
         <Wiki
           initialPath={wikiPanelPath ?? undefined}
           refreshKey={wikiRefreshKey}
-          onChatAbout={chatAboutFile}
           onNavigate={(path) => { if (path) wikiPanelPath = path }}
         />
       </aside>

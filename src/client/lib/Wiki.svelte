@@ -1,18 +1,14 @@
 <script lang="ts">
-  import { ArrowRight } from 'lucide-svelte'
-
   type WikiFile = { path: string; name: string }
   type GitStatus = { sha: string | null; date: string | null; dirty: number; changedFiles: string[]; ahead: number; behind: number }
 
   let {
     initialPath,
     refreshKey = 0,
-    onChatAbout,
     onNavigate,
   }: {
     initialPath?: string
     refreshKey?: number
-    onChatAbout?: (_path: string, _message: string) => void
     onNavigate?: (_path: string | undefined) => void
   } = $props()
 
@@ -21,12 +17,6 @@
   let content = $state<string>('')
   let meta = $state<Record<string, string>>({})
   let loading = $state(false)
-  let chatInput = $state('')
-  let chatInputEl = $state<HTMLInputElement | undefined>(undefined)
-  let showMentions = $state(false)
-  let mentionFilter = $state('')
-  let mentionStart = $state(-1)
-  let selectedMention = $state(0)
 
   // Header navigation search
   let headerSearch = $state('')
@@ -105,62 +95,6 @@
     openFile(path)
     showSearch = false
     headerSearch = ''
-  }
-
-  function filteredMentions(): string[] {
-    const paths = files.map(f => f.path)
-    if (!mentionFilter) return paths.slice(0, 10)
-    const q = mentionFilter.toLowerCase()
-    return paths.filter(p => p.toLowerCase().includes(q)).slice(0, 10)
-  }
-
-  function handleWikiChatInput(e: Event) {
-    const target = e.target as HTMLInputElement
-    chatInput = target.value
-    const pos = target.selectionStart ?? chatInput.length
-    const before = chatInput.slice(0, pos)
-    const atIndex = before.lastIndexOf('@')
-    if (atIndex >= 0 && (atIndex === 0 || before[atIndex - 1] === ' ')) {
-      const query = before.slice(atIndex + 1)
-      if (!query.includes(' ')) {
-        mentionStart = atIndex
-        mentionFilter = query
-        showMentions = true
-        selectedMention = 0
-        return
-      }
-    }
-    showMentions = false
-  }
-
-  function insertMention(path: string) {
-    const before = chatInput.slice(0, mentionStart)
-    const after = chatInput.slice(mentionStart + mentionFilter.length + 1)
-    chatInput = `${before}@${path} ${after}`
-    showMentions = false
-    chatInputEl?.focus()
-  }
-
-  function submitChatInput() {
-    const msg = chatInput.trim()
-    if (!msg || !selected || !onChatAbout) return
-    chatInput = ''
-    showMentions = false
-    onChatAbout(selected, msg)
-  }
-
-  function handleChatKeydown(e: KeyboardEvent) {
-    if (showMentions) {
-      const items = filteredMentions()
-      if (e.key === 'ArrowDown') { e.preventDefault(); selectedMention = Math.min(selectedMention + 1, items.length - 1); return }
-      if (e.key === 'ArrowUp') { e.preventDefault(); selectedMention = Math.max(selectedMention - 1, 0); return }
-      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); if (items[selectedMention]) insertMention(items[selectedMention]); return }
-      if (e.key === 'Escape') { showMentions = false; return }
-    }
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      submitChatInput()
-    }
   }
 
   function formatDate(dateStr: string): string {
@@ -273,33 +207,6 @@
         <p class="status">Select a page from the search above</p>
       {/if}
     </article>
-
-    {#if selected && onChatAbout}
-      <div class="wiki-chat-bar">
-        {#if showMentions}
-          <div class="mention-dropdown">
-            {#each filteredMentions() as file, i}
-              <button
-                class="mention-item"
-                class:selected={i === selectedMention}
-                onmousedown={(e) => { e.preventDefault(); insertMention(file) }}
-              >{file}</button>
-            {:else}
-              <div class="mention-empty">No matching files</div>
-            {/each}
-          </div>
-        {/if}
-        <input
-          bind:this={chatInputEl}
-          type="text"
-          placeholder="Ask or edit this page..."
-          bind:value={chatInput}
-          oninput={handleWikiChatInput}
-          onkeydown={handleChatKeydown}
-        />
-        <button onclick={submitChatInput} disabled={!chatInput.trim()}><ArrowRight size={16} /></button>
-      </div>
-    {/if}
   </div>
 </div>
 
@@ -418,65 +325,6 @@
   .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
   .viewer { flex: 1; overflow-y: auto; padding: 24px 32px; max-width: 800px; }
-
-  /* ── chat bar ────────────────────────────────────────────── */
-  .wiki-chat-bar {
-    position: relative;
-    display: flex;
-    gap: 8px;
-    padding: 10px 12px;
-    border-top: 1px solid var(--border);
-    background: var(--bg-2);
-    flex-shrink: 0;
-  }
-
-  .mention-dropdown {
-    position: absolute;
-    bottom: 100%;
-    left: 12px;
-    right: 12px;
-    max-height: 200px;
-    overflow-y: auto;
-    background: var(--bg-3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    margin-bottom: 4px;
-    box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
-  }
-
-  .mention-item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 6px 12px;
-    font-size: 13px;
-    color: var(--text);
-    font-family: monospace;
-  }
-  .mention-item:hover, .mention-item.selected { background: var(--accent-dim); color: var(--accent); }
-  .mention-empty { padding: 8px 12px; font-size: 12px; color: var(--text-2); }
-
-  .wiki-chat-bar input {
-    flex: 1;
-    padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg);
-    color: var(--text);
-    font: inherit;
-    font-size: 14px;
-  }
-  .wiki-chat-bar input:focus { outline: none; border-color: var(--accent); }
-
-  .wiki-chat-bar button {
-    padding: 8px 14px;
-    border-radius: 6px;
-    background: var(--accent);
-    color: white;
-    font-size: 14px;
-    flex-shrink: 0;
-  }
-  .wiki-chat-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .status { color: var(--text-2); font-size: 14px; }
 
