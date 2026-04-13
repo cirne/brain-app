@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Server",
+      "name": "Dev server",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
@@ -13,21 +13,6 @@
       "sourceMaps": true,
       "console": "integratedTerminal",
       "restart": true
-    },
-    {
-      "name": "Vite client",
-      "type": "node",
-      "request": "launch",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/vite",
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal"
-    }
-  ],
-  "compounds": [
-    {
-      "name": "Dev (server + client)",
-      "configurations": ["Server", "Vite client"],
-      "stopAll": true
     }
   ]
 }
