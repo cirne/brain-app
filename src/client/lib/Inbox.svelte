@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Archive } from 'lucide-svelte'
+  import { Archive, Reply, Forward } from 'lucide-svelte'
   import { navigate } from '../router.js'
 
   type Email = {
@@ -10,12 +10,26 @@
     read: boolean
   }
 
+  type Contact = {
+    firstname: string
+    lastname: string
+    primaryAddress: string
+  }
+
+  type Draft = {
+    id: string
+    to: string[]
+    cc: string[]
+    subject: string
+    body: string
+  }
+
   let {
     initialId,
     onNavigate,
   }: {
     initialId?: string
-    onNavigate?: (id: string | undefined) => void
+    onNavigate?: (_id: string | undefined) => void
   } = $props()
 
   let emails = $state<Email[]>([])
@@ -24,6 +38,39 @@
   let threadContent = $state<{ headers: string; body: string } | null>(null)
   let threadLoading = $state(false)
   let error = $state<string | null>(null)
+
+  // Compose state
+  let composeMode = $state<'reply' | 'forward' | null>(null)
+  let composeEmailId = $state<string | null>(null)
+  let composeInstruction = $state('')
+  let composeTo = $state('')
+  let composing = $state(false)
+  let composeError = $state<string | null>(null)
+
+  // Draft state
+  let currentDraft = $state<Draft | null>(null)
+  let draftRefine = $state('')
+  let draftEditing = $state(false)
+  let draftSending = $state(false)
+  let draftSent = $state(false)
+
+  // Contact autocomplete
+  let contacts = $state<Contact[]>([])
+  let contactsLoaded = $state(false)
+
+  let filteredContacts = $derived(
+    composeTo.length < 2
+      ? []
+      : contacts.filter(c => {
+          const q = composeTo.toLowerCase()
+          return (
+            `${c.firstname} ${c.lastname}`.toLowerCase().includes(q) ||
+            c.primaryAddress.toLowerCase().includes(q)
+          )
+        }).slice(0, 6)
+  )
+
+  let selectedEmail = $derived(emails.find(e => e.id === selectedThread) ?? null)
 
   async function load() {
     try {
@@ -54,7 +101,7 @@
   async function archive(id: string) {
     await fetch(`/api/inbox/${id}/archive`, { method: 'POST' })
     emails = emails.filter(e => e.id !== id)
-    if (selectedThread === id) { selectedThread = null; threadContent = '' }
+    if (selectedThread === id) { selectedThread = null; threadContent = null }
   }
 
   async function markRead(id: string) {
@@ -84,8 +131,108 @@
   function closeThread() {
     selectedThread = null
     threadContent = null
+    composeMode = null
+    currentDraft = null
+    draftSent = false
     navigate({ tab: 'inbox' })
     onNavigate?.(undefined)
+  }
+
+  async function loadContacts() {
+    if (contactsLoaded) return
+    try {
+      const res = await fetch('/api/inbox/who')
+      if (res.ok) contacts = await res.json()
+      contactsLoaded = true
+    } catch { /* ignore */ }
+  }
+
+  function startCompose(action: 'reply' | 'forward', email: Email) {
+    composeMode = action
+    composeEmailId = email.id
+    composeInstruction = ''
+    composeTo = ''
+    composeError = null
+    currentDraft = null
+    draftSent = false
+    if (action === 'forward') loadContacts()
+    if (selectedThread !== email.id) openThread(email)
+  }
+
+  function startComposeFromThread(action: 'reply' | 'forward') {
+    if (!selectedEmail) return
+    composeMode = action
+    composeEmailId = selectedEmail.id
+    composeInstruction = ''
+    composeTo = ''
+    composeError = null
+    currentDraft = null
+    draftSent = false
+    if (action === 'forward') loadContacts()
+  }
+
+  function cancelCompose() {
+    composeMode = null
+    composeEmailId = null
+    composeError = null
+  }
+
+  async function createDraft() {
+    if (!composeMode || !composeEmailId || !composeInstruction.trim()) return
+    if (composeMode === 'forward' && !composeTo.trim()) return
+    composing = true
+    composeError = null
+    try {
+      const url = `/api/inbox/${encodeURIComponent(composeEmailId)}/${composeMode}`
+      const body: Record<string, string> = { instruction: composeInstruction }
+      if (composeMode === 'forward') body.to = composeTo.trim()
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        composeError = data.error ?? 'Failed to create draft'
+      } else {
+        currentDraft = data
+        composeMode = null
+      }
+    } catch (err) {
+      composeError = String(err)
+    }
+    composing = false
+  }
+
+  async function refineDraft() {
+    if (!currentDraft || !draftRefine.trim()) return
+    draftEditing = true
+    try {
+      const res = await fetch(`/api/inbox/draft/${currentDraft.id}/edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction: draftRefine }),
+      })
+      if (res.ok) {
+        currentDraft = await res.json()
+        draftRefine = ''
+      }
+    } catch { /* ignore */ }
+    draftEditing = false
+  }
+
+  async function sendDraft() {
+    if (!currentDraft) return
+    draftSending = true
+    try {
+      const res = await fetch(`/api/inbox/draft/${currentDraft.id}/send`, { method: 'POST' })
+      if (res.ok) {
+        draftSent = true
+        currentDraft = null
+        await load()
+      }
+    } catch { /* ignore */ }
+    draftSending = false
   }
 
   $effect(() => {
@@ -115,19 +262,133 @@
     <div class="thread-view">
       <div class="thread-header">
         <button class="back-btn" onclick={closeThread}>Back</button>
-        <button class="archive-thread-btn" onclick={() => archive(selectedThread!)}>Archive</button>
+        <div class="thread-actions">
+          {#if !composeMode && !currentDraft}
+            <button class="action-btn" onclick={() => startComposeFromThread('reply')} title="Reply">
+              <Reply size={14} /> Reply
+            </button>
+            <button class="action-btn" onclick={() => startComposeFromThread('forward')} title="Forward">
+              <Forward size={14} /> Forward
+            </button>
+          {/if}
+          <button class="archive-thread-btn" onclick={() => archive(selectedThread!)}>
+            <Archive size={16} /> Archive
+          </button>
+        </div>
       </div>
-      <div class="thread-body">
-        {#if threadLoading}
-          <p class="loading">Loading...</p>
-        {:else if threadContent}
-          <pre class="thread-headers">{threadContent.headers}</pre>
-          <pre class="thread-body-text">{threadContent.body}</pre>
-        {:else}
-          <p class="loading">Failed to load message.</p>
-        {/if}
-      </div>
+
+      {#if composeMode}
+        <div class="compose-panel">
+          <div class="compose-label">{composeMode === 'reply' ? 'Reply' : 'Forward'}</div>
+
+          {#if composeMode === 'forward'}
+            <div class="compose-field">
+              <!-- svelte-ignore a11y_label_has_associated_control -->
+              <label class="field-label">To</label>
+              <div class="to-wrap">
+                <input
+                  class="to-input"
+                  type="text"
+                  bind:value={composeTo}
+                  placeholder="recipient@example.com"
+                  autocomplete="off"
+                />
+                {#if filteredContacts.length > 0}
+                  <ul class="contact-suggestions">
+                    {#each filteredContacts as contact}
+                      <li>
+                        <button
+                          class="contact-option"
+                          onmousedown={() => { composeTo = contact.primaryAddress }}
+                        >
+                          <span class="contact-name">{contact.firstname} {contact.lastname}</span>
+                          <span class="contact-addr">{contact.primaryAddress}</span>
+                        </button>
+                      </li>
+                    {/each}
+                  </ul>
+                {/if}
+              </div>
+            </div>
+          {/if}
+
+          <textarea
+            class="compose-textarea"
+            bind:value={composeInstruction}
+            placeholder={composeMode === 'reply'
+              ? 'Brief instructions for the reply...'
+              : 'Brief instructions for the forward...'}
+            onkeydown={(e) => { if (e.key === 'Enter' && e.metaKey) createDraft() }}
+          ></textarea>
+
+          {#if composeError}
+            <p class="compose-error">{composeError}</p>
+          {/if}
+
+          <div class="compose-footer">
+            <button class="cancel-btn" onclick={cancelCompose}>Cancel</button>
+            <button
+              class="draft-btn"
+              onclick={createDraft}
+              disabled={composing || !composeInstruction.trim() || (composeMode === 'forward' && !composeTo.trim())}
+            >
+              {composing ? 'Drafting...' : 'Draft'}
+            </button>
+          </div>
+        </div>
+
+      {:else if currentDraft}
+        <div class="draft-panel">
+          {#if draftSent}
+            <p class="sent-msg">Sent!</p>
+          {:else}
+            <div class="draft-meta">
+              <div class="draft-meta-row">
+                <span class="meta-label">To</span>
+                <span>{currentDraft.to?.join(', ')}</span>
+              </div>
+              <div class="draft-meta-row">
+                <span class="meta-label">Subject</span>
+                <span>{currentDraft.subject}</span>
+              </div>
+            </div>
+            <pre class="draft-body">{currentDraft.body}</pre>
+            <div class="refine-area">
+              <textarea
+                class="refine-textarea"
+                bind:value={draftRefine}
+                placeholder="Refine instructions... (⌘↵ to apply)"
+                onkeydown={(e) => { if (e.key === 'Enter' && e.metaKey) refineDraft() }}
+              ></textarea>
+              <button
+                class="refine-btn"
+                onclick={refineDraft}
+                disabled={draftEditing || !draftRefine.trim()}
+              >{draftEditing ? '...' : 'Apply'}</button>
+            </div>
+            <div class="draft-footer">
+              <button class="discard-btn" onclick={() => { currentDraft = null; draftSent = false }}>Discard</button>
+              <button class="send-btn" onclick={sendDraft} disabled={draftSending}>
+                {draftSending ? 'Sending...' : 'Send'}
+              </button>
+            </div>
+          {/if}
+        </div>
+
+      {:else}
+        <div class="thread-body">
+          {#if threadLoading}
+            <p class="loading">Loading...</p>
+          {:else if threadContent}
+            <pre class="thread-headers">{threadContent.headers}</pre>
+            <pre class="thread-body-text">{threadContent.body}</pre>
+          {:else}
+            <p class="loading">Failed to load message.</p>
+          {/if}
+        </div>
+      {/if}
     </div>
+
   {:else}
     <ul class="email-list">
       {#each emails as email (email.id)}
@@ -137,7 +398,17 @@
             <span class="subject">{email.subject}</span>
             <span class="date">{email.date}</span>
           </button>
-          <button class="archive-btn" onclick={() => archive(email.id)} title="Archive"><Archive size={16} /></button>
+          <div class="email-actions">
+            <button class="action-icon-btn" onclick={() => startCompose('reply', email)} title="Reply">
+              <Reply size={14} />
+            </button>
+            <button class="action-icon-btn" onclick={() => startCompose('forward', email)} title="Forward">
+              <Forward size={14} />
+            </button>
+            <button class="archive-btn" onclick={() => archive(email.id)} title="Archive">
+              <Archive size={16} />
+            </button>
+          </div>
         </li>
       {:else}
         <li class="empty">
@@ -170,6 +441,7 @@
   }
   .sync-btn:disabled { opacity: 0.5; }
 
+  /* Email list */
   .email-list { list-style: none; overflow-y: auto; flex: 1; }
 
   .email-item { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
@@ -188,21 +460,37 @@
   }
   .date { font-size: 12px; color: var(--text-2); white-space: nowrap; }
 
-  .archive-btn { padding: 12px 16px; color: var(--text-2); font-size: 18px; flex-shrink: 0; }
+  .email-actions { display: flex; align-items: center; flex-shrink: 0; }
+  .action-icon-btn { padding: 12px 8px; color: var(--text-2); }
+  .action-icon-btn:hover { color: var(--text); }
+  .archive-btn { padding: 12px 16px 12px 8px; color: var(--text-2); }
   .archive-btn:hover { color: var(--danger); }
 
   .empty { padding: 32px; text-align: center; color: var(--text-2); font-size: 14px; }
 
+  /* Thread view */
   .thread-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
   .thread-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg-2);
+    flex-shrink: 0;
   }
   .back-btn { font-size: 13px; color: var(--accent); }
-  .archive-thread-btn {
-    font-size: 12px; color: var(--danger);
-    padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px;
+
+  .thread-actions { display: flex; align-items: center; gap: 6px; }
+  .action-btn {
+    font-size: 13px; color: var(--text-2);
+    padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
+    display: flex; align-items: center; gap: 5px;
   }
+  .action-btn:hover { color: var(--text); border-color: var(--text-2); }
+  .archive-thread-btn {
+    font-size: 13px; color: var(--text-2);
+    padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .archive-thread-btn:hover { color: var(--danger); }
+
   .thread-body { flex: 1; overflow-y: auto; padding: 16px; }
   .loading { color: var(--text-2); font-size: 14px; }
   .thread-headers {
@@ -211,8 +499,108 @@
   }
   .thread-body-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 
+  /* Compose panel */
+  .compose-panel {
+    flex: 1; display: flex; flex-direction: column; gap: 12px;
+    padding: 16px; overflow-y: auto;
+  }
+  .compose-label { font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .compose-field { display: flex; flex-direction: column; gap: 4px; }
+  .field-label { font-size: 12px; color: var(--text-2); }
+  .to-wrap { position: relative; }
+  .to-input {
+    width: 100%; padding: 8px 10px; font-size: 13px;
+    background: var(--bg-3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);
+  }
+  .to-input:focus { outline: none; border-color: var(--accent); }
+
+  .contact-suggestions {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 10;
+    background: var(--bg-2); border: 1px solid var(--border); border-top: none;
+    border-radius: 0 0 4px 4px; list-style: none; max-height: 200px; overflow-y: auto;
+  }
+  .contact-option {
+    width: 100%; padding: 8px 10px; text-align: left;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .contact-option:hover { background: var(--bg-3); }
+  .contact-name { font-size: 13px; color: var(--text); white-space: nowrap; }
+  .contact-addr { font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .compose-textarea {
+    flex: 1; min-height: 100px; padding: 10px; font-size: 13px; line-height: 1.5;
+    background: var(--bg-3); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); resize: vertical; font-family: inherit;
+  }
+  .compose-textarea:focus { outline: none; border-color: var(--accent); }
+
+  .compose-error { font-size: 12px; color: var(--danger); }
+
+  .compose-footer { display: flex; justify-content: flex-end; gap: 8px; }
+  .cancel-btn { font-size: 13px; color: var(--text-2); padding: 6px 12px; }
+  .cancel-btn:hover { color: var(--text); }
+  .draft-btn {
+    font-size: 13px; color: var(--accent);
+    padding: 6px 14px; border: 1px solid var(--accent-dim); border-radius: 4px;
+  }
+  .draft-btn:disabled { opacity: 0.5; cursor: default; }
+
+  /* Draft panel */
+  .draft-panel {
+    flex: 1; display: flex; flex-direction: column; gap: 0;
+    overflow: hidden;
+  }
+  .draft-meta {
+    padding: 12px 16px; background: var(--bg-2);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .draft-meta-row { display: flex; gap: 8px; font-size: 12px; }
+  .meta-label { color: var(--text-2); min-width: 50px; }
+  .draft-body {
+    flex: 1; overflow-y: auto; padding: 16px;
+    font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+    margin: 0;
+  }
+
+  .refine-area {
+    display: flex; gap: 8px; align-items: flex-start;
+    padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg-2);
+    flex-shrink: 0;
+  }
+  .refine-textarea {
+    flex: 1; padding: 8px 10px; font-size: 13px; line-height: 1.4;
+    background: var(--bg-3); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); resize: none; font-family: inherit; min-height: 60px;
+  }
+  .refine-textarea:focus { outline: none; border-color: var(--accent); }
+  .refine-btn {
+    font-size: 13px; color: var(--accent); padding: 6px 10px;
+    border: 1px solid var(--accent-dim); border-radius: 4px; white-space: nowrap;
+    align-self: flex-end;
+  }
+  .refine-btn:disabled { opacity: 0.5; }
+
+  .draft-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0;
+  }
+  .discard-btn { font-size: 13px; color: var(--text-2); }
+  .discard-btn:hover { color: var(--danger); }
+  .send-btn {
+    font-size: 13px; color: var(--bg); background: var(--accent);
+    padding: 7px 20px; border-radius: 4px; font-weight: 600;
+  }
+  .send-btn:disabled { opacity: 0.5; }
+
+  .sent-msg { padding: 32px; text-align: center; color: var(--success); font-size: 14px; }
+
   @media (max-width: 768px) {
     .email-body { grid-template-columns: 1fr; gap: 2px; }
     .date { display: none; }
+    .action-icon-btn { padding: 10px 6px; }
+    .thread-actions { gap: 4px; }
+    .action-btn, .archive-thread-btn { font-size: 12px; padding: 3px 7px; }
   }
 </style>

@@ -1,5 +1,5 @@
 export type Route =
-  | { tab: 'chat'; file?: string }
+  | { tab: 'chat'; file?: string; message?: string }
   | { tab: 'wiki'; path?: string }
   | { tab: 'inbox'; id?: string }
 

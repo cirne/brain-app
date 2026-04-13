@@ -14,6 +14,10 @@ beforeEach(async () => {
   await mkdir(join(wikiDir, 'ideas'))
   await writeFile(join(wikiDir, 'index.md'), '# Home\nWelcome.')
   await writeFile(join(wikiDir, 'ideas', 'foo.md'), '# Foo\nSome idea about searching.')
+  await writeFile(
+    join(wikiDir, 'note.md'),
+    '---\nupdated: 2026-04-01\ntags: alpha, beta\n---\n# Note\nBody text.'
+  )
 
   // Point the wiki route at the temp dir
   process.env.WIKI_DIR = wikiDir
@@ -51,6 +55,22 @@ describe('GET /api/wiki/:path', () => {
     const body = await res.json()
     expect(body.raw).toContain('# Home')
     expect(body.html).toContain('<h1>')
+  })
+
+  it('parses frontmatter and returns meta separately from body', async () => {
+    const res = await app.request('/api/wiki/note.md')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.meta).toEqual({ updated: '2026-04-01', tags: 'alpha, beta' })
+    expect(body.html).toContain('<h1>')
+    expect(body.html).not.toContain('---')
+  })
+
+  it('returns empty meta for pages without frontmatter', async () => {
+    const res = await app.request('/api/wiki/index.md')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.meta).toEqual({})
   })
 
   it('returns 404 for missing file', async () => {

@@ -19,8 +19,8 @@
     route = next
   }
 
-  function chatAboutFile(path: string) {
-    const next: Route = { tab: 'chat', file: path }
+  function chatAboutFile(path: string, message?: string) {
+    const next: Route = { tab: 'chat', file: path, message }
     navigate(next)
     route = next
   }
@@ -43,7 +43,7 @@
 
   <main class="surface">
     {#if route.tab === 'chat'}
-      <Chat contextFiles={route.file ? [route.file] : []} onSwitchToWiki={chatAboutFile} />
+      <Chat contextFiles={route.file ? [route.file] : []} initialMessage={route.message} onSwitchToWiki={chatAboutFile} />
     {:else if route.tab === 'wiki'}
       <Wiki
         initialPath={route.path}

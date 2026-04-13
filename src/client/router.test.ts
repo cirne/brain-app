@@ -65,6 +65,12 @@ describe('routeToUrl', () => {
     )
   })
 
+  it('chat with message omits message from url (transient)', () => {
+    expect(routeToUrl({ tab: 'chat', file: 'ideas/foo.md', message: 'edit this' })).toBe(
+      '/chat?file=ideas%2Ffoo.md'
+    )
+  })
+
   it('wiki without path', () => {
     expect(routeToUrl({ tab: 'wiki' })).toBe('/wiki')
   })

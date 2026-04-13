@@ -68,12 +68,29 @@ wiki.get('/:path{.+}', async (c) => {
 
   try {
     const raw = await readFile(fullPath, 'utf-8')
-    const html = await marked(raw)
-    return c.json({ path: filePath, raw, html })
+    const { meta, body } = parseFrontmatter(raw)
+    const html = await marked(body)
+    return c.json({ path: filePath, raw, html, meta })
   } catch {
     return c.json({ error: 'Not found' }, 404)
   }
 })
+
+function parseFrontmatter(raw: string): { meta: Record<string, string>; body: string } {
+  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)/)
+  if (!match) return { meta: {}, body: raw }
+
+  const meta: Record<string, string> = {}
+  for (const line of match[1].split('\n')) {
+    const colonIdx = line.indexOf(':')
+    if (colonIdx < 0) continue
+    const key = line.slice(0, colonIdx).trim()
+    const value = line.slice(colonIdx + 1).trim()
+    if (key) meta[key] = value
+  }
+
+  return { meta, body: match[2] }
+}
 
 async function collectMarkdownFiles(dir: string): Promise<{ path: string; name: string }[]> {
   const results: { path: string; name: string }[] = []

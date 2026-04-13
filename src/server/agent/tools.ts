@@ -67,6 +67,7 @@ export function createAgentTools(wikiDir: string) {
       message: Type.String({ description: 'Commit message' }),
     }),
     async execute(_toolCallId: string, params: { message: string }) {
+      await execAsync(`git -C ${JSON.stringify(wikiDir)} pull --rebase`)
       await execAsync(`git -C ${JSON.stringify(wikiDir)} add -A`)
       await execAsync(`git -C ${JSON.stringify(wikiDir)} commit -m ${JSON.stringify(params.message)}`)
       await execAsync(`git -C ${JSON.stringify(wikiDir)} push`)

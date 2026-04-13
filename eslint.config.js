@@ -29,6 +29,7 @@ export default [
     plugins: { svelte: sveltePlugin },
     rules: {
       ...sveltePlugin.configs.recommended.rules,
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
   {

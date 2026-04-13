@@ -1,5 +1,6 @@
 <script lang="ts">
   import { marked } from 'marked'
+  import { onMount } from 'svelte'
 
   type ToolCall = {
     id: string
@@ -20,10 +21,12 @@
   // Props for file-grounded chat
   let {
     contextFiles = [],
+    initialMessage,
     onSwitchToWiki,
   }: {
     contextFiles?: string[]
-    onSwitchToWiki?: (path: string) => void
+    initialMessage?: string
+    onSwitchToWiki?: (_path: string) => void
   } = $props()
 
   let messages = $state<ChatMessage[]>([])
@@ -42,6 +45,13 @@
 
   $effect(() => {
     fetchWikiFiles()
+  })
+
+  onMount(() => {
+    if (initialMessage) {
+      input = initialMessage
+      send()
+    }
   })
 
   async function fetchWikiFiles() {
@@ -268,7 +278,7 @@
   <header class="chat-header">
     <span class="title">
       {#if contextFiles.length}
-        Chatting about {contextFiles[0]}
+        Chatting about <button class="context-link" onclick={() => onSwitchToWiki?.(contextFiles[0])}>{contextFiles[0]}</button>
       {:else}
         Chat
       {/if}
@@ -382,6 +392,15 @@
     font-size: 13px;
     font-weight: 500;
     color: var(--text-2);
+  }
+
+  .context-link {
+    color: var(--accent);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: underline;
+    cursor: pointer;
   }
 
   .new-chat-btn {
