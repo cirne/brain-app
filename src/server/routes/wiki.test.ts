@@ -188,7 +188,12 @@ describe('GET /api/wiki/log', () => {
     expect(await res.json()).toEqual({ entries: [] })
   })
 
-  it('parses entries and extracts file mentions', async () => {
+  it('parses entries and extracts file mentions (only existing files)', async () => {
+    await mkdir(join(wikiDir, 'people'))
+    await writeFile(join(wikiDir, 'ideas', 'brain-app.md'), '# Brain App')
+    await writeFile(join(wikiDir, 'people', 'alice.md'), '# Alice')
+    await writeFile(join(wikiDir, 'people', 'bob.md'), '# Bob')
+    await writeFile(join(wikiDir, '_index.md'), '# Index')
     await writeFile(join(wikiDir, '_log.md'), [
       '---',
       'updated: 2026-04-13',
@@ -200,6 +205,7 @@ describe('GET /api/wiki/log', () => {
       '',
       '- Updated `ideas/brain-app.md`',
       '- Added `people/alice.md` and `people/bob`',
+      '- Also mentioned `people/ghost.md` which was deleted',
       '',
       '## [2026-04-12] lint | Cleanup',
       '',
@@ -215,11 +221,14 @@ describe('GET /api/wiki/log', () => {
     expect(entries[0].files).toContain('ideas/brain-app.md')
     expect(entries[0].files).toContain('people/alice.md')
     expect(entries[0].files).toContain('people/bob.md') // normalized: .md added
+    expect(entries[0].files).not.toContain('people/ghost.md') // deleted — filtered out
     expect(entries[1]).toMatchObject({ date: '2026-04-12', type: 'lint' })
     expect(entries[1].files).toContain('_index.md')
   })
 
   it('skips bare directory paths (ending with /)', async () => {
+    await mkdir(join(wikiDir, 'people'))
+    await writeFile(join(wikiDir, 'people', 'alice.md'), '# Alice')
     await writeFile(join(wikiDir, '_log.md'), [
       '## [2026-04-13] query | Test',
       '',
@@ -235,6 +244,8 @@ describe('GET /api/wiki/log', () => {
   })
 
   it('strips wiki/ prefix from file paths in log entries', async () => {
+    await writeFile(join(wikiDir, 'ideas', 'brain-in-the-cloud.md'), '# BITC')
+    await writeFile(join(wikiDir, 'ideas', 'other.md'), '# Other')
     await writeFile(join(wikiDir, '_log.md'), [
       '## [2026-04-13] query | Test',
       '',

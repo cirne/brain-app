@@ -107,9 +107,14 @@ wiki.post('/sync', async (c) => {
 // GET /api/wiki/log — parse last N entries from _log.md
 wiki.get('/log', async (c) => {
   const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10), 50)
-  const logPath = join(wikiDir(), '_log.md')
+  const dir = wikiDir()
+  const logPath = join(dir, '_log.md')
   try {
-    const raw = await readFile(logPath, 'utf-8')
+    const [raw, allFiles] = await Promise.all([
+      readFile(logPath, 'utf-8'),
+      listWikiFiles(dir),
+    ])
+    const existingFiles = new Set(allFiles)
     const entries: { date: string; type: string; description: string; files: string[] }[] = []
 
     // Split on ## section headers so we can parse each entry's body too
@@ -132,7 +137,10 @@ wiki.get('/log', async (c) => {
         // Strip leading wiki/ prefix that some log entries include
         if (p.startsWith('wiki/')) p = p.slice(5)
         const normalized = p.endsWith('.md') ? p : p + '.md'
-        if (!seen.has(normalized)) { seen.add(normalized); files.push(normalized) }
+        if (!seen.has(normalized) && existingFiles.has(normalized)) {
+          seen.add(normalized)
+          files.push(normalized)
+        }
       }
 
       entries.push({ date, type, description: description.trim(), files })
