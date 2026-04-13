@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -38,6 +38,148 @@ describe('createAgentTools', () => {
     expect(names).toContain('wiki_log')
     expect(names).toContain('get_calendar_events')
     expect(names).toContain('web_search')
+    expect(names).toContain('fetch_page')
+    expect(names).toContain('get_youtube_transcript')
+    expect(names).toContain('youtube_search')
+  })
+
+  describe('fetch_page tool', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      delete process.env.SUPADATA_API_KEY
+    })
+
+    it('throws when SUPADATA_API_KEY is not set', async () => {
+      delete process.env.SUPADATA_API_KEY
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'fetch_page')!
+      await expect(tool.execute('fp-1', { url: 'https://example.com' })).rejects.toThrow('SUPADATA_API_KEY')
+    })
+
+    it('returns page content as markdown', async () => {
+      process.env.SUPADATA_API_KEY = 'test-key'
+      vi.stubGlobal('fetch', async () => ({
+        ok: true,
+        json: async () => ({ content: '## Hello\nWorld', name: 'Example Page' }),
+      }))
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'fetch_page')!
+      const result = await tool.execute('fp-2', { url: 'https://example.com' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toContain('Example Page')
+      expect(text).toContain('## Hello')
+    })
+
+    it('throws on non-ok HTTP response', async () => {
+      process.env.SUPADATA_API_KEY = 'test-key'
+      vi.stubGlobal('fetch', async () => ({
+        ok: false,
+        status: 429,
+        text: async () => 'rate limited',
+      }))
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'fetch_page')!
+      await expect(tool.execute('fp-3', { url: 'https://example.com' })).rejects.toThrow('429')
+    })
+  })
+
+  describe('get_youtube_transcript tool', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      delete process.env.SUPADATA_API_KEY
+    })
+
+    it('throws when SUPADATA_API_KEY is not set', async () => {
+      delete process.env.SUPADATA_API_KEY
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'get_youtube_transcript')!
+      await expect(tool.execute('yt-1', { url: 'https://youtube.com/watch?v=abc' })).rejects.toThrow('SUPADATA_API_KEY')
+    })
+
+    it('joins transcript segments into plain text', async () => {
+      process.env.SUPADATA_API_KEY = 'test-key'
+      vi.stubGlobal('fetch', async () => ({
+        ok: true,
+        json: async () => ({
+          content: [{ text: 'Hello' }, { text: 'world' }],
+          lang: 'en',
+        }),
+      }))
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'get_youtube_transcript')!
+      const result = await tool.execute('yt-2', { url: 'https://youtube.com/watch?v=abc' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toBe('Hello world')
+    })
+
+    it('handles string content response', async () => {
+      process.env.SUPADATA_API_KEY = 'test-key'
+      vi.stubGlobal('fetch', async () => ({
+        ok: true,
+        json: async () => ({ content: 'Full transcript text', lang: 'en' }),
+      }))
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'get_youtube_transcript')!
+      const result = await tool.execute('yt-3', { url: 'https://youtube.com/watch?v=abc' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toBe('Full transcript text')
+    })
+  })
+
+  describe('youtube_search tool', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      delete process.env.SUPADATA_API_KEY
+    })
+
+    it('throws when SUPADATA_API_KEY is not set', async () => {
+      delete process.env.SUPADATA_API_KEY
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'youtube_search')!
+      await expect(tool.execute('ys-1', { query: 'svelte tutorial' })).rejects.toThrow('SUPADATA_API_KEY')
+    })
+
+    it('formats results as markdown links', async () => {
+      process.env.SUPADATA_API_KEY = 'test-key'
+      vi.stubGlobal('fetch', async () => ({
+        ok: true,
+        json: async () => ({
+          items: [
+            { videoId: 'abc123', title: 'Svelte Tutorial', channelTitle: 'Fireship' },
+            { videoId: 'def456', title: 'Svelte 5 Runes', channelTitle: 'Kevin Powell' },
+          ],
+        }),
+      }))
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'youtube_search')!
+      const result = await tool.execute('ys-2', { query: 'svelte' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toContain('Svelte Tutorial')
+      expect(text).toContain('youtube.com/watch?v=abc123')
+      expect(text).toContain('Fireship')
+    })
+
+    it('returns no-results message for empty response', async () => {
+      process.env.SUPADATA_API_KEY = 'test-key'
+      vi.stubGlobal('fetch', async () => ({
+        ok: true,
+        json: async () => ({ items: [] }),
+      }))
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'youtube_search')!
+      const result = await tool.execute('ys-3', { query: 'nothing' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toBe('No results found.')
+    })
   })
 
   it('web_search tool throws when EXA_API_KEY is not set', async () => {
