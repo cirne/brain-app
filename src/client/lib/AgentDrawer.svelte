@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import { type SurfaceContext } from '../router.js'
   import { buildChatBody, extractMentionedFiles, type ChatMessage, type ToolPart } from './agentUtils.js'
   import { contextPlaceholder } from './agentUtils.js'
@@ -39,10 +40,26 @@
   let inputEl: ReturnType<typeof AgentInput> | undefined
   let abortController: AbortController | null = null
 
+  async function focusAgentTextarea(delayMs: number) {
+    await tick()
+    if (delayMs > 0) {
+      await new Promise<void>((r) => setTimeout(r, delayMs))
+    }
+    inputEl?.focus()
+  }
+
   $effect(() => {
-    if (open) {
-      // Wait for the drawer transition to reveal the input
-      setTimeout(() => inputEl?.focus(), 300)
+    if (!open) return
+    const state = { cancelled: false, timer: undefined as ReturnType<typeof setTimeout> | undefined }
+    void tick().then(() => {
+      if (state.cancelled) return
+      state.timer = setTimeout(() => {
+        if (!state.cancelled) inputEl?.focus()
+      }, 300)
+    })
+    return () => {
+      state.cancelled = true
+      if (state.timer !== undefined) clearTimeout(state.timer)
     }
   })
 
@@ -62,9 +79,10 @@
     } catch { /* ignore */ }
   }
 
-  function newChat() {
+  export function newChat() {
     messages = []
     sessionId = null
+    void focusAgentTextarea(0)
   }
 
   function stopChat() {
@@ -199,7 +217,7 @@
       {/if}
     </div>
     {#if messages.length > 0}
-      <button class="new-btn" onclick={(e) => { e.stopPropagation(); newChat() }} title="New conversation">New</button>
+      <button class="new-btn" onclick={(e) => { e.stopPropagation(); newChat() }} title="New conversation (⌘N)">New</button>
     {/if}
   </div>
 

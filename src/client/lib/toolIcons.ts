@@ -16,7 +16,8 @@ import {
 } from 'lucide-svelte'
 import type { Component } from 'svelte'
 
-const TOOL_ICONS: Record<string, Component> = {
+/* Lucide icon components are structurally compatible; Svelte 5 `Component` is stricter than lucide-svelte exports. */
+const TOOL_ICONS = {
   read: FileText,
   edit: Pencil,
   write: FilePlus,
@@ -35,7 +36,7 @@ const TOOL_ICONS: Record<string, Component> = {
   fetch_page: Globe,
   get_youtube_transcript: Play,
   youtube_search: Play,
-}
+} as unknown as Record<string, Component>
 
 export function getToolIcon(toolName: string): Component | null {
   return TOOL_ICONS[toolName] ?? null

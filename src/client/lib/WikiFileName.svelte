@@ -36,14 +36,14 @@
   })
 </script>
 
-<span class="wfn" class:wfn--unsaved={unsaved}>
+<span class="wfn-title-row" class:wfn-title-row--unsaved={unsaved}>
   {#if isSpecial}
-    <span class="wfn-icon wfn-icon--special">
+    <span class="wfn-lead-icon wfn-lead-icon--special">
       <SpecialFileIcon size={12} />
     </span>
   {:else if folder}
     {#if IconComponent}
-      <span class="wfn-icon" title={folder}>
+      <span class="wfn-lead-icon" title={folder}>
         <IconComponent size={12} />
       </span>
     {:else}
@@ -53,23 +53,7 @@
 </span>
 
 <style>
-  .wfn {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .wfn-icon {
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-    width: 14px;
-    color: var(--text-2);
-    opacity: 0.55;
-    cursor: default;
-  }
+  @import './wfnLeadIcon.css';
 
   .wfn-folder {
     font-size: 0.9em;
@@ -89,8 +73,5 @@
     flex-shrink: 0;
   }
 
-  .wfn-icon--special {
-    opacity: 0.35;
-  }
 
 </style>

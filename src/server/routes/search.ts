@@ -1,14 +1,16 @@
 import { Hono } from 'hono'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { relative, basename } from 'node:path'
+import { join, relative, basename } from 'node:path'
+import { readFile } from 'node:fs/promises'
 import { wikiDir } from '../lib/wikiDir.js'
+import { buildWikiExcerpt } from '../lib/wikiSearchExcerpt.js'
 
 const execAsync = promisify(exec)
 const search = new Hono()
 const ripmail = () => process.env.RIPMAIL_BIN ?? 'ripmail'
 
-type WikiResult = { type: 'wiki'; path: string; score: number }
+type WikiResult = { type: 'wiki'; path: string; score: number; excerpt: string }
 type EmailResult = { type: 'email'; id: string; from: string; subject: string; date: string; snippet: string; score: number }
 export type SearchResult = WikiResult | EmailResult
 
@@ -22,8 +24,8 @@ search.get('/', async (c) => {
   const [wikiResult, emailResult] = await Promise.allSettled([
     execAsync(
       `grep -r --include="*.md" --exclude="_log.md" -ic ${JSON.stringify(q)} ${JSON.stringify(dir)} 2>/dev/null || true`
-    ).then(({ stdout }): WikiResult[] =>
-      stdout.trim().split('\n')
+    ).then(async ({ stdout }): Promise<WikiResult[]> => {
+      const candidates = stdout.trim().split('\n')
         .filter(Boolean)
         .map(line => {
           const colon = line.lastIndexOf(':')
@@ -32,17 +34,27 @@ search.get('/', async (c) => {
           const path = relative(dir, abs)
           const title = basename(path, '.md').replace(/[-_]/g, ' ').toLowerCase()
           const titleMatch = title.includes(qLower)
-          return { type: 'wiki' as const, path, score: count, titleMatch }
+          return { path, score: count, titleMatch }
         })
         .filter(r => r.score > 0 || r.titleMatch)
         .sort((a, b) => {
-          // Title matches always beat non-title matches
           if (a.titleMatch !== b.titleMatch) return a.titleMatch ? -1 : 1
           return b.score - a.score
         })
         .slice(0, 10)
-        .map(({ titleMatch: _tm, ...r }) => r)
-    ),
+
+      return Promise.all(
+        candidates.map(async ({ path, score }) => {
+          try {
+            const raw = await readFile(join(dir, path), 'utf-8')
+            const excerpt = buildWikiExcerpt(raw, q)
+            return { type: 'wiki' as const, path, score, excerpt }
+          } catch {
+            return { type: 'wiki' as const, path, score, excerpt: '' }
+          }
+        })
+      )
+    }),
     execAsync(
       `${ripmail()} search ${JSON.stringify(q)} --limit 10 --json`,
       { timeout: 10000 }

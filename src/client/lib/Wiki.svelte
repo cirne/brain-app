@@ -259,7 +259,7 @@
     color: var(--text);
     overflow: hidden;
   }
-  .search-item :global(.wfn) { width: 100%; align-items: center; }
+  .search-item :global(.wfn-title-row) { width: 100%; align-items: center; }
   .search-item :global(.wfn-name) { flex-shrink: 1; }
   .search-item:hover, .search-item.selected { background: var(--accent-dim); color: var(--accent); }
   .search-empty { padding: 8px 12px; font-size: 12px; color: var(--text-2); }
@@ -304,7 +304,7 @@
   .viewer :global(th) { background: var(--bg-3); }
   .viewer :global(a) { color: var(--accent); }
   .viewer :global(a.wiki-link) { color: var(--accent); text-decoration: underline; cursor: pointer; }
-  .viewer :global(a.wiki-link .wfn) { color: inherit; }
+  .viewer :global(a.wiki-link .wfn-title-row) { color: inherit; }
   .viewer :global(a.wiki-link .wfn-name) { text-decoration: underline; }
 
   @media (max-width: 768px) {

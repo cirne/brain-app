@@ -120,7 +120,7 @@
       {disabled}
     ></textarea>
     {#if streaming}
-      <button class="send-btn" onclick={() => onStop?.()}>
+      <button type="button" class="send-btn" onclick={() => onStop?.()} aria-label="Stop">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
       </button>
     {:else}

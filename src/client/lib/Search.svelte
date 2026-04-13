@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { FileText, Mail, X, Search } from 'lucide-svelte'
+  import { Mail, X, Search } from 'lucide-svelte'
   import { formatDate } from './formatDate.js'
+  import WikiFileName from './WikiFileName.svelte'
 
-  type WikiResult = { type: 'wiki'; path: string; score: number }
+  type WikiResult = { type: 'wiki'; path: string; score: number; excerpt: string }
   type EmailResult = { type: 'email'; id: string; from: string; subject: string; date: string; snippet: string; score: number }
   type SearchResult = WikiResult | EmailResult
 
@@ -53,19 +54,12 @@
     }, 250)
   })
 
-  function wikiTitle(path: string) {
-    const name = path.replace(/\.md$/, '').split('/').pop() ?? path
-    return name.replace(/[-_]/g, ' ')
-  }
-
-  function wikiContext(path: string) {
-    const parts = path.replace(/\.md$/, '').split('/')
-    return parts.length > 1 ? parts.slice(0, -1).join(' / ') : ''
-  }
 </script>
 
-<div class="overlay" role="dialog" aria-modal="true" aria-label="Search">
-  <div class="header">
+<div class="overlay-root">
+  <button type="button" class="search-backdrop" aria-label="Close search" onclick={onClose}></button>
+  <div class="search-panel" role="dialog" aria-modal="true" aria-label="Search" tabindex="-1">
+    <div class="header">
     <Search size={16} class="search-icon" />
     <input
       bind:this={inputEl}
@@ -85,9 +79,9 @@
       </button>
     {/if}
     <button class="close-btn" onclick={onClose}>Cancel</button>
-  </div>
+    </div>
 
-  <div class="results">
+    <div class="results">
     {#if !query.trim()}
       <p class="hint">Search wiki docs and emails</p>
     {:else if !loading && results.length === 0}
@@ -99,11 +93,12 @@
             class="result"
             onclick={() => { onOpenWiki(result.path); onClose() }}
           >
-            <span class="result-type"><FileText size={11} /></span>
             <span class="result-body">
-              <span class="result-title">{wikiTitle(result.path)}</span>
-              {#if wikiContext(result.path)}
-                <span class="result-meta">{wikiContext(result.path)}</span>
+              <span class="result-title wiki-result-title">
+                <WikiFileName path={result.path} />
+              </span>
+              {#if result.excerpt}
+                <span class="result-snippet wiki-result-excerpt">{result.excerpt}</span>
               {/if}
             </span>
           </button>
@@ -112,9 +107,13 @@
             class="result"
             onclick={() => { onOpenEmail(result.id, result.subject, result.from); onClose() }}
           >
-            <span class="result-type"><Mail size={11} /></span>
             <span class="result-body">
-              <span class="result-title">{result.subject}</span>
+              <span class="email-result-title wfn-title-row">
+                <span class="wfn-lead-icon" aria-hidden="true">
+                  <Mail size={12} />
+                </span>
+                <span class="email-subject">{result.subject}</span>
+              </span>
               <span class="result-meta">{result.from} · {formatDate(result.date)}</span>
               {#if result.snippet}
                 <span class="result-snippet">{result.snippet}</span>
@@ -124,18 +123,44 @@
         {/if}
       {/each}
     {/if}
+    </div>
   </div>
 </div>
 
 <style>
-  .overlay {
+  @import './wfnLeadIcon.css';
+
+  .overlay-root {
     position: fixed;
     inset: 0;
     z-index: 500;
-    background: var(--bg);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .search-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: var(--bg);
+    cursor: default;
+    display: block;
+    appearance: none;
+  }
+
+  .search-panel {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    align-self: stretch;
   }
 
   .header {
@@ -206,9 +231,7 @@
   }
 
   .result {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
+    display: block;
     width: 100%;
     padding: 12px 16px;
     text-align: left;
@@ -216,12 +239,6 @@
     min-height: 52px;
   }
   .result:active { background: var(--bg-3); }
-
-  .result-type {
-    color: var(--text-2);
-    flex-shrink: 0;
-    padding-top: 2px;
-  }
 
   .result-body {
     flex: 1;
@@ -237,6 +254,34 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .wiki-result-title {
+    display: block;
+    min-width: 0;
+  }
+
+  .wiki-result-title :global(.wfn-title-row) {
+    max-width: 100%;
+  }
+
+  .email-result-title {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .email-subject {
+    font-size: 14px;
+    color: var(--text);
+    min-width: 0;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .wiki-result-excerpt {
+    margin-top: 0;
   }
 
   .result-meta {
@@ -263,20 +308,28 @@
   }
 
   @media (min-width: 768px) {
-    .overlay {
-      background: rgba(0, 0, 0, 0.5);
+    .overlay-root {
       align-items: center;
       justify-content: flex-start;
       padding-top: 80px;
     }
 
-    .header {
+    .search-backdrop {
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .search-panel {
+      align-self: center;
       width: 560px;
+      flex: 0 1 auto;
+      max-height: calc(100vh - 80px);
+    }
+
+    .header {
       border-radius: 10px 10px 0 0;
     }
 
     .results {
-      width: 560px;
       max-height: 480px;
       background: var(--bg);
       border: 1px solid var(--border);

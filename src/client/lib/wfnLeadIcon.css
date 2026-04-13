@@ -1,0 +1,25 @@
+/**
+ * Shared “leading icon + title” chrome for WikiFileName, search email rows, etc.
+ * Keeps 14px-wide icon slots and baseline alignment consistent app-wide.
+ */
+.wfn-title-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.wfn-lead-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 14px;
+  color: var(--text-2);
+  opacity: 0.55;
+  cursor: default;
+}
+
+.wfn-lead-icon--special {
+  opacity: 0.35;
+}

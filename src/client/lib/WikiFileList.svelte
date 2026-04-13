@@ -94,7 +94,7 @@
     line-height: 1.8;
   }
 
-  .wfl-item :global(.wfn) {
+  .wfl-item :global(.wfn-title-row) {
     font-size: 12px;
     color: var(--text);
     overflow: hidden;
