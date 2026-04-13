@@ -1,5 +1,7 @@
 <script lang="ts">
   import { Archive } from 'lucide-svelte'
+  import { navigate } from '../router.js'
+
   type Email = {
     id: string
     from: string
@@ -7,6 +9,14 @@
     date: string
     read: boolean
   }
+
+  let {
+    initialId,
+    onNavigate,
+  }: {
+    initialId?: string
+    onNavigate?: (id: string | undefined) => void
+  } = $props()
 
   let emails = $state<Email[]>([])
   let syncing = $state(false)
@@ -54,6 +64,8 @@
 
   async function openThread(email: Email) {
     selectedThread = email.id
+    navigate({ tab: 'inbox', id: email.id })
+    onNavigate?.(email.id)
     threadLoading = true
     await markRead(email.id)
     try {
@@ -69,9 +81,21 @@
     threadLoading = false
   }
 
-  function closeThread() { selectedThread = null; threadContent = null }
+  function closeThread() {
+    selectedThread = null
+    threadContent = null
+    navigate({ tab: 'inbox' })
+    onNavigate?.(undefined)
+  }
 
-  $effect(() => { load() })
+  $effect(() => {
+    load().then(() => {
+      if (initialId) {
+        const email = emails.find(e => e.id === initialId)
+        if (email) openThread(email)
+      }
+    })
+  })
 </script>
 
 <div class="inbox">

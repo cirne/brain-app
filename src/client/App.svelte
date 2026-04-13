@@ -1,34 +1,60 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import Chat from './lib/Chat.svelte'
   import Wiki from './lib/Wiki.svelte'
   import Inbox from './lib/Inbox.svelte'
+  import { parseRoute, navigate, type Route } from './router.js'
 
-  type Tab = 'chat' | 'wiki' | 'inbox'
-  let active = $state<Tab>('chat')
+  let route = $state<Route>(parseRoute())
 
-  // File-grounded chat: when user clicks "Chat about this" in Wiki
-  let chatContextFiles = $state<string[]>([])
+  onMount(() => {
+    const onPopState = () => { route = parseRoute() }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  })
+
+  function switchTab(tab: Route['tab']) {
+    const next: Route = { tab }
+    navigate(next)
+    route = next
+  }
 
   function chatAboutFile(path: string) {
-    chatContextFiles = [path]
-    active = 'chat'
+    const next: Route = { tab: 'chat', file: path }
+    navigate(next)
+    route = next
+  }
+
+  function onWikiNavigate(path: string | undefined) {
+    route = { tab: 'wiki', path }
+  }
+
+  function onInboxNavigate(id: string | undefined) {
+    route = { tab: 'inbox', id }
   }
 </script>
 
 <div class="app">
   <nav class="tabs">
-    <button class:active={active === 'chat'} onclick={() => active = 'chat'}>Chat</button>
-    <button class:active={active === 'wiki'} onclick={() => active = 'wiki'}>Wiki</button>
-    <button class:active={active === 'inbox'} onclick={() => active = 'inbox'}>Inbox</button>
+    <button class:active={route.tab === 'chat'} onclick={() => switchTab('chat')}>Chat</button>
+    <button class:active={route.tab === 'wiki'} onclick={() => switchTab('wiki')}>Wiki</button>
+    <button class:active={route.tab === 'inbox'} onclick={() => switchTab('inbox')}>Inbox</button>
   </nav>
 
   <main class="surface">
-    {#if active === 'chat'}
-      <Chat contextFiles={chatContextFiles} />
-    {:else if active === 'wiki'}
-      <Wiki onChatAbout={chatAboutFile} />
+    {#if route.tab === 'chat'}
+      <Chat contextFiles={route.file ? [route.file] : []} onSwitchToWiki={chatAboutFile} />
+    {:else if route.tab === 'wiki'}
+      <Wiki
+        initialPath={route.path}
+        onChatAbout={chatAboutFile}
+        onNavigate={onWikiNavigate}
+      />
     {:else}
-      <Inbox />
+      <Inbox
+        initialId={route.id}
+        onNavigate={onInboxNavigate}
+      />
     {/if}
   </main>
 </div>

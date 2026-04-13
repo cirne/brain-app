@@ -1,10 +1,16 @@
 <script lang="ts">
+  import { navigate } from '../router.js'
+
   type WikiFile = { path: string; name: string }
 
   let {
+    initialPath,
     onChatAbout,
+    onNavigate,
   }: {
+    initialPath?: string
     onChatAbout?: (path: string) => void
+    onNavigate?: (path: string | undefined) => void
   } = $props()
 
   let files = $state<WikiFile[]>([])
@@ -21,6 +27,8 @@
 
   async function openFile(path: string) {
     selected = path
+    navigate({ tab: 'wiki', path })
+    onNavigate?.(path)
     loading = true
     const res = await fetch(`/api/wiki/${encodeURIComponent(path)}`)
     const data = await res.json()
@@ -79,8 +87,14 @@
 
   $effect(() => {
     loadFiles().then(() => {
-      const index = files.find(f => f.name === '_index' && !f.path.includes('/'))
-      if (index) openFile(index.path)
+      if (initialPath) {
+        // Deep-link: open the file specified in the URL
+        const match = files.find(f => f.path === initialPath)
+        if (match) openFile(match.path)
+      } else {
+        const index = files.find(f => f.name === '_index' && !f.path.includes('/'))
+        if (index) openFile(index.path)
+      }
     })
   })
 </script>
