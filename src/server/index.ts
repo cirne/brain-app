@@ -32,8 +32,8 @@ const port = parseInt(process.env.PORT ?? '3000')
 
 app.use('*', logger())
 
-// Auth: required in production, skipped in dev (localhost only)
-if (!isDev) {
+// Auth: required in production unless AUTH_DISABLED=true (e.g. private subnet)
+if (!isDev && process.env.AUTH_DISABLED !== 'true') {
   app.use('/api/*', basicAuth({
     username: process.env.AUTH_USER ?? 'lew',
     password: process.env.AUTH_PASS ?? 'changeme',

@@ -10,6 +10,7 @@
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "start": "node dist/server/index.js",
+    "start:local": "NODE_ENV=production AUTH_DISABLED=true PORT=4000 node dist/server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

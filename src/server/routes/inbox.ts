@@ -14,15 +14,17 @@ inbox.get('/', async (c) => {
     const { stdout } = await execAsync(`${ripmail()} inbox`)
     const data = JSON.parse(stdout)
     const items = (data.mailboxes ?? []).flatMap((mb: any) =>
-      (mb.items ?? []).map((item: any) => ({
-        id: item.messageId,
-        from: item.fromName || item.fromAddress,
-        subject: item.subject,
-        date: item.date,
-        snippet: item.snippet,
-        action: item.action,
-        read: item.action !== 'notify',
-      }))
+      (mb.items ?? [])
+        .filter((item: any) => item.action !== 'ignore')
+        .map((item: any) => ({
+          id: item.messageId,
+          from: item.fromName || item.fromAddress,
+          subject: item.subject,
+          date: item.date,
+          snippet: item.snippet,
+          action: item.action,
+          read: item.action !== 'notify',
+        }))
     )
     return c.json(items)
   } catch (err) {
