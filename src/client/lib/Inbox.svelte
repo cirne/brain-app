@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Archive } from 'lucide-svelte'
   type Email = {
     id: string
     from: string
@@ -10,7 +11,7 @@
   let emails = $state<Email[]>([])
   let syncing = $state(false)
   let selectedThread = $state<string | null>(null)
-  let threadContent = $state<string>('')
+  let threadContent = $state<{ headers: string; body: string } | null>(null)
   let threadLoading = $state(false)
   let error = $state<string | null>(null)
 
@@ -56,16 +57,19 @@
     threadLoading = true
     await markRead(email.id)
     try {
-      const res = await fetch(`/api/inbox/${email.id}`)
+      const res = await fetch(`/api/inbox/${encodeURIComponent(email.id)}`)
       if (res.ok) {
-        const data = await res.json()
-        threadContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
+        const text = await res.text()
+        const blank = text.indexOf('\n\n')
+        threadContent = blank === -1
+          ? { headers: '', body: text }
+          : { headers: text.slice(0, blank), body: text.slice(blank + 2) }
       }
-    } catch { threadContent = 'Failed to load thread.' }
+    } catch { threadContent = null }
     threadLoading = false
   }
 
-  function closeThread() { selectedThread = null; threadContent = '' }
+  function closeThread() { selectedThread = null; threadContent = null }
 
   $effect(() => { load() })
 </script>
@@ -92,8 +96,11 @@
       <div class="thread-body">
         {#if threadLoading}
           <p class="loading">Loading...</p>
+        {:else if threadContent}
+          <pre class="thread-headers">{threadContent.headers}</pre>
+          <pre class="thread-body-text">{threadContent.body}</pre>
         {:else}
-          <pre class="thread-content">{threadContent}</pre>
+          <p class="loading">Failed to load message.</p>
         {/if}
       </div>
     </div>
@@ -106,7 +113,7 @@
             <span class="subject">{email.subject}</span>
             <span class="date">{email.date}</span>
           </button>
-          <button class="archive-btn" onclick={() => archive(email.id)} title="Archive">x</button>
+          <button class="archive-btn" onclick={() => archive(email.id)} title="Archive"><Archive size={16} /></button>
         </li>
       {:else}
         <li class="empty">
@@ -174,7 +181,11 @@
   }
   .thread-body { flex: 1; overflow-y: auto; padding: 16px; }
   .loading { color: var(--text-2); font-size: 14px; }
-  .thread-content { font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .thread-headers {
+    font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+    color: var(--text-2); border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;
+  }
+  .thread-body-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 
   @media (max-width: 768px) {
     .email-body { grid-template-columns: 1fr; gap: 2px; }

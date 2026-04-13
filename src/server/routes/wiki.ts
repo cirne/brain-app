@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { readdir, readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { join, relative, extname, basename, resolve } from 'node:path'
 import { marked } from 'marked'
 import { exec } from 'node:child_process'
@@ -10,7 +11,13 @@ const execAsync = promisify(exec)
 const wiki = new Hono()
 
 // Read lazily so .env loaded in index.ts (before first request) takes effect
-const wikiDir = () => process.env.WIKI_DIR ?? '/wiki'
+const repoDir = () => process.env.WIKI_DIR ?? '/wiki'
+// Wiki content lives in a `wiki` subdir if present, otherwise use WIKI_DIR directly
+const wikiDir = () => {
+  const repo = repoDir()
+  const sub = join(repo, 'wiki')
+  return existsSync(sub) ? sub : repo
+}
 
 // GET /api/wiki — list all markdown files
 wiki.get('/', async (c) => {
@@ -38,7 +45,7 @@ wiki.get('/search', async (c) => {
 // GET /api/wiki/git-status — last sync info
 wiki.get('/git-status', async (c) => {
   try {
-    const dir = wikiDir()
+    const dir = repoDir()
     const { stdout: sha } = await execAsync(`git -C ${JSON.stringify(dir)} rev-parse --short HEAD`)
     const { stdout: date } = await execAsync(`git -C ${JSON.stringify(dir)} log -1 --format=%ci`)
     return c.json({ sha: sha.trim(), date: date.trim() })

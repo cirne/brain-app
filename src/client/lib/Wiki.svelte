@@ -24,9 +24,30 @@
     loading = true
     const res = await fetch(`/api/wiki/${encodeURIComponent(path)}`)
     const data = await res.json()
-    content = data.html
+    content = renderWikiLinks(data.html)
     loading = false
     if (window.innerWidth < 768) sidebarOpen = false
+  }
+
+  // Convert [[path]] and [[path|label]] to clickable links
+  function renderWikiLinks(html: string): string {
+    return html.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
+      const [path, label] = inner.split('|')
+      const display = (label ?? path).trim()
+      return `<a href="#" data-wiki="${path.trim()}" class="wiki-link">${display}</a>`
+    })
+  }
+
+  function handleContentClick(e: MouseEvent) {
+    const a = (e.target as HTMLElement).closest('a[data-wiki]')
+    if (!a) return
+    e.preventDefault()
+    const link = a.getAttribute('data-wiki')!
+    // Case-insensitive match against known files (path without .md extension)
+    const match = files.find(f =>
+      f.path.replace(/\.md$/, '').toLowerCase() === link.toLowerCase()
+    )
+    if (match) openFile(match.path)
   }
 
   function filteredFiles(): WikiFile[] {
@@ -56,7 +77,12 @@
     return tree
   }
 
-  $effect(() => { loadFiles() })
+  $effect(() => {
+    loadFiles().then(() => {
+      const index = files.find(f => f.name === '_index' && !f.path.includes('/'))
+      if (index) openFile(index.path)
+    })
+  })
 </script>
 
 <div class="wiki">
@@ -101,7 +127,7 @@
       {/if}
     </div>
 
-    <article class="viewer">
+    <article class="viewer" onclick={handleContentClick}>
       {#if loading}
         <p class="status">Loading...</p>
       {:else if content}
@@ -223,6 +249,7 @@
   .viewer :global(th), .viewer :global(td) { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
   .viewer :global(th) { background: var(--bg-3); }
   .viewer :global(a) { color: var(--accent); }
+  .viewer :global(a.wiki-link) { color: var(--accent); text-decoration: underline; cursor: pointer; }
 
   @media (max-width: 768px) {
     .sidebar { position: absolute; z-index: 10; height: 100%; }
