@@ -9,6 +9,10 @@ const execCustomMock = vi.fn()
 
 vi.mock('node:child_process', () => ({ exec: execMock }))
 
+// Mock draftExtract so we control what the LLM extraction returns
+const extractDraftEditsMock = vi.fn()
+vi.mock('../lib/draftExtract.js', () => ({ extractDraftEdits: extractDraftEditsMock }))
+
 let app: Hono
 
 beforeEach(async () => {
@@ -123,7 +127,8 @@ describe('GET /api/inbox/draft/:draftId', () => {
 // ---- POST /api/inbox/draft/:draftId/edit ------------------------------------
 
 describe('POST /api/inbox/draft/:draftId/edit', () => {
-  it('returns updated draft after editing', async () => {
+  it('returns updated draft after editing (body-only instruction)', async () => {
+    extractDraftEditsMock.mockResolvedValue({ body_instruction: 'make it shorter' })
     const updated = { id: 'draft-1', body: 'Revised body' }
     execCustomMock
       .mockResolvedValueOnce({ stdout: '', stderr: '' }) // draft edit
@@ -135,9 +140,36 @@ describe('POST /api/inbox/draft/:draftId/edit', () => {
     })
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ body: 'Revised body' })
+    // Verify extractDraftEdits was called with the instruction
+    expect(extractDraftEditsMock).toHaveBeenCalledWith('make it shorter')
+  })
+
+  it('passes extracted metadata flags to ripmail', async () => {
+    extractDraftEditsMock.mockResolvedValue({
+      add_cc: ['bob@example.com'],
+      subject: 'New Subject',
+      body_instruction: 'make it shorter',
+    })
+    const updated = { id: 'draft-1', cc: ['bob@example.com'], subject: 'New Subject' }
+    execCustomMock
+      .mockResolvedValueOnce({ stdout: '', stderr: '' }) // draft edit
+      .mockResolvedValueOnce({ stdout: JSON.stringify(updated), stderr: '' }) // draft view
+    const res = await app.request('/api/inbox/draft/draft-1/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ instruction: 'cc bob@example.com, change subject to New Subject, make it shorter' }),
+    })
+    expect(res.status).toBe(200)
+    // Verify ripmail was called with metadata flags
+    const editCall = execCustomMock.mock.calls[0][0] as string
+    expect(editCall).toContain('--add-cc')
+    expect(editCall).toContain('bob@example.com')
+    expect(editCall).toContain('--subject')
+    expect(editCall).toContain('New Subject')
   })
 
   it('returns 500 when edit fails', async () => {
+    extractDraftEditsMock.mockResolvedValue({ body_instruction: 'make it shorter' })
     mockFailure()
     const res = await app.request('/api/inbox/draft/draft-1/edit', {
       method: 'POST',

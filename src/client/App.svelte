@@ -162,28 +162,24 @@
       <button class:active={route.tab === 'inbox'} onclick={() => switchTab('inbox')}>Inbox</button>
       <button class:active={route.tab === 'calendar'} onclick={() => switchTab('calendar')}>Calendar</button>
     </div>
-    {#if recentFiles.length > 0 || dirtyFiles.length > 0}
+    {#if dirtyFiles.length > 0}
       <div class="log-wrap">
         <button
           class="log-btn"
           onclick={() => { showRecentFiles = !showRecentFiles }}
-          title="Recently changed wiki files"
+          title="Unsynced wiki files"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
           </svg>
-          {#if dirtyFiles.length > 0}
-            <span class="dirty-badge" title="{dirtyFiles.length} unsaved file{dirtyFiles.length === 1 ? '' : 's'}">{dirtyFiles.length}</span>
-          {/if}
-          {#if recentFiles.length > 0}
-            <span class="log-date">{recentFiles[0].path.split('/').pop()?.replace(/\.md$/, '')}</span>
-          {/if}
+          <span class="log-date" title="{dirtyFiles.length} unsaved file{dirtyFiles.length === 1 ? '' : 's'}">{dirtyFiles.length} dirty</span>
         </button>
         {#if showRecentFiles}
           <div class="log-dropdown" role="menu">
             <WikiFileList
               dirty={dirtyFiles}
               recent={recentFiles}
+              showRecent={false}
               onOpen={(path) => { openWikiPanel(path); showRecentFiles = false }}
             />
           </div>
@@ -280,22 +276,6 @@
   }
   .log-btn:hover { background: var(--bg-3); }
   .log-btn svg { flex-shrink: 0; }
-
-  .dirty-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 8px;
-    background: #e8a020;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1;
-    flex-shrink: 0;
-  }
 
   .log-date {
     font-size: 11px;

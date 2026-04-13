@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { writeCache } from '../lib/calendarCache.js'
+import { buildDraftEditFlags } from './tools.js'
 
 // Shared fixture: a temp wiki directory
 let wikiDir: string
@@ -316,6 +317,63 @@ describe('createAgentTools', () => {
     })
   })
 
+  describe('edit_draft tool metadata params', () => {
+    let ripmailScript: string
+
+    beforeEach(async () => {
+      ripmailScript = join(wikiDir, 'fake-ripmail-draft')
+      // Fake ripmail that records the command and returns a draft
+      await writeFile(
+        ripmailScript,
+        `#!/bin/sh
+if echo "$@" | grep -q "draft view"; then
+  echo '{"id":"d1","to":["a@x.com","b@x.com"],"cc":["c@x.com"],"subject":"Updated","body":"Hello"}'
+else
+  echo "$@" >> ${join(wikiDir, 'ripmail-calls.log')}
+fi
+`
+      )
+      await chmod(ripmailScript, 0o755)
+      process.env.RIPMAIL_BIN = ripmailScript
+    })
+
+    afterEach(() => {
+      delete process.env.RIPMAIL_BIN
+    })
+
+    it('passes add_cc flags to ripmail', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'edit_draft')!
+      const result = await tool.execute('ed-1', {
+        draft_id: 'd1',
+        add_cc: ['bob@example.com'],
+        instruction: 'make it shorter',
+      })
+      expect(result.details.cc).toContain('c@x.com')
+      const { readFile } = await import('node:fs/promises')
+      const log = await readFile(join(wikiDir, 'ripmail-calls.log'), 'utf8')
+      expect(log).toContain('--add-cc')
+      expect(log).toContain('bob@example.com')
+    })
+
+    it('works with metadata-only edit (no body instruction)', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: any) => t.name === 'edit_draft')!
+      const result = await tool.execute('ed-2', {
+        draft_id: 'd1',
+        subject: 'New Subject',
+        remove_to: ['old@example.com'],
+      })
+      expect(result.details.id).toBe('d1')
+      const { readFile } = await import('node:fs/promises')
+      const log = await readFile(join(wikiDir, 'ripmail-calls.log'), 'utf8')
+      expect(log).toContain('--subject')
+      expect(log).toContain('--remove-to')
+    })
+  })
+
   it('grep tool can search wiki content', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
@@ -323,5 +381,35 @@ describe('createAgentTools', () => {
     const result = await grepTool.execute('test-2', { pattern: 'foo idea', path: '.' })
     const text = result.content.map((c: any) => c.text).join('')
     expect(text).toContain('foo')
+  })
+})
+
+describe('buildDraftEditFlags', () => {
+  it('returns empty string when no metadata provided', () => {
+    expect(buildDraftEditFlags({})).toBe('')
+  })
+
+  it('builds subject flag', () => {
+    expect(buildDraftEditFlags({ subject: 'New Subject' })).toBe('--subject "New Subject" ')
+  })
+
+  it('builds add_cc flags for multiple addresses', () => {
+    const result = buildDraftEditFlags({ add_cc: ['a@x.com', 'b@x.com'] })
+    expect(result).toBe('--add-cc "a@x.com" --add-cc "b@x.com" ')
+  })
+
+  it('builds combined flags', () => {
+    const result = buildDraftEditFlags({
+      subject: 'Hi',
+      add_to: ['new@x.com'],
+      remove_cc: ['old@x.com'],
+    })
+    expect(result).toContain('--subject "Hi"')
+    expect(result).toContain('--add-to "new@x.com"')
+    expect(result).toContain('--remove-cc "old@x.com"')
+  })
+
+  it('ignores empty arrays', () => {
+    expect(buildDraftEditFlags({ add_cc: [] })).toBe('')
   })
 })

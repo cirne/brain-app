@@ -1,4 +1,6 @@
 <script lang="ts">
+  import WikiFileName from './WikiFileName.svelte'
+
   type WikiFile = { path: string; name: string }
 
   let {
@@ -112,6 +114,14 @@
       }
     })
   })
+
+  // Navigate when initialPath changes while panel is already open
+  $effect(() => {
+    const path = initialPath
+    if (!path || !initialized) return
+    const match = files.find(f => f.path === path)
+    if (match && path !== selected) openFile(match.path)
+  })
 </script>
 
 <div class="wiki">
@@ -134,7 +144,7 @@
               class="search-item"
               class:selected={i === selectedSearch}
               onmousedown={(e) => { e.preventDefault(); selectSearchFile(f.path) }}
-            >{f.path}</button>
+            ><WikiFileName path={f.path} /></button>
           {:else}
             <div class="search-empty">No files found</div>
           {/each}
@@ -143,7 +153,7 @@
     </div>
 
     {#if selected}
-      <span class="current-path">{selected}</span>
+      <span class="current-file"><WikiFileName path={selected} /></span>
     {/if}
   </div>
 
@@ -218,23 +228,19 @@
     padding: 6px 12px;
     font-size: 13px;
     color: var(--text);
-    font-family: monospace;
-    white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
+  .search-item :global(.wfn) { width: 100%; align-items: center; }
+  .search-item :global(.wfn-name) { flex-shrink: 1; }
   .search-item:hover, .search-item.selected { background: var(--accent-dim); color: var(--accent); }
   .search-empty { padding: 8px 12px; font-size: 12px; color: var(--text-2); }
 
-  .current-path {
+  .current-file {
+    max-width: 220px;
+    overflow: hidden;
+    flex-shrink: 0;
     font-size: 11px;
     color: var(--text-2);
-    font-family: monospace;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex-shrink: 0;
   }
 
   /* ── content ─────────────────────────────────────────────── */
@@ -273,7 +279,7 @@
   .viewer :global(a.wiki-link) { color: var(--accent); text-decoration: underline; cursor: pointer; }
 
   @media (max-width: 768px) {
-    .current-path { display: none; }
+    .current-file { display: none; }
     .viewer { padding: 16px; }
   }
 </style>

@@ -7,6 +7,29 @@ import { Exa } from 'exa-js'
 
 const execAsync = promisify(exec)
 
+/** Build CLI flags for ripmail draft edit from metadata params. */
+export function buildDraftEditFlags(params: {
+  subject?: string; to?: string[]; cc?: string[]; bcc?: string[];
+  add_to?: string[]; add_cc?: string[]; add_bcc?: string[];
+  remove_to?: string[]; remove_cc?: string[]; remove_bcc?: string[];
+}): string {
+  const parts: string[] = []
+  const flag = (name: string, values?: string[]) => {
+    if (values?.length) for (const v of values) parts.push(`${name} ${JSON.stringify(v)}`)
+  }
+  if (params.subject) parts.push(`--subject ${JSON.stringify(params.subject)}`)
+  flag('--to', params.to)
+  flag('--cc', params.cc)
+  flag('--bcc', params.bcc)
+  flag('--add-to', params.add_to)
+  flag('--add-cc', params.add_cc)
+  flag('--add-bcc', params.add_bcc)
+  flag('--remove-to', params.remove_to)
+  flag('--remove-cc', params.remove_cc)
+  flag('--remove-bcc', params.remove_bcc)
+  return parts.length ? parts.join(' ') + ' ' : ''
+}
+
 /**
  * Create all agent tools scoped to a wiki directory.
  * Pi-coding-agent provides file tools (read/edit/write/grep/find).
@@ -96,16 +119,33 @@ export function createAgentTools(wikiDir: string): any[] {
 
   const editDraft = defineTool({
     name: 'edit_draft',
-    description: 'Refine an existing draft with new instructions. Returns the updated draft.',
+    description: 'Refine an existing draft. Can modify body (via instruction), subject, and recipients (to/cc/bcc). Use add_cc/remove_cc etc. to adjust recipients without replacing them entirely. Returns the updated draft.',
     label: 'Edit Draft',
     parameters: Type.Object({
       draft_id: Type.String({ description: 'Draft ID to edit' }),
-      instruction: Type.String({ description: 'Instructions for how to change the draft' }),
+      instruction: Type.Optional(Type.String({ description: 'Instructions for how to change the draft body/tone (passed to LLM)' })),
+      subject: Type.Optional(Type.String({ description: 'Replace the subject line' })),
+      to: Type.Optional(Type.Array(Type.String(), { description: 'Replace all To recipients' })),
+      cc: Type.Optional(Type.Array(Type.String(), { description: 'Replace all CC recipients' })),
+      bcc: Type.Optional(Type.Array(Type.String(), { description: 'Replace all BCC recipients' })),
+      add_to: Type.Optional(Type.Array(Type.String(), { description: 'Add To recipients' })),
+      add_cc: Type.Optional(Type.Array(Type.String(), { description: 'Add CC recipients' })),
+      add_bcc: Type.Optional(Type.Array(Type.String(), { description: 'Add BCC recipients' })),
+      remove_to: Type.Optional(Type.Array(Type.String(), { description: 'Remove To recipients' })),
+      remove_cc: Type.Optional(Type.Array(Type.String(), { description: 'Remove CC recipients' })),
+      remove_bcc: Type.Optional(Type.Array(Type.String(), { description: 'Remove BCC recipients' })),
     }),
-    async execute(_toolCallId: string, params: { draft_id: string; instruction: string }) {
+    async execute(_toolCallId: string, params: {
+      draft_id: string; instruction?: string; subject?: string;
+      to?: string[]; cc?: string[]; bcc?: string[];
+      add_to?: string[]; add_cc?: string[]; add_bcc?: string[];
+      remove_to?: string[]; remove_cc?: string[]; remove_bcc?: string[];
+    }) {
       const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const flags = buildDraftEditFlags(params)
+      const instruction = params.instruction ? JSON.stringify(params.instruction) : '""'
       await execAsync(
-        `${rm} draft edit ${JSON.stringify(params.draft_id)} ${JSON.stringify(params.instruction)}`,
+        `${rm} draft edit ${JSON.stringify(params.draft_id)} ${flags}-- ${instruction}`,
         { timeout: 30000 }
       )
       const { stdout } = await execAsync(

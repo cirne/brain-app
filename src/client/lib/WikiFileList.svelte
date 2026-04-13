@@ -6,12 +6,14 @@
     recent = [],
     onOpen,
     showSectionLabels = true,
+    showRecent = true,
     formatDate,
   }: {
     dirty?: string[]
     recent?: { path: string; date: string }[]
     onOpen: (_path: string) => void
     showSectionLabels?: boolean
+    showRecent?: boolean
     formatDate?: (_date: string) => string
   } = $props()
 
@@ -38,7 +40,7 @@
   {/each}
 {/if}
 
-{#if recent.length > 0}
+{#if showRecent && recent.length > 0}
   {#if showSectionLabels && dirty.length > 0}
     <div class="wfl-section">Recent</div>
   {/if}

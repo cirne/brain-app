@@ -3,6 +3,7 @@
   import { onMount } from 'svelte'
   import DayEvents from './DayEvents.svelte'
   import { getToolIcon } from './toolIcons.js'
+  import WikiFileName from './WikiFileName.svelte'
 
   type ToolCall = {
     id: string
@@ -54,6 +55,29 @@
   let mentionFilter = $state('')
   let mentionStart = $state(-1)
   let selectedMention = $state(0)
+
+  const referencedFiles = $derived.by(() => {
+    const seen = new Set<string>()
+    const files: string[] = []
+    const wikiRe = /\]\(wiki:([^)]+)\)/g
+    for (const msg of messages) {
+      if (msg.role !== 'assistant') continue
+      for (const part of msg.parts ?? []) {
+        if (part.type === 'tool') {
+          const path = part.toolCall.args?.path as string | undefined
+          if (path?.endsWith('.md') && !seen.has(path)) { seen.add(path); files.push(path) }
+        } else if (part.type === 'text') {
+          let m
+          wikiRe.lastIndex = 0
+          while ((m = wikiRe.exec(part.content)) !== null) {
+            const p = m[1].endsWith('.md') ? m[1] : `${m[1]}.md`
+            if (!seen.has(p)) { seen.add(p); files.push(p) }
+          }
+        }
+      }
+    }
+    return files
+  })
 
   $effect(() => {
     fetchWikiFiles()
@@ -391,6 +415,19 @@
         {/if}
       </div>
     {/each}
+
+    {#if referencedFiles.length > 0}
+      <div class="referenced-files">
+        <div class="referenced-label">Referenced</div>
+        <div class="referenced-list">
+          {#each referencedFiles as path}
+            <button class="referenced-item" onclick={() => onSwitchToWiki?.(path)}>
+              <WikiFileName {path} />
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
   </div>
 
   {#if datePopover}
@@ -733,6 +770,47 @@
   .markdown :global(.wiki-link:hover) {
     text-decoration-style: solid;
   }
+
+  .referenced-files {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .referenced-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-2);
+    margin-bottom: 6px;
+  }
+
+  .referenced-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .referenced-item {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .referenced-item:hover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .referenced-item:hover :global(.wfn-name) { color: var(--accent); }
+  .referenced-item:hover :global(.wfn-folder) { color: var(--accent); opacity: 0.7; }
 
   .date-popover {
     position: fixed;
