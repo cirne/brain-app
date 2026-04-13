@@ -35,7 +35,9 @@
   $effect(() => {
     void weekStart
     loadEvents()
-    onContextChange?.({ type: 'calendar', date: toYMD(weekStart) })
+    const now = new Date()
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    onContextChange?.({ type: 'calendar', date: localDate })
   })
 
   function sundayOf(d: Date): Date {

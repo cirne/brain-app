@@ -12,11 +12,18 @@
 
   const folderKey = $derived(folder.replace(/\/$/, ''))
 
-  // _ prefix marks system/special pages
-  const isSpecial = $derived(name.startsWith('_'))
+  const isIndex = $derived(name === '_index')
+  // _ prefix marks system/special pages (but not _index files with a folder)
+  const isSpecial = $derived(name.startsWith('_') && !(isIndex && folder))
 
   // Display: strip leading _, convert hyphen-case to Title Case
   const displayName = $derived.by(() => {
+    if (isIndex && folder) {
+      // _index.md in a folder → show folder name (last segment)
+      const seg = folderKey.split('/').pop() || folderKey
+      return seg.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    }
+    if (isIndex) return 'Index'
     const base = isSpecial ? name.slice(1) : name
     return base.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
   })
@@ -86,16 +93,4 @@
     opacity: 0.35;
   }
 
-  /* unsaved (dirty) state — orange tint */
-  .wfn--unsaved .wfn-icon {
-    color: #e8a020;
-    opacity: 0.8;
-  }
-  .wfn--unsaved .wfn-folder {
-    color: #e8a020;
-    opacity: 0.8;
-  }
-  .wfn--unsaved .wfn-name {
-    color: #e8a020;
-  }
 </style>

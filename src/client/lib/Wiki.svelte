@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mount, unmount } from 'svelte'
   import WikiFileName from './WikiFileName.svelte'
 
   type WikiFile = { path: string; name: string }
@@ -104,6 +105,31 @@
     return tagsStr.replace(/^\[|\]$/g, '').split(',').map(t => t.trim()).filter(Boolean)
   }
 
+  /** Replace wiki-link text with mounted WikiFileName components. */
+  function upgradeWikiLinks(node: HTMLElement) {
+    let instances: ReturnType<typeof mount>[] = []
+
+    function run() {
+      // Clean up previous mounts
+      for (const inst of instances) unmount(inst)
+      instances = []
+
+      for (const a of node.querySelectorAll<HTMLAnchorElement>('a[data-wiki]')) {
+        const path = a.getAttribute('data-wiki')!
+        a.textContent = ''
+        instances.push(mount(WikiFileName, { target: a, props: { path } }))
+      }
+    }
+
+    // Run on initial mount and whenever content changes (via $effect in template)
+    run()
+
+    return {
+      update() { run() },
+      destroy() { for (const inst of instances) unmount(inst) },
+    }
+  }
+
   let initialized = false
 
   $effect(() => {
@@ -162,7 +188,7 @@
 
   <div class="content-area">
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
-    <article class="viewer" onclick={handleContentClick}>
+    <article class="viewer" onclick={handleContentClick} use:upgradeWikiLinks={content}>
       {#if loading}
         <p class="status">Loading...</p>
       {:else if content}
@@ -239,9 +265,15 @@
   .search-empty { padding: 8px 12px; font-size: 12px; color: var(--text-2); }
 
   /* ── content ─────────────────────────────────────────────── */
-  .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .content-area { flex: 1; overflow-y: auto; min-width: 0; }
 
-  .viewer { flex: 1; overflow-y: auto; padding: 24px 32px; max-width: 800px; }
+  .viewer {
+    max-width: 680px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 24px clamp(16px, 4%, 40px);
+    box-sizing: border-box;
+  }
 
   .status { color: var(--text-2); font-size: 14px; }
 
@@ -272,8 +304,11 @@
   .viewer :global(th) { background: var(--bg-3); }
   .viewer :global(a) { color: var(--accent); }
   .viewer :global(a.wiki-link) { color: var(--accent); text-decoration: underline; cursor: pointer; }
+  .viewer :global(a.wiki-link .wfn) { color: inherit; }
+  .viewer :global(a.wiki-link .wfn-name) { text-decoration: underline; }
 
   @media (max-width: 768px) {
     .viewer { padding: 16px; }
+    .content-area { overflow-x: hidden; }
   }
 </style>

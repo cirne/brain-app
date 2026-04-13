@@ -65,8 +65,6 @@
     color: var(--text-2);
     border-bottom: 1px solid var(--border);
   }
-  .wfl-section.unsaved-label { color: #e8a020; }
-
   .wfl-item {
     display: grid;
     grid-template-columns: 52px 1fr;
@@ -83,15 +81,6 @@
   .wfl-item:hover :global(.wfn-name) { color: var(--accent); }
   .wfl-item:hover :global(.wfn-folder) { color: var(--accent); opacity: 0.7; }
 
-  .wfl-item--unsaved {
-    background: color-mix(in srgb, #e8a020 5%, transparent);
-  }
-  .wfl-item--unsaved:hover { background: color-mix(in srgb, #e8a020 12%, transparent); }
-  .wfl-item--unsaved :global(.wfn-name) { color: #e8a020; }
-  .wfl-item--unsaved :global(.wfn-icon),
-  .wfl-item--unsaved :global(.wfn-folder) { color: #e8a020; opacity: 0.7; }
-  .wfl-item--unsaved:hover :global(.wfn-name),
-  .wfl-item--unsaved:hover :global(.wfn-folder) { color: var(--accent); opacity: 1; }
 
   .wfl-meta {
     font-size: 11px;

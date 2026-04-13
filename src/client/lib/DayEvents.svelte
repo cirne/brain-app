@@ -54,6 +54,18 @@
     return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
   }
 
+  function localYMD(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  const now = new Date()
+  const todayYMD = localYMD(now)
+
+  function isPast(e: CalendarEvent): boolean {
+    if (e.allDay) return e.end <= todayYMD
+    return new Date(e.end) < now
+  }
+
   /** Split events into all-day and timed for this specific date. */
   const { allDay, timed } = $derived.by(() => {
     const allDayArr: CalendarEvent[] = []
@@ -81,13 +93,13 @@
 {:else}
   <ul class="de-list">
     {#each allDay as e (e.id)}
-      <li class="de-event travel" title={e.location ?? ''}>
+      <li class="de-event travel" class:past={isPast(e)} title={e.location ?? ''}>
         <span class="de-icon">✈</span>
         <span class="de-title">{e.title}</span>
       </li>
     {/each}
     {#each timed as e (e.id)}
-      <li class="de-event personal" title={[e.location, e.description].filter(Boolean).join(' · ')}>
+      <li class="de-event personal" class:past={isPast(e)} title={[e.location, e.description].filter(Boolean).join(' · ')}>
         <span class="de-time">{formatTime(e.start)}</span>
         <span class="de-title">{e.title}</span>
         {#if e.location}<span class="de-loc">{e.location}</span>{/if}
@@ -131,6 +143,10 @@
   .de-event.personal {
     background: color-mix(in srgb, var(--accent) 10%, transparent);
     border-left: 2px solid var(--accent);
+  }
+
+  .de-event.past {
+    opacity: 0.45;
   }
 
   .de-icon {

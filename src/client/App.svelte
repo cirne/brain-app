@@ -16,6 +16,7 @@
   let showSyncErrors = $state(false)
   let calendarRefreshKey = $state(0)
   let wikiRefreshKey = $state(0)
+  let drawerOpen = $state(true)
 
   // Surface context — driven by whichever surface is active
   let agentContext = $state<SurfaceContext>({ type: 'today', date: new Date().toISOString().slice(0, 10) })
@@ -207,9 +208,11 @@
       {/if}
     </main>
 
-    <div class="agent-panel">
+    <div class="agent-panel" class:open={drawerOpen}>
       <AgentDrawer
         context={agentContext}
+        open={drawerOpen}
+        onToggle={() => drawerOpen = !drawerOpen}
         onOpenWiki={openWikiDoc}
         onSwitchToCalendar={switchToCalendar}
       />
@@ -421,23 +424,30 @@
     overflow: hidden;
   }
 
-  /* Small screens: fixed bottom sheet */
+  /* Small screens: collapsible bottom sheet */
   @media (max-width: 767px) {
     .agent-panel {
       position: fixed;
       bottom: 0;
-      left: 0;
-      right: 0;
-      width: 100%;
-      max-height: 60vh;
+      left: 5vw;
+      width: 90vw;
+      height: 44px; /* collapsed: just the header */
       border-left: none;
-      border-top: 1px solid var(--border);
+      border-top: none;
+      border-radius: 12px 12px 0 0;
+      box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.35);
       z-index: 50;
+      overflow: hidden;
+      transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Push surface content up so it's not hidden behind the input bar */
+    .agent-panel.open {
+      height: 80vh;
+    }
+
+    /* Leave room for the collapsed header bar */
     .surface {
-      padding-bottom: 56px;
+      padding-bottom: 52px;
     }
   }
 

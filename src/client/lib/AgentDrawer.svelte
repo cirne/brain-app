@@ -4,13 +4,18 @@
   import { contextPlaceholder } from './agentUtils.js'
   import AgentConversation from './AgentConversation.svelte'
   import AgentInput from './AgentInput.svelte'
+  import WikiFileName from './WikiFileName.svelte'
 
   let {
     context = { type: 'none' } as SurfaceContext,
+    open = true,
+    onToggle,
     onOpenWiki,
     onSwitchToCalendar,
   }: {
     context?: SurfaceContext
+    open?: boolean
+    onToggle?: () => void
     onOpenWiki?: (_path: string) => void
     onSwitchToCalendar?: (_date: string) => void
   } = $props()
@@ -31,6 +36,15 @@
   let streaming = $state(false)
   let wikiFiles = $state<string[]>([])
   let conversationEl: ReturnType<typeof AgentConversation> | undefined
+  let inputEl: ReturnType<typeof AgentInput> | undefined
+  let abortController: AbortController | null = null
+
+  $effect(() => {
+    if (open) {
+      // Wait for the drawer transition to reveal the input
+      setTimeout(() => inputEl?.focus(), 300)
+    }
+  })
 
   $effect(() => {
     try {
@@ -53,6 +67,10 @@
     sessionId = null
   }
 
+  function stopChat() {
+    abortController?.abort()
+  }
+
   async function send(text: string) {
     if (!text || streaming) return
 
@@ -67,11 +85,14 @@
     messages.push({ role: 'assistant', content: '', parts: [] })
     const msgIdx = messages.length - 1
 
+    abortController = new AbortController()
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: abortController.signal,
       })
 
       if (!res.ok) {
@@ -141,8 +162,11 @@
         }
       }
     } catch (err: any) {
-      messages[msgIdx].parts!.push({ type: 'text', content: `\n\n**Connection error:** ${err.message}` })
+      if (err.name !== 'AbortError') {
+        messages[msgIdx].parts!.push({ type: 'text', content: `\n\n**Connection error:** ${err.message}` })
+      }
     } finally {
+      abortController = null
       streaming = false
       conversationEl?.scrollToBottom()
     }
@@ -152,22 +176,30 @@
 
   const contextChip = $derived.by((): string | null => {
     if (context.type === 'email') return `📧 ${context.subject}`
-    if (context.type === 'wiki') return `📄 ${context.title}`
     if (context.type === 'calendar') return `📅 ${context.date}`
     return null
   })
 </script>
 
 <div class="agent-drawer">
-  <div class="drawer-header">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="drawer-header" onclick={onToggle}>
+    <button class="toggle-btn" aria-label={open ? 'Collapse chat' : 'Expand chat'}>
+      <svg class="chevron" class:expanded={open} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="18 15 12 9 6 15"/>
+      </svg>
+    </button>
     <div class="header-left">
-      <span class="drawer-title">{streaming ? 'Thinking...' : 'Chat'}</span>
-      {#if contextChip}
+      <span class="drawer-title" class:thinking={streaming}>{streaming ? 'Thinking...' : 'Chat'}</span>
+      {#if context.type === 'wiki'}
+        <span class="context-chip"><WikiFileName path={context.path} /></span>
+      {:else if contextChip}
         <span class="context-chip">{contextChip}</span>
       {/if}
     </div>
     {#if messages.length > 0}
-      <button class="new-btn" onclick={newChat} title="New conversation">New</button>
+      <button class="new-btn" onclick={(e) => { e.stopPropagation(); newChat() }} title="New conversation">New</button>
     {/if}
   </div>
 
@@ -180,10 +212,13 @@
   />
 
   <AgentInput
+    bind:this={inputEl}
     {placeholder}
+    {streaming}
     disabled={streaming}
     {wikiFiles}
     onSend={send}
+    onStop={stopChat}
   />
 </div>
 
@@ -203,7 +238,33 @@
     padding: 6px 12px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
-    min-height: 36px;
+    min-height: 44px;
+  }
+
+  .toggle-btn {
+    display: none; /* hidden on desktop */
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    color: var(--text-2);
+    flex-shrink: 0;
+    transition: color 0.15s, background 0.15s;
+  }
+  .toggle-btn:hover { color: var(--text); background: var(--bg-3); }
+
+  .chevron {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: rotate(0deg); /* default: ∧ pointing up = closed, tap to expand */
+  }
+  .chevron.expanded {
+    transform: rotate(180deg); /* ∨ pointing down = open, tap to collapse */
+  }
+
+  @media (max-width: 767px) {
+    .toggle-btn { display: flex; }
+    .drawer-header { cursor: pointer; }
   }
 
   .header-left {
@@ -221,6 +282,13 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     flex-shrink: 0;
+  }
+  .drawer-title.thinking {
+    animation: pulse-thinking 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-thinking {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
   }
 
   .context-chip {
