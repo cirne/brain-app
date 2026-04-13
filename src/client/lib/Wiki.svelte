@@ -3,14 +3,18 @@
 
   type WikiFile = { path: string; name: string }
 
+  import type { SurfaceContext } from '../router.js'
+
   let {
     initialPath,
     refreshKey = 0,
     onNavigate,
+    onContextChange,
   }: {
     initialPath?: string
     refreshKey?: number
     onNavigate?: (_path: string | undefined) => void
+    onContextChange?: (_ctx: SurfaceContext) => void
   } = $props()
 
   let files = $state<WikiFile[]>([])
@@ -39,6 +43,8 @@
     meta = data.meta ?? {}
     content = renderWikiLinks(data.html)
     loading = false
+    const title = meta.title ?? path.replace(/\.md$/, '').split('/').pop() ?? path
+    onContextChange?.({ type: 'wiki', path, title })
   }
 
   function renderWikiLinks(html: string): string {
@@ -152,9 +158,6 @@
       {/if}
     </div>
 
-    {#if selected}
-      <span class="current-file"><WikiFileName path={selected} /></span>
-    {/if}
   </div>
 
   <div class="content-area">
@@ -235,14 +238,6 @@
   .search-item:hover, .search-item.selected { background: var(--accent-dim); color: var(--accent); }
   .search-empty { padding: 8px 12px; font-size: 12px; color: var(--text-2); }
 
-  .current-file {
-    max-width: 220px;
-    overflow: hidden;
-    flex-shrink: 0;
-    font-size: 11px;
-    color: var(--text-2);
-  }
-
   /* ── content ─────────────────────────────────────────────── */
   .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -279,7 +274,6 @@
   .viewer :global(a.wiki-link) { color: var(--accent); text-decoration: underline; cursor: pointer; }
 
   @media (max-width: 768px) {
-    .current-file { display: none; }
     .viewer { padding: 16px; }
   }
 </style>

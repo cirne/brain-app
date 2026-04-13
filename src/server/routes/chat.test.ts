@@ -52,6 +52,42 @@ describe('POST /api/chat', () => {
   })
 })
 
+describe('POST /api/chat with context', () => {
+  it('accepts a string context (surface context from AgentDrawer)', async () => {
+    const { default: chatRoute } = await import('./chat.js')
+    const app = new Hono()
+    app.route('/api/chat', chatRoute)
+
+    const res = await app.request('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'summarize this',
+        context: 'The user is currently viewing this email (id: msg:123): "Budget" from alice@x.com.\n\nEmail content:\nPlease approve Q2.',
+      }),
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/event-stream')
+  })
+
+  it('accepts a files object context (legacy wiki panel format)', async () => {
+    const { default: chatRoute } = await import('./chat.js')
+    const app = new Hono()
+    app.route('/api/chat', chatRoute)
+
+    const res = await app.request('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'summarize this',
+        context: { files: ['index.md'] },
+      }),
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/event-stream')
+  })
+})
+
 describe('DELETE /api/chat/:sessionId', () => {
   it('returns ok when deleting a session', async () => {
     const { default: chatRoute } = await import('./chat.js')

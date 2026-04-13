@@ -1,28 +1,32 @@
 import { describe, it, expect } from 'vitest'
-import { parseRoute, routeToUrl } from './router.js'
+import { parseRoute, routeToUrl, contextToString, type SurfaceContext } from './router.js'
 
 describe('parseRoute', () => {
-  it('defaults to home for root path', () => {
-    expect(parseRoute('http://localhost/')).toEqual({ tab: 'home' })
+  it('defaults to today for root path', () => {
+    expect(parseRoute('http://localhost/')).toEqual({ tab: 'today' })
   })
 
-  it('parses /chat', () => {
-    expect(parseRoute('http://localhost/chat')).toEqual({ tab: 'chat' })
+  it('legacy /chat redirects to today', () => {
+    expect(parseRoute('http://localhost/chat')).toEqual({ tab: 'today' })
   })
 
-  it('parses /chat?file=ideas/foo.md', () => {
-    expect(parseRoute('http://localhost/chat?file=ideas%2Ffoo.md')).toEqual({
-      tab: 'chat',
-      file: 'ideas/foo.md',
+  it('legacy /chat?file=... redirects to today (drops file param)', () => {
+    expect(parseRoute('http://localhost/chat?file=ideas%2Ffoo.md')).toEqual({ tab: 'today' })
+  })
+
+  it('legacy /home redirects to today', () => {
+    expect(parseRoute('http://localhost/home')).toEqual({ tab: 'today' })
+  })
+
+  it('parses /wiki (no path)', () => {
+    expect(parseRoute('http://localhost/wiki')).toEqual({ tab: 'wiki' })
+  })
+
+  it('parses /wiki/folder/file.md as wiki tab with path', () => {
+    expect(parseRoute('http://localhost/wiki/folder/file.md')).toEqual({
+      tab: 'wiki',
+      path: 'folder/file.md',
     })
-  })
-
-  it('redirects /wiki to chat', () => {
-    expect(parseRoute('http://localhost/wiki')).toEqual({ tab: 'chat' })
-  })
-
-  it('redirects /wiki/folder/file.md to chat', () => {
-    expect(parseRoute('http://localhost/wiki/folder/file.md')).toEqual({ tab: 'chat' })
   })
 
   it('parses /inbox (no id)', () => {
@@ -58,23 +62,23 @@ describe('parseRoute calendar', () => {
 })
 
 describe('routeToUrl', () => {
-  it('home returns /', () => {
-    expect(routeToUrl({ tab: 'home' })).toBe('/')
+  it('today returns /', () => {
+    expect(routeToUrl({ tab: 'today' })).toBe('/')
   })
 
-  it('chat without file', () => {
-    expect(routeToUrl({ tab: 'chat' })).toBe('/chat')
+  it('wiki without path', () => {
+    expect(routeToUrl({ tab: 'wiki' })).toBe('/wiki')
   })
 
-  it('chat with file encodes the path', () => {
-    expect(routeToUrl({ tab: 'chat', file: 'ideas/foo.md' })).toBe(
-      '/chat?file=ideas%2Ffoo.md'
+  it('wiki with path uses path segments', () => {
+    expect(routeToUrl({ tab: 'wiki', path: 'ideas/foo.md' })).toBe(
+      '/wiki/ideas/foo.md'
     )
   })
 
-  it('chat with message omits message from url (transient)', () => {
-    expect(routeToUrl({ tab: 'chat', file: 'ideas/foo.md', message: 'edit this' })).toBe(
-      '/chat?file=ideas%2Ffoo.md'
+  it('wiki with path encodes special chars in segments', () => {
+    expect(routeToUrl({ tab: 'wiki', path: 'ideas/my note.md' })).toBe(
+      '/wiki/ideas/my%20note.md'
     )
   })
 
@@ -102,14 +106,14 @@ describe('routeToUrl', () => {
 })
 
 describe('round-trip: routeToUrl → parseRoute', () => {
-  const cases = [
-    { tab: 'home' as const },
-    { tab: 'chat' as const },
-    { tab: 'chat' as const, file: 'ideas/my note.md' },
-    { tab: 'inbox' as const },
-    { tab: 'inbox' as const, id: 'msg:12345@mail.example.com' },
-    { tab: 'calendar' as const },
-    { tab: 'calendar' as const, date: '2026-04-13' },
+  const cases: ReturnType<typeof parseRoute>[] = [
+    { tab: 'today' },
+    { tab: 'wiki' },
+    { tab: 'wiki', path: 'ideas/my note.md' },
+    { tab: 'inbox' },
+    { tab: 'inbox', id: 'msg:12345@mail.example.com' },
+    { tab: 'calendar' },
+    { tab: 'calendar', date: '2026-04-13' },
   ]
 
   for (const route of cases) {
@@ -118,4 +122,62 @@ describe('round-trip: routeToUrl → parseRoute', () => {
       expect(parseRoute(url)).toEqual(route)
     })
   }
+})
+
+describe('contextToString', () => {
+  it('returns undefined for type none', () => {
+    const ctx: SurfaceContext = { type: 'none' }
+    expect(contextToString(ctx)).toBeUndefined()
+  })
+
+  it('formats today context', () => {
+    const ctx: SurfaceContext = { type: 'today', date: '2026-04-13' }
+    expect(contextToString(ctx)).toContain('2026-04-13')
+    expect(contextToString(ctx)).toContain('Today')
+  })
+
+  it('formats email context with subject and from (no body)', () => {
+    const ctx: SurfaceContext = {
+      type: 'email',
+      threadId: 'msg:123',
+      subject: 'Budget review',
+      from: 'alice@example.com',
+    }
+    const s = contextToString(ctx)!
+    expect(s).toContain('Budget review')
+    expect(s).toContain('alice@example.com')
+    expect(s).toContain('msg:123')
+    expect(s).toContain('read_email')
+  })
+
+  it('formats email context with body included', () => {
+    const ctx: SurfaceContext = {
+      type: 'email',
+      threadId: 'msg:123',
+      subject: 'Budget review',
+      from: 'alice@example.com',
+      body: 'Please approve the Q2 budget.',
+    }
+    const s = contextToString(ctx)!
+    expect(s).toContain('Budget review')
+    expect(s).toContain('alice@example.com')
+    expect(s).toContain('Please approve the Q2 budget.')
+    expect(s).not.toContain('read_email')
+  })
+
+  it('formats wiki context with path and title', () => {
+    const ctx: SurfaceContext = {
+      type: 'wiki',
+      path: 'projects/alpha.md',
+      title: 'Project Alpha',
+    }
+    const s = contextToString(ctx)!
+    expect(s).toContain('projects/alpha.md')
+    expect(s).toContain('Project Alpha')
+  })
+
+  it('formats calendar context with date', () => {
+    const ctx: SurfaceContext = { type: 'calendar', date: '2026-04-14' }
+    expect(contextToString(ctx)).toContain('2026-04-14')
+  })
 })

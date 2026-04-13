@@ -1,39 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Chat from './lib/Chat.svelte'
   import Wiki from './lib/Wiki.svelte'
   import Inbox from './lib/Inbox.svelte'
   import Calendar from './lib/Calendar.svelte'
   import Home from './lib/Home.svelte'
   import WikiFileList from './lib/WikiFileList.svelte'
-  import { parseRoute, navigate, type Route } from './router.js'
+  import AgentDrawer from './lib/AgentDrawer.svelte'
+  import { parseRoute, navigate, type Route, type SurfaceContext } from './router.js'
 
   type LogEntry = { date: string; type: string; description: string; files: string[] }
-
-  // Types mirrored from Chat.svelte for typing persisted state
-  type ToolCall = { id: string; name: string; args: any; result?: string; isError?: boolean; done: boolean }
-  type MessagePart = { type: 'text'; content: string } | { type: 'tool'; toolCall: ToolCall }
-  type ChatMessage = { role: 'user' | 'assistant'; content: string; parts?: MessagePart[]; thinking?: string }
-
-  const CHAT_STORAGE_KEY = 'brain-chat'
-
-  function loadChat(): { messages: ChatMessage[]; sessionId: string | null } {
-    try {
-      const saved = localStorage.getItem(CHAT_STORAGE_KEY)
-      if (saved) return JSON.parse(saved)
-    } catch { /* ignore */ }
-    return { messages: [], sessionId: null }
-  }
-
-  const savedChat = loadChat()
-  let chatMessages = $state<ChatMessage[]>(savedChat.messages)
-  let chatSessionId = $state<string | null>(savedChat.sessionId)
-
-  $effect(() => {
-    try {
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: chatMessages, sessionId: chatSessionId }))
-    } catch { /* ignore */ }
-  })
 
   let route = $state<Route>(parseRoute())
   let syncing = $state(false)
@@ -41,6 +16,9 @@
   let showSyncErrors = $state(false)
   let calendarRefreshKey = $state(0)
   let wikiRefreshKey = $state(0)
+
+  // Surface context — driven by whichever surface is active
+  let agentContext = $state<SurfaceContext>({ type: 'today', date: new Date().toISOString().slice(0, 10) })
 
   // Wiki recent files (from _log.md) + unsaved dirty files
   let logEntries = $state<LogEntry[]>([])
@@ -78,10 +56,6 @@
     } catch { /* ignore */ }
   }
 
-  // Wiki panel — shown as right panel (large) or bottom drawer (small/medium)
-  let wikiPanelPath = $state<string | null>(null)
-  let wikiPanelOpen = $derived(wikiPanelPath !== null)
-
   onMount(() => {
     loadWikiLog()
     loadGitStatus()
@@ -96,20 +70,10 @@
     route = next
   }
 
-  function startNewChat(message: string) {
-    chatMessages = []
-    chatSessionId = null
-    const next: Route = { tab: 'chat', message }
+  function openWikiDoc(path: string) {
+    const next: Route = { tab: 'wiki', path }
     navigate(next)
     route = next
-  }
-
-  function openWikiPanel(path: string) {
-    wikiPanelPath = path
-  }
-
-  function closeWikiPanel() {
-    wikiPanelPath = null
   }
 
   function onInboxNavigate(id: string | undefined) {
@@ -120,6 +84,10 @@
     const next: Route = { tab: 'calendar', date }
     navigate(next)
     route = next
+  }
+
+  function setContext(ctx: SurfaceContext) {
+    agentContext = ctx
   }
 
   async function syncAll() {
@@ -150,16 +118,14 @@
       syncing = false
     }
   }
-
-
 </script>
 
 <div class="app">
   <nav class="tabs">
     <div class="tab-group">
-      <button class:active={route.tab === 'home'} onclick={() => switchTab('home')}>Home</button>
-      <button class:active={route.tab === 'chat'} onclick={() => switchTab('chat')}>Chat</button>
+      <button class:active={route.tab === 'today'} onclick={() => switchTab('today')}>Today</button>
       <button class:active={route.tab === 'inbox'} onclick={() => switchTab('inbox')}>Inbox</button>
+      <button class:active={route.tab === 'wiki'} onclick={() => switchTab('wiki')}>Wiki</button>
       <button class:active={route.tab === 'calendar'} onclick={() => switchTab('calendar')}>Calendar</button>
     </div>
     {#if dirtyFiles.length > 0}
@@ -180,7 +146,7 @@
               dirty={dirtyFiles}
               recent={recentFiles}
               showRecent={false}
-              onOpen={(path) => { openWikiPanel(path); showRecentFiles = false }}
+              onOpen={(path) => { openWikiDoc(path); showRecentFiles = false }}
             />
           </div>
         {/if}
@@ -209,33 +175,45 @@
 
   <div class="layout">
     <main class="surface">
-      {#if route.tab === 'home'}
-        <Home onNewChat={startNewChat} onOpenWiki={openWikiPanel} onOpenInbox={onInboxNavigate} dirty={dirtyFiles} recent={recentFiles} />
-      {:else if route.tab === 'chat'}
-        <Chat bind:messages={chatMessages} bind:sessionId={chatSessionId} contextFiles={route.file ? [route.file] : []} initialMessage={route.message} onSwitchToWiki={openWikiPanel} onSwitchToCalendar={switchToCalendar} />
+      {#if route.tab === 'today'}
+        <Home
+          onOpenWiki={openWikiDoc}
+          onOpenInbox={(id) => onInboxNavigate(id)}
+          dirty={dirtyFiles}
+          recent={recentFiles}
+          onContextChange={setContext}
+        />
+      {:else if route.tab === 'wiki'}
+        <Wiki
+          initialPath={route.path}
+          refreshKey={wikiRefreshKey}
+          onNavigate={(path) => {
+            if (path) { const next: Route = { tab: 'wiki', path }; navigate(next); route = next }
+          }}
+          onContextChange={setContext}
+        />
       {:else if route.tab === 'calendar'}
-        <Calendar refreshKey={calendarRefreshKey} initialDate={route.tab === 'calendar' ? route.date : undefined} />
+        <Calendar
+          refreshKey={calendarRefreshKey}
+          initialDate={route.tab === 'calendar' ? route.date : undefined}
+          onContextChange={setContext}
+        />
       {:else}
         <Inbox
           initialId={route.id}
           onNavigate={onInboxNavigate}
+          onContextChange={setContext}
         />
       {/if}
     </main>
 
-    {#if wikiPanelOpen}
-      <div class="wiki-backdrop" role="button" tabindex="-1" onclick={closeWikiPanel} onkeydown={(e) => e.key === 'Escape' && closeWikiPanel()}></div>
-      <aside class="wiki-panel">
-        <div class="wiki-panel-header">
-          <button class="wiki-close-btn" onclick={closeWikiPanel} title="Close wiki">✕</button>
-        </div>
-        <Wiki
-          initialPath={wikiPanelPath ?? undefined}
-          refreshKey={wikiRefreshKey}
-          onNavigate={(path) => { if (path) wikiPanelPath = path }}
-        />
-      </aside>
-    {/if}
+    <div class="agent-panel">
+      <AgentDrawer
+        context={agentContext}
+        onOpenWiki={openWikiDoc}
+        onSwitchToCalendar={switchToCalendar}
+      />
+    </div>
   </div>
 </div>
 
@@ -301,8 +279,6 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     z-index: 200;
   }
-
-  /* items styled by WikiFileList.svelte */
 
   /* ── tabs ────────────────────────────────────────────────── */
 
@@ -434,74 +410,35 @@
     min-width: 0;
   }
 
-  /* ── wiki panel (large screens: right panel) ─────────────── */
+  /* ── agent panel ─────────────────────────────────────────── */
 
-  .wiki-backdrop {
-    display: none;
-  }
-
-  .wiki-panel {
-    width: 50vw;
+  .agent-panel {
+    width: 420px;
     flex-shrink: 0;
     border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    background: var(--bg-2);
     overflow: hidden;
   }
 
-  .wiki-panel-header {
-    display: flex;
-    justify-content: flex-end;
-    padding: 4px 6px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-2);
-    flex-shrink: 0;
-  }
-
-  .wiki-close-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: 4px;
-    color: var(--text-2);
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.15s, background 0.15s;
-  }
-  .wiki-close-btn:hover {
-    color: var(--text);
-    background: var(--bg-3);
-  }
-
-  /* ── wiki drawer (small/medium screens) ─────────────────── */
-
+  /* Small screens: fixed bottom sheet */
   @media (max-width: 767px) {
-
-    .wiki-backdrop {
-      display: block;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 40;
-    }
-
-    .wiki-panel {
+    .agent-panel {
       position: fixed;
       bottom: 0;
-      left: 5vw;
-      right: 5vw;
-      width: 90vw;
-      height: 78vh;
+      left: 0;
+      right: 0;
+      width: 100%;
+      max-height: 60vh;
       border-left: none;
       border-top: 1px solid var(--border);
-      border-radius: 12px 12px 0 0;
       z-index: 50;
     }
 
-    .wiki-panel-header {
-      border-radius: 12px 12px 0 0;
+    /* Push surface content up so it's not hidden behind the input bar */
+    .surface {
+      padding-bottom: 56px;
     }
   }
+
 </style>

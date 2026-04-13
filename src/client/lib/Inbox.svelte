@@ -25,12 +25,16 @@
     body: string
   }
 
+  import type { SurfaceContext } from '../router.js'
+
   let {
     initialId,
     onNavigate,
+    onContextChange,
   }: {
     initialId?: string
     onNavigate?: (_id: string | undefined) => void
+    onContextChange?: (_ctx: SurfaceContext) => void
   } = $props()
 
   let emails = $state<Email[]>([])
@@ -114,6 +118,7 @@
     selectedThread = email.id
     navigate({ tab: 'inbox', id: email.id })
     onNavigate?.(email.id)
+    onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from })
     threadLoading = true
     await markRead(email.id)
     try {
@@ -124,6 +129,8 @@
         threadContent = blank === -1
           ? { headers: '', body: text }
           : { headers: text.slice(0, blank), body: text.slice(blank + 2) }
+        // Update context with body now that it's loaded (cap at 4000 chars)
+        onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from, body: threadContent.body.slice(0, 4000) })
       }
     } catch { threadContent = null }
     threadLoading = false
@@ -138,6 +145,7 @@
     draftSent = false
     navigate({ tab: 'inbox' })
     onNavigate?.(undefined)
+    onContextChange?.({ type: 'none' })
   }
 
   async function loadContacts() {

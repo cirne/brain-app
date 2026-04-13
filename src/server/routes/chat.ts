@@ -18,9 +18,14 @@ chat.post('/', async (c) => {
     return c.json({ error: 'message is required' }, 400)
   }
 
-  // Build file context if specified (for file-grounded chat)
+  // Build context string for the session system prompt.
+  // Two formats:
+  //   string  — surface context (email body, wiki path, etc.) from AgentDrawer
+  //   { files: string[] } — legacy file-grounded chat (wiki panel)
   let fileContext: string | undefined
-  if (context?.files?.length) {
+  if (typeof context === 'string') {
+    fileContext = context
+  } else if (context?.files?.length) {
     const parts: string[] = []
     for (const filePath of context.files) {
       try {

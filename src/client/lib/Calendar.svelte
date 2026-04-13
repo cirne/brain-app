@@ -2,7 +2,17 @@
   import { onMount } from 'svelte'
   import DayEvents, { type CalendarEvent } from './DayEvents.svelte'
 
-  let { refreshKey = 0, initialDate }: { refreshKey?: number; initialDate?: string } = $props()
+  import type { SurfaceContext } from '../router.js'
+
+  let {
+    refreshKey = 0,
+    initialDate,
+    onContextChange,
+  }: {
+    refreshKey?: number
+    initialDate?: string
+    onContextChange?: (_ctx: SurfaceContext) => void
+  } = $props()
 
   let weekStart = $state(sundayOf(new Date()))
   let events = $state<CalendarEvent[]>([])
@@ -25,6 +35,7 @@
   $effect(() => {
     void weekStart
     loadEvents()
+    onContextChange?.({ type: 'calendar', date: toYMD(weekStart) })
   })
 
   function sundayOf(d: Date): Date {

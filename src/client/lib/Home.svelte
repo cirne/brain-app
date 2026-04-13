@@ -6,16 +6,18 @@
 
   type InboxItem = { id: string; from: string; subject: string; date: string; read: boolean }
 
+  import type { SurfaceContext } from '../router.js'
+
   let {
-    onNewChat,
     onOpenWiki,
     onOpenInbox,
+    onContextChange,
     dirty = [],
     recent = [],
   }: {
-    onNewChat: (_message: string) => void
     onOpenWiki: (_path: string) => void
     onOpenInbox: (_id: string) => void
+    onContextChange?: (_ctx: SurfaceContext) => void
     dirty?: string[]
     recent?: { path: string; date: string }[]
   } = $props()
@@ -27,29 +29,15 @@
 
   let inboxItems = $state<InboxItem[]>([])
   let inboxLoading = $state(true)
-  let chatInput = $state('')
 
   onMount(async () => {
     const res = await fetch('/api/inbox').catch(() => null)
     inboxItems = res?.ok ? await res.json() : []
     inboxLoading = false
+    onContextChange?.({ type: 'today', date: today })
   })
 
   const unreadCount = $derived(inboxItems.filter((m: InboxItem) => !m.read).length)
-
-  function submitChat() {
-    const msg = chatInput.trim()
-    if (!msg) return
-    chatInput = ''
-    onNewChat(msg)
-  }
-
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      submitChat()
-    }
-  }
 
 </script>
 
@@ -100,28 +88,6 @@
       {/if}
     </section>
 
-    <!-- Actions -->
-    <div class="actions">
-      <button class="briefing-btn" onclick={() => onNewChat('Give me a daily briefing')}>
-        Daily briefing
-      </button>
-    </div>
-
-    <!-- Chat input -->
-    <div class="chat-wrap">
-      <input
-        class="chat-input"
-        type="text"
-        placeholder="Ask anything…"
-        bind:value={chatInput}
-        onkeydown={handleKeydown}
-      />
-      <button class="send-btn" onclick={submitChat} disabled={!chatInput.trim()} aria-label="Send">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-        </svg>
-      </button>
-    </div>
   </div>
 </div>
 
@@ -254,77 +220,4 @@
   .card--files .section-title { padding: 0 16px 10px; }
   .card--files .muted { padding: 0 16px 14px; }
 
-  /* ── actions ──────────────────────────────────────────────── */
-
-  .actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .briefing-btn {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--accent);
-    background: var(--accent-dim);
-    border-radius: 6px;
-    padding: 8px 16px;
-    transition: background 0.15s;
-  }
-
-  .briefing-btn:hover {
-    background: color-mix(in srgb, var(--accent) 20%, transparent);
-  }
-
-  /* ── chat input ───────────────────────────────────────────── */
-
-  .chat-wrap {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 6px 8px 6px 12px;
-    transition: border-color 0.15s;
-  }
-
-  .chat-wrap:focus-within {
-    border-color: var(--accent);
-  }
-
-  .chat-input {
-    flex: 1;
-    background: none;
-    border: none;
-    outline: none;
-    font-size: 14px;
-    color: var(--text);
-  }
-
-  .chat-input::placeholder {
-    color: var(--text-2);
-    opacity: 0.6;
-  }
-
-  .send-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 6px;
-    background: var(--accent);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: opacity 0.15s;
-  }
-
-  .send-btn:disabled {
-    opacity: 0.35;
-    cursor: default;
-  }
-
-  .send-btn:not(:disabled):hover {
-    opacity: 0.85;
-  }
 </style>
