@@ -38,6 +38,10 @@
   let calendarRefreshKey = $state(0)
   let wikiRefreshKey = $state(0)
 
+  // Wiki panel — shown as right panel (large) or bottom drawer (small/medium)
+  let wikiPanelPath = $state<string | null>(null)
+  let wikiPanelOpen = $derived(wikiPanelPath !== null)
+
   onMount(() => {
     const onPopState = () => { route = parseRoute() }
     window.addEventListener('popstate', onPopState)
@@ -56,14 +60,12 @@
     route = next
   }
 
-  function switchToWiki(path: string) {
-    const next: Route = { tab: 'wiki', path }
-    navigate(next)
-    route = next
+  function openWikiPanel(path: string) {
+    wikiPanelPath = path
   }
 
-  function onWikiNavigate(path: string | undefined) {
-    route = { tab: 'wiki', path }
+  function closeWikiPanel() {
+    wikiPanelPath = null
   }
 
   function onInboxNavigate(id: string | undefined) {
@@ -108,7 +110,6 @@
   <nav class="tabs">
     <div class="tab-group">
       <button class:active={route.tab === 'chat'} onclick={() => switchTab('chat')}>Chat</button>
-      <button class:active={route.tab === 'wiki'} onclick={() => switchTab('wiki')}>Wiki</button>
       <button class:active={route.tab === 'inbox'} onclick={() => switchTab('inbox')}>Inbox</button>
       <button class:active={route.tab === 'calendar'} onclick={() => switchTab('calendar')}>Calendar</button>
     </div>
@@ -133,25 +134,36 @@
     </div>
   </nav>
 
-  <main class="surface">
-    {#if route.tab === 'chat'}
-      <Chat bind:messages={chatMessages} bind:sessionId={chatSessionId} contextFiles={route.file ? [route.file] : []} initialMessage={route.message} onSwitchToWiki={switchToWiki} onSwitchToCalendar={switchToCalendar} />
-    {:else if route.tab === 'wiki'}
-      <Wiki
-        initialPath={route.path}
-        refreshKey={wikiRefreshKey}
-        onChatAbout={chatAboutFile}
-        onNavigate={onWikiNavigate}
-      />
-    {:else if route.tab === 'calendar'}
-      <Calendar refreshKey={calendarRefreshKey} initialDate={route.tab === 'calendar' ? route.date : undefined} />
-    {:else}
-      <Inbox
-        initialId={route.id}
-        onNavigate={onInboxNavigate}
-      />
+  <div class="layout">
+    <main class="surface">
+      {#if route.tab === 'chat'}
+        <Chat bind:messages={chatMessages} bind:sessionId={chatSessionId} contextFiles={route.file ? [route.file] : []} initialMessage={route.message} onSwitchToWiki={openWikiPanel} onSwitchToCalendar={switchToCalendar} />
+      {:else if route.tab === 'calendar'}
+        <Calendar refreshKey={calendarRefreshKey} initialDate={route.tab === 'calendar' ? route.date : undefined} />
+      {:else}
+        <Inbox
+          initialId={route.id}
+          onNavigate={onInboxNavigate}
+        />
+      {/if}
+    </main>
+
+    {#if wikiPanelOpen}
+      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+      <div class="wiki-backdrop" onclick={closeWikiPanel}></div>
+      <aside class="wiki-panel">
+        <div class="wiki-panel-header">
+          <button class="wiki-close-btn" onclick={closeWikiPanel} title="Close wiki">✕</button>
+        </div>
+        <Wiki
+          initialPath={wikiPanelPath ?? undefined}
+          refreshKey={wikiRefreshKey}
+          onChatAbout={chatAboutFile}
+          onNavigate={(path) => { if (path) wikiPanelPath = path }}
+        />
+      </aside>
     {/if}
-  </main>
+  </div>
 </div>
 
 <style>
@@ -275,9 +287,89 @@
     to { transform: rotate(360deg); }
   }
 
+  /* ── layout ─────────────────────────────────────────────── */
+
+  .layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+
   .surface {
     flex: 1;
     overflow: hidden;
     position: relative;
+    min-width: 0;
+  }
+
+  /* ── wiki panel (large screens: right panel) ─────────────── */
+
+  .wiki-backdrop {
+    display: none;
+  }
+
+  .wiki-panel {
+    width: 420px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  .wiki-panel-header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-2);
+    flex-shrink: 0;
+  }
+
+  .wiki-close-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    color: var(--text-2);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s, background 0.15s;
+  }
+  .wiki-close-btn:hover {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+
+  /* ── wiki drawer (small/medium screens) ─────────────────── */
+
+  @media (max-width: 767px) {
+    .wiki-backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 40;
+    }
+
+    .wiki-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      width: auto;
+      height: 78vh;
+      border-left: none;
+      border-top: 1px solid var(--border);
+      border-radius: 12px 12px 0 0;
+      z-index: 50;
+    }
+
+    .wiki-panel-header {
+      border-radius: 12px 12px 0 0;
+    }
   }
 </style>

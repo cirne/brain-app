@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { navigate } from '../router.js'
   import { ArrowRight } from 'lucide-svelte'
 
   type WikiFile = { path: string; name: string }
@@ -52,7 +51,6 @@
 
   async function openFile(path: string) {
     selected = path
-    navigate({ tab: 'wiki', path })
     onNavigate?.(path)
     loading = true
     const res = await fetch(`/api/wiki/${encodeURIComponent(path)}`)

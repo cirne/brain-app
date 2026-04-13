@@ -1,6 +1,5 @@
 export type Route =
   | { tab: 'chat'; file?: string; message?: string }
-  | { tab: 'wiki'; path?: string }
   | { tab: 'inbox'; id?: string }
   | { tab: 'calendar'; date?: string }
 
@@ -9,9 +8,9 @@ export function parseRoute(href: string = location.href): Route {
   const url = new URL(href, 'http://localhost')
   const [, seg1, ...rest] = url.pathname.split('/')
 
+  // Legacy wiki routes → chat
   if (seg1 === 'wiki') {
-    const path = rest.join('/') || undefined
-    return { tab: 'wiki', path }
+    return { tab: 'chat' }
   }
   if (seg1 === 'inbox') {
     const id = rest[0] ? decodeURIComponent(rest[0]) : undefined
@@ -29,9 +28,6 @@ export function parseRoute(href: string = location.href): Route {
 
 /** Convert a Route back to a URL string. */
 export function routeToUrl(route: Route): string {
-  if (route.tab === 'wiki') {
-    return route.path ? `/wiki/${route.path}` : '/wiki'
-  }
   if (route.tab === 'inbox') {
     return route.id ? `/inbox/${encodeURIComponent(route.id)}` : '/inbox'
   }

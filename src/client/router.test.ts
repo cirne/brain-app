@@ -17,22 +17,12 @@ describe('parseRoute', () => {
     })
   })
 
-  it('parses /wiki (no path)', () => {
-    expect(parseRoute('http://localhost/wiki')).toEqual({ tab: 'wiki' })
+  it('redirects /wiki to chat', () => {
+    expect(parseRoute('http://localhost/wiki')).toEqual({ tab: 'chat' })
   })
 
-  it('parses /wiki/folder/file.md', () => {
-    expect(parseRoute('http://localhost/wiki/folder/file.md')).toEqual({
-      tab: 'wiki',
-      path: 'folder/file.md',
-    })
-  })
-
-  it('parses /wiki/top-level.md', () => {
-    expect(parseRoute('http://localhost/wiki/top-level.md')).toEqual({
-      tab: 'wiki',
-      path: 'top-level.md',
-    })
+  it('redirects /wiki/folder/file.md to chat', () => {
+    expect(parseRoute('http://localhost/wiki/folder/file.md')).toEqual({ tab: 'chat' })
   })
 
   it('parses /inbox (no id)', () => {
@@ -84,16 +74,6 @@ describe('routeToUrl', () => {
     )
   })
 
-  it('wiki without path', () => {
-    expect(routeToUrl({ tab: 'wiki' })).toBe('/wiki')
-  })
-
-  it('wiki with path', () => {
-    expect(routeToUrl({ tab: 'wiki', path: 'folder/file.md' })).toBe(
-      '/wiki/folder/file.md'
-    )
-  })
-
   it('inbox without id', () => {
     expect(routeToUrl({ tab: 'inbox' })).toBe('/inbox')
   })
@@ -121,8 +101,6 @@ describe('round-trip: routeToUrl → parseRoute', () => {
   const cases = [
     { tab: 'chat' as const },
     { tab: 'chat' as const, file: 'ideas/my note.md' },
-    { tab: 'wiki' as const },
-    { tab: 'wiki' as const, path: 'folder/sub/file.md' },
     { tab: 'inbox' as const },
     { tab: 'inbox' as const, id: 'msg:12345@mail.example.com' },
     { tab: 'calendar' as const },
