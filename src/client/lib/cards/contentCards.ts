@@ -39,6 +39,8 @@ export type CalendarEventLite = {
   source: 'travel' | 'personal'
   location?: string
   description?: string
+  attendees?: string[]
+  organizer?: string
 }
 
 export type ContentCardPreview =

@@ -8,11 +8,14 @@
     end,
     events,
     onOpenCalendar,
+    /** Opens the calendar panel focused on a specific event (right pane / slide-over). */
+    onOpenCalendarEvent,
   }: {
     start: string
     end: string
     events: CalendarEventLite[]
     onOpenCalendar?: (_date: string) => void
+    onOpenCalendarEvent?: (_date: string, _eventId: string) => void
   } = $props()
 
   /** Events whose start (date part) falls on `day` (YYYY-MM-DD), or all-day spanning. */
@@ -74,7 +77,13 @@
           >
             {formatDayHeader(day.date)}
           </button>
-          <DayEvents date={day.date} events={day.events} />
+          <DayEvents
+            date={day.date}
+            events={day.events}
+            onEventOpen={onOpenCalendarEvent
+              ? (e) => onOpenCalendarEvent(day.date, e.id)
+              : undefined}
+          />
         </div>
       {/each}
     </div>

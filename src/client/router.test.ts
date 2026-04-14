@@ -32,13 +32,33 @@ describe('parseRoute', () => {
     expect(parseRoute('http://localhost/inbox')).toEqual({ overlay: { type: 'email' } })
   })
 
-  it('parses /inbox/:id', () => {
+  it('parses /inbox/:id (path segment, legacy)', () => {
     expect(parseRoute('http://localhost/inbox/abc123')).toEqual({
       overlay: { type: 'email', id: 'abc123' },
     })
   })
 
-  it('decodes percent-encoded inbox id', () => {
+  it('parses /inbox?m= for opaque ids (preferred)', () => {
+    expect(
+      parseRoute('http://localhost/inbox?m=CAAZnHy4%2Btest%40mail.gmail.com'),
+    ).toEqual({
+      overlay: { type: 'email', id: 'CAAZnHy4+test@mail.gmail.com' },
+    })
+  })
+
+  it('parses /inbox?id= as alias for m', () => {
+    expect(parseRoute('http://localhost/inbox?id=opaque%40id')).toEqual({
+      overlay: { type: 'email', id: 'opaque@id' },
+    })
+  })
+
+  it('query param m wins over path when both present', () => {
+    expect(parseRoute('http://localhost/inbox/short?m=full-id-value')).toEqual({
+      overlay: { type: 'email', id: 'full-id-value' },
+    })
+  })
+
+  it('decodes percent-encoded inbox id in path', () => {
     expect(parseRoute('http://localhost/inbox/msg%3A12345')).toEqual({
       overlay: { type: 'email', id: 'msg:12345' },
     })
@@ -53,6 +73,14 @@ describe('parseRoute calendar', () => {
   it('parses /calendar?date=2026-04-13', () => {
     expect(parseRoute('http://localhost/calendar?date=2026-04-13')).toEqual({
       overlay: { type: 'calendar', date: '2026-04-13' },
+    })
+  })
+
+  it('parses /calendar?date=...&event=...', () => {
+    expect(
+      parseRoute('http://localhost/calendar?date=2026-04-14&event=evt-abc'),
+    ).toEqual({
+      overlay: { type: 'calendar', date: '2026-04-14', eventId: 'evt-abc' },
     })
   })
 })
@@ -82,14 +110,22 @@ describe('routeToUrl', () => {
     expect(routeToUrl({ overlay: { type: 'email' } })).toBe('/inbox')
   })
 
-  it('inbox with plain id', () => {
-    expect(routeToUrl({ overlay: { type: 'email', id: 'abc123' } })).toBe('/inbox/abc123')
+  it('inbox with id uses query param m', () => {
+    expect(routeToUrl({ overlay: { type: 'email', id: 'abc123' } })).toBe('/inbox?m=abc123')
   })
 
-  it('inbox encodes special chars in id', () => {
+  it('inbox encodes special chars in id in query', () => {
     expect(routeToUrl({ overlay: { type: 'email', id: 'msg:12345' } })).toBe(
-      '/inbox/msg%3A12345',
+      '/inbox?m=msg%3A12345',
     )
+  })
+
+  it('inbox encodes @ and + in message ids', () => {
+    expect(
+      routeToUrl({
+        overlay: { type: 'email', id: 'CAAZnHy4+test@mail.gmail.com' },
+      }),
+    ).toBe('/inbox?m=CAAZnHy4%2Btest%40mail.gmail.com')
   })
 
   it('calendar without date', () => {
@@ -100,6 +136,14 @@ describe('routeToUrl', () => {
     expect(routeToUrl({ overlay: { type: 'calendar', date: '2026-04-13' } })).toBe(
       '/calendar?date=2026-04-13',
     )
+  })
+
+  it('calendar with date and event id', () => {
+    expect(
+      routeToUrl({
+        overlay: { type: 'calendar', date: '2026-04-14', eventId: 'evt-xyz' },
+      }),
+    ).toBe('/calendar?date=2026-04-14&event=evt-xyz')
   })
 })
 
@@ -112,6 +156,13 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { overlay: { type: 'email' as const, id: 'msg:12345@mail.example.com' } },
     { overlay: { type: 'calendar' as const } },
     { overlay: { type: 'calendar' as const, date: '2026-04-13' } },
+    {
+      overlay: {
+        type: 'calendar' as const,
+        date: '2026-04-14',
+        eventId: 'some-event-id',
+      },
+    },
   ] as const
 
   for (const route of cases) {
@@ -176,6 +227,17 @@ describe('contextToString', () => {
   it('formats calendar context with date', () => {
     const ctx: SurfaceContext = { type: 'calendar', date: '2026-04-14' }
     expect(contextToString(ctx)).toContain('2026-04-14')
+  })
+
+  it('formats calendar context with date and focused event id', () => {
+    const ctx: SurfaceContext = {
+      type: 'calendar',
+      date: '2026-04-14',
+      eventId: 'evt-1',
+    }
+    const s = contextToString(ctx)!
+    expect(s).toContain('2026-04-14')
+    expect(s).toContain('evt-1')
   })
 
   it('formats inbox context', () => {

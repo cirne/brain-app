@@ -2,6 +2,7 @@
   import { mount, unmount } from 'svelte'
   import WikiFileName from './WikiFileName.svelte'
   import { normalizeWikiPathForMatch, transformWikiPageHtml } from './wikiPageHtml.js'
+  import { renderMarkdown } from './markdown.js'
 
   type WikiFile = { path: string; name: string }
 
@@ -10,11 +11,14 @@
   let {
     initialPath,
     refreshKey = 0,
+    streamingWrite = null as { path: string; body: string } | null,
     onNavigate,
     onContextChange,
   }: {
     initialPath?: string
     refreshKey?: number
+    /** Live markdown while agent streams `write` for this path (file may not exist yet). */
+    streamingWrite?: { path: string; body: string } | null
     onNavigate?: (_path: string | undefined) => void
     onContextChange?: (_ctx: SurfaceContext) => void
   } = $props()
@@ -36,13 +40,29 @@
     selected = path
     onNavigate?.(path)
     loading = true
-    const res = await fetch(`/api/wiki/${encodeURIComponent(path)}`)
-    const data = await res.json()
-    meta = data.meta ?? {}
-    content = transformWikiPageHtml(data.html)
-    loading = false
-    const title = meta.title ?? path.replace(/\.md$/, '').split('/').pop() ?? path
-    onContextChange?.({ type: 'wiki', path, title })
+    try {
+      const res = await fetch(`/api/wiki/${encodeURIComponent(path)}`)
+      if (!res.ok) {
+        meta = {}
+        content = ''
+        loading = false
+        const title = path.replace(/\.md$/, '').split('/').pop() ?? path
+        onContextChange?.({ type: 'wiki', path, title })
+        return
+      }
+      const data = await res.json()
+      meta = data.meta ?? {}
+      content = transformWikiPageHtml(data.html)
+      loading = false
+      const title = meta.title ?? path.replace(/\.md$/, '').split('/').pop() ?? path
+      onContextChange?.({ type: 'wiki', path, title })
+    } catch {
+      meta = {}
+      content = ''
+      loading = false
+      const title = path.replace(/\.md$/, '').split('/').pop() ?? path
+      onContextChange?.({ type: 'wiki', path, title })
+    }
   }
 
   function handleContentClick(e: MouseEvent) {
@@ -101,6 +121,7 @@
         if (initialPath) {
           const match = files.find(f => f.path === initialPath)
           if (match) void openFile(match.path)
+          else void openFile(initialPath)
         } else {
           const index = files.find(f => f.name === '_index' && !f.path.includes('/'))
           if (index) void openFile(index.path)
@@ -116,7 +137,8 @@
     const path = initialPath
     if (!path || !initialized) return
     const match = files.find(f => f.path === path)
-    if (match && path !== selected) openFile(match.path)
+    if (match && path !== selected) void openFile(match.path)
+    else if (!match && path !== selected) void openFile(path)
   })
 </script>
 
@@ -127,6 +149,10 @@
     <article class="viewer" onclick={handleContentClick} use:upgradeWikiLinks={content}>
       {#if loading}
         <p class="status">Loading...</p>
+      {:else if streamingWrite && streamingWrite.path === selected && streamingWrite.body}
+        <p class="stream-label" role="status">Agent is writing…</p>
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+        <div class="stream-md markdown">{@html renderMarkdown(streamingWrite.body.slice(0, 50000))}</div>
       {:else if content}
         {#if Object.keys(meta).length > 0}
           <div class="page-meta">
@@ -159,6 +185,21 @@
   }
 
   .status { color: var(--text-2); font-size: 14px; }
+
+  .stream-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 0 0 12px;
+  }
+  .stream-md {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .stream-md :global(h1) { font-size: 1.5em; margin: 0.6em 0 0.35em; }
+  .stream-md :global(h2) { font-size: 1.25em; margin: 0.8em 0 0.3em; }
+  .stream-md :global(p) { margin: 0 0 0.65em; }
+  .stream-md :global(pre) { background: var(--bg-3); padding: 10px 12px; border-radius: 6px; overflow-x: auto; }
 
   .page-meta {
     display: flex;

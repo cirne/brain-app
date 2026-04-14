@@ -16,6 +16,8 @@
     wikiRefreshKey: number
     calendarRefreshKey: number
     inboxTargetId: string | undefined
+    /** Live agent `write` stream — markdown body for `path` (wiki pane). */
+    wikiStreamingWrite?: { path: string; body: string } | null
     onWikiNavigate: (_path: string | undefined) => void
     onInboxNavigate: (_id: string | undefined) => void
     onContextChange: (_ctx: SurfaceContext) => void
@@ -34,6 +36,7 @@
     wikiRefreshKey,
     calendarRefreshKey,
     inboxTargetId,
+    wikiStreamingWrite = null,
     onWikiNavigate,
     onInboxNavigate,
     onContextChange,
@@ -272,6 +275,7 @@
       <Wiki
         initialPath={overlay.path}
         refreshKey={wikiRefreshKey}
+        streamingWrite={wikiStreamingWrite}
         onNavigate={(path) => onWikiNavigate(path)}
         onContextChange={onContextChange}
       />
@@ -287,8 +291,15 @@
     {:else}
       <Calendar
         refreshKey={calendarRefreshKey}
-        initialDate={overlay.date}
+        initialDate={overlay.type === 'calendar' ? overlay.date : undefined}
+        initialEventId={overlay.type === 'calendar' ? overlay.eventId : undefined}
         onContextChange={onContextChange}
+        onOpenWiki={(path) => {
+          if (path) onWikiNavigate(path)
+        }}
+        onOpenEmail={(id) => {
+          if (id) onInboxNavigate(id)
+        }}
       />
     {/if}
   </div>

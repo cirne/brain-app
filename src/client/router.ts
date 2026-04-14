@@ -2,7 +2,7 @@
 export type Overlay =
   | { type: 'wiki'; path?: string }
   | { type: 'email'; id?: string }
-  | { type: 'calendar'; date?: string }
+  | { type: 'calendar'; date?: string; eventId?: string }
 
 /** Chat-first shell: optional detail overlay; base route is always chat. */
 export type Route = {
@@ -29,11 +29,23 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
     return s
   }
   if (ctx.type === 'wiki') return `The user is viewing doc: ${ctx.path} (title: "${ctx.title}")`
-  if (ctx.type === 'calendar') return `The user is viewing their calendar for ${ctx.date}`
+  if (ctx.type === 'calendar') {
+    let s = `The user is viewing their calendar for ${ctx.date}`
+    if (ctx.eventId) s += ` (focused event id: ${ctx.eventId})`
+    return s
+  }
   if (ctx.type === 'inbox') {
     return 'The user asked for a summary of the triaged inbox items in their message. Use the ripmail tool (e.g. read <id> --json, or search with --json) with the message ids provided as needed, then answer concisely.'
   }
   return undefined
+}
+
+function safeDecodePathSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
 }
 
 /** Parse a URL (defaults to current location) into a Route. */
@@ -52,12 +64,24 @@ export function parseRoute(href: string = location.href): Route {
     return { overlay: { type: 'wiki' } }
   }
   if (seg1 === 'inbox') {
-    const id = rest[0] ? decodeURIComponent(rest[0]) : undefined
-    return { overlay: id ? { type: 'email', id } : { type: 'email' } }
+    /** Prefer query param so opaque ids (e.g. with `@`, `+`) are not split or mishandled in the path. */
+    const qId = url.searchParams.get('m') ?? url.searchParams.get('id')
+    if (qId) {
+      return { overlay: { type: 'email', id: qId } }
+    }
+    if (rest.length > 0 && rest[0]) {
+      const id = rest.map(safeDecodePathSegment).join('/')
+      return { overlay: { type: 'email', id } }
+    }
+    return { overlay: { type: 'email' } }
   }
   if (seg1 === 'calendar') {
     const date = url.searchParams.get('date') ?? undefined
-    return { overlay: date ? { type: 'calendar', date } : { type: 'calendar' } }
+    const eventId = url.searchParams.get('event') ?? undefined
+    if (!date) {
+      return { overlay: { type: 'calendar' } }
+    }
+    return { overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) } }
   }
 
   // Default: chat only
@@ -74,10 +98,17 @@ export function routeToUrl(route: Route): string {
       : '/wiki'
   }
   if (o.type === 'email') {
-    return o.id ? `/inbox/${encodeURIComponent(o.id)}` : '/inbox'
+    if (!o.id) return '/inbox'
+    const q = new URLSearchParams()
+    q.set('m', o.id)
+    return `/inbox?${q.toString()}`
   }
   if (o.type === 'calendar') {
-    return o.date ? `/calendar?date=${encodeURIComponent(o.date)}` : '/calendar'
+    if (!o.date) return '/calendar'
+    const q = new URLSearchParams()
+    q.set('date', o.date)
+    if (o.eventId) q.set('event', o.eventId)
+    return `/calendar?${q.toString()}`
   }
   return '/'
 }

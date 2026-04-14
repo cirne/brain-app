@@ -54,6 +54,8 @@
   let selectedThread = $state<string | null>(null)
   let threadContent = $state<{ headers: string; body: string } | null>(null)
   let threadLoading = $state(false)
+  /** Set when GET /api/inbox/:id fails (e.g. 404 — invalid or stale id). */
+  let threadLoadError = $state<string | null>(null)
   /** When opening by id that is not in the inbox list (e.g. agent read_email id). */
   let orphanThreadMeta = $state<{ subject: string; from: string } | null>(null)
   let error = $state<string | null>(null)
@@ -187,6 +189,7 @@
   async function openThreadByRawId(id: string) {
     if (selectedThread === id && (threadContent || threadLoading)) return
     orphanThreadMeta = null
+    threadLoadError = null
     selectedThread = id
     navigate({ overlay: { type: 'email', id } })
     onNavigate?.(id)
@@ -217,15 +220,21 @@
         }
       } else {
         threadContent = null
+        threadLoadError =
+          res.status === 404
+            ? 'Message not found. It may have been archived or the id is invalid. Try refreshing the inbox list.'
+            : `Could not load message (${res.status}).`
       }
     } catch {
       threadContent = null
+      threadLoadError = 'Could not load message.'
     }
     threadLoading = false
   }
 
   async function openThread(email: Email) {
     orphanThreadMeta = null
+    threadLoadError = null
     selectedThread = email.id
     navigate({ overlay: { type: 'email', id: email.id } })
     onNavigate?.(email.id)
@@ -242,8 +251,17 @@
           : { headers: text.slice(0, blank), body: text.slice(blank + 2) }
         // Update context with body now that it's loaded (cap at 4000 chars)
         onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from, body: threadContent.body.slice(0, 4000) })
+      } else {
+        threadContent = null
+        threadLoadError =
+          res.status === 404
+            ? 'Message not found. It may have been archived or the id is invalid. Try refreshing the inbox list.'
+            : `Could not load message (${res.status}).`
       }
-    } catch { threadContent = null }
+    } catch {
+      threadContent = null
+      threadLoadError = 'Could not load message.'
+    }
     threadLoading = false
   }
 
@@ -515,6 +533,8 @@
         <div class="thread-body">
           {#if threadLoading}
             <p class="loading">Loading...</p>
+          {:else if threadLoadError}
+            <p class="thread-error" role="alert">{threadLoadError}</p>
           {:else if threadContent}
             <div class="thread-meta" aria-label="Message headers">
               {#each emailHeadersForDisplay(threadContent.headers) as row (row.key)}
@@ -814,6 +834,12 @@
     padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
   .loading { color: var(--text-2); font-size: 14px; }
+  .thread-error {
+    color: var(--danger);
+    font-size: 14px;
+    line-height: 1.45;
+    margin: 0;
+  }
   .thread-meta {
     display: flex;
     flex-direction: column;

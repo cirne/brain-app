@@ -52,7 +52,7 @@ In dev, Vite runs inside the same Node HTTP server as a middleware rather than o
 
 ### Wiki lives in an external git repo (not this repo)
 
-Wiki content is read from/written to `WIKI_DIR` — a separate brain repo cloned at runtime. The agent's file tools (`read`, `edit`, `write`, `grep`, `find`) are scoped to this directory. The `git_commit_push` tool stages and pushes changes back to that repo.
+Wiki content is read from/written to `WIKI_DIR` — a separate brain repo cloned at runtime. The agent's file tools (`read`, `edit`, `write`, `grep`, `find`) are scoped to this directory. After edits, the server debounces and runs git commit/push/sync so the agent does not need a separate commit tool.
 
 **Why:** Separates app code from personal knowledge. The brain repo is the source of truth; brain-app is the interface to it. This lets the wiki be edited directly via git, other tools, or other apps independently of this app.
 
@@ -62,7 +62,7 @@ Wiki content is read from/written to `WIKI_DIR` — a separate brain repo cloned
 
 ### Agent tools: pi-coding-agent + custom
 
-File tools (`read`, `edit`, `write`, `grep`, `find`) come from `@mariozechner/pi-coding-agent`, which provides fuzzy-matching edit and path-scoped access. Custom tools (`search_email`, `read_email`, `draft_email`, `send_draft`, `git_commit_push`, `find_person`, `wiki_log`, `get_calendar_events`, `web_search`, `fetch_page`, `get_youtube_transcript`, `youtube_search`) are defined inline in `src/server/agent/tools.ts`.
+File tools (`read`, `edit`, `write`, `grep`, `find`) come from `@mariozechner/pi-coding-agent`, which provides fuzzy-matching edit and path-scoped access. Custom tools (`search_email`, `read_email`, `draft_email`, `send_draft`, `find_person`, `wiki_log`, `get_calendar_events`, `web_search`, `fetch_page`, `get_youtube_transcript`, `youtube_search`) are defined inline in `src/server/agent/tools.ts`.
 
 **Why pi-coding-agent for file tools:** The fuzzy edit tool is significantly better than exact-match replacement for LLM-driven edits. Reusing it avoids reimplementing path security and file I/O.
 

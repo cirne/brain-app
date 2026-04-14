@@ -27,7 +27,7 @@
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     /** Opens the inbox surface without a specific thread (SlideOver / route). */
     onOpenFullInbox?: () => void
-    onSwitchToCalendar?: (_date: string) => void
+    onSwitchToCalendar?: (_date: string, _eventId?: string) => void
   } = $props()
 
   let messagesEl: HTMLElement
@@ -151,20 +151,21 @@
         <p class="hint">Use <kbd>@</kbd> to reference docs in this app.</p>
       </div>
       {#if emptyPreviewLoading}
-        <p class="empty-loading">Loading inbox and calendar…</p>
+        <p class="empty-loading">Loading calendar and inbox…</p>
       {:else}
         <div class="empty-previews">
-          <InboxListPreviewCard
-            items={emptyInboxPreviewRows}
-            totalCount={emptyInboxPreviewRows.length}
-            onOpenEmail={(id, subject, from) => onOpenEmail?.(id, subject, from)}
-            onOpenFullInbox={onOpenFullInbox}
-          />
           <CalendarPreviewCard
             start={emptyPreviewDay}
             end={emptyPreviewDay}
             events={emptyCalendarEvents}
             onOpenCalendar={(date) => onSwitchToCalendar?.(date)}
+            onOpenCalendarEvent={(date, eventId) => onSwitchToCalendar?.(date, eventId)}
+          />
+          <InboxListPreviewCard
+            items={emptyInboxPreviewRows}
+            totalCount={emptyInboxPreviewRows.length}
+            onOpenEmail={(id, subject, from) => onOpenEmail?.(id, subject, from)}
+            onOpenFullInbox={onOpenFullInbox}
           />
         </div>
       {/if}
@@ -180,7 +181,9 @@
         <div class="msg-label">Assistant</div>
 
         {#each msg.parts ?? [] as part}
-          {#if part.type === 'tool' && part.toolCall.name !== 'set_chat_title'}
+          <!-- write: live preview is in the wiki pane; other tools: show only when done (no "running" rows) -->
+          {#if part.type === 'tool' && part.toolCall.name !== 'set_chat_title' && part.toolCall.name !== 'write'}
+            {#if part.toolCall.done}
             {@const preview = matchContentPreview(part.toolCall)}
             <div class="tool-part">
               <details class="tool-call" class:error={part.toolCall.isError} open={!part.toolCall.done}>
@@ -217,6 +220,7 @@
                   end={preview.end}
                   events={preview.events}
                   onOpenCalendar={(date) => onSwitchToCalendar?.(date)}
+                  onOpenCalendarEvent={(date, eventId) => onSwitchToCalendar?.(date, eventId)}
                 />
               {:else if preview?.kind === 'wiki'}
                 <WikiPreviewCard
@@ -240,6 +244,7 @@
                 />
               {/if}
             </div>
+            {/if}
           {:else if part.type === 'text' && part.content}
             <div class="msg-content markdown">
               <!-- eslint-disable-next-line svelte/no-at-html-tags -->

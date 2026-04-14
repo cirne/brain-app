@@ -25,6 +25,8 @@
     onSessionChange,
     /** After a send() stream finishes (success, error, or abort). */
     onChatPersisted,
+    /** Live `write` tool body — wiki detail pane only. */
+    onWriteStreaming,
     mobileDetail,
   }: {
     context?: SurfaceContext
@@ -32,13 +34,14 @@
     onOpenWiki?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
-    onSwitchToCalendar?: (_date: string) => void
+    onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     /** LLM `open` tool — fired from SSE tool_start */
     onOpenFromAgent?: (_target: { type: string; path?: string; id?: string; date?: string }) => void
     onNewChat?: () => void
     onUserSendMessage?: () => void
     onSessionChange?: (_sessionId: string | null) => void
     onChatPersisted?: () => void
+    onWriteStreaming?: (_p: { path: string; content: string; done: boolean }) => void
     /** Full-screen detail stack above input (mobile only) */
     mobileDetail?: Snippet
   } = $props()
@@ -153,6 +156,12 @@
     if (!text || streaming) return
 
     let touchedWiki = false
+    /** Fire `open` / `read_email` side effects once per tool call id. */
+    const openedFromAgentByToolId = new Set<string>()
+    /** Open wiki once per write tool call when path first appears. */
+    const writeOpenedWikiForToolId = new Set<string>()
+    /** Preserve path for tool_end (referenced files) — write SSE has no args on tool_end. */
+    const writePathByToolId = new Map<string, string>()
     const mentionedFiles = extractMentionedFiles(text)
     const isFirstMessage = messages.length === 0
 
@@ -220,34 +229,81 @@
               case 'thinking':
                 msg.thinking = (msg.thinking ?? '') + data.delta
                 break
+              case 'tool_args': {
+                // Server emits only for `write` — stream to wiki pane without mutating chat tool rows.
+                if (data.name !== 'write') break
+                const path = typeof data.args?.path === 'string' ? data.args.path : ''
+                const content = typeof data.args?.content === 'string' ? data.args.content : ''
+                if (path) writePathByToolId.set(data.id, path)
+                if (path && !writeOpenedWikiForToolId.has(data.id)) {
+                  writeOpenedWikiForToolId.add(data.id)
+                  onOpenWiki?.(path)
+                }
+                onWriteStreaming?.({ path, content, done: false })
+                break
+              }
               case 'tool_start': {
-                msg.parts!.push({ type: 'tool', toolCall: { id: data.id, name: data.name, args: data.args, done: false } })
-                if (data.name === 'open' && data.args?.target && onOpenFromAgent) {
-                  onOpenFromAgent(data.args.target)
+                if (data.name === 'set_chat_title') {
+                  const parts = msg.parts!
+                  const existing = parts.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
+                  if (existing) {
+                    existing.toolCall.name = data.name
+                    existing.toolCall.args = data.args
+                  } else {
+                    parts.push({ type: 'tool', toolCall: { id: data.id, name: data.name, args: data.args, done: false } })
+                  }
+                  if (typeof data.args?.title === 'string') {
+                    const t = data.args.title.trim().slice(0, 120)
+                    if (t) chatTitle = t
+                  }
+                  messages = [...messages]
+                } else if (data.name !== 'write') {
+                  // Defer non-write tools to tool_end (no "running" rows in chat).
+                  if (data.name === 'open' && data.args?.target && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
+                    openedFromAgentByToolId.add(data.id)
+                    onOpenFromAgent(data.args.target)
+                  }
+                  if (data.name === 'read_email' && typeof data.args?.id === 'string' && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
+                    openedFromAgentByToolId.add(data.id)
+                    onOpenFromAgent({ type: 'email', id: data.args.id })
+                  }
                 }
-                if (data.name === 'read_email' && typeof data.args?.id === 'string' && onOpenFromAgent) {
-                  onOpenFromAgent({ type: 'email', id: data.args.id })
-                }
-                if (data.name === 'set_chat_title' && typeof data.args?.title === 'string') {
-                  const t = data.args.title.trim().slice(0, 120)
-                  if (t) chatTitle = t
-                }
+                // write: no chat row; live body goes through tool_args + wiki pane
                 conversationEl?.scrollToBottom()
                 break
               }
               case 'tool_end': {
-                const part = msg.parts!.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
-                if (part) {
+                let part = msg.parts!.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
+                const writePath = data.name === 'write' ? writePathByToolId.get(data.id) : undefined
+                if (!part) {
+                  part = {
+                    type: 'tool',
+                    toolCall: {
+                      id: data.id,
+                      name: data.name,
+                      args: writePath ? { path: writePath } : {},
+                      result: data.result,
+                      details: data.details,
+                      isError: data.isError,
+                      done: true,
+                    },
+                  }
+                  msg.parts!.push(part)
+                } else {
                   part.toolCall.result = data.result
                   if (data.details !== undefined) part.toolCall.details = data.details
                   part.toolCall.isError = data.isError
                   part.toolCall.done = true
-                  const name = part.toolCall.name
-                  if (name === 'write' || name === 'edit' || name === 'delete') touchedWiki = true
-                  // Deep mutation may not trigger runes — new array so inbox preview and tool rows update
-                  messages = [...messages]
-                  conversationEl?.scrollToBottom()
+                  if (writePath) part.toolCall.args = { path: writePath }
                 }
+                const name = part.toolCall.name
+                if (name === 'write' || name === 'edit' || name === 'delete') touchedWiki = true
+                if (name === 'write') {
+                  writePathByToolId.delete(data.id)
+                  onWriteStreaming?.({ path: '', content: '', done: true })
+                }
+                messages = [...messages]
+                conversationEl?.scrollToBottom()
                 break
               }
               case 'error':

@@ -3,9 +3,11 @@ import {
   applyStreamError,
   applyTextDelta,
   applyThinkingDelta,
+  applyToolArgsUpsert,
   applyToolEnd,
   applyToolStart,
   createAssistantTurnState,
+  extractStreamingToolCallsFromPartialAssistant,
   toAssistantMessage,
 } from './chatTranscript.js'
 
@@ -47,6 +49,35 @@ describe('chatTranscript', () => {
     const tc = (m.parts![0] as { type: 'tool'; toolCall: { result: string; done: boolean } }).toolCall
     expect(tc.result).toBe('file contents')
     expect(tc.done).toBe(true)
+  })
+
+  it('extracts tool calls from partial assistant message', () => {
+    const partial = {
+      content: [
+        { type: 'toolCall', id: 'call_1', name: 'write', arguments: { path: 'x.md', content: 'hi' } },
+      ],
+    }
+    const tools = extractStreamingToolCallsFromPartialAssistant(partial)
+    expect(tools).toHaveLength(1)
+    expect(tools[0]).toEqual({ id: 'call_1', name: 'write', args: { path: 'x.md', content: 'hi' } })
+  })
+
+  it('applyToolArgsUpsert appends then updates by id', () => {
+    const s = createAssistantTurnState()
+    applyToolArgsUpsert(s, { id: 'a', name: 'write', args: { path: 'p.md', content: 'x' }, done: false })
+    expect(s.parts).toHaveLength(1)
+    applyToolArgsUpsert(s, { id: 'a', name: 'write', args: { path: 'p.md', content: 'xy' }, done: false })
+    expect(s.parts).toHaveLength(1)
+    const tc = (s.parts[0] as { type: 'tool'; toolCall: { args: { content: string } } }).toolCall
+    expect(tc.args.content).toBe('xy')
+  })
+
+  it('applyToolStart merges with existing streaming row (same id)', () => {
+    const s = createAssistantTurnState()
+    applyToolArgsUpsert(s, { id: 't1', name: 'grep', args: { q: 'a' }, done: false })
+    applyToolStart(s, { id: 't1', name: 'grep', args: { q: 'ab' }, done: false })
+    expect(s.parts).toHaveLength(1)
+    expect((s.parts[0] as { type: 'tool'; toolCall: { args: { q: string } } }).toolCall.args.q).toBe('ab')
   })
 
   it('appends stream error as text', () => {

@@ -41,6 +41,8 @@
   let wikiRefreshKey = $state(0)
   let showSearch = $state(false)
   let inboxTargetId = $state<string | undefined>()
+  /** Live markdown while the agent streams a `write` tool — wiki pane only. */
+  let wikiWriteStreaming = $state<{ path: string; body: string } | null>(null)
   let agentDrawer = $state<AgentDrawer | undefined>()
   let mobileSlideOver = $state<{ closeAnimated: () => void } | undefined>()
   let workspaceSplit = $state<WorkspaceSplit | undefined>()
@@ -158,6 +160,7 @@
     route = parseRoute()
     agentContext = { type: 'chat' }
     inboxTargetId = undefined
+    wikiWriteStreaming = null
   }
 
   function closeOverlay() {
@@ -194,10 +197,10 @@
     route = parseRoute()
   }
 
-  function switchToCalendar(date: string) {
-    navigate({ overlay: { type: 'calendar', date } })
+  function switchToCalendar(date: string, eventId?: string) {
+    navigate({ overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) } })
     route = parseRoute()
-    agentContext = { type: 'calendar', date }
+    agentContext = { type: 'calendar', date, ...(eventId ? { eventId } : {}) }
   }
 
   function setContext(ctx: SurfaceContext) {
@@ -325,6 +328,16 @@
   function onChatPersisted() {
     void chatHistory?.refresh()
   }
+
+  function onWriteStreaming(p: { path: string; content: string; done: boolean }) {
+    if (p.done) {
+      wikiWriteStreaming = null
+      return
+    }
+    if (p.path) {
+      wikiWriteStreaming = { path: p.path, body: p.content }
+    }
+  }
 </script>
 
 {#if showSearch}
@@ -396,6 +409,7 @@
         onUserSendMessage={closeOverlayOnUserSend}
         onSessionChange={onSessionChangeFromAgent}
         onChatPersisted={onChatPersisted}
+        onWriteStreaming={onWriteStreaming}
       >
         {#snippet mobileDetail()}
           {#if route.overlay}
@@ -406,6 +420,7 @@
               wikiRefreshKey={wikiRefreshKey}
               calendarRefreshKey={calendarRefreshKey}
               inboxTargetId={inboxTargetId}
+              wikiStreamingWrite={wikiWriteStreaming}
               onWikiNavigate={onWikiNavigate}
               onInboxNavigate={onInboxNavigateSlide}
               onContextChange={setContext}
@@ -428,6 +443,7 @@
           wikiRefreshKey={wikiRefreshKey}
           calendarRefreshKey={calendarRefreshKey}
           inboxTargetId={inboxTargetId}
+          wikiStreamingWrite={wikiWriteStreaming}
           onWikiNavigate={onWikiNavigate}
           onInboxNavigate={onInboxNavigateSlide}
           onContextChange={setContext}

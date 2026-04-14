@@ -19,8 +19,42 @@ export function applyThinkingDelta(state: AssistantTurnState, delta: string): vo
   state.thinking = (state.thinking ?? '') + delta
 }
 
+/** Parsed tool calls from pi-agent `message_update` partial assistant message (toolCall blocks). */
+export function extractStreamingToolCallsFromPartialAssistant(
+  partial: unknown
+): Array<{ id: string; name: string; args: unknown }> {
+  if (!partial || typeof partial !== 'object') return []
+  const content = (partial as { content?: unknown }).content
+  if (!Array.isArray(content)) return []
+  const out: Array<{ id: string; name: string; args: unknown }> = []
+  for (const block of content) {
+    if (!block || typeof block !== 'object') continue
+    if ((block as { type?: string }).type !== 'toolCall') continue
+    const id = (block as { id?: unknown }).id
+    const name = (block as { name?: unknown }).name
+    const args = (block as { arguments?: unknown }).arguments
+    if (typeof id === 'string' && typeof name === 'string') {
+      out.push({ id, name, args: args ?? {} })
+    }
+  }
+  return out
+}
+
+/** Insert or update a tool row by id (streaming tool args before tool_execution_start). */
+export function applyToolArgsUpsert(state: AssistantTurnState, toolCall: ToolCall): void {
+  const part = state.parts.find(p => p.type === 'tool' && p.toolCall.id === toolCall.id) as
+    | { type: 'tool'; toolCall: ToolCall }
+    | undefined
+  if (!part) {
+    state.parts.push({ type: 'tool', toolCall: { ...toolCall, done: false } })
+    return
+  }
+  part.toolCall.name = toolCall.name
+  part.toolCall.args = toolCall.args
+}
+
 export function applyToolStart(state: AssistantTurnState, toolCall: ToolCall): void {
-  state.parts.push({ type: 'tool', toolCall: { ...toolCall, done: false } })
+  applyToolArgsUpsert(state, toolCall)
 }
 
 export function applyToolEnd(

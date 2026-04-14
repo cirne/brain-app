@@ -15,6 +15,9 @@ SUMMARY:Weekly Sync
 DTSTART:20260412T100000Z
 DTEND:20260412T110000Z
 LOCATION:Zoom
+ORGANIZER;CN=Alice:mailto:alice@example.com
+ATTENDEE;CN=Bob;PARTSTAT=ACCEPTED:mailto:bob@example.com
+ATTENDEE;CN=Charlie:mailto:charlie@example.com
 END:VEVENT
 BEGIN:VEVENT
 UID:travel-001@test
@@ -160,6 +163,21 @@ END:VCALENDAR`
     expect(apr20!.start).toBe('2026-04-20T15:00:00Z')
   })
 
+  it('parses ATTENDEE and ORGANIZER emails', () => {
+    const events = parseICS(SAMPLE_ICS, 'personal')
+    const meeting = events.find(e => e.id === 'meeting-001@test')
+    expect(meeting).toBeDefined()
+    expect(meeting!.organizer).toBe('alice@example.com')
+    expect(meeting!.attendees).toEqual(['bob@example.com', 'charlie@example.com'])
+  })
+
+  it('omits attendees/organizer when not in ICS', () => {
+    const events = parseICS(SAMPLE_ICS, 'travel')
+    const trip = events.find(e => e.id === 'travel-001@test')
+    expect(trip!.attendees).toBeUndefined()
+    expect(trip!.organizer).toBeUndefined()
+  })
+
   it('unescapes ICS special characters', () => {
     const ics = `BEGIN:VCALENDAR
 BEGIN:VEVENT
@@ -240,6 +258,54 @@ describe('GET /api/calendar', () => {
     const sources = body.events.map((e: { source: string }) => e.source)
     expect(sources).toContain('travel')
     expect(sources).toContain('personal')
+  })
+})
+
+// ─── GET /api/calendar/related ───────────────────────────────────────────────
+
+describe('GET /api/calendar/related', () => {
+  it('returns JSON shape with empty arrays when no event matches', async () => {
+    const res = await app.request('/api/calendar/related?eventId=does-not-exist')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(Array.isArray(body.emails)).toBe(true)
+    expect(Array.isArray(body.wiki)).toBe(true)
+    expect(Array.isArray(body.people)).toBe(true)
+    expect(body.emails).toHaveLength(0)
+    expect(body.wiki).toHaveLength(0)
+    expect(body.people).toHaveLength(0)
+  })
+
+  it('accepts meetingIds without eventId (still 200)', async () => {
+    const res = await app.request('/api/calendar/related?meetingIds=abc,def')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toHaveProperty('emails')
+    expect(body).toHaveProperty('wiki')
+    expect(body).toHaveProperty('people')
+  })
+
+  it('loads event from cache for attendee/organizer lookup (title < 3 chars skips wiki grep)', async () => {
+    const { writeCache } = await import('../lib/calendarCache.js')
+    await writeCache('personal', [
+      {
+        id: 'rel-ev-1',
+        title: 'zz',
+        start: '2026-04-12T10:00:00Z',
+        end: '2026-04-12T11:00:00Z',
+        allDay: false,
+        source: 'personal',
+        organizer: 'org@example.com',
+        attendees: ['a@example.com', 'b@example.com'],
+      },
+    ])
+
+    const res = await app.request('/api/calendar/related?eventId=rel-ev-1')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(Array.isArray(body.emails)).toBe(true)
+    expect(Array.isArray(body.wiki)).toBe(true)
+    expect(Array.isArray(body.people)).toBe(true)
   })
 })
 

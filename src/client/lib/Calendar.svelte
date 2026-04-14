@@ -1,17 +1,25 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import DayEvents, { type CalendarEvent } from './DayEvents.svelte'
+  import CalendarEventDetail from './CalendarEventDetail.svelte'
 
   import type { SurfaceContext } from '../router.js'
 
   let {
     refreshKey = 0,
     initialDate,
+    /** When opening from chat preview / URL, scroll and highlight this event in the day list. */
+    initialEventId,
     onContextChange,
+    onOpenWiki,
+    onOpenEmail,
   }: {
     refreshKey?: number
     initialDate?: string
+    initialEventId?: string
     onContextChange?: (_ctx: SurfaceContext) => void
+    onOpenWiki?: (_path: string) => void
+    onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
   } = $props()
 
   let weekStart = $state(sundayOf(new Date()))
@@ -19,6 +27,55 @@
   let loading = $state(false)
   let fetchedAt = $state({ travel: '', personal: '' })
   let urlsConfigured = $state(false)
+
+  /** Drill-down: full event detail (title, when, where, notes). */
+  let detailEvent = $state<CalendarEvent | null>(null)
+  /** Avoid immediately re-opening detail after user taps Back while URL still has `event=`. */
+  let userClosedDetail = $state(false)
+  let lastInitialEventIdProp = $state<string | undefined>(undefined)
+
+  function openEventDetail(e: CalendarEvent) {
+    detailEvent = e
+    userClosedDetail = false
+  }
+
+  function closeEventDetail() {
+    detailEvent = null
+    userClosedDetail = true
+  }
+
+  /** Sync `/calendar?event=` to detail when opening from chat preview or URL changes. */
+  $effect(() => {
+    if (initialEventId !== lastInitialEventIdProp) {
+      lastInitialEventIdProp = initialEventId
+      userClosedDetail = false
+      if (!initialEventId) {
+        return
+      }
+      const found = events.find((e) => e.id === initialEventId)
+      if (found) {
+        detailEvent = found
+      }
+      return
+    }
+    if (!initialEventId || detailEvent !== null || userClosedDetail) {
+      return
+    }
+    const found = events.find((e) => e.id === initialEventId)
+    if (found) {
+      detailEvent = found
+    }
+  })
+
+  /** Clear detail when the focused event is not in the loaded week. */
+  $effect(() => {
+    if (!detailEvent) {
+      return
+    }
+    if (!events.some((e) => e.id === detailEvent.id)) {
+      detailEvent = null
+    }
+  })
 
   // Jump to initialDate when it changes (e.g. navigating from chat)
   $effect(() => {
@@ -158,6 +215,17 @@
         <p class="hint">Set <code>CIRNE_TRAVEL_ICS_URL</code> and <code>LEW_PERSONAL_ICS_URL</code> in your .env.</p>
       {/if}
     </div>
+  {:else if detailEvent}
+    <div class="detail-drill">
+      <div class="detail-drill-toolbar">
+        <button type="button" class="detail-back" onclick={closeEventDetail}>
+          ← Back to week
+        </button>
+      </div>
+      <div class="detail-drill-body">
+        <CalendarEventDetail event={detailEvent} {onOpenWiki} {onOpenEmail} />
+      </div>
+    </div>
   {:else}
     <div class="days">
       {#each days as { date, ymd }}
@@ -166,7 +234,12 @@
             <span class="day-label" class:today-label={ymd === todayYMD}>{formatDayHeader(date)}</span>
             {#if ymd === todayYMD}<span class="today-badge">today</span>{/if}
           </div>
-          <DayEvents date={ymd} {events} />
+          <DayEvents
+            date={ymd}
+            {events}
+            selectedEventId={initialEventId}
+            onEventSelect={openEventDetail}
+          />
         </div>
       {/each}
     </div>
@@ -314,4 +387,42 @@
     cursor: pointer;
   }
   .sync-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .detail-drill {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .detail-drill-toolbar {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-2);
+  }
+
+  .detail-back {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    padding: 6px 8px;
+    margin: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .detail-back:hover {
+    background: var(--accent-dim);
+  }
+
+  .detail-drill-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px 14px 24px;
+  }
 </style>

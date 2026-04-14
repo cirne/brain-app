@@ -117,7 +117,6 @@ The agent has these tools (via pi-coding-agent + custom):
 - `read_email` — read email thread by ID
 - `list_inbox` — inbox list via ripmail `inbox` (same as UI; use for bulk actions when search is wrong)
 - `archive_emails` — archive messages by ID (ripmail `archive`, batch)
-- `git_commit_push` — stage, commit, push wiki changes
 - `open` — open wiki path, email id, or calendar date in the app detail panel (client-side)
 - `web_search` — Exa web search for current info (requires `EXA_API_KEY`)
 - `fetch_page`, `youtube_search`, `get_youtube_transcript` — URL article text and YouTube search/transcripts (requires `SUPADATA_API_KEY`)

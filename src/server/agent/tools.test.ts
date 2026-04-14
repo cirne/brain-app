@@ -36,7 +36,6 @@ describe('createAgentTools', () => {
     expect(names).toContain('read_email')
     expect(names).toContain('list_inbox')
     expect(names).toContain('archive_emails')
-    expect(names).toContain('git_commit_push')
     expect(names).toContain('find_person')
     expect(names).toContain('wiki_log')
     expect(names).toContain('get_calendar_events')

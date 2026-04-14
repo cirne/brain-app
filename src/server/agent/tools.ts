@@ -235,25 +235,6 @@ export function createAgentTools(wikiDir: string): any[] {
     },
   })
 
-  const gitCommitPush = defineTool({
-    name: 'git_commit_push',
-    label: 'Git Commit & Push',
-    description: 'Stage all changes, commit, and push to the wiki repo. Only use after the user has confirmed the edit.',
-    parameters: Type.Object({
-      message: Type.String({ description: 'Commit message' }),
-    }),
-    async execute(_toolCallId: string, params: { message: string }) {
-      await execAsync(`git -C ${JSON.stringify(wikiDir)} add -A`)
-      await execAsync(`git -C ${JSON.stringify(wikiDir)} commit -m ${JSON.stringify(params.message)}`)
-      await execAsync(`git -C ${JSON.stringify(wikiDir)} pull --rebase`)
-      await execAsync(`git -C ${JSON.stringify(wikiDir)} push`)
-      return {
-        content: [{ type: 'text' as const, text: 'Changes committed and pushed successfully.' }],
-        details: { ok: true },
-      }
-    },
-  })
-
   const findPerson = defineTool({
     name: 'find_person',
     label: 'Find Person',
@@ -539,7 +520,6 @@ export function createAgentTools(wikiDir: string): any[] {
     draftEmail,
     editDraft,
     sendDraft,
-    gitCommitPush,
     findPerson,
     wikiLog,
     getCalEvents,

@@ -14,6 +14,10 @@ export interface CalendarEvent {
   source: 'travel' | 'personal'
   location?: string
   description?: string
+  /** Email addresses of attendees (from ICS ATTENDEE mailto:). */
+  attendees?: string[]
+  /** Email address of organizer (from ICS ORGANIZER mailto:). */
+  organizer?: string
 }
 
 interface Cache {
@@ -77,6 +81,31 @@ interface ParsedVEvent {
   uid: string
 }
 
+/** Extract mailto: addresses from all ATTENDEE props in a VEVENT. */
+function extractAttendeeEmails(props: Record<string, string>): string[] | undefined {
+  const emails: string[] = []
+  const seen = new Set<string>()
+  for (const [key, val] of Object.entries(props)) {
+    if (key !== 'ATTENDEE' && !key.startsWith('ATTENDEE;')) continue
+    const m = val.match(/^mailto:(.+)/i) ?? val.match(/mailto:([^\s;]+)/i)
+    if (m) {
+      const email = m[1].toLowerCase()
+      if (!seen.has(email)) { seen.add(email); emails.push(email) }
+    }
+  }
+  return emails.length > 0 ? emails : undefined
+}
+
+/** Extract mailto: address from the ORGANIZER prop. */
+function extractOrganizerEmail(props: Record<string, string>): string | undefined {
+  for (const [key, val] of Object.entries(props)) {
+    if (key !== 'ORGANIZER' && !key.startsWith('ORGANIZER;')) continue
+    const m = val.match(/^mailto:(.+)/i) ?? val.match(/mailto:([^\s;]+)/i)
+    if (m) return m[1].toLowerCase()
+  }
+  return undefined
+}
+
 /** Parse an ICS text blob into CalendarEvent objects, expanding RRULE recurrences. */
 export function parseICS(icsText: string, source: 'travel' | 'personal'): CalendarEvent[] {
   const lines = unfold(icsText).split(/\r?\n/)
@@ -130,6 +159,9 @@ export function parseICS(icsText: string, source: 'travel' | 'personal'): Calend
       ? unescapeICS(props['DESCRIPTION']).slice(0, 500)
       : undefined
 
+    const attendees = extractAttendeeEmails(props)
+    const organizer = extractOrganizerEmail(props)
+
     // RECURRENCE-ID overrides are emitted as standalone events (skip RRULE path)
     const isOverride = Object.keys(props).some(k => k === 'RECURRENCE-ID' || k.startsWith('RECURRENCE-ID;'))
 
@@ -154,21 +186,20 @@ export function parseICS(icsText: string, source: 'travel' | 'personal'): Calend
           if (overrideDates.has(occ.toISOString())) continue
           events.push({
             id: `${uid}_${occ.toISOString()}`,
-            title, source, location, description,
+            title, source, location, description, attendees, organizer,
             start: toISO(occ, startParsed.allDay),
             end: toISO(new Date(occ.getTime() + duration), endParsed.allDay),
             allDay: startParsed.allDay,
           })
         }
       } catch {
-        // Fall back to storing the master event
-        events.push({ id: uid, title, source, location, description,
+        events.push({ id: uid, title, source, location, description, attendees, organizer,
           start: toISO(startParsed.date, startParsed.allDay),
           end: toISO(endParsed.date, endParsed.allDay),
           allDay: startParsed.allDay })
       }
     } else {
-      events.push({ id: uid, title, source, location, description,
+      events.push({ id: uid, title, source, location, description, attendees, organizer,
         start: toISO(startParsed.date, startParsed.allDay),
         end: toISO(endParsed.date, endParsed.allDay),
         allDay: startParsed.allDay })

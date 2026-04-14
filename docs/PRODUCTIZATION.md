@@ -29,7 +29,7 @@ A user signs up with their Google account, approves email and calendar access, a
 
 ### 2. Wiki backing store: git friction
 
-**Current state:** The wiki is a git repo (brain on GitHub). The agent commits and pushes changes via `git_commit_push`. Requires: a GitHub account, an authenticated git remote, SSH keys or a token configured in the container.
+**Current state:** The wiki is a git repo (brain on GitHub). The server commits and pushes wiki changes after file edits (debounced), not via an agent tool. Requires: a GitHub account, an authenticated git remote, SSH keys or a token configured in the container.
 
 **What breaks:** Most users will not have a GitHub account, will not know how to create a personal repo, and will not understand SSH key setup. Even technical users face friction with auth tokens in a hosted environment. Provisioning a per-user git repo server-side is a significant security and ops surface.
 

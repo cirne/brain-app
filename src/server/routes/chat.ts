@@ -8,9 +8,11 @@ import {
   applyStreamError,
   applyTextDelta,
   applyThinkingDelta,
+  applyToolArgsUpsert,
   applyToolEnd,
   applyToolStart,
   createAssistantTurnState,
+  extractStreamingToolCallsFromPartialAssistant,
   toAssistantMessage,
 } from '../lib/chatTranscript.js'
 import { appendTurn, deleteSessionFile, loadSession, listSessions } from '../lib/chatStorage.js'
@@ -104,6 +106,30 @@ chat.post('/', async (c) => {
                 event: 'thinking',
                 data: JSON.stringify({ delta: e.delta }),
               })
+            } else if (
+              e?.type === 'toolcall_start' ||
+              e?.type === 'toolcall_delta' ||
+              e?.type === 'toolcall_end'
+            ) {
+              const partialMessage = (event as any).message
+              const streamingTools = extractStreamingToolCallsFromPartialAssistant(partialMessage)
+              for (const t of streamingTools) {
+                if (t.name !== 'write') continue
+                applyToolArgsUpsert(assistantState, {
+                  id: t.id,
+                  name: t.name,
+                  args: t.args,
+                  done: false,
+                })
+                await stream.writeSSE({
+                  event: 'tool_args',
+                  data: JSON.stringify({
+                    id: t.id,
+                    name: t.name,
+                    args: t.args,
+                  }),
+                })
+              }
             }
             break
           }
