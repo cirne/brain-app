@@ -11,6 +11,7 @@
   import WikiPreviewCard from './cards/WikiPreviewCard.svelte'
   import EmailPreviewCard from './cards/EmailPreviewCard.svelte'
   import InboxListPreviewCard from './cards/InboxListPreviewCard.svelte'
+  import ImessageThreadPreviewCard from './cards/ImessageThreadPreviewCard.svelte'
   import { inboxRowsToPreviewItems } from '../../server/lib/ripmailInboxFlatten.js'
   import type { CalendarEventLite, InboxListItemPreview } from './cards/contentCards.js'
 
@@ -21,6 +22,7 @@
     onOpenEmail,
     onOpenFullInbox,
     onSwitchToCalendar,
+    onOpenImessage,
   }: {
     messages: ChatMessage[]
     streaming: boolean
@@ -29,6 +31,8 @@
     /** Opens the inbox surface without a specific thread (SlideOver / route). */
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
+    /** Canonical chat_identifier — opens /messages?c=… */
+    onOpenImessage?: (_canonicalChat: string, _displayLabel: string) => void
   } = $props()
 
   let messagesEl: HTMLElement
@@ -212,7 +216,7 @@
                 {#if part.toolCall.args}
                   <pre class="tool-args">{formatArgs(part.toolCall.args)}</pre>
                 {/if}
-                {#if part.toolCall.result && preview?.kind !== 'wiki_edit_diff'}
+                {#if part.toolCall.result && preview?.kind !== 'wiki_edit_diff' && preview?.kind !== 'imessage_thread'}
                   <pre class="tool-result" class:tool-error={part.toolCall.isError} class:muted={!!preview}>{part.toolCall.result}</pre>
                 {/if}
               </details>
@@ -243,6 +247,16 @@
                   totalCount={preview.totalCount}
                   onOpenEmail={(id, subject, from) => onOpenEmail?.(id, subject, from)}
                   onOpenFullInbox={onOpenFullInbox}
+                />
+              {:else if preview?.kind === 'imessage_thread'}
+                <ImessageThreadPreviewCard
+                  displayChat={preview.displayChat}
+                  snippet={preview.snippet}
+                  previewMessages={preview.previewMessages}
+                  total={preview.total}
+                  n={preview.n}
+                  person={preview.person}
+                  onOpen={() => onOpenImessage?.(preview.canonicalChat, preview.displayChat)}
                 />
               {:else if preview?.kind === 'wiki_edit_diff'}
                 <EditDiffPreviewCard

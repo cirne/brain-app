@@ -85,6 +85,18 @@ describe('parseRoute calendar', () => {
   })
 })
 
+describe('parseRoute messages', () => {
+  it('parses /messages without chat', () => {
+    expect(parseRoute('http://localhost/messages')).toEqual({ overlay: { type: 'messages' } })
+  })
+
+  it('parses /messages?c= with canonical chat id', () => {
+    expect(parseRoute('http://localhost/messages?c=%2B15550001111')).toEqual({
+      overlay: { type: 'messages', chat: '+15550001111' },
+    })
+  })
+})
+
 describe('routeToUrl', () => {
   it('chat-only returns /', () => {
     expect(routeToUrl({})).toBe('/')
@@ -145,6 +157,16 @@ describe('routeToUrl', () => {
       }),
     ).toBe('/calendar?date=2026-04-14&event=evt-xyz')
   })
+
+  it('messages without chat', () => {
+    expect(routeToUrl({ overlay: { type: 'messages' } })).toBe('/messages')
+  })
+
+  it('messages with chat uses query param c', () => {
+    expect(routeToUrl({ overlay: { type: 'messages', chat: '+15550001111' } })).toBe(
+      '/messages?c=%2B15550001111',
+    )
+  })
 })
 
 describe('round-trip: routeToUrl → parseRoute', () => {
@@ -163,6 +185,8 @@ describe('round-trip: routeToUrl → parseRoute', () => {
         eventId: 'some-event-id',
       },
     },
+    { overlay: { type: 'messages' as const } },
+    { overlay: { type: 'messages' as const, chat: '+15550001111' } },
   ] as const
 
   for (const route of cases) {
@@ -245,5 +269,17 @@ describe('contextToString', () => {
     const s = contextToString(ctx)!
     expect(s).toContain('inbox')
     expect(s).toContain('ripmail')
+  })
+
+  it('formats messages context', () => {
+    const ctx: SurfaceContext = {
+      type: 'messages',
+      chat: '+15550001111',
+      displayLabel: '(555) 000-1111',
+    }
+    const s = contextToString(ctx)!
+    expect(s).toContain('iMessage')
+    expect(s).toContain('+15550001111')
+    expect(s).toContain('(555) 000-1111')
   })
 })

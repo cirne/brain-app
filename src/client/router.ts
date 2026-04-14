@@ -3,6 +3,8 @@ export type Overlay =
   | { type: 'wiki'; path?: string }
   | { type: 'email'; id?: string }
   | { type: 'calendar'; date?: string; eventId?: string }
+  /** `chat` is canonical chat_identifier (E.164, email, …) for /api/imessage/thread */
+  | { type: 'messages'; chat?: string }
 
 /** Chat-first shell: optional detail overlay; base route is always chat. */
 export type Route = {
@@ -15,6 +17,7 @@ export type SurfaceContext =
   | { type: 'wiki'; path: string; title: string }
   | { type: 'calendar'; date: string; eventId?: string }
   | { type: 'inbox' }
+  | { type: 'messages'; chat: string; displayLabel: string }
   | { type: 'none' }
 
 /** Serialize a SurfaceContext to a human-readable string for the agent. */
@@ -36,6 +39,9 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
   }
   if (ctx.type === 'inbox') {
     return 'The user asked for a summary of the triaged inbox items in their message. Use the ripmail tool (e.g. read <id> --json, or search with --json) with the message ids provided as needed, then answer concisely.'
+  }
+  if (ctx.type === 'messages') {
+    return `The user is viewing an iMessage/SMS thread (${ctx.displayLabel}). The canonical chat_identifier is ${ctx.chat}. Use get_imessage_thread with that identifier if you need more messages.`
   }
   return undefined
 }
@@ -83,6 +89,11 @@ export function parseRoute(href: string = location.href): Route {
     }
     return { overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) } }
   }
+  if (seg1 === 'messages') {
+    const c = url.searchParams.get('c') ?? undefined
+    if (c) return { overlay: { type: 'messages', chat: c } }
+    return { overlay: { type: 'messages' } }
+  }
 
   // Default: chat only
   return {}
@@ -109,6 +120,12 @@ export function routeToUrl(route: Route): string {
     q.set('date', o.date)
     if (o.eventId) q.set('event', o.eventId)
     return `/calendar?${q.toString()}`
+  }
+  if (o.type === 'messages') {
+    if (!o.chat) return '/messages'
+    const q = new URLSearchParams()
+    q.set('c', o.chat)
+    return `/messages?${q.toString()}`
   }
   return '/'
 }

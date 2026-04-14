@@ -19,6 +19,7 @@
     onOpenWiki,
     onOpenEmail,
     onOpenFullInbox,
+    onOpenImessage,
     onSwitchToCalendar,
     onOpenFromAgent,
     onNewChat,
@@ -40,6 +41,7 @@
     onOpenWiki?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
+    onOpenImessage?: (_canonicalChat: string, _displayLabel: string) => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     /** LLM `open` / `read_email` — fired from SSE tool_start */
     onOpenFromAgent?: (
@@ -372,6 +374,7 @@
     if (context.type === 'email') return `📧 ${context.subject}`
     if (context.type === 'calendar') return `📅 ${context.date}`
     if (context.type === 'inbox') return '📥 Inbox'
+    if (context.type === 'messages') return `💬 ${context.displayLabel}`
     return null
   })
 
@@ -415,6 +418,7 @@
         {onOpenWiki}
         {onOpenEmail}
         {onOpenFullInbox}
+        {onOpenImessage}
         {onSwitchToCalendar}
       />
     </div>

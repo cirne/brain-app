@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte'
+  import { onMount, tick, untrack } from 'svelte'
   import { Archive, Reply, Forward, Sparkles } from 'lucide-svelte'
   import { emit, subscribe } from './app/appEvents.js'
   import { navigate } from '../router.js'
@@ -74,6 +74,24 @@
   let draftEditing = $state(false)
   let draftSending = $state(false)
   let draftSent = $state(false)
+
+  /** Thread header rows with long values (To/Cc/…) — collapsed to 3 lines with optional expand. */
+  let headerExpanded = $state<Record<string, boolean>>({})
+  let headerOverflow = $state<Record<string, boolean>>({})
+  const headerValueRefs: Record<string, HTMLElement> = {}
+
+  function headerValueRef(node: HTMLElement, key: string) {
+    headerValueRefs[key] = node
+    return {
+      destroy() {
+        delete headerValueRefs[key]
+      },
+    }
+  }
+
+  function toggleHeaderRow(key: string) {
+    headerExpanded = { ...headerExpanded, [key]: !headerExpanded[key] }
+  }
 
   // Contact autocomplete
   let contacts = $state<Contact[]>([])
@@ -400,6 +418,26 @@
       else void openThreadByRawId(id)
     })
   })
+
+  /** Measure which header values exceed 3 lines (line-clamp) so we can show Show more. */
+  $effect(() => {
+    if (!threadContent) return
+    const rows = emailHeadersForDisplay(threadContent.headers)
+    void selectedThread
+    headerExpanded = {}
+    headerOverflow = {}
+    void tick().then(() => {
+      requestAnimationFrame(() => {
+        const next: Record<string, boolean> = {}
+        for (const row of rows) {
+          const el = headerValueRefs[row.key]
+          if (!el) continue
+          next[row.key] = el.scrollHeight > el.clientHeight
+        }
+        headerOverflow = next
+      })
+    })
+  })
 </script>
 
 <div class="inbox">
@@ -540,7 +578,23 @@
               {#each emailHeadersForDisplay(threadContent.headers) as row (row.key)}
                 <div class="thread-meta-row">
                   <span class="thread-meta-label">{row.label}</span>
-                  <span class="thread-meta-value">{row.value}</span>
+                  <div class="thread-meta-value-wrap">
+                    <span
+                      use:headerValueRef={row.key}
+                      class="thread-meta-value"
+                      class:thread-meta-value-clamped={!headerExpanded[row.key]}
+                    >{row.value}</span>
+                    {#if headerOverflow[row.key]}
+                      <button
+                        type="button"
+                        class="thread-meta-toggle"
+                        aria-expanded={Boolean(headerExpanded[row.key])}
+                        onclick={() => toggleHeaderRow(row.key)}
+                      >
+                        {headerExpanded[row.key] ? 'Show less' : 'Show more'}
+                      </button>
+                    {/if}
+                  </div>
                 </div>
               {/each}
             </div>
@@ -864,9 +918,39 @@
     color: var(--text-2);
     padding-top: 1px;
   }
+  .thread-meta-value-wrap {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
   .thread-meta-value {
     color: var(--text);
     word-break: break-word;
+  }
+  .thread-meta-value-clamped {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+  .thread-meta-toggle {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .thread-meta-toggle:hover {
+    color: var(--text);
   }
   @media (max-width: 480px) {
     .thread-meta-row {

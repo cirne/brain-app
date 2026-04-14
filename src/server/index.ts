@@ -12,6 +12,7 @@ import wikiRoute from './routes/wiki.js'
 import inboxRoute from './routes/inbox.js'
 import calendarRoute from './routes/calendar.js'
 import searchRoute from './routes/search.js'
+import imessageRoute from './routes/imessage.js'
 import { logStartupDiagnostics } from './lib/startupDiagnostics.js'
 import { initImessageToolsAvailability } from './lib/imessageDb.js'
 import { verifyLlmAtStartup } from './lib/llmStartupSmoke.js'
@@ -38,6 +39,7 @@ app.route('/api/wiki', wikiRoute)
 app.route('/api/inbox', inboxRoute)
 app.route('/api/calendar', calendarRoute)
 app.route('/api/search', searchRoute)
+app.route('/api/imessage', imessageRoute)
 
 let shuttingDown = false
 let syncTimer: ReturnType<typeof setInterval> | undefined

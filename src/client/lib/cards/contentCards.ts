@@ -10,7 +10,6 @@ import {
   pickReadEmailFields,
   type ReadEmailToolDetails,
 } from '../../../server/lib/readEmailPreview.js'
-
 export { formatEmailParticipant, flattenInboxFromRipmailData, parseRipmailInboxFlat }
 export type { InboxListItemPreview }
 
@@ -28,12 +27,24 @@ export type CalendarEventLite = {
   organizer?: string
 }
 
+export type ImessagePreviewRow = { ts: number; m: number; t: string; r?: number }
+
 export type ContentCardPreview =
   | { kind: 'calendar'; start: string; end: string; events: CalendarEventLite[] }
   | { kind: 'wiki'; path: string; excerpt: string }
   | { kind: 'email'; id: string; subject: string; from: string; snippet: string }
   | { kind: 'inbox_list'; items: InboxListItemPreview[]; totalCount: number }
   | { kind: 'wiki_edit_diff'; path: string; unified: string }
+  | {
+      kind: 'imessage_thread'
+      displayChat: string
+      canonicalChat: string
+      snippet: string
+      total: number
+      n: number
+      previewMessages: ImessagePreviewRow[]
+      person: string[]
+    }
 
 /**
  * Wiki paths in the UI/API use real filenames (usually `.md`). The agent `read` tool
@@ -82,6 +93,75 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
         kind: 'wiki_edit_diff',
         path: wikiPathForReadToolArg(rawPath),
         unified,
+      }
+    }
+    return null
+  }
+
+  if (name === 'get_imessage_thread' && typeof args.chat_identifier === 'string') {
+    const d = tool.details as
+      | {
+          imessageThreadPreview?: boolean
+          canonical_chat?: string
+          chat?: string
+          snippet?: string
+          total?: number
+          n?: number
+          preview_messages?: ImessagePreviewRow[]
+          person?: string[]
+        }
+      | undefined
+    if (d?.imessageThreadPreview === true && typeof d.canonical_chat === 'string') {
+      const preview_messages = Array.isArray(d.preview_messages) ? d.preview_messages : []
+      const person = Array.isArray(d.person) ? d.person.filter((x): x is string => typeof x === 'string') : []
+      return {
+        kind: 'imessage_thread',
+        displayChat: typeof d.chat === 'string' ? d.chat : d.canonical_chat,
+        canonicalChat: d.canonical_chat,
+        snippet: typeof d.snippet === 'string' ? d.snippet : '',
+        total: typeof d.total === 'number' ? d.total : 0,
+        n: typeof d.n === 'number' ? d.n : 0,
+        previewMessages: preview_messages as ImessagePreviewRow[],
+        person,
+      }
+    }
+    if (tool.result != null && String(tool.result).trim() !== '') {
+      try {
+        const j = JSON.parse(result) as Record<string, unknown>
+        const canonicalChat =
+          typeof j.canonical_chat === 'string'
+            ? j.canonical_chat
+            : typeof args.chat_identifier === 'string'
+              ? args.chat_identifier
+              : ''
+        if (!canonicalChat.trim()) return null
+        const displayChat = typeof j.chat === 'string' ? j.chat : canonicalChat
+        const messages = Array.isArray(j.messages) ? j.messages : []
+        const previewMessages = messages.slice(-5) as ImessagePreviewRow[]
+        let snippet = typeof j.snippet === 'string' ? j.snippet : ''
+        if (!snippet && previewMessages.length) {
+          const tail = previewMessages.slice(-3) as ImessagePreviewRow[]
+          snippet = tail
+            .map((r) => {
+              const who = r.m === 1 ? 'You' : 'Them'
+              const t = String(r.t ?? '').replace(/\s+/g, ' ').trim()
+              return `${who}: ${t.slice(0, 80)}${t.length > 80 ? '…' : ''}`
+            })
+            .join(' · ')
+        }
+        const person = Array.isArray(j.person) ? j.person.filter((x): x is string => typeof x === 'string') : []
+        return {
+          kind: 'imessage_thread',
+          displayChat,
+          canonicalChat,
+          snippet,
+          total: typeof j.total === 'number' ? j.total : 0,
+          n: typeof j.n === 'number' ? j.n : messages.length,
+          previewMessages,
+          person,
+        }
+      } catch {
+        return null
       }
     }
     return null

@@ -1,9 +1,10 @@
 <script lang="ts">
   import { setContext } from 'svelte'
-  import { Mail } from 'lucide-svelte'
+  import { Mail, MessageSquare } from 'lucide-svelte'
   import Wiki from './Wiki.svelte'
   import Inbox from './Inbox.svelte'
   import Calendar from './Calendar.svelte'
+  import ImessageThread from './ImessageThread.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
   import type { Overlay } from '../router.js'
@@ -197,9 +198,19 @@
     return s
   })
 
+  const messagesHeaderTitle = $derived.by((): string | null => {
+    if (overlay.type !== 'messages' || !overlay.chat) return null
+    if (surfaceContext.type !== 'messages') return null
+    if (surfaceContext.chat !== overlay.chat) return null
+    const s = surfaceContext.displayLabel?.trim()
+    if (!s || s === '(loading)') return null
+    return s
+  })
+
   function titleForOverlay(o: Overlay): string {
     if (o.type === 'wiki') return 'Docs'
     if (o.type === 'email') return 'Inbox'
+    if (o.type === 'messages') return 'Messages'
     return 'Calendar'
   }
 
@@ -255,7 +266,9 @@
         <span
           class="slide-title"
           class:slide-title-wiki={Boolean(
-            (overlay.type === 'wiki' && overlay.path) || (overlay.type === 'email' && emailHeaderTitle),
+            (overlay.type === 'wiki' && overlay.path) ||
+              (overlay.type === 'email' && emailHeaderTitle) ||
+              (overlay.type === 'messages' && messagesHeaderTitle),
           )}
         >
           {#if overlay.type === 'wiki' && overlay.path}
@@ -264,6 +277,11 @@
             <span class="slide-title-email">
               <Mail size={14} strokeWidth={2} aria-hidden="true" />
               <span class="slide-title-email-text">{emailHeaderTitle}</span>
+            </span>
+          {:else if overlay.type === 'messages' && messagesHeaderTitle}
+            <span class="slide-title-email">
+              <MessageSquare size={14} strokeWidth={2} aria-hidden="true" />
+              <span class="slide-title-email-text">{messagesHeaderTitle}</span>
             </span>
           {:else}
             {titleForOverlay(overlay)}
@@ -334,6 +352,8 @@
         onOpenSearch={onOpenSearch}
         onSummarizeInbox={onSummarizeInbox}
       />
+    {:else if overlay.type === 'messages'}
+      <ImessageThread initialChat={overlay.chat} onContextChange={onContextChange} />
     {:else}
       <Calendar
         refreshKey={calendarRefreshKey}

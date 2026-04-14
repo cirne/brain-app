@@ -6,70 +6,28 @@ import { getCalendarEvents } from '../lib/calendarCache.js'
 import { Exa } from 'exa-js'
 import { appendWikiEditRecord } from '../lib/wikiEditHistory.js'
 import {
-  appleDateNsToUnixMs,
   areImessageToolsEnabled,
   getImessageDbPath,
   getThreadMessages,
   listRecentMessages,
 } from '../lib/imessageDb.js'
+import { buildImessageSnippet, compactImessageListRow, compactImessageThreadRow } from '../lib/imessageFormat.js'
+import {
+  canonicalizeImessageChatIdentifier,
+  formatChatIdentifierForDisplay,
+  normalizePhoneDigits,
+  phoneToFlexibleGrepPattern,
+} from '../lib/imessagePhone.js'
 
 const execAsync = promisify(exec)
 
-/**
- * If `s` looks like a phone number, return the significant digits (strip +, country code 1 for US).
- * Returns null if `s` doesn't look like a phone number (< 7 digits or has too many alpha chars).
- */
-export function normalizePhoneDigits(s: string): string | null {
-  const stripped = s.replace(/[\s\-().+]/g, '')
-  if (/[a-zA-Z]{2,}/.test(stripped)) return null
-  const digits = stripped.replace(/\D/g, '')
-  if (digits.length < 7 || digits.length > 15) return null
-  if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1)
-  return digits
-}
-
-/**
- * Build a grep -E regex that matches a digit sequence with arbitrary non-digit separators.
- * e.g. "6502485571" → "6[^0-9]*5[^0-9]*0[^0-9]*2[^0-9]*4[^0-9]*8[^0-9]*5[^0-9]*5[^0-9]*7[^0-9]*1"
- */
-export function phoneToFlexibleGrepPattern(digits: string): string {
-  return digits.split('').join('[^0-9]*')
-}
+export { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '../lib/imessagePhone.js'
 
 function parseOptionalIsoMs(s: string | undefined): number | undefined {
   if (s == null || String(s).trim() === '') return undefined
   const t = Date.parse(String(s))
   if (Number.isNaN(t)) throw new Error(`Invalid ISO datetime: ${s}`)
   return t
-}
-
-/** Compact row for token efficiency: ts=Unix s, m=1 me/0 them, r read 0|1 incoming only, t=text. */
-function compactImessageThreadRow(r: {
-  text: string | null
-  date: number
-  is_from_me: number
-  is_read: number
-}) {
-  const ts = Math.floor(appleDateNsToUnixMs(r.date) / 1000)
-  const m = r.is_from_me ? 1 : 0
-  const o: Record<string, string | number> = { ts, m, t: r.text ?? '' }
-  if (!r.is_from_me) o.r = r.is_read ? 1 : 0
-  return o
-}
-
-function compactImessageListRow(
-  r: {
-    text: string | null
-    date: number
-    is_from_me: number
-    is_read: number
-    chat_identifier: string | null
-  },
-  includeChat: boolean,
-) {
-  const base = compactImessageThreadRow(r)
-  if (includeChat) base.c = r.chat_identifier ?? ''
-  return base
 }
 
 /**
@@ -640,13 +598,16 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'list_imessage_recent',
     label: 'List recent iMessage',
     description:
-      'Read recent SMS/iMessage from the local macOS Messages database (read-only). Default time window: last 7 days. Output is compact JSON: n=count, messages[] with ts=Unix seconds, m=1 you/0 them, r=read 1/0 (incoming only), t=text, c=chat id (omitted when chat_identifier filter is set). Phone-number chat ids are auto-resolved against wiki people pages — matched ids appear in a top-level "people" map (chat_identifier → wiki paths) so you can identify who a conversation is with without extra tool calls.',
+      'Read recent SMS/iMessage from the local macOS Messages database (read-only). Default time window: last 7 days. Output is compact JSON: n=count, messages[] with ts=Unix seconds, m=1 you/0 them, r=read 1/0 (incoming only), t=text, c=chat id (omitted when chat_identifier filter is set; US phones shown as (NXX) NXX-XXXX). Phone-number chat ids are auto-resolved against wiki people pages — matched ids appear in a top-level "people" map (same display form as c → wiki paths) so you can identify who a conversation is with without extra tool calls.',
     parameters: Type.Object({
       since: Type.Optional(Type.String({ description: 'ISO 8601 start time (optional; default last 7 days)' })),
       until: Type.Optional(Type.String({ description: 'ISO 8601 end time (optional; default now)' })),
       unread_only: Type.Optional(Type.Boolean({ description: 'Only incoming messages not yet read' })),
       chat_identifier: Type.Optional(
-        Type.String({ description: 'Exact chat_identifier from Messages (e.g. +15551234567 or Apple ID email)' }),
+        Type.String({
+          description:
+            'Filter to one thread: E.164 phone (+15551234567), pretty US format, or email / opaque id as stored in Messages',
+        }),
       ),
       limit: Type.Optional(Type.Number({ description: 'Max rows 1–200 (default 30)' })),
     }),
@@ -664,11 +625,15 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       const untilMs = parseOptionalIsoMs(params.until)
       const sinceMs = parseOptionalIsoMs(params.since)
       const defaultSinceMs = Date.now() - sevenDaysMs
+      const chatFilter =
+        params.chat_identifier != null && String(params.chat_identifier).trim() !== ''
+          ? canonicalizeImessageChatIdentifier(params.chat_identifier)
+          : undefined
       const { messages, error } = listRecentMessages(dbPath, {
         sinceMs,
         untilMs,
         unread_only: params.unread_only,
-        chat_identifier: params.chat_identifier,
+        chat_identifier: chatFilter,
         limit: params.limit,
         defaultSinceMs,
       })
@@ -678,11 +643,15 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           details: { ok: false, error },
         }
       }
-      const includeChat = !params.chat_identifier
+      const includeChat = chatFilter == null
       const chatIds = includeChat
         ? [...new Set(messages.map((r) => r.chat_identifier).filter(Boolean) as string[])]
         : []
-      const people = await resolveIdentifiersBatch(chatIds, wikiDir)
+      const peopleRaw = await resolveIdentifiersBatch(chatIds, wikiDir)
+      const people: Record<string, string[]> = {}
+      for (const [id, files] of Object.entries(peopleRaw)) {
+        if (files.length) people[formatChatIdentifierForDisplay(id)] = files
+      }
       const payload: Record<string, unknown> = {
         n: messages.length,
         messages: messages.map((row) => compactImessageListRow(row, includeChat)),
@@ -700,9 +669,11 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'get_imessage_thread',
     label: 'Get iMessage thread',
     description:
-      'Read messages for one conversation by chat_identifier (same string as in list_imessage_recent). Returns messages oldest-first for reading. Default time window: last 7 days. Compact JSON: chat, n=returned rows, total=in window, messages with ts/m/t/r (same encoding as list_imessage_recent). If the chat id is a phone number found in the wiki, a "person" field lists matching wiki paths.',
+      'Read messages for one conversation by chat_identifier (same meaning as c in list_imessage_recent; accepts E.164, common US formatting, or email as in Messages). Returns messages oldest-first for reading. Default time window: last 7 days. Compact JSON: chat (display form for US phones), n=returned rows, total=in window, messages with ts/m/t/r (same encoding as list_imessage_recent). If the chat id is a phone number found in the wiki, a "person" field lists matching wiki paths.',
     parameters: Type.Object({
-      chat_identifier: Type.String({ description: 'chat.chat_identifier for the thread (phone, email, or group id)' }),
+      chat_identifier: Type.String({
+        description: 'Thread id: E.164 phone, formatted US number, Apple ID email, or group id (chat.chat_identifier)',
+      }),
       since: Type.Optional(Type.String({ description: 'ISO 8601 start (optional)' })),
       until: Type.Optional(Type.String({ description: 'ISO 8601 end (optional)' })),
       limit: Type.Optional(Type.Number({ description: 'Max messages 1–500 (default 100)' })),
@@ -715,8 +686,9 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       const untilMs = parseOptionalIsoMs(params.until)
       const sinceMs = parseOptionalIsoMs(params.since)
       const defaultSinceMs = Date.now() - sevenDaysMs
+      const chatId = canonicalizeImessageChatIdentifier(params.chat_identifier)
       const { messages, message_count, error } = getThreadMessages(dbPath, {
-        chat_identifier: params.chat_identifier,
+        chat_identifier: chatId,
         sinceMs,
         untilMs,
         limit: params.limit,
@@ -728,12 +700,23 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           details: { ok: false, error },
         }
       }
-      const wikiFiles = await resolveIdentifierToWikiFiles(params.chat_identifier, wikiDir)
+      const wikiFiles = await resolveIdentifierToWikiFiles(chatId, wikiDir)
+      const displayChat =
+        messages.length > 0
+          ? formatChatIdentifierForDisplay(messages[0].chat_identifier ?? '')
+          : formatChatIdentifierForDisplay(chatId)
+      const compactRows = messages.map(compactImessageThreadRow)
+      const snippet = buildImessageSnippet(compactRows)
+      const preview_messages = compactRows.slice(-5)
       const payload: Record<string, unknown> = {
-        chat: params.chat_identifier,
+        imessageThreadPreview: true,
+        canonical_chat: chatId,
+        chat: displayChat,
         n: messages.length,
         total: message_count,
-        messages: messages.map(compactImessageThreadRow),
+        snippet,
+        preview_messages,
+        messages: compactRows,
       }
       if (wikiFiles.length > 0) payload.person = wikiFiles
       const text = JSON.stringify(payload)

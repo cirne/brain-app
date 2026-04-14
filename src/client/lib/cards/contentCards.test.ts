@@ -171,6 +171,35 @@ describe('matchContentPreview', () => {
     }
   })
 
+  it('returns imessage_thread preview from get_imessage_thread details', () => {
+    const tool = tc({
+      id: 'im1',
+      name: 'get_imessage_thread',
+      done: true,
+      args: { chat_identifier: '+15550001111' },
+      result: '{"truncated":',
+      details: {
+        imessageThreadPreview: true,
+        ok: true,
+        error: '',
+        canonical_chat: '+15550001111',
+        chat: '(555) 000-1111',
+        total: 2,
+        n: 2,
+        snippet: 'Them: Hi · You: Yo',
+        preview_messages: [{ ts: 1, m: 0, t: 'Hi', r: 1 }],
+        messages: [{ ts: 1, m: 0, t: 'Hi', r: 1 }],
+      },
+    })
+    const p = matchContentPreview(tool)
+    expect(p?.kind).toBe('imessage_thread')
+    if (p?.kind === 'imessage_thread') {
+      expect(p.canonicalChat).toBe('+15550001111')
+      expect(p.displayChat).toBe('(555) 000-1111')
+      expect(p.snippet).toContain('Hi')
+    }
+  })
+
   it('returns wiki_edit_diff when edit tool has details.editDiff', () => {
     const tool = tc({
       id: 'e1',

@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { writeCache } from '../lib/calendarCache.js'
-import { buildDraftEditFlags, normalizePhoneDigits, phoneToFlexibleGrepPattern } from './tools.js'
+import { buildDraftEditFlags } from './tools.js'
 
 // Shared fixture: a temp wiki directory
 let wikiDir: string
@@ -599,43 +599,3 @@ describe('buildDraftEditFlags', () => {
   })
 })
 
-describe('normalizePhoneDigits', () => {
-  it('strips +1 country code from US number', () => {
-    expect(normalizePhoneDigits('+16502485571')).toBe('6502485571')
-  })
-
-  it('handles dashes and parens', () => {
-    expect(normalizePhoneDigits('(650) 248-5571')).toBe('6502485571')
-  })
-
-  it('handles bare 10-digit number', () => {
-    expect(normalizePhoneDigits('6502485571')).toBe('6502485571')
-  })
-
-  it('returns null for names', () => {
-    expect(normalizePhoneDigits('Alice')).toBeNull()
-    expect(normalizePhoneDigits('alice example')).toBeNull()
-  })
-
-  it('returns null for very short input', () => {
-    expect(normalizePhoneDigits('123')).toBeNull()
-  })
-})
-
-describe('phoneToFlexibleGrepPattern', () => {
-  it('builds regex with [^0-9]* between digits', () => {
-    const pattern = phoneToFlexibleGrepPattern('6502485571')
-    expect(pattern).toBe('6[^0-9]*5[^0-9]*0[^0-9]*2[^0-9]*4[^0-9]*8[^0-9]*5[^0-9]*5[^0-9]*7[^0-9]*1')
-  })
-
-  it('generated pattern matches various phone formats', () => {
-    const pattern = phoneToFlexibleGrepPattern('6502485571')
-    const re = new RegExp(pattern)
-    expect(re.test('650-248-5571')).toBe(true)
-    expect(re.test('(650) 248-5571')).toBe(true)
-    expect(re.test('650.248.5571')).toBe(true)
-    expect(re.test('6502485571')).toBe(true)
-    expect(re.test('+1 650 248 5571')).toBe(true)
-    expect(re.test('5551234567')).toBe(false)
-  })
-})

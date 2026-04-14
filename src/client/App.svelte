@@ -240,6 +240,21 @@
     route = parseRoute()
   }
 
+  function openImessageFromChat(canonicalChat: string, displayLabel: string) {
+    navigate({ overlay: { type: 'messages', chat: canonicalChat } })
+    route = parseRoute()
+    agentContext = { type: 'messages', chat: canonicalChat, displayLabel }
+  }
+
+  $effect(() => {
+    const o = route.overlay
+    if (o?.type === 'messages' && o.chat) {
+      if (agentContext.type !== 'messages' || agentContext.chat !== o.chat) {
+        agentContext = { type: 'messages', chat: o.chat, displayLabel: '(loading)' }
+      }
+    }
+  })
+
   /** LLM `open` / `read_email` — navigate on tool_start. Mobile: only `open` opens the panel; `read_email` stays preview-only. */
   function onOpenFromAgent(
     target: { type: string; path?: string; id?: string; date?: string },
@@ -424,6 +439,7 @@
         onOpenWiki={openWikiDoc}
         onOpenEmail={openEmailFromChat}
         onOpenFullInbox={openFullInboxFromChat}
+        onOpenImessage={openImessageFromChat}
         onSwitchToCalendar={switchToCalendar}
         onOpenFromAgent={onOpenFromAgent}
         onNewChat={closeOverlay}
