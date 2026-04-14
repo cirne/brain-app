@@ -17,6 +17,7 @@ import {
 } from '../lib/chatTranscript.js'
 import { appendTurn, deleteSessionFile, loadSession, listSessions } from '../lib/chatStorage.js'
 import { buildReadEmailPreviewDetails } from '../lib/readEmailPreview.js'
+import { createWikiUnifiedDiff, safeWikiRelativePath } from '../lib/wikiEditDiff.js'
 
 const chat = new Hono()
 
@@ -73,6 +74,8 @@ chat.post('/', async (c) => {
 
     const userMessage = message
     const assistantState = createAssistantTurnState()
+    /** `edit` tool: file contents before execute (for unified diff on success). */
+    const editBeforeSnapshot = new Map<string, string>()
     let turnTitle: string | null | undefined
     let savedThisTurn = false
 
@@ -115,7 +118,7 @@ chat.post('/', async (c) => {
               const partialMessage = (event as any).message
               const streamingTools = extractStreamingToolCallsFromPartialAssistant(partialMessage)
               for (const t of streamingTools) {
-                if (t.name !== 'write') continue
+                if (t.name !== 'write' && t.name !== 'edit') continue
                 applyToolArgsUpsert(assistantState, {
                   id: t.id,
                   name: t.name,
@@ -142,6 +145,17 @@ chat.post('/', async (c) => {
             if (name === 'set_chat_title' && args && typeof args === 'object' && 'title' in args) {
               const t = String((args as { title?: unknown }).title ?? '').trim().slice(0, 120)
               if (t) turnTitle = t
+            }
+            if (name === 'edit' && args && typeof args === 'object' && 'path' in args) {
+              const rel = safeWikiRelativePath(wikiDir(), (args as { path: unknown }).path)
+              if (rel) {
+                try {
+                  const beforeText = await readFile(join(wikiDir(), rel), 'utf-8')
+                  editBeforeSnapshot.set(id, beforeText)
+                } catch {
+                  editBeforeSnapshot.set(id, '')
+                }
+              }
             }
             await stream.writeSSE({
               event: 'tool_start',
@@ -180,6 +194,33 @@ chat.post('/', async (c) => {
                 details = buildReadEmailPreviewDetails(parsed, aid)
               } catch {
                 /* ignore — preview falls back to parsing client result if any */
+              }
+            } else if (ev.toolName === 'edit') {
+              const snapBefore = editBeforeSnapshot.get(ev.toolCallId)
+              editBeforeSnapshot.delete(ev.toolCallId)
+              if (!ev.isError && snapBefore !== undefined) {
+                const partBefore = assistantState.parts.find(
+                  p => p.type === 'tool' && p.toolCall.id === ev.toolCallId,
+                ) as { type: 'tool'; toolCall: { args: unknown } } | undefined
+                const argsObj = partBefore?.toolCall.args
+                const pathArg =
+                  argsObj != null && typeof argsObj === 'object' && 'path' in argsObj
+                    ? (argsObj as { path: unknown }).path
+                    : undefined
+                const rel = safeWikiRelativePath(wikiDir(), pathArg)
+                if (rel) {
+                  try {
+                    const afterText = await readFile(join(wikiDir(), rel), 'utf-8')
+                    details = {
+                      editDiff: {
+                        path: rel,
+                        unified: createWikiUnifiedDiff(rel, snapBefore, afterText),
+                      },
+                    }
+                  } catch {
+                    /* file missing after edit — skip structured diff */
+                  }
+                }
               }
             }
             applyToolEnd(assistantState, ev.toolCallId, resultText.slice(0, 4000), ev.isError, details)

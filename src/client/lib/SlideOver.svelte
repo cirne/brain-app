@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { setContext } from 'svelte'
   import { Mail } from 'lucide-svelte'
   import Wiki from './Wiki.svelte'
   import Inbox from './Inbox.svelte'
@@ -8,6 +9,10 @@
   import type { Overlay } from '../router.js'
   import type { SurfaceContext } from '../router.js'
   import { shouldDismissMobileSwipe, isInteractiveTarget, swipeDirection } from './slideOverMobile.js'
+  import {
+    CALENDAR_SLIDE_HEADER,
+    type CalendarSlideHeaderState,
+  } from './calendarSlideHeaderContext.js'
 
   type Props = {
     overlay: Overlay
@@ -18,11 +23,17 @@
     inboxTargetId: string | undefined
     /** Live agent `write` stream — markdown body for `path` (wiki pane). */
     wikiStreamingWrite?: { path: string; body: string } | null
+    /** Live agent `edit` stream — show “Editing…” for `path` (wiki pane). */
+    wikiStreamingEdit?: { path: string; toolId: string } | null
     onWikiNavigate: (_path: string | undefined) => void
     onInboxNavigate: (_id: string | undefined) => void
     onContextChange: (_ctx: SurfaceContext) => void
     onOpenSearch?: () => void
     onSummarizeInbox?: (_message: string) => void
+    /** Calendar “Today”: jump to this week + clear `event=` in URL. */
+    onCalendarResetToToday?: () => void
+    /** `/calendar?date=&event=` — same contract as App `switchToCalendar`. */
+    onCalendarNavigate?: (_date: string, _eventId?: string) => void
     onClose: () => void
     onSync?: () => void
     syncing?: boolean
@@ -37,11 +48,14 @@
     calendarRefreshKey,
     inboxTargetId,
     wikiStreamingWrite = null,
+    wikiStreamingEdit = null,
     onWikiNavigate,
     onInboxNavigate,
     onContextChange,
     onOpenSearch,
     onSummarizeInbox,
+    onCalendarResetToToday,
+    onCalendarNavigate,
     onClose,
     onSync,
     syncing = false,
@@ -188,6 +202,12 @@
     if (o.type === 'email') return 'Inbox'
     return 'Calendar'
   }
+
+  let calendarHeader = $state<CalendarSlideHeaderState | null>(null)
+  function registerCalendarHeader(state: CalendarSlideHeaderState | null) {
+    calendarHeader = state
+  }
+  setContext(CALENDAR_SLIDE_HEADER, registerCalendarHeader)
 </script>
 
 <div
@@ -211,25 +231,50 @@
       </button>
     {/snippet}
     {#snippet center()}
-      <span
-        class="slide-title"
-        class:slide-title-wiki={Boolean(
-          (overlay.type === 'wiki' && overlay.path) || (overlay.type === 'email' && emailHeaderTitle),
-        )}
-      >
-        {#if overlay.type === 'wiki' && overlay.path}
-          <WikiFileName path={overlay.path} />
-        {:else if overlay.type === 'email' && emailHeaderTitle}
-          <span class="slide-title-email">
-            <Mail size={14} strokeWidth={2} aria-hidden="true" />
-            <span class="slide-title-email-text">{emailHeaderTitle}</span>
-          </span>
-        {:else}
-          {titleForOverlay(overlay)}
-        {/if}
-      </span>
+      {#if overlay.type === 'calendar' && calendarHeader}
+        <div class="cal-week-inline" aria-label="Week navigation">
+          <button
+            type="button"
+            class="cal-nav-btn"
+            onclick={calendarHeader.prevWeek}
+            aria-label="Previous week"
+          >
+            &#8592;
+          </button>
+          <span class="cal-week-label">{calendarHeader.weekLabel}</span>
+          <button
+            type="button"
+            class="cal-nav-btn"
+            onclick={calendarHeader.nextWeek}
+            aria-label="Next week"
+          >
+            &#8594;
+          </button>
+        </div>
+      {:else}
+        <span
+          class="slide-title"
+          class:slide-title-wiki={Boolean(
+            (overlay.type === 'wiki' && overlay.path) || (overlay.type === 'email' && emailHeaderTitle),
+          )}
+        >
+          {#if overlay.type === 'wiki' && overlay.path}
+            <WikiFileName path={overlay.path} />
+          {:else if overlay.type === 'email' && emailHeaderTitle}
+            <span class="slide-title-email">
+              <Mail size={14} strokeWidth={2} aria-hidden="true" />
+              <span class="slide-title-email-text">{emailHeaderTitle}</span>
+            </span>
+          {:else}
+            {titleForOverlay(overlay)}
+          {/if}
+        </span>
+      {/if}
     {/snippet}
     {#snippet right()}
+      {#if overlay.type === 'calendar' && calendarHeader}
+        <button type="button" class="calendar-today-btn" onclick={calendarHeader.goToday}>Today</button>
+      {/if}
       {#if onSync}
         <div class="slide-actions">
           {#if onOpenSearch}
@@ -276,6 +321,7 @@
         initialPath={overlay.path}
         refreshKey={wikiRefreshKey}
         streamingWrite={wikiStreamingWrite}
+        streamingEdit={wikiStreamingEdit}
         onNavigate={(path) => onWikiNavigate(path)}
         onContextChange={onContextChange}
       />
@@ -293,6 +339,8 @@
         refreshKey={calendarRefreshKey}
         initialDate={overlay.type === 'calendar' ? overlay.date : undefined}
         initialEventId={overlay.type === 'calendar' ? overlay.eventId : undefined}
+        onResetToToday={onCalendarResetToToday}
+        onCalendarNavigate={onCalendarNavigate}
         onContextChange={onContextChange}
         onOpenWiki={(path) => {
           if (path) onWikiNavigate(path)
@@ -363,6 +411,57 @@
     .close-btn-desktop {
       display: inline-flex;
     }
+  }
+
+  .cal-week-inline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cal-week-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 0;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cal-nav-btn {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    font-size: 16px;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cal-nav-btn:hover {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+
+  .calendar-today-btn {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    color: var(--text-2);
+    flex-shrink: 0;
+  }
+
+  .calendar-today-btn:hover {
+    color: var(--text);
+    border-color: var(--text-2);
   }
 
   .slide-title {

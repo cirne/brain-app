@@ -1,9 +1,13 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { getContext, onMount } from 'svelte'
   import DayEvents, { type CalendarEvent } from './DayEvents.svelte'
   import CalendarEventDetail from './CalendarEventDetail.svelte'
 
   import type { SurfaceContext } from '../router.js'
+  import {
+    CALENDAR_SLIDE_HEADER,
+    type SetCalendarSlideHeader,
+  } from './calendarSlideHeaderContext.js'
 
   let {
     refreshKey = 0,
@@ -13,6 +17,10 @@
     onContextChange,
     onOpenWiki,
     onOpenEmail,
+    /** Sync URL + agent context to “today” without `event=` (parent uses router). */
+    onResetToToday,
+    /** Keep `/calendar?date=&event=` in sync when opening/closing event drill-down. */
+    onCalendarNavigate,
   }: {
     refreshKey?: number
     initialDate?: string
@@ -20,6 +28,8 @@
     onContextChange?: (_ctx: SurfaceContext) => void
     onOpenWiki?: (_path: string) => void
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
+    onResetToToday?: () => void
+    onCalendarNavigate?: (_date: string, _eventId?: string) => void
   } = $props()
 
   let weekStart = $state(sundayOf(new Date()))
@@ -34,14 +44,18 @@
   let userClosedDetail = $state(false)
   let lastInitialEventIdProp = $state<string | undefined>(undefined)
 
-  function openEventDetail(e: CalendarEvent) {
+  function openEventDetail(e: CalendarEvent, dateYmd: string) {
     detailEvent = e
     userClosedDetail = false
+    onCalendarNavigate?.(dateYmd, e.id)
   }
 
   function closeEventDetail() {
     detailEvent = null
     userClosedDetail = true
+    if (initialDate) {
+      onCalendarNavigate?.(initialDate, undefined)
+    }
   }
 
   /** Sync `/calendar?event=` to detail when opening from chat preview or URL changes. */
@@ -144,7 +158,11 @@
 
   function prevWeek() { weekStart = addDays(weekStart, -7) }
   function nextWeek() { weekStart = addDays(weekStart, 7) }
-  function goToday() { weekStart = sundayOf(new Date()) }
+  function goToday() {
+    closeEventDetail()
+    weekStart = sundayOf(new Date())
+    onResetToToday?.()
+  }
 
   const days = $derived(
     Array.from({ length: 7 }, (_, i) => {
@@ -170,41 +188,25 @@
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   }
 
-  function lastSynced(): string {
-    const ts = fetchedAt.personal || fetchedAt.travel
-    if (!ts) return 'never synced'
-    const d = new Date(ts)
-    const diff = Date.now() - d.getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return 'just now'
-    if (mins < 60) return `${mins}m ago`
-    const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs}h ago`
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
-
   const configured = $derived(!!fetchedAt.travel || !!fetchedAt.personal || events.length > 0)
+
+  const registerCalendarHeader = getContext<SetCalendarSlideHeader | undefined>(CALENDAR_SLIDE_HEADER)
+
+  $effect(() => {
+    if (!registerCalendarHeader) return
+    registerCalendarHeader({
+      weekLabel: weekLabel(),
+      prevWeek,
+      nextWeek,
+      goToday,
+    })
+    return () => registerCalendarHeader(null)
+  })
 
   onMount(() => { loadEvents() })
 </script>
 
 <div class="calendar">
-  <div class="toolbar">
-    <div class="week-nav">
-      <button onclick={prevWeek} class="nav-btn" aria-label="Previous week">&#8592;</button>
-      <span class="week-label">{weekLabel()}</span>
-      <button onclick={nextWeek} class="nav-btn" aria-label="Next week">&#8594;</button>
-    </div>
-    <div class="toolbar-right">
-      <button onclick={goToday} class="today-btn">Today</button>
-      {#if loading}
-        <span class="sync-hint">loading…</span>
-      {:else if fetchedAt.travel || fetchedAt.personal}
-        <span class="sync-hint">synced {lastSynced()}</span>
-      {/if}
-    </div>
-  </div>
-
   {#if !configured && !loading}
     <div class="empty-state">
       {#if urlsConfigured}
@@ -217,11 +219,6 @@
     </div>
   {:else if detailEvent}
     <div class="detail-drill">
-      <div class="detail-drill-toolbar">
-        <button type="button" class="detail-back" onclick={closeEventDetail}>
-          ← Back to week
-        </button>
-      </div>
       <div class="detail-drill-body">
         <CalendarEventDetail event={detailEvent} {onOpenWiki} {onOpenEmail} />
       </div>
@@ -238,7 +235,7 @@
             date={ymd}
             {events}
             selectedEventId={initialEventId}
-            onEventSelect={openEventDetail}
+            onEventSelect={(e) => openEventDetail(e, ymd)}
           />
         </div>
       {/each}
@@ -252,65 +249,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-  }
-
-  .toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-2);
-    flex-shrink: 0;
-    gap: 8px;
-  }
-
-  .week-nav {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .week-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
-    min-width: 180px;
-    text-align: center;
-  }
-
-  .nav-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: 4px;
-    font-size: 16px;
-    color: var(--text-2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .nav-btn:hover { color: var(--text); background: var(--bg-3); }
-
-  .toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .today-btn {
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    color: var(--text-2);
-  }
-
-  .today-btn:hover { color: var(--text); border-color: var(--text-2); }
-
-  .sync-hint {
-    font-size: 11px;
-    color: var(--text-2);
   }
 
   .days {
@@ -394,29 +332,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-  }
-
-  .detail-drill-toolbar {
-    flex-shrink: 0;
-    padding: 8px 14px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-2);
-  }
-
-  .detail-back {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--accent);
-    padding: 6px 8px;
-    margin: 0;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .detail-back:hover {
-    background: var(--accent-dim);
   }
 
   .detail-drill-body {

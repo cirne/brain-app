@@ -27,6 +27,8 @@
     onChatPersisted,
     /** Live `write` tool body — wiki detail pane only. */
     onWriteStreaming,
+    /** Live `edit` tool — wiki pane “Editing…” until tool_end. */
+    onEditStreaming,
     mobileDetail,
   }: {
     context?: SurfaceContext
@@ -42,6 +44,7 @@
     onSessionChange?: (_sessionId: string | null) => void
     onChatPersisted?: () => void
     onWriteStreaming?: (_p: { path: string; content: string; done: boolean }) => void
+    onEditStreaming?: (_p: { id: string; path: string; done: boolean }) => void
     /** Full-screen detail stack above input (mobile only) */
     mobileDetail?: Snippet
   } = $props()
@@ -160,6 +163,8 @@
     const openedFromAgentByToolId = new Set<string>()
     /** Open wiki once per write tool call when path first appears. */
     const writeOpenedWikiForToolId = new Set<string>()
+    /** Open wiki once per edit tool call when path first appears. */
+    const editOpenedWikiForToolId = new Set<string>()
     /** Preserve path for tool_end (referenced files) — write SSE has no args on tool_end. */
     const writePathByToolId = new Map<string, string>()
     /** tool_start args (read, grep, …) — server now echoes args on tool_end; stash if missing. */
@@ -232,16 +237,24 @@
                 msg.thinking = (msg.thinking ?? '') + data.delta
                 break
               case 'tool_args': {
-                // Server emits only for `write` — stream to wiki pane without mutating chat tool rows.
-                if (data.name !== 'write') break
-                const path = typeof data.args?.path === 'string' ? data.args.path : ''
-                const content = typeof data.args?.content === 'string' ? data.args.content : ''
-                if (path) writePathByToolId.set(data.id, path)
-                if (path && !writeOpenedWikiForToolId.has(data.id)) {
-                  writeOpenedWikiForToolId.add(data.id)
-                  onOpenWiki?.(path)
+                // Server emits for `write` / `edit` — stream to wiki pane without mutating chat tool rows.
+                if (data.name === 'write') {
+                  const path = typeof data.args?.path === 'string' ? data.args.path : ''
+                  const content = typeof data.args?.content === 'string' ? data.args.content : ''
+                  if (path) writePathByToolId.set(data.id, path)
+                  if (path && !writeOpenedWikiForToolId.has(data.id)) {
+                    writeOpenedWikiForToolId.add(data.id)
+                    onOpenWiki?.(path)
+                  }
+                  onWriteStreaming?.({ path, content, done: false })
+                } else if (data.name === 'edit') {
+                  const path = typeof data.args?.path === 'string' ? data.args.path : ''
+                  if (path && !editOpenedWikiForToolId.has(data.id)) {
+                    editOpenedWikiForToolId.add(data.id)
+                    onOpenWiki?.(path)
+                  }
+                  if (path) onEditStreaming?.({ id: data.id, path, done: false })
                 }
-                onWriteStreaming?.({ path, content, done: false })
                 break
               }
               case 'tool_start': {
@@ -314,6 +327,9 @@
                 if (name === 'write') {
                   writePathByToolId.delete(data.id)
                   onWriteStreaming?.({ path: '', content: '', done: true })
+                }
+                if (name === 'edit') {
+                  onEditStreaming?.({ id: data.id, path: '', done: true })
                 }
                 messages = [...messages]
                 conversationEl?.scrollToBottom()

@@ -33,6 +33,7 @@ export type ContentCardPreview =
   | { kind: 'wiki'; path: string; excerpt: string }
   | { kind: 'email'; id: string; subject: string; from: string; snippet: string }
   | { kind: 'inbox_list'; items: InboxListItemPreview[]; totalCount: number }
+  | { kind: 'wiki_edit_diff'; path: string; unified: string }
 
 /**
  * Wiki paths in the UI/API use real filenames (usually `.md`). The agent `read` tool
@@ -43,6 +44,13 @@ export function wikiPathForReadToolArg(path: string): string {
   const lastSegment = path.split('/').pop() ?? path
   if (lastSegment.includes('.') && !lastSegment.endsWith('.md') && !lastSegment.endsWith('.mdx')) return path
   return `${path}.md`
+}
+
+/** Server `tool_end.details.editDiff.unified` from chat route (wiki edit). */
+export function editDiffUnifiedFromDetails(details: unknown): string | null {
+  if (details == null || typeof details !== 'object') return null
+  const u = (details as { editDiff?: { unified?: string } }).editDiff?.unified
+  return typeof u === 'string' && u.trim() ? u : null
 }
 
 /** Derive a rich preview card from a completed tool call, or null to show raw output only. */
@@ -64,6 +72,19 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
       items,
       totalCount: items.length,
     }
+  }
+
+  if (name === 'edit') {
+    const unified = editDiffUnifiedFromDetails(tool.details)
+    const rawPath = (tool.details as { editDiff?: { path?: string } } | undefined)?.editDiff?.path
+    if (unified && typeof rawPath === 'string' && rawPath.trim()) {
+      return {
+        kind: 'wiki_edit_diff',
+        path: wikiPathForReadToolArg(rawPath),
+        unified,
+      }
+    }
+    return null
   }
 
   if (tool.result == null) return null

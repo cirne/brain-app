@@ -7,6 +7,7 @@
     type ChatHistoryGroupKey,
     groupKeyForUpdatedAt,
   } from './chatHistoryGroups.js'
+  import { labelForDeleteChatDialog } from './chatHistoryDelete.js'
 
   export type ChatSessionListItem = {
     sessionId: string
@@ -37,6 +38,8 @@
   let sessions = $state<ChatSessionListItem[]>([])
   let loading = $state(true)
   let error = $state<string | null>(null)
+  /** Set when user clicks trash — confirmed in modal (not `alert`). */
+  let pendingDelete = $state<{ sessionId: string; label: string } | null>(null)
 
   const grouped = $derived.by(() => {
     const order = CHAT_HISTORY_GROUP_ORDER
@@ -83,20 +86,43 @@
     }
   }
 
-  async function removeSession(e: MouseEvent, id: string) {
+  function requestDelete(e: MouseEvent, s: ChatSessionListItem) {
     e.stopPropagation()
+    e.preventDefault()
+    pendingDelete = { sessionId: s.sessionId, label: labelForDeleteChatDialog(rowLabel(s)) }
+  }
+
+  function cancelDelete() {
+    pendingDelete = null
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return
+    const id = pendingDelete.sessionId
     try {
       const res = await fetch(`/api/chat/${encodeURIComponent(id)}`, { method: 'DELETE' })
       if (!res.ok) return
+      pendingDelete = null
       sessions = sessions.filter((s) => s.sessionId !== id)
       if (activeSessionId === id) onNewChat()
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function onDeleteDialogKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && pendingDelete) {
+      e.preventDefault()
+      cancelDelete()
+    }
   }
 
   onMount(() => {
     void refresh()
   })
 </script>
+
+<svelte:window onkeydown={onDeleteDialogKeydown} />
 
 <div class="chat-history">
   <div class="ch-head">
@@ -162,7 +188,7 @@
                 class="ch-row-delete"
                 title="Delete chat"
                 aria-label="Delete chat"
-                onclick={(e) => removeSession(e, s.sessionId)}
+                onclick={(e) => requestDelete(e, s)}
               >
                 <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -172,6 +198,37 @@
       {/each}
     {/if}
   </div>
+
+  {#if pendingDelete}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div
+      class="ch-delete-backdrop"
+      onclick={cancelDelete}
+      role="presentation"
+    >
+      <div
+        class="ch-delete-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ch-delete-title"
+        tabindex="-1"
+        onclick={(e) => e.stopPropagation()}
+      >
+        <h2 id="ch-delete-title" class="ch-delete-title">Delete chat?</h2>
+        <p class="ch-delete-body">
+          This will permanently remove “{pendingDelete.label}”.
+        </p>
+        <div class="ch-delete-actions">
+          <button type="button" class="ch-delete-btn ch-delete-cancel" onclick={cancelDelete}>
+            Cancel
+          </button>
+          <button type="button" class="ch-delete-btn ch-delete-confirm" onclick={() => void confirmDelete()}>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -337,5 +394,71 @@
   .ch-row-delete:hover {
     color: var(--danger);
     background: rgba(224, 92, 92, 0.12);
+  }
+
+  .ch-delete-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  .ch-delete-dialog {
+    width: min(100%, 360px);
+    padding: 18px 18px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  }
+
+  .ch-delete-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 8px;
+    color: var(--text);
+  }
+
+  .ch-delete-body {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-2);
+    margin: 0 0 16px;
+    word-break: break-word;
+  }
+
+  .ch-delete-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .ch-delete-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text);
+    transition: background 0.12s, border-color 0.12s;
+  }
+
+  .ch-delete-btn:hover {
+    background: var(--bg-2);
+  }
+
+  .ch-delete-confirm {
+    border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+    background: color-mix(in srgb, var(--danger) 12%, var(--bg));
+    color: var(--danger);
+  }
+
+  .ch-delete-confirm:hover {
+    background: color-mix(in srgb, var(--danger) 22%, var(--bg));
   }
 </style>

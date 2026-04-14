@@ -7,6 +7,7 @@
   import { extractReferencedFiles, type ChatMessage } from './agentUtils.js'
   import { matchContentPreview } from './cards/contentCards.js'
   import CalendarPreviewCard from './cards/CalendarPreviewCard.svelte'
+  import EditDiffPreviewCard from './cards/EditDiffPreviewCard.svelte'
   import WikiPreviewCard from './cards/WikiPreviewCard.svelte'
   import EmailPreviewCard from './cards/EmailPreviewCard.svelte'
   import InboxListPreviewCard from './cards/InboxListPreviewCard.svelte'
@@ -132,6 +133,7 @@
     if (!args) return ''
     try { return JSON.stringify(args, null, 2) } catch { return String(args) }
   }
+
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -210,7 +212,7 @@
                 {#if part.toolCall.args}
                   <pre class="tool-args">{formatArgs(part.toolCall.args)}</pre>
                 {/if}
-                {#if part.toolCall.result}
+                {#if part.toolCall.result && preview?.kind !== 'wiki_edit_diff'}
                   <pre class="tool-result" class:tool-error={part.toolCall.isError} class:muted={!!preview}>{part.toolCall.result}</pre>
                 {/if}
               </details>
@@ -241,6 +243,12 @@
                   totalCount={preview.totalCount}
                   onOpenEmail={(id, subject, from) => onOpenEmail?.(id, subject, from)}
                   onOpenFullInbox={onOpenFullInbox}
+                />
+              {:else if preview?.kind === 'wiki_edit_diff'}
+                <EditDiffPreviewCard
+                  path={preview.path}
+                  unified={preview.unified}
+                  onOpen={() => onOpenWiki?.(preview.path)}
                 />
               {/if}
             </div>

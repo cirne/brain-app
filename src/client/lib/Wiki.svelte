@@ -2,6 +2,7 @@
   import { mount, unmount } from 'svelte'
   import WikiFileName from './WikiFileName.svelte'
   import { normalizeWikiPathForMatch, transformWikiPageHtml } from './wikiPageHtml.js'
+  import { wikiPathForReadToolArg } from './cards/contentCards.js'
   import { renderMarkdown } from './markdown.js'
 
   type WikiFile = { path: string; name: string }
@@ -12,6 +13,8 @@
     initialPath,
     refreshKey = 0,
     streamingWrite = null as { path: string; body: string } | null,
+    /** Live `edit` tool — spinner + “Editing…” while args stream / tool runs. */
+    streamingEdit = null as { path: string; toolId: string } | null,
     onNavigate,
     onContextChange,
   }: {
@@ -19,9 +22,17 @@
     refreshKey?: number
     /** Live markdown while agent streams `write` for this path (file may not exist yet). */
     streamingWrite?: { path: string; body: string } | null
+    streamingEdit?: { path: string; toolId: string } | null
     onNavigate?: (_path: string | undefined) => void
     onContextChange?: (_ctx: SurfaceContext) => void
   } = $props()
+
+  function pathsMatchForStream(streamPath: string, currentSelected: string | null): boolean {
+    if (!currentSelected) return false
+    const a = normalizeWikiPathForMatch(wikiPathForReadToolArg(streamPath))
+    const b = normalizeWikiPathForMatch(wikiPathForReadToolArg(currentSelected))
+    return a === b
+  }
 
   let files = $state<WikiFile[]>([])
   let selected = $state<string | null>(null)
@@ -149,10 +160,15 @@
     <article class="viewer" onclick={handleContentClick} use:upgradeWikiLinks={content}>
       {#if loading}
         <p class="status">Loading...</p>
-      {:else if streamingWrite && streamingWrite.path === selected && streamingWrite.body}
+      {:else if streamingWrite && selected && pathsMatchForStream(streamingWrite.path, selected) && streamingWrite.body}
         <p class="stream-label" role="status">Agent is writing…</p>
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         <div class="stream-md markdown">{@html renderMarkdown(streamingWrite.body.slice(0, 50000))}</div>
+      {:else if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
+        <p class="stream-label stream-editing" role="status">
+          <svg class="stream-spin" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+          Editing…
+        </p>
       {:else if content}
         {#if Object.keys(meta).length > 0}
           <div class="page-meta">
@@ -191,6 +207,18 @@
     font-weight: 600;
     color: var(--accent);
     margin: 0 0 12px;
+  }
+  .stream-editing {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .stream-spin {
+    flex-shrink: 0;
+    animation: wiki-stream-spin 1s linear infinite;
+  }
+  @keyframes wiki-stream-spin {
+    to { transform: rotate(360deg); }
   }
   .stream-md {
     font-size: 14px;

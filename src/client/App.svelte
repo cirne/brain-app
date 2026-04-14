@@ -16,6 +16,7 @@
     registerDebouncedWikiSyncRunner,
     runSyncOrQueueFollowUp,
   } from './lib/app/debouncedWikiSync.js'
+  import { wikiPathForReadToolArg } from './lib/cards/contentCards.js'
 
   const SIDEBAR_KEY = 'brain-sidebar'
 
@@ -43,6 +44,8 @@
   let inboxTargetId = $state<string | undefined>()
   /** Live markdown while the agent streams a `write` tool — wiki pane only. */
   let wikiWriteStreaming = $state<{ path: string; body: string } | null>(null)
+  /** Live `edit` tool — wiki pane shows “Editing…” until tool_end. */
+  let wikiEditStreaming = $state<{ path: string; toolId: string } | null>(null)
   let agentDrawer = $state<AgentDrawer | undefined>()
   let mobileSlideOver = $state<{ closeAnimated: () => void } | undefined>()
   let workspaceSplit = $state<WorkspaceSplit | undefined>()
@@ -161,6 +164,7 @@
     agentContext = { type: 'chat' }
     inboxTargetId = undefined
     wikiWriteStreaming = null
+    wikiEditStreaming = null
   }
 
   function closeOverlay() {
@@ -201,6 +205,12 @@
     navigate({ overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) } })
     route = parseRoute()
     agentContext = { type: 'calendar', date, ...(eventId ? { eventId } : {}) }
+  }
+
+  function resetCalendarToToday() {
+    const d = new Date()
+    const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    switchToCalendar(ymd)
   }
 
   function setContext(ctx: SurfaceContext) {
@@ -338,6 +348,16 @@
       wikiWriteStreaming = { path: p.path, body: p.content }
     }
   }
+
+  function onEditStreaming(p: { id: string; path: string; done: boolean }) {
+    if (p.done) {
+      if (wikiEditStreaming?.toolId === p.id) wikiEditStreaming = null
+      return
+    }
+    if (p.path) {
+      wikiEditStreaming = { path: wikiPathForReadToolArg(p.path), toolId: p.id }
+    }
+  }
 </script>
 
 {#if showSearch}
@@ -410,6 +430,7 @@
         onSessionChange={onSessionChangeFromAgent}
         onChatPersisted={onChatPersisted}
         onWriteStreaming={onWriteStreaming}
+        onEditStreaming={onEditStreaming}
       >
         {#snippet mobileDetail()}
           {#if route.overlay}
@@ -421,11 +442,14 @@
               calendarRefreshKey={calendarRefreshKey}
               inboxTargetId={inboxTargetId}
               wikiStreamingWrite={wikiWriteStreaming}
+              wikiStreamingEdit={wikiEditStreaming}
               onWikiNavigate={onWikiNavigate}
               onInboxNavigate={onInboxNavigateSlide}
               onContextChange={setContext}
               onOpenSearch={() => { showSearch = true }}
               onSummarizeInbox={onSummarizeInbox}
+              onCalendarResetToToday={resetCalendarToToday}
+              onCalendarNavigate={switchToCalendar}
               onClose={closeOverlay}
               onSync={syncAll}
               {syncing}
@@ -444,11 +468,14 @@
           calendarRefreshKey={calendarRefreshKey}
           inboxTargetId={inboxTargetId}
           wikiStreamingWrite={wikiWriteStreaming}
+          wikiStreamingEdit={wikiEditStreaming}
           onWikiNavigate={onWikiNavigate}
           onInboxNavigate={onInboxNavigateSlide}
           onContextChange={setContext}
           onOpenSearch={() => { showSearch = true }}
           onSummarizeInbox={onSummarizeInbox}
+          onCalendarResetToToday={resetCalendarToToday}
+          onCalendarNavigate={switchToCalendar}
           onClose={closeOverlay}
         />
       {/if}

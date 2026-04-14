@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchContentPreview, wikiPathForReadToolArg } from './contentCards.js'
+import { editDiffUnifiedFromDetails, matchContentPreview, wikiPathForReadToolArg } from './contentCards.js'
 import type { ToolCall } from '../agentUtils.js'
 
 function tc(p: Partial<ToolCall> & Pick<ToolCall, 'id' | 'name'>): ToolCall {
@@ -171,4 +171,41 @@ describe('matchContentPreview', () => {
     }
   })
 
+  it('returns wiki_edit_diff when edit tool has details.editDiff', () => {
+    const tool = tc({
+      id: 'e1',
+      name: 'edit',
+      done: true,
+      args: { path: 'index.md', edits: [] },
+      result: 'ok',
+      details: {
+        editDiff: {
+          path: 'index.md',
+          unified: '--- a/index.md\n+++ b/index.md\n@@ -1 +1 @@\n-a\n+b\n',
+        },
+      },
+    })
+    const p = matchContentPreview(tool)
+    expect(p?.kind).toBe('wiki_edit_diff')
+    if (p?.kind === 'wiki_edit_diff') {
+      expect(p.path).toBe('index.md')
+      expect(p.unified).toContain('+++ b/index.md')
+    }
+  })
+
+})
+
+describe('editDiffUnifiedFromDetails', () => {
+  it('returns unified string when details.editDiff.unified is set', () => {
+    expect(
+      editDiffUnifiedFromDetails({
+        editDiff: { path: 'a.md', unified: '--- x\n+++ y\n' },
+      }),
+    ).toBe('--- x\n+++ y\n')
+  })
+
+  it('returns null for empty or missing unified', () => {
+    expect(editDiffUnifiedFromDetails(undefined)).toBeNull()
+    expect(editDiffUnifiedFromDetails({ editDiff: { unified: '  ' } })).toBeNull()
+  })
 })
