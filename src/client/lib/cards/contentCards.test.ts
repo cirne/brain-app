@@ -94,6 +94,30 @@ describe('matchContentPreview', () => {
     }
   })
 
+  it('read_email preview uses details when result JSON is truncated (invalid parse)', () => {
+    const tool = tc({
+      id: 'e-trunc',
+      name: 'read_email',
+      done: true,
+      args: { id: 'CABA-big' },
+      result: '{"subject":"Re: X","from":"a@b.com","body":"' + 'x'.repeat(5000), // truncated mid-string — parse fails
+      details: {
+        readEmailPreview: true,
+        id: 'CABA-big',
+        subject: 'Re: Autem Call Tomorrow',
+        from: 'Daniel Scholnick <dan@x.com>',
+        snippet: 'On Mon, Lew…',
+      },
+    })
+    const p = matchContentPreview(tool)
+    expect(p?.kind).toBe('email')
+    if (p?.kind === 'email') {
+      expect(p.id).toBe('CABA-big')
+      expect(p.subject).toBe('Re: Autem Call Tomorrow')
+      expect(p.snippet).toBe('On Mon, Lew…')
+    }
+  })
+
   it('returns null when tool is still running', () => {
     const tool = tc({
       id: '3',

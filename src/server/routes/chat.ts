@@ -16,6 +16,7 @@ import {
   toAssistantMessage,
 } from '../lib/chatTranscript.js'
 import { appendTurn, deleteSessionFile, loadSession, listSessions } from '../lib/chatStorage.js'
+import { buildReadEmailPreviewDetails } from '../lib/readEmailPreview.js'
 
 const chat = new Hono()
 
@@ -159,11 +160,28 @@ chat.post('/', async (c) => {
                 ?.filter((c: any) => c.type === 'text')
                 ?.map((c: any) => c.text)
                 ?.join('') ?? ''
-            /** Full structured payload for UI previews (e.g. inbox list) — text alone may be truncated. */
-            const details =
-              ev.toolName === 'list_inbox' && ev.result?.details != null && typeof ev.result.details === 'object'
-                ? ev.result.details
-                : undefined
+            /** Full structured payload for UI previews — `result` text is truncated to 4k. */
+            let details: unknown = undefined
+            if (ev.toolName === 'list_inbox' && ev.result?.details != null && typeof ev.result.details === 'object') {
+              details = ev.result.details
+            } else if (ev.toolName === 'read_email' && resultText.trim().startsWith('{')) {
+              try {
+                const parsed = JSON.parse(resultText) as Record<string, unknown>
+                const partBefore = assistantState.parts.find(
+                  p => p.type === 'tool' && p.toolCall.id === ev.toolCallId,
+                ) as { type: 'tool'; toolCall: { args: unknown } } | undefined
+                const argsObj = partBefore?.toolCall.args
+                const aid =
+                  argsObj != null &&
+                  typeof argsObj === 'object' &&
+                  typeof (argsObj as { id?: unknown }).id === 'string'
+                    ? (argsObj as { id: string }).id
+                    : ''
+                details = buildReadEmailPreviewDetails(parsed, aid)
+              } catch {
+                /* ignore — preview falls back to parsing client result if any */
+              }
+            }
             applyToolEnd(assistantState, ev.toolCallId, resultText.slice(0, 4000), ev.isError, details)
             const toolRow = assistantState.parts.find(
               p => p.type === 'tool' && p.toolCall.id === ev.toolCallId,

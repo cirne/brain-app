@@ -6,28 +6,13 @@ import {
   parseRipmailInboxFlat,
   type InboxListItemPreview,
 } from '../../../server/lib/ripmailInboxFlatten.js'
+import {
+  pickReadEmailFields,
+  type ReadEmailToolDetails,
+} from '../../../server/lib/readEmailPreview.js'
 
 export { formatEmailParticipant, flattenInboxFromRipmailData, parseRipmailInboxFlat }
 export type { InboxListItemPreview }
-
-function pickReadEmailFields(j: Record<string, unknown>): { subject: string; from: string; body: string } {
-  let subject = typeof j.subject === 'string' ? j.subject : ''
-  let fromVal: unknown = j.from
-  let body = typeof j.body === 'string' ? j.body : ''
-
-  if (Array.isArray(j.messages) && j.messages.length > 0) {
-    const m0 = j.messages[0] as Record<string, unknown>
-    if (!subject && typeof m0.subject === 'string') subject = m0.subject
-    if (fromVal == null && m0.from != null) fromVal = m0.from
-    if (!body && typeof m0.body === 'string') body = m0.body
-  }
-
-  return {
-    subject: subject || '(no subject)',
-    from: formatEmailParticipant(fromVal),
-    body,
-  }
-}
 
 /** Matches calendar API / tool JSON shape enough for DayEvents. */
 export type CalendarEventLite = {
@@ -107,6 +92,16 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
   }
 
   if (name === 'read_email' && typeof args.id === 'string') {
+    const d = tool.details as ReadEmailToolDetails | undefined
+    if (d?.readEmailPreview === true && d.id === args.id) {
+      return {
+        kind: 'email',
+        id: args.id,
+        subject: d.subject,
+        from: d.from,
+        snippet: d.snippet,
+      }
+    }
     try {
       const j = JSON.parse(result) as Record<string, unknown>
       const { subject, from, body } = pickReadEmailFields(j)

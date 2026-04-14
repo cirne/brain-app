@@ -8,5 +8,9 @@
     "skipLibCheck": true,
     "composite": true
   },
-  "include": ["src/client/**/*", "src/server/lib/ripmailInboxFlatten.ts"]
+  "include": [
+    "src/client/**/*",
+    "src/server/lib/ripmailInboxFlatten.ts",
+    "src/server/lib/readEmailPreview.ts"
+  ]
 }
