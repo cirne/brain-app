@@ -15,6 +15,27 @@ import {
 
 const execAsync = promisify(exec)
 
+/**
+ * If `s` looks like a phone number, return the significant digits (strip +, country code 1 for US).
+ * Returns null if `s` doesn't look like a phone number (< 7 digits or has too many alpha chars).
+ */
+export function normalizePhoneDigits(s: string): string | null {
+  const stripped = s.replace(/[\s\-().+]/g, '')
+  if (/[a-zA-Z]{2,}/.test(stripped)) return null
+  const digits = stripped.replace(/\D/g, '')
+  if (digits.length < 7 || digits.length > 15) return null
+  if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1)
+  return digits
+}
+
+/**
+ * Build a grep -E regex that matches a digit sequence with arbitrary non-digit separators.
+ * e.g. "6502485571" → "6[^0-9]*5[^0-9]*0[^0-9]*2[^0-9]*4[^0-9]*8[^0-9]*5[^0-9]*5[^0-9]*7[^0-9]*1"
+ */
+export function phoneToFlexibleGrepPattern(digits: string): string {
+  return digits.split('').join('[^0-9]*')
+}
+
 function parseOptionalIsoMs(s: string | undefined): number | undefined {
   if (s == null || String(s).trim() === '') return undefined
   const t = Date.parse(String(s))
@@ -22,24 +43,78 @@ function parseOptionalIsoMs(s: string | undefined): number | undefined {
   return t
 }
 
-function formatImessageRow(r: {
-  rowid: number
+/** Compact row for token efficiency: ts=Unix s, m=1 me/0 them, r read 0|1 incoming only, t=text. */
+function compactImessageThreadRow(r: {
   text: string | null
   date: number
   is_from_me: number
   is_read: number
-  chat_identifier: string | null
-  display_name: string | null
 }) {
-  return {
-    rowid: r.rowid,
-    text: r.text ?? '',
-    iso: new Date(appleDateNsToUnixMs(r.date)).toISOString(),
-    is_from_me: Boolean(r.is_from_me),
-    is_read: Boolean(r.is_read),
-    chat_identifier: r.chat_identifier,
-    display_name: r.display_name,
+  const ts = Math.floor(appleDateNsToUnixMs(r.date) / 1000)
+  const m = r.is_from_me ? 1 : 0
+  const o: Record<string, string | number> = { ts, m, t: r.text ?? '' }
+  if (!r.is_from_me) o.r = r.is_read ? 1 : 0
+  return o
+}
+
+function compactImessageListRow(
+  r: {
+    text: string | null
+    date: number
+    is_from_me: number
+    is_read: number
+    chat_identifier: string | null
+  },
+  includeChat: boolean,
+) {
+  const base = compactImessageThreadRow(r)
+  if (includeChat) base.c = r.chat_identifier ?? ''
+  return base
+}
+
+/**
+ * Look up a phone number or identifier in the wiki and return the relative
+ * path of matching files (if any). Used to enrich iMessage tool output inline.
+ */
+async function resolveIdentifierToWikiFiles(
+  identifier: string,
+  wikiDirPath: string,
+): Promise<string[]> {
+  const phone = normalizePhoneDigits(identifier)
+  if (!phone) return []
+  const pattern = phoneToFlexibleGrepPattern(phone)
+  try {
+    const { stdout } = await execAsync(
+      `grep -rE ${JSON.stringify(pattern)} ${JSON.stringify(wikiDirPath)} --include="*.md" -l`,
+      { timeout: 5000 },
+    )
+    if (!stdout.trim()) return []
+    return stdout.trim().split('\n').map((f) => f.replace(wikiDirPath + '/', ''))
+  } catch {
+    return []
   }
+}
+
+/**
+ * Resolve a batch of chat identifiers to wiki files in parallel.
+ * Returns a map: chat_identifier → wiki file paths (only entries with matches).
+ */
+async function resolveIdentifiersBatch(
+  identifiers: string[],
+  wikiDirPath: string,
+): Promise<Record<string, string[]>> {
+  const unique = [...new Set(identifiers)]
+  const results = await Promise.all(
+    unique.map(async (id) => {
+      const files = await resolveIdentifierToWikiFiles(id, wikiDirPath)
+      return [id, files] as const
+    }),
+  )
+  const map: Record<string, string[]> = {}
+  for (const [id, files] of results) {
+    if (files.length > 0) map[id] = files
+  }
+  return map
 }
 
 /** Build CLI flags for ripmail draft edit from metadata params. */
@@ -287,17 +362,21 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'find_person',
     label: 'Find Person',
     description:
-      'Find information about a person by searching email contacts (ripmail who) and wiki notes. Returns combined results from both sources.',
+      'Find information about a person by searching email contacts (ripmail who) and wiki notes. Accepts a name OR a phone number (any format — +16502485571, 650-248-5571, etc). Phone numbers are matched flexibly against all wiki files regardless of how the number is formatted there.',
     parameters: Type.Object({
-      name: Type.String({ description: 'Person name or partial name to search for' }),
+      query: Type.String({ description: 'Person name, partial name, phone number, or email to search for' }),
     }),
-    async execute(_toolCallId: string, params: { name: string }) {
+    async execute(_toolCallId: string, params: { query: string }) {
       const ripmail = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const phone = normalizePhoneDigits(params.query)
+      const grepPattern = phone ? phoneToFlexibleGrepPattern(phone) : params.query
+
+      const grepFlags = phone ? '-rE' : '-ri'
 
       const [emailResult, wikiResult] = await Promise.allSettled([
-        execAsync(`${ripmail} who ${JSON.stringify(params.name)} --limit 20`, { timeout: 15000 }),
+        execAsync(`${ripmail} who ${JSON.stringify(params.query)} --limit 20`, { timeout: 15000 }),
         execAsync(
-          `grep -ri ${JSON.stringify(params.name)} ${JSON.stringify(wikiDir)} --include="*.md" -l`,
+          `grep ${grepFlags} ${JSON.stringify(grepPattern)} ${JSON.stringify(wikiDir)} --include="*.md" -l`,
           { timeout: 10000 }
         ),
       ])
@@ -315,7 +394,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
 
       const text = parts.length
         ? parts.join('\n\n')
-        : `No information found for "${params.name}".`
+        : `No information found for "${params.query}".`
 
       return {
         content: [{ type: 'text' as const, text }],
@@ -561,7 +640,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'list_imessage_recent',
     label: 'List recent iMessage',
     description:
-      'Read recent SMS/iMessage from the local macOS Messages database (read-only). Use after resolving a phone or email handle from the wiki. Default time window: last 7 days. Requires macOS Full Disk Access for ~/Library/Messages/chat.db or set IMESSAGE_DB_PATH.',
+      'Read recent SMS/iMessage from the local macOS Messages database (read-only). Default time window: last 7 days. Output is compact JSON: n=count, messages[] with ts=Unix seconds, m=1 you/0 them, r=read 1/0 (incoming only), t=text, c=chat id (omitted when chat_identifier filter is set). Phone-number chat ids are auto-resolved against wiki people pages — matched ids appear in a top-level "people" map (chat_identifier → wiki paths) so you can identify who a conversation is with without extra tool calls.',
     parameters: Type.Object({
       since: Type.Optional(Type.String({ description: 'ISO 8601 start time (optional; default last 7 days)' })),
       until: Type.Optional(Type.String({ description: 'ISO 8601 end time (optional; default now)' })),
@@ -599,13 +678,19 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           details: { ok: false, error },
         }
       }
-      const payload = {
-        db_path: dbPath,
-        count: messages.length,
-        messages: messages.map(formatImessageRow),
+      const includeChat = !params.chat_identifier
+      const chatIds = includeChat
+        ? [...new Set(messages.map((r) => r.chat_identifier).filter(Boolean) as string[])]
+        : []
+      const people = await resolveIdentifiersBatch(chatIds, wikiDir)
+      const payload: Record<string, unknown> = {
+        n: messages.length,
+        messages: messages.map((row) => compactImessageListRow(row, includeChat)),
       }
+      if (Object.keys(people).length > 0) payload.people = people
+      const text = JSON.stringify(payload)
       return {
-        content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
+        content: [{ type: 'text' as const, text }],
         details: { ok: true as const, error: '', ...payload },
       }
     },
@@ -615,7 +700,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'get_imessage_thread',
     label: 'Get iMessage thread',
     description:
-      'Read messages for one conversation by chat_identifier (same string as in list_imessage_recent). Returns messages oldest-first for reading, plus message_count in the window. Default time window: last 7 days.',
+      'Read messages for one conversation by chat_identifier (same string as in list_imessage_recent). Returns messages oldest-first for reading. Default time window: last 7 days. Compact JSON: chat, n=returned rows, total=in window, messages with ts/m/t/r (same encoding as list_imessage_recent). If the chat id is a phone number found in the wiki, a "person" field lists matching wiki paths.',
     parameters: Type.Object({
       chat_identifier: Type.String({ description: 'chat.chat_identifier for the thread (phone, email, or group id)' }),
       since: Type.Optional(Type.String({ description: 'ISO 8601 start (optional)' })),
@@ -643,15 +728,17 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           details: { ok: false, error },
         }
       }
-      const payload = {
-        db_path: dbPath,
-        chat_identifier: params.chat_identifier,
-        message_count,
-        returned: messages.length,
-        messages: messages.map(formatImessageRow),
+      const wikiFiles = await resolveIdentifierToWikiFiles(params.chat_identifier, wikiDir)
+      const payload: Record<string, unknown> = {
+        chat: params.chat_identifier,
+        n: messages.length,
+        total: message_count,
+        messages: messages.map(compactImessageThreadRow),
       }
+      if (wikiFiles.length > 0) payload.person = wikiFiles
+      const text = JSON.stringify(payload)
       return {
-        content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
+        content: [{ type: 'text' as const, text }],
         details: { ok: true as const, error: '', ...payload },
       }
     },
