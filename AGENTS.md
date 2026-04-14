@@ -138,5 +138,7 @@ npm run build        # builds client to dist/client, server to dist/server
 fly deploy           # builds Docker image and deploys
 ```
 
+Pushes to `main` also build and push a container image to **GitHub Container Registry** (`ghcr.io/<owner>/<repo>`). For a private repo, pull hosts need a GitHub PAT with `read:packages` and `docker login ghcr.io` before `docker pull`. See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#deployment)** for the full flow (login, one-liner run with `--env-file .env`, optional volumes).
+
 Wiki content is not baked into the image — `start.sh` clones/pulls at runtime.
 In Docker, ripmail state lives under `/ripmail` inside the container (see `start.sh` and Dockerfile `RIPMAIL_HOME`); no bind mount or Fly volume by default.

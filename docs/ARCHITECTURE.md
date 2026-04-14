@@ -135,7 +135,41 @@ The app runs as a Docker container. `start.sh` clones/pulls the brain wiki repo 
 
 Deployment platform is not yet decided — Fly.io (`fly.toml` exists as a starting point) and DigitalOcean App Platform are both viable options.
 
-### Local container testing
+### Container image: GitHub Container Registry (GHCR)
+
+On every push to `main`, GitHub Actions (`.github/workflows/docker-publish.yml`) builds the `Dockerfile` and pushes to **GitHub Container Registry**:
+
+- **Image:** `ghcr.io/<owner>/<repo>:latest` and `:main` (same as the GitHub repo path, lowercased by GitHub).
+
+The workflow uses `GITHUB_TOKEN` with `packages: write` — no extra secrets are required for CI to publish.
+
+For a **private** repository, the package is typically **private** as well. Anyone pulling the image on another machine must authenticate to GHCR with a credential that can read packages.
+
+### Pulling a private image on a remote host
+
+1. Create a **Personal Access Token** (classic or fine-grained) with at least **`read:packages`** (classic) or the equivalent package read permission (fine-grained). Do not commit the token.
+
+2. On the host, log in to GHCR using the token (replace `YOUR_GITHUB_USERNAME`):
+
+   ```sh
+   export GHCR_TOKEN=ghp_xxxxxxxx   # or: read from your secret store / paste once
+   echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+   ```
+
+   Avoid putting the token on the command line as a literal — use `echo "$GHCR_TOKEN"` as above, or a credential helper. Unset `GHCR_TOKEN` after login if you prefer not to leave it in the shell.
+
+3. Pull and run with your existing `.env` (defaults to `PORT=3000`; map the same port on the host):
+
+   ```sh
+   docker pull ghcr.io/<owner>/<repo>:latest && \
+     docker run --rm -p 3000:3000 --env-file .env ghcr.io/<owner>/<repo>:latest
+   ```
+
+   If `.env` sets `PORT` to something other than `3000`, use `-p <port>:<port>` to match.
+
+4. **Optional persistence:** add volume mounts so wiki and ripmail state survive container removal, e.g. `-v brain-wiki:/wiki -v brain-ripmail:/ripmail` before the image name.
+
+### Local container testing (build from source)
 
 ```sh
 docker compose up --build
