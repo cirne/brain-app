@@ -8,10 +8,10 @@ describe('aggregateSyncErrors', () => {
     expect(aggregateSyncErrors(ok, ok, ok)).toEqual([])
   })
 
-  it('collects rejection reasons in Wiki / Inbox / Calendar order', () => {
+  it('collects rejection reasons in Docs / Inbox / Calendar order', () => {
     const wikiRej: PromiseRejectedResult = { status: 'rejected', reason: 'net' }
     const inboxRej: PromiseRejectedResult = { status: 'rejected', reason: 'timeout' }
-    expect(aggregateSyncErrors(wikiRej, ok, ok)).toEqual(['Wiki: net'])
+    expect(aggregateSyncErrors(wikiRej, ok, ok)).toEqual(['Docs: net'])
     expect(aggregateSyncErrors(ok, inboxRej, ok)).toEqual(['Inbox: timeout'])
     expect(aggregateSyncErrors(ok, ok, { status: 'rejected', reason: 'x' })).toEqual(['Calendar: x'])
   })
@@ -21,12 +21,12 @@ describe('aggregateSyncErrors', () => {
       status: 'fulfilled',
       value: { ok: false, error: 'pull failed' },
     }
-    expect(aggregateSyncErrors(wikiBad, ok, ok)).toEqual(['Wiki: pull failed'])
+    expect(aggregateSyncErrors(wikiBad, ok, ok)).toEqual(['Docs: pull failed'])
     const noMsg: PromiseFulfilledResult<SyncResponseBody> = {
       status: 'fulfilled',
       value: { ok: false },
     }
-    expect(aggregateSyncErrors(noMsg, ok, ok)).toEqual(['Wiki: sync failed'])
+    expect(aggregateSyncErrors(noMsg, ok, ok)).toEqual(['Docs: sync failed'])
   })
 
   it('does not error when fulfilled value is undefined', () => {

@@ -164,7 +164,7 @@ describe('contextPlaceholder', () => {
     expect(contextPlaceholder(ctx)).toBe('What do you want to do with this email?')
   })
 
-  it('returns wiki placeholder for wiki context', () => {
+  it('returns docs placeholder for wiki context', () => {
     const ctx: SurfaceContext = { type: 'wiki', path: 'a.md', title: 'A' }
     expect(contextPlaceholder(ctx)).toBe('Ask about this doc...')
   })

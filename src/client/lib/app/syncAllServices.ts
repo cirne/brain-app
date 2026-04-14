@@ -21,7 +21,7 @@ export function aggregateSyncErrors(
   calendar: PromiseSettledResult<SyncResponseBody>,
 ): string[] {
   const errs: string[] = []
-  appendServiceErrors(errs, 'Wiki', wiki)
+  appendServiceErrors(errs, 'Docs', wiki)
   appendServiceErrors(errs, 'Inbox', inbox)
   appendServiceErrors(errs, 'Calendar', calendar)
   return errs

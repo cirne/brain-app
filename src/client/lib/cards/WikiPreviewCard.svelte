@@ -20,7 +20,7 @@
 </script>
 
 <div class="wiki-card">
-  <button type="button" class="wiki-card-hit" aria-label="Open wiki page: {path}" onclick={onOpen}></button>
+  <button type="button" class="wiki-card-hit" aria-label="Open doc: {path}" onclick={onOpen}></button>
   <div class="wiki-card-path"><WikiFileName {path} /></div>
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   <div class="wiki-excerpt">{@html previewHtml}</div>

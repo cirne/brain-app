@@ -124,6 +124,13 @@
     workspaceSplit?.closeDesktopAnimated()
   }
 
+  /** Mobile: dismiss docs/email/calendar overlay so the chat transcript is visible after send. */
+  function closeOverlayOnUserSend() {
+    if (isMobile && route.overlay) {
+      closeOverlayImmediate()
+    }
+  }
+
   function openWikiDoc(path?: string) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     navigate({ overlay })
@@ -145,6 +152,7 @@
   function switchToCalendar(date: string) {
     navigate({ overlay: { type: 'calendar', date } })
     route = parseRoute()
+    agentContext = { type: 'calendar', date }
   }
 
   function setContext(ctx: SurfaceContext) {
@@ -163,8 +171,8 @@
     agentContext = { type: 'email', threadId: id, subject, from }
   }
 
-  function openEmailFromChat(threadId: string) {
-    openEmailFromSearch(threadId, threadId, '')
+  function openEmailFromChat(threadId: string, subject?: string, from?: string) {
+    openEmailFromSearch(threadId, subject ?? '', from ?? '')
   }
 
   function openFullInboxFromChat() {
@@ -250,6 +258,7 @@
         onSwitchToCalendar={switchToCalendar}
         onOpenFromAgent={onOpenFromAgent}
         onNewChat={closeOverlay}
+        onUserSendMessage={closeOverlayOnUserSend}
       >
         {#snippet mobileDetail()}
           {#if route.overlay}

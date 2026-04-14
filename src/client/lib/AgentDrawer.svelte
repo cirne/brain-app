@@ -19,17 +19,20 @@
     onSwitchToCalendar,
     onOpenFromAgent,
     onNewChat,
+    /** Fired when the user submits a chat message (before the request runs). */
+    onUserSendMessage,
     mobileDetail,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
     onOpenWiki?: (_path: string) => void
-    onOpenEmail?: (_threadId: string) => void
+    onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string) => void
     /** LLM `open` tool — fired from SSE tool_start */
     onOpenFromAgent?: (_target: { type: string; path?: string; id?: string; date?: string }) => void
     onNewChat?: () => void
+    onUserSendMessage?: () => void
     /** Full-screen detail stack above input (mobile only) */
     mobileDetail?: Snippet
   } = $props()
@@ -110,6 +113,9 @@
     streaming = true
 
     const body = buildChatBody({ message: text, sessionId, context, mentionedFiles, isFirstMessage })
+
+    // After context is serialized into the request (e.g. email thread), parent may clear overlay.
+    onUserSendMessage?.()
 
     messages.push({ role: 'assistant', content: '', parts: [] })
     const msgIdx = messages.length - 1
@@ -280,8 +286,8 @@
     {/if}
   </div>
 
-  <!-- Always mounted for same reason; sibling below drawer-body so it is never covered by mobile overlay -->
-  <div class="input-shell" inert={conversationHidden || undefined}>
+  <!-- Sibling below drawer-body: stays outside the mobile slide-over so the user can keep typing or start a new chat -->
+  <div class="input-shell">
     <AgentInput
       bind:this={inputEl}
       {placeholder}

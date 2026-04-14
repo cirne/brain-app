@@ -65,7 +65,7 @@
       bind:this={inputEl}
       bind:value={query}
       class="input"
-      placeholder="Search docs and emails..."
+      placeholder="Search your docs and emails..."
       autocomplete="off"
       autocorrect="off"
       spellcheck="false"
@@ -83,7 +83,7 @@
 
     <div class="results">
     {#if !query.trim()}
-      <p class="hint">Search wiki docs and emails</p>
+      <p class="hint">Search your docs and emails</p>
     {:else if !loading && results.length === 0}
       <p class="hint">No results for "{query}"</p>
     {:else}

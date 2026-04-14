@@ -78,9 +78,9 @@
       {/if}
     </section>
 
-    <!-- Recent wiki changes -->
+    <!-- Recent doc changes -->
     <section class="card card--files">
-      <h2 class="section-title">Wiki</h2>
+      <h2 class="section-title">Docs</h2>
       {#if dirty.length === 0 && recent.length === 0}
         <div class="muted">No recent changes</div>
       {:else}
@@ -212,7 +212,7 @@
     flex-shrink: 0;
   }
 
-  /* wiki file list — flush to card edges, WikiFileList handles item styling */
+  /* docs file list — flush to card edges, WikiFileList handles item styling */
   .card--files {
     padding: 14px 0 0;
     overflow: hidden;

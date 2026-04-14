@@ -28,7 +28,7 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
     else s += ` Use the ripmail tool (e.g. read <id> --json) to load this thread if needed.`
     return s
   }
-  if (ctx.type === 'wiki') return `The user is viewing wiki doc: ${ctx.path} (title: "${ctx.title}")`
+  if (ctx.type === 'wiki') return `The user is viewing doc: ${ctx.path} (title: "${ctx.title}")`
   if (ctx.type === 'calendar') return `The user is viewing their calendar for ${ctx.date}`
   if (ctx.type === 'inbox') {
     return 'The user asked for a summary of the triaged inbox items in their message. Use the ripmail tool (e.g. read <id> --json, or search with --json) with the message ids provided as needed, then answer concisely.'

@@ -13,7 +13,7 @@
   }: {
     items: InboxListItemPreview[]
     totalCount: number
-    onOpenEmail?: (_id: string) => void
+    onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
   } = $props()
 
@@ -74,7 +74,7 @@
           <button
             type="button"
             class="row-open"
-            onclick={() => onOpenEmail?.(row.id)}
+            onclick={() => onOpenEmail?.(row.id, row.subject, row.from)}
             aria-label="Open: {row.subject}"
           >
             <span class="row-line1">

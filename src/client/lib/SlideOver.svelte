@@ -181,7 +181,7 @@
   })
 
   function titleForOverlay(o: Overlay): string {
-    if (o.type === 'wiki') return 'Wiki'
+    if (o.type === 'wiki') return 'Docs'
     if (o.type === 'email') return 'Inbox'
     return 'Calendar'
   }

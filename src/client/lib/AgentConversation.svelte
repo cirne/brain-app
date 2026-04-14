@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { renderMarkdown } from './markdown.js'
   import DayEvents from './DayEvents.svelte'
   import { getToolIcon } from './toolIcons.js'
@@ -9,6 +10,8 @@
   import WikiPreviewCard from './cards/WikiPreviewCard.svelte'
   import EmailPreviewCard from './cards/EmailPreviewCard.svelte'
   import InboxListPreviewCard from './cards/InboxListPreviewCard.svelte'
+  import { inboxRowsToPreviewItems } from '../../server/lib/ripmailInboxFlatten.js'
+  import type { CalendarEventLite, InboxListItemPreview } from './cards/contentCards.js'
 
   let {
     messages,
@@ -21,7 +24,7 @@
     messages: ChatMessage[]
     streaming: boolean
     onOpenWiki?: (_path: string) => void
-    onOpenEmail?: (_threadId: string) => void
+    onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     /** Opens the inbox surface without a specific thread (SlideOver / route). */
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string) => void
@@ -32,6 +35,48 @@
   let datePopoverTimer: ReturnType<typeof setTimeout> | null = null
 
   const referencedFiles = $derived(extractReferencedFiles(messages))
+
+  let emptyPreviewLoading = $state(false)
+  let emptyInboxPreviewRows = $state<InboxListItemPreview[]>([])
+  let emptyCalendarEvents = $state<CalendarEventLite[]>([])
+  /** Date key used for the last `loadEmptyPreviews` calendar fetch (YYYY-MM-DD). */
+  let emptyPreviewDay = $state(new Date().toISOString().slice(0, 10))
+  let prevMessageCount = $state(-1)
+
+  async function loadEmptyPreviews() {
+    emptyPreviewLoading = true
+    const todayYmd = new Date().toISOString().slice(0, 10)
+    emptyPreviewDay = todayYmd
+    try {
+      const [inboxRes, calRes] = await Promise.all([
+        fetch('/api/inbox'),
+        fetch(`/api/calendar?start=${todayYmd}&end=${todayYmd}`),
+      ])
+      const inboxJson = inboxRes.ok ? await inboxRes.json() : []
+      const rows = Array.isArray(inboxJson) ? inboxJson : []
+      emptyInboxPreviewRows = inboxRowsToPreviewItems(rows)
+
+      const calData = calRes.ok ? await calRes.json() : { events: [] }
+      emptyCalendarEvents = Array.isArray(calData.events) ? calData.events : []
+    } catch {
+      emptyInboxPreviewRows = []
+      emptyCalendarEvents = []
+    } finally {
+      emptyPreviewLoading = false
+    }
+  }
+
+  onMount(() => {
+    if (messages.length === 0) void loadEmptyPreviews()
+  })
+
+  $effect(() => {
+    const len = messages.length
+    if (len === 0 && prevMessageCount > 0) {
+      void loadEmptyPreviews()
+    }
+    prevMessageCount = len
+  })
 
   export function scrollToBottom() {
     requestAnimationFrame(() => {
@@ -101,8 +146,28 @@
 >
   {#if messages.length === 0}
     <div class="empty-state">
-      <p>Ask anything about your wiki, email, or calendar.</p>
-      <p class="hint">Use <kbd>@</kbd> to reference wiki files.</p>
+      <div class="empty-intro">
+        <p>Ask anything about your docs, email, or calendar.</p>
+        <p class="hint">Use <kbd>@</kbd> to reference docs in this app.</p>
+      </div>
+      {#if emptyPreviewLoading}
+        <p class="empty-loading">Loading inbox and calendar…</p>
+      {:else}
+        <div class="empty-previews">
+          <InboxListPreviewCard
+            items={emptyInboxPreviewRows}
+            totalCount={emptyInboxPreviewRows.length}
+            onOpenEmail={(id, subject, from) => onOpenEmail?.(id, subject, from)}
+            onOpenFullInbox={onOpenFullInbox}
+          />
+          <CalendarPreviewCard
+            start={emptyPreviewDay}
+            end={emptyPreviewDay}
+            events={emptyCalendarEvents}
+            onOpenCalendar={(date) => onSwitchToCalendar?.(date)}
+          />
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -164,13 +229,13 @@
                   subject={preview.subject}
                   from={preview.from}
                   snippet={preview.snippet}
-                  onOpen={() => onOpenEmail?.(preview.id)}
+                  onOpen={() => onOpenEmail?.(preview.id, preview.subject, preview.from)}
                 />
               {:else if preview?.kind === 'inbox_list'}
                 <InboxListPreviewCard
                   items={preview.items}
                   totalCount={preview.totalCount}
-                  onOpenEmail={(id) => onOpenEmail?.(id)}
+                  onOpenEmail={(id, subject, from) => onOpenEmail?.(id, subject, from)}
                   onOpenFullInbox={onOpenFullInbox}
                 />
               {/if}
@@ -235,13 +300,43 @@
   .empty-state {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
+    align-items: stretch;
+    justify-content: flex-start;
+    min-height: 100%;
     color: var(--text-2);
     font-size: 14px;
     gap: 8px;
+    padding-bottom: 24px;
+    box-sizing: border-box;
+  }
+
+  .empty-intro {
     text-align: center;
+    width: 100%;
+  }
+
+  .empty-loading {
+    margin: 12px 0 0;
+    font-size: 12px;
+    color: var(--text-2);
+    opacity: 0.75;
+    text-align: center;
+  }
+
+  .empty-previews {
+    width: 100%;
+    max-width: 800px;
+    margin: 12px auto 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-self: center;
+  }
+
+  .empty-previews :global(.inbox-list-card),
+  .empty-previews :global(.calendar-card) {
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .hint {
