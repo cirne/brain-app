@@ -6,6 +6,10 @@ WIKI_DIR="${WIKI_DIR:-/wiki}"
 # If unset, clones the public brain repo (read-only). Do not echo this value.
 WIKI_REMOTE="${WIKI_GIT_TOKEN:-https://github.com/cirne/brain}"
 
+# Git identity required for auto-sync commits; override via env vars if desired.
+git config --global user.name  "${GIT_USER_NAME:-brain-app}"
+git config --global user.email "${GIT_USER_EMAIL:-brain-app@localhost}"
+
 # Clone wiki if not present, otherwise pull latest
 if [ -d "$WIKI_DIR/.git" ]; then
   echo "Pulling wiki (WIKI_DIR=$WIKI_DIR)..."
