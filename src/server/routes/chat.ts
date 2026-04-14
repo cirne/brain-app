@@ -165,6 +165,10 @@ chat.post('/', async (c) => {
                 ? ev.result.details
                 : undefined
             applyToolEnd(assistantState, ev.toolCallId, resultText.slice(0, 4000), ev.isError, details)
+            const toolRow = assistantState.parts.find(
+              p => p.type === 'tool' && p.toolCall.id === ev.toolCallId,
+            ) as { type: 'tool'; toolCall: { args: unknown } } | undefined
+            const toolArgs = toolRow?.toolCall.args
             await stream.writeSSE({
               event: 'tool_end',
               data: JSON.stringify({
@@ -173,6 +177,9 @@ chat.post('/', async (c) => {
                 result: resultText.slice(0, 4000),
                 isError: ev.isError,
                 ...(details !== undefined ? { details } : {}),
+                ...(toolArgs != null && typeof toolArgs === 'object'
+                  ? { args: toolArgs }
+                  : {}),
               }),
             })
             break

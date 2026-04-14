@@ -162,6 +162,8 @@
     const writeOpenedWikiForToolId = new Set<string>()
     /** Preserve path for tool_end (referenced files) — write SSE has no args on tool_end. */
     const writePathByToolId = new Map<string, string>()
+    /** tool_start args (read, grep, …) — server now echoes args on tool_end; stash if missing. */
+    const toolArgsByToolId = new Map<string, Record<string, unknown>>()
     const mentionedFiles = extractMentionedFiles(text)
     const isFirstMessage = messages.length === 0
 
@@ -258,6 +260,9 @@
                   }
                   messages = [...messages]
                 } else if (data.name !== 'write') {
+                  if (data.args != null && typeof data.args === 'object') {
+                    toolArgsByToolId.set(data.id, data.args as Record<string, unknown>)
+                  }
                   // Defer non-write tools to tool_end (no "running" rows in chat).
                   if (data.name === 'open' && data.args?.target && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
                     openedFromAgentByToolId.add(data.id)
@@ -275,13 +280,20 @@
               case 'tool_end': {
                 let part = msg.parts!.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
                 const writePath = data.name === 'write' ? writePathByToolId.get(data.id) : undefined
+                const stashedArgs = toolArgsByToolId.get(data.id)
+                toolArgsByToolId.delete(data.id)
+                const endArgs =
+                  data.args != null && typeof data.args === 'object'
+                    ? data.args
+                    : stashedArgs
+                const resolvedArgs = writePath ? { path: writePath } : endArgs ?? {}
                 if (!part) {
                   part = {
                     type: 'tool',
                     toolCall: {
                       id: data.id,
                       name: data.name,
-                      args: writePath ? { path: writePath } : {},
+                      args: resolvedArgs,
                       result: data.result,
                       details: data.details,
                       isError: data.isError,
@@ -295,6 +307,7 @@
                   part.toolCall.isError = data.isError
                   part.toolCall.done = true
                   if (writePath) part.toolCall.args = { path: writePath }
+                  else if (endArgs !== undefined) part.toolCall.args = endArgs
                 }
                 const name = part.toolCall.name
                 if (name === 'write' || name === 'edit' || name === 'delete') touchedWiki = true

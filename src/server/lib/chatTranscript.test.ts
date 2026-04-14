@@ -51,6 +51,16 @@ describe('chatTranscript', () => {
     expect(tc.done).toBe(true)
   })
 
+  it('preserves tool args through tool end (for SSE tool_end + wiki preview)', () => {
+    const s = createAssistantTurnState()
+    applyToolStart(s, { id: 't1', name: 'read', args: { path: 'travel/wedding.md' }, done: false })
+    applyToolEnd(s, 't1', '# Trip\n', false, undefined)
+    const m = toAssistantMessage(s)
+    const tc = (m.parts![0] as { type: 'tool'; toolCall: { args: { path: string }; result: string } }).toolCall
+    expect(tc.args.path).toBe('travel/wedding.md')
+    expect(tc.result).toBe('# Trip\n')
+  })
+
   it('extracts tool calls from partial assistant message', () => {
     const partial = {
       content: [

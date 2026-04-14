@@ -49,6 +49,17 @@ export type ContentCardPreview =
   | { kind: 'email'; id: string; subject: string; from: string; snippet: string }
   | { kind: 'inbox_list'; items: InboxListItemPreview[]; totalCount: number }
 
+/**
+ * Wiki paths in the UI/API use real filenames (usually `.md`). The agent `read` tool
+ * often passes paths without `.md`; normalize so preview + "open" match list/search routes.
+ */
+export function wikiPathForReadToolArg(path: string): string {
+  if (path.endsWith('.md') || path.endsWith('.mdx')) return path
+  const lastSegment = path.split('/').pop() ?? path
+  if (lastSegment.includes('.') && !lastSegment.endsWith('.md') && !lastSegment.endsWith('.mdx')) return path
+  return `${path}.md`
+}
+
 /** Derive a rich preview card from a completed tool call, or null to show raw output only. */
 export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
   if (!tool.done || tool.isError) return null
@@ -86,10 +97,13 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
     return null
   }
 
-  if (name === 'read' && typeof args.path === 'string' && args.path.endsWith('.md')) {
+  if (name === 'read' && typeof args.path === 'string') {
     const excerpt = result.trim().slice(0, 360)
     if (!excerpt) return null
-    return { kind: 'wiki', path: args.path, excerpt: excerpt + (result.length > 360 ? '…' : '') }
+    const p = args.path
+    if (/\.(png|jpe?g|gif|webp|pdf|zip|ico)$/i.test(p)) return null
+    const displayPath = wikiPathForReadToolArg(p)
+    return { kind: 'wiki', path: displayPath, excerpt: excerpt + (result.length > 360 ? '…' : '') }
   }
 
   if (name === 'read_email' && typeof args.id === 'string') {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchContentPreview } from './contentCards.js'
+import { matchContentPreview, wikiPathForReadToolArg } from './contentCards.js'
 import type { ToolCall } from '../agentUtils.js'
 
 function tc(p: Partial<ToolCall> & Pick<ToolCall, 'id' | 'name'>): ToolCall {
@@ -50,6 +50,26 @@ describe('matchContentPreview', () => {
       expect(p.path).toBe('ideas/foo.md')
       expect(p.excerpt).toContain('Hello')
     }
+  })
+
+  it('returns wiki preview for read path without .md suffix (agent convention)', () => {
+    const tool = tc({
+      id: '2b',
+      name: 'read',
+      done: true,
+      args: { path: 'travel/sterling-wedding' },
+      result: '# Trip\n\nVenue details here.',
+    })
+    const p = matchContentPreview(tool)
+    expect(p?.kind).toBe('wiki')
+    if (p?.kind === 'wiki') {
+      expect(p.path).toBe('travel/sterling-wedding.md')
+      expect(p.excerpt).toContain('Venue')
+    }
+  })
+
+  it('wikiPathForReadToolArg leaves explicit non-md extensions unchanged', () => {
+    expect(wikiPathForReadToolArg('data/config.json')).toBe('data/config.json')
   })
 
   it('returns email preview for read_email with object from and body', () => {
