@@ -223,10 +223,12 @@
     if (context.type === 'inbox') return '📥 Inbox'
     return null
   })
+
 </script>
 
 <div class="agent-drawer">
-  {#if !conversationHidden}
+  <!-- Always in flex flow — prevents height jump when overlay opens/closes -->
+  <div inert={conversationHidden || undefined}>
     <PaneL2Header>
       {#snippet center()}
         <div class="header-left">
@@ -249,35 +251,39 @@
         {/if}
       {/snippet}
     </PaneL2Header>
-  {/if}
-
-  <div class="mid">
-    {#if !conversationHidden}
-      <AgentConversation
-        bind:this={conversationEl}
-        {messages}
-        {streaming}
-        {onOpenWiki}
-        {onOpenEmail}
-        {onSwitchToCalendar}
-      />
-    {/if}
-    {#if conversationHidden && mobileDetail}
-      <div class="mobile-detail-layer">
-        {@render mobileDetail()}
-      </div>
-    {/if}
   </div>
 
-  <AgentInput
-    bind:this={inputEl}
-    {placeholder}
-    {streaming}
-    disabled={streaming}
-    {wikiFiles}
-    onSend={send}
-    onStop={stopChat}
-  />
+  <!-- Always mounted so it is visible behind the overlay during the slide-out animation -->
+  <div class="mid" inert={conversationHidden || undefined}>
+    <AgentConversation
+      bind:this={conversationEl}
+      {messages}
+      {streaming}
+      {onOpenWiki}
+      {onOpenEmail}
+      {onSwitchToCalendar}
+    />
+  </div>
+
+  <!-- Always mounted for same reason -->
+  <div inert={conversationHidden || undefined}>
+    <AgentInput
+      bind:this={inputEl}
+      {placeholder}
+      {streaming}
+      disabled={streaming}
+      {wikiFiles}
+      onSend={send}
+      onStop={stopChat}
+    />
+  </div>
+
+  <!-- Mobile overlay: position:absolute over the full drawer (including L2 header) -->
+  {#if conversationHidden && mobileDetail}
+    <div class="mobile-detail-layer">
+      {@render mobileDetail()}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -287,6 +293,8 @@
     height: 100%;
     background: var(--bg-2);
     min-height: 0;
+    /* Overlay anchor — mobile-detail-layer is position:absolute relative to this */
+    position: relative;
   }
 
   .header-left {
@@ -351,7 +359,6 @@
   .mid {
     flex: 1;
     min-height: 0;
-    position: relative;
     display: flex;
     flex-direction: column;
   }
@@ -363,7 +370,6 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: var(--bg);
   }
 
   .mobile-detail-layer :global(.slide-over) {

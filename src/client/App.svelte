@@ -32,6 +32,7 @@
   let showSearch = $state(false)
   let inboxTargetId = $state<string | undefined>()
   let agentDrawer = $state<AgentDrawer | undefined>()
+  let mobileSlideOver = $state<{ closeAnimated: () => void } | undefined>()
   let isMobile = $state(false)
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
@@ -83,7 +84,8 @@
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && route.overlay) {
         e.preventDefault()
-        closeOverlay()
+        if (isMobile && mobileSlideOver) mobileSlideOver.closeAnimated()
+        else closeOverlay()
         return
       }
       const action = matchGlobalShortcut(e)
@@ -255,7 +257,6 @@
 {/if}
 
 <div class="app">
-  {#if !(isMobile && route.overlay)}
   <AppTopNav
     {dirtyFiles}
     {recentFiles}
@@ -269,7 +270,6 @@
     onSync={syncAll}
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
   />
-  {/if}
 
   <div class="workspace">
     <div class="split" class:has-detail={!!route.overlay}>
@@ -287,6 +287,7 @@
           {#snippet mobileDetail()}
             {#if route.overlay}
               <SlideOver
+                bind:this={mobileSlideOver}
                 overlay={route.overlay}
                 surfaceContext={agentContext}
                 wikiRefreshKey={wikiRefreshKey}
@@ -300,6 +301,7 @@
                 onClose={closeOverlay}
                 onSync={syncAll}
                 {syncing}
+                mobilePanel
               />
             {/if}
           {/snippet}

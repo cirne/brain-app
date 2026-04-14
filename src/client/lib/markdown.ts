@@ -1,5 +1,30 @@
 import { marked } from 'marked'
 
+/** Default line cap for wiki tool preview cards in chat. */
+export const WIKI_PREVIEW_MAX_LINES = 8
+
+/**
+ * Remove YAML front matter (first `---` through a closing `---` line) from wiki body text.
+ * If there is no valid closing delimiter, returns the original string.
+ */
+export function stripFrontMatter(text: string): string {
+  const lines = text.split(/\r?\n/)
+  if (lines.length < 2 || lines[0].trim() !== '---') return text
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '---') {
+      return lines.slice(i + 1).join('\n').replace(/^\n+/, '')
+    }
+  }
+  return text
+}
+
+/** First `maxLines` lines (keeps short previews bounded). */
+export function takeFirstLines(text: string, maxLines: number): string {
+  if (maxLines <= 0) return ''
+  const lines = text.split(/\r?\n/)
+  return lines.slice(0, maxLines).join('\n')
+}
+
 // LLM emits [display text](date:YYYY-MM-DD); marked renders it as <a href="date:...">
 // LLM emits [display text](wiki:path/to/file.md) or [text](wiki:path/to/file); marked renders it as <a href="wiki:...">
 // Convert those <a> tags to interactive buttons.

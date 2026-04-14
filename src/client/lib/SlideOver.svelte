@@ -7,6 +7,7 @@
   import PaneL2Header from './PaneL2Header.svelte'
   import type { Overlay } from '../router.js'
   import type { SurfaceContext } from '../router.js'
+  import { shouldDismissMobileSwipe, isInteractiveTarget, swipeDirection } from './slideOverMobile.js'
 
   type Props = {
     overlay: Overlay
@@ -23,6 +24,8 @@
     onClose: () => void
     onSync?: () => void
     syncing?: boolean
+    /** Full-screen mobile stack: slide in from right, swipe from left edge / animated close. */
+    mobilePanel?: boolean
   }
 
   let {
@@ -39,7 +42,134 @@
     onClose,
     onSync,
     syncing = false,
+    mobilePanel = false,
   }: Props = $props()
+
+  let rootEl = $state<HTMLDivElement | undefined>()
+  let slideBodyEl = $state<HTMLDivElement | undefined>()
+  let panelW = $state(0)
+  /** Rightward offset (px); 0 = fully visible, full width = off-screen right. */
+  let slidePx = $state(0)
+  let transitionEnabled = $state(false)
+  let closing = $state(false)
+  let enterStarted = $state(false)
+  /** 'idle' | 'pending' (waiting for direction lock) | 'dragging' (captured) */
+  let swipeState = $state<'idle' | 'pending' | 'dragging'>('idle')
+  let swipeStartX = 0
+  let swipeStartY = 0
+  let swipeStartSlidePx = 0
+  let lastX = 0
+  let lastT = 0
+  let velocity = 0
+  let swipePointerId = -1
+
+  function effectiveW(): number {
+    if (panelW > 0) return panelW
+    if (typeof window !== 'undefined') return window.innerWidth
+    return 400
+  }
+
+  $effect(() => {
+    if (!mobilePanel || enterStarted) return
+    const w = effectiveW()
+    if (w <= 0) return
+    enterStarted = true
+    slidePx = w
+    transitionEnabled = false
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        transitionEnabled = true
+        slidePx = 0
+      })
+    })
+  })
+
+  function beginCloseAnimation() {
+    const w = effectiveW()
+    if (slidePx >= w - 0.5) {
+      closing = false
+      onClose()
+      return
+    }
+    closing = true
+    transitionEnabled = true
+    slidePx = w
+  }
+
+  /** Animated slide off to the right, then `onClose` (for mobile + Escape). */
+  export function closeAnimated() {
+    if (!mobilePanel) {
+      onClose()
+      return
+    }
+    swipeState = 'idle'
+    beginCloseAnimation()
+  }
+
+  function onBackOrHeaderClose() {
+    if (mobilePanel) closeAnimated()
+    else onClose()
+  }
+
+  function onPointerDown(e: PointerEvent) {
+    if (!mobilePanel || closing || swipeState !== 'idle') return
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    if (isInteractiveTarget(e.target)) return
+    swipeState = 'pending'
+    swipePointerId = e.pointerId
+    swipeStartX = e.clientX
+    swipeStartY = e.clientY
+    swipeStartSlidePx = slidePx
+    lastX = e.clientX
+    lastT = performance.now()
+    velocity = 0
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    if (!mobilePanel || e.pointerId !== swipePointerId) return
+
+    if (swipeState === 'pending') {
+      const dx = e.clientX - swipeStartX
+      const dy = e.clientY - swipeStartY
+      const dir = swipeDirection(dx, dy)
+      if (dir === 'undecided') return
+      if (dir === 'scroll') { swipeState = 'idle'; return }
+      // Confirmed rightward swipe — capture pointer and start dragging
+      slideBodyEl?.setPointerCapture(e.pointerId)
+      swipeState = 'dragging'
+      transitionEnabled = false
+    }
+
+    if (swipeState !== 'dragging') return
+    const delta = e.clientX - swipeStartX
+    slidePx = Math.min(effectiveW(), swipeStartSlidePx + Math.max(0, delta))
+    const t = performance.now()
+    const dt = t - lastT
+    if (dt > 0) velocity = (e.clientX - lastX) / dt
+    lastX = e.clientX
+    lastT = t
+  }
+
+  function onPointerEnd(e: PointerEvent) {
+    if (!mobilePanel || e.pointerId !== swipePointerId) return
+    if (swipeState === 'dragging') {
+      if (slideBodyEl?.hasPointerCapture(e.pointerId)) slideBodyEl.releasePointerCapture(e.pointerId)
+      transitionEnabled = true
+      if (shouldDismissMobileSwipe(slidePx, effectiveW(), velocity)) {
+        beginCloseAnimation()
+      } else {
+        slidePx = 0
+      }
+    }
+    swipeState = 'idle'
+  }
+
+  function onPanelTransitionEnd(e: TransitionEvent) {
+    if (!mobilePanel || e.propertyName !== 'transform') return
+    if (!closing) return
+    closing = false
+    onClose()
+  }
 
   const emailHeaderTitle = $derived.by((): string | null => {
     if (overlay.type !== 'email' || !overlay.id) return null
@@ -57,10 +187,20 @@
   }
 </script>
 
-<div class="slide-over" data-overlay={overlay.type}>
+<div
+  bind:this={rootEl}
+  bind:clientWidth={panelW}
+  class="slide-over"
+  class:mobile-slide={mobilePanel}
+  class:slide-anim={mobilePanel && transitionEnabled}
+  class:dragging={mobilePanel && swipeState === 'dragging'}
+  data-overlay={overlay.type}
+  style:transform={mobilePanel ? `translateX(${slidePx}px)` : undefined}
+  ontransitionend={onPanelTransitionEnd}
+>
   <PaneL2Header>
     {#snippet left()}
-      <button type="button" class="back-btn" onclick={onClose} aria-label="Back to chat">
+      <button type="button" class="back-btn" onclick={onBackOrHeaderClose} aria-label="Back to chat">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m15 18-6-6 6-6"/>
         </svg>
@@ -111,14 +251,23 @@
           </button>
         </div>
       {/if}
-      <button type="button" class="close-btn-desktop" onclick={onClose} aria-label="Close panel" title="Close">
+      <button type="button" class="close-btn-desktop" onclick={onBackOrHeaderClose} aria-label="Close panel" title="Close">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
         </svg>
       </button>
     {/snippet}
   </PaneL2Header>
-  <div class="slide-body">
+  <div
+    class="slide-body"
+    bind:this={slideBodyEl}
+    role={mobilePanel ? 'region' : undefined}
+    aria-label={mobilePanel ? 'Detail content' : undefined}
+    onpointerdown={onPointerDown}
+    onpointermove={onPointerMove}
+    onpointerup={onPointerEnd}
+    onpointercancel={onPointerEnd}
+  >
     {#if overlay.type === 'wiki'}
       <Wiki
         initialPath={overlay.path}
@@ -153,6 +302,16 @@
     min-height: 0;
     background: var(--bg);
     border-left: 1px solid var(--border);
+  }
+
+  .slide-over.mobile-slide {
+    will-change: transform;
+    touch-action: pan-y;
+    overscroll-behavior-x: contain;
+  }
+
+  .slide-over.mobile-slide.slide-anim:not(.dragging) {
+    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
   }
 
   .back-btn {

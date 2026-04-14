@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { renderMarkdown } from './markdown.js'
+import { renderMarkdown, stripFrontMatter, takeFirstLines, WIKI_PREVIEW_MAX_LINES } from './markdown.js'
 
 describe('renderMarkdown', () => {
   it('converts wiki: link with .md extension to wiki-link button', () => {
@@ -27,5 +27,39 @@ describe('renderMarkdown', () => {
     const result = renderMarkdown('**bold** and _italic_')
     expect(result).toContain('<strong>bold</strong>')
     expect(result).toContain('<em>italic</em>')
+  })
+})
+
+describe('stripFrontMatter', () => {
+  it('removes yaml block between --- delimiters', () => {
+    const raw = `---
+updated: 2026-04-13
+tags: [people, family]
+---
+# Katelyn Cirne
+
+Body here.`
+    expect(stripFrontMatter(raw)).toBe('# Katelyn Cirne\n\nBody here.')
+  })
+
+  it('returns original text when no closing ---', () => {
+    const raw = `---
+still open
+# Not front matter`
+    expect(stripFrontMatter(raw)).toBe(raw)
+  })
+
+  it('returns original when file does not start with ---', () => {
+    expect(stripFrontMatter('# Title\n---')).toBe('# Title\n---')
+  })
+})
+
+describe('takeFirstLines', () => {
+  it('keeps only first N lines', () => {
+    expect(takeFirstLines('a\nb\nc\nd', 2)).toBe('a\nb')
+  })
+
+  it('WIKI_PREVIEW_MAX_LINES is positive', () => {
+    expect(WIKI_PREVIEW_MAX_LINES).toBeGreaterThan(0)
   })
 })
