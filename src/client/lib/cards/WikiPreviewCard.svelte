@@ -20,24 +20,41 @@
 </script>
 
 <div class="wiki-card">
+  <button type="button" class="wiki-card-hit" aria-label="Open wiki page: {path}" onclick={onOpen}></button>
   <div class="wiki-card-path"><WikiFileName {path} /></div>
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   <div class="wiki-excerpt">{@html previewHtml}</div>
-  <button type="button" class="open-btn" onclick={onOpen}>View full</button>
 </div>
 
 <style>
   .wiki-card {
+    position: relative;
     margin: 8px 0;
     padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--bg-3);
   }
+  .wiki-card-hit {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: inherit;
+    background: transparent;
+    cursor: pointer;
+  }
   .wiki-card-path {
+    position: relative;
+    z-index: 1;
     margin-bottom: 6px;
+    pointer-events: none;
   }
   .wiki-excerpt {
+    position: relative;
+    z-index: 1;
     margin: 0;
     font-size: 12px;
     line-height: 1.45;
@@ -45,6 +62,7 @@
     word-break: break-word;
     max-height: 120px;
     overflow: hidden;
+    pointer-events: none;
   }
   .wiki-excerpt :global(h1) {
     font-size: 1.15em;
@@ -81,10 +99,16 @@
     font-size: 0.92em;
   }
   .wiki-excerpt :global(a) {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
     color: var(--accent);
   }
   .wiki-excerpt :global(.date-link),
   .wiki-excerpt :global(.wiki-link) {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
     color: var(--accent);
     text-decoration: underline;
     cursor: pointer;
@@ -93,14 +117,5 @@
     border: none;
     padding: 0;
     display: inline;
-  }
-  .open-btn {
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--accent);
-    padding: 4px 0;
-  }
-  .open-btn:hover {
-    text-decoration: underline;
   }
 </style>

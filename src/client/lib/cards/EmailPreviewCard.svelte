@@ -14,7 +14,7 @@
   } = $props()
 </script>
 
-<div class="email-card">
+<button type="button" class="email-card" onclick={onOpen} aria-label="Open email thread: {subject}">
   <div class="email-row">
     <Mail size={14} aria-hidden="true" />
     <span class="email-subject">{subject}</span>
@@ -25,8 +25,7 @@
   {#if snippet}
     <p class="email-snippet">{snippet}</p>
   {/if}
-  <button type="button" class="open-btn" onclick={onOpen}>Open thread</button>
-</div>
+</button>
 
 <style>
   .email-card {
@@ -35,6 +34,12 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--bg-3);
+    display: block;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
   }
   .email-row {
     display: flex;
@@ -60,14 +65,5 @@
     font-size: 12px;
     line-height: 1.4;
     color: var(--text-2);
-  }
-  .open-btn {
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--accent);
-    padding: 4px 0;
-  }
-  .open-btn:hover {
-    text-decoration: underline;
   }
 </style>

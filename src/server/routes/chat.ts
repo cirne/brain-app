@@ -78,6 +78,11 @@ chat.post('/', async (c) => {
               ?.filter((c: any) => c.type === 'text')
               ?.map((c: any) => c.text)
               ?.join('') ?? ''
+            /** Full structured payload for UI previews (e.g. inbox list) — text alone may be truncated. */
+            const details =
+              ev.toolName === 'list_inbox' && ev.result?.details != null && typeof ev.result.details === 'object'
+                ? ev.result.details
+                : undefined
             await stream.writeSSE({
               event: 'tool_end',
               data: JSON.stringify({
@@ -85,6 +90,7 @@ chat.post('/', async (c) => {
                 name: ev.toolName,
                 result: resultText.slice(0, 4000),
                 isError: ev.isError,
+                ...(details !== undefined ? { details } : {}),
               }),
             })
             break

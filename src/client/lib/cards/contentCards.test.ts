@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { formatEmailParticipant, matchContentPreview } from './contentCards.js'
+import {
+  formatEmailParticipant,
+  flattenInboxFromRipmailData,
+  matchContentPreview,
+  parseRipmailInboxFlat,
+} from './contentCards.js'
 import type { ToolCall } from '../agentUtils.js'
 
 function tc(p: Partial<ToolCall> & Pick<ToolCall, 'id' | 'name'>): ToolCall {
@@ -90,5 +95,79 @@ describe('matchContentPreview', () => {
       result: 'x',
     })
     expect(matchContentPreview(tool)).toBeNull()
+  })
+
+  it('list_inbox preview uses details when result text is truncated invalid JSON', () => {
+    const big = { mailboxes: [{ items: [{ messageId: 'x', subject: 'S', fromName: 'A', action: 'read' }] }] }
+    const tool = tc({
+      id: 'inbox-trunc',
+      name: 'list_inbox',
+      done: true,
+      result: '{"mailboxes":[', // truncated — parse fails on text alone
+      details: big,
+    })
+    const p = matchContentPreview(tool)
+    expect(p?.kind).toBe('inbox_list')
+    if (p?.kind === 'inbox_list') {
+      expect(p.items).toHaveLength(1)
+      expect(p.items[0].id).toBe('x')
+    }
+  })
+
+  it('returns inbox_list preview with full item list and totalCount (widget shows up to 5 at a time)', () => {
+    const rows = Array.from({ length: 7 }, (_, i) => ({
+      messageId: `msg-${i}`,
+      fromName: `User ${i}`,
+      subject: `Sub ${i}`,
+      date: '2026-04-12',
+      snippet: 'Hi',
+      action: 'read',
+    }))
+    const tool = tc({
+      id: 'inbox-1',
+      name: 'list_inbox',
+      done: true,
+      result: JSON.stringify({ mailboxes: [{ items: rows }] }),
+    })
+    const p = matchContentPreview(tool)
+    expect(p?.kind).toBe('inbox_list')
+    if (p?.kind === 'inbox_list') {
+      expect(p.items).toHaveLength(7)
+      expect(p.totalCount).toBe(7)
+      expect(p.items[0].id).toBe('msg-0')
+      expect(p.items[6].id).toBe('msg-6')
+    }
+  })
+
+  it('flattenInboxFromRipmailData returns null for non-objects', () => {
+    expect(flattenInboxFromRipmailData(null)).toBeNull()
+    expect(flattenInboxFromRipmailData([])).toBeNull()
+  })
+
+  it('parseRipmailInboxFlat skips ignored items', () => {
+    const rows = parseRipmailInboxFlat(
+      JSON.stringify({
+        mailboxes: [
+          {
+            items: [
+              {
+                messageId: 'a',
+                subject: 'X',
+                fromName: 'A',
+                action: 'ignore',
+              },
+              {
+                messageId: 'b',
+                subject: 'Y',
+                fromName: 'B',
+                action: 'read',
+              },
+            ],
+          },
+        ],
+      }),
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows![0].id).toBe('b')
   })
 })

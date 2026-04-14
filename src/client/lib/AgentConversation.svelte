@@ -8,18 +8,22 @@
   import CalendarPreviewCard from './cards/CalendarPreviewCard.svelte'
   import WikiPreviewCard from './cards/WikiPreviewCard.svelte'
   import EmailPreviewCard from './cards/EmailPreviewCard.svelte'
+  import InboxListPreviewCard from './cards/InboxListPreviewCard.svelte'
 
   let {
     messages,
     streaming,
     onOpenWiki,
     onOpenEmail,
+    onOpenFullInbox,
     onSwitchToCalendar,
   }: {
     messages: ChatMessage[]
     streaming: boolean
     onOpenWiki?: (_path: string) => void
     onOpenEmail?: (_threadId: string) => void
+    /** Opens the inbox surface without a specific thread (SlideOver / route). */
+    onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string) => void
   } = $props()
 
@@ -156,6 +160,13 @@
                   from={preview.from}
                   snippet={preview.snippet}
                   onOpen={() => onOpenEmail?.(preview.id)}
+                />
+              {:else if preview?.kind === 'inbox_list'}
+                <InboxListPreviewCard
+                  items={preview.items}
+                  totalCount={preview.totalCount}
+                  onOpenEmail={(id) => onOpenEmail?.(id)}
+                  onOpenFullInbox={onOpenFullInbox}
                 />
               {/if}
             </div>

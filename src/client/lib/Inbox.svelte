@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount, untrack } from 'svelte'
   import { Archive, Reply, Forward, Sparkles } from 'lucide-svelte'
   import { navigate } from '../router.js'
   import { emailHeadersForDisplay } from './inboxHeaders.js'
@@ -346,25 +347,24 @@
     )
   }
 
-  $effect(() => {
-    load().then(() => {
-      if (initialId) {
-        const id = initialId.trim()
-        const email = emails.find(e => e.id === id)
-        if (email) void openThread(email)
-        else void openThreadByRawId(id)
-      }
-    })
+  onMount(() => {
+    void load()
   })
 
-  // Navigate to a specific thread when targetId changes externally (e.g. from search)
+  /**
+   * Open thread when URL / App hands us an id (chat preview, search, deep link).
+   * Must not subscribe to `emails` — list refresh and markRead() replace the array and would
+   * re-run the effect forever. Read list + thread state inside untrack().
+   */
   $effect(() => {
-    if (targetId) {
-      const id = targetId.trim()
+    const id = (targetId ?? initialId)?.trim()
+    if (!id) return
+    untrack(() => {
+      if (selectedThread === id && (threadContent || threadLoading)) return
       const email = emails.find(e => e.id === id)
       if (email) void openThread(email)
       else void openThreadByRawId(id)
-    }
+    })
   })
 </script>
 
@@ -526,7 +526,7 @@
               title="Reply"
               aria-label="Reply"
             >
-              <Reply size={18} strokeWidth={2} aria-hidden="true" />
+              <Reply size={14} strokeWidth={2} aria-hidden="true" />
               <span class="thread-fab-label">Reply</span>
             </button>
             <button
@@ -536,17 +536,17 @@
               title="Forward"
               aria-label="Forward"
             >
-              <Forward size={18} strokeWidth={2} aria-hidden="true" />
+              <Forward size={14} strokeWidth={2} aria-hidden="true" />
               <span class="thread-fab-label">Forward</span>
             </button>
             <button
               type="button"
-              class="thread-fab thread-fab-archive"
+              class="thread-fab"
               onclick={() => archive(selectedThread!)}
               title="Archive"
               aria-label="Archive thread"
             >
-              <Archive size={18} strokeWidth={2} aria-hidden="true" />
+              <Archive size={14} strokeWidth={2} aria-hidden="true" />
               <span class="thread-fab-label">Archive</span>
             </button>
           </div>
@@ -708,6 +708,28 @@
     overflow: hidden;
     position: relative;
     min-height: 0;
+    container-type: inline-size;
+    container-name: thread-pane;
+  }
+
+  @container thread-pane (max-width: 500px) {
+    .thread-fab-bar {
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+    .thread-fab-inner {
+      gap: 6px;
+      padding: 2px 2px;
+    }
+    .thread-fab-label {
+      display: none;
+    }
+    .thread-fab {
+      padding: 8px;
+      min-width: 36px;
+      min-height: 36px;
+      border-radius: 50%;
+    }
   }
 
   .thread-fab-bar {
@@ -718,16 +740,11 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 12px 8px calc(14px + env(safe-area-inset-bottom, 0px));
+    padding: 8px 6px calc(10px + env(safe-area-inset-bottom, 0px));
     z-index: 20;
     pointer-events: none;
-    background: linear-gradient(
-      to top,
-      var(--bg) 0%,
-      color-mix(in srgb, var(--bg) 88%, transparent) 55%,
-      transparent 100%
-    );
-    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.12);
+    background: transparent;
+    box-shadow: none;
   }
 
   .thread-fab-inner {
@@ -735,11 +752,11 @@
     flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 6px;
     max-width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 4px 8px;
+    padding: 2px 4px;
     scrollbar-width: none;
     pointer-events: auto;
   }
@@ -751,49 +768,40 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 4px;
     flex-shrink: 0;
-    padding: 10px 16px;
+    padding: 5px 10px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: var(--bg-3);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+    background: transparent;
     color: var(--text);
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 0.15s, transform 0.12s;
+    transition: background 0.15s;
     white-space: nowrap;
   }
   .thread-fab-label {
     white-space: nowrap;
   }
   .thread-fab:hover {
-    background: var(--bg-2);
-    transform: translateY(-1px);
+    background: var(--bg-3);
   }
   .thread-fab:active {
-    transform: translateY(0);
-  }
-  .thread-fab-archive {
-    color: var(--text-2);
-  }
-  .thread-fab-archive:hover {
-    color: var(--danger);
-    border-color: rgba(231, 76, 60, 0.35);
+    background: var(--bg-2);
   }
 
   .thread-body {
     flex: 1;
     overflow-y: auto;
     padding: 16px;
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
   .loading { color: var(--text-2); font-size: 14px; }
   .thread-meta {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 4px;
     padding-bottom: 16px;
     margin-bottom: 16px;
     border-bottom: 1px solid var(--border);
@@ -804,7 +812,7 @@
     gap: 4px 14px;
     align-items: start;
     font-size: 13px;
-    line-height: 1.5;
+    line-height: 1.35;
   }
   .thread-meta-label {
     font-weight: 600;
@@ -812,7 +820,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-2);
-    padding-top: 2px;
+    padding-top: 1px;
   }
   .thread-meta-value {
     color: var(--text);
@@ -931,22 +939,5 @@
     .email-body { grid-template-columns: 1fr; gap: 2px; }
     .date { display: none; }
     .action-icon-btn { padding: 10px 6px; }
-    .thread-fab-bar {
-      padding-left: 6px;
-      padding-right: 6px;
-    }
-    .thread-fab-inner {
-      gap: 8px;
-      padding: 4px 4px;
-    }
-    .thread-fab-label {
-      display: none;
-    }
-    .thread-fab {
-      padding: 12px;
-      min-width: 44px;
-      min-height: 44px;
-      border-radius: 50%;
-    }
   }
 </style>

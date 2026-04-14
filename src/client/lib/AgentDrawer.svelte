@@ -15,6 +15,7 @@
     conversationHidden = false,
     onOpenWiki,
     onOpenEmail,
+    onOpenFullInbox,
     onSwitchToCalendar,
     onOpenFromAgent,
     onNewChat,
@@ -24,6 +25,7 @@
     conversationHidden?: boolean
     onOpenWiki?: (_path: string) => void
     onOpenEmail?: (_threadId: string) => void
+    onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string) => void
     /** LLM `open` tool — fired from SSE tool_start */
     onOpenFromAgent?: (_target: { type: string; path?: string; id?: string; date?: string }) => void
@@ -184,10 +186,13 @@
                 const part = msg.parts!.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
                 if (part) {
                   part.toolCall.result = data.result
+                  if (data.details !== undefined) part.toolCall.details = data.details
                   part.toolCall.isError = data.isError
                   part.toolCall.done = true
                   const name = part.toolCall.name
                   if (name === 'write' || name === 'edit' || name === 'delete') touchedWiki = true
+                  // Deep mutation may not trigger runes — new array so inbox preview and tool rows update
+                  messages = [...messages]
                   conversationEl?.scrollToBottom()
                 }
                 break
@@ -227,46 +232,56 @@
 </script>
 
 <div class="agent-drawer">
-  <!-- Always in flex flow — prevents height jump when overlay opens/closes -->
-  <div inert={conversationHidden || undefined}>
-    <PaneL2Header>
-      {#snippet center()}
-        <div class="header-left">
-          <span class="drawer-title" class:thinking={streaming} class:custom-title={!!chatTitle}>
-            {streaming ? 'Thinking...' : (chatTitle ?? 'Chat')}
-          </span>
-          {#if context.type === 'wiki'}
-            <span class="context-chip"><WikiFileName path={context.path} /></span>
-          {:else if contextChip}
-            <span class="context-chip">{contextChip}</span>
+  <!-- Body is the overlay anchor: mobile detail covers header + conversation only, not the input -->
+  <div class="drawer-body">
+    <!-- Always in flex flow — prevents height jump when overlay opens/closes -->
+    <div inert={conversationHidden || undefined}>
+      <PaneL2Header>
+        {#snippet center()}
+          <div class="header-left">
+            <span class="drawer-title" class:thinking={streaming} class:custom-title={!!chatTitle}>
+              {streaming ? 'Thinking...' : (chatTitle ?? 'Chat')}
+            </span>
+            {#if context.type === 'wiki'}
+              <span class="context-chip"><WikiFileName path={context.path} /></span>
+            {:else if contextChip}
+              <span class="context-chip">{contextChip}</span>
+            {/if}
+          </div>
+        {/snippet}
+        {#snippet right()}
+          {#if messages.length > 0}
+            <button class="new-btn" onclick={() => newChat()} title="New conversation (⌘N)">
+              <MessageSquarePlus size={14} strokeWidth={2} aria-hidden="true" />
+              <span>New</span>
+            </button>
           {/if}
-        </div>
-      {/snippet}
-      {#snippet right()}
-        {#if messages.length > 0}
-          <button class="new-btn" onclick={() => newChat()} title="New conversation (⌘N)">
-            <MessageSquarePlus size={14} strokeWidth={2} aria-hidden="true" />
-            <span>New</span>
-          </button>
-        {/if}
-      {/snippet}
-    </PaneL2Header>
+        {/snippet}
+      </PaneL2Header>
+    </div>
+
+    <!-- Always mounted so it is visible behind the overlay during the slide-out animation -->
+    <div class="mid" inert={conversationHidden || undefined}>
+      <AgentConversation
+        bind:this={conversationEl}
+        {messages}
+        {streaming}
+        {onOpenWiki}
+        {onOpenEmail}
+        {onOpenFullInbox}
+        {onSwitchToCalendar}
+      />
+    </div>
+
+    {#if conversationHidden && mobileDetail}
+      <div class="mobile-detail-layer">
+        {@render mobileDetail()}
+      </div>
+    {/if}
   </div>
 
-  <!-- Always mounted so it is visible behind the overlay during the slide-out animation -->
-  <div class="mid" inert={conversationHidden || undefined}>
-    <AgentConversation
-      bind:this={conversationEl}
-      {messages}
-      {streaming}
-      {onOpenWiki}
-      {onOpenEmail}
-      {onSwitchToCalendar}
-    />
-  </div>
-
-  <!-- Always mounted for same reason -->
-  <div inert={conversationHidden || undefined}>
+  <!-- Always mounted for same reason; sibling below drawer-body so it is never covered by mobile overlay -->
+  <div class="input-shell" inert={conversationHidden || undefined}>
     <AgentInput
       bind:this={inputEl}
       {placeholder}
@@ -277,13 +292,6 @@
       onStop={stopChat}
     />
   </div>
-
-  <!-- Mobile overlay: position:absolute over the full drawer (including L2 header) -->
-  {#if conversationHidden && mobileDetail}
-    <div class="mobile-detail-layer">
-      {@render mobileDetail()}
-    </div>
-  {/if}
 </div>
 
 <style>
@@ -293,8 +301,18 @@
     height: 100%;
     background: var(--bg-2);
     min-height: 0;
-    /* Overlay anchor — mobile-detail-layer is position:absolute relative to this */
+  }
+
+  .drawer-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     position: relative;
+  }
+
+  .input-shell {
+    flex-shrink: 0;
   }
 
   .header-left {

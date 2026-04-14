@@ -51,17 +51,81 @@ export type CalendarEventLite = {
   description?: string
 }
 
+/** One row from `ripmail inbox` JSON — aligned with GET /api/inbox flattening. */
+export type InboxListItemPreview = {
+  id: string
+  subject: string
+  from: string
+  snippet: string
+  date?: string
+}
+
 export type ContentCardPreview =
   | { kind: 'calendar'; start: string; end: string; events: CalendarEventLite[] }
   | { kind: 'wiki'; path: string; excerpt: string }
   | { kind: 'email'; id: string; subject: string; from: string; snippet: string }
+  | { kind: 'inbox_list'; items: InboxListItemPreview[]; totalCount: number }
+
+/** Flatten parsed `ripmail inbox` JSON object (same rules as GET /api/inbox). */
+export function flattenInboxFromRipmailData(data: unknown): InboxListItemPreview[] | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  const root = data as Record<string, unknown>
+  const mailboxes = Array.isArray(root.mailboxes) ? root.mailboxes : []
+  const out: InboxListItemPreview[] = []
+  for (const mb of mailboxes) {
+    const items = (mb as Record<string, unknown>).items
+    if (!Array.isArray(items)) continue
+    for (const raw of items) {
+      const item = raw as Record<string, unknown>
+      if (item.action === 'ignore') continue
+      const id = typeof item.messageId === 'string' ? item.messageId : ''
+      if (!id) continue
+      const fromRaw = item.fromName ?? item.fromAddress ?? item.from
+      const from =
+        typeof fromRaw === 'string'
+          ? fromRaw
+          : formatEmailParticipant(fromRaw)
+      const subject =
+        typeof item.subject === 'string' && item.subject.trim() ? item.subject : '(no subject)'
+      const snippet = typeof item.snippet === 'string' ? item.snippet : ''
+      const date = typeof item.date === 'string' ? item.date : undefined
+      out.push({ id, subject, from, snippet, date })
+    }
+  }
+  return out.length ? out : null
+}
+
+/** Parse `ripmail inbox` stdout string into flat rows. */
+export function parseRipmailInboxFlat(result: string): InboxListItemPreview[] | null {
+  try {
+    const data = JSON.parse(result) as Record<string, unknown>
+    return flattenInboxFromRipmailData(data)
+  } catch {
+    return null
+  }
+}
 
 /** Derive a rich preview card from a completed tool call, or null to show raw output only. */
 export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
-  if (!tool.done || tool.result == null) return null
+  if (!tool.done || tool.isError) return null
   const name = tool.name
   const args = tool.args ?? {}
-  const result = tool.result
+  const result = tool.result ?? ''
+
+  if (name === 'list_inbox') {
+    const fromDetails = flattenInboxFromRipmailData(tool.details)
+    const fromText = parseRipmailInboxFlat(result)
+    const all = fromDetails?.length ? fromDetails : fromText
+    if (!all?.length) return null
+    return {
+      kind: 'inbox_list',
+      /** Full ordered list so the widget can show the next rows after inline archives (still displays max 5 at once). */
+      items: all,
+      totalCount: all.length,
+    }
+  }
+
+  if (tool.result == null) return null
 
   if (name === 'get_calendar_events' && typeof args.start === 'string' && typeof args.end === 'string') {
     const t = result.trim()

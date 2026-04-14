@@ -5,6 +5,8 @@ export type ToolCall = {
   name: string
   args: any
   result?: string
+  /** Structured tool payload from SSE (e.g. ripmail inbox JSON) when text is truncated or redundant. */
+  details?: unknown
   isError?: boolean
   done: boolean
 }
@@ -77,7 +79,7 @@ export function buildChatBody(opts: {
 
 /** Placeholder text for the input bar based on current surface context. */
 export function contextPlaceholder(ctx: SurfaceContext): string {
-  if (ctx.type === 'email') return 'Ask about this email...'
+  if (ctx.type === 'email') return 'What do you want to do with this email?'
   if (ctx.type === 'wiki') return 'Ask about this doc...'
   if (ctx.type === 'calendar') return 'Ask about your schedule...'
   if (ctx.type === 'inbox') return 'Inbox summary running...'

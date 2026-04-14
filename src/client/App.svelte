@@ -6,10 +6,10 @@
   import AgentDrawer from './lib/AgentDrawer.svelte'
   import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from './router.js'
   import {
-    AGENT_PANEL_WIDTH_KEY,
-    DEFAULT_AGENT_PANEL_WIDTH,
     clampAgentPanelWidth,
+    loadInitialDetailPanelWidth,
     nextPanelWidthAfterDrag,
+    persistDetailPanelWidth,
   } from './lib/app/agentPanelWidth.js'
   import { runParallelSyncs } from './lib/app/syncAllServices.js'
   import { matchGlobalShortcut } from './lib/app/globalShortcuts.js'
@@ -27,7 +27,7 @@
   let showSyncErrors = $state(false)
   let calendarRefreshKey = $state(0)
   let wikiRefreshKey = $state(0)
-  let detailPanelWidth = $state(DEFAULT_AGENT_PANEL_WIDTH)
+  let detailPanelWidth = $state(loadInitialDetailPanelWidth())
   let detailPanelResizing = $state(false)
   let showSearch = $state(false)
   let inboxTargetId = $state<string | undefined>()
@@ -60,14 +60,6 @@
   }
 
   onMount(() => {
-    try {
-      const raw = localStorage.getItem(AGENT_PANEL_WIDTH_KEY)
-      if (raw) {
-        const n = parseInt(raw, 10)
-        if (!Number.isNaN(n)) detailPanelWidth = clampAgentPanelWidth(n, window.innerWidth)
-      }
-    } catch { /* ignore */ }
-
     const mq = window.matchMedia('(max-width: 767px)')
     const syncMobile = () => { isMobile = mq.matches }
     syncMobile()
@@ -113,12 +105,6 @@
   })
 
   $effect(() => {
-    try {
-      localStorage.setItem(AGENT_PANEL_WIDTH_KEY, String(detailPanelWidth))
-    } catch { /* ignore */ }
-  })
-
-  $effect(() => {
     return subscribe((e) => {
       if (e.type === 'wiki:mutated') {
         void loadWikiEditHistory()
@@ -157,6 +143,7 @@
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       if (el.hasPointerCapture(ev.pointerId)) el.releasePointerCapture(ev.pointerId)
+      persistDetailPanelWidth(detailPanelWidth, window.innerWidth)
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
@@ -209,6 +196,12 @@
 
   function openEmailFromChat(threadId: string) {
     openEmailFromSearch(threadId, threadId, '')
+  }
+
+  function openFullInboxFromChat() {
+    inboxTargetId = undefined
+    navigate({ overlay: { type: 'email' } })
+    route = parseRoute()
   }
 
   /** LLM `open` tool — navigate immediately on tool_start. */
@@ -280,6 +273,7 @@
           conversationHidden={!!route.overlay && isMobile}
           onOpenWiki={openWikiDoc}
           onOpenEmail={openEmailFromChat}
+          onOpenFullInbox={openFullInboxFromChat}
           onSwitchToCalendar={switchToCalendar}
           onOpenFromAgent={onOpenFromAgent}
           onNewChat={closeOverlay}
@@ -374,7 +368,7 @@
   }
 
   .detail-pane {
-    --detail-w: 420px;
+    --detail-w: max(290px, min(50vw, 920px));
     position: relative;
     z-index: 1;
     width: var(--detail-w);

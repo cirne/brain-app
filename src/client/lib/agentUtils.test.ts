@@ -161,7 +161,7 @@ describe('buildChatBody', () => {
 describe('contextPlaceholder', () => {
   it('returns email placeholder for email context', () => {
     const ctx: SurfaceContext = { type: 'email', threadId: 'x', subject: 'y', from: 'z' }
-    expect(contextPlaceholder(ctx)).toBe('Ask about this email...')
+    expect(contextPlaceholder(ctx)).toBe('What do you want to do with this email?')
   })
 
   it('returns wiki placeholder for wiki context', () => {
