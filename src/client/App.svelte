@@ -17,6 +17,7 @@
     runSyncOrQueueFollowUp,
   } from './lib/app/debouncedWikiSync.js'
   import { wikiPathForReadToolArg } from './lib/cards/contentCards.js'
+  import { navigateFromAgentOpen, type AgentOpenSource } from './lib/navigateFromAgentOpen.js'
 
   const SIDEBAR_KEY = 'brain-sidebar'
 
@@ -239,19 +240,18 @@
     route = parseRoute()
   }
 
-  /** LLM `open` tool — navigate immediately on tool_start. */
-  function onOpenFromAgent(target: { type: string; path?: string; id?: string; date?: string }) {
-    if (target.type === 'wiki' && target.path) {
-      openWikiDoc(target.path)
-      return
-    }
-    if (target.type === 'email' && target.id) {
-      openEmailFromSearch(target.id, '', '')
-      return
-    }
-    if (target.type === 'calendar' && target.date) {
-      switchToCalendar(target.date)
-    }
+  /** LLM `open` / `read_email` — navigate on tool_start. Mobile: only `open` opens the panel; `read_email` stays preview-only. */
+  function onOpenFromAgent(
+    target: { type: string; path?: string; id?: string; date?: string },
+    source: AgentOpenSource,
+  ) {
+    navigateFromAgentOpen(target, {
+      source,
+      isMobile,
+      openWikiDoc: (path) => openWikiDoc(path),
+      openEmailFromSearch,
+      switchToCalendar,
+    })
   }
 
   async function performFullSync(): Promise<void> {
@@ -420,6 +420,7 @@
         bind:this={agentDrawer}
         context={agentContext}
         conversationHidden={!!route.overlay && isMobile}
+        suppressAgentWikiAutoOpen={isMobile}
         onOpenWiki={openWikiDoc}
         onOpenEmail={openEmailFromChat}
         onOpenFullInbox={openFullInboxFromChat}

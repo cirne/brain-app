@@ -9,10 +9,13 @@
   import AgentInput from './AgentInput.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
+  import type { AgentOpenSource } from './navigateFromAgentOpen.js'
 
   let {
     context = { type: 'none' } as SurfaceContext,
     conversationHidden = false,
+    /** When true, `write` / `edit` do not auto-open the wiki pane (mobile: only explicit `open` opens UI). */
+    suppressAgentWikiAutoOpen = false,
     onOpenWiki,
     onOpenEmail,
     onOpenFullInbox,
@@ -33,12 +36,16 @@
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
+    suppressAgentWikiAutoOpen?: boolean
     onOpenWiki?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
-    /** LLM `open` tool — fired from SSE tool_start */
-    onOpenFromAgent?: (_target: { type: string; path?: string; id?: string; date?: string }) => void
+    /** LLM `open` / `read_email` — fired from SSE tool_start */
+    onOpenFromAgent?: (
+      _target: { type: string; path?: string; id?: string; date?: string },
+      _source: AgentOpenSource,
+    ) => void
     onNewChat?: () => void
     onUserSendMessage?: () => void
     onSessionChange?: (_sessionId: string | null) => void
@@ -244,14 +251,14 @@
                   if (path) writePathByToolId.set(data.id, path)
                   if (path && !writeOpenedWikiForToolId.has(data.id)) {
                     writeOpenedWikiForToolId.add(data.id)
-                    onOpenWiki?.(path)
+                    if (!suppressAgentWikiAutoOpen) onOpenWiki?.(path)
                   }
                   onWriteStreaming?.({ path, content, done: false })
                 } else if (data.name === 'edit') {
                   const path = typeof data.args?.path === 'string' ? data.args.path : ''
                   if (path && !editOpenedWikiForToolId.has(data.id)) {
                     editOpenedWikiForToolId.add(data.id)
-                    onOpenWiki?.(path)
+                    if (!suppressAgentWikiAutoOpen) onOpenWiki?.(path)
                   }
                   if (path) onEditStreaming?.({ id: data.id, path, done: false })
                 }
@@ -279,11 +286,11 @@
                   // Defer non-write tools to tool_end (no "running" rows in chat).
                   if (data.name === 'open' && data.args?.target && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
                     openedFromAgentByToolId.add(data.id)
-                    onOpenFromAgent(data.args.target)
+                    onOpenFromAgent(data.args.target, 'open')
                   }
                   if (data.name === 'read_email' && typeof data.args?.id === 'string' && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
                     openedFromAgentByToolId.add(data.id)
-                    onOpenFromAgent({ type: 'email', id: data.args.id })
+                    onOpenFromAgent({ type: 'email', id: data.args.id }, 'read_email')
                   }
                 }
                 // write: no chat row; live body goes through tool_args + wiki pane
