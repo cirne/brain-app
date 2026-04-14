@@ -85,6 +85,24 @@ a:hover {
   background: var(--text-2);
 }
 
+/* Sync icon (top nav + slide-over) — single animation */
+@keyframes spin-sync {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+svg.sync-spinning {
+  animation: spin-sync 1s linear infinite;
+}
+
+/** Shared sync control: slight press while `syncing` is true (top nav + slide-over) */
+.sync-press-when-syncing {
+  transition: transform 0.12s ease, opacity 0.15s;
+}
+.sync-press-when-syncing.syncing:not(:disabled) {
+  transform: scale(0.92);
+}
+
 /* Mobile adjustments */
 @media (max-width: 768px) {
   :root {

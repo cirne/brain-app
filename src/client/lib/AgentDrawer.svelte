@@ -3,6 +3,7 @@
   import { type SurfaceContext } from '../router.js'
   import { buildChatBody, extractMentionedFiles, type ChatMessage, type ToolPart } from './agentUtils.js'
   import { contextPlaceholder } from './agentUtils.js'
+  import { emit } from './app/appEvents.js'
   import { MessageSquarePlus } from 'lucide-svelte'
   import AgentConversation from './AgentConversation.svelte'
   import AgentInput from './AgentInput.svelte'
@@ -16,7 +17,6 @@
     onOpenEmail,
     onSwitchToCalendar,
     onOpenFromAgent,
-    onWikiMutated,
     onNewChat,
     mobileDetail,
   }: {
@@ -27,7 +27,6 @@
     onSwitchToCalendar?: (_date: string) => void
     /** LLM `open` tool — fired from SSE tool_start */
     onOpenFromAgent?: (_target: { type: string; path?: string; id?: string; date?: string }) => void
-    onWikiMutated?: () => void
     onNewChat?: () => void
     /** Full-screen detail stack above input (mobile only) */
     mobileDetail?: Snippet
@@ -212,7 +211,7 @@
       abortController = null
       streaming = false
       conversationEl?.scrollToBottom()
-      if (touchedWiki) onWikiMutated?.()
+      if (touchedWiki) emit({ type: 'wiki:mutated', source: 'agent' })
     }
   }
 

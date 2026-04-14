@@ -13,6 +13,13 @@
   } from './lib/app/agentPanelWidth.js'
   import { runParallelSyncs } from './lib/app/syncAllServices.js'
   import { matchGlobalShortcut } from './lib/app/globalShortcuts.js'
+  import { emit, subscribe } from './lib/app/appEvents.js'
+  import {
+    cancelPendingDebouncedWikiSync,
+    onWikiMutatedForAutoSync,
+    registerDebouncedWikiSyncRunner,
+    runSyncOrQueueFollowUp,
+  } from './lib/app/debouncedWikiSync.js'
 
   let route = $state<Route>(parseRoute())
   let syncing = $state(false)
@@ -90,7 +97,7 @@
           agentDrawer?.newChat()
           break
         case 'refresh':
-          if (!syncing) void syncAll()
+          void syncAll()
           break
       }
     }
@@ -107,6 +114,22 @@
     try {
       localStorage.setItem(AGENT_PANEL_WIDTH_KEY, String(detailPanelWidth))
     } catch { /* ignore */ }
+  })
+
+  $effect(() => {
+    return subscribe((e) => {
+      if (e.type === 'wiki:mutated') {
+        void loadWikiEditHistory()
+        void loadGitStatus()
+        wikiRefreshKey++
+        onWikiMutatedForAutoSync()
+      } else if (e.type === 'sync:completed') {
+        calendarRefreshKey++
+        wikiRefreshKey++
+        void loadWikiEditHistory()
+        void loadGitStatus()
+      }
+    })
   })
 
   function onDetailResizePointerDown(e: PointerEvent) {
@@ -201,26 +224,26 @@
     }
   }
 
-  function onWikiMutated() {
-    loadWikiEditHistory()
-    loadGitStatus()
-    wikiRefreshKey++
-  }
-
-  async function syncAll() {
+  async function performFullSync(): Promise<void> {
     syncing = true
     syncErrors = []
     showSyncErrors = false
     try {
       syncErrors = await runParallelSyncs(fetch)
-      calendarRefreshKey++
-      wikiRefreshKey++
-      loadWikiEditHistory()
-      loadGitStatus()
+      emit({ type: 'sync:completed' })
     } finally {
       syncing = false
     }
   }
+
+  async function syncAll() {
+    cancelPendingDebouncedWikiSync()
+    await runSyncOrQueueFollowUp()
+  }
+
+  $effect(() => {
+    registerDebouncedWikiSyncRunner(performFullSync)
+  })
 </script>
 
 {#if showSearch}
@@ -259,7 +282,6 @@
           onOpenEmail={openEmailFromChat}
           onSwitchToCalendar={switchToCalendar}
           onOpenFromAgent={onOpenFromAgent}
-          onWikiMutated={onWikiMutated}
           onNewChat={closeOverlay}
         >
           {#snippet mobileDetail()}

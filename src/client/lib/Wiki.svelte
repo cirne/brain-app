@@ -94,16 +94,19 @@
   let initialized = false
 
   $effect(() => {
-    void refreshKey // re-run when refreshKey changes
+    void refreshKey
     loadFiles().then(() => {
-      if (initialized) return
-      initialized = true
-      if (initialPath) {
-        const match = files.find(f => f.path === initialPath)
-        if (match) openFile(match.path)
-      } else {
-        const index = files.find(f => f.name === '_index' && !f.path.includes('/'))
-        if (index) openFile(index.path)
+      if (!initialized) {
+        initialized = true
+        if (initialPath) {
+          const match = files.find(f => f.path === initialPath)
+          if (match) void openFile(match.path)
+        } else {
+          const index = files.find(f => f.name === '_index' && !f.path.includes('/'))
+          if (index) void openFile(index.path)
+        }
+      } else if (selected) {
+        void openFile(selected)
       }
     })
   })

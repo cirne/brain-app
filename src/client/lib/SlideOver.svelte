@@ -96,8 +96,15 @@
               </svg>
             </button>
           {/if}
-          <button class="slide-action-btn" onclick={onSync} disabled={syncing} title="Sync (⌘R)" aria-label="Sync">
-            <svg class:spinning={syncing} xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            class="slide-action-btn sync-press-when-syncing"
+            class:syncing={syncing}
+            onclick={onSync}
+            disabled={syncing}
+            title="Sync (⌘R)"
+            aria-label="Sync"
+          >
+            <svg class:sync-spinning={syncing} xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
               <path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
             </svg>
