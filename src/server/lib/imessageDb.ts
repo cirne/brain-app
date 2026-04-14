@@ -49,6 +49,17 @@ export function resetImessageToolsAvailabilityForTests(): void {
   imessageDbReadableAtStartup = null
 }
 
+export interface ImessageRowRaw {
+  rowid: number
+  text: string | null
+  attributedBody: Buffer | null
+  date: number
+  is_from_me: number
+  is_read: number
+  chat_identifier: string | null
+  display_name: string | null
+}
+
 export interface ImessageRow {
   rowid: number
   text: string | null
@@ -57,6 +68,48 @@ export interface ImessageRow {
   is_read: number
   chat_identifier: string | null
   display_name: string | null
+}
+
+const ATTRIBUTED_BODY_MARKER = Buffer.from([0x01, 0x2B])
+
+/**
+ * Extract plain text from an NSAttributedString blob (NSKeyedArchiver format).
+ * The text sits after a 0x01 0x2B marker followed by a length prefix.
+ */
+export function extractTextFromAttributedBody(blob: Buffer): string | null {
+  const idx = blob.indexOf(ATTRIBUTED_BODY_MARKER)
+  if (idx < 0) return null
+  const lenOffset = idx + ATTRIBUTED_BODY_MARKER.length
+  if (lenOffset >= blob.length) return null
+  let len = blob[lenOffset]
+  let start = lenOffset + 1
+  if (len >= 128) {
+    if (start >= blob.length) return null
+    len = (len & 0x7f) | (blob[start] << 7)
+    start += 1
+  }
+  if (start + len > blob.length) return null
+  const text = blob.toString('utf8', start, start + len)
+  return text.replace(/\0/g, '') || null
+}
+
+/** Resolve body text: prefer `text`, fall back to `attributedBody` blob extraction. */
+function resolveMessageText(row: ImessageRowRaw): string | null {
+  if (row.text && row.text.length > 0 && row.text !== '\ufffc') return row.text
+  if (row.attributedBody) return extractTextFromAttributedBody(row.attributedBody)
+  return null
+}
+
+function toImessageRow(raw: ImessageRowRaw): ImessageRow {
+  return {
+    rowid: raw.rowid,
+    text: resolveMessageText(raw),
+    date: raw.date,
+    is_from_me: raw.is_from_me,
+    is_read: raw.is_read,
+    chat_identifier: raw.chat_identifier,
+    display_name: raw.display_name,
+  }
 }
 
 export interface ListRecentParams {
@@ -111,6 +164,7 @@ export function listRecentMessages(dbPath: string, params: ListRecentParams & { 
       SELECT
         m.ROWID AS rowid,
         m.text AS text,
+        m.attributedBody AS attributedBody,
         m.date AS date,
         m.is_from_me AS is_from_me,
         m.is_read AS is_read,
@@ -133,9 +187,9 @@ export function listRecentMessages(dbPath: string, params: ListRecentParams & { 
     if (params.chat_identifier) bind.chatId = params.chat_identifier
 
     const stmt = db.prepare(sql)
-    const rows = stmt.all(bind) as ImessageRow[]
+    const rawRows = stmt.all(bind) as ImessageRowRaw[]
 
-    return { messages: rows }
+    return { messages: rawRows.map(toImessageRow) }
   } finally {
     db.close()
   }
@@ -187,6 +241,7 @@ export function getThreadMessages(dbPath: string, params: ThreadParams & { defau
       SELECT
         m.ROWID AS rowid,
         m.text AS text,
+        m.attributedBody AS attributedBody,
         m.date AS date,
         m.is_from_me AS is_from_me,
         m.is_read AS is_read,
@@ -200,14 +255,14 @@ export function getThreadMessages(dbPath: string, params: ThreadParams & { defau
       ORDER BY m.date ASC
       LIMIT @limit
     `)
-    const messages = stmt.all({
+    const rawRows = stmt.all({
       chatId: params.chat_identifier,
       sinceNs,
       untilNs,
       limit,
-    }) as ImessageRow[]
+    }) as ImessageRowRaw[]
 
-    return { messages, message_count }
+    return { messages: rawRows.map(toImessageRow), message_count }
   } finally {
     db.close()
   }
