@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Archive, Reply, Forward, Sparkles } from 'lucide-svelte'
   import { navigate } from '../router.js'
+  import { emailHeadersForDisplay } from './inboxHeaders.js'
   import { formatDate } from './formatDate.js'
 
   type Email = {
@@ -51,6 +52,8 @@
   let selectedThread = $state<string | null>(null)
   let threadContent = $state<{ headers: string; body: string } | null>(null)
   let threadLoading = $state(false)
+  /** When opening by id that is not in the inbox list (e.g. agent read_email id). */
+  let orphanThreadMeta = $state<{ subject: string; from: string } | null>(null)
   let error = $state<string | null>(null)
 
   // Compose state
@@ -84,7 +87,21 @@
         }).slice(0, 6)
   )
 
-  let selectedEmail = $derived(emails.find(e => e.id === selectedThread) ?? null)
+  let selectedEmail = $derived.by((): Email | null => {
+    if (!selectedThread) return null
+    const e = emails.find(x => x.id === selectedThread)
+    if (e) return e
+    if (orphanThreadMeta) {
+      return {
+        id: selectedThread,
+        from: orphanThreadMeta.from,
+        subject: orphanThreadMeta.subject,
+        date: '',
+        read: true,
+      }
+    }
+    return null
+  })
 
   async function load() {
     try {
@@ -132,17 +149,71 @@
   }
 
   async function archive(id: string) {
-    await fetch(`/api/inbox/${id}/archive`, { method: 'POST' })
+    await fetch(`/api/inbox/${encodeURIComponent(id)}/archive`, { method: 'POST' })
     emails = emails.filter(e => e.id !== id)
     if (selectedThread === id) { selectedThread = null; threadContent = null }
   }
 
   async function markRead(id: string) {
-    await fetch(`/api/inbox/${id}/read`, { method: 'POST' })
+    await fetch(`/api/inbox/${encodeURIComponent(id)}/read`, { method: 'POST' })
     emails = emails.map(e => e.id === id ? { ...e, read: true } : e)
   }
 
+  function parseEmailHeaders(headerText: string): { subject: string; from: string } {
+    let subject = '(no subject)'
+    let from = ''
+    for (const line of headerText.split('\n')) {
+      const sub = line.match(/^Subject:\s*(.*)$/i)
+      if (sub) subject = sub[1].trim()
+      const fr = line.match(/^From:\s*(.*)$/i)
+      if (fr) from = fr[1].trim()
+    }
+    return { subject, from }
+  }
+
+  /** Open thread by id when the message is not in the current inbox list (IDs still valid for ripmail read). */
+  async function openThreadByRawId(id: string) {
+    if (selectedThread === id && (threadContent || threadLoading)) return
+    orphanThreadMeta = null
+    selectedThread = id
+    navigate({ overlay: { type: 'email', id } })
+    onNavigate?.(id)
+    onContextChange?.({ type: 'email', threadId: id, subject: '(loading)', from: '' })
+    threadLoading = true
+    try {
+      const res = await fetch(`/api/inbox/${encodeURIComponent(id)}`)
+      if (res.ok) {
+        const text = await res.text()
+        const blank = text.indexOf('\n\n')
+        const headers = blank === -1 ? '' : text.slice(0, blank)
+        const body = blank === -1 ? text : text.slice(blank + 2)
+        threadContent =
+          blank === -1 ? { headers: '', body: text } : { headers, body: body }
+        const meta = headers ? parseEmailHeaders(headers) : { subject: '(no subject)', from: '' }
+        orphanThreadMeta = meta
+        onContextChange?.({
+          type: 'email',
+          threadId: id,
+          subject: meta.subject,
+          from: meta.from,
+          body: (blank === -1 ? text : body).slice(0, 4000),
+        })
+        try {
+          await markRead(id)
+        } catch {
+          /* id may not be in inbox index */
+        }
+      } else {
+        threadContent = null
+      }
+    } catch {
+      threadContent = null
+    }
+    threadLoading = false
+  }
+
   async function openThread(email: Email) {
+    orphanThreadMeta = null
     selectedThread = email.id
     navigate({ overlay: { type: 'email', id: email.id } })
     onNavigate?.(email.id)
@@ -164,17 +235,6 @@
     threadLoading = false
   }
 
-
-  function closeThread() {
-    selectedThread = null
-    threadContent = null
-    composeMode = null
-    currentDraft = null
-    draftSent = false
-    navigate({ overlay: { type: 'email' } })
-    onNavigate?.(undefined)
-    onContextChange?.({ type: 'none' })
-  }
 
   async function loadContacts() {
     if (contactsLoaded) return
@@ -198,9 +258,10 @@
   }
 
   function startComposeFromThread(action: 'reply' | 'forward') {
-    if (!selectedEmail) return
+    const id = selectedEmail?.id ?? selectedThread
+    if (!id) return
     composeMode = action
-    composeEmailId = selectedEmail.id
+    composeEmailId = id
     composeInstruction = ''
     composeTo = ''
     composeError = null
@@ -288,8 +349,10 @@
   $effect(() => {
     load().then(() => {
       if (initialId) {
-        const email = emails.find(e => e.id === initialId)
-        if (email) openThread(email)
+        const id = initialId.trim()
+        const email = emails.find(e => e.id === id)
+        if (email) void openThread(email)
+        else void openThreadByRawId(id)
       }
     })
   })
@@ -297,8 +360,10 @@
   // Navigate to a specific thread when targetId changes externally (e.g. from search)
   $effect(() => {
     if (targetId) {
-      const email = emails.find(e => e.id === targetId)
-      if (email) openThread(email)
+      const id = targetId.trim()
+      const email = emails.find(e => e.id === id)
+      if (email) void openThread(email)
+      else void openThreadByRawId(id)
     }
   })
 </script>
@@ -332,23 +397,6 @@
 
   {#if selectedThread}
     <div class="thread-view">
-      <div class="thread-header">
-        <button class="back-btn" onclick={closeThread}>Inbox</button>
-        <div class="thread-actions">
-          {#if !composeMode && !currentDraft}
-            <button class="action-btn" onclick={() => startComposeFromThread('reply')} title="Reply">
-              <Reply size={14} /> Reply
-            </button>
-            <button class="action-btn" onclick={() => startComposeFromThread('forward')} title="Forward">
-              <Forward size={14} /> Forward
-            </button>
-          {/if}
-          <button class="archive-thread-btn" onclick={() => archive(selectedThread!)}>
-            <Archive size={16} /> Archive
-          </button>
-        </div>
-      </div>
-
       {#if composeMode}
         <div class="compose-panel">
           <div class="compose-label">{composeMode === 'reply' ? 'Reply' : 'Forward'}</div>
@@ -452,12 +500,56 @@
           {#if threadLoading}
             <p class="loading">Loading...</p>
           {:else if threadContent}
-            <pre class="thread-headers">{threadContent.headers.split('\n').filter(l => !l.startsWith('Message-ID:')).join('\n')}</pre>
+            <div class="thread-meta" aria-label="Message headers">
+              {#each emailHeadersForDisplay(threadContent.headers) as row (row.key)}
+                <div class="thread-meta-row">
+                  <span class="thread-meta-label">{row.label}</span>
+                  <span class="thread-meta-value">{row.value}</span>
+                </div>
+              {/each}
+            </div>
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             <div class="thread-body-text">{@html linkify(threadContent.body)}</div>
           {:else}
             <p class="loading">Failed to load message.</p>
           {/if}
+        </div>
+      {/if}
+
+      {#if !composeMode && !currentDraft}
+        <div class="thread-fab-bar" role="toolbar" aria-label="Thread actions">
+          <div class="thread-fab-inner">
+            <button
+              type="button"
+              class="thread-fab"
+              onclick={() => startComposeFromThread('reply')}
+              title="Reply"
+              aria-label="Reply"
+            >
+              <Reply size={18} strokeWidth={2} aria-hidden="true" />
+              <span class="thread-fab-label">Reply</span>
+            </button>
+            <button
+              type="button"
+              class="thread-fab"
+              onclick={() => startComposeFromThread('forward')}
+              title="Forward"
+              aria-label="Forward"
+            >
+              <Forward size={18} strokeWidth={2} aria-hidden="true" />
+              <span class="thread-fab-label">Forward</span>
+            </button>
+            <button
+              type="button"
+              class="thread-fab thread-fab-archive"
+              onclick={() => archive(selectedThread!)}
+              title="Archive"
+              aria-label="Archive thread"
+            >
+              <Archive size={18} strokeWidth={2} aria-hidden="true" />
+              <span class="thread-fab-label">Archive</span>
+            </button>
+          </div>
         </div>
       {/if}
     </div>
@@ -511,7 +603,12 @@
 </div>
 
 <style>
-  .inbox { display: flex; flex-direction: column; height: 100%; }
+  .inbox {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
 
   .inbox-header {
     display: flex;
@@ -604,33 +701,131 @@
   .search-cta:active { opacity: 0.7; }
 
   /* Thread view */
-  .thread-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  .thread-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg-2);
+  .thread-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    min-height: 0;
+  }
+
+  .thread-fab-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 8px calc(14px + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+    pointer-events: none;
+    background: linear-gradient(
+      to top,
+      var(--bg) 0%,
+      color-mix(in srgb, var(--bg) 88%, transparent) 55%,
+      transparent 100%
+    );
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  .thread-fab-inner {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 8px;
+    scrollbar-width: none;
+    pointer-events: auto;
+  }
+  .thread-fab-inner::-webkit-scrollbar {
+    display: none;
+  }
+
+  .thread-fab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     flex-shrink: 0;
+    padding: 10px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.12s;
+    white-space: nowrap;
   }
-  .back-btn { font-size: 13px; color: var(--accent); }
+  .thread-fab-label {
+    white-space: nowrap;
+  }
+  .thread-fab:hover {
+    background: var(--bg-2);
+    transform: translateY(-1px);
+  }
+  .thread-fab:active {
+    transform: translateY(0);
+  }
+  .thread-fab-archive {
+    color: var(--text-2);
+  }
+  .thread-fab-archive:hover {
+    color: var(--danger);
+    border-color: rgba(231, 76, 60, 0.35);
+  }
 
-  .thread-actions { display: flex; align-items: center; gap: 6px; }
-  .action-btn {
-    font-size: 13px; color: var(--text-2);
-    padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
-    display: flex; align-items: center; gap: 5px;
+  .thread-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   }
-  .action-btn:hover { color: var(--text); border-color: var(--text-2); }
-  .archive-thread-btn {
-    font-size: 13px; color: var(--text-2);
-    padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .archive-thread-btn:hover { color: var(--text); }
-
-  .thread-body { flex: 1; overflow-y: auto; padding: 16px; }
   .loading { color: var(--text-2); font-size: 14px; }
-  .thread-headers {
-    font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
-    color: var(--text-2); border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;
+  .thread-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .thread-meta-row {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 4px 14px;
+    align-items: start;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .thread-meta-label {
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-2);
+    padding-top: 2px;
+  }
+  .thread-meta-value {
+    color: var(--text);
+    word-break: break-word;
+  }
+  @media (max-width: 480px) {
+    .thread-meta-row {
+      grid-template-columns: 1fr;
+      gap: 2px;
+    }
+    .thread-meta-label {
+      padding-top: 0;
+    }
   }
   .thread-body-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
   .thread-body-text :global(a) { color: var(--accent); text-decoration: underline; }
@@ -736,7 +931,22 @@
     .email-body { grid-template-columns: 1fr; gap: 2px; }
     .date { display: none; }
     .action-icon-btn { padding: 10px 6px; }
-    .thread-actions { gap: 4px; }
-    .action-btn, .archive-thread-btn { font-size: 12px; padding: 3px 7px; }
+    .thread-fab-bar {
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+    .thread-fab-inner {
+      gap: 8px;
+      padding: 4px 4px;
+    }
+    .thread-fab-label {
+      display: none;
+    }
+    .thread-fab {
+      padding: 12px;
+      min-width: 44px;
+      min-height: 44px;
+      border-radius: 50%;
+    }
   }
 </style>

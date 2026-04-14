@@ -44,7 +44,18 @@ describe('createAgentTools', () => {
     expect(names).toContain('fetch_page')
     expect(names).toContain('get_youtube_transcript')
     expect(names).toContain('youtube_search')
+    expect(names).toContain('set_chat_title')
     expect(names).toContain('open')
+  })
+
+  describe('set_chat_title tool', () => {
+    it('returns confirmation with trimmed title', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: { name: string }) => t.name === 'set_chat_title')!
+      const result = await tool.execute('t-1', { title: '  Planning a trip to Lisbon  ' })
+      expect(result.content[0].text).toContain('Planning a trip to Lisbon')
+    })
   })
 
   describe('open tool', () => {

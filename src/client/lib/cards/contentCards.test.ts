@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchContentPreview } from './contentCards.js'
+import { formatEmailParticipant, matchContentPreview } from './contentCards.js'
 import type { ToolCall } from '../agentUtils.js'
 
 function tc(p: Partial<ToolCall> & Pick<ToolCall, 'id' | 'name'>): ToolCall {
@@ -49,6 +49,35 @@ describe('matchContentPreview', () => {
     if (p?.kind === 'wiki') {
       expect(p.path).toBe('ideas/foo.md')
       expect(p.excerpt).toContain('Hello')
+    }
+  })
+
+  it('formats email From when ripmail uses an object', () => {
+    expect(formatEmailParticipant({ name: 'Kirsten Vliet', address: 'k@example.com' })).toBe(
+      'Kirsten Vliet <k@example.com>',
+    )
+    expect(formatEmailParticipant('plain@example.com')).toBe('plain@example.com')
+  })
+
+  it('returns email preview for read_email with object from and body', () => {
+    const tool = tc({
+      id: 'e1',
+      name: 'read_email',
+      done: true,
+      args: { id: 'msg-1' },
+      result: JSON.stringify({
+        subject: 'Trip plan',
+        from: { name: 'Kirsten Vliet', address: 'k@mac.com' },
+        body: 'Hello there. '.repeat(30),
+      }),
+    })
+    const p = matchContentPreview(tool)
+    expect(p?.kind).toBe('email')
+    if (p?.kind === 'email') {
+      expect(p.from).toContain('Kirsten')
+      expect(p.from).toContain('k@mac.com')
+      expect(p.subject).toBe('Trip plan')
+      expect(p.snippet.length).toBeGreaterThan(10)
     }
   })
 

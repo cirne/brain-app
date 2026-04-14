@@ -3,9 +3,11 @@
   import { type SurfaceContext } from '../router.js'
   import { buildChatBody, extractMentionedFiles, type ChatMessage, type ToolPart } from './agentUtils.js'
   import { contextPlaceholder } from './agentUtils.js'
+  import { MessageSquarePlus } from 'lucide-svelte'
   import AgentConversation from './AgentConversation.svelte'
   import AgentInput from './AgentInput.svelte'
   import WikiFileName from './WikiFileName.svelte'
+  import PaneL2Header from './PaneL2Header.svelte'
 
   let {
     context = { type: 'none' } as SurfaceContext,
@@ -31,17 +33,18 @@
 
   const STORAGE_KEY = 'brain-agent'
 
-  function loadState(): { messages: ChatMessage[]; sessionId: string | null } {
+  function loadState(): { messages: ChatMessage[]; sessionId: string | null; chatTitle?: string | null } {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) return JSON.parse(saved)
     } catch { /* ignore */ }
-    return { messages: [], sessionId: null }
+    return { messages: [], sessionId: null, chatTitle: null }
   }
 
   const initial = loadState()
   let messages = $state<ChatMessage[]>(initial.messages)
   let sessionId = $state<string | null>(initial.sessionId)
+  let chatTitle = $state<string | null>(initial.chatTitle ?? null)
   let streaming = $state(false)
   let wikiFiles = $state<string[]>([])
   let conversationEl = $state<ReturnType<typeof AgentConversation> | undefined>(undefined)
@@ -58,7 +61,7 @@
 
   $effect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ messages, sessionId }))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ messages, sessionId, chatTitle }))
     } catch { /* ignore */ }
   })
 
@@ -75,12 +78,14 @@
   export function newChat() {
     messages = []
     sessionId = null
+    chatTitle = null
     void focusAgentTextarea(0)
   }
 
   export async function newChatWithMessage(text: string) {
     messages = []
     sessionId = null
+    chatTitle = null
     await tick()
     await send(text)
   }
@@ -162,6 +167,13 @@
                 if (data.name === 'open' && data.args?.target && onOpenFromAgent) {
                   onOpenFromAgent(data.args.target)
                 }
+                if (data.name === 'read_email' && typeof data.args?.id === 'string' && onOpenFromAgent) {
+                  onOpenFromAgent({ type: 'email', id: data.args.id })
+                }
+                if (data.name === 'set_chat_title' && typeof data.args?.title === 'string') {
+                  const t = data.args.title.trim().slice(0, 120)
+                  if (t) chatTitle = t
+                }
                 conversationEl?.scrollToBottom()
                 break
               }
@@ -211,19 +223,30 @@
 </script>
 
 <div class="agent-drawer">
-  <div class="drawer-header">
-    <div class="header-left">
-      <span class="drawer-title" class:thinking={streaming}>{streaming ? 'Thinking...' : 'Chat'}</span>
-      {#if context.type === 'wiki'}
-        <span class="context-chip"><WikiFileName path={context.path} /></span>
-      {:else if contextChip}
-        <span class="context-chip">{contextChip}</span>
-      {/if}
-    </div>
-    {#if messages.length > 0}
-      <button class="new-btn" onclick={() => newChat()} title="New conversation (⌘N)">New</button>
-    {/if}
-  </div>
+  {#if !conversationHidden}
+    <PaneL2Header>
+      {#snippet center()}
+        <div class="header-left">
+          <span class="drawer-title" class:thinking={streaming} class:custom-title={!!chatTitle}>
+            {streaming ? 'Thinking...' : (chatTitle ?? 'Chat')}
+          </span>
+          {#if context.type === 'wiki'}
+            <span class="context-chip"><WikiFileName path={context.path} /></span>
+          {:else if contextChip}
+            <span class="context-chip">{contextChip}</span>
+          {/if}
+        </div>
+      {/snippet}
+      {#snippet right()}
+        {#if messages.length > 0}
+          <button class="new-btn" onclick={() => newChat()} title="New conversation (⌘N)">
+            <MessageSquarePlus size={14} strokeWidth={2} aria-hidden="true" />
+            <span>New</span>
+          </button>
+        {/if}
+      {/snippet}
+    </PaneL2Header>
+  {/if}
 
   <div class="mid">
     {#if !conversationHidden}
@@ -263,17 +286,6 @@
     min-height: 0;
   }
 
-  .drawer-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 12px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    min-height: 44px;
-  }
-
   .header-left {
     display: flex;
     align-items: center;
@@ -289,6 +301,15 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     flex-shrink: 0;
+  }
+  .drawer-title.custom-title {
+    text-transform: none;
+    letter-spacing: 0.02em;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .drawer-title.thinking {
     animation: pulse-thinking 1.5s ease-in-out infinite;
@@ -308,12 +329,19 @@
   }
 
   .new-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 11px;
     color: var(--text-2);
     padding: 2px 8px;
     border-radius: 4px;
     flex-shrink: 0;
     transition: color 0.15s, background 0.15s;
+  }
+  .new-btn :global(svg) {
+    flex-shrink: 0;
+    opacity: 0.9;
   }
   .new-btn:hover { color: var(--text); background: var(--bg-3); }
 

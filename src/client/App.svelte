@@ -232,6 +232,7 @@
 {/if}
 
 <div class="app">
+  {#if !(isMobile && route.overlay)}
   <AppTopNav
     {dirtyFiles}
     {recentFiles}
@@ -245,6 +246,7 @@
     onSync={syncAll}
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
   />
+  {/if}
 
   <div class="workspace">
     <div class="split" class:has-detail={!!route.overlay}>
@@ -263,6 +265,7 @@
             {#if route.overlay}
               <SlideOver
                 overlay={route.overlay}
+                surfaceContext={agentContext}
                 wikiRefreshKey={wikiRefreshKey}
                 calendarRefreshKey={calendarRefreshKey}
                 inboxTargetId={inboxTargetId}
@@ -272,6 +275,8 @@
                 onOpenSearch={() => { showSearch = true }}
                 onSummarizeInbox={onSummarizeInbox}
                 onClose={closeOverlay}
+                onSync={syncAll}
+                {syncing}
               />
             {/if}
           {/snippet}
@@ -295,6 +300,7 @@
           </button>
           <SlideOver
             overlay={route.overlay}
+            surfaceContext={agentContext}
             wikiRefreshKey={wikiRefreshKey}
             calendarRefreshKey={calendarRefreshKey}
             inboxTargetId={inboxTargetId}

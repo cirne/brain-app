@@ -460,6 +460,28 @@ export function createAgentTools(wikiDir: string): any[] {
     },
   })
 
+  const setChatTitle = defineTool({
+    name: 'set_chat_title',
+    label: 'Set chat title',
+    description:
+      'Set a short descriptive title for this conversation (shown in the chat header). Call once at the very start of your first response, before any other tools, based on the user\'s topic.',
+    parameters: Type.Object({
+      title: Type.String({ description: 'Concise title, about 3–8 words (no quotes)' }),
+    }),
+    async execute(_toolCallId: string, params: { title: string }) {
+      const t = params.title.trim().slice(0, 120)
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: t ? `Title set: ${t}` : 'Ignored empty title.',
+          },
+        ],
+        details: {},
+      }
+    },
+  })
+
   const openTool = defineTool({
     name: 'open',
     label: 'Open',
@@ -504,5 +526,28 @@ export function createAgentTools(wikiDir: string): any[] {
     },
   })
 
-  return [read, edit, write, grep, find, searchEmail, readEmail, listInbox, archiveEmails, draftEmail, editDraft, sendDraft, gitCommitPush, findPerson, wikiLog, getCalEvents, webSearch, fetchPage, getYoutubeTranscript, youtubeSearch, openTool]
+  return [
+    read,
+    edit,
+    write,
+    grep,
+    find,
+    searchEmail,
+    readEmail,
+    listInbox,
+    archiveEmails,
+    draftEmail,
+    editDraft,
+    sendDraft,
+    gitCommitPush,
+    findPerson,
+    wikiLog,
+    getCalEvents,
+    webSearch,
+    fetchPage,
+    getYoutubeTranscript,
+    youtubeSearch,
+    setChatTitle,
+    openTool,
+  ]
 }

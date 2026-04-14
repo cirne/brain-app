@@ -25,10 +25,6 @@
   let meta = $state<Record<string, string>>({})
   let loading = $state(false)
 
-  // Header navigation search
-  let headerSearch = $state('')
-  let showSearch = $state(false)
-  let selectedSearch = $state(0)
 
 
   async function loadFiles() {
@@ -59,33 +55,6 @@
     if (match) openFile(match.path)
   }
 
-  function filteredFiles(): WikiFile[] {
-    if (!headerSearch) return files.slice(0, 15)
-    const q = headerSearch.toLowerCase()
-    return files.filter(f =>
-      f.path.toLowerCase().includes(q) || f.name.toLowerCase().includes(q)
-    ).slice(0, 15)
-  }
-
-  function handleSearchKeydown(e: KeyboardEvent) {
-    const items = filteredFiles()
-    if (e.key === 'ArrowDown') { e.preventDefault(); selectedSearch = Math.min(selectedSearch + 1, items.length - 1); return }
-    if (e.key === 'ArrowUp') { e.preventDefault(); selectedSearch = Math.max(selectedSearch - 1, 0); return }
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      const f = items[selectedSearch]
-      if (f) { openFile(f.path); showSearch = false; headerSearch = '' }
-      return
-    }
-    if (e.key === 'Escape') { showSearch = false; return }
-    selectedSearch = 0
-  }
-
-  function selectSearchFile(path: string) {
-    openFile(path)
-    showSearch = false
-    headerSearch = ''
-  }
 
   function formatDate(dateStr: string): string {
     const d = new Date(dateStr)
@@ -149,35 +118,6 @@
 </script>
 
 <div class="wiki">
-  <div class="wiki-header">
-    <div class="search-wrap">
-      <input
-        type="text"
-        class="header-search"
-        placeholder="Go to file..."
-        bind:value={headerSearch}
-        onfocus={() => { showSearch = true; selectedSearch = 0 }}
-        onblur={() => setTimeout(() => { showSearch = false }, 150)}
-        oninput={() => { selectedSearch = 0 }}
-        onkeydown={handleSearchKeydown}
-      />
-      {#if showSearch}
-        <div class="search-dropdown">
-          {#each filteredFiles() as f, i}
-            <button
-              class="search-item"
-              class:selected={i === selectedSearch}
-              onmousedown={(e) => { e.preventDefault(); selectSearchFile(f.path) }}
-            ><WikiFileName path={f.path} /></button>
-          {:else}
-            <div class="search-empty">No files found</div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-
-  </div>
-
   <div class="content-area">
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -195,7 +135,7 @@
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         {@html content}
       {:else}
-        <p class="status">Select a page from the search above</p>
+        <p class="status">No page selected</p>
       {/if}
     </article>
   </div>
@@ -203,59 +143,6 @@
 
 <style>
   .wiki { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-
-  /* ── header ──────────────────────────────────────────────── */
-  .wiki-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-2);
-    flex-shrink: 0;
-  }
-
-  .search-wrap { flex: 1; position: relative; min-width: 0; }
-
-  .header-search {
-    width: 100%;
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg);
-    color: var(--text);
-    font: inherit;
-    font-size: 13px;
-  }
-  .header-search:focus { outline: none; border-color: var(--accent); }
-
-  .search-dropdown {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    max-height: 240px;
-    overflow-y: auto;
-    background: var(--bg-3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 100;
-  }
-
-  .search-item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 6px 12px;
-    font-size: 13px;
-    color: var(--text);
-    overflow: hidden;
-  }
-  .search-item :global(.wfn-title-row) { width: 100%; align-items: center; }
-  .search-item :global(.wfn-name) { flex-shrink: 1; }
-  .search-item:hover, .search-item.selected { background: var(--accent-dim); color: var(--accent); }
-  .search-empty { padding: 8px 12px; font-size: 12px; color: var(--text-2); }
 
   /* ── content ─────────────────────────────────────────────── */
   .content-area { flex: 1; overflow-y: auto; min-width: 0; }

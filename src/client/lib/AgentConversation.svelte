@@ -111,52 +111,54 @@
         <div class="msg-label">Assistant</div>
 
         {#each msg.parts ?? [] as part}
-          {#if part.type === 'tool'}
-            <details class="tool-call" class:error={part.toolCall.isError} open={!part.toolCall.done}>
-              <summary>
-                <span class="tool-icon">
-                  {#if part.toolCall.isError}
-                    !
-                  {:else if !part.toolCall.done}
-                    <svg class="spin" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                  {:else}
-                    {@const Icon = getToolIcon(part.toolCall.name)}
-                    {#if Icon}
-                      <Icon size={12} strokeWidth={2.5} />
+          {#if part.type === 'tool' && part.toolCall.name !== 'set_chat_title'}
+            {@const preview = matchContentPreview(part.toolCall)}
+            <div class="tool-part">
+              <details class="tool-call" class:error={part.toolCall.isError} open={!part.toolCall.done}>
+                <summary>
+                  <span class="tool-icon">
+                    {#if part.toolCall.isError}
+                      !
+                    {:else if !part.toolCall.done}
+                      <svg class="spin" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                     {:else}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                      {@const Icon = getToolIcon(part.toolCall.name)}
+                      {#if Icon}
+                        <Icon size={12} strokeWidth={2.5} />
+                      {:else}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                      {/if}
                     {/if}
+                  </span>
+                  <span class="tool-name">{part.toolCall.name}</span>
+                  {#if !part.toolCall.done}
+                    <span class="tool-status">running</span>
                   {/if}
-                </span>
-                <span class="tool-name">{part.toolCall.name}</span>
-                {#if !part.toolCall.done}
-                  <span class="tool-status">running</span>
+                </summary>
+                {#if part.toolCall.args}
+                  <pre class="tool-args">{formatArgs(part.toolCall.args)}</pre>
                 {/if}
-              </summary>
-              {#if part.toolCall.args}
-                <pre class="tool-args">{formatArgs(part.toolCall.args)}</pre>
-              {/if}
-              {#if part.toolCall.result}
-                {@const preview = matchContentPreview(part.toolCall)}
-                {#if preview?.kind === 'calendar'}
-                  <CalendarPreviewCard start={preview.start} end={preview.end} events={preview.events} />
-                {:else if preview?.kind === 'wiki'}
-                  <WikiPreviewCard
-                    path={preview.path}
-                    excerpt={preview.excerpt}
-                    onOpen={() => onOpenWiki?.(preview.path)}
-                  />
-                {:else if preview?.kind === 'email'}
-                  <EmailPreviewCard
-                    subject={preview.subject}
-                    from={preview.from}
-                    snippet={preview.snippet}
-                    onOpen={() => onOpenEmail?.(preview.id)}
-                  />
+                {#if part.toolCall.result}
+                  <pre class="tool-result" class:tool-error={part.toolCall.isError} class:muted={!!preview}>{part.toolCall.result}</pre>
                 {/if}
-                <pre class="tool-result" class:tool-error={part.toolCall.isError} class:muted={!!preview}>{part.toolCall.result}</pre>
+              </details>
+              {#if preview?.kind === 'calendar'}
+                <CalendarPreviewCard start={preview.start} end={preview.end} events={preview.events} />
+              {:else if preview?.kind === 'wiki'}
+                <WikiPreviewCard
+                  path={preview.path}
+                  excerpt={preview.excerpt}
+                  onOpen={() => onOpenWiki?.(preview.path)}
+                />
+              {:else if preview?.kind === 'email'}
+                <EmailPreviewCard
+                  subject={preview.subject}
+                  from={preview.from}
+                  snippet={preview.snippet}
+                  onOpen={() => onOpenEmail?.(preview.id)}
+                />
               {/if}
-            </details>
+            </div>
           {:else if part.type === 'text' && part.content}
             <div class="msg-content markdown">
               <!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -201,6 +203,17 @@
     flex: 1;
     overflow-y: auto;
     padding: 16px;
+    box-sizing: border-box;
+  }
+
+  /* Full-width chat only: center readable column (split view keeps full width of chat pane) */
+  @media (min-width: 768px) {
+    :global(.split:not(.has-detail)) .conversation {
+      max-width: 680px;
+      margin-left: auto;
+      margin-right: auto;
+      width: 100%;
+    }
   }
 
   .empty-state {
@@ -255,8 +268,15 @@
     line-height: 1.5;
   }
 
+  .tool-part {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 4px 0 12px;
+  }
+
   .tool-call {
-    margin: 4px 0;
+    margin: 0;
     border-radius: 4px;
     font-size: 13px;
     overflow: hidden;
