@@ -147,7 +147,12 @@
                 {/if}
               </details>
               {#if preview?.kind === 'calendar'}
-                <CalendarPreviewCard start={preview.start} end={preview.end} events={preview.events} />
+                <CalendarPreviewCard
+                  start={preview.start}
+                  end={preview.end}
+                  events={preview.events}
+                  onOpenCalendar={(date) => onSwitchToCalendar?.(date)}
+                />
               {:else if preview?.kind === 'wiki'}
                 <WikiPreviewCard
                   path={preview.path}
@@ -220,7 +225,7 @@
   /* Full-width chat only: center readable column (split view keeps full width of chat pane) */
   @media (min-width: 768px) {
     :global(.split:not(.has-detail)) .conversation {
-      max-width: 680px;
+      max-width: var(--chat-column-max);
       margin-left: auto;
       margin-right: auto;
       width: 100%;

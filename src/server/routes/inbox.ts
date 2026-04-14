@@ -4,6 +4,7 @@ import { promisify } from 'node:util'
 import { extractDraftEdits } from '../lib/draftExtract.js'
 import { buildDraftEditFlags } from '../agent/tools.js'
 import { syncInboxRipmail } from '../lib/syncAll.js'
+import { flattenInboxFromRipmailData } from '../lib/ripmailInboxFlatten.js'
 
 const inbox = new Hono()
 const execAsync = promisify(exec)
@@ -16,20 +17,8 @@ inbox.get('/', async (c) => {
   try {
     const { stdout } = await execAsync(`${ripmail()} inbox`)
     const data = JSON.parse(stdout)
-    const items = (data.mailboxes ?? []).flatMap((mb: any) =>
-      (mb.items ?? [])
-        .filter((item: any) => item.action !== 'ignore')
-        .map((item: any) => ({
-          id: item.messageId,
-          from: item.fromName || item.fromAddress,
-          subject: item.subject,
-          date: item.date,
-          snippet: item.snippet,
-          action: item.action,
-          read: item.action !== 'notify',
-        }))
-    )
-    return c.json(items)
+    const rows = flattenInboxFromRipmailData(data)
+    return c.json(rows ?? [])
   } catch (err) {
     console.error('ripmail inbox error:', err)
     return c.json([], 200)

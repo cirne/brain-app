@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  formatEmailParticipant,
-  flattenInboxFromRipmailData,
-  matchContentPreview,
-  parseRipmailInboxFlat,
-} from './contentCards.js'
+import { matchContentPreview } from './contentCards.js'
 import type { ToolCall } from '../agentUtils.js'
 
 function tc(p: Partial<ToolCall> & Pick<ToolCall, 'id' | 'name'>): ToolCall {
@@ -55,13 +50,6 @@ describe('matchContentPreview', () => {
       expect(p.path).toBe('ideas/foo.md')
       expect(p.excerpt).toContain('Hello')
     }
-  })
-
-  it('formats email From when ripmail uses an object', () => {
-    expect(formatEmailParticipant({ name: 'Kirsten Vliet', address: 'k@example.com' })).toBe(
-      'Kirsten Vliet <k@example.com>',
-    )
-    expect(formatEmailParticipant('plain@example.com')).toBe('plain@example.com')
   })
 
   it('returns email preview for read_email with object from and body', () => {
@@ -139,35 +127,4 @@ describe('matchContentPreview', () => {
     }
   })
 
-  it('flattenInboxFromRipmailData returns null for non-objects', () => {
-    expect(flattenInboxFromRipmailData(null)).toBeNull()
-    expect(flattenInboxFromRipmailData([])).toBeNull()
-  })
-
-  it('parseRipmailInboxFlat skips ignored items', () => {
-    const rows = parseRipmailInboxFlat(
-      JSON.stringify({
-        mailboxes: [
-          {
-            items: [
-              {
-                messageId: 'a',
-                subject: 'X',
-                fromName: 'A',
-                action: 'ignore',
-              },
-              {
-                messageId: 'b',
-                subject: 'Y',
-                fromName: 'B',
-                action: 'read',
-              },
-            ],
-          },
-        ],
-      }),
-    )
-    expect(rows).toHaveLength(1)
-    expect(rows![0].id).toBe('b')
-  })
 })

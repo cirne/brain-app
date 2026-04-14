@@ -315,6 +315,16 @@
     flex-shrink: 0;
   }
 
+  /* Same width as .conversation when chat is full-width (no detail split) */
+  @media (min-width: 768px) {
+    :global(.split:not(.has-detail)) .input-shell {
+      max-width: var(--chat-column-max);
+      margin-left: auto;
+      margin-right: auto;
+      width: 100%;
+    }
+  }
+
   .header-left {
     display: flex;
     align-items: center;

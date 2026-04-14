@@ -4,13 +4,8 @@
   import AppTopNav from './lib/AppTopNav.svelte'
   import SlideOver from './lib/SlideOver.svelte'
   import AgentDrawer from './lib/AgentDrawer.svelte'
+  import WorkspaceSplit from './lib/WorkspaceSplit.svelte'
   import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from './router.js'
-  import {
-    clampAgentPanelWidth,
-    loadInitialDetailPanelWidth,
-    nextPanelWidthAfterDrag,
-    persistDetailPanelWidth,
-  } from './lib/app/agentPanelWidth.js'
   import { runParallelSyncs } from './lib/app/syncAllServices.js'
   import { matchGlobalShortcut } from './lib/app/globalShortcuts.js'
   import { emit, subscribe } from './lib/app/appEvents.js'
@@ -27,12 +22,11 @@
   let showSyncErrors = $state(false)
   let calendarRefreshKey = $state(0)
   let wikiRefreshKey = $state(0)
-  let detailPanelWidth = $state(loadInitialDetailPanelWidth())
-  let detailPanelResizing = $state(false)
   let showSearch = $state(false)
   let inboxTargetId = $state<string | undefined>()
   let agentDrawer = $state<AgentDrawer | undefined>()
   let mobileSlideOver = $state<{ closeAnimated: () => void } | undefined>()
+  let workspaceSplit = $state<WorkspaceSplit | undefined>()
   let isMobile = $state(false)
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
@@ -69,10 +63,6 @@
     loadGitStatus()
     const onPopState = () => { route = parseRoute() }
     window.addEventListener('popstate', onPopState)
-    const onWinResize = () => {
-      detailPanelWidth = clampAgentPanelWidth(detailPanelWidth, window.innerWidth)
-    }
-    window.addEventListener('resize', onWinResize)
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && route.overlay) {
         e.preventDefault()
@@ -99,7 +89,6 @@
     return () => {
       mq.removeEventListener('change', syncMobile)
       window.removeEventListener('popstate', onPopState)
-      window.removeEventListener('resize', onWinResize)
       window.removeEventListener('keydown', onKeydown)
     }
   })
@@ -120,39 +109,19 @@
     })
   })
 
-  function onDetailResizePointerDown(e: PointerEvent) {
-    if (typeof window !== 'undefined' && window.innerWidth <= 767) return
-    e.preventDefault()
-    const el = e.currentTarget as HTMLButtonElement
-    el.setPointerCapture(e.pointerId)
-    const startX = e.clientX
-    const startW = detailPanelWidth
-    detailPanelResizing = true
-    const prevCursor = document.body.style.cursor
-    const prevUserSelect = document.body.style.userSelect
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-
-    function onMove(ev: PointerEvent) {
-      detailPanelWidth = nextPanelWidthAfterDrag(startW, startX, ev.clientX, window.innerWidth)
-    }
-    function onUp(ev: PointerEvent) {
-      detailPanelResizing = false
-      document.body.style.cursor = prevCursor
-      document.body.style.userSelect = prevUserSelect
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      if (el.hasPointerCapture(ev.pointerId)) el.releasePointerCapture(ev.pointerId)
-      persistDetailPanelWidth(detailPanelWidth, window.innerWidth)
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-  }
-
-  function closeOverlay() {
+  function closeOverlayImmediate() {
     navigate({})
     route = parseRoute()
     agentContext = { type: 'chat' }
+  }
+
+  function closeOverlay() {
+    if (!route.overlay) return
+    if (isMobile) {
+      closeOverlayImmediate()
+      return
+    }
+    workspaceSplit?.closeDesktopAnimated()
   }
 
   function openWikiDoc(path?: string) {
@@ -264,76 +233,65 @@
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
   />
 
-  <div class="workspace">
-    <div class="split" class:has-detail={!!route.overlay}>
-      <section class="chat-pane">
-        <AgentDrawer
-          bind:this={agentDrawer}
-          context={agentContext}
-          conversationHidden={!!route.overlay && isMobile}
-          onOpenWiki={openWikiDoc}
-          onOpenEmail={openEmailFromChat}
-          onOpenFullInbox={openFullInboxFromChat}
-          onSwitchToCalendar={switchToCalendar}
-          onOpenFromAgent={onOpenFromAgent}
-          onNewChat={closeOverlay}
-        >
-          {#snippet mobileDetail()}
-            {#if route.overlay}
-              <SlideOver
-                bind:this={mobileSlideOver}
-                overlay={route.overlay}
-                surfaceContext={agentContext}
-                wikiRefreshKey={wikiRefreshKey}
-                calendarRefreshKey={calendarRefreshKey}
-                inboxTargetId={inboxTargetId}
-                onWikiNavigate={onWikiNavigate}
-                onInboxNavigate={onInboxNavigateSlide}
-                onContextChange={setContext}
-                onOpenSearch={() => { showSearch = true }}
-                onSummarizeInbox={onSummarizeInbox}
-                onClose={closeOverlay}
-                onSync={syncAll}
-                {syncing}
-                mobilePanel
-              />
-            {/if}
-          {/snippet}
-        </AgentDrawer>
-      </section>
-
-      {#if route.overlay && !isMobile}
-        <section
-          class="detail-pane"
-          class:resizing={detailPanelResizing}
-          style:--detail-w="{detailPanelWidth}px"
-        >
-          <button
-            type="button"
-            class="detail-resize-handle"
-            aria-label="Resize detail panel"
-            title="Drag to resize"
-            onpointerdown={onDetailResizePointerDown}
-          >
-            <span class="detail-resize-grip" aria-hidden="true"></span>
-          </button>
-          <SlideOver
-            overlay={route.overlay}
-            surfaceContext={agentContext}
-            wikiRefreshKey={wikiRefreshKey}
-            calendarRefreshKey={calendarRefreshKey}
-            inboxTargetId={inboxTargetId}
-            onWikiNavigate={onWikiNavigate}
-            onInboxNavigate={onInboxNavigateSlide}
-            onContextChange={setContext}
-            onOpenSearch={() => { showSearch = true }}
-            onSummarizeInbox={onSummarizeInbox}
-            onClose={closeOverlay}
-          />
-        </section>
+  <WorkspaceSplit
+    bind:this={workspaceSplit}
+    hasDetail={!!route.overlay}
+    desktopDetailOpen={!!route.overlay && !isMobile}
+    onNavigateClear={closeOverlayImmediate}
+  >
+    {#snippet chat()}
+      <AgentDrawer
+        bind:this={agentDrawer}
+        context={agentContext}
+        conversationHidden={!!route.overlay && isMobile}
+        onOpenWiki={openWikiDoc}
+        onOpenEmail={openEmailFromChat}
+        onOpenFullInbox={openFullInboxFromChat}
+        onSwitchToCalendar={switchToCalendar}
+        onOpenFromAgent={onOpenFromAgent}
+        onNewChat={closeOverlay}
+      >
+        {#snippet mobileDetail()}
+          {#if route.overlay}
+            <SlideOver
+              bind:this={mobileSlideOver}
+              overlay={route.overlay}
+              surfaceContext={agentContext}
+              wikiRefreshKey={wikiRefreshKey}
+              calendarRefreshKey={calendarRefreshKey}
+              inboxTargetId={inboxTargetId}
+              onWikiNavigate={onWikiNavigate}
+              onInboxNavigate={onInboxNavigateSlide}
+              onContextChange={setContext}
+              onOpenSearch={() => { showSearch = true }}
+              onSummarizeInbox={onSummarizeInbox}
+              onClose={closeOverlay}
+              onSync={syncAll}
+              {syncing}
+              mobilePanel
+            />
+          {/if}
+        {/snippet}
+      </AgentDrawer>
+    {/snippet}
+    {#snippet desktopDetail()}
+      {#if route.overlay}
+        <SlideOver
+          overlay={route.overlay}
+          surfaceContext={agentContext}
+          wikiRefreshKey={wikiRefreshKey}
+          calendarRefreshKey={calendarRefreshKey}
+          inboxTargetId={inboxTargetId}
+          onWikiNavigate={onWikiNavigate}
+          onInboxNavigate={onInboxNavigateSlide}
+          onContextChange={setContext}
+          onOpenSearch={() => { showSearch = true }}
+          onSummarizeInbox={onSummarizeInbox}
+          onClose={closeOverlay}
+        />
       {/if}
-    </div>
-  </div>
+    {/snippet}
+  </WorkspaceSplit>
 </div>
 
 <style>
@@ -341,78 +299,5 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-  }
-
-  .workspace {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    position: relative;
-  }
-
-  .split {
-    flex: 1;
-    display: flex;
-    min-height: 0;
-    position: relative;
-  }
-
-  .chat-pane {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    z-index: 0;
-  }
-
-  .detail-pane {
-    --detail-w: max(290px, min(50vw, 920px));
-    position: relative;
-    z-index: 1;
-    width: var(--detail-w);
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: visible;
-  }
-
-  .detail-resize-handle {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 16px;
-    margin-left: -8px;
-    z-index: 3;
-    cursor: col-resize;
-    touch-action: none;
-    border: none;
-    padding: 0;
-    background: transparent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .detail-resize-grip {
-    width: 8px;
-    height: 30px;
-    border-radius: 4px;
-    opacity: 0.45;
-    background-color: var(--text-2);
-    background-image: repeating-linear-gradient(
-      180deg,
-      transparent 0 4px,
-      rgba(0, 0, 0, 0.1) 4px 5px
-    );
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.22),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.12);
-  }
-
-  .detail-pane.resizing .detail-resize-grip {
-    opacity: 1;
   }
 </style>

@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { Archive, Inbox } from 'lucide-svelte'
+  import { emit, subscribe } from '../app/appEvents.js'
   import { formatDate } from '../formatDate.js'
   import type { InboxListItemPreview } from './contentCards.js'
 
@@ -32,11 +34,20 @@
       const res = await fetch(`/api/inbox/${encodeURIComponent(id)}/archive`, { method: 'POST' })
       if (res.ok) {
         archivedIds = new Set([...archivedIds, id])
+        emit({ type: 'inbox:archived', messageId: id })
       }
     } finally {
       archivingId = null
     }
   }
+
+  onMount(() => {
+    return subscribe((e) => {
+      if (e.type !== 'inbox:archived') return
+      if (archivedIds.has(e.messageId)) return
+      archivedIds = new Set([...archivedIds, e.messageId])
+    })
+  })
 
   function truncate(s: string, max: number) {
     const t = s.replace(/\s+/g, ' ').trim()

@@ -151,7 +151,7 @@
   .content-area { flex: 1; overflow-y: auto; min-width: 0; }
 
   .viewer {
-    max-width: 680px;
+    max-width: var(--chat-column-max);
     width: 100%;
     margin: 0 auto;
     padding: 24px clamp(16px, 4%, 40px);

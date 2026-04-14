@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte'
   import { Archive, Reply, Forward, Sparkles } from 'lucide-svelte'
+  import { emit, subscribe } from './app/appEvents.js'
   import { navigate } from '../router.js'
   import { emailHeadersForDisplay } from './inboxHeaders.js'
   import { formatDate } from './formatDate.js'
@@ -150,7 +151,17 @@
   }
 
   async function archive(id: string) {
-    await fetch(`/api/inbox/${encodeURIComponent(id)}/archive`, { method: 'POST' })
+    try {
+      const res = await fetch(`/api/inbox/${encodeURIComponent(id)}/archive`, { method: 'POST' })
+      if (!res.ok) return
+      emails = emails.filter(e => e.id !== id)
+      if (selectedThread === id) { selectedThread = null; threadContent = null }
+      emit({ type: 'inbox:archived', messageId: id })
+    } catch { /* ignore */ }
+  }
+
+  function applyExternalArchive(id: string) {
+    if (!emails.some(e => e.id === id)) return
     emails = emails.filter(e => e.id !== id)
     if (selectedThread === id) { selectedThread = null; threadContent = null }
   }
@@ -349,6 +360,11 @@
 
   onMount(() => {
     void load()
+    const unsub = subscribe((e) => {
+      if (e.type !== 'inbox:archived') return
+      applyExternalArchive(e.messageId)
+    })
+    return unsub
   })
 
   /**

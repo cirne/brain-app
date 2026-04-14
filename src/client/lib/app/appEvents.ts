@@ -14,7 +14,13 @@ export type SyncCompletedEvent = {
   type: 'sync:completed'
 }
 
-export type AppEvent = WikiMutatedEvent | SyncCompletedEvent
+/** Inbox thread archived in UI (full inbox or agent preview card); keep surfaces in sync. */
+export type InboxArchivedEvent = {
+  type: 'inbox:archived'
+  messageId: string
+}
+
+export type AppEvent = WikiMutatedEvent | SyncCompletedEvent | InboxArchivedEvent
 
 const listeners = new Set<(event: AppEvent) => void>()
 

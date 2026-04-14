@@ -43,4 +43,14 @@ describe('appEvents', () => {
     u1()
     u2()
   })
+
+  it('delivers inbox:archived with messageId', () => {
+    const ids: string[] = []
+    const unsub = subscribe((e) => {
+      if (e.type === 'inbox:archived') ids.push(e.messageId)
+    })
+    emit({ type: 'inbox:archived', messageId: 'msg-1' })
+    expect(ids).toEqual(['msg-1'])
+    unsub()
+  })
 })
