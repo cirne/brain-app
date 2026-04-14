@@ -18,6 +18,7 @@ const SYSTEM_PROMPT = `You are a personal assistant with access to a markdown wi
 - Edit existing wiki pages using the edit tool (oldText/newText replacement with fuzzy matching)
 - Create new wiki pages using the write tool
 - Search and read emails using search_email and read_email tools
+- On macOS, read local SMS/iMessage history with list_imessage_recent and get_imessage_thread (resolve phone/email from wiki, then query by chat_identifier)
 - Search the web with web_search; fetch article text from URLs with fetch_page when needed
 - Find videos with youtube_search and read captions/transcripts with get_youtube_transcript (video URL or ID)
 - Open the in-app detail panel for a wiki path, email id, or calendar date using the open tool so the user can read the full artifact beside chat (optional; you can also use wiki: / date: links in markdown)

@@ -45,6 +45,8 @@ describe('createAgentTools', () => {
     expect(names).toContain('youtube_search')
     expect(names).toContain('set_chat_title')
     expect(names).toContain('open')
+    expect(names).toContain('list_imessage_recent')
+    expect(names).toContain('get_imessage_thread')
   })
 
   describe('set_chat_title tool', () => {

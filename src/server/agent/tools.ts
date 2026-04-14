@@ -5,8 +5,41 @@ import { promisify } from 'node:util'
 import { getCalendarEvents } from '../lib/calendarCache.js'
 import { Exa } from 'exa-js'
 import { appendWikiEditRecord } from '../lib/wikiEditHistory.js'
+import {
+  appleDateNsToUnixMs,
+  getImessageDbPath,
+  getThreadMessages,
+  listRecentMessages,
+} from '../lib/imessageDb.js'
 
 const execAsync = promisify(exec)
+
+function parseOptionalIsoMs(s: string | undefined): number | undefined {
+  if (s == null || String(s).trim() === '') return undefined
+  const t = Date.parse(String(s))
+  if (Number.isNaN(t)) throw new Error(`Invalid ISO datetime: ${s}`)
+  return t
+}
+
+function formatImessageRow(r: {
+  rowid: number
+  text: string | null
+  date: number
+  is_from_me: number
+  is_read: number
+  chat_identifier: string | null
+  display_name: string | null
+}) {
+  return {
+    rowid: r.rowid,
+    text: r.text ?? '',
+    iso: new Date(appleDateNsToUnixMs(r.date)).toISOString(),
+    is_from_me: Boolean(r.is_from_me),
+    is_read: Boolean(r.is_read),
+    chat_identifier: r.chat_identifier,
+    display_name: r.display_name,
+  }
+}
 
 /** Build CLI flags for ripmail draft edit from metadata params. */
 export function buildDraftEditFlags(params: {
@@ -507,6 +540,108 @@ export function createAgentTools(wikiDir: string): any[] {
     },
   })
 
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
+
+  const listImessageRecent = defineTool({
+    name: 'list_imessage_recent',
+    label: 'List recent iMessage',
+    description:
+      'Read recent SMS/iMessage from the local macOS Messages database (read-only). Use after resolving a phone or email handle from the wiki. Default time window: last 7 days. Requires macOS Full Disk Access for ~/Library/Messages/chat.db or set IMESSAGE_DB_PATH.',
+    parameters: Type.Object({
+      since: Type.Optional(Type.String({ description: 'ISO 8601 start time (optional; default last 7 days)' })),
+      until: Type.Optional(Type.String({ description: 'ISO 8601 end time (optional; default now)' })),
+      unread_only: Type.Optional(Type.Boolean({ description: 'Only incoming messages not yet read' })),
+      chat_identifier: Type.Optional(
+        Type.String({ description: 'Exact chat_identifier from Messages (e.g. +15551234567 or Apple ID email)' }),
+      ),
+      limit: Type.Optional(Type.Number({ description: 'Max rows 1–200 (default 30)' })),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: {
+        since?: string
+        until?: string
+        unread_only?: boolean
+        chat_identifier?: string
+        limit?: number
+      },
+    ) {
+      const dbPath = getImessageDbPath()
+      const untilMs = parseOptionalIsoMs(params.until)
+      const sinceMs = parseOptionalIsoMs(params.since)
+      const defaultSinceMs = Date.now() - sevenDaysMs
+      const { messages, error } = listRecentMessages(dbPath, {
+        sinceMs,
+        untilMs,
+        unread_only: params.unread_only,
+        chat_identifier: params.chat_identifier,
+        limit: params.limit,
+        defaultSinceMs,
+      })
+      if (error) {
+        return {
+          content: [{ type: 'text' as const, text: error }],
+          details: { ok: false, error },
+        }
+      }
+      const payload = {
+        db_path: dbPath,
+        count: messages.length,
+        messages: messages.map(formatImessageRow),
+      }
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
+        details: { ok: true as const, error: '', ...payload },
+      }
+    },
+  })
+
+  const getImessageThread = defineTool({
+    name: 'get_imessage_thread',
+    label: 'Get iMessage thread',
+    description:
+      'Read messages for one conversation by chat_identifier (same string as in list_imessage_recent). Returns messages oldest-first for reading, plus message_count in the window. Default time window: last 7 days.',
+    parameters: Type.Object({
+      chat_identifier: Type.String({ description: 'chat.chat_identifier for the thread (phone, email, or group id)' }),
+      since: Type.Optional(Type.String({ description: 'ISO 8601 start (optional)' })),
+      until: Type.Optional(Type.String({ description: 'ISO 8601 end (optional)' })),
+      limit: Type.Optional(Type.Number({ description: 'Max messages 1–500 (default 100)' })),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { chat_identifier: string; since?: string; until?: string; limit?: number },
+    ) {
+      const dbPath = getImessageDbPath()
+      const untilMs = parseOptionalIsoMs(params.until)
+      const sinceMs = parseOptionalIsoMs(params.since)
+      const defaultSinceMs = Date.now() - sevenDaysMs
+      const { messages, message_count, error } = getThreadMessages(dbPath, {
+        chat_identifier: params.chat_identifier,
+        sinceMs,
+        untilMs,
+        limit: params.limit,
+        defaultSinceMs,
+      })
+      if (error) {
+        return {
+          content: [{ type: 'text' as const, text: error }],
+          details: { ok: false, error },
+        }
+      }
+      const payload = {
+        db_path: dbPath,
+        chat_identifier: params.chat_identifier,
+        message_count,
+        returned: messages.length,
+        messages: messages.map(formatImessageRow),
+      }
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
+        details: { ok: true as const, error: '', ...payload },
+      }
+    },
+  })
+
   return [
     read,
     edit,
@@ -529,5 +664,7 @@ export function createAgentTools(wikiDir: string): any[] {
     youtubeSearch,
     setChatTitle,
     openTool,
+    listImessageRecent,
+    getImessageThread,
   ]
 }

@@ -13,6 +13,7 @@ import {
   Globe,
   Play,
   PanelRightOpen,
+  MessageSquare,
 } from 'lucide-svelte'
 import type { Component } from 'svelte'
 
@@ -36,6 +37,8 @@ const TOOL_ICONS = {
   get_youtube_transcript: Play,
   youtube_search: Play,
   open: PanelRightOpen,
+  list_imessage_recent: MessageSquare,
+  get_imessage_thread: MessageSquare,
 } as unknown as Record<string, Component>
 
 export function getToolIcon(toolName: string): Component | null {
