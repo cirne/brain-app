@@ -7,6 +7,7 @@ import { Exa } from 'exa-js'
 import { appendWikiEditRecord } from '../lib/wikiEditHistory.js'
 import {
   appleDateNsToUnixMs,
+  areImessageToolsEnabled,
   getImessageDbPath,
   getThreadMessages,
   listRecentMessages,
@@ -64,13 +65,27 @@ export function buildDraftEditFlags(params: {
   return parts.length ? parts.join(' ') + ' ' : ''
 }
 
+export interface CreateAgentToolsOptions {
+  /**
+   * Include list_imessage_recent / get_imessage_thread. Default: true only if
+   * initImessageToolsAvailability() ran at startup and chat.db was readable.
+   */
+  includeImessageTools?: boolean
+}
+
+function resolveIncludeImessageTools(options?: CreateAgentToolsOptions): boolean {
+  if (options?.includeImessageTools !== undefined) return options.includeImessageTools
+  return areImessageToolsEnabled()
+}
+
 /**
  * Create all agent tools scoped to a wiki directory.
  * Pi-coding-agent provides file tools (read/edit/write/grep/find).
  * Custom tools handle ripmail and git operations.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createAgentTools(wikiDir: string): any[] {
+export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): any[] {
+  const includeImessage = resolveIncludeImessageTools(options)
   // Pi-coding-agent file tools scoped to wiki directory (edit/write append to data/wiki-edits.jsonl)
   const read = createReadTool(wikiDir)
   const editTool = createEditTool(wikiDir)
@@ -664,7 +679,6 @@ export function createAgentTools(wikiDir: string): any[] {
     youtubeSearch,
     setChatTitle,
     openTool,
-    listImessageRecent,
-    getImessageThread,
+    ...(includeImessage ? [listImessageRecent, getImessageThread] : []),
   ]
 }

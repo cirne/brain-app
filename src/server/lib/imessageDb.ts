@@ -15,6 +15,40 @@ export function getImessageDbPath(): string {
   return process.env.IMESSAGE_DB_PATH ?? join(homedir(), 'Library', 'Messages', 'chat.db')
 }
 
+/** Set once at startup by {@link initImessageToolsAvailability}; drives agent tool registration. */
+let imessageDbReadableAtStartup: boolean | null = null
+
+/** Try to open the Messages DB read-only and run a trivial query. */
+export function probeImessageDbReadable(): boolean {
+  const path = getImessageDbPath()
+  try {
+    const db = new Database(path, { readonly: true, fileMustExist: true })
+    try {
+      db.prepare('SELECT 1').get()
+      return true
+    } finally {
+      db.close()
+    }
+  } catch {
+    return false
+  }
+}
+
+/** Idempotent: first call probes disk; later calls no-op. Run during server startup. */
+export function initImessageToolsAvailability(): void {
+  if (imessageDbReadableAtStartup !== null) return
+  imessageDbReadableAtStartup = probeImessageDbReadable()
+}
+
+export function areImessageToolsEnabled(): boolean {
+  return imessageDbReadableAtStartup === true
+}
+
+/** Tests only: reset probe state so init can run again. */
+export function resetImessageToolsAvailabilityForTests(): void {
+  imessageDbReadableAtStartup = null
+}
+
 export interface ImessageRow {
   rowid: number
   text: string | null

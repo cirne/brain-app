@@ -4,10 +4,15 @@ import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { createAgentTools } from './tools.js'
 import { wikiDir as getWikiDir } from '../lib/wikiDir.js'
 import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '../lib/openAiResponsesPayload.js'
+import { areImessageToolsEnabled } from '../lib/imessageDb.js'
 
 const sessions = new Map<string, Agent>()
 
-const SYSTEM_PROMPT = `You are a personal assistant with access to a markdown wiki, email, web search, and YouTube.
+function buildBaseSystemPrompt(includeImessageCapabilities: boolean): string {
+  const imessageBullet = includeImessageCapabilities
+    ? `- On macOS, read local SMS/iMessage history with list_imessage_recent and get_imessage_thread (resolve phone/email from wiki, then query by chat_identifier)\n`
+    : ''
+  return `You are a personal assistant with access to a markdown wiki, email, web search, and YouTube.
 
 ## Chat title
 - On the first user message of a conversation (and when the topic clearly changes), call **set_chat_title** first with a short, specific title (about 3–8 words) that reflects what the user is asking. Do this before any other tools in that turn.
@@ -18,8 +23,7 @@ const SYSTEM_PROMPT = `You are a personal assistant with access to a markdown wi
 - Edit existing wiki pages using the edit tool (oldText/newText replacement with fuzzy matching)
 - Create new wiki pages using the write tool
 - Search and read emails using search_email and read_email tools
-- On macOS, read local SMS/iMessage history with list_imessage_recent and get_imessage_thread (resolve phone/email from wiki, then query by chat_identifier)
-- Search the web with web_search; fetch article text from URLs with fetch_page when needed
+${imessageBullet}- Search the web with web_search; fetch article text from URLs with fetch_page when needed
 - Find videos with youtube_search and read captions/transcripts with get_youtube_transcript (video URL or ID)
 - Open the in-app detail panel for a wiki path, email id, or calendar date using the open tool so the user can read the full artifact beside chat (optional; you can also use wiki: / date: links in markdown)
 
@@ -32,6 +36,7 @@ const SYSTEM_PROMPT = `You are a personal assistant with access to a markdown wi
 - Wiki links for chat: [human-readable title](wiki:relative/path.md) only after confirming the file exists (find/grep/read). Put a real title or name in the brackets—# heading, frontmatter, or proper noun—not the raw path unless you're discussing the path itself. Wrong: [companies/new-relic](wiki:companies/new-relic.md). Right: [New Relic](wiki:companies/new-relic.md).
 - Date links for a specific day only: [label](date:YYYY-MM-DD) with that day's exact ISO date from the current date context (e.g. [next Tuesday](date:2026-04-21)). Skip vague ranges.
 - Use open with target type wiki/email/calendar when you want the UI to navigate to that artifact; prefer wiki: and date: links in prose when embedding references inline.`
+}
 
 export interface SessionOptions {
   /** Pre-injected file context for file-grounded chat */
@@ -51,6 +56,7 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
   if (existing) return existing
 
   const wikiDir = options.wikiDir ?? getWikiDir()
+  const imessageEnabled = areImessageToolsEnabled()
   const tools = createAgentTools(wikiDir)
 
   // Build system prompt with local date/time in the user's timezone
@@ -64,7 +70,7 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
     .formatToParts(now)
     .find(p => p.type === 'timeZoneName')?.value ?? ''  // e.g. "GMT-5"
   const utcOffset = gmtOffset.replace('GMT', 'UTC')  // e.g. "UTC-5"
-  let systemPrompt = `${SYSTEM_PROMPT}\n\n## Current date & time\nToday is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — to convert to local time use the ${utcOffset} offset. Do not assume a fixed offset for the timezone name; ${utcOffset} already reflects daylight saving time.`
+  let systemPrompt = `${buildBaseSystemPrompt(imessageEnabled)}\n\n## Current date & time\nToday is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — to convert to local time use the ${utcOffset} offset. Do not assume a fixed offset for the timezone name; ${utcOffset} already reflects daylight saving time.`
 
   if (options.context) {
     systemPrompt += `\n\n## Current file context\nThe user is viewing the following file(s). Use this as context for the conversation.\n\n${options.context}`

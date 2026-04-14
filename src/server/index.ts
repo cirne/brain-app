@@ -13,6 +13,7 @@ import inboxRoute from './routes/inbox.js'
 import calendarRoute from './routes/calendar.js'
 import searchRoute from './routes/search.js'
 import { logStartupDiagnostics } from './lib/startupDiagnostics.js'
+import { initImessageToolsAvailability } from './lib/imessageDb.js'
 import { verifyLlmAtStartup } from './lib/llmStartupSmoke.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
 
@@ -82,6 +83,7 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
 
 async function start() {
   try {
+    initImessageToolsAvailability()
     await verifyLlmAtStartup()
     await logStartupDiagnostics()
 

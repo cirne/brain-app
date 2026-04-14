@@ -6,8 +6,12 @@ import Database from 'better-sqlite3'
 import {
   appleDateNsToUnixMs,
   unixMsToAppleDateNs,
+  areImessageToolsEnabled,
+  initImessageToolsAvailability,
   listRecentMessages,
   getThreadMessages,
+  probeImessageDbReadable,
+  resetImessageToolsAvailabilityForTests,
 } from './imessageDb.js'
 
 let dir: string
@@ -125,5 +129,32 @@ describe('imessageDb', () => {
     expect(error).toBeUndefined()
     expect(message_count).toBe(2)
     expect(messages.map((m) => m.text)).toEqual(['Hello', 'Reply'])
+  })
+
+  describe('availability probe', () => {
+    beforeEach(() => {
+      process.env.IMESSAGE_DB_PATH = dbPath
+      resetImessageToolsAvailabilityForTests()
+    })
+
+    afterEach(() => {
+      delete process.env.IMESSAGE_DB_PATH
+      resetImessageToolsAvailabilityForTests()
+    })
+
+    it('probeImessageDbReadable returns true for readable db', () => {
+      expect(probeImessageDbReadable()).toBe(true)
+    })
+
+    it('initImessageToolsAvailability enables tools when db is readable', () => {
+      initImessageToolsAvailability()
+      expect(areImessageToolsEnabled()).toBe(true)
+    })
+
+    it('probeImessageDbReadable returns false when path does not exist', () => {
+      process.env.IMESSAGE_DB_PATH = join(dir, 'missing-chat.db')
+      resetImessageToolsAvailabilityForTests()
+      expect(probeImessageDbReadable()).toBe(false)
+    })
   })
 })
