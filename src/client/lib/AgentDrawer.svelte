@@ -17,6 +17,7 @@
     onSwitchToCalendar,
     onOpenFromAgent,
     onWikiMutated,
+    onNewChat,
     mobileDetail,
   }: {
     context?: SurfaceContext
@@ -27,6 +28,7 @@
     /** LLM `open` tool — fired from SSE tool_start */
     onOpenFromAgent?: (_target: { type: string; path?: string; id?: string; date?: string }) => void
     onWikiMutated?: () => void
+    onNewChat?: () => void
     /** Full-screen detail stack above input (mobile only) */
     mobileDetail?: Snippet
   } = $props()
@@ -79,6 +81,7 @@
     messages = []
     sessionId = null
     chatTitle = null
+    onNewChat?.()
     void focusAgentTextarea(0)
   }
 
@@ -86,6 +89,7 @@
     messages = []
     sessionId = null
     chatTitle = null
+    onNewChat?.()
     await tick()
     await send(text)
   }

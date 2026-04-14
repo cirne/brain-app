@@ -260,6 +260,7 @@
           onSwitchToCalendar={switchToCalendar}
           onOpenFromAgent={onOpenFromAgent}
           onWikiMutated={onWikiMutated}
+          onNewChat={closeOverlay}
         >
           {#snippet mobileDetail()}
             {#if route.overlay}
