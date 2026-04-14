@@ -1,16 +1,13 @@
 <script lang="ts">
   import WikiFileList from './WikiFileList.svelte'
-  import type { Route } from '../router.js'
 
   type Props = {
-    route: Route
     dirtyFiles: string[]
     recentFiles: { path: string; date: string }[]
     showRecentFiles: boolean
     syncing: boolean
     syncErrors: string[]
     showSyncErrors: boolean
-    onSelectTab: (_tab: Route['tab']) => void
     onOpenSearch: () => void
     onToggleRecentFiles: () => void
     onOpenWikiFromList: (_path: string) => void
@@ -19,14 +16,12 @@
   }
 
   let {
-    route,
     dirtyFiles,
     recentFiles,
     showRecentFiles,
     syncing,
     syncErrors,
     showSyncErrors,
-    onSelectTab,
     onOpenSearch,
     onToggleRecentFiles,
     onOpenWikiFromList,
@@ -36,11 +31,8 @@
 </script>
 
 <nav class="tabs">
-  <div class="tab-group">
-    <button class:active={route.tab === 'today'} onclick={() => onSelectTab('today')} title="Today · ⌘1  ⌃1  ⌥⌘1">Today</button>
-    <button class:active={route.tab === 'inbox'} onclick={() => onSelectTab('inbox')} title="Inbox · ⌘2  ⌃2  ⌥⌘2">Inbox</button>
-    <button class:active={route.tab === 'wiki'} onclick={() => onSelectTab('wiki')} title="Wiki · ⌘3  ⌃3  ⌥⌘3">Wiki</button>
-    <button class:active={route.tab === 'calendar'} onclick={() => onSelectTab('calendar')} title="Calendar · ⌘4  ⌃4  ⌥⌘4">Calendar</button>
+  <div class="brand">
+    <span class="brand-name">Brain</span>
   </div>
   <div class="search-wrap">
     <button class="search-btn" onclick={onOpenSearch} title="Search (⌘K)" aria-label="Search">
@@ -104,7 +96,20 @@
     flex-shrink: 0;
   }
 
-  /* ── search button ──────────────────────────────────────── */
+  .brand {
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .brand-name {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
 
   .search-wrap {
     display: flex;
@@ -123,8 +128,6 @@
     transition: color 0.15s;
   }
   .search-btn:hover { color: var(--text); }
-
-  /* ── wiki log indicator ──────────────────────────────────── */
 
   .log-wrap {
     position: relative;
@@ -170,33 +173,6 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     z-index: 200;
   }
-
-  /* ── tabs ────────────────────────────────────────────────── */
-
-  .tab-group {
-    display: flex;
-    flex: 1;
-  }
-
-  .tab-group button {
-    flex: 1;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-2);
-    letter-spacing: 0.02em;
-    transition: color 0.15s;
-  }
-
-  .tab-group button:hover {
-    color: var(--text);
-  }
-
-  .tab-group button.active {
-    color: var(--accent);
-    border-bottom: 2px solid var(--accent);
-  }
-
-  /* ── sync button ─────────────────────────────────────────── */
 
   .sync-wrap {
     position: relative;

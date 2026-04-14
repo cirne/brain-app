@@ -460,5 +460,49 @@ export function createAgentTools(wikiDir: string): any[] {
     },
   })
 
-  return [read, edit, write, grep, find, searchEmail, readEmail, listInbox, archiveEmails, draftEmail, editDraft, sendDraft, gitCommitPush, findPerson, wikiLog, getCalEvents, webSearch, fetchPage, getYoutubeTranscript, youtubeSearch]
+  const openTool = defineTool({
+    name: 'open',
+    label: 'Open',
+    description:
+      'Open a wiki page, email thread, or calendar day in the app UI so the user can read it next to chat. Call when the user should see the full artifact (after you have a path, message id, or date). The client opens the panel automatically.',
+    parameters: Type.Object({
+      target: Type.Union([
+        Type.Object({
+          type: Type.Literal('wiki'),
+          path: Type.String({ description: 'Wiki path relative to wiki root (e.g. ideas/foo.md)' }),
+        }),
+        Type.Object({
+          type: Type.Literal('email'),
+          id: Type.String({ description: 'Email / thread message id' }),
+        }),
+        Type.Object({
+          type: Type.Literal('calendar'),
+          date: Type.String({ description: 'Day to show (YYYY-MM-DD)' }),
+        }),
+      ]),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: {
+        target:
+          | { type: 'wiki'; path: string }
+          | { type: 'email'; id: string }
+          | { type: 'calendar'; date: string }
+      },
+    ) {
+      const t = params.target
+      const text =
+        t.type === 'wiki'
+          ? `Opening wiki: ${t.path}`
+          : t.type === 'email'
+            ? `Opening email: ${t.id}`
+            : `Opening calendar: ${t.date}`
+      return {
+        content: [{ type: 'text' as const, text }],
+        details: { target: t },
+      }
+    },
+  })
+
+  return [read, edit, write, grep, find, searchEmail, readEmail, listInbox, archiveEmails, draftEmail, editDraft, sendDraft, gitCommitPush, findPerson, wikiLog, getCalEvents, webSearch, fetchPage, getYoutubeTranscript, youtubeSearch, openTool]
 }

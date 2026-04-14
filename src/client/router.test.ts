@@ -2,119 +2,117 @@ import { describe, it, expect } from 'vitest'
 import { parseRoute, routeToUrl, contextToString, type SurfaceContext } from './router.js'
 
 describe('parseRoute', () => {
-  it('defaults to today for root path', () => {
-    expect(parseRoute('http://localhost/')).toEqual({ tab: 'today' })
+  it('defaults to chat-only for root path', () => {
+    expect(parseRoute('http://localhost/')).toEqual({})
   })
 
-  it('legacy /chat redirects to today', () => {
-    expect(parseRoute('http://localhost/chat')).toEqual({ tab: 'today' })
+  it('legacy /chat maps to chat only', () => {
+    expect(parseRoute('http://localhost/chat')).toEqual({})
   })
 
-  it('legacy /chat?file=... redirects to today (drops file param)', () => {
-    expect(parseRoute('http://localhost/chat?file=ideas%2Ffoo.md')).toEqual({ tab: 'today' })
+  it('legacy /chat?file=... maps to chat only', () => {
+    expect(parseRoute('http://localhost/chat?file=ideas%2Ffoo.md')).toEqual({})
   })
 
-  it('legacy /home redirects to today', () => {
-    expect(parseRoute('http://localhost/home')).toEqual({ tab: 'today' })
+  it('legacy /home maps to chat only', () => {
+    expect(parseRoute('http://localhost/home')).toEqual({})
   })
 
-  it('parses /wiki (no path)', () => {
-    expect(parseRoute('http://localhost/wiki')).toEqual({ tab: 'wiki' })
+  it('parses /wiki as wiki overlay without path', () => {
+    expect(parseRoute('http://localhost/wiki')).toEqual({ overlay: { type: 'wiki' } })
   })
 
-  it('parses /wiki/folder/file.md as wiki tab with path', () => {
+  it('parses /wiki/folder/file.md as wiki overlay with path', () => {
     expect(parseRoute('http://localhost/wiki/folder/file.md')).toEqual({
-      tab: 'wiki',
-      path: 'folder/file.md',
+      overlay: { type: 'wiki', path: 'folder/file.md' },
     })
   })
 
-  it('parses /inbox (no id)', () => {
-    expect(parseRoute('http://localhost/inbox')).toEqual({ tab: 'inbox' })
+  it('parses /inbox as email overlay without id', () => {
+    expect(parseRoute('http://localhost/inbox')).toEqual({ overlay: { type: 'email' } })
   })
 
-  it('parses /inbox/:id (plain id)', () => {
+  it('parses /inbox/:id', () => {
     expect(parseRoute('http://localhost/inbox/abc123')).toEqual({
-      tab: 'inbox',
-      id: 'abc123',
+      overlay: { type: 'email', id: 'abc123' },
     })
   })
 
   it('decodes percent-encoded inbox id', () => {
     expect(parseRoute('http://localhost/inbox/msg%3A12345')).toEqual({
-      tab: 'inbox',
-      id: 'msg:12345',
+      overlay: { type: 'email', id: 'msg:12345' },
     })
   })
 })
 
 describe('parseRoute calendar', () => {
-  it('parses /calendar (no date)', () => {
-    expect(parseRoute('http://localhost/calendar')).toEqual({ tab: 'calendar' })
+  it('parses /calendar as overlay without date', () => {
+    expect(parseRoute('http://localhost/calendar')).toEqual({ overlay: { type: 'calendar' } })
   })
 
   it('parses /calendar?date=2026-04-13', () => {
     expect(parseRoute('http://localhost/calendar?date=2026-04-13')).toEqual({
-      tab: 'calendar',
-      date: '2026-04-13',
+      overlay: { type: 'calendar', date: '2026-04-13' },
     })
   })
 })
 
 describe('routeToUrl', () => {
-  it('today returns /', () => {
-    expect(routeToUrl({ tab: 'today' })).toBe('/')
+  it('chat-only returns /', () => {
+    expect(routeToUrl({})).toBe('/')
   })
 
   it('wiki without path', () => {
-    expect(routeToUrl({ tab: 'wiki' })).toBe('/wiki')
+    expect(routeToUrl({ overlay: { type: 'wiki' } })).toBe('/wiki')
   })
 
   it('wiki with path uses path segments', () => {
-    expect(routeToUrl({ tab: 'wiki', path: 'ideas/foo.md' })).toBe(
-      '/wiki/ideas/foo.md'
+    expect(routeToUrl({ overlay: { type: 'wiki', path: 'ideas/foo.md' } })).toBe(
+      '/wiki/ideas/foo.md',
     )
   })
 
   it('wiki with path encodes special chars in segments', () => {
-    expect(routeToUrl({ tab: 'wiki', path: 'ideas/my note.md' })).toBe(
-      '/wiki/ideas/my%20note.md'
+    expect(routeToUrl({ overlay: { type: 'wiki', path: 'ideas/my note.md' } })).toBe(
+      '/wiki/ideas/my%20note.md',
     )
   })
 
   it('inbox without id', () => {
-    expect(routeToUrl({ tab: 'inbox' })).toBe('/inbox')
+    expect(routeToUrl({ overlay: { type: 'email' } })).toBe('/inbox')
   })
 
   it('inbox with plain id', () => {
-    expect(routeToUrl({ tab: 'inbox', id: 'abc123' })).toBe('/inbox/abc123')
+    expect(routeToUrl({ overlay: { type: 'email', id: 'abc123' } })).toBe('/inbox/abc123')
   })
 
   it('inbox encodes special chars in id', () => {
-    expect(routeToUrl({ tab: 'inbox', id: 'msg:12345' })).toBe(
-      '/inbox/msg%3A12345'
+    expect(routeToUrl({ overlay: { type: 'email', id: 'msg:12345' } })).toBe(
+      '/inbox/msg%3A12345',
     )
   })
 
   it('calendar without date', () => {
-    expect(routeToUrl({ tab: 'calendar' })).toBe('/calendar')
+    expect(routeToUrl({ overlay: { type: 'calendar' } })).toBe('/calendar')
   })
 
   it('calendar with date', () => {
-    expect(routeToUrl({ tab: 'calendar', date: '2026-04-13' })).toBe('/calendar?date=2026-04-13')
+    expect(routeToUrl({ overlay: { type: 'calendar', date: '2026-04-13' } })).toBe(
+      '/calendar?date=2026-04-13',
+    )
   })
 })
 
 describe('round-trip: routeToUrl → parseRoute', () => {
-  const cases: ReturnType<typeof parseRoute>[] = [
-    { tab: 'today' },
-    { tab: 'wiki' },
-    { tab: 'wiki', path: 'ideas/my note.md' },
-    { tab: 'inbox' },
-    { tab: 'inbox', id: 'msg:12345@mail.example.com' },
-    { tab: 'calendar' },
-    { tab: 'calendar', date: '2026-04-13' },
-  ]
+  const cases = [
+    {},
+    { overlay: { type: 'wiki' as const } },
+    { overlay: { type: 'wiki' as const, path: 'ideas/my note.md' } },
+    { overlay: { type: 'email' as const } },
+    { overlay: { type: 'email' as const, id: 'msg:12345@mail.example.com' } },
+    { overlay: { type: 'calendar' as const } },
+    { overlay: { type: 'calendar' as const, date: '2026-04-13' } },
+  ] as const
 
   for (const route of cases) {
     it(`round-trips ${JSON.stringify(route)}`, () => {
@@ -130,10 +128,9 @@ describe('contextToString', () => {
     expect(contextToString(ctx)).toBeUndefined()
   })
 
-  it('formats today context', () => {
-    const ctx: SurfaceContext = { type: 'today', date: '2026-04-13' }
-    expect(contextToString(ctx)).toContain('2026-04-13')
-    expect(contextToString(ctx)).toContain('Today')
+  it('formats chat context', () => {
+    const ctx: SurfaceContext = { type: 'chat' }
+    expect(contextToString(ctx)).toContain('main chat')
   })
 
   it('formats email context with subject and from (no body)', () => {
@@ -147,7 +144,7 @@ describe('contextToString', () => {
     expect(s).toContain('Budget review')
     expect(s).toContain('alice@example.com')
     expect(s).toContain('msg:123')
-    expect(s).toContain('read_email')
+    expect(s).toContain('ripmail')
   })
 
   it('formats email context with body included', () => {
@@ -162,7 +159,7 @@ describe('contextToString', () => {
     expect(s).toContain('Budget review')
     expect(s).toContain('alice@example.com')
     expect(s).toContain('Please approve the Q2 budget.')
-    expect(s).not.toContain('read_email')
+    expect(s).not.toContain('ripmail tool')
   })
 
   it('formats wiki context with path and title', () => {
@@ -185,6 +182,6 @@ describe('contextToString', () => {
     const ctx: SurfaceContext = { type: 'inbox' }
     const s = contextToString(ctx)!
     expect(s).toContain('inbox')
-    expect(s).toContain('read_email')
+    expect(s).toContain('ripmail')
   })
 })

@@ -44,6 +44,31 @@ describe('createAgentTools', () => {
     expect(names).toContain('fetch_page')
     expect(names).toContain('get_youtube_transcript')
     expect(names).toContain('youtube_search')
+    expect(names).toContain('open')
+  })
+
+  describe('open tool', () => {
+    it('returns confirmation text for wiki target', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: { name: string }) => t.name === 'open')!
+      const result = await tool.execute('o-1', {
+        target: { type: 'wiki', path: 'ideas/foo.md' },
+      })
+      const text = result.content.map((c: { text: string }) => c.text).join('')
+      expect(text).toContain('ideas/foo.md')
+      expect(text).toContain('Opening wiki')
+    })
+
+    it('returns confirmation for email and calendar targets', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t: { name: string }) => t.name === 'open')!
+      const e = await tool.execute('o-2', { target: { type: 'email', id: 'msg:1' } })
+      expect(e.content[0].text).toContain('msg:1')
+      const c = await tool.execute('o-3', { target: { type: 'calendar', date: '2026-06-01' } })
+      expect(c.content[0].text).toContain('2026-06-01')
+    })
   })
 
   describe('fetch_page tool', () => {

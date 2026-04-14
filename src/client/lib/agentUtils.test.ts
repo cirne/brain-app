@@ -174,8 +174,8 @@ describe('contextPlaceholder', () => {
     expect(contextPlaceholder(ctx)).toBe('Ask about your schedule...')
   })
 
-  it('returns today placeholder for today context', () => {
-    const ctx: SurfaceContext = { type: 'today', date: '2026-04-13' }
+  it('returns chat placeholder for chat context', () => {
+    const ctx: SurfaceContext = { type: 'chat' }
     expect(contextPlaceholder(ctx)).toContain('mind')
   })
 

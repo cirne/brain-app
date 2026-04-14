@@ -1,11 +1,16 @@
-export type Route =
-  | { tab: 'today' }
-  | { tab: 'inbox'; id?: string }
-  | { tab: 'wiki'; path?: string }
-  | { tab: 'calendar'; date?: string }
+/** Detail panel target (wiki, email thread, or calendar). */
+export type Overlay =
+  | { type: 'wiki'; path?: string }
+  | { type: 'email'; id?: string }
+  | { type: 'calendar'; date?: string }
+
+/** Chat-first shell: optional detail overlay; base route is always chat. */
+export type Route = {
+  overlay?: Overlay
+}
 
 export type SurfaceContext =
-  | { type: 'today'; date: string }
+  | { type: 'chat' }
   | { type: 'email'; threadId: string; subject: string; from: string; body?: string }
   | { type: 'wiki'; path: string; title: string }
   | { type: 'calendar'; date: string; eventId?: string }
@@ -14,18 +19,20 @@ export type SurfaceContext =
 
 /** Serialize a SurfaceContext to a human-readable string for the agent. */
 export function contextToString(ctx: SurfaceContext): string | undefined {
+  if (ctx.type === 'chat') {
+    return 'The user is in the main chat view (no document or email panel open).'
+  }
   if (ctx.type === 'email') {
     let s = `The user is currently viewing this email (id: ${ctx.threadId}): "${ctx.subject}" from ${ctx.from}.`
     if (ctx.body) s += `\n\nEmail content:\n${ctx.body}`
-    else s += ` Use read_email with this id to access the email content.`
+    else s += ` Use the ripmail tool (e.g. read <id> --json) to load this thread if needed.`
     return s
   }
   if (ctx.type === 'wiki') return `The user is viewing wiki doc: ${ctx.path} (title: "${ctx.title}")`
   if (ctx.type === 'calendar') return `The user is viewing their calendar for ${ctx.date}`
   if (ctx.type === 'inbox') {
-    return 'The user is on the inbox list and asked for a summary of the triaged inbox items in their message. Use read_email with the message ids provided as needed, or search_email, then answer concisely.'
+    return 'The user asked for a summary of the triaged inbox items in their message. Use the ripmail tool (e.g. read <id> --json, or search with --json) with the message ids provided as needed, then answer concisely.'
   }
-  if (ctx.type === 'today') return `The user is on the Today view. Today is ${ctx.date}`
   return undefined
 }
 
@@ -34,42 +41,45 @@ export function parseRoute(href: string = location.href): Route {
   const url = new URL(href, 'http://localhost')
   const [, seg1, ...rest] = url.pathname.split('/')
 
-  // Legacy: /chat and /home redirect to today
+  // Legacy: /chat and /home → chat only
   if (seg1 === 'chat' || seg1 === 'home') {
-    return { tab: 'today' }
+    return {}
   }
   if (seg1 === 'wiki') {
     if (rest.length > 0 && rest[0]) {
-      return { tab: 'wiki', path: rest.map(decodeURIComponent).join('/') }
+      return { overlay: { type: 'wiki', path: rest.map(decodeURIComponent).join('/') } }
     }
-    return { tab: 'wiki' }
+    return { overlay: { type: 'wiki' } }
   }
   if (seg1 === 'inbox') {
     const id = rest[0] ? decodeURIComponent(rest[0]) : undefined
-    return { tab: 'inbox', id }
+    return { overlay: id ? { type: 'email', id } : { type: 'email' } }
   }
   if (seg1 === 'calendar') {
     const date = url.searchParams.get('date') ?? undefined
-    return { tab: 'calendar', date }
+    return { overlay: date ? { type: 'calendar', date } : { type: 'calendar' } }
   }
 
-  // Default: today
-  return { tab: 'today' }
+  // Default: chat only
+  return {}
 }
 
 /** Convert a Route back to a URL string. */
 export function routeToUrl(route: Route): string {
-  if (route.tab === 'today') return '/'
-  if (route.tab === 'inbox') {
-    return route.id ? `/inbox/${encodeURIComponent(route.id)}` : '/inbox'
+  const o = route.overlay
+  if (!o) return '/'
+  if (o.type === 'wiki') {
+    return o.path
+      ? `/wiki/${o.path.split('/').map(encodeURIComponent).join('/')}`
+      : '/wiki'
   }
-  if (route.tab === 'calendar') {
-    return route.date ? `/calendar?date=${route.date}` : '/calendar'
+  if (o.type === 'email') {
+    return o.id ? `/inbox/${encodeURIComponent(o.id)}` : '/inbox'
   }
-  // wiki
-  return route.path
-    ? `/wiki/${route.path.split('/').map(encodeURIComponent).join('/')}`
-    : '/wiki'
+  if (o.type === 'calendar') {
+    return o.date ? `/calendar?date=${encodeURIComponent(o.date)}` : '/calendar'
+  }
+  return '/'
 }
 
 /** Push a new route onto the browser history stack. */

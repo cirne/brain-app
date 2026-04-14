@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { TAB_ORDER, matchGlobalShortcut, type KeyLike } from './globalShortcuts.js'
+import { matchGlobalShortcut, type KeyLike } from './globalShortcuts.js'
 
 function k(p: Partial<KeyLike> & Pick<KeyLike, 'key'>): KeyLike {
   return {
@@ -11,12 +11,6 @@ function k(p: Partial<KeyLike> & Pick<KeyLike, 'key'>): KeyLike {
     ...p,
   }
 }
-
-describe('TAB_ORDER', () => {
-  it('matches nav: Today, Inbox, Wiki, Calendar', () => {
-    expect([...TAB_ORDER]).toEqual(['today', 'inbox', 'wiki', 'calendar'])
-  })
-})
 
 describe('matchGlobalShortcut', () => {
   it('returns null without modifiers', () => {
@@ -47,35 +41,9 @@ describe('matchGlobalShortcut', () => {
     ).toBeNull()
   })
 
-  it('maps ⌘1–⌘4 to tabs', () => {
-    expect(matchGlobalShortcut(k({ key: '1', metaKey: true }))).toEqual({ type: 'tab', index: 0 })
-    expect(matchGlobalShortcut(k({ key: '2', metaKey: true }))).toEqual({ type: 'tab', index: 1 })
-    expect(matchGlobalShortcut(k({ key: '3', metaKey: true }))).toEqual({ type: 'tab', index: 2 })
-    expect(matchGlobalShortcut(k({ key: '4', metaKey: true }))).toEqual({ type: 'tab', index: 3 })
-  })
-
-  it('maps Ctrl+1–4 to tabs (fallback when ⌘+digit is captured by the browser)', () => {
-    expect(matchGlobalShortcut(k({ key: '1', ctrlKey: true }))).toEqual({ type: 'tab', index: 0 })
-    expect(matchGlobalShortcut(k({ key: '4', ctrlKey: true }))).toEqual({ type: 'tab', index: 3 })
-  })
-
-  it('maps ⌥⌘1–⌥⌘4 to tabs', () => {
-    expect(matchGlobalShortcut(k({ key: '1', metaKey: true, altKey: true }))).toEqual({
-      type: 'tab',
-      index: 0,
-    })
-    expect(matchGlobalShortcut(k({ key: '3', metaKey: true, altKey: true }))).toEqual({
-      type: 'tab',
-      index: 2,
-    })
-  })
-
-  it('does not treat ctrl+meta+digit as tab (ambiguous chord)', () => {
-    expect(matchGlobalShortcut(k({ key: '2', metaKey: true, ctrlKey: true }))).toBeNull()
-  })
-
-  it('ignores digit shortcuts outside 1–4', () => {
-    expect(matchGlobalShortcut(k({ key: '5', metaKey: true }))).toBeNull()
-    expect(matchGlobalShortcut(k({ key: '0', ctrlKey: true }))).toBeNull()
+  it('does not map digit keys to actions', () => {
+    expect(matchGlobalShortcut(k({ key: '1', metaKey: true }))).toBeNull()
+    expect(matchGlobalShortcut(k({ key: '4', ctrlKey: true }))).toBeNull()
+    expect(matchGlobalShortcut(k({ key: '2', metaKey: true, altKey: true }))).toBeNull()
   })
 })

@@ -144,7 +144,7 @@
 
   async function openThread(email: Email) {
     selectedThread = email.id
-    navigate({ tab: 'inbox', id: email.id })
+    navigate({ overlay: { type: 'email', id: email.id } })
     onNavigate?.(email.id)
     onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from })
     threadLoading = true
@@ -171,7 +171,7 @@
     composeMode = null
     currentDraft = null
     draftSent = false
-    navigate({ tab: 'inbox' })
+    navigate({ overlay: { type: 'email' } })
     onNavigate?.(undefined)
     onContextChange?.({ type: 'none' })
   }

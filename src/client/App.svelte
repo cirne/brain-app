@@ -2,9 +2,9 @@
   import { onMount } from 'svelte'
   import Search from './lib/Search.svelte'
   import AppTopNav from './lib/AppTopNav.svelte'
-  import AppSurface from './lib/AppSurface.svelte'
-  import AppAgentColumn from './lib/AppAgentColumn.svelte'
-  import { parseRoute, navigate, type Route, type SurfaceContext } from './router.js'
+  import SlideOver from './lib/SlideOver.svelte'
+  import AgentDrawer from './lib/AgentDrawer.svelte'
+  import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from './router.js'
   import {
     AGENT_PANEL_WIDTH_KEY,
     DEFAULT_AGENT_PANEL_WIDTH,
@@ -12,7 +12,7 @@
     nextPanelWidthAfterDrag,
   } from './lib/app/agentPanelWidth.js'
   import { runParallelSyncs } from './lib/app/syncAllServices.js'
-  import { matchGlobalShortcut, TAB_ORDER } from './lib/app/globalShortcuts.js'
+  import { matchGlobalShortcut } from './lib/app/globalShortcuts.js'
 
   let route = $state<Route>(parseRoute())
   let syncing = $state(false)
@@ -20,17 +20,15 @@
   let showSyncErrors = $state(false)
   let calendarRefreshKey = $state(0)
   let wikiRefreshKey = $state(0)
-  let drawerOpen = $state(true)
-  let agentPanelWidth = $state(DEFAULT_AGENT_PANEL_WIDTH)
-  let agentPanelResizing = $state(false)
+  let detailPanelWidth = $state(DEFAULT_AGENT_PANEL_WIDTH)
+  let detailPanelResizing = $state(false)
   let showSearch = $state(false)
   let inboxTargetId = $state<string | undefined>()
-  let agentColumn = $state<AppAgentColumn | undefined>()
+  let agentDrawer = $state<AgentDrawer | undefined>()
+  let isMobile = $state(false)
 
-  // Surface context — driven by whichever surface is active
-  let agentContext = $state<SurfaceContext>({ type: 'today', date: new Date().toISOString().slice(0, 10) })
+  let agentContext = $state<SurfaceContext>({ type: 'chat' })
 
-  // Wiki recent files (agent edit/write history in data/) + unsaved dirty files
   let recentEditFiles = $state<{ path: string; date: string }[]>([])
   let dirtyFiles = $state<string[]>([])
   let showRecentFiles = $state(false)
@@ -58,19 +56,29 @@
       const raw = localStorage.getItem(AGENT_PANEL_WIDTH_KEY)
       if (raw) {
         const n = parseInt(raw, 10)
-        if (!Number.isNaN(n)) agentPanelWidth = clampAgentPanelWidth(n, window.innerWidth)
+        if (!Number.isNaN(n)) detailPanelWidth = clampAgentPanelWidth(n, window.innerWidth)
       }
     } catch { /* ignore */ }
+
+    const mq = window.matchMedia('(max-width: 767px)')
+    const syncMobile = () => { isMobile = mq.matches }
+    syncMobile()
+    mq.addEventListener('change', syncMobile)
 
     loadWikiEditHistory()
     loadGitStatus()
     const onPopState = () => { route = parseRoute() }
     window.addEventListener('popstate', onPopState)
     const onWinResize = () => {
-      agentPanelWidth = clampAgentPanelWidth(agentPanelWidth, window.innerWidth)
+      detailPanelWidth = clampAgentPanelWidth(detailPanelWidth, window.innerWidth)
     }
     window.addEventListener('resize', onWinResize)
     const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && route.overlay) {
+        e.preventDefault()
+        closeOverlay()
+        return
+      }
       const action = matchGlobalShortcut(e)
       if (!action) return
       e.preventDefault()
@@ -79,20 +87,16 @@
           showSearch = true
           break
         case 'newChat':
-          agentColumn?.newChat()
+          agentDrawer?.newChat()
           break
         case 'refresh':
           if (!syncing) void syncAll()
           break
-        case 'tab': {
-          const tab = TAB_ORDER[action.index]
-          if (tab) switchTab(tab)
-          break
-        }
       }
     }
     window.addEventListener('keydown', onKeydown)
     return () => {
+      mq.removeEventListener('change', syncMobile)
       window.removeEventListener('popstate', onPopState)
       window.removeEventListener('resize', onWinResize)
       window.removeEventListener('keydown', onKeydown)
@@ -101,28 +105,28 @@
 
   $effect(() => {
     try {
-      localStorage.setItem(AGENT_PANEL_WIDTH_KEY, String(agentPanelWidth))
+      localStorage.setItem(AGENT_PANEL_WIDTH_KEY, String(detailPanelWidth))
     } catch { /* ignore */ }
   })
 
-  function onAgentPanelResizePointerDown(e: PointerEvent) {
+  function onDetailResizePointerDown(e: PointerEvent) {
     if (typeof window !== 'undefined' && window.innerWidth <= 767) return
     e.preventDefault()
     const el = e.currentTarget as HTMLButtonElement
     el.setPointerCapture(e.pointerId)
     const startX = e.clientX
-    const startW = agentPanelWidth
-    agentPanelResizing = true
+    const startW = detailPanelWidth
+    detailPanelResizing = true
     const prevCursor = document.body.style.cursor
     const prevUserSelect = document.body.style.userSelect
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
 
     function onMove(ev: PointerEvent) {
-      agentPanelWidth = nextPanelWidthAfterDrag(startW, startX, ev.clientX, window.innerWidth)
+      detailPanelWidth = nextPanelWidthAfterDrag(startW, startX, ev.clientX, window.innerWidth)
     }
     function onUp(ev: PointerEvent) {
-      agentPanelResizing = false
+      detailPanelResizing = false
       document.body.style.cursor = prevCursor
       document.body.style.userSelect = prevUserSelect
       window.removeEventListener('pointermove', onMove)
@@ -133,26 +137,33 @@
     window.addEventListener('pointerup', onUp)
   }
 
-  function switchTab(tab: Route['tab']) {
-    const next: Route = { tab }
-    navigate(next)
-    route = next
+  function closeOverlay() {
+    navigate({})
+    route = parseRoute()
+    agentContext = { type: 'chat' }
   }
 
-  function openWikiDoc(path: string) {
-    const next: Route = { tab: 'wiki', path }
-    navigate(next)
-    route = next
+  function openWikiDoc(path?: string) {
+    const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
+    navigate({ overlay })
+    route = parseRoute()
   }
 
-  function onInboxNavigate(id: string | undefined) {
-    route = { tab: 'inbox', id }
+  function onWikiNavigate(path: string | undefined) {
+    const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
+    navigate({ overlay })
+    route = parseRoute()
+  }
+
+  function onInboxNavigateSlide(id: string | undefined) {
+    const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
+    navigate({ overlay })
+    route = parseRoute()
   }
 
   function switchToCalendar(date: string) {
-    const next: Route = { tab: 'calendar', date }
-    navigate(next)
-    route = next
+    navigate({ overlay: { type: 'calendar', date } })
+    route = parseRoute()
   }
 
   function setContext(ctx: SurfaceContext) {
@@ -161,16 +172,39 @@
 
   function onSummarizeInbox(message: string) {
     agentContext = { type: 'inbox' }
-    drawerOpen = true
-    void agentColumn?.newChatWithMessage(message)
+    void agentDrawer?.newChatWithMessage(message)
   }
 
   function openEmailFromSearch(id: string, subject: string, from: string) {
     inboxTargetId = id
-    const next: Route = { tab: 'inbox', id }
-    navigate(next)
-    route = next
+    navigate({ overlay: { type: 'email', id } })
+    route = parseRoute()
     agentContext = { type: 'email', threadId: id, subject, from }
+  }
+
+  function openEmailFromChat(threadId: string) {
+    openEmailFromSearch(threadId, threadId, '')
+  }
+
+  /** LLM `open` tool — navigate immediately on tool_start. */
+  function onOpenFromAgent(target: { type: string; path?: string; id?: string; date?: string }) {
+    if (target.type === 'wiki' && target.path) {
+      openWikiDoc(target.path)
+      return
+    }
+    if (target.type === 'email' && target.id) {
+      openEmailFromSearch(target.id, '', '')
+      return
+    }
+    if (target.type === 'calendar' && target.date) {
+      switchToCalendar(target.date)
+    }
+  }
+
+  function onWikiMutated() {
+    loadWikiEditHistory()
+    loadGitStatus()
+    wikiRefreshKey++
   }
 
   async function syncAll() {
@@ -199,14 +233,12 @@
 
 <div class="app">
   <AppTopNav
-    {route}
     {dirtyFiles}
     {recentFiles}
     {showRecentFiles}
     {syncing}
     {syncErrors}
     {showSyncErrors}
-    onSelectTab={switchTab}
     onOpenSearch={() => { showSearch = true }}
     onToggleRecentFiles={() => { showRecentFiles = !showRecentFiles }}
     onOpenWikiFromList={(path) => { openWikiDoc(path); showRecentFiles = false }}
@@ -214,35 +246,68 @@
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
   />
 
-  <div class="layout">
-    <main class="surface">
-      <AppSurface
-        {route}
-        {wikiRefreshKey}
-        {calendarRefreshKey}
-        {inboxTargetId}
-        {dirtyFiles}
-        {recentFiles}
-        onOpenWiki={openWikiDoc}
-        onInboxNavigate={onInboxNavigate}
-        onContextChange={setContext}
-        onOpenSearch={() => { showSearch = true }}
-        onRouteChange={(r) => { route = r }}
-        onSummarizeInbox={onSummarizeInbox}
-      />
-    </main>
+  <div class="workspace">
+    <div class="split" class:has-detail={!!route.overlay}>
+      <section class="chat-pane">
+        <AgentDrawer
+          bind:this={agentDrawer}
+          context={agentContext}
+          conversationHidden={!!route.overlay && isMobile}
+          onOpenWiki={openWikiDoc}
+          onOpenEmail={openEmailFromChat}
+          onSwitchToCalendar={switchToCalendar}
+          onOpenFromAgent={onOpenFromAgent}
+          onWikiMutated={onWikiMutated}
+        >
+          {#snippet mobileDetail()}
+            {#if route.overlay}
+              <SlideOver
+                overlay={route.overlay}
+                wikiRefreshKey={wikiRefreshKey}
+                calendarRefreshKey={calendarRefreshKey}
+                inboxTargetId={inboxTargetId}
+                onWikiNavigate={onWikiNavigate}
+                onInboxNavigate={onInboxNavigateSlide}
+                onContextChange={setContext}
+                onOpenSearch={() => { showSearch = true }}
+                onSummarizeInbox={onSummarizeInbox}
+                onClose={closeOverlay}
+              />
+            {/if}
+          {/snippet}
+        </AgentDrawer>
+      </section>
 
-    <AppAgentColumn
-      bind:this={agentColumn}
-      drawerOpen={drawerOpen}
-      agentPanelWidth={agentPanelWidth}
-      agentPanelResizing={agentPanelResizing}
-      agentContext={agentContext}
-      onResizePointerDown={onAgentPanelResizePointerDown}
-      onToggle={() => { drawerOpen = !drawerOpen }}
-      onOpenWiki={openWikiDoc}
-      onSwitchToCalendar={switchToCalendar}
-    />
+      {#if route.overlay && !isMobile}
+        <section
+          class="detail-pane"
+          class:resizing={detailPanelResizing}
+          style:--detail-w="{detailPanelWidth}px"
+        >
+          <button
+            type="button"
+            class="detail-resize-handle"
+            aria-label="Resize detail panel"
+            title="Drag to resize"
+            onpointerdown={onDetailResizePointerDown}
+          >
+            <span class="detail-resize-grip" aria-hidden="true"></span>
+          </button>
+          <SlideOver
+            overlay={route.overlay}
+            wikiRefreshKey={wikiRefreshKey}
+            calendarRefreshKey={calendarRefreshKey}
+            inboxTargetId={inboxTargetId}
+            onWikiNavigate={onWikiNavigate}
+            onInboxNavigate={onInboxNavigateSlide}
+            onContextChange={setContext}
+            onOpenSearch={() => { showSearch = true }}
+            onSummarizeInbox={onSummarizeInbox}
+            onClose={closeOverlay}
+          />
+        </section>
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -253,25 +318,76 @@
     height: 100%;
   }
 
-  .layout {
+  .workspace {
     flex: 1;
     display: flex;
-    overflow: hidden;
+    flex-direction: column;
+    min-height: 0;
     position: relative;
   }
 
-  .surface {
+  .split {
     flex: 1;
-    overflow: hidden;
+    display: flex;
+    min-height: 0;
     position: relative;
+  }
+
+  .chat-pane {
+    flex: 1;
     min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     z-index: 0;
   }
 
-  /* Leave room for the collapsed agent header bar on small screens */
-  @media (max-width: 767px) {
-    .surface {
-      padding-bottom: 52px;
-    }
+  .detail-pane {
+    --detail-w: 420px;
+    position: relative;
+    z-index: 1;
+    width: var(--detail-w);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .detail-resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 16px;
+    margin-left: -8px;
+    z-index: 3;
+    cursor: col-resize;
+    touch-action: none;
+    border: none;
+    padding: 0;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .detail-resize-grip {
+    width: 8px;
+    height: 30px;
+    border-radius: 4px;
+    opacity: 0.45;
+    background-color: var(--text-2);
+    background-image: repeating-linear-gradient(
+      180deg,
+      transparent 0 4px,
+      rgba(0, 0, 0, 0.1) 4px 5px
+    );
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  }
+
+  .detail-pane.resizing .detail-resize-grip {
+    opacity: 1;
   }
 </style>

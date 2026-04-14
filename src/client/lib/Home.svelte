@@ -34,7 +34,7 @@
     const res = await fetch('/api/inbox').catch(() => null)
     inboxItems = res?.ok ? await res.json() : []
     inboxLoading = false
-    onContextChange?.({ type: 'today', date: today })
+    onContextChange?.({ type: 'chat' })
   })
 
   const unreadCount = $derived(inboxItems.filter((m: InboxItem) => !m.read).length)

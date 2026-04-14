@@ -4,16 +4,22 @@
   import { getToolIcon } from './toolIcons.js'
   import WikiFileName from './WikiFileName.svelte'
   import { extractReferencedFiles, type ChatMessage } from './agentUtils.js'
+  import { matchContentPreview } from './cards/contentCards.js'
+  import CalendarPreviewCard from './cards/CalendarPreviewCard.svelte'
+  import WikiPreviewCard from './cards/WikiPreviewCard.svelte'
+  import EmailPreviewCard from './cards/EmailPreviewCard.svelte'
 
   let {
     messages,
     streaming,
     onOpenWiki,
+    onOpenEmail,
     onSwitchToCalendar,
   }: {
     messages: ChatMessage[]
     streaming: boolean
     onOpenWiki?: (_path: string) => void
+    onOpenEmail?: (_threadId: string) => void
     onSwitchToCalendar?: (_date: string) => void
   } = $props()
 
@@ -131,7 +137,24 @@
                 <pre class="tool-args">{formatArgs(part.toolCall.args)}</pre>
               {/if}
               {#if part.toolCall.result}
-                <pre class="tool-result" class:tool-error={part.toolCall.isError}>{part.toolCall.result}</pre>
+                {@const preview = matchContentPreview(part.toolCall)}
+                {#if preview?.kind === 'calendar'}
+                  <CalendarPreviewCard start={preview.start} end={preview.end} events={preview.events} />
+                {:else if preview?.kind === 'wiki'}
+                  <WikiPreviewCard
+                    path={preview.path}
+                    excerpt={preview.excerpt}
+                    onOpen={() => onOpenWiki?.(preview.path)}
+                  />
+                {:else if preview?.kind === 'email'}
+                  <EmailPreviewCard
+                    subject={preview.subject}
+                    from={preview.from}
+                    snippet={preview.snippet}
+                    onOpen={() => onOpenEmail?.(preview.id)}
+                  />
+                {/if}
+                <pre class="tool-result" class:tool-error={part.toolCall.isError} class:muted={!!preview}>{part.toolCall.result}</pre>
               {/if}
             </details>
           {:else if part.type === 'text' && part.content}
@@ -292,6 +315,12 @@
   }
 
   .tool-error { color: var(--danger); }
+
+  .tool-result.muted {
+    max-height: 80px;
+    opacity: 0.65;
+    font-size: 10px;
+  }
 
   .markdown { font-size: 14px; line-height: 1.6; }
   .markdown :global(h1) { font-size: 1.4em; margin: 0.8em 0 0.4em; }

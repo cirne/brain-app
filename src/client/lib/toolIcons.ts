@@ -13,6 +13,7 @@ import {
   Calendar,
   Globe,
   Play,
+  PanelRightOpen,
 } from 'lucide-svelte'
 import type { Component } from 'svelte'
 
@@ -36,6 +37,7 @@ const TOOL_ICONS = {
   fetch_page: Globe,
   get_youtube_transcript: Play,
   youtube_search: Play,
+  open: PanelRightOpen,
 } as unknown as Record<string, Component>
 
 export function getToolIcon(toolName: string): Component | null {

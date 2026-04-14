@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte'
+  import { tick, type Snippet } from 'svelte'
   import { type SurfaceContext } from '../router.js'
   import { buildChatBody, extractMentionedFiles, type ChatMessage, type ToolPart } from './agentUtils.js'
   import { contextPlaceholder } from './agentUtils.js'
@@ -9,16 +9,24 @@
 
   let {
     context = { type: 'none' } as SurfaceContext,
-    open = true,
-    onToggle,
+    conversationHidden = false,
     onOpenWiki,
+    onOpenEmail,
     onSwitchToCalendar,
+    onOpenFromAgent,
+    onWikiMutated,
+    mobileDetail,
   }: {
     context?: SurfaceContext
-    open?: boolean
-    onToggle?: () => void
+    conversationHidden?: boolean
     onOpenWiki?: (_path: string) => void
+    onOpenEmail?: (_threadId: string) => void
     onSwitchToCalendar?: (_date: string) => void
+    /** LLM `open` tool — fired from SSE tool_start */
+    onOpenFromAgent?: (_target: { type: string; path?: string; id?: string; date?: string }) => void
+    onWikiMutated?: () => void
+    /** Full-screen detail stack above input (mobile only) */
+    mobileDetail?: Snippet
   } = $props()
 
   const STORAGE_KEY = 'brain-agent'
@@ -36,8 +44,8 @@
   let sessionId = $state<string | null>(initial.sessionId)
   let streaming = $state(false)
   let wikiFiles = $state<string[]>([])
-  let conversationEl: ReturnType<typeof AgentConversation> | undefined
-  let inputEl: ReturnType<typeof AgentInput> | undefined
+  let conversationEl = $state<ReturnType<typeof AgentConversation> | undefined>(undefined)
+  let inputEl = $state<ReturnType<typeof AgentInput> | undefined>(undefined)
   let abortController: AbortController | null = null
 
   async function focusAgentTextarea(delayMs: number) {
@@ -47,21 +55,6 @@
     }
     inputEl?.focus()
   }
-
-  $effect(() => {
-    if (!open) return
-    const state = { cancelled: false, timer: undefined as ReturnType<typeof setTimeout> | undefined }
-    void tick().then(() => {
-      if (state.cancelled) return
-      state.timer = setTimeout(() => {
-        if (!state.cancelled) inputEl?.focus()
-      }, 300)
-    })
-    return () => {
-      state.cancelled = true
-      if (state.timer !== undefined) clearTimeout(state.timer)
-    }
-  })
 
   $effect(() => {
     try {
@@ -75,7 +68,7 @@
     try {
       const res = await fetch('/api/wiki')
       const files = await res.json()
-      wikiFiles = files.map((f: any) => f.path)
+      wikiFiles = files.map((f: { path: string }) => f.path)
     } catch { /* ignore */ }
   }
 
@@ -85,7 +78,6 @@
     void focusAgentTextarea(0)
   }
 
-  /** Clear session and send an initial message (e.g. inbox summarize from another surface). */
   export async function newChatWithMessage(text: string) {
     messages = []
     sessionId = null
@@ -100,6 +92,7 @@
   async function send(text: string) {
     if (!text || streaming) return
 
+    let touchedWiki = false
     const mentionedFiles = extractMentionedFiles(text)
     const isFirstMessage = messages.length === 0
 
@@ -164,16 +157,22 @@
               case 'thinking':
                 msg.thinking = (msg.thinking ?? '') + data.delta
                 break
-              case 'tool_start':
+              case 'tool_start': {
                 msg.parts!.push({ type: 'tool', toolCall: { id: data.id, name: data.name, args: data.args, done: false } })
+                if (data.name === 'open' && data.args?.target && onOpenFromAgent) {
+                  onOpenFromAgent(data.args.target)
+                }
                 conversationEl?.scrollToBottom()
                 break
+              }
               case 'tool_end': {
                 const part = msg.parts!.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
                 if (part) {
                   part.toolCall.result = data.result
                   part.toolCall.isError = data.isError
                   part.toolCall.done = true
+                  const name = part.toolCall.name
+                  if (name === 'write' || name === 'edit' || name === 'delete') touchedWiki = true
                   conversationEl?.scrollToBottom()
                 }
                 break
@@ -187,14 +186,17 @@
           }
         }
       }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        messages[msgIdx].parts!.push({ type: 'text', content: `\n\n**Connection error:** ${err.message}` })
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      const name = err instanceof Error ? err.name : ''
+      if (name !== 'AbortError') {
+        messages[msgIdx].parts!.push({ type: 'text', content: `\n\n**Connection error:** ${errMsg}` })
       }
     } finally {
       abortController = null
       streaming = false
       conversationEl?.scrollToBottom()
+      if (touchedWiki) onWikiMutated?.()
     }
   }
 
@@ -209,14 +211,7 @@
 </script>
 
 <div class="agent-drawer">
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="drawer-header" onclick={onToggle}>
-    <button class="toggle-btn" aria-label={open ? 'Collapse chat' : 'Expand chat'}>
-      <svg class="chevron" class:expanded={open} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="18 15 12 9 6 15"/>
-      </svg>
-    </button>
+  <div class="drawer-header">
     <div class="header-left">
       <span class="drawer-title" class:thinking={streaming}>{streaming ? 'Thinking...' : 'Chat'}</span>
       {#if context.type === 'wiki'}
@@ -226,17 +221,27 @@
       {/if}
     </div>
     {#if messages.length > 0}
-      <button class="new-btn" onclick={(e) => { e.stopPropagation(); newChat() }} title="New conversation (⌘N)">New</button>
+      <button class="new-btn" onclick={() => newChat()} title="New conversation (⌘N)">New</button>
     {/if}
   </div>
 
-  <AgentConversation
-    bind:this={conversationEl}
-    {messages}
-    {streaming}
-    {onOpenWiki}
-    {onSwitchToCalendar}
-  />
+  <div class="mid">
+    {#if !conversationHidden}
+      <AgentConversation
+        bind:this={conversationEl}
+        {messages}
+        {streaming}
+        {onOpenWiki}
+        {onOpenEmail}
+        {onSwitchToCalendar}
+      />
+    {/if}
+    {#if conversationHidden && mobileDetail}
+      <div class="mobile-detail-layer">
+        {@render mobileDetail()}
+      </div>
+    {/if}
+  </div>
 
   <AgentInput
     bind:this={inputEl}
@@ -255,6 +260,7 @@
     flex-direction: column;
     height: 100%;
     background: var(--bg-2);
+    min-height: 0;
   }
 
   .drawer-header {
@@ -266,32 +272,6 @@
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     min-height: 44px;
-  }
-
-  .toggle-btn {
-    display: none; /* hidden on desktop */
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    color: var(--text-2);
-    flex-shrink: 0;
-    transition: color 0.15s, background 0.15s;
-  }
-  .toggle-btn:hover { color: var(--text); background: var(--bg-3); }
-
-  .chevron {
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: rotate(0deg); /* default: ∧ pointing up = closed, tap to expand */
-  }
-  .chevron.expanded {
-    transform: rotate(180deg); /* ∨ pointing down = open, tap to collapse */
-  }
-
-  @media (max-width: 767px) {
-    .toggle-btn { display: flex; }
-    .drawer-header { cursor: pointer; }
   }
 
   .header-left {
@@ -336,4 +316,26 @@
     transition: color 0.15s, background 0.15s;
   }
   .new-btn:hover { color: var(--text); background: var(--bg-3); }
+
+  .mid {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mobile-detail-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--bg);
+  }
+
+  .mobile-detail-layer :global(.slide-over) {
+    border-left: none;
+  }
 </style>

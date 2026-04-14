@@ -79,11 +79,12 @@ src/
     index.html         # Mobile-first meta tags
     main.ts            # Svelte mount
     style.css          # Dark theme design tokens
-    App.svelte         # Tab shell: Chat | Wiki | Inbox + file-grounded navigation
+    App.svelte         # Chat-first shell + detail SlideOver (wiki / inbox / calendar)
     lib/
-      Chat.svelte      # Streaming SSE chat with @mention autocomplete + tool viz
-      Wiki.svelte      # File tree + markdown viewer + search + "Chat about this"
-      Inbox.svelte     # Email list + thread view + archive/read actions
+      AgentDrawer.svelte  # SSE chat, tool viz, @mentions; mobile detail slot
+      SlideOver.svelte    # Detail panel (embeds Wiki / Inbox / Calendar)
+      Wiki.svelte         # Markdown viewer + go-to-file search
+      Inbox.svelte        # Email list + thread view + archive/read actions
 ```
 
 ## API
@@ -115,6 +116,7 @@ The agent has these tools (via pi-coding-agent + custom):
 - `list_inbox` — inbox list via ripmail `inbox` (same as UI; use for bulk actions when search is wrong)
 - `archive_emails` — archive messages by ID (ripmail `archive`, batch)
 - `git_commit_push` — stage, commit, push wiki changes
+- `open` — open wiki path, email id, or calendar date in the app detail panel (client-side)
 - `web_search` — Exa web search for current info (requires `EXA_API_KEY`)
 - `fetch_page`, `youtube_search`, `get_youtube_transcript` — URL article text and YouTube search/transcripts (requires `SUPADATA_API_KEY`)
 
