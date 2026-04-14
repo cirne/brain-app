@@ -4,6 +4,7 @@
   import AppTopNav from './lib/AppTopNav.svelte'
   import SlideOver from './lib/SlideOver.svelte'
   import AgentDrawer from './lib/AgentDrawer.svelte'
+  import ChatHistory from './lib/ChatHistory.svelte'
   import WorkspaceSplit from './lib/WorkspaceSplit.svelte'
   import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from './router.js'
   import { runParallelSyncs } from './lib/app/syncAllServices.js'
@@ -15,6 +16,22 @@
     registerDebouncedWikiSyncRunner,
     runSyncOrQueueFollowUp,
   } from './lib/app/debouncedWikiSync.js'
+
+  const SIDEBAR_KEY = 'brain-sidebar'
+
+  function loadSidebarPrefs(): { open: boolean; pinned: boolean } {
+    try {
+      const raw = localStorage.getItem(SIDEBAR_KEY)
+      if (raw) {
+        const o = JSON.parse(raw) as Record<string, unknown>
+        return {
+          open: typeof o.open === 'boolean' ? o.open : false,
+          pinned: typeof o.pinned === 'boolean' ? o.pinned : false,
+        }
+      }
+    } catch { /* ignore */ }
+    return { open: false, pinned: false }
+  }
 
   let route = $state<Route>(parseRoute())
   let syncing = $state(false)
@@ -28,6 +45,14 @@
   let mobileSlideOver = $state<{ closeAnimated: () => void } | undefined>()
   let workspaceSplit = $state<WorkspaceSplit | undefined>()
   let isMobile = $state(false)
+
+  let sidebarOpen = $state(false)
+  let sidebarPinned = $state(false)
+  let chatHistory = $state<{ refresh: () => Promise<void> } | undefined>()
+  let activeSessionId = $state<string | null>(null)
+
+  const showInline = $derived(!isMobile && sidebarPinned)
+  const showOverlay = $derived(sidebarOpen && (isMobile || !sidebarPinned))
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
 
@@ -59,11 +84,29 @@
     syncMobile()
     mq.addEventListener('change', syncMobile)
 
+    const prefs = loadSidebarPrefs()
+    sidebarPinned = prefs.pinned
+    if (mq.matches) {
+      sidebarOpen = false
+    } else if (prefs.pinned) {
+      sidebarOpen = true
+    } else {
+      sidebarOpen = prefs.open
+    }
+
     loadWikiEditHistory()
     loadGitStatus()
     const onPopState = () => { route = parseRoute() }
     window.addEventListener('popstate', onPopState)
     const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        const overlaySidebarOpen = sidebarOpen && (isMobile || !sidebarPinned)
+        if (overlaySidebarOpen) {
+          e.preventDefault()
+          sidebarOpen = false
+          return
+        }
+      }
       if (e.key === 'Escape' && route.overlay) {
         e.preventDefault()
         if (isMobile && mobileSlideOver) mobileSlideOver.closeAnimated()
@@ -78,6 +121,7 @@
           showSearch = true
           break
         case 'newChat':
+          closeOverlayImmediate()
           agentDrawer?.newChat()
           break
         case 'refresh':
@@ -113,6 +157,7 @@
     navigate({})
     route = parseRoute()
     agentContext = { type: 'chat' }
+    inboxTargetId = undefined
   }
 
   function closeOverlay() {
@@ -216,6 +261,70 @@
   $effect(() => {
     registerDebouncedWikiSyncRunner(performFullSync)
   })
+
+  $effect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_KEY, JSON.stringify({ open: sidebarOpen, pinned: sidebarPinned }))
+    } catch { /* ignore */ }
+  })
+
+  function toggleSidebar() {
+    if (isMobile) {
+      sidebarOpen = !sidebarOpen
+      return
+    }
+    if (sidebarPinned) {
+      sidebarPinned = false
+      sidebarOpen = false
+      return
+    }
+    sidebarOpen = !sidebarOpen
+  }
+
+  function toggleSidebarPin() {
+    if (sidebarPinned) {
+      sidebarPinned = false
+      sidebarOpen = true
+    } else {
+      sidebarPinned = true
+      sidebarOpen = true
+    }
+  }
+
+  function closeHistorySidebar() {
+    if (isMobile) {
+      sidebarOpen = false
+      return
+    }
+    if (sidebarPinned) {
+      sidebarPinned = false
+    }
+    sidebarOpen = false
+  }
+
+  async function selectChatSession(id: string) {
+    closeOverlayImmediate()
+    await agentDrawer?.loadSession(id)
+    if (isMobile || !sidebarPinned) {
+      sidebarOpen = false
+    }
+  }
+
+  function historyNewChat() {
+    closeOverlayImmediate()
+    agentDrawer?.newChat()
+    if (isMobile || !sidebarPinned) {
+      sidebarOpen = false
+    }
+  }
+
+  function onSessionChangeFromAgent(id: string | null) {
+    activeSessionId = id
+  }
+
+  function onChatPersisted() {
+    void chatHistory?.refresh()
+  }
 </script>
 
 {#if showSearch}
@@ -228,6 +337,7 @@
 
 <div class="app">
   <AppTopNav
+    onToggleSidebar={toggleSidebar}
     {dirtyFiles}
     {recentFiles}
     {showRecentFiles}
@@ -241,6 +351,31 @@
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
   />
 
+  <div class="app-main-row">
+    {#if showInline || showOverlay}
+      {#if showOverlay}
+        <div
+          class="sidebar-backdrop"
+          role="presentation"
+          aria-hidden="true"
+          onclick={() => { sidebarOpen = false }}
+        ></div>
+      {/if}
+      <aside class="history-sidebar" class:overlay={showOverlay} class:inline={showInline}>
+        <ChatHistory
+          bind:this={chatHistory}
+          activeSessionId={activeSessionId}
+          desktop={!isMobile}
+          pinned={sidebarPinned}
+          onSelect={selectChatSession}
+          onNewChat={historyNewChat}
+          onClose={closeHistorySidebar}
+          onTogglePin={toggleSidebarPin}
+        />
+      </aside>
+    {/if}
+
+    <div class="workspace-column">
   <WorkspaceSplit
     bind:this={workspaceSplit}
     hasDetail={!!route.overlay}
@@ -259,6 +394,8 @@
         onOpenFromAgent={onOpenFromAgent}
         onNewChat={closeOverlay}
         onUserSendMessage={closeOverlayOnUserSend}
+        onSessionChange={onSessionChangeFromAgent}
+        onChatPersisted={onChatPersisted}
       >
         {#snippet mobileDetail()}
           {#if route.overlay}
@@ -301,6 +438,8 @@
       {/if}
     {/snippet}
   </WorkspaceSplit>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -308,5 +447,70 @@
     display: flex;
     flex-direction: column;
     height: 100%;
+  }
+
+  .app-main-row {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    position: relative;
+  }
+
+  .workspace-column {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .history-sidebar {
+    min-height: 0;
+  }
+
+  .history-sidebar.inline {
+    width: var(--sidebar-history-w);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+  }
+
+  .history-sidebar.overlay {
+    position: fixed;
+    left: 0;
+    top: var(--tab-h);
+    bottom: 0;
+    width: min(var(--sidebar-history-w), 92vw);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.35);
+    animation: slideInHistory 0.22s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .history-sidebar.overlay {
+      animation: none;
+    }
+  }
+
+  @keyframes slideInHistory {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: var(--tab-h);
+    bottom: 0;
+    z-index: 199;
+    background: rgba(0, 0, 0, 0.4);
   }
 </style>

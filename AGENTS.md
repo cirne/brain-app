@@ -66,7 +66,7 @@ src/
     index.ts           # Hono entry point, auth, Vite middleware
     sync-cli.ts        # `npm run sync` — full sync (wiki + inbox + calendar); used by start.sh
     routes/
-      chat.ts          # POST /api/chat — SSE agent stream
+      chat.ts          # POST /api/chat (SSE), GET /api/chat/sessions, DELETE session
       chat.test.ts     # Chat route tests
       wiki.ts          # GET /api/wiki, /api/wiki/search, /api/wiki/:path
       wiki.test.ts     # Wiki route tests
@@ -91,8 +91,10 @@ src/
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/chat` | SSE stream — body: `{message, sessionId?, context?}` |
-| DELETE | `/api/chat/:sessionId` | Delete chat session |
+| POST | `/api/chat` | SSE stream — body: `{message, sessionId?, context?}`; appends completed turns to JSON under `CHAT_DATA_DIR` |
+| GET | `/api/chat/sessions` | List persisted chat sessions (metadata) |
+| GET | `/api/chat/sessions/:sessionId` | Full persisted session JSON |
+| DELETE | `/api/chat/:sessionId` | Delete in-memory session and persisted file |
 | GET | `/api/wiki` | List all markdown files |
 | GET | `/api/wiki/search?q=...` | Search wiki content |
 | GET | `/api/wiki/git-status` | Git SHA + date |

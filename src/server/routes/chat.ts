@@ -4,8 +4,32 @@ import { getOrCreateSession, deleteSession } from '../agent/index.js'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '../lib/wikiDir.js'
+import {
+  applyStreamError,
+  applyTextDelta,
+  applyThinkingDelta,
+  applyToolEnd,
+  applyToolStart,
+  createAssistantTurnState,
+  toAssistantMessage,
+} from '../lib/chatTranscript.js'
+import { appendTurn, deleteSessionFile, loadSession, listSessions } from '../lib/chatStorage.js'
 
 const chat = new Hono()
+
+// GET /api/chat/sessions — list persisted sessions (register before /:sessionId)
+chat.get('/sessions', async (c) => {
+  const sessions = await listSessions()
+  return c.json(sessions)
+})
+
+// GET /api/chat/sessions/:sessionId — full session document
+chat.get('/sessions/:sessionId', async (c) => {
+  const sessionId = c.req.param('sessionId')
+  const doc = await loadSession(sessionId)
+  if (!doc) return c.json({ error: 'Not found' }, 404)
+  return c.json(doc)
+})
 
 // POST /api/chat
 // Body: { message: string, sessionId?: string, context?: { files?: string[] } }
@@ -44,17 +68,38 @@ chat.post('/', async (c) => {
     // Send session ID so client can continue the conversation
     await stream.writeSSE({ event: 'session', data: JSON.stringify({ sessionId }) })
 
+    const userMessage = message
+    const assistantState = createAssistantTurnState()
+    let turnTitle: string | null | undefined
+    let savedThisTurn = false
+
+    const persistTurn = async (): Promise<void> => {
+      const assistant = toAssistantMessage(assistantState)
+      try {
+        await appendTurn({
+          sessionId,
+          userMessage,
+          assistantMessage: assistant,
+          title: turnTitle,
+        })
+      } catch {
+        // Best-effort persistence; do not fail the stream
+      }
+    }
+
     const unsubscribe = agent.subscribe(async (event) => {
       try {
         switch (event.type) {
           case 'message_update': {
             const e = (event as any).assistantMessageEvent
             if (e?.type === 'text_delta') {
+              applyTextDelta(assistantState, e.delta)
               await stream.writeSSE({
                 event: 'text_delta',
                 data: JSON.stringify({ delta: e.delta }),
               })
             } else if (e?.type === 'thinking_delta') {
+              applyThinkingDelta(assistantState, e.delta)
               await stream.writeSSE({
                 event: 'thinking',
                 data: JSON.stringify({ delta: e.delta }),
@@ -62,27 +107,38 @@ chat.post('/', async (c) => {
             }
             break
           }
-          case 'tool_execution_start':
+          case 'tool_execution_start': {
+            const id = (event as any).toolCallId as string
+            const name = (event as any).toolName as string
+            const args = (event as any).args
+            applyToolStart(assistantState, { id, name, args, done: false })
+            if (name === 'set_chat_title' && args && typeof args === 'object' && 'title' in args) {
+              const t = String((args as { title?: unknown }).title ?? '').trim().slice(0, 120)
+              if (t) turnTitle = t
+            }
             await stream.writeSSE({
               event: 'tool_start',
               data: JSON.stringify({
-                id: (event as any).toolCallId,
-                name: (event as any).toolName,
-                args: (event as any).args,
+                id,
+                name,
+                args,
               }),
             })
             break
+          }
           case 'tool_execution_end': {
             const ev = event as any
-            const resultText = ev.result?.content
-              ?.filter((c: any) => c.type === 'text')
-              ?.map((c: any) => c.text)
-              ?.join('') ?? ''
+            const resultText =
+              ev.result?.content
+                ?.filter((c: any) => c.type === 'text')
+                ?.map((c: any) => c.text)
+                ?.join('') ?? ''
             /** Full structured payload for UI previews (e.g. inbox list) — text alone may be truncated. */
             const details =
               ev.toolName === 'list_inbox' && ev.result?.details != null && typeof ev.result.details === 'object'
                 ? ev.result.details
                 : undefined
+            applyToolEnd(assistantState, ev.toolCallId, resultText.slice(0, 4000), ev.isError, details)
             await stream.writeSSE({
               event: 'tool_end',
               data: JSON.stringify({
@@ -100,6 +156,8 @@ chat.post('/', async (c) => {
               event: 'done',
               data: JSON.stringify({}),
             })
+            await persistTurn()
+            savedThisTurn = true
             break
         }
       } catch {
@@ -111,23 +169,30 @@ chat.post('/', async (c) => {
       await agent.prompt(message)
     } catch (error: any) {
       try {
+        const errMsg = error.message ?? 'Agent error'
+        applyStreamError(assistantState, errMsg)
         await stream.writeSSE({
           event: 'error',
-          data: JSON.stringify({ message: error.message ?? 'Agent error' }),
+          data: JSON.stringify({ message: errMsg }),
         })
       } catch {
         // Stream closed
       }
     } finally {
       unsubscribe()
+      if (!savedThisTurn) {
+        // Partial turn (error before agent_end, or stream closed): still persist user + assistant so far
+        await persistTurn()
+      }
     }
   })
 })
 
-// DELETE /api/chat/:sessionId — delete a session
+// DELETE /api/chat/:sessionId — delete a session and its persisted file
 chat.delete('/:sessionId', async (c) => {
   const sessionId = c.req.param('sessionId')
   deleteSession(sessionId)
+  await deleteSessionFile(sessionId)
   return c.json({ ok: true })
 })
 

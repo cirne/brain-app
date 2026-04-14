@@ -32,11 +32,21 @@ In dev, Vite runs inside the same Node HTTP server as a middleware rather than o
 
 ### Agent sessions are in-memory
 
-`getOrCreateSession()` stores `Agent` instances in a `Map<string, Agent>`. Sessions are keyed by a UUID sent from the client and are lost on server restart.
+`getOrCreateSession()` stores `Agent` instances in a `Map<string, Agent>`. Sessions are keyed by a UUID sent from the client; those objects are discarded on server restart.
 
-**Why:** No persistence requirement for a personal app. Simplicity wins over durability here. The wiki and email are the persistent knowledge stores; chat history is ephemeral by design.
+**Transcripts on disk:** Each completed turn is appended to a JSON file under `CHAT_DATA_DIR` (default `./data/chats`). `GET /api/chat/sessions` and `GET /api/chat/sessions/:sessionId` expose saved history; `DELETE /api/chat/:sessionId` removes both the in-memory agent and the file. The live `Agent` state is still memory-only; persistence mirrors the same SSE stream the client sees.
 
-**Implication:** If you restart the server mid-conversation, the client gets a new session automatically (the next message creates one). The user loses conversational context but nothing is broken.
+**Implication:** After a restart, in-flight agent context is gone, but prior turns remain on disk until deleted. Without a volume mount, chat files are lost when the container image is replaced (same as other `data/` caches).
+
+---
+
+### Future: durable app state (SQLite)
+
+**Direction (not implemented):** brain-app may persist tenant-owned durable data (e.g. chat history, settings) in a **single SQLite database file** per deployment or per tenant. The deployment model is one instance per tenant, so there is no requirement for a remote database server. This store is **brain-app–owned** — it is not a replacement for ripmail's separate SQLite index under `RIPMAIL_HOME`, and it does not subsume wiki content in `WIKI_DIR`.
+
+**Backup and restore:** SQLite's single-file model makes **copying the database file** to object storage (e.g. S3) a straightforward backup path; restore after image updates or reboots when durability is required. That aligns with a broader **per-tenant object storage** story for other artifacts (see [PRODUCTIZATION.md](./PRODUCTIZATION.md) §2 on wiki storage).
+
+**Today:** Chat history is stored as **JSON files** under `CHAT_DATA_DIR` (see above). SQLite remains a possible later consolidation for settings and other durable app state.
 
 ---
 
@@ -125,6 +135,7 @@ Auth is skipped entirely in dev (`NODE_ENV !== 'production'`). In production, Ba
 | `LLM_MODEL` | `claude-sonnet-4-20250514` | Model ID for the selected provider |
 | `EXA_API_KEY` | — | Required for `web_search` tool |
 | `SUPADATA_API_KEY` | — | Required for `fetch_page` and YouTube tools |
+| `CHAT_DATA_DIR` | `./data/chats` | Persisted chat transcripts (JSON files; gitignored `data/` parent) |
 | `PORT` | `3000` | HTTP port |
 
 ---
@@ -167,7 +178,7 @@ For a **private** repository, the package is typically **private** as well. Anyo
 
    If `.env` sets `PORT` to something other than `3000`, use `-p <port>:<port>` to match.
 
-4. **Optional persistence:** add volume mounts so wiki and ripmail state survive container removal, e.g. `-v brain-wiki:/wiki -v brain-ripmail:/ripmail` before the image name.
+4. **Optional persistence:** add volume mounts so wiki, ripmail, and chat transcripts survive container removal, e.g. `-v brain-wiki:/wiki -v brain-ripmail:/ripmail -v brain-chats:/path/to/data/chats` (set `CHAT_DATA_DIR` to match the mount) before the image name. If the app adds a SQLite store for durable tenant data, mount that path the same way once a concrete path is chosen.
 
 ### Local container testing (build from source)
 

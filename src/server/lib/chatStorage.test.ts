@@ -1,0 +1,94 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+
+let chatDir: string
+
+beforeEach(async () => {
+  chatDir = await mkdtemp(join(tmpdir(), 'chat-storage-'))
+  process.env.CHAT_DATA_DIR = chatDir
+})
+
+afterEach(async () => {
+  await rm(chatDir, { recursive: true, force: true })
+  delete process.env.CHAT_DATA_DIR
+})
+
+describe('chatStorage', () => {
+  it('listSessions returns empty when dir has no files', async () => {
+    const { listSessions } = await import('./chatStorage.js')
+    const list = await listSessions()
+    expect(list).toEqual([])
+  })
+
+  it('appendTurn creates file and loadSession round-trips', async () => {
+    const { appendTurn, loadSession, findFilenameForSession } = await import('./chatStorage.js')
+    const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+    await appendTurn({
+      sessionId,
+      userMessage: 'hi',
+      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'yo' }] },
+      title: 'Test title',
+    })
+    const name = await findFilenameForSession(sessionId)
+    expect(name).toBeTruthy()
+    const doc = await loadSession(sessionId)
+    expect(doc?.sessionId).toBe(sessionId)
+    expect(doc?.title).toBe('Test title')
+    expect(doc?.messages).toHaveLength(2)
+    expect(doc?.messages[0]).toEqual({ role: 'user', content: 'hi' })
+  })
+
+  it('appendTurn appends to existing file', async () => {
+    const { appendTurn, loadSession } = await import('./chatStorage.js')
+    const sessionId = '660e8400-e29b-41d4-a716-446655440001'
+    await appendTurn({
+      sessionId,
+      userMessage: 'a',
+      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'A' }] },
+    })
+    await appendTurn({
+      sessionId,
+      userMessage: 'b',
+      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'B' }] },
+    })
+    const doc = await loadSession(sessionId)
+    expect(doc?.messages).toHaveLength(4)
+    expect(doc?.messages[2]).toEqual({ role: 'user', content: 'b' })
+  })
+
+  it('listSessions returns metadata sorted newest first', async () => {
+    const { appendTurn, listSessions } = await import('./chatStorage.js')
+    const s1 = '770e8400-e29b-41d4-a716-446655440002'
+    const s2 = '880e8400-e29b-41d4-a716-446655440003'
+    await appendTurn({
+      sessionId: s1,
+      userMessage: 'old',
+      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: '1' }] },
+    })
+    await new Promise(r => setTimeout(r, 5))
+    await appendTurn({
+      sessionId: s2,
+      userMessage: 'new',
+      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: '2' }] },
+    })
+    const list = await listSessions()
+    expect(list.map(x => x.sessionId)).toEqual([s2, s1])
+    expect(list[0].preview).toContain('new')
+  })
+
+  it('deleteSessionFile removes file', async () => {
+    const { appendTurn, loadSession, deleteSessionFile } = await import('./chatStorage.js')
+    const sessionId = '990e8400-e29b-41d4-a716-446655440004'
+    await appendTurn({
+      sessionId,
+      userMessage: 'x',
+      assistantMessage: { role: 'assistant', content: '' },
+    })
+    expect(await loadSession(sessionId)).toBeTruthy()
+    const ok = await deleteSessionFile(sessionId)
+    expect(ok).toBe(true)
+    expect(await loadSession(sessionId)).toBeNull()
+  })
+})

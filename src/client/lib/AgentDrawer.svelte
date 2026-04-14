@@ -21,6 +21,10 @@
     onNewChat,
     /** Fired when the user submits a chat message (before the request runs). */
     onUserSendMessage,
+    /** Active session id changed (new chat, load, or SSE session event). */
+    onSessionChange,
+    /** After a send() stream finishes (success, error, or abort). */
+    onChatPersisted,
     mobileDetail,
   }: {
     context?: SurfaceContext
@@ -33,6 +37,8 @@
     onOpenFromAgent?: (_target: { type: string; path?: string; id?: string; date?: string }) => void
     onNewChat?: () => void
     onUserSendMessage?: () => void
+    onSessionChange?: (_sessionId: string | null) => void
+    onChatPersisted?: () => void
     /** Full-screen detail stack above input (mobile only) */
     mobileDetail?: Snippet
   } = $props()
@@ -73,6 +79,10 @@
 
   $effect(() => { fetchWikiFiles() })
 
+  $effect(() => {
+    onSessionChange?.(sessionId)
+  })
+
   async function fetchWikiFiles() {
     try {
       const res = await fetch('/api/wiki')
@@ -96,6 +106,43 @@
     onNewChat?.()
     await tick()
     await send(text)
+  }
+
+  export async function loadSession(loadId: string) {
+    try {
+      const res = await fetch(`/api/chat/sessions/${encodeURIComponent(loadId)}`)
+      if (!res.ok) {
+        messages = [
+          {
+            role: 'assistant',
+            content: `Could not load chat (${res.status}).`,
+          },
+        ]
+        sessionId = null
+        chatTitle = null
+        await tick()
+        conversationEl?.scrollToBottom()
+        return
+      }
+      const doc = (await res.json()) as {
+        sessionId?: string
+        title?: string | null
+        messages?: ChatMessage[]
+      }
+      const list = Array.isArray(doc.messages) ? doc.messages : []
+      messages = list
+      sessionId = typeof doc.sessionId === 'string' ? doc.sessionId : loadId
+      chatTitle = doc.title ?? null
+      await tick()
+      conversationEl?.scrollToBottom()
+      void focusAgentTextarea(0)
+    } catch {
+      messages = [{ role: 'assistant', content: 'Could not load chat.' }]
+      sessionId = null
+      chatTitle = null
+      await tick()
+      conversationEl?.scrollToBottom()
+    }
   }
 
   function stopChat() {
@@ -223,6 +270,7 @@
       streaming = false
       conversationEl?.scrollToBottom()
       if (touchedWiki) emit({ type: 'wiki:mutated', source: 'agent' })
+      onChatPersisted?.()
     }
   }
 

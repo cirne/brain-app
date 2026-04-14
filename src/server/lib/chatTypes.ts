@@ -1,0 +1,39 @@
+/**
+ * Mirrors client ChatMessage shape in src/client/lib/agentUtils.ts — keep in sync.
+ */
+
+export type ToolCall = {
+  id: string
+  name: string
+  args: unknown
+  result?: string
+  details?: unknown
+  isError?: boolean
+  done: boolean
+}
+
+export type TextPart = { type: 'text'; content: string }
+export type ToolPart = { type: 'tool'; toolCall: ToolCall }
+export type MessagePart = TextPart | ToolPart
+
+export type ChatMessage = {
+  role: 'user' | 'assistant'
+  content: string
+  parts?: MessagePart[]
+  thinking?: string
+}
+
+/** One in-progress assistant message while streaming SSE (server mirror of client state). */
+export type AssistantTurnState = {
+  thinking?: string
+  parts: MessagePart[]
+}
+
+export type ChatSessionDocV1 = {
+  version: 1
+  sessionId: string
+  createdAt: string
+  updatedAt: string
+  title: string | null
+  messages: ChatMessage[]
+}
