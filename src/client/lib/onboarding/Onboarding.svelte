@@ -284,10 +284,10 @@
           <div class="ob-seed-ready-inner">
             <h2 id="ob-seed-ready-title" class="ob-seed-ready-title">You’re off to a strong start</h2>
             <p id="ob-seed-ready-desc" class="ob-seed-ready-body">
-              Your wiki has its first real pages. Over the next few minutes the seeding pass may keep adding pages and tightening links—but you don’t have to wait. Jump into chat and start asking questions; your assistant can read what’s already there.
+              You’ve got a solid start. More pages may appear over the next few minutes as we finish setting things up. That’s normal. Feel free to start chatting whenever you like; answers can draw on what’s already in your space.
             </p>
             <p class="ob-seed-ready-foot">
-              Want more pages later? Just ask the assistant to keep building out your wiki.
+              Want more later? Just ask your assistant to keep building things out.
             </p>
             <button type="button" class="ob-btn-primary ob-seed-ready-btn" onclick={() => void onSeedReadyConfirm()}>
               Start chatting
@@ -797,8 +797,15 @@
     min-height: 0;
   }
 
+  /* Restore modal dialog centering (global * { margin:0 } strips UA margin:auto) */
   .ob-seed-ready-dialog {
+    position: fixed;
+    inset: 0;
+    width: fit-content;
     max-width: min(28rem, calc(100vw - 2rem));
+    height: fit-content;
+    max-height: min(90vh, calc(100vh - 2rem));
+    margin: auto;
     padding: 0;
     border: 1px solid var(--border);
     border-radius: 1rem;
