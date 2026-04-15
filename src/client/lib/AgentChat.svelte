@@ -306,7 +306,6 @@
 
     onUserSendMessage?.()
 
-    const messagesForStream = sessions.get(id)!.messages
     let sawDone = false
     let touchedWiki = false
 
@@ -319,13 +318,15 @@
       })
 
       if (!res.ok) {
-        messagesForStream[msgIdx].parts!.push({ type: 'text', content: `Error: ${res.status} ${res.statusText}` })
+        const row = sessions.get(activeKey)!.messages[msgIdx]
+        if (!row.parts) row.parts = []
+        row.parts.push({ type: 'text', content: `Error: ${res.status} ${res.statusText}` })
         sessions = touchSessionImmutable(sessions, activeKey, { streaming: false, abortController: null })
         return
       }
 
       const result = await consumeAgentChatStream(res, {
-        messages: messagesForStream,
+        getMessages: () => sessions.get(activeKey)!.messages,
         msgIdx,
         suppressAgentWikiAutoOpen,
         isActiveSession: () => displayedSessionId === activeKey,
@@ -349,9 +350,22 @@
         },
         touchMessages: () => {
           const cur = sessions.get(activeKey)
-          if (cur) {
-            sessions = touchSessionImmutable(sessions, activeKey, { messages: [...cur.messages] })
+          if (!cur) return
+          const next = [...cur.messages]
+          const m = next[msgIdx]
+          if (m?.role === 'assistant') {
+            next[msgIdx] = {
+              ...m,
+              parts: m.parts
+                ? m.parts.map((p) =>
+                    p.type === 'text'
+                      ? { type: 'text', content: p.content }
+                      : { type: 'tool', toolCall: { ...p.toolCall } },
+                  )
+                : [],
+            }
           }
+          sessions = touchSessionImmutable(sessions, activeKey, { messages: next })
         },
         scrollToBottom: () => conversationEl?.scrollToBottom(),
       })
@@ -361,7 +375,11 @@
       const errMsg = err instanceof Error ? err.message : String(err)
       const name = err instanceof Error ? err.name : ''
       if (name !== 'AbortError') {
-        messagesForStream[msgIdx].parts!.push({ type: 'text', content: `\n\n**Connection error:** ${errMsg}` })
+        const row = sessions.get(activeKey)?.messages[msgIdx]
+        if (row) {
+          if (!row.parts) row.parts = []
+          row.parts.push({ type: 'text', content: `\n\n**Connection error:** ${errMsg}` })
+        }
       }
     } finally {
       sessions = touchSessionImmutable(sessions, activeKey, { abortController: null, streaming: false })

@@ -24,6 +24,7 @@
   const preview = $derived(matchContentPreview(toolCall))
   const policy = $derived(getToolUiPolicy(toolCall.name))
   const displayName = $derived(policy.label ?? toolCall.name)
+  const toolIcon = $derived(getToolIcon(toolCall.name))
 </script>
 
 {#if toolCall.done}
@@ -34,8 +35,8 @@
           {#if toolCall.isError}
             !
           {:else}
-            {@const Icon = getToolIcon(toolCall.name)}
-            {#if Icon}
+            {#if toolIcon}
+              {@const Icon = toolIcon}
               <Icon size={12} strokeWidth={2.5} />
             {:else}
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
@@ -62,6 +63,20 @@
       />
     {/if}
   </div>
+{:else}
+  <div class="tool-part" role="status">
+    <div class="tool-call tool-pending">
+      <span class="tool-icon">
+        {#if toolIcon}
+          {@const Icon = toolIcon}
+          <Icon size={12} strokeWidth={2.5} />
+        {:else}
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        {/if}
+      </span>
+      <span class="tool-name tool-pending-label">{displayName}…</span>
+    </div>
+  </div>
 {/if}
 
 <style>
@@ -77,6 +92,28 @@
     border-radius: 4px;
     font-size: 13px;
     overflow: hidden;
+  }
+
+  .tool-call.tool-pending {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 4px;
+    opacity: 0.92;
+  }
+
+  .tool-pending-label {
+    animation: tool-pending-pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes tool-pending-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
   }
 
   .tool-call summary {

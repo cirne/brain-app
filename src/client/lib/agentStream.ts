@@ -1,8 +1,33 @@
 import { getToolUiPolicy, type ChatMessage, type ToolPart } from './agentUtils.js'
 import type { AgentOpenSource } from './navigateFromAgentOpen.js'
 
+/** Mirror server `applyToolArgsUpsert` so the chat UI can show tool rows while args stream (e.g. `write`). */
+function upsertStreamingToolPart(
+  msg: ChatMessage,
+  data: { id: string; name: string; args?: unknown },
+): void {
+  const policy = getToolUiPolicy(data.name)
+  if (!policy.showInChat) return
+  const parts = msg.parts!
+  let part = parts.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
+  const args =
+    data.args != null && typeof data.args === 'object'
+      ? (data.args as Record<string, unknown>)
+      : {}
+  if (!part) {
+    parts.push({
+      type: 'tool',
+      toolCall: { id: data.id, name: data.name, args, done: false },
+    })
+  } else {
+    part.toolCall.name = data.name
+    part.toolCall.args = args
+  }
+}
+
 export type ConsumeAgentChatStreamOptions = {
-  messages: ChatMessage[]
+  /** Always read the live session messages array (avoids stale refs after `touchMessages` clones). */
+  getMessages: () => ChatMessage[]
   msgIdx: number
   suppressAgentWikiAutoOpen: boolean
   /**
@@ -25,14 +50,14 @@ export type ConsumeAgentChatStreamOptions = {
 }
 
 /**
- * Reads the SSE body from a successful POST /api/chat response and applies deltas to `messages[msgIdx]`.
+ * Reads the SSE body from a successful POST /api/chat response and applies deltas to `getMessages()[msgIdx]`.
  */
 export async function consumeAgentChatStream(
   res: Response,
   options: ConsumeAgentChatStreamOptions,
 ): Promise<{ touchedWiki: boolean; sawDone: boolean }> {
   const {
-    messages,
+    getMessages,
     msgIdx,
     suppressAgentWikiAutoOpen,
     isActiveSession,
@@ -79,12 +104,21 @@ export async function consumeAgentChatStream(
       }
       if (line.startsWith('data: ')) {
         const data = JSON.parse(line.slice(6))
-        const msg = messages[msgIdx]
+
+        if (lastEvent === 'session') {
+          setSessionId(typeof data.sessionId === 'string' ? data.sessionId : null)
+          continue
+        }
+        if (lastEvent === 'done') {
+          sawDone = true
+          continue
+        }
+
+        const msg = getMessages()[msgIdx]
+        if (!msg || msg.role !== 'assistant') continue
+        if (!msg.parts) msg.parts = []
 
         switch (lastEvent) {
-          case 'session':
-            setSessionId(typeof data.sessionId === 'string' ? data.sessionId : null)
-            break
           case 'text_delta': {
             const parts = msg.parts!
             const last = parts[parts.length - 1]
@@ -93,11 +127,13 @@ export async function consumeAgentChatStream(
             } else {
               parts.push({ type: 'text', content: data.delta })
             }
+            touchMessages()
             if (isActiveSession()) scrollToBottom()
             break
           }
           case 'thinking':
             msg.thinking = (msg.thinking ?? '') + data.delta
+            touchMessages()
             break
           case 'tool_args': {
             const policy = getToolUiPolicy(data.name)
@@ -122,6 +158,9 @@ export async function consumeAgentChatStream(
                 if (isActiveSession()) onEditStreaming?.({ id: data.id, path, done: false })
               }
             }
+            upsertStreamingToolPart(msg, data)
+            touchMessages()
+            if (isActiveSession()) scrollToBottom()
             break
           }
           case 'tool_start': {
@@ -141,6 +180,7 @@ export async function consumeAgentChatStream(
               }
               touchMessages()
             } else {
+              upsertStreamingToolPart(msg, data)
               if (data.args != null && typeof data.args === 'object') {
                 toolArgsByToolId.set(data.id, data.args as Record<string, unknown>)
               }
@@ -154,6 +194,7 @@ export async function consumeAgentChatStream(
                   onOpenFromAgent({ type: 'email', id: data.args.id }, 'read_email')
                 }
               }
+              touchMessages()
             }
             if (isActiveSession()) scrollToBottom()
             break
@@ -209,9 +250,7 @@ export async function consumeAgentChatStream(
           }
           case 'error':
             msg.parts!.push({ type: 'text', content: `\n\n**Error:** ${data.message}` })
-            break
-          case 'done':
-            sawDone = true
+            touchMessages()
             break
         }
       }

@@ -29,7 +29,7 @@ describe('consumeAgentChatStream', () => {
       'data: {"delta":"Hello"}\n\n',
     ])
     const { touchedWiki, sawDone } = await consumeAgentChatStream(res, {
-      messages,
+      getMessages: () => messages,
       msgIdx: 1,
       suppressAgentWikiAutoOpen: false,
       isActiveSession: () => true,
@@ -54,7 +54,7 @@ describe('consumeAgentChatStream', () => {
       'data: {}\n\n',
     ])
     const { sawDone } = await consumeAgentChatStream(res, {
-      messages,
+      getMessages: () => messages,
       msgIdx: 1,
       suppressAgentWikiAutoOpen: false,
       isActiveSession: () => true,
@@ -77,7 +77,7 @@ describe('consumeAgentChatStream', () => {
       'data: {"id":"t1","name":"write","args":{"path":"ideas/x.md","content":"# x"}}\n\n',
     ])
     await consumeAgentChatStream(res, {
-      messages,
+      getMessages: () => messages,
       msgIdx: 1,
       suppressAgentWikiAutoOpen: false,
       isActiveSession: () => false,
@@ -88,5 +88,34 @@ describe('consumeAgentChatStream', () => {
       scrollToBottom: () => {},
     })
     expect(onOpenWiki).not.toHaveBeenCalled()
+  })
+
+  it('adds an in-progress tool part on tool_args for write (mirrors server transcript)', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_args\n',
+      'data: {"id":"w1","name":"write","args":{"path":"companies/new-relic.md","content":"# NR"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentWikiAutoOpen: true,
+      isActiveSession: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(messages[1].parts).toHaveLength(1)
+    const p = messages[1].parts![0]
+    expect(p.type).toBe('tool')
+    if (p.type !== 'tool') throw new Error('expected tool part')
+    expect(p.toolCall.id).toBe('w1')
+    expect(p.toolCall.name).toBe('write')
+    expect(p.toolCall.done).toBe(false)
+    expect((p.toolCall.args as { path?: string }).path).toBe('companies/new-relic.md')
   })
 })
