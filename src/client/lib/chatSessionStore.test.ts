@@ -1,0 +1,74 @@
+import { describe, it, expect } from 'vitest'
+import {
+  createPendingSessionKey,
+  emptySession,
+  migratePendingToServer,
+  setSessionImmutable,
+  touchSessionImmutable,
+  deleteSessionImmutable,
+} from './chatSessionStore.js'
+import type { ChatMessage } from './agentUtils.js'
+
+describe('chatSessionStore helpers', () => {
+  it('createPendingSessionKey returns pending: prefix', () => {
+    const k = createPendingSessionKey()
+    expect(k.startsWith('pending:')).toBe(true)
+  })
+
+  it('migratePendingToServer moves state and updates displayed id', () => {
+    const pending = 'pending:abc'
+    const server = '11111111-1111-1111-1111-111111111111'
+    const msg: ChatMessage = { role: 'user', content: 'hi' }
+    let map = new Map()
+    map = setSessionImmutable(map, pending, {
+      ...emptySession(),
+      messages: [msg],
+      streaming: true,
+      sessionId: null,
+      chatTitle: 'T',
+    })
+    const r = migratePendingToServer(map, pending, server, pending)
+    expect(r.sessions.has(pending)).toBe(false)
+    expect(r.sessions.get(server)?.messages).toEqual([msg])
+    expect(r.sessions.get(server)?.streaming).toBe(true)
+    expect(r.sessions.get(server)?.sessionId).toBe(server)
+    expect(r.displayedSessionId).toBe(server)
+  })
+
+  it('migratePendingToServer leaves displayed id unchanged when viewing another session', () => {
+    const pending = 'pending:p'
+    const other = '22222222-2222-2222-2222-222222222222'
+    const server = '33333333-3333-3333-3333-333333333333'
+    let map = new Map()
+    map = setSessionImmutable(map, other, {
+      ...emptySession(),
+      messages: [{ role: 'user', content: 'x' }],
+      sessionId: other,
+      chatTitle: null,
+    })
+    map = setSessionImmutable(map, pending, {
+      ...emptySession(),
+      messages: [{ role: 'user', content: 'y' }],
+      streaming: true,
+      sessionId: null,
+      chatTitle: null,
+    })
+    const r = migratePendingToServer(map, pending, server, other)
+    expect(r.displayedSessionId).toBe(other)
+    expect(r.sessions.get(server)?.messages[0]?.content).toBe('y')
+  })
+
+  it('touchSessionImmutable patches one session', () => {
+    let map = new Map()
+    map = setSessionImmutable(map, 'a', emptySession())
+    map = touchSessionImmutable(map, 'a', { chatTitle: 'Hi' })
+    expect(map.get('a')?.chatTitle).toBe('Hi')
+  })
+
+  it('deleteSessionImmutable removes entry', () => {
+    let map = new Map()
+    map = setSessionImmutable(map, 'a', emptySession())
+    map = deleteSessionImmutable(map, 'a')
+    expect(map.has('a')).toBe(false)
+  })
+})

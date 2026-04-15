@@ -5,6 +5,14 @@
   import { contextPlaceholder } from './agentUtils.js'
   import { emit } from './app/appEvents.js'
   import { consumeAgentChatStream } from './agentStream.js'
+  import {
+    createPendingSessionKey,
+    emptySession,
+    migratePendingToServer,
+    setSessionImmutable,
+    touchSessionImmutable,
+    type SessionState,
+  } from './chatSessionStore.js'
   import { MessageSquarePlus } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import AgentInput from './AgentInput.svelte'
@@ -86,14 +94,60 @@
   }
 
   const initial = loadState()
-  let messages = $state<ChatMessage[]>(initial.messages)
-  let sessionId = $state<string | null>(initial.sessionId)
-  let chatTitle = $state<string | null>(initial.chatTitle ?? null)
-  let streaming = $state(false)
+
+  function initialSessionsAndDisplay(): { sessions: Map<string, SessionState>; displayed: string } {
+    const map = new Map<string, SessionState>()
+    if (initial.sessionId && initial.messages.length > 0) {
+      map.set(initial.sessionId, {
+        messages: initial.messages,
+        streaming: false,
+        abortController: null,
+        sessionId: initial.sessionId,
+        chatTitle: initial.chatTitle ?? null,
+      })
+      return { sessions: map, displayed: initial.sessionId }
+    }
+    if (initial.messages.length > 0) {
+      const pk = createPendingSessionKey()
+      map.set(pk, {
+        messages: initial.messages,
+        streaming: false,
+        abortController: null,
+        sessionId: null,
+        chatTitle: initial.chatTitle ?? null,
+      })
+      return { sessions: map, displayed: pk }
+    }
+    const pk = createPendingSessionKey()
+    map.set(pk, emptySession())
+    return { sessions: map, displayed: pk }
+  }
+
+  const init = initialSessionsAndDisplay()
+  let sessions = $state(init.sessions)
+  let displayedSessionId = $state(init.displayed)
+
+  const messages = $derived.by((): ChatMessage[] => {
+    const id = displayedSessionId
+    if (!id) return []
+    return sessions.get(id)?.messages ?? []
+  })
+
+  const chatTitle = $derived.by((): string | null => {
+    const id = displayedSessionId
+    if (!id) return null
+    return sessions.get(id)?.chatTitle ?? null
+  })
+
+  const streaming = $derived.by((): boolean => {
+    const id = displayedSessionId
+    if (!id) return false
+    return sessions.get(id)?.streaming ?? false
+  })
+
   let wikiFiles = $state<string[]>([])
   let conversationEl = $state<ReturnType<typeof AgentConversation> | undefined>(undefined)
   let inputEl = $state<ReturnType<typeof AgentInput> | undefined>(undefined)
-  let abortController: AbortController | null = null
 
   async function focusAgentTextarea(delayMs: number) {
     await tick()
@@ -105,15 +159,32 @@
 
   $effect(() => {
     if (!storageKey) return
+    const id = displayedSessionId
+    if (!id) return
+    const st = sessions.get(id)
+    if (!st) return
     try {
-      localStorage.setItem(storageKey, JSON.stringify({ messages, sessionId, chatTitle }))
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          messages: st.messages,
+          sessionId: st.sessionId,
+          chatTitle: st.chatTitle,
+        }),
+      )
     } catch { /* ignore */ }
   })
 
   $effect(() => { fetchWikiFiles() })
 
   $effect(() => {
-    onSessionChange?.(sessionId)
+    const id = displayedSessionId
+    if (!id) {
+      onSessionChange?.(null)
+      return
+    }
+    const sid = sessions.get(id)?.sessionId ?? null
+    onSessionChange?.(sid)
   })
 
   async function fetchWikiFiles() {
@@ -130,18 +201,15 @@
   })
 
   export function newChat() {
-    messages = []
-    sessionId = null
-    chatTitle = null
+    const pk = createPendingSessionKey()
+    sessions = setSessionImmutable(sessions, pk, emptySession())
+    displayedSessionId = pk
     onNewChat?.()
     void focusAgentTextarea(0)
   }
 
   export async function newChatWithMessage(text: string) {
-    messages = []
-    sessionId = null
-    chatTitle = null
-    onNewChat?.()
+    newChat()
     await tick()
     await send(text)
   }
@@ -150,14 +218,19 @@
     try {
       const res = await fetch(`/api/chat/sessions/${encodeURIComponent(loadId)}`)
       if (!res.ok) {
-        messages = [
+        const err = emptySession()
+        err.messages = [
           {
             role: 'assistant',
             content: `Could not load chat (${res.status}).`,
           },
         ]
-        sessionId = null
-        chatTitle = null
+        sessions = setSessionImmutable(sessions, loadId, {
+          ...err,
+          sessionId: null,
+          chatTitle: null,
+        })
+        displayedSessionId = loadId
         await tick()
         conversationEl?.scrollToBottom()
         return
@@ -168,42 +241,72 @@
         messages?: ChatMessage[]
       }
       const list = Array.isArray(doc.messages) ? doc.messages : []
-      messages = list
-      sessionId = typeof doc.sessionId === 'string' ? doc.sessionId : loadId
-      chatTitle = doc.title ?? null
+      const sid = typeof doc.sessionId === 'string' ? doc.sessionId : loadId
+      sessions = setSessionImmutable(sessions, sid, {
+        messages: list,
+        streaming: false,
+        abortController: null,
+        sessionId: sid,
+        chatTitle: doc.title ?? null,
+      })
+      displayedSessionId = sid
       await tick()
       conversationEl?.scrollToBottom()
       void focusAgentTextarea(0)
     } catch {
-      messages = [{ role: 'assistant', content: 'Could not load chat.' }]
-      sessionId = null
-      chatTitle = null
+      const pk = createPendingSessionKey()
+      sessions = setSessionImmutable(sessions, pk, {
+        messages: [{ role: 'assistant', content: 'Could not load chat.' }],
+        streaming: false,
+        abortController: null,
+        sessionId: null,
+        chatTitle: null,
+      })
+      displayedSessionId = pk
       await tick()
       conversationEl?.scrollToBottom()
     }
   }
 
   function stopChat() {
-    abortController?.abort()
+    const id = displayedSessionId
+    if (!id) return
+    sessions.get(id)?.abortController?.abort()
   }
 
   async function send(text: string) {
-    if (!text || streaming) return
+    const id = displayedSessionId
+    if (!text || !id) return
+    const st = sessions.get(id)
+    if (!st || st.streaming) return
 
+    const streamKey = id
+    let activeKey = streamKey
     const mentionedFiles = extractMentionedFiles(text)
-    const isFirstMessage = messages.length === 0
+    const isFirstMessage = st.messages.length === 0
 
-    messages = [...messages, { role: 'user', content: text }]
-    streaming = true
+    const nextMessages = [...st.messages, { role: 'user', content: text }]
+    nextMessages.push({ role: 'assistant', content: '', parts: [] })
+    const msgIdx = nextMessages.length - 1
 
-    const body = buildChatBody({ message: text, sessionId, context, mentionedFiles, isFirstMessage })
+    const ac = new AbortController()
+    sessions = touchSessionImmutable(sessions, id, {
+      messages: nextMessages,
+      streaming: true,
+      abortController: ac,
+    })
+
+    const body = buildChatBody({
+      message: text,
+      sessionId: st.sessionId,
+      context,
+      mentionedFiles,
+      isFirstMessage,
+    })
 
     onUserSendMessage?.()
 
-    messages.push({ role: 'assistant', content: '', parts: [] })
-    const msgIdx = messages.length - 1
-
-    abortController = new AbortController()
+    const messagesForStream = sessions.get(id)!.messages
     let sawDone = false
     let touchedWiki = false
 
@@ -212,26 +315,44 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        signal: abortController.signal,
+        signal: ac.signal,
       })
 
       if (!res.ok) {
-        messages[msgIdx].parts!.push({ type: 'text', content: `Error: ${res.status} ${res.statusText}` })
-        streaming = false
+        messagesForStream[msgIdx].parts!.push({ type: 'text', content: `Error: ${res.status} ${res.statusText}` })
+        sessions = touchSessionImmutable(sessions, activeKey, { streaming: false, abortController: null })
         return
       }
 
       const result = await consumeAgentChatStream(res, {
-        messages,
+        messages: messagesForStream,
         msgIdx,
         suppressAgentWikiAutoOpen,
+        isActiveSession: () => displayedSessionId === activeKey,
         onOpenWiki,
         onWriteStreaming,
         onEditStreaming,
         onOpenFromAgent,
-        setSessionId: (id) => { sessionId = id },
-        setChatTitle: (t) => { chatTitle = t },
-        touchMessages: () => { messages = [...messages] },
+        setSessionId: (sid) => {
+          if (!sid) return
+          if (activeKey.startsWith('pending:')) {
+            const r = migratePendingToServer(sessions, activeKey, sid, displayedSessionId)
+            sessions = r.sessions
+            displayedSessionId = r.displayedSessionId
+            activeKey = sid
+          } else {
+            sessions = touchSessionImmutable(sessions, activeKey, { sessionId: sid })
+          }
+        },
+        setChatTitle: (t) => {
+          sessions = touchSessionImmutable(sessions, activeKey, { chatTitle: t })
+        },
+        touchMessages: () => {
+          const cur = sessions.get(activeKey)
+          if (cur) {
+            sessions = touchSessionImmutable(sessions, activeKey, { messages: [...cur.messages] })
+          }
+        },
         scrollToBottom: () => conversationEl?.scrollToBottom(),
       })
       touchedWiki = result.touchedWiki
@@ -240,15 +361,14 @@
       const errMsg = err instanceof Error ? err.message : String(err)
       const name = err instanceof Error ? err.name : ''
       if (name !== 'AbortError') {
-        messages[msgIdx].parts!.push({ type: 'text', content: `\n\n**Connection error:** ${errMsg}` })
+        messagesForStream[msgIdx].parts!.push({ type: 'text', content: `\n\n**Connection error:** ${errMsg}` })
       }
     } finally {
-      abortController = null
-      streaming = false
+      sessions = touchSessionImmutable(sessions, activeKey, { abortController: null, streaming: false })
       conversationEl?.scrollToBottom()
       if (touchedWiki) emit({ type: 'wiki:mutated', source: 'agent' })
       onChatPersisted?.()
-      if (sawDone) void onStreamFinished?.()
+      if (sawDone && displayedSessionId === activeKey) void onStreamFinished?.()
     }
   }
 

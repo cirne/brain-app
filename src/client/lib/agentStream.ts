@@ -5,6 +5,11 @@ export type ConsumeAgentChatStreamOptions = {
   messages: ChatMessage[]
   msgIdx: number
   suppressAgentWikiAutoOpen: boolean
+  /**
+   * When false, skip right-panel / overlay side effects (wiki auto-open, streaming preview, open tool).
+   * Transcript and session state still update.
+   */
+  isActiveSession: () => boolean
   onOpenWiki?: (_path: string) => void
   onWriteStreaming?: (_p: { path: string; content: string; done: boolean }) => void
   onEditStreaming?: (_p: { id: string; path: string; done: boolean }) => void
@@ -30,6 +35,7 @@ export async function consumeAgentChatStream(
     messages,
     msgIdx,
     suppressAgentWikiAutoOpen,
+    isActiveSession,
     onOpenWiki,
     onWriteStreaming,
     onEditStreaming,
@@ -87,7 +93,7 @@ export async function consumeAgentChatStream(
             } else {
               parts.push({ type: 'text', content: data.delta })
             }
-            scrollToBottom()
+            if (isActiveSession()) scrollToBottom()
             break
           }
           case 'thinking':
@@ -102,12 +108,18 @@ export async function consumeAgentChatStream(
               if (content) writeContentByToolId.set(data.id, content)
               if (path && !writeOpenedWikiForToolId.has(data.id)) {
                 writeOpenedWikiForToolId.add(data.id)
-                if (!suppressAgentWikiAutoOpen && policy.autoOpen) onOpenWiki?.(path)
+                if (
+                  isActiveSession() &&
+                  !suppressAgentWikiAutoOpen &&
+                  policy.autoOpen
+                ) {
+                  onOpenWiki?.(path)
+                }
               }
               if (data.name === 'write') {
-                onWriteStreaming?.({ path, content, done: false })
+                if (isActiveSession()) onWriteStreaming?.({ path, content, done: false })
               } else if (data.name === 'edit') {
-                onEditStreaming?.({ id: data.id, path, done: false })
+                if (isActiveSession()) onEditStreaming?.({ id: data.id, path, done: false })
               }
             }
             break
@@ -134,14 +146,16 @@ export async function consumeAgentChatStream(
               }
               if (data.name === 'open' && data.args?.target && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
                 openedFromAgentByToolId.add(data.id)
-                if (policy.autoOpen) onOpenFromAgent(data.args.target, 'open')
+                if (isActiveSession() && policy.autoOpen) onOpenFromAgent(data.args.target, 'open')
               }
               if (data.name === 'read_email' && typeof data.args?.id === 'string' && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
                 openedFromAgentByToolId.add(data.id)
-                if (policy.autoOpen) onOpenFromAgent({ type: 'email', id: data.args.id }, 'read_email')
+                if (isActiveSession() && policy.autoOpen) {
+                  onOpenFromAgent({ type: 'email', id: data.args.id }, 'read_email')
+                }
               }
             }
-            scrollToBottom()
+            if (isActiveSession()) scrollToBottom()
             break
           }
           case 'tool_end': {
@@ -184,13 +198,13 @@ export async function consumeAgentChatStream(
               writePathByToolId.delete(data.id)
               writeContentByToolId.delete(data.id)
               if (name === 'write') {
-                onWriteStreaming?.({ path: '', content: '', done: true })
+                if (isActiveSession()) onWriteStreaming?.({ path: '', content: '', done: true })
               } else if (name === 'edit') {
-                onEditStreaming?.({ id: data.id, path: '', done: true })
+                if (isActiveSession()) onEditStreaming?.({ id: data.id, path: '', done: true })
               }
             }
             touchMessages()
-            scrollToBottom()
+            if (isActiveSession()) scrollToBottom()
             break
           }
           case 'error':

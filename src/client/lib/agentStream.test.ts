@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { consumeAgentChatStream } from './agentStream.js'
 import type { ChatMessage } from './agentUtils.js'
 
@@ -32,6 +32,7 @@ describe('consumeAgentChatStream', () => {
       messages,
       msgIdx: 1,
       suppressAgentWikiAutoOpen: false,
+      isActiveSession: () => true,
       setSessionId: (id) => { sessionId = id },
       setChatTitle: () => {},
       touchMessages: () => {},
@@ -56,11 +57,36 @@ describe('consumeAgentChatStream', () => {
       messages,
       msgIdx: 1,
       suppressAgentWikiAutoOpen: false,
+      isActiveSession: () => true,
       setSessionId: () => {},
       setChatTitle: () => {},
       touchMessages: () => {},
       scrollToBottom: () => {},
     })
     expect(sawDone).toBe(true)
+  })
+
+  it('does not call onOpenWiki when isActiveSession is false', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onOpenWiki = vi.fn()
+    const res = sseResponse([
+      'event: tool_args\n',
+      'data: {"id":"t1","name":"write","args":{"path":"ideas/x.md","content":"# x"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      messages,
+      msgIdx: 1,
+      suppressAgentWikiAutoOpen: false,
+      isActiveSession: () => false,
+      onOpenWiki,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onOpenWiki).not.toHaveBeenCalled()
   })
 })
