@@ -1,576 +1,69 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Search from './lib/Search.svelte'
-  import AppTopNav from './lib/AppTopNav.svelte'
-  import SlideOver from './lib/SlideOver.svelte'
-  import AgentDrawer from './lib/AgentDrawer.svelte'
-  import ChatHistory from './lib/ChatHistory.svelte'
-  import WorkspaceSplit from './lib/WorkspaceSplit.svelte'
-  import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from './router.js'
-  import { runParallelSyncs } from './lib/app/syncAllServices.js'
-  import { matchGlobalShortcut } from './lib/app/globalShortcuts.js'
-  import { emit, subscribe } from './lib/app/appEvents.js'
-  import {
-    cancelPendingDebouncedWikiSync,
-    onWikiMutatedForAutoSync,
-    registerDebouncedWikiSyncRunner,
-    runSyncOrQueueFollowUp,
-  } from './lib/app/debouncedWikiSync.js'
-  import { wikiPathForReadToolArg } from './lib/cards/contentCards.js'
-  import { navigateFromAgentOpen, type AgentOpenSource } from './lib/navigateFromAgentOpen.js'
-
-  const SIDEBAR_KEY = 'brain-sidebar'
-
-  function loadSidebarPrefs(): { open: boolean; pinned: boolean } {
-    try {
-      const raw = localStorage.getItem(SIDEBAR_KEY)
-      if (raw) {
-        const o = JSON.parse(raw) as Record<string, unknown>
-        return {
-          open: typeof o.open === 'boolean' ? o.open : false,
-          pinned: typeof o.pinned === 'boolean' ? o.pinned : false,
-        }
-      }
-    } catch { /* ignore */ }
-    return { open: false, pinned: false }
-  }
+  import Assistant from './lib/Assistant.svelte'
+  import Onboarding from './lib/onboarding/Onboarding.svelte'
+  import { parseRoute, type Route } from './router.js'
 
   let route = $state<Route>(parseRoute())
-  let syncing = $state(false)
-  let syncErrors = $state<string[]>([])
-  let showSyncErrors = $state(false)
-  let calendarRefreshKey = $state(0)
-  let wikiRefreshKey = $state(0)
-  let showSearch = $state(false)
-  let inboxTargetId = $state<string | undefined>()
-  /** Live markdown while the agent streams a `write` tool — wiki pane only. */
-  let wikiWriteStreaming = $state<{ path: string; body: string } | null>(null)
-  /** Live `edit` tool — wiki pane shows “Editing…” until tool_end. */
-  let wikiEditStreaming = $state<{ path: string; toolId: string } | null>(null)
-  let agentDrawer = $state<AgentDrawer | undefined>()
-  let mobileSlideOver = $state<{ closeAnimated: () => void } | undefined>()
-  let workspaceSplit = $state<WorkspaceSplit | undefined>()
-  let isMobile = $state(false)
+  let appReady = $state(false)
+  let onboardingStatus = $state<{ state: string } | null>(null)
 
-  let sidebarOpen = $state(false)
-  let sidebarPinned = $state(false)
-  let chatHistory = $state<{ refresh: () => Promise<void> } | undefined>()
-  let activeSessionId = $state<string | null>(null)
-
-  const showInline = $derived(!isMobile && sidebarPinned)
-  const showOverlay = $derived(sidebarOpen && (isMobile || !sidebarPinned))
-
-  let agentContext = $state<SurfaceContext>({ type: 'chat' })
-
-  let recentEditFiles = $state<{ path: string; date: string }[]>([])
-  let dirtyFiles = $state<string[]>([])
-  let showRecentFiles = $state(false)
-
-  const recentFiles = $derived(recentEditFiles)
-
-  async function loadWikiEditHistory() {
+  async function fetchStatus() {
     try {
-      const res = await fetch('/api/wiki/edit-history?limit=10')
-      const data = await res.json()
-      recentEditFiles = data.files ?? []
-    } catch { /* ignore */ }
+      const res = await fetch('/api/onboarding/status')
+      const j = (await res.json()) as { state: string }
+      onboardingStatus = { state: j.state }
+    } catch {
+      onboardingStatus = { state: 'not-started' }
+    }
   }
 
-  async function loadGitStatus() {
-    try {
-      const res = await fetch('/api/wiki/git-status')
-      const data = await res.json()
-      dirtyFiles = data.changedFiles ?? []
-    } catch { /* ignore */ }
-  }
+  const showOnboarding = $derived(
+    onboardingStatus != null &&
+      (onboardingStatus.state !== 'done' || route.flow === 'onboarding'),
+  )
 
   onMount(() => {
-    const mq = window.matchMedia('(max-width: 767px)')
-    const syncMobile = () => { isMobile = mq.matches }
-    syncMobile()
-    mq.addEventListener('change', syncMobile)
-
-    const prefs = loadSidebarPrefs()
-    sidebarPinned = prefs.pinned
-    if (mq.matches) {
-      sidebarOpen = false
-    } else if (prefs.pinned) {
-      sidebarOpen = true
-    } else {
-      sidebarOpen = prefs.open
+    const onPop = () => {
+      route = parseRoute()
     }
-
-    loadWikiEditHistory()
-    loadGitStatus()
-    const onPopState = () => { route = parseRoute() }
-    window.addEventListener('popstate', onPopState)
-    const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        const overlaySidebarOpen = sidebarOpen && (isMobile || !sidebarPinned)
-        if (overlaySidebarOpen) {
-          e.preventDefault()
-          sidebarOpen = false
-          return
+    window.addEventListener('popstate', onPop)
+    void (async () => {
+      if (import.meta.env.DEV && parseRoute().flow === 'hard-reset') {
+        try {
+          await fetch('/api/dev/hard-reset', { method: 'POST' })
+        } catch {
+          /* ignore */
         }
+        history.replaceState(null, '', '/onboarding')
+        route = parseRoute()
       }
-      if (e.key === 'Escape' && route.overlay) {
-        e.preventDefault()
-        if (isMobile && mobileSlideOver) mobileSlideOver.closeAnimated()
-        else closeOverlay()
-        return
-      }
-      const action = matchGlobalShortcut(e)
-      if (!action) return
-      e.preventDefault()
-      switch (action.type) {
-        case 'search':
-          showSearch = true
-          break
-        case 'newChat':
-          closeOverlayImmediate()
-          agentDrawer?.newChat()
-          break
-        case 'refresh':
-          void syncAll()
-          break
-      }
-    }
-    window.addEventListener('keydown', onKeydown)
-    return () => {
-      mq.removeEventListener('change', syncMobile)
-      window.removeEventListener('popstate', onPopState)
-      window.removeEventListener('keydown', onKeydown)
-    }
+      await fetchStatus()
+      appReady = true
+    })()
+    return () => window.removeEventListener('popstate', onPop)
   })
 
-  $effect(() => {
-    return subscribe((e) => {
-      if (e.type === 'wiki:mutated') {
-        void loadWikiEditHistory()
-        void loadGitStatus()
-        wikiRefreshKey++
-        onWikiMutatedForAutoSync()
-      } else if (e.type === 'sync:completed') {
-        calendarRefreshKey++
-        wikiRefreshKey++
-        void loadWikiEditHistory()
-        void loadGitStatus()
-      }
-    })
-  })
-
-  function closeOverlayImmediate() {
-    navigate({})
+  async function onOnboardingComplete() {
+    await fetchStatus()
+    history.replaceState(null, '', '/')
     route = parseRoute()
-    agentContext = { type: 'chat' }
-    inboxTargetId = undefined
-    wikiWriteStreaming = null
-    wikiEditStreaming = null
-  }
-
-  function closeOverlay() {
-    if (!route.overlay) return
-    if (isMobile) {
-      closeOverlayImmediate()
-      return
-    }
-    workspaceSplit?.closeDesktopAnimated()
-  }
-
-  /** Mobile: dismiss docs/email/calendar overlay so the chat transcript is visible after send. */
-  function closeOverlayOnUserSend() {
-    if (isMobile && route.overlay) {
-      closeOverlayImmediate()
-    }
-  }
-
-  function openWikiDoc(path?: string) {
-    const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
-    navigate({ overlay })
-    route = parseRoute()
-  }
-
-  function onWikiNavigate(path: string | undefined) {
-    const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
-    navigate({ overlay })
-    route = parseRoute()
-  }
-
-  function onInboxNavigateSlide(id: string | undefined) {
-    const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
-    navigate({ overlay })
-    route = parseRoute()
-  }
-
-  function switchToCalendar(date: string, eventId?: string) {
-    navigate({ overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) } })
-    route = parseRoute()
-    agentContext = { type: 'calendar', date, ...(eventId ? { eventId } : {}) }
-  }
-
-  function resetCalendarToToday() {
-    const d = new Date()
-    const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    switchToCalendar(ymd)
-  }
-
-  function setContext(ctx: SurfaceContext) {
-    agentContext = ctx
-  }
-
-  function onSummarizeInbox(message: string) {
-    agentContext = { type: 'inbox' }
-    void agentDrawer?.newChatWithMessage(message)
-  }
-
-  function openEmailFromSearch(id: string, subject: string, from: string) {
-    inboxTargetId = id
-    navigate({ overlay: { type: 'email', id } })
-    route = parseRoute()
-    agentContext = { type: 'email', threadId: id, subject, from }
-  }
-
-  function openEmailFromChat(threadId: string, subject?: string, from?: string) {
-    openEmailFromSearch(threadId, subject ?? '', from ?? '')
-  }
-
-  function openFullInboxFromChat() {
-    inboxTargetId = undefined
-    navigate({ overlay: { type: 'email' } })
-    route = parseRoute()
-  }
-
-  function openImessageFromChat(canonicalChat: string, displayLabel: string) {
-    navigate({ overlay: { type: 'messages', chat: canonicalChat } })
-    route = parseRoute()
-    agentContext = { type: 'messages', chat: canonicalChat, displayLabel }
-  }
-
-  $effect(() => {
-    const o = route.overlay
-    if (o?.type === 'messages' && o.chat) {
-      if (agentContext.type !== 'messages' || agentContext.chat !== o.chat) {
-        agentContext = { type: 'messages', chat: o.chat, displayLabel: '(loading)' }
-      }
-    }
-  })
-
-  /** LLM `open` / `read_email` — navigate on tool_start. Mobile: only `open` opens the panel; `read_email` stays preview-only. */
-  function onOpenFromAgent(
-    target: { type: string; path?: string; id?: string; date?: string },
-    source: AgentOpenSource,
-  ) {
-    navigateFromAgentOpen(target, {
-      source,
-      isMobile,
-      openWikiDoc: (path) => openWikiDoc(path),
-      openEmailFromSearch,
-      switchToCalendar,
-    })
-  }
-
-  async function performFullSync(): Promise<void> {
-    syncing = true
-    syncErrors = []
-    showSyncErrors = false
-    try {
-      syncErrors = await runParallelSyncs(fetch)
-      emit({ type: 'sync:completed' })
-    } finally {
-      syncing = false
-    }
-  }
-
-  async function syncAll() {
-    cancelPendingDebouncedWikiSync()
-    await runSyncOrQueueFollowUp()
-  }
-
-  $effect(() => {
-    registerDebouncedWikiSyncRunner(performFullSync)
-  })
-
-  $effect(() => {
-    try {
-      localStorage.setItem(SIDEBAR_KEY, JSON.stringify({ open: sidebarOpen, pinned: sidebarPinned }))
-    } catch { /* ignore */ }
-  })
-
-  function toggleSidebar() {
-    if (isMobile) {
-      sidebarOpen = !sidebarOpen
-      return
-    }
-    if (sidebarPinned) {
-      sidebarPinned = false
-      sidebarOpen = false
-      return
-    }
-    sidebarOpen = !sidebarOpen
-  }
-
-  function toggleSidebarPin() {
-    if (sidebarPinned) {
-      sidebarPinned = false
-      sidebarOpen = true
-    } else {
-      sidebarPinned = true
-      sidebarOpen = true
-    }
-  }
-
-  function closeHistorySidebar() {
-    if (isMobile) {
-      sidebarOpen = false
-      return
-    }
-    if (sidebarPinned) {
-      sidebarPinned = false
-    }
-    sidebarOpen = false
-  }
-
-  async function selectChatSession(id: string) {
-    closeOverlayImmediate()
-    await agentDrawer?.loadSession(id)
-    if (isMobile || !sidebarPinned) {
-      sidebarOpen = false
-    }
-  }
-
-  function historyNewChat() {
-    closeOverlayImmediate()
-    agentDrawer?.newChat()
-    if (isMobile || !sidebarPinned) {
-      sidebarOpen = false
-    }
-  }
-
-  function onSessionChangeFromAgent(id: string | null) {
-    activeSessionId = id
-  }
-
-  function onChatPersisted() {
-    void chatHistory?.refresh()
-  }
-
-  function onWriteStreaming(p: { path: string; content: string; done: boolean }) {
-    if (p.done) {
-      wikiWriteStreaming = null
-      return
-    }
-    if (p.path) {
-      wikiWriteStreaming = { path: p.path, body: p.content }
-    }
-  }
-
-  function onEditStreaming(p: { id: string; path: string; done: boolean }) {
-    if (p.done) {
-      if (wikiEditStreaming?.toolId === p.id) wikiEditStreaming = null
-      return
-    }
-    if (p.path) {
-      wikiEditStreaming = { path: wikiPathForReadToolArg(p.path), toolId: p.id }
-    }
   }
 </script>
 
-{#if showSearch}
-  <Search
-    onOpenWiki={(path) => { openWikiDoc(path); showSearch = false }}
-    onOpenEmail={(id, subject, from) => { openEmailFromSearch(id, subject, from); showSearch = false }}
-    onClose={() => showSearch = false}
-  />
+{#if !appReady}
+  <div class="app-loading">Loading…</div>
+{:else if showOnboarding}
+  <Onboarding onComplete={onOnboardingComplete} refreshStatus={fetchStatus} />
+{:else}
+  <Assistant />
 {/if}
 
-<div class="app">
-  <AppTopNav
-    onToggleSidebar={toggleSidebar}
-    {dirtyFiles}
-    {recentFiles}
-    {showRecentFiles}
-    {syncing}
-    {syncErrors}
-    {showSyncErrors}
-    onOpenSearch={() => { showSearch = true }}
-    onToggleRecentFiles={() => { showRecentFiles = !showRecentFiles }}
-    onOpenWikiFromList={(path) => { openWikiDoc(path); showRecentFiles = false }}
-    onSync={syncAll}
-    onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
-  />
-
-  <div class="app-main-row">
-    {#if showInline || showOverlay}
-      {#if showOverlay}
-        <div
-          class="sidebar-backdrop"
-          role="presentation"
-          aria-hidden="true"
-          onclick={() => { sidebarOpen = false }}
-        ></div>
-      {/if}
-      <aside class="history-sidebar" class:overlay={showOverlay} class:inline={showInline}>
-        <ChatHistory
-          bind:this={chatHistory}
-          activeSessionId={activeSessionId}
-          desktop={!isMobile}
-          pinned={sidebarPinned}
-          onSelect={selectChatSession}
-          onNewChat={historyNewChat}
-          onClose={closeHistorySidebar}
-          onTogglePin={toggleSidebarPin}
-        />
-      </aside>
-    {/if}
-
-    <div class="workspace-column">
-  <WorkspaceSplit
-    bind:this={workspaceSplit}
-    hasDetail={!!route.overlay}
-    desktopDetailOpen={!!route.overlay && !isMobile}
-    onNavigateClear={closeOverlayImmediate}
-  >
-    {#snippet chat()}
-      <AgentDrawer
-        bind:this={agentDrawer}
-        context={agentContext}
-        conversationHidden={!!route.overlay && isMobile}
-        suppressAgentWikiAutoOpen={isMobile}
-        onOpenWiki={openWikiDoc}
-        onOpenEmail={openEmailFromChat}
-        onOpenFullInbox={openFullInboxFromChat}
-        onOpenImessage={openImessageFromChat}
-        onSwitchToCalendar={switchToCalendar}
-        onOpenFromAgent={onOpenFromAgent}
-        onNewChat={closeOverlay}
-        onUserSendMessage={closeOverlayOnUserSend}
-        onSessionChange={onSessionChangeFromAgent}
-        onChatPersisted={onChatPersisted}
-        onWriteStreaming={onWriteStreaming}
-        onEditStreaming={onEditStreaming}
-      >
-        {#snippet mobileDetail()}
-          {#if route.overlay}
-            <SlideOver
-              bind:this={mobileSlideOver}
-              overlay={route.overlay}
-              surfaceContext={agentContext}
-              wikiRefreshKey={wikiRefreshKey}
-              calendarRefreshKey={calendarRefreshKey}
-              inboxTargetId={inboxTargetId}
-              wikiStreamingWrite={wikiWriteStreaming}
-              wikiStreamingEdit={wikiEditStreaming}
-              onWikiNavigate={onWikiNavigate}
-              onInboxNavigate={onInboxNavigateSlide}
-              onContextChange={setContext}
-              onOpenSearch={() => { showSearch = true }}
-              onSummarizeInbox={onSummarizeInbox}
-              onCalendarResetToToday={resetCalendarToToday}
-              onCalendarNavigate={switchToCalendar}
-              onClose={closeOverlay}
-              onSync={syncAll}
-              {syncing}
-              mobilePanel
-            />
-          {/if}
-        {/snippet}
-      </AgentDrawer>
-    {/snippet}
-    {#snippet desktopDetail()}
-      {#if route.overlay}
-        <SlideOver
-          overlay={route.overlay}
-          surfaceContext={agentContext}
-          wikiRefreshKey={wikiRefreshKey}
-          calendarRefreshKey={calendarRefreshKey}
-          inboxTargetId={inboxTargetId}
-          wikiStreamingWrite={wikiWriteStreaming}
-          wikiStreamingEdit={wikiEditStreaming}
-          onWikiNavigate={onWikiNavigate}
-          onInboxNavigate={onInboxNavigateSlide}
-          onContextChange={setContext}
-          onOpenSearch={() => { showSearch = true }}
-          onSummarizeInbox={onSummarizeInbox}
-          onCalendarResetToToday={resetCalendarToToday}
-          onCalendarNavigate={switchToCalendar}
-          onClose={closeOverlay}
-        />
-      {/if}
-    {/snippet}
-  </WorkspaceSplit>
-    </div>
-  </div>
-</div>
-
 <style>
-  .app {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
-
-  .app-main-row {
-    flex: 1;
-    display: flex;
-    min-height: 0;
-    position: relative;
-  }
-
-  .workspace-column {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .history-sidebar {
-    min-height: 0;
-  }
-
-  .history-sidebar.inline {
-    width: var(--sidebar-history-w);
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--border);
-  }
-
-  .history-sidebar.overlay {
-    position: fixed;
-    left: 0;
-    top: var(--tab-h);
-    bottom: 0;
-    width: min(var(--sidebar-history-w), 92vw);
-    z-index: 200;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.35);
-    animation: slideInHistory 0.22s ease-out;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .history-sidebar.overlay {
-      animation: none;
-    }
-  }
-
-  @keyframes slideInHistory {
-    from {
-      transform: translateX(-100%);
-    }
-    to {
-      transform: translateX(0);
-    }
-  }
-
-  .sidebar-backdrop {
-    position: fixed;
-    left: 0;
-    right: 0;
-    top: var(--tab-h);
-    bottom: 0;
-    z-index: 199;
-    background: rgba(0, 0, 0, 0.4);
+  .app-loading {
+    padding: 2rem;
+    text-align: center;
+    color: var(--muted, #888);
+    font-size: 0.95rem;
   }
 </style>

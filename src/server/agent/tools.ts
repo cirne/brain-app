@@ -23,6 +23,91 @@ const execAsync = promisify(exec)
 
 export { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '../lib/imessagePhone.js'
 
+/** Build `ripmail …` argv after the binary name (e.g. `rules list`). Used by inbox_rules and tests. */
+export function buildInboxRulesCommand(params: {
+  op: 'list' | 'validate' | 'show' | 'add' | 'edit' | 'remove' | 'move' | 'feedback'
+  mailbox?: string
+  sample?: boolean
+  rule_id?: string
+  rule_action?: 'ignore' | 'notify' | 'inform'
+  query?: string
+  insert_before?: string
+  description?: string
+  preview_window?: string
+  before_rule_id?: string
+  after_rule_id?: string
+  feedback_text?: string
+}): string {
+  const mb = params.mailbox?.trim()
+    ? ` --mailbox ${JSON.stringify(params.mailbox.trim())}`
+    : ''
+  switch (params.op) {
+    case 'list':
+      return `rules list${mb}`
+    case 'validate':
+      return `rules validate${params.sample ? ' --sample' : ''}${mb}`
+    case 'show': {
+      if (!params.rule_id?.trim()) throw new Error('rule_id is required for op=show')
+      return `rules show ${JSON.stringify(params.rule_id.trim())}${mb}`
+    }
+    case 'add': {
+      if (!params.rule_action || !params.query?.trim()) {
+        throw new Error('rule_action and query are required for op=add')
+      }
+      let tail = `rules add --action ${params.rule_action} --query ${JSON.stringify(params.query)}`
+      if (params.insert_before?.trim()) {
+        tail += ` --insert-before ${JSON.stringify(params.insert_before.trim())}`
+      }
+      if (params.description?.trim()) {
+        tail += ` --description ${JSON.stringify(params.description.trim())}`
+      }
+      if (params.preview_window?.trim()) {
+        tail += ` --preview-window ${JSON.stringify(params.preview_window.trim())}`
+      }
+      return tail + mb
+    }
+    case 'edit': {
+      if (!params.rule_id?.trim()) throw new Error('rule_id is required for op=edit')
+      const has =
+        params.rule_action != null ||
+        params.query != null ||
+        params.preview_window != null
+      if (!has) {
+        throw new Error('op=edit requires at least one of: rule_action, query, preview_window')
+      }
+      let tail = `rules edit ${JSON.stringify(params.rule_id.trim())}`
+      if (params.rule_action != null) tail += ` --action ${params.rule_action}`
+      if (params.query != null) tail += ` --query ${JSON.stringify(params.query)}`
+      if (params.preview_window?.trim()) {
+        tail += ` --preview-window ${JSON.stringify(params.preview_window.trim())}`
+      }
+      return tail + mb
+    }
+    case 'remove': {
+      if (!params.rule_id?.trim()) throw new Error('rule_id is required for op=remove')
+      return `rules remove ${JSON.stringify(params.rule_id.trim())}${mb}`
+    }
+    case 'move': {
+      if (!params.rule_id?.trim()) throw new Error('rule_id is required for op=move')
+      const b = params.before_rule_id?.trim()
+      const a = params.after_rule_id?.trim()
+      if ((b && a) || (!b && !a)) {
+        throw new Error('op=move requires exactly one of: before_rule_id, after_rule_id')
+      }
+      const rel = b ? `--before ${JSON.stringify(b)}` : `--after ${JSON.stringify(a!)}`
+      return `rules move ${JSON.stringify(params.rule_id.trim())} ${rel}${mb}`
+    }
+    case 'feedback': {
+      if (!params.feedback_text?.trim()) throw new Error('feedback_text is required for op=feedback')
+      return `rules feedback ${JSON.stringify(params.feedback_text.trim())}${mb}`
+    }
+    default: {
+      const x: never = params.op
+      throw new Error(`Unhandled op: ${String(x)}`)
+    }
+  }
+}
+
 function parseOptionalIsoMs(s: string | undefined): number | undefined {
   if (s == null || String(s).trim() === '') return undefined
   const t = Date.parse(String(s))
@@ -195,6 +280,77 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       const details = JSON.parse(stdout) as Record<string, unknown>
       return {
         content: [{ type: 'text' as const, text: stdout }],
+        details,
+      }
+    },
+  })
+
+  const inboxRules = defineTool({
+    name: 'inbox_rules',
+    label: 'Inbox Rules',
+    description:
+      'Rare: manage ripmail inbox rules (which messages list_inbox surfaces and how). Wraps `ripmail rules`. op=list (JSON rules), validate (optional sample=true for DB match counts), show (one id), add (rule_action + query), edit (rule_id + changes), remove, move (before_rule_id XOR after_rule_id), feedback (feedback_text → proposed rule). Optional mailbox for per-account rules overlay.',
+    parameters: Type.Object({
+      op: Type.Union(
+        [
+          Type.Literal('list'),
+          Type.Literal('validate'),
+          Type.Literal('show'),
+          Type.Literal('add'),
+          Type.Literal('edit'),
+          Type.Literal('remove'),
+          Type.Literal('move'),
+          Type.Literal('feedback'),
+        ],
+        { description: 'Which ripmail rules subcommand to run' },
+      ),
+      mailbox: Type.Optional(
+        Type.String({ description: 'Per-account overlay (email or id); omit for ~/.ripmail/rules.json' }),
+      ),
+      sample: Type.Optional(Type.Boolean({ description: 'validate only: --sample (re-check counts vs ripmail.db)' })),
+      rule_id: Type.Optional(Type.String({ description: 'Rule id (show, edit, remove, move)' })),
+      rule_action: Type.Optional(
+        Type.Union([Type.Literal('ignore'), Type.Literal('notify'), Type.Literal('inform')], {
+          description: 'add/edit: notify | inform | ignore',
+        }),
+      ),
+      query: Type.Optional(Type.String({ description: 'add/edit: ripmail search query string' })),
+      insert_before: Type.Optional(Type.String({ description: 'add: --insert-before rule id' })),
+      description: Type.Optional(Type.String({ description: 'add: stored description' })),
+      preview_window: Type.Optional(Type.String({ description: 'add/edit: e.g. 7d' })),
+      before_rule_id: Type.Optional(Type.String({ description: 'move: --before <id>' })),
+      after_rule_id: Type.Optional(Type.String({ description: 'move: --after <id>' })),
+      feedback_text: Type.Optional(Type.String({ description: 'feedback op: natural-language input' })),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: {
+        op: 'list' | 'validate' | 'show' | 'add' | 'edit' | 'remove' | 'move' | 'feedback'
+        mailbox?: string
+        sample?: boolean
+        rule_id?: string
+        rule_action?: 'ignore' | 'notify' | 'inform'
+        query?: string
+        insert_before?: string
+        description?: string
+        preview_window?: string
+        before_rule_id?: string
+        after_rule_id?: string
+        feedback_text?: string
+      },
+    ) {
+      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const tail = buildInboxRulesCommand(params)
+      const timeout = params.op === 'validate' && params.sample ? 120000 : 60000
+      const { stdout } = await execAsync(`${rm} ${tail}`, { timeout })
+      let details: Record<string, unknown> = {}
+      try {
+        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
+      } catch {
+        details = { raw: stdout }
+      }
+      return {
+        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
         details,
       }
     },
@@ -740,6 +896,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     searchEmail,
     readEmail,
     listInbox,
+    inboxRules,
     archiveEmails,
     draftEmail,
     editDraft,

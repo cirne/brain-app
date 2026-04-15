@@ -93,3 +93,36 @@ A user signs up with their Google account, approves email and calendar access, a
 5. User lands in Chat and can immediately ask questions — agent answers from whatever has been indexed so far, improving as sync progresses
 
 Everything above auth step 2 is currently either manual, personal-machine-dependent, or hardcoded.
+
+---
+
+## Alternative path: Local-first native app
+
+The limitations above assume a cloud-hosted, multi-user SaaS model. An alternative architecture sidesteps many of these concerns:
+
+**Package brain-app as a native macOS application** that runs the server locally instead of in a container. See [OPP-007: Native Mac App](opportunities/OPP-007-native-mac-app.md).
+
+| Cloud model problem | How native app solves it |
+|---|---|
+| iMessage requires sync to cloud | Runs locally — Full Disk Access, no sync |
+| Contacts/Notes require APIs or sync | Read local SQLite databases directly |
+| Git wiki friction | Local filesystem, no provisioning |
+| Per-user data isolation | Single-user by design |
+| Container hosting cost | Runs on user's Mac |
+
+**Tradeoffs:**
+- Requires Mac running for access (mitigated by Tailscale for remote)
+- Single-user only (feature for personal tool, blocker for SaaS)
+- No "always on" unless Mac is always on
+
+**When to choose native app:**
+- Building a power-user personal tool
+- Privacy is paramount (data never leaves machine)
+- Deep local data integration matters (iMessage, Notes, files)
+
+**When to choose cloud:**
+- Multi-user SaaS product
+- Mobile-first experience
+- "Always on" matters more than local data access
+
+Both paths are valid. The choice depends on product vision.

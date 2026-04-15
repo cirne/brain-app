@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { writeCache } from '../lib/calendarCache.js'
-import { buildDraftEditFlags } from './tools.js'
+import { buildDraftEditFlags, buildInboxRulesCommand } from './tools.js'
 
 // Shared fixture: a temp wiki directory
 let wikiDir: string
@@ -35,6 +35,7 @@ describe('createAgentTools', () => {
     expect(names).toContain('search_email')
     expect(names).toContain('read_email')
     expect(names).toContain('list_inbox')
+    expect(names).toContain('inbox_rules')
     expect(names).toContain('archive_emails')
     expect(names).toContain('find_person')
     expect(names).toContain('wiki_log')
@@ -483,6 +484,39 @@ fi
     })
   })
 
+  describe('inbox_rules tool', () => {
+    let ripmailScript: string
+
+    beforeEach(async () => {
+      ripmailScript = join(wikiDir, 'fake-ripmail-rules')
+      await writeFile(
+        ripmailScript,
+        `#!/bin/sh
+if [ "$1" = "rules" ]; then
+  echo '{"stub":"rules","op":"'$2'"}'
+else
+  exit 1
+fi
+`
+      )
+      await chmod(ripmailScript, 0o755)
+      process.env.RIPMAIL_BIN = ripmailScript
+    })
+
+    afterEach(() => {
+      delete process.env.RIPMAIL_BIN
+    })
+
+    it('runs ripmail rules list and parses JSON details', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tool = tools.find((t: any) => t.name === 'inbox_rules')!
+      const result = await tool.execute('ir-1', { op: 'list' })
+      expect(result.content[0].text).toContain('stub')
+      expect((result.details as { stub?: string }).stub).toBe('rules')
+    })
+  })
+
   describe('archive_emails tool', () => {
     let ripmailScript: string
 
@@ -610,6 +644,53 @@ describe('buildDraftEditFlags', () => {
 
   it('ignores empty arrays', () => {
     expect(buildDraftEditFlags({ add_cc: [] })).toBe('')
+  })
+})
+
+describe('buildInboxRulesCommand', () => {
+  it('builds list and validate with sample', () => {
+    expect(buildInboxRulesCommand({ op: 'list' })).toBe('rules list')
+    expect(buildInboxRulesCommand({ op: 'validate', sample: true })).toBe('rules validate --sample')
+  })
+
+  it('builds add with optional flags and mailbox', () => {
+    expect(
+      buildInboxRulesCommand({
+        op: 'add',
+        rule_action: 'ignore',
+        query: 'from:spam@x.com',
+        insert_before: 'def-otp',
+        mailbox: 'u@mail.com',
+      })
+    ).toBe(
+      'rules add --action ignore --query "from:spam@x.com" --insert-before "def-otp" --mailbox "u@mail.com"'
+    )
+  })
+
+  it('builds move with before', () => {
+    expect(
+      buildInboxRulesCommand({
+        op: 'move',
+        rule_id: 'a1',
+        before_rule_id: 'b2',
+      })
+    ).toBe('rules move "a1" --before "b2"')
+  })
+
+  it('builds feedback', () => {
+    expect(
+      buildInboxRulesCommand({
+        op: 'feedback',
+        feedback_text: 'hide newsletters',
+      })
+    ).toBe('rules feedback "hide newsletters"')
+  })
+
+  it('throws when move has both or neither anchor ids', () => {
+    expect(() =>
+      buildInboxRulesCommand({ op: 'move', rule_id: 'x', before_rule_id: 'a', after_rule_id: 'b' })
+    ).toThrow('exactly one')
+    expect(() => buildInboxRulesCommand({ op: 'move', rule_id: 'x' })).toThrow('exactly one')
   })
 })
 

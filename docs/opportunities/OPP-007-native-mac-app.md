@@ -1,0 +1,273 @@
+# OPP-007: Native Mac App Packaging
+
+## Summary
+
+Package brain-app as a native macOS application that runs the server locally, instead of deploying to a cloud container. This enables full access to local data sources (iMessage, Contacts, Notes, files) without the sync/security problems of pushing local data to a remote server.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│  Native App (Tauri or Electron)             │
+│  ┌───────────────────────────────────────┐  │
+│  │  Hono Server (localhost:3000)         │  │
+│  │  - Wiki, Chat, Inbox routes           │  │
+│  │  - Full filesystem access             │  │
+│  │  - iMessage, Contacts, Notes DBs      │  │
+│  │  - ripmail (bundled or installed)     │  │
+│  └───────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────┐  │
+│  │  WebView → localhost:3000             │  │
+│  └───────────────────────────────────────┘  │
+└─────────────────────────────────────────────┘
+         │
+         │ Tailscale (optional, for remote access)
+         ▼
+    ┌─────────────┐
+    │  Phone/iPad │ → https://macbook.tailnet:3000
+    └─────────────┘
+```
+
+## Why local-first
+
+| Cloud container | Native Mac app |
+|---|---|
+| iMessage requires companion app + sync | iMessage just works (Full Disk Access) |
+| Contacts require sync or API | Read `~/Library/AddressBook/` directly |
+| Notes require iCloud API (limited) | Read Notes SQLite directly |
+| Files require upload | Full filesystem access |
+| Data leaves the machine | Data stays local |
+| Multi-user by default | Single-user (feature, not bug) |
+
+For a deeply personal "second brain," local-first is arguably the right architecture. The data never leaves your machine unless you explicitly share via Tailscale.
+
+## What this enables
+
+### Data sources accessible with macOS permissions
+
+| Source | Location | Permission needed |
+|---|---|---|
+| iMessage | `~/Library/Messages/chat.db` | Full Disk Access |
+| Contacts | `~/Library/Application Support/AddressBook/` | Contacts permission |
+| Notes | `~/Library/Group Containers/group.com.apple.notes/` | Full Disk Access |
+| Safari history | `~/Library/Safari/History.db` | Full Disk Access |
+| Calendar | `~/Library/Calendars/` | Calendar permission |
+| Files | Anywhere | User grants folder access |
+| Email | ripmail (local IMAP sync) | Already works |
+
+### Remote access via Tailscale
+
+- Install Tailscale on Mac
+- App is accessible at `https://macbook.tailnet:3000` from any device on your tailnet
+- Phone/iPad: Tailscale app + Safari, or thin native wrapper
+- Encrypted, authenticated, no public exposure
+
+## Implementation options
+
+### Option A: Tauri (recommended)
+
+- Rust core, ~5MB binary
+- Uses system WebKit (no bundled browser)
+- Can spawn Node.js subprocess for the Hono server
+- Or: rewrite server in Rust (longer term)
+- Modern, actively maintained, good macOS integration
+
+### Option B: Electron
+
+- Bundles Chromium (~150MB binary)
+- Node.js runs natively — existing server code unchanged
+- Heavier but zero rewrite needed
+- Battle-tested (VS Code, Slack, Notion desktop)
+
+### Option C: Tauri shell + Node subprocess (recommended)
+
+- Tauri for the native wrapper (small, fast)
+- Spawn Node.js as a child process for the server
+- Best of both: small binary, no server rewrite
+- Bundle Node.js runtime in the app
+
+**Recommendation:** Start with Option C. Tauri shell keeps the binary small; spawning Node means existing server code runs unchanged. Evaluate Rust rewrite later if performance or binary size matters.
+
+## Bundling ripmail
+
+ripmail is essential for email functionality. Bundle it inside the native app so users get a single dependency-free download.
+
+### Tauri sidecar approach
+
+Tauri has first-class support for [sidecar binaries](https://tauri.app/v1/guides/building/sidecar/):
+
+```
+Brain.app/
+  Contents/
+    MacOS/
+      Brain                   # Tauri main process
+      ripmail-aarch64         # Apple Silicon binary
+      ripmail-x86_64          # Intel binary (or universal)
+    Resources/
+      node                    # Bundled Node.js runtime
+      server/                 # Hono server code
+```
+
+In `tauri.conf.json`:
+```json
+{
+  "bundle": {
+    "externalBin": ["binaries/ripmail"]
+  }
+}
+```
+
+Tauri resolves the correct architecture automatically.
+
+### Building ripmail for bundling
+
+ripmail is Rust, so build universal macOS binary:
+
+```bash
+# Build for both architectures
+cargo build --release --target aarch64-apple-darwin
+cargo build --release --target x86_64-apple-darwin
+
+# Create universal binary
+lipo -create -output ripmail-universal \
+  target/aarch64-apple-darwin/release/ripmail \
+  target/x86_64-apple-darwin/release/ripmail
+```
+
+Or ship arm64-only for Apple Silicon (vast majority of current Macs).
+
+### Server calls bundled ripmail
+
+The Hono server already uses `execAsync()` for ripmail. Update to use bundled path:
+
+```typescript
+// Resolve bundled binary path
+const ripmailBin = process.env.RIPMAIL_BIN 
+  ?? path.join(process.resourcesPath, 'ripmail')
+
+await execAsync(`${ripmailBin} search "query"`)
+```
+
+### Apple Mail as ripmail source
+
+For zero-config email setup, add an Apple Mail adapter to ripmail:
+
+```bash
+ripmail sync --source applemail
+```
+
+This reads from Mail.app's local database (`~/Library/Mail/V10/MailData/Envelope Index`) instead of IMAP, then indexes into ripmail's FTS5 SQLite. Benefits:
+
+- No IMAP credentials needed
+- Works for all accounts in Mail.app (Gmail, iCloud, Exchange, etc.)
+- Mail.app already synced 250K+ messages
+- ripmail's fast search replaces Apple Mail's slow search
+
+The sync reads:
+- `Envelope Index` SQLite for metadata (sender, subject, date)
+- `.emlx` files for message bodies
+- Incremental updates based on last sync timestamp
+
+### Full launch sequence
+
+1. User double-clicks Brain.app
+2. Tauri starts, spawns Node.js subprocess with server code
+3. Server starts on `localhost:3000`
+4. On first launch: request Full Disk Access permission
+5. Server detects Mail.app database, runs `ripmail sync --source applemail`
+6. WebView opens to `localhost:3000`
+7. User sees wiki/chat UI with email already indexed
+
+### Single download, zero setup
+
+The end result:
+- User downloads `Brain.dmg` (~50-100MB with Node + ripmail)
+- Drag to Applications
+- Launch → grant Full Disk Access
+- Email, iMessage, Contacts, Notes — all accessible immediately
+
+No `npm install`, no `curl | bash`, no ripmail wizard, no OAuth dance.
+
+## Packaging details
+
+### macOS distribution
+
+- **Direct download (DMG):** Notarize with Apple Developer account. Can request Full Disk Access.
+- **App Store:** Sandboxing restrictions make Full Disk Access impossible. Not viable for this use case.
+
+### Permissions flow
+
+On first launch:
+1. App requests Full Disk Access (for iMessage, Notes, Safari)
+2. App requests Contacts access
+3. App requests Calendar access (if using local calendar instead of ICS)
+4. User grants in System Settings → Privacy & Security
+
+Standard macOS pattern — users are accustomed to this from apps like Alfred, Raycast, etc.
+
+### Bundling ripmail
+
+Options:
+- Require user to install ripmail separately (`curl | bash`)
+- Bundle ripmail binary in the app (need to cross-compile for arm64/x86_64)
+- Bundle as a sidecar that Tauri manages
+
+### Auto-start
+
+- Launch at login (optional, user-configured)
+- Menu bar icon for quick access
+- Server runs in background
+
+## Mobile access
+
+With Tailscale:
+1. Mac app running, Tailscale connected
+2. Phone has Tailscale app, connected to same tailnet
+3. Open Safari → `http://macbook:3000` or use Tailscale's HTTPS proxy
+
+For better mobile UX:
+- Thin native iOS/Android app that's just a WebView to the tailnet URL
+- Push notifications via a lightweight cloud relay (only notification metadata, not content)
+
+## Windows later
+
+The architecture generalizes:
+- Tauri supports Windows
+- Local data sources differ (no iMessage, but Outlook, file system, etc.)
+- Tailscale works on Windows
+
+Phase 1: macOS only (your primary platform)
+Phase 2: Windows if there's demand
+
+## Tradeoffs vs cloud deployment
+
+| Aspect | Native app | Cloud container |
+|---|---|---|
+| Local data access | Full | Requires sync |
+| Setup complexity | Download app, grant permissions | OAuth only |
+| Remote access | Requires Mac running + Tailscale | Always on |
+| Multi-device | One "server" machine | True multi-device |
+| Updates | App auto-update or manual | Deploy once |
+| Cost | Free (runs on your Mac) | Container hosting fees |
+
+## Relation to other docs
+
+- **[PRODUCTIZATION.md](../PRODUCTIZATION.md)** — This is an alternative path that sidesteps many cloud/multi-user blockers
+- **[OPP-006: Email Bootstrap](./OPP-006-email-bootstrap-onboarding.md)** — Still applies; email is OAuth regardless of packaging
+- **[OPP-003: iMessage](./OPP-003-iMessage-integration.md)** — Native app makes this first-class instead of "Mac-only bonus"
+
+## Open questions
+
+1. **Tauri vs Electron:** Need to prototype to feel the tradeoffs
+2. **Node bundling:** Bundle Node.js in the app, or require separate install?
+3. **ripmail bundling:** Same question
+4. **Update mechanism:** Tauri has built-in updater; need to evaluate
+5. **Menu bar vs dock:** Menu bar app (like Raycast) or full dock app?
+
+## Next steps
+
+1. Prototype Tauri shell + Node subprocess on macOS
+2. Test permission flow (Full Disk Access, Contacts)
+3. Test Tailscale remote access
+4. Evaluate binary size and startup time
+5. Decide on distribution (DMG direct download)

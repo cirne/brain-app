@@ -116,6 +116,7 @@ The agent has these tools (via pi-coding-agent + custom):
 - `search_email` — ripmail full-text search
 - `read_email` — read email thread by ID
 - `list_inbox` — inbox list via ripmail `inbox` (same as UI; use for bulk actions when search is wrong)
+- `inbox_rules` — composite `ripmail rules` (list/validate/add/edit/remove/move/feedback); rare
 - `archive_emails` — archive messages by ID (ripmail `archive`, batch)
 - `open` — open wiki path, email id, or calendar date in the app detail panel (client-side)
 - `web_search` — Exa web search for current info (requires `EXA_API_KEY`)

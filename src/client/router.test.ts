@@ -2,6 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { parseRoute, routeToUrl, contextToString, type SurfaceContext } from './router.js'
 
 describe('parseRoute', () => {
+  it('parses /onboarding as onboarding flow', () => {
+    expect(parseRoute('http://localhost/onboarding')).toEqual({ flow: 'onboarding' })
+  })
+
+  it('parses /hard-reset as hard-reset flow', () => {
+    expect(parseRoute('http://localhost/hard-reset')).toEqual({ flow: 'hard-reset' })
+  })
+
   it('defaults to chat-only for root path', () => {
     expect(parseRoute('http://localhost/')).toEqual({})
   })
@@ -167,6 +175,14 @@ describe('routeToUrl', () => {
       '/messages?c=%2B15550001111',
     )
   })
+
+  it('onboarding flow', () => {
+    expect(routeToUrl({ flow: 'onboarding' })).toBe('/onboarding')
+  })
+
+  it('hard-reset flow', () => {
+    expect(routeToUrl({ flow: 'hard-reset' })).toBe('/hard-reset')
+  })
 })
 
 describe('round-trip: routeToUrl → parseRoute', () => {
@@ -187,6 +203,8 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     },
     { overlay: { type: 'messages' as const } },
     { overlay: { type: 'messages' as const, chat: '+15550001111' } },
+    { flow: 'onboarding' as const },
+    { flow: 'hard-reset' as const },
   ] as const
 
   for (const route of cases) {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte'
   import { extractReferencedFiles, type ChatMessage } from '../agentUtils.js'
   import ConversationEmptyState from './ConversationEmptyState.svelte'
   import ChatMessageRow from './ChatMessageRow.svelte'
@@ -13,6 +14,8 @@
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenImessage,
+    /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
+    empty,
   }: {
     messages: ChatMessage[]
     streaming: boolean
@@ -21,6 +24,7 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenImessage?: (_canonicalChat: string, _displayLabel: string) => void
+    empty?: Snippet
   } = $props()
 
   let messagesEl: HTMLElement
@@ -99,7 +103,11 @@
   onmouseout={handleMessagesMouseOut}
 >
   {#if messages.length === 0}
-    <ConversationEmptyState {onOpenEmail} {onOpenFullInbox} {onSwitchToCalendar} />
+    {#if empty}
+      {@render empty()}
+    {:else}
+      <ConversationEmptyState {onOpenEmail} {onOpenFullInbox} {onSwitchToCalendar} />
+    {/if}
   {/if}
 
   {#each messages as msg, i (i)}
