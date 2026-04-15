@@ -1,12 +1,14 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve } from 'node:path'
 
-export type WikiEditOp = 'edit' | 'write'
+export type WikiEditOp = 'edit' | 'write' | 'move' | 'delete'
 
 export interface WikiEditRecord {
   ts: string
   op: WikiEditOp
   path: string
+  /** Present for op=move (source path, normalized relative to wiki root). */
+  fromPath?: string
   source: 'agent'
 }
 
