@@ -1,7 +1,7 @@
 <script lang="ts">
   import { mount, unmount } from 'svelte'
   import WikiFileName from './WikiFileName.svelte'
-  import { normalizeWikiPathForMatch, transformWikiPageHtml } from './wikiPageHtml.js'
+  import { normalizeWikiPathForMatch, resolveWikiLinkToFilePath, transformWikiPageHtml } from './wikiPageHtml.js'
   import { wikiPathForReadToolArg } from './cards/contentCards.js'
   import { renderMarkdown } from './markdown.js'
 
@@ -81,9 +81,8 @@
     if (!a) return
     e.preventDefault()
     const link = a.getAttribute('data-wiki')!
-    const normalized = normalizeWikiPathForMatch(link)
-    const match = files.find(f => normalizeWikiPathForMatch(f.path) === normalized)
-    if (match) openFile(match.path)
+    const path = resolveWikiLinkToFilePath(link, files)
+    if (path) void openFile(path)
   }
 
 

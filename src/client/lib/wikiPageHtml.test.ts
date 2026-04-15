@@ -1,9 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeWikiPathForMatch, transformWikiPageHtml } from './wikiPageHtml.js'
+import {
+  normalizeWikiPathForMatch,
+  resolveWikiLinkToFilePath,
+  transformWikiPageHtml,
+} from './wikiPageHtml.js'
 
 describe('normalizeWikiPathForMatch', () => {
   it('strips .md and lowercases', () => {
     expect(normalizeWikiPathForMatch('Companies/New-Relic.MD')).toBe('companies/new-relic')
+  })
+})
+
+describe('resolveWikiLinkToFilePath', () => {
+  const files = [{ path: 'people/matt-shandera.md' }, { path: 'ideas/foo.md' }]
+
+  it('resolves full normalized path', () => {
+    expect(resolveWikiLinkToFilePath('people/matt-shandera', files)).toBe('people/matt-shandera.md')
+  })
+
+  it('resolves bare slug to nested file when unique', () => {
+    expect(resolveWikiLinkToFilePath('matt-shandera', files)).toBe('people/matt-shandera.md')
+  })
+
+  it('returns null when no file matches', () => {
+    expect(resolveWikiLinkToFilePath('missing-page', files)).toBeNull()
   })
 })
 
