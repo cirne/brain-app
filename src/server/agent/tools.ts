@@ -231,6 +231,68 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
   const grep = createGrepTool(wikiDir)
   const find = createFindTool(wikiDir)
 
+  const moveFile = defineTool({
+    name: 'move_file',
+    label: 'Move file',
+    description:
+      'Move or rename a file under the wiki root (same scope as read/write). Creates missing parent directories for the destination. Fails if the destination path already exists.',
+    parameters: Type.Object({
+      from: Type.String({ description: 'Source path relative to wiki root (e.g. ideas/old.md)' }),
+      to: Type.String({ description: 'Destination path relative to wiki root (e.g. ideas/new.md)' }),
+    }),
+    async execute(_toolCallId: string, params: { from: string; to: string }) {
+      const fromAbs = resolveSafeWikiPath(wikiDir, params.from)
+      const toAbs = resolveSafeWikiPath(wikiDir, params.to)
+      if (fromAbs === toAbs) {
+        throw new Error('from and to must be different paths')
+      }
+      try {
+        await stat(fromAbs)
+      } catch (e: unknown) {
+        const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined
+        if (code === 'ENOENT') throw new Error(`Source does not exist: ${params.from}`)
+        throw e
+      }
+      try {
+        await stat(toAbs)
+        throw new Error(`Destination already exists: ${params.to}`)
+      } catch (e: unknown) {
+        const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined
+        if (code !== 'ENOENT') throw e
+      }
+      await mkdir(dirname(toAbs), { recursive: true })
+      await rename(fromAbs, toAbs)
+      await appendWikiEditRecord(wikiDir, 'move', params.to, { fromPath: params.from }).catch(() => {})
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Moved ${params.from} → ${params.to}`,
+          },
+        ],
+        details: { from: params.from, to: params.to },
+      }
+    },
+  })
+
+  const deleteFile = defineTool({
+    name: 'delete_file',
+    label: 'Delete file',
+    description: 'Permanently delete a file under the wiki root (same scope as read/write).',
+    parameters: Type.Object({
+      path: Type.String({ description: 'Path relative to wiki root (e.g. scratch/draft.md)' }),
+    }),
+    async execute(_toolCallId: string, params: { path: string }) {
+      const abs = resolveSafeWikiPath(wikiDir, params.path)
+      await unlink(abs)
+      await appendWikiEditRecord(wikiDir, 'delete', params.path).catch(() => {})
+      return {
+        content: [{ type: 'text' as const, text: `Deleted ${params.path}` }],
+        details: { path: params.path },
+      }
+    },
+  })
+
   // Custom tools for email and git
   const searchEmail = defineTool({
     name: 'search_email',
@@ -880,6 +942,8 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     write,
     grep,
     find,
+    moveFile,
+    deleteFile,
     searchEmail,
     readEmail,
     listInbox,
