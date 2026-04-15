@@ -54,7 +54,9 @@
 {#if !appReady}
   <div class="app-loading">Loading…</div>
 {:else if showOnboarding}
-  <Onboarding onComplete={onOnboardingComplete} refreshStatus={fetchStatus} />
+  <div class="app-onboarding-shell h-full min-h-0">
+    <Onboarding onComplete={onOnboardingComplete} refreshStatus={fetchStatus} />
+  </div>
 {:else}
   <Assistant />
 {/if}
@@ -65,5 +67,9 @@
     text-align: center;
     color: var(--muted, #888);
     font-size: 0.95rem;
+  }
+  .app-onboarding-shell {
+    display: flex;
+    flex-direction: column;
   }
 </style>

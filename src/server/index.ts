@@ -26,7 +26,15 @@ const app = new Hono()
 const isDev = process.env.NODE_ENV !== 'production'
 const port = parseInt(process.env.PORT ?? '3000')
 
-app.use('*', logger())
+const requestLogger = logger()
+/** High-frequency onboarding polls — skip Hono access logs to reduce noise */
+function isQuietPollPath(path: string): boolean {
+  return path === '/api/onboarding/mail' || path === '/api/onboarding/ripmail'
+}
+app.use('*', async (c, next) => {
+  if (isQuietPollPath(c.req.path)) return next()
+  return requestLogger(c, next)
+})
 
 // Auth: required in production unless AUTH_DISABLED=true (e.g. private subnet)
 if (!isDev && process.env.AUTH_DISABLED !== 'true') {

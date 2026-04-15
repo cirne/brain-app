@@ -3,6 +3,7 @@ import { promisify } from 'node:util'
 import { wikiDir, repoDir } from './wikiDir.js'
 import { redactGitRemote } from './redactGitRemote.js'
 import { areImessageToolsEnabled, initImessageToolsAvailability } from './imessageDb.js'
+import { parseRipmailStatusJson } from './ripmailStatusParse.js'
 
 const execAsync = promisify(exec)
 
@@ -45,10 +46,10 @@ export async function logStartupDiagnostics(): Promise<void> {
 
   try {
     const { stdout } = await execAsync(`${rm} status --json`, { timeout: 8000 })
-    const j = JSON.parse(stdout) as { sync?: { totalMessages?: number; lastSyncAt?: string } }
-    const total = j.sync?.totalMessages
-    const last = j.sync?.lastSyncAt
-    if (total !== undefined || last !== undefined) {
+    const parsed = parseRipmailStatusJson(stdout)
+    if (parsed) {
+      const total = parsed.indexedTotal
+      const last = parsed.lastSyncedAt
       log(`ripmail index: messages≈${total ?? '?'} lastSync=${last ?? '?'}`)
     } else {
       log(`ripmail status (truncated): ${stdout.slice(0, 240)}`)

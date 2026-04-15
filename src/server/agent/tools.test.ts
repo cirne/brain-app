@@ -333,6 +333,16 @@ describe('createAgentTools', () => {
       delete process.env.RIPMAIL_BIN
     })
 
+    it('lists top contacts when query is empty (ripmail who --limit 60)', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tool = tools.find((t: any) => t.name === 'find_person')!
+      const result = await tool.execute('test-fp-empty', { query: '  ' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toContain('Email Contacts (top by frequency)')
+      expect(text).toContain('alice@example.com')
+    })
+
     it('combines email contacts and wiki notes', async () => {
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeImessageTools: true })

@@ -56,27 +56,56 @@ describe('onboardingState', () => {
     expect(wikiMeExists()).toBe(true)
   })
 
-  it('hardResetOnboardingArtifacts removes me.md and resets state', async () => {
+  it('hardResetOnboardingArtifacts wipes wiki content and resets state', async () => {
     const {
       hardResetOnboardingArtifacts,
       readOnboardingStateDoc,
       profileDraftAbsolutePath,
       setOnboardingState,
     } = await import('./onboardingState.js')
+    const { appendTurn, listSessions } = await import('./chatStorage.js')
     await setOnboardingState('indexing')
     await setOnboardingState('profiling')
     await setOnboardingState('reviewing-profile')
     await setOnboardingState('confirming-categories')
     await setOnboardingState('seeding')
+    await appendTurn({
+      sessionId: 'cc0e8400-e29b-41d4-a716-446655440088',
+      userMessage: 'x',
+      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'y' }] },
+    })
+    expect((await listSessions()).length).toBe(1)
     await writeFile(join(wikiDirPath, 'me.md'), '# me', 'utf-8')
+    await writeFile(join(wikiDirPath, 'other.md'), 'x', 'utf-8')
     const draft = profileDraftAbsolutePath()
     await mkdir(join(chatDir, 'onboarding'), { recursive: true })
     await writeFile(draft, 'draft', 'utf-8')
     await hardResetOnboardingArtifacts()
     expect((await readOnboardingStateDoc()).state).toBe('not-started')
-    const { access } = await import('node:fs/promises')
+    expect(await listSessions()).toEqual([])
+    const { access, readdir } = await import('node:fs/promises')
     await expect(access(join(wikiDirPath, 'me.md'))).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(access(join(wikiDirPath, 'other.md'))).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(await readdir(wikiDirPath)).toEqual([])
     await expect(access(draft)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('migrateLegacyProfileDraftIfNeeded renames profile-draft.md to me.md', async () => {
+    const {
+      migrateLegacyProfileDraftIfNeeded,
+      profileDraftAbsolutePath,
+    } = await import('./onboardingState.js')
+    const base = join(chatDir, 'onboarding')
+    await mkdir(base, { recursive: true })
+    const legacy = join(base, 'profile-draft.md')
+    await writeFile(legacy, '# legacy\n', 'utf-8')
+    await migrateLegacyProfileDraftIfNeeded()
+    const me = profileDraftAbsolutePath()
+    expect(me).toBe(join(base, 'me.md'))
+    const { readFile, access } = await import('node:fs/promises')
+    const text = await readFile(me, 'utf-8')
+    expect(text).toContain('legacy')
+    await expect(access(legacy)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('round-trips persisted JSON', async () => {

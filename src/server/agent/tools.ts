@@ -476,19 +476,40 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'find_person',
     label: 'Find Person',
     description:
-      'Find information about a person by searching email contacts (ripmail who) and wiki notes. Accepts a name OR a phone number (any format — +16502485571, 650-248-5571, etc). Phone numbers are matched flexibly against all wiki files regardless of how the number is formatted there.',
+      'Find information about a person by searching email contacts (ripmail who) and wiki notes. Pass an empty query to list top contacts by email frequency (same as `ripmail who --limit 60`). Otherwise accepts a name OR a phone number (any format — +16502485571, 650-248-5571, etc). Phone numbers are matched flexibly against all wiki files regardless of how the number is formatted there.',
     parameters: Type.Object({
-      query: Type.String({ description: 'Person name, partial name, phone number, or email to search for' }),
+      query: Type.String({
+        description:
+          'Leave empty or whitespace for top contacts (ripmail who). Otherwise: person name, partial name, phone number, or email.',
+      }),
     }),
     async execute(_toolCallId: string, params: { query: string }) {
       const ripmail = process.env.RIPMAIL_BIN ?? 'ripmail'
-      const phone = normalizePhoneDigits(params.query)
-      const grepPattern = phone ? phoneToFlexibleGrepPattern(phone) : params.query
+      const q = params.query.trim()
+      if (q.length === 0) {
+        let stdout = ''
+        try {
+          const { stdout: out } = await execAsync(`${ripmail} who --limit 60`, { timeout: 15000 })
+          stdout = out.trim()
+        } catch {
+          stdout = ''
+        }
+        const text = stdout
+          ? `## Email Contacts (top by frequency)\n${stdout}`
+          : 'No contact data from ripmail who (empty inbox index or ripmail error).'
+        return {
+          content: [{ type: 'text' as const, text }],
+          details: {},
+        }
+      }
+
+      const phone = normalizePhoneDigits(q)
+      const grepPattern = phone ? phoneToFlexibleGrepPattern(phone) : q
 
       const grepFlags = phone ? '-rE' : '-ri'
 
       const [emailResult, wikiResult] = await Promise.allSettled([
-        execAsync(`${ripmail} who ${JSON.stringify(params.query)} --limit 20`, { timeout: 15000 }),
+        execAsync(`${ripmail} who ${JSON.stringify(q)} --limit 20`, { timeout: 15000 }),
         execAsync(
           `grep ${grepFlags} ${JSON.stringify(grepPattern)} ${JSON.stringify(wikiDir)} --include="*.md" -l`,
           { timeout: 10000 }
@@ -508,7 +529,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
 
       const text = parts.length
         ? parts.join('\n\n')
-        : `No information found for "${params.query}".`
+        : `No information found for "${q}".`
 
       return {
         content: [{ type: 'text' as const, text }],

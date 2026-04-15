@@ -1,9 +1,8 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { readFile, writeFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
-import { existsSync } from 'node:fs'
 import { wikiDir } from '../lib/wikiDir.js'
 import {
   readOnboardingStateDoc,
@@ -12,6 +11,7 @@ import {
   wikiMeExists,
   profileDraftAbsolutePath,
   profileDraftRelativePath,
+  migrateLegacyProfileDraftIfNeeded,
   categoriesJsonPath,
   type OnboardingMachineState,
   onboardingStagingWikiDir,
@@ -23,11 +23,9 @@ import {
   deleteProfilingSession,
   deleteSeedingSession,
 } from '../agent/onboardingAgent.js'
-import { flattenInboxFromRipmailData } from '../lib/ripmailInboxFlatten.js'
+import { getOnboardingMailStatus, ripmailBin, ripmailHomePath } from '../lib/onboardingMailStatus.js'
 
 const execAsync = promisify(exec)
-const ripmail = () => process.env.RIPMAIL_BIN ?? 'ripmail'
-const ripmailHome = () => process.env.RIPMAIL_HOME ?? `${process.env.HOME ?? ''}/.ripmail`
 
 const onboarding = new Hono()
 
@@ -58,64 +56,78 @@ onboarding.patch('/state', async (c) => {
   }
 })
 
-onboarding.get('/ripmail', async (c) => {
-  const configPath = join(ripmailHome(), 'config.json')
-  const configured = existsSync(configPath)
-  let inboxCount = 0
-  let inboxError: string | undefined
-  if (configured) {
-    try {
-      const { stdout } = await execAsync(`${ripmail()} inbox`, { timeout: 120000 })
-      const data = JSON.parse(stdout)
-      const rows = flattenInboxFromRipmailData(data) ?? []
-      inboxCount = rows.length
-    } catch (e) {
-      inboxError = e instanceof Error ? e.message : String(e)
-    }
-  }
-  return c.json({
-    configured,
-    ripmailHome: ripmailHome(),
-    inboxCount,
-    ...(inboxError ? { inboxError } : {}),
-  })
+async function jsonMailStatus() {
+  return getOnboardingMailStatus()
+}
+
+onboarding.get('/mail', async (c) => {
+  return c.json(await jsonMailStatus())
 })
 
-onboarding.post('/setup-ripmail', async (c) => {
-  const body = await c.req.json().catch(() => ({}))
-  const email = typeof body.email === 'string' ? body.email.trim() : ''
-  const password = typeof body.password === 'string' ? body.password : ''
-  if (!email || !password) {
-    return c.json({ error: 'email and password are required' }, 400)
+/** @deprecated Prefer GET /mail — same payload (no internal paths). */
+onboarding.get('/ripmail', async (c) => {
+  return c.json(await jsonMailStatus())
+})
+
+async function runAppleMailSetup(c: Context) {
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
+  const appleMailPath = typeof body.appleMailPath === 'string' ? body.appleMailPath.trim() : ''
+  const rm = ripmailBin()
+  let cmd = `${rm} setup --apple-mail --no-validate --no-skill`
+  if (appleMailPath) {
+    cmd += ` --apple-mail-path ${JSON.stringify(appleMailPath)}`
   }
   try {
-    await execAsync(
-      `${ripmail()} setup --email ${JSON.stringify(email)} --password ${JSON.stringify(password)}`,
-      { timeout: 120000, env: { ...process.env, RIPMAIL_HOME: ripmailHome() } },
-    )
-    return c.json({ ok: true })
+    await execAsync(cmd, {
+      timeout: 120000,
+      env: { ...process.env, RIPMAIL_HOME: ripmailHomePath() },
+    })
+    return c.json({ ok: true as const })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return c.json({ ok: false, error: msg }, 500)
+    return c.json({ ok: false as const, error: msg }, 500)
   }
-})
+}
+
+onboarding.post('/setup-mail', runAppleMailSetup)
+
+/** Same as POST /setup-mail (local Apple Mail index). */
+onboarding.post('/setup-ripmail', runAppleMailSetup)
 
 onboarding.get('/profile-draft', async (c) => {
+  await migrateLegacyProfileDraftIfNeeded()
   const path = profileDraftAbsolutePath()
   try {
     const text = await readFile(path, 'utf-8')
     return c.json({ path: profileDraftRelativePath(), markdown: text })
   } catch {
-    return c.json({ error: 'No profile draft yet' }, 404)
+    return c.json({ error: 'No profile yet' }, 404)
   }
 })
 
+/** Save edited profile draft while user is on the review step (markdown on disk). */
+onboarding.patch('/profile-draft', async (c) => {
+  await migrateLegacyProfileDraftIfNeeded()
+  const doc = await readOnboardingStateDoc()
+  if (doc.state !== 'reviewing-profile') {
+    return c.json({ error: 'Profile can only be edited while reviewing' }, 400)
+  }
+  const body = await c.req.json().catch(() => ({}))
+  const markdown = typeof body.markdown === 'string' ? body.markdown : null
+  if (markdown === null) {
+    return c.json({ error: 'markdown is required' }, 400)
+  }
+  await writeFile(profileDraftAbsolutePath(), markdown, 'utf-8')
+  return c.json({ ok: true as const, path: profileDraftRelativePath() })
+})
+
 onboarding.post('/accept-profile', async (c) => {
+  await migrateLegacyProfileDraftIfNeeded()
   const draftPath = profileDraftAbsolutePath()
   try {
     await access(draftPath)
   } catch {
-    return c.json({ error: 'profile-draft.md not found — run profiling first' }, 400)
+    return c.json({ error: 'me.md not found in onboarding staging — run profiling first' }, 400)
   }
   const text = await readFile(draftPath, 'utf-8')
   const mePath = join(wikiDir(), 'me.md')

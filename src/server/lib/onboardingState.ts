@@ -1,8 +1,8 @@
-import { mkdir, readFile, writeFile, unlink, rm } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, unlink, rm, rename } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
-import { chatDataDir } from './chatStorage.js'
-import { wikiDir } from './wikiDir.js'
+import { chatDataDir, deleteAllChatSessionFiles } from './chatStorage.js'
+import { wikiDir, wipeWikiContent } from './wikiDir.js'
 
 /** Persisted onboarding machine state (OPP-006). */
 export type OnboardingMachineState =
@@ -25,17 +25,31 @@ export function onboardingDataDir(): string {
   return join(chatDataDir(), 'onboarding')
 }
 
-/** Wiki root for profiling agent drafts (relative paths like profile-draft.md). */
+/** Chat data dir used as the profiling agent's wiki root; relative paths are the same names as on the real wiki (e.g. me.md). */
 export function onboardingStagingWikiDir(): string {
   return onboardingDataDir()
 }
 
+/** Staging copy of the user profile — same filename as wiki/me.md; lives under onboarding/ until accept. */
 export function profileDraftRelativePath(): string {
-  return 'profile-draft.md'
+  return 'me.md'
 }
 
 export function profileDraftAbsolutePath(): string {
   return join(onboardingStagingWikiDir(), profileDraftRelativePath())
+}
+
+const LEGACY_PROFILE_DRAFT = 'profile-draft.md'
+
+/** One-time: older builds wrote profile-draft.md; rename to me.md so agent and UI agree. */
+export async function migrateLegacyProfileDraftIfNeeded(): Promise<void> {
+  const base = onboardingStagingWikiDir()
+  await mkdir(base, { recursive: true })
+  const me = profileDraftAbsolutePath()
+  const legacy = join(base, LEGACY_PROFILE_DRAFT)
+  if (existsSync(me)) return
+  if (!existsSync(legacy)) return
+  await rename(legacy, me)
 }
 
 export function categoriesJsonPath(): string {
@@ -128,11 +142,13 @@ export async function resetOnboardingState(): Promise<OnboardingStateDoc> {
 export async function clearOnboardingStaging(): Promise<void> {
   const base = onboardingDataDir()
   await mkdir(base, { recursive: true })
-  try {
-    await unlink(profileDraftAbsolutePath())
-  } catch (e: unknown) {
-    const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
-    if (code !== 'ENOENT') throw e
+  for (const name of [profileDraftRelativePath(), LEGACY_PROFILE_DRAFT]) {
+    try {
+      await unlink(join(base, name))
+    } catch (e: unknown) {
+      const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
+      if (code !== 'ENOENT') throw e
+    }
   }
   try {
     await unlink(categoriesJsonPath())
@@ -142,16 +158,11 @@ export async function clearOnboardingStaging(): Promise<void> {
   }
 }
 
-/** Dev hard-reset: onboarding state + me.md + onboarding staging dir contents. */
+/** Dev hard-reset: onboarding state + persisted chat sessions + entire wiki content + onboarding staging dir contents. */
 export async function hardResetOnboardingArtifacts(): Promise<void> {
   await resetOnboardingState()
-  const me = join(wikiDir(), 'me.md')
-  try {
-    await unlink(me)
-  } catch (e: unknown) {
-    const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
-    if (code !== 'ENOENT') throw e
-  }
+  await deleteAllChatSessionFiles()
+  await wipeWikiContent()
   try {
     await rm(onboardingDataDir(), { recursive: true, force: true })
   } catch {

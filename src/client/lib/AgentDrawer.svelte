@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick, type Snippet } from 'svelte'
+  import { onMount, tick, type Snippet } from 'svelte'
   import { type SurfaceContext } from '../router.js'
   import { buildChatBody, extractMentionedFiles, type ChatMessage, type ToolPart } from './agentUtils.js'
   import { contextPlaceholder } from './agentUtils.js'
@@ -34,6 +34,17 @@
     /** Live `edit` tool — wiki pane “Editing…” until tool_end. */
     onEditStreaming,
     mobileDetail,
+    /** POST target for SSE (default main chat). */
+    chatEndpoint = '/api/chat',
+    /** Title until `set_chat_title` runs. */
+    headerFallbackTitle = 'Chat',
+    /** If set, sent as the first user message after mount (e.g. onboarding kickoff). */
+    autoSendMessage = null as string | null,
+    /** Called once when the server emits a terminal `done` event for the stream. */
+    onStreamFinished,
+    /** Persist transcript under this localStorage key; empty = no persistence. */
+    storageKey = 'brain-agent',
+    showNewChatButton = true,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -56,13 +67,18 @@
     onEditStreaming?: (_p: { id: string; path: string; done: boolean }) => void
     /** Full-screen detail stack above input (mobile only) */
     mobileDetail?: Snippet
+    chatEndpoint?: string
+    headerFallbackTitle?: string
+    autoSendMessage?: string | null
+    onStreamFinished?: () => void | Promise<void>
+    storageKey?: string
+    showNewChatButton?: boolean
   } = $props()
 
-  const STORAGE_KEY = 'brain-agent'
-
   function loadState(): { messages: ChatMessage[]; sessionId: string | null; chatTitle?: string | null } {
+    if (!storageKey) return { messages: [], sessionId: null, chatTitle: null }
     try {
-      const saved = localStorage.getItem(STORAGE_KEY)
+      const saved = localStorage.getItem(storageKey)
       if (saved) return JSON.parse(saved)
     } catch { /* ignore */ }
     return { messages: [], sessionId: null, chatTitle: null }
@@ -87,8 +103,9 @@
   }
 
   $effect(() => {
+    if (!storageKey) return
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ messages, sessionId, chatTitle }))
+      localStorage.setItem(storageKey, JSON.stringify({ messages, sessionId, chatTitle }))
     } catch { /* ignore */ }
   })
 
@@ -105,6 +122,11 @@
       wikiFiles = files.map((f: { path: string }) => f.path)
     } catch { /* ignore */ }
   }
+
+  onMount(() => {
+    const m = autoSendMessage?.trim()
+    if (m) void tick().then(() => send(m))
+  })
 
   export function newChat() {
     messages = []
@@ -193,9 +215,10 @@
     const msgIdx = messages.length - 1
 
     abortController = new AbortController()
+    let sawDone = false
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch(chatEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -348,6 +371,7 @@
                 msg.parts!.push({ type: 'text', content: `\n\n**Error:** ${data.message}` })
                 break
               case 'done':
+                sawDone = true
                 break
             }
           }
@@ -365,6 +389,7 @@
       conversationEl?.scrollToBottom()
       if (touchedWiki) emit({ type: 'wiki:mutated', source: 'agent' })
       onChatPersisted?.()
+      if (sawDone) void onStreamFinished?.()
     }
   }
 
@@ -389,7 +414,7 @@
         {#snippet center()}
           <div class="header-left">
             <span class="drawer-title" class:thinking={streaming} class:custom-title={!!chatTitle}>
-              {streaming ? 'Thinking...' : (chatTitle ?? 'Chat')}
+              {streaming ? 'Thinking...' : (chatTitle ?? headerFallbackTitle)}
             </span>
             {#if context.type === 'wiki'}
               <span class="context-chip"><WikiFileName path={context.path} /></span>
@@ -399,7 +424,7 @@
           </div>
         {/snippet}
         {#snippet right()}
-          {#if messages.length > 0}
+          {#if showNewChatButton && messages.length > 0}
             <button class="new-btn" onclick={() => newChat()} title="New conversation (⌘N)">
               <MessageSquarePlus size={14} strokeWidth={2} aria-hidden="true" />
               <span>New</span>

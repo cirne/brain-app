@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { renderMarkdown, stripFrontMatter, takeFirstLines, WIKI_PREVIEW_MAX_LINES } from './markdown.js'
+import {
+  renderMarkdown,
+  stripFrontMatter,
+  takeFirstLines,
+  joinYamlFrontMatter,
+  splitYamlFrontMatter,
+  WIKI_PREVIEW_MAX_LINES,
+} from './markdown.js'
 
 describe('renderMarkdown', () => {
   it('converts wiki: link with .md extension to wiki-link button', () => {
@@ -61,5 +68,30 @@ describe('takeFirstLines', () => {
 
   it('WIKI_PREVIEW_MAX_LINES is positive', () => {
     expect(WIKI_PREVIEW_MAX_LINES).toBeGreaterThan(0)
+  })
+})
+
+describe('splitYamlFrontMatter / joinYamlFrontMatter', () => {
+  it('splits leading YAML from body', () => {
+    const raw = `---
+type: user-profile
+---
+# Title
+
+Hello`
+    const { frontMatter, body } = splitYamlFrontMatter(raw)
+    expect(frontMatter).toBe('---\ntype: user-profile\n---')
+    expect(body).toBe('# Title\n\nHello')
+  })
+
+  it('returns null front matter when file does not start with ---', () => {
+    const { frontMatter, body } = splitYamlFrontMatter('# Only\n\nbody')
+    expect(frontMatter).toBeNull()
+    expect(body).toBe('# Only\n\nbody')
+  })
+
+  it('joins front matter and body with trailing newline', () => {
+    const out = joinYamlFrontMatter('---\nx: 1\n---', '# H\n\nok')
+    expect(out).toBe('---\nx: 1\n---\n\n# H\n\nok\n')
   })
 })

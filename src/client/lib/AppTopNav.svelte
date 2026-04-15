@@ -3,6 +3,8 @@
   import WikiFileList from './WikiFileList.svelte'
 
   type Props = {
+    /** When false, hides the chat history control (e.g. onboarding uses the same top bar without history). */
+    showChatHistoryButton?: boolean
     onToggleSidebar: () => void
     dirtyFiles: string[]
     recentFiles: { path: string; date: string }[]
@@ -19,6 +21,7 @@
   }
 
   let {
+    showChatHistoryButton = true,
     onToggleSidebar,
     dirtyFiles,
     recentFiles,
@@ -36,17 +39,19 @@
 </script>
 
 <nav class="tabs">
-  <div class="menu-wrap">
-    <button
-      class="menu-btn"
-      type="button"
-      onclick={onToggleSidebar}
-      title="Chat history"
-      aria-label="Open chat history"
-    >
-      <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
-    </button>
-  </div>
+  {#if showChatHistoryButton}
+    <div class="menu-wrap">
+      <button
+        class="menu-btn"
+        type="button"
+        onclick={onToggleSidebar}
+        title="Chat history"
+        aria-label="Open chat history"
+      >
+        <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
+      </button>
+    </div>
+  {/if}
   <div class="brand">
     <span class="brand-name">Brain</span>
   </div>

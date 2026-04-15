@@ -186,3 +186,18 @@ export async function deleteSessionFile(sessionId: string): Promise<boolean> {
     return false
   }
 }
+
+/** Remove all persisted chat session JSON files (`{ms}-{uuid}.json`). Does not remove onboarding.json or other files. */
+export async function deleteAllChatSessionFiles(): Promise<void> {
+  const dir = chatDataDir()
+  const names = await safeReaddir(dir)
+  for (const name of names) {
+    if (!parseFilename(name)) continue
+    try {
+      await unlink(join(dir, name))
+    } catch (e: unknown) {
+      const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
+      if (code !== 'ENOENT') throw e
+    }
+  }
+}

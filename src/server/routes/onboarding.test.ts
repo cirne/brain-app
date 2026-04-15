@@ -46,11 +46,23 @@ describe('onboarding routes', () => {
     expect(j.state).toBe('not-started')
   })
 
-  it('GET /profile-draft returns 404 when no draft exists', async () => {
+  it('GET /profile-draft returns 404 when no profile exists', async () => {
     const app = new Hono()
     app.route('/api/onboarding', onboardingRoute)
     const res = await app.request('http://localhost/api/onboarding/profile-draft')
     expect(res.status).toBe(404)
+  })
+
+  it('GET /profile-draft migrates legacy profile-draft.md and returns me.md path', async () => {
+    await mkdir(join(chatDir, 'onboarding'), { recursive: true })
+    await writeFile(join(chatDir, 'onboarding', 'profile-draft.md'), '# From legacy\n', 'utf-8')
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/profile-draft')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { path: string; markdown: string }
+    expect(j.path).toBe('me.md')
+    expect(j.markdown).toContain('From legacy')
   })
 
   it('PATCH /state returns 400 for invalid transition', async () => {
@@ -60,6 +72,38 @@ describe('onboarding routes', () => {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ state: 'done' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('PATCH /profile-draft writes markdown when state is reviewing-profile', async () => {
+    const { setOnboardingState } = await import('../lib/onboardingState.js')
+    const { profileDraftAbsolutePath } = await import('../lib/onboardingState.js')
+    await mkdir(join(chatDir, 'onboarding'), { recursive: true })
+    await writeFile(profileDraftAbsolutePath(), '---\na: 1\n---\n\n# Old\n', 'utf-8')
+    await setOnboardingState('indexing')
+    await setOnboardingState('profiling')
+    await setOnboardingState('reviewing-profile')
+
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/profile-draft', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markdown: '---\na: 1\n---\n\n# New\n' }),
+    })
+    expect(res.status).toBe(200)
+    const text = await import('node:fs/promises').then((fs) => fs.readFile(profileDraftAbsolutePath(), 'utf-8'))
+    expect(text).toContain('# New')
+  })
+
+  it('PATCH /profile-draft returns 400 when not in reviewing-profile', async () => {
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/profile-draft', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markdown: '# x\n' }),
     })
     expect(res.status).toBe(400)
   })

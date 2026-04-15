@@ -1,3 +1,4 @@
+import { mkdir, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 
@@ -12,4 +13,27 @@ export const wikiDir = () => {
   const repo = repoDir()
   const sub = join(repo, 'wiki')
   return existsSync(sub) ? sub : repo
+}
+
+/**
+ * Remove all wiki files and subdirs (dev hard-reset). Recreates an empty wiki content root.
+ * When `wiki/` exists under the repo, only that subtree is removed (git metadata at repo root stays).
+ * When the repo root is the wiki root, removes all top-level entries except `.git`.
+ */
+export async function wipeWikiContent(): Promise<void> {
+  const contentRoot = wikiDir()
+  const repo = repoDir()
+  if (!existsSync(contentRoot)) return
+
+  if (contentRoot === repo) {
+    const entries = await readdir(contentRoot, { withFileTypes: true })
+    for (const ent of entries) {
+      if (ent.name === '.git') continue
+      await rm(join(contentRoot, ent.name), { recursive: true, force: true })
+    }
+    return
+  }
+
+  await rm(contentRoot, { recursive: true, force: true })
+  await mkdir(contentRoot, { recursive: true })
 }

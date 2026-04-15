@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -90,5 +90,20 @@ describe('chatStorage', () => {
     const ok = await deleteSessionFile(sessionId)
     expect(ok).toBe(true)
     expect(await loadSession(sessionId)).toBeNull()
+  })
+
+  it('deleteAllChatSessionFiles removes session JSON only', async () => {
+    const { appendTurn, listSessions, deleteAllChatSessionFiles } = await import('./chatStorage.js')
+    await writeFile(join(chatDir, 'onboarding.json'), '{"state":"done"}', 'utf-8')
+    await appendTurn({
+      sessionId: 'aa0e8400-e29b-41d4-a716-446655440005',
+      userMessage: 'hi',
+      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'yo' }] },
+    })
+    expect((await listSessions())).toHaveLength(1)
+    await deleteAllChatSessionFiles()
+    expect(await listSessions()).toEqual([])
+    const { readFile } = await import('node:fs/promises')
+    expect(await readFile(join(chatDir, 'onboarding.json'), 'utf-8')).toContain('done')
   })
 })

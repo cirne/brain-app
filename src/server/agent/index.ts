@@ -118,3 +118,11 @@ export function deleteSession(sessionId: string): boolean {
   }
   return false
 }
+
+/** Abort and drop all in-memory chat agents (e.g. dev hard-reset after deleting persisted sessions). */
+export function clearAllSessions(): void {
+  for (const agent of sessions.values()) {
+    agent.abort()
+  }
+  sessions.clear()
+}

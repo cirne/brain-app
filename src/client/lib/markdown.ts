@@ -18,6 +18,29 @@ export function stripFrontMatter(text: string): string {
   return text
 }
 
+/** Split leading YAML front matter (`---` … `---`) from the body. If none, `frontMatter` is null and `body` is the full text. */
+export function splitYamlFrontMatter(text: string): { frontMatter: string | null; body: string } {
+  const lines = text.split(/\r?\n/)
+  if (lines.length < 2 || lines[0].trim() !== '---') {
+    return { frontMatter: null, body: text }
+  }
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '---') {
+      const fm = lines.slice(0, i + 1).join('\n')
+      const body = lines.slice(i + 1).join('\n').replace(/^\n+/, '')
+      return { frontMatter: fm, body }
+    }
+  }
+  return { frontMatter: null, body: text }
+}
+
+/** Rejoin YAML front matter and markdown body for saving (single trailing newline). */
+export function joinYamlFrontMatter(frontMatter: string | null, body: string): string {
+  const b = body.replace(/\s+$/, '')
+  if (!frontMatter) return `${b}\n`
+  return `${frontMatter}\n\n${b}\n`
+}
+
 /** First `maxLines` lines (keeps short previews bounded). */
 export function takeFirstLines(text: string, maxLines: number): string {
   if (maxLines <= 0) return ''

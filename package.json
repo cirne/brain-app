@@ -28,6 +28,9 @@
     "@mariozechner/pi-coding-agent": "^0.66.1",
     "@mariozechner/pi-web-ui": "^0.66.1",
     "@tailwindcss/vite": "^4.2.2",
+    "@tiptap/core": "^3.22.3",
+    "@tiptap/extension-link": "^3.22.3",
+    "@tiptap/starter-kit": "^3.22.3",
     "better-sqlite3": "^11.0.0",
     "diff": "^9.0.0",
     "exa-js": "^2.11.0",
@@ -35,13 +38,15 @@
     "lucide-svelte": "^1.0.1",
     "marked": "^15.0.0",
     "rrule": "^2.8.1",
-    "tailwindcss": "^4.2.2"
+    "tailwindcss": "^4.2.2",
+    "turndown": "^7.2.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^22.0.0",
+    "@types/turndown": "^5.0.6",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^3.0.0",
