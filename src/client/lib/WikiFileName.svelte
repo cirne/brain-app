@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { User } from 'lucide-svelte'
   import { getDirIcon, SpecialFileIcon } from './dirIcons.js'
 
   let { path, unsaved = false }: { path: string; unsaved?: boolean } = $props()
@@ -13,6 +14,8 @@
   const folderKey = $derived(folder.replace(/\/$/, ''))
 
   const isIndex = $derived(name === '_index')
+  /** Root user profile — same convention as main agent (me.md at wiki root). */
+  const isUserProfileMe = $derived(path === 'me.md')
   // _ prefix marks system/special pages (but not _index files with a folder)
   const isSpecial = $derived(name.startsWith('_') && !(isIndex && folder))
 
@@ -37,7 +40,11 @@
 </script>
 
 <span class="wfn-title-row" class:wfn-title-row--unsaved={unsaved}>
-  {#if isSpecial}
+  {#if isUserProfileMe}
+    <span class="wfn-lead-icon wfn-lead-icon--profile" title="Profile (me.md)">
+      <User size={12} />
+    </span>
+  {:else if isSpecial}
     <span class="wfn-lead-icon wfn-lead-icon--special">
       <SpecialFileIcon size={12} />
     </span>
@@ -54,6 +61,11 @@
 
 <style>
   @import './wfnLeadIcon.css';
+
+  .wfn-lead-icon--profile {
+    color: var(--accent);
+    opacity: 0.85;
+  }
 
   .wfn-folder {
     font-size: 0.9em;

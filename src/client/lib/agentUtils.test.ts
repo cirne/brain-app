@@ -30,6 +30,36 @@ describe('extractReferencedFiles', () => {
     expect(extractReferencedFiles(msgs)).toEqual(['projects/alpha.md'])
   })
 
+  it('omits read tool paths when the read failed', () => {
+    const msgs: ChatMessage[] = [{
+      role: 'assistant',
+      content: '',
+      parts: [{
+        type: 'tool',
+        toolCall: {
+          id: '1',
+          name: 'read',
+          args: { path: 'wiki/me.md' },
+          done: true,
+          isError: true,
+        },
+      }],
+    }]
+    expect(extractReferencedFiles(msgs)).toEqual([])
+  })
+
+  it('omits read tool paths until the call has finished', () => {
+    const msgs: ChatMessage[] = [{
+      role: 'assistant',
+      content: '',
+      parts: [{
+        type: 'tool',
+        toolCall: { id: '1', name: 'read', args: { path: 'me.md' }, done: false },
+      }],
+    }]
+    expect(extractReferencedFiles(msgs)).toEqual([])
+  })
+
   it('ignores tool call args that are not .md files', () => {
     const msgs: ChatMessage[] = [{
       role: 'assistant',

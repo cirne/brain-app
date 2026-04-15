@@ -213,7 +213,7 @@
       chatEndpoint="/api/onboarding/seed"
       headerFallbackTitle="Seeding"
       storageKey={ONBOARDING_SEED_CHAT_STORAGE_KEY}
-      autoSendMessage="Read wiki/me.md, then create useful wiki pages from the profile and email evidence. Narrate briefly as you go."
+      autoSendMessage="Read me.md, then create useful wiki pages from the profile and email evidence. Narrate briefly as you go."
       onStreamFinished={afterSeedComplete}
     />
   {:else}

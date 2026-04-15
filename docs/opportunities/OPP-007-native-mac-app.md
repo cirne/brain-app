@@ -30,14 +30,16 @@ Package brain-app as a native macOS application that runs the server locally, in
 
 ## Why local-first
 
-| Cloud container | Native Mac app |
-|---|---|
+
+| Cloud container                        | Native Mac app                         |
+| -------------------------------------- | -------------------------------------- |
 | iMessage requires companion app + sync | iMessage just works (Full Disk Access) |
-| Contacts require sync or API | Read `~/Library/AddressBook/` directly |
-| Notes require iCloud API (limited) | Read Notes SQLite directly |
-| Files require upload | Full filesystem access |
-| Data leaves the machine | Data stays local |
-| Multi-user by default | Single-user (feature, not bug) |
+| Contacts require sync or API           | Read `~/Library/AddressBook/` directly |
+| Notes require iCloud API (limited)     | Read Notes SQLite directly             |
+| Files require upload                   | Full filesystem access                 |
+| Data leaves the machine                | Data stays local                       |
+| Multi-user by default                  | Single-user (feature, not bug)         |
+
 
 For a deeply personal "second brain," local-first is arguably the right architecture. The data never leaves your machine unless you explicitly share via Tailscale.
 
@@ -45,15 +47,17 @@ For a deeply personal "second brain," local-first is arguably the right architec
 
 ### Data sources accessible with macOS permissions
 
-| Source | Location | Permission needed |
-|---|---|---|
-| iMessage | `~/Library/Messages/chat.db` | Full Disk Access |
-| Contacts | `~/Library/Application Support/AddressBook/` | Contacts permission |
-| Notes | `~/Library/Group Containers/group.com.apple.notes/` | Full Disk Access |
-| Safari history | `~/Library/Safari/History.db` | Full Disk Access |
-| Calendar | `~/Library/Calendars/` | Calendar permission |
-| Files | Anywhere | User grants folder access |
-| Email | ripmail (local IMAP sync) | Already works |
+
+| Source         | Location                                            | Permission needed         |
+| -------------- | --------------------------------------------------- | ------------------------- |
+| iMessage       | `~/Library/Messages/chat.db`                        | Full Disk Access          |
+| Contacts       | `~/Library/Application Support/AddressBook/`        | Contacts permission       |
+| Notes          | `~/Library/Group Containers/group.com.apple.notes/` | Full Disk Access          |
+| Safari history | `~/Library/Safari/History.db`                       | Full Disk Access          |
+| Calendar       | `~/Library/Calendars/`                              | Calendar permission       |
+| Files          | Anywhere                                            | User grants folder access |
+| Email          | ripmail (local IMAP sync)                           | Already works             |
+
 
 ### Remote access via Tailscale
 
@@ -109,6 +113,7 @@ Brain.app/
 ```
 
 In `tauri.conf.json`:
+
 ```json
 {
   "bundle": {
@@ -164,6 +169,7 @@ This reads from Mail.app's local database (`~/Library/Mail/V10/MailData/Envelope
 - ripmail's fast search replaces Apple Mail's slow search
 
 The sync reads:
+
 - `Envelope Index` SQLite for metadata (sender, subject, date)
 - `.emlx` files for message bodies
 - Incremental updates based on last sync timestamp
@@ -181,6 +187,7 @@ The sync reads:
 ### Single download, zero setup
 
 The end result:
+
 - User downloads `Brain.dmg` (~50-100MB with Node + ripmail)
 - Drag to Applications
 - Launch → grant Full Disk Access
@@ -198,6 +205,7 @@ No `npm install`, no `curl | bash`, no ripmail wizard, no OAuth dance.
 ### Permissions flow
 
 On first launch:
+
 1. App requests Full Disk Access (for iMessage, Notes, Safari)
 2. App requests Contacts access
 3. App requests Calendar access (if using local calendar instead of ICS)
@@ -208,6 +216,7 @@ Standard macOS pattern — users are accustomed to this from apps like Alfred, R
 ### Bundling ripmail
 
 Options:
+
 - Require user to install ripmail separately (`curl | bash`)
 - Bundle ripmail binary in the app (need to cross-compile for arm64/x86_64)
 - Bundle as a sidecar that Tauri manages
@@ -218,20 +227,114 @@ Options:
 - Menu bar icon for quick access
 - Server runs in background
 
+## Data directory structure
+
+App data lives under a single parent directory following macOS conventions. Wiki is separate — user-visible in Documents so it can be browsed/edited directly with Obsidian, VS Code, or any text editor.
+
+```
+~/Documents/Brain/              # wiki (user-facing, user-selectable location)
+  people/
+  projects/
+  ...
+
+~/Library/Application Support/Brain/
+  config/              # app configuration (settings, wiki path preference)
+  data/                # app SQLite database, chat session JSON
+  ripmail/             # ripmail indices, config, drafts, attachments
+```
+
+### Why this split
+
+
+| Directory                              | Contents        | Rationale                                                                        |
+| -------------------------------------- | --------------- | -------------------------------------------------------------------------------- |
+| `~/Documents/Brain/`                   | Wiki markdown   | User's content — they own it, can edit it, back it up, sync it however they want |
+| `~/Library/Application Support/Brain/` | Everything else | Internal app data — users shouldn't need to touch it                             |
+
+
+Wiki location is user-selectable (stored in `config/`). Default is `~/Documents/Brain/` but user could point it at an existing Obsidian vault, iCloud folder, Dropbox, etc.
+
+### Benefits
+
+- **Uninstall:** Delete `~/Library/Application Support/Brain/` to remove app data; wiki stays (it's the user's content)
+- **Interop:** Wiki works with Obsidian, iA Writer, any markdown tool
+- **User controls backup:** Time Machine, git, iCloud, Dropbox — whatever they want for their wiki
+
+### Environment variable mapping
+
+The native app sets these at startup:
+
+```typescript
+const appSupport = path.join(os.homedir(), 'Library/Application Support/Brain')
+const wikiPath = loadConfig().wikiPath ?? path.join(os.homedir(), 'Documents/Brain')
+
+process.env.WIKI_DIR = wikiPath
+process.env.DATA_DIR = path.join(appSupport, 'data')
+process.env.CHAT_DATA_DIR = path.join(appSupport, 'data/chat')
+process.env.RIPMAIL_HOME = path.join(appSupport, 'ripmail')
+```
+
+Existing env vars still work for dev/container deployments; the native app just sets sensible defaults.
+
+### First launch
+
+On first launch, the app:
+
+1. Creates `~/Library/Application Support/Brain/` and subdirectories
+2. Onboarding shows default wiki location (`~/Documents/Brain/`) with option to select a different directory
+3. Initializes wiki directory if empty, or validates existing structure
+
+## Secrets management
+
+API keys (Anthropic, OpenAI, Exa, etc.) are bundled with the app — users don't provide their own.
+
+### Threat model
+
+Early beta with trusted users. Goal: prevent casual extraction (`strings`, browsing app bundle). Not trying to stop determined reverse engineering.
+
+### Approach: compile-time obfuscation in Rust
+
+Keys are encrypted/obfuscated at build time, decrypted at runtime in Tauri's Rust layer before spawning the Node process:
+
+```rust
+// Build script encrypts keys, runtime decrypts
+let anthropic_key = decrypt(include_bytes!("../secrets/anthropic.enc"));
+std::env::set_var("ANTHROPIC_API_KEY", anthropic_key);
+```
+
+This prevents:
+- `strings Brain.app | grep sk-`
+- Casual inspection of the app bundle
+- Keys appearing in plaintext anywhere in the binary
+
+### What this doesn't prevent
+
+A determined attacker with a debugger can still extract keys at runtime. For a product with paying customers, the right solution is a server-side auth proxy. But for early beta with friendlies, obfuscation is sufficient.
+
+### Long-term: auth proxy
+
+When/if the app ships broadly:
+- Lightweight proxy (Cloudflare Worker, Fly.io) holds real keys
+- User authenticates with the app, proxy forwards LLM requests
+- Keys never on client; revoke access by disabling account
+
 ## Mobile access
 
 With Tailscale:
+
 1. Mac app running, Tailscale connected
 2. Phone has Tailscale app, connected to same tailnet
 3. Open Safari → `http://macbook:3000` or use Tailscale's HTTPS proxy
 
 For better mobile UX:
+
 - Thin native iOS/Android app that's just a WebView to the tailnet URL
 - Push notifications via a lightweight cloud relay (only notification metadata, not content)
 
 ## Windows later
 
 The architecture generalizes:
+
 - Tauri supports Windows
 - Local data sources differ (no iMessage, but Outlook, file system, etc.)
 - Tailscale works on Windows
@@ -241,14 +344,16 @@ Phase 2: Windows if there's demand
 
 ## Tradeoffs vs cloud deployment
 
-| Aspect | Native app | Cloud container |
-|---|---|---|
-| Local data access | Full | Requires sync |
-| Setup complexity | Download app, grant permissions | OAuth only |
-| Remote access | Requires Mac running + Tailscale | Always on |
-| Multi-device | One "server" machine | True multi-device |
-| Updates | App auto-update or manual | Deploy once |
-| Cost | Free (runs on your Mac) | Container hosting fees |
+
+| Aspect            | Native app                       | Cloud container        |
+| ----------------- | -------------------------------- | ---------------------- |
+| Local data access | Full                             | Requires sync          |
+| Setup complexity  | Download app, grant permissions  | OAuth only             |
+| Remote access     | Requires Mac running + Tailscale | Always on              |
+| Multi-device      | One "server" machine             | True multi-device      |
+| Updates           | App auto-update or manual        | Deploy once            |
+| Cost              | Free (runs on your Mac)          | Container hosting fees |
+
 
 ## Relation to other docs
 
@@ -271,3 +376,4 @@ Phase 2: Windows if there's demand
 3. Test Tailscale remote access
 4. Evaluate binary size and startup time
 5. Decide on distribution (DMG direct download)
+

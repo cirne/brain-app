@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { buildProfilingSystemPrompt } from './onboardingAgent.js'
+import { buildProfilingSystemPrompt, buildSeedingSystemPrompt } from './onboardingAgent.js'
+
+describe('buildSeedingSystemPrompt', () => {
+  it('tells the agent to read me.md at the wiki root, not wiki/me.md', () => {
+    const p = buildSeedingSystemPrompt('America/Los_Angeles', '- cats')
+    expect(p).toMatch(/read.*`me\.md`/i)
+    expect(p).toContain('not `wiki/me.md`')
+    expect(p).toMatch(/never add a `wiki\/` prefix/i)
+  })
+})
 
 describe('buildProfilingSystemPrompt', () => {
   it('asks for a concise essentials profile, not a dossier', () => {

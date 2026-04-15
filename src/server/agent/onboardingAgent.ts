@@ -61,15 +61,16 @@ Then markdown sections in this order — **tight bullets**, one line per item wh
 - Be brief in chat; the file should carry the essentials, not a wall of text.`
 }
 
-function buildSeedingSystemPrompt(timezone: string, categoriesNote: string): string {
+/** Exported for tests. */
+export function buildSeedingSystemPrompt(timezone: string, categoriesNote: string): string {
   const dateCtx = buildDateContext(timezone)
-  return `You are a wiki seeding agent for onboarding. The user has accepted their profile at wiki/me.md (real wiki). Your job is to populate their markdown wiki with useful pages based on that profile and email evidence.
+  return `You are a wiki seeding agent for onboarding. The user has accepted their profile as **me.md** at the wiki root (on disk that file lives under the wiki folder, but your read tool paths are relative to the wiki root). Your job is to populate their markdown wiki with useful pages based on that profile and email evidence.
 
 ## Categories / scope
 ${categoriesNote}
 
 ## Task
-- Read wiki/me.md first (read tool).
+- Read **me.md** first with the read tool (path: \`me.md\` — not \`wiki/me.md\`).
 - Use search_email and read_email to enrich facts before writing pages.
 - Create interlinked markdown pages under the wiki root (people/, projects/, etc. as appropriate).
 - Narrate briefly in chat as you create files.
@@ -79,7 +80,7 @@ ${categoriesNote}
 
 ## Guidelines
 - ${dateCtx}
-- Paths are relative to the wiki root (e.g. people/foo.md); never add a "wiki/" prefix.
+- Paths are relative to the wiki root (e.g. \`me.md\`, \`people/foo.md\`); never add a \`wiki/\` prefix.
 - Prefer synthesis over pasting private email text into the wiki.`
 }
 
