@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ArrowUp } from 'lucide-svelte'
   import WikiFileName from './WikiFileName.svelte'
 
   let {
@@ -74,9 +75,12 @@
     }
   }
 
+  const TEXTAREA_MIN_H = 34
+
   function autoResize(el: HTMLTextAreaElement) {
     el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 200) + 'px'
+    const next = Math.max(TEXTAREA_MIN_H, Math.min(el.scrollHeight, 200))
+    el.style.height = `${next}px`
   }
 
   export function focus() {
@@ -110,30 +114,42 @@
   {/if}
 
   <div class="input-row">
-    <textarea
-      bind:this={inputEl}
-      bind:value={input}
-      oninput={handleInput}
-      onkeydown={handleKeydown}
-      {placeholder}
-      rows="1"
-      {disabled}
-    ></textarea>
-    {#if streaming}
-      <button type="button" class="send-btn" onclick={() => onStop?.()} aria-label="Stop">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-      </button>
-    {:else}
-      <button class="send-btn" onclick={submit} disabled={disabled || !input.trim()}>Send</button>
-    {/if}
+    <div class="input-shell">
+      <div class="input-shell-inner">
+        <textarea
+          class="chat-textarea"
+          bind:this={inputEl}
+          bind:value={input}
+          oninput={handleInput}
+          onkeydown={handleKeydown}
+          {placeholder}
+          rows="1"
+          {disabled}
+        ></textarea>
+        {#if streaming}
+          <button type="button" class="send-btn" onclick={() => onStop?.()} aria-label="Stop">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          </button>
+        {:else}
+          <button
+            type="button"
+            class="send-btn"
+            onclick={submit}
+            disabled={disabled || !input.trim()}
+            aria-label="Send message"
+          >
+            <ArrowUp size={14} strokeWidth={2.25} aria-hidden="true" />
+          </button>
+        {/if}
+      </div>
+    </div>
   </div>
 </div>
 
 <style>
   .input-area {
     position: relative;
-    padding: 10px 12px;
-    border-top: 1px solid var(--border);
+    padding: 6px 12px;
     background: var(--bg-2);
     flex-shrink: 0;
   }
@@ -165,36 +181,74 @@
 
   .input-row {
     display: flex;
-    gap: 8px;
-    align-items: flex-end;
+    min-width: 0;
+    width: 100%;
   }
 
-  .input-row textarea {
+  .input-shell {
     flex: 1;
-    resize: none;
+    min-width: 0;
+    min-height: 38px;
+    padding: 3px 6px 3px 10px;
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  .input-shell:focus-within {
+    border-color: var(--accent);
+  }
+
+  .input-shell-inner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .chat-textarea {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    resize: none;
+    border: none;
+    border-radius: 0;
+    padding: 8px 4px 5px 2px;
     font: inherit;
     font-size: 14px;
-    background: var(--bg);
+    line-height: 1.35;
+    background: transparent;
     color: var(--text);
-    line-height: 1.4;
-    min-height: 38px;
+    min-height: 34px;
     max-height: 200px;
   }
-  .input-row textarea:focus { outline: none; border-color: var(--accent); }
-  .input-row textarea:disabled { opacity: 0.6; }
+
+  .chat-textarea:focus {
+    outline: none;
+  }
+
+  .chat-textarea:disabled {
+    opacity: 0.6;
+  }
 
   .send-btn {
-    height: 38px;
-    padding: 0 14px;
-    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
     background: var(--accent);
     color: white;
-    font-size: 13px;
-    font-weight: 600;
     flex-shrink: 0;
+    cursor: pointer;
   }
-  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .send-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 </style>
