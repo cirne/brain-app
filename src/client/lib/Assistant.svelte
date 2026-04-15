@@ -393,20 +393,6 @@
     }
     if (p.path) {
       wikiEditStreaming = { path: wikiPathForReadToolArg(p.path), toolId: p.id }
-      // #region agent log
-      fetch('http://127.0.0.1:7497/ingest/4d6eee4f-9729-40ee-87e3-62a37bfb0e67', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'aa31ea' },
-        body: JSON.stringify({
-          sessionId: 'aa31ea',
-          location: 'Assistant.svelte:onEditStreaming',
-          message: 'edit_stream_path',
-          hypothesisId: 'H5',
-          data: { rawPath: p.path, normalized: wikiPathForReadToolArg(p.path), toolId: p.id },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
     }
   }
 
