@@ -110,6 +110,118 @@ describe('GET /api/wiki/git-status', () => {
   })
 })
 
+describe('GET /api/wiki/git-status (git repo)', () => {
+  let repoDir: string
+  let gitApp: Hono
+
+  async function git(dir: string, cmd: string) {
+    return execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`)
+  }
+
+  beforeEach(async () => {
+    repoDir = await mkdtemp(join(tmpdir(), 'wiki-git-status-'))
+    await execAsync(`git init -b main ${JSON.stringify(repoDir)}`)
+    await git(repoDir, 'config user.email "test@test.com"')
+    await git(repoDir, 'config user.name "Test"')
+    await writeFile(join(repoDir, 'index.md'), '# Home')
+    await git(repoDir, 'add index.md')
+    await git(repoDir, 'commit -m "init"')
+
+    process.env.WIKI_DIR = repoDir
+    vi.resetModules()
+    const { default: wikiRoute } = await import('./wiki.js')
+    gitApp = new Hono()
+    gitApp.route('/api/wiki', wikiRoute)
+  })
+
+  afterEach(async () => {
+    await rm(repoDir, { recursive: true, force: true })
+    delete process.env.WIKI_DIR
+    vi.resetModules()
+  })
+
+  it('reports sha and dirty=0 when the working tree is clean', async () => {
+    const res = await gitApp.request('/api/wiki/git-status')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.sha).toMatch(/^[0-9a-f]+$/)
+    expect(body.date).toMatch(/^\d{4}-\d{2}-\d{2}/)
+    expect(body.dirty).toBe(0)
+    expect(body.changedFiles).toEqual([])
+    expect(body.ahead).toBe(0)
+    expect(body.behind).toBe(0)
+  })
+
+  it('reports dirty and changedFiles for untracked .md (flat wiki root)', async () => {
+    await writeFile(join(repoDir, 'new-note.md'), '# New')
+    const res = await gitApp.request('/api/wiki/git-status')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.dirty).toBe(1)
+    expect(body.changedFiles).toEqual(['new-note.md'])
+  })
+
+  it('reports dirty for modified tracked .md', async () => {
+    await writeFile(join(repoDir, 'index.md'), '# Home\n\nedited')
+    const res = await gitApp.request('/api/wiki/git-status')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.dirty).toBe(1)
+    expect(body.changedFiles).toEqual(['index.md'])
+  })
+
+  it('does not count untracked non-.md files', async () => {
+    await writeFile(join(repoDir, 'notes.txt'), 'plain')
+    const res = await gitApp.request('/api/wiki/git-status')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.dirty).toBe(0)
+    expect(body.changedFiles).toEqual([])
+  })
+})
+
+describe('GET /api/wiki/git-status (git repo, wiki/ subtree)', () => {
+  let repoDir: string
+  let gitApp: Hono
+
+  async function git(dir: string, cmd: string) {
+    return execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`)
+  }
+
+  beforeEach(async () => {
+    repoDir = await mkdtemp(join(tmpdir(), 'wiki-git-status-sub-'))
+    await execAsync(`git init -b main ${JSON.stringify(repoDir)}`)
+    await git(repoDir, 'config user.email "test@test.com"')
+    await git(repoDir, 'config user.name "Test"')
+    await mkdir(join(repoDir, 'wiki'), { recursive: true })
+    await writeFile(join(repoDir, 'wiki', 'a.md'), '# A')
+    await git(repoDir, 'add wiki/a.md')
+    await git(repoDir, 'commit -m "init"')
+
+    process.env.WIKI_DIR = repoDir
+    vi.resetModules()
+    const { default: wikiRoute } = await import('./wiki.js')
+    gitApp = new Hono()
+    gitApp.route('/api/wiki', wikiRoute)
+  })
+
+  afterEach(async () => {
+    await rm(repoDir, { recursive: true, force: true })
+    delete process.env.WIKI_DIR
+    vi.resetModules()
+  })
+
+  it('reports changedFiles relative to wiki/ and ignores .md outside wiki/', async () => {
+    await writeFile(join(repoDir, 'wiki', 'b.md'), '# B')
+    await writeFile(join(repoDir, 'README.md'), '# Root readme')
+    const res = await gitApp.request('/api/wiki/git-status')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.dirty).toBe(1)
+    expect(body.changedFiles).toEqual(['b.md'])
+  })
+})
+
 describe('POST /api/wiki/sync', () => {
   it('returns ok:false for a non-git directory', async () => {
     const res = await app.request('/api/wiki/sync', { method: 'POST' })
