@@ -24,13 +24,32 @@ export function normalizeWikiRelativePath(wikiDir: string, filePath: string): st
   return rel.split(/[/\\]/).join('/')
 }
 
-export async function appendWikiEditRecord(wikiDir: string, op: WikiEditOp, filePath: string): Promise<void> {
+/**
+ * Resolve a path under `wikiDir` and throw if it escapes the wiki root or refers to the root itself.
+ * Returns an absolute filesystem path.
+ */
+export function resolveSafeWikiPath(wikiDir: string, filePath: string): string {
+  const abs = resolve(wikiDir, filePath)
+  const rel = relative(wikiDir, abs)
+  if (rel.startsWith('..') || rel === '') {
+    throw new Error('Path must be a file or directory inside the wiki directory (not the wiki root itself)')
+  }
+  return abs
+}
+
+export async function appendWikiEditRecord(
+  wikiDir: string,
+  op: WikiEditOp,
+  filePath: string,
+  options?: { fromPath?: string },
+): Promise<void> {
   const path = normalizeWikiRelativePath(wikiDir, filePath)
   const record: WikiEditRecord = {
     ts: new Date().toISOString(),
     op,
     path,
     source: 'agent',
+    ...(options?.fromPath != null ? { fromPath: normalizeWikiRelativePath(wikiDir, options.fromPath) } : {}),
   }
   const file = wikiEditHistoryPath()
   await mkdir(dirname(file), { recursive: true })

@@ -1,10 +1,12 @@
 import { createReadTool, createEditTool, createWriteTool, createGrepTool, createFindTool, defineTool } from '@mariozechner/pi-coding-agent'
 import { Type } from '@mariozechner/pi-ai'
 import { exec } from 'node:child_process'
+import { mkdir, rename, stat, unlink } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { promisify } from 'node:util'
 import { enrichCalendarEventsForAgent, getCalendarEvents, weekdayLongForUtcYmd } from '../lib/calendarCache.js'
 import { Exa } from 'exa-js'
-import { appendWikiEditRecord } from '../lib/wikiEditHistory.js'
+import { appendWikiEditRecord, resolveSafeWikiPath } from '../lib/wikiEditHistory.js'
 import {
   areImessageToolsEnabled,
   getImessageDbPath,
