@@ -29,9 +29,14 @@ export type ConsumeAgentChatStreamOptions = {
   /** Always read the live session messages array (avoids stale refs after `touchMessages` clones). */
   getMessages: () => ChatMessage[]
   msgIdx: number
-  suppressAgentWikiAutoOpen: boolean
   /**
-   * When false, skip right-panel / overlay side effects (wiki auto-open, streaming preview, open tool).
+   * When true, skip agent-driven **opening** of the right detail panel: wiki from `write`/`edit`,
+   * and navigation from `open` / `read_email`. Transcript still updates; `onWriteStreaming` /
+   * `onEditStreaming` still run when the session is active (they do not open the panel by themselves).
+   */
+  suppressAgentDetailAutoOpen: boolean
+  /**
+   * When false, skip right-panel / overlay side effects tied to the active session.
    * Transcript and session state still update.
    */
   isActiveSession: () => boolean
@@ -59,7 +64,7 @@ export async function consumeAgentChatStream(
   const {
     getMessages,
     msgIdx,
-    suppressAgentWikiAutoOpen,
+    suppressAgentDetailAutoOpen,
     isActiveSession,
     onOpenWiki,
     onWriteStreaming,
@@ -70,6 +75,9 @@ export async function consumeAgentChatStream(
     touchMessages,
     scrollToBottom,
   } = options
+
+  /** Agent tools that auto-open the detail panel must respect this (see `TOOL_UI_POLICIES` autoOpen). */
+  const allowAgentDetailOpen = () => isActiveSession() && !suppressAgentDetailAutoOpen
 
   let touchedWiki = false
   const openedFromAgentByToolId = new Set<string>()
@@ -144,11 +152,7 @@ export async function consumeAgentChatStream(
               if (content) writeContentByToolId.set(data.id, content)
               if (path && !writeOpenedWikiForToolId.has(data.id)) {
                 writeOpenedWikiForToolId.add(data.id)
-                if (
-                  isActiveSession() &&
-                  !suppressAgentWikiAutoOpen &&
-                  policy.autoOpen
-                ) {
+                if (allowAgentDetailOpen() && policy.autoOpen) {
                   onOpenWiki?.(path)
                 }
               }
@@ -186,11 +190,11 @@ export async function consumeAgentChatStream(
               }
               if (data.name === 'open' && data.args?.target && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
                 openedFromAgentByToolId.add(data.id)
-                if (isActiveSession() && policy.autoOpen) onOpenFromAgent(data.args.target, 'open')
+                if (allowAgentDetailOpen() && policy.autoOpen) onOpenFromAgent(data.args.target, 'open')
               }
               if (data.name === 'read_email' && typeof data.args?.id === 'string' && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
                 openedFromAgentByToolId.add(data.id)
-                if (isActiveSession() && policy.autoOpen) {
+                if (allowAgentDetailOpen() && policy.autoOpen) {
                   onOpenFromAgent({ type: 'email', id: data.args.id }, 'read_email')
                 }
               }

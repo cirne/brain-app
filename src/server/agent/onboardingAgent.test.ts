@@ -25,6 +25,9 @@ describe('buildSeedingSystemPrompt', () => {
     expect(p).toMatch(/never add a `wiki\/` prefix/i)
     expect(p).toContain('web_search')
     expect(p).toContain('fetch_page')
+    expect(p).toMatch(/parallel/i)
+    expect(p).toMatch(/final pass/i)
+    expect(p).toMatch(/internal wiki links/i)
   })
 })
 

@@ -16,6 +16,7 @@ import {
 } from './chatTranscript.js'
 import { buildReadEmailPreviewDetails } from './readEmailPreview.js'
 import { createWikiUnifiedDiff, safeWikiRelativePath } from './wikiEditDiff.js'
+import { writeWikiPartialFromStreamingWriteArgs } from './wikiStreamingPartialWrite.js'
 
 export interface StreamAgentSseOptions {
   /** Wiki root for edit diffs and safeWikiRelativePath (may differ from main app wiki). */
@@ -133,6 +134,9 @@ export function streamAgentSseResponse(
                   args: t.args,
                   done: false,
                 })
+                if (t.name === 'write') {
+                  await writeWikiPartialFromStreamingWriteArgs(wikiDirForDiffs, t.name, t.args)
+                }
                 await stream.writeSSE({
                   event: 'tool_args',
                   data: JSON.stringify({

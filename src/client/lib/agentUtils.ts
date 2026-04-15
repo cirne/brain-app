@@ -95,6 +95,7 @@ export function contextPlaceholder(ctx: SurfaceContext): string {
 export type ToolUiPolicy = {
   showInChat: boolean
   streamToDetail?: 'wiki' | 'email' | 'calendar'
+  /** If true, `consumeAgentChatStream` may open the right detail panel when the tool runs (unless `suppressAgentDetailAutoOpen`). */
   autoOpen?: boolean
   label?: string
 }

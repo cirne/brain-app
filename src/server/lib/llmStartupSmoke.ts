@@ -4,6 +4,10 @@ import {
   getModel,
   type KnownProvider,
 } from '@mariozechner/pi-ai'
+import {
+  patchOpenAiReasoningNoneEffort,
+  type OpenAiResponsesPayload,
+} from './openAiResponsesPayload.js'
 
 const DEFAULT_PROVIDER = 'anthropic' as KnownProvider
 const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
@@ -13,6 +17,10 @@ function hasCredentials(apiKey: string | undefined): boolean {
   if (apiKey === undefined || apiKey === '') return false
   // pi-ai uses "<authenticated>" for Vertex ADC / Bedrock IAM-style auth
   return true
+}
+
+function llmEnvLabel(provider: string, modelId: string): string {
+  return `LLM_PROVIDER=${provider} LLM_MODEL=${modelId}`
 }
 
 /**
@@ -30,14 +38,14 @@ export async function verifyLlmAtStartup(): Promise<void> {
 
   if (!model) {
     throw new Error(
-      `[brain-app] LLM startup check failed: unknown provider/model: LLM_PROVIDER=${provider} LLM_MODEL=${modelId} (not in pi-ai registry)`,
+      `[brain-app] LLM startup check failed: unknown provider/model: ${llmEnvLabel(provider, modelId)} (not in pi-ai registry)`,
     )
   }
 
   const apiKey = getEnvApiKey(provider)
   if (!hasCredentials(apiKey)) {
     throw new Error(
-      `[brain-app] LLM startup check failed: no API credentials for provider "${provider}" (see pi-ai env conventions for this provider)`,
+      `[brain-app] LLM startup check failed: no API credentials for ${llmEnvLabel(provider, modelId)} (see pi-ai env conventions for this provider)`,
     )
   }
 
@@ -55,13 +63,17 @@ export async function verifyLlmAtStartup(): Promise<void> {
     const msg = await completeSimple(model, context, {
       apiKey,
       maxTokens: 16,
-      temperature: 0,
+      // Omit temperature: some models (e.g. OpenAI gpt-5) reject the parameter entirely.
       signal: AbortSignal.timeout(SMOKE_TIMEOUT_MS),
+      // Same as Agent `onPayload`: pi-ai maps "thinking off" to reasoning.effort "none",
+      // which gpt-5-codex rejects (requires low/medium/high).
+      onPayload: (params, m) =>
+        patchOpenAiReasoningNoneEffort(params as OpenAiResponsesPayload, m),
     })
 
     if (msg.stopReason === 'error' || msg.errorMessage) {
       throw new Error(
-        `[brain-app] LLM startup check failed: ${msg.errorMessage ?? msg.stopReason}`,
+        `[brain-app] LLM startup check failed: ${msg.errorMessage ?? msg.stopReason} (${llmEnvLabel(provider, modelId)})`,
       )
     }
   } catch (e) {
@@ -69,7 +81,7 @@ export async function verifyLlmAtStartup(): Promise<void> {
       throw e
     }
     throw new Error(
-      `[brain-app] LLM startup check failed: ${e instanceof Error ? e.message : String(e)}`,
+      `[brain-app] LLM startup check failed: ${e instanceof Error ? e.message : String(e)} (${llmEnvLabel(provider, modelId)})`,
       { cause: e },
     )
   }

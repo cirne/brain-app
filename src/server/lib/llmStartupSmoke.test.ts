@@ -61,13 +61,17 @@ describe('verifyLlmAtStartup', () => {
 
   it('rejects when no API credentials for provider', async () => {
     mockGetEnvApiKey.mockReturnValue(undefined)
-    await expect(verifyLlmAtStartup()).rejects.toThrow(/no API credentials/)
+    await expect(verifyLlmAtStartup()).rejects.toThrow(
+      /no API credentials for LLM_PROVIDER=anthropic LLM_MODEL=claude-sonnet-4-20250514/,
+    )
     expect(mockCompleteSimple).not.toHaveBeenCalled()
   })
 
   it('rejects when completeSimple throws', async () => {
     mockCompleteSimple.mockRejectedValue(new Error('401'))
-    await expect(verifyLlmAtStartup()).rejects.toThrow(/LLM startup check failed: 401/)
+    await expect(verifyLlmAtStartup()).rejects.toThrow(
+      /LLM startup check failed: 401 \(LLM_PROVIDER=anthropic LLM_MODEL=claude-sonnet-4-20250514\)/,
+    )
   })
 
   it('rejects when completion returns stopReason error', async () => {
@@ -89,11 +93,19 @@ describe('verifyLlmAtStartup', () => {
       errorMessage: 'rate limit',
       timestamp: Date.now(),
     })
-    await expect(verifyLlmAtStartup()).rejects.toThrow(/rate limit/)
+    await expect(verifyLlmAtStartup()).rejects.toThrow(
+      /rate limit \(LLM_PROVIDER=anthropic LLM_MODEL=claude-sonnet-4-20250514\)/,
+    )
   })
 
   it('resolves when smoke completion succeeds', async () => {
     await expect(verifyLlmAtStartup()).resolves.toBeUndefined()
     expect(mockCompleteSimple).toHaveBeenCalledTimes(1)
+    const opts = mockCompleteSimple.mock.calls[0]?.[2]
+    expect(opts).toEqual(
+      expect.objectContaining({
+        onPayload: expect.any(Function),
+      }),
+    )
   })
 })

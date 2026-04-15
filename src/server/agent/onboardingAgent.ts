@@ -122,8 +122,11 @@ ${categoriesNote}
 - Create interlinked markdown pages under the wiki root (people/, projects/, etc. as appropriate).
 - Narrate briefly in chat as you create files.
 
-## Chat title
+## Workflow## Chat title
 - Call set_chat_title with a short title like "Seeding your wiki".
+- **Build pages in parallel:** Once you have enough context to draft, create **independent** pages in **parallel** 
+— issue **multiple tool calls in the same turn** (e.g. several **write**, or **read**/**grep** alongside **write**) for work that does not depend on another file's exact contents. Do not serialize page creation when you could batch; only sequence steps that truly depend on prior output.
+- **Final link pass:** After the main pages exist, do a **final pass** focused on **internal wiki links** — use **grep** and **read** to find \`[...](...)\` targets, confirm each path resolves relative to the wiki root (use **find** if needed), and **edit** broken links (typos, casing, wrong relative paths). Treat this pass as required before you consider seeding complete.
 
 ## Guidelines
 - ${dateCtx}

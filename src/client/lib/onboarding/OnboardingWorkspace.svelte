@@ -4,6 +4,7 @@
    * without chat history sidebar, so onboarding can open email/wiki/calendar while the agent runs.
    */
   import { onMount } from 'svelte'
+  import { countSeedEligibleWikiPages } from './seedWikiPageCount.js'
   import Search from '../Search.svelte'
   import AppTopNav from '../AppTopNav.svelte'
   import SlideOver from '../SlideOver.svelte'
@@ -21,15 +22,23 @@
     chatEndpoint,
     autoSendMessage,
     onStreamFinished,
+    /** Wiki activity for onboarding seed threshold + status bar (seeding endpoint only). */
+    onSeedWikiActivity,
     headerFallbackTitle = 'Chat',
     storageKey = ONBOARDING_DEFAULT_CHAT_STORAGE_KEY,
+    /** When true, agent tools never auto-open the right detail panel (desktop + mobile). Default: only suppress on mobile, like the main assistant. */
+    suppressAgentDetailAutoOpen = false,
   }: {
     chatEndpoint: string
     autoSendMessage: string
     onStreamFinished?: () => void | Promise<void>
+    onSeedWikiActivity?: (_info: { pageCount: number; lastDocPath: string | null }) => void
     headerFallbackTitle?: string
     storageKey?: string
+    suppressAgentDetailAutoOpen?: boolean
   } = $props()
+
+  const isSeedingWiki = $derived(chatEndpoint === '/api/onboarding/seed')
 
   let route = $state<Route>(parseRoute())
   let syncing = $state(false)
@@ -52,7 +61,15 @@
   let dirtyFiles = $state<string[]>([])
   let showRecentFiles = $state(false)
 
+  /** Seeding-only: hide bottom bar after the seed stream completes (terminal done or abort). */
+  let seedingRunComplete = $state(false)
+  let seedStatusPageCount = $state(0)
+  let seedLastDocPath = $state<string | null>(null)
+  let agentStreaming = $state(false)
+
   const recentFiles = $derived(recentEditFiles)
+
+  const showSeedingStatusBar = $derived(isSeedingWiki && !seedingRunComplete)
 
   async function loadWikiEditHistory() {
     try {
@@ -60,6 +77,31 @@
       const data = await res.json()
       recentEditFiles = data.files ?? []
     } catch { /* ignore */ }
+  }
+
+  async function refreshSeedWikiStatus() {
+    if (!isSeedingWiki) return
+    try {
+      const [wikiRes, histRes] = await Promise.all([
+        fetch('/api/wiki'),
+        fetch('/api/wiki/edit-history?limit=1'),
+      ])
+      const files = (await wikiRes.json()) as { path?: string }[]
+      const paths = Array.isArray(files) ? files.map((f) => f.path).filter((p): p is string => typeof p === 'string') : []
+      const pageCount = countSeedEligibleWikiPages(paths)
+      const hist = (await histRes.json()) as { files?: { path: string; date: string }[] }
+      const lastDocPath = hist.files?.[0]?.path ?? null
+      seedStatusPageCount = pageCount
+      seedLastDocPath = lastDocPath
+      onSeedWikiActivity?.({ pageCount, lastDocPath })
+    } catch { /* ignore */ }
+  }
+
+  async function handleWorkspaceStreamFinished() {
+    if (isSeedingWiki) {
+      seedingRunComplete = true
+    }
+    await onStreamFinished?.()
   }
 
   async function loadGitStatus() {
@@ -78,6 +120,9 @@
 
     loadWikiEditHistory()
     loadGitStatus()
+    if (chatEndpoint === '/api/onboarding/seed') {
+      void refreshSeedWikiStatus()
+    }
     const onPopState = () => { route = parseRoute() }
     window.addEventListener('popstate', onPopState)
     const onKeydown = (e: KeyboardEvent) => {
@@ -198,11 +243,20 @@
   }
 
   $effect(() => {
+    if (!isSeedingWiki) return
+    const t = setInterval(() => {
+      void refreshSeedWikiStatus()
+    }, 1800)
+    return () => clearInterval(t)
+  })
+
+  $effect(() => {
     return subscribe((e) => {
       if (e.type === 'wiki:mutated') {
         void loadWikiEditHistory()
         void loadGitStatus()
         wikiRefreshKey++
+        if (isSeedingWiki) void refreshSeedWikiStatus()
       } else if (e.type === 'sync:completed') {
         calendarRefreshKey++
         wikiRefreshKey++
@@ -308,13 +362,14 @@
           bind:this={agentChat}
           context={agentContext}
           conversationHidden={!!route.overlay && isMobile}
-          suppressAgentWikiAutoOpen={isMobile}
+          suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || isMobile}
           {chatEndpoint}
           {autoSendMessage}
           {headerFallbackTitle}
           {storageKey}
           showNewChatButton={false}
-          onStreamFinished={onStreamFinished}
+          onStreamFinished={handleWorkspaceStreamFinished}
+          onStreamingChange={(s) => { if (isSeedingWiki) agentStreaming = s }}
           onOpenWiki={openWikiDoc}
           onOpenEmail={openEmailFromChat}
           onOpenFullInbox={openFullInboxFromChat}
@@ -378,6 +433,21 @@
       {/snippet}
     </WorkspaceSplit>
   </div>
+
+  {#if showSeedingStatusBar}
+    <div class="ob-seed-status" role="status" aria-live="polite">
+      <span class="ob-seed-status-lead">
+        {agentStreaming ? 'Building your wiki…' : 'Wiki'}
+      </span>
+      <span class="ob-seed-status-meta">
+        <span class="ob-seed-stat">{seedStatusPageCount} {seedStatusPageCount === 1 ? 'page' : 'pages'}</span>
+        {#if seedLastDocPath}
+          <span class="ob-seed-sep" aria-hidden="true">·</span>
+          <span class="ob-seed-last" title={seedLastDocPath}>Last: {seedLastDocPath}</span>
+        {/if}
+      </span>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -394,5 +464,44 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+  }
+
+  .ob-seed-status {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding: 0.625rem 1rem calc(0.625rem + env(safe-area-inset-bottom, 0));
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 92%, var(--border));
+    font-size: 0.8125rem;
+    color: var(--text-2);
+  }
+
+  .ob-seed-status-lead {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .ob-seed-status-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.5rem;
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ob-seed-last {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: min(48vw, 14rem);
+  }
+
+  .ob-seed-sep {
+    opacity: 0.5;
   }
 </style>

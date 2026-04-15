@@ -23,8 +23,8 @@
   let {
     context = { type: 'none' } as SurfaceContext,
     conversationHidden = false,
-    /** When true, `write` / `edit` do not auto-open the wiki pane (mobile: only explicit `open` opens UI). */
-    suppressAgentWikiAutoOpen = false,
+    /** When true, agent tools do not auto-open the right detail panel (wiki from write/edit, `open`, `read_email`, …). */
+    suppressAgentDetailAutoOpen = false,
     onOpenWiki,
     onOpenEmail,
     onOpenFullInbox,
@@ -51,13 +51,15 @@
     autoSendMessage = null as string | null,
     /** Called once when the server emits a terminal `done` event for the stream. */
     onStreamFinished,
+    /** Fired when the active session streaming flag changes (request/response cycle). */
+    onStreamingChange,
     /** Persist transcript under this localStorage key; empty = no persistence. */
     storageKey = 'brain-agent',
     showNewChatButton = true,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
-    suppressAgentWikiAutoOpen?: boolean
+    suppressAgentDetailAutoOpen?: boolean
     onOpenWiki?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
@@ -80,6 +82,7 @@
     headerFallbackTitle?: string
     autoSendMessage?: string | null
     onStreamFinished?: () => void | Promise<void>
+    onStreamingChange?: (_streaming: boolean) => void
     storageKey?: string
     showNewChatButton?: boolean
   } = $props()
@@ -143,6 +146,10 @@
     const id = displayedSessionId
     if (!id) return false
     return sessions.get(id)?.streaming ?? false
+  })
+
+  $effect(() => {
+    onStreamingChange?.(streaming)
   })
 
   let wikiFiles = $state<string[]>([])
@@ -328,7 +335,7 @@
       const result = await consumeAgentChatStream(res, {
         getMessages: () => sessions.get(activeKey)!.messages,
         msgIdx,
-        suppressAgentWikiAutoOpen,
+        suppressAgentDetailAutoOpen,
         isActiveSession: () => displayedSessionId === activeKey,
         onOpenWiki,
         onWriteStreaming,

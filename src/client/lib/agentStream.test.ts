@@ -31,7 +31,7 @@ describe('consumeAgentChatStream', () => {
     const { touchedWiki, sawDone } = await consumeAgentChatStream(res, {
       getMessages: () => messages,
       msgIdx: 1,
-      suppressAgentWikiAutoOpen: false,
+      suppressAgentDetailAutoOpen: false,
       isActiveSession: () => true,
       setSessionId: (id) => { sessionId = id },
       setChatTitle: () => {},
@@ -56,7 +56,7 @@ describe('consumeAgentChatStream', () => {
     const { sawDone } = await consumeAgentChatStream(res, {
       getMessages: () => messages,
       msgIdx: 1,
-      suppressAgentWikiAutoOpen: false,
+      suppressAgentDetailAutoOpen: false,
       isActiveSession: () => true,
       setSessionId: () => {},
       setChatTitle: () => {},
@@ -79,7 +79,7 @@ describe('consumeAgentChatStream', () => {
     await consumeAgentChatStream(res, {
       getMessages: () => messages,
       msgIdx: 1,
-      suppressAgentWikiAutoOpen: false,
+      suppressAgentDetailAutoOpen: false,
       isActiveSession: () => false,
       onOpenWiki,
       setSessionId: () => {},
@@ -102,7 +102,7 @@ describe('consumeAgentChatStream', () => {
     await consumeAgentChatStream(res, {
       getMessages: () => messages,
       msgIdx: 1,
-      suppressAgentWikiAutoOpen: true,
+      suppressAgentDetailAutoOpen: true,
       isActiveSession: () => true,
       setSessionId: () => {},
       setChatTitle: () => {},
@@ -117,5 +117,81 @@ describe('consumeAgentChatStream', () => {
     expect(p.toolCall.name).toBe('write')
     expect(p.toolCall.done).toBe(false)
     expect((p.toolCall.args as { path?: string }).path).toBe('companies/new-relic.md')
+  })
+
+  it('does not call onOpenFromAgent for read_email when suppressAgentDetailAutoOpen is true', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onOpenFromAgent = vi.fn()
+    const res = sseResponse([
+      'event: tool_start\n',
+      'data: {"id":"e1","name":"read_email","args":{"id":"thread-1"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: true,
+      isActiveSession: () => true,
+      onOpenFromAgent,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onOpenFromAgent).not.toHaveBeenCalled()
+  })
+
+  it('does not call onOpenFromAgent for open when suppressAgentDetailAutoOpen is true', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onOpenFromAgent = vi.fn()
+    const res = sseResponse([
+      'event: tool_start\n',
+      'data: {"id":"o1","name":"open","args":{"target":{"type":"wiki","path":"ideas/x.md"}}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: true,
+      isActiveSession: () => true,
+      onOpenFromAgent,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onOpenFromAgent).not.toHaveBeenCalled()
+  })
+
+  it('calls onOpenFromAgent for open and read_email when suppressAgentDetailAutoOpen is false', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onOpenFromAgent = vi.fn()
+    const res = sseResponse([
+      'event: tool_start\n',
+      'data: {"id":"o1","name":"open","args":{"target":{"type":"wiki","path":"ideas/x.md"}}}\n\n',
+      'event: tool_start\n',
+      'data: {"id":"e1","name":"read_email","args":{"id":"thread-1"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      onOpenFromAgent,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onOpenFromAgent).toHaveBeenCalledTimes(2)
+    expect(onOpenFromAgent).toHaveBeenNthCalledWith(1, { type: 'wiki', path: 'ideas/x.md' }, 'open')
+    expect(onOpenFromAgent).toHaveBeenNthCalledWith(2, { type: 'email', id: 'thread-1' }, 'read_email')
   })
 })

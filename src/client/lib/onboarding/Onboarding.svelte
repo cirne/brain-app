@@ -1,11 +1,15 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import OnboardingWorkspace from './OnboardingWorkspace.svelte'
   import ProfileDraftEditor from './ProfileDraftEditor.svelte'
   import {
     ONBOARDING_PROFILE_CHAT_STORAGE_KEY,
     ONBOARDING_SEED_CHAT_STORAGE_KEY,
   } from './onboardingStorageKeys.js'
+  import {
+    FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY,
+    SEED_EARLY_EXIT_MIN_PAGES,
+  } from './seedConstants.js'
 
   interface Props {
     onComplete: () => Promise<void>
@@ -42,6 +46,11 @@
   let draftMarkdown = $state('')
   let profileDraftEditor = $state<{ flushSave: () => Promise<void> } | null>(null)
   let categoriesText = $state('People\nProjects\nInterests\nAreas')
+
+  /** Seeding: enough wiki pages to offer early exit to main app. */
+  let seedThresholdMet = $state(false)
+  let seedReadyDialogEl = $state<HTMLDialogElement | null>(null)
+  let onboardingExitHandled = $state(false)
 
   const showMailFooter = $derived(
     (state === 'not-started' || state === 'indexing') &&
@@ -186,10 +195,55 @@
     }
   }
 
-  async function afterSeedComplete() {
+  async function finishOnboarding() {
+    if (onboardingExitHandled) return
+    onboardingExitHandled = true
+    try {
+      sessionStorage.setItem(FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY, '1')
+    } catch {
+      /* ignore */
+    }
+    try {
+      seedReadyDialogEl?.close()
+    } catch {
+      /* ignore */
+    }
     await patchState('done')
     await onComplete()
   }
+
+  function handleSeedWikiActivity(info: { pageCount: number; lastDocPath: string | null }) {
+    if (onboardingExitHandled || seedThresholdMet) return
+    if (info.pageCount >= SEED_EARLY_EXIT_MIN_PAGES) {
+      seedThresholdMet = true
+    }
+  }
+
+  async function handleSeedStreamFinished() {
+    if (onboardingExitHandled) return
+    if (seedThresholdMet) {
+      /* Interstitial is (or will be) shown — user confirms with “Start chatting”. */
+      return
+    }
+    await finishOnboarding()
+  }
+
+  function onSeedReadyDialogCancel(e: Event) {
+    e.preventDefault()
+  }
+
+  async function onSeedReadyConfirm() {
+    await finishOnboarding()
+  }
+
+  $effect(() => {
+    if (state !== 'seeding' || !seedThresholdMet) return
+    const el = seedReadyDialogEl
+    if (!el) return
+    void tick().then(() => {
+      if (el.isConnected && !el.open) el.showModal()
+    })
+  })
 
   $effect(() => {
     if (state === 'reviewing-profile') void loadDraft()
@@ -209,13 +263,40 @@
       onStreamFinished={async () => { await patchState('reviewing-profile') }}
     />
   {:else if state === 'seeding'}
-    <OnboardingWorkspace
-      chatEndpoint="/api/onboarding/seed"
-      headerFallbackTitle="Seeding"
-      storageKey={ONBOARDING_SEED_CHAT_STORAGE_KEY}
-      autoSendMessage="Read me.md, then create useful wiki pages from the profile and email evidence. Narrate briefly as you go."
-      onStreamFinished={afterSeedComplete}
-    />
+    <div class="ob-seed-shell flex min-h-0 flex-1 flex-col">
+      <OnboardingWorkspace
+        chatEndpoint="/api/onboarding/seed"
+        headerFallbackTitle="Seeding"
+        storageKey={ONBOARDING_SEED_CHAT_STORAGE_KEY}
+        suppressAgentDetailAutoOpen
+        autoSendMessage="Read me.md, then create useful wiki pages from the profile and email evidence — build independent pages in parallel where you can, then do a final pass to review and fix internal links. Narrate briefly as you go."
+        onSeedWikiActivity={handleSeedWikiActivity}
+        onStreamFinished={handleSeedStreamFinished}
+      />
+      {#if seedThresholdMet}
+        <dialog
+          bind:this={seedReadyDialogEl}
+          class="ob-seed-ready-dialog"
+          oncancel={onSeedReadyDialogCancel}
+          aria-labelledby="ob-seed-ready-title"
+          aria-describedby="ob-seed-ready-desc"
+        >
+          <div class="ob-seed-ready-inner">
+            <h2 id="ob-seed-ready-title" class="ob-seed-ready-title">You’re off to a strong start</h2>
+            <p id="ob-seed-ready-desc" class="ob-seed-ready-body">
+              Your wiki has its first real pages. Over the next few minutes the seeding pass may keep adding pages and tightening links—but you don’t have to wait. Jump into chat and start asking questions; your assistant can read what’s already there.
+            </p>
+            <p class="ob-seed-ready-foot">
+              Want more pages later? Just ask the assistant to keep building out your wiki.
+            </p>
+            <button type="button" class="ob-btn-primary ob-seed-ready-btn" onclick={() => void onSeedReadyConfirm()}>
+              Start chatting
+              <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+          </div>
+        </dialog>
+      {/if}
+    </div>
   {:else}
   <div
     class="onboarding-main flex min-h-0 flex-1 flex-col"
@@ -708,5 +789,59 @@
     border-radius: 2px;
     background: var(--accent);
     transition: width 0.7s ease;
+  }
+
+  .ob-seed-shell {
+    position: relative;
+    width: 100%;
+    min-height: 0;
+  }
+
+  .ob-seed-ready-dialog {
+    max-width: min(28rem, calc(100vw - 2rem));
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--bg);
+    color: var(--text);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  }
+
+  .ob-seed-ready-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+  }
+
+  .ob-seed-ready-inner {
+    padding: 2rem 1.75rem 1.75rem;
+    text-align: center;
+  }
+
+  .ob-seed-ready-title {
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    color: var(--text);
+    margin: 0;
+  }
+
+  .ob-seed-ready-body {
+    margin: 1rem 0 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--text-2);
+    text-wrap: pretty;
+  }
+
+  .ob-seed-ready-foot {
+    margin: 1rem 0 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--text-2) 88%, transparent);
+  }
+
+  .ob-seed-ready-btn {
+    margin-top: 1.75rem;
   }
 </style>

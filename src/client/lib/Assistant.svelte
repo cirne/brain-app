@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import Search from './Search.svelte'
   import AppTopNav from './AppTopNav.svelte'
   import SlideOver from './SlideOver.svelte'
@@ -18,6 +18,7 @@
   } from './app/debouncedWikiSync.js'
   import { wikiPathForReadToolArg } from './cards/contentCards.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from './navigateFromAgentOpen.js'
+  import { FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY } from './onboarding/seedConstants.js'
 
   const SIDEBAR_KEY = 'brain-sidebar'
 
@@ -136,6 +137,27 @@
       }
     }
     window.addEventListener('keydown', onKeydown)
+
+    void (async () => {
+      try {
+        if (sessionStorage.getItem(FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY) !== '1') return
+      } catch {
+        return
+      }
+      for (let i = 0; i < 16; i++) {
+        await tick()
+        if (agentChat) {
+          try {
+            sessionStorage.removeItem(FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY)
+            agentChat.newChat()
+          } catch {
+            /* ignore */
+          }
+          return
+        }
+      }
+    })()
+
     return () => {
       mq.removeEventListener('change', syncMobile)
       window.removeEventListener('popstate', onPopState)
@@ -449,7 +471,7 @@
         bind:this={agentChat}
         context={agentContext}
         conversationHidden={!!route.overlay && isMobile}
-        suppressAgentWikiAutoOpen={isMobile}
+        suppressAgentDetailAutoOpen={isMobile}
         onOpenWiki={openWikiDoc}
         onOpenEmail={openEmailFromChat}
         onOpenFullInbox={openFullInboxFromChat}
