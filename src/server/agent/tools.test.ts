@@ -49,6 +49,20 @@ describe('createAgentTools', () => {
     expect(names).toContain('get_imessage_thread')
   })
 
+  it('omitToolNames removes listed tools by name', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, {
+      includeImessageTools: true,
+      omitToolNames: ['inbox_rules', 'open', 'list_imessage_recent'],
+    })
+    const names = tools.map((t: { name?: string }) => t.name)
+    expect(names).not.toContain('inbox_rules')
+    expect(names).not.toContain('open')
+    expect(names).not.toContain('list_imessage_recent')
+    expect(names).toContain('read')
+    expect(names).toContain('get_imessage_thread')
+  })
+
   it('omits iMessage tools when includeImessageTools is false', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, { includeImessageTools: false })

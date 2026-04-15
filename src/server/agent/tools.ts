@@ -189,6 +189,8 @@ export interface CreateAgentToolsOptions {
    * initImessageToolsAvailability() ran at startup and chat.db was readable.
    */
   includeImessageTools?: boolean
+  /** Tool `name`s to drop from the returned list (e.g. onboarding uses a subset). */
+  omitToolNames?: readonly string[]
 }
 
 function resolveIncludeImessageTools(options?: CreateAgentToolsOptions): boolean {
@@ -870,7 +872,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
-  return [
+  const tools = [
     read,
     edit,
     write,
@@ -894,4 +896,10 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     openTool,
     ...(includeImessage ? [listImessageRecent, getImessageThread] : []),
   ]
+  const omit = options?.omitToolNames
+  if (omit?.length) {
+    const drop = new Set(omit)
+    return tools.filter((t: { name?: string }) => t.name == null || !drop.has(t.name))
+  }
+  return tools
 }

@@ -293,14 +293,16 @@
             Once we have enough email we can start building your profile.
           </p>
           <div class="ob-indexing-cta">
-            <button
-              type="button"
-              class="ob-btn-primary"
-              onclick={() => void continueFromIndexing()}
-              disabled={busy || !canBuildProfile}
-            >
-              {busy ? 'Working…' : 'Build my profile'}
-            </button>
+            {#if canBuildProfile}
+              <button
+                type="button"
+                class="ob-btn-primary"
+                onclick={() => void continueFromIndexing()}
+                disabled={busy}
+              >
+                {busy ? 'Working…' : 'Build my profile'}
+              </button>
+            {/if}
           </div>
         </div>
       </div>
@@ -508,10 +510,15 @@
     height: 1rem;
     flex-shrink: 0;
   }
+  /* Reserve one primary-button row so the hero doesn’t jump when indexing crosses the threshold. */
   .ob-indexing-cta {
     margin-top: 2.5rem;
     display: flex;
     justify-content: center;
+    align-items: center;
+    min-height: calc(0.8125rem * 2 + 1.25em);
+    font-size: 0.9375rem;
+    box-sizing: border-box;
   }
 
   .ob-spinner {

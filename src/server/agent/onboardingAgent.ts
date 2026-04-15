@@ -1,3 +1,5 @@
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
 import { mkdir } from 'node:fs/promises'
 import { Agent } from '@mariozechner/pi-agent-core'
 import { getModel, type KnownProvider } from '@mariozechner/pi-ai'
@@ -5,11 +7,48 @@ import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { createAgentTools } from './tools.js'
 import { wikiDir as getWikiDir } from '../lib/wikiDir.js'
 import { onboardingStagingWikiDir } from '../lib/onboardingState.js'
+import { ripmailBin, ripmailHomePath } from '../lib/onboardingMailStatus.js'
 import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '../lib/openAiResponsesPayload.js'
-import { areImessageToolsEnabled } from '../lib/imessageDb.js'
+
+const execAsync = promisify(exec)
+
+const MAX_WHOAMI_PROMPT_CHARS = 8000
+
+/** Runs `ripmail whoami` with the same env as the rest of the app; result is embedded in the profiling prompt. */
+export async function fetchRipmailWhoamiForProfiling(): Promise<string> {
+  try {
+    const { stdout } = await execAsync(`${ripmailBin()} whoami`, {
+      timeout: 10000,
+      env: { ...process.env, RIPMAIL_HOME: ripmailHomePath() },
+    })
+    let s = stdout.trim()
+    if (!s) return '(ripmail whoami produced no output.)'
+    if (s.length > MAX_WHOAMI_PROMPT_CHARS) {
+      s = `${s.slice(0, MAX_WHOAMI_PROMPT_CHARS)}…`
+    }
+    return s
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return `(Could not run ripmail whoami: ${msg})`
+  }
+}
 
 const profilingSessions = new Map<string, Agent>()
 const seedingSessions = new Map<string, Agent>()
+
+/** Subset of `createAgentTools` for profiling + seeding (no inbox rules, drafts, calendar, etc.). */
+export const ONBOARDING_OMIT_TOOL_NAMES: readonly string[] = [
+  'inbox_rules',
+  'archive_emails',
+  'draft_email',
+  'edit_draft',
+  'send_draft',
+  'get_calendar_events',
+  'get_youtube_transcript',
+  'open',
+  'list_imessage_recent',
+  'get_imessage_thread',
+]
 
 function buildDateContext(timezone: string): string {
   const tz = timezone || 'UTC'
@@ -25,11 +64,18 @@ function buildDateContext(timezone: string): string {
 }
 
 /** System prompt for the onboarding profiling agent (writes staging me.md → copied to wiki/me.md on accept). Exported for tests. */
-export function buildProfilingSystemPrompt(timezone: string): string {
+export function buildProfilingSystemPrompt(timezone: string, ripmailWhoami: string): string {
   const dateCtx = buildDateContext(timezone)
   const tz = timezone || 'UTC'
   const todayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date())
-  return `You are a profiling agent for onboarding. You know nothing about the user except what you can infer from their email (via ripmail tools).
+  return `You are a profiling agent for onboarding. **Definitive identity** for this ripmail account is below (\`ripmail whoami\`). Use it as ground truth for who this onboarding is for; you may still infer additional detail from email (via ripmail tools).
+
+## Identity (authoritative)
+Treat this output as **definitive** for which account / person this assistant is for (e.g. primary email, display name if present):
+
+\`\`\`
+${ripmailWhoami}
+\`\`\`
 
 ## Task
 - **First:** call **find_person** with an **empty query** once — this runs \`ripmail who\` and lists who the user emails most (top contacts by frequency). Then use **find_person** again for specific people you want to understand better.
@@ -57,7 +103,7 @@ Then markdown sections in this order — **tight bullets**, one line per item wh
 ## Guidelines
 - ${dateCtx}
 - Paths in tools are relative to the onboarding staging root — for this task use **me.md** only (no other filenames unless the user asks).
-- Do not use the open tool unless necessary; focus on the draft file, find_person, and other email tools.
+- Focus on the draft file, find_person, and other email tools.
 - Be brief in chat; the file should carry the essentials, not a wall of text.`
 }
 
@@ -72,6 +118,7 @@ ${categoriesNote}
 ## Task
 - Read **me.md** first with the read tool (path: \`me.md\` — not \`wiki/me.md\`).
 - Use search_email and read_email to enrich facts before writing pages.
+- Use **web_search** for current public information (companies, products, named entities) when it helps you write accurate wiki pages; use **fetch_page** to read full article text from a specific URL when you need more than search snippets.
 - Create interlinked markdown pages under the wiki root (people/, projects/, etc. as appropriate).
 - Narrate briefly in chat as you create files.
 
@@ -84,8 +131,11 @@ ${categoriesNote}
 - Prefer synthesis over pasting private email text into the wiki.`
 }
 
-function createAgentWithPrompt(systemPrompt: string, wikiRoot: string, includeImessage: boolean): Agent {
-  const tools = createAgentTools(wikiRoot, { includeImessageTools: includeImessage })
+function createAgentWithPrompt(systemPrompt: string, wikiRoot: string): Agent {
+  const tools = createAgentTools(wikiRoot, {
+    includeImessageTools: false,
+    omitToolNames: ONBOARDING_OMIT_TOOL_NAMES,
+  })
   const provider = (process.env.LLM_PROVIDER ?? 'anthropic') as KnownProvider
   const modelId = process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514'
   const model = getModel(provider, modelId as never)
@@ -112,7 +162,8 @@ export async function getOrCreateProfilingAgent(sessionId: string, options: { ti
   const tz = options.timezone ?? 'UTC'
   const staging = onboardingStagingWikiDir()
   await mkdir(staging, { recursive: true })
-  const agent = createAgentWithPrompt(buildProfilingSystemPrompt(tz), staging, false)
+  const whoami = await fetchRipmailWhoamiForProfiling()
+  const agent = createAgentWithPrompt(buildProfilingSystemPrompt(tz, whoami), staging)
   profilingSessions.set(sessionId, agent)
   return agent
 }
@@ -129,7 +180,7 @@ export async function getOrCreateSeedingAgent(
     ? options.categories.map(c => `- ${c}`).join('\n')
     : '- (No extra filter — use profile and email to infer scope.)'
   const wiki = getWikiDir()
-  const agent = createAgentWithPrompt(buildSeedingSystemPrompt(tz, categories), wiki, areImessageToolsEnabled())
+  const agent = createAgentWithPrompt(buildSeedingSystemPrompt(tz, categories), wiki)
   seedingSessions.set(sessionId, agent)
   return agent
 }
