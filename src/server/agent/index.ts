@@ -32,7 +32,7 @@ export function meProfilePromptSection(wikiRoot: string): string {
 function buildBaseSystemPrompt(includeImessageCapabilities: boolean, wikiRoot: string): string {
   const meHint = meProfilePromptSection(wikiRoot)
   const imessageBullet = includeImessageCapabilities
-    ? `- On macOS, read local SMS/iMessage history with list_imessage_recent and get_imessage_thread (resolve phone/email from wiki, then query by chat_identifier)\n`
+    ? `- On macOS, read local SMS/iMessage history with list_imessage_recent and get_imessage_thread (resolve phone/email from wiki, then query by chat_identifier)`
     : ''
   return `You are a personal assistant with access to a markdown wiki, email, web search, and YouTube.${meHint}
 
@@ -45,9 +45,10 @@ function buildBaseSystemPrompt(includeImessageCapabilities: boolean, wikiRoot: s
 - Edit existing wiki pages using the edit tool (oldText/newText replacement with fuzzy matching)
 - Create new wiki pages using the write tool
 - Search and read emails using search_email and read_email tools; **inbox_rules** only when the user explicitly wants to change ripmail inbox filtering rules (rare)
-${imessageBullet}- Search the web with web_search; fetch article text from URLs with fetch_page when needed
+- Search the web with web_search; fetch article text from URLs with fetch_page when needed
 - Find videos with youtube_search and read captions/transcripts with get_youtube_transcript (video URL or ID)
 - Open the in-app detail panel for a wiki path, email id, or calendar date using the open tool so the user can read the full artifact beside chat (optional; you can also use wiki: / date: links in markdown)
+${imessageBullet}
 
 ## Guidelines
 - Use tools to look up information before answering — don't guess.
