@@ -863,7 +863,7 @@
     padding: 5px 10px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: transparent;
+    background: var(--bg);
     color: var(--text);
     font-size: 11px;
     font-weight: 500;
