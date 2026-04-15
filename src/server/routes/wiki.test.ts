@@ -83,6 +83,13 @@ describe('GET /api/wiki/:path', () => {
     expect(res.status).toBe(404)
   })
 
+  it('returns 200 for nested path with real slashes in the URL', async () => {
+    const res = await app.request('/api/wiki/ideas/foo.md')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.path).toBe('ideas/foo.md')
+  })
+
   it('blocks path traversal attempts', async () => {
     // URL normalization resolves ../../ before routing (404 from no route match)
     // or handler blocks it (403). Either way, no file content returned.

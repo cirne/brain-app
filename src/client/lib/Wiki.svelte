@@ -1,7 +1,12 @@
 <script lang="ts">
   import { mount, unmount } from 'svelte'
   import WikiFileName from './WikiFileName.svelte'
-  import { normalizeWikiPathForMatch, resolveWikiLinkToFilePath, transformWikiPageHtml } from './wikiPageHtml.js'
+  import {
+    encodeWikiPathSegmentsForUrl,
+    normalizeWikiPathForMatch,
+    resolveWikiLinkToFilePath,
+    transformWikiPageHtml,
+  } from './wikiPageHtml.js'
   import { wikiPathForReadToolArg } from './cards/contentCards.js'
   import { renderMarkdown } from './markdown.js'
 
@@ -52,7 +57,7 @@
     onNavigate?.(path)
     loading = true
     try {
-      const res = await fetch(`/api/wiki/${encodeURIComponent(path)}`)
+      const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(path)}`)
       if (!res.ok) {
         meta = {}
         content = ''

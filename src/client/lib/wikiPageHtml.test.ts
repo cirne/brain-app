@@ -1,9 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import {
+  encodeWikiPathSegmentsForUrl,
   normalizeWikiPathForMatch,
   resolveWikiLinkToFilePath,
   transformWikiPageHtml,
 } from './wikiPageHtml.js'
+
+describe('encodeWikiPathSegmentsForUrl', () => {
+  it('keeps slashes between segments (does not use %2F)', () => {
+    expect(encodeWikiPathSegmentsForUrl('companies/gloo.md')).toBe('companies/gloo.md')
+    expect(encodeWikiPathSegmentsForUrl('funds/trinity-ventures.md')).toBe('funds/trinity-ventures.md')
+  })
+
+  it('encodes special characters inside each segment', () => {
+    expect(encodeWikiPathSegmentsForUrl('ideas/weird name.md')).toBe('ideas/weird%20name.md')
+  })
+})
 
 describe('normalizeWikiPathForMatch', () => {
   it('strips .md and lowercases', () => {

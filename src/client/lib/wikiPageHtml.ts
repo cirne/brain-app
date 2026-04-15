@@ -3,6 +3,15 @@
  * In-app navigation and WikiFileName mounts expect `data-wiki` + `href="#"`.
  */
 
+/**
+ * Encode each path segment for `/api/wiki/...` or `/wiki/...` URLs.
+ * Applying `encodeURIComponent` to the full path turns `/` into `%2F`, which breaks
+ * server file resolution (Hono sees one segment, not `dir/file.md`).
+ */
+export function encodeWikiPathSegmentsForUrl(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/')
+}
+
 export function normalizeWikiPathForMatch(ref: string): string {
   return ref
     .trim()

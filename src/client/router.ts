@@ -1,3 +1,5 @@
+import { encodeWikiPathSegmentsForUrl } from './lib/wikiPageHtml.js'
+
 /** Detail panel target (wiki, email thread, or calendar). */
 export type Overlay =
   | { type: 'wiki'; path?: string }
@@ -115,9 +117,7 @@ export function routeToUrl(route: Route): string {
   const o = route.overlay
   if (!o) return '/'
   if (o.type === 'wiki') {
-    return o.path
-      ? `/wiki/${o.path.split('/').map(encodeURIComponent).join('/')}`
-      : '/wiki'
+    return o.path ? `/wiki/${encodeWikiPathSegmentsForUrl(o.path)}` : '/wiki'
   }
   if (o.type === 'email') {
     if (!o.id) return '/inbox'
