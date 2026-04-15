@@ -66,14 +66,14 @@ describe('consumeAgentChatStream', () => {
     expect(sawDone).toBe(true)
   })
 
-  it('does not call onOpenWiki when isActiveSession is false', async () => {
+  it('does not call onOpenWiki when isActiveSession is false (tool_start)', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: '', parts: [] },
     ]
     const onOpenWiki = vi.fn()
     const res = sseResponse([
-      'event: tool_args\n',
+      'event: tool_start\n',
       'data: {"id":"t1","name":"write","args":{"path":"ideas/x.md","content":"# x"}}\n\n',
     ])
     await consumeAgentChatStream(res, {
@@ -88,6 +88,57 @@ describe('consumeAgentChatStream', () => {
       scrollToBottom: () => {},
     })
     expect(onOpenWiki).not.toHaveBeenCalled()
+  })
+
+  it('does not call onOpenWiki from streaming tool_args (avoids partial path prefixes)', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onOpenWiki = vi.fn()
+    const res = sseResponse([
+      'event: tool_args\n',
+      'data: {"id":"e1","name":"edit","args":{"path":"properties"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      onOpenWiki,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onOpenWiki).not.toHaveBeenCalled()
+  })
+
+  it('calls onOpenWiki once from tool_start with normalized path for edit', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onOpenWiki = vi.fn()
+    const res = sseResponse([
+      'event: tool_args\n',
+      'data: {"id":"e1","name":"edit","args":{"path":"properties"}}\n\n',
+      'event: tool_start\n',
+      'data: {"id":"e1","name":"edit","args":{"path":"properties/son-story-ranch.md","oldText":"a","newText":"b"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      onOpenWiki,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onOpenWiki).toHaveBeenCalledTimes(1)
+    expect(onOpenWiki).toHaveBeenCalledWith('properties/son-story-ranch.md')
   })
 
   it('adds an in-progress tool part on tool_args for write (mirrors server transcript)', async () => {

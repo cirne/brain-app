@@ -1,4 +1,5 @@
 import { getToolUiPolicy, type ChatMessage, type ToolPart } from './agentUtils.js'
+import { wikiPathForReadToolArg } from './cards/contentCards.js'
 import type { AgentOpenSource } from './navigateFromAgentOpen.js'
 
 /** Mirror server `applyToolArgsUpsert` so the chat UI can show tool rows while args stream (e.g. `write`). */
@@ -150,12 +151,9 @@ export async function consumeAgentChatStream(
               const content = typeof data.args?.content === 'string' ? data.args.content : ''
               if (path) writePathByToolId.set(data.id, path)
               if (content) writeContentByToolId.set(data.id, content)
-              if (path && !writeOpenedWikiForToolId.has(data.id)) {
-                writeOpenedWikiForToolId.add(data.id)
-                if (allowAgentDetailOpen() && policy.autoOpen) {
-                  onOpenWiki?.(path)
-                }
-              }
+              /* Do not call onOpenWiki here: streamed JSON may emit path prefixes (e.g. "properties")
+               * before the full path ("properties/son-story-ranch.md"), navigating to a bogus URL and 404ing the wiki pane.
+               * Auto-open runs once from tool_start with complete args. */
               if (data.name === 'write') {
                 if (isActiveSession()) onWriteStreaming?.({ path, content, done: false })
               } else if (data.name === 'edit') {
@@ -196,6 +194,26 @@ export async function consumeAgentChatStream(
                 openedFromAgentByToolId.add(data.id)
                 if (allowAgentDetailOpen() && policy.autoOpen) {
                   onOpenFromAgent({ type: 'email', id: data.args.id }, 'read_email')
+                }
+              }
+              if (
+                (data.name === 'write' || data.name === 'edit') &&
+                data.args &&
+                typeof data.args === 'object' &&
+                typeof (data.args as { path?: unknown }).path === 'string' &&
+                onOpenWiki
+              ) {
+                const rawPath = String((data.args as { path: string }).path).trim()
+                const wikiPolicy = getToolUiPolicy(data.name)
+                if (
+                  rawPath &&
+                  allowAgentDetailOpen() &&
+                  wikiPolicy.streamToDetail === 'wiki' &&
+                  wikiPolicy.autoOpen &&
+                  !writeOpenedWikiForToolId.has(data.id)
+                ) {
+                  writeOpenedWikiForToolId.add(data.id)
+                  onOpenWiki(wikiPathForReadToolArg(rawPath))
                 }
               }
               touchMessages()
