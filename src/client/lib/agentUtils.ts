@@ -34,7 +34,7 @@ export function extractReferencedFiles(messages: ChatMessage[]): string[] {
         const tc = part.toolCall
         const path = tc.args?.path as string | undefined
         if (!path?.endsWith('.md') || seen.has(path)) continue
-        if (tc.name === 'read' && (tc.isError || tc.done === false)) continue
+        if (tc.isError || tc.done === false) continue
         seen.add(path)
         files.push(path)
       } else if (part.type === 'text') {

@@ -60,6 +60,58 @@ describe('extractReferencedFiles', () => {
     expect(extractReferencedFiles(msgs)).toEqual([])
   })
 
+  it('omits write tool paths until the call has finished', () => {
+    const msgs: ChatMessage[] = [{
+      role: 'assistant',
+      content: '',
+      parts: [{
+        type: 'tool',
+        toolCall: {
+          id: 'w1',
+          name: 'write',
+          args: { path: 'trips/wedding.md', content: '' },
+          done: false,
+        },
+      }],
+    }]
+    expect(extractReferencedFiles(msgs)).toEqual([])
+  })
+
+  it('omits write tool paths when the write failed', () => {
+    const msgs: ChatMessage[] = [{
+      role: 'assistant',
+      content: '',
+      parts: [{
+        type: 'tool',
+        toolCall: {
+          id: 'w1',
+          name: 'write',
+          args: { path: 'trips/wedding.md', content: 'x' },
+          done: true,
+          isError: true,
+        },
+      }],
+    }]
+    expect(extractReferencedFiles(msgs)).toEqual([])
+  })
+
+  it('includes write tool path when the write succeeded', () => {
+    const msgs: ChatMessage[] = [{
+      role: 'assistant',
+      content: '',
+      parts: [{
+        type: 'tool',
+        toolCall: {
+          id: 'w1',
+          name: 'write',
+          args: { path: 'trips/wedding.md', content: '# Hi' },
+          done: true,
+        },
+      }],
+    }]
+    expect(extractReferencedFiles(msgs)).toEqual(['trips/wedding.md'])
+  })
+
   it('ignores tool call args that are not .md files', () => {
     const msgs: ChatMessage[] = [{
       role: 'assistant',

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { access, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { writeWikiPartialFromStreamingWriteArgs } from './wikiStreamingPartialWrite.js'
@@ -33,5 +33,18 @@ describe('writeWikiPartialFromStreamingWriteArgs', () => {
   it('ignores path traversal', async () => {
     await writeWikiPartialFromStreamingWriteArgs(dir, 'write', { path: '../../../etc/passwd', content: 'x' })
     await expect(readFile(join(dir, 'etc', 'passwd'), 'utf-8')).rejects.toThrow()
+  })
+
+  it('does not create a file for incomplete streamed paths (e.g. directory prefix before .md)', async () => {
+    await writeWikiPartialFromStreamingWriteArgs(dir, 'write', { path: 'trips' })
+    await expect(access(join(dir, 'trips'))).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('writes nested path once .md suffix is present', async () => {
+    await writeWikiPartialFromStreamingWriteArgs(dir, 'write', {
+      path: 'trips/2026-04-18-sterlings-wedding.md',
+      content: '# x',
+    })
+    expect(await readFile(join(dir, 'trips', '2026-04-18-sterlings-wedding.md'), 'utf-8')).toBe('# x')
   })
 })
