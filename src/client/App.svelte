@@ -3,6 +3,7 @@
   import Assistant from './lib/Assistant.svelte'
   import Onboarding from './lib/onboarding/Onboarding.svelte'
   import { parseRoute, type Route } from './router.js'
+  import { clearOnboardingAgentLocalStorage } from './lib/onboarding/onboardingStorageKeys.js'
 
   let route = $state<Route>(parseRoute())
   let appReady = $state(false)
@@ -31,7 +32,8 @@
     void (async () => {
       if (import.meta.env.DEV && parseRoute().flow === 'hard-reset') {
         try {
-          await fetch('/api/dev/hard-reset', { method: 'POST' })
+          const res = await fetch('/api/dev/hard-reset', { method: 'POST' })
+          if (res.ok) clearOnboardingAgentLocalStorage()
         } catch {
           /* ignore */
         }

@@ -32,7 +32,7 @@
     <div class="msg-label">Assistant</div>
 
     {#each msg.parts ?? [] as part, j (j)}
-      {#if part.type === 'tool' && part.toolCall.name !== 'set_chat_title' && part.toolCall.name !== 'write'}
+      {#if part.type === 'tool' && part.toolCall.name !== 'set_chat_title'}
         <ToolCallBlock
           toolCall={part.toolCall}
           {onOpenWiki}

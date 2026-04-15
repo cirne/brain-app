@@ -2,6 +2,10 @@
   import { onMount } from 'svelte'
   import OnboardingWorkspace from './OnboardingWorkspace.svelte'
   import ProfileDraftEditor from './ProfileDraftEditor.svelte'
+  import {
+    ONBOARDING_PROFILE_CHAT_STORAGE_KEY,
+    ONBOARDING_SEED_CHAT_STORAGE_KEY,
+  } from './onboardingStorageKeys.js'
 
   interface Props {
     onComplete: () => Promise<void>
@@ -152,8 +156,8 @@
         const j = (await res.json()) as { error?: string }
         throw new Error(j.error ?? 'Accept failed')
       }
-      await refreshStatus()
-      await load()
+      // Skip the categories step and go straight to seeding with defaults
+      await prepareSeed()
     } finally {
       busy = false
     }
@@ -200,7 +204,7 @@
     <OnboardingWorkspace
       chatEndpoint="/api/onboarding/profile"
       headerFallbackTitle="Profiling"
-      storageKey="brain-onboarding-profile"
+      storageKey={ONBOARDING_PROFILE_CHAT_STORAGE_KEY}
       autoSendMessage="Build a short essentials-only profile in me.md (name, key people, interests, projects, contact) from my email using tools — not a long dossier."
       onStreamFinished={async () => { await patchState('reviewing-profile') }}
     />
@@ -208,7 +212,7 @@
     <OnboardingWorkspace
       chatEndpoint="/api/onboarding/seed"
       headerFallbackTitle="Seeding"
-      storageKey="brain-onboarding-seed"
+      storageKey={ONBOARDING_SEED_CHAT_STORAGE_KEY}
       autoSendMessage="Read wiki/me.md, then create useful wiki pages from the profile and email evidence. Narrate briefly as you go."
       onStreamFinished={afterSeedComplete}
     />
@@ -313,38 +317,25 @@
           </div>
           <aside class="ob-review-aside" aria-label="Review instructions">
             <header class="ob-review-header">
-              <h2 id="ob-review-title" class="ob-section-title">Review profile</h2>
+              <h2 id="ob-review-title" class="ob-section-title">Review your profile</h2>
               <p class="ob-review-lead">
-                This becomes your <strong>wiki/me.md</strong> summary — the assistant reads it for context. Edit
-                anything that looks wrong, then accept to continue.
+                This is your personal profile. Your assistant will refer to it to stay updated on your projects, key contacts, and interests. Take a moment to edit anything that isn't quite right.
               </p>
             </header>
             <div class="ob-review-actions">
               <button type="button" class="ob-btn-primary ob-btn-block" onclick={() => void acceptProfile()} disabled={busy}>
-                {busy ? 'Saving…' : 'Accept profile'}
+                {busy ? 'Saving…' : 'Looks good'}
               </button>
             </div>
           </aside>
         </div>
       </section>
 
-    {:else if state === 'confirming-categories'}
-      <section class="ob-form-section">
-        <h2 class="ob-section-title">Categories</h2>
-        <p class="ob-section-sub">
-          One category per line — used to scope wiki seeding.
-        </p>
-        <textarea class="ob-textarea" rows="6" bind:value={categoriesText}></textarea>
-        <button type="button" class="ob-btn-primary ob-btn-block" onclick={() => void prepareSeed()} disabled={busy}>
-          {busy ? 'Preparing…' : 'Prepare seeding'}
-        </button>
-      </section>
-
     {:else if state === 'done'}
       <div class="ob-hero">
         <div class="ob-hero-inner">
           <h1 class="ob-headline">You're all set</h1>
-          <p class="ob-lead">Your wiki is seeded and ready. Jump in whenever you like.</p>
+          <p class="ob-lead">Your library is seeded and ready. Jump in whenever you like.</p>
           <button type="button" class="ob-btn-primary" onclick={() => void onComplete()}>
             Open Brain
             <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>

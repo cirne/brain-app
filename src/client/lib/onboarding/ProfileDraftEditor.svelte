@@ -24,7 +24,6 @@
   let mountEl = $state<HTMLDivElement | undefined>()
   let editor = $state<Editor | null>(null)
   let frontMatterCache = $state<string | null>(null)
-  let saveStatus = $state<'saved' | 'saving' | 'dirty' | 'error'>('saved')
   let lastImported = $state('')
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -52,12 +51,10 @@
     syncingFromProp = true
     editor.commands.setContent(mdBodyToHtml(body), { emitUpdate: false })
     syncingFromProp = false
-    saveStatus = 'saved'
   }
 
   function scheduleSave() {
     if (!editor || disabled || syncingFromProp) return
-    saveStatus = 'dirty'
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
       saveTimer = null
@@ -67,7 +64,6 @@
 
   async function persist() {
     if (!editor || disabled) return
-    saveStatus = 'saving'
     const markdown = fullMarkdownFromEditor(editor.getHTML())
     try {
       const res = await fetch('/api/onboarding/profile-draft', {
@@ -75,13 +71,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ markdown }),
       })
-      if (!res.ok) {
-        saveStatus = 'error'
-        return
-      }
-      saveStatus = 'saved'
+      if (!res.ok) return
     } catch {
-      saveStatus = 'error'
+      /* ignore */
     }
   }
 
@@ -148,21 +140,6 @@
     if (!editor) return
     editor.setEditable(!disabled)
   })
-
-  const statusLabel = $derived.by(() => {
-    if (disabled) return ''
-    switch (saveStatus) {
-      case 'saving':
-        return 'Saving…'
-      case 'dirty':
-        return 'Unsaved changes…'
-      case 'error':
-        return 'Could not save — check your connection'
-      case 'saved':
-      default:
-        return 'All changes saved'
-    }
-  })
 </script>
 
 <div class="profile-draft-editor" class:profile-draft-editor-disabled={disabled}>
@@ -171,15 +148,6 @@
       <div class="profile-draft-mount" bind:this={mountEl}></div>
     </div>
   </div>
-  {#if !disabled}
-    <div class="profile-draft-footer" aria-live="polite">
-      <div class="profile-draft-footer-inner">
-        <span class="profile-draft-status" class:profile-draft-status-warn={saveStatus === 'error'}>
-          {statusLabel}
-        </span>
-      </div>
-    </div>
-  {/if}
 </div>
 
 <style>
@@ -188,9 +156,6 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    background: var(--bg-2);
     overflow: hidden;
   }
 
@@ -218,30 +183,6 @@
 
   .profile-draft-mount {
     min-height: 12rem;
-  }
-
-  .profile-draft-footer {
-    flex-shrink: 0;
-    padding: 0.5rem 0;
-    border-top: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg) 55%, var(--bg-2));
-  }
-
-  .profile-draft-footer-inner {
-    max-width: var(--chat-column-max);
-    width: 100%;
-    margin-inline: auto;
-    box-sizing: border-box;
-    padding: 0 clamp(1rem, 4%, 2.5rem) 0.125rem;
-  }
-
-  .profile-draft-status {
-    font-size: 0.75rem;
-    color: var(--text-2);
-  }
-
-  .profile-draft-status-warn {
-    color: var(--danger, #e05c5c);
   }
 
   /* TipTap / ProseMirror — match app tokens */

@@ -50,7 +50,6 @@ Then markdown sections in this order — **tight bullets**, one line per item wh
 4. **## Interests** — hobbies, causes, topics that show up repeatedly.
 5. **## Projects & work** — employer, role, products, or projects — **short**, no org charts.
 6. **## Contact** — email, phone, or other channels **only** if clearly visible in signatures or headers; **do not invent or guess**.
-7. **## Suggested categories** — **5–12** one-line bullets for the later wiki-seeding step (e.g. "People: …", "Projects: …"). Keep each bullet a single short phrase.
 
 ## Chat title
 - Call set_chat_title once with a short title like "Building your profile".
@@ -58,7 +57,7 @@ Then markdown sections in this order — **tight bullets**, one line per item wh
 ## Guidelines
 - ${dateCtx}
 - Paths in tools are relative to the onboarding staging root — for this task use **me.md** only (no other filenames unless the user asks).
-- Do not use wiki_log or open tool unless necessary; focus on the draft file, find_person, and other email tools.
+- Do not use the open tool unless necessary; focus on the draft file, find_person, and other email tools.
 - Be brief in chat; the file should carry the essentials, not a wall of text.`
 }
 
@@ -74,7 +73,6 @@ ${categoriesNote}
 - Use search_email and read_email to enrich facts before writing pages.
 - Create interlinked markdown pages under the wiki root (people/, projects/, etc. as appropriate).
 - Narrate briefly in chat as you create files.
-- Call wiki_log once at the end with a one-line summary of what you created.
 
 ## Chat title
 - Call set_chat_title with a short title like "Seeding your wiki".

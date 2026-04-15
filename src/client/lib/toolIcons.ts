@@ -30,7 +30,6 @@ const TOOL_ICONS = {
   edit_draft: Pencil,
   send_draft: Send,
   find_person: UserSearch,
-  wiki_log: BookOpen,
   get_calendar_events: Calendar,
   web_search: Globe,
   fetch_page: Globe,

@@ -192,6 +192,13 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
     return { kind: 'wiki', path: displayPath, excerpt: excerpt + (result.length > 360 ? '…' : '') }
   }
 
+  if (name === 'write' && typeof args.path === 'string' && typeof args.content === 'string') {
+    const excerpt = args.content.trim().slice(0, 360)
+    if (!excerpt) return null
+    const displayPath = wikiPathForReadToolArg(args.path)
+    return { kind: 'wiki', path: displayPath, excerpt: excerpt + (args.content.length > 360 ? '…' : '') }
+  }
+
   if (name === 'read_email' && typeof args.id === 'string') {
     const d = tool.details as ReadEmailToolDetails | undefined
     if (d?.readEmailPreview === true && d.id === args.id) {

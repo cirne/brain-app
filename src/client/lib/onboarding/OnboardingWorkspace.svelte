@@ -15,13 +15,14 @@
   import { matchGlobalShortcut } from '../app/globalShortcuts.js'
   import { wikiPathForReadToolArg } from '../cards/contentCards.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from '../navigateFromAgentOpen.js'
+  import { ONBOARDING_DEFAULT_CHAT_STORAGE_KEY } from './onboardingStorageKeys.js'
 
   const {
     chatEndpoint,
     autoSendMessage,
     onStreamFinished,
     headerFallbackTitle = 'Chat',
-    storageKey = 'brain-onboarding-chat',
+    storageKey = ONBOARDING_DEFAULT_CHAT_STORAGE_KEY,
   }: {
     chatEndpoint: string
     autoSendMessage: string

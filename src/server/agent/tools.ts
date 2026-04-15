@@ -538,44 +538,6 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
-  const wikiLog = defineTool({
-    name: 'wiki_log',
-    label: 'Wiki Log',
-    description:
-      'Append an entry to wiki/_log.md recording a wiki edit session. Call this after creating or significantly updating wiki pages — not for general chat or email queries. Entry format: "## [YYYY-MM-DD] type | description".',
-    parameters: Type.Object({
-      type: Type.Union(
-        [
-          Type.Literal('ingest'),
-          Type.Literal('scaffold'),
-          Type.Literal('lint'),
-          Type.Literal('query'),
-        ],
-        {
-          description:
-            'ingest = new source ingested; scaffold = new pages created; lint = wiki health-check edits; query = notable query that produced reusable content',
-        }
-      ),
-      description: Type.String({ description: 'One-line summary of what changed and why' }),
-    }),
-    async execute(_toolCallId: string, params: { type: string; description: string }) {
-      const logPath = 'wiki/_log.md'
-      const fullPath = `${wikiDir}/_log.md`
-      const date = new Date().toISOString().slice(0, 10)
-      const entry = `\n## [${date}] ${params.type} | ${params.description}\n`
-
-      const { readFile, appendFile } = await import('node:fs/promises')
-      // Verify the log file exists before appending
-      await readFile(fullPath)
-      await appendFile(fullPath, entry, 'utf8')
-
-      return {
-        content: [{ type: 'text' as const, text: `Appended to ${logPath}: ${entry.trim()}` }],
-        details: {},
-      }
-    },
-  })
-
   const getCalEvents = defineTool({
     name: 'get_calendar_events',
     label: 'Get Calendar Events',
@@ -923,7 +885,6 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     editDraft,
     sendDraft,
     findPerson,
-    wikiLog,
     getCalEvents,
     webSearch,
     fetchPage,

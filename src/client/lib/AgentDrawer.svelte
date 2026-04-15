@@ -196,8 +196,9 @@
     const writeOpenedWikiForToolId = new Set<string>()
     /** Open wiki once per edit tool call when path first appears. */
     const editOpenedWikiForToolId = new Set<string>()
-    /** Preserve path for tool_end (referenced files) — write SSE has no args on tool_end. */
+    /** Preserve path and content for tool_end (referenced files) — write SSE has no args on tool_end. */
     const writePathByToolId = new Map<string, string>()
+    const writeContentByToolId = new Map<string, string>()
     /** tool_start args (read, grep, …) — server now echoes args on tool_end; stash if missing. */
     const toolArgsByToolId = new Map<string, Record<string, unknown>>()
     const mentionedFiles = extractMentionedFiles(text)
@@ -274,6 +275,7 @@
                   const path = typeof data.args?.path === 'string' ? data.args.path : ''
                   const content = typeof data.args?.content === 'string' ? data.args.content : ''
                   if (path) writePathByToolId.set(data.id, path)
+                  if (content) writeContentByToolId.set(data.id, content)
                   if (path && !writeOpenedWikiForToolId.has(data.id)) {
                     writeOpenedWikiForToolId.add(data.id)
                     if (!suppressAgentWikiAutoOpen) onOpenWiki?.(path)
@@ -325,13 +327,14 @@
               case 'tool_end': {
                 let part = msg.parts!.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
                 const writePath = data.name === 'write' ? writePathByToolId.get(data.id) : undefined
+                const writeContent = data.name === 'write' ? writeContentByToolId.get(data.id) : undefined
                 const stashedArgs = toolArgsByToolId.get(data.id)
                 toolArgsByToolId.delete(data.id)
                 const endArgs =
                   data.args != null && typeof data.args === 'object'
                     ? data.args
                     : stashedArgs
-                const resolvedArgs = writePath ? { path: writePath } : endArgs ?? {}
+                const resolvedArgs = writePath ? { path: writePath, content: writeContent } : endArgs ?? {}
                 if (!part) {
                   part = {
                     type: 'tool',
@@ -351,13 +354,14 @@
                   if (data.details !== undefined) part.toolCall.details = data.details
                   part.toolCall.isError = data.isError
                   part.toolCall.done = true
-                  if (writePath) part.toolCall.args = { path: writePath }
+                  if (writePath) part.toolCall.args = { path: writePath, content: writeContent }
                   else if (endArgs !== undefined) part.toolCall.args = endArgs
                 }
                 const name = part.toolCall.name
                 if (name === 'write' || name === 'edit' || name === 'delete') touchedWiki = true
                 if (name === 'write') {
                   writePathByToolId.delete(data.id)
+                  writeContentByToolId.delete(data.id)
                   onWriteStreaming?.({ path: '', content: '', done: true })
                 }
                 if (name === 'edit') {

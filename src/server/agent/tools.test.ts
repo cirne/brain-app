@@ -38,7 +38,6 @@ describe('createAgentTools', () => {
     expect(names).toContain('inbox_rules')
     expect(names).toContain('archive_emails')
     expect(names).toContain('find_person')
-    expect(names).toContain('wiki_log')
     expect(names).toContain('get_calendar_events')
     expect(names).toContain('web_search')
     expect(names).toContain('fetch_page')
@@ -437,25 +436,6 @@ describe('createAgentTools', () => {
       const result = await tool.execute('test-cal-2', { start: '2026-04-12', end: '2026-04-12' })
       const text = result.content.map((c: any) => c.text).join('')
       expect(text).toContain('No events found')
-    })
-  })
-
-  describe('wiki_log tool', () => {
-    it('appends a correctly formatted entry to _log.md', async () => {
-      await writeFile(join(wikiDir, '_log.md'), '# Log\n')
-      const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
-      const tool = tools.find((t: any) => t.name === 'wiki_log')!
-      await tool.execute('test-wl-1', { type: 'scaffold', description: 'Created people/alice page' })
-      const log = await import('node:fs/promises').then(fs => fs.readFile(join(wikiDir, '_log.md'), 'utf8'))
-      expect(log).toMatch(/## \[\d{4}-\d{2}-\d{2}\] scaffold \| Created people\/alice page/)
-    })
-
-    it('returns an error if _log.md does not exist', async () => {
-      const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
-      const tool = tools.find((t: any) => t.name === 'wiki_log')!
-      await expect(tool.execute('test-wl-2', { type: 'ingest', description: 'test' })).rejects.toThrow()
     })
   })
 
