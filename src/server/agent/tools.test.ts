@@ -86,8 +86,9 @@ describe('createAgentTools', () => {
       const tool = tools.find((t: { name: string }) => t.name === 'open')!
       const e = await tool.execute('o-2', { target: { type: 'email', id: 'msg:1' } })
       expect(e.content[0].text).toContain('msg:1')
-      const c = await tool.execute('o-3', { target: { type: 'calendar', date: '2026-06-01' } })
-      expect(c.content[0].text).toContain('2026-06-01')
+      const c = await tool.execute('o-3', { target: { type: 'calendar', date: '2026-04-20' } })
+      expect(c.content[0].text).toContain('2026-04-20')
+      expect(c.content[0].text).toContain('Monday')
     })
   })
 
@@ -403,6 +404,19 @@ describe('createAgentTools', () => {
       const text = result.content.map((c: any) => c.text).join('')
       expect(text).toContain('Team Lunch')
       expect(text).not.toContain('Far Future')
+    })
+
+    it('includes startDayOfWeek and endDayOfWeek in JSON for the agent', async () => {
+      await writeCache('personal', [
+        { id: 'e1', title: 'All day Mon', start: '2026-04-20', end: '2026-04-21', allDay: true, source: 'personal' },
+      ])
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
+      const result = await tool.execute('test-cal-dow', { start: '2026-04-20', end: '2026-04-20' })
+      const text = result.content.map((c: any) => c.text).join('')
+      expect(text).toContain('"startDayOfWeek": "Monday"')
+      expect(text).toContain('"endDayOfWeek": "Monday"')
     })
 
     it('returns no-events message when cache is empty', async () => {

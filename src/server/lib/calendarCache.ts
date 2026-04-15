@@ -28,6 +28,48 @@ interface Cache {
 // Lazy: read from process.env at call time so .env loaded in index.ts takes effect
 export const cacheDir = () => process.env.CALENDAR_CACHE_DIR ?? './data/calendar'
 
+/** Weekday name (e.g. "Monday") for a UTC calendar date YYYY-MM-DD (ICS date lines / UTC date parts). */
+export function weekdayLongForUtcYmd(yyyyMmDd: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(yyyyMmDd.slice(0, 10))
+  if (!m) return ''
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  const d = Number(m[3])
+  const dt = new Date(Date.UTC(y, mo - 1, d, 12, 0, 0))
+  return new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(dt)
+}
+
+/** Add days to a UTC YYYY-MM-DD (noon UTC avoids DST edge cases around the date line). */
+function utcYmdAddDays(yyyyMmDd: string, deltaDays: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(yyyyMmDd.slice(0, 10))
+  if (!m) return ''
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  const d = Number(m[3])
+  const dt = new Date(Date.UTC(y, mo - 1, d, 12, 0, 0))
+  dt.setUTCDate(dt.getUTCDate() + deltaDays)
+  return dt.toISOString().slice(0, 10)
+}
+
+/**
+ * Agent-facing event rows with explicit weekdays so the model does not infer them from ISO strings.
+ * For all-day events, ICS `end` is exclusive; `endDayOfWeek` is the last inclusive calendar day.
+ */
+export function enrichCalendarEventsForAgent(
+  events: CalendarEvent[],
+): Array<CalendarEvent & { startDayOfWeek: string; endDayOfWeek: string }> {
+  return events.map(e => {
+    const startYmd = e.start.slice(0, 10)
+    const endYmd = e.end.slice(0, 10)
+    const endForWeekday = e.allDay ? utcYmdAddDays(endYmd, -1) : endYmd
+    return {
+      ...e,
+      startDayOfWeek: weekdayLongForUtcYmd(startYmd),
+      endDayOfWeek: weekdayLongForUtcYmd(endForWeekday),
+    }
+  })
+}
+
 /** Unfold ICS continuation lines (CRLF or LF followed by space/tab). */
 function unfold(ics: string): string {
   return ics.replace(/\r?\n[ \t]/g, '')

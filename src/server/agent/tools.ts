@@ -2,7 +2,7 @@ import { createReadTool, createEditTool, createWriteTool, createGrepTool, create
 import { Type } from '@mariozechner/pi-ai'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { getCalendarEvents } from '../lib/calendarCache.js'
+import { enrichCalendarEventsForAgent, getCalendarEvents, weekdayLongForUtcYmd } from '../lib/calendarCache.js'
 import { Exa } from 'exa-js'
 import { appendWikiEditRecord } from '../lib/wikiEditHistory.js'
 import {
@@ -402,7 +402,8 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
   const getCalEvents = defineTool({
     name: 'get_calendar_events',
     label: 'Get Calendar Events',
-    description: 'Get calendar events (travel + personal) for a date range from the local cache. Returns events as JSON. Tip: for scheduling, forward to howie@howie.ai.',
+    description:
+      'Get calendar events (travel + personal) for a date range from the local cache. Returns events as JSON with startDayOfWeek and endDayOfWeek (UTC calendar dates; for all-day events end is exclusive per ICS, so endDayOfWeek is the last day of the event). Tip: for scheduling, forward to howie@howie.ai.',
     parameters: Type.Object({
       start: Type.String({ description: 'Start date YYYY-MM-DD (inclusive)' }),
       end: Type.String({ description: 'End date YYYY-MM-DD (inclusive)' }),
@@ -410,7 +411,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     async execute(_toolCallId: string, params: { start: string; end: string }) {
       const { events, fetchedAt } = await getCalendarEvents({ start: params.start, end: params.end })
       const text = events.length
-        ? JSON.stringify(events, null, 2)
+        ? JSON.stringify(enrichCalendarEventsForAgent(events), null, 2)
         : `No events found between ${params.start} and ${params.end}. Cache last synced: travel=${fetchedAt.travel || 'never'}, personal=${fetchedAt.personal || 'never'}.`
       return {
         content: [{ type: 'text' as const, text }],
@@ -584,7 +585,10 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           ? `Opening wiki: ${t.path}`
           : t.type === 'email'
             ? `Opening email: ${t.id}`
-            : `Opening calendar: ${t.date}`
+            : (() => {
+                const dow = weekdayLongForUtcYmd(t.date)
+                return dow ? `Opening calendar: ${t.date} (${dow})` : `Opening calendar: ${t.date}`
+              })()
       return {
         content: [{ type: 'text' as const, text }],
         details: { target: t },
