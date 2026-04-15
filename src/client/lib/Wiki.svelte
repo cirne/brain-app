@@ -168,23 +168,28 @@
         <p class="stream-label" role="status">Agent is writing…</p>
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         <div class="stream-md markdown">{@html renderMarkdown(streamingWrite.body.slice(0, 50000))}</div>
-      {:else if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
-        <p class="stream-label stream-editing" role="status">
-          <svg class="stream-spin" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-          Editing…
-        </p>
-      {:else if content}
-        {#if Object.keys(meta).length > 0}
-          <div class="page-meta">
-            {#if meta.updated}<span class="meta-date">{formatDate(meta.updated)}</span>{/if}
-            {#if meta.updated && meta.tags}<span class="meta-sep">·</span>{/if}
-            {#if meta.tags}{#each parseTags(meta.tags) as tag}<span class="meta-tag">{tag}</span>{/each}{/if}
-          </div>
-        {/if}
-        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-        {@html content}
       {:else}
-        <p class="status">No page selected</p>
+        {#if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
+          <p class="stream-label stream-editing" role="status">
+            <svg class="stream-spin" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            Editing…
+          </p>
+        {/if}
+        {#if content}
+          {#if Object.keys(meta).length > 0}
+            <div class="page-meta">
+              {#if meta.updated}<span class="meta-date">{formatDate(meta.updated)}</span>{/if}
+              {#if meta.updated && meta.tags}<span class="meta-sep">·</span>{/if}
+              {#if meta.tags}{#each parseTags(meta.tags) as tag}<span class="meta-tag">{tag}</span>{/each}{/if}
+            </div>
+          {/if}
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+          {@html content}
+        {:else if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
+          <p class="status">Loading current page…</p>
+        {:else}
+          <p class="status">No page selected</p>
+        {/if}
       {/if}
     </article>
   </div>
