@@ -52,12 +52,40 @@
     files = await res.json()
   }
 
+  // #region agent log
+  function __dbgWiki(hypothesisId: string, message: string, data: Record<string, unknown>) {
+    fetch('http://127.0.0.1:7497/ingest/4d6eee4f-9729-40ee-87e3-62a37bfb0e67', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'aa31ea' },
+      body: JSON.stringify({
+        sessionId: 'aa31ea',
+        location: 'Wiki.svelte',
+        message,
+        hypothesisId,
+        data,
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+  }
+  // #endregion
+
   async function openFile(path: string) {
+    // #region agent log
+    __dbgWiki('H1', 'openFile:start', { path, initialPath: initialPath ?? null })
+    // #endregion
     selected = path
     onNavigate?.(path)
     loading = true
     try {
       const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(path)}`)
+      // #region agent log
+      __dbgWiki('H1', 'openFile:fetch', {
+        path,
+        status: res.status,
+        ok: res.ok,
+        urlSuffix: encodeWikiPathSegmentsForUrl(path),
+      })
+      // #endregion
       if (!res.ok) {
         meta = {}
         content = ''
@@ -72,12 +100,18 @@
       loading = false
       const title = meta.title ?? path.replace(/\.md$/, '').split('/').pop() ?? path
       onContextChange?.({ type: 'wiki', path, title })
-    } catch {
+      // #region agent log
+      __dbgWiki('H1', 'openFile:loaded', { path, contentLen: content.length, title })
+      // #endregion
+    } catch (e) {
       meta = {}
       content = ''
       loading = false
       const title = path.replace(/\.md$/, '').split('/').pop() ?? path
       onContextChange?.({ type: 'wiki', path, title })
+      // #region agent log
+      __dbgWiki('H1', 'openFile:catch', { path, err: String(e) })
+      // #endregion
     }
   }
 
@@ -155,6 +189,25 @@
     if (match && path !== selected) void openFile(match.path)
     else if (!match && path !== selected) void openFile(path)
   })
+
+  // #region agent log
+  $effect(() => {
+    void refreshKey
+    const editP = streamingEdit?.path ?? null
+    const editMatch =
+      !!(streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected))
+    __dbgWiki('H2-H5', 'wiki:state', {
+      initialPath: initialPath ?? null,
+      selected,
+      refreshKey,
+      loading,
+      contentLen: content.length,
+      streamingEditPath: editP,
+      streamingEditToolId: streamingEdit?.toolId ?? null,
+      editPathMatchesSelected: editMatch,
+    })
+  })
+  // #endregion
 </script>
 
 <div class="wiki">
