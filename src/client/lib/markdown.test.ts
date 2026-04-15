@@ -35,6 +35,20 @@ describe('renderMarkdown', () => {
     expect(result).toContain('<strong>bold</strong>')
     expect(result).toContain('<em>italic</em>')
   })
+
+  it('strips front matter before rendering', () => {
+    const raw = `---
+type: user-profile
+updated: 2026-04-15
+---
+# Lewis Cirne
+
+Name`
+    const result = renderMarkdown(raw)
+    expect(result).not.toContain('type: user-profile')
+    expect(result).toContain('<h1>Lewis Cirne</h1>')
+    expect(result).toContain('<p>Name</p>')
+  })
 })
 
 describe('stripFrontMatter', () => {

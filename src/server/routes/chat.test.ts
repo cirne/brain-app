@@ -58,7 +58,7 @@ describe('POST /api/chat', () => {
 })
 
 describe('POST /api/chat with context', () => {
-  it('accepts a string context (surface context from AgentDrawer)', async () => {
+  it('accepts a string context (surface context from AgentChat)', async () => {
     const { default: chatRoute } = await import('./chat.js')
     const app = new Hono()
     app.route('/api/chat', chatRoute)

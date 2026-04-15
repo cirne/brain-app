@@ -1,13 +1,13 @@
 <script lang="ts">
   /**
-   * Same assistant shell as the main app (WorkspaceSplit + AgentDrawer + SlideOver)
+   * Same assistant shell as the main app (WorkspaceSplit + AgentChat + SlideOver)
    * without chat history sidebar, so onboarding can open email/wiki/calendar while the agent runs.
    */
   import { onMount } from 'svelte'
   import Search from '../Search.svelte'
   import AppTopNav from '../AppTopNav.svelte'
   import SlideOver from '../SlideOver.svelte'
-  import AgentDrawer from '../AgentDrawer.svelte'
+  import AgentChat from '../AgentChat.svelte'
   import WorkspaceSplit from '../WorkspaceSplit.svelte'
   import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from '../../router.js'
   import { runParallelSyncs } from '../app/syncAllServices.js'
@@ -41,7 +41,7 @@
   let inboxTargetId = $state<string | undefined>()
   let wikiWriteStreaming = $state<{ path: string; body: string } | null>(null)
   let wikiEditStreaming = $state<{ path: string; toolId: string } | null>(null)
-  let agentDrawer = $state<AgentDrawer | undefined>()
+  let agentChat = $state<AgentChat | undefined>()
   let mobileSlideOver = $state<{ closeAnimated: () => void } | undefined>()
   let workspaceSplit = $state<WorkspaceSplit | undefined>()
   let isMobile = $state(false)
@@ -96,7 +96,7 @@
           break
         case 'newChat':
           closeOverlayImmediate()
-          agentDrawer?.newChat()
+          agentChat?.newChat()
           break
         case 'refresh':
           void syncAll()
@@ -171,7 +171,7 @@
 
   function onSummarizeInbox(message: string) {
     agentContext = { type: 'inbox' }
-    void agentDrawer?.newChatWithMessage(message)
+    void agentChat?.newChatWithMessage(message)
   }
 
   function openEmailFromSearch(id: string, subject: string, from: string) {
@@ -304,8 +304,8 @@
       onNavigateClear={closeOverlayImmediate}
     >
       {#snippet chat()}
-        <AgentDrawer
-          bind:this={agentDrawer}
+        <AgentChat
+          bind:this={agentChat}
           context={agentContext}
           conversationHidden={!!route.overlay && isMobile}
           suppressAgentWikiAutoOpen={isMobile}
@@ -351,7 +351,7 @@
               />
             {/if}
           {/snippet}
-        </AgentDrawer>
+        </AgentChat>
       {/snippet}
       {#snippet desktopDetail()}
         {#if route.overlay}

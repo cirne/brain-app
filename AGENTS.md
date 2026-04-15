@@ -81,7 +81,7 @@ src/
     style.css          # Dark theme design tokens
     App.svelte         # Chat-first shell + detail SlideOver (wiki / inbox / calendar)
     lib/
-      AgentDrawer.svelte  # SSE chat, tool viz, @mentions; mobile detail slot
+      AgentChat.svelte  # SSE chat, tool viz, @mentions; mobile detail slot
       SlideOver.svelte    # Detail panel (embeds Wiki / Inbox / Calendar)
       Wiki.svelte         # Markdown viewer + go-to-file search
       Inbox.svelte        # Email list + thread view + archive/read actions

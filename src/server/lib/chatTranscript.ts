@@ -1,6 +1,6 @@
 import type { AssistantTurnState, ChatMessage, MessagePart, ToolCall } from './chatTypes.js'
 
-/** Mutable state for one assistant reply (mirrors AgentDrawer SSE handling). */
+/** Mutable state for one assistant reply (mirrors AgentChat / agentStream SSE handling). */
 export function createAssistantTurnState(): AssistantTurnState {
   return { parts: [] }
 }

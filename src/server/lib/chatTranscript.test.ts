@@ -12,7 +12,7 @@ import {
 } from './chatTranscript.js'
 
 describe('chatTranscript', () => {
-  it('applies text deltas like AgentDrawer (append to last text part or new part)', () => {
+  it('applies text deltas like AgentChat (append to last text part or new part)', () => {
     const s = createAssistantTurnState()
     applyTextDelta(s, 'Hello')
     applyTextDelta(s, ' world')

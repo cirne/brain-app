@@ -25,7 +25,7 @@ The **top nav** (`AppTopNav.svelte`) exposes these as explicit tab buttons, plus
 
 ### Persistent agent column (“drawer”)
 
-The **agent/chat** is not a tab. It lives in a **persistent right-hand column** (`AppAgentColumn.svelte` → `AgentDrawer.svelte`):
+The **agent/chat** is not a tab. It lives in a **persistent right-hand column** (`AppAgentColumn.svelte` → `AgentChat.svelte`):
 
 - **Desktop:** fixed width, **resizable** via a drag handle; state persists in `localStorage`.
 - **Mobile (≤767px):** the column becomes a **bottom sheet**: collapsed to a short bar, expands to ~80vh when “open.”

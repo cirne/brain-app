@@ -616,11 +616,6 @@
     }
   }
 
-  .ob-review-lead strong {
-    font-weight: 600;
-    color: var(--text);
-  }
-
   .ob-review-actions {
     flex-shrink: 0;
     margin-top: auto;
@@ -632,16 +627,6 @@
     }
   }
 
-  /* ── Form sections (categories, etc.) ── */
-  .ob-form-section {
-    max-width: 32rem;
-    margin-inline: auto;
-    padding: 2.5rem 1.25rem 3rem;
-  }
-  @media (min-width: 640px) {
-    .ob-form-section { padding: 3rem 1.5rem 3.5rem; }
-  }
-
   .ob-section-title {
     font-size: 1.125rem;
     font-weight: 700;
@@ -649,32 +634,6 @@
     color: var(--text);
     margin-bottom: 0.25rem;
   }
-  .ob-section-sub {
-    font-size: 0.875rem;
-    line-height: 1.55;
-    color: var(--text-2);
-    margin-bottom: 1.25rem;
-  }
-
-  .ob-textarea {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border-radius: 0.625rem;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: inherit;
-    font-family: inherit;
-    font-size: 0.9375rem;
-    line-height: 1.5;
-    resize: vertical;
-    margin-bottom: 1.5rem;
-    transition: border-color 0.15s;
-  }
-  .ob-textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-
   /* ── Footer ── */
   .ob-footer {
     flex-shrink: 0;

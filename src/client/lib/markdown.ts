@@ -56,7 +56,8 @@ const WIKI_LINK_RE = /<a href="wiki:([^"]*)">([\s\S]*?)<\/a>/g
 
 export function renderMarkdown(text: string): string {
   try {
-    const html = marked(text) as string
+    const body = stripFrontMatter(text)
+    const html = marked(body) as string
     return html
       .replace(DATE_LINK_RE, '<button class="date-link" data-date="$1">$2</button>')
       .replace(WIKI_LINK_RE, (_, path, label) => {

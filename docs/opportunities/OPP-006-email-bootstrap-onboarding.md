@@ -63,7 +63,7 @@ The profiling agent is still live. It hears the request, calls its `edit` tool o
 
 On accept, the temp file is written to `wiki/me.md`.
 
-**UI reuse:** This is the core AgentDrawer + wiki panel layout — the profile document is the context panel, the chat input is below. High reuse of existing components.
+**UI reuse:** This is the core AgentChat + wiki panel layout — the profile document is the context panel, the chat input is below. High reuse of existing components.
 
 ### Step 5: Building your wiki (seeding agent)
 
@@ -149,7 +149,7 @@ Onboarding uses two distinct specialized agents, not one:
 - The seeding agent takes the accepted profile as *input* — it's a different job with a different prompt.
 - Clean separation enables resumability: if the user closes the browser between phases, the system knows exactly where to resume.
 
-**UI reuse:** Both agents stream via the existing SSE chat infrastructure. The onboarding UI is largely the same AgentDrawer layout in a different context — just a different agent and system prompt on the server side.
+**UI reuse:** Both agents stream via the existing SSE chat infrastructure. The onboarding UI is largely the same AgentChat layout in a different context — just a different agent and system prompt on the server side.
 
 ---
 

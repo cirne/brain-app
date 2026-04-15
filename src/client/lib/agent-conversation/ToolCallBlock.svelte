@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getToolIcon } from '../toolIcons.js'
   import { matchContentPreview } from '../cards/contentCards.js'
-  import type { ToolCall } from '../agentUtils.js'
+  import { getToolUiPolicy, type ToolCall } from '../agentUtils.js'
   import ContentPreviewCards from './ContentPreviewCards.svelte'
   import { formatToolArgs } from './formatToolArgs.js'
 
@@ -22,6 +22,8 @@
   } = $props()
 
   const preview = $derived(matchContentPreview(toolCall))
+  const policy = $derived(getToolUiPolicy(toolCall.name))
+  const displayName = $derived(policy.label ?? toolCall.name)
 </script>
 
 {#if toolCall.done}
@@ -40,7 +42,7 @@
             {/if}
           {/if}
         </span>
-        <span class="tool-name">{toolCall.name}</span>
+        <span class="tool-name">{displayName}</span>
       </summary>
       {#if toolCall.args}
         <pre class="tool-args">{formatToolArgs(toolCall.args)}</pre>

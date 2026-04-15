@@ -87,3 +87,26 @@ export function contextPlaceholder(ctx: SurfaceContext): string {
   if (ctx.type === 'chat') return "What's on your mind?"
   return 'Ask anything...'
 }
+
+export type ToolUiPolicy = {
+  showInChat: boolean
+  streamToDetail?: 'wiki' | 'email' | 'calendar'
+  autoOpen?: boolean
+  label?: string
+}
+
+const DEFAULT_POLICY: ToolUiPolicy = {
+  showInChat: true,
+}
+
+export const TOOL_UI_POLICIES: Record<string, ToolUiPolicy> = {
+  write: { showInChat: true, streamToDetail: 'wiki', autoOpen: true, label: 'Writing file' },
+  edit: { showInChat: true, streamToDetail: 'wiki', autoOpen: true, label: 'Editing file' },
+  set_chat_title: { showInChat: false },
+  open: { showInChat: true, autoOpen: true, label: 'Opening' },
+  read_email: { showInChat: true, autoOpen: true, label: 'Reading email' },
+}
+
+export function getToolUiPolicy(name: string): ToolUiPolicy {
+  return TOOL_UI_POLICIES[name] ?? DEFAULT_POLICY
+}

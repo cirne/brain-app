@@ -35,7 +35,7 @@ chat.post('/', async (c) => {
 
   // Build context string for the session system prompt.
   // Two formats:
-  //   string  — surface context (email body, wiki path, etc.) from AgentDrawer
+  //   string  — surface context (email body, wiki path, etc.) from AgentChat
   //   { files: string[] } — legacy file-grounded chat (wiki panel)
   let fileContext: string | undefined
   if (typeof context === 'string') {

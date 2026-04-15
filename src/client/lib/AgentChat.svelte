@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount, tick, type Snippet } from 'svelte'
   import { type SurfaceContext } from '../router.js'
-  import { buildChatBody, extractMentionedFiles, type ChatMessage, type ToolPart } from './agentUtils.js'
+  import { buildChatBody, extractMentionedFiles, type ChatMessage } from './agentUtils.js'
   import { contextPlaceholder } from './agentUtils.js'
   import { emit } from './app/appEvents.js'
+  import { consumeAgentChatStream } from './agentStream.js'
   import { MessageSquarePlus } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import AgentInput from './AgentInput.svelte'
@@ -189,18 +190,6 @@
   async function send(text: string) {
     if (!text || streaming) return
 
-    let touchedWiki = false
-    /** Fire `open` / `read_email` side effects once per tool call id. */
-    const openedFromAgentByToolId = new Set<string>()
-    /** Open wiki once per write tool call when path first appears. */
-    const writeOpenedWikiForToolId = new Set<string>()
-    /** Open wiki once per edit tool call when path first appears. */
-    const editOpenedWikiForToolId = new Set<string>()
-    /** Preserve path and content for tool_end (referenced files) — write SSE has no args on tool_end. */
-    const writePathByToolId = new Map<string, string>()
-    const writeContentByToolId = new Map<string, string>()
-    /** tool_start args (read, grep, …) — server now echoes args on tool_end; stash if missing. */
-    const toolArgsByToolId = new Map<string, Record<string, unknown>>()
     const mentionedFiles = extractMentionedFiles(text)
     const isFirstMessage = messages.length === 0
 
@@ -209,7 +198,6 @@
 
     const body = buildChatBody({ message: text, sessionId, context, mentionedFiles, isFirstMessage })
 
-    // After context is serialized into the request (e.g. email thread), parent may clear overlay.
     onUserSendMessage?.()
 
     messages.push({ role: 'assistant', content: '', parts: [] })
@@ -217,6 +205,7 @@
 
     abortController = new AbortController()
     let sawDone = false
+    let touchedWiki = false
 
     try {
       const res = await fetch(chatEndpoint, {
@@ -232,155 +221,21 @@
         return
       }
 
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let lastEvent = 'message'
-
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop()!
-
-        for (const line of lines) {
-          if (line.startsWith('event: ')) { lastEvent = line.slice(7).trim(); continue }
-          if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6))
-            const msg = messages[msgIdx]
-
-            switch (lastEvent) {
-              case 'session':
-                sessionId = data.sessionId
-                break
-              case 'text_delta': {
-                const parts = msg.parts!
-                const last = parts[parts.length - 1]
-                if (last?.type === 'text') {
-                  last.content += data.delta
-                } else {
-                  parts.push({ type: 'text', content: data.delta })
-                }
-                conversationEl?.scrollToBottom()
-                break
-              }
-              case 'thinking':
-                msg.thinking = (msg.thinking ?? '') + data.delta
-                break
-              case 'tool_args': {
-                // Server emits for `write` / `edit` — stream to wiki pane without mutating chat tool rows.
-                if (data.name === 'write') {
-                  const path = typeof data.args?.path === 'string' ? data.args.path : ''
-                  const content = typeof data.args?.content === 'string' ? data.args.content : ''
-                  if (path) writePathByToolId.set(data.id, path)
-                  if (content) writeContentByToolId.set(data.id, content)
-                  if (path && !writeOpenedWikiForToolId.has(data.id)) {
-                    writeOpenedWikiForToolId.add(data.id)
-                    if (!suppressAgentWikiAutoOpen) onOpenWiki?.(path)
-                  }
-                  onWriteStreaming?.({ path, content, done: false })
-                } else if (data.name === 'edit') {
-                  const path = typeof data.args?.path === 'string' ? data.args.path : ''
-                  if (path && !editOpenedWikiForToolId.has(data.id)) {
-                    editOpenedWikiForToolId.add(data.id)
-                    if (!suppressAgentWikiAutoOpen) onOpenWiki?.(path)
-                  }
-                  if (path) onEditStreaming?.({ id: data.id, path, done: false })
-                }
-                break
-              }
-              case 'tool_start': {
-                if (data.name === 'set_chat_title') {
-                  const parts = msg.parts!
-                  const existing = parts.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
-                  if (existing) {
-                    existing.toolCall.name = data.name
-                    existing.toolCall.args = data.args
-                  } else {
-                    parts.push({ type: 'tool', toolCall: { id: data.id, name: data.name, args: data.args, done: false } })
-                  }
-                  if (typeof data.args?.title === 'string') {
-                    const t = data.args.title.trim().slice(0, 120)
-                    if (t) chatTitle = t
-                  }
-                  messages = [...messages]
-                } else if (data.name !== 'write') {
-                  if (data.args != null && typeof data.args === 'object') {
-                    toolArgsByToolId.set(data.id, data.args as Record<string, unknown>)
-                  }
-                  // Defer non-write tools to tool_end (no "running" rows in chat).
-                  if (data.name === 'open' && data.args?.target && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
-                    openedFromAgentByToolId.add(data.id)
-                    onOpenFromAgent(data.args.target, 'open')
-                  }
-                  if (data.name === 'read_email' && typeof data.args?.id === 'string' && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
-                    openedFromAgentByToolId.add(data.id)
-                    onOpenFromAgent({ type: 'email', id: data.args.id }, 'read_email')
-                  }
-                }
-                // write: no chat row; live body goes through tool_args + wiki pane
-                conversationEl?.scrollToBottom()
-                break
-              }
-              case 'tool_end': {
-                let part = msg.parts!.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
-                const writePath = data.name === 'write' ? writePathByToolId.get(data.id) : undefined
-                const writeContent = data.name === 'write' ? writeContentByToolId.get(data.id) : undefined
-                const stashedArgs = toolArgsByToolId.get(data.id)
-                toolArgsByToolId.delete(data.id)
-                const endArgs =
-                  data.args != null && typeof data.args === 'object'
-                    ? data.args
-                    : stashedArgs
-                const resolvedArgs = writePath ? { path: writePath, content: writeContent } : endArgs ?? {}
-                if (!part) {
-                  part = {
-                    type: 'tool',
-                    toolCall: {
-                      id: data.id,
-                      name: data.name,
-                      args: resolvedArgs,
-                      result: data.result,
-                      details: data.details,
-                      isError: data.isError,
-                      done: true,
-                    },
-                  }
-                  msg.parts!.push(part)
-                } else {
-                  part.toolCall.result = data.result
-                  if (data.details !== undefined) part.toolCall.details = data.details
-                  part.toolCall.isError = data.isError
-                  part.toolCall.done = true
-                  if (writePath) part.toolCall.args = { path: writePath, content: writeContent }
-                  else if (endArgs !== undefined) part.toolCall.args = endArgs
-                }
-                const name = part.toolCall.name
-                if (name === 'write' || name === 'edit' || name === 'delete') touchedWiki = true
-                if (name === 'write') {
-                  writePathByToolId.delete(data.id)
-                  writeContentByToolId.delete(data.id)
-                  onWriteStreaming?.({ path: '', content: '', done: true })
-                }
-                if (name === 'edit') {
-                  onEditStreaming?.({ id: data.id, path: '', done: true })
-                }
-                messages = [...messages]
-                conversationEl?.scrollToBottom()
-                break
-              }
-              case 'error':
-                msg.parts!.push({ type: 'text', content: `\n\n**Error:** ${data.message}` })
-                break
-              case 'done':
-                sawDone = true
-                break
-            }
-          }
-        }
-      }
+      const result = await consumeAgentChatStream(res, {
+        messages,
+        msgIdx,
+        suppressAgentWikiAutoOpen,
+        onOpenWiki,
+        onWriteStreaming,
+        onEditStreaming,
+        onOpenFromAgent,
+        setSessionId: (id) => { sessionId = id },
+        setChatTitle: (t) => { chatTitle = t },
+        touchMessages: () => { messages = [...messages] },
+        scrollToBottom: () => conversationEl?.scrollToBottom(),
+      })
+      touchedWiki = result.touchedWiki
+      sawDone = result.sawDone
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err)
       const name = err instanceof Error ? err.name : ''
@@ -409,15 +264,15 @@
 
 </script>
 
-<div class="agent-drawer">
+<div class="agent-chat">
   <!-- Body is the overlay anchor: mobile detail covers header + conversation only, not the input -->
-  <div class="drawer-body">
+  <div class="chat-body">
     <!-- Always in flex flow — prevents height jump when overlay opens/closes -->
     <div inert={conversationHidden || undefined}>
       <PaneL2Header>
         {#snippet center()}
           <div class="header-left">
-            <span class="drawer-title" class:thinking={streaming} class:custom-title={!!chatTitle}>
+            <span class="chat-title" class:thinking={streaming} class:custom-title={!!chatTitle}>
               {streaming ? 'Thinking...' : (chatTitle ?? headerFallbackTitle)}
             </span>
             {#if context.type === 'wiki'}
@@ -459,7 +314,7 @@
     {/if}
   </div>
 
-  <!-- Sibling below drawer-body: stays outside the mobile slide-over so the user can keep typing or start a new chat -->
+  <!-- Sibling below chat-body: stays outside the mobile slide-over so the user can keep typing or start a new chat -->
   <div class="input-shell">
     <AgentInput
       bind:this={inputEl}
@@ -474,7 +329,7 @@
 </div>
 
 <style>
-  .agent-drawer {
+  .agent-chat {
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -482,7 +337,7 @@
     min-height: 0;
   }
 
-  .drawer-body {
+  .chat-body {
     flex: 1;
     min-height: 0;
     display: flex;
@@ -512,7 +367,7 @@
     overflow: hidden;
   }
 
-  .drawer-title {
+  .chat-title {
     font-size: 11px;
     font-weight: 600;
     color: var(--text-2);
@@ -520,7 +375,7 @@
     letter-spacing: 0.06em;
     flex-shrink: 0;
   }
-  .drawer-title.custom-title {
+  .chat-title.custom-title {
     text-transform: none;
     letter-spacing: 0.02em;
     flex: 1;
@@ -529,7 +384,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .drawer-title.thinking {
+  .chat-title.thinking {
     animation: pulse-thinking 1.5s ease-in-out infinite;
   }
   @keyframes pulse-thinking {

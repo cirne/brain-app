@@ -1,6 +1,6 @@
 <script lang="ts">
   import { renderMarkdown } from '../markdown.js'
-  import type { ChatMessage } from '../agentUtils.js'
+  import { getToolUiPolicy, type ChatMessage } from '../agentUtils.js'
   import ToolCallBlock from './ToolCallBlock.svelte'
 
   let {
@@ -32,7 +32,7 @@
     <div class="msg-label">Assistant</div>
 
     {#each msg.parts ?? [] as part, j (j)}
-      {#if part.type === 'tool' && part.toolCall.name !== 'set_chat_title'}
+      {#if part.type === 'tool' && getToolUiPolicy(part.toolCall.name).showInChat}
         <ToolCallBlock
           toolCall={part.toolCall}
           {onOpenWiki}
