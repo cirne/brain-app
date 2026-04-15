@@ -10,10 +10,23 @@ import { areImessageToolsEnabled } from '../lib/imessageDb.js'
 
 const sessions = new Map<string, Agent>()
 
-/** Non-empty when wiki/me.md exists — injected into the main agent system prompt. Exported for tests. */
+const USER_PROFILE_BEGIN = '<<<BEGIN_USER_PROFILE_FROM_ME_MD>>>'
+const USER_PROFILE_END = '<<<END_USER_PROFILE_FROM_ME_MD>>>'
+
+/**
+ * Non-empty when wiki/me.md exists — full file body is injected into the main agent system prompt.
+ * Exported for tests.
+ */
 export function meProfilePromptSection(wikiRoot: string): string {
-  if (!existsSync(join(wikiRoot, 'me.md'))) return ''
-  return `\n## User profile\nThe file **me.md** at the wiki root is the user's profile. Read it with the read tool at the start of new topics when you need to tailor tone, context, or priorities — do not assume facts that are not in the wiki or tools.\n`
+  const path = join(wikiRoot, 'me.md')
+  if (!existsSync(path)) return ''
+  let body: string
+  try {
+    body = readFileSync(path, 'utf-8')
+  } catch {
+    return ''
+  }
+  return `\n## User profile (me.md)\nThe block below is the user's profile from **me.md** at the wiki root. It is core context for this session—use it to tailor tone, context, and priorities. Do not assume facts that are not in the wiki, tools, or this profile. **Do not** call the read tool for \`me.md\` unless the user explicitly asks you to reload it.\n\n${USER_PROFILE_BEGIN}\n${body}${body.endsWith('\n') ? '' : '\n'}${USER_PROFILE_END}\n`
 }
 
 function buildBaseSystemPrompt(includeImessageCapabilities: boolean, wikiRoot: string): string {

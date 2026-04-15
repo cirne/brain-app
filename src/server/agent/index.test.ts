@@ -21,11 +21,15 @@ describe('meProfilePromptSection', () => {
     expect(meProfilePromptSection(wiki)).toBe('')
   })
 
-  it('includes guidance when me.md exists', async () => {
-    await writeFile(join(wiki, 'me.md'), '# Me\n', 'utf-8')
+  it('injects me.md body and instruction when file exists', async () => {
+    await writeFile(join(wiki, 'me.md'), '# Me\n\nLew', 'utf-8')
     const { meProfilePromptSection } = await import('./index.js')
     const s = meProfilePromptSection(wiki)
-    expect(s).toContain('User profile')
-    expect(s).toContain('me.md')
+    expect(s).toContain('User profile (me.md)')
+    expect(s).toContain('read tool for')
+    expect(s).toContain('<<<BEGIN_USER_PROFILE_FROM_ME_MD>>>')
+    expect(s).toContain('<<<END_USER_PROFILE_FROM_ME_MD>>>')
+    expect(s).toContain('# Me')
+    expect(s).toContain('Lew')
   })
 })
