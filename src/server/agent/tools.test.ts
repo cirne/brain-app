@@ -32,6 +32,8 @@ describe('createAgentTools', () => {
     expect(names).toContain('write')
     expect(names).toContain('grep')
     expect(names).toContain('find')
+    expect(names).toContain('move_file')
+    expect(names).toContain('delete_file')
     expect(names).toContain('search_email')
     expect(names).toContain('read_email')
     expect(names).toContain('list_inbox')
@@ -618,6 +620,75 @@ fi
     const result = await grepTool.execute('test-2', { pattern: 'foo idea', path: '.' })
     const text = result.content.map((c: any) => c.text).join('')
     expect(text).toContain('foo')
+  })
+
+  describe('move_file and delete_file tools', () => {
+    let histFile: string
+
+    beforeEach(() => {
+      histFile = join(wikiDir, 'wiki-edits-move-del.jsonl')
+      process.env.WIKI_EDIT_HISTORY_PATH = histFile
+    })
+
+    afterEach(() => {
+      delete process.env.WIKI_EDIT_HISTORY_PATH
+    })
+
+    it('move_file renames within the wiki and appends history', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const move = tools.find((t: any) => t.name === 'move_file')!
+      const result = await move.execute('mv-1', { from: 'ideas/foo.md', to: 'ideas/bar.md' })
+      expect(result.content[0].text).toContain('ideas/foo.md')
+      expect(result.content[0].text).toContain('ideas/bar.md')
+      const { readFile, access } = await import('node:fs/promises')
+      await expect(access(join(wikiDir, 'ideas', 'bar.md'))).resolves.toBeUndefined()
+      await expect(access(join(wikiDir, 'ideas', 'foo.md'))).rejects.toMatchObject({ code: 'ENOENT' })
+      const raw = await readFile(histFile, 'utf8')
+      const rec = JSON.parse(raw.trim()) as { op: string; path: string; fromPath?: string }
+      expect(rec.op).toBe('move')
+      expect(rec.path).toBe('ideas/bar.md')
+      expect(rec.fromPath).toBe('ideas/foo.md')
+    })
+
+    it('move_file rejects path traversal', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const move = tools.find((t: any) => t.name === 'move_file')!
+      await expect(move.execute('mv-bad', { from: 'ideas/foo.md', to: '../../../etc/passwd' })).rejects.toThrow(
+        'wiki directory',
+      )
+    })
+
+    it('move_file fails when destination exists', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const move = tools.find((t: any) => t.name === 'move_file')!
+      await expect(
+        move.execute('mv-dup', { from: 'ideas/foo.md', to: 'index.md' }),
+      ).rejects.toThrow('already exists')
+    })
+
+    it('delete_file removes a wiki file and appends history', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const del = tools.find((t: any) => t.name === 'delete_file')!
+      const result = await del.execute('del-1', { path: 'ideas/foo.md' })
+      expect(result.content[0].text).toContain('ideas/foo.md')
+      const { access, readFile } = await import('node:fs/promises')
+      await expect(access(join(wikiDir, 'ideas', 'foo.md'))).rejects.toMatchObject({ code: 'ENOENT' })
+      const raw = await readFile(histFile, 'utf8')
+      const rec = JSON.parse(raw.trim()) as { op: string; path: string }
+      expect(rec.op).toBe('delete')
+      expect(rec.path).toBe('ideas/foo.md')
+    })
+
+    it('delete_file rejects path traversal', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const del = tools.find((t: any) => t.name === 'delete_file')!
+      await expect(del.execute('del-bad', { path: '../../../etc/passwd' })).rejects.toThrow('wiki directory')
+    })
   })
 })
 

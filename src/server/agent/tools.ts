@@ -249,7 +249,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       try {
         await stat(fromAbs)
       } catch (e: unknown) {
-        const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined
+        const code = typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : ''
         if (code === 'ENOENT') throw new Error(`Source does not exist: ${params.from}`)
         throw e
       }
@@ -257,7 +257,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         await stat(toAbs)
         throw new Error(`Destination already exists: ${params.to}`)
       } catch (e: unknown) {
-        const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined
+        const code = typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : ''
         if (code !== 'ENOENT') throw e
       }
       await mkdir(dirname(toAbs), { recursive: true })

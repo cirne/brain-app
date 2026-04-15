@@ -46,4 +46,11 @@ describe('wikiEditHistory', () => {
     const wikiDir = join(tmp, 'wiki')
     expect(normalizeWikiRelativePath(wikiDir, join(wikiDir, 'people', 'x.md'))).toBe('people/x.md')
   })
+
+  it('resolveSafeWikiPath throws on escape or wiki root', async () => {
+    const { resolveSafeWikiPath } = await import('./wikiEditHistory.js')
+    const wikiDir = join(tmp, 'wiki-root')
+    expect(() => resolveSafeWikiPath(wikiDir, '../../../etc/passwd')).toThrow('wiki directory')
+    expect(() => resolveSafeWikiPath(wikiDir, '.')).toThrow('wiki directory')
+  })
 })
