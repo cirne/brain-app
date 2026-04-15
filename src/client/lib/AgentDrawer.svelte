@@ -5,7 +5,7 @@
   import { contextPlaceholder } from './agentUtils.js'
   import { emit } from './app/appEvents.js'
   import { MessageSquarePlus } from 'lucide-svelte'
-  import AgentConversation from './AgentConversation.svelte'
+  import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import AgentInput from './AgentInput.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
