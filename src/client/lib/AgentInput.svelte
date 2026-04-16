@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowUp } from 'lucide-svelte'
   import WikiFileName from './WikiFileName.svelte'
-  import type { SkillMenuItem } from './skillMenuTypes.js'
+  import type { SkillMenuItem } from './agentUtils.js'
 
   let {
     placeholder = 'Ask anything...',
@@ -177,7 +177,6 @@
         >
           <span class="slash-slash">/{skill.name}</span>
           <span class="slash-label">{skill.label}</span>
-          <span class="slash-desc">{skill.description}</span>
         </button>
       {:else}
         <div class="mention-empty">No matching skills</div>
@@ -268,9 +267,8 @@
 
   .slash-item {
     display: flex;
-    flex-wrap: wrap;
     align-items: baseline;
-    gap: 6px 10px;
+    gap: 8px;
   }
   .slash-slash {
     font-weight: 600;
@@ -281,13 +279,6 @@
     font-size: 12px;
     color: var(--text);
     flex-shrink: 0;
-  }
-  .slash-desc {
-    width: 100%;
-    font-size: 11px;
-    color: var(--text-2);
-    line-height: 1.3;
-    padding-left: 0;
   }
 
   .input-row {

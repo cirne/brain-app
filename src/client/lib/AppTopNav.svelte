@@ -170,7 +170,8 @@
     align-items: stretch;
     height: var(--tab-h);
     border-bottom: 1px solid var(--border);
-    background: var(--bg-2);
+    background-color: var(--bg-2);
+    background-image: none;
     flex-shrink: 0;
   }
 
@@ -184,6 +185,8 @@
     min-height: 100%;
     padding: 0 10px;
     box-sizing: border-box;
+    background-color: var(--bg-2);
+    background-image: none;
   }
 
   .nav-left--wide {

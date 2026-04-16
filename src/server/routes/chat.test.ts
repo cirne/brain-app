@@ -55,6 +55,22 @@ describe('POST /api/chat', () => {
     const contentType = res.headers.get('content-type')
     expect(contentType).toContain('text/event-stream')
   })
+
+  it('returns static assistant SSE for unknown slash command', async () => {
+    const { default: chatRoute } = await import('./chat.js')
+    const app = new Hono()
+    app.route('/api/chat', chatRoute)
+
+    const res = await app.request('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: '/not_a_skill_xyz' }),
+    })
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    expect(text).toContain('Unknown skill')
+    expect(text).toContain('not_a_skill_xyz')
+  })
 })
 
 describe('POST /api/chat with context', () => {

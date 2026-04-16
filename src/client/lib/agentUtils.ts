@@ -22,6 +22,15 @@ export type ChatMessage = {
   thinking?: string
 }
 
+/** GET /api/skills row — slash menu in AgentInput. */
+export type SkillMenuItem = {
+  name: string
+  label: string
+  description: string
+  hint?: string
+  args?: string
+}
+
 /** Extract wiki file paths referenced in assistant messages (tool args + wiki: links). */
 export function extractReferencedFiles(messages: ChatMessage[]): string[] {
   const seen = new Set<string>()

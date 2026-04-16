@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick, type Snippet } from 'svelte'
   import { type SurfaceContext } from '../router.js'
-  import { buildChatBody, extractMentionedFiles, type ChatMessage } from './agentUtils.js'
+  import { buildChatBody, extractMentionedFiles, type ChatMessage, type SkillMenuItem } from './agentUtils.js'
   import { contextPlaceholder } from './agentUtils.js'
   import { emit } from './app/appEvents.js'
   import { consumeAgentChatStream } from './agentStream.js'
@@ -19,7 +19,6 @@
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
   import type { AgentOpenSource } from './navigateFromAgentOpen.js'
-  import type { SkillMenuItem } from './skillMenuTypes.js'
 
   let {
     context = { type: 'none' } as SurfaceContext,

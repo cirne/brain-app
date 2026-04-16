@@ -68,7 +68,7 @@ Fallback cascade for the ghost text, if the author didn't set `hint`:
 
 So the Slack-style UX works out of the box:
 
-- Menu row: `**/draft**` — `Draft email` · *draft a new email*
+- Menu row: `**/draft`** — `Draft email` · *draft a new email*
 - After selection, cursor sits at `/draft |` with ghost text `<to> — <what>` (or `draft a new email` if `args` is empty)
 - First character the user types replaces the ghost text
 

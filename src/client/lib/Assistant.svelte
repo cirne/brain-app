@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
+  import { fly } from 'svelte/transition'
   import Search from './Search.svelte'
   import AppTopNav from './AppTopNav.svelte'
   import SlideOver from './SlideOver.svelte'
@@ -58,8 +59,10 @@
   let chatHistory = $state<{ refresh: () => Promise<void> } | undefined>()
   let activeSessionId = $state<string | null>(null)
 
-  const showInline = $derived(!isMobile && sidebarOpen)
-  const showOverlay = $derived(isMobile && sidebarOpen)
+  const SIDEBAR_FLY_X = 280
+
+  /** Instant open/close when user prefers reduced motion. */
+  let reduceSidebarMotion = $state(false)
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
 
@@ -89,6 +92,11 @@
     const mq = window.matchMedia('(max-width: 767px)')
     const syncMobile = () => { isMobile = mq.matches }
     syncMobile()
+
+    const mqReduce = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const syncReduce = () => { reduceSidebarMotion = mqReduce.matches }
+    syncReduce()
+    mqReduce.addEventListener('change', syncReduce)
 
     const prefs = loadSidebarPrefs()
     if (mq.matches) {
@@ -158,6 +166,7 @@
 
     return () => {
       mq.removeEventListener('change', onMqChange)
+      mqReduce.removeEventListener('change', syncReduce)
       window.removeEventListener('popstate', onPopState)
       window.removeEventListener('keydown', onKeydown)
     }
@@ -428,9 +437,9 @@
     onReRunOnboarding={reRunOnboarding}
   />
 
-  <div class="app-main-row">
-    {#if showInline || showOverlay}
-      {#if showOverlay}
+    <div class="app-main-row">
+    {#if sidebarOpen}
+      {#if isMobile}
         <div
           class="sidebar-backdrop"
           role="presentation"
@@ -438,7 +447,17 @@
           onclick={() => { sidebarOpen = false }}
         ></div>
       {/if}
-      <aside class="history-sidebar" class:overlay={showOverlay} class:inline={showInline}>
+      <aside
+        class="history-sidebar history-sidebar--slide"
+        in:fly={{
+          x: reduceSidebarMotion ? 0 : -SIDEBAR_FLY_X,
+          duration: reduceSidebarMotion ? 0 : 220,
+        }}
+        out:fly={{
+          x: reduceSidebarMotion ? 0 : -SIDEBAR_FLY_X,
+          duration: reduceSidebarMotion ? 0 : 220,
+        }}
+      >
         <ChatHistory
           bind:this={chatHistory}
           activeSessionId={activeSessionId}
@@ -555,15 +574,8 @@
     min-height: 0;
   }
 
-  .history-sidebar.inline {
-    width: var(--sidebar-history-w);
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--border);
-  }
-
-  .history-sidebar.overlay {
+  /** Fixed slide-over panel (desktop + mobile); enter/exit via `fly` transition. */
+  .history-sidebar--slide {
     position: fixed;
     left: 0;
     top: var(--tab-h);
@@ -572,22 +584,14 @@
     z-index: 200;
     display: flex;
     flex-direction: column;
+    border-right: 1px solid var(--border);
     box-shadow: 8px 0 32px rgba(0, 0, 0, 0.35);
-    animation: slideInHistory 0.22s ease-out;
+    background: var(--bg-2);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .history-sidebar.overlay {
-      animation: none;
-    }
-  }
-
-  @keyframes slideInHistory {
-    from {
-      transform: translateX(-100%);
-    }
-    to {
-      transform: translateX(0);
+    .history-sidebar--slide {
+      box-shadow: none;
     }
   }
 
