@@ -1,12 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { MessageSquare, Mail, Pin, PinOff, Trash2, X, Plus } from 'lucide-svelte'
-  import {
-    CHAT_HISTORY_GROUP_LABEL,
-    CHAT_HISTORY_GROUP_ORDER,
-    type ChatHistoryGroupKey,
-    groupKeyForUpdatedAt,
-  } from './chatHistoryGroups.js'
   import { labelForDeleteChatDialog } from './chatHistoryDelete.js'
   import {
     loadNavHistory,
@@ -51,7 +45,7 @@
   let error = $state<string | null>(null)
   let pendingDelete = $state<{ sessionId: string; label: string } | null>(null)
 
-  type UnifiedItem = {
+  type NavRowItem = {
     id: string
     type: 'chat' | 'email' | 'doc'
     title: string
@@ -61,21 +55,20 @@
     sessionId?: string
   }
 
-  const unified = $derived.by(() => {
-    const items: UnifiedItem[] = []
+  const chatItems = $derived.by(() => {
+    const items: NavRowItem[] = sessions.map((s) => ({
+      id: `chat:${s.sessionId}`,
+      type: 'chat' as const,
+      title: s.title?.trim() || s.preview?.trim() || 'New chat',
+      timestamp: s.updatedAt,
+      sessionId: s.sessionId,
+    }))
+    items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    return items
+  })
 
-    // Add chat sessions
-    for (const s of sessions) {
-      items.push({
-        id: `chat:${s.sessionId}`,
-        type: 'chat',
-        title: s.title?.trim() || s.preview?.trim() || 'New chat',
-        timestamp: s.updatedAt,
-        sessionId: s.sessionId,
-      })
-    }
-
-    // Add nav history items (docs, emails)
+  const recentItems = $derived.by(() => {
+    const items: NavRowItem[] = []
     for (const h of navHistory) {
       if (h.type === 'doc' || h.type === 'email') {
         items.push({
@@ -88,26 +81,8 @@
         })
       }
     }
-
-    // Sort by timestamp descending
     items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-
     return items
-  })
-
-  const grouped = $derived.by(() => {
-    const order = CHAT_HISTORY_GROUP_ORDER
-    const buckets = new Map<ChatHistoryGroupKey, UnifiedItem[]>()
-    for (const k of order) buckets.set(k, [])
-    for (const item of unified) {
-      const k = groupKeyForUpdatedAt(item.timestamp)
-      buckets.get(k)!.push(item)
-    }
-    return order.filter((k) => (buckets.get(k)?.length ?? 0) > 0).map((k) => ({
-      key: k,
-      label: CHAT_HISTORY_GROUP_LABEL[k],
-      items: buckets.get(k)!,
-    }))
   })
 
   function shortTime(iso: string): string {
@@ -135,7 +110,7 @@
     }
   }
 
-  function handleItemClick(item: UnifiedItem) {
+  function handleItemClick(item: NavRowItem) {
     if (item.type === 'chat' && item.sessionId) {
       onSelect(item.sessionId)
     } else if (item.type === 'doc' && item.path && onSelectDoc) {
@@ -145,13 +120,12 @@
     }
   }
 
-  function requestDelete(e: MouseEvent, item: UnifiedItem) {
+  function requestDelete(e: MouseEvent, item: NavRowItem) {
     e.stopPropagation()
     e.preventDefault()
     if (item.type === 'chat' && item.sessionId) {
       pendingDelete = { sessionId: item.sessionId, label: labelForDeleteChatDialog(item.title) }
     } else {
-      // For docs/emails, remove from nav history
       navHistory = removeFromNavHistory(item.id)
     }
   }
@@ -188,6 +162,47 @@
 
 <svelte:window onkeydown={onDeleteDialogKeydown} />
 
+{#snippet navRow(item: NavRowItem)}
+  <div
+    class="ch-row"
+    class:active={item.type === 'chat' && activeSessionId === item.sessionId}
+    role="button"
+    tabindex="0"
+    onclick={() => handleItemClick(item)}
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        handleItemClick(item)
+      }
+    }}
+  >
+    {#if item.type === 'doc' && item.path}
+      <span class="ch-row-doc">
+        <WikiFileName path={item.path} />
+      </span>
+    {:else}
+      <span class="ch-row-icon" class:ch-row-icon--chat={item.type === 'chat'} class:ch-row-icon--email={item.type === 'email'}>
+        {#if item.type === 'chat'}
+          <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
+        {:else if item.type === 'email'}
+          <Mail size={12} strokeWidth={2} aria-hidden="true" />
+        {/if}
+      </span>
+      <span class="ch-row-title">{item.title}</span>
+    {/if}
+    <span class="ch-row-time">{shortTime(item.timestamp)}</span>
+    <button
+      type="button"
+      class="ch-row-delete"
+      title={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
+      aria-label={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
+      onclick={(e) => requestDelete(e, item)}
+    >
+      <Trash2 size={12} strokeWidth={2} aria-hidden="true" />
+    </button>
+  </div>
+{/snippet}
+
 <div class="chat-history">
   <div class="ch-head">
     <span class="ch-title">History</span>
@@ -223,54 +238,28 @@
       <div class="ch-muted">Loading…</div>
     {:else if error}
       <div class="ch-error">{error}</div>
-    {:else if unified.length === 0}
-      <div class="ch-muted">No history yet.</div>
     {:else}
-      {#each grouped as g (g.key)}
-        <div class="ch-group">
-          <div class="ch-group-label">{g.label}</div>
-          {#each g.items as item (item.id)}
-            <div
-              class="ch-row"
-              class:active={item.type === 'chat' && activeSessionId === item.sessionId}
-              role="button"
-              tabindex="0"
-              onclick={() => handleItemClick(item)}
-              onkeydown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  handleItemClick(item)
-                }
-              }}
-            >
-              {#if item.type === 'doc' && item.path}
-                <span class="ch-row-doc">
-                  <WikiFileName path={item.path} />
-                </span>
-              {:else}
-                <span class="ch-row-icon" class:ch-row-icon--chat={item.type === 'chat'} class:ch-row-icon--email={item.type === 'email'}>
-                  {#if item.type === 'chat'}
-                    <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
-                  {:else if item.type === 'email'}
-                    <Mail size={12} strokeWidth={2} aria-hidden="true" />
-                  {/if}
-                </span>
-                <span class="ch-row-title">{item.title}</span>
-              {/if}
-              <span class="ch-row-time">{shortTime(item.timestamp)}</span>
-              <button
-                type="button"
-                class="ch-row-delete"
-                title={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
-                aria-label={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
-                onclick={(e) => requestDelete(e, item)}
-              >
-                <Trash2 size={12} strokeWidth={2} aria-hidden="true" />
-              </button>
-            </div>
+      <div class="ch-group">
+        <div class="ch-group-label">Chats</div>
+        {#if chatItems.length === 0}
+          <div class="ch-muted ch-muted--section">No chats yet.</div>
+        {:else}
+          {#each chatItems as item (item.id)}
+            {@render navRow(item)}
           {/each}
-        </div>
-      {/each}
+        {/if}
+      </div>
+
+      <div class="ch-group ch-group--recents">
+        <div class="ch-group-label">Recents</div>
+        {#if recentItems.length === 0}
+          <div class="ch-muted ch-muted--section">No recent documents or email.</div>
+        {:else}
+          {#each recentItems as item (item.id)}
+            {@render navRow(item)}
+          {/each}
+        {/if}
+      </div>
     {/if}
   </div>
 
@@ -384,6 +373,11 @@
     color: var(--text-2);
   }
 
+  .ch-muted--section {
+    padding: 6px 6px 8px;
+    font-style: italic;
+  }
+
   .ch-error {
     padding: 10px;
     font-size: 11px;
@@ -391,10 +385,17 @@
   }
 
   .ch-group {
-    margin-top: 8px;
+    margin-top: 6px;
   }
+
   .ch-group:first-child {
     margin-top: 2px;
+  }
+
+  .ch-group--recents {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
   }
 
   .ch-group-label {
@@ -403,7 +404,7 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-2);
-    padding: 2px 6px 4px;
+    padding: 2px 6px 6px;
   }
 
   .ch-row {
