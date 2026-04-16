@@ -5,7 +5,7 @@
   type Props = {
     /** When false, hides the chat history control (e.g. onboarding uses the same top bar without history). */
     showChatHistoryButton?: boolean
-    /** Mobile drawer open — desktop always has nav open. */
+    /** Whether the history sidebar is open (desktop or mobile). */
     sidebarOpen?: boolean
     isMobile?: boolean
     onToggleSidebar: () => void
@@ -42,9 +42,9 @@
     onReRunOnboarding,
   }: Props = $props()
 
-  /** Sidebar visible: desktop always; mobile when drawer open. */
-  const navOpen = $derived(!isMobile || sidebarOpen)
-  /** Center title only when nav is collapsed (mobile drawer closed). */
+  /** Sidebar open (wide header + list): desktop or mobile. */
+  const navOpen = $derived(sidebarOpen)
+  /** Center title only when nav is collapsed. */
   const showCenterBrand = $derived(!showChatHistoryButton || !navOpen)
 </script>
 
@@ -56,17 +56,15 @@
           <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
           <span class="nav-brand-title">Brain</span>
         </div>
-        {#if isMobile}
-          <button
-            type="button"
-            class="nav-sidebar-close"
-            onclick={onToggleSidebar}
-            title="Close sidebar"
-            aria-label="Close sidebar"
-          >
-            <X size={18} strokeWidth={2} aria-hidden="true" />
-          </button>
-        {/if}
+        <button
+          type="button"
+          class="nav-sidebar-close"
+          onclick={onToggleSidebar}
+          title="Close sidebar"
+          aria-label="Close sidebar"
+        >
+          <X size={18} strokeWidth={2} aria-hidden="true" />
+        </button>
       {:else}
         <button
           class="menu-btn"

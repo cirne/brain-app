@@ -6,8 +6,10 @@ import { existsSync } from 'node:fs'
 export const repoDir = () => process.env.WIKI_DIR ?? '/wiki'
 
 /** User skills (slash commands): `<WIKI_DIR>/skills` — sibling of `wiki/`, not inside wiki content. */
-export const skillsDir = () => process.env.WIKI_DIR ?? '/wiki' + '/skills'
+export const skillsDir = () => join(repoDir(), 'skills')
 
+/**
+ * Wiki content directory: `<WIKI_DIR>/wiki` if it exists, otherwise `<WIKI_DIR>` itself.
  * Matches the layout of the cirne/brain repo where markdown lives under the `wiki/` subdir.
  */
 export const wikiDir = () => {

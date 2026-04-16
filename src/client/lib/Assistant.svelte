@@ -23,17 +23,17 @@
 
   const SIDEBAR_KEY = 'brain-sidebar'
 
-  function loadSidebarPrefs(): { mobileOpen: boolean } {
+  function loadSidebarPrefs(): { sidebarOpen?: boolean } {
     try {
       const raw = localStorage.getItem(SIDEBAR_KEY)
       if (raw) {
         const o = JSON.parse(raw) as Record<string, unknown>
-        if (typeof o.mobileOpen === 'boolean') return { mobileOpen: o.mobileOpen }
-        // Legacy { open, pinned }
-        if (typeof o.open === 'boolean') return { mobileOpen: o.open }
+        if (typeof o.sidebarOpen === 'boolean') return { sidebarOpen: o.sidebarOpen }
+        if (typeof o.mobileOpen === 'boolean') return { sidebarOpen: o.mobileOpen }
+        if (typeof o.open === 'boolean') return { sidebarOpen: o.open }
       }
     } catch { /* ignore */ }
-    return { mobileOpen: false }
+    return {}
   }
 
   let route = $state<Route>(parseRoute())
@@ -53,12 +53,12 @@
   let workspaceSplit = $state<WorkspaceSplit | undefined>()
   let isMobile = $state(false)
 
-  /** Mobile drawer; desktop always shows the sidebar (pinned). */
+  /** History sidebar open (desktop inline or mobile overlay). */
   let sidebarOpen = $state(false)
   let chatHistory = $state<{ refresh: () => Promise<void> } | undefined>()
   let activeSessionId = $state<string | null>(null)
 
-  const showInline = $derived(!isMobile)
+  const showInline = $derived(!isMobile && sidebarOpen)
   const showOverlay = $derived(isMobile && sidebarOpen)
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
@@ -92,9 +92,9 @@
 
     const prefs = loadSidebarPrefs()
     if (mq.matches) {
-      sidebarOpen = prefs.mobileOpen
+      sidebarOpen = prefs.sidebarOpen ?? false
     } else {
-      sidebarOpen = true
+      sidebarOpen = prefs.sidebarOpen ?? true
     }
 
     loadWikiEditHistory()
@@ -102,17 +102,15 @@
     const onPopState = () => { route = parseRoute() }
     window.addEventListener('popstate', onPopState)
     const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (isMobile && sidebarOpen) {
-          e.preventDefault()
-          sidebarOpen = false
-          return
-        }
-      }
       if (e.key === 'Escape' && route.overlay) {
         e.preventDefault()
         if (isMobile && mobileSlideOver) mobileSlideOver.closeAnimated()
         else closeOverlay()
+        return
+      }
+      if (e.key === 'Escape' && sidebarOpen) {
+        e.preventDefault()
+        sidebarOpen = false
         return
       }
       const action = matchGlobalShortcut(e)
@@ -155,7 +153,6 @@
 
     const onMqChange = () => {
       syncMobile()
-      if (!mq.matches) sidebarOpen = true
     }
     mq.addEventListener('change', onMqChange)
 
@@ -330,14 +327,12 @@
   })
 
   $effect(() => {
-    if (!isMobile) return
     try {
-      localStorage.setItem(SIDEBAR_KEY, JSON.stringify({ mobileOpen: sidebarOpen }))
+      localStorage.setItem(SIDEBAR_KEY, JSON.stringify({ sidebarOpen }))
     } catch { /* ignore */ }
   })
 
   function toggleSidebar() {
-    if (!isMobile) return
     sidebarOpen = !sidebarOpen
     if (sidebarOpen) void chatHistory?.refresh()
   }

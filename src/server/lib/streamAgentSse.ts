@@ -1,4 +1,4 @@
-import type { Agent } from '@mariozechner/pi-agent-core'
+import type { Agent, AgentMessage } from '@mariozechner/pi-agent-core'
 import type { Context } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { readFile } from 'node:fs/promises'
