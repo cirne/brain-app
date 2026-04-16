@@ -15,9 +15,8 @@ import searchRoute from './routes/search.js'
 import imessageRoute from './routes/imessage.js'
 import onboardingRoute from './routes/onboarding.js'
 import devRoute from './routes/dev.js'
-import { logStartupDiagnostics } from './lib/startupDiagnostics.js'
 import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
-import { verifyLlmAtStartup } from './lib/llmStartupSmoke.js'
+import { runStartupChecks } from './lib/runStartupChecks.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
 
 loadDotEnv()
@@ -101,8 +100,6 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
 async function start() {
   try {
     initLocalMessageToolsAvailability()
-    await verifyLlmAtStartup()
-    await logStartupDiagnostics()
 
     if (isDev) {
       // In dev: Vite runs as middleware inside the same server.
@@ -129,6 +126,7 @@ async function start() {
       server.listen(port, () => {
         console.log(`Dev server (Hono + Vite HMR) → http://localhost:${port}`)
         registerPeriodicSyncAndShutdown(server)
+        void runStartupChecks()
       })
     } else {
       // In production: serve pre-built client from dist/client
@@ -137,6 +135,7 @@ async function start() {
       const server = serve({ fetch: app.fetch, port }, () => {
         console.log(`Server running on http://localhost:${port}`)
         registerPeriodicSyncAndShutdown(server)
+        void runStartupChecks()
       })
     }
   } catch (e) {

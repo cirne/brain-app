@@ -1,29 +1,36 @@
 # brain-app
 
-Hono + Svelte + pi-agent-core web app. Personal assistant with three surfaces: Chat (agentic), Wiki browser, Inbox (ripmail).
+Hono + Svelte + pi-agent-core web app: Chat (agentic), Wiki browser, and Inbox (ripmail).
 
-See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for full product spec.
+**Scope:** This file is for working on the **repository**—stack, dev workflow, and conventions. It is not a catalog of LLM tools or agent runtime behavior; that lives in `src/server/agent/` (see code and tests there).
+
+See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product spec.
 
 ## Developer docs
 
 - [docs/VISION.md](docs/VISION.md) — product vision and long-term direction
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, env vars
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, configuration overview
 - [docs/BUGS.md](docs/BUGS.md) — known bugs (active + archived)
-- [docs/OPPORTUNITIES.md](docs/OPPORTUNITIES.md) — feature ideas and improvements
+- [docs/OPPORTUNITIES.md](docs/OPPORTUNITIES.md) — feature ideas and improvements (WIP and future)
 - [docs/PRODUCTIZATION.md](docs/PRODUCTIZATION.md) — blockers and tradeoffs for generalizing to multi-user product
 
 ## Stack
 
-| Layer | Package |
-|---|---|
-| Server | Hono + @hono/node-server |
-| Agent | @mariozechner/pi-agent-core + pi-coding-agent |
-| LLM | @mariozechner/pi-ai (multi-provider: Anthropic, OpenAI, etc.) |
-| Chat UI | Svelte 5 (custom streaming SSE client) |
-| Wiki / Inbox UI | Svelte 5 |
-| Email | ripmail binary (subprocess) |
-| DB | better-sqlite3 (app state; ripmail manages its own SQLite) |
-| Deploy | Fly.io via Dockerfile |
+
+| Layer           | Package                                                       |
+| --------------- | ------------------------------------------------------------- |
+| Server          | Hono + @hono/node-server                                      |
+| Agent           | @mariozechner/pi-agent-core + pi-coding-agent                 |
+| LLM             | @mariozechner/pi-ai (multi-provider: Anthropic, OpenAI, etc.) |
+| Chat UI         | Svelte 5 (custom streaming SSE client)                        |
+| Wiki / Inbox UI | Svelte 5                                                      |
+| Email           | ripmail binary (subprocess)                                   |
+| DB              | better-sqlite3 (app state; ripmail manages its own SQLite)    |
+
+
+## Configuration
+
+Copy `[.env.example](.env.example)` to `.env` and edit. Variable names and inline comments live in `.env.example`; semantics and architecture-level notes are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Dev
 
@@ -37,97 +44,21 @@ Single server: Vite runs as middleware inside Hono. API requests go to Hono rout
 
 Auth is skipped in dev mode (`NODE_ENV !== 'production'`).
 
-## Env vars
+### Native macOS (Tauri v2)
 
-| Var | Default | Purpose |
-|---|---|---|
-| `AUTH_USER` | `lew` | Basic auth username (prod only) |
-| `AUTH_PASS` | `changeme` | Basic auth password (prod only) |
-| `WIKI_DIR` | `/wiki` | Path to wiki (brain repo root or wiki subdir) |
-| `WIKI_GIT_TOKEN` | — | Authenticated HTTPS git clone URL for the wiki (e.g. `https://x-access-token:PAT@github.com/org/repo.git`). If unset, clones public `cirne/brain` read-only |
-| `RIPMAIL_BIN` | `ripmail` | Path to ripmail binary |
-| `RIPMAIL_HOME` | `~/.ripmail` | Ripmail config + SQLite (Dockerfile sets `/ripmail`) |
-| `RIPMAIL_EMAIL_ADDRESS` | — | Gmail address for non-interactive `ripmail setup` in `start.sh` when no config |
-| `RIPMAIL_IMAP_PASSWORD` | — | Gmail app password for that setup |
-| `OPENAI_API_KEY` | — | Used by ripmail setup validation and optional ripmail LLM features |
-| `ANTHROPIC_API_KEY` | — | Required for agent |
-| `LLM_PROVIDER` | `anthropic` | LLM provider (anthropic, openai, google, etc.) |
-| `LLM_MODEL` | `claude-sonnet-4-20250514` | Model ID |
-| `PORT` | `3000` | HTTP port |
-| `SYNC_INTERVAL_SECONDS` | `300` | Seconds between in-process full syncs (wiki git + ripmail + calendar); invalid/unset uses default |
+Optional: run the same stack inside a native window (see [OPP-007](docs/opportunities/OPP-007-native-mac-app.md)).
 
-Create a `.env` file locally (it is gitignored).
-
-## Structure
-
-```
-src/
-  server/
-    index.ts           # Hono entry point, auth, Vite middleware
-    sync-cli.ts        # `npm run sync` — full sync (wiki + inbox + calendar); used by start.sh
-    routes/
-      chat.ts          # POST /api/chat (SSE), GET /api/chat/sessions, DELETE session
-      chat.test.ts     # Chat route tests
-      wiki.ts          # GET /api/wiki, /api/wiki/search, /api/wiki/:path
-      wiki.test.ts     # Wiki route tests
-      inbox.ts         # GET/POST /api/inbox (ripmail subprocess)
-    agent/
-      index.ts         # pi-agent-core session management + Agent factory
-      tools.ts         # pi-coding-agent file tools + custom ripmail/git tools
-      tools.test.ts    # Agent tools tests
-  client/
-    index.html         # Mobile-first meta tags
-    main.ts            # Svelte mount
-    style.css          # Dark theme design tokens
-    App.svelte         # Chat-first shell + detail SlideOver (wiki / inbox / calendar)
-    lib/
-      AgentChat.svelte  # SSE chat, tool viz, @mentions; mobile detail slot
-      SlideOver.svelte    # Detail panel (embeds Wiki / Inbox / Calendar)
-      Wiki.svelte         # Markdown viewer + go-to-file search
-      Inbox.svelte        # Email list + thread view + archive/read actions
+```sh
+npm run tauri:setup-sidecars   # symlinks src-tauri/binaries/ripmail-<triple> → ripmail on PATH
+npm run tauri:dev              # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
+npm run tauri:build            # npm build + bundle server + Brain.app (+ DMG)
 ```
 
-## API
+Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The ripmail sidecar symlink is gitignored; CI must provide the binary or run `tauri:setup-sidecars` when `ripmail` is on `PATH`.
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/chat` | SSE stream — body: `{message, sessionId?, context?}`; appends completed turns to JSON under `CHAT_DATA_DIR` |
-| GET | `/api/chat/sessions` | List persisted chat sessions (metadata) |
-| GET | `/api/chat/sessions/:sessionId` | Full persisted session JSON |
-| DELETE | `/api/chat/:sessionId` | Delete in-memory session and persisted file |
-| GET | `/api/wiki` | List all markdown files |
-| GET | `/api/wiki/search?q=...` | Search wiki content |
-| GET | `/api/wiki/git-status` | Git SHA + date |
-| GET | `/api/wiki/:path` | Read + render wiki page |
-| GET | `/api/inbox` | List inbox emails |
-| POST | `/api/inbox/sync` | Trigger IMAP sync |
-| GET | `/api/inbox/:id` | Read email thread |
-| POST | `/api/inbox/:id/archive` | Archive email |
-| POST | `/api/inbox/:id/read` | Mark email read |
-| GET | `/api/messages/thread` | Local SMS/text thread (macOS `chat.db` when readable); same handler as `/api/imessage/thread` |
+`tauri build` runs `npm run build && npm run tauri:bundle-server`, which copies `dist/`, production `node_modules`, and the current `node` binary into `src-tauri/resources/server-bundle/` (gitignored). The packaged app loads the UI from `http://localhost:3000` and starts that server via the bundled Node + `dist/server` (release only; dev still uses `npm run dev`).
 
-## Agent tools
-
-The agent has these tools (via pi-coding-agent + custom):
-- `read` — read file content (pi-coding-agent, scoped to WIKI_DIR)
-- `edit` — oldText/newText edit with fuzzy matching (pi-coding-agent)
-- `write` — create/overwrite files (pi-coding-agent)
-- `grep` — search file content (pi-coding-agent)
-- `find` — find files by name pattern (pi-coding-agent)
-- `search_email` — ripmail full-text search
-- `read_email` — read email thread by ID
-- `list_inbox` — inbox list via ripmail `inbox` (same as UI; use for bulk actions when search is wrong)
-- `inbox_rules` — composite `ripmail rules` (list/validate/add/edit/remove/move/feedback); rare
-- `archive_emails` — archive messages by ID (ripmail `archive`, batch)
-- `open` — open wiki path, email id, or calendar date in the app detail panel (client-side)
-- `web_search` — Exa web search for current info (requires `EXA_API_KEY`)
-- `fetch_page`, `youtube_search`, `get_youtube_transcript` — URL article text and YouTube search/transcripts (requires `SUPADATA_API_KEY`)
-- `list_recent_messages` — recent local SMS/text and iMessage (macOS Messages DB when readable; `IMESSAGE_DB_PATH` override)
-- `get_message_thread` — one conversation by `chat_identifier` from the same local store
-
-## Wiki
-
-Wiki content lives in the external brain repo at the path specified by `WIKI_DIR` in `.env` (locally `~/brain`, wiki at `~/brain/wiki`). **Never create or commit wiki/content `.md` files in this repository.** The agent reads and writes wiki files via its scoped file tools, which resolve to `WIKI_DIR` at runtime. Wiki schema and conventions are documented in `~/brain/CLAUDE.md`.
+**Embedded API keys (release builds):** set `BRAIN_EMBED_MASTER_KEY` in the environment when running `tauri build`. The build script reads allowlisted keys from the repo `.env` (`ANTHROPIC_API_KEY`, other `*_API_KEY` for LLM providers, `EXA_API_KEY`, `SUPADATA_API_KEY`), encrypts them, and embeds ciphertext in the Rust binary; Rust decrypts at launch and injects `process.env` for the Node child (no decryption in TypeScript). CI should set `BRAIN_EMBED_MASTER_KEY` and the same API key secrets as env vars (or a generated `.env`) rather than committing secrets. If `BRAIN_EMBED_MASTER_KEY` is unset, the bundle still builds but ships without embedded keys (users would need local configuration for those APIs).
 
 ## Development rules
 
@@ -135,17 +66,6 @@ Wiki content lives in the external brain repo at the path specified by `WIKI_DIR
 - **TDD for bugs**: reproduce with a failing test first, then fix, then confirm green.
 - **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests.
 - **DRY**: extract shared logic; never duplicate. Shared fixtures live in `src/server/test-fixtures.ts`.
-- **Test fixtures**: reuse the shared `wikiDir` fixture pattern (see existing tests). Don't create one-off temp dirs per test.
+- **Test fixtures**: reuse patterns from existing tests and shared helpers; avoid one-off temp dirs per test.
 - **No React, no Next.js**: Svelte 5 for all UI.
 
-## Deployment
-
-```sh
-npm run build        # builds client to dist/client, server to dist/server
-fly deploy           # builds Docker image and deploys
-```
-
-Pushes to `main` also build and push a container image to **GitHub Container Registry** (`ghcr.io/<owner>/<repo>`). For a private repo, pull hosts need a GitHub PAT with `read:packages` and `docker login ghcr.io` before `docker pull`. See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#deployment)** for the full flow (login, one-liner run with `--env-file .env`, optional volumes).
-
-Wiki content is not baked into the image — `start.sh` clones/pulls at runtime.
-In Docker, ripmail state lives under `/ripmail` inside the container (see `start.sh` and Dockerfile `RIPMAIL_HOME`); no bind mount or Fly volume by default.

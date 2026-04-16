@@ -73,18 +73,26 @@ async function runAppleMailSetup(c: Context) {
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
   const appleMailPath = typeof body.appleMailPath === 'string' ? body.appleMailPath.trim() : ''
   const rm = ripmailBin()
+  const home = ripmailHomePath()
   let cmd = `${rm} setup --apple-mail --no-validate --no-skill`
   if (appleMailPath) {
     cmd += ` --apple-mail-path ${JSON.stringify(appleMailPath)}`
   }
+  console.error('[onboarding/setup-mail] start', {
+    ripmailBin: rm,
+    ripmailHome: home,
+    home: process.env.HOME ?? '(unset)',
+  })
   try {
     await execAsync(cmd, {
       timeout: 120000,
-      env: { ...process.env, RIPMAIL_HOME: ripmailHomePath() },
+      env: { ...process.env, RIPMAIL_HOME: home },
     })
+    console.error('[onboarding/setup-mail] ok')
     return c.json({ ok: true as const })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
+    console.error('[onboarding/setup-mail] failed', msg)
     return c.json({ ok: false as const, error: msg }, 500)
   }
 }

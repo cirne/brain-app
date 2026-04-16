@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { Hono } from 'hono'
+import { chmodSync } from 'node:fs'
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -106,6 +107,40 @@ describe('onboarding routes', () => {
       body: JSON.stringify({ markdown: '# x\n' }),
     })
     expect(res.status).toBe(400)
+  })
+
+  it('POST /setup-mail returns 500 with error when ripmail exits non-zero', async () => {
+    if (process.platform === 'win32') {
+      return
+    }
+    const script = join(tmpdir(), `fake-ripmail-${Date.now()}.sh`)
+    await writeFile(script, '#!/bin/sh\nexit 1\n')
+    chmodSync(script, 0o755)
+    const prevBin = process.env.RIPMAIL_BIN
+    const prevHome = process.env.RIPMAIL_HOME
+    const fakeHome = await mkdtemp(join(tmpdir(), 'ripmail-home-'))
+    process.env.RIPMAIL_BIN = script
+    process.env.RIPMAIL_HOME = fakeHome
+    try {
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/setup-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      expect(res.status).toBe(500)
+      const j = (await res.json()) as { ok: boolean; error?: string }
+      expect(j.ok).toBe(false)
+      expect(j.error).toBeTruthy()
+    } finally {
+      if (prevBin === undefined) delete process.env.RIPMAIL_BIN
+      else process.env.RIPMAIL_BIN = prevBin
+      if (prevHome === undefined) delete process.env.RIPMAIL_HOME
+      else process.env.RIPMAIL_HOME = prevHome
+      await rm(script, { force: true })
+      await rm(fakeHome, { recursive: true, force: true })
+    }
   })
 
   it('POST /accept-profile copies draft to me.md when state is reviewing-profile', async () => {

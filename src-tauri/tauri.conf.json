@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.cirne.brain",
   "build": {
-    "frontendDist": "../dist/client",
+    "frontendDist": "http://localhost:3000",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run build && npm run tauri:bundle-server"
   },
   "app": {
     "windows": [
@@ -16,7 +16,8 @@
         "width": 800,
         "height": 600,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "url": "http://localhost:3000"
       }
     ],
     "security": {
@@ -26,6 +27,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": ["resources/server-bundle"],
     "externalBin": ["binaries/ripmail"],
     "icon": [
       "icons/32x32.png",

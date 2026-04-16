@@ -8,9 +8,12 @@ Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
 ## Active
 
-| ID | Title | Summary |
-|---|---|---|
+
+| ID      | Title                                | Summary                                                                                                                                                     |
+| ------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | BUG-001 | Wiki/docs show `\u2014` or em dashes | Unicode em dash (U+2014) sometimes appears as the literal escape `\u2014` in rendered text, and wiki copy often uses `—` where we prefer other punctuation. |
+| BUG-003 | Native Mac app ship blockers (Tauri) | Bundled **Brain.app** is buildable, but shipping a **zero-config** DMG (FDA-only) is blocked by secrets/env, log visibility, and slow **tauri build** iteration. See [bugs/BUG-003-native-mac-app-ship-blockers.md](bugs/BUG-003-native-mac-app-ship-blockers.md). |
+
 
 ### BUG-001: Escaped em dash and unwanted em dashes in docs
 
@@ -44,9 +47,11 @@ Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
 ## Fixed (archived)
 
-| ID | Title | Summary |
-|---|---|---|
+
+| ID      | Title                                            | Summary                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | BUG-002 | Chat: background stream hijacked the right panel | **Fixed:** Multi-session state in `AgentChat` (`chatSessionStore.ts` Map per session key); `consumeAgentChatStream` takes `isActiveSession` and skips panel-only callbacks when the user is viewing another chat. Background streams keep updating transcript; `pending:` keys migrate to server `sessionId` on SSE `session` event. Tests: `chatSessionStore.test.ts`, `agentStream.test.ts`, `agentChatMultiSession.test.ts`. |
+
 
 ### BUG-002 (archived): Chat — background stream hijacked the right panel
 

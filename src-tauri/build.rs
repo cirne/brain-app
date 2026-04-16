@@ -1,3 +1,8 @@
+#[path = "build/embed.rs"]
+mod embed;
+
 fn main() {
-    tauri_build::build()
+    println!("cargo:rerun-if-changed=build/embed.rs");
+    embed::run();
+    tauri_build::build();
 }

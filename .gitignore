@@ -11,3 +11,4 @@ data/
 coverage/
 src-tauri/target/
 src-tauri/binaries/ripmail-*
+src-tauri/resources/server-bundle/

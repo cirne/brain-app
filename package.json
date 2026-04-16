@@ -22,6 +22,7 @@
     "ci": "npm run lint && npm run typecheck && npm run test",
     "tauri": "tauri",
     "tauri:setup-sidecars": "node scripts/link-ripmail-sidecar.mjs",
+    "tauri:bundle-server": "node scripts/bundle-tauri-server.mjs",
     "tauri:dev": "npm run tauri:setup-sidecars && tauri dev",
     "tauri:build": "npm run tauri:setup-sidecars && tauri build"
   },

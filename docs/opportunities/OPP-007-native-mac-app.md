@@ -361,6 +361,14 @@ Phase 2: Windows if there's demand
 - **[OPP-006: Email Bootstrap](./OPP-006-email-bootstrap-onboarding.md)** — Still applies; email is OAuth regardless of packaging
 - **[OPP-003: iMessage](./OPP-003-iMessage-integration.md)** — Native app makes this first-class instead of "Mac-only bonus"
 
+## Blocking bug (packaging ship readiness)
+
+We can **build** a Tauri **Brain.app** / **DMG**, but a **shareable, zero-config** install (user grants **Full Disk Access** and gets a working app without developer setup) is **not** done. Concrete issues—**embedded vs shell-only secrets**, **observing Node/Hono logs**, **slow full rebuild cycles** vs **`tauri dev` / `npm run dev`** iteration—and the target end state are documented in:
+
+- **[BUG-003: Native macOS app (Tauri) — ship blockers](../bugs/BUG-003-native-mac-app-ship-blockers.md)**
+
+Treat that file as the **active** checklist until the native packaging story matches the “single download + FDA” goal described above.
+
 ## Open questions
 
 1. **Tauri vs Electron:** Need to prototype to feel the tradeoffs

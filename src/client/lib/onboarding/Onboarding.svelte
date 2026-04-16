@@ -121,19 +121,39 @@
   async function setupAppleMail() {
     setupError = null
     busy = true
+    await tick()
     try {
       const res = await fetch('/api/onboarding/setup-mail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
+        // Server waits for `ripmail setup` (up to 120s) before responding; keep UI responsive with spinner above.
+        signal: AbortSignal.timeout(125_000),
       })
-      const j = (await res.json()) as { ok?: boolean; error?: string }
+      const raw = await res.text()
+      let j: { ok?: boolean; error?: string }
+      try {
+        j = JSON.parse(raw) as { ok?: boolean; error?: string }
+      } catch {
+        setupError =
+          raw.trim().length > 0
+            ? `Setup failed (${res.status}): ${raw.slice(0, 400)}`
+            : `Setup failed (${res.status}): empty or non-JSON response`
+        return
+      }
       if (!res.ok || !j.ok) {
         setupError = j.error ?? 'Setup failed'
         return
       }
       await fetch('/api/inbox/sync', { method: 'POST' })
       await patchState('indexing')
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        setupError =
+          'Setup took too long (over 2 minutes). The bundled server logs Hono and ripmail output to ~/Library/Logs/com.cirne.brain/node-server.log — tail that file to see progress or errors.'
+      } else {
+        setupError = e instanceof Error ? e.message : String(e)
+      }
     } finally {
       busy = false
     }
