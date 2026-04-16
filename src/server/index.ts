@@ -30,6 +30,7 @@ import {
 import {
   duplicateDevListenMessage,
   isAddrInUse,
+  probeDevPortAvailable,
 } from './lib/devServerDuplicatePort.js'
 
 loadDotEnv()
