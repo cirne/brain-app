@@ -5,6 +5,7 @@ import { redactGitRemote } from './redactGitRemote.js'
 import { areLocalMessageToolsEnabled, initLocalMessageToolsAvailability } from './imessageDb.js'
 import { logFdaProbeForStartup } from './fdaProbe.js'
 import { parseRipmailStatusJson } from './ripmailStatusParse.js'
+import { ripmailBin } from './ripmailBin.js'
 
 const execAsync = promisify(exec)
 
@@ -45,9 +46,8 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
 
   const ripHome = process.env.RIPMAIL_HOME
   log(`RIPMAIL_HOME=${ripHome ?? '(unset → ~/.ripmail)'}`)
-  log(`RIPMAIL_BIN=${process.env.RIPMAIL_BIN ?? 'ripmail'}`)
-
-  const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+  const rm = ripmailBin()
+  log(`RIPMAIL_BIN=${rm}`)
   try {
     const { stdout } = await execAsync(`${rm} --version`, { timeout: 5000 })
     log(`ripmail: ${stdout.trim().split('\n')[0]}`)

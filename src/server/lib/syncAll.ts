@@ -58,10 +58,6 @@ export async function syncWikiFromDisk(): Promise<SyncComponentResult> {
   }
 }
 
-function ripmailBin(): string {
-  return process.env.RIPMAIL_BIN ?? 'ripmail'
-}
-
 /**
  * Kick off `ripmail refresh` without blocking. The CLI may keep running a supervisor
  * while sync continues; `exec()` would wait on that process — use a detached spawn instead.
