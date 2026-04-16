@@ -11,9 +11,18 @@ const execAsync = promisify(exec)
 const log = (line: string) => console.log(`[brain-app] ${line}`)
 
 /** One-shot logs for container / production debugging (paths, git, ripmail index). */
-export async function logStartupDiagnostics(): Promise<void> {
+export async function logStartupDiagnostics(listenPort?: number): Promise<void> {
   initLocalMessageToolsAvailability()
-  log(`NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} PORT=${process.env.PORT ?? '3000'}`)
+  const bundledNative = process.env.BRAIN_BUNDLED_NATIVE === '1'
+  if (bundledNative) {
+    log(
+      `NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} HTTP listen port=${listenPort ?? '?'} (bundled native; port from constants, not PORT env)`,
+    )
+  } else {
+    log(
+      `NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} HTTP listen port=${listenPort ?? parseInt(process.env.PORT ?? '3000', 10)}`,
+    )
+  }
   logFdaProbeForStartup(log)
   const repo = repoDir()
   const wiki = wikiDir()
