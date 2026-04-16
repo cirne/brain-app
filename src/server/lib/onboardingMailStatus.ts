@@ -3,18 +3,11 @@ import { promisify } from 'node:util'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseRipmailStatusJson } from './ripmailStatusParse.js'
+import { ripmailBin } from './ripmailBin.js'
 
 const execAsync = promisify(exec)
 
-export function ripmailBin(): string {
-  const fromEnv = process.env.RIPMAIL_BIN?.trim()
-  if (fromEnv) return fromEnv
-  if (process.env.BRAIN_BUNDLED_NATIVE === '1') {
-    const bundled = join(process.cwd(), 'ripmail')
-    if (existsSync(bundled)) return bundled
-  }
-  return 'ripmail'
-}
+export { ripmailBin }
 
 export function ripmailHomePath(): string {
   return process.env.RIPMAIL_HOME ?? `${process.env.HOME ?? ''}/.ripmail`
