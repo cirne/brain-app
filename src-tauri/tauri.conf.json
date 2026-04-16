@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Brain",
   "version": "0.1.0",
-  "identifier": "com.brain.app",
+  "identifier": "com.cirne.brain",
   "build": {
     "frontendDist": "../dist/client",
     "devUrl": "http://localhost:3000",
