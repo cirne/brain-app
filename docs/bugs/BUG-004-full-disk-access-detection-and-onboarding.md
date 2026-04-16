@@ -1,10 +1,36 @@
 # BUG-004: Full Disk Access detection and onboarding UX
 
-## Summary
+## Status
 
-Brain.app requires **Full Disk Access (FDA)** to read iMessage, Notes, Safari history, and Apple Mail data — but the app currently has **no runtime detection** of whether FDA has been granted, **no guided prompt** to help the user enable it, and **no relaunch** after the user toggles the permission. The app either silently fails to access protected data or shows confusing errors, with no indication of what the user should do.
+**Implemented** (in repo). Runtime detection, a production Tauri gate modal, System Settings deep link, automatic relaunch after grant, Node/Rust probe logging, `GET /api/onboarding/fda`, and a Messages-thread degraded-mode hint are in place.
 
-This is a **ship blocker** for zero-config installs: a user who downloads the DMG and launches Brain.app should be guided through granting FDA on first launch (and on any future launch where FDA is missing), then the app should relaunch itself so the new permission takes effect immediately.
+**Release sign-off:** Complete the [manual test checklist](#manual-test-checklist-release-brainapp) on a real macOS install before treating the DMG path as verified (automated tests do not replace UI/TCC interaction).
+
+### Implemented (reference)
+
+| Concern | Where |
+| -------- | ------ |
+| Rust FDA probe, `[fda]` startup logs, open FDA pane | [`desktop/src/fda.rs`](../../desktop/src/fda.rs) |
+| Tauri `check_fda` / `open_fda_settings`, `tauri-plugin-process`, server spawn | [`desktop/src/lib.rs`](../../desktop/src/lib.rs) |
+| `process:default` | [`desktop/capabilities/default.json`](../../desktop/capabilities/default.json) |
+| Gate: prod Tauri only, poll, toast, `relaunch()` | [`src/client/lib/onboarding/FullDiskAccessGate.svelte`](../../src/client/lib/onboarding/FullDiskAccessGate.svelte) |
+| Wraps app shell | [`src/client/App.svelte`](../../src/client/App.svelte) |
+| Node FDA probe + startup lines (includes `Full Disk Access: granted \| NOT granted`) | [`src/server/lib/fdaProbe.ts`](../../src/server/lib/fdaProbe.ts), [`src/server/lib/startupDiagnostics.ts`](../../src/server/lib/startupDiagnostics.ts) |
+| `GET /api/onboarding/fda` | [`src/server/routes/onboarding.ts`](../../src/server/routes/onboarding.ts) |
+| Messages: `full_disk_access_hint` + “Grant Full Disk Access…” | [`src/server/routes/imessage.ts`](../../src/server/routes/imessage.ts), [`src/client/lib/MessageThread.svelte`](../../src/client/lib/MessageThread.svelte) |
+
+**Note:** The gate runs only when `import.meta.env.PROD` and the Tauri runtime are both true (`FullDiskAccessGate`). `npm run tauri dev` uses the Vite dev build, so the modal does not appear there; use `npm run tauri:run-release` or a packaged app to test the gate.
+
+### Residual (optional / future)
+
+- **“Don’t ask again”** (persisted dismiss) — not implemented; **Later** is session-scoped only.
+- **Inline FDA hints** beyond Messages (e.g. Notes, Mail library paths, other panels) — add server hints + reuse `FDA_GATE_OPEN_EVENT` from [`fdaGateKeys.ts`](../../src/client/lib/onboarding/fdaGateKeys.ts) where a feature needs parity.
+
+---
+
+## Summary (historical)
+
+Brain.app requires **Full Disk Access (FDA)** to read iMessage, Notes, Safari history, and Apple Mail data. Previously the app lacked guided onboarding; that gap is addressed by the implementation above.
 
 **Related:** [BUG-003](BUG-003-native-mac-app-ship-blockers.md) (native app ship blockers), [OPP-007](../opportunities/OPP-007-native-mac-app.md) (native Mac app packaging).
 
@@ -66,136 +92,34 @@ In Tauri v2, relaunch is available via:
 
 Both require the `@tauri-apps/plugin-process` / `tauri-plugin-process` dependency and `"process:default"` in capabilities.
 
-## Proposed UX flow
+## UX flow (as shipped)
 
 ### First launch (or any launch where FDA is missing)
 
-```
-┌──────────────────────────────────────────────────┐
-│                                                  │
-│          🔒  Brain needs your permission          │
-│                                                  │
-│   Brain reads your local data (email, messages,  │
-│   notes) to power your personal assistant.       │
-│   macOS requires you to grant Full Disk Access   │
-│   for this to work.                              │
-│                                                  │
-│   ┌──────────────────────────────────────────┐   │
-│   │  1. Click "Open System Settings" below   │   │
-│   │  2. Toggle ON the switch next to Brain   │   │
-│   │  3. Brain will relaunch automatically    │   │
-│   └──────────────────────────────────────────┘   │
-│                                                  │
-│   [ Open System Settings ]     [ Later ]         │
-│                                                  │
-└──────────────────────────────────────────────────┘
-```
-
-- **"Open System Settings"** → opens `x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles`, then starts polling.
-- **"Later"** → dismisses the modal, app continues in degraded mode (features that need FDA show contextual "grant access" prompts instead of failing silently).
-- After the user toggles FDA on, the app detects the change (polling the probe-read every 2 seconds) and **relaunches automatically** with a brief toast: *"Permission granted — restarting…"*
+- **"Open System Settings"** → opens the FDA pane, then polls the probe every 2 seconds.
+- **"Later"** → dismisses the modal for this session; non-FDA features still work; Messages can show **Grant Full Disk Access…** when the API sets `full_disk_access_hint`.
+- After the user toggles FDA on, the UI shows *Permission granted — restarting…* and **relaunches** via `@tauri-apps/plugin-process`.
 
 ### Subsequent launches
 
-- On every app launch, check FDA status before spawning the Node server (or immediately after).
-- If FDA is granted → proceed normally.
-- If FDA is revoked (user toggled it off) → show the same modal again.
+Cold launch re-checks FDA. If the user revoked FDA, the gate appears again.
 
 ### Degraded mode (user clicked "Later")
 
-If the user skips the FDA prompt, the app should still be functional for non-FDA features (chat with external LLMs, wiki browsing, etc.). Features that require FDA (email via Apple Mail, iMessage, Notes) should show inline messages like:
-
-> "Brain needs Full Disk Access to read your messages. [Grant Access]"
-
-…where "Grant Access" re-triggers the onboarding modal.
-
-## Implementation plan
-
-### 1. Rust: FDA probe function
-
-In `desktop/src/`, add an `fda.rs` module:
-
-```rust
-use std::fs;
-
-/// Check FDA by probing a TCC-protected path.
-/// On macOS 10.15+, this probe auto-registers the app in the FDA list.
-pub fn is_full_disk_access_granted() -> bool {
-    let home = match std::env::var("HOME") {
-        Ok(h) => h,
-        Err(_) => return false,
-    };
-    // macOS 12+ (Monterey through Sequoia)
-    let probe = format!("{}/Library/Containers/com.apple.stocks", home);
-    fs::read_dir(&probe).is_ok()
-}
-
-/// Open System Settings directly to the FDA pane.
-pub fn open_fda_system_settings() {
-    let _ = std::process::Command::new("open")
-        .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")
-        .spawn();
-}
-```
-
-Expose both as Tauri commands so the Svelte frontend can call them.
-
-### 2. Tauri command + capability
-
-Register commands in `lib.rs`:
-
-```rust
-#[tauri::command]
-fn check_fda() -> bool {
-    crate::fda::is_full_disk_access_granted()
-}
-
-#[tauri::command]
-fn open_fda_settings() {
-    crate::fda::open_fda_system_settings();
-}
-```
-
-Add `"process:default"` to `desktop/capabilities/default.json` for the relaunch capability.
-
-### 3. Svelte: onboarding modal component
-
-A `FullDiskAccessGate.svelte` component that:
-
-- Calls `check_fda()` on mount.
-- If FDA is missing, renders the permission modal (blocking the main UI).
-- "Open System Settings" button calls `open_fda_settings()` then starts a 2-second poll loop calling `check_fda()`.
-- When `check_fda()` returns true, calls `relaunch()` from `@tauri-apps/plugin-process` (with a brief "Restarting…" message).
-- "Later" button dismisses the modal and sets a session flag (don't re-prompt until next launch unless the user explicitly requests it).
-
-### 4. Dependencies to add
-
-
-| Package                      | Where                  | Purpose                    |
-| ---------------------------- | ---------------------- | -------------------------- |
-| `tauri-plugin-process`       | `desktop/Cargo.toml` | Rust-side relaunch support |
-| `@tauri-apps/plugin-process` | `package.json`         | JS-side `relaunch()` API   |
-
-
-No need for `tauri-plugin-macos-permissions` — the probe-read technique is simple enough to implement directly (3 lines of Rust), and avoids pulling in a dependency with accessibility/camera/microphone features we don't need.
-
-### 5. Integration with existing startup
-
-In `lib.rs`, the FDA check should run **before** `spawn_brain_server()` in release mode. If FDA is not granted, the server can still start (it doesn't *require* FDA for basic functionality), but the WebView should show the onboarding gate. The check result can be passed to the frontend via a Tauri command or injected as initial state.
+Features that need FDA should surface actionable copy. Messages uses `full_disk_access_hint` and re-opens the gate via `FDA_GATE_OPEN_EVENT` (see [`fdaGateKeys.ts`](../../src/client/lib/onboarding/fdaGateKeys.ts)).
 
 ## Edge cases
 
 - **User grants FDA then revokes it later:** detected on next launch; re-prompt.
-- **Multiple displays of the modal:** "Later" should be per-session (not persisted). Every cold launch re-checks.
-- `**cargo run --release` (dev iteration):** FDA check should work identically; the probe path exists on any macOS system.
-- **Non-macOS:** the FDA module should be `#[cfg(target_os = "macos")]` only. On other platforms, `check_fda()` returns `true` (no FDA concept).
-- **Sandboxed builds:** FDA detection doesn't work in sandboxed apps. Brain.app is non-sandboxed (direct distribution, not App Store), so this is fine.
+- **"Later"** is per-session (sessionStorage). Every cold launch re-checks.
+- **`cargo run --release`:** FDA check behaves like other macOS runs; probe paths exist on typical systems.
+- **Non-macOS:** Rust and Node probes report no FDA concept; gate does not apply.
+- **Sandboxed builds:** FDA detection does not apply; Brain.app is distributed unsandboxed.
 
 ## Testing
 
-- **Manual:** build release, launch without FDA granted, verify modal appears, click "Open System Settings", toggle FDA on, verify automatic relaunch, verify modal does not appear on second launch.
-- **Unit test:** `is_full_disk_access_granted()` can be tested by checking that it returns a bool without panicking; actual FDA state depends on the machine.
-- **Integration:** verify the "Later" flow allows the app to continue in degraded mode without crashes.
+- **Automated:** `cargo test` in `desktop/` (includes `fda` module); Vitest `fdaProbe.test.ts`, `onboarding.test.ts` (`/api/onboarding/fda`), `imessage.test.ts` (`full_disk_access_hint`).
+- **Manual:** see checklist below.
 
 ### Manual test checklist (release Brain.app)
 
@@ -205,7 +129,7 @@ In `lib.rs`, the FDA check should run **before** `spawn_brain_server()` in relea
 4. Enable **Brain**, return to the app — within a few seconds the UI should show **Permission granted — restarting…** and the app should **relaunch**.
 5. After relaunch, the gate should **not** appear (FDA granted).
 6. Tap **Later** on a fresh session (or clear FDA and dismiss) — onboarding/chat should load; Messages thread panel should offer **Grant Full Disk Access…** when the API returns `full_disk_access_hint`.
-7. `GET /api/onboarding/fda` returns `{ granted: true | false }`; startup diagnostics log one line: `Full Disk Access: granted` or `NOT granted`.
+7. `GET /api/onboarding/fda` returns `{ granted: true | false }`; startup diagnostics include a line **`Full Disk Access: granted`** or **`Full Disk Access: NOT granted`** (Node process), and Console / log stream can show **`[fda]`** lines from the Tauri main process.
 
 ## References
 
@@ -215,4 +139,3 @@ In `lib.rs`, the FDA check should run **before** `spawn_brain_server()` in relea
 - [DaisyDisk Full Disk Access guide](https://daisydiskapp.com/guide/4/en/FullDiskAccess) — best-in-class user-facing documentation
 - [CleanMyMac FDA flow](https://macpaw.com/support/cleanmymac/knowledgebase/full-disk-access) — in-app assistant pattern
 - [Apple WWDC 2018: Your Apps and the Future of macOS Security](https://developer.apple.com/videos/play/wwdc2018/702/) — Apple's recommended approach (mentions DaisyDisk at 9:22)
-

@@ -32,6 +32,10 @@ describe('fdaProbe', () => {
     logFdaProbeForStartup((line) => lines.push(line))
     const summary = lines.find((l) => l.startsWith('Full Disk Access: '))
     expect(summary).toBeDefined()
-    expect(['Full Disk Access: granted', 'Full Disk Access: NOT granted']).toContain(summary)
+    if (process.platform === 'darwin') {
+      expect(['Full Disk Access: granted', 'Full Disk Access: NOT granted']).toContain(summary)
+    } else {
+      expect(summary).toBe('Full Disk Access: granted')
+    }
   })
 })

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { MessageSquarePlus, Pin, PinOff, Trash2, X } from 'lucide-svelte'
+  import { MessageSquare, Mail, Pin, PinOff, Trash2, X, Plus } from 'lucide-svelte'
   import {
     CHAT_HISTORY_GROUP_LABEL,
     CHAT_HISTORY_GROUP_ORDER,
@@ -8,6 +8,12 @@
     groupKeyForUpdatedAt,
   } from './chatHistoryGroups.js'
   import { labelForDeleteChatDialog } from './chatHistoryDelete.js'
+  import {
+    loadNavHistory,
+    removeFromNavHistory,
+    type NavHistoryItem,
+  } from './navHistory.js'
+  import WikiFileName from './WikiFileName.svelte'
 
   export type ChatSessionListItem = {
     sessionId: string
@@ -22,6 +28,8 @@
     desktop = false,
     pinned = false,
     onSelect,
+    onSelectDoc,
+    onSelectEmail,
     onNewChat,
     onClose,
     onTogglePin,
@@ -30,24 +38,70 @@
     desktop?: boolean
     pinned?: boolean
     onSelect: (_sessionId: string) => void
+    onSelectDoc?: (_path: string) => void
+    onSelectEmail?: (_id: string) => void
     onNewChat: () => void
     onClose: () => void
     onTogglePin?: () => void
   } = $props()
 
   let sessions = $state<ChatSessionListItem[]>([])
+  let navHistory = $state<NavHistoryItem[]>([])
   let loading = $state(true)
   let error = $state<string | null>(null)
-  /** Set when user clicks trash — confirmed in modal (not `alert`). */
   let pendingDelete = $state<{ sessionId: string; label: string } | null>(null)
+
+  type UnifiedItem = {
+    id: string
+    type: 'chat' | 'email' | 'doc'
+    title: string
+    timestamp: string
+    path?: string
+    meta?: string
+    sessionId?: string
+  }
+
+  const unified = $derived.by(() => {
+    const items: UnifiedItem[] = []
+
+    // Add chat sessions
+    for (const s of sessions) {
+      items.push({
+        id: `chat:${s.sessionId}`,
+        type: 'chat',
+        title: s.title?.trim() || s.preview?.trim() || 'New chat',
+        timestamp: s.updatedAt,
+        sessionId: s.sessionId,
+      })
+    }
+
+    // Add nav history items (docs, emails)
+    for (const h of navHistory) {
+      if (h.type === 'doc' || h.type === 'email') {
+        items.push({
+          id: h.id,
+          type: h.type,
+          title: h.title,
+          timestamp: h.accessedAt,
+          path: h.path,
+          meta: h.meta,
+        })
+      }
+    }
+
+    // Sort by timestamp descending
+    items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+    return items
+  })
 
   const grouped = $derived.by(() => {
     const order = CHAT_HISTORY_GROUP_ORDER
-    const buckets = new Map<ChatHistoryGroupKey, ChatSessionListItem[]>()
+    const buckets = new Map<ChatHistoryGroupKey, UnifiedItem[]>()
     for (const k of order) buckets.set(k, [])
-    for (const s of sessions) {
-      const k = groupKeyForUpdatedAt(s.updatedAt)
-      buckets.get(k)!.push(s)
+    for (const item of unified) {
+      const k = groupKeyForUpdatedAt(item.timestamp)
+      buckets.get(k)!.push(item)
     }
     return order.filter((k) => (buckets.get(k)?.length ?? 0) > 0).map((k) => ({
       key: k,
@@ -55,12 +109,6 @@
       items: buckets.get(k)!,
     }))
   })
-
-  function rowLabel(s: ChatSessionListItem): string {
-    if (s.title?.trim()) return s.title.trim()
-    if (s.preview?.trim()) return s.preview.trim()
-    return 'New chat'
-  }
 
   function shortTime(iso: string): string {
     const d = new Date(iso)
@@ -78,6 +126,7 @@
         return
       }
       sessions = await res.json()
+      navHistory = loadNavHistory()
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load'
       sessions = []
@@ -86,10 +135,25 @@
     }
   }
 
-  function requestDelete(e: MouseEvent, s: ChatSessionListItem) {
+  function handleItemClick(item: UnifiedItem) {
+    if (item.type === 'chat' && item.sessionId) {
+      onSelect(item.sessionId)
+    } else if (item.type === 'doc' && item.path && onSelectDoc) {
+      onSelectDoc(item.path)
+    } else if (item.type === 'email' && item.path && onSelectEmail) {
+      onSelectEmail(item.path)
+    }
+  }
+
+  function requestDelete(e: MouseEvent, item: UnifiedItem) {
     e.stopPropagation()
     e.preventDefault()
-    pendingDelete = { sessionId: s.sessionId, label: labelForDeleteChatDialog(rowLabel(s)) }
+    if (item.type === 'chat' && item.sessionId) {
+      pendingDelete = { sessionId: item.sessionId, label: labelForDeleteChatDialog(item.title) }
+    } else {
+      // For docs/emails, remove from nav history
+      navHistory = removeFromNavHistory(item.id)
+    }
   }
 
   function cancelDelete() {
@@ -126,7 +190,7 @@
 
 <div class="chat-history">
   <div class="ch-head">
-    <span class="ch-title">Chats</span>
+    <span class="ch-title">History</span>
     <div class="ch-head-actions">
       {#if desktop && onTogglePin}
         <button
@@ -150,7 +214,7 @@
   </div>
 
   <button type="button" class="new-chat-btn" onclick={() => onNewChat()}>
-    <MessageSquarePlus size={16} strokeWidth={2} aria-hidden="true" />
+    <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
     <span>New chat</span>
   </button>
 
@@ -159,38 +223,47 @@
       <div class="ch-muted">Loading…</div>
     {:else if error}
       <div class="ch-error">{error}</div>
-    {:else if sessions.length === 0}
-      <div class="ch-muted">No saved chats yet.</div>
+    {:else if unified.length === 0}
+      <div class="ch-muted">No history yet.</div>
     {:else}
       {#each grouped as g (g.key)}
         <div class="ch-group">
           <div class="ch-group-label">{g.label}</div>
-          {#each g.items as s (s.sessionId)}
+          {#each g.items as item (item.id)}
             <div
               class="ch-row"
-              class:active={activeSessionId === s.sessionId}
+              class:active={item.type === 'chat' && activeSessionId === item.sessionId}
               role="button"
               tabindex="0"
-              onclick={() => onSelect(s.sessionId)}
+              onclick={() => handleItemClick(item)}
               onkeydown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  onSelect(s.sessionId)
+                  handleItemClick(item)
                 }
               }}
             >
-              <div class="ch-row-main">
-                <span class="ch-row-title">{rowLabel(s)}</span>
-                <span class="ch-row-time">{shortTime(s.updatedAt)}</span>
-              </div>
+              <span class="ch-row-icon" class:ch-row-icon--chat={item.type === 'chat'} class:ch-row-icon--email={item.type === 'email'}>
+                {#if item.type === 'chat'}
+                  <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
+                {:else if item.type === 'email'}
+                  <Mail size={12} strokeWidth={2} aria-hidden="true" />
+                {:else if item.type === 'doc' && item.path}
+                  <WikiFileName path={item.path} />
+                {/if}
+              </span>
+              {#if item.type !== 'doc'}
+                <span class="ch-row-title">{item.title}</span>
+              {/if}
+              <span class="ch-row-time">{shortTime(item.timestamp)}</span>
               <button
                 type="button"
                 class="ch-row-delete"
-                title="Delete chat"
-                aria-label="Delete chat"
-                onclick={(e) => requestDelete(e, s)}
+                title={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
+                aria-label={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
+                onclick={(e) => requestDelete(e, item)}
               >
-                <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
+                <Trash2 size={12} strokeWidth={2} aria-hidden="true" />
               </button>
             </div>
           {/each}
@@ -216,7 +289,7 @@
       >
         <h2 id="ch-delete-title" class="ch-delete-title">Delete chat?</h2>
         <p class="ch-delete-body">
-          This will permanently remove “{pendingDelete.label}”.
+          This will permanently remove "{pendingDelete.label}".
         </p>
         <div class="ch-delete-actions">
           <button type="button" class="ch-delete-btn ch-delete-cancel" onclick={cancelDelete}>
@@ -244,13 +317,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px;
+    padding: 8px 10px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
 
   .ch-title {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text);
     letter-spacing: 0.02em;
@@ -266,9 +339,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
     color: var(--text-2);
     transition: color 0.15s, background 0.15s;
   }
@@ -280,14 +353,14 @@
   .new-chat-btn {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: 10px 12px;
-    padding: 10px 12px;
-    border-radius: 8px;
+    gap: 6px;
+    margin: 8px 10px;
+    padding: 7px 10px;
+    border-radius: 6px;
     border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     transition: background 0.15s, border-color 0.15s;
   }
@@ -300,46 +373,46 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 0 8px 12px;
+    padding: 0 6px 10px;
   }
 
   .ch-muted {
-    padding: 12px;
-    font-size: 13px;
+    padding: 10px;
+    font-size: 12px;
     color: var(--text-2);
   }
 
   .ch-error {
-    padding: 12px;
-    font-size: 12px;
+    padding: 10px;
+    font-size: 11px;
     color: var(--danger);
   }
 
   .ch-group {
-    margin-top: 12px;
+    margin-top: 8px;
   }
   .ch-group:first-child {
-    margin-top: 4px;
+    margin-top: 2px;
   }
 
   .ch-group-label {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-2);
-    padding: 4px 8px 6px;
+    padding: 2px 6px 4px;
   }
 
   .ch-row {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 6px;
     width: 100%;
     text-align: left;
-    padding: 8px 8px;
-    border-radius: 8px;
-    margin-bottom: 2px;
+    padding: 5px 6px;
+    border-radius: 6px;
+    margin-bottom: 1px;
     color: var(--text);
     cursor: pointer;
     transition: background 0.12s;
@@ -356,33 +429,50 @@
     outline: 1px solid var(--accent);
   }
 
-  .ch-row-main {
-    flex: 1;
-    min-width: 0;
+  .ch-row-icon {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 16px;
+    color: var(--text-2);
+    opacity: 0.6;
+  }
+
+  .ch-row-icon--chat {
+    color: var(--accent);
+    opacity: 0.75;
+  }
+
+  .ch-row-icon--email {
+    color: var(--text-2);
+    opacity: 0.65;
+  }
+
+  .ch-row-icon :global(.wfn-title-row) {
+    font-size: 11px;
   }
 
   .ch-row-title {
-    font-size: 13px;
-    line-height: 1.35;
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    white-space: nowrap;
   }
 
   .ch-row-time {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-2);
     flex-shrink: 0;
+    opacity: 0.7;
   }
 
   .ch-row-delete {
     flex-shrink: 0;
-    padding: 4px;
+    padding: 3px;
     border-radius: 4px;
     color: var(--text-2);
     opacity: 0;
@@ -408,8 +498,8 @@
   }
 
   .ch-delete-dialog {
-    width: min(100%, 360px);
-    padding: 18px 18px 14px;
+    width: min(100%, 340px);
+    padding: 16px 16px 12px;
     border-radius: 10px;
     border: 1px solid var(--border);
     background: var(--bg);
@@ -417,30 +507,30 @@
   }
 
   .ch-delete-title {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
-    margin: 0 0 8px;
+    margin: 0 0 6px;
     color: var(--text);
   }
 
   .ch-delete-body {
-    font-size: 13px;
-    line-height: 1.45;
+    font-size: 12px;
+    line-height: 1.4;
     color: var(--text-2);
-    margin: 0 0 16px;
+    margin: 0 0 14px;
     word-break: break-word;
   }
 
   .ch-delete-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
+    gap: 6px;
   }
 
   .ch-delete-btn {
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
     font-weight: 500;
     border: 1px solid var(--border);
     background: var(--bg-3);

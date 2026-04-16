@@ -19,6 +19,7 @@
   import { wikiPathForReadToolArg } from './cards/contentCards.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from './navigateFromAgentOpen.js'
   import { FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY } from './onboarding/seedConstants.js'
+  import { addToNavHistory, makeNavHistoryId } from './navHistory.js'
 
   const SIDEBAR_KEY = 'brain-sidebar'
 
@@ -210,6 +211,14 @@
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     navigate({ overlay })
     route = parseRoute()
+    if (path) {
+      addToNavHistory({
+        id: makeNavHistoryId('doc', path),
+        type: 'doc',
+        title: path,
+        path,
+      })
+    }
   }
 
   function onWikiNavigate(path: string | undefined) {
@@ -250,6 +259,15 @@
     navigate({ overlay: { type: 'email', id } })
     route = parseRoute()
     agentContext = { type: 'email', threadId: id, subject, from }
+    if (id) {
+      addToNavHistory({
+        id: makeNavHistoryId('email', id),
+        type: 'email',
+        title: subject || 'Email',
+        path: id,
+        meta: from,
+      })
+    }
   }
 
   function openEmailFromChat(threadId: string, subject?: string, from?: string) {
@@ -360,6 +378,20 @@
     }
   }
 
+  function selectDocFromHistory(path: string) {
+    openWikiDoc(path)
+    if (isMobile || !sidebarPinned) {
+      sidebarOpen = false
+    }
+  }
+
+  function selectEmailFromHistory(id: string) {
+    openEmailFromSearch(id, '', '')
+    if (isMobile || !sidebarPinned) {
+      sidebarOpen = false
+    }
+  }
+
   function historyNewChat() {
     closeOverlayImmediate()
     agentChat?.newChat()
@@ -452,6 +484,8 @@
           desktop={!isMobile}
           pinned={sidebarPinned}
           onSelect={selectChatSession}
+          onSelectDoc={selectDocFromHistory}
+          onSelectEmail={selectEmailFromHistory}
           onNewChat={historyNewChat}
           onClose={closeHistorySidebar}
           onTogglePin={toggleSidebarPin}
