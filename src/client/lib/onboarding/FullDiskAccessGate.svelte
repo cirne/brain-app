@@ -2,8 +2,8 @@
   import { onMount } from 'svelte'
   import type { Snippet } from 'svelte'
   import { invoke } from '@tauri-apps/api/core'
-  import { relaunch } from '@tauri-apps/plugin-process'
-  import { FDA_GATE_LATER_SESSION_KEY, FDA_GATE_OPEN_EVENT } from './fdaGateKeys.js'
+  import { exit, relaunch } from '@tauri-apps/plugin-process'
+  import { FDA_GATE_OPEN_EVENT } from './fdaGateKeys.js'
 
   let { children }: { children: Snippet } = $props()
 
@@ -19,8 +19,6 @@
 
   let checked = $state(!gateApplies)
   let granted = $state<boolean | null>(!gateApplies ? true : null)
-  let laterSkip = $state(false)
-  let forceShow = $state(false)
   let polling = $state(false)
   let restarting = $state(false)
   let toast = $state<string | null>(null)
@@ -44,11 +42,7 @@
   }
 
   const showModal = $derived(
-    gateApplies &&
-      checked &&
-      granted === false &&
-      (!laterSkip || forceShow) &&
-      !restarting,
+    gateApplies && checked && granted === false && !restarting,
   )
 
   onMount(() => {
