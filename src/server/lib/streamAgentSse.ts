@@ -29,6 +29,10 @@ export interface StreamAgentSseOptions {
     assistantMessage: ReturnType<typeof toAssistantMessage>
     turnTitle: string | null | undefined
   }) => Promise<void>
+  /** When set (e.g. slash skills), passed to `agent.prompt()` instead of `message`. */
+  promptMessages?: AgentMessage[]
+  /** Transcript / storage user line; defaults to `message` (use with slash expansion). */
+  userMessageForPersistence?: string
 }
 
 /** Loosely typed pi-agent subscribe payloads (not exported from core). */
@@ -80,13 +84,14 @@ export function streamAgentSseResponse(
   message: string,
   opts: StreamAgentSseOptions,
 ): Response | Promise<Response> {
-  const { wikiDirForDiffs, onTurnComplete, announceSessionId } = opts
+  const { wikiDirForDiffs, onTurnComplete, announceSessionId, promptMessages, userMessageForPersistence } =
+    opts
 
   return streamSSE(c, async (stream) => {
     if (announceSessionId) {
       await stream.writeSSE({ event: 'session', data: JSON.stringify({ sessionId: announceSessionId }) })
     }
-    const userMessage = message
+    const userMessage = userMessageForPersistence ?? message
     const assistantState = createAssistantTurnState()
     const editBeforeSnapshot = new Map<string, string>()
     let turnTitle: string | null | undefined
@@ -275,7 +280,7 @@ export function streamAgentSseResponse(
     })
 
     try {
-      await agent.prompt(message)
+      await agent.prompt(promptMessages ?? message)
     } catch (error: unknown) {
       try {
         const errMsg = error instanceof Error ? error.message : String(error)
@@ -295,6 +300,45 @@ export function streamAgentSseResponse(
         } catch {
           /* ignore */
         }
+      }
+    }
+  })
+}
+
+/** SSE with a fixed assistant reply (no LLM). Same wire format as /api/chat. */
+export function streamStaticAssistantSse(
+  c: Context,
+  options: {
+    announceSessionId?: string
+    text: string
+    userMessageForPersistence: string
+    onTurnComplete?: StreamAgentSseOptions['onTurnComplete']
+  },
+): Response | Promise<Response> {
+  const { announceSessionId, text, userMessageForPersistence, onTurnComplete } = options
+  return streamSSE(c, async (stream) => {
+    if (announceSessionId) {
+      await stream.writeSSE({ event: 'session', data: JSON.stringify({ sessionId: announceSessionId }) })
+    }
+    const assistantState = createAssistantTurnState()
+    applyTextDelta(assistantState, text)
+    await stream.writeSSE({
+      event: 'text_delta',
+      data: JSON.stringify({ delta: text }),
+    })
+    await stream.writeSSE({
+      event: 'done',
+      data: JSON.stringify({}),
+    })
+    if (onTurnComplete) {
+      try {
+        await onTurnComplete({
+          userMessage: userMessageForPersistence,
+          assistantMessage: toAssistantMessage(assistantState),
+          turnTitle: null,
+        })
+      } catch {
+        /* best-effort */
       }
     }
   })

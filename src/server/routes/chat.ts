@@ -4,7 +4,13 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '../lib/wikiDir.js'
 import { appendTurn, deleteSessionFile, loadSession, listSessions } from '../lib/chatStorage.js'
-import { streamAgentSseResponse } from '../lib/streamAgentSse.js'
+import { streamAgentSseResponse, streamStaticAssistantSse } from '../lib/streamAgentSse.js'
+import {
+  applySkillPlaceholders,
+  buildSkillPromptMessages,
+  parseLeadingSlashCommand,
+  readSkillMarkdown,
+} from '../lib/slashSkill.js'
 
 const chat = new Hono()
 
