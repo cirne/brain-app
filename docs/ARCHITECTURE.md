@@ -78,7 +78,7 @@ The agent talks to email via `ripmail` CLI subprocesses (`ripmail search`, `ripm
 
 **Why:** ripmail manages its own SQLite index and IMAP sync independently. Treating it as a subprocess means brain-app has no coupling to ripmail's internals and gets the same interface that any other agent or CLI user would get.
 
-**Implication:** `RIPMAIL_BIN` must point to a working ripmail binary. The ripmail source lives in this repo at [`ripmail/`](../ripmail/) (Cargo workspace member). After `npm run ripmail:dev` or `cargo build -p ripmail`, the dev server points `RIPMAIL_BIN` at the workspace `ripmail` binary when present (resolved via `cargo metadata` target dir + `debug/ripmail`; see [`scripts/run-dev.mjs`](../scripts/run-dev.mjs)). You can still set `RIPMAIL_BIN` in `.env` or rely on `ripmail` on `$PATH`. In Docker, the image installs a binary at build time (see Dockerfile). The Tauri desktop app bundles a release-built ripmail sidecar via [`scripts/link-ripmail-sidecar.mjs`](../scripts/link-ripmail-sidecar.mjs).
+**Implication:** `RIPMAIL_BIN` must point to a working ripmail binary. The ripmail source lives in this repo at [`ripmail/`](../ripmail/) (Cargo workspace member). After `npm run ripmail:dev` or `cargo build -p ripmail`, the dev server points `RIPMAIL_BIN` at the workspace `ripmail` binary when present (resolved via `cargo metadata` target dir + `debug/ripmail`; see [`scripts/run-dev.mjs`](../scripts/run-dev.mjs)). You can still set `RIPMAIL_BIN` in `.env` or rely on `ripmail` on `$PATH`. In Docker, the image installs a binary at build time (see Dockerfile). The Tauri desktop app does not bundle ripmail; use `PATH` or set `RIPMAIL_BIN` for the packaged app.
 
 ---
 

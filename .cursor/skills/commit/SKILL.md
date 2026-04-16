@@ -20,7 +20,7 @@ Use staged or unstaged paths (e.g. `git diff --name-only` / `git status`). Map p
 **Also treat as relevant:**
 
 - **`Cargo.toml` (repo root)** or **workspace-wide** Rust changes → run checks for **both** Rust members (`ripmail` and desktop).
-- **Cross-cutting scripts** (e.g. `scripts/link-ripmail-sidecar.mjs`, Tauri bundle scripts) → include **Node** plus any **Rust** package the script integrates with.
+- **Cross-cutting scripts** (e.g. `scripts/bundle-tauri-server.mjs`) → include **Node** plus any **Rust** package the script integrates with.
 
 If multiple packages are touched, run the union of their checks. If classification is ambiguous, run `npm run ci` (full pipeline).
 

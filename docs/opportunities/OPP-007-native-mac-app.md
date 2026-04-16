@@ -92,41 +92,13 @@ For a deeply personal "second brain," local-first is arguably the right architec
 
 **Recommendation:** Start with Option C. Tauri shell keeps the binary small; spawning Node means existing server code runs unchanged. Evaluate Rust rewrite later if performance or binary size matters.
 
-## Bundling ripmail
+## ripmail and the native app
 
-ripmail is essential for email functionality. Bundle it inside the native app so users get a single dependency-free download.
+Email uses the **ripmail** CLI via subprocess. The packaged app **does not** ship ripmail inside `Brain.app`; the server uses `RIPMAIL_BIN` when set, otherwise `ripmail` on `PATH` (same as dev). Users can run `npm run ripmail:dev` to build the workspace binary and point `RIPMAIL_BIN` at `target/debug/ripmail` if needed.
 
-### Tauri sidecar approach
+### Building ripmail locally
 
-Tauri has first-class support for [sidecar binaries](https://tauri.app/v1/guides/building/sidecar/):
-
-```
-Brain.app/
-  Contents/
-    MacOS/
-      Brain                   # Tauri main process
-      ripmail-aarch64         # Apple Silicon binary
-      ripmail-x86_64          # Intel binary (or universal)
-    Resources/
-      node                    # Bundled Node.js runtime
-      server/                 # Hono server code
-```
-
-In `tauri.conf.json`:
-
-```json
-{
-  "bundle": {
-    "externalBin": ["binaries/ripmail"]
-  }
-}
-```
-
-Tauri resolves the correct architecture automatically.
-
-### Building ripmail for bundling
-
-ripmail is Rust, so build universal macOS binary:
+ripmail is Rust. For a universal macOS binary you can cross-build and `lipo`:
 
 ```bash
 # Build for both architectures
@@ -141,17 +113,9 @@ lipo -create -output ripmail-universal \
 
 Or ship arm64-only for Apple Silicon (vast majority of current Macs).
 
-### Server calls bundled ripmail
+### Server subprocess
 
-The Hono server already uses `execAsync()` for ripmail. Update to use bundled path:
-
-```typescript
-// Resolve bundled binary path
-const ripmailBin = process.env.RIPMAIL_BIN 
-  ?? path.join(process.resourcesPath, 'ripmail')
-
-await execAsync(`${ripmailBin} search "query"`)
-```
+The Hono server already uses `execAsync()` with `process.env.RIPMAIL_BIN ?? 'ripmail'`. No `resourcesPath` lookup is required for the current packaging model.
 
 ### Apple Mail as ripmail source
 

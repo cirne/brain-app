@@ -16,14 +16,6 @@
   "permissions": [
     "core:default",
     "process:default",
-    "shell:default",
-    {
-      "identifier": "shell:allow-spawn",
-      "allow": [{ "name": "binaries/ripmail", "sidecar": true }]
-    },
-    {
-      "identifier": "shell:allow-execute",
-      "allow": [{ "name": "binaries/ripmail", "sidecar": true }]
-    }
+    "shell:default"
   ]
 }

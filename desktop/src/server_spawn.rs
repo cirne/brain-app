@@ -60,27 +60,6 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
         PathBuf::from("node")
     };
 
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let macos_dir = exe.parent().ok_or("no parent for executable")?;
-    // Tauri `externalBin` copies sidecars into MacOS/ as `ripmail` (basename only).
-    // Dev copies in `desktop/binaries/` use `ripmail-<triple>` — accept both.
-    let ripmail_sidecar = {
-        let triple = if cfg!(target_arch = "aarch64") {
-            "aarch64-apple-darwin"
-        } else {
-            "x86_64-apple-darwin"
-        };
-        let a = macos_dir.join("ripmail");
-        let b = macos_dir.join(format!("ripmail-{triple}"));
-        if a.is_file() {
-            Some(a)
-        } else if b.is_file() {
-            Some(b)
-        } else {
-            None
-        }
-    };
-
     let mut cmd = Command::new(&node_path);
     cmd.current_dir(&bundle)
         .arg("dist/server/index.js")
@@ -90,14 +69,9 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
         .env("BRAIN_BUNDLED_NATIVE", "1")
         .env("AUTH_DISABLED", "true");
 
-    if let Some(ref ripmail) = ripmail_sidecar {
-        cmd.env("RIPMAIL_BIN", ripmail.to_string_lossy().as_ref());
-        log::info!("Brain bundled server: RIPMAIL_BIN={}", ripmail.display());
-    } else {
-        log::warn!(
-            "Brain bundled server: no ripmail sidecar next to app (expected MacOS/ripmail); Node will use PATH — Apple Mail setup may fail if PATH lacks ripmail or TCC differs"
-        );
-    }
+    log::info!(
+        "Brain bundled server: RIPMAIL_BIN not set by shell — inbox uses `ripmail` on PATH or set RIPMAIL_BIN (e.g. after `npm run ripmail:dev`)"
+    );
 
     if let Some(ref home) = resolve_home_for_child(&mut cmd) {
         brain_paths::ensure_dirs_and_apply_defaults(&mut cmd, home);

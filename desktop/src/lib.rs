@@ -39,11 +39,14 @@ pub fn run() {
             }
             crate::embedded::apply_embedded_env()?;
             let port = crate::server_spawn::spawn_brain_server(app.handle())?;
-            let url = Url::parse(&format!("http://127.0.0.1:{port}/")).map_err(|e| e.to_string())?;
+            let url =
+                Url::parse(&format!("http://127.0.0.1:{port}/")).map_err(|e| e.to_string())?;
             if let Some(w) = app.handle().get_webview_window("main") {
                 w.navigate(url).map_err(|e| e.to_string())?;
             } else {
-                log::warn!("Brain: main webview not found; could not navigate to bundled server URL");
+                log::warn!(
+                    "Brain: main webview not found; could not navigate to bundled server URL"
+                );
             }
             Ok(())
         })

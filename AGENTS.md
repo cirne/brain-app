@@ -52,7 +52,6 @@ Optional: run the same stack inside a native window (see [OPP-007](docs/opportun
 npm run ripmail:dev            # cargo build -p ripmail (debug) — use before inbox if not on PATH
 npm run ripmail:build          # cargo build -p ripmail --release
 npm run ripmail:test           # cargo test -p ripmail
-npm run tauri:setup-sidecars   # copies workspace-built ripmail → desktop/binaries/ripmail-<triple>
 npm run tauri:dev              # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
 npm run tauri:build            # npm build + bundle server + Brain.app (+ DMG)
 npm run tauri:run-release       # build + bundle-server + cargo run --release (fast iteration vs full DMG)
@@ -62,7 +61,7 @@ npm run tauri:clean-data        # delete Tauri app data only (App Support/Brain,
 
 **Cargo workspace:** Rust crates live under [`desktop/`](desktop/) (Tauri shell) and [`ripmail/`](ripmail/) with a root [`Cargo.toml`](Cargo.toml). Build artifacts go under the Cargo target directory (usually `./target/`; see `cargo metadata`).
 
-Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The ripmail sidecar binary under `desktop/binaries/` is gitignored; `tauri:setup-sidecars` builds `ripmail` from the repo (`cargo build -p ripmail`).
+Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The packaged app does not bundle ripmail; use `ripmail` on `PATH` or set `RIPMAIL_BIN` (workspace debug binary via `npm run ripmail:dev`).
 
 `tauri build` runs `npm run build && npm run tauri:bundle-server`, which copies `dist/`, production `node_modules`, and the current `node` binary into `desktop/resources/server-bundle/` (gitignored). The packaged app loads the UI from `http://localhost:3000` and starts that server via the bundled Node + `dist/server` (release only; dev still uses `npm run dev`).
 
