@@ -17,6 +17,7 @@ Active work lives in [opportunities/](opportunities/). Shipped and deprioritized
 | [OPP-005](opportunities/OPP-005-source-ingestion.md) | Source Ingestion Pipeline | Replace filesystem-based ingestion with upload endpoint, URL fetching, email attachment extraction, and file type handlers (PDF, XLSX, images via vision). Works in containers, supports mobile. |
 | [OPP-006](opportunities/OPP-006-email-bootstrap-onboarding.md) | Email-Bootstrap Onboarding | Connect email, watch wiki build itself. Onboarding agent analyzes inbox to create user profile, people pages, and project pages in minutes. Zero data entry, feels magical. Research-driven. |
 | [OPP-007](opportunities/OPP-007-native-mac-app.md) | Native Mac App | Package as macOS app running server locally. Enables full access to iMessage, Contacts, Notes, files without sync. Remote access via Tailscale. Local-first, privacy-preserving. |
+| [OPP-008](opportunities/OPP-008-tunnel-qr-phone-access.md) | Tunnel + QR Phone Access | Cloudflare Tunnel (or similar) from Mac-local brain to the internet; QR encodes URL (+ optional pairing) for scan-to-open on phone. Remote access without VPN app on phone; complements Tailscale story in OPP-007. |
 
 ---
 
