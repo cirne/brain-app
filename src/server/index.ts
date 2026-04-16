@@ -27,6 +27,10 @@ import {
   NATIVE_APP_PORT_END,
   NATIVE_APP_PORT_START,
 } from './lib/nativeAppPort.js'
+import {
+  duplicateDevListenMessage,
+  isAddrInUse,
+} from './lib/devServerDuplicatePort.js'
 
 loadDotEnv()
 
