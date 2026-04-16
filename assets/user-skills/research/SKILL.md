@@ -45,6 +45,11 @@ version: 1
 7. **Gaps** — State what you could not verify.
 8. **Apply** — Save through the normal wiki edit flow (multiple files if split). Do not deliver only a proposal unless the user asked for notes without publishing.
 
+## Parallel gathering (encouraged)
+
+- **Parallel agents / concurrent lanes:** When gathering steps are independent, prefer **multiple subagents or parallel tool use** (e.g. one lane for web, one for email, one for video transcripts) instead of serializing everything behind one source.
+- **Variety of sources:** Deliberately mix **wiki**, **web** (search, official docs, archives), **email** (inbox/search/read when available), **YouTube or other video** (transcripts, captions, chapters), **codebase/issues**, PDFs, and **any MCP or environment-specific tools** that fit the question.
+
 ## Quality bar
 
 - One obvious entry page (hub) with clear navigation when multi-page.
