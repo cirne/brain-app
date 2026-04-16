@@ -2,7 +2,7 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { wikiDir, repoDir } from './wikiDir.js'
 import { redactGitRemote } from './redactGitRemote.js'
-import { areImessageToolsEnabled, initImessageToolsAvailability } from './imessageDb.js'
+import { areLocalMessageToolsEnabled, initLocalMessageToolsAvailability } from './imessageDb.js'
 import { parseRipmailStatusJson } from './ripmailStatusParse.js'
 
 const execAsync = promisify(exec)
@@ -11,7 +11,7 @@ const log = (line: string) => console.log(`[brain-app] ${line}`)
 
 /** One-shot logs for container / production debugging (paths, git, ripmail index). */
 export async function logStartupDiagnostics(): Promise<void> {
-  initImessageToolsAvailability()
+  initLocalMessageToolsAvailability()
   log(`NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} PORT=${process.env.PORT ?? '3000'}`)
   const repo = repoDir()
   const wiki = wikiDir()
@@ -58,11 +58,11 @@ export async function logStartupDiagnostics(): Promise<void> {
     log(`ripmail status failed — check RIPMAIL_HOME and ripmail config: ${String(e)}`)
   }
 
-  if (areImessageToolsEnabled()) {
-    log('iMessage: chat.db readable (list_imessage_recent / get_imessage_thread enabled)')
+  if (areLocalMessageToolsEnabled()) {
+    log('Local messages: chat.db readable (list_recent_messages / get_message_thread enabled)')
   } else {
     log(
-      'iMessage: database not readable — iMessage tools disabled (macOS: grant Full Disk Access to Node/your terminal, or set IMESSAGE_DB_PATH to a readable chat.db copy)',
+      'Local messages: database not readable — SMS/text tools disabled (macOS: grant Full Disk Access to Node/your terminal, or set IMESSAGE_DB_PATH to a readable chat.db copy)',
     )
   }
 

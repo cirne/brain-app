@@ -35,18 +35,18 @@ export function probeImessageDbReadable(): boolean {
 }
 
 /** Idempotent: first call probes disk; later calls no-op. Run during server startup. */
-export function initImessageToolsAvailability(): void {
-  if (imessageDbReadableAtStartup !== null) return
-  imessageDbReadableAtStartup = probeImessageDbReadable()
+export function initLocalMessageToolsAvailability(): void {
+  if (localMessagesDbReadableAtStartup !== null) return
+  localMessagesDbReadableAtStartup = probeImessageDbReadable()
 }
 
-export function areImessageToolsEnabled(): boolean {
-  return imessageDbReadableAtStartup === true
+export function areLocalMessageToolsEnabled(): boolean {
+  return localMessagesDbReadableAtStartup === true
 }
 
 /** Tests only: reset probe state so init can run again. */
-export function resetImessageToolsAvailabilityForTests(): void {
-  imessageDbReadableAtStartup = null
+export function resetLocalMessageToolsAvailabilityForTests(): void {
+  localMessagesDbReadableAtStartup = null
 }
 
 export interface ImessageRowRaw {

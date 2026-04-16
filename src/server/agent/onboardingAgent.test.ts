@@ -35,7 +35,7 @@ describe('onboarding agent tools', () => {
   it('uses createAgentTools omit list matching profiling/seeding (keeps web_search + fetch_page)', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, {
-      includeImessageTools: false,
+      includeLocalMessageTools: false,
       omitToolNames: ONBOARDING_OMIT_TOOL_NAMES,
     })
     const names = tools.map((t: { name?: string }) => t.name)

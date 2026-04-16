@@ -24,7 +24,7 @@ afterEach(async () => {
 describe('createAgentTools', () => {
   it('returns an array of tools with expected names', async () => {
     const { createAgentTools } = await import('./tools.js')
-    const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
     expect(Array.isArray(tools)).toBe(true)
     const names = tools.map((t: any) => t.name)
     expect(names).toContain('read')
@@ -47,36 +47,36 @@ describe('createAgentTools', () => {
     expect(names).toContain('youtube_search')
     expect(names).toContain('set_chat_title')
     expect(names).toContain('open')
-    expect(names).toContain('list_imessage_recent')
-    expect(names).toContain('get_imessage_thread')
+    expect(names).toContain('list_recent_messages')
+    expect(names).toContain('get_message_thread')
   })
 
   it('omitToolNames removes listed tools by name', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, {
-      includeImessageTools: true,
-      omitToolNames: ['inbox_rules', 'open', 'list_imessage_recent'],
+      includeLocalMessageTools: true,
+      omitToolNames: ['inbox_rules', 'open', 'list_recent_messages'],
     })
     const names = tools.map((t: { name?: string }) => t.name)
     expect(names).not.toContain('inbox_rules')
     expect(names).not.toContain('open')
-    expect(names).not.toContain('list_imessage_recent')
+    expect(names).not.toContain('list_recent_messages')
     expect(names).toContain('read')
-    expect(names).toContain('get_imessage_thread')
+    expect(names).toContain('get_message_thread')
   })
 
-  it('omits iMessage tools when includeImessageTools is false', async () => {
+  it('omits local message tools when includeLocalMessageTools is false', async () => {
     const { createAgentTools } = await import('./tools.js')
-    const tools = createAgentTools(wikiDir, { includeImessageTools: false })
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
     const names = tools.map((t: { name: string }) => t.name)
-    expect(names).not.toContain('list_imessage_recent')
-    expect(names).not.toContain('get_imessage_thread')
+    expect(names).not.toContain('list_recent_messages')
+    expect(names).not.toContain('get_message_thread')
   })
 
   describe('set_chat_title tool', () => {
     it('returns confirmation with trimmed title', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: { name: string }) => t.name === 'set_chat_title')!
       const result = await tool.execute('t-1', { title: '  Planning a trip to Lisbon  ' })
       expect(result.content[0].text).toContain('Planning a trip to Lisbon')
@@ -86,7 +86,7 @@ describe('createAgentTools', () => {
   describe('open tool', () => {
     it('returns confirmation text for wiki target', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: { name: string }) => t.name === 'open')!
       const result = await tool.execute('o-1', {
         target: { type: 'wiki', path: 'ideas/foo.md' },
@@ -98,7 +98,7 @@ describe('createAgentTools', () => {
 
     it('returns confirmation for email and calendar targets', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: { name: string }) => t.name === 'open')!
       const e = await tool.execute('o-2', { target: { type: 'email', id: 'msg:1' } })
       expect(e.content[0].text).toContain('msg:1')
@@ -117,7 +117,7 @@ describe('createAgentTools', () => {
     it('throws when SUPADATA_API_KEY is not set', async () => {
       delete process.env.SUPADATA_API_KEY
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'fetch_page')!
       await expect(tool.execute('fp-1', { url: 'https://example.com' })).rejects.toThrow('SUPADATA_API_KEY')
     })
@@ -129,7 +129,7 @@ describe('createAgentTools', () => {
         json: async () => ({ content: '## Hello\nWorld', name: 'Example Page' }),
       }))
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'fetch_page')!
       const result = await tool.execute('fp-2', { url: 'https://example.com' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -145,7 +145,7 @@ describe('createAgentTools', () => {
         text: async () => 'rate limited',
       }))
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'fetch_page')!
       await expect(tool.execute('fp-3', { url: 'https://example.com' })).rejects.toThrow('429')
     })
@@ -160,7 +160,7 @@ describe('createAgentTools', () => {
     it('throws when SUPADATA_API_KEY is not set', async () => {
       delete process.env.SUPADATA_API_KEY
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'get_youtube_transcript')!
       await expect(tool.execute('yt-1', { url: 'https://youtube.com/watch?v=abc' })).rejects.toThrow('SUPADATA_API_KEY')
     })
@@ -175,7 +175,7 @@ describe('createAgentTools', () => {
         }),
       }))
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'get_youtube_transcript')!
       const result = await tool.execute('yt-2', { url: 'https://youtube.com/watch?v=abc' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -189,7 +189,7 @@ describe('createAgentTools', () => {
         json: async () => ({ content: 'Full transcript text', lang: 'en' }),
       }))
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'get_youtube_transcript')!
       const result = await tool.execute('yt-3', { url: 'https://youtube.com/watch?v=abc' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -206,7 +206,7 @@ describe('createAgentTools', () => {
     it('throws when SUPADATA_API_KEY is not set', async () => {
       delete process.env.SUPADATA_API_KEY
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'youtube_search')!
       await expect(tool.execute('ys-1', { query: 'svelte tutorial' })).rejects.toThrow('SUPADATA_API_KEY')
     })
@@ -223,7 +223,7 @@ describe('createAgentTools', () => {
         }),
       }))
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'youtube_search')!
       const result = await tool.execute('ys-2', { query: 'svelte' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -239,7 +239,7 @@ describe('createAgentTools', () => {
         json: async () => ({ items: [] }),
       }))
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'youtube_search')!
       const result = await tool.execute('ys-3', { query: 'nothing' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -250,14 +250,14 @@ describe('createAgentTools', () => {
   it('web_search tool throws when EXA_API_KEY is not set', async () => {
     delete process.env.EXA_API_KEY
     const { createAgentTools } = await import('./tools.js')
-    const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
     const tool = tools.find((t: any) => t.name === 'web_search')!
     await expect(tool.execute('test-ws-1', { query: 'test' })).rejects.toThrow('EXA_API_KEY')
   })
 
   it('read tool can read a wiki file', async () => {
     const { createAgentTools } = await import('./tools.js')
-    const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
     const readTool = tools.find((t: any) => t.name === 'read')!
     const result = await readTool.execute('test-1', { path: 'index.md' })
     const text = result.content.map((c: any) => c.text).join('')
@@ -278,7 +278,7 @@ describe('createAgentTools', () => {
 
     it('appends a JSONL line when edit tool succeeds', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const edit = tools.find((t: any) => t.name === 'edit')!
       await edit.execute('edit-hist-1', {
         path: 'index.md',
@@ -294,7 +294,7 @@ describe('createAgentTools', () => {
 
     it('appends a JSONL line when write tool succeeds', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const write = tools.find((t: any) => t.name === 'write')!
       await write.execute('write-hist-1', {
         path: 'scratch/new-note.md',
@@ -309,7 +309,7 @@ describe('createAgentTools', () => {
 
     it('does not append when edit fails', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const edit = tools.find((t: any) => t.name === 'edit')!
       await expect(
         edit.execute('edit-fail', {
@@ -350,7 +350,7 @@ describe('createAgentTools', () => {
 
     it('lists top contacts when query is empty (ripmail who --limit 60)', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'find_person')!
       const result = await tool.execute('test-fp-empty', { query: '  ' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -360,7 +360,7 @@ describe('createAgentTools', () => {
 
     it('combines email contacts and wiki notes', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'find_person')!
       const result = await tool.execute('test-fp-1', { query: 'alice' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -374,7 +374,7 @@ describe('createAgentTools', () => {
       // Fake ripmail returns nothing
       await writeFile(ripmailScript, `#!/bin/sh\nexit 0\n`)
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'find_person')!
       const result = await tool.execute('test-fp-2', { query: 'nobody' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -384,7 +384,7 @@ describe('createAgentTools', () => {
     it('returns wiki results even if ripmail fails', async () => {
       await writeFile(ripmailScript, `#!/bin/sh\nexit 1\n`)
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'find_person')!
       const result = await tool.execute('test-fp-3', { query: 'alice' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -396,7 +396,7 @@ describe('createAgentTools', () => {
       await writeFile(ripmailScript, `#!/bin/sh\nexit 0\n`)
       await writeFile(join(wikiDir, 'people', 'bob.md'), '# Bob\nPhone: (650) 248-5571\nBob is great.')
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'find_person')!
       const result = await tool.execute('test-fp-phone', { query: '+16502485571' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -424,7 +424,7 @@ describe('createAgentTools', () => {
         { id: 'e2', title: 'Far Future', start: '2026-05-01T10:00:00Z', end: '2026-05-01T11:00:00Z', allDay: false, source: 'personal' },
       ])
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
       const result = await tool.execute('test-cal-1', { start: '2026-04-12', end: '2026-04-12' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -437,7 +437,7 @@ describe('createAgentTools', () => {
         { id: 'e1', title: 'All day Mon', start: '2026-04-20', end: '2026-04-21', allDay: true, source: 'personal' },
       ])
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
       const result = await tool.execute('test-cal-dow', { start: '2026-04-20', end: '2026-04-20' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -447,7 +447,7 @@ describe('createAgentTools', () => {
 
     it('returns no-events message when cache is empty', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
       const result = await tool.execute('test-cal-2', { start: '2026-04-12', end: '2026-04-12' })
       const text = result.content.map((c: any) => c.text).join('')
@@ -480,7 +480,7 @@ fi
 
     it('runs ripmail inbox and returns JSON in content and details', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'list_inbox')!
       const result = await tool.execute('li-1', {})
       expect(result.content[0].text).toContain('mid-1')
@@ -515,7 +515,7 @@ fi
 
     it('runs ripmail rules list and parses JSON details', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'inbox_rules')!
       const result = await tool.execute('ir-1', { op: 'list' })
       expect(result.content[0].text).toContain('stub')
@@ -544,7 +544,7 @@ echo "$@" >> ${join(wikiDir, 'ripmail-archive.log')}
 
     it('runs ripmail archive for each message id', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'archive_emails')!
       const result = await tool.execute('ae-1', { message_ids: ['msg-a', 'msg-b'] })
       expect(result.content[0].text).toContain('Archived 2 message(s)')
@@ -582,7 +582,7 @@ fi
 
     it('passes add_cc flags to ripmail', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'edit_draft')!
       const result = await tool.execute('ed-1', {
         draft_id: 'd1',
@@ -598,7 +598,7 @@ fi
 
     it('works with metadata-only edit (no body instruction)', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'edit_draft')!
       const result = await tool.execute('ed-2', {
         draft_id: 'd1',
@@ -615,7 +615,7 @@ fi
 
   it('grep tool can search wiki content', async () => {
     const { createAgentTools } = await import('./tools.js')
-    const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
     const grepTool = tools.find((t: any) => t.name === 'grep')!
     const result = await grepTool.execute('test-2', { pattern: 'foo idea', path: '.' })
     const text = result.content.map((c: any) => c.text).join('')
@@ -636,7 +636,7 @@ fi
 
     it('move_file renames within the wiki and appends history', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const move = tools.find((t: any) => t.name === 'move_file')!
       const result = await move.execute('mv-1', { from: 'ideas/foo.md', to: 'ideas/bar.md' })
       expect(result.content[0].text).toContain('ideas/foo.md')
@@ -653,7 +653,7 @@ fi
 
     it('move_file rejects path traversal', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const move = tools.find((t: any) => t.name === 'move_file')!
       await expect(move.execute('mv-bad', { from: 'ideas/foo.md', to: '../../../etc/passwd' })).rejects.toThrow(
         'wiki directory',
@@ -662,7 +662,7 @@ fi
 
     it('move_file fails when destination exists', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const move = tools.find((t: any) => t.name === 'move_file')!
       await expect(
         move.execute('mv-dup', { from: 'ideas/foo.md', to: 'index.md' }),
@@ -671,7 +671,7 @@ fi
 
     it('delete_file removes a wiki file and appends history', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const del = tools.find((t: any) => t.name === 'delete_file')!
       const result = await del.execute('del-1', { path: 'ideas/foo.md' })
       expect(result.content[0].text).toContain('ideas/foo.md')
@@ -685,7 +685,7 @@ fi
 
     it('delete_file rejects path traversal', async () => {
       const { createAgentTools } = await import('./tools.js')
-      const tools = createAgentTools(wikiDir, { includeImessageTools: true })
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const del = tools.find((t: any) => t.name === 'delete_file')!
       await expect(del.execute('del-bad', { path: '../../../etc/passwd' })).rejects.toThrow('wiki directory')
     })

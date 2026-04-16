@@ -45,7 +45,7 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
     return 'The user asked for a summary of the triaged inbox items in their message. Use the ripmail tool (e.g. read <id> --json, or search with --json) with the message ids provided as needed, then answer concisely.'
   }
   if (ctx.type === 'messages') {
-    return `The user is viewing an iMessage/SMS thread (${ctx.displayLabel}). The canonical chat_identifier is ${ctx.chat}. Use get_imessage_thread with that identifier if you need more messages.`
+    return `The user is viewing a local SMS/text thread (${ctx.displayLabel}). The canonical chat_identifier is ${ctx.chat}. Use get_message_thread with that identifier if you need more messages.`
   }
   return undefined
 }

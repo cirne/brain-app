@@ -16,7 +16,7 @@ import imessageRoute from './routes/imessage.js'
 import onboardingRoute from './routes/onboarding.js'
 import devRoute from './routes/dev.js'
 import { logStartupDiagnostics } from './lib/startupDiagnostics.js'
-import { initImessageToolsAvailability } from './lib/imessageDb.js'
+import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
 import { verifyLlmAtStartup } from './lib/llmStartupSmoke.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
 
@@ -50,6 +50,7 @@ app.route('/api/inbox', inboxRoute)
 app.route('/api/calendar', calendarRoute)
 app.route('/api/search', searchRoute)
 app.route('/api/imessage', imessageRoute)
+app.route('/api/messages', imessageRoute)
 app.route('/api/onboarding', onboardingRoute)
 if (isDev) {
   app.route('/api/dev', devRoute)
@@ -99,7 +100,7 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
 
 async function start() {
   try {
-    initImessageToolsAvailability()
+    initLocalMessageToolsAvailability()
     await verifyLlmAtStartup()
     await logStartupDiagnostics()
 

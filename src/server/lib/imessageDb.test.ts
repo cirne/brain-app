@@ -6,13 +6,13 @@ import Database from 'better-sqlite3'
 import {
   appleDateNsToUnixMs,
   unixMsToAppleDateNs,
-  areImessageToolsEnabled,
+  areLocalMessageToolsEnabled,
   extractTextFromAttributedBody,
-  initImessageToolsAvailability,
+  initLocalMessageToolsAvailability,
   listRecentMessages,
   getThreadMessages,
   probeImessageDbReadable,
-  resetImessageToolsAvailabilityForTests,
+  resetLocalMessageToolsAvailabilityForTests,
 } from './imessageDb.js'
 
 let dir: string
@@ -202,26 +202,26 @@ describe('imessageDb', () => {
   describe('availability probe', () => {
     beforeEach(() => {
       process.env.IMESSAGE_DB_PATH = dbPath
-      resetImessageToolsAvailabilityForTests()
+      resetLocalMessageToolsAvailabilityForTests()
     })
 
     afterEach(() => {
       delete process.env.IMESSAGE_DB_PATH
-      resetImessageToolsAvailabilityForTests()
+      resetLocalMessageToolsAvailabilityForTests()
     })
 
     it('probeImessageDbReadable returns true for readable db', () => {
       expect(probeImessageDbReadable()).toBe(true)
     })
 
-    it('initImessageToolsAvailability enables tools when db is readable', () => {
-      initImessageToolsAvailability()
-      expect(areImessageToolsEnabled()).toBe(true)
+    it('initLocalMessageToolsAvailability enables tools when db is readable', () => {
+      initLocalMessageToolsAvailability()
+      expect(areLocalMessageToolsEnabled()).toBe(true)
     })
 
     it('probeImessageDbReadable returns false when path does not exist', () => {
       process.env.IMESSAGE_DB_PATH = join(dir, 'missing-chat.db')
-      resetImessageToolsAvailabilityForTests()
+      resetLocalMessageToolsAvailabilityForTests()
       expect(probeImessageDbReadable()).toBe(false)
     })
   })

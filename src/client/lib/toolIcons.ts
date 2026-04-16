@@ -36,7 +36,11 @@ const TOOL_ICONS = {
   get_youtube_transcript: Play,
   youtube_search: Play,
   open: PanelRightOpen,
+  list_recent_messages: MessageSquare,
+  get_message_thread: MessageSquare,
+  /** @deprecated persisted sessions */
   list_imessage_recent: MessageSquare,
+  /** @deprecated persisted sessions */
   get_imessage_thread: MessageSquare,
 } as unknown as Record<string, Component>
 

@@ -186,7 +186,11 @@ export function streamAgentSseResponse(
             let details: unknown = undefined
             if (ev.toolName === 'list_inbox' && ev.result?.details != null && typeof ev.result.details === 'object') {
               details = ev.result.details
-            } else if (ev.toolName === 'get_imessage_thread' && ev.result?.details != null && typeof ev.result.details === 'object') {
+            } else if (
+              (ev.toolName === 'get_message_thread' || ev.toolName === 'get_imessage_thread') &&
+              ev.result?.details != null &&
+              typeof ev.result.details === 'object'
+            ) {
               details = ev.result.details
             } else if (ev.toolName === 'read_email' && resultText.trim().startsWith('{')) {
               try {

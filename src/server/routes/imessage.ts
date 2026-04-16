@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import {
-  areImessageToolsEnabled,
+  areLocalMessageToolsEnabled,
   getImessageDbPath,
   getThreadMessages,
 } from '../lib/imessageDb.js'
@@ -21,10 +21,10 @@ function parseOptionalIsoMs(s: string | undefined): number | undefined {
   return t
 }
 
-/** GET /api/imessage/thread?chat=... — read-only thread for UI (same window defaults as get_imessage_thread). */
+/** GET /api/messages/thread (and /api/imessage/thread) — read-only thread for UI (same defaults as get_message_thread). */
 imessage.get('/thread', (c) => {
-  if (!areImessageToolsEnabled()) {
-    return c.json({ ok: false, error: 'iMessage database not available on this host.' }, 503)
+  if (!areLocalMessageToolsEnabled()) {
+    return c.json({ ok: false, error: 'Local Messages database not available on this host.' }, 503)
   }
   const chatRaw = c.req.query('chat')
   if (!chatRaw || !String(chatRaw).trim()) {

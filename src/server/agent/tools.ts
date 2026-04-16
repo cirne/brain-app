@@ -8,10 +8,10 @@ import { enrichCalendarEventsForAgent, getCalendarEvents, weekdayLongForUtcYmd }
 import { Exa } from 'exa-js'
 import { appendWikiEditRecord, resolveSafeWikiPath } from '../lib/wikiEditHistory.js'
 import {
-  areImessageToolsEnabled,
+  areLocalMessageToolsEnabled,
   getImessageDbPath,
   getThreadMessages,
-  listRecentMessages,
+  listRecentMessages as listRecentMessagesFromDb,
 } from '../lib/imessageDb.js'
 import { buildImessageSnippet, compactImessageListRow, compactImessageThreadRow } from '../lib/imessageFormat.js'
 import {
@@ -119,7 +119,7 @@ function parseOptionalIsoMs(s: string | undefined): number | undefined {
 
 /**
  * Look up a phone number or identifier in the wiki and return the relative
- * path of matching files (if any). Used to enrich iMessage tool output inline.
+ * path of matching files (if any). Used to enrich local message tool output inline.
  */
 async function resolveIdentifierToWikiFiles(
   identifier: string,
@@ -187,17 +187,17 @@ export function buildDraftEditFlags(params: {
 
 export interface CreateAgentToolsOptions {
   /**
-   * Include list_imessage_recent / get_imessage_thread. Default: true only if
-   * initImessageToolsAvailability() ran at startup and chat.db was readable.
+   * Include list_recent_messages / get_message_thread (local SMS/text + iMessage via macOS chat.db when readable).
+   * Default: true only if initLocalMessageToolsAvailability() ran at startup and chat.db was readable.
    */
-  includeImessageTools?: boolean
+  includeLocalMessageTools?: boolean
   /** Tool `name`s to drop from the returned list (e.g. onboarding uses a subset). */
   omitToolNames?: readonly string[]
 }
 
-function resolveIncludeImessageTools(options?: CreateAgentToolsOptions): boolean {
-  if (options?.includeImessageTools !== undefined) return options.includeImessageTools
-  return areImessageToolsEnabled()
+function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boolean {
+  if (options?.includeLocalMessageTools !== undefined) return options.includeLocalMessageTools
+  return areLocalMessageToolsEnabled()
 }
 
 /**
@@ -207,7 +207,7 @@ function resolveIncludeImessageTools(options?: CreateAgentToolsOptions): boolean
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): any[] {
-  const includeImessage = resolveIncludeImessageTools(options)
+  const includeLocalMessages = resolveIncludeLocalMessageTools(options)
   // Pi-coding-agent file tools scoped to wiki directory (edit/write append to data/wiki-edits.jsonl)
   const read = createReadTool(wikiDir)
   const editTool = createEditTool(wikiDir)
@@ -803,11 +803,11 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
 
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
 
-  const listImessageRecent = defineTool({
-    name: 'list_imessage_recent',
-    label: 'List recent iMessage',
+  const listRecentMessagesTool = defineTool({
+    name: 'list_recent_messages',
+    label: 'List recent messages',
     description:
-      'Read recent SMS/iMessage from the local macOS Messages database (read-only). Default time window: last 7 days. Output is compact JSON: n=count, messages[] with ts=Unix seconds, m=1 you/0 them, r=read 1/0 (incoming only), t=text, c=chat id (omitted when chat_identifier filter is set; US phones shown as (NXX) NXX-XXXX). Phone-number chat ids are auto-resolved against wiki people pages — matched ids appear in a top-level "people" map (same display form as c → wiki paths) so you can identify who a conversation is with without extra tool calls.',
+      'Read recent local SMS/text and iMessage from the macOS Messages database when available (read-only; same store as the Messages app). Default time window: last 7 days. Output is compact JSON: n=count, messages[] with ts=Unix seconds, m=1 you/0 them, r=read 1/0 (incoming only), t=text, c=chat id (omitted when chat_identifier filter is set; US phones shown as (NXX) NXX-XXXX). Phone-number chat ids are auto-resolved against wiki people pages — matched ids appear in a top-level "people" map (same display form as c → wiki paths) so you can identify who a conversation is with without extra tool calls.',
     parameters: Type.Object({
       since: Type.Optional(Type.String({ description: 'ISO 8601 start time (optional; default last 7 days)' })),
       until: Type.Optional(Type.String({ description: 'ISO 8601 end time (optional; default now)' })),
@@ -838,7 +838,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         params.chat_identifier != null && String(params.chat_identifier).trim() !== ''
           ? canonicalizeImessageChatIdentifier(params.chat_identifier)
           : undefined
-      const { messages, error } = listRecentMessages(dbPath, {
+      const { messages, error } = listRecentMessagesFromDb(dbPath, {
         sinceMs,
         untilMs,
         unread_only: params.unread_only,
@@ -874,11 +874,11 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
-  const getImessageThread = defineTool({
-    name: 'get_imessage_thread',
-    label: 'Get iMessage thread',
+  const getMessageThreadTool = defineTool({
+    name: 'get_message_thread',
+    label: 'Get message thread',
     description:
-      'Read messages for one conversation by chat_identifier (same meaning as c in list_imessage_recent; accepts E.164, common US formatting, or email as in Messages). Returns messages oldest-first for reading. Default time window: last 7 days. Compact JSON: chat (display form for US phones), n=returned rows, total=in window, messages with ts/m/t/r (same encoding as list_imessage_recent). If the chat id is a phone number found in the wiki, a "person" field lists matching wiki paths.',
+      'Read messages for one local SMS/text or iMessage conversation by chat_identifier (same meaning as c in list_recent_messages; accepts E.164, common US formatting, or email as stored for that thread). Returns messages oldest-first for reading. Default time window: last 7 days. Compact JSON: chat (display form for US phones), n=returned rows, total=in window, messages with ts/m/t/r (same encoding as list_recent_messages). If the chat id is a phone number found in the wiki, a "person" field lists matching wiki paths.',
     parameters: Type.Object({
       chat_identifier: Type.String({
         description: 'Thread id: E.164 phone, formatted US number, Apple ID email, or group id (chat.chat_identifier)',
@@ -918,7 +918,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       const snippet = buildImessageSnippet(compactRows)
       const preview_messages = compactRows.slice(-5)
       const payload: Record<string, unknown> = {
-        imessageThreadPreview: true,
+        messageThreadPreview: true,
         canonical_chat: chatId,
         chat: displayChat,
         n: messages.length,
@@ -960,7 +960,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     youtubeSearch,
     setChatTitle,
     openTool,
-    ...(includeImessage ? [listImessageRecent, getImessageThread] : []),
+    ...(includeLocalMessages ? [listRecentMessagesTool, getMessageThreadTool] : []),
   ]
   const omit = options?.omitToolNames
   if (omit?.length) {

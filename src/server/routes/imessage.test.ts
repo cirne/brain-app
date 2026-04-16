@@ -5,8 +5,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import Database from 'better-sqlite3'
 import {
-  initImessageToolsAvailability,
-  resetImessageToolsAvailabilityForTests,
+  initLocalMessageToolsAvailability,
+  resetLocalMessageToolsAvailabilityForTests,
   unixMsToAppleDateNs,
 } from '../lib/imessageDb.js'
 
@@ -82,8 +82,8 @@ beforeEach(async () => {
   db.close()
 
   process.env.IMESSAGE_DB_PATH = dbPath
-  resetImessageToolsAvailabilityForTests()
-  initImessageToolsAvailability()
+  resetLocalMessageToolsAvailabilityForTests()
+  initLocalMessageToolsAvailability()
 
   const { default: imessageRoute } = await import('./imessage.js')
   app = new Hono()
@@ -92,7 +92,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   delete process.env.IMESSAGE_DB_PATH
-  resetImessageToolsAvailabilityForTests()
+  resetLocalMessageToolsAvailabilityForTests()
   await rm(dir, { recursive: true, force: true })
 })
 

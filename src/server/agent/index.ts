@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { wikiDir as getWikiDir } from '../lib/wikiDir.js'
 import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '../lib/openAiResponsesPayload.js'
-import { areImessageToolsEnabled } from '../lib/imessageDb.js'
+import { areLocalMessageToolsEnabled } from '../lib/imessageDb.js'
 
 const sessions = new Map<string, Agent>()
 
@@ -29,10 +29,10 @@ export function meProfilePromptSection(wikiRoot: string): string {
   return `\n## User profile (me.md)\nThe block below is the user's profile from **me.md** at the wiki root. It is core context for this session—use it to tailor tone, context, and priorities. Do not assume facts that are not in the wiki, tools, or this profile. **Do not** call the read tool for \`me.md\` unless the user explicitly asks you to reload it.\n\n${USER_PROFILE_BEGIN}\n${body}${body.endsWith('\n') ? '' : '\n'}${USER_PROFILE_END}\n`
 }
 
-function buildBaseSystemPrompt(includeImessageCapabilities: boolean, wikiRoot: string): string {
+function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoot: string): string {
   const meHint = meProfilePromptSection(wikiRoot)
-  const imessageBullet = includeImessageCapabilities
-    ? `- On macOS, read local SMS/iMessage history with list_imessage_recent and get_imessage_thread (resolve phone/email from wiki, then query by chat_identifier)`
+  const localMessagesBullet = includeLocalMessageCapabilities
+    ? `- On macOS (when available), read local SMS/text and iMessage history with list_recent_messages and get_message_thread (resolve phone/email from wiki, then query by chat_identifier)`
     : ''
   return `You are a personal assistant with access to a markdown wiki, email, web search, and YouTube.${meHint}
 
@@ -48,7 +48,7 @@ function buildBaseSystemPrompt(includeImessageCapabilities: boolean, wikiRoot: s
 - Search the web with web_search; fetch article text from URLs with fetch_page when needed
 - Find videos with youtube_search and read captions/transcripts with get_youtube_transcript (video URL or ID)
 - Open the in-app detail panel for a wiki path, email id, or calendar date using the open tool so the user can read the full artifact beside chat (optional; you can also use wiki: / date: links in markdown)
-${imessageBullet}
+${localMessagesBullet}
 
 ## Guidelines
 - Use tools to look up information before answering — don't guess.
@@ -78,7 +78,7 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
   if (existing) return existing
 
   const wikiDir = options.wikiDir ?? getWikiDir()
-  const imessageEnabled = areImessageToolsEnabled()
+  const localMessagesEnabled = areLocalMessageToolsEnabled()
   const tools = createAgentTools(wikiDir)
 
   // Build system prompt with local date/time in the user's timezone
@@ -92,7 +92,7 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
     .formatToParts(now)
     .find(p => p.type === 'timeZoneName')?.value ?? ''  // e.g. "GMT-5"
   const utcOffset = gmtOffset.replace('GMT', 'UTC')  // e.g. "UTC-5"
-  let systemPrompt = `${buildBaseSystemPrompt(imessageEnabled, wikiDir)}\n\n## Current date & time\nToday is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — to convert to local time use the ${utcOffset} offset. Do not assume a fixed offset for the timezone name; ${utcOffset} already reflects daylight saving time.`
+  let systemPrompt = `${buildBaseSystemPrompt(localMessagesEnabled, wikiDir)}\n\n## Current date & time\nToday is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — to convert to local time use the ${utcOffset} offset. Do not assume a fixed offset for the timezone name; ${utcOffset} already reflects daylight saving time.`
 
   if (options.context) {
     systemPrompt += `\n\n## Current file context\nThe user is viewing the following file(s). Use this as context for the conversation.\n\n${options.context}`

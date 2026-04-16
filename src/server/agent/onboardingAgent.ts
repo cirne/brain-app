@@ -46,8 +46,8 @@ export const ONBOARDING_OMIT_TOOL_NAMES: readonly string[] = [
   'get_calendar_events',
   'get_youtube_transcript',
   'open',
-  'list_imessage_recent',
-  'get_imessage_thread',
+  'list_recent_messages',
+  'get_message_thread',
 ]
 
 function buildDateContext(timezone: string): string {
@@ -136,7 +136,7 @@ ${categoriesNote}
 
 function createAgentWithPrompt(systemPrompt: string, wikiRoot: string): Agent {
   const tools = createAgentTools(wikiRoot, {
-    includeImessageTools: false,
+    includeLocalMessageTools: false,
     omitToolNames: ONBOARDING_OMIT_TOOL_NAMES,
   })
   const provider = (process.env.LLM_PROVIDER ?? 'anthropic') as KnownProvider
