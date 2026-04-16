@@ -234,6 +234,35 @@ wiki.get('/dir-icon/:dir', async (c) => {
   }
 })
 
+// PATCH /api/wiki/:path — save full markdown file (including YAML front matter)
+wiki.patch('/:path{.+}', async (c) => {
+  const dir = resolve(wikiDir())
+  const filePath = c.req.param('path')
+  const fullPath = resolve(join(dir, filePath))
+
+  if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+
+  let body: { markdown?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid JSON' }, 400)
+  }
+  if (typeof body.markdown !== 'string') {
+    return c.json({ error: 'Expected { markdown: string }' }, 400)
+  }
+
+  try {
+    await mkdir(dirname(fullPath), { recursive: true })
+    await writeFile(fullPath, body.markdown, 'utf-8')
+    return c.json({ ok: true, path: filePath })
+  } catch {
+    return c.json({ error: 'Write failed' }, 500)
+  }
+})
+
 // GET /api/wiki/:path — read and render a specific page
 // IMPORTANT: this catch-all route must be registered AFTER specific routes above
 wiki.get('/:path{.+}', async (c) => {
