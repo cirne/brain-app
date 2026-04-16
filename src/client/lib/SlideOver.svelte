@@ -14,6 +14,10 @@
     CALENDAR_SLIDE_HEADER,
     type CalendarSlideHeaderState,
   } from './calendarSlideHeaderContext.js'
+  import {
+    WIKI_SLIDE_HEADER,
+    type WikiSlideHeaderState,
+  } from './wikiSlideHeaderContext.js'
 
   type Props = {
     overlay: Overlay
@@ -219,6 +223,12 @@
     calendarHeader = state
   }
   setContext(CALENDAR_SLIDE_HEADER, registerCalendarHeader)
+
+  let wikiHeader = $state<WikiSlideHeaderState | null>(null)
+  function registerWikiHeader(state: WikiSlideHeaderState | null) {
+    wikiHeader = state
+  }
+  setContext(WIKI_SLIDE_HEADER, registerWikiHeader)
 </script>
 
 <div
@@ -316,6 +326,28 @@
             </svg>
           </button>
         </div>
+      {/if}
+      {#if overlay.type === 'wiki' && wikiHeader}
+        {#if wikiHeader.saveState === 'saving'}
+          <span class="wiki-save-hint" role="status">Saving…</span>
+        {:else if wikiHeader.saveState === 'saved'}
+          <span class="wiki-save-hint" role="status">Saved</span>
+        {:else if wikiHeader.saveState === 'error'}
+          <span class="wiki-save-hint wiki-save-err" role="status">Save failed</span>
+        {/if}
+        <button
+          type="button"
+          class="wiki-edit-btn"
+          class:active={wikiHeader.pageMode === 'edit'}
+          disabled={!wikiHeader.canEdit}
+          onclick={() => wikiHeader?.setPageMode(wikiHeader.pageMode === 'edit' ? 'view' : 'edit')}
+          title={wikiHeader.pageMode === 'edit' ? 'View' : 'Edit'}
+          aria-label={wikiHeader.pageMode === 'edit' ? 'Switch to view mode' : 'Switch to edit mode'}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>
+          </svg>
+        </button>
       {/if}
       <button type="button" class="close-btn-desktop" onclick={onBackOrHeaderClose} aria-label="Close panel" title="Close">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -545,6 +577,30 @@
   }
   .slide-action-btn:hover:not(:disabled) { color: var(--text); background: var(--bg-3); }
   .slide-action-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .wiki-edit-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-2);
+    border-radius: 6px;
+    flex-shrink: 0;
+    transition: color 0.15s, background 0.15s;
+  }
+  .wiki-edit-btn:hover:not(:disabled) { color: var(--text); background: var(--bg-3); }
+  .wiki-edit-btn:disabled { opacity: 0.35; cursor: default; }
+  .wiki-edit-btn.active { color: var(--accent); }
+
+  .wiki-save-hint {
+    font-size: 12px;
+    color: var(--text-2);
+    flex-shrink: 0;
+  }
+  .wiki-save-err {
+    color: var(--danger, #c44);
+  }
 
   .slide-body {
     flex: 1;

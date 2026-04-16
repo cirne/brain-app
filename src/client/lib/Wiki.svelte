@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getContext } from 'svelte'
   import { mount, unmount } from 'svelte'
   import WikiFileName from './WikiFileName.svelte'
   import TipTapMarkdownEditor from './TipTapMarkdownEditor.svelte'
@@ -10,6 +11,10 @@
   } from './wikiPageHtml.js'
   import { wikiPathForReadToolArg } from './cards/contentCards.js'
   import { renderMarkdown } from './markdown.js'
+  import {
+    WIKI_SLIDE_HEADER,
+    type SetWikiSlideHeader,
+  } from './wikiSlideHeaderContext.js'
 
   type WikiFile = { path: string; name: string }
 
@@ -62,7 +67,16 @@
 
   const canEdit = $derived(Boolean(selected && pageLoadedOk && !streamBusy && !loading))
 
-
+  const registerWikiHeader = getContext<SetWikiSlideHeader | undefined>(WIKI_SLIDE_HEADER)
+  $effect(() => {
+    registerWikiHeader?.({
+      pageMode,
+      canEdit,
+      saveState,
+      setPageMode: (m: 'view' | 'edit') => void setPageMode(m),
+    })
+    return () => registerWikiHeader?.(null)
+  })
 
   async function loadFiles() {
     const res = await fetch('/api/wiki')
@@ -231,34 +245,6 @@
 </script>
 
 <div class="wiki">
-  <div class="wiki-toolbar" aria-label="Wiki page mode">
-    <div class="wiki-mode-toggle" role="group" aria-label="View or edit markdown">
-      <button
-        type="button"
-        class="wiki-mode-btn"
-        class:active={pageMode === 'view'}
-        onclick={() => void setPageMode('view')}
-      >
-        View
-      </button>
-      <button
-        type="button"
-        class="wiki-mode-btn"
-        class:active={pageMode === 'edit'}
-        disabled={!canEdit}
-        onclick={() => void setPageMode('edit')}
-      >
-        Edit
-      </button>
-    </div>
-    {#if saveState === 'saving'}
-      <span class="wiki-save-hint" role="status">Saving…</span>
-    {:else if saveState === 'saved'}
-      <span class="wiki-save-hint" role="status">Saved</span>
-    {:else if saveState === 'error'}
-      <span class="wiki-save-hint wiki-save-err" role="status">Save failed</span>
-    {/if}
-  </div>
   <div class="content-area" class:content-area-edit={pageMode === 'edit' && canEdit}>
     {#if pageMode === 'edit' && canEdit}
       {#key selected}
@@ -311,60 +297,6 @@
 
 <style>
   .wiki { display: flex; flex-direction: column; height: 100%; overflow: hidden; min-height: 0; }
-
-  .wiki-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-shrink: 0;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-2);
-  }
-
-  .wiki-mode-toggle {
-    display: inline-flex;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    overflow: hidden;
-  }
-
-  .wiki-mode-btn {
-    appearance: none;
-    border: none;
-    margin: 0;
-    padding: 6px 14px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    background: var(--bg);
-    color: var(--text-2);
-  }
-
-  .wiki-mode-btn:hover:not(:disabled) {
-    color: var(--text);
-    background: var(--bg-3);
-  }
-
-  .wiki-mode-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  .wiki-mode-btn.active {
-    background: var(--accent-muted, var(--bg-3));
-    color: var(--text);
-  }
-
-  .wiki-save-hint {
-    font-size: 12px;
-    color: var(--text-2);
-  }
-
-  .wiki-save-err {
-    color: var(--danger, #c44);
-  }
 
   /* ── content ─────────────────────────────────────────────── */
   .content-area { flex: 1; overflow-y: auto; min-width: 0; min-height: 0; }
