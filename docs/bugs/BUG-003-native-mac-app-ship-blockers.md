@@ -16,7 +16,7 @@ We can produce a **Brain.app** / **DMG**, but several issues block a **shareable
 
 ### 1. “Global” / embedded secrets vs how the bundled server starts
 
-- The server historically ran **`verifyLlmAtStartup()` before binding to port 3000**. If **`ANTHROPIC_API_KEY`** (or the active provider’s key) was missing—as is typical for a GUI-launched app without embedded secrets—the Node process **exited before `listen()`**, so **nothing listened on localhost:3000**. Tauri’s bootstrap waits for that port; setup then **failed** and the process could **exit unexpectedly**.
+- The server historically ran `**verifyLlmAtStartup()` before binding to port 3000**. If `**ANTHROPIC_API_KEY`** (or the active provider’s key) was missing—as is typical for a GUI-launched app without embedded secrets—the Node process **exited before `listen()`**, so **nothing listened on localhost:3000**. Tauri’s bootstrap waits for that port; setup then **failed** and the process could **exit unexpectedly**.
 - **Embedded keys** require a **build-time** `BRAIN_EMBED_MASTER_KEY` and encrypted `.env` material; a local `tauri build` without that path still produces an app with **empty** embedded secrets.
 - **GUI apps** do not inherit shell-only env (`~/.zshrc`, etc.), so “I have keys in my terminal” does not apply to the **Brain.app** process unless we inject them another way (embedded env, Keychain, first-run UI, or docs).
 
@@ -33,9 +33,9 @@ We can produce a **Brain.app** / **DMG**, but several issues block a **shareable
 
 ### 3. Slow feedback loop (build vs dev-equivalent)
 
-- **`npm run tauri:build`** runs client + server compile, **bundle-server**, Rust **release** build, codesign/bundle/DMG — **minutes** per iteration.
+- `**npm run tauri:build`** runs client + server compile, **bundle-server**, Rust **release** build, codesign/bundle/DMG — **minutes** per iteration.
 - Faster options for debugging:
-  - **`npm run tauri:dev`** — Vite + Hono on **:3000** with hot reload; Tauri shell loads the same URL; closest to “normal” dev.
+  - `**npm run tauri:dev`** — Vite + Hono on **:3000** with hot reload; Tauri shell loads the same URL; closest to “normal” dev.
   - **Server only:** `npm run dev` (no Tauri) to validate API/onboarding/ripmail without rebuilding the shell.
   - **Rust-only:** `cargo run` / `cargo build` in `src-tauri` when changing **spawn/env/logging** without needing a full product bundle.
 
@@ -51,13 +51,15 @@ Ship a **shareable** **DMG/app** such that a user can:
 
 ## Fix direction (high level)
 
-| Area | Direction |
-| ---- | --------- |
-| Startup | Keep **listen-first**; never `process.exit` from optional checks before bind. |
+
+| Area    | Direction                                                                                                                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Startup | Keep **listen-first**; never `process.exit` from optional checks before bind.                                             |
 | Secrets | Production path: embedded allowlist + master key **or** user-provided keys with clear UI; avoid “works in terminal only.” |
-| Logs | File sink for Node + pointer in unified log; optional in-app diagnostics. |
-| DX | Prefer **`tauri dev`** / **`npm run dev`** for iteration; reserve **`tauri:build`** for release checks. |
-| FDA | Re-test onboarding **Connect Apple Mail** / ripmail paths once the app stays up reliably. |
+| Logs    | File sink for Node + pointer in unified log; optional in-app diagnostics.                                                 |
+| DX      | Prefer `**tauri dev`** / `**npm run dev**` for iteration; reserve `**tauri:build**` for release checks.                   |
+| FDA     | Re-test onboarding **Connect Apple Mail** / ripmail paths once the app stays up reliably.                                 |
+
 
 ## Related
 

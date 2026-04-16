@@ -11,7 +11,20 @@ use std::time::Duration;
 
 use tauri::{AppHandle, Manager};
 
+use crate::brain_paths;
+
 pub struct ServerChild(pub Mutex<Option<Child>>);
+
+fn resolve_home_for_child(cmd: &mut Command) -> Option<String> {
+    if let Ok(h) = std::env::var("HOME") {
+        return Some(h);
+    }
+    if let Ok(ns) = std::env::var("NSHomeDirectory") {
+        cmd.env("HOME", &ns);
+        return Some(ns);
+    }
+    None
+}
 
 /// Start `node dist/server/index.js` from `Resources/server-bundle/`.
 pub fn spawn_brain_server(app: &AppHandle) -> Result<(), String> {
@@ -54,15 +67,14 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<(), String> {
         cmd.env("RIPMAIL_BIN", ripmail.to_string_lossy().as_ref());
     }
 
-    if std::env::var("HOME").is_err() {
-        if let Ok(ns_home) = std::env::var("NSHomeDirectory") {
-            cmd.env("HOME", ns_home);
-        }
-    }
-    if std::env::var("RIPMAIL_HOME").is_err() {
-        if let Ok(home) = std::env::var("HOME") {
-            cmd.env("RIPMAIL_HOME", format!("{home}/.ripmail"));
-        }
+    if let Some(ref home) = resolve_home_for_child(&mut cmd) {
+        brain_paths::ensure_dirs_and_apply_defaults(&mut cmd, home);
+        log::info!(
+            "Brain bundled server: HOME={} (default WIKI_DIR / CHAT_DATA_DIR / RIPMAIL_HOME applied when unset)",
+            home
+        );
+    } else {
+        log::warn!("Brain bundled server: HOME unset — WIKI_DIR may fall back to /wiki; set WIKI_DIR / CHAT_DATA_DIR / RIPMAIL_HOME in the environment");
     }
 
     let mut child = cmd.spawn().map_err(|e| format!("spawn node: {e}"))?;

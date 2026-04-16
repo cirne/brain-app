@@ -1,3 +1,4 @@
+mod brain_paths;
 mod embedded;
 mod server_spawn;
 
