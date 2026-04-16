@@ -243,16 +243,18 @@
                 }
               }}
             >
-              <span class="ch-row-icon" class:ch-row-icon--chat={item.type === 'chat'} class:ch-row-icon--email={item.type === 'email'}>
-                {#if item.type === 'chat'}
-                  <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
-                {:else if item.type === 'email'}
-                  <Mail size={12} strokeWidth={2} aria-hidden="true" />
-                {:else if item.type === 'doc' && item.path}
+              {#if item.type === 'doc' && item.path}
+                <span class="ch-row-doc">
                   <WikiFileName path={item.path} />
-                {/if}
-              </span>
-              {#if item.type !== 'doc'}
+                </span>
+              {:else}
+                <span class="ch-row-icon" class:ch-row-icon--chat={item.type === 'chat'} class:ch-row-icon--email={item.type === 'email'}>
+                  {#if item.type === 'chat'}
+                    <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
+                  {:else if item.type === 'email'}
+                    <Mail size={12} strokeWidth={2} aria-hidden="true" />
+                  {/if}
+                </span>
                 <span class="ch-row-title">{item.title}</span>
               {/if}
               <span class="ch-row-time">{shortTime(item.timestamp)}</span>
@@ -449,8 +451,26 @@
     opacity: 0.65;
   }
 
-  .ch-row-icon :global(.wfn-title-row) {
-    font-size: 11px;
+  .ch-row-doc {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .ch-row-doc :global(.wfn-title-row) {
+    font-size: 12px;
+  }
+
+  .ch-row-doc :global(.wfn-lead-icon) {
+    width: 14px;
+  }
+
+  .ch-row-doc :global(.wfn-name) {
+    color: var(--text);
+  }
+
+  .ch-row:hover .ch-row-doc :global(.wfn-name) {
+    color: var(--accent);
   }
 
   .ch-row-title {

@@ -339,6 +339,7 @@
   function toggleSidebar() {
     if (isMobile) {
       sidebarOpen = !sidebarOpen
+      if (sidebarOpen) void chatHistory?.refresh()
       return
     }
     if (sidebarPinned) {
@@ -347,6 +348,7 @@
       return
     }
     sidebarOpen = !sidebarOpen
+    if (sidebarOpen) void chatHistory?.refresh()
   }
 
   function toggleSidebarPin() {
