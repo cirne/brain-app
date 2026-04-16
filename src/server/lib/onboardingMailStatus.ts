@@ -7,7 +7,13 @@ import { parseRipmailStatusJson } from './ripmailStatusParse.js'
 const execAsync = promisify(exec)
 
 export function ripmailBin(): string {
-  return process.env.RIPMAIL_BIN ?? 'ripmail'
+  const fromEnv = process.env.RIPMAIL_BIN?.trim()
+  if (fromEnv) return fromEnv
+  if (process.env.BRAIN_BUNDLED_NATIVE === '1') {
+    const bundled = join(process.cwd(), 'ripmail')
+    if (existsSync(bundled)) return bundled
+  }
+  return 'ripmail'
 }
 
 export function ripmailHomePath(): string {
