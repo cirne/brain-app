@@ -3,7 +3,8 @@
 ## name: research
 label: "Deep research → wiki: sources, synthesis, DRY, size, links"
 description: >-
-  Multi-source investigation (wiki, email, web, video when useful) that lands as durable wiki
+  Multi-source investigation (wiki, email, web, video/transcripts when useful), often via parallel
+  agents pulling different sources at once, that lands as durable wiki
   page(s)—not a one-line chat answer. Examples: “research competitors to X and add a page under
   strategy/”; “pull together everything we know about Project Y with citations”; “investigate Z and
   write a hub page plus evidence subpages”. If the user only needs a quick lookup or “where did I
@@ -36,7 +37,7 @@ version: 1
 ## Process
 
 1. **Scope** — Restate the question and boundaries (time, geography, product area). Say what is in and out.
-2. **Gather** — Wiki read/search first (respect local canon), then email, web, and other tools. Prefer primary sources; capture enough pointer/citation to re-find material.
+2. **Gather** — Wiki read/search first (respect local canon), then fan out across **other channels in parallel** (subagents or concurrent tasks) so nothing waits serially on a single slow source. Typical lanes include **web** (search, docs, archives), **email** (ripmail/search/read when configured), **YouTube or other video** (transcripts, captions, or chapter notes when available), **codebase and issues**, and **any MCP or repo tools** that apply. Prefer primary sources; capture enough pointer/citation to re-find material.
 3. **Synthesize** — Structured markdown: facts vs inference clearly separated. Link to related wiki pages instead of repeating them.
 4. **DRY** — If a fact already lives on another page, one sentence + link; do not fork canonical content.
 5. **Size** — Fit the main page in budget; split or move detail to linked pages when needed.
