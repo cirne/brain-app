@@ -574,24 +574,36 @@
     min-height: 0;
   }
 
-  /** Fixed slide-over panel (desktop + mobile); enter/exit via `fly` transition. */
+  /**
+   * Desktop: in-flow flex child so the main column is pushed right.
+   * Mobile: fixed overlay above content (with backdrop); enter/exit via `fly` transition.
+   */
   .history-sidebar--slide {
-    position: fixed;
-    left: 0;
-    top: var(--tab-h);
-    bottom: 0;
-    width: min(var(--sidebar-history-w), 92vw);
-    z-index: 200;
     display: flex;
     flex-direction: column;
+    min-height: 0;
     border-right: 1px solid var(--border);
-    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.35);
     background: var(--bg-2);
   }
 
-  @media (prefers-reduced-motion: reduce) {
+  @media (min-width: 768px) {
     .history-sidebar--slide {
-      box-shadow: none;
+      position: relative;
+      flex-shrink: 0;
+      width: var(--sidebar-history-w);
+      max-width: min(var(--sidebar-history-w), 92vw);
+      align-self: stretch;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .history-sidebar--slide {
+      position: fixed;
+      left: 0;
+      top: var(--tab-h);
+      bottom: 0;
+      width: min(var(--sidebar-history-w), 92vw);
+      z-index: 200;
     }
   }
 
