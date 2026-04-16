@@ -70,6 +70,14 @@ Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The ripmai
 
 ## Development rules
 
+### Early development (no backward compatibility)
+
+The app is in **early development** with a **near-zero user base**. Optimize for velocity and simplicity, not preserving old state.
+
+- **No backward compatibility by default.** Do not maintain compatibility layers, dual code paths, or “read old + write new” behavior for local data, APIs, or on-disk formats unless [PRODUCTIZATION.md](docs/PRODUCTIZATION.md) (or an explicit product decision) says otherwise.
+- **No data migrations.** When SQLite schema, config files, cache layout, or any persisted format changes, **delete local data / reset stores / start fresh** as needed. Document breaking changes in commits or PRs; do not ship migration scripts for developer-local or pre-release data.
+- **Avoid compatibility complexity.** Prefer a clean break and re-seeding over version flags, upgrade steps, or defensive readers for superseded formats.
+
 - **Tests required**: every new feature or bug fix needs test coverage in `src/**/*.test.ts`.
 - **TDD for bugs**: reproduce with a failing test first, then fix, then confirm green.
 - **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests + `cargo fmt` / `cargo clippy` / `cargo test` for the Rust workspace.

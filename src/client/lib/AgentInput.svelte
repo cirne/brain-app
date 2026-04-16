@@ -41,12 +41,10 @@
   function filteredSkills(): SkillMenuItem[] {
     if (!slashFilter) return skills.slice(0, 10)
     const q = slashFilter.toLowerCase()
+    // Match command slug and short label only — description text is too noisy for 1–2 char queries ("re", etc.).
     return skills
       .filter(
-        s =>
-          s.name.toLowerCase().includes(q) ||
-          s.label.toLowerCase().includes(q) ||
-          s.description.toLowerCase().includes(q),
+        s => s.name.toLowerCase().includes(q) || s.label.toLowerCase().includes(q),
       )
       .slice(0, 10)
   }

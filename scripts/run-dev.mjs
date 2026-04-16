@@ -44,6 +44,9 @@ const args = [
   '.env.production',
   '--exclude',
   '.env.test',
+  // Re-run dev server when shipped user skills change (seeder reads these on boot).
+  '--include',
+  'assets/user-skills/**/*',
   'src/server/index.ts',
 ]
 

@@ -1,6 +1,6 @@
 ---
 name: tidy
-label: Tidy a page
+label: Clean up a page: fix links, reformat
 description: >-
   Review a wiki page for DRY issues, broken or stale links, excessive length, orphan status,
   and outdated facts. Propose concrete edits; do not apply changes without user confirmation
