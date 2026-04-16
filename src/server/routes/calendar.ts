@@ -9,7 +9,7 @@ import { wikiDir } from '../lib/wikiDir.js'
 import { buildWikiExcerpt } from '../lib/wikiSearchExcerpt.js'
 
 const execAsync = promisify(exec)
-const ripmail = () => process.env.RIPMAIL_BIN ?? 'ripmail'
+import { ripmailBin } from '../lib/ripmailBin.js'
 
 const calendar = new Hono()
 
