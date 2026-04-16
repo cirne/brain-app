@@ -419,18 +419,6 @@
     }
   }
 
-  async function reRunOnboarding() {
-    try {
-      await fetch('/api/onboarding/state', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reset' }),
-      })
-    } catch {
-      /* ignore */
-    }
-    window.location.href = '/onboarding'
-  }
 </script>
 
 {#if showSearch}
@@ -457,7 +445,6 @@
     onOpenWikiFromList={(path) => { openWikiDoc(path); showRecentFiles = false }}
     onSync={syncAll}
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
-    onReRunOnboarding={reRunOnboarding}
   />
 
     <div class="app-main-row">

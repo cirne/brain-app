@@ -6,10 +6,12 @@ import {
   MIN_AGENT_PANEL_WIDTH,
   defaultDetailPanelWidth,
   loadInitialDetailPanelWidth,
+  loadStoredDetailPanelWidth,
   maxAgentPanelWidth,
   clampAgentPanelWidth,
   nextPanelWidthAfterDrag,
   persistDetailPanelWidth,
+  resolveDetailPanelWidth,
 } from './agentPanelWidth.js'
 
 describe('AGENT_PANEL_WIDTH_KEY', () => {
@@ -50,7 +52,47 @@ function stubBrowserWidthAndStorage(innerWidth: number) {
   return { store, ls }
 }
 
-describe('loadInitialDetailPanelWidth + persistDetailPanelWidth', () => {
+describe('loadStoredDetailPanelWidth + resolveDetailPanelWidth + persistDetailPanelWidth', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('returns null when window is undefined', () => {
+    vi.stubGlobal('window', undefined as unknown as Window & typeof globalThis)
+    expect(loadStoredDetailPanelWidth()).toBe(null)
+  })
+
+  it('returns null when v2 key is absent', () => {
+    stubBrowserWidthAndStorage(1256)
+    globalThis.localStorage.setItem(AGENT_PANEL_WIDTH_KEY, '290')
+    expect(loadStoredDetailPanelWidth()).toBe(null)
+  })
+
+  it('reads width from v2 after user has resized', () => {
+    stubBrowserWidthAndStorage(1256)
+    globalThis.localStorage.setItem(AGENT_PANEL_WIDTH_KEY_V2, '400')
+    expect(loadStoredDetailPanelWidth()).toBe(400)
+  })
+
+  it('resolveDetailPanelWidth uses 50/50 of split when nothing stored', () => {
+    expect(resolveDetailPanelWidth(null, 1000)).toBe(500)
+  })
+
+  it('resolveDetailPanelWidth clamps stored value to split', () => {
+    expect(resolveDetailPanelWidth(400, 800)).toBe(400)
+  })
+
+  it('persistDetailPanelWidth writes v2 clamped to split', () => {
+    stubBrowserWidthAndStorage(1200)
+    persistDetailPanelWidth(450, 900)
+    expect(globalThis.localStorage.getItem(AGENT_PANEL_WIDTH_KEY_V2)).toBe('450')
+  })
+})
+
+describe('loadInitialDetailPanelWidth (deprecated viewport-based)', () => {
   beforeEach(() => {
     vi.unstubAllGlobals()
   })
@@ -62,7 +104,7 @@ describe('loadInitialDetailPanelWidth + persistDetailPanelWidth', () => {
     expect(loadInitialDetailPanelWidth()).toBe(FALLBACK_DETAIL_PANEL_WIDTH)
   })
 
-  it('uses 50/50 when v2 key is absent (ignores legacy v1)', () => {
+  it('uses 50/50 of viewport when v2 key is absent (ignores legacy v1)', () => {
     stubBrowserWidthAndStorage(1256)
     globalThis.localStorage.setItem(AGENT_PANEL_WIDTH_KEY, '290')
     expect(loadInitialDetailPanelWidth()).toBe(628)
@@ -73,12 +115,6 @@ describe('loadInitialDetailPanelWidth + persistDetailPanelWidth', () => {
     globalThis.localStorage.setItem(AGENT_PANEL_WIDTH_KEY_V2, '400')
     expect(loadInitialDetailPanelWidth()).toBe(400)
   })
-
-  it('persistDetailPanelWidth writes v2', () => {
-    stubBrowserWidthAndStorage(1200)
-    persistDetailPanelWidth(450, 1200)
-    expect(globalThis.localStorage.getItem(AGENT_PANEL_WIDTH_KEY_V2)).toBe('450')
-  })
 })
 
 describe('maxAgentPanelWidth', () => {
@@ -86,12 +122,12 @@ describe('maxAgentPanelWidth', () => {
     expect(maxAgentPanelWidth(5000)).toBe(920)
   })
 
-  it('uses viewport minus reserve with a floor at min width', () => {
+  it('uses container minus reserve with a floor at min width', () => {
     expect(maxAgentPanelWidth(800)).toBe(480)
     expect(maxAgentPanelWidth(600)).toBe(290)
   })
 
-  it('never goes below min panel width via viewport formula', () => {
+  it('never goes below min panel width via container formula', () => {
     expect(maxAgentPanelWidth(400)).toBe(290)
   })
 })
@@ -101,7 +137,7 @@ describe('clampAgentPanelWidth', () => {
     expect(clampAgentPanelWidth(10, 1200)).toBe(MIN_AGENT_PANEL_WIDTH)
   })
 
-  it('clamps to max for viewport', () => {
+  it('clamps to max for container', () => {
     expect(clampAgentPanelWidth(2000, 1200)).toBe(maxAgentPanelWidth(1200))
   })
 
@@ -130,7 +166,7 @@ describe('nextPanelWidthAfterDrag', () => {
 })
 
 describe('defaultDetailPanelWidth', () => {
-  it('uses half the viewport when within clamp', () => {
+  it('uses half the split when within clamp', () => {
     expect(defaultDetailPanelWidth(1280)).toBe(640)
     expect(defaultDetailPanelWidth(800)).toBe(400)
   })
@@ -139,9 +175,9 @@ describe('defaultDetailPanelWidth', () => {
     expect(defaultDetailPanelWidth(400)).toBe(MIN_AGENT_PANEL_WIDTH)
   })
 
-  it('clamps to max for viewport', () => {
-    const vw = 5000
-    expect(defaultDetailPanelWidth(vw)).toBe(maxAgentPanelWidth(vw))
+  it('clamps to max for container', () => {
+    const w = 5000
+    expect(defaultDetailPanelWidth(w)).toBe(maxAgentPanelWidth(w))
   })
 })
 

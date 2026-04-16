@@ -2,10 +2,12 @@
   import { untrack } from 'svelte'
   import type { Snippet } from 'svelte'
   import {
+    FALLBACK_DETAIL_PANEL_WIDTH,
     clampAgentPanelWidth,
-    loadInitialDetailPanelWidth,
+    loadStoredDetailPanelWidth,
     nextPanelWidthAfterDrag,
     persistDetailPanelWidth,
+    resolveDetailPanelWidth,
   } from './app/agentPanelWidth.js'
   import { easeOutCubic } from './workspaceSplit/easing.js'
 
@@ -22,7 +24,13 @@
 
   let { hasDetail, desktopDetailOpen, chat, desktopDetail, onNavigateClear }: Props = $props()
 
-  let detailPanelWidth = $state(loadInitialDetailPanelWidth())
+  const storedDetailPreference = loadStoredDetailPanelWidth()
+
+  let splitEl = $state<HTMLDivElement | null>(null)
+  /** After first successful measure of `.split`, we only clamp; before that we resolve from storage + split. */
+  let splitWidthInitialized = $state(false)
+
+  let detailPanelWidth = $state(FALLBACK_DETAIL_PANEL_WIDTH)
   /** Current flex width; updated every frame while opening/closing (layout + paint on both panes). */
   let detailVisibleW = $state(0)
   let detailPanelResizing = $state(false)
@@ -67,6 +75,33 @@
   }
 
   const DURATION_MS = 320
+
+  function syncDetailWidthToSplit() {
+    const sw = splitEl?.clientWidth ?? 0
+    if (sw <= 0) return
+    if (!splitWidthInitialized) {
+      detailPanelWidth = resolveDetailPanelWidth(storedDetailPreference, sw)
+      splitWidthInitialized = true
+    } else {
+      detailPanelWidth = clampAgentPanelWidth(detailPanelWidth, sw)
+    }
+    if (desktopDetailOpen && !animatingWidth) {
+      detailVisibleW = detailPanelWidth
+    }
+  }
+
+  $effect(() => {
+    const el = splitEl
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => {
+      syncDetailWidthToSplit()
+    })
+    ro.observe(el)
+    syncDetailWidthToSplit()
+    return () => {
+      ro.disconnect()
+    }
+  })
 
   $effect(() => {
     if (!desktopDetailOpen) {
@@ -127,7 +162,9 @@
     document.body.style.userSelect = 'none'
 
     function onMove(ev: PointerEvent) {
-      detailPanelWidth = nextPanelWidthAfterDrag(startW, startX, ev.clientX, window.innerWidth)
+      const sw = splitEl?.clientWidth ?? 0
+      if (sw <= 0) return
+      detailPanelWidth = nextPanelWidthAfterDrag(startW, startX, ev.clientX, sw)
       detailVisibleW = detailPanelWidth
     }
     function onUp(ev: PointerEvent) {
@@ -137,22 +174,17 @@
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       if (el.hasPointerCapture(ev.pointerId)) el.releasePointerCapture(ev.pointerId)
-      persistDetailPanelWidth(detailPanelWidth, window.innerWidth)
+      const sw = splitEl?.clientWidth ?? 0
+      if (sw > 0) persistDetailPanelWidth(detailPanelWidth, sw)
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
   }
 
-  function onWinResize() {
-    detailPanelWidth = clampAgentPanelWidth(detailPanelWidth, window.innerWidth)
-    if (desktopDetailOpen && !animatingWidth) detailVisibleW = detailPanelWidth
-  }
 </script>
 
-<svelte:window onresize={onWinResize} />
-
 <div class="workspace">
-  <div class="split" class:has-detail={hasDetail}>
+  <div bind:this={splitEl} class="split" class:has-detail={hasDetail}>
     <section class="chat-pane">
       {@render chat()}
     </section>
@@ -204,7 +236,6 @@
   }
 
   .detail-pane {
-    --detail-w: max(290px, min(50vw, 920px));
     position: relative;
     z-index: 1;
     flex-shrink: 0;

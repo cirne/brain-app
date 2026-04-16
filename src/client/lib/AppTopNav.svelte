@@ -20,7 +20,6 @@
     onOpenWikiFromList: (_path: string) => void
     onSync: () => void
     onToggleSyncErrors: () => void
-    onReRunOnboarding?: () => void | Promise<void>
   }
 
   let {
@@ -39,7 +38,6 @@
     onOpenWikiFromList,
     onSync,
     onToggleSyncErrors,
-    onReRunOnboarding,
   }: Props = $props()
 
   /** Sidebar open (wide header + list): desktop or mobile. */
@@ -83,18 +81,6 @@
       <span class="brand-name">Brain</span>
     {/if}
   </div>
-  {#if onReRunOnboarding}
-    <div class="onboarding-wrap">
-      <button
-        class="onboarding-btn"
-        type="button"
-        onclick={() => void onReRunOnboarding?.()}
-        title="Re-run onboarding wizard"
-      >
-        Setup
-      </button>
-    </div>
-  {/if}
   <div class="search-wrap">
     <button class="search-btn" onclick={onOpenSearch} title="Search (⌘K)" aria-label="Search">
       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -269,24 +255,6 @@
     font-size: 15px;
     font-weight: 600;
     letter-spacing: 0.02em;
-    color: var(--text);
-  }
-
-  .onboarding-wrap {
-    display: flex;
-    align-items: center;
-    border-left: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .onboarding-btn {
-    padding: 0 10px;
-    height: 100%;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-2);
-  }
-  .onboarding-btn:hover {
     color: var(--text);
   }
 
