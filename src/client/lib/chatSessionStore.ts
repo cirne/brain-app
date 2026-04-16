@@ -91,6 +91,14 @@ export function touchSessionImmutable(
   return next
 }
 
+/** True when the session exists in the map and has an in-flight stream consumer. */
+export function sessionIsLiveStreaming(
+  sessions: Map<string, SessionState>,
+  id: string,
+): boolean {
+  return sessions.get(id)?.streaming === true
+}
+
 export function deleteSessionImmutable(
   sessions: Map<string, SessionState>,
   id: string,

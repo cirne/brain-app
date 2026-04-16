@@ -13,6 +13,7 @@
     createPendingSessionKey,
     emptySession,
     migratePendingToServer,
+    sessionIsLiveStreaming,
     setSessionImmutable,
     touchSessionImmutable,
     type SessionState,
@@ -242,6 +243,13 @@
   }
 
   export async function loadSession(loadId: string) {
+    if (sessionIsLiveStreaming(sessions, loadId)) {
+      displayedSessionId = loadId
+      await tick()
+      conversationEl?.scrollToBottom()
+      return
+    }
+
     try {
       const res = await fetch(`/api/chat/sessions/${encodeURIComponent(loadId)}`)
       if (!res.ok) {

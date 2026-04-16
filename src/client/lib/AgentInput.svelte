@@ -41,12 +41,15 @@
   function filteredSkills(): SkillMenuItem[] {
     if (!slashFilter) return skills.slice(0, 10)
     const q = slashFilter.toLowerCase()
-    // Match command slug and short label only — description text is too noisy for 1–2 char queries ("re", etc.).
-    return skills
-      .filter(
-        s => s.name.toLowerCase().includes(q) || s.label.toLowerCase().includes(q),
-      )
-      .slice(0, 10)
+    const matches = skills.filter(
+      s => s.name.toLowerCase().includes(q) || s.label.toLowerCase().includes(q),
+    )
+    matches.sort((a, b) => {
+      const aPrefix = a.name.toLowerCase().startsWith(q) ? 0 : 1
+      const bPrefix = b.name.toLowerCase().startsWith(q) ? 0 : 1
+      return aPrefix - bPrefix || a.name.localeCompare(b.name)
+    })
+    return matches.slice(0, 10)
   }
 
   function handleInput(e: Event) {
