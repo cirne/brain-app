@@ -33,11 +33,12 @@ Do not ask the user for a number unless they gave no hint and the wiki has no co
 1. **Load** — Read the target page and follow links to related pages; scan the wiki for duplicate or conflicting statements about the same facts.
 2. **Accuracy** — Correct wrong or outdated claims; if something cannot be verified, align wording with the canonical source elsewhere in the wiki or remove unsupported claims rather than guessing.
 3. **DRY** — Prefer a single source of truth: remove redundant paragraphs, replace copies with a short summary plus a link to the authoritative page, or consolidate when the same content appears in multiple places.
-4. **Links** — Add wiki links to documents and concepts the page references; fix broken or stale links; use the same paths/titles the wiki already uses.
-5. **Format** — Improve headings, lists, spacing, and scanability; structure for both humans and agents (clear hierarchy, stable anchors, scannable bullets where appropriate).
-6. **Apply** — Write the updated page through the wiki edit flow. Do not deliver only a proposal list unless the user explicitly asked for review without edits.
+4. **Size** — After other edits, ensure the page (and any new pages you create) respects the size budget; split and link when needed.
+5. **Links** — Add wiki links to documents and concepts the page references; fix broken or stale links; use the same paths/titles the wiki already uses.
+6. **Format** — Improve headings, lists, spacing, and scanability; structure for both humans and agents (clear hierarchy, stable anchors, scannable bullets where appropriate).
+7. **Apply** — Write updates through the wiki edit flow (including new pages when splitting). Do not deliver only a proposal list unless the user explicitly asked for review without edits.
 
 ## Quality bar
 
-- The saved page is measurably better: accurate, deduped, well-linked, and easier to read.
+- The saved page is measurably better: accurate, deduped, within the size budget (or deliberately split), well-linked, and easier to read.
 - Uncertainty is resolved by checking the wiki or tightening language—not by leaving placeholder proposals.
