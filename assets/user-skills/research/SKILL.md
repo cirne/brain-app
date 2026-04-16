@@ -1,5 +1,6 @@
 ---
-name: research
+
+## name: research
 label: "Deep research → wiki: sources, synthesis, DRY, size, links"
 description: >-
   Multi-source investigation (wiki, email, web, video when useful) that lands as durable wiki
@@ -12,7 +13,6 @@ args: >-
   Optional natural language: topic, boundaries, desired path, or a line budget. Default ~400 lines
   per primary page unless the user specifies otherwise.
 version: 1
----
 
 # Deep research
 
@@ -25,8 +25,8 @@ version: 1
 
 ## When to use vs /wiki
 
-- **`/research`:** Multi-source synthesis **before** or **while** writing canonical prose; new evidence from outside the wiki is central.
-- **`/wiki`:** Creating, tidying, or pruning wiki content without a research-heavy gather phase.
+- `**/research`:** Multi-source synthesis **before** or **while** writing canonical prose; new evidence from outside the wiki is central.
+- `**/wiki`:** Creating, tidying, or pruning wiki content without a research-heavy gather phase.
 
 ## Defaults (inside the skill)
 
