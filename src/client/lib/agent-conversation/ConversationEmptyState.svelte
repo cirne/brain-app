@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import CalendarPreviewCard from '../cards/CalendarPreviewCard.svelte'
   import InboxListPreviewCard from '../cards/InboxListPreviewCard.svelte'
+  import { subscribe } from '../app/appEvents.js'
   import { inboxRowsToPreviewItems } from '../../../server/lib/ripmailInboxFlatten.js'
   import type { CalendarEventLite, InboxListItemPreview } from '../cards/contentCards.js'
 
@@ -45,6 +46,9 @@
 
   onMount(() => {
     void load()
+    return subscribe((e) => {
+      if (e.type === 'sync:completed') void load()
+    })
   })
 </script>
 

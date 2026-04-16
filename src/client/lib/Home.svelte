@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import DayEvents from './DayEvents.svelte'
   import WikiFileList from './WikiFileList.svelte'
+  import { subscribe } from './app/appEvents.js'
   import { formatDate } from './formatDate.js'
 
   type InboxItem = { id: string; from: string; subject: string; date: string; read: boolean }
@@ -30,11 +31,24 @@
   let inboxItems = $state<InboxItem[]>([])
   let inboxLoading = $state(true)
 
-  onMount(async () => {
-    const res = await fetch('/api/inbox').catch(() => null)
-    inboxItems = res?.ok ? await res.json() : []
-    inboxLoading = false
-    onContextChange?.({ type: 'chat' })
+  async function loadInbox() {
+    inboxLoading = true
+    try {
+      const res = await fetch('/api/inbox').catch(() => null)
+      inboxItems = res?.ok ? await res.json() : []
+    } finally {
+      inboxLoading = false
+    }
+  }
+
+  onMount(() => {
+    void (async () => {
+      await loadInbox()
+      onContextChange?.({ type: 'chat' })
+    })()
+    return subscribe((e) => {
+      if (e.type === 'sync:completed') void loadInbox()
+    })
   })
 
   const unreadCount = $derived(inboxItems.filter((m: InboxItem) => !m.read).length)

@@ -397,6 +397,10 @@
   onMount(() => {
     void load()
     const unsub = subscribe((e) => {
+      if (e.type === 'sync:completed') {
+        void load()
+        return
+      }
       if (e.type !== 'inbox:archived') return
       applyExternalArchive(e.messageId)
     })

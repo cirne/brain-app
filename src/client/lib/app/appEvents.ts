@@ -10,6 +10,7 @@ export type WikiMutatedEvent = {
   paths?: string[]
 }
 
+/** Emitted after nav ⌘R / full sync (wiki + inbox IMAP + calendar). Inbox surfaces subscribe to refetch `/api/inbox`. */
 export type SyncCompletedEvent = {
   type: 'sync:completed'
 }

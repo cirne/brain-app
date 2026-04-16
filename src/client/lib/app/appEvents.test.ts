@@ -22,6 +22,16 @@ describe('appEvents', () => {
     u2()
   })
 
+  it('sync:completed is used by inbox surfaces to refetch after full sync', () => {
+    const reloadInbox = vi.fn()
+    const unsub = subscribe((e) => {
+      if (e.type === 'sync:completed') reloadInbox()
+    })
+    emit({ type: 'sync:completed' })
+    expect(reloadInbox).toHaveBeenCalledTimes(1)
+    unsub()
+  })
+
   it('stops delivering after unsubscribe', () => {
     const fn = vi.fn()
     const unsub = subscribe(fn)

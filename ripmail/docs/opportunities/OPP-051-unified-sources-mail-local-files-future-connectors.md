@@ -94,11 +94,11 @@ Illustrative only — names and fields may change; **no requirement** to match c
 
 ### `localDir` field notes
 
-**`include`** — gitignore-style glob allowlist. If omitted, all files are candidates (subject to `ignore` and size limits). Typical patterns: `["*.md", "*.txt"]` for notes-only, `["*.pdf", "*.docx"]` for documents. Globs are matched against the relative path from `path`.
+`**include`** — gitignore-style glob allowlist. If omitted, all files are candidates (subject to `ignore` and size limits). Typical patterns: `["*.md", "*.txt"]` for notes-only, `["*.pdf", "*.docx"]` for documents. Globs are matched against the relative path from `path`.
 
-**`ignore`** — gitignore-style denylist applied after `include`. Stacks with `.gitignore` when `respectGitignore` is true.
+`**ignore**` — gitignore-style denylist applied after `include`. Stacks with `.gitignore` when `respectGitignore` is true.
 
-**`respectGitignore`** — when `true` (default for `localDir`), ripmail obeys `.gitignore`, `.ignore`, and the global git ignore file, exactly as ripgrep does (via the Rust `ignore` crate). This is the right default for `~/dev` trees: build output, `node_modules`, `target/`, etc. are automatically skipped without listing every pattern manually. Set to `false` for non-git directories like `~/Documents`.
+`**respectGitignore**` — when `true` (default for `localDir`), ripmail obeys `.gitignore`, `.ignore`, and the global git ignore file, exactly as ripgrep does (via the Rust `ignore` crate). This is the right default for `~/dev` trees: build output, `node_modules`, `target/`, etc. are automatically skipped without listing every pattern manually. Set to `false` for non-git directories like `~/Documents`.
 
 **Size limit:** `maxFileBytes` applies before conversion. Files over the limit are skipped and logged (not silently dropped).
 
@@ -108,11 +108,13 @@ Illustrative only — names and fields may change; **no requirement** to match c
 
 ### Query and sync flags
 
-| Change                          | Intent                                                                                                                             |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+
+| Change                          | Intent                                                                                                                            |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `--source <id>` (or short `-S`) | Generic scope for indexable content: search, read, refresh, status. Replaces or aliases `--mailbox` for unified semantics.        |
 | `refresh`                       | All sources by default; `--source` limits. Mail-only flags (`--since`, …) apply when the selected source is mail.                 |
 | **Mail-only commands**          | `draft`, `send`, `inbox`, `archive`, etc. require a **mail** source; error if `localDir` / future read-only sources are selected. |
+
 
 JSON contracts for `search` / `read` should include `sourceId` and `sourceKind` (exact names TBD) so agents do not infer from shape alone.
 
@@ -215,5 +217,6 @@ Examples: **Notion**, **Apple Notes**, read-only cloud APIs. Each gets a `kind`,
 1. **ID namespace:** single global `id` string vs prefixed ids (`mail:…`, `dir:…`) — prefer simple global ids for CLI.
 2. **Default search:** union of all `includeInDefault` sources vs opt-in per session.
 3. **Symlink policy for `localDir` crawl:** follow symlinks to dirs? Follow symlinks to files? Cycle detection needed either way — document the chosen policy at implementation time.
-4. **`include` glob scope:** match against filename only vs full relative path — full relative path is more powerful (e.g. `docs/**/*.md`) but may surprise users who write `*.md`.
+4. `**include` glob scope:** match against filename only vs full relative path — full relative path is more powerful (e.g. `docs/**/*.md`) but may surprise users who write `*.md`.
 5. **Naming:** product may eventually rename the binary or user-facing strings if "ripmail" is too mail-specific — out of scope for this opp's technical content.
+
