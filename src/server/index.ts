@@ -177,6 +177,19 @@ async function start() {
         }
       })
 
+      server.once('error', (err: unknown) => {
+        if (isAddrInUse(err)) {
+          console.info(duplicateDevListenMessage(port))
+          void vite
+            .close()
+            .then(() => process.exit(0))
+            .catch(() => process.exit(0))
+          return
+        }
+        console.error(err)
+        process.exit(1)
+      })
+
       server.listen(port, () => {
         console.log(`Dev server (Hono + Vite HMR) → http://localhost:${port}`)
         registerPeriodicSyncAndShutdown(server)
