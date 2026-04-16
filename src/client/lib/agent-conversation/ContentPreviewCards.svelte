@@ -4,7 +4,7 @@
   import WikiPreviewCard from '../cards/WikiPreviewCard.svelte'
   import EmailPreviewCard from '../cards/EmailPreviewCard.svelte'
   import InboxListPreviewCard from '../cards/InboxListPreviewCard.svelte'
-  import ImessageThreadPreviewCard from '../cards/ImessageThreadPreviewCard.svelte'
+  import MessageThreadPreviewCard from '../cards/MessageThreadPreviewCard.svelte'
   import type { ContentCardPreview } from '../cards/contentCards.js'
 
   let {
@@ -13,14 +13,14 @@
     onOpenEmail,
     onOpenFullInbox,
     onSwitchToCalendar,
-    onOpenImessage,
+    onOpenMessageThread,
   }: {
     preview: ContentCardPreview
     onOpenWiki?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
-    onOpenImessage?: (_canonicalChat: string, _displayLabel: string) => void
+    onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
   } = $props()
 </script>
 
@@ -48,15 +48,15 @@
     onOpenEmail={(id, subject, from) => onOpenEmail?.(id, subject, from)}
     onOpenFullInbox={onOpenFullInbox}
   />
-{:else if preview.kind === 'imessage_thread'}
-  <ImessageThreadPreviewCard
+{:else if preview.kind === 'message_thread'}
+  <MessageThreadPreviewCard
     displayChat={preview.displayChat}
     snippet={preview.snippet}
     previewMessages={preview.previewMessages}
     total={preview.total}
     n={preview.n}
     person={preview.person}
-    onOpen={() => onOpenImessage?.(preview.canonicalChat, preview.displayChat)}
+    onOpen={() => onOpenMessageThread?.(preview.canonicalChat, preview.displayChat)}
   />
 {:else if preview.kind === 'wiki_edit_diff'}
   <EditDiffPreviewCard path={preview.path} unified={preview.unified} onOpen={() => onOpenWiki?.(preview.path)} />

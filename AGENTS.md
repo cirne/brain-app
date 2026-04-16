@@ -104,6 +104,7 @@ src/
 | GET | `/api/inbox/:id` | Read email thread |
 | POST | `/api/inbox/:id/archive` | Archive email |
 | POST | `/api/inbox/:id/read` | Mark email read |
+| GET | `/api/messages/thread` | Local SMS/text thread (macOS `chat.db` when readable); same handler as `/api/imessage/thread` |
 
 ## Agent tools
 
@@ -121,6 +122,8 @@ The agent has these tools (via pi-coding-agent + custom):
 - `open` — open wiki path, email id, or calendar date in the app detail panel (client-side)
 - `web_search` — Exa web search for current info (requires `EXA_API_KEY`)
 - `fetch_page`, `youtube_search`, `get_youtube_transcript` — URL article text and YouTube search/transcripts (requires `SUPADATA_API_KEY`)
+- `list_recent_messages` — recent local SMS/text and iMessage (macOS Messages DB when readable; `IMESSAGE_DB_PATH` override)
+- `get_message_thread` — one conversation by `chat_identifier` from the same local store
 
 ## Wiki
 

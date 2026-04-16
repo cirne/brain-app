@@ -13,7 +13,7 @@
     onOpenEmail,
     onOpenFullInbox,
     onSwitchToCalendar,
-    onOpenImessage,
+    onOpenMessageThread,
     /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
     empty,
   }: {
@@ -23,7 +23,7 @@
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
-    onOpenImessage?: (_canonicalChat: string, _displayLabel: string) => void
+    onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
     empty?: Snippet
   } = $props()
 
@@ -119,7 +119,7 @@
       {onOpenEmail}
       {onOpenFullInbox}
       {onSwitchToCalendar}
-      {onOpenImessage}
+      {onOpenMessageThread}
     />
   {/each}
 

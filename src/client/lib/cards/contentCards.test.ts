@@ -171,15 +171,15 @@ describe('matchContentPreview', () => {
     }
   })
 
-  it('returns imessage_thread preview from get_imessage_thread details', () => {
+  it('returns message_thread preview from get_message_thread details', () => {
     const tool = tc({
       id: 'im1',
-      name: 'get_imessage_thread',
+      name: 'get_message_thread',
       done: true,
       args: { chat_identifier: '+15550001111' },
       result: '{"truncated":',
       details: {
-        imessageThreadPreview: true,
+        messageThreadPreview: true,
         ok: true,
         error: '',
         canonical_chat: '+15550001111',
@@ -192,12 +192,33 @@ describe('matchContentPreview', () => {
       },
     })
     const p = matchContentPreview(tool)
-    expect(p?.kind).toBe('imessage_thread')
-    if (p?.kind === 'imessage_thread') {
+    expect(p?.kind).toBe('message_thread')
+    if (p?.kind === 'message_thread') {
       expect(p.canonicalChat).toBe('+15550001111')
       expect(p.displayChat).toBe('(555) 000-1111')
       expect(p.snippet).toContain('Hi')
     }
+  })
+
+  it('still maps legacy get_imessage_thread + imessageThreadPreview to message_thread', () => {
+    const tool = tc({
+      id: 'im2',
+      name: 'get_imessage_thread',
+      done: true,
+      args: { chat_identifier: '+15550001111' },
+      result: '{}',
+      details: {
+        imessageThreadPreview: true,
+        canonical_chat: '+15550001111',
+        chat: '(555) 000-1111',
+        total: 1,
+        n: 1,
+        snippet: 'Hi',
+        preview_messages: [],
+      },
+    })
+    const p = matchContentPreview(tool)
+    expect(p?.kind).toBe('message_thread')
   })
 
   it('returns wiki_edit_diff when edit tool has details.editDiff', () => {

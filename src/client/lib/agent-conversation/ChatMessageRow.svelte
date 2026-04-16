@@ -11,7 +11,7 @@
     onOpenEmail,
     onOpenFullInbox,
     onSwitchToCalendar,
-    onOpenImessage,
+    onOpenMessageThread,
   }: {
     msg: ChatMessage
     streaming: boolean
@@ -20,7 +20,7 @@
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
-    onOpenImessage?: (_canonicalChat: string, _displayLabel: string) => void
+    onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
   } = $props()
 </script>
 
@@ -39,7 +39,7 @@
           {onOpenEmail}
           {onOpenFullInbox}
           {onSwitchToCalendar}
-          {onOpenImessage}
+          {onOpenMessageThread}
         />
       {:else if part.type === 'text' && part.content}
         <div class="msg-content markdown">

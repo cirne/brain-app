@@ -296,7 +296,7 @@ describe('contextToString', () => {
       displayLabel: '(555) 000-1111',
     }
     const s = contextToString(ctx)!
-    expect(s).toContain('iMessage')
+    expect(s).toContain('get_message_thread')
     expect(s).toContain('+15550001111')
     expect(s).toContain('(555) 000-1111')
   })

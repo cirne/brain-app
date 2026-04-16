@@ -12,14 +12,14 @@
     onOpenEmail,
     onOpenFullInbox,
     onSwitchToCalendar,
-    onOpenImessage,
+    onOpenMessageThread,
   }: {
     toolCall: ToolCall
     onOpenWiki?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
-    onOpenImessage?: (_canonicalChat: string, _displayLabel: string) => void
+    onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
   } = $props()
 
   const preview = $derived(matchContentPreview(toolCall))
@@ -60,7 +60,7 @@
       {#if toolCall.args}
         <pre class="tool-args">{formatToolArgs(toolCall.args)}</pre>
       {/if}
-      {#if toolCall.result && preview?.kind !== 'wiki_edit_diff' && preview?.kind !== 'imessage_thread'}
+      {#if toolCall.result && preview?.kind !== 'wiki_edit_diff' && preview?.kind !== 'message_thread'}
         <pre class="tool-result" class:tool-error={toolCall.isError} class:muted={!!preview}>{toolCall.result}</pre>
       {/if}
     </details>
@@ -71,7 +71,7 @@
         {onOpenEmail}
         {onOpenFullInbox}
         {onSwitchToCalendar}
-        {onOpenImessage}
+        {onOpenMessageThread}
       />
     {/if}
   </div>

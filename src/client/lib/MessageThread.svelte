@@ -39,7 +39,7 @@
 
     void (async () => {
       try {
-        const res = await fetch(`/api/imessage/thread?${q.toString()}`)
+        const res = await fetch(`/api/messages/thread?${q.toString()}`)
         const data = (await res.json()) as {
           ok?: boolean
           error?: string
@@ -90,9 +90,9 @@
   }
 </script>
 
-<div class="imessage-thread">
+<div class="message-thread-panel">
   {#if !initialChat?.trim()}
-    <p class="status">Open a thread from the agent (get_imessage_thread) to view messages here.</p>
+    <p class="status">Open a thread from the agent (get_message_thread) to view messages here.</p>
   {:else if loading}
     <p class="status">Loading messages…</p>
   {:else if errorText}
@@ -119,7 +119,7 @@
 </div>
 
 <style>
-  .imessage-thread {
+  .message-thread-panel {
     flex: 1;
     min-height: 0;
     overflow-y: auto;

@@ -14,7 +14,7 @@ Integration is **local-first**: tools run on the machine where Messages is autho
 
 All tools assume a configured path to the chat database (default: standard macOS location) and **read-only** SQLite connections.
 
-### `list_imessage_recent`
+### `list_recent_messages` (implemented; was scoped as “iMessage” in early drafts)
 
 Return recent messages across all chats or filtered scope.
 
@@ -24,7 +24,7 @@ Return recent messages across all chats or filtered scope.
 | `unread_only` | If true, restrict to messages the DB still marks unread (when that metadata is reliable for the query) |
 | `limit` | Cap rows returned (default conservative) |
 
-### `get_imessage_thread`
+### `get_message_thread` (implemented)
 
 Resolve a **thread** (conversation) and return messages in order.
 
@@ -42,7 +42,7 @@ The **agent** performs cross-source correlation using existing primitives:
 
 1. Resolve **who** from the wiki — e.g. open Brett's person page, read phone number(s), Apple IDs, or labeled handles.
 2. Normalize **handles** to the forms stored in `chat.db` (phone formats, `chat_identifier` conventions).
-3. Call `get_imessage_thread` / `list_imessage_recent` with those handles.
+3. Call `get_message_thread` / `list_recent_messages` with those handles.
 
 No requirement for a magic "Brett → thread" tool if the agent can already `read` the wiki and pass structured identifiers into iMessage tools.
 
@@ -54,20 +54,20 @@ No requirement for a magic "Brett → thread" tool if the agent can already `rea
 
 **User:** "Summarize my unread texts from the last 24 hours."
 
-Agent calls `list_imessage_recent` with `unread_only: true` and a one-day window, then synthesizes a short summary (and optionally uses `open` to show a thread in the UI if such a hook exists later).
+Agent calls `list_recent_messages` with `unread_only: true` and a one-day window, then synthesizes a short summary (and optionally uses `open` to show a thread in the UI if such a hook exists later).
 
 ### 2. Thread depth and recency
 
 **User:** "How active was my thread with Alex this week?"
 
-Agent resolves Alex's chat (from wiki or from a prior search), uses `get_imessage_thread` with a 7-day window, reports **message count** and last-activity time from tool metadata or message list.
+Agent resolves Alex's chat (from wiki or from a prior search), uses `get_message_thread` with a 7-day window, reports **message count** and last-activity time from tool metadata or message list.
 
 ### 3. Person-centric question (wiki + iMessage + email)
 
 **User:** "What have I heard from Brett lately?"
 
 1. **Find Brett in the wiki** — search or open `people/brett` (or equivalent); extract phone, email, nicknames.
-2. **iMessage** — map phone/handle → thread; `get_imessage_thread` with a reasonable default window (e.g. 30 days) or `list_imessage_recent` filtered by resolved identifiers.
+2. **SMS / iMessage** — map phone/handle → thread; `get_message_thread` with a reasonable default window (e.g. 30 days) or `list_recent_messages` filtered by resolved identifiers.
 3. **Email** — existing ripmail / `search_email` / `read_email` using addresses from the same page.
 4. **Synthesize** — one answer that cites channel (SMS vs Mail) and time, without duplicating raw dumps unless asked.
 

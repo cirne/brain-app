@@ -236,7 +236,7 @@
     route = parseRoute()
   }
 
-  function openImessageFromChat(canonicalChat: string, displayLabel: string) {
+  function openMessageThreadFromChat(canonicalChat: string, displayLabel: string) {
     navigate({ overlay: { type: 'messages', chat: canonicalChat } })
     route = parseRoute()
     agentContext = { type: 'messages', chat: canonicalChat, displayLabel }
@@ -373,7 +373,7 @@
           onOpenWiki={openWikiDoc}
           onOpenEmail={openEmailFromChat}
           onOpenFullInbox={openFullInboxFromChat}
-          onOpenImessage={openImessageFromChat}
+          onOpenMessageThread={openMessageThreadFromChat}
           onSwitchToCalendar={switchToCalendar}
           onOpenFromAgent={onOpenFromAgent}
           onNewChat={closeOverlay}

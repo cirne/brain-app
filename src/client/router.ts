@@ -5,7 +5,7 @@ export type Overlay =
   | { type: 'wiki'; path?: string }
   | { type: 'email'; id?: string }
   | { type: 'calendar'; date?: string; eventId?: string }
-  /** `chat` is canonical chat_identifier (E.164, email, …) for /api/imessage/thread */
+  /** `chat` is canonical chat_identifier (E.164, email, …) for /api/messages/thread */
   | { type: 'messages'; chat?: string }
 
 /** Chat-first shell: optional detail overlay; base route is always chat. */

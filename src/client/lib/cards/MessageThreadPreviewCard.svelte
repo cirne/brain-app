@@ -44,25 +44,25 @@
 
 <button
   type="button"
-  class="imessage-card"
+  class="message-thread-card"
   onclick={onOpen}
-  aria-label="Open iMessage thread: {displayChat}"
+  aria-label="Open message thread: {displayChat}"
 >
-  <div class="imessage-row">
+  <div class="message-thread-row">
     <MessageSquare size={14} aria-hidden="true" />
-    <span class="imessage-chat">{displayChat}</span>
+    <span class="message-thread-chat">{displayChat}</span>
   </div>
   {#if person.length > 0}
-    <div class="imessage-person">{person.join(' · ')}</div>
+    <div class="message-thread-person">{person.join(' · ')}</div>
   {/if}
   {#if snippet}
-    <p class="imessage-snippet">{snippet}</p>
+    <p class="message-thread-snippet">{snippet}</p>
   {/if}
   {#if total > 0 || n > 0}
-    <div class="imessage-meta">{n} shown · {total} in window</div>
+    <div class="message-thread-meta">{n} shown · {total} in window</div>
   {/if}
   {#if tail.length > 0}
-    <div class="imessage-bubbles" aria-hidden="true">
+    <div class="message-thread-bubbles" aria-hidden="true">
       {#each tail as row}
         <div class="bubble-row" class:me={row.m === 1}>
           <span class="bubble">{bubblePreviewText(row.t)}</span>
@@ -74,7 +74,7 @@
 </button>
 
 <style>
-  .imessage-card {
+  .message-thread-card {
     margin: 8px 0;
     padding: 10px 12px;
     border: 1px solid var(--border);
@@ -87,13 +87,13 @@
     color: inherit;
     cursor: pointer;
   }
-  .imessage-row {
+  .message-thread-row {
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
   }
-  .imessage-chat {
+  .message-thread-chat {
     font-size: 13px;
     font-weight: 600;
     min-width: 0;
@@ -101,23 +101,23 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .imessage-person {
+  .message-thread-person {
     font-size: 11px;
     color: var(--text-2);
     margin-top: 4px;
   }
-  .imessage-snippet {
+  .message-thread-snippet {
     margin: 8px 0 0;
     font-size: 12px;
     line-height: 1.4;
     color: var(--text-2);
   }
-  .imessage-meta {
+  .message-thread-meta {
     margin-top: 6px;
     font-size: 11px;
     color: var(--text-2);
   }
-  .imessage-bubbles {
+  .message-thread-bubbles {
     margin-top: 10px;
     display: flex;
     flex-direction: column;

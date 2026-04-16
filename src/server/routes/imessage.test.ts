@@ -88,6 +88,7 @@ beforeEach(async () => {
   const { default: imessageRoute } = await import('./imessage.js')
   app = new Hono()
   app.route('/api/imessage', imessageRoute)
+  app.route('/api/messages', imessageRoute)
 })
 
 afterEach(async () => {
@@ -110,6 +111,14 @@ describe('GET /api/imessage/thread', () => {
     expect(body.ok).toBe(true)
     expect(body.canonical_chat).toBe('+15550001111')
     expect(body.messages?.map((m) => m.t)).toEqual(['Hello', 'Reply'])
+  })
+
+  it('GET /api/messages/thread is an alias for the same handler', async () => {
+    const res = await app.request('/api/messages/thread?chat=%2B15550001111')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { ok: boolean; canonical_chat?: string }
+    expect(body.ok).toBe(true)
+    expect(body.canonical_chat).toBe('+15550001111')
   })
 
   it('returns 400 when chat is missing', async () => {

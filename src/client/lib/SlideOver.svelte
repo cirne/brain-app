@@ -4,7 +4,7 @@
   import Wiki from './Wiki.svelte'
   import Inbox from './Inbox.svelte'
   import Calendar from './Calendar.svelte'
-  import ImessageThread from './ImessageThread.svelte'
+  import MessageThread from './MessageThread.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
   import type { Overlay } from '../router.js'
@@ -353,7 +353,7 @@
         onSummarizeInbox={onSummarizeInbox}
       />
     {:else if overlay.type === 'messages'}
-      <ImessageThread initialChat={overlay.chat} onContextChange={onContextChange} />
+      <MessageThread initialChat={overlay.chat} onContextChange={onContextChange} />
     {:else}
       <Calendar
         refreshKey={calendarRefreshKey}

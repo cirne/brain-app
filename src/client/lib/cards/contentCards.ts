@@ -27,7 +27,7 @@ export type CalendarEventLite = {
   organizer?: string
 }
 
-export type ImessagePreviewRow = { ts: number; m: number; t: string; r?: number }
+export type MessagePreviewRow = { ts: number; m: number; t: string; r?: number }
 
 export type ContentCardPreview =
   | { kind: 'calendar'; start: string; end: string; events: CalendarEventLite[] }
@@ -36,13 +36,13 @@ export type ContentCardPreview =
   | { kind: 'inbox_list'; items: InboxListItemPreview[]; totalCount: number }
   | { kind: 'wiki_edit_diff'; path: string; unified: string }
   | {
-      kind: 'imessage_thread'
+      kind: 'message_thread'
       displayChat: string
       canonicalChat: string
       snippet: string
       total: number
       n: number
-      previewMessages: ImessagePreviewRow[]
+      previewMessages: MessagePreviewRow[]
       person: string[]
     }
 
@@ -98,30 +98,38 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
     return null
   }
 
-  if (name === 'get_imessage_thread' && typeof args.chat_identifier === 'string') {
+  const isGetMessageThread =
+    (name === 'get_message_thread' || name === 'get_imessage_thread') && typeof args.chat_identifier === 'string'
+  if (isGetMessageThread) {
     const d = tool.details as
       | {
+          messageThreadPreview?: boolean
           imessageThreadPreview?: boolean
           canonical_chat?: string
           chat?: string
           snippet?: string
           total?: number
           n?: number
-          preview_messages?: ImessagePreviewRow[]
+          preview_messages?: MessagePreviewRow[]
           person?: string[]
         }
       | undefined
-    if (d?.imessageThreadPreview === true && typeof d.canonical_chat === 'string') {
+    if (
+      d != null &&
+      (d.messageThreadPreview === true || d.imessageThreadPreview === true) &&
+      typeof d.canonical_chat === 'string'
+    ) {
+      const canonicalChat = d.canonical_chat
       const preview_messages = Array.isArray(d.preview_messages) ? d.preview_messages : []
       const person = Array.isArray(d.person) ? d.person.filter((x): x is string => typeof x === 'string') : []
       return {
-        kind: 'imessage_thread',
-        displayChat: typeof d.chat === 'string' ? d.chat : d.canonical_chat,
-        canonicalChat: d.canonical_chat,
+        kind: 'message_thread',
+        displayChat: typeof d.chat === 'string' ? d.chat : canonicalChat,
+        canonicalChat,
         snippet: typeof d.snippet === 'string' ? d.snippet : '',
         total: typeof d.total === 'number' ? d.total : 0,
         n: typeof d.n === 'number' ? d.n : 0,
-        previewMessages: preview_messages as ImessagePreviewRow[],
+        previewMessages: preview_messages as MessagePreviewRow[],
         person,
       }
     }
@@ -137,10 +145,10 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
         if (!canonicalChat.trim()) return null
         const displayChat = typeof j.chat === 'string' ? j.chat : canonicalChat
         const messages = Array.isArray(j.messages) ? j.messages : []
-        const previewMessages = messages.slice(-5) as ImessagePreviewRow[]
+        const previewMessages = messages.slice(-5) as MessagePreviewRow[]
         let snippet = typeof j.snippet === 'string' ? j.snippet : ''
         if (!snippet && previewMessages.length) {
-          const tail = previewMessages.slice(-3) as ImessagePreviewRow[]
+          const tail = previewMessages.slice(-3) as MessagePreviewRow[]
           snippet = tail
             .map((r) => {
               const who = r.m === 1 ? 'You' : 'Them'
@@ -151,7 +159,7 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
         }
         const person = Array.isArray(j.person) ? j.person.filter((x): x is string => typeof x === 'string') : []
         return {
-          kind: 'imessage_thread',
+          kind: 'message_thread',
           displayChat,
           canonicalChat,
           snippet,
