@@ -76,3 +76,43 @@ export function clearNavHistory(): void {
 export function makeNavHistoryId(type: NavHistoryItemType, identifier: string): string {
   return `${type}:${identifier}`
 }
+
+/**
+ * Add or update an email row with subject/from. Skips while subject is still loading.
+ * Updates title in place when replacing a placeholder (e.g. after agent `open` with no subject).
+ * Returns whether localStorage was updated.
+ */
+export function upsertEmailNavHistory(threadId: string, subject: string, from: string): boolean {
+  const t = subject.trim()
+  if (!t || t === '(loading)') return false
+
+  const navId = makeNavHistoryId('email', threadId)
+  const history = loadNavHistory()
+  const idx = history.findIndex(h => h.id === navId)
+
+  if (idx < 0) {
+    addToNavHistory({
+      id: navId,
+      type: 'email',
+      title: t,
+      path: threadId,
+      meta: from,
+    })
+    return true
+  }
+
+  const cur = history[idx]
+  const fromNorm = from || ''
+  const metaNorm = cur.meta || ''
+  if (cur.title === t && metaNorm === fromNorm) return false
+
+  const next = [...history]
+  next[idx] = {
+    ...cur,
+    title: t,
+    meta: from || cur.meta,
+    accessedAt: cur.accessedAt,
+  }
+  saveNavHistory(next)
+  return true
+}

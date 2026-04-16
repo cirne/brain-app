@@ -19,7 +19,7 @@
   import { wikiPathForReadToolArg } from './cards/contentCards.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from './navigateFromAgentOpen.js'
   import { FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY } from './onboarding/seedConstants.js'
-  import { addToNavHistory, makeNavHistoryId } from './navHistory.js'
+  import { addToNavHistory, makeNavHistoryId, upsertEmailNavHistory } from './navHistory.js'
 
   const SIDEBAR_KEY = 'brain-sidebar'
 
@@ -247,6 +247,11 @@
 
   function setContext(ctx: SurfaceContext) {
     agentContext = ctx
+    if (ctx.type === 'email' && ctx.threadId) {
+      if (upsertEmailNavHistory(ctx.threadId, ctx.subject, ctx.from)) {
+        void chatHistory?.refresh()
+      }
+    }
   }
 
   function onSummarizeInbox(message: string) {
@@ -259,14 +264,8 @@
     navigate({ overlay: { type: 'email', id } })
     route = parseRoute()
     agentContext = { type: 'email', threadId: id, subject, from }
-    if (id) {
-      addToNavHistory({
-        id: makeNavHistoryId('email', id),
-        type: 'email',
-        title: subject || 'Email',
-        path: id,
-        meta: from,
-      })
+    if (id && subject.trim()) {
+      if (upsertEmailNavHistory(id, subject, from)) void chatHistory?.refresh()
     }
   }
 
