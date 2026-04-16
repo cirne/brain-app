@@ -13,7 +13,6 @@ hint: describe the wiki task in your own words
 args: >-
   Optional natural language: topic, path, folder, constraints, or a line budget (e.g. “keep under
   300 lines”). Defaults below apply when unspecified.
-version: 1
 ---
 
 # Wiki (umbrella)

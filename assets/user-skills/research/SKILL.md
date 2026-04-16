@@ -13,7 +13,6 @@ hint: question, scope, or where to publish—your words
 args: >-
   Optional natural language: topic, boundaries, desired path, or a line budget. Default ~400 lines
   per primary page unless the user specifies otherwise.
-version: 1
 
 # Deep research
 

@@ -9,7 +9,6 @@ description: >-
 hint: what to do with mail—say it plainly
 args: >-
   Optional natural language: who, which thread, intent, tone. No required positional parameters.
-version: 1
 ---
 
 # Email
