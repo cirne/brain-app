@@ -68,7 +68,7 @@ chat.post('/', async (c) => {
 
   const persist = async (args: {
     userMessage: string
-    assistantMessage: import('../lib/chatTypes.js').ChatMessage
+    assistantMessage: ChatMessage
     turnTitle: string | null | undefined
   }) => {
     try {
