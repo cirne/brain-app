@@ -3,6 +3,7 @@ import { promisify } from 'node:util'
 import { wikiDir, repoDir } from './wikiDir.js'
 import { redactGitRemote } from './redactGitRemote.js'
 import { areLocalMessageToolsEnabled, initLocalMessageToolsAvailability } from './imessageDb.js'
+import { logFdaProbeForStartup } from './fdaProbe.js'
 import { parseRipmailStatusJson } from './ripmailStatusParse.js'
 
 const execAsync = promisify(exec)
@@ -13,6 +14,7 @@ const log = (line: string) => console.log(`[brain-app] ${line}`)
 export async function logStartupDiagnostics(): Promise<void> {
   initLocalMessageToolsAvailability()
   log(`NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} PORT=${process.env.PORT ?? '3000'}`)
+  logFdaProbeForStartup(log)
   const repo = repoDir()
   const wiki = wikiDir()
   log(`WIKI_DIR=${repo}`)

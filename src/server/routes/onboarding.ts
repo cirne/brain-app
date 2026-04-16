@@ -24,10 +24,23 @@ import {
   deleteSeedingSession,
 } from '../agent/onboardingAgent.js'
 import { getOnboardingMailStatus, ripmailBin, ripmailHomePath } from '../lib/onboardingMailStatus.js'
+import { enrichAppleMailSetupError } from '../lib/appleMailSetupHints.js'
+import { getFdaProbeDetail, isFdaGranted } from '../lib/fdaProbe.js'
 
 const execAsync = promisify(exec)
 
 const onboarding = new Hono()
+
+/**
+ * Probe Full Disk Access (Node process). `?detail=1` returns per-path rows for curl / debugging
+ * without rebuilding the Tauri shell (server-only deploy).
+ */
+onboarding.get('/fda', (c) => {
+  if (c.req.query('detail') === '1') {
+    return c.json(getFdaProbeDetail())
+  }
+  return c.json({ granted: isFdaGranted() })
+})
 
 onboarding.get('/status', async (c) => {
   const doc = await readOnboardingStateDoc()
@@ -92,8 +105,9 @@ async function runAppleMailSetup(c: Context) {
     return c.json({ ok: true as const })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
+    const error = enrichAppleMailSetupError(msg)
     console.error('[onboarding/setup-mail] failed', msg)
-    return c.json({ ok: false as const, error: msg }, 500)
+    return c.json({ ok: false as const, error }, 500)
   }
 }
 

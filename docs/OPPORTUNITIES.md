@@ -19,6 +19,7 @@ Active and future work lives in [opportunities/](opportunities/). Shipped and de
 | [OPP-006](opportunities/OPP-006-email-bootstrap-onboarding.md) | Email-Bootstrap Onboarding   | Connect email, watch wiki build itself. Onboarding agent analyzes inbox to create user profile, people pages, and project pages in minutes. Zero data entry, feels magical. Research-driven.                              |
 | [OPP-007](opportunities/OPP-007-native-mac-app.md)             | Native Mac App               | Package as macOS app running server locally. Enables full access to iMessage, Contacts, Notes, files without sync. Remote access via Tailscale. Local-first, privacy-preserving.                                          |
 | [OPP-008](opportunities/OPP-008-tunnel-qr-phone-access.md)     | Tunnel + QR Phone Access     | Cloudflare Tunnel (or similar) from Mac-local brain to the internet; QR encodes URL (+ optional pairing) for scan-to-open on phone. Remote access without VPN app on phone; complements Tailscale story in OPP-007.       |
+| [OPP-009](opportunities/OPP-009-oauth-relay-in-app.md)         | OAuth relay in app           | Replace the old ripmail `oauth-relay` Cloudflare Worker with Hono/server-side handling in brain-app for hosted OAuth used by ripmail.                                                                                    |
 
 
 ---

@@ -125,4 +125,17 @@ describe('GET /api/imessage/thread', () => {
     const res = await app.request('/api/imessage/thread')
     expect(res.status).toBe(400)
   })
+
+  it('returns 503 with full_disk_access_hint when local messages are disabled', async () => {
+    resetLocalMessageToolsAvailabilityForTests()
+    process.env.IMESSAGE_DB_PATH = join(dir, 'missing-chat.db')
+    initLocalMessageToolsAvailability()
+    const { default: imessageRoute } = await import('./imessage.js')
+    const app2 = new Hono()
+    app2.route('/api/messages', imessageRoute)
+    const res = await app2.request('/api/messages/thread?chat=%2B15550001111')
+    expect(res.status).toBe(503)
+    const body = (await res.json()) as { full_disk_access_hint?: boolean }
+    expect(typeof body.full_disk_access_hint).toBe('boolean')
+  })
 })

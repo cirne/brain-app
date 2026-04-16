@@ -1,0 +1,7 @@
+# Run `cargo install-local` from the repo root: build release + install ripmail to INSTALL_PREFIX (default ~/.local/bin).
+#
+# Parallelism: `cargo test` / `cargo build` default to one rustc job per logical CPU (unset `CARGO_BUILD_JOBS` / no `build.jobs` here).
+# The Rust test harness also runs tests in parallel across logical CPUs unless `RUST_TEST_THREADS` is set (e.g. `1` for serial debugging).
+
+[alias]
+install-local = "run -p ripmail --bin cargo-install-local --"

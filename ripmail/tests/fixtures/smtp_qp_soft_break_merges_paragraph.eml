@@ -1,0 +1,15 @@
+MIME-Version: 1.0
+From: sender@example.com
+To: recipient@example.com
+Message-ID: <fixture-qp-paragraph-merge@example.com>
+Subject: fixture: QP soft break merged paragraph boundary
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+This is a short test message drafted with ripmail for self-delivery. It exi=
+sts only to confirm that the local draft flow works end to end from the CLI=
+.A second paragraph adds a bit more text so the message feels like a real n=
+ote rather than a single line. Nothing here is confidential; you can delete=
+ it whenever you like.Finally, a third paragraph wraps things up. If you se=
+e this in your drafts folder or after a send, the pipeline did its job.
+

@@ -9,6 +9,6 @@ dist/
 *.tsbuildinfo
 data/
 coverage/
-src-tauri/target/
-src-tauri/binaries/ripmail-*
-src-tauri/resources/server-bundle/
+target/
+desktop/binaries/ripmail-*
+desktop/resources/server-bundle/

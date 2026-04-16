@@ -1,0 +1,90 @@
+# Processed Feedback
+
+This file tracks feedback files from `../riptest/feedback/` that have been processed. A feedback item is considered "processed" when we have decided what to do with it and completed that action (ignore, create bug, create opportunity, update docs, etc.).
+
+**Format:** Each entry includes:
+- Feedback filename
+- Date processed
+- Action taken (bug created, opportunity created, ignored, etc.)
+- Related bug/opportunity ID (if applicable)
+
+---
+
+## Processed Items
+
+| Feedback File | Date Processed | Action | Related ID |
+|---|---|---|---|
+| `ux-semantic-search-guidance.md` | 2026-03-06 | Created bug | [BUG-003](bugs/archive/BUG-003-fts-vs-semantic-search-guidance.md) — Superseded by OPP-008 |
+| `ux-simplify-search-modes.md` | 2026-03-06 | Created opportunity | [OPP-008](opportunities/archive/OPP-008-simplify-search-modes.md) — Implemented 2026-03-06 |
+| `bug-attachment-read-silent-failure.md` | 2026-03-06 | Created bug | [BUG-004](bugs/archive/BUG-004-attachment-read-silent-failure.md) |
+| `bug-xlsx-object-object-rendering.md` | 2026-03-06 | Created bug | [BUG-005](bugs/archive/BUG-005-xlsx-formula-cells-object-object.md) |
+| `bug-sync-repeated-connecting-message.md` | 2026-03-07 | Created bug | [BUG-006](bugs/archive/BUG-006-sync-repeated-connecting-message.md) |
+| `bug-sync-silent-auth-failure.md` | 2026-03-07 | Created bug | [BUG-007](bugs/archive/BUG-007-sync-silent-auth-failure.md) |
+| `bug-who-case-sensitive-email-dedup.md` | 2026-03-07 | Created bug | [BUG-008](bugs/archive/BUG-008-who-case-sensitive-email-dedup.md) |
+| `bug-wizard-crash-non-interactive.md` | 2026-03-07 | Created bug | [BUG-009](bugs/archive/BUG-009-wizard-crash-non-interactive.md) |
+| `feature-who-smart-address-book.md` | 2026-03-07 | Created opportunity | [OPP-012](opportunities/OPP-012-who-smart-address-book.md) |
+| `bug-sync-backward-resume-skips-date-range.md` | 2026-03-07 | Created bug | [BUG-010](bugs/archive/BUG-010-sync-backward-resume-skips-date-range.md) |
+| `bug-who-dartmouth-not-merged.md` | 2026-03-07 | Created bug | [BUG-011](bugs/archive/BUG-011-who-dartmouth-not-merged.md) |
+| `bug-who-min-sent-splits-identity.md` | 2026-03-07 | Created bug | [BUG-012](bugs/archive/BUG-012-who-min-sent-splits-identity.md) |
+| `bug-who-noreply-display-name-leaks.md` | 2026-03-07 | Created bug | [BUG-013](bugs/archive/BUG-013-who-noreply-display-name-leaks.md) |
+| `bug-who-signature-parser-noise.md` | 2026-03-07 | Created bug | [BUG-014](bugs/archive/BUG-014-who-signature-parser-noise.md) |
+| `ux-who-name-inference-from-address.md` | 2026-03-07 | Created opportunity | [OPP-013 archived](opportunities/archive/OPP-013-who-name-inference-from-address.md) → [OPP-012](opportunities/OPP-012-who-smart-address-book.md) — Partial: dot/underscore patterns work, firstlast (no separator) still null |
+| `bug-who-name-inference-noreply-garbage.md` | 2026-03-07 | Created bug | [BUG-015](bugs/archive/BUG-015-who-name-inference-noreply-garbage.md) |
+| `bakeoff-results.md` | 2026-03-07 | Created bug | [BUG-016](bugs/archive/BUG-016-bakeoff-incomplete-coverage-critical.md) — Archived 2026-03-10; domain→from scope → BUG-020 |
+| `bug-search-silent-truncation-and-fts-dot-syntax.md` | 2026-03-07 | Updated existing bug | [BUG-016](bugs/archive/BUG-016-bakeoff-incomplete-coverage-critical.md) — Post-fix retest; archived 2026-03-10 |
+| `bakeoff-001-rudy-funds.md` | 2026-03-07 | Created opportunity | [OPP-018](opportunities/archive/OPP-018-reduce-agent-round-trips.md) — body preview + richer search output |
+| `bakeoff-002-entrepreneur-meeting.md` | 2026-03-07 | Created bug | [BUG-017](bugs/BUG-017-semantic-recall-gap-intent-queries.md) — semantic recall gap for intent queries |
+| `bakeoff-003-news-headlines.md` | 2026-03-07 | Created opportunity | [OPP-018](opportunities/archive/OPP-018-reduce-agent-round-trips.md) — newsletter detection + body preview |
+| `bakeoff-004-tech-news.md` | 2026-03-07 | Created opportunity | [OPP-018](opportunities/archive/OPP-018-reduce-agent-round-trips.md) — primary source: batch get_message + richer search output |
+| `bakeoff-005-entrepreneur-rematch.md` | 2026-03-07 | Created opportunity + bug, updated existing bug | [OPP-019 archived](opportunities/archive/OPP-019-fts-first-retire-semantic-default.md) (FTS-first); [BUG-018](bugs/BUG-018-who-timings-unknown-flag.md) (who --timings); [BUG-017](bugs/BUG-017-semantic-recall-gap-intent-queries.md) updated with resolution path |
+| `bakeoff-results.md` (updated v2) | 2026-03-07 | Index update noted | Bakeoff #5 added to index; strategic insight → [OPP-019 archived](opportunities/archive/OPP-019-fts-first-retire-semantic-default.md) |
+| `bug-read-prepare-error.md` | 2026-03-09 | Created bug | [BUG-021](bugs/BUG-021-read-prepare-error.md) — `read`/`get_messages` crash with prepare error |
+| `ux-ask-default-detail-level.md` | 2026-03-09 | Created opportunity | [OPP-022](opportunities/OPP-022-ask-synthesis-detail-level.md) — Mini synthesis too shallow for broad queries |
+| `ux-ask-inbox-includes-spam.md` | 2026-03-09 | Matched existing opportunity; partially fixed | [OPP-021 archived](opportunities/archive/OPP-021-ask-spam-promo-awareness.md) — Schema version bumped (4→5) to force re-index with noise classification |
+| `bug-attachments-missing-from-email.md` | 2026-03-09 | Created bug; fixed; verified | [BUG-023](bugs/archive/BUG-023-attachments-missing-from-synced-email.md) — Attachment filter bug fixed (schema v8→9); recovered 14 attachments; user verified closed |
+| `feature-get-messages-token-efficiency.md` | 2026-03-24 | Matched existing opportunity; MCP `get_messages` result order aligned with `messageIds` | [OPP-018](opportunities/archive/OPP-018-reduce-agent-round-trips.md) — archived 2026-03-24; profiles + batch auto-summary shipped |
+| `feature-search-slim-results.md` | 2026-03-24 | Fixed in place | CLI + MCP search: auto slim JSON when more than 50 results; `format` + hint; `--result-format` / `resultFormat` — `src/search/search-json-format.ts` |
+| `feature-attachment-metadata-in-search.md` | 2026-03-24 | Fixed in place | Full JSON search: `attachments` array with `id`, `filename`, `mimeType`, `size`, `extracted`, `index`; slim rows: count + `attachmentTypes` — `src/cli/index.ts`, `src/search/search-json-format.ts`, `src/attachments/list-for-message.ts`, `src/lib/types.ts` |
+| `bug-inbox-text-utf8-panic.md` | 2026-03-30 | Created bug, fixed | [BUG-028 archived](bugs/archive/BUG-028-inbox-text-utf8-snippet-panic.md) — `inbox --text`: `wrap_line` uses `floor_char_boundary` |
+| `bug-read-bare-message-id-query-returned-no-rows.md` | 2026-03-31 | Created bug; fixed; verified | [BUG-029 archived](bugs/archive/BUG-029-read-bare-message-id-no-angle-brackets.md) — ID lookup tries `<id>` then bare `id`; closed after verification |
+| `bug-draft-view-and-send-hang-sigkill.md` | 2026-03-31 | Created bug; fixed & verified | [BUG-030 archived](bugs/archive/BUG-030-draft-commands-hang-after-edit.md) — lazy DB open; closed 2026-03-31 |
+| `bug-send-reply-draft-wrong-path.md` | 2026-03-31 | Created bug; fixed; verified | [BUG-031](bugs/archive/BUG-031-send-reply-draft-wrong-maildir-path.md) — reply send path resolution fixed; user verified closed |
+| `ux-search-query-optional-when-filters-present.md` | 2026-03-31 | Created bug | [BUG-032](bugs/BUG-032-search-query-should-be-optional-with-filters.md) — CLI requires positional `<QUERY>` even when filters already define a valid search |
+| `ux-actionable-error-messages.md` | 2026-03-31 | Created bug | [BUG-033](bugs/BUG-033-actionable-file-not-found-errors.md) — missing local files still surface raw OS/path errors instead of actionable ripmail-specific recovery messages |
+| `ux-cli-agent-friction-and-read-missing-recipients.md` | 2026-04-01 | Created bugs | [BUG-034](bugs/archive/BUG-034-cli-json-text-flags-inconsistent-across-subcommands.md) (CLI `--json`/`--text` friction); [BUG-035](bugs/archive/BUG-035-read-omits-to-cc-bcc-and-threading-headers.md) (`read` omits To/CC/BCC / threading headers) |
+| `bug-check-ignores-same-day-flight.md` | 2026-04-03 | Matched existing bug; extended context | [BUG-024](bugs/archive/BUG-024-inbox-scan-over-filters-misses-important-mail.md) — (LLM inbox era) same-day NetJets tail classified `ignore`; prompt/refs updated; see bug file **Historical** note for post–deterministic-inbox |
+| `verified/bug-check-ignores-same-day-flight.md` | 2026-04-03 | BUG-024 closed after verification | [BUG-024](bugs/archive/BUG-024-inbox-scan-over-filters-misses-important-mail.md) — stripper overrule → `inform` for NetJets tails; **Closed — verified** |
+| `bug-attachment-not-detected-non-ascii-filename.md` | 2026-04-03 | Created bug; fixed | [BUG-036 archived](bugs/archive/BUG-036-pdf-attachments-non-ascii-filename-mime-parse.md) — UTF-8 `filename=` + fallback names; tests + Node parity |
+| `bug-draft-fails-oauth-no-smtp-credentials.md` | 2026-04-06 | Created bug | [BUG-040](bugs/archive/BUG-040-oauth-mailbox-draft-send-smtp-blocked.md) — OAuth mailboxes: draft/send gated on IMAP password (fixed 2026-04-06) |
+| `bug-search-special-chars-fts5-crash.md` | 2026-04-11 | Created bug | [BUG-042 archived](bugs/archive/BUG-042-search-fts5-special-characters-error-ux.md) — source: `riptest/feedback/` |
+| `bug-encoded-subjects-not-decoded-in-text-output.md` | 2026-04-11 | Created bug | [BUG-043 archived](bugs/archive/BUG-043-rfc-2047-subject-not-decoded-cli-json.md) |
+| `bug-attachment-list-silent-flag-ignore.md` | 2026-04-11 | Created bug | [BUG-044 archived](bugs/archive/BUG-044-attachment-list-ignores-message-id-flag.md) |
+| `ux-draft-reply-positional-vs-flag-inconsistency.md` | 2026-04-11 | Created bug | [BUG-045 archived](bugs/archive/BUG-045-draft-reply-positional-message-id-inconsistent.md) |
+| `bug-ask-stale-data-no-recency-weighting.md` | 2026-04-11 | Created bug | [BUG-046 archived](bugs/archive/BUG-046-ask-time-relative-queries-favor-stale-mail.md) |
+| `bug-refresh-oauth-client-missing.md` | 2026-04-11 | Created bug | [BUG-047 archived](bugs/archive/BUG-047-oauth-refresh-missing-embedded-client-and-path-leak.md) |
+| `bug-inbox-no-args-empty-no-local-mail.md` | 2026-04-11 | Created bug | [BUG-048 archived](bugs/archive/BUG-048-inbox-no-window-misleading-empty-reason.md) |
+| `bug-from-operator-plus-keywords-returns-empty.md` | 2026-04-11 | Created bug | [BUG-049 archived](bugs/archive/BUG-049-search-from-operator-plus-keywords-returns-empty.md) |
+| `bug-sql-error-on-unsupported-search-operators.md` | 2026-04-11 | Created bug | [BUG-050 archived](bugs/archive/BUG-050-search-unsupported-operators-leak-sql-errors.md) |
+| `bug-connection-not-available-error.md` | 2026-04-11 | Created bug | [BUG-051 archived](bugs/archive/BUG-051-sync-connection-lost-error-vague.md) |
+| `ztest-rules-add-preview-2026-04-04.md` | 2026-04-11 | Created bug | [BUG-052 archived](bugs/archive/BUG-052-rules-remove-yes-flag-ignored.md) |
+| `feature-rich-search-output.md` | 2026-04-11 | Matched archived opportunity | [OPP-018 archived](opportunities/archive/OPP-018-reduce-agent-round-trips.md) — rich search / round-trip reduction; residual items in BUG-049 etc. |
+| `ztest-multi-inbox-uat-2026-04-05.md` | 2026-04-11 | Matched existing bug | [BUG-039 archived](bugs/archive/BUG-039-status-imap-empty-sync-mailbox-multi-inbox.md) — fixed |
+| `ztest-uat-2026-04-05.md` | 2026-04-11 | Reviewed | Minor UX/skill notes only (bare CLI exit, rules v2 migration, inbox `--json` note); no new bug |
+| `ztest-draft-recipient-uat-2026-04-05.md` | 2026-04-11 | Reviewed | Draft banner + JSON parsing note; no new bug |
+| `sweep-2026-03-08.md` | 2026-04-11 | Superseded | Historical Node/zmail sweep; new Rust issues tracked as BUG-042+ where applicable |
+| `bakeoff-results.md` (root; duplicate of submitted) | 2026-04-11 | Index / evidence | Preserved as `riptest/feedback/submitted/bakeoff-results-root-2026-04-11.md` — [OPP-018 archived](opportunities/archive/OPP-018-reduce-agent-round-trips.md) |
+| `bakeoff-006-golf-cart-price.md` | 2026-04-11 | Evidence | Round-trip / search UX — [OPP-018 archived](opportunities/archive/OPP-018-reduce-agent-round-trips.md), [BUG-049 archived](bugs/archive/BUG-049-search-from-operator-plus-keywords-returns-empty.md) |
+| `bakeoff-007-golf-cart-rematch.md` | 2026-04-11 | Evidence | Same as bakeoff-006 |
+| `bakeoff-008-cabo-trip-details.md` | 2026-04-11 | Evidence | Bakeoff series — OPP-018 / search |
+| `bakeoff-009-cabo-trip-rematch.md` | 2026-04-11 | Evidence | Same |
+| `bakeoff-010-cabo-trip-bodies-threads.md` | 2026-04-11 | Evidence | Same |
+| `bug-body-flag-leaks-into-sent-email.md` | 2026-04-12 | Created bug; fixed 2026-04-12 | [BUG-054 archived](bugs/archive/BUG-054-body-flag-leaks-into-sent-email.md) — `--body` prefix in delivered body |
+
+---
+
+## Notes
+
+- This file serves as the source of truth for which feedback has been processed
+- Always check this file first before processing feedback to avoid duplicates
+- After processing feedback, add an entry here and optionally delete/move the feedback file
+- Feedback files can be safely deleted after processing if they're tracked here

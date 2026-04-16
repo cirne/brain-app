@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Copy production server artifacts into src-tauri/resources/server-bundle for packaged Brain.app.
+ * Copy production server artifacts into desktop/resources/server-bundle for packaged Brain.app.
  * Run after `npm run build`.
  */
 import { chmodSync, cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
-const out = join(root, 'src-tauri/resources/server-bundle')
+const out = join(root, 'desktop/resources/server-bundle')
 const dist = join(root, 'dist')
 
 if (!existsSync(join(dist, 'server/index.js'))) {
@@ -21,7 +21,7 @@ if (!existsSync(join(dist, 'server/index.js'))) {
 if (existsSync(out)) {
   rmSync(out, { recursive: true })
 }
-mkdirSync(join(root, 'src-tauri/resources'), { recursive: true })
+mkdirSync(join(root, 'desktop/resources'), { recursive: true })
 mkdirSync(out, { recursive: true })
 
 cpSync(dist, join(out, 'dist'), { recursive: true })

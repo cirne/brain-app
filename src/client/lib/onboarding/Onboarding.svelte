@@ -376,9 +376,10 @@
               </button>
               <p class="ob-fine-print">
                 Brain reads your mail from the Apple Mail library on this computer —
-                not from a separate login. The first time,
-                <strong>macOS may ask you to approve</strong>
-                access to Mail data or related privacy prompts.
+                not from a separate login. If setup fails with “Mail” or “Full Disk Access”,
+                confirm <strong>Brain</strong> is allowed under
+                <strong>System Settings → Privacy &amp; Security → Full Disk Access</strong>
+                (toggles can look grey in screenshots), then quit Brain (Cmd+Q) and try again.
               </p>
             {/if}
           </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SurfaceContext } from '../router.js'
+  import { FDA_GATE_LATER_SESSION_KEY, FDA_GATE_OPEN_EVENT } from './onboarding/fdaGateKeys.js'
 
   type CompactRow = { ts: number; m: number; t: string; r?: number }
 
@@ -13,6 +14,7 @@
 
   let loading = $state(true)
   let errorText = $state<string | null>(null)
+  let fullDiskAccessHint = $state(false)
   let displayChat = $state('')
   let canonicalChat = $state('')
   let messages = $state<CompactRow[]>([])
@@ -22,6 +24,7 @@
     if (!initialChat?.trim()) {
       loading = false
       errorText = null
+      fullDiskAccessHint = false
       messages = []
       displayChat = ''
       canonicalChat = ''
@@ -32,6 +35,7 @@
     let cancelled = false
     loading = true
     errorText = null
+    fullDiskAccessHint = false
     onContextChange?.({ type: 'messages', chat: initialChat.trim(), displayLabel: '(loading)' })
 
     const q = new URLSearchParams()
@@ -43,6 +47,7 @@
         const data = (await res.json()) as {
           ok?: boolean
           error?: string
+          full_disk_access_hint?: boolean
           chat?: string
           canonical_chat?: string
           messages?: CompactRow[]
@@ -51,9 +56,11 @@
         if (cancelled) return
         if (!res.ok || !data.ok) {
           errorText = data.error ?? `Request failed (${res.status})`
+          fullDiskAccessHint = data.full_disk_access_hint === true
           loading = false
           return
         }
+        fullDiskAccessHint = false
         displayChat = data.chat ?? initialChat
         canonicalChat = data.canonical_chat ?? initialChat
         messages = Array.isArray(data.messages) ? data.messages : []
@@ -74,6 +81,15 @@
       cancelled = true
     }
   })
+
+  function openFdaGateFromHint() {
+    try {
+      sessionStorage.removeItem(FDA_GATE_LATER_SESSION_KEY)
+    } catch {
+      /* ignore */
+    }
+    window.dispatchEvent(new CustomEvent(FDA_GATE_OPEN_EVENT))
+  }
 
   function timeLabel(ts: number): string {
     try {
@@ -97,6 +113,11 @@
     <p class="status">Loading messages…</p>
   {:else if errorText}
     <p class="status error">{errorText}</p>
+    {#if fullDiskAccessHint}
+      <p class="status fda-hint">
+        <button type="button" class="fda-grant-link" onclick={openFdaGateFromHint}>Grant Full Disk Access…</button>
+      </p>
+    {/if}
   {:else if messages.length === 0}
     <p class="status">No messages in the current time window.</p>
   {:else}
@@ -134,6 +155,22 @@
   }
   .status.error {
     color: var(--danger, #f87171);
+  }
+  .fda-hint {
+    margin-top: 0.75rem;
+  }
+  .fda-grant-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .fda-grant-link:hover {
+    filter: brightness(1.1);
   }
   .thread-meta {
     margin-bottom: 12px;

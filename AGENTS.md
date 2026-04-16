@@ -24,7 +24,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 | LLM             | @mariozechner/pi-ai (multi-provider: Anthropic, OpenAI, etc.) |
 | Chat UI         | Svelte 5 (custom streaming SSE client)                        |
 | Wiki / Inbox UI | Svelte 5                                                      |
-| Email           | ripmail binary (subprocess)                                   |
+| Email           | ripmail binary ([`ripmail/`](ripmail/) crate, subprocess)    |
 | DB              | better-sqlite3 (app state; ripmail manages its own SQLite)    |
 
 
@@ -49,22 +49,30 @@ Auth is skipped in dev mode (`NODE_ENV !== 'production'`).
 Optional: run the same stack inside a native window (see [OPP-007](docs/opportunities/OPP-007-native-mac-app.md)).
 
 ```sh
-npm run tauri:setup-sidecars   # symlinks src-tauri/binaries/ripmail-<triple> → ripmail on PATH
+npm run ripmail:dev            # cargo build -p ripmail (debug) — use before inbox if not on PATH
+npm run ripmail:build          # cargo build -p ripmail --release
+npm run ripmail:test           # cargo test -p ripmail
+npm run tauri:setup-sidecars   # copies workspace-built ripmail → desktop/binaries/ripmail-<triple>
 npm run tauri:dev              # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
 npm run tauri:build            # npm build + bundle server + Brain.app (+ DMG)
+npm run tauri:run-release       # build + bundle-server + cargo run --release (fast iteration vs full DMG)
+npm run tauri:run-release:fresh # same, after `tauri:clean-data` (simulate fresh Tauri install)
+npm run tauri:clean-data        # delete Tauri app data only (App Support/Brain, ~/Documents/Brain, logs); not CLI/dev ~/.ripmail or ./data
 ```
 
-Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The ripmail sidecar symlink is gitignored; CI must provide the binary or run `tauri:setup-sidecars` when `ripmail` is on `PATH`.
+**Cargo workspace:** Rust crates live under [`desktop/`](desktop/) (Tauri shell) and [`ripmail/`](ripmail/) with a root [`Cargo.toml`](Cargo.toml). Build artifacts go under the Cargo target directory (usually `./target/`; see `cargo metadata`).
 
-`tauri build` runs `npm run build && npm run tauri:bundle-server`, which copies `dist/`, production `node_modules`, and the current `node` binary into `src-tauri/resources/server-bundle/` (gitignored). The packaged app loads the UI from `http://localhost:3000` and starts that server via the bundled Node + `dist/server` (release only; dev still uses `npm run dev`).
+Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The ripmail sidecar binary under `desktop/binaries/` is gitignored; `tauri:setup-sidecars` builds `ripmail` from the repo (`cargo build -p ripmail`).
 
-**Embedded API keys (release builds):** set `BRAIN_EMBED_MASTER_KEY` in the environment when running `tauri build`. The build script reads allowlisted keys from the repo `.env` (`ANTHROPIC_API_KEY`, other `*_API_KEY` for LLM providers, `EXA_API_KEY`, `SUPADATA_API_KEY`), encrypts them, and embeds ciphertext in the Rust binary; Rust decrypts at launch and injects `process.env` for the Node child (no decryption in TypeScript). CI should set `BRAIN_EMBED_MASTER_KEY` and the same API key secrets as env vars (or a generated `.env`) rather than committing secrets. If `BRAIN_EMBED_MASTER_KEY` is unset, the bundle still builds but ships without embedded keys (users would need local configuration for those APIs).
+`tauri build` runs `npm run build && npm run tauri:bundle-server`, which copies `dist/`, production `node_modules`, and the current `node` binary into `desktop/resources/server-bundle/` (gitignored). The packaged app loads the UI from `http://localhost:3000` and starts that server via the bundled Node + `dist/server` (release only; dev still uses `npm run dev`).
+
+**Embedded API keys (release builds):** set `BRAIN_EMBED_MASTER_KEY` in the environment or in the workspace `.env` when running `tauri build`. The build script reads allowlisted keys from the repo `.env` (`ANTHROPIC_API_KEY`, other `*_API_KEY` for LLM providers, `EXA_API_KEY`, `SUPADATA_API_KEY`), encrypts them, and embeds ciphertext in the Rust binary; Rust decrypts at launch and injects `process.env` for the Node child (no decryption in TypeScript). CI should set `BRAIN_EMBED_MASTER_KEY` and the same API key secrets as env vars (or a generated `.env`) rather than committing secrets. If `BRAIN_EMBED_MASTER_KEY` is unset, the bundle still builds but ships without embedded keys (users would need local configuration for those APIs).
 
 ## Development rules
 
 - **Tests required**: every new feature or bug fix needs test coverage in `src/**/*.test.ts`.
 - **TDD for bugs**: reproduce with a failing test first, then fix, then confirm green.
-- **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests.
+- **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests + `cargo fmt` / `cargo clippy` / `cargo test` for the Rust workspace.
 - **DRY**: extract shared logic; never duplicate. Shared fixtures live in `src/server/test-fixtures.ts`.
 - **Test fixtures**: reuse patterns from existing tests and shared helpers; avoid one-off temp dirs per test.
 - **No React, no Next.js**: Svelte 5 for all UI.

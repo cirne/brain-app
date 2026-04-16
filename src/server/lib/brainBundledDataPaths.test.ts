@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
 
 /**
- * OPP-007 layout for Brain.app — must match `src-tauri/src/brain_paths.rs` (macOS).
+ * OPP-007 layout for Brain.app — must match `desktop/src/brain_paths.rs` (macOS).
  * Used as a regression check in CI (Vitest); Rust is the spawn-time source of truth.
  */
 function macBundledDefaultPaths(home: string) {

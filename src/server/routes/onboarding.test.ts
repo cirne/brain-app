@@ -24,6 +24,32 @@ afterEach(async () => {
 })
 
 describe('onboarding routes', () => {
+  it('GET /fda returns { granted: boolean }', async () => {
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/fda')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { granted: boolean }
+    expect(typeof j.granted).toBe('boolean')
+  })
+
+  it('GET /fda?detail=1 returns per-path probe rows', async () => {
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/fda?detail=1')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as {
+      granted: boolean
+      probes: unknown[]
+      pid: number
+      home: string
+    }
+    expect(typeof j.granted).toBe('boolean')
+    expect(Array.isArray(j.probes)).toBe(true)
+    expect(typeof j.pid).toBe('number')
+    expect(typeof j.home).toBe('string')
+  })
+
   it('GET /status returns state and wikiMeExists', async () => {
     const app = new Hono()
     app.route('/api/onboarding', onboardingRoute)

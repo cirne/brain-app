@@ -9,6 +9,7 @@ import {
   compactImessageThreadRow,
 } from '../lib/imessageFormat.js'
 import { canonicalizeImessageChatIdentifier, formatChatIdentifierForDisplay } from '../lib/imessagePhone.js'
+import { isFdaGranted } from '../lib/fdaProbe.js'
 
 const imessage = new Hono()
 
@@ -24,7 +25,15 @@ function parseOptionalIsoMs(s: string | undefined): number | undefined {
 /** GET /api/messages/thread (and /api/imessage/thread) — read-only thread for UI (same defaults as get_message_thread). */
 imessage.get('/thread', (c) => {
   if (!areLocalMessageToolsEnabled()) {
-    return c.json({ ok: false, error: 'Local Messages database not available on this host.' }, 503)
+    const full_disk_access_hint = process.platform === 'darwin' && !isFdaGranted()
+    return c.json(
+      {
+        ok: false,
+        error: 'Local Messages database not available on this host.',
+        full_disk_access_hint,
+      },
+      503,
+    )
   }
   const chatRaw = c.req.query('chat')
   if (!chatRaw || !String(chatRaw).trim()) {

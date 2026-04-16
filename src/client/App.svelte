@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Assistant from './lib/Assistant.svelte'
+  import FullDiskAccessGate from './lib/onboarding/FullDiskAccessGate.svelte'
   import Onboarding from './lib/onboarding/Onboarding.svelte'
   import { parseRoute, type Route } from './router.js'
   import { clearOnboardingAgentLocalStorage } from './lib/onboarding/onboardingStorageKeys.js'
@@ -55,12 +56,16 @@
 
 {#if !appReady}
   <div class="app-loading">Loading…</div>
-{:else if showOnboarding}
-  <div class="app-onboarding-shell h-full min-h-0">
-    <Onboarding onComplete={onOnboardingComplete} refreshStatus={fetchStatus} />
-  </div>
 {:else}
-  <Assistant />
+  <FullDiskAccessGate>
+    {#if showOnboarding}
+      <div class="app-onboarding-shell h-full min-h-0">
+        <Onboarding onComplete={onOnboardingComplete} refreshStatus={fetchStatus} />
+      </div>
+    {:else}
+      <Assistant />
+    {/if}
+  </FullDiskAccessGate>
 {/if}
 
 <style>

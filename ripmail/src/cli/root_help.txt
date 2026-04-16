@@ -1,0 +1,36 @@
+Commands:
+
+Setup and management
+  ripmail setup [--email <e>] [--password <p> | --google-oauth] [--openai-key <k>] [--id <mailbox_id>] [--imap-host …] [--imap-port …] [--no-validate] [--no-skill]
+  ripmail config [--id <mailbox_id>] [--email <addr>] [--preferred-name …] [--mailbox-management on|off]  # non-secret settings (identity, IMAP archive behavior)
+  ripmail skill install                              # copy embedded `/ripmail` agent skill (Claude Code; OpenClaw if ~/.openclaw/skills exists)
+  ripmail wizard [--gmail] [--no-validate] [--clean] [--yes]   # --gmail: Gmail sign-in in browser
+  ripmail clean [--yes]   # wipe out all ripmail data and config (if --yes)
+  ripmail refresh [--since <spec>] [--foreground] [--mailbox <email|id>]  # initial history / backfill (long-running; --foreground waits; else background + log path)
+  ripmail rebuild-index
+
+Monitor & manage inbox
+  ripmail refresh [--force] [--text] [--mailbox <email|id>]  # fetch mail; new/empty mailboxes get one auto backfill (sync.defaultSince), then forward-only for new mail
+  ripmail ask "<question>" [--verbose]
+  ripmail inbox [<window>] [--since YYYY-MM-DD] [--thorough] [--text]
+  ripmail rules --help                             # manage mail classification rules to improve signal to noise
+  ripmail archive <message_id> … [--undo]
+
+Search & read
+  ripmail search <query> [flags]
+  ripmail who [query] [flags]
+  ripmail whoami [--mailbox <email|id>] [--text]
+  ripmail read <MESSAGE_ID>… [--raw] [--json] [--text]
+  ripmail thread <id> [--json] [--text]
+  ripmail attachment list <message_id>
+  ripmail attachment read <message_id> <index>|<filename>
+
+Sending mail
+  ripmail send [--to ... --subject ...] [<draft-id>]
+  ripmail draft list|view|new|reply|forward|edit|rewrite  (see ripmail draft --help; draft new --mailbox for a non-default account; prefer new|reply|forward --instruction and draft edit over raw --body)
+
+Other
+  ripmail status [--json]
+  ripmail stats [--json]
+
+Run ripmail <command> --help for command-specific options.
