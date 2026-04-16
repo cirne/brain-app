@@ -59,23 +59,84 @@ chat.post('/', async (c) => {
     if (parts.length) fileContext = parts.join('\n\n')
   }
 
+  const selectionForSkill = typeof context === 'string' ? context : ''
+  const openFileForSkill =
+    context && typeof context === 'object' && Array.isArray(context.files) && context.files.length
+      ? String(context.files[0])
+      : undefined
+
+  const onTurnComplete = async ({
+    userMessage,
+    assistantMessage,
+    turnTitle,
+  }: {
+    userMessage: string
+    assistantMessage: Parameters<typeof appendTurn>[0] extends { sessionId: string } ? never : never
+  }) => {
+    try {
+      await appendTurn({
+        sessionId,
+        userMessage,
+        assistantMessage,
+        title: turnTitle,
+      })
+    } catch {
+      // Best-effort persistence; do not fail the stream
+    }
+  }
+
+  const persist = async (args: {
+    userMessage: string
+    assistantMessage: import('../lib/chatTypes.js').ChatMessage
+    turnTitle: string | null | undefined
+  }) => {
+    try {
+      await appendTurn({
+        sessionId,
+        userMessage: args.userMessage,
+        assistantMessage: args.assistantMessage,
+        title: args.turnTitle,
+      })
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  const slash = parseLeadingSlashCommand(message)
+  if (slash) {
+    const skillDoc = await readSkillMarkdown(slash.slug)
+    if (!skillDoc) {
+      return streamStaticAssistantSse(c, {
+        announceSessionId: sessionId,
+        userMessageForPersistence: message,
+        text: `Unknown skill \`/${slash.slug}\`. Use **GET /api/skills** to list skills, or add \`skills/${slash.slug}/SKILL.md\` under your wiki directory.`,
+        onTurnComplete: persist,
+      })
+    }
+
+    const skillBody = applySkillPlaceholders(skillDoc.body, {
+      selection: selectionForSkill,
+      openFile: openFileForSkill,
+    })
+    const promptMessages = buildSkillPromptMessages(slash.slug, skillBody, slash.args)
+
+    const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone })
+
+    return streamAgentSseResponse(c, agent, message, {
+      wikiDirForDiffs: wikiDir(),
+      announceSessionId: sessionId,
+      promptMessages,
+      userMessageForPersistence: message,
+      onTurnComplete: persist,
+    })
+  }
+
   const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone })
 
   return streamAgentSseResponse(c, agent, message, {
     wikiDirForDiffs: wikiDir(),
     announceSessionId: sessionId,
-    onTurnComplete: async ({ userMessage, assistantMessage, turnTitle }) => {
-      try {
-        await appendTurn({
-          sessionId,
-          userMessage,
-          assistantMessage,
-          title: turnTitle,
-        })
-      } catch {
-        // Best-effort persistence; do not fail the stream
-      }
-    },
+    onTurnComplete: persist,
   })
 })
 
