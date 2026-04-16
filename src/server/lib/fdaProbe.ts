@@ -107,6 +107,7 @@ export function logFdaProbeForStartup(logLine: (line: string) => void): void {
   )
   if (d.probes.length === 0) {
     logLine('FDA probe: non-macOS — granted (no FDA concept)')
+    logLine('Full Disk Access: granted')
     return
   }
   for (const r of d.probes) {

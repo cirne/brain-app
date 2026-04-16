@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getFdaProbeDetail, isFdaGranted } from './fdaProbe.js'
+import { getFdaProbeDetail, isFdaGranted, logFdaProbeForStartup } from './fdaProbe.js'
 
 describe('fdaProbe', () => {
   it('isFdaGranted returns a boolean without throwing', () => {
@@ -25,5 +25,13 @@ describe('fdaProbe', () => {
         })
       }
     }
+  })
+
+  it('logFdaProbeForStartup emits a one-line Full Disk Access summary for runbooks', () => {
+    const lines: string[] = []
+    logFdaProbeForStartup((line) => lines.push(line))
+    const summary = lines.find((l) => l.startsWith('Full Disk Access: '))
+    expect(summary).toBeDefined()
+    expect(['Full Disk Access: granted', 'Full Disk Access: NOT granted']).toContain(summary)
   })
 })
