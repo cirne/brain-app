@@ -5,10 +5,10 @@ import { join, relative, basename } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { wikiDir } from '../lib/wikiDir.js'
 import { buildWikiExcerpt } from '../lib/wikiSearchExcerpt.js'
+import { ripmailBin } from '../lib/ripmailBin.js'
 
 const execAsync = promisify(exec)
 const search = new Hono()
-const ripmail = () => process.env.RIPMAIL_BIN ?? 'ripmail'
 
 type WikiResult = { type: 'wiki'; path: string; score: number; excerpt: string }
 type EmailResult = { type: 'email'; id: string; from: string; subject: string; date: string; snippet: string; score: number }
@@ -56,7 +56,7 @@ search.get('/', async (c) => {
       )
     }),
     execAsync(
-      `${ripmail()} search ${JSON.stringify(q)} --limit 10 --json`,
+      `${ripmailBin()} search ${JSON.stringify(q)} --limit 10 --json`,
       { timeout: 10000 }
     ).then(({ stdout }): EmailResult[] => {
       const data = JSON.parse(stdout)
