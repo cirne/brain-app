@@ -19,6 +19,7 @@ import onboardingRoute from './routes/onboarding.js'
 import devRoute from './routes/dev.js'
 import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
 import { runStartupChecks } from './lib/runStartupChecks.js'
+import { ensureDefaultSkillsSeeded } from './lib/skillsSeeder.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
 import {
   isBundledNativeServer,
@@ -51,6 +52,7 @@ if (!isDev && process.env.AUTH_DISABLED !== 'true') {
 }
 
 app.route('/api/chat', chatRoute)
+app.route('/api/skills', skillsRoute)
 app.route('/api/wiki', wikiRoute)
 app.route('/api/inbox', inboxRoute)
 app.route('/api/calendar', calendarRoute)
@@ -146,6 +148,7 @@ async function listenNativeBundled(): Promise<ServerType> {
 async function start() {
   try {
     initLocalMessageToolsAvailability()
+    await ensureDefaultSkillsSeeded()
 
     if (isDev) {
       const port = resolveNonNativePort()

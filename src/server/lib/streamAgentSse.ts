@@ -280,7 +280,11 @@ export function streamAgentSseResponse(
     })
 
     try {
-      await agent.prompt(promptMessages ?? message)
+      if (promptMessages?.length) {
+        await agent.prompt(promptMessages)
+      } else {
+        await agent.prompt(message)
+      }
     } catch (error: unknown) {
       try {
         const errMsg = error instanceof Error ? error.message : String(error)
