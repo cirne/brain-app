@@ -5,7 +5,7 @@
   "identifier": "com.cirne.brain",
   "build": {
     "frontendDist": "http://localhost:18473",
-    "devUrl": "http://localhost:3001",
+    "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build && npm run tauri:bundle-server"
   },

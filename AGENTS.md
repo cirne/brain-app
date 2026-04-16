@@ -52,7 +52,7 @@ Optional: run the same stack inside a native window (see [OPP-007](docs/opportun
 npm run ripmail:dev            # cargo build -p ripmail (debug) — use before inbox if not on PATH
 npm run ripmail:build          # cargo build -p ripmail --release
 npm run ripmail:test           # cargo test -p ripmail
-npm run tauri:dev              # Hono + Vite on :3001 + Tauri WebView → http://localhost:3001 (avoids clashing with `npm run dev` on :3000)
+npm run tauri:dev              # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
 npm run tauri:build            # npm build + bundle server + Brain.app (+ DMG)
 npm run tauri:open-fresh-install # `tauri:clean-data` + `tauri:build`, then opens the DMG (macOS) for drag-to-Applications testing
 npm run tauri:run-release:fresh  # `tauri:clean-data` + `tauri:build`, then opens the built Brain.app (macOS) — quick local “clean + release + launch”

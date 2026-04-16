@@ -25,7 +25,7 @@
     "tauri:clean-data": "node scripts/clean-tauri-user-data.mjs",
     "tauri": "tauri",
     "tauri:bundle-server": "node scripts/bundle-tauri-server.mjs",
-    "tauri:dev": "PORT=3001 tauri dev",
+    "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:open-fresh-install": "node scripts/tauri-open-fresh-install.mjs",
     "tauri:run-release:fresh": "node scripts/tauri-run-release-fresh.mjs"
