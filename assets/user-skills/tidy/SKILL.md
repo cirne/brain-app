@@ -1,20 +1,32 @@
 ---
 name: tidy
-label: "Fix a wiki page: accuracy, DRY, links, format"
+label: "Lint + refactor a wiki page: accuracy, DRY, size, links, format"
 description: >-
-  Fix the target wiki page in place: verify accuracy, dedupe against the rest of the wiki (one
-  source of truth), reformat for legibility and agent-friendly structure, add links to referenced
-  docs, and repair broken links. Apply edits directly; do not stop at proposals or suggestions.
-hint: page path or paste
-args: <page or topic>
-version: 2
+  Like lint-and-refactor for code: fix the target wiki page in place—accuracy, DRY across the wiki,
+  agent-friendly size (split oversized pages into smaller linked pages), legible structure, full
+  and repaired links. Apply edits directly; do not stop at proposals or suggestions.
+hint: page path or paste; optional size budget
+args: <page or topic> [max-lines]
+version: 3
 ---
 
 # Tidy a wiki page
 
+Wiki **tidy** is the analogue of **lint + refactor** for prose: tighten truth, remove duplication, fix navigation, and keep each page small enough that an agent (or human) can load and use it without drowning in context.
+
 ## When to use
 
 The user wants a **direct cleanup** of one wiki page: apply fixes, not a review-only report.
+
+## Size budget (agent-friendly)
+
+Long pages behave like huge source files: hard to fit in context, easy to edit wrong. Enforce a **maximum size** on the page after tidy:
+
+- **Default `max-lines`:** about **400 lines** of rendered/markdown content (excluding frontmatter if present). If the user does not pass a second argument, use this default.
+- **Override:** If the user passes `max-lines` (e.g. `wiki/foo 250` or `wiki/foo 600`), use that number as the hard cap for the **main** page you leave behind.
+- **When over budget:** **Refactor, do not merely compress.** Move coherent sections to new or existing child/sibling pages; replace inlined detail with short summaries plus links; keep the original page as a **hub** with a clear outline and links. Prefer one obvious topic per page, same spirit as splitting a large module.
+
+Do not ask the user for a number unless they gave no hint and the wiki has no convention—in that case use the default above.
 
 ## Process
 
