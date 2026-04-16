@@ -22,15 +22,15 @@ Today ripmail’s mental model is **mailboxes** (IMAP, Apple Mail localhost, etc
 
 The product opportunity is a **unified personal corpus**: email remains primary, but **local directories** (e.g. `~/Documents`, `~/Desktop`) and **future connectors** (Notion, Apple Notes, …) should be **first-class sources** in one index and one CLI, not a separate batch job in a host app.
 
-**Direction:** Replace the mailbox-only config with a **`sources`** list: each entry has a stable **`id`**, a **`kind`** (`imap`, `appleMail`, `localDir`, …), shared knobs (e.g. **include in default search**), and kind-specific fields. **`refresh`** updates every indexable source; **`search`** / **`read`** (and JSON output) identify which source a hit came from. Mail-specific commands (`draft`, `send`, `inbox`, `archive`, …) apply only to **mail** sources and error clearly if scoped to a non-mail source.
+**Direction:** Replace the mailbox-only config with a `**sources`** list: each entry has a stable `**id**`, a `**kind**` (`imap`, `appleMail`, `localDir`, …), shared knobs (e.g. **include in default search**), and kind-specific fields. `**refresh`** updates every indexable source; `**search**` / `**read**` (and JSON output) identify which source a hit came from. Mail-specific commands (`draft`, `send`, `inbox`, `archive`, …) apply only to **mail** sources and error clearly if scoped to a non-mail source.
 
 ---
 
 ## Problem
 
 - **Email-only config** does not generalize: folders and connectors are forced into ad hoc solutions or duplicate indexing outside ripmail.
-- **`--mailbox`** implies IMAP semantics; local folders are not “mailboxes.”
-- **Agents and UIs** want one **`search`** story over “everything I care about,” with filters by source when needed.
+- `**--mailbox`** implies IMAP semantics; local folders are not “mailboxes.”
+- **Agents and UIs** want one `**search`** story over “everything I care about,” with filters by source when needed.
 
 ---
 
@@ -81,14 +81,16 @@ Illustrative only — names and fields may change; **no requirement** to match c
 
 ## CLI (clean slate)
 
-| Change | Intent |
-|--------|--------|
-| **`--source <id>`** (or short `-S`) | Generic scope for indexable content: search, read, refresh, status. Replaces or aliases **`--mailbox`** for unified semantics. |
-| **`ripmail sources list`** (optional) | Human/agent discovery: id, kind, path/email, sync health. |
-| **`refresh`** | All sources by default; **`--source`** limits. Mail-only flags (`--since`, …) apply when the selected source is mail. |
-| **Mail-only commands** | `draft`, `send`, `inbox`, `archive`, etc. require a **mail** source; error if `localDir` / future read-only sources are selected. |
 
-JSON contracts for **`search`** / **`read`** should include **`sourceId`** and **`sourceKind`** (exact names TBD) so agents do not infer from shape alone.
+| Change                                | Intent                                                                                                                            |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `**--source <id>`** (or short `-S`)   | Generic scope for indexable content: search, read, refresh, status. Replaces or aliases `**--mailbox**` for unified semantics.    |
+| `**ripmail sources list**` (optional) | Human/agent discovery: id, kind, path/email, sync health.                                                                         |
+| `**refresh**`                         | All sources by default; `**--source**` limits. Mail-only flags (`--since`, …) apply when the selected source is mail.             |
+| **Mail-only commands**                | `draft`, `send`, `inbox`, `archive`, etc. require a **mail** source; error if `localDir` / future read-only sources are selected. |
+
+
+JSON contracts for `**search`** / `**read**` should include `**sourceId**` and `**sourceKind**` (exact names TBD) so agents do not infer from shape alone.
 
 ---
 
@@ -102,7 +104,7 @@ JSON contracts for **`search`** / **`read`** should include **`sourceId`** and *
 
 ## Future connectors
 
-Examples: **Notion**, **Apple Notes**, read-only cloud APIs. Each gets a **`kind`**, optional OAuth/setup subcommands, and rows keyed by **`source_id`** + remote stable id. **OPP-045** (iMessage / chat) shares the “channel + identity” lesson: do not force chat into email-shaped rows; do align on **one DB + explicit source/channel metadata**.
+Examples: **Notion**, **Apple Notes**, read-only cloud APIs. Each gets a `**kind`**, optional OAuth/setup subcommands, and rows keyed by `**source_id**` + remote stable id. **OPP-045** (iMessage / chat) shares the “channel + identity” lesson: do not force chat into email-shaped rows; do align on **one DB + explicit source/channel metadata**.
 
 ---
 
@@ -120,3 +122,4 @@ Examples: **Notion**, **Apple Notes**, read-only cloud APIs. Each gets a **`kind
 2. **Default search:** union of all `includeInDefault` sources vs opt-in per session.
 3. **Security:** local-dir crawl must respect user intent; document symlink / path traversal policy.
 4. **Naming:** product may eventually rename the binary or user-facing strings if “ripmail” is too mail-specific — out of scope for this opp’s technical content.
+
