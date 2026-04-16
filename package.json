@@ -27,8 +27,7 @@
     "tauri:bundle-server": "node scripts/bundle-tauri-server.mjs",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "tauri:run-release": "npm run build && npm run tauri:bundle-server && cd desktop && cargo run --release",
-    "tauri:run-release:fresh": "npm run tauri:clean-data && npm run tauri:run-release"
+    "tauri:open-fresh-install": "node scripts/tauri-open-fresh-install.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",

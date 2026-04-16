@@ -54,8 +54,7 @@ npm run ripmail:build          # cargo build -p ripmail --release
 npm run ripmail:test           # cargo test -p ripmail
 npm run tauri:dev              # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
 npm run tauri:build            # npm build + bundle server + Brain.app (+ DMG)
-npm run tauri:run-release       # build + bundle-server + cargo run --release (fast iteration vs full DMG)
-npm run tauri:run-release:fresh # same, after `tauri:clean-data` (simulate fresh Tauri install)
+npm run tauri:open-fresh-install # `tauri:clean-data` + `tauri:build`, then opens the DMG (macOS) for drag-to-Applications testing
 npm run tauri:clean-data        # delete Tauri app data only (App Support/Brain, ~/Documents/Brain, logs); not CLI/dev ~/.ripmail or ./data
 ```
 
