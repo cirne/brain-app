@@ -118,6 +118,7 @@ export function logFdaProbeForStartup(logLine: (line: string) => void): void {
     logLine(`FDA probe [${r.label}] path=${r.path} exists=${r.exists} readDir=${rd}${errTail}`)
   }
   logLine(`FDA probe (Node) inferred granted=${d.granted}`)
+  logLine(`Full Disk Access: ${d.granted ? 'granted' : 'NOT granted'}`)
 }
 
 /**

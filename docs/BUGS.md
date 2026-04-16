@@ -9,10 +9,10 @@ Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 ## Active
 
 
-| ID      | Title                                | Summary                                                                                                                                                     |
-| ------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| BUG-001 | Wiki/docs show `\u2014` or em dashes | Unicode em dash (U+2014) sometimes appears as the literal escape `\u2014` in rendered text, and wiki copy often uses `—` where we prefer other punctuation. |
-| BUG-003 | Native Mac app ship blockers (Tauri) | Bundled **Brain.app** is buildable, but shipping a **zero-config** DMG (FDA-only) is blocked by secrets/env, log visibility, and slow **tauri build** iteration. See [bugs/BUG-003-native-mac-app-ship-blockers.md](bugs/BUG-003-native-mac-app-ship-blockers.md). |
+| ID      | Title                                   | Summary                                                                                                                                                                                                                                                               |
+| ------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BUG-001 | Wiki/docs show `\u2014` or em dashes    | Unicode em dash (U+2014) sometimes appears as the literal escape `\u2014` in rendered text, and wiki copy often uses `—` where we prefer other punctuation.                                                                                                           |
+| BUG-003 | Native Mac app ship blockers (Tauri)    | Bundled **Brain.app** is buildable, but shipping a **zero-config** DMG (FDA-only) is blocked by secrets/env, log visibility, and slow **tauri build** iteration. See [bugs/BUG-003-native-mac-app-ship-blockers.md](bugs/BUG-003-native-mac-app-ship-blockers.md).    |
 | BUG-004 | Full Disk Access detection & onboarding | App has **no runtime FDA detection**, no guided prompt, and no relaunch after granting. Users get silent failures on iMessage/Notes/Mail. See [bugs/BUG-004-full-disk-access-detection-and-onboarding.md](bugs/BUG-004-full-disk-access-detection-and-onboarding.md). |
 
 
