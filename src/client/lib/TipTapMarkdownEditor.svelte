@@ -20,7 +20,7 @@
     initialMarkdown?: string
     disabled?: boolean
     /** Called after debounce (~900ms) when content changes. */
-    onPersist?: (markdown: string) => Promise<void>
+    onPersist?: (_markdown: string) => Promise<void>
   }
   let { initialMarkdown = '', disabled = false, onPersist }: Props = $props()
 

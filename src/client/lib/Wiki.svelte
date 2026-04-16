@@ -1,6 +1,7 @@
 <script lang="ts">
   import { mount, unmount } from 'svelte'
   import WikiFileName from './WikiFileName.svelte'
+  import TipTapMarkdownEditor from './TipTapMarkdownEditor.svelte'
   import {
     encodeWikiPathSegmentsForUrl,
     normalizeWikiPathForMatch,
@@ -42,8 +43,24 @@
   let files = $state<WikiFile[]>([])
   let selected = $state<string | null>(null)
   let content = $state<string>('')
+  let rawMarkdown = $state('')
   let meta = $state<Record<string, string>>({})
   let loading = $state(false)
+  /** Last open succeeded (file exists); enables Edit. */
+  let pageLoadedOk = $state(false)
+  let pageMode = $state<'view' | 'edit'>('view')
+  type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+  let saveState = $state<SaveState>('idle')
+  let wikiEditor = $state<{ flushSave: () => Promise<void> } | null>(null)
+
+  const streamBusy = $derived(
+    Boolean(
+      (streamingWrite && selected && pathsMatchForStream(streamingWrite.path, selected)) ||
+        (streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)),
+    ),
+  )
+
+  const canEdit = $derived(Boolean(selected && pageLoadedOk && !streamBusy && !loading))
 
 
 
@@ -52,15 +69,63 @@
     files = await res.json()
   }
 
+  async function refreshRenderedFromServer() {
+    if (!selected) return
+    const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(selected)}`)
+    if (!res.ok) return
+    const data = await res.json()
+    meta = data.meta ?? {}
+    content = transformWikiPageHtml(data.html)
+    rawMarkdown = data.raw ?? ''
+  }
+
+  async function persistWikiMarkdown(md: string) {
+    if (!selected) return
+    saveState = 'saving'
+    try {
+      const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(selected)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markdown: md }),
+      })
+      if (!res.ok) {
+        saveState = 'error'
+        return
+      }
+      rawMarkdown = md
+      await refreshRenderedFromServer()
+      saveState = 'saved'
+      setTimeout(() => {
+        if (saveState === 'saved') saveState = 'idle'
+      }, 1600)
+    } catch {
+      saveState = 'error'
+    }
+  }
+
+  async function setPageMode(mode: 'view' | 'edit') {
+    if (mode === 'view' && pageMode === 'edit') {
+      await wikiEditor?.flushSave()
+      await refreshRenderedFromServer()
+    }
+    pageMode = mode
+  }
+
   async function openFile(path: string) {
+    if (pageMode === 'edit' && wikiEditor) {
+      await wikiEditor.flushSave()
+    }
     selected = path
     onNavigate?.(path)
     loading = true
+    pageMode = 'view'
     try {
       const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(path)}`)
       if (!res.ok) {
         meta = {}
         content = ''
+        rawMarkdown = ''
+        pageLoadedOk = false
         loading = false
         const title = path.replace(/\.md$/, '').split('/').pop() ?? path
         onContextChange?.({ type: 'wiki', path, title })
@@ -69,17 +134,25 @@
       const data = await res.json()
       meta = data.meta ?? {}
       content = transformWikiPageHtml(data.html)
+      rawMarkdown = data.raw ?? ''
+      pageLoadedOk = true
       loading = false
       const title = meta.title ?? path.replace(/\.md$/, '').split('/').pop() ?? path
       onContextChange?.({ type: 'wiki', path, title })
     } catch {
       meta = {}
       content = ''
+      rawMarkdown = ''
+      pageLoadedOk = false
       loading = false
       const title = path.replace(/\.md$/, '').split('/').pop() ?? path
       onContextChange?.({ type: 'wiki', path, title })
     }
   }
+
+  $effect(() => {
+    if (streamBusy) pageMode = 'view'
+  })
 
   function handleContentClick(e: MouseEvent) {
     const a = (e.target as HTMLElement).closest('a[data-wiki]')
@@ -158,48 +231,156 @@
 </script>
 
 <div class="wiki">
-  <div class="content-area">
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <article class="viewer" onclick={handleContentClick} use:upgradeWikiLinks={content}>
-      {#if loading}
-        <p class="status">Loading...</p>
-      {:else if streamingWrite && selected && pathsMatchForStream(streamingWrite.path, selected) && streamingWrite.body}
-        <p class="stream-label" role="status">Agent is writing…</p>
-        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-        <div class="stream-md markdown">{@html renderMarkdown(streamingWrite.body.slice(0, 50000))}</div>
-      {:else}
-        {#if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
-          <p class="stream-label stream-editing" role="status">
-            <svg class="stream-spin" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            Editing…
-          </p>
-        {/if}
-        {#if content}
-          {#if Object.keys(meta).length > 0}
-            <div class="page-meta">
-              {#if meta.updated}<span class="meta-date">{formatDate(meta.updated)}</span>{/if}
-              {#if meta.updated && meta.tags}<span class="meta-sep">·</span>{/if}
-              {#if meta.tags}{#each parseTags(meta.tags) as tag}<span class="meta-tag">{tag}</span>{/each}{/if}
-            </div>
-          {/if}
+  <div class="wiki-toolbar" aria-label="Wiki page mode">
+    <div class="wiki-mode-toggle" role="group" aria-label="View or edit markdown">
+      <button
+        type="button"
+        class="wiki-mode-btn"
+        class:active={pageMode === 'view'}
+        onclick={() => void setPageMode('view')}
+      >
+        View
+      </button>
+      <button
+        type="button"
+        class="wiki-mode-btn"
+        class:active={pageMode === 'edit'}
+        disabled={!canEdit}
+        onclick={() => void setPageMode('edit')}
+      >
+        Edit
+      </button>
+    </div>
+    {#if saveState === 'saving'}
+      <span class="wiki-save-hint" role="status">Saving…</span>
+    {:else if saveState === 'saved'}
+      <span class="wiki-save-hint" role="status">Saved</span>
+    {:else if saveState === 'error'}
+      <span class="wiki-save-hint wiki-save-err" role="status">Save failed</span>
+    {/if}
+  </div>
+  <div class="content-area" class:content-area-edit={pageMode === 'edit' && canEdit}>
+    {#if pageMode === 'edit' && canEdit}
+      {#key selected}
+        <div class="wiki-edit-wrap">
+          <TipTapMarkdownEditor
+            bind:this={wikiEditor}
+            initialMarkdown={rawMarkdown}
+            disabled={loading || streamBusy}
+            onPersist={persistWikiMarkdown}
+          />
+        </div>
+      {/key}
+    {:else}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <article class="viewer" onclick={handleContentClick} use:upgradeWikiLinks={content}>
+        {#if loading}
+          <p class="status">Loading...</p>
+        {:else if streamingWrite && selected && pathsMatchForStream(streamingWrite.path, selected) && streamingWrite.body}
+          <p class="stream-label" role="status">Agent is writing…</p>
           <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-          {@html content}
-        {:else if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
-          <p class="status">Loading current page…</p>
+          <div class="stream-md markdown">{@html renderMarkdown(streamingWrite.body.slice(0, 50000))}</div>
         {:else}
-          <p class="status">No page selected</p>
+          {#if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
+            <p class="stream-label stream-editing" role="status">
+              <svg class="stream-spin" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              Editing…
+            </p>
+          {/if}
+          {#if content}
+            {#if Object.keys(meta).length > 0}
+              <div class="page-meta">
+                {#if meta.updated}<span class="meta-date">{formatDate(meta.updated)}</span>{/if}
+                {#if meta.updated && meta.tags}<span class="meta-sep">·</span>{/if}
+                {#if meta.tags}{#each parseTags(meta.tags) as tag}<span class="meta-tag">{tag}</span>{/each}{/if}
+              </div>
+            {/if}
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            {@html content}
+          {:else if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
+            <p class="status">Loading current page…</p>
+          {:else}
+            <p class="status">No page selected</p>
+          {/if}
         {/if}
-      {/if}
-    </article>
+      </article>
+    {/if}
   </div>
 </div>
 
 <style>
-  .wiki { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+  .wiki { display: flex; flex-direction: column; height: 100%; overflow: hidden; min-height: 0; }
+
+  .wiki-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-shrink: 0;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-2);
+  }
+
+  .wiki-mode-toggle {
+    display: inline-flex;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .wiki-mode-btn {
+    appearance: none;
+    border: none;
+    margin: 0;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background: var(--bg);
+    color: var(--text-2);
+  }
+
+  .wiki-mode-btn:hover:not(:disabled) {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+
+  .wiki-mode-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .wiki-mode-btn.active {
+    background: var(--accent-muted, var(--bg-3));
+    color: var(--text);
+  }
+
+  .wiki-save-hint {
+    font-size: 12px;
+    color: var(--text-2);
+  }
+
+  .wiki-save-err {
+    color: var(--danger, #c44);
+  }
 
   /* ── content ─────────────────────────────────────────────── */
-  .content-area { flex: 1; overflow-y: auto; min-width: 0; }
+  .content-area { flex: 1; overflow-y: auto; min-width: 0; min-height: 0; }
+
+  .content-area-edit {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .wiki-edit-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
 
   .viewer {
     max-width: var(--chat-column-max);

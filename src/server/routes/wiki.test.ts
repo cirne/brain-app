@@ -100,6 +100,43 @@ describe('GET /api/wiki/:path', () => {
   })
 })
 
+describe('PATCH /api/wiki/:path', () => {
+  it('writes markdown and GET returns updated content', async () => {
+    const patch = await app.request('/api/wiki/index.md', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markdown: '---\ntitle: Patched Title\n---\n# Patched\n' }),
+    })
+    expect(patch.status).toBe(200)
+    const patchBody = await patch.json()
+    expect(patchBody).toMatchObject({ ok: true, path: 'index.md' })
+
+    const getRes = await app.request('/api/wiki/index.md')
+    expect(getRes.status).toBe(200)
+    const body = await getRes.json()
+    expect(body.raw).toContain('# Patched')
+    expect(body.meta.title).toBe('Patched Title')
+  })
+
+  it('returns 400 without markdown string', async () => {
+    const res = await app.request('/api/wiki/index.md', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects path traversal', async () => {
+    const res = await app.request('/api/wiki/../../etc/passwd', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markdown: 'evil' }),
+    })
+    expect(res.status).toBeGreaterThanOrEqual(400)
+  })
+})
+
 describe('GET /api/wiki/git-status', () => {
   it('returns expected shape for a non-git directory', async () => {
     const res = await app.request('/api/wiki/git-status')
