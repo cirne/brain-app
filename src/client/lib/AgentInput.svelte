@@ -1,12 +1,14 @@
 <script lang="ts">
   import { ArrowUp } from 'lucide-svelte'
   import WikiFileName from './WikiFileName.svelte'
+  import type { SkillMenuItem } from './skillMenuTypes.js'
 
   let {
     placeholder = 'Ask anything...',
     disabled = false,
     streaming = false,
     wikiFiles = [],
+    skills = [] as SkillMenuItem[],
     onSend,
     onStop,
   }: {
@@ -14,6 +16,7 @@
     disabled?: boolean
     streaming?: boolean
     wikiFiles?: string[]
+    skills?: SkillMenuItem[]
     onSend: (_text: string) => void
     onStop?: () => void
   } = $props()
@@ -25,10 +28,27 @@
   let mentionStart = $state(-1)
   let selectedMention = $state(0)
 
+  let showSlash = $state(false)
+  let slashFilter = $state('')
+  let selectedSlash = $state(0)
+
   function filteredMentions(): string[] {
     if (!mentionFilter) return wikiFiles.slice(0, 10)
     const q = mentionFilter.toLowerCase()
     return wikiFiles.filter(f => f.toLowerCase().includes(q)).slice(0, 10)
+  }
+
+  function filteredSkills(): SkillMenuItem[] {
+    if (!slashFilter) return skills.slice(0, 10)
+    const q = slashFilter.toLowerCase()
+    return skills
+      .filter(
+        s =>
+          s.name.toLowerCase().includes(q) ||
+          s.label.toLowerCase().includes(q) ||
+          s.description.toLowerCase().includes(q),
+      )
+      .slice(0, 10)
   }
 
   function handleInput(e: Event) {
@@ -46,11 +66,26 @@
         mentionStart = atIndex
         mentionFilter = query
         showMentions = true
+        showSlash = false
         selectedMention = 0
         return
       }
     }
     showMentions = false
+
+    const lineStart = before.lastIndexOf('\n') + 1
+    const line = before.slice(lineStart)
+    if (line.startsWith('/')) {
+      const firstSpace = line.indexOf(' ', 1)
+      const relCursor = pos - lineStart
+      if (firstSpace === -1 || relCursor <= firstSpace) {
+        slashFilter = firstSpace === -1 ? line.slice(1) : line.slice(1, firstSpace)
+        showSlash = true
+        selectedSlash = 0
+        return
+      }
+    }
+    showSlash = false
   }
 
   function insertMention(path: string) {
@@ -61,10 +96,44 @@
     inputEl?.focus()
   }
 
+  function insertSlash(slug: string) {
+    const pos = inputEl?.selectionStart ?? input.length
+    const before = input.slice(0, pos)
+    const lineStart = before.lastIndexOf('\n') + 1
+    const prefix = input.slice(0, lineStart)
+    const after = input.slice(pos)
+    input = `${prefix}/${slug} ${after}`
+    showSlash = false
+    inputEl?.focus()
+  }
+
   function handleKeydown(e: KeyboardEvent) {
+    if (showSlash) {
+      const items = filteredSkills()
+      const max = Math.max(0, items.length - 1)
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        selectedSlash = Math.min(selectedSlash + 1, max)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        selectedSlash = Math.max(selectedSlash - 1, 0)
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        if (items[selectedSlash]) insertSlash(items[selectedSlash].name)
+        return
+      }
+      if (e.key === 'Escape') {
+        showSlash = false
+        return
+      }
+    }
     if (showMentions) {
       const items = filteredMentions()
-      if (e.key === 'ArrowDown') { e.preventDefault(); selectedMention = Math.min(selectedMention + 1, items.length - 1); return }
+      if (e.key === 'ArrowDown') { e.preventDefault(); selectedMention = Math.min(selectedMention + 1, Math.max(0, items.length - 1)); return }
       if (e.key === 'ArrowUp') { e.preventDefault(); selectedMention = Math.max(selectedMention - 1, 0); return }
       if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); if (items[selectedMention]) insertMention(items[selectedMention]); return }
       if (e.key === 'Escape') { showMentions = false; return }
@@ -97,6 +166,24 @@
 </script>
 
 <div class="input-area">
+  {#if showSlash}
+    <div class="mention-dropdown slash-dropdown" role="listbox">
+      {#each filteredSkills() as skill, i}
+        <button
+          type="button"
+          class="mention-item slash-item"
+          class:selected={i === selectedSlash}
+          onmousedown={(e) => { e.preventDefault(); insertSlash(skill.name) }}
+        >
+          <span class="slash-slash">/{skill.name}</span>
+          <span class="slash-label">{skill.label}</span>
+          <span class="slash-desc">{skill.description}</span>
+        </button>
+      {:else}
+        <div class="mention-empty">No matching skills</div>
+      {/each}
+    </div>
+  {/if}
   {#if showMentions}
     <div class="mention-dropdown">
       {#each filteredMentions() as file, i}
@@ -178,6 +265,30 @@
   }
   .mention-item:hover, .mention-item.selected { background: var(--accent-dim); color: var(--accent); }
   .mention-empty { padding: 8px 12px; font-size: 12px; color: var(--text-2); }
+
+  .slash-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 10px;
+  }
+  .slash-slash {
+    font-weight: 600;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .slash-label {
+    font-size: 12px;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  .slash-desc {
+    width: 100%;
+    font-size: 11px;
+    color: var(--text-2);
+    line-height: 1.3;
+    padding-left: 0;
+  }
 
   .input-row {
     display: flex;

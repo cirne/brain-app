@@ -19,6 +19,7 @@
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
   import type { AgentOpenSource } from './navigateFromAgentOpen.js'
+  import type { SkillMenuItem } from './skillMenuTypes.js'
 
   let {
     context = { type: 'none' } as SurfaceContext,
@@ -153,6 +154,7 @@
   })
 
   let wikiFiles = $state<string[]>([])
+  let skillsList = $state<SkillMenuItem[]>([])
   let conversationEl = $state<ReturnType<typeof AgentConversation> | undefined>(undefined)
   let inputEl = $state<ReturnType<typeof AgentInput> | undefined>(undefined)
 
@@ -182,7 +184,22 @@
     } catch { /* ignore */ }
   })
 
-  $effect(() => { fetchWikiFiles() })
+  $effect(() => {
+    void fetchWikiFiles()
+    void fetchSkills()
+  })
+
+  async function fetchSkills() {
+    try {
+      const res = await fetch('/api/skills')
+      if (!res.ok) return
+      const data: unknown = await res.json()
+      if (!Array.isArray(data)) return
+      skillsList = data as SkillMenuItem[]
+    } catch {
+      /* ignore */
+    }
+  }
 
   $effect(() => {
     const id = displayedSessionId
@@ -467,6 +484,7 @@
       {streaming}
       disabled={streaming}
       {wikiFiles}
+      skills={skillsList}
       onSend={send}
       onStop={stopChat}
     />
