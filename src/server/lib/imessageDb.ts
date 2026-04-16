@@ -15,8 +15,8 @@ export function getImessageDbPath(): string {
   return process.env.IMESSAGE_DB_PATH ?? join(homedir(), 'Library', 'Messages', 'chat.db')
 }
 
-/** Set once at startup by {@link initImessageToolsAvailability}; drives agent tool registration. */
-let imessageDbReadableAtStartup: boolean | null = null
+/** Set once at startup by {@link initLocalMessageToolsAvailability}; drives local SMS/text tool registration. */
+let localMessagesDbReadableAtStartup: boolean | null = null
 
 /** Try to open the Messages DB read-only and run a trivial query. */
 export function probeImessageDbReadable(): boolean {
