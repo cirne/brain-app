@@ -5,7 +5,7 @@
   type Props = {
     /** When false, hides the chat history control (e.g. onboarding uses the same top bar without history). */
     showChatHistoryButton?: boolean
-    /** Mobile drawer open — desktop always shows sidebar; use with `isMobile` to show History vs Brain. */
+    /** Mobile drawer open — desktop always has nav open. */
     sidebarOpen?: boolean
     isMobile?: boolean
     onToggleSidebar: () => void
@@ -41,24 +41,32 @@
     onToggleSyncErrors,
     onReRunOnboarding,
   }: Props = $props()
+
+  /** Sidebar visible: desktop always; mobile when drawer open. */
+  const navOpen = $derived(!isMobile || sidebarOpen)
+  /** Center title only when nav is collapsed (mobile drawer closed). */
+  const showCenterBrand = $derived(!showChatHistoryButton || !navOpen)
 </script>
 
 <nav class="tabs">
   {#if showChatHistoryButton}
-    <div class="nav-left" class:nav-left--wide={!isMobile || sidebarOpen}>
-      {#if !isMobile}
-        <span class="nav-history-title">History</span>
-      {:else if sidebarOpen}
-        <span class="nav-history-title">History</span>
-        <button
-          type="button"
-          class="nav-sidebar-close"
-          onclick={onToggleSidebar}
-          title="Close sidebar"
-          aria-label="Close sidebar"
-        >
-          <X size={18} strokeWidth={2} aria-hidden="true" />
-        </button>
+    <div class="nav-left" class:nav-left--wide={navOpen} class:nav-left--collapsed={!navOpen}>
+      {#if navOpen}
+        <div class="nav-brand-lockup">
+          <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
+          <span class="nav-brand-title">Brain</span>
+        </div>
+        {#if isMobile}
+          <button
+            type="button"
+            class="nav-sidebar-close"
+            onclick={onToggleSidebar}
+            title="Close sidebar"
+            aria-label="Close sidebar"
+          >
+            <X size={18} strokeWidth={2} aria-hidden="true" />
+          </button>
+        {/if}
       {:else}
         <button
           class="menu-btn"
@@ -72,8 +80,10 @@
       {/if}
     </div>
   {/if}
-  <div class="brand">
-    <span class="brand-name">Brain</span>
+  <div class="brand" class:brand--silent={!showCenterBrand}>
+    {#if showCenterBrand}
+      <span class="brand-name">Brain</span>
+    {/if}
   </div>
   {#if onReRunOnboarding}
     <div class="onboarding-wrap">
@@ -183,15 +193,32 @@
     min-width: var(--sidebar-history-w);
   }
 
-  .nav-history-title {
-    font-size: 14px;
+  .nav-left--collapsed {
+    width: auto;
+    min-width: 40px;
+    padding: 0 6px;
+  }
+
+  .nav-brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: var(--text);
+  }
+
+  .nav-brand-lockup :global(svg) {
+    flex-shrink: 0;
+    color: var(--text-2);
+  }
+
+  .nav-brand-title {
+    font-size: 15px;
     font-weight: 600;
     letter-spacing: 0.02em;
-    color: var(--text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0;
   }
 
   .nav-sidebar-close {
@@ -231,6 +258,10 @@
     padding: 0 14px;
     flex: 1;
     min-width: 0;
+  }
+
+  .brand--silent {
+    pointer-events: none;
   }
 
   .brand-name {
