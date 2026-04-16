@@ -4,6 +4,10 @@
   import { buildChatBody, extractMentionedFiles, type ChatMessage, type SkillMenuItem } from './agentUtils.js'
   import { contextPlaceholder } from './agentUtils.js'
   import { emit } from './app/appEvents.js'
+
+  function notifyChatSessionsChanged() {
+    emit({ type: 'chat:sessions-changed' })
+  }
   import { consumeAgentChatStream } from './agentStream.js'
   import {
     createPendingSessionKey,
@@ -367,9 +371,11 @@
           } else {
             sessions = touchSessionImmutable(sessions, activeKey, { sessionId: sid })
           }
+          notifyChatSessionsChanged()
         },
         setChatTitle: (t) => {
           sessions = touchSessionImmutable(sessions, activeKey, { chatTitle: t })
+          notifyChatSessionsChanged()
         },
         touchMessages: () => {
           const cur = sessions.get(activeKey)
@@ -408,6 +414,7 @@
       sessions = touchSessionImmutable(sessions, activeKey, { abortController: null, streaming: false })
       conversationEl?.scrollToBottom()
       if (touchedWiki) emit({ type: 'wiki:mutated', source: 'agent' })
+      notifyChatSessionsChanged()
       onChatPersisted?.()
       if (sawDone && displayedSessionId === activeKey) void onStreamFinished?.()
     }

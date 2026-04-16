@@ -86,8 +86,14 @@ export function streamAgentSseResponse(
   message: string,
   opts: StreamAgentSseOptions,
 ): Response | Promise<Response> {
-  const { wikiDirForDiffs, onTurnComplete, announceSessionId, promptMessages, userMessageForPersistence } =
-    opts
+  const {
+    wikiDirForDiffs,
+    onTurnComplete,
+    announceSessionId,
+    promptMessages,
+    userMessageForPersistence,
+    onSessionTitlePersist,
+  } = opts
 
   return streamSSE(c, async (stream) => {
     if (announceSessionId) {
@@ -164,7 +170,16 @@ export function streamAgentSseResponse(
             applyToolStart(assistantState, { id, name, args, done: false })
             if (name === 'set_chat_title' && args && typeof args === 'object' && 'title' in args) {
               const t = String((args as { title?: unknown }).title ?? '').trim().slice(0, 120)
-              if (t) turnTitle = t
+              if (t) {
+                turnTitle = t
+                if (onSessionTitlePersist) {
+                  try {
+                    await onSessionTitlePersist(t)
+                  } catch {
+                    /* ignore */
+                  }
+                }
+              }
             }
             if (name === 'edit' && args && typeof args === 'object' && 'path' in args) {
               const rel = safeWikiRelativePath(wikiDirForDiffs, (args as { path: unknown }).path)

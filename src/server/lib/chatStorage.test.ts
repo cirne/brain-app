@@ -92,6 +92,50 @@ describe('chatStorage', () => {
     expect(await loadSession(sessionId)).toBeNull()
   })
 
+  it('ensureSessionStub creates empty session listed by listSessions', async () => {
+    const { ensureSessionStub, listSessions, loadSession } = await import('./chatStorage.js')
+    const sessionId = 'bb0e8400-e29b-41d4-a716-446655440006'
+    await ensureSessionStub(sessionId)
+    const list = await listSessions()
+    expect(list).toHaveLength(1)
+    expect(list[0].sessionId).toBe(sessionId)
+    expect(list[0].title).toBeNull()
+    const doc = await loadSession(sessionId)
+    expect(doc?.messages).toEqual([])
+  })
+
+  it('ensureSessionStub is idempotent', async () => {
+    const { ensureSessionStub, listSessions } = await import('./chatStorage.js')
+    const sessionId = 'cc0e8400-e29b-41d4-a716-446655440007'
+    await ensureSessionStub(sessionId)
+    await ensureSessionStub(sessionId)
+    expect((await listSessions())).toHaveLength(1)
+  })
+
+  it('patchSessionTitle updates title on existing session file', async () => {
+    const { ensureSessionStub, patchSessionTitle, loadSession } = await import('./chatStorage.js')
+    const sessionId = 'dd0e8400-e29b-41d4-a716-446655440008'
+    await ensureSessionStub(sessionId)
+    await patchSessionTitle(sessionId, '  My title  ')
+    const doc = await loadSession(sessionId)
+    expect(doc?.title).toBe('My title')
+  })
+
+  it('appendTurn merges into stub created by ensureSessionStub', async () => {
+    const { ensureSessionStub, appendTurn, loadSession } = await import('./chatStorage.js')
+    const sessionId = 'ee0e8400-e29b-41d4-a716-446655440009'
+    await ensureSessionStub(sessionId)
+    await appendTurn({
+      sessionId,
+      userMessage: 'hi',
+      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'yo' }] },
+      title: 'Later',
+    })
+    const doc = await loadSession(sessionId)
+    expect(doc?.messages).toHaveLength(2)
+    expect(doc?.title).toBe('Later')
+  })
+
   it('deleteAllChatSessionFiles removes session JSON only', async () => {
     const { appendTurn, listSessions, deleteAllChatSessionFiles } = await import('./chatStorage.js')
     await writeFile(join(chatDir, 'onboarding.json'), '{"state":"done"}', 'utf-8')

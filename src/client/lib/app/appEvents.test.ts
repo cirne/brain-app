@@ -53,4 +53,14 @@ describe('appEvents', () => {
     expect(ids).toEqual(['msg-1'])
     unsub()
   })
+
+  it('delivers chat:sessions-changed', () => {
+    let n = 0
+    const unsub = subscribe((e) => {
+      if (e.type === 'chat:sessions-changed') n++
+    })
+    emit({ type: 'chat:sessions-changed' })
+    expect(n).toBe(1)
+    unsub()
+  })
 })

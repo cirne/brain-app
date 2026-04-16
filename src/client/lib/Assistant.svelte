@@ -395,10 +395,6 @@
     activeSessionId = id
   }
 
-  function onChatPersisted() {
-    void chatHistory?.refresh()
-  }
-
   function onWriteStreaming(p: { path: string; content: string; done: boolean }) {
     if (p.done) {
       wikiWriteStreaming = null
@@ -497,7 +493,6 @@
         onUserSendMessage={closeOverlayOnUserSend}
         onSessionChange={onSessionChangeFromAgent}
         onStreamingChange={(s) => { activeSessionStreaming = s }}
-        onChatPersisted={onChatPersisted}
         onWriteStreaming={onWriteStreaming}
         onEditStreaming={onEditStreaming}
       >

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { subscribe } from './app/appEvents.js'
   import { Loader2, MessageSquare, Mail, Trash2, Plus } from 'lucide-svelte'
   import { chatRowShowsAgentWorking } from './chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from './chatHistoryDelete.js'
@@ -153,6 +154,12 @@
 
   onMount(() => {
     void refresh()
+  })
+
+  $effect(() => {
+    return subscribe((e) => {
+      if (e.type === 'chat:sessions-changed') void refresh()
+    })
   })
 </script>
 
