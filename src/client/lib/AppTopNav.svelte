@@ -1,10 +1,13 @@
 <script lang="ts">
-  import { BrainCircuit } from 'lucide-svelte'
+  import { BrainCircuit, X } from 'lucide-svelte'
   import WikiFileList from './WikiFileList.svelte'
 
   type Props = {
     /** When false, hides the chat history control (e.g. onboarding uses the same top bar without history). */
     showChatHistoryButton?: boolean
+    /** Mobile drawer open — desktop always shows sidebar; use with `isMobile` to show History vs Brain. */
+    sidebarOpen?: boolean
+    isMobile?: boolean
     onToggleSidebar: () => void
     dirtyFiles: string[]
     recentFiles: { path: string; date: string }[]
@@ -22,6 +25,8 @@
 
   let {
     showChatHistoryButton = true,
+    sidebarOpen = false,
+    isMobile = false,
     onToggleSidebar,
     dirtyFiles,
     recentFiles,
@@ -40,16 +45,31 @@
 
 <nav class="tabs">
   {#if showChatHistoryButton}
-    <div class="menu-wrap">
-      <button
-        class="menu-btn"
-        type="button"
-        onclick={onToggleSidebar}
-        title="Chat history"
-        aria-label="Open chat history"
-      >
-        <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
-      </button>
+    <div class="nav-left" class:nav-left--wide={!isMobile || sidebarOpen}>
+      {#if !isMobile}
+        <span class="nav-history-title">History</span>
+      {:else if sidebarOpen}
+        <span class="nav-history-title">History</span>
+        <button
+          type="button"
+          class="nav-sidebar-close"
+          onclick={onToggleSidebar}
+          title="Close sidebar"
+          aria-label="Close sidebar"
+        >
+          <X size={18} strokeWidth={2} aria-hidden="true" />
+        </button>
+      {:else}
+        <button
+          class="menu-btn"
+          type="button"
+          onclick={onToggleSidebar}
+          title="Open sidebar"
+          aria-label="Open sidebar"
+        >
+          <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
+        </button>
+      {/if}
     </div>
   {/if}
   <div class="brand">
@@ -146,21 +166,60 @@
     flex-shrink: 0;
   }
 
-  .menu-wrap {
+  .nav-left {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     border-right: 1px solid var(--border);
     flex-shrink: 0;
+    min-height: 100%;
+    padding: 0 10px;
+    box-sizing: border-box;
+  }
+
+  .nav-left--wide {
+    width: var(--sidebar-history-w);
+    min-width: var(--sidebar-history-w);
+  }
+
+  .nav-history-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .nav-sidebar-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    color: var(--text-2);
+    transition: color 0.15s, background 0.15s;
+  }
+  .nav-sidebar-close:hover {
+    color: var(--text);
+    background: var(--bg-3);
   }
 
   .menu-btn {
     width: 40px;
     height: 100%;
+    min-height: var(--tab-h);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-2);
     transition: color 0.15s;
+    margin: 0 -6px;
   }
   .menu-btn:hover {
     color: var(--text);

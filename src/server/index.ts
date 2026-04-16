@@ -110,7 +110,7 @@ function resolveNonNativePort(): number {
 /**
  * Bundled Tauri app: bind the first free port in the native range (constants; not `PORT` env).
  */
-async function listenNativeBundled(): Promise<Server> {
+async function listenNativeBundled(): Promise<ServerType> {
   const candidates = nativeAppPortCandidates()
   for (const p of candidates) {
     const server = createAdaptorServer({ fetch: app.fetch })

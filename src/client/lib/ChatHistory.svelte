@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { MessageSquare, Mail, Pin, PinOff, Trash2, X, Plus } from 'lucide-svelte'
+  import { MessageSquare, Mail, Trash2, Plus } from 'lucide-svelte'
   import { labelForDeleteChatDialog } from './chatHistoryDelete.js'
   import {
     loadNavHistory,
@@ -19,24 +19,16 @@
 
   let {
     activeSessionId = null as string | null,
-    desktop = false,
-    pinned = false,
     onSelect,
     onSelectDoc,
     onSelectEmail,
     onNewChat,
-    onClose,
-    onTogglePin,
   }: {
     activeSessionId?: string | null
-    desktop?: boolean
-    pinned?: boolean
     onSelect: (_sessionId: string) => void
     onSelectDoc?: (_path: string) => void
     onSelectEmail?: (_id: string) => void
     onNewChat: () => void
-    onClose: () => void
-    onTogglePin?: () => void
   } = $props()
 
   let sessions = $state<ChatSessionListItem[]>([])
@@ -204,30 +196,6 @@
 {/snippet}
 
 <div class="chat-history">
-  <div class="ch-head">
-    <span class="ch-title">History</span>
-    <div class="ch-head-actions">
-      {#if desktop && onTogglePin}
-        <button
-          type="button"
-          class="icon-btn"
-          onclick={onTogglePin}
-          title={pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
-          aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
-        >
-          {#if pinned}
-            <PinOff size={16} strokeWidth={2} aria-hidden="true" />
-          {:else}
-            <Pin size={16} strokeWidth={2} aria-hidden="true" />
-          {/if}
-        </button>
-      {/if}
-      <button type="button" class="icon-btn" onclick={onClose} title="Close" aria-label="Close sidebar">
-        <X size={18} strokeWidth={2} aria-hidden="true" />
-      </button>
-    </div>
-  </div>
-
   <button type="button" class="new-chat-btn" onclick={() => onNewChat()}>
     <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
     <span>New chat</span>
@@ -301,44 +269,8 @@
     flex-direction: column;
     height: 100%;
     min-height: 0;
+    padding-top: 8px;
     background: var(--bg-2);
-  }
-
-  .ch-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .ch-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: 0.02em;
-  }
-
-  .ch-head-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-  }
-
-  .icon-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 5px;
-    color: var(--text-2);
-    transition: color 0.15s, background 0.15s;
-  }
-  .icon-btn:hover {
-    color: var(--text);
-    background: var(--bg-3);
   }
 
   .new-chat-btn {

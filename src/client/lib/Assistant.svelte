@@ -23,18 +23,17 @@
 
   const SIDEBAR_KEY = 'brain-sidebar'
 
-  function loadSidebarPrefs(): { open: boolean; pinned: boolean } {
+  function loadSidebarPrefs(): { mobileOpen: boolean } {
     try {
       const raw = localStorage.getItem(SIDEBAR_KEY)
       if (raw) {
         const o = JSON.parse(raw) as Record<string, unknown>
-        return {
-          open: typeof o.open === 'boolean' ? o.open : false,
-          pinned: typeof o.pinned === 'boolean' ? o.pinned : false,
-        }
+        if (typeof o.mobileOpen === 'boolean') return { mobileOpen: o.mobileOpen }
+        // Legacy { open, pinned }
+        if (typeof o.open === 'boolean') return { mobileOpen: o.open }
       }
     } catch { /* ignore */ }
-    return { open: false, pinned: false }
+    return { mobileOpen: false }
   }
 
   let route = $state<Route>(parseRoute())
@@ -54,13 +53,13 @@
   let workspaceSplit = $state<WorkspaceSplit | undefined>()
   let isMobile = $state(false)
 
+  /** Mobile drawer; desktop always shows the sidebar (pinned). */
   let sidebarOpen = $state(false)
-  let sidebarPinned = $state(false)
   let chatHistory = $state<{ refresh: () => Promise<void> } | undefined>()
   let activeSessionId = $state<string | null>(null)
 
-  const showInline = $derived(!isMobile && sidebarPinned)
-  const showOverlay = $derived(sidebarOpen && (isMobile || !sidebarPinned))
+  const showInline = $derived(!isMobile)
+  const showOverlay = $derived(isMobile && sidebarOpen)
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
 
@@ -90,16 +89,12 @@
     const mq = window.matchMedia('(max-width: 767px)')
     const syncMobile = () => { isMobile = mq.matches }
     syncMobile()
-    mq.addEventListener('change', syncMobile)
 
     const prefs = loadSidebarPrefs()
-    sidebarPinned = prefs.pinned
     if (mq.matches) {
-      sidebarOpen = false
-    } else if (prefs.pinned) {
-      sidebarOpen = true
+      sidebarOpen = prefs.mobileOpen
     } else {
-      sidebarOpen = prefs.open
+      sidebarOpen = true
     }
 
     loadWikiEditHistory()
@@ -108,8 +103,7 @@
     window.addEventListener('popstate', onPopState)
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        const overlaySidebarOpen = sidebarOpen && (isMobile || !sidebarPinned)
-        if (overlaySidebarOpen) {
+        if (isMobile && sidebarOpen) {
           e.preventDefault()
           sidebarOpen = false
           return
@@ -159,8 +153,14 @@
       }
     })()
 
+    const onMqChange = () => {
+      syncMobile()
+      if (!mq.matches) sidebarOpen = true
+    }
+    mq.addEventListener('change', onMqChange)
+
     return () => {
-      mq.removeEventListener('change', syncMobile)
+      mq.removeEventListener('change', onMqChange)
       window.removeEventListener('popstate', onPopState)
       window.removeEventListener('keydown', onKeydown)
     }
@@ -330,75 +330,38 @@
   })
 
   $effect(() => {
+    if (!isMobile) return
     try {
-      localStorage.setItem(SIDEBAR_KEY, JSON.stringify({ open: sidebarOpen, pinned: sidebarPinned }))
+      localStorage.setItem(SIDEBAR_KEY, JSON.stringify({ mobileOpen: sidebarOpen }))
     } catch { /* ignore */ }
   })
 
   function toggleSidebar() {
-    if (isMobile) {
-      sidebarOpen = !sidebarOpen
-      if (sidebarOpen) void chatHistory?.refresh()
-      return
-    }
-    if (sidebarPinned) {
-      sidebarPinned = false
-      sidebarOpen = false
-      return
-    }
+    if (!isMobile) return
     sidebarOpen = !sidebarOpen
     if (sidebarOpen) void chatHistory?.refresh()
-  }
-
-  function toggleSidebarPin() {
-    if (sidebarPinned) {
-      sidebarPinned = false
-      sidebarOpen = true
-    } else {
-      sidebarPinned = true
-      sidebarOpen = true
-    }
-  }
-
-  function closeHistorySidebar() {
-    if (isMobile) {
-      sidebarOpen = false
-      return
-    }
-    if (sidebarPinned) {
-      sidebarPinned = false
-    }
-    sidebarOpen = false
   }
 
   async function selectChatSession(id: string) {
     closeOverlayImmediate()
     await agentChat?.loadSession(id)
-    if (isMobile || !sidebarPinned) {
-      sidebarOpen = false
-    }
+    if (isMobile) sidebarOpen = false
   }
 
   function selectDocFromHistory(path: string) {
     openWikiDoc(path)
-    if (isMobile || !sidebarPinned) {
-      sidebarOpen = false
-    }
+    if (isMobile) sidebarOpen = false
   }
 
   function selectEmailFromHistory(id: string) {
     openEmailFromSearch(id, '', '')
-    if (isMobile || !sidebarPinned) {
-      sidebarOpen = false
-    }
+    if (isMobile) sidebarOpen = false
   }
 
   function historyNewChat() {
     closeOverlayImmediate()
     agentChat?.newChat()
-    if (isMobile || !sidebarPinned) {
-      sidebarOpen = false
-    }
+    if (isMobile) sidebarOpen = false
   }
 
   function onSessionChangeFromAgent(id: string | null) {
@@ -453,6 +416,8 @@
 
 <div class="app">
   <AppTopNav
+    {isMobile}
+    sidebarOpen={sidebarOpen}
     onToggleSidebar={toggleSidebar}
     {dirtyFiles}
     {recentFiles}
@@ -482,14 +447,10 @@
         <ChatHistory
           bind:this={chatHistory}
           activeSessionId={activeSessionId}
-          desktop={!isMobile}
-          pinned={sidebarPinned}
           onSelect={selectChatSession}
           onSelectDoc={selectDocFromHistory}
           onSelectEmail={selectEmailFromHistory}
           onNewChat={historyNewChat}
-          onClose={closeHistorySidebar}
-          onTogglePin={toggleSidebarPin}
         />
       </aside>
     {/if}
