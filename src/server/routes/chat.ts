@@ -3,7 +3,14 @@ import { getOrCreateSession, deleteSession } from '../agent/index.js'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '../lib/wikiDir.js'
-import { appendTurn, deleteSessionFile, loadSession, listSessions } from '../lib/chatStorage.js'
+import {
+  appendTurn,
+  deleteSessionFile,
+  ensureSessionStub,
+  loadSession,
+  listSessions,
+  patchSessionTitle,
+} from '../lib/chatStorage.js'
 import type { ChatMessage } from '../lib/chatTypes.js'
 import { streamAgentSseResponse, streamStaticAssistantSse } from '../lib/streamAgentSse.js'
 import {
@@ -38,6 +45,12 @@ chat.post('/', async (c) => {
 
   if (!message || typeof message !== 'string') {
     return c.json({ error: 'message is required' }, 400)
+  }
+
+  try {
+    await ensureSessionStub(sessionId)
+  } catch {
+    /* best-effort — stream still runs */
   }
 
   // Build context string for the session system prompt.
@@ -109,6 +122,7 @@ chat.post('/', async (c) => {
       promptMessages,
       userMessageForPersistence: message,
       onTurnComplete: persist,
+      onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
     })
   }
 
@@ -118,6 +132,7 @@ chat.post('/', async (c) => {
     wikiDirForDiffs: wikiDir(),
     announceSessionId: sessionId,
     onTurnComplete: persist,
+    onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
   })
 })
 

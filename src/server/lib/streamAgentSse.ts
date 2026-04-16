@@ -33,6 +33,8 @@ export interface StreamAgentSseOptions {
   promptMessages?: AgentMessage[]
   /** Transcript / storage user line; defaults to `message` (use with slash expansion). */
   userMessageForPersistence?: string
+  /** When set_chat_title runs mid-stream, persist title so the session list updates before the turn completes. */
+  onSessionTitlePersist?: (title: string) => Promise<void>
 }
 
 /** Loosely typed pi-agent subscribe payloads (not exported from core). */
