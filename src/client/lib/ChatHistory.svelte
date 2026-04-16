@@ -11,6 +11,8 @@
   } from './navHistory.js'
   import WikiFileName from './WikiFileName.svelte'
 
+  const emptyStreamingIds = new Set<string>()
+
   export type ChatSessionListItem = {
     sessionId: string
     createdAt: string
@@ -21,15 +23,15 @@
 
   let {
     activeSessionId = null as string | null,
-    /** True while the active chat session has an in-flight agent response (SSE). */
-    activeSessionStreaming = false,
+    /** Server session ids with an in-flight agent response (SSE), including background tabs. */
+    streamingSessionIds = emptyStreamingIds,
     onSelect,
     onSelectDoc,
     onSelectEmail,
     onNewChat,
   }: {
     activeSessionId?: string | null
-    activeSessionStreaming?: boolean
+    streamingSessionIds?: ReadonlySet<string>
     onSelect: (_sessionId: string) => void
     onSelectDoc?: (_path: string) => void
     onSelectEmail?: (_id: string) => void
@@ -166,7 +168,7 @@
 <svelte:window onkeydown={onDeleteDialogKeydown} />
 
 {#snippet navRow(item: NavRowItem)}
-  {@const agentWorking = chatRowShowsAgentWorking(item, activeSessionId, activeSessionStreaming)}
+  {@const agentWorking = chatRowShowsAgentWorking(item, streamingSessionIds)}
   <div
     class="ch-row"
     class:active={item.type === 'chat' && activeSessionId === item.sessionId}

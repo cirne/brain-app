@@ -10,6 +10,7 @@
   }
   import { consumeAgentChatStream } from './agentStream.js'
   import {
+    collectStreamingSessionIds,
     createPendingSessionKey,
     emptySession,
     migratePendingToServer,
@@ -58,6 +59,8 @@
     onStreamFinished,
     /** Fired when the active session streaming flag changes (request/response cycle). */
     onStreamingChange,
+    /** All server session ids that currently have an in-flight stream (for nav “busy” state). */
+    onStreamingSessionsChange,
     /** Persist transcript under this localStorage key; empty = no persistence. */
     storageKey = 'brain-agent',
     showNewChatButton = true,
@@ -88,6 +91,7 @@
     autoSendMessage?: string | null
     onStreamFinished?: () => void | Promise<void>
     onStreamingChange?: (_streaming: boolean) => void
+    onStreamingSessionsChange?: (_sessionIds: ReadonlySet<string>) => void
     storageKey?: string
     showNewChatButton?: boolean
   } = $props()
@@ -156,6 +160,16 @@
   $effect(() => {
     onStreamingChange?.(streaming)
   })
+
+  let lastStreamingSessionsKey = ''
+
+  function notifyStreamingSessionsChanged() {
+    const ids = collectStreamingSessionIds(sessions)
+    const key = [...ids].sort().join(',')
+    if (key === lastStreamingSessionsKey) return
+    lastStreamingSessionsKey = key
+    onStreamingSessionsChange?.(ids)
+  }
 
   let wikiFiles = $state<string[]>([])
   let skillsList = $state<SkillMenuItem[]>([])
@@ -330,6 +344,7 @@
       streaming: true,
       abortController: ac,
     })
+    notifyStreamingSessionsChanged()
 
     const body = buildChatBody({
       message: text,
@@ -357,6 +372,7 @@
         if (!row.parts) row.parts = []
         row.parts.push({ type: 'text', content: `Error: ${res.status} ${res.statusText}` })
         sessions = touchSessionImmutable(sessions, activeKey, { streaming: false, abortController: null })
+        notifyStreamingSessionsChanged()
         return
       }
 
@@ -379,6 +395,7 @@
           } else {
             sessions = touchSessionImmutable(sessions, activeKey, { sessionId: sid })
           }
+          notifyStreamingSessionsChanged()
           notifyChatSessionsChanged()
         },
         setChatTitle: (t) => {
@@ -420,6 +437,7 @@
       }
     } finally {
       sessions = touchSessionImmutable(sessions, activeKey, { abortController: null, streaming: false })
+      notifyStreamingSessionsChanged()
       conversationEl?.scrollToBottom()
       if (touchedWiki) emit({ type: 'wiki:mutated', source: 'agent' })
       notifyChatSessionsChanged()

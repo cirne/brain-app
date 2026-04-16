@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  collectStreamingSessionIds,
   createPendingSessionKey,
   emptySession,
   migratePendingToServer,
@@ -70,5 +71,25 @@ describe('chatSessionStore helpers', () => {
     map = setSessionImmutable(map, 'a', emptySession())
     map = deleteSessionImmutable(map, 'a')
     expect(map.has('a')).toBe(false)
+  })
+
+  it('collectStreamingSessionIds lists sessionId or map key for streaming sessions', () => {
+    const sid = '11111111-1111-1111-1111-111111111111'
+    let map = new Map()
+    map = setSessionImmutable(map, sid, {
+      ...emptySession(),
+      streaming: true,
+      sessionId: sid,
+    })
+    map = setSessionImmutable(map, 'pending:x', {
+      ...emptySession(),
+      streaming: true,
+      sessionId: null,
+    })
+    map = setSessionImmutable(map, 'idle', emptySession())
+    const ids = collectStreamingSessionIds(map)
+    expect(ids.has(sid)).toBe(true)
+    expect(ids.has('pending:x')).toBe(true)
+    expect(ids.size).toBe(2)
   })
 })

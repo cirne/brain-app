@@ -58,8 +58,8 @@
   let sidebarOpen = $state(false)
   let chatHistory = $state<{ refresh: () => Promise<void> } | undefined>()
   let activeSessionId = $state<string | null>(null)
-  /** True while the visible chat has an in-flight agent stream (for sidebar “working” icon). */
-  let activeSessionStreaming = $state(false)
+  /** Server session ids with an in-flight agent stream (sidebar “working” icon), including background chats. */
+  let streamingSessionIds = $state<ReadonlySet<string>>(new Set())
 
   const SIDEBAR_FLY_X = 280
   const SIDEBAR_TRANSITION_MS = 220
@@ -461,7 +461,7 @@
         <ChatHistory
           bind:this={chatHistory}
           activeSessionId={activeSessionId}
-          activeSessionStreaming={activeSessionStreaming}
+          streamingSessionIds={streamingSessionIds}
           onSelect={selectChatSession}
           onSelectDoc={selectDocFromHistory}
           onSelectEmail={selectEmailFromHistory}
@@ -492,7 +492,7 @@
         onNewChat={closeOverlay}
         onUserSendMessage={closeOverlayOnUserSend}
         onSessionChange={onSessionChangeFromAgent}
-        onStreamingChange={(s) => { activeSessionStreaming = s }}
+        onStreamingSessionsChange={(ids) => { streamingSessionIds = ids }}
         onWriteStreaming={onWriteStreaming}
         onEditStreaming={onEditStreaming}
       >

@@ -99,6 +99,17 @@ export function sessionIsLiveStreaming(
   return sessions.get(id)?.streaming === true
 }
 
+/** Server ids (or pending map keys) for sessions that are currently streaming — for sidebar “busy” icons. */
+export function collectStreamingSessionIds(sessions: Map<string, SessionState>): Set<string> {
+  const ids = new Set<string>()
+  for (const [key, st] of sessions) {
+    if (st.streaming) {
+      ids.add(st.sessionId ?? key)
+    }
+  }
+  return ids
+}
+
 export function deleteSessionImmutable(
   sessions: Map<string, SessionState>,
   id: string,
