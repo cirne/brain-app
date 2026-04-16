@@ -12,6 +12,13 @@
   } from './seedConstants.js'
   import { resizeMainWindowToBrowserLikeWorkArea } from '../desktop/browserLikeWindow.js'
 
+  const ONBOARDING_LARGE_WINDOW_STATES = new Set([
+    'profiling',
+    'reviewing-profile',
+    'seeding',
+    'done',
+  ])
+
   interface Props {
     onComplete: () => Promise<void>
     refreshStatus: () => Promise<void>
@@ -52,8 +59,8 @@
   let seedThresholdMet = $state(false)
   let seedReadyDialogEl = $state<HTMLDialogElement | null>(null)
   let onboardingExitHandled = $state(false)
-  /** True after we’ve applied the Tauri “browser-sized” window for the profiling step. */
-  let profilingBrowserLayoutDone = $state(false)
+  /** Tauri: true after we’ve applied the “browser-sized” window for late onboarding (profiling onward). */
+  let onboardingLargeWindowApplied = $state(false)
 
   const showMailFooter = $derived(
     (state === 'not-started' || state === 'indexing') &&
@@ -108,12 +115,12 @@
   })
 
   $effect(() => {
-    if (state !== 'profiling') {
-      profilingBrowserLayoutDone = false
+    if (!ONBOARDING_LARGE_WINDOW_STATES.has(state)) {
+      onboardingLargeWindowApplied = false
       return
     }
-    if (profilingBrowserLayoutDone) return
-    profilingBrowserLayoutDone = true
+    if (onboardingLargeWindowApplied) return
+    onboardingLargeWindowApplied = true
     void resizeMainWindowToBrowserLikeWorkArea()
   })
 
