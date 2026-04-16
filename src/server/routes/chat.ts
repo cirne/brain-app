@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '../lib/wikiDir.js'
 import { appendTurn, deleteSessionFile, loadSession, listSessions } from '../lib/chatStorage.js'
+import type { ChatMessage } from '../lib/chatTypes.js'
 import { streamAgentSseResponse, streamStaticAssistantSse } from '../lib/streamAgentSse.js'
 import {
   applySkillPlaceholders,
@@ -64,26 +65,6 @@ chat.post('/', async (c) => {
     context && typeof context === 'object' && Array.isArray(context.files) && context.files.length
       ? String(context.files[0])
       : undefined
-
-  const onTurnComplete = async ({
-    userMessage,
-    assistantMessage,
-    turnTitle,
-  }: {
-    userMessage: string
-    assistantMessage: Parameters<typeof appendTurn>[0] extends { sessionId: string } ? never : never
-  }) => {
-    try {
-      await appendTurn({
-        sessionId,
-        userMessage,
-        assistantMessage,
-        title: turnTitle,
-      })
-    } catch {
-      // Best-effort persistence; do not fail the stream
-    }
-  }
 
   const persist = async (args: {
     userMessage: string
