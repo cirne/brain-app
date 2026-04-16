@@ -6,6 +6,18 @@ User connects their email. Within minutes — with zero data entry — Brain has
 
 Email is the gold mine. Years of context, relationships, decisions, and priorities — all sitting there, already structured by time and conversation.
 
+## User mental model: personal wiki → personalized assistant
+
+Before asking for mail access, onboarding should establish **what Brain is building** and **why it matters**:
+
+1. **A wiki** (in simple terms) is a collection of **linked text pages**—the same *shape* as sites like Wikipedia, but **private**: Brain’s job is to help maintain **your** wiki about **your** life.
+2. **Email and calendar** are how Brain **fills that wiki quickly** in the first minutes—so the user is not staring at a blank vault.
+3. **The assistant** then **uses** that wiki (plus tools) to answer and draft in **your** context—grounded personalization, not a cold chatbot.
+
+This orients first-time users who have never used “wiki” in a product before and connects the technical artifact (`WIKI_DIR`, markdown files) to the emotional promise: *memory that belongs to you*. Full copy options and UI placement notes live in [Personal wiki (product)](../product/personal-wiki.md).
+
+**Practical implication:** The first onboarding screen (or the copy above the “connect email” step) should include a **short** version of this story; the indexing and seeding steps stay as today, but the user understands *why* pages are appearing.
+
 ## Proof of concept
 
 A single prompt to Claude Code with ripmail access:
@@ -256,6 +268,7 @@ User approves or denies each category. The seeding agent's system prompt is upda
 
 ## Relation to other opportunities
 
+- **[Personal wiki (product)](../product/personal-wiki.md)** — Vocabulary, inline help, and onboarding messaging for “your private wiki” and the assistant loop
 - **[OPP-004: Wiki-Aware Agent](./OPP-004-wiki-aware-agent.md)** — Seeding agent uses the same structured tools (changelog, path validation)
 - **[OPP-005: Source Ingestion](./OPP-005-source-ingestion.md)** — Email attachments could be auto-ingested during onboarding
 - **[OPP-007: Native Mac App](./OPP-007-native-mac-app.md)** — Apple Mail local access is a preview of deeper native integration

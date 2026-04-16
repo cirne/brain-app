@@ -40,13 +40,12 @@ Minimum frontmatter we commit to reading:
 
 ```yaml
 ---
-name: draft              # required; maps to slash command slug (/draft)
-label: Draft email       # optional; friendly label for the menu row
+name: email              # required; maps to slash command slug (/email)
+label: Email             # optional; friendly label for the menu row
 description: >-          # required; fed to the model for relevance + used for
-  Gather context (thread, people pages, recent calendar) and draft an email
-  in the user's voice. Stops for user review before send.
-hint: draft a new email  # short UI-only help text shown beside the cursor
-args: <to> — <what>      # optional; usage template for placeholder tokens
+  Read, triage, draft; confirm before send. Natural language after the slash.
+hint: what to do with mail  # short UI-only help text shown beside the cursor
+args: optional NL tail   # optional; docs-only — not a rigid CLI contract (see OPP-011)
 version: 1               # defaults only — drives the seeder (see §5)
 ---
 ```
@@ -68,8 +67,8 @@ Fallback cascade for the ghost text, if the author didn't set `hint`:
 
 So the Slack-style UX works out of the box:
 
-- Menu row: `**/draft`** — `Draft email` · *draft a new email*
-- After selection, cursor sits at `/draft |` with ghost text `<to> — <what>` (or `draft a new email` if `args` is empty)
+- Menu row: `**/email`** — `Email` · *what to do with mail*
+- After selection, cursor sits at `/email |` with ghost text from `hint` (or first sentence of `description`)
 - First character the user types replaces the ghost text
 
 None of this breaks skills authored for Claude Code / Cursor that omit both fields — they just fall back to description-derived ghost text or a blank placeholder.
@@ -85,12 +84,12 @@ None of this breaks skills authored for Claude Code / Cursor that omit both fiel
 │   ├── people/
 │   └── …
 └── skills/                 # NEW — user-authored + seeded defaults
-    ├── new/
+    ├── wiki/
     │   └── SKILL.md
     ├── research/
-    │   ├── SKILL.md
-    │   └── references/
-    │       └── source-priority.md
+    │   └── SKILL.md
+    ├── email/
+    │   └── SKILL.md
     ├── …
     └── .seeded.json        # tracks which default skills + versions have been seeded
 ```
@@ -110,17 +109,11 @@ Rationale for co-locating with the wiki:
 brain-app/
 ├── assets/
 │   └── user-skills/         # shipped with the app; seeded into <WIKI_DIR>/skills/
-│       ├── new/
-│       │   └── SKILL.md
-│       ├── tidy/
+│       ├── wiki/
 │       │   └── SKILL.md
 │       ├── research/
-│       │   ├── SKILL.md
-│       │   └── references/
-│       │       └── source-priority.md
-│       ├── prune/
 │       │   └── SKILL.md
-│       └── draft/
+│       └── email/
 │           └── SKILL.md
 ├── src/
 ├── .claude/                  # developer skills — unrelated, do not touch
@@ -244,17 +237,15 @@ Key properties:
 
 ### 6. First set of built-in skills
 
-Not married to names — the user explicitly called out that `lint` is too developer-centric. Proposed rename pass (slug in parens is the slash command):
+**Shipped defaults** align with [OPP-011](./OPP-011-user-skills-strategy.md): a small coarse set, natural language after the slash.
 
+| Slug        | Purpose (condensed) |
+| ----------- | ------------------- |
+| `/wiki`     | Umbrella for new page, tidy one page, prune/split subtree, link repair—route from user’s words. |
+| `/research` | Multi-source investigation → durable wiki page(s). |
+| `/email`    | Inbox, read, triage, draft; confirm before send. |
 
-| Today's working name | Proposed slug | Friendly label | Purpose (condensed)                                                                                                                   |
-| -------------------- | ------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `/newfile`           | `/new`        | New wiki page  | Search wiki + email + web + YT for existing material, choose the right location, write the page with proper links and no duplication. |
-| `/lint`              | `/tidy`       | Tidy a page    | Check DRY, link hygiene, file length, orphan status, stale facts; propose edits (don't auto-apply).                                   |
-| `/research`          | `/research`   | Deep research  | Multi-source investigation (wiki + email + web + YT), optionally fan out parallel sub-agents, write a single well-linked page.        |
-| `/prune`             | `/prune`      | Prune          | Find obsolete/duplicate/orphan pages in a subtree; propose moves, merges, and deletions for user review.                              |
-| `/draft`             | `/draft`      | Draft email    | Gather context (thread, people pages, recent calendar), draft in the user's voice, stop for review before `send_draft`.               |
-
+Earlier design iterations used separate slugs (`/new`, `/tidy`, `/prune`, `/draft`); those are superseded by the umbrella + `/email` for fewer menu entries.
 
 All authored as plain markdown; all user-editable on disk. The app ships them as a starting point, not a walled garden.
 
@@ -280,14 +271,14 @@ TipTap (already in the repo) handles in-app editing of the SKILL.md files; no ne
 ## Open questions
 
 - **Argument conventions.** Is it always "one free-form string tail" (like Slack), or do we also accept `/draft to:alice@x.com re:<topic>` flag-ish syntax? Recommendation: v1 is tail-string only; flags are a footgun for non-developers.
-- **Default-skill elevation.** Should a few skills (e.g. `/new`) also be invoked automatically when the user says "make a new page about X" without the slash? Handle via the optional `list_skills` / `load_skill` tools in a follow-up, not by auto-injection.
-- **Scope of built-ins.** Ship 3–5 curated defaults, or none (power-user-authors-their-own)? Recommendation: ship the five above because they demonstrate range and each is individually useful on day one.
-- **Onboarding.** Should the onboarding agent ([OPP-006](./OPP-006-email-bootstrap-onboarding.md)) seed `skills/` with user-flavored variants of the defaults (e.g. `/draft` pre-tuned to the user's voice from their sent-mail)? Probably yes, but out of this OPP's scope.
+- **Default-skill elevation.** Should a few skills (e.g. `/wiki`) also be invoked automatically when the user says "make a new page about X" without the slash? Handle via the optional `list_skills` / `load_skill` tools in a follow-up, not by auto-injection.
+- **Scope of built-ins.** Ship 3–5 curated defaults, or none (power-user-authors-their-own)? Recommendation: ship a small coarse set (`/wiki`, `/research`, `/email`; see [OPP-011](./OPP-011-user-skills-strategy.md)) because they demonstrate range without fragmenting slash discovery.
+- **Onboarding.** Should the onboarding agent ([OPP-006](./OPP-006-email-bootstrap-onboarding.md)) seed `skills/` with user-flavored variants of the defaults (e.g. `/email` pre-tuned to the user's voice from their sent-mail)? Probably yes, but out of this OPP's scope.
 
 ## Migration / rollout
 
 1. Add `skillsDir()` in `[src/server/lib/wikiDir.ts](../../src/server/lib/wikiDir.ts)` (or a new `skillsDir.ts` sibling) returning `<repoDir()>/skills`.
-2. Create `assets/user-skills/` at repo root and author the five default skills there (`new`, `tidy`, `research`, `prune`, `draft`), each with `version: 1` in frontmatter.
+2. Create `assets/user-skills/` at repo root and author the default skills there (`wiki`, `research`, `email`; see [OPP-011](./OPP-011-user-skills-strategy.md)), each with `version: 1` in frontmatter.
 3. Wire `assets/user-skills/` into the build: copy to `dist/server/assets/user-skills/` during `npm run build`; confirm `tauri:bundle-server` carries it into `desktop/resources/server-bundle/`.
 4. Implement `ensureDefaultSkillsSeeded()` (see §5) and call it from `start()` in `[src/server/index.ts](../../src/server/index.ts)`, after `loadDotEnv()`, before HTTP listen. Runs on every boot; idempotent.
 5. Add `SkillRegistry` service (discover from `<WIKI_DIR>/skills/`, parse with `gray-matter`, cache; `chokidar`-watch in dev).
@@ -298,13 +289,15 @@ TipTap (already in the repo) handles in-app editing of the SKILL.md files; no ne
 
 ## Related
 
-- [OPP-004: Wiki-Aware Agent](./OPP-004-wiki-aware-agent.md) — `/tidy` and `/prune` are natural hosts for the lint/changelog work proposed there.
-- [OPP-006: Email-Bootstrap Onboarding](./OPP-006-email-bootstrap-onboarding.md) — onboarding can personalize built-in skills (especially `/draft`).
+- [Personal wiki (product)](../product/personal-wiki.md) — vocabulary (“wiki”), inline help copy, onboarding framing; aligns slash skills (e.g. `/wiki`) with user mental model.
+- [OPP-011: User skills strategy](./OPP-011-user-skills-strategy.md) — granularity, naming, natural-language-first UX; maps toolset to skill domains (companion to this OPP).
+- [OPP-004: Wiki-Aware Agent](./OPP-004-wiki-aware-agent.md) — `/wiki` modes (tidy, prune) are natural hosts for the lint/changelog work proposed there.
+- [OPP-006: Email-Bootstrap Onboarding](./OPP-006-email-bootstrap-onboarding.md) — onboarding can personalize built-in skills (especially `/email`).
 - [OPP-001: Agent-to-Agent Communication](./OPP-001-agent-to-agent.md) — future: share skills between brains.
 
 ## Success criteria
 
-- Typing `/` in chat opens a menu within ~50ms of keystroke; five default skills are listed with `label` + `description`.
+- Typing `/` in chat opens a menu within ~50ms of keystroke; bundled default skills are listed with `label` + `description`.
 - User can edit `<WIKI_DIR>/skills/research/SKILL.md`, re-run `/research`, and see the new behavior take effect with no server restart (dev) / one restart (prod).
 - A `SKILL.md` written for Claude Code drops into `<WIKI_DIR>/skills/` and runs with no modification.
 - Zero increase in base system-prompt token count when no skill is invoked (skills load per-turn only).

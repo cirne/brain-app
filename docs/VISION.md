@@ -6,6 +6,10 @@ A personalized assistant that magically knows everything about you — your peop
 
 The assistant is genuinely useful on day one (email search, calendar lookup, quick notes) and becomes indispensable over months as the wiki fills in. The magic is the compounding — every interaction either answers a question or adds something to the brain.
 
+### Personal wiki (what we call it)
+
+We use **wiki** on purpose: it is a familiar pattern—**linked text pages** (like the public sites built on the same idea), but **private and yours**. Brain helps you **create and maintain** that wiki so it captures what matters; the assistant then **reads** it to stay personalized instead of generic. New users do not need prior wiki experience—[product copy and onboarding framing](product/personal-wiki.md) explain it in plain language.
+
 ---
 
 ## Inspiration

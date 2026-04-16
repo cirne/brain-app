@@ -56,6 +56,8 @@ Wiki content is read from/written to `WIKI_DIR` — a separate brain repo cloned
 
 **Why:** Separates app code from personal knowledge. The brain repo is the source of truth; brain-app is the interface to it. This lets the wiki be edited directly via git, other tools, or other apps independently of this app.
 
+**User-facing name:** We describe this store as the user’s **personal wiki** (linked markdown pages—see [product/personal-wiki.md](./product/personal-wiki.md)); “wiki” here is the product metaphor, not only the engine.
+
 **Implication:** Never create wiki `.md` content files in this repo. The agent writes to `WIKI_DIR` at runtime only.
 
 ---

@@ -20,8 +20,8 @@ describe('parseLeadingSlashCommand', () => {
   })
 
   it('allows multiline args', () => {
-    const r = parseLeadingSlashCommand('/draft line1\nline2')
-    expect(r?.slug).toBe('draft')
+    const r = parseLeadingSlashCommand('/email line1\nline2')
+    expect(r?.slug).toBe('email')
     expect(r?.args).toContain('line1')
   })
 })
@@ -38,7 +38,7 @@ describe('applySkillPlaceholders', () => {
 
 describe('buildSkillPromptMessages', () => {
   it('returns two user messages', () => {
-    const msgs = buildSkillPromptMessages('tidy', 'body', 'args here')
+    const msgs = buildSkillPromptMessages('wiki', 'body', 'args here')
     expect(msgs).toHaveLength(2)
     expect(msgs[0].role).toBe('user')
     expect(msgs[1].role).toBe('user')
@@ -48,7 +48,7 @@ describe('buildSkillPromptMessages', () => {
     const c1 = u1.content
     const t0 = Array.isArray(c0) && c0[0]?.type === 'text' ? c0[0].text : ''
     const t1 = Array.isArray(c1) && c1[0]?.type === 'text' ? c1[0].text : ''
-    expect(t0).toContain('## Skill: /tidy')
+    expect(t0).toContain('## Skill: /wiki')
     expect(t0).toContain('body')
     expect(t1).toContain('args here')
   })

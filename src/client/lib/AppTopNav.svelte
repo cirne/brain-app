@@ -26,7 +26,7 @@
   let {
     showChatHistoryButton = true,
     sidebarOpen = false,
-    isMobile = false,
+    isMobile: _isMobile = false,
     onToggleSidebar,
     dirtyFiles,
     recentFiles,
