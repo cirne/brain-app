@@ -116,7 +116,7 @@ async function listenNativeBundled(): Promise<Server> {
     const server = createAdaptorServer({ fetch: app.fetch })
     try {
       await new Promise<void>((resolve, reject) => {
-        const onErr = (err: NodeJS.ErrnoException) => {
+        const onErr = (err: Error & { code?: string }) => {
           server.removeListener('error', onErr)
           reject(err)
         }
@@ -129,7 +129,7 @@ async function listenNativeBundled(): Promise<Server> {
       console.log(`Server running on http://localhost:${p}`)
       return server
     } catch (e) {
-      const err = e as NodeJS.ErrnoException
+      const err = e as Error & { code?: string }
       server.close(() => {})
       if (err.code === 'EADDRINUSE') {
         continue

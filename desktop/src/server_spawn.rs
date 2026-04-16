@@ -12,6 +12,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 use crate::brain_paths;
+use crate::native_port;
 
 pub struct ServerChild(pub Mutex<Option<Child>>);
 
@@ -42,7 +43,8 @@ fn resolve_server_bundle_dir(resource_dir: &Path) -> Option<PathBuf> {
 }
 
 /// Start `node dist/server/index.js` from the bundled `server-bundle/` directory.
-pub fn spawn_brain_server(app: &AppHandle) -> Result<(), String> {
+/// Returns the TCP port the server accepted (same sequence as `native_port::native_port_candidates`).
+pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
     let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
     let bundle = resolve_server_bundle_dir(&resource_dir).ok_or_else(|| {
         format!(
@@ -85,7 +87,7 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<(), String> {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .env("NODE_ENV", "production")
-        .env("PORT", "3000")
+        .env("BRAIN_BUNDLED_NATIVE", "1")
         .env("AUTH_DISABLED", "true");
 
     if let Some(ref ripmail) = ripmail_sidecar {
@@ -152,21 +154,29 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<(), String> {
     }
 
     for _ in 0..120 {
-        if TcpStream::connect("127.0.0.1:3000").is_ok() {
-            if let Some(ref p) = log_path {
-                log::info!(
-                    "Brain bundled server: Node/Hono stdout+stderr (incl. ripmail) → {}",
-                    p.display()
-                );
+        for port in native_port::native_port_candidates() {
+            if TcpStream::connect(format!("127.0.0.1:{port}")).is_ok() {
+                if let Some(ref p) = log_path {
+                    log::info!(
+                        "Brain bundled server: Node/Hono stdout+stderr (incl. ripmail) → {}",
+                        p.display()
+                    );
+                }
+                log::info!("Brain bundled server listening on 127.0.0.1:{port}");
+                app.manage(ServerChild(Mutex::new(Some(child))));
+                return Ok(port);
             }
-            app.manage(ServerChild(Mutex::new(Some(child))));
-            return Ok(());
         }
         thread::sleep(Duration::from_millis(250));
     }
 
     let _ = child.kill();
-    Err("Hono server did not listen on 127.0.0.1:3000 in time".into())
+    Err(format!(
+        "Hono server did not listen on 127.0.0.1 in native port range {}–{} (skip {}) in time",
+        native_port::NATIVE_APP_PORT_START,
+        native_port::NATIVE_APP_PORT_END,
+        native_port::NATIVE_APP_PORT_SKIP
+    ))
 }
 
 pub fn kill_server_child(app: &AppHandle) {

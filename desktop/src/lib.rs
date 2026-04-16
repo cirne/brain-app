@@ -1,6 +1,7 @@
 mod brain_paths;
 mod embedded;
 mod fda;
+mod native_port;
 mod server_spawn;
 
 #[tauri::command]
@@ -15,6 +16,9 @@ fn open_fda_settings() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    use tauri::Manager;
+    use tauri::Url;
+
     let context = tauri::generate_context!();
 
     let app = tauri::Builder::default()
@@ -34,7 +38,13 @@ pub fn run() {
                 return Ok(());
             }
             crate::embedded::apply_embedded_env()?;
-            crate::server_spawn::spawn_brain_server(app.handle())?;
+            let port = crate::server_spawn::spawn_brain_server(app.handle())?;
+            let url = Url::parse(&format!("http://127.0.0.1:{port}/")).map_err(|e| e.to_string())?;
+            if let Some(w) = app.handle().get_webview_window("main") {
+                w.navigate(url).map_err(|e| e.to_string())?;
+            } else {
+                log::warn!("Brain: main webview not found; could not navigate to bundled server URL");
+            }
             Ok(())
         })
         .build(context)

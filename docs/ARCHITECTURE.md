@@ -136,7 +136,8 @@ Auth is skipped entirely in dev (`NODE_ENV !== 'production'`). In production, Ba
 | `EXA_API_KEY` | — | Required for `web_search` tool |
 | `SUPADATA_API_KEY` | — | Required for `fetch_page` and YouTube tools |
 | `CHAT_DATA_DIR` | `./data/chats` | Persisted chat transcripts (JSON files; gitignored `data/` parent) |
-| `PORT` | `3000` | HTTP port |
+| `PORT` | `3000` | HTTP port for `npm run dev` and Docker/container runs (`start:local` uses `4000` unless overridden) |
+| `BRAIN_BUNDLED_NATIVE` | — | Set to `1` only by the Tauri app when spawning Node; the server binds `18473`–`18522` (skips IANA-reserved TCP `18516`) using constants, not `PORT` |
 
 ---
 

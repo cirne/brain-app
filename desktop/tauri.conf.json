@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.cirne.brain",
   "build": {
-    "frontendDist": "http://localhost:3000",
+    "frontendDist": "http://localhost:18473",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build && npm run tauri:bundle-server"
@@ -17,7 +17,7 @@
         "height": 600,
         "resizable": true,
         "fullscreen": false,
-        "url": "http://localhost:3000"
+        "url": "http://localhost:18473"
       }
     ],
     "security": {
