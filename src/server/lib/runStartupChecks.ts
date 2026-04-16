@@ -1,10 +1,10 @@
 import { logStartupDiagnostics } from './startupDiagnostics.js'
 import { verifyLlmAtStartup } from './llmStartupSmoke.js'
 
-/** After HTTP listen so Tauri can connect to :3000 even when LLM keys are missing at first boot. */
-export async function runStartupChecks(): Promise<void> {
+/** After HTTP listen so the desktop shell can connect even when LLM keys are missing at first boot. */
+export async function runStartupChecks(listenPort?: number): Promise<void> {
   try {
-    await logStartupDiagnostics()
+    await logStartupDiagnostics(listenPort)
   } catch (e) {
     console.error('[brain-app] startup diagnostics failed:', e)
   }

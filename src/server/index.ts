@@ -138,7 +138,7 @@ async function listenNativeBundled(): Promise<Server> {
     }
   }
   console.error(
-    `[brain-app] no free port in native range ${NATIVE_APP_PORT_START}–${NATIVE_APP_PORT_END} (TCP ${NATIVE_APP_PORT_START}–${NATIVE_APP_PORT_END}, skip 18516). Close other listeners or free a port in this range.`,
+    `[brain-app] no free port in native range ${NATIVE_APP_PORT_START}–${NATIVE_APP_PORT_END} (skip IANA TCP 18516). Close other listeners or free a port in this range.`,
   )
   process.exit(1)
 }
