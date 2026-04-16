@@ -2,11 +2,12 @@
 // set ANTHROPIC_API_KEY to empty, and loadEnvFile won't override it).
 import { loadDotEnv } from './lib/loadDotEnv.js'
 import { Hono } from 'hono'
-import { serve, getRequestListener } from '@hono/node-server'
+import { createAdaptorServer, serve, getRequestListener } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { basicAuth } from 'hono/basic-auth'
 import { logger } from 'hono/logger'
 import { createServer } from 'node:http'
+import type { Server } from 'node:http'
 import chatRoute from './routes/chat.js'
 import wikiRoute from './routes/wiki.js'
 import inboxRoute from './routes/inbox.js'
@@ -18,12 +19,17 @@ import devRoute from './routes/dev.js'
 import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
 import { runStartupChecks } from './lib/runStartupChecks.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
+import {
+  isBundledNativeServer,
+  nativeAppPortCandidates,
+  NATIVE_APP_PORT_END,
+  NATIVE_APP_PORT_START,
+} from './lib/nativeAppPort.js'
 
 loadDotEnv()
 
 const app = new Hono()
 const isDev = process.env.NODE_ENV !== 'production'
-const port = parseInt(process.env.PORT ?? '3000')
 
 const requestLogger = logger()
 /** High-frequency onboarding polls — skip Hono access logs to reduce noise */
@@ -97,11 +103,52 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
   })
 }
 
+function resolveNonNativePort(): number {
+  return parseInt(process.env.PORT ?? '3000', 10)
+}
+
+/**
+ * Bundled Tauri app: bind the first free port in the native range (constants; not `PORT` env).
+ */
+async function listenNativeBundled(): Promise<Server> {
+  const candidates = nativeAppPortCandidates()
+  for (const p of candidates) {
+    const server = createAdaptorServer({ fetch: app.fetch })
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const onErr = (err: NodeJS.ErrnoException) => {
+          server.removeListener('error', onErr)
+          reject(err)
+        }
+        server.once('error', onErr)
+        server.listen(p, () => {
+          server.removeListener('error', onErr)
+          resolve()
+        })
+      })
+      console.log(`Server running on http://localhost:${p}`)
+      return server
+    } catch (e) {
+      const err = e as NodeJS.ErrnoException
+      server.close(() => {})
+      if (err.code === 'EADDRINUSE') {
+        continue
+      }
+      throw e
+    }
+  }
+  console.error(
+    `[brain-app] no free port in native range ${NATIVE_APP_PORT_START}–${NATIVE_APP_PORT_END} (TCP ${NATIVE_APP_PORT_START}–${NATIVE_APP_PORT_END}, skip 18516). Close other listeners or free a port in this range.`,
+  )
+  process.exit(1)
+}
+
 async function start() {
   try {
     initLocalMessageToolsAvailability()
 
     if (isDev) {
+      const port = resolveNonNativePort()
       // In dev: Vite runs as middleware inside the same server.
       // API requests go to Hono; everything else goes to Vite (HMR included).
       const { createServer: createViteServer } = await import('vite')
@@ -126,17 +173,28 @@ async function start() {
       server.listen(port, () => {
         console.log(`Dev server (Hono + Vite HMR) → http://localhost:${port}`)
         registerPeriodicSyncAndShutdown(server)
-        void runStartupChecks()
+        void runStartupChecks(port)
       })
     } else {
       // In production: serve pre-built client from dist/client
       app.use('*', serveStatic({ root: './dist/client' }))
       app.get('*', serveStatic({ path: './dist/client/index.html' }))
-      const server = serve({ fetch: app.fetch, port }, () => {
-        console.log(`Server running on http://localhost:${port}`)
+
+      if (isBundledNativeServer()) {
+        const server = await listenNativeBundled()
         registerPeriodicSyncAndShutdown(server)
-        void runStartupChecks()
-      })
+        const addr = server.address()
+        const listenPort =
+          typeof addr === 'object' && addr !== null ? addr.port : undefined
+        void runStartupChecks(listenPort)
+      } else {
+        const port = resolveNonNativePort()
+        const server = serve({ fetch: app.fetch, port }, () => {
+          console.log(`Server running on http://localhost:${port}`)
+          registerPeriodicSyncAndShutdown(server)
+          void runStartupChecks(port)
+        })
+      }
     }
   } catch (e) {
     console.error(e)
