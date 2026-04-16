@@ -69,19 +69,18 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
         .env("BRAIN_BUNDLED_NATIVE", "1")
         .env("AUTH_DISABLED", "true");
 
-    // ripmail is bundled alongside node in server-bundle/.
-    // Always prefer the bundled binary; env override is a dev/CI escape hatch.
-    if std::env::var_os("RIPMAIL_BIN").is_none() {
-        let bundled = bundle.join("ripmail");
-        if bundled.is_file() {
-            log::info!("Brain bundled server: RIPMAIL_BIN={}", bundled.display());
-            cmd.env("RIPMAIL_BIN", &bundled);
-        } else {
-            log::warn!(
-                "Brain bundled server: bundled ripmail not found at {} — inbox will fail; rebuild with `npm run tauri:bundle-server`",
-                bundled.display()
-            );
-        }
+    // ripmail is bundled alongside node in server-bundle/. Always set the absolute path when
+    // present (do not skip when the parent process has RIPMAIL_BIN= or a bare name — GUI apps
+    // often inherit a broken value). `RIPMAIL_BIN` on the Command overrides the parent env.
+    let bundled_rm = bundle.join("ripmail");
+    if bundled_rm.is_file() {
+        log::info!("Brain bundled server: RIPMAIL_BIN={}", bundled_rm.display());
+        cmd.env("RIPMAIL_BIN", bundled_rm.as_os_str());
+    } else {
+        log::warn!(
+            "Brain bundled server: bundled ripmail not found at {} — inbox will fail; rebuild with `npm run tauri:bundle-server` then `tauri build`",
+            bundled_rm.display()
+        );
     }
 
     if let Some(ref home) = resolve_home_for_child(&mut cmd) {
