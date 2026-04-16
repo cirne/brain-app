@@ -10,6 +10,7 @@
     FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY,
     SEED_EARLY_EXIT_MIN_PAGES,
   } from './seedConstants.js'
+  import { resizeMainWindowToBrowserLikeWorkArea } from '../desktop/browserLikeWindow.js'
 
   interface Props {
     onComplete: () => Promise<void>
@@ -51,6 +52,8 @@
   let seedThresholdMet = $state(false)
   let seedReadyDialogEl = $state<HTMLDialogElement | null>(null)
   let onboardingExitHandled = $state(false)
+  /** True after we’ve applied the Tauri “browser-sized” window for the profiling step. */
+  let profilingBrowserLayoutDone = $state(false)
 
   const showMailFooter = $derived(
     (state === 'not-started' || state === 'indexing') &&
@@ -102,6 +105,16 @@
       void loadMailOnly()
     }, 2000)
     return () => clearInterval(t)
+  })
+
+  $effect(() => {
+    if (state !== 'profiling') {
+      profilingBrowserLayoutDone = false
+      return
+    }
+    if (profilingBrowserLayoutDone) return
+    profilingBrowserLayoutDone = true
+    void resizeMainWindowToBrowserLikeWorkArea()
   })
 
   async function patchState(next: string) {

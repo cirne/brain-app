@@ -119,9 +119,6 @@
           </button>
           <button type="button" class="fda-btn-secondary" onclick={() => void onQuit()}>Quit</button>
         </div>
-        <p class="ob-fine-print">
-          <strong>Note:</strong> Privacy panes may look greyed out in screenshots — that does not mean access is off.
-        </p>
       </div>
     </div>
   </div>
@@ -260,18 +257,6 @@
   }
   .fda-btn-secondary:hover {
     color: var(--text);
-  }
-  .ob-fine-print {
-    margin-top: 1.5rem;
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: color-mix(in srgb, var(--text-2) 70%, transparent);
-    max-width: 22rem;
-    margin-inline: auto;
-  }
-  .ob-fine-print strong {
-    font-weight: 600;
-    color: var(--text-2);
   }
   .fda-toast {
     position: fixed;
