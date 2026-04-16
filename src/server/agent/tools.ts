@@ -20,6 +20,7 @@ import {
   normalizePhoneDigits,
   phoneToFlexibleGrepPattern,
 } from '../lib/imessagePhone.js'
+import { ripmailBin } from '../lib/ripmailBin.js'
 
 const execAsync = promisify(exec)
 
@@ -302,7 +303,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       query: Type.String({ description: 'Search query' }),
     }),
     async execute(_toolCallId: string, params: { query: string }) {
-      const ripmail = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const ripmail = ripmailBin()
       const { stdout } = await execAsync(
         `${ripmail} search ${JSON.stringify(params.query)} --json`,
         { timeout: 15000 }
@@ -322,7 +323,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       id: Type.String({ description: 'Message ID' }),
     }),
     async execute(_toolCallId: string, params: { id: string }) {
-      const ripmail = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const ripmail = ripmailBin()
       const { stdout } = await execAsync(
         `${ripmail} read ${JSON.stringify(params.id)} --json`,
         { timeout: 15000 }
@@ -341,7 +342,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_email for "everything in my inbox" or when search_email returns no results. JSON includes messageId per item for archive_emails / read_email.',
     parameters: Type.Object({}),
     async execute(_toolCallId: string, _params: Record<string, never>) {
-      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const rm = ripmailBin()
       const { stdout } = await execAsync(`${rm} inbox`, { timeout: 30000 })
       const details = JSON.parse(stdout) as Record<string, unknown>
       return {
@@ -405,7 +406,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         feedback_text?: string
       },
     ) {
-      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const rm = ripmailBin()
       const tail = buildInboxRulesCommand(params)
       const timeout = params.op === 'validate' && params.sample ? 120000 : 60000
       const { stdout } = await execAsync(`${rm} ${tail}`, { timeout })
@@ -431,7 +432,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       message_ids: Type.Array(Type.String({ description: 'Message ID' }), { minItems: 1 }),
     }),
     async execute(_toolCallId: string, params: { message_ids: string[] }) {
-      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const rm = ripmailBin()
       for (const id of params.message_ids) {
         await execAsync(`${rm} archive ${JSON.stringify(id)}`, { timeout: 30000 })
       }
@@ -458,7 +459,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       message_id: Type.Optional(Type.String({ description: 'Message ID to reply to or forward — required for reply and forward' })),
     }),
     async execute(_toolCallId: string, params: { action: 'new' | 'reply' | 'forward'; instruction: string; to?: string; message_id?: string }) {
-      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const rm = ripmailBin()
       let cmd: string
       if (params.action === 'new') {
         if (!params.to) throw new Error('to is required for action=new')
@@ -503,7 +504,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       add_to?: string[]; add_cc?: string[]; add_bcc?: string[];
       remove_to?: string[]; remove_cc?: string[]; remove_bcc?: string[];
     }) {
-      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const rm = ripmailBin()
       const flags = buildDraftEditFlags(params)
       const instruction = params.instruction ? JSON.stringify(params.instruction) : '""'
       await execAsync(
@@ -529,7 +530,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       draft_id: Type.String({ description: 'Draft ID to send' }),
     }),
     async execute(_toolCallId: string, params: { draft_id: string }) {
-      const rm = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const rm = ripmailBin()
       await execAsync(`${rm} send ${JSON.stringify(params.draft_id)}`, { timeout: 30000 })
       return {
         content: [{ type: 'text' as const, text: 'Email sent.' }],
@@ -550,7 +551,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       }),
     }),
     async execute(_toolCallId: string, params: { query: string }) {
-      const ripmail = process.env.RIPMAIL_BIN ?? 'ripmail'
+      const ripmail = ripmailBin()
       const q = params.query.trim()
       if (q.length === 0) {
         let stdout = ''
