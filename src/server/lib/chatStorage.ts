@@ -128,6 +128,52 @@ async function atomicWriteJson(filePath: string, doc: ChatSessionDocV1): Promise
   await rename(tmp, filePath)
 }
 
+/** Create an on-disk session file with no messages so GET /api/chat/sessions lists it immediately. */
+export async function ensureSessionStub(sessionId: string): Promise<void> {
+  const dir = await ensureChatDir()
+  const existingName = await findFilenameForSession(sessionId)
+  if (existingName) return
+  const now = new Date().toISOString()
+  const createdAtMs = Date.now().toString()
+  const fileName = `${createdAtMs}-${sessionId}.json`
+  const doc: ChatSessionDocV1 = {
+    version: 1,
+    sessionId,
+    createdAt: now,
+    updatedAt: now,
+    title: null,
+    messages: [],
+  }
+  await atomicWriteJson(join(dir, fileName), doc)
+}
+
+/** Persist title as soon as set_chat_title runs (before the turn is saved). */
+export async function patchSessionTitle(sessionId: string, title: string): Promise<void> {
+  const t = title.trim().slice(0, 120)
+  if (!t) return
+  const dir = await ensureChatDir()
+  const existingName = await findFilenameForSession(sessionId)
+  if (!existingName) return
+  const filePath = join(dir, existingName)
+  let raw: string
+  try {
+    raw = await readFile(filePath, 'utf-8')
+  } catch {
+    return
+  }
+  let data: unknown
+  try {
+    data = JSON.parse(raw) as unknown
+  } catch {
+    return
+  }
+  if (!isChatSessionDocV1(data)) return
+  const now = new Date().toISOString()
+  data.title = t
+  data.updatedAt = now
+  await atomicWriteJson(filePath, data)
+}
+
 /**
  * Append one user + one assistant message to the session file (creates file on first turn).
  * @param title - When non-empty, sets session title (from set_chat_title).

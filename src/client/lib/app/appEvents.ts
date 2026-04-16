@@ -20,7 +20,16 @@ export type InboxArchivedEvent = {
   messageId: string
 }
 
-export type AppEvent = WikiMutatedEvent | SyncCompletedEvent | InboxArchivedEvent
+/** Chat list in the sidebar should reload (new session, title, or persisted turn). */
+export type ChatSessionsChangedEvent = {
+  type: 'chat:sessions-changed'
+}
+
+export type AppEvent =
+  | WikiMutatedEvent
+  | SyncCompletedEvent
+  | InboxArchivedEvent
+  | ChatSessionsChangedEvent
 
 const listeners = new Set<(event: AppEvent) => void>()
 
