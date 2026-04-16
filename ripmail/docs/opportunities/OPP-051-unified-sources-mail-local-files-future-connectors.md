@@ -116,6 +116,25 @@ Illustrative only — names and fields may change; **no requirement** to match c
 
 JSON contracts for `search` / `read` should include `sourceId` and `sourceKind` (exact names TBD) so agents do not infer from shape alone.
 
+### `ripmail read` — single entry point
+
+**Chosen design (clean slate):** one command, same multi-target story as today:
+
+```text
+ripmail read <TARGET>… [--raw] [--json] [--text] [--source <id>]
+```
+
+Each `TARGET` is resolved with **best-effort disambiguation** (no separate `ripmail email read` / `ripmail file read`):
+
+- **Filesystem paths** — try absolute paths, tilde expansion (`~/…`), paths relative to the current working directory, in a documented order so behavior is predictable.
+- **Email Message-IDs** — bare id, with angle brackets, and other common shapes the indexer stores (normalize before lookup).
+
+Implementation picks the first interpretation that succeeds (e.g. if a path exists on disk, read that file; otherwise look up as message id in the mail index). **Rare collisions** (same string could be a relative path and a message id): document a tie-breaker or require `--source` to narrow the namespace.
+
+**Rejected alternative:** `ripmail email read …` and `ripmail file read …` — clearer typing, but two mental models, duplicated flags, and a worse agent surface (two commands to learn, harder to chain from unified `search`).
+
+**Optional later:** a stable `docId` from `search` JSON that `read` accepts verbatim (implementation resolves via DB). Not required if `search` always returns a `TARGET` string that already fits the rules above (e.g. path for `localDir` hits, Message-ID for mail).
+
 ### Source management subcommands
 
 These let agents and users manage sources without editing `config.json` by hand. An agent can translate a natural-language request ("add my dev projects, markdown only") into a single CLI call.
@@ -169,7 +188,7 @@ All `sources` subcommands support `--json`. `sources add` outputs `{ "id": "..."
 For `localDir` sources, ripmail should **not copy or symlink files**. Instead:
 
 - **Index-time:** walk the source tree (obeying `include`/`ignore`/`.gitignore`), extract text as needed, store FTS content + the **original absolute path** + `mtime`/size in SQLite. Change detection on re-crawl: if `mtime` and size match, skip re-extraction.
-- **Read-time:** `ripmail read <id>` reads the file **live from its original path**. For plain-text formats (`.md`, `.txt`, source code) this is zero-cost. For conversion-needed formats (PDF, DOCX), extracted text is cached in `RIPMAIL_HOME/<source-id>/cache/` keyed by path hash + mtime.
+- **Read-time:** when `ripmail read` resolves `TARGET` to a file path, read **live from disk** (same disambiguation rules as the `ripmail read` subsection above). Plain-text (`.md`, `.txt`, code) is zero-cost. Conversion-heavy formats (PDF, DOCX) use cache under `RIPMAIL_HOME/<source-id>/cache/` keyed by path hash + mtime.
 - **Why not copy?** Copies go stale silently. Re-crawl would need to diff and re-copy — net complexity with no benefit over reading originals.
 - **Why not symlinks?** Fragile across volumes, broken by moves, and require elevated privileges on Windows. The original absolute path is the canonical reference.
 
