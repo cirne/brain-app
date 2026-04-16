@@ -2,6 +2,8 @@
 /**
  * Copy production server artifacts into desktop/resources/server-bundle for packaged Brain.app.
  * Run after `npm run build`.
+ *
+ * Includes: dist/, node_modules (prod), node binary, and ripmail binary (release build).
  */
 import { chmodSync, cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { execSync } from 'node:child_process'
@@ -36,4 +38,22 @@ const nodeDest = join(out, 'node')
 cpSync(nodePath, nodeDest)
 chmodSync(nodeDest, 0o755)
 console.log(`[bundle-tauri-server] copied node → ${nodeDest}`)
+
+// --- ripmail (release build) ---
+console.log('[bundle-tauri-server] cargo build -p ripmail --release …')
+execSync('cargo build -p ripmail --release', { cwd: root, stdio: 'inherit' })
+
+const targetDir = JSON.parse(
+  execSync('cargo metadata --format-version 1 --no-deps', { cwd: root, encoding: 'utf8' })
+).target_directory
+const ripmailSrc = join(targetDir, 'release/ripmail')
+if (!existsSync(ripmailSrc)) {
+  console.error(`[bundle-tauri-server] ripmail release binary not found at ${ripmailSrc}`)
+  process.exit(1)
+}
+const ripmailDest = join(out, 'ripmail')
+cpSync(ripmailSrc, ripmailDest)
+chmodSync(ripmailDest, 0o755)
+console.log(`[bundle-tauri-server] copied ripmail → ${ripmailDest}`)
+
 console.log(`[bundle-tauri-server] done → ${out}`)

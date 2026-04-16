@@ -3,7 +3,6 @@
   import type { Snippet } from 'svelte'
   import { invoke } from '@tauri-apps/api/core'
   import { exit, relaunch } from '@tauri-apps/plugin-process'
-  import { FDA_GATE_OPEN_EVENT } from './fdaGateKeys.js'
 
   let { children }: { children: Snippet } = $props()
 
@@ -46,29 +45,12 @@
   )
 
   onMount(() => {
-    if (typeof sessionStorage !== 'undefined') {
-      laterSkip = sessionStorage.getItem(FDA_GATE_LATER_SESSION_KEY) === '1'
-    }
-
-    const onOpen = () => {
-      forceShow = true
-      if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.removeItem(FDA_GATE_LATER_SESSION_KEY)
-      }
-      laterSkip = false
-    }
-    window.addEventListener(FDA_GATE_OPEN_EVENT, onOpen)
-
-    if (!gateApplies) {
-      return () => window.removeEventListener(FDA_GATE_OPEN_EVENT, onOpen)
-    }
+    if (!gateApplies) return
 
     void (async () => {
       granted = await probeFda()
       checked = true
     })()
-
-    return () => window.removeEventListener(FDA_GATE_OPEN_EVENT, onOpen)
   })
 
   $effect(() => {
@@ -105,12 +87,12 @@
     polling = true
   }
 
-  function onLater() {
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem(FDA_GATE_LATER_SESSION_KEY, '1')
+  async function onQuit() {
+    try {
+      await exit(0)
+    } catch {
+      window.close()
     }
-    laterSkip = true
-    forceShow = false
   }
 </script>
 
@@ -135,7 +117,7 @@
           <button type="button" class="ob-btn-primary ob-btn-block" onclick={() => void onOpenSettings()}>
             Open System Settings
           </button>
-          <button type="button" class="fda-btn-secondary" onclick={onLater}>Later</button>
+          <button type="button" class="fda-btn-secondary" onclick={() => void onQuit()}>Quit</button>
         </div>
         <p class="ob-fine-print">
           <strong>Note:</strong> Privacy panes may look greyed out in screenshots — that does not mean access is off.

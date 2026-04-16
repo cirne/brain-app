@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { SurfaceContext } from '../router.js'
-  import { FDA_GATE_LATER_SESSION_KEY, FDA_GATE_OPEN_EVENT } from './onboarding/fdaGateKeys.js'
+  import { FDA_GATE_OPEN_EVENT } from './onboarding/fdaGateKeys.js'
 
   type CompactRow = { ts: number; m: number; t: string; r?: number }
 
@@ -83,11 +83,6 @@
   })
 
   function openFdaGateFromHint() {
-    try {
-      sessionStorage.removeItem(FDA_GATE_LATER_SESSION_KEY)
-    } catch {
-      /* ignore */
-    }
     window.dispatchEvent(new CustomEvent(FDA_GATE_OPEN_EVENT))
   }
 
