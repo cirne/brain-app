@@ -86,7 +86,7 @@ Forum history (including Apple staff) emphasizes **code identity**, bundle struc
 ## Current Brain architecture (today)
 
 - **Tauri** hosts the WebView and, in release, spawns the **Node** server (bundled under `Brain.app`, e.g. `server-bundle`).
-- **ripmail** is **not** bundled inside Brain.app; the Node server uses `ripmail` on `PATH` or `RIPMAIL_BIN` (see `desktop/src/server_spawn.rs` logging at startup).
+- **ripmail** is bundled inside `server-bundle/ripmail`; `tauri:bundle-server` builds it (release) and the Tauri shell sets `RIPMAIL_BIN` to the bundled path (see `desktop/src/server_spawn.rs`).
 - **FDA probes** exist in:
   - **Rust** (`desktop/src/fda.rs`) — used by the native gate / `invoke`.
   - **Node** (`src/server/lib/fdaProbe.ts`) — startup diagnostics + `GET /api/onboarding/fda?detail=1`.

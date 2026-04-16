@@ -16,24 +16,6 @@ use crate::native_port;
 
 pub struct ServerChild(pub Mutex<Option<Child>>);
 
-/// macOS apps launched from Finder/Dock don't inherit the user's shell PATH,
-/// so a bare `ripmail` won't resolve. Probe well-known install locations.
-fn resolve_ripmail_bin() -> Option<String> {
-    let home = std::env::var("HOME").ok()?;
-    let candidates = [
-        format!("{home}/.local/bin/ripmail"),
-        format!("{home}/.cargo/bin/ripmail"),
-        "/usr/local/bin/ripmail".to_string(),
-        "/opt/homebrew/bin/ripmail".to_string(),
-    ];
-    for c in &candidates {
-        if Path::new(c).is_file() {
-            return Some(c.clone());
-        }
-    }
-    None
-}
-
 fn resolve_home_for_child(cmd: &mut Command) -> Option<String> {
     if let Ok(h) = std::env::var("HOME") {
         return Some(h);
@@ -87,13 +69,17 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
         .env("BRAIN_BUNDLED_NATIVE", "1")
         .env("AUTH_DISABLED", "true");
 
+    // ripmail is bundled alongside node in server-bundle/.
+    // Always prefer the bundled binary; env override is a dev/CI escape hatch.
     if std::env::var_os("RIPMAIL_BIN").is_none() {
-        if let Some(resolved) = resolve_ripmail_bin() {
-            log::info!("Brain bundled server: resolved RIPMAIL_BIN={}", resolved);
-            cmd.env("RIPMAIL_BIN", &resolved);
+        let bundled = bundle.join("ripmail");
+        if bundled.is_file() {
+            log::info!("Brain bundled server: RIPMAIL_BIN={}", bundled.display());
+            cmd.env("RIPMAIL_BIN", &bundled);
         } else {
             log::warn!(
-                "Brain bundled server: RIPMAIL_BIN not set and ripmail not found in common locations — inbox will fail unless `ripmail` is on the child's PATH"
+                "Brain bundled server: bundled ripmail not found at {} — inbox will fail; rebuild with `npm run tauri:bundle-server`",
+                bundled.display()
             );
         }
     }

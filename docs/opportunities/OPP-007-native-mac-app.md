@@ -94,7 +94,7 @@ For a deeply personal "second brain," local-first is arguably the right architec
 
 ## ripmail and the native app
 
-Email uses the **ripmail** CLI via subprocess. The packaged app **does not** ship ripmail inside `Brain.app`; the server uses `RIPMAIL_BIN` when set, otherwise `ripmail` on `PATH` (same as dev). Users can run `npm run ripmail:dev` to build the workspace binary and point `RIPMAIL_BIN` at `target/debug/ripmail` if needed.
+Email uses the **ripmail** CLI via subprocess. The packaged app bundles a release-built `ripmail` binary inside `server-bundle/ripmail`; `tauri:bundle-server` builds it automatically. The Tauri shell resolves it at that path and sets `RIPMAIL_BIN` for the Node child process. `RIPMAIL_BIN` can still be overridden via the environment for dev/CI.
 
 ### Building ripmail locally
 
