@@ -34,6 +34,9 @@ pub fn run() {
             )?;
             #[cfg(target_os = "macos")]
             crate::fda::log_probe_diagnostics();
+            // Dev: no bundled Node child — the webview must load the same URL as `npm run dev`
+            // (`build.devUrl` / PORT, default :3000). That comes from `windows[].url` in tauri.conf.json;
+            // we do not call `navigate` here in debug (see release branch below).
             if cfg!(debug_assertions) {
                 return Ok(());
             }

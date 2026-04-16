@@ -17,7 +17,7 @@
         "height": 600,
         "resizable": true,
         "fullscreen": false,
-        "url": "http://localhost:18473"
+        "url": "http://localhost:3000"
       }
     ],
     "security": {

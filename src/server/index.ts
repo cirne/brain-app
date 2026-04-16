@@ -157,6 +157,15 @@ async function start() {
 
     if (isDev) {
       const port = resolveNonNativePort()
+      // If another `npm run dev` already owns this port, exit before createViteServer — otherwise Vite
+      // would still start a second HMR WebSocket (e.g. :24678) and fight the first dev server.
+      const portFree = await probeDevPortAvailable(port)
+      if (!portFree) {
+        console.info(duplicateDevListenMessage(port))
+        process.exit(0)
+        return
+      }
+
       // In dev: Vite runs as middleware inside the same server.
       // API requests go to Hono; everything else goes to Vite (HMR included).
       const { createServer: createViteServer } = await import('vite')
