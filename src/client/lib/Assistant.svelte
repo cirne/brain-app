@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import { fly } from 'svelte/transition'
+  import { fly, slide } from 'svelte/transition'
   import Search from './Search.svelte'
   import AppTopNav from './AppTopNav.svelte'
   import SlideOver from './SlideOver.svelte'
@@ -58,11 +58,34 @@
   let sidebarOpen = $state(false)
   let chatHistory = $state<{ refresh: () => Promise<void> } | undefined>()
   let activeSessionId = $state<string | null>(null)
+  /** True while the visible chat has an in-flight agent stream (for sidebar “working” icon). */
+  let activeSessionStreaming = $state(false)
 
   const SIDEBAR_FLY_X = 280
+  const SIDEBAR_TRANSITION_MS = 220
 
   /** Instant open/close when user prefers reduced motion. */
   let reduceSidebarMotion = $state(false)
+
+  /**
+   * Mobile: drawer over content (transform slide).
+   * Desktop: width animation so flex reflows with the rail as it opens/closes.
+   */
+  function historySidebarTransition(
+    node: Element,
+    { mobile, reduce }: { mobile: boolean; reduce: boolean }
+  ) {
+    if (mobile) {
+      return fly(node, {
+        x: reduce ? 0 : -SIDEBAR_FLY_X,
+        duration: reduce ? 0 : SIDEBAR_TRANSITION_MS,
+      })
+    }
+    return slide(node, {
+      axis: 'x',
+      duration: reduce ? 0 : SIDEBAR_TRANSITION_MS,
+    })
+  }
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
 
@@ -449,18 +472,13 @@
       {/if}
       <aside
         class="history-sidebar history-sidebar--slide"
-        in:fly={{
-          x: reduceSidebarMotion ? 0 : -SIDEBAR_FLY_X,
-          duration: reduceSidebarMotion ? 0 : 220,
-        }}
-        out:fly={{
-          x: reduceSidebarMotion ? 0 : -SIDEBAR_FLY_X,
-          duration: reduceSidebarMotion ? 0 : 220,
-        }}
+        in:historySidebarTransition={{ mobile: isMobile, reduce: reduceSidebarMotion }}
+        out:historySidebarTransition={{ mobile: isMobile, reduce: reduceSidebarMotion }}
       >
         <ChatHistory
           bind:this={chatHistory}
           activeSessionId={activeSessionId}
+          activeSessionStreaming={activeSessionStreaming}
           onSelect={selectChatSession}
           onSelectDoc={selectDocFromHistory}
           onSelectEmail={selectEmailFromHistory}
@@ -491,6 +509,7 @@
         onNewChat={closeOverlay}
         onUserSendMessage={closeOverlayOnUserSend}
         onSessionChange={onSessionChangeFromAgent}
+        onStreamingChange={(s) => { activeSessionStreaming = s }}
         onChatPersisted={onChatPersisted}
         onWriteStreaming={onWriteStreaming}
         onEditStreaming={onEditStreaming}
@@ -575,8 +594,8 @@
   }
 
   /**
-   * Desktop: in-flow flex child so the main column is pushed right.
-   * Mobile: fixed overlay above content (with backdrop); enter/exit via `fly` transition.
+   * Desktop: in-flow flex child; enter/exit via `slide` (axis x) so width animates and the workspace reflows.
+   * Mobile: fixed overlay above content (with backdrop); enter/exit via `fly` (transform).
    */
   .history-sidebar--slide {
     display: flex;

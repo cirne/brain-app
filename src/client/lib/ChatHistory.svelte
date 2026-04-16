@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { MessageSquare, Mail, Trash2, Plus } from 'lucide-svelte'
+  import { Loader2, MessageSquare, Mail, Trash2, Plus } from 'lucide-svelte'
+  import { chatRowShowsAgentWorking } from './chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from './chatHistoryDelete.js'
   import {
     loadNavHistory,
@@ -19,12 +20,15 @@
 
   let {
     activeSessionId = null as string | null,
+    /** True while the active chat session has an in-flight agent response (SSE). */
+    activeSessionStreaming = false,
     onSelect,
     onSelectDoc,
     onSelectEmail,
     onNewChat,
   }: {
     activeSessionId?: string | null
+    activeSessionStreaming?: boolean
     onSelect: (_sessionId: string) => void
     onSelectDoc?: (_path: string) => void
     onSelectEmail?: (_id: string) => void
@@ -155,6 +159,7 @@
 <svelte:window onkeydown={onDeleteDialogKeydown} />
 
 {#snippet navRow(item: NavRowItem)}
+  {@const agentWorking = chatRowShowsAgentWorking(item, activeSessionId, activeSessionStreaming)}
   <div
     class="ch-row"
     class:active={item.type === 'chat' && activeSessionId === item.sessionId}
@@ -173,9 +178,18 @@
         <WikiFileName path={item.path} />
       </span>
     {:else}
-      <span class="ch-row-icon" class:ch-row-icon--chat={item.type === 'chat'} class:ch-row-icon--email={item.type === 'email'}>
+      <span
+        class="ch-row-icon"
+        class:ch-row-icon--chat={item.type === 'chat'}
+        class:ch-row-icon--email={item.type === 'email'}
+        class:ch-row-icon--working={agentWorking}
+      >
         {#if item.type === 'chat'}
-          <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
+          {#if agentWorking}
+            <Loader2 class="sync-spinning" size={12} strokeWidth={2} aria-hidden="true" />
+          {:else}
+            <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
+          {/if}
         {:else if item.type === 'email'}
           <Mail size={12} strokeWidth={2} aria-hidden="true" />
         {/if}
@@ -377,6 +391,10 @@
   .ch-row-icon--chat {
     color: var(--accent);
     opacity: 0.75;
+  }
+
+  .ch-row-icon--working {
+    opacity: 0.9;
   }
 
   .ch-row-icon--email {
