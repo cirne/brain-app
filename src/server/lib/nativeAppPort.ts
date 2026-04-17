@@ -7,6 +7,14 @@
 export const NATIVE_APP_PORT_START = 18473
 export const NATIVE_APP_PORT_END = 18522
 
+/**
+ * Number of additional ports to try when the primary port is in use.
+ * Each macOS user running Brain occupies one port, so 3 failovers supports
+ * up to 4 simultaneous users on the same machine.
+ * Each port must be registered as an Authorized redirect URI in Google Cloud Console.
+ */
+export const NATIVE_APP_PORT_FAILOVER_COUNT = 3
+
 /** IANA: TCP 18516 is reserved in this band — omit from the scan. */
 const NATIVE_APP_PORT_SKIP = 18516
 
@@ -18,6 +26,15 @@ export function nativeAppPortCandidates(): number[] {
     out.push(p)
   }
   return out
+}
+
+/**
+ * The subset of port candidates tried at startup: primary + up to
+ * {@link NATIVE_APP_PORT_FAILOVER_COUNT} failovers.
+ * These are the ports that must be registered as OAuth redirect URIs.
+ */
+export function nativeAppOAuthPortCandidates(): number[] {
+  return nativeAppPortCandidates().slice(0, NATIVE_APP_PORT_FAILOVER_COUNT + 1)
 }
 
 export function isBundledNativeServer(): boolean {

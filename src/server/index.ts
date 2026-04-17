@@ -2,6 +2,7 @@
 // set ANTHROPIC_API_KEY to empty, and loadEnvFile won't override it).
 import { loadDotEnv } from './lib/loadDotEnv.js'
 import { Hono } from 'hono'
+import { getConnInfo } from '@hono/node-server/conninfo'
 import { createAdaptorServer, serve, getRequestListener } from '@hono/node-server'
 import type { ServerType } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
@@ -24,8 +25,9 @@ import { runStartupChecks } from './lib/runStartupChecks.js'
 import { ensureBrainHomeGitignore } from './lib/brainHomeGitignore.js'
 import { ensureDefaultSkillsSeeded } from './lib/skillsSeeder.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
-import { BRAIN_DEFAULT_HTTP_PORT } from './lib/brainHttpPort.js'
-import { isBundledNativeServer, NATIVE_APP_PORT_START } from './lib/nativeAppPort.js'
+import { BRAIN_DEFAULT_HTTP_PORT, setActualNativePort } from './lib/brainHttpPort.js'
+import { isAllowedBundledNativeClientIp } from './lib/bundledNativeClientAllowlist.js'
+import { isBundledNativeServer, nativeAppOAuthPortCandidates } from './lib/nativeAppPort.js'
 import {
   duplicateDevListenMessage,
   isAddrInUse,
@@ -36,6 +38,25 @@ loadDotEnv()
 
 const app = new Hono()
 const isDev = process.env.NODE_ENV !== 'production'
+
+if (isBundledNativeServer()) {
+  app.use('*', async (c, next) => {
+    let addr: string | undefined
+    try {
+      addr = getConnInfo(c).remote.address
+    } catch {
+      addr = undefined
+    }
+    if (addr === undefined) {
+      const incoming = (c.env as { incoming?: { socket?: { remoteAddress?: string } } }).incoming
+      addr = incoming?.socket?.remoteAddress
+    }
+    if (!isAllowedBundledNativeClientIp(addr)) {
+      return c.text('Forbidden', 403)
+    }
+    return next()
+  })
+}
 
 const requestLogger = logger()
 /** High-frequency onboarding polls — skip Hono access logs to reduce noise */
@@ -122,36 +143,54 @@ function resolveNonNativePort(): number {
 }
 
 /**
- * Bundled Tauri app: bind the canonical Brain port (same as OAuth redirect and `frontendDist`).
- * Fails if another process already owns this port (no silent fallback).
+ * Try to bind an http.Server to a single port. Returns true on success, false on EADDRINUSE,
+ * throws on any other error.
  */
-async function listenNativeBundled(): Promise<ServerType> {
-  const p = NATIVE_APP_PORT_START
-  const server = createAdaptorServer({ fetch: app.fetch })
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const onErr = (err: Error & { code?: string }) => {
-        server.removeListener('error', onErr)
+function tryListen(server: ServerType, port: number): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const onErr = (err: Error & { code?: string }) => {
+      server.removeListener('error', onErr)
+      if (err.code === 'EADDRINUSE') {
+        resolve(false)
+      } else {
         reject(err)
       }
-      server.once('error', onErr)
-      server.listen(p, () => {
-        server.removeListener('error', onErr)
-        resolve()
-      })
-    })
-    console.log(`Server running on http://localhost:${p}`)
-    return server
-  } catch (e) {
-    const err = e as Error & { code?: string }
-    server.close(() => {})
-    if (err.code === 'EADDRINUSE') {
-      throw new Error(
-        `[brain-app] Port ${p} is required (OAuth redirect + Tauri). Free 127.0.0.1:${p} or stop the other process using it.`,
-      )
     }
-    throw e
+    server.once('error', onErr)
+    server.listen(port, '0.0.0.0', () => {
+      server.removeListener('error', onErr)
+      resolve(true)
+    })
+  })
+}
+
+/**
+ * Bundled Tauri app: bind the first available port from the OAuth candidate list
+ * (18473, 18474, 18475, 18476). Multiple users on the same machine each get their own port.
+ * Calls {@link setActualNativePort} so the OAuth redirect URI reflects the bound port.
+ */
+async function listenNativeBundled(): Promise<ServerType> {
+  const candidates = nativeAppOAuthPortCandidates()
+
+  for (const p of candidates) {
+    const server = createAdaptorServer({ fetch: app.fetch })
+    const bound = await tryListen(server, p)
+    if (bound) {
+      setActualNativePort(p)
+      if (p !== candidates[0]) {
+        console.log(`[brain-app] Port ${candidates[0]} in use; bound to fallback port ${p}`)
+      }
+      console.log(
+        `[brain-app] Bundled server listening on 0.0.0.0:${p} (Tailscale: http://<this-machine-tailscale-ip>:${p}; OAuth: http://127.0.0.1:${p})`,
+      )
+      return server
+    }
+    server.close(() => {})
   }
+
+  throw new Error(
+    `[brain-app] All OAuth ports in use (${candidates.join(', ')}). Stop another Brain instance or free one of these ports.`,
+  )
 }
 
 async function start() {

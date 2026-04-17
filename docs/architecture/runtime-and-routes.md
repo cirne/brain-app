@@ -27,7 +27,15 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 ## Production vs bundled native
 
 - **Normal production** (`NODE_ENV=production`, not Tauri): listen on `PORT` (default `3000`), static files from `dist/client`.
-- **Bundled Brain.app** (`BRAIN_BUNDLED_NATIVE=1`): the server binds the **first free port** in a fixed range (see [`nativeAppPort.ts`](../../src/server/lib/nativeAppPort.ts)); `PORT` is not used for that mode.
+- **Bundled Brain.app** (`BRAIN_BUNDLED_NATIVE=1`): the server listens on **`0.0.0.0:18473`** (see [`src/server/index.ts`](../../src/server/index.ts)); `PORT` is not used for that mode. The desktop shell probes the canonical port range until the listener appears (see [`native_port.rs`](../../desktop/src/native_port.rs)).
+
+### Tailscale / remote access (bundled only)
+
+Binding **`0.0.0.0`** lets other devices reach Brain on this machine’s **Tailscale IP** (e.g. `http://100.x.x.x:18473`) without `tailscale serve`. Only your tailnet can route to that address; other tailnets cannot.
+
+To avoid exposing the same port to arbitrary **LAN** clients (e.g. `192.168.x.x`), the bundled server **drops** TCP connections whose remote address is not **loopback** (`127.0.0.0/8`, `::1`) or **RFC 6598** CGNAT **`100.64.0.0/10`** (Tailscale node addresses). Gmail OAuth still uses the registered **`http://127.0.0.1:18473/...`** redirect URI; that traffic stays loopback.
+
+Implementation: [`bundledNativeClientAllowlist.ts`](../../src/server/lib/bundledNativeClientAllowlist.ts).
 
 ## Auth
 

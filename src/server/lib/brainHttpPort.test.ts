@@ -4,6 +4,7 @@ import {
   GOOGLE_OAUTH_CALLBACK_PATH,
   googleOAuthRedirectUri,
   oauthRedirectListenPort,
+  setActualNativePort,
 } from './brainHttpPort.js'
 import { NATIVE_APP_PORT_START } from './nativeAppPort.js'
 
@@ -16,6 +17,8 @@ describe('brainHttpPort', () => {
     savedBundled = process.env.BRAIN_BUNDLED_NATIVE
     delete process.env.PORT
     delete process.env.BRAIN_BUNDLED_NATIVE
+    // Reset dynamic port to the default before each test.
+    setActualNativePort(NATIVE_APP_PORT_START)
   })
 
   afterEach(() => {
@@ -23,6 +26,7 @@ describe('brainHttpPort', () => {
     else process.env.PORT = savedPort
     if (savedBundled === undefined) delete process.env.BRAIN_BUNDLED_NATIVE
     else process.env.BRAIN_BUNDLED_NATIVE = savedBundled
+    setActualNativePort(NATIVE_APP_PORT_START)
   })
 
   it('default listen port is 3000 (dev / non-bundled), distinct from native app OAuth port', () => {
@@ -42,12 +46,28 @@ describe('brainHttpPort', () => {
     )
   })
 
-  it('OAuth redirect uses native port when BRAIN_BUNDLED_NATIVE=1', () => {
+  it('OAuth redirect uses actual native port (default 18473) when BRAIN_BUNDLED_NATIVE=1', () => {
     process.env.BRAIN_BUNDLED_NATIVE = '1'
-    process.env.PORT = '9999'
+    process.env.PORT = '9999' // PORT env is ignored in bundled mode
     expect(oauthRedirectListenPort()).toBe(NATIVE_APP_PORT_START)
     expect(googleOAuthRedirectUri()).toBe(
       `http://127.0.0.1:${NATIVE_APP_PORT_START}${GOOGLE_OAUTH_CALLBACK_PATH}`
     )
+  })
+
+  it('setActualNativePort updates the OAuth redirect URI in bundled mode', () => {
+    process.env.BRAIN_BUNDLED_NATIVE = '1'
+    const failoverPort = NATIVE_APP_PORT_START + 1
+    setActualNativePort(failoverPort)
+    expect(oauthRedirectListenPort()).toBe(failoverPort)
+    expect(googleOAuthRedirectUri()).toBe(
+      `http://127.0.0.1:${failoverPort}${GOOGLE_OAUTH_CALLBACK_PATH}`
+    )
+  })
+
+  it('setActualNativePort has no effect when not in bundled mode', () => {
+    setActualNativePort(NATIVE_APP_PORT_START + 2)
+    // Non-bundled: PORT env drives the redirect, not the native port variable.
+    expect(oauthRedirectListenPort()).toBe(3000)
   })
 })

@@ -5,8 +5,9 @@ import { isBundledNativeServer, NATIVE_APP_PORT_START } from './nativeAppPort.js
  * `BRAIN_BUNDLED_NATIVE`). Keeps `npm run dev` off **18473**, which the packaged Brain.app reserves
  * for its embedded server + OAuth.
  *
- * The **bundled** Tauri app listens on {@link NATIVE_APP_PORT_START} (18473); OAuth redirect for
- * that mode uses the same port (see {@link oauthRedirectListenPort}).
+ * The **bundled** Tauri app dynamically binds the first available port starting at
+ * {@link NATIVE_APP_PORT_START} (18473); the actual bound port is stored via
+ * {@link setActualNativePort} so {@link oauthRedirectListenPort} returns the correct value.
  */
 export const BRAIN_DEFAULT_HTTP_PORT = 3000
 
@@ -14,11 +15,26 @@ export const BRAIN_DEFAULT_HTTP_PORT = 3000
 export const GOOGLE_OAUTH_CALLBACK_PATH = '/api/oauth/google/callback'
 
 /**
+ * The port the bundled native server actually bound to. Set once at startup by
+ * {@link setActualNativePort}; read by {@link oauthRedirectListenPort} at request time so the
+ * OAuth redirect URI always reflects the live port.
+ */
+let _actualNativePort: number = NATIVE_APP_PORT_START
+
+/** Called once from `listenNativeBundled()` after the server successfully binds. */
+export function setActualNativePort(port: number): void {
+  _actualNativePort = port
+}
+
+/**
  * Port embedded in the Google OAuth redirect URI. Must match the URL the browser is sent to after
- * consent — i.e. the TCP port Brain is listening on for this process (or 18473 when `BRAIN_BUNDLED_NATIVE=1`).
+ * consent — i.e. the TCP port Brain is listening on for this process.
+ *
+ * In bundled native mode the port is determined dynamically at startup (first available from the
+ * OAuth candidate list); in dev/non-bundled mode it comes from `PORT` env or the default 3000.
  */
 export function oauthRedirectListenPort(): number {
-  if (isBundledNativeServer()) return NATIVE_APP_PORT_START
+  if (isBundledNativeServer()) return _actualNativePort
   return parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)
 }
 
