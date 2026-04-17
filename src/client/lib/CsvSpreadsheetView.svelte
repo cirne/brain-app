@@ -89,9 +89,10 @@
     max-width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
-    border-top: 1px solid var(--border, #ccc);
     margin-top: 8px;
-    padding-top: 8px;
+    padding-top: 0;
+    border-top: 1px solid var(--border, #ccc);
+    background: var(--bg-2, #e8e8ea);
     -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
   }
@@ -99,28 +100,36 @@
     display: inline-flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    align-items: center;
-    gap: 6px;
+    align-items: stretch;
+    gap: 0;
     width: max-content;
     max-width: none;
-    padding-bottom: 2px;
+    min-height: 26px;
   }
   .sheet-tab {
     flex-shrink: 0;
-    border: 1px solid var(--border, #ccc);
-    background: var(--bg-elevated, var(--bg, #fff));
-    color: var(--fg, inherit);
-    border-radius: 6px;
-    padding: 6px 12px;
-    font-size: 0.8125rem;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    border-right: 1px solid var(--border, #c8c8cc);
+    padding: 4px 8px;
+    font-size: 0.6875rem;
+    line-height: 1.2;
     cursor: pointer;
     white-space: nowrap;
+    color: var(--text-2, #555);
+    background: rgba(0, 0, 0, 0.04);
+  }
+  .sheet-tab:last-child {
+    border-right: none;
   }
   .sheet-tab:hover {
-    background: var(--sheet-hover, rgba(80, 120, 200, 0.1));
+    background: rgba(0, 0, 0, 0.07);
+    color: var(--text, #111);
   }
   .sheet-tab.active {
-    border-color: var(--accent, #4a6fa5);
+    background: var(--bg, #fff);
+    color: var(--text, #111);
     font-weight: 600;
   }
   .muted {

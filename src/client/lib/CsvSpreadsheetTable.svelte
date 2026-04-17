@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { isSpreadsheetNumericCell } from './csvSpreadsheet.js'
+
   let {
     headers,
     rows,
@@ -22,7 +24,8 @@
         {#each rows as row, ri (ri)}
           <tr class:stripe={ri % 2 === 1}>
             {#each headers as _, ci (ci)}
-              <td>{row[ci] ?? ''}</td>
+              {@const cell = row[ci] ?? ''}
+              <td class:numeric={isSpreadsheetNumericCell(cell)}>{cell}</td>
             {/each}
           </tr>
         {/each}
@@ -78,6 +81,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: top;
+    text-align: left;
+  }
+  .sheet tbody td.numeric {
+    text-align: right;
   }
   .sheet tbody tr.stripe td {
     background: var(--sheet-stripe, rgba(0, 0, 0, 0.03));

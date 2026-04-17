@@ -3,6 +3,7 @@ import {
   parseSpreadsheetFromText,
   splitRipmailSheetSections,
   parseDelimitedToGrid,
+  isSpreadsheetNumericCell,
 } from './csvSpreadsheet.js'
 
 describe('splitRipmailSheetSections', () => {
@@ -59,6 +60,20 @@ c,d
     expect(r.sheets).toHaveLength(2)
     expect(r.sheets[0].name).toBe('S1')
     expect('headers' in r.sheets[0].grid && r.sheets[0].grid.headers[0]).toBe('a')
+  })
+})
+
+describe('isSpreadsheetNumericCell', () => {
+  it('recognizes integers, decimals, negatives, and comma thousands', () => {
+    expect(isSpreadsheetNumericCell('3645977')).toBe(true)
+    expect(isSpreadsheetNumericCell('-689655')).toBe(true)
+    expect(isSpreadsheetNumericCell('3.14')).toBe(true)
+    expect(isSpreadsheetNumericCell('1,234,567')).toBe(true)
+  })
+  it('rejects non-numeric text', () => {
+    expect(isSpreadsheetNumericCell('')).toBe(false)
+    expect(isSpreadsheetNumericCell('N/A')).toBe(false)
+    expect(isSpreadsheetNumericCell('12a')).toBe(false)
   })
 })
 

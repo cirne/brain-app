@@ -41,6 +41,19 @@ export function spreadsheetDelimiterForPath(path: string): ',' | '\t' {
 }
 
 /**
+ * True when the cell string parses as a finite number (optional thousands commas).
+ * Used for right-aligned numeric columns in the spreadsheet viewer.
+ */
+export function isSpreadsheetNumericCell(value: string): boolean {
+  const t = value.trim()
+  if (t === '') return false
+  const normalized = t.replace(/,/g, '')
+  if (normalized === '-' || normalized === '.') return false
+  const n = Number(normalized)
+  return Number.isFinite(n) && normalized.length > 0
+}
+
+/**
  * ripmail `read` turns `.xlsx` / `.xls` into CSV text; multiple sheets use:
  * `## Sheet: Name\n\n<csv body>` (see ripmail `xlsx_to_csv`).
  * Single-sheet workbooks omit the `## Sheet:` header.
