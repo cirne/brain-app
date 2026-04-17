@@ -1,14 +1,14 @@
-import { mkdir, readFile, writeFile, unlink, rm, rename } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, unlink, rename } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
-import { chatDataDir, deleteAllChatSessionFiles } from './chatStorage.js'
-import { wikiDir, wipeWikiContent } from './wikiDir.js'
+import { chatDataDir } from './chatStorage.js'
+import { wikiDir } from './wikiDir.js'
+import { wipeBrainHomeContents } from './brainHome.js'
 
 /** Persisted onboarding machine state (OPP-006). */
 export type OnboardingMachineState =
   | 'not-started'
   | 'indexing'
-  | 'warming'
   | 'profiling'
   | 'reviewing-profile'
   | 'confirming-categories'
@@ -71,11 +71,12 @@ export async function readOnboardingStateDoc(): Promise<OnboardingStateDoc> {
     const parsed = JSON.parse(raw) as unknown
     if (!parsed || typeof parsed !== 'object') return defaultDoc()
     const o = parsed as Record<string, unknown>
-    const state = o.state
+    let state = o.state
+    /** Removed interstitial; old files may still say `warming`. */
+    if (state === 'warming') state = 'profiling'
     const valid: OnboardingMachineState[] = [
       'not-started',
       'indexing',
-      'warming',
       'profiling',
       'reviewing-profile',
       'confirming-categories',
@@ -109,8 +110,7 @@ export function wikiMeExists(): boolean {
 
 const transitions: Record<OnboardingMachineState, OnboardingMachineState[]> = {
   'not-started': ['indexing', 'not-started'],
-  indexing: ['warming', 'profiling', 'not-started'],
-  warming: ['profiling', 'not-started'],
+  indexing: ['profiling', 'not-started'],
   profiling: ['reviewing-profile', 'not-started'],
   'reviewing-profile': ['confirming-categories', 'seeding', 'not-started'],
   'confirming-categories': ['seeding', 'not-started'],
@@ -161,15 +161,7 @@ export async function clearOnboardingStaging(): Promise<void> {
   }
 }
 
-/** Dev hard-reset: onboarding state + persisted chat sessions + entire wiki content + onboarding staging dir contents. */
+/** Dev hard-reset: wipe all durable data under `BRAIN_HOME` (see `wipeBrainHomeContents`). */
 export async function hardResetOnboardingArtifacts(): Promise<void> {
-  await resetOnboardingState()
-  await deleteAllChatSessionFiles()
-  await wipeWikiContent()
-  try {
-    await rm(onboardingDataDir(), { recursive: true, force: true })
-  } catch {
-    /* ignore */
-  }
-  await mkdir(onboardingDataDir(), { recursive: true })
+  await wipeBrainHomeContents()
 }

@@ -4,7 +4,7 @@
   import FullDiskAccessGate from './lib/onboarding/FullDiskAccessGate.svelte'
   import Onboarding from './lib/onboarding/Onboarding.svelte'
   import { parseRoute, type Route } from './router.js'
-  import { clearOnboardingAgentLocalStorage } from './lib/onboarding/onboardingStorageKeys.js'
+  import { clearBrainClientStorage } from './lib/brainClientStorage.js'
 
   let route = $state<Route>(parseRoute())
   let appReady = $state(false)
@@ -34,7 +34,7 @@
       if (import.meta.env.DEV && parseRoute().flow === 'hard-reset') {
         try {
           const res = await fetch('/api/dev/hard-reset', { method: 'POST' })
-          if (res.ok) clearOnboardingAgentLocalStorage()
+          if (res.ok) clearBrainClientStorage()
         } catch {
           /* ignore */
         }

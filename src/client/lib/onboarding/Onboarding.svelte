@@ -102,7 +102,7 @@
   })
 
   $effect(() => {
-    if (state !== 'not-started' && state !== 'indexing' && state !== 'warming') return
+    if (state !== 'not-started' && state !== 'indexing') return
     const t = setInterval(() => {
       void loadMailOnly()
     }, 2000)
@@ -138,28 +138,18 @@
   })
 
   /** After enough mail is indexed, leave indexing without a manual “proceed” tap. */
-  let indexingToWarmingInitiated = $state(false)
+  let indexingToProfilingInitiated = $state(false)
   $effect(() => {
-    if (state === 'not-started') indexingToWarmingInitiated = false
+    if (state === 'not-started') indexingToProfilingInitiated = false
   })
 
   $effect(() => {
     if (state !== 'indexing' || !canBuildProfile || busy) return
-    if (indexingToWarmingInitiated) return
-    indexingToWarmingInitiated = true
-    void patchState('warming').catch(() => {
-      indexingToWarmingInitiated = false
+    if (indexingToProfilingInitiated) return
+    indexingToProfilingInitiated = true
+    void patchState('profiling').catch(() => {
+      indexingToProfilingInitiated = false
     })
-  })
-
-  /** Brief animated interstitial before the profiling workspace (server state survives refresh). */
-  const WARMING_TO_PROFILING_MS = 2600
-  $effect(() => {
-    if (state !== 'warming') return
-    const t = setTimeout(() => {
-      void patchState('profiling')
-    }, WARMING_TO_PROFILING_MS)
-    return () => clearTimeout(t)
   })
 
   $effect(() => {
@@ -494,41 +484,31 @@
       </div>
 
     {:else if state === 'indexing'}
-      <div class="ob-hero" aria-busy="true">
+      <div class="ob-hero ob-hero--indexing" aria-busy="true">
         <div class="ob-hero-inner ob-indexing-hero-inner">
-          <div class="ob-indexing-visual" aria-hidden="true">
-            <span class="ob-indexing-orbit"></span>
-            <span class="ob-indexing-orbit ob-indexing-orbit-delayed"></span>
-            <span class="ob-indexing-core"></span>
+          <div class="ob-indexing-fixed">
+            <div class="ob-indexing-visual" aria-hidden="true">
+              <span class="ob-indexing-orbit"></span>
+              <span class="ob-indexing-orbit ob-indexing-orbit-delayed"></span>
+              <span class="ob-indexing-core"></span>
+            </div>
+            <span class="ob-kicker">Brain</span>
+            <h1 class="ob-headline">Indexing your mail</h1>
+            <p class="ob-lead ob-indexing-lead">
+              We’re copying your recent messages from Apple Mail into Brain so we can build your profile. You can leave this screen open.
+            </p>
           </div>
-          <span class="ob-kicker">Brain</span>
-          <h1 class="ob-headline">Indexing your mail</h1>
-          <p class="ob-lead">
-            We’re copying your recent messages from Apple Mail into Brain so we can build your profile. You can leave this screen open.
-          </p>
-
-          {#if mail.indexingHint}
-            <p class="ob-indexing-hint">{mail.indexingHint}</p>
-          {/if}
-          {#if indexingElapsedLine}
-            <p class="ob-indexing-elapsed">{indexingElapsedLine}</p>
-          {/if}
-          {#if mail.statusError}
-            <p class="ob-error ob-indexing-mail-error">{mail.statusError}</p>
-          {/if}
-        </div>
-      </div>
-
-    {:else if state === 'warming'}
-      <div class="ob-hero" aria-live="polite">
-        <div class="ob-hero-inner ob-warming-inner">
-          <div class="ob-warming-orb" aria-hidden="true">
-            <span class="ob-warming-ring"></span>
-            <span class="ob-warming-core"></span>
+          <div class="ob-indexing-status-slot" aria-live="polite">
+            {#if mail.indexingHint}
+              <p class="ob-indexing-hint">{mail.indexingHint}</p>
+            {/if}
+            {#if indexingElapsedLine}
+              <p class="ob-indexing-elapsed">{indexingElapsedLine}</p>
+            {/if}
+            {#if mail.statusError}
+              <p class="ob-error ob-indexing-mail-error">{mail.statusError}</p>
+            {/if}
           </div>
-          <span class="ob-kicker">Brain</span>
-          <h1 class="ob-headline ob-warming-headline">Please wait while we get to know you a bit…</h1>
-          <p class="ob-lead">We’re almost ready to build your profile.</p>
         </div>
       </div>
 
@@ -625,8 +605,54 @@
     text-align: center;
   }
 
+  /**
+   * Indexing: keep orbit + title stack fixed while status lines (hint / elapsed / error) update.
+   * The status slot reserves height (and caps overflow) so the centered column doesn’t jump when copy updates.
+   */
+  .ob-hero--indexing {
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
+  }
+
   .ob-indexing-hero-inner {
     max-width: 22rem;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+  }
+
+  .ob-indexing-fixed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    width: 100%;
+  }
+
+  .ob-indexing-lead {
+    margin-bottom: 0;
+  }
+
+  .ob-indexing-status-slot {
+    width: 100%;
+    flex: 0 0 auto;
+    min-height: 7.5rem;
+    max-height: 11rem;
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .ob-indexing-visual {
@@ -680,7 +706,7 @@
 
   .ob-indexing-hint,
   .ob-indexing-elapsed {
-    margin: 1rem auto 0;
+    margin: 0;
     max-width: 26rem;
     font-size: 0.875rem;
     line-height: 1.45;
@@ -689,7 +715,6 @@
   }
 
   .ob-indexing-elapsed {
-    margin-top: 0.5rem;
     font-size: 0.8125rem;
     opacity: 0.95;
   }
@@ -799,87 +824,6 @@
     height: 1rem;
     flex-shrink: 0;
   }
-  .ob-warming-inner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .ob-warming-orb {
-    position: relative;
-    width: 4rem;
-    height: 4rem;
-    margin-bottom: 1.75rem;
-  }
-
-  .ob-warming-core {
-    position: absolute;
-    inset: 22%;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--accent) 55%, var(--bg));
-    animation: ob-warming-core-pulse 2.2s ease-in-out infinite;
-  }
-
-  .ob-warming-ring {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
-    animation: ob-warming-ring-expand 2.2s ease-out infinite;
-  }
-
-  @keyframes ob-warming-ring-expand {
-    0% {
-      transform: scale(0.65);
-      opacity: 0.9;
-    }
-    70% {
-      opacity: 0.2;
-    }
-    100% {
-      transform: scale(1.35);
-      opacity: 0;
-    }
-  }
-
-  @keyframes ob-warming-core-pulse {
-    0%,
-    100% {
-      transform: scale(1);
-      opacity: 1;
-    }
-    50% {
-      transform: scale(0.92);
-      opacity: 0.85;
-    }
-  }
-
-  .ob-warming-headline {
-    animation: ob-warming-text-glow 2.4s ease-in-out infinite;
-  }
-
-  @keyframes ob-warming-text-glow {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.82;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .ob-warming-ring,
-    .ob-warming-core,
-    .ob-warming-headline {
-      animation: none;
-    }
-    .ob-warming-ring {
-      opacity: 0.35;
-      transform: scale(1);
-    }
-  }
-
   .ob-spinner {
     display: inline-block;
     width: 1rem;
@@ -1038,9 +982,10 @@
   }
 
   .ob-indexing-mail-error {
-    margin-top: 1rem;
+    margin: 0;
     max-width: 22rem;
-    margin-inline: auto;
+    max-height: 5rem;
+    overflow-y: auto;
     text-align: center;
   }
 

@@ -1,5 +1,7 @@
 import process from 'node:process'
 import { join } from 'node:path'
+import { existsSync } from 'node:fs'
+import { readdir, rm } from 'node:fs/promises'
 import { defaultBundledBrainHomeRoot } from './bundleDefaults.js'
 import {
   brainLayoutCacheDir,
@@ -22,6 +24,19 @@ export function brainHome(): string {
     return defaultBundledBrainHomeRoot()
   }
   return join(process.cwd(), 'data')
+}
+
+/**
+ * Dev hard-reset: remove every top-level file and directory under `BRAIN_HOME` (no layout list).
+ * The root directory itself is kept; callers recreate paths on demand.
+ */
+export async function wipeBrainHomeContents(): Promise<void> {
+  const home = brainHome()
+  if (!existsSync(home)) return
+  const entries = await readdir(home, { withFileTypes: true })
+  for (const ent of entries) {
+    await rm(join(home, ent.name), { recursive: true, force: true })
+  }
 }
 
 export function wikiContentDir(): string {

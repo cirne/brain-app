@@ -38,7 +38,7 @@ Copy `[.env.example](.env.example)` to `.env` and edit. Variable names and inlin
 ```sh
 nvm use          # switches to Node 22
 npm install
-npm run dev      # starts Hono + Vite HMR on single port 18473 (see docs/google-oauth.md)
+npm run dev      # starts Hono + Vite HMR on single port 3000 (see docs/google-oauth.md)
 ```
 
 Single server: Vite runs as middleware inside Hono. API requests go to Hono routes; everything else goes to Vite for HMR.
@@ -54,7 +54,7 @@ npm run ripmail:dev            # cargo build -p ripmail (debug) — use before i
 npm run ripmail:build          # cargo build -p ripmail --release
 npm run ripmail:test           # cargo test -p ripmail
 npm run brain:clean:dev        # delete dev durable data: `./data` unless `BRAIN_HOME` is set (same tree as `npm run dev`; not packaged-app bundle paths)
-npm run desktop:dev            # Hono + Vite on :18473 + Tauri WebView → http://localhost:18473
+npm run desktop:dev            # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
 npm run desktop:build          # npm build + bundle server + Brain.app (+ DMG on macOS)
 npm run desktop:fresh          # `desktop:clean-data` + `desktop:build`, then opens the DMG (default) or `Brain.app` with `-- app` (macOS) — see `scripts/desktop-fresh.mjs`
 npm run desktop:clean-data     # delete packaged-app data: defaults from `shared/bundle-defaults.json`, or `$BRAIN_HOME` if set (+ macOS logs); not `./data` unless `BRAIN_HOME` points there

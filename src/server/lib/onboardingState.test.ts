@@ -35,12 +35,10 @@ describe('onboardingState', () => {
     expect((await readOnboardingStateDoc()).state).toBe('profiling')
   })
 
-  it('setOnboardingState allows indexing → warming → profiling', async () => {
-    const { readOnboardingStateDoc, setOnboardingState } = await import('./onboardingState.js')
-    await setOnboardingState('indexing')
-    await setOnboardingState('warming')
-    expect((await readOnboardingStateDoc()).state).toBe('warming')
-    await setOnboardingState('profiling')
+  it('readOnboardingStateDoc maps legacy warming to profiling', async () => {
+    const path = join(chatDir(), 'onboarding.json')
+    await writeFile(path, JSON.stringify({ state: 'warming', updatedAt: '2020-01-01' }), 'utf-8')
+    const { readOnboardingStateDoc } = await import('./onboardingState.js')
     expect((await readOnboardingStateDoc()).state).toBe('profiling')
   })
 
@@ -74,7 +72,7 @@ describe('onboardingState', () => {
     expect(wikiMeExists()).toBe(true)
   })
 
-  it('hardResetOnboardingArtifacts wipes wiki content and resets state', async () => {
+  it('hardResetOnboardingArtifacts wipes all top-level brain home entries', async () => {
     const {
       hardResetOnboardingArtifacts,
       readOnboardingStateDoc,
@@ -98,14 +96,16 @@ describe('onboardingState', () => {
     const draft = profileDraftAbsolutePath()
     await mkdir(join(chatDir(), 'onboarding'), { recursive: true })
     await writeFile(draft, 'draft', 'utf-8')
+    await mkdir(join(brainHome, 'future-subdir'), { recursive: true })
+    await writeFile(join(brainHome, 'future-subdir', 'x.txt'), 'y', 'utf-8')
     await hardResetOnboardingArtifacts()
     expect((await readOnboardingStateDoc()).state).toBe('not-started')
     expect(await listSessions()).toEqual([])
     const { access, readdir } = await import('node:fs/promises')
+    expect(await readdir(brainHome)).toEqual([])
     await expect(access(join(wikiDirPath(), 'me.md'))).rejects.toMatchObject({ code: 'ENOENT' })
-    await expect(access(join(wikiDirPath(), 'other.md'))).rejects.toMatchObject({ code: 'ENOENT' })
-    expect(await readdir(wikiDirPath())).toEqual([])
     await expect(access(draft)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(access(join(brainHome, 'future-subdir', 'x.txt'))).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('migrateLegacyProfileDraftIfNeeded renames profile-draft.md to me.md', async () => {

@@ -1,33 +1,33 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { ripmailProcessEnv } from './brainHome.js'
+import { mkdtemp, mkdir, writeFile, rm, readdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 
-describe('ripmailProcessEnv', () => {
-  beforeEach(() => {
-    delete process.env.GOOGLE_OAUTH_CLIENT_ID
-    delete process.env.GOOGLE_OAUTH_CLIENT_SECRET
-    delete process.env.RIPMAIL_GOOGLE_OAUTH_CLIENT_ID
-    delete process.env.RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET
+let brainHome: string
+
+beforeEach(async () => {
+  brainHome = await mkdtemp(join(tmpdir(), 'brain-home-wipe-'))
+  process.env.BRAIN_HOME = brainHome
+})
+
+afterEach(async () => {
+  await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
+})
+
+describe('wipeBrainHomeContents', () => {
+  it('removes every top-level entry; keeps empty root', async () => {
+    await mkdir(join(brainHome, 'wiki'), { recursive: true })
+    await writeFile(join(brainHome, 'loose.txt'), 'x', 'utf-8')
+    await mkdir(join(brainHome, 'extra'), { recursive: true })
+    const { wipeBrainHomeContents } = await import('./brainHome.js')
+    await wipeBrainHomeContents()
+    expect(await readdir(brainHome)).toEqual([])
   })
 
-  afterEach(() => {
-    delete process.env.GOOGLE_OAUTH_CLIENT_ID
-    delete process.env.GOOGLE_OAUTH_CLIENT_SECRET
-    delete process.env.RIPMAIL_GOOGLE_OAUTH_CLIENT_ID
-    delete process.env.RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET
-  })
-
-  it('maps GOOGLE_OAUTH_* to RIPMAIL_GOOGLE_OAUTH_* when ripmail vars unset', () => {
-    process.env.GOOGLE_OAUTH_CLIENT_ID = 'brain-id'
-    process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'brain-secret'
-    const e = ripmailProcessEnv()
-    expect(e.RIPMAIL_GOOGLE_OAUTH_CLIENT_ID).toBe('brain-id')
-    expect(e.RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET).toBe('brain-secret')
-  })
-
-  it('does not override explicit RIPMAIL_GOOGLE_OAUTH_*', () => {
-    process.env.RIPMAIL_GOOGLE_OAUTH_CLIENT_ID = 'rip-id'
-    process.env.GOOGLE_OAUTH_CLIENT_ID = 'brain-id'
-    const e = ripmailProcessEnv()
-    expect(e.RIPMAIL_GOOGLE_OAUTH_CLIENT_ID).toBe('rip-id')
+  it('no-op when brain home does not exist', async () => {
+    process.env.BRAIN_HOME = join(tmpdir(), `missing-brain-${Date.now()}`)
+    const { wipeBrainHomeContents } = await import('./brainHome.js')
+    await expect(wipeBrainHomeContents()).resolves.toBeUndefined()
   })
 })

@@ -24,6 +24,7 @@ import { runStartupChecks } from './lib/runStartupChecks.js'
 import { ensureBrainHomeGitignore } from './lib/brainHomeGitignore.js'
 import { ensureDefaultSkillsSeeded } from './lib/skillsSeeder.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
+import { BRAIN_DEFAULT_HTTP_PORT } from './lib/brainHttpPort.js'
 import { isBundledNativeServer, NATIVE_APP_PORT_START } from './lib/nativeAppPort.js'
 import {
   duplicateDevListenMessage,
@@ -117,7 +118,7 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
 }
 
 function resolveNonNativePort(): number {
-  return parseInt(process.env.PORT ?? String(NATIVE_APP_PORT_START), 10)
+  return parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)
 }
 
 /**

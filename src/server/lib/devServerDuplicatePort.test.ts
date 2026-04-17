@@ -20,8 +20,8 @@ describe('isAddrInUse', () => {
 
 describe('duplicateDevListenMessage', () => {
   it('mentions port and OAuth redirect', () => {
-    const m = duplicateDevListenMessage(18473)
-    expect(m).toContain('18473')
+    const m = duplicateDevListenMessage(3000)
+    expect(m).toContain('3000')
     expect(m).toContain('/api/oauth/google/callback')
   })
 })

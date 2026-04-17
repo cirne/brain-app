@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * Prints the canonical Gmail OAuth redirect URI (must match `googleOAuthRedirectUri()` in
+ * Prints Gmail OAuth redirect URIs (must match `googleOAuthRedirectUri()` in
  * src/server/lib/brainHttpPort.ts and Google Cloud Console).
+ *
+ * Register **both** in Authorized redirect URIs: dev uses :3000; Brain.app uses :18473.
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -10,12 +12,20 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
 
-function readPortFromNativeAppPort() {
-  const raw = readFileSync(join(root, 'src/server/lib/nativeAppPort.ts'), 'utf8')
-  const m = raw.match(/NATIVE_APP_PORT_START\s*=\s*(\d+)/)
+function readPortFromFile(relPath, constName) {
+  const raw = readFileSync(join(root, relPath), 'utf8')
+  const re = new RegExp(`${constName}\\s*=\\s*(\\d+)`)
+  const m = raw.match(re)
   if (m) return parseInt(m[1], 10)
-  return 18473
+  return null
 }
 
-const port = readPortFromNativeAppPort()
-console.log(`http://127.0.0.1:${port}/api/oauth/google/callback`)
+const devDefault = readPortFromFile('src/server/lib/brainHttpPort.ts', 'BRAIN_DEFAULT_HTTP_PORT')
+const bundled = readPortFromFile('src/server/lib/nativeAppPort.ts', 'NATIVE_APP_PORT_START')
+const path = '/api/oauth/google/callback'
+
+const devPort = devDefault ?? 3000
+const nativePort = bundled ?? 18473
+
+console.log(`Dev / npm run dev (default PORT): http://127.0.0.1:${devPort}${path}`)
+console.log(`Brain.app (bundled server):       http://127.0.0.1:${nativePort}${path}`)

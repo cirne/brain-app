@@ -6,14 +6,17 @@ import { tmpdir } from 'node:os'
 import devRoute from './dev.js'
 
 let brainHome: string
+let ripmailBinDir: string
 
 beforeEach(async () => {
   brainHome = await mkdtemp(join(tmpdir(), 'dev-hard-reset-'))
   process.env.BRAIN_HOME = brainHome
+  ripmailBinDir = await mkdtemp(join(tmpdir(), 'dev-ripmail-bin-'))
 })
 
 afterEach(async () => {
   await rm(brainHome, { recursive: true, force: true })
+  await rm(ripmailBinDir, { recursive: true, force: true })
   delete process.env.BRAIN_HOME
   delete process.env.RIPMAIL_BIN
   delete process.env.RIPMAIL_HOME
@@ -23,8 +26,8 @@ describe('dev routes', () => {
   it('POST /hard-reset clears onboarding state and me.md', async () => {
     const chatDir = join(brainHome, 'chats')
     await mkdir(chatDir, { recursive: true })
-    const ripmailLog = join(chatDir, 'ripmail-invoke.log')
-    const fakeRipmail = join(chatDir, 'fake-ripmail')
+    const ripmailLog = join(ripmailBinDir, 'ripmail-invoke.log')
+    const fakeRipmail = join(ripmailBinDir, 'fake-ripmail')
     await writeFile(
       fakeRipmail,
       `#!/bin/sh
@@ -64,7 +67,7 @@ exit 0
     await expect(access(join(wikiContent, 'me.md'))).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(access(join(wikiContent, 'topics', 'note.md'))).rejects.toMatchObject({ code: 'ENOENT' })
     const { readdir } = await import('node:fs/promises')
-    expect(await readdir(wikiContent)).toEqual([])
+    expect(await readdir(brainHome)).toEqual([])
 
     const invoke = (await readFile(ripmailLog, 'utf8')).trim()
     expect(invoke).toContain('clean')

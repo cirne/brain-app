@@ -10,7 +10,7 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 | `NODE_ENV` | `development` / `production` | Skips API auth in dev when not production |
 | `AUTH_USER` / `AUTH_PASS` | `lew` / `changeme` | Basic auth for `/api/*` in production |
 | `AUTH_DISABLED` | — | `true` disables Basic Auth in production |
-| `PORT` | `18473` | Listen port (non-bundled production and dev; must match [Gmail OAuth redirect](../google-oauth.md)) |
+| `PORT` | `3000` | Listen port for dev / non-bundled `node dist/server` (must match [Gmail OAuth redirect](../google-oauth.md)); bundled app uses `18473` |
 | `RIPMAIL_BIN` | `ripmail` | Path to ripmail executable |
 | `RIPMAIL_HOME` | `$BRAIN_HOME/ripmail` | Ripmail data dir when unset in Brain |
 | `RIPMAIL_EMAIL_ADDRESS` / `RIPMAIL_IMAP_PASSWORD` | — | Non-interactive ripmail setup |
