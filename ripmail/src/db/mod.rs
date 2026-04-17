@@ -334,6 +334,17 @@ fn restore_sync_metadata(
     Ok(())
 }
 
+fn message_row_exists(conn: &Connection, message_id: &str) -> Result<bool, DbError> {
+    let ok: i64 = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM messages WHERE message_id = ?1)",
+        [message_id],
+        |r| r.get(0),
+    )?;
+    Ok(ok != 0)
+}
+
+/// After maildir rebuild, `messages` may be a strict subset of the pre-rebuild snapshot (e.g. empty
+/// maildir). Inbox rows reference `messages(message_id)`; skip orphans so `FOREIGN KEY` does not fail.
 fn restore_inbox_state(conn: &Connection, inbox: &InboxStateSnapshot) -> Result<(), DbError> {
     for (scan_id, mode, cutoff_iso, scanned_at, notable_count, candidates_scanned) in &inbox.scans {
         conn.execute(
@@ -351,6 +362,9 @@ fn restore_inbox_state(conn: &Connection, inbox: &InboxStateSnapshot) -> Result<
         )?;
     }
     for row in &inbox.alerts {
+        if !message_row_exists(conn, &row.message_id)? {
+            continue;
+        }
         conn.execute(
             "INSERT OR REPLACE INTO inbox_alerts (message_id, surfaced_at, scan_id)
              VALUES (?1, ?2, ?3)",
@@ -358,6 +372,9 @@ fn restore_inbox_state(conn: &Connection, inbox: &InboxStateSnapshot) -> Result<
         )?;
     }
     for row in &inbox.reviews {
+        if !message_row_exists(conn, &row.message_id)? {
+            continue;
+        }
         conn.execute(
             "INSERT OR REPLACE INTO inbox_reviews (message_id, surfaced_at, scan_id)
              VALUES (?1, ?2, ?3)",
@@ -365,6 +382,9 @@ fn restore_inbox_state(conn: &Connection, inbox: &InboxStateSnapshot) -> Result<
         )?;
     }
     for row in &inbox.decisions {
+        if !message_row_exists(conn, &row.message_id)? {
+            continue;
+        }
         let action = normalize_inbox_decision_action(row.action.as_str());
         conn.execute(
             "INSERT OR REPLACE INTO inbox_decisions
@@ -769,6 +789,72 @@ mod tests {
             .unwrap();
         assert_eq!(rua, 1);
         assert_eq!(summ.as_deref(), Some("Pay invoice"));
+    }
+
+    /// Post-rebuild maildir may import no `.eml`; inbox snapshot still references old `message_id`s.
+    /// Restore must skip those rows so `FOREIGN KEY` on inbox_* → messages does not fail.
+    #[test]
+    fn restore_inbox_state_skips_rows_when_message_not_in_messages() {
+        let conn = open_memory().unwrap();
+        apply_schema(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO inbox_scans (scan_id, mode, cutoff_iso, scanned_at, notable_count, candidates_scanned)
+             VALUES ('scan-1', 'full', '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z', 0, 0)",
+            [],
+        )
+        .unwrap();
+        let inbox = InboxStateSnapshot {
+            scans: vec![(
+                "scan-1".into(),
+                "full".into(),
+                "2026-01-01T00:00:00Z".into(),
+                "2026-01-02T00:00:00Z".into(),
+                0,
+                0,
+            )],
+            alerts: vec![InboxSurfacedRow {
+                message_id: "<gone@mid>".into(),
+                surfaced_at: "2026-01-03T00:00:00Z".into(),
+                scan_id: "scan-1".into(),
+            }],
+            reviews: vec![InboxSurfacedRow {
+                message_id: "<gone@mid>".into(),
+                surfaced_at: "2026-01-03T00:00:00Z".into(),
+                scan_id: "scan-1".into(),
+            }],
+            decisions: vec![InboxDecisionRow {
+                message_id: "<gone@mid>".into(),
+                rules_fingerprint: "fp".into(),
+                action: "ignore".into(),
+                matched_rule_ids: "[]".into(),
+                note: None,
+                decision_source: "test".into(),
+                decided_at: "2026-01-03T00:00:00Z".into(),
+                requires_user_action: 0,
+                action_summary: None,
+            }],
+        };
+        restore_inbox_state(&conn, &inbox).unwrap();
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM inbox_alerts", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 0);
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM inbox_reviews", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 0);
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM inbox_decisions", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 0);
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM inbox_scans WHERE scan_id = 'scan-1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 1);
     }
 
     #[test]

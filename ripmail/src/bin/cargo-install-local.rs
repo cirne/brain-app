@@ -18,6 +18,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
+use serde_json::Value;
+
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -39,7 +41,7 @@ fn run() -> Result<(), String> {
     if !st.success() {
         return Err("cargo build --release failed".into());
     }
-    let bin = root.join("target/release/ripmail");
+    let bin = release_ripmail_binary(&cargo, &root)?;
     if !bin.is_file() {
         return Err(format!("missing {}", bin.display()));
     }
@@ -62,6 +64,26 @@ fn run() -> Result<(), String> {
 /// User-writable default; falls back to `/usr/local/bin` when `HOME` is missing (e.g. some CI).
 fn default_install_prefix() -> PathBuf {
     default_install_prefix_for_home(env::var("HOME").ok().as_deref())
+}
+
+/// Workspace builds place `target/` at the workspace root, not next to `ripmail/Cargo.toml`.
+fn release_ripmail_binary(cargo: &str, package_root: &Path) -> Result<PathBuf, String> {
+    let out = Command::new(cargo)
+        .current_dir(package_root)
+        .args(["metadata", "--format-version", "1", "--no-deps"])
+        .output()
+        .map_err(|e| format!("cargo metadata: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "cargo metadata failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        ));
+    }
+    let v: Value = serde_json::from_slice(&out.stdout).map_err(|e| e.to_string())?;
+    let td = v["target_directory"]
+        .as_str()
+        .ok_or_else(|| "metadata: missing target_directory".to_string())?;
+    Ok(PathBuf::from(td).join("release").join("ripmail"))
 }
 
 fn default_install_prefix_for_home(home: Option<&str>) -> PathBuf {
