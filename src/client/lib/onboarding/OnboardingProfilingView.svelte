@@ -1,30 +1,51 @@
 <script lang="ts">
   /**
-   * Alternate AgentChat conversation surface for onboarding profile build:
+   * Alternate AgentChat conversation surface for onboarding (profile build + wiki seeding):
    * calm copy + activity line + referenced wiki paths and mail (no chat transcript).
    */
   import { onMount, tick } from 'svelte'
-  import { Mail } from 'lucide-svelte'
+  import { Mail, User } from 'lucide-svelte'
   import type { AgentConversationViewProps } from '../agentConversationViewTypes.js'
   import WikiFileName from '../WikiFileName.svelte'
   import { getToolIcon } from '../toolIcons.js'
   import { getToolUiPolicy, type ToolCall } from '../agentUtils.js'
   import { computePinnedToBottom } from '../scrollPin.js'
-  import { extractProfilingResources, profilingActivityLine } from './profilingResources.js'
+  import {
+    extractProfilingPeople,
+    extractProfilingResources,
+    onboardingActivityLine,
+  } from './profilingResources.js'
 
   let {
     messages,
     streaming,
     onOpenWiki,
     onOpenEmail,
+    onboardingKind: onboardingKindProp,
   }: AgentConversationViewProps = $props()
+
+  /** Parent may pass `undefined`; treat as profiling. */
+  const onboardingKind = $derived(onboardingKindProp ?? 'profiling')
 
   let messagesEl: HTMLElement
   let followOutput = $state(true)
   let reduceMotion = $state(false)
 
   const resources = $derived(extractProfilingResources(messages))
-  const activity = $derived(profilingActivityLine(messages, streaming))
+  const peopleBlock = $derived(
+    onboardingKind === 'profiling' ? extractProfilingPeople(messages) : { people: [], peopleOverflow: 0 },
+  )
+  const activity = $derived(onboardingActivityLine(messages, streaming, onboardingKind))
+
+  const title = $derived(
+    onboardingKind === 'seeding' ? 'Setting up your wiki' : 'Building your profile',
+  )
+  const lead = $derived(
+    onboardingKind === 'seeding'
+      ? 'We are creating pages from your profile and mail—everything stays on this Mac.'
+      : 'We read patterns from your mail on this Mac to draft a short profile. Nothing leaves your machine unless you choose to later.',
+  )
+  const wikiSectionTitle = $derived(onboardingKind === 'seeding' ? 'Pages' : 'Notes')
 
   const lastTool = $derived.by((): ToolCall | null => {
     let last: ToolCall | null = null
@@ -90,11 +111,8 @@
     onscroll={syncFollowFromScroll}
   >
     <div class="ob-prof-inner">
-      <h1 class="ob-prof-title">Building your profile</h1>
-      <p class="ob-prof-lead">
-        We read patterns from your mail on this Mac to draft a short profile. Nothing leaves your machine unless you
-        choose to later.
-      </p>
+      <h1 class="ob-prof-title">{title}</h1>
+      <p class="ob-prof-lead">{lead}</p>
 
       {#if streaming && activity}
         <p class="ob-prof-activity" role="status" aria-live="polite">
@@ -116,9 +134,33 @@
         </p>
       {/if}
 
+      {#if onboardingKind === 'profiling' && (peopleBlock.people.length > 0 || peopleBlock.peopleOverflow > 0)}
+        <section class="ob-prof-section" aria-labelledby="ob-prof-people-heading">
+          <h2 id="ob-prof-people-heading" class="ob-prof-section-title">People</h2>
+          <ul class="ob-prof-people-list">
+            {#each peopleBlock.people as row (row.id)}
+              <li class="ob-prof-person-row">
+                <span class="ob-prof-person-lead" aria-hidden="true">
+                  <User size={12} />
+                </span>
+                <span class="ob-prof-person-body">
+                  <span class="ob-prof-person-name">{row.name}</span>
+                  {#if row.email}
+                    <span class="ob-prof-person-email">{row.email}</span>
+                  {/if}
+                </span>
+              </li>
+            {/each}
+          </ul>
+          {#if peopleBlock.peopleOverflow > 0}
+            <p class="ob-prof-overflow">+{peopleBlock.peopleOverflow} more</p>
+          {/if}
+        </section>
+      {/if}
+
       {#if resources.wikiPaths.length > 0}
         <section class="ob-prof-section" aria-labelledby="ob-prof-wiki-heading">
-          <h2 id="ob-prof-wiki-heading" class="ob-prof-section-title">Notes</h2>
+          <h2 id="ob-prof-wiki-heading" class="ob-prof-section-title">{wikiSectionTitle}</h2>
           <ul class="ob-prof-chips">
             {#each resources.wikiPaths as path (path)}
               <li>
@@ -128,6 +170,9 @@
               </li>
             {/each}
           </ul>
+          {#if resources.wikiOverflow > 0}
+            <p class="ob-prof-overflow">+{resources.wikiOverflow} more</p>
+          {/if}
         </section>
       {/if}
 
@@ -371,6 +416,56 @@
     margin: 0.5rem 0 0;
     font-size: 0.75rem;
     color: var(--text-2);
+  }
+
+  .ob-prof-people-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ob-prof-person-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    padding: 0.45rem 0.65rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .ob-prof-person-lead {
+    color: var(--accent);
+    opacity: 0.85;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  .ob-prof-person-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .ob-prof-person-name {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ob-prof-person-email {
+    font-size: 0.6875rem;
+    color: var(--text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .ob-prof-placeholder {

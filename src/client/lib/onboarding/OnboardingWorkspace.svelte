@@ -42,6 +42,8 @@
 
   const isSeedingWiki = $derived(chatEndpoint === '/api/onboarding/seed')
   const isProfiling = $derived(chatEndpoint === '/api/onboarding/profile')
+  /** Profiling + seeding use the same activity transcript (not the default chat). */
+  const useOnboardingActivity = $derived(isProfiling || isSeedingWiki)
 
   let route = $state<Route>(parseRoute())
   let syncing = $state(false)
@@ -61,14 +63,6 @@
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
 
-  /** Seeding-only: hide bottom bar after the seed stream completes (terminal done or abort). */
-  let seedingRunComplete = $state(false)
-  let seedStatusPageCount = $state(0)
-  let seedLastDocPath = $state<string | null>(null)
-  let agentStreaming = $state(false)
-
-  const showSeedingStatusBar = $derived(isSeedingWiki && !seedingRunComplete)
-
   async function refreshSeedWikiStatus() {
     if (!isSeedingWiki) return
     try {
@@ -81,16 +75,11 @@
       const pageCount = countSeedEligibleWikiPages(paths)
       const hist = (await histRes.json()) as { files?: { path: string; date: string }[] }
       const lastDocPath = hist.files?.[0]?.path ?? null
-      seedStatusPageCount = pageCount
-      seedLastDocPath = lastDocPath
       onSeedWikiActivity?.({ pageCount, lastDocPath })
     } catch { /* ignore */ }
   }
 
   async function handleWorkspaceStreamFinished() {
-    if (isSeedingWiki) {
-      seedingRunComplete = true
-    }
     await onStreamFinished?.()
   }
 
@@ -342,17 +331,17 @@
           bind:this={agentChat}
           context={agentContext}
           conversationHidden={!!route.overlay && isMobile}
-          suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || isMobile || isProfiling}
-          conversationView={isProfiling ? OnboardingProfilingView : AgentConversation}
-          hideInput={isProfiling}
-          streamingBusyLabel={isProfiling ? 'Working...' : 'Thinking...'}
+          suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || isMobile || useOnboardingActivity}
+          conversationView={useOnboardingActivity ? OnboardingProfilingView : AgentConversation}
+          hideInput={useOnboardingActivity}
+          streamingBusyLabel={useOnboardingActivity ? 'Working...' : 'Thinking...'}
+          onboardingConversationKind={isProfiling ? 'profiling' : isSeedingWiki ? 'seeding' : undefined}
           {chatEndpoint}
           {autoSendMessage}
           {headerFallbackTitle}
           {storageKey}
           showNewChatButton={false}
           onStreamFinished={handleWorkspaceStreamFinished}
-          onStreamingChange={(s) => { if (isSeedingWiki) agentStreaming = s }}
           onOpenWiki={openWikiDoc}
           onOpenFile={openFileDoc}
           onOpenEmail={openEmailFromChat}
@@ -418,20 +407,6 @@
     </WorkspaceSplit>
   </div>
 
-  {#if showSeedingStatusBar}
-    <div class="ob-seed-status" role="status" aria-live="polite">
-      <span class="ob-seed-status-lead">
-        {agentStreaming ? 'Building your wiki…' : 'Wiki'}
-      </span>
-      <span class="ob-seed-status-meta">
-        <span class="ob-seed-stat">{seedStatusPageCount} {seedStatusPageCount === 1 ? 'page' : 'pages'}</span>
-        {#if seedLastDocPath}
-          <span class="ob-seed-sep" aria-hidden="true">·</span>
-          <span class="ob-seed-last" title={seedLastDocPath}>Last: {seedLastDocPath}</span>
-        {/if}
-      </span>
-    </div>
-  {/if}
 </div>
 
 <style>
@@ -448,44 +423,5 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-  }
-
-  .ob-seed-status {
-    flex-shrink: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem 1rem;
-    padding: 0.625rem 1rem calc(0.625rem + env(safe-area-inset-bottom, 0));
-    border-top: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg) 92%, var(--border));
-    font-size: 0.8125rem;
-    color: var(--text-2);
-  }
-
-  .ob-seed-status-lead {
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .ob-seed-status-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.25rem 0.5rem;
-    min-width: 0;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .ob-seed-last {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: min(48vw, 14rem);
-  }
-
-  .ob-seed-sep {
-    opacity: 0.5;
   }
 </style>

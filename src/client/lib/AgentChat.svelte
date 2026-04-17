@@ -78,6 +78,8 @@
     hideInput = false,
     /** Header label while the model is streaming (default “Thinking…”). */
     streamingBusyLabel = 'Thinking...',
+    /** Passed to alternate onboarding transcript views only. */
+    onboardingConversationKind,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -112,6 +114,7 @@
     conversationView?: Component<AgentConversationViewProps>
     hideInput?: boolean
     streamingBusyLabel?: string
+    onboardingConversationKind?: 'profiling' | 'seeding'
   } = $props()
 
   /** Dynamic transcript component (default {@link AgentConversation}). */
@@ -561,6 +564,7 @@
         {onOpenFullInbox}
         {onOpenMessageThread}
         {onSwitchToCalendar}
+        onboardingKind={onboardingConversationKind}
       />
     </div>
 

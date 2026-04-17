@@ -27,4 +27,6 @@ export type AgentConversationViewProps = {
   onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
   /** Only used by the default chat transcript (empty state override). */
   empty?: Snippet
+  /** Onboarding activity transcript only (`OnboardingProfilingView`): profiling vs wiki seeding. */
+  onboardingKind?: 'profiling' | 'seeding'
 }
