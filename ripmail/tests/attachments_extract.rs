@@ -143,6 +143,26 @@ fn extract_docx_by_filename_when_mime_wrong() {
 }
 
 #[test]
+fn extract_xlsx_sniffed_when_mime_octet_and_wrong_filename() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("t.xlsx");
+    let mut wb = Workbook::new();
+    let ws = wb.add_worksheet();
+    ws.write_string(0, 0, "Segment").unwrap();
+    ws.write_string(1, 0, "Government").unwrap();
+    wb.save(&path).unwrap();
+    let bytes = fs::read(&path).unwrap();
+    // Misnamed copy / wrong Content-Type: must not fall through to UTF-8 lossy (PK… gibberish).
+    let t = extract_attachment(&bytes, "application/octet-stream", "t.bin").expect("zip sniff xlsx");
+    assert!(t.contains("Segment"));
+    assert!(t.contains("Government"));
+    assert!(!t.starts_with("PK"));
+    // Basename lost (CLI `unwrap_or("file")` on invalid UTF-8) — still sniff spreadsheet.
+    let t2 = extract_attachment(&bytes, "application/octet-stream", "file").expect("zip sniff xlsx");
+    assert!(t2.contains("Segment"));
+}
+
+#[test]
 fn extract_xlsx_multi_sheet_has_headers() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("multi.xlsx");

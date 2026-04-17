@@ -93,7 +93,20 @@ pub fn extract_attachment(bytes: &[u8], mime: &str, filename: &str) -> Option<St
         return String::from_utf8(bytes.to_vec()).ok();
     }
 
+    // OOXML (ZIP) spreadsheet without a reliable filename or MIME (e.g. misnamed `.bin`, or
+    // basename lost to non-UTF-8 `OsStr` → CLI uses `"file"`). Sniff ZIP local header, then
+    // delegate to calamine — same as an `.xlsx` path.
+    if looks_like_zip_local_header(bytes) {
+        if let Some(s) = xlsx_to_csv(bytes) {
+            return Some(s);
+        }
+    }
+
     None
+}
+
+fn looks_like_zip_local_header(bytes: &[u8]) -> bool {
+    bytes.len() >= 4 && bytes[0..4] == [0x50, 0x4B, 0x03, 0x04]
 }
 
 fn mime_binary_stub(filename: &str, size_bytes: usize) -> String {
