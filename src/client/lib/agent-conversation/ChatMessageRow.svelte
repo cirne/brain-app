@@ -8,6 +8,7 @@
     streaming,
     isLastMessage,
     onOpenWiki,
+    onOpenFile,
     onOpenEmail,
     onOpenFullInbox,
     onSwitchToCalendar,
@@ -17,6 +18,7 @@
     streaming: boolean
     isLastMessage: boolean
     onOpenWiki?: (_path: string) => void
+    onOpenFile?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
@@ -36,6 +38,7 @@
         <ToolCallBlock
           toolCall={part.toolCall}
           {onOpenWiki}
+          {onOpenFile}
           {onOpenEmail}
           {onOpenFullInbox}
           {onSwitchToCalendar}

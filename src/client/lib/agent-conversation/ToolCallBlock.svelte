@@ -9,6 +9,7 @@
   let {
     toolCall,
     onOpenWiki,
+    onOpenFile,
     onOpenEmail,
     onOpenFullInbox,
     onSwitchToCalendar,
@@ -16,6 +17,7 @@
   }: {
     toolCall: ToolCall
     onOpenWiki?: (_path: string) => void
+    onOpenFile?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
@@ -68,6 +70,7 @@
       <ContentPreviewCards
         {preview}
         {onOpenWiki}
+        {onOpenFile}
         {onOpenEmail}
         {onOpenFullInbox}
         {onSwitchToCalendar}

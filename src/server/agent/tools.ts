@@ -1009,6 +1009,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       params: {
         target:
           | { type: 'wiki'; path: string }
+          | { type: 'file'; path: string }
           | { type: 'email'; id: string }
           | { type: 'calendar'; date: string }
       },
@@ -1017,12 +1018,14 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       const text =
         t.type === 'wiki'
           ? `Opening wiki: ${t.path}`
-          : t.type === 'email'
-            ? `Opening email: ${t.id}`
-            : (() => {
-                const dow = weekdayLongForUtcYmd(t.date)
-                return dow ? `Opening calendar: ${t.date} (${dow})` : `Opening calendar: ${t.date}`
-              })()
+          : t.type === 'file'
+            ? `Opening file: ${t.path}`
+            : t.type === 'email'
+              ? `Opening email: ${t.id}`
+              : (() => {
+                  const dow = weekdayLongForUtcYmd(t.date)
+                  return dow ? `Opening calendar: ${t.date} (${dow})` : `Opening calendar: ${t.date}`
+                })()
       return {
         content: [{ type: 'text' as const, text }],
         details: { target: t },

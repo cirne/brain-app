@@ -1,4 +1,6 @@
 <script lang="ts">
+  import CsvSpreadsheetView from './CsvSpreadsheetView.svelte'
+  import { isSpreadsheetDelimitedPath, spreadsheetDelimiterForPath } from './csvSpreadsheet.js'
   import type { SurfaceContext } from '../router.js'
 
   let {
@@ -6,12 +8,17 @@
     onContextChange,
   }: {
     initialPath?: string
-    onContextChange?: (ctx: SurfaceContext) => void
+    onContextChange?: (_ctx: SurfaceContext) => void
   } = $props()
 
   let loading = $state(false)
   let err = $state('')
   let bodyText = $state('')
+
+  const showSpreadsheet = $derived(initialPath ? isSpreadsheetDelimitedPath(initialPath) : false)
+  const sheetDelimiter = $derived(
+    initialPath ? spreadsheetDelimiterForPath(initialPath) : ',',
+  )
 
   function titleFromPath(p: string) {
     const parts = p.split('/').filter(Boolean)
@@ -45,13 +52,17 @@
   }
 </script>
 
-<div class="file-view">
+<div class="file-view" class:spreadsheet-mode={showSpreadsheet && !loading && !err}>
   {#if loading}
     <p class="muted">Loading…</p>
   {:else if err}
     <p class="err">{err}</p>
+  {:else if showSpreadsheet}
+    <CsvSpreadsheetView text={bodyText} delimiter={sheetDelimiter} />
   {:else}
-    <pre class="body">{bodyText}</pre>
+    <div class="pre-wrap">
+      <pre class="body">{bodyText}</pre>
+    </div>
   {/if}
 </div>
 
@@ -59,9 +70,22 @@
   .file-view {
     height: 100%;
     min-height: 0;
-    overflow: auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
     padding: 12px 16px;
     box-sizing: border-box;
+  }
+  .file-view.spreadsheet-mode {
+    overflow: hidden;
+  }
+  .file-view:not(.spreadsheet-mode) {
+    overflow: auto;
+  }
+  .pre-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
   }
   .muted {
     color: var(--muted, #888);

@@ -32,6 +32,7 @@
     /** When true, agent tools do not auto-open the right detail panel (wiki from write/edit, `open`, `read_doc`, …). */
     suppressAgentDetailAutoOpen = false,
     onOpenWiki,
+    onOpenFile,
     onOpenEmail,
     onOpenFullInbox,
     onOpenMessageThread,
@@ -69,6 +70,7 @@
     conversationHidden?: boolean
     suppressAgentDetailAutoOpen?: boolean
     onOpenWiki?: (_path: string) => void
+    onOpenFile?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
@@ -471,6 +473,8 @@
             </span>
             {#if context.type === 'wiki'}
               <span class="context-chip"><WikiFileName path={context.path} /></span>
+            {:else if context.type === 'file'}
+              <span class="context-chip"><WikiFileName path={context.path} /></span>
             {:else if contextChip}
               <span class="context-chip">{contextChip}</span>
             {/if}
@@ -494,6 +498,7 @@
         {messages}
         {streaming}
         {onOpenWiki}
+        {onOpenFile}
         {onOpenEmail}
         {onOpenFullInbox}
         {onOpenMessageThread}

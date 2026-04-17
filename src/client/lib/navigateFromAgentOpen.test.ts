@@ -5,6 +5,7 @@ function desktopCtx(overrides: Partial<Parameters<typeof navigateFromAgentOpen>[
   return {
     isMobile: false,
     openWikiDoc: vi.fn(),
+    openFileDoc: vi.fn(),
     openEmailFromSearch: vi.fn(),
     switchToCalendar: vi.fn(),
     source: 'open' as const,
@@ -17,13 +18,23 @@ describe('navigateFromAgentOpen', () => {
     const openWikiDoc = vi.fn()
     const openEmailFromSearch = vi.fn()
     const switchToCalendar = vi.fn()
-    const ctx = { source: 'read_doc' as const, isMobile: true, openWikiDoc, openEmailFromSearch, switchToCalendar }
+    const openFileDoc = vi.fn()
+    const ctx = {
+      source: 'read_doc' as const,
+      isMobile: true,
+      openWikiDoc,
+      openFileDoc,
+      openEmailFromSearch,
+      switchToCalendar,
+    }
 
     navigateFromAgentOpen({ type: 'wiki', path: 'ideas/x.md' }, ctx)
+    navigateFromAgentOpen({ type: 'file', path: '/tmp/x.txt' }, ctx)
     navigateFromAgentOpen({ type: 'email', id: 'm1' }, ctx)
     navigateFromAgentOpen({ type: 'calendar', date: '2026-04-14' }, ctx)
 
     expect(openWikiDoc).not.toHaveBeenCalled()
+    expect(openFileDoc).not.toHaveBeenCalled()
     expect(openEmailFromSearch).not.toHaveBeenCalled()
     expect(switchToCalendar).not.toHaveBeenCalled()
   })
@@ -32,13 +43,23 @@ describe('navigateFromAgentOpen', () => {
     const openWikiDoc = vi.fn()
     const openEmailFromSearch = vi.fn()
     const switchToCalendar = vi.fn()
-    const ctx = { source: 'open' as const, isMobile: true, openWikiDoc, openEmailFromSearch, switchToCalendar }
+    const openFileDoc = vi.fn()
+    const ctx = {
+      source: 'open' as const,
+      isMobile: true,
+      openWikiDoc,
+      openFileDoc,
+      openEmailFromSearch,
+      switchToCalendar,
+    }
 
     navigateFromAgentOpen({ type: 'wiki', path: 'ideas/x.md' }, ctx)
+    navigateFromAgentOpen({ type: 'file', path: '/tmp/x.txt' }, ctx)
     navigateFromAgentOpen({ type: 'email', id: 'm1' }, ctx)
     navigateFromAgentOpen({ type: 'calendar', date: '2026-04-14' }, ctx)
 
     expect(openWikiDoc).toHaveBeenCalledWith('ideas/x.md')
+    expect(openFileDoc).toHaveBeenCalledWith('/tmp/x.txt')
     expect(openEmailFromSearch).toHaveBeenCalledWith('m1', '', '')
     expect(switchToCalendar).toHaveBeenCalledWith('2026-04-14')
   })
@@ -47,6 +68,12 @@ describe('navigateFromAgentOpen', () => {
     const ctx = desktopCtx()
     navigateFromAgentOpen({ type: 'wiki', path: 'ideas/x.md' }, ctx)
     expect(ctx.openWikiDoc).toHaveBeenCalledWith('ideas/x.md')
+  })
+
+  it('opens file on desktop (open)', () => {
+    const ctx = desktopCtx()
+    navigateFromAgentOpen({ type: 'file', path: '/Users/me/a.txt' }, ctx)
+    expect(ctx.openFileDoc).toHaveBeenCalledWith('/Users/me/a.txt')
   })
 
   it('opens email on desktop (read_doc)', () => {

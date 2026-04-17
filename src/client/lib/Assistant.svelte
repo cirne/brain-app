@@ -256,6 +256,17 @@
     route = parseRoute()
   }
 
+  function openFileDoc(path: string) {
+    navigate({ overlay: { type: 'file', path } })
+    route = parseRoute()
+    addToNavHistory({
+      id: makeNavHistoryId('doc', `file:${path}`),
+      type: 'doc',
+      title: path,
+      path,
+    })
+  }
+
   function onInboxNavigateSlide(id: string | undefined) {
     const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
     navigate({ overlay })
@@ -332,6 +343,7 @@
       source,
       isMobile,
       openWikiDoc: (path) => openWikiDoc(path),
+      openFileDoc: (path) => openFileDoc(path),
       openEmailFromSearch,
       switchToCalendar,
     })
@@ -484,6 +496,7 @@
         conversationHidden={!!route.overlay && isMobile}
         suppressAgentDetailAutoOpen={isMobile}
         onOpenWiki={openWikiDoc}
+        onOpenFile={openFileDoc}
         onOpenEmail={openEmailFromChat}
         onOpenFullInbox={openFullInboxFromChat}
         onOpenMessageThread={openMessageThreadFromChat}

@@ -1,5 +1,6 @@
 import {
   absolutePathFromUrlSegments,
+  encodeFilesystemPathForUrl,
   isFilesystemAbsolutePath,
   wikiUrlSegmentsLookLikeFilesystemPath,
 } from './lib/fsPath.js'
@@ -145,7 +146,7 @@ export function routeToUrl(route: Route): string {
     return o.path ? `/wiki/${encodeWikiPathSegmentsForUrl(o.path)}` : '/wiki'
   }
   if (o.type === 'file') {
-    return o.path ? `/files/${encodeWikiPathSegmentsForUrl(o.path)}` : '/files'
+    return o.path ? `/files/${encodeFilesystemPathForUrl(o.path)}` : '/files'
   }
   if (o.type === 'email') {
     if (!o.id) return '/inbox'

@@ -36,6 +36,17 @@ export function absolutePathFromUrlSegments(rest: string[]): string {
 /**
  * True when `/wiki/…` URL segments should open the **file** viewer (raw disk) rather than wiki markdown.
  */
+/**
+ * Encode a filesystem path for `/files/…` URLs (avoids a double slash after `/files` when `path` is absolute POSIX).
+ */
+export function encodeFilesystemPathForUrl(path: string): string {
+  const s = path.trim()
+  if (!s) return ''
+  const posix = s.replace(/\\/g, '/')
+  const stripped = posix.replace(/^\/+/, '')
+  return stripped.split('/').map(encodeURIComponent).join('/')
+}
+
 export function wikiUrlSegmentsLookLikeFilesystemPath(rest: string[]): boolean {
   if (rest.length === 0) return false
   const dec = rest.map(s => {

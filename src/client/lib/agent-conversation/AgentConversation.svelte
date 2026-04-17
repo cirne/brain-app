@@ -10,6 +10,7 @@
     messages,
     streaming,
     onOpenWiki,
+    onOpenFile,
     onOpenEmail,
     onOpenFullInbox,
     onSwitchToCalendar,
@@ -20,6 +21,7 @@
     messages: ChatMessage[]
     streaming: boolean
     onOpenWiki?: (_path: string) => void
+    onOpenFile?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
@@ -116,6 +118,7 @@
       {streaming}
       isLastMessage={i === messages.length - 1}
       {onOpenWiki}
+      {onOpenFile}
       {onOpenEmail}
       {onOpenFullInbox}
       {onSwitchToCalendar}

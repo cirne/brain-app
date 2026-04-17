@@ -2,6 +2,7 @@
   import { setContext } from 'svelte'
   import { Mail, MessageSquare } from 'lucide-svelte'
   import Wiki from './Wiki.svelte'
+  import FileViewer from './FileViewer.svelte'
   import Inbox from './Inbox.svelte'
   import Calendar from './Calendar.svelte'
   import MessageThread from './MessageThread.svelte'
@@ -213,6 +214,7 @@
 
   function titleForOverlay(o: Overlay): string {
     if (o.type === 'wiki') return 'Docs'
+    if (o.type === 'file') return 'File'
     if (o.type === 'email') return 'Inbox'
     if (o.type === 'messages') return 'Messages'
     return 'Calendar'
@@ -277,11 +279,14 @@
           class="slide-title"
           class:slide-title-wiki={Boolean(
             (overlay.type === 'wiki' && overlay.path) ||
+              (overlay.type === 'file' && overlay.path) ||
               (overlay.type === 'email' && emailHeaderTitle) ||
               (overlay.type === 'messages' && messagesHeaderTitle),
           )}
         >
           {#if overlay.type === 'wiki' && overlay.path}
+            <WikiFileName path={overlay.path} />
+          {:else if overlay.type === 'file' && overlay.path}
             <WikiFileName path={overlay.path} />
           {:else if overlay.type === 'email' && emailHeaderTitle}
             <span class="slide-title-email">
@@ -375,6 +380,8 @@
         onNavigate={(path) => onWikiNavigate(path)}
         onContextChange={onContextChange}
       />
+    {:else if overlay.type === 'file'}
+      <FileViewer initialPath={overlay.path} onContextChange={onContextChange} />
     {:else if overlay.type === 'email'}
       <Inbox
         initialId={overlay.id}

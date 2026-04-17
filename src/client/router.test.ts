@@ -36,6 +36,22 @@ describe('parseRoute', () => {
     })
   })
 
+  it('parses /files/Users/foo/bar as file overlay (absolute path)', () => {
+    expect(parseRoute('http://localhost/files/Users/foo/bar')).toEqual({
+      overlay: { type: 'file', path: '/Users/foo/bar' },
+    })
+  })
+
+  it('parses /files without path as file overlay', () => {
+    expect(parseRoute('http://localhost/files')).toEqual({ overlay: { type: 'file' } })
+  })
+
+  it('legacy /wiki/Users/... maps to file overlay, not wiki', () => {
+    expect(parseRoute('http://localhost/wiki/Users/x/a.txt')).toEqual({
+      overlay: { type: 'file', path: '/Users/x/a.txt' },
+    })
+  })
+
   it('parses /inbox as email overlay without id', () => {
     expect(parseRoute('http://localhost/inbox')).toEqual({ overlay: { type: 'email' } })
   })
@@ -126,6 +142,16 @@ describe('routeToUrl', () => {
     )
   })
 
+  it('file without path', () => {
+    expect(routeToUrl({ overlay: { type: 'file' } })).toBe('/files')
+  })
+
+  it('file with absolute path uses /files segments', () => {
+    expect(routeToUrl({ overlay: { type: 'file', path: '/Users/foo/my note.txt' } })).toBe(
+      '/files/Users/foo/my%20note.txt',
+    )
+  })
+
   it('inbox without id', () => {
     expect(routeToUrl({ overlay: { type: 'email' } })).toBe('/inbox')
   })
@@ -190,6 +216,8 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     {},
     { overlay: { type: 'wiki' as const } },
     { overlay: { type: 'wiki' as const, path: 'ideas/my note.md' } },
+    { overlay: { type: 'file' as const } },
+    { overlay: { type: 'file' as const, path: '/Users/foo/bar.txt' } },
     { overlay: { type: 'email' as const } },
     { overlay: { type: 'email' as const, id: 'msg:12345@mail.example.com' } },
     { overlay: { type: 'calendar' as const } },
@@ -264,6 +292,17 @@ describe('contextToString', () => {
     const s = contextToString(ctx)!
     expect(s).toContain('projects/alpha.md')
     expect(s).toContain('Project Alpha')
+  })
+
+  it('formats file context with path and title', () => {
+    const ctx: SurfaceContext = {
+      type: 'file',
+      path: '/Users/me/Documents/a.xlsx',
+      title: 'a.xlsx',
+    }
+    const s = contextToString(ctx)!
+    expect(s).toContain('/Users/me/Documents/a.xlsx')
+    expect(s).toContain('read_doc')
   })
 
   it('formats calendar context with date', () => {
