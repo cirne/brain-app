@@ -36,6 +36,42 @@ describe('chatSessionStore helpers', () => {
     expect(r.displayedSessionId).toBe(server)
   })
 
+  it('migratePendingToServer carries pendingQueuedMessages onto server session (OPP-016)', () => {
+    const pending = 'pending:q'
+    const server = '44444444-4444-4444-4444-444444444444'
+    let map = new Map()
+    map = setSessionImmutable(map, pending, {
+      ...emptySession(),
+      messages: [{ role: 'user', content: 'a' }],
+      streaming: true,
+      sessionId: null,
+      pendingQueuedMessages: ['follow up when done'],
+    })
+    const r = migratePendingToServer(map, pending, server, pending)
+    expect(r.sessions.get(server)?.pendingQueuedMessages).toEqual(['follow up when done'])
+  })
+
+  it('migratePendingToServer merges pendingQueuedMessages when server slot exists', () => {
+    const pending = 'pending:merge'
+    const server = '55555555-5555-5555-5555-555555555555'
+    let map = new Map()
+    map = setSessionImmutable(map, server, {
+      ...emptySession(),
+      messages: [{ role: 'user', content: 'old' }],
+      sessionId: server,
+      pendingQueuedMessages: ['existing'],
+    })
+    map = setSessionImmutable(map, pending, {
+      ...emptySession(),
+      messages: [{ role: 'user', content: 'new' }],
+      streaming: true,
+      sessionId: null,
+      pendingQueuedMessages: ['from pending'],
+    })
+    const r = migratePendingToServer(map, pending, server, pending)
+    expect(r.sessions.get(server)?.pendingQueuedMessages).toEqual(['from pending', 'existing'])
+  })
+
   it('migratePendingToServer leaves displayed id unchanged when viewing another session', () => {
     const pending = 'pending:p'
     const other = '22222222-2222-2222-2222-222222222222'

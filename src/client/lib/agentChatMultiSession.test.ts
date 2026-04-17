@@ -29,6 +29,7 @@ describe('loadSession streaming guard', () => {
       abortController: null,
       sessionId: null,
       chatTitle: null,
+      pendingQueuedMessages: [],
       ...overrides,
     }
   }

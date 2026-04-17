@@ -20,6 +20,7 @@
     touchSessionImmutable,
     type SessionState,
   } from './chatSessionStore.js'
+  import { shiftQueuedFollowUp } from './agentFollowUpQueue.js'
   import { MessageSquarePlus } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import AgentInput from './AgentInput.svelte'
@@ -119,6 +120,7 @@
         abortController: null,
         sessionId: initial.sessionId,
         chatTitle: initial.chatTitle ?? null,
+        pendingQueuedMessages: [],
       })
       return { sessions: map, displayed: initial.sessionId }
     }
@@ -130,6 +132,7 @@
         abortController: null,
         sessionId: null,
         chatTitle: initial.chatTitle ?? null,
+        pendingQueuedMessages: [],
       })
       return { sessions: map, displayed: pk }
     }
@@ -288,6 +291,7 @@
           ...err,
           sessionId: null,
           chatTitle: null,
+          pendingQueuedMessages: [],
         })
         displayedSessionId = loadId
         await tick()
@@ -307,6 +311,7 @@
         abortController: null,
         sessionId: sid,
         chatTitle: doc.title ?? null,
+        pendingQueuedMessages: [],
       })
       displayedSessionId = sid
       await tick()
@@ -320,6 +325,7 @@
         abortController: null,
         sessionId: null,
         chatTitle: null,
+        pendingQueuedMessages: [],
       })
       displayedSessionId = pk
       await tick()
@@ -333,11 +339,22 @@
     sessions.get(id)?.abortController?.abort()
   }
 
-  async function send(text: string) {
-    const id = displayedSessionId
+  /**
+   * @param forSessionKey — when set (e.g. queued follow-up after a background stream ends), send targets this map key instead of the currently displayed session.
+   */
+  async function send(text: string, forSessionKey?: string) {
+    const id = forSessionKey ?? displayedSessionId
     if (!text || !id) return
     const st = sessions.get(id)
-    if (!st || st.streaming) return
+    if (!st) return
+
+    if (st.streaming) {
+      const t = text.trim()
+      if (!t) return
+      const prev = st.pendingQueuedMessages ?? []
+      sessions = touchSessionImmutable(sessions, id, { pendingQueuedMessages: [...prev, t] })
+      return
+    }
 
     const streamKey = id
     let activeKey = streamKey
@@ -455,6 +472,14 @@
       notifyChatSessionsChanged()
       onChatPersisted?.()
       if (sawDone && displayedSessionId === activeKey) void onStreamFinished?.()
+
+      const { next: queued, rest: queueRest } = shiftQueuedFollowUp(
+        sessions.get(activeKey)?.pendingQueuedMessages,
+      )
+      if (queued) {
+        sessions = touchSessionImmutable(sessions, activeKey, { pendingQueuedMessages: queueRest })
+        void send(queued, activeKey)
+      }
     }
   }
 
@@ -466,6 +491,12 @@
     if (context.type === 'inbox') return '📥 Inbox'
     if (context.type === 'messages') return `💬 ${context.displayLabel}`
     return null
+  })
+
+  const pendingQueuedMessages = $derived.by((): string[] => {
+    const id = displayedSessionId
+    if (!id) return []
+    return sessions.get(id)?.pendingQueuedMessages ?? []
   })
 
 </script>
@@ -529,7 +560,7 @@
       bind:this={inputEl}
       {placeholder}
       {streaming}
-      disabled={streaming}
+      queuedMessages={pendingQueuedMessages}
       {wikiFiles}
       skills={skillsList}
       onSend={send}

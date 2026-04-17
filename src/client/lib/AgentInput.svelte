@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowUp } from 'lucide-svelte'
+  import { ArrowUp, List } from 'lucide-svelte'
   import WikiFileName from './WikiFileName.svelte'
   import type { SkillMenuItem } from './agentUtils.js'
   import { handleTextareaCursorKeys } from './agentInputCursor.js'
@@ -8,6 +8,8 @@
     placeholder = 'Ask anything...',
     disabled = false,
     streaming = false,
+    /** OPP-016: FIFO texts queued until the current stream ends (shown stacked, oldest first). */
+    queuedMessages = [] as string[],
     wikiFiles = [],
     skills = [] as SkillMenuItem[],
     onSend,
@@ -16,6 +18,7 @@
     placeholder?: string
     disabled?: boolean
     streaming?: boolean
+    queuedMessages?: string[]
     wikiFiles?: string[]
     skills?: SkillMenuItem[]
     onSend: (_text: string) => void
@@ -161,7 +164,8 @@
 
   function submit() {
     const text = input.trim()
-    if (!text || disabled) return
+    if (!text) return
+    if (disabled) return
     input = ''
     if (inputEl) inputEl.style.height = 'auto'
     onSend(text)
@@ -204,6 +208,18 @@
 
   <div class="input-row">
     <div class="input-shell">
+      {#if queuedMessages.length > 0}
+        <div class="queued-list" role="list" aria-label="Messages queued to send when assistant finishes">
+          {#each queuedMessages as message, i (i)}
+            <div class="queued-hint" role="listitem" title={message}>
+              <span class="queued-icon" aria-hidden="true">
+                <List size={14} strokeWidth={2.25} />
+              </span>
+              <span class="queued-text">{message}</span>
+            </div>
+          {/each}
+        </div>
+      {/if}
       <div class="input-shell-inner">
         <textarea
           class="chat-textarea"
@@ -216,7 +232,17 @@
           {disabled}
         ></textarea>
         {#if streaming}
-          <button type="button" class="send-btn" onclick={() => onStop?.()} aria-label="Stop">
+          <button
+            type="button"
+            class="send-btn"
+            onclick={submit}
+            disabled={disabled || !input.trim()}
+            title="Queue message (sends when assistant finishes)"
+            aria-label="Queue message to send when assistant finishes"
+          >
+            <ArrowUp size={14} strokeWidth={2.25} aria-hidden="true" />
+          </button>
+          <button type="button" class="send-btn stop-btn" onclick={() => onStop?.()} aria-label="Stop">
             <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
           </button>
         {:else}
@@ -290,6 +316,42 @@
     width: 100%;
   }
 
+  .queued-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 2px;
+    min-width: 0;
+  }
+
+  .queued-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--text-2);
+    padding: 0 2px 6px 2px;
+    min-width: 0;
+  }
+
+  .queued-icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--accent);
+    opacity: 0.95;
+  }
+
+  .queued-text {
+    min-width: 0;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    word-break: break-word;
+  }
+
   .input-shell {
     flex: 1;
     min-width: 0;
@@ -355,5 +417,12 @@
   .send-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  .stop-btn {
+    background: var(--text-2);
+  }
+  .stop-btn:hover {
+    filter: brightness(1.1);
   }
 </style>

@@ -7,6 +7,8 @@ export type SessionState = {
   /** Server session id when known; null until first `session` SSE event. */
   sessionId: string | null
   chatTitle: string | null
+  /** OPP-016: FIFO follow-ups queued while `streaming`; flushed one per turn when each stream ends. */
+  pendingQueuedMessages: string[]
 }
 
 export function emptySession(): SessionState {
@@ -16,6 +18,7 @@ export function emptySession(): SessionState {
     abortController: null,
     sessionId: null,
     chatTitle: null,
+    pendingQueuedMessages: [],
   }
 }
 
@@ -59,6 +62,10 @@ export function migratePendingToServer(
       abortController: merged.abortController ?? existing.abortController,
       chatTitle: merged.chatTitle ?? existing.chatTitle,
       sessionId: serverId,
+      pendingQueuedMessages: [
+        ...(merged.pendingQueuedMessages ?? []),
+        ...(existing.pendingQueuedMessages ?? []),
+      ],
     })
   } else {
     next.set(serverId, merged)
