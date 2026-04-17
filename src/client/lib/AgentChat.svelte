@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onMount, tick, type Snippet } from 'svelte'
+  import { onMount, tick, type Component, type Snippet } from 'svelte'
   import { type SurfaceContext } from '../router.js'
+  import type { AgentConversationViewProps, ConversationScrollApi } from './agentConversationViewTypes.js'
   import { buildChatBody, extractMentionedFiles, type ChatMessage, type SkillMenuItem } from './agentUtils.js'
   import { contextPlaceholder } from './agentUtils.js'
   import { emit } from './app/appEvents.js'
@@ -67,6 +68,16 @@
     /** Persist transcript under this localStorage key; empty = no persistence. */
     storageKey = 'brain-agent',
     showNewChatButton = true,
+    /**
+     * Main transcript UI. Defaults to the standard chat. Pass a different component
+     * (e.g. onboarding profiling, future “wiki cleanup” agents) with the same props +
+     * {@link ConversationScrollApi} on the instance.
+     */
+    conversationView = AgentConversation as Component<AgentConversationViewProps>,
+    /** Hide the composer (e.g. kickoff-only flows). */
+    hideInput = false,
+    /** Header label while the model is streaming (default “Thinking…”). */
+    streamingBusyLabel = 'Thinking...',
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -98,7 +109,13 @@
     onStreamingSessionsChange?: (_sessionIds: ReadonlySet<string>) => void
     storageKey?: string
     showNewChatButton?: boolean
+    conversationView?: Component<AgentConversationViewProps>
+    hideInput?: boolean
+    streamingBusyLabel?: string
   } = $props()
+
+  /** Dynamic transcript component (default {@link AgentConversation}). */
+  const ConversationView = $derived(conversationView)
 
   function loadState(): { messages: ChatMessage[]; sessionId: string | null; chatTitle?: string | null } {
     if (!storageKey) return { messages: [], sessionId: null, chatTitle: null }
@@ -179,7 +196,7 @@
 
   let wikiFiles = $state<string[]>([])
   let skillsList = $state<SkillMenuItem[]>([])
-  let conversationEl = $state<ReturnType<typeof AgentConversation> | undefined>(undefined)
+  let conversationEl = $state<ConversationScrollApi | undefined>(undefined)
   let inputEl = $state<ReturnType<typeof AgentInput> | undefined>(undefined)
 
   async function focusAgentTextarea(delayMs: number) {
@@ -510,7 +527,7 @@
         {#snippet center()}
           <div class="header-left">
             <span class="chat-title" class:thinking={streaming} class:custom-title={!!chatTitle}>
-              {streaming ? 'Thinking...' : (chatTitle ?? headerFallbackTitle)}
+              {streaming ? streamingBusyLabel : (chatTitle ?? headerFallbackTitle)}
             </span>
             {#if context.type === 'wiki'}
               <span class="context-chip"><WikiFileName path={context.path} /></span>
@@ -534,7 +551,7 @@
 
     <!-- Always mounted so it is visible behind the overlay during the slide-out animation -->
     <div class="mid" inert={conversationHidden || undefined}>
-      <AgentConversation
+      <ConversationView
         bind:this={conversationEl}
         {messages}
         {streaming}
@@ -555,18 +572,20 @@
   </div>
 
   <!-- Sibling below chat-body: stays outside the mobile slide-over so the user can keep typing or start a new chat -->
-  <div class="input-shell">
-    <AgentInput
-      bind:this={inputEl}
-      {placeholder}
-      {streaming}
-      queuedMessages={pendingQueuedMessages}
-      {wikiFiles}
-      skills={skillsList}
-      onSend={send}
-      onStop={stopChat}
-    />
-  </div>
+  {#if !hideInput}
+    <div class="input-shell">
+      <AgentInput
+        bind:this={inputEl}
+        {placeholder}
+        {streaming}
+        queuedMessages={pendingQueuedMessages}
+        {wikiFiles}
+        skills={skillsList}
+        onSend={send}
+        onStop={stopChat}
+      />
+    </div>
+  {/if}
 </div>
 
 <style>

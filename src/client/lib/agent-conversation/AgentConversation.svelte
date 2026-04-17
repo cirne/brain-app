@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte'
   import { onMount, tick } from 'svelte'
   import { fly } from 'svelte/transition'
   import { ChevronDown } from 'lucide-svelte'
   import { computePinnedToBottom } from '../scrollPin.js'
-  import { extractReferencedFiles, type ChatMessage } from '../agentUtils.js'
+  import { extractReferencedFiles } from '../agentUtils.js'
+  import type { AgentConversationViewProps } from '../agentConversationViewTypes.js'
   import ConversationEmptyState from './ConversationEmptyState.svelte'
   import ChatMessageRow from './ChatMessageRow.svelte'
   import ReferencedFilesStrip from './ReferencedFilesStrip.svelte'
@@ -21,17 +21,7 @@
     onOpenMessageThread,
     /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
     empty,
-  }: {
-    messages: ChatMessage[]
-    streaming: boolean
-    onOpenWiki?: (_path: string) => void
-    onOpenFile?: (_path: string) => void
-    onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
-    onOpenFullInbox?: () => void
-    onSwitchToCalendar?: (_date: string, _eventId?: string) => void
-    onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
-    empty?: Snippet
-  } = $props()
+  }: AgentConversationViewProps = $props()
 
   let messagesEl: HTMLElement
   let datePopover = $state<{ date: string; x: number; y: number } | null>(null)

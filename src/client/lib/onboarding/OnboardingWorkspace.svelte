@@ -9,6 +9,8 @@
   import AppTopNav from '../AppTopNav.svelte'
   import SlideOver from '../SlideOver.svelte'
   import AgentChat from '../AgentChat.svelte'
+  import AgentConversation from '../agent-conversation/AgentConversation.svelte'
+  import OnboardingProfilingView from './OnboardingProfilingView.svelte'
   import WorkspaceSplit from '../WorkspaceSplit.svelte'
   import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from '../../router.js'
   import { runParallelSyncs } from '../app/syncAllServices.js'
@@ -39,6 +41,7 @@
   } = $props()
 
   const isSeedingWiki = $derived(chatEndpoint === '/api/onboarding/seed')
+  const isProfiling = $derived(chatEndpoint === '/api/onboarding/profile')
 
   let route = $state<Route>(parseRoute())
   let syncing = $state(false)
@@ -339,7 +342,10 @@
           bind:this={agentChat}
           context={agentContext}
           conversationHidden={!!route.overlay && isMobile}
-          suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || isMobile}
+          suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || isMobile || isProfiling}
+          conversationView={isProfiling ? OnboardingProfilingView : AgentConversation}
+          hideInput={isProfiling}
+          streamingBusyLabel={isProfiling ? 'Working...' : 'Thinking...'}
           {chatEndpoint}
           {autoSendMessage}
           {headerFallbackTitle}
