@@ -32,7 +32,7 @@
 
 Brain.app requires **Full Disk Access (FDA)** to read iMessage, Notes, Safari history, and Apple Mail data. Previously the app lacked guided onboarding; that gap is addressed by the implementation above.
 
-**Related:** [BUG-003](BUG-003-native-mac-app-ship-blockers.md) (native app ship blockers), [OPP-007](../opportunities/OPP-007-native-mac-app.md) (native Mac app packaging).
+**Related:** [BUG-003](BUG-003-native-mac-app-ship-blockers.md) (native app ship blockers), [OPP-007 (archived)](../opportunities/archive/OPP-007-native-mac-app.md) (native Mac app packaging).
 
 ## What other apps do (research)
 

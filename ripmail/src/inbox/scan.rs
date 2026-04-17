@@ -839,8 +839,9 @@ pub(crate) fn compute_deterministic_picks(
         ..Default::default()
     };
     for rule in &file.rules {
-        let UserRule::Search { query, id, .. } = rule;
-        assign_pending_matching_rule_query(conn, query, &base, id, &scope_sql, &scope_params)
+        let UserRule::Search { id, .. } = rule;
+        let opts = crate::rules::search_options_from_rule(rule, &base);
+        assign_pending_matching_rule_query(conn, &opts, id, &scope_sql, &scope_params)
             .map_err(RunInboxScanError::Sqlite)?;
     }
     let candidates = load_inbox_candidates(conn, options)?;
@@ -1578,11 +1579,16 @@ mod tests {
         .unwrap();
 
         let rules = RulesFile {
-            version: 3,
+            version: 4,
             rules: vec![UserRule::Search {
                 id: "r-arch".into(),
                 action: "ignore".into(),
-                query: "from:alice@example.com".into(),
+                query: String::new(),
+                from_address: Some("alice@example.com".into()),
+                to_address: None,
+                subject: None,
+                category: None,
+                from_or_to_union: false,
                 description: None,
             }],
             context: vec![],

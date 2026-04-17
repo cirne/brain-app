@@ -79,7 +79,7 @@ ${ripmailWhoami}
 
 ## Task
 - **First:** call **find_person** with an **empty query** once — this runs \`ripmail who\` and lists who the user emails most (top contacts by frequency). Then use **find_person** again for specific people you want to understand better.
-- Use search_index, read_doc, and list_inbox sparingly — only enough to fill the sections below. Do not turn this into a research project.
+- Use search_index (regex pattern + optional \`from\`/\`after\`/etc.), read_doc, and list_inbox sparingly — only enough to fill the sections below. Do not turn this into a research project.
 - Write **me.md** at the wiki root (relative path \`me.md\` only) with the **write** or **edit** tools — **same filename** as the real profile file.
 
 ## What me.md is for here
@@ -117,7 +117,7 @@ ${categoriesNote}
 
 ## Task
 - Read **me.md** first with the read tool (path: \`me.md\` — not \`wiki/me.md\`).
-- Use search_index and read_doc to enrich facts before writing pages.
+- Use search_index (regex + structured filters) and read_doc to enrich facts before writing pages.
 - Use **web_search** for current public information (companies, products, named entities) when it helps you write accurate wiki pages; use **fetch_page** to read full article text from a specific URL when you need more than search snippets.
 - Create interlinked markdown pages under the wiki root (people/, projects/, etc. as appropriate). This is an **Obsidian-style vault** — cross-link pages with **\`[[wikilinks]]\`** (e.g. \`[[people/jane-doe]]\`, \`[[me]]\`, or \`[[projects/foo|Foo]]\` with a label). Do **not** use plain markdown \`[label](path.md)\` links between wiki pages — only \`[[ ]]\`. External URLs still use standard \`[label](https://…)\` markdown.
 - **Do not** write a separate page about the **main user** (no duplicate profile under \`people/\` or elsewhere). **me.md** is already their profile — link to it as \`[[me]]\` from other pages when useful. Seed pages for **other** people, projects, and topics.

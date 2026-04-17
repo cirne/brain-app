@@ -138,7 +138,7 @@
           break
       }
     }
-    window.addEventListener('keydown', onKeydown)
+    window.addEventListener('keydown', onKeydown, true)
 
     void (async () => {
       try {
@@ -169,7 +169,7 @@
       mq.removeEventListener('change', onMqChange)
       mqReduce.removeEventListener('change', syncReduce)
       window.removeEventListener('popstate', onPopState)
-      window.removeEventListener('keydown', onKeydown)
+      window.removeEventListener('keydown', onKeydown, true)
     }
   })
 
@@ -186,7 +186,7 @@
   })
 
   function closeOverlayImmediate() {
-    navigate({})
+    navigate({}, { replace: true })
     route = parseRoute()
     agentContext = { type: 'chat' }
     inboxTargetId = undefined
@@ -212,7 +212,8 @@
 
   function openWikiDoc(path?: string) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
-    navigate({ overlay })
+    const replace = route.overlay?.type === 'wiki'
+    navigate({ overlay }, replace ? { replace: true } : undefined)
     route = parseRoute()
     if (path) {
       addToNavHistory({
@@ -226,7 +227,8 @@
 
   function onWikiNavigate(path: string | undefined) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
-    navigate({ overlay })
+    const replace = route.overlay?.type === 'wiki'
+    navigate({ overlay }, replace ? { replace: true } : undefined)
     route = parseRoute()
   }
 

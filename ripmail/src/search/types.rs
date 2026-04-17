@@ -4,7 +4,10 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Default)]
 pub struct SearchOptions {
+    /// Regex pattern matched against subject + body (and path/title for indexed files). Not FTS syntax.
     pub query: Option<String>,
+    /// When false (default), the pattern uses case-insensitive matching.
+    pub case_sensitive: bool,
     pub limit: Option<usize>,
     pub offset: usize,
     pub from_address: Option<String>,
@@ -49,7 +52,7 @@ pub struct SearchResult {
 #[serde(rename_all = "camelCase")]
 pub struct SearchTimings {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub fts_ms: Option<u64>,
+    pub pattern_ms: Option<u64>,
     pub total_ms: u64,
 }
 

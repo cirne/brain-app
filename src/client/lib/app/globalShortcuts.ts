@@ -12,6 +12,10 @@ export type GlobalShortcutAction =
  * - ⌘K / Ctrl+K — search
  * - ⌘N / Ctrl+N — new chat
  * - ⌘R / Ctrl+R — sync (refresh)
+ *
+ * Note: In Google Chrome, many ⌘ shortcuts are reserved for the browser UI; the page may
+ * never receive keydown for them. The packaged app (Tauri) or a different browser profile
+ * can behave differently. Assistant registers the listener in capture phase to run early.
  */
 export function matchGlobalShortcut(e: KeyLike): GlobalShortcutAction | null {
   if (e.repeat) return null

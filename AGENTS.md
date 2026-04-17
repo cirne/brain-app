@@ -9,7 +9,8 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 ## Developer docs
 
 - [docs/VISION.md](docs/VISION.md) — product vision and long-term direction
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, configuration overview
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, configuration overview (brain-app)
+- [docs/architecture/](docs/architecture/) — detailed decision write-ups (indexed in [README](docs/architecture/README.md)); ripmail crate: [`ripmail/docs/ARCHITECTURE.md`](ripmail/docs/ARCHITECTURE.md)
 - [docs/BUGS.md](docs/BUGS.md) — known bugs (active + archived)
 - [docs/OPPORTUNITIES.md](docs/OPPORTUNITIES.md) — feature ideas and improvements (WIP and future)
 - [docs/PRODUCTIZATION.md](docs/PRODUCTIZATION.md) — blockers and tradeoffs for generalizing to multi-user product
@@ -25,12 +26,12 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 | Chat UI         | Svelte 5 (custom streaming SSE client)                        |
 | Wiki / Inbox UI | Svelte 5                                                      |
 | Email           | ripmail binary ([`ripmail/`](ripmail/) crate, subprocess)    |
-| DB              | better-sqlite3 (app state; ripmail manages its own SQLite)    |
+| DB              | better-sqlite3 (optional read-only macOS iMessage `chat.db`; ripmail has its own SQLite) |
 
 
 ## Configuration
 
-Copy `[.env.example](.env.example)` to `.env` and edit. Variable names and inline comments live in `.env.example`; semantics and architecture-level notes are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Copy `[.env.example](.env.example)` to `.env` and edit. Variable names and inline comments live in `.env.example`; semantics and architecture-level notes are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/architecture/configuration.md](docs/architecture/configuration.md).
 
 ## Dev
 
@@ -46,7 +47,7 @@ Auth is skipped in dev mode (`NODE_ENV !== 'production'`).
 
 ### Native macOS (Tauri v2)
 
-Optional: run the same stack inside a native window (see [OPP-007](docs/opportunities/OPP-007-native-mac-app.md)).
+Optional: run the same stack inside a native window (see [OPP-007 (archived)](docs/opportunities/archive/OPP-007-native-mac-app.md)).
 
 ```sh
 npm run ripmail:dev            # cargo build -p ripmail (debug) — use before inbox if not on PATH

@@ -4,6 +4,7 @@ import { buildDraftEditFlags } from '../agent/tools.js'
 import { syncInboxRipmail } from '../lib/syncAll.js'
 import { flattenInboxFromRipmailData } from '../lib/ripmailInboxFlatten.js'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
+import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 
 const inbox = new Hono()
@@ -94,7 +95,9 @@ inbox.post('/draft/:draftId/send', async (c) => {
 inbox.get('/:id', async (c) => {
   const id = c.req.param('id')
   try {
-    const { stdout } = await execRipmailAsync(`${ripmailBin()} read ${JSON.stringify(id)}`)
+    const { stdout } = await execRipmailAsync(`${ripmailBin()} read ${JSON.stringify(id)}`, {
+      ...ripmailReadExecOptions(),
+    })
     return c.text(stdout)
   } catch {
     return c.json({ error: 'Not found' }, 404)

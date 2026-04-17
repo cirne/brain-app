@@ -1,15 +1,18 @@
-//! `search_with_meta` — FTS + filter-only paths + contact-rank rerank.
+//! `search_with_meta` — regex pattern + SQL filters + contact-rank rerank.
 
+use regex::{Regex, RegexBuilder};
 use rusqlite::{params_from_iter, types::Value, Connection};
 
 use super::contact_rank::{apply_contact_rank_rerank, RankedSearchRow};
-use super::escape::convert_to_or_query;
 use super::filter::{
-    filter_clause_with_where_prefix, sql_count_messages, sql_count_messages_fts_join,
+    filter_clause_and_where_sql, filter_clause_with_where_prefix, sql_count_messages,
 };
-use super::query_parse::{parse_search_query, validate_search_query_operators};
+use super::query_parse::validate_search_pattern_no_legacy_operators;
 use super::types::{SearchOptions, SearchResult, SearchResultSet, SearchTimings};
 use crate::mime_decode::decode_rfc2047_header_line;
+
+/// Hard cap on rows read from SQLite when applying a regex (safety).
+const MAX_PATTERN_SCAN_ROWS: usize = 500_000;
 
 fn date_recency_boost_days_ago(days_ago: f64) -> f64 {
     let d = days_ago.max(0.0);
@@ -36,52 +39,52 @@ fn filter_only_combined_rank(iso_date: &str) -> f64 {
     -date_recency_boost_days_ago(days_ago)
 }
 
-/// Merge inline `from:` / `to:` / FTS remainder from `opts.query` (same as `ripmail search`).
+/// No longer merges inline operators from the pattern string; [`SearchOptions`] fields are authoritative.
 pub fn effective_search_options(opts: &SearchOptions) -> SearchOptions {
-    let mut e = opts.clone();
-    if let Some(ref q) = opts.query {
-        if !q.trim().is_empty() {
-            let p = parse_search_query(q);
-            if p.from_address.is_some() && e.from_address.is_none() {
-                e.from_address = p.from_address;
-            }
-            if p.to_address.is_some() && e.to_address.is_none() {
-                e.to_address = p.to_address;
-            }
-            if p.subject.is_some() && e.subject.is_none() {
-                e.subject = p.subject;
-            }
-            if p.after_date.is_some() && e.after_date.is_none() {
-                e.after_date = p.after_date;
-            }
-            if p.before_date.is_some() && e.before_date.is_none() {
-                e.before_date = p.before_date;
-            }
-            if let Some(cat) = p.category.filter(|s| !s.trim().is_empty()) {
-                e.categories = vec![cat.trim().to_ascii_lowercase()];
-            }
-            if let Some(fo) = p.filter_or {
-                e.filter_or = fo;
-            }
-            if p.from_or_to_union {
-                e.from_or_to_union = true;
-            }
-            e.query = Some(p.query);
-        }
-    }
-    e
+    opts.clone()
 }
 
-/// Merge `query_raw` into `base` and apply [`parse_search_query`] — the same path as `ripmail search`
-/// with a query string. Used by rules validation and inbox rule assignment so `rules` and `search`
-/// always share one compile path.
+/// Set `query` from a rule string (pattern only). Prefer [`crate::rules::search_options_from_rule`].
 pub fn effective_search_options_for_rule_query(
     base: &SearchOptions,
     query_raw: &str,
 ) -> SearchOptions {
     let mut opts = base.clone();
     opts.query = Some(query_raw.to_string());
-    effective_search_options(&opts)
+    opts
+}
+
+fn compile_search_regex(pattern: &str, case_sensitive: bool) -> Result<Regex, String> {
+    RegexBuilder::new(pattern)
+        .case_insensitive(!case_sensitive)
+        .build()
+        .map_err(|e| format!("invalid search pattern: {e}"))
+}
+
+fn haystack_mail(subject: &str, body: &str) -> String {
+    format!("{subject}\n{body}")
+}
+
+fn snippet_for_match(haystack: &str, m: &regex::Match) -> String {
+    // Match offsets are char boundaries, but `start - 25` / `end + 60` are byte offsets and can
+    // land inside a multibyte codepoint (e.g. U+00A0 NBSP); slice only on char boundaries.
+    let raw_start = m.start().saturating_sub(25);
+    let raw_end = (m.end() + 60).min(haystack.len());
+    let mut start = haystack.floor_char_boundary(raw_start);
+    let mut end = haystack.floor_char_boundary(raw_end);
+    if start >= end {
+        start = haystack.floor_char_boundary(m.start());
+        end = haystack.floor_char_boundary(m.end());
+    }
+    let mut out = String::new();
+    if start > 0 {
+        out.push('…');
+    }
+    out.push_str(&haystack[start..end]);
+    if end < haystack.len() {
+        out.push('…');
+    }
+    out
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -184,8 +187,7 @@ fn filter_only_search(
     Ok((results, total))
 }
 
-/// Keyword search on `localDir` files does not support mail-only filters (`from:`, categories, etc.).
-fn file_keyword_search_allowed(opts: &SearchOptions) -> bool {
+fn file_pattern_search_allowed(opts: &SearchOptions) -> bool {
     opts.from_address.is_none()
         && opts.to_address.is_none()
         && opts.subject.is_none()
@@ -194,13 +196,95 @@ fn file_keyword_search_allowed(opts: &SearchOptions) -> bool {
         && opts.categories.is_empty()
 }
 
-fn fts_search_files(
+fn combined_rank_for_date(iso_date: &str, base: f64) -> f64 {
+    let normalized = iso_date.trim().replace(' ', "T");
+    let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&normalized) else {
+        return base;
+    };
+    let dt = dt.with_timezone(&chrono::Utc);
+    let days_ago = (chrono::Utc::now() - dt).num_milliseconds() as f64 / 86400000.0;
+    base - date_recency_boost_days_ago(days_ago)
+}
+
+/// Regex search over mail rows (filters in SQL; pattern in Rust).
+fn regex_search_mail(
     conn: &Connection,
     opts: &SearchOptions,
-    escaped: &str,
+    re: &Regex,
+) -> rusqlite::Result<(Vec<RankedSearchRow>, i64)> {
+    let (fc, where_clause) = filter_clause_with_where_prefix(opts, false);
+    let sql = format!(
+        "SELECT m.message_id, m.thread_id, m.source_id, m.from_address, m.from_name, m.subject, m.date, m.body_text
+         FROM messages m
+         {where_clause}
+         ORDER BY m.date DESC"
+    );
+
+    let mut vals: Vec<Value> = fc.params.iter().cloned().map(Value::Text).collect();
+    vals.extend(fc.always_and_params.iter().cloned().map(Value::Text));
+
+    let mut stmt = conn.prepare(&sql)?;
+    let mut rows = stmt.query(params_from_iter(vals.iter()))?;
+
+    let mut matched: Vec<RankedSearchRow> = Vec::new();
+    let mut scanned = 0usize;
+    while let Some(row) = rows.next()? {
+        scanned += 1;
+        if scanned > MAX_PATTERN_SCAN_ROWS {
+            break;
+        }
+        let subject: String = row.get(5)?;
+        let body: String = row.get(7)?;
+        let hay = haystack_mail(&subject, &body);
+        if !re.is_match(&hay) {
+            continue;
+        }
+        let m = re.find(&hay).unwrap();
+        let snip = snippet_for_match(&hay, &m);
+        let body_prev = if body.chars().count() > 300 {
+            format!("{}…", body.chars().take(300).collect::<String>())
+        } else {
+            body.clone()
+        };
+        let date_s: String = row.get(6)?;
+        let rank_v = 0.0_f64;
+        let cr = combined_rank_for_date(&date_s, rank_v);
+        matched.push(RankedSearchRow {
+            result: row_from_cols(
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                "mail".into(),
+                row.get(3)?,
+                row.get(4)?,
+                subject,
+                date_s,
+                snip,
+                body_prev,
+                rank_v,
+            ),
+            combined_rank: cr,
+        });
+    }
+
+    let total = matched.len() as i64;
+    matched.sort_by(|a, b| {
+        a.combined_rank
+            .partial_cmp(&b.combined_rank)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.result.date.cmp(&a.result.date))
+    });
+    Ok((matched, total))
+}
+
+/// Indexed local files: regex on title + path + body when mail-only filters are absent.
+fn regex_search_files(
+    conn: &Connection,
+    opts: &SearchOptions,
+    re: &Regex,
     sql_limit: i64,
 ) -> rusqlite::Result<(Vec<RankedSearchRow>, i64)> {
-    if !file_keyword_search_allowed(opts) {
+    if !file_pattern_search_allowed(opts) {
         return Ok((Vec::new(), 0));
     }
 
@@ -212,164 +296,94 @@ fn fts_search_files(
         _ => (String::new(), Vec::new()),
     };
 
-    let mut count_vals: Vec<Value> = vec![Value::Text(escaped.to_string())];
-    count_vals.extend(src_params.iter().cloned().map(Value::Text));
-    let count_sql = format!(
-        "SELECT COUNT(*) FROM document_index_fts \
-         JOIN document_index di ON di.id = document_index_fts.rowid \
-         WHERE document_index_fts MATCH ? AND di.kind = 'file'{src_clause}"
-    );
-    let file_total: i64 = conn.query_row(&count_sql, params_from_iter(count_vals.iter()), |r| {
-        r.get(0)
-    })?;
-
-    let body_prev = "COALESCE(TRIM(SUBSTR(f.body_text, 1, 300)), '') || (CASE WHEN LENGTH(TRIM(f.body_text)) > 300 THEN '…' ELSE '' END)";
     let sql = format!(
-        "SELECT f.abs_path, f.source_id, di.title, di.date_iso,
-                snippet(document_index_fts, 1, '<b>', '</b>', '…', 20),
-                {body_prev},
-                rank,
-                rank AS combined_rank
-         FROM document_index_fts
-         JOIN document_index di ON di.id = document_index_fts.rowid
-         JOIN files f ON f.source_id = di.source_id AND f.rel_path = di.ext_id
-         WHERE document_index_fts MATCH ? AND di.kind = 'file'{src_clause}
-         ORDER BY combined_rank ASC, di.date_iso DESC
+        "SELECT f.abs_path, f.source_id, di.title, di.date_iso, f.body_text, f.rel_path
+         FROM files f
+         JOIN document_index di ON di.source_id = f.source_id AND di.ext_id = f.rel_path AND di.kind = 'file'
+         WHERE 1=1{src_clause}
+         ORDER BY di.date_iso DESC
          LIMIT ?"
     );
 
-    let mut vals: Vec<Value> = vec![Value::Text(escaped.to_string())];
-    vals.extend(src_params.iter().cloned().map(Value::Text));
+    let mut vals: Vec<Value> = src_params.iter().cloned().map(Value::Text).collect();
     vals.push(Value::Integer(sql_limit));
 
     let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map(params_from_iter(vals.iter()), |row| {
-        let snip: Option<String> = row.get(4)?;
-        let rank_v: f64 = row.get(6)?;
-        let cr: f64 = row.get(7)?;
-        Ok(RankedSearchRow {
+    let mut rows = stmt.query(params_from_iter(vals.iter()))?;
+
+    let mut matched: Vec<RankedSearchRow> = Vec::new();
+    while let Some(row) = rows.next()? {
+        let abs_path: String = row.get(0)?;
+        let source_id: String = row.get(1)?;
+        let title: String = row.get(2)?;
+        let date_iso: String = row.get(3)?;
+        let body: String = row.get(4)?;
+        let rel_path: String = row.get(5)?;
+        let hay = format!("{title}\n{rel_path}\n{abs_path}\n{body}");
+        if !re.is_match(&hay) {
+            continue;
+        }
+        let m = re.find(&hay).unwrap();
+        let snip = snippet_for_match(&hay, &m);
+        let body_prev = if body.chars().count() > 300 {
+            format!("{}…", body.chars().take(300).collect::<String>())
+        } else {
+            body.clone()
+        };
+        let rank_v = 0.0_f64;
+        let cr = combined_rank_for_date(&date_iso, rank_v);
+        matched.push(RankedSearchRow {
             result: row_from_cols(
-                row.get(0)?,
+                abs_path,
                 String::new(),
-                row.get(1)?,
+                source_id,
                 "localDir".into(),
                 String::new(),
                 None,
-                row.get(2)?,
-                row.get(3)?,
-                snip.unwrap_or_default(),
-                row.get(5)?,
+                title,
+                date_iso,
+                snip,
+                body_prev,
                 rank_v,
             ),
             combined_rank: cr,
-        })
-    })?;
+        });
+    }
 
-    let mut vec: Vec<RankedSearchRow> = rows.filter_map(|r| r.ok()).collect();
-    vec.sort_by(|a, b| {
-        a.combined_rank
-            .partial_cmp(&b.combined_rank)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| b.result.date.cmp(&a.result.date))
-    });
-    Ok((vec, file_total))
+    let total = matched.len() as i64;
+    Ok((matched, total))
 }
 
-fn fts_search(
+fn regex_search(
     conn: &Connection,
     opts: &SearchOptions,
-) -> rusqlite::Result<(Vec<RankedSearchRow>, i64)> {
+) -> Result<(Vec<RankedSearchRow>, i64), String> {
     let q = opts.query.as_deref().unwrap_or("").trim();
     if q.is_empty() {
         return Ok((Vec::new(), 0));
     }
-    let escaped = convert_to_or_query(q);
-    let (fc, where_clause) = filter_clause_with_where_prefix(opts, true);
-
-    let mut count_vals: Vec<Value> = vec![Value::Text(escaped.clone())];
-    count_vals.extend(fc.params.iter().cloned().map(Value::Text));
-    count_vals.extend(fc.always_and_params.iter().cloned().map(Value::Text));
-
-    let count_sql = sql_count_messages_fts_join(&where_clause);
-    let mail_total: i64 = conn.query_row(&count_sql, params_from_iter(count_vals.iter()), |r| {
-        r.get(0)
-    })?;
-
+    let re = compile_search_regex(q, opts.case_sensitive)?;
     let limit = opts.limit.unwrap_or(50);
     let offset = opts.offset;
-    let sql_limit = limit + offset + 50;
+    let sql_limit = MAX_PATTERN_SCAN_ROWS as i64;
 
-    let days_ago = "julianday('now') - julianday(m.date)";
-    let date_boost = format!(
-        "CASE 
-        WHEN {days_ago} <= 1 THEN 10.0
-        WHEN {days_ago} <= 7 THEN 8.0 - ({days_ago} * 0.5)
-        WHEN {days_ago} <= 30 THEN 4.5 - (({days_ago} - 7) * 0.1)
-        WHEN {days_ago} <= 90 THEN 1.2 - (({days_ago} - 30) * 0.01)
-        ELSE 0.6 - (({days_ago} - 90) * 0.001)
-        END"
-    );
-    let body_prev = "COALESCE(TRIM(SUBSTR(m.body_text, 1, 300)), '') || (CASE WHEN LENGTH(TRIM(m.body_text)) > 300 THEN '…' ELSE '' END)";
+    let (mut mail_rows, mail_total) =
+        regex_search_mail(conn, opts, &re).map_err(|e| e.to_string())?;
+    let (mut file_rows, file_total) = if file_pattern_search_allowed(opts) {
+        regex_search_files(conn, opts, &re, sql_limit).map_err(|e| e.to_string())?
+    } else {
+        (Vec::new(), 0)
+    };
 
-    let sql = format!(
-        "SELECT m.message_id, m.thread_id, m.source_id, m.from_address, m.from_name, m.subject, m.date,
-                snippet(document_index_fts, 1, '<b>', '</b>', '…', 20),
-                {body_prev},
-                rank,
-                (rank - ({date_boost})) AS combined_rank
-         FROM document_index_fts
-         JOIN document_index di ON di.id = document_index_fts.rowid
-         JOIN messages m ON m.message_id = di.ext_id AND di.kind = 'mail'
-         {where_clause}
-         ORDER BY combined_rank ASC, m.date DESC
-         LIMIT ?"
-    );
-
-    let mut vals: Vec<Value> = vec![Value::Text(escaped.clone())];
-    vals.extend(fc.params.iter().cloned().map(Value::Text));
-    vals.extend(fc.always_and_params.iter().cloned().map(Value::Text));
-    vals.push(Value::Integer(sql_limit as i64));
-
-    let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map(params_from_iter(vals.iter()), |row| {
-        let snip: Option<String> = row.get(7)?;
-        let rank_v: f64 = row.get(9)?;
-        let cr: f64 = row.get(10)?;
-        Ok(RankedSearchRow {
-            result: row_from_cols(
-                row.get(0)?,
-                row.get(1)?,
-                row.get(2)?,
-                "mail".into(),
-                row.get(3)?,
-                row.get(4)?,
-                row.get(5)?,
-                row.get(6)?,
-                snip.unwrap_or_default(),
-                row.get(8)?,
-                rank_v,
-            ),
-            combined_rank: cr,
-        })
-    })?;
-
-    let mut vec: Vec<RankedSearchRow> = rows.filter_map(|r| r.ok()).collect();
-    vec.sort_by(|a, b| {
-        a.combined_rank
-            .partial_cmp(&b.combined_rank)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| b.result.date.cmp(&a.result.date))
-    });
-    let (mut file_rows, file_total) = fts_search_files(conn, opts, &escaped, sql_limit as i64)?;
-    vec.append(&mut file_rows);
-    vec.sort_by(|a, b| {
+    mail_rows.append(&mut file_rows);
+    mail_rows.sort_by(|a, b| {
         a.combined_rank
             .partial_cmp(&b.combined_rank)
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| b.result.date.cmp(&a.result.date))
     });
     let total = mail_total.saturating_add(file_total);
-    let results: Vec<RankedSearchRow> = vec.into_iter().skip(offset).take(limit).collect();
+    let results: Vec<RankedSearchRow> = mail_rows.into_iter().skip(offset).take(limit).collect();
     Ok((results, total))
 }
 
@@ -382,7 +396,7 @@ pub fn search_with_meta(
     if let Some(ref raw) = opts.query {
         let t = raw.trim();
         if !t.is_empty() {
-            if let Err(msg) = validate_search_query_operators(t) {
+            if let Err(msg) = validate_search_pattern_no_legacy_operators(t) {
                 return Err(rusqlite::Error::InvalidParameterName(msg));
             }
         }
@@ -401,7 +415,7 @@ pub fn search_with_meta(
         return Ok(SearchResultSet {
             results,
             timings: SearchTimings {
-                fts_ms: None,
+                pattern_ms: None,
                 total_ms: started.elapsed().as_millis() as u64,
             },
             total_matched: Some(total),
@@ -409,30 +423,127 @@ pub fn search_with_meta(
     }
 
     let t0 = std::time::Instant::now();
-    let (ranked, total) = fts_search(conn, &eff).map_err(|e| {
-        let s = e.to_string();
-        if s.contains("fts5:") || s.contains("syntax error") {
-            rusqlite::Error::InvalidParameterName(format!(
-                "Search syntax error (FTS). Try removing or quoting special characters (& * ^ + ( ) \"); use simpler keywords. ({s})"
-            ))
-        } else {
-            e
-        }
-    })?;
+    let (ranked, total) =
+        regex_search(conn, &eff).map_err(rusqlite::Error::InvalidParameterName)?;
     let results = apply_contact_rank_rerank(
         conn,
         eff.owner_address.as_deref(),
         &eff.owner_aliases,
         ranked,
     )?;
-    let fts_ms = t0.elapsed().as_millis() as u64;
+    let pattern_ms = t0.elapsed().as_millis() as u64;
 
     Ok(SearchResultSet {
         results,
         timings: SearchTimings {
-            fts_ms: Some(fts_ms),
+            pattern_ms: Some(pattern_ms),
             total_ms: started.elapsed().as_millis() as u64,
         },
         total_matched: Some(total),
     })
+}
+
+/// Count mail rows matching a regex pattern + filters (same semantics as search, no rerank).
+pub fn count_regex_mail_matches(conn: &Connection, opts: &SearchOptions) -> Result<i64, String> {
+    let q = opts.query.as_deref().unwrap_or("").trim();
+    if q.is_empty() {
+        return Ok(0);
+    }
+    validate_search_pattern_no_legacy_operators(q)?;
+    let re = compile_search_regex(q, opts.case_sensitive)?;
+    let (fc, where_clause) = filter_clause_with_where_prefix(opts, false);
+    let sql = format!(
+        "SELECT m.subject, m.body_text FROM messages m {where_clause} ORDER BY m.date DESC"
+    );
+    let mut vals: Vec<Value> = fc.params.iter().cloned().map(Value::Text).collect();
+    vals.extend(fc.always_and_params.iter().cloned().map(Value::Text));
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let mut rows = stmt
+        .query(params_from_iter(vals.iter()))
+        .map_err(|e| e.to_string())?;
+    let mut n = 0i64;
+    let mut scanned = 0usize;
+    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        scanned += 1;
+        if scanned > MAX_PATTERN_SCAN_ROWS {
+            break;
+        }
+        let subject: String = row.get(0).map_err(|e| e.to_string())?;
+        let body: String = row.get(1).map_err(|e| e.to_string())?;
+        let hay = haystack_mail(&subject, &body);
+        if re.is_match(&hay) {
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
+/// Message ids (SQLite `messages.id`) matching pattern + filters + optional inbox scope (for rule assignment).
+pub fn matching_message_row_ids_for_pattern(
+    conn: &Connection,
+    opts: &SearchOptions,
+    inbox_inner_where: &str,
+    inbox_params: &[Value],
+) -> rusqlite::Result<Vec<i64>> {
+    let q = opts.query.as_deref().unwrap_or("").trim();
+    if q.is_empty() {
+        return Ok(Vec::new());
+    }
+    if let Err(e) = validate_search_pattern_no_legacy_operators(q) {
+        return Err(rusqlite::Error::InvalidParameterName(e));
+    }
+    let re = compile_search_regex(q, opts.case_sensitive)
+        .map_err(rusqlite::Error::InvalidParameterName)?;
+    let (fc, where_sql) = filter_clause_and_where_sql(opts, false);
+    let inner = if where_sql.is_empty() {
+        inbox_inner_where.to_string()
+    } else {
+        format!("{inbox_inner_where} AND ({where_sql})")
+    };
+    let sql = format!(
+        "SELECT m.id, m.subject, m.body_text FROM messages m WHERE {inner} ORDER BY m.date DESC"
+    );
+    let mut vals: Vec<Value> = inbox_params.to_vec();
+    vals.extend(fc.params.iter().cloned().map(Value::Text));
+    vals.extend(fc.always_and_params.iter().cloned().map(Value::Text));
+    let mut stmt = conn.prepare(&sql)?;
+    let mut rows = stmt.query(params_from_iter(vals.iter()))?;
+    let mut out = Vec::new();
+    let mut scanned = 0usize;
+    while let Some(row) = rows.next()? {
+        scanned += 1;
+        if scanned > MAX_PATTERN_SCAN_ROWS {
+            break;
+        }
+        let id: i64 = row.get(0)?;
+        let subject: String = row.get(1)?;
+        let body: String = row.get(2)?;
+        let hay = haystack_mail(&subject, &body);
+        if re.is_match(&hay) {
+            out.push(id);
+        }
+    }
+    Ok(out)
+}
+
+#[cfg(test)]
+mod snippet_tests {
+    use super::snippet_for_match;
+    use regex::Regex;
+
+    #[test]
+    fn snippet_for_match_when_context_window_splits_nbsp() {
+        // 675 ASCII bytes, then U+00A0 (UTF-8 bytes 675..677), then 24 ASCII bytes, then "compass".
+        // Match starts at byte 701; raw_start = 701 - 25 = 676 lands on the 2nd byte of NBSP (panic without floor_char_boundary).
+        let hay = format!(
+            "{}{}012345678901234567890123compass",
+            "a".repeat(675),
+            "\u{a0}"
+        );
+        let re = Regex::new("compass").unwrap();
+        let m = re.find(&hay).expect("match");
+        assert_eq!(m.start(), 701);
+        let snip = snippet_for_match(&hay, &m);
+        assert!(snip.contains("compass"), "snippet={snip:?}");
+    }
 }

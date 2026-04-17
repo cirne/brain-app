@@ -7,6 +7,7 @@ import { homedir } from 'node:os'
 import { normalize, resolve } from 'node:path'
 import { Hono } from 'hono'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
+import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 
 const files = new Hono()
@@ -44,8 +45,7 @@ files.get('/read', async c => {
   const rm = ripmailBin()
   try {
     const { stdout, stderr } = await execRipmailAsync(`${rm} read ${JSON.stringify(fullPath)} --json`, {
-      timeout: 120_000,
-      maxBuffer: 20 * 1024 * 1024,
+      ...ripmailReadExecOptions(),
     })
     if (stderr?.trim()) {
       console.warn('[api/files/read] ripmail stderr:', stderr.slice(0, 500))

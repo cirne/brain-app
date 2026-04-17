@@ -27,6 +27,9 @@ static RE_FROM_OR_TO_UNION: LazyLock<Regex> = LazyLock::new(|| {
     .unwrap()
 });
 static RE_ISO: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{4}-\d{2}-\d{2}$").unwrap());
+/// Remove `@` left behind when `RE_DOMAIN` stripped `domain.tld` from `@domain.tld` (FTS5 rejects bare `@`).
+static RE_STRAY_AT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)(?:^|\s)@(?:\s|$)").unwrap());
 /// Domain pattern: word.tld or word.word.tld (e.g., apple.com, mail.example.com).
 /// Requires at least one dot and valid domain characters (alphanumeric + hyphens).
 /// Used to auto-route domain queries to fromAddress filter (BUG-020).
@@ -35,28 +38,30 @@ static RE_DOMAIN: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap()
 });
 
-/// `foo:` tokens that are valid search operators (inline query); anything else is rejected before SQL (BUG-050).
+/// `foo:` at a word boundary is treated as an inline operator (no longer supported — use CLI flags).
 static RE_OPERATOR_TOKEN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)\b([a-z][a-z0-9]{0,63}):").unwrap());
-const KNOWN_SEARCH_OPERATORS: &[&str] = &["from", "to", "subject", "after", "before", "category"];
-/// URL schemes in prose should not be treated as search operators.
+/// URL schemes in prose should not be treated as operators.
 const SKIP_OPERATOR_NAMES: &[&str] = &["http", "https", "mailto", "ftp"];
 
-/// Return an error when the query uses unsupported `operator:value` tokens (e.g. Gmail `attachment:`).
-pub fn validate_search_query_operators(raw: &str) -> Result<(), String> {
+/// Reject `word:` tokens in the pattern string; metadata belongs in `ripmail search` flags, not the pattern.
+pub fn validate_search_pattern_no_legacy_operators(raw: &str) -> Result<(), String> {
     for cap in RE_OPERATOR_TOKEN.captures_iter(raw) {
         let name = cap.get(1).unwrap().as_str().to_ascii_lowercase();
-        if KNOWN_SEARCH_OPERATORS.contains(&name.as_str()) {
-            continue;
-        }
         if SKIP_OPERATOR_NAMES.contains(&name.as_str()) {
             continue;
         }
         return Err(format!(
-            "Unknown search operator `{name}:`. Supported: from:, to:, subject:, after:, before:, category:, plus free-text keywords (see `ripmail search --help`)."
+            "Pattern must not contain `{name}:` — use `ripmail search` flags (--from, --to, --subject, --after, --before, --category) instead of inline operators. See `ripmail search --help`."
         ));
     }
     Ok(())
+}
+
+/// Alias for [`validate_search_pattern_no_legacy_operators`] (tests / external callers).
+#[allow(dead_code)]
+pub fn validate_search_query_operators(raw: &str) -> Result<(), String> {
+    validate_search_pattern_no_legacy_operators(raw)
 }
 
 #[derive(Debug, Default, Clone)]
@@ -181,9 +186,11 @@ pub fn parse_search_query(raw: &str) -> ParsedSearchQuery {
         }
     }
 
-    // Strip domain from the query once detected
+    // Strip domain-like tokens from the FTS remainder (same matcher as detection). When the user
+    // typed `@domain.tld`, removing `domain.tld` leaves a lone `@` — clean that up (FTS5 syntax error).
     if result.from_address.is_some() {
         stripped = RE_DOMAIN.replace_all(&stripped, "").trim().to_string();
+        stripped = RE_STRAY_AT.replace_all(&stripped, " ").trim().to_string();
     }
 
     let mut query = stripped.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -357,6 +364,13 @@ mod tests {
     }
 
     #[test]
+    fn at_domain_routes_to_from_and_clears_fts_remainder() {
+        let r = parse_search_query("@greenlonghorninc.com");
+        assert_eq!(r.from_address.as_deref(), Some("greenlonghorninc.com"));
+        assert_eq!(r.query, "");
+    }
+
+    #[test]
     fn whitespace_trimmed() {
         let r = parse_search_query("  from:alice@example.com  invoice  ");
         assert_eq!(r.from_address.as_deref(), Some("alice@example.com"));
@@ -420,8 +434,9 @@ mod tests {
     }
 
     #[test]
-    fn validate_allows_known_operators() {
-        validate_search_query_operators("from:a@b.com subject:meet after:7d").unwrap();
+    fn validate_rejects_inline_operators() {
+        let e = validate_search_query_operators("from:a@b.com subject:meet after:7d").unwrap_err();
+        assert!(e.contains("from:"), "{e}");
     }
 
     #[test]

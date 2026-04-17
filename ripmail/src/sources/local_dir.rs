@@ -8,7 +8,7 @@ use globset::{Glob, GlobSet, GlobSetBuilder};
 use ignore::WalkBuilder;
 use rusqlite::{params, Connection};
 
-use crate::attachments::extract_attachment;
+use crate::attachments::local_file_read_outcome;
 use crate::config::{ResolvedMailbox, SourceKind};
 use crate::sync::run::SyncResult;
 
@@ -158,9 +158,8 @@ pub fn run_local_dir_sync(
         };
         bytes_total += bytes.len() as u64;
 
-        // Same `extract_attachment` as IMAP attachments and `ripmail read <path>` — no second extractor.
-        let body = extract_attachment(&bytes, &mime, fname)
-            .unwrap_or_else(|| String::from_utf8_lossy(&bytes).into_owned());
+        // Same pipeline as `ripmail read <path>` — no `utf8_lossy` binary dumps into FTS.
+        let body = local_file_read_outcome(&bytes, &mime, fname).body_text;
         let title = fname.to_string();
 
         insert_file.execute(params![

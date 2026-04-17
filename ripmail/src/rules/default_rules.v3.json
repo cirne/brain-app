@@ -1,130 +1,145 @@
 {
-  "version": 3,
+  "version": 4,
   "rules": [
     {
       "kind": "search",
       "id": "def-otp",
       "action": "notify",
-      "query": "(verification AND code) OR otp OR 2fa OR \"password reset\" OR \"login code\" OR authenticat",
-      "description": "OTP / security codes (FTS)"
+      "query": "(otp|2fa|verification.{0,120}code|password reset|login code|authenticat)",
+      "description": "OTP / security codes (regex on body/subject)"
     },
     {
       "kind": "search",
       "id": "def-cat-list",
       "action": "ignore",
-      "query": "category:list",
+      "query": "",
+      "category": "list",
       "description": "Mailing-list category (sync metadata)"
     },
     {
       "kind": "search",
       "id": "def-cat-promotional",
       "action": "ignore",
-      "query": "category:promotional",
+      "query": "",
+      "category": "promotional",
       "description": "Promotional category (provider label)"
     },
     {
       "kind": "search",
       "id": "def-cat-social",
       "action": "ignore",
-      "query": "category:social",
+      "query": "",
+      "category": "social",
       "description": "Social category (provider label)"
     },
     {
       "kind": "search",
       "id": "def-cat-forum",
       "action": "ignore",
-      "query": "category:forum",
+      "query": "",
+      "category": "forum",
       "description": "Forum category (provider label)"
     },
     {
       "kind": "search",
       "id": "def-cat-bulk",
       "action": "ignore",
-      "query": "category:bulk",
+      "query": "",
+      "category": "bulk",
       "description": "Bulk category (provider label)"
     },
     {
       "kind": "search",
       "id": "def-cat-spam",
       "action": "ignore",
-      "query": "category:spam",
+      "query": "",
+      "category": "spam",
       "description": "Spam/junk category (provider label)"
     },
     {
       "kind": "search",
       "id": "def-cat-automated",
       "action": "ignore",
-      "query": "category:automated",
+      "query": "",
+      "category": "automated",
       "description": "Automated category (sync metadata)"
     },
     {
       "kind": "search",
       "id": "def-from-noreply",
       "action": "ignore",
-      "query": "from:no-reply",
+      "query": "",
+      "fromAddress": "no-reply",
       "description": "no-reply-style From"
     },
     {
       "kind": "search",
       "id": "def-from-mailer-daemon",
       "action": "ignore",
-      "query": "from:mailer-daemon",
+      "query": "",
+      "fromAddress": "mailer-daemon",
       "description": "mailer-daemon"
     },
     {
       "kind": "search",
       "id": "def-from-postmaster",
       "action": "ignore",
-      "query": "from:postmaster",
+      "query": "",
+      "fromAddress": "postmaster",
       "description": "postmaster"
     },
     {
       "kind": "search",
       "id": "def-from-donotreply",
       "action": "ignore",
-      "query": "from:donotreply",
+      "query": "",
+      "fromAddress": "donotreply",
       "description": "donotreply"
     },
     {
       "kind": "search",
       "id": "def-from-bounce",
       "action": "ignore",
-      "query": "from:bounce",
+      "query": "",
+      "fromAddress": "bounce",
       "description": "bounce addresses"
     },
     {
       "kind": "search",
       "id": "def-newsletter-from",
       "action": "ignore",
-      "query": "from:newsletter",
+      "query": "",
+      "fromAddress": "newsletter",
       "description": "Sender address suggests newsletter traffic"
     },
     {
       "kind": "search",
       "id": "def-linkedin",
       "action": "ignore",
-      "query": "from:linkedin",
+      "query": "",
+      "fromAddress": "linkedin",
       "description": "LinkedIn notification traffic"
     },
     {
       "kind": "search",
       "id": "def-mkt-fts",
       "action": "ignore",
-      "query": "newsletter OR digest OR sale OR \"deal alert\" OR invitation OR sitewide OR membership",
-      "description": "Marketing keywords in body/subject (FTS)"
+      "query": "newsletter|digest|sale|deal alert|invitation|sitewide|membership",
+      "description": "Marketing keywords in body/subject (regex)"
     },
     {
       "kind": "search",
       "id": "def-mkt-boilerplate",
       "action": "ignore",
-      "query": "\"view in browser\" OR \"view this email\" OR \"manage preferences\" OR \"manage your subscription\"",
+      "query": "view in browser|view this email|manage preferences|manage your subscription",
       "description": "List-mail boilerplate in body"
     },
     {
       "kind": "search",
       "id": "def-unsubscribe-subject",
       "action": "ignore",
-      "query": "subject:unsubscribe",
+      "query": "",
+      "subject": "unsubscribe",
       "description": "Unsubscribe in subject"
     }
   ],

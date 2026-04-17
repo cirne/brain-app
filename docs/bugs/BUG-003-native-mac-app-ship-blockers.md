@@ -4,7 +4,7 @@
 
 We can produce a **Brain.app** / **DMG**, but several issues block a **shareable image** that a user with **no developer setup** can run successfully after granting **Full Disk Access (FDA)** and related macOS permissions. This bug tracks those gaps and the **developer experience** problems that make diagnosing them slow.
 
-**Opportunity context:** [OPP-007: Native Mac App Packaging](../opportunities/OPP-007-native-mac-app.md).
+**Opportunity context:** [OPP-007: Native Mac App Packaging (archived)](../opportunities/archive/OPP-007-native-mac-app.md) — basic bundle shipped; this bug tracks remaining polish.
 
 ## Symptoms
 
@@ -63,6 +63,6 @@ Ship a **shareable** **DMG/app** such that a user can:
 
 ## Related
 
-- [OPP-007: Native Mac App Packaging](../opportunities/OPP-007-native-mac-app.md)
+- [OPP-007: Native Mac App Packaging (archived)](../opportunities/archive/OPP-007-native-mac-app.md)
 - [AGENTS.md](../../AGENTS.md) — Tauri commands and env
 - [ARCHITECTURE.md](../ARCHITECTURE.md) — deployment and env if extended for native

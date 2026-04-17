@@ -1,28 +1,23 @@
-//! Inbox rule evaluation: same WHERE/MATCH as `search_with_meta`, scoped to pending rows + inbox window.
+//! Inbox rule evaluation: same predicates as `search_with_meta`, scoped to pending rows + inbox window.
 
 use rusqlite::{params_from_iter, types::Value, Connection};
 
-use super::engine::effective_search_options_for_rule_query;
-use super::escape::convert_to_or_query;
+use super::engine::{count_regex_mail_matches, matching_message_row_ids_for_pattern};
 use super::filter::{
     filter_clause_and_where_sql, filter_clause_with_where_prefix, sql_count_messages,
-    sql_count_messages_fts_join,
 };
 use super::types::SearchOptions;
 
-/// Count messages matching a rule `query` string with the same semantics as `ripmail search`
-/// (no contact rerank). Used by `ripmail rules validate --sample`.
+/// Count messages matching rule [`SearchOptions`] (no contact rerank). Used by `ripmail rules validate --sample`.
 pub fn count_messages_matching_rule_query(
     conn: &Connection,
-    query_raw: &str,
-    base: &SearchOptions,
+    opts: &SearchOptions,
 ) -> rusqlite::Result<i64> {
-    let eff = effective_search_options_for_rule_query(base, query_raw);
-    let q = eff.query.as_deref().unwrap_or("").trim();
+    let q = opts.query.as_deref().unwrap_or("").trim();
     if q.is_empty() {
-        count_filter_only(conn, &eff)
+        count_filter_only(conn, opts)
     } else {
-        count_fts(conn, &eff)
+        count_regex_mail_matches(conn, opts).map_err(rusqlite::Error::InvalidParameterName)
     }
 }
 
@@ -38,44 +33,28 @@ fn count_filter_only(conn: &Connection, opts: &SearchOptions) -> rusqlite::Resul
     }
 }
 
-fn count_fts(conn: &Connection, opts: &SearchOptions) -> rusqlite::Result<i64> {
-    let q = opts.query.as_deref().unwrap_or("").trim();
-    if q.is_empty() {
-        return Ok(0);
-    }
-    let escaped = convert_to_or_query(q);
-    let (fc, where_clause) = filter_clause_with_where_prefix(opts, true);
-    let mut vals: Vec<Value> = vec![Value::Text(escaped)];
-    vals.extend(fc.params.iter().cloned().map(Value::Text));
-    vals.extend(fc.always_and_params.iter().cloned().map(Value::Text));
-    let sql = sql_count_messages_fts_join(&where_clause);
-    conn.query_row(&sql, params_from_iter(vals.iter()), |r| r.get(0))
-}
-
 /// `UPDATE messages SET rule_triage = 'assigned', winning_rule_id = ? WHERE pending AND inbox_scope AND search_predicate`.
 /// Returns number of rows updated.
 pub fn assign_pending_matching_rule_query(
     conn: &Connection,
-    query_raw: &str,
-    base: &SearchOptions,
+    opts: &SearchOptions,
     winning_rule_id: &str,
     inbox_scope_sql: &str,
     inbox_scope_params: &[Value],
 ) -> rusqlite::Result<usize> {
-    let eff = effective_search_options_for_rule_query(base, query_raw);
-    let q = eff.query.as_deref().unwrap_or("").trim();
+    let q = opts.query.as_deref().unwrap_or("").trim();
     if q.is_empty() {
         update_filter_only(
             conn,
-            &eff,
+            opts,
             winning_rule_id,
             inbox_scope_sql,
             inbox_scope_params,
         )
     } else {
-        update_fts(
+        update_regex(
             conn,
-            &eff,
+            opts,
             winning_rule_id,
             inbox_scope_sql,
             inbox_scope_params,
@@ -110,39 +89,24 @@ fn update_filter_only(
     conn.execute(&sql, params_from_iter(vals.iter()))
 }
 
-fn update_fts(
+fn update_regex(
     conn: &Connection,
     opts: &SearchOptions,
     winning_rule_id: &str,
     inbox_scope_sql: &str,
     inbox_scope_params: &[Value],
 ) -> rusqlite::Result<usize> {
-    let q = opts.query.as_deref().unwrap_or("").trim();
-    if q.is_empty() {
+    let inner = format!("m.rule_triage = 'pending' {inbox_scope_sql}");
+    let ids = matching_message_row_ids_for_pattern(conn, opts, &inner, inbox_scope_params)?;
+    if ids.is_empty() {
         return Ok(0);
     }
-    let escaped = convert_to_or_query(q);
-    let (fc, where_sql) = filter_clause_and_where_sql(opts, true);
-    let inner_where = if where_sql.is_empty() {
-        format!("m.rule_triage = 'pending' {inbox_scope_sql}")
-    } else {
-        format!("m.rule_triage = 'pending' {inbox_scope_sql} AND ({where_sql})")
-    };
-    // Same WHERE/MATCH order as `count_fts` / `fts_search` (single MATCH via build_filter_clause).
+    let ph = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
     let sql = format!(
-        "UPDATE messages SET rule_triage = 'assigned', winning_rule_id = ?1
-         WHERE id IN (
-           SELECT m.id FROM document_index_fts
-           JOIN document_index di ON di.id = document_index_fts.rowid
-           JOIN messages m ON m.message_id = di.ext_id AND di.kind = 'mail'
-           WHERE {inner_where}
-         )"
+        "UPDATE messages SET rule_triage = 'assigned', winning_rule_id = ?1 WHERE id IN ({ph})"
     );
     let mut vals: Vec<Value> = vec![Value::Text(winning_rule_id.to_string())];
-    vals.extend(inbox_scope_params.iter().cloned());
-    vals.push(Value::Text(escaped));
-    vals.extend(fc.params.iter().cloned().map(Value::Text));
-    vals.extend(fc.always_and_params.iter().cloned().map(Value::Text));
+    vals.extend(ids.iter().map(|i| Value::Integer(*i)));
     conn.execute(&sql, params_from_iter(vals.iter()))
 }
 
@@ -151,6 +115,8 @@ mod tests {
     use super::*;
     use crate::db::open_memory;
     use crate::persist_message;
+    use crate::rules::search_options_from_rule;
+    use crate::rules::UserRule;
     use crate::search_with_meta;
     use crate::ParsedMessage;
 
@@ -192,14 +158,28 @@ mod tests {
             "tee time and golf",
             2,
         );
-        let q = "(from:dad@example.com OR to:dad@example.com) golf";
+        let rule = UserRule::Search {
+            id: "r".into(),
+            action: "ignore".into(),
+            query: "golf".into(),
+            from_address: Some("dad@example.com".into()),
+            to_address: Some("dad@example.com".into()),
+            subject: None,
+            category: None,
+            from_or_to_union: true,
+            description: None,
+        };
         let base = SearchOptions::default();
-        let cnt = count_messages_matching_rule_query(&conn, q, &base).unwrap();
+        let opts = search_options_from_rule(&rule, &base);
+        let cnt = count_messages_matching_rule_query(&conn, &opts).unwrap();
         let set = search_with_meta(
             &conn,
             &SearchOptions {
-                query: Some(q.into()),
+                query: Some("golf".into()),
                 limit: Some(20),
+                from_address: Some("dad@example.com".into()),
+                to_address: Some("dad@example.com".into()),
+                from_or_to_union: true,
                 ..Default::default()
             },
         )
@@ -217,7 +197,19 @@ mod tests {
             [],
         ).unwrap();
         let base = SearchOptions::default();
-        let c = count_messages_matching_rule_query(&conn, "from:x@y.com", &base).unwrap();
+        let rule = UserRule::Search {
+            id: "r".into(),
+            action: "ignore".into(),
+            query: "".into(),
+            from_address: Some("x@y.com".into()),
+            to_address: None,
+            subject: None,
+            category: None,
+            from_or_to_union: false,
+            description: None,
+        };
+        let opts = search_options_from_rule(&rule, &base);
+        let c = count_messages_matching_rule_query(&conn, &opts).unwrap();
         assert_eq!(c, 1);
     }
 
@@ -230,8 +222,19 @@ mod tests {
             [],
         ).unwrap();
         let base = SearchOptions::default();
-        let n = assign_pending_matching_rule_query(&conn, "from:x@y.com", &base, "r1", "", &[])
-            .unwrap();
+        let rule = UserRule::Search {
+            id: "r1".into(),
+            action: "ignore".into(),
+            query: "".into(),
+            from_address: Some("x@y.com".into()),
+            to_address: None,
+            subject: None,
+            category: None,
+            from_or_to_union: false,
+            description: None,
+        };
+        let opts = search_options_from_rule(&rule, &base);
+        let n = assign_pending_matching_rule_query(&conn, &opts, "r1", "", &[]).unwrap();
         assert_eq!(n, 1);
         let (triage, wr): (String, Option<String>) = conn
             .query_row(

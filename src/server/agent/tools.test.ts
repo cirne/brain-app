@@ -7,6 +7,7 @@ import {
   buildDraftEditFlags,
   buildInboxRulesCommand,
   buildReindexCommand,
+  buildRipmailSearchCommandLine,
   buildSourcesAddLocalDirCommand,
   buildSourcesEditCommand,
   buildSourcesRemoveCommand,
@@ -718,6 +719,38 @@ describe('buildDraftEditFlags', () => {
 
   it('ignores empty arrays', () => {
     expect(buildDraftEditFlags({ add_cc: [] })).toBe('')
+  })
+})
+
+describe('buildRipmailSearchCommandLine', () => {
+  it('builds pattern-only and filter-only command lines', () => {
+    expect(buildRipmailSearchCommandLine({ query: 'foo|bar' })).toBe(
+      '"ripmail" search "foo|bar" --json',
+    )
+    expect(buildRipmailSearchCommandLine({ from: 'a@x.com' })).toBe(
+      '"ripmail" search --from "a@x.com" --json',
+    )
+  })
+
+  it('adds structured flags, case-sensitive, and source', () => {
+    expect(
+      buildRipmailSearchCommandLine({
+        pattern: 'x',
+        to: 'b@y.com',
+        after: '7d',
+        before: '2026-01-01',
+        subject: 'inv',
+        category: 'work,personal',
+        caseSensitive: true,
+        source: 'acct-1',
+      }),
+    ).toBe(
+      '"ripmail" search "x" --to "b@y.com" --after "7d" --before "2026-01-01" --subject "inv" --category "work,personal" --case-sensitive --json --source "acct-1"',
+    )
+  })
+
+  it('treats pattern as alias of query', () => {
+    expect(buildRipmailSearchCommandLine({ pattern: 'z' })).toBe('"ripmail" search "z" --json')
   })
 })
 

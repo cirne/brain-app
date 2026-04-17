@@ -21,12 +21,62 @@ import {
   phoneToFlexibleGrepPattern,
 } from '../lib/imessagePhone.js'
 import { execRipmailAsync, ripmailProcessEnv } from '../lib/ripmailExec.js'
+import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 import { resolveRipmailSourceForCli } from '../lib/ripmailSourceResolve.js'
 
 const execAsync = promisify(exec)
 
 export { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '../lib/imessagePhone.js'
+
+/** Shell-escaped `ripmail search … --json` command line for tests and tooling. */
+export function buildRipmailSearchCommandLine(params: {
+  /** Regex pattern; omit when using only structured filters. */
+  query?: string
+  pattern?: string
+  caseSensitive?: boolean
+  from?: string
+  to?: string
+  after?: string
+  before?: string
+  subject?: string
+  category?: string
+  source?: string
+}): string {
+  const rm = ripmailBin()
+  const q = (params.pattern ?? params.query ?? '').trim()
+  const j = (s: string) => JSON.stringify(s)
+  const parts: string[] = [j(rm), 'search']
+  if (q.length > 0) {
+    parts.push(j(q))
+  }
+  if (params.from?.trim()) {
+    parts.push('--from', j(params.from.trim()))
+  }
+  if (params.to?.trim()) {
+    parts.push('--to', j(params.to.trim()))
+  }
+  if (params.after?.trim()) {
+    parts.push('--after', j(params.after.trim()))
+  }
+  if (params.before?.trim()) {
+    parts.push('--before', j(params.before.trim()))
+  }
+  if (params.subject?.trim()) {
+    parts.push('--subject', j(params.subject.trim()))
+  }
+  if (params.category?.trim()) {
+    parts.push('--category', j(params.category.trim()))
+  }
+  if (params.caseSensitive) {
+    parts.push('--case-sensitive')
+  }
+  parts.push('--json')
+  if (params.source?.trim()) {
+    parts.push('--source', j(params.source.trim()))
+  }
+  return parts.join(' ')
+}
 
 /** Build `ripmail …` argv after the binary name (e.g. `rules list`). Used by inbox_rules and tests. */
 export function buildInboxRulesCommand(params: {
@@ -242,7 +292,7 @@ function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boo
 /**
  * Create all agent tools scoped to a wiki directory.
  * Pi-coding-agent provides file tools (read/edit/write/grep/find).
- * Custom tools handle ripmail and git operations.
+ * Custom tools handle ripmail, calendar, web APIs, onboarding-adjacent flows, etc.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): any[] {
@@ -350,9 +400,26 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'search_index',
     label: 'Search index',
     description:
-      'Full-text search across email and indexed local files (ripmail). Pass optional source to limit to one account or folder source id.',
+      'Regex search across email and indexed local files (ripmail). Use `pattern` or `query` for text/path matching (e.g. `invoice|receipt`); use structured fields for sender, recipient, dates, subject — do not put `from:` / `to:` inside the pattern string.',
     parameters: Type.Object({
-      query: Type.String({ description: 'Search query' }),
+      pattern: Type.Optional(
+        Type.String({
+          description:
+            'Regex matched against subject + body (and file path/title for local files). Alternation: `a|b`. Case-insensitive unless caseSensitive is true.',
+        }),
+      ),
+      query: Type.Optional(
+        Type.String({
+          description: 'Alias for `pattern` (same semantics). Prefer `pattern` for new calls.',
+        }),
+      ),
+      caseSensitive: Type.Optional(Type.Boolean({ description: 'Default false (case-insensitive regex).' })),
+      from: Type.Optional(Type.String({ description: 'Filter by sender (substring match on From / name).' })),
+      to: Type.Optional(Type.String({ description: 'Filter by recipient (To/Cc).' })),
+      after: Type.Optional(Type.String({ description: 'Lower date bound (ISO YYYY-MM-DD or rolling e.g. 7d).' })),
+      before: Type.Optional(Type.String({ description: 'Upper date bound (ISO or rolling).' })),
+      subject: Type.Optional(Type.String({ description: 'Filter by subject substring.' })),
+      category: Type.Optional(Type.String({ description: 'Message category (comma-separated list).' })),
       source: Type.Optional(
         Type.String({
           description:
@@ -360,13 +427,54 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         }),
       ),
     }),
-    async execute(_toolCallId: string, params: { query: string; source?: string }) {
-      const rm = ripmailBin()
+    async execute(
+      _toolCallId: string,
+      params: {
+        pattern?: string
+        query?: string
+        caseSensitive?: boolean
+        from?: string
+        to?: string
+        after?: string
+        before?: string
+        subject?: string
+        category?: string
+        source?: string
+      },
+    ) {
+      const text = (params.pattern ?? params.query ?? '').trim()
+      const hasFilter = Boolean(
+        params.from?.trim() ||
+          params.to?.trim() ||
+          params.after?.trim() ||
+          params.before?.trim() ||
+          params.subject?.trim() ||
+          params.category?.trim(),
+      )
+      if (!text && !hasFilter) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'search_index: provide `pattern`/`query` and/or at least one filter (`from`, `to`, `after`, `before`, `subject`, `category`).',
+            },
+          ],
+          details: {},
+        }
+      }
       const resolved = await resolveRipmailSourceForCli(params.source)
-      const src = resolved?.trim() ? ` --source ${JSON.stringify(resolved.trim())}` : ''
-      const { stdout } = await execRipmailAsync(`${rm} search ${JSON.stringify(params.query)} --json${src}`, {
-        timeout: 15000,
+      const cmd = buildRipmailSearchCommandLine({
+        pattern: text || undefined,
+        caseSensitive: params.caseSensitive === true,
+        from: params.from,
+        to: params.to,
+        after: params.after,
+        before: params.before,
+        subject: params.subject,
+        category: params.category,
+        source: resolved?.trim(),
       })
+      const { stdout } = await execRipmailAsync(cmd, { timeout: 15000 })
       return {
         content: [{ type: 'text' as const, text: stdout || 'No results found.' }],
         details: {},
@@ -393,7 +501,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       const resolved = await resolveRipmailSourceForCli(params.source)
       const src = resolved?.trim() ? ` --source ${JSON.stringify(resolved.trim())}` : ''
       const { stdout } = await execRipmailAsync(`${rm} read ${JSON.stringify(params.id)} --json${src}`, {
-        timeout: 15000,
+        ...ripmailReadExecOptions(),
       })
       return {
         content: [{ type: 'text' as const, text: stdout }],

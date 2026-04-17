@@ -6,7 +6,8 @@ use std::sync::LazyLock;
 static RE_OPS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b(OR|AND)\b").unwrap());
 /// Characters that break bare FTS5 tokens or confuse the query parser (incl. apostrophe).
 /// Includes FTS5 specials like `&` (NEAR), `*`, `^`, `+`, `|` that are not covered by `()'"` alone.
-static RE_PROBLEMATIC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[\[\]{}()'&*^+|]").unwrap());
+static RE_PROBLEMATIC: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[\[\]{}()'&*^+|@]").unwrap());
 static RE_OR_SPLIT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+OR\s+").unwrap());
 static RE_OP_SPLIT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+(OR|AND)\s+").unwrap());
 static RE_QUOTED: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#""([^"]+)""#).unwrap());
@@ -109,6 +110,11 @@ mod tests {
             escape_fts5_query("user@mail.example.com"),
             "\"user@mail.example.com\""
         );
+    }
+
+    #[test]
+    fn escape_at_only_wraps_phrase() {
+        assert_eq!(escape_fts5_query("@foo"), "\"@foo\"");
     }
 
     #[test]

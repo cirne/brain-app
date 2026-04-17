@@ -2,8 +2,9 @@
 //!
 //! **Single implementation:** [`extract_attachment`] is used for:
 //! - IMAP attachment read / cache ([`extract_and_cache`], [`read_attachment_text`]);
-//! - `ripmail read <path>` on local files (`cli/commands/mail.rs`);
-//! - [`crate::sources::local_dir::run_local_dir_sync`] (file FTS index).
+//! - Local filesystem: `local_file_read_outcome` drives `ripmail read <path>` (`cli/commands/mail.rs`)
+//!   and `run_local_dir_sync` (FTS index) — no `utf8_lossy` binary dumps; structured `readStatus` for agents
+//!   (`image_heavy_pdf`, `binary`, …).
 //!
 //! Do not duplicate spreadsheet/PDF/HTML logic elsewhere — extend [`extract_attachment`] instead.
 
@@ -15,6 +16,12 @@ use std::path::{Path, PathBuf};
 
 use crate::mail_read::resolve_raw_path;
 use crate::sync::parse_message::{parse_raw_message_with_options, ParseMessageOptions};
+
+mod local_file;
+pub use local_file::{
+    local_file_read_outcome, local_file_skipped_too_large, LocalFileReadJson, LocalFileReadOutcome,
+    MAX_LOCAL_FILE_BYTES,
+};
 
 /// CLI: present PDF text as markdown (`## filename` + body) for agent readability.
 fn format_pdf_attachment_markdown(filename: &str, body: &str) -> String {

@@ -9,15 +9,16 @@ use crate::cli::args::AttachmentCmd;
 use crate::cli::util::{format_attachment_size, load_cfg};
 use crate::cli::CliResult;
 use ripmail::{
-    db, extract_attachment, format_read_message_text, infer_placeholder_owner_identities,
-    is_placeholder_mailbox_email, list_attachments_for_message, list_thread_messages,
-    mailbox_ids_for_default_search, normalize_address, normalize_search_date_spec,
-    parse_category_list, parse_read_full, read_attachment_bytes, read_attachment_text,
-    read_message_bytes_with_thread, resolve_mailbox_spec, resolve_message_id,
+    db, format_read_message_text, infer_placeholder_owner_identities, is_placeholder_mailbox_email,
+    list_attachments_for_message, list_thread_messages, local_file_read_outcome,
+    local_file_skipped_too_large, mailbox_ids_for_default_search, normalize_address,
+    normalize_search_date_spec, parse_category_list, parse_read_full, read_attachment_bytes,
+    read_attachment_text, read_message_bytes_with_thread, resolve_mailbox_spec, resolve_message_id,
     resolve_search_json_format, search_result_to_slim_json_row, search_with_meta, send_draft_by_id,
     send_simple_message, smtp_credentials_ready, smtp_credentials_unavailable_reason,
     split_address_list, who, whoami, Config, ReadMessageJson, SearchOptions,
     SearchResultFormatPreference, SendSimpleFields, SourceKind, WhoOptions, WhoamiResult,
+    MAX_LOCAL_FILE_BYTES,
 };
 
 fn source_kind_cli_label(k: SourceKind) -> &'static str {
@@ -180,6 +181,41 @@ fn expand_read_path(raw: &str) -> PathBuf {
     }
 }
 
+/// JSON for `ripmail read <path> --json` on a local file (structured `readStatus`, no `utf8_lossy` binary dump).
+fn local_file_read_json(path: &std::path::Path) -> Result<serde_json::Value, String> {
+    let mime = mime_guess::from_path(path)
+        .first_or_octet_stream()
+        .to_string();
+    let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("file");
+    let meta = fs::metadata(path).map_err(|e| e.to_string())?;
+    let size = meta.len();
+    let path_s = path.to_string_lossy().to_string();
+    if size > MAX_LOCAL_FILE_BYTES {
+        let o = local_file_skipped_too_large(size, &mime, fname);
+        serde_json::to_value(o.to_json(path_s)).map_err(|e| e.to_string())
+    } else {
+        let bytes = fs::read(path).map_err(|e| e.to_string())?;
+        let o = local_file_read_outcome(&bytes, &mime, fname);
+        serde_json::to_value(o.to_json(path_s)).map_err(|e| e.to_string())
+    }
+}
+
+fn local_file_read_plain(path: &std::path::Path) -> Result<String, String> {
+    let mime = mime_guess::from_path(path)
+        .first_or_octet_stream()
+        .to_string();
+    let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("file");
+    let meta = fs::metadata(path).map_err(|e| e.to_string())?;
+    let size = meta.len();
+    if size > MAX_LOCAL_FILE_BYTES {
+        let o = local_file_skipped_too_large(size, &mime, fname);
+        return Ok(o.body_text);
+    }
+    let bytes = fs::read(path).map_err(|e| e.to_string())?;
+    let o = local_file_read_outcome(&bytes, &mime, fname);
+    Ok(o.body_text)
+}
+
 pub(crate) fn run_read(
     message_ids: Vec<String>,
     source_narrow: Option<String>,
@@ -223,22 +259,8 @@ pub(crate) fn run_read(
             let target = &message_ids[0];
             let path = expand_read_path(target);
             if path.is_file() {
-                let bytes = fs::read(&path).map_err(|e| e.to_string())?;
-                let mime = mime_guess::from_path(&path)
-                    .first_or_octet_stream()
-                    .to_string();
-                let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("file");
-                let body = extract_attachment(&bytes, &mime, fname)
-                    .unwrap_or_else(|| String::from_utf8_lossy(&bytes).into_owned());
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&serde_json::json!({
-                        "sourceId": "",
-                        "sourceKind": "localDir",
-                        "path": path.to_string_lossy(),
-                        "bodyText": body,
-                    }))?
-                );
+                let v = local_file_read_json(&path)?;
+                println!("{}", serde_json::to_string_pretty(&v)?);
             } else {
                 let (bytes, thread_id) = read_message_for_cli(&conn, target, root)?;
                 let parsed = parse_read_full(&bytes);
@@ -275,19 +297,7 @@ pub(crate) fn run_read(
             for target in &message_ids {
                 let path = expand_read_path(target);
                 if path.is_file() {
-                    let bytes = fs::read(&path).map_err(|e| e.to_string())?;
-                    let mime = mime_guess::from_path(&path)
-                        .first_or_octet_stream()
-                        .to_string();
-                    let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("file");
-                    let body = extract_attachment(&bytes, &mime, fname)
-                        .unwrap_or_else(|| String::from_utf8_lossy(&bytes).into_owned());
-                    values.push(serde_json::json!({
-                        "sourceId": "",
-                        "sourceKind": "localDir",
-                        "path": path.to_string_lossy(),
-                        "bodyText": body,
-                    }));
+                    values.push(local_file_read_json(&path)?);
                 } else {
                     let (bytes, thread_id) = read_message_for_cli(&conn, target, root)?;
                     let parsed = parse_read_full(&bytes);
@@ -305,13 +315,7 @@ pub(crate) fn run_read(
     for target in &message_ids {
         let path = expand_read_path(target);
         if path.is_file() {
-            let bytes = fs::read(&path).map_err(|e| e.to_string())?;
-            let mime = mime_guess::from_path(&path)
-                .first_or_octet_stream()
-                .to_string();
-            let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("file");
-            let text = extract_attachment(&bytes, &mime, fname)
-                .unwrap_or_else(|| String::from_utf8_lossy(&bytes).into_owned());
+            let text = local_file_read_plain(&path)?;
             if !first {
                 print!("{READ_BATCH_TEXT_SEP}");
             }
@@ -656,6 +660,9 @@ pub(crate) fn run_search(
     query: Option<String>,
     limit: Option<usize>,
     from: Option<String>,
+    to: Option<String>,
+    subject: Option<String>,
+    case_sensitive: bool,
     after: Option<String>,
     since: Option<String>,
     before: Option<String>,
@@ -667,6 +674,8 @@ pub(crate) fn run_search(
     timings: bool,
 ) -> CliResult {
     let has_filters = from.is_some()
+        || to.is_some()
+        || subject.is_some()
         || after.is_some()
         || since.is_some()
         || before.is_some()
@@ -675,7 +684,7 @@ pub(crate) fn run_search(
         || include_all;
     if query.is_none() && !has_filters {
         eprintln!(
-            "error: at least one search constraint required: provide a <QUERY> and/or one of --from, --after, --since, --before, --category, --source"
+            "error: at least one search constraint required: provide a <PATTERN> and/or one of --from, --to, --subject, --after, --since, --before, --category, --source"
         );
         std::process::exit(1);
     }
@@ -704,8 +713,11 @@ pub(crate) fn run_search(
         &conn,
         &SearchOptions {
             query,
+            case_sensitive,
             limit,
             from_address: from,
+            to_address: to,
+            subject,
             after_date,
             before_date,
             include_all,

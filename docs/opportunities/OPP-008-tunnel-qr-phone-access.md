@@ -4,11 +4,11 @@
 
 Run brain-app locally on the Mac (native app or dev server) and expose it through a managed tunnel (Cloudflare Tunnel as the default story, with alternatives). The Mac UI shows a QR code that encodes the tunnel URL (and optionally a short-lived pairing token). Scanning with a phone opens the same brain session in the mobile browser—remote access from anywhere without typing URLs, copying tokens, or installing a VPN client on the phone first.
 
-This pairs naturally with **[OPP-007: Native Mac App](./OPP-007-native-mac-app.md)** but is orthogonal: tunnel + QR is a **remote access and onboarding** pattern; the native app is a **packaging** choice.
+This pairs naturally with **[OPP-007: Native Mac App (archived)](./archive/OPP-007-native-mac-app.md)** but is orthogonal: tunnel + QR is a **remote access and onboarding** pattern; the native app is a **packaging** choice.
 
 ## Problem
 
-- **[OPP-007](./OPP-007-native-mac-app.md)** proposes Tailscale for phone → Mac access. That works well for users who already run Tailscale everywhere, but it requires the Tailscale app on the phone and a mental model of “tailnet.”
+- **[OPP-007](./archive/OPP-007-native-mac-app.md)** proposes Tailscale for phone → Mac access. That works well for users who already run Tailscale everywhere, but it requires the Tailscale app on the phone and a mental model of “tailnet.”
 - Many users want: “My Mac runs brain; I want my phone to reach it from the coffee shop” with minimal friction—ideally scan a QR and go.
 - Public exposure is risky; tunnels can provide HTTPS and vendor-managed ingress without opening router ports, while keeping the data plane on the user’s machine.
 
@@ -84,7 +84,7 @@ Enhanced (better UX, more to implement):
 
 ## Relation to other opportunities
 
-- **[OPP-007](./OPP-007-native-mac-app.md)** — Tailscale vs tunnel is a fork in “how does the phone reach the Mac?” Tunnel + QR optimizes for scan-and-go; Tailscale optimizes for private mesh without a public hostname.
+- **[OPP-007](./archive/OPP-007-native-mac-app.md)** — Tailscale vs tunnel is a fork in “how does the phone reach the Mac?” Tunnel + QR optimizes for scan-and-go; Tailscale optimizes for private mesh without a public hostname.
 - **[PRODUCTIZATION.md](../PRODUCTIZATION.md)** — Multi-user and hosted brain remain separate; this is still single-user, single-Mac, with optional hardening (Cloudflare Access, tokens).
 
 ## Open questions

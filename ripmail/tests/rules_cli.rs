@@ -12,14 +12,7 @@ fn rules_add_persists_file_and_show_reads_it() {
     let bin = env!("CARGO_BIN_EXE_ripmail");
     let add = Command::new(bin)
         .env("RIPMAIL_HOME", dir.path())
-        .args([
-            "rules",
-            "add",
-            "--action",
-            "ignore",
-            "--query",
-            "from:linkedin",
-        ])
+        .args(["rules", "add", "--action", "ignore", "--query", "linkedin"])
         .output()
         .unwrap();
     assert!(
@@ -33,13 +26,13 @@ fn rules_add_persists_file_and_show_reads_it() {
     assert_eq!(added["preview"]["candidatesScanned"], 0);
     assert!(added["preview"]["samples"].is_array());
     assert_eq!(added["rule"]["kind"], "search");
-    assert_eq!(added["rule"]["query"], "from:linkedin");
+    assert_eq!(added["rule"]["query"], "linkedin");
     let rules_path = dir.path().join("rules.json");
     let raw = fs::read_to_string(&rules_path).unwrap();
     let file_json: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert_eq!(
         file_json["rules"][0]["query"].as_str(),
-        Some("from:linkedin"),
+        Some("linkedin"),
         "persisted rules should include query; got: {raw}"
     );
 
@@ -63,14 +56,7 @@ fn rules_move_reorders_list() {
     let bin = env!("CARGO_BIN_EXE_ripmail");
     let add1 = Command::new(bin)
         .env("RIPMAIL_HOME", dir.path())
-        .args([
-            "rules",
-            "add",
-            "--action",
-            "ignore",
-            "--query",
-            "from:a.test",
-        ])
+        .args(["rules", "add", "--action", "ignore", "--query", "a\\.test"])
         .output()
         .unwrap();
     assert!(
@@ -80,14 +66,7 @@ fn rules_move_reorders_list() {
     );
     let add2 = Command::new(bin)
         .env("RIPMAIL_HOME", dir.path())
-        .args([
-            "rules",
-            "add",
-            "--action",
-            "ignore",
-            "--query",
-            "from:b.test",
-        ])
+        .args(["rules", "add", "--action", "ignore", "--query", "b\\.test"])
         .output()
         .unwrap();
     assert!(
@@ -189,7 +168,7 @@ fn rules_edit_returns_preview_payload() {
             "--action",
             "ignore",
             "--query",
-            "from:example.com",
+            "example\\.com",
         ])
         .output()
         .unwrap();
@@ -272,7 +251,7 @@ fn archive_cli_sets_is_archived_json() {
 }
 
 #[test]
-fn rules_validate_succeeds_after_auto_upgrade_from_legacy_v1() {
+fn rules_validate_fails_on_legacy_v1_until_reset() {
     let dir = tempdir().unwrap();
     fs::write(
         dir.path().join("rules.json"),
@@ -285,24 +264,19 @@ fn rules_validate_succeeds_after_auto_upgrade_from_legacy_v1() {
         .args(["rules", "validate"])
         .output()
         .unwrap();
-    assert!(
-        out.status.success(),
-        "stderr={}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    let combined = format!(
-        "{}{}",
-        String::from_utf8_lossy(&out.stderr),
-        String::from_utf8_lossy(&out.stdout)
-    );
-    assert!(
-        combined.contains("older format") || combined.contains("regex rules"),
-        "expected upgrade note, got: {combined}"
-    );
-    assert!(
-        combined.contains("OK:") && combined.contains("rule"),
-        "got: {combined}"
-    );
+    assert!(!out.status.success());
+    let reset = Command::new(bin)
+        .env("RIPMAIL_HOME", dir.path())
+        .args(["rules", "reset-defaults", "--yes"])
+        .output()
+        .unwrap();
+    assert!(reset.status.success());
+    let ok = Command::new(bin)
+        .env("RIPMAIL_HOME", dir.path())
+        .args(["rules", "validate"])
+        .output()
+        .unwrap();
+    assert!(ok.status.success());
 }
 
 #[test]

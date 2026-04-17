@@ -163,6 +163,8 @@ Onboarding uses two distinct specialized agents, not one:
 
 **UI reuse:** Both agents stream via the existing SSE chat infrastructure. The onboarding UI is largely the same AgentChat layout in a different context — just a different agent and system prompt on the server side.
 
+**Presentation (future):** Profiling and seeding are good candidates for **something other than default chat chrome**—progress-first layout, less raw tool streaming, clearer phases—while still using the same agent runtime. Small config knobs today (e.g. whether an agent opens documents by default) are an early hint; a fuller **agent-specific presentation** model (including handoff to structured UI after a run) is sketched in **[OPP-014: Onboarding — Suggested Local Folders](./OPP-014-onboarding-local-folder-suggestions.md)** (folder picker example + generalization).
+
 ---
 
 ## What the profiling agent does
@@ -250,7 +252,7 @@ State is persisted (JSON file or DB row) so the flow is resumable if the browser
 
 ### Local file indexing
 
-After indexing email, the seeding agent could walk the user's Documents and Desktop and look for interesting files to index — PDFs, notes, project folders, etc. This extends the "zero data entry" promise beyond email. Likely gated behind its own permission step and category confirmation, same pattern as email onboarding.
+After indexing email, the seeding agent could walk the user's Documents and Desktop and look for interesting files to index — PDFs, notes, project folders, etc. This extends the "zero data entry" promise beyond email. Likely gated behind its own permission step and category confirmation, same pattern as email onboarding. A concrete wizard step (agent JSON + user toggles + sources before wiki seeding) is **[OPP-014: Onboarding — Suggested Local Folders](./OPP-014-onboarding-local-folder-suggestions.md)**.
 
 ### Sensitive data opt-out before seeding
 
@@ -271,7 +273,9 @@ User approves or denies each category. The seeding agent's system prompt is upda
 - **[Personal wiki (product)](../product/personal-wiki.md)** — Vocabulary, inline help, and onboarding messaging for “your private wiki” and the assistant loop
 - **[OPP-004: Wiki-Aware Agent](./OPP-004-wiki-aware-agent.md)** — Seeding agent uses the same structured tools (changelog, path validation)
 - **[ripmail OPP-051: Unified Sources](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)** — Folders and mail as first-class sources; attachment/index story aligns here (see also superseded [OPP-005](./OPP-005-source-ingestion.md))
-- **[OPP-007: Native Mac App](./OPP-007-native-mac-app.md)** — Apple Mail local access is a preview of deeper native integration
+- **[OPP-007: Native Mac App (archived)](./archive/OPP-007-native-mac-app.md)** — Apple Mail local access is a preview of deeper native integration
+- **[OPP-014: Onboarding — Suggested Local Folders](./OPP-014-onboarding-local-folder-suggestions.md)** — Optional post-profile folder recommendations; also frames **agent-specific presentation** (profiling/seeding vs. default chat) and post-run handoff to structured UI
+- **[OPP-015: Wiki Background / Maintenance Agents](./OPP-015-wiki-background-maintenance-agents.md)** — Scheduled/triggered wiki gardeners (lint, cleanup, scaffold); **not** chat-initiated; shares runtime with interactive onboarding agents but different triggers and presentation; downstream of OPP-014-style infra
 - **[PRODUCTIZATION.md](../PRODUCTIZATION.md)** — This is the "5-minute setup" experience described there
 
 ## Success criteria

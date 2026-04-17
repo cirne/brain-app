@@ -214,14 +214,20 @@ pub(crate) enum Commands {
         #[arg(long, alias = "server")]
         imap: bool,
     },
-    /// Full-text search (JSON by default)
+    /// Search mail and indexed files: regex pattern + filters (JSON by default)
     Search {
-        /// Free-text query terms (optional when --from/--after/--since/--before/--category filters are provided)
+        /// Regex pattern matched against subject + body (use `a|b` for alternation). Optional when filter flags are provided.
         query: Option<String>,
         #[arg(long)]
         limit: Option<usize>,
         #[arg(long)]
         from: Option<String>,
+        #[arg(long)]
+        to: Option<String>,
+        #[arg(long)]
+        subject: Option<String>,
+        #[arg(long)]
+        case_sensitive: bool,
         /// Only messages on or after this date (ISO `YYYY-MM-DD` or rolling spec e.g. `7d`, `1y`)
         #[arg(long)]
         after: Option<String>,

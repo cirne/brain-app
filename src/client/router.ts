@@ -170,7 +170,21 @@ export function routeToUrl(route: Route): string {
   return '/'
 }
 
-/** Push a new route onto the browser history stack. */
-export function navigate(route: Route): void {
-  history.pushState(null, '', routeToUrl(route))
+export type NavigateOptions = {
+  /**
+   * Use `history.replaceState` instead of `pushState`. Prefer when leaving an
+   * overlay for chat-only so ⌫/⌥← does not immediately restore the closed panel
+   * (same URL stack entry is updated instead of pushing a second `/` on top of `/wiki/…`).
+   */
+  replace?: boolean
+}
+
+/** Push (or replace) the route in the browser address bar and history stack. */
+export function navigate(route: Route, opts?: NavigateOptions): void {
+  const url = routeToUrl(route)
+  if (opts?.replace) {
+    history.replaceState(null, '', url)
+  } else {
+    history.pushState(null, '', url)
+  }
 }

@@ -124,18 +124,28 @@ mod tests {
         .unwrap();
 
         let rules = RulesFile {
-            version: 3,
+            version: 4,
             rules: vec![
                 UserRule::Search {
                     id: "first".into(),
                     action: "ignore".into(),
-                    query: "from:a@b.com".into(),
+                    query: String::new(),
+                    from_address: Some("a@b.com".into()),
+                    to_address: None,
+                    subject: None,
+                    category: None,
+                    from_or_to_union: false,
                     description: None,
                 },
                 UserRule::Search {
                     id: "second".into(),
                     action: "notify".into(),
-                    query: "from:a@b.com".into(),
+                    query: String::new(),
+                    from_address: Some("a@b.com".into()),
+                    to_address: None,
+                    subject: None,
+                    category: None,
+                    from_or_to_union: false,
                     description: None,
                 },
             ],
@@ -163,12 +173,16 @@ mod tests {
         .unwrap();
 
         let rules = RulesFile {
-            version: 3,
+            version: 4,
             rules: vec![UserRule::Search {
                 id: "self-zoom".into(),
                 action: "inform".into(),
-                // To + FTS (same components as OPP-038 example (2), without relying on filter_or parse edge cases).
-                query: "to:me@z.com zoom".into(),
+                query: "zoom".into(),
+                from_address: None,
+                to_address: Some("me@z.com".into()),
+                subject: None,
+                category: None,
+                from_or_to_union: false,
                 description: None,
             }],
             context: vec![],

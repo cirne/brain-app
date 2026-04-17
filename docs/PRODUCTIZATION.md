@@ -100,7 +100,7 @@ Everything above auth step 2 is currently either manual, personal-machine-depend
 
 The limitations above assume a cloud-hosted, multi-user SaaS model. An alternative architecture sidesteps many of these concerns:
 
-**Package brain-app as a native macOS application** that runs the server locally instead of in a container. See [OPP-007: Native Mac App](opportunities/OPP-007-native-mac-app.md).
+**Package brain-app as a native macOS application** that runs the server locally instead of in a container. See [OPP-007: Native Mac App (archived)](opportunities/archive/OPP-007-native-mac-app.md).
 
 | Cloud model problem | How native app solves it |
 |---|---|

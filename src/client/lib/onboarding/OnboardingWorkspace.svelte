@@ -134,7 +134,7 @@
   })
 
   function closeOverlayImmediate() {
-    navigate({})
+    navigate({}, { replace: true })
     route = parseRoute()
     agentContext = { type: 'chat' }
     inboxTargetId = undefined
@@ -159,13 +159,15 @@
 
   function openWikiDoc(path?: string) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
-    navigate({ overlay })
+    const replace = route.overlay?.type === 'wiki'
+    navigate({ overlay }, replace ? { replace: true } : undefined)
     route = parseRoute()
   }
 
   function onWikiNavigate(path: string | undefined) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
-    navigate({ overlay })
+    const replace = route.overlay?.type === 'wiki'
+    navigate({ overlay }, replace ? { replace: true } : undefined)
     route = parseRoute()
   }
 

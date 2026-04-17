@@ -219,6 +219,7 @@ pub fn execute_search_tool(
 
     let opts = SearchOptions {
         query: Some(query),
+        case_sensitive: false,
         limit: Some(limit),
         offset: 0,
         from_address,

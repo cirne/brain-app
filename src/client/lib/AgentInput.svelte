@@ -2,6 +2,7 @@
   import { ArrowUp } from 'lucide-svelte'
   import WikiFileName from './WikiFileName.svelte'
   import type { SkillMenuItem } from './agentUtils.js'
+  import { handleTextareaCursorKeys } from './agentInputCursor.js'
 
   let {
     placeholder = 'Ask anything...',
@@ -109,6 +110,7 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    if (inputEl && handleTextareaCursorKeys(e, inputEl)) return
     if (showSlash) {
       const items = filteredSkills()
       const max = Math.max(0, items.length - 1)

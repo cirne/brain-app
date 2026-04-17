@@ -1,4 +1,4 @@
-//! Integration tests: FTS keyword search, inline query operators, filter-only queries, result JSON shape.
+//! Integration tests: regex pattern search, structured filters, filter-only queries, result JSON shape.
 
 use std::process::Command;
 
@@ -131,7 +131,7 @@ fn fts_or_query() {
     let set = search_with_meta(
         &conn,
         &SearchOptions {
-            query: Some("foo bar".into()),
+            query: Some("foo|bar".into()),
             limit: Some(20),
             ..Default::default()
         },
@@ -171,7 +171,8 @@ fn fts_from_filter() {
     let set = search_with_meta(
         &conn,
         &SearchOptions {
-            query: Some("from:alice secret".into()),
+            query: Some("secret".into()),
+            from_address: Some("alice".into()),
             limit: Some(20),
             ..Default::default()
         },
@@ -218,11 +219,13 @@ fn fts_from_or_to_union_parenthesized_with_keyword() {
         None,
         "[]",
     );
-    let q = r#"(from:dad@example.com OR to:dad@example.com) (golf OR "tee time")"#;
     let set = search_with_meta(
         &conn,
         &SearchOptions {
-            query: Some(q.into()),
+            query: Some(r"golf|tee time".into()),
+            from_address: Some("dad@example.com".into()),
+            to_address: Some("dad@example.com".into()),
+            from_or_to_union: true,
             limit: Some(20),
             ..Default::default()
         },
@@ -277,7 +280,9 @@ fn fts_date_filter_after_before() {
     let set = search_with_meta(
         &conn,
         &SearchOptions {
-            query: Some("after:2025-05-01 before:2025-07-01 meet".into()),
+            query: Some("meet".into()),
+            after_date: Some("2025-05-01".into()),
+            before_date: Some("2025-07-01".into()),
             limit: Some(20),
             ..Default::default()
         },
@@ -636,7 +641,8 @@ fn search_from_operator_plus_keywords_intersects() {
     let set = search_with_meta(
         &conn,
         &SearchOptions {
-            query: Some("golf cart from:rudy".into()),
+            query: Some("(?s)golf.*cart".into()),
+            from_address: Some("rudy".into()),
             limit: Some(20),
             ..Default::default()
         },
@@ -930,12 +936,12 @@ fn bug_020_integration_domain_query_now_returns_results() {
         "[]",
     );
 
-    // Before fix: query "apple.com" would search FTS (0 results)
-    // After fix: query "apple.com" extracts domain→fromAddress, returns 2 apple.com emails
+    // Prefer structured from filter (same as `ripmail search --from apple.com` with no pattern).
     let search = search_with_meta(
         &conn,
         &SearchOptions {
-            query: Some("apple.com".into()),
+            query: None,
+            from_address: Some("apple.com".into()),
             limit: Some(50),
             ..Default::default()
         },

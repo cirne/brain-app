@@ -1,5 +1,45 @@
-import { describe, it, expect } from 'vitest'
-import { parseRoute, routeToUrl, contextToString, type SurfaceContext } from './router.js'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { parseRoute, routeToUrl, contextToString, navigate, type SurfaceContext } from './router.js'
+
+function stubHistory(pushState: ReturnType<typeof vi.fn>, replaceState: ReturnType<typeof vi.fn>) {
+  vi.stubGlobal(
+    'history',
+    {
+      length: 0,
+      scrollRestoration: 'auto',
+      state: null,
+      pushState,
+      replaceState,
+      back: () => {},
+      forward: () => {},
+      go: () => {},
+    } as History,
+  )
+}
+
+describe('navigate', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('uses replaceState when replace option is true', () => {
+    const pushState = vi.fn()
+    const replaceState = vi.fn()
+    stubHistory(pushState, replaceState)
+    navigate({}, { replace: true })
+    expect(replaceState).toHaveBeenCalledWith(null, '', '/')
+    expect(pushState).not.toHaveBeenCalled()
+  })
+
+  it('uses pushState by default', () => {
+    const pushState = vi.fn()
+    const replaceState = vi.fn()
+    stubHistory(pushState, replaceState)
+    navigate({})
+    expect(pushState).toHaveBeenCalledWith(null, '', '/')
+    expect(replaceState).not.toHaveBeenCalled()
+  })
+})
 
 describe('parseRoute', () => {
   it('parses /onboarding as onboarding flow', () => {

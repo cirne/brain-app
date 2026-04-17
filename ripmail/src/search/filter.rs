@@ -170,7 +170,8 @@ pub fn sql_count_messages(where_clause: &str) -> String {
     format!("SELECT COUNT(*) FROM messages m {where_clause}")
 }
 
-/// `SELECT COUNT(*)` over `document_index_fts` ⋈ `document_index` ⋈ `messages` (FTS mail search / rule counts).
+/// `SELECT COUNT(*)` over `document_index_fts` ⋈ `document_index` ⋈ `messages` (legacy FTS helper).
+#[allow(dead_code)]
 pub fn sql_count_messages_fts_join(where_clause: &str) -> String {
     format!(
         "SELECT COUNT(*) FROM document_index_fts \

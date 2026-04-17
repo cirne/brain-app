@@ -1,0 +1,30 @@
+# External integrations (ripmail, search, files, optional iMessage)
+
+## Ripmail subprocess
+
+Email and indexed local files are accessed by spawning the **`ripmail`** CLI with `RIPMAIL_HOME` set to Brain’s ripmail dir (`$BRAIN_HOME/ripmail` by default). No in-process Rust linkage from Node.
+
+- Binary: `RIPMAIL_BIN` (workspace debug binary wired in dev when present — see [`run-dev.mjs`](../../scripts/run-dev.mjs)); Tauri bundles release `ripmail` in `server-bundle/`.
+- Agent tools wrap `ripmail search`, `ripmail read`, `ripmail draft`, `ripmail inbox`, etc.
+
+## Unified search (`GET /api/search`)
+
+[`search.ts`](../../src/server/routes/search.ts) combines **wiki** hits (shell `grep` over `*.md` under the wiki dir) and **email** hits (`ripmail search --json`). Same endpoint powers the UI “search everything” behavior.
+
+## Raw file read (`GET /api/files/read`)
+
+Returns JSON from `ripmail read <path> --json` for absolute paths (e.g. PDF text extraction). Should stay aligned with agent `read_doc` for filesystem targets — see [wiki-read-vs-read-doc.md](./wiki-read-vs-read-doc.md). Both use shared Node `exec` options (`maxBuffer` 20 MiB, timeout 120s) in [`ripmailReadExec.ts`](../../src/server/lib/ripmailReadExec.ts); Node’s default 1 MiB buffer would throw on large extractions.
+
+**Inbox message body** (`GET /api/inbox/:id`, plain `ripmail read`) uses the same limits.
+
+## Optional local messages (macOS)
+
+When Apple’s **`chat.db`** is readable, the server exposes iMessage/SMS tools and routes. Read-only access uses **`better-sqlite3`** against a **copy** pattern / readonly open — **not** the main app database for chat persistence (chats remain JSON files). See [`imessageDb.ts`](../../src/server/lib/imessageDb.ts).
+
+## Onboarding
+
+[`onboarding.ts`](../../src/server/routes/onboarding.ts) coordinates mail setup, staging wiki, and polling — not a separate product stack, but part of the same Hono app.
+
+---
+
+*See also: [runtime-and-routes.md](./runtime-and-routes.md) · [configuration.md](./configuration.md)*

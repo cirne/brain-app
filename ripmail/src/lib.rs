@@ -47,8 +47,9 @@ pub use ask_stub::{
     ask_rejects_old_explicit_year, ask_rejects_stale_date_range, draft_rewrite_stub,
 };
 pub use attachments::{
-    extract_and_cache, extract_attachment, list_attachments_for_message, read_attachment_bytes,
-    read_attachment_text, read_stored_file, AttachmentListRow,
+    extract_and_cache, extract_attachment, list_attachments_for_message, local_file_read_outcome,
+    local_file_skipped_too_large, read_attachment_bytes, read_attachment_text, read_stored_file,
+    AttachmentListRow, LocalFileReadJson, LocalFileReadOutcome, MAX_LOCAL_FILE_BYTES,
 };
 pub use config::{
     build_llm_client, check_ripmail_home_access, config_for_outbound_send,

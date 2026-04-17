@@ -18,7 +18,7 @@ use crate::search::{count_messages_matching_rule_query, SearchOptions};
 pub const DEFAULT_RULES_JSON: &str = include_str!("rules/default_rules.v3.json");
 
 /// Current `rules.json` **`version`** field. Files with a lower version (or legacy `kind: "regex"` rules) are replaced with [`DEFAULT_RULES_JSON`] on load (previous file renamed to `rules.json.bak.<uuid>`).
-pub const RULES_FILE_FORMAT_VERSION: u32 = 3;
+pub const RULES_FILE_FORMAT_VERSION: u32 = 4;
 
 #[derive(thiserror::Error)]
 pub enum RulesError {
@@ -62,15 +62,27 @@ pub struct RulesFile {
     pub context: Vec<ContextEntry>,
 }
 
-/// Inbox rule: `kind` is **`search`** — same query language as `ripmail search`.
+/// Inbox rule: `kind` is **`search`** — same options as `ripmail search` (regex pattern + structured filters).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum UserRule {
-    #[serde(rename = "search")]
+    #[serde(rename = "search", rename_all = "camelCase")]
     Search {
         id: String,
         action: String,
+        /// Regex matched against subject + body; empty when using only structured filters below.
+        #[serde(default)]
         query: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        from_address: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        to_address: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        subject: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        category: Option<String>,
+        #[serde(default)]
+        from_or_to_union: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         description: Option<String>,
     },
@@ -88,6 +100,49 @@ impl UserRule {
             UserRule::Search { action, .. } => action.as_str(),
         }
     }
+}
+
+/// Build [`SearchOptions`] for a rule: structured filters plus optional regex [`UserRule::Search::query`].
+pub fn search_options_from_rule(rule: &UserRule, base: &SearchOptions) -> SearchOptions {
+    let mut o = base.clone();
+    match rule {
+        UserRule::Search {
+            query,
+            from_address,
+            to_address,
+            subject,
+            category,
+            from_or_to_union,
+            ..
+        } => {
+            let q = query.trim();
+            if !q.is_empty() {
+                o.query = Some(q.to_string());
+            }
+            if let Some(ref f) = from_address {
+                if !f.trim().is_empty() {
+                    o.from_address = Some(f.trim().to_string());
+                }
+            }
+            if let Some(ref t) = to_address {
+                if !t.trim().is_empty() {
+                    o.to_address = Some(t.trim().to_string());
+                }
+            }
+            if let Some(ref s) = subject {
+                if !s.trim().is_empty() {
+                    o.subject = Some(s.trim().to_string());
+                }
+            }
+            if let Some(ref c) = category {
+                if !c.trim().is_empty() {
+                    o.categories = vec![c.trim().to_ascii_lowercase()];
+                }
+            }
+            o.from_or_to_union = *from_or_to_union;
+        }
+    }
+    o
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -327,23 +382,6 @@ pub fn rules_file_needs_default_replacement(v: &serde_json::Value) -> bool {
     false
 }
 
-/// If `rules.json` is stale, rename it to `rules.json.bak.<uuid>` and write bundled defaults.
-fn replace_stale_rules_file_if_needed(home: &Path) -> Result<Option<PathBuf>, RulesError> {
-    let path = rules_path(home);
-    if !path.exists() {
-        return Ok(None);
-    }
-    let raw = fs::read_to_string(&path)?;
-    let v: serde_json::Value = match serde_json::from_str(&raw) {
-        Ok(v) => v,
-        Err(_) => return Ok(None),
-    };
-    if !rules_file_needs_default_replacement(&v) {
-        return Ok(None);
-    }
-    reset_rules_to_bundled_defaults(home)
-}
-
 pub fn load_rules_file_from_path(path: &Path) -> Result<RulesFile, RulesError> {
     if !path.exists() {
         return Ok(RulesFile {
@@ -351,19 +389,12 @@ pub fn load_rules_file_from_path(path: &Path) -> Result<RulesFile, RulesError> {
             ..Default::default()
         });
     }
-    let home = path.parent().ok_or_else(|| {
+    let _home = path.parent().ok_or_else(|| {
         RulesError::InvalidRules(format!(
             "rules path has no parent directory: {}",
             path.display()
         ))
     })?;
-    if let Some(backup) = replace_stale_rules_file_if_needed(home)? {
-        eprintln!(
-            "ripmail: note: rules.json was an older format (or contained regex rules); installed bundled v{} defaults — backup: {}",
-            RULES_FILE_FORMAT_VERSION,
-            backup.display()
-        );
-    }
     let raw = fs::read_to_string(path)?;
     parse_rules_file_str(&raw, path)
 }
@@ -389,20 +420,40 @@ pub fn load_rules_file(home: &Path) -> Result<RulesFile, RulesError> {
     load_rules_file_from_path(&rules_path(home))
 }
 
+fn rule_has_search_criteria(rule: &UserRule) -> bool {
+    match rule {
+        UserRule::Search {
+            query,
+            from_address,
+            to_address,
+            subject,
+            category,
+            ..
+        } => {
+            !query.trim().is_empty()
+                || from_address.as_ref().is_some_and(|s| !s.trim().is_empty())
+                || to_address.as_ref().is_some_and(|s| !s.trim().is_empty())
+                || subject.as_ref().is_some_and(|s| !s.trim().is_empty())
+                || category.as_ref().is_some_and(|s| !s.trim().is_empty())
+        }
+    }
+}
+
 fn validate_rule_queries_compile(file: &RulesFile) -> Result<(), RulesError> {
     let conn = open_memory().map_err(|e| RulesError::InvalidRules(format!("db: {e}")))?;
     apply_schema(&conn).map_err(|e| RulesError::InvalidRules(format!("schema: {e}")))?;
     let base = SearchOptions::default();
     for rule in &file.rules {
-        let UserRule::Search { query, id, .. } = rule;
-        let q = query.trim();
-        if q.is_empty() {
+        let UserRule::Search { id, .. } = rule;
+        if !rule_has_search_criteria(rule) {
             return Err(RulesError::InvalidRuleQuery {
                 id: id.clone(),
-                message: "empty query".into(),
+                message: "empty pattern and no structured filters (fromAddress, category, …)"
+                    .into(),
             });
         }
-        count_messages_matching_rule_query(&conn, q, &base).map_err(|e| {
+        let opts = search_options_from_rule(rule, &base);
+        count_messages_matching_rule_query(&conn, &opts).map_err(|e| {
             RulesError::InvalidRuleQuery {
                 id: id.clone(),
                 message: e.to_string(),
@@ -414,9 +465,9 @@ fn validate_rule_queries_compile(file: &RulesFile) -> Result<(), RulesError> {
 
 /// Validate rules (duplicate ids, action, non-empty search query, SQL compile).
 pub fn validate_rules_file(file: &RulesFile) -> Result<(), RulesError> {
-    if file.version > 0 && file.version < 3 {
+    if file.version > 0 && file.version < 4 {
         return Err(RulesError::InvalidRules(
-            "rules.json must be version 3 (search rules). Run: ripmail rules reset-defaults --yes"
+            "rules.json must be version 4 (search rules with structured filters). Run: ripmail rules reset-defaults --yes"
                 .into(),
         ));
     }
@@ -439,9 +490,9 @@ pub fn validate_rules_file_with_db_sample(
     validate_rules_file(file)?;
     let base = SearchOptions::default();
     for rule in &file.rules {
-        let UserRule::Search { query, id, .. } = rule;
-        let q = query.trim();
-        let _n = count_messages_matching_rule_query(conn, q, &base).map_err(|e| {
+        let UserRule::Search { id, .. } = rule;
+        let opts = search_options_from_rule(rule, &base);
+        let _n = count_messages_matching_rule_query(conn, &opts).map_err(|e| {
             RulesError::InvalidRuleQuery {
                 id: id.clone(),
                 message: e.to_string(),
@@ -561,6 +612,11 @@ pub fn add_search_rule(
             id,
             action: action.trim().to_string(),
             query: q.to_string(),
+            from_address: None,
+            to_address: None,
+            subject: None,
+            category: None,
+            from_or_to_union: false,
             description,
         };
         if let Some(before_id) = insert_before.map(str::trim).filter(|s| !s.is_empty()) {
@@ -842,30 +898,25 @@ mod tests {
     fn rules_file_needs_default_replacement_logic() {
         let v1 = serde_json::json!({"version": 1, "rules": []});
         assert!(rules_file_needs_default_replacement(&v1));
-        let v3 = serde_json::json!({"version": 3, "rules": [{"kind":"search","id":"x","action":"ignore","query":"from:a"}]});
-        assert!(!rules_file_needs_default_replacement(&v3));
+        let v3 = serde_json::json!({"version": 3, "rules": [{"kind":"search","id":"x","action":"ignore","query":"a"}]});
+        assert!(rules_file_needs_default_replacement(&v3));
+        let v4 = serde_json::json!({"version": 4, "rules": [{"kind":"search","id":"x","action":"ignore","query":"a"}]});
+        assert!(!rules_file_needs_default_replacement(&v4));
         let mixed = serde_json::json!({"version": 3, "rules": [{"kind":"regex","id":"x","action":"ignore","fromPattern":"x"}]});
         assert!(rules_file_needs_default_replacement(&mixed));
     }
 
     #[test]
-    fn stale_rules_v2_snippet_pattern_replaced_with_bundled_defaults() {
+    fn stale_rules_v2_regex_rejected_no_auto_migration() {
         let json = r#"{"version":2,"rules":[{"kind":"regex","id":"x","action":"ignore","snippetPattern":"(?i)foo"}],"context":[]}"#;
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path()).unwrap();
         let path = rules_path(dir.path());
         std::fs::write(&path, json).unwrap();
-        let loaded = load_rules_file_from_path(&path).unwrap();
-        assert_eq!(loaded.version, RULES_FILE_FORMAT_VERSION);
-        let raw = std::fs::read_to_string(&path).unwrap();
-        let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
-        assert_eq!(
-            v.get("rules").and_then(|r| r.as_array()).map(|a| a.len()),
-            serde_json::from_str::<serde_json::Value>(DEFAULT_RULES_JSON)
-                .unwrap()
-                .get("rules")
-                .and_then(|r| r.as_array())
-                .map(|a| a.len())
+        let err = load_rules_file_from_path(&path).unwrap_err();
+        assert!(
+            err.to_string().contains("regex") || err.to_string().contains("snippetPattern"),
+            "{err}"
         );
     }
 
@@ -905,19 +956,23 @@ mod tests {
     fn add_search_rule_category_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let _ = load_rules_file(dir.path()).unwrap();
-        let rule = add_search_rule(
+        let rule = add_rule_from_json(
             dir.path(),
-            "inform",
-            "category:promotional",
-            Some("Promo bucket".into()),
-            None,
+            r#"{"kind":"search","id":"tmp","action":"inform","query":"","category":"promotional","description":"Promo bucket"}"#,
             None,
         )
         .unwrap();
         assert_eq!(rule.action_str(), "inform");
         let loaded = load_rules_file_from_path(&rules_path(dir.path())).unwrap();
         assert!(loaded.rules.iter().any(|r| {
-            matches!(r, UserRule::Search { query, .. } if query == "category:promotional")
+            matches!(
+                r,
+                UserRule::Search {
+                    query,
+                    category: Some(c),
+                    ..
+                } if query.is_empty() && c == "promotional"
+            )
         }));
     }
 
@@ -925,19 +980,12 @@ mod tests {
     fn add_search_rule_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let _ = load_rules_file(dir.path()).unwrap();
-        let rule = add_search_rule(
-            dir.path(),
-            "ignore",
-            "newsletter OR digest",
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let rule =
+            add_search_rule(dir.path(), "ignore", "newsletter|digest", None, None, None).unwrap();
         assert_eq!(rule.action_str(), "ignore");
         let loaded = load_rules_file_from_path(&rules_path(dir.path())).unwrap();
         assert!(loaded.rules.iter().any(|r| {
-            matches!(r, UserRule::Search { query, .. } if query == "newsletter OR digest")
+            matches!(r, UserRule::Search { query, .. } if query == "newsletter|digest")
         }));
     }
 
@@ -945,14 +993,24 @@ mod tests {
     fn add_search_rule_from_pattern_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let _ = load_rules_file(dir.path()).unwrap();
-        let rule =
-            add_search_rule(dir.path(), "notify", "from:acme.test", None, None, None).unwrap();
+        let rule = add_rule_from_json(
+            dir.path(),
+            r#"{"kind":"search","id":"tmp","action":"notify","query":"","fromAddress":"acme.test"}"#,
+            None,
+        )
+        .unwrap();
         assert_eq!(rule.action_str(), "notify");
         let loaded = load_rules_file_from_path(&rules_path(dir.path())).unwrap();
-        assert!(loaded
-            .rules
-            .iter()
-            .any(|r| { matches!(r, UserRule::Search { query, .. } if query == "from:acme.test") }));
+        assert!(loaded.rules.iter().any(|r| {
+            matches!(
+                r,
+                UserRule::Search {
+                    query,
+                    from_address: Some(f),
+                    ..
+                } if query.is_empty() && f == "acme.test"
+            )
+        }));
     }
 
     #[test]
@@ -961,13 +1019,10 @@ mod tests {
         let _ = load_rules_file(dir.path()).unwrap();
         let loaded_before = load_rules_file_from_path(&rules_path(dir.path())).unwrap();
         let first_id = loaded_before.rules[0].id().to_string();
-        let rule = add_search_rule(
+        let rule = add_rule_from_json(
             dir.path(),
-            "inform",
-            "from:insert-test.example",
-            None,
+            r#"{"kind":"search","id":"tmp","action":"inform","query":"","fromAddress":"insert-test.example"}"#,
             Some(&first_id),
-            None,
         )
         .unwrap();
         let loaded = load_rules_file_from_path(&rules_path(dir.path())).unwrap();
@@ -1030,27 +1085,20 @@ mod tests {
     }
 
     #[test]
-    fn load_legacy_v1_rules_auto_replaced_with_bundled_defaults() {
+    fn load_legacy_v1_rules_rejected_no_auto_migration() {
         let dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path()).unwrap();
         let path = rules_path(dir.path());
         fs::write(
             &path,
             r#"{"version":1,"rules":[{"id":"a","condition":"noise","action":"ignore"}],"context":[]}"#,
         )
         .unwrap();
-        let loaded = load_rules_file_from_path(&path).unwrap();
-        assert_eq!(loaded.version, RULES_FILE_FORMAT_VERSION);
-        assert!(!loaded.rules.is_empty());
-        let bak_count = std::fs::read_dir(dir.path())
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .starts_with("rules.json.bak.")
-            })
-            .count();
-        assert_eq!(bak_count, 1);
+        let err = load_rules_file_from_path(&path).unwrap_err();
+        assert!(
+            err.to_string().contains("version") || err.to_string().contains("rules.json"),
+            "{err}"
+        );
     }
 
     #[test]
