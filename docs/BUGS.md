@@ -18,6 +18,7 @@ The **ripmail** workspace member indexes its own bugs: **[`ripmail/docs/BUGS.md`
 | BUG-001 | Wiki/docs show `\u2014` or em dashes    | Unicode em dash (U+2014) sometimes appears as the literal escape `\u2014` in rendered text, and wiki copy often uses `—` where we prefer other punctuation.                                                                                                           |
 | BUG-003 | Native Mac app ship blockers (Tauri)    | Bundled **Brain.app** is buildable, but shipping a **zero-config** DMG (FDA-only) is blocked by secrets/env, log visibility, and slow **tauri build** iteration. See [bugs/BUG-003-native-mac-app-ship-blockers.md](bugs/BUG-003-native-mac-app-ship-blockers.md).    |
 | BUG-005 | Client UI: idiomatic Tailwind & reuse   | Tailwind v4 is wired, but styling mixes heavy scoped CSS + globals with inconsistent utilities; duplicated layouts and ad hoc `class` logic. Converge on theme tokens, shared primitives, and `tailwind-merge` / variants. See [bugs/BUG-005-tailwind-css-consolidation.md](bugs/BUG-005-tailwind-css-consolidation.md). |
+| BUG-008 | Onboarding: first mail indexing feels hung | First-time indexing can take a long time with little UI feedback until ~2 min. **Asymmetry:** fast after hard-reset on reporter’s dev Mac, slow on a separate very fast test machine—needs investigation (not just “cached Brain data”). See [bugs/BUG-008-first-mail-indexing-feedback.md](bugs/BUG-008-first-mail-indexing-feedback.md). |
 
 
 ### BUG-001: Escaped em dash and unwanted em dashes in docs
