@@ -52,11 +52,12 @@ Optional: run the same stack inside a native window (see [OPP-007](docs/opportun
 npm run ripmail:dev            # cargo build -p ripmail (debug) — use before inbox if not on PATH
 npm run ripmail:build          # cargo build -p ripmail --release
 npm run ripmail:test           # cargo test -p ripmail
+npm run brain:clean-dev        # delete dev durable data: `./data` unless `BRAIN_HOME` is set (same tree as `npm run dev`; not Tauri bundle paths)
 npm run tauri:dev              # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
 npm run tauri:build            # npm build + bundle server + Brain.app (+ DMG)
-npm run tauri:open-fresh-install # `tauri:clean-data` + `tauri:build`, then opens the DMG (macOS) for drag-to-Applications testing
-npm run tauri:run-release:fresh  # `tauri:clean-data` + `tauri:build`, then opens the built Brain.app (macOS) — quick local “clean + release + launch”
-npm run tauri:clean-data        # delete Tauri app data (~/Library/Application Support/Brain, logs); not CLI/dev ~/.ripmail or ./data
+npm run tauri:open-fresh-install # `tauri:clean-data` + `tauri:build`, then opens the DMG (macOS) — see `scripts/tauri-fresh.mjs`
+npm run tauri:run-release:fresh  # same as above, then opens `Brain.app` under `target/**/bundle/macos/` (macOS)
+npm run tauri:clean-data        # delete packaged-app data: defaults from `shared/bundle-defaults.json`, or `$BRAIN_HOME` if set (+ macOS logs); not `./data` unless `BRAIN_HOME` points there
 ```
 
 **Cargo workspace:** Rust crates live under [`desktop/`](desktop/) (Tauri shell) and [`ripmail/`](ripmail/) with a root [`Cargo.toml`](Cargo.toml). Build artifacts go under the Cargo target directory (usually `./target/`; see `cargo metadata`).

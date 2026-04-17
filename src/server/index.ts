@@ -20,6 +20,7 @@ import onboardingRoute from './routes/onboarding.js'
 import devRoute from './routes/dev.js'
 import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
 import { runStartupChecks } from './lib/runStartupChecks.js'
+import { ensureBrainHomeGitignore } from './lib/brainHomeGitignore.js'
 import { ensureDefaultSkillsSeeded } from './lib/skillsSeeder.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
 import {
@@ -155,6 +156,7 @@ async function listenNativeBundled(): Promise<ServerType> {
 async function start() {
   try {
     initLocalMessageToolsAvailability()
+    await ensureBrainHomeGitignore()
     await ensureDefaultSkillsSeeded()
 
     // Inline NODE_ENV check so production bundles can drop the Vite branch (see esbuild define).

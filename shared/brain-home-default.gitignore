@@ -1,0 +1,22 @@
+# Brain — default ignores (created on first run). Safe to edit.
+# wiki/ and skills/ are not ignored so you can version notes and skills.
+# ripmail/config.json and ripmail/rules.json may include email addresses or other metadata;
+# add those paths here if you push to a public remote.
+
+cache/
+chats/
+var/
+
+# ripmail — SQLite index, maildir, logs, secrets
+ripmail/**/*.db
+ripmail/**/*.db-wal
+ripmail/**/*.db-shm
+ripmail/**/*.db.pre-rebuild
+ripmail/**/.env
+ripmail/**/.env.*
+ripmail/**/google-oauth.json
+ripmail/**/maildir/
+ripmail/logs/
+
+.DS_Store
+Thumbs.db

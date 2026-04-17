@@ -5,14 +5,18 @@ import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 
 /**
- * Bundled Brain.app defaults — must match `desktop/src/brain_paths.rs` + `shared/brain-layout.json`.
+ * Bundled Brain.app defaults — must match `desktop/src/brain_paths.rs` + `shared/brain-layout.json`
+ * + `shared/bundle-defaults.json`.
  */
 function macBundledDefaultPaths(home: string) {
   const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
   const layout = JSON.parse(readFileSync(join(root, 'shared/brain-layout.json'), 'utf-8')) as {
     directories: { ripmail: string }
   }
-  const brainHome = join(home, 'Library/Application Support/Brain')
+  const bundle = JSON.parse(readFileSync(join(root, 'shared/bundle-defaults.json'), 'utf-8')) as {
+    default_brain_home: { darwin: string }
+  }
+  const brainHome = join(home, bundle.default_brain_home.darwin)
   return {
     brainHome,
     ripmailHome: join(brainHome, layout.directories.ripmail),

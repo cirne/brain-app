@@ -1,6 +1,9 @@
 //! Default `BRAIN_HOME` for the bundled Brain.app (macOS GUI — no shell `.env`).
 //! Layout segments must match `shared/brain-layout.json` in the repo root.
+//! Default home root segments must match `shared/bundle-defaults.json`.
 
+use serde::Deserialize;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::OnceLock;
@@ -21,15 +24,46 @@ fn dir_segment(key: &str) -> String {
         .to_string()
 }
 
+#[derive(Deserialize)]
+struct BundleDefaults {
+    default_brain_home: DefaultBrainHomeRel,
+}
+
+#[derive(Deserialize)]
+struct DefaultBrainHomeRel {
+    darwin: String,
+    other: String,
+}
+
+static BUNDLE_DEFAULTS: OnceLock<BundleDefaults> = OnceLock::new();
+
+fn bundle_defaults() -> &'static BundleDefaults {
+    BUNDLE_DEFAULTS.get_or_init(|| {
+        serde_json::from_str(include_str!("../../shared/bundle-defaults.json"))
+            .expect("shared/bundle-defaults.json must be valid JSON")
+    })
+}
+
+const BRAIN_HOME_DEFAULT_GITIGNORE: &str =
+    include_str!("../../shared/brain-home-default.gitignore");
+
+fn write_brain_home_gitignore_if_absent(brain: &Path) {
+    let dest = brain.join(".gitignore");
+    if dest.exists() {
+        return;
+    }
+    if let Err(e) = fs::write(&dest, BRAIN_HOME_DEFAULT_GITIGNORE) {
+        log::warn!("brain: could not write {}: {e}", dest.display());
+    }
+}
+
 fn brain_home_default(home: &str) -> PathBuf {
-    #[cfg(target_os = "macos")]
-    {
-        Path::new(home).join("Library/Application Support/Brain")
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        Path::new(home).join(".brain")
-    }
+    let rel = if cfg!(target_os = "macos") {
+        &bundle_defaults().default_brain_home.darwin
+    } else {
+        &bundle_defaults().default_brain_home.other
+    };
+    Path::new(home).join(rel)
 }
 
 pub fn ensure_dirs_and_apply_defaults(cmd: &mut Command, home: &str) {
@@ -44,6 +78,8 @@ pub fn ensure_dirs_and_apply_defaults(cmd: &mut Command, home: &str) {
     for d in [&wiki, &skills, &chats, &rip, &cache, &var_d] {
         let _ = std::fs::create_dir_all(d);
     }
+
+    write_brain_home_gitignore_if_absent(&brain);
 
     if std::env::var_os("BRAIN_HOME").is_none() {
         cmd.env("BRAIN_HOME", &brain);

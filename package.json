@@ -22,13 +22,14 @@
     "ripmail:build": "cargo build -p ripmail --release",
     "ripmail:dev": "cargo build -p ripmail",
     "ripmail:test": "cargo test -p ripmail",
+    "brain:clean-dev": "node scripts/clean-brain-dev-data.mjs",
     "tauri:clean-data": "node scripts/clean-tauri-user-data.mjs",
     "tauri": "tauri",
     "tauri:bundle-server": "node scripts/bundle-tauri-server.mjs",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "tauri:open-fresh-install": "node scripts/tauri-open-fresh-install.mjs",
-    "tauri:run-release:fresh": "node scripts/tauri-run-release-fresh.mjs"
+    "tauri:open-fresh-install": "node scripts/tauri-fresh.mjs dmg",
+    "tauri:run-release:fresh": "node scripts/tauri-fresh.mjs app"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",

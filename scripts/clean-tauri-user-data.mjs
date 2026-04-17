@@ -1,39 +1,49 @@
 #!/usr/bin/env node
 /**
- * Remove data written by the **Tauri-packaged** Brain app (release spawn defaults in `desktop/src/brain_paths.rs`).
- * Does not touch CLI/dev-only locations (`~/.ripmail`, `./data`, or paths from `.env` — those differ).
+ * Remove data for the **Tauri-packaged** Brain app. Paths come from `shared/bundle-defaults.json`
+ * (same defaults as `desktop/src/brain_paths.rs` and server `bundleDefaults.ts`).
  *
- * macOS:
- *   ~/Library/Application Support/Brain   (unified BRAIN_HOME: wiki, chats, ripmail, cache, var, skills)
- *   ~/Library/Logs/com.cirne.brain          (node-server.log, etc.)
+ * - If `BRAIN_HOME` is set: removes that directory (what the app uses) plus macOS Tauri logs
+ *   when `tauri_logs_dir_darwin` is present in bundle-defaults.
+ * - Otherwise: removes the default bundled `BRAIN_HOME` for this OS + macOS logs (when darwin).
  *
- * Linux / non-macOS Tauri:
- *   ~/.brain
- *
- * Does NOT delete `.env` or build artifacts.
+ * Does not remove dev `./data` unless you set `BRAIN_HOME` to that path. Does not touch
+ * standalone CLI `~/.ripmail` unless it is your `BRAIN_HOME`.
  *
  * Usage: npm run tauri:clean-data [--dry-run]
  */
 
-import { rmSync, existsSync } from 'node:fs'
+import { rmSync, existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { homedir, platform } from 'node:os'
+import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
 
-const home = homedir()
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dryRun = process.argv.includes('--dry-run')
 
+function loadBundleDefaults() {
+  const p = join(root, 'shared/bundle-defaults.json')
+  return JSON.parse(readFileSync(p, 'utf-8'))
+}
+
 function collectPaths() {
+  const b = loadBundleDefaults()
   /** @type {string[]} */
   const paths = []
 
-  if (platform() === 'darwin') {
-    paths.push(join(home, 'Library/Application Support/Brain'))
-    paths.push(join(home, 'Library/Logs/com.cirne.brain'))
+  if (process.env.BRAIN_HOME) {
+    paths.push(resolve(process.env.BRAIN_HOME))
   } else {
-    paths.push(join(home, '.brain'))
+    const rel = platform() === 'darwin' ? b.default_brain_home.darwin : b.default_brain_home.other
+    paths.push(resolve(join(homedir(), rel)))
   }
 
-  return paths.map((p) => resolve(p)).sort()
+  if (platform() === 'darwin' && b.tauri_logs_dir_darwin) {
+    paths.push(resolve(join(homedir(), b.tauri_logs_dir_darwin)))
+  }
+
+  return [...new Set(paths)].sort()
 }
 
 for (const p of collectPaths()) {
@@ -49,5 +59,5 @@ for (const p of collectPaths()) {
 if (dryRun) {
   console.log('[tauri:clean-data] dry run only; omit --dry-run to delete')
 } else {
-  console.log('[tauri:clean-data] done (Tauri bundle paths only; did not remove .env)')
+  console.log('[tauri:clean-data] done')
 }

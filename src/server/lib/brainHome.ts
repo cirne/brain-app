@@ -1,5 +1,5 @@
-import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { defaultBundledBrainHomeRoot } from './bundleDefaults.js'
 import {
   brainLayoutCacheDir,
   brainLayoutChatsDir,
@@ -18,16 +18,9 @@ export function brainHome(): string {
   const e = process.env.BRAIN_HOME
   if (e) return e
   if (process.env.BRAIN_BUNDLED_NATIVE === '1') {
-    return defaultBundledBrainHome()
+    return defaultBundledBrainHomeRoot()
   }
   return join(process.cwd(), 'data')
-}
-
-function defaultBundledBrainHome(): string {
-  if (process.platform === 'darwin') {
-    return join(homedir(), 'Library/Application Support/Brain')
-  }
-  return join(homedir(), '.brain')
 }
 
 export function wikiContentDir(): string {

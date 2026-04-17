@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "default_brain_home": {
+    "darwin": "Library/Application Support/Brain",
+    "other": ".brain"
+  },
+  "tauri_logs_dir_darwin": "Library/Logs/com.cirne.brain"
+}
