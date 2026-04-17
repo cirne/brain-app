@@ -53,6 +53,7 @@
   let agentChat = $state<AgentChat | undefined>()
   let mobileSlideOver = $state<{ closeAnimated: () => void } | undefined>()
   let workspaceSplit = $state<WorkspaceSplit | undefined>()
+  let detailPaneFullscreen = $state(false)
   let isMobile = $state(false)
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
@@ -359,6 +360,7 @@
   <div class="ob-ws-main">
     <WorkspaceSplit
       bind:this={workspaceSplit}
+      bind:detailFullscreen={detailPaneFullscreen}
       hasDetail={!!route.overlay}
       desktopDetailOpen={!!route.overlay && !isMobile}
       onNavigateClear={closeOverlayImmediate}
@@ -433,6 +435,8 @@
             onCalendarResetToToday={resetCalendarToToday}
             onCalendarNavigate={switchToCalendar}
             onClose={closeOverlay}
+            detailFullscreen={detailPaneFullscreen}
+            onToggleFullscreen={() => workspaceSplit?.toggleDetailFullscreen()}
           />
         {/if}
       {/snippet}

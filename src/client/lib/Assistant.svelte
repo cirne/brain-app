@@ -52,6 +52,8 @@
   let agentChat = $state<AgentChat | undefined>()
   let mobileSlideOver = $state<{ closeAnimated: () => void } | undefined>()
   let workspaceSplit = $state<WorkspaceSplit | undefined>()
+  /** Desktop: detail pane fills workspace when true (WorkspaceSplit + SlideOver header). */
+  let detailPaneFullscreen = $state(false)
   let isMobile = $state(false)
 
   /** History sidebar open (desktop inline or mobile overlay). */
@@ -485,6 +487,7 @@
     <div class="workspace-column">
   <WorkspaceSplit
     bind:this={workspaceSplit}
+    bind:detailFullscreen={detailPaneFullscreen}
     hasDetail={!!route.overlay}
     desktopDetailOpen={!!route.overlay && !isMobile}
     onNavigateClear={closeOverlayImmediate}
@@ -554,6 +557,8 @@
           onCalendarResetToToday={resetCalendarToToday}
           onCalendarNavigate={switchToCalendar}
           onClose={closeOverlay}
+          detailFullscreen={detailPaneFullscreen}
+          onToggleFullscreen={() => workspaceSplit?.toggleDetailFullscreen()}
         />
       {/if}
     {/snippet}

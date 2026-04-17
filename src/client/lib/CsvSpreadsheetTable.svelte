@@ -9,7 +9,7 @@
 </script>
 
 <div class="sheet-root">
-  <div class="sheet-scroll" tabindex="0" role="region" aria-label="Spreadsheet preview">
+  <div class="sheet-scroll" role="region" aria-label="Spreadsheet preview">
     <table class="sheet">
       <thead>
         <tr>

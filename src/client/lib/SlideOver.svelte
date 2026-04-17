@@ -1,6 +1,6 @@
 <script lang="ts">
   import { setContext } from 'svelte'
-  import { Mail, MessageSquare } from 'lucide-svelte'
+  import { Mail, Maximize2, MessageSquare, Minimize2 } from 'lucide-svelte'
   import Wiki from './Wiki.svelte'
   import FileViewer from './FileViewer.svelte'
   import Inbox from './Inbox.svelte'
@@ -45,6 +45,10 @@
     syncing?: boolean
     /** Full-screen mobile stack: slide in from right, swipe from left edge / animated close. */
     mobilePanel?: boolean
+    /** Desktop detail pane: expanded to fill workspace (from WorkspaceSplit). */
+    detailFullscreen?: boolean
+    /** Desktop only: toggle detail fullscreen (parent calls WorkspaceSplit.toggleDetailFullscreen). */
+    onToggleFullscreen?: () => void
   }
 
   let {
@@ -66,6 +70,8 @@
     onSync,
     syncing = false,
     mobilePanel = false,
+    detailFullscreen = false,
+    onToggleFullscreen,
   }: Props = $props()
 
   let rootEl = $state<HTMLDivElement | undefined>()
@@ -354,6 +360,21 @@
           </svg>
         </button>
       {/if}
+      {#if !mobilePanel && onToggleFullscreen}
+        <button
+          type="button"
+          class="fullscreen-btn-desktop"
+          onclick={onToggleFullscreen}
+          title={detailFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          aria-label={detailFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+        >
+          {#if detailFullscreen}
+            <Minimize2 size={18} strokeWidth={2} aria-hidden="true" />
+          {:else}
+            <Maximize2 size={18} strokeWidth={2} aria-hidden="true" />
+          {/if}
+        </button>
+      {/if}
       <button type="button" class="close-btn-desktop" onclick={onBackOrHeaderClose} aria-label="Close panel" title="Close">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
@@ -463,9 +484,30 @@
     color: var(--text);
   }
 
+  .fullscreen-btn-desktop {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    color: var(--text-2);
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    transition: color 0.15s, background 0.15s;
+  }
+  .fullscreen-btn-desktop:hover {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+
   @media (min-width: 768px) {
     .back-btn {
       display: none;
+    }
+    .fullscreen-btn-desktop {
+      display: inline-flex;
     }
     .close-btn-desktop {
       display: inline-flex;

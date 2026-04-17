@@ -1,6 +1,6 @@
 <script lang="ts">
   import CsvSpreadsheetView from './CsvSpreadsheetView.svelte'
-  import { isSpreadsheetDelimitedPath, spreadsheetDelimiterForPath } from './csvSpreadsheet.js'
+  import { fileViewerKindForPath } from './fileViewerKind.js'
   import type { SurfaceContext } from '../router.js'
 
   let {
@@ -14,11 +14,16 @@
   let loading = $state(false)
   let err = $state('')
   let bodyText = $state('')
+  /** Path returned by `/api/files/read` (canonical) — use for `.csv` / `.tsv` detection when present. */
+  let resolvedPathFromApi = $state<string | undefined>(undefined)
 
-  const showSpreadsheet = $derived(initialPath ? isSpreadsheetDelimitedPath(initialPath) : false)
-  const sheetDelimiter = $derived(
-    initialPath ? spreadsheetDelimiterForPath(initialPath) : ',',
+  /** Prefer server-resolved path so symlink / normalization does not change the chosen viewer. */
+  const pathForViewer = $derived((resolvedPathFromApi ?? initialPath ?? '').trim())
+
+  const viewerKind = $derived(
+    pathForViewer.length > 0 ? fileViewerKindForPath(pathForViewer) : 'plaintext',
   )
+  const useSpreadsheetViewer = $derived(viewerKind === 'spreadsheet')
 
   function titleFromPath(p: string) {
     const parts = p.split('/').filter(Boolean)
@@ -33,6 +38,7 @@
     loading = true
     err = ''
     bodyText = ''
+    resolvedPathFromApi = undefined
     onContextChange?.({ type: 'file', path: p, title: titleFromPath(p) })
     try {
       const res = await fetch(`/api/files/read?path=${encodeURIComponent(p)}`)
@@ -42,7 +48,8 @@
         return
       }
       bodyText = typeof j.bodyText === 'string' ? j.bodyText : ''
-      const showPath = typeof j.path === 'string' ? j.path : p
+      resolvedPathFromApi = typeof j.path === 'string' ? j.path : p
+      const showPath = resolvedPathFromApi
       onContextChange?.({ type: 'file', path: p, title: titleFromPath(showPath) })
     } catch (e) {
       err = e instanceof Error ? e.message : String(e)
@@ -52,13 +59,13 @@
   }
 </script>
 
-<div class="file-view" class:spreadsheet-mode={showSpreadsheet && !loading && !err}>
+<div class="file-view" class:spreadsheet-mode={useSpreadsheetViewer && !loading && !err}>
   {#if loading}
     <p class="muted">Loading…</p>
   {:else if err}
     <p class="err">{err}</p>
-  {:else if showSpreadsheet}
-    <CsvSpreadsheetView text={bodyText} delimiter={sheetDelimiter} />
+  {:else if useSpreadsheetViewer}
+    <CsvSpreadsheetView text={bodyText} path={pathForViewer} />
   {:else}
     <div class="pre-wrap">
       <pre class="body">{bodyText}</pre>

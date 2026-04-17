@@ -40,7 +40,51 @@ export function spreadsheetDelimiterForPath(path: string): ',' | '\t' {
   return path.toLowerCase().endsWith('.tsv') ? '\t' : ','
 }
 
-export function isSpreadsheetDelimitedPath(path: string): boolean {
-  const lower = path.toLowerCase()
-  return lower.endsWith('.csv') || lower.endsWith('.tsv')
+/**
+ * ripmail `read` turns `.xlsx` / `.xls` into CSV text; multiple sheets use:
+ * `## Sheet: Name\n\n<csv body>` (see ripmail `xlsx_to_csv`).
+ * Single-sheet workbooks omit the `## Sheet:` header.
+ */
+export function splitRipmailSheetSections(text: string): { name: string; body: string }[] {
+  const t = text.trim()
+  if (!/^## Sheet:/m.test(t)) {
+    return [{ name: 'Sheet', body: t }]
+  }
+  const parts = t.split(/\n(?=## Sheet:)/)
+  return parts.map((part, i) => {
+    const m = part.match(/^## Sheet:\s*(.+?)(?:\r?\n)([\s\S]*)$/s)
+    if (m) {
+      return { name: m[1].trim(), body: m[2].trim() }
+    }
+    const m2 = part.match(/^## Sheet:\s*(.+)$/s)
+    if (m2) {
+      return { name: m2[1].trim(), body: '' }
+    }
+    return { name: `Sheet ${i + 1}`, body: part.trim() }
+  })
+}
+
+export type SpreadsheetParseResult =
+  | { mode: 'single'; grid: CsvGrid | { error: string } }
+  | {
+      mode: 'multi'
+      sheets: { name: string; grid: CsvGrid | { error: string } }[]
+    }
+
+/** Parse CSV/TSV body or ripmail’s multi-sheet xlsx text into one or more grids. */
+export function parseSpreadsheetFromText(
+  text: string,
+  delimiter: ',' | '\t',
+): SpreadsheetParseResult {
+  const sections = splitRipmailSheetSections(text)
+  if (sections.length === 1) {
+    return { mode: 'single', grid: parseDelimitedToGrid(sections[0].body, delimiter) }
+  }
+  return {
+    mode: 'multi',
+    sheets: sections.map((s) => ({
+      name: s.name,
+      grid: parseDelimitedToGrid(s.body, delimiter),
+    })),
+  }
 }

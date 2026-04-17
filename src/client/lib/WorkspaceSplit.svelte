@@ -20,9 +20,24 @@
     desktopDetail: Snippet
     /** After close animation (or immediate); parent clears route. */
     onNavigateClear: () => void
+    /** Desktop: detail pane fills workspace (chat hidden). Toggled from SlideOver header. */
+    detailFullscreen?: boolean
   }
 
-  let { hasDetail, desktopDetailOpen, chat, desktopDetail, onNavigateClear }: Props = $props()
+  let {
+    hasDetail,
+    desktopDetailOpen,
+    chat,
+    desktopDetail,
+    onNavigateClear,
+    detailFullscreen = $bindable(false),
+  }: Props = $props()
+
+  /** Desktop only — no-op on narrow viewports. */
+  export function toggleDetailFullscreen() {
+    if (typeof window !== 'undefined' && window.innerWidth <= 767) return
+    detailFullscreen = !detailFullscreen
+  }
 
   const storedDetailPreference = loadStoredDetailPanelWidth()
 
@@ -91,6 +106,17 @@
   }
 
   $effect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(max-width: 767px)')
+    const onMq = () => {
+      if (mq.matches) detailFullscreen = false
+    }
+    mq.addEventListener('change', onMq)
+    onMq()
+    return () => mq.removeEventListener('change', onMq)
+  })
+
+  $effect(() => {
     const el = splitEl
     if (!el || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver(() => {
@@ -105,6 +131,7 @@
 
   $effect(() => {
     if (!desktopDetailOpen) {
+      detailFullscreen = false
       cancelWidthAnim()
       detailVisibleW = 0
       return
@@ -184,8 +211,13 @@
 </script>
 
 <div class="workspace">
-  <div bind:this={splitEl} class="split" class:has-detail={hasDetail}>
-    <section class="chat-pane">
+  <div
+    bind:this={splitEl}
+    class="split"
+    class:has-detail={hasDetail}
+    class:detail-fullscreen={detailFullscreen && desktopDetailOpen}
+  >
+    <section class="chat-pane" class:chat-pane-hidden={detailFullscreen && desktopDetailOpen}>
       {@render chat()}
     </section>
 
@@ -193,17 +225,20 @@
       <section
         class="detail-pane"
         class:resizing={detailPanelResizing}
-        style:width="{detailVisibleW}px"
+        class:detail-pane-fullscreen={detailFullscreen}
+        style:width={detailFullscreen ? undefined : `${detailVisibleW}px`}
       >
-        <button
-          type="button"
-          class="detail-resize-handle"
-          aria-label="Resize detail panel"
-          title="Drag to resize"
-          onpointerdown={onDetailResizePointerDown}
-        >
-          <span class="detail-resize-grip" aria-hidden="true"></span>
-        </button>
+        {#if !detailFullscreen}
+          <button
+            type="button"
+            class="detail-resize-handle"
+            aria-label="Resize detail panel"
+            title="Drag to resize"
+            onpointerdown={onDetailResizePointerDown}
+          >
+            <span class="detail-resize-grip" aria-hidden="true"></span>
+          </button>
+        {/if}
         {@render desktopDetail()}
       </section>
     {/if}
@@ -281,5 +316,21 @@
 
   .detail-pane.resizing .detail-resize-grip {
     opacity: 1;
+  }
+
+  /* Desktop fullscreen: hide chat column; detail fills workspace */
+  .split.detail-fullscreen .chat-pane-hidden {
+    flex: 0 0 0;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .split.detail-fullscreen .detail-pane-fullscreen {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
   }
 </style>
