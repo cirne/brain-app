@@ -1,5 +1,3 @@
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import { mkdir } from 'node:fs/promises'
 import { Agent } from '@mariozechner/pi-agent-core'
 import { getModel, type KnownProvider } from '@mariozechner/pi-ai'
@@ -7,20 +5,16 @@ import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { createAgentTools } from './tools.js'
 import { wikiDir as getWikiDir } from '../lib/wikiDir.js'
 import { onboardingStagingWikiDir } from '../lib/onboardingState.js'
-import { ripmailBin, ripmailHomePath } from '../lib/onboardingMailStatus.js'
+import { ripmailBin } from '../lib/onboardingMailStatus.js'
+import { execRipmailAsync } from '../lib/ripmailExec.js'
 import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '../lib/openAiResponsesPayload.js'
-
-const execAsync = promisify(exec)
 
 const MAX_WHOAMI_PROMPT_CHARS = 8000
 
 /** Runs `ripmail whoami` with the same env as the rest of the app; result is embedded in the profiling prompt. */
 export async function fetchRipmailWhoamiForProfiling(): Promise<string> {
   try {
-    const { stdout } = await execAsync(`${ripmailBin()} whoami`, {
-      timeout: 10000,
-      env: { ...process.env, RIPMAIL_HOME: ripmailHomePath() },
-    })
+    const { stdout } = await execRipmailAsync(`${ripmailBin()} whoami`, { timeout: 10000 })
     let s = stdout.trim()
     if (!s) return '(ripmail whoami produced no output.)'
     if (s.length > MAX_WHOAMI_PROMPT_CHARS) {

@@ -8,6 +8,7 @@ import { wikiDir, wipeWikiContent } from './wikiDir.js'
 export type OnboardingMachineState =
   | 'not-started'
   | 'indexing'
+  | 'warming'
   | 'profiling'
   | 'reviewing-profile'
   | 'confirming-categories'
@@ -74,6 +75,7 @@ export async function readOnboardingStateDoc(): Promise<OnboardingStateDoc> {
     const valid: OnboardingMachineState[] = [
       'not-started',
       'indexing',
+      'warming',
       'profiling',
       'reviewing-profile',
       'confirming-categories',
@@ -107,9 +109,10 @@ export function wikiMeExists(): boolean {
 
 const transitions: Record<OnboardingMachineState, OnboardingMachineState[]> = {
   'not-started': ['indexing', 'not-started'],
-  indexing: ['profiling', 'not-started'],
+  indexing: ['warming', 'profiling', 'not-started'],
+  warming: ['profiling', 'not-started'],
   profiling: ['reviewing-profile', 'not-started'],
-  'reviewing-profile': ['confirming-categories', 'not-started'],
+  'reviewing-profile': ['confirming-categories', 'seeding', 'not-started'],
   'confirming-categories': ['seeding', 'not-started'],
   seeding: ['done', 'not-started'],
   done: ['not-started'],

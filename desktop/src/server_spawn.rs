@@ -48,7 +48,7 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
     let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
     let bundle = resolve_server_bundle_dir(&resource_dir).ok_or_else(|| {
         format!(
-            "server bundle not found under {} (tried resources/server-bundle and server-bundle). Run npm run build && npm run tauri:bundle-server, then rebuild/run the Tauri binary.",
+            "server bundle not found under {} (tried resources/server-bundle and server-bundle). Run npm run build && npm run desktop:bundle-server, then rebuild/run the Tauri binary.",
             resource_dir.display()
         )
     })?;
@@ -78,7 +78,7 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
         cmd.env("RIPMAIL_BIN", bundled_rm.as_os_str());
     } else {
         log::warn!(
-            "Brain bundled server: bundled ripmail not found at {} — inbox will fail; rebuild with `npm run tauri:bundle-server` then `tauri build`",
+            "Brain bundled server: bundled ripmail not found at {} — inbox will fail; rebuild with `npm run desktop:bundle-server` then `tauri build`",
             bundled_rm.display()
         );
     }

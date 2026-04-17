@@ -37,13 +37,25 @@ describe('resolveWikiLinkToFilePath', () => {
   it('returns null when no file matches', () => {
     expect(resolveWikiLinkToFilePath('missing-page', files)).toBeNull()
   })
+
+  it('maps [[me]] to root me.md, not another file whose basename is me', () => {
+    const nestedOnly = [{ path: 'themes/me.md' }]
+    expect(resolveWikiLinkToFilePath('me', nestedOnly)).toBe('me.md')
+    const both = [{ path: 'me.md' }, { path: 'themes/me.md' }]
+    expect(resolveWikiLinkToFilePath('me', both)).toBe('me.md')
+  })
 })
 
 describe('transformWikiPageHtml', () => {
-  it('converts Obsidian [[path|label]] to data-wiki', () => {
+  it('converts Obsidian [[path|label]] to data-wiki with .md', () => {
     const h = transformWikiPageHtml('See [[ideas/foo|Foo idea]]')
-    expect(h).toContain('data-wiki="ideas/foo"')
+    expect(h).toContain('data-wiki="ideas/foo.md"')
     expect(h).toContain('>Foo idea<')
+  })
+
+  it('converts [[me]] to root me.md', () => {
+    const h = transformWikiPageHtml('Profile: [[me]]')
+    expect(h).toContain('data-wiki="me.md"')
   })
 
   it('converts marked wiki: href links to data-wiki (with .md in href)', () => {

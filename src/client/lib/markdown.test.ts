@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   renderMarkdown,
+  renderMarkdownBody,
   stripFrontMatter,
   takeFirstLines,
   joinYamlFrontMatter,
@@ -9,14 +10,27 @@ import {
 } from './markdown.js'
 
 describe('renderMarkdown', () => {
-  it('converts wiki: link with .md extension to wiki-link button', () => {
+  it('converts wiki: link with .md extension to wiki-link anchor', () => {
     const result = renderMarkdown('[health index](wiki:health/_index.md)')
-    expect(result).toContain('<button class="wiki-link" data-wiki="health/_index.md">health index</button>')
+    expect(result).toContain('class="wiki-link"')
+    expect(result).toContain('data-wiki="health/_index.md"')
+    expect(result).toContain('>health index<')
   })
 
-  it('converts wiki: link without .md extension to wiki-link button, appending .md', () => {
+  it('converts wiki: link without .md extension, appending .md', () => {
     const result = renderMarkdown('[Dr. Amy Offutt](wiki:people/amy-offutt)')
-    expect(result).toContain('<button class="wiki-link" data-wiki="people/amy-offutt.md">Dr. Amy Offutt</button>')
+    expect(result).toContain('data-wiki="people/amy-offutt.md"')
+    expect(result).toContain('>Dr. Amy Offutt<')
+  })
+
+  it('converts Obsidian [[me]] to data-wiki me.md', () => {
+    const result = renderMarkdown('See [[me]] for context.')
+    expect(result).toContain('data-wiki="me.md"')
+  })
+
+  it('renderMarkdownBody applies wikilinks without date-button pass', () => {
+    const html = renderMarkdownBody('Link [[people/x]] here.')
+    expect(html).toContain('data-wiki="people/x.md"')
   })
 
   it('converts date: link to date-link button', () => {

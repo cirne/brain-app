@@ -10,7 +10,7 @@
  * Does not remove dev `./data` unless you set `BRAIN_HOME` to that path. Does not touch
  * standalone CLI `~/.ripmail` unless it is your `BRAIN_HOME`.
  *
- * Usage: npm run tauri:clean-data [--dry-run]
+ * Usage: npm run desktop:clean-data [--dry-run]
  */
 
 import { rmSync, existsSync, readFileSync } from 'node:fs'
@@ -57,7 +57,7 @@ for (const p of collectPaths()) {
 }
 
 if (dryRun) {
-  console.log('[tauri:clean-data] dry run only; omit --dry-run to delete')
+  console.log('[desktop:clean-data] dry run only; omit --dry-run to delete')
 } else {
-  console.log('[tauri:clean-data] done')
+  console.log('[desktop:clean-data] done')
 }

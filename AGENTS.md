@@ -52,19 +52,20 @@ Optional: run the same stack inside a native window (see [OPP-007](docs/opportun
 npm run ripmail:dev            # cargo build -p ripmail (debug) — use before inbox if not on PATH
 npm run ripmail:build          # cargo build -p ripmail --release
 npm run ripmail:test           # cargo test -p ripmail
-npm run brain:clean-dev        # delete dev durable data: `./data` unless `BRAIN_HOME` is set (same tree as `npm run dev`; not Tauri bundle paths)
-npm run tauri:dev              # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
-npm run tauri:build            # npm build + bundle server + Brain.app (+ DMG)
-npm run tauri:open-fresh-install # `tauri:clean-data` + `tauri:build`, then opens the DMG (macOS) — see `scripts/tauri-fresh.mjs`
-npm run tauri:run-release:fresh  # same as above, then opens `Brain.app` under `target/**/bundle/macos/` (macOS)
-npm run tauri:clean-data        # delete packaged-app data: defaults from `shared/bundle-defaults.json`, or `$BRAIN_HOME` if set (+ macOS logs); not `./data` unless `BRAIN_HOME` points there
+npm run brain:clean:dev        # delete dev durable data: `./data` unless `BRAIN_HOME` is set (same tree as `npm run dev`; not packaged-app bundle paths)
+npm run desktop:dev            # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
+npm run desktop:build          # npm build + bundle server + Brain.app (+ DMG on macOS)
+npm run desktop:fresh          # `desktop:clean-data` + `desktop:build`, then opens the DMG (default) or `Brain.app` with `-- app` (macOS) — see `scripts/desktop-fresh.mjs`
+npm run desktop:clean-data     # delete packaged-app data: defaults from `shared/bundle-defaults.json`, or `$BRAIN_HOME` if set (+ macOS logs); not `./data` unless `BRAIN_HOME` points there
 ```
 
 **Cargo workspace:** Rust crates live under [`desktop/`](desktop/) (Tauri shell) and [`ripmail/`](ripmail/) with a root [`Cargo.toml`](Cargo.toml). Build artifacts go under the Cargo target directory (usually `./target/`; see `cargo metadata`).
 
-Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The packaged app bundles a release-built `ripmail` binary inside `server-bundle/`; `tauri:bundle-server` builds it automatically. For local dev, `npm run ripmail:dev` builds the debug binary and `run-dev.mjs` sets `RIPMAIL_BIN` when it exists.
+Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The packaged app bundles a release-built `ripmail` binary inside `server-bundle/`; `desktop:bundle-server` builds it automatically. For local dev, `npm run ripmail:dev` builds the debug binary and `run-dev.mjs` sets `RIPMAIL_BIN` when it exists.
 
-`tauri build` runs `npm run build && npm run tauri:bundle-server`, which copies `dist/`, production `node_modules`, the current `node` binary, and a **release-built `ripmail`** (from `cargo build -p ripmail --release`) into `desktop/resources/server-bundle/` (gitignored). The packaged app loads the UI from `http://localhost:3000` and starts that server via the bundled Node + `dist/server` (release only; dev still uses `npm run dev`).
+**ripmail CLI + `RIPMAIL_HOME` (debugging, user repros):** The server runs `ripmail` with `RIPMAIL_HOME` set to Brain’s ripmail directory (`src/server/lib/brainHome.ts` → `ripmailHomeForBrain()`). In local dev, default `BRAIN_HOME` is `./data`, so that directory is **`./data/ripmail`** (see `shared/brain-layout.json`). When you invoke `ripmail` yourself (e.g. `who`, `search`, `status`), **point `RIPMAIL_HOME` at that path**—not `~/.ripmail`—or you will inspect the wrong mailbox/index. If `BRAIN_HOME` is overridden, use `$BRAIN_HOME/ripmail` (unless `RIPMAIL_HOME` is set explicitly).
+
+`tauri build` runs `npm run build && npm run desktop:bundle-server`, which copies `dist/`, production `node_modules`, the current `node` binary, and a **release-built `ripmail`** (from `cargo build -p ripmail --release`) into `desktop/resources/server-bundle/` (gitignored). The packaged app loads the UI from `http://localhost:3000` and starts that server via the bundled Node + `dist/server` (release only; dev still uses `npm run dev`). On macOS, `desktop/tauri.macos.conf.json` limits bundle output to **`dmg`** (instead of `all`).
 
 **Embedded API keys (release builds):** set `BRAIN_EMBED_MASTER_KEY` in the environment or in the workspace `.env` when running `tauri build`. The build script reads allowlisted keys from the repo `.env` (`ANTHROPIC_API_KEY`, other `*_API_KEY` for LLM providers, `EXA_API_KEY`, `SUPADATA_API_KEY`), encrypts them, and embeds ciphertext in the Rust binary; Rust decrypts at launch and injects `process.env` for the Node child (no decryption in TypeScript). CI should set `BRAIN_EMBED_MASTER_KEY` and the same API key secrets as env vars (or a generated `.env`) rather than committing secrets. If `BRAIN_EMBED_MASTER_KEY` is unset, the bundle still builds but ships without embedded keys (users would need local configuration for those APIs).
 
@@ -81,7 +82,7 @@ The app is in **early development** with a **near-zero user base**. Optimize for
 - **Tests required**: every new feature or bug fix needs test coverage in `src/**/*.test.ts`.
 - **TDD for bugs**: reproduce with a failing test first, then fix, then confirm green.
 - **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests + `cargo fmt` / `cargo clippy` / `cargo test` for the Rust workspace.
-- **Validate fixes yourself**: when a change has an obvious verification step, **run it without asking the user**—e.g. `npm run lint` / scoped tests after edits, `cargo check -p app` or `cargo test -p ripmail` after Rust changes, `npm run build && npm run tauri:bundle-server` after packaging or server-bundle changes (confirms `ripmail` release binary is produced and copied). Reserve full `npm run tauri:build` for when the native bundle itself must be proven; it is slower. Only defer if the step needs secrets you do not have or would be destructive without confirmation.
+- **Validate fixes yourself**: when a change has an obvious verification step, **run it without asking the user**—e.g. `npm run lint` / scoped tests after edits, `cargo check -p app` or `cargo test -p ripmail` after Rust changes, `npm run build && npm run desktop:bundle-server` after packaging or server-bundle changes (confirms `ripmail` release binary is produced and copied). Reserve full `npm run desktop:build` for when the native bundle itself must be proven; it is slower. Only defer if the step needs secrets you do not have or would be destructive without confirmation.
 - **DRY**: extract shared logic; never duplicate. Shared fixtures live in `src/server/test-fixtures.ts`.
 - **Test fixtures**: reuse patterns from existing tests and shared helpers; avoid one-off temp dirs per test.
 - **No React, no Next.js**: Svelte 5 for all UI.

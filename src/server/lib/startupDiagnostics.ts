@@ -1,13 +1,10 @@
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import { brainHome } from './brainHome.js'
 import { wikiDir } from './wikiDir.js'
 import { areLocalMessageToolsEnabled, initLocalMessageToolsAvailability } from './imessageDb.js'
 import { logFdaProbeForStartup } from './fdaProbe.js'
 import { parseRipmailStatusJson } from './ripmailStatusParse.js'
+import { execRipmailAsync } from './ripmailExec.js'
 import { ripmailBin } from './ripmailBin.js'
-
-const execAsync = promisify(exec)
 
 const log = (line: string) => console.log(`[brain-app] ${line}`)
 
@@ -35,14 +32,14 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
   const rm = ripmailBin()
   log(`RIPMAIL_BIN=${rm}`)
   try {
-    const { stdout } = await execAsync(`${rm} --version`, { timeout: 5000 })
+    const { stdout } = await execRipmailAsync(`${rm} --version`, { timeout: 5000 })
     log(`ripmail: ${stdout.trim().split('\n')[0]}`)
   } catch (e) {
     log(`ripmail --version failed: ${String(e)}`)
   }
 
   try {
-    const { stdout } = await execAsync(`${rm} status --json`, { timeout: 8000 })
+    const { stdout } = await execRipmailAsync(`${rm} status --json`, { timeout: 8000 })
     const parsed = parseRipmailStatusJson(stdout)
     if (parsed) {
       const total = parsed.indexedTotal

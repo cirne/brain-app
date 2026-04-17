@@ -35,9 +35,27 @@ describe('onboardingState', () => {
     expect((await readOnboardingStateDoc()).state).toBe('profiling')
   })
 
+  it('setOnboardingState allows indexing → warming → profiling', async () => {
+    const { readOnboardingStateDoc, setOnboardingState } = await import('./onboardingState.js')
+    await setOnboardingState('indexing')
+    await setOnboardingState('warming')
+    expect((await readOnboardingStateDoc()).state).toBe('warming')
+    await setOnboardingState('profiling')
+    expect((await readOnboardingStateDoc()).state).toBe('profiling')
+  })
+
   it('setOnboardingState rejects invalid transition', async () => {
     const { setOnboardingState } = await import('./onboardingState.js')
     await expect(setOnboardingState('done')).rejects.toThrow()
+  })
+
+  it('setOnboardingState allows reviewing-profile → seeding', async () => {
+    const { setOnboardingState, readOnboardingStateDoc } = await import('./onboardingState.js')
+    await setOnboardingState('indexing')
+    await setOnboardingState('profiling')
+    await setOnboardingState('reviewing-profile')
+    await setOnboardingState('seeding')
+    expect((await readOnboardingStateDoc()).state).toBe('seeding')
   })
 
   it('resetOnboardingState forces not-started', async () => {

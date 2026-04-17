@@ -32,6 +32,7 @@
     dateRange: { from: string | null; to: string | null }
     syncRunning: boolean
     ftsReady: number | null
+    indexingHint?: string | null
     statusError?: string
   }
 
@@ -43,12 +44,15 @@
       dateRange: { from: null, to: null },
       syncRunning: false,
       ftsReady: null,
+      indexingHint: null,
     }
   }
 
   let state = $state<string>('not-started')
   let mail = $state<MailApi>(emptyMail())
   let setupError = $state<string | null>(null)
+  /** Review / accept-profile / confirming-categories recovery */
+  let profileStepError = $state<string | null>(null)
   let busy = $state(false)
 
   let draftMarkdown = $state('')
@@ -62,20 +66,11 @@
   /** Tauri: true after we’ve applied the “browser-sized” window for late onboarding (profiling onward). */
   let onboardingLargeWindowApplied = $state(false)
 
-  const showMailFooter = $derived(
-    (state === 'not-started' || state === 'indexing') &&
-      ((mail.indexedTotal ?? 0) > 0 || mail.syncRunning),
-  )
-  const mailHasData = $derived((mail.indexedTotal ?? 0) > 0)
+  /** Legacy / partial failure: auto-run prepare-seed once when landing on confirming-categories. */
+  let confirmingAutoRecoverDone = $state(false)
+
   const MIN_INDEXED_FOR_PROFILE = 1000
   const canBuildProfile = $derived((mail.indexedTotal ?? 0) >= MIN_INDEXED_FOR_PROFILE)
-
-  function fmtDateLabel(s: string | null): string {
-    if (!s) return '—'
-    const t = Date.parse(s)
-    if (Number.isNaN(t)) return s
-    return new Date(t).toLocaleDateString(undefined, { dateStyle: 'medium' })
-  }
 
   async function loadMailOnly() {
     try {
@@ -107,11 +102,64 @@
   })
 
   $effect(() => {
-    if (state !== 'not-started' && state !== 'indexing') return
+    if (state !== 'not-started' && state !== 'indexing' && state !== 'warming') return
     const t = setInterval(() => {
       void loadMailOnly()
     }, 2000)
     return () => clearInterval(t)
+  })
+
+  /** Wall-clock time on the indexing step so we can show “still working” without sounding stuck. */
+  let indexingStartedAt = $state<number | null>(null)
+  let indexingElapsedTick = $state(0)
+  $effect(() => {
+    if (state === 'indexing') {
+      if (indexingStartedAt === null) indexingStartedAt = Date.now()
+    } else {
+      indexingStartedAt = null
+    }
+  })
+  $effect(() => {
+    if (state !== 'indexing') return
+    const id = setInterval(() => {
+      indexingElapsedTick += 1
+    }, 15000)
+    return () => clearInterval(id)
+  })
+  const indexingElapsedLine = $derived.by(() => {
+    void indexingElapsedTick
+    if (state !== 'indexing' || indexingStartedAt === null) return null
+    const min = Math.floor((Date.now() - indexingStartedAt) / 60000)
+    if (min < 2) return null
+    if (min < 5) {
+      return 'Still working — the first batch can take a few minutes on a large mailbox.'
+    }
+    return `About ${min} minutes so far — you can leave this screen open; we’ll continue in the background.`
+  })
+
+  /** After enough mail is indexed, leave indexing without a manual “proceed” tap. */
+  let indexingToWarmingInitiated = $state(false)
+  $effect(() => {
+    if (state === 'not-started') indexingToWarmingInitiated = false
+  })
+
+  $effect(() => {
+    if (state !== 'indexing' || !canBuildProfile || busy) return
+    if (indexingToWarmingInitiated) return
+    indexingToWarmingInitiated = true
+    void patchState('warming').catch(() => {
+      indexingToWarmingInitiated = false
+    })
+  })
+
+  /** Brief animated interstitial before the profiling workspace (server state survives refresh). */
+  const WARMING_TO_PROFILING_MS = 2600
+  $effect(() => {
+    if (state !== 'warming') return
+    const t = setTimeout(() => {
+      void patchState('profiling')
+    }, WARMING_TO_PROFILING_MS)
+    return () => clearTimeout(t)
   })
 
   $effect(() => {
@@ -136,6 +184,26 @@
     }
     await refreshStatus()
     await load()
+  }
+
+  /** Start background mail sync, then enter indexing (same as post–setup flow). */
+  async function continueToIndexing() {
+    setupError = null
+    busy = true
+    await tick()
+    try {
+      const syncRes = await fetch('/api/inbox/sync', { method: 'POST' })
+      const syncBody = (await syncRes.json().catch(() => ({}))) as { ok?: boolean; error?: string }
+      if (!syncRes.ok || !syncBody.ok) {
+        setupError = syncBody.error ?? 'Could not start indexing your mail. Try again.'
+        return
+      }
+      await patchState('indexing')
+    } catch (e) {
+      setupError = e instanceof Error ? e.message : String(e)
+    } finally {
+      busy = false
+    }
   }
 
   async function setupAppleMail() {
@@ -179,15 +247,6 @@
     }
   }
 
-  async function continueFromIndexing() {
-    busy = true
-    try {
-      await patchState('profiling')
-    } finally {
-      busy = false
-    }
-  }
-
   async function loadDraft() {
     const res = await fetch('/api/onboarding/profile-draft')
     if (res.ok) {
@@ -197,22 +256,38 @@
   }
 
   async function acceptProfile() {
-    busy = true
+    profileStepError = null
     try {
       await profileDraftEditor?.flushSave()
-      const res = await fetch('/api/onboarding/accept-profile', { method: 'POST' })
+    } catch {
+      /* flushSave ignores persist errors; continue */
+    }
+    busy = true
+    try {
+      const categories = categoriesText
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      const res = await fetch('/api/onboarding/accept-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories }),
+      })
       if (!res.ok) {
         const j = (await res.json()) as { error?: string }
         throw new Error(j.error ?? 'Accept failed')
       }
-      // Skip the categories step and go straight to seeding with defaults
-      await prepareSeed()
+      await refreshStatus()
+      await load()
+    } catch (e) {
+      profileStepError = e instanceof Error ? e.message : String(e)
     } finally {
       busy = false
     }
   }
 
   async function prepareSeed() {
+    profileStepError = null
     const categories = categoriesText
       .split('\n')
       .map((s) => s.trim())
@@ -230,6 +305,8 @@
       }
       await refreshStatus()
       await load()
+    } catch (e) {
+      profileStepError = e instanceof Error ? e.message : String(e)
     } finally {
       busy = false
     }
@@ -287,6 +364,16 @@
 
   $effect(() => {
     if (state === 'reviewing-profile') void loadDraft()
+  })
+
+  $effect(() => {
+    if (state !== 'confirming-categories') {
+      confirmingAutoRecoverDone = false
+      return
+    }
+    if (confirmingAutoRecoverDone || busy) return
+    confirmingAutoRecoverDone = true
+    void prepareSeed()
   })
 </script>
 
@@ -354,6 +441,9 @@
 
           <div class="ob-cta-group">
             {#if mail.configured}
+              {#if setupError}
+                <p class="ob-error">{setupError}</p>
+              {/if}
               <div class="ob-notice">
                 <p class="ob-notice-title">Mail connected</p>
                 <p class="ob-notice-body">
@@ -364,10 +454,7 @@
               <button
                 type="button"
                 class="ob-btn-primary"
-                onclick={() => {
-                  busy = true
-                  void patchState('indexing').finally(() => { busy = false })
-                }}
+                onclick={() => void continueToIndexing()}
                 disabled={busy}
               >
                 {#if busy}
@@ -407,51 +494,93 @@
       </div>
 
     {:else if state === 'indexing'}
-      <div class="ob-hero">
-        <div class="ob-hero-inner">
+      <div class="ob-hero" aria-busy="true">
+        <div class="ob-hero-inner ob-indexing-hero-inner">
+          <div class="ob-indexing-visual" aria-hidden="true">
+            <span class="ob-indexing-orbit"></span>
+            <span class="ob-indexing-orbit ob-indexing-orbit-delayed"></span>
+            <span class="ob-indexing-core"></span>
+          </div>
           <span class="ob-kicker">Brain</span>
           <h1 class="ob-headline">Indexing your mail</h1>
           <p class="ob-lead">
-            Once we have enough email we can start building your profile.
+            We’re copying your recent messages from Apple Mail into Brain so we can build your profile. You can leave this screen open.
           </p>
-          <div class="ob-indexing-cta">
-            {#if canBuildProfile}
-              <button
-                type="button"
-                class="ob-btn-primary"
-                onclick={() => void continueFromIndexing()}
-                disabled={busy}
-              >
-                {busy ? 'Working…' : 'Build my profile'}
-              </button>
-            {/if}
+
+          {#if mail.indexingHint}
+            <p class="ob-indexing-hint">{mail.indexingHint}</p>
+          {/if}
+          {#if indexingElapsedLine}
+            <p class="ob-indexing-elapsed">{indexingElapsedLine}</p>
+          {/if}
+          {#if mail.statusError}
+            <p class="ob-error ob-indexing-mail-error">{mail.statusError}</p>
+          {/if}
+        </div>
+      </div>
+
+    {:else if state === 'warming'}
+      <div class="ob-hero" aria-live="polite">
+        <div class="ob-hero-inner ob-warming-inner">
+          <div class="ob-warming-orb" aria-hidden="true">
+            <span class="ob-warming-ring"></span>
+            <span class="ob-warming-core"></span>
           </div>
+          <span class="ob-kicker">Brain</span>
+          <h1 class="ob-headline ob-warming-headline">Please wait while we get to know you a bit…</h1>
+          <p class="ob-lead">We’re almost ready to build your profile.</p>
+        </div>
+      </div>
+
+    {:else if state === 'confirming-categories'}
+      <div class="ob-hero" aria-live="polite">
+        <div class="ob-hero-inner">
+          <span class="ob-kicker">Brain</span>
+          <h1 class="ob-headline">Finishing setup</h1>
+          <p class="ob-lead">Moving to wiki seeding…</p>
+          {#if profileStepError}
+            <p class="ob-error ob-confirming-recover-error">{profileStepError}</p>
+            <button
+              type="button"
+              class="ob-btn-primary"
+              onclick={() => void prepareSeed()}
+              disabled={busy}
+            >
+              {#if busy}
+                <span class="ob-spinner" aria-hidden="true"></span> Retrying…
+              {:else}
+                Try again
+              {/if}
+            </button>
+          {/if}
         </div>
       </div>
 
     {:else if state === 'reviewing-profile'}
       <section class="ob-review" aria-labelledby="ob-review-title">
-        <div class="ob-review-row">
-          <div class="ob-review-editor">
-            <ProfileDraftEditor
-              bind:this={profileDraftEditor}
-              initialMarkdown={draftMarkdown}
-              disabled={busy}
-            />
+        <div class="ob-review-top">
+          <header class="ob-review-header">
+            <h2 id="ob-review-title" class="ob-review-title">Review your profile</h2>
+            <p class="ob-review-lead">
+              Your assistant uses this to stay current on projects, contacts, and interests. Edit anything below, then continue.
+            </p>
+          </header>
+          {#if profileStepError}
+            <p class="ob-error ob-review-error" role="alert">{profileStepError}</p>
+          {/if}
+          <div class="ob-review-actions">
+            <button type="button" class="ob-btn-primary ob-review-cta" onclick={() => void acceptProfile()} disabled={busy}>
+              <span>{busy ? 'Saving…' : 'Looks Good'}</span>
+              <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
           </div>
-          <aside class="ob-review-aside" aria-label="Review instructions">
-            <header class="ob-review-header">
-              <h2 id="ob-review-title" class="ob-section-title">Review your profile</h2>
-              <p class="ob-review-lead">
-                This is your personal profile. Your assistant will refer to it to stay updated on your projects, key contacts, and interests. Take a moment to edit anything that isn't quite right.
-              </p>
-            </header>
-            <div class="ob-review-actions">
-              <button type="button" class="ob-btn-primary ob-btn-block" onclick={() => void acceptProfile()} disabled={busy}>
-                {busy ? 'Saving…' : 'Looks good'}
-              </button>
-            </div>
-          </aside>
+        </div>
+        <div class="ob-review-editor">
+          <ProfileDraftEditor
+            bind:this={profileDraftEditor}
+            initialMarkdown={draftMarkdown}
+            disabled={busy}
+          />
         </div>
       </section>
 
@@ -468,42 +597,6 @@
       </div>
     {/if}
   </div>
-  {/if}
-
-  {#if showMailFooter}
-    <footer class="ob-footer">
-      <div class="ob-footer-grid">
-        <div class="ob-footer-stat">
-          <span class="ob-footer-label">Indexed</span>
-          <span class="ob-footer-value">{mail.indexedTotal != null ? mail.indexedTotal : '—'}</span>
-        </div>
-        <div class="ob-footer-stat">
-          <span class="ob-footer-label">Date range</span>
-          <span class="ob-footer-value">
-            {#if mail.dateRange.from || mail.dateRange.to}
-              {fmtDateLabel(mail.dateRange.from)} – {fmtDateLabel(mail.dateRange.to)}
-            {:else}
-              —
-            {/if}
-          </span>
-        </div>
-        {#if mail.syncRunning}
-          <div class="ob-footer-stat">
-            <span class="ob-sync-dot" aria-hidden="true"></span>
-            <span class="ob-footer-label">Syncing…</span>
-          </div>
-        {/if}
-      </div>
-      {#if mail.statusError}
-        <p class="ob-footer-error">{mail.statusError}</p>
-      {/if}
-      <div class="ob-progress-track" aria-hidden="true">
-        <div
-          class="ob-progress-bar"
-          style="width: {mail.syncRunning ? '45%' : mailHasData ? '100%' : '12%'}"
-        ></div>
-      </div>
-    </footer>
   {/if}
 </div>
 
@@ -530,6 +623,83 @@
     width: 100%;
     max-width: 28rem;
     text-align: center;
+  }
+
+  .ob-indexing-hero-inner {
+    max-width: 22rem;
+  }
+
+  .ob-indexing-visual {
+    position: relative;
+    width: 4.5rem;
+    height: 4.5rem;
+    margin: 0 auto 1.5rem;
+  }
+
+  .ob-indexing-orbit {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+    animation: ob-indexing-orbit-spin 2.8s linear infinite;
+  }
+
+  .ob-indexing-orbit-delayed {
+    inset: 0.55rem;
+    opacity: 0.75;
+    animation-duration: 2s;
+    animation-direction: reverse;
+  }
+
+  .ob-indexing-core {
+    position: absolute;
+    inset: 32%;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 50%, var(--bg));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+    animation: ob-indexing-core-pulse 1.85s ease-in-out infinite;
+  }
+
+  @keyframes ob-indexing-orbit-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes ob-indexing-core-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(0.88);
+      opacity: 0.82;
+    }
+  }
+
+  .ob-indexing-hint,
+  .ob-indexing-elapsed {
+    margin: 1rem auto 0;
+    max-width: 26rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--text-2);
+    text-wrap: balance;
+  }
+
+  .ob-indexing-elapsed {
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    opacity: 0.95;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ob-indexing-orbit,
+    .ob-indexing-orbit-delayed,
+    .ob-indexing-core {
+      animation: none;
+    }
   }
 
   /* ── Typography ── */
@@ -624,23 +794,90 @@
     opacity: 0.4;
     cursor: not-allowed;
   }
-  .ob-btn-block {
-    width: 100%;
-  }
   .ob-btn-icon {
     width: 1rem;
     height: 1rem;
     flex-shrink: 0;
   }
-  /* Reserve one primary-button row so the hero doesn’t jump when indexing crosses the threshold. */
-  .ob-indexing-cta {
-    margin-top: 2.5rem;
+  .ob-warming-inner {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
-    min-height: calc(0.8125rem * 2 + 1.25em);
-    font-size: 0.9375rem;
-    box-sizing: border-box;
+  }
+
+  .ob-warming-orb {
+    position: relative;
+    width: 4rem;
+    height: 4rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .ob-warming-core {
+    position: absolute;
+    inset: 22%;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 55%, var(--bg));
+    animation: ob-warming-core-pulse 2.2s ease-in-out infinite;
+  }
+
+  .ob-warming-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    animation: ob-warming-ring-expand 2.2s ease-out infinite;
+  }
+
+  @keyframes ob-warming-ring-expand {
+    0% {
+      transform: scale(0.65);
+      opacity: 0.9;
+    }
+    70% {
+      opacity: 0.2;
+    }
+    100% {
+      transform: scale(1.35);
+      opacity: 0;
+    }
+  }
+
+  @keyframes ob-warming-core-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(0.92);
+      opacity: 0.85;
+    }
+  }
+
+  .ob-warming-headline {
+    animation: ob-warming-text-glow 2.4s ease-in-out infinite;
+  }
+
+  @keyframes ob-warming-text-glow {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.82;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ob-warming-ring,
+    .ob-warming-core,
+    .ob-warming-headline {
+      animation: none;
+    }
+    .ob-warming-ring {
+      opacity: 0.35;
+      transform: scale(1);
+    }
   }
 
   .ob-spinner {
@@ -662,16 +899,26 @@
     color: var(--danger, #e05c5c);
   }
 
+  .ob-review-error {
+    margin: 0.5rem 0 0;
+    max-width: 42rem;
+  }
+
+  .ob-confirming-recover-error {
+    margin: 1rem 0 0;
+  }
+
   .onboarding-main-scroll {
     overflow-y: auto;
   }
 
   .onboarding-main-review {
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     min-height: 0;
   }
 
-  /* ── Review profile: editor left, instructions + CTA right (stacked on small screens) ── */
+  /* ── Review profile: flat full-width sticky header, editor below ── */
   .ob-review {
     flex: 1;
     min-height: 0;
@@ -680,25 +927,104 @@
     width: 100%;
     max-width: none;
     margin-inline: 0;
-    padding: clamp(1rem, 2.5vw, 1.75rem) clamp(1rem, 3vw, 2.5rem) clamp(1.25rem, 2.5vw, 2rem);
+    padding: 0;
     box-sizing: border-box;
+    gap: 0;
   }
 
-  .ob-review-row {
-    flex: 1;
-    min-height: 0;
+  .ob-review-top {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    gap: 1.125rem;
+    gap: 1rem;
     width: 100%;
+    box-sizing: border-box;
+    padding: 0.875rem clamp(1rem, 3vw, 2.5rem);
+    margin: 0;
+    border-radius: 0;
+    background: var(--bg-2);
+    border: none;
+    border-bottom: 1px solid var(--border);
+    box-shadow: none;
   }
 
-  @media (min-width: 768px) {
-    .ob-review-row {
+  @media (min-width: 640px) {
+    .ob-review-top {
       flex-direction: row;
-      align-items: stretch;
-      gap: 1.25rem;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1.25rem 1.5rem;
+      padding: 1rem clamp(1rem, 3vw, 2.5rem);
     }
+  }
+
+  .ob-review-header {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ob-review-title {
+    font-size: 1.1875rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    color: var(--text);
+    margin: 0;
+  }
+
+  @media (min-width: 640px) {
+    .ob-review-title {
+      font-size: 1.3125rem;
+    }
+  }
+
+  .ob-review-lead {
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: var(--text-2);
+    margin: 0.5rem 0 0;
+    max-width: 42rem;
+    text-wrap: pretty;
+  }
+
+  .ob-review-actions {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: stretch;
+  }
+
+  @media (min-width: 640px) {
+    .ob-review-actions {
+      align-self: center;
+      justify-content: flex-end;
+    }
+  }
+
+  .ob-review-cta {
+    width: 100%;
+    min-height: 2.125rem;
+    padding: 0.4375rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    justify-content: center;
+    gap: 0.375rem;
+  }
+
+  @media (min-width: 640px) {
+    .ob-review-cta {
+      width: auto;
+      min-width: unset;
+    }
+  }
+
+  .ob-review-cta .ob-btn-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    margin-left: 0;
   }
 
   .ob-review-editor {
@@ -707,129 +1033,15 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    order: 1;
+    padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 2.5rem) clamp(1rem, 2vw, 1.5rem);
+    box-sizing: border-box;
   }
 
-  .ob-review-aside {
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    order: 2;
-  }
-
-  @media (min-width: 768px) {
-    .ob-review-aside {
-      width: min(20rem, 32vw);
-      max-width: 22rem;
-      padding-left: 1.25rem;
-      border-left: 1px solid var(--border);
-      gap: 1.25rem;
-    }
-  }
-
-  .ob-review-header {
-    flex-shrink: 0;
-  }
-
-  .ob-review-lead {
-    font-size: 0.9375rem;
-    line-height: 1.55;
-    color: var(--text-2);
-    margin-top: 0.5rem;
-  }
-
-  @media (min-width: 768px) {
-    .ob-review-lead {
-      max-width: none;
-    }
-  }
-
-  .ob-review-actions {
-    flex-shrink: 0;
-    margin-top: auto;
-  }
-
-  @media (max-width: 767.98px) {
-    .ob-review-actions {
-      margin-top: 0;
-    }
-  }
-
-  .ob-section-title {
-    font-size: 1.125rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--text);
-    margin-bottom: 0.25rem;
-  }
-  /* ── Footer ── */
-  .ob-footer {
-    flex-shrink: 0;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    padding: 1rem 1.25rem;
-  }
-  @media (min-width: 640px) {
-    .ob-footer { padding: 1rem 1.5rem; }
-  }
-  .ob-footer-grid {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: center;
-    gap: 0.25rem 1.5rem;
-    max-width: 36rem;
+  .ob-indexing-mail-error {
+    margin-top: 1rem;
+    max-width: 22rem;
     margin-inline: auto;
-    font-size: 0.8125rem;
-  }
-  .ob-footer-stat {
-    display: flex;
-    align-items: baseline;
-    gap: 0.375rem;
-  }
-  .ob-footer-label {
-    color: var(--text-2);
-  }
-  .ob-footer-value {
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--text);
-  }
-  .ob-footer-error {
-    max-width: 36rem;
-    margin: 0.5rem auto 0;
-    font-size: 0.75rem;
-    color: var(--danger, #e05c5c);
     text-align: center;
-  }
-  .ob-sync-dot {
-    display: inline-block;
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 50%;
-    background: var(--accent);
-    animation: ob-pulse 1.5s ease-in-out infinite;
-    align-self: center;
-  }
-  @keyframes ob-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.35; }
-  }
-
-  .ob-progress-track {
-    max-width: 36rem;
-    margin: 0.75rem auto 0;
-    height: 3px;
-    border-radius: 2px;
-    background: var(--border);
-    overflow: hidden;
-  }
-  .ob-progress-bar {
-    height: 100%;
-    border-radius: 2px;
-    background: var(--accent);
-    transition: width 0.7s ease;
   }
 
   .ob-seed-shell {

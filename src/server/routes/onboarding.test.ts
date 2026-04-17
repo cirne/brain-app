@@ -167,9 +167,9 @@ describe('onboarding routes', () => {
     }
   })
 
-  it('POST /accept-profile copies draft to me.md when state is reviewing-profile', async () => {
-    const { setOnboardingState } = await import('../lib/onboardingState.js')
-    const { profileDraftAbsolutePath } = await import('../lib/onboardingState.js')
+  it('POST /accept-profile copies draft to me.md, writes categories, and transitions to seeding', async () => {
+    const { setOnboardingState, readOnboardingStateDoc, categoriesJsonPath, profileDraftAbsolutePath } =
+      await import('../lib/onboardingState.js')
     await mkdir(wikiDirPath(), { recursive: true })
     await mkdir(join(chatDir(), 'onboarding'), { recursive: true })
     await writeFile(profileDraftAbsolutePath(), '# Profile\n', 'utf-8')
@@ -179,7 +179,39 @@ describe('onboarding routes', () => {
 
     const app = new Hono()
     app.route('/api/onboarding', onboardingRoute)
-    const res = await app.request('http://localhost/api/onboarding/accept-profile', { method: 'POST' })
+    const res = await app.request('http://localhost/api/onboarding/accept-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ categories: ['People', 'Projects'] }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean; state: string }
+    expect(j.ok).toBe(true)
+    expect(j.state).toBe('seeding')
+    expect((await readOnboardingStateDoc()).state).toBe('seeding')
+    const me = await import('node:fs/promises').then((fs) => fs.readFile(join(wikiDirPath(), 'me.md'), 'utf-8'))
+    expect(me).toContain('Profile')
+    const { readFile } = await import('node:fs/promises')
+    const catRaw = await readFile(categoriesJsonPath(), 'utf-8')
+    expect(catRaw).toContain('People')
+    expect(catRaw).toContain('Projects')
+  })
+
+  it('POST /accept-profile creates wiki directory if missing (fresh BRAIN_HOME)', async () => {
+    const { setOnboardingState, profileDraftAbsolutePath } = await import('../lib/onboardingState.js')
+    await mkdir(join(chatDir(), 'onboarding'), { recursive: true })
+    await writeFile(profileDraftAbsolutePath(), '# Profile\n', 'utf-8')
+    await setOnboardingState('indexing')
+    await setOnboardingState('profiling')
+    await setOnboardingState('reviewing-profile')
+
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/accept-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ categories: ['People'] }),
+    })
     expect(res.status).toBe(200)
     const me = await import('node:fs/promises').then((fs) => fs.readFile(join(wikiDirPath(), 'me.md'), 'utf-8'))
     expect(me).toContain('Profile')

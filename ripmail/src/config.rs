@@ -1049,9 +1049,17 @@ pub fn resolve_source_spec<'a>(
     if s.is_empty() {
         return None;
     }
-    sources
-        .iter()
-        .find(|m| m.id == s || (!m.email.is_empty() && m.email.eq_ignore_ascii_case(s)))
+    sources.iter().find(|m| {
+        if m.id == s {
+            return true;
+        }
+        if !m.email.is_empty() && m.email.eq_ignore_ascii_case(s) {
+            return true;
+        }
+        m.imap_aliases
+            .iter()
+            .any(|a| !a.is_empty() && a.eq_ignore_ascii_case(s))
+    })
 }
 
 /// Back-compat name.
@@ -1526,6 +1534,34 @@ mod tests {
     fn resolve_smtp_unknown_host_errors() {
         let r = resolve_smtp_settings("mail.example.com", None);
         assert!(r.is_err());
+    }
+
+    #[test]
+    fn resolve_source_spec_matches_id_email_and_aliases() {
+        let mb = ResolvedSource {
+            id: "m1".into(),
+            kind: SourceKind::Imap,
+            email: "a@b.com".into(),
+            imap_host: "imap.x".into(),
+            imap_port: 993,
+            imap_user: "a@b.com".into(),
+            imap_aliases: vec!["alias@x.com".into()],
+            imap_password: String::new(),
+            imap_auth: MailboxImapAuthKind::AppPassword,
+            include_in_default: true,
+            maildir_path: PathBuf::from("/tmp/m"),
+            apple_mail_root: None,
+            local_dir: None,
+        };
+        let sources = vec![mb];
+        assert_eq!(resolve_source_spec(&sources, "m1").unwrap().id, "m1");
+        assert_eq!(resolve_source_spec(&sources, "a@b.com").unwrap().id, "m1");
+        assert_eq!(resolve_source_spec(&sources, "a@B.com").unwrap().id, "m1");
+        assert_eq!(
+            resolve_source_spec(&sources, "alias@x.com").unwrap().id,
+            "m1"
+        );
+        assert!(resolve_source_spec(&sources, "other@y.com").is_none());
     }
 
     #[test]

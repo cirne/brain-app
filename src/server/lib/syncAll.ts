@@ -1,7 +1,9 @@
+import process from 'node:process'
 import { spawn } from 'node:child_process'
 import { parseICS, writeCache } from './calendarCache.js'
 import { formatExecError } from './execError.js'
 import { ripmailBin } from './ripmailBin.js'
+import { ripmailProcessEnv } from './ripmailExec.js'
 
 export interface SyncComponentResult {
   ok: boolean
@@ -34,13 +36,18 @@ export async function syncWikiFromDisk(): Promise<SyncComponentResult> {
  * Kick off `ripmail refresh` without blocking. The CLI may keep running a supervisor
  * while sync continues; `exec()` would wait on that process — use a detached spawn instead.
  */
+/** Env passed to `ripmail refresh` so it uses the same store as `ripmail status` / onboarding (see `ripmailHomeForBrain`). */
+export function ripmailRefreshEnv(): typeof process.env {
+  return ripmailProcessEnv()
+}
+
 export async function syncInboxRipmail(): Promise<SyncComponentResult> {
   const rm = ripmailBin()
   return new Promise((resolve) => {
     const child = spawn(rm, ['refresh'], {
       detached: true,
       stdio: 'ignore',
-      env: { ...process.env },
+      env: ripmailRefreshEnv(),
     })
     const done = (result: SyncComponentResult) => {
       child.removeAllListeners()

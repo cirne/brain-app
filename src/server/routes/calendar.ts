@@ -7,6 +7,7 @@ import { getCalendarEvents, type CalendarEvent } from '../lib/calendarCache.js'
 import { syncCalendarFromEnv } from '../lib/syncAll.js'
 import { wikiDir } from '../lib/wikiDir.js'
 import { buildWikiExcerpt } from '../lib/wikiSearchExcerpt.js'
+import { execRipmailAsync } from '../lib/ripmailExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 
 const execAsync = promisify(exec)
@@ -49,7 +50,7 @@ type PersonHit = { primaryAddress?: string; displayName?: string; name?: string;
 
 async function searchEmails(query: string, limit: number): Promise<EmailHit[]> {
   try {
-    const { stdout } = await execAsync(
+    const { stdout } = await execRipmailAsync(
       `${ripmailBin()} search ${JSON.stringify(query)} --limit ${limit} --json`,
       { timeout: 10000 },
     )
@@ -177,7 +178,7 @@ async function lookupPeople(emails: string[]): Promise<PersonHit[]> {
   const seen = new Set<string>()
   for (const email of emails.slice(0, 6)) {
     try {
-      const { stdout } = await execAsync(
+      const { stdout } = await execRipmailAsync(
         `${ripmailBin()} who ${JSON.stringify(email)} --limit 3`,
         { timeout: 8000 },
       )

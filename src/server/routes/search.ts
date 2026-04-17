@@ -5,6 +5,7 @@ import { join, relative, basename } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { wikiDir } from '../lib/wikiDir.js'
 import { buildWikiExcerpt } from '../lib/wikiSearchExcerpt.js'
+import { execRipmailAsync } from '../lib/ripmailExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 
 const execAsync = promisify(exec)
@@ -55,10 +56,9 @@ search.get('/', async (c) => {
         })
       )
     }),
-    execAsync(
-      `${ripmailBin()} search ${JSON.stringify(q)} --limit 10 --json`,
-      { timeout: 10000 }
-    ).then(({ stdout }): EmailResult[] => {
+    execRipmailAsync(`${ripmailBin()} search ${JSON.stringify(q)} --limit 10 --json`, {
+      timeout: 10000,
+    }).then(({ stdout }): EmailResult[] => {
       const data = JSON.parse(stdout)
       return (data.results ?? []).slice(0, 10).map((r: { messageId: string; fromName?: string; fromAddress: string; subject: string; date: string; snippet?: string; rank: number }) => ({
         type: 'email' as const,

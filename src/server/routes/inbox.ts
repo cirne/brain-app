@@ -1,19 +1,17 @@
 import { Hono } from 'hono'
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import { extractDraftEdits } from '../lib/draftExtract.js'
 import { buildDraftEditFlags } from '../agent/tools.js'
 import { syncInboxRipmail } from '../lib/syncAll.js'
 import { flattenInboxFromRipmailData } from '../lib/ripmailInboxFlatten.js'
+import { execRipmailAsync } from '../lib/ripmailExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 
 const inbox = new Hono()
-const execAsync = promisify(exec)
 
 // GET /api/inbox — list inbox messages (via ripmail inbox)
 inbox.get('/', async (c) => {
   try {
-    const { stdout } = await execAsync(`${ripmailBin()} inbox`)
+    const { stdout } = await execRipmailAsync(`${ripmailBin()} inbox`)
     const data = JSON.parse(stdout)
     const rows = flattenInboxFromRipmailData(data)
     return c.json(rows ?? [])
@@ -37,7 +35,7 @@ inbox.get('/who', async (c) => {
     const cmd = q
       ? `${ripmailBin()} who ${JSON.stringify(q)} --limit 20`
       : `${ripmailBin()} who --limit 60`
-    const { stdout } = await execAsync(cmd)
+    const { stdout } = await execRipmailAsync(cmd)
     const data = JSON.parse(stdout)
     return c.json(data.people ?? [])
   } catch {
@@ -49,8 +47,8 @@ inbox.get('/who', async (c) => {
 inbox.get('/draft/:draftId', async (c) => {
   const draftId = c.req.param('draftId')
   try {
-    const { stdout } = await execAsync(
-      `${ripmailBin()} draft view ${JSON.stringify(draftId)} --with-body --json`
+    const { stdout } = await execRipmailAsync(
+      `${ripmailBin()} draft view ${JSON.stringify(draftId)} --with-body --json`,
     )
     return c.json(JSON.parse(stdout))
   } catch (err) {
@@ -68,12 +66,12 @@ inbox.post('/draft/:draftId/edit', async (c) => {
     const extracted = await extractDraftEdits(instruction)
     const flags = buildDraftEditFlags(extracted)
     const bodyInstruction = extracted.body_instruction ?? ''
-    await execAsync(
+    await execRipmailAsync(
       `${ripmailBin()} draft edit ${JSON.stringify(draftId)} ${flags}-- ${JSON.stringify(bodyInstruction)}`,
-      { timeout: 30000 }
+      { timeout: 30000 },
     )
-    const { stdout } = await execAsync(
-      `${ripmailBin()} draft view ${JSON.stringify(draftId)} --with-body --json`
+    const { stdout } = await execRipmailAsync(
+      `${ripmailBin()} draft view ${JSON.stringify(draftId)} --with-body --json`,
     )
     return c.json(JSON.parse(stdout))
   } catch (err) {
@@ -85,7 +83,7 @@ inbox.post('/draft/:draftId/edit', async (c) => {
 inbox.post('/draft/:draftId/send', async (c) => {
   const draftId = c.req.param('draftId')
   try {
-    await execAsync(`${ripmailBin()} send ${JSON.stringify(draftId)}`)
+    await execRipmailAsync(`${ripmailBin()} send ${JSON.stringify(draftId)}`)
     return c.json({ ok: true })
   } catch (err) {
     return c.json({ ok: false, error: String(err) }, 500)
@@ -96,7 +94,7 @@ inbox.post('/draft/:draftId/send', async (c) => {
 inbox.get('/:id', async (c) => {
   const id = c.req.param('id')
   try {
-    const { stdout } = await execAsync(`${ripmailBin()} read ${JSON.stringify(id)}`)
+    const { stdout } = await execRipmailAsync(`${ripmailBin()} read ${JSON.stringify(id)}`)
     return c.text(stdout)
   } catch {
     return c.json({ error: 'Not found' }, 404)
@@ -108,8 +106,8 @@ inbox.post('/:id/reply', async (c) => {
   const id = c.req.param('id')
   const { instruction } = await c.req.json()
   try {
-    const { stdout } = await execAsync(
-      `${ripmailBin()} draft reply --message-id ${JSON.stringify(id)} --instruction ${JSON.stringify(instruction)} --with-body --json`
+    const { stdout } = await execRipmailAsync(
+      `${ripmailBin()} draft reply --message-id ${JSON.stringify(id)} --instruction ${JSON.stringify(instruction)} --with-body --json`,
     )
     return c.json(JSON.parse(stdout))
   } catch (err) {
@@ -122,8 +120,8 @@ inbox.post('/:id/forward', async (c) => {
   const id = c.req.param('id')
   const { to, instruction } = await c.req.json()
   try {
-    const { stdout } = await execAsync(
-      `${ripmailBin()} draft forward --message-id ${JSON.stringify(id)} --to ${JSON.stringify(to)} --instruction ${JSON.stringify(instruction)} --with-body --json`
+    const { stdout } = await execRipmailAsync(
+      `${ripmailBin()} draft forward --message-id ${JSON.stringify(id)} --to ${JSON.stringify(to)} --instruction ${JSON.stringify(instruction)} --with-body --json`,
     )
     return c.json(JSON.parse(stdout))
   } catch (err) {
@@ -134,14 +132,14 @@ inbox.post('/:id/forward', async (c) => {
 // POST /api/inbox/:id/archive
 inbox.post('/:id/archive', async (c) => {
   const id = c.req.param('id')
-  await execAsync(`${ripmailBin()} archive ${id}`)
+  await execRipmailAsync(`${ripmailBin()} archive ${id}`)
   return c.json({ ok: true })
 })
 
 // POST /api/inbox/:id/read
 inbox.post('/:id/read', async (c) => {
   const id = c.req.param('id')
-  await execAsync(`${ripmailBin()} read ${id}`)
+  await execRipmailAsync(`${ripmailBin()} read ${id}`)
   return c.json({ ok: true })
 })
 

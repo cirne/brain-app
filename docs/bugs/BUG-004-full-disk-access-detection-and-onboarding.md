@@ -19,7 +19,7 @@
 | `GET /api/onboarding/fda` | [`src/server/routes/onboarding.ts`](../../src/server/routes/onboarding.ts) |
 | Messages: `full_disk_access_hint` + “Grant Full Disk Access…” | [`src/server/routes/imessage.ts`](../../src/server/routes/imessage.ts), [`src/client/lib/MessageThread.svelte`](../../src/client/lib/MessageThread.svelte) |
 
-**Note:** The gate runs only when `import.meta.env.PROD` and the Tauri runtime are both true (`FullDiskAccessGate`). `npm run tauri dev` uses the Vite dev build, so the modal does not appear there; use `npm run tauri:build` / `npm run tauri:open-fresh-install` or a packaged app to test the gate.
+**Note:** The gate runs only when `import.meta.env.PROD` and the Tauri runtime are both true (`FullDiskAccessGate`). `npm run desktop:dev` uses the Vite dev build, so the modal does not appear there; use `npm run desktop:build` / `npm run desktop:fresh` or a packaged app to test the gate.
 
 ### Residual (optional / future)
 
@@ -123,7 +123,7 @@ Features that need FDA should surface actionable copy. Messages uses `full_disk_
 
 ### Manual test checklist (release Brain.app)
 
-1. Build a release DMG (e.g. `npm run tauri:open-fresh-install` or `npm run tauri:build`) on macOS **without** Full Disk Access for Brain.
+1. Build a release DMG (e.g. `npm run desktop:fresh` or `npm run desktop:build`) on macOS **without** Full Disk Access for Brain.
 2. Launch the app — the **Full Disk Access** gate modal should appear (production Tauri only; `npm run dev` / browser should not show it).
 3. Tap **Open System Settings** — Privacy & Security → Full Disk Access should open.
 4. Enable **Brain**, return to the app — within a few seconds the UI should show **Permission granted — restarting…** and the app should **relaunch**.

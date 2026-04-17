@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { parseRipmailStatusJson } from './ripmailStatusParse.js'
+import {
+  computeIndexingUserHint,
+  parseRipmailStatusJson,
+} from './ripmailStatusParse.js'
 
 const emptyInstallFixture = `{
   "sync": {
@@ -57,6 +60,34 @@ const appleMailInterimFixture = `{
   ]
 }`
 
+/** DB says “running” but no live process — UI must not show “syncing”. */
+const staleLockFixture = `{
+  "sync": {
+    "isRunning": true,
+    "lastSyncAt": null,
+    "totalMessages": 0,
+    "staleLockInDb": true,
+    "lockHeldByLiveProcess": false,
+    "lockAgeMs": 1000
+  },
+  "search": { "ftsReady": 0 },
+  "mailboxes": []
+}`
+
+const needsBackfillIdleFixture = `{
+  "sync": {
+    "isRunning": false,
+    "lastSyncAt": null,
+    "totalMessages": 0,
+    "staleLockInDb": false,
+    "lockHeldByLiveProcess": false
+  },
+  "search": { "ftsReady": 0 },
+  "mailboxes": [
+    { "email": "a@b.com", "messageCount": 0, "needsBackfill": true }
+  ]
+}`
+
 describe('parseRipmailStatusJson', () => {
   it('parses empty install shape', () => {
     const p = parseRipmailStatusJson(emptyInstallFixture)
@@ -85,6 +116,21 @@ describe('parseRipmailStatusJson', () => {
     expect(p!.indexedTotal).toBe(9030)
     expect(p!.syncRunning).toBe(true)
     expect(p!.ftsReady).toBe(9030)
+  })
+
+  it('treats stale DB lock as not running', () => {
+    const p = parseRipmailStatusJson(staleLockFixture)
+    expect(p).not.toBeNull()
+    expect(p!.syncRunning).toBe(false)
+    expect(p!.staleLockInDb).toBe(true)
+    expect(computeIndexingUserHint(p!)).toContain('Quit Brain')
+  })
+
+  it('flags pending refresh when a mailbox needs backfill and sync is idle', () => {
+    const p = parseRipmailStatusJson(needsBackfillIdleFixture)
+    expect(p).not.toBeNull()
+    expect(p!.pendingRefresh).toBe(true)
+    expect(computeIndexingUserHint(p!)).toContain('starting')
   })
 
   it('returns null for invalid JSON', () => {

@@ -130,7 +130,7 @@ Why `assets/user-skills/` specifically:
 **Build wiring:**
 
 - `npm run build` copies `assets/user-skills/` → `dist/server/assets/user-skills/` (small `tsup`/esbuild-style post-step or a tiny script in `[scripts/](../../scripts/)`). Source of truth stays in `assets/`; `dist/` is rebuilt.
-- Tauri: the existing `tauri:bundle-server` step already copies `dist/` into `desktop/resources/server-bundle/`, so the bundled Brain.app picks these up with zero extra config.
+- Tauri: the existing `desktop:bundle-server` step already copies `dist/` into `desktop/resources/server-bundle/`, so the bundled Brain.app picks these up with zero extra config.
 
 **Skill resolution order** at lookup time (first match wins):
 
@@ -279,7 +279,7 @@ TipTap (already in the repo) handles in-app editing of the SKILL.md files; no ne
 
 1. Add `skillsDir()` in `[src/server/lib/wikiDir.ts](../../src/server/lib/wikiDir.ts)` (or a new `skillsDir.ts` sibling) returning `<repoDir()>/skills`.
 2. Create `assets/user-skills/` at repo root and author the default skills there (`wiki`, `research`, `email`; see [OPP-011](./OPP-011-user-skills-strategy.md)), each with `version: 1` in frontmatter.
-3. Wire `assets/user-skills/` into the build: copy to `dist/server/assets/user-skills/` during `npm run build`; confirm `tauri:bundle-server` carries it into `desktop/resources/server-bundle/`.
+3. Wire `assets/user-skills/` into the build: copy to `dist/server/assets/user-skills/` during `npm run build`; confirm `desktop:bundle-server` carries it into `desktop/resources/server-bundle/`.
 4. Implement `ensureDefaultSkillsSeeded()` (see §5) and call it from `start()` in `[src/server/index.ts](../../src/server/index.ts)`, after `loadDotEnv()`, before HTTP listen. Runs on every boot; idempotent.
 5. Add `SkillRegistry` service (discover from `<WIKI_DIR>/skills/`, parse with `gray-matter`, cache; `chokidar`-watch in dev).
 6. Wire slash parsing into the `chat.ts` POST handler with per-turn system-prompt injection.

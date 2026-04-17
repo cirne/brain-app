@@ -1,12 +1,9 @@
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseRipmailStatusJson } from './ripmailStatusParse.js'
+import { computeIndexingUserHint, parseRipmailStatusJson } from './ripmailStatusParse.js'
 import { ripmailHomeForBrain } from './brainHome.js'
+import { execRipmailAsync } from './ripmailExec.js'
 import { ripmailBin } from './ripmailBin.js'
-
-const execAsync = promisify(exec)
 
 export { ripmailBin }
 
@@ -21,10 +18,10 @@ export type OnboardingMailStatusPayload = {
   dateRange: { from: string | null; to: string | null }
   syncRunning: boolean
   ftsReady: number | null
+  /** Plain-language line for the indexing onboarding screen; null when nothing extra to say. */
+  indexingHint?: string | null
   statusError?: string
 }
-
-const envWithRipmailHome = () => ({ ...process.env, RIPMAIL_HOME: ripmailHomePath() })
 
 /** `off` (default) | `summary` | `full` — set ONBOARDING_MAIL_DEBUG=summary|1|full|true */
 export function onboardingMailDebugLevelFromEnv(v: string | undefined): 'off' | 'summary' | 'full' {
@@ -62,6 +59,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
     dateRange: { from: null, to: null },
     syncRunning: false,
     ftsReady: null,
+    indexingHint: null,
   }
 
   if (!configured) {
@@ -75,9 +73,8 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
 
   const t0 = performance.now()
   try {
-    const { stdout } = await execAsync(`${ripmailBin()} status --json`, {
+    const { stdout } = await execRipmailAsync(`${ripmailBin()} status --json`, {
       timeout: 10000,
-      env: envWithRipmailHome(),
     })
     const ms = Math.round(performance.now() - t0)
     const maxRaw = 6000
@@ -140,6 +137,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
         dateRange: parsed.dateRange,
         syncRunning: parsed.syncRunning,
         ftsReady: parsed.ftsReady,
+        indexingHint: computeIndexingUserHint(parsed),
       }
       return payload
     }

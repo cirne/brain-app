@@ -20,7 +20,9 @@ import {
   normalizePhoneDigits,
   phoneToFlexibleGrepPattern,
 } from '../lib/imessagePhone.js'
+import { execRipmailAsync, ripmailProcessEnv } from '../lib/ripmailExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
+import { resolveRipmailSourceForCli } from '../lib/ripmailSourceResolve.js'
 
 const execAsync = promisify(exec)
 
@@ -334,7 +336,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     const rm = ripmailBin()
     const args = sourceId?.trim() ? (['refresh', '--source', sourceId.trim()] as const) : (['refresh'] as const)
     return new Promise((resolve) => {
-      const child = spawn(rm, [...args], { detached: true, stdio: 'ignore', env: { ...process.env } })
+      const child = spawn(rm, [...args], { detached: true, stdio: 'ignore', env: ripmailProcessEnv() })
       child.once('error', (err) => resolve({ ok: false, error: String(err) }))
       child.once('spawn', () => {
         child.unref()
@@ -352,15 +354,17 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     parameters: Type.Object({
       query: Type.String({ description: 'Search query' }),
       source: Type.Optional(
-        Type.String({ description: 'Ripmail source id or account email to scope results (--source)' }),
+        Type.String({
+          description:
+            'Ripmail source id or mailbox email for --source. Inferred addresses from whoami are mapped to the configured source when there is a single mail account (e.g. Apple Mail placeholder email).',
+        }),
       ),
     }),
     async execute(_toolCallId: string, params: { query: string; source?: string }) {
       const rm = ripmailBin()
-      const src = params.source?.trim()
-        ? ` --source ${JSON.stringify(params.source.trim())}`
-        : ''
-      const { stdout } = await execAsync(`${rm} search ${JSON.stringify(params.query)} --json${src}`, {
+      const resolved = await resolveRipmailSourceForCli(params.source)
+      const src = resolved?.trim() ? ` --source ${JSON.stringify(resolved.trim())}` : ''
+      const { stdout } = await execRipmailAsync(`${rm} search ${JSON.stringify(params.query)} --json${src}`, {
         timeout: 15000,
       })
       return {
@@ -377,14 +381,18 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       'Read one item from the ripmail index: an email by Message-ID, or a file by absolute path (tilde paths OK). Use optional source when Message-ID is ambiguous.',
     parameters: Type.Object({
       id: Type.String({ description: 'Message-ID or filesystem path' }),
-      source: Type.Optional(Type.String({ description: 'Narrows Message-ID resolution when ambiguous' })),
+      source: Type.Optional(
+        Type.String({
+          description:
+            'Narrows Message-ID resolution when ambiguous; same source normalization as search_index (single-mailbox inferred email → configured id).',
+        }),
+      ),
     }),
     async execute(_toolCallId: string, params: { id: string; source?: string }) {
       const rm = ripmailBin()
-      const src = params.source?.trim()
-        ? ` --source ${JSON.stringify(params.source.trim())}`
-        : ''
-      const { stdout } = await execAsync(`${rm} read ${JSON.stringify(params.id)} --json${src}`, {
+      const resolved = await resolveRipmailSourceForCli(params.source)
+      const src = resolved?.trim() ? ` --source ${JSON.stringify(resolved.trim())}` : ''
+      const { stdout } = await execRipmailAsync(`${rm} read ${JSON.stringify(params.id)} --json${src}`, {
         timeout: 15000,
       })
       return {
@@ -401,7 +409,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     parameters: Type.Object({}),
     async execute(_toolCallId: string, _params: Record<string, never>) {
       const rm = ripmailBin()
-      const { stdout } = await execAsync(`${rm} sources list --json`, { timeout: 15000 })
+      const { stdout } = await execRipmailAsync(`${rm} sources list --json`, { timeout: 15000 })
       let details: Record<string, unknown> = {}
       try {
         if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
@@ -422,7 +430,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     parameters: Type.Object({}),
     async execute(_toolCallId: string, _params: Record<string, never>) {
       const rm = ripmailBin()
-      const { stdout } = await execAsync(`${rm} sources status --json`, { timeout: 15000 })
+      const { stdout } = await execRipmailAsync(`${rm} sources status --json`, { timeout: 15000 })
       let details: Record<string, unknown> = {}
       try {
         if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
@@ -463,7 +471,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         label: params.label,
         id: params.id,
       })
-      const { stdout } = await execAsync(`${rm} ${tail}`, { timeout: 15000 })
+      const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
       let details: Record<string, unknown> = {}
       try {
         if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
@@ -489,7 +497,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     async execute(_toolCallId: string, params: { id: string; label?: string; path?: string }) {
       const rm = ripmailBin()
       const tail = buildSourcesEditCommand(params)
-      const { stdout } = await execAsync(`${rm} ${tail}`, { timeout: 15000 })
+      const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
       let details: Record<string, unknown> = {}
       try {
         if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
@@ -514,7 +522,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     async execute(_toolCallId: string, params: { id: string }) {
       const rm = ripmailBin()
       const tail = buildSourcesRemoveCommand(params.id)
-      const { stdout } = await execAsync(`${rm} ${tail}`, { timeout: 15000 })
+      const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
       let details: Record<string, unknown> = {}
       try {
         if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
@@ -537,7 +545,8 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       source_id: Type.Optional(Type.String({ description: 'Ripmail source id; omit to refresh all' })),
     }),
     async execute(_toolCallId: string, params: { source_id?: string }) {
-      const started = await spawnRipmailRefreshDetached(params.source_id)
+      const resolved = await resolveRipmailSourceForCli(params.source_id)
+      const started = await spawnRipmailRefreshDetached(resolved)
       if (!started.ok) {
         throw new Error(started.error ?? 'Failed to start ripmail refresh')
       }
@@ -564,7 +573,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     parameters: Type.Object({}),
     async execute(_toolCallId: string, _params: Record<string, never>) {
       const rm = ripmailBin()
-      const { stdout } = await execAsync(`${rm} inbox`, { timeout: 30000 })
+      const { stdout } = await execRipmailAsync(`${rm} inbox`, { timeout: 30000 })
       const details = JSON.parse(stdout) as Record<string, unknown>
       return {
         content: [{ type: 'text' as const, text: stdout }],
@@ -628,9 +637,10 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       },
     ) {
       const rm = ripmailBin()
-      const tail = buildInboxRulesCommand(params)
+      const resolvedSource = await resolveRipmailSourceForCli(params.source)
+      const tail = buildInboxRulesCommand({ ...params, source: resolvedSource })
       const timeout = params.op === 'validate' && params.sample ? 120000 : 60000
-      const { stdout } = await execAsync(`${rm} ${tail}`, { timeout })
+      const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout })
       let details: Record<string, unknown> = {}
       try {
         if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
@@ -655,7 +665,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     async execute(_toolCallId: string, params: { message_ids: string[] }) {
       const rm = ripmailBin()
       for (const id of params.message_ids) {
-        await execAsync(`${rm} archive ${JSON.stringify(id)}`, { timeout: 30000 })
+        await execRipmailAsync(`${rm} archive ${JSON.stringify(id)}`, { timeout: 30000 })
       }
       return {
         content: [
@@ -693,7 +703,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         if (!params.to) throw new Error('to is required for action=forward')
         cmd = `${rm} draft forward --message-id ${JSON.stringify(params.message_id)} --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json`
       }
-      const { stdout } = await execAsync(cmd, { timeout: 30000 })
+      const { stdout } = await execRipmailAsync(cmd, { timeout: 30000 })
       return {
         content: [{ type: 'text' as const, text: stdout }],
         details: JSON.parse(stdout),
@@ -728,13 +738,13 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       const rm = ripmailBin()
       const flags = buildDraftEditFlags(params)
       const instruction = params.instruction ? JSON.stringify(params.instruction) : '""'
-      await execAsync(
+      await execRipmailAsync(
         `${rm} draft edit ${JSON.stringify(params.draft_id)} ${flags}-- ${instruction}`,
-        { timeout: 30000 }
+        { timeout: 30000 },
       )
-      const { stdout } = await execAsync(
+      const { stdout } = await execRipmailAsync(
         `${rm} draft view ${JSON.stringify(params.draft_id)} --with-body --json`,
-        { timeout: 15000 }
+        { timeout: 15000 },
       )
       return {
         content: [{ type: 'text' as const, text: stdout }],
@@ -752,7 +762,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     }),
     async execute(_toolCallId: string, params: { draft_id: string }) {
       const rm = ripmailBin()
-      await execAsync(`${rm} send ${JSON.stringify(params.draft_id)}`, { timeout: 30000 })
+      await execRipmailAsync(`${rm} send ${JSON.stringify(params.draft_id)}`, { timeout: 30000 })
       return {
         content: [{ type: 'text' as const, text: 'Email sent.' }],
         details: { ok: true },
@@ -777,7 +787,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       if (q.length === 0) {
         let stdout = ''
         try {
-          const { stdout: out } = await execAsync(`${ripmail} who --limit 60`, { timeout: 15000 })
+          const { stdout: out } = await execRipmailAsync(`${ripmail} who --limit 60`, { timeout: 15000 })
           stdout = out.trim()
         } catch {
           stdout = ''
@@ -797,7 +807,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       const grepFlags = phone ? '-rE' : '-ri'
 
       const [emailResult, wikiResult] = await Promise.allSettled([
-        execAsync(`${ripmail} who ${JSON.stringify(q)} --limit 20`, { timeout: 15000 }),
+        execRipmailAsync(`${ripmail} who ${JSON.stringify(q)} --limit 20`, { timeout: 15000 }),
         execAsync(
           `grep ${grepFlags} ${JSON.stringify(grepPattern)} ${JSON.stringify(wikiDir)} --include="*.md" -l`,
           { timeout: 10000 }

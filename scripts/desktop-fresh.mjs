@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * 1. `tauri:clean-data`
- * 2. `npm run tauri:build`
+ * 1. `desktop:clean-data`
+ * 2. `npm run desktop:build`
  * 3. macOS: open newest `.dmg` (mode `dmg`) or `Brain.app` under `target/**/release/bundle/macos/` (mode `app`)
  *
  * Usage:
- *   node scripts/tauri-fresh.mjs dmg   # default — DMG for drag-to-Applications
- *   node scripts/tauri-fresh.mjs app   # open built .app
+ *   npm run desktop:fresh              # default — DMG for drag-to-Applications
+ *   npm run desktop:fresh -- app       # open built .app
+ *   node scripts/desktop-fresh.mjs dmg|app
  */
 import { execFileSync, execSync } from 'node:child_process'
 import { existsSync, readdirSync, statSync } from 'node:fs'
@@ -15,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 
 const mode = (process.argv[2] || 'dmg').toLowerCase()
 if (mode !== 'dmg' && mode !== 'app') {
-  console.error('[tauri:fresh] usage: node scripts/tauri-fresh.mjs dmg|app')
+  console.error('[desktop:fresh] usage: npm run desktop:fresh [-- dmg|app]')
   process.exit(1)
 }
 
@@ -67,35 +68,35 @@ function findBrainApp() {
   return null
 }
 
-execSync('npm run tauri:clean-data', { cwd: root, stdio: 'inherit' })
-execSync('npm run tauri:build', { cwd: root, stdio: 'inherit' })
+execSync('npm run desktop:clean-data', { cwd: root, stdio: 'inherit' })
+execSync('npm run desktop:build', { cwd: root, stdio: 'inherit' })
 
 if (mode === 'dmg') {
   const dmg = findNewestDmg()
   if (!dmg) {
     console.error(
-      '[tauri:open-fresh-install] no .dmg found under target/**/release/bundle (build a macOS bundle with dmg target, or open the .app via npm run tauri:run-release:fresh)',
+      '[desktop:fresh] no .dmg found under target/**/release/bundle (build a macOS bundle with dmg target, or open the .app via npm run desktop:fresh -- app)',
     )
     process.exit(1)
   }
-  console.log(`[tauri:open-fresh-install] ${dmg}`)
+  console.log(`[desktop:fresh] ${dmg}`)
   if (process.platform === 'darwin') {
     execFileSync('open', [dmg], { stdio: 'inherit' })
   } else {
-    console.log('[tauri:open-fresh-install] not macOS — copy/open the DMG from the path above on a Mac')
+    console.log('[desktop:fresh] not macOS — copy/open the DMG from the path above on a Mac')
   }
 } else {
   const app = findBrainApp()
   if (!app) {
     console.error(
-      `[tauri:run-release:fresh] Brain.app not found under target/**/release/bundle/macos (checked workspace targets)`,
+      `[desktop:fresh] Brain.app not found under target/**/release/bundle/macos (checked workspace targets)`,
     )
     process.exit(1)
   }
-  console.log(`[tauri:run-release:fresh] ${app}`)
+  console.log(`[desktop:fresh] ${app}`)
   if (process.platform === 'darwin') {
     execFileSync('open', [app], { stdio: 'inherit' })
   } else {
-    console.log(`[tauri:run-release:fresh] built: ${app} (open manually on this OS)`)
+    console.log(`[desktop:fresh] built: ${app} (open manually on this OS)`)
   }
 }

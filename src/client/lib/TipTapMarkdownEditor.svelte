@@ -6,14 +6,32 @@
   import { onMount } from 'svelte'
   import { Editor } from '@tiptap/core'
   import StarterKit from '@tiptap/starter-kit'
-  import { marked } from 'marked'
   import TurndownService from 'turndown'
-  import { splitYamlFrontMatter, joinYamlFrontMatter } from './markdown.js'
+  import { splitYamlFrontMatter, joinYamlFrontMatter, renderMarkdownBody } from './markdown.js'
 
   const turndown = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',
     bulletListMarker: '-',
+  })
+
+  /** Round-trip `data-wiki` links back to Obsidian `[[path]]` / `[[path|label]]` (same as chat / wiki viewer). */
+  turndown.addRule('wikiDataLink', {
+    filter(node: HTMLElement): boolean {
+      return node.nodeName === 'A' && Boolean(node.getAttribute('data-wiki'))
+    },
+    replacement(content: string, node: HTMLElement): string {
+      const dw = node.getAttribute('data-wiki') ?? ''
+      const pathForLink = dw.replace(/\.md$/i, '')
+      const inner = content.trim()
+      const baseName = pathForLink.includes('/')
+        ? pathForLink.split('/').pop() || pathForLink
+        : pathForLink
+      if (inner === baseName || inner === pathForLink || inner === dw) {
+        return `[[${pathForLink}]]`
+      }
+      return `[[${pathForLink}|${inner}]]`
+    },
   })
 
   interface Props {
@@ -33,8 +51,7 @@
   let syncingFromProp = false
 
   function mdBodyToHtml(body: string): string {
-    const raw = marked(body || '', { async: false }) as string
-    const html = typeof raw === 'string' ? raw : ''
+    const html = renderMarkdownBody(body || '')
     return html.trim() ? html : '<p></p>'
   }
 
@@ -65,8 +82,8 @@
     }, 900)
   }
 
-  async function persist() {
-    if (!editor || disabled || !onPersist) return
+  async function persist(force = false) {
+    if (!editor || (!force && disabled) || !onPersist) return
     const markdown = fullMarkdownFromEditor(editor.getHTML())
     try {
       await onPersist(markdown)
@@ -81,7 +98,7 @@
       clearTimeout(saveTimer)
       saveTimer = null
     }
-    await persist()
+    await persist(true)
   }
 
   onMount(() => {

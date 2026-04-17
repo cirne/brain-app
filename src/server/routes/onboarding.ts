@@ -1,7 +1,5 @@
 import { Hono, type Context } from 'hono'
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
-import { readFile, writeFile, access } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '../lib/wikiDir.js'
 import {
@@ -26,8 +24,7 @@ import {
 import { getOnboardingMailStatus, ripmailBin, ripmailHomePath } from '../lib/onboardingMailStatus.js'
 import { enrichAppleMailSetupError } from '../lib/appleMailSetupHints.js'
 import { getFdaProbeDetail, isFdaGranted } from '../lib/fdaProbe.js'
-
-const execAsync = promisify(exec)
+import { execRipmailAsync } from '../lib/ripmailExec.js'
 
 const onboarding = new Hono()
 
@@ -97,10 +94,7 @@ async function runAppleMailSetup(c: Context) {
     home: process.env.HOME ?? '(unset)',
   })
   try {
-    await execAsync(cmd, {
-      timeout: 120000,
-      env: { ...process.env, RIPMAIL_HOME: home },
-    })
+    await execRipmailAsync(cmd, { timeout: 120000 })
     console.error('[onboarding/setup-mail] ok')
     return c.json({ ok: true as const })
   } catch (e) {
@@ -151,12 +145,21 @@ onboarding.post('/accept-profile', async (c) => {
   } catch {
     return c.json({ error: 'me.md not found in onboarding staging — run profiling first' }, 400)
   }
+  const body = await c.req.json().catch(() => ({}))
+  const rawCategories = Array.isArray(body.categories) ? body.categories : []
+  const categories = rawCategories.filter((x: unknown) => typeof x === 'string' && x.trim().length > 0)
+  const defaultCategories = ['People', 'Projects', 'Interests', 'Areas']
+  const categoriesToStore = categories.length > 0 ? categories : defaultCategories
+
   const text = await readFile(draftPath, 'utf-8')
-  const mePath = join(wikiDir(), 'me.md')
+  const wikiRoot = wikiDir()
+  await mkdir(wikiRoot, { recursive: true })
+  const mePath = join(wikiRoot, 'me.md')
   await writeFile(mePath, text, 'utf-8')
+  await writeFile(categoriesJsonPath(), JSON.stringify({ categories: categoriesToStore }, null, 2), 'utf-8')
   try {
-    const doc = await setOnboardingState('confirming-categories')
-    return c.json({ ok: true, state: doc.state })
+    const doc = await setOnboardingState('seeding')
+    return c.json({ ok: true, state: doc.state, categories: categoriesToStore })
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : 'state error' }, 400)
   }

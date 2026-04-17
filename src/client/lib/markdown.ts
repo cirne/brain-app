@@ -1,4 +1,5 @@
 import { marked } from 'marked'
+import { transformWikiPageHtml } from './wikiPageHtml.js'
 
 /** Default line cap for wiki tool preview cards in chat. */
 export const WIKI_PREVIEW_MAX_LINES = 8
@@ -49,21 +50,23 @@ export function takeFirstLines(text: string, maxLines: number): string {
 }
 
 // LLM emits [display text](date:YYYY-MM-DD); marked renders it as <a href="date:...">
-// LLM emits [display text](wiki:path/to/file.md) or [text](wiki:path/to/file); marked renders it as <a href="wiki:...">
-// Convert those <a> tags to interactive buttons.
+// LLM emits [display text](wiki:path) → marked → transformWikiPageHtml turns wiki: + [[wikilinks]] into data-wiki links.
 const DATE_LINK_RE = /<a href="date:(\d{4}-\d{2}-\d{2})">([\s\S]*?)<\/a>/g
-const WIKI_LINK_RE = /<a href="wiki:([^"]*)">([\s\S]*?)<\/a>/g
+
+/**
+ * Markdown body (no YAML front matter) → HTML: `marked` + Obsidian `[[links]]` + `wiki:` href handling.
+ * Use this anywhere we show markdown as HTML (chat, wiki cards, TipTap editor) so wikilinks behave consistently.
+ */
+export function renderMarkdownBody(body: string): string {
+  const html = marked(body) as string
+  return transformWikiPageHtml(html)
+}
 
 export function renderMarkdown(text: string): string {
   try {
     const body = stripFrontMatter(text)
-    const html = marked(body) as string
-    return html
-      .replace(DATE_LINK_RE, '<button class="date-link" data-date="$1">$2</button>')
-      .replace(WIKI_LINK_RE, (_, path, label) => {
-        const wikiPath = path.endsWith('.md') ? path : `${path}.md`
-        return `<button class="wiki-link" data-wiki="${wikiPath}">${label}</button>`
-      })
+    const withWiki = renderMarkdownBody(body)
+    return withWiki.replace(DATE_LINK_RE, '<button class="date-link" data-date="$1">$2</button>')
   } catch {
     return text
   }

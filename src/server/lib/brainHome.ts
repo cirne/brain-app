@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { join } from 'node:path'
 import { defaultBundledBrainHomeRoot } from './bundleDefaults.js'
 import {
@@ -39,6 +40,11 @@ export function chatDataDirResolved(): string {
 export function ripmailHomeForBrain(): string {
   if (process.env.RIPMAIL_HOME) return process.env.RIPMAIL_HOME
   return brainLayoutRipmailDir(brainHome())
+}
+
+/** Env for every `ripmail` subprocess so CLI resolves the same store as Brain (`data/ripmail` in dev). */
+export function ripmailProcessEnv(): typeof process.env {
+  return { ...process.env, RIPMAIL_HOME: ripmailHomeForBrain() }
 }
 
 export function calendarCacheDirResolved(): string {

@@ -3,6 +3,8 @@
  * In-app navigation and WikiFileName mounts expect `data-wiki` + `href="#"`.
  */
 
+import { wikiPathForReadToolArg } from './cards/contentCards.js'
+
 /**
  * Encode each path segment for `/api/wiki/...` or `/wiki/...` URLs.
  * Applying `encodeURIComponent` to the full path turns `/` into `%2F`, which breaks
@@ -38,6 +40,13 @@ export function resolveWikiLinkToFilePath(
 ): string | null {
   const normalized = normalizeWikiPathForMatch(link)
 
+  /** `[[me]]` / profile link — always root `me.md`, never another file whose basename is `me` (e.g. `areas/…/me.md`). */
+  if (normalized === 'me') {
+    const root = files.find(f => f.path === 'me.md')
+    if (root) return root.path
+    return 'me.md'
+  }
+
   const exact = files.find(f => normalizeWikiPathForMatch(f.path) === normalized)
   if (exact) return exact.path
 
@@ -63,13 +72,13 @@ export function transformWikiPageHtml(html: string): string {
   let out = html.replace(/\[\[([^\]]+)\]\]/g, (_, inner: string) => {
     const [path, label] = inner.split('|')
     const display = (label ?? path).trim()
-    return `<a href="#" data-wiki="${path.trim()}" class="wiki-link">${display}</a>`
+    const resolved = wikiPathForReadToolArg(path.trim())
+    return `<a href="#" data-wiki="${resolved}" class="wiki-link">${display}</a>`
   })
   out = out.replace(
     /<a href="wiki:([^"]+)">([\s\S]*?)<\/a>/gi,
     (_, rawPath: string, label: string) => {
-      let p = rawPath.trim()
-      if (!p.endsWith('.md')) p = `${p}.md`
+      const p = wikiPathForReadToolArg(rawPath.trim())
       return `<a href="#" data-wiki="${p}" class="wiki-link">${label}</a>`
     },
   )

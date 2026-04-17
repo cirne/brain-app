@@ -2,9 +2,9 @@
 /**
  * Remove **dev** Brain durable data: default `./data` (same as `brainHome()` when
  * `BRAIN_HOME` is unset and not bundled), or `$BRAIN_HOME` when set.
- * Does not touch Tauri bundle paths (`tauri:clean-data`) or standalone `~/.ripmail`.
+ * Does not touch packaged-app bundle paths (`desktop:clean-data`) or standalone `~/.ripmail`.
  *
- * Usage: npm run brain:clean-dev [--dry-run]
+ * Usage: npm run brain:clean:dev [--dry-run]
  */
 
 import { rmSync, existsSync, readFileSync, realpathSync } from 'node:fs'
@@ -45,21 +45,21 @@ function sameResolvedPath(a, b) {
 
 if (target === bundledDefault || sameResolvedPath(target, bundledDefault)) {
   console.error(
-    '[brain:clean-dev] BRAIN_HOME points at the bundled default app directory. Use npm run tauri:clean-data instead (or unset BRAIN_HOME to wipe ./data).',
+    '[brain:clean:dev] BRAIN_HOME points at the bundled default app directory. Use npm run desktop:clean-data instead (or unset BRAIN_HOME to wipe ./data).',
   )
   process.exit(1)
 }
 
 if (!existsSync(target)) {
-  console.log(`[brain:clean-dev] nothing to remove (${target})`)
+  console.log(`[brain:clean:dev] nothing to remove (${target})`)
   process.exit(0)
 }
 
 if (dryRun) {
   console.log(`[dry-run] would remove ${target}`)
-  console.log('[brain:clean-dev] dry run only; omit --dry-run to delete')
+  console.log('[brain:clean:dev] dry run only; omit --dry-run to delete')
   process.exit(0)
 }
 
 rmSync(target, { recursive: true, force: true })
-console.log(`[brain:clean-dev] removed ${target}`)
+console.log(`[brain:clean:dev] removed ${target}`)
