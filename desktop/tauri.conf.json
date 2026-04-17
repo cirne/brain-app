@@ -5,7 +5,7 @@
   "identifier": "com.cirne.brain",
   "build": {
     "frontendDist": "http://localhost:18473",
-    "devUrl": "http://localhost:3000",
+    "devUrl": "http://localhost:18473",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build && npm run desktop:bundle-server"
   },
@@ -17,7 +17,7 @@
         "height": 900,
         "resizable": true,
         "fullscreen": false,
-        "url": "http://localhost:3000"
+        "url": "http://localhost:18473"
       }
     ],
     "security": {

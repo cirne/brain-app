@@ -38,7 +38,7 @@ Copy `[.env.example](.env.example)` to `.env` and edit. Variable names and inlin
 ```sh
 nvm use          # switches to Node 22
 npm install
-npm run dev      # starts Hono + Vite HMR on single port 3000
+npm run dev      # starts Hono + Vite HMR on single port 18473 (see docs/google-oauth.md)
 ```
 
 Single server: Vite runs as middleware inside Hono. API requests go to Hono routes; everything else goes to Vite for HMR.
@@ -54,7 +54,7 @@ npm run ripmail:dev            # cargo build -p ripmail (debug) — use before i
 npm run ripmail:build          # cargo build -p ripmail --release
 npm run ripmail:test           # cargo test -p ripmail
 npm run brain:clean:dev        # delete dev durable data: `./data` unless `BRAIN_HOME` is set (same tree as `npm run dev`; not packaged-app bundle paths)
-npm run desktop:dev            # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
+npm run desktop:dev            # Hono + Vite on :18473 + Tauri WebView → http://localhost:18473
 npm run desktop:build          # npm build + bundle server + Brain.app (+ DMG on macOS)
 npm run desktop:fresh          # `desktop:clean-data` + `desktop:build`, then opens the DMG (default) or `Brain.app` with `-- app` (macOS) — see `scripts/desktop-fresh.mjs`
 npm run desktop:clean-data     # delete packaged-app data: defaults from `shared/bundle-defaults.json`, or `$BRAIN_HOME` if set (+ macOS logs); not `./data` unless `BRAIN_HOME` points there
@@ -66,7 +66,7 @@ Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The packag
 
 **ripmail CLI + `RIPMAIL_HOME` (debugging, user repros):** The server runs `ripmail` with `RIPMAIL_HOME` set to Brain’s ripmail directory (`src/server/lib/brainHome.ts` → `ripmailHomeForBrain()`). In local dev, default `BRAIN_HOME` is `./data`, so that directory is **`./data/ripmail`** (see `shared/brain-layout.json`). When you invoke `ripmail` yourself (e.g. `who`, `search`, `status`), **point `RIPMAIL_HOME` at that path**—not `~/.ripmail`—or you will inspect the wrong mailbox/index. If `BRAIN_HOME` is overridden, use `$BRAIN_HOME/ripmail` (unless `RIPMAIL_HOME` is set explicitly).
 
-`tauri build` runs `npm run build && npm run desktop:bundle-server`, which copies `dist/`, production `node_modules`, the current `node` binary, and a **release-built `ripmail`** (from `cargo build -p ripmail --release`) into `desktop/resources/server-bundle/` (gitignored). The packaged app loads the UI from `http://localhost:3000` and starts that server via the bundled Node + `dist/server` (release only; dev still uses `npm run dev`). On macOS, `desktop/tauri.macos.conf.json` limits bundle output to **`dmg`** (instead of `all`).
+`tauri build` runs `npm run build && npm run desktop:bundle-server`, which copies `dist/`, production `node_modules`, the current `node` binary, and a **release-built `ripmail`** (from `cargo build -p ripmail --release`) into `desktop/resources/server-bundle/` (gitignored). The packaged app loads the UI from `http://localhost:18473` and starts that server via the bundled Node + `dist/server` (release only; dev still uses `npm run dev`). On macOS, `desktop/tauri.macos.conf.json` limits bundle output to **`dmg`** (instead of `all`).
 
 **Embedded API keys (release builds):** set `BRAIN_EMBED_MASTER_KEY` in the environment or in the workspace `.env` when running `tauri build`. The build script reads allowlisted keys from the repo `.env` (`ANTHROPIC_API_KEY`, other `*_API_KEY` for LLM providers, `EXA_API_KEY`, `SUPADATA_API_KEY`), encrypts them, and embeds ciphertext in the Rust binary; Rust decrypts at launch and injects `process.env` for the Node child (no decryption in TypeScript). CI should set `BRAIN_EMBED_MASTER_KEY` and the same API key secrets as env vars (or a generated `.env`) rather than committing secrets. If `BRAIN_EMBED_MASTER_KEY` is unset, the bundle still builds but ships without embedded keys (users would need local configuration for those APIs).
 

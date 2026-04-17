@@ -44,7 +44,15 @@ export function ripmailHomeForBrain(): string {
 
 /** Env for every `ripmail` subprocess so CLI resolves the same store as Brain (`data/ripmail` in dev). */
 export function ripmailProcessEnv(): typeof process.env {
-  return { ...process.env, RIPMAIL_HOME: ripmailHomeForBrain() }
+  const out = { ...process.env, RIPMAIL_HOME: ripmailHomeForBrain() } as typeof process.env
+  // Brain Gmail OAuth uses GOOGLE_OAUTH_*; ripmail refresh uses RIPMAIL_GOOGLE_OAUTH_* — align when only Brain vars are set.
+  const gid = out.RIPMAIL_GOOGLE_OAUTH_CLIENT_ID?.trim()
+  const gsec = out.RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET?.trim()
+  const brid = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim()
+  const bsec = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim()
+  if (!gid && brid) out.RIPMAIL_GOOGLE_OAUTH_CLIENT_ID = brid
+  if (!gsec && bsec) out.RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET = bsec
+  return out
 }
 
 export function calendarCacheDirResolved(): string {

@@ -2,7 +2,8 @@ import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
 
-const apiPort = process.env.PORT ?? '3000'
+/** Must match `BRAIN_DEFAULT_HTTP_PORT` / `npm run dev` server (see `src/server/lib/brainHttpPort.ts`). */
+const apiPort = process.env.PORT ?? '18473'
 
 export default defineConfig({
   root: 'src/client',

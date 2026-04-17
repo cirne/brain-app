@@ -12,8 +12,8 @@ export function isAddrInUse(err: unknown): boolean {
 
 export function duplicateDevListenMessage(port: number): string {
   return (
-    `[brain-app] Port ${port} already in use — skipping this process (use the terminal where ` +
-    `\`npm run dev\` is running for Hono/Vite logs). Tauri still opens http://localhost:${port}.`
+    `[brain-app] Port ${port} already in use — Brain requires this port (Gmail OAuth redirect is ` +
+    `registered for http://127.0.0.1:${port}/api/oauth/google/callback). Free the port or stop the other listener.`
   )
 }
 

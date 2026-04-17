@@ -17,18 +17,14 @@ import calendarRoute from './routes/calendar.js'
 import searchRoute from './routes/search.js'
 import imessageRoute from './routes/imessage.js'
 import onboardingRoute from './routes/onboarding.js'
+import gmailOAuthRoute from './routes/gmailOAuth.js'
 import devRoute from './routes/dev.js'
 import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
 import { runStartupChecks } from './lib/runStartupChecks.js'
 import { ensureBrainHomeGitignore } from './lib/brainHomeGitignore.js'
 import { ensureDefaultSkillsSeeded } from './lib/skillsSeeder.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
-import {
-  isBundledNativeServer,
-  nativeAppPortCandidates,
-  NATIVE_APP_PORT_END,
-  NATIVE_APP_PORT_START,
-} from './lib/nativeAppPort.js'
+import { isBundledNativeServer, NATIVE_APP_PORT_START } from './lib/nativeAppPort.js'
 import {
   duplicateDevListenMessage,
   isAddrInUse,
@@ -50,12 +46,17 @@ app.use('*', async (c, next) => {
   return requestLogger(c, next)
 })
 
-// Auth: required in production unless AUTH_DISABLED=true (e.g. private subnet)
+// Auth: required in production unless AUTH_DISABLED=true (e.g. private subnet).
+// Google OAuth callback must be reachable without browser basic auth.
 if (!isDev && process.env.AUTH_DISABLED !== 'true') {
-  app.use('/api/*', basicAuth({
+  const apiBasicAuth = basicAuth({
     username: process.env.AUTH_USER ?? 'lew',
     password: process.env.AUTH_PASS ?? 'changeme',
-  }))
+  })
+  app.use('/api/*', async (c, next) => {
+    if (c.req.path.startsWith('/api/oauth/google')) return next()
+    return apiBasicAuth(c, next)
+  })
 }
 
 app.route('/api/chat', chatRoute)
@@ -68,6 +69,7 @@ app.route('/api/search', searchRoute)
 app.route('/api/imessage', imessageRoute)
 app.route('/api/messages', imessageRoute)
 app.route('/api/onboarding', onboardingRoute)
+app.route('/api/oauth/google', gmailOAuthRoute)
 if (isDev) {
   app.route('/api/dev', devRoute)
 }
@@ -115,42 +117,40 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
 }
 
 function resolveNonNativePort(): number {
-  return parseInt(process.env.PORT ?? '3000', 10)
+  return parseInt(process.env.PORT ?? String(NATIVE_APP_PORT_START), 10)
 }
 
 /**
- * Bundled Tauri app: bind the first free port in the native range (constants; not `PORT` env).
+ * Bundled Tauri app: bind the canonical Brain port (same as OAuth redirect and `frontendDist`).
+ * Fails if another process already owns this port (no silent fallback).
  */
 async function listenNativeBundled(): Promise<ServerType> {
-  const candidates = nativeAppPortCandidates()
-  for (const p of candidates) {
-    const server = createAdaptorServer({ fetch: app.fetch })
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const onErr = (err: Error & { code?: string }) => {
-          server.removeListener('error', onErr)
-          reject(err)
-        }
-        server.once('error', onErr)
-        server.listen(p, () => {
-          server.removeListener('error', onErr)
-          resolve()
-        })
-      })
-      console.log(`Server running on http://localhost:${p}`)
-      return server
-    } catch (e) {
-      const err = e as Error & { code?: string }
-      server.close(() => {})
-      if (err.code === 'EADDRINUSE') {
-        continue
+  const p = NATIVE_APP_PORT_START
+  const server = createAdaptorServer({ fetch: app.fetch })
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const onErr = (err: Error & { code?: string }) => {
+        server.removeListener('error', onErr)
+        reject(err)
       }
-      throw e
+      server.once('error', onErr)
+      server.listen(p, () => {
+        server.removeListener('error', onErr)
+        resolve()
+      })
+    })
+    console.log(`Server running on http://localhost:${p}`)
+    return server
+  } catch (e) {
+    const err = e as Error & { code?: string }
+    server.close(() => {})
+    if (err.code === 'EADDRINUSE') {
+      throw new Error(
+        `[brain-app] Port ${p} is required (OAuth redirect + Tauri). Free 127.0.0.1:${p} or stop the other process using it.`,
+      )
     }
+    throw e
   }
-  throw new Error(
-    `[brain-app] no free port in native range ${NATIVE_APP_PORT_START}–${NATIVE_APP_PORT_END} (skip IANA TCP 18516). Close other listeners or free a port in this range.`,
-  )
 }
 
 async function start() {
@@ -166,8 +166,8 @@ async function start() {
       // would still start a second HMR WebSocket (e.g. :24678) and fight the first dev server.
       const portFree = await probeDevPortAvailable(port)
       if (!portFree) {
-        console.info(duplicateDevListenMessage(port))
-        process.exit(0)
+        console.error(duplicateDevListenMessage(port))
+        process.exit(1)
         return
       }
 
@@ -194,11 +194,11 @@ async function start() {
 
       server.once('error', (err: unknown) => {
         if (isAddrInUse(err)) {
-          console.info(duplicateDevListenMessage(port))
+          console.error(duplicateDevListenMessage(port))
           void vite
             .close()
-            .then(() => process.exit(0))
-            .catch(() => process.exit(0))
+            .then(() => process.exit(1))
+            .catch(() => process.exit(1))
           return
         }
         console.error(err)

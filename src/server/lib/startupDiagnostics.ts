@@ -1,3 +1,4 @@
+import { BRAIN_DEFAULT_HTTP_PORT } from './brainHttpPort.js'
 import { brainHome } from './brainHome.js'
 import { wikiDir } from './wikiDir.js'
 import { areLocalMessageToolsEnabled, initLocalMessageToolsAvailability } from './imessageDb.js'
@@ -18,7 +19,7 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
     )
   } else {
     log(
-      `NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} HTTP listen port=${listenPort ?? parseInt(process.env.PORT ?? '3000', 10)}`,
+      `NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} HTTP listen port=${listenPort ?? parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)}`,
     )
   }
   logFdaProbeForStartup(log)

@@ -26,7 +26,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 
 ## Production vs bundled native
 
-- **Normal production** (`NODE_ENV=production`, not Tauri): listen on `PORT` (default `3000`), static files from `dist/client`.
+- **Normal production** (`NODE_ENV=production`, not Tauri): listen on `PORT` (default `18473`), static files from `dist/client`.
 - **Bundled Brain.app** (`BRAIN_BUNDLED_NATIVE=1`): the server binds the **first free port** in a fixed range (see [`nativeAppPort.ts`](../../src/server/lib/nativeAppPort.ts)); `PORT` is not used for that mode.
 
 ## Auth

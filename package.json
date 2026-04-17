@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/run-dev.mjs",
-    "kill-dev": "for p in $(lsof -ti :3000 2>/dev/null); do kill -9 \"$p\"; done",
+    "kill-dev": "for p in $(lsof -ti :18473 2>/dev/null); do kill -9 \"$p\"; done",
+    "oauth:print-redirect-uri": "node scripts/print-google-oauth-redirect-uri.mjs",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "node scripts/build-server-bundle.mjs && node scripts/copy-user-skills.mjs",
