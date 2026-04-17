@@ -19,9 +19,9 @@ describe('aggregateSyncErrors', () => {
   it('uses json error or default when ok is false', () => {
     const wikiBad: PromiseFulfilledResult<SyncResponseBody> = {
       status: 'fulfilled',
-      value: { ok: false, error: 'pull failed' },
+      value: { ok: false, error: 'wiki unavailable' },
     }
-    expect(aggregateSyncErrors(wikiBad, ok, ok)).toEqual(['Docs: pull failed'])
+    expect(aggregateSyncErrors(wikiBad, ok, ok)).toEqual(['Docs: wiki unavailable'])
     const noMsg: PromiseFulfilledResult<SyncResponseBody> = {
       status: 'fulfilled',
       value: { ok: false },

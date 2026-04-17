@@ -1,7 +1,6 @@
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { wikiDir, repoDir } from './wikiDir.js'
-import { redactGitRemote } from './redactGitRemote.js'
 import { areLocalMessageToolsEnabled, initLocalMessageToolsAvailability } from './imessageDb.js'
 import { logFdaProbeForStartup } from './fdaProbe.js'
 import { parseRipmailStatusJson } from './ripmailStatusParse.js'
@@ -11,7 +10,7 @@ const execAsync = promisify(exec)
 
 const log = (line: string) => console.log(`[brain-app] ${line}`)
 
-/** One-shot logs for container / production debugging (paths, git, ripmail index). */
+/** One-shot logs for container / production debugging (paths, ripmail index). */
 export async function logStartupDiagnostics(listenPort?: number): Promise<void> {
   initLocalMessageToolsAvailability()
   const bundledNative = process.env.BRAIN_BUNDLED_NATIVE === '1'
@@ -28,21 +27,7 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
   const repo = repoDir()
   const wiki = wikiDir()
   log(`WIKI_DIR=${repo}`)
-  log(`wiki content dir=${wiki}${wiki === repo ? ' (repo root)' : ''}`)
-
-  try {
-    const { stdout: head } = await execAsync(`git -C ${JSON.stringify(repo)} rev-parse --short HEAD`)
-    log(`git HEAD=${head.trim()}`)
-  } catch {
-    log('git: not a repo or no commits')
-  }
-
-  try {
-    const { stdout: origin } = await execAsync(`git -C ${JSON.stringify(repo)} remote get-url origin`)
-    log(`git origin=${redactGitRemote(origin.trim())}`)
-  } catch {
-    log('git: no origin')
-  }
+  log(`wiki content dir=${wiki}${wiki === repo ? ' (content root)' : ''}`)
 
   const ripHome = process.env.RIPMAIL_HOME
   log(`RIPMAIL_HOME=${ripHome ?? '(unset → ~/.ripmail)'}`)

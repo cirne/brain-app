@@ -1,14 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
 import { join } from 'node:path'
-import { existsSync } from 'node:fs'
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
+import { mkdtemp, writeFile, mkdir, rm, utimes } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
-
-const execAsync = promisify(exec)
-
 // Fixtures shared across tests
 let wikiDir: string
 let app: Hono
@@ -137,221 +131,9 @@ describe('PATCH /api/wiki/:path', () => {
   })
 })
 
-describe('GET /api/wiki/git-status', () => {
-  it('returns expected shape for a non-git directory', async () => {
-    const res = await app.request('/api/wiki/git-status')
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    // temp dir is not a git repo — sha/date are null, numeric fields default to 0/false
-    expect(body).toMatchObject({ sha: null, date: null, dirty: 0, ahead: 0, behind: 0 })
-  })
-})
-
-describe('GET /api/wiki/git-status (git repo)', () => {
-  let repoDir: string
-  let gitApp: Hono
-
-  async function git(dir: string, cmd: string) {
-    return execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`)
-  }
-
-  beforeEach(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), 'wiki-git-status-'))
-    await execAsync(`git init -b main ${JSON.stringify(repoDir)}`)
-    await git(repoDir, 'config user.email "test@test.com"')
-    await git(repoDir, 'config user.name "Test"')
-    await writeFile(join(repoDir, 'index.md'), '# Home')
-    await git(repoDir, 'add index.md')
-    await git(repoDir, 'commit -m "init"')
-
-    process.env.WIKI_DIR = repoDir
-    vi.resetModules()
-    const { default: wikiRoute } = await import('./wiki.js')
-    gitApp = new Hono()
-    gitApp.route('/api/wiki', wikiRoute)
-  })
-
-  afterEach(async () => {
-    await rm(repoDir, { recursive: true, force: true })
-    delete process.env.WIKI_DIR
-    vi.resetModules()
-  })
-
-  it('reports sha and dirty=0 when the working tree is clean', async () => {
-    const res = await gitApp.request('/api/wiki/git-status')
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.sha).toMatch(/^[0-9a-f]+$/)
-    expect(body.date).toMatch(/^\d{4}-\d{2}-\d{2}/)
-    expect(body.dirty).toBe(0)
-    expect(body.changedFiles).toEqual([])
-    expect(body.ahead).toBe(0)
-    expect(body.behind).toBe(0)
-  })
-
-  it('reports dirty and changedFiles for untracked .md (flat wiki root)', async () => {
-    await writeFile(join(repoDir, 'new-note.md'), '# New')
-    const res = await gitApp.request('/api/wiki/git-status')
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.dirty).toBe(1)
-    expect(body.changedFiles).toEqual(['new-note.md'])
-  })
-
-  it('reports dirty for modified tracked .md', async () => {
-    await writeFile(join(repoDir, 'index.md'), '# Home\n\nedited')
-    const res = await gitApp.request('/api/wiki/git-status')
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.dirty).toBe(1)
-    expect(body.changedFiles).toEqual(['index.md'])
-  })
-
-  it('does not count untracked non-.md files', async () => {
-    await writeFile(join(repoDir, 'notes.txt'), 'plain')
-    const res = await gitApp.request('/api/wiki/git-status')
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.dirty).toBe(0)
-    expect(body.changedFiles).toEqual([])
-  })
-})
-
-describe('GET /api/wiki/git-status (git repo, wiki/ subtree)', () => {
-  let repoDir: string
-  let gitApp: Hono
-
-  async function git(dir: string, cmd: string) {
-    return execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`)
-  }
-
-  beforeEach(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), 'wiki-git-status-sub-'))
-    await execAsync(`git init -b main ${JSON.stringify(repoDir)}`)
-    await git(repoDir, 'config user.email "test@test.com"')
-    await git(repoDir, 'config user.name "Test"')
-    await mkdir(join(repoDir, 'wiki'), { recursive: true })
-    await writeFile(join(repoDir, 'wiki', 'a.md'), '# A')
-    await git(repoDir, 'add wiki/a.md')
-    await git(repoDir, 'commit -m "init"')
-
-    process.env.WIKI_DIR = repoDir
-    vi.resetModules()
-    const { default: wikiRoute } = await import('./wiki.js')
-    gitApp = new Hono()
-    gitApp.route('/api/wiki', wikiRoute)
-  })
-
-  afterEach(async () => {
-    await rm(repoDir, { recursive: true, force: true })
-    delete process.env.WIKI_DIR
-    vi.resetModules()
-  })
-
-  it('reports changedFiles relative to wiki/ and ignores .md outside wiki/', async () => {
-    await writeFile(join(repoDir, 'wiki', 'b.md'), '# B')
-    await writeFile(join(repoDir, 'README.md'), '# Root readme')
-    const res = await gitApp.request('/api/wiki/git-status')
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.dirty).toBe(1)
-    expect(body.changedFiles).toEqual(['b.md'])
-  })
-})
-
 describe('POST /api/wiki/sync', () => {
-  it('returns ok:false for a non-git directory', async () => {
+  it('returns ok:true (wiki is local files only; no git)', async () => {
     const res = await app.request('/api/wiki/sync', { method: 'POST' })
-    expect(res.status).toBe(500)
-    const body = await res.json()
-    expect(body.ok).toBe(false)
-    expect(typeof body.error).toBe('string')
-  })
-})
-
-describe('POST /api/wiki/sync (git repo)', () => {
-  let repoDir: string
-  let remoteDir: string
-  let gitApp: Hono
-
-  async function git(dir: string, cmd: string) {
-    return execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`)
-  }
-
-  beforeEach(async () => {
-    // Bare remote
-    remoteDir = await mkdtemp(join(tmpdir(), 'wiki-remote-'))
-    await execAsync(`git init --bare -b main ${JSON.stringify(remoteDir)}`)
-
-    // Clone as wiki repo
-    repoDir = await mkdtemp(join(tmpdir(), 'wiki-repo-'))
-    await execAsync(`git clone ${JSON.stringify(remoteDir)} ${JSON.stringify(repoDir)}`)
-    await git(repoDir, 'config user.email "test@test.com"')
-    await git(repoDir, 'config user.name "Test"')
-
-    // Initial commit so the repo has a HEAD and upstream
-    await writeFile(join(repoDir, 'README.md'), '# Wiki')
-    await git(repoDir, 'add -A')
-    await git(repoDir, 'commit -m "init"')
-    await git(repoDir, 'push -u origin main')
-
-    process.env.WIKI_DIR = repoDir
-    vi.resetModules()
-    const { default: wikiRoute } = await import('./wiki.js')
-    gitApp = new Hono()
-    gitApp.route('/api/wiki', wikiRoute)
-  })
-
-  afterEach(async () => {
-    await rm(repoDir, { recursive: true, force: true })
-    await rm(remoteDir, { recursive: true, force: true })
-    delete process.env.WIKI_DIR
-    vi.resetModules()
-  })
-
-  it('commits local changes and returns ok:true', async () => {
-    await writeFile(join(repoDir, 'new-note.md'), '# New Note')
-
-    const res = await gitApp.request('/api/wiki/sync', { method: 'POST' })
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.ok).toBe(true)
-
-    const { stdout } = await git(repoDir, 'log --oneline')
-    expect(stdout).toContain('auto-sync:')
-  })
-
-  it('pushes committed changes to remote', async () => {
-    await writeFile(join(repoDir, 'pushed-note.md'), '# Pushed')
-
-    await gitApp.request('/api/wiki/sync', { method: 'POST' })
-
-    const { stdout } = await git(remoteDir, 'log --oneline')
-    expect(stdout).toContain('auto-sync:')
-  })
-
-  it('pulls new commits from another clone then can push', async () => {
-    const otherDir = await mkdtemp(join(tmpdir(), 'wiki-other-'))
-    await execAsync(`git clone ${JSON.stringify(remoteDir)} ${JSON.stringify(otherDir)}`)
-    await git(otherDir, 'config user.email "test@test.com"')
-    await git(otherDir, 'config user.name "Test"')
-    await writeFile(join(otherDir, 'from-remote.md'), '# From remote')
-    await git(otherDir, 'add from-remote.md')
-    await git(otherDir, 'commit -m "add from other clone"')
-    await git(otherDir, 'push origin main')
-
-    expect(existsSync(join(repoDir, 'from-remote.md'))).toBe(false)
-
-    const res = await gitApp.request('/api/wiki/sync', { method: 'POST' })
-    expect(res.status).toBe(200)
-    expect((await res.json()).ok).toBe(true)
-    expect(existsSync(join(repoDir, 'from-remote.md'))).toBe(true)
-
-    await rm(otherDir, { recursive: true, force: true })
-  })
-
-  it('returns ok:true with no local changes', async () => {
-    const res = await gitApp.request('/api/wiki/sync', { method: 'POST' })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.ok).toBe(true)
@@ -490,72 +272,19 @@ describe('GET /api/wiki/edit-history', () => {
   })
 })
 
-describe('GET /api/wiki/recent (non-git)', () => {
-  it('returns empty files for a non-git directory', async () => {
+describe('GET /api/wiki/recent', () => {
+  it('returns markdown files ordered by newest mtime first', async () => {
+    const old = new Date('2020-01-01')
+    const newer = new Date('2025-06-01')
+    await utimes(join(wikiDir, 'index.md'), old, old)
+    await utimes(join(wikiDir, 'note.md'), old, old)
+    await utimes(join(wikiDir, 'ideas/foo.md'), newer, newer)
+
     const res = await app.request('/api/wiki/recent')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toEqual({ files: [] })
-  })
-})
-
-describe('GET /api/wiki/recent (git repo)', () => {
-  let repoDir: string
-  let gitApp: Hono
-
-  async function git(dir: string, cmd: string) {
-    return execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`)
-  }
-
-  beforeEach(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), 'wiki-recent-'))
-    await execAsync(`git init -b main ${JSON.stringify(repoDir)}`)
-    await git(repoDir, 'config user.email "test@test.com"')
-    await git(repoDir, 'config user.name "Test"')
-
-    // First commit
-    await writeFile(join(repoDir, 'first.md'), '# First')
-    await git(repoDir, 'add -A')
-    await git(repoDir, 'commit -m "add first"')
-
-    // Second commit
-    await writeFile(join(repoDir, 'second.md'), '# Second')
-    await git(repoDir, 'add -A')
-    await git(repoDir, 'commit -m "add second"')
-
-    process.env.WIKI_DIR = repoDir
-    vi.resetModules()
-    const { default: wikiRoute } = await import('./wiki.js')
-    gitApp = new Hono()
-    gitApp.route('/api/wiki', wikiRoute)
-  })
-
-  afterEach(async () => {
-    await rm(repoDir, { recursive: true, force: true })
-    delete process.env.WIKI_DIR
-    vi.resetModules()
-  })
-
-  it('returns recently committed .md files', async () => {
-    const res = await gitApp.request('/api/wiki/recent')
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.files).toHaveLength(2)
-    expect(body.files[0]).toMatchObject({ path: 'second.md', date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) })
-    expect(body.files[1]).toMatchObject({ path: 'first.md', date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) })
-  })
-
-  it('deduplicates files across commits', async () => {
-    // Modify first.md again
-    await writeFile(join(repoDir, 'first.md'), '# First updated')
-    await git(repoDir, 'add -A')
-    await git(repoDir, 'commit -m "update first"')
-
-    const res = await gitApp.request('/api/wiki/recent')
-    const body = await res.json()
-    const paths = body.files.map((f: any) => f.path)
-    // first.md should only appear once
-    expect(paths.filter((p: string) => p === 'first.md')).toHaveLength(1)
+    expect(body.files[0]?.path).toBe('ideas/foo.md')
+    expect(body.files[0]?.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 })
 

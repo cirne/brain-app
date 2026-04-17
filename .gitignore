@@ -8,6 +8,8 @@ dist/
 .DS_Store
 *.tsbuildinfo
 data/
+# Local wiki tree (markdown); not part of this app repo
+wiki/
 coverage/
 target/
 desktop/binaries/ripmail-*

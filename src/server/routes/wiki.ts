@@ -4,8 +4,8 @@ import { join, basename, resolve, relative, dirname } from 'node:path'
 import { marked } from 'marked'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { repoDir, wikiDir } from '../lib/wikiDir.js'
-import { listWikiFiles } from '../lib/wikiFiles.js'
+import { wikiDir } from '../lib/wikiDir.js'
+import { listWikiFiles, recentWikiFilesByMtime } from '../lib/wikiFiles.js'
 import { readRecentWikiEdits } from '../lib/wikiEditHistory.js'
 import { syncWikiFromDisk } from '../lib/syncAll.js'
 
@@ -38,50 +38,7 @@ wiki.get('/search', async (c) => {
   }
 })
 
-// GET /api/wiki/git-status — repo sync info
-wiki.get('/git-status', async (c) => {
-  try {
-    const dir = repoDir()
-    const { stdout: sha } = await execAsync(`git -C ${JSON.stringify(dir)} rev-parse --short HEAD`)
-    const { stdout: date } = await execAsync(`git -C ${JSON.stringify(dir)} log -1 --format=%ci`)
-
-    let dirty = 0
-    let changedFiles: string[] = []
-    let ahead = 0
-    let behind = 0
-    try {
-      // -uall expands untracked directories into individual files
-      const { stdout } = await execAsync(`git -C ${JSON.stringify(dir)} status --porcelain -uall`)
-      const lines = stdout.split('\n').filter(Boolean)
-      // Parse paths relative to wikiDir, filtering to .md files only
-      const wikiPrefix = relative(dir, wikiDir())
-      const prefix = wikiPrefix ? wikiPrefix + '/' : ''
-      changedFiles = lines
-        .map(line => {
-          let p = line.slice(3).trim()
-          if (p.includes(' -> ')) p = p.split(' -> ')[1].trim()
-          return p
-        })
-        .filter(p => p.endsWith('.md') && (!prefix || p.startsWith(prefix)))
-        .map(p => prefix ? p.slice(prefix.length) : p)
-      dirty = changedFiles.length
-    } catch { /* not a git repo or no commits */ }
-    try {
-      const { stdout } = await execAsync(`git -C ${JSON.stringify(dir)} rev-list @{u}..HEAD --count`)
-      ahead = parseInt(stdout.trim(), 10) || 0
-    } catch { /* no upstream */ }
-    try {
-      const { stdout } = await execAsync(`git -C ${JSON.stringify(dir)} rev-list HEAD..@{u} --count`)
-      behind = parseInt(stdout.trim(), 10) || 0
-    } catch { /* no upstream */ }
-
-    return c.json({ sha: sha.trim(), date: date.trim(), dirty, changedFiles, ahead, behind })
-  } catch {
-    return c.json({ sha: null, date: null, dirty: 0, changedFiles: [], ahead: 0, behind: 0 })
-  }
-})
-
-// POST /api/wiki/sync — commit local changes, pull --rebase, push (UI “sync” saves wiki edits to git).
+// POST /api/wiki/sync — no-op (wiki is local files only; inbox/calendar sync run separately).
 wiki.post('/sync', async (c) => {
   const result = await syncWikiFromDisk()
   if (result.ok) return c.json({ ok: true })
@@ -143,41 +100,11 @@ wiki.get('/edit-history', async (c) => {
   return c.json({ files })
 })
 
-// GET /api/wiki/recent — recently committed .md files (deduped, most-recent-first)
+// GET /api/wiki/recent — recently modified .md files (by filesystem mtime), deduped, newest first
 wiki.get('/recent', async (c) => {
   try {
-    const dir = repoDir()
-    const wikiDirPath = wikiDir()
-    const wikiPrefix = relative(dir, wikiDirPath)
-    const prefix = wikiPrefix ? wikiPrefix + '/' : ''
-
-    // Each commit block: a sentinel line then file names
-    const { stdout } = await execAsync(
-      `git -C ${JSON.stringify(dir)} log --diff-filter=AM --name-only --pretty=format:"---COMMIT %ad---" --date=short -n 50 -- "*.md"`,
-      { timeout: 5000 }
-    )
-
-    const seen = new Set<string>()
-    const files: { path: string; date: string }[] = []
-    let currentDate = ''
-
-    for (const line of stdout.split('\n')) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
-      if (trimmed.startsWith('---COMMIT ')) {
-        currentDate = trimmed.slice(10, 20) // YYYY-MM-DD
-      } else if (trimmed.endsWith('.md')) {
-        const filePath = prefix
-          ? trimmed.startsWith(prefix) ? trimmed.slice(prefix.length) : null
-          : trimmed
-        if (filePath && !seen.has(filePath)) {
-          seen.add(filePath)
-          files.push({ path: filePath, date: currentDate })
-          if (files.length >= 10) break
-        }
-      }
-    }
-
+    const dir = wikiDir()
+    const files = await recentWikiFilesByMtime(dir, 10)
     return c.json({ files })
   } catch {
     return c.json({ files: [] })

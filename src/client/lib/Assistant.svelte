@@ -91,28 +91,6 @@
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
 
-  let recentEditFiles = $state<{ path: string; date: string }[]>([])
-  let dirtyFiles = $state<string[]>([])
-  let showRecentFiles = $state(false)
-
-  const recentFiles = $derived(recentEditFiles)
-
-  async function loadWikiEditHistory() {
-    try {
-      const res = await fetch('/api/wiki/edit-history?limit=10')
-      const data = await res.json()
-      recentEditFiles = data.files ?? []
-    } catch { /* ignore */ }
-  }
-
-  async function loadGitStatus() {
-    try {
-      const res = await fetch('/api/wiki/git-status')
-      const data = await res.json()
-      dirtyFiles = data.changedFiles ?? []
-    } catch { /* ignore */ }
-  }
-
   onMount(() => {
     const mq = window.matchMedia('(max-width: 767px)')
     const syncMobile = () => { isMobile = mq.matches }
@@ -130,8 +108,6 @@
       sidebarOpen = prefs.sidebarOpen ?? true
     }
 
-    loadWikiEditHistory()
-    loadGitStatus()
     const onPopState = () => { route = parseRoute() }
     window.addEventListener('popstate', onPopState)
     const onKeydown = (e: KeyboardEvent) => {
@@ -200,15 +176,11 @@
   $effect(() => {
     return subscribe((e) => {
       if (e.type === 'wiki:mutated') {
-        void loadWikiEditHistory()
-        void loadGitStatus()
         wikiRefreshKey++
         onWikiMutatedForAutoSync()
       } else if (e.type === 'sync:completed') {
         calendarRefreshKey++
         wikiRefreshKey++
-        void loadWikiEditHistory()
-        void loadGitStatus()
       }
     })
   })
@@ -444,15 +416,10 @@
     {isMobile}
     sidebarOpen={sidebarOpen}
     onToggleSidebar={toggleSidebar}
-    {dirtyFiles}
-    {recentFiles}
-    {showRecentFiles}
     {syncing}
     {syncErrors}
     {showSyncErrors}
     onOpenSearch={() => { showSearch = true }}
-    onToggleRecentFiles={() => { showRecentFiles = !showRecentFiles }}
-    onOpenWikiFromList={(path) => { openWikiDoc(path); showRecentFiles = false }}
     onSync={syncAll}
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
   />

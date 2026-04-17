@@ -2,7 +2,14 @@ import { writeFile, chmod, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, it, expect, afterEach } from 'vitest'
-import { getSyncIntervalMs, syncCalendarFromEnv, syncInboxRipmail } from './syncAll.js'
+import { getSyncIntervalMs, syncCalendarFromEnv, syncInboxRipmail, syncWikiFromDisk } from './syncAll.js'
+
+describe('syncWikiFromDisk', () => {
+  it('always succeeds (no git)', async () => {
+    const r = await syncWikiFromDisk()
+    expect(r).toEqual({ ok: true })
+  })
+})
 
 describe('getSyncIntervalMs', () => {
   const orig = process.env.SYNC_INTERVAL_SECONDS

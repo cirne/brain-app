@@ -20,8 +20,8 @@ export const wikiDir = () => {
 
 /**
  * Remove all wiki files and subdirs (dev hard-reset). Recreates an empty wiki content root.
- * When `wiki/` exists under the repo, only that subtree is removed (git metadata at repo root stays).
- * When the repo root is the wiki root, removes all top-level entries except `.git`.
+ * When `wiki/` exists under `WIKI_DIR`, only that subtree is removed.
+ * When `WIKI_DIR` is the content root itself, removes all top-level entries except `.git` (if present).
  */
 export async function wipeWikiContent(): Promise<void> {
   const contentRoot = wikiDir()

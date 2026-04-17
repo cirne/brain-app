@@ -1,9 +1,7 @@
-import { exec, spawn } from 'node:child_process'
-import { promisify } from 'node:util'
+import { spawn } from 'node:child_process'
 import { parseICS, writeCache } from './calendarCache.js'
+import { formatExecError } from './execError.js'
 import { ripmailBin } from './ripmailBin.js'
-
-const execAsync = promisify(exec)
 
 export interface SyncComponentResult {
   ok: boolean
@@ -24,36 +22,12 @@ async function fetchAndCacheCalendar(source: 'travel' | 'personal', url: string)
   await writeCache(source, events)
 }
 
-/** Commit if dirty, pull --rebase --autostash, push (same as POST /api/wiki/sync). */
+/**
+ * Wiki content is plain files on disk (no git backup or remote sync).
+ * Kept as a no-op so full sync and POST /api/wiki/sync still succeed.
+ */
 export async function syncWikiFromDisk(): Promise<SyncComponentResult> {
-  const dir = repoDir()
-  const git = (cmd: string) =>
-    execAsync(`git -C ${JSON.stringify(dir)} ${cmd}`, {
-      timeout: 120000,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
-    })
-  try {
-    await git('add -A')
-    const { stdout: status } = await git('status --porcelain')
-    if (status.trim()) {
-      const date = new Date().toISOString().slice(0, 16).replace('T', ' ')
-      await git(`commit -m ${JSON.stringify(`auto-sync: ${date}`)}`)
-    }
-
-    await git('pull --rebase --autostash')
-
-    try {
-      await git('push')
-    } catch {
-      /* nothing to push or no upstream */
-    }
-
-    return { ok: true }
-  } catch (e) {
-    const detail = formatExecError(e)
-    console.error('[brain-app] wiki sync failed:', detail)
-    return { ok: false, error: detail }
-  }
+  return { ok: true }
 }
 
 /**

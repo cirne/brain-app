@@ -58,27 +58,13 @@
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
 
-  let recentEditFiles = $state<{ path: string; date: string }[]>([])
-  let dirtyFiles = $state<string[]>([])
-  let showRecentFiles = $state(false)
-
   /** Seeding-only: hide bottom bar after the seed stream completes (terminal done or abort). */
   let seedingRunComplete = $state(false)
   let seedStatusPageCount = $state(0)
   let seedLastDocPath = $state<string | null>(null)
   let agentStreaming = $state(false)
 
-  const recentFiles = $derived(recentEditFiles)
-
   const showSeedingStatusBar = $derived(isSeedingWiki && !seedingRunComplete)
-
-  async function loadWikiEditHistory() {
-    try {
-      const res = await fetch('/api/wiki/edit-history?limit=10')
-      const data = await res.json()
-      recentEditFiles = data.files ?? []
-    } catch { /* ignore */ }
-  }
 
   async function refreshSeedWikiStatus() {
     if (!isSeedingWiki) return
@@ -105,22 +91,12 @@
     await onStreamFinished?.()
   }
 
-  async function loadGitStatus() {
-    try {
-      const res = await fetch('/api/wiki/git-status')
-      const data = await res.json()
-      dirtyFiles = data.changedFiles ?? []
-    } catch { /* ignore */ }
-  }
-
   onMount(() => {
     const mq = window.matchMedia('(max-width: 767px)')
     const syncMobile = () => { isMobile = mq.matches }
     syncMobile()
     mq.addEventListener('change', syncMobile)
 
-    loadWikiEditHistory()
-    loadGitStatus()
     if (chatEndpoint === '/api/onboarding/seed') {
       void refreshSeedWikiStatus()
     }
@@ -259,15 +235,11 @@
   $effect(() => {
     return subscribe((e) => {
       if (e.type === 'wiki:mutated') {
-        void loadWikiEditHistory()
-        void loadGitStatus()
         wikiRefreshKey++
         if (isSeedingWiki) void refreshSeedWikiStatus()
       } else if (e.type === 'sync:completed') {
         calendarRefreshKey++
         wikiRefreshKey++
-        void loadWikiEditHistory()
-        void loadGitStatus()
       }
     })
   })
@@ -344,15 +316,10 @@
   <AppTopNav
     showChatHistoryButton={false}
     onToggleSidebar={noopSidebar}
-    {dirtyFiles}
-    {recentFiles}
-    {showRecentFiles}
     {syncing}
     {syncErrors}
     {showSyncErrors}
     onOpenSearch={() => { showSearch = true }}
-    onToggleRecentFiles={() => { showRecentFiles = !showRecentFiles }}
-    onOpenWikiFromList={(path) => { openWikiDoc(path); showRecentFiles = false }}
     onSync={syncAll}
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
   />
