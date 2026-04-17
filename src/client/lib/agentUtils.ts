@@ -118,7 +118,7 @@ export const TOOL_UI_POLICIES: Record<string, ToolUiPolicy> = {
   edit: { showInChat: true, streamToDetail: 'wiki', autoOpen: true, label: 'Editing file' },
   set_chat_title: { showInChat: false },
   open: { showInChat: true, autoOpen: true, label: 'Opening' },
-  read_email: { showInChat: true, autoOpen: true, label: 'Reading email' },
+  read_doc: { showInChat: true, autoOpen: true, label: 'Reading' },
 }
 
 export function getToolUiPolicy(name: string): ToolUiPolicy {

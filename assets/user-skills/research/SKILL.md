@@ -40,7 +40,7 @@ args: >-
 3. **Synthesize** — Structured markdown: facts vs inference clearly separated. Link to related wiki pages instead of repeating them.
 4. **DRY** — If a fact already lives on another page, one sentence + link; do not fork canonical content.
 5. **Size** — Fit the main page in budget; split or move detail to linked pages when needed.
-6. **Links** — Internal wikilinks plus external citations where appropriate; repair or avoid broken refs before saving.
+6. **Links** — Internal cross-links use Obsidian-style `[[wikilinks]]` (no `.md`, e.g. `[[people/jane-doe]]` or `[[projects/foo|Foo]]`); external citations use standard `[label](https://…)` markdown. Repair or avoid broken refs before saving.
 7. **Gaps** — State what you could not verify.
 8. **Apply** — Save through the normal wiki edit flow (multiple files if split). Do not deliver only a proposal unless the user asked for notes without publishing.
 

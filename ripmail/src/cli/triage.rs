@@ -11,9 +11,10 @@ use ripmail::{
     inbox_rules_fingerprint_for_scope, mailbox_ids_for_default_search,
     mailbox_needs_first_backfill, mark_first_backfill_completed, parse_inbox_window_to_iso_cutoff,
     print_review_text, read_ripmail_env_file, resolve_mailbox_spec, resolve_sync_folder_for_host,
-    resolve_sync_since_ymd, run_applemail_sync, run_inbox_scan, DeterministicInboxClassifier,
-    InboxSurfaceMode, MailboxImapAuthKind, ResolvedMailbox, RunInboxScanOptions, SyncDirection,
-    SyncFileLogger, SyncMailboxSummary, SyncOptions, SyncResult,
+    resolve_sync_since_ymd, run_applemail_sync, run_inbox_scan, run_local_dir_sync,
+    DeterministicInboxClassifier, InboxSurfaceMode, MailboxImapAuthKind, ResolvedMailbox,
+    RunInboxScanOptions, SourceKind, SyncDirection, SyncFileLogger, SyncMailboxSummary,
+    SyncOptions, SyncResult,
 };
 
 fn mailbox_imap_ready(home: &std::path::Path, mb: &ResolvedMailbox) -> bool {
@@ -27,6 +28,13 @@ fn mailbox_imap_ready(home: &std::path::Path, mb: &ResolvedMailbox) -> bool {
 }
 
 fn mailbox_sync_ready(home: &std::path::Path, mb: &ResolvedMailbox) -> bool {
+    if mb.kind == SourceKind::LocalDir {
+        return mb
+            .local_dir
+            .as_ref()
+            .map(|l| l.root.is_dir())
+            .unwrap_or(false);
+    }
     if mb.apple_mail_root.is_some() {
         return mb
             .apple_mail_root
@@ -41,7 +49,7 @@ pub(crate) trait InboxCliArgs {
     fn surface_mode(&self) -> InboxSurfaceMode;
     fn window(&self) -> Option<String>;
     fn since(&self) -> Option<String>;
-    /// `ripmail inbox --mailbox` filter (email or id).
+    /// `ripmail inbox --source` filter (email or id).
     fn mailbox_spec(&self) -> Option<&str>;
     fn replay(&self) -> bool;
     fn include_all(&self) -> bool;
@@ -66,7 +74,7 @@ impl InboxCliArgs for InboxArgs {
     }
 
     fn mailbox_spec(&self) -> Option<&str> {
-        self.mailbox
+        self.source
             .as_deref()
             .map(str::trim)
             .filter(|s| !s.is_empty())
@@ -150,22 +158,22 @@ fn mailboxes_to_run(
     mailbox_filter: Option<&str>,
 ) -> Result<Vec<ResolvedMailbox>, Box<dyn std::error::Error>> {
     let list: Vec<&ResolvedMailbox> = if let Some(spec) = mailbox_filter {
-        let m = resolve_mailbox_spec(&cfg.resolved_mailboxes, spec).ok_or_else(|| {
+        let m = resolve_mailbox_spec(cfg.resolved_mailboxes(), spec).ok_or_else(|| {
             format!(
-                "Unknown mailbox {spec:?}. Configured: {}",
-                cfg.resolved_mailboxes
+                "Unknown source {spec:?}. Configured ids: {}",
+                cfg.resolved_mailboxes()
                     .iter()
-                    .map(|x| x.email.as_str())
+                    .map(|x| x.id.as_str())
                     .collect::<Vec<_>>()
                     .join(", ")
             )
         })?;
         vec![m]
     } else {
-        cfg.resolved_mailboxes.iter().collect()
+        cfg.resolved_mailboxes().iter().collect()
     };
     if list.is_empty() {
-        return Err("No mailboxes configured. Run `ripmail setup`.".into());
+        return Err("No sources configured. Run `ripmail setup` or `ripmail sources add`.".into());
     }
     Ok(list.into_iter().cloned().collect())
 }
@@ -264,13 +272,34 @@ pub(crate) fn run_sync_foreground_backward(
     let sync_mailbox = cfg.sync_mailbox.clone();
     for mb in &to_run {
         if !mailbox_sync_ready(&home, mb) {
-            eprintln!(
-                "ripmail: skipping {} (missing IMAP credentials or Apple Mail Envelope Index)",
-                mb.id
-            );
+            if mb.kind == SourceKind::LocalDir {
+                eprintln!(
+                    "ripmail: skipping {} (localDir root missing or not a directory)",
+                    mb.id
+                );
+            } else {
+                eprintln!(
+                    "ripmail: skipping {} (missing IMAP credentials or Apple Mail Envelope Index)",
+                    mb.id
+                );
+            }
             continue;
         }
         let mailbox_id = mb.id.clone();
+        if mb.kind == SourceKind::LocalDir {
+            eprintln!("ripmail: indexing local directory {}…", mb.id);
+            let result = run_local_dir_sync(&mut conn, mb, true)?;
+            summaries.push(SyncMailboxSummary {
+                id: mb.id.clone(),
+                email: String::new(),
+                synced: result.synced,
+                messages_fetched: result.messages_fetched,
+                bytes_downloaded: result.bytes_downloaded,
+                duration_ms: result.duration_ms,
+            });
+            runs.push(result);
+            continue;
+        }
         if mb.apple_mail_root.is_some() {
             eprintln!("ripmail: indexing Apple Mail for {}…", mb.email);
             let result = run_applemail_sync(&mut conn, &logger, mb, &since_ymd, true, verbose)?;
@@ -348,14 +377,37 @@ pub(crate) fn run_sync_foreground_refresh(
     for mb in &to_run {
         if !mailbox_sync_ready(&home, mb) {
             if progress_stderr {
-                eprintln!(
-                    "ripmail: skipping {} (missing IMAP credentials or Apple Mail Envelope Index)",
-                    mb.id
-                );
+                if mb.kind == SourceKind::LocalDir {
+                    eprintln!(
+                        "ripmail: skipping {} (localDir root missing or not a directory)",
+                        mb.id
+                    );
+                } else {
+                    eprintln!(
+                        "ripmail: skipping {} (missing IMAP credentials or Apple Mail Envelope Index)",
+                        mb.id
+                    );
+                }
             }
             continue;
         }
         let mailbox_id = mb.id.clone();
+        if mb.kind == SourceKind::LocalDir {
+            if progress_stderr {
+                eprintln!("ripmail: indexing local directory {}…", mb.id);
+            }
+            let result = run_local_dir_sync(&mut conn, mb, progress_stderr)?;
+            summaries.push(SyncMailboxSummary {
+                id: mb.id.clone(),
+                email: String::new(),
+                synced: result.synced,
+                messages_fetched: result.messages_fetched,
+                bytes_downloaded: result.bytes_downloaded,
+                duration_ms: result.duration_ms,
+            });
+            runs.push(result);
+            continue;
+        }
         if mb.apple_mail_root.is_some() {
             if progress_stderr {
                 eprintln!("ripmail: indexing Apple Mail for {}…", mb.email);
@@ -460,7 +512,7 @@ pub(crate) fn run_triage_command(cfg: &ripmail::Config, args: &impl InboxCliArgs
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids,
+        source_ids: mailbox_ids,
     };
 
     let scan = run_triage_scan(cfg, args, &opts)?;
@@ -488,7 +540,7 @@ pub(crate) fn run_triage_command(cfg: &ripmail::Config, args: &impl InboxCliArgs
         &hints,
         args.inbox_json_full_detail(),
         &mailbox_order,
-        &opts.mailbox_ids,
+        &opts.source_ids,
         &scan.candidate_count_by_mailbox,
         &indexed_in_window,
         &total_unarchived,
@@ -515,14 +567,14 @@ fn mailbox_order_for_inbox_json(
         scan_mailbox_ids
             .iter()
             .filter_map(|id| {
-                cfg.resolved_mailboxes
+                cfg.resolved_mailboxes()
                     .iter()
                     .find(|m| m.id == *id)
                     .map(|m| (m.id.clone(), m.email.clone()))
             })
             .collect()
     } else {
-        cfg.resolved_mailboxes
+        cfg.resolved_mailboxes()
             .iter()
             .map(|m| (m.id.clone(), m.email.clone()))
             .collect()
@@ -531,12 +583,12 @@ fn mailbox_order_for_inbox_json(
 
 fn inbox_scan_mailbox_ids(cfg: &ripmail::Config, args: &impl InboxCliArgs) -> Vec<String> {
     if let Some(spec) = args.mailbox_spec() {
-        if let Some(mb) = resolve_mailbox_spec(&cfg.resolved_mailboxes, spec) {
+        if let Some(mb) = resolve_mailbox_spec(cfg.resolved_mailboxes(), spec) {
             return vec![mb.id.clone()];
         }
         eprintln!(
             "Unknown mailbox {spec:?}. Configured: {}",
-            cfg.resolved_mailboxes
+            cfg.resolved_mailboxes()
                 .iter()
                 .map(|m| m.email.as_str())
                 .collect::<Vec<_>>()
@@ -544,7 +596,7 @@ fn inbox_scan_mailbox_ids(cfg: &ripmail::Config, args: &impl InboxCliArgs) -> Ve
         );
         std::process::exit(1);
     }
-    mailbox_ids_for_default_search(&cfg.resolved_mailboxes)
+    mailbox_ids_for_default_search(cfg.resolved_mailboxes())
 }
 
 fn run_triage_scan(
@@ -556,8 +608,7 @@ fn run_triage_scan(
     let owner = (!cfg.imap_user.trim().is_empty()).then(|| cfg.imap_user.clone());
     let home = ripmail_home_path();
     let mut scan_opts = opts.clone();
-    scan_opts.rules_fingerprint =
-        Some(inbox_rules_fingerprint_for_scope(&home, &opts.mailbox_ids)?);
+    scan_opts.rules_fingerprint = Some(inbox_rules_fingerprint_for_scope(&home, &opts.source_ids)?);
     scan_opts.owner_address = owner;
 
     let mut classifier = DeterministicInboxClassifier::new_for_home(&conn, &home, &scan_opts)?;

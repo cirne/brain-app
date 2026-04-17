@@ -9,8 +9,9 @@ fn write_oauth_mailbox_home(home: &std::path::Path, with_token_file: bool) {
     fs::create_dir_all(home.join("data").join("drafts")).unwrap();
     let mailbox_id = "oauthuser_example_com";
     let config = serde_json::json!({
-        "mailboxes": [{
+        "sources": [{
             "id": mailbox_id,
+            "kind": "imap",
             "email": "oauthuser@example.com",
             "imapAuth": "googleOAuth",
             "imap": { "host": "imap.gmail.com", "port": 993 }

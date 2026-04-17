@@ -194,9 +194,9 @@ pub(crate) enum Commands {
         /// Same as `--since` with the value from `sync.defaultSince` in config (explicit backfill)
         #[arg(long, alias = "init", conflicts_with_all = ["since", "duration"])]
         backfill: bool,
-        /// Sync only this mailbox (email or `mailbox_id` from config); default = all configured
-        #[arg(long)]
-        mailbox: Option<String>,
+        /// Sync only this source (email or id from config); default = all configured
+        #[arg(long, short = 'S')]
+        source: Option<String>,
         #[arg(long, alias = "fg")]
         foreground: bool,
         #[arg(long)]
@@ -231,8 +231,8 @@ pub(crate) enum Commands {
         /// Only messages on or before this date (ISO or rolling spec)
         #[arg(long)]
         before: Option<String>,
-        #[arg(long)]
-        mailbox: Option<String>,
+        #[arg(long, short = 'S')]
+        source: Option<String>,
         #[arg(long)]
         include_all: bool,
         #[arg(long)]
@@ -251,8 +251,8 @@ pub(crate) enum Commands {
         query: Option<String>,
         #[arg(long, default_value_t = 50)]
         limit: usize,
-        #[arg(long)]
-        mailbox: Option<String>,
+        #[arg(long, short = 'S')]
+        source: Option<String>,
         #[arg(long)]
         include_noreply: bool,
         #[arg(long)]
@@ -261,16 +261,19 @@ pub(crate) enum Commands {
     /// Configured identity (name, addresses) plus optional inference from indexed mail
     #[command(name = "whoami")]
     Whoami {
-        /// Limit to one mailbox (email or mailbox id from config)
-        #[arg(long)]
-        mailbox: Option<String>,
+        /// Limit to one source (email or id from config)
+        #[arg(long, short = 'S')]
+        source: Option<String>,
         #[arg(long)]
         text: bool,
     },
     /// Read one or more messages (raw .eml or headers + body); multiple ids = batch (JSON array, text with separators)
     Read {
-        #[arg(value_name = "MESSAGE_ID", num_args = 1..)]
+        #[arg(value_name = "TARGET", num_args = 1..)]
         message_ids: Vec<String>,
+        /// Narrow Message-ID resolution when ambiguous; ignored for filesystem paths
+        #[arg(long, short = 'S')]
+        source: Option<String>,
         #[arg(long)]
         raw: bool,
         #[arg(long, conflicts_with = "text")]
@@ -306,6 +309,8 @@ pub(crate) enum Commands {
         /// One or more RFC Message-IDs
         #[arg(required = true)]
         message_ids: Vec<String>,
+        #[arg(long, short = 'S')]
+        source: Option<String>,
         #[arg(long)]
         undo: bool,
     },
@@ -324,6 +329,8 @@ pub(crate) enum Commands {
         bcc: Option<String>,
         #[arg(long)]
         dry_run: bool,
+        #[arg(long, short = 'S')]
+        source: Option<String>,
         #[arg(long)]
         text: bool,
     },
@@ -337,10 +344,15 @@ pub(crate) enum Commands {
     #[command(after_long_help = RULES_CMD_AFTER_LONG_HELP)]
     Rules {
         /// Target `~/.ripmail/<id>/rules.json` overlay (email or id); omit for global `rules.json`
-        #[arg(long)]
-        mailbox: Option<String>,
+        #[arg(long, short = 'S')]
+        source: Option<String>,
         #[command(subcommand)]
         sub: RulesCmd,
+    },
+    /// List or manage configured sources (IMAP, Apple Mail, local directory)
+    Sources {
+        #[command(subcommand)]
+        sub: SourcesCmd,
     },
     /// Database counts
     Stats {
@@ -356,6 +368,65 @@ pub(crate) enum Commands {
 pub(crate) enum SkillCmd {
     /// Copy the embedded `/ripmail` skill to Claude Code and OpenClaw (when configured)
     Install,
+}
+
+/// `ripmail sources` — CRUD for `config.json` `sources[]`.
+#[derive(Subcommand)]
+pub(crate) enum SourcesCmd {
+    /// List all sources
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Add a source (prints JSON `{"id":"..."}` on success when `--json`)
+    Add {
+        /// `imap` | `applemail` | `localDir` (camelCase)
+        #[arg(long)]
+        kind: String,
+        /// Required for `localDir`: root directory to index
+        #[arg(long)]
+        path: Option<String>,
+        /// Optional display label (used to derive id when omitted)
+        #[arg(long)]
+        label: Option<String>,
+        /// Stable id (default: derived from email or label or path)
+        #[arg(long)]
+        id: Option<String>,
+        /// Required for `imap`: account email
+        #[arg(long)]
+        email: Option<String>,
+        #[arg(long)]
+        imap_host: Option<String>,
+        #[arg(long)]
+        imap_port: Option<u16>,
+        #[arg(long = "apple-mail-path")]
+        apple_mail_path: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Update an existing source by id
+    Edit {
+        #[arg(required = true)]
+        id: String,
+        #[arg(long)]
+        label: Option<String>,
+        #[arg(long)]
+        path: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Remove a source by id
+    Remove {
+        #[arg(required = true)]
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show crawl/sync status hints from config + DB
+    Status {
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -386,8 +457,8 @@ pub(crate) struct InboxArgs {
     pub(crate) window: Option<String>,
     #[arg(long)]
     pub(crate) since: Option<String>,
-    #[arg(long)]
-    pub(crate) mailbox: Option<String>,
+    #[arg(long, short = 'S')]
+    pub(crate) source: Option<String>,
     /// Accepted for agent compatibility; output is JSON by default unless `--text`.
     #[arg(long, hide = true)]
     pub(crate) json: bool,
@@ -670,8 +741,8 @@ mod draft_cli_tests {
         ])
         .expect("parse");
         match cli.command {
-            Some(Commands::Rules { sub, mailbox }) => {
-                assert!(mailbox.is_none());
+            Some(Commands::Rules { sub, source }) => {
+                assert!(source.is_none());
                 match sub {
                     RulesCmd::Add { action, query, .. } => {
                         assert_eq!(action, "notify");

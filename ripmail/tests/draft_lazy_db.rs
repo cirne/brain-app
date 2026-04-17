@@ -79,7 +79,7 @@ fn run_draft_reply_without_connection_fails_fast() {
             with_body: false,
             text: false,
             json: false,
-            mailbox: None,
+            source: None,
         },
         &cfg,
         None,

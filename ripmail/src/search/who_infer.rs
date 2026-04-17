@@ -44,7 +44,7 @@ pub fn infer_placeholder_owner_identities(
     mailbox_ids: Option<&Vec<String>>,
 ) -> rusqlite::Result<Vec<String>> {
     if !cfg
-        .resolved_mailboxes
+        .resolved_mailboxes()
         .iter()
         .any(|m| is_placeholder_mailbox_email(&m.email))
     {
@@ -61,7 +61,7 @@ pub fn infer_placeholder_owner_identities(
             let ph = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
             let sql = format!(
                 "SELECT from_address, COUNT(*) AS c FROM messages \
-                 WHERE mailbox_id IN ({ph}) \
+                 WHERE source_id IN ({ph}) \
                  AND TRIM(from_address) != '' \
                  AND {category_filter} \
                  AND (LOWER(from_address) LIKE '%@mac.com' \

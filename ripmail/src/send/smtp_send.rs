@@ -35,7 +35,7 @@ pub fn verify_smtp_for_config(cfg: &Config) -> Result<(), String> {
             let process_env: HashMap<String, String> = std::env::vars().collect();
             let tok = ensure_google_access_token(
                 &cfg.ripmail_home,
-                &cfg.mailbox_id,
+                &cfg.source_id,
                 &env_file,
                 &process_env,
             )
@@ -246,7 +246,7 @@ pub fn send_simple_message(
             let process_env: HashMap<String, String> = std::env::vars().collect();
             let tok = ensure_google_access_token(
                 &cfg.ripmail_home,
-                &cfg.mailbox_id,
+                &cfg.source_id,
                 &env_file,
                 &process_env,
             )
@@ -311,8 +311,8 @@ mod tests {
             db_path: std::path::PathBuf::from("/tmp/z.db"),
             maildir_path: std::path::PathBuf::from("/tmp/m"),
             message_path_root: std::path::PathBuf::from("/tmp"),
-            mailbox_id: "a_b_com".into(),
-            resolved_mailboxes: vec![],
+            source_id: "a_b_com".into(),
+            resolved_sources: vec![],
         }
     }
 

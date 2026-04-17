@@ -11,13 +11,13 @@ use crate::sync::{MailboxEntry, ParsedAttachment, ParsedMessage};
 
 const SQL_INSERT_MESSAGE: &str = "INSERT INTO messages (
       message_id, thread_id, folder, uid, labels, category, from_address, from_name,
-      to_addresses, cc_addresses, to_recipients, cc_recipients, subject, date, body_text, raw_path, mailbox_id,
+      to_addresses, cc_addresses, to_recipients, cc_recipients, subject, date, body_text, raw_path, source_id,
       is_reply, recipient_count, list_like
     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)";
 
 const SQL_INSERT_MESSAGE_OR_IGNORE: &str = "INSERT OR IGNORE INTO messages (
       message_id, thread_id, folder, uid, labels, category, from_address, from_name,
-      to_addresses, cc_addresses, to_recipients, cc_recipients, subject, date, body_text, raw_path, mailbox_id,
+      to_addresses, cc_addresses, to_recipients, cc_recipients, subject, date, body_text, raw_path, source_id,
       is_reply, recipient_count, list_like
     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)";
 
@@ -99,12 +99,12 @@ pub fn is_sqlite_unique_violation(err: &rusqlite::Error) -> bool {
 
 /// UIDs already present for this mailbox (for Apple Mail sync dedup before reading `.emlx`).
 ///
-/// Batched `IN` with anonymous `?` placeholders: `mailbox_id` first, then each uid (same order as
-/// `WHERE mailbox_id = ? AND uid IN (?,…)`). Do **not** use `prepare_cached` + `query_row` in a
+/// Batched `IN` with anonymous `?` placeholders: `source_id` first, then each uid (same order as
+/// `WHERE source_id = ? AND uid IN (?,…)`). Do **not** use `prepare_cached` + `query_row` in a
 /// loop here — that was observed to mis-report matches.
 pub fn uids_already_indexed(
     conn: &Connection,
-    mailbox_id: &str,
+    source_id: &str,
     uids: &[i64],
 ) -> rusqlite::Result<HashSet<i64>> {
     if uids.is_empty() {
@@ -114,8 +114,8 @@ pub fn uids_already_indexed(
     let mut out = HashSet::new();
     for chunk in uids.chunks(CHUNK) {
         let in_ph = chunk.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-        let sql = format!("SELECT uid FROM messages WHERE mailbox_id = ? AND uid IN ({in_ph})");
-        let mut bind: Vec<Value> = vec![Value::Text(mailbox_id.to_string())];
+        let sql = format!("SELECT uid FROM messages WHERE source_id = ? AND uid IN ({in_ph})");
+        let mut bind: Vec<Value> = vec![Value::Text(source_id.to_string())];
         for u in chunk {
             bind.push(Value::Integer(*u));
         }
@@ -162,12 +162,12 @@ impl<'conn> RebuildWriter<'conn> {
     }
 
     /// Insert message + thread row. Returns true if a new message row was inserted.
-    /// `imap_folder` is the IMAP folder name (e.g. `[Gmail]/All Mail`); `mailbox_id` is the account slug.
+    /// `imap_folder` is the IMAP folder name (e.g. `[Gmail]/All Mail`); `source_id` is the account slug.
     pub fn persist_message(
         &mut self,
         parsed: &ParsedMessage,
         imap_folder: &str,
-        mailbox_id: &str,
+        source_id: &str,
         uid: i64,
         labels: &str,
         raw_path: &str,
@@ -192,7 +192,7 @@ impl<'conn> RebuildWriter<'conn> {
             parsed.date,
             parsed.body_text,
             raw_path,
-            mailbox_id,
+            source_id,
             parsed.is_reply as i64,
             i64::from(parsed.recipient_count),
             list_like,
@@ -212,7 +212,7 @@ pub fn persist_message(
     conn: &Connection,
     parsed: &ParsedMessage,
     imap_folder: &str,
-    mailbox_id: &str,
+    source_id: &str,
     uid: i64,
     labels: &str,
     raw_path: &str,
@@ -240,7 +240,7 @@ pub fn persist_message(
             parsed.date,
             parsed.body_text,
             raw_path,
-            mailbox_id,
+            source_id,
             parsed.is_reply as i64,
             i64::from(parsed.recipient_count),
             list_like,
@@ -287,7 +287,9 @@ pub fn persist_attachments_from_parsed(
 
 /// Simple FTS check: return count of rows matching FTS query.
 pub fn fts_match_count(conn: &Connection, fts_query: &str) -> rusqlite::Result<i64> {
-    let sql = "SELECT COUNT(*) FROM messages_fts WHERE messages_fts MATCH ?1";
+    let sql = "SELECT COUNT(*) FROM document_index_fts \
+               JOIN document_index di ON di.id = document_index_fts.rowid \
+               WHERE document_index_fts MATCH ?1 AND di.kind = 'mail'";
     conn.query_row(sql, [fts_query], |row| row.get(0))
 }
 

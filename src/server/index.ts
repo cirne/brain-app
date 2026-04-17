@@ -155,7 +155,8 @@ async function start() {
     initLocalMessageToolsAvailability()
     await ensureDefaultSkillsSeeded()
 
-    if (isDev) {
+    // Inline NODE_ENV check so production bundles can drop the Vite branch (see esbuild define).
+    if (process.env.NODE_ENV !== 'production') {
       const port = resolveNonNativePort()
       // If another `npm run dev` already owns this port, exit before createViteServer — otherwise Vite
       // would still start a second HMR WebSocket (e.g. :24678) and fight the first dev server.

@@ -39,11 +39,15 @@ pub fn whoami(
 ) -> rusqlite::Result<WhoamiResult> {
     let mailboxes: Vec<&ResolvedMailbox> =
         match mailbox_spec.map(str::trim).filter(|s| !s.is_empty()) {
-            Some(spec) => match resolve_mailbox_spec(&cfg.resolved_mailboxes, spec) {
-                Some(mb) => vec![mb],
-                None => Vec::new(),
+            Some(spec) => match resolve_mailbox_spec(cfg.resolved_mailboxes(), spec) {
+                Some(mb) if mb.is_mail() => vec![mb],
+                _ => Vec::new(),
             },
-            None => cfg.resolved_mailboxes.iter().collect(),
+            None => cfg
+                .resolved_mailboxes()
+                .iter()
+                .filter(|m| m.is_mail())
+                .collect(),
         };
 
     let mut out = Vec::with_capacity(mailboxes.len());
@@ -62,11 +66,10 @@ fn whoami_one_mailbox(
     mb: &ResolvedMailbox,
 ) -> rusqlite::Result<WhoamiMailbox> {
     let json_row = mailbox_config_by_id(home, &mb.id);
-    let mailbox_type = json_row.as_ref().and_then(|r| {
-        r.mailbox_type
-            .as_ref()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
+    let mailbox_type = json_row.as_ref().map(|r| match r.kind {
+        crate::config::SourceKind::Imap => "imap".to_string(),
+        crate::config::SourceKind::AppleMail => "applemail".to_string(),
+        crate::config::SourceKind::LocalDir => "localDir".to_string(),
     });
     let identity = json_row.and_then(|r| r.identity);
 
@@ -164,7 +167,7 @@ fn primary_identity_from_outbound(
         return Ok((None, None));
     }
 
-    let base_filter = format!("mailbox_id = ? AND list_like = 0 AND {CATEGORY_FILTER}");
+    let base_filter = format!("source_id = ? AND list_like = 0 AND {CATEGORY_FILTER}");
 
     let mut sent_counts: Vec<(String, i64)> = Vec::new();
     for addr in owner_emails {
@@ -217,7 +220,7 @@ fn total_counts_per_address(
     let mut out = Vec::new();
     for addr in owner_emails {
         let sql = format!(
-            "SELECT COUNT(*) FROM messages WHERE mailbox_id = ? AND list_like = 0 \
+            "SELECT COUNT(*) FROM messages WHERE source_id = ? AND list_like = 0 \
              AND {CATEGORY_FILTER} AND from_address = ?"
         );
         let c: i64 = conn.query_row(&sql, rusqlite::params![mailbox_id, addr.as_str()], |row| {
@@ -242,7 +245,7 @@ fn best_display_name_for_address(
     };
     let sql = format!(
         "SELECT trim(from_name), COUNT(*) AS c FROM messages \
-         WHERE mailbox_id = ? \
+         WHERE source_id = ? \
          AND from_address = ? \
          AND trim(from_name) != '' \
          AND list_like = 0 \
@@ -310,6 +313,7 @@ mod tests {
     use super::*;
     use crate::config::{
         derive_mailbox_id_from_email, resolve_smtp_settings, MailboxImapAuthKind, ResolvedMailbox,
+        SourceKind,
     };
     use crate::db::{apply_schema, open_memory};
     use crate::persist_message;
@@ -320,6 +324,7 @@ mod tests {
     fn mb_fixture(id: &str, email: &str) -> ResolvedMailbox {
         ResolvedMailbox {
             id: id.into(),
+            kind: SourceKind::Imap,
             email: email.into(),
             imap_host: "imap.gmail.com".into(),
             imap_port: 993,
@@ -330,6 +335,7 @@ mod tests {
             include_in_default: true,
             maildir_path: Path::new("/tmp/m").into(),
             apple_mail_root: None,
+            local_dir: None,
         }
     }
 
@@ -362,8 +368,8 @@ mod tests {
             db_path: Path::new("/tmp/db").into(),
             maildir_path: Path::new("/tmp/m").into(),
             message_path_root: Path::new("/tmp").into(),
-            mailbox_id: mb_id.into(),
-            resolved_mailboxes: vec![mb_fixture(mb_id, "me@example.com")],
+            source_id: mb_id.into(),
+            resolved_sources: vec![mb_fixture(mb_id, "me@example.com")],
             imap_host: "imap.gmail.com".into(),
             imap_port: 993,
             imap_user: "me@example.com".into(),
@@ -440,8 +446,8 @@ mod tests {
             db_path: Path::new("/tmp/db").into(),
             maildir_path: Path::new("/tmp/m").into(),
             message_path_root: Path::new("/tmp").into(),
-            mailbox_id: mb_id.into(),
-            resolved_mailboxes: vec![mb],
+            source_id: mb_id.into(),
+            resolved_sources: vec![mb],
             imap_host: "imap.gmail.com".into(),
             imap_port: 993,
             imap_user: "heavy@example.com".into(),

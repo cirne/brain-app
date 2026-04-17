@@ -148,7 +148,7 @@ fn load_sync_state(
     folder: &str,
 ) -> rusqlite::Result<Option<(u32, u32)>> {
     conn.query_row(
-        "SELECT uidvalidity, last_uid FROM sync_state WHERE mailbox_id = ?1 AND folder = ?2",
+        "SELECT uidvalidity, last_uid FROM sync_state WHERE source_id = ?1 AND folder = ?2",
         [mailbox_id, folder],
         |row| Ok((row.get::<_, i64>(0)? as u32, row.get::<_, i64>(1)? as u32)),
     )
@@ -157,7 +157,7 @@ fn load_sync_state(
 
 fn max_uid_messages(conn: &Connection, mailbox_id: &str, folder: &str) -> rusqlite::Result<i64> {
     let v: Option<i64> = conn.query_row(
-        "SELECT MAX(uid) FROM messages WHERE mailbox_id = ?1 AND folder = ?2",
+        "SELECT MAX(uid) FROM messages WHERE source_id = ?1 AND folder = ?2",
         [mailbox_id, folder],
         |row| row.get(0),
     )?;
@@ -169,8 +169,7 @@ fn existing_uids_set(
     mailbox_id: &str,
     folder: &str,
 ) -> rusqlite::Result<HashSet<u32>> {
-    let mut stmt =
-        conn.prepare("SELECT uid FROM messages WHERE mailbox_id = ?1 AND folder = ?2")?;
+    let mut stmt = conn.prepare("SELECT uid FROM messages WHERE source_id = ?1 AND folder = ?2")?;
     let rows = stmt.query_map([mailbox_id, folder], |row| row.get::<_, i64>(0))?;
     rows.map(|r| r.map(|uid| uid as u32)).collect()
 }
@@ -700,7 +699,7 @@ fn run_sync_imap_phase(
         if batch_max > checkpoint_uid {
             checkpoint_uid = batch_max;
             conn.execute(
-                "INSERT OR REPLACE INTO sync_state (mailbox_id, folder, uidvalidity, last_uid) VALUES (?1, ?2, ?3, ?4)",
+                "INSERT OR REPLACE INTO sync_state (source_id, folder, uidvalidity, last_uid) VALUES (?1, ?2, ?3, ?4)",
                 params![mailbox_id, imap_folder, uidvalidity as i64, checkpoint_uid as i64],
             )?;
         }
@@ -931,8 +930,8 @@ mod resolve_sync_mailbox_tests {
             db_path: std::path::PathBuf::from("/tmp/z.db"),
             maildir_path: std::path::PathBuf::from("/tmp/m"),
             message_path_root: std::path::PathBuf::from("/tmp"),
-            mailbox_id: "a_b_com".into(),
-            resolved_mailboxes: vec![],
+            source_id: "a_b_com".into(),
+            resolved_sources: vec![],
         }
     }
 

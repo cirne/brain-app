@@ -16,7 +16,7 @@ fn resolve_mailbox_id(mailbox: Option<&str>) -> Result<Option<String>, Box<dyn s
         return Ok(None);
     };
     let cfg = load_cfg();
-    let mb = resolve_mailbox_spec(&cfg.resolved_mailboxes, spec)
+    let mb = resolve_mailbox_spec(cfg.resolved_mailboxes(), spec)
         .ok_or_else(|| format!("Unknown mailbox {spec}"))?;
     Ok(Some(mb.id.clone()))
 }
@@ -256,7 +256,7 @@ fn build_rule_preview(
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids,
+        source_ids: mailbox_ids,
     };
     let mut classifier = DeterministicInboxClassifier::new_for_home(&conn, home, &opts)?;
     let runtime = tokio::runtime::Runtime::new()?;
@@ -319,9 +319,9 @@ fn print_rule_preview_text(preview: &RulePreviewJson) {
     }
 }
 
-pub(crate) fn run_rules(sub: RulesCmd, mailbox: Option<String>) -> CliResult {
+pub(crate) fn run_rules(sub: RulesCmd, source: Option<String>) -> CliResult {
     let home = ripmail_home_path();
-    let mb_id = resolve_mailbox_id(mailbox.as_deref())?;
+    let mb_id = resolve_mailbox_id(source.as_deref())?;
     match sub {
         RulesCmd::Validate { sample } => {
             let rules = match &mb_id {
@@ -339,7 +339,7 @@ pub(crate) fn run_rules(sub: RulesCmd, mailbox: Option<String>) -> CliResult {
         RulesCmd::ResetDefaults { yes } => {
             if mb_id.is_some() {
                 return Err(
-                    "reset-defaults applies only to ~/.ripmail/rules.json; omit --mailbox".into(),
+                    "reset-defaults applies only to ~/.ripmail/rules.json; omit --source".into(),
                 );
             }
             if !yes {
@@ -423,7 +423,7 @@ Re-run with: ripmail rules reset-defaults --yes",
                 &home,
                 rule.id(),
                 preview_window.as_deref(),
-                mailbox.as_deref(),
+                mb_id.as_deref(),
             )?;
             if text {
                 println!("{}", serde_json::to_string_pretty(&rule)?);
@@ -466,7 +466,7 @@ Re-run with: ripmail rules reset-defaults --yes",
                 &home,
                 rule.id(),
                 preview_window.as_deref(),
-                mailbox.as_deref(),
+                mb_id.as_deref(),
             )?;
             if text {
                 println!("{}", serde_json::to_string_pretty(&rule)?);
@@ -552,7 +552,7 @@ mod sample_picker_tests {
             .map(|w| if w == "low" { "ignore" } else { "notify" }.to_string());
         RefreshPreviewRow {
             message_id: format!("<m{msg_idx}@t>"),
-            mailbox_id: "".into(),
+            source_id: "".into(),
             date: "2026-01-01T00:00:00Z".into(),
             from_address: "a@b.com".into(),
             from_name: None,
@@ -605,7 +605,7 @@ mod preview_counts_tests {
     fn row(action: Option<&str>, requires_user_action: bool) -> RefreshPreviewRow {
         RefreshPreviewRow {
             message_id: "<x@test>".into(),
-            mailbox_id: "".into(),
+            source_id: "".into(),
             date: "2026-01-01T00:00:00Z".into(),
             from_address: "a@b.com".into(),
             from_name: None,

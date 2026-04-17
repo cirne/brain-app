@@ -136,7 +136,7 @@ fn load_messages_for_owner_stats(
         Some(ids) if !ids.is_empty() => {
             let ph = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
             let sql = format!(
-                "SELECT thread_id, date, from_address, to_addresses, cc_addresses, category, is_reply, recipient_count, list_like FROM messages WHERE mailbox_id IN ({ph}) ORDER BY date ASC"
+                "SELECT thread_id, date, from_address, to_addresses, cc_addresses, category, is_reply, recipient_count, list_like FROM messages WHERE source_id IN ({ph}) ORDER BY date ASC"
             );
             let mut stmt = conn.prepare(&sql)?;
             let v: Vec<MsgRow> = stmt

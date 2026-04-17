@@ -32,7 +32,7 @@ export type ConsumeAgentChatStreamOptions = {
   msgIdx: number
   /**
    * When true, skip agent-driven **opening** of the right detail panel: wiki from `write`/`edit`,
-   * and navigation from `open` / `read_email`. Transcript still updates; `onWriteStreaming` /
+   * and navigation from `open` / `read_doc`. Transcript still updates; `onWriteStreaming` /
    * `onEditStreaming` still run when the session is active (they do not open the panel by themselves).
    */
   suppressAgentDetailAutoOpen: boolean
@@ -190,10 +190,10 @@ export async function consumeAgentChatStream(
                 openedFromAgentByToolId.add(data.id)
                 if (allowAgentDetailOpen() && policy.autoOpen) onOpenFromAgent(data.args.target, 'open')
               }
-              if (data.name === 'read_email' && typeof data.args?.id === 'string' && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
+              if (data.name === 'read_doc' && typeof data.args?.id === 'string' && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
                 openedFromAgentByToolId.add(data.id)
                 if (allowAgentDetailOpen() && policy.autoOpen) {
-                  onOpenFromAgent({ type: 'email', id: data.args.id }, 'read_email')
+                  onOpenFromAgent({ type: 'email', id: data.args.id }, 'read_doc')
                 }
               }
               if (

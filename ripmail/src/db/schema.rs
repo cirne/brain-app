@@ -1,11 +1,19 @@
 //! SQL schema — mirrors `src/db/schema.ts` in the TypeScript tree.
 
-pub const SCHEMA_VERSION: i32 = 22;
+pub const SCHEMA_VERSION: i32 = 23;
 
 pub const SCHEMA: &str = r#"
+  CREATE TABLE IF NOT EXISTS sources (
+    id                  TEXT NOT NULL PRIMARY KEY,
+    kind                TEXT NOT NULL,
+    label               TEXT,
+    include_in_default  INTEGER NOT NULL DEFAULT 1,
+    last_synced_at      TEXT,
+    doc_count           INTEGER NOT NULL DEFAULT 0
+  );
+
   CREATE TABLE IF NOT EXISTS messages (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- TODO: composite (mailbox_id, message_id) if non-Gmail providers collide on Message-ID
     message_id   TEXT NOT NULL UNIQUE,
     thread_id    TEXT NOT NULL,
     folder       TEXT NOT NULL,
@@ -22,7 +30,7 @@ pub const SCHEMA: &str = r#"
     date         TEXT NOT NULL,
     body_text    TEXT NOT NULL DEFAULT '',
     raw_path     TEXT NOT NULL,
-    mailbox_id   TEXT NOT NULL DEFAULT '',
+    source_id    TEXT NOT NULL DEFAULT '',
     is_archived  INTEGER NOT NULL DEFAULT 0,
     synced_at    TEXT NOT NULL DEFAULT (datetime('now')),
     rule_triage  TEXT NOT NULL DEFAULT 'pending' CHECK (rule_triage IN ('pending', 'assigned')),
@@ -70,16 +78,16 @@ pub const SCHEMA: &str = r#"
   CREATE INDEX IF NOT EXISTS idx_people_name ON people(canonical_name);
 
   CREATE TABLE IF NOT EXISTS sync_state (
-    mailbox_id   TEXT NOT NULL DEFAULT '',
+    source_id    TEXT NOT NULL DEFAULT '',
     folder       TEXT NOT NULL,
     uidvalidity  INTEGER NOT NULL,
     last_uid     INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (mailbox_id, folder)
+    PRIMARY KEY (source_id, folder)
   );
 
   CREATE TABLE IF NOT EXISTS sync_windows (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    mailbox_id       TEXT NOT NULL DEFAULT '',
+    source_id        TEXT NOT NULL DEFAULT '',
     phase            INTEGER NOT NULL,
     window_start     TEXT NOT NULL,
     window_end       TEXT NOT NULL,
@@ -90,8 +98,8 @@ pub const SCHEMA: &str = r#"
     completed_at     TEXT
   );
 
-  CREATE TABLE IF NOT EXISTS mailbox_sync_meta (
-    mailbox_id                   TEXT NOT NULL PRIMARY KEY,
+  CREATE TABLE IF NOT EXISTS source_sync_meta (
+    source_id                    TEXT NOT NULL PRIMARY KEY,
     first_backfill_completed_at  TEXT NOT NULL
   );
 
@@ -144,34 +152,79 @@ pub const SCHEMA: &str = r#"
     PRIMARY KEY (message_id, rules_fingerprint)
   );
 
-  CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
-    message_id UNINDEXED,
-    subject,
-    body_text,
-    from_address UNINDEXED,
-    date UNINDEXED,
-    content='messages',
+  CREATE TABLE IF NOT EXISTS files (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id       TEXT NOT NULL,
+    rel_path        TEXT NOT NULL,
+    abs_path        TEXT NOT NULL,
+    mtime           INTEGER NOT NULL,
+    size            INTEGER NOT NULL,
+    mime            TEXT,
+    title           TEXT,
+    body_text       TEXT NOT NULL DEFAULT '',
+    UNIQUE(source_id, rel_path)
+  );
+
+  CREATE TABLE IF NOT EXISTS document_index (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id  TEXT NOT NULL,
+    kind       TEXT NOT NULL,
+    ext_id     TEXT NOT NULL,
+    title      TEXT NOT NULL DEFAULT '',
+    body       TEXT NOT NULL DEFAULT '',
+    date_iso   TEXT NOT NULL DEFAULT ''
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_document_index_source ON document_index(source_id);
+  CREATE INDEX IF NOT EXISTS idx_document_index_kind_ext ON document_index(kind, ext_id);
+
+  CREATE VIRTUAL TABLE IF NOT EXISTS document_index_fts USING fts5(
+    title,
+    body,
+    source_id UNINDEXED,
+    kind UNINDEXED,
+    ext_id UNINDEXED,
+    date_iso UNINDEXED,
+    content='document_index',
     content_rowid='id'
   );
 
-  CREATE TRIGGER IF NOT EXISTS messages_fts_insert
+  CREATE TRIGGER IF NOT EXISTS document_index_fts_insert
+    AFTER INSERT ON document_index BEGIN
+      INSERT INTO document_index_fts(rowid, title, body, source_id, kind, ext_id, date_iso)
+      VALUES (new.id, new.title, new.body, new.source_id, new.kind, new.ext_id, new.date_iso);
+    END;
+
+  CREATE TRIGGER IF NOT EXISTS document_index_fts_delete
+    AFTER DELETE ON document_index BEGIN
+      INSERT INTO document_index_fts(document_index_fts, rowid, title, body, source_id, kind, ext_id, date_iso)
+      VALUES ('delete', old.id, old.title, old.body, old.source_id, old.kind, old.ext_id, old.date_iso);
+    END;
+
+  CREATE TRIGGER IF NOT EXISTS document_index_fts_update
+    AFTER UPDATE ON document_index BEGIN
+      INSERT INTO document_index_fts(document_index_fts, rowid, title, body, source_id, kind, ext_id, date_iso)
+      VALUES ('delete', old.id, old.title, old.body, old.source_id, old.kind, old.ext_id, old.date_iso);
+      INSERT INTO document_index_fts(rowid, title, body, source_id, kind, ext_id, date_iso)
+      VALUES (new.id, new.title, new.body, new.source_id, new.kind, new.ext_id, new.date_iso);
+    END;
+
+  CREATE TRIGGER IF NOT EXISTS messages_document_ai
     AFTER INSERT ON messages BEGIN
-      INSERT INTO messages_fts(rowid, message_id, subject, body_text, from_address, date)
-      VALUES (new.id, new.message_id, new.subject, new.body_text, new.from_address, new.date);
+      INSERT INTO document_index (source_id, kind, ext_id, title, body, date_iso)
+      VALUES (new.source_id, 'mail', new.message_id, new.subject, new.body_text, new.date);
     END;
 
-  CREATE TRIGGER IF NOT EXISTS messages_fts_delete
-    AFTER DELETE ON messages BEGIN
-      INSERT INTO messages_fts(messages_fts, rowid, message_id, subject, body_text, from_address, date)
-      VALUES ('delete', old.id, old.message_id, old.subject, old.body_text, old.from_address, old.date);
-    END;
-
-  CREATE TRIGGER IF NOT EXISTS messages_fts_update
+  CREATE TRIGGER IF NOT EXISTS messages_document_au
     AFTER UPDATE ON messages BEGIN
-      INSERT INTO messages_fts(messages_fts, rowid, message_id, subject, body_text, from_address, date)
-      VALUES ('delete', old.id, old.message_id, old.subject, old.body_text, old.from_address, old.date);
-      INSERT INTO messages_fts(rowid, message_id, subject, body_text, from_address, date)
-      VALUES (new.id, new.message_id, new.subject, new.body_text, new.from_address, new.date);
+      DELETE FROM document_index WHERE kind = 'mail' AND ext_id = old.message_id;
+      INSERT INTO document_index (source_id, kind, ext_id, title, body, date_iso)
+      VALUES (new.source_id, 'mail', new.message_id, new.subject, new.body_text, new.date);
+    END;
+
+  CREATE TRIGGER IF NOT EXISTS messages_document_ad
+    AFTER DELETE ON messages BEGIN
+      DELETE FROM document_index WHERE kind = 'mail' AND ext_id = old.message_id;
     END;
 
   CREATE INDEX IF NOT EXISTS idx_messages_thread  ON messages(thread_id);
@@ -184,7 +237,7 @@ pub const SCHEMA: &str = r#"
   CREATE INDEX IF NOT EXISTS idx_inbox_reviews_message ON inbox_reviews(message_id);
   CREATE INDEX IF NOT EXISTS idx_inbox_decisions_message ON inbox_decisions(message_id);
   CREATE INDEX IF NOT EXISTS idx_messages_rule_triage_pending ON messages(rule_triage) WHERE rule_triage = 'pending';
-  CREATE INDEX IF NOT EXISTS idx_messages_mailbox_id ON messages(mailbox_id);
+  CREATE INDEX IF NOT EXISTS idx_messages_source_id ON messages(source_id);
 "#;
 
 #[cfg(test)]
@@ -194,9 +247,9 @@ mod tests {
     #[test]
     fn schema_has_core_objects() {
         assert!(SCHEMA.contains("CREATE TABLE IF NOT EXISTS messages"));
-        assert!(SCHEMA.contains("messages_fts"));
-        assert!(SCHEMA.contains("mailbox_id"));
-        assert!(SCHEMA.contains("PRIMARY KEY (mailbox_id, folder)"));
-        assert!(SCHEMA.contains("mailbox_sync_meta"));
+        assert!(SCHEMA.contains("document_index_fts"));
+        assert!(SCHEMA.contains("source_id"));
+        assert!(SCHEMA.contains("PRIMARY KEY (source_id, folder)"));
+        assert!(SCHEMA.contains("source_sync_meta"));
     }
 }

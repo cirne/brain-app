@@ -61,7 +61,7 @@ pub async fn run_post_rebuild_inbox_bootstrap(
         candidate_cap: Some(500),
         notable_cap: Some(50),
         batch_size: Some(40),
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     let mut classifier = DeterministicInboxClassifier::new_for_home(conn, &home, &scan_opts)?;
 

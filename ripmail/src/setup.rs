@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use crate::config::{
     derive_mailbox_id_from_email, load_config_json, merge_mailbox_identity, write_config_json,
     ConfigJson, IdentityPatch, ImapJson, MailboxConfigJson, MailboxManagementJson, ResolvedMailbox,
-    SyncJson,
+    SourceKind, SyncJson,
 };
 use crate::oauth::{
     fetch_google_account_email, google_oauth_token_path,
@@ -101,20 +101,20 @@ pub fn load_existing_wizard_config(home: &Path) -> ExistingWizardConfig {
         return ExistingWizardConfig::default();
     };
     let j: ConfigJson = serde_json::from_str(&content).unwrap_or_default();
-    let (email, imap_host, imap_port) =
-        if let Some(mb) = j.mailboxes.as_ref().and_then(|m| m.first()) {
-            (
-                Some(mb.email.clone()),
-                mb.imap.as_ref().and_then(|i| i.host.clone()),
-                mb.imap.as_ref().and_then(|i| i.port),
-            )
-        } else {
-            (
-                j.imap.as_ref().and_then(|i| i.user.clone()),
-                j.imap.as_ref().and_then(|i| i.host.clone()),
-                j.imap.as_ref().and_then(|i| i.port),
-            )
-        };
+    let (email, imap_host, imap_port) = if let Some(mb) = j.sources.as_ref().and_then(|m| m.first())
+    {
+        (
+            Some(mb.email.clone()),
+            mb.imap.as_ref().and_then(|i| i.host.clone()),
+            mb.imap.as_ref().and_then(|i| i.port),
+        )
+    } else {
+        (
+            j.imap.as_ref().and_then(|i| i.user.clone()),
+            j.imap.as_ref().and_then(|i| i.host.clone()),
+            j.imap.as_ref().and_then(|i| i.port),
+        )
+    };
     ExistingWizardConfig {
         email,
         imap_host,
@@ -150,7 +150,7 @@ pub fn update_mailbox_identity(
     patch: &IdentityPatch,
 ) -> io::Result<()> {
     let mut cfg = load_config_json(home);
-    let mut mailboxes = cfg.mailboxes.take().unwrap_or_default();
+    let mut mailboxes = cfg.sources.take().unwrap_or_default();
     let pos = mailboxes
         .iter()
         .position(|m| m.id == mailbox_id)
@@ -162,7 +162,7 @@ pub fn update_mailbox_identity(
         })?;
     let preserved = mailboxes[pos].identity.clone();
     mailboxes[pos].identity = merge_mailbox_identity(preserved, patch);
-    cfg.mailboxes = Some(mailboxes);
+    cfg.sources = Some(mailboxes);
     write_config_json(home, &cfg)?;
     Ok(())
 }
@@ -178,7 +178,7 @@ pub fn load_existing_env_secrets(home: &Path) -> ExistingEnvSecrets {
     if s.password.is_none() {
         if let Ok(cfg) = fs::read_to_string(home.join("config.json")) {
             if let Ok(j) = serde_json::from_str::<ConfigJson>(&cfg) {
-                if let Some(mb) = j.mailboxes.as_ref().and_then(|m| m.first()) {
+                if let Some(mb) = j.sources.as_ref().and_then(|m| m.first()) {
                     if let Ok(c) = fs::read_to_string(home.join(&mb.id).join(".env")) {
                         let m = parse_dotenv_secrets(&c);
                         s.password = m.password.or(s.password);
@@ -362,11 +362,7 @@ pub fn merge_root_google_oauth_client_if_missing(home: &Path) -> io::Result<()> 
 /// `true` when there is no configured account yet (no `mailboxes[]` and no legacy `imap.user`).
 pub fn wizard_is_first_mailbox_setup(home: &Path) -> bool {
     let cfg = load_config_json(home);
-    let has_mailboxes = cfg
-        .mailboxes
-        .as_ref()
-        .map(|m| !m.is_empty())
-        .unwrap_or(false);
+    let has_mailboxes = cfg.sources.as_ref().map(|m| !m.is_empty()).unwrap_or(false);
     if has_mailboxes {
         return false;
     }
@@ -382,7 +378,7 @@ pub fn wizard_is_first_mailbox_setup(home: &Path) -> bool {
 /// Mailboxes for wizard menus: `mailboxes[]` entries, or one synthetic entry from legacy `imap`.
 pub fn load_mailbox_configs_for_wizard(home: &Path) -> Vec<MailboxConfigJson> {
     let cfg = load_config_json(home);
-    if let Some(m) = cfg.mailboxes.as_ref() {
+    if let Some(m) = cfg.sources.as_ref() {
         if !m.is_empty() {
             return m.clone();
         }
@@ -393,7 +389,9 @@ pub fn load_mailbox_configs_for_wizard(home: &Path) -> Vec<MailboxConfigJson> {
                 let id = derive_mailbox_id_from_email(user);
                 return vec![MailboxConfigJson {
                     id,
+                    kind: SourceKind::Imap,
                     email: user.clone(),
+                    label: None,
                     imap: Some(ImapJson {
                         host: imap.host.clone(),
                         port: imap.port,
@@ -404,8 +402,9 @@ pub fn load_mailbox_configs_for_wizard(home: &Path) -> Vec<MailboxConfigJson> {
                     imap_auth: None,
                     search: None,
                     identity: None,
-                    mailbox_type: None,
                     apple_mail_path: None,
+                    path: None,
+                    local_dir: None,
                 }];
             }
         }
@@ -434,7 +433,7 @@ pub fn load_imap_password_for_mailbox_id(home: &Path, mailbox_id: &str) -> Optio
 pub fn replace_mailbox_entry(home: &Path, entry: MailboxConfigJson) -> io::Result<()> {
     fs::create_dir_all(home)?;
     let mut cfg = load_config_json(home);
-    let mut mailboxes = cfg.mailboxes.take().unwrap_or_default();
+    let mut mailboxes = cfg.sources.take().unwrap_or_default();
     if mailboxes.is_empty() {
         mailboxes.push(entry);
         cfg.imap = None;
@@ -446,7 +445,7 @@ pub fn replace_mailbox_entry(home: &Path, entry: MailboxConfigJson) -> io::Resul
             format!("mailbox id not found: {}", entry.id),
         ));
     }
-    cfg.mailboxes = Some(mailboxes);
+    cfg.sources = Some(mailboxes);
     write_config_json(home, &cfg)?;
     crate::rules::ensure_default_rules_file(home).map_err(|e| io::Error::other(e.to_string()))?;
     Ok(())
@@ -456,11 +455,11 @@ pub fn replace_mailbox_entry(home: &Path, entry: MailboxConfigJson) -> io::Resul
 /// the same derived id (single-account layout).
 pub fn remove_mailbox_from_config(home: &Path, mailbox_id: &str) -> io::Result<()> {
     let mut cfg = load_config_json(home);
-    let mut mailboxes = cfg.mailboxes.take().unwrap_or_default();
+    let mut mailboxes = cfg.sources.take().unwrap_or_default();
     let before = mailboxes.len();
     mailboxes.retain(|m| m.id != mailbox_id);
     if mailboxes.len() < before {
-        cfg.mailboxes = Some(mailboxes);
+        cfg.sources = Some(mailboxes);
         cfg.imap = None;
         fs::write(
             home.join("config.json"),
@@ -472,7 +471,7 @@ pub fn remove_mailbox_from_config(home: &Path, mailbox_id: &str) -> io::Result<(
         if let Some(ref user) = imap.user {
             if !user.trim().is_empty() && derive_mailbox_id_from_email(user) == mailbox_id {
                 cfg.imap = None;
-                cfg.mailboxes = Some(mailboxes);
+                cfg.sources = Some(mailboxes);
                 fs::write(
                     home.join("config.json"),
                     serde_json::to_string_pretty(&cfg)? + "\n",
@@ -535,7 +534,7 @@ pub fn upsert_mailbox_setup(
     };
 
     let mut cfg = load_config_json(home);
-    let mut mailboxes = cfg.mailboxes.take().unwrap_or_default();
+    let mut mailboxes = cfg.sources.take().unwrap_or_default();
     let preserved_search = mailboxes
         .iter()
         .find(|m| m.id == id)
@@ -550,7 +549,9 @@ pub fn upsert_mailbox_setup(
     };
     let entry = MailboxConfigJson {
         id: id.clone(),
+        kind: SourceKind::Imap,
         email: email.to_string(),
+        label: None,
         imap: Some(ImapJson {
             host: Some(host),
             port: Some(port),
@@ -561,16 +562,17 @@ pub fn upsert_mailbox_setup(
         imap_auth: None,
         search: preserved_search,
         identity,
-        mailbox_type: None,
         apple_mail_path: None,
+        path: None,
+        local_dir: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {
         mailboxes[pos] = entry;
     } else {
         mailboxes.push(entry);
     }
-    cfg.mailboxes = Some(mailboxes);
-    if cfg.mailboxes.as_ref().is_some_and(|m| !m.is_empty()) {
+    cfg.sources = Some(mailboxes);
+    if cfg.sources.as_ref().is_some_and(|m| !m.is_empty()) {
         cfg.imap = None;
     }
     if cfg.sync.is_none() {
@@ -609,7 +611,7 @@ pub fn upsert_mailbox_applemail(
     fs::create_dir_all(home.join(&id))?;
 
     let mut cfg = load_config_json(home);
-    let mut mailboxes = cfg.mailboxes.take().unwrap_or_default();
+    let mut mailboxes = cfg.sources.take().unwrap_or_default();
     let preserved_search = mailboxes
         .iter()
         .find(|m| m.id == id)
@@ -628,21 +630,24 @@ pub fn upsert_mailbox_applemail(
         .map(|s| s.to_string());
     let entry = MailboxConfigJson {
         id: id.clone(),
+        kind: SourceKind::AppleMail,
         email: email.to_string(),
+        label: None,
         imap: None,
         imap_auth: None,
         search: preserved_search,
         identity,
-        mailbox_type: Some("applemail".into()),
         apple_mail_path: apple_path_json,
+        path: None,
+        local_dir: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {
         mailboxes[pos] = entry;
     } else {
         mailboxes.push(entry);
     }
-    cfg.mailboxes = Some(mailboxes);
-    if cfg.mailboxes.as_ref().is_some_and(|m| !m.is_empty()) {
+    cfg.sources = Some(mailboxes);
+    if cfg.sources.as_ref().is_some_and(|m| !m.is_empty()) {
         cfg.imap = None;
     }
     if cfg.sync.is_none() {
@@ -692,7 +697,7 @@ pub fn upsert_mailbox_google_oauth(
     };
 
     let mut cfg = load_config_json(home);
-    let mut mailboxes = cfg.mailboxes.take().unwrap_or_default();
+    let mut mailboxes = cfg.sources.take().unwrap_or_default();
     let preserved_search = mailboxes
         .iter()
         .find(|m| m.id == id)
@@ -707,7 +712,9 @@ pub fn upsert_mailbox_google_oauth(
     };
     let entry = MailboxConfigJson {
         id: id.clone(),
+        kind: SourceKind::Imap,
         email: email.to_string(),
+        label: None,
         imap: Some(ImapJson {
             host: Some(host),
             port: Some(port),
@@ -718,16 +725,17 @@ pub fn upsert_mailbox_google_oauth(
         imap_auth: Some("googleOAuth".into()),
         search: preserved_search,
         identity,
-        mailbox_type: None,
         apple_mail_path: None,
+        path: None,
+        local_dir: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {
         mailboxes[pos] = entry;
     } else {
         mailboxes.push(entry);
     }
-    cfg.mailboxes = Some(mailboxes);
-    if cfg.mailboxes.as_ref().is_some_and(|m| !m.is_empty()) {
+    cfg.sources = Some(mailboxes);
+    if cfg.sources.as_ref().is_some_and(|m| !m.is_empty()) {
         cfg.imap = None;
     }
     if cfg.sync.is_none() {
@@ -803,7 +811,7 @@ pub fn write_google_oauth_setup_hosted(
         env: None,
     });
     let mb = cfg
-        .resolved_mailboxes
+        .resolved_mailboxes()
         .iter()
         .find(|m| m.id == id)
         .ok_or_else(|| "mailbox missing after OAuth setup".to_string())?;
@@ -873,7 +881,7 @@ pub fn write_google_oauth_setup(
         env: None,
     });
     let mb = cfg
-        .resolved_mailboxes
+        .resolved_mailboxes()
         .iter()
         .find(|m| m.id == id)
         .ok_or_else(|| "mailbox missing after OAuth setup".to_string())?;
@@ -1031,9 +1039,10 @@ fn format_count_with_commas(n: i64) -> String {
 }
 
 fn mailbox_via_label(mb: &MailboxConfigJson) -> &'static str {
-    match mb.mailbox_type.as_deref() {
-        Some("applemail") => "Apple Mail",
-        _ => "IMAP",
+    match mb.kind {
+        SourceKind::AppleMail => "Apple Mail",
+        SourceKind::LocalDir => "Local folder",
+        SourceKind::Imap => "IMAP",
     }
 }
 
@@ -1106,7 +1115,7 @@ pub fn ripmail_clean_preview(home: &Path) -> String {
 
     let mut by_id: HashMap<String, (i64, Option<String>, Option<String>)> = HashMap::new();
     if let Ok(mut stmt) = conn.prepare(
-        "SELECT mailbox_id, COUNT(*), MIN(date), MAX(date) FROM messages GROUP BY mailbox_id",
+        "SELECT source_id, COUNT(*), MIN(date), MAX(date) FROM messages GROUP BY source_id",
     ) {
         let rows = stmt.query_map([], |row| {
             Ok((
@@ -1371,7 +1380,7 @@ mod tests {
         let raw = fs::read_to_string(dir.path().join("config.json")).unwrap();
         let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
         assert_eq!(v["sync"]["defaultSince"], "7d");
-        assert!(!v["mailboxes"].as_array().unwrap().is_empty());
+        assert!(!v["sources"].as_array().unwrap().is_empty());
     }
 
     #[test]
@@ -1425,11 +1434,11 @@ mod tests {
         .unwrap();
         let _id = derive_mailbox_id_from_email("a@gmail.com");
         let mut cfg = super::load_config_json(dir.path());
-        let mut mbs = cfg.mailboxes.take().unwrap();
+        let mut mbs = cfg.sources.take().unwrap();
         mbs[0].search = Some(MailboxSearchJson {
             include_in_default: Some(false),
         });
-        cfg.mailboxes = Some(mbs);
+        cfg.sources = Some(mbs);
         fs::write(
             dir.path().join("config.json"),
             serde_json::to_string_pretty(&cfg).unwrap() + "\n",
@@ -1502,7 +1511,7 @@ mod tests {
         let conn = rusqlite::Connection::open(&db_path).unwrap();
         crate::db::apply_schema(&conn).unwrap();
         conn.execute(
-            "INSERT INTO messages (message_id, thread_id, folder, uid, labels, from_address, date, body_text, raw_path, mailbox_id) VALUES (?1, 't', 'INBOX', 1, '[]', 'a@b', '2024-06-15T12:00:00Z', '', 'x', ?2)",
+            "INSERT INTO messages (message_id, thread_id, folder, uid, labels, from_address, date, body_text, raw_path, source_id) VALUES (?1, 't', 'INBOX', 1, '[]', 'a@b', '2024-06-15T12:00:00Z', '', 'x', ?2)",
             rusqlite::params!["<m1@test>", id],
         )
         .unwrap();

@@ -81,7 +81,7 @@ Benefits:
 
 ## Related
 
-- [OPP-005: Source Ingestion Pipeline](./OPP-005-source-ingestion.md) — complements this work by structuring how the agent reads external sources (uploads, URLs, attachments). Together they replace the filesystem-based "drop files in folder, edit markdown files" model.
+- [ripmail OPP-051: Unified Sources](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) — first-class local directories + mail in one corpus (supersedes the old [OPP-005](./OPP-005-source-ingestion.md) brain-app upload sketch).
 
 ## Success criteria
 

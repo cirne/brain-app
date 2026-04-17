@@ -29,7 +29,7 @@ fn early_exit_forward_skips_examine_and_returns_flag() {
     let home = dir.path();
     let mut conn = open_temp_db(home);
     conn.execute(
-        "INSERT OR REPLACE INTO sync_state (mailbox_id, folder, uidvalidity, last_uid) VALUES ('', 'INBOX', 42, 9)",
+        "INSERT OR REPLACE INTO sync_state (source_id, folder, uidvalidity, last_uid) VALUES ('', 'INBOX', 42, 9)",
         [],
     )
     .unwrap();
@@ -75,7 +75,7 @@ fn forward_checkpoint_fetches_and_persists() {
     let home = dir.path();
     let mut conn = open_temp_db(home);
     conn.execute(
-        "INSERT OR REPLACE INTO sync_state (mailbox_id, folder, uidvalidity, last_uid) VALUES ('', 'INBOX', 1, 5)",
+        "INSERT OR REPLACE INTO sync_state (source_id, folder, uidvalidity, last_uid) VALUES ('', 'INBOX', 1, 5)",
         [],
     )
     .unwrap();
@@ -146,14 +146,14 @@ fn stale_db_rebuild_preserves_checkpoint_and_skips_cached_mail() {
     apply_schema(&stale).unwrap();
     stale
         .execute(
-            "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, mailbox_id)
+            "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, source_id)
              VALUES ('<rebuilt-sync@test>', '<rebuilt-sync@test>', 'INBOX', 5, '[]', NULL, 'a@b.com', NULL, '[]', '[]', 'rebuilt', '2024-01-01T12:00:00Z', 'Hi', 'maildir/cur/cached.eml', '')",
             [],
         )
         .unwrap();
     stale
         .execute(
-            "INSERT OR REPLACE INTO sync_state (mailbox_id, folder, uidvalidity, last_uid) VALUES ('', 'INBOX', 7, 5)",
+            "INSERT OR REPLACE INTO sync_state (source_id, folder, uidvalidity, last_uid) VALUES ('', 'INBOX', 7, 5)",
             [],
         )
         .unwrap();
@@ -169,7 +169,7 @@ fn stale_db_rebuild_preserves_checkpoint_and_skips_cached_mail() {
     assert_eq!(rebuilt_count, 1);
     let rebuilt_state: (i64, i64) = conn
         .query_row(
-            "SELECT uidvalidity, last_uid FROM sync_state WHERE mailbox_id = '' AND folder = 'INBOX'",
+            "SELECT uidvalidity, last_uid FROM sync_state WHERE source_id = '' AND folder = 'INBOX'",
             [],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
@@ -273,12 +273,12 @@ fn backward_batch_skips_duplicate_message_id() {
     let home = dir.path();
     let mut conn = open_temp_db(home);
     conn.execute(
-        "INSERT OR REPLACE INTO sync_state (mailbox_id, folder, uidvalidity, last_uid) VALUES ('', 'INBOX', 1, 1)",
+        "INSERT OR REPLACE INTO sync_state (source_id, folder, uidvalidity, last_uid) VALUES ('', 'INBOX', 1, 1)",
         [],
     )
     .unwrap();
     conn.execute(
-        "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, mailbox_id)
+        "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, source_id)
          VALUES ('<dup@test>', '<dup@test>', 'INBOX', 2, '[]', NULL, 'x@y.com', NULL, '[]', '[]', 's', '2024-01-01T00:00:00Z', 'b', 'maildir/cur/x.eml', '')",
         [],
     )

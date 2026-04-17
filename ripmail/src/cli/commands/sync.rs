@@ -13,7 +13,7 @@ pub(crate) fn run_update(
     duration: Option<String>,
     since: Option<String>,
     backfill: bool,
-    mailbox: Option<String>,
+    source: Option<String>,
     foreground: bool,
     force: bool,
     text: bool,
@@ -37,7 +37,7 @@ pub(crate) fn run_update(
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty());
-    let mailbox_ref = mailbox.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let mailbox_ref = source.as_deref().map(str::trim).filter(|s| !s.is_empty());
 
     if let Some(spec) = since_spec {
         if foreground {

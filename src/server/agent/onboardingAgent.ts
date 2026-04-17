@@ -48,6 +48,12 @@ export const ONBOARDING_OMIT_TOOL_NAMES: readonly string[] = [
   'open',
   'list_recent_messages',
   'get_message_thread',
+  'list_sources',
+  'source_status',
+  'add_files_source',
+  'edit_files_source',
+  'remove_files_source',
+  'reindex_files_source',
 ]
 
 function buildDateContext(timezone: string): string {
@@ -79,7 +85,7 @@ ${ripmailWhoami}
 
 ## Task
 - **First:** call **find_person** with an **empty query** once — this runs \`ripmail who\` and lists who the user emails most (top contacts by frequency). Then use **find_person** again for specific people you want to understand better.
-- Use search_email, read_email, and list_inbox sparingly — only enough to fill the sections below. Do not turn this into a research project.
+- Use search_index, read_doc, and list_inbox sparingly — only enough to fill the sections below. Do not turn this into a research project.
 - Write **me.md** at the wiki root (relative path \`me.md\` only) with the **write** or **edit** tools — **same filename** as the real profile file.
 
 ## What me.md is for here
@@ -117,20 +123,24 @@ ${categoriesNote}
 
 ## Task
 - Read **me.md** first with the read tool (path: \`me.md\` — not \`wiki/me.md\`).
-- Use search_email and read_email to enrich facts before writing pages.
+- Use search_index and read_doc to enrich facts before writing pages.
 - Use **web_search** for current public information (companies, products, named entities) when it helps you write accurate wiki pages; use **fetch_page** to read full article text from a specific URL when you need more than search snippets.
-- Create interlinked markdown pages under the wiki root (people/, projects/, etc. as appropriate).
+- Create interlinked markdown pages under the wiki root (people/, projects/, etc. as appropriate). This is an **Obsidian-style vault** — cross-link pages with **\`[[wikilinks]]\`** (e.g. \`[[people/jane-doe]]\`, \`[[me]]\`, or \`[[projects/foo|Foo]]\` with a label). Do **not** use plain markdown \`[label](path.md)\` links between wiki pages — only \`[[ ]]\`. External URLs still use standard \`[label](https://…)\` markdown.
+- **Do not** write a separate page about the **main user** (no duplicate profile under \`people/\` or elsewhere). **me.md** is already their profile — link to it as \`[[me]]\` from other pages when useful. Seed pages for **other** people, projects, and topics.
 - Narrate briefly in chat as you create files.
 
-## Workflow## Chat title
+## Workflow
+
+## Chat title
 - Call set_chat_title with a short title like "Seeding your wiki".
 - **Build pages in parallel:** Once you have enough context to draft, create **independent** pages in **parallel** 
 — issue **multiple tool calls in the same turn** (e.g. several **write**, or **read**/**grep** alongside **write**) for work that does not depend on another file's exact contents. Do not serialize page creation when you could batch; only sequence steps that truly depend on prior output.
-- **Final link pass:** After the main pages exist, do a **final pass** focused on **internal wiki links** — use **grep** and **read** to find \`[...](...)\` targets, confirm each path resolves relative to the wiki root (use **find** if needed), and **edit** broken links (typos, casing, wrong relative paths). Treat this pass as required before you consider seeding complete.
+- **Final link pass:** After the main pages exist, do a **final pass** focused on **internal wiki links** — use **grep** for \`\\[\\[\` to find every \`[[...]]\` wikilink, confirm each target resolves relative to the wiki root (use **find** if needed), and **edit** broken links (typos, casing, wrong relative paths). Convert any stray \`[label](path.md)\` cross-page links into \`[[path]]\` form. Treat this pass as required before you consider seeding complete.
 
 ## Guidelines
 - ${dateCtx}
 - Paths are relative to the wiki root (e.g. \`me.md\`, \`people/foo.md\`); never add a \`wiki/\` prefix.
+- Wiki cross-links are **Obsidian-style \`[[path]]\`** (drop the \`.md\`): \`[[me]]\`, \`[[people/jane-doe]]\`, or \`[[projects/foo|Foo]]\` for a custom label. Use plain markdown links **only** for external URLs.
 - Prefer synthesis over pasting private email text into the wiki.`
 }
 

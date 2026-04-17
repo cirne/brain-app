@@ -1,5 +1,7 @@
 use std::collections::HashSet;
+use std::fs;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 use unicode_normalization::UnicodeNormalization;
 
@@ -7,16 +9,49 @@ use crate::cli::args::AttachmentCmd;
 use crate::cli::util::{format_attachment_size, load_cfg};
 use crate::cli::CliResult;
 use ripmail::{
-    db, format_read_message_text, infer_placeholder_owner_identities, is_placeholder_mailbox_email,
-    list_attachments_for_message, list_thread_messages, mailbox_ids_for_default_search,
-    normalize_address, normalize_search_date_spec, parse_category_list, parse_read_full,
-    read_attachment_bytes, read_attachment_text, read_message_bytes_with_thread,
-    resolve_mailbox_spec, resolve_message_id, resolve_search_json_format,
-    search_result_to_slim_json_row, search_with_meta, send_draft_by_id, send_simple_message,
-    smtp_credentials_ready, smtp_credentials_unavailable_reason, split_address_list, who, whoami,
-    ReadMessageJson, SearchOptions, SearchResultFormatPreference, SendSimpleFields, WhoOptions,
-    WhoamiResult,
+    db, extract_attachment, format_read_message_text, infer_placeholder_owner_identities,
+    is_placeholder_mailbox_email, list_attachments_for_message, list_thread_messages,
+    mailbox_ids_for_default_search, normalize_address, normalize_search_date_spec,
+    parse_category_list, parse_read_full, read_attachment_bytes, read_attachment_text,
+    read_message_bytes_with_thread, resolve_mailbox_spec, resolve_message_id,
+    resolve_search_json_format, search_result_to_slim_json_row, search_with_meta, send_draft_by_id,
+    send_simple_message, smtp_credentials_ready, smtp_credentials_unavailable_reason,
+    split_address_list, who, whoami, Config, ReadMessageJson, SearchOptions,
+    SearchResultFormatPreference, SendSimpleFields, SourceKind, WhoOptions, WhoamiResult,
 };
+
+fn source_kind_cli_label(k: SourceKind) -> &'static str {
+    match k {
+        SourceKind::Imap => "imap",
+        SourceKind::AppleMail => "applemail",
+        SourceKind::LocalDir => "localDir",
+    }
+}
+
+/// When `--source` is set, require a configured mail (IMAP / Apple Mail) source.
+pub(crate) fn ensure_mail_source_only(cfg: &Config, spec: Option<&str>) -> Result<(), String> {
+    let Some(s) = spec.map(str::trim).filter(|x| !x.is_empty()) else {
+        return Ok(());
+    };
+    let Some(mb) = resolve_mailbox_spec(cfg.resolved_mailboxes(), s) else {
+        return Err(format!(
+            "Unknown source {s:?}. Configured: {}",
+            cfg.resolved_mailboxes()
+                .iter()
+                .map(|m| m.id.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    };
+    if !mb.kind.is_mail() {
+        return Err(format!(
+            "error: source {} is kind={}; this command only works on mail sources",
+            mb.id,
+            source_kind_cli_label(mb.kind)
+        ));
+    }
+    Ok(())
+}
 
 pub(crate) struct SendCommandArgs {
     pub(crate) draft_id: Option<String>,
@@ -26,6 +61,7 @@ pub(crate) struct SendCommandArgs {
     pub(crate) cc: Option<String>,
     pub(crate) bcc: Option<String>,
     pub(crate) dry_run: bool,
+    pub(crate) source: Option<String>,
     pub(crate) text: bool,
 }
 
@@ -40,8 +76,14 @@ pub(crate) fn run_send(args: SendCommandArgs) -> CliResult {
         cc,
         bcc,
         dry_run,
+        source,
         text,
     } = args;
+
+    if let Err(e) = ensure_mail_source_only(&cfg, source.as_deref()) {
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
 
     let use_json = !text;
     if let (Some(to_addresses), Some(subject)) = (to.as_ref(), subject.as_ref()) {
@@ -83,6 +125,16 @@ pub(crate) fn run_send(args: SendCommandArgs) -> CliResult {
 
 pub(crate) fn run_draft(sub: ripmail::draft::DraftCmd) -> CliResult {
     let cfg = load_cfg();
+    let source_cli = match &sub {
+        ripmail::draft::DraftCmd::New { source, .. } => source.as_deref(),
+        ripmail::draft::DraftCmd::Reply { source, .. } => source.as_deref(),
+        ripmail::draft::DraftCmd::Forward { source, .. } => source.as_deref(),
+        _ => None,
+    };
+    if let Err(e) = ensure_mail_source_only(&cfg, source_cli) {
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
 
     let needs_db = matches!(
         &sub,
@@ -111,9 +163,31 @@ fn read_message_for_cli(
     Ok((bytes, thread_id))
 }
 
-pub(crate) fn run_read(message_ids: Vec<String>, raw: bool, json: bool) -> CliResult {
+fn expand_read_path(raw: &str) -> PathBuf {
+    let s = raw.trim();
+    if let Some(rest) = s.strip_prefix("~/") {
+        if let Some(h) = dirs::home_dir() {
+            return h.join(rest);
+        }
+    }
+    let p = PathBuf::from(s);
+    if p.is_absolute() {
+        p
+    } else {
+        std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join(p)
+    }
+}
+
+pub(crate) fn run_read(
+    message_ids: Vec<String>,
+    source_narrow: Option<String>,
+    raw: bool,
+    json: bool,
+) -> CliResult {
     if message_ids.is_empty() {
-        eprintln!("Usage: ripmail read <MESSAGE_ID>… [--raw] [--json|--text]");
+        eprintln!("Usage: ripmail read <TARGET>… [--source <id|email>] [--raw] [--json|--text]");
         std::process::exit(1);
     }
 
@@ -123,30 +197,104 @@ pub(crate) fn run_read(message_ids: Vec<String>, raw: bool, json: bool) -> CliRe
 
     if raw {
         let mut first = true;
-        for message_id in &message_ids {
-            let (bytes, _) = read_message_for_cli(&conn, message_id, root)?;
-            if !first {
-                std::io::stdout().write_all(b"\n\n")?;
+        for target in &message_ids {
+            let path = expand_read_path(target);
+            if path.is_file() {
+                let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+                if !first {
+                    std::io::stdout().write_all(b"\n\n")?;
+                }
+                first = false;
+                std::io::stdout().write_all(&bytes)?;
+            } else {
+                let (bytes, _) = read_message_for_cli(&conn, target, root)?;
+                if !first {
+                    std::io::stdout().write_all(b"\n\n")?;
+                }
+                first = false;
+                std::io::stdout().write_all(&bytes)?;
             }
-            first = false;
-            std::io::stdout().write_all(&bytes)?;
         }
         return Ok(());
     }
 
     if json {
         if message_ids.len() == 1 {
-            let (bytes, thread_id) = read_message_for_cli(&conn, &message_ids[0], root)?;
-            let parsed = parse_read_full(&bytes);
-            let out = ReadMessageJson::from_parsed(&parsed, &thread_id);
-            println!("{}", serde_json::to_string_pretty(&out)?);
+            let target = &message_ids[0];
+            let path = expand_read_path(target);
+            if path.is_file() {
+                let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+                let mime = mime_guess::from_path(&path)
+                    .first_or_octet_stream()
+                    .to_string();
+                let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("file");
+                let body = extract_attachment(&bytes, &mime, fname)
+                    .unwrap_or_else(|| String::from_utf8_lossy(&bytes).into_owned());
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "sourceId": "",
+                        "sourceKind": "localDir",
+                        "path": path.to_string_lossy(),
+                        "bodyText": body,
+                    }))?
+                );
+            } else {
+                let (bytes, thread_id) = read_message_for_cli(&conn, target, root)?;
+                let parsed = parse_read_full(&bytes);
+                let mut out =
+                    serde_json::to_value(ReadMessageJson::from_parsed(&parsed, &thread_id))?;
+                if let Ok(Some((_, _, Some(sid)))) =
+                    ripmail::ids::resolve_message_id_and_raw_path(&conn, target)
+                {
+                    if let Some(mb) = cfg.resolved_mailboxes().iter().find(|m| m.id == sid) {
+                        out["sourceId"] = serde_json::json!(sid);
+                        out["sourceKind"] = serde_json::json!(source_kind_cli_label(mb.kind));
+                    }
+                }
+                if let Some(spec) = source_narrow
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                {
+                    if let Some(want) = resolve_mailbox_spec(cfg.resolved_mailboxes(), spec) {
+                        let got = out.get("sourceId").and_then(|v| v.as_str()).unwrap_or("");
+                        if !got.is_empty() && got != want.id {
+                            return Err(format!(
+                                "message does not belong to source {} (expected {})",
+                                got, want.id
+                            )
+                            .into());
+                        }
+                    }
+                }
+                println!("{}", serde_json::to_string_pretty(&out)?);
+            }
         } else {
             let mut values: Vec<serde_json::Value> = Vec::with_capacity(message_ids.len());
-            for message_id in &message_ids {
-                let (bytes, thread_id) = read_message_for_cli(&conn, message_id, root)?;
-                let parsed = parse_read_full(&bytes);
-                let out = ReadMessageJson::from_parsed(&parsed, &thread_id);
-                values.push(serde_json::to_value(&out)?);
+            for target in &message_ids {
+                let path = expand_read_path(target);
+                if path.is_file() {
+                    let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+                    let mime = mime_guess::from_path(&path)
+                        .first_or_octet_stream()
+                        .to_string();
+                    let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("file");
+                    let body = extract_attachment(&bytes, &mime, fname)
+                        .unwrap_or_else(|| String::from_utf8_lossy(&bytes).into_owned());
+                    values.push(serde_json::json!({
+                        "sourceId": "",
+                        "sourceKind": "localDir",
+                        "path": path.to_string_lossy(),
+                        "bodyText": body,
+                    }));
+                } else {
+                    let (bytes, thread_id) = read_message_for_cli(&conn, target, root)?;
+                    let parsed = parse_read_full(&bytes);
+                    values.push(serde_json::to_value(ReadMessageJson::from_parsed(
+                        &parsed, &thread_id,
+                    ))?);
+                }
             }
             println!("{}", serde_json::to_string_pretty(&values)?);
         }
@@ -154,14 +302,30 @@ pub(crate) fn run_read(message_ids: Vec<String>, raw: bool, json: bool) -> CliRe
     }
 
     let mut first = true;
-    for message_id in &message_ids {
-        let (bytes, _) = read_message_for_cli(&conn, message_id, root)?;
-        let parsed = parse_read_full(&bytes);
-        if !first {
-            print!("{READ_BATCH_TEXT_SEP}");
+    for target in &message_ids {
+        let path = expand_read_path(target);
+        if path.is_file() {
+            let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+            let mime = mime_guess::from_path(&path)
+                .first_or_octet_stream()
+                .to_string();
+            let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("file");
+            let text = extract_attachment(&bytes, &mime, fname)
+                .unwrap_or_else(|| String::from_utf8_lossy(&bytes).into_owned());
+            if !first {
+                print!("{READ_BATCH_TEXT_SEP}");
+            }
+            first = false;
+            print!("{text}");
+        } else {
+            let (bytes, _) = read_message_for_cli(&conn, target, root)?;
+            let parsed = parse_read_full(&bytes);
+            if !first {
+                print!("{READ_BATCH_TEXT_SEP}");
+            }
+            first = false;
+            print!("{}", format_read_message_text(&parsed));
         }
-        first = false;
-        print!("{}", format_read_message_text(&parsed));
     }
     Ok(())
 }
@@ -263,13 +427,13 @@ pub(crate) fn run_attachment(sub: AttachmentCmd) -> CliResult {
 pub(crate) fn run_who(
     query: Option<String>,
     limit: usize,
-    mailbox: Option<String>,
+    source: Option<String>,
     include_noreply: bool,
     text: bool,
 ) -> CliResult {
     let cfg = load_cfg();
     let conn = db::open_file(cfg.db_path())?;
-    let mailbox_ids = who_mailbox_ids(&cfg, mailbox.as_deref());
+    let mailbox_ids = who_mailbox_ids(&cfg, source.as_deref());
     let mut owner_identities = resolve_who_owner_identities(&cfg, mailbox_ids.as_ref());
     let inferred = infer_placeholder_owner_identities(&conn, &cfg, mailbox_ids.as_ref())?;
     if !inferred.is_empty() {
@@ -319,15 +483,15 @@ pub(crate) fn run_who(
     Ok(())
 }
 
-pub(crate) fn run_whoami(mailbox: Option<String>, text: bool) -> CliResult {
+pub(crate) fn run_whoami(source: Option<String>, text: bool) -> CliResult {
     let cfg = load_cfg();
     let conn = db::open_file(cfg.db_path())?;
-    let spec = mailbox.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let spec = source.as_deref().map(str::trim).filter(|s| !s.is_empty());
     if let Some(s) = spec {
-        if resolve_mailbox_spec(&cfg.resolved_mailboxes, s).is_none() {
+        if resolve_mailbox_spec(cfg.resolved_mailboxes(), s).is_none() {
             eprintln!(
                 "Unknown mailbox {s:?}. Configured: {}",
-                cfg.resolved_mailboxes
+                cfg.resolved_mailboxes()
                     .iter()
                     .map(|m| m.email.as_str())
                     .collect::<Vec<_>>()
@@ -402,21 +566,21 @@ fn print_whoami_text(r: &WhoamiResult) {
 
 fn search_mailbox_ids(cfg: &ripmail::Config, mailbox_cli: Option<&str>) -> Option<Vec<String>> {
     if let Some(spec) = mailbox_cli.map(str::trim).filter(|s| !s.is_empty()) {
-        if let Some(m) = resolve_mailbox_spec(&cfg.resolved_mailboxes, spec) {
+        if let Some(m) = resolve_mailbox_spec(cfg.resolved_mailboxes(), spec) {
             return Some(vec![m.id.clone()]);
         }
         eprintln!(
-            "Unknown mailbox {spec:?}. Configured: {}",
-            cfg.resolved_mailboxes
+            "Unknown source {spec:?}. Configured ids: {}",
+            cfg.resolved_mailboxes()
                 .iter()
-                .map(|m| m.email.as_str())
+                .map(|m| m.id.as_str())
                 .collect::<Vec<_>>()
                 .join(", ")
         );
         std::process::exit(1);
     }
-    let ids = mailbox_ids_for_default_search(&cfg.resolved_mailboxes);
-    if ids.is_empty() || ids.len() == cfg.resolved_mailboxes.len() {
+    let ids = mailbox_ids_for_default_search(cfg.resolved_mailboxes());
+    if ids.is_empty() || ids.len() == cfg.resolved_mailboxes().len() {
         None
     } else {
         Some(ids)
@@ -441,20 +605,20 @@ fn resolve_who_owner_identities(
 
     match mailbox_ids {
         Some(ids) if ids.len() == 1 => cfg
-            .resolved_mailboxes
+            .resolved_mailboxes()
             .iter()
             .find(|m| m.id == ids[0])
             .map(identities_from_mailbox),
-        _ if cfg.resolved_mailboxes.len() == 1 => {
-            Some(identities_from_mailbox(&cfg.resolved_mailboxes[0]))
+        _ if cfg.resolved_mailboxes().len() == 1 => {
+            Some(identities_from_mailbox(&cfg.resolved_mailboxes()[0]))
         }
         _ => {
-            if cfg.resolved_mailboxes.is_empty() {
+            if cfg.resolved_mailboxes().is_empty() {
                 return None;
             }
             let mut seen = HashSet::new();
             let mut v = Vec::new();
-            for mb in &cfg.resolved_mailboxes {
+            for mb in cfg.resolved_mailboxes() {
                 for addr in std::iter::once(mb.email.as_str())
                     .chain(mb.imap_aliases.iter().map(|s| s.as_str()))
                 {
@@ -475,7 +639,7 @@ fn resolve_who_owner_identities(
 
 fn all_mailbox_identity_norms(cfg: &ripmail::Config) -> HashSet<String> {
     let mut s = HashSet::new();
-    for mb in &cfg.resolved_mailboxes {
+    for mb in cfg.resolved_mailboxes() {
         s.insert(normalize_address(&mb.email));
         for a in &mb.imap_aliases {
             let t = a.trim();
@@ -495,7 +659,7 @@ pub(crate) fn run_search(
     after: Option<String>,
     since: Option<String>,
     before: Option<String>,
-    mailbox: Option<String>,
+    source: Option<String>,
     include_all: bool,
     category: Option<String>,
     text: bool,
@@ -507,11 +671,11 @@ pub(crate) fn run_search(
         || since.is_some()
         || before.is_some()
         || category.is_some()
-        || mailbox.is_some()
+        || source.is_some()
         || include_all;
     if query.is_none() && !has_filters {
         eprintln!(
-            "error: at least one search constraint required: provide a <QUERY> and/or one of --from, --after, --since, --before, --category, --mailbox"
+            "error: at least one search constraint required: provide a <QUERY> and/or one of --from, --after, --since, --before, --category, --source"
         );
         std::process::exit(1);
     }
@@ -535,7 +699,7 @@ pub(crate) fn run_search(
     let cfg = load_cfg();
     let conn = db::open_file(cfg.db_path())?;
     let owner = (!cfg.imap_user.trim().is_empty()).then(|| cfg.imap_user.clone());
-    let mailbox_ids = search_mailbox_ids(&cfg, mailbox.as_deref());
+    let mailbox_ids = search_mailbox_ids(&cfg, source.as_deref());
     let result = search_with_meta(
         &conn,
         &SearchOptions {

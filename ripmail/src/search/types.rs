@@ -21,7 +21,7 @@ pub struct SearchOptions {
     pub owner_address: Option<String>,
     /// Combined with `owner_address` for contact-rank / owner-centric stats (same mailbox’s IMAP aliases).
     pub owner_aliases: Vec<String>,
-    /// When set, restrict to these account ids (`messages.mailbox_id`).
+    /// When set, restrict to these account ids (`messages.source_id`).
     pub mailbox_ids: Option<Vec<String>>,
 }
 
@@ -32,8 +32,10 @@ pub struct SearchResult {
     pub message_id: String,
     #[serde(serialize_with = "crate::ids::serialize_string_id_for_json")]
     pub thread_id: String,
-    #[serde(rename = "mailboxId", skip_serializing_if = "String::is_empty")]
-    pub mailbox_id: String,
+    #[serde(rename = "sourceId", skip_serializing_if = "String::is_empty")]
+    pub source_id: String,
+    #[serde(rename = "sourceKind", skip_serializing_if = "String::is_empty")]
+    pub source_kind: String,
     pub from_address: String,
     pub from_name: Option<String>,
     pub subject: String,

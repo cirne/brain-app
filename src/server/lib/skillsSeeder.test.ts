@@ -4,6 +4,7 @@ import { mkdtemp, writeFile, mkdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { existsSync } from 'node:fs'
 import { listBundledSkills, ensureDefaultSkillsSeeded } from './skillsSeeder.js'
+import { bundledUserSkillsDir } from './bundledUserSkillsDir.js'
 
 let wikiDir: string
 let bundleDir: string
@@ -38,6 +39,23 @@ describe('listBundledSkills', () => {
     expect(list).toHaveLength(1)
     expect(list[0].slug).toBe('alpha')
     expect(list[0].version).toBe('2')
+  })
+
+  it('repo bundled user-skills includes files skill', async () => {
+    const savedBundle = process.env.BRAIN_USER_SKILLS_BUNDLE
+    delete process.env.BRAIN_USER_SKILLS_BUNDLE
+    try {
+      const root = bundledUserSkillsDir()
+      if (!root) return
+      const list = await listBundledSkills(root)
+      const slugs = list.map((m) => m.slug)
+      expect(slugs).toContain('files')
+      expect(slugs).toContain('email')
+      expect(slugs).toContain('wiki')
+    } finally {
+      if (savedBundle !== undefined) process.env.BRAIN_USER_SKILLS_BUNDLE = savedBundle
+      else delete process.env.BRAIN_USER_SKILLS_BUNDLE
+    }
   })
 })
 

@@ -12,9 +12,13 @@ const here = dirname(fileURLToPath(import.meta.url))
 export function bundledUserSkillsDir(): string | null {
   const env = process.env.BRAIN_USER_SKILLS_BUNDLE
   if (env && existsSync(env)) return env
-  const fromDistBundle = join(here, '../assets/user-skills')
-  if (existsSync(fromDistBundle)) return fromDistBundle
-  const fromRepo = join(here, '../../../assets/user-skills')
-  if (existsSync(fromRepo)) return fromRepo
+  const candidates = [
+    join(here, 'assets/user-skills'),
+    join(here, '../assets/user-skills'),
+    join(here, '../../../assets/user-skills'),
+  ]
+  for (const p of candidates) {
+    if (existsSync(p)) return p
+  }
   return null
 }

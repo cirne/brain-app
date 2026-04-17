@@ -188,7 +188,7 @@ fn reply_threading_accepts_legacy_cur_raw_path_when_file_is_under_maildir() {
 
     let conn = db::open_file(&dir.path().join("data/ripmail.db")).unwrap();
     conn.execute(
-        "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, mailbox_id)
+        "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, source_id)
          VALUES (?1, ?1, 'INBOX', 1, '[]', NULL, 'a@b', NULL, '[]', '[]', 'Re: hi', '2024-01-01T00:00:00Z', 'Body', 'cur/msg1.eml', '')",
         ["<orig@test>"],
     )
@@ -235,12 +235,12 @@ fn send_reply_draft_dry_run_reads_legacy_cur_raw_path_from_maildir() {
         db_path: data_dir.join("ripmail.db"),
         maildir_path: data_dir.join("maildir"),
         message_path_root: data_dir.clone(),
-        mailbox_id: String::new(),
-        resolved_mailboxes: vec![],
+        source_id: String::new(),
+        resolved_sources: vec![],
     };
     let conn = db::open_file(&cfg.db_path).unwrap();
     conn.execute(
-        "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, mailbox_id)
+        "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, source_id)
          VALUES (?1, ?1, 'INBOX', 1, '[]', NULL, 'a@b', NULL, '[]', '[]', 'Re: hi', '2024-01-01T00:00:00Z', 'Body', 'cur/msg1.eml', '')",
         ["<orig@test>"],
     )

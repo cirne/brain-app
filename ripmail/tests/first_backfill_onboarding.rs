@@ -2,7 +2,7 @@
 
 use ripmail::{
     apply_schema, mailbox_needs_first_backfill, mark_first_backfill_completed, open_file,
-    MailboxImapAuthKind, ResolvedMailbox,
+    MailboxImapAuthKind, ResolvedMailbox, SourceKind,
 };
 use rusqlite::Connection;
 use std::path::PathBuf;
@@ -11,6 +11,7 @@ use tempfile::tempdir;
 fn test_mb(id: &str) -> ResolvedMailbox {
     ResolvedMailbox {
         id: id.into(),
+        kind: SourceKind::Imap,
         email: format!("{id}@test.example"),
         imap_host: "imap.test".into(),
         imap_port: 993,
@@ -21,6 +22,7 @@ fn test_mb(id: &str) -> ResolvedMailbox {
         include_in_default: true,
         maildir_path: PathBuf::from("/tmp"),
         apple_mail_root: None,
+        local_dir: None,
     }
 }
 
@@ -62,7 +64,7 @@ fn needs_first_backfill_false_when_messages_exist_without_meta() {
     let conn = open_temp_db(dir.path());
     let mb = test_mb("mb1");
     conn.execute(
-        "INSERT INTO messages (message_id, thread_id, folder, uid, labels, from_address, date, body_text, raw_path, mailbox_id) VALUES (?1, 't', 'INBOX', 1, '[]', 'a@b', '2024-01-01', '', 'x', ?2)",
+        "INSERT INTO messages (message_id, thread_id, folder, uid, labels, from_address, date, body_text, raw_path, source_id) VALUES (?1, 't', 'INBOX', 1, '[]', 'a@b', '2024-01-01', '', 'x', ?2)",
         rusqlite::params!["<m1@test>", mb.id],
     )
     .unwrap();

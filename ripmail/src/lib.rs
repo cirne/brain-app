@@ -30,6 +30,7 @@ pub mod rules;
 pub mod search;
 pub mod send;
 pub mod setup;
+pub mod sources;
 pub mod status;
 pub mod sync;
 pub mod thread_view;
@@ -57,7 +58,7 @@ pub use config::{
     resolve_openai_api_key, resolve_smtp_settings, write_config_json, Config, ConfigJson,
     DraftComposeIdentity, IdentityPatch, LlmJson, LlmProvider, LoadConfigOptions,
     MailboxConfigJson, MailboxIdentityJson, MailboxImapAuthKind, ResolvedLlm, ResolvedMailbox,
-    ResolvedSmtp,
+    ResolvedSmtp, SourceKind,
 };
 pub use db::message_persist::{fts_match_count, persist_attachments_from_parsed, persist_message};
 pub use db::{
@@ -144,6 +145,7 @@ pub use setup::{
     write_google_oauth_setup_hosted, write_ripmail_config_and_env, write_setup, DerivedImap,
     ExistingEnvSecrets, ExistingWizardConfig, SetupArgs, StatsJson, WriteZmailParams,
 };
+pub use sources::run_local_dir_sync;
 pub use status::{
     format_time_ago, get_imap_server_status, get_status, mailbox_status_lines, print_status_text,
     status_initial_sync_hang_suspected, status_stale_lock_running, FreshnessAgoJson,

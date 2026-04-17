@@ -80,7 +80,7 @@ pub fn provider_archive_message(
 
     let row: Option<(String, String, i64, String)> = conn
         .query_row(
-            "SELECT mailbox_id, folder, uid, labels FROM messages WHERE message_id = ?1",
+            "SELECT source_id, folder, uid, labels FROM messages WHERE message_id = ?1",
             [&canonical_id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
@@ -94,9 +94,9 @@ pub fn provider_archive_message(
     };
 
     let mb = if mailbox_id_row.trim().is_empty() {
-        cfg.resolved_mailboxes.first()
+        cfg.resolved_mailboxes().first()
     } else {
-        resolve_mailbox_spec(&cfg.resolved_mailboxes, &mailbox_id_row)
+        resolve_mailbox_spec(cfg.resolved_mailboxes(), &mailbox_id_row)
     };
     let Some(mb) = mb else {
         return ProviderArchiveOutcome {

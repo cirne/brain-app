@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Per-mailbox display name and signatures in `config.json` (`mailboxes[].identity`).
+/// Per-source display name and signatures in `config.json` (`sources[].identity`; mail sources only).
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MailboxIdentityJson {
@@ -28,8 +28,9 @@ pub struct MailboxIdentityJson {
 #[serde(rename_all = "camelCase")]
 pub struct ConfigJson {
     pub imap: Option<ImapJson>,
+    /// Unified sources list ([OPP-051](../docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)).
     #[serde(default)]
-    pub mailboxes: Option<Vec<MailboxConfigJson>>,
+    pub sources: Option<Vec<SourceConfigJson>>,
     pub smtp: Option<SmtpJson>,
     pub sync: Option<SyncJson>,
     pub attachments: Option<AttachmentsJson>,
@@ -40,13 +41,16 @@ pub struct ConfigJson {
     pub llm: Option<LlmJson>,
 }
 
-/// Per-mailbox search scope in `config.json` ([OPP-016](../docs/opportunities/archive/OPP-016-multi-inbox.md)).
+/// Per-source search scope in `config.json` ([OPP-051](../docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)).
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MailboxSearchJson {
-    /// When `false`, default search omits this mailbox unless `--mailbox` is set.
+pub struct SourceSearchJson {
+    /// When `false`, default search omits this source unless `--source` is set.
     pub include_in_default: Option<bool>,
 }
+
+/// Back-compat alias for docs / tests.
+pub type MailboxSearchJson = SourceSearchJson;
 
 /// How this mailbox authenticates to IMAP/SMTP (`config.json` `imapAuth`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -67,33 +71,114 @@ impl MailboxImapAuthKind {
     }
 }
 
-/// One mailbox entry in multi-inbox `config.json` ([OPP-016](../docs/opportunities/archive/OPP-016-multi-inbox.md)).
+/// Kind of configured source ([OPP-051](../docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SourceKind {
+    #[serde(rename = "imap")]
+    #[default]
+    Imap,
+    #[serde(rename = "applemail")]
+    AppleMail,
+    #[serde(rename = "localDir")]
+    LocalDir,
+}
+
+impl SourceKind {
+    pub fn is_mail(self) -> bool {
+        matches!(self, Self::Imap | Self::AppleMail)
+    }
+}
+
+/// `localDir` block in `config.json`.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MailboxConfigJson {
+pub struct LocalDirJson {
+    /// Gitignore-style globs matched against the path relative to `path` (full relative path).
+    #[serde(default)]
+    pub include: Vec<String>,
+    #[serde(default)]
+    pub ignore: Vec<String>,
+    #[serde(default = "default_respect_gitignore")]
+    pub respect_gitignore: bool,
+    #[serde(default = "default_max_depth")]
+    pub max_depth: u32,
+    #[serde(default = "default_max_file_bytes")]
+    pub max_file_bytes: u64,
+}
+
+impl Default for LocalDirJson {
+    fn default() -> Self {
+        Self {
+            include: Vec::new(),
+            ignore: Vec::new(),
+            respect_gitignore: default_respect_gitignore(),
+            max_depth: default_max_depth(),
+            max_file_bytes: default_max_file_bytes(),
+        }
+    }
+}
+
+fn default_respect_gitignore() -> bool {
+    true
+}
+
+fn default_max_depth() -> u32 {
+    12
+}
+
+fn default_max_file_bytes() -> u64 {
+    10_000_000
+}
+
+/// Resolved local directory options for sync.
+#[derive(Debug, Clone)]
+pub struct ResolvedLocalDir {
+    pub root: PathBuf,
+    pub include: Vec<String>,
+    pub ignore: Vec<String>,
+    pub respect_gitignore: bool,
+    pub max_depth: u32,
+    pub max_file_bytes: u64,
+}
+
+/// One source entry in `config.json` ([OPP-051](../docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceConfigJson {
     pub id: String,
+    pub kind: SourceKind,
+    #[serde(default)]
     pub email: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     #[serde(default)]
     pub imap: Option<ImapJson>,
     /// When `"googleOAuth"`, use Google token store instead of `RIPMAIL_IMAP_PASSWORD`.
     #[serde(default)]
     pub imap_auth: Option<String>,
     #[serde(default)]
-    pub search: Option<MailboxSearchJson>,
+    pub search: Option<SourceSearchJson>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub identity: Option<MailboxIdentityJson>,
-    /// `"imap"` (default) or `"applemail"` — local Apple Mail Envelope Index only.
-    #[serde(default)]
-    pub mailbox_type: Option<String>,
     /// Root `~/Library/Mail/V10` (or similar). When omitted, first discovered `V*` under `~/Library/Mail`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub apple_mail_path: Option<String>,
+    /// Local directory root (`~` expanded when resolved).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_dir: Option<LocalDirJson>,
 }
 
-/// Fully resolved mailbox (IMAP + paths + secrets) for sync and CLI.
+/// Back-compat name for mail setup code paths.
+pub type MailboxConfigJson = SourceConfigJson;
+
+/// Fully resolved source (IMAP / Apple Mail / local dir) for sync and CLI.
 #[derive(Debug, Clone)]
-pub struct ResolvedMailbox {
+pub struct ResolvedSource {
     pub id: String,
+    pub kind: SourceKind,
     pub email: String,
     pub imap_host: String,
     pub imap_port: u16,
@@ -101,12 +186,23 @@ pub struct ResolvedMailbox {
     pub imap_aliases: Vec<String>,
     pub imap_password: String,
     pub imap_auth: MailboxImapAuthKind,
-    /// Default search / inbox scan includes this mailbox when `true` (default).
+    /// Default search includes this source when `true` (default).
     pub include_in_default: bool,
     pub maildir_path: PathBuf,
-    /// When set, this mailbox is indexed from Apple Mail’s local store (no IMAP).
+    /// When set, this source is indexed from Apple Mail’s local store (no IMAP).
     pub apple_mail_root: Option<PathBuf>,
+    /// Local directory indexing (`kind == LocalDir`).
+    pub local_dir: Option<ResolvedLocalDir>,
 }
+
+impl ResolvedSource {
+    pub fn is_mail(&self) -> bool {
+        self.kind.is_mail()
+    }
+}
+
+/// Back-compat alias.
+pub type ResolvedMailbox = ResolvedSource;
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -485,13 +581,39 @@ pub fn read_ripmail_env_file(home: &Path) -> HashMap<String, String> {
     m
 }
 
-/// Read `config.json` from `~/.ripmail` (or `RIPMAIL_HOME`). Returns default when missing or invalid.
+fn remove_obsolete_config_file(path: &Path, reason: &str) {
+    if fs::remove_file(path).is_ok() {
+        eprintln!(
+            "ripmail: removed invalid or obsolete {} ({reason}); run `ripmail setup` or `ripmail wizard`.",
+            path.display()
+        );
+    }
+}
+
+/// Read `config.json` from `~/.ripmail` (or `RIPMAIL_HOME`). Returns default when missing.
+///
+/// **No backward compatibility:** unsupported shapes (including the old top-level `mailboxes` key)
+/// or invalid JSON cause the file to be **deleted** and an empty [`ConfigJson`] is returned.
 pub fn load_config_json(home: &Path) -> ConfigJson {
     let path = home.join("config.json");
-    let Ok(content) = std::fs::read_to_string(&path) else {
+    let Ok(raw) = fs::read_to_string(&path) else {
         return ConfigJson::default();
     };
-    serde_json::from_str(&content).unwrap_or_default()
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        remove_obsolete_config_file(&path, "invalid JSON");
+        return ConfigJson::default();
+    };
+    if v.get("mailboxes").is_some() {
+        remove_obsolete_config_file(&path, "obsolete top-level `mailboxes` key; use `sources`");
+        return ConfigJson::default();
+    }
+    match serde_json::from_value::<ConfigJson>(v) {
+        Ok(cfg) => cfg,
+        Err(_) => {
+            remove_obsolete_config_file(&path, "unsupported config.json shape");
+            ConfigJson::default()
+        }
+    }
 }
 
 /// Write `config.json` (pretty-printed JSON).
@@ -511,38 +633,39 @@ pub fn resolve_config_target_mailbox_id(
 ) -> Result<String, String> {
     let cfg = load_config_json(home);
     let mbs = cfg
-        .mailboxes
+        .sources
         .as_ref()
         .filter(|m| !m.is_empty())
         .ok_or_else(|| {
-            "No mailboxes in config.json. Run `ripmail setup` or `ripmail wizard` first."
-                .to_string()
+            "No sources in config.json. Run `ripmail setup` or `ripmail wizard` first.".to_string()
         })?;
     if let Some(id) = id.map(str::trim).filter(|s| !s.is_empty()) {
         if mbs.iter().any(|m| m.id == id) {
             return Ok(id.to_string());
         }
-        return Err(format!("Unknown mailbox id: {id}"));
+        return Err(format!("Unknown source id: {id}"));
     }
     if let Some(em) = email.map(str::trim).filter(|s| !s.is_empty()) {
         if let Some(mb) = mbs.iter().find(|m| m.email.eq_ignore_ascii_case(em)) {
             return Ok(mb.id.clone());
         }
-        return Err(format!("No mailbox with email: {em}"));
+        return Err(format!("No source with email: {em}"));
     }
     if mbs.len() == 1 {
         return Ok(mbs[0].id.clone());
     }
-    Err(
-        "Multiple mailboxes: pass `--id <mailbox-id>` or `--email <addr>` to choose one."
-            .to_string(),
-    )
+    Err("Multiple sources: pass `--id <source-id>` or `--email <addr>` to choose one.".to_string())
 }
 
-/// Find one mailbox entry by id (multi-inbox `mailboxes[]`).
-pub fn mailbox_config_by_id(home: &Path, mailbox_id: &str) -> Option<MailboxConfigJson> {
+/// Find one source entry by id (`sources[]`).
+pub fn source_config_by_id(home: &Path, source_id: &str) -> Option<SourceConfigJson> {
     let cfg = load_config_json(home);
-    cfg.mailboxes?.into_iter().find(|m| m.id == mailbox_id)
+    cfg.sources?.into_iter().find(|m| m.id == source_id)
+}
+
+/// Back-compat name.
+pub fn mailbox_config_by_id(home: &Path, mailbox_id: &str) -> Option<MailboxConfigJson> {
+    source_config_by_id(home, mailbox_id)
 }
 
 /// Resolve the active signature body for LLM compose / display (uses `signatureId` or `default`).
@@ -680,7 +803,10 @@ pub fn draft_compose_identity_for_mailbox(
     } else {
         resolved_mailboxes.first()?
     };
-    let row = mailbox_config_by_id(home, &mb.id)?;
+    if !mb.is_mail() {
+        return None;
+    }
+    let row = source_config_by_id(home, &mb.id)?;
     let id = row.identity.as_ref();
     Some(DraftComposeIdentity {
         mailbox_email: mb.email.clone(),
@@ -731,13 +857,23 @@ pub struct Config {
     /// Base path for resolving `messages.raw_path` / attachment `stored_path` (legacy: same as
     /// `data_dir`; multi-inbox: `RIPMAIL_HOME` with paths like `<mailbox_id>/maildir/...`).
     pub message_path_root: PathBuf,
-    /// Primary mailbox id (first entry in `mailboxes` or derived from legacy IMAP user).
-    pub mailbox_id: String,
-    /// All configured mailboxes (for multi-account refresh, search scope, status).
-    pub resolved_mailboxes: Vec<ResolvedMailbox>,
+    /// Primary source id (first mail source, or first entry, or derived from legacy IMAP user).
+    pub source_id: String,
+    /// All configured sources (refresh, search scope, status).
+    pub resolved_sources: Vec<ResolvedSource>,
 }
 
 impl Config {
+    /// Back-compat: primary mailbox/source id.
+    pub fn mailbox_id(&self) -> &str {
+        &self.source_id
+    }
+
+    /// Back-compat: resolved mailboxes list.
+    pub fn resolved_mailboxes(&self) -> &[ResolvedMailbox] {
+        &self.resolved_sources
+    }
+
     pub fn db_path(&self) -> &Path {
         &self.db_path
     }
@@ -826,13 +962,18 @@ fn effective_env(
         .or_else(|| env_file.get(key).cloned())
 }
 
-/// Ids of mailboxes included in default search / inbox when no `--mailbox` is given.
-pub fn mailbox_ids_for_default_search(mailboxes: &[ResolvedMailbox]) -> Vec<String> {
-    mailboxes
+/// Ids of sources included in default search when no `--source` is given.
+pub fn source_ids_for_default_search(sources: &[ResolvedSource]) -> Vec<String> {
+    sources
         .iter()
         .filter(|m| m.include_in_default)
         .map(|m| m.id.clone())
         .collect()
+}
+
+/// Back-compat name.
+pub fn mailbox_ids_for_default_search(mailboxes: &[ResolvedMailbox]) -> Vec<String> {
+    source_ids_for_default_search(mailboxes)
 }
 
 /// Build a [`Config`] for outbound SMTP using the given mailbox (email or id), or the default
@@ -845,8 +986,14 @@ pub fn config_for_outbound_send(
     let Some(spec) = spec else {
         return Ok(cfg.clone());
     };
-    let mb = resolve_mailbox_spec(&cfg.resolved_mailboxes, spec)
-        .ok_or_else(|| format!("Unknown mailbox: {spec}"))?;
+    let mb = resolve_source_spec(&cfg.resolved_sources, spec)
+        .ok_or_else(|| format!("Unknown source: {spec}"))?;
+    if !mb.is_mail() {
+        return Err(format!(
+            "Source {spec} is not a mail source (kind={:?})",
+            mb.kind
+        ));
+    }
     let json = load_config_json(&cfg.ripmail_home);
     let mut out = cfg.clone();
     out.imap_host = mb.imap_host.clone();
@@ -856,23 +1003,31 @@ pub fn config_for_outbound_send(
     out.imap_password = mb.imap_password.clone();
     out.imap_auth = mb.imap_auth;
     out.maildir_path = mb.maildir_path.clone();
-    out.mailbox_id = mb.id.clone();
+    out.source_id = mb.id.clone();
     out.smtp = resolve_smtp_settings(&out.imap_host, json.smtp.as_ref())?;
     Ok(out)
 }
 
-/// Resolve `--mailbox <email|id>` to a configured mailbox.
-pub fn resolve_mailbox_spec<'a>(
-    mailboxes: &'a [ResolvedMailbox],
+/// Resolve `--source <email|id>` to a configured source.
+pub fn resolve_source_spec<'a>(
+    sources: &'a [ResolvedSource],
     spec: &str,
-) -> Option<&'a ResolvedMailbox> {
+) -> Option<&'a ResolvedSource> {
     let s = spec.trim();
     if s.is_empty() {
         return None;
     }
-    mailboxes
+    sources
         .iter()
-        .find(|m| m.id == s || m.email.eq_ignore_ascii_case(s))
+        .find(|m| m.id == s || (!m.email.is_empty() && m.email.eq_ignore_ascii_case(s)))
+}
+
+/// Back-compat name.
+pub fn resolve_mailbox_spec<'a>(
+    mailboxes: &'a [ResolvedMailbox],
+    spec: &str,
+) -> Option<&'a ResolvedMailbox> {
+    resolve_source_spec(mailboxes, spec)
 }
 
 fn expand_tilde_path(s: &str) -> PathBuf {
@@ -884,111 +1039,160 @@ fn expand_tilde_path(s: &str) -> PathBuf {
     PathBuf::from(s)
 }
 
-fn build_resolved_mailboxes(
+fn build_resolved_sources(
     json: &ConfigJson,
     home: &Path,
     data_dir: &Path,
     env_file: &HashMap<String, String>,
     process_env: &HashMap<String, String>,
-) -> Vec<ResolvedMailbox> {
+) -> Vec<ResolvedSource> {
     let multi = json
-        .mailboxes
+        .sources
         .as_ref()
         .map(|m| !m.is_empty())
         .unwrap_or(false);
 
     if multi {
         let mut out = Vec::new();
-        for mb in json.mailboxes.as_ref().unwrap() {
-            let mailbox_type = mb.mailbox_type.as_deref().unwrap_or("imap");
-            if mailbox_type.eq_ignore_ascii_case("applemail") {
-                let apple_root = mb
-                    .apple_mail_path
-                    .as_deref()
-                    .map(expand_tilde_path)
-                    .or_else(|| {
-                        dirs::home_dir()
-                            .and_then(|h| crate::applemail::default_mail_library_root(&h))
+        for mb in json.sources.as_ref().unwrap() {
+            match mb.kind {
+                SourceKind::LocalDir => {
+                    let Some(path_str) =
+                        mb.path.as_deref().map(str::trim).filter(|s| !s.is_empty())
+                    else {
+                        continue;
+                    };
+                    let root = expand_tilde_path(path_str);
+                    let ld = mb.local_dir.as_ref();
+                    let include_in_default = mb
+                        .search
+                        .as_ref()
+                        .and_then(|s| s.include_in_default)
+                        .unwrap_or(true);
+                    let include = ld.map(|l| l.include.clone()).unwrap_or_default();
+                    let ignore = ld.map(|l| l.ignore.clone()).unwrap_or_default();
+                    let respect_gitignore = ld
+                        .map(|l| l.respect_gitignore)
+                        .unwrap_or_else(default_respect_gitignore);
+                    let max_depth = ld.map(|l| l.max_depth).unwrap_or_else(default_max_depth);
+                    let max_file_bytes = ld
+                        .map(|l| l.max_file_bytes)
+                        .unwrap_or_else(default_max_file_bytes);
+                    out.push(ResolvedSource {
+                        id: mb.id.clone(),
+                        kind: SourceKind::LocalDir,
+                        email: String::new(),
+                        imap_host: String::new(),
+                        imap_port: 993,
+                        imap_user: String::new(),
+                        imap_aliases: Vec::new(),
+                        imap_password: String::new(),
+                        imap_auth: MailboxImapAuthKind::AppPassword,
+                        include_in_default,
+                        maildir_path: home.join(&mb.id).join("maildir"),
+                        apple_mail_root: None,
+                        local_dir: Some(ResolvedLocalDir {
+                            root,
+                            include,
+                            ignore,
+                            respect_gitignore,
+                            max_depth,
+                            max_file_bytes,
+                        }),
                     });
-                let Some(apple_root) = apple_root else {
-                    // No `~/Library/Mail/V*` (non-macOS or missing Mail data).
-                    continue;
-                };
-                let include_in_default = mb
-                    .search
-                    .as_ref()
-                    .and_then(|s| s.include_in_default)
-                    .unwrap_or(true);
-                let imap_aliases = mb
-                    .imap
-                    .as_ref()
-                    .and_then(|i| i.aliases.clone())
-                    .unwrap_or_default();
-                out.push(ResolvedMailbox {
-                    id: mb.id.clone(),
-                    email: mb.email.trim().to_string(),
-                    imap_host: "local.applemail".into(),
-                    imap_port: 993,
-                    imap_user: mb.email.trim().to_string(),
-                    imap_aliases,
-                    // Placeholder non-empty so first-backfill detection works without IMAP secrets.
-                    imap_password: "applemail-placeholder".into(),
-                    imap_auth: MailboxImapAuthKind::AppPassword,
-                    include_in_default,
-                    maildir_path: home.join(&mb.id).join("maildir"),
-                    apple_mail_root: Some(apple_root),
-                });
-                continue;
+                }
+                SourceKind::AppleMail => {
+                    let apple_root = mb
+                        .apple_mail_path
+                        .as_deref()
+                        .map(expand_tilde_path)
+                        .or_else(|| {
+                            dirs::home_dir()
+                                .and_then(|h| crate::applemail::default_mail_library_root(&h))
+                        });
+                    let Some(apple_root) = apple_root else {
+                        continue;
+                    };
+                    let include_in_default = mb
+                        .search
+                        .as_ref()
+                        .and_then(|s| s.include_in_default)
+                        .unwrap_or(true);
+                    let imap_aliases = mb
+                        .imap
+                        .as_ref()
+                        .and_then(|i| i.aliases.clone())
+                        .unwrap_or_default();
+                    out.push(ResolvedSource {
+                        id: mb.id.clone(),
+                        kind: SourceKind::AppleMail,
+                        email: mb.email.trim().to_string(),
+                        imap_host: "local.applemail".into(),
+                        imap_port: 993,
+                        imap_user: mb.email.trim().to_string(),
+                        imap_aliases,
+                        imap_password: "applemail-placeholder".into(),
+                        imap_auth: MailboxImapAuthKind::AppPassword,
+                        include_in_default,
+                        maildir_path: home.join(&mb.id).join("maildir"),
+                        apple_mail_root: Some(apple_root),
+                        local_dir: None,
+                    });
+                }
+                SourceKind::Imap => {
+                    let mb_env = load_env_file(&home.join(&mb.id));
+                    let imap_host = mb
+                        .imap
+                        .as_ref()
+                        .and_then(|i| i.host.clone())
+                        .unwrap_or_else(|| "imap.gmail.com".into());
+                    let imap_port = mb.imap.as_ref().and_then(|i| i.port).unwrap_or(993);
+                    let mut imap_user = mb.email.trim().to_string();
+                    if imap_user.is_empty() {
+                        imap_user = mb
+                            .imap
+                            .as_ref()
+                            .and_then(|i| i.user.clone())
+                            .or_else(|| effective_env("RIPMAIL_EMAIL", env_file, process_env))
+                            .unwrap_or_default();
+                    }
+                    let imap_aliases = mb
+                        .imap
+                        .as_ref()
+                        .and_then(|i| i.aliases.clone())
+                        .unwrap_or_default();
+                    let imap_auth = MailboxImapAuthKind::from_json(mb.imap_auth.as_deref());
+                    let imap_password = if imap_auth == MailboxImapAuthKind::GoogleOAuth {
+                        String::new()
+                    } else {
+                        effective_env("RIPMAIL_IMAP_PASSWORD", &mb_env, process_env)
+                            .or_else(|| {
+                                effective_env("RIPMAIL_IMAP_PASSWORD", env_file, process_env)
+                            })
+                            .unwrap_or_default()
+                    };
+                    let include_in_default = mb
+                        .search
+                        .as_ref()
+                        .and_then(|s| s.include_in_default)
+                        .unwrap_or(true);
+                    out.push(ResolvedSource {
+                        id: mb.id.clone(),
+                        kind: SourceKind::Imap,
+                        email: mb.email.trim().to_string(),
+                        imap_host,
+                        imap_port,
+                        imap_user,
+                        imap_aliases,
+                        imap_password,
+                        imap_auth,
+                        include_in_default,
+                        maildir_path: home.join(&mb.id).join("maildir"),
+                        apple_mail_root: None,
+                        local_dir: None,
+                    });
+                }
             }
-            let mb_env = load_env_file(&home.join(&mb.id));
-            let imap_host = mb
-                .imap
-                .as_ref()
-                .and_then(|i| i.host.clone())
-                .unwrap_or_else(|| "imap.gmail.com".into());
-            let imap_port = mb.imap.as_ref().and_then(|i| i.port).unwrap_or(993);
-            let mut imap_user = mb.email.trim().to_string();
-            if imap_user.is_empty() {
-                imap_user = mb
-                    .imap
-                    .as_ref()
-                    .and_then(|i| i.user.clone())
-                    .or_else(|| effective_env("RIPMAIL_EMAIL", env_file, process_env))
-                    .unwrap_or_default();
-            }
-            let imap_aliases = mb
-                .imap
-                .as_ref()
-                .and_then(|i| i.aliases.clone())
-                .unwrap_or_default();
-            // Only the mailbox-level `imapAuth` selects OAuth; ignore nested `imap.imapAuth` so a stray
-            // `"googleOAuth"` under `imap` cannot override app-password setups.
-            let imap_auth = MailboxImapAuthKind::from_json(mb.imap_auth.as_deref());
-            let imap_password = if imap_auth == MailboxImapAuthKind::GoogleOAuth {
-                String::new()
-            } else {
-                effective_env("RIPMAIL_IMAP_PASSWORD", &mb_env, process_env)
-                    .or_else(|| effective_env("RIPMAIL_IMAP_PASSWORD", env_file, process_env))
-                    .unwrap_or_default()
-            };
-            let include_in_default = mb
-                .search
-                .as_ref()
-                .and_then(|s| s.include_in_default)
-                .unwrap_or(true);
-            out.push(ResolvedMailbox {
-                id: mb.id.clone(),
-                email: mb.email.trim().to_string(),
-                imap_host,
-                imap_port,
-                imap_user,
-                imap_aliases,
-                imap_password,
-                imap_auth,
-                include_in_default,
-                maildir_path: home.join(&mb.id).join("maildir"),
-                apple_mail_root: None,
-            });
         }
         return out;
     }
@@ -1022,8 +1226,9 @@ fn build_resolved_mailboxes(
     } else {
         derive_mailbox_id_from_email(&imap_user)
     };
-    vec![ResolvedMailbox {
+    vec![ResolvedSource {
         id,
+        kind: SourceKind::Imap,
         email: imap_user.clone(),
         imap_host,
         imap_port,
@@ -1034,14 +1239,13 @@ fn build_resolved_mailboxes(
         include_in_default: true,
         maildir_path: data_dir.join("maildir"),
         apple_mail_root: None,
+        local_dir: None,
     }]
 }
 
-/// Enumerate configured mailboxes with credentials (for tests and multi-account tooling).
-pub fn load_all_mailboxes(opts: &LoadConfigOptions) -> Vec<ResolvedMailbox> {
+/// Enumerate configured sources with credentials (for tests and multi-account tooling).
+pub fn load_all_sources(opts: &LoadConfigOptions) -> Vec<ResolvedSource> {
     let home = ripmail_home(opts.home.clone());
-    crate::layout_migrate::migrate_legacy_layout_if_needed(&home);
-    crate::layout_migrate::migrate_deferred_legacy_data_if_needed(&home);
     let env_file = read_ripmail_env_file(&home);
     let json = load_config_json(&home);
     let process_env: HashMap<String, String> = opts
@@ -1049,14 +1253,17 @@ pub fn load_all_mailboxes(opts: &LoadConfigOptions) -> Vec<ResolvedMailbox> {
         .clone()
         .unwrap_or_else(|| std::env::vars().collect());
     let data_dir = home.join("data");
-    build_resolved_mailboxes(&json, &home, &data_dir, &env_file, &process_env)
+    build_resolved_sources(&json, &home, &data_dir, &env_file, &process_env)
+}
+
+/// Back-compat name.
+pub fn load_all_mailboxes(opts: &LoadConfigOptions) -> Vec<ResolvedMailbox> {
+    load_all_sources(opts)
 }
 
 /// Load config like TS `loadConfig(options?)`.
 pub fn load_config(opts: LoadConfigOptions) -> Config {
     let home = ripmail_home(opts.home.clone());
-    crate::layout_migrate::migrate_legacy_layout_if_needed(&home);
-    crate::layout_migrate::migrate_deferred_legacy_data_if_needed(&home);
 
     let env_file = read_ripmail_env_file(&home);
     let json = load_config_json(&home);
@@ -1065,17 +1272,16 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
         opts.env.unwrap_or_else(|| std::env::vars().collect());
 
     let data_dir = home.join("data");
-    let resolved_mailboxes =
-        build_resolved_mailboxes(&json, &home, &data_dir, &env_file, &process_env);
+    let resolved_sources = build_resolved_sources(&json, &home, &data_dir, &env_file, &process_env);
 
     let multi = json
-        .mailboxes
+        .sources
         .as_ref()
         .map(|m| !m.is_empty())
         .unwrap_or(false);
 
     let (
-        imap_host,
+        mut imap_host,
         imap_port,
         imap_user,
         imap_aliases,
@@ -1085,7 +1291,11 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
         maildir_path,
         message_path_root,
     ) = if multi {
-        let mb = resolved_mailboxes.first().expect("mailboxes non-empty");
+        let mb = resolved_sources
+            .iter()
+            .find(|s| s.is_mail())
+            .or_else(|| resolved_sources.first())
+            .expect("sources non-empty");
         (
             mb.imap_host.clone(),
             mb.imap_port,
@@ -1098,7 +1308,7 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
             home.clone(),
         )
     } else {
-        let mb = resolved_mailboxes.first();
+        let mb = resolved_sources.first();
         let imap_host = mb
             .map(|m| m.imap_host.clone())
             .unwrap_or_else(|| "imap.gmail.com".into());
@@ -1120,8 +1330,14 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
         )
     };
 
-    let mailbox_id = resolved_mailboxes
-        .first()
+    if imap_host.trim().is_empty() {
+        imap_host = "imap.gmail.com".to_string();
+    }
+
+    let source_id = resolved_sources
+        .iter()
+        .find(|s| s.is_mail())
+        .or_else(|| resolved_sources.first())
         .map(|m| m.id.clone())
         .unwrap_or_default();
 
@@ -1182,8 +1398,8 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
         db_path,
         maildir_path,
         message_path_root,
-        mailbox_id,
-        resolved_mailboxes,
+        source_id,
+        resolved_sources,
     }
 }
 
@@ -1240,11 +1456,38 @@ mod tests {
     }
 
     #[test]
-    fn mailbox_config_applemail_deserializes() {
-        let raw = r#"{"mailboxes":[{"id":"am1","email":"u@icloud.com","mailboxType":"applemail","appleMailPath":"~/Library/Mail/V10"}]}"#;
+    fn load_config_json_deletes_file_when_mailboxes_key_present() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        let path = home.join("config.json");
+        fs::write(
+            &path,
+            r#"{"mailboxes":[{"id":"x","kind":"imap","email":"a@b.com","imap":{"host":"imap.gmail.com","port":993}}]}"#,
+        )
+        .unwrap();
+        let cfg = load_config_json(home);
+        assert!(cfg.sources.is_none());
+        assert!(cfg.imap.is_none());
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn load_config_json_deletes_file_on_invalid_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        let path = home.join("config.json");
+        fs::write(&path, "{not json").unwrap();
+        let cfg = load_config_json(home);
+        assert!(cfg.sources.is_none());
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn source_config_applemail_deserializes() {
+        let raw = r#"{"sources":[{"id":"am1","email":"u@icloud.com","kind":"applemail","appleMailPath":"~/Library/Mail/V10"}]}"#;
         let j: ConfigJson = serde_json::from_str(raw).unwrap();
-        let mb = j.mailboxes.as_ref().unwrap().first().unwrap();
-        assert_eq!(mb.mailbox_type.as_deref(), Some("applemail"));
+        let mb = j.sources.as_ref().unwrap().first().unwrap();
+        assert_eq!(mb.kind, SourceKind::AppleMail);
         assert_eq!(mb.apple_mail_path.as_deref(), Some("~/Library/Mail/V10"));
     }
 

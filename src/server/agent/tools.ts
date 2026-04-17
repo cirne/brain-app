@@ -1,6 +1,6 @@
 import { createReadTool, createEditTool, createWriteTool, createGrepTool, createFindTool, defineTool } from '@mariozechner/pi-coding-agent'
 import { Type } from '@mariozechner/pi-ai'
-import { exec } from 'node:child_process'
+import { exec, spawn } from 'node:child_process'
 import { mkdir, rename, stat, unlink } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { promisify } from 'node:util'
@@ -29,7 +29,8 @@ export { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '../lib/imessag
 /** Build `ripmail …` argv after the binary name (e.g. `rules list`). Used by inbox_rules and tests. */
 export function buildInboxRulesCommand(params: {
   op: 'list' | 'validate' | 'show' | 'add' | 'edit' | 'remove' | 'move' | 'feedback'
-  mailbox?: string
+  /** Per-account rules overlay (email or source id) */
+  source?: string
   sample?: boolean
   rule_id?: string
   rule_action?: 'ignore' | 'notify' | 'inform'
@@ -41,8 +42,8 @@ export function buildInboxRulesCommand(params: {
   after_rule_id?: string
   feedback_text?: string
 }): string {
-  const mb = params.mailbox?.trim()
-    ? ` --mailbox ${JSON.stringify(params.mailbox.trim())}`
+  const mb = params.source?.trim()
+    ? ` --source ${JSON.stringify(params.source.trim())}`
     : ''
   switch (params.op) {
     case 'list':
@@ -186,6 +187,41 @@ export function buildDraftEditFlags(params: {
   return parts.length ? parts.join(' ') + ' ' : ''
 }
 
+/** Build `ripmail sources add --kind localDir …` argv tail after the binary name. Used by add_files_source and tests. */
+export function buildSourcesAddLocalDirCommand(params: {
+  path: string
+  label?: string
+  id?: string
+}): string {
+  const parts = ['sources add --kind localDir', `--path ${JSON.stringify(params.path)}`]
+  if (params.label?.trim()) parts.push(`--label ${JSON.stringify(params.label.trim())}`)
+  if (params.id?.trim()) parts.push(`--id ${JSON.stringify(params.id.trim())}`)
+  parts.push('--json')
+  return parts.join(' ')
+}
+
+/** Build `ripmail sources edit …` argv tail after the binary name. */
+export function buildSourcesEditCommand(params: { id: string; label?: string; path?: string }): string {
+  const parts = [`sources edit ${JSON.stringify(params.id)}`]
+  if (params.label?.trim()) parts.push(`--label ${JSON.stringify(params.label.trim())}`)
+  if (params.path?.trim()) parts.push(`--path ${JSON.stringify(params.path.trim())}`)
+  parts.push('--json')
+  return parts.join(' ')
+}
+
+/** Build `ripmail sources remove …` argv tail after the binary name. */
+export function buildSourcesRemoveCommand(id: string): string {
+  return `sources remove ${JSON.stringify(id)} --json`
+}
+
+/** Build `ripmail refresh` argv tail: bare refresh or scoped `--source`. */
+export function buildReindexCommand(params: { sourceId?: string }): string {
+  if (params.sourceId?.trim()) {
+    return `refresh --source ${JSON.stringify(params.sourceId.trim())}`
+  }
+  return 'refresh'
+}
+
 export interface CreateAgentToolsOptions {
   /**
    * Include list_recent_messages / get_message_thread (local SMS/text + iMessage via macOS chat.db when readable).
@@ -294,20 +330,39 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
-  // Custom tools for email and git
-  const searchEmail = defineTool({
-    name: 'search_email',
-    label: 'Search Email',
-    description: 'Search the email index using full-text search. Returns matching email summaries.',
+  function spawnRipmailRefreshDetached(sourceId?: string): Promise<{ ok: boolean; error?: string }> {
+    const rm = ripmailBin()
+    const args = sourceId?.trim() ? (['refresh', '--source', sourceId.trim()] as const) : (['refresh'] as const)
+    return new Promise((resolve) => {
+      const child = spawn(rm, [...args], { detached: true, stdio: 'ignore', env: { ...process.env } })
+      child.once('error', (err) => resolve({ ok: false, error: String(err) }))
+      child.once('spawn', () => {
+        child.unref()
+        resolve({ ok: true })
+      })
+    })
+  }
+
+  // Custom tools: unified ripmail index (mail + files) and source management
+  const searchIndex = defineTool({
+    name: 'search_index',
+    label: 'Search index',
+    description:
+      'Full-text search across email and indexed local files (ripmail). Pass optional source to limit to one account or folder source id.',
     parameters: Type.Object({
       query: Type.String({ description: 'Search query' }),
+      source: Type.Optional(
+        Type.String({ description: 'Ripmail source id or account email to scope results (--source)' }),
+      ),
     }),
-    async execute(_toolCallId: string, params: { query: string }) {
-      const ripmail = ripmailBin()
-      const { stdout } = await execAsync(
-        `${ripmail} search ${JSON.stringify(params.query)} --json`,
-        { timeout: 15000 }
-      )
+    async execute(_toolCallId: string, params: { query: string; source?: string }) {
+      const rm = ripmailBin()
+      const src = params.source?.trim()
+        ? ` --source ${JSON.stringify(params.source.trim())}`
+        : ''
+      const { stdout } = await execAsync(`${rm} search ${JSON.stringify(params.query)} --json${src}`, {
+        timeout: 15000,
+      })
       return {
         content: [{ type: 'text' as const, text: stdout || 'No results found.' }],
         details: {},
@@ -315,22 +370,188 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
-  const readEmail = defineTool({
-    name: 'read_email',
-    label: 'Read Email',
-    description: 'Read a specific email message by ID. Returns full message content including body.',
+  const readDoc = defineTool({
+    name: 'read_doc',
+    label: 'Read document',
+    description:
+      'Read one item from the ripmail index: an email by Message-ID, or a file by absolute path (tilde paths OK). Use optional source when Message-ID is ambiguous.',
     parameters: Type.Object({
-      id: Type.String({ description: 'Message ID' }),
+      id: Type.String({ description: 'Message-ID or filesystem path' }),
+      source: Type.Optional(Type.String({ description: 'Narrows Message-ID resolution when ambiguous' })),
     }),
-    async execute(_toolCallId: string, params: { id: string }) {
-      const ripmail = ripmailBin()
-      const { stdout } = await execAsync(
-        `${ripmail} read ${JSON.stringify(params.id)} --json`,
-        { timeout: 15000 }
-      )
+    async execute(_toolCallId: string, params: { id: string; source?: string }) {
+      const rm = ripmailBin()
+      const src = params.source?.trim()
+        ? ` --source ${JSON.stringify(params.source.trim())}`
+        : ''
+      const { stdout } = await execAsync(`${rm} read ${JSON.stringify(params.id)} --json${src}`, {
+        timeout: 15000,
+      })
       return {
         content: [{ type: 'text' as const, text: stdout }],
         details: {},
+      }
+    },
+  })
+
+  const listSources = defineTool({
+    name: 'list_sources',
+    label: 'List sources',
+    description: 'List all configured ripmail sources (IMAP, Apple Mail, local folders) as JSON.',
+    parameters: Type.Object({}),
+    async execute(_toolCallId: string, _params: Record<string, never>) {
+      const rm = ripmailBin()
+      const { stdout } = await execAsync(`${rm} sources list --json`, { timeout: 15000 })
+      let details: Record<string, unknown> = {}
+      try {
+        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
+      } catch {
+        details = { raw: stdout }
+      }
+      return {
+        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
+        details,
+      }
+    },
+  })
+
+  const sourceStatus = defineTool({
+    name: 'source_status',
+    label: 'Source status',
+    description: 'Per-source index health: document counts and last sync time (JSON).',
+    parameters: Type.Object({}),
+    async execute(_toolCallId: string, _params: Record<string, never>) {
+      const rm = ripmailBin()
+      const { stdout } = await execAsync(`${rm} sources status --json`, { timeout: 15000 })
+      let details: Record<string, unknown> = {}
+      try {
+        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
+      } catch {
+        details = { raw: stdout }
+      }
+      return {
+        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
+        details,
+      }
+    },
+  })
+
+  const addFilesSource = defineTool({
+    name: 'add_files_source',
+    label: 'Add indexed folder',
+    description:
+      'Register a local folder as a ripmail source so its files are indexed and searchable. Custom include/ignore globs are not available via CLI yet — omit them or the tool errors with guidance.',
+    parameters: Type.Object({
+      path: Type.String({ description: 'Absolute path or ~/… to the folder root' }),
+      label: Type.Optional(Type.String({ description: 'Display label' })),
+      id: Type.Optional(Type.String({ description: 'Stable source id (default: derived from label/path)' })),
+      include: Type.Optional(Type.Array(Type.String(), { description: 'Not yet supported — omit' })),
+      ignore: Type.Optional(Type.Array(Type.String(), { description: 'Not yet supported — omit' })),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { path: string; label?: string; id?: string; include?: string[]; ignore?: string[] },
+    ) {
+      if ((params.include?.length ?? 0) > 0 || (params.ignore?.length ?? 0) > 0) {
+        throw new Error(
+          'Custom include/ignore patterns are not available via the agent yet. Add the folder with defaults only, or edit ~/.ripmail/config.json by hand until ripmail exposes those flags on sources add.',
+        )
+      }
+      const rm = ripmailBin()
+      const tail = buildSourcesAddLocalDirCommand({
+        path: params.path,
+        label: params.label,
+        id: params.id,
+      })
+      const { stdout } = await execAsync(`${rm} ${tail}`, { timeout: 15000 })
+      let details: Record<string, unknown> = {}
+      try {
+        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
+      } catch {
+        details = { raw: stdout }
+      }
+      return {
+        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
+        details,
+      }
+    },
+  })
+
+  const editFilesSource = defineTool({
+    name: 'edit_files_source',
+    label: 'Edit source',
+    description: 'Update label or path for an existing ripmail source by id (JSON output).',
+    parameters: Type.Object({
+      id: Type.String({ description: 'Source id' }),
+      label: Type.Optional(Type.String()),
+      path: Type.Optional(Type.String({ description: 'For localDir sources only' })),
+    }),
+    async execute(_toolCallId: string, params: { id: string; label?: string; path?: string }) {
+      const rm = ripmailBin()
+      const tail = buildSourcesEditCommand(params)
+      const { stdout } = await execAsync(`${rm} ${tail}`, { timeout: 15000 })
+      let details: Record<string, unknown> = {}
+      try {
+        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
+      } catch {
+        details = { raw: stdout }
+      }
+      return {
+        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
+        details,
+      }
+    },
+  })
+
+  const removeFilesSource = defineTool({
+    name: 'remove_files_source',
+    label: 'Remove source',
+    description:
+      'Remove a ripmail source from config (and its index rows). Confirm with the user before calling — destructive.',
+    parameters: Type.Object({
+      id: Type.String({ description: 'Source id to remove' }),
+    }),
+    async execute(_toolCallId: string, params: { id: string }) {
+      const rm = ripmailBin()
+      const tail = buildSourcesRemoveCommand(params.id)
+      const { stdout } = await execAsync(`${rm} ${tail}`, { timeout: 15000 })
+      let details: Record<string, unknown> = {}
+      try {
+        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
+      } catch {
+        details = { raw: stdout }
+      }
+      return {
+        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
+        details,
+      }
+    },
+  })
+
+  const reindexFilesSource = defineTool({
+    name: 'reindex_files_source',
+    label: 'Re-index',
+    description:
+      'Start ripmail refresh in the background (all sources, or one source when source_id is set). Does not block on completion.',
+    parameters: Type.Object({
+      source_id: Type.Optional(Type.String({ description: 'Ripmail source id; omit to refresh all' })),
+    }),
+    async execute(_toolCallId: string, params: { source_id?: string }) {
+      const started = await spawnRipmailRefreshDetached(params.source_id)
+      if (!started.ok) {
+        throw new Error(started.error ?? 'Failed to start ripmail refresh')
+      }
+      const scope = params.source_id?.trim()
+        ? `source ${params.source_id.trim()}`
+        : 'all sources'
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Re-index started in the background (${scope}). Check ripmail status or source_status later.`,
+          },
+        ],
+        details: { ok: true as const, source_id: params.source_id ?? null },
       }
     },
   })
@@ -339,7 +560,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'list_inbox',
     label: 'List Inbox',
     description:
-      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_email for "everything in my inbox" or when search_email returns no results. JSON includes messageId per item for archive_emails / read_email.',
+      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_index for "everything in my inbox" or when search_index returns no results. JSON includes messageId per item for archive_emails / read_doc.',
     parameters: Type.Object({}),
     async execute(_toolCallId: string, _params: Record<string, never>) {
       const rm = ripmailBin()
@@ -356,7 +577,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'inbox_rules',
     label: 'Inbox Rules',
     description:
-      'Rare: manage ripmail inbox rules (which messages list_inbox surfaces and how). Wraps `ripmail rules`. op=list (JSON rules), validate (optional sample=true for DB match counts), show (one id), add (rule_action + query), edit (rule_id + changes), remove, move (before_rule_id XOR after_rule_id), feedback (feedback_text → proposed rule). Optional mailbox for per-account rules overlay.',
+      'Rare: manage ripmail inbox rules (which messages list_inbox surfaces and how). Wraps `ripmail rules`. op=list (JSON rules), validate (optional sample=true for DB match counts), show (one id), add (rule_action + query), edit (rule_id + changes), remove, move (before_rule_id XOR after_rule_id), feedback (feedback_text → proposed rule). Optional source for per-account rules overlay.',
     parameters: Type.Object({
       op: Type.Union(
         [
@@ -371,8 +592,8 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         ],
         { description: 'Which ripmail rules subcommand to run' },
       ),
-      mailbox: Type.Optional(
-        Type.String({ description: 'Per-account overlay (email or id); omit for ~/.ripmail/rules.json' }),
+      source: Type.Optional(
+        Type.String({ description: 'Per-account overlay (email or source id); omit for ~/.ripmail/rules.json' }),
       ),
       sample: Type.Optional(Type.Boolean({ description: 'validate only: --sample (re-check counts vs ripmail.db)' })),
       rule_id: Type.Optional(Type.String({ description: 'Rule id (show, edit, remove, move)' })),
@@ -393,7 +614,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       _toolCallId: string,
       params: {
         op: 'list' | 'validate' | 'show' | 'add' | 'edit' | 'remove' | 'move' | 'feedback'
-        mailbox?: string
+        source?: string
         sample?: boolean
         rule_id?: string
         rule_action?: 'ignore' | 'notify' | 'inform'
@@ -427,7 +648,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'archive_emails',
     label: 'Archive Emails',
     description:
-      'Archive one or more messages by ID (removes them from the inbox view via IMAP). Use IDs from list_inbox, search_email, or read_email.',
+      'Archive one or more messages by ID (removes them from the inbox view via IMAP). Use IDs from list_inbox, search_index, or read_doc.',
     parameters: Type.Object({
       message_ids: Type.Array(Type.String({ description: 'Message ID' }), { minItems: 1 }),
     }),
@@ -945,8 +1166,14 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     find,
     moveFile,
     deleteFile,
-    searchEmail,
-    readEmail,
+    searchIndex,
+    readDoc,
+    listSources,
+    sourceStatus,
+    addFilesSource,
+    editFilesSource,
+    removeFilesSource,
+    reindexFilesSource,
     listInbox,
     inboxRules,
     archiveEmails,

@@ -20,7 +20,7 @@ pub fn build_filter_clause(opts: &SearchOptions, include_fts: bool) -> FilterCla
     let mut params = Vec::new();
 
     if include_fts {
-        conditions.push("messages_fts MATCH ?".to_string());
+        conditions.push("document_index_fts MATCH ?".to_string());
     }
 
     let mut from_to_handled = false;
@@ -126,7 +126,7 @@ pub fn build_filter_clause(opts: &SearchOptions, include_fts: bool) -> FilterCla
     if let Some(ref ids) = opts.mailbox_ids {
         if !ids.is_empty() {
             let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            always_and.push(format!("m.mailbox_id IN ({placeholders})"));
+            always_and.push(format!("m.source_id IN ({placeholders})"));
             always_and_params.extend(ids.iter().cloned());
         }
     }
@@ -170,9 +170,14 @@ pub fn sql_count_messages(where_clause: &str) -> String {
     format!("SELECT COUNT(*) FROM messages m {where_clause}")
 }
 
-/// `SELECT COUNT(*)` over `messages_fts` ⋈ `messages` (FTS search / rule counts).
+/// `SELECT COUNT(*)` over `document_index_fts` ⋈ `document_index` ⋈ `messages` (FTS mail search / rule counts).
 pub fn sql_count_messages_fts_join(where_clause: &str) -> String {
-    format!("SELECT COUNT(*) FROM messages_fts JOIN messages m ON m.id = messages_fts.rowid {where_clause}")
+    format!(
+        "SELECT COUNT(*) FROM document_index_fts \
+         JOIN document_index di ON di.id = document_index_fts.rowid \
+         JOIN messages m ON m.message_id = di.ext_id AND di.kind = 'mail' \
+         {where_clause}"
+    )
 }
 
 pub fn build_where_sql(clause: &FilterClause) -> String {

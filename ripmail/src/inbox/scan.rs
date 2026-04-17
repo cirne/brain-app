@@ -49,7 +49,7 @@ pub fn inbox_candidate_prefetch_limit(candidate_cap: usize) -> usize {
 #[derive(Debug, Clone)]
 pub struct InboxCandidate {
     pub message_id: String,
-    pub mailbox_id: String,
+    pub source_id: String,
     pub date: String,
     pub from_address: String,
     pub from_name: Option<String>,
@@ -82,7 +82,7 @@ pub struct RunInboxScanResult {
     pub counts: InboxDispositionCounts,
     pub candidates_scanned: usize,
     pub llm_duration_ms: u64,
-    /// Candidates loaded per `mailbox_id` after `load_inbox_candidates` (before cap/truncate).
+    /// Candidates loaded per `source_id` after `load_inbox_candidates` (before cap/truncate).
     pub candidate_count_by_mailbox: HashMap<String, usize>,
 }
 
@@ -126,8 +126,8 @@ pub struct RunInboxScanOptions {
     pub candidate_cap: Option<usize>,
     pub notable_cap: Option<usize>,
     pub batch_size: Option<usize>,
-    /// Restrict scan to these `messages.mailbox_id` values (empty = all mailboxes).
-    pub mailbox_ids: Vec<String>,
+    /// Restrict scan to these `messages.source_id` values (empty = all mailboxes).
+    pub source_ids: Vec<String>,
 }
 
 /// Whether inbox candidate SQL should exclude locally archived mail (`is_archived = 1`).
@@ -540,7 +540,7 @@ fn to_preview_row(
 
     let mut row = RefreshPreviewRow {
         message_id: candidate.message_id.clone(),
-        mailbox_id: candidate.mailbox_id.clone(),
+        source_id: candidate.source_id.clone(),
         date: candidate.date.clone(),
         from_address: candidate.from_address.clone(),
         from_name: candidate.from_name.clone(),
@@ -580,20 +580,20 @@ fn load_inbox_candidates(
         ""
     };
 
-    let mailbox_sql = if options.mailbox_ids.is_empty() {
+    let mailbox_sql = if options.source_ids.is_empty() {
         String::new()
     } else {
         let ph = options
-            .mailbox_ids
+            .source_ids
             .iter()
             .map(|_| "?")
             .collect::<Vec<_>>()
             .join(", ");
-        format!(" AND mailbox_id IN ({ph})")
+        format!(" AND source_id IN ({ph})")
     };
 
     let sql = format!(
-        "SELECT message_id, mailbox_id, from_address, from_name, to_addresses, cc_addresses, subject, date,
+        "SELECT message_id, source_id, from_address, from_name, to_addresses, cc_addresses, subject, date,
          COALESCE(TRIM(SUBSTR(body_text, 1, 200)), '') ||
          CASE WHEN LENGTH(TRIM(body_text)) > 200 THEN '…' ELSE '' END AS snippet,
          COALESCE(body_text, '') AS body_text,
@@ -606,7 +606,7 @@ fn load_inbox_candidates(
     );
 
     let mut bind: Vec<Value> = vec![Value::Text(options.cutoff_iso.clone())];
-    bind.extend(options.mailbox_ids.iter().cloned().map(Value::Text));
+    bind.extend(options.source_ids.iter().cloned().map(Value::Text));
     bind.push(Value::Integer(fetch_limit as i64));
 
     let mut stmt = conn.prepare(&sql)?;
@@ -630,7 +630,7 @@ fn load_inbox_candidates(
     for r in rows {
         let (
             message_id,
-            mailbox_id,
+            source_id,
             from_address,
             from_name,
             to_json,
@@ -644,7 +644,7 @@ fn load_inbox_candidates(
         let attachments = list_attachments_for_message(conn, &message_id)?;
         candidates.push(InboxCandidate {
             message_id,
-            mailbox_id,
+            source_id,
             date,
             from_address,
             from_name,
@@ -701,15 +701,15 @@ fn inbox_where_messages_for_scope(options: &RunInboxScanOptions) -> (String, Vec
             InboxSurfaceMode::Review => {}
         }
     }
-    if !options.mailbox_ids.is_empty() {
+    if !options.source_ids.is_empty() {
         let ph = options
-            .mailbox_ids
+            .source_ids
             .iter()
             .map(|_| "?")
             .collect::<Vec<_>>()
             .join(", ");
-        sql.push_str(&format!(" AND mailbox_id IN ({ph})"));
-        params.extend(options.mailbox_ids.iter().cloned().map(Value::Text));
+        sql.push_str(&format!(" AND source_id IN ({ph})"));
+        params.extend(options.source_ids.iter().cloned().map(Value::Text));
     }
     (sql, params)
 }
@@ -717,20 +717,20 @@ fn inbox_where_messages_for_scope(options: &RunInboxScanOptions) -> (String, Vec
 /// Count unarchived messages per mailbox (no date filter) — for emptyReason vs `no_mail_in_window`.
 pub fn count_unarchived_messages_by_mailbox(
     conn: &Connection,
-    mailbox_ids: &[String],
+    source_ids: &[String],
 ) -> rusqlite::Result<HashMap<String, usize>> {
-    if mailbox_ids.is_empty() {
+    if source_ids.is_empty() {
         return Ok(HashMap::new());
     }
-    let ph = mailbox_ids
+    let ph = source_ids
         .iter()
         .map(|_| "?")
         .collect::<Vec<_>>()
         .join(", ");
     let sql = format!(
-        "SELECT mailbox_id, COUNT(*) FROM messages WHERE is_archived = 0 AND mailbox_id IN ({ph}) GROUP BY mailbox_id"
+        "SELECT source_id, COUNT(*) FROM messages WHERE is_archived = 0 AND source_id IN ({ph}) GROUP BY source_id"
     );
-    let bind: Vec<Value> = mailbox_ids.iter().cloned().map(Value::Text).collect();
+    let bind: Vec<Value> = source_ids.iter().cloned().map(Value::Text).collect();
     let mut stmt = conn.prepare(&sql)?;
     let mut out: HashMap<String, usize> = HashMap::new();
     let rows = stmt.query_map(rusqlite::params_from_iter(bind.iter()), |row| {
@@ -747,21 +747,21 @@ pub fn count_unarchived_messages_by_mailbox(
 pub fn count_indexed_messages_simple_window(
     conn: &Connection,
     cutoff_iso: &str,
-    mailbox_ids: &[String],
+    source_ids: &[String],
 ) -> rusqlite::Result<HashMap<String, usize>> {
-    if mailbox_ids.is_empty() {
+    if source_ids.is_empty() {
         return Ok(HashMap::new());
     }
-    let ph = mailbox_ids
+    let ph = source_ids
         .iter()
         .map(|_| "?")
         .collect::<Vec<_>>()
         .join(", ");
     let sql = format!(
-        "SELECT mailbox_id, COUNT(*) FROM messages WHERE date >= ? AND is_archived = 0 AND mailbox_id IN ({ph}) GROUP BY mailbox_id"
+        "SELECT source_id, COUNT(*) FROM messages WHERE date >= ? AND is_archived = 0 AND source_id IN ({ph}) GROUP BY source_id"
     );
     let mut bind: Vec<Value> = vec![Value::Text(cutoff_iso.to_string())];
-    bind.extend(mailbox_ids.iter().cloned().map(Value::Text));
+    bind.extend(source_ids.iter().cloned().map(Value::Text));
     let mut stmt = conn.prepare(&sql)?;
     let mut out: HashMap<String, usize> = HashMap::new();
     let rows = stmt.query_map(rusqlite::params_from_iter(bind), |row| {
@@ -808,15 +808,15 @@ pub(crate) fn inbox_rule_scope_sql_m(options: &RunInboxScanOptions) -> (String, 
             InboxSurfaceMode::Review => {}
         }
     }
-    if !options.mailbox_ids.is_empty() {
+    if !options.source_ids.is_empty() {
         let ph = options
-            .mailbox_ids
+            .source_ids
             .iter()
             .map(|_| "?")
             .collect::<Vec<_>>()
             .join(", ");
-        sql.push_str(&format!(" AND m.mailbox_id IN ({ph})"));
-        params.extend(options.mailbox_ids.iter().cloned().map(Value::Text));
+        sql.push_str(&format!(" AND m.source_id IN ({ph})"));
+        params.extend(options.source_ids.iter().cloned().map(Value::Text));
     }
     (sql, params)
 }
@@ -831,10 +831,10 @@ pub(crate) fn compute_deterministic_picks(
     let (scope_sql, scope_params) = inbox_rule_scope_sql_m(options);
     let base = SearchOptions {
         include_all: options.include_all,
-        mailbox_ids: if options.mailbox_ids.is_empty() {
+        mailbox_ids: if options.source_ids.is_empty() {
             None
         } else {
-            Some(options.mailbox_ids.clone())
+            Some(options.source_ids.clone())
         },
         ..Default::default()
     };
@@ -891,7 +891,7 @@ pub(crate) fn compute_deterministic_picks_resolved(
     home: &std::path::Path,
     options: &RunInboxScanOptions,
 ) -> Result<HashMap<String, InboxNotablePick>, RunInboxScanError> {
-    let ids = &options.mailbox_ids;
+    let ids = &options.source_ids;
     if ids.is_empty() {
         let rules = load_rules_file(home)?;
         return compute_deterministic_picks(conn, &rules, options);
@@ -904,7 +904,7 @@ pub(crate) fn compute_deterministic_picks_resolved(
     for id in ids {
         let rules = load_effective_rules_for_mailbox(home, id)?;
         let mut sub = options.clone();
-        sub.mailbox_ids = vec![id.clone()];
+        sub.source_ids = vec![id.clone()];
         let picks = compute_deterministic_picks(conn, &rules, &sub)?;
         combined.extend(picks);
     }
@@ -1037,7 +1037,7 @@ pub async fn run_inbox_scan(
     let mut candidate_count_by_mailbox: HashMap<String, usize> = HashMap::new();
     for c in &candidates {
         *candidate_count_by_mailbox
-            .entry(c.mailbox_id.clone())
+            .entry(c.source_id.clone())
             .or_insert(0) += 1;
     }
 
@@ -1209,7 +1209,7 @@ mod tests {
     ) -> RefreshPreviewRow {
         RefreshPreviewRow {
             message_id: "m".into(),
-            mailbox_id: "".into(),
+            source_id: "".into(),
             date: "2026-01-01T00:00:00Z".into(),
             from_address: from.into(),
             from_name: None,
@@ -1286,7 +1286,7 @@ mod tests {
     fn self_sent_forces_ignore_over_model_inform() {
         let candidate = InboxCandidate {
             message_id: "m1".into(),
-            mailbox_id: "".into(),
+            source_id: "".into(),
             date: "2025-01-01".into(),
             from_address: "lewiscirne@gmail.com".into(),
             from_name: None,
@@ -1329,7 +1329,7 @@ mod tests {
     fn inbox_fallback_inform_for_ambiguous_mail() {
         let c = InboxCandidate {
             message_id: "m1".into(),
-            mailbox_id: "".into(),
+            source_id: "".into(),
             date: "2025-01-01".into(),
             from_address: "a@b.com".into(),
             from_name: None,
@@ -1352,7 +1352,7 @@ mod tests {
     fn inbox_fallback_ignore_list_category() {
         let c = InboxCandidate {
             message_id: "m1".into(),
-            mailbox_id: "".into(),
+            source_id: "".into(),
             date: "2025-01-01".into(),
             from_address: "notifications-noreply@linkedin.com".into(),
             from_name: None,
@@ -1450,7 +1450,7 @@ mod tests {
                 candidate_cap: Some(10),
                 notable_cap: None,
                 batch_size: Some(10),
-                mailbox_ids: vec![],
+                source_ids: vec![],
             },
             &mut classifier,
             "r123",
@@ -1531,7 +1531,7 @@ mod tests {
                 candidate_cap: Some(10),
                 notable_cap: None,
                 batch_size: Some(10),
-                mailbox_ids: vec![],
+                source_ids: vec![],
             },
             &mut classifier,
             "r_low",
@@ -1603,7 +1603,7 @@ mod tests {
             candidate_cap: Some(20),
             notable_cap: None,
             batch_size: Some(20),
-            mailbox_ids: vec![],
+            source_ids: vec![],
         };
         let mut classifier = DeterministicInboxClassifier::new(&conn, &rules, &opts).unwrap();
         let preview = preview_rule_impact(&conn, &opts, &mut classifier, "r-arch")

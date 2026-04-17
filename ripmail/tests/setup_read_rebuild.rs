@@ -29,7 +29,8 @@ fn setup_writes_config_json() {
     .unwrap();
     let raw = fs::read_to_string(dir.path().join("config.json")).unwrap();
     let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
-    let mb = &v["mailboxes"][0];
+    let mb = &v["sources"][0];
+    assert_eq!(mb["kind"], "imap");
     assert_eq!(mb["email"], "alice@test.com");
     assert_eq!(mb["imap"]["host"], "imap.gmail.com");
     assert_eq!(mb["imap"]["port"], 993);
@@ -58,7 +59,8 @@ fn write_ripmail_wizard_shape_matches_node() {
     .unwrap();
     let raw = fs::read_to_string(dir.path().join("config.json")).unwrap();
     let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
-    let mb = &v["mailboxes"][0];
+    let mb = &v["sources"][0];
+    assert_eq!(mb["kind"], "imap");
     assert_eq!(mb["imap"]["host"], "imap.corp.example");
     assert_eq!(mb["imap"]["port"], 993);
     assert_eq!(v["sync"]["defaultSince"], "7d");

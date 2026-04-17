@@ -281,7 +281,7 @@ mod tests {
         persist_message(&conn, &parsed, "INBOX", "", 1, "[]", "x.eml").unwrap();
         let row = RefreshPreviewRow {
             message_id: "m1".into(),
-            mailbox_id: "".into(),
+            source_id: "".into(),
             date: "2026-01-01T00:00:00Z".into(),
             from_address: "a@b.com".into(),
             from_name: None,

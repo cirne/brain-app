@@ -665,7 +665,7 @@ fn validate_apple_mail_envelope_index_auto_detect(
 fn next_placeholder_applemail_email(mbs: &[MailboxConfigJson]) -> String {
     let n = mbs
         .iter()
-        .filter(|m| m.mailbox_type.as_deref() == Some("applemail"))
+        .filter(|m| m.kind == crate::config::SourceKind::AppleMail)
         .count();
     if n == 0 {
         "applemail@local".into()
@@ -872,7 +872,7 @@ fn wizard_add_mailbox_apple_mail(
 
     if let Some(src) = existing_mbs.iter().find_map(|m| m.identity.as_ref()) {
         let mut cfg = load_config_json(home);
-        if let Some(ref mut mbs) = cfg.mailboxes {
+        if let Some(ref mut mbs) = cfg.sources {
             if let Some(pos) = mbs.iter().position(|m| m.id == id_for_collision) {
                 if mbs[pos].identity.is_none() {
                     mbs[pos].identity = Some(src.clone());
@@ -913,7 +913,7 @@ fn finish_add_mailbox_after_google_oauth(
         env: None,
     });
     let email = cfg
-        .resolved_mailboxes
+        .resolved_mailboxes()
         .iter()
         .find(|m| m.id == mailbox_id)
         .map(|m| m.email.clone())
@@ -956,7 +956,7 @@ fn wizard_add_mailbox_gmail_oauth(
     )?;
     if let Some(src) = existing_mbs.iter().find_map(|m| m.identity.as_ref()) {
         let mut cfg = load_config_json(home);
-        if let Some(ref mut mbs) = cfg.mailboxes {
+        if let Some(ref mut mbs) = cfg.sources {
             if let Some(pos) = mbs.iter().position(|m| m.id == id) {
                 if mbs[pos].identity.is_none() {
                     mbs[pos].identity = Some(src.clone());
@@ -1028,7 +1028,7 @@ fn wizard_add_mailbox_imap(
     let new_id = derive_mailbox_id_from_email(&email);
     if let Some(src) = existing_mbs.iter().find_map(|m| m.identity.as_ref()) {
         let mut cfg = load_config_json(home);
-        if let Some(ref mut mbs) = cfg.mailboxes {
+        if let Some(ref mut mbs) = cfg.sources {
             if let Some(pos) = mbs.iter().position(|m| m.id == new_id) {
                 if mbs[pos].identity.is_none() {
                     mbs[pos].identity = Some(src.clone());

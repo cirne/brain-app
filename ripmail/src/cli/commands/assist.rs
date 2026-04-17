@@ -1,4 +1,5 @@
 use crate::cli::args::InboxArgs;
+use crate::cli::commands::mail::ensure_mail_source_only;
 use crate::cli::triage::run_triage_command;
 use crate::cli::util::load_cfg;
 use crate::cli::CliResult;
@@ -58,5 +59,9 @@ pub(crate) fn run_ask(mut question: Vec<String>, verbose: bool) -> CliResult {
 
 pub(crate) fn run_inbox(args: InboxArgs) -> CliResult {
     let cfg = load_cfg();
+    if let Err(e) = ensure_mail_source_only(&cfg, args.source.as_deref()) {
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
     run_triage_command(&cfg, &args)
 }

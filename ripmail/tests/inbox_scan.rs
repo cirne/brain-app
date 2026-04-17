@@ -128,7 +128,7 @@ async fn scan_respects_mailbox_ids_on_candidate_query() {
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids: vec!["mailbox_b".into()],
+        source_ids: vec!["mailbox_b".into()],
     };
     let r = run_inbox_scan(&conn, &opts, &mut mock).await.unwrap();
     assert_eq!(
@@ -196,7 +196,7 @@ async fn scan_empty_mailbox_ids_includes_all_mailboxes() {
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     let r = run_inbox_scan(&conn, &opts, &mut mock).await.unwrap();
     assert_eq!(r.candidates_scanned, 2);
@@ -246,7 +246,7 @@ async fn returns_rows_picked_by_classifier() {
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     let r = run_inbox_scan(&conn, &opts, &mut mock).await.unwrap();
     assert_eq!(r.candidates_scanned, 1);
@@ -300,7 +300,7 @@ async fn scan_increments_action_required_when_classifier_flags_todo() {
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     let r = run_inbox_scan(&conn, &opts, &mut mock).await.unwrap();
     assert_eq!(r.counts.action_required, 1);
@@ -360,7 +360,7 @@ async fn archive_preserves_inbox_decision_action_flag_and_excludes_from_scan() {
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     let r1 = run_inbox_scan(&conn, &opts, &mut mock).await.unwrap();
     assert_eq!(r1.candidates_scanned, 1);
@@ -452,7 +452,7 @@ async fn archive_with_bare_json_style_message_id_excludes_from_subsequent_inbox_
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     let r1 = run_inbox_scan(&conn, &opts, &mut mock).await.unwrap();
     assert_eq!(r1.candidates_scanned, 1);
@@ -533,7 +533,7 @@ async fn includes_attachment_metadata_on_notable_rows() {
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     let r = run_inbox_scan(&conn, &opts, &mut mock).await.unwrap();
     assert_eq!(r.surfaced.len(), 1);
@@ -630,7 +630,7 @@ async fn orders_llm_batches_by_sender_contact_rank() {
         candidate_cap: None,
         notable_cap: None,
         batch_size: Some(20),
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     run_inbox_scan(&conn, &opts, &mut mock).await.unwrap();
     assert_eq!(first_in_first_batch.as_deref(), Some("<f-recent@x>"));
@@ -688,7 +688,7 @@ async fn excludes_default_categories_when_include_all_false() {
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     let r = run_inbox_scan(&conn, &opts, &mut mock).await.unwrap();
     assert_eq!(r.surfaced.len(), 1);
@@ -739,7 +739,7 @@ async fn second_scan_dedups_unless_replay_is_enabled() {
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     let first_run = run_inbox_scan(&conn, &opts, &mut first).await.unwrap();
     assert_eq!(first_run.surfaced.len(), 1);
@@ -828,7 +828,7 @@ async fn ignore_classifications_archive_and_second_scan_skips_archived_candidate
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     let first_run = run_inbox_scan(&conn, &opts, &mut first).await.unwrap();
     assert!(first_run.surfaced.is_empty());
@@ -901,7 +901,7 @@ async fn ignore_without_archive_signals_does_not_set_is_archived() {
             candidate_cap: None,
             notable_cap: None,
             batch_size: None,
-            mailbox_ids: vec![],
+            source_ids: vec![],
         },
         &mut mock,
     )
@@ -973,7 +973,7 @@ async fn reclassify_includes_archived_messages_in_scan() {
             candidate_cap: None,
             notable_cap: None,
             batch_size: None,
-            mailbox_ids: vec![],
+            source_ids: vec![],
         },
         &mut mock,
     )
@@ -1048,7 +1048,7 @@ async fn scan_without_reclassify_skips_archived_messages() {
             candidate_cap: None,
             notable_cap: None,
             batch_size: None,
-            mailbox_ids: vec![],
+            source_ids: vec![],
         },
         &mut mock,
     )
@@ -1107,7 +1107,7 @@ async fn changed_rules_fingerprint_recomputes_decision() {
             candidate_cap: None,
             notable_cap: None,
             batch_size: None,
-            mailbox_ids: vec![],
+            source_ids: vec![],
         },
         &mut first,
     )
@@ -1154,7 +1154,7 @@ async fn changed_rules_fingerprint_recomputes_decision() {
             candidate_cap: None,
             notable_cap: None,
             batch_size: None,
-            mailbox_ids: vec![],
+            source_ids: vec![],
         },
         &mut second,
     )
@@ -1212,7 +1212,7 @@ async fn reapply_llm_bypasses_cache_even_when_fingerprint_matches() {
         candidate_cap: None,
         notable_cap: None,
         batch_size: None,
-        mailbox_ids: vec![],
+        source_ids: vec![],
     };
     run_inbox_scan(&conn, &opts, &mut first).await.unwrap();
     assert_eq!(calls.load(Ordering::SeqCst), 1);
@@ -1367,7 +1367,7 @@ async fn diagnostics_include_processed_ignore_and_archives_locally() {
             candidate_cap: None,
             notable_cap: None,
             batch_size: None,
-            mailbox_ids: vec![],
+            source_ids: vec![],
         },
         &mut mock,
     )

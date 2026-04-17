@@ -40,7 +40,8 @@ fn read_user_version(path: &Path) -> Result<Option<i32>, DbError> {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct SyncCheckpointRow {
-    mailbox_id: String,
+    /// `sync_state.source_id` (legacy DBs stored this as `mailbox_id`).
+    source_id: String,
     folder: String,
     uidvalidity: i64,
     last_uid: i64,
@@ -83,18 +84,21 @@ struct InboxStateSnapshot {
     decisions: Vec<InboxDecisionRow>,
 }
 
-fn sync_state_has_mailbox_id_column(conn: &Connection) -> Result<bool, DbError> {
+fn sync_state_has_column(conn: &Connection, col: &str) -> Result<bool, DbError> {
     let n: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM pragma_table_info('sync_state') WHERE name = 'mailbox_id'",
-        [],
+        "SELECT COUNT(*) FROM pragma_table_info('sync_state') WHERE name = ?1",
+        [col],
         |row| row.get(0),
     )?;
     Ok(n >= 1)
 }
 
 fn load_sync_checkpoints(conn: &Connection) -> Result<Vec<SyncCheckpointRow>, DbError> {
-    let has_mb = sync_state_has_mailbox_id_column(conn)?;
-    let sql = if has_mb {
+    let has_source_id = sync_state_has_column(conn, "source_id")?;
+    let has_legacy_mailbox_id = sync_state_has_column(conn, "mailbox_id")?;
+    let sql = if has_source_id {
+        "SELECT source_id, folder, uidvalidity, last_uid FROM sync_state ORDER BY source_id, folder"
+    } else if has_legacy_mailbox_id {
         "SELECT mailbox_id, folder, uidvalidity, last_uid FROM sync_state ORDER BY mailbox_id, folder"
     } else {
         "SELECT folder, uidvalidity, last_uid FROM sync_state ORDER BY folder"
@@ -106,10 +110,10 @@ fn load_sync_checkpoints(conn: &Connection) -> Result<Vec<SyncCheckpointRow>, Db
         }
         Err(err) => return Err(err.into()),
     };
-    let rows = if has_mb {
+    let rows = if has_source_id || has_legacy_mailbox_id {
         stmt.query_map([], |row| {
             Ok(SyncCheckpointRow {
-                mailbox_id: row.get(0)?,
+                source_id: row.get(0)?,
                 folder: row.get(1)?,
                 uidvalidity: row.get(2)?,
                 last_uid: row.get(3)?,
@@ -119,7 +123,7 @@ fn load_sync_checkpoints(conn: &Connection) -> Result<Vec<SyncCheckpointRow>, Db
     } else {
         stmt.query_map([], |row| {
             Ok(SyncCheckpointRow {
-                mailbox_id: String::new(),
+                source_id: String::new(),
                 folder: row.get(0)?,
                 uidvalidity: row.get(1)?,
                 last_uid: row.get(2)?,
@@ -298,9 +302,9 @@ fn restore_sync_metadata(
 ) -> Result<(), DbError> {
     for checkpoint in checkpoints {
         conn.execute(
-            "INSERT OR REPLACE INTO sync_state (mailbox_id, folder, uidvalidity, last_uid) VALUES (?1, ?2, ?3, ?4)",
+            "INSERT OR REPLACE INTO sync_state (source_id, folder, uidvalidity, last_uid) VALUES (?1, ?2, ?3, ?4)",
             (
-                &checkpoint.mailbox_id,
+                &checkpoint.source_id,
                 &checkpoint.folder,
                 checkpoint.uidvalidity,
                 checkpoint.last_uid,
@@ -521,8 +525,6 @@ pub fn open_file(path: &Path) -> Result<Connection, DbError> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let home = crate::layout_migrate::ripmail_home_from_db_path(path);
-    crate::layout_migrate::migrate_deferred_legacy_data_if_needed(&home);
     maybe_rebuild_stale_db(path)?;
     open_file_current_schema(path)
 }
@@ -593,40 +595,45 @@ pub fn purge_mailbox_from_index(conn: &mut Connection, mailbox_id: &str) -> Resu
     }
 
     let n: u64 = conn.query_row(
-        "SELECT COUNT(*) FROM messages WHERE mailbox_id = ?1",
+        "SELECT COUNT(*) FROM messages WHERE source_id = ?1",
         [mailbox_id],
         |r| Ok(r.get::<_, i64>(0)? as u64),
     )?;
 
     let tx = conn.transaction()?;
     tx.execute(
-        "DELETE FROM attachments WHERE message_id IN (SELECT message_id FROM messages WHERE mailbox_id = ?1)",
+        "DELETE FROM attachments WHERE message_id IN (SELECT message_id FROM messages WHERE source_id = ?1)",
         [mailbox_id],
     )?;
     tx.execute(
-        "DELETE FROM inbox_alerts WHERE message_id IN (SELECT message_id FROM messages WHERE mailbox_id = ?1)",
+        "DELETE FROM inbox_alerts WHERE message_id IN (SELECT message_id FROM messages WHERE source_id = ?1)",
         [mailbox_id],
     )?;
     tx.execute(
-        "DELETE FROM inbox_reviews WHERE message_id IN (SELECT message_id FROM messages WHERE mailbox_id = ?1)",
+        "DELETE FROM inbox_reviews WHERE message_id IN (SELECT message_id FROM messages WHERE source_id = ?1)",
         [mailbox_id],
     )?;
     tx.execute(
-        "DELETE FROM inbox_decisions WHERE message_id IN (SELECT message_id FROM messages WHERE mailbox_id = ?1)",
+        "DELETE FROM inbox_decisions WHERE message_id IN (SELECT message_id FROM messages WHERE source_id = ?1)",
         [mailbox_id],
     )?;
-    tx.execute("DELETE FROM messages WHERE mailbox_id = ?1", [mailbox_id])?;
+    tx.execute("DELETE FROM messages WHERE source_id = ?1", [mailbox_id])?;
+    tx.execute(
+        "DELETE FROM document_index WHERE source_id = ?1 AND kind = 'file'",
+        [mailbox_id],
+    )?;
+    tx.execute("DELETE FROM files WHERE source_id = ?1", [mailbox_id])?;
     tx.execute(
         "DELETE FROM threads WHERE thread_id NOT IN (SELECT DISTINCT thread_id FROM messages)",
         [],
     )?;
-    tx.execute("DELETE FROM sync_state WHERE mailbox_id = ?1", [mailbox_id])?;
+    tx.execute("DELETE FROM sync_state WHERE source_id = ?1", [mailbox_id])?;
     tx.execute(
-        "DELETE FROM sync_windows WHERE mailbox_id = ?1",
+        "DELETE FROM sync_windows WHERE source_id = ?1",
         [mailbox_id],
     )?;
     tx.execute(
-        "DELETE FROM mailbox_sync_meta WHERE mailbox_id = ?1",
+        "DELETE FROM source_sync_meta WHERE source_id = ?1",
         [mailbox_id],
     )?;
     tx.commit()?;
@@ -662,20 +669,20 @@ mod tests {
         let conn = open_memory().unwrap();
         let tables = list_user_tables(&conn).unwrap();
         assert!(tables.iter().any(|n| n == "messages"));
-        assert!(tables.iter().any(|n| n == "messages_fts"));
+        assert!(tables.iter().any(|n| n == "document_index_fts"));
     }
 
     #[test]
     fn purge_mailbox_from_index_removes_messages_and_keeps_other_mailbox() {
         let mut conn = open_memory().unwrap();
         conn.execute(
-            "INSERT INTO messages (message_id, thread_id, folder, uid, from_address, to_addresses, cc_addresses, subject, body_text, date, raw_path, mailbox_id)
+            "INSERT INTO messages (message_id, thread_id, folder, uid, from_address, to_addresses, cc_addresses, subject, body_text, date, raw_path, source_id)
              VALUES ('<a@x>', '<a@x>', 'f', 1, 'a@b', '[]', '[]', 's', 'b', '2020-01-01T00:00:00Z', 'maildir/cur/a.eml', 'mb_a')",
             [],
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO messages (message_id, thread_id, folder, uid, from_address, to_addresses, cc_addresses, subject, body_text, date, raw_path, mailbox_id)
+            "INSERT INTO messages (message_id, thread_id, folder, uid, from_address, to_addresses, cc_addresses, subject, body_text, date, raw_path, source_id)
              VALUES ('<b@x>', '<b@x>', 'f', 1, 'a@b', '[]', '[]', 's', 'b', '2020-01-01T00:00:00Z', 'maildir/cur/b.eml', 'mb_b')",
             [],
         )
@@ -684,7 +691,7 @@ mod tests {
         assert_eq!(n, 1);
         let left: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM messages WHERE mailbox_id = 'mb_b'",
+                "SELECT COUNT(*) FROM messages WHERE source_id = 'mb_b'",
                 [],
                 |r| r.get(0),
             )
@@ -692,7 +699,7 @@ mod tests {
         assert_eq!(left, 1);
         let gone: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM messages WHERE mailbox_id = 'mb_a'",
+                "SELECT COUNT(*) FROM messages WHERE source_id = 'mb_a'",
                 [],
                 |r| r.get(0),
             )
@@ -842,7 +849,7 @@ mod tests {
 
         stale
             .execute_batch(
-                "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, mailbox_id, is_archived)
+                "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, source_id, is_archived)
                  VALUES ('<legacy-drift@test>', 't1', 'INBOX', 1, '[]', NULL, 'a@b.com', NULL, '[]', '[]', 'Legacy drift', '2024-01-01T12:00:00.000Z', 'Body', 'cur/msg1.eml', '', 0);
                  INSERT INTO inbox_scans (scan_id, mode, cutoff_iso, scanned_at, notable_count, candidates_scanned)
                  VALUES ('legacy-scan', 'check', '2024-01-01T00:00:00Z', '2026-04-01 18:00:00', 0, 1);",
@@ -938,7 +945,7 @@ mod tests {
         apply_schema(&stale).unwrap();
         stale
             .execute(
-                "INSERT OR REPLACE INTO sync_state (mailbox_id, folder, uidvalidity, last_uid) VALUES ('', 'INBOX', 7, 42)",
+                "INSERT OR REPLACE INTO sync_state (source_id, folder, uidvalidity, last_uid) VALUES ('', 'INBOX', 7, 42)",
                 [],
             )
             .unwrap();
@@ -956,7 +963,7 @@ mod tests {
         let conn = open_file(&db_path).unwrap();
         let state: (i64, i64) = conn
             .query_row(
-                "SELECT uidvalidity, last_uid FROM sync_state WHERE mailbox_id = '' AND folder = 'INBOX'",
+                "SELECT uidvalidity, last_uid FROM sync_state WHERE source_id = '' AND folder = 'INBOX'",
                 [],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
@@ -993,7 +1000,7 @@ mod tests {
         apply_schema(&stale).unwrap();
         stale
             .execute(
-                "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, mailbox_id, is_archived)
+                "INSERT INTO messages (message_id, thread_id, folder, uid, labels, category, from_address, from_name, to_addresses, cc_addresses, subject, date, body_text, raw_path, source_id, is_archived)
                  VALUES (?1, ?2, ?3, ?4, '[]', NULL, ?5, NULL, '[]', '[]', ?6, ?7, ?8, ?9, '', 0)",
                 (
                     "<rebuilt-inbox@test>",

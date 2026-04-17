@@ -21,20 +21,23 @@ fn schema_creates_all_tables() {
     assert!(tables.contains(&"inbox_decisions".to_string()));
     assert!(tables.contains(&"inbox_reviews".to_string()));
     assert!(tables.contains(&"messages".to_string()));
-    assert!(tables.contains(&"messages_fts".to_string()));
+    assert!(tables.contains(&"document_index".to_string()));
+    assert!(tables.contains(&"document_index_fts".to_string()));
+    assert!(tables.contains(&"files".to_string()));
+    assert!(tables.contains(&"sources".to_string()));
     assert!(tables.contains(&"people".to_string()));
     assert!(tables.contains(&"sync_state".to_string()));
     assert!(tables.contains(&"sync_summary".to_string()));
     assert!(tables.contains(&"sync_windows".to_string()));
     assert!(tables.contains(&"threads".to_string()));
-    assert!(tables.contains(&"mailbox_sync_meta".to_string()));
+    assert!(tables.contains(&"source_sync_meta".to_string()));
 }
 
 #[test]
 fn fts5_virtual_table_created() {
     let conn = open_memory().expect("memory db");
-    conn.execute("SELECT * FROM messages_fts LIMIT 0", [])
-        .expect("messages_fts query");
+    conn.execute("SELECT * FROM document_index_fts LIMIT 0", [])
+        .expect("document_index_fts query");
 }
 
 #[test]

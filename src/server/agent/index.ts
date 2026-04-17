@@ -44,7 +44,7 @@ function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoo
 - Search and read wiki pages using grep and find tools
 - Edit existing wiki pages using the edit tool (oldText/newText replacement with fuzzy matching)
 - Create new wiki pages using the write tool
-- Search and read emails using search_email and read_email tools; **inbox_rules** only when the user explicitly wants to change ripmail inbox filtering rules (rare)
+- Search and read using search_index and read_doc tools; **inbox_rules** only when the user explicitly wants to change ripmail inbox filtering rules (rare)
 - Search the web with web_search; fetch article text from URLs with fetch_page when needed
 - Find videos with youtube_search and read captions/transcripts with get_youtube_transcript (video URL or ID)
 - Open the in-app detail panel for a wiki path, email id, or calendar date using the open tool so the user can read the full artifact beside chat (optional; you can also use wiki: / date: links in markdown)

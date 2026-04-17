@@ -85,9 +85,9 @@ pub struct RefreshPreviewRow {
         serialize_with = "crate::ids::serialize_string_id_for_json"
     )]
     pub message_id: String,
-    /// `messages.mailbox_id` for inbox grouping; omitted from JSON (parent mailbox carries id).
+    /// `messages.source_id` for inbox grouping; omitted from JSON (parent mailbox carries id).
     #[serde(skip)]
-    pub mailbox_id: String,
+    pub source_id: String,
     pub date: String,
     #[serde(rename = "fromAddress")]
     pub from_address: String,
@@ -160,7 +160,7 @@ pub fn load_refresh_new_mail(
         .collect::<Vec<_>>()
         .join(",");
     let sql = format!(
-        "SELECT message_id, mailbox_id, from_address, from_name, subject, date,
+        "SELECT message_id, source_id, from_address, from_name, subject, date,
          COALESCE(TRIM(SUBSTR(body_text, 1, 200)), '') ||
          CASE WHEN LENGTH(TRIM(body_text)) > 200 THEN '…' ELSE '' END AS snippet,
          category
@@ -185,9 +185,9 @@ pub fn load_refresh_new_mail(
             include_all || !is_default_excluded_category(category.as_deref())
         })
         .map(
-            |(mid, mailbox_id, from_a, from_n, subj, date, snippet, _category)| RefreshPreviewRow {
+            |(mid, source_id, from_a, from_n, subj, date, snippet, _category)| RefreshPreviewRow {
                 message_id: mid,
-                mailbox_id,
+                source_id,
                 from_address: from_a,
                 from_name: from_n,
                 subject: decode_rfc2047_header_line(&subj),
@@ -492,7 +492,7 @@ fn disposition_counts_for_rows(rows: &[RefreshPreviewRow]) -> InboxDispositionCo
 fn group_rows_by_mailbox(rows: &[RefreshPreviewRow]) -> HashMap<String, Vec<RefreshPreviewRow>> {
     let mut m: HashMap<String, Vec<RefreshPreviewRow>> = HashMap::new();
     for row in rows {
-        m.entry(row.mailbox_id.clone())
+        m.entry(row.source_id.clone())
             .or_default()
             .push(row.clone());
     }
@@ -944,7 +944,7 @@ mod inbox_json_hints_tests {
     fn sample_row(from: &str, id_suffix: &str) -> RefreshPreviewRow {
         RefreshPreviewRow {
             message_id: format!("<{id_suffix}@x>"),
-            mailbox_id: "mb1".into(),
+            source_id: "mb1".into(),
             date: "2024-01-01T00:00:00Z".to_string(),
             from_address: from.to_string(),
             from_name: None,

@@ -28,6 +28,12 @@ describe('buildSeedingSystemPrompt', () => {
     expect(p).toMatch(/parallel/i)
     expect(p).toMatch(/final pass/i)
     expect(p).toMatch(/internal wiki links/i)
+    expect(p).toMatch(/Do not.*write a separate page about.*main user/i)
+    expect(p).toContain('**me.md** is already their profile')
+    expect(p).toMatch(/Obsidian-style/i)
+    expect(p).toContain('[[wikilinks]]')
+    expect(p).toContain('[[me]]')
+    expect(p).toContain('[[people/jane-doe]]')
   })
 })
 

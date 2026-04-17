@@ -5,6 +5,7 @@ mod mail;
 mod rules;
 mod setup;
 mod skill;
+mod sources;
 mod sync;
 
 use clap::CommandFactory;
@@ -75,13 +76,13 @@ pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
             duration,
             since,
             backfill,
-            mailbox,
+            source,
             foreground,
             force,
             text,
             verbose,
         } => sync::run_update(
-            duration, since, backfill, mailbox, foreground, force, text, verbose,
+            duration, since, backfill, source, foreground, force, text, verbose,
         ),
         Commands::Status { json, imap } => sync::run_status(json, imap),
         Commands::Stats { json } => sync::run_stats(json),
@@ -93,7 +94,7 @@ pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
             after,
             since,
             before,
-            mailbox,
+            source,
             include_all,
             category,
             text,
@@ -107,7 +108,7 @@ pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
             after,
             since,
             before,
-            mailbox,
+            source,
             include_all,
             category,
             text,
@@ -117,17 +118,18 @@ pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
         Commands::Who {
             query,
             limit,
-            mailbox,
+            source,
             include_noreply,
             text,
-        } => mail::run_who(query, limit, mailbox, include_noreply, text),
-        Commands::Whoami { mailbox, text } => mail::run_whoami(mailbox, text),
+        } => mail::run_who(query, limit, source, include_noreply, text),
+        Commands::Whoami { source, text } => mail::run_whoami(source, text),
         Commands::Read {
             message_ids,
+            source,
             raw,
             json,
             text: _text,
-        } => mail::run_read(message_ids, raw, json),
+        } => mail::run_read(message_ids, source, raw, json),
         Commands::Thread {
             thread_id,
             json,
@@ -142,6 +144,7 @@ pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
             cc,
             bcc,
             dry_run,
+            source,
             text,
         } => mail::run_send(mail::SendCommandArgs {
             draft_id,
@@ -151,12 +154,18 @@ pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
             cc,
             bcc,
             dry_run,
+            source,
             text,
         }),
         Commands::Draft { sub } => mail::run_draft(sub),
-        Commands::Rules { sub, mailbox } => rules::run_rules(sub, mailbox),
+        Commands::Rules { sub, source } => rules::run_rules(sub, source),
+        Commands::Sources { sub } => sources::run_sources(sub),
         Commands::Ask { question, verbose } => assist::run_ask(question, verbose),
         Commands::Inbox(args) => assist::run_inbox(args),
-        Commands::Archive { message_ids, undo } => archive::run_archive(message_ids, undo),
+        Commands::Archive {
+            message_ids,
+            source,
+            undo,
+        } => archive::run_archive(message_ids, source, undo),
     }
 }

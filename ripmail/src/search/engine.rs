@@ -88,7 +88,8 @@ pub fn effective_search_options_for_rule_query(
 fn row_from_cols(
     message_id: String,
     thread_id: String,
-    mailbox_id: String,
+    source_id: String,
+    source_kind: String,
     from_address: String,
     from_name: Option<String>,
     subject: String,
@@ -100,7 +101,8 @@ fn row_from_cols(
     SearchResult {
         message_id,
         thread_id,
-        mailbox_id,
+        source_id,
+        source_kind,
         from_address,
         from_name,
         subject: decode_rfc2047_header_line(&subject),
@@ -134,7 +136,7 @@ fn filter_only_search(
 
     let body_prev = "COALESCE(TRIM(SUBSTR(m.body_text, 1, 300)), '') || (CASE WHEN LENGTH(TRIM(m.body_text)) > 300 THEN '…' ELSE '' END)";
     let sql = format!(
-        "SELECT m.message_id, m.thread_id, m.mailbox_id, m.from_address, m.from_name, m.subject, m.date,
+        "SELECT m.message_id, m.thread_id, m.source_id, m.from_address, m.from_name, m.subject, m.date,
                 COALESCE(TRIM(SUBSTR(m.body_text, 1, 200)), '') || (CASE WHEN LENGTH(m.body_text) > 200 THEN '…' ELSE '' END),
                 {body_prev}
          FROM messages m {where_clause}
@@ -152,6 +154,7 @@ fn filter_only_search(
             row.get(0)?,
             row.get(1)?,
             row.get(2)?,
+            "mail".into(),
             row.get(3)?,
             row.get(4)?,
             row.get(5)?,
@@ -181,6 +184,97 @@ fn filter_only_search(
     Ok((results, total))
 }
 
+/// Keyword search on `localDir` files does not support mail-only filters (`from:`, categories, etc.).
+fn file_keyword_search_allowed(opts: &SearchOptions) -> bool {
+    opts.from_address.is_none()
+        && opts.to_address.is_none()
+        && opts.subject.is_none()
+        && opts.after_date.is_none()
+        && opts.before_date.is_none()
+        && opts.categories.is_empty()
+}
+
+fn fts_search_files(
+    conn: &Connection,
+    opts: &SearchOptions,
+    escaped: &str,
+    sql_limit: i64,
+) -> rusqlite::Result<(Vec<RankedSearchRow>, i64)> {
+    if !file_keyword_search_allowed(opts) {
+        return Ok((Vec::new(), 0));
+    }
+
+    let (src_clause, src_params) = match &opts.mailbox_ids {
+        Some(ids) if !ids.is_empty() => {
+            let ph = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            (format!(" AND di.source_id IN ({ph})"), ids.clone())
+        }
+        _ => (String::new(), Vec::new()),
+    };
+
+    let mut count_vals: Vec<Value> = vec![Value::Text(escaped.to_string())];
+    count_vals.extend(src_params.iter().cloned().map(Value::Text));
+    let count_sql = format!(
+        "SELECT COUNT(*) FROM document_index_fts \
+         JOIN document_index di ON di.id = document_index_fts.rowid \
+         WHERE document_index_fts MATCH ? AND di.kind = 'file'{src_clause}"
+    );
+    let file_total: i64 = conn.query_row(&count_sql, params_from_iter(count_vals.iter()), |r| {
+        r.get(0)
+    })?;
+
+    let body_prev = "COALESCE(TRIM(SUBSTR(f.body_text, 1, 300)), '') || (CASE WHEN LENGTH(TRIM(f.body_text)) > 300 THEN '…' ELSE '' END)";
+    let sql = format!(
+        "SELECT f.abs_path, f.source_id, di.title, di.date_iso,
+                snippet(document_index_fts, 1, '<b>', '</b>', '…', 20),
+                {body_prev},
+                rank,
+                rank AS combined_rank
+         FROM document_index_fts
+         JOIN document_index di ON di.id = document_index_fts.rowid
+         JOIN files f ON f.source_id = di.source_id AND f.rel_path = di.ext_id
+         WHERE document_index_fts MATCH ? AND di.kind = 'file'{src_clause}
+         ORDER BY combined_rank ASC, di.date_iso DESC
+         LIMIT ?"
+    );
+
+    let mut vals: Vec<Value> = vec![Value::Text(escaped.to_string())];
+    vals.extend(src_params.iter().cloned().map(Value::Text));
+    vals.push(Value::Integer(sql_limit));
+
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_from_iter(vals.iter()), |row| {
+        let snip: Option<String> = row.get(4)?;
+        let rank_v: f64 = row.get(6)?;
+        let cr: f64 = row.get(7)?;
+        Ok(RankedSearchRow {
+            result: row_from_cols(
+                row.get(0)?,
+                String::new(),
+                row.get(1)?,
+                "localDir".into(),
+                String::new(),
+                None,
+                row.get(2)?,
+                row.get(3)?,
+                snip.unwrap_or_default(),
+                row.get(5)?,
+                rank_v,
+            ),
+            combined_rank: cr,
+        })
+    })?;
+
+    let mut vec: Vec<RankedSearchRow> = rows.filter_map(|r| r.ok()).collect();
+    vec.sort_by(|a, b| {
+        a.combined_rank
+            .partial_cmp(&b.combined_rank)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.result.date.cmp(&a.result.date))
+    });
+    Ok((vec, file_total))
+}
+
 fn fts_search(
     conn: &Connection,
     opts: &SearchOptions,
@@ -197,7 +291,7 @@ fn fts_search(
     count_vals.extend(fc.always_and_params.iter().cloned().map(Value::Text));
 
     let count_sql = sql_count_messages_fts_join(&where_clause);
-    let total: i64 = conn.query_row(&count_sql, params_from_iter(count_vals.iter()), |r| {
+    let mail_total: i64 = conn.query_row(&count_sql, params_from_iter(count_vals.iter()), |r| {
         r.get(0)
     })?;
 
@@ -218,19 +312,20 @@ fn fts_search(
     let body_prev = "COALESCE(TRIM(SUBSTR(m.body_text, 1, 300)), '') || (CASE WHEN LENGTH(TRIM(m.body_text)) > 300 THEN '…' ELSE '' END)";
 
     let sql = format!(
-        "SELECT m.message_id, m.thread_id, m.mailbox_id, m.from_address, m.from_name, m.subject, m.date,
-                snippet(messages_fts, 2, '<b>', '</b>', '…', 20),
+        "SELECT m.message_id, m.thread_id, m.source_id, m.from_address, m.from_name, m.subject, m.date,
+                snippet(document_index_fts, 1, '<b>', '</b>', '…', 20),
                 {body_prev},
                 rank,
                 (rank - ({date_boost})) AS combined_rank
-         FROM messages_fts
-         JOIN messages m ON m.id = messages_fts.rowid
+         FROM document_index_fts
+         JOIN document_index di ON di.id = document_index_fts.rowid
+         JOIN messages m ON m.message_id = di.ext_id AND di.kind = 'mail'
          {where_clause}
          ORDER BY combined_rank ASC, m.date DESC
          LIMIT ?"
     );
 
-    let mut vals: Vec<Value> = vec![Value::Text(escaped)];
+    let mut vals: Vec<Value> = vec![Value::Text(escaped.clone())];
     vals.extend(fc.params.iter().cloned().map(Value::Text));
     vals.extend(fc.always_and_params.iter().cloned().map(Value::Text));
     vals.push(Value::Integer(sql_limit as i64));
@@ -245,6 +340,7 @@ fn fts_search(
                 row.get(0)?,
                 row.get(1)?,
                 row.get(2)?,
+                "mail".into(),
                 row.get(3)?,
                 row.get(4)?,
                 row.get(5)?,
@@ -264,6 +360,15 @@ fn fts_search(
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| b.result.date.cmp(&a.result.date))
     });
+    let (mut file_rows, file_total) = fts_search_files(conn, opts, &escaped, sql_limit as i64)?;
+    vec.append(&mut file_rows);
+    vec.sort_by(|a, b| {
+        a.combined_rank
+            .partial_cmp(&b.combined_rank)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.result.date.cmp(&a.result.date))
+    });
+    let total = mail_total.saturating_add(file_total);
     let results: Vec<RankedSearchRow> = vec.into_iter().skip(offset).take(limit).collect();
     Ok((results, total))
 }

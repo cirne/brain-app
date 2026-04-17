@@ -13,11 +13,11 @@ function desktopCtx(overrides: Partial<Parameters<typeof navigateFromAgentOpen>[
 }
 
 describe('navigateFromAgentOpen', () => {
-  it('does not navigate on mobile for read_email — previews only until user opens', () => {
+  it('does not navigate on mobile for read_doc — previews only until user opens', () => {
     const openWikiDoc = vi.fn()
     const openEmailFromSearch = vi.fn()
     const switchToCalendar = vi.fn()
-    const ctx = { source: 'read_email' as const, isMobile: true, openWikiDoc, openEmailFromSearch, switchToCalendar }
+    const ctx = { source: 'read_doc' as const, isMobile: true, openWikiDoc, openEmailFromSearch, switchToCalendar }
 
     navigateFromAgentOpen({ type: 'wiki', path: 'ideas/x.md' }, ctx)
     navigateFromAgentOpen({ type: 'email', id: 'm1' }, ctx)
@@ -49,8 +49,8 @@ describe('navigateFromAgentOpen', () => {
     expect(ctx.openWikiDoc).toHaveBeenCalledWith('ideas/x.md')
   })
 
-  it('opens email on desktop (read_email)', () => {
-    const ctx = desktopCtx({ source: 'read_email' })
+  it('opens email on desktop (read_doc)', () => {
+    const ctx = desktopCtx({ source: 'read_doc' })
     navigateFromAgentOpen({ type: 'email', id: 'abc' }, ctx)
     expect(ctx.openEmailFromSearch).toHaveBeenCalledWith('abc', '', '')
   })

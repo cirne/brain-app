@@ -79,7 +79,7 @@ mod tests {
     fn candidate(mid: &str, from: &str, body: &str) -> InboxCandidate {
         InboxCandidate {
             message_id: mid.into(),
-            mailbox_id: "".into(),
+            source_id: "".into(),
             date: "2026-01-01T00:00:00Z".into(),
             from_address: from.into(),
             from_name: None,
@@ -95,7 +95,7 @@ mod tests {
 
     fn opts() -> RunInboxScanOptions {
         RunInboxScanOptions {
-            mailbox_ids: vec![],
+            source_ids: vec![],
             surface_mode: InboxSurfaceMode::Review,
             cutoff_iso: "1970-01-01T00:00:00.000Z".into(),
             include_all: true,

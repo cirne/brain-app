@@ -101,7 +101,8 @@ mod tests {
         let r = SearchResult {
             message_id: "<a@b>".into(),
             thread_id: "<a@b>".into(),
-            mailbox_id: String::new(),
+            source_id: String::new(),
+            source_kind: String::new(),
             from_address: "x@y.com".into(),
             from_name: Some("X".into()),
             subject: "Hi".into(),
@@ -123,7 +124,8 @@ mod tests {
         let r = SearchResult {
             message_id: "m".into(),
             thread_id: "m".into(),
-            mailbox_id: String::new(),
+            source_id: String::new(),
+            source_kind: String::new(),
             from_address: "a@b".into(),
             from_name: Some(String::new()),
             subject: "S".into(),

@@ -226,7 +226,7 @@ pub fn who(conn: &Connection, opts: &WhoOptions) -> rusqlite::Result<WhoResult> 
         Some(ids) if !ids.is_empty() => {
             let ph = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
             let sql = format!(
-                "SELECT from_address, from_name, to_addresses, cc_addresses, to_recipients, cc_recipients, date FROM messages WHERE mailbox_id IN ({ph})"
+                "SELECT from_address, from_name, to_addresses, cc_addresses, to_recipients, cc_recipients, date FROM messages WHERE source_id IN ({ph})"
             );
             let mut stmt = conn.prepare(&sql)?;
             let v: Vec<_> = stmt

@@ -29,7 +29,7 @@
   let {
     context = { type: 'none' } as SurfaceContext,
     conversationHidden = false,
-    /** When true, agent tools do not auto-open the right detail panel (wiki from write/edit, `open`, `read_email`, …). */
+    /** When true, agent tools do not auto-open the right detail panel (wiki from write/edit, `open`, `read_doc`, …). */
     suppressAgentDetailAutoOpen = false,
     onOpenWiki,
     onOpenEmail,
@@ -73,7 +73,7 @@
     onOpenFullInbox?: () => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
-    /** LLM `open` / `read_email` — fired from SSE tool_start */
+    /** LLM `open` / `read_doc` — fired from SSE tool_start */
     onOpenFromAgent?: (
       _target: { type: string; path?: string; id?: string; date?: string },
       _source: AgentOpenSource,

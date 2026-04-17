@@ -28,7 +28,7 @@ pub fn mailbox_needs_first_backfill(
         return Ok(false);
     }
     let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM messages WHERE mailbox_id = ?1",
+        "SELECT COUNT(*) FROM messages WHERE source_id = ?1",
         [&mb.id],
         |r| r.get(0),
     )?;
@@ -38,7 +38,7 @@ pub fn mailbox_needs_first_backfill(
 pub fn first_backfill_completed(conn: &Connection, mailbox_id: &str) -> rusqlite::Result<bool> {
     let row: Option<String> = conn
         .query_row(
-            "SELECT first_backfill_completed_at FROM mailbox_sync_meta WHERE mailbox_id = ?1",
+            "SELECT first_backfill_completed_at FROM source_sync_meta WHERE source_id = ?1",
             [mailbox_id],
             |r| r.get(0),
         )
@@ -50,8 +50,8 @@ pub fn first_backfill_completed(conn: &Connection, mailbox_id: &str) -> rusqlite
 /// were stored, e.g. empty server or all labels excluded).
 pub fn mark_first_backfill_completed(conn: &Connection, mailbox_id: &str) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT INTO mailbox_sync_meta (mailbox_id, first_backfill_completed_at) VALUES (?1, datetime('now')) \
-         ON CONFLICT(mailbox_id) DO UPDATE SET first_backfill_completed_at = excluded.first_backfill_completed_at",
+        "INSERT INTO source_sync_meta (source_id, first_backfill_completed_at) VALUES (?1, datetime('now')) \
+         ON CONFLICT(source_id) DO UPDATE SET first_backfill_completed_at = excluded.first_backfill_completed_at",
         params![mailbox_id],
     )?;
     Ok(())

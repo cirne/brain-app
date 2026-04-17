@@ -3,7 +3,14 @@ import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { writeCache } from '../lib/calendarCache.js'
-import { buildDraftEditFlags, buildInboxRulesCommand } from './tools.js'
+import {
+  buildDraftEditFlags,
+  buildInboxRulesCommand,
+  buildReindexCommand,
+  buildSourcesAddLocalDirCommand,
+  buildSourcesEditCommand,
+  buildSourcesRemoveCommand,
+} from './tools.js'
 
 // Shared fixture: a temp wiki directory
 let wikiDir: string
@@ -34,8 +41,14 @@ describe('createAgentTools', () => {
     expect(names).toContain('find')
     expect(names).toContain('move_file')
     expect(names).toContain('delete_file')
-    expect(names).toContain('search_email')
-    expect(names).toContain('read_email')
+    expect(names).toContain('search_index')
+    expect(names).toContain('read_doc')
+    expect(names).toContain('list_sources')
+    expect(names).toContain('source_status')
+    expect(names).toContain('add_files_source')
+    expect(names).toContain('edit_files_source')
+    expect(names).toContain('remove_files_source')
+    expect(names).toContain('reindex_files_source')
     expect(names).toContain('list_inbox')
     expect(names).toContain('inbox_rules')
     expect(names).toContain('archive_emails')
@@ -728,17 +741,17 @@ describe('buildInboxRulesCommand', () => {
     expect(buildInboxRulesCommand({ op: 'validate', sample: true })).toBe('rules validate --sample')
   })
 
-  it('builds add with optional flags and mailbox', () => {
+  it('builds add with optional flags and source', () => {
     expect(
       buildInboxRulesCommand({
         op: 'add',
         rule_action: 'ignore',
         query: 'from:spam@x.com',
         insert_before: 'def-otp',
-        mailbox: 'u@mail.com',
+        source: 'u@mail.com',
       })
     ).toBe(
-      'rules add --action ignore --query "from:spam@x.com" --insert-before "def-otp" --mailbox "u@mail.com"'
+      'rules add --action ignore --query "from:spam@x.com" --insert-before "def-otp" --source "u@mail.com"'
     )
   })
 
@@ -766,6 +779,35 @@ describe('buildInboxRulesCommand', () => {
       buildInboxRulesCommand({ op: 'move', rule_id: 'x', before_rule_id: 'a', after_rule_id: 'b' })
     ).toThrow('exactly one')
     expect(() => buildInboxRulesCommand({ op: 'move', rule_id: 'x' })).toThrow('exactly one')
+  })
+})
+
+describe('ripmail sources / refresh command builders', () => {
+  it('buildSourcesAddLocalDirCommand builds add with path, label, id, json', () => {
+    expect(buildSourcesAddLocalDirCommand({ path: '~/Documents' })).toBe(
+      'sources add --kind localDir --path "~/Documents" --json',
+    )
+    expect(buildSourcesAddLocalDirCommand({ path: '/a/b', label: 'Work' })).toBe(
+      'sources add --kind localDir --path "/a/b" --label "Work" --json',
+    )
+    expect(buildSourcesAddLocalDirCommand({ path: '/x', id: 'my-id' })).toBe(
+      'sources add --kind localDir --path "/x" --id "my-id" --json',
+    )
+  })
+
+  it('buildSourcesEditCommand builds edit with optional fields', () => {
+    expect(buildSourcesEditCommand({ id: 'abc' })).toBe('sources edit "abc" --json')
+    expect(buildSourcesEditCommand({ id: 'abc', label: 'L' })).toBe('sources edit "abc" --label "L" --json')
+    expect(buildSourcesEditCommand({ id: 'abc', path: '/p' })).toBe('sources edit "abc" --path "/p" --json')
+  })
+
+  it('buildSourcesRemoveCommand', () => {
+    expect(buildSourcesRemoveCommand('src-1')).toBe('sources remove "src-1" --json')
+  })
+
+  it('buildReindexCommand', () => {
+    expect(buildReindexCommand({})).toBe('refresh')
+    expect(buildReindexCommand({ sourceId: 'docs' })).toBe('refresh --source "docs"')
   })
 })
 

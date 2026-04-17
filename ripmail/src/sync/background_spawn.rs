@@ -21,10 +21,10 @@ fn imap_probe_session(
     let process_env: HashMap<String, String> = std::env::vars().collect();
 
     let mb = if let Some(spec) = mailbox.map(str::trim).filter(|s| !s.is_empty()) {
-        resolve_mailbox_spec(&cfg.resolved_mailboxes, spec).ok_or_else(|| {
+        resolve_mailbox_spec(cfg.resolved_mailboxes(), spec).ok_or_else(|| {
             format!(
                 "Unknown mailbox {spec:?}. Configured: {}",
-                cfg.resolved_mailboxes
+                cfg.resolved_mailboxes()
                     .iter()
                     .map(|x| x.email.as_str())
                     .collect::<Vec<_>>()
@@ -32,7 +32,7 @@ fn imap_probe_session(
             )
         })?
     } else {
-        cfg.resolved_mailboxes
+        cfg.resolved_mailboxes()
             .first()
             .ok_or_else(|| "No mailboxes configured. Run `ripmail setup`.".to_string())?
     };

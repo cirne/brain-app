@@ -309,7 +309,7 @@
         headerFallbackTitle="Seeding"
         storageKey={ONBOARDING_SEED_CHAT_STORAGE_KEY}
         suppressAgentDetailAutoOpen
-        autoSendMessage="Read me.md, then create useful wiki pages from the profile and email evidence — build independent pages in parallel where you can, then do a final pass to review and fix internal links. Narrate briefly as you go."
+        autoSendMessage="Read me.md, then create useful wiki pages from the profile and email evidence — do not duplicate the main user in a separate page (me.md is the profile). Build independent pages in parallel where you can, then do a final pass to review and fix internal links. Narrate briefly as you go."
         onSeedWikiActivity={handleSeedWikiActivity}
         onStreamFinished={handleSeedStreamFinished}
       />

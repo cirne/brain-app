@@ -1,9 +1,18 @@
+use crate::cli::commands::mail::ensure_mail_source_only;
 use crate::cli::util::load_cfg;
 use crate::cli::CliResult;
 use ripmail::{archive_messages_locally, db, message_id_for_json_output, provider_archive_message};
 
-pub(crate) fn run_archive(message_ids: Vec<String>, undo: bool) -> CliResult {
+pub(crate) fn run_archive(
+    message_ids: Vec<String>,
+    source: Option<String>,
+    undo: bool,
+) -> CliResult {
     let cfg = load_cfg();
+    if let Err(e) = ensure_mail_source_only(&cfg, source.as_deref()) {
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
     let conn = db::open_file(cfg.db_path())?;
     let archived = !undo;
     let mut results = Vec::new();

@@ -143,7 +143,7 @@ pub fn resolve_message_id_and_raw_path(
     for key in message_id_lookup_keys(id) {
         let row: Option<(String, String, Option<String>)> = conn
             .query_row(
-                "SELECT message_id, raw_path, mailbox_id FROM messages WHERE message_id = ?1 LIMIT 1",
+                "SELECT message_id, raw_path, source_id FROM messages WHERE message_id = ?1 LIMIT 1",
                 [&key],
                 |r| {
                     let mb: String = r.get(2)?;
@@ -171,7 +171,7 @@ pub fn resolve_message_id_thread_and_raw_path(
     for key in message_id_lookup_keys(id) {
         let row: Option<MessageThreadRawMailboxRow> = conn
             .query_row(
-                "SELECT message_id, thread_id, raw_path, mailbox_id FROM messages WHERE message_id = ?1 LIMIT 1",
+                "SELECT message_id, thread_id, raw_path, source_id FROM messages WHERE message_id = ?1 LIMIT 1",
                 [&key],
                 |r| {
                     let mb: String = r.get(3)?;

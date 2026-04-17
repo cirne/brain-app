@@ -132,8 +132,9 @@ fn update_fts(
     let sql = format!(
         "UPDATE messages SET rule_triage = 'assigned', winning_rule_id = ?1
          WHERE id IN (
-           SELECT m.id FROM messages_fts
-           JOIN messages m ON m.id = messages_fts.rowid
+           SELECT m.id FROM document_index_fts
+           JOIN document_index di ON di.id = document_index_fts.rowid
+           JOIN messages m ON m.message_id = di.ext_id AND di.kind = 'mail'
            WHERE {inner_where}
          )"
     );

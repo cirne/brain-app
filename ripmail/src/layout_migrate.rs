@@ -12,7 +12,7 @@ use rusqlite::Connection;
 use crate::config::{derive_mailbox_id_from_email, ConfigJson};
 
 /// Returns `true` when the home directory looks like a **legacy** install that should be
-/// migrated: top-level `imap` user in `config.json`, **no** `mailboxes` array yet, and a DB at
+/// migrated: top-level `imap` user in `config.json`, **no** `sources` array yet, and a DB at
 /// `data/ripmail.db`.
 pub fn needs_legacy_layout_migration(home: &Path) -> bool {
     let cfg_path = home.join("config.json");
@@ -25,7 +25,7 @@ pub fn needs_legacy_layout_migration(home: &Path) -> bool {
     let Ok(j) = serde_json::from_str::<serde_json::Value>(&raw) else {
         return false;
     };
-    if j.get("mailboxes")
+    if j.get("sources")
         .and_then(|m| m.as_array())
         .map(|a| !a.is_empty())
         == Some(true)
@@ -45,7 +45,7 @@ pub fn needs_legacy_layout_migration(home: &Path) -> bool {
 }
 
 /// Move legacy `data/` maildir + DB into multi-inbox layout and rewrite `config.json` + `.env`.
-/// Idempotent: if `config.json` already lists `mailboxes`, returns `Ok(())` immediately.
+/// Idempotent: if `config.json` already lists non-empty `sources`, returns `Ok(())` immediately.
 pub fn migrate_legacy_layout_to_multi_inbox(home: &Path) -> Result<(), MigrateLegacyError> {
     if !needs_legacy_layout_migration(home) {
         return Ok(());
@@ -233,9 +233,10 @@ fn build_migrated_config_json(
     if let serde_json::Value::Object(ref mut m) = v {
         m.remove("imap");
         m.insert(
-            "mailboxes".into(),
+            "sources".into(),
             serde_json::json!([{
                 "id": mailbox_id,
+                "kind": "imap",
                 "email": email,
                 "imap": {
                     "host": imap_host,
@@ -248,31 +249,10 @@ fn build_migrated_config_json(
     Ok(v)
 }
 
-/// Run migration when needed (called from [`crate::config::load_config`]).
-pub fn migrate_legacy_layout_if_needed(home: &Path) {
-    if !needs_legacy_layout_migration(home) {
-        return;
-    }
-    match migrate_legacy_layout_to_multi_inbox(home) {
-        Ok(()) => {
-            eprintln!(
-                "Migrated ripmail home to multi-inbox layout: {}",
-                home.display()
-            );
-        }
-        Err(e) => {
-            eprintln!(
-                "ripmail: legacy layout migration failed ({}); fix or remove ~/.ripmail and re-run setup.",
-                e
-            );
-        }
-    }
-}
-
 fn first_mailbox_id_in_config(home: &Path) -> Option<String> {
     let raw = fs::read_to_string(home.join("config.json")).ok()?;
     let cfg: ConfigJson = serde_json::from_str(&raw).ok()?;
-    let id = cfg.mailboxes.as_ref()?.first()?.id.trim();
+    let id = cfg.sources.as_ref()?.first()?.id.trim();
     if id.is_empty() {
         None
     } else {
@@ -301,8 +281,8 @@ fn can_deferred_move_db(home: &Path) -> bool {
     legacy.is_file() && !new_db.is_file()
 }
 
-/// `true` when `mailboxes[]` is already present but legacy `data/maildir` or `data/ripmail.db`
-/// still need moving into the multi-inbox layout (e.g. after `ripmail setup` wrote `mailboxes`
+/// `true` when `sources[]` is already present but legacy `data/maildir` or `data/ripmail.db`
+/// still need moving into the multi-inbox layout (e.g. after `ripmail setup` wrote `sources`
 /// before the automatic migration could run).
 pub fn needs_deferred_legacy_data_migration(home: &Path) -> bool {
     if needs_legacy_layout_migration(home) {
@@ -374,8 +354,7 @@ fn migrate_deferred_legacy_data_impl(home: &Path) -> Result<bool, MigrateLegacyE
     Ok(maildir_moved || db_moved)
 }
 
-/// Run deferred data migration when needed (called from [`crate::config::load_config`] and
-/// [`crate::db::open_file`]).
+/// Run deferred data migration when needed (optional tooling/tests; not run automatically).
 pub fn migrate_deferred_legacy_data_if_needed(home: &Path) {
     if !needs_deferred_legacy_data_migration(home) {
         return;
@@ -428,7 +407,7 @@ pub fn infer_maildir_root_for_db_path(db_path: &Path) -> PathBuf {
     let cfg_path = parent.join("config.json");
     if let Ok(raw) = fs::read_to_string(cfg_path) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
-            if let Some(arr) = v.get("mailboxes").and_then(|m| m.as_array()) {
+            if let Some(arr) = v.get("sources").and_then(|m| m.as_array()) {
                 if let Some(first) = arr.first() {
                     if let Some(id) = first.get("id").and_then(|x| x.as_str()) {
                         return parent.join(id).join("maildir");
@@ -516,7 +495,7 @@ mod tests {
         let new_cfg: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(home.join("config.json")).unwrap()).unwrap();
         assert!(!new_cfg
-            .get("mailboxes")
+            .get("sources")
             .unwrap()
             .as_array()
             .unwrap()
@@ -533,8 +512,9 @@ mod tests {
         fs::write(home.join("data/maildir/cur/a.eml"), b"x").unwrap();
 
         let cfg = serde_json::json!({
-            "mailboxes": [{
+            "sources": [{
                 "id": id,
+                "kind": "imap",
                 "email": "a@b.com",
                 "imap": { "host": "imap.gmail.com", "port": 993 }
             }],

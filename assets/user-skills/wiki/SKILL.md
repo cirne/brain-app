@@ -42,6 +42,7 @@ If multiple modes apply, do the minimum that satisfies the ask; say what you did
 - **Line budget:** Aim for about **400 lines** of markdown body per primary page (excluding frontmatter). If the user names a different cap, honor it. If the topic is too big: **hub** page plus **child** pages with links—refactor, do not merely compress.
 - **DRY:** Prefer one canonical page per concept; link instead of copying blocks.
 - **Apply:** Write through the wiki edit flow. Do not stop at outlines unless the user asked for planning only.
+- **Vault format:** This is an **Obsidian-style vault**. Cross-link pages with **`[[wikilinks]]`** — drop the `.md` extension. Use the path relative to the wiki root, e.g. `[[me]]`, `[[people/jane-doe]]`, or `[[projects/foo|Foo]]` to override the displayed label. Do **not** use plain markdown `[label](path.md)` links between wiki pages. External URLs still use standard `[label](https://…)` markdown.
 
 ---
 
@@ -52,7 +53,7 @@ You are **adding** a module: one clear responsibility per file, wikilinks as “
 1. **Discover** — Search/read wiki first; identify canonical pages. Do not recreate—link and extend.
 2. **Place** — One obvious path under the wiki root matching existing conventions.
 3. **Write** — Clear title, intro, structure; ground facts; avoid invention.
-4. **Links** — Wikilinks to related pages; **no orphan:** add at least one inbound link from an index, parent, or related page.
+4. **Links** — Obsidian-style `[[wikilinks]]` to related pages (no `.md`); **no orphan:** add at least one inbound `[[…]]` link from an index, parent, or related page.
 
 ## Mode: tidy (one page)
 
@@ -62,7 +63,7 @@ You are **adding** a module: one clear responsibility per file, wikilinks as “
 2. **Accuracy** — Fix or qualify; remove unsupported claims rather than guessing.
 3. **DRY** — Single source of truth; replace copies with summary + link.
 4. **Size** — Enforce budget; split into linked pages when over (hub + children).
-5. **Links & format** — Fix broken links; improve headings and scanability.
+5. **Links & format** — Fix broken links; convert any plain `[label](path.md)` cross-page links into `[[path]]` wikilinks; improve headings and scanability.
 6. **Apply** — Edit in place (and new files when splitting).
 
 ## Mode: prune (subtree / structure)
@@ -72,7 +73,7 @@ You are **adding** a module: one clear responsibility per file, wikilinks as “
 1. **Map** — List pages in scope; note staleness when inferable.
 2. **Classify** — Obsolete, duplicate, orphan, merge candidate, oversized, or keep.
 3. **DRY** — Pick a **canonical** page; merge content; stub+link losers when appropriate.
-4. **Structure** — Fix orphans with links from indexes/parents; fix paths when wrong.
+4. **Structure** — Fix orphans with `[[wikilinks]]` from indexes/parents; fix paths when wrong; normalize stray markdown `[label](path.md)` cross-page links to `[[path]]`.
 5. **Apply** — **Execute** non-destructive fixes: merges, links, moves/stubs your tools support.
 6. **Safety** — **Ask first** before permanent deletion, **bulk delete**, or anything that loses history without archive. Never mass-delete without explicit user approval.
 7. **Report** — Brief summary of changes and anything needing a human decision.

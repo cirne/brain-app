@@ -18,7 +18,7 @@ pub fn oldest_message_date_for_folder(
     folder: &str,
 ) -> Result<Option<String>, rusqlite::Error> {
     conn.query_row(
-        "SELECT MIN(date) FROM messages WHERE mailbox_id = ?1 AND folder = ?2",
+        "SELECT MIN(date) FROM messages WHERE source_id = ?1 AND folder = ?2",
         [mailbox_id, folder],
         |row| row.get::<_, Option<String>>(0),
     )
@@ -38,7 +38,7 @@ pub fn last_uid_for_folder(
     folder: &str,
 ) -> Result<Option<i64>, rusqlite::Error> {
     conn.query_row(
-        "SELECT last_uid FROM sync_state WHERE mailbox_id = ?1 AND folder = ?2",
+        "SELECT last_uid FROM sync_state WHERE source_id = ?1 AND folder = ?2",
         [mailbox_id, folder],
         |row| row.get(0),
     )

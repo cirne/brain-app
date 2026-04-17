@@ -64,7 +64,7 @@ Wiki content is read from/written to `WIKI_DIR` — a separate brain repo cloned
 
 ### Agent tools: pi-coding-agent + custom
 
-File tools (`read`, `edit`, `write`, `grep`, `find`) come from `@mariozechner/pi-coding-agent`, which provides fuzzy-matching edit and path-scoped access. Custom tools (`search_email`, `read_email`, `draft_email`, `send_draft`, `find_person`, `get_calendar_events`, `web_search`, `fetch_page`, `get_youtube_transcript`, `youtube_search`) are defined inline in `src/server/agent/tools.ts`.
+File tools (`read`, `edit`, `write`, `grep`, `find`) come from `@mariozechner/pi-coding-agent`, which provides fuzzy-matching edit and path-scoped access. Custom tools (`search_index`, `read_doc`, `list_sources`, `source_status`, `add_files_source`, `edit_files_source`, `remove_files_source`, `reindex_files_source`, `draft_email`, `send_draft`, `find_person`, `get_calendar_events`, `web_search`, `fetch_page`, `get_youtube_transcript`, `youtube_search`, …) are defined inline in `src/server/agent/tools.ts`.
 
 **Why pi-coding-agent for file tools:** The fuzzy edit tool is significantly better than exact-match replacement for LLM-driven edits. Reusing it avoids reimplementing path security and file I/O.
 

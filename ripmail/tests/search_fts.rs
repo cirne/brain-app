@@ -496,7 +496,8 @@ fn json_slim_row_shape() {
     let r = ripmail::SearchResult {
         message_id: "mid".into(),
         thread_id: "t".into(),
-        mailbox_id: String::new(),
+        source_id: String::new(),
+        source_kind: String::new(),
         from_address: "a@b.com".into(),
         from_name: Some("Ann".into()),
         subject: "Hi".into(),

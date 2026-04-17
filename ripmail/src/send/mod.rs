@@ -75,7 +75,7 @@ pub fn smtp_credentials_ready(cfg: &Config) -> bool {
         }
         MailboxImapAuthKind::GoogleOAuth => {
             !cfg.imap_user.trim().is_empty()
-                && google_oauth_credentials_present(&cfg.ripmail_home, &cfg.mailbox_id)
+                && google_oauth_credentials_present(&cfg.ripmail_home, &cfg.source_id)
         }
     }
 }
@@ -100,11 +100,11 @@ From a git clone, the repo `.env` next to `Cargo.toml` overlays non-empty keys o
             if cfg.imap_user.trim().is_empty() {
                 return "No email for this mailbox (OAuth). Check config.json.".to_string();
             }
-            if !google_oauth_credentials_present(&cfg.ripmail_home, &cfg.mailbox_id) {
-                let path = google_oauth_token_path(&cfg.ripmail_home, &cfg.mailbox_id);
+            if !google_oauth_credentials_present(&cfg.ripmail_home, &cfg.source_id) {
+                let path = google_oauth_token_path(&cfg.ripmail_home, &cfg.source_id);
                 return format!(
                     "Google OAuth tokens not found for mailbox {}. Expected {} (or RIPMAIL_GOOGLE_REFRESH_TOKEN in that mailbox's `.env`).",
-                    cfg.mailbox_id,
+                    cfg.source_id,
                     path.display()
                 );
             }
@@ -138,7 +138,7 @@ fn mailbox_id_for_message_id(conn: &Connection, user_spec: &str) -> Result<Optio
     };
     let row: Option<String> = conn
         .query_row(
-            "SELECT mailbox_id FROM messages WHERE message_id = ?1",
+            "SELECT source_id FROM messages WHERE message_id = ?1",
             [&mid],
             |r| r.get(0),
         )

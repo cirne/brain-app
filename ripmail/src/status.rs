@@ -162,7 +162,7 @@ fn query_mailbox_date_range(
     mailbox_id: &str,
 ) -> Result<Option<(String, String)>, rusqlite::Error> {
     conn.query_row(
-        "SELECT MIN(date), MAX(date) FROM messages WHERE mailbox_id = ?1",
+        "SELECT MIN(date), MAX(date) FROM messages WHERE source_id = ?1",
         [mailbox_id],
         |row| {
             let earliest: Option<String> = row.get(0)?;
@@ -188,12 +188,12 @@ pub fn mailbox_status_lines(
     cfg: &Config,
 ) -> Result<Vec<MailboxStatusLine>, rusqlite::Error> {
     let mut out = Vec::new();
-    if cfg.resolved_mailboxes.is_empty() {
+    if cfg.resolved_mailboxes().is_empty() {
         let folder = resolve_sync_mailbox(cfg);
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM messages", [], |r| r.get(0))?;
         let last_uid: Option<i64> = conn
             .query_row(
-                "SELECT last_uid FROM sync_state WHERE mailbox_id = '' AND folder = ?1",
+                "SELECT last_uid FROM sync_state WHERE source_id = '' AND folder = ?1",
                 [&folder],
                 |r| r.get(0),
             )
@@ -216,16 +216,16 @@ pub fn mailbox_status_lines(
         });
         return Ok(out);
     }
-    for mb in &cfg.resolved_mailboxes {
+    for mb in cfg.resolved_mailboxes() {
         let folder = resolve_sync_folder_for_host(&cfg.sync_mailbox, &mb.imap_host);
         let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM messages WHERE mailbox_id = ?1",
+            "SELECT COUNT(*) FROM messages WHERE source_id = ?1",
             [&mb.id],
             |r| r.get(0),
         )?;
         let last_uid: Option<i64> = conn
             .query_row(
-                "SELECT last_uid FROM sync_state WHERE mailbox_id = ?1 AND folder = ?2",
+                "SELECT last_uid FROM sync_state WHERE source_id = ?1 AND folder = ?2",
                 [&mb.id, &folder],
                 |r| r.get(0),
             )
@@ -450,7 +450,7 @@ pub fn get_imap_server_status(
     if cfg.imap_user.trim().is_empty() {
         return Ok(None);
     }
-    let mb = match cfg.resolved_mailboxes.first() {
+    let mb = match cfg.resolved_mailboxes().first() {
         Some(m) => m,
         None => return Ok(None),
     };
@@ -479,8 +479,8 @@ pub fn get_imap_server_status(
 
     let sync_state: Option<(Option<i64>, Option<i64>)> = conn
         .query_row(
-            "SELECT uidvalidity, last_uid FROM sync_state WHERE folder = ?1 AND mailbox_id = ?2",
-            [&imap_folder, &cfg.mailbox_id],
+            "SELECT uidvalidity, last_uid FROM sync_state WHERE folder = ?1 AND source_id = ?2",
+            [&imap_folder, &cfg.source_id],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()
@@ -488,13 +488,13 @@ pub fn get_imap_server_status(
 
     let local_count: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM messages WHERE mailbox_id = ?1",
-            [&cfg.mailbox_id],
+            "SELECT COUNT(*) FROM messages WHERE source_id = ?1",
+            [&cfg.source_id],
             |r| r.get(0),
         )
         .map_err(|e| e.to_string())?;
     let mb_date_range =
-        query_mailbox_date_range(conn, &cfg.mailbox_id).map_err(|e| e.to_string())?;
+        query_mailbox_date_range(conn, &cfg.source_id).map_err(|e| e.to_string())?;
     let coverage_earliest = mb_date_range.as_ref().map(|(e, _)| e.as_str());
 
     let local_uid_validity = sync_state.and_then(|(uidvalidity, _)| uidvalidity.map(|v| v as u32));

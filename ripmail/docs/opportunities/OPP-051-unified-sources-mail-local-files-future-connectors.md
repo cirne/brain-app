@@ -96,7 +96,7 @@ Illustrative only — names and fields may change; **no requirement** to match c
 
 `**include`** — gitignore-style glob allowlist. If omitted, all files are candidates (subject to `ignore` and size limits). Typical patterns: `["*.md", "*.txt"]` for notes-only, `["*.pdf", "*.docx"]` for documents. Globs are matched against the relative path from `path`.
 
-`**ignore**` — gitignore-style denylist applied after `include`. Stacks with `.gitignore` when `respectGitignore` is true.
+`**ignore`** — gitignore-style denylist applied after `include`. Stacks with `.gitignore` when `respectGitignore` is true.
 
 `**respectGitignore**` — when `true` (default for `localDir`), ripmail obeys `.gitignore`, `.ignore`, and the global git ignore file, exactly as ripgrep does (via the Rust `ignore` crate). This is the right default for `~/dev` trees: build output, `node_modules`, `target/`, etc. are automatically skipped without listing every pattern manually. Set to `false` for non-git directories like `~/Documents`.
 

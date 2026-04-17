@@ -87,9 +87,9 @@ pub enum DraftCmd {
         text: bool,
         #[arg(long, conflicts_with = "text")]
         json: bool,
-        /// Send this draft from this mailbox (email or id); omit for the default account
-        #[arg(long)]
-        mailbox: Option<String>,
+        /// Send this draft from this source (email or id); omit for the default account
+        #[arg(long, short = 'S')]
+        source: Option<String>,
     },
     /// Reply draft from indexed message
     ///
@@ -115,9 +115,9 @@ pub enum DraftCmd {
         text: bool,
         #[arg(long, conflicts_with = "text")]
         json: bool,
-        /// Send this draft from this mailbox (email or id); omit for the default account
-        #[arg(long)]
-        mailbox: Option<String>,
+        /// Send this draft from this source (email or id); omit for the default account
+        #[arg(long, short = 'S')]
+        source: Option<String>,
     },
     /// Forward draft from indexed message
     ///
@@ -143,9 +143,9 @@ pub enum DraftCmd {
         text: bool,
         #[arg(long, conflicts_with = "text")]
         json: bool,
-        /// Send this draft from this mailbox (email or id); omit for the default account
-        #[arg(long)]
-        mailbox: Option<String>,
+        /// Send this draft from this source (email or id); omit for the default account
+        #[arg(long, short = 'S')]
+        source: Option<String>,
     },
     /// LLM edit of an existing draft. Put `--to` / `--cc` / `--add-cc` / … before the instruction words, or use `--` before the instruction.
     ///
@@ -254,7 +254,7 @@ fn draft_identity_for_compose(
                 .filter(|s| !s.is_empty())
                 .map(|s| s.to_string())
         });
-    draft_compose_identity_for_mailbox(&cfg.ripmail_home, &cfg.resolved_mailboxes, spec.as_deref())
+    draft_compose_identity_for_mailbox(&cfg.ripmail_home, cfg.resolved_mailboxes(), spec.as_deref())
 }
 
 fn resolve_llm_for_draft(
@@ -370,7 +370,7 @@ pub fn run_draft(
             with_body,
             text,
             json: _,
-            mailbox,
+            source,
         } => {
             let Some(to_s) = to.filter(|s| !s.trim().is_empty()) else {
                 return Err("ripmail draft new requires --to".into());
@@ -394,7 +394,7 @@ pub fn run_draft(
             let (subj, body_s) = if use_llm {
                 let instr = instr_opt.unwrap();
                 let (llm, rt) = resolve_llm_for_draft("new (LLM compose)")?;
-                let compose_id = draft_identity_for_compose(cfg, mailbox.as_deref(), None);
+                let compose_id = draft_identity_for_compose(cfg, source.as_deref(), None);
                 rt.block_on(compose_new_draft_from_instruction(
                     to_list.clone(),
                     &instr,
@@ -416,7 +416,7 @@ pub fn run_draft(
                 )
             };
             let id = create_draft_id(&drafts_dir, &subj)?;
-            let mailbox_id = mailbox
+            let mailbox_id = source
                 .as_deref()
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
@@ -446,7 +446,7 @@ pub fn run_draft(
             with_body,
             text,
             json: _,
-            mailbox,
+            source,
         } => {
             let message_id = indexed
                 .message_id_flag
@@ -465,7 +465,7 @@ pub fn run_draft(
             };
             let row: Option<(String, String, String, String, String)> = conn
                 .query_row(
-                    "SELECT message_id, from_address, subject, thread_id, mailbox_id FROM messages WHERE message_id = ?1",
+                    "SELECT message_id, from_address, subject, thread_id, source_id FROM messages WHERE message_id = ?1",
                     [&mid],
                     |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
                 )
@@ -484,7 +484,7 @@ pub fn run_draft(
                 .filter(|s| !s.is_empty())
                 .map(|s| s.to_string());
             let use_llm = instr_opt.is_some();
-            let mailbox_for_path = mailbox.as_deref().map(str::trim).filter(|s| !s.is_empty());
+            let mailbox_for_path = source.as_deref().map(str::trim).filter(|s| !s.is_empty());
             let (subj, body_s) = if use_llm {
                 let excerpt = load_forward_source_excerpt(
                     conn,
@@ -499,7 +499,7 @@ pub fn run_draft(
                 } else {
                     Some(mb_row.as_str())
                 };
-                let compose_id = draft_identity_for_compose(cfg, mailbox.as_deref(), mb_from);
+                let compose_id = draft_identity_for_compose(cfg, source.as_deref(), mb_from);
                 rt.block_on(compose_reply_draft_from_instruction(
                     to_list.clone(),
                     &instr,
@@ -520,7 +520,7 @@ pub fn run_draft(
                 (subj, body_s)
             };
             let id = create_draft_id(&drafts_dir, &subj)?;
-            let mailbox_id_meta = mailbox
+            let mailbox_id_meta = source
                 .as_deref()
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
@@ -559,7 +559,7 @@ pub fn run_draft(
             with_body,
             text,
             json: _,
-            mailbox,
+            source,
         } => {
             let message_id = indexed
                 .message_id_flag
@@ -578,7 +578,7 @@ pub fn run_draft(
             };
             let row: Option<(String, String, String, String)> = conn
                 .query_row(
-                    "SELECT message_id, subject, thread_id, mailbox_id FROM messages WHERE message_id = ?1",
+                    "SELECT message_id, subject, thread_id, source_id FROM messages WHERE message_id = ?1",
                     [&mid],
                     |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
                 )
@@ -593,7 +593,7 @@ pub fn run_draft(
                 .filter(|s| !s.is_empty())
                 .map(|s| s.to_string());
             let use_llm = instr_opt.is_some();
-            let mailbox_for_path = mailbox.as_deref().map(str::trim).filter(|s| !s.is_empty());
+            let mailbox_for_path = source.as_deref().map(str::trim).filter(|s| !s.is_empty());
             let excerpt = load_forward_source_excerpt(
                 conn,
                 cfg.message_path_root(),
@@ -613,7 +613,7 @@ pub fn run_draft(
                 } else {
                     Some(mb_row.as_str())
                 };
-                let compose_id = draft_identity_for_compose(cfg, mailbox.as_deref(), mb_from);
+                let compose_id = draft_identity_for_compose(cfg, source.as_deref(), mb_from);
                 rt.block_on(compose_forward_preamble_from_instruction(
                     to_list.clone(),
                     &instr,
@@ -626,7 +626,7 @@ pub fn run_draft(
             };
             let body_s = compose_forward_draft_body(&pre, &excerpt);
             let id = create_draft_id(&drafts_dir, &subj)?;
-            let mailbox_id_meta = mailbox
+            let mailbox_id_meta = source
                 .as_deref()
                 .map(str::trim)
                 .filter(|s| !s.is_empty())

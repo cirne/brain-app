@@ -270,7 +270,7 @@ User approves or denies each category. The seeding agent's system prompt is upda
 
 - **[Personal wiki (product)](../product/personal-wiki.md)** — Vocabulary, inline help, and onboarding messaging for “your private wiki” and the assistant loop
 - **[OPP-004: Wiki-Aware Agent](./OPP-004-wiki-aware-agent.md)** — Seeding agent uses the same structured tools (changelog, path validation)
-- **[OPP-005: Source Ingestion](./OPP-005-source-ingestion.md)** — Email attachments could be auto-ingested during onboarding
+- **[ripmail OPP-051: Unified Sources](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)** — Folders and mail as first-class sources; attachment/index story aligns here (see also superseded [OPP-005](./OPP-005-source-ingestion.md))
 - **[OPP-007: Native Mac App](./OPP-007-native-mac-app.md)** — Apple Mail local access is a preview of deeper native integration
 - **[PRODUCTIZATION.md](../PRODUCTIZATION.md)** — This is the "5-minute setup" experience described there
 
