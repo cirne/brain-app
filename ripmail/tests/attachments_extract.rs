@@ -1,4 +1,5 @@
 //! Integration tests: attachment extract/list/read/cache (fixtures under `tests/attachments/fixtures/`).
+//! Local file indexing uses the same `extract_attachment` as attachments; parity with indexed DB text is tested in `local_dir_xlsx_sync_search.rs`.
 
 use std::fs;
 use std::io::BufWriter;

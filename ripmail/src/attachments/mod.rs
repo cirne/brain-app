@@ -1,4 +1,11 @@
 //! On-demand attachment text extraction (TS `~/attachments` subset).
+//!
+//! **Single implementation:** [`extract_attachment`] is used for:
+//! - IMAP attachment read / cache ([`extract_and_cache`], [`read_attachment_text`]);
+//! - `ripmail read <path>` on local files (`cli/commands/mail.rs`);
+//! - [`crate::sources::local_dir::run_local_dir_sync`] (file FTS index).
+//!
+//! Do not duplicate spreadsheet/PDF/HTML logic elsewhere — extend [`extract_attachment`] instead.
 
 use calamine::{Data, Reader};
 use rusqlite::{Connection, ToSql};
@@ -48,6 +55,8 @@ fn extract_pdf_text(bytes: &[u8]) -> Option<String> {
 }
 
 /// Best-effort text/markdown extraction by MIME type and filename (order aligned with Node; PDF also matches `.pdf` for wrong Content-Type).
+///
+/// Shared by mail attachments, `read` on disk paths, and local-directory indexing — keep behavior consistent across those surfaces.
 pub fn extract_attachment(bytes: &[u8], mime: &str, filename: &str) -> Option<String> {
     let m = mime.to_lowercase();
     let name = filename.to_lowercase();

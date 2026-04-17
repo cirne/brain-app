@@ -158,6 +158,7 @@ pub fn run_local_dir_sync(
         };
         bytes_total += bytes.len() as u64;
 
+        // Same `extract_attachment` as IMAP attachments and `ripmail read <path>` — no second extractor.
         let body = extract_attachment(&bytes, &mime, fname)
             .unwrap_or_else(|| String::from_utf8_lossy(&bytes).into_owned());
         let title = fname.to_string();
