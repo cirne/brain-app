@@ -127,7 +127,7 @@ pub fn rules_path(home: &Path) -> PathBuf {
     home.join("rules.json")
 }
 
-/// Per-mailbox overlay: `~/.ripmail/<mailbox_id>/rules.json` ([OPP-016](../docs/opportunities/archive/OPP-016-multi-inbox.md)).
+/// Per-mailbox overlay: `$RIPMAIL_HOME/<mailbox_id>/rules.json` ([OPP-016](../docs/opportunities/archive/OPP-016-multi-inbox.md)).
 pub fn mailbox_rules_path(home: &Path, mailbox_id: &str) -> PathBuf {
     home.join(mailbox_id).join("rules.json")
 }
@@ -793,7 +793,8 @@ pub fn propose_rule_from_feedback(feedback: &str) -> RuleFeedbackProposal {
         (
             normalized.to_string(),
             action.clone(),
-            "Edit ~/.ripmail/rules.json (search queries); run ripmail rules validate.".to_string(),
+            "Edit $RIPMAIL_HOME/rules.json (search queries); run ripmail rules validate."
+                .to_string(),
         )
     };
     RuleFeedbackProposal {
@@ -802,7 +803,7 @@ pub fn propose_rule_from_feedback(feedback: &str) -> RuleFeedbackProposal {
             action: action.clone(),
         },
         reasoning,
-        apply: "Use `ripmail rules add --query '...'` (see `ripmail rules add --help`), or `ripmail rules reset-defaults --yes` if the file is legacy/corrupt, or edit ~/.ripmail/rules.json by hand / with an agent."
+        apply: "Use `ripmail rules add --query '...'` (see `ripmail rules add --help`), or `ripmail rules reset-defaults --yes` if the file is legacy/corrupt, or edit $RIPMAIL_HOME/rules.json by hand / with an agent."
             .to_string(),
     }
 }

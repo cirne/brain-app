@@ -1,5 +1,6 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
-import { dirname, join, relative, resolve } from 'node:path'
+import { dirname, relative, resolve } from 'node:path'
+import { wikiEditsPathResolved } from './brainHome.js'
 
 export type WikiEditOp = 'edit' | 'write' | 'move' | 'delete'
 
@@ -12,9 +13,9 @@ export interface WikiEditRecord {
   source: 'agent'
 }
 
-/** Default: ./data/wiki-edits.jsonl under cwd. Override with WIKI_EDIT_HISTORY_PATH if needed. */
+/** `$BRAIN_HOME/var/wiki-edits.jsonl` (see shared/brain-layout.json). */
 export function wikiEditHistoryPath(): string {
-  return process.env.WIKI_EDIT_HISTORY_PATH ?? join(process.cwd(), 'data', 'wiki-edits.jsonl')
+  return wikiEditsPathResolved()
 }
 
 export function normalizeWikiRelativePath(wikiDir: string, filePath: string): string {

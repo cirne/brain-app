@@ -3,6 +3,7 @@ import { promisify } from 'node:util'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseRipmailStatusJson } from './ripmailStatusParse.js'
+import { ripmailHomeForBrain } from './brainHome.js'
 import { ripmailBin } from './ripmailBin.js'
 
 const execAsync = promisify(exec)
@@ -10,7 +11,7 @@ const execAsync = promisify(exec)
 export { ripmailBin }
 
 export function ripmailHomePath(): string {
-  return process.env.RIPMAIL_HOME ?? `${process.env.HOME ?? ''}/.ripmail`
+  return ripmailHomeForBrain()
 }
 
 export type OnboardingMailStatusPayload = {

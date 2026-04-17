@@ -4,23 +4,19 @@ import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
-let wikiDir: string
-let chatDir: string
+let brainHome: string
 
 beforeEach(async () => {
-  wikiDir = await mkdtemp(join(tmpdir(), 'chat-test-'))
-  chatDir = await mkdtemp(join(tmpdir(), 'chat-data-'))
-  await mkdir(join(wikiDir, 'ideas'))
+  brainHome = await mkdtemp(join(tmpdir(), 'chat-test-'))
+  process.env.BRAIN_HOME = brainHome
+  const wikiDir = join(brainHome, 'wiki')
+  await mkdir(join(wikiDir, 'ideas'), { recursive: true })
   await writeFile(join(wikiDir, 'index.md'), '# Home\nWelcome.')
-  process.env.WIKI_DIR = wikiDir
-  process.env.CHAT_DATA_DIR = chatDir
 })
 
 afterEach(async () => {
-  await rm(wikiDir, { recursive: true, force: true })
-  await rm(chatDir, { recursive: true, force: true })
-  delete process.env.WIKI_DIR
-  delete process.env.CHAT_DATA_DIR
+  await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
   vi.resetModules()
 })
 

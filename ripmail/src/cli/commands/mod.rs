@@ -13,10 +13,21 @@ use clap::CommandFactory;
 use crate::cli::args::Commands;
 use crate::cli::util::ripmail_home_path;
 use crate::cli::CliResult;
-use ripmail::migrate_legacy_zmail_home_dir_if_needed;
 use ripmail::setup::wizard_is_first_mailbox_setup;
+use ripmail::{
+    check_ripmail_home_access, migrate_legacy_zmail_home_dir_if_needed,
+    resolved_ripmail_home_from_env,
+};
 
 pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
+    let Some(home) = resolved_ripmail_home_from_env() else {
+        eprintln!("ripmail: set RIPMAIL_HOME or BRAIN_HOME to a non-empty path.");
+        std::process::exit(1);
+    };
+    if let Err(e) = check_ripmail_home_access(&home) {
+        eprintln!("ripmail: {e}");
+        std::process::exit(1);
+    }
     migrate_legacy_zmail_home_dir_if_needed()?;
     let command = match command {
         None => {

@@ -5,6 +5,7 @@ pub mod applemail;
 pub mod ask;
 pub mod ask_stub;
 pub mod attachments;
+pub mod brain_app_layout;
 pub mod config;
 pub mod db;
 pub mod draft;
@@ -50,15 +51,15 @@ pub use attachments::{
     read_attachment_text, read_stored_file, AttachmentListRow,
 };
 pub use config::{
-    build_llm_client, config_for_outbound_send, derive_mailbox_id_from_email,
-    draft_compose_identity_for_mailbox, load_all_mailboxes, load_config, load_config_json,
-    mailbox_config_by_id, mailbox_ids_for_default_search, merge_mailbox_identity,
-    migrate_legacy_zmail_home_dir_if_needed, read_ripmail_env_file,
+    build_llm_client, check_ripmail_home_access, config_for_outbound_send,
+    derive_mailbox_id_from_email, draft_compose_identity_for_mailbox, load_all_mailboxes,
+    load_config, load_config_json, mailbox_config_by_id, mailbox_ids_for_default_search,
+    merge_mailbox_identity, migrate_legacy_zmail_home_dir_if_needed, read_ripmail_env_file,
     resolve_config_target_mailbox_id, resolve_llm, resolve_llm_with_env, resolve_mailbox_spec,
-    resolve_openai_api_key, resolve_smtp_settings, write_config_json, Config, ConfigJson,
-    DraftComposeIdentity, IdentityPatch, LlmJson, LlmProvider, LoadConfigOptions,
-    MailboxConfigJson, MailboxIdentityJson, MailboxImapAuthKind, ResolvedLlm, ResolvedMailbox,
-    ResolvedSmtp, SourceKind,
+    resolve_openai_api_key, resolve_smtp_settings, resolved_ripmail_home_from_env,
+    write_config_json, Config, ConfigJson, DraftComposeIdentity, IdentityPatch, LlmJson,
+    LlmProvider, LoadConfigOptions, MailboxConfigJson, MailboxIdentityJson, MailboxImapAuthKind,
+    ResolvedLlm, ResolvedMailbox, ResolvedSmtp, SourceKind,
 };
 pub use db::message_persist::{fts_match_count, persist_attachments_from_parsed, persist_message};
 pub use db::{

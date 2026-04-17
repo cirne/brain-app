@@ -38,6 +38,7 @@ fn bare_ripmail_migrates_legacy_zmail_home() {
     let mut cmd = std::process::Command::new(bin);
     cmd.env("HOME", user_home)
         .env("USERPROFILE", user_home)
+        .env("BRAIN_HOME", user_home)
         .env_remove("RIPMAIL_HOME");
     let out = cmd.output().expect("spawn ripmail");
     assert_eq!(
@@ -47,8 +48,8 @@ fn bare_ripmail_migrates_legacy_zmail_home() {
         String::from_utf8_lossy(&out.stderr)
     );
     assert!(
-        user_home.join(".ripmail").join("config.json").is_file(),
-        "expected migrated config under .ripmail"
+        user_home.join("ripmail").join("config.json").is_file(),
+        "expected migrated config under $BRAIN_HOME/ripmail"
     );
     assert!(
         !user_home.join(".zmail").exists(),

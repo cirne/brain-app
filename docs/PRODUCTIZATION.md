@@ -74,7 +74,7 @@ A user signs up with their Google account, approves email and calendar access, a
 
 ### 5. Wiki directory icons: personal dirs must use LLM lookup
 
-**Current state:** `dirIcons.ts` and the `/api/wiki/dir-icon` endpoint have hardcoded defaults for common directory names (`people`, `companies`, `ideas`, `areas`, `health`, `projects`, etc.). Unknown dirs fall through to an LLM-backed lookup that picks from a 22-icon Lucide set and caches the result in `./data/wiki-dir-icons.json`.
+**Current state:** `dirIcons.ts` and the `/api/wiki/dir-icon` endpoint have hardcoded defaults for common directory names (`people`, `companies`, `ideas`, `areas`, `health`, `projects`, etc.). Unknown dirs fall through to an LLM-backed lookup that picks from a 22-icon Lucide set and caches the result under `$BRAIN_HOME/cache/` (see `shared/brain-layout.json`).
 
 **What is personal:** Dirs like `bicf`, `grantees`, `properties`, `trips` are specific to this wiki and are intentionally excluded from the hardcoded list — they get their icons via LLM. Any new personal/domain-specific dir a user creates will get an LLM-assigned icon automatically.
 

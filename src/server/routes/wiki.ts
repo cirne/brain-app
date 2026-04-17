@@ -4,6 +4,7 @@ import { join, basename, resolve, relative, dirname } from 'node:path'
 import { marked } from 'marked'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
+import { dirIconsCachePathResolved } from '../lib/brainHome.js'
 import { wikiDir } from '../lib/wikiDir.js'
 import { listWikiFiles, recentWikiFilesByMtime } from '../lib/wikiFiles.js'
 import { readRecentWikiEdits } from '../lib/wikiEditHistory.js'
@@ -130,7 +131,7 @@ wiki.get('/dir-icon/:dir', async (c) => {
     'Globe', 'Code', 'DollarSign', 'Star', 'Tag', 'Layers', 'Dumbbell', 'Camera',
   ]
 
-  const cachePath = process.env.DIR_ICON_CACHE ?? './data/wiki-dir-icons.json'
+  const cachePath = dirIconsCachePathResolved()
   let cache: Record<string, string> = {}
   try {
     cache = JSON.parse(await readFile(cachePath, 'utf-8'))

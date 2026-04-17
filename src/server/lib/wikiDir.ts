@@ -1,42 +1,24 @@
-import { mkdir, readdir, rm } from 'node:fs/promises'
+import { readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
+import { skillsDataDir, wikiContentDir } from './brainHome.js'
 
-/** Repo root from WIKI_DIR env var */
-export const repoDir = () => process.env.WIKI_DIR ?? '/wiki'
+/** Markdown wiki content: `$BRAIN_HOME/wiki`. */
+export const wikiDir = () => wikiContentDir()
 
-/** User skills (slash commands): `<WIKI_DIR>/skills` — sibling of `wiki/`, not inside wiki content. */
-export const skillsDir = () => join(repoDir(), 'skills')
-
-/**
- * Wiki content directory: `<WIKI_DIR>/wiki` if it exists, otherwise `<WIKI_DIR>` itself.
- * Matches the layout of the cirne/brain repo where markdown lives under the `wiki/` subdir.
- */
-export const wikiDir = () => {
-  const repo = repoDir()
-  const sub = join(repo, 'wiki')
-  return existsSync(sub) ? sub : repo
-}
+/** User skills (slash commands): `$BRAIN_HOME/skills`. */
+export const skillsDir = () => skillsDataDir()
 
 /**
  * Remove all wiki files and subdirs (dev hard-reset). Recreates an empty wiki content root.
- * When `wiki/` exists under `WIKI_DIR`, only that subtree is removed.
- * When `WIKI_DIR` is the content root itself, removes all top-level entries except `.git` (if present).
  */
 export async function wipeWikiContent(): Promise<void> {
   const contentRoot = wikiDir()
-  const repo = repoDir()
   if (!existsSync(contentRoot)) return
 
-  if (contentRoot === repo) {
-    const entries = await readdir(contentRoot, { withFileTypes: true })
-    for (const ent of entries) {
-      if (ent.name === '.git') continue
-      await rm(join(contentRoot, ent.name), { recursive: true, force: true })
-    }
-    return
+  const entries = await readdir(contentRoot, { withFileTypes: true })
+  for (const ent of entries) {
+    if (ent.name === '.git') continue
+    await rm(join(contentRoot, ent.name), { recursive: true, force: true })
   }
-
-  await rm(contentRoot, { recursive: true, force: true })
-  await mkdir(contentRoot, { recursive: true })
 }

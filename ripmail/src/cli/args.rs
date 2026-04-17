@@ -42,7 +42,7 @@ Required:
   --email <addr>           Account address (or env RIPMAIL_EMAIL)
   Either:
     --password <secret>    IMAP password, e.g. Gmail app password (or RIPMAIL_IMAP_PASSWORD)
-    --google-oauth         Gmail: browser OAuth instead of app password (tokens under ~/.ripmail/<id>/)
+    --google-oauth         Gmail: browser OAuth instead of app password (tokens under $RIPMAIL_HOME/<id>/)
     --apple-mail           macOS: index local Apple Mail (no IMAP password; see --apple-mail-path)
 
 Recommended:
@@ -92,7 +92,7 @@ Examples:
 
 /// Appended to `ripmail clean --help` (long help only).
 pub(crate) const CLEAN_CMD_AFTER_LONG_HELP: &str = "\
-Deletes every top-level file and directory under RIPMAIL_HOME (default ~/.ripmail): config, SQLite index, secrets, per-mailbox dirs, logs, rules — same scope as `ripmail wizard --clean`.
+Deletes every top-level file and directory under RIPMAIL_HOME (default $BRAIN_HOME/ripmail when unset): config, SQLite index, secrets, per-mailbox dirs, logs, rules — same scope as `ripmail wizard --clean`.
 
 Does not delete mail on your IMAP server or in Apple Mail.
 
@@ -113,7 +113,7 @@ fn parse_mailbox_management_on_off(s: &str) -> Result<bool, String> {
 
 #[derive(Subcommand)]
 pub(crate) enum Commands {
-    /// Write ~/.ripmail config (non-interactive)
+    /// Write config under RIPMAIL_HOME (non-interactive)
     #[command(after_long_help = SETUP_CMD_AFTER_LONG_HELP)]
     Setup {
         #[arg(long)]
@@ -149,7 +149,7 @@ pub(crate) enum Commands {
         #[command(flatten)]
         identity: IdentityArgs,
     },
-    /// Update non-secret settings in ~/.ripmail (identity, mailbox management)
+    /// Update non-secret settings in config.json (identity, mailbox management)
     #[command(after_long_help = CONFIG_CMD_AFTER_LONG_HELP)]
     Config {
         #[command(flatten)]
@@ -340,10 +340,10 @@ pub(crate) enum Commands {
         #[command(subcommand)]
         sub: ripmail::draft::DraftCmd,
     },
-    /// Manage inbox rules in ~/.ripmail/rules.json
+    /// Manage inbox rules in $RIPMAIL_HOME/rules.json
     #[command(after_long_help = RULES_CMD_AFTER_LONG_HELP)]
     Rules {
-        /// Target `~/.ripmail/<id>/rules.json` overlay (email or id); omit for global `rules.json`
+        /// Target `$RIPMAIL_HOME/<id>/rules.json` overlay (email or id); omit for global `rules.json`
         #[arg(long, short = 'S')]
         source: Option<String>,
         #[command(subcommand)]
@@ -489,7 +489,7 @@ Use --body / --body-file only when the text must be verbatim (quotes, templates,
 
 /// Appended to `ripmail rules --help` (long help only).
 const RULES_CMD_AFTER_LONG_HELP: &str = "\
-Add/edit always run inbox preview against $RIPMAIL_HOME/data (default ~/.ripmail)—your real synced index—not a throwaway empty home.
+Add/edit always run inbox preview against $RIPMAIL_HOME/data (default $BRAIN_HOME/ripmail when unset)—your real synced index—not a throwaway empty home.
 
 Examples (see ripmail rules add --help):
   ripmail rules add --action ignore --query 'from:no-reply@zoom.us meeting OR summary'
@@ -500,7 +500,7 @@ Examples (see ripmail rules add --help):
 const RULES_ADD_AFTER_LONG_HELP: &str = "\
 Pass --query using the same language as `ripmail search` (from:, to:, subject:, after:, before:, category:, FTS terms, OR/AND). See ripmail rules validate.
 
-Preview uses your normal ripmail home and data: config + SQLite at $RIPMAIL_HOME (default ~/.ripmail), same as sync/search.
+Preview uses your normal ripmail home and data: config + SQLite at $RIPMAIL_HOME (default $BRAIN_HOME/ripmail when unset), same as sync/search.
 
 Examples:
   ripmail rules add --action ignore --query 'from:newsletter.example.com'
@@ -513,7 +513,7 @@ Flags: --action <ACTION> --query <SEARCH_STRING> [--insert-before <RULE_ID>] [--
 const RULES_EDIT_AFTER_LONG_HELP: &str = "\
 Change --action and/or --query (omit either to leave unchanged).
 
-Preview uses your normal ripmail home and data: $RIPMAIL_HOME (default ~/.ripmail) and its ripmail.db, same as ripmail rules add.
+Preview uses your normal ripmail home and data: $RIPMAIL_HOME (default $BRAIN_HOME/ripmail when unset) and its ripmail.db, same as ripmail rules add.
 ";
 
 /// Appended to `ripmail rules move --help` (long help only).
@@ -527,7 +527,7 @@ Examples:
 
 #[derive(Subcommand, Debug, Clone)]
 pub(crate) enum RulesCmd {
-    /// Validate ~/.ripmail/rules.json (schema, search query compile)
+    /// Validate rules.json (schema, search query compile)
     Validate {
         /// Re-run match counts against your real ripmail.db (same queries as search)
         #[arg(long)]

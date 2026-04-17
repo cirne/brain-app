@@ -261,7 +261,7 @@ fn resolve_llm_for_draft(
     ctx: &'static str,
 ) -> Result<(ResolvedLlm, tokio::runtime::Runtime), String> {
     let llm = resolve_llm(&LoadConfigOptions {
-        home: std::env::var("RIPMAIL_HOME").ok().map(PathBuf::from),
+        home: crate::config::resolved_ripmail_home_from_env(),
         env: None,
     })
     .map_err(|e| format!("ripmail draft {ctx}: {e}"))?;

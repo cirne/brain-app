@@ -1,18 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-let chatDir: string
+let brainHome: string
 
 beforeEach(async () => {
-  chatDir = await mkdtemp(join(tmpdir(), 'chat-storage-'))
-  process.env.CHAT_DATA_DIR = chatDir
+  brainHome = await mkdtemp(join(tmpdir(), 'chat-storage-'))
+  process.env.BRAIN_HOME = brainHome
 })
 
 afterEach(async () => {
-  await rm(chatDir, { recursive: true, force: true })
-  delete process.env.CHAT_DATA_DIR
+  await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
 })
 
 describe('chatStorage', () => {
@@ -138,7 +138,8 @@ describe('chatStorage', () => {
 
   it('deleteAllChatSessionFiles removes session JSON only', async () => {
     const { appendTurn, listSessions, deleteAllChatSessionFiles } = await import('./chatStorage.js')
-    await writeFile(join(chatDir, 'onboarding.json'), '{"state":"done"}', 'utf-8')
+    await mkdir(join(brainHome, 'chats'), { recursive: true })
+    await writeFile(join(brainHome, 'chats', 'onboarding.json'), '{"state":"done"}', 'utf-8')
     await appendTurn({
       sessionId: 'aa0e8400-e29b-41d4-a716-446655440005',
       userMessage: 'hi',
@@ -148,6 +149,6 @@ describe('chatStorage', () => {
     await deleteAllChatSessionFiles()
     expect(await listSessions()).toEqual([])
     const { readFile } = await import('node:fs/promises')
-    expect(await readFile(join(chatDir, 'onboarding.json'), 'utf-8')).toContain('done')
+    expect(await readFile(join(brainHome, 'chats', 'onboarding.json'), 'utf-8')).toContain('done')
   })
 })

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "directories": {
+    "wiki": "wiki",
+    "skills": "skills",
+    "chats": "chats",
+    "ripmail": "ripmail",
+    "cache": "cache",
+    "var": "var"
+  },
+  "files": {
+    "wikiEditsLog": "wiki-edits.jsonl",
+    "dirIconsCache": "wiki-dir-icons.json",
+    "calendarPersonal": "calendar-personal.json",
+    "calendarTravel": "calendar-travel.json"
+  }
+}

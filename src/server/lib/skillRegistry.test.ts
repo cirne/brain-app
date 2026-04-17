@@ -3,24 +3,25 @@ import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
-let wikiDir: string
+let brainHome: string
 
 beforeEach(async () => {
-  wikiDir = await mkdtemp(join(tmpdir(), 'skill-reg-'))
-  process.env.WIKI_DIR = wikiDir
+  brainHome = await mkdtemp(join(tmpdir(), 'skill-reg-'))
+  process.env.BRAIN_HOME = brainHome
 })
 
 afterEach(async () => {
-  await rm(wikiDir, { recursive: true, force: true })
-  delete process.env.WIKI_DIR
+  await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
 })
 
 describe('listSkills', () => {
   it('lists skills from skillsDir with stable sort', async () => {
-    await mkdir(join(wikiDir, 'skills', 'zebra'), { recursive: true })
-    await mkdir(join(wikiDir, 'skills', 'apple'), { recursive: true })
+    const skillsRoot = join(brainHome, 'skills')
+    await mkdir(join(skillsRoot, 'zebra'), { recursive: true })
+    await mkdir(join(skillsRoot, 'apple'), { recursive: true })
     await writeFile(
-      join(wikiDir, 'skills', 'zebra', 'SKILL.md'),
+      join(skillsRoot, 'zebra', 'SKILL.md'),
       `---
 name: zebra
 label: Z
@@ -30,7 +31,7 @@ description: Last alphabetically but sorted by name field.
       'utf-8',
     )
     await writeFile(
-      join(wikiDir, 'skills', 'apple', 'SKILL.md'),
+      join(skillsRoot, 'apple', 'SKILL.md'),
       `---
 name: apple
 label: A

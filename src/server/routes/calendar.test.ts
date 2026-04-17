@@ -45,12 +45,12 @@ END:VCALENDAR`
 
 // ─── Route fixture ───────────────────────────────────────────────────────────
 
-let cacheDir: string
+let brainHome: string
 let app: Hono
 
 beforeEach(async () => {
-  cacheDir = await mkdtemp(join(tmpdir(), 'calendar-test-'))
-  process.env.CALENDAR_CACHE_DIR = cacheDir
+  brainHome = await mkdtemp(join(tmpdir(), 'calendar-test-'))
+  process.env.BRAIN_HOME = brainHome
   process.env.CIRNE_TRAVEL_ICS_URL = ''
   process.env.LEW_PERSONAL_ICS_URL = ''
 
@@ -61,8 +61,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  await rm(cacheDir, { recursive: true, force: true })
-  delete process.env.CALENDAR_CACHE_DIR
+  await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
   delete process.env.CIRNE_TRAVEL_ICS_URL
   delete process.env.LEW_PERSONAL_ICS_URL
   vi.resetModules()

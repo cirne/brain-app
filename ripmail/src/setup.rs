@@ -88,7 +88,7 @@ pub struct ExistingWizardConfig {
     pub mailbox_management_enabled: bool,
 }
 
-/// Secrets from existing `~/.ripmail/.env` (wizard reuse prompts).
+/// Secrets from existing `$RIPMAIL_HOME/.env` (wizard reuse prompts).
 #[derive(Debug, Default, Clone)]
 pub struct ExistingEnvSecrets {
     pub password: Option<String>,
@@ -167,7 +167,7 @@ pub fn update_mailbox_identity(
     Ok(())
 }
 
-/// Load secrets from root `~/.ripmail/.env` and, for multi-inbox layout, the first mailbox's `.env`.
+/// Load secrets from root `$RIPMAIL_HOME/.env` and, for multi-inbox layout, the first mailbox's `.env`.
 pub fn load_existing_env_secrets(home: &Path) -> ExistingEnvSecrets {
     let path = home.join(".env");
     let mut s = if let Ok(content) = fs::read_to_string(&path) {
@@ -230,7 +230,7 @@ pub struct WriteZmailParams<'a> {
     pub default_since: &'a str,
 }
 
-/// Merge OpenAI key into root `~/.ripmail/.env`, preserving unrelated lines.
+/// Merge OpenAI key into root `$RIPMAIL_HOME/.env`, preserving unrelated lines.
 pub fn merge_root_openai_key(home: &Path, openai_key: Option<&str>) -> io::Result<()> {
     let Some(openai_key) = openai_key else {
         return Ok(());
@@ -261,7 +261,7 @@ pub fn merge_root_openai_key(home: &Path, openai_key: Option<&str>) -> io::Resul
     Ok(())
 }
 
-/// If `~/.ripmail/.env` does not define `RIPMAIL_OAUTH_RELAY_BASE`, append the effective relay URL
+/// If `$RIPMAIL_HOME/.env` does not define `RIPMAIL_OAUTH_RELAY_BASE`, append the effective relay URL
 /// (bundled default or from env) so the file matches what the binary uses.
 pub fn merge_root_oauth_relay_base_if_missing(home: &Path, effective: &str) -> io::Result<()> {
     let path = home.join(".env");
@@ -302,7 +302,7 @@ pub fn merge_root_oauth_relay_base_if_missing(home: &Path, effective: &str) -> i
     Ok(())
 }
 
-/// If `~/.ripmail/.env` does not define OAuth client id/secret, append bundled [`DEFAULT_PUBLIC_*`] when both are non-empty.
+/// If `$RIPMAIL_HOME/.env` does not define OAuth client id/secret, append bundled [`DEFAULT_PUBLIC_*`] when both are non-empty.
 pub fn merge_root_google_oauth_client_if_missing(home: &Path) -> io::Result<()> {
     let id = DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID.trim();
     let sec = DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_SECRET.trim();
@@ -412,7 +412,7 @@ pub fn load_mailbox_configs_for_wizard(home: &Path) -> Vec<MailboxConfigJson> {
     vec![]
 }
 
-/// Load `RIPMAIL_IMAP_PASSWORD` for a mailbox: `<id>/.env`, else root `~/.ripmail/.env` (legacy).
+/// Load `RIPMAIL_IMAP_PASSWORD` for a mailbox: `<id>/.env`, else root `$RIPMAIL_HOME/.env` (legacy).
 pub fn load_imap_password_for_mailbox_id(home: &Path, mailbox_id: &str) -> Option<String> {
     let per = home.join(mailbox_id).join(".env");
     if let Ok(content) = fs::read_to_string(&per) {

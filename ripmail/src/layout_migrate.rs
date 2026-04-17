@@ -1,5 +1,5 @@
 //! One-time migration from legacy single-mailbox layout (`data/ripmail.db`, `data/maildir/`, IMAP
-//! password in root `~/.ripmail/.env`) to multi-inbox layout ([OPP-016](../docs/opportunities/archive/OPP-016-multi-inbox.md)):
+//! password in root `$RIPMAIL_HOME/.env`) to multi-inbox layout ([OPP-016](../docs/opportunities/archive/OPP-016-multi-inbox.md)):
 //! `ripmail.db` at `RIPMAIL_HOME`, `<mailbox_id>/maildir/`, `<mailbox_id>/.env` for IMAP, root `.env`
 //! for shared keys only.
 
@@ -369,7 +369,7 @@ pub fn migrate_deferred_legacy_data_if_needed(home: &Path) {
         Ok(false) => {}
         Err(e) => {
             eprintln!(
-                "ripmail: deferred data migration failed ({}); fix or remove ~/.ripmail and re-run setup.",
+                "ripmail: deferred data migration failed ({}); fix or remove $RIPMAIL_HOME and re-run setup.",
                 e
             );
         }

@@ -1,0 +1,78 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+export interface BrainLayout {
+  version: number
+  directories: {
+    wiki: string
+    skills: string
+    chats: string
+    ripmail: string
+    cache: string
+    var: string
+  }
+  files: {
+    wikiEditsLog: string
+    dirIconsCache: string
+  }
+}
+
+let cached: BrainLayout | null = null
+
+/** Resolve shared/brain-layout.json from this module (works in src/, dist/server/, and bundled index.js). */
+export function resolveBrainLayoutPath(): string {
+  const here = dirname(fileURLToPath(import.meta.url))
+  const candidates = [
+    join(here, '../../../shared/brain-layout.json'),
+    join(here, '../../shared/brain-layout.json'),
+    join(process.cwd(), 'shared/brain-layout.json'),
+  ]
+  for (const p of candidates) {
+    if (existsSync(p)) return p
+  }
+  throw new Error(
+    `brain-layout.json not found (tried ${candidates.slice(0, 2).join(', ')} and cwd/shared)`,
+  )
+}
+
+export function getBrainLayout(): BrainLayout {
+  if (cached) return cached
+  const path = resolveBrainLayoutPath()
+  cached = JSON.parse(readFileSync(path, 'utf-8')) as BrainLayout
+  return cached
+}
+
+export function brainLayoutWikiDir(base: string): string {
+  return join(base, getBrainLayout().directories.wiki)
+}
+
+export function brainLayoutSkillsDir(base: string): string {
+  return join(base, getBrainLayout().directories.skills)
+}
+
+export function brainLayoutChatsDir(base: string): string {
+  return join(base, getBrainLayout().directories.chats)
+}
+
+export function brainLayoutRipmailDir(base: string): string {
+  return join(base, getBrainLayout().directories.ripmail)
+}
+
+export function brainLayoutCacheDir(base: string): string {
+  return join(base, getBrainLayout().directories.cache)
+}
+
+export function brainLayoutVarDir(base: string): string {
+  return join(base, getBrainLayout().directories.var)
+}
+
+export function brainLayoutWikiEditsPath(base: string): string {
+  const L = getBrainLayout()
+  return join(base, L.directories.var, L.files.wikiEditsLog)
+}
+
+export function brainLayoutDirIconsCachePath(base: string): string {
+  const L = getBrainLayout()
+  return join(base, L.directories.cache, L.files.dirIconsCache)
+}

@@ -26,7 +26,7 @@ function hintFallback(description: string): string | undefined {
 }
 
 /**
- * Skills present under `<WIKI_DIR>/skills/<slug>/SKILL.md` for the slash menu and GET /api/skills.
+ * Skills present under `$BRAIN_HOME/skills/<slug>/SKILL.md` for the slash menu and GET /api/skills.
  */
 export async function listSkills(): Promise<SkillListItem[]> {
   const root = skillsDir()

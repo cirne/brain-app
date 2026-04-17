@@ -1,18 +1,16 @@
 use std::path::PathBuf;
 
-use ripmail::{load_config, Config, LoadConfigOptions};
+use ripmail::{load_config, resolved_ripmail_home_from_env, Config, LoadConfigOptions};
 
 pub(crate) fn load_cfg() -> Config {
     load_config(LoadConfigOptions {
-        home: std::env::var("RIPMAIL_HOME").ok().map(PathBuf::from),
+        home: resolved_ripmail_home_from_env(),
         env: None,
     })
 }
 
 pub(crate) fn ripmail_home_path() -> PathBuf {
-    std::env::var("RIPMAIL_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| dirs::home_dir().expect("HOME").join(".ripmail"))
+    resolved_ripmail_home_from_env().expect("internal error: ripmail_home_path after env guard")
 }
 
 pub(crate) fn format_attachment_size(n: i64) -> String {

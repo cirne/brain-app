@@ -4,13 +4,14 @@ import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
-let wikiDir: string
+let brainHome: string
 
 beforeEach(async () => {
-  wikiDir = await mkdtemp(join(tmpdir(), 'skills-api-'))
-  await mkdir(join(wikiDir, 'skills', 'demo'), { recursive: true })
+  brainHome = await mkdtemp(join(tmpdir(), 'skills-api-'))
+  const skillsRoot = join(brainHome, 'skills')
+  await mkdir(join(skillsRoot, 'demo'), { recursive: true })
   await writeFile(
-    join(wikiDir, 'skills', 'demo', 'SKILL.md'),
+    join(skillsRoot, 'demo', 'SKILL.md'),
     `---
 name: demo
 label: Demo skill
@@ -19,12 +20,12 @@ description: A test skill for GET /api/skills.
 Body.`,
     'utf-8',
   )
-  process.env.WIKI_DIR = wikiDir
+  process.env.BRAIN_HOME = brainHome
 })
 
 afterEach(async () => {
-  await rm(wikiDir, { recursive: true, force: true })
-  delete process.env.WIKI_DIR
+  await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
 })
 
 describe('GET /api/skills', () => {

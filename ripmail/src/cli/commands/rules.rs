@@ -339,7 +339,7 @@ pub(crate) fn run_rules(sub: RulesCmd, source: Option<String>) -> CliResult {
         RulesCmd::ResetDefaults { yes } => {
             if mb_id.is_some() {
                 return Err(
-                    "reset-defaults applies only to ~/.ripmail/rules.json; omit --source".into(),
+                    "reset-defaults applies only to $RIPMAIL_HOME/rules.json; omit --source".into(),
                 );
             }
             if !yes {

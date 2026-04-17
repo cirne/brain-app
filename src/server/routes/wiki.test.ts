@@ -3,14 +3,16 @@ import { Hono } from 'hono'
 import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm, utimes } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-// Fixtures shared across tests
+// Fixtures shared across tests — $BRAIN_HOME/wiki
+let brainHome: string
 let wikiDir: string
 let app: Hono
 
 beforeEach(async () => {
-  // Create a temp wiki dir with a few markdown files
-  wikiDir = await mkdtemp(join(tmpdir(), 'wiki-test-'))
-  await mkdir(join(wikiDir, 'ideas'))
+  brainHome = await mkdtemp(join(tmpdir(), 'wiki-test-'))
+  process.env.BRAIN_HOME = brainHome
+  wikiDir = join(brainHome, 'wiki')
+  await mkdir(join(wikiDir, 'ideas'), { recursive: true })
   await writeFile(join(wikiDir, 'index.md'), '# Home\nWelcome.')
   await writeFile(join(wikiDir, 'ideas', 'foo.md'), '# Foo\nSome idea about searching.')
   await writeFile(
@@ -18,18 +20,14 @@ beforeEach(async () => {
     '---\nupdated: 2026-04-01\ntags: alpha, beta\n---\n# Note\nBody text.'
   )
 
-  // Point the wiki route at the temp dir
-  process.env.WIKI_DIR = wikiDir
-
-  // Re-import so the route picks up the new env var
   const { default: wikiRoute } = await import('./wiki.js')
   app = new Hono()
   app.route('/api/wiki', wikiRoute)
 })
 
 afterEach(async () => {
-  await rm(wikiDir, { recursive: true, force: true })
-  delete process.env.WIKI_DIR
+  await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
   vi.resetModules()
 })
 
@@ -236,13 +234,9 @@ describe('GET /api/wiki/log', () => {
 describe('GET /api/wiki/edit-history', () => {
   let histFile: string
 
-  beforeEach(() => {
-    histFile = join(wikiDir, 'test-wiki-edits.jsonl')
-    process.env.WIKI_EDIT_HISTORY_PATH = histFile
-  })
-
-  afterEach(() => {
-    delete process.env.WIKI_EDIT_HISTORY_PATH
+  beforeEach(async () => {
+    histFile = join(brainHome, 'var', 'wiki-edits.jsonl')
+    await mkdir(join(brainHome, 'var'), { recursive: true })
   })
 
   it('returns empty files when history file is missing', async () => {

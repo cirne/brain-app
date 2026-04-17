@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { calendarCacheDirResolved } from './brainHome.js'
 import rrulePkg from 'rrule'
 const { RRule, RRuleSet } = rrulePkg
 
@@ -25,8 +26,7 @@ interface Cache {
   events: CalendarEvent[]
 }
 
-// Lazy: read from process.env at call time so .env loaded in index.ts takes effect
-export const cacheDir = () => process.env.CALENDAR_CACHE_DIR ?? './data/calendar'
+export const cacheDir = () => calendarCacheDirResolved()
 
 /** Weekday name (e.g. "Monday") for a UTC calendar date YYYY-MM-DD (ICS date lines / UTC date parts). */
 export function weekdayLongForUtcYmd(yyyyMmDd: string): string {

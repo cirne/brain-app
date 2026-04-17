@@ -566,10 +566,10 @@ pub(crate) fn read_ripmail_home_dotenv_only(home: &Path) -> HashMap<String, Stri
     load_env_file(home)
 }
 
-/// Merged env: `~/.ripmail/.env` then **overlay** [`read_project_repo_dotenv`] so repo `.env` wins for local dev.
+/// Merged env: `$RIPMAIL_HOME/.env` then **overlay** [`read_project_repo_dotenv`] so repo `.env` wins for local dev.
 ///
 /// Empty values from the repo file are **skipped** so a placeholder `RIPMAIL_IMAP_PASSWORD=` in a git clone
-/// does not wipe secrets from `~/.ripmail/.env` (a common cause of "setup works but `cargo run` send fails").
+/// does not wipe secrets from `$RIPMAIL_HOME/.env` (a common cause of "setup works but `cargo run` send fails").
 pub fn read_ripmail_env_file(home: &Path) -> HashMap<String, String> {
     let mut m = load_env_file(home);
     for (k, v) in read_project_repo_dotenv() {
@@ -590,7 +590,7 @@ fn remove_obsolete_config_file(path: &Path, reason: &str) {
     }
 }
 
-/// Read `config.json` from `~/.ripmail` (or `RIPMAIL_HOME`). Returns default when missing.
+/// Read `config.json` from `RIPMAIL_HOME`. Returns default when missing.
 ///
 /// **No backward compatibility:** unsupported shapes (including the old top-level `mailboxes` key)
 /// or invalid JSON cause the file to be **deleted** and an empty [`ConfigJson`] is returned.
@@ -893,21 +893,51 @@ pub struct LoadConfigOptions {
     pub env: Option<HashMap<String, String>>,
 }
 
+/// Resolve ripmail data root from the environment only (no implicit cwd / Application Support).
+///
+/// Precedence: non-empty `RIPMAIL_HOME`, else non-empty `BRAIN_HOME` + `directories.ripmail` from
+/// `shared/brain-layout.json`. Returns `None` when neither is set or both are empty/whitespace.
+pub fn resolved_ripmail_home_from_env() -> Option<PathBuf> {
+    if let Ok(h) = std::env::var("RIPMAIL_HOME") {
+        let t = h.trim();
+        if !t.is_empty() {
+            return Some(PathBuf::from(t));
+        }
+    }
+    if let Ok(b) = std::env::var("BRAIN_HOME") {
+        let t = b.trim();
+        if !t.is_empty() {
+            return Some(PathBuf::from(t).join(crate::brain_app_layout::brain_ripmail_dir_name()));
+        }
+    }
+    None
+}
+
+/// When the resolved path exists, it must be a directory and be readable.
+pub fn check_ripmail_home_access(path: &Path) -> Result<(), String> {
+    if path.exists() {
+        let m = fs::metadata(path)
+            .map_err(|e| format!("cannot access RIPMAIL_HOME {}: {e}", path.display()))?;
+        if !m.is_dir() {
+            return Err(format!(
+                "RIPMAIL_HOME {} exists but is not a directory",
+                path.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn ripmail_home(explicit: Option<PathBuf>) -> PathBuf {
     explicit.unwrap_or_else(|| {
-        std::env::var("RIPMAIL_HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                dirs::home_dir()
-                    .unwrap_or_else(|| PathBuf::from("."))
-                    .join(".ripmail")
-            })
+        resolved_ripmail_home_from_env()
+            .expect("RIPMAIL_HOME or BRAIN_HOME must be set (non-empty); callers with explicit home must pass home: Some(...)")
     })
 }
 
-/// If `RIPMAIL_HOME` is unset, `~/.zmail` contains `config.json`, and `~/.ripmail` is missing, or
-/// exists but is empty and has no `config.json`, rename `~/.zmail` → `~/.ripmail` (one-time migration
-/// from the pre-rename default).
+/// If `RIPMAIL_HOME` is unset, `BRAIN_HOME` is set, `~/.zmail` contains `config.json`, and the
+/// resolved ripmail home (see [`resolved_ripmail_home_from_env`]) is missing, or exists but is
+/// empty and has no `config.json`, rename `~/.zmail` → that directory (one-time migration).
 ///
 /// Called once at the start of every CLI invocation ([`crate::cli::commands::handle_command`]) so
 /// bare `ripmail` and all subcommands resolve the same home path.
@@ -922,11 +952,13 @@ pub fn migrate_legacy_zmail_home_dir_if_needed() -> std::io::Result<()> {
 }
 
 fn migrate_legacy_zmail_home_dir_impl(user_home: &Path) -> std::io::Result<()> {
+    let Some(new_home) = resolved_ripmail_home_from_env() else {
+        return Ok(());
+    };
     let legacy = user_home.join(".zmail");
     if !legacy.is_dir() || !legacy.join("config.json").is_file() {
         return Ok(());
     }
-    let new_home = user_home.join(".ripmail");
     if new_home.exists() {
         if new_home.join("config.json").is_file() {
             return Ok(());
@@ -1407,7 +1439,7 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
     }
 }
 
-/// Resolve OpenAI API key from process env, `~/.ripmail/.env`, and repo `{project}/.env` (overlay).
+/// Resolve OpenAI API key from process env, `$RIPMAIL_HOME/.env`, and repo `{project}/.env` (overlay).
 pub fn resolve_openai_api_key(opts: &LoadConfigOptions) -> Option<String> {
     let home = ripmail_home(opts.home.clone());
     let env_file = read_ripmail_env_file(&home);
@@ -1428,6 +1460,39 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
     use std::fs;
+    use std::path::PathBuf;
+    use std::sync::Mutex;
+
+    /// Migration tests mutate `BRAIN_HOME` / `RIPMAIL_HOME`; serialize to avoid parallel races.
+    static MIGRATE_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    struct EnvRestore {
+        key: &'static str,
+        old: Option<String>,
+    }
+
+    impl EnvRestore {
+        fn set(key: &'static str, value: &str) -> Self {
+            let old = std::env::var(key).ok();
+            std::env::set_var(key, value);
+            Self { key, old }
+        }
+
+        fn unset(key: &'static str) -> Self {
+            let old = std::env::var(key).ok();
+            std::env::remove_var(key);
+            Self { key, old }
+        }
+    }
+
+    impl Drop for EnvRestore {
+        fn drop(&mut self) {
+            match &self.old {
+                Some(v) => std::env::set_var(self.key, v),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
 
     /// `sources` is non-empty but every entry is skipped by [`build_resolved_sources`] (e.g. `localDir`
     /// without `path`, or `applemail` on a host with no Mail library). Must not panic in `load_config`.
@@ -1532,22 +1597,55 @@ mod tests {
     }
 
     #[test]
+    fn resolved_ripmail_home_none_when_both_env_missing() {
+        let _lock = MIGRATE_ENV_LOCK.lock().unwrap();
+        let _rip = EnvRestore::unset("RIPMAIL_HOME");
+        let _brain = EnvRestore::unset("BRAIN_HOME");
+        assert!(resolved_ripmail_home_from_env().is_none());
+    }
+
+    #[test]
+    fn check_ripmail_home_access_rejects_file_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = tmp.path().join("not-a-dir");
+        fs::write(&p, b"x").unwrap();
+        assert!(check_ripmail_home_access(&p).is_err());
+    }
+
+    #[test]
+    fn resolved_ripmail_home_joins_brain_home_and_layout_segment() {
+        let _lock = MIGRATE_ENV_LOCK.lock().unwrap();
+        let _brain = EnvRestore::set("BRAIN_HOME", "/tmp/brain-test-root");
+        let _rip = EnvRestore::unset("RIPMAIL_HOME");
+        assert_eq!(
+            resolved_ripmail_home_from_env(),
+            Some(PathBuf::from("/tmp/brain-test-root/ripmail"))
+        );
+    }
+
+    #[test]
     fn migrate_legacy_renames_when_zmail_has_config_json() {
+        let _lock = MIGRATE_ENV_LOCK.lock().unwrap();
         let tmp = tempfile::tempdir().unwrap();
         let user = tmp.path();
+        let _brain = EnvRestore::set("BRAIN_HOME", user.to_str().unwrap());
+        let _rip = EnvRestore::unset("RIPMAIL_HOME");
         let legacy = user.join(".zmail");
         fs::create_dir_all(&legacy).unwrap();
         fs::write(legacy.join("config.json"), "{}").unwrap();
         migrate_legacy_zmail_home_dir_impl(user).unwrap();
-        assert!(user.join(".ripmail").join("config.json").is_file());
+        assert!(user.join("ripmail").join("config.json").is_file());
         assert!(!user.join(".zmail").exists());
     }
 
     #[test]
     fn migrate_legacy_skips_when_ripmail_has_config_json() {
+        let _lock = MIGRATE_ENV_LOCK.lock().unwrap();
         let tmp = tempfile::tempdir().unwrap();
         let user = tmp.path();
-        let rip = user.join(".ripmail");
+        let _brain = EnvRestore::set("BRAIN_HOME", user.to_str().unwrap());
+        let _rip = EnvRestore::unset("RIPMAIL_HOME");
+        let rip = user.join("ripmail");
         fs::create_dir_all(&rip).unwrap();
         fs::write(rip.join("config.json"), "{}").unwrap();
         let legacy = user.join(".zmail");
@@ -1555,30 +1653,36 @@ mod tests {
         fs::write(legacy.join("config.json"), "{}").unwrap();
         migrate_legacy_zmail_home_dir_impl(user).unwrap();
         assert!(user.join(".zmail").join("config.json").is_file());
-        assert!(user.join(".ripmail").join("config.json").is_file());
+        assert!(user.join("ripmail").join("config.json").is_file());
     }
 
     #[test]
     fn migrate_legacy_replaces_empty_ripmail_when_zmail_has_config() {
+        let _lock = MIGRATE_ENV_LOCK.lock().unwrap();
         let tmp = tempfile::tempdir().unwrap();
         let user = tmp.path();
-        fs::create_dir_all(user.join(".ripmail")).unwrap();
+        let _brain = EnvRestore::set("BRAIN_HOME", user.to_str().unwrap());
+        let _rip = EnvRestore::unset("RIPMAIL_HOME");
+        fs::create_dir_all(user.join("ripmail")).unwrap();
         let legacy = user.join(".zmail");
         fs::create_dir_all(&legacy).unwrap();
         fs::write(legacy.join("config.json"), r#"{"imap":{"user":"a@b.com"}}"#).unwrap();
         migrate_legacy_zmail_home_dir_impl(user).unwrap();
-        assert!(user.join(".ripmail").join("config.json").is_file());
+        assert!(user.join("ripmail").join("config.json").is_file());
         assert!(!user.join(".zmail").exists());
     }
 
     #[test]
     fn migrate_legacy_skips_when_zmail_has_no_config() {
+        let _lock = MIGRATE_ENV_LOCK.lock().unwrap();
         let tmp = tempfile::tempdir().unwrap();
         let user = tmp.path();
+        let _brain = EnvRestore::set("BRAIN_HOME", user.to_str().unwrap());
+        let _rip = EnvRestore::unset("RIPMAIL_HOME");
         fs::create_dir_all(user.join(".zmail")).unwrap();
         migrate_legacy_zmail_home_dir_impl(user).unwrap();
         assert!(user.join(".zmail").is_dir());
-        assert!(!user.join(".ripmail").exists());
+        assert!(!user.join("ripmail").exists());
     }
 
     #[test]

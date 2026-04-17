@@ -4,18 +4,18 @@ import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
-let wikiDir: string
+let brainHome: string
 let app: Hono
 
 beforeEach(async () => {
-  wikiDir = await mkdtemp(join(tmpdir(), 'search-test-'))
+  brainHome = await mkdtemp(join(tmpdir(), 'search-test-'))
+  process.env.BRAIN_HOME = brainHome
+  const wikiDir = join(brainHome, 'wiki')
   await mkdir(join(wikiDir, 'people'), { recursive: true })
   await writeFile(
     join(wikiDir, 'people', 'donna-wilcox.md'),
     '# Profile\n\nDonna works on the **north** project with the team.\n'
   )
-
-  process.env.WIKI_DIR = wikiDir
 
   const { default: searchRoute } = await import('./search.js')
   app = new Hono()
@@ -23,8 +23,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  await rm(wikiDir, { recursive: true, force: true })
-  delete process.env.WIKI_DIR
+  await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
   vi.resetModules()
 })
 

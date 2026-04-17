@@ -12,20 +12,22 @@ import {
   buildSourcesRemoveCommand,
 } from './tools.js'
 
-// Shared fixture: a temp wiki directory
+// Shared fixture: $BRAIN_HOME/wiki
+let brainHome: string
 let wikiDir: string
 
 beforeEach(async () => {
-  wikiDir = await mkdtemp(join(tmpdir(), 'tools-test-'))
-  await mkdir(join(wikiDir, 'ideas'))
+  brainHome = await mkdtemp(join(tmpdir(), 'tools-test-'))
+  process.env.BRAIN_HOME = brainHome
+  wikiDir = join(brainHome, 'wiki')
+  await mkdir(join(wikiDir, 'ideas'), { recursive: true })
   await writeFile(join(wikiDir, 'ideas', 'foo.md'), '# Foo\nThis is a foo idea.')
   await writeFile(join(wikiDir, 'index.md'), '# Home\nWelcome to the wiki.')
-  process.env.WIKI_DIR = wikiDir
 })
 
 afterEach(async () => {
-  await rm(wikiDir, { recursive: true, force: true })
-  delete process.env.WIKI_DIR
+  await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
 })
 
 describe('createAgentTools', () => {
@@ -280,13 +282,9 @@ describe('createAgentTools', () => {
   describe('wiki edit history (edit/write)', () => {
     let histFile: string
 
-    beforeEach(() => {
-      histFile = join(wikiDir, 'wiki-edits-test.jsonl')
-      process.env.WIKI_EDIT_HISTORY_PATH = histFile
-    })
-
-    afterEach(() => {
-      delete process.env.WIKI_EDIT_HISTORY_PATH
+    beforeEach(async () => {
+      await mkdir(join(brainHome, 'var'), { recursive: true })
+      histFile = join(brainHome, 'var', 'wiki-edits.jsonl')
     })
 
     it('appends a JSONL line when edit tool succeeds', async () => {
@@ -419,16 +417,8 @@ describe('createAgentTools', () => {
   })
 
   describe('get_calendar_events tool', () => {
-    let cacheDir: string
-
     beforeEach(async () => {
-      cacheDir = await mkdtemp(join(tmpdir(), 'cal-test-'))
-      process.env.CALENDAR_CACHE_DIR = cacheDir
-    })
-
-    afterEach(async () => {
-      await rm(cacheDir, { recursive: true, force: true })
-      delete process.env.CALENDAR_CACHE_DIR
+      await mkdir(join(brainHome, 'cache'), { recursive: true })
     })
 
     it('returns events in the requested date range', async () => {
@@ -638,13 +628,9 @@ fi
   describe('move_file and delete_file tools', () => {
     let histFile: string
 
-    beforeEach(() => {
-      histFile = join(wikiDir, 'wiki-edits-move-del.jsonl')
-      process.env.WIKI_EDIT_HISTORY_PATH = histFile
-    })
-
-    afterEach(() => {
-      delete process.env.WIKI_EDIT_HISTORY_PATH
+    beforeEach(async () => {
+      await mkdir(join(brainHome, 'var'), { recursive: true })
+      histFile = join(brainHome, 'var', 'wiki-edits.jsonl')
     })
 
     it('move_file renames within the wiki and appends history', async () => {

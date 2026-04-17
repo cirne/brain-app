@@ -1,23 +1,28 @@
 import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
 
 /**
- * OPP-007 layout for Brain.app — must match `desktop/src/brain_paths.rs` (macOS).
- * Used as a regression check in CI (Vitest); Rust is the spawn-time source of truth.
+ * Bundled Brain.app defaults — must match `desktop/src/brain_paths.rs` + `shared/brain-layout.json`.
  */
 function macBundledDefaultPaths(home: string) {
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+  const layout = JSON.parse(readFileSync(join(root, 'shared/brain-layout.json'), 'utf-8')) as {
+    directories: { ripmail: string }
+  }
+  const brainHome = join(home, 'Library/Application Support/Brain')
   return {
-    wikiDir: join(home, 'Documents/Brain'),
-    chatDataDir: join(home, 'Library/Application Support/Brain/data/chat'),
-    ripmailHome: join(home, 'Library/Application Support/Brain/ripmail'),
+    brainHome,
+    ripmailHome: join(brainHome, layout.directories.ripmail),
   }
 }
 
-describe('mac bundled default paths (OPP-007)', () => {
-  it('matches Tauri brain_paths.rs macOS layout', () => {
+describe('mac bundled default paths (BRAIN_HOME)', () => {
+  it('matches Tauri brain_paths.rs macOS layout + shared/brain-layout.json', () => {
     const p = macBundledDefaultPaths('/Users/x')
-    expect(p.wikiDir).toBe('/Users/x/Documents/Brain')
-    expect(p.chatDataDir).toBe('/Users/x/Library/Application Support/Brain/data/chat')
+    expect(p.brainHome).toBe('/Users/x/Library/Application Support/Brain')
     expect(p.ripmailHome).toBe('/Users/x/Library/Application Support/Brain/ripmail')
   })
 })

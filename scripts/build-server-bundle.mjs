@@ -3,7 +3,7 @@
  * Production server build: bundle + minify app code into dist/server/*.js.
  * Dependencies stay external (node_modules); dev-only code (e.g. Vite middleware) is tree-shaken.
  */
-import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as esbuild from 'esbuild'
@@ -16,6 +16,11 @@ if (existsSync(outdir)) {
   rmSync(outdir, { recursive: true })
 }
 mkdirSync(outdir, { recursive: true })
+
+const sharedSrc = join(root, 'shared')
+if (existsSync(sharedSrc)) {
+  cpSync(sharedSrc, join(root, 'dist', 'shared'), { recursive: true })
+}
 
 const common = {
   absWorkingDir: root,

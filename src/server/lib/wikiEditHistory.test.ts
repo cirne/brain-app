@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -9,12 +9,13 @@ describe('wikiEditHistory', () => {
 
   beforeEach(async () => {
     tmp = await mkdtemp(join(tmpdir(), 'wiki-edit-hist-'))
-    histPath = join(tmp, 'wiki-edits.jsonl')
-    process.env.WIKI_EDIT_HISTORY_PATH = histPath
+    process.env.BRAIN_HOME = tmp
+    await mkdir(join(tmp, 'var'), { recursive: true })
+    histPath = join(tmp, 'var', 'wiki-edits.jsonl')
   })
 
   afterEach(async () => {
-    delete process.env.WIKI_EDIT_HISTORY_PATH
+    delete process.env.BRAIN_HOME
     await rm(tmp, { recursive: true, force: true })
   })
 
@@ -43,14 +44,14 @@ describe('wikiEditHistory', () => {
 
   it('normalizeWikiRelativePath produces forward slashes relative to wiki root', async () => {
     const { normalizeWikiRelativePath } = await import('./wikiEditHistory.js')
-    const wikiDir = join(tmp, 'wiki')
-    expect(normalizeWikiRelativePath(wikiDir, join(wikiDir, 'people', 'x.md'))).toBe('people/x.md')
+    const wdir = join(tmp, 'wiki')
+    expect(normalizeWikiRelativePath(wdir, join(wdir, 'people', 'x.md'))).toBe('people/x.md')
   })
 
   it('resolveSafeWikiPath throws on escape or wiki root', async () => {
     const { resolveSafeWikiPath } = await import('./wikiEditHistory.js')
-    const wikiDir = join(tmp, 'wiki-root')
-    expect(() => resolveSafeWikiPath(wikiDir, '../../../etc/passwd')).toThrow('wiki directory')
-    expect(() => resolveSafeWikiPath(wikiDir, '.')).toThrow('wiki directory')
+    const wdir = join(tmp, 'wiki-root')
+    expect(() => resolveSafeWikiPath(wdir, '../../../etc/passwd')).toThrow('wiki directory')
+    expect(() => resolveSafeWikiPath(wdir, '.')).toThrow('wiki directory')
   })
 })

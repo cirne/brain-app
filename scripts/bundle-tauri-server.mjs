@@ -27,6 +27,10 @@ mkdirSync(join(root, 'desktop/resources'), { recursive: true })
 mkdirSync(out, { recursive: true })
 
 cpSync(dist, join(out, 'dist'), { recursive: true })
+const sharedSrc = join(root, 'shared')
+if (existsSync(sharedSrc)) {
+  cpSync(sharedSrc, join(out, 'shared'), { recursive: true })
+}
 cpSync(join(root, 'package.json'), join(out, 'package.json'))
 cpSync(join(root, 'package-lock.json'), join(out, 'package-lock.json'))
 

@@ -56,7 +56,7 @@ npm run tauri:dev              # Hono + Vite on :3000 + Tauri WebView → http:/
 npm run tauri:build            # npm build + bundle server + Brain.app (+ DMG)
 npm run tauri:open-fresh-install # `tauri:clean-data` + `tauri:build`, then opens the DMG (macOS) for drag-to-Applications testing
 npm run tauri:run-release:fresh  # `tauri:clean-data` + `tauri:build`, then opens the built Brain.app (macOS) — quick local “clean + release + launch”
-npm run tauri:clean-data        # delete Tauri app data only (App Support/Brain, ~/Documents/Brain, logs); not CLI/dev ~/.ripmail or ./data
+npm run tauri:clean-data        # delete Tauri app data (~/Library/Application Support/Brain, logs); not CLI/dev ~/.ripmail or ./data
 ```
 
 **Cargo workspace:** Rust crates live under [`desktop/`](desktop/) (Tauri shell) and [`ripmail/`](ripmail/) with a root [`Cargo.toml`](Cargo.toml). Build artifacts go under the Cargo target directory (usually `./target/`; see `cargo metadata`).

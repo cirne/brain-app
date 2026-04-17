@@ -90,8 +90,8 @@ pub fn smtp_credentials_unavailable_reason(cfg: &Config) -> String {
             }
             if cfg.imap_password.is_empty() {
                 return "No IMAP password loaded for the default mailbox. \
-Ensure `~/.ripmail/<mailbox_id>/.env` contains `RIPMAIL_IMAP_PASSWORD`, or run `ripmail wizard`. \
-From a git clone, the repo `.env` next to `Cargo.toml` overlays non-empty keys onto `~/.ripmail/.env` (see AGENTS.md)."
+Ensure `$RIPMAIL_HOME/<mailbox_id>/.env` contains `RIPMAIL_IMAP_PASSWORD`, or run `ripmail wizard`. \
+From a git clone, the repo `.env` next to `Cargo.toml` overlays non-empty keys onto `$RIPMAIL_HOME/.env` (see AGENTS.md)."
                     .to_string();
             }
             "SMTP credentials check failed unexpectedly.".to_string()

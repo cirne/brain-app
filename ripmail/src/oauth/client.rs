@@ -22,7 +22,7 @@ pub enum GoogleOAuthClientError {
 }
 
 /// Bundled Desktop OAuth client when env / compile-time embed are unset (same values as release CI embeds).
-/// Non-empty in official release branches; override with `RIPMAIL_GOOGLE_OAUTH_CLIENT_ID` / `_SECRET` in `{project}/.env` or `~/.ripmail/.env`.
+/// Non-empty in official release branches; override with `RIPMAIL_GOOGLE_OAUTH_CLIENT_ID` / `_SECRET` in `{project}/.env` or `$RIPMAIL_HOME/.env`.
 pub const DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID: &str = "";
 pub const DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_SECRET: &str = "";
 
@@ -74,7 +74,7 @@ fn pick_client_secret(
         })
 }
 
-/// Resolve client settings: compile-time embed, process env, merged `{project}/.env` + `~/.ripmail/.env`, then [`DEFAULT_PUBLIC_*`] when non-empty.
+/// Resolve client settings: compile-time embed, process env, merged `{project}/.env` + `$RIPMAIL_HOME/.env`, then [`DEFAULT_PUBLIC_*`] when non-empty.
 pub fn resolve_google_oauth_client(
     env_file: &HashMap<String, String>,
     process: &HashMap<String, String>,
@@ -198,7 +198,7 @@ fn eprint_google_oauth_client_missing(
         if bundled_sec { "set" } else { "empty" }
     );
     eprintln!(
-        "  Add credentials (local dev: repo `.env` next to Cargo.toml; or `~/.ripmail/.env`):"
+        "  Add credentials (local dev: repo `.env` next to Cargo.toml; or `$RIPMAIL_HOME/.env`):"
     );
     eprintln!(
         "    RIPMAIL_GOOGLE_OAUTH_CLIENT_ID=<Desktop OAuth client id>.apps.googleusercontent.com"
@@ -209,11 +209,11 @@ fn eprint_google_oauth_client_missing(
 }
 
 /// Default public relay URL for optional hosted OAuth (`write_google_oauth_setup_hosted`; bundled).
-/// Override: `RIPMAIL_OAUTH_RELAY_BASE` in env / `~/.ripmail/.env`, or `RIPMAIL_OAUTH_RELAY_DEFAULT` at compile time.
+/// Override: `RIPMAIL_OAUTH_RELAY_BASE` in env / `$RIPMAIL_HOME/.env`, or `RIPMAIL_OAUTH_RELAY_DEFAULT` at compile time.
 pub const DEFAULT_PUBLIC_OAUTH_RELAY_BASE: &str = "https://oauth.ripmail.dev";
 
 /// Public HTTPS relay for optional hosted OAuth (browser redirects here; CLI polls for the code).
-/// Resolution order: `RIPMAIL_OAUTH_RELAY_BASE` (process then `~/.ripmail/.env`), then
+/// Resolution order: `RIPMAIL_OAUTH_RELAY_BASE` (process then `$RIPMAIL_HOME/.env`), then
 /// `RIPMAIL_OAUTH_RELAY_DEFAULT` from the build, then [`DEFAULT_PUBLIC_OAUTH_RELAY_BASE`].
 pub fn resolve_oauth_relay_base(
     env_file: &HashMap<String, String>,

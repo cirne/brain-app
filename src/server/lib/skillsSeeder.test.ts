@@ -6,11 +6,11 @@ import { existsSync } from 'node:fs'
 import { listBundledSkills, ensureDefaultSkillsSeeded } from './skillsSeeder.js'
 import { bundledUserSkillsDir } from './bundledUserSkillsDir.js'
 
-let wikiDir: string
+let brainHome: string
 let bundleDir: string
 
 beforeEach(async () => {
-  wikiDir = await mkdtemp(join(tmpdir(), 'skills-seed-'))
+  brainHome = await mkdtemp(join(tmpdir(), 'skills-seed-'))
   bundleDir = await mkdtemp(join(tmpdir(), 'skills-bundle-'))
   await mkdir(join(bundleDir, 'alpha'), { recursive: true })
   await writeFile(
@@ -22,14 +22,14 @@ version: 2
 Hello skill.`,
     'utf-8',
   )
-  process.env.WIKI_DIR = wikiDir
+  process.env.BRAIN_HOME = brainHome
   process.env.BRAIN_USER_SKILLS_BUNDLE = bundleDir
 })
 
 afterEach(async () => {
-  await rm(wikiDir, { recursive: true, force: true })
+  await rm(brainHome, { recursive: true, force: true })
   await rm(bundleDir, { recursive: true, force: true })
-  delete process.env.WIKI_DIR
+  delete process.env.BRAIN_HOME
   delete process.env.BRAIN_USER_SKILLS_BUNDLE
 })
 
@@ -62,24 +62,25 @@ describe('listBundledSkills', () => {
 describe('ensureDefaultSkillsSeeded', () => {
   it('copies bundled skill when missing', async () => {
     await ensureDefaultSkillsSeeded()
-    const skillMd = join(wikiDir, 'skills', 'alpha', 'SKILL.md')
+    const skillMd = join(brainHome, 'skills', 'alpha', 'SKILL.md')
     expect(existsSync(skillMd)).toBe(true)
     const body = await readFile(skillMd, 'utf-8')
     expect(body).toContain('Hello skill.')
   })
 
   it('does not overwrite an existing skill dir', async () => {
-    await mkdir(join(wikiDir, 'skills', 'alpha'), { recursive: true })
-    await writeFile(join(wikiDir, 'skills', 'alpha', 'SKILL.md'), '---\nname: alpha\nversion: 2\n---\nUser edit.', 'utf-8')
+    await mkdir(join(brainHome, 'skills', 'alpha'), { recursive: true })
+    await writeFile(join(brainHome, 'skills', 'alpha', 'SKILL.md'), '---\nname: alpha\nversion: 2\n---\nUser edit.', 'utf-8')
     await ensureDefaultSkillsSeeded()
-    const body = await readFile(join(wikiDir, 'skills', 'alpha', 'SKILL.md'), 'utf-8')
+    const body = await readFile(join(brainHome, 'skills', 'alpha', 'SKILL.md'), 'utf-8')
     expect(body).toContain('User edit.')
   })
 
   it('does not resurrect after delete when same version already seeded', async () => {
     await ensureDefaultSkillsSeeded()
-    await rm(join(wikiDir, 'skills', 'alpha'), { recursive: true, force: true })
+    const skillDir = join(brainHome, 'skills', 'alpha')
+    await rm(skillDir, { recursive: true, force: true })
     await ensureDefaultSkillsSeeded()
-    expect(existsSync(join(wikiDir, 'skills', 'alpha'))).toBe(false)
+    expect(existsSync(skillDir)).toBe(false)
   })
 })

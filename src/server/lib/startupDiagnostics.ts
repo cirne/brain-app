@@ -1,6 +1,7 @@
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { wikiDir, repoDir } from './wikiDir.js'
+import { brainHome } from './brainHome.js'
+import { wikiDir } from './wikiDir.js'
 import { areLocalMessageToolsEnabled, initLocalMessageToolsAvailability } from './imessageDb.js'
 import { logFdaProbeForStartup } from './fdaProbe.js'
 import { parseRipmailStatusJson } from './ripmailStatusParse.js'
@@ -24,13 +25,13 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
     )
   }
   logFdaProbeForStartup(log)
-  const repo = repoDir()
+  const home = brainHome()
   const wiki = wikiDir()
-  log(`WIKI_DIR=${repo}`)
-  log(`wiki content dir=${wiki}${wiki === repo ? ' (content root)' : ''}`)
+  log(`BRAIN_HOME=${home}`)
+  log(`wiki content dir=${wiki}`)
 
   const ripHome = process.env.RIPMAIL_HOME
-  log(`RIPMAIL_HOME=${ripHome ?? '(unset → ~/.ripmail)'}`)
+  log(`RIPMAIL_HOME=${ripHome ?? '(derived from BRAIN_HOME/ripmail)'}`)
   const rm = ripmailBin()
   log(`RIPMAIL_BIN=${rm}`)
   try {

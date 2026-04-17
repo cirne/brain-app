@@ -26,7 +26,7 @@ impl DeterministicInboxClassifier {
         Ok(Self { picks })
     }
 
-    /// Resolve global + optional `~/.ripmail/<id>/rules.json` overlay per mailbox ([OPP-016]).
+    /// Resolve global + optional `$RIPMAIL_HOME/<id>/rules.json` overlay per mailbox ([OPP-016]).
     pub fn new_for_home(
         conn: &Connection,
         home: &std::path::Path,

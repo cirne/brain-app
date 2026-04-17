@@ -2,8 +2,9 @@ import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/pro
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import type { ChatMessage, ChatSessionDocV1 } from './chatTypes.js'
+import { chatDataDirResolved } from './brainHome.js'
 
-export const chatDataDir = () => process.env.CHAT_DATA_DIR ?? './data/chats'
+export const chatDataDir = () => chatDataDirResolved()
 
 /** Filename: `{createdAtMs}-{uuid}.json` — ms is digits only so lexical sort matches time order. */
 const FILENAME_RE = /^(\d+)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.json$/i

@@ -86,11 +86,13 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
     if let Some(ref home) = resolve_home_for_child(&mut cmd) {
         brain_paths::ensure_dirs_and_apply_defaults(&mut cmd, home);
         log::info!(
-            "Brain bundled server: HOME={} (default WIKI_DIR / CHAT_DATA_DIR / RIPMAIL_HOME applied when unset)",
+            "Brain bundled server: HOME={} (default BRAIN_HOME / RIPMAIL_HOME applied when unset)",
             home
         );
     } else {
-        log::warn!("Brain bundled server: HOME unset — WIKI_DIR may fall back to /wiki; set WIKI_DIR / CHAT_DATA_DIR / RIPMAIL_HOME in the environment");
+        log::warn!(
+            "Brain bundled server: HOME unset — set BRAIN_HOME and RIPMAIL_HOME in the environment"
+        );
     }
 
     let mut child = cmd.spawn().map_err(|e| format!("spawn node: {e}"))?;

@@ -356,7 +356,7 @@ pub fn inbox_json_hints(
     let proc_len = processed.map(|r| r.len()).unwrap_or(0);
     if proc_len >= 8 && fallback_like * 100 / proc_len >= 60 {
         hints.push(
-            "Many messages used fallback (no rule match). Consider adding domain, category, or regex rules in ~/.ripmail/rules.json — see `ripmail rules validate`."
+            "Many messages used fallback (no rule match). Consider adding domain, category, or regex rules in $RIPMAIL_HOME/rules.json — see `ripmail rules validate`."
                 .to_string(),
         );
     }

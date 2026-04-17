@@ -5,27 +5,24 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import devRoute from './dev.js'
 
-let chatDir: string
-let wikiDirPath: string
+let brainHome: string
 
 beforeEach(async () => {
-  chatDir = await mkdtemp(join(tmpdir(), 'dev-hard-reset-'))
-  wikiDirPath = await mkdtemp(join(tmpdir(), 'dev-wiki-'))
-  process.env.CHAT_DATA_DIR = chatDir
-  process.env.WIKI_DIR = wikiDirPath
+  brainHome = await mkdtemp(join(tmpdir(), 'dev-hard-reset-'))
+  process.env.BRAIN_HOME = brainHome
 })
 
 afterEach(async () => {
-  await rm(chatDir, { recursive: true, force: true })
-  await rm(wikiDirPath, { recursive: true, force: true })
-  delete process.env.CHAT_DATA_DIR
-  delete process.env.WIKI_DIR
+  await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
   delete process.env.RIPMAIL_BIN
   delete process.env.RIPMAIL_HOME
 })
 
 describe('dev routes', () => {
   it('POST /hard-reset clears onboarding state and me.md', async () => {
+    const chatDir = join(brainHome, 'chats')
+    await mkdir(chatDir, { recursive: true })
     const ripmailLog = join(chatDir, 'ripmail-invoke.log')
     const fakeRipmail = join(chatDir, 'fake-ripmail')
     await writeFile(
@@ -38,7 +35,7 @@ exit 0
     )
     await chmod(fakeRipmail, 0o755)
     process.env.RIPMAIL_BIN = fakeRipmail
-    process.env.RIPMAIL_HOME = join(chatDir, 'ripmail-home')
+    process.env.RIPMAIL_HOME = join(brainHome, 'ripmail-test')
 
     await writeFile(join(chatDir, 'onboarding.json'), JSON.stringify({ state: 'done', updatedAt: 'x' }), 'utf-8')
     const { appendTurn, listSessions } = await import('../lib/chatStorage.js')
@@ -48,7 +45,7 @@ exit 0
       assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'ok' }] },
     })
     expect((await listSessions()).length).toBe(1)
-    const wikiContent = join(wikiDirPath, 'wiki')
+    const wikiContent = join(brainHome, 'wiki')
     await mkdir(join(wikiContent, 'topics'), { recursive: true })
     await writeFile(join(wikiContent, 'me.md'), '# x', 'utf-8')
     await writeFile(join(wikiContent, 'topics', 'note.md'), 'n', 'utf-8')

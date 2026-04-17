@@ -52,7 +52,7 @@ export async function listBundledSkills(bundledRoot: string): Promise<BundledSki
 }
 
 /**
- * Copy shipped defaults into `<WIKI_DIR>/skills/` once per version; never overwrite existing dirs;
+ * Copy shipped defaults into `$BRAIN_HOME/skills/` once per version; never overwrite existing dirs;
  * do not re-seed after user deletion (see .seeded.json contract in OPP-010).
  */
 export async function ensureDefaultSkillsSeeded(): Promise<void> {

@@ -1,18 +1,21 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
+let brainHome: string
 let wiki: string
 
 beforeEach(async () => {
-  wiki = await mkdtemp(join(tmpdir(), 'agent-wiki-'))
-  process.env.WIKI_DIR = wiki
+  brainHome = await mkdtemp(join(tmpdir(), 'agent-wiki-'))
+  process.env.BRAIN_HOME = brainHome
+  wiki = join(brainHome, 'wiki')
+  await mkdir(wiki, { recursive: true })
 })
 
 afterEach(async () => {
-  await rm(wiki, { recursive: true, force: true })
-  delete process.env.WIKI_DIR
+  await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
 })
 
 describe('meProfilePromptSection', () => {

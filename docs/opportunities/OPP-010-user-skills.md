@@ -177,7 +177,7 @@ Placing it at boot (not at onboarding) means:
 
 - **Existing installs** get the feature automatically on upgrade (they have a `WIKI_DIR` but never ran onboarding v2).
 - **Fresh installs** running through onboarding see the `skills/` directory populate during the same first-launch window as the wiki scaffold, with no extra integration point.
-- **Tauri bundle** and **dev `npm run dev`** and **Docker** all hit the same code path. No per-distribution special-casing.
+- **Tauri bundle** and **dev `npm run dev`** hit the same code path. No per-distribution special-casing.
 
 It still plays nicely with onboarding — the onboarding UI just reads `<WIKI_DIR>/skills/` like any other consumer; the files are already there.
 

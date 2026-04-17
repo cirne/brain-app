@@ -4,13 +4,11 @@
  * Does not touch CLI/dev-only locations (`~/.ripmail`, `./data`, or paths from `.env` — those differ).
  *
  * macOS:
- *   ~/Library/Application Support/Brain   (chat, onboarding, ripmail index)
- *   ~/Documents/Brain                     (wiki)
- *   ~/Library/Logs/com.cirne.brain        (node-server.log, etc.)
+ *   ~/Library/Application Support/Brain   (unified BRAIN_HOME: wiki, chats, ripmail, cache, var, skills)
+ *   ~/Library/Logs/com.cirne.brain          (node-server.log, etc.)
  *
  * Linux / non-macOS Tauri:
- *   ~/.brain                              (chat + ripmail under .brain/)
- *   ~/Documents/Brain                     (wiki)
+ *   ~/.brain
  *
  * Does NOT delete `.env` or build artifacts.
  *
@@ -31,10 +29,8 @@ function collectPaths() {
   if (platform() === 'darwin') {
     paths.push(join(home, 'Library/Application Support/Brain'))
     paths.push(join(home, 'Library/Logs/com.cirne.brain'))
-    paths.push(join(home, 'Documents/Brain'))
   } else {
     paths.push(join(home, '.brain'))
-    paths.push(join(home, 'Documents/Brain'))
   }
 
   return paths.map((p) => resolve(p)).sort()

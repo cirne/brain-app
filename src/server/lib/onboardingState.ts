@@ -138,7 +138,7 @@ export async function resetOnboardingState(): Promise<OnboardingStateDoc> {
   return doc
 }
 
-/** Remove staging files under CHAT_DATA_DIR/onboarding/ (keeps onboarding.json unless caller deletes it). */
+/** Remove staging files under `$BRAIN_HOME/chats/onboarding/` (keeps onboarding.json unless caller deletes it). */
 export async function clearOnboardingStaging(): Promise<void> {
   const base = onboardingDataDir()
   await mkdir(base, { recursive: true })

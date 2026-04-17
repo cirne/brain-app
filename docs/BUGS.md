@@ -32,7 +32,7 @@ The **ripmail** workspace member indexes its own bugs: **[`ripmail/docs/BUGS.md`
 
 **Likely sources**
 
-- Wiki files in `WIKI_DIR` (external brain repo), including agent-written or pasted content.
+- Wiki files under `$BRAIN_HOME/wiki`, including agent-written or pasted content.
 - LLM outputs that default to em dashes between clauses or after titles.
 - Any path that round-trips markdown through JSON without proper Unicode handling.
 

@@ -4,7 +4,6 @@ use crate::cli::triage::run_triage_command;
 use crate::cli::util::load_cfg;
 use crate::cli::CliResult;
 use ripmail::{db, resolve_llm, run_ask as run_ask_query, LoadConfigOptions, RunAskOptions};
-use std::path::PathBuf;
 
 pub(crate) fn run_ask(mut question: Vec<String>, verbose: bool) -> CliResult {
     let cfg = load_cfg();
@@ -28,14 +27,14 @@ pub(crate) fn run_ask(mut question: Vec<String>, verbose: bool) -> CliResult {
     }
 
     let llm_opts = LoadConfigOptions {
-        home: std::env::var("RIPMAIL_HOME").ok().map(PathBuf::from),
+        home: ripmail::resolved_ripmail_home_from_env(),
         env: None,
     };
     let llm = match resolve_llm(&llm_opts) {
         Ok(l) => l,
         Err(e) => {
             eprintln!("ripmail ask: {e}");
-            eprintln!("Configure ~/.ripmail/config.json \"llm\" and env vars (see AGENTS.md).");
+            eprintln!("Configure $RIPMAIL_HOME/config.json \"llm\" and env vars (see AGENTS.md).");
             std::process::exit(1);
         }
     };

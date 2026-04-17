@@ -1,54 +1,52 @@
-//! Default data locations for the bundled Brain.app (macOS GUI — no shell `.env`).
+//! Default `BRAIN_HOME` for the bundled Brain.app (macOS GUI — no shell `.env`).
+//! Layout segments must match `shared/brain-layout.json` in the repo root.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::OnceLock;
 
-/// Wiki repo root: `~/Documents/Brain` (OPP-007).
-/// Chat + onboarding: `~/Library/Application Support/Brain/data/chat`.
-/// ripmail index: `~/Library/Application Support/Brain/ripmail`.
-#[cfg(target_os = "macos")]
-pub fn macos_paths_for_home(home: &str) -> (PathBuf, PathBuf, PathBuf) {
-    let wiki = Path::new(home).join("Documents/Brain");
-    let app_support = Path::new(home).join("Library/Application Support/Brain");
-    let chat = app_support.join("data/chat");
-    let rip = app_support.join("ripmail");
-    (wiki, chat, rip)
+static LAYOUT: OnceLock<serde_json::Value> = OnceLock::new();
+
+fn layout_json() -> &'static serde_json::Value {
+    LAYOUT.get_or_init(|| {
+        serde_json::from_str(include_str!("../../shared/brain-layout.json"))
+            .expect("shared/brain-layout.json must be valid JSON")
+    })
 }
 
-#[cfg(target_os = "macos")]
-pub fn ensure_dirs_and_apply_defaults(cmd: &mut Command, home: &str) {
-    let (wiki, chat, rip) = macos_paths_for_home(home);
-    let _ = std::fs::create_dir_all(&chat);
-    let _ = std::fs::create_dir_all(&rip);
-    let _ = std::fs::create_dir_all(&wiki);
+fn dir_segment(key: &str) -> String {
+    layout_json()["directories"][key]
+        .as_str()
+        .unwrap_or_else(|| panic!("brain-layout.json missing directories.{key}"))
+        .to_string()
+}
 
-    if std::env::var_os("WIKI_DIR").is_none() {
-        cmd.env("WIKI_DIR", &wiki);
+fn brain_home_default(home: &str) -> PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        Path::new(home).join("Library/Application Support/Brain")
     }
-    if std::env::var_os("CHAT_DATA_DIR").is_none() {
-        cmd.env("CHAT_DATA_DIR", &chat);
-    }
-    if std::env::var_os("RIPMAIL_HOME").is_none() {
-        cmd.env("RIPMAIL_HOME", &rip);
+    #[cfg(not(target_os = "macos"))]
+    {
+        Path::new(home).join(".brain")
     }
 }
 
-/// Non-macOS `tauri build` (e.g. CI): keep data under `~/.brain/` and `~/Documents/Brain` wiki.
-#[cfg(not(target_os = "macos"))]
 pub fn ensure_dirs_and_apply_defaults(cmd: &mut Command, home: &str) {
-    let base = Path::new(home).join(".brain");
-    let wiki = Path::new(home).join("Documents/Brain");
-    let chat = base.join("data/chat");
-    let rip = base.join("ripmail");
-    let _ = std::fs::create_dir_all(&chat);
-    let _ = std::fs::create_dir_all(&rip);
-    let _ = std::fs::create_dir_all(&wiki);
+    let brain = brain_home_default(home);
+    let wiki = brain.join(dir_segment("wiki"));
+    let skills = brain.join(dir_segment("skills"));
+    let chats = brain.join(dir_segment("chats"));
+    let rip = brain.join(dir_segment("ripmail"));
+    let cache = brain.join(dir_segment("cache"));
+    let var_d = brain.join(dir_segment("var"));
 
-    if std::env::var_os("WIKI_DIR").is_none() {
-        cmd.env("WIKI_DIR", &wiki);
+    for d in [&wiki, &skills, &chats, &rip, &cache, &var_d] {
+        let _ = std::fs::create_dir_all(d);
     }
-    if std::env::var_os("CHAT_DATA_DIR").is_none() {
-        cmd.env("CHAT_DATA_DIR", &chat);
+
+    if std::env::var_os("BRAIN_HOME").is_none() {
+        cmd.env("BRAIN_HOME", &brain);
     }
     if std::env::var_os("RIPMAIL_HOME").is_none() {
         cmd.env("RIPMAIL_HOME", &rip);
@@ -59,12 +57,12 @@ pub fn ensure_dirs_and_apply_defaults(cmd: &mut Command, home: &str) {
 mod tests {
     #[cfg(target_os = "macos")]
     #[test]
-    fn macos_paths_match_opp007_layout() {
-        let (wiki, chat, rip) = super::macos_paths_for_home("/Users/x");
-        assert_eq!(wiki.to_string_lossy(), "/Users/x/Documents/Brain");
+    fn macos_brain_home_matches_layout() {
+        let brain = super::brain_home_default("/Users/x");
+        let rip = brain.join(super::dir_segment("ripmail"));
         assert_eq!(
-            chat.to_string_lossy(),
-            "/Users/x/Library/Application Support/Brain/data/chat"
+            brain.to_string_lossy(),
+            "/Users/x/Library/Application Support/Brain"
         );
         assert_eq!(
             rip.to_string_lossy(),
