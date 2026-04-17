@@ -61,7 +61,10 @@
 <style>
   .message {
     margin-bottom: 20px;
-    max-width: 800px;
+    max-width: min(800px, 100%);
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .message.user {
@@ -89,6 +92,9 @@
   .markdown {
     font-size: 14px;
     line-height: 1.6;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
   }
   .markdown :global(h1) {
     font-size: 1.4em;

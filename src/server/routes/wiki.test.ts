@@ -82,6 +82,19 @@ describe('GET /api/wiki/:path', () => {
     expect(body.path).toBe('ideas/foo.md')
   })
 
+  // BUG-001: UTF-8 on disk + JSON response must round-trip U+2014 as a real character, not a visible `\u2014` escape.
+  it('round-trips Unicode em dash (U+2014) in raw and html after res.json()', async () => {
+    const em = '\u2014'
+    await writeFile(join(wikiDir, 'emdash.md'), `# Partner ${em} gloss\n\nBody.`, 'utf-8')
+    const res = await app.request('/api/wiki/emdash.md')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { raw: string; html: string }
+    expect(body.raw).toContain(em)
+    expect(body.html).toContain(em)
+    expect(body.raw).not.toContain('\\u2014')
+    expect(body.html).not.toContain('\\u2014')
+  })
+
   it('blocks path traversal attempts', async () => {
     // URL normalization resolves ../../ before routing (404 from no route match)
     // or handler blocks it (403). Either way, no file content returned.

@@ -50,6 +50,13 @@ describe('renderMarkdown', () => {
     expect(result).toContain('<em>italic</em>')
   })
 
+  it('BUG-001 regression: em dash (U+2014) in markdown renders as the character, not a literal escape', () => {
+    const em = '\u2014'
+    const result = renderMarkdown(`Title ${em} subtitle`)
+    expect(result).toContain(em)
+    expect(result).not.toContain('\\u2014')
+  })
+
   it('strips front matter before rendering', () => {
     const raw = `---
 type: user-profile

@@ -1,5 +1,7 @@
 # BUG-006: “Agent is already processing a prompt” on concurrent chat sends
 
+**Status: fixed (2026-04-17).** `await agent.waitForIdle()` immediately before `agent.subscribe()` in [`streamAgentSseResponse`](../../../src/server/lib/streamAgentSse.ts) serializes overlapping `POST /api/chat` (and onboarding) handlers for the same in-memory `Agent`. Tests: [`streamAgentSse.test.ts`](../../../src/server/lib/streamAgentSse.test.ts).
+
 ## Symptom
 
 - SSE `error` event (or surfaced in UI) with message:

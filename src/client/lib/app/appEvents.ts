@@ -5,7 +5,7 @@
 
 export type WikiMutatedEvent = {
   type: 'wiki:mutated'
-  source: 'agent'
+  source: 'agent' | 'user'
   /** Future: paths touched by tools */
   paths?: string[]
 }

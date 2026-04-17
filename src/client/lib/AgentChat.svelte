@@ -4,6 +4,7 @@
   import { buildChatBody, extractMentionedFiles, type ChatMessage, type SkillMenuItem } from './agentUtils.js'
   import { contextPlaceholder } from './agentUtils.js'
   import { emit } from './app/appEvents.js'
+  import { registerWikiFileListRefetch } from './wikiFileListRefetch.js'
 
   function notifyChatSessionsChanged() {
     emit({ type: 'chat:sessions-changed' })
@@ -204,11 +205,6 @@
     } catch { /* ignore */ }
   })
 
-  $effect(() => {
-    void fetchWikiFiles()
-    void fetchSkills()
-  })
-
   async function fetchSkills() {
     try {
       const res = await fetch('/api/skills')
@@ -234,14 +230,26 @@
   async function fetchWikiFiles() {
     try {
       const res = await fetch('/api/wiki')
-      const files = await res.json()
-      wikiFiles = files.map((f: { path: string }) => f.path)
+      if (!res.ok) return
+      const data: unknown = await res.json()
+      if (!Array.isArray(data)) return
+      wikiFiles = data
+        .map((f) =>
+          f && typeof f === 'object' && 'path' in f && typeof (f as { path: unknown }).path === 'string'
+            ? (f as { path: string }).path
+            : null,
+        )
+        .filter((p): p is string => p != null)
     } catch { /* ignore */ }
   }
 
   onMount(() => {
+    void fetchWikiFiles()
+    void fetchSkills()
+    const unsubWikiList = registerWikiFileListRefetch(fetchWikiFiles)
     const m = autoSendMessage?.trim()
     if (m) void tick().then(() => send(m))
+    return () => unsubWikiList()
   })
 
   export function newChat() {
@@ -347,6 +355,8 @@
       abortController: ac,
     })
     notifyStreamingSessionsChanged()
+    await tick()
+    conversationEl?.scrollToBottom()
 
     const body = buildChatBody({
       message: text,
@@ -423,7 +433,7 @@
           }
           sessions = touchSessionImmutable(sessions, activeKey, { messages: next })
         },
-        scrollToBottom: () => conversationEl?.scrollToBottom(),
+        scrollToBottom: () => conversationEl?.scrollToBottomIfFollowing(),
       })
       touchedWiki = result.touchedWiki
       sawDone = result.sawDone
@@ -535,14 +545,18 @@
     height: 100%;
     background: var(--bg-2);
     min-height: 0;
+    min-width: 0;
+    overflow-x: hidden;
   }
 
   .chat-body {
     flex: 1;
     min-height: 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     position: relative;
+    overflow-x: hidden;
   }
 
   .input-shell {
@@ -621,8 +635,10 @@
   .mid {
     flex: 1;
     min-height: 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
+    overflow-x: hidden;
   }
 
   .mobile-detail-layer {

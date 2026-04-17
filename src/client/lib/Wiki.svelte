@@ -15,6 +15,7 @@
     WIKI_SLIDE_HEADER,
     type SetWikiSlideHeader,
   } from './wikiSlideHeaderContext.js'
+  import { emit } from './app/appEvents.js'
 
   type WikiFile = { path: string; name: string }
 
@@ -107,6 +108,7 @@
         return
       }
       rawMarkdown = md
+      emit({ type: 'wiki:mutated', source: 'user' })
       await refreshRenderedFromServer()
       saveState = 'saved'
       setTimeout(() => {

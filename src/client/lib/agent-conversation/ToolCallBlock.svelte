@@ -108,6 +108,8 @@
     flex-direction: column;
     gap: 10px;
     margin: 4px 0 12px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .tool-call {
@@ -115,6 +117,8 @@
     border-radius: 4px;
     font-size: 13px;
     overflow: hidden;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .tool-call.tool-pending {
@@ -200,7 +204,10 @@
     font-size: 11px;
     line-height: 1.4;
     max-height: 200px;
+    max-width: 100%;
+    box-sizing: border-box;
     overflow: auto;
+    overflow-wrap: anywhere;
     white-space: pre-wrap;
     word-break: break-word;
     border-top: 1px solid var(--border);

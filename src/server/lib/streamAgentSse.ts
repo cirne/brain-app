@@ -112,6 +112,9 @@ export function streamAgentSseResponse(
       savedThisTurn = true
     }
 
+    // Serialize per-Agent: must be immediately before subscribe (no await between here and
+    // prompt). If waitForIdle ran earlier, another request could interleave after session writeSSE.
+    await agent.waitForIdle()
     const unsubscribe = agent.subscribe(async (event) => {
       try {
         switch (event.type) {

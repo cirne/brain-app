@@ -10,7 +10,7 @@ That blocks a common workflow: **compose your next message** while the model is 
 
 - Reduces friction: users think ahead without staring at a locked input.
 - Aligns with how other chat products behave: typing is allowed; **sending** may still be gated by policy.
-- Complements server-side constraints documented in **[BUG-006](../bugs/BUG-006-agent-concurrent-prompt.md)** (one active `prompt()` per session unless we queue or use pi-agent-core `steer()` / `followUp()`).
+- Complements server-side constraints documented in **[BUG-006](../bugs/archive/BUG-006-agent-concurrent-prompt.md)** (one active `prompt()` per session unless we queue or use pi-agent-core `steer()` / `followUp()`).
 
 ## Proposed direction
 
@@ -19,9 +19,9 @@ That blocks a common workflow: **compose your next message** while the model is 
    - **Queue** the text and auto-send when the current stream completes, **or**
    - **Single slot:** replace pending follow-up, **or**
    - Integrate **steer** / **followUp** if product wants true mid-run injection (larger behavior change; see BUG-006).
-3. **Server:** Whatever the product chooses must stay consistent with **[BUG-006](../bugs/BUG-006-agent-concurrent-prompt.md)**—no overlapping `prompt()` on the same session without a queue or library-supported enqueue APIs.
+3. **Server:** Whatever the product chooses must stay consistent with **[BUG-006](../bugs/archive/BUG-006-agent-concurrent-prompt.md)**—no overlapping `prompt()` on the same session without a queue or library-supported enqueue APIs.
 
 ## Related
 
-- **[BUG-006](../bugs/BUG-006-agent-concurrent-prompt.md)** — concurrent `prompt()` and possible use of `steer()` / `followUp()`.
+- **[BUG-006](../bugs/archive/BUG-006-agent-concurrent-prompt.md)** — concurrent `prompt()` and possible use of `steer()` / `followUp()`.
 - **[BUG-007](../bugs/BUG-007-agent-view-scroll-stick-to-bottom.md)** — scroll behavior while streaming in the same agent view.
