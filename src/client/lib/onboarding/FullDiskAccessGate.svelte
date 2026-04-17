@@ -103,10 +103,10 @@
     <div class="fda-modal ob-hero">
       <div class="ob-hero-inner">
         <span class="ob-kicker">Privacy</span>
-        <h1 id="fda-title" class="ob-headline">Brain needs Full Disk Access</h1>
+        <h1 id="fda-title" class="ob-headline">Allow Full Disk Access</h1>
         <p class="ob-lead">
-          Brain reads local data (Mail, Messages, Notes) to power your assistant. macOS requires Full Disk Access for
-          those folders.
+          macOS needs this permission so Brain can read Mail, Messages, and your files on this Mac—what makes the
+          assistant personal to you. <strong>That information stays on your Mac.</strong>
         </p>
         <ol class="fda-steps">
           <li>Click <strong>Open System Settings</strong> below.</li>

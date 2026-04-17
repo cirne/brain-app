@@ -424,9 +424,11 @@
       <div class="ob-hero">
         <div class="ob-hero-inner">
           <span class="ob-kicker">Brain</span>
-          <h1 class="ob-headline">Let's get started</h1>
+          <h1 class="ob-headline">Your assistant, on your Mac</h1>
           <p class="ob-lead">
-            Connect Apple Mail on this Mac so your assistant can work with your email.
+            Brain is your local assistant for chat, email, and your notes—personalized to you.
+            <strong>Mail, Messages, and your files stay on this Mac</strong>—you’re in control. Connect Apple Mail to get
+            started.
           </p>
 
           <div class="ob-cta-group">
@@ -472,11 +474,8 @@
                 {/if}
               </button>
               <p class="ob-fine-print">
-                Brain reads your mail from the Apple Mail library on this computer —
-                not from a separate login. If setup fails with “Mail” or “Full Disk Access”,
-                confirm <strong>Brain</strong> is allowed under
-                <strong>System Settings → Privacy &amp; Security → Full Disk Access</strong>
-                (toggles can look grey in screenshots), then quit Brain (Cmd+Q) and try again.
+                MacOS may ask for <strong>Full Disk Access</strong> so Brain can read Mail, Messages, and files on this Mac—the
+                depth needed for a truly personal assistant.
               </p>
             {/if}
           </div>

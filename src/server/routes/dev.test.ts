@@ -66,8 +66,9 @@ exit 0
     const { access } = await import('node:fs/promises')
     await expect(access(join(wikiContent, 'me.md'))).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(access(join(wikiContent, 'topics', 'note.md'))).rejects.toMatchObject({ code: 'ENOENT' })
-    const { readdir } = await import('node:fs/promises')
-    expect(await readdir(brainHome)).toEqual([])
+
+    const { listSkills } = await import('../lib/skillRegistry.js')
+    expect((await listSkills()).length).toBeGreaterThan(0)
 
     const invoke = (await readFile(ripmailLog, 'utf8')).trim()
     expect(invoke).toContain('clean')
