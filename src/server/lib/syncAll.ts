@@ -1,8 +1,6 @@
 import { exec, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { parseICS, writeCache } from './calendarCache.js'
-import { repoDir } from './wikiDir.js'
-import { formatExecError } from './execError.js'
 import { ripmailBin } from './ripmailBin.js'
 
 const execAsync = promisify(exec)
