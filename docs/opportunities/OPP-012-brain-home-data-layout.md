@@ -30,6 +30,27 @@ Introduce a single logical root — working name **`BRAIN_HOME`** — with **exp
 
 **macOS packaging:** Today wiki defaults to `~/Documents/Brain` while chat and ripmail default under `~/Library/Application Support/Brain/`. Unifying under `BRAIN_HOME` is a **product/UX decision** (Documents vs Application Support vs one filesystem tree with symlinks). The implementation plan should pick one story and document it.
 
+### Multi-machine sync (e.g. iCloud Drive)
+
+Users may put **`BRAIN_HOME` (or the wiki subtree) inside iCloud Drive** so a second Mac opens the same tree and “just works” for wiki, skills, and light config — a strong benefit for personal knowledge work without bespoke sync.
+
+**What syncs comfortably**
+
+- Markdown wiki, `SKILL.md` trees, small JSON, chat session files, and most human-readable artifacts behave like normal documents.
+
+**What is awkward: ripmail’s index under `RIPMAIL_HOME`**
+
+- Ripmail keeps **SQLite + FTS (and related) state** that can grow to **hundreds of MB** of churning binary data under normal IMAP sync.
+- **iCloud Drive is file sync, not a database replication layer.** It does not guarantee single-writer semantics across machines. Risks include: two Macs active at once (conflict copies, divergent writes), partial upload/download while a process has the DB open, and rare but painful **corruption** if the cloud layer presents an inconsistent view during heavy writes.
+- **Net:** For the common case — **one primary Mac at a time** — the upside (portable wiki + config) often outweighs the downside; the main thing to avoid is treating iCloud-backed `RIPMAIL_HOME` as safe for **concurrent** multi-machine email indexing.
+
+**Possible split if we need stronger guarantees**
+
+- Keep **canonical, rebuildable mail cache + index** in a **local-only** directory (e.g. default under `~/Library/...` or another non–iCloud path) while the rest of Brain stays in iCloud, using **`RIPMAIL_HOME` override** so Brain still presents one mental model.
+- Ripmail already ships **`ripmail rebuild-index`** (maildir → SQLite reindex). Regular sync or a “repair” path can **rebuild** the index when it drifts or looks wrong relative to mailbox truth — so a local cache is **recoverable** without losing the wiki.
+
+This does not block unified `BRAIN_HOME` as the default story; it is a **product/ops escape hatch** if real-world sync pain shows up.
+
 ---
 
 ## Inventory: code and config that set or use these paths

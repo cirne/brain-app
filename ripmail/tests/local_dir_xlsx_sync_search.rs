@@ -144,7 +144,10 @@ fn local_dir_fixture_xlsx_sales_data_indexable() {
             |r| r.get(0),
         )
         .unwrap();
-    assert!(!body.starts_with("PK"), "xlsx must not be indexed as raw ZIP bytes");
+    assert!(
+        !body.starts_with("PK"),
+        "xlsx must not be indexed as raw ZIP bytes"
+    );
 
     let set = search_with_meta(
         &conn,

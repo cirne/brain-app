@@ -154,12 +154,14 @@ fn extract_xlsx_sniffed_when_mime_octet_and_wrong_filename() {
     wb.save(&path).unwrap();
     let bytes = fs::read(&path).unwrap();
     // Misnamed copy / wrong Content-Type: must not fall through to UTF-8 lossy (PK… gibberish).
-    let t = extract_attachment(&bytes, "application/octet-stream", "t.bin").expect("zip sniff xlsx");
+    let t =
+        extract_attachment(&bytes, "application/octet-stream", "t.bin").expect("zip sniff xlsx");
     assert!(t.contains("Segment"));
     assert!(t.contains("Government"));
     assert!(!t.starts_with("PK"));
     // Basename lost (CLI `unwrap_or("file")` on invalid UTF-8) — still sniff spreadsheet.
-    let t2 = extract_attachment(&bytes, "application/octet-stream", "file").expect("zip sniff xlsx");
+    let t2 =
+        extract_attachment(&bytes, "application/octet-stream", "file").expect("zip sniff xlsx");
     assert!(t2.contains("Segment"));
 }
 

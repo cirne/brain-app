@@ -1280,6 +1280,10 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
         .map(|m| !m.is_empty())
         .unwrap_or(false);
 
+    // `sources` can be non-empty while `build_resolved_sources` yields nothing (skipped `localDir`
+    // without path, `applemail` when no Mail library exists, etc.). Fall back to legacy defaults.
+    let use_multi_layout = multi && !resolved_sources.is_empty();
+
     let (
         mut imap_host,
         imap_port,
@@ -1290,12 +1294,12 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
         db_path,
         maildir_path,
         message_path_root,
-    ) = if multi {
+    ) = if use_multi_layout {
         let mb = resolved_sources
             .iter()
             .find(|s| s.is_mail())
             .or_else(|| resolved_sources.first())
-            .expect("sources non-empty");
+            .expect("sources non-empty when resolved_sources non-empty");
         (
             mb.imap_host.clone(),
             mb.imap_port,
@@ -1422,7 +1426,28 @@ pub fn resolve_openai_api_key(opts: &LoadConfigOptions) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
     use std::fs;
+
+    /// `sources` is non-empty but every entry is skipped by [`build_resolved_sources`] (e.g. `localDir`
+    /// without `path`, or `applemail` on a host with no Mail library). Must not panic in `load_config`.
+    #[test]
+    fn load_config_multi_sources_all_unresolved_does_not_panic() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        fs::create_dir_all(home).unwrap();
+        fs::write(
+            home.join("config.json"),
+            r#"{"sources":[{"id":"skip","kind":"localDir"}]}"#,
+        )
+        .unwrap();
+        let cfg = load_config(LoadConfigOptions {
+            home: Some(home.to_path_buf()),
+            env: Some(HashMap::new()),
+        });
+        assert!(cfg.resolved_sources.is_empty());
+        assert_eq!(cfg.db_path, home.join("data").join("ripmail.db"));
+    }
 
     #[test]
     fn resolve_smtp_local_applemail_defaults() {
