@@ -4,6 +4,10 @@ Improvement ideas and future features discovered through usage. Each entry captu
 
 Active and future work lives in [opportunities/](opportunities/). Shipped and deprioritized work moves to [opportunities/archive/](opportunities/archive/).
 
+### Ripmail crate (`ripmail/`)
+
+The **ripmail** workspace member (local-first email CLI + SQLite index) maintains a **separate** opportunity index and ID namespace: **[`ripmail/docs/OPPORTUNITIES.md`](../ripmail/docs/OPPORTUNITIES.md)** with files under [`ripmail/docs/opportunities/`](../ripmail/docs/opportunities/). `OPP-*` numbers in ripmail are **not** aligned with brain-app `OPP-*` (e.g. brain-app [OPP-012](opportunities/OPP-012-brain-home-data-layout.md) vs ripmail [OPP-012](../ripmail/docs/opportunities/OPP-012-who-smart-address-book.md)). Link across trees when a feature touches both the web app and ripmail (example: [OPP-005](opportunities/OPP-005-source-ingestion.md) → [ripmail OPP-051](../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)).
+
 ---
 
 ## Active
@@ -22,6 +26,7 @@ Active and future work lives in [opportunities/](opportunities/). Shipped and de
 | [OPP-009](opportunities/OPP-009-oauth-relay-in-app.md)         | OAuth relay in app           | Replace the old ripmail `oauth-relay` Cloudflare Worker with Hono/server-side handling in brain-app for hosted OAuth used by ripmail.                                                                                    |
 | [OPP-010](opportunities/OPP-010-user-skills.md)                | User Skills (slash commands) | Slack-style `/` menu backed by `SKILL.md` files (Claude Code / Cursor / OpenClaw format) stored in `<WIKI_DIR>/skills/` — user-editable, git-versioned defaults `/wiki`, `/research`, `/email` ([OPP-011](opportunities/OPP-011-user-skills-strategy.md)).     |
 | [OPP-011](opportunities/OPP-011-user-skills-strategy.md)     | User skills strategy         | Granularity, `/wiki` umbrella + NL routing; maps toolset to skill domains. Companion to OPP-010; see [product/personal-wiki.md](product/personal-wiki.md) for vocabulary and onboarding.                                      |
+| [OPP-012](opportunities/OPP-012-brain-home-data-layout.md)   | Brain home data layout       | Replace overloaded `WIKI_DIR` with `BRAIN_HOME` + explicit subdirs (wiki, ripmail, chats, cache); default `RIPMAIL_HOME` under home; inventory of env/modules/Tauri/Docker; no migration — wipe and re-seed.                 |
 
 
 ---

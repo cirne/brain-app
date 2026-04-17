@@ -4,6 +4,8 @@ Improvement ideas discovered through real usage. Each entry captures the problem
 
 See [VISION.md](./VISION.md) for product vision, [ARCHITECTURE.md](./ARCHITECTURE.md) for technical decisions.
 
+**Monorepo (brain-app):** This file indexes **ripmail-only** opportunities (`ripmail/docs/opportunities/`). The parent application’s opportunity list — chat, wiki, native shell, etc. — lives at **[`../../docs/OPPORTUNITIES.md`](../../docs/OPPORTUNITIES.md)** (repo root `docs/OPPORTUNITIES.md`). `OPP-*` IDs are **not** shared between the two indexes; cross-link when work spans both (e.g. OAuth relay, unified sources). Repository-wide context: **[`../AGENTS.md`](../AGENTS.md)**.
+
 This page lists **active** opportunities first, then **implemented (archived)**, **not prioritized (archived)**, and **will not do (archived)** — all under `docs/opportunities/` / `docs/opportunities/archive/`.
 
 **Strategic sequencing:** Send (draft + SMTP) is **implemented in code** ([OPP-011 archived](opportunities/archive/OPP-011-send-email.md), [ADR-024](ARCHITECTURE.md#adr-024-outbound-email--smtp-send-as-user--local-drafts)); product may still sequence broad promotion behind read/sync validation. See that opp for **remaining work**.

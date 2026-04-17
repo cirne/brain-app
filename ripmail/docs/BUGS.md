@@ -2,6 +2,8 @@
 
 When an agent or user hits a failure, we document it here. Root cause and "agent-intuitive" implications matter: **is the CLI intuitive enough for the LLM?** See [VISION.md](./VISION.md) (agent-first, agent-intuitive interfaces).
 
+**Monorepo (brain-app):** Bugs for the **ripmail** CLI and local index belong here (`ripmail/docs/bugs/`). Bugs in the **brain-app** server or UI (Hono, Svelte, Tauri shell, wiki routes) are tracked in **[`../../docs/BUGS.md`](../../docs/BUGS.md)**. `BUG-*` IDs are **not** aligned between the two files. See also **[`../../docs/OPPORTUNITIES.md`](../../docs/OPPORTUNITIES.md)** for app-level opportunities.
+
 **Distribution:** **Rust** at the repo root is the **only** in-repo implementation and CLI (`cargo build` / prebuilt binary). Historical TypeScript lived under **`node/`** until cutover ([ADR-025](ARCHITECTURE.md#adr-025-rust-port--parallel-implementation-pre-cutover), [OPP-030 archived](opportunities/archive/OPP-030-rust-port-cutover.md), [RUST_PORT.md](RUST_PORT.md)).
 
 ---

@@ -4,6 +4,10 @@ Known issues discovered through development and usage. Root cause and fix direct
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
+### Ripmail crate (`ripmail/`)
+
+The **ripmail** workspace member indexes its own bugs: **[`ripmail/docs/BUGS.md`](../ripmail/docs/BUGS.md)** with files under [`ripmail/docs/bugs/`](../ripmail/docs/bugs/) (and [`ripmail/docs/bugs/archive/`](../ripmail/docs/bugs/archive/)). `BUG-*` IDs there are **independent** from brain-app `BUG-*` in this file. When inbox, sync, or CLI behavior is owned by ripmail, file and link bugs under `ripmail/docs/`; when the bug is in the Hono/Svelte app or integration, it belongs here.
+
 ---
 
 ## Active
