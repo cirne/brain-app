@@ -20,6 +20,7 @@ const emptyInstallFixture = `{
     "initialSyncHangSuspected": false
   },
   "search": {
+    "indexedMessages": 0,
     "ftsReady": 0
   },
   "freshness": {
@@ -37,11 +38,30 @@ const populatedFixture = `{
     "latestSyncedDate": "2026-04-14"
   },
   "search": {
+    "indexedMessages": 1,
     "ftsReady": 1
   }
 }`
 
-/** Apple Mail: `totalMessages` stays 0 until done; `mailboxes` / `ftsReady` update during backfill. */
+/** `sync.totalMessages` can inflate; onboarding must use `search.indexedMessages` only. */
+const inflatedSyncTotalFixture = `{
+  "sync": {
+    "isRunning": true,
+    "lastSyncAt": "2026-04-16T12:00:00.000Z",
+    "totalMessages": 253000,
+    "earliestSyncedDate": "2025-04-16",
+    "latestSyncedDate": "2026-04-16"
+  },
+  "search": { "indexedMessages": 40135, "ftsReady": 40135 },
+  "mailboxes": [
+    {
+      "email": "applemail@local",
+      "messageCount": 40135,
+      "needsBackfill": false
+    }
+  ]
+}`
+
 const appleMailInterimFixture = `{
   "sync": {
     "isRunning": true,
@@ -50,7 +70,7 @@ const appleMailInterimFixture = `{
     "earliestSyncedDate": null,
     "latestSyncedDate": null
   },
-  "search": { "ftsReady": 9030 },
+  "search": { "indexedMessages": 9030, "ftsReady": 9030 },
   "mailboxes": [
     {
       "email": "applemail@local",
@@ -70,7 +90,7 @@ const staleLockFixture = `{
     "lockHeldByLiveProcess": false,
     "lockAgeMs": 1000
   },
-  "search": { "ftsReady": 0 },
+  "search": { "indexedMessages": 0, "ftsReady": 0 },
   "mailboxes": []
 }`
 
@@ -82,7 +102,7 @@ const needsBackfillIdleFixture = `{
     "staleLockInDb": false,
     "lockHeldByLiveProcess": false
   },
-  "search": { "ftsReady": 0 },
+  "search": { "indexedMessages": 0, "ftsReady": 0 },
   "mailboxes": [
     { "email": "a@b.com", "messageCount": 0, "needsBackfill": true }
   ]
@@ -97,12 +117,13 @@ describe('parseRipmailStatusJson', () => {
     expect(p!.dateRange.from).toBeNull()
     expect(p!.dateRange.to).toBeNull()
     expect(p!.syncRunning).toBe(false)
+    expect(p!.syncLockAgeMs).toBeNull()
     expect(p!.ftsReady).toBe(0)
   })
 
-  it('parses populated sync', () => {
+  it('parses populated sync (indexed count prefers ftsReady over sync.totalMessages)', () => {
     const p = parseRipmailStatusJson(populatedFixture)
-    expect(p!.indexedTotal).toBe(42)
+    expect(p!.indexedTotal).toBe(1)
     expect(p!.lastSyncedAt).toBe('2026-04-15T12:00:00.000Z')
     expect(p!.dateRange.from).toBe('2024-01-01')
     expect(p!.dateRange.to).toBe('2026-04-14')
@@ -115,7 +136,66 @@ describe('parseRipmailStatusJson', () => {
     expect(p).not.toBeNull()
     expect(p!.indexedTotal).toBe(9030)
     expect(p!.syncRunning).toBe(true)
+    expect(p!.syncLockAgeMs).toBeNull()
     expect(p!.ftsReady).toBe(9030)
+  })
+
+  it('uses indexedMessages when sync.totalMessages is inflated', () => {
+    const p = parseRipmailStatusJson(inflatedSyncTotalFixture)
+    expect(p!.indexedTotal).toBe(40135)
+  })
+
+  it('prefers search.indexedMessages over ftsReady when both are present', () => {
+    const raw = `{
+      "sync": {
+        "isRunning": false,
+        "lastSyncAt": null,
+        "totalMessages": 100,
+        "staleLockInDb": false,
+        "lockHeldByLiveProcess": false
+      },
+      "search": { "indexedMessages": 7, "ftsReady": 99 },
+      "mailboxes": []
+    }`
+    const p = parseRipmailStatusJson(raw)
+    expect(p!.indexedTotal).toBe(7)
+    expect(p!.ftsReady).toBe(7)
+  })
+
+  it('legacy JSON without indexedMessages still parses via ftsReady', () => {
+    const raw = `{
+      "sync": {
+        "isRunning": false,
+        "lastSyncAt": null,
+        "totalMessages": 99999,
+        "staleLockInDb": false,
+        "lockHeldByLiveProcess": false
+      },
+      "search": { "ftsReady": 12 },
+      "mailboxes": []
+    }`
+    const p = parseRipmailStatusJson(raw)
+    expect(p!.indexedTotal).toBe(12)
+  })
+
+  it('parses sync.lockAgeMs for onboarding progress', () => {
+    const raw = `{
+      "sync": {
+        "isRunning": true,
+        "lastSyncAt": null,
+        "totalMessages": 0,
+        "lockHeldByLiveProcess": true,
+        "lockAgeMs": 125000,
+        "staleLockInDb": false
+      },
+      "search": { "indexedMessages": 0, "ftsReady": 0 },
+      "mailboxes": [{ "email": "a@b.com", "messageCount": 0, "needsBackfill": false }]
+    }`
+    const p = parseRipmailStatusJson(raw)
+    expect(p).not.toBeNull()
+    expect(p!.syncLockAgeMs).toBe(125000)
+    expect(p!.syncRunning).toBe(true)
+    expect(computeIndexingUserHint(p!)).toContain('stay at zero')
   })
 
   it('treats stale DB lock as not running', () => {

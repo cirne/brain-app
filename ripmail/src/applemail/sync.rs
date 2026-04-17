@@ -60,6 +60,13 @@ fn opt_ms(o: Option<u128>) -> String {
     o.map(|x| format!("{x}")).unwrap_or_else(|| "-".into())
 }
 
+fn format_applemail_keyset_cursor(after: Option<(i64, i64)>) -> String {
+    match after {
+        None => "start".to_string(),
+        Some((d, r)) => format!("({d},{r})"),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn log_row_timing(
     progress_stderr: bool,
@@ -100,7 +107,7 @@ fn emit_applemail_progress(
     logger: &SyncFileLogger,
     email: &str,
     global_row: u32,
-    after_rowid: i64,
+    after_cursor: Option<(i64, i64)>,
     page_len: usize,
     row_in_page: u32,
     elapsed: Duration,
@@ -118,8 +125,9 @@ fn emit_applemail_progress(
     } else {
         0
     };
+    let cursor_s = format_applemail_keyset_cursor(after_cursor);
     let msg = format!(
-        "applemail progress email={email} after_rowid={after_rowid} page_row={row_in_page}/{page_len} (~{pct_page}% of page) global_row={global_row} elapsed={elapsed:?} new_indexed={synced} no_emlx_path={skipped_no_path} read_err={read_err} since_filter={since_skip} duplicate={dup_skip} envelope_skip={envelope_skip} already_indexed={index_skip} persist_err={persist_err}"
+        "applemail progress email={email} after_cursor={cursor_s} page_row={row_in_page}/{page_len} (~{pct_page}% of page) global_row={global_row} elapsed={elapsed:?} new_indexed={synced} no_emlx_path={skipped_no_path} read_err={read_err} since_filter={since_skip} duplicate={dup_skip} envelope_skip={envelope_skip} already_indexed={index_skip} persist_err={persist_err}"
     );
     logger.info(&msg, None);
     if progress_stderr {
@@ -133,7 +141,7 @@ fn maybe_emit_applemail_progress(
     logger: &SyncFileLogger,
     email: &str,
     global_row: u32,
-    after_rowid: i64,
+    after_cursor: Option<(i64, i64)>,
     page_len: usize,
     row_in_page: u32,
     last_emit: &mut Instant,
@@ -158,7 +166,7 @@ fn maybe_emit_applemail_progress(
         logger,
         email,
         global_row,
-        after_rowid,
+        after_cursor,
         page_len,
         row_in_page,
         start.elapsed(),
@@ -271,7 +279,7 @@ fn run_applemail_sync_inner(
         .ok_or_else(|| format!("invalid --since date: {since_ymd}"))?;
 
     let since_banner = format!(
-        "applemail: effective --since lower bound (inclusive) {since_ymd} (ts={since_ts}); keyset pagination ORDER BY ROWID ASC"
+        "applemail: effective --since lower bound (inclusive) {since_ymd} (ts={since_ts}); keyset pagination ORDER BY date_received DESC, ROWID DESC (newest first)"
     );
     logger.info(&since_banner, None);
     if progress_stderr {
@@ -304,6 +312,9 @@ fn run_applemail_sync_inner(
     let skip_mailboxes = skip::build_skip_mailbox_map(&env_conn)
         .map_err(|e| format!("applemail: mailboxes table: {e}"))?;
 
+    let include_remote_id = envelope_index::messages_table_has_remote_id(&env_conn)
+        .map_err(|e| format!("applemail: envelope schema (messages): {e}"))?;
+
     let mut synced: u32 = 0;
     let mut messages_fetched: u32 = 0;
     let mut bytes_downloaded: u64 = 0;
@@ -322,7 +333,7 @@ fn run_applemail_sync_inner(
     let mut last_progress_emit = Instant::now();
     let email = mb.email.as_str();
 
-    let mut after_rowid: i64 = 0;
+    let mut after_cursor: Option<(i64, i64)> = None;
     let mut total_scanned: u64 = 0;
 
     'pages: loop {
@@ -342,7 +353,8 @@ fn run_applemail_sync_inner(
             &env_conn,
             PAGE_SIZE,
             since_ts,
-            after_rowid,
+            after_cursor,
+            include_remote_id,
         )
         .map_err(|e| {
             format!(
@@ -354,7 +366,8 @@ fn run_applemail_sync_inner(
 
         if page_len == 0 {
             let done_empty = format!(
-                "applemail: no more rows after ROWID {after_rowid} (finished in {:?})",
+                "applemail: no more rows after cursor {} (finished in {:?})",
+                format_applemail_keyset_cursor(after_cursor),
                 start.elapsed()
             );
             logger.info(&done_empty, None);
@@ -365,7 +378,8 @@ fn run_applemail_sync_inner(
         }
 
         let load_line = format!(
-            "applemail: loaded page after_rowid={after_rowid} rows={page_len} in {:?}",
+            "applemail: loaded page after_cursor={} rows={page_len} in {:?}",
+            format_applemail_keyset_cursor(after_cursor),
             load_elapsed
         );
         logger.info(&load_line, None);
@@ -431,6 +445,7 @@ fn run_applemail_sync_inner(
                 &env_conn,
                 c.mailbox,
                 c.rowid,
+                c.remote_id,
                 &mut emlx_cache,
             );
             let resolve_ms = t_resolve.elapsed().as_millis();
@@ -466,7 +481,7 @@ fn run_applemail_sync_inner(
                     logger,
                     email,
                     row_idx,
-                    after_rowid,
+                    after_cursor,
                     page_len,
                     row_in_page,
                     &mut last_progress_emit,
@@ -516,7 +531,7 @@ fn run_applemail_sync_inner(
                         logger,
                         email,
                         row_idx,
-                        after_rowid,
+                        after_cursor,
                         page_len,
                         row_in_page,
                         &mut last_progress_emit,
@@ -572,7 +587,7 @@ fn run_applemail_sync_inner(
                     logger,
                     email,
                     row_idx,
-                    after_rowid,
+                    after_cursor,
                     page_len,
                     row_in_page,
                     &mut last_progress_emit,
@@ -630,7 +645,7 @@ fn run_applemail_sync_inner(
                         logger,
                         email,
                         row_idx,
-                        after_rowid,
+                        after_cursor,
                         page_len,
                         row_in_page,
                         &mut last_progress_emit,
@@ -692,7 +707,7 @@ fn run_applemail_sync_inner(
                 logger,
                 email,
                 row_idx,
-                after_rowid,
+                after_cursor,
                 page_len,
                 row_in_page,
                 &mut last_progress_emit,
@@ -708,7 +723,7 @@ fn run_applemail_sync_inner(
             );
         }
 
-        after_rowid = page.last().map(|c| c.rowid).unwrap_or(after_rowid);
+        after_cursor = page.last().map(|c| (c.date_received, c.rowid));
 
         if page_len < PAGE_SIZE {
             let end = format!("applemail: last page (partial) rows={page_len}; end of candidates");

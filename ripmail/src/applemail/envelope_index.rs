@@ -15,6 +15,9 @@ pub struct EnvelopeCandidate {
     pub date_received: i64,
     pub deleted: i32,
     pub flags: i64,
+    /// `messages.remote_id` when the Envelope Index has that column (often IMAP UID). On-disk
+    /// `*.emlx` stems may match `remote_id` when they differ from SQLite `ROWID`.
+    pub remote_id: Option<i64>,
 }
 
 /// One row from `messages` with columns we could interpret (best-effort).
@@ -33,11 +36,11 @@ pub struct EnvelopeMessageRow {
 }
 
 impl EnvelopeMessageRow {
-    /// Filename stem for `…/Messages/{stem}.emlx` (per-mailbox).
+    /// Primary filename stem for `…/Messages/{stem}.emlx` (per-mailbox).
     ///
-    /// Modern Apple Mail V10 names files by **SQLite ROWID**, not `remote_id` (which appears to be
-    /// the IMAP UID). Earlier versions (or different account types) may differ; ROWID works for
-    /// observed IMAP-backed accounts on macOS 15 / Mail V10.
+    /// Resolution tries **SQLite `ROWID` first**, then **`remote_id`** when present and distinct
+    /// (see [`super::paths::resolve_emlx_deterministic_then_scan`]). Some accounts name files by
+    /// IMAP UID (`remote_id`); others match `ROWID`.
     #[must_use]
     pub fn emlx_file_stem_id(&self) -> i64 {
         self.rowid
@@ -226,24 +229,72 @@ pub fn sample_messages_page_since(
     Ok(rows_out)
 }
 
-/// Keyset-paged slice: `WHERE date_received >= ? AND deleted = 0 AND ROWID > ? ORDER BY ROWID ASC`.
+/// `true` if Envelope Index `messages` has a `remote_id` column (Apple Mail V10+).
+pub fn messages_table_has_remote_id(conn: &Connection) -> rusqlite::Result<bool> {
+    let mut stmt = conn.prepare("PRAGMA table_info(messages)")?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let name: String = row.get(1)?;
+        if name.eq_ignore_ascii_case("remote_id") {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// Keyset-paged slice: newest mail first (`ORDER BY date_received DESC, ROWID DESC`).
 ///
-/// Pass `after_rowid = 0` for the first page. Subsequent pages use the last `rowid` from the
-/// previous page as `after_rowid`.
+/// Apple’s `ROWID` order does not match recency; paging by ROWID made the first thousands of
+/// candidates often old mail while the UI waited for a high indexed count. We walk **recent-first**
+/// so `.emlx` reads and FTS rows align with what users expect (like Mail’s inbox).
+///
+/// - `after`: `None` for the first page. Otherwise `(date_received, rowid)` from the **last** row of
+///   the previous page; the next page returns rows strictly **older** in `(date_received, rowid)`
+///   sort order (still respecting `--since`).
+///
+/// - `include_remote_id`: when [`messages_table_has_remote_id`] is true, pass `true` so each
+///   candidate carries `remote_id` for `.emlx` stem resolution (often IMAP UID vs `ROWID`).
 pub fn list_candidates_since_keyset(
     conn: &Connection,
     limit: usize,
     since_unix_ts: i64,
-    after_rowid: i64,
+    after: Option<(i64, i64)>,
+    include_remote_id: bool,
 ) -> rusqlite::Result<Vec<EnvelopeCandidate>> {
-    let sql = "SELECT ROWID, mailbox, date_received, deleted, flags \
-         FROM messages \
-         WHERE date_received >= ?1 AND deleted = 0 AND ROWID > ?2 \
-         ORDER BY ROWID ASC \
-         LIMIT ?3";
     let lim = i64::try_from(limit).unwrap_or(i64::MAX);
-    let mut stmt = conn.prepare(sql)?;
-    let mut rows = stmt.query(rusqlite::params![since_unix_ts, after_rowid, lim])?;
+    let sel = if include_remote_id {
+        "SELECT ROWID, mailbox, date_received, deleted, flags, remote_id"
+    } else {
+        "SELECT ROWID, mailbox, date_received, deleted, flags"
+    };
+    let sql = if after.is_none() {
+        format!(
+            "{sel} \
+         FROM messages \
+         WHERE date_received >= ?1 AND deleted = 0 \
+         ORDER BY date_received DESC, ROWID DESC \
+         LIMIT ?2"
+        )
+    } else {
+        format!(
+            "{sel} \
+         FROM messages \
+         WHERE date_received >= ?1 AND deleted = 0 \
+         AND (date_received < ?3 OR (date_received = ?3 AND ROWID < ?4)) \
+         ORDER BY date_received DESC, ROWID DESC \
+         LIMIT ?2"
+        )
+    };
+    let mut stmt = conn.prepare(&sql)?;
+    let mut rows = match after {
+        None => stmt.query(rusqlite::params![since_unix_ts, lim])?,
+        Some((cursor_date, cursor_rowid)) => stmt.query(rusqlite::params![
+            since_unix_ts,
+            lim,
+            cursor_date,
+            cursor_rowid
+        ])?,
+    };
     let mut out = Vec::new();
     while let Some(row) = rows.next()? {
         let rowid: i64 = row.get(0)?;
@@ -251,12 +302,18 @@ pub fn list_candidates_since_keyset(
         let date_received: i64 = row.get(2)?;
         let deleted: i32 = row.get(3)?;
         let flags: i64 = row.get(4)?;
+        let remote_id = if include_remote_id {
+            row.get::<_, Option<i64>>(5)?
+        } else {
+            None
+        };
         out.push(EnvelopeCandidate {
             rowid,
             mailbox,
             date_received,
             deleted,
             flags,
+            remote_id,
         });
     }
     Ok(out)
@@ -526,17 +583,23 @@ mod tests {
             );
              INSERT INTO messages VALUES (1, 1700000000, 0, 0);
              INSERT INTO messages VALUES (1, 1700000100, 0, 0);
+             INSERT INTO messages VALUES (1, 1700000200, 0, 0);
              INSERT INTO messages VALUES (2, 1690000000, 0, 0);",
         )
         .unwrap();
         let since = 1_700_000_000_i64;
-        let p0 = list_candidates_since_keyset(&conn, 10, since, 0).unwrap();
+        let p0 = list_candidates_since_keyset(&conn, 2, since, None, false).unwrap();
         assert_eq!(p0.len(), 2);
-        assert_eq!(p0[0].rowid, 1);
+        assert_eq!(p0[0].rowid, 3);
+        assert_eq!(p0[0].date_received, 1_700_000_200);
         assert_eq!(p0[1].rowid, 2);
-        let after = p0[1].rowid;
-        let p1 = list_candidates_since_keyset(&conn, 10, since, after).unwrap();
-        assert!(p1.is_empty());
+        let after = (p0[1].date_received, p0[1].rowid);
+        let p1 = list_candidates_since_keyset(&conn, 10, since, Some(after), false).unwrap();
+        assert_eq!(p1.len(), 1);
+        assert_eq!(p1[0].rowid, 1);
+        let after2 = (p1[0].date_received, p1[0].rowid);
+        let p2 = list_candidates_since_keyset(&conn, 10, since, Some(after2), false).unwrap();
+        assert!(p2.is_empty());
     }
 
     #[test]

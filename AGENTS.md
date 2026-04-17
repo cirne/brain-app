@@ -33,10 +33,18 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 
 Copy `[.env.example](.env.example)` to `.env` and edit. Variable names and inline comments live in `.env.example`; semantics and architecture-level notes are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/architecture/configuration.md](docs/architecture/configuration.md).
 
+## Node.js (nvm) — do this before any Node command
+
+The repo pins the Node major version in **[`.nvmrc`](.nvmrc)**. **Run `nvm use` from the repository root before any `npm`, `npx`, or `node` invocation**—install, scripts, tests, `npm run build`, `desktop:bundle-server`, Tauri bundling, CI-style commands, or agent-driven automation.
+
+**Why:** Using a different Node (system Node, another shell’s default, or a non-repo version) causes **native addon mismatches** (e.g. `better-sqlite3` failing during `npm ci` / `desktop:bundle-server`) and **wrong binaries** bundled into the desktop `server-bundle` (the packager copies the current `node`).
+
+In non-interactive shells (scripts, agents, CI), ensure nvm is loaded first, e.g. `source ~/.nvm/nvm.sh` (or your install path), then `nvm use`.
+
 ## Dev
 
 ```sh
-nvm use          # switches to Node 22
+nvm use          # must match .nvmrc before npm/node (see “Node.js (nvm)” above)
 npm install
 npm run dev      # starts Hono + Vite HMR on single port 3000 (see docs/google-oauth.md)
 ```

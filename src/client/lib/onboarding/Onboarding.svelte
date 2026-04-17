@@ -3,6 +3,24 @@
   import OnboardingWorkspace from './OnboardingWorkspace.svelte'
   import ProfileDraftEditor from './ProfileDraftEditor.svelte'
   import {
+    fetchOnboardingMailStatus,
+    fetchOnboardingState,
+    patchOnboardingState,
+    postAcceptProfile,
+    postInboxSyncStart,
+    postPrepareSeed,
+    postSetupAppleMail,
+    fetchProfileDraftMarkdown,
+    SETUP_MAIL_ABORT_MESSAGE,
+  } from './onboardingApi.js'
+  import { buildIndexingElapsedLine, buildIndexingProgressLine } from './onboardingIndexingUi.js'
+  import {
+    ONBOARDING_LARGE_WINDOW_STATES,
+    emptyOnboardingMail,
+    MIN_INDEXED_FOR_PROFILE,
+    type OnboardingMailStatus,
+  } from './onboardingTypes.js'
+  import {
     ONBOARDING_PROFILE_CHAT_STORAGE_KEY,
     ONBOARDING_SEED_CHAT_STORAGE_KEY,
   } from './onboardingStorageKeys.js'
@@ -12,44 +30,14 @@
   } from './seedConstants.js'
   import { resizeMainWindowToBrowserLikeWorkArea } from '../desktop/browserLikeWindow.js'
 
-  const ONBOARDING_LARGE_WINDOW_STATES = new Set([
-    'profiling',
-    'reviewing-profile',
-    'seeding',
-    'done',
-  ])
-
   interface Props {
     onComplete: () => Promise<void>
     refreshStatus: () => Promise<void>
   }
   let { onComplete, refreshStatus }: Props = $props()
 
-  type MailApi = {
-    configured: boolean
-    indexedTotal: number | null
-    lastSyncedAt: string | null
-    dateRange: { from: string | null; to: string | null }
-    syncRunning: boolean
-    ftsReady: number | null
-    indexingHint?: string | null
-    statusError?: string
-  }
-
-  function emptyMail(): MailApi {
-    return {
-      configured: false,
-      indexedTotal: null,
-      lastSyncedAt: null,
-      dateRange: { from: null, to: null },
-      syncRunning: false,
-      ftsReady: null,
-      indexingHint: null,
-    }
-  }
-
   let state = $state<string>('not-started')
-  let mail = $state<MailApi>(emptyMail())
+  let mail = $state<OnboardingMailStatus>(emptyOnboardingMail())
   let setupError = $state<string | null>(null)
   /** Review / accept-profile / confirming-categories recovery */
   let profileStepError = $state<string | null>(null)
@@ -69,31 +57,15 @@
   /** Legacy / partial failure: auto-run prepare-seed once when landing on confirming-categories. */
   let confirmingAutoRecoverDone = $state(false)
 
-  const MIN_INDEXED_FOR_PROFILE = 1000
   const canBuildProfile = $derived((mail.indexedTotal ?? 0) >= MIN_INDEXED_FOR_PROFILE)
 
   async function loadMailOnly() {
-    try {
-      const res = await fetch('/api/onboarding/mail')
-      const j = (await res.json()) as Partial<MailApi>
-      const base = emptyMail()
-      mail = {
-        ...base,
-        ...j,
-        dateRange: {
-          ...base.dateRange,
-          ...(j.dateRange ?? {}),
-        },
-      }
-    } catch {
-      /* keep prior */
-    }
+    const next = await fetchOnboardingMailStatus()
+    if (next) mail = next
   }
 
   async function load() {
-    const res = await fetch('/api/onboarding/status')
-    const j = (await res.json()) as { state: string }
-    state = j.state
+    state = await fetchOnboardingState()
     await loadMailOnly()
   }
 
@@ -123,18 +95,15 @@
     if (state !== 'indexing') return
     const id = setInterval(() => {
       indexingElapsedTick += 1
-    }, 15000)
+    }, 5000)
     return () => clearInterval(id)
   })
+
+  const indexingProgressLine = $derived(buildIndexingProgressLine(mail))
+
   const indexingElapsedLine = $derived.by(() => {
     void indexingElapsedTick
-    if (state !== 'indexing' || indexingStartedAt === null) return null
-    const min = Math.floor((Date.now() - indexingStartedAt) / 60000)
-    if (min < 2) return null
-    if (min < 5) {
-      return 'Still working — the first batch can take a few minutes on a large mailbox.'
-    }
-    return `About ${min} minutes so far — you can leave this screen open; we’ll continue in the background.`
+    return buildIndexingElapsedLine(state, indexingStartedAt, Date.now())
   })
 
   /** After enough mail is indexed, leave indexing without a manual “proceed” tap. */
@@ -163,15 +132,7 @@
   })
 
   async function patchState(next: string) {
-    const res = await fetch('/api/onboarding/state', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ state: next }),
-    })
-    if (!res.ok) {
-      const e = (await res.json().catch(() => ({}))) as { error?: string }
-      throw new Error(e.error ?? res.statusText)
-    }
+    await patchOnboardingState(next)
     await refreshStatus()
     await load()
   }
@@ -182,10 +143,9 @@
     busy = true
     await tick()
     try {
-      const syncRes = await fetch('/api/inbox/sync', { method: 'POST' })
-      const syncBody = (await syncRes.json().catch(() => ({}))) as { ok?: boolean; error?: string }
-      if (!syncRes.ok || !syncBody.ok) {
-        setupError = syncBody.error ?? 'Could not start indexing your mail. Try again.'
+      const r = await postInboxSyncStart()
+      if (!r.ok) {
+        setupError = r.error
         return
       }
       await patchState('indexing')
@@ -201,34 +161,15 @@
     busy = true
     await tick()
     try {
-      const res = await fetch('/api/onboarding/setup-mail', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-        // Server waits for `ripmail setup` (up to 120s) before responding; keep UI responsive with spinner above.
-        signal: AbortSignal.timeout(125_000),
-      })
-      const raw = await res.text()
-      let j: { ok?: boolean; error?: string }
-      try {
-        j = JSON.parse(raw) as { ok?: boolean; error?: string }
-      } catch {
-        setupError =
-          raw.trim().length > 0
-            ? `Setup failed (${res.status}): ${raw.slice(0, 400)}`
-            : `Setup failed (${res.status}): empty or non-JSON response`
+      const r = await postSetupAppleMail()
+      if (!r.ok) {
+        setupError = r.error
         return
       }
-      if (!res.ok || !j.ok) {
-        setupError = j.error ?? 'Setup failed'
-        return
-      }
-      await fetch('/api/inbox/sync', { method: 'POST' })
       await patchState('indexing')
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') {
-        setupError =
-          'Setup took too long (over 2 minutes). The bundled server logs Hono and ripmail output to ~/Library/Logs/com.cirne.brain/node-server.log — tail that file to see progress or errors.'
+        setupError = SETUP_MAIL_ABORT_MESSAGE
       } else {
         setupError = e instanceof Error ? e.message : String(e)
       }
@@ -238,11 +179,8 @@
   }
 
   async function loadDraft() {
-    const res = await fetch('/api/onboarding/profile-draft')
-    if (res.ok) {
-      const j = (await res.json()) as { markdown: string }
-      draftMarkdown = j.markdown
-    }
+    const md = await fetchProfileDraftMarkdown()
+    if (md != null) draftMarkdown = md
   }
 
   async function acceptProfile() {
@@ -258,15 +196,7 @@
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean)
-      const res = await fetch('/api/onboarding/accept-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories }),
-      })
-      if (!res.ok) {
-        const j = (await res.json()) as { error?: string }
-        throw new Error(j.error ?? 'Accept failed')
-      }
+      await postAcceptProfile(categories)
       await refreshStatus()
       await load()
     } catch (e) {
@@ -284,15 +214,7 @@
       .filter(Boolean)
     busy = true
     try {
-      const res = await fetch('/api/onboarding/prepare-seed', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories }),
-      })
-      if (!res.ok) {
-        const j = (await res.json()) as { error?: string }
-        throw new Error(j.error ?? 'prepare-seed failed')
-      }
+      await postPrepareSeed(categories)
       await refreshStatus()
       await load()
     } catch (e) {
@@ -498,6 +420,9 @@
             </p>
           </div>
           <div class="ob-indexing-status-slot" aria-live="polite">
+            {#if indexingProgressLine}
+              <p class="ob-indexing-progress">{indexingProgressLine}</p>
+            {/if}
             {#if mail.indexingHint}
               <p class="ob-indexing-hint">{mail.indexingHint}</p>
             {/if}
@@ -605,7 +530,7 @@
   }
 
   /**
-   * Indexing: keep orbit + title stack fixed while status lines (hint / elapsed / error) update.
+   * Indexing: keep orbit + title stack fixed while status lines (progress / hint / elapsed / error) update.
    * The status slot reserves height (and caps overflow) so the centered column doesn’t jump when copy updates.
    */
   .ob-hero--indexing {
@@ -704,13 +629,19 @@
   }
 
   .ob-indexing-hint,
-  .ob-indexing-elapsed {
+  .ob-indexing-elapsed,
+  .ob-indexing-progress {
     margin: 0;
     max-width: 26rem;
     font-size: 0.875rem;
     line-height: 1.45;
     color: var(--text-2);
     text-wrap: balance;
+  }
+
+  .ob-indexing-progress {
+    font-weight: 500;
+    color: var(--text-1);
   }
 
   .ob-indexing-elapsed {

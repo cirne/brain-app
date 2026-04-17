@@ -89,6 +89,8 @@ pub(crate) fn run_status(json: bool, imap: bool) -> CliResult {
         } else {
             ripmail::format_time_ago(status.sync.last_sync_at.as_deref())
         };
+        // `search.indexedMessages` / `ftsReady`: live COUNT(*) from `messages` (FTS). Same value; use
+        // `indexedMessages` in UIs. `sync.totalMessages` may differ (sync_summary bookkeeping).
         let mut out = serde_json::json!({
             "sync": {
                 "isRunning": status.sync.is_running,
@@ -104,7 +106,10 @@ pub(crate) fn run_status(json: bool, imap: bool) -> CliResult {
                 "staleLockInDb": stale_lock,
                 "initialSyncHangSuspected": hang_suspected,
             },
-            "search": { "ftsReady": status.fts_ready },
+            "search": {
+                "indexedMessages": status.fts_ready,
+                "ftsReady": status.fts_ready,
+            },
             "freshness": {
                 "lastSyncAgo": last_sync_ago.as_ref().map(|time| serde_json::json!({
                     "human": time.human,

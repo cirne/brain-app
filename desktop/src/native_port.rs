@@ -1,5 +1,10 @@
-//! Default HTTP port range for the bundled Tauri app (TCP probe + WebView URL).
+//! Default HTTP port range for the bundled Brain server (Node picks from this list; see
+//! `nativeAppPort.ts`). Tauri reads the bound port from child stdout (`BRAIN_LISTEN_PORT`), not
+//! by probing TCP.
 //! Must stay in sync with `src/server/lib/nativeAppPort.ts`.
+
+#![allow(dead_code)]
+// Kept public so the contract test below matches TypeScript; `server_spawn` uses stdout instead.
 
 pub const NATIVE_APP_PORT_START: u16 = 18473;
 pub const NATIVE_APP_PORT_END: u16 = 18522;

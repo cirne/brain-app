@@ -17,6 +17,8 @@ export type OnboardingMailStatusPayload = {
   lastSyncedAt: string | null
   dateRange: { from: string | null; to: string | null }
   syncRunning: boolean
+  /** From `ripmail status --json` `sync.lockAgeMs` — how long the current sync has held the lock. */
+  syncLockAgeMs: number | null
   ftsReady: number | null
   /** Plain-language line for the indexing onboarding screen; null when nothing extra to say. */
   indexingHint?: string | null
@@ -58,6 +60,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
     lastSyncedAt: null,
     dateRange: { from: null, to: null },
     syncRunning: false,
+    syncLockAgeMs: null,
     ftsReady: null,
     indexingHint: null,
   }
@@ -93,6 +96,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
           totalMessages: sync.totalMessages,
           earliestSyncedDate: sync.earliestSyncedDate,
           latestSyncedDate: sync.latestSyncedDate,
+          lockAgeMs: sync.lockAgeMs,
         }
       }
       if (Array.isArray(j.mailboxes)) {
@@ -136,6 +140,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
         lastSyncedAt: parsed.lastSyncedAt,
         dateRange: parsed.dateRange,
         syncRunning: parsed.syncRunning,
+        syncLockAgeMs: parsed.syncLockAgeMs,
         ftsReady: parsed.ftsReady,
         indexingHint: computeIndexingUserHint(parsed),
       }

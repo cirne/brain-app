@@ -70,4 +70,11 @@ describe('brainHttpPort', () => {
     // Non-bundled: PORT env drives the redirect, not the native port variable.
     expect(oauthRedirectListenPort()).toBe(3000)
   })
+
+  it('BRAIN_LISTEN_PORT stdout line matches Tauri parser (desktop/src/server_spawn.rs)', () => {
+    const line = `BRAIN_LISTEN_PORT=${NATIVE_APP_PORT_START + 1}\n`
+    const m = /^BRAIN_LISTEN_PORT=(\d+)\s*$/.exec(line.trim())
+    expect(m).not.toBeNull()
+    expect(Number(m![1])).toBe(NATIVE_APP_PORT_START + 1)
+  })
 })

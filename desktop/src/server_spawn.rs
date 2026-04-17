@@ -1,10 +1,10 @@
 //! Spawn bundled Node + Hono in release builds (after embedded env is applied).
 
 use std::fs::OpenOptions;
-use std::io::Write;
-use std::net::TcpStream;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::mpsc;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
@@ -12,9 +12,15 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 use crate::brain_paths;
-use crate::native_port;
 
 pub struct ServerChild(pub Mutex<Option<Child>>);
+
+const BRAIN_LISTEN_PORT_PREFIX: &str = "BRAIN_LISTEN_PORT=";
+
+fn parse_brain_listen_port_line(line: &str) -> Option<u16> {
+    line.strip_prefix(BRAIN_LISTEN_PORT_PREFIX)
+        .and_then(|rest| rest.trim().parse().ok())
+}
 
 fn resolve_home_for_child(cmd: &mut Command) -> Option<String> {
     if let Ok(h) = std::env::var("HOME") {
@@ -43,7 +49,7 @@ fn resolve_server_bundle_dir(resource_dir: &Path) -> Option<PathBuf> {
 }
 
 /// Start `node dist/server/index.js` from the bundled `server-bundle/` directory.
-/// Returns the TCP port the server accepted (same sequence as `native_port::native_port_candidates`).
+/// Returns the port printed by Node as `BRAIN_LISTEN_PORT=<port>` (the process that owns the child).
 pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
     let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
     let bundle = resolve_server_bundle_dir(&resource_dir).ok_or_else(|| {
@@ -132,37 +138,99 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
     }
 
     // Append stdout/stderr to app log so `ripmail setup` and Hono logs are visible (not discarded).
-    if let Some(out) = child.stdout.take() {
-        drain_pipe(out, log_path.clone());
-    }
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "spawn node: missing stdout pipe".to_string())?;
     if let Some(err) = child.stderr.take() {
         drain_pipe(err, log_path.clone());
     }
 
-    for _ in 0..120 {
-        for port in native_port::native_port_candidates() {
-            if TcpStream::connect(format!("127.0.0.1:{port}")).is_ok() {
-                if let Some(ref p) = log_path {
-                    log::info!(
-                        "Brain bundled server: Node/Hono stdout+stderr (incl. ripmail) → {}",
-                        p.display()
-                    );
+    let (tx, rx) = mpsc::channel::<Result<u16, String>>();
+    let log_path_out = log_path.clone();
+    thread::spawn(move || {
+        let mut reader = BufReader::new(stdout);
+        let mut line = String::new();
+        let mut file = log_path_out
+            .as_ref()
+            .and_then(|p| OpenOptions::new().create(true).append(true).open(p).ok());
+        let mut sent = false;
+        loop {
+            line.clear();
+            match reader.read_line(&mut line) {
+                Ok(0) => break,
+                Ok(_) => {
+                    if let Some(port) = parse_brain_listen_port_line(&line) {
+                        if !sent {
+                            let _ = tx.send(Ok(port));
+                            sent = true;
+                        }
+                    }
+                    if let Some(ref mut f) = file {
+                        let _ = f.write_all(line.as_bytes());
+                    }
                 }
-                log::info!("Brain bundled server listening on 127.0.0.1:{port}");
-                app.manage(ServerChild(Mutex::new(Some(child))));
-                return Ok(port);
+                Err(e) => {
+                    if !sent {
+                        let _ = tx.send(Err(format!("read node stdout: {e}")));
+                    }
+                    break;
+                }
             }
         }
-        thread::sleep(Duration::from_millis(250));
-    }
+        if !sent {
+            let _ = tx.send(Err(
+                "node did not print BRAIN_LISTEN_PORT=<port> to stdout (bundled server failed to bind?)"
+                    .into(),
+            ));
+        }
+    });
 
-    let _ = child.kill();
-    Err(format!(
-        "Hono server did not listen on 127.0.0.1 in native port range {}–{} (skip {}) in time",
-        native_port::NATIVE_APP_PORT_START,
-        native_port::NATIVE_APP_PORT_END,
-        native_port::NATIVE_APP_PORT_SKIP
-    ))
+    let port = match rx.recv_timeout(Duration::from_secs(45)) {
+        Ok(Ok(p)) => p,
+        Ok(Err(e)) => {
+            let _ = child.kill();
+            return Err(e);
+        }
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            let _ = child.kill();
+            return Err(
+                "timed out waiting for BRAIN_LISTEN_PORT from bundled Node (check app logs)".into(),
+            );
+        }
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            let _ = child.kill();
+            return Err("stdout reader disconnected before BRAIN_LISTEN_PORT".into());
+        }
+    };
+
+    if let Some(ref p) = log_path {
+        log::info!(
+            "Brain bundled server: Node/Hono stdout+stderr (incl. ripmail) → {}",
+            p.display()
+        );
+    }
+    log::info!("Brain bundled server listening on 127.0.0.1:{port} (from child stdout)");
+    app.manage(ServerChild(Mutex::new(Some(child))));
+    Ok(port)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_brain_listen_port_line;
+
+    #[test]
+    fn parse_listen_port_line() {
+        assert_eq!(
+            parse_brain_listen_port_line("BRAIN_LISTEN_PORT=18474\n"),
+            Some(18474)
+        );
+        assert_eq!(
+            parse_brain_listen_port_line("BRAIN_LISTEN_PORT=18473"),
+            Some(18473)
+        );
+        assert_eq!(parse_brain_listen_port_line("other\n"), None);
+    }
 }
 
 pub fn kill_server_child(app: &AppHandle) {

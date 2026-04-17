@@ -177,6 +177,8 @@ async function listenNativeBundled(): Promise<ServerType> {
     const bound = await tryListen(server, p)
     if (bound) {
       setActualNativePort(p)
+      // Tauri reads this line to navigate the webview; do not remove or prefix with other text.
+      console.log(`BRAIN_LISTEN_PORT=${p}`)
       if (p !== candidates[0]) {
         console.log(`[brain-app] Port ${candidates[0]} in use; bound to fallback port ${p}`)
       }

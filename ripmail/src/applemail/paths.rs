@@ -125,12 +125,49 @@ fn uuid_like_dir_name(name: &str) -> bool {
         .all(|(p, &len)| p.len() == len && p.chars().all(|c| c.is_ascii_hexdigit()))
 }
 
-/// Prefer deterministic `…/Data/…/Messages/{rowid}.emlx` (or `.partial.emlx`); fall back to BFS scan.
+/// Prefer deterministic `…/Data/…/Messages/{stem}.emlx` (or `.partial.emlx`); fall back to BFS scan.
+///
+/// Tries **`rowid`** (Envelope `messages` SQLite `ROWID`) first, then **`remote_id`** when it
+/// differs — on-disk filenames often use IMAP UID / `remote_id`, not `ROWID`.
 pub fn resolve_emlx_deterministic_then_scan(
     mail_library_root: &Path,
     envelope: &Connection,
     mailbox_rowid: i64,
     rowid: i64,
+    remote_id: Option<i64>,
+    cache: &mut ApplemailEmlxCache,
+) -> (Option<PathBuf>, PathResolveDiag) {
+    let mut stems: Vec<i64> = vec![rowid];
+    if let Some(r) = remote_id {
+        if r != rowid {
+            stems.push(r);
+        }
+    }
+    let mut last = PathResolveDiag {
+        mailbox_rowid: Some(mailbox_rowid),
+        method: PathResolveMethod::NotFound,
+    };
+    for stem in stems {
+        let (opt, diag) = resolve_emlx_deterministic_then_scan_one_stem(
+            mail_library_root,
+            envelope,
+            mailbox_rowid,
+            stem,
+            cache,
+        );
+        last = diag;
+        if opt.is_some() {
+            return (opt, last);
+        }
+    }
+    (None, last)
+}
+
+fn resolve_emlx_deterministic_then_scan_one_stem(
+    mail_library_root: &Path,
+    envelope: &Connection,
+    mailbox_rowid: i64,
+    stem: i64,
     cache: &mut ApplemailEmlxCache,
 ) -> (Option<PathBuf>, PathResolveDiag) {
     let Some(mbox) = resolve_mailbox_mbox_path(envelope, mailbox_rowid, mail_library_root) else {
@@ -145,7 +182,7 @@ pub fn resolve_emlx_deterministic_then_scan(
 
     if let Some(store) = discover_store_root(&mbox) {
         let data_dir = store.join("Data");
-        let full = emlx_shard_path(&data_dir, rowid);
+        let full = emlx_shard_path(&data_dir, stem);
         if full.is_file() {
             return (
                 Some(full),
@@ -157,11 +194,11 @@ pub fn resolve_emlx_deterministic_then_scan(
         }
         let partial = full
             .parent()
-            .map(|p| p.join(format!("{rowid}.partial.emlx")))
+            .map(|p| p.join(format!("{stem}.partial.emlx")))
             .unwrap_or_else(|| {
                 data_dir
                     .join("Messages")
-                    .join(format!("{rowid}.partial.emlx"))
+                    .join(format!("{stem}.partial.emlx"))
             });
         if partial.is_file() {
             return (
@@ -177,7 +214,7 @@ pub fn resolve_emlx_deterministic_then_scan(
     resolve_emlx_path_with_diag(
         mail_library_root,
         envelope,
-        rowid,
+        stem,
         Some(mailbox_rowid),
         cache,
     )
@@ -445,28 +482,26 @@ pub fn resolve_emlx_for_row(
     row: &EnvelopeMessageRow,
 ) -> Option<PathBuf> {
     let mut cache = ApplemailEmlxCache::new();
-    resolve_emlx_path_with_diag(
-        mail_library_root,
-        envelope,
-        row.emlx_file_stem_id(),
-        row.mailbox_rowid,
-        &mut cache,
-    )
-    .0
+    resolve_emlx_for_row_with_diag(mail_library_root, envelope, row, &mut cache).0
 }
 
-/// Best-effort with diagnostics (see [`PathResolveDiag`]).
+/// Best-effort with diagnostics (see [`PathResolveDiag`]). When `mailbox_rowid` is set, uses the
+/// same [`resolve_emlx_deterministic_then_scan`] strategy as Apple Mail sync (ROWID then `remote_id`).
 pub fn resolve_emlx_for_row_with_diag(
     mail_library_root: &Path,
     envelope: &Connection,
     row: &EnvelopeMessageRow,
     cache: &mut ApplemailEmlxCache,
 ) -> (Option<PathBuf>, PathResolveDiag) {
-    resolve_emlx_path_with_diag(
+    let Some(mb) = row.mailbox_rowid else {
+        return resolve_emlx_path_with_diag(mail_library_root, envelope, row.rowid, None, cache);
+    };
+    resolve_emlx_deterministic_then_scan(
         mail_library_root,
         envelope,
-        row.emlx_file_stem_id(),
-        row.mailbox_rowid,
+        mb,
+        row.rowid,
+        row.remote_id,
         cache,
     )
 }
@@ -590,6 +625,38 @@ mod tests {
         assert_eq!(parse_emlx_stem("12345.partial.emlx"), Some(12345));
         assert_eq!(parse_emlx_stem("notanumber.emlx"), None);
         assert_eq!(parse_emlx_stem("12345.txt"), None);
+    }
+
+    #[test]
+    fn resolve_deterministic_then_scan_falls_back_to_remote_id_stem() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mail_root = tmp.path().join("V1");
+        let mbox = mail_root.join("Acc.mbox");
+        let uuid = "D9A37CC5-A285-4709-A74E-9F59CDA36BF2";
+        // On-disk file uses stem 100 (typical when Envelope `remote_id` matches IMAP UID, not ROWID).
+        let emlx = mbox
+            .join(uuid)
+            .join("Data")
+            .join("Messages")
+            .join("100.emlx");
+        fs::create_dir_all(emlx.parent().unwrap()).unwrap();
+        fs::write(&emlx, b"1\nx").unwrap();
+
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE mailboxes (url TEXT);
+             INSERT INTO mailboxes VALUES ('file://localhost')",
+        )
+        .unwrap();
+        let url = format!("file://{}", mbox.display());
+        conn.execute("UPDATE mailboxes SET url = ?1 WHERE ROWID = 1", [&url])
+            .unwrap();
+
+        let mut cache = ApplemailEmlxCache::new();
+        let (got, diag) =
+            resolve_emlx_deterministic_then_scan(&mail_root, &conn, 1, 5, Some(100), &mut cache);
+        assert_eq!(got.as_deref(), Some(emlx.as_path()));
+        assert!(matches!(diag.method, PathResolveMethod::MailboxUrl));
     }
 
     #[test]

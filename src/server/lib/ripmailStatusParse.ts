@@ -8,6 +8,9 @@ export type ParsedRipmailStatus = {
   dateRange: { from: string | null; to: string | null }
   /** True when a live sync holds the lock (not stale DB “running” with no process). */
   syncRunning: boolean
+  /** Age of the sync lock in ms (`sync.lockAgeMs`); useful when message count is still zero. */
+  syncLockAgeMs: number | null
+  /** Same as indexed row count (`search.indexedMessages` / `ftsReady` in JSON). */
   ftsReady: number | null
   staleLockInDb: boolean
   initialSyncHangSuspected: boolean
@@ -31,7 +34,7 @@ function readBool(v: unknown): boolean | undefined {
   return undefined
 }
 
-/** Sum `messageCount` across `mailboxes[]` (Apple Mail interim progress updates here while `sync.totalMessages` stays 0). */
+/** Sum `messageCount` across `mailboxes[]` (matches per-mailbox `COUNT(*)` in ripmail; interim hint when indexed is still 0). */
 function sumMailboxMessageCounts(mailboxes: unknown): number {
   if (!Array.isArray(mailboxes)) return 0
   let n = 0
@@ -43,22 +46,35 @@ function sumMailboxMessageCounts(mailboxes: unknown): number {
   return n
 }
 
+/** Ripmail `status --json`: `search.indexedMessages` (canonical); legacy builds only had `ftsReady` (same value). */
+function readSearchIndexedCount(search: Record<string, unknown> | undefined): number | null {
+  if (!search || typeof search !== 'object') return null
+  const fromIndexed = readNum(search.indexedMessages)
+  if (fromIndexed != null) return fromIndexed
+  return readNum(search.ftsReady)
+}
+
 /**
- * Best-effort indexed count: `sync.totalMessages` once the sync layer has committed totals;
- * while Apple Mail backfill runs, ripmail often keeps `totalMessages` at 0 but updates
- * `mailboxes[].messageCount` and `search.ftsReady` — use those as interim counts.
+ * Rows in the local index (`messages` / FTS). Never use `sync.totalMessages` for this — it is sync bookkeeping and can diverge.
  */
 function resolveIndexedTotal(
   sync: Record<string, unknown>,
   mailboxes: unknown,
-  fts: number | null,
+  search: Record<string, unknown> | undefined,
 ): number | null {
+  const indexed = readSearchIndexedCount(search)
   const totalFromSync = readNum(sync.totalMessages)
-  if (totalFromSync != null && totalFromSync > 0) return totalFromSync
-
   const mailboxSum = sumMailboxMessageCounts(mailboxes)
-  const interim = Math.max(fts ?? 0, mailboxSum)
-  if (interim > 0) return interim
+
+  if (indexed != null) {
+    if (indexed > 0) return indexed
+    if (mailboxSum > 0) return mailboxSum
+    if (totalFromSync === 0) return 0
+    return 0
+  }
+
+  if (totalFromSync != null && totalFromSync > 0) return totalFromSync
+  if (mailboxSum > 0) return mailboxSum
   if (totalFromSync === 0) return 0
   return null
 }
@@ -91,6 +107,10 @@ export function computeIndexingUserHint(parsed: ParsedRipmailStatus): string | n
     (parsed.indexedTotal ?? 0) === 0 &&
     (parsed.ftsReady ?? 0) === 0
   ) {
+    // UI shows `sync.lockAgeMs` as live “sync running” feedback; keep a short note only when we lack that.
+    if (parsed.syncLockAgeMs != null && parsed.syncLockAgeMs >= 1000) {
+      return 'The count can stay at zero for a few minutes while Mail is scanned — that’s normal.'
+    }
     return 'We’re scanning your mailbox. The number can stay at zero for a few minutes before the first messages appear — that’s normal.'
   }
   return null
@@ -104,7 +124,7 @@ export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | nu
     if (!sync || typeof sync !== 'object') return null
 
     const search = j.search as Record<string, unknown> | undefined
-    const fts = search && typeof search === 'object' ? readNum(search.ftsReady) : null
+    const indexedCount = readSearchIndexedCount(search)
 
     const stale = readBool(sync.staleLockInDb) === true
     const lockLive = readBool(sync.lockHeldByLiveProcess) !== false
@@ -113,16 +133,18 @@ export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | nu
 
     const hang = readBool(sync.initialSyncHangSuspected) === true
     const pendingRefresh = anyMailboxNeedsBackfill(j.mailboxes) && !syncRunning && !stale
+    const lockAge = readNum(sync.lockAgeMs)
 
     return {
-      indexedTotal: resolveIndexedTotal(sync, j.mailboxes, fts),
+      indexedTotal: resolveIndexedTotal(sync, j.mailboxes, search),
       lastSyncedAt: readStrOrNull(sync.lastSyncAt),
       dateRange: {
         from: readStrOrNull(sync.earliestSyncedDate),
         to: readStrOrNull(sync.latestSyncedDate),
       },
       syncRunning,
-      ftsReady: fts,
+      syncLockAgeMs: lockAge,
+      ftsReady: indexedCount,
       staleLockInDb: stale,
       initialSyncHangSuspected: hang,
       pendingRefresh,
