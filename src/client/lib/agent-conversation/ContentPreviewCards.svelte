@@ -2,6 +2,7 @@
   import CalendarPreviewCard from '../cards/CalendarPreviewCard.svelte'
   import EditDiffPreviewCard from '../cards/EditDiffPreviewCard.svelte'
   import WikiPreviewCard from '../cards/WikiPreviewCard.svelte'
+  import FilePreviewCard from '../cards/FilePreviewCard.svelte'
   import EmailPreviewCard from '../cards/EmailPreviewCard.svelte'
   import InboxListPreviewCard from '../cards/InboxListPreviewCard.svelte'
   import MessageThreadPreviewCard from '../cards/MessageThreadPreviewCard.svelte'
@@ -10,6 +11,7 @@
   let {
     preview,
     onOpenWiki,
+    onOpenFile,
     onOpenEmail,
     onOpenFullInbox,
     onSwitchToCalendar,
@@ -17,6 +19,7 @@
   }: {
     preview: ContentCardPreview
     onOpenWiki?: (_path: string) => void
+    onOpenFile?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
@@ -34,6 +37,8 @@
   />
 {:else if preview.kind === 'wiki'}
   <WikiPreviewCard path={preview.path} excerpt={preview.excerpt} onOpen={() => onOpenWiki?.(preview.path)} />
+{:else if preview.kind === 'file'}
+  <FilePreviewCard path={preview.path} excerpt={preview.excerpt} onOpen={() => onOpenFile?.(preview.path)} />
 {:else if preview.kind === 'email'}
   <EmailPreviewCard
     subject={preview.subject}

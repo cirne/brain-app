@@ -988,6 +988,13 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           path: Type.String({ description: 'Wiki path relative to wiki root (e.g. ideas/foo.md)' }),
         }),
         Type.Object({
+          type: Type.Literal('file'),
+          path: Type.String({
+            description:
+              'Absolute path to a file on disk (e.g. /Users/…/sheet.xlsx). Opens the Files viewer, not wiki. Do not use wiki: for raw attachments or spreadsheets.',
+          }),
+        }),
+        Type.Object({
           type: Type.Literal('email'),
           id: Type.String({ description: 'Email / thread message id' }),
         }),

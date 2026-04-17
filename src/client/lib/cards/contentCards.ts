@@ -10,6 +10,7 @@ import {
   pickReadEmailFields,
   type ReadEmailToolDetails,
 } from '../../../server/lib/readEmailPreview.js'
+import { isFilesystemAbsolutePath } from '../fsPath.js'
 export { formatEmailParticipant, flattenInboxFromRipmailData, parseRipmailInboxFlat }
 export type { InboxListItemPreview }
 
@@ -32,6 +33,7 @@ export type MessagePreviewRow = { ts: number; m: number; t: string; r?: number }
 export type ContentCardPreview =
   | { kind: 'calendar'; start: string; end: string; events: CalendarEventLite[] }
   | { kind: 'wiki'; path: string; excerpt: string }
+  | { kind: 'file'; path: string; excerpt: string }
   | { kind: 'email'; id: string; subject: string; from: string; snippet: string }
   | { kind: 'inbox_list'; items: InboxListItemPreview[]; totalCount: number }
   | { kind: 'wiki_edit_diff'; path: string; unified: string }
@@ -49,8 +51,10 @@ export type ContentCardPreview =
 /**
  * Wiki paths in the UI/API use real filenames (usually `.md`). The agent `read` tool
  * often passes paths without `.md`; normalize so preview + "open" match list/search routes.
+ * Absolute filesystem paths are left unchanged (Brain wiki lives under a repo root only).
  */
 export function wikiPathForReadToolArg(path: string): string {
+  if (isFilesystemAbsolutePath(path)) return path
   if (path.endsWith('.md') || path.endsWith('.mdx')) return path
   const lastSegment = path.split('/').pop() ?? path
   if (lastSegment.includes('.') && !lastSegment.endsWith('.md') && !lastSegment.endsWith('.mdx')) return path
@@ -194,8 +198,11 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
   if (name === 'read' && typeof args.path === 'string') {
     const excerpt = result.trim().slice(0, 360)
     if (!excerpt) return null
-    const p = args.path
+    const p = args.path.trim()
     if (/\.(png|jpe?g|gif|webp|pdf|zip|ico)$/i.test(p)) return null
+    if (isFilesystemAbsolutePath(p)) {
+      return { kind: 'file', path: p, excerpt: excerpt + (result.length > 360 ? '…' : '') }
+    }
     const displayPath = wikiPathForReadToolArg(p)
     return { kind: 'wiki', path: displayPath, excerpt: excerpt + (result.length > 360 ? '…' : '') }
   }
@@ -208,6 +215,19 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
   }
 
   if (name === 'read_doc' && typeof args.id === 'string') {
+    const id = args.id.trim()
+    if (isFilesystemAbsolutePath(id)) {
+      let excerpt = ''
+      try {
+        const j = JSON.parse(result) as { bodyText?: string }
+        const body = typeof j.bodyText === 'string' ? j.bodyText : ''
+        const flat = body.replace(/\s+/g, ' ').trim()
+        excerpt = flat.slice(0, 200) + (flat.length > 200 ? '…' : '')
+      } catch {
+        excerpt = result.trim().slice(0, 200) + (result.length > 200 ? '…' : '')
+      }
+      return { kind: 'file', path: id, excerpt }
+    }
     const d = tool.details as ReadEmailToolDetails | undefined
     if (d?.readEmailPreview === true && d.id === args.id) {
       return {

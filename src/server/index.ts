@@ -60,6 +60,7 @@ if (!isDev && process.env.AUTH_DISABLED !== 'true') {
 app.route('/api/chat', chatRoute)
 app.route('/api/skills', skillsRoute)
 app.route('/api/wiki', wikiRoute)
+app.route('/api/files', filesRoute)
 app.route('/api/inbox', inboxRoute)
 app.route('/api/calendar', calendarRoute)
 app.route('/api/search', searchRoute)

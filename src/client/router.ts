@@ -1,8 +1,15 @@
+import {
+  absolutePathFromUrlSegments,
+  isFilesystemAbsolutePath,
+  wikiUrlSegmentsLookLikeFilesystemPath,
+} from './lib/fsPath.js'
 import { encodeWikiPathSegmentsForUrl } from './lib/wikiPageHtml.js'
 
-/** Detail panel target (wiki, email thread, or calendar). */
+/** Detail panel target (wiki, email thread, calendar, or raw file on disk). */
 export type Overlay =
   | { type: 'wiki'; path?: string }
+  /** Indexed / readable file path (absolute); shown under `/files/…`, not wiki. */
+  | { type: 'file'; path?: string }
   | { type: 'email'; id?: string }
   | { type: 'calendar'; date?: string; eventId?: string }
   /** `chat` is canonical chat_identifier (E.164, email, …) for /api/messages/thread */
@@ -19,6 +26,7 @@ export type SurfaceContext =
   | { type: 'chat' }
   | { type: 'email'; threadId: string; subject: string; from: string; body?: string }
   | { type: 'wiki'; path: string; title: string }
+  | { type: 'file'; path: string; title: string }
   | { type: 'calendar'; date: string; eventId?: string }
   | { type: 'inbox' }
   | { type: 'messages'; chat: string; displayLabel: string }
@@ -36,6 +44,9 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
     return s
   }
   if (ctx.type === 'wiki') return `The user is viewing doc: ${ctx.path} (title: "${ctx.title}")`
+  if (ctx.type === 'file') {
+    return `The user is viewing a raw file on disk: ${ctx.path} (title: "${ctx.title}"). Use read_doc with this path if you need the extracted text.`
+  }
   if (ctx.type === 'calendar') {
     let s = `The user is viewing their calendar for ${ctx.date}`
     if (ctx.eventId) s += ` (focused event id: ${ctx.eventId})`
@@ -74,7 +85,21 @@ export function parseRoute(href: string = location.href): Route {
   if (seg1 === 'chat' || seg1 === 'home') {
     return {}
   }
+  if (seg1 === 'files') {
+    const path = absolutePathFromUrlSegments(rest)
+    if (path) {
+      return { overlay: { type: 'file', path } }
+    }
+    return { overlay: { type: 'file' } }
+  }
   if (seg1 === 'wiki') {
+    // Legacy: `/wiki/Users/...` or `/wiki//Users/...` pointed at disk — treat as raw file, not wiki markdown.
+    if (wikiUrlSegmentsLookLikeFilesystemPath(rest)) {
+      const fsPath = absolutePathFromUrlSegments(rest)
+      if (fsPath && isFilesystemAbsolutePath(fsPath)) {
+        return { overlay: { type: 'file', path: fsPath } }
+      }
+    }
     if (rest.length > 0 && rest[0]) {
       return { overlay: { type: 'wiki', path: rest.map(decodeURIComponent).join('/') } }
     }
@@ -118,6 +143,9 @@ export function routeToUrl(route: Route): string {
   if (!o) return '/'
   if (o.type === 'wiki') {
     return o.path ? `/wiki/${encodeWikiPathSegmentsForUrl(o.path)}` : '/wiki'
+  }
+  if (o.type === 'file') {
+    return o.path ? `/files/${encodeWikiPathSegmentsForUrl(o.path)}` : '/files'
   }
   if (o.type === 'email') {
     if (!o.id) return '/inbox'

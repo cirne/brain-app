@@ -17,11 +17,17 @@ export function navigateFromAgentOpen(
     source: AgentOpenSource
     isMobile: boolean
     openWikiDoc: (path: string) => void
+    /** Raw filesystem path — `/files/…` in the app, not wiki. */
+    openFileDoc?: (path: string) => void
     openEmailFromSearch: (id: string, subject: string, from: string) => void
     switchToCalendar: (date: string, eventId?: string) => void
   },
 ): void {
   if (ctx.isMobile && ctx.source !== 'open') return
+  if (target.type === 'file' && target.path) {
+    ctx.openFileDoc?.(target.path)
+    return
+  }
   if (target.type === 'wiki' && target.path) {
     ctx.openWikiDoc(target.path)
     return

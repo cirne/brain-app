@@ -1,4 +1,5 @@
 import { getToolUiPolicy, type ChatMessage, type ToolPart } from './agentUtils.js'
+import { isFilesystemAbsolutePath } from './fsPath.js'
 import { wikiPathForReadToolArg } from './cards/contentCards.js'
 import type { AgentOpenSource } from './navigateFromAgentOpen.js'
 
@@ -193,7 +194,12 @@ export async function consumeAgentChatStream(
               if (data.name === 'read_doc' && typeof data.args?.id === 'string' && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
                 openedFromAgentByToolId.add(data.id)
                 if (allowAgentDetailOpen() && policy.autoOpen) {
-                  onOpenFromAgent({ type: 'email', id: data.args.id }, 'read_doc')
+                  const rid = String(data.args.id).trim()
+                  if (isFilesystemAbsolutePath(rid)) {
+                    onOpenFromAgent({ type: 'file', path: rid }, 'read_doc')
+                  } else {
+                    onOpenFromAgent({ type: 'email', id: rid }, 'read_doc')
+                  }
                 }
               }
               if (
