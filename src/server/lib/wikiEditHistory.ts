@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, unlink } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 import { wikiEditsPathResolved } from './brainHome.js'
 
@@ -58,6 +58,16 @@ export async function appendWikiEditRecord(
 }
 
 /** Newest-first, unique paths (first win = most recent edit per file). */
+/** Remove agent wiki edit history (e.g. before re-seeding the vault). */
+export async function truncateWikiEditHistoryFile(): Promise<void> {
+  try {
+    await unlink(wikiEditHistoryPath())
+  } catch (e: unknown) {
+    const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
+    if (code !== 'ENOENT') throw e
+  }
+}
+
 export async function readRecentWikiEdits(limit: number): Promise<{ path: string; date: string }[]> {
   const file = wikiEditHistoryPath()
   let raw = ''

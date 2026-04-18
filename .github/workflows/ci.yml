@@ -1,4 +1,4 @@
-# Lint + test TypeScript app and Rust workspace (desktop + ripmail).
+# Lint + test TypeScript app; Rust: fmt/clippy on workspace, nextest on ripmail only.
 
 name: CI
 
@@ -24,6 +24,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
 
       - name: Full CI (JS + Rust workspace)
         run: npm run ci

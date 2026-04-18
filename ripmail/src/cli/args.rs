@@ -272,9 +272,6 @@ pub(crate) enum Commands {
         source: Option<String>,
         #[arg(long)]
         text: bool,
-        /// Print per-candidate receiver counts and display-name lookup to stderr
-        #[arg(long, short = 'v')]
-        verbose: bool,
     },
     /// Read one or more messages (raw .eml or headers + body); multiple ids = batch (JSON array, text with separators)
     Read {

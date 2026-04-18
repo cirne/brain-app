@@ -1,0 +1,105 @@
+import type { ContentCardPreview } from '../cards/contentCardShared.js'
+import type { ToolCall } from '../agentUtils.js'
+import { isFilesystemAbsolutePath } from '../fsPath.js'
+import type { SeedingMailPreview, SeedingProgressLine } from './types.js'
+import {
+  readDocIdHint,
+  readDocProgressDetail,
+  searchIndexDetail,
+  webSearchDetail,
+} from './onboardingHelpers.js'
+
+export function seedingLineGenericDone(tc: ToolCall): SeedingProgressLine {
+  const n = tc.name
+  return { id: tc.id, kind: 'done', prefix: `Finished ${n.replace(/_/g, ' ')}` }
+}
+
+export function seedingLineGenericActive(tc: ToolCall): SeedingProgressLine {
+  const n = tc.name
+  return { id: tc.id, kind: 'active-tool', prefix: `Running ${n.replace(/_/g, ' ')}` }
+}
+
+export function buildSeedingLine(
+  phase: 'done' | 'active',
+  tc: ToolCall,
+  matchPreview: (t: ToolCall) => ContentCardPreview | null,
+): SeedingProgressLine | null {
+  const args = (tc.args ?? {}) as Record<string, unknown>
+  const n = tc.name
+
+  if (n === 'write') {
+    const path = typeof args.path === 'string' ? args.path : undefined
+    if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Wrote', path }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Writing', path }
+  }
+  if (n === 'edit') {
+    const path = typeof args.path === 'string' ? args.path : undefined
+    if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Updated', path }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Updating', path }
+  }
+  if (n === 'search_index') {
+    const detail = searchIndexDetail(args)
+    if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Searched mail', detail }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Searching mail', detail }
+  }
+  if (n === 'read_doc') {
+    const idArg = typeof args.id === 'string' ? args.id.trim() : ''
+    const isFileRef = idArg.length > 0 && isFilesystemAbsolutePath(idArg)
+    let mailPreview: SeedingMailPreview | undefined
+    if (!isFileRef && idArg) {
+      if (phase === 'done' && tc.done && !tc.isError) {
+        const prev = matchPreview(tc)
+        if (prev?.kind === 'email') {
+          mailPreview = {
+            id: prev.id,
+            subject: prev.subject,
+            from: prev.from,
+            snippet: prev.snippet,
+          }
+        }
+      } else if (phase === 'active') {
+        mailPreview = {
+          id: idArg,
+          subject: '',
+          from: '',
+          snippet: readDocIdHint(idArg) ?? '',
+        }
+      }
+    }
+    const detail =
+      mailPreview && (phase === 'done' || phase === 'active')
+        ? undefined
+        : readDocProgressDetail(tc, matchPreview)
+    if (phase === 'done') {
+      return { id: tc.id, kind: 'done', prefix: 'Read a message', detail, mailPreview }
+    }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Reading a message', detail, mailPreview }
+  }
+  if (n === 'find_person') {
+    const q = typeof args.query === 'string' ? args.query.trim() : ''
+    if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Reviewed contacts', detail: q || undefined }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Finding contacts', detail: q || undefined }
+  }
+  if (n === 'list_inbox') {
+    if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Listed inbox' }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Listing inbox' }
+  }
+  if (n === 'web_search') {
+    const detail = webSearchDetail(args)
+    if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Searched the web', detail }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Searching the web', detail }
+  }
+  if (n === 'fetch_page') {
+    const u = typeof args.url === 'string' ? args.url.trim() : ''
+    const detail = u ? (u.length > 48 ? `${u.slice(0, 47)}…` : u) : undefined
+    if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Opened a web page', detail }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Opening a web page', detail }
+  }
+  if (n === 'youtube_search') {
+    const detail = webSearchDetail(args)
+    if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Searched YouTube', detail }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Searching YouTube', detail }
+  }
+  if (phase === 'done') return seedingLineGenericDone(tc)
+  return seedingLineGenericActive(tc)
+}

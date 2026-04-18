@@ -5,6 +5,7 @@
   import Onboarding from './lib/onboarding/Onboarding.svelte'
   import { parseRoute, type Route } from './router.js'
   import { clearBrainClientStorage } from './lib/brainClientStorage.js'
+  import { ONBOARDING_SEED_CHAT_STORAGE_KEY } from './lib/onboarding/onboardingStorageKeys.js'
 
   let route = $state<Route>(parseRoute())
   let appReady = $state(false)
@@ -35,6 +36,22 @@
         try {
           const res = await fetch('/api/dev/hard-reset', { method: 'POST' })
           if (res.ok) clearBrainClientStorage()
+        } catch {
+          /* ignore */
+        }
+        history.replaceState(null, '', '/onboarding')
+        route = parseRoute()
+      }
+      if (import.meta.env.DEV && parseRoute().flow === 'restart-seed') {
+        try {
+          const res = await fetch('/api/dev/restart-seed', { method: 'POST' })
+          if (res.ok) {
+            try {
+              localStorage.removeItem(ONBOARDING_SEED_CHAT_STORAGE_KEY)
+            } catch {
+              /* ignore */
+            }
+          }
         } catch {
           /* ignore */
         }

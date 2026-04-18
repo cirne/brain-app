@@ -80,6 +80,8 @@
     streamingBusyLabel = 'Thinking...',
     /** Passed to alternate onboarding transcript views only. */
     onboardingConversationKind,
+    /** Live `write` stream for onboarding profiling / seeding transcript (e.g. `me.md` preview). */
+    streamingWritePreview = null as { path: string; body: string } | null,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -115,6 +117,7 @@
     hideInput?: boolean
     streamingBusyLabel?: string
     onboardingConversationKind?: 'profiling' | 'seeding'
+    streamingWritePreview?: { path: string; body: string } | null
   } = $props()
 
   /** Dynamic transcript component (default {@link AgentConversation}). */
@@ -565,6 +568,7 @@
         {onOpenMessageThread}
         {onSwitchToCalendar}
         onboardingKind={onboardingConversationKind}
+        streamingWrite={streamingWritePreview}
       />
     </div>
 

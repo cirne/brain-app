@@ -29,4 +29,8 @@ export type AgentConversationViewProps = {
   empty?: Snippet
   /** Onboarding activity transcript only (`OnboardingProfilingView`): profiling vs wiki seeding. */
   onboardingKind?: 'profiling' | 'seeding'
+  /**
+   * Live `write` tool body for onboarding (e.g. `me.md` while profiling) — same shape as {@link Wiki}'s `streamingWrite`.
+   */
+  streamingWrite?: { path: string; body: string } | null
 }

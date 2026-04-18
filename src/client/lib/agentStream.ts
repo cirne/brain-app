@@ -1,4 +1,5 @@
-import { getToolUiPolicy, type ChatMessage, type ToolPart } from './agentUtils.js'
+import type { ChatMessage, ToolPart } from './agentUtils.js'
+import { getToolDefinitionCore } from './tools/registryCore.js'
 import { isFilesystemAbsolutePath } from './fsPath.js'
 import { wikiPathForReadToolArg } from './cards/contentCards.js'
 import type { AgentOpenSource } from './navigateFromAgentOpen.js'
@@ -8,7 +9,7 @@ function upsertStreamingToolPart(
   msg: ChatMessage,
   data: { id: string; name: string; args?: unknown },
 ): void {
-  const policy = getToolUiPolicy(data.name)
+  const policy = getToolDefinitionCore(data.name).chat
   if (!policy.showInChat) return
   const parts = msg.parts!
   let part = parts.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
@@ -78,7 +79,7 @@ export async function consumeAgentChatStream(
     scrollToBottom,
   } = options
 
-  /** Agent tools that auto-open the detail panel must respect this (see `TOOL_UI_POLICIES` autoOpen). */
+  /** Agent tools that auto-open the detail panel must respect this (see `getToolDefinitionCore(name).chat.autoOpen` in `tools/registryCore.ts`). */
   const allowAgentDetailOpen = () => isActiveSession() && !suppressAgentDetailAutoOpen
 
   let touchedWiki = false
@@ -146,7 +147,7 @@ export async function consumeAgentChatStream(
             touchMessages()
             break
           case 'tool_args': {
-            const policy = getToolUiPolicy(data.name)
+            const policy = getToolDefinitionCore(data.name).chat
             if (policy.streamToDetail === 'wiki') {
               const path = typeof data.args?.path === 'string' ? data.args.path : ''
               const content = typeof data.args?.content === 'string' ? data.args.content : ''
@@ -167,7 +168,8 @@ export async function consumeAgentChatStream(
             break
           }
           case 'tool_start': {
-            const policy = getToolUiPolicy(data.name)
+            // Side effects still branch on `data.name` (SSE contract). Policy bits use `getToolDefinitionCore`.
+            const policy = getToolDefinitionCore(data.name).chat
             if (data.name === 'set_chat_title') {
               const parts = msg.parts!
               const existing = parts.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
@@ -210,7 +212,7 @@ export async function consumeAgentChatStream(
                 onOpenWiki
               ) {
                 const rawPath = String((data.args as { path: string }).path).trim()
-                const wikiPolicy = getToolUiPolicy(data.name)
+                const wikiPolicy = getToolDefinitionCore(data.name).chat
                 if (
                   rawPath &&
                   allowAgentDetailOpen() &&
@@ -228,7 +230,7 @@ export async function consumeAgentChatStream(
             break
           }
           case 'tool_end': {
-            const policy = getToolUiPolicy(data.name)
+            const policy = getToolDefinitionCore(data.name).chat
             let part = msg.parts!.find(p => p.type === 'tool' && p.toolCall.id === data.id) as ToolPart | undefined
             const writePath = policy.streamToDetail === 'wiki' ? writePathByToolId.get(data.id) : undefined
             const writeContent = policy.streamToDetail === 'wiki' ? writeContentByToolId.get(data.id) : undefined

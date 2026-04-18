@@ -2,6 +2,7 @@ export * from './assistantAgent.js'
 export * from './profilingAgent.js'
 export * from './seedingAgent.js'
 export * from './agentFactory.js'
+export * from './agentToolSets.js'
 
 import { clearAllProfilingSessions } from './profilingAgent.js'
 import { clearAllSeedingSessions } from './seedingAgent.js'

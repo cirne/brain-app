@@ -1,0 +1,57 @@
+/**
+ * Lucide icons per tool name — only import this from Svelte / browser bundles.
+ * Policy + onboarding live in {@link ./registryCore.ts}.
+ */
+import {
+  FileText,
+  Pencil,
+  FilePlus,
+  Search,
+  FolderSearch,
+  Mail,
+  MailSearch,
+  Send,
+  UserSearch,
+  BookOpen,
+  Calendar,
+  Globe,
+  Play,
+  PanelRightOpen,
+  MessageSquare,
+} from 'lucide-svelte'
+import type { Component } from 'svelte'
+
+export const TOOL_ICONS = {
+  read: FileText,
+  edit: Pencil,
+  write: FilePlus,
+  grep: Search,
+  find: FolderSearch,
+  search_index: MailSearch,
+  read_doc: Mail,
+  list_sources: FolderSearch,
+  source_status: FolderSearch,
+  add_files_source: FilePlus,
+  edit_files_source: Pencil,
+  remove_files_source: FileText,
+  reindex_files_source: Search,
+  draft_email: Pencil,
+  edit_draft: Pencil,
+  send_draft: Send,
+  find_person: UserSearch,
+  get_calendar_events: Calendar,
+  web_search: Globe,
+  fetch_page: Globe,
+  get_youtube_transcript: Play,
+  youtube_search: Play,
+  open: PanelRightOpen,
+  list_recent_messages: MessageSquare,
+  get_message_thread: MessageSquare,
+  list_imessage_recent: MessageSquare,
+  get_imessage_thread: MessageSquare,
+  move_file: FileText,
+  delete_file: FileText,
+  list_inbox: BookOpen,
+  inbox_rules: BookOpen,
+  archive_emails: Mail,
+} as unknown as Record<string, Component>

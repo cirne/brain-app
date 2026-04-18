@@ -101,26 +101,13 @@ export function contextPlaceholder(ctx: SurfaceContext): string {
   return 'Ask anything...'
 }
 
-export type ToolUiPolicy = {
-  showInChat: boolean
-  streamToDetail?: 'wiki' | 'email' | 'calendar'
-  /** If true, `consumeAgentChatStream` may open the right detail panel when the tool runs (unless `suppressAgentDetailAutoOpen`). */
-  autoOpen?: boolean
-  label?: string
-}
+import type { ToolChatPolicy } from './tools/types.js'
+import { getToolDefinitionCore } from './tools/registryCore.js'
 
-const DEFAULT_POLICY: ToolUiPolicy = {
-  showInChat: true,
-}
+/** @deprecated Prefer {@link ToolChatPolicy} from `./tools/types.js`. */
+export type ToolUiPolicy = ToolChatPolicy
 
-export const TOOL_UI_POLICIES: Record<string, ToolUiPolicy> = {
-  write: { showInChat: true, streamToDetail: 'wiki', autoOpen: true, label: 'Writing file' },
-  edit: { showInChat: true, streamToDetail: 'wiki', autoOpen: true, label: 'Editing file' },
-  set_chat_title: { showInChat: false },
-  open: { showInChat: true, autoOpen: true, label: 'Opening' },
-  read_doc: { showInChat: true, autoOpen: true, label: 'Reading' },
-}
-
+/** Chat/stream policy for a tool name; sourced from {@link getToolDefinitionCore} in `./tools/registryCore.js`. */
 export function getToolUiPolicy(name: string): ToolUiPolicy {
-  return TOOL_UI_POLICIES[name] ?? DEFAULT_POLICY
+  return getToolDefinitionCore(name).chat
 }

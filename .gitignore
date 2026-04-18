@@ -14,4 +14,4 @@ coverage/
 target/
 desktop/binaries/ripmail-*
 desktop/resources/server-bundle/
-.cursor/debug-*.log
+*.log

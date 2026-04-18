@@ -9,7 +9,6 @@ import { wipeBrainHomeContents } from './brainHome.js'
 export type OnboardingMachineState =
   | 'not-started'
   | 'indexing'
-  | 'confirming-identity'
   | 'profiling'
   | 'reviewing-profile'
   | 'confirming-categories'
@@ -60,12 +59,11 @@ export async function readOnboardingStateDoc(): Promise<OnboardingStateDoc> {
     if (!parsed || typeof parsed !== 'object') return defaultDoc()
     const o = parsed as Record<string, unknown>
     let state = o.state
-    /** Removed interstitial; old files may still say `warming`. */
-    if (state === 'warming') state = 'profiling'
+    /** Removed interstitials; old files may still say `warming` or `confirming-identity`. */
+    if (state === 'warming' || state === 'confirming-identity') state = 'profiling'
     const valid: OnboardingMachineState[] = [
       'not-started',
       'indexing',
-      'confirming-identity',
       'profiling',
       'reviewing-profile',
       'confirming-categories',
@@ -99,10 +97,9 @@ export function wikiMeExists(): boolean {
 
 const transitions: Record<OnboardingMachineState, OnboardingMachineState[]> = {
   'not-started': ['indexing', 'not-started'],
-  indexing: ['confirming-identity', 'profiling', 'not-started'],
-  'confirming-identity': ['profiling', 'not-started'],
+  indexing: ['profiling', 'not-started'],
   profiling: ['reviewing-profile', 'not-started'],
-  'reviewing-profile': ['confirming-categories', 'seeding', 'not-started'],
+  'reviewing-profile': ['profiling', 'confirming-categories', 'seeding', 'not-started'],
   'confirming-categories': ['seeding', 'not-started'],
   seeding: ['done', 'not-started'],
   done: ['not-started'],
@@ -127,6 +124,15 @@ export async function setOnboardingState(next: OnboardingMachineState): Promise<
 /** Force reset without transition validation (e.g. re-run onboarding). */
 export async function resetOnboardingState(): Promise<OnboardingStateDoc> {
   const doc: OnboardingStateDoc = { state: 'not-started', updatedAt: new Date().toISOString() }
+  await writeOnboardingStateDoc(doc)
+  return doc
+}
+
+/**
+ * Set onboarding machine state without transition validation (e.g. `done` → `seeding` to re-run wiki seed).
+ */
+export async function setOnboardingStateForce(next: OnboardingMachineState): Promise<OnboardingStateDoc> {
+  const doc: OnboardingStateDoc = { state: next, updatedAt: new Date().toISOString() }
   await writeOnboardingStateDoc(doc)
   return doc
 }

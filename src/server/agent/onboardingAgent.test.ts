@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { buildProfilingSystemPrompt, fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'
 import { buildSeedingSystemPrompt } from './seedingAgent.js'
 import { ONBOARDING_OMIT_TOOL_NAMES } from './agentFactory.js'
+import { ALL_AGENT_TOOL_NAMES, buildCreateAgentToolsOptions } from './agentToolSets.js'
 
 let wikiDir: string
 beforeEach(async () => {
@@ -15,16 +16,15 @@ afterEach(async () => {
 })
 
 describe('buildSeedingSystemPrompt', () => {
-  it('tells the agent to read me.md at the wiki root, not wiki/me.md', () => {
+  it('grounds seeding in mail + write without wiki read tools', () => {
     const p = buildSeedingSystemPrompt('America/Los_Angeles', '- cats')
-    expect(p).toMatch(/read.*`me\.md`/i)
-    expect(p).toContain('not `wiki/me.md`')
+    expect(p).toMatch(/do \*\*not\*\* have wiki \*\*read\*\*/i)
+    expect(p).toMatch(/never `wiki\/me\.md`/i)
     expect(p).toMatch(/never add a `wiki\/` prefix/i)
     expect(p).toContain('web_search')
     expect(p).toContain('fetch_page')
-    expect(p).toMatch(/parallel/i)
-    expect(p).toMatch(/final pass/i)
-    expect(p).toMatch(/internal wiki links/i)
+    expect(p).toMatch(/parallel page building/i)
+    expect(p).toMatch(/cannot scan the vault with \*\*grep\*\*/i)
     expect(p).toMatch(/Do not.*write a separate page about.*main user/i)
     expect(p).toContain('**me.md** is already their profile')
     expect(p).toMatch(/Obsidian-style/i)
@@ -49,21 +49,44 @@ describe('onboarding agent tools', () => {
     expect(names).toContain('fetch_page')
     expect(names).toContain('youtube_search')
   })
+
+  it('ALL_AGENT_TOOL_NAMES matches every tool when local messages are included', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+    const names = new Set(tools.map((t: { name?: string }) => t.name))
+    for (const n of ALL_AGENT_TOOL_NAMES) {
+      expect(names.has(n)).toBe(true)
+    }
+  })
+
+  it('buildCreateAgentToolsOptions profiling variant omits web and youtube search tools', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const opts = buildCreateAgentToolsOptions({
+      preset: 'onboarding',
+      onboardingVariant: 'profiling',
+      includeLocalMessageTools: false,
+    })
+    const tools = createAgentTools(wikiDir, opts)
+    const names = tools.map((t: { name?: string }) => t.name)
+    expect(names).not.toContain('web_search')
+    expect(names).not.toContain('fetch_page')
+    expect(names).not.toContain('youtube_search')
+    expect(names).toContain('search_index')
+  })
 })
 
 describe('buildProfilingSystemPrompt', () => {
-  it('produces a short recipe with the account identity', () => {
+  it('includes account identity and me.md as core assistant context', () => {
     const p = buildProfilingSystemPrompt('America/Los_Angeles', 'user@example.com')
     expect(p).toContain('user@example.com')
-    expect(p).toContain('## Key people')
-    expect(p).toContain('## Interests')
-    expect(p).toContain('## Work')
-    expect(p).toContain('## Contact')
     expect(p).toContain('me.md')
-    expect(p).toMatch(/Steps/)
+    expect(p).toMatch(/core context/i)
+    expect(p).toMatch(/AGENTS\.md/i)
+    expect(p).toMatch(/read_doc.*6/i)
+    expect(p).not.toContain('## Key people')
   })
 
-  it('when whoami is JSON, injects display name and email into the recipe', () => {
+  it('when whoami is JSON, injects display name and email into the prompt', () => {
     const raw = JSON.stringify({
       mailboxes: [
         {
@@ -74,7 +97,7 @@ describe('buildProfilingSystemPrompt', () => {
     const p = buildProfilingSystemPrompt('America/Los_Angeles', raw)
     expect(p).toContain('Lewis Cirne')
     expect(p).toContain('lewis@example.com')
-    expect(p).toContain('# Lewis Cirne')
+    expect(p).toContain('**Subject:**')
   })
 })
 
@@ -86,6 +109,53 @@ describe('parseWhoamiProfileSubject', () => {
     expect(parseWhoamiProfileSubject(raw)).toEqual({
       displayName: 'A B',
       primaryEmail: 'a@b.com',
+    })
+  })
+
+  it('prefers identity full name over mail-inferred display name', () => {
+    const raw = JSON.stringify({
+      mailboxes: [
+        {
+          identity: { fullName: 'Lewis Cirne', preferredName: 'Lew' },
+          inferred: { primaryEmail: 'lewis@example.com', displayNameFromMail: 'From Header' },
+        },
+      ],
+    })
+    expect(parseWhoamiProfileSubject(raw)).toEqual({
+      displayName: 'Lewis Cirne',
+      primaryEmail: 'lewis@example.com',
+    })
+  })
+
+  it('uses preferredName when fullName is absent', () => {
+    const raw = JSON.stringify({
+      mailboxes: [
+        {
+          identity: { preferredName: 'Pat Smith' },
+          inferred: { primaryEmail: 'pat@example.com' },
+        },
+      ],
+    })
+    expect(parseWhoamiProfileSubject(raw)).toEqual({
+      displayName: 'Pat Smith',
+      primaryEmail: 'pat@example.com',
+    })
+  })
+
+  it('uses suggestedNameFromEmail when displayNameFromMail is empty', () => {
+    const raw = JSON.stringify({
+      mailboxes: [
+        {
+          inferred: {
+            primaryEmail: 'lewiscirne@mac.com',
+            suggestedNameFromEmail: 'Lewis Cirne',
+          },
+        },
+      ],
+    })
+    expect(parseWhoamiProfileSubject(raw)).toEqual({
+      displayName: 'Lewis Cirne',
+      primaryEmail: 'lewiscirne@mac.com',
     })
   })
 

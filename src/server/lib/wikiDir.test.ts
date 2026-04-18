@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, mkdir, rm, writeFile, readdir } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, writeFile, readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -32,5 +32,20 @@ describe('wikiDir', () => {
     expect(names).toEqual(['.git'])
     const { readFile } = await import('node:fs/promises')
     expect(await readFile(join(wiki, '.git', 'HEAD'), 'utf-8')).toContain('refs/heads/main')
+  })
+
+  it('wipeWikiContentExceptMeMd keeps root me.md and removes other pages', async () => {
+    const wiki = join(brainRoot, 'wiki')
+    await mkdir(join(wiki, 'people'), { recursive: true })
+    await writeFile(join(wiki, 'me.md'), '# me', 'utf-8')
+    await writeFile(join(wiki, 'people', 'bob.md'), '# Bob', 'utf-8')
+
+    const { wipeWikiContentExceptMeMd, wikiDir } = await import('./wikiDir.js')
+    expect(wikiDir()).toBe(wiki)
+    await wipeWikiContentExceptMeMd()
+
+    const names = (await readdir(wiki)).sort()
+    expect(names).toEqual(['me.md'])
+    expect(await readFile(join(wiki, 'me.md'), 'utf-8')).toContain('# me')
   })
 })

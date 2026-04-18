@@ -4,7 +4,7 @@
 # BUG-058 integration reproducer / regression test.
 #
 # Wipes the ripmail DB, starts a fresh Apple Mail sync, waits until
-# TARGET_COUNT messages are indexed, then runs `ripmail whoami --verbose`
+# TARGET_COUNT messages are indexed, then runs `ripmail whoami`
 # and prints whether the result is Lewis (FIXED) or Kirsten (BUG).
 #
 # Prerequisites
@@ -120,10 +120,10 @@ trap - EXIT
 sleep 2
 echo ""
 
-# ── 5. Run whoami --verbose ──────────────────────────────────────────────────
-echo -e "${CYAN}[5/5] Running whoami --verbose at $COUNT messages...${RESET}"
+# ── 5. Run whoami ───────────────────────────────────────────────────────────
+echo -e "${CYAN}[5/5] Running whoami at $COUNT messages...${RESET}"
 echo "──────────────────────────────────────────────────────────"
-WHOAMI_OUT=$(rip whoami --verbose 2>&1)
+WHOAMI_OUT=$(rip whoami 2>&1)
 echo "$WHOAMI_OUT"
 echo "──────────────────────────────────────────────────────────"
 echo ""

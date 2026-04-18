@@ -81,6 +81,16 @@ describe('createAgentTools', () => {
     expect(names).toContain('get_message_thread')
   })
 
+  it('onlyToolNames keeps only listed tools', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, {
+      includeLocalMessageTools: false,
+      onlyToolNames: ['read', 'write', 'search_index'],
+    })
+    const names = tools.map((t: { name?: string }) => t.name).sort()
+    expect(names).toEqual(['read', 'search_index', 'write'])
+  })
+
   it('omits local message tools when includeLocalMessageTools is false', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })

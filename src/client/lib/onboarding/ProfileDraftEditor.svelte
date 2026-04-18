@@ -1,6 +1,7 @@
 <script lang="ts">
   /**
-   * TipTap editor for onboarding profile draft (markdown on disk, YAML front matter preserved).
+   * TipTap editor for onboarding profile draft (YAML front matter preserved).
+   * Persists to disk only when the parent calls {@link flushSave} (Looks Good), not on each keystroke.
    */
   import TipTapMarkdownEditor from '../TipTapMarkdownEditor.svelte'
 
@@ -21,7 +22,7 @@
     if (!res.ok) return
   }
 
-  /** Call before Accept to avoid losing debounced edits. */
+  /** Persist current editor markdown to disk (Looks Good). */
   export async function flushSave() {
     await inner?.flushSave()
   }
@@ -32,6 +33,7 @@
     bind:this={inner}
     initialMarkdown={initialMarkdown}
     disabled={disabled}
+    autoPersist={false}
     onPersist={onPersist}
   />
 </div>

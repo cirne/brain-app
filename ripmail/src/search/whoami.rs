@@ -23,7 +23,6 @@ pub fn whoami(
     home: &Path,
     cfg: &Config,
     mailbox_spec: Option<&str>,
-    verbose: bool,
 ) -> rusqlite::Result<WhoamiResult> {
     let mailboxes: Vec<&ResolvedMailbox> =
         match mailbox_spec.map(str::trim).filter(|s| !s.is_empty()) {
@@ -40,7 +39,7 @@ pub fn whoami(
 
     let mut out = Vec::with_capacity(mailboxes.len());
     for mb in mailboxes {
-        let row = whoami_one_mailbox(conn, home, cfg, mb, verbose)?;
+        let row = whoami_one_mailbox(conn, home, cfg, mb)?;
         out.push(row);
     }
 
@@ -52,7 +51,6 @@ fn whoami_one_mailbox(
     home: &Path,
     cfg: &Config,
     mb: &ResolvedMailbox,
-    verbose: bool,
 ) -> rusqlite::Result<WhoamiMailbox> {
     let json_row = mailbox_config_by_id(home, &mb.id);
     let mailbox_type = json_row.as_ref().map(|r| match r.kind {
@@ -68,14 +66,8 @@ fn whoami_one_mailbox(
 
     let owner_candidates = owner_email_candidates(mb, &placeholder_extra);
 
-    if verbose {
-        eprintln!("[whoami] mailbox={} ({})", mb.id, mb.email);
-        eprintln!("[whoami]   placeholder_extra={placeholder_extra:?}");
-        eprintln!("[whoami]   owner_candidates={owner_candidates:?}");
-    }
-
     let (primary_addr, inferred_display) =
-        primary_identity_from_received(conn, &mb.id, &owner_candidates, verbose)?;
+        primary_identity_from_received(conn, &mb.id, &owner_candidates)?;
 
     let identity_has_name = identity.as_ref().is_some_and(|i| {
         i.preferred_name
@@ -161,23 +153,9 @@ fn primary_identity_from_received(
     conn: &Connection,
     mailbox_id: &str,
     owner_emails: &[String],
-    verbose: bool,
 ) -> rusqlite::Result<(Option<String>, Option<String>)> {
     if owner_emails.is_empty() {
-        if verbose {
-            eprintln!("[whoami]   receiver_counts: no owner candidates — skipping");
-        }
         return Ok((None, None));
-    }
-
-    let total_messages: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM messages WHERE source_id = ?",
-        rusqlite::params![mailbox_id],
-        |row| row.get(0),
-    )?;
-
-    if verbose {
-        eprintln!("[whoami]   total messages in source '{mailbox_id}': {total_messages}");
     }
 
     // Count how many messages in this mailbox have each candidate address in To or Cc.
@@ -196,9 +174,6 @@ fn primary_identity_from_received(
             rusqlite::params![mailbox_id, addr.as_str(), addr.as_str()],
             |row| row.get(0),
         )?;
-        if verbose {
-            eprintln!("[whoami]   receiver_count '{addr}': {c}");
-        }
         recv_counts.push((addr.clone(), c));
     }
 
@@ -209,19 +184,12 @@ fn primary_identity_from_received(
         .map(|(a, _)| a)
         .min(); // alphabetical tiebreak for determinism
 
-    if verbose {
-        eprintln!("[whoami]   primary elected: {primary:?} (max_recv={max_recv})");
-    }
-
     let Some(ref p) = primary else {
         return Ok((None, None));
     };
 
     // Display name: most frequent from_name when this address appears in From: (self-identified).
     let display = best_display_name_for_address(conn, mailbox_id, p)?;
-    if verbose {
-        eprintln!("[whoami]   display_name: {display:?}");
-    }
     Ok((Some(p.clone()), display))
 }
 
@@ -414,7 +382,6 @@ mod tests {
             Path::new("/nonexistent"),
             &make_cfg(mb_id, mb_fixture(mb_id, "me@example.com")),
             None,
-            false,
         )
         .unwrap();
         assert_eq!(r.mailboxes.len(), 1);
@@ -465,14 +432,7 @@ mod tests {
         let mut mb = mb_fixture(mb_id, "heavy@example.com");
         mb.imap_aliases = vec!["light@example.com".into()];
 
-        let r = whoami(
-            &conn,
-            Path::new("/nonexistent"),
-            &make_cfg(mb_id, mb),
-            None,
-            false,
-        )
-        .unwrap();
+        let r = whoami(&conn, Path::new("/nonexistent"), &make_cfg(mb_id, mb), None).unwrap();
         let inf = r.mailboxes[0].inferred.as_ref().expect("inferred");
         // light@example.com receives more mail → they own the inbox.
         assert_eq!(inf.primary_email.as_deref(), Some("light@example.com"));
@@ -527,14 +487,7 @@ mod tests {
         let mut mb = mb_fixture(mb_id, "lewis@mac.com");
         mb.imap_aliases = vec!["kirsten@mac.com".into()];
 
-        let r = whoami(
-            &conn,
-            Path::new("/nonexistent"),
-            &make_cfg(mb_id, mb),
-            None,
-            false,
-        )
-        .unwrap();
+        let r = whoami(&conn, Path::new("/nonexistent"), &make_cfg(mb_id, mb), None).unwrap();
         let inf = r.mailboxes[0].inferred.as_ref().expect("inferred");
         assert_eq!(inf.primary_email.as_deref(), Some("lewis@mac.com"));
         assert_eq!(inf.display_name_from_mail.as_deref(), Some("Lewis"));

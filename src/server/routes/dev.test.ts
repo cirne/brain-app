@@ -74,4 +74,39 @@ exit 0
     expect(invoke).toContain('clean')
     expect(invoke).toContain('--yes')
   })
+
+  it('POST /restart-seed keeps me.md, wipes other wiki files, forces seeding', async () => {
+    const chatDir = join(brainHome, 'chats')
+    await mkdir(chatDir, { recursive: true })
+    await writeFile(join(chatDir, 'onboarding.json'), JSON.stringify({ state: 'done', updatedAt: 'x' }), 'utf-8')
+
+    const wikiContent = join(brainHome, 'wiki')
+    await mkdir(join(wikiContent, 'ideas'), { recursive: true })
+    await writeFile(join(wikiContent, 'me.md'), '# profile', 'utf-8')
+    await writeFile(join(wikiContent, 'ideas', 'seeded.md'), 'x', 'utf-8')
+
+    const varDir = join(brainHome, 'var')
+    await mkdir(varDir, { recursive: true })
+    await writeFile(join(varDir, 'wiki-edits.jsonl'), '{"ts":"1","op":"write","path":"ideas/x.md","source":"agent"}\n')
+
+    const app = new Hono()
+    app.route('/api/dev', devRoute)
+    const res = await app.request('http://localhost/api/dev/restart-seed', { method: 'POST' })
+    expect(res.status).toBe(200)
+
+    const { readOnboardingStateDoc } = await import('../lib/onboardingState.js')
+    expect((await readOnboardingStateDoc()).state).toBe('seeding')
+
+    const { readFile, access } = await import('node:fs/promises')
+    expect(await readFile(join(wikiContent, 'me.md'), 'utf-8')).toContain('# profile')
+    await expect(access(join(wikiContent, 'ideas', 'seeded.md'))).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(access(join(varDir, 'wiki-edits.jsonl'))).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('POST /restart-seed returns 400 without me.md', async () => {
+    const app = new Hono()
+    app.route('/api/dev', devRoute)
+    const res = await app.request('http://localhost/api/dev/restart-seed', { method: 'POST' })
+    expect(res.status).toBe(400)
+  })
 })

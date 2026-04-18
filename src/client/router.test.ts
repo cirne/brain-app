@@ -50,6 +50,10 @@ describe('parseRoute', () => {
     expect(parseRoute('http://localhost/hard-reset')).toEqual({ flow: 'hard-reset' })
   })
 
+  it('parses /restart-seed as restart-seed flow', () => {
+    expect(parseRoute('http://localhost/restart-seed')).toEqual({ flow: 'restart-seed' })
+  })
+
   it('defaults to chat-only for root path', () => {
     expect(parseRoute('http://localhost/')).toEqual({})
   })
@@ -249,6 +253,10 @@ describe('routeToUrl', () => {
   it('hard-reset flow', () => {
     expect(routeToUrl({ flow: 'hard-reset' })).toBe('/hard-reset')
   })
+
+  it('restart-seed flow', () => {
+    expect(routeToUrl({ flow: 'restart-seed' })).toBe('/restart-seed')
+  })
 })
 
 describe('round-trip: routeToUrl → parseRoute', () => {
@@ -273,6 +281,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { overlay: { type: 'messages' as const, chat: '+15550001111' } },
     { flow: 'onboarding' as const },
     { flow: 'hard-reset' as const },
+    { flow: 'restart-seed' as const },
   ] as const
 
   for (const route of cases) {

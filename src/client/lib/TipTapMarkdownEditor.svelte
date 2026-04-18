@@ -37,10 +37,14 @@
   interface Props {
     initialMarkdown?: string
     disabled?: boolean
-    /** Called after debounce (~900ms) when content changes. */
+    /**
+     * When true (default), debounced save on edit. When false, only {@link flushSave} invokes `onPersist`.
+     */
+    autoPersist?: boolean
+    /** Called after debounce when `autoPersist`, or when `flushSave` runs (if set). */
     onPersist?: (_markdown: string) => Promise<void>
   }
-  let { initialMarkdown = '', disabled = false, onPersist }: Props = $props()
+  let { initialMarkdown = '', disabled = false, autoPersist = true, onPersist }: Props = $props()
 
   let mountEl = $state<HTMLDivElement | undefined>()
   let editor = $state<Editor | null>(null)
@@ -74,7 +78,7 @@
   }
 
   function scheduleSave() {
-    if (!editor || disabled || syncingFromProp) return
+    if (!autoPersist || !editor || disabled || syncingFromProp) return
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
       saveTimer = null
@@ -245,14 +249,35 @@
     color: var(--text);
   }
 
+  /**
+   * Tailwind Preflight sets list-style: none on ul/ol — restore markers for the editor.
+   */
   .tiptap-md-root :global(.tipTap-md-prose ul),
   .tiptap-md-root :global(.tipTap-md-prose ol) {
-    margin: 0.4em 0 0.4em 1.25rem;
-    padding: 0;
+    margin: 0.4em 0;
+    padding-left: 1.5em;
+    list-style-position: outside;
+  }
+
+  .tiptap-md-root :global(.tipTap-md-prose ul) {
+    list-style-type: disc;
+  }
+
+  .tiptap-md-root :global(.tipTap-md-prose ol) {
+    list-style-type: decimal;
+  }
+
+  .tiptap-md-root :global(.tipTap-md-prose ul ul) {
+    list-style-type: circle;
+  }
+
+  .tiptap-md-root :global(.tipTap-md-prose ul ul ul) {
+    list-style-type: square;
   }
 
   .tiptap-md-root :global(.tipTap-md-prose li) {
     margin: 0.2em 0;
+    padding-left: 0.2em;
   }
 
   .tiptap-md-root :global(.tipTap-md-prose a) {

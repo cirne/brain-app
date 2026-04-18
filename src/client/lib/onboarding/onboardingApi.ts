@@ -105,17 +105,6 @@ export async function postAcceptProfile(categories: string[]): Promise<void> {
   }
 }
 
-export type WhoamiIdentity = {
-  displayName: string | null
-  primaryEmail: string | null
-}
-
-export async function fetchOnboardingWhoami(): Promise<WhoamiIdentity> {
-  const res = await fetch('/api/onboarding/whoami')
-  const j = (await res.json()) as WhoamiIdentity
-  return j
-}
-
 export async function postPrepareSeed(categories: string[]): Promise<void> {
   const res = await fetch('/api/onboarding/prepare-seed', {
     method: 'POST',

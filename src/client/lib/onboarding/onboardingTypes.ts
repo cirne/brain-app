@@ -25,7 +25,7 @@ export function emptyOnboardingMail(): OnboardingMailStatus {
 }
 
 /**
- * Minimum indexed messages before advancing to whoami / confirming-identity.
+ * Minimum indexed messages before advancing to profiling.
  * Needs enough data for receiver-frequency inference to be reliable — too low and
  * the first few thousand messages may not yet include enough To/Cc hits for the
  * correct owner to dominate over co-tenant senders.

@@ -22,6 +22,7 @@
     /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
     empty,
     onboardingKind: _onboardingKind,
+    streamingWrite: _streamingWrite,
   }: AgentConversationViewProps = $props()
 
   let messagesEl: HTMLElement

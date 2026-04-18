@@ -1,0 +1,69 @@
+import {
+  formatEmailParticipant,
+  flattenInboxFromRipmailData,
+  inboxRowsToPreviewItems,
+  parseRipmailInboxFlat,
+  type InboxListItemPreview,
+} from '../../../server/lib/ripmailInboxFlatten.js'
+import {
+  pickReadEmailFields,
+  type ReadEmailToolDetails,
+} from '../../../server/lib/readEmailPreview.js'
+import { isFilesystemAbsolutePath } from '../fsPath.js'
+
+export { formatEmailParticipant, flattenInboxFromRipmailData, parseRipmailInboxFlat }
+export type { InboxListItemPreview }
+
+/** Matches calendar API / tool JSON shape enough for DayEvents. */
+export type CalendarEventLite = {
+  id: string
+  title: string
+  start: string
+  end: string
+  allDay: boolean
+  source: 'travel' | 'personal'
+  location?: string
+  description?: string
+  attendees?: string[]
+  organizer?: string
+}
+
+export type MessagePreviewRow = { ts: number; m: number; t: string; r?: number }
+
+export type ContentCardPreview =
+  | { kind: 'calendar'; start: string; end: string; events: CalendarEventLite[] }
+  | { kind: 'wiki'; path: string; excerpt: string }
+  | { kind: 'file'; path: string; excerpt: string }
+  | { kind: 'email'; id: string; subject: string; from: string; snippet: string }
+  | { kind: 'inbox_list'; items: InboxListItemPreview[]; totalCount: number }
+  | { kind: 'wiki_edit_diff'; path: string; unified: string }
+  | {
+      kind: 'message_thread'
+      displayChat: string
+      canonicalChat: string
+      snippet: string
+      total: number
+      n: number
+      previewMessages: MessagePreviewRow[]
+      person: string[]
+    }
+
+/**
+ * Wiki paths in the UI/API use real filenames (usually `.md`). The agent `read` tool
+ * often passes paths without `.md`; normalize so preview + "open" match list/search routes.
+ * Absolute filesystem paths are left unchanged (Brain wiki lives under a repo root only).
+ */
+export function wikiPathForReadToolArg(path: string): string {
+  if (isFilesystemAbsolutePath(path)) return path
+  if (path.endsWith('.md') || path.endsWith('.mdx')) return path
+  const lastSegment = path.split('/').pop() ?? path
+  if (lastSegment.includes('.') && !lastSegment.endsWith('.md') && !lastSegment.endsWith('.mdx')) return path
+  return `${path}.md`
+}
+
+/** Server `tool_end.details.editDiff.unified` from chat route (wiki edit). */
+export function editDiffUnifiedFromDetails(details: unknown): string | null {
+  if (details == null || typeof details !== 'object') return null
+  const u = (details as { editDiff?: { unified?: string } }).editDiff?.unified
+  return typeof u === 'string' && u.trim() ? u : null
+}

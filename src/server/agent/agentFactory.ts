@@ -2,27 +2,15 @@ import { Agent } from '@mariozechner/pi-agent-core'
 import { getModel, type KnownProvider } from '@mariozechner/pi-ai'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { createAgentTools } from './tools.js'
+import {
+  buildCreateAgentToolsOptions,
+  ONBOARDING_BASE_OMIT,
+  type OnboardingAgentToolVariant,
+} from './agentToolSets.js'
 import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '../lib/openAiResponsesPayload.js'
 
-/** Subset of `createAgentTools` for profiling + seeding (no inbox rules, drafts, calendar, etc.). */
-export const ONBOARDING_OMIT_TOOL_NAMES: readonly string[] = [
-  'inbox_rules',
-  'archive_emails',
-  'draft_email',
-  'edit_draft',
-  'send_draft',
-  'get_calendar_events',
-  'get_youtube_transcript',
-  'open',
-  'list_recent_messages',
-  'get_message_thread',
-  'list_sources',
-  'source_status',
-  'add_files_source',
-  'edit_files_source',
-  'remove_files_source',
-  'reindex_files_source',
-]
+/** @deprecated Use {@link ONBOARDING_BASE_OMIT} from `agentToolSets.js`. */
+export const ONBOARDING_OMIT_TOOL_NAMES = ONBOARDING_BASE_OMIT
 
 export function buildDateContext(timezone: string): string {
   const tz = timezone || 'UTC'
@@ -37,12 +25,29 @@ export function buildDateContext(timezone: string): string {
   return `Today is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}).`
 }
 
+export type CreateOnboardingAgentOptions = {
+  /**
+   * `profiling` omits web/video tools on top of the shared onboarding base.
+   * Default: `seeding`.
+   */
+  variant?: OnboardingAgentToolVariant
+  /** Additional tool names to omit after the preset + variant. */
+  extraOmitToolNames?: readonly string[]
+}
+
 /** Build an onboarding agent (profiling or seeding) with the restricted tool set. */
-export function createOnboardingAgent(systemPrompt: string, wikiRoot: string): Agent {
-  const tools = createAgentTools(wikiRoot, {
+export function createOnboardingAgent(
+  systemPrompt: string,
+  wikiRoot: string,
+  options?: CreateOnboardingAgentOptions,
+): Agent {
+  const toolOpts = buildCreateAgentToolsOptions({
+    preset: 'onboarding',
+    onboardingVariant: options?.variant ?? 'seeding',
     includeLocalMessageTools: false,
-    omitToolNames: ONBOARDING_OMIT_TOOL_NAMES,
+    extraOmit: options?.extraOmitToolNames,
   })
+  const tools = createAgentTools(wikiRoot, toolOpts)
   const provider = (process.env.LLM_PROVIDER ?? 'anthropic') as KnownProvider
   const modelId = process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514'
   const model = getModel(provider, modelId as never)

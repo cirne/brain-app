@@ -500,8 +500,6 @@
               onCalendarResetToToday={resetCalendarToToday}
               onCalendarNavigate={switchToCalendar}
               onClose={closeOverlay}
-              onSync={syncAll}
-              {syncing}
               mobilePanel
             />
           {/if}

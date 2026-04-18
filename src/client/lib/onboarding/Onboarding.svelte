@@ -5,7 +5,6 @@
   import {
     fetchOnboardingMailStatus,
     fetchOnboardingState,
-    fetchOnboardingWhoami,
     patchOnboardingState,
     postAcceptProfile,
     postInboxSyncStart,
@@ -13,7 +12,6 @@
     postSetupAppleMail,
     fetchProfileDraftMarkdown,
     SETUP_MAIL_ABORT_MESSAGE,
-    type WhoamiIdentity,
   } from './onboardingApi.js'
   import { buildIndexingElapsedLine, buildIndexingProgressLine } from './onboardingIndexingUi.js'
   import {
@@ -46,6 +44,8 @@
   let busy = $state(false)
 
   let draftMarkdown = $state('')
+  /** Bump to remount {@link ProfileDraftEditor} after reload-from-disk (discards unsaved TipTap edits). */
+  let draftEditorKey = $state(0)
   let profileDraftEditor = $state<{ flushSave: () => Promise<void> } | null>(null)
   let categoriesText = $state('People\nProjects\nInterests\nAreas')
 
@@ -55,6 +55,7 @@
   let onboardingExitHandled = $state(false)
   /** Tauri: true after we’ve applied the “browser-sized” window for late onboarding (profiling onward). */
   let onboardingLargeWindowApplied = $state(false)
+  let prevOnboardingState = $state<string>('')
 
   /** Legacy / partial failure: auto-run prepare-seed once when landing on confirming-categories. */
   let confirmingAutoRecoverDone = $state(false)
@@ -108,53 +109,20 @@
     return buildIndexingElapsedLine(state, indexingStartedAt, Date.now())
   })
 
-  /** After enough mail is indexed, move to identity confirmation (not directly to profiling). */
-  let indexingToConfirmingInitiated = $state(false)
+  /** After enough mail is indexed, advance to profiling. */
+  let indexingToProfilingInitiated = $state(false)
   $effect(() => {
-    if (state === 'not-started') indexingToConfirmingInitiated = false
+    if (state === 'not-started') indexingToProfilingInitiated = false
   })
 
   $effect(() => {
     if (state !== 'indexing' || !canBuildProfile || busy) return
-    if (indexingToConfirmingInitiated) return
-    indexingToConfirmingInitiated = true
-    void patchState('confirming-identity').catch(() => {
-      indexingToConfirmingInitiated = false
+    if (indexingToProfilingInitiated) return
+    indexingToProfilingInitiated = true
+    void patchState('profiling').catch(() => {
+      indexingToProfilingInitiated = false
     })
   })
-
-  /** "Is this you?" identity fetched from ripmail whoami. */
-  let whoamiIdentity = $state<WhoamiIdentity | null>(null)
-  let whoamiLoading = $state(false)
-
-  $effect(() => {
-    if (state !== 'confirming-identity') { whoamiIdentity = null; return }
-    if (whoamiIdentity || whoamiLoading) return
-    whoamiLoading = true
-    void fetchOnboardingWhoami().then((id) => {
-      whoamiIdentity = id
-      whoamiLoading = false
-    }).catch(() => { whoamiLoading = false })
-  })
-
-  async function confirmIdentity() {
-    await patchState('profiling')
-  }
-
-  async function rejectIdentity() {
-    whoamiIdentity = null
-    await patchState('not-started')
-  }
-
-  async function retryWhoami() {
-    whoamiIdentity = null
-    whoamiLoading = true
-    try {
-      whoamiIdentity = await fetchOnboardingWhoami()
-    } finally {
-      whoamiLoading = false
-    }
-  }
 
   $effect(() => {
     if (!ONBOARDING_LARGE_WINDOW_STATES.has(state)) {
@@ -216,6 +184,72 @@
   async function loadDraft() {
     const md = await fetchProfileDraftMarkdown()
     if (md != null) draftMarkdown = md
+  }
+
+  async function clearProfilingChatSession() {
+    try {
+      const raw = localStorage.getItem(ONBOARDING_PROFILE_CHAT_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as { sessionId?: unknown }
+      const sid = typeof parsed.sessionId === 'string' ? parsed.sessionId : ''
+      if (sid) {
+        await fetch(`/api/onboarding/session/profiling/${encodeURIComponent(sid)}`, { method: 'DELETE' })
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      localStorage.removeItem(ONBOARDING_PROFILE_CHAT_STORAGE_KEY)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function reloadProfileDraftFromDisk() {
+    if (
+      !confirm(
+        'Reload the profile text from disk? Any edits you have not saved yet will be replaced.',
+      )
+    ) {
+      return
+    }
+    profileStepError = null
+    busy = true
+    await tick()
+    try {
+      const md = await fetchProfileDraftMarkdown()
+      if (md == null) {
+        profileStepError = 'Could not load profile draft.'
+        return
+      }
+      draftMarkdown = md
+      draftEditorKey += 1
+    } catch (e) {
+      profileStepError = e instanceof Error ? e.message : String(e)
+    } finally {
+      busy = false
+    }
+  }
+
+  async function goBackToProfiling() {
+    if (
+      !confirm(
+        'Go back to profiling to run the profile step again? You will leave this screen and unsaved edits here will be lost.',
+      )
+    ) {
+      return
+    }
+    profileStepError = null
+    busy = true
+    await tick()
+    try {
+      await clearProfilingChatSession()
+      await patchState('profiling')
+    } catch (e) {
+      profileStepError = e instanceof Error ? e.message : String(e)
+    } finally {
+      busy = false
+    }
   }
 
   async function acceptProfile() {
@@ -285,11 +319,12 @@
 
   async function handleSeedStreamFinished() {
     if (onboardingExitHandled) return
-    if (seedThresholdMet) {
-      /* Interstitial is (or will be) shown — user confirms with “Start chatting”. */
-      return
-    }
-    await finishOnboarding()
+    /**
+     * Always show the “Start chatting” dialog when the seed stream ends.
+     * Previously we called finishOnboarding() when page count was below the early threshold,
+     * which skipped the seeding UX and jumped straight to the main assistant.
+     */
+    seedThresholdMet = true
   }
 
   function onSeedReadyDialogCancel(e: Event) {
@@ -313,6 +348,15 @@
     if (state === 'reviewing-profile') void loadDraft()
   })
 
+  /** Fresh seed run: reset dialog / exit flags whenever we enter the seeding step. */
+  $effect(() => {
+    if (state === 'seeding' && prevOnboardingState !== 'seeding') {
+      seedThresholdMet = false
+      onboardingExitHandled = false
+    }
+    prevOnboardingState = state
+  })
+
   $effect(() => {
     if (state !== 'confirming-categories') {
       confirmingAutoRecoverDone = false
@@ -333,7 +377,7 @@
       chatEndpoint="/api/onboarding/profile"
       headerFallbackTitle="Profiling"
       storageKey={ONBOARDING_PROFILE_CHAT_STORAGE_KEY}
-      autoSendMessage="Build a short essentials-only profile in me.md (name, key people, interests, projects, contact) from my email using tools — not a long dossier."
+        autoSendMessage="From my indexed email, write me.md — one strong page of context for my assistant (your best structure). Use the tools; keep it factual and scannable."
       onStreamFinished={async () => { await patchState('reviewing-profile') }}
     />
   {:else if state === 'seeding'}
@@ -471,73 +515,6 @@
         </div>
       </div>
 
-    {:else if state === 'confirming-identity'}
-      <div class="ob-hero">
-        <div class="ob-hero-inner">
-          <span class="ob-kicker">Brain</span>
-          <h1 class="ob-headline">Is this you?</h1>
-          <p class="ob-lead">
-            Brain found this identity from your mail. Confirm so your profile is built for the right person.
-          </p>
-          {#if whoamiLoading}
-            <div class="ob-identity-card ob-identity-card--loading">
-              <span class="ob-spinner" aria-hidden="true"></span>
-              <span>Looking up your identity…</span>
-            </div>
-          {:else if whoamiIdentity}
-            <div class="ob-identity-card">
-              {#if whoamiIdentity.displayName}
-                <p class="ob-identity-name">{whoamiIdentity.displayName}</p>
-              {/if}
-              {#if whoamiIdentity.primaryEmail}
-                <p class="ob-identity-email">{whoamiIdentity.primaryEmail}</p>
-              {/if}
-            </div>
-            <div class="ob-cta-group">
-              <button
-                type="button"
-                class="ob-btn-primary"
-                onclick={() => void confirmIdentity()}
-                disabled={busy}
-              >
-                {#if busy}
-                  <span class="ob-spinner" aria-hidden="true"></span> Working…
-                {:else}
-                  Yes, that’s me
-                  <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                {/if}
-              </button>
-              <button
-                type="button"
-                class="ob-btn-secondary"
-                onclick={() => void retryWhoami()}
-                disabled={busy || whoamiLoading}
-              >
-                Try again
-              </button>
-              <button
-                type="button"
-                class="ob-btn-ghost"
-                onclick={() => void rejectIdentity()}
-                disabled={busy}
-              >
-                Not me — start over
-              </button>
-            </div>
-          {:else}
-            <p class="ob-error">Could not detect your identity from mail. Try again or continue anyway.</p>
-            <div class="ob-cta-group">
-              <button type="button" class="ob-btn-primary" onclick={() => void confirmIdentity()} disabled={busy}>
-                Continue anyway
-              </button>
-              <button type="button" class="ob-btn-secondary" onclick={() => void retryWhoami()} disabled={whoamiLoading}>
-                Try again
-              </button>
-            </div>
-          {/if}
-        </div>
-      </div>
-
     {:else if state === 'confirming-categories'}
       <div class="ob-hero" aria-live="polite">
         <div class="ob-hero-inner">
@@ -574,20 +551,42 @@
           {#if profileStepError}
             <p class="ob-error ob-review-error" role="alert">{profileStepError}</p>
           {/if}
-          <div class="ob-review-actions">
+        </div>
+        <div class="ob-review-editor">
+          {#key draftEditorKey}
+            <ProfileDraftEditor
+              bind:this={profileDraftEditor}
+              initialMarkdown={draftMarkdown}
+              disabled={busy}
+            />
+          {/key}
+        </div>
+        <footer class="ob-review-footer">
+          <div class="ob-review-actions" role="group" aria-label="Profile actions">
+            <div class="ob-review-secondary" role="group" aria-label="Profile draft options">
+              <button
+                type="button"
+                class="ob-btn-secondary ob-review-secondary-btn"
+                onclick={() => void reloadProfileDraftFromDisk()}
+                disabled={busy}
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                class="ob-btn-secondary ob-review-secondary-btn"
+                onclick={() => void goBackToProfiling()}
+                disabled={busy}
+              >
+                Retry
+              </button>
+            </div>
             <button type="button" class="ob-btn-primary ob-review-cta" onclick={() => void acceptProfile()} disabled={busy}>
               <span>{busy ? 'Saving…' : 'Looks Good'}</span>
               <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </button>
           </div>
-        </div>
-        <div class="ob-review-editor">
-          <ProfileDraftEditor
-            bind:this={profileDraftEditor}
-            initialMarkdown={draftMarkdown}
-            disabled={busy}
-          />
-        </div>
+        </footer>
       </section>
 
     {:else if state === 'done'}
@@ -889,12 +888,13 @@
   }
 
   .onboarding-main-review {
-    overflow-x: hidden;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     min-height: 0;
   }
 
-  /* ── Review profile: flat full-width sticky header, editor below ── */
+  /* ── Review profile: header, scrollable editor, sticky footer ── */
   .ob-review {
     flex: 1;
     min-height: 0;
@@ -909,13 +909,10 @@
   }
 
   .ob-review-top {
-    position: sticky;
-    top: 0;
-    z-index: 5;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
     width: 100%;
     box-sizing: border-box;
     padding: 0.875rem clamp(1rem, 3vw, 2.5rem);
@@ -929,10 +926,6 @@
 
   @media (min-width: 640px) {
     .ob-review-top {
-      flex-direction: row;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 1.25rem 1.5rem;
       padding: 1rem clamp(1rem, 3vw, 2.5rem);
     }
   }
@@ -966,40 +959,66 @@
     text-wrap: pretty;
   }
 
-  .ob-review-actions {
+  .ob-review-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
     flex-shrink: 0;
-    display: flex;
-    justify-content: stretch;
-  }
-
-  @media (min-width: 640px) {
-    .ob-review-actions {
-      align-self: center;
-      justify-content: flex-end;
-    }
-  }
-
-  .ob-review-cta {
     width: 100%;
-    min-height: 2.125rem;
-    padding: 0.4375rem 0.875rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    border-radius: 0.5rem;
-    justify-content: center;
-    gap: 0.375rem;
+    box-sizing: border-box;
+    padding: 0.5rem clamp(1rem, 3vw, 2.5rem);
+    background: color-mix(in srgb, var(--bg-2) 92%, var(--bg));
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(8px);
   }
 
   @media (min-width: 640px) {
-    .ob-review-cta {
-      width: auto;
-      min-width: unset;
+    .ob-review-footer {
+      padding: 0.5rem clamp(1rem, 3vw, 2.5rem);
     }
   }
 
-  .ob-review-cta .ob-btn-icon {
-    width: 0.875rem;
-    height: 0.875rem;
+  .ob-review-actions {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.375rem 0.5rem;
+    width: 100%;
+    max-width: var(--chat-column-max);
+    margin-inline: auto;
+  }
+
+  .ob-review-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    justify-content: flex-end;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .ob-review-footer .ob-review-secondary-btn {
+    padding: 0.3125rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 0.375rem;
+  }
+
+  .ob-review-footer .ob-review-cta {
+    padding: 0.3125rem 0.75rem;
+    min-height: unset;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 0.375rem;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .ob-review-footer .ob-review-cta .ob-btn-icon {
+    width: 0.75rem;
+    height: 0.75rem;
     margin-left: 0;
   }
 
@@ -1009,7 +1028,8 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 2.5rem) clamp(1rem, 2vw, 1.5rem);
+    overflow: hidden;
+    padding: clamp(0.5rem, 1.5vw, 0.75rem) clamp(1rem, 3vw, 2.5rem) 0;
     box-sizing: border-box;
   }
 
@@ -1082,7 +1102,7 @@
     margin-top: 1.75rem;
   }
 
-  /* ── Secondary / ghost buttons ── */
+  /* ── Secondary buttons ── */
   .ob-btn-secondary {
     display: inline-flex;
     align-items: center;
@@ -1104,61 +1124,5 @@
   .ob-btn-secondary:disabled {
     opacity: 0.4;
     cursor: not-allowed;
-  }
-
-  .ob-btn-ghost {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-2);
-    background: transparent;
-    cursor: pointer;
-    transition: color 0.15s, opacity 0.15s;
-  }
-  .ob-btn-ghost:hover:not(:disabled) {
-    color: var(--text);
-  }
-  .ob-btn-ghost:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  /* ── Identity card (confirming-identity step) ── */
-  .ob-identity-card {
-    margin-top: 2rem;
-    padding: 1.25rem 1.5rem;
-    border: 1px solid var(--border);
-    border-radius: 0.875rem;
-    background: var(--bg-2);
-    text-align: center;
-  }
-  .ob-identity-card--loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    color: var(--text-2);
-    font-size: 0.9375rem;
-  }
-  .ob-identity-card--loading .ob-spinner {
-    border-color: rgba(0,0,0,0.15);
-    border-top-color: var(--accent);
-  }
-  .ob-identity-name {
-    font-size: 1.0625rem;
-    font-weight: 600;
-    color: var(--text);
-    margin: 0;
-  }
-  .ob-identity-email {
-    font-size: 0.9375rem;
-    color: var(--text-2);
-    margin: 0.25rem 0 0;
   }
 </style>

@@ -334,10 +334,19 @@
           suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || isMobile || useOnboardingActivity}
           conversationView={useOnboardingActivity ? OnboardingProfilingView : AgentConversation}
           hideInput={useOnboardingActivity}
-          streamingBusyLabel={useOnboardingActivity ? 'Working...' : 'Thinking...'}
+          streamingBusyLabel={
+            useOnboardingActivity
+              ? isProfiling
+                ? 'Profiling…'
+                : isSeedingWiki
+                  ? 'Seeding wiki…'
+                  : 'Working…'
+              : 'Thinking...'
+          }
           onboardingConversationKind={isProfiling ? 'profiling' : isSeedingWiki ? 'seeding' : undefined}
           {chatEndpoint}
           {autoSendMessage}
+          streamingWritePreview={wikiWriteStreaming}
           {headerFallbackTitle}
           {storageKey}
           showNewChatButton={false}
@@ -373,8 +382,6 @@
                 onCalendarResetToToday={resetCalendarToToday}
                 onCalendarNavigate={switchToCalendar}
                 onClose={closeOverlay}
-                onSync={syncAll}
-                {syncing}
                 mobilePanel
               />
             {/if}

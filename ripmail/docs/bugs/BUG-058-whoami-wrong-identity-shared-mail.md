@@ -136,14 +136,7 @@ Verified with integration test (`scripts/bug058-repro.sh`): at ~2,700 messages, 
 
 ---
 
-## Workaround (brain-app, remains useful)
-
-The `confirming-identity` onboarding interstitial (`state: 'confirming-identity'`) shows the whoami result and lets the user confirm or reject before the profiling agent runs. This guards against any future inference errors.
-
----
-
 ## Related
 
-- brain-app commit: `confirming-identity` onboarding interstitial (2026-04-17)
 - [OPP-050](../opportunities/OPP-050-applemail-localhost-mailbox.md) — Apple Mail localhost mailbox source
 

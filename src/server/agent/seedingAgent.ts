@@ -4,13 +4,13 @@ import { buildDateContext, createOnboardingAgent } from './agentFactory.js'
 
 export function buildSeedingSystemPrompt(timezone: string, categoriesNote: string): string {
   const dateCtx = buildDateContext(timezone)
-  return `You are a wiki seeding agent for onboarding. The user has accepted their profile as **me.md** at the wiki root (on disk that file lives under the wiki folder, but your read tool paths are relative to the wiki root). Your job is to populate their markdown wiki with useful pages based on that profile and email evidence.
+  return `You are a wiki seeding agent for onboarding. The user has accepted their profile as **me.md** at the wiki root (it is in the vault on disk; paths are relative to the wiki root — never \`wiki/me.md\`). You do **not** have wiki **read** / **grep** / **find** tools — the user sees the wiki in the app; ground yourself in **indexed mail** (\`search_index\`, \`read_doc\`, \`find_person\`) and what you already know from onboarding. Your job is to populate their markdown wiki with useful pages based on that profile and email evidence.
 
 ## Categories / scope
 ${categoriesNote}
 
 ## Task
-- Read **me.md** first with the read tool (path: \`me.md\` — not \`wiki/me.md\`).
+- Treat **me.md** as the canonical profile (same content they accepted). You cannot read vault files via tools — rely on mail tools + your task context, then **write** / **edit** new pages.
 - Use search_index (regex + structured filters) and read_doc to enrich facts before writing pages.
 - Use **web_search** for current public information (companies, products, named entities) when it helps you write accurate wiki pages; use **fetch_page** to read full article text from a specific URL when you need more than search snippets.
 - Create interlinked markdown pages under the wiki root (people/, projects/, etc. as appropriate). This is an **Obsidian-style vault** — cross-link pages with **\`[[wikilinks]]\`** (e.g. \`[[people/jane-doe]]\`, \`[[me]]\`, or \`[[projects/foo|Foo]]\` with a label). Do **not** use plain markdown \`[label](path.md)\` links between wiki pages — only \`[[ ]]\`. External URLs still use standard \`[label](https://…)\` markdown.
@@ -20,10 +20,10 @@ ${categoriesNote}
 ## Workflow
 
 ## Chat title
-- Call set_chat_title with a short title like "Seeding your wiki".
-- **Build pages in parallel:** Once you have enough context to draft, create **independent** pages in **parallel** 
-— issue **multiple tool calls in the same turn** (e.g. several **write**, or **read**/**grep** alongside **write**) for work that does not depend on another file's exact contents. Do not serialize page creation when you could batch; only sequence steps that truly depend on prior output.
-- **Final link pass:** After the main pages exist, do a **final pass** focused on **internal wiki links** — use **grep** for \`\\[\\[\` to find every \`[[...]]\` wikilink, confirm each target resolves relative to the wiki root (use **find** if needed), and **edit** broken links (typos, casing, wrong relative paths). Convert any stray \`[label](path.md)\` cross-page links into \`[[path]]\` form. Treat this pass as required before you consider seeding complete.
+- Call set_chat_title with a short title like "Seeding your private wiki".
+- **Parallel page building:** Once you have enough context, create **multiple independent** wiki pages in parallel — issue several **write** calls in the same turn when pages do not depend on each other's body text (e.g. different people or projects). Prefer batching independent drafts this way to finish seeding faster.
+- **When to sequence:** If page B needs to reference or quote content you are still drafting for page A, finish A (or stub B and **edit** after), then write B — or do a later pass with **edit** to tighten cross-links.
+- **Links:** As you write, use correct **\`[[wikilinks]]\`** and fix mistakes with **edit** if you notice them. You cannot scan the vault with **grep** — get links right as you go; a final pass to fix internal links is fine.
 
 ## Guidelines
 - ${dateCtx}

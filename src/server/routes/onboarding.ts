@@ -15,7 +15,7 @@ import {
   onboardingStagingWikiDir,
 } from '../lib/onboardingState.js'
 import { streamAgentSseResponse } from '../lib/streamAgentSse.js'
-import { getOrCreateProfilingAgent, deleteProfilingSession, fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from '../agent/profilingAgent.js'
+import { getOrCreateProfilingAgent, deleteProfilingSession } from '../agent/profilingAgent.js'
 import { getOrCreateSeedingAgent, deleteSeedingSession } from '../agent/seedingAgent.js'
 import { getOnboardingMailStatus, ripmailBin, ripmailHomePath } from '../lib/onboardingMailStatus.js'
 import { enrichAppleMailSetupError } from '../lib/appleMailSetupHints.js'
@@ -41,16 +41,6 @@ onboarding.get('/status', async (c) => {
     state: doc.state,
     wikiMeExists: wikiMeExists(),
     updatedAt: doc.updatedAt,
-  })
-})
-
-/** Return the ripmail-inferred identity for the "Is this you?" confirmation screen. */
-onboarding.get('/whoami', async (c) => {
-  const raw = await fetchRipmailWhoamiForProfiling()
-  const subject = parseWhoamiProfileSubject(raw)
-  return c.json({
-    displayName: subject?.displayName ?? null,
-    primaryEmail: subject?.primaryEmail ?? null,
   })
 })
 

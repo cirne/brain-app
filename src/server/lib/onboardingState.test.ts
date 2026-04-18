@@ -42,6 +42,13 @@ describe('onboardingState', () => {
     expect((await readOnboardingStateDoc()).state).toBe('profiling')
   })
 
+  it('readOnboardingStateDoc maps legacy confirming-identity to profiling', async () => {
+    const path = join(chatDir(), 'onboarding.json')
+    await writeFile(path, JSON.stringify({ state: 'confirming-identity', updatedAt: '2020-01-01' }), 'utf-8')
+    const { readOnboardingStateDoc } = await import('./onboardingState.js')
+    expect((await readOnboardingStateDoc()).state).toBe('profiling')
+  })
+
   it('setOnboardingState rejects invalid transition', async () => {
     const { setOnboardingState } = await import('./onboardingState.js')
     await expect(setOnboardingState('done')).rejects.toThrow()
@@ -56,6 +63,15 @@ describe('onboardingState', () => {
     expect((await readOnboardingStateDoc()).state).toBe('seeding')
   })
 
+  it('setOnboardingState allows reviewing-profile → profiling (regenerate)', async () => {
+    const { setOnboardingState, readOnboardingStateDoc } = await import('./onboardingState.js')
+    await setOnboardingState('indexing')
+    await setOnboardingState('profiling')
+    await setOnboardingState('reviewing-profile')
+    await setOnboardingState('profiling')
+    expect((await readOnboardingStateDoc()).state).toBe('profiling')
+  })
+
   it('resetOnboardingState forces not-started', async () => {
     const { setOnboardingState, resetOnboardingState, readOnboardingStateDoc } = await import(
       './onboardingState.js'
@@ -63,6 +79,20 @@ describe('onboardingState', () => {
     await setOnboardingState('indexing')
     await resetOnboardingState()
     expect((await readOnboardingStateDoc()).state).toBe('not-started')
+  })
+
+  it('setOnboardingStateForce allows done → seeding', async () => {
+    const { setOnboardingState, setOnboardingStateForce, readOnboardingStateDoc } = await import(
+      './onboardingState.js'
+    )
+    await setOnboardingState('indexing')
+    await setOnboardingState('profiling')
+    await setOnboardingState('reviewing-profile')
+    await setOnboardingState('confirming-categories')
+    await setOnboardingState('seeding')
+    await setOnboardingState('done')
+    await setOnboardingStateForce('seeding')
+    expect((await readOnboardingStateDoc()).state).toBe('seeding')
   })
 
   it('wikiMeExists reflects me.md', async () => {

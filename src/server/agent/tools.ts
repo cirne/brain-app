@@ -280,8 +280,13 @@ export interface CreateAgentToolsOptions {
    * Default: true only if initLocalMessageToolsAvailability() ran at startup and chat.db was readable.
    */
   includeLocalMessageTools?: boolean
-  /** Tool `name`s to drop from the returned list (e.g. onboarding uses a subset). */
+  /** Tool `name`s to drop from the returned list (denylist). Ignored if `onlyToolNames` is set. */
   omitToolNames?: readonly string[]
+  /**
+   * If set, only these tools are included (allowlist). When present, `omitToolNames` is ignored.
+   * See {@link buildCreateAgentToolsOptions} in `agentToolSets.ts` for presets.
+   */
+  onlyToolNames?: readonly string[]
 }
 
 function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boolean {
@@ -1318,6 +1323,11 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     openTool,
     ...(includeLocalMessages ? [listRecentMessagesTool, getMessageThreadTool] : []),
   ]
+  const only = options?.onlyToolNames
+  if (only?.length) {
+    const allow = new Set(only)
+    return tools.filter((t: { name?: string }) => t.name == null || allow.has(t.name))
+  }
   const omit = options?.omitToolNames
   if (omit?.length) {
     const drop = new Set(omit)

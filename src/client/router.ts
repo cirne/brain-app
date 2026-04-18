@@ -19,8 +19,8 @@ export type Overlay =
 /** Chat-first shell: optional detail overlay; base route is always chat. */
 export type Route = {
   overlay?: Overlay
-  /** Full-page flows (onboarding wizard, dev hard-reset). */
-  flow?: 'onboarding' | 'hard-reset'
+  /** Full-page flows (onboarding wizard, dev hard-reset / restart-seed). */
+  flow?: 'onboarding' | 'hard-reset' | 'restart-seed'
 }
 
 export type SurfaceContext =
@@ -81,6 +81,9 @@ export function parseRoute(href: string = location.href): Route {
   if (seg1 === 'hard-reset') {
     return { flow: 'hard-reset' }
   }
+  if (seg1 === 'restart-seed') {
+    return { flow: 'restart-seed' }
+  }
 
   // Legacy: /chat and /home → chat only
   if (seg1 === 'chat' || seg1 === 'home') {
@@ -140,6 +143,7 @@ export function parseRoute(href: string = location.href): Route {
 export function routeToUrl(route: Route): string {
   if (route.flow === 'onboarding') return '/onboarding'
   if (route.flow === 'hard-reset') return '/hard-reset'
+  if (route.flow === 'restart-seed') return '/restart-seed'
   const o = route.overlay
   if (!o) return '/'
   if (o.type === 'wiki') {

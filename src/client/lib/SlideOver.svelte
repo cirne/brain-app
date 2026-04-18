@@ -34,6 +34,7 @@
     onWikiNavigate: (_path: string | undefined) => void
     onInboxNavigate: (_id: string | undefined) => void
     onContextChange: (_ctx: SurfaceContext) => void
+    /** Passed to Inbox for in-pane actions — not rendered in the L2 header. */
     onOpenSearch?: () => void
     onSummarizeInbox?: (_message: string) => void
     /** Calendar “Today”: jump to this week + clear `event=` in URL. */
@@ -41,8 +42,6 @@
     /** `/calendar?date=&event=` — same contract as App `switchToCalendar`. */
     onCalendarNavigate?: (_date: string, _eventId?: string) => void
     onClose: () => void
-    onSync?: () => void
-    syncing?: boolean
     /** Full-screen mobile stack: slide in from right, swipe from left edge / animated close. */
     mobilePanel?: boolean
     /** Desktop detail pane: expanded to fill workspace (from WorkspaceSplit). */
@@ -67,8 +66,6 @@
     onCalendarResetToToday,
     onCalendarNavigate,
     onClose,
-    onSync,
-    syncing = false,
     mobilePanel = false,
     detailFullscreen = false,
     onToggleFullscreen,
@@ -313,30 +310,6 @@
     {#snippet right()}
       {#if overlay.type === 'calendar' && calendarHeader}
         <button type="button" class="calendar-today-btn" onclick={calendarHeader.goToday}>Today</button>
-      {/if}
-      {#if onSync}
-        <div class="slide-actions">
-          {#if onOpenSearch}
-            <button class="slide-action-btn" onclick={onOpenSearch} title="Search (⌘K)" aria-label="Search">
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-              </svg>
-            </button>
-          {/if}
-          <button
-            class="slide-action-btn sync-press-when-syncing"
-            class:syncing={syncing}
-            onclick={onSync}
-            disabled={syncing}
-            title="Sync (⌘R)"
-            aria-label="Sync"
-          >
-            <svg class:sync-spinning={syncing} xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
-              <path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
-            </svg>
-          </button>
-        </div>
       {/if}
       {#if overlay.type === 'wiki' && wikiHeader}
         {#if wikiHeader.saveState === 'saving'}
@@ -606,26 +579,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-
-  .slide-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    flex-shrink: 0;
-  }
-
-  .slide-action-btn {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-2);
-    border-radius: 6px;
-    transition: color 0.15s, background 0.15s;
-  }
-  .slide-action-btn:hover:not(:disabled) { color: var(--text); background: var(--bg-3); }
-  .slide-action-btn:disabled { opacity: 0.5; cursor: default; }
 
   .wiki-edit-btn {
     width: 32px;
