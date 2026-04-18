@@ -4,7 +4,8 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 
 | Variable | Typical / default | Purpose |
 |----------|-------------------|---------|
-| `BRAIN_HOME` | `./data` (dev) | Root for wiki, chats, skills, ripmail, cache, var |
+| `BRAIN_HOME` | `./data` (dev); `~/Library/Application Support/Brain` (bundled macOS) | Local root: chats, skills, ripmail, cache, `var/` — not the wiki vault on bundled macOS (see `BRAIN_WIKI_ROOT`) |
+| `BRAIN_WIKI_ROOT` | `~/Documents/Brain` (bundled macOS when unset) | Parent directory of the `wiki/` folder (`$BRAIN_WIKI_ROOT/wiki`). Dev / non-macOS: same as `BRAIN_HOME` when unset. Set by Tauri on macOS; ignored from `.env` when bundled. |
 | `BRAIN_BUNDLED_NATIVE` | — | Set to `1` by Tauri when spawning the bundled server |
 | `BRAIN_EMBED_MASTER_KEY` | — | Tauri release: encrypt API keys embedded in the native binary |
 | `NODE_ENV` | `development` / `production` | Skips API auth in dev when not production |

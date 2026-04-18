@@ -27,6 +27,8 @@ fn dir_segment(key: &str) -> String {
 #[derive(Deserialize)]
 struct BundleDefaults {
     default_brain_home: DefaultBrainHomeRel,
+    #[serde(default)]
+    default_wiki_parent_darwin: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -66,9 +68,22 @@ fn brain_home_default(home: &str) -> PathBuf {
     Path::new(home).join(rel)
 }
 
+fn wiki_parent_default(home: &str) -> PathBuf {
+    let rel = bundle_defaults()
+        .default_wiki_parent_darwin
+        .as_deref()
+        .unwrap_or("Documents/Brain");
+    Path::new(home).join(rel)
+}
+
 pub fn ensure_dirs_and_apply_defaults(cmd: &mut Command, home: &str) {
     let brain = brain_home_default(home);
-    let wiki = brain.join(dir_segment("wiki"));
+    let wiki_parent = if cfg!(target_os = "macos") {
+        wiki_parent_default(home)
+    } else {
+        brain.clone()
+    };
+    let wiki = wiki_parent.join(dir_segment("wiki"));
     let skills = brain.join(dir_segment("skills"));
     let chats = brain.join(dir_segment("chats"));
     let rip = brain.join(dir_segment("ripmail"));
@@ -83,6 +98,9 @@ pub fn ensure_dirs_and_apply_defaults(cmd: &mut Command, home: &str) {
 
     if std::env::var_os("BRAIN_HOME").is_none() {
         cmd.env("BRAIN_HOME", &brain);
+    }
+    if std::env::var_os("BRAIN_WIKI_ROOT").is_none() {
+        cmd.env("BRAIN_WIKI_ROOT", &wiki_parent);
     }
     if std::env::var_os("RIPMAIL_HOME").is_none() {
         cmd.env("RIPMAIL_HOME", &rip);
@@ -104,5 +122,12 @@ mod tests {
             rip.to_string_lossy(),
             "/Users/x/Library/Application Support/Brain/ripmail"
         );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_wiki_lives_under_documents_brain() {
+        let wiki = super::wiki_parent_default("/Users/x").join(super::dir_segment("wiki"));
+        assert_eq!(wiki.to_string_lossy(), "/Users/x/Documents/Brain/wiki");
     }
 }

@@ -20,7 +20,6 @@
     type OnboardingMailStatus,
   } from './onboardingTypes.js'
   import { ONBOARDING_PROFILE_CHAT_STORAGE_KEY } from './onboardingStorageKeys.js'
-  import { FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY } from './seedConstants.js'
   import { resizeMainWindowToBrowserLikeWorkArea } from '../desktop/browserLikeWindow.js'
 
   interface Props {
@@ -177,13 +176,7 @@
 
   async function clearProfilingChatSession() {
     try {
-      const raw = localStorage.getItem(ONBOARDING_PROFILE_CHAT_STORAGE_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw) as { sessionId?: unknown }
-      const sid = typeof parsed.sessionId === 'string' ? parsed.sessionId : ''
-      if (sid) {
-        await fetch(`/api/onboarding/session/profiling/${encodeURIComponent(sid)}`, { method: 'DELETE' })
-      }
+      await fetch('/api/onboarding/profiling-sessions', { method: 'DELETE' })
     } catch {
       /* ignore */
     }
@@ -268,11 +261,6 @@
   async function finishOnboarding() {
     if (onboardingExitHandled) return
     onboardingExitHandled = true
-    try {
-      sessionStorage.setItem(FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY, '1')
-    } catch {
-      /* ignore */
-    }
     await patchState('done')
     await onComplete()
   }
@@ -310,8 +298,8 @@
     <OnboardingWorkspace
       chatEndpoint="/api/onboarding/profile"
       headerFallbackTitle="Profiling"
-      storageKey={ONBOARDING_PROFILE_CHAT_STORAGE_KEY}
-        autoSendMessage="From my indexed email, write me.md — one strong page of context for my assistant (your best structure). Use the tools; keep it factual and scannable."
+      storageKey=""
+        autoSendMessage="From my indexed email, write a short me.md for my assistant: how to help me, tone, key roles, a few key people — lean and steering, not a full bio. Use the tools; keep it factual. Interests and projects will land in the wiki afterward."
       onStreamFinished={async () => { await patchState('reviewing-profile') }}
     />
   {:else}
@@ -392,9 +380,9 @@
               <span class="ob-indexing-core"></span>
             </div>
             <span class="ob-kicker">Brain</span>
-            <h1 class="ob-headline">Indexing your mail</h1>
+            <h1 class="ob-headline">Getting to Know You.</h1>
             <p class="ob-lead ob-indexing-lead">
-              We’re copying your recent messages from Apple Mail into Brain so we can build your profile. You can leave this screen open.
+              We’re copying your recent messages from Apple Mail into Brain so we can build your profile. Hang tight.
             </p>
           </div>
           <div class="ob-indexing-status-slot" aria-live="polite">

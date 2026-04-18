@@ -65,10 +65,10 @@ If **`ripmail index: messages≈0`** but mail was synced before: often **FDA off
 
 ## Data paths and “wrong user” / wrong profile
 
-- Default **`BRAIN_HOME`**: **`~/Library/Application Support/Brain`**; **`RIPMAIL_HOME`**: **`…/Brain/ripmail`** (see `desktop/src/brain_paths.rs`, `shared/bundle-defaults.json`).
-- Tauri sets `BRAIN_HOME` / `RIPMAIL_HOME` on the **Node child only when the parent does not already have them set** — if the parent exports wrong values, the child can **inherit** bad paths. Confirm **`[brain-app] BRAIN_HOME=`** / **`RIPMAIL_HOME=`** in **`node-server.log`**.
+- Default **`BRAIN_HOME`**: **`~/Library/Application Support/Brain`** (local: ripmail, chats, skills, cache); **`BRAIN_WIKI_ROOT`**: **`~/Documents/Brain`** (wiki vault: **`…/wiki`**); **`RIPMAIL_HOME`**: **`…/Brain/ripmail`** (see `desktop/src/brain_paths.rs`, `shared/bundle-defaults.json`, [OPP-024](../../../docs/opportunities/OPP-024-split-brain-data-synced-wiki-local-ripmail.md)).
+- Tauri sets `BRAIN_HOME` / `BRAIN_WIKI_ROOT` / `RIPMAIL_HOME` on the **Node child only when the parent does not already have them set** — if the parent exports wrong values, the child can **inherit** bad paths. Confirm **`[brain-app] BRAIN_HOME=`** / **`BRAIN_WIKI_ROOT=`** / **`RIPMAIL_HOME=`** in **`node-server.log`**.
 - **Ripmail does not merge two accounts in one index** — wrong identity usually means **wrong store path** or **mailbox configured for someone else** under that `RIPMAIL_HOME`, not SQLite “commingling.”
-- Older logs sometimes showed wiki under **`~/Documents/Brain`** (repo-style); current layout targets **Application Support** — mixed paths across versions can confuse debugging; trust the latest `[brain-app]` lines.
+- Pre–OPP-024 bundles kept wiki under **Application Support**; upgrades **migrate** to **`~/Documents/Brain/wiki`** once (see `splitLayoutMigration.ts`). If debugging “wrong vault,” check both paths and the `[brain-app]` lines.
 
 ## Embedded API keys (release builds)
 

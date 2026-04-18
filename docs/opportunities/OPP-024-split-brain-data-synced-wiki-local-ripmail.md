@@ -2,11 +2,20 @@
 
 ## Summary
 
-Move from a **single `BRAIN_HOME` tree** ([OPP-012](OPP-012-brain-home-data-layout.md)) to a **deliberate two-root layout** on macOS: **user-facing, agent-primary knowledge** lives under **`~/Documents/…`** so it participates in **Desktop & Documents → iCloud** when the user has enabled that; **everything else** (especially **ripmail** — SQLite index, sync state, **OAuth artifacts**) stays under **`~/Library/Application Support/Brain`**.
+Move from a **single `BRAIN_HOME` tree** ([OPP-012](OPP-012-brain-home-data-layout.md)) to a **deliberate two-root layout** on macOS: **user-facing, agent-primary knowledge** lives under **`~/Documents/…`** so it participates in **Desktop & Documents → iCloud** when the user has enabled that; **everything else** (especially **ripmail** — SQLite index, sync state, **OAuth artifacts**) stays under **`~/Library/Application Support/Brain`**. **`npm run dev`, tests, and non-macOS stay on one root** — default **`./data`** — per **[Locked decisions](#locked-decisions)**.
 
 **Intent:** Treat the **wiki as the cross-machine source of truth** for the assistant; treat **email as a local cache** that **rebuilds** from IMAP/Gmail on each Mac (delayed catch-up is acceptable for queries that depend on mail). **Goal:** when we implement this, **directory decisions should be stable** — minimal churn for users and docs.
 
-**Status:** Opportunity (not implemented).
+**Status:** Implemented (bundled macOS: wiki under `~/Documents/Brain/wiki`; local data under Application Support; one-time migration from pre-split `…/Brain/wiki`; see `splitLayoutMigration.ts`).
+
+---
+
+## Locked decisions
+
+- **`npm run dev` and non-macOS (e.g. Linux):** **Single root, unchanged from [OPP-012](OPP-012-brain-home-data-layout.md).** Unset `BRAIN_HOME` → **`./data`** (repo-relative). Wiki (`wiki/`), ripmail (`ripmail/` via `RIPMAIL_HOME`), chats, cache, `var/`, skills — all stay under that one tree. No Documents vs Application Support split in dev; no requirement for `BRAIN_WIKI_ROOT` / `BRAIN_LOCAL_ROOT` in day-to-day development.
+- **Bundled macOS app:** This opportunity’s **two-root layout** applies here only: synced user knowledge under **`~/Documents/…`** (or an explicit user pick), local/DB-heavy state under **`~/Library/Application Support/Brain`**.
+
+Rationale: **simplest mental model for contributors** (one folder to delete, one place to inspect), **matches current code and docs**, and avoids forcing iCloud semantics onto every dev machine. Parity with production paths is **not** worth the ongoing complexity; macOS bundle tests cover the split.
 
 ---
 
@@ -48,8 +57,8 @@ Move from a **single `BRAIN_HOME` tree** ([OPP-012](OPP-012-brain-home-data-layo
 2. **Chat history in iCloud:** JSON append-only or multi-file chat logs **sync better than SQLite**, but **two Macs chatting simultaneously** can still produce **conflict copies** (`file (1).json`) or **partially merged / invalid JSON**. Mitigations: see **[How to manage sync risk](#how-to-manage-sync-risk)** below (including **LLM repair** as a practical backstop).
 3. **`wiki-edits.jsonl` / audit logs:** Today under `var/` ([`shared/brain-layout.json`](../../shared/brain-layout.json)). If audit should follow the wiki across machines, consider **synced** placement; if local-only is fine, keep in App Support.
 4. **Skills:** Synced vs local affects whether slash commands match on every Mac ([OPP-010](OPP-010-user-skills.md)); default should match user expectation (likely **sync** with wiki).
-5. **Non-macOS / dev:** `./data` and Linux need a clear story — e.g. **single root unchanged on non-Darwin**, or **two roots** with env vars (`BRAIN_WIKI_ROOT`, `BRAIN_LOCAL_ROOT`) everywhere for parity.
-6. **Packaged app:** Tauri already sets `BRAIN_HOME`; implementation likely introduces **`BRAIN_WIKI_ROOT`** (or similar) + **`BRAIN_LOCAL_ROOT`**, with [`desktop/src/brain_paths.rs`](../../desktop/src/brain_paths.rs) and [`shared/bundle-defaults.json`](../../shared/bundle-defaults.json) updated once.
+5. **Dev / non-macOS:** **Resolved** — single `./data` (unified `BRAIN_HOME`); see **[Locked decisions](#locked-decisions)**.
+6. **Packaged macOS app:** Tauri already sets `BRAIN_HOME` today; implementation introduces **`BRAIN_WIKI_ROOT`** (or similar) + **`BRAIN_LOCAL_ROOT`** for the **bundle only**, with [`desktop/src/brain_paths.rs`](../../desktop/src/brain_paths.rs) and [`shared/bundle-defaults.json`](../../shared/bundle-defaults.json) updated once. **Dev does not** adopt those split defaults; it keeps unified `BRAIN_HOME`.
 7. **Onboarding / folder picks** ([OPP-014](OPP-014-onboarding-local-folder-suggestions.md)): seeded paths should assume **wiki under Documents/Brain** (or chosen dot path) consistently.
 8. **“Optimize Mac Storage”:** iCloud may **evict** rarely used files; wiki pages should stay **small and hot**; large attachments in wiki are an edge case to watch.
 
@@ -67,11 +76,12 @@ Move from a **single `BRAIN_HOME` tree** ([OPP-012](OPP-012-brain-home-data-layo
 
 ## Implementation sketch (when picked up)
 
-- Define **two canonical roots** in code + layout (extend or supersede single `BRAIN_HOME` with explicit segments).
-- **Ripmail:** always **`RIPMAIL_HOME` = `<App Support>/Brain/ripmail`** (or keep one local root and derive).
-- **Wiki:** resolve **`wiki/`** from Documents path; ensure git/remote flows ([PRODUCTIZATION.md](../PRODUCTIZATION.md)) still know the wiki disk root.
+- **Path resolution:** **Bundled macOS** → two roots (wiki vs local/DB) per [Locked decisions](#locked-decisions). **Everything else** (dev server, Linux, tests that don’t simulate the bundle) → **single `BRAIN_HOME`**; default `./data` when unset.
+- Define **two canonical roots** only where the bundle needs them (extend layout with explicit segments; dev keeps one tree).
+- **Ripmail (bundle):** **`RIPMAIL_HOME`** under **Application Support** local root. **Ripmail (dev):** unchanged — **`$BRAIN_HOME/ripmail`** when `RIPMAIL_HOME` unset.
+- **Wiki (bundle):** resolve **`wiki/`** from the Documents (synced) root; ensure git/remote flows ([PRODUCTIZATION.md](../PRODUCTIZATION.md)) still know the wiki disk root.
 - **No backward-compat migration** per [AGENTS.md](../../AGENTS.md): document **wipe / re-seed** for devs; one-time **mover** optional for brave users.
-- **Tests:** path resolution and ripmail spawn env ([`brainHome.ts`](../../src/server/lib/brainHome.ts), [`ripmailProcessEnv`](../../src/server/lib/brainHome.ts)).
+- **Tests:** path resolution and ripmail spawn env ([`brainHome.ts`](../../src/server/lib/brainHome.ts), [`ripmailProcessEnv`](../../src/server/lib/brainHome.ts)); add **bundle-specific** coverage for split roots without changing dev defaults.
 
 ---
 

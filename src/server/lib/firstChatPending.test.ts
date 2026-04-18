@@ -27,4 +27,15 @@ describe('firstChatPending', () => {
     expect(await tryConsumeFirstChatPending()).toBe(true)
     expect(await tryConsumeFirstChatPending()).toBe(false)
   })
+
+  it('hasFirstChatPending is true iff file exists', async () => {
+    const { hasFirstChatPending, writeFirstChatPending, tryConsumeFirstChatPending } = await import(
+      './firstChatPending.js'
+    )
+    expect(await hasFirstChatPending()).toBe(false)
+    await writeFirstChatPending()
+    expect(await hasFirstChatPending()).toBe(true)
+    await tryConsumeFirstChatPending()
+    expect(await hasFirstChatPending()).toBe(false)
+  })
 })

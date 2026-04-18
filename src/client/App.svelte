@@ -58,6 +58,15 @@
         history.replaceState(null, '', '/onboarding')
         route = parseRoute()
       }
+      if (import.meta.env.DEV && parseRoute().flow === 'first-chat') {
+        try {
+          await fetch('/api/dev/first-chat', { method: 'POST' })
+        } catch {
+          /* ignore */
+        }
+        history.replaceState(null, '', '/')
+        route = parseRoute()
+      }
       await fetchStatus()
       appReady = true
     })()

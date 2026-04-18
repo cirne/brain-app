@@ -2,7 +2,7 @@ import process from 'node:process'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { readdir, rm } from 'node:fs/promises'
-import { defaultBundledBrainHomeRoot } from './bundleDefaults.js'
+import { defaultBundledBrainHomeRoot, defaultBundledWikiParentRoot } from './bundleDefaults.js'
 import {
   brainLayoutCacheDir,
   brainLayoutChatsDir,
@@ -14,8 +14,8 @@ import {
 } from './brainLayout.js'
 
 /**
- * Single root for durable Brain data. Set by Tauri when bundled; in dev defaults to ./data.
- * Optional override: standalone ripmail uses RIPMAIL_HOME only (see ripmail docs).
+ * Local durable root (Application Support on bundled macOS; `./data` in dev).
+ * Wiki markdown may live under {@link brainWikiParentRoot} when the layout is split (OPP-024).
  */
 export function brainHome(): string {
   const e = process.env.BRAIN_HOME
@@ -27,20 +27,41 @@ export function brainHome(): string {
 }
 
 /**
+ * Parent directory of the `wiki/` segment (`$BRAIN_WIKI_ROOT/wiki`).
+ * Bundled macOS defaults to `~/Documents/Brain`; dev and non-macOS use `brainHome()`.
+ */
+export function brainWikiParentRoot(): string {
+  if (process.env.BRAIN_WIKI_ROOT) {
+    return process.env.BRAIN_WIKI_ROOT
+  }
+  if (process.env.BRAIN_BUNDLED_NATIVE === '1' && process.platform === 'darwin') {
+    return defaultBundledWikiParentRoot()
+  }
+  return brainHome()
+}
+
+/**
  * Dev hard-reset: remove every top-level file and directory under `BRAIN_HOME` (no layout list).
+ * When wiki lives outside `BRAIN_HOME` (bundled macOS), also removes `$BRAIN_WIKI_ROOT/wiki`.
  * The root directory itself is kept; callers recreate paths on demand.
  */
 export async function wipeBrainHomeContents(): Promise<void> {
   const home = brainHome()
-  if (!existsSync(home)) return
-  const entries = await readdir(home, { withFileTypes: true })
-  for (const ent of entries) {
-    await rm(join(home, ent.name), { recursive: true, force: true })
+  const wiki = wikiContentDir()
+  const wikiParent = brainWikiParentRoot()
+  if (existsSync(home)) {
+    const entries = await readdir(home, { withFileTypes: true })
+    for (const ent of entries) {
+      await rm(join(home, ent.name), { recursive: true, force: true })
+    }
+  }
+  if (wikiParent !== home && existsSync(wiki)) {
+    await rm(wiki, { recursive: true, force: true })
   }
 }
 
 export function wikiContentDir(): string {
-  return brainLayoutWikiDir(brainHome())
+  return brainLayoutWikiDir(brainWikiParentRoot())
 }
 
 export function skillsDataDir(): string {

@@ -65,7 +65,7 @@ npm run brain:clean:dev        # delete dev durable data: `./data` unless `BRAIN
 npm run desktop:dev            # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
 npm run desktop:build          # npm build + bundle server + Brain.app (+ DMG on macOS)
 npm run desktop:fresh          # `desktop:clean-data` + `desktop:build`, then opens the DMG (default) or `Brain.app` with `-- app` (macOS) — see `scripts/desktop-fresh.mjs`
-npm run desktop:clean-data     # delete packaged-app data: defaults from `shared/bundle-defaults.json`, or `$BRAIN_HOME` if set (+ macOS logs); not `./data` unless `BRAIN_HOME` points there
+npm run desktop:clean-data     # delete packaged-app data: local `BRAIN_HOME` default + macOS wiki parent (`~/Documents/Brain` from bundle-defaults) when using default paths, or explicit `$BRAIN_HOME` / `$BRAIN_WIKI_ROOT` (+ macOS logs); not `./data` unless `BRAIN_HOME` points there
 ```
 
 **Cargo workspace:** Rust crates live under [`desktop/`](desktop/) (Tauri shell) and [`ripmail/`](ripmail/) with a root [`Cargo.toml`](Cargo.toml). Build artifacts go under the Cargo target directory (usually `./target/`; see `cargo metadata`).

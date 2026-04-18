@@ -10,7 +10,7 @@
 
 The agent needs to read two different kinds of content:
 
-1. **Markdown wiki pages** under `$BRAIN_HOME/wiki` — the user’s edited, cross-linked **synthesized** knowledge (working source of truth for digested information).
+1. **Markdown wiki pages** under `$BRAIN_WIKI_ROOT/wiki` (dev: `$BRAIN_HOME/wiki`) — the user’s edited, cross-linked **synthesized** knowledge (working source of truth for digested information).
 2. **Email and indexed local files** from the ripmail SQLite index — **evidence** (messages by Message-ID, attachments, paths under configured folder sources) used to *inform* wiki pages, analogous to “read this email,” not “this file is the wiki.”
 
 The codebase could theoretically expose a single “read file” tool with multiple roots or absolute paths. That would reuse `@mariozechner/pi-coding-agent` primitives for everything, but it blurs product semantics and mixes incompatible identifier and I/O models.

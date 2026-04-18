@@ -25,6 +25,8 @@
 
 **Bundled macOS default:** `~/Library/Application Support/Brain` (see [`desktop/src/brain_paths.rs`](../../desktop/src/brain_paths.rs)).
 
+**Wiki on bundled macOS:** [OPP-024](OPP-024-split-brain-data-synced-wiki-local-ripmail.md) — wiki content lives under **`~/Documents/Brain/wiki`** (`BRAIN_WIKI_ROOT`), not under `BRAIN_HOME/wiki`.
+
 **Dev default:** `BRAIN_HOME` unset → `./data` (repo-relative).
 
 ---

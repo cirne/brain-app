@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   defaultBundledBrainHomeRoot,
+  defaultBundledWikiParentRoot,
   getBundleDefaults,
   resolveBundleDefaultsPath,
 } from './bundleDefaults.js'
@@ -25,5 +26,10 @@ describe('bundleDefaults', () => {
         ? getBundleDefaults().default_brain_home.darwin
         : getBundleDefaults().default_brain_home.other
     expect(defaultBundledBrainHomeRoot()).toBe(join(homedir(), rel))
+  })
+
+  it('defaultBundledWikiParentRoot uses default_wiki_parent_darwin on macOS', () => {
+    const rel = getBundleDefaults().default_wiki_parent_darwin ?? 'Documents/Brain'
+    expect(defaultBundledWikiParentRoot()).toBe(join(homedir(), rel))
   })
 })

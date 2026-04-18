@@ -17,7 +17,8 @@ afterEach(async () => {
 
 describe('buildSeedingSystemPrompt', () => {
   it('grounds seeding in mail + write without wiki read tools', () => {
-    const p = buildSeedingSystemPrompt('America/Los_Angeles', '- cats')
+    const userPage = { relativePath: 'people/lewis-cirne.md', slug: 'lewis-cirne' }
+    const p = buildSeedingSystemPrompt('America/Los_Angeles', '- cats', userPage)
     expect(p).toMatch(/do \*\*not\*\* have wiki \*\*read\*\*/i)
     expect(p).toMatch(/never `wiki\/me\.md`/i)
     expect(p).toMatch(/never add a `wiki\/` prefix/i)
@@ -25,12 +26,18 @@ describe('buildSeedingSystemPrompt', () => {
     expect(p).toContain('fetch_page')
     expect(p).toMatch(/parallel page building/i)
     expect(p).toMatch(/cannot scan the vault with \*\*grep\*\*/i)
-    expect(p).toMatch(/Do not.*write a separate page about.*main user/i)
-    expect(p).toContain('**me.md** is already their profile')
+    expect(p).toMatch(/skeletal long-form page/i)
+    expect(p).toContain('people/lewis-cirne.md')
+    expect(p).toMatch(/Expand it/i)
     expect(p).toMatch(/Obsidian-style/i)
     expect(p).toContain('[[wikilinks]]')
     expect(p).toContain('[[me]]')
     expect(p).toContain('[[people/jane-doe]]')
+  })
+
+  it('when user people page is unknown, keeps optional fallback line', () => {
+    const p = buildSeedingSystemPrompt('America/Los_Angeles', '- cats', null)
+    expect(p).toMatch(/people\/\[slug\]/i)
   })
 })
 
@@ -76,14 +83,13 @@ describe('onboarding agent tools', () => {
 })
 
 describe('buildProfilingSystemPrompt', () => {
-  it('includes account identity and me.md as core assistant context', () => {
+  it('includes account identity and me.md as injected assistant context', () => {
     const p = buildProfilingSystemPrompt('America/Los_Angeles', 'user@example.com')
     expect(p).toContain('user@example.com')
     expect(p).toContain('me.md')
-    expect(p).toMatch(/core context/i)
+    expect(p).toMatch(/injected/i)
     expect(p).toMatch(/AGENTS\.md/i)
-    expect(p).toMatch(/read_doc.*6/i)
-    expect(p).not.toContain('## Key people')
+    expect(p).toMatch(/read_doc.*20/i)
   })
 
   it('when whoami is JSON, injects display name and email into the prompt', () => {
@@ -98,6 +104,16 @@ describe('buildProfilingSystemPrompt', () => {
     expect(p).toContain('Lewis Cirne')
     expect(p).toContain('lewis@example.com')
     expect(p).toContain('**Subject:**')
+  })
+
+  it('mentions skeletal people page when path is provided', () => {
+    const p = buildProfilingSystemPrompt('America/Los_Angeles', '{}', null, {
+      relativePath: 'people/lewis-cirne.md',
+      slug: 'lewis-cirne',
+    })
+    expect(p).toContain('people/lewis-cirne.md')
+    expect(p).toContain('[[people/lewis-cirne]]')
+    expect(p).toMatch(/Do not.*write.*edit.*during profiling/is)
   })
 })
 

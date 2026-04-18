@@ -19,6 +19,7 @@
   import { matchGlobalShortcut } from '../app/globalShortcuts.js'
   import { wikiPathForReadToolArg } from '../cards/contentCards.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from '../navigateFromAgentOpen.js'
+  import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '../app/workspaceLayout.js'
   import { ONBOARDING_DEFAULT_CHAT_STORAGE_KEY } from './onboardingStorageKeys.js'
 
   const {
@@ -61,6 +62,11 @@
   let workspaceSplit = $state<WorkspaceSplit | undefined>()
   let detailPaneFullscreen = $state(false)
   let isMobile = $state(false)
+  let workspaceColumnWidth = $state(0)
+  const useDesktopSplitDetail = $derived(
+    !isMobile && workspaceColumnWidth >= WORKSPACE_DESKTOP_SPLIT_MIN_PX,
+  )
+  const slideOverCloseAnimated = $derived(!useDesktopSplitDetail && mobileSlideOver)
 
   let agentContext = $state<SurfaceContext>({ type: 'chat' })
 
@@ -98,7 +104,7 @@
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && route.overlay) {
         e.preventDefault()
-        if (isMobile && mobileSlideOver) mobileSlideOver.closeAnimated()
+        if (slideOverCloseAnimated) slideOverCloseAnimated.closeAnimated()
         else closeOverlay()
         return
       }
@@ -137,15 +143,15 @@
 
   function closeOverlay() {
     if (!route.overlay) return
-    if (isMobile) {
-      closeOverlayImmediate()
+    if (useDesktopSplitDetail) {
+      workspaceSplit?.closeDesktopAnimated()
       return
     }
-    workspaceSplit?.closeDesktopAnimated()
+    closeOverlayImmediate()
   }
 
   function closeOverlayOnUserSend() {
-    if (isMobile && route.overlay) {
+    if (!useDesktopSplitDetail && route.overlay) {
       closeOverlayImmediate()
     }
   }
@@ -254,7 +260,7 @@
   ) {
     navigateFromAgentOpen(target, {
       source,
-      isMobile,
+      isMobile: !useDesktopSplitDetail,
       openWikiDoc: (path) => openWikiDoc(path),
       openFileDoc: (path) => openFileDoc(path),
       openEmailFromSearch,
@@ -320,20 +326,21 @@
     onOpenExpansion={() => {}}
   />
 
-  <div class="ob-ws-main">
+  <div class="ob-ws-main" bind:clientWidth={workspaceColumnWidth}>
     <WorkspaceSplit
       bind:this={workspaceSplit}
       bind:detailFullscreen={detailPaneFullscreen}
       hasDetail={!!route.overlay}
-      desktopDetailOpen={!!route.overlay && !isMobile}
+      desktopDetailOpen={!!route.overlay && useDesktopSplitDetail}
       onNavigateClear={closeOverlayImmediate}
     >
       {#snippet chat()}
         <AgentChat
           bind:this={agentChat}
           context={agentContext}
-          conversationHidden={!!route.overlay && isMobile}
-          suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || isMobile || useOnboardingActivity}
+          conversationHidden={!!route.overlay && !useDesktopSplitDetail}
+          hidePaneContextChip={!!route.overlay && useDesktopSplitDetail}
+          suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || !useDesktopSplitDetail || useOnboardingActivity}
           conversationView={
             isProfiling
               ? OnboardingProfilingView

@@ -9,12 +9,14 @@ export type AgentOpenSource = 'open' | 'read_doc'
 
 /**
  * Navigate wiki / inbox / calendar when the agent uses `open` or when `read_doc` mirrors email open on desktop.
- * On mobile, only the explicit `open` tool opens the detail panel; other tools stay as in-chat previews until the user taps through.
+ * When `isMobile` is true (viewport) **or** the UI is using slide-over detail (narrow chat workspace),
+ * only the explicit `open` tool opens the detail panel; other tools stay as in-chat previews until the user opens them.
  */
 export function navigateFromAgentOpen(
   target: AgentOpenTarget,
   ctx: {
     source: AgentOpenSource
+    /** True when the shell uses slide-over / stacked detail (mobile viewport or narrow workspace column). */
     isMobile: boolean
     openWikiDoc: (path: string) => void
     /** Raw filesystem path — `/files/…` in the app, not wiki. */

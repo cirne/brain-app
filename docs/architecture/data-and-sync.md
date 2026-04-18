@@ -4,11 +4,13 @@
 
 Single root for durable data. Default in dev: `./data` under the repo unless `BRAIN_HOME` or bundled defaults apply. Layout: [`shared/brain-layout.json`](../../shared/brain-layout.json) + helpers in [`brainLayout.ts`](../../src/server/lib/brainLayout.ts) / [`brainHome.ts`](../../src/server/lib/brainHome.ts).
 
+**Bundled macOS (OPP-024):** `BRAIN_HOME` is `~/Library/Application Support/Brain` (local: ripmail, chats, skills, cache, `var/`). The wiki vault is **`$BRAIN_WIKI_ROOT/wiki`**, default **`~/Documents/Brain/wiki`**, so markdown can sync with Desktop & Documents → iCloud. `BRAIN_WIKI_ROOT` is set by the Tauri launcher.
+
 Typical directories under `BRAIN_HOME`:
 
 | Key | Purpose |
 |-----|---------|
-| `wiki/` | Markdown wiki pages |
+| `wiki/` | Markdown wiki pages (dev / non-macOS; **not** used for wiki content on bundled macOS — see above) |
 | `chats/` | Persisted chat session JSON files |
 | `skills/` | User slash skills (seeded defaults on first run) |
 | `ripmail/` | Ripmail config + SQLite index when `RIPMAIL_HOME` is not overridden |

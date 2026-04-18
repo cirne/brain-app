@@ -11,7 +11,7 @@ import {
   listSessions,
   patchSessionTitle,
 } from '../lib/chatStorage.js'
-import { tryConsumeFirstChatPending } from '../lib/firstChatPending.js'
+import { hasFirstChatPending, tryConsumeFirstChatPending } from '../lib/firstChatPending.js'
 import type { ChatMessage } from '../lib/chatTypes.js'
 import { streamAgentSseResponse, streamStaticAssistantSse } from '../lib/streamAgentSse.js'
 import {
@@ -32,6 +32,11 @@ const FIRST_CHAT_KICKOFF_USER_MESSAGE = [
 ].join(' ')
 
 const chat = new Hono()
+
+// GET /api/chat/first-chat-pending — whether accept-profile wrote the marker (no consume)
+chat.get('/first-chat-pending', async (c) => {
+  return c.json({ pending: await hasFirstChatPending() })
+})
 
 // GET /api/chat/sessions — list persisted sessions (register before /:sessionId)
 chat.get('/sessions', async (c) => {

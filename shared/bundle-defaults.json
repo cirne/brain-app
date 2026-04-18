@@ -1,8 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
   "default_brain_home": {
     "darwin": "Library/Application Support/Brain",
     "other": ".brain"
   },
-  "tauri_logs_dir_darwin": "Library/Logs/com.cirne.brain"
+  "default_wiki_parent_darwin": "Documents/Brain",
+  "tauri_logs_dir_darwin": "Library/Logs/com.cirne.brain",
+  "webkit_data_dir_darwin": "Library/WebKit/com.cirne.brain"
 }

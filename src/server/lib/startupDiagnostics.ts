@@ -1,5 +1,5 @@
 import { BRAIN_DEFAULT_HTTP_PORT } from './brainHttpPort.js'
-import { brainHome } from './brainHome.js'
+import { brainHome, brainWikiParentRoot } from './brainHome.js'
 import { wikiDir } from './wikiDir.js'
 import { areLocalMessageToolsEnabled, initLocalMessageToolsAvailability } from './imessageDb.js'
 import { logFdaProbeForStartup } from './fdaProbe.js'
@@ -25,7 +25,9 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
   logFdaProbeForStartup(log)
   const home = brainHome()
   const wiki = wikiDir()
+  const wikiParent = brainWikiParentRoot()
   log(`BRAIN_HOME=${home}`)
+  log(`BRAIN_WIKI_ROOT=${wikiParent}`)
   log(`wiki content dir=${wiki}`)
 
   const ripHome = process.env.RIPMAIL_HOME

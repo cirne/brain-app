@@ -6,7 +6,11 @@ import { fileURLToPath } from 'node:url'
 export interface BundleDefaults {
   version: number
   default_brain_home: { darwin: string; other: string }
+  /** Parent directory of the `wiki/` segment on bundled macOS (`~/Documents/Brain` → `~/Documents/Brain/wiki`). */
+  default_wiki_parent_darwin?: string
   tauri_logs_dir_darwin?: string
+  /** WKWebView website data (localStorage, etc.) — `~/Library/WebKit/<bundle id>` on macOS. */
+  webkit_data_dir_darwin?: string
 }
 
 let cached: BundleDefaults | null = null
@@ -38,5 +42,12 @@ export function defaultBundledBrainHomeRoot(): string {
   const b = getBundleDefaults()
   const rel =
     process.platform === 'darwin' ? b.default_brain_home.darwin : b.default_brain_home.other
+  return join(homedir(), rel)
+}
+
+/** Parent of `wiki/` on bundled macOS (`Documents/Brain` → `~/Documents/Brain/wiki`). */
+export function defaultBundledWikiParentRoot(): string {
+  const b = getBundleDefaults()
+  const rel = b.default_wiki_parent_darwin ?? 'Documents/Brain'
   return join(homedir(), rel)
 }

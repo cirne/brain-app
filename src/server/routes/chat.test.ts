@@ -20,6 +20,33 @@ afterEach(async () => {
   vi.resetModules()
 })
 
+describe('GET /api/chat/first-chat-pending', () => {
+  it('returns pending false when marker missing', async () => {
+    const { default: chatRoute } = await import('./chat.js')
+    const app = new Hono()
+    app.route('/api/chat', chatRoute)
+
+    const res = await app.request('/api/chat/first-chat-pending')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { pending: boolean }
+    expect(j.pending).toBe(false)
+  })
+
+  it('returns pending true when marker exists', async () => {
+    const { writeFirstChatPending } = await import('../lib/firstChatPending.js')
+    await writeFirstChatPending()
+
+    const { default: chatRoute } = await import('./chat.js')
+    const app = new Hono()
+    app.route('/api/chat', chatRoute)
+
+    const res = await app.request('/api/chat/first-chat-pending')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { pending: boolean }
+    expect(j.pending).toBe(true)
+  })
+})
+
 describe('POST /api/chat', () => {
   it('returns 400 when message is missing', async () => {
     const { default: chatRoute } = await import('./chat.js')

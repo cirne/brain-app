@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { skillsDataDir, wikiContentDir } from './brainHome.js'
 
-/** Markdown wiki content: `$BRAIN_HOME/wiki`. */
+/** Markdown wiki content: `$BRAIN_WIKI_ROOT/wiki` (bundled macOS) or `$BRAIN_HOME/wiki` (dev). */
 export const wikiDir = () => wikiContentDir()
 
 /** User skills (slash commands): `$BRAIN_HOME/skills`. */

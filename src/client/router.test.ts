@@ -54,6 +54,10 @@ describe('parseRoute', () => {
     expect(parseRoute('http://localhost/restart-seed')).toEqual({ flow: 'restart-seed' })
   })
 
+  it('parses /first-chat as first-chat flow', () => {
+    expect(parseRoute('http://localhost/first-chat')).toEqual({ flow: 'first-chat' })
+  })
+
   it('defaults to chat-only for root path', () => {
     expect(parseRoute('http://localhost/')).toEqual({})
   })
@@ -281,6 +285,10 @@ describe('routeToUrl', () => {
   it('restart-seed flow', () => {
     expect(routeToUrl({ flow: 'restart-seed' })).toBe('/restart-seed')
   })
+
+  it('first-chat flow', () => {
+    expect(routeToUrl({ flow: 'first-chat' })).toBe('/first-chat')
+  })
 })
 
 describe('round-trip: routeToUrl → parseRoute', () => {
@@ -306,6 +314,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { flow: 'onboarding' as const },
     { flow: 'hard-reset' as const },
     { flow: 'restart-seed' as const },
+    { flow: 'first-chat' as const },
   ] as const
 
   for (const route of cases) {

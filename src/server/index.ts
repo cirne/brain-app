@@ -24,6 +24,7 @@ import devRoute from './routes/dev.js'
 import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
 import { runStartupChecks } from './lib/runStartupChecks.js'
 import { ensureBrainHomeGitignore } from './lib/brainHomeGitignore.js'
+import { runSplitLayoutMigrationIfNeeded } from './lib/splitLayoutMigration.js'
 import { ensureDefaultSkillsSeeded } from './lib/skillsSeeder.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
 import { BRAIN_DEFAULT_HTTP_PORT, setActualNativePort } from './lib/brainHttpPort.js'
@@ -200,6 +201,7 @@ async function listenNativeBundled(): Promise<ServerType> {
 async function start() {
   try {
     initLocalMessageToolsAvailability()
+    await runSplitLayoutMigrationIfNeeded()
     await ensureBrainHomeGitignore()
     await ensureDefaultSkillsSeeded()
 

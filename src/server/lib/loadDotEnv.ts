@@ -5,7 +5,12 @@ import { readFileSync } from 'node:fs'
  * Intended to match startup behavior in the main server entry.
  */
 /** Keys set by the Tauri launcher for the bundled Node server — must not be replaced by cwd `.env`. */
-const BUNDLED_NATIVE_SKIP_KEYS = new Set(['RIPMAIL_BIN', 'RIPMAIL_HOME', 'BRAIN_HOME'])
+const BUNDLED_NATIVE_SKIP_KEYS = new Set([
+  'RIPMAIL_BIN',
+  'RIPMAIL_HOME',
+  'BRAIN_HOME',
+  'BRAIN_WIKI_ROOT',
+])
 
 export function loadDotEnv(): void {
   try {

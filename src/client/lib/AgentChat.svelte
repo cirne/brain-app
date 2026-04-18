@@ -80,6 +80,11 @@
     streamingBusyLabel = 'Thinking...',
     /** Live `write` stream for onboarding profiling / seeding transcript (e.g. `me.md` preview). */
     streamingWritePreview = null as { path: string; body: string } | null,
+    /**
+     * When true, omit wiki/file/subject chips under the chat title — the desktop split detail
+     * header already shows the same context.
+     */
+    hidePaneContextChip = false,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -115,6 +120,7 @@
     hideInput?: boolean
     streamingBusyLabel?: string
     streamingWritePreview?: { path: string; body: string } | null
+    hidePaneContextChip?: boolean
   } = $props()
 
   /** Dynamic transcript component (default {@link AgentConversation}). */
@@ -541,12 +547,14 @@
             <span class="chat-title" class:thinking={streaming} class:custom-title={!!chatTitle}>
               {streaming ? streamingBusyLabel : (chatTitle ?? headerFallbackTitle)}
             </span>
-            {#if context.type === 'wiki'}
-              <span class="context-chip"><WikiFileName path={context.path} /></span>
-            {:else if context.type === 'file'}
-              <span class="context-chip"><WikiFileName path={context.path} /></span>
-            {:else if contextChip}
-              <span class="context-chip">{contextChip}</span>
+            {#if !hidePaneContextChip}
+              {#if context.type === 'wiki'}
+                <span class="context-chip"><WikiFileName path={context.path} /></span>
+              {:else if context.type === 'file'}
+                <span class="context-chip"><WikiFileName path={context.path} /></span>
+              {:else if contextChip}
+                <span class="context-chip">{contextChip}</span>
+              {/if}
             {/if}
           </div>
         {/snippet}

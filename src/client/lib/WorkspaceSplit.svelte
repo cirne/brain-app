@@ -14,7 +14,7 @@
   type Props = {
     /** `!!route.overlay` — drives `.split.has-detail` for chat column width rules. */
     hasDetail: boolean
-    /** Desktop overlay visible (`route.overlay && !isMobile`). */
+    /** Desktop side-by-side detail pane (measured workspace width + not mobile viewport). */
     desktopDetailOpen: boolean
     chat: Snippet
     desktopDetail: Snippet

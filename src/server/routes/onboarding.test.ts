@@ -1,10 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
 import { chmodSync } from 'node:fs'
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import onboardingRoute from './onboarding.js'
+
+/** Avoid async wiki-expansion I/O racing with `afterEach` `rm(BRAIN_HOME)`. */
+vi.mock('../agent/wikiExpansionRunner.js', () => ({
+  startWikiExpansionRunFromAcceptProfile: vi.fn().mockResolvedValue({
+    runId: '00000000-0000-0000-0000-000000000000',
+  }),
+}))
 
 let brainHome: string
 
@@ -130,6 +137,17 @@ describe('onboarding routes', () => {
       body: JSON.stringify({ markdown: '# x\n' }),
     })
     expect(res.status).toBe(400)
+  })
+
+  it('DELETE /profiling-sessions returns ok', async () => {
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/profiling-sessions', {
+      method: 'DELETE',
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean }
+    expect(j.ok).toBe(true)
   })
 
   it('POST /setup-mail returns 500 with error when ripmail exits non-zero', async () => {

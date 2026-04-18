@@ -15,7 +15,11 @@ import {
   onboardingStagingWikiDir,
 } from '../lib/onboardingState.js'
 import { streamAgentSseResponse } from '../lib/streamAgentSse.js'
-import { getOrCreateProfilingAgent, deleteProfilingSession } from '../agent/profilingAgent.js'
+import {
+  clearAllProfilingSessions,
+  getOrCreateProfilingAgent,
+  deleteProfilingSession,
+} from '../agent/profilingAgent.js'
 import { getOrCreateSeedingAgent, deleteSeedingSession } from '../agent/seedingAgent.js'
 import { getOnboardingMailStatus, ripmailBin, ripmailHomePath } from '../lib/onboardingMailStatus.js'
 import { enrichAppleMailSetupError } from '../lib/appleMailSetupHints.js'
@@ -225,6 +229,12 @@ onboarding.post('/seed', async (c) => {
     wikiDirForDiffs: wikiDir(),
     announceSessionId: sessionId,
   })
+})
+
+/** Drop all in-memory profiling agents (e.g. “regenerate profile” without client-held session id). */
+onboarding.delete('/profiling-sessions', async (c) => {
+  clearAllProfilingSessions()
+  return c.json({ ok: true as const })
 })
 
 onboarding.delete('/session/:kind/:sessionId', async (c) => {

@@ -109,4 +109,22 @@ exit 0
     const res = await app.request('http://localhost/api/dev/restart-seed', { method: 'POST' })
     expect(res.status).toBe(400)
   })
+
+  it('POST /first-chat writes pending marker and sets onboarding done', async () => {
+    const chatDir = join(brainHome, 'chats')
+    await mkdir(chatDir, { recursive: true })
+    await writeFile(join(chatDir, 'onboarding.json'), JSON.stringify({ state: 'profiling', updatedAt: 'x' }), 'utf-8')
+
+    const app = new Hono()
+    app.route('/api/dev', devRoute)
+    const res = await app.request('http://localhost/api/dev/first-chat', { method: 'POST' })
+    expect(res.status).toBe(200)
+
+    const { readOnboardingStateDoc } = await import('../lib/onboardingState.js')
+    expect((await readOnboardingStateDoc()).state).toBe('done')
+
+    const pending = join(chatDir, 'first-chat-pending.json')
+    const { access } = await import('node:fs/promises')
+    await expect(access(pending)).resolves.toBeUndefined()
+  })
 })

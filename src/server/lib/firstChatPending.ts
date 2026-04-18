@@ -1,4 +1,4 @@
-import { mkdir, unlink, writeFile } from 'node:fs/promises'
+import { access, mkdir, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { chatDataDir } from './chatStorage.js'
 
@@ -14,6 +14,16 @@ export async function writeFirstChatPending(): Promise<void> {
   await mkdir(dir, { recursive: true })
   const p = pendingPath()
   await writeFile(p, JSON.stringify({ createdAt: new Date().toISOString() }, null, 2), 'utf-8')
+}
+
+/** True if the pending marker file exists (does not consume — use before deciding to run client kickoff). */
+export async function hasFirstChatPending(): Promise<boolean> {
+  try {
+    await access(pendingPath())
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**

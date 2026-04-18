@@ -20,7 +20,7 @@
   } from './app/debouncedWikiSync.js'
   import { wikiPathForReadToolArg } from './cards/contentCards.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from './navigateFromAgentOpen.js'
-  import { FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY } from './onboarding/seedConstants.js'
+  import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from './app/workspaceLayout.js'
   import { addToNavHistory, makeNavHistoryId, upsertEmailNavHistory } from './navHistory.js'
 
   const SIDEBAR_KEY = 'brain-sidebar'
@@ -56,6 +56,16 @@
   /** Desktop: detail pane fills workspace when true (WorkspaceSplit + SlideOver header). */
   let detailPaneFullscreen = $state(false)
   let isMobile = $state(false)
+  /** Width of `.workspace-column` — drives split vs slide-over together with `isMobile`. */
+  let workspaceColumnWidth = $state(0)
+  /**
+   * Desktop side-by-side chat + detail (vs slide-over). Uses measured workspace width so an open
+   * history rail does not force two narrow columns on a wide window.
+   */
+  const useDesktopSplitDetail = $derived(
+    !isMobile && workspaceColumnWidth >= WORKSPACE_DESKTOP_SPLIT_MIN_PX,
+  )
+  const slideOverCloseAnimated = $derived(!useDesktopSplitDetail && mobileSlideOver)
   /** Background wiki expansion running (for top-nav spinner; StatusBar also polls). */
   let expansionRunning = $state(false)
 
@@ -116,7 +126,7 @@
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && route.overlay) {
         e.preventDefault()
-        if (isMobile && mobileSlideOver) mobileSlideOver.closeAnimated()
+        if (slideOverCloseAnimated) slideOverCloseAnimated.closeAnimated()
         else closeOverlay()
         return
       }
@@ -144,16 +154,21 @@
     window.addEventListener('keydown', onKeydown, true)
 
     void (async () => {
+      let wantKickoff = false
       try {
-        if (sessionStorage.getItem(FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY) !== '1') return
+        const res = await fetch('/api/chat/first-chat-pending')
+        if (res.ok) {
+          const j = (await res.json()) as { pending?: boolean }
+          wantKickoff = j.pending === true
+        }
       } catch {
         return
       }
+      if (!wantKickoff) return
       for (let i = 0; i < 16; i++) {
         await tick()
         if (agentChat) {
           try {
-            sessionStorage.removeItem(FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY)
             agentChat.newChat()
             await tick()
             await agentChat.sendFirstChatKickoff()
@@ -201,16 +216,16 @@
 
   function closeOverlay() {
     if (!route.overlay) return
-    if (isMobile) {
-      closeOverlayImmediate()
+    if (useDesktopSplitDetail) {
+      workspaceSplit?.closeDesktopAnimated()
       return
     }
-    workspaceSplit?.closeDesktopAnimated()
+    closeOverlayImmediate()
   }
 
-  /** Mobile: dismiss docs/email/calendar overlay so the chat transcript is visible after send. */
+  /** Slide-over layout: dismiss overlay after send so the transcript is visible. */
   function closeOverlayOnUserSend() {
-    if (isMobile && route.overlay) {
+    if (!useDesktopSplitDetail && route.overlay) {
       closeOverlayImmediate()
     }
   }
@@ -322,7 +337,7 @@
   ) {
     navigateFromAgentOpen(target, {
       source,
-      isMobile,
+      isMobile: !useDesktopSplitDetail,
       openWikiDoc: (path) => openWikiDoc(path),
       openFileDoc: (path) => openFileDoc(path),
       openEmailFromSearch,
@@ -463,20 +478,21 @@
       </aside>
     {/if}
 
-    <div class="workspace-column">
+    <div class="workspace-column" bind:clientWidth={workspaceColumnWidth}>
   <WorkspaceSplit
     bind:this={workspaceSplit}
     bind:detailFullscreen={detailPaneFullscreen}
     hasDetail={!!route.overlay}
-    desktopDetailOpen={!!route.overlay && !isMobile}
+    desktopDetailOpen={!!route.overlay && useDesktopSplitDetail}
     onNavigateClear={closeOverlayImmediate}
   >
     {#snippet chat()}
       <AgentChat
         bind:this={agentChat}
         context={agentContext}
-        conversationHidden={!!route.overlay && isMobile}
-        suppressAgentDetailAutoOpen={isMobile}
+        conversationHidden={!!route.overlay && !useDesktopSplitDetail}
+        hidePaneContextChip={!!route.overlay && useDesktopSplitDetail}
+        suppressAgentDetailAutoOpen={!useDesktopSplitDetail}
         onOpenWiki={openWikiDoc}
         onOpenFile={openFileDoc}
         onOpenEmail={openEmailFromChat}
