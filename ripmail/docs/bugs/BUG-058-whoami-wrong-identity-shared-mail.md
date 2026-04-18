@@ -1,6 +1,6 @@
 # BUG-058: `ripmail whoami` infers wrong primary identity on shared Apple Mail
 
-**Status:** Fixed  
+**Status:** Fixed (2026-04-18)  
 **Severity:** High  
 **Component:** `ripmail whoami`, Apple Mail identity inference (`src/config.rs` or equivalent whoami inference path)  
 **Reported:** 2026-04-17 (brain-app onboarding debug session — runtime evidence from tool traces)
@@ -61,7 +61,7 @@ The inference algorithm picks whoever sends the most mail. On this Mac, Kirsten 
 
 ---
 
-## Status: STILL OPEN (2026-04-17)
+## Status: FIXED (2026-04-18)
 
 The bug reproduced again after restarting the machine and with only ~2,690 messages indexed.
 
@@ -113,34 +113,32 @@ Lewis's email is completely absent. The receiver-frequency picker can't pick wha
 
 ---
 
-## Things not yet tried
+## Root cause (confirmed 2026-04-18)
 
-- Query `data/ripmail/ripmail.db` directly:
-  ```sql
-  SELECT lower(j.value), COUNT(*) FROM messages m JOIN json_each(m.to_addresses) j
-  WHERE source_id = 'applemail_local' GROUP BY 1 ORDER BY 2 DESC LIMIT 20;
-  ```
-  This would confirm whether Lewis's address is in the data or missing entirely.
+Two bugs in `ripmail/src/search/who_infer.rs` prevented the recipient query from running at all:
 
-- Lower `MIN_COUNT` in `infer_placeholder_owner_identities` (e.g. 2 or 1) to see if Lewis shows up with a small count.
+**Bug A — invalid SQL**: In the UNION recipient query, `ORDER BY c DESC LIMIT N` appeared inside the *first* SELECT (before the UNION keyword). SQLite rejects this: "ORDER BY clause should come after UNION not before." The entire recipient query errored out silently (the error propagated through `collect()` but was handled incorrectly).
 
-- Skip `infer_placeholder_owner_identities` entirely and instead query `to_addresses` directly inside `whoami_one_mailbox` — don't require a pre-built candidate list for the placeholder case; just search all apple-family recipient addresses at once.
+**Bug B — wrong parameter count**: The UNION SQL contains `{source_filter}` twice (once per SELECT), each with a `?` placeholder for the mailbox ID. However, `id_binds` was only provided once. rusqlite binds the second `?` to NULL, making the cc_addresses half of the UNION always return nothing (and potentially causing the whole query to silently fail when rusqlite rejects the wrong param count).
 
-- Use macOS system identity (e.g. `dscl . -read /Users/$(whoami) EMailAddress`, or `defaults read MobileMeAccounts`) as a prior or tie-breaker.
-
-- Consider whether the Apple Mail sync order (newest-first) systematically surfaces Kirsten's recent outbound before Lewis's incoming.
+With both bugs, the recipient query contributed zero candidates. Only the sender query ran. Lewis has only 13 sent messages (< MIN_COUNT=5 at 2000 messages), so he was never found.
 
 ---
 
-## Workaround (brain-app, shipped)
+## Fix
 
-The `confirming-identity` onboarding interstitial (`state: 'confirming-identity'`) shows the whoami result and blocks the profiling agent until the user explicitly confirms or clicks "Not me — start over." This prevents a wrong profile from being written even when inference is wrong.
+`ripmail/src/search/who_infer.rs`:
+
+1. Moved `ORDER BY c DESC LIMIT {LIMIT}` to after the final UNION SELECT (valid SQLite).
+2. Built `recipient_binds` as `id_binds` duplicated (once for each UNION half), so both halves bind the correct mailbox IDs.
+
+Verified with integration test (`scripts/bug058-repro.sh`): at ~2,700 messages, Lewis has **1,036 receiver hits** vs Kirsten's **68** — correct identity elected.
 
 ---
 
-## Fix (partial — receiver-frequency picker is correct but moot until candidate list is fixed)
+## Workaround (brain-app, remains useful)
 
-`primary_identity_from_received()` in `ripmail/src/search/whoami.rs` and extended `infer_placeholder_owner_identities` in `ripmail/src/search/who_infer.rs`. Regression test: `whoami_bug058_receiver_frequency_picks_correct_owner`.
+The `confirming-identity` onboarding interstitial (`state: 'confirming-identity'`) shows the whoami result and lets the user confirm or reject before the profiling agent runs. This guards against any future inference errors.
 
 ---
 

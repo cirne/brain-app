@@ -90,7 +90,11 @@ pub fn infer_placeholder_owner_identities(
          ORDER BY c DESC LIMIT {LIMIT}"
     );
 
-    // Recipients: apple-family addresses in to_addresses or cc_addresses JSON arrays.
+    // Recipients: apple-family addresses appearing in To: or Cc: JSON arrays.
+    //
+    // UNION rules in SQLite: ORDER BY / LIMIT must appear only ONCE at the very end
+    // (after the last SELECT). id_binds must be provided once per ? occurrence —
+    // since {source_filter} appears in each UNION half, we double the bindings below.
     let recipient_sql = format!(
         "SELECT lower(ta.value) AS addr, COUNT(*) AS c \
          FROM messages m JOIN json_each(m.to_addresses) ta \
@@ -99,7 +103,6 @@ pub fn infer_placeholder_owner_identities(
            OR LOWER(ta.value) LIKE '%@icloud.com' \
            OR LOWER(ta.value) LIKE '%@me.com') \
          GROUP BY lower(ta.value) HAVING c >= {MIN_COUNT} \
-         ORDER BY c DESC LIMIT {LIMIT} \
          UNION \
          SELECT lower(ca.value) AS addr, COUNT(*) AS c \
          FROM messages m JOIN json_each(m.cc_addresses) ca \
@@ -111,13 +114,17 @@ pub fn infer_placeholder_owner_identities(
          ORDER BY c DESC LIMIT {LIMIT}"
     );
 
+    // The recipient UNION has {source_filter} twice → needs id_binds twice.
+    let recipient_binds: Vec<rusqlite::types::Value> =
+        id_binds.iter().chain(id_binds.iter()).cloned().collect();
+
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
 
-    let mut collect = |sql: &str| -> rusqlite::Result<()> {
+    let mut collect = |sql: &str, binds: &[rusqlite::types::Value]| -> rusqlite::Result<()> {
         let mut stmt = conn.prepare(sql)?;
         let rows: Vec<String> = stmt
-            .query_map(rusqlite::params_from_iter(id_binds.iter()), |row| {
+            .query_map(rusqlite::params_from_iter(binds.iter()), |row| {
                 row.get::<_, String>(0)
             })?
             .filter_map(|r| r.ok())
@@ -132,8 +139,8 @@ pub fn infer_placeholder_owner_identities(
         Ok(())
     };
 
-    collect(&sender_sql)?;
-    collect(&recipient_sql)?;
+    collect(&sender_sql, &id_binds)?;
+    collect(&recipient_sql, &recipient_binds)?;
 
     Ok(out)
 }
