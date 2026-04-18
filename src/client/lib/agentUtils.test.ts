@@ -238,6 +238,20 @@ describe('buildChatBody', () => {
     const body = buildChatBody({ message: 'hello', sessionId: null, context: noContext, mentionedFiles: [], isFirstMessage: true })
     expect('context' in body).toBe(false)
   })
+
+  it('firstChatKickoff omits message and sets flag', () => {
+    const body = buildChatBody({
+      message: 'ignored',
+      sessionId: null,
+      context: noContext,
+      mentionedFiles: [],
+      isFirstMessage: true,
+      firstChatKickoff: true,
+    })
+    expect(body.firstChatKickoff).toBe(true)
+    expect('message' in body).toBe(false)
+    expect(typeof body.timezone).toBe('string')
+  })
 })
 
 describe('contextPlaceholder', () => {

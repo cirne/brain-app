@@ -18,6 +18,7 @@ import calendarRoute from './routes/calendar.js'
 import searchRoute from './routes/search.js'
 import imessageRoute from './routes/imessage.js'
 import onboardingRoute from './routes/onboarding.js'
+import backgroundRoute from './routes/background.js'
 import gmailOAuthRoute from './routes/gmailOAuth.js'
 import devRoute from './routes/dev.js'
 import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
@@ -91,6 +92,7 @@ app.route('/api/search', searchRoute)
 app.route('/api/imessage', imessageRoute)
 app.route('/api/messages', imessageRoute)
 app.route('/api/onboarding', onboardingRoute)
+app.route('/api/background', backgroundRoute)
 app.route('/api/oauth/google', gmailOAuthRoute)
 if (isDev) {
   app.route('/api/dev', devRoute)

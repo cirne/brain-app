@@ -15,6 +15,8 @@ export type Overlay =
   | { type: 'calendar'; date?: string; eventId?: string }
   /** `chat` is canonical chat_identifier (E.164, email, …) for /api/messages/thread */
   | { type: 'messages'; chat?: string }
+  /** Background wiki expansion run (`/background-agent?id=`). */
+  | { type: 'background-agent'; id?: string }
 
 /** Chat-first shell: optional detail overlay; base route is always chat. */
 export type Route = {
@@ -134,6 +136,10 @@ export function parseRoute(href: string = location.href): Route {
     if (c) return { overlay: { type: 'messages', chat: c } }
     return { overlay: { type: 'messages' } }
   }
+  if (seg1 === 'background-agent') {
+    const id = url.searchParams.get('id') ?? undefined
+    return { overlay: { type: 'background-agent', ...(id ? { id } : {}) } }
+  }
 
   // Default: chat only
   return {}
@@ -170,6 +176,12 @@ export function routeToUrl(route: Route): string {
     const q = new URLSearchParams()
     q.set('c', o.chat)
     return `/messages?${q.toString()}`
+  }
+  if (o.type === 'background-agent') {
+    if (!o.id) return '/background-agent'
+    const q = new URLSearchParams()
+    q.set('id', o.id)
+    return `/background-agent?${q.toString()}`
   }
   return '/'
 }

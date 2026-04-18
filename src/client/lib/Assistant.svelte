@@ -6,6 +6,7 @@
   import SlideOver from './SlideOver.svelte'
   import AgentChat from './AgentChat.svelte'
   import ChatHistory from './ChatHistory.svelte'
+  import StatusBar from './StatusBar.svelte'
   import WorkspaceSplit from './WorkspaceSplit.svelte'
   import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from '../router.js'
   import { runParallelSyncs } from './app/syncAllServices.js'
@@ -55,6 +56,8 @@
   /** Desktop: detail pane fills workspace when true (WorkspaceSplit + SlideOver header). */
   let detailPaneFullscreen = $state(false)
   let isMobile = $state(false)
+  /** Background wiki expansion running (for top-nav spinner; StatusBar also polls). */
+  let expansionRunning = $state(false)
 
   /** History sidebar open (desktop inline or mobile overlay). */
   let sidebarOpen = $state(false)
@@ -152,6 +155,8 @@
           try {
             sessionStorage.removeItem(FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY)
             agentChat.newChat()
+            await tick()
+            await agentChat.sendFirstChatKickoff()
           } catch {
             /* ignore */
           }
@@ -424,6 +429,11 @@
     onOpenSearch={() => { showSearch = true }}
     onSync={syncAll}
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
+    expansionRunning={expansionRunning}
+    onOpenExpansion={() => {
+      navigate({ overlay: { type: 'background-agent' } })
+      route = parseRoute()
+    }}
   />
 
     <div class="app-main-row">
@@ -499,6 +509,10 @@
               onSummarizeInbox={onSummarizeInbox}
               onCalendarResetToToday={resetCalendarToToday}
               onCalendarNavigate={switchToCalendar}
+              toolOnOpenFile={openFileDoc}
+              toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+              toolOnOpenFullInbox={openFullInboxFromChat}
+              toolOnOpenMessageThread={openMessageThreadFromChat}
               onClose={closeOverlay}
               mobilePanel
             />
@@ -523,6 +537,10 @@
           onSummarizeInbox={onSummarizeInbox}
           onCalendarResetToToday={resetCalendarToToday}
           onCalendarNavigate={switchToCalendar}
+          toolOnOpenFile={openFileDoc}
+          toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+          toolOnOpenFullInbox={openFullInboxFromChat}
+          toolOnOpenMessageThread={openMessageThreadFromChat}
           onClose={closeOverlay}
           detailFullscreen={detailPaneFullscreen}
           onToggleFullscreen={() => workspaceSplit?.toggleDetailFullscreen()}
@@ -532,6 +550,12 @@
   </WorkspaceSplit>
     </div>
   </div>
+  <StatusBar
+    onExpansionRunningChange={(running) => { expansionRunning = running }}
+    onAfterNavigate={() => {
+      route = parseRoute()
+    }}
+  />
 </div>
 
 <style>

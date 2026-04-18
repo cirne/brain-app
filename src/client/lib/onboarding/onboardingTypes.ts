@@ -30,11 +30,10 @@ export function emptyOnboardingMail(): OnboardingMailStatus {
  * the first few thousand messages may not yet include enough To/Cc hits for the
  * correct owner to dominate over co-tenant senders.
  */
-export const MIN_INDEXED_FOR_PROFILE = 2_000
+export const MIN_INDEXED_FOR_PROFILE = 5_000
 
 export const ONBOARDING_LARGE_WINDOW_STATES = new Set([
   'profiling',
   'reviewing-profile',
-  'seeding',
   'done',
 ])

@@ -60,6 +60,20 @@ ${localMessagesBullet}
 - Use open with target type wiki/email/calendar when you want the UI to navigate to that artifact; prefer wiki: and date: links in prose when embedding references inline.`
 }
 
+function firstChatPromptSection(): string {
+  return `
+
+## First conversation
+
+This is the user's first chat after onboarding. They just accepted their profile and are eager to see what Brain can do. The app may open this chat before they type — if you are speaking first, follow the goals below anyway. Your goals:
+
+1. **Greet warmly** but briefly — introduce yourself as their personal assistant with access to their wiki, email, and the web.
+2. **Reference something specific** from their profile (me.md) to show you already know them.
+3. **Offer one proactive insight** — pick **one** of these (whichever seems most valuable): a recent email thread worth summarizing; a person or project from their profile you can expand on; or a wiki page that was just created they might want to review.
+
+Keep it conversational, not overwhelming. One "wow" moment is better than a feature dump. If tools or profile content are unavailable, give a short honest intro without inventing personalization.`
+}
+
 export interface SessionOptions {
   /** Pre-injected file context for file-grounded chat */
   context?: string
@@ -67,6 +81,8 @@ export interface SessionOptions {
   wikiDir?: string
   /** IANA timezone from the browser client (e.g. "America/Chicago") */
   timezone?: string
+  /** First assistant turn after onboarding — extra prompt guidance (OPP-018). */
+  firstChat?: boolean
 }
 
 /**
@@ -93,6 +109,10 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
     .find(p => p.type === 'timeZoneName')?.value ?? ''  // e.g. "GMT-5"
   const utcOffset = gmtOffset.replace('GMT', 'UTC')  // e.g. "UTC-5"
   let systemPrompt = `${buildBaseSystemPrompt(localMessagesEnabled, wikiDir)}\n\n## Current date & time\nToday is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — to convert to local time use the ${utcOffset} offset. Do not assume a fixed offset for the timezone name; ${utcOffset} already reflects daylight saving time.`
+
+  if (options.firstChat) {
+    systemPrompt += firstChatPromptSection()
+  }
 
   if (options.context) {
     systemPrompt += `\n\n## Current file context\nThe user is viewing the following file(s). Use this as context for the conversation.\n\n${options.context}`

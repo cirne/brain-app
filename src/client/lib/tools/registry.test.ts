@@ -42,6 +42,9 @@ describe('getToolDefinitionCore', () => {
       const d = getToolDefinitionCore(name)
       expect(d.chat).toBeDefined()
       expect(typeof d.chat.showInChat).toBe('boolean')
+      expect(typeof d.chat.label).toBe('string')
+      expect(d.chat.label?.length).toBeGreaterThan(0)
+      expect(d.chat.label).not.toMatch(/^[a-z]+(?:_[a-z]+)+$/)
       expect(d.matchPreview).toBeDefined()
       expect(d.seedingProgressLine).toBeDefined()
     }

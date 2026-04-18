@@ -8,7 +8,6 @@
     patchOnboardingState,
     postAcceptProfile,
     postInboxSyncStart,
-    postPrepareSeed,
     postSetupAppleMail,
     fetchProfileDraftMarkdown,
     SETUP_MAIL_ABORT_MESSAGE,
@@ -20,14 +19,8 @@
     MIN_INDEXED_FOR_PROFILE,
     type OnboardingMailStatus,
   } from './onboardingTypes.js'
-  import {
-    ONBOARDING_PROFILE_CHAT_STORAGE_KEY,
-    ONBOARDING_SEED_CHAT_STORAGE_KEY,
-  } from './onboardingStorageKeys.js'
-  import {
-    FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY,
-    SEED_EARLY_EXIT_MIN_PAGES,
-  } from './seedConstants.js'
+  import { ONBOARDING_PROFILE_CHAT_STORAGE_KEY } from './onboardingStorageKeys.js'
+  import { FRESH_CHAT_AFTER_ONBOARDING_SESSION_KEY } from './seedConstants.js'
   import { resizeMainWindowToBrowserLikeWorkArea } from '../desktop/browserLikeWindow.js'
 
   interface Props {
@@ -49,16 +42,12 @@
   let profileDraftEditor = $state<{ flushSave: () => Promise<void> } | null>(null)
   let categoriesText = $state('People\nProjects\nInterests\nAreas')
 
-  /** Seeding: enough wiki pages to offer early exit to main app. */
-  let seedThresholdMet = $state(false)
-  let seedReadyDialogEl = $state<HTMLDialogElement | null>(null)
   let onboardingExitHandled = $state(false)
   /** Tauri: true after we’ve applied the “browser-sized” window for late onboarding (profiling onward). */
   let onboardingLargeWindowApplied = $state(false)
-  let prevOnboardingState = $state<string>('')
 
-  /** Legacy / partial failure: auto-run prepare-seed once when landing on confirming-categories. */
-  let confirmingAutoRecoverDone = $state(false)
+  /** Legacy onboarding: migrate old `seeding` / `confirming-categories` to main app. */
+  let legacySeedingRecoverDone = $state(false)
 
   const canBuildProfile = $derived((mail.indexedTotal ?? 0) >= MIN_INDEXED_FOR_PROFILE)
 
@@ -268,24 +257,7 @@
       await postAcceptProfile(categories)
       await refreshStatus()
       await load()
-    } catch (e) {
-      profileStepError = e instanceof Error ? e.message : String(e)
-    } finally {
-      busy = false
-    }
-  }
-
-  async function prepareSeed() {
-    profileStepError = null
-    const categories = categoriesText
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)
-    busy = true
-    try {
-      await postPrepareSeed(categories)
-      await refreshStatus()
-      await load()
+      await finishOnboarding()
     } catch (e) {
       profileStepError = e instanceof Error ? e.message : String(e)
     } finally {
@@ -301,76 +273,38 @@
     } catch {
       /* ignore */
     }
-    try {
-      seedReadyDialogEl?.close()
-    } catch {
-      /* ignore */
-    }
     await patchState('done')
     await onComplete()
   }
-
-  function handleSeedWikiActivity(info: { pageCount: number; lastDocPath: string | null }) {
-    if (onboardingExitHandled || seedThresholdMet) return
-    if (info.pageCount >= SEED_EARLY_EXIT_MIN_PAGES) {
-      seedThresholdMet = true
-    }
-  }
-
-  async function handleSeedStreamFinished() {
-    if (onboardingExitHandled) return
-    /**
-     * Always show the “Start chatting” dialog when the seed stream ends.
-     * Previously we called finishOnboarding() when page count was below the early threshold,
-     * which skipped the seeding UX and jumped straight to the main assistant.
-     */
-    seedThresholdMet = true
-  }
-
-  function onSeedReadyDialogCancel(e: Event) {
-    e.preventDefault()
-  }
-
-  async function onSeedReadyConfirm() {
-    await finishOnboarding()
-  }
-
-  $effect(() => {
-    if (state !== 'seeding' || !seedThresholdMet) return
-    const el = seedReadyDialogEl
-    if (!el) return
-    void tick().then(() => {
-      if (el.isConnected && !el.open) el.showModal()
-    })
-  })
 
   $effect(() => {
     if (state === 'reviewing-profile') void loadDraft()
   })
 
-  /** Fresh seed run: reset dialog / exit flags whenever we enter the seeding step. */
   $effect(() => {
-    if (state === 'seeding' && prevOnboardingState !== 'seeding') {
-      seedThresholdMet = false
-      onboardingExitHandled = false
-    }
-    prevOnboardingState = state
-  })
-
-  $effect(() => {
-    if (state !== 'confirming-categories') {
-      confirmingAutoRecoverDone = false
+    if (state !== 'seeding' && state !== 'confirming-categories') {
+      legacySeedingRecoverDone = false
       return
     }
-    if (confirmingAutoRecoverDone || busy) return
-    confirmingAutoRecoverDone = true
-    void prepareSeed()
+    if (legacySeedingRecoverDone || busy) return
+    legacySeedingRecoverDone = true
+    void (async () => {
+      try {
+        await patchState('done')
+        await refreshStatus()
+        await load()
+        await onComplete()
+      } catch {
+        legacySeedingRecoverDone = false
+      }
+    })()
   })
+
 </script>
 
 <div
   class="onboarding flex h-full min-h-0 w-full flex-col bg-[var(--bg)] text-[var(--text)]"
-  class:onboarding-wide={state !== 'profiling' && state !== 'seeding' && state !== 'reviewing-profile'}
+  class:onboarding-wide={state !== 'profiling' && state !== 'reviewing-profile'}
 >
   {#if state === 'profiling'}
     <OnboardingWorkspace
@@ -380,41 +314,6 @@
         autoSendMessage="From my indexed email, write me.md — one strong page of context for my assistant (your best structure). Use the tools; keep it factual and scannable."
       onStreamFinished={async () => { await patchState('reviewing-profile') }}
     />
-  {:else if state === 'seeding'}
-    <div class="ob-seed-shell flex min-h-0 flex-1 flex-col">
-      <OnboardingWorkspace
-        chatEndpoint="/api/onboarding/seed"
-        headerFallbackTitle="Seeding"
-        storageKey={ONBOARDING_SEED_CHAT_STORAGE_KEY}
-        suppressAgentDetailAutoOpen
-        autoSendMessage="Read me.md, then create useful wiki pages from the profile and email evidence — do not duplicate the main user in a separate page (me.md is the profile). Build independent pages in parallel where you can, then do a final pass to review and fix internal links. Narrate briefly as you go."
-        onSeedWikiActivity={handleSeedWikiActivity}
-        onStreamFinished={handleSeedStreamFinished}
-      />
-      {#if seedThresholdMet}
-        <dialog
-          bind:this={seedReadyDialogEl}
-          class="ob-seed-ready-dialog"
-          oncancel={onSeedReadyDialogCancel}
-          aria-labelledby="ob-seed-ready-title"
-          aria-describedby="ob-seed-ready-desc"
-        >
-          <div class="ob-seed-ready-inner">
-            <h2 id="ob-seed-ready-title" class="ob-seed-ready-title">You’re off to a strong start</h2>
-            <p id="ob-seed-ready-desc" class="ob-seed-ready-body">
-              You’ve got a solid start. More pages may appear over the next few minutes as we finish setting things up. That’s normal. Feel free to start chatting whenever you like; answers can draw on what’s already in your space.
-            </p>
-            <p class="ob-seed-ready-foot">
-              Want more later? Just ask your assistant to keep building things out.
-            </p>
-            <button type="button" class="ob-btn-primary ob-seed-ready-btn" onclick={() => void onSeedReadyConfirm()}>
-              Start chatting
-              <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-            </button>
-          </div>
-        </dialog>
-      {/if}
-    </div>
   {:else}
   <div
     class="onboarding-main flex min-h-0 flex-1 flex-col"
@@ -515,30 +414,6 @@
         </div>
       </div>
 
-    {:else if state === 'confirming-categories'}
-      <div class="ob-hero" aria-live="polite">
-        <div class="ob-hero-inner">
-          <span class="ob-kicker">Brain</span>
-          <h1 class="ob-headline">Finishing setup</h1>
-          <p class="ob-lead">Moving to wiki seeding…</p>
-          {#if profileStepError}
-            <p class="ob-error ob-confirming-recover-error">{profileStepError}</p>
-            <button
-              type="button"
-              class="ob-btn-primary"
-              onclick={() => void prepareSeed()}
-              disabled={busy}
-            >
-              {#if busy}
-                <span class="ob-spinner" aria-hidden="true"></span> Retrying…
-              {:else}
-                Try again
-              {/if}
-            </button>
-          {/if}
-        </div>
-      </div>
-
     {:else if state === 'reviewing-profile'}
       <section class="ob-review" aria-labelledby="ob-review-title">
         <div class="ob-review-top">
@@ -593,7 +468,7 @@
       <div class="ob-hero">
         <div class="ob-hero-inner">
           <h1 class="ob-headline">You're all set</h1>
-          <p class="ob-lead">Your library is seeded and ready. Jump in whenever you like.</p>
+          <p class="ob-lead">Your assistant is ready. We’ll keep building your wiki in the background.</p>
           <button type="button" class="ob-btn-primary" onclick={() => void onComplete()}>
             Open Brain
             <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
@@ -879,10 +754,6 @@
     max-width: 42rem;
   }
 
-  .ob-confirming-recover-error {
-    margin: 1rem 0 0;
-  }
-
   .onboarding-main-scroll {
     overflow-y: auto;
   }
@@ -1039,67 +910,6 @@
     max-height: 5rem;
     overflow-y: auto;
     text-align: center;
-  }
-
-  .ob-seed-shell {
-    position: relative;
-    width: 100%;
-    min-height: 0;
-  }
-
-  /* Restore modal dialog centering (global * { margin:0 } strips UA margin:auto) */
-  .ob-seed-ready-dialog {
-    position: fixed;
-    inset: 0;
-    width: fit-content;
-    max-width: min(28rem, calc(100vw - 2rem));
-    height: fit-content;
-    max-height: min(90vh, calc(100vh - 2rem));
-    margin: auto;
-    padding: 0;
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    background: var(--bg);
-    color: var(--text);
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
-  }
-
-  .ob-seed-ready-dialog::backdrop {
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(2px);
-  }
-
-  .ob-seed-ready-inner {
-    padding: 2rem 1.75rem 1.75rem;
-    text-align: center;
-  }
-
-  .ob-seed-ready-title {
-    font-size: 1.375rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.25;
-    color: var(--text);
-    margin: 0;
-  }
-
-  .ob-seed-ready-body {
-    margin: 1rem 0 0;
-    font-size: 0.9375rem;
-    line-height: 1.6;
-    color: var(--text-2);
-    text-wrap: pretty;
-  }
-
-  .ob-seed-ready-foot {
-    margin: 1rem 0 0;
-    font-size: 0.8125rem;
-    line-height: 1.5;
-    color: color-mix(in srgb, var(--text-2) 88%, transparent);
-  }
-
-  .ob-seed-ready-btn {
-    margin-top: 1.75rem;
   }
 
   /* ── Secondary buttons ── */

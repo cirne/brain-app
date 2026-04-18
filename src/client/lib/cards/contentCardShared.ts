@@ -30,6 +30,14 @@ export type CalendarEventLite = {
 
 export type MessagePreviewRow = { ts: number; m: number; t: string; r?: number }
 
+/** Row from `ripmail search --json` for {@link matchContentPreview}. */
+export type MailSearchHitPreview = {
+  id: string
+  subject: string
+  from: string
+  snippet: string
+}
+
 export type ContentCardPreview =
   | { kind: 'calendar'; start: string; end: string; events: CalendarEventLite[] }
   | { kind: 'wiki'; path: string; excerpt: string }
@@ -46,6 +54,20 @@ export type ContentCardPreview =
       n: number
       previewMessages: MessagePreviewRow[]
       person: string[]
+    }
+  | {
+      kind: 'mail_search_hits'
+      /** Pattern / filters for this search (from tool args). */
+      queryLine: string
+      items: MailSearchHitPreview[]
+      /** When JSON includes it, total FTS matches (may exceed `items`). */
+      totalMatched?: number
+    }
+  | {
+      kind: 'find_person_hits'
+      /** Query string, or a plain label when query was empty (top contacts). */
+      queryLine: string
+      people: { name: string; email?: string }[]
     }
 
 /**

@@ -38,6 +38,49 @@ function mergeDefinition(partial: ToolRegistryPatch): ToolDefinition {
   }
 }
 
+/** Present-tense labels for the chat / activity tool summary line (not snake_case). */
+const TOOL_DISPLAY_LABELS: Record<string, string> = {
+  read: 'Read file',
+  edit: 'Edit file',
+  write: 'Write file',
+  grep: 'Search in wiki',
+  find: 'Find in vault',
+  move_file: 'Move file',
+  delete_file: 'Delete file',
+  search_index: 'Search mail',
+  read_doc: 'Read message',
+  list_sources: 'Mail sources',
+  source_status: 'Source status',
+  add_files_source: 'Add indexed folder',
+  edit_files_source: 'Edit indexed folder',
+  remove_files_source: 'Remove indexed folder',
+  reindex_files_source: 'Reindex folder',
+  list_inbox: 'Inbox',
+  inbox_rules: 'Inbox rules',
+  archive_emails: 'Archive mail',
+  draft_email: 'Draft email',
+  edit_draft: 'Edit draft',
+  send_draft: 'Send mail',
+  find_person: 'Find contact',
+  get_calendar_events: 'Calendar',
+  web_search: 'Web search',
+  fetch_page: 'Fetch page',
+  get_youtube_transcript: 'YouTube transcript',
+  youtube_search: 'YouTube search',
+  set_chat_title: 'Chat title',
+  open: 'Open',
+  list_recent_messages: 'Recent messages',
+  get_message_thread: 'Conversation',
+}
+
+function humanizeToolName(name: string): string {
+  return name
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}
+
 const ONBOARDING_ACTIVITY = {
   find_person: { profiling: 'Learning who you email…', seeding: 'Learning who you email…' },
   search_index: { profiling: 'Searching mail…', seeding: 'Searching mail…' },
@@ -53,18 +96,18 @@ const ONBOARDING_ACTIVITY = {
 /** Per-tool overrides (no icons — see `registryIcons.ts`). */
 const TOOL_REGISTRY: Record<string, ToolRegistryPatch> = {
   edit: {
-    chat: { streamToDetail: 'wiki', autoOpen: true, label: 'Editing file' },
+    chat: { streamToDetail: 'wiki', autoOpen: true },
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.edit,
   },
   write: {
-    chat: { streamToDetail: 'wiki', autoOpen: true, label: 'Writing file' },
+    chat: { streamToDetail: 'wiki', autoOpen: true },
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.write,
   },
   search_index: {
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.search_index,
   },
   read_doc: {
-    chat: { autoOpen: true, label: 'Reading' },
+    chat: { autoOpen: true },
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.read_doc,
   },
   list_inbox: {
@@ -86,13 +129,17 @@ const TOOL_REGISTRY: Record<string, ToolRegistryPatch> = {
     chat: { showInChat: false },
   },
   open: {
-    chat: { autoOpen: true, label: 'Opening' },
+    chat: { autoOpen: true },
   },
 }
 
 /** Resolve merged UI definition without icons (Node/test safe). */
 export function getToolDefinitionCore(name: string): ToolDefinition {
   const partial = TOOL_REGISTRY[name]
-  if (!partial) return DEFAULT_DEFINITION
-  return mergeDefinition(partial)
+  const def = partial ? mergeDefinition(partial) : DEFAULT_DEFINITION
+  const label = def.chat.label ?? TOOL_DISPLAY_LABELS[name] ?? humanizeToolName(name)
+  return {
+    ...def,
+    chat: { ...def.chat, label },
+  }
 }

@@ -72,10 +72,16 @@ export function buildChatBody(opts: {
   context: SurfaceContext
   mentionedFiles: string[]
   isFirstMessage: boolean
+  /** Post-onboarding first turn: server opens with assistant (no user bubble). */
+  firstChatKickoff?: boolean
 }): Record<string, unknown> {
   const body: Record<string, unknown> = {
-    message: opts.message,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  }
+  if (opts.firstChatKickoff) {
+    body.firstChatKickoff = true
+  } else {
+    body.message = opts.message
   }
   if (opts.sessionId) body.sessionId = opts.sessionId
 

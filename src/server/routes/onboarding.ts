@@ -21,6 +21,8 @@ import { getOnboardingMailStatus, ripmailBin, ripmailHomePath } from '../lib/onb
 import { enrichAppleMailSetupError } from '../lib/appleMailSetupHints.js'
 import { getFdaProbeDetail, isFdaGranted } from '../lib/fdaProbe.js'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
+import { writeFirstChatPending } from '../lib/firstChatPending.js'
+import { startWikiExpansionRunFromAcceptProfile } from '../agent/wikiExpansionRunner.js'
 
 const onboarding = new Hono()
 
@@ -144,6 +146,7 @@ onboarding.post('/accept-profile', async (c) => {
   const categories = rawCategories.filter((x: unknown) => typeof x === 'string' && x.trim().length > 0)
   const defaultCategories = ['People', 'Projects', 'Interests', 'Areas']
   const categoriesToStore = categories.length > 0 ? categories : defaultCategories
+  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
 
   const text = await readFile(draftPath, 'utf-8')
   const wikiRoot = wikiDir()
@@ -153,8 +156,15 @@ onboarding.post('/accept-profile', async (c) => {
   await mkdir(onboardingDataDir(), { recursive: true })
   await writeFile(categoriesJsonPath(), JSON.stringify({ categories: categoriesToStore }, null, 2), 'utf-8')
   try {
-    const doc = await setOnboardingState('seeding')
-    return c.json({ ok: true, state: doc.state, categories: categoriesToStore })
+    await writeFirstChatPending()
+    const { runId } = await startWikiExpansionRunFromAcceptProfile({ timezone })
+    const doc = await setOnboardingState('done')
+    return c.json({
+      ok: true,
+      state: doc.state,
+      categories: categoriesToStore,
+      wikiExpansionRunId: runId,
+    })
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : 'state error' }, 400)
   }

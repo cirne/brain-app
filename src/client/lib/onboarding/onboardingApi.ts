@@ -97,7 +97,10 @@ export async function postAcceptProfile(categories: string[]): Promise<void> {
   const res = await fetch('/api/onboarding/accept-profile', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ categories }),
+    body: JSON.stringify({
+      categories,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }),
   })
   if (!res.ok) {
     const j = (await res.json()) as { error?: string }

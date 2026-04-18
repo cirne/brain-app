@@ -11,6 +11,7 @@
   import AgentChat from '../AgentChat.svelte'
   import AgentConversation from '../agent-conversation/AgentConversation.svelte'
   import OnboardingProfilingView from './OnboardingProfilingView.svelte'
+  import OnboardingSeedingView from './OnboardingSeedingView.svelte'
   import WorkspaceSplit from '../WorkspaceSplit.svelte'
   import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from '../../router.js'
   import { runParallelSyncs } from '../app/syncAllServices.js'
@@ -316,6 +317,7 @@
     onOpenSearch={() => { showSearch = true }}
     onSync={syncAll}
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
+    onOpenExpansion={() => {}}
   />
 
   <div class="ob-ws-main">
@@ -332,7 +334,13 @@
           context={agentContext}
           conversationHidden={!!route.overlay && isMobile}
           suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || isMobile || useOnboardingActivity}
-          conversationView={useOnboardingActivity ? OnboardingProfilingView : AgentConversation}
+          conversationView={
+            isProfiling
+              ? OnboardingProfilingView
+              : isSeedingWiki
+                ? OnboardingSeedingView
+                : AgentConversation
+          }
           hideInput={useOnboardingActivity}
           streamingBusyLabel={
             useOnboardingActivity
@@ -343,7 +351,6 @@
                   : 'Working…'
               : 'Thinking...'
           }
-          onboardingConversationKind={isProfiling ? 'profiling' : isSeedingWiki ? 'seeding' : undefined}
           {chatEndpoint}
           {autoSendMessage}
           streamingWritePreview={wikiWriteStreaming}

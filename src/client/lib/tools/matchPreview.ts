@@ -1,7 +1,12 @@
 import type { ToolCall } from '../agentUtils.js'
 import type { ReadEmailToolDetails } from '../../../server/lib/readEmailPreview.js'
 import { isFilesystemAbsolutePath } from '../fsPath.js'
-import type { CalendarEventLite, ContentCardPreview, MessagePreviewRow } from '../cards/contentCardShared.js'
+import type {
+  CalendarEventLite,
+  ContentCardPreview,
+  MailSearchHitPreview,
+  MessagePreviewRow,
+} from '../cards/contentCardShared.js'
 import {
   editDiffUnifiedFromDetails,
   wikiPathForReadToolArg,
@@ -12,6 +17,43 @@ import {
   parseRipmailInboxFlat,
 } from '../../../server/lib/ripmailInboxFlatten.js'
 import { pickReadEmailFields } from '../../../server/lib/readEmailPreview.js'
+import { searchIndexDetail } from './onboardingHelpers.js'
+import { parseFindPersonResultPeople } from './ripmailWhoParse.js'
+
+function parseSearchIndexJsonResult(
+  result: string,
+): { items: MailSearchHitPreview[]; totalMatched?: number } | null {
+  const t = result.trim()
+  if (!t.startsWith('{')) return null
+  try {
+    const j = JSON.parse(t) as { results?: unknown[]; totalMatched?: number; returned?: number }
+    const results = Array.isArray(j.results) ? j.results : []
+    const items: MailSearchHitPreview[] = []
+    for (const r of results) {
+      if (!r || typeof r !== 'object') continue
+      const o = r as Record<string, unknown>
+      const id = typeof o.messageId === 'string' ? o.messageId.trim() : ''
+      const subject = typeof o.subject === 'string' ? o.subject : ''
+      const from =
+        (typeof o.fromName === 'string' && o.fromName.trim()) ||
+        (typeof o.fromAddress === 'string' && o.fromAddress.trim()) ||
+        ''
+      let snippet = typeof o.snippet === 'string' ? o.snippet : ''
+      snippet = snippet.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+      if (!id && !subject.trim() && !from && !snippet) continue
+      items.push({
+        id: id || '(unknown)',
+        subject: subject.trim() || '(No subject)',
+        from,
+        snippet,
+      })
+    }
+    const totalMatched = typeof j.totalMatched === 'number' ? j.totalMatched : undefined
+    return { items, totalMatched }
+  } catch {
+    return null
+  }
+}
 
 /** Derive a rich preview card from a completed tool call, or null to show raw output only. */
 export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
@@ -121,6 +163,38 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
       }
     }
     return null
+  }
+
+  if (name === 'search_index') {
+    const argRec = (args ?? {}) as Record<string, unknown>
+    const queryLine =
+      searchIndexDetail(argRec)?.trim() || 'Search mail index'
+    const raw = tool.result ?? ''
+    const parsed = parseSearchIndexJsonResult(typeof raw === 'string' ? raw : String(raw))
+    const items = parsed?.items ?? []
+    return {
+      kind: 'mail_search_hits',
+      queryLine,
+      items,
+      totalMatched: parsed?.totalMatched,
+    }
+  }
+
+  if (name === 'find_person') {
+    const q = typeof (args as { query?: string }).query === 'string'
+      ? (args as { query: string }).query.trim()
+      : ''
+    const queryLine = q ? `Query: ${q}` : 'Top contacts (by email frequency)'
+    const raw = tool.result ?? ''
+    const people = parseFindPersonResultPeople(typeof raw === 'string' ? raw : String(raw)).map((p) => ({
+      name: p.name,
+      email: p.email,
+    }))
+    return {
+      kind: 'find_person_hits',
+      queryLine,
+      people,
+    }
   }
 
   if (tool.result == null) return null

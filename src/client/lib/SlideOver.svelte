@@ -6,6 +6,7 @@
   import Inbox from './Inbox.svelte'
   import Calendar from './Calendar.svelte'
   import MessageThread from './MessageThread.svelte'
+  import BackgroundAgentPanel from './statusBar/BackgroundAgentPanel.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
   import type { Overlay } from '../router.js'
@@ -48,6 +49,11 @@
     detailFullscreen?: boolean
     /** Desktop only: toggle detail fullscreen (parent calls WorkspaceSplit.toggleDetailFullscreen). */
     onToggleFullscreen?: () => void
+    /** Background-agent panel: same navigations as ToolCallBlock / chat tool previews. */
+    toolOnOpenFile?: (_path: string) => void
+    toolOnOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
+    toolOnOpenFullInbox?: () => void
+    toolOnOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
   }
 
   let {
@@ -69,6 +75,10 @@
     mobilePanel = false,
     detailFullscreen = false,
     onToggleFullscreen,
+    toolOnOpenFile,
+    toolOnOpenEmail,
+    toolOnOpenFullInbox,
+    toolOnOpenMessageThread,
   }: Props = $props()
 
   let rootEl = $state<HTMLDivElement | undefined>()
@@ -220,6 +230,7 @@
     if (o.type === 'file') return 'File'
     if (o.type === 'email') return 'Inbox'
     if (o.type === 'messages') return 'Messages'
+    if (o.type === 'background-agent') return 'Wiki expansion'
     return 'Calendar'
   }
 
@@ -387,6 +398,18 @@
       />
     {:else if overlay.type === 'messages'}
       <MessageThread initialChat={overlay.chat} onContextChange={onContextChange} />
+    {:else if overlay.type === 'background-agent'}
+      <BackgroundAgentPanel
+        id={overlay.id}
+        onOpenWiki={(path) => {
+          if (path) onWikiNavigate(path)
+        }}
+        onOpenFile={toolOnOpenFile}
+        onOpenEmail={toolOnOpenEmail}
+        onOpenFullInbox={toolOnOpenFullInbox}
+        onSwitchToCalendar={onCalendarNavigate}
+        onOpenMessageThread={toolOnOpenMessageThread}
+      />
     {:else}
       <Calendar
         refreshKey={calendarRefreshKey}

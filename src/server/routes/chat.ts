@@ -11,6 +11,7 @@ import {
   listSessions,
   patchSessionTitle,
 } from '../lib/chatStorage.js'
+import { tryConsumeFirstChatPending } from '../lib/firstChatPending.js'
 import type { ChatMessage } from '../lib/chatTypes.js'
 import { streamAgentSseResponse, streamStaticAssistantSse } from '../lib/streamAgentSse.js'
 import {
@@ -19,6 +20,16 @@ import {
   parseLeadingSlashCommand,
   readSkillMarkdown,
 } from '../lib/slashSkill.js'
+
+/**
+ * Invisible user turn for the model when the client opens first chat after onboarding (no user bubble).
+ * The first-chat system supplement still applies via {@link tryConsumeFirstChatPending}.
+ */
+const FIRST_CHAT_KICKOFF_USER_MESSAGE = [
+  'The app just opened this chat right after onboarding — the user has not typed anything yet.',
+  'You speak first. Follow the "First conversation" section of your system instructions: greet briefly,',
+  'reference something specific from their profile (me.md) when available, and offer one proactive insight.',
+].join(' ')
 
 const chat = new Hono()
 
@@ -37,20 +48,41 @@ chat.get('/sessions/:sessionId', async (c) => {
 })
 
 // POST /api/chat
-// Body: { message: string, sessionId?: string, context?: { files?: string[] } }
+// Body: { message: string, sessionId?: string, context?: ... , firstChatKickoff?: boolean }
 // Response: SSE stream of agent events
 chat.post('/', async (c) => {
   const body = await c.req.json()
-  const { message, sessionId = crypto.randomUUID(), context, timezone } = body
+  const firstChatKickoff = body.firstChatKickoff === true
+  const { sessionId = crypto.randomUUID(), context, timezone } = body
+  const rawMessage = body.message
 
-  if (!message || typeof message !== 'string') {
+  if (!firstChatKickoff && (!rawMessage || typeof rawMessage !== 'string')) {
     return c.json({ error: 'message is required' }, 400)
   }
+  if (firstChatKickoff && rawMessage != null && typeof rawMessage !== 'string') {
+    return c.json({ error: 'message must be a string when provided' }, 400)
+  }
+
+  const message = firstChatKickoff ? FIRST_CHAT_KICKOFF_USER_MESSAGE : (rawMessage as string)
 
   try {
     await ensureSessionStub(sessionId)
   } catch {
     /* best-effort — stream still runs */
+  }
+
+  let firstChat = false
+  try {
+    const sessionDoc = await loadSession(sessionId)
+    if (sessionDoc && sessionDoc.messages.length === 0) {
+      firstChat = await tryConsumeFirstChatPending()
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (firstChatKickoff && !firstChat) {
+    return c.json({ error: 'first chat kickoff is not available' }, 400)
   }
 
   // Build context string for the session system prompt.
@@ -80,7 +112,7 @@ chat.post('/', async (c) => {
       : undefined
 
   const persist = async (args: {
-    userMessage: string
+    userMessage: string | null
     assistantMessage: ChatMessage
     turnTitle: string | null | undefined
   }) => {
@@ -114,23 +146,25 @@ chat.post('/', async (c) => {
     })
     const promptMessages = buildSkillPromptMessages(slash.slug, skillBody, slash.args)
 
-    const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone })
+    const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone, firstChat })
 
     return streamAgentSseResponse(c, agent, message, {
       wikiDirForDiffs: wikiDir(),
       announceSessionId: sessionId,
       promptMessages,
       userMessageForPersistence: message,
+      omitUserMessageFromPersistence: firstChatKickoff,
       onTurnComplete: persist,
       onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
     })
   }
 
-  const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone })
+  const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone, firstChat })
 
   return streamAgentSseResponse(c, agent, message, {
     wikiDirForDiffs: wikiDir(),
     announceSessionId: sessionId,
+    omitUserMessageFromPersistence: firstChatKickoff,
     onTurnComplete: persist,
     onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
   })

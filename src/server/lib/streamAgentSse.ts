@@ -25,7 +25,8 @@ export interface StreamAgentSseOptions {
   announceSessionId?: string
   /** If set, persist completed turns (main chat). Onboarding omits this. */
   onTurnComplete?: (args: {
-    userMessage: string
+    /** Null when {@link omitUserMessageFromPersistence} — assistant-only turn in storage. */
+    userMessage: string | null
     assistantMessage: ReturnType<typeof toAssistantMessage>
     turnTitle: string | null | undefined
   }) => Promise<void>
@@ -33,6 +34,8 @@ export interface StreamAgentSseOptions {
   promptMessages?: AgentMessage[]
   /** Transcript / storage user line; defaults to `message` (use with slash expansion). */
   userMessageForPersistence?: string
+  /** When true, do not append a user row for this turn (e.g. first-chat kickoff opens with the assistant). */
+  omitUserMessageFromPersistence?: boolean
   /** When set_chat_title runs mid-stream, persist title so the session list updates before the turn completes. */
   onSessionTitlePersist?: (title: string) => Promise<void>
 }
@@ -92,6 +95,7 @@ export function streamAgentSseResponse(
     announceSessionId,
     promptMessages,
     userMessageForPersistence,
+    omitUserMessageFromPersistence,
     onSessionTitlePersist,
   } = opts
 
@@ -99,7 +103,9 @@ export function streamAgentSseResponse(
     if (announceSessionId) {
       await stream.writeSSE({ event: 'session', data: JSON.stringify({ sessionId: announceSessionId }) })
     }
-    const userMessage = userMessageForPersistence ?? message
+    const userMessageForStore = omitUserMessageFromPersistence
+      ? null
+      : (userMessageForPersistence ?? message)
     const assistantState = createAssistantTurnState()
     const editBeforeSnapshot = new Map<string, string>()
     let turnTitle: string | null | undefined
@@ -108,7 +114,7 @@ export function streamAgentSseResponse(
     const persistIfNeeded = async (): Promise<void> => {
       if (!onTurnComplete) return
       const assistantMessage = toAssistantMessage(assistantState)
-      await onTurnComplete({ userMessage, assistantMessage, turnTitle })
+      await onTurnComplete({ userMessage: userMessageForStore, assistantMessage, turnTitle })
       savedThisTurn = true
     }
 

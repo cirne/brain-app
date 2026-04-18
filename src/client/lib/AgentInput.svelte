@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount, tick } from 'svelte'
   import { ArrowUp, List } from 'lucide-svelte'
   import WikiFileName from './WikiFileName.svelte'
   import type { SkillMenuItem } from './agentUtils.js'
@@ -170,6 +171,13 @@
     if (inputEl) inputEl.style.height = 'auto'
     onSend(text)
   }
+
+  onMount(() => {
+    void tick().then(() => {
+      if (disabled) return
+      inputEl?.focus({ preventScroll: true })
+    })
+  })
 </script>
 
 <div class="input-area">

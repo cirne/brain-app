@@ -21,7 +21,6 @@
     onOpenMessageThread,
     /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
     empty,
-    onboardingKind: _onboardingKind,
     streamingWrite: _streamingWrite,
   }: AgentConversationViewProps = $props()
 
@@ -31,6 +30,9 @@
 
   /** When true, new assistant content auto-scrolls the viewport (until the user scrolls up). BUG-007. */
   let followOutput = $state(true)
+
+  /** Temporarily ignore scroll events during programmatic scrolls to prevent followOutput from toggling off. */
+  let ignoreScrollEvents = false
 
   let reduceMotion = $state(false)
 
@@ -51,27 +53,44 @@
   const jumpTransitionMs = $derived(reduceMotion ? 0 : 200)
 
   function syncFollowFromScroll() {
-    if (!messagesEl) return
+    if (!messagesEl || ignoreScrollEvents) return
     followOutput = computePinnedToBottom(messagesEl)
   }
 
   /** Unconditional scroll + resume follow mode (load session, stream finished, user just sent). */
   export function scrollToBottom() {
+    ignoreScrollEvents = true
     void tick().then(() => {
       requestAnimationFrame(() => {
-        if (!messagesEl) return
-        messagesEl.scrollTop = messagesEl.scrollHeight
-        followOutput = true
+        requestAnimationFrame(() => {
+          if (!messagesEl) {
+            ignoreScrollEvents = false
+            return
+          }
+          messagesEl.scrollTop = messagesEl.scrollHeight
+          followOutput = true
+          ignoreScrollEvents = false
+        })
       })
     })
   }
 
   /** Stream deltas: only scroll if the user has not scrolled away to read history. */
   export function scrollToBottomIfFollowing() {
+    if (!followOutput) return
+    ignoreScrollEvents = true
     void tick().then(() => {
       requestAnimationFrame(() => {
-        if (!messagesEl || !followOutput) return
-        messagesEl.scrollTop = messagesEl.scrollHeight
+        requestAnimationFrame(() => {
+          if (!messagesEl) {
+            ignoreScrollEvents = false
+            return
+          }
+          if (followOutput) {
+            messagesEl.scrollTop = messagesEl.scrollHeight
+          }
+          ignoreScrollEvents = false
+        })
       })
     })
   }

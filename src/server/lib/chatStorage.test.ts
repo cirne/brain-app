@@ -121,6 +121,21 @@ describe('chatStorage', () => {
     expect(doc?.title).toBe('My title')
   })
 
+  it('appendTurn with userMessage null stores assistant-first turn', async () => {
+    const { appendTurn, loadSession, listSessions } = await import('./chatStorage.js')
+    const sessionId = 'ff0e8400-e29b-41d4-a716-446655440010'
+    await appendTurn({
+      sessionId,
+      userMessage: null,
+      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'Welcome.' }] },
+    })
+    const doc = await loadSession(sessionId)
+    expect(doc?.messages).toHaveLength(1)
+    expect(doc?.messages[0].role).toBe('assistant')
+    const list = await listSessions()
+    expect(list[0].preview).toContain('Welcome')
+  })
+
   it('appendTurn merges into stub created by ensureSessionStub', async () => {
     const { ensureSessionStub, appendTurn, loadSession } = await import('./chatStorage.js')
     const sessionId = 'ee0e8400-e29b-41d4-a716-446655440009'

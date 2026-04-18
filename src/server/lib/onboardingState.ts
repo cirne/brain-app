@@ -99,8 +99,9 @@ const transitions: Record<OnboardingMachineState, OnboardingMachineState[]> = {
   'not-started': ['indexing', 'not-started'],
   indexing: ['profiling', 'not-started'],
   profiling: ['reviewing-profile', 'not-started'],
-  'reviewing-profile': ['profiling', 'confirming-categories', 'seeding', 'not-started'],
-  'confirming-categories': ['seeding', 'not-started'],
+  /** Profile accept goes straight to `done` (wiki seeding is optional / background; see wiki expansion). */
+  'reviewing-profile': ['profiling', 'confirming-categories', 'seeding', 'done', 'not-started'],
+  'confirming-categories': ['seeding', 'done', 'not-started'],
   seeding: ['done', 'not-started'],
   done: ['not-started'],
 }

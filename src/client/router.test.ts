@@ -165,6 +165,20 @@ describe('parseRoute messages', () => {
   })
 })
 
+describe('parseRoute background-agent', () => {
+  it('parses /background-agent without id', () => {
+    expect(parseRoute('http://localhost/background-agent')).toEqual({
+      overlay: { type: 'background-agent' },
+    })
+  })
+
+  it('parses /background-agent?id= run id', () => {
+    expect(parseRoute('http://localhost/background-agent?id=abc-123')).toEqual({
+      overlay: { type: 'background-agent', id: 'abc-123' },
+    })
+  })
+})
+
 describe('routeToUrl', () => {
   it('chat-only returns /', () => {
     expect(routeToUrl({})).toBe('/')
@@ -243,6 +257,16 @@ describe('routeToUrl', () => {
   it('messages with chat uses query param c', () => {
     expect(routeToUrl({ overlay: { type: 'messages', chat: '+15550001111' } })).toBe(
       '/messages?c=%2B15550001111',
+    )
+  })
+
+  it('background-agent without id', () => {
+    expect(routeToUrl({ overlay: { type: 'background-agent' } })).toBe('/background-agent')
+  })
+
+  it('background-agent with id uses query param id', () => {
+    expect(routeToUrl({ overlay: { type: 'background-agent', id: 'run-uuid' } })).toBe(
+      '/background-agent?id=run-uuid',
     )
   })
 

@@ -6,6 +6,8 @@
   import EmailPreviewCard from '../cards/EmailPreviewCard.svelte'
   import InboxListPreviewCard from '../cards/InboxListPreviewCard.svelte'
   import MessageThreadPreviewCard from '../cards/MessageThreadPreviewCard.svelte'
+  import MailSearchHitsPreviewCard from '../cards/MailSearchHitsPreviewCard.svelte'
+  import FindPersonHitsPreviewCard from '../cards/FindPersonHitsPreviewCard.svelte'
   import type { ContentCardPreview } from '../cards/contentCards.js'
 
   let {
@@ -65,4 +67,13 @@
   />
 {:else if preview.kind === 'wiki_edit_diff'}
   <EditDiffPreviewCard path={preview.path} unified={preview.unified} onOpen={() => onOpenWiki?.(preview.path)} />
+{:else if preview.kind === 'mail_search_hits'}
+  <MailSearchHitsPreviewCard
+    queryLine={preview.queryLine}
+    items={preview.items}
+    totalMatched={preview.totalMatched}
+    onOpenEmail={onOpenEmail}
+  />
+{:else if preview.kind === 'find_person_hits'}
+  <FindPersonHitsPreviewCard queryLine={preview.queryLine} people={preview.people} />
 {/if}

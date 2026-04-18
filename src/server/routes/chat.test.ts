@@ -34,6 +34,39 @@ describe('POST /api/chat', () => {
     expect(res.status).toBe(400)
   })
 
+  it('returns 400 for firstChatKickoff when first chat is not pending', async () => {
+    const { default: chatRoute } = await import('./chat.js')
+    const app = new Hono()
+    app.route('/api/chat', chatRoute)
+
+    const res = await app.request('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firstChatKickoff: true, timezone: 'UTC' }),
+    })
+    expect(res.status).toBe(400)
+    const err = (await res.json()) as { error?: string }
+    expect(err.error).toContain('kickoff')
+  })
+
+  it('accepts firstChatKickoff when first-chat pending and session is empty', async () => {
+    const { writeFirstChatPending } = await import('../lib/firstChatPending.js')
+    await writeFirstChatPending()
+
+    const { default: chatRoute } = await import('./chat.js')
+    const app = new Hono()
+    app.route('/api/chat', chatRoute)
+
+    const sessionId = 'd10e8400-e29b-41d4-a716-446655440001'
+    const res = await app.request('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firstChatKickoff: true, timezone: 'UTC', sessionId }),
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/event-stream')
+  })
+
   it('returns SSE stream with session event', async () => {
     // Without ANTHROPIC_API_KEY, the agent will error, but the SSE stream
     // should still start and send the session event before the error.

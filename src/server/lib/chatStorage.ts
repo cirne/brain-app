@@ -84,12 +84,24 @@ export type ChatSessionListItem = {
   preview?: string
 }
 
+function firstAssistantPreviewLine(messages: ChatMessage[]): string | undefined {
+  for (const m of messages) {
+    if (m.role !== 'assistant') continue
+    const fromParts = m.parts?.find((p): p is { type: 'text'; content: string } => p.type === 'text' && !!p.content)
+    const raw = (fromParts?.content ?? m.content ?? '').trim()
+    const line = raw.split('\n')[0] ?? ''
+    if (line) return line.length > 120 ? `${line.slice(0, 117)}...` : line
+  }
+  return undefined
+}
+
 function previewFromMessages(messages: ChatMessage[]): string | undefined {
   const u = messages.find(m => m.role === 'user')
-  if (!u?.content) return undefined
-  const line = u.content.trim().split('\n')[0] ?? ''
-  if (!line) return undefined
-  return line.length > 120 ? `${line.slice(0, 117)}...` : line
+  if (u?.content?.trim()) {
+    const line = u.content.trim().split('\n')[0] ?? ''
+    if (line) return line.length > 120 ? `${line.slice(0, 117)}...` : line
+  }
+  return firstAssistantPreviewLine(messages)
 }
 
 export async function listSessions(): Promise<ChatSessionListItem[]> {
@@ -181,7 +193,8 @@ export async function patchSessionTitle(sessionId: string, title: string): Promi
  */
 export async function appendTurn(params: {
   sessionId: string
-  userMessage: string
+  /** Null = assistant spoke first (no user row for this turn). */
+  userMessage: string | null
   assistantMessage: ChatMessage
   title?: string | null
 }): Promise<void> {
@@ -198,7 +211,9 @@ export async function appendTurn(params: {
     const data = JSON.parse(raw) as unknown
     if (!isChatSessionDocV1(data)) throw new Error('Invalid chat session file')
     doc = data
-    doc.messages.push({ role: 'user', content: userMessage })
+    if (userMessage !== null) {
+      doc.messages.push({ role: 'user', content: userMessage })
+    }
     doc.messages.push(assistantMessage)
     doc.updatedAt = now
     const t = params.title
@@ -210,13 +225,15 @@ export async function appendTurn(params: {
     const createdAtMs = Date.now().toString()
     fileName = `${createdAtMs}-${sessionId}.json`
     const t = params.title
+    const firstMessages: ChatMessage[] =
+      userMessage !== null ? [{ role: 'user', content: userMessage }, assistantMessage] : [assistantMessage]
     doc = {
       version: 1,
       sessionId,
       createdAt: now,
       updatedAt: now,
       title: typeof t === 'string' && t.trim() !== '' ? t.trim().slice(0, 120) : null,
-      messages: [{ role: 'user', content: userMessage }, assistantMessage],
+      messages: firstMessages,
     }
   }
 

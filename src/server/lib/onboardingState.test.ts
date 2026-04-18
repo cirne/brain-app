@@ -54,7 +54,16 @@ describe('onboardingState', () => {
     await expect(setOnboardingState('done')).rejects.toThrow()
   })
 
-  it('setOnboardingState allows reviewing-profile → seeding', async () => {
+  it('setOnboardingState allows reviewing-profile → done', async () => {
+    const { setOnboardingState, readOnboardingStateDoc } = await import('./onboardingState.js')
+    await setOnboardingState('indexing')
+    await setOnboardingState('profiling')
+    await setOnboardingState('reviewing-profile')
+    await setOnboardingState('done')
+    expect((await readOnboardingStateDoc()).state).toBe('done')
+  })
+
+  it('setOnboardingState allows reviewing-profile → seeding (legacy / dev)', async () => {
     const { setOnboardingState, readOnboardingStateDoc } = await import('./onboardingState.js')
     await setOnboardingState('indexing')
     await setOnboardingState('profiling')

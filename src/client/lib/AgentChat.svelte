@@ -78,8 +78,6 @@
     hideInput = false,
     /** Header label while the model is streaming (default “Thinking…”). */
     streamingBusyLabel = 'Thinking...',
-    /** Passed to alternate onboarding transcript views only. */
-    onboardingConversationKind,
     /** Live `write` stream for onboarding profiling / seeding transcript (e.g. `me.md` preview). */
     streamingWritePreview = null as { path: string; body: string } | null,
   }: {
@@ -116,7 +114,6 @@
     conversationView?: Component<AgentConversationViewProps>
     hideInput?: boolean
     streamingBusyLabel?: string
-    onboardingConversationKind?: 'profiling' | 'seeding'
     streamingWritePreview?: { path: string; body: string } | null
   } = $props()
 
@@ -364,14 +361,16 @@
 
   /**
    * @param forSessionKey — when set (e.g. queued follow-up after a background stream ends), send targets this map key instead of the currently displayed session.
+   * @param firstChatKickoff — post-onboarding: assistant speaks first (no user bubble); see POST /api/chat `firstChatKickoff`.
    */
-  async function send(text: string, forSessionKey?: string) {
+  async function send(text: string, forSessionKey?: string, firstChatKickoff = false) {
     const id = forSessionKey ?? displayedSessionId
-    if (!text || !id) return
+    if ((!text?.trim() && !firstChatKickoff) || !id) return
     const st = sessions.get(id)
     if (!st) return
 
     if (st.streaming) {
+      if (firstChatKickoff) return
       const t = text.trim()
       if (!t) return
       const prev = st.pendingQueuedMessages ?? []
@@ -381,11 +380,12 @@
 
     const streamKey = id
     let activeKey = streamKey
-    const mentionedFiles = extractMentionedFiles(text)
+    const mentionedFiles = firstChatKickoff ? [] : extractMentionedFiles(text)
     const isFirstMessage = st.messages.length === 0
 
-    const nextMessages = [...st.messages, { role: 'user', content: text }]
-    nextMessages.push({ role: 'assistant', content: '', parts: [] })
+    const nextMessages = firstChatKickoff
+      ? [...st.messages, { role: 'assistant' as const, content: '', parts: [] }]
+      : [...st.messages, { role: 'user' as const, content: text }, { role: 'assistant' as const, content: '', parts: [] }]
     const msgIdx = nextMessages.length - 1
 
     const ac = new AbortController()
@@ -404,9 +404,10 @@
       context,
       mentionedFiles,
       isFirstMessage,
+      firstChatKickoff,
     })
 
-    onUserSendMessage?.()
+    if (!firstChatKickoff) onUserSendMessage?.()
 
     let sawDone = false
     let touchedWiki = false
@@ -506,6 +507,11 @@
     }
   }
 
+  /** First turn after onboarding when the server marked first-chat pending — assistant opens, no user message. */
+  export async function sendFirstChatKickoff(forSessionKey?: string) {
+    await send('', forSessionKey, true)
+  }
+
   const placeholder = $derived(contextPlaceholder(context))
 
   const contextChip = $derived.by((): string | null => {
@@ -567,7 +573,6 @@
         {onOpenFullInbox}
         {onOpenMessageThread}
         {onSwitchToCalendar}
-        onboardingKind={onboardingConversationKind}
         streamingWrite={streamingWritePreview}
       />
     </div>
