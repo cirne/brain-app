@@ -13,10 +13,11 @@ export function execRipmailAsync(
   command: string,
   options?: ExecOptions,
 ): Promise<{ stdout: string; stderr: string }> {
+  const env = { ...ripmailProcessEnv(), ...options?.env }
   return execAsync(command, {
     encoding: 'utf8',
     ...options,
-    env: { ...ripmailProcessEnv(), ...options?.env },
+    env,
   }) as Promise<{ stdout: string; stderr: string }>
 }
 

@@ -1,4 +1,4 @@
-//! `ripmail whoami` — configured identity plus heuristics from indexed outbound mail.
+//! `ripmail whoami` — configured identity plus heuristics from indexed mail.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -17,25 +17,13 @@ use super::who_infer::infer_placeholder_owner_identities;
 const CATEGORY_FILTER: &str =
     "(category IS NULL OR category NOT IN ('promotional','social','forum','list','bulk','spam','automated'))";
 
-/// `raw_path` / maildir location suggests the message lives under a **Sent** mailbox (user-composed
-/// outbound), not Inbox/Archive. Used to pick "who is this mailbox" when multiple personal From:
-/// addresses appear in one Apple Mail index.
-///
-/// Avoid bare `LIKE '%sent%'` — false positives on e.g. "presentation".
-const RAW_PATH_SENT_MAILBOX_SQL: &str = "\
-(lower(raw_path) LIKE '%sent messages%' \
- OR lower(raw_path) LIKE '%sent.mbox%' \
- OR lower(raw_path) LIKE '%/sent/%' \
- OR lower(raw_path) LIKE '%.sent/%' \
- OR lower(raw_path) LIKE '%[gmail]/sent%' \
- OR lower(raw_path) LIKE '%sent mail%')";
-
 /// Run `whoami` aggregation (`mailbox_spec`: same as `ripmail who --mailbox`).
 pub fn whoami(
     conn: &Connection,
     home: &Path,
     cfg: &Config,
     mailbox_spec: Option<&str>,
+    verbose: bool,
 ) -> rusqlite::Result<WhoamiResult> {
     let mailboxes: Vec<&ResolvedMailbox> =
         match mailbox_spec.map(str::trim).filter(|s| !s.is_empty()) {
@@ -52,7 +40,7 @@ pub fn whoami(
 
     let mut out = Vec::with_capacity(mailboxes.len());
     for mb in mailboxes {
-        let row = whoami_one_mailbox(conn, home, cfg, mb)?;
+        let row = whoami_one_mailbox(conn, home, cfg, mb, verbose)?;
         out.push(row);
     }
 
@@ -64,6 +52,7 @@ fn whoami_one_mailbox(
     home: &Path,
     cfg: &Config,
     mb: &ResolvedMailbox,
+    verbose: bool,
 ) -> rusqlite::Result<WhoamiMailbox> {
     let json_row = mailbox_config_by_id(home, &mb.id);
     let mailbox_type = json_row.as_ref().map(|r| match r.kind {
@@ -79,8 +68,14 @@ fn whoami_one_mailbox(
 
     let owner_candidates = owner_email_candidates(mb, &placeholder_extra);
 
+    if verbose {
+        eprintln!("[whoami] mailbox={} ({})", mb.id, mb.email);
+        eprintln!("[whoami]   placeholder_extra={placeholder_extra:?}");
+        eprintln!("[whoami]   owner_candidates={owner_candidates:?}");
+    }
+
     let (primary_addr, inferred_display) =
-        primary_identity_from_outbound(conn, &mb.id, &owner_candidates)?;
+        primary_identity_from_received(conn, &mb.id, &owner_candidates, verbose)?;
 
     let identity_has_name = identity.as_ref().is_some_and(|i| {
         i.preferred_name
@@ -152,97 +147,90 @@ fn is_noreply_addr(t: &str) -> bool {
     super::is_noreply(t)
 }
 
-/// Picks a primary `from_address` among owner candidates, then the best `from_name` **for that
-/// address only** (never mix names across addresses).
+/// Pick the primary owner address and their display name from indexed mail.
 ///
-/// Primary address: maximize count of messages whose `raw_path` looks like a Sent mailbox (real
-/// outbound copies). If all such counts are zero (e.g. pure IMAP paths), fall back to max total
-/// message count per address (same category / list filters as `who`).
-fn primary_identity_from_outbound(
+/// Strategy: the inbox owner is whoever appears **most often as a recipient** (To or Cc) across
+/// all messages in the mailbox. This is mailbox-type-agnostic — it works equally for IMAP,
+/// Apple Mail, and local-dir sources — and is robust against shared-Mail.app setups where one
+/// macOS user has multiple family members' accounts loaded: Lewis gets the most To/Cc hits in
+/// Lewis's inbox regardless of who sends more outbound mail.
+///
+/// Display name is then taken as the most frequent `from_name` when that address sends mail
+/// (self-identifying header), falling back to any from_name match in the whole mailbox.
+fn primary_identity_from_received(
     conn: &Connection,
     mailbox_id: &str,
     owner_emails: &[String],
+    verbose: bool,
 ) -> rusqlite::Result<(Option<String>, Option<String>)> {
     if owner_emails.is_empty() {
+        if verbose {
+            eprintln!("[whoami]   receiver_counts: no owner candidates — skipping");
+        }
         return Ok((None, None));
     }
 
-    let base_filter = format!("source_id = ? AND list_like = 0 AND {CATEGORY_FILTER}");
+    let total_messages: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM messages WHERE source_id = ?",
+        rusqlite::params![mailbox_id],
+        |row| row.get(0),
+    )?;
 
-    let mut sent_counts: Vec<(String, i64)> = Vec::new();
-    for addr in owner_emails {
-        let sql = format!(
-            "SELECT COUNT(*) FROM messages WHERE {base_filter} \
-             AND from_address = ? AND {RAW_PATH_SENT_MAILBOX_SQL}"
-        );
-        let c: i64 = conn.query_row(&sql, rusqlite::params![mailbox_id, addr.as_str()], |row| {
-            row.get(0)
-        })?;
-        sent_counts.push((addr.clone(), c));
+    if verbose {
+        eprintln!("[whoami]   total messages in source '{mailbox_id}': {total_messages}");
     }
 
-    let max_sent = sent_counts.iter().map(|(_, c)| *c).max().unwrap_or(0);
-    let primary = if max_sent > 0 {
-        sent_counts
-            .into_iter()
-            .filter(|(_, c)| *c == max_sent)
-            .map(|(a, _)| a)
-            .min()
-    } else {
-        let totals = total_counts_per_address(conn, mailbox_id, owner_emails)?;
-        let max_total = totals.iter().map(|(_, c)| *c).max().unwrap_or(0);
-        totals
-            .into_iter()
-            .filter(|(_, c)| *c == max_total)
-            .map(|(a, _)| a)
-            .min()
-    };
+    // Count how many messages in this mailbox have each candidate address in To or Cc.
+    // json_each() unnests the stored JSON arrays, so partial-address false-positives are
+    // impossible (unlike LIKE '%addr%').
+    let mut recv_counts: Vec<(String, i64)> = Vec::new();
+    for addr in owner_emails {
+        let sql = format!(
+            "SELECT COUNT(*) FROM messages \
+             WHERE source_id = ? AND list_like = 0 AND {CATEGORY_FILTER} \
+             AND (EXISTS (SELECT 1 FROM json_each(to_addresses) WHERE lower(value) = lower(?)) \
+               OR EXISTS (SELECT 1 FROM json_each(cc_addresses) WHERE lower(value) = lower(?)))"
+        );
+        let c: i64 = conn.query_row(
+            &sql,
+            rusqlite::params![mailbox_id, addr.as_str(), addr.as_str()],
+            |row| row.get(0),
+        )?;
+        if verbose {
+            eprintln!("[whoami]   receiver_count '{addr}': {c}");
+        }
+        recv_counts.push((addr.clone(), c));
+    }
+
+    let max_recv = recv_counts.iter().map(|(_, c)| *c).max().unwrap_or(0);
+    let primary = recv_counts
+        .into_iter()
+        .filter(|(_, c)| *c == max_recv)
+        .map(|(a, _)| a)
+        .min(); // alphabetical tiebreak for determinism
+
+    if verbose {
+        eprintln!("[whoami]   primary elected: {primary:?} (max_recv={max_recv})");
+    }
 
     let Some(ref p) = primary else {
         return Ok((None, None));
     };
 
-    let name_sent = best_display_name_for_address(conn, mailbox_id, p, true)?;
-    let name_any = if name_sent.is_none() {
-        best_display_name_for_address(conn, mailbox_id, p, false)?
-    } else {
-        None
-    };
-    let display = name_sent.or(name_any);
+    // Display name: most frequent from_name when this address appears in From: (self-identified).
+    let display = best_display_name_for_address(conn, mailbox_id, p)?;
+    if verbose {
+        eprintln!("[whoami]   display_name: {display:?}");
+    }
     Ok((Some(p.clone()), display))
 }
 
-fn total_counts_per_address(
-    conn: &Connection,
-    mailbox_id: &str,
-    owner_emails: &[String],
-) -> rusqlite::Result<Vec<(String, i64)>> {
-    let mut out = Vec::new();
-    for addr in owner_emails {
-        let sql = format!(
-            "SELECT COUNT(*) FROM messages WHERE source_id = ? AND list_like = 0 \
-             AND {CATEGORY_FILTER} AND from_address = ?"
-        );
-        let c: i64 = conn.query_row(&sql, rusqlite::params![mailbox_id, addr.as_str()], |row| {
-            row.get(0)
-        })?;
-        out.push((addr.clone(), c));
-    }
-    Ok(out)
-}
-
-/// Mode of `from_name` for one `from_address`, optionally restricted to Sent-mailbox paths.
+/// Most frequent non-empty `from_name` for the given `from_address` in this mailbox.
 fn best_display_name_for_address(
     conn: &Connection,
     mailbox_id: &str,
     from_address: &str,
-    sent_path_only: bool,
 ) -> rusqlite::Result<Option<String>> {
-    let sent_clause = if sent_path_only {
-        format!(" AND {RAW_PATH_SENT_MAILBOX_SQL}")
-    } else {
-        String::new()
-    };
     let sql = format!(
         "SELECT trim(from_name), COUNT(*) AS c FROM messages \
          WHERE source_id = ? \
@@ -250,7 +238,6 @@ fn best_display_name_for_address(
          AND trim(from_name) != '' \
          AND list_like = 0 \
          AND {CATEGORY_FILTER} \
-         {sent_clause} \
          GROUP BY trim(from_name) \
          ORDER BY c DESC \
          LIMIT 1"
@@ -339,16 +326,65 @@ mod tests {
         }
     }
 
+    fn make_cfg(mb_id: &str, mb: ResolvedMailbox) -> Config {
+        let email = mb.email.clone();
+        Config {
+            ripmail_home: Path::new("/tmp").into(),
+            data_dir: Path::new("/tmp").into(),
+            db_path: Path::new("/tmp/db").into(),
+            maildir_path: Path::new("/tmp/m").into(),
+            message_path_root: Path::new("/tmp").into(),
+            source_id: mb_id.into(),
+            imap_host: "imap.gmail.com".into(),
+            imap_port: 993,
+            imap_user: email,
+            imap_aliases: mb.imap_aliases.clone(),
+            imap_password: String::new(),
+            imap_auth: MailboxImapAuthKind::AppPassword,
+            smtp: resolve_smtp_settings("imap.gmail.com", None).unwrap(),
+            resolved_sources: vec![mb],
+            sync_default_since: "1y".into(),
+            sync_mailbox: String::new(),
+            sync_exclude_labels: vec![],
+            attachments_cache_extracted_text: false,
+            inbox_default_window: "24h".into(),
+            inbox_bootstrap_archive_older_than: "1d".into(),
+            mailbox_management_enabled: false,
+            mailbox_management_allow_archive: false,
+        }
+    }
+
+    fn recv_msg(mid: &str, from: &str, from_name: &str, to: &[&str]) -> ParsedMessage {
+        ParsedMessage {
+            message_id: mid.into(),
+            from_address: from.into(),
+            from_name: Some(from_name.into()),
+            to_addresses: to.iter().map(|s| s.to_string()).collect(),
+            cc_addresses: vec![],
+            to_recipients: vec![],
+            cc_recipients: vec![],
+            subject: "s".into(),
+            date: "2025-06-01T12:00:00Z".into(),
+            body_text: "b".into(),
+            body_html: None,
+            attachments: vec![],
+            category: None,
+            ..Default::default()
+        }
+    }
+
     #[test]
-    fn whoami_infers_display_name_from_sent_from_header() {
+    fn whoami_infers_display_name_from_from_header() {
         let conn = open_memory().unwrap();
         apply_schema(&conn).unwrap();
         let mb_id = "mb1";
+
+        // A message where the owner sends (so their from_name is recorded).
         let p = ParsedMessage {
             message_id: "mid@1".into(),
             from_address: "me@example.com".into(),
             from_name: Some("Morgan Example".into()),
-            to_addresses: vec!["x@y.com".into()],
+            to_addresses: vec!["friend@example.com".into()],
             cc_addresses: vec![],
             to_recipients: vec![],
             cc_recipients: vec![],
@@ -362,33 +398,25 @@ mod tests {
         };
         persist_message(&conn, &p, "INBOX", mb_id, 1, "[]", "a.eml").unwrap();
 
-        let cfg = Config {
-            ripmail_home: Path::new("/tmp").into(),
-            data_dir: Path::new("/tmp").into(),
-            db_path: Path::new("/tmp/db").into(),
-            maildir_path: Path::new("/tmp/m").into(),
-            message_path_root: Path::new("/tmp").into(),
-            source_id: mb_id.into(),
-            resolved_sources: vec![mb_fixture(mb_id, "me@example.com")],
-            imap_host: "imap.gmail.com".into(),
-            imap_port: 993,
-            imap_user: "me@example.com".into(),
-            imap_aliases: vec![],
-            imap_password: String::new(),
-            imap_auth: MailboxImapAuthKind::AppPassword,
-            smtp: resolve_smtp_settings("imap.gmail.com", None).unwrap(),
-            sync_default_since: "1y".into(),
-            sync_mailbox: String::new(),
-            sync_exclude_labels: vec![],
-            attachments_cache_extracted_text: false,
-            inbox_default_window: "24h".into(),
-            inbox_bootstrap_archive_older_than: "1d".into(),
-            mailbox_management_enabled: false,
-            mailbox_management_allow_archive: false,
-        };
+        // Several received messages addressed to the owner — establishes them as primary.
+        for i in 0..5 {
+            let p = recv_msg(
+                &format!("r{i}@t"),
+                "sender@other.com",
+                "Sender",
+                &["me@example.com"],
+            );
+            persist_message(&conn, &p, "INBOX", mb_id, 10 + i, "[]", "r.eml").unwrap();
+        }
 
-        let home = Path::new("/nonexistent");
-        let r = whoami(&conn, home, &cfg, None).unwrap();
+        let r = whoami(
+            &conn,
+            Path::new("/nonexistent"),
+            &make_cfg(mb_id, mb_fixture(mb_id, "me@example.com")),
+            None,
+            false,
+        )
+        .unwrap();
         assert_eq!(r.mailboxes.len(), 1);
         let inf = r.mailboxes[0].inferred.as_ref().expect("inferred");
         assert_eq!(inf.primary_email.as_deref(), Some("me@example.com"));
@@ -399,75 +427,54 @@ mod tests {
     }
 
     #[test]
-    fn whoami_primary_uses_sent_mailbox_path_not_inbox_volume() {
+    fn whoami_primary_is_most_received_not_most_sent() {
         let conn = open_memory().unwrap();
         apply_schema(&conn).unwrap();
-        let mb_id = "mb_sent_pick";
+        let mb_id = "mb_recv";
 
-        fn msg(mid: &str, from: &str, name: &str) -> ParsedMessage {
-            ParsedMessage {
-                message_id: mid.into(),
-                from_address: from.into(),
-                from_name: Some(name.into()),
-                to_addresses: vec!["x@y.com".into()],
-                cc_addresses: vec![],
-                to_recipients: vec![],
-                cc_recipients: vec![],
-                subject: "s".into(),
-                date: "2025-06-01T12:00:00Z".into(),
-                body_text: "b".into(),
-                body_html: None,
-                attachments: vec![],
-                category: None,
-                ..Default::default()
-            }
-        }
-
-        // High volume "from" in non-Sent paths.
+        // "heavy" sends 40 messages from this mailbox but receives none addressed to them.
         for i in 0..40 {
-            let raw = format!("/Users/x/Library/Mail/V10/acc/INBOX.mbox/stem/Data/{i}.emlx");
-            let p = msg(&format!("inbox-{i}@t"), "heavy@example.com", "Other Person");
-            persist_message(&conn, &p, "INBOX", mb_id, i, "[]", &raw).unwrap();
+            let p = recv_msg(
+                &format!("s{i}@t"),
+                "heavy@example.com",
+                "Heavy Sender",
+                &["x@y.com"],
+            );
+            persist_message(&conn, &p, "INBOX", mb_id, i, "[]", "s.eml").unwrap();
         }
-        // Fewer rows, but stored under Sent — should win primary.
+        // "light" only sends 3, but receives 10 messages addressed directly to them.
         for i in 0..3 {
-            let raw =
-                format!("/Users/x/Library/Mail/V10/acc/Sent Messages.mbox/stem/Data/{i}.emlx");
-            let p = msg(&format!("sent-{i}@t"), "light@example.com", "Light User");
-            persist_message(&conn, &p, "INBOX", mb_id, 100 + i, "[]", &raw).unwrap();
+            let p = recv_msg(
+                &format!("ls{i}@t"),
+                "light@example.com",
+                "Light User",
+                &["x@y.com"],
+            );
+            persist_message(&conn, &p, "INBOX", mb_id, 100 + i, "[]", "ls.eml").unwrap();
+        }
+        for i in 0..10 {
+            let p = recv_msg(
+                &format!("lr{i}@t"),
+                "someone@other.com",
+                "Someone",
+                &["light@example.com"],
+            );
+            persist_message(&conn, &p, "INBOX", mb_id, 200 + i, "[]", "lr.eml").unwrap();
         }
 
         let mut mb = mb_fixture(mb_id, "heavy@example.com");
         mb.imap_aliases = vec!["light@example.com".into()];
 
-        let cfg = Config {
-            ripmail_home: Path::new("/tmp").into(),
-            data_dir: Path::new("/tmp").into(),
-            db_path: Path::new("/tmp/db").into(),
-            maildir_path: Path::new("/tmp/m").into(),
-            message_path_root: Path::new("/tmp").into(),
-            source_id: mb_id.into(),
-            resolved_sources: vec![mb],
-            imap_host: "imap.gmail.com".into(),
-            imap_port: 993,
-            imap_user: "heavy@example.com".into(),
-            imap_aliases: vec!["light@example.com".into()],
-            imap_password: String::new(),
-            imap_auth: MailboxImapAuthKind::AppPassword,
-            smtp: resolve_smtp_settings("imap.gmail.com", None).unwrap(),
-            sync_default_since: "1y".into(),
-            sync_mailbox: String::new(),
-            sync_exclude_labels: vec![],
-            attachments_cache_extracted_text: false,
-            inbox_default_window: "24h".into(),
-            inbox_bootstrap_archive_older_than: "1d".into(),
-            mailbox_management_enabled: false,
-            mailbox_management_allow_archive: false,
-        };
-
-        let home = Path::new("/nonexistent");
-        let r = whoami(&conn, home, &cfg, None).unwrap();
+        let r = whoami(
+            &conn,
+            Path::new("/nonexistent"),
+            &make_cfg(mb_id, mb),
+            None,
+            false,
+        )
+        .unwrap();
         let inf = r.mailboxes[0].inferred.as_ref().expect("inferred");
+        // light@example.com receives more mail → they own the inbox.
         assert_eq!(inf.primary_email.as_deref(), Some("light@example.com"));
         assert_eq!(inf.display_name_from_mail.as_deref(), Some("Light User"));
     }
@@ -477,5 +484,59 @@ mod tests {
         assert!(is_placeholder_mailbox_email("applemail@local"));
         let id = derive_mailbox_id_from_email("applemail@local");
         assert!(!id.is_empty());
+    }
+
+    /// BUG-058 fix: even though Kirsten sends 50 messages from within Lewis's Mail.app,
+    /// Lewis receives far more mail addressed to lewis@mac.com → whoami correctly picks Lewis.
+    #[test]
+    fn whoami_bug058_receiver_frequency_picks_correct_owner() {
+        let conn = open_memory().unwrap();
+        apply_schema(&conn).unwrap();
+        let mb_id = "applemail_local";
+
+        // Kirsten sends 50 messages (from within Lewis's shared Mail.app).
+        for i in 0..50 {
+            let p = recv_msg(
+                &format!("k{i}@t"),
+                "kirsten@mac.com",
+                "Kirsten Vliet",
+                &["someone@other.com"],
+            );
+            persist_message(&conn, &p, "INBOX", mb_id, i, "[]", "k.emlx").unwrap();
+        }
+        // Lewis sends only 13, but his inbox receives 200 messages addressed to him.
+        for i in 0..13 {
+            let p = recv_msg(
+                &format!("ls{i}@t"),
+                "lewis@mac.com",
+                "Lewis",
+                &["someone@other.com"],
+            );
+            persist_message(&conn, &p, "INBOX", mb_id, 100 + i, "[]", "ls.emlx").unwrap();
+        }
+        for i in 0..200 {
+            let p = recv_msg(
+                &format!("lr{i}@t"),
+                "sender@other.com",
+                "Sender",
+                &["lewis@mac.com"],
+            );
+            persist_message(&conn, &p, "INBOX", mb_id, 200 + i, "[]", "lr.emlx").unwrap();
+        }
+
+        let mut mb = mb_fixture(mb_id, "lewis@mac.com");
+        mb.imap_aliases = vec!["kirsten@mac.com".into()];
+
+        let r = whoami(
+            &conn,
+            Path::new("/nonexistent"),
+            &make_cfg(mb_id, mb),
+            None,
+            false,
+        )
+        .unwrap();
+        let inf = r.mailboxes[0].inferred.as_ref().expect("inferred");
+        assert_eq!(inf.primary_email.as_deref(), Some("lewis@mac.com"));
+        assert_eq!(inf.display_name_from_mail.as_deref(), Some("Lewis"));
     }
 }

@@ -487,7 +487,7 @@ pub(crate) fn run_who(
     Ok(())
 }
 
-pub(crate) fn run_whoami(source: Option<String>, text: bool) -> CliResult {
+pub(crate) fn run_whoami(source: Option<String>, text: bool, verbose: bool) -> CliResult {
     let cfg = load_cfg();
     let conn = db::open_file(cfg.db_path())?;
     let spec = source.as_deref().map(str::trim).filter(|s| !s.is_empty());
@@ -504,7 +504,19 @@ pub(crate) fn run_whoami(source: Option<String>, text: bool) -> CliResult {
             std::process::exit(1);
         }
     }
-    let result = whoami(&conn, &cfg.ripmail_home, &cfg, spec)?;
+    if verbose {
+        eprintln!("[whoami] RIPMAIL_HOME={}", cfg.ripmail_home.display());
+        eprintln!("[whoami] db={}", cfg.db_path().display());
+        eprintln!(
+            "[whoami] mailboxes: {}",
+            cfg.resolved_mailboxes()
+                .iter()
+                .map(|m| format!("{} ({})", m.email, m.id))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    let result = whoami(&conn, &cfg.ripmail_home, &cfg, spec, verbose)?;
     if text {
         print_whoami_text(&result);
     } else {

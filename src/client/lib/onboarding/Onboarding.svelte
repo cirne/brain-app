@@ -5,6 +5,7 @@
   import {
     fetchOnboardingMailStatus,
     fetchOnboardingState,
+    fetchOnboardingWhoami,
     patchOnboardingState,
     postAcceptProfile,
     postInboxSyncStart,
@@ -12,6 +13,7 @@
     postSetupAppleMail,
     fetchProfileDraftMarkdown,
     SETUP_MAIL_ABORT_MESSAGE,
+    type WhoamiIdentity,
   } from './onboardingApi.js'
   import { buildIndexingElapsedLine, buildIndexingProgressLine } from './onboardingIndexingUi.js'
   import {
@@ -106,20 +108,53 @@
     return buildIndexingElapsedLine(state, indexingStartedAt, Date.now())
   })
 
-  /** After enough mail is indexed, leave indexing without a manual “proceed” tap. */
-  let indexingToProfilingInitiated = $state(false)
+  /** After enough mail is indexed, move to identity confirmation (not directly to profiling). */
+  let indexingToConfirmingInitiated = $state(false)
   $effect(() => {
-    if (state === 'not-started') indexingToProfilingInitiated = false
+    if (state === 'not-started') indexingToConfirmingInitiated = false
   })
 
   $effect(() => {
     if (state !== 'indexing' || !canBuildProfile || busy) return
-    if (indexingToProfilingInitiated) return
-    indexingToProfilingInitiated = true
-    void patchState('profiling').catch(() => {
-      indexingToProfilingInitiated = false
+    if (indexingToConfirmingInitiated) return
+    indexingToConfirmingInitiated = true
+    void patchState('confirming-identity').catch(() => {
+      indexingToConfirmingInitiated = false
     })
   })
+
+  /** "Is this you?" identity fetched from ripmail whoami. */
+  let whoamiIdentity = $state<WhoamiIdentity | null>(null)
+  let whoamiLoading = $state(false)
+
+  $effect(() => {
+    if (state !== 'confirming-identity') { whoamiIdentity = null; return }
+    if (whoamiIdentity || whoamiLoading) return
+    whoamiLoading = true
+    void fetchOnboardingWhoami().then((id) => {
+      whoamiIdentity = id
+      whoamiLoading = false
+    }).catch(() => { whoamiLoading = false })
+  })
+
+  async function confirmIdentity() {
+    await patchState('profiling')
+  }
+
+  async function rejectIdentity() {
+    whoamiIdentity = null
+    await patchState('not-started')
+  }
+
+  async function retryWhoami() {
+    whoamiIdentity = null
+    whoamiLoading = true
+    try {
+      whoamiIdentity = await fetchOnboardingWhoami()
+    } finally {
+      whoamiLoading = false
+    }
+  }
 
   $effect(() => {
     if (!ONBOARDING_LARGE_WINDOW_STATES.has(state)) {
@@ -433,6 +468,73 @@
               <p class="ob-error ob-indexing-mail-error">{mail.statusError}</p>
             {/if}
           </div>
+        </div>
+      </div>
+
+    {:else if state === 'confirming-identity'}
+      <div class="ob-hero">
+        <div class="ob-hero-inner">
+          <span class="ob-kicker">Brain</span>
+          <h1 class="ob-headline">Is this you?</h1>
+          <p class="ob-lead">
+            Brain found this identity from your mail. Confirm so your profile is built for the right person.
+          </p>
+          {#if whoamiLoading}
+            <div class="ob-identity-card ob-identity-card--loading">
+              <span class="ob-spinner" aria-hidden="true"></span>
+              <span>Looking up your identity…</span>
+            </div>
+          {:else if whoamiIdentity}
+            <div class="ob-identity-card">
+              {#if whoamiIdentity.displayName}
+                <p class="ob-identity-name">{whoamiIdentity.displayName}</p>
+              {/if}
+              {#if whoamiIdentity.primaryEmail}
+                <p class="ob-identity-email">{whoamiIdentity.primaryEmail}</p>
+              {/if}
+            </div>
+            <div class="ob-cta-group">
+              <button
+                type="button"
+                class="ob-btn-primary"
+                onclick={() => void confirmIdentity()}
+                disabled={busy}
+              >
+                {#if busy}
+                  <span class="ob-spinner" aria-hidden="true"></span> Working…
+                {:else}
+                  Yes, that’s me
+                  <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                {/if}
+              </button>
+              <button
+                type="button"
+                class="ob-btn-secondary"
+                onclick={() => void retryWhoami()}
+                disabled={busy || whoamiLoading}
+              >
+                Try again
+              </button>
+              <button
+                type="button"
+                class="ob-btn-ghost"
+                onclick={() => void rejectIdentity()}
+                disabled={busy}
+              >
+                Not me — start over
+              </button>
+            </div>
+          {:else}
+            <p class="ob-error">Could not detect your identity from mail. Try again or continue anyway.</p>
+            <div class="ob-cta-group">
+              <button type="button" class="ob-btn-primary" onclick={() => void confirmIdentity()} disabled={busy}>
+                Continue anyway
+              </button>
+              <button type="button" class="ob-btn-secondary" onclick={() => void retryWhoami()} disabled={whoamiLoading}>
+                Try again
+              </button>
+            </div>
+          {/if}
         </div>
       </div>
 
@@ -978,5 +1080,85 @@
 
   .ob-seed-ready-btn {
     margin-top: 1.75rem;
+  }
+
+  /* ── Secondary / ghost buttons ── */
+  .ob-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.6875rem 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text);
+    background: var(--bg-2);
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  .ob-btn-secondary:hover:not(:disabled) {
+    background: var(--bg-3, color-mix(in srgb, var(--bg-2) 80%, var(--text) 20%));
+  }
+  .ob-btn-secondary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .ob-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-2);
+    background: transparent;
+    cursor: pointer;
+    transition: color 0.15s, opacity 0.15s;
+  }
+  .ob-btn-ghost:hover:not(:disabled) {
+    color: var(--text);
+  }
+  .ob-btn-ghost:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* ── Identity card (confirming-identity step) ── */
+  .ob-identity-card {
+    margin-top: 2rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.875rem;
+    background: var(--bg-2);
+    text-align: center;
+  }
+  .ob-identity-card--loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    color: var(--text-2);
+    font-size: 0.9375rem;
+  }
+  .ob-identity-card--loading .ob-spinner {
+    border-color: rgba(0,0,0,0.15);
+    border-top-color: var(--accent);
+  }
+  .ob-identity-name {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+  }
+  .ob-identity-email {
+    font-size: 0.9375rem;
+    color: var(--text-2);
+    margin: 0.25rem 0 0;
   }
 </style>

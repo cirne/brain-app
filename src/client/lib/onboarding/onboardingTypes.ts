@@ -24,8 +24,13 @@ export function emptyOnboardingMail(): OnboardingMailStatus {
   }
 }
 
-/** Enough indexed messages for a representative profile; paired with newest-first Apple Mail sync. */
-export const MIN_INDEXED_FOR_PROFILE = 1000
+/**
+ * Minimum indexed messages before advancing to whoami / confirming-identity.
+ * Needs enough data for receiver-frequency inference to be reliable — too low and
+ * the first few thousand messages may not yet include enough To/Cc hits for the
+ * correct owner to dominate over co-tenant senders.
+ */
+export const MIN_INDEXED_FOR_PROFILE = 2_000
 
 export const ONBOARDING_LARGE_WINDOW_STATES = new Set([
   'profiling',

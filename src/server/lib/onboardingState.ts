@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, unlink, rename } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { chatDataDir } from './chatStorage.js'
@@ -9,6 +9,7 @@ import { wipeBrainHomeContents } from './brainHome.js'
 export type OnboardingMachineState =
   | 'not-started'
   | 'indexing'
+  | 'confirming-identity'
   | 'profiling'
   | 'reviewing-profile'
   | 'confirming-categories'
@@ -26,31 +27,18 @@ export function onboardingDataDir(): string {
   return join(chatDataDir(), 'onboarding')
 }
 
-/** Chat data dir used as the profiling agent's wiki root; relative paths are the same names as on the real wiki (e.g. me.md). */
+/** Profiling agent wiki root — same as the real wiki vault so `me.md` is always `wiki/me.md`. */
 export function onboardingStagingWikiDir(): string {
-  return onboardingDataDir()
+  return wikiDir()
 }
 
-/** Staging copy of the user profile — same filename as wiki/me.md; lives under onboarding/ until accept. */
+/** User profile draft during onboarding — canonical path is wiki root `me.md` (same file after accept). */
 export function profileDraftRelativePath(): string {
   return 'me.md'
 }
 
 export function profileDraftAbsolutePath(): string {
   return join(onboardingStagingWikiDir(), profileDraftRelativePath())
-}
-
-const LEGACY_PROFILE_DRAFT = 'profile-draft.md'
-
-/** One-time: older builds wrote profile-draft.md; rename to me.md so agent and UI agree. */
-export async function migrateLegacyProfileDraftIfNeeded(): Promise<void> {
-  const base = onboardingStagingWikiDir()
-  await mkdir(base, { recursive: true })
-  const me = profileDraftAbsolutePath()
-  const legacy = join(base, LEGACY_PROFILE_DRAFT)
-  if (existsSync(me)) return
-  if (!existsSync(legacy)) return
-  await rename(legacy, me)
 }
 
 export function categoriesJsonPath(): string {
@@ -77,6 +65,7 @@ export async function readOnboardingStateDoc(): Promise<OnboardingStateDoc> {
     const valid: OnboardingMachineState[] = [
       'not-started',
       'indexing',
+      'confirming-identity',
       'profiling',
       'reviewing-profile',
       'confirming-categories',
@@ -110,7 +99,8 @@ export function wikiMeExists(): boolean {
 
 const transitions: Record<OnboardingMachineState, OnboardingMachineState[]> = {
   'not-started': ['indexing', 'not-started'],
-  indexing: ['profiling', 'not-started'],
+  indexing: ['confirming-identity', 'profiling', 'not-started'],
+  'confirming-identity': ['profiling', 'not-started'],
   profiling: ['reviewing-profile', 'not-started'],
   'reviewing-profile': ['confirming-categories', 'seeding', 'not-started'],
   'confirming-categories': ['seeding', 'not-started'],
@@ -141,18 +131,8 @@ export async function resetOnboardingState(): Promise<OnboardingStateDoc> {
   return doc
 }
 
-/** Remove staging files under `$BRAIN_HOME/chats/onboarding/` (keeps onboarding.json unless caller deletes it). */
+/** Remove onboarding categories file under `$BRAIN_HOME/chats/onboarding/` (keeps `onboarding.json` in `chats/`). */
 export async function clearOnboardingStaging(): Promise<void> {
-  const base = onboardingDataDir()
-  await mkdir(base, { recursive: true })
-  for (const name of [profileDraftRelativePath(), LEGACY_PROFILE_DRAFT]) {
-    try {
-      await unlink(join(base, name))
-    } catch (e: unknown) {
-      const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
-      if (code !== 'ENOENT') throw e
-    }
-  }
   try {
     await unlink(categoriesJsonPath())
   } catch (e: unknown) {

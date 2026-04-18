@@ -56,9 +56,9 @@ Run only what applies to the packages identified above.
 
 **Desktop / Tauri** (folder `desktop/`, Cargo package name **`app`**)
 
-- `cargo fmt -p app -- --check`
-- `cargo clippy -p app -- -D warnings`
-- `cargo test -p app`
+- `cargo fmt -p brain -- --check`
+- `cargo clippy -p brain -- -D warnings`
+- `cargo test -p brain`
 
 **Full repo** (when in doubt or `npm run ci` requested)
 

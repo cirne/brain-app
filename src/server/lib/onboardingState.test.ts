@@ -94,7 +94,6 @@ describe('onboardingState', () => {
     await writeFile(join(wikiDirPath(), 'me.md'), '# me', 'utf-8')
     await writeFile(join(wikiDirPath(), 'other.md'), 'x', 'utf-8')
     const draft = profileDraftAbsolutePath()
-    await mkdir(join(chatDir(), 'onboarding'), { recursive: true })
     await writeFile(draft, 'draft', 'utf-8')
     await mkdir(join(brainHome, 'future-subdir'), { recursive: true })
     await writeFile(join(brainHome, 'future-subdir', 'x.txt'), 'y', 'utf-8')
@@ -106,24 +105,6 @@ describe('onboardingState', () => {
     await expect(access(join(wikiDirPath(), 'me.md'))).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(access(draft)).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(access(join(brainHome, 'future-subdir', 'x.txt'))).rejects.toMatchObject({ code: 'ENOENT' })
-  })
-
-  it('migrateLegacyProfileDraftIfNeeded renames profile-draft.md to me.md', async () => {
-    const {
-      migrateLegacyProfileDraftIfNeeded,
-      profileDraftAbsolutePath,
-    } = await import('./onboardingState.js')
-    const base = join(chatDir(), 'onboarding')
-    await mkdir(base, { recursive: true })
-    const legacy = join(base, 'profile-draft.md')
-    await writeFile(legacy, '# legacy\n', 'utf-8')
-    await migrateLegacyProfileDraftIfNeeded()
-    const me = profileDraftAbsolutePath()
-    expect(me).toBe(join(base, 'me.md'))
-    const { readFile, access } = await import('node:fs/promises')
-    const text = await readFile(me, 'utf-8')
-    expect(text).toContain('legacy')
-    await expect(access(legacy)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('round-trips persisted JSON', async () => {

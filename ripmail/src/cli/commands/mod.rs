@@ -139,7 +139,11 @@ pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
             include_noreply,
             text,
         } => mail::run_who(query, limit, source, include_noreply, text),
-        Commands::Whoami { source, text } => mail::run_whoami(source, text),
+        Commands::Whoami {
+            source,
+            text,
+            verbose,
+        } => mail::run_whoami(source, text, verbose),
         Commands::Read {
             message_ids,
             source,

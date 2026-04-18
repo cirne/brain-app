@@ -38,6 +38,11 @@ fn looks_like_human_apple_family_address(addr: &str) -> bool {
 
 /// When any configured mailbox uses [`is_placeholder_mailbox_email`], infer owner identities from
 /// indexed messages (same scope as `ripmail who`).
+///
+/// Candidates are apple-family addresses that appear either as **senders** (`from_address`) OR as
+/// **recipients** (`to_addresses`/`cc_addresses` JSON arrays). Using both sides means the inbox
+/// owner is discovered early in a fresh sync — they receive mail from day one even if they haven't
+/// sent much yet (which was BUG-058's root cause for partial indexes).
 pub fn infer_placeholder_owner_identities(
     conn: &Connection,
     cfg: &Config,
@@ -54,71 +59,82 @@ pub fn infer_placeholder_owner_identities(
     const MIN_COUNT: i64 = 5;
     const LIMIT: i64 = 8;
 
-    let category_filter = "(category IS NULL OR category NOT IN ('promotional','social','forum','list','bulk','spam','automated'))";
+    let apple_domain_filter = "(LOWER(addr) LIKE '%@mac.com' \
+                                OR LOWER(addr) LIKE '%@icloud.com' \
+                                OR LOWER(addr) LIKE '%@me.com')";
 
-    let rows: Vec<(String, i64)> = match mailbox_ids {
+    let category_filter = "(category IS NULL OR category NOT IN \
+        ('promotional','social','forum','list','bulk','spam','automated'))";
+
+    // Build the source-id WHERE clause and bindings for both queries.
+    let (source_filter, id_binds): (String, Vec<rusqlite::types::Value>) = match mailbox_ids {
         Some(ids) if !ids.is_empty() => {
             let ph = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            let sql = format!(
-                "SELECT from_address, COUNT(*) AS c FROM messages \
-                 WHERE source_id IN ({ph}) \
-                 AND TRIM(from_address) != '' \
-                 AND {category_filter} \
-                 AND (LOWER(from_address) LIKE '%@mac.com' \
-                   OR LOWER(from_address) LIKE '%@icloud.com' \
-                   OR LOWER(from_address) LIKE '%@me.com') \
-                 GROUP BY from_address \
-                 HAVING COUNT(*) >= ? \
-                 ORDER BY c DESC \
-                 LIMIT {LIMIT}"
-            );
-            let mut stmt = conn.prepare(&sql)?;
-            let mut bind: Vec<rusqlite::types::Value> = ids
+            let binds = ids
                 .iter()
                 .map(|s| rusqlite::types::Value::Text(s.clone()))
                 .collect();
-            bind.push(rusqlite::types::Value::Integer(MIN_COUNT));
-            let rows: Vec<(String, i64)> = stmt
-                .query_map(rusqlite::params_from_iter(bind.iter()), |row| {
-                    Ok((row.get(0)?, row.get(1)?))
-                })?
-                .filter_map(|r| r.ok())
-                .collect();
-            rows
+            (format!("source_id IN ({ph})"), binds)
         }
-        _ => {
-            let sql = format!(
-                "SELECT from_address, COUNT(*) AS c FROM messages \
-                 WHERE TRIM(from_address) != '' \
-                 AND {category_filter} \
-                 AND (LOWER(from_address) LIKE '%@mac.com' \
-                   OR LOWER(from_address) LIKE '%@icloud.com' \
-                   OR LOWER(from_address) LIKE '%@me.com') \
-                 GROUP BY from_address \
-                 HAVING COUNT(*) >= ? \
-                 ORDER BY c DESC \
-                 LIMIT {LIMIT}"
-            );
-            let mut stmt = conn.prepare(&sql)?;
-            let rows: Vec<(String, i64)> = stmt
-                .query_map([MIN_COUNT], |row| Ok((row.get(0)?, row.get(1)?)))?
-                .filter_map(|r| r.ok())
-                .collect();
-            rows
-        }
+        _ => ("1=1".into(), Vec::new()),
     };
 
-    let mut out = Vec::new();
+    // Senders: apple-family addresses in from_address.
+    let sender_sql = format!(
+        "SELECT TRIM(from_address) AS addr, COUNT(*) AS c \
+         FROM messages \
+         WHERE {source_filter} AND TRIM(from_address) != '' \
+         AND {category_filter} \
+         AND {apple_domain_filter} \
+         GROUP BY addr HAVING c >= {MIN_COUNT} \
+         ORDER BY c DESC LIMIT {LIMIT}"
+    );
+
+    // Recipients: apple-family addresses in to_addresses or cc_addresses JSON arrays.
+    let recipient_sql = format!(
+        "SELECT lower(ta.value) AS addr, COUNT(*) AS c \
+         FROM messages m JOIN json_each(m.to_addresses) ta \
+         WHERE {source_filter} AND m.list_like = 0 AND {category_filter} \
+         AND (LOWER(ta.value) LIKE '%@mac.com' \
+           OR LOWER(ta.value) LIKE '%@icloud.com' \
+           OR LOWER(ta.value) LIKE '%@me.com') \
+         GROUP BY lower(ta.value) HAVING c >= {MIN_COUNT} \
+         ORDER BY c DESC LIMIT {LIMIT} \
+         UNION \
+         SELECT lower(ca.value) AS addr, COUNT(*) AS c \
+         FROM messages m JOIN json_each(m.cc_addresses) ca \
+         WHERE {source_filter} AND m.list_like = 0 AND {category_filter} \
+         AND (LOWER(ca.value) LIKE '%@mac.com' \
+           OR LOWER(ca.value) LIKE '%@icloud.com' \
+           OR LOWER(ca.value) LIKE '%@me.com') \
+         GROUP BY lower(ca.value) HAVING c >= {MIN_COUNT} \
+         ORDER BY c DESC LIMIT {LIMIT}"
+    );
+
     let mut seen = std::collections::HashSet::new();
-    for (addr, _c) in rows {
-        if !looks_like_human_apple_family_address(&addr) {
-            continue;
+    let mut out = Vec::new();
+
+    let mut collect = |sql: &str| -> rusqlite::Result<()> {
+        let mut stmt = conn.prepare(sql)?;
+        let rows: Vec<String> = stmt
+            .query_map(rusqlite::params_from_iter(id_binds.iter()), |row| {
+                row.get::<_, String>(0)
+            })?
+            .filter_map(|r| r.ok())
+            .filter(|a| looks_like_human_apple_family_address(a))
+            .collect();
+        for addr in rows {
+            let n = normalize_address(&addr);
+            if seen.insert(n) {
+                out.push(addr);
+            }
         }
-        let n = normalize_address(&addr);
-        if seen.insert(n) {
-            out.push(addr);
-        }
-    }
+        Ok(())
+    };
+
+    collect(&sender_sql)?;
+    collect(&recipient_sql)?;
+
     Ok(out)
 }
 

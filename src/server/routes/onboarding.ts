@@ -9,18 +9,14 @@ import {
   wikiMeExists,
   profileDraftAbsolutePath,
   profileDraftRelativePath,
-  migrateLegacyProfileDraftIfNeeded,
   categoriesJsonPath,
+  onboardingDataDir,
   type OnboardingMachineState,
   onboardingStagingWikiDir,
 } from '../lib/onboardingState.js'
 import { streamAgentSseResponse } from '../lib/streamAgentSse.js'
-import {
-  getOrCreateProfilingAgent,
-  getOrCreateSeedingAgent,
-  deleteProfilingSession,
-  deleteSeedingSession,
-} from '../agent/onboardingAgent.js'
+import { getOrCreateProfilingAgent, deleteProfilingSession, fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from '../agent/profilingAgent.js'
+import { getOrCreateSeedingAgent, deleteSeedingSession } from '../agent/seedingAgent.js'
 import { getOnboardingMailStatus, ripmailBin, ripmailHomePath } from '../lib/onboardingMailStatus.js'
 import { enrichAppleMailSetupError } from '../lib/appleMailSetupHints.js'
 import { getFdaProbeDetail, isFdaGranted } from '../lib/fdaProbe.js'
@@ -45,6 +41,16 @@ onboarding.get('/status', async (c) => {
     state: doc.state,
     wikiMeExists: wikiMeExists(),
     updatedAt: doc.updatedAt,
+  })
+})
+
+/** Return the ripmail-inferred identity for the "Is this you?" confirmation screen. */
+onboarding.get('/whoami', async (c) => {
+  const raw = await fetchRipmailWhoamiForProfiling()
+  const subject = parseWhoamiProfileSubject(raw)
+  return c.json({
+    displayName: subject?.displayName ?? null,
+    primaryEmail: subject?.primaryEmail ?? null,
   })
 })
 
@@ -111,7 +117,6 @@ onboarding.post('/setup-mail', runAppleMailSetup)
 onboarding.post('/setup-ripmail', runAppleMailSetup)
 
 onboarding.get('/profile-draft', async (c) => {
-  await migrateLegacyProfileDraftIfNeeded()
   const path = profileDraftAbsolutePath()
   try {
     const text = await readFile(path, 'utf-8')
@@ -123,7 +128,6 @@ onboarding.get('/profile-draft', async (c) => {
 
 /** Save edited profile draft while user is on the review step (markdown on disk). */
 onboarding.patch('/profile-draft', async (c) => {
-  await migrateLegacyProfileDraftIfNeeded()
   const doc = await readOnboardingStateDoc()
   if (doc.state !== 'reviewing-profile') {
     return c.json({ error: 'Profile can only be edited while reviewing' }, 400)
@@ -133,17 +137,17 @@ onboarding.patch('/profile-draft', async (c) => {
   if (markdown === null) {
     return c.json({ error: 'markdown is required' }, 400)
   }
+  await mkdir(wikiDir(), { recursive: true })
   await writeFile(profileDraftAbsolutePath(), markdown, 'utf-8')
   return c.json({ ok: true as const, path: profileDraftRelativePath() })
 })
 
 onboarding.post('/accept-profile', async (c) => {
-  await migrateLegacyProfileDraftIfNeeded()
   const draftPath = profileDraftAbsolutePath()
   try {
     await access(draftPath)
   } catch {
-    return c.json({ error: 'me.md not found in onboarding staging — run profiling first' }, 400)
+    return c.json({ error: 'me.md not found in wiki — run profiling first' }, 400)
   }
   const body = await c.req.json().catch(() => ({}))
   const rawCategories = Array.isArray(body.categories) ? body.categories : []
@@ -156,6 +160,7 @@ onboarding.post('/accept-profile', async (c) => {
   await mkdir(wikiRoot, { recursive: true })
   const mePath = join(wikiRoot, 'me.md')
   await writeFile(mePath, text, 'utf-8')
+  await mkdir(onboardingDataDir(), { recursive: true })
   await writeFile(categoriesJsonPath(), JSON.stringify({ categories: categoriesToStore }, null, 2), 'utf-8')
   try {
     const doc = await setOnboardingState('seeding')
@@ -168,6 +173,7 @@ onboarding.post('/accept-profile', async (c) => {
 onboarding.post('/prepare-seed', async (c) => {
   const body = await c.req.json().catch(() => ({}))
   const categories = Array.isArray(body.categories) ? body.categories.filter((x: unknown) => typeof x === 'string') : []
+  await mkdir(onboardingDataDir(), { recursive: true })
   await writeFile(categoriesJsonPath(), JSON.stringify({ categories }, null, 2), 'utf-8')
   try {
     const doc = await setOnboardingState('seeding')

@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { hardResetOnboardingArtifacts } from '../lib/onboardingState.js'
-import { clearAllSessions } from '../agent/index.js'
-import { clearAllOnboardingAgentSessions } from '../agent/onboardingAgent.js'
+import { clearAllSessions, clearAllOnboardingAgentSessions } from '../agent/index.js'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 import { ensureBrainHomeGitignore } from '../lib/brainHomeGitignore.js'

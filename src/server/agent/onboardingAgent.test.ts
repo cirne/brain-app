@@ -2,12 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import {
-  buildProfilingSystemPrompt,
-  buildSeedingSystemPrompt,
-  fetchRipmailWhoamiForProfiling,
-  ONBOARDING_OMIT_TOOL_NAMES,
-} from './onboardingAgent.js'
+import { buildProfilingSystemPrompt, fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'
+import { buildSeedingSystemPrompt } from './seedingAgent.js'
+import { ONBOARDING_OMIT_TOOL_NAMES } from './agentFactory.js'
 
 let wikiDir: string
 beforeEach(async () => {
@@ -55,18 +52,45 @@ describe('onboarding agent tools', () => {
 })
 
 describe('buildProfilingSystemPrompt', () => {
-  it('asks for a concise essentials profile, not a dossier', () => {
+  it('produces a short recipe with the account identity', () => {
     const p = buildProfilingSystemPrompt('America/Los_Angeles', 'user@example.com')
-    expect(p).toMatch(/not.*dossier/)
-    expect(p).toContain('## Identity (authoritative)')
     expect(p).toContain('user@example.com')
-    expect(p).toContain('## Name')
     expect(p).toContain('## Key people')
     expect(p).toContain('## Interests')
-    expect(p).toContain('## Projects & work')
+    expect(p).toContain('## Work')
     expect(p).toContain('## Contact')
-    expect(p).toContain('25–45 lines')
-    expect(p).toContain('wiki/me.md')
+    expect(p).toContain('me.md')
+    expect(p).toMatch(/Steps/)
+  })
+
+  it('when whoami is JSON, injects display name and email into the recipe', () => {
+    const raw = JSON.stringify({
+      mailboxes: [
+        {
+          inferred: { primaryEmail: 'lewis@example.com', displayNameFromMail: 'Lewis Cirne' },
+        },
+      ],
+    })
+    const p = buildProfilingSystemPrompt('America/Los_Angeles', raw)
+    expect(p).toContain('Lewis Cirne')
+    expect(p).toContain('lewis@example.com')
+    expect(p).toContain('# Lewis Cirne')
+  })
+})
+
+describe('parseWhoamiProfileSubject', () => {
+  it('returns inferred fields from ripmail whoami JSON', () => {
+    const raw = JSON.stringify({
+      mailboxes: [{ inferred: { primaryEmail: 'a@b.com', displayNameFromMail: 'A B' } }],
+    })
+    expect(parseWhoamiProfileSubject(raw)).toEqual({
+      displayName: 'A B',
+      primaryEmail: 'a@b.com',
+    })
+  })
+
+  it('returns null for non-JSON', () => {
+    expect(parseWhoamiProfileSubject('not json')).toBeNull()
   })
 })
 
