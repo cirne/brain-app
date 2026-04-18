@@ -276,6 +276,7 @@ User approves or denies each category. The seeding agent's system prompt is upda
 - **[OPP-007: Native Mac App (archived)](./archive/OPP-007-native-mac-app.md)** — Apple Mail local access is a preview of deeper native integration
 - **[OPP-014: Onboarding — Suggested Local Folders](./OPP-014-onboarding-local-folder-suggestions.md)** — Optional post-profile folder recommendations; also frames **agent-specific presentation** (profiling/seeding vs. default chat) and post-run handoff to structured UI
 - **[OPP-015: Wiki Background / Maintenance Agents](./OPP-015-wiki-background-maintenance-agents.md)** — Scheduled/triggered wiki gardeners (lint, cleanup, scaffold); **not** chat-initiated; shares runtime with interactive onboarding agents but different triggers and presentation; downstream of OPP-014-style infra
+- **[OPP-026: Knowledge Expansion Discovery UI](./OPP-026-knowledge-expansion-discovery-ui.md)** — Ongoing “what to add or deepen next” after first scaffold: structured JSON suggestions + evidence + user review (complements one-shot email bootstrap above)
 - **[PRODUCTIZATION.md](../PRODUCTIZATION.md)** — This is the "5-minute setup" experience described there
 
 ## Success criteria

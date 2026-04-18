@@ -23,6 +23,8 @@ Without this, we risk bolting a bespoke screen only for this step while the next
 
 **Downstream:** A different class of runs—**scheduled or triggered wiki maintenance** (not user chat)—reuses the same infrastructure with other triggers and usually **lighter** UI; see **[OPP-015: Wiki Background / Maintenance Agents](./OPP-015-wiki-background-maintenance-agents.md)**.
 
+**Same pattern, different product:** **[OPP-026: Knowledge Expansion Discovery UI](./OPP-026-knowledge-expansion-discovery-ui.md)** — scan wiki + indexed sources, return a **JSON array** of “where to expand next” (people/projects/topics) with **evidence**; user toggles exclusions, then approves a write pass. Not onboarding-specific, but reuses **specialized shell + structured handoff** from this doc.
+
 ## Core prompt (concept)
 
 Run **early**, ideally **after the profile is built and accepted** (so the recommender can use `wiki/me.md` and email context as hints) and **before** the heavy “build the wiki” seeding pass—so indexed notes and PDFs can inform seeding, not only post-hoc search.

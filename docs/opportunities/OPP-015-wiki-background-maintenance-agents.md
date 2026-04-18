@@ -27,7 +27,7 @@ Concrete lint behavior can remain aligned with OPP-004; OPP-015 names the **prod
 | --- | --- | --- |
 | Lint / link health | Daily or after N changelog events | Overlaps OPP-004 background lint |
 | Orphan / index hygiene | Weekly | Update `_index.md`, suggest merges |
-| Scaffold gaps | After profiling or mail sync | “You talk about X often; no `people/x` page” |
+| Scaffold gaps | After profiling or mail sync | “You talk about X often; no `people/x` page” — user-facing **discovery + review** first: [OPP-026](./OPP-026-knowledge-expansion-discovery-ui.md) |
 | Stale `updated:` / metadata | Scheduled | Optional; avoid noisy edits |
 | Light reorg | Rare + explicit policy | High trust; may need human review queue |
 
@@ -72,4 +72,6 @@ Not all of these ship at once; the opportunity is the **pattern**, not a single 
 
 - **[OPP-014: Onboarding — Suggested Local Folders](./OPP-014-onboarding-local-folder-suggestions.md)** — Upstream agent infrastructure and presentation generalization.
 - **[OPP-004: Wiki-Aware Agent](./OPP-004-wiki-aware-agent.md)** — Structured changelog, background lint, path validation; concrete building blocks for maintenance agents.
+- **[OPP-025: Wiki Hygiene Coalescing and Authoring Expectations](./OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md)** — Change-driven, coalesced post-edit hygiene (settle timer, mutex, rerun if dirty); split between interactive authoring scope and background reconciliation. Complements time-based triggers above.
+- **[OPP-026: Knowledge Expansion Discovery UI](./OPP-026-knowledge-expansion-discovery-ui.md)** — User-reviewed **expansion** suggestions (JSON + evidence from wiki + sources); complement to hygiene; approved items feed write jobs here.
 - **[OPP-006: Email-Bootstrap Onboarding](./OPP-006-email-bootstrap-onboarding.md)** — Interactive onboarding agents contrast with non-interactive maintenance agents (same family, different triggers and UI).

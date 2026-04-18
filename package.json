@@ -28,8 +28,7 @@
     "desktop:bundle-server": "node scripts/bundle-tauri-server.mjs",
     "desktop:clean-data": "node scripts/clean-tauri-user-data.mjs",
     "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build && npm run desktop:install",
-    "desktop:install": "node scripts/install-local.mjs",
+    "desktop:build": "tauri build",
     "desktop:fresh": "node scripts/desktop-fresh.mjs"
   },
   "dependencies": {
