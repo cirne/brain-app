@@ -13,6 +13,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**.
 | [future-durability.md](./future-durability.md) | Possible future SQLite for app-owned state |
 | [wiki-read-vs-read-doc.md](./wiki-read-vs-read-doc.md) | ADR: wiki file tools vs `read_doc` |
 | [wiki-vs-managed-memory-honcho.md](./wiki-vs-managed-memory-honcho.md) | Recorded consideration: wiki-first memory vs Honcho (or similar); **not for now** |
+| [external-sources-and-mcp.md](./external-sources-and-mcp.md) | Strategy: MCP as sync transport (not query API); local-first indexing for remote mutable sources (Notion, Linear, Slack); CRUD sync complexity vs append-only mail |
 
 **Ripmail** (Rust CLI + index): [`../../ripmail/docs/ARCHITECTURE.md`](../../ripmail/docs/ARCHITECTURE.md).
 

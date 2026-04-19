@@ -1,3 +1,21 @@
+# Archived: OPP-003 (iMessage Integration)
+
+**Status: Done enough — archived.** The core iMessage tools (`list_recent_messages`, `get_message_thread`) are implemented and available in the main agent tool set. The wiki-driven correlation pattern (resolve person → get phone/handle → call thread tool) works as designed. This opportunity is closed; new work can open fresh OPPs targeting specific improvements (e.g. unread-semantics reliability, a Messages UI pane, or handle normalization).
+
+**What shipped:**
+- `list_recent_messages` — recent messages across all chats, filterable by time window and unread status
+- `get_message_thread` — retrieve messages in a conversation by chat identifier
+- Agent-level cross-source correlation: wiki people pages → phone/handle → iMessage threads
+- macOS-only, read-only, Full Disk Access required (documented)
+
+**What was deferred (open for future OPPs if needed):**
+- Dedicated Messages UI pane (today it is agent-only)
+- Centralized handle normalization module
+- CI fixture SQLite for testing without a real `chat.db`
+- Unread semantics reliability across macOS versions
+
+---
+
 # OPP-003: iMessage Integration (local Messages DB)
 
 **Related:** Inbox/email is covered by ripmail and existing agent tools. This opportunity is a **parallel channel**: short-form, high-frequency SMS/iMessage threads that rarely live in email and are not indexed elsewhere in brain-app today.
@@ -14,7 +32,7 @@ Integration is **local-first**: tools run on the machine where Messages is autho
 
 All tools assume a configured path to the chat database (default: standard macOS location) and **read-only** SQLite connections.
 
-### `list_recent_messages` (implemented; was scoped as “iMessage” in early drafts)
+### `list_recent_messages` (implemented; was scoped as "iMessage" in early drafts)
 
 Return recent messages across all chats or filtered scope.
 

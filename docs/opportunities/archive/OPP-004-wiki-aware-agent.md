@@ -1,3 +1,22 @@
+# Archived: OPP-004 (Wiki-Aware Agent)
+
+**Status: Deprioritized — archived.** The general-purpose wiki agent driven by `CLAUDE.md` instructions works well enough in practice. The structured changelog, background lint, and path validation ideas remain good but carry real implementation complexity. Archived to keep the active queue focused; reopen as fresh OPPs if log quality or accidental-directory issues become recurring friction.
+
+**What exists today:**
+- Wiki agent uses `read`, `edit`, `write`, `grep`, `find` via CLAUDE.md instructions — works reliably
+- `wiki/_log.md` is maintained by the agent (format drift is occasional but not blocking)
+- Lint runs on request; no dedicated cron yet
+- Path creation is soft-enforced via prompt instructions
+
+**What was deferred:**
+- Structured `_log.jsonl` changelog with typed schema
+- Background lint cron (orphans, broken links, stale dates)
+- Path validation with soft warnings and fuzzy suggestions built into write tool
+
+If wiki quality degrades or log reliability becomes a real problem, these proposals are well-specified and ready to implement.
+
+---
+
 # OPP-004: Wiki-Aware Agent
 
 ## Problem

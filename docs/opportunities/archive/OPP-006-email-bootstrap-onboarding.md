@@ -1,3 +1,24 @@
+# Archived: OPP-006 (Email-Bootstrap Onboarding)
+
+**Status: Done enough — archived.** The core email-bootstrap onboarding flow has shipped. Users connect email (Apple Mail local or Gmail OAuth), ripmail indexes the inbox, a profiling agent builds `wiki/me.md` with a human review gate, and a seeding agent populates the wiki. The full vision in this doc served as the design spec; what shipped covers the essential "connect email → get a wiki in minutes" promise.
+
+**What shipped:**
+- `/onboarding` route with multi-step flow (email source → indexing → profiling → review → seeding → done)
+- Profiling agent: samples sent mail, frequent contacts, recurring subjects; writes to a temp file; user reviews and edits via chat loop; writes `wiki/me.md` on accept
+- Seeding agent: uses accepted profile + category confirmation to populate people, project, and interest pages
+- `wiki/me.md` injected into main agent system prompt for personalized context on every subsequent chat
+- Apple Mail local path and Gmail OAuth path both working
+- Resumable state machine (persisted across browser close)
+
+**What was deferred (open for future OPPs if needed):**
+- Sensitive-data opt-out step before seeding (finance, health suppression)
+- Periodic "re-analyze inbox" refresh flow
+- Personalized `/email` skill seeded from user's sent-mail voice (OPP-010)
+- Post-seeding "wow" first chat moment (see archived OPP-018)
+- Local folder suggestions step (see archived OPP-014)
+
+---
+
 # OPP-006: Email-Bootstrap Onboarding
 
 ## Vision
@@ -10,13 +31,13 @@ Email is the gold mine. Years of context, relationships, decisions, and prioriti
 
 Before asking for mail access, onboarding should establish **what Brain is building** and **why it matters**:
 
-1. **A wiki** (in simple terms) is a collection of **linked text pages**—the same *shape* as sites like Wikipedia, but **private**: Brain’s job is to help maintain **your** wiki about **your** life.
+1. **A wiki** (in simple terms) is a collection of **linked text pages**—the same *shape* as sites like Wikipedia, but **private**: Brain's job is to help maintain **your** wiki about **your** life.
 2. **Email and calendar** are how Brain **fills that wiki quickly** in the first minutes—so the user is not staring at a blank vault.
 3. **The assistant** then **uses** that wiki (plus tools) to answer and draft in **your** context—grounded personalization, not a cold chatbot.
 
-This orients first-time users who have never used “wiki” in a product before and connects the technical artifact (`WIKI_DIR`, markdown files) to the emotional promise: *memory that belongs to you*. Full copy options and UI placement notes live in [Personal wiki (product)](../product/personal-wiki.md).
+This orients first-time users who have never used "wiki" in a product before and connects the technical artifact (`WIKI_DIR`, markdown files) to the emotional promise: *memory that belongs to you*. Full copy options and UI placement notes live in [Personal wiki (product)](../product/personal-wiki.md).
 
-**Practical implication:** The first onboarding screen (or the copy above the “connect email” step) should include a **short** version of this story; the indexing and seeding steps stay as today, but the user understands *why* pages are appearing.
+**Practical implication:** The first onboarding screen (or the copy above the "connect email" step) should include a **short** version of this story; the indexing and seeding steps stay as today, but the user understands *why* pages are appearing.
 
 ## Proof of concept
 
@@ -163,8 +184,6 @@ Onboarding uses two distinct specialized agents, not one:
 
 **UI reuse:** Both agents stream via the existing SSE chat infrastructure. The onboarding UI is largely the same AgentChat layout in a different context — just a different agent and system prompt on the server side.
 
-**Presentation (future):** Profiling and seeding are good candidates for **something other than default chat chrome**—progress-first layout, less raw tool streaming, clearer phases—while still using the same agent runtime. Small config knobs today (e.g. whether an agent opens documents by default) are an early hint; a fuller **agent-specific presentation** model (including handoff to structured UI after a run) is sketched in **[OPP-014: Onboarding — Suggested Local Folders](./OPP-014-onboarding-local-folder-suggestions.md)** (folder picker example + generalization).
-
 ---
 
 ## What the profiling agent does
@@ -209,31 +228,7 @@ Given: accepted `wiki/me.md` + confirmed category list.
 idle → indexing → profiling → reviewing-profile → confirming-categories → seeding → done
 ```
 
-State is persisted (JSON file or DB row) so the flow is resumable if the browser is closed. On reload:
-
-- If `indexing`: jump back to indexing screen, resume polling
-- If `reviewing-profile`: show temp profile file, resume chat loop
-- If `seeding`: restart seeding agent (idempotent — it can re-create or skip existing files)
-
----
-
-## Technical considerations
-
-### Privacy and sensitivity
-
-- Profile synthesizes, never copies verbatim email content to the wiki
-- User can exclude contacts/domains ("ignore all emails from @newsletter.com")
-- Apple Mail path: nothing leaves the local machine
-
-### Incremental updates (post-onboarding)
-
-- Periodic refresh: "3 new frequent contacts since last sync"
-- On-demand: "Re-analyze my inbox" re-enters the flow
-
-### Rate limits (Gmail path)
-
-- Gmail API has quotas — batch requests, cache aggressively
-- Don't re-fetch on every page load; cache analysis results
+State is persisted (JSON file or DB row) so the flow is resumable if the browser is closed.
 
 ---
 
@@ -243,54 +238,3 @@ State is persisted (JSON file or DB row) so the flow is resumable if the browser
 2. **How aggressive should inference be?** Create a page for everyone with 5+ emails? 10+? Only after clustering?
 3. **How to handle ambiguity?** Same name, different people. Company vs project vs product.
 4. **Profile review UX depth?** Simple accept/decline vs full chat loop. Start simple, add chat loop iteration.
-
-**Recommendation:** Build a minimal version, try it on a few test inboxes, iterate. The goal is to discover what "feels magical" through experimentation.
-
----
-
-## Future considerations
-
-### Local file indexing
-
-After indexing email, the seeding agent could walk the user's Documents and Desktop and look for interesting files to index — PDFs, notes, project folders, etc. This extends the "zero data entry" promise beyond email. Likely gated behind its own permission step and category confirmation, same pattern as email onboarding. A concrete wizard step (agent JSON + user toggles + sources before wiki seeding) is **[OPP-014: Onboarding — Suggested Local Folders](./OPP-014-onboarding-local-folder-suggestions.md)**.
-
-### Sensitive data opt-out before seeding
-
-Before the seeding agent writes anything to the wiki, present the user with categories of sensitive information that might appear in email and offer to suppress them:
-
-- Account numbers and financial data
-- Health and medical information  
-- Credit card numbers
-- Passwords and credentials
-- Legal documents
-
-User approves or denies each category. The seeding agent's system prompt is updated accordingly: "Do not create wiki content containing or inferred from health information." This is both a privacy control and a trust-building moment — showing the user that Brain is thoughtful about what it stores.
-
----
-
-## Relation to other opportunities
-
-- **[Personal wiki (product)](../product/personal-wiki.md)** — Vocabulary, inline help, and onboarding messaging for “your private wiki” and the assistant loop
-- **[OPP-004: Wiki-Aware Agent](./OPP-004-wiki-aware-agent.md)** — Seeding agent uses the same structured tools (changelog, path validation)
-- **[ripmail OPP-051: Unified Sources](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)** — Folders and mail as first-class sources; attachment/index story aligns here (see also superseded [OPP-005](./OPP-005-source-ingestion.md))
-- **[OPP-007: Native Mac App (archived)](./archive/OPP-007-native-mac-app.md)** — Apple Mail local access is a preview of deeper native integration
-- **[OPP-014: Onboarding — Suggested Local Folders](./OPP-014-onboarding-local-folder-suggestions.md)** — Optional post-profile folder recommendations; also frames **agent-specific presentation** (profiling/seeding vs. default chat) and post-run handoff to structured UI
-- **[OPP-015: Wiki Background / Maintenance Agents](./OPP-015-wiki-background-maintenance-agents.md)** — Scheduled/triggered wiki gardeners (lint, cleanup, scaffold); **not** chat-initiated; shares runtime with interactive onboarding agents but different triggers and presentation; downstream of OPP-014-style infra
-- **[OPP-026: Knowledge Expansion Discovery UI](./OPP-026-knowledge-expansion-discovery-ui.md)** — Ongoing “what to add or deepen next” after first scaffold: structured JSON suggestions + evidence + user review (complements one-shot email bootstrap above)
-- **[PRODUCTIZATION.md](../PRODUCTIZATION.md)** — This is the "5-minute setup" experience described there
-
-## Success criteria
-
-- User goes from "connect email" to "browse my wiki" in under 5 minutes
-- At least 10 meaningful pages created with zero user input
-- User profile accurate enough that main agent's first response feels personalized
-- User says "wow" or "that's creepy" (both are wins)
-
-## Risks
-
-- **Over-inference:** Agent creates pages for spam contacts, misidentifies relationships
-- **Under-inference:** Agent is too cautious, creates only 2-3 obvious pages
-- **Slow:** Analysis takes 10+ minutes, user loses interest
-- **Expensive:** Too many LLM calls, unsustainable at scale
-
-Mitigations: Start conservative, tune thresholds based on user feedback, cache aggressively, use smaller/faster models for classification tasks.
