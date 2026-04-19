@@ -39,6 +39,11 @@ export interface StreamAgentSseOptions {
   omitUserMessageFromPersistence?: boolean
   /** When set_chat_title runs mid-stream, persist title so the session list updates before the turn completes. */
   onSessionTitlePersist?: (title: string) => Promise<void>
+  /**
+   * When set (e.g. slash skill with no session title yet), persist and notify the client before the model runs
+   * so the chat list shows a human title instead of the raw `/slug …` command.
+   */
+  initialSessionTitle?: string
 }
 
 /** Loosely typed pi-agent subscribe payloads (not exported from core). */
@@ -98,18 +103,38 @@ export function streamAgentSseResponse(
     userMessageForPersistence,
     omitUserMessageFromPersistence,
     onSessionTitlePersist,
+    initialSessionTitle: initialSessionTitleOpt,
   } = opts
 
   return streamSSE(c, async (stream) => {
     if (announceSessionId) {
       await stream.writeSSE({ event: 'session', data: JSON.stringify({ sessionId: announceSessionId }) })
     }
+    const initialT = initialSessionTitleOpt?.trim().slice(0, 120)
+    let turnTitle: string | null | undefined =
+      initialT && initialT.length > 0 ? initialT : undefined
+    if (turnTitle) {
+      if (onSessionTitlePersist) {
+        try {
+          await onSessionTitlePersist(turnTitle)
+        } catch {
+          /* ignore */
+        }
+      }
+      try {
+        await stream.writeSSE({
+          event: 'chat_title',
+          data: JSON.stringify({ title: turnTitle }),
+        })
+      } catch {
+        /* closed */
+      }
+    }
     const userMessageForStore = omitUserMessageFromPersistence
       ? null
       : (userMessageForPersistence ?? message)
     const assistantState = createAssistantTurnState()
     const editBeforeSnapshot = new Map<string, string>()
-    let turnTitle: string | null | undefined
     let savedThisTurn = false
 
     const persistIfNeeded = async (): Promise<void> => {

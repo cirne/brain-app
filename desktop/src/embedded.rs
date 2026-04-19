@@ -1,4 +1,5 @@
-//! Decrypt build-time embedded API keys (release only). Decryption runs only in Rust.
+//! Decrypt build-time embedded secrets (release only): LLM/tool keys and Gmail OAuth client
+//! credentials. Decryption runs only in Rust; values are set on the process for the bundled Node child.
 
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};

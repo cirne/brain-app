@@ -11,6 +11,7 @@
   } from './wikiPageHtml.js'
   import { wikiPathForReadToolArg } from './cards/contentCards.js'
   import { renderMarkdown } from './markdown.js'
+  import './wikiMarkdownProse.css'
   import {
     WIKI_SLIDE_HEADER,
     type SetWikiSlideHeader,
@@ -230,7 +231,7 @@
           const index = files.find(f => f.name === '_index' && !f.path.includes('/'))
           if (index) void openFile(index.path)
         }
-      } else if (selected) {
+      } else if (selected && pageMode !== 'edit') {
         void openFile(selected)
       }
     })
@@ -255,6 +256,7 @@
             bind:this={wikiEditor}
             initialMarkdown={rawMarkdown}
             disabled={loading || streamBusy}
+            autoPersist={false}
             onPersist={persistWikiMarkdown}
           />
         </div>
@@ -262,13 +264,13 @@
     {:else}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-      <article class="viewer" onclick={handleContentClick} use:upgradeWikiLinks={content}>
+      <article class="viewer wiki-md-prose" onclick={handleContentClick} use:upgradeWikiLinks={content}>
         {#if loading}
           <p class="status">Loading...</p>
         {:else if streamingWrite && selected && pathsMatchForStream(streamingWrite.path, selected) && streamingWrite.body}
           <p class="stream-label" role="status">Agent is writing…</p>
           <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-          <div class="stream-md markdown">{@html renderMarkdown(streamingWrite.body.slice(0, 50000))}</div>
+          <div class="markdown">{@html renderMarkdown(streamingWrite.body.slice(0, 50000))}</div>
         {:else}
           {#if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
             <p class="stream-label stream-editing" role="status">
@@ -344,15 +346,6 @@
   @keyframes wiki-stream-spin {
     to { transform: rotate(360deg); }
   }
-  .stream-md {
-    font-size: 14px;
-    line-height: 1.6;
-  }
-  .stream-md :global(h1) { font-size: 1.5em; margin: 0.6em 0 0.35em; }
-  .stream-md :global(h2) { font-size: 1.25em; margin: 0.8em 0 0.3em; }
-  .stream-md :global(p) { margin: 0 0 0.65em; }
-  .stream-md :global(pre) { background: var(--bg-3); padding: 10px 12px; border-radius: 6px; overflow-x: auto; }
-
   .page-meta {
     display: flex;
     align-items: center;
@@ -364,24 +357,6 @@
   }
   .meta-sep { opacity: 0.5; }
   .meta-tag { background: var(--bg-3); border-radius: 3px; padding: 1px 6px; font-size: 11px; }
-
-  .viewer :global(h1) { font-size: 1.6em; margin-bottom: 0.5em; }
-  .viewer :global(h2) { font-size: 1.3em; margin: 1.2em 0 0.4em; }
-  .viewer :global(h3) { font-size: 1.1em; margin: 1em 0 0.3em; }
-  .viewer :global(p)  { margin-bottom: 0.8em; }
-  .viewer :global(ul), .viewer :global(ol) { margin: 0.5em 0 0.8em 1.4em; }
-  .viewer :global(code) { background: var(--bg-3); padding: 0.1em 0.4em; border-radius: 3px; font-size: 0.88em; }
-  .viewer :global(pre) { background: var(--bg-3); padding: 12px 16px; border-radius: 6px; overflow-x: auto; margin-bottom: 1em; }
-  .viewer :global(pre code) { background: none; padding: 0; }
-  .viewer :global(blockquote) { border-left: 3px solid var(--border); padding-left: 12px; color: var(--text-2); }
-  .viewer :global(hr) { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
-  .viewer :global(table) { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
-  .viewer :global(th), .viewer :global(td) { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
-  .viewer :global(th) { background: var(--bg-3); }
-  .viewer :global(a) { color: var(--accent); }
-  .viewer :global(a.wiki-link) { color: var(--accent); text-decoration: underline; cursor: pointer; }
-  .viewer :global(a.wiki-link .wfn-title-row) { color: inherit; }
-  .viewer :global(a.wiki-link .wfn-name) { text-decoration: underline; }
 
   @media (max-width: 768px) {
     .viewer { padding: 16px; }

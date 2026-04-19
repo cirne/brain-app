@@ -8,6 +8,7 @@
   import StarterKit from '@tiptap/starter-kit'
   import TurndownService from 'turndown'
   import { splitYamlFrontMatter, joinYamlFrontMatter, renderMarkdownBody } from './markdown.js'
+  import './wikiMarkdownProse.css'
 
   const turndown = new TurndownService({
     headingStyle: 'atx',
@@ -125,7 +126,7 @@
       content: '<p></p>',
       editorProps: {
         attributes: {
-          class: 'tipTap-md-prose',
+          class: 'wiki-md-prose',
           spellcheck: 'true',
         },
       },
@@ -203,127 +204,7 @@
     min-height: 12rem;
   }
 
-  .tiptap-md-root :global(.tipTap-md-prose) {
-    outline: none;
-    padding: 0;
-    font-size: 0.9375rem;
-    line-height: 1.6;
-    color: var(--text);
+  .tiptap-md-root :global(.wiki-md-prose) {
     min-height: 11rem;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose p) {
-    margin: 0.4em 0;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose p:first-child) {
-    margin-top: 0;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose p:last-child) {
-    margin-bottom: 0;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose h1) {
-    font-size: 1.25rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin: 0.85em 0 0.35em;
-    line-height: 1.25;
-    color: var(--text);
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose h2) {
-    font-size: 1.0625rem;
-    font-weight: 650;
-    letter-spacing: -0.015em;
-    margin: 1.1em 0 0.35em;
-    line-height: 1.3;
-    color: var(--text);
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose h3) {
-    font-size: 0.98rem;
-    font-weight: 600;
-    margin: 0.95em 0 0.3em;
-    color: var(--text);
-  }
-
-  /**
-   * Tailwind Preflight sets list-style: none on ul/ol — restore markers for the editor.
-   */
-  .tiptap-md-root :global(.tipTap-md-prose ul),
-  .tiptap-md-root :global(.tipTap-md-prose ol) {
-    margin: 0.4em 0;
-    padding-left: 1.5em;
-    list-style-position: outside;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose ul) {
-    list-style-type: disc;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose ol) {
-    list-style-type: decimal;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose ul ul) {
-    list-style-type: circle;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose ul ul ul) {
-    list-style-type: square;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose li) {
-    margin: 0.2em 0;
-    padding-left: 0.2em;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose a) {
-    color: var(--accent);
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    cursor: pointer;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose strong) {
-    font-weight: 650;
-    color: var(--text);
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose code) {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.88em;
-    padding: 0.1em 0.35em;
-    border-radius: 0.25rem;
-    background: var(--bg-3);
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose pre) {
-    margin: 0.6em 0;
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    background: var(--bg-3);
-    overflow-x: auto;
-    font-size: 0.84rem;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose pre code) {
-    padding: 0;
-    background: none;
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose blockquote) {
-    margin: 0.5em 0;
-    padding-left: 0.9rem;
-    border-left: 3px solid var(--border);
-    color: var(--text-2);
-  }
-
-  .tiptap-md-root :global(.tipTap-md-prose hr) {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 1rem 0;
   }
 </style>

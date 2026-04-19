@@ -273,8 +273,8 @@ describe('GET /api/wiki/edit-history', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.files).toEqual([
-      { path: 'index.md', date: '2026-04-13' },
-      { path: 'ideas/foo.md', date: '2026-04-11' },
+      { path: 'index.md', date: '2026-04-13T12:00:00.000Z' },
+      { path: 'ideas/foo.md', date: '2026-04-11T00:00:00.000Z' },
     ])
   })
 })

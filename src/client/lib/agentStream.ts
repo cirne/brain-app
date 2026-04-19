@@ -120,6 +120,11 @@ export async function consumeAgentChatStream(
           setSessionId(typeof data.sessionId === 'string' ? data.sessionId : null)
           continue
         }
+        if (lastEvent === 'chat_title') {
+          const t = typeof data.title === 'string' ? data.title.trim().slice(0, 120) : ''
+          if (t) setChatTitle(t)
+          continue
+        }
         if (lastEvent === 'done') {
           sawDone = true
           continue

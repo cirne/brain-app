@@ -17,6 +17,7 @@ import { streamAgentSseResponse, streamStaticAssistantSse } from '../lib/streamA
 import {
   applySkillPlaceholders,
   buildSkillPromptMessages,
+  defaultChatTitleForSkill,
   parseLeadingSlashCommand,
   readSkillMarkdown,
 } from '../lib/slashSkill.js'
@@ -151,6 +152,21 @@ chat.post('/', async (c) => {
     })
     const promptMessages = buildSkillPromptMessages(slash.slug, skillBody, slash.args)
 
+    let initialSessionTitle: string | undefined
+    try {
+      const doc = await loadSession(sessionId)
+      if (!doc?.title?.trim()) {
+        initialSessionTitle = defaultChatTitleForSkill({
+          slug: slash.slug,
+          name: skillDoc.name,
+          label: skillDoc.label,
+          args: slash.args,
+        })
+      }
+    } catch {
+      /* ignore */
+    }
+
     const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone, firstChat })
 
     return streamAgentSseResponse(c, agent, message, {
@@ -161,6 +177,7 @@ chat.post('/', async (c) => {
       omitUserMessageFromPersistence: firstChatKickoff,
       onTurnComplete: persist,
       onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
+      initialSessionTitle,
     })
   }
 

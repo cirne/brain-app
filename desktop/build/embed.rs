@@ -10,7 +10,8 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-/// LLM keys (pi-ai `PROVIDER_API_KEY` convention) + tool keys — must match runtime allowlist.
+/// LLM keys (pi-ai `PROVIDER_API_KEY` convention), tool keys, and bundled Gmail OAuth —
+/// must match what `embedded::apply_embedded_env` applies for the Node child.
 pub const ALLOWLIST: &[&str] = &[
     "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
@@ -21,6 +22,8 @@ pub const ALLOWLIST: &[&str] = &[
     "COHERE_API_KEY",
     "EXA_API_KEY",
     "SUPADATA_API_KEY",
+    "GOOGLE_OAUTH_CLIENT_ID",
+    "GOOGLE_OAUTH_CLIENT_SECRET",
 ];
 
 fn parse_dotenv(contents: &str) -> std::collections::HashMap<String, String> {

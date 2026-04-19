@@ -3,6 +3,7 @@ import type { UserMessage } from '@mariozechner/pi-ai'
 import {
   applySkillPlaceholders,
   buildSkillPromptMessages,
+  defaultChatTitleForSkill,
   parseLeadingSlashCommand,
 } from './slashSkill.js'
 
@@ -33,6 +34,30 @@ describe('applySkillPlaceholders', () => {
       selection: 'ctx',
     })
     expect(out).toBe('See me.md and ctx')
+  })
+})
+
+describe('defaultChatTitleForSkill', () => {
+  it('uses label and truncated args when both present', () => {
+    const t = defaultChatTitleForSkill({
+      slug: 'files',
+      name: 'files',
+      label: 'Files: add or update folders',
+      args: 'search ~/Desktop and recommend top 10 folders',
+    })
+    expect(t.length).toBeLessThanOrEqual(120)
+    expect(t).toContain('Files:')
+    expect(t).toContain('Desktop')
+  })
+
+  it('uses capitalized slug and args when name equals slug and no label', () => {
+    expect(
+      defaultChatTitleForSkill({
+        slug: 'research',
+        name: 'research',
+        args: 'quantum computing',
+      }),
+    ).toBe('Research: quantum computing')
   })
 })
 

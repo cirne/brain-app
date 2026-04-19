@@ -9,6 +9,8 @@ Brain uses **fixed** Google OAuth redirect URIs in code (no env var for the path
 
 If `PORT` is set (non-bundled only), the redirect uses that port instead of `3000`.
 
+**Packaged Brain.app:** The bundled server does not read a workspace `.env`. Put `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in the repo `.env` and build with `BRAIN_EMBED_MASTER_KEY` set (see [AGENTS.md](../AGENTS.md) — same embedding pipeline as LLM keys). Without them, `/api/oauth/google/start` redirects with `gmailError=oauth_not_configured`.
+
 **Bundled mode** dynamically picks the first free port from `18473 → 18474 → 18475 → 18476` at launch, supporting up to 4 simultaneous users on the same machine. The OAuth redirect URI is determined at request time using the actual bound port — it is never hardcoded to 18473. If all four ports are in use, startup fails with an error listing the occupied ports.
 
 **Bundled UI from another device (e.g. Tailscale):** You can open `http://<tailscale-ip>:<bound-port>` in a browser on your tailnet. The OAuth **redirect** stays **`127.0.0.1`** (the Google sign-in flow runs in a browser on the machine where consent happens). See [runtime-and-routes — Tailscale](architecture/runtime-and-routes.md#tailscale--remote-access-bundled-only).

@@ -57,7 +57,10 @@ export async function appendWikiEditRecord(
   await appendFile(file, `${JSON.stringify(record)}\n`, 'utf8')
 }
 
-/** Newest-first, unique paths (first win = most recent edit per file). */
+/**
+ * Newest-first, unique paths (first win = most recent edit per file).
+ * `date` is the full `ts` ISO string from the log (not calendar day only) so UIs can show accurate relative times.
+ */
 /** Remove agent wiki edit history (e.g. before re-seeding the vault). */
 export async function truncateWikiEditHistoryFile(): Promise<void> {
   try {
@@ -89,7 +92,7 @@ export async function readRecentWikiEdits(limit: number): Promise<{ path: string
   for (const r of records) {
     if (!r.path || seen.has(r.path)) continue
     seen.add(r.path)
-    out.push({ path: r.path, date: r.ts.slice(0, 10) })
+    out.push({ path: r.path, date: r.ts })
     if (out.length >= limit) break
   }
   return out

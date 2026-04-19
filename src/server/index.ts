@@ -21,6 +21,7 @@ import imessageRoute from './routes/imessage.js'
 import onboardingRoute from './routes/onboarding.js'
 import backgroundRoute from './routes/background.js'
 import gmailOAuthRoute from './routes/gmailOAuth.js'
+import hubRoute from './routes/hub.js'
 import devRoute from './routes/dev.js'
 import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
 import { runStartupChecks } from './lib/runStartupChecks.js'
@@ -107,7 +108,11 @@ app.use('*', async (c, next) => {
 const requestLogger = logger()
 /** High-frequency onboarding polls — skip Hono access logs to reduce noise */
 function isQuietPollPath(path: string): boolean {
-  return path === '/api/onboarding/mail' || path === '/api/onboarding/ripmail'
+  return (
+    path === '/api/onboarding/mail' ||
+    path === '/api/onboarding/ripmail' ||
+    path === '/api/hub/sources'
+  )
 }
 app.use('*', async (c, next) => {
   if (isQuietPollPath(c.req.path)) return next()
@@ -137,6 +142,7 @@ app.route('/api/search', searchRoute)
 app.route('/api/imessage', imessageRoute)
 app.route('/api/messages', imessageRoute)
 app.route('/api/onboarding', onboardingRoute)
+app.route('/api/hub', hubRoute)
 app.route('/api/background', backgroundRoute)
 app.route('/api/oauth/google', gmailOAuthRoute)
 if (isDev) {

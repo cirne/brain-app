@@ -15,15 +15,41 @@ export function parseLeadingSlashCommand(text: string): { slug: string; args: st
 
 export async function readSkillMarkdown(
   slug: string,
-): Promise<{ body: string; name: string } | null> {
+): Promise<{ body: string; name: string; label?: string } | null> {
   const path = join(skillsDir(), slug, 'SKILL.md')
   if (!existsSync(path)) return null
   const raw = await readFile(path, 'utf-8')
   const { content, data } = matter(raw)
-  const d = data as { name?: unknown }
+  const d = data as { name?: unknown; label?: unknown }
   const name =
     typeof d.name === 'string' && d.name.trim() ? d.name.trim() : slug
-  return { body: content.trim(), name }
+  const label =
+    typeof d.label === 'string' && d.label.trim() ? d.label.trim() : undefined
+  return { body: content.trim(), name, label }
+}
+
+/** Default chat list title when the session has no title yet (skill turns often skip `set_chat_title`). */
+export function defaultChatTitleForSkill(opts: {
+  slug: string
+  name: string
+  label?: string
+  args: string
+}): string {
+  const a = opts.args.trim()
+  if (opts.label) {
+    const L = opts.label.trim()
+    if (!a) return L.slice(0, 120)
+    const tail = a.length > 52 ? `${a.slice(0, 49)}…` : a
+    const combined = `${L} — ${tail}`
+    return combined.slice(0, 120)
+  }
+  const base =
+    opts.name && opts.name !== opts.slug
+      ? opts.name
+      : opts.slug.slice(0, 1).toUpperCase() + opts.slug.slice(1).replace(/-/g, ' ')
+  if (!a) return base.slice(0, 120)
+  const tail = a.length > 64 ? `${a.slice(0, 61)}…` : a
+  return `${base}: ${tail}`.slice(0, 120)
 }
 
 export function applySkillPlaceholders(

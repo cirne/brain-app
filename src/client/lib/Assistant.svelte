@@ -477,15 +477,17 @@
     {#snippet chat()}
       {#if route.hubActive || route.overlay?.type === 'hub'}
         <div class="hub-container">
-          <BrainHubPage
-            onOpenWiki={openWikiDoc}
-            onOpenFile={openFileDoc}
-            onOpenEmail={openEmailFromChat}
-            onOpenFullInbox={openFullInboxFromChat}
-            onOpenMessageThread={openMessageThreadFromChat}
-            onSwitchToCalendar={switchToCalendar}
-            onSync={performFullSync}
-          />
+          <div class="hub-scroll">
+            <BrainHubPage
+              onOpenWiki={openWikiDoc}
+              onOpenFile={openFileDoc}
+              onOpenEmail={openEmailFromChat}
+              onOpenFullInbox={openFullInboxFromChat}
+              onOpenMessageThread={openMessageThreadFromChat}
+              onSwitchToCalendar={switchToCalendar}
+              onSync={performFullSync}
+            />
+          </div>
           {#if isMobile && route.overlay && route.overlay.type !== 'hub'}
             <div class="mobile-detail-layer">
               <SlideOver
@@ -619,12 +621,20 @@
     flex-direction: column;
   }
 
+  /* Scroll in .hub-scroll keeps this pane viewport-sized so the mobile slide-over (absolute inset 0) is not scrolled away with long hub content. */
   .hub-container {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
     position: relative;
+    overflow: hidden;
+  }
+
+  .hub-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
     overflow-y: auto;
   }
 
