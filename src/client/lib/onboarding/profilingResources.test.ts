@@ -370,8 +370,8 @@ describe('lastAssistantThinking', () => {
 
 describe('buildSeedingProgressUi', () => {
   it('shows starting line when streaming and no tools yet', () => {
-    const { rows, planning } = buildSeedingProgressUi([], true)
-    expect(rows).toEqual([])
+    const { events, planning } = buildSeedingProgressUi([], true)
+    expect(events).toEqual([])
     expect(planning?.prefix).toBe('Starting wiki seed…')
   })
 
@@ -402,15 +402,15 @@ describe('buildSeedingProgressUi', () => {
         ],
       },
     ]
-    const { rows, planning } = buildSeedingProgressUi(messages, true)
-    expect(rows).toHaveLength(2)
-    expect(rows[0].done).toBe(true)
-    expect(rows[0].line.prefix).toBe('Wrote')
-    expect(rows[0].line.path).toBe('people/alice.md')
-    expect(rows[1].done).toBe(false)
-    expect(rows[1].line.kind).toBe('active-tool')
-    expect(rows[1].line.prefix).toBe('Writing')
-    expect(rows[1].line.path).toBe('people/bob.md')
+    const { events, planning } = buildSeedingProgressUi(messages, true)
+    expect(events).toHaveLength(2)
+    expect((events[0] as any).done).toBe(true)
+    expect((events[0] as any).line.prefix).toBe('Wrote')
+    expect((events[0] as any).line.path).toBe('people/alice.md')
+    expect((events[1] as any).done).toBe(false)
+    expect((events[1] as any).line.kind).toBe('active-tool')
+    expect((events[1] as any).line.prefix).toBe('Writing')
+    expect((events[1] as any).line.path).toBe('people/bob.md')
     expect(planning).toBeNull()
   })
 
@@ -441,11 +441,11 @@ describe('buildSeedingProgressUi', () => {
         ],
       },
     ]
-    const { rows, planning } = buildSeedingProgressUi(messages, true)
-    expect(rows).toHaveLength(2)
-    expect(rows.every((r) => !r.done)).toBe(true)
-    expect(rows[0].line.path).toBe('a.md')
-    expect(rows[1].line.path).toBe('b.md')
+    const { events, planning } = buildSeedingProgressUi(messages, true)
+    expect(events).toHaveLength(2)
+    expect(events.every((r: any) => !r.done)).toBe(true)
+    expect((events[0] as any).line.path).toBe('a.md')
+    expect((events[1] as any).line.path).toBe('b.md')
     expect(planning).toBeNull()
   })
 
@@ -493,11 +493,11 @@ describe('buildSeedingProgressUi', () => {
         ],
       },
     ]
-    const { rows } = buildSeedingProgressUi(messages, true)
-    expect(rows[0].line.prefix).toBe('Searched mail')
-    expect(rows[0].line.detail).toContain('from')
-    expect(rows[0].line.detail).toContain('acme@example.com')
-    expect(rows[0].line.detail).toContain('after')
+    const { events } = buildSeedingProgressUi(messages, true)
+    expect((events[0] as any).line.prefix).toBe('Searched mail')
+    expect((events[0] as any).line.detail).toContain('from')
+    expect((events[0] as any).line.detail).toContain('acme@example.com')
+    expect((events[0] as any).line.detail).toContain('after')
   })
 
   it('adds mail preview to completed read_doc email row', () => {
@@ -524,11 +524,11 @@ describe('buildSeedingProgressUi', () => {
         ],
       },
     ]
-    const { rows } = buildSeedingProgressUi(messages, true)
-    expect(rows[0].line.prefix).toBe('Read a message')
-    expect(rows[0].line.mailPreview?.subject).toBe('Hello from the team')
-    expect(rows[0].line.mailPreview?.from).toBe('a@b.com')
-    expect(rows[0].line.detail).toBeUndefined()
+    const { events } = buildSeedingProgressUi(messages, true)
+    expect((events[0] as any).line.prefix).toBe('Read a message')
+    expect((events[0] as any).line.mailPreview?.subject).toBe('Hello from the team')
+    expect((events[0] as any).line.mailPreview?.from).toBe('a@b.com')
+    expect((events[0] as any).line.detail).toBeUndefined()
   })
 
   it('keeps planning headline and strips file URLs from thinking detail', () => {
@@ -577,8 +577,8 @@ describe('buildSeedingProgressUi', () => {
         ],
       },
     ]
-    const { rows, planning } = buildSeedingProgressUi(messages, false)
-    expect(rows.length).toBe(1)
+    const { events, planning } = buildSeedingProgressUi(messages, false)
+    expect(events.length).toBe(1)
     expect(planning).toBeNull()
   })
 })

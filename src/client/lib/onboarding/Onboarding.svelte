@@ -4,15 +4,17 @@
   import ProfileDraftEditor from './ProfileDraftEditor.svelte'
   import {
     fetchOnboardingMailStatus,
+    fetchOnboardingPreferences,
     fetchOnboardingState,
     patchOnboardingState,
+    patchOnboardingPreferences,
     postAcceptProfile,
     postInboxSyncStart,
     postSetupAppleMail,
     fetchProfileDraftMarkdown,
     SETUP_MAIL_ABORT_MESSAGE,
   } from './onboardingApi.js'
-  import { buildIndexingElapsedLine, buildIndexingProgressLine } from './onboardingIndexingUi.js'
+  import { buildIndexingElapsedLine } from './onboardingIndexingUi.js'
   import {
     ONBOARDING_LARGE_WINDOW_STATES,
     emptyOnboardingMail,
@@ -29,6 +31,8 @@
   let { onComplete, refreshStatus }: Props = $props()
 
   let state = $state<string>('not-started')
+  /** From server; used for indexing-step copy (Apple vs Google). */
+  let mailProviderPref = $state<'apple' | 'google' | null>(null)
   let mail = $state<OnboardingMailStatus>(emptyOnboardingMail())
   let setupError = $state<string | null>(null)
   /** Review / accept-profile / confirming-categories recovery */
@@ -49,6 +53,9 @@
   let legacySeedingRecoverDone = $state(false)
 
   const canBuildProfile = $derived((mail.indexedTotal ?? 0) >= MIN_INDEXED_FOR_PROFILE)
+  const indexingProgressPercent = $derived(
+    Math.min(100, Math.round(((mail.indexedTotal ?? 0) / MIN_INDEXED_FOR_PROFILE) * 100)),
+  )
 
   async function loadMailOnly() {
     const next = await fetchOnboardingMailStatus()
@@ -56,7 +63,12 @@
   }
 
   async function load() {
-    state = await fetchOnboardingState()
+    const [nextState, pref] = await Promise.all([
+      fetchOnboardingState(),
+      fetchOnboardingPreferences(),
+    ])
+    state = nextState
+    mailProviderPref = pref
     await loadMailOnly()
   }
 
@@ -90,7 +102,15 @@
     return () => clearInterval(id)
   })
 
-  const indexingProgressLine = $derived(buildIndexingProgressLine(mail))
+  const indexingLeadParagraph = $derived.by(() => {
+    if (mailProviderPref === 'google') {
+      return 'We’re downloading your recent Gmail into Brain so we can build your profile. Hang tight.'
+    }
+    if (mailProviderPref === 'apple') {
+      return 'We’re copying your recent messages from Apple Mail into Brain so we can build your profile. Hang tight.'
+    }
+    return 'We’re copying your recent messages into Brain so we can build your profile. Hang tight.'
+  })
 
   const indexingElapsedLine = $derived.by(() => {
     void indexingElapsedTick
@@ -101,6 +121,21 @@
   let indexingToProfilingInitiated = $state(false)
   $effect(() => {
     if (state === 'not-started') indexingToProfilingInitiated = false
+  })
+
+  const showIndexingHero = $derived(
+    state === 'indexing' ||
+      (state === 'not-started' && mail.configured && !setupError),
+  )
+
+  const indexingStatusLine = $derived.by(() => {
+    if ((mail.indexedTotal ?? 0) > 0) {
+      return `${mail.indexedTotal.toLocaleString()} messages`
+    }
+    if (mail.syncRunning) {
+      return 'Sync is running…'
+    }
+    return ''
   })
 
   $effect(() => {
@@ -147,11 +182,33 @@
     }
   }
 
+  /** Mail already configured + not-started: start sync once (no Continue interstitial). */
+  let mailConnectedIndexingAutoStarted = $state(false)
+  $effect(() => {
+    if (state !== 'not-started') mailConnectedIndexingAutoStarted = false
+  })
+  $effect(() => {
+    if (state !== 'not-started' || !mail.configured || mailConnectedIndexingAutoStarted) return
+    mailConnectedIndexingAutoStarted = true
+    void continueToIndexing()
+  })
+
+  async function startGoogleMail() {
+    setupError = null
+    try {
+      await patchOnboardingPreferences('google')
+    } catch {
+      /* non-fatal */
+    }
+    window.location.href = '/api/oauth/google/start'
+  }
+
   async function setupAppleMail() {
     setupError = null
     busy = true
     await tick()
     try {
+      await patchOnboardingPreferences('apple')
       const r = await postSetupAppleMail()
       if (!r.ok) {
         setupError = r.error
@@ -308,69 +365,77 @@
     class:onboarding-main-scroll={state !== 'reviewing-profile'}
     class:onboarding-main-review={state === 'reviewing-profile'}
   >
-    {#if state === 'not-started'}
+    {#if state === 'not-started' && !mail.configured}
       <div class="ob-hero">
         <div class="ob-hero-inner">
           <span class="ob-kicker">Brain</span>
           <h1 class="ob-headline">Your assistant, on your Mac</h1>
           <p class="ob-lead">
             Brain is your local assistant for chat, email, and your notes—personalized to you.
-            <strong>Mail, Messages, and your files stay on this Mac</strong>—you’re in control. Connect Apple Mail to get
-            started.
+            <strong>Mail, Messages, and your files stay on this Mac</strong>—you’re in control. Connect
+            <strong>Apple</strong> or <strong>Google</strong> to seed mail and calendar—then add folders later to enrich.
           </p>
 
           <div class="ob-cta-group">
-            {#if mail.configured}
-              {#if setupError}
-                <p class="ob-error">{setupError}</p>
-              {/if}
-              <div class="ob-notice">
-                <p class="ob-notice-title">Mail connected</p>
-                <p class="ob-notice-body">
-                  Your Mac is already set up to share Apple Mail with Brain.
-                  Continue when you're ready to index and build your profile.
-                </p>
-              </div>
+            {#if setupError}
+              <p class="ob-error">{setupError}</p>
+            {/if}
+            <div class="ob-provider-row">
               <button
                 type="button"
-                class="ob-btn-primary"
-                onclick={() => void continueToIndexing()}
-                disabled={busy}
-              >
-                {#if busy}
-                  <span class="ob-spinner" aria-hidden="true"></span> Working…
-                {:else}
-                  Continue
-                  <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                {/if}
-              </button>
-            {:else}
-              {#if setupError}
-                <p class="ob-error">{setupError}</p>
-              {/if}
-              <button
-                type="button"
-                class="ob-btn-primary"
+                class="ob-btn-provider"
                 onclick={() => void setupAppleMail()}
                 disabled={busy}
               >
                 {#if busy}
-                  <span class="ob-spinner" aria-hidden="true"></span> Setting up…
+                  <span class="ob-spinner ob-spinner--provider" aria-hidden="true"></span> Setting up…
                 {:else}
-                  <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                  Connect Apple Mail
+                  Apple
                 {/if}
               </button>
-              <p class="ob-fine-print">
-                MacOS may ask for <strong>Full Disk Access</strong> so Brain can read Mail, Messages, and files on this Mac—the
-                depth needed for a truly personal assistant.
-              </p>
-            {/if}
+              <button
+                type="button"
+                class="ob-btn-provider"
+                onclick={() => void startGoogleMail()}
+                disabled={busy}
+              >
+                Google
+              </button>
+            </div>
+            <p class="ob-fine-print">
+              On Apple, Brain indexes Mail from your library and registers your Mac calendars (same source as
+              Calendar.app) for sync. Full Disk Access lets Brain read Mail, Messages, and paths you choose. Google opens a
+              browser sign-in (mail + calendar read). macOS may prompt for permissions during setup.
+            </p>
           </div>
         </div>
       </div>
 
-    {:else if state === 'indexing'}
+    {:else if state === 'not-started' && mail.configured && setupError}
+      <div class="ob-hero">
+        <div class="ob-hero-inner">
+          <span class="ob-kicker">Brain</span>
+          <h1 class="ob-headline">Couldn’t start indexing</h1>
+          <p class="ob-error">{setupError}</p>
+          <div class="ob-cta-group">
+            <button
+              type="button"
+              class="ob-btn-primary"
+              onclick={() => void continueToIndexing()}
+              disabled={busy}
+            >
+              {#if busy}
+                <span class="ob-spinner" aria-hidden="true"></span> Working…
+              {:else}
+                Try again
+                <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              {/if}
+            </button>
+          </div>
+        </div>
+      </div>
+
+    {:else if showIndexingHero}
       <div class="ob-hero ob-hero--indexing" aria-busy="true">
         <div class="ob-hero-inner ob-indexing-hero-inner">
           <div class="ob-indexing-fixed">
@@ -382,13 +447,16 @@
             <span class="ob-kicker">Brain</span>
             <h1 class="ob-headline">Getting to Know You.</h1>
             <p class="ob-lead ob-indexing-lead">
-              We’re copying your recent messages from Apple Mail into Brain so we can build your profile. Hang tight.
+              {indexingLeadParagraph}
             </p>
           </div>
           <div class="ob-indexing-status-slot" aria-live="polite">
-            {#if indexingProgressLine}
-              <p class="ob-indexing-progress">{indexingProgressLine}</p>
+            {#if indexingStatusLine}
+              <p class="ob-indexing-count">{indexingStatusLine}</p>
             {/if}
+            <div class="ob-indexing-progress-bar" aria-hidden="true">
+              <div class="ob-indexing-progress-fill" style:width="{indexingProgressPercent}%"></div>
+            </div>
             {#if mail.indexingHint}
               <p class="ob-indexing-hint">{mail.indexingHint}</p>
             {/if}
@@ -494,7 +562,7 @@
   }
 
   /**
-   * Indexing: keep orbit + title stack fixed while status lines (progress / hint / elapsed / error) update.
+   * Indexing: keep orbit + title stack fixed while optional hint / elapsed / error lines update.
    * The status slot reserves height (and caps overflow) so the centered column doesn’t jump when copy updates.
    */
   .ob-hero--indexing {
@@ -530,8 +598,8 @@
   .ob-indexing-status-slot {
     width: 100%;
     flex: 0 0 auto;
-    min-height: 7.5rem;
-    max-height: 11rem;
+    min-height: 4rem;
+    max-height: 14rem;
     margin-top: 1rem;
     display: flex;
     flex-direction: column;
@@ -594,7 +662,7 @@
 
   .ob-indexing-hint,
   .ob-indexing-elapsed,
-  .ob-indexing-progress {
+  .ob-indexing-count {
     margin: 0;
     max-width: 26rem;
     font-size: 0.875rem;
@@ -603,9 +671,27 @@
     text-wrap: balance;
   }
 
-  .ob-indexing-progress {
-    font-weight: 500;
-    color: var(--text-1);
+  .ob-indexing-count {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+
+  .ob-indexing-progress-bar {
+    width: 100%;
+    max-width: 18rem;
+    height: 0.375rem;
+    background: var(--bg-3, color-mix(in srgb, var(--bg-2) 80%, var(--text) 20%));
+    border-radius: 1rem;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+  }
+
+  .ob-indexing-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 1rem;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .ob-indexing-elapsed {
@@ -655,11 +741,6 @@
     color: color-mix(in srgb, var(--text-2) 70%, transparent);
     max-width: 22rem;
   }
-  .ob-fine-print strong {
-    font-weight: 600;
-    color: var(--text-2);
-  }
-
   /* ── CTA area ── */
   .ob-cta-group {
     margin-top: 2.5rem;
@@ -669,20 +750,48 @@
     gap: 1.75rem;
   }
 
-  /* ── Notice (mail-connected card) ── */
-  .ob-notice {
-    text-align: center;
+  .ob-provider-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    width: 100%;
+    max-width: 28rem;
   }
-  .ob-notice-title {
+
+  /* Paired provider tiles (icons can be added later as inline SVGs). */
+  .ob-btn-provider {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-width: 10.5rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
     font-size: 0.9375rem;
     font-weight: 600;
+    letter-spacing: 0.01em;
     color: var(--text);
-    margin-bottom: 0.375rem;
+    background: var(--bg-2);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s, opacity 0.15s;
+    -webkit-font-smoothing: antialiased;
   }
-  .ob-notice-body {
-    font-size: 0.9375rem;
-    line-height: 1.6;
-    color: var(--text-2);
+  .ob-btn-provider:hover:not(:disabled) {
+    background: var(--bg-3, color-mix(in srgb, var(--bg-2) 80%, var(--text) 20%));
+    border-color: color-mix(in srgb, var(--border) 65%, var(--text) 35%);
+  }
+  .ob-btn-provider:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .ob-btn-provider:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .ob-spinner--provider {
+    border-color: color-mix(in srgb, var(--text) 25%, transparent);
+    border-top-color: var(--text);
   }
 
   /* ── Buttons ── */

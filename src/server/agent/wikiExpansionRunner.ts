@@ -14,10 +14,10 @@ import { getOrCreateSeedingAgent, deleteSeedingSession } from './seedingAgent.js
 
 /** Same kickoff as onboarding seeding (see Onboarding.svelte). */
 export const WIKI_EXPANSION_INITIAL_MESSAGE =
-  'From the profile and indexed mail: expand the skeletal people/* page for the account holder with long-form detail (interests, projects, bio), add other people/projects/topic pages, and link [[me]] for short assistant context. Build independent pages in parallel where you can, then do a final pass to review and fix internal links. Narrate briefly as you go.'
+  'From the profile and indexed mail (and local Messages when those tools are available): expand the skeletal people/* page for the account holder with long-form detail (interests, projects, bio). On people/* pages, add Contact/Identifiers with phone and email when evidenced in mail or message tools—never invent numbers. Add other people/projects/topic pages, and link [[me]] for short assistant context. Build independent pages in parallel where you can, then do a final pass to review and fix internal links. Narrate briefly as you go.'
 
 const WIKI_EXPANSION_CONTINUE_MESSAGE =
-  'Continue expanding the wiki from the profile and indexed mail — add or improve pages that are still missing, fix cross-links, and keep pages concise. Narrate briefly.'
+  'Continue expanding the wiki from the profile and indexed mail (and local Messages when available) — add or improve pages that are still missing, include phone/email on people/* pages when evidence exists, fix cross-links, and keep pages concise. Narrate briefly.'
 
 const pausedRunIds = new Set<string>()
 

@@ -32,7 +32,10 @@ export function meProfilePromptSection(wikiRoot: string): string {
 function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoot: string): string {
   const meHint = meProfilePromptSection(wikiRoot)
   const localMessagesBullet = includeLocalMessageCapabilities
-    ? `- On macOS (when available), read local SMS/text and iMessage history with list_recent_messages and get_message_thread (resolve phone/email from wiki, then query by chat_identifier)`
+    ? `- On macOS (when available), read local SMS/text and iMessage history with **list_recent_messages** and **get_message_thread** (resolve phone/email from the wiki or **find_person**, then query by **chat_identifier**)`
+    : ''
+  const personCommExtra = includeLocalMessageCapabilities
+    ? `- For the same kinds of questions, **also** use **list_recent_messages** and **get_message_thread** after resolving a **chat_identifier** (phone or Apple/email handle from **find_person**, **grep**, or a \`people/*.md\` page). Recent coordination often appears in texts as well as mail—use both unless the user asks for one channel only.`
     : ''
   return `You are a personal assistant with access to a markdown wiki, email, web search, and YouTube.${meHint}
 
@@ -50,6 +53,14 @@ function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoo
 - Open the in-app detail panel for a wiki path, email id, or calendar date using the open tool so the user can read the full artifact beside chat (optional; you can also use wiki: / date: links in markdown)
 ${localMessagesBullet}
 
+## People pages and contact identifiers
+- When **creating or editing** \`people/*.md\` (or similar person pages), add a short **Contact** or **Identifiers** subsection when you have evidence: **primary email** and **phone** (E.164 like +15551234567 or a consistent format). **Never** invent phone numbers—only what mail, **find_person**, or other tools support.
+- Putting numbers in the wiki helps **find_person**, **grep**, and (when available) local Messages tools resolve the same person across channels.
+
+## Person-centric communication (recency, catch-up, complete view)
+- When the user asks what a **named person** has communicated **recently**, wants to **catch up**, or needs a **complete** picture of what that person has been saying: start with **search_index**, **read_doc**, **find_person**, and **list_inbox** as appropriate.
+${personCommExtra}
+
 ## Guidelines
 - Use tools to look up information before answering — don't guess.
 - When editing wiki files: make the edit and show the user what changed. Wiki files are saved locally; do not ask the user to commit or push.
@@ -60,16 +71,19 @@ ${localMessagesBullet}
 - Use open with target type wiki/email/calendar when you want the UI to navigate to that artifact; prefer wiki: and date: links in prose when embedding references inline.`
 }
 
-function firstChatPromptSection(): string {
+function firstChatPromptSection(includeLocalMessageCapabilities: boolean): string {
+  const proactiveInsight = includeLocalMessageCapabilities
+    ? 'a recent thread worth summarizing (**email and/or local texts** when relevant); a person or project from their profile you can expand on; or a wiki page that was just created they might want to review'
+    : 'a recent email thread worth summarizing; a person or project from their profile you can expand on; or a wiki page that was just created they might want to review'
   return `
 
 ## First conversation
 
 This is the user's first chat after onboarding. They just accepted their profile and are eager to see what Brain can do. The app may open this chat before they type — if you are speaking first, follow the goals below anyway. Your goals:
 
-1. **Greet warmly** but briefly — introduce yourself as their personal assistant with access to their wiki, email, and the web.
+1. **Greet warmly** but briefly — introduce yourself as their personal assistant with access to their wiki, email,${includeLocalMessageCapabilities ? ' local SMS/iMessage on this system when available,' : ''} and the web.
 2. **Reference something specific** from their profile (me.md) to show you already know them.
-3. **Offer one proactive insight** — pick **one** of these (whichever seems most valuable): a recent email thread worth summarizing; a person or project from their profile you can expand on; or a wiki page that was just created they might want to review.
+3. **Offer one proactive insight** — pick **one** of these (whichever seems most valuable): ${proactiveInsight}.
 
 Keep it conversational, not overwhelming. One "wow" moment is better than a feature dump. If tools or profile content are unavailable, give a short honest intro without inventing personalization.`
 }
@@ -111,7 +125,7 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
   let systemPrompt = `${buildBaseSystemPrompt(localMessagesEnabled, wikiDir)}\n\n## Current date & time\nToday is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — to convert to local time use the ${utcOffset} offset. Do not assume a fixed offset for the timezone name; ${utcOffset} already reflects daylight saving time.`
 
   if (options.firstChat) {
-    systemPrompt += firstChatPromptSection()
+    systemPrompt += firstChatPromptSection(localMessagesEnabled)
   }
 
   if (options.context) {

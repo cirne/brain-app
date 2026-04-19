@@ -4,7 +4,7 @@ import { promisify } from 'node:util'
 import { join, relative } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { getCalendarEvents, type CalendarEvent } from '../lib/calendarCache.js'
-import { syncCalendarFromEnv } from '../lib/syncAll.js'
+import { syncInboxRipmail } from '../lib/syncAll.js'
 import { wikiDir } from '../lib/wikiDir.js'
 import { buildWikiExcerpt } from '../lib/wikiSearchExcerpt.js'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
@@ -14,9 +14,9 @@ const execAsync = promisify(exec)
 
 const calendar = new Hono()
 
-// POST /api/calendar/sync — fetch ICS URLs and update local cache
+// POST /api/calendar/sync — same as inbox: `ripmail refresh` (indexes mail + calendar sources)
 calendar.post('/sync', async (c) => {
-  const result = await syncCalendarFromEnv()
+  const result = await syncInboxRipmail()
   if (result.ok) return c.json({ ok: true })
   return c.json({ ok: false, error: result.error ?? 'calendar sync failed' }, 500)
 })
@@ -26,9 +26,8 @@ calendar.get('/', async (c) => {
   const start = c.req.query('start')
   const end = c.req.query('end')
 
-  const { events, fetchedAt } = await getCalendarEvents({ start, end })
-  const urlsConfigured = !!(process.env.CIRNE_TRAVEL_ICS_URL || process.env.LEW_PERSONAL_ICS_URL)
-  return c.json({ events, fetchedAt, urlsConfigured })
+  const { events, fetchedAt, sourcesConfigured } = await getCalendarEvents({ start, end })
+  return c.json({ events, fetchedAt, sourcesConfigured })
 })
 
 // ---------------------------------------------------------------------------

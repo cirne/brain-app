@@ -25,6 +25,8 @@ import { getOnboardingMailStatus, ripmailBin, ripmailHomePath } from '../lib/onb
 import { enrichAppleMailSetupError } from '../lib/appleMailSetupHints.js'
 import { getFdaProbeDetail, isFdaGranted } from '../lib/fdaProbe.js'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
+import type { OnboardingMailProvider } from '../lib/onboardingPreferences.js'
+import { readOnboardingPreferences, saveOnboardingPreferences } from '../lib/onboardingPreferences.js'
 import { writeFirstChatPending } from '../lib/firstChatPending.js'
 import { startWikiExpansionRunFromAcceptProfile } from '../agent/wikiExpansionRunner.js'
 
@@ -97,6 +99,21 @@ async function runAppleMailSetup(c: Context) {
   })
   try {
     await execRipmailAsync(cmd, { timeout: 120000 })
+    // Register Calendar.app (EventKit) source next to Apple Mail. Ripmail skips sync until EventKit is bundled.
+    if (process.platform === 'darwin') {
+      const calCmd = `${rm} sources add --kind appleCalendar --id apple-calendar --json`
+      try {
+        await execRipmailAsync(calCmd, { timeout: 60000 })
+        console.error('[onboarding/setup-mail] apple-calendar source ok')
+      } catch (calErr) {
+        const calMsg = calErr instanceof Error ? calErr.message : String(calErr)
+        if (/already exists/i.test(calMsg)) {
+          console.error('[onboarding/setup-mail] apple-calendar source already present')
+        } else {
+          console.error('[onboarding/setup-mail] apple-calendar source add failed', calMsg)
+        }
+      }
+    }
     console.error('[onboarding/setup-mail] ok')
     return c.json({ ok: true as const })
   } catch (e) {
@@ -111,6 +128,28 @@ onboarding.post('/setup-mail', runAppleMailSetup)
 
 /** Same as POST /setup-mail (local Apple Mail index). */
 onboarding.post('/setup-ripmail', runAppleMailSetup)
+
+onboarding.get('/preferences', async (c) => {
+  const p = await readOnboardingPreferences()
+  return c.json({ mailProvider: p.mailProvider ?? null })
+})
+
+onboarding.patch('/preferences', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const raw = body?.mailProvider
+  if (raw !== undefined && raw !== null && raw !== 'apple' && raw !== 'google') {
+    return c.json({ error: 'mailProvider must be apple, google, or null' }, 400)
+  }
+  const prev = await readOnboardingPreferences()
+  const next: { mailProvider?: OnboardingMailProvider } = { ...prev }
+  if (raw === null || raw === undefined) {
+    delete next.mailProvider
+  } else {
+    next.mailProvider = raw
+  }
+  await saveOnboardingPreferences(next)
+  return c.json({ ok: true, mailProvider: next.mailProvider ?? null })
+})
 
 onboarding.get('/profile-draft', async (c) => {
   const path = profileDraftAbsolutePath()

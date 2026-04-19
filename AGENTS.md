@@ -10,7 +10,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 
 - [docs/VISION.md](docs/VISION.md) — product vision and long-term direction
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, configuration overview (brain-app)
-- [docs/architecture/](docs/architecture/) — detailed decision write-ups (indexed in [README](docs/architecture/README.md)); ripmail crate: [`ripmail/docs/ARCHITECTURE.md`](ripmail/docs/ARCHITECTURE.md)
+- [docs/architecture/](docs/architecture/) — ADRs and recorded considerations (indexed in [README](docs/architecture/README.md)); ripmail crate: [`ripmail/docs/ARCHITECTURE.md`](ripmail/docs/ARCHITECTURE.md)
 - [docs/BUGS.md](docs/BUGS.md) — known bugs (active + archived)
 - [docs/OPPORTUNITIES.md](docs/OPPORTUNITIES.md) — feature ideas and improvements (WIP and future)
 - [docs/PRODUCTIZATION.md](docs/PRODUCTIZATION.md) — blockers and tradeoffs for generalizing to multi-user product
@@ -68,7 +68,17 @@ npm run desktop:fresh          # `desktop:clean-data` + `desktop:build`, then op
 npm run desktop:clean-data     # delete packaged-app data: local `BRAIN_HOME` default + macOS wiki parent (`~/Documents/Brain` from bundle-defaults) when using default paths, or explicit `$BRAIN_HOME` / `$BRAIN_WIKI_ROOT` (+ macOS logs); not `./data` unless `BRAIN_HOME` points there
 ```
 
-**Cargo workspace:** Rust crates live under [`desktop/`](desktop/) (Tauri shell) and [`ripmail/`](ripmail/) with a root [`Cargo.toml`](Cargo.toml). Build artifacts go under the Cargo target directory (usually `./target/`; see `cargo metadata`).
+### Cargo / Rust (ripmail)
+
+Rust crates live under [`desktop/`](desktop/) (Tauri shell) and [`ripmail/`](ripmail/) with a root [`Cargo.toml`](Cargo.toml). Build artifacts go under the Cargo target directory (usually `./target/`; see `cargo metadata`).
+
+**Parallel Tests:** `cargo test` is shadowed by the built-in command and cannot be aliased to `nextest`. Use **`cargo t`** or **`cargo test-parallel`** to run tests in parallel across all files using `cargo-nextest`.
+
+```sh
+cargo t                        # run all tests in parallel (alias for `cargo nextest run`)
+cargo t -p ripmail             # run ripmail tests in parallel
+cargo test                     # standard cargo test (runs integration test binaries serially)
+```
 
 Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The packaged app bundles a release-built `ripmail` binary inside `server-bundle/`; `desktop:bundle-server` builds it automatically. For local dev, `npm run ripmail:dev` builds the debug binary and `run-dev.mjs` sets `RIPMAIL_BIN` when it exists.
 
@@ -90,7 +100,7 @@ The app is in **early development** with a **near-zero user base**. Optimize for
 
 - **Tests required**: every new feature or bug fix needs test coverage in `src/**/*.test.ts`.
 - **TDD for bugs**: reproduce with a failing test first, then fix, then confirm green.
-- **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests + `cargo fmt` / `cargo clippy` / `cargo test` for the Rust workspace.
+- **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests + `cargo fmt` / `cargo clippy` / `cargo t` for the Rust workspace.
 - **Validate fixes yourself**: when a change has an obvious verification step, **run it without asking the user**—e.g. `npm run lint` / scoped tests after edits, `cargo check -p brain` or `cargo test -p ripmail` after Rust changes, `npm run build && npm run desktop:bundle-server` after packaging or server-bundle changes (confirms `ripmail` release binary is produced and copied). Reserve full `npm run desktop:build` for when the native bundle itself must be proven; it is slower. Only defer if the step needs secrets you do not have or would be destructive without confirmation.
 - **DRY**: extract shared logic; never duplicate. Shared fixtures live in `src/server/test-fixtures.ts`.
 - **Test fixtures**: reuse patterns from existing tests and shared helpers; avoid one-off temp dirs per test.

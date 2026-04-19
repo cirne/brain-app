@@ -7,11 +7,12 @@
     start: string
     end: string
     allDay: boolean
-    source: 'travel' | 'personal'
+    source: string
     location?: string
     description?: string
     attendees?: string[]
     organizer?: string
+    color?: string
   }
 
   /**
@@ -122,6 +123,7 @@
           <button
             type="button"
             class="de-event travel de-compact-hit"
+            style={e.color ? `--accent: ${e.color}; --custom-bg: color-mix(in srgb, ${e.color} 15%, transparent);` : ''}
             class:de-preview-hover={!!onEventOpen}
             class:past={isPast(e)}
             class:de-selected={selectedEventId === e.id}
@@ -134,7 +136,12 @@
           </button>
         </li>
       {:else}
-        <li class="de-event travel" class:past={isPast(e)} title={e.location ?? ''}>
+        <li
+          class="de-event travel"
+          style={e.color ? `--accent: ${e.color}; --custom-bg: color-mix(in srgb, ${e.color} 15%, transparent);` : ''}
+          class:past={isPast(e)}
+          title={e.location ?? ''}
+        >
           <span class="de-icon">✈</span>
           <span class="de-title">{e.title}</span>
         </li>
@@ -146,6 +153,7 @@
           <button
             type="button"
             class="de-event personal de-compact-hit"
+            style={e.color ? `--accent: ${e.color}; --custom-bg: color-mix(in srgb, ${e.color} 10%, transparent);` : ''}
             class:de-preview-hover={!!onEventOpen}
             class:past={isPast(e)}
             class:de-selected={selectedEventId === e.id}
@@ -161,6 +169,7 @@
       {:else}
         <li
           class="de-event personal"
+          style={e.color ? `--accent: ${e.color}; --custom-bg: color-mix(in srgb, ${e.color} 10%, transparent);` : ''}
           class:past={isPast(e)}
           class:de-selected={selectedEventId === e.id}
           title={[e.location, e.description].filter(Boolean).join(' · ')}
@@ -202,12 +211,12 @@
   }
 
   .de-event.travel {
-    background: color-mix(in srgb, #f59e0b 15%, transparent);
-    border-left: 2px solid #f59e0b;
+    background: var(--custom-bg, color-mix(in srgb, #f59e0b 15%, transparent));
+    border-left: 2px solid var(--accent, #f59e0b);
   }
 
   .de-event.personal {
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    background: var(--custom-bg, color-mix(in srgb, var(--accent) 10%, transparent));
     border-left: 2px solid var(--accent);
   }
 
@@ -274,12 +283,12 @@
   }
 
   button.de-compact-hit.de-event.travel {
-    background: color-mix(in srgb, #f59e0b 15%, transparent);
-    border-left: 2px solid #f59e0b;
+    background: var(--custom-bg, color-mix(in srgb, #f59e0b 15%, transparent));
+    border-left: 2px solid var(--accent, #f59e0b);
   }
 
   button.de-compact-hit.de-event.personal {
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    background: var(--custom-bg, color-mix(in srgb, var(--accent) 10%, transparent));
     border-left: 2px solid var(--accent);
   }
 

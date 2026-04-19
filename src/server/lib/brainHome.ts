@@ -4,7 +4,6 @@ import { existsSync } from 'node:fs'
 import { readdir, rm } from 'node:fs/promises'
 import { defaultBundledBrainHomeRoot, defaultBundledWikiParentRoot } from './bundleDefaults.js'
 import {
-  brainLayoutCacheDir,
   brainLayoutChatsDir,
   brainLayoutDirIconsCachePath,
   brainLayoutRipmailDir,
@@ -89,10 +88,6 @@ export function ripmailProcessEnv(): typeof process.env {
   if (!gid && brid) out.RIPMAIL_GOOGLE_OAUTH_CLIENT_ID = brid
   if (!gsec && bsec) out.RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET = bsec
   return out
-}
-
-export function calendarCacheDirResolved(): string {
-  return brainLayoutCacheDir(brainHome())
 }
 
 export function wikiEditsPathResolved(): string {

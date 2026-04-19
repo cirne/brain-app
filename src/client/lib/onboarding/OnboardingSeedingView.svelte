@@ -5,6 +5,7 @@
   import { Check, Mail } from 'lucide-svelte'
   import type { AgentConversationViewProps, ConversationScrollApi } from '../agentConversationViewTypes.js'
   import WikiFileName from '../WikiFileName.svelte'
+  import { renderMarkdown } from '../markdown.js'
   import OnboardingActivityTranscriptShell from './OnboardingActivityTranscriptShell.svelte'
   import OnboardingLocalWikiLead from './OnboardingLocalWikiLead.svelte'
   import { seedingLeadCopy } from './onboardingLeadCopy.js'
@@ -42,71 +43,82 @@
   {#snippet children({ reduceMotion })}
     <OnboardingLocalWikiLead {...seedingLeadCopy} />
 
-    {#if seedingProgress.rows.length > 0 || seedingProgress.planning}
+    {#if seedingProgress.events.length > 0 || seedingProgress.planning}
       <section class="ob-seed-progress-section" aria-labelledby="ob-seed-progress-heading">
         <h2 id="ob-seed-progress-heading" class="ob-prof-section-title">Progress</h2>
         <ul class="ob-seed-progress" role="list">
-          {#each seedingProgress.rows as { done: rowDone, line: row } (row.id)}
-            <li
-              class="ob-seed-progress-row"
-              class:ob-seed-progress-row--done={rowDone}
-              class:ob-seed-progress-row--current={!rowDone}
-              role={rowDone ? undefined : 'status'}
-              aria-live={rowDone ? undefined : 'polite'}
-            >
-              {#if rowDone}
-                <span class="ob-seed-progress-check" aria-hidden="true">
-                  <Check size={14} strokeWidth={2.5} class="ob-seed-progress-check-icon" />
-                </span>
-              {:else}
-                <span class="ob-seed-progress-pulse-wrap" aria-hidden="true">
-                  <span class="ob-prof-pulse" class:ob-prof-pulse--still={reduceMotion}></span>
-                </span>
-              {/if}
-              <span class="ob-seed-progress-body" class:ob-seed-progress-body--mail={!!row.mailPreview}>
-                {#if row.mailPreview}
-                  <span class="ob-seed-progress-prefix">{row.prefix}</span>
-                  <button
-                    type="button"
-                    class="ob-prof-mail-row ob-seed-mail-card"
-                    onclick={() =>
-                      onOpenEmail?.(row.mailPreview!.id, row.mailPreview!.subject, row.mailPreview!.from)}
-                  >
-                    <span class="ob-prof-mail-lead" aria-hidden="true">
-                      <Mail size={12} />
-                    </span>
-                    <span class="ob-prof-mail-body">
-                      <span class="ob-prof-mail-subject">
-                        {row.mailPreview.subject.trim() ||
-                          (rowDone ? '(No subject)' : 'Reading message…')}
-                      </span>
-                      {#if row.mailPreview.from.trim()}
-                        <span class="ob-prof-mail-meta">{row.mailPreview.from}</span>
-                      {/if}
-                      {#if row.mailPreview.snippet.trim()}
-                        <span class="ob-prof-mail-snippet">{row.mailPreview.snippet}</span>
-                      {/if}
-                    </span>
-                  </button>
+          {#each seedingProgress.events as event}
+            {#if event.type === 'text'}
+              <li class="ob-prof-chat-msg ob-seed-text-msg" role="article">
+                <div class="ob-prof-msg-label">Assistant</div>
+                <div class="ob-prof-msg-body markdown">
+                  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                  {@html renderMarkdown(event.content)}
+                </div>
+              </li>
+            {:else}
+              {@const { done: rowDone, line: row } = event}
+              <li
+                class="ob-seed-progress-row"
+                class:ob-seed-progress-row--done={rowDone}
+                class:ob-seed-progress-row--current={!rowDone}
+                role={rowDone ? undefined : 'status'}
+                aria-live={rowDone ? undefined : 'polite'}
+              >
+                {#if rowDone}
+                  <span class="ob-seed-progress-check" aria-hidden="true">
+                    <Check size={14} strokeWidth={2.5} class="ob-seed-progress-check-icon" />
+                  </span>
                 {:else}
-                  <span class="ob-seed-progress-prefix">{row.prefix}</span>
-                  {#if row.path}
+                  <span class="ob-seed-progress-pulse-wrap" aria-hidden="true">
+                    <span class="ob-prof-pulse" class:ob-prof-pulse--still={reduceMotion}></span>
+                  </span>
+                {/if}
+                <span class="ob-seed-progress-body" class:ob-seed-progress-body--mail={!!row.mailPreview}>
+                  {#if row.mailPreview}
+                    <span class="ob-seed-progress-prefix">{row.prefix}</span>
                     <button
                       type="button"
-                      class="ob-seed-progress-path"
-                      onclick={() => onOpenWiki?.(row.path!)}
+                      class="ob-prof-mail-row ob-seed-mail-card"
+                      onclick={() =>
+                        onOpenEmail?.(row.mailPreview!.id, row.mailPreview!.subject, row.mailPreview!.from)}
                     >
-                      <WikiFileName path={row.path} />
+                      <span class="ob-prof-mail-lead" aria-hidden="true">
+                        <Mail size={12} />
+                      </span>
+                      <span class="ob-prof-mail-body">
+                        <span class="ob-prof-mail-subject">
+                          {row.mailPreview.subject.trim() ||
+                            (rowDone ? '(No subject)' : 'Reading message…')}
+                        </span>
+                        {#if row.mailPreview.from.trim()}
+                          <span class="ob-prof-mail-meta">{row.mailPreview.from}</span>
+                        {/if}
+                        {#if row.mailPreview.snippet.trim()}
+                          <span class="ob-prof-mail-snippet">{row.mailPreview.snippet}</span>
+                        {/if}
+                      </span>
                     </button>
-                  {:else if !rowDone && (row.prefix === 'Writing' || row.prefix === 'Updating')}
-                    <span class="ob-seed-progress-wait">…</span>
+                  {:else}
+                    <span class="ob-seed-progress-prefix">{row.prefix}</span>
+                    {#if row.path}
+                      <button
+                        type="button"
+                        class="ob-seed-progress-path"
+                        onclick={() => onOpenWiki?.(row.path!)}
+                      >
+                        <WikiFileName path={row.path} />
+                      </button>
+                    {:else if !rowDone && (row.prefix === 'Writing' || row.prefix === 'Updating')}
+                      <span class="ob-seed-progress-wait">…</span>
+                    {/if}
+                    {#if row.detail}
+                      <span class="ob-seed-progress-detail">{row.detail}</span>
+                    {/if}
                   {/if}
-                  {#if row.detail}
-                    <span class="ob-seed-progress-detail">{row.detail}</span>
-                  {/if}
-                {/if}
-              </span>
-            </li>
+                </span>
+              </li>
+            {/if}
           {/each}
           {#if seedingProgress.planning}
             {@const prow = seedingProgress.planning}

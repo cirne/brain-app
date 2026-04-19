@@ -14,7 +14,7 @@ Typical directories under `BRAIN_HOME`:
 | `chats/` | Persisted chat session JSON files |
 | `skills/` | User slash skills (seeded defaults on first run) |
 | `ripmail/` | Ripmail config + SQLite index when `RIPMAIL_HOME` is not overridden |
-| `cache/` | Calendar JSON cache + `wiki-dir-icons.json` |
+| `cache/` | `wiki-dir-icons.json` and other small JSON caches |
 | `var/` | `wiki-edits.jsonl` (agent wiki edit log) |
 
 Onboarding staging and `onboarding.json` live under **`chats/onboarding/`** (inside the chats dir), not under `var/`.
@@ -25,9 +25,9 @@ The agent’s file tools are **scoped to the wiki directory** only (relative pat
 
 Product framing: [product/personal-wiki.md](../product/personal-wiki.md).
 
-## Calendar cache
+## Calendar
 
-ICS feeds are fetched using env URLs (`CIRNE_TRAVEL_ICS_URL`, `LEW_PERSONAL_ICS_URL`), parsed, and written as JSON under the cache directory. Not a third-party “Howie” HTTP API — **secret iCal URLs** (e.g. from Google Calendar) are typical sources.
+**Canonical:** Indexed calendar lives in **ripmail** under **`RIPMAIL_HOME`** (`googleCalendar` with Gmail OAuth, `icsSubscription` / `icsFile`, future `appleCalendar` via EventKit). **`ripmail refresh`** syncs calendar sources; **`ripmail calendar range --from --to --json`** (and related subcommands) query the DB. The brain-app **`GET /api/calendar`**, client calendar UI, and agent tool **`get_calendar_events`** read from **`ripmail calendar range`** (see [`calendarRipmail.ts`](../../src/server/lib/calendarRipmail.ts)). Onboarding offers **Apple Mail** vs **Gmail**; Gmail OAuth requests **`calendar.readonly`** and adds a **`googleCalendar`** source beside the IMAP mailbox.
 
 ## Ripmail sync
 

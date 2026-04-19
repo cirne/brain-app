@@ -6,6 +6,7 @@ pub mod ask;
 pub mod ask_stub;
 pub mod attachments;
 pub mod brain_app_layout;
+pub mod calendar;
 pub mod config;
 pub mod db;
 pub mod draft;

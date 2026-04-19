@@ -9,6 +9,7 @@ import {
   generatePkce,
   buildGoogleAuthorizeUrl,
   upsertRipmailConfig,
+  upsertRipmailGoogleCalendarSource,
   writeGoogleOAuthTokenFile,
 } from './googleOAuth.js'
 
@@ -154,5 +155,29 @@ describe('upsertRipmailConfig', () => {
       sources: Array<{ search?: { includeInDefault: boolean } }>
     }
     expect(j.sources[0].search?.includeInDefault).toBe(false)
+  })
+})
+
+describe('upsertRipmailGoogleCalendarSource', () => {
+  let home: string
+  beforeEach(async () => {
+    home = await mkdtemp(join(tmpdir(), 'ripmail-gcal-'))
+  })
+  afterEach(async () => {
+    await rm(home, { recursive: true, force: true })
+  })
+
+  it('adds googleCalendar next to imap source', async () => {
+    await upsertRipmailConfig(home, 'a_gmail_com', 'a@gmail.com')
+    await upsertRipmailGoogleCalendarSource(home, 'a_gmail_com', 'a@gmail.com')
+    const raw = await readFile(join(home, 'config.json'), 'utf8')
+    const j = JSON.parse(raw) as {
+      sources: Array<{ id: string; kind: string; oauthSourceId?: string; calendarIds?: string[] }>
+    }
+    expect(j.sources.length).toBeGreaterThanOrEqual(2)
+    const gcal = j.sources.find((s) => s.kind === 'googleCalendar')
+    expect(gcal).toBeDefined()
+    expect(gcal!.oauthSourceId).toBe('a_gmail_com')
+    expect(gcal!.calendarIds).toEqual(['primary'])
   })
 })

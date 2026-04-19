@@ -355,10 +355,15 @@ pub(crate) enum Commands {
         #[command(subcommand)]
         sub: RulesCmd,
     },
-    /// List or manage configured sources (IMAP, Apple Mail, local directory)
+    /// List or manage configured sources (IMAP, Apple Mail, local directory, calendar)
     Sources {
         #[command(subcommand)]
         sub: SourcesCmd,
+    },
+    /// Search and read indexed calendar events ([OPP-053](https://github.com/cirne/zmail))
+    Calendar {
+        #[command(subcommand)]
+        sub: CalendarCmd,
     },
     /// Database counts
     Stats {
@@ -407,6 +412,15 @@ pub(crate) enum SourcesCmd {
         imap_port: Option<u16>,
         #[arg(long = "apple-mail-path")]
         apple_mail_path: Option<String>,
+        /// `googleCalendar`: reuse OAuth token from this source id’s directory (`google-oauth.json`).
+        #[arg(long)]
+        oauth_source_id: Option<String>,
+        /// `googleCalendar`: remote calendar id (repeat for multiple; default `primary` if omitted).
+        #[arg(long = "calendar")]
+        calendar: Vec<String>,
+        /// `icsSubscription`: HTTPS URL to fetch.
+        #[arg(long)]
+        url: Option<String>,
         #[arg(long)]
         json: bool,
     },
@@ -430,6 +444,62 @@ pub(crate) enum SourcesCmd {
     },
     /// Show crawl/sync status hints from config + DB
     Status {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum CalendarCmd {
+    /// List calendar ids per configured source (from config)
+    #[command(name = "list-calendars")]
+    ListCalendars {
+        #[arg(long, short = 'S')]
+        source: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Today {
+        #[arg(long, short = 'S')]
+        source: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Upcoming {
+        #[arg(long, default_value_t = 7)]
+        days: u32,
+        #[arg(long, short = 'S')]
+        source: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Search {
+        query: String,
+        #[arg(long)]
+        from: Option<String>,
+        #[arg(long)]
+        to: Option<String>,
+        #[arg(long, short = 'S')]
+        source: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Events overlapping inclusive from/to dates (YYYY-MM-DD), UTC calendar-day bounds.
+    Range {
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        to: String,
+        #[arg(long, short = 'S')]
+        source: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Read {
+        /// Event `uid` (or numeric row id)
+        target: String,
+        #[arg(long, short = 'S')]
+        source: Option<String>,
         #[arg(long)]
         json: bool,
     },

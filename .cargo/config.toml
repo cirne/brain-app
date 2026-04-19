@@ -5,3 +5,5 @@
 
 [alias]
 install-local = "run -p ripmail --bin cargo-install-local --"
+t = "nextest run"
+test-parallel = "nextest run"

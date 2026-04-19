@@ -29,6 +29,18 @@ export async function fetchOnboardingState(): Promise<string> {
   return j.state
 }
 
+export async function fetchOnboardingPreferences(): Promise<'apple' | 'google' | null> {
+  try {
+    const res = await fetch('/api/onboarding/preferences')
+    const j = (await res.json()) as { mailProvider?: 'apple' | 'google' | null }
+    const p = j.mailProvider
+    if (p === 'apple' || p === 'google') return p
+    return null
+  } catch {
+    return null
+  }
+}
+
 export async function patchOnboardingState(next: string): Promise<void> {
   const res = await fetch('/api/onboarding/state', {
     method: 'PATCH',
@@ -118,4 +130,14 @@ export async function postPrepareSeed(categories: string[]): Promise<void> {
     const j = (await res.json()) as { error?: string }
     throw new Error(j.error ?? 'prepare-seed failed')
   }
+}
+
+export async function patchOnboardingPreferences(
+  mailProvider: 'apple' | 'google' | null,
+): Promise<void> {
+  await fetch('/api/onboarding/preferences', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mailProvider: mailProvider }),
+  })
 }

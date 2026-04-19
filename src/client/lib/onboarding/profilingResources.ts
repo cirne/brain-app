@@ -265,42 +265,56 @@ function formatSeedingActiveLine(tc: ToolCall): SeedingProgressLine | null {
   return getToolDefinitionCore(tc.name).seedingProgressLine?.('active', tc) ?? null
 }
 
+export type SeedingProgressEvent = 
+  | { type: 'row'; done: boolean; line: SeedingProgressLine }
+  | { type: 'text'; content: string }
+
 /**
- * Ordered seeding steps: one UI row per meaningful tool (parallel writes each keep their own row).
- * When every tool in the turn is finished but the stream is still open, a filler row shows until more tools or text arrive.
+ * Ordered seeding steps: one UI row per meaningful tool (parallel writes each keep their own row),
+ * interspersed with assistant narrative text.
  */
 export function buildSeedingProgressUi(
   messages: ChatMessage[],
   streaming: boolean,
-): { rows: SeedingProgressUiRow[]; planning: SeedingProgressLine | null } {
-  const ordered = orderedMeaningfulToolCalls(messages)
-  const rows: SeedingProgressUiRow[] = []
+): { events: SeedingProgressEvent[]; planning: SeedingProgressLine | null } {
+  const events: SeedingProgressEvent[] = []
+  const orderedTools = orderedMeaningfulToolCalls(messages)
 
-  for (const tc of ordered) {
-    const line = tc.done ? formatSeedingCompletedLine(tc) : formatSeedingActiveLine(tc)
-    if (!line) continue
-    rows.push({ done: !!tc.done, line })
+  for (const msg of messages) {
+    if (msg.role !== 'assistant') continue
+    for (const part of msg.parts ?? []) {
+      if (part.type === 'text' && part.content?.trim()) {
+        events.push({ type: 'text', content: part.content })
+      } else if (part.type === 'tool') {
+        const tc = part.toolCall
+        if (tc.name === 'set_chat_title') continue
+        const line = tc.done ? formatSeedingCompletedLine(tc) : formatSeedingActiveLine(tc)
+        if (line) {
+          events.push({ type: 'row', done: !!tc.done, line })
+        }
+      }
+    }
   }
 
   if (!streaming) {
-    return { rows, planning: null }
+    return { events, planning: null }
   }
 
-  const hasActiveTool = ordered.some((tc) => !tc.done)
+  const hasActiveTool = orderedTools.some((tc) => !tc.done)
   if (hasActiveTool) {
-    return { rows, planning: null }
+    return { events, planning: null }
   }
 
   const thinking = lastAssistantThinking(messages)
   if (messages.length === 0) {
     return {
-      rows,
+      events,
       planning: { id: 'planning', kind: 'planning', prefix: 'Starting wiki seed…' },
     }
   }
   const planningDetail = sanitizePlanningThinking(thinking)
   return {
-    rows,
+    events,
     planning: {
       id: 'planning',
       kind: 'planning',

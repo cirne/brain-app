@@ -82,11 +82,30 @@ pub enum SourceKind {
     AppleMail,
     #[serde(rename = "localDir")]
     LocalDir,
+    /// Google Calendar API ([OPP-053](../docs/opportunities/OPP-053-local-gateway-calendar-and-beyond.md)).
+    #[serde(rename = "googleCalendar")]
+    GoogleCalendar,
+    /// macOS EventKit (requires native helper).
+    #[serde(rename = "appleCalendar")]
+    AppleCalendar,
+    /// Subscribe to a remote ICS URL.
+    #[serde(rename = "icsSubscription")]
+    IcsSubscription,
+    /// One `.ics` file on disk.
+    #[serde(rename = "icsFile")]
+    IcsFile,
 }
 
 impl SourceKind {
     pub fn is_mail(self) -> bool {
         matches!(self, Self::Imap | Self::AppleMail)
+    }
+
+    pub fn is_calendar(self) -> bool {
+        matches!(
+            self,
+            Self::GoogleCalendar | Self::AppleCalendar | Self::IcsSubscription | Self::IcsFile
+        )
     }
 }
 
@@ -131,6 +150,24 @@ fn default_max_file_bytes() -> u64 {
     10_000_000
 }
 
+/// Calendar-specific resolution for [`ResolvedSource`] ([OPP-053](../docs/opportunities/OPP-053-local-gateway-calendar-and-beyond.md)).
+#[derive(Debug, Clone)]
+pub enum CalendarSourceResolved {
+    Google {
+        email: String,
+        calendar_ids: Vec<String>,
+        /// `google-oauth.json` lives under `RIPMAIL_HOME/<token_mailbox_id>/`.
+        token_mailbox_id: String,
+    },
+    Apple,
+    IcsUrl {
+        url: String,
+    },
+    IcsPath {
+        path: PathBuf,
+    },
+}
+
 /// Resolved local directory options for sync.
 #[derive(Debug, Clone)]
 pub struct ResolvedLocalDir {
@@ -169,6 +206,15 @@ pub struct SourceConfigJson {
     pub path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub local_dir: Option<LocalDirJson>,
+    /// Google Calendar: OAuth token reuse — read `google-oauth.json` from this source id’s directory (e.g. existing Gmail mailbox id).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oauth_source_id: Option<String>,
+    /// Google Calendar: which remote calendars to sync (default `["primary"]`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calendar_ids: Option<Vec<String>>,
+    /// `icsSubscription`: HTTPS URL to fetch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ics_url: Option<String>,
 }
 
 /// Back-compat name for mail setup code paths.
@@ -193,6 +239,8 @@ pub struct ResolvedSource {
     pub apple_mail_root: Option<PathBuf>,
     /// Local directory indexing (`kind == LocalDir`).
     pub local_dir: Option<ResolvedLocalDir>,
+    /// When set, this source is a calendar connector (not IMAP mail).
+    pub calendar: Option<CalendarSourceResolved>,
 }
 
 impl ResolvedSource {
@@ -1139,6 +1187,7 @@ fn build_resolved_sources(
                             max_depth,
                             max_file_bytes,
                         }),
+                        calendar: None,
                     });
                 }
                 SourceKind::AppleMail => {
@@ -1177,6 +1226,7 @@ fn build_resolved_sources(
                         maildir_path: home.join(&mb.id).join("maildir"),
                         apple_mail_root: Some(apple_root),
                         local_dir: None,
+                        calendar: None,
                     });
                 }
                 SourceKind::Imap => {
@@ -1230,6 +1280,135 @@ fn build_resolved_sources(
                         maildir_path: home.join(&mb.id).join("maildir"),
                         apple_mail_root: None,
                         local_dir: None,
+                        calendar: None,
+                    });
+                }
+                SourceKind::GoogleCalendar => {
+                    let email = mb.email.trim().to_string();
+                    if email.is_empty() {
+                        continue;
+                    }
+                    let token_mailbox_id = mb
+                        .oauth_source_id
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(String::from)
+                        .unwrap_or_else(|| mb.id.clone());
+                    let calendar_ids = mb
+                        .calendar_ids
+                        .clone()
+                        .filter(|v| !v.is_empty())
+                        .unwrap_or_else(|| vec!["primary".to_string()]);
+                    let include_in_default = mb
+                        .search
+                        .as_ref()
+                        .and_then(|s| s.include_in_default)
+                        .unwrap_or(true);
+                    out.push(ResolvedSource {
+                        id: mb.id.clone(),
+                        kind: SourceKind::GoogleCalendar,
+                        email: email.clone(),
+                        imap_host: String::new(),
+                        imap_port: 993,
+                        imap_user: email.clone(),
+                        imap_aliases: Vec::new(),
+                        imap_password: String::new(),
+                        imap_auth: MailboxImapAuthKind::GoogleOAuth,
+                        include_in_default,
+                        maildir_path: home.join(&mb.id).join("maildir"),
+                        apple_mail_root: None,
+                        local_dir: None,
+                        calendar: Some(CalendarSourceResolved::Google {
+                            email,
+                            calendar_ids,
+                            token_mailbox_id,
+                        }),
+                    });
+                }
+                SourceKind::AppleCalendar => {
+                    let include_in_default = mb
+                        .search
+                        .as_ref()
+                        .and_then(|s| s.include_in_default)
+                        .unwrap_or(true);
+                    out.push(ResolvedSource {
+                        id: mb.id.clone(),
+                        kind: SourceKind::AppleCalendar,
+                        email: mb.email.trim().to_string(),
+                        imap_host: String::new(),
+                        imap_port: 993,
+                        imap_user: String::new(),
+                        imap_aliases: Vec::new(),
+                        imap_password: String::new(),
+                        imap_auth: MailboxImapAuthKind::AppPassword,
+                        include_in_default,
+                        maildir_path: home.join(&mb.id).join("maildir"),
+                        apple_mail_root: None,
+                        local_dir: None,
+                        calendar: Some(CalendarSourceResolved::Apple),
+                    });
+                }
+                SourceKind::IcsSubscription => {
+                    let Some(url) = mb
+                        .ics_url
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                    else {
+                        continue;
+                    };
+                    let include_in_default = mb
+                        .search
+                        .as_ref()
+                        .and_then(|s| s.include_in_default)
+                        .unwrap_or(true);
+                    out.push(ResolvedSource {
+                        id: mb.id.clone(),
+                        kind: SourceKind::IcsSubscription,
+                        email: String::new(),
+                        imap_host: String::new(),
+                        imap_port: 993,
+                        imap_user: String::new(),
+                        imap_aliases: Vec::new(),
+                        imap_password: String::new(),
+                        imap_auth: MailboxImapAuthKind::AppPassword,
+                        include_in_default,
+                        maildir_path: home.join(&mb.id).join("maildir"),
+                        apple_mail_root: None,
+                        local_dir: None,
+                        calendar: Some(CalendarSourceResolved::IcsUrl {
+                            url: url.to_string(),
+                        }),
+                    });
+                }
+                SourceKind::IcsFile => {
+                    let Some(path_str) =
+                        mb.path.as_deref().map(str::trim).filter(|s| !s.is_empty())
+                    else {
+                        continue;
+                    };
+                    let path = expand_tilde_path(path_str);
+                    let include_in_default = mb
+                        .search
+                        .as_ref()
+                        .and_then(|s| s.include_in_default)
+                        .unwrap_or(true);
+                    out.push(ResolvedSource {
+                        id: mb.id.clone(),
+                        kind: SourceKind::IcsFile,
+                        email: String::new(),
+                        imap_host: String::new(),
+                        imap_port: 993,
+                        imap_user: String::new(),
+                        imap_aliases: Vec::new(),
+                        imap_password: String::new(),
+                        imap_auth: MailboxImapAuthKind::AppPassword,
+                        include_in_default,
+                        maildir_path: home.join(&mb.id).join("maildir"),
+                        apple_mail_root: None,
+                        local_dir: None,
+                        calendar: Some(CalendarSourceResolved::IcsPath { path }),
                     });
                 }
             }
@@ -1280,6 +1459,7 @@ fn build_resolved_sources(
         maildir_path: data_dir.join("maildir"),
         apple_mail_root: None,
         local_dir: None,
+        calendar: None,
     }]
 }
 
@@ -1552,6 +1732,7 @@ mod tests {
             maildir_path: PathBuf::from("/tmp/m"),
             apple_mail_root: None,
             local_dir: None,
+            calendar: None,
         };
         let sources = vec![mb];
         assert_eq!(resolve_source_spec(&sources, "m1").unwrap().id, "m1");

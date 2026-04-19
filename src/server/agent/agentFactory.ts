@@ -8,6 +8,7 @@ import {
   type OnboardingAgentToolVariant,
 } from './agentToolSets.js'
 import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '../lib/openAiResponsesPayload.js'
+import { areLocalMessageToolsEnabled } from '../lib/imessageDb.js'
 
 /** @deprecated Use {@link ONBOARDING_BASE_OMIT} from `agentToolSets.js`. */
 export const ONBOARDING_OMIT_TOOL_NAMES = ONBOARDING_BASE_OMIT
@@ -41,10 +42,12 @@ export function createOnboardingAgent(
   wikiRoot: string,
   options?: CreateOnboardingAgentOptions,
 ): Agent {
+  const variant = options?.variant ?? 'seeding'
+  const includeLocalMessageTools = variant === 'profiling' ? false : areLocalMessageToolsEnabled()
   const toolOpts = buildCreateAgentToolsOptions({
     preset: 'onboarding',
-    onboardingVariant: options?.variant ?? 'seeding',
-    includeLocalMessageTools: false,
+    onboardingVariant: variant,
+    includeLocalMessageTools,
     extraOmit: options?.extraOmitToolNames,
   })
   const tools = createAgentTools(wikiRoot, toolOpts)

@@ -60,6 +60,10 @@ pub fn ensure_google_access_token(
         return Ok(store.access_token.clone().unwrap());
     }
 
+    eprintln!(
+        "ripmail: access token expired or missing, refreshing for {}...",
+        mailbox_id
+    );
     let settings = resolve_google_oauth_client_with_diagnostics(Some(home), env_file, process_env)?;
     refresh_and_persist(&settings, &path, &mut store)?;
     Ok(store.access_token.unwrap_or_default())

@@ -48,8 +48,6 @@
   min-width: 0;
   overflow-wrap: break-word;
   word-wrap: break-word;
-  max-height: min(50vh, 26rem);
-  overflow: auto;
   padding-right: 2px;
 }
 
@@ -389,6 +387,11 @@
   margin: 0.5rem 0 0;
   font-size: 0.75rem;
   color: var(--text-2);
+}
+
+.ob-seed-text-msg {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .ob-prof-people-list {

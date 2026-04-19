@@ -16,8 +16,8 @@ use crate::oauth::{
     resolve_google_oauth_client_with_diagnostics, resolve_oauth_relay_base,
     run_google_oauth_hosted, run_google_oauth_interactive, save_google_oauth_token_store,
     GoogleOAuthTokenStore, DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID,
-    DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_SCOPE_MAIL,
-    GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL,
+    DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_READONLY,
+    GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY,
 };
 use crate::sync::{connect_imap_for_resolved_mailbox, connect_imap_session};
 
@@ -405,6 +405,9 @@ pub fn load_mailbox_configs_for_wizard(home: &Path) -> Vec<MailboxConfigJson> {
                     apple_mail_path: None,
                     path: None,
                     local_dir: None,
+                    oauth_source_id: None,
+                    calendar_ids: None,
+                    ics_url: None,
                 }];
             }
         }
@@ -565,6 +568,9 @@ pub fn upsert_mailbox_setup(
         apple_mail_path: None,
         path: None,
         local_dir: None,
+        oauth_source_id: None,
+        calendar_ids: None,
+        ics_url: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {
         mailboxes[pos] = entry;
@@ -640,6 +646,9 @@ pub fn upsert_mailbox_applemail(
         apple_mail_path: apple_path_json,
         path: None,
         local_dir: None,
+        oauth_source_id: None,
+        calendar_ids: None,
+        ics_url: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {
         mailboxes[pos] = entry;
@@ -728,6 +737,9 @@ pub fn upsert_mailbox_google_oauth(
         apple_mail_path: None,
         path: None,
         local_dir: None,
+        oauth_source_id: None,
+        calendar_ids: None,
+        ics_url: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {
         mailboxes[pos] = entry;
@@ -842,9 +854,9 @@ pub fn write_google_oauth_setup(
     let env_file = crate::config::read_ripmail_env_file(home);
     let client = resolve_google_oauth_client_with_diagnostics(Some(home), &env_file, &env_map)?;
     let scope = if email.map(|e| !e.trim().is_empty()).unwrap_or(false) {
-        GOOGLE_OAUTH_SCOPE_MAIL
+        GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_READONLY
     } else {
-        GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL
+        GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY
     };
     let tokens = run_google_oauth_interactive(&client, scope)?;
     let resolved_email = match email {
@@ -1043,6 +1055,10 @@ fn mailbox_via_label(mb: &MailboxConfigJson) -> &'static str {
         SourceKind::AppleMail => "Apple Mail",
         SourceKind::LocalDir => "Local folder",
         SourceKind::Imap => "IMAP",
+        SourceKind::GoogleCalendar => "Google Calendar",
+        SourceKind::AppleCalendar => "Apple Calendar",
+        SourceKind::IcsSubscription => "ICS URL",
+        SourceKind::IcsFile => "ICS file",
     }
 }
 

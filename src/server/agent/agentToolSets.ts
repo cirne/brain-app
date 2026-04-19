@@ -86,6 +86,14 @@ export const ONBOARDING_BASE_OMIT: readonly AgentToolName[] = [
   'reindex_files_source',
 ]
 
+/**
+ * Onboarding **seeding** omit list: same as {@link ONBOARDING_BASE_OMIT} but keeps
+ * `list_recent_messages` / `get_message_thread` when `includeLocalMessageTools` is true in `createAgentTools`.
+ */
+export const ONBOARDING_SEEDING_OMIT: readonly AgentToolName[] = ONBOARDING_BASE_OMIT.filter(
+  (n) => n !== 'list_recent_messages' && n !== 'get_message_thread',
+)
+
 /** Profiling agent: omit web/video on top of onboarding base (indexed mail only). */
 export const ONBOARDING_PROFILING_EXTRA_OMIT: readonly AgentToolName[] = ['web_search', 'fetch_page', 'youtube_search']
 
@@ -108,7 +116,7 @@ function omitForOnboardingVariant(variant: OnboardingAgentToolVariant): readonly
   if (variant === 'profiling') {
     return mergeOmitToolNames(ONBOARDING_BASE_OMIT, ONBOARDING_PROFILING_EXTRA_OMIT)
   }
-  return [...ONBOARDING_BASE_OMIT]
+  return [...ONBOARDING_SEEDING_OMIT]
 }
 
 /**

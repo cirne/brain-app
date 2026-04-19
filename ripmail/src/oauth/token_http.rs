@@ -61,6 +61,7 @@ pub fn refresh_access_token(
         ("refresh_token", refresh_token),
         ("client_id", settings.client_id.as_str()),
         ("client_secret", settings.client_secret.as_str()),
+        ("scope", "https://mail.google.com/ https://www.googleapis.com/auth/calendar.readonly openid email"),
     ];
     post_token(settings, &body)
 }
@@ -86,6 +87,7 @@ fn post_token(
         .map_err(|e| TokenHttpError::Transport(e.to_string()))?;
 
     if status >= 400 {
+        eprintln!("ripmail: OAuth token error {} response: {}", status, text);
         if let Ok(err) = serde_json::from_str::<OAuth2ErrorBody>(&text) {
             return Err(TokenHttpError::OAuth2 {
                 error: err.error.unwrap_or_else(|| "unknown".into()),
@@ -95,6 +97,16 @@ fn post_token(
         return Err(TokenHttpError::Http(status, text));
     }
 
-    serde_json::from_str::<TokenEndpointResponse>(&text)
-        .map_err(|e| TokenHttpError::Json(e.to_string()))
+    let parsed: TokenEndpointResponse =
+        serde_json::from_str(&text).map_err(|e| TokenHttpError::Json(e.to_string()))?;
+
+    // Log the scopes returned if present (sometimes Google returns them in the token response)
+    // Note: TokenEndpointResponse doesn't have a scope field yet, but we can check the raw text
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+        if let Some(scope) = v.get("scope").and_then(|s| s.as_str()) {
+            eprintln!("ripmail: token issued with scopes: {}", scope);
+        }
+    }
+
+    Ok(parsed)
 }

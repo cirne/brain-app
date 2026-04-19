@@ -668,6 +668,28 @@ Agents today parse the text output of `status` without difficulty. Text stays th
 
 ---
 
+### ADR-029: Local Gateway — One Binary, Multiple Corpora (Mail, Calendar, …)
+
+**Context:** ripmail began as **mail → SQLite → CLI**. The product direction is a **single native CLI** (`ripmail`) that stays **agent-first**: shared **config**, **`RIPMAIL_HOME`**, logging, and sync orchestration, with **additional subcommands** for non-mail corpora that fit the same pattern (indexed rows, `refresh`, `--source` / `-S`, `--json`).
+
+**Decision:**
+
+1. **Expand in place** — Add modules and command groups (e.g. `calendar`) rather than new top-level binaries. Optional **compile-time features** may omit heavy connectors later; the default remains **one** shipped executable per platform build.
+
+2. **Normalized storage per domain** — Each corpus gets appropriate tables (e.g. calendar events are **not** forced into the mail message schema). **ICS** is a supported **ingest** format (subscriptions, exports) but **calendar scheduling** and **stable identity** target the **SQLite model**, not ICS alone.
+
+3. **macOS native APIs** — Frameworks such as **EventKit** require a **native** code path (Rust via `objc2`, a small Swift helper subprocess, or one blessed helper). **Permissions** attach to that executable’s identity (`Info.plist` usage strings, TCC); avoid scattering one-off untracked helpers.
+
+4. **Rename / positioning** — Treat **“ripmail”** as the working name. Renaming the binary or user-facing strings for a broader “local gateway” story is **deferred** (marketing and packaging, not a blocker).
+
+5. **Longer horizon** — The same pattern may cover **notes**, **contacts**, and other system-backed resources sketched in unified-sources opps; each adds subcommands + schema slices, not parallel CLIs.
+
+**Brain-app (host) alignment:** The intended integration is **subprocess** to this CLI with **`RIPMAIL_HOME`** pointing at the Brain ripmail directory. **Exception:** Apple **Messages** / **`chat.db`** — documented in **brain-app** [integrations.md](../../docs/architecture/integrations.md#trust-boundaries-ripmail-vs-direct-sqlite-access) (read-only SQLite in Node; different permission surface). Do **not** treat **chat.db** as the template for calendar, contacts, or EventKit-backed data.
+
+**Related work:** [OPP-053](opportunities/OPP-053-local-gateway-calendar-and-beyond.md) (calendar read path + Phase B scheduling), [OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified `sources` / `refresh`).
+
+---
+
 ## Open Questions
 
 - **npm deprecation:** If **`@cirne/zmail`** remains on the npm registry, maintainers may deprecate it in favor of **`install.sh`** / GitHub Releases ([RUST_PORT.md](RUST_PORT.md), [OPP-030 archived](opportunities/archive/OPP-030-rust-port-cutover.md)).

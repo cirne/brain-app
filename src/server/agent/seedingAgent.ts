@@ -1,5 +1,6 @@
 import type { Agent } from '@mariozechner/pi-agent-core'
 import { wikiDir as getWikiDir } from '../lib/wikiDir.js'
+import { areLocalMessageToolsEnabled } from '../lib/imessageDb.js'
 import { buildDateContext, createOnboardingAgent } from './agentFactory.js'
 import {
   fetchRipmailWhoamiForProfiling,
@@ -12,8 +13,23 @@ export function buildSeedingSystemPrompt(
   timezone: string,
   categoriesNote: string,
   userPeoplePage: UserPeoplePageRef | null,
+  localMessagesAvailable = false,
 ): string {
   const dateCtx = buildDateContext(timezone)
+  const mailAndMaybeMessages = localMessagesAvailable
+    ? '**indexed mail** (`search_index`, `read_doc`, `find_person`) and, when available on this Mac, **local SMS/iMessage** (`list_recent_messages`, `get_message_thread`)'
+    : '**indexed mail** (`search_index`, `read_doc`, `find_person`)'
+  const peoplePhoneNote =
+    '- For each **people/*.md** page, add a short **Contact** or **Identifiers** subsection when you have evidence: **primary email** and **phone** (from mail signatures, headers, or quoted text). Use **find_person** and **read_doc** as needed. **Never** invent phone numbers.'
+  const messagesWorkflow = localMessagesAvailable
+    ? [
+        '',
+        '- **Local Messages (optional):** When a person matches a thread, you may use **list_recent_messages** / **get_message_thread** to discover or confirm a **chat_identifier**. Only record phone numbers that appear in **tool output** or mail—same privacy bar as mail evidence.',
+      ].join('\n')
+    : ''
+  const relyOnEvidence = localMessagesAvailable
+    ? 'mail and local Message tools (see above) + your task context'
+    : 'mail tools + your task context'
   const userPageNote = userPeoplePage
     ? [
         `- A **skeletal long-form page for the account holder** already exists at \`${userPeoplePage.relativePath}\` (wikilink \`[[people/${userPeoplePage.slug}]]\`). **Expand it** with biography, interests, projects, and history from mail + web — this is the right place for detail that **must not** bloat \`me.md\`. Link to \`[[me]]\` for short assistant context; do not paste the full text of \`me.md\` here.`,
@@ -21,15 +37,17 @@ export function buildSeedingSystemPrompt(
       ].join('\n')
     : `- If you infer a \`people/[slug].md\` for the account holder from mail, you may create it; otherwise focus on other people and topics.`
 
-  return `You are a wiki seeding agent for onboarding. The user has accepted their profile as **me.md** at the wiki root (it is in the vault on disk; paths are relative to the wiki root — never \`wiki/me.md\`). You do **not** have wiki **read** / **grep** / **find** tools — the user sees the wiki in the app; ground yourself in **indexed mail** (\`search_index\`, \`read_doc\`, \`find_person\`) and what you already know from onboarding. Your job is to populate their markdown wiki with useful pages based on that profile and email evidence.
+  return `You are a wiki seeding agent for onboarding. The user has accepted their profile as **me.md** at the wiki root (it is in the vault on disk; paths are relative to the wiki root — never \`wiki/me.md\`). You do **not** have wiki **read** / **grep** / **find** tools — the user sees the wiki in the app; ground yourself in ${mailAndMaybeMessages} and what you already know from onboarding. Your job is to populate their markdown wiki with useful pages based on that profile and evidence from those tools.
 
 ## Categories / scope
 ${categoriesNote}
 
 ## Task
-- Treat **me.md** as the canonical **short assistant context** (same content they accepted). You cannot read vault files via tools — rely on mail tools + your task context, then **write** / **edit** new pages.
+- Treat **me.md** as the canonical **short assistant context** (same content they accepted). You cannot read vault files via tools — rely on ${relyOnEvidence}, then **write** / **edit** new pages.
 ${userPageNote}
 - Use search_index (regex + structured filters) and read_doc to enrich facts before writing pages.
+${peoplePhoneNote}
+${messagesWorkflow}
 - Use **web_search** for current public information (companies, products, named entities) when it helps you write accurate wiki pages; use **fetch_page** to read full article text from a specific URL when you need more than search snippets.
 - Create interlinked markdown pages under the wiki root (people/, projects/, etc. as appropriate). This is an **Obsidian-style vault** — cross-link pages with **\`[[wikilinks]]\`** (e.g. \`[[people/jane-doe]]\`, \`[[me]]\`, or \`[[projects/foo|Foo]]\` with a label). Do **not** use plain markdown \`[label](path.md)\` links between wiki pages — only \`[[ ]]\`. External URLs still use standard \`[label](https://…)\` markdown.
 - Narrate briefly in chat as you create files.
@@ -69,7 +87,11 @@ export async function getOrCreateSeedingAgent(
   if (subject) {
     userPeoplePage = await ensureUserPeoplePageSkeleton(wiki, subject)
   }
-  const agent = createOnboardingAgent(buildSeedingSystemPrompt(tz, categories, userPeoplePage), wiki)
+  const localMessagesAvailable = areLocalMessageToolsEnabled()
+  const agent = createOnboardingAgent(
+    buildSeedingSystemPrompt(tz, categories, userPeoplePage, localMessagesAvailable),
+    wiki,
+  )
   seedingSessions.set(sessionId, agent)
   return agent
 }

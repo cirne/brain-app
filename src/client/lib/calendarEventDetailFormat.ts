@@ -4,7 +4,7 @@ export type CalendarEventDetail = {
   start: string
   end: string
   allDay: boolean
-  source: 'travel' | 'personal'
+  source: string
   location?: string
   description?: string
 }

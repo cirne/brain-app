@@ -18,24 +18,21 @@ function appendServiceErrors(
 export function aggregateSyncErrors(
   wiki: PromiseSettledResult<SyncResponseBody>,
   inbox: PromiseSettledResult<SyncResponseBody>,
-  calendar: PromiseSettledResult<SyncResponseBody>,
 ): string[] {
   const errs: string[] = []
   appendServiceErrors(errs, 'Docs', wiki)
   appendServiceErrors(errs, 'Inbox', inbox)
-  appendServiceErrors(errs, 'Calendar', calendar)
   return errs
 }
 
-/** POST wiki, inbox, and calendar sync in parallel; returns API error messages (may be empty). */
+/** POST wiki + inbox sync in parallel (`ripmail refresh` covers calendar indexing). */
 export async function runParallelSyncs(fetchImpl: typeof fetch): Promise<string[]> {
   try {
-    const [wikiRes, inboxRes, calRes] = await Promise.allSettled([
+    const [wikiRes, inboxRes] = await Promise.allSettled([
       fetchImpl('/api/wiki/sync', { method: 'POST' }).then(r => r.json() as Promise<SyncResponseBody>),
       fetchImpl('/api/inbox/sync', { method: 'POST' }).then(r => r.json() as Promise<SyncResponseBody>),
-      fetchImpl('/api/calendar/sync', { method: 'POST' }).then(r => r.json() as Promise<SyncResponseBody>),
     ])
-    return aggregateSyncErrors(wikiRes, inboxRes, calRes)
+    return aggregateSyncErrors(wikiRes, inboxRes)
   } catch (e) {
     return [`Unexpected error: ${e}`]
   }

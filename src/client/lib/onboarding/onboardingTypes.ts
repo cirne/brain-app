@@ -26,11 +26,9 @@ export function emptyOnboardingMail(): OnboardingMailStatus {
 
 /**
  * Minimum indexed messages before advancing to profiling.
- * Needs enough data for receiver-frequency inference to be reliable — too low and
- * the first few thousand messages may not yet include enough To/Cc hits for the
- * correct owner to dominate over co-tenant senders.
+ * Enough for receiver-frequency hints; lower threshold keeps onboarding moving on large mailboxes.
  */
-export const MIN_INDEXED_FOR_PROFILE = 5_000
+export const MIN_INDEXED_FOR_PROFILE = 1_000
 
 export const ONBOARDING_LARGE_WINDOW_STATES = new Set([
   'profiling',

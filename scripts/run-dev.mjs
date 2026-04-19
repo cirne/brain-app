@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * Starts `tsx watch` for the Hono server. If `RIPMAIL_BIN` is unset and
- * `target/debug/ripmail` exists (workspace build), use it so inbox routes work without a global install.
+ * Starts `tsx watch` for the Hono server. If `RIPMAIL_BIN` is unset, prefer a
+ * workspace Cargo artifact so Brain uses the same ripmail as this repo (debug
+ * if present, else release after `npm run ripmail:build`) instead of whatever
+ * is on PATH.
  */
 import { execSync, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -19,11 +21,18 @@ function defaultWorkspaceRipmailBin() {
         encoding: 'utf8',
       }),
     )
-    const p = join(meta.target_directory, 'debug', 'ripmail')
-    return existsSync(p) ? p : null
+    const td = meta.target_directory
+    const debug = join(td, 'debug', 'ripmail')
+    const release = join(td, 'release', 'ripmail')
+    if (existsSync(debug)) return debug
+    if (existsSync(release)) return release
+    return null
   } catch {
-    const fallback = resolve(root, 'target/debug/ripmail')
-    return existsSync(fallback) ? fallback : null
+    const debug = resolve(root, 'target/debug/ripmail')
+    const release = resolve(root, 'target/release/ripmail')
+    if (existsSync(debug)) return debug
+    if (existsSync(release)) return release
+    return null
   }
 }
 

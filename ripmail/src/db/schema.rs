@@ -1,6 +1,6 @@
 //! SQL schema — mirrors `src/db/schema.ts` in the TypeScript tree.
 
-pub const SCHEMA_VERSION: i32 = 23;
+pub const SCHEMA_VERSION: i32 = 25;
 
 pub const SCHEMA: &str = r#"
   CREATE TABLE IF NOT EXISTS sources (
@@ -238,6 +238,73 @@ pub const SCHEMA: &str = r#"
   CREATE INDEX IF NOT EXISTS idx_inbox_decisions_message ON inbox_decisions(message_id);
   CREATE INDEX IF NOT EXISTS idx_messages_rule_triage_pending ON messages(rule_triage) WHERE rule_triage = 'pending';
   CREATE INDEX IF NOT EXISTS idx_messages_source_id ON messages(source_id);
+
+  CREATE TABLE IF NOT EXISTS calendar_events (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id       TEXT NOT NULL,
+    source_kind     TEXT NOT NULL,
+    calendar_id     TEXT NOT NULL,
+    uid             TEXT NOT NULL,
+    summary         TEXT,
+    description     TEXT,
+    location        TEXT,
+    start_at        INTEGER NOT NULL,
+    end_at          INTEGER NOT NULL,
+    all_day         INTEGER NOT NULL DEFAULT 0,
+    timezone        TEXT,
+    status          TEXT,
+    rrule           TEXT,
+    recurrence_json TEXT,
+    attendees_json  TEXT,
+    organizer_email TEXT,
+    organizer_name  TEXT,
+    updated_at      INTEGER,
+    synced_at       INTEGER NOT NULL,
+    color           TEXT,
+    raw_json        TEXT,
+    UNIQUE(source_id, uid)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_calendar_events_source ON calendar_events(source_id);
+  CREATE INDEX IF NOT EXISTS idx_calendar_events_time ON calendar_events(start_at, end_at);
+
+  CREATE VIRTUAL TABLE IF NOT EXISTS calendar_events_fts USING fts5(
+    summary,
+    description,
+    location,
+    organizer_email,
+    organizer_name,
+    content='calendar_events',
+    content_rowid='id'
+  );
+
+  CREATE TRIGGER IF NOT EXISTS calendar_events_fts_insert
+    AFTER INSERT ON calendar_events BEGIN
+      INSERT INTO calendar_events_fts(rowid, summary, description, location, organizer_email, organizer_name)
+      VALUES (new.id, new.summary, new.description, new.location, new.organizer_email, new.organizer_name);
+    END;
+
+  CREATE TRIGGER IF NOT EXISTS calendar_events_fts_delete
+    AFTER DELETE ON calendar_events BEGIN
+      INSERT INTO calendar_events_fts(calendar_events_fts, rowid, summary, description, location, organizer_email, organizer_name)
+      VALUES ('delete', old.id, old.summary, old.description, old.location, old.organizer_email, old.organizer_name);
+    END;
+
+  CREATE TRIGGER IF NOT EXISTS calendar_events_fts_update
+    AFTER UPDATE ON calendar_events BEGIN
+      INSERT INTO calendar_events_fts(calendar_events_fts, rowid, summary, description, location, organizer_email, organizer_name)
+      VALUES ('delete', old.id, old.summary, old.description, old.location, old.organizer_email, old.organizer_name);
+      INSERT INTO calendar_events_fts(rowid, summary, description, location, organizer_email, organizer_name)
+      VALUES (new.id, new.summary, new.description, new.location, new.organizer_email, new.organizer_name);
+    END;
+
+  CREATE TABLE IF NOT EXISTS calendar_sync_state (
+    source_id    TEXT NOT NULL,
+    calendar_id  TEXT NOT NULL,
+    sync_token   TEXT,
+    synced_at    INTEGER,
+    PRIMARY KEY (source_id, calendar_id)
+  );
 "#;
 
 #[cfg(test)]
@@ -251,5 +318,7 @@ mod tests {
         assert!(SCHEMA.contains("source_id"));
         assert!(SCHEMA.contains("PRIMARY KEY (source_id, folder)"));
         assert!(SCHEMA.contains("source_sync_meta"));
+        assert!(SCHEMA.contains("calendar_events"));
+        assert!(SCHEMA.contains("calendar_sync_state"));
     }
 }

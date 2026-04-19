@@ -23,7 +23,6 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 | `ANTHROPIC_API_KEY` | — | Required when using Anthropic for the agent |
 | `EXA_API_KEY` | — | `web_search` tool |
 | `SUPADATA_API_KEY` | — | `fetch_page`, YouTube tools |
-| `CIRNE_TRAVEL_ICS_URL` / `LEW_PERSONAL_ICS_URL` | — | Calendar ICS feeds for cache refresh |
 | `SYNC_INTERVAL_SECONDS` | `300` | Interval for `runFullSync` timer |
 
 Provider API keys follow `PROVIDER_API_KEY` conventions expected by `@mariozechner/pi-ai` / the agent.

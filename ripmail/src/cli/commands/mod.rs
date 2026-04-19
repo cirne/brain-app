@@ -1,5 +1,6 @@
 mod archive;
 mod assist;
+mod calendar;
 mod config;
 mod mail;
 mod rules;
@@ -177,6 +178,7 @@ pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
         Commands::Draft { sub } => mail::run_draft(sub),
         Commands::Rules { sub, source } => rules::run_rules(sub, source),
         Commands::Sources { sub } => sources::run_sources(sub),
+        Commands::Calendar { sub } => calendar::run_calendar(sub),
         Commands::Ask { question, verbose } => assist::run_ask(question, verbose),
         Commands::Inbox(args) => assist::run_inbox(args),
         Commands::Archive {

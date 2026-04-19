@@ -5,7 +5,7 @@ loadDotEnv()
 
 try {
   const result = await runFullSync()
-  const failed = [result.wiki, result.inbox, result.calendar].filter(r => !r.ok)
+  const failed = [result.wiki, result.inbox].filter(r => !r.ok)
   if (failed.length > 0) {
     console.warn('[brain-app] sync completed with errors:', result)
   } else {

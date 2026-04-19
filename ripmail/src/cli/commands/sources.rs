@@ -7,6 +7,7 @@ use ripmail::config::{
     SourceConfigJson, SourceKind,
 };
 use rusqlite::{Connection, OptionalExtension};
+use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 
 fn kind_label(k: SourceKind) -> &'static str {
@@ -14,6 +15,10 @@ fn kind_label(k: SourceKind) -> &'static str {
         SourceKind::Imap => "imap",
         SourceKind::AppleMail => "applemail",
         SourceKind::LocalDir => "localDir",
+        SourceKind::GoogleCalendar => "googleCalendar",
+        SourceKind::AppleCalendar => "appleCalendar",
+        SourceKind::IcsSubscription => "icsSubscription",
+        SourceKind::IcsFile => "icsFile",
     }
 }
 
@@ -22,8 +27,12 @@ fn parse_kind(s: &str) -> Result<SourceKind, String> {
         "imap" => Ok(SourceKind::Imap),
         "applemail" => Ok(SourceKind::AppleMail),
         "localdir" => Ok(SourceKind::LocalDir),
+        "googlecalendar" => Ok(SourceKind::GoogleCalendar),
+        "applecalendar" => Ok(SourceKind::AppleCalendar),
+        "icssubscription" => Ok(SourceKind::IcsSubscription),
+        "icsfile" => Ok(SourceKind::IcsFile),
         _ => Err(format!(
-            "unknown --kind {s:?}; expected imap | applemail | localDir"
+            "unknown --kind {s:?}; expected imap | applemail | localDir | googleCalendar | appleCalendar | icsSubscription | icsFile"
         )),
     }
 }
@@ -72,6 +81,9 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
             imap_host,
             imap_port,
             apple_mail_path,
+            oauth_source_id,
+            calendar,
+            url,
             json,
         } => {
             let kind = parse_kind(&kind)?;
@@ -113,6 +125,9 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         apple_mail_path: None,
                         path: Some(root.to_string_lossy().to_string()),
                         local_dir: Some(default_local_dir()),
+                        oauth_source_id: None,
+                        calendar_ids: None,
+                        ics_url: None,
                     }
                 }
                 SourceKind::Imap => {
@@ -138,6 +153,9 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         apple_mail_path: None,
                         path: None,
                         local_dir: None,
+                        oauth_source_id: None,
+                        calendar_ids: None,
+                        ics_url: None,
                     }
                 }
                 SourceKind::AppleMail => {
@@ -154,6 +172,121 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         apple_mail_path,
                         path: None,
                         local_dir: None,
+                        oauth_source_id: None,
+                        calendar_ids: None,
+                        ics_url: None,
+                    }
+                }
+                SourceKind::GoogleCalendar => {
+                    let email = email.ok_or("--email is required for --kind googleCalendar")?;
+                    let id = id.unwrap_or_else(|| derive_mailbox_id_from_email(&email));
+                    let calendar_ids = if calendar.is_empty() {
+                        Some(vec!["primary".to_string()])
+                    } else {
+                        Some(calendar)
+                    };
+                    SourceConfigJson {
+                        id,
+                        kind: SourceKind::GoogleCalendar,
+                        email: email.clone(),
+                        label,
+                        imap: None,
+                        imap_auth: None,
+                        search: None,
+                        identity: None,
+                        apple_mail_path: None,
+                        path: None,
+                        local_dir: None,
+                        oauth_source_id: oauth_source_id
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty()),
+                        calendar_ids,
+                        ics_url: None,
+                    }
+                }
+                SourceKind::AppleCalendar => {
+                    #[cfg(not(target_os = "macos"))]
+                    {
+                        return Err(
+                            "appleCalendar sources are only supported on macOS (EventKit).".into(),
+                        );
+                    }
+                    let id = id.unwrap_or_else(|| "apple-calendar".into());
+                    SourceConfigJson {
+                        id,
+                        kind: SourceKind::AppleCalendar,
+                        email: email.unwrap_or_default(),
+                        label,
+                        imap: None,
+                        imap_auth: None,
+                        search: None,
+                        identity: None,
+                        apple_mail_path: None,
+                        path: None,
+                        local_dir: None,
+                        oauth_source_id: None,
+                        calendar_ids: None,
+                        ics_url: None,
+                    }
+                }
+                SourceKind::IcsSubscription => {
+                    let url_s = url.ok_or("--url is required for --kind icsSubscription")?;
+                    let id = id.unwrap_or_else(|| {
+                        let mut h = Sha256::new();
+                        h.update(url_s.as_bytes());
+                        let d = h.finalize();
+                        let hex: String = d.iter().take(4).map(|b| format!("{:02x}", b)).collect();
+                        format!("ics-{hex}")
+                    });
+                    SourceConfigJson {
+                        id,
+                        kind: SourceKind::IcsSubscription,
+                        email: String::new(),
+                        label,
+                        imap: None,
+                        imap_auth: None,
+                        search: None,
+                        identity: None,
+                        apple_mail_path: None,
+                        path: None,
+                        local_dir: None,
+                        oauth_source_id: None,
+                        calendar_ids: None,
+                        ics_url: Some(url_s),
+                    }
+                }
+                SourceKind::IcsFile => {
+                    let path_s = path.ok_or("--path is required for --kind icsFile")?;
+                    let root = expand_tilde_path(&path_s);
+                    let root = root
+                        .canonicalize()
+                        .map_err(|e| format!("icsFile --path {}: {e}", path_s))?;
+                    if !root.is_file() {
+                        return Err(
+                            format!("icsFile --path is not a file: {}", root.display()).into()
+                        );
+                    }
+                    let id = id.unwrap_or_else(|| {
+                        root.file_stem()
+                            .and_then(|s| s.to_str())
+                            .map(|s| derive_mailbox_id_from_email(&format!("ics-{s}@local")))
+                            .unwrap_or_else(|| "ics-file".into())
+                    });
+                    SourceConfigJson {
+                        id,
+                        kind: SourceKind::IcsFile,
+                        email: String::new(),
+                        label,
+                        imap: None,
+                        imap_auth: None,
+                        search: None,
+                        identity: None,
+                        apple_mail_path: None,
+                        path: Some(root.to_string_lossy().to_string()),
+                        local_dir: None,
+                        oauth_source_id: None,
+                        calendar_ids: None,
+                        ics_url: None,
                     }
                 }
             };
@@ -187,11 +320,16 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                 sources[pos].label = Some(l);
             }
             if let Some(p) = path {
-                if sources[pos].kind != SourceKind::LocalDir {
-                    return Err("--path only applies to localDir sources".into());
+                if sources[pos].kind != SourceKind::LocalDir
+                    && sources[pos].kind != SourceKind::IcsFile
+                {
+                    return Err("--path only applies to localDir and icsFile sources".into());
                 }
                 let root = expand_tilde_path(&p);
                 let root = root.canonicalize().map_err(|e| format!("--path: {e}"))?;
+                if sources[pos].kind == SourceKind::IcsFile && !root.is_file() {
+                    return Err("--path must be an existing file for icsFile".into());
+                }
                 sources[pos].path = Some(root.to_string_lossy().to_string());
             }
             cfg.sources = Some(sources);
@@ -232,10 +370,17 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
             };
             let mut rows: Vec<serde_json::Value> = Vec::new();
             for s in &sources_cfg {
-                let (doc_count, last) = if let Some(ref conn) = conn_opt {
+                let (doc_count, cal_count, last) = if let Some(ref conn) = conn_opt {
                     let doc_count: i64 = conn
                         .query_row(
                             "SELECT COUNT(*) FROM document_index WHERE source_id = ?1",
+                            [&s.id],
+                            |r| r.get(0),
+                        )
+                        .unwrap_or(0);
+                    let cal_count: i64 = conn
+                        .query_row(
+                            "SELECT COUNT(*) FROM calendar_events WHERE source_id = ?1",
                             [&s.id],
                             |r| r.get(0),
                         )
@@ -248,14 +393,15 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         )
                         .optional()
                         .map_err(|e| e.to_string())?;
-                    (doc_count, last)
+                    (doc_count, cal_count, last)
                 } else {
-                    (0i64, None)
+                    (0i64, 0i64, None)
                 };
                 rows.push(serde_json::json!({
                     "id": s.id,
                     "kind": kind_label(s.kind),
                     "documentIndexRows": doc_count,
+                    "calendarEventRows": cal_count,
                     "lastSyncedAt": last,
                 }));
             }

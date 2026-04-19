@@ -19,10 +19,10 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json --noEmit",
-    "ci": "npm run lint && npm run typecheck && npm run test && cargo fmt --all -- --check && cargo clippy --workspace -- -D warnings && cargo nextest run -p ripmail --profile ci",
+    "ci": "npm run lint && npm run typecheck && npm run test && cargo fmt --all -- --check && cargo clippy --workspace -- -D warnings && cargo t --workspace --profile ci",
     "ripmail:build": "cargo build -p ripmail --release",
     "ripmail:dev": "cargo build -p ripmail",
-    "ripmail:test": "cargo nextest run -p ripmail",
+    "ripmail:test": "cargo t -p ripmail",
     "brain:clean:dev": "node scripts/clean-brain-dev-data.mjs",
     "desktop": "tauri",
     "desktop:bundle-server": "node scripts/bundle-tauri-server.mjs",
@@ -44,7 +44,6 @@
     "hono": "^4.12.14",
     "marked": "^15.0.0",
     "papaparse": "^5.5.3",
-    "rrule": "^2.8.1",
     "turndown": "^7.2.4"
   },
   "devDependencies": {

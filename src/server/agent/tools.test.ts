@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { writeCache } from '../lib/calendarCache.js'
+import { getCalendarEventsFromRipmail } from '../lib/calendarRipmail.js'
+
+vi.mock('../lib/calendarRipmail.js', () => ({
+  getCalendarEventsFromRipmail: vi.fn(),
+}))
 import {
   buildDraftEditFlags,
   buildInboxRulesCommand,
@@ -21,6 +25,10 @@ beforeEach(async () => {
   brainHome = await mkdtemp(join(tmpdir(), 'tools-test-'))
   process.env.BRAIN_HOME = brainHome
   wikiDir = join(brainHome, 'wiki')
+  vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
+    events: [],
+    meta: { sourcesConfigured: false, ripmail: '' },
+  })
   await mkdir(join(wikiDir, 'ideas'), { recursive: true })
   await writeFile(join(wikiDir, 'ideas', 'foo.md'), '# Foo\nThis is a foo idea.')
   await writeFile(join(wikiDir, 'index.md'), '# Home\nWelcome to the wiki.')
@@ -428,28 +436,28 @@ describe('createAgentTools', () => {
   })
 
   describe('get_calendar_events tool', () => {
-    beforeEach(async () => {
-      await mkdir(join(brainHome, 'cache'), { recursive: true })
-    })
-
     it('returns events in the requested date range', async () => {
-      await writeCache('personal', [
-        { id: 'e1', title: 'Team Lunch', start: '2026-04-12T12:00:00Z', end: '2026-04-12T13:00:00Z', allDay: false, source: 'personal' },
-        { id: 'e2', title: 'Far Future', start: '2026-05-01T10:00:00Z', end: '2026-05-01T11:00:00Z', allDay: false, source: 'personal' },
-      ])
+      vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
+        events: [
+          { id: 'e1', title: 'Team Lunch', start: '2026-04-12T12:00:00Z', end: '2026-04-12T13:00:00Z', allDay: false, source: 'googleCalendar' },
+        ],
+        meta: { sourcesConfigured: true, ripmail: 'x' },
+      })
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
       const result = await tool.execute('test-cal-1', { start: '2026-04-12', end: '2026-04-12' })
       const text = result.content.map((c: any) => c.text).join('')
       expect(text).toContain('Team Lunch')
-      expect(text).not.toContain('Far Future')
     })
 
     it('includes startDayOfWeek and endDayOfWeek in JSON for the agent', async () => {
-      await writeCache('personal', [
-        { id: 'e1', title: 'All day Mon', start: '2026-04-20', end: '2026-04-21', allDay: true, source: 'personal' },
-      ])
+      vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
+        events: [
+          { id: 'e1', title: 'All day Mon', start: '2026-04-20', end: '2026-04-21', allDay: true, source: 'googleCalendar' },
+        ],
+        meta: { sourcesConfigured: true, ripmail: 'x' },
+      })
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
@@ -465,7 +473,7 @@ describe('createAgentTools', () => {
       const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
       const result = await tool.execute('test-cal-2', { start: '2026-04-12', end: '2026-04-12' })
       const text = result.content.map((c: any) => c.text).join('')
-      expect(text).toContain('No events found')
+      expect(text).toContain('No calendar sources')
     })
   })
 

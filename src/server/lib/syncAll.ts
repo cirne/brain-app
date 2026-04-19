@@ -1,7 +1,8 @@
 import process from 'node:process'
 import { spawn } from 'node:child_process'
-import { parseICS, writeCache } from './calendarCache.js'
 import { formatExecError } from './execError.js'
+import { ripmailHomeForBrain } from './brainHome.js'
+import { ensureGoogleCalendarSourcesForOAuthImap } from './googleOAuth.js'
 import { ripmailBin } from './ripmailBin.js'
 import { ripmailProcessEnv } from './ripmailExec.js'
 
@@ -13,15 +14,6 @@ export interface SyncComponentResult {
 export interface FullSyncResult {
   wiki: SyncComponentResult
   inbox: SyncComponentResult
-  calendar: SyncComponentResult
-}
-
-async function fetchAndCacheCalendar(source: 'travel' | 'personal', url: string): Promise<void> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${source} calendar`)
-  const text = await res.text()
-  const events = parseICS(text, source)
-  await writeCache(source, events)
 }
 
 /**
@@ -33,15 +25,19 @@ export async function syncWikiFromDisk(): Promise<SyncComponentResult> {
 }
 
 /**
- * Kick off `ripmail refresh` without blocking. The CLI may keep running a supervisor
- * while sync continues; `exec()` would wait on that process — use a detached spawn instead.
+ * Kick off `ripmail refresh` without blocking. Syncs mail, calendar sources, local dirs, etc.
+ * The CLI may keep running a supervisor while sync continues; use a detached spawn instead of `exec()`.
  */
-/** Env passed to `ripmail refresh` so it uses the same store as `ripmail status` / onboarding (see `ripmailHomeForBrain`). */
 export function ripmailRefreshEnv(): typeof process.env {
   return ripmailProcessEnv()
 }
 
 export async function syncInboxRipmail(): Promise<SyncComponentResult> {
+  try {
+    await ensureGoogleCalendarSourcesForOAuthImap(ripmailHomeForBrain())
+  } catch (e) {
+    console.error('[brain-app] ensureGoogleCalendarSourcesForOAuthImap:', e)
+  }
   const rm = ripmailBin()
   return new Promise((resolve) => {
     const child = spawn(rm, ['refresh'], {
@@ -55,7 +51,7 @@ export async function syncInboxRipmail(): Promise<SyncComponentResult> {
     }
     child.once('error', (err) => {
       const detail = formatExecError(err)
-      console.error('[brain-app] inbox sync failed:', detail)
+      console.error('[brain-app] ripmail refresh failed:', detail)
       done({ ok: false, error: detail })
     })
     child.once('spawn', () => {
@@ -65,39 +61,12 @@ export async function syncInboxRipmail(): Promise<SyncComponentResult> {
   })
 }
 
-/** Fetch configured ICS URLs and update local calendar cache. */
-export async function syncCalendarFromEnv(): Promise<SyncComponentResult> {
-  const travelUrl = process.env.CIRNE_TRAVEL_ICS_URL
-  const personalUrl = process.env.LEW_PERSONAL_ICS_URL
-
-  const results = await Promise.allSettled([
-    travelUrl ? fetchAndCacheCalendar('travel', travelUrl) : Promise.resolve(),
-    personalUrl ? fetchAndCacheCalendar('personal', personalUrl) : Promise.resolve(),
-  ])
-
-  const errors = results
-    .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-    .map(r => String(r.reason?.message ?? r.reason))
-
-  if (errors.length > 0) {
-    const detail = errors.join('; ')
-    console.error('[brain-app] calendar sync failed:', detail)
-    return { ok: false, error: detail }
-  }
-
-  return { ok: true }
-}
-
 /**
- * Wiki + inbox + calendar. Does not throw — callers log per-component results.
+ * Wiki + ripmail refresh (includes indexed calendar). Does not throw — callers log per-component results.
  */
 export async function runFullSync(): Promise<FullSyncResult> {
-  const [wiki, inbox, calendar] = await Promise.all([
-    syncWikiFromDisk(),
-    syncInboxRipmail(),
-    syncCalendarFromEnv(),
-  ])
-  return { wiki, inbox, calendar }
+  const [wiki, inbox] = await Promise.all([syncWikiFromDisk(), syncInboxRipmail()])
+  return { wiki, inbox }
 }
 
 const DEFAULT_SYNC_INTERVAL_SECONDS = 300

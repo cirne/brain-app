@@ -7,8 +7,9 @@ import {
   exchangeAuthorizationCode,
   fetchGoogleUserEmail,
   generatePkce,
-  GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL,
+  GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY,
   upsertRipmailConfig,
+  upsertRipmailGoogleCalendarSource,
   writeGoogleOAuthTokenFile,
 } from '../lib/googleOAuth.js'
 import {
@@ -39,7 +40,7 @@ app.get('/start', (c) => {
   const url = buildGoogleAuthorizeUrl({
     clientId: oauth.clientId,
     redirectUri: oauth.redirectUri,
-    scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL,
+    scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY,
     state,
     codeChallenge: challenge,
   })
@@ -100,6 +101,7 @@ app.get('/callback', async (c) => {
   try {
     await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
     await upsertRipmailConfig(ripmailHome, mailboxId, email)
+    await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
   } catch (e) {
     const msg = encodeURIComponent(e instanceof Error ? e.message : String(e))
     return c.redirect(`/?gmailError=${msg}`)

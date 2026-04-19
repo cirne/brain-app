@@ -57,6 +57,10 @@ fn whoami_one_mailbox(
         crate::config::SourceKind::Imap => "imap".to_string(),
         crate::config::SourceKind::AppleMail => "applemail".to_string(),
         crate::config::SourceKind::LocalDir => "localDir".to_string(),
+        crate::config::SourceKind::GoogleCalendar => "googleCalendar".to_string(),
+        crate::config::SourceKind::AppleCalendar => "appleCalendar".to_string(),
+        crate::config::SourceKind::IcsSubscription => "icsSubscription".to_string(),
+        crate::config::SourceKind::IcsFile => "icsFile".to_string(),
     });
     let identity = json_row.and_then(|r| r.identity);
 
@@ -291,6 +295,7 @@ mod tests {
             maildir_path: Path::new("/tmp/m").into(),
             apple_mail_root: None,
             local_dir: None,
+            calendar: None,
         }
     }
 

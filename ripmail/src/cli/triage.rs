@@ -5,6 +5,8 @@ use std::sync::OnceLock;
 use crate::cli::args::InboxArgs;
 use crate::cli::util::ripmail_home_path;
 use crate::cli::CliResult;
+use ripmail::calendar::{apple_calendar_sync_available, run_calendar_sync};
+use ripmail::config::CalendarSourceResolved;
 use ripmail::{
     build_review_json, connect_imap_for_resolved_mailbox, count_indexed_messages_simple_window,
     count_unarchived_messages_by_mailbox, db, google_oauth_credentials_present, inbox_json_hints,
@@ -27,7 +29,38 @@ fn mailbox_imap_ready(home: &std::path::Path, mb: &ResolvedMailbox) -> bool {
     }
 }
 
+fn calendar_source_ready(home: &std::path::Path, mb: &ResolvedMailbox) -> bool {
+    let Some(cal) = mb.calendar.as_ref() else {
+        return false;
+    };
+    match cal {
+        CalendarSourceResolved::Google {
+            token_mailbox_id, ..
+        } => google_oauth_credentials_present(home, token_mailbox_id),
+        CalendarSourceResolved::Apple => apple_calendar_sync_available(),
+        CalendarSourceResolved::IcsUrl { .. } => true,
+        CalendarSourceResolved::IcsPath { path } => path.is_file(),
+    }
+}
+
+fn eprintln_calendar_not_ready(mb: &ResolvedMailbox) {
+    if mb.kind == SourceKind::AppleCalendar && !apple_calendar_sync_available() {
+        eprintln!(
+            "ripmail: skipping {} (Apple Calendar: EventKit sync not available in this build yet)",
+            mb.id
+        );
+    } else {
+        eprintln!(
+            "ripmail: skipping {} (calendar not ready: OAuth token, ICS file path, or unsupported platform for Apple)",
+            mb.id
+        );
+    }
+}
+
 fn mailbox_sync_ready(home: &std::path::Path, mb: &ResolvedMailbox) -> bool {
+    if mb.calendar.is_some() {
+        return calendar_source_ready(home, mb);
+    }
     if mb.kind == SourceKind::LocalDir {
         return mb
             .local_dir
@@ -153,6 +186,23 @@ pub(crate) fn print_sync_foreground_metrics(r: &SyncResult) {
     println!("Sync log: {}", r.log_path);
 }
 
+/// Calendar / ICS connectors are quick; IMAP backfill can run for a long time. Config order often
+/// lists Gmail before `googleCalendar`, which meant a full-history mail sync blocked calendar
+/// indexing until IMAP finished — users saw empty `calendar_events` indefinitely.
+fn prioritize_calendar_sources_first(mailboxes: Vec<ResolvedMailbox>) -> Vec<ResolvedMailbox> {
+    let mut cal = Vec::new();
+    let mut rest = Vec::new();
+    for mb in mailboxes {
+        if mb.calendar.is_some() {
+            cal.push(mb);
+        } else {
+            rest.push(mb);
+        }
+    }
+    cal.extend(rest);
+    cal
+}
+
 fn mailboxes_to_run(
     cfg: &ripmail::Config,
     mailbox_filter: Option<&str>,
@@ -175,7 +225,9 @@ fn mailboxes_to_run(
     if list.is_empty() {
         return Err("No sources configured. Run `ripmail setup` or `ripmail sources add`.".into());
     }
-    Ok(list.into_iter().cloned().collect())
+    Ok(prioritize_calendar_sources_first(
+        list.into_iter().cloned().collect(),
+    ))
 }
 
 fn merge_sync_runs(
@@ -277,6 +329,15 @@ pub(crate) fn run_sync_foreground_backward(
                     "ripmail: skipping {} (localDir root missing or not a directory)",
                     mb.id
                 );
+            } else if mb.calendar.is_some() {
+                eprintln_calendar_not_ready(mb);
+                logger.warn(
+                    &format!(
+                        "Skipping calendar source {} (not ready: OAuth token, ICS path, or unsupported Apple sync)",
+                        mb.id
+                    ),
+                    None,
+                );
             } else {
                 eprintln!(
                     "ripmail: skipping {} (missing IMAP credentials or Apple Mail Envelope Index)",
@@ -286,6 +347,21 @@ pub(crate) fn run_sync_foreground_backward(
             continue;
         }
         let mailbox_id = mb.id.clone();
+        if mb.calendar.is_some() {
+            eprintln!("ripmail: syncing calendar source {}…", mb.id);
+            let result =
+                run_calendar_sync(&mut conn, &home, mb, &env_file, &process_env, &logger, true)?;
+            summaries.push(SyncMailboxSummary {
+                id: mb.id.clone(),
+                email: mb.email.clone(),
+                synced: result.synced,
+                messages_fetched: result.messages_fetched,
+                bytes_downloaded: result.bytes_downloaded,
+                duration_ms: result.duration_ms,
+            });
+            runs.push(result);
+            continue;
+        }
         if mb.kind == SourceKind::LocalDir {
             eprintln!("ripmail: indexing local directory {}…", mb.id);
             let result = run_local_dir_sync(&mut conn, mb, true)?;
@@ -382,6 +458,15 @@ pub(crate) fn run_sync_foreground_refresh(
                         "ripmail: skipping {} (localDir root missing or not a directory)",
                         mb.id
                     );
+                } else if mb.calendar.is_some() {
+                    eprintln_calendar_not_ready(mb);
+                    logger.warn(
+                        &format!(
+                            "Skipping calendar source {} (not ready: OAuth token, ICS path, or unsupported Apple sync)",
+                            mb.id
+                        ),
+                        None,
+                    );
                 } else {
                     eprintln!(
                         "ripmail: skipping {} (missing IMAP credentials or Apple Mail Envelope Index)",
@@ -392,6 +477,30 @@ pub(crate) fn run_sync_foreground_refresh(
             continue;
         }
         let mailbox_id = mb.id.clone();
+        if mb.calendar.is_some() {
+            if progress_stderr {
+                eprintln!("ripmail: syncing calendar source {}…", mb.id);
+            }
+            let result = run_calendar_sync(
+                &mut conn,
+                &home,
+                mb,
+                &env_file,
+                &process_env,
+                &logger,
+                progress_stderr,
+            )?;
+            summaries.push(SyncMailboxSummary {
+                id: mb.id.clone(),
+                email: mb.email.clone(),
+                synced: result.synced,
+                messages_fetched: result.messages_fetched,
+                bytes_downloaded: result.bytes_downloaded,
+                duration_ms: result.duration_ms,
+            });
+            runs.push(result);
+            continue;
+        }
         if mb.kind == SourceKind::LocalDir {
             if progress_stderr {
                 eprintln!("ripmail: indexing local directory {}…", mb.id);

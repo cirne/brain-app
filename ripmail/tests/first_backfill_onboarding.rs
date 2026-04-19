@@ -23,6 +23,7 @@ fn test_mb(id: &str) -> ResolvedMailbox {
         maildir_path: PathBuf::from("/tmp"),
         apple_mail_root: None,
         local_dir: None,
+        calendar: None,
     }
 }
 

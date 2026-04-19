@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { buildProfilingSystemPrompt, fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'
 import { buildSeedingSystemPrompt } from './seedingAgent.js'
 import { ONBOARDING_OMIT_TOOL_NAMES } from './agentFactory.js'
-import { ALL_AGENT_TOOL_NAMES, buildCreateAgentToolsOptions } from './agentToolSets.js'
+import { ALL_AGENT_TOOL_NAMES, buildCreateAgentToolsOptions, ONBOARDING_SEEDING_OMIT } from './agentToolSets.js'
 
 let wikiDir: string
 beforeEach(async () => {
@@ -33,6 +33,17 @@ describe('buildSeedingSystemPrompt', () => {
     expect(p).toContain('[[wikilinks]]')
     expect(p).toContain('[[me]]')
     expect(p).toContain('[[people/jane-doe]]')
+    expect(p).toMatch(/Contact.*Identifiers/i)
+    expect(p).toMatch(/Never.*invent phone/i)
+    expect(p).not.toContain('list_recent_messages')
+  })
+
+  it('when local messages are available for seeding, mentions Message tools and workflow', () => {
+    const userPage = { relativePath: 'people/lewis-cirne.md', slug: 'lewis-cirne' }
+    const p = buildSeedingSystemPrompt('America/Los_Angeles', '- cats', userPage, true)
+    expect(p).toContain('list_recent_messages')
+    expect(p).toContain('get_message_thread')
+    expect(p).toMatch(/Local Messages \(optional\)/i)
   })
 
   it('when user people page is unknown, keeps optional fallback line', () => {
@@ -80,6 +91,25 @@ describe('onboarding agent tools', () => {
     expect(names).not.toContain('youtube_search')
     expect(names).toContain('search_index')
   })
+
+  it('onboarding seeding preset with local messages includes list_recent_messages and get_message_thread', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const opts = buildCreateAgentToolsOptions({
+      preset: 'onboarding',
+      onboardingVariant: 'seeding',
+      includeLocalMessageTools: true,
+    })
+    const tools = createAgentTools(wikiDir, opts)
+    const names = tools.map((t: { name?: string }) => t.name)
+    expect(names).toContain('list_recent_messages')
+    expect(names).toContain('get_message_thread')
+    expect(names).toContain('web_search')
+  })
+
+  it('ONBOARDING_SEEDING_OMIT does not drop local message tool names', () => {
+    expect(ONBOARDING_SEEDING_OMIT).not.toContain('list_recent_messages')
+    expect(ONBOARDING_SEEDING_OMIT).not.toContain('get_message_thread')
+  })
 })
 
 describe('buildProfilingSystemPrompt', () => {
@@ -90,6 +120,8 @@ describe('buildProfilingSystemPrompt', () => {
     expect(p).toMatch(/injected/i)
     expect(p).toMatch(/AGENTS\.md/i)
     expect(p).toMatch(/read_doc.*20/i)
+    expect(p).toMatch(/Phone numbers and messaging identifiers/i)
+    expect(p).toContain('**people/** pages during seeding')
   })
 
   it('when whoami is JSON, injects display name and email into the prompt', () => {

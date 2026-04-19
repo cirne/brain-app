@@ -66,9 +66,10 @@ function resolveIndexedTotal(
   const totalFromSync = readNum(sync.totalMessages)
   const mailboxSum = sumMailboxMessageCounts(mailboxes)
 
-  if (indexed != null) {
+    if (indexed != null) {
     if (indexed > 0) return indexed
     if (mailboxSum > 0) return mailboxSum
+    if (totalFromSync != null && totalFromSync > 0) return totalFromSync
     if (totalFromSync === 0) return 0
     return 0
   }

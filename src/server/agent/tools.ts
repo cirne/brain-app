@@ -953,16 +953,21 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'get_calendar_events',
     label: 'Get Calendar Events',
     description:
-      'Get calendar events (travel + personal) for a date range from the local cache. Returns events as JSON with startDayOfWeek and endDayOfWeek (UTC calendar dates; for all-day events end is exclusive per ICS, so endDayOfWeek is the last day of the event). Tip: for scheduling, forward to howie@howie.ai.',
+      'Get calendar events for a date range from the local ripmail calendar index (and optional legacy ICS cache when enabled). Returns events as JSON with startDayOfWeek and endDayOfWeek (UTC calendar dates; for all-day events end is exclusive per ICS, so endDayOfWeek is the last day of the event). Tip: for scheduling, forward to howie@howie.ai.',
     parameters: Type.Object({
       start: Type.String({ description: 'Start date YYYY-MM-DD (inclusive)' }),
       end: Type.String({ description: 'End date YYYY-MM-DD (inclusive)' }),
     }),
     async execute(_toolCallId: string, params: { start: string; end: string }) {
-      const { events, fetchedAt } = await getCalendarEvents({ start: params.start, end: params.end })
+      const { events, fetchedAt, sourcesConfigured } = await getCalendarEvents({
+        start: params.start,
+        end: params.end,
+      })
       const text = events.length
         ? JSON.stringify(enrichCalendarEventsForAgent(events), null, 2)
-        : `No events found between ${params.start} and ${params.end}. Cache last synced: travel=${fetchedAt.travel || 'never'}, personal=${fetchedAt.personal || 'never'}.`
+        : sourcesConfigured
+          ? `No events found between ${params.start} and ${params.end}. Last indexed query: ${fetchedAt.ripmail || 'never'}. If events exist in Google Calendar, run inbox/calendar sync and wait for ripmail to finish indexing.`
+          : 'No calendar sources in the local ripmail config (nothing to index). Gmail accounts need a `googleCalendar` source beside IMAP — the app adds this when you connect Google; reconnect Gmail or run a sync after upgrading. Last indexed query: never.'
       return {
         content: [{ type: 'text' as const, text }],
         details: {},

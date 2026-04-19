@@ -18,6 +18,7 @@
     isProfilingMeMdPath,
     lastMeaningfulToolCall,
     onboardingActivityLine,
+    type SeedingProgressEvent,
   } from './profilingResources.js'
 
   let {
@@ -29,6 +30,19 @@
   }: AgentConversationViewProps = $props()
 
   let shell = $state<ConversationScrollApi | undefined>()
+
+  const profilingEvents = $derived.by((): SeedingProgressEvent[] => {
+    const events: SeedingProgressEvent[] = []
+    for (const msg of messages) {
+      if (msg.role !== 'assistant') continue
+      for (const part of msg.parts ?? []) {
+        if (part.type === 'text' && part.content?.trim()) {
+          events.push({ type: 'text', content: part.content })
+        }
+      }
+    }
+    return events
+  })
 
   const peopleBlock = $derived(extractProfilingPeople(messages))
   const activity = $derived(onboardingActivityLine(messages, streaming, 'profiling'))
@@ -71,7 +85,7 @@
   {streamingWrite}
 >
   {#snippet children({ reduceMotion })}
-    <OnboardingLocalWikiLead {...profilingLeadCopy} />
+    <OnboardingLocalWikiLead {...profilingLeadCopy} hideTitle />
 
     {#if streaming && activity}
       <p class="ob-prof-activity" role="status" aria-live="polite">
@@ -92,6 +106,18 @@
         <span>{lastToolLabel}</span>
       </p>
     {/if}
+
+    {#each profilingEvents as event}
+      {#if event.type === 'text'}
+        <div class="ob-prof-chat-msg" role="article">
+          <div class="ob-prof-msg-label">Assistant</div>
+          <div class="ob-prof-msg-body markdown">
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            {@html renderMarkdown(event.content)}
+          </div>
+        </div>
+      {/if}
+    {/each}
 
     {#if peopleBlock.people.length > 0 || peopleBlock.peopleOverflow > 0}
       <section class="ob-prof-section" aria-labelledby="ob-prof-people-heading">

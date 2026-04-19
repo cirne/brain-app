@@ -121,9 +121,15 @@
   }
 </script>
 
-<article class="ced">
+  <article class="ced">
   <h2 class="ced-title">{event.title}</h2>
-  <p class="ced-badge" data-source={event.source}>{calendarSourceLabel(event.source)}</p>
+  <p
+    class="ced-badge"
+    data-source={event.source}
+    style={event.color ? `--custom-bg: color-mix(in srgb, ${event.color} 22%, var(--bg-3)); --custom-text: var(--text);` : ''}
+  >
+    {calendarSourceLabel(event.source)}
+  </p>
 
   <dl class="ced-dl">
     <div class="ced-row">
@@ -283,18 +289,18 @@
     letter-spacing: 0.06em;
     padding: 4px 10px;
     border-radius: 999px;
-    background: var(--bg-3);
-    color: var(--text-2);
+    background: var(--custom-bg, var(--bg-3));
+    color: var(--custom-text, var(--text-2));
   }
 
   .ced-badge[data-source='travel'] {
-    background: color-mix(in srgb, #f59e0b 22%, var(--bg-3));
-    color: var(--text);
+    background: var(--custom-bg, color-mix(in srgb, #f59e0b 22%, var(--bg-3)));
+    color: var(--custom-text, var(--text));
   }
 
   .ced-badge[data-source='personal'] {
-    background: color-mix(in srgb, var(--accent) 18%, var(--bg-3));
-    color: var(--text);
+    background: var(--custom-bg, color-mix(in srgb, var(--accent) 18%, var(--bg-3)));
+    color: var(--custom-text, var(--text));
   }
 
   .ced-dl {

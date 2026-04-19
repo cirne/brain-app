@@ -10,6 +10,10 @@ import { join } from 'node:path'
 export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL =
   'https://mail.google.com/ openid email'
 
+/** Gmail IMAP + Google Calendar read + OpenID/email discovery — matches `ripmail` `GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY`. */
+export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY =
+  'https://mail.google.com/ https://www.googleapis.com/auth/calendar.readonly openid email'
+
 const GOOGLE_AUTH_URI = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN_URI = 'https://oauth2.googleapis.com/token'
 const GOOGLE_USERINFO_URI = 'https://www.googleapis.com/oauth2/v3/userinfo'
@@ -201,8 +205,17 @@ export type RipmailSourceEntry = {
   label?: string
 }
 
+/** `config.json` entry for `googleCalendar` sources (OAuth token reuse from an `imap` mailbox id). */
+export type RipmailGoogleCalendarSourceEntry = {
+  id: string
+  kind: 'googleCalendar'
+  email: string
+  oauthSourceId: string
+  calendarIds?: string[]
+}
+
 export type RipmailConfigJson = {
-  sources?: RipmailSourceEntry[]
+  sources?: Array<RipmailSourceEntry | RipmailGoogleCalendarSourceEntry>
   imap?: unknown
   sync?: {
     defaultSince?: string
@@ -238,11 +251,15 @@ export async function upsertRipmailConfig(
   const idx = sources.findIndex((s) => s.id === mailboxId)
   if (idx >= 0) {
     const prev = sources[idx]
-    sources[idx] = {
-      ...base,
-      search: prev.search,
-      identity: prev.identity,
-      label: prev.label,
+    if (prev.kind === 'imap') {
+      sources[idx] = {
+        ...base,
+        search: prev.search,
+        identity: prev.identity,
+        label: prev.label,
+      }
+    } else {
+      sources[idx] = base
     }
   } else {
     sources.push(base)
@@ -262,4 +279,87 @@ export async function upsertRipmailConfig(
 
   const out = `${JSON.stringify(cfg, null, 2)}\n`
   await writeFile(path, out, 'utf8')
+}
+
+/** Adds or updates a `googleCalendar` source that reuses `google-oauth.json` under `mailboxId`. */
+export async function upsertRipmailGoogleCalendarSource(
+  ripmailHome: string,
+  mailboxId: string,
+  email: string,
+): Promise<void> {
+  await mkdir(ripmailHome, { recursive: true })
+  const path = join(ripmailHome, 'config.json')
+  let cfg: RipmailConfigJson = {}
+  try {
+    const raw = await readFile(path, 'utf8')
+    cfg = JSON.parse(raw) as RipmailConfigJson
+  } catch {
+    /* new file */
+  }
+
+  const calId = `${mailboxId}-gcal`
+  const entry: RipmailGoogleCalendarSourceEntry = {
+    id: calId,
+    kind: 'googleCalendar',
+    email: email.trim(),
+    oauthSourceId: mailboxId,
+    calendarIds: ['primary'],
+  }
+
+  const sources = [...(cfg.sources ?? [])] as Array<
+    RipmailSourceEntry | RipmailGoogleCalendarSourceEntry
+  >
+  const idx = sources.findIndex((s) => s.id === calId)
+  if (idx >= 0) {
+    sources[idx] = entry
+  } else {
+    sources.push(entry)
+  }
+
+  cfg.sources = sources as RipmailConfigJson['sources']
+  const out = `${JSON.stringify(cfg, null, 2)}\n`
+  await writeFile(path, out, 'utf8')
+}
+
+/**
+ * Ensures each Gmail-OAuth IMAP source has a sibling `googleCalendar` entry (reusing the same
+ * `google-oauth.json`). Callers that only ran `upsertRipmailConfig` before calendar support shipped,
+ * or imported mail-only ripmail config, can otherwise have mail indexed with no calendar source —
+ * `ripmail calendar list-calendars` is empty and `get_calendar_events` always returns no rows.
+ */
+export async function ensureGoogleCalendarSourcesForOAuthImap(ripmailHome: string): Promise<void> {
+  const path = join(ripmailHome, 'config.json')
+  let raw: string
+  try {
+    raw = await readFile(path, 'utf8')
+  } catch {
+    return
+  }
+  let cfg: RipmailConfigJson
+  try {
+    cfg = JSON.parse(raw) as RipmailConfigJson
+  } catch {
+    return
+  }
+  const sources = cfg.sources ?? []
+  const covered = new Set<string>()
+  for (const s of sources) {
+    if (!s || typeof s !== 'object') continue
+    const o = s as { kind?: string; oauthSourceId?: string }
+    if (o.kind === 'googleCalendar' && typeof o.oauthSourceId === 'string' && o.oauthSourceId.trim()) {
+      covered.add(o.oauthSourceId.trim())
+    }
+  }
+  for (const s of sources) {
+    if (!s || typeof s !== 'object') continue
+    const o = s as { kind?: string; id?: string; email?: string; imapAuth?: string }
+    if (o.kind !== 'imap') continue
+    if (o.imapAuth !== 'googleOAuth') continue
+    const id = typeof o.id === 'string' ? o.id.trim() : ''
+    const email = typeof o.email === 'string' ? o.email.trim() : ''
+    if (!id || !email) continue
+    if (covered.has(id)) continue
+    await upsertRipmailGoogleCalendarSource(ripmailHome, id, email)
+    covered.add(id)
+  }
 }

@@ -35,8 +35,8 @@
   let weekStart = $state(sundayOf(new Date()))
   let events = $state<CalendarEvent[]>([])
   let loading = $state(false)
-  let fetchedAt = $state({ travel: '', personal: '' })
-  let urlsConfigured = $state(false)
+  let fetchedAt = $state({ ripmail: '' })
+  let sourcesConfigured = $state(false)
 
   /** Drill-down: full event detail (title, when, where, notes). */
   let detailEvent = $state<CalendarEvent | null>(null)
@@ -139,7 +139,7 @@
         const data = await res.json()
         events = data.events
         fetchedAt = data.fetchedAt
-        urlsConfigured = data.urlsConfigured ?? false
+        sourcesConfigured = data.sourcesConfigured ?? false
       }
     } finally {
       loading = false
@@ -188,7 +188,7 @@
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   }
 
-  const configured = $derived(!!fetchedAt.travel || !!fetchedAt.personal || events.length > 0)
+  const configured = $derived(sourcesConfigured || !!fetchedAt.ripmail || events.length > 0)
 
   const registerCalendarHeader = getContext<SetCalendarSlideHeader | undefined>(CALENDAR_SLIDE_HEADER)
 
@@ -209,12 +209,15 @@
 <div class="calendar">
   {#if !configured && !loading}
     <div class="empty-state">
-      {#if urlsConfigured}
+      {#if sourcesConfigured}
         <p>No calendar data yet.</p>
         <button class="sync-btn" onclick={sync}>↻ Sync now</button>
       {:else}
         <p>No calendar configured.</p>
-        <p class="hint">Set <code>CIRNE_TRAVEL_ICS_URL</code> and <code>LEW_PERSONAL_ICS_URL</code> in your .env.</p>
+        <p class="hint">
+          Connect Gmail (calendar is included) or add a calendar source under ripmail — see onboarding and <code>ripmail
+            sources</code>.
+        </p>
       {/if}
     </div>
   {:else if detailEvent}

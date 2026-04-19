@@ -26,6 +26,10 @@ fn source_kind_cli_label(k: SourceKind) -> &'static str {
         SourceKind::Imap => "imap",
         SourceKind::AppleMail => "applemail",
         SourceKind::LocalDir => "localDir",
+        SourceKind::GoogleCalendar => "googleCalendar",
+        SourceKind::AppleCalendar => "appleCalendar",
+        SourceKind::IcsSubscription => "icsSubscription",
+        SourceKind::IcsFile => "icsFile",
     }
 }
 

@@ -853,7 +853,9 @@ where
     let lock_result = acquire_lock(conn, pid)?;
     if !lock_result.acquired {
         logger.info("Could not acquire sync lock", None);
-        drop(rx.recv());
+        // Drop the receiver only: do not `recv()` — we are not going to use the session, and waiting
+        // here would block on a slow/hung IMAP connect even though this run will not sync.
+        drop(rx);
         let duration_ms = start.elapsed().as_millis() as u64;
         return Ok(SyncResult::empty(duration_ms, prelude.log_path_str.clone()));
     }

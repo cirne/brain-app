@@ -36,6 +36,9 @@ fn local_dir_sync_indexes_files_and_fts_finds_body() {
             apple_mail_path: None,
             path: Some(root.to_string_lossy().into()),
             local_dir: Some(LocalDirJson::default()),
+            oauth_source_id: None,
+            calendar_ids: None,
+            ics_url: None,
         }]),
         ..Default::default()
     };

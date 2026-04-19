@@ -2,15 +2,17 @@
   import { Lock } from 'lucide-svelte'
   import type { OnboardingLeadBlock } from './onboardingLeadCopy.js'
 
-  let { title, lead }: OnboardingLeadBlock = $props()
+  let { title, lead, hideTitle = false }: OnboardingLeadBlock & { hideTitle?: boolean } = $props()
 </script>
 
-<header class="ob-local-wiki-lead" aria-labelledby="ob-local-wiki-title">
+<header class="ob-local-wiki-lead" aria-labelledby={hideTitle ? undefined : "ob-local-wiki-title"}>
   <div class="ob-local-wiki-lead-icon" aria-hidden="true">
     <Lock size={20} strokeWidth={2} />
   </div>
   <div class="ob-local-wiki-lead-text">
-    <h1 id="ob-local-wiki-title" class="ob-prof-title">{title}</h1>
+    {#if !hideTitle}
+      <h1 id="ob-local-wiki-title" class="ob-prof-title">{title}</h1>
+    {/if}
     <p class="ob-prof-lead">{lead}</p>
   </div>
 </header>
