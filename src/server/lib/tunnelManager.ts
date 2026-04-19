@@ -7,6 +7,17 @@ import { onboardingDataDir } from './onboardingState.js'
 let tunnelInstance: Tunnel | null = null
 let activeTunnelUrl: string | null = null
 
+/** Strip query string for logs — never log the magic `g` param (host GUID). */
+function tunnelUrlForLog(url: string): string {
+  try {
+    const u = new URL(url)
+    u.search = ''
+    return u.toString()
+  } catch {
+    return '(tunnel url)'
+  }
+}
+
 /**
  * Returns a persistent GUID for this specific host/client.
  * Stored in the onboarding data directory.
@@ -78,13 +89,12 @@ export async function startTunnel(port: number): Promise<string | null> {
   }
 
   const token = process.env.CLOUDFLARE_TUNNEL_TOKEN
-  const tunnelName = randomUUID()
   const customPath = getCloudflaredPath()
-  
+
   if (token) {
     console.log(`[brain-app] Starting authenticated Cloudflare tunnel for port ${port}...${customPath ? ` (using sidecar: ${customPath})` : ''}`)
   } else {
-    console.log(`[brain-app] Starting Cloudflare Quick Tunnel (${tunnelName}) for port ${port}...${customPath ? ` (using sidecar: ${customPath})` : ''}`)
+    console.log(`[brain-app] Starting Cloudflare Quick Tunnel for port ${port}...${customPath ? ` (using sidecar: ${customPath})` : ''}`)
   }
 
   return new Promise((resolve) => {
@@ -108,8 +118,10 @@ export async function startTunnel(port: number): Promise<string | null> {
       
       // Named tunnels usually take a moment to connect
       tunnelInstance.on('connected', () => {
-        console.log(`[brain-app] Authenticated Cloudflare tunnel connected! (Routing to http://localhost:${port})`)
-        console.log(`[brain-app] Magic URL: ${activeTunnelUrl}`)
+        const safe = activeTunnelUrl ? tunnelUrlForLog(activeTunnelUrl) : '(pending)'
+        console.log(
+          `[brain-app] Authenticated Cloudflare tunnel connected (routing to http://localhost:${port}; public ${safe})`,
+        )
         resolve(activeTunnelUrl)
       })
     } else {
@@ -120,17 +132,18 @@ export async function startTunnel(port: number): Promise<string | null> {
         const guid = getHostGuid()
         activeTunnelUrl = `${url}/?g=${guid}`
         process.env.BRAIN_TUNNEL_URL = activeTunnelUrl
-        console.log(`[brain-app] Cloudflare tunnel active: ${activeTunnelUrl}`)
+        console.log(`[brain-app] Cloudflare tunnel active: ${tunnelUrlForLog(activeTunnelUrl)}`)
         resolve(activeTunnelUrl)
       })
     }
 
+    const verboseTunnel = process.env.BRAIN_TUNNEL_VERBOSE === '1'
     tunnelInstance.on('stdout', (data: string) => {
-      console.log(`[cloudflared stdout] ${data}`)
+      if (verboseTunnel) console.log(`[cloudflared stdout] ${data}`)
     })
 
     tunnelInstance.on('stderr', (data: string) => {
-      console.log(`[cloudflared stderr] ${data}`)
+      if (verboseTunnel) console.log(`[cloudflared stderr] ${data}`)
     })
 
     tunnelInstance.on('error', (err: Error) => {
@@ -138,7 +151,7 @@ export async function startTunnel(port: number): Promise<string | null> {
       resolve(null)
     })
 
-    tunnelInstance.on('exit', (code: number | null, _signal: NodeJS.Signals | null) => {
+    tunnelInstance.on('exit', (code: number | null, _signal: string | null) => {
       if (code !== 0 && code !== null) {
         console.error(`[brain-app] Cloudflare tunnel exited with code ${code}`)
       }

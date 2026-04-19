@@ -38,8 +38,7 @@
   async function generateQrCode() {
     if (networkInfo) {
       const url = networkInfo.tunnelUrl || (networkInfo.ips.length > 0 ? `http://${networkInfo.ips[0]}:${networkInfo.port}` : null)
-      
-      console.log('Generating QR for URL:', url);
+
       if (url) {
         qrCodeDataUrl = await QRCode.toDataURL(url, {
           width: 240,
