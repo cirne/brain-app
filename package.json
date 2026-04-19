@@ -29,7 +29,8 @@
     "desktop:clean-data": "node scripts/clean-tauri-user-data.mjs",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
-    "desktop:fresh": "node scripts/desktop-fresh.mjs"
+    "desktop:fresh": "node scripts/desktop-fresh.mjs",
+    "desktop:setup-sidecars": "node scripts/setup-sidecars.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",
@@ -38,6 +39,7 @@
     "@mariozechner/pi-coding-agent": "^0.66.1",
     "@mariozechner/pi-web-ui": "^0.66.1",
     "better-sqlite3": "^11.0.0",
+    "cloudflared": "^0.7.1",
     "diff": "^9.0.0",
     "exa-js": "^2.11.0",
     "gray-matter": "^4.0.3",

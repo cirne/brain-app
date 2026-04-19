@@ -8,6 +8,7 @@ export type OnboardingMailProvider = 'apple' | 'google'
 
 export type OnboardingPreferences = {
   mailProvider?: OnboardingMailProvider
+  remoteAccessEnabled?: boolean
 }
 
 function preferencesPath(): string {
@@ -20,11 +21,17 @@ export async function readOnboardingPreferences(): Promise<OnboardingPreferences
     const j = JSON.parse(raw) as unknown
     if (!j || typeof j !== 'object') return {}
     const o = j as Record<string, unknown>
-    const mailProvider = o.mailProvider
+    const mailProvider = o.mailProvider as OnboardingMailProvider | undefined
+    const remoteAccessEnabled = typeof o.remoteAccessEnabled === 'boolean' ? o.remoteAccessEnabled : undefined
+    
+    const res: OnboardingPreferences = {}
     if (mailProvider === 'apple' || mailProvider === 'google') {
-      return { mailProvider }
+      res.mailProvider = mailProvider
     }
-    return {}
+    if (remoteAccessEnabled !== undefined) {
+      res.remoteAccessEnabled = remoteAccessEnabled
+    }
+    return res
   } catch {
     return {}
   }

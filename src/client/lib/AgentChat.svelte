@@ -66,7 +66,7 @@
     /** All server session ids that currently have an in-flight stream (for nav “busy” state). */
     onStreamingSessionsChange,
     /** Persist transcript under this localStorage key; empty = no persistence. */
-    storageKey = 'brain-agent',
+    storageKey: _storageKey = 'brain-agent',
     showNewChatButton = true,
     /**
      * Main transcript UI. Defaults to the standard chat. Pass a different component
@@ -127,11 +127,6 @@
   const ConversationView = $derived(conversationView)
 
   function loadState(): { messages: ChatMessage[]; sessionId: string | null; chatTitle?: string | null } {
-    if (!storageKey) return { messages: [], sessionId: null, chatTitle: null }
-    try {
-      const saved = localStorage.getItem(storageKey)
-      if (saved) return JSON.parse(saved)
-    } catch { /* ignore */ }
     return { messages: [], sessionId: null, chatTitle: null }
   }
 
@@ -217,21 +212,8 @@
   }
 
   $effect(() => {
-    if (!storageKey) return
-    const id = displayedSessionId
-    if (!id) return
-    const st = sessions.get(id)
-    if (!st) return
-    try {
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          messages: st.messages,
-          sessionId: st.sessionId,
-          chatTitle: st.chatTitle,
-        }),
-      )
-    } catch { /* ignore */ }
+    // No-op: localStorage persistence disabled to avoid origin-mismatch issues over tunnels.
+    // Server-side persistence is the source of truth.
   })
 
   async function fetchSkills() {

@@ -13,5 +13,6 @@ wiki/
 coverage/
 target/
 desktop/binaries/ripmail-*
+desktop/src-tauri/bin/cloudflared-*
 desktop/resources/server-bundle/
 *.log

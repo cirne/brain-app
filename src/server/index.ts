@@ -8,6 +8,7 @@ import type { ServerType } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { basicAuth } from 'hono/basic-auth'
 import { logger } from 'hono/logger'
+import { getCookie } from 'hono/cookie'
 import { createServer } from 'node:http'
 import chatRoute from './routes/chat.js'
 import skillsRoute from './routes/skills.js'
@@ -27,6 +28,8 @@ import { ensureBrainHomeGitignore } from './lib/brainHomeGitignore.js'
 import { runSplitLayoutMigrationIfNeeded } from './lib/splitLayoutMigration.js'
 import { ensureDefaultSkillsSeeded } from './lib/skillsSeeder.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
+import { startTunnel, stopTunnel, getActiveTunnelUrl, getHostGuid } from './lib/tunnelManager.js'
+import { readOnboardingPreferences } from './lib/onboardingPreferences.js'
 import { BRAIN_DEFAULT_HTTP_PORT, setActualNativePort } from './lib/brainHttpPort.js'
 import { isAllowedBundledNativeClientIp } from './lib/bundledNativeClientAllowlist.js'
 import { isBundledNativeServer, nativeAppOAuthPortCandidates } from './lib/nativeAppPort.js'
@@ -59,6 +62,46 @@ if (isBundledNativeServer()) {
     return next()
   })
 }
+
+// Global middleware to enforce Host GUID protection for tunnel traffic
+// (This is redundant in dev mode as it's handled in createServer, but kept for prod/native)
+app.use('*', async (c, next) => {
+  const tunnelUrl = getActiveTunnelUrl()
+  if (!tunnelUrl) return next()
+
+  // Only enforce if the request is coming through the tunnel
+  const host = c.req.header('host')
+  if (host && (host.includes('trycloudflare.com') || host.includes('brain.chatdnd.io'))) {
+    const guid = getHostGuid()
+    const providedGuid = c.req.query('g')
+
+    // Check for GUID in query or in a cookie (for subsequent requests)
+    const cookieGuid = getCookie(c, 'brain_g')
+    
+    if (providedGuid === guid) {
+      // Valid GUID provided, set a long-lived cookie and proceed
+      // Use Secure and SameSite=None for tunnel compatibility
+      c.header('Set-Cookie', `brain_g=${guid}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=31536000`, { append: true })
+      
+      // If this is a top-level document request, redirect to strip the GUID
+      if (c.req.header('accept')?.includes('text/html') && !c.req.path.startsWith('/api/')) {
+        const url = new URL(c.req.url)
+        url.searchParams.delete('g')
+        // Use 302 to ensure the browser doesn't cache the redirect without the cookie
+        return c.redirect(url.toString(), 302)
+      }
+      return next()
+    }
+
+    if (cookieGuid === guid) {
+      return next()
+    }
+
+    return c.text('Unauthorized: Invalid or missing Magic GUID', 401)
+  }
+  
+  return next()
+})
 
 const requestLogger = logger()
 /** High-frequency onboarding polls — skip Hono access logs to reduce noise */
@@ -122,6 +165,7 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
       clearInterval(syncTimer)
       syncTimer = undefined
     }
+    stopTunnel()
     try {
       await runFullSync()
     } catch (e) {
@@ -233,6 +277,39 @@ async function start() {
 
       const honoHandler = getRequestListener(app.fetch)
       const server = createServer((req, res) => {
+        const tunnelUrl = getActiveTunnelUrl()
+        const host = req.headers['host']
+        const isTunnel = host && (host.includes('trycloudflare.com') || host.includes('brain.chatdnd.io'))
+
+        if (tunnelUrl && isTunnel) {
+          const url = new URL(req.url ?? '/', `http://${host}`)
+          const providedGuid = url.searchParams.get('g')
+          const guid = getHostGuid()
+          
+          // Simple cookie parser for the raw header
+          const cookies = req.headers['cookie'] ?? ''
+          const cookieMatch = cookies.match(/brain_g=([^;]+)/)
+          const cookieGuid = cookieMatch ? cookieMatch[1] : null
+
+          if (providedGuid === guid) {
+            // Valid GUID provided, set a long-lived cookie and proceed
+            res.setHeader('Set-Cookie', `brain_g=${guid}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=31536000`)
+            
+            // If this is a top-level document request, redirect to strip the GUID
+            const accept = req.headers['accept'] ?? ''
+            if (accept.includes('text/html') && !req.url?.startsWith('/api/')) {
+              url.searchParams.delete('g')
+              res.writeHead(302, { Location: url.toString() })
+              res.end()
+              return
+            }
+          } else if (cookieGuid !== guid) {
+            res.writeHead(401, { 'Content-Type': 'text/plain' })
+            res.end('Unauthorized: Invalid or missing Magic GUID')
+            return
+          }
+        }
+
         if (req.url?.startsWith('/api/')) {
           honoHandler(req, res)
         } else {
@@ -260,6 +337,12 @@ async function start() {
         console.log(`Dev server (Hono + Vite HMR) → http://localhost:${port}`)
         registerPeriodicSyncAndShutdown(server)
         void runStartupChecks(port)
+        void (async () => {
+          const prefs = await readOnboardingPreferences()
+          if (prefs.remoteAccessEnabled) {
+            void startTunnel(port)
+          }
+        })()
       })
     } else {
       // In production: serve pre-built client from dist/client
@@ -273,12 +356,26 @@ async function start() {
         const listenPort =
           typeof addr === 'object' && addr !== null ? addr.port : undefined
         void runStartupChecks(listenPort)
+        if (listenPort) {
+          void (async () => {
+            const prefs = await readOnboardingPreferences()
+            if (prefs.remoteAccessEnabled) {
+              void startTunnel(listenPort)
+            }
+          })()
+        }
       } else {
         const port = resolveNonNativePort()
         const server = serve({ fetch: app.fetch, port }, () => {
           console.log(`Server running on http://localhost:${port}`)
           registerPeriodicSyncAndShutdown(server)
           void runStartupChecks(port)
+          void (async () => {
+            const prefs = await readOnboardingPreferences()
+            if (prefs.remoteAccessEnabled) {
+              void startTunnel(port)
+            }
+          })()
         })
       }
     }

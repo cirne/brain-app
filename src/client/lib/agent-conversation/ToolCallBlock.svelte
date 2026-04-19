@@ -90,11 +90,14 @@
         {/if}
       </span>
       {#if writePathFromArgs}
-        <span class="tool-pending-file tool-pending-label">
+        <button 
+          class="tool-pending-file tool-pending-label tool-write-link" 
+          onclick={() => onOpenWiki?.(writePathFromArgs)}
+          title="Open {writePathFromArgs}"
+        >
           <span class="tool-pending-verb">Writing</span>
           <WikiFileName path={writePathFromArgs} />
-          <span class="tool-pending-ellipsis" aria-hidden="true">…</span>
-        </span>
+        </button>
       {:else}
         <span class="tool-name tool-pending-label">{displayName}…</span>
       {/if}
@@ -148,10 +151,30 @@
     flex-shrink: 0;
   }
 
-  .tool-pending-ellipsis {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    flex-shrink: 0;
-    opacity: 0.85;
+  .tool-write-link {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: color 0.15s;
+  }
+
+  .tool-write-link:hover {
+    color: var(--accent);
+  }
+
+  .tool-write-link :global(.wfn-name) {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+    text-decoration-color: color-mix(in srgb, currentColor 30%, transparent);
+  }
+
+  .tool-write-link:hover :global(.wfn-name) {
+    text-decoration-color: currentColor;
   }
 
   @keyframes tool-pending-pulse {

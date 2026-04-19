@@ -13,7 +13,7 @@
 
   const folderKey = $derived(folder.replace(/\/$/, ''))
 
-  const isIndex = $derived(name === '_index')
+  const isIndex = $derived(name === '_index' || name.toLowerCase() === 'index')
   /** Root user profile — same convention as main agent (me.md at wiki root). */
   const isUserProfileMe = $derived(path === 'me.md')
   // _ prefix marks system/special pages (but not _index files with a folder)
@@ -22,7 +22,7 @@
   // Display: strip leading _, convert hyphen-case to Title Case
   const displayName = $derived.by(() => {
     if (isIndex && folder) {
-      // _index.md in a folder → show folder name (last segment)
+      // _index.md or index.md in a folder → show folder name (last segment)
       const seg = folderKey.split('/').pop() || folderKey
       return seg.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     }

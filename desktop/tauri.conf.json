@@ -7,7 +7,7 @@
     "frontendDist": "http://localhost:18473",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build && npm run desktop:bundle-server"
+    "beforeBuildCommand": "npm run desktop:setup-sidecars && npm run build && npm run desktop:bundle-server"
   },
   "app": {
     "windows": [
@@ -26,6 +26,9 @@
   },
   "bundle": {
     "active": true,
+    "externalBin": [
+      "src-tauri/bin/cloudflared"
+    ],
     "resources": ["resources/server-bundle"],
     "icon": [
       "icons/32x32.png",

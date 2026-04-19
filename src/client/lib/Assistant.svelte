@@ -23,18 +23,7 @@
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from './app/workspaceLayout.js'
   import { addToNavHistory, makeNavHistoryId, upsertEmailNavHistory } from './navHistory.js'
 
-  const SIDEBAR_KEY = 'brain-sidebar'
-
   function loadSidebarPrefs(): { sidebarOpen?: boolean } {
-    try {
-      const raw = localStorage.getItem(SIDEBAR_KEY)
-      if (raw) {
-        const o = JSON.parse(raw) as Record<string, unknown>
-        if (typeof o.sidebarOpen === 'boolean') return { sidebarOpen: o.sidebarOpen }
-        if (typeof o.mobileOpen === 'boolean') return { sidebarOpen: o.mobileOpen }
-        if (typeof o.open === 'boolean') return { sidebarOpen: o.open }
-      }
-    } catch { /* ignore */ }
     return {}
   }
 
@@ -369,9 +358,7 @@
   })
 
   $effect(() => {
-    try {
-      localStorage.setItem(SIDEBAR_KEY, JSON.stringify({ sidebarOpen }))
-    } catch { /* ignore */ }
+    // No-op: localStorage persistence disabled.
   })
 
   function toggleSidebar() {
@@ -489,15 +476,44 @@
   >
     {#snippet chat()}
       {#if route.hubActive || route.overlay?.type === 'hub'}
-        <BrainHubPage
-          onOpenWiki={openWikiDoc}
-          onOpenFile={openFileDoc}
-          onOpenEmail={openEmailFromChat}
-          onOpenFullInbox={openFullInboxFromChat}
-          onOpenMessageThread={openMessageThreadFromChat}
-          onSwitchToCalendar={switchToCalendar}
-          onSync={performFullSync}
-        />
+        <div class="hub-container">
+          <BrainHubPage
+            onOpenWiki={openWikiDoc}
+            onOpenFile={openFileDoc}
+            onOpenEmail={openEmailFromChat}
+            onOpenFullInbox={openFullInboxFromChat}
+            onOpenMessageThread={openMessageThreadFromChat}
+            onSwitchToCalendar={switchToCalendar}
+            onSync={performFullSync}
+          />
+          {#if isMobile && route.overlay && route.overlay.type !== 'hub'}
+            <div class="mobile-detail-layer">
+              <SlideOver
+                bind:this={mobileSlideOver}
+                overlay={route.overlay}
+                surfaceContext={agentContext}
+                wikiRefreshKey={wikiRefreshKey}
+                calendarRefreshKey={calendarRefreshKey}
+                inboxTargetId={inboxTargetId}
+                wikiStreamingWrite={wikiWriteStreaming}
+                wikiStreamingEdit={wikiEditStreaming}
+                onWikiNavigate={onWikiNavigate}
+                onInboxNavigate={onInboxNavigateSlide}
+                onContextChange={setContext}
+                onOpenSearch={() => { showSearch = true }}
+                onSummarizeInbox={onSummarizeInbox}
+                onCalendarResetToToday={resetCalendarToToday}
+                onCalendarNavigate={switchToCalendar}
+                toolOnOpenFile={openFileDoc}
+                toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+                toolOnOpenFullInbox={openFullInboxFromChat}
+                toolOnOpenMessageThread={openMessageThreadFromChat}
+                onClose={closeOverlay}
+                mobilePanel
+              />
+            </div>
+          {/if}
+        </div>
       {:else}
         <AgentChat
           bind:this={agentChat}
@@ -601,6 +617,28 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+  }
+
+  .hub-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow-y: auto;
+  }
+
+  .mobile-detail-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .mobile-detail-layer :global(.slide-over) {
+    border-left: none;
   }
 
   .history-sidebar {

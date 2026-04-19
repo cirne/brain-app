@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono'
 import { networkInterfaces } from 'node:os'
-import { mkdir, readFile, writeFile, access } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, access, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '../lib/wikiDir.js'
 import {
@@ -15,6 +15,7 @@ import {
   type OnboardingMachineState,
   onboardingStagingWikiDir,
 } from '../lib/onboardingState.js'
+import { startTunnel, stopTunnel, getActiveTunnelUrl } from '../lib/tunnelManager.js'
 import { streamAgentSseResponse } from '../lib/streamAgentSse.js'
 import {
   clearAllProfilingSessions,
@@ -26,13 +27,29 @@ import { getOnboardingMailStatus, ripmailBin, ripmailHomePath } from '../lib/onb
 import { enrichAppleMailSetupError } from '../lib/appleMailSetupHints.js'
 import { getFdaProbeDetail, isFdaGranted } from '../lib/fdaProbe.js'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
-import type { OnboardingMailProvider } from '../lib/onboardingPreferences.js'
-import { readOnboardingPreferences, saveOnboardingPreferences } from '../lib/onboardingPreferences.js'
+import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '../lib/onboardingPreferences.js'
 import { writeFirstChatPending } from '../lib/firstChatPending.js'
 import { startWikiExpansionRunFromAcceptProfile } from '../agent/wikiExpansionRunner.js'
 import { BRAIN_DEFAULT_HTTP_PORT } from '../lib/brainHttpPort.js'
 
 const onboarding = new Hono()
+
+/**
+ * Reset the magic link (deletes host-guid.txt).
+ */
+onboarding.post('/reset-magic-link', async (c) => {
+  const guidPath = join(onboardingDataDir(), 'host-guid.txt')
+  try {
+    await unlink(guidPath)
+    // The next call to getHostGuid() will generate a new one
+    return c.json({ ok: true })
+  } catch (e: unknown) {
+    if (e && typeof e === 'object' && 'code' in e && (e as { code?: string }).code === 'ENOENT') {
+      return c.json({ ok: true })
+    }
+    return c.json({ error: 'Failed to reset link' }, 500)
+  }
+})
 
 /**
  * Probe Full Disk Access (Node process). `?detail=1` returns per-path rows for curl / debugging
@@ -60,7 +77,8 @@ onboarding.get('/network-info', (c) => {
 
   // Use the port the server is actually listening on
   const port = parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)
-  const tunnelUrl = process.env.BRAIN_TUNNEL_URL || null
+  // Use the live URL from the tunnel manager if available, falling back to env
+  const tunnelUrl = getActiveTunnelUrl() || process.env.BRAIN_TUNNEL_URL || null
   return c.json({ ips: results, port, tunnelUrl })
 })
 
@@ -152,24 +170,52 @@ onboarding.post('/setup-ripmail', runAppleMailSetup)
 
 onboarding.get('/preferences', async (c) => {
   const p = await readOnboardingPreferences()
-  return c.json({ mailProvider: p.mailProvider ?? null })
+  return c.json({ 
+    mailProvider: p.mailProvider ?? null,
+    remoteAccessEnabled: p.remoteAccessEnabled ?? false
+  })
 })
 
 onboarding.patch('/preferences', async (c) => {
   const body = await c.req.json().catch(() => ({}))
-  const raw = body?.mailProvider
-  if (raw !== undefined && raw !== null && raw !== 'apple' && raw !== 'google') {
+  const rawMail = body?.mailProvider
+  const rawRemote = body?.remoteAccessEnabled
+
+  if (rawMail !== undefined && rawMail !== null && rawMail !== 'apple' && rawMail !== 'google') {
     return c.json({ error: 'mailProvider must be apple, google, or null' }, 400)
   }
-  const prev = await readOnboardingPreferences()
-  const next: { mailProvider?: OnboardingMailProvider } = { ...prev }
-  if (raw === null || raw === undefined) {
-    delete next.mailProvider
-  } else {
-    next.mailProvider = raw
+  if (rawRemote !== undefined && typeof rawRemote !== 'boolean') {
+    return c.json({ error: 'remoteAccessEnabled must be a boolean' }, 400)
   }
+
+  const prev = await readOnboardingPreferences()
+  const next: OnboardingPreferences = { ...prev }
+
+  if (rawMail === null) {
+    delete next.mailProvider
+  } else if (rawMail !== undefined) {
+    next.mailProvider = rawMail
+  }
+
+  if (rawRemote !== undefined) {
+    next.remoteAccessEnabled = rawRemote
+    // Start or stop the tunnel immediately when the preference changes
+    if (rawRemote) {
+      const port = parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)
+      console.log(`[onboarding/preferences] Starting tunnel on port ${port}`)
+      void startTunnel(port)
+    } else {
+      console.log('[onboarding/preferences] Stopping tunnel')
+      stopTunnel()
+    }
+  }
+
   await saveOnboardingPreferences(next)
-  return c.json({ ok: true, mailProvider: next.mailProvider ?? null })
+  return c.json({ 
+    ok: true, 
+    mailProvider: next.mailProvider ?? null,
+    remoteAccessEnabled: next.remoteAccessEnabled ?? false
+  })
 })
 
 onboarding.get('/profile-draft', async (c) => {

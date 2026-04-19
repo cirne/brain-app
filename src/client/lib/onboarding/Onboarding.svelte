@@ -21,7 +21,6 @@
     MIN_INDEXED_FOR_PROFILE,
     type OnboardingMailStatus,
   } from './onboardingTypes.js'
-  import { ONBOARDING_PROFILE_CHAT_STORAGE_KEY } from './onboardingStorageKeys.js'
   import { resizeMainWindowToBrowserLikeWorkArea } from '../desktop/browserLikeWindow.js'
 
   interface Props {
@@ -234,11 +233,6 @@
   async function clearProfilingChatSession() {
     try {
       await fetch('/api/onboarding/profiling-sessions', { method: 'DELETE' })
-    } catch {
-      /* ignore */
-    }
-    try {
-      localStorage.removeItem(ONBOARDING_PROFILE_CHAT_STORAGE_KEY)
     } catch {
       /* ignore */
     }
