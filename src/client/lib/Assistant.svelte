@@ -3,10 +3,10 @@
   import { fly, slide } from 'svelte/transition'
   import Search from './Search.svelte'
   import AppTopNav from './AppTopNav.svelte'
+  import BrainHubPage from './BrainHubPage.svelte'
   import SlideOver from './SlideOver.svelte'
   import AgentChat from './AgentChat.svelte'
   import ChatHistory from './ChatHistory.svelte'
-  import StatusBar from './StatusBar.svelte'
   import WorkspaceSplit from './WorkspaceSplit.svelte'
   import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from '../router.js'
   import { runParallelSyncs } from './app/syncAllServices.js'
@@ -66,8 +66,6 @@
     !isMobile && workspaceColumnWidth >= WORKSPACE_DESKTOP_SPLIT_MIN_PX,
   )
   const slideOverCloseAnimated = $derived(!useDesktopSplitDetail && mobileSlideOver)
-  /** Background wiki expansion running (for top-nav spinner; StatusBar also polls). */
-  let expansionRunning = $state(false)
 
   /** History sidebar open (desktop inline or mobile overlay). */
   let sidebarOpen = $state(false)
@@ -206,7 +204,7 @@
   })
 
   function closeOverlayImmediate() {
-    navigate({}, { replace: true })
+    navigate({ hubActive: route.hubActive }, { replace: true })
     route = parseRoute()
     agentContext = { type: 'chat' }
     inboxTargetId = undefined
@@ -233,7 +231,8 @@
   function openWikiDoc(path?: string) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = route.overlay?.type === 'wiki'
-    navigate({ overlay }, replace ? { replace: true } : undefined)
+    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
     route = parseRoute()
     if (path) {
       addToNavHistory({
@@ -248,12 +247,14 @@
   function onWikiNavigate(path: string | undefined) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = route.overlay?.type === 'wiki'
-    navigate({ overlay }, replace ? { replace: true } : undefined)
+    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
     route = parseRoute()
   }
 
   function openFileDoc(path: string) {
-    navigate({ overlay: { type: 'file', path } })
+    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    navigate({ overlay: { type: 'file', path }, hubActive })
     route = parseRoute()
     addToNavHistory({
       id: makeNavHistoryId('doc', `file:${path}`),
@@ -265,12 +266,14 @@
 
   function onInboxNavigateSlide(id: string | undefined) {
     const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
-    navigate({ overlay })
+    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    navigate({ overlay, hubActive })
     route = parseRoute()
   }
 
   function switchToCalendar(date: string, eventId?: string) {
-    navigate({ overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) } })
+    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    navigate({ overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) }, hubActive })
     route = parseRoute()
     agentContext = { type: 'calendar', date, ...(eventId ? { eventId } : {}) }
   }
@@ -297,7 +300,8 @@
 
   function openEmailFromSearch(id: string, subject: string, from: string) {
     inboxTargetId = id
-    navigate({ overlay: { type: 'email', id } })
+    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    navigate({ overlay: { type: 'email', id }, hubActive })
     route = parseRoute()
     agentContext = { type: 'email', threadId: id, subject, from }
     if (id && subject.trim()) {
@@ -316,7 +320,7 @@
   }
 
   function openMessageThreadFromChat(canonicalChat: string, displayLabel: string) {
-    navigate({ overlay: { type: 'messages', chat: canonicalChat } })
+    navigate({ overlay: { type: 'messages', chat: canonicalChat }, hubActive: route.hubActive })
     route = parseRoute()
     agentContext = { type: 'messages', chat: canonicalChat, displayLabel }
   }
@@ -434,19 +438,16 @@
 {/if}
 
 <div class="app">
-  <AppTopNav
+    <AppTopNav
     {isMobile}
     sidebarOpen={sidebarOpen}
     onToggleSidebar={toggleSidebar}
-    {syncing}
     {syncErrors}
     {showSyncErrors}
     onOpenSearch={() => { showSearch = true }}
-    onSync={syncAll}
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
-    expansionRunning={expansionRunning}
-    onOpenExpansion={() => {
-      navigate({ overlay: { type: 'background-agent' } })
+    onOpenHub={() => {
+      navigate({ hubActive: true })
       route = parseRoute()
     }}
   />
@@ -482,62 +483,74 @@
   <WorkspaceSplit
     bind:this={workspaceSplit}
     bind:detailFullscreen={detailPaneFullscreen}
-    hasDetail={!!route.overlay}
-    desktopDetailOpen={!!route.overlay && useDesktopSplitDetail}
+    hasDetail={!!route.overlay && route.overlay.type !== 'hub'}
+    desktopDetailOpen={!!route.overlay && route.overlay.type !== 'hub' && useDesktopSplitDetail}
     onNavigateClear={closeOverlayImmediate}
   >
     {#snippet chat()}
-      <AgentChat
-        bind:this={agentChat}
-        context={agentContext}
-        conversationHidden={!!route.overlay && !useDesktopSplitDetail}
-        hidePaneContextChip={!!route.overlay && useDesktopSplitDetail}
-        suppressAgentDetailAutoOpen={!useDesktopSplitDetail}
-        onOpenWiki={openWikiDoc}
-        onOpenFile={openFileDoc}
-        onOpenEmail={openEmailFromChat}
-        onOpenFullInbox={openFullInboxFromChat}
-        onOpenMessageThread={openMessageThreadFromChat}
-        onSwitchToCalendar={switchToCalendar}
-        onOpenFromAgent={onOpenFromAgent}
-        onNewChat={closeOverlay}
-        onUserSendMessage={closeOverlayOnUserSend}
-        onSessionChange={onSessionChangeFromAgent}
-        onStreamingSessionsChange={(ids) => { streamingSessionIds = ids }}
-        onWriteStreaming={onWriteStreaming}
-        onEditStreaming={onEditStreaming}
-      >
-        {#snippet mobileDetail()}
-          {#if route.overlay}
-            <SlideOver
-              bind:this={mobileSlideOver}
-              overlay={route.overlay}
-              surfaceContext={agentContext}
-              wikiRefreshKey={wikiRefreshKey}
-              calendarRefreshKey={calendarRefreshKey}
-              inboxTargetId={inboxTargetId}
-              wikiStreamingWrite={wikiWriteStreaming}
-              wikiStreamingEdit={wikiEditStreaming}
-              onWikiNavigate={onWikiNavigate}
-              onInboxNavigate={onInboxNavigateSlide}
-              onContextChange={setContext}
-              onOpenSearch={() => { showSearch = true }}
-              onSummarizeInbox={onSummarizeInbox}
-              onCalendarResetToToday={resetCalendarToToday}
-              onCalendarNavigate={switchToCalendar}
-              toolOnOpenFile={openFileDoc}
-              toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
-              toolOnOpenFullInbox={openFullInboxFromChat}
-              toolOnOpenMessageThread={openMessageThreadFromChat}
-              onClose={closeOverlay}
-              mobilePanel
-            />
-          {/if}
-        {/snippet}
-      </AgentChat>
+      {#if route.hubActive || route.overlay?.type === 'hub'}
+        <BrainHubPage
+          onOpenWiki={openWikiDoc}
+          onOpenFile={openFileDoc}
+          onOpenEmail={openEmailFromChat}
+          onOpenFullInbox={openFullInboxFromChat}
+          onOpenMessageThread={openMessageThreadFromChat}
+          onSwitchToCalendar={switchToCalendar}
+          onSync={performFullSync}
+        />
+      {:else}
+        <AgentChat
+          bind:this={agentChat}
+          context={agentContext}
+          conversationHidden={!!route.overlay && !useDesktopSplitDetail}
+          hidePaneContextChip={!!route.overlay && useDesktopSplitDetail}
+          suppressAgentDetailAutoOpen={!useDesktopSplitDetail}
+          onOpenWiki={openWikiDoc}
+          onOpenFile={openFileDoc}
+          onOpenEmail={openEmailFromChat}
+          onOpenFullInbox={openFullInboxFromChat}
+          onOpenMessageThread={openMessageThreadFromChat}
+          onSwitchToCalendar={switchToCalendar}
+          onOpenFromAgent={onOpenFromAgent}
+          onNewChat={closeOverlay}
+          onUserSendMessage={closeOverlayOnUserSend}
+          onSessionChange={onSessionChangeFromAgent}
+          onStreamingSessionsChange={(ids) => { streamingSessionIds = ids }}
+          onWriteStreaming={onWriteStreaming}
+          onEditStreaming={onEditStreaming}
+        >
+          {#snippet mobileDetail()}
+            {#if route.overlay && route.overlay.type !== 'hub'}
+              <SlideOver
+                bind:this={mobileSlideOver}
+                overlay={route.overlay}
+                surfaceContext={agentContext}
+                wikiRefreshKey={wikiRefreshKey}
+                calendarRefreshKey={calendarRefreshKey}
+                inboxTargetId={inboxTargetId}
+                wikiStreamingWrite={wikiWriteStreaming}
+                wikiStreamingEdit={wikiEditStreaming}
+                onWikiNavigate={onWikiNavigate}
+                onInboxNavigate={onInboxNavigateSlide}
+                onContextChange={setContext}
+                onOpenSearch={() => { showSearch = true }}
+                onSummarizeInbox={onSummarizeInbox}
+                onCalendarResetToToday={resetCalendarToToday}
+                onCalendarNavigate={switchToCalendar}
+                toolOnOpenFile={openFileDoc}
+                toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+                toolOnOpenFullInbox={openFullInboxFromChat}
+                toolOnOpenMessageThread={openMessageThreadFromChat}
+                onClose={closeOverlay}
+                mobilePanel
+              />
+            {/if}
+          {/snippet}
+        </AgentChat>
+      {/if}
     {/snippet}
     {#snippet desktopDetail()}
-      {#if route.overlay}
+      {#if route.overlay && route.overlay.type !== 'hub'}
         <SlideOver
           overlay={route.overlay}
           surfaceContext={agentContext}
@@ -566,12 +579,6 @@
   </WorkspaceSplit>
     </div>
   </div>
-  <StatusBar
-    onExpansionRunningChange={(running) => { expansionRunning = running }}
-    onAfterNavigate={() => {
-      route = parseRoute()
-    }}
-  />
 </div>
 
 <style>

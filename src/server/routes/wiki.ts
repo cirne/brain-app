@@ -104,8 +104,9 @@ wiki.get('/edit-history', async (c) => {
 // GET /api/wiki/recent — recently modified .md files (by filesystem mtime), deduped, newest first
 wiki.get('/recent', async (c) => {
   try {
+    const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10), 50)
     const dir = wikiDir()
-    const files = await recentWikiFilesByMtime(dir, 10)
+    const files = await recentWikiFilesByMtime(dir, limit)
     return c.json({ files })
   } catch {
     return c.json({ files: [] })

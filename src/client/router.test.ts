@@ -181,6 +181,10 @@ describe('parseRoute background-agent', () => {
       overlay: { type: 'background-agent', id: 'abc-123' },
     })
   })
+
+  it('parses /hub as hub overlay', () => {
+    expect(parseRoute('http://localhost/hub')).toEqual({ overlay: { type: 'hub' } })
+  })
 })
 
 describe('routeToUrl', () => {
@@ -274,6 +278,21 @@ describe('routeToUrl', () => {
     )
   })
 
+  it('hub returns /hub', () => {
+    expect(routeToUrl({ hubActive: true })).toBe('/hub')
+  })
+
+  it('hub with wiki subroute returns /hub/wiki/...', () => {
+    expect(routeToUrl({ hubActive: true, overlay: { type: 'wiki', path: 'me.md' } })).toBe('/hub/wiki/me.md')
+  })
+
+  it('parses /hub/wiki/me.md as hubActive with wiki overlay', () => {
+    expect(parseRoute('http://localhost/hub/wiki/me.md')).toEqual({
+      hubActive: true,
+      overlay: { type: 'wiki', path: 'me.md' }
+    })
+  })
+
   it('onboarding flow', () => {
     expect(routeToUrl({ flow: 'onboarding' })).toBe('/onboarding')
   })
@@ -315,6 +334,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { flow: 'hard-reset' as const },
     { flow: 'restart-seed' as const },
     { flow: 'first-chat' as const },
+    { overlay: { type: 'hub' as const } },
   ] as const
 
   for (const route of cases) {

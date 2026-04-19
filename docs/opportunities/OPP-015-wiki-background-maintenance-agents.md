@@ -41,7 +41,10 @@ Not all of these ship at once; the opportunity is the **pattern**, not a single 
 
 ## Presentation
 
-- **Not** the main chat transcript by default: **summary**, **diff of proposed edits**, **log stream** in a dedicated surface, or **silent** with surfaced issues in the wiki browser ([OPP-004](./OPP-004-wiki-aware-agent.md) optional UI badges).
+- **Not** the main chat transcript by default: **Brain Hub** (`/hub`) accessible via the top-nav widget.
+- **Brain Hub** shows wiki stats, recent docs, and **Background Agents** list (replaces bottom status bar).
+- **Drill-down:** Clicking an active agent in Brain Hub expands its detail panel (timeline, logs).
+- **Silent** runs still surface issues in the wiki browser ([OPP-004](./OPP-004-wiki-aware-agent.md) optional UI badges).
 - **Overlap with OPP-014:** Interactive onboarding wants progress-first, less tool noise; background agents may want **even less**—or only post-run digest—depending on autonomy level.
 
 ## Safety and trust

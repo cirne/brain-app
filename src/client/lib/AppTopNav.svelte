@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { BrainCircuit, Loader2, X } from 'lucide-svelte'
+  import { BrainCircuit, X } from 'lucide-svelte'
+  import BrainHubWidget from './BrainHubWidget.svelte'
 
   type Props = {
     /** When false, hides the chat history control (e.g. onboarding uses the same top bar without history). */
@@ -8,15 +9,11 @@
     sidebarOpen?: boolean
     isMobile?: boolean
     onToggleSidebar: () => void
-    syncing: boolean
     syncErrors: string[]
     showSyncErrors: boolean
     onOpenSearch: () => void
-    onSync: () => void
     onToggleSyncErrors: () => void
-    /** Wiki expansion background agent is running (show nav affordance on small screens where status bar may be hidden). */
-    expansionRunning?: boolean
-    onOpenExpansion: () => void
+    onOpenHub: () => void
   }
 
   let {
@@ -24,14 +21,11 @@
     sidebarOpen = false,
     isMobile: _isMobile = false,
     onToggleSidebar,
-    syncing,
     syncErrors,
     showSyncErrors,
     onOpenSearch,
-    onSync,
     onToggleSyncErrors,
-    expansionRunning = false,
-    onOpenExpansion,
+    onOpenHub,
   }: Props = $props()
 
   /** Sidebar open (wide header + list): desktop or mobile. */
@@ -83,40 +77,7 @@
     </button>
   </div>
   <div class="sync-wrap">
-    <button
-      class="sync-btn sync-press-when-syncing"
-      class:syncing={syncing}
-      onclick={onSync}
-      disabled={syncing}
-      title="Sync docs, email, and calendar (⌘R)"
-    >
-      <svg
-        class:sync-spinning={syncing}
-        xmlns="http://www.w3.org/2000/svg"
-        width="15"
-        height="15"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
-        <path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
-      </svg>
-    </button>
-    {#if expansionRunning}
-      <button
-        type="button"
-        class="sync-btn expansion-nav-btn"
-        onclick={onOpenExpansion}
-        title="Wiki expansion in progress"
-        aria-label="Open wiki expansion status"
-      >
-        <Loader2 class="sync-spinning" size={15} strokeWidth={2} aria-hidden="true" />
-      </button>
-    {/if}
+    <BrainHubWidget onOpen={onOpenHub} />
     {#if syncErrors.length > 0}
       <button class="sync-error-badge" onclick={onToggleSyncErrors} title="Show sync errors">!</button>
       {#if showSyncErrors}
@@ -260,7 +221,7 @@
   .sync-wrap {
     position: relative;
     display: flex;
-    align-items: center;
+    align-items: stretch;
     border-left: 1px solid var(--border);
     flex-shrink: 0;
   }

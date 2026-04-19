@@ -46,8 +46,9 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 
 - **Single user, single process** — no separate API server; sessions are in-memory with chat history in JSON files under `$BRAIN_HOME/chats`.
 - **Wiki is files** — agent tools from `@mariozechner/pi-coding-agent` are scoped to the wiki directory; brain-app does **not** auto-run git on the wiki (sync hook is a no-op for wiki).
-- **Email and index via ripmail** — subprocess CLI, `RIPMAIL_HOME` under Brain by default.
-- **LLM** — `@mariozechner/pi-ai`, configured via env (see configuration doc).
+  - **Email and index via ripmail** — subprocess CLI, `RIPMAIL_HOME` under Brain by default.
+  - **UI Shell** — Svelte 5 SPA. The top-nav **Brain Hub widget** replaces legacy status bars and sync buttons, providing a single entry point to **Brain Hub** (`/hub`) for administration and system health.
+  - **LLM** — `@mariozechner/pi-ai`, configured via env (see configuration doc).
 
 ---
 

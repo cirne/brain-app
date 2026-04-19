@@ -17,12 +17,16 @@ export type Overlay =
   | { type: 'messages'; chat?: string }
   /** Background wiki expansion run (`/background-agent?id=`). */
   | { type: 'background-agent'; id?: string }
+  /** Brain Hub admin/settings/status page (`/hub`). */
+  | { type: 'hub' }
 
 /** Chat-first shell: optional detail overlay; base route is always chat. */
 export type Route = {
   overlay?: Overlay
   /** Full-page flows (onboarding wizard, dev hard-reset / restart-seed / first-chat). */
   flow?: 'onboarding' | 'hard-reset' | 'restart-seed' | 'first-chat'
+  /** When true, the Brain Hub is rendered in the main content area instead of chat. */
+  hubActive?: boolean
 }
 
 export type SurfaceContext =
@@ -143,6 +147,13 @@ export function parseRoute(href: string = location.href): Route {
     const id = url.searchParams.get('id') ?? undefined
     return { overlay: { type: 'background-agent', ...(id ? { id } : {}) } }
   }
+  if (seg1 === 'hub') {
+    if (rest.length > 0) {
+      const subRoute = parseRoute(`http://localhost/${rest.join('/')}`)
+      return { ...subRoute, hubActive: true }
+    }
+    return { overlay: { type: 'hub' } }
+  }
 
   // Default: chat only
   return {}
@@ -155,39 +166,50 @@ export function routeToUrl(route: Route): string {
   if (route.flow === 'restart-seed') return '/restart-seed'
   if (route.flow === 'first-chat') return '/first-chat'
   const o = route.overlay
-  if (!o) return '/'
+  if (!o) return route.hubActive ? '/hub' : '/'
+  
+  let path = ''
   if (o.type === 'wiki') {
-    return o.path ? `/wiki/${encodeWikiPathSegmentsForUrl(o.path)}` : '/wiki'
+    path = o.path ? `/wiki/${encodeWikiPathSegmentsForUrl(o.path)}` : '/wiki'
+  } else if (o.type === 'file') {
+    path = o.path ? `/files/${encodeFilesystemPathForUrl(o.path)}` : '/files'
+  } else if (o.type === 'email') {
+    if (!o.id) path = '/inbox'
+    else {
+      const q = new URLSearchParams()
+      q.set('m', o.id)
+      path = `/inbox?${q.toString()}`
+    }
+  } else if (o.type === 'calendar') {
+    if (!o.date) path = '/calendar'
+    else {
+      const q = new URLSearchParams()
+      q.set('date', o.date)
+      if (o.eventId) q.set('event', o.eventId)
+      path = `/calendar?${q.toString()}`
+    }
+  } else if (o.type === 'messages') {
+    if (!o.chat) path = '/messages'
+    else {
+      const q = new URLSearchParams()
+      q.set('c', o.chat)
+      path = `/messages?${q.toString()}`
+    }
+  } else if (o.type === 'background-agent') {
+    if (!o.id) path = '/background-agent'
+    else {
+      const q = new URLSearchParams()
+      q.set('id', o.id)
+      path = `/background-agent?${q.toString()}`
+    }
+  } else if (o.type === 'hub') {
+    return '/hub'
   }
-  if (o.type === 'file') {
-    return o.path ? `/files/${encodeFilesystemPathForUrl(o.path)}` : '/files'
+
+  if (route.hubActive && path) {
+    return `/hub${path}`
   }
-  if (o.type === 'email') {
-    if (!o.id) return '/inbox'
-    const q = new URLSearchParams()
-    q.set('m', o.id)
-    return `/inbox?${q.toString()}`
-  }
-  if (o.type === 'calendar') {
-    if (!o.date) return '/calendar'
-    const q = new URLSearchParams()
-    q.set('date', o.date)
-    if (o.eventId) q.set('event', o.eventId)
-    return `/calendar?${q.toString()}`
-  }
-  if (o.type === 'messages') {
-    if (!o.chat) return '/messages'
-    const q = new URLSearchParams()
-    q.set('c', o.chat)
-    return `/messages?${q.toString()}`
-  }
-  if (o.type === 'background-agent') {
-    if (!o.id) return '/background-agent'
-    const q = new URLSearchParams()
-    q.set('id', o.id)
-    return `/background-agent?${q.toString()}`
-  }
-  return '/'
+  return path || '/'
 }
 
 export type NavigateOptions = {

@@ -84,11 +84,11 @@ This is the **anticipatory** moment: Brain shows **importance** grounded in **re
 
 **Status bar (app chrome):**
 
-- **Baseline:** a compact **wiki summary** always visible—e.g. document count, last wiki activity or last indexed touch, maybe a short timestamp—typical “status strip” material so the brain feels **alive** and legible at a glance.
-- **When work is active:** if the **hygiene** agent and/or the **expansion** agent is running, show **small indicators** in that bar (distinct glyphs or labels per job type). Multiple concurrent background tasks can each have an indicator.
-- **Click:** opens a **detail surface** (panel or window) for the selected task: progress, phases, what the agent is doing, and—crucially—**artifacts**: pages created or updated, paths discovered, links fixed, etc. The user can **inspect** those documents from this view (open in wiki browser, etc.).
+- **Baseline:** a compact **wiki summary** (doc count) always visible in the **Brain Hub widget** in the top nav—typical “status strip” material so the brain feels **alive** and legible at a glance.
+- **When work is active:** if the **hygiene** agent and/or the **expansion** agent is running, the widget shows an **active pulse dot** and label.
+- **Click:** opens **Brain Hub** (`/hub`) for the selected task: progress, phases, what the agent is doing, and—crucially—**artifacts**: pages created or updated, paths discovered, links fixed, etc. The user can **inspect** those documents from this view (open in wiki browser, etc.).
 
-**Visualization:** each background job may have its **own** custom visualization (expansion vs hygiene need not look identical), but they should feel **consistent in role**: background task making the wiki better, not a chat thread. **Seeding / onboarding** agent runs are a reasonable **visual precedent** ([OPP-006](./OPP-006-email-bootstrap-onboarding.md)): similar “long run, structured progress, inspect output” energy even if layout differs.
+**Visualization:** each background job may have its **own** custom visualization (expansion vs hygiene need not look identical), but they should feel **consistent in role**: background task making the wiki better, not a chat thread. **Seeding / onboarding** agent runs are a reasonable **visual precedent** ([OPP-006](./OPP-006-email-bootstrap-onboarding.md)): similar “long run, structured progress, inspect output” energy even if layout differs. **BackgroundAgentPanel** is the shared component for this in Brain Hub.
 
 **Safety and infra:**
 

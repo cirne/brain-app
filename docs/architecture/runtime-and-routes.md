@@ -22,7 +22,21 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | `/api/messages` | Alias mount for the same iMessage router |
 | `/api/skills` | Slash skills / skill assets under `$BRAIN_HOME/skills` |
 | `/api/onboarding` | Onboarding flow, ripmail setup hints |
+| `/api/background` | Background agent run history and control (wiki expansion) |
 | `/api/dev` | **Dev only** — diagnostics |
+
+## Client-side URL paths (SPA routes)
+
+| Path | Role |
+|------|------|
+| `/` | Main chat interface |
+| `/hub` | **Brain Hub** — Admin, settings, wiki health, and background activity |
+| `/wiki/...` | Wiki document viewer/editor |
+| `/files/...` | Raw file preview |
+| `/inbox` | Email inbox |
+| `/calendar` | Calendar view |
+| `/messages` | SMS/iMessage thread view |
+| `/onboarding` | Onboarding wizard |
 
 ## Production vs bundled native
 
@@ -43,7 +57,7 @@ In production, unless `AUTH_DISABLED=true`, Hono **`basicAuth`** protects `/api/
 
 ## Periodic background work
 
-On server start and on a timer (default **300 s**, override `SYNC_INTERVAL_SECONDS`), the server runs [`runFullSync()`](../../src/server/lib/syncAll.ts): wiki no-op, detached `ripmail refresh`, and calendar ICS fetch when URLs are set. The same full sync runs on graceful shutdown (SIGINT/SIGTERM).
+On server start and on a timer (default **300 s**, override `SYNC_INTERVAL_SECONDS`), the server runs [`runFullSync()`](../../src/server/lib/syncAll.ts): wiki no-op, detached `ripmail refresh`, and calendar ICS fetch when URLs are set. The same full sync runs on graceful shutdown (SIGINT/SIGTERM). **Manual sync** is triggered from the **Brain Hub** (`/hub`).
 
 ---
 
