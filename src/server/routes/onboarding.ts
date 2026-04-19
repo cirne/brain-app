@@ -62,7 +62,7 @@ onboarding.get('/fda', (c) => {
   return c.json({ granted: isFdaGranted() })
 })
 
-onboarding.get('/network-info', (c) => {
+onboarding.get('/network-info', async (c) => {
   const nets = networkInterfaces()
   const results: string[] = []
 
@@ -77,8 +77,15 @@ onboarding.get('/network-info', (c) => {
 
   // Bundled Brain.app binds a dynamic port (18473+); must match tunnel target.
   const port = oauthRedirectListenPort()
-  // Use the live URL from the tunnel manager if available, falling back to env
-  const tunnelUrl = getActiveTunnelUrl() || process.env.BRAIN_TUNNEL_URL || null
+  const prefs = await readOnboardingPreferences()
+  const remoteOn = prefs.remoteAccessEnabled === true
+  let tunnelUrl: string | null = null
+  if (remoteOn) {
+    tunnelUrl = getActiveTunnelUrl() || process.env.BRAIN_TUNNEL_URL || null
+  } else if (getActiveTunnelUrl() || process.env.BRAIN_TUNNEL_URL) {
+    // User turned remote off (or prefs default) — do not expose a tunnel URL; tear down stray tunnel.
+    stopTunnel()
+  }
   return c.json({ ips: results, port, tunnelUrl })
 })
 

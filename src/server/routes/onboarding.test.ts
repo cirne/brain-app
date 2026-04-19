@@ -10,7 +10,7 @@ import { NATIVE_APP_PORT_START } from '../lib/nativeAppPort.js'
 const tunnelMocks = vi.hoisted(() => ({
   startTunnel: vi.fn().mockResolvedValue(null),
   stopTunnel: vi.fn(),
-  getActiveTunnelUrl: vi.fn(() => null),
+  getActiveTunnelUrl: vi.fn((): string | null => null),
 }))
 
 vi.mock('../lib/tunnelManager.js', () => ({
@@ -246,6 +246,50 @@ describe('onboarding routes', () => {
     expect(res.status).toBe(200)
     const me = await import('node:fs/promises').then((fs) => fs.readFile(join(wikiDirPath(), 'me.md'), 'utf-8'))
     expect(me).toContain('Profile')
+  })
+
+  describe('GET /network-info tunnel URL vs remoteAccessEnabled', () => {
+    afterEach(() => {
+      tunnelMocks.getActiveTunnelUrl.mockReset()
+      tunnelMocks.getActiveTunnelUrl.mockImplementation((): string | null => null)
+      tunnelMocks.stopTunnel.mockClear()
+    })
+
+    it('omits tunnelUrl and stops tunnel when remoteAccessEnabled is false', async () => {
+      const { onboardingDataDir } = await import('../lib/onboardingState.js')
+      await mkdir(onboardingDataDir(), { recursive: true })
+      await writeFile(
+        join(onboardingDataDir(), 'preferences.json'),
+        JSON.stringify({ remoteAccessEnabled: false }),
+        'utf-8',
+      )
+      tunnelMocks.getActiveTunnelUrl.mockImplementation(() => 'https://fake.trycloudflare.com/')
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/network-info')
+      expect(res.status).toBe(200)
+      const j = (await res.json()) as { tunnelUrl: string | null }
+      expect(j.tunnelUrl).toBeNull()
+      expect(tunnelMocks.stopTunnel).toHaveBeenCalled()
+    })
+
+    it('includes tunnelUrl when remoteAccessEnabled is true', async () => {
+      const { onboardingDataDir } = await import('../lib/onboardingState.js')
+      await mkdir(onboardingDataDir(), { recursive: true })
+      await writeFile(
+        join(onboardingDataDir(), 'preferences.json'),
+        JSON.stringify({ remoteAccessEnabled: true }),
+        'utf-8',
+      )
+      tunnelMocks.getActiveTunnelUrl.mockImplementation(() => 'https://fake.trycloudflare.com/')
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/network-info')
+      expect(res.status).toBe(200)
+      const j = (await res.json()) as { tunnelUrl: string | null }
+      expect(j.tunnelUrl).toBe('https://fake.trycloudflare.com/')
+      expect(tunnelMocks.stopTunnel).not.toHaveBeenCalled()
+    })
   })
 
   describe('PATCH /preferences remote access (tunnel target port)', () => {

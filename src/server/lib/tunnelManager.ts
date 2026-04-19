@@ -169,8 +169,8 @@ export function stopTunnel() {
   if (tunnelInstance) {
     console.log('[brain-app] Stopping Cloudflare tunnel...')
     tunnelInstance.stop()
-    tunnelInstance = null
-    activeTunnelUrl = null
-    delete process.env.BRAIN_TUNNEL_URL
   }
+  tunnelInstance = null
+  activeTunnelUrl = null
+  delete process.env.BRAIN_TUNNEL_URL
 }

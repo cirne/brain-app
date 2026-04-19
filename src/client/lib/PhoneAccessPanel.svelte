@@ -28,7 +28,7 @@
       const res = await fetch('/api/onboarding/preferences')
       if (res.ok) {
         const prefs = await res.json()
-        remoteAccessEnabled = prefs.remoteAccessEnabled
+        remoteAccessEnabled = prefs.remoteAccessEnabled === true
       }
     } catch {
       /* ignore */
