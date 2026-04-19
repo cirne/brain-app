@@ -339,54 +339,57 @@ pub fn list_events_in_range(
     Ok(out)
 }
 
-/// Events whose time range overlaps `[range_start, range_end)` (Unix seconds, half-open on the end).
-/// Used by `ripmail calendar range` so brain-app can query by inclusive calendar dates without FTS.
+/// Events overlapping inclusive from/to dates (YYYY-MM-DD), UTC calendar-day bounds.
 pub fn list_events_overlapping(
     conn: &Connection,
     source_id: Option<&str>,
+    calendar_ids: &[String],
     range_start: i64,
     range_end: i64,
     limit: usize,
 ) -> rusqlite::Result<Vec<String>> {
     let lim = limit.clamp(1, 2000) as i64;
     let mut out = Vec::new();
+
+    let mut query = "SELECT json_object(
+                'uid', uid, 'sourceId', source_id, 'sourceKind', source_kind, 'calendarId', calendar_id,
+                'summary', summary, 'description', description, 'location', location,
+                'startAt', start_at, 'endAt', end_at, 'allDay', all_day,
+                'organizerEmail', organizer_email,
+                'attendeesJson', attendees_json,
+                'color', color
+             ) FROM calendar_events
+             WHERE start_at < ?2 AND end_at > ?1".to_string();
+
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> =
+        vec![Box::new(range_start), Box::new(range_end)];
+
     if let Some(sid) = source_id {
-        let mut s = conn.prepare(
-            "SELECT json_object(
-                'uid', uid, 'sourceId', source_id, 'sourceKind', source_kind, 'calendarId', calendar_id,
-                'summary', summary, 'description', description, 'location', location,
-                'startAt', start_at, 'endAt', end_at, 'allDay', all_day,
-                'organizerEmail', organizer_email,
-                'attendeesJson', attendees_json,
-                'color', color
-             ) FROM calendar_events
-             WHERE source_id = ?1
-               AND start_at < ?3 AND end_at > ?2
-             ORDER BY start_at ASC LIMIT ?4",
-        )?;
-        for row in s.query_map(params![sid, range_start, range_end, lim], |r| {
-            r.get::<_, String>(0)
-        })? {
-            out.push(row?);
+        query.push_str(" AND source_id = ?3");
+        params.push(Box::new(sid.to_string()));
+    }
+
+    if !calendar_ids.is_empty() {
+        let p_start = params.len() + 1;
+        let placeholders: Vec<String> = (0..calendar_ids.len())
+            .map(|i| format!("?{}", p_start + i))
+            .collect();
+        query.push_str(&format!(" AND calendar_id IN ({})", placeholders.join(",")));
+        for id in calendar_ids {
+            params.push(Box::new(id.clone()));
         }
-    } else {
-        let mut s = conn.prepare(
-            "SELECT json_object(
-                'uid', uid, 'sourceId', source_id, 'sourceKind', source_kind, 'calendarId', calendar_id,
-                'summary', summary, 'description', description, 'location', location,
-                'startAt', start_at, 'endAt', end_at, 'allDay', all_day,
-                'organizerEmail', organizer_email,
-                'attendeesJson', attendees_json,
-                'color', color
-             ) FROM calendar_events
-             WHERE start_at < ?2 AND end_at > ?1
-             ORDER BY start_at ASC LIMIT ?3",
-        )?;
-        for row in s.query_map(params![range_start, range_end, lim], |r| {
-            r.get::<_, String>(0)
-        })? {
-            out.push(row?);
-        }
+    }
+
+    query.push_str(" ORDER BY start_at ASC LIMIT ");
+    query.push_str(&format!("?{}", params.len() + 1));
+    params.push(Box::new(lim));
+
+    let mut s = conn.prepare(&query)?;
+    let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    for row in s.query_map(rusqlite::params_from_iter(param_refs), |r| {
+        r.get::<_, String>(0)
+    })? {
+        out.push(row?);
     }
     Ok(out)
 }
@@ -449,5 +452,33 @@ mod tests {
 
         let ids = search_events_fts(&conn, "standup", Some("s1"), None, None, 10).unwrap();
         assert_eq!(ids.len(), 1);
+    }
+
+    #[test]
+    fn list_events_overlapping_with_calendar_filter() {
+        let conn = mem_with_schema();
+        let mut a = sample_row("s1", "u1", "Cal A Event", 1000, 1100);
+        a.calendar_id = "cal_a".into();
+        let mut b = sample_row("s1", "u2", "Cal B Event", 1000, 1100);
+        b.calendar_id = "cal_b".into();
+
+        upsert_event(&conn, &a).unwrap();
+        upsert_event(&conn, &b).unwrap();
+
+        // No filter: returns both
+        let rows = list_events_overlapping(&conn, Some("s1"), &[], 900, 1200, 10).unwrap();
+        assert_eq!(rows.len(), 2);
+
+        // Filter for cal_a: returns only A
+        let rows =
+            list_events_overlapping(&conn, Some("s1"), &["cal_a".into()], 900, 1200, 10).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0].contains("Cal A Event"));
+
+        // Filter for cal_b: returns only B
+        let rows =
+            list_events_overlapping(&conn, Some("s1"), &["cal_b".into()], 900, 1200, 10).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0].contains("Cal B Event"));
     }
 }

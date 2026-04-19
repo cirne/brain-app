@@ -199,13 +199,21 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
 
   if (tool.result == null) return null
 
-  if (name === 'get_calendar_events' && typeof args.start === 'string' && typeof args.end === 'string') {
+  if ((name === 'calendar' || name === 'get_calendar_events') && typeof args.start === 'string' && typeof args.end === 'string') {
+    // Prefer events from details (untruncated) over parsing tool.result (capped at 4000 chars).
+    const d = tool.details as { events?: unknown; start?: string; end?: string } | undefined
+    const detailEvents = Array.isArray(d?.events) ? d.events as CalendarEventLite[] : null
+    const start = d?.start ?? args.start
+    const end = d?.end ?? args.end
+    if (detailEvents) {
+      return { kind: 'calendar', start, end, events: detailEvents }
+    }
     const t = result.trim()
     if (t.startsWith('[')) {
       try {
         const raw = JSON.parse(t) as unknown
         if (!Array.isArray(raw)) return null
-        return { kind: 'calendar', start: args.start, end: args.end, events: raw as CalendarEventLite[] }
+        return { kind: 'calendar', start, end, events: raw as CalendarEventLite[] }
       } catch {
         return null
       }

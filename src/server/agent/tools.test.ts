@@ -54,17 +54,12 @@ describe('createAgentTools', () => {
     expect(names).toContain('delete_file')
     expect(names).toContain('search_index')
     expect(names).toContain('read_doc')
-    expect(names).toContain('list_sources')
-    expect(names).toContain('source_status')
-    expect(names).toContain('add_files_source')
-    expect(names).toContain('edit_files_source')
-    expect(names).toContain('remove_files_source')
-    expect(names).toContain('reindex_files_source')
+    expect(names).toContain('manage_sources')
     expect(names).toContain('list_inbox')
     expect(names).toContain('inbox_rules')
     expect(names).toContain('archive_emails')
     expect(names).toContain('find_person')
-    expect(names).toContain('get_calendar_events')
+    expect(names).toContain('calendar')
     expect(names).toContain('web_search')
     expect(names).toContain('fetch_page')
     expect(names).toContain('get_youtube_transcript')
@@ -435,7 +430,7 @@ describe('createAgentTools', () => {
     })
   })
 
-  describe('get_calendar_events tool', () => {
+  describe('calendar tool', () => {
     it('returns events in the requested date range', async () => {
       vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
         events: [
@@ -445,8 +440,8 @@ describe('createAgentTools', () => {
       })
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
-      const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
-      const result = await tool.execute('test-cal-1', { start: '2026-04-12', end: '2026-04-12' })
+      const tool = tools.find((t: any) => t.name === 'calendar')!
+      const result = await tool.execute('test-cal-1', { op: 'events', start: '2026-04-12', end: '2026-04-12' })
       const text = result.content.map((c: any) => c.text).join('')
       expect(text).toContain('Team Lunch')
     })
@@ -460,18 +455,18 @@ describe('createAgentTools', () => {
       })
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
-      const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
-      const result = await tool.execute('test-cal-dow', { start: '2026-04-20', end: '2026-04-20' })
+      const tool = tools.find((t: any) => t.name === 'calendar')!
+      const result = await tool.execute('test-cal-dow', { op: 'events', start: '2026-04-20', end: '2026-04-20' })
       const text = result.content.map((c: any) => c.text).join('')
-      expect(text).toContain('"startDayOfWeek": "Monday"')
-      expect(text).toContain('"endDayOfWeek": "Monday"')
+      expect(text).toContain('"startDayOfWeek":"Monday"')
+      expect(text).toContain('"endDayOfWeek":"Monday"')
     })
 
     it('returns no-events message when cache is empty', async () => {
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
-      const tool = tools.find((t: any) => t.name === 'get_calendar_events')!
-      const result = await tool.execute('test-cal-2', { start: '2026-04-12', end: '2026-04-12' })
+      const tool = tools.find((t: any) => t.name === 'calendar')!
+      const result = await tool.execute('test-cal-2', { op: 'events', start: '2026-04-12', end: '2026-04-12' })
       const text = result.content.map((c: any) => c.text).join('')
       expect(text).toContain('No calendar sources')
     })

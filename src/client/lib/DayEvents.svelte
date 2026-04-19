@@ -8,6 +8,7 @@
     end: string
     allDay: boolean
     source: string
+    calendarId?: string
     location?: string
     description?: string
     attendees?: string[]
@@ -39,7 +40,6 @@
   } = $props()
 
   let fetchedEvents = $state<CalendarEvent[]>([])
-  let loading = $state(false)
 
   const events = $derived(propEvents ?? fetchedEvents)
 
@@ -58,15 +58,10 @@
   })
 
   async function fetchForDate(d: string) {
-    loading = true
-    try {
-      const res = await fetch(`/api/calendar?start=${d}&end=${d}`)
-      if (res.ok) {
-        const data = await res.json()
-        fetchedEvents = data.events as CalendarEvent[]
-      }
-    } finally {
-      loading = false
+    const res = await fetch(`/api/calendar?start=${d}&end=${d}`)
+    if (res.ok) {
+      const data = await res.json()
+      fetchedEvents = data.events as CalendarEvent[]
     }
   }
 
@@ -109,88 +104,96 @@
   onMount(() => {
     if (propEvents === undefined) fetchForDate(date)
   })
+  const colors = [
+    '#3b82f6', // blue
+    '#ef4444', // red
+    '#10b981', // emerald
+    '#f59e0b', // amber
+    '#8b5cf6', // violet
+    '#ec4899', // pink
+    '#06b6d4', // cyan
+    '#f97316', // orange
+  ]
+
+  function getColorForSource(e: CalendarEvent): string {
+    const key = e.calendarId || e.source || 'default'
+    let hash = 0
+    for (let i = 0; i < key.length; i++) {
+      hash = key.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    return colors[Math.abs(hash) % colors.length]
+  }
 </script>
 
-{#if loading}
-  <div class="de-loading">…</div>
-{:else if allDay.length === 0 && timed.length === 0}
-  <div class="de-empty">No events</div>
-{:else}
-  <ul class="de-list">
-    {#each allDay as e (e.id)}
-      {#if interactive}
-        <li class="de-li-compact">
-          <button
-            type="button"
-            class="de-event travel de-compact-hit"
-            style={e.color ? `--accent: ${e.color}; --custom-bg: color-mix(in srgb, ${e.color} 15%, transparent);` : ''}
-            class:de-preview-hover={!!onEventOpen}
-            class:past={isPast(e)}
-            class:de-selected={selectedEventId === e.id}
-            aria-label={onEventOpen ? `Open ${e.title} in calendar` : `View details: ${e.title}`}
-            title={e.location ?? ''}
-            onclick={() => handleEventClick(e)}
-          >
-            <span class="de-icon" aria-hidden="true">✈</span>
-            <span class="de-title">{e.title}</span>
-          </button>
-        </li>
-      {:else}
-        <li
-          class="de-event travel"
-          style={e.color ? `--accent: ${e.color}; --custom-bg: color-mix(in srgb, ${e.color} 15%, transparent);` : ''}
-          class:past={isPast(e)}
-          title={e.location ?? ''}
-        >
-          <span class="de-icon">✈</span>
-          <span class="de-title">{e.title}</span>
-        </li>
-      {/if}
-    {/each}
-    {#each timed as e (e.id)}
-      {#if interactive}
-        <li class="de-li-compact">
-          <button
-            type="button"
-            class="de-event personal de-compact-hit"
-            style={e.color ? `--accent: ${e.color}; --custom-bg: color-mix(in srgb, ${e.color} 10%, transparent);` : ''}
-            class:de-preview-hover={!!onEventOpen}
-            class:past={isPast(e)}
-            class:de-selected={selectedEventId === e.id}
-            aria-label={onEventOpen ? `Open ${e.title} in calendar` : `View details: ${e.title}`}
-            title={[formatTimeRange(e), e.location, e.description].filter(Boolean).join(' · ')}
-            onclick={() => handleEventClick(e)}
-          >
-            <span class="de-time">{formatTime(e.start)}</span>
-            <span class="de-title">{e.title}</span>
-            {#if e.location}<span class="de-loc">{e.location}</span>{/if}
-          </button>
-        </li>
-      {:else}
-        <li
-          class="de-event personal"
-          style={e.color ? `--accent: ${e.color}; --custom-bg: color-mix(in srgb, ${e.color} 10%, transparent);` : ''}
+<ul class="de-list">
+  {#each allDay as e (e.id)}
+    {@const eventColor = e.color || getColorForSource(e)}
+    {#if interactive}
+      <li class="de-li-compact">
+        <button
+          type="button"
+          class="de-event travel de-compact-hit"
+          style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 15%, transparent);"
+          class:de-preview-hover={!!onEventOpen}
           class:past={isPast(e)}
           class:de-selected={selectedEventId === e.id}
-          title={[e.location, e.description].filter(Boolean).join(' · ')}
+          aria-label={onEventOpen ? `Open ${e.title} in calendar` : `View details: ${e.title}`}
+          title={e.location ?? ''}
+          onclick={() => handleEventClick(e)}
+        >
+          <span class="de-icon" aria-hidden="true">✈</span>
+          <span class="de-title">{e.title}</span>
+        </button>
+      </li>
+    {:else}
+      <li
+        class="de-event travel"
+        style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 15%, transparent);"
+        class:past={isPast(e)}
+        title={e.location ?? ''}
+      >
+        <span class="de-icon">✈</span>
+        <span class="de-title">{e.title}</span>
+      </li>
+    {/if}
+  {/each}
+  {#each timed as e (e.id)}
+    {@const eventColor = e.color || getColorForSource(e)}
+    {#if interactive}
+      <li class="de-li-compact">
+        <button
+          type="button"
+          class="de-event personal de-compact-hit"
+          style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 10%, transparent);"
+          class:de-preview-hover={!!onEventOpen}
+          class:past={isPast(e)}
+          class:de-selected={selectedEventId === e.id}
+          aria-label={onEventOpen ? `Open ${e.title} in calendar` : `View details: ${e.title}`}
+          title={[formatTimeRange(e), e.location, e.description].filter(Boolean).join(' · ')}
+          onclick={() => handleEventClick(e)}
         >
           <span class="de-time">{formatTime(e.start)}</span>
           <span class="de-title">{e.title}</span>
           {#if e.location}<span class="de-loc">{e.location}</span>{/if}
-        </li>
-      {/if}
-    {/each}
-  </ul>
-{/if}
+        </button>
+      </li>
+    {:else}
+      <li
+        class="de-event personal"
+        style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 10%, transparent);"
+        class:past={isPast(e)}
+        class:de-selected={selectedEventId === e.id}
+        title={[e.location, e.description].filter(Boolean).join(' · ')}
+      >
+        <span class="de-time">{formatTime(e.start)}</span>
+        <span class="de-title">{e.title}</span>
+        {#if e.location}<span class="de-loc">{e.location}</span>{/if}
+      </li>
+    {/if}
+  {/each}
+</ul>
 
 <style>
-  .de-loading, .de-empty {
-    font-size: 12px;
-    color: var(--text-2);
-    padding: 2px 0;
-    opacity: 0.6;
-  }
-
   .de-list {
     list-style: none;
     margin: 0;

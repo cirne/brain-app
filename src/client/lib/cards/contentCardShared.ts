@@ -14,19 +14,21 @@ import { isFilesystemAbsolutePath } from '../fsPath.js'
 export { formatEmailParticipant, flattenInboxFromRipmailData, parseRipmailInboxFlat }
 export type { InboxListItemPreview }
 
-/** Matches calendar API / tool JSON shape enough for DayEvents. */
-export type CalendarEventLite = {
-  id: string
-  title: string
-  start: string
-  end: string
-  allDay: boolean
-  source: string
-  location?: string
-  description?: string
-  attendees?: string[]
-  organizer?: string
-}
+  /** Matches calendar API / tool JSON shape enough for DayEvents. */
+  export type CalendarEventLite = {
+    id: string
+    title: string
+    start: string
+    end: string
+    allDay: boolean
+    source: string
+    calendarId?: string
+    location?: string
+    description?: string
+    attendees?: string[]
+    organizer?: string
+    color?: string
+  }
 
 export type MessagePreviewRow = { ts: number; m: number; t: string; r?: number }
 

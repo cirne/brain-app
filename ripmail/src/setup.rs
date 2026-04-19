@@ -407,6 +407,7 @@ pub fn load_mailbox_configs_for_wizard(home: &Path) -> Vec<MailboxConfigJson> {
                     local_dir: None,
                     oauth_source_id: None,
                     calendar_ids: None,
+                    default_calendars: None,
                     ics_url: None,
                 }];
             }
@@ -570,6 +571,7 @@ pub fn upsert_mailbox_setup(
         local_dir: None,
         oauth_source_id: None,
         calendar_ids: None,
+        default_calendars: None,
         ics_url: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {
@@ -648,6 +650,7 @@ pub fn upsert_mailbox_applemail(
         local_dir: None,
         oauth_source_id: None,
         calendar_ids: None,
+        default_calendars: None,
         ics_url: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {
@@ -739,6 +742,7 @@ pub fn upsert_mailbox_google_oauth(
         local_dir: None,
         oauth_source_id: None,
         calendar_ids: None,
+        default_calendars: None,
         ics_url: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {

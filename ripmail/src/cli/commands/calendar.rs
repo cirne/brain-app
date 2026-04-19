@@ -1,12 +1,13 @@
 //! `ripmail calendar` — query indexed events ([OPP-053](https://github.com/cirne/zmail)).
 
+use std::collections::HashMap;
+
 use chrono::{Days, NaiveDate, TimeZone, Utc};
 
 use crate::cli::util::{load_cfg, ripmail_home_path};
 use crate::cli::CliResult;
 use ripmail::calendar::{
-    fetch_event_json_by_rowid, fetch_event_json_by_uid, list_events_in_range,
-    list_events_overlapping, search_events_fts,
+    fetch_event_json_by_rowid, fetch_event_json_by_uid, list_events_overlapping, search_events_fts,
 };
 use ripmail::config::{load_config_json, SourceKind};
 use ripmail::db;
@@ -57,14 +58,43 @@ pub(crate) fn run_calendar(cmd: CalendarCmd) -> CliResult {
                     .unwrap_or(true)
             })
             .map(|s| {
-                serde_json::json!({
+                let names_path = home.join(&s.id).join("calendar-names.json");
+                let names: HashMap<String, String> = std::fs::read_to_string(&names_path)
+                    .ok()
+                    .and_then(|c| serde_json::from_str(&c).ok())
+                    .unwrap_or_default();
+
+                let calendar_ids_with_names: Vec<serde_json::Value> = s
+                    .calendar_ids
+                    .as_deref()
+                    .unwrap_or(&[])
+                    .iter()
+                    .map(|id| {
+                        let mut obj = serde_json::json!({ "id": id });
+                        if let Some(name) = names.get(id) {
+                            obj["name"] = serde_json::Value::String(name.clone());
+                        }
+                        obj
+                    })
+                    .collect();
+
+                let all_calendars: Vec<serde_json::Value> = names
+                    .iter()
+                    .map(|(id, name)| serde_json::json!({ "id": id, "name": name }))
+                    .collect();
+
+                let mut obj = serde_json::json!({
                     "sourceId": s.id,
                     "kind": kind_str(s.kind),
-                    "calendarIds": s.calendar_ids,
+                    "calendars": calendar_ids_with_names,
                     "icsUrl": s.ics_url,
                     "path": s.path,
                     "email": s.email,
-                })
+                });
+                if !all_calendars.is_empty() {
+                    obj["allCalendars"] = serde_json::Value::Array(all_calendars);
+                }
+                obj
             })
             .collect();
         if json {
@@ -101,19 +131,68 @@ fn run_calendar_with_conn(conn: &rusqlite::Connection, cmd: CalendarCmd) -> CliR
                 .unwrap();
             let lo = Utc.from_utc_datetime(&start).timestamp();
             let hi = Utc.from_utc_datetime(&end).timestamp();
-            let rows = list_events_in_range(conn, source.as_deref(), lo, hi, 200)?;
+
+            let mut filter_calendars = Vec::new();
+            let home = ripmail_home_path();
+            let cfg = load_config_json(&home);
+            if let Some(sources) = cfg.sources {
+                if let Some(sid) = source.as_deref() {
+                    if let Some(s) = sources.iter().find(|s| s.id == sid || s.email == sid) {
+                        if let Some(ref defaults) = s.default_calendars {
+                            filter_calendars = defaults.clone();
+                        }
+                    }
+                } else {
+                    for s in sources {
+                        if let Some(ref defaults) = s.default_calendars {
+                            filter_calendars.extend(defaults.clone());
+                        }
+                    }
+                }
+            }
+
+            let rows =
+                list_events_overlapping(conn, source.as_deref(), &filter_calendars, lo, hi, 200)?;
             print_json_array(&rows, json)
         }
         CalendarCmd::Upcoming { days, source, json } => {
             let now = Utc::now().timestamp();
             let end_ts = now + (days as i64) * 86400;
-            let rows = list_events_in_range(conn, source.as_deref(), now, end_ts, 200)?;
+
+            let mut filter_calendars = Vec::new();
+            let home = ripmail_home_path();
+            let cfg = load_config_json(&home);
+            if let Some(sources) = cfg.sources {
+                if let Some(sid) = source.as_deref() {
+                    if let Some(s) = sources.iter().find(|s| s.id == sid || s.email == sid) {
+                        if let Some(ref defaults) = s.default_calendars {
+                            filter_calendars = defaults.clone();
+                        }
+                    }
+                } else {
+                    for s in sources {
+                        if let Some(ref defaults) = s.default_calendars {
+                            filter_calendars.extend(defaults.clone());
+                        }
+                    }
+                }
+            }
+
+            let rows = list_events_overlapping(
+                conn,
+                source.as_deref(),
+                &filter_calendars,
+                now,
+                end_ts,
+                200,
+            )?;
             print_json_array(&rows, json)
         }
         CalendarCmd::Range {
             from,
             to,
             source,
+            calendar,
             json,
         } => {
             let from_d = parse_ymd(&from)?;
@@ -130,7 +209,32 @@ fn run_calendar_with_conn(conn: &rusqlite::Connection, cmd: CalendarCmd) -> CliR
                         .unwrap(),
                 )
                 .timestamp();
-            let rows = list_events_overlapping(conn, source.as_deref(), lo, hi, 2000)?;
+
+            let mut filter_calendars = calendar;
+            if filter_calendars.is_empty() {
+                // If no explicit filter, check for default_calendars in config
+                let home = ripmail_home_path();
+                let cfg = load_config_json(&home);
+                if let Some(sources) = cfg.sources {
+                    if let Some(sid) = source.as_deref() {
+                        if let Some(s) = sources.iter().find(|s| s.id == sid || s.email == sid) {
+                            if let Some(ref defaults) = s.default_calendars {
+                                filter_calendars = defaults.clone();
+                            }
+                        }
+                    } else {
+                        // Global query: collect all default_calendars from all sources
+                        for s in sources {
+                            if let Some(ref defaults) = s.default_calendars {
+                                filter_calendars.extend(defaults.clone());
+                            }
+                        }
+                    }
+                }
+            }
+
+            let rows =
+                list_events_overlapping(conn, source.as_deref(), &filter_calendars, lo, hi, 2000)?;
             print_json_array(&rows, json)
         }
         CalendarCmd::Search {

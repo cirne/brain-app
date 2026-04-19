@@ -83,6 +83,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
             apple_mail_path,
             oauth_source_id,
             calendar,
+            default_calendar,
             url,
             json,
         } => {
@@ -127,6 +128,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         local_dir: Some(default_local_dir()),
                         oauth_source_id: None,
                         calendar_ids: None,
+                        default_calendars: None,
                         ics_url: None,
                     }
                 }
@@ -155,6 +157,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         local_dir: None,
                         oauth_source_id: None,
                         calendar_ids: None,
+                        default_calendars: None,
                         ics_url: None,
                     }
                 }
@@ -174,6 +177,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         local_dir: None,
                         oauth_source_id: None,
                         calendar_ids: None,
+                        default_calendars: None,
                         ics_url: None,
                     }
                 }
@@ -184,6 +188,11 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         Some(vec!["primary".to_string()])
                     } else {
                         Some(calendar)
+                    };
+                    let default_calendars = if default_calendar.is_empty() {
+                        None
+                    } else {
+                        Some(default_calendar)
                     };
                     SourceConfigJson {
                         id,
@@ -201,6 +210,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                             .map(|s| s.trim().to_string())
                             .filter(|s| !s.is_empty()),
                         calendar_ids,
+                        default_calendars,
                         ics_url: None,
                     }
                 }
@@ -226,6 +236,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         local_dir: None,
                         oauth_source_id: None,
                         calendar_ids: None,
+                        default_calendars: None,
                         ics_url: None,
                     }
                 }
@@ -252,6 +263,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         local_dir: None,
                         oauth_source_id: None,
                         calendar_ids: None,
+                        default_calendars: None,
                         ics_url: Some(url_s),
                     }
                 }
@@ -286,6 +298,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         local_dir: None,
                         oauth_source_id: None,
                         calendar_ids: None,
+                        default_calendars: None,
                         ics_url: None,
                     }
                 }
@@ -308,6 +321,8 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
             id,
             label,
             path,
+            calendar,
+            default_calendar,
             json,
         } => {
             let mut cfg = load_config_json(&home);
@@ -331,6 +346,18 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                     return Err("--path must be an existing file for icsFile".into());
                 }
                 sources[pos].path = Some(root.to_string_lossy().to_string());
+            }
+            if !calendar.is_empty() {
+                if sources[pos].kind != SourceKind::GoogleCalendar {
+                    return Err("--calendar only applies to googleCalendar sources".into());
+                }
+                sources[pos].calendar_ids = Some(calendar);
+            }
+            if !default_calendar.is_empty() {
+                if sources[pos].kind != SourceKind::GoogleCalendar {
+                    return Err("--default-calendar only applies to googleCalendar sources".into());
+                }
+                sources[pos].default_calendars = Some(default_calendar);
             }
             cfg.sources = Some(sources);
             write_config_json(&home, &cfg)?;

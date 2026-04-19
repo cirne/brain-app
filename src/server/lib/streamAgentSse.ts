@@ -17,6 +17,7 @@ import {
 import { buildReadEmailPreviewDetails } from './readEmailPreview.js'
 import { createWikiUnifiedDiff, safeWikiRelativePath } from './wikiEditDiff.js'
 import { writeWikiPartialFromStreamingWriteArgs } from './wikiStreamingPartialWrite.js'
+import { truncateJsonResult } from './truncateJson.js'
 
 export interface StreamAgentSseOptions {
   /** Wiki root for edit diffs and safeWikiRelativePath (may differ from main app wiki). */
@@ -215,15 +216,10 @@ export function streamAgentSseResponse(
             const ev = event as unknown as { type: 'tool_execution_end' } & ToolExecutionEndPayload
             const resultText = toolResultText(ev)
             let details: unknown = undefined
-            if (ev.toolName === 'list_inbox' && ev.result?.details != null && typeof ev.result.details === 'object') {
+            if (ev.result?.details != null && typeof ev.result.details === 'object') {
               details = ev.result.details
-            } else if (
-              (ev.toolName === 'get_message_thread' || ev.toolName === 'get_imessage_thread') &&
-              ev.result?.details != null &&
-              typeof ev.result.details === 'object'
-            ) {
-              details = ev.result.details
-            } else if (ev.toolName === 'read_doc' && resultText.trim().startsWith('{')) {
+            }
+            if (ev.toolName === 'read_doc' && resultText.trim().startsWith('{')) {
               try {
                 const parsed = JSON.parse(resultText) as Record<string, unknown>
                 const partBefore = assistantState.parts.find(
@@ -268,7 +264,8 @@ export function streamAgentSseResponse(
                 }
               }
             }
-            applyToolEnd(assistantState, ev.toolCallId, resultText.slice(0, 4000), ev.isError, details)
+            const truncatedResult = truncateJsonResult(resultText, 4000)
+            applyToolEnd(assistantState, ev.toolCallId, truncatedResult, ev.isError, details)
             const toolRow = assistantState.parts.find(
               p => p.type === 'tool' && p.toolCall.id === ev.toolCallId,
             ) as { type: 'tool'; toolCall: { args: unknown } } | undefined
@@ -278,7 +275,7 @@ export function streamAgentSseResponse(
               data: JSON.stringify({
                 id: ev.toolCallId,
                 name: ev.toolName,
-                result: resultText.slice(0, 4000),
+                result: truncatedResult,
                 isError: ev.isError,
                 ...(details !== undefined ? { details } : {}),
                 ...(toolArgs != null && typeof toolArgs === 'object'

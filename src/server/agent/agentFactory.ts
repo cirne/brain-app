@@ -23,7 +23,7 @@ export function buildDateContext(timezone: string): string {
     .formatToParts(now)
     .find(p => p.type === 'timeZoneName')?.value ?? ''
   const utcOffset = gmtOffset.replace('GMT', 'UTC')
-  return `Today is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}).`
+  return `Today is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). When resolving dates or times for tools, always use this current date and the ${tz} timezone as the reference point.`
 }
 
 export type CreateOnboardingAgentOptions = {

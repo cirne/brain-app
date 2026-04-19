@@ -28,6 +28,8 @@ export type CalendarFetchMeta = {
   sourcesConfigured: boolean
   /** ISO timestamp or empty when unknown */
   ripmail: string
+  /** Available calendars (cached from the same ripmail call that checks sourcesConfigured) */
+  availableCalendars?: { id: string; name?: string; sourceId: string }[]
 }
 
 function parseAttendees(attendeesJson: string | null | undefined): string[] | undefined {
@@ -64,7 +66,7 @@ function unixToIso(startAt: number, endAt: number, allDay: boolean): { start: st
   return { start: iso(startAt), end: iso(endAt) }
 }
 
-/** Map one ripmail JSON row to brain `CalendarEvent`. */
+  /** Map one ripmail JSON row to brain `CalendarEvent`. */
 export function mapRipmailRowToCalendarEvent(row: RipmailCalendarEventJson): CalendarEvent | null {
   const uid = row.uid?.trim()
   const sourceId = row.sourceId?.trim() ?? 'unknown'
@@ -82,6 +84,7 @@ export function mapRipmailRowToCalendarEvent(row: RipmailCalendarEventJson): Cal
     end,
     allDay,
     source: source as CalendarEvent['source'],
+    calendarId: row.calendarId?.trim() || undefined,
     location: row.location?.trim() || undefined,
     description: row.description?.trim()?.slice(0, 2000) || undefined,
     attendees,
@@ -90,16 +93,17 @@ export function mapRipmailRowToCalendarEvent(row: RipmailCalendarEventJson): Cal
   }
 }
 
-async function ripmailCalendarSourcesConfigured(): Promise<boolean> {
+async function ripmailCalendarSourcesInfo(): Promise<{ configured: boolean; calendars: { id: string; name?: string; sourceId: string }[] }> {
   try {
     const { stdout } = await execRipmailAsync(
       `${ripmailBin()} calendar list-calendars --json`,
       { timeout: 15000 },
     )
-    const j = JSON.parse(stdout) as { calendars?: unknown[] }
-    return Array.isArray(j.calendars) && j.calendars.length > 0
+    const j = JSON.parse(stdout) as { calendars?: { id: string; name?: string; sourceId: string }[] }
+    const calendars = Array.isArray(j.calendars) ? j.calendars : []
+    return { configured: calendars.length > 0, calendars }
   } catch {
-    return false
+    return { configured: false, calendars: [] }
   }
 }
 
@@ -109,52 +113,81 @@ async function ripmailCalendarSourcesConfigured(): Promise<boolean> {
 export async function getCalendarEventsFromRipmail(opts: {
   start?: string
   end?: string
+  calendarIds?: string[]
 }): Promise<{ events: CalendarEvent[]; meta: CalendarFetchMeta }> {
   await ensureGoogleCalendarSourcesForOAuthImap(ripmailHomeForBrain())
   const start = opts.start?.trim()
   const end = opts.end?.trim()
   if (!start || !end) {
-    const sourcesConfigured = await ripmailCalendarSourcesConfigured()
+    const info = await ripmailCalendarSourcesInfo()
     return {
       events: [],
       meta: {
-        sourcesConfigured,
+        sourcesConfigured: info.configured,
+        availableCalendars: info.calendars,
         ripmail: '',
       },
     }
   }
 
-  const [sourcesConfigured, cmdOut] = await Promise.all([
-    ripmailCalendarSourcesConfigured(),
+  const calendarFlags = opts.calendarIds?.length
+    ? opts.calendarIds.map((id) => `--calendar ${JSON.stringify(id)}`).join(' ')
+    : ''
+
+  const [info, cmdOut] = await Promise.all([
+    ripmailCalendarSourcesInfo(),
     execRipmailAsync(
-      `${ripmailBin()} calendar range --from ${JSON.stringify(start)} --to ${JSON.stringify(end)} --json`,
+      `${ripmailBin()} calendar range --from ${JSON.stringify(start)} --to ${JSON.stringify(end)}${calendarFlags ? ' ' + calendarFlags : ''} --json`,
       { timeout: 60000 },
     ).catch(() => null),
   ])
 
   if (!cmdOut) {
-    return { events: [], meta: { sourcesConfigured, ripmail: '' } }
+    return { events: [], meta: { sourcesConfigured: info.configured, availableCalendars: info.calendars, ripmail: '' } }
   }
 
   let parsed: { events?: RipmailCalendarEventJson[] }
   try {
     parsed = JSON.parse(cmdOut.stdout) as { events?: RipmailCalendarEventJson[] }
   } catch {
-    return { events: [], meta: { sourcesConfigured, ripmail: '' } }
+    return { events: [], meta: { sourcesConfigured: info.configured, ripmail: '' } }
   }
 
   const raw = Array.isArray(parsed.events) ? parsed.events : []
   const events: CalendarEvent[] = []
+  const seen = new Map<string, CalendarEvent>()
+
   for (const r of raw) {
     const ev = mapRipmailRowToCalendarEvent(r)
-    if (ev) events.push(ev)
+    if (!ev) continue
+
+    // Deduplicate by start, end, and title.
+    // We normalize the title by trimming and lowercasing to catch minor variations.
+    const key = `${ev.start}|${ev.end}|${ev.title.trim().toLowerCase()}`
+    const existing = seen.get(key)
+    if (existing) {
+      // Prefer the one with more attendees or a non-hash organizer.
+      const existingAttendees = existing.attendees?.length ?? 0
+      const newAttendees = ev.attendees?.length ?? 0
+      if (newAttendees > existingAttendees) {
+        seen.set(key, ev)
+      }
+    } else {
+      seen.set(key, ev)
+    }
   }
+
+  for (const ev of seen.values()) {
+    events.push(ev)
+  }
+
   events.sort((a, b) => a.start.localeCompare(b.start))
 
   return {
     events,
     meta: {
-      sourcesConfigured,
+      sourcesConfigured: info.configured,
+      availableCalendars: info.calendars,
       ripmail: new Date().toISOString(),
     },
   }

@@ -58,7 +58,7 @@ pub fn run_calendar_sync(
                 token_mailbox_id,
                 ..
             } => {
-                let (n, discovered) = sync_google_calendars(
+                let (n, discovered, cal_names) = sync_google_calendars(
                     conn,
                     home,
                     &mb.id,
@@ -74,6 +74,13 @@ pub fn run_calendar_sync(
                             sources[idx].calendar_ids = Some(discovered);
                             let _ = write_config_json(home, &cfg_json);
                         }
+                    }
+                }
+                if !cal_names.is_empty() {
+                    let dir = home.join(&mb.id);
+                    let _ = std::fs::create_dir_all(&dir);
+                    if let Ok(json) = serde_json::to_string_pretty(&cal_names) {
+                        let _ = std::fs::write(dir.join("calendar-names.json"), json);
                     }
                 }
                 n

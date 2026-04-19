@@ -2,7 +2,7 @@ import { createReadTool, createEditTool, createWriteTool, createGrepTool, create
 import { Type } from '@mariozechner/pi-ai'
 import { exec, spawn } from 'node:child_process'
 import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { dirname } from 'node:path'
 import { promisify } from 'node:util'
 import { enrichCalendarEventsForAgent, getCalendarEvents, weekdayLongForUtcYmd } from '../lib/calendarCache.js'
 import { Exa } from 'exa-js'
@@ -516,165 +516,101 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
-  const listSources = defineTool({
-    name: 'list_sources',
-    label: 'List sources',
-    description: 'List all configured ripmail sources (IMAP, Apple Mail, local folders) as JSON.',
-    parameters: Type.Object({}),
-    async execute(_toolCallId: string, _params: Record<string, never>) {
-      const rm = ripmailBin()
-      const { stdout } = await execRipmailAsync(`${rm} sources list --json`, { timeout: 15000 })
-      let details: Record<string, unknown> = {}
-      try {
-        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
-      } catch {
-        details = { raw: stdout }
-      }
-      return {
-        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
-        details,
-      }
-    },
-  })
-
-  const sourceStatus = defineTool({
-    name: 'source_status',
-    label: 'Source status',
-    description: 'Per-source index health: document counts and last sync time (JSON).',
-    parameters: Type.Object({}),
-    async execute(_toolCallId: string, _params: Record<string, never>) {
-      const rm = ripmailBin()
-      const { stdout } = await execRipmailAsync(`${rm} sources status --json`, { timeout: 15000 })
-      let details: Record<string, unknown> = {}
-      try {
-        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
-      } catch {
-        details = { raw: stdout }
-      }
-      return {
-        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
-        details,
-      }
-    },
-  })
-
-  const addFilesSource = defineTool({
-    name: 'add_files_source',
-    label: 'Add indexed folder',
+  const manageSources = defineTool({
+    name: 'manage_sources',
+    label: 'Manage sources',
     description:
-      'Register a local folder as a ripmail source so its files are indexed and searchable. Custom include/ignore globs are not available via CLI yet — omit them or the tool errors with guidance.',
+      'Manage ripmail sources (IMAP, Apple Mail, local folders, calendars). op=list: list all sources; op=status: index health and sync times; op=add: register a local folder; op=edit: update label/path; op=remove: delete a source; op=reindex: start background refresh.',
     parameters: Type.Object({
-      path: Type.String({ description: 'Absolute path or ~/… to the folder root' }),
-      label: Type.Optional(Type.String({ description: 'Display label' })),
-      id: Type.Optional(Type.String({ description: 'Stable source id (default: derived from label/path)' })),
-      include: Type.Optional(Type.Array(Type.String(), { description: 'Not yet supported — omit' })),
-      ignore: Type.Optional(Type.Array(Type.String(), { description: 'Not yet supported — omit' })),
+      op: Type.Union([
+        Type.Literal('list'),
+        Type.Literal('status'),
+        Type.Literal('add'),
+        Type.Literal('edit'),
+        Type.Literal('remove'),
+        Type.Literal('reindex'),
+      ]),
+      id: Type.Optional(Type.String({ description: 'edit/remove/reindex: source id' })),
+      path: Type.Optional(Type.String({ description: 'add/edit: absolute path or ~/…' })),
+      label: Type.Optional(Type.String({ description: 'add/edit: display label' })),
+      source_id: Type.Optional(Type.String({ description: 'reindex: alias for id' })),
     }),
     async execute(
       _toolCallId: string,
-      params: { path: string; label?: string; id?: string; include?: string[]; ignore?: string[] },
+      params: {
+        op: 'list' | 'status' | 'add' | 'edit' | 'remove' | 'reindex'
+        id?: string
+        path?: string
+        label?: string
+        source_id?: string
+      },
     ) {
-      if ((params.include?.length ?? 0) > 0 || (params.ignore?.length ?? 0) > 0) {
-        throw new Error(
-          'Custom include/ignore patterns are not available via the agent yet. Add the folder with defaults only, or edit ~/.ripmail/config.json by hand until ripmail exposes those flags on sources add.',
-        )
-      }
       const rm = ripmailBin()
-      const tail = buildSourcesAddLocalDirCommand({
-        path: params.path,
-        label: params.label,
-        id: params.id,
-      })
-      const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
-      let details: Record<string, unknown> = {}
-      try {
-        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
-      } catch {
-        details = { raw: stdout }
+      const parseStdout = (stdout: string) => {
+        let details: Record<string, unknown> = {}
+        try {
+          if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
+        } catch {
+          details = { raw: stdout }
+        }
+        return { content: [{ type: 'text' as const, text: stdout || '(empty)' }], details }
       }
-      return {
-        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
-        details,
-      }
-    },
-  })
 
-  const editFilesSource = defineTool({
-    name: 'edit_files_source',
-    label: 'Edit source',
-    description: 'Update label or path for an existing ripmail source by id (JSON output).',
-    parameters: Type.Object({
-      id: Type.String({ description: 'Source id' }),
-      label: Type.Optional(Type.String()),
-      path: Type.Optional(Type.String({ description: 'For localDir sources only' })),
-    }),
-    async execute(_toolCallId: string, params: { id: string; label?: string; path?: string }) {
-      const rm = ripmailBin()
-      const tail = buildSourcesEditCommand(params)
-      const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
-      let details: Record<string, unknown> = {}
-      try {
-        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
-      } catch {
-        details = { raw: stdout }
-      }
-      return {
-        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
-        details,
-      }
-    },
-  })
-
-  const removeFilesSource = defineTool({
-    name: 'remove_files_source',
-    label: 'Remove source',
-    description:
-      'Remove a ripmail source from config (and its index rows). Confirm with the user before calling — destructive.',
-    parameters: Type.Object({
-      id: Type.String({ description: 'Source id to remove' }),
-    }),
-    async execute(_toolCallId: string, params: { id: string }) {
-      const rm = ripmailBin()
-      const tail = buildSourcesRemoveCommand(params.id)
-      const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
-      let details: Record<string, unknown> = {}
-      try {
-        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
-      } catch {
-        details = { raw: stdout }
-      }
-      return {
-        content: [{ type: 'text' as const, text: stdout || '(empty)' }],
-        details,
-      }
-    },
-  })
-
-  const reindexFilesSource = defineTool({
-    name: 'reindex_files_source',
-    label: 'Re-index',
-    description:
-      'Start ripmail refresh in the background (all sources, or one source when source_id is set). Does not block on completion.',
-    parameters: Type.Object({
-      source_id: Type.Optional(Type.String({ description: 'Ripmail source id; omit to refresh all' })),
-    }),
-    async execute(_toolCallId: string, params: { source_id?: string }) {
-      const resolved = await resolveRipmailSourceForCli(params.source_id)
-      const started = await spawnRipmailRefreshDetached(resolved)
-      if (!started.ok) {
-        throw new Error(started.error ?? 'Failed to start ripmail refresh')
-      }
-      const scope = params.source_id?.trim()
-        ? `source ${params.source_id.trim()}`
-        : 'all sources'
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Re-index started in the background (${scope}). Check ripmail status or source_status later.`,
-          },
-        ],
-        details: { ok: true as const, source_id: params.source_id ?? null },
+      switch (params.op) {
+        case 'list': {
+          const { stdout } = await execRipmailAsync(`${rm} sources list --json`, { timeout: 15000 })
+          return parseStdout(stdout)
+        }
+        case 'status': {
+          const { stdout } = await execRipmailAsync(`${rm} sources status --json`, { timeout: 15000 })
+          return parseStdout(stdout)
+        }
+        case 'add': {
+          if (!params.path) throw new Error('path is required for op=add')
+          const tail = buildSourcesAddLocalDirCommand({
+            path: params.path,
+            label: params.label,
+            id: params.id,
+          })
+          const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
+          return parseStdout(stdout)
+        }
+        case 'edit': {
+          if (!params.id) throw new Error('id is required for op=edit')
+          const tail = buildSourcesEditCommand({
+            id: params.id,
+            label: params.label,
+            path: params.path,
+          })
+          const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
+          return parseStdout(stdout)
+        }
+        case 'remove': {
+          if (!params.id) throw new Error('id is required for op=remove')
+          const tail = buildSourcesRemoveCommand(params.id)
+          const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
+          return parseStdout(stdout)
+        }
+        case 'reindex': {
+          const sid = params.id ?? params.source_id
+          const resolved = await resolveRipmailSourceForCli(sid)
+          const started = await spawnRipmailRefreshDetached(resolved)
+          if (!started.ok) throw new Error(started.error ?? 'Failed to start ripmail refresh')
+          const scope = sid?.trim() ? `source ${sid.trim()}` : 'all sources'
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Re-index started in the background (${scope}). Check source status later.`,
+              },
+            ],
+            details: { ok: true, source_id: sid ?? null },
+          }
+        }
+        default: {
+          const x: never = params.op
+          throw new Error(`Unhandled op: ${String(x)}`)
+        }
       }
     },
   })
@@ -950,29 +886,120 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
-  const getCalEvents = defineTool({
-    name: 'get_calendar_events',
-    label: 'Get Calendar Events',
+  const calendar = defineTool({
+    name: 'calendar',
+    label: 'Calendar',
     description:
-      'Get calendar events for a date range from the local ripmail calendar index (and optional legacy ICS cache when enabled). Returns events as JSON with startDayOfWeek and endDayOfWeek (UTC calendar dates; for all-day events end is exclusive per ICS, so endDayOfWeek is the last day of the event). Tip: for scheduling, forward to howie@howie.ai.',
+      'All calendar operations. op=events: query events for a date range (start/end YYYY-MM-DD). Optional calendar_ids to filter results. op=list_calendars: discover available calendar IDs per configured source — use before configure_source. op=configure_source: set which calendar IDs a source syncs (source + calendar_ids required) and optionally which are shown by default (default_calendar_ids); triggers reindex. For scheduling assistance, forward to howie@howie.ai.',
     parameters: Type.Object({
-      start: Type.String({ description: 'Start date YYYY-MM-DD (inclusive)' }),
-      end: Type.String({ description: 'End date YYYY-MM-DD (inclusive)' }),
+      op: Type.Union([
+        Type.Literal('events'),
+        Type.Literal('list_calendars'),
+        Type.Literal('configure_source'),
+      ]),
+      start: Type.Optional(Type.String({ description: 'events: start date YYYY-MM-DD (inclusive)' })),
+      end: Type.Optional(Type.String({ description: 'events: end date YYYY-MM-DD (inclusive)' })),
+      source: Type.Optional(
+        Type.String({ description: 'list_calendars / configure_source: source id' }),
+      ),
+      calendar_ids: Type.Optional(
+        Type.Array(Type.String(), { description: 'events / configure_source: IDs to sync or filter by' }),
+      ),
+      default_calendar_ids: Type.Optional(
+        Type.Array(Type.String(), { description: 'configure_source: IDs to show by default' }),
+      ),
     }),
-    async execute(_toolCallId: string, params: { start: string; end: string }) {
-      const { events, fetchedAt, sourcesConfigured } = await getCalendarEvents({
-        start: params.start,
-        end: params.end,
-      })
-      const text = events.length
-        ? JSON.stringify(enrichCalendarEventsForAgent(events), null, 2)
-        : sourcesConfigured
-          ? `No events found between ${params.start} and ${params.end}. Last indexed query: ${fetchedAt.ripmail || 'never'}. If events exist in Google Calendar, run inbox/calendar sync and wait for ripmail to finish indexing.`
-          : 'No calendar sources in the local ripmail config (nothing to index). Gmail accounts need a `googleCalendar` source beside IMAP — the app adds this when you connect Google; reconnect Gmail or run a sync after upgrading. Last indexed query: never.'
-      return {
-        content: [{ type: 'text' as const, text }],
-        details: {},
+    async execute(
+      _toolCallId: string,
+      params: {
+        op: 'events' | 'list_calendars' | 'configure_source'
+        start?: string
+        end?: string
+        source?: string
+        calendar_ids?: string[]
+        default_calendar_ids?: string[]
+      },
+    ) {
+      if (params.op === 'events') {
+        if (!params.start || !params.end) {
+          throw new Error('start and end are required for op=events')
+        }
+        const { events, fetchedAt, sourcesConfigured, availableCalendars } = await getCalendarEvents({
+          start: params.start,
+          end: params.end,
+          calendarIds: params.calendar_ids,
+        })
+        const enrichedEvents = enrichCalendarEventsForAgent(events)
+        let text = enrichedEvents.length
+          ? JSON.stringify(enrichedEvents)
+          : sourcesConfigured
+            ? `No events found between ${params.start} and ${params.end}. Last indexed query: ${fetchedAt.ripmail || 'never'}. If events exist in Google Calendar, run inbox/calendar sync and wait for ripmail to finish indexing.`
+            : 'No calendar sources in the local ripmail config (nothing to index). Gmail accounts need a `googleCalendar` source beside IMAP — the app adds this when you connect Google; reconnect Gmail or run a sync after upgrading. Last indexed query: never.'
+
+        // If no events found and we have sources, add a hint to check available calendars
+        if (!enrichedEvents.length && sourcesConfigured && availableCalendars?.length) {
+          const list = availableCalendars.map(c => `- ${c.name || c.id} (id: ${c.id})`).join('\n')
+          text += `\n\n**HINT**: You are currently querying default calendars. If you are looking for a specific person's schedule, you might need to specify one of these available IDs in \`calendar_ids\`:\n${list}`
+        }
+
+        const payload: Record<string, any> = {
+          ok: true,
+          // Include events in details so client can render the preview even when
+          // the result text is truncated at 4000 chars by the SSE layer.
+          events: enrichedEvents,
+          start: params.start,
+          end: params.end,
+        }
+        // If the query was for a single day, we want to show the preview for that day.
+        if (params.start === params.end) {
+          payload.calendarPreview = true
+          payload.date = params.start
+        }
+
+        return {
+          content: [
+            { type: 'text' as const, text },
+          ],
+          details: payload,
+        }
       }
+
+      if (params.op === 'list_calendars') {
+        const rm = ripmailBin()
+        const src = params.source?.trim() ? ` --source ${JSON.stringify(params.source.trim())}` : ''
+        const { stdout } = await execRipmailAsync(`${rm} calendar list-calendars --json${src}`, {
+          timeout: 15000,
+        })
+        return {
+          content: [{ type: 'text' as const, text: stdout || '(empty)' }],
+          details: {},
+        }
+      }
+
+      if (params.op === 'configure_source') {
+        if (!params.source || !params.calendar_ids) {
+          throw new Error('source and calendar_ids are required for op=configure_source')
+        }
+        const rm = ripmailBin()
+        const ids = params.calendar_ids.map((id) => `--calendar ${JSON.stringify(id)}`).join(' ')
+        const defaultIds = params.default_calendar_ids?.length
+          ? ' ' + params.default_calendar_ids.map((id) => `--default-calendar ${JSON.stringify(id)}`).join(' ')
+          : ''
+        const cmd = `${rm} sources edit ${JSON.stringify(params.source)} ${ids}${defaultIds} --json`
+        const { stdout } = await execRipmailAsync(cmd, { timeout: 15000 })
+        await spawnRipmailRefreshDetached(params.source)
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Source ${params.source} updated with ${params.calendar_ids.length} calendar(s). Re-index started in the background.`,
+            },
+          ],
+          details: JSON.parse(stdout),
+        }
+      }
+
+      throw new Error(`Unhandled op: ${params.op}`)
     },
   })
 
@@ -1402,12 +1429,7 @@ Returns the saved text; treat it as active for this session too.`,
     deleteFile,
     searchIndex,
     readDoc,
-    listSources,
-    sourceStatus,
-    addFilesSource,
-    editFilesSource,
-    removeFilesSource,
-    reindexFilesSource,
+    manageSources,
     listInbox,
     inboxRules,
     archiveEmails,
@@ -1415,7 +1437,7 @@ Returns the saved text; treat it as active for this session too.`,
     editDraft,
     sendDraft,
     findPerson,
-    getCalEvents,
+    calendar,
     webSearch,
     fetchPage,
     getYoutubeTranscript,

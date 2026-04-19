@@ -418,6 +418,9 @@ pub(crate) enum SourcesCmd {
         /// `googleCalendar`: remote calendar id (repeat for multiple; default `primary` if omitted).
         #[arg(long = "calendar")]
         calendar: Vec<String>,
+        /// Calendar IDs to show by default (repeat for multiple; subset of --calendar).
+        #[arg(long = "default-calendar")]
+        default_calendar: Vec<String>,
         /// `icsSubscription`: HTTPS URL to fetch.
         #[arg(long)]
         url: Option<String>,
@@ -432,6 +435,12 @@ pub(crate) enum SourcesCmd {
         label: Option<String>,
         #[arg(long)]
         path: Option<String>,
+        /// Calendar IDs to sync (repeat for multiple; replaces existing list).
+        #[arg(long = "calendar")]
+        calendar: Vec<String>,
+        /// Calendar IDs to show by default (repeat for multiple; subset of --calendar).
+        #[arg(long = "default-calendar")]
+        default_calendar: Vec<String>,
         #[arg(long)]
         json: bool,
     },
@@ -492,6 +501,9 @@ pub(crate) enum CalendarCmd {
         to: String,
         #[arg(long, short = 'S')]
         source: Option<String>,
+        /// Optional calendar IDs to filter by (repeat for multiple)
+        #[arg(long = "calendar")]
+        calendar: Vec<String>,
         #[arg(long)]
         json: bool,
     },

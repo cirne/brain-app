@@ -12,6 +12,8 @@ use crate::oauth::ensure_google_access_token;
 use super::db::{self, delete_source_events, upsert_event};
 use super::model::CalendarEventRow;
 
+type SyncResult = Result<(u32, Vec<String>, HashMap<String, String>), Box<dyn std::error::Error>>;
+
 const GCAL_EVENTS: &str = "https://www.googleapis.com/calendar/v3/calendars";
 const GCAL_LIST: &str = "https://www.googleapis.com/calendar/v3/users/me/calendarList";
 
@@ -132,7 +134,7 @@ pub fn sync_google_calendars(
     token_mailbox_id: &str,
     env_file: &HashMap<String, String>,
     process_env: &HashMap<String, String>,
-) -> Result<(u32, Vec<String>), Box<dyn std::error::Error>> {
+) -> SyncResult {
     let token = ensure_google_access_token(home, token_mailbox_id, env_file, process_env).map_err(
         |e| {
             format!(
@@ -144,18 +146,25 @@ pub fn sync_google_calendars(
 
     let mut effective_calendar_ids = calendar_ids.to_vec();
     let mut discovered_ids = Vec::new();
-    if effective_calendar_ids.is_empty() || effective_calendar_ids == vec!["primary".to_string()] {
-        // Fetch all available calendars if none or only "primary" is specified
-        if let Ok(val) = fetch_json(&token, GCAL_LIST) {
-            if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
-                for item in items {
-                    if let Some(id) = item.get("id").and_then(|id| id.as_str()) {
-                        discovered_ids.push(id.to_string());
+    let mut calendar_names: HashMap<String, String> = HashMap::new();
+
+    // Always fetch the calendar list to capture human-readable names; also use it to
+    // discover available calendars when none (or only "primary") are configured.
+    if let Ok(val) = fetch_json(&token, GCAL_LIST) {
+        if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
+            for item in items {
+                if let Some(id) = item.get("id").and_then(|id| id.as_str()) {
+                    discovered_ids.push(id.to_string());
+                    if let Some(name) = item.get("summary").and_then(|s| s.as_str()) {
+                        calendar_names.insert(id.to_string(), name.to_string());
                     }
                 }
-                if !discovered_ids.is_empty() {
-                    effective_calendar_ids = discovered_ids.clone();
-                }
+            }
+            if (effective_calendar_ids.is_empty()
+                || effective_calendar_ids == vec!["primary".to_string()])
+                && !discovered_ids.is_empty()
+            {
+                effective_calendar_ids = discovered_ids.clone();
             }
         }
     }
@@ -221,5 +230,5 @@ pub fn sync_google_calendars(
     }
 
     tx.commit()?;
-    Ok((count, discovered_ids))
+    Ok((count, discovered_ids, calendar_names))
 }

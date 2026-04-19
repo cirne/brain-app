@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { mapRipmailRowToCalendarEvent, type RipmailCalendarEventJson } from './calendarRipmail.js'
+import { describe, it, expect, vi } from 'vitest'
+import { getCalendarEventsFromRipmail, mapRipmailRowToCalendarEvent, type RipmailCalendarEventJson } from './calendarRipmail.js'
+import * as ripmailExec from './ripmailExec.js'
 
 describe('mapRipmailRowToCalendarEvent', () => {
   it('maps a timed event', () => {
@@ -63,5 +64,45 @@ describe('mapRipmailRowToCalendarEvent', () => {
   it('returns null for missing required fields', () => {
     expect(mapRipmailRowToCalendarEvent({ uid: 'x' })).toBeNull()
     expect(mapRipmailRowToCalendarEvent({ startAt: 1, endAt: 2 })).toBeNull()
+  })
+})
+
+describe('getCalendarEventsFromRipmail deduplication', () => {
+  it('deduplicates events with same start, end, and title', async () => {
+    const mockStdout = JSON.stringify({
+      events: [
+        {
+          uid: '3imtvsj7bu6fjf74cphjv2928c_20260420T150000Z',
+          sourceId: 'src1',
+          summary: 'Weekly Zoom Mtg: Lew/Lana/Ben',
+          startAt: 1776711600, // 2026-04-20T19:00:00Z
+          endAt: 1776715200,   // 2026-04-20T20:00:00Z
+          organizerEmail: 'lewiscirne@gmail.com',
+          attendeesJson: JSON.stringify(['lewiscirne@gmail.com', 'lana.k.macrum@jpmorgan.com'])
+        },
+        {
+          uid: '_60q30c1g60o30e1i60o4ac1g60rj8gpl...',
+          sourceId: 'src2',
+          summary: '  weekly zoom mtg: lew/lana/ben  ',
+          startAt: 1776711600,
+          endAt: 1776715200,
+          organizerEmail: 'lana.k.macrum@jpmorgan.com',
+          attendeesJson: JSON.stringify(['lana.k.macrum@jpmorgan.com'])
+        }
+      ]
+    })
+
+    vi.spyOn(ripmailExec, 'execRipmailAsync').mockResolvedValue({
+      stdout: mockStdout,
+      stderr: ''
+    })
+
+    const result = await getCalendarEventsFromRipmail({ start: '2026-04-20', end: '2026-04-20' })
+    
+    expect(result.events).toHaveLength(1)
+    expect(result.events[0].title).toBe('Weekly Zoom Mtg: Lew/Lana/Ben')
+    // Should prefer the one with more attendees
+    expect(result.events[0].attendees).toHaveLength(2)
+    expect(result.events[0].organizer).toBe('lewiscirne@gmail.com')
   })
 })

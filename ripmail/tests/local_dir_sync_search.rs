@@ -39,6 +39,7 @@ fn local_dir_sync_indexes_files_and_fts_finds_body() {
             oauth_source_id: None,
             calendar_ids: None,
             ics_url: None,
+            default_calendars: None,
         }]),
         ..Default::default()
     };

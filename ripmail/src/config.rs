@@ -212,6 +212,9 @@ pub struct SourceConfigJson {
     /// Google Calendar: which remote calendars to sync (default `["primary"]`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calendar_ids: Option<Vec<String>>,
+    /// Calendars to show by default in `ripmail calendar` (subset of `calendar_ids`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_calendars: Option<Vec<String>>,
     /// `icsSubscription`: HTTPS URL to fetch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ics_url: Option<String>,
@@ -1976,5 +1979,45 @@ mod tests {
         let r = resolve_llm_with_env(&json, &HashMap::new(), &process).unwrap();
         assert_eq!(r.fast_model, "gpt-4o-mini");
         assert_eq!(r.default_model, "gpt-4o");
+    }
+
+    #[test]
+    fn sources_edit_google_calendar_ids() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        let mut cfg = ConfigJson::default();
+        cfg.sources = Some(vec![SourceConfigJson {
+            id: "gcal".into(),
+            kind: SourceKind::GoogleCalendar,
+            email: "a@b.com".into(),
+            label: None,
+            imap: None,
+            imap_auth: None,
+            search: None,
+            identity: None,
+            apple_mail_path: None,
+            path: None,
+            local_dir: None,
+            oauth_source_id: None,
+            calendar_ids: Some(vec!["primary".into()]),
+            default_calendars: None,
+            ics_url: None,
+        }]);
+        write_config_json(home, &cfg).unwrap();
+
+        // Simulate SourcesCmd::Edit logic
+        let mut loaded = load_config_json(home);
+        let mut sources = loaded.sources.take().unwrap();
+        let pos = sources.iter().position(|s| s.id == "gcal").unwrap();
+        sources[pos].calendar_ids = Some(vec!["c1".into(), "c2".into()]);
+        loaded.sources = Some(sources);
+        write_config_json(home, &loaded).unwrap();
+
+        let final_cfg = load_config_json(home);
+        let final_source = &final_cfg.sources.unwrap()[0];
+        assert_eq!(
+            final_source.calendar_ids,
+            Some(vec!["c1".into(), "c2".into()])
+        );
     }
 }

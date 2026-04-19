@@ -88,6 +88,7 @@ export function buildProfilingSystemPrompt(
 ): string {
   const tz = timezone || 'UTC'
   const todayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date())
+  const localTime = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date())
   const name = whoamiSubject?.displayName ?? 'the account holder'
   const email = whoamiSubject?.primaryEmail ?? '(see whoami below)'
   const userPageLines = userPeoplePage
@@ -101,6 +102,8 @@ export function buildProfilingSystemPrompt(
 
   return [
     `You are writing **me.md** — a single file at the wiki root (\`me.md\`) that is **injected in full** into every main-assistant session. Same role as an **AGENTS.md**: **steering** (how to help, tone, priorities) plus a few durable facts — **not** a biography, contact directory, or project catalog.`,
+    ``,
+    `**Current date & time:** ${todayYmd} (${localTime} ${tz})`,
     ``,
     `**Subject:** ${name} · ${email}`,
     ``,

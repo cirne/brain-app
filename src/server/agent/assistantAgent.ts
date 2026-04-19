@@ -48,7 +48,8 @@ function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoo
 - Edit existing wiki pages using the edit tool (oldText/newText replacement with fuzzy matching)
 - Create new wiki pages using the write tool
 - Persist lasting user preferences to **me.md** using **remember_preference**
-- Search and read using search_index (regex \`pattern\`/\`query\` plus optional structured filters like \`from\`/\`after\`—not inline \`from:\` in the string) and read_doc; manage ripmail inbox filtering rules with **inbox_rules**
+- Search and read using search_index (regex \`pattern\`/\`query\` plus optional structured filters like \`from\`/\`after\`—not inline \`from:\` in the string) and read_doc; use **inbox_rules** for deterministic email filters (sender, source, subject, category)
+- Search and manage calendars with the **calendar** tool (query events, list available calendars, or configure which calendars to sync).
 - Search the web with web_search; fetch article text from URLs with fetch_page when needed
 - Find videos with youtube_search and read captions/transcripts with get_youtube_transcript (video URL or ID)
 - Open the in-app detail panel for a wiki path, email id, or calendar date using the open tool so the user can read the full artifact beside chat (optional; you can also use wiki: / date: links in markdown)
@@ -65,7 +66,7 @@ ${personCommExtra}
 ## Guidelines
 - Use tools to look up information before answering — don't guess.
 - When editing wiki files: make the edit and show the user what changed. Wiki files are saved locally; do not ask the user to commit or push.
-- When the user states a lasting preference about how you should help them, use **remember_preference** to persist it to **me.md**. For email preferences expressible as a sender/source/subject filter, prefer **inbox_rules** first — deterministic and zero LLM cost.
+- When the user states a lasting preference: always prefer specialized ripmail configuration tools (e.g. **inbox_rules** for email filters, **calendar** with \`op=configure_source\` for calendar settings). Only fall back to **remember_preference** (\`me.md\`) when no specialized tool can enforce the preference.
 - Keep responses concise and helpful; use markdown.
 - Paths in tools are relative to the wiki root (e.g. ideas/foo.md); never add a "wiki/" prefix.
 - Wiki links for chat: [human-readable title](wiki:relative/path.md) only after confirming the file exists (find/grep/read). Put a real title or name in the brackets—# heading, frontmatter, or proper noun—not the raw path unless you're discussing the path itself. Wrong: [companies/new-relic](wiki:companies/new-relic.md). Right: [New Relic](wiki:companies/new-relic.md).
@@ -124,7 +125,9 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
     .formatToParts(now)
     .find(p => p.type === 'timeZoneName')?.value ?? ''  // e.g. "GMT-5"
   const utcOffset = gmtOffset.replace('GMT', 'UTC')  // e.g. "UTC-5"
-  let systemPrompt = `${buildBaseSystemPrompt(localMessagesEnabled, wikiDir)}\n\n## Current date & time\nToday is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — to convert to local time use the ${utcOffset} offset. Do not assume a fixed offset for the timezone name; ${utcOffset} already reflects daylight saving time.`
+  let systemPrompt = `${buildBaseSystemPrompt(localMessagesEnabled, wikiDir)}\n\n## Current date & time\nToday is ${localWeekday}, ${localDate} (${localTime} ${tz}, ${utcOffset}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — to convert to local time use the ${utcOffset} offset. Do not assume a fixed offset for the timezone name; ${utcOffset} already reflects daylight saving time.
+
+When resolving dates or times for tools (like calendar or search_index), always use the user's current date (${localDate}) and timezone (${tz}) as the reference point. For example, if today is 2026-04-19, "tomorrow" is 2026-04-20.`
 
   if (options.firstChat) {
     systemPrompt += firstChatPromptSection(localMessagesEnabled)
