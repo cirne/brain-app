@@ -4,6 +4,21 @@ import { chmodSync } from 'node:fs'
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { setActualNativePort } from '../lib/brainHttpPort.js'
+import { NATIVE_APP_PORT_START } from '../lib/nativeAppPort.js'
+
+const tunnelMocks = vi.hoisted(() => ({
+  startTunnel: vi.fn().mockResolvedValue(null),
+  stopTunnel: vi.fn(),
+  getActiveTunnelUrl: vi.fn(() => null),
+}))
+
+vi.mock('../lib/tunnelManager.js', () => ({
+  startTunnel: tunnelMocks.startTunnel,
+  stopTunnel: tunnelMocks.stopTunnel,
+  getActiveTunnelUrl: tunnelMocks.getActiveTunnelUrl,
+}))
+
 import onboardingRoute from './onboarding.js'
 
 /** Avoid async wiki-expansion I/O racing with `afterEach` `rm(BRAIN_HOME)`. */
@@ -231,5 +246,50 @@ describe('onboarding routes', () => {
     expect(res.status).toBe(200)
     const me = await import('node:fs/promises').then((fs) => fs.readFile(join(wikiDirPath(), 'me.md'), 'utf-8'))
     expect(me).toContain('Profile')
+  })
+
+  describe('PATCH /preferences remote access (tunnel target port)', () => {
+    beforeEach(() => {
+      tunnelMocks.startTunnel.mockClear()
+      delete process.env.BRAIN_BUNDLED_NATIVE
+      delete process.env.PORT
+      setActualNativePort(NATIVE_APP_PORT_START)
+    })
+
+    afterEach(() => {
+      delete process.env.BRAIN_BUNDLED_NATIVE
+      delete process.env.PORT
+      setActualNativePort(NATIVE_APP_PORT_START)
+    })
+
+    it('calls startTunnel(3000) in dev when PORT is unset', async () => {
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ remoteAccessEnabled: true }),
+      })
+      expect(res.status).toBe(200)
+      expect(tunnelMocks.startTunnel).toHaveBeenCalledTimes(1)
+      expect(tunnelMocks.startTunnel).toHaveBeenCalledWith(3000)
+    })
+
+    it('calls startTunnel with bound native port when BRAIN_BUNDLED_NATIVE=1 (ignores PORT)', async () => {
+      process.env.BRAIN_BUNDLED_NATIVE = '1'
+      process.env.PORT = '9999'
+      const bound = NATIVE_APP_PORT_START + 1
+      setActualNativePort(bound)
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ remoteAccessEnabled: true }),
+      })
+      expect(res.status).toBe(200)
+      expect(tunnelMocks.startTunnel).toHaveBeenCalledTimes(1)
+      expect(tunnelMocks.startTunnel).toHaveBeenCalledWith(bound)
+    })
   })
 })

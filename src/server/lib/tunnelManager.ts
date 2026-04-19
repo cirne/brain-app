@@ -129,8 +129,8 @@ export async function startTunnel(port: number): Promise<string | null> {
       tunnelInstance = Tunnel.quick(`http://localhost:${port}`)
 
       tunnelInstance.on('url', (url: string) => {
-        const guid = getHostGuid()
-        activeTunnelUrl = `${url}/?g=${guid}`
+        // Quick Tunnel: public URL is already an unguessable random hostname; no ?g= layer.
+        activeTunnelUrl = url
         process.env.BRAIN_TUNNEL_URL = activeTunnelUrl
         console.log(`[brain-app] Cloudflare tunnel active: ${tunnelUrlForLog(activeTunnelUrl)}`)
         resolve(activeTunnelUrl)

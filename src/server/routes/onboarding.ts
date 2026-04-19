@@ -30,7 +30,7 @@ import { execRipmailAsync } from '../lib/ripmailExec.js'
 import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '../lib/onboardingPreferences.js'
 import { writeFirstChatPending } from '../lib/firstChatPending.js'
 import { startWikiExpansionRunFromAcceptProfile } from '../agent/wikiExpansionRunner.js'
-import { BRAIN_DEFAULT_HTTP_PORT } from '../lib/brainHttpPort.js'
+import { oauthRedirectListenPort } from '../lib/brainHttpPort.js'
 
 const onboarding = new Hono()
 
@@ -75,8 +75,8 @@ onboarding.get('/network-info', (c) => {
     }
   }
 
-  // Use the port the server is actually listening on
-  const port = parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)
+  // Bundled Brain.app binds a dynamic port (18473+); must match tunnel target.
+  const port = oauthRedirectListenPort()
   // Use the live URL from the tunnel manager if available, falling back to env
   const tunnelUrl = getActiveTunnelUrl() || process.env.BRAIN_TUNNEL_URL || null
   return c.json({ ips: results, port, tunnelUrl })
@@ -201,7 +201,7 @@ onboarding.patch('/preferences', async (c) => {
     next.remoteAccessEnabled = rawRemote
     // Start or stop the tunnel immediately when the preference changes
     if (rawRemote) {
-      const port = parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)
+      const port = oauthRedirectListenPort()
       console.log(`[onboarding/preferences] Starting tunnel on port ${port}`)
       void startTunnel(port)
     } else {

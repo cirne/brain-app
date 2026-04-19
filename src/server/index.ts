@@ -69,9 +69,10 @@ app.use('*', async (c, next) => {
   const tunnelUrl = getActiveTunnelUrl()
   if (!tunnelUrl) return next()
 
-  // Only enforce if the request is coming through the tunnel
+  // Only enforce Magic GUID on the named host (predictable URL). Quick Tunnels
+  // (trycloudflare.com) rely on the ephemeral hostname as the secret.
   const host = c.req.header('host')
-  if (host && (host.includes('trycloudflare.com') || host.includes('brain.chatdnd.io'))) {
+  if (host && host.includes('brain.chatdnd.io')) {
     const guid = getHostGuid()
     const providedGuid = c.req.query('g')
 
@@ -279,9 +280,9 @@ async function start() {
       const server = createServer((req, res) => {
         const tunnelUrl = getActiveTunnelUrl()
         const host = req.headers['host']
-        const isTunnel = host && (host.includes('trycloudflare.com') || host.includes('brain.chatdnd.io'))
+        const needsNamedTunnelGuid = host && host.includes('brain.chatdnd.io')
 
-        if (tunnelUrl && isTunnel) {
+        if (tunnelUrl && needsNamedTunnelGuid) {
           const url = new URL(req.url ?? '/', `http://${host}`)
           const providedGuid = url.searchParams.get('g')
           const guid = getHostGuid()
