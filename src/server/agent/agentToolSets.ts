@@ -36,6 +36,7 @@ export const ALL_AGENT_TOOL_NAMES = [
   'youtube_search',
   'set_chat_title',
   'open',
+  'remember_preference',
   'list_recent_messages',
   'get_message_thread',
 ] as const
@@ -45,7 +46,7 @@ export type AgentToolName = (typeof ALL_AGENT_TOOL_NAMES)[number]
 /** Grouped names for composing custom omit/only lists (subset of {@link ALL_AGENT_TOOL_NAMES}). */
 export const TOOL_GROUPS = {
   wikiFilesystem: ['read', 'grep', 'find', 'move_file', 'delete_file'] as const satisfies readonly AgentToolName[],
-  wikiWrite: ['edit', 'write'] as const satisfies readonly AgentToolName[],
+  wikiWrite: ['edit', 'write', 'remember_preference'] as const satisfies readonly AgentToolName[],
   filesSources: [
     'list_sources',
     'source_status',

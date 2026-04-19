@@ -1,12 +1,13 @@
 import { createReadTool, createEditTool, createWriteTool, createGrepTool, createFindTool, defineTool } from '@mariozechner/pi-coding-agent'
 import { Type } from '@mariozechner/pi-ai'
 import { exec, spawn } from 'node:child_process'
-import { mkdir, rename, stat, unlink } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import { enrichCalendarEventsForAgent, getCalendarEvents, weekdayLongForUtcYmd } from '../lib/calendarCache.js'
 import { Exa } from 'exa-js'
 import { appendWikiEditRecord, resolveSafeWikiPath } from '../lib/wikiEditHistory.js'
+import { existsSync } from 'node:fs'
 import {
   areLocalMessageToolsEnabled,
   getImessageDbPath,
@@ -699,7 +700,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'inbox_rules',
     label: 'Inbox Rules',
     description:
-      'Rare: manage ripmail inbox rules (which messages list_inbox surfaces and how). Wraps `ripmail rules`. op=list (JSON rules), validate (optional sample=true for DB match counts), show (one id), add (rule_action + query), edit (rule_id + changes), remove, move (before_rule_id XOR after_rule_id), feedback (feedback_text → proposed rule). Optional source for per-account rules overlay.',
+      'Manage ripmail inbox rules (which messages list_inbox surfaces and how). Wraps `ripmail rules`. op=list (JSON rules), validate (optional sample=true for DB match counts), show (one id), add (rule_action + query), edit (rule_id + changes), remove, move (before_rule_id XOR after_rule_id), feedback (feedback_text → proposed rule). Optional source for per-account rules overlay. Prefer this for deterministic email filters (sender, source, subject, category).',
     parameters: Type.Object({
       op: Type.Union(
         [
@@ -1161,6 +1162,101 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
+  const rememberPreference = defineTool({
+    name: 'remember_preference',
+    label: 'Remember this',
+    description: `Persist a lasting user preference to me.md so it applies in every future session.
+Use when the user states how they want the assistant to behave going forward —
+e.g. "always ignore X", "never do Y", "prefer Z format", "skip my daughter's calendar".
+Do NOT use for ephemeral task context, one-off facts, or anything expressible as a
+deterministic email filter (use inbox_rules instead).
+Appends to a "## Preferences" section in me.md (creates the section if absent).
+Returns the saved text; treat it as active for this session too.`,
+    parameters: Type.Object({
+      preference: Type.String({ description: 'One clear, actionable sentence the assistant should follow' }),
+      section: Type.Optional(Type.String({ description: 'Optional grouping label, e.g. "Calendar", "Email", "Style"' })),
+    }),
+    async execute(_toolCallId: string, params: { preference: string; section?: string }) {
+      const mePath = resolveSafeWikiPath(wikiDir, 'me.md')
+      let content = ''
+      if (existsSync(mePath)) {
+        content = await readFile(mePath, 'utf8')
+      }
+
+      const prefHeader = '## Preferences'
+      const sectionHeader = params.section ? `### ${params.section}` : null
+      const bullet = `- ${params.preference.trim()}`
+
+      let lines = content.split('\n')
+      // Ensure content ends with newline if not empty
+      if (content.length > 0 && !content.endsWith('\n')) {
+        lines.push('')
+      }
+
+      const prefIndex = lines.findIndex((l) => l.trim() === prefHeader)
+
+      if (prefIndex === -1) {
+        // Create ## Preferences at the end
+        if (lines.length > 0 && lines[lines.length - 1].trim() !== '') {
+          lines.push('')
+        }
+        lines.push(prefHeader)
+        lines.push('')
+        if (sectionHeader) {
+          lines.push(sectionHeader)
+          lines.push('')
+        }
+        lines.push(bullet)
+      } else {
+        // Find the end of the Preferences section or the specific sub-section
+        let insertAt = -1
+        if (sectionHeader) {
+          const sectionIndex = lines.findIndex((l, i) => i > prefIndex && l.trim() === sectionHeader)
+          if (sectionIndex !== -1) {
+            // Found section, find end of it (next header or end of file)
+            let nextHeaderIndex = lines.findIndex(
+              (l, i) => i > sectionIndex && l.trim().startsWith('#'),
+            )
+            insertAt = nextHeaderIndex === -1 ? lines.length : nextHeaderIndex
+          } else {
+            // Section missing, find end of Preferences section to add it
+            let nextTopHeaderIndex = lines.findIndex(
+              (l, i) => i > prefIndex && l.trim().startsWith('## '),
+            )
+            insertAt = nextTopHeaderIndex === -1 ? lines.length : nextTopHeaderIndex
+            if (lines[insertAt - 1]?.trim() !== '') {
+              lines.splice(insertAt, 0, '')
+              insertAt++
+            }
+            lines.splice(insertAt, 0, sectionHeader, '')
+            insertAt += 2
+          }
+        } else {
+          // No sub-section, append to the end of ## Preferences (before next ## or end of file)
+          let nextTopHeaderIndex = lines.findIndex(
+            (l, i) => i > prefIndex && l.trim().startsWith('## '),
+          )
+          insertAt = nextTopHeaderIndex === -1 ? lines.length : nextTopHeaderIndex
+        }
+
+        // Backtrack to skip trailing empty lines
+        while (insertAt > 0 && lines[insertAt - 1].trim() === '') {
+          insertAt--
+        }
+        lines.splice(insertAt, 0, bullet)
+      }
+
+      const newContent = lines.join('\n').trim() + '\n'
+      await writeFile(mePath, newContent, 'utf8')
+      await appendWikiEditRecord(wikiDir, 'edit', 'me.md').catch(() => {})
+
+      return {
+        content: [{ type: 'text' as const, text: `Saved preference: ${params.preference}` }],
+        details: { preference: params.preference, section: params.section },
+      }
+    },
+  })
+
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
 
   const listRecentMessagesTool = defineTool({
@@ -1326,6 +1422,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     youtubeSearch,
     setChatTitle,
     openTool,
+    rememberPreference,
     ...(includeLocalMessages ? [listRecentMessagesTool, getMessageThreadTool] : []),
   ]
   const only = options?.onlyToolNames
