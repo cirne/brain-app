@@ -222,7 +222,12 @@ async function start() {
       const { createServer: createViteServer } = await import('vite')
       const vite = await createViteServer({
         configFile: 'vite.config.ts',
-        server: { middlewareMode: true },
+        server: { 
+          middlewareMode: true,
+          hmr: {
+            clientPort: port
+          }
+        },
         appType: 'spa',
       })
 
@@ -251,7 +256,7 @@ async function start() {
         process.exit(1)
       })
 
-      server.listen(port, () => {
+      server.listen(port, '0.0.0.0', () => {
         console.log(`Dev server (Hono + Vite HMR) → http://localhost:${port}`)
         registerPeriodicSyncAndShutdown(server)
         void runStartupChecks(port)

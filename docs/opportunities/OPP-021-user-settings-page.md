@@ -1,10 +1,28 @@
 # OPP-021: User Settings (Brain Hub Home for Non-Chat Configuration)
 
+**Status:** Completed (Scaffolding) / Archived — 2026-04-19.
+**Successor:** Future feature-specific opportunities (e.g., OPP-051 for Sources).
+
 ## Summary
 
-Introduce **Brain Hub**—reachable from the **top navigation bar** (the `BrainHubWidget` shows doc count or active agent status)—as the **canonical place for everything that is not “run the agent in chat.”** It starts as a small, honest grab bag and grows **section-by-section** as Brain gains capabilities: remote access (QR / tunnel URL), **data sources** (folders, mail accounts, future connectors), connected accounts, lightweight **agent preferences**, and other product-wide toggles.
+Introduce **Brain Hub**—reachable from the **top navigation bar** (the `BrainHubWidget` shows doc count or active agent status)—as the **canonical place for everything that is not “run the agent in chat.”**
 
-The design principle is **progressive disclosure**: ship a clear information architecture early so new features have a home; **default to GUI** where users need spatial truth (paths, permissions, “what is indexed”), and **default to chat + tools + files** where natural language is faster or where power users already live in `SKILL.md` / wiki ([OPP-010](./OPP-010-user-skills.md)).
+## Progress & Accomplishments (Scaffolding Phase)
+
+1. **Routing:** `/hub` route established in `src/client/router.ts`.
+2. **UI Anchor:** `BrainHubWidget` implemented in top navigation bar, providing a clear entry point.
+3. **Core Page:** `BrainHubPage.svelte` created with initial sections:
+    - **Wiki Summary:** Document count and health.
+    - **Recently Written:** Quick access to new content.
+    - **Background Activity:** Replaced the bottom status bar with a dedicated hub section for agent status.
+4. **Navigation:** Transition from "Sync" button to "Brain Hub" widget completed.
+
+## Remaining TBD Items (Future Work)
+
+- **Data Sources Management:** Adding/removing folders and mail accounts (to be driven by `ripmail sources` CLI).
+- **Remote Access:** QR code and tunnel management (OPP-008).
+- **Agent Personalization:** Custom instructions and tone presets.
+- **App Settings:** Appearance, shortcuts, and diagnostics.
 
 ## Product surface today
 

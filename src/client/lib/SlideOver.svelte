@@ -6,6 +6,7 @@
   import Inbox from './Inbox.svelte'
   import Calendar from './Calendar.svelte'
   import MessageThread from './MessageThread.svelte'
+  import PhoneAccessPanel from './PhoneAccessPanel.svelte'
   import BackgroundAgentPanel from './statusBar/BackgroundAgentPanel.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
@@ -230,6 +231,7 @@
     if (o.type === 'file') return 'File'
     if (o.type === 'email') return 'Inbox'
     if (o.type === 'messages') return 'Messages'
+    if (o.type === 'phone-access') return 'Connect Phone'
     if (o.type === 'background-agent') return 'Wiki expansion'
     return 'Calendar'
   }
@@ -398,6 +400,8 @@
       />
     {:else if overlay.type === 'messages'}
       <MessageThread initialChat={overlay.chat} onContextChange={onContextChange} />
+    {:else if overlay.type === 'phone-access'}
+      <PhoneAccessPanel />
     {:else if overlay.type === 'background-agent'}
       <BackgroundAgentPanel
         id={overlay.id}

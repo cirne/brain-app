@@ -23,7 +23,10 @@ export function emptySession(): SessionState {
 }
 
 export function createPendingSessionKey(): string {
-  return `pending:${crypto.randomUUID()}`
+  const uuid = typeof crypto.randomUUID === 'function' 
+    ? crypto.randomUUID() 
+    : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  return `pending:${uuid}`
 }
 
 export type MigrateResult = {

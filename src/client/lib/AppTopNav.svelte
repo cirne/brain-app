@@ -226,26 +226,6 @@
     flex-shrink: 0;
   }
 
-  .sync-btn {
-    width: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-2);
-    transition: color 0.15s;
-    height: 100%;
-  }
-  .sync-btn:hover:not(:disabled) { color: var(--text); }
-  .sync-btn:disabled { opacity: 0.5; cursor: default; }
-  .sync-btn svg { display: block; }
-
-  .expansion-nav-btn {
-    color: var(--accent);
-  }
-  .expansion-nav-btn:hover {
-    color: color-mix(in srgb, var(--accent) 88%, var(--text));
-  }
-
   .sync-error-badge {
     position: absolute;
     top: 4px;

@@ -1,4 +1,5 @@
 import { Hono, type Context } from 'hono'
+import { networkInterfaces } from 'node:os'
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '../lib/wikiDir.js'
@@ -29,6 +30,7 @@ import type { OnboardingMailProvider } from '../lib/onboardingPreferences.js'
 import { readOnboardingPreferences, saveOnboardingPreferences } from '../lib/onboardingPreferences.js'
 import { writeFirstChatPending } from '../lib/firstChatPending.js'
 import { startWikiExpansionRunFromAcceptProfile } from '../agent/wikiExpansionRunner.js'
+import { BRAIN_DEFAULT_HTTP_PORT } from '../lib/brainHttpPort.js'
 
 const onboarding = new Hono()
 
@@ -41,6 +43,24 @@ onboarding.get('/fda', (c) => {
     return c.json(getFdaProbeDetail())
   }
   return c.json({ granted: isFdaGranted() })
+})
+
+onboarding.get('/network-info', (c) => {
+  const nets = networkInterfaces()
+  const results: string[] = []
+
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]!) {
+      // Skip internal (loopback) and non-IPv4 addresses
+      if (net.family === 'IPv4' && !net.internal) {
+        results.push(net.address)
+      }
+    }
+  }
+
+  // Use the port the server is actually listening on
+  const port = parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)
+  return c.json({ ips: results, port })
 })
 
 onboarding.get('/status', async (c) => {

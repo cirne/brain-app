@@ -19,6 +19,8 @@ export type Overlay =
   | { type: 'background-agent'; id?: string }
   /** Brain Hub admin/settings/status page (`/hub`). */
   | { type: 'hub' }
+  /** Phone access QR code panel. */
+  | { type: 'phone-access' }
 
 /** Chat-first shell: optional detail overlay; base route is always chat. */
 export type Route = {
@@ -147,8 +149,14 @@ export function parseRoute(href: string = location.href): Route {
     const id = url.searchParams.get('id') ?? undefined
     return { overlay: { type: 'background-agent', ...(id ? { id } : {}) } }
   }
+  if (seg1 === 'phone-access') {
+    return { overlay: { type: 'phone-access' } }
+  }
   if (seg1 === 'hub') {
     if (rest.length > 0) {
+      if (rest[0] === 'phone-access') {
+        return { overlay: { type: 'phone-access' }, hubActive: true }
+      }
       const subRoute = parseRoute(`http://localhost/${rest.join('/')}`)
       return { ...subRoute, hubActive: true }
     }
@@ -204,6 +212,8 @@ export function routeToUrl(route: Route): string {
     }
   } else if (o.type === 'hub') {
     return '/hub'
+  } else if (o.type === 'phone-access') {
+    return route.hubActive ? '/hub/phone-access' : '/phone-access'
   }
 
   if (route.hubActive && path) {

@@ -1,26 +1,25 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { 
-    BookOpen, 
     FileText, 
     Clock, 
     User, 
     Mail, 
     RefreshCw, 
     ChevronRight,
-    ExternalLink,
-    AlertCircle
+    AlertCircle,
+    Smartphone
   } from 'lucide-svelte'
   import type { BackgroundAgentDoc } from './statusBar/backgroundAgentTypes.js'
   import BackgroundAgentPanel from './statusBar/BackgroundAgentPanel.svelte'
 
   type Props = {
-    onOpenWiki: (path: string) => void
-    onOpenFile: (path: string) => void
-    onOpenEmail: (id: string, subject?: string, from?: string) => void
+    onOpenWiki: (_path: string) => void
+    onOpenFile: (_path: string) => void
+    onOpenEmail: (_id: string, _subject?: string, _from?: string) => void
     onOpenFullInbox: () => void
-    onSwitchToCalendar: (date: string, eventId?: string) => void
-    onOpenMessageThread: (chat: string, label: string) => void
+    onSwitchToCalendar: (_date: string, _eventId?: string) => void
+    onOpenMessageThread: (_chat: string, _label: string) => void
     onSync: () => Promise<void>
   }
 
@@ -30,8 +29,7 @@
     onOpenEmail, 
     onOpenFullInbox, 
     onSwitchToCalendar, 
-    onOpenMessageThread,
-    onSync
+    onOpenMessageThread
   }: Props = $props()
 
   let docCount = $state<number | null>(null)
@@ -40,7 +38,6 @@
   let agents = $state<BackgroundAgentDoc[]>([])
   let mailStatus = $state<{ indexedTotal: number; lastSyncedAt: string | null; syncRunning: boolean } | null>(null)
   let lastEdit = $state<{ path: string; date: string } | null>(null)
-  let syncing = $state(false)
 
   async function fetchData() {
     try {
@@ -77,27 +74,11 @@
     }
   }
 
-  $effect(() => {
-    void showAllRecent
-    fetchData()
-  })
-
   onMount(() => {
     void fetchData()
     const id = setInterval(() => void fetchData(), 2000)
     return () => clearInterval(id)
   })
-
-  async function handleSync() {
-    if (syncing) return
-    syncing = true
-    try {
-      await onSync()
-      await fetchData()
-    } finally {
-      syncing = false
-    }
-  }
 
   function formatRelativeDate(iso: string): string {
     const d = new Date(iso)
@@ -124,18 +105,69 @@
       <h1>Brain Hub</h1>
       <p class="hub-subtitle">Admin, settings, and system status</p>
     </div>
-    <button 
-      class="sync-now-btn" 
-      onclick={handleSync} 
-      disabled={syncing}
-    >
-      <RefreshCw size={16} class={syncing ? 'spinning' : ''} />
-      <span>{syncing ? 'Syncing...' : 'Sync Now'}</span>
-    </button>
   </header>
 
   <div class="hub-grid">
-    <!-- Section 1: Wiki Summary -->
+    <!-- Section 1: Connectivity & Access -->
+    <section class="hub-section links-section">
+      <div class="section-header">
+        <Smartphone size={18} />
+        <h2>Access & Connectivity</h2>
+      </div>
+      <div class="links-list">
+        <button class="link-item" onclick={() => onOpenWiki('me.md')}>
+          <div class="link-info">
+            <User size={16} />
+            <span>Your Profile (me.md)</span>
+          </div>
+          <ChevronRight size={16} />
+        </button>
+
+        <button class="link-item" onclick={() => {
+          const replace = false
+          const hubActive = true
+          import('../router.js').then(r => {
+            r.navigate({ overlay: { type: 'phone-access' }, hubActive }, replace ? { replace: true } : undefined)
+            window.dispatchEvent(new PopStateEvent('popstate'))
+          })
+        }}>
+          <div class="link-info">
+            <Smartphone size={16} />
+            <span>Phone Access</span>
+          </div>
+          <div class="link-status">
+            <span class="status-sub">Scan QR code</span>
+          </div>
+          <ChevronRight size={16} />
+        </button>
+        
+        <div class="link-item static">
+          <div class="link-info">
+            <Mail size={16} />
+            <span>Email Index</span>
+          </div>
+          <div class="link-status">
+            {#if mailStatus}
+              <span class="status-val">{mailStatus.indexedTotal} indexed</span>
+              {#if mailStatus.lastSyncedAt}
+                <span class="status-sub">Last: {formatRelativeDate(mailStatus.lastSyncedAt)}</span>
+              {/if}
+            {:else}
+              <span class="status-val">Loading...</span>
+            {/if}
+          </div>
+        </div>
+
+        <div class="link-item disabled">
+          <div class="link-info">
+            <span>Data Sources (OPP-021)</span>
+          </div>
+          <span class="coming-soon">Coming soon</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Wiki Summary -->
     <section class="hub-section stats-section">
       <div class="section-header">
         <AlertCircle size={18} />
@@ -153,7 +185,7 @@
       </div>
     </section>
 
-    <!-- Section 2: Recently Written -->
+    <!-- Section 3: Recently Written -->
     <section class="hub-section recent-section">
       <div class="section-header">
         <Clock size={18} />
@@ -179,7 +211,7 @@
       </div>
     </section>
 
-    <!-- Section 3: Background Agents -->
+    <!-- Section 4: Background Agents -->
     <section class="hub-section agents-section">
       <div class="section-header">
         <RefreshCw size={18} />
@@ -219,53 +251,6 @@
       </div>
     </section>
 
-    <!-- Section 4: Quick Links / Config -->
-    <section class="hub-section links-section">
-      <div class="section-header">
-        <ExternalLink size={18} />
-        <h2>Quick Links & Config</h2>
-      </div>
-      <div class="links-list">
-        <button class="link-item" onclick={() => onOpenWiki('me.md')}>
-          <div class="link-info">
-            <User size={16} />
-            <span>Your Profile (me.md)</span>
-          </div>
-          <ChevronRight size={16} />
-        </button>
-        
-        <div class="link-item static">
-          <div class="link-info">
-            <Mail size={16} />
-            <span>Email Index</span>
-          </div>
-          <div class="link-status">
-            {#if mailStatus}
-              <span class="status-val">{mailStatus.indexedTotal} indexed</span>
-              {#if mailStatus.lastSyncedAt}
-                <span class="status-sub">Last: {formatRelativeDate(mailStatus.lastSyncedAt)}</span>
-              {/if}
-            {:else}
-              <span class="status-val">Loading...</span>
-            {/if}
-          </div>
-        </div>
-
-        <div class="link-item disabled">
-          <div class="link-info">
-            <span>Remote Access (OPP-008)</span>
-          </div>
-          <span class="coming-soon">Coming soon</span>
-        </div>
-        
-        <div class="link-item disabled">
-          <div class="link-info">
-            <span>Data Sources (OPP-021)</span>
-          </div>
-          <span class="coming-soon">Coming soon</span>
-        </div>
-      </div>
-    </section>
   </div>
 </div>
 
@@ -281,9 +266,6 @@
   }
 
   .hub-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--border);
   }
@@ -300,44 +282,6 @@
     color: var(--text-2);
     font-size: 1rem;
     font-weight: 450;
-  }
-
-  .sync-now-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0.5rem 1.25rem;
-    border-radius: 6px;
-    background: var(--text);
-    color: var(--bg);
-    border: none;
-    font-weight: 600;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: transform 0.1s, opacity 0.15s;
-  }
-
-  .sync-now-btn:hover:not(:disabled) {
-    opacity: 0.9;
-    transform: translateY(-1px);
-  }
-
-  .sync-now-btn:active:not(:disabled) {
-    transform: translateY(0);
-  }
-
-  .sync-now-btn:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-
-  .spinning {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
   }
 
   .hub-grid {

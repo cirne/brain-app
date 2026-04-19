@@ -39,7 +39,6 @@
   }
 
   let route = $state<Route>(parseRoute())
-  let syncing = $state(false)
   let syncErrors = $state<string[]>([])
   let showSyncErrors = $state(false)
   let calendarRefreshKey = $state(0)
@@ -350,14 +349,13 @@
   }
 
   async function performFullSync(): Promise<void> {
-    syncing = true
     syncErrors = []
     showSyncErrors = false
     try {
       syncErrors = await runParallelSyncs(fetch)
       emit({ type: 'sync:completed' })
     } finally {
-      syncing = false
+      // done
     }
   }
 
@@ -399,6 +397,8 @@
 
   function historyNewChat() {
     closeOverlayImmediate()
+    navigate({ hubActive: false })
+    route = parseRoute()
     agentChat?.newChat()
     if (isMobile) sidebarOpen = false
   }
