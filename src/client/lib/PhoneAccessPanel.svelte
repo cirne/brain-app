@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import QRCode from 'qrcode'
-  import { Smartphone, Wifi, Copy, Check, ShieldCheck } from 'lucide-svelte'
+  import { Smartphone, Wifi, Copy, Check, ExternalLink, ShieldCheck } from 'lucide-svelte'
 
-  let networkInfo = $state<{ ips: string[]; port: number } | null>(null)
+  let networkInfo = $state<{ ips: string[]; port: number; tunnelUrl: string | null } | null>(null)
   let qrCodeDataUrl = $state<string | null>(null)
   let copied = $state(false)
   let error = $state<string | null>(null)
@@ -14,16 +14,19 @@
       if (!res.ok) throw new Error('Failed to fetch network info')
       networkInfo = await res.json()
       
-      if (networkInfo && networkInfo.ips.length > 0) {
-        const url = `http://${networkInfo.ips[0]}:${networkInfo.port}`
-        qrCodeDataUrl = await QRCode.toDataURL(url, {
-          width: 240,
-          margin: 2,
-          color: {
-            dark: '#000000',
-            light: '#ffffff'
-          }
-        })
+      if (networkInfo) {
+        const url = networkInfo.tunnelUrl || (networkInfo.ips.length > 0 ? `http://${networkInfo.ips[0]}:${networkInfo.port}` : null)
+        
+        if (url) {
+          qrCodeDataUrl = await QRCode.toDataURL(url, {
+            width: 240,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#ffffff'
+            }
+          })
+        }
       }
     } catch (e) {
       error = e instanceof Error ? e.message : 'Unknown error'
@@ -44,8 +47,8 @@
     }
   }
 
-  const primaryUrl = $derived(networkInfo && networkInfo.ips.length > 0 
-    ? `http://${networkInfo.ips[0]}:${networkInfo.port}` 
+  const primaryUrl = $derived(networkInfo 
+    ? (networkInfo.tunnelUrl || (networkInfo.ips.length > 0 ? `http://${networkInfo.ips[0]}:${networkInfo.port}` : ''))
     : '')
 </script>
 
@@ -58,7 +61,7 @@
     <h3>Connect Phone</h3>
     
     <p class="instruction">
-      Scan this code with your phone to access Brain over your local network.
+      Scan this code with your phone to access Brain {#if networkInfo?.tunnelUrl}from anywhere{:else}over your local network{/if}.
     </p>
 
     {#if error}
@@ -77,14 +80,21 @@
       </div>
 
       <div class="info-box">
-        <div class="info-item">
-          <Wifi size={16} />
-          <span>Ensure your phone is connected to the same Wi-Fi network as this computer.</span>
-        </div>
-        <div class="info-item">
-          <ShieldCheck size={16} />
-          <span>This link is only accessible within your local network.</span>
-        </div>
+        {#if networkInfo?.tunnelUrl}
+          <div class="info-item">
+            <ExternalLink size={16} />
+            <span>This link is accessible over the internet via a secure tunnel.</span>
+          </div>
+        {:else}
+          <div class="info-item">
+            <Wifi size={16} />
+            <span>Ensure your phone is connected to the same Wi-Fi network as this computer.</span>
+          </div>
+          <div class="info-item">
+            <ShieldCheck size={16} />
+            <span>This link is only accessible within your local network.</span>
+          </div>
+        {/if}
       </div>
 
       <div class="url-copy-box">

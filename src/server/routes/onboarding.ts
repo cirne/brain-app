@@ -60,7 +60,8 @@ onboarding.get('/network-info', (c) => {
 
   // Use the port the server is actually listening on
   const port = parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)
-  return c.json({ ips: results, port })
+  const tunnelUrl = process.env.BRAIN_TUNNEL_URL || null
+  return c.json({ ips: results, port, tunnelUrl })
 })
 
 onboarding.get('/status', async (c) => {
