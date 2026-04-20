@@ -71,15 +71,39 @@ export const ONBOARDING_BASE_OMIT: readonly AgentToolName[] = [
 ]
 
 /**
- * Onboarding **seeding** omit list: same as {@link ONBOARDING_BASE_OMIT} but keeps
+ * Onboarding **buildout** omit list: same as {@link ONBOARDING_BASE_OMIT} but keeps
  * `list_recent_messages` / `get_message_thread` when `includeLocalMessageTools` is true in `createAgentTools`.
  */
-export const ONBOARDING_SEEDING_OMIT: readonly AgentToolName[] = ONBOARDING_BASE_OMIT.filter(
+export const ONBOARDING_BUILDOUT_OMIT: readonly AgentToolName[] = ONBOARDING_BASE_OMIT.filter(
   (n) => n !== 'list_recent_messages' && n !== 'get_message_thread',
 )
 
 /** Profiling agent: omit web/video on top of onboarding base (indexed mail only). */
 export const ONBOARDING_PROFILING_EXTRA_OMIT: readonly AgentToolName[] = ['web_search', 'fetch_page', 'youtube_search']
+
+/**
+ * Wiki cleanup / lint agent: keeps `read`, `grep`, `find`, `edit` and mail/web lookup tools,
+ * but omits `write` (no new pages), destructive file ops, heavy mail actions, and UI tools.
+ */
+export const WIKI_CLEANUP_OMIT: readonly AgentToolName[] = [
+  'write',
+  'move_file',
+  'delete_file',
+  'inbox_rules',
+  'archive_emails',
+  'draft_email',
+  'edit_draft',
+  'send_draft',
+  'calendar',
+  'get_youtube_transcript',
+  'youtube_search',
+  'open',
+  'set_chat_title',
+  'remember_preference',
+  'list_recent_messages',
+  'get_message_thread',
+  'manage_sources',
+]
 
 /**
  * Merge several omit lists (e.g. presets + ad-hoc). Order does not matter; duplicates are removed.
@@ -94,13 +118,13 @@ export function mergeOmitToolNames(...lists: readonly (readonly string[])[]): re
   return out
 }
 
-export type OnboardingAgentToolVariant = 'seeding' | 'profiling'
+export type OnboardingAgentToolVariant = 'buildout' | 'profiling'
 
 function omitForOnboardingVariant(variant: OnboardingAgentToolVariant): readonly string[] {
   if (variant === 'profiling') {
     return mergeOmitToolNames(ONBOARDING_BASE_OMIT, ONBOARDING_PROFILING_EXTRA_OMIT)
   }
-  return [...ONBOARDING_SEEDING_OMIT]
+  return [...ONBOARDING_BUILDOUT_OMIT]
 }
 
 /**
@@ -112,7 +136,7 @@ function omitForOnboardingVariant(variant: OnboardingAgentToolVariant): readonly
 export function buildCreateAgentToolsOptions(args: {
   /** Preset omit lists; default is full assistant (no preset omit). */
   preset?: 'assistant' | 'onboarding'
-  /** When `preset` is `onboarding`, narrow profiling vs seeding (extra omit for profiling). */
+  /** When `preset` is `onboarding`, narrow profiling vs buildout (extra omit for profiling). */
   onboardingVariant?: OnboardingAgentToolVariant
   includeLocalMessageTools?: boolean
   /** Additional tool names to drop (merged with preset omit). Ignored if `onlyToolNames` is set. */
@@ -122,7 +146,7 @@ export function buildCreateAgentToolsOptions(args: {
 }): CreateAgentToolsOptions {
   const {
     preset = 'assistant',
-    onboardingVariant = 'seeding',
+    onboardingVariant = 'buildout',
     includeLocalMessageTools,
     extraOmit = [],
     onlyToolNames,

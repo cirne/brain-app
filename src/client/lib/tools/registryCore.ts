@@ -77,15 +77,15 @@ function humanizeToolName(name: string): string {
 }
 
 const ONBOARDING_ACTIVITY = {
-  find_person: { profiling: 'Learning who you email…', seeding: 'Learning who you email…' },
-  search_index: { profiling: 'Searching mail…', seeding: 'Searching mail…' },
-  read_doc: { profiling: 'Reading a message…', seeding: 'Reading a message…' },
-  write: { profiling: 'Writing your profile…', seeding: 'Writing a page…' },
-  edit: { profiling: 'Updating your profile…', seeding: 'Updating a page…' },
-  list_inbox: { profiling: 'Scanning inbox…', seeding: 'Scanning inbox…' },
-  web_search: { profiling: 'Looking up the web…', seeding: 'Looking up the web…' },
-  fetch_page: { profiling: 'Reading a web page…', seeding: 'Reading a web page…' },
-  youtube_search: { profiling: 'Searching video…', seeding: 'Searching video…' },
+  find_person: { profiling: 'Learning who you email…', buildout: 'Learning who you email…' },
+  search_index: { profiling: 'Searching mail…', buildout: 'Searching mail…' },
+  read_doc: { profiling: 'Reading a message…', buildout: 'Reading a message…' },
+  write: { profiling: 'Writing your profile…', buildout: 'Writing a page…' },
+  edit: { profiling: 'Updating your profile…', buildout: 'Updating a page…' },
+  list_inbox: { profiling: 'Scanning inbox…', buildout: 'Scanning inbox…' },
+  web_search: { profiling: 'Looking up the web…', buildout: 'Looking up the web…' },
+  fetch_page: { profiling: 'Reading a web page…', buildout: 'Reading a web page…' },
+  youtube_search: { profiling: 'Searching video…', buildout: 'Searching video…' },
 } as const satisfies Record<string, Record<OnboardingVariant, string>>
 
 /** Per-tool overrides (no icons — see `registryIcons.ts`). */

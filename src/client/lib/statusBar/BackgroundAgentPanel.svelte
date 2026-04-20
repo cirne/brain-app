@@ -4,7 +4,7 @@
   import type { BackgroundAgentDoc, BackgroundTimelineEvent } from './backgroundAgentTypes.js'
   import type { ToolCall } from '../agentUtils.js'
   import ToolCallBlock from '../agent-conversation/ToolCallBlock.svelte'
-  import { ChevronDown } from 'lucide-svelte'
+  import { ChevronDown, Play } from 'lucide-svelte'
   import { computePinnedToBottom } from '../scrollPin.js'
 
   type Props = {
@@ -15,6 +15,8 @@
      * pause/resume footer, or duplicate status row (parent already shows status).
      */
     embedInHubDetail?: boolean
+    /** When `embedInHubDetail`, the scrollable element (e.g. YourWikiDetail root) for tail-follow. */
+    embedScrollParent?: HTMLElement | undefined
     onOpenWiki: (_path: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
@@ -26,6 +28,7 @@
   let {
     id,
     embedInHubDetail = false,
+    embedScrollParent = undefined,
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
@@ -47,15 +50,15 @@
 
   const effectiveId = $derived(id ?? resolvedId)
 
-  const activeStatuses = new Set(['queued', 'running', 'paused'])
-
   const timelineSorted = $derived.by((): BackgroundTimelineEvent[] => {
     const t = agent?.timeline
     if (!t?.length) return []
     return [...t].sort((a, b) => a.at.localeCompare(b.at))
   })
 
-  const showJumpToLatest = $derived(!followOutput && !!agent)
+  const showJumpToLatest = $derived(
+    !followOutput && !!agent && (!embedInHubDetail || !!embedScrollParent),
+  )
 
   const jumpTransitionMs = $derived(reduceMotion ? 0 : 200)
 
@@ -85,37 +88,18 @@
     }
   }
 
-  async function loadOne(runId: string): Promise<void> {
-    const res = await fetch(`/api/background/agents/${encodeURIComponent(runId)}`)
-    if (!res.ok) {
-      loadError = res.status === 404 ? 'Run not found' : `Could not load (${res.status})`
-      agent = null
-      return
-    }
-    loadError = null
-    agent = (await res.json()) as BackgroundAgentDoc
-  }
-
   async function poll(): Promise<void> {
     try {
-      if (id) {
-        resolvedId = undefined
-        await loadOne(id)
-        return
-      }
-      const res = await fetch('/api/background/agents')
-      if (!res.ok) return
-      const j = (await res.json()) as { agents?: BackgroundAgentDoc[] }
-      const agents = Array.isArray(j.agents) ? j.agents : []
-      const pick = agents.find((a) => activeStatuses.has(a.status))
-      if (!pick) {
-        resolvedId = undefined
+      const res = await fetch('/api/your-wiki')
+      if (!res.ok) {
+        loadError = `Could not load (${res.status})`
         agent = null
-        loadError = null
         return
       }
-      resolvedId = pick.id
-      await loadOne(pick.id)
+      loadError = null
+      const doc = (await res.json()) as BackgroundAgentDoc
+      resolvedId = doc.id
+      agent = doc
     } catch {
       /* ignore */
     }
@@ -141,9 +125,16 @@
     void poll()
   })
 
+  function getScrollTarget(): HTMLElement | undefined {
+    if (embedInHubDetail) return embedScrollParent
+    return scrollEl
+  }
+
   function syncFollowFromScroll() {
-    if (embedInHubDetail || !scrollEl || ignoreScrollEvents) return
-    followOutput = computePinnedToBottom(scrollEl)
+    if (ignoreScrollEvents) return
+    const el = getScrollTarget()
+    if (!el) return
+    followOutput = computePinnedToBottom(el)
   }
 
   function scrollToBottom() {
@@ -151,11 +142,12 @@
     void tick().then(() => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          if (!scrollEl) {
+          const el = getScrollTarget()
+          if (!el) {
             ignoreScrollEvents = false
             return
           }
-          scrollEl.scrollTop = scrollEl.scrollHeight
+          el.scrollTop = el.scrollHeight
           followOutput = true
           ignoreScrollEvents = false
         })
@@ -169,12 +161,13 @@
     void tick().then(() => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          if (!scrollEl) {
+          const el = getScrollTarget()
+          if (!el) {
             ignoreScrollEvents = false
             return
           }
           if (followOutput) {
-            scrollEl.scrollTop = scrollEl.scrollHeight
+            el.scrollTop = el.scrollHeight
           }
           ignoreScrollEvents = false
         })
@@ -183,13 +176,14 @@
   }
 
   $effect(() => {
-    if (embedInHubDetail) return
+    if (embedInHubDetail && !embedScrollParent) return
     void effectiveId
+    void embedScrollParent
     void tick().then(() => scrollToBottom())
   })
 
   $effect(() => {
-    if (embedInHubDetail) return
+    if (embedInHubDetail && !embedScrollParent) return
     void timelineSorted.length
     void agent?.detail
     void agent?.updatedAt
@@ -197,16 +191,24 @@
     void tick().then(() => scrollToBottomIfFollowing())
   })
 
+  $effect(() => {
+    if (!embedInHubDetail) return
+    const el = embedScrollParent
+    if (!el) return
+    const onScroll = () => syncFollowFromScroll()
+    el.addEventListener('scroll', onScroll, { passive: true })
+    syncFollowFromScroll()
+    return () => el.removeEventListener('scroll', onScroll)
+  })
+
   function statusLabel(s: string): string {
     return s.replace(/-/g, ' ')
   }
 
   async function pauseAgent() {
-    const runId = effectiveId
-    if (!runId) return
     actionBusy = true
     try {
-      await fetch(`/api/background/agents/${encodeURIComponent(runId)}/pause`, { method: 'POST' })
+      await fetch('/api/your-wiki/pause', { method: 'POST' })
       await poll()
     } finally {
       actionBusy = false
@@ -214,11 +216,9 @@
   }
 
   async function resumeAgent() {
-    const runId = effectiveId
-    if (!runId) return
     actionBusy = true
     try {
-      await fetch(`/api/background/agents/${encodeURIComponent(runId)}/resume`, {
+      await fetch('/api/your-wiki/resume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
@@ -284,6 +284,43 @@
               {/each}
             {/if}
           </ul>
+        {/if}
+
+        {#if showJumpToLatest}
+          <div
+            class="bg-jump-anchor bg-jump-anchor--embed"
+            in:fly={{ y: 10, duration: jumpTransitionMs }}
+            out:fly={{ y: 8, duration: Math.min(jumpTransitionMs, 160) }}
+          >
+            <button
+              type="button"
+              class="bg-jump-to-latest"
+              class:streaming={agentIsLive}
+              aria-label="Jump to latest activity"
+              onclick={() => scrollToBottom()}
+            >
+              {#if agentIsLive}
+                <span class="bg-live-pulse" aria-hidden="true"></span>
+              {/if}
+              <ChevronDown size={16} strokeWidth={2.25} class="bg-jump-chevron" aria-hidden="true" />
+              <span class="bg-jump-text">Latest</span>
+            </button>
+          </div>
+        {/if}
+
+        {#if agent.status === 'paused'}
+          <div class="bg-panel-paused-notice">
+            <p>Pausing wiki expansion and maintenance.</p>
+            <button
+              type="button"
+              class="bg-panel-resume-btn"
+              disabled={actionBusy}
+              onclick={resumeAgent}
+            >
+              <Play size={12} fill="currentColor" />
+              Resume
+            </button>
+          </div>
         {/if}
       {/if}
     </div>
@@ -624,6 +661,15 @@
     z-index: 3;
   }
 
+  .bg-jump-anchor--embed {
+    position: sticky;
+    bottom: 0.75rem;
+    left: 0;
+    right: 0;
+    margin-top: 0.35rem;
+    padding-bottom: 0.15rem;
+  }
+
   .bg-jump-to-latest {
     pointer-events: auto;
     display: inline-flex;
@@ -711,5 +757,45 @@
 
   .bg-jump-text {
     line-height: 1;
+  }
+
+  .bg-panel-paused-notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    margin-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .bg-panel-paused-notice p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-2);
+  }
+
+  .bg-panel-resume-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: var(--accent);
+    color: white;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+
+  .bg-panel-resume-btn:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  .bg-panel-resume-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

@@ -3,6 +3,7 @@ import { getToolDefinitionCore } from './tools/registryCore.js'
 import { isFilesystemAbsolutePath } from './fsPath.js'
 import { wikiPathForReadToolArg } from './cards/contentCards.js'
 import type { AgentOpenSource } from './navigateFromAgentOpen.js'
+import { emit } from './app/appEvents.js'
 
 /** Mirror server `applyToolArgsUpsert` so the chat UI can show tool rows while args stream (e.g. `write`). */
 function upsertStreamingToolPart(
@@ -270,6 +271,17 @@ export async function consumeAgentChatStream(
             }
             const name = part.toolCall.name
             if (name === 'write' || name === 'edit' || name === 'delete') touchedWiki = true
+            if (
+              name === 'manage_sources' &&
+              !data.isError &&
+              part.toolCall.args &&
+              typeof part.toolCall.args === 'object'
+            ) {
+              const op = (part.toolCall.args as { op?: string }).op
+              if (op === 'add' || op === 'remove' || op === 'edit') {
+                emit({ type: 'hub:sources-changed' })
+              }
+            }
             if (policy.streamToDetail === 'wiki') {
               writePathByToolId.delete(data.id)
               writeContentByToolId.delete(data.id)

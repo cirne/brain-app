@@ -5,6 +5,7 @@ import { createAgentTools } from './tools.js'
 import {
   buildCreateAgentToolsOptions,
   ONBOARDING_BASE_OMIT,
+  WIKI_CLEANUP_OMIT,
   type OnboardingAgentToolVariant,
 } from './agentToolSets.js'
 import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '../lib/openAiResponsesPayload.js'
@@ -29,7 +30,7 @@ export function buildDateContext(timezone: string): string {
 export type CreateOnboardingAgentOptions = {
   /**
    * `profiling` omits web/video tools on top of the shared onboarding base.
-   * Default: `seeding`.
+   * Default: `buildout`.
    */
   variant?: OnboardingAgentToolVariant
   /** Additional tool names to omit after the preset + variant. */
@@ -42,13 +43,42 @@ export function createOnboardingAgent(
   wikiRoot: string,
   options?: CreateOnboardingAgentOptions,
 ): Agent {
-  const variant = options?.variant ?? 'seeding'
+  const variant = options?.variant ?? 'buildout'
   const includeLocalMessageTools = variant === 'profiling' ? false : areLocalMessageToolsEnabled()
   const toolOpts = buildCreateAgentToolsOptions({
     preset: 'onboarding',
     onboardingVariant: variant,
     includeLocalMessageTools,
     extraOmit: options?.extraOmitToolNames,
+  })
+  const tools = createAgentTools(wikiRoot, toolOpts)
+  const provider = (process.env.LLM_PROVIDER ?? 'anthropic') as KnownProvider
+  const modelId = process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514'
+  const model = getModel(provider, modelId as never)
+
+  return new Agent({
+    initialState: {
+      systemPrompt,
+      model,
+      tools,
+    },
+    onPayload: (params, m) => patchOpenAiReasoningNoneEffort(params as OpenAiResponsesPayload, m),
+    getApiKey: (p: string) => {
+      const envKey = `${p.toUpperCase()}_API_KEY`
+      return process.env[envKey]
+    },
+    convertToLlm,
+  })
+}
+
+/**
+ * Build a wiki cleanup / lint agent: has `read`, `grep`, `find`, and `edit`
+ * but no `write` (cannot create new pages). Used for the "Cleaning up" phase
+ * of the Your Wiki continuous loop.
+ */
+export function createCleanupAgent(systemPrompt: string, wikiRoot: string): Agent {
+  const toolOpts = buildCreateAgentToolsOptions({
+    extraOmit: WIKI_CLEANUP_OMIT,
   })
   const tools = createAgentTools(wikiRoot, toolOpts)
   const provider = (process.env.LLM_PROVIDER ?? 'anthropic') as KnownProvider

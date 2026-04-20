@@ -24,8 +24,8 @@ dev.post('/hard-reset', async (c) => {
 })
 
 /**
- * Delete all wiki pages except root `me.md`, clear agent edit history, and return to onboarding seeding.
- * (Profile + mail index unchanged; in-memory seeding agents aborted.)
+ * Delete all wiki pages except root `me.md`, clear agent edit history, and return to onboarding buildout.
+ * (Profile + mail index unchanged; in-memory buildout agents aborted.)
  */
 dev.post('/restart-seed', async (c) => {
   if (!wikiMeExists()) {

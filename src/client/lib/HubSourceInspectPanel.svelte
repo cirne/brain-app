@@ -1,5 +1,6 @@
 <script lang="ts">
   import { History, RefreshCw } from 'lucide-svelte'
+  import { emit } from './app/appEvents.js'
 
   type HubRipmailSourceRow = {
     id: string
@@ -168,6 +169,7 @@
       if (!res.ok || !j.ok) {
         throw new Error(typeof j.error === 'string' ? j.error : 'Could not remove source')
       }
+      emit({ type: 'hub:sources-changed' })
       onClose()
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Could not remove source')

@@ -3,9 +3,9 @@ import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildProfilingSystemPrompt, fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'
-import { buildSeedingSystemPrompt } from './seedingAgent.js'
-import { ONBOARDING_OMIT_TOOL_NAMES } from './agentFactory.js'
-import { ALL_AGENT_TOOL_NAMES, buildCreateAgentToolsOptions, ONBOARDING_SEEDING_OMIT } from './agentToolSets.js'
+import { buildWikiBuildoutSystemPrompt } from './wikiBuildoutAgent.js'
+import { ONBOARDING_BASE_OMIT } from './agentToolSets.js'
+import { ALL_AGENT_TOOL_NAMES, buildCreateAgentToolsOptions, ONBOARDING_BUILDOUT_OMIT } from './agentToolSets.js'
 
 let wikiDir: string
 beforeEach(async () => {
@@ -15,10 +15,10 @@ afterEach(async () => {
   await rm(wikiDir, { recursive: true, force: true })
 })
 
-describe('buildSeedingSystemPrompt', () => {
-  it('grounds seeding in mail + write without wiki read tools', () => {
+describe('buildWikiBuildoutSystemPrompt', () => {
+  it('grounds buildout in mail + write without wiki read tools', () => {
     const userPage = { relativePath: 'people/lewis-cirne.md', slug: 'lewis-cirne' }
-    const p = buildSeedingSystemPrompt('America/Los_Angeles', '- cats', userPage)
+    const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', '- cats', userPage)
     expect(p).toMatch(/do \*\*not\*\* have wiki \*\*read\*\*/i)
     expect(p).toMatch(/never `wiki\/me\.md`/i)
     expect(p).toMatch(/never add a `wiki\/` prefix/i)
@@ -26,9 +26,8 @@ describe('buildSeedingSystemPrompt', () => {
     expect(p).toContain('fetch_page')
     expect(p).toMatch(/parallel page building/i)
     expect(p).toMatch(/cannot scan the vault with \*\*grep\*\*/i)
-    expect(p).toMatch(/skeletal long-form page/i)
+    expect(p).toMatch(/compact/i)
     expect(p).toContain('people/lewis-cirne.md')
-    expect(p).toMatch(/Expand it/i)
     expect(p).toMatch(/Obsidian-style/i)
     expect(p).toContain('[[wikilinks]]')
     expect(p).toContain('[[me]]')
@@ -38,29 +37,29 @@ describe('buildSeedingSystemPrompt', () => {
     expect(p).not.toContain('list_recent_messages')
   })
 
-  it('when local messages are available for seeding, mentions Message tools and workflow', () => {
+  it('when local messages are available for buildout, mentions Message tools and workflow', () => {
     const userPage = { relativePath: 'people/lewis-cirne.md', slug: 'lewis-cirne' }
-    const p = buildSeedingSystemPrompt('America/Los_Angeles', '- cats', userPage, true)
+    const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', '- cats', userPage, true)
     expect(p).toContain('list_recent_messages')
     expect(p).toContain('get_message_thread')
     expect(p).toMatch(/Local Messages \(optional\)/i)
   })
 
   it('when user people page is unknown, keeps optional fallback line', () => {
-    const p = buildSeedingSystemPrompt('America/Los_Angeles', '- cats', null)
+    const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', '- cats', null)
     expect(p).toMatch(/people\/\[slug\]/i)
   })
 })
 
 describe('onboarding agent tools', () => {
-  it('uses createAgentTools omit list matching profiling/seeding (keeps web_search + fetch_page)', async () => {
+  it('uses createAgentTools omit list matching profiling/buildout (keeps web_search + fetch_page)', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, {
       includeLocalMessageTools: false,
-      omitToolNames: ONBOARDING_OMIT_TOOL_NAMES,
+      omitToolNames: ONBOARDING_BASE_OMIT,
     })
     const names = tools.map((t: { name?: string }) => t.name)
-    for (const n of ONBOARDING_OMIT_TOOL_NAMES) {
+    for (const n of ONBOARDING_BASE_OMIT) {
       expect(names).not.toContain(n)
     }
     expect(names).toContain('web_search')
@@ -92,11 +91,11 @@ describe('onboarding agent tools', () => {
     expect(names).toContain('search_index')
   })
 
-  it('onboarding seeding preset with local messages includes list_recent_messages and get_message_thread', async () => {
+  it('onboarding buildout preset with local messages includes list_recent_messages and get_message_thread', async () => {
     const { createAgentTools } = await import('./tools.js')
     const opts = buildCreateAgentToolsOptions({
       preset: 'onboarding',
-      onboardingVariant: 'seeding',
+      onboardingVariant: 'buildout',
       includeLocalMessageTools: true,
     })
     const tools = createAgentTools(wikiDir, opts)
@@ -106,9 +105,9 @@ describe('onboarding agent tools', () => {
     expect(names).toContain('web_search')
   })
 
-  it('ONBOARDING_SEEDING_OMIT does not drop local message tool names', () => {
-    expect(ONBOARDING_SEEDING_OMIT).not.toContain('list_recent_messages')
-    expect(ONBOARDING_SEEDING_OMIT).not.toContain('get_message_thread')
+  it('ONBOARDING_BUILDOUT_OMIT does not drop local message tool names', () => {
+    expect(ONBOARDING_BUILDOUT_OMIT).not.toContain('list_recent_messages')
+    expect(ONBOARDING_BUILDOUT_OMIT).not.toContain('get_message_thread')
   })
 })
 
@@ -121,7 +120,7 @@ describe('buildProfilingSystemPrompt', () => {
     expect(p).toMatch(/AGENTS\.md/i)
     expect(p).toMatch(/read_doc.*20/i)
     expect(p).toMatch(/Phone numbers and messaging identifiers/i)
-    expect(p).toContain('**people/** pages during seeding')
+    expect(p).toContain('**people/** pages during buildout')
   })
 
   it('when whoami is JSON, injects display name and email into the prompt', () => {

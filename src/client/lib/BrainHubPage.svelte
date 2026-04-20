@@ -5,16 +5,17 @@
     Mail, 
     RefreshCw, 
     ChevronRight,
-    AlertCircle,
+    BookOpen,
     Smartphone,
     Folder,
+    FolderPlus,
     Calendar,
     Layers,
-    CircleHelp,
   } from 'lucide-svelte'
-  import type { BackgroundAgentDoc } from './statusBar/backgroundAgentTypes.js'
+  import type { BackgroundAgentDoc, YourWikiPhase } from './statusBar/backgroundAgentTypes.js'
   import type { OnboardingMailStatus } from './onboarding/onboardingTypes.js'
   import type { NavigateOptions, Overlay } from '../router.js'
+  import { subscribe } from './app/appEvents.js'
 
   type HubRipmailSourceRow = {
     id: string
@@ -31,26 +32,76 @@
   let { onHubNavigate }: Props = $props()
 
   let docCount = $state<number | null>(null)
-  let agents = $state<BackgroundAgentDoc[]>([])
+  let wikiDoc = $state<BackgroundAgentDoc | null>(null)
   let mailStatus = $state<OnboardingMailStatus | null>(null)
   let hubSources = $state<HubRipmailSourceRow[]>([])
   let hubSourcesError = $state<string | null>(null)
-  const agentsActiveDoc = $derived(
-    agents.find((a) => ['running', 'queued', 'paused'].includes(a.status)) ?? null,
-  )
 
-  const agentsHubSummarySub = $derived.by(() => {
-    const a = agentsActiveDoc
-    if (a?.status === 'running' || a?.status === 'queued') {
-      return `${a.label || 'Wiki expansion'} · in progress`
+  const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
+  const wikiIsActive = $derived(
+    wikiPhase === 'starting' || wikiPhase === 'enriching' || wikiPhase === 'cleaning',
+  )
+  const wikiIsPaused = $derived(wikiPhase === 'paused')
+
+  function wikiPathBasename(rel: string): string {
+    const parts = rel.replace(/\\/g, '/').split('/').filter(Boolean)
+    return parts[parts.length - 1] ?? rel
+  }
+
+  /** Primary line: what the user should understand is happening (not internal loop jargon). */
+  const wikiHubTitle = $derived.by(() => {
+    if (!wikiDoc) return 'Your Wiki'
+    switch (wikiPhase) {
+      case 'starting':
+        return 'Building your first pages'
+      case 'enriching':
+        return 'Expanding your wiki'
+      case 'cleaning':
+        return 'Tidying links and pages'
+      case 'paused':
+        return 'Wiki updates paused'
+      case 'error':
+        return 'Something went wrong'
+      case 'idle':
+        return wikiDoc.detail === 'Pausing between laps' ? 'Taking a short break' : 'Wiki is up to date'
+      default:
+        return 'Your Wiki'
     }
-    if (a?.status === 'paused') {
-      return `${a.label || 'Wiki expansion'} · paused`
+  })
+
+  /** Secondary line: last touched page when known, else a short status hint. */
+  const wikiHubSub = $derived.by(() => {
+    if (!wikiDoc) return 'Loading status…'
+    const last = wikiDoc.lastWikiPath?.trim()
+    const lastLine = last ? `Last: ${wikiPathBasename(last)}` : null
+
+    switch (wikiPhase) {
+      case 'starting':
+        return lastLine ?? 'Getting everything ready…'
+      case 'enriching':
+        if (lastLine) return lastLine
+        if ((wikiDoc.detail ?? '').includes('Sync')) return wikiDoc.detail ?? 'Preparing sources…'
+        return 'Looking for pages to improve'
+      case 'cleaning':
+        return lastLine ?? 'Cleaning up from the last pass'
+      case 'paused':
+        return lastLine ?? 'Resume anytime from the detail view'
+      case 'error': {
+        const msg = (wikiDoc.error ?? wikiDoc.detail ?? 'Open for details').trim()
+        return msg.length > 140 ? `${msg.slice(0, 137)}…` : msg
+      }
+      case 'idle':
+        if (wikiDoc.detail === 'Pausing between laps') {
+          return lastLine ?? 'Next pass soon'
+        }
+        if (wikiDoc.idleReason) {
+          const short = wikiDoc.idleReason.split(/\s*[—–-]\s*/)[0]?.trim() ?? wikiDoc.idleReason
+          return lastLine ? `${short} · ${lastLine}` : short
+        }
+        return lastLine ?? (docCount != null ? `${docCount} pages in your wiki` : 'Ready when you are')
+      default:
+        return lastLine ?? (wikiDoc.detail || '…')
     }
-    if (agents.length === 0) {
-      return 'Open for wiki expansion controls'
-    }
-    return 'Idle — open for controls and history'
   })
 
   function sourceKindLabel(kind: string): string {
@@ -104,9 +155,9 @@
 
   async function fetchData() {
     try {
-      const [wikiRes, agentsRes, mailRes, sourcesRes] = await Promise.all([
+      const [wikiRes, yourWikiRes, mailRes, sourcesRes] = await Promise.all([
         fetch('/api/wiki'),
-        fetch('/api/background/agents'),
+        fetch('/api/your-wiki'),
         fetch('/api/onboarding/mail'),
         fetch('/api/hub/sources'),
       ])
@@ -115,9 +166,8 @@
         const docs = await wikiRes.json()
         docCount = Array.isArray(docs) ? docs.length : null
       }
-      if (agentsRes.ok) {
-        const j = await agentsRes.json()
-        agents = Array.isArray(j.agents) ? j.agents : []
+      if (yourWikiRes.ok) {
+        wikiDoc = (await yourWikiRes.json()) as BackgroundAgentDoc
       }
       if (mailRes.ok) {
         mailStatus = await mailRes.json()
@@ -135,7 +185,13 @@
   onMount(() => {
     void fetchData()
     const id = setInterval(() => void fetchData(), 2000)
-    return () => clearInterval(id)
+    const unsub = subscribe((e) => {
+      if (e.type === 'hub:sources-changed' || e.type === 'wiki:mutated') void fetchData()
+    })
+    return () => {
+      clearInterval(id)
+      unsub()
+    }
   })
 
   function formatRelativeDate(iso: string): string {
@@ -261,72 +317,59 @@
             </button>
           {/each}
         {/if}
-      </div>
-    </section>
-
-    <!-- Section 2: Wiki Summary -->
-    <section class="hub-section stats-section">
-      <div class="section-header stats-section-header">
-        <div class="stats-header-start">
-          <AlertCircle size={18} />
-          <h2>Wiki Summary</h2>
-        </div>
         <button
           type="button"
-          class="wiki-help-inline"
-          onclick={() => onHubNavigate({ type: 'hub-wiki-about' })}
-          title="How your wiki works with Brain"
-          aria-label="What is the wiki? Opens help."
+          class="link-item hub-source-row"
+          onclick={() => onHubNavigate({ type: 'hub-add-folders' })}
         >
-          <CircleHelp size={16} strokeWidth={2} aria-hidden="true" />
-          <span>What is this?</span>
+          <div class="link-info">
+            <span class="hub-source-icon-wrap" aria-hidden="true"><FolderPlus size={16} /></span>
+            <div class="source-folder-text">
+              <span class="source-folder-name">Add more folders</span>
+              <span class="source-folder-path">Suggest Desktop and Documents to add to the index</span>
+            </div>
+          </div>
+          <ChevronRight size={16} aria-hidden="true" />
         </button>
-      </div>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <span class="stat-value">{docCount ?? '--'}</span>
-          <span class="stat-label">Documents</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-value"
-            >{mailStatus?.lastSyncedAt ? formatRelativeDate(mailStatus.lastSyncedAt) : '--'}</span
-          >
-          <span class="stat-label stat-label-sentence">last sync</span>
-        </div>
       </div>
     </section>
 
-    <!-- Section 3: Background Agents — open detail in right pane (same as wiki / phone access) -->
-    <section class="hub-section agents-section" aria-label="Background agents">
-      <div class="section-header">
-        <RefreshCw size={18} />
-        <h2>Background Agents</h2>
+    <!-- Section 2: Your Wiki -->
+    <section class="hub-section your-wiki-section" aria-label="Your Wiki">
+      <div class="section-header section-header-wiki">
+        <BookOpen size={18} />
+        <h2>Your Wiki</h2>
+        <span
+          class="wiki-header-metrics"
+          aria-live="polite"
+          aria-label={docCount != null ? `${docCount} pages` : 'Page count loading'}
+        >
+          <span class="wiki-header-count" aria-hidden="true">{docCount ?? '—'}</span>
+          <span class="wiki-header-count-label" aria-hidden="true">pages</span>
+        </span>
       </div>
       <div class="links-list">
         <button
           type="button"
           class="link-item hub-source-row"
-          onclick={() =>
-            onHubNavigate(
-              agentsActiveDoc
-                ? { type: 'background-agent', id: agentsActiveDoc.id }
-                : { type: 'background-agent' },
-            )}
+          onclick={() => onHubNavigate({ type: 'your-wiki' })}
         >
           <div class="link-info">
-            <span class="hub-source-icon-wrap" aria-hidden="true"><RefreshCw size={16} /></span>
+            <span class="hub-source-icon-wrap" aria-hidden="true">
+              {#if wikiIsActive}
+                <RefreshCw size={16} class="spin-icon" aria-hidden="true" />
+              {:else}
+                <BookOpen size={16} aria-hidden="true" />
+              {/if}
+            </span>
             <div class="source-folder-text">
-              <span class="source-folder-name">Wiki expansion</span>
-              <span class="source-folder-path">{agentsHubSummarySub}</span>
+              <span class="source-folder-name">{wikiHubTitle}</span>
+              <span class="source-folder-path">{wikiHubSub}</span>
             </div>
           </div>
-          {#if agentsActiveDoc && (agentsActiveDoc.status === 'running' || agentsActiveDoc.status === 'queued')}
+          {#if wikiIsPaused}
             <div class="link-status">
-              <span class="status-pill {agentsActiveDoc.status}">{agentsActiveDoc.status}</span>
-            </div>
-          {:else if agentsActiveDoc?.status === 'paused'}
-            <div class="link-status">
-              <span class="status-pill paused">{agentsActiveDoc.status}</span>
+              <span class="status-pill paused">Paused</span>
             </div>
           {/if}
           <ChevronRight size={16} aria-hidden="true" />
@@ -379,8 +422,13 @@
     gap: 1.5rem;
   }
 
-  .stats-section {
-    gap: 0.6rem;
+  :global(.spin-icon) {
+    animation: spin 2s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
   .section-header {
@@ -392,48 +440,6 @@
     border-bottom: 1px solid var(--border);
   }
 
-  .stats-section-header {
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
-
-  .stats-header-start {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-  }
-
-  .wiki-help-inline {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-shrink: 0;
-    margin-left: auto;
-    padding: 0.25rem 0.4rem;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-2);
-    font-size: 0.8125rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition:
-      color 0.15s,
-      background 0.15s;
-  }
-
-  .wiki-help-inline:hover {
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 9%, var(--bg));
-  }
-
-  .stats-section .stats-grid {
-    gap: 2rem;
-  }
-
   h2 {
     margin: 0;
     font-size: 0.9375rem;
@@ -441,35 +447,28 @@
     letter-spacing: 0.02em;
   }
 
-  .stats-grid {
-    display: flex;
-    gap: 3rem;
-  }
-
-  .stat-card {
+  .section-header-wiki .wiki-header-metrics {
+    margin-left: auto;
     display: flex;
     align-items: baseline;
     gap: 8px;
+    flex-shrink: 0;
   }
 
-  .stat-value {
+  .wiki-header-count {
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--text);
     letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
   }
 
-  .stat-label {
+  .wiki-header-count-label {
     font-size: 0.75rem;
     color: var(--text-2);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-  }
-
-  .stat-label-sentence {
-    text-transform: none;
-    letter-spacing: 0.01em;
   }
 
   .links-list {
@@ -516,16 +515,6 @@
     color: var(--text-2);
   }
 
-  .status-pill.running {
-    background: var(--accent);
-    color: white;
-  }
-
-  .status-pill.queued {
-    background: color-mix(in srgb, var(--accent) 55%, var(--bg-3));
-    color: var(--text);
-  }
-
   .status-pill.paused {
     background: color-mix(in srgb, var(--text-2) 22%, var(--bg-3));
     color: var(--text);
@@ -536,11 +525,6 @@
     flex-direction: column;
     align-items: flex-end;
     gap: 2px;
-  }
-
-  .status-val {
-    font-size: 0.875rem;
-    font-weight: 600;
   }
 
   .status-sub {
@@ -575,10 +559,6 @@
       opacity: 1;
       transform: scale(1);
     }
-  }
-
-  .status-mail-err {
-    color: var(--text-3);
   }
 
   .section-lead {
@@ -655,12 +635,6 @@
   @media (max-width: 767px) {
     .hub-page {
       padding: 1.5rem 1rem;
-    }
-    .stats-grid {
-      gap: 1.5rem;
-    }
-    .stats-section .stats-grid {
-      gap: 1.25rem;
     }
   }
 </style>

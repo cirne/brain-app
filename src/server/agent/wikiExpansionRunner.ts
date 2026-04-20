@@ -1,5 +1,7 @@
 import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { wikiDir } from '../lib/wikiDir.js'
+import { listWikiFiles } from '../lib/wikiFiles.js'
 import { categoriesJsonPath } from '../lib/onboardingState.js'
 import {
   appendLogEntry,
@@ -10,35 +12,67 @@ import {
   type BackgroundRunDoc,
 } from '../lib/backgroundAgentStore.js'
 import { safeWikiRelativePath } from '../lib/wikiEditDiff.js'
-import { getOrCreateSeedingAgent, deleteSeedingSession } from './seedingAgent.js'
+import { getOrCreateWikiBuildoutAgent, deleteWikiBuildoutSession } from './wikiBuildoutAgent.js'
+import { buildDateContext, createCleanupAgent } from './agentFactory.js'
 
 /**
- * First full pass after profile accept or from Brain Hub “Full expansion”.
- * Seeding agent tools include indexed mail, local Messages when available, web_search, fetch_page.
+ * First full pass after profile accept or lap-1 enriching.
+ * Buildout agent tools include indexed mail, local Messages when available, web_search, fetch_page.
  */
-export const WIKI_EXPANSION_INITIAL_MESSAGE = `Run a comprehensive wiki expansion pass.
+export const WIKI_EXPANSION_INITIAL_MESSAGE = `Run a comprehensive wiki buildout pass.
 
-Goal: keep working until the wiki gives a useful overview of this person — interests, active projects, professional or community context, and key people (family, colleagues, collaborators) — grounded in evidence from their sources.
+Goal: Maximize **useful page count and link graph coverage** for people, active projects, and topics — each page brief and grounded in evidence.
 
 How:
-- Anchor on what they accepted in me.md and expand the skeletal people/* page for the account holder with long-form detail where it helps (bio, interests, projects). Link [[me]] for short assistant context; do not bloat me.md.
-- On every people/* page, add Contact/Identifiers with phone and email only when evidenced via mail, messages, or other tools — never invent numbers or addresses.
-- Add or improve pages under people/, projects/, topics/ or similar so the graph of [[wikilinks]] reads coherently.
-- Complement search_index, read_doc, and find_person with web_search and fetch_page when public context (companies, products, named entities, dates, well-known people) would make pages more accurate than mail alone. Do not invent private facts from the web; use public sources only for public information.
-- Build independent pages in parallel where possible, then a final pass to fix internal links and reduce obvious gaps.
+- **Breadth over Depth:** Prioritize creating pages for entities not yet in the vault (or only stubbed) before expanding pages that already have substance.
+- **Stay Brief:** Do not spend the pass deeply rewriting the same few pages for narrative richness; do not aim for "complete biography." A page should have a lead summary and bulleted facts.
+- **Accuracy:** When sources (mail, messages, web) clearly show existing wiki text is **wrong or outdated**, use **edit** to fix it — surgical factual corrections only, not new sections or long elaboration.
+- **Account Holder:** Keep the skeletal people/* page for the account holder compact (3–8 bullets max); link to [[me]] for short assistant context.
+- **Links:** Use correct **[[wikilinks]]** (Obsidian style) and fix mistakes with **edit**.
+- **Parallelism:** Build independent pages in parallel where possible.
 
-Do not treat “a few new pages” as done if major areas (interests, projects, key people) are still thin or missing. Continue iterating until the overview is in good shape, then wrap up. Narrate briefly as you go.`
+Do not treat "a few new pages" as done if major areas (interests, projects, key people) are still thin or missing. Continue iterating until the coverage is in good shape, then wrap up. Narrate briefly as you go.`
 
 const WIKI_EXPANSION_CONTINUE_MESSAGE =
-  'Continue expanding the wiki: strengthen interests, projects, and key people pages; add phone/email on people/* only with evidence from mail or messages; use web_search or fetch_page where public facts would help accuracy; fix cross-links and keep pages concise. Keep going until obvious gaps are filled. Narrate briefly.'
+  'Continue the wiki buildout: prioritize new coverage (people, projects, topics) and surgical accuracy fixes on existing pages; keep pages brief and evidenced; fix cross-links. Breadth beats volume. Narrate briefly.'
 
-const pausedRunIds = new Set<string>()
+/** System prompt for the cleanup / lint phase. */
+function buildCleanupSystemPrompt(timezone: string): string {
+  const dateCtx = buildDateContext(timezone)
+  return `You are a wiki cleanup agent for a private personal wiki (Obsidian-style vault). Your job is to improve quality without adding new pages. You have \`read\`, \`grep\`, \`find\`, and \`edit\` tools.
 
-function seedingSessionIdForRun(runId: string): string {
-  return `wiki-expansion-${runId}`
+## Guidelines
+- ${dateCtx}
+- Paths are relative to the wiki root (e.g. \`me.md\`, \`people/foo.md\`); never add a \`wiki/\` prefix.
+- Wiki cross-links use \`[[wikilinks]]\` (Obsidian style). External URLs use plain markdown.
+- Prefer synthesis over pasting private email text. Be conservative — when in doubt, leave it alone.
+
+## What to do
+
+1. **Broken wikilinks:** Use \`grep\` to find \`[[\` patterns, then \`find\` to verify the target path exists. Fix each broken link: either update the path, remove the link if the target clearly should not exist, or leave a TODO comment.
+2. **Orphan pages:** Use \`find\` to list all \`.md\` files, then \`grep\` to check which ones have no inbound \`[[\` links. Note orphans in \`_index.md\` if one exists; do not delete them.
+3. **Index maintenance:** If \`_index.md\` exists at the vault root, update its file listing to reflect the current vault structure. If it does not exist and there are more than 10 pages, create a brief one.
+4. **Light edits:** Fix obvious typos, formatting inconsistencies, or stale frontmatter \`updated:\` fields you encounter while reading pages. Keep edits minimal — this is not a rewrite pass.
+5. **Deduplication signals:** If you find multiple pages that clearly cover the same person, project, or topic (same slug with/without spaces, etc.), merge the shorter one into the richer one using \`edit\` and leave a note. Do not do major reorganization.
+
+## Workflow
+- Scan first (grep/find), then fix methodically. Narrate briefly as you go.
+- Do not create new content pages. Use \`edit\` only on existing files.
+- Stop when the main issues are resolved — do not over-polish.`
 }
 
-function isSeedEligibleWikiPage(relPath: string): boolean {
+const pausedRunIds = new Set<string>()
+const cleanupSessions = new Map<string, ReturnType<typeof createCleanupAgent>>()
+
+function buildoutSessionIdForRun(runId: string): string {
+  return `wiki-buildout-${runId}`
+}
+
+function cleanupSessionIdForRun(runId: string): string {
+  return `wiki-cleanup-${runId}`
+}
+
+function isBuildoutEligibleWikiPage(relPath: string): boolean {
   const norm = relPath.replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase()
   return norm !== 'me.md' && norm.endsWith('.md')
 }
@@ -99,6 +133,152 @@ function safeDetails(d: unknown): unknown {
   }
 }
 
+/**
+ * Read me.md and build a vault manifest to inject as context into the first expansion pass.
+ * Closes BUG-011: the buildout system prompt says "anchor on me.md" but the model never received
+ * the file contents.
+ *
+ * `syncNote` is an optional note about recent mail sync freshness (added for laps 2+). It is
+ * kept deliberately minimal to avoid recency bias — we inform the agent that data is fresh
+ * without listing specific recent content.
+ */
+export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: string): Promise<string> {
+  const mePath = join(wikiRoot, 'me.md')
+  let meMdContent = ''
+  try {
+    meMdContent = await readFile(mePath, 'utf-8')
+  } catch {
+    // me.md not yet written (very early first run) — model will rely on buildout system prompt
+  }
+
+  const parts: string[] = []
+
+  if (meMdContent.trim()) {
+    parts.push(`## Your profile (me.md — canonical short assistant context)\n\n${meMdContent.trim()}`)
+  }
+
+  const manifestPaths = await listWikiFiles(wikiRoot)
+
+  if (manifestPaths.length > 0) {
+    parts.push(
+      `## Existing wiki pages (vault manifest)\n\n${manifestPaths.map(p => `- ${p}`).join('\n')}`,
+    )
+  }
+
+  if (syncNote?.trim()) {
+    parts.push(`## Data freshness\n\n${syncNote.trim()}`)
+  }
+
+  if (parts.length === 0) return ''
+
+  return `[Injected context for this expansion pass — use this instead of trying to read me.md via tools]\n\n${parts.join('\n\n')}\n\n---\n\n`
+}
+
+/** Tracks write/edit tool call activity and updates a BackgroundRunDoc in place. */
+function attachRunTracker(
+  agent: { subscribe: (cb: (event: Record<string, unknown>) => void | Promise<void>) => () => void },
+  doc: BackgroundRunDoc,
+  wikiRoot: string,
+): { unsubscribe: () => void; getChangeCount: () => number } {
+  const pendingWritePaths = new Map<string, string>()
+  const pendingEditPaths = new Map<string, string>()
+  const pendingToolArgs = new Map<string, unknown>()
+  let lastTextSnippet = ''
+  let changeCount = 0
+
+  const unsubscribe = agent.subscribe(async (event) => {
+    const ev = event as Record<string, unknown>
+    try {
+      switch (ev.type) {
+        case 'message_update': {
+          const payload = ev as unknown as { type: 'message_update' } & MessageUpdatePayload
+          const e = payload.assistantMessageEvent
+          if (e?.type === 'text_delta') {
+            const d = typeof e.delta === 'string' ? e.delta : String(e.delta ?? '')
+            lastTextSnippet = (lastTextSnippet + d).slice(-200)
+            touchRun(doc, { detail: lastTextSnippet.trim() || 'Working…' })
+            await writeBackgroundRun(doc)
+          }
+          break
+        }
+        case 'tool_execution_start': {
+          const te = ev as unknown as { type: 'tool_execution_start' } & ToolExecutionStartPayload
+          const { toolCallId, toolName, args } = te
+          pendingToolArgs.set(toolCallId, args)
+          if (toolName === 'write' && args && typeof args === 'object' && 'path' in args) {
+            const raw = String((args as { path: unknown }).path)
+            pendingWritePaths.set(toolCallId, raw)
+            const rel = safeWikiRelativePath(wikiRoot, raw)
+            if (rel) touchRun(doc, { lastWikiPath: rel })
+          }
+          if (toolName === 'edit' && args && typeof args === 'object' && 'path' in args) {
+            const raw = String((args as { path: unknown }).path)
+            pendingEditPaths.set(toolCallId, raw)
+            const rel = safeWikiRelativePath(wikiRoot, raw)
+            if (rel) touchRun(doc, { lastWikiPath: rel })
+          }
+          await writeBackgroundRun(doc)
+          break
+        }
+        case 'tool_execution_end': {
+          const endEv = ev as unknown as { type: 'tool_execution_end' } & ToolExecutionEndPayload
+          const argsRaw = pendingToolArgs.get(endEv.toolCallId)
+          pendingToolArgs.delete(endEv.toolCallId)
+
+          const resultText = toolResultText(endEv)
+          const details = safeDetails(endEv.result?.details)
+          appendTimelineEvent(doc, {
+            at: new Date().toISOString(),
+            kind: 'tool',
+            toolName: endEv.toolName,
+            args: jsonCloneArgs(argsRaw),
+            result: resultText.length > 0 ? resultText : undefined,
+            details,
+            isError: endEv.isError,
+          })
+
+          if (endEv.toolName === 'write' && !endEv.isError) {
+            const rawPath = pendingWritePaths.get(endEv.toolCallId) ?? ''
+            pendingWritePaths.delete(endEv.toolCallId)
+            const rel = safeWikiRelativePath(wikiRoot, rawPath)
+            if (rel) {
+              const patch: Partial<BackgroundRunDoc> = { lastWikiPath: rel }
+              if (isBuildoutEligibleWikiPage(rel)) {
+                const paths = await listWikiFiles(wikiRoot)
+                patch.pageCount = paths.length
+                changeCount++
+              }
+              touchRun(doc, patch)
+              appendLogEntry(doc, { verb: 'Created', detail: rel })
+            }
+          } else if (endEv.toolName === 'edit' && !endEv.isError) {
+            const rawPath = pendingEditPaths.get(endEv.toolCallId) ?? ''
+            pendingEditPaths.delete(endEv.toolCallId)
+            const rel = safeWikiRelativePath(wikiRoot, rawPath)
+            if (rel) {
+              const paths = await listWikiFiles(wikiRoot)
+              touchRun(doc, { lastWikiPath: rel, pageCount: paths.length })
+              appendLogEntry(doc, { verb: 'Updated', detail: rel })
+              changeCount++
+            }
+          } else {
+            pendingWritePaths.delete(endEv.toolCallId)
+            pendingEditPaths.delete(endEv.toolCallId)
+          }
+          await writeBackgroundRun(doc)
+          break
+        }
+        default:
+          break
+      }
+    } catch {
+      /* ignore */
+    }
+  })
+
+  return { unsubscribe, getChangeCount: () => changeCount }
+}
+
 export async function resumeWikiExpansionRun(runId: string, options: { timezone?: string } = {}): Promise<void> {
   pausedRunIds.delete(runId)
   void runWikiExpansionJob(runId, WIKI_EXPANSION_CONTINUE_MESSAGE, options).catch((e) => {
@@ -108,7 +288,7 @@ export async function resumeWikiExpansionRun(runId: string, options: { timezone?
 
 export function pauseWikiExpansionRun(runId: string): void {
   pausedRunIds.add(runId)
-  deleteSeedingSession(seedingSessionIdForRun(runId))
+  deleteWikiBuildoutSession(buildoutSessionIdForRun(runId))
 }
 
 async function loadCategoriesFromDisk(): Promise<string[] | undefined> {
@@ -120,6 +300,101 @@ async function loadCategoriesFromDisk(): Promise<string[] | undefined> {
     /* optional */
   }
   return undefined
+}
+
+/**
+ * Run a single enrich (wiki expansion) invocation. Injects me.md and vault manifest for context.
+ * `syncNote` is a brief, recency-bias-avoiding note when mail was refreshed before this lap.
+ * Returns the number of pages created/edited (for no-op detection).
+ */
+export async function runEnrichInvocation(
+  runId: string,
+  doc: BackgroundRunDoc,
+  options: { message?: string; timezone?: string; syncNote?: string },
+): Promise<number> {
+  const wikiRoot = wikiDir()
+  const sessionId = buildoutSessionIdForRun(runId)
+  const categories = await loadCategoriesFromDisk()
+  const agent = await getOrCreateWikiBuildoutAgent(sessionId, {
+    timezone: options.timezone,
+    categories,
+  })
+
+  const contextPrefix = await buildExpansionContextPrefix(wikiRoot, options.syncNote)
+  const baseMessage = options.message ?? WIKI_EXPANSION_INITIAL_MESSAGE
+  const fullMessage = contextPrefix ? `${contextPrefix}${baseMessage}` : baseMessage
+
+  touchRun(doc, { label: 'Your Wiki', detail: 'Starting enrichment…' })
+  await writeBackgroundRun(doc)
+
+  const { unsubscribe, getChangeCount } = attachRunTracker(agent, doc, wikiRoot)
+  try {
+    if (pausedRunIds.has(runId)) return 0
+    await agent.waitForIdle()
+    await agent.prompt(fullMessage)
+  } catch (e: unknown) {
+    if (!(e instanceof Error && (e.name === 'AbortError' || /abort/i.test(e.message)))) {
+      const msg = e instanceof Error ? e.message : String(e)
+      touchRun(doc, { detail: msg })
+      await writeBackgroundRun(doc)
+    }
+  } finally {
+    unsubscribe()
+    deleteWikiBuildoutSession(sessionId)
+  }
+  return getChangeCount()
+}
+
+/**
+ * Run a single cleanup / lint invocation. Has read/grep/find/edit but no write.
+ * Returns the number of edits made (for no-op detection).
+ */
+export async function runCleanupInvocation(
+  runId: string,
+  doc: BackgroundRunDoc,
+  options: { timezone?: string },
+): Promise<number> {
+  const wikiRoot = wikiDir()
+  const sessionId = cleanupSessionIdForRun(runId)
+
+  const contextPrefix = await buildExpansionContextPrefix(wikiRoot)
+  const tz = options.timezone ?? 'UTC'
+  const systemPrompt = buildCleanupSystemPrompt(tz)
+  const agent = createCleanupAgent(systemPrompt, wikiRoot)
+  cleanupSessions.set(sessionId, agent)
+
+  const cleanupMessage = contextPrefix
+    ? `${contextPrefix}Run a cleanup pass on this wiki vault: fix broken wikilinks, check orphans, update _index.md if present, and make light edits where needed. Work methodically and narrate briefly.`
+    : 'Run a cleanup pass on this wiki vault: fix broken wikilinks, check orphans, update _index.md if present, and make light edits where needed. Work methodically and narrate briefly.'
+
+  touchRun(doc, { label: 'Your Wiki', detail: 'Starting cleanup…' })
+  await writeBackgroundRun(doc)
+
+  const { unsubscribe, getChangeCount } = attachRunTracker(agent, doc, wikiRoot)
+  try {
+    if (pausedRunIds.has(runId)) return 0
+    await agent.waitForIdle()
+    await agent.prompt(cleanupMessage)
+  } catch (e: unknown) {
+    if (!(e instanceof Error && (e.name === 'AbortError' || /abort/i.test(e.message)))) {
+      const msg = e instanceof Error ? e.message : String(e)
+      touchRun(doc, { detail: msg })
+      await writeBackgroundRun(doc)
+    }
+  } finally {
+    unsubscribe()
+    cleanupSessions.delete(sessionId)
+  }
+  return getChangeCount()
+}
+
+export function pauseCleanupSession(runId: string): void {
+  const sessionId = cleanupSessionIdForRun(runId)
+  const agent = cleanupSessions.get(sessionId)
+  if (agent) {
+    agent.abort()
+    cleanupSessions.delete(sessionId)
+  }
 }
 
 async function runWikiExpansionJob(
@@ -148,119 +423,18 @@ async function runWikiExpansionJob(
   }
   await writeBackgroundRun(doc)
 
-  const wikiRoot = wikiDir()
-  const sessionId = seedingSessionIdForRun(runId)
-  const categories = await loadCategoriesFromDisk()
-  const agent = await getOrCreateSeedingAgent(sessionId, {
-    timezone: options.timezone,
-    categories,
-  })
-
-  const pendingWritePaths = new Map<string, string>()
-  const pendingEditPaths = new Map<string, string>()
-  /** Tool args from `tool_execution_start` (paired with `tool_execution_end`). */
-  const pendingToolArgs = new Map<string, unknown>()
-  let lastTextSnippet = ''
-
-  const unsubscribe = agent.subscribe(async (event) => {
-    try {
-      switch (event.type) {
-        case 'message_update': {
-          const payload = event as unknown as { type: 'message_update' } & MessageUpdatePayload
-          const e = payload.assistantMessageEvent
-          if (e?.type === 'text_delta') {
-            const d = typeof e.delta === 'string' ? e.delta : String(e.delta ?? '')
-            lastTextSnippet = (lastTextSnippet + d).slice(-200)
-            touchRun(doc!, { detail: lastTextSnippet.trim() || 'Writing…' })
-            await writeBackgroundRun(doc!)
-          }
-          break
-        }
-        case 'tool_execution_start': {
-          const te = event as unknown as { type: 'tool_execution_start' } & ToolExecutionStartPayload
-          const { toolCallId, toolName, args } = te
-          pendingToolArgs.set(toolCallId, args)
-          if (toolName === 'write' && args && typeof args === 'object' && 'path' in args) {
-            const raw = String((args as { path: unknown }).path)
-            pendingWritePaths.set(toolCallId, raw)
-            const rel = safeWikiRelativePath(wikiRoot, raw)
-            if (rel) touchRun(doc!, { lastWikiPath: rel })
-          }
-          if (toolName === 'edit' && args && typeof args === 'object' && 'path' in args) {
-            const raw = String((args as { path: unknown }).path)
-            pendingEditPaths.set(toolCallId, raw)
-            const rel = safeWikiRelativePath(wikiRoot, raw)
-            if (rel) touchRun(doc!, { lastWikiPath: rel })
-          }
-          touchRun(doc!, { label: 'Wiki expansion' })
-          await writeBackgroundRun(doc!)
-          break
-        }
-        case 'tool_execution_end': {
-          const ev = event as unknown as { type: 'tool_execution_end' } & ToolExecutionEndPayload
-          const argsRaw = pendingToolArgs.get(ev.toolCallId)
-          pendingToolArgs.delete(ev.toolCallId)
-
-          const resultText = toolResultText(ev)
-          const details = safeDetails(ev.result?.details)
-          appendTimelineEvent(doc!, {
-            at: new Date().toISOString(),
-            kind: 'tool',
-            toolName: ev.toolName,
-            args: jsonCloneArgs(argsRaw),
-            result: resultText.length > 0 ? resultText : undefined,
-            details,
-            isError: ev.isError,
-          })
-
-          if (ev.toolName === 'write') {
-            const rawPath = pendingWritePaths.get(ev.toolCallId) ?? ''
-            pendingWritePaths.delete(ev.toolCallId)
-            const rel = safeWikiRelativePath(wikiRoot, rawPath)
-            if (rel) {
-              const patch: Partial<BackgroundRunDoc> = { lastWikiPath: rel }
-              if (isSeedEligibleWikiPage(rel)) {
-                patch.pageCount = (doc!.pageCount ?? 0) + 1
-              }
-              touchRun(doc!, patch)
-              appendLogEntry(doc!, { verb: 'Created', detail: rel })
-            }
-          } else if (ev.toolName === 'edit') {
-            const rawPath = pendingEditPaths.get(ev.toolCallId) ?? ''
-            pendingEditPaths.delete(ev.toolCallId)
-            const rel = safeWikiRelativePath(wikiRoot, rawPath)
-            if (rel) {
-              touchRun(doc!, { lastWikiPath: rel })
-              appendLogEntry(doc!, { verb: 'Updated', detail: rel })
-            }
-          }
-          await writeBackgroundRun(doc!)
-          break
-        }
-        case 'agent_end': {
-          touchRun(doc!, {
-            status: pausedRunIds.has(runId) ? 'paused' : 'completed',
-            detail: pausedRunIds.has(runId) ? 'Paused' : 'Finished this pass',
-          })
-          await writeBackgroundRun(doc!)
-          break
-        }
-        default:
-          break
-      }
-    } catch {
-      /* ignore */
-    }
-  })
-
   try {
     if (pausedRunIds.has(runId)) {
       touchRun(doc, { status: 'paused', detail: 'Paused before start' })
       await writeBackgroundRun(doc)
       return
     }
-    await agent.waitForIdle()
-    await agent.prompt(message)
+    await runEnrichInvocation(runId, doc, { message, timezone: options.timezone })
+    touchRun(doc, {
+      status: pausedRunIds.has(runId) ? 'paused' : 'completed',
+      detail: pausedRunIds.has(runId) ? 'Paused' : 'Finished this pass',
+    })
+    await writeBackgroundRun(doc)
   } catch (e: unknown) {
     if (e instanceof Error && (e.name === 'AbortError' || /abort/i.test(e.message))) {
       touchRun(doc, { status: 'paused', detail: 'Paused' })
@@ -270,9 +444,6 @@ async function runWikiExpansionJob(
       touchRun(doc, { status: 'error', error: msg, detail: msg })
       await writeBackgroundRun(doc)
     }
-  } finally {
-    unsubscribe()
-    deleteSeedingSession(sessionId)
   }
 }
 
@@ -305,7 +476,7 @@ export async function startWikiExpansionRun(options: {
   return { runId }
 }
 
-/** Same kickoff as Brain Hub “Full expansion” (see accept-profile onboarding). */
+/** Same kickoff as Brain Hub "Full expansion" (see accept-profile onboarding). */
 export async function startWikiExpansionRunFromAcceptProfile(options: {
   timezone?: string
 }): Promise<{ runId: string }> {

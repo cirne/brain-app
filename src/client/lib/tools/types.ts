@@ -10,7 +10,7 @@ export type ToolChatPolicy = {
   label?: string
 }
 
-export type OnboardingVariant = 'profiling' | 'seeding'
+export type OnboardingVariant = 'profiling' | 'buildout'
 
 /** Rich mail row for read_doc progress (same shape as ProfilingEmailRef). */
 export type SeedingMailPreview = {
@@ -52,7 +52,7 @@ export type ToolDefinition = {
    */
   onboardingActivityInFlight?: Partial<Record<OnboardingVariant, string>>
   /**
-   * Wiki seeding progress list (done vs active). When absent, generic fallback.
+   * Wiki buildout progress list (done vs active). When absent, generic fallback.
    */
   seedingProgressLine?: (phase: 'done' | 'active', tc: ToolCall) => SeedingProgressLine | null
 }

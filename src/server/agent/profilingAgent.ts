@@ -136,7 +136,7 @@ export function buildProfilingSystemPrompt(
     `- **Length:** about **250–400 words** (roughly **30–45 lines**), excluding optional YAML front matter. Shorter is better if it stays useful.`,
     `- **Include (when mail supports it):** how to address the user; **communication style** and assistant-relevant preferences (brevity, tone, scheduling habits); **coarse** geography/timezone (region — not street addresses); **current roles** in one line each (title + org); a **small** "Key people" list (name + relationship only — **no** multi-line contact blocks, **no** account numbers).`,
     `- **Primary contact:** one email line is enough unless mail shows a clear alternate for assistant use.`,
-    `- **Exclude from me.md** (wiki seeding will cover these on topic pages and on their **people/** page): hobbies and interests as lists; project backlogs; philanthropy portfolios; travel plans; golf groups; detailed org charts; anything that reads like a CRM export. **Phone numbers and messaging identifiers** for correlating with **Messages** belong on **people/** pages during seeding—not in \`me.md\`.`,
+    `- **Exclude from me.md** (wiki buildout will cover these on topic pages and on their **people/** page): hobbies and interests as lists; project backlogs; philanthropy portfolios; travel plans; golf groups; detailed org charts; anything that reads like a CRM export. **Phone numbers and messaging identifiers** for correlating with **Messages** belong on **people/** pages during buildout—not in \`me.md\`.`,
     ``,
     `## Privacy / sensitivity`,
     ``,

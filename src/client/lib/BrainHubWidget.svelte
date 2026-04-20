@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { BookOpen } from 'lucide-svelte'
-  import type { BackgroundAgentDoc } from './statusBar/backgroundAgentTypes.js'
+  import type { BackgroundAgentDoc, YourWikiPhase } from './statusBar/backgroundAgentTypes.js'
+  import { subscribe } from './app/appEvents.js'
 
   type Props = {
     onOpen: () => void
@@ -10,29 +11,37 @@
   let { onOpen }: Props = $props()
 
   let docCount = $state<number | null>(null)
-  let agents = $state<BackgroundAgentDoc[]>([])
+  let wikiDoc = $state<BackgroundAgentDoc | null>(null)
 
-  const activeAgents = $derived(
-    agents.filter((a) => ['queued', 'running', 'paused'].includes(a.status))
-  )
-  const isRunning = $derived(activeAgents.some(a => a.status === 'running' || a.status === 'queued'))
-  const activeLabel = $derived(activeAgents[0]?.status === 'running' ? 'Building wiki...' : activeAgents[0]?.status === 'queued' ? 'Queued' : activeAgents[0]?.status === 'paused' ? 'Paused' : '')
+  const phase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
+  const isRunning = $derived(phase === 'starting' || phase === 'enriching' || phase === 'cleaning')
+  const isPaused = $derived(phase === 'paused')
+
+  const activeLabel = $derived.by((): string => {
+    if (phase === 'starting') return 'Starting wiki…'
+    if (phase === 'enriching') return 'Enriching…'
+    if (phase === 'cleaning') return 'Cleaning up…'
+    if (phase === 'paused') return 'Paused'
+    return ''
+  })
+
+  const showActive = $derived(isRunning || isPaused)
+  const displayCount = $derived(wikiDoc ? wikiDoc.pageCount : docCount)
 
   async function fetchData() {
     try {
-      const [wikiRes, agentsRes] = await Promise.all([
+      const [wikiRes, yourWikiRes] = await Promise.all([
         fetch('/api/wiki'),
-        fetch('/api/background/agents')
+        fetch('/api/your-wiki'),
       ])
-      
+
       if (wikiRes.ok) {
         const docs = await wikiRes.json()
         docCount = Array.isArray(docs) ? docs.length : null
       }
-      
-      if (agentsRes.ok) {
-        const j = await agentsRes.json()
-        agents = Array.isArray(j.agents) ? j.agents : []
+
+      if (yourWikiRes.ok) {
+        wikiDoc = (await yourWikiRes.json()) as BackgroundAgentDoc
       }
     } catch {
       /* ignore */
@@ -42,26 +51,34 @@
   onMount(() => {
     void fetchData()
     const id = setInterval(() => void fetchData(), 2000)
-    return () => clearInterval(id)
+    const unsub = subscribe((e) => {
+      if (e.type === 'wiki:mutated') void fetchData()
+    })
+    return () => {
+      clearInterval(id)
+      unsub()
+    }
   })
 </script>
 
 <button
   type="button"
   class="hub-widget"
-  class:active={activeAgents.length > 0}
+  class:active={showActive}
   onclick={onOpen}
-  title={activeAgents.length > 0 ? `${activeLabel} (Click for Brain Hub)` : 'Brain Hub'}
+  title={showActive ? `${activeLabel} (Click for Brain Hub)` : 'Brain Hub'}
 >
-  {#if activeAgents.length > 0}
+  {#if showActive}
     <div class="pulse-container">
       <span class="pulse-dot" class:running={isRunning}></span>
     </div>
-    <span class="hub-label">{activeLabel}</span>
+    {#if displayCount !== null}
+      <span class="hub-count">{displayCount}</span>
+    {/if}
   {:else}
     <BookOpen size={15} strokeWidth={2} aria-hidden="true" />
-    {#if docCount !== null}
-      <span class="hub-count">{docCount}</span>
+    {#if displayCount !== null}
+      <span class="hub-count">{displayCount}</span>
     {/if}
   {/if}
 </button>
@@ -93,11 +110,6 @@
 
   .hub-count {
     font-variant-numeric: tabular-nums;
-  }
-
-  .hub-label {
-    font-size: 12px;
-    font-weight: 600;
   }
 
   .pulse-container {

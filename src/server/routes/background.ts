@@ -3,18 +3,9 @@ import { listBackgroundRuns, readBackgroundRun } from '../lib/backgroundAgentSto
 import {
   pauseWikiExpansionRun,
   resumeWikiExpansionRun,
-  startWikiExpansionRun,
 } from '../agent/wikiExpansionRunner.js'
 
 const background = new Hono()
-
-background.post('/wiki-expansion/start', async (c) => {
-  const body = await c.req.json().catch(() => ({}))
-  const mode = body.mode === 'continue' ? 'continue' : 'full'
-  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
-  const { runId } = await startWikiExpansionRun({ mode, timezone })
-  return c.json({ ok: true as const, runId })
-})
 
 background.get('/agents', async (c) => {
   const runs = await listBackgroundRuns()

@@ -8,7 +8,7 @@
   import { renderMarkdown } from '../markdown.js'
   import OnboardingActivityTranscriptShell from './OnboardingActivityTranscriptShell.svelte'
   import OnboardingLocalWikiLead from './OnboardingLocalWikiLead.svelte'
-  import { seedingLeadCopy } from './onboardingLeadCopy.js'
+  import { wikiBuildoutLeadCopy } from './onboardingLeadCopy.js'
   import { buildSeedingProgressUi, extractProfilingResources, onboardingActivityLine } from './profilingResources.js'
 
   let {
@@ -22,7 +22,7 @@
   let shell = $state<ConversationScrollApi | undefined>()
 
   const seedingProgress = $derived(buildSeedingProgressUi(messages, streaming))
-  const activity = $derived(onboardingActivityLine(messages, streaming, 'seeding'))
+  const activity = $derived(onboardingActivityLine(messages, streaming, 'buildout'))
   const resources = $derived(extractProfilingResources(messages))
 
   export function scrollToBottom() {
@@ -41,7 +41,7 @@
   {streamingWrite}
 >
   {#snippet children({ reduceMotion })}
-    <OnboardingLocalWikiLead {...seedingLeadCopy} />
+    <OnboardingLocalWikiLead {...wikiBuildoutLeadCopy} />
 
     {#if seedingProgress.events.length > 0 || seedingProgress.planning}
       <section class="ob-seed-progress-section" aria-labelledby="ob-seed-progress-heading">

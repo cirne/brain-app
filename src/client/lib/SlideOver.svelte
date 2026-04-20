@@ -7,9 +7,10 @@
   import Calendar from './Calendar.svelte'
   import MessageThread from './MessageThread.svelte'
   import PhoneAccessPanel from './PhoneAccessPanel.svelte'
-  import HubBackgroundAgentsDetail from './HubBackgroundAgentsDetail.svelte'
+  import YourWikiDetail from './YourWikiDetail.svelte'
   import HubSourceInspectPanel from './HubSourceInspectPanel.svelte'
   import HubWikiAboutPanel from './HubWikiAboutPanel.svelte'
+  import HubAddFoldersPanel from './HubAddFoldersPanel.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
   import type { Overlay } from '../router.js'
@@ -23,6 +24,11 @@
     WIKI_SLIDE_HEADER,
     type WikiSlideHeaderState,
   } from './wikiSlideHeaderContext.js'
+  import {
+    YOUR_WIKI_HEADER,
+    type YourWikiHeaderState,
+  } from './yourWikiHeaderContext.js'
+  import { Pause, Play } from 'lucide-svelte'
 
   type Props = {
     overlay: Overlay
@@ -234,8 +240,9 @@
     if (o.type === 'email') return 'Inbox'
     if (o.type === 'messages') return 'Messages'
     if (o.type === 'phone-access') return 'Connect Phone'
-    if (o.type === 'background-agent') return 'Wiki expansion'
+    if (o.type === 'your-wiki') return 'Your Wiki'
     if (o.type === 'hub-source') return 'Search index source'
+    if (o.type === 'hub-add-folders') return 'Add folders to index'
     if (o.type === 'hub-wiki-about') return 'Your wiki'
     return 'Calendar'
   }
@@ -251,6 +258,12 @@
     wikiHeader = state
   }
   setContext(WIKI_SLIDE_HEADER, registerWikiHeader)
+
+  let yourWikiHeader = $state<YourWikiHeaderState | null>(null)
+  function registerYourWikiHeader(state: YourWikiHeaderState | null) {
+    yourWikiHeader = state
+  }
+  setContext(YOUR_WIKI_HEADER, registerYourWikiHeader)
 </script>
 
 <div
@@ -317,6 +330,23 @@
               <MessageSquare size={14} strokeWidth={2} aria-hidden="true" />
               <span class="slide-title-email-text">{messagesHeaderTitle}</span>
             </span>
+          {:else if overlay.type === 'your-wiki' && yourWikiHeader?.doc}
+            <div class="your-wiki-header-center">
+              <span class="slide-title">{titleForOverlay(overlay)}</span>
+              <div class="your-wiki-status-inline">
+                <span class="phase-pill-mini" class:active={['starting', 'enriching', 'cleaning'].includes(yourWikiHeader.doc.phase)}>
+                  {yourWikiHeader.doc.phase === 'starting' ? 'Starting' :
+                   yourWikiHeader.doc.phase === 'enriching' ? 'Enriching' :
+                   yourWikiHeader.doc.phase === 'cleaning' ? 'Cleaning up' :
+                   yourWikiHeader.doc.phase === 'paused' ? 'Paused' :
+                   yourWikiHeader.doc.phase === 'error' ? 'Error' :
+                   'Idle'}
+                </span>
+                {#if yourWikiHeader.doc.pageCount > 0}
+                  <span class="page-count-mini">{yourWikiHeader.doc.pageCount} pages</span>
+                {/if}
+              </div>
+            </div>
           {:else}
             {titleForOverlay(overlay)}
           {/if}
@@ -324,6 +354,31 @@
       {/if}
     {/snippet}
     {#snippet right()}
+      {#if overlay.type === 'your-wiki' && yourWikiHeader}
+        <div class="your-wiki-header-actions">
+          {#if ['starting', 'enriching', 'cleaning', 'idle'].includes(yourWikiHeader.doc?.phase ?? '') && yourWikiHeader.doc?.phase !== 'paused'}
+            <button
+              type="button"
+              class="header-action-btn"
+              disabled={yourWikiHeader.actionBusy}
+              onclick={yourWikiHeader.pause}
+              title="Pause the wiki loop"
+            >
+              <Pause size={14} aria-hidden="true" />
+            </button>
+          {:else if yourWikiHeader.doc?.phase === 'paused' || yourWikiHeader.doc?.phase === 'error'}
+            <button
+              type="button"
+              class="header-action-btn header-action-btn-primary"
+              disabled={yourWikiHeader.actionBusy}
+              onclick={yourWikiHeader.resume}
+              title="Resume the wiki loop"
+            >
+              <Play size={14} aria-hidden="true" />
+            </button>
+          {/if}
+        </div>
+      {/if}
       {#if overlay.type === 'calendar' && calendarHeader}
         <button type="button" class="calendar-today-btn" onclick={calendarHeader.goToday}>Today</button>
       {/if}
@@ -405,9 +460,8 @@
       <MessageThread initialChat={overlay.chat} onContextChange={onContextChange} />
     {:else if overlay.type === 'phone-access'}
       <PhoneAccessPanel />
-    {:else if overlay.type === 'background-agent'}
-      <HubBackgroundAgentsDetail
-        focusAgentId={overlay.id}
+    {:else if overlay.type === 'your-wiki'}
+      <YourWikiDetail
         onOpenWiki={(path) => {
           if (path) onWikiNavigate(path)
         }}
@@ -421,6 +475,17 @@
       <HubSourceInspectPanel sourceId={overlay.id} onClose={onClose} />
     {:else if overlay.type === 'hub-wiki-about'}
       <HubWikiAboutPanel />
+    {:else if overlay.type === 'hub-add-folders'}
+      <HubAddFoldersPanel
+        onOpenWiki={(path) => {
+          if (path) onWikiNavigate(path)
+        }}
+        onOpenFile={toolOnOpenFile}
+        onOpenEmail={toolOnOpenEmail}
+        onOpenFullInbox={toolOnOpenFullInbox}
+        onSwitchToCalendar={onCalendarNavigate}
+        onOpenMessageThread={toolOnOpenMessageThread}
+      />
     {:else}
       <Calendar
         refreshKey={calendarRefreshKey}
@@ -614,6 +679,77 @@
     white-space: nowrap;
   }
 
+  .your-wiki-header-center {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .your-wiki-status-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .phase-pill-mini {
+    font-size: 9px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: var(--bg-3);
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+
+  .phase-pill-mini.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  .page-count-mini {
+    font-size: 11px;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .your-wiki-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 4px;
+  }
+
+  .header-action-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-2);
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+
+  .header-action-btn:hover:not(:disabled) {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+
+  .header-action-btn-primary {
+    color: var(--accent);
+  }
+
+  .header-action-btn-primary:hover:not(:disabled) {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
   .wiki-edit-btn {
     width: 32px;
     height: 32px;
@@ -650,7 +786,8 @@
   .slide-body :global(.inbox),
   .slide-body :global(.calendar),
   .slide-body :global(.hub-bg-agents-detail),
-  .slide-body :global(.hub-source-inspect) {
+  .slide-body :global(.hub-source-inspect),
+  .slide-body :global(.hub-add-folders-panel) {
     flex: 1;
     min-height: 0;
   }

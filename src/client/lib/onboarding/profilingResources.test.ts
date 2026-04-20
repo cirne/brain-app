@@ -273,7 +273,7 @@ describe('onboardingActivityLine', () => {
       },
     ]
     expect(onboardingActivityLine(messages, true, 'profiling')).toBe('Writing your profile…')
-    expect(onboardingActivityLine(messages, true, 'seeding')).toBe('Writing a page…')
+    expect(onboardingActivityLine(messages, true, 'buildout')).toBe('Writing a page…')
   })
 
   it('shows synthesizing when last tool finished and no thinking yet', () => {
@@ -296,12 +296,12 @@ describe('onboardingActivityLine', () => {
       },
     ]
     expect(onboardingActivityLine(messages, true, 'profiling')).toBe('Synthesizing your profile…')
-    expect(onboardingActivityLine(messages, true, 'seeding')).toBe('Working on your wiki…')
+    expect(onboardingActivityLine(messages, true, 'buildout')).toBe('Working on your wiki…')
   })
 
   it('shows gathering context before any meaningful tool', () => {
     expect(onboardingActivityLine([], true, 'profiling')).toBe('Gathering context…')
-    expect(onboardingActivityLine([], true, 'seeding')).toBe('Starting wiki seed…')
+    expect(onboardingActivityLine([], true, 'buildout')).toBe('Starting wiki buildout…')
   })
 
   it('prefers thinking snippet between tools', () => {
@@ -373,7 +373,7 @@ describe('buildSeedingProgressUi', () => {
   it('shows starting line when streaming and no tools yet', () => {
     const { events, planning } = buildSeedingProgressUi([], true)
     expect(events).toEqual([])
-    expect(planning?.prefix).toBe('Starting wiki seed…')
+    expect(planning?.prefix).toBe('Starting wiki buildout…')
   })
 
   it('appends completed writes and shows active write with path', () => {

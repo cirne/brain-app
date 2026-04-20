@@ -26,11 +26,17 @@ export type ChatSessionsChangedEvent = {
   type: 'chat:sessions-changed'
 }
 
+/** Ripmail search index sources changed (e.g. `manage_sources` add/remove/edit local folder). Brain Hub refetches `/api/hub/sources`. */
+export type HubSourcesChangedEvent = {
+  type: 'hub:sources-changed'
+}
+
 export type AppEvent =
   | WikiMutatedEvent
   | SyncCompletedEvent
   | InboxArchivedEvent
   | ChatSessionsChangedEvent
+  | HubSourcesChangedEvent
 
 const listeners = new Set<(event: AppEvent) => void>()
 

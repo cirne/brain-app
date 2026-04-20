@@ -73,6 +73,7 @@ Not all of these ship at once; the opportunity is the **pattern**, not a single 
 
 ## Relation to other work
 
+- **[OPP-033: Wiki compounding + Karpathy alignment](./OPP-033-wiki-compounding-karpathy-alignment.md)** — User-facing **Your Wiki** in Hub: **Cleaning up** phase maps to maintenance/lint here; orchestrator runs enrich → cleanup in laps; pause/resume semantics.
 - **[OPP-014: Onboarding — Suggested Local Folders](./OPP-014-onboarding-local-folder-suggestions.md)** — Upstream agent infrastructure and presentation generalization.
 - **[OPP-004: Wiki-Aware Agent](./OPP-004-wiki-aware-agent.md)** — Structured changelog, background lint, path validation; concrete building blocks for maintenance agents.
 - **[OPP-025: Wiki Hygiene Coalescing and Authoring Expectations](./OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md)** — Change-driven, coalesced post-edit hygiene (settle timer, mutex, rerun if dirty); split between interactive authoring scope and background reconciliation. Complements time-based triggers above.

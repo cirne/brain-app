@@ -9,7 +9,7 @@ import {
 } from './profilingAgent.js'
 import { ensureUserPeoplePageSkeleton } from '../lib/userPeoplePage.js'
 
-export function buildSeedingSystemPrompt(
+export function buildWikiBuildoutSystemPrompt(
   timezone: string,
   categoriesNote: string,
   userPeoplePage: UserPeoplePageRef | null,
@@ -32,33 +32,36 @@ export function buildSeedingSystemPrompt(
     : 'mail tools + your task context'
   const userPageNote = userPeoplePage
     ? [
-        `- A **skeletal long-form page for the account holder** already exists at \`${userPeoplePage.relativePath}\` (wikilink \`[[people/${userPeoplePage.slug}]]\`). **Expand it** with biography, interests, projects, and history from mail + web — this is the right place for detail that **must not** bloat \`me.md\`. Link to \`[[me]]\` for short assistant context; do not paste the full text of \`me.md\` here.`,
-        `- Seed **other** people, projects, and topic pages as usual; link the account holder to \`[[me]]\` and to \`[[people/${userPeoplePage.slug}]]\` where appropriate.`,
+        `- A **skeletal long-form page for the account holder** already exists at \`${userPeoplePage.relativePath}\` (wikilink \`[[people/${userPeoplePage.slug}]]\`). **Keep it compact**: link to \`[[me]]\` for short assistant context; add 3–8 bullet facts max from mail + web — this is NOT the place for a long biography.`,
+        `- Build out **other** people, projects, and topic pages as usual; link the account holder to \`[[me]]\` and to \`[[people/${userPeoplePage.slug}]]\` where appropriate.`,
       ].join('\n')
     : `- If you infer a \`people/[slug].md\` for the account holder from mail, you may create it; otherwise focus on other people and topics.`
 
-  return `You are a wiki seeding agent for onboarding. The user has accepted their profile as **me.md** at the wiki root (it is in the vault on disk; paths are relative to the wiki root — never \`wiki/me.md\`). You do **not** have wiki **read** / **grep** / **find** tools — the user sees the wiki in the app; ground yourself in ${mailAndMaybeMessages} and what you already know from onboarding. Your job is to populate their markdown wiki with useful pages based on that profile and evidence from those tools.
+  return `You are a wiki buildout agent. The user has accepted their profile as **me.md** at the wiki root (it is in the vault on disk; paths are relative to the wiki root — never \`wiki/me.md\`). You do **not** have wiki **read** / **grep** / **find** tools — the user sees the wiki in the app; ground yourself in ${mailAndMaybeMessages} and what you already know from onboarding. Your job is to populate their markdown wiki with many useful, short pages based on that profile and evidence from those tools.
+
+## Primary Objective: Breadth over Depth
+Maximize **useful page count and link graph coverage** for people, projects, topics, and organizations.
+- **Stay Brief:** Prefer many short, evidenced pages (stubs) over a few long-form ones. A page should have a lead summary and bulleted facts.
+- **Obsidian-style Vault:** Cross-link pages heavily with **\`[[wikilinks]]\`** (e.g. \`[[people/jane-doe]]\`).
+- **Depth is Out of Scope:** Do not write long biographies or heavy narrative synthesis.
 
 ## Categories / scope
 ${categoriesNote}
 
 ## Task
-- Treat **me.md** as the canonical **short assistant context** (same content they accepted). You cannot read vault files via tools — rely on ${relyOnEvidence}, then **write** / **edit** new pages.
+- Treat **me.md** as the canonical **short assistant context**. You cannot read vault files via tools — rely on ${relyOnEvidence}, then **write** / **edit** pages.
 ${userPageNote}
 - Use search_index (regex + structured filters) and read_doc to enrich facts before writing pages.
 ${peoplePhoneNote}
 ${messagesWorkflow}
-- Use **web_search** for current public information (companies, products, named entities) when it helps you write accurate wiki pages; use **fetch_page** to read full article text from a specific URL when you need more than search snippets.
-- Create interlinked markdown pages under the wiki root (people/, projects/, etc. as appropriate). This is an **Obsidian-style vault** — cross-link pages with **\`[[wikilinks]]\`** (e.g. \`[[people/jane-doe]]\`, \`[[me]]\`, or \`[[projects/foo|Foo]]\` with a label). Do **not** use plain markdown \`[label](path.md)\` links between wiki pages — only \`[[ ]]\`. External URLs still use standard \`[label](https://…)\` markdown.
+- Use **web_search** for current public information (companies, products, named entities) when it helps accuracy; use **fetch_page** for more detail.
+- **\`write\` vs \`edit\`:** Prefer **\`write\`** for **new** entities. Use **\`edit\`** for (1) **accuracy and staleness** — bring a page in line with what tools show now (wrong title, company, role, date); (2) **broken wikilinks**; (3) **trimming** obvious bloat. Do **not** use **\`edit\`** to deepen prose.
 - Narrate briefly in chat as you create files.
 
 ## Workflow
-
-## Chat title
-- Call set_chat_title with a short title like "Seeding your private wiki".
-- **Parallel page building:** Once you have enough context, create **multiple independent** wiki pages in parallel — issue several **write** calls in the same turn when pages do not depend on each other's body text (e.g. different people or projects). Prefer batching independent drafts this way to finish seeding faster.
-- **When to sequence:** If page B needs to reference or quote content you are still drafting for page A, finish A (or stub B and **edit** after), then write B — or do a later pass with **edit** to tighten cross-links.
-- **Links:** As you write, use correct **\`[[wikilinks]]\`** and fix mistakes with **edit** if you notice them. You cannot scan the vault with **grep** — get links right as you go; a final pass to fix internal links is fine.
+- **Parallel page building:** Once you have enough context, create **multiple independent** wiki pages in parallel — issue several **write** calls in the same turn. Prefer batching independent drafts to finish buildout faster.
+- **When to sequence:** If page B needs to reference or quote content you are still drafting for page A, finish A (or stub B and **edit** after), then write B.
+- **Links:** As you write, use correct **\`[[wikilinks]]\`** and fix mistakes with **edit** if you notice them. You cannot scan the vault with **grep** — get links right as you go.
 
 ## Guidelines
 - ${dateCtx}
@@ -67,13 +70,13 @@ ${messagesWorkflow}
 - Prefer synthesis over pasting private email text into the wiki.`
 }
 
-const seedingSessions = new Map<string, Agent>()
+const buildoutSessions = new Map<string, Agent>()
 
-export async function getOrCreateSeedingAgent(
+export async function getOrCreateWikiBuildoutAgent(
   sessionId: string,
   options: { timezone?: string; categories?: string[] } = {},
 ): Promise<Agent> {
-  const existing = seedingSessions.get(sessionId)
+  const existing = buildoutSessions.get(sessionId)
   if (existing) return existing
 
   const tz = options.timezone ?? 'UTC'
@@ -89,26 +92,27 @@ export async function getOrCreateSeedingAgent(
   }
   const localMessagesAvailable = areLocalMessageToolsEnabled()
   const agent = createOnboardingAgent(
-    buildSeedingSystemPrompt(tz, categories, userPeoplePage, localMessagesAvailable),
+    buildWikiBuildoutSystemPrompt(tz, categories, userPeoplePage, localMessagesAvailable),
     wiki,
+    { variant: 'buildout' },
   )
-  seedingSessions.set(sessionId, agent)
+  buildoutSessions.set(sessionId, agent)
   return agent
 }
 
-export function deleteSeedingSession(sessionId: string): boolean {
-  const a = seedingSessions.get(sessionId)
+export function deleteWikiBuildoutSession(sessionId: string): boolean {
+  const a = buildoutSessions.get(sessionId)
   if (a) {
     a.abort()
-    seedingSessions.delete(sessionId)
+    buildoutSessions.delete(sessionId)
     return true
   }
   return false
 }
 
-export function clearAllSeedingSessions(): void {
-  for (const agent of seedingSessions.values()) {
+export function clearAllWikiBuildoutSessions(): void {
+  for (const agent of buildoutSessions.values()) {
     agent.abort()
   }
-  seedingSessions.clear()
+  buildoutSessions.clear()
 }

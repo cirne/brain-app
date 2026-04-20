@@ -214,7 +214,7 @@ export function extractLastMeMdWriteContent(messages: ChatMessage[]): string | n
   return null
 }
 
-export type OnboardingActivityKind = 'profiling' | 'seeding'
+export type OnboardingActivityKind = 'profiling' | 'buildout'
 
 const THINKING_SNIPPET_MAX = 140
 
@@ -279,10 +279,10 @@ export function onboardingActivityLine(
   if (thinking) return snippetThinking(thinking)
 
   if (!lastName) {
-    return kind === 'seeding' ? 'Starting wiki seed…' : 'Gathering context…'
+    return kind === 'buildout' ? 'Starting wiki buildout…' : 'Gathering context…'
   }
 
-  return kind === 'seeding' ? 'Working on your wiki…' : 'Synthesizing your profile…'
+  return kind === 'buildout' ? 'Working on your wiki…' : 'Synthesizing your profile…'
 }
 
 /**
@@ -374,7 +374,7 @@ export function buildSeedingProgressUi(
   if (messages.length === 0) {
     return {
       events,
-      planning: { id: 'planning', kind: 'planning', prefix: 'Starting wiki seed…' },
+      planning: { id: 'planning', kind: 'planning', prefix: 'Starting wiki buildout…' },
     }
   }
   const planningDetail = sanitizePlanningThinking(thinking)

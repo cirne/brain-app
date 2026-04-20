@@ -12,7 +12,10 @@ export type BackgroundTimelineEvent = {
   isError?: boolean
 }
 
-/** Mirrors server `BackgroundRunDoc` for `/api/background/agents`. */
+/** Mirrors server `YourWikiPhase`. */
+export type YourWikiPhase = 'starting' | 'enriching' | 'cleaning' | 'paused' | 'idle' | 'error'
+
+/** Mirrors server `BackgroundRunDoc` for `/api/your-wiki` and `/api/background/agents`. */
 export type BackgroundAgentDoc = {
   id: string
   kind: string
@@ -27,4 +30,14 @@ export type BackgroundAgentDoc = {
   startedAt: string
   updatedAt: string
   error?: string
+  /** Your Wiki supervisor phase */
+  phase?: YourWikiPhase
+  /** Your Wiki supervisor lap number (1-based) */
+  lap?: number
+  /** ISO timestamp when the loop went idle */
+  idleSince?: string
+  /** Human-readable reason for idle state */
+  idleReason?: string
+  /** Consecutive no-op laps */
+  consecutiveNoOpLaps?: number
 }

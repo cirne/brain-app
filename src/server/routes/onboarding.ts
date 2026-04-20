@@ -22,7 +22,7 @@ import {
   getOrCreateProfilingAgent,
   deleteProfilingSession,
 } from '../agent/profilingAgent.js'
-import { getOrCreateSeedingAgent, deleteSeedingSession } from '../agent/seedingAgent.js'
+import { getOrCreateWikiBuildoutAgent, deleteWikiBuildoutSession } from '../agent/wikiBuildoutAgent.js'
 import {
   getOnboardingMailStatus,
   ripmailBin,
@@ -34,7 +34,7 @@ import { getFdaProbeDetail, isFdaGranted } from '../lib/fdaProbe.js'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
 import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '../lib/onboardingPreferences.js'
 import { writeFirstChatPending } from '../lib/firstChatPending.js'
-import { startWikiExpansionRunFromAcceptProfile } from '../agent/wikiExpansionRunner.js'
+import { ensureYourWikiRunning } from '../agent/yourWikiSupervisor.js'
 import { oauthRedirectListenPort } from '../lib/brainHttpPort.js'
 
 const onboarding = new Hono()
@@ -292,13 +292,16 @@ onboarding.post('/accept-profile', async (c) => {
   await writeFile(categoriesJsonPath(), JSON.stringify({ categories: categoriesToStore }, null, 2), 'utf-8')
   try {
     await writeFirstChatPending()
-    const { runId } = await startWikiExpansionRunFromAcceptProfile({ timezone })
+    // Start (or wake) the Your Wiki continuous supervisor. It respects persisted pause state
+    // and handles the initial build-out as its first lap.
+    void ensureYourWikiRunning({ timezone }).catch((e) => {
+      console.error('[accept-profile] ensureYourWikiRunning error:', e)
+    })
     const doc = await setOnboardingState('done')
     return c.json({
       ok: true,
       state: doc.state,
       categories: categoriesToStore,
-      wikiExpansionRunId: runId,
     })
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : 'state error' }, 400)
@@ -355,7 +358,7 @@ onboarding.post('/seed', async (c) => {
     categories = body.categories.filter((x: unknown) => typeof x === 'string')
   }
 
-  const agent = await getOrCreateSeedingAgent(sessionId, { timezone, categories })
+  const agent = await getOrCreateWikiBuildoutAgent(sessionId, { timezone, categories })
   return streamAgentSseResponse(c, agent, message, {
     wikiDirForDiffs: wikiDir(),
     announceSessionId: sessionId,
@@ -375,8 +378,8 @@ onboarding.delete('/session/:kind/:sessionId', async (c) => {
     deleteProfilingSession(sessionId)
     return c.json({ ok: true })
   }
-  if (kind === 'seeding') {
-    deleteSeedingSession(sessionId)
+  if (kind === 'seeding' || kind === 'buildout') {
+    deleteWikiBuildoutSession(sessionId)
     return c.json({ ok: true })
   }
   return c.json({ error: 'kind must be profiling or seeding' }, 400)

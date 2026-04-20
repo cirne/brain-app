@@ -1,31 +1,46 @@
 <div class="hub-wiki-about">
   <div class="hub-wiki-about-inner">
     <p class="hub-wiki-about-lead">
-      Your <strong>wiki</strong> is a private set of Markdown pages stored on this Mac. It is the layer Brain keeps
-      up to date so answers stay grounded in <em>your</em> world—not a generic model guess.
+      Your <strong>wiki</strong> is a private set of Markdown pages stored on this Mac. Brain keeps it growing and
+      tidy automatically—so answers stay grounded in <em>your</em> world, not a generic model guess.
+    </p>
+
+    <h3 class="hub-wiki-about-h">How the continuous loop works</h3>
+    <p>
+      While Brain is running, the <strong>Your Wiki loop</strong> works in the background. Each lap has two phases:
+    </p>
+    <ul class="hub-wiki-about-list">
+      <li>
+        <strong>Enriching</strong> — adds and deepens pages (people, projects, interests) from your mail, profile,
+        and public sources. Pages are cross-linked with <span class="kbd">[[wikilinks]]</span>.
+      </li>
+      <li>
+        <strong>Cleaning up</strong> — fixes broken links, checks orphan pages, and updates the index so
+        navigation stays coherent.
+      </li>
+    </ul>
+    <p>
+      When the wiki looks up-to-date, the loop backs off and waits for new mail or a manual nudge from the
+      <strong>Your Wiki</strong> card in Brain Hub before running again.
     </p>
 
     <h3 class="hub-wiki-about-h">Sources vs. wiki</h3>
     <p>
-      Raw material lives in the things you connect: email, documents and folders in your search index, calendar,
-      and (when available) Messages. Brain can read and search those sources directly.
-    </p>
-    <p>
-      The wiki is different: it is your <strong>synthesized knowledge base</strong>—names, projects, recurring
-      context, and relationships pulled together into pages you can read and edit. Over time, as more mail and files
-      land in the index and you work with Brain in chat, the wiki usually becomes <strong>deeper and more
-        accurate</strong> without turning into a dump of every raw message.
+      Raw material lives in the things you connect: email, documents and folders, calendar, and (when available)
+      Messages. Brain searches those directly. The wiki is different — it is your
+      <strong>synthesized knowledge base</strong>: names, projects, and context compiled into readable pages. Over
+      time it becomes richer and more accurate without duplicating every raw message.
     </p>
 
-    <h3 class="hub-wiki-about-h">You’re in control</h3>
+    <h3 class="hub-wiki-about-h">You're in control</h3>
     <ul class="hub-wiki-about-list">
       <li>
-        <strong>Edit yourself.</strong> Open pages from the hub or chat, or use <span class="kbd">/wiki</span> to
-        jump into the wiki workflow when you want to write or fix something by hand.
+        <strong>Pause / Resume.</strong> Open "Your Wiki" from Brain Hub to pause the loop any time.
+        Resume always starts a fresh lap.
       </li>
       <li>
-        <strong>Let Brain extend it.</strong> Background wiki expansion and ordinary chat can add or refine pages
-        when that helps—always anchored on evidence from your sources, not invented detail.
+        <strong>Edit yourself.</strong> Open pages from hub or chat. The loop picks up your edits and works
+        around them.
       </li>
       <li>
         <strong>Move around quickly.</strong> Mention a page with <span class="kbd">@</span> to open it from chat, or

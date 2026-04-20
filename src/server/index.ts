@@ -20,9 +20,11 @@ import searchRoute from './routes/search.js'
 import imessageRoute from './routes/imessage.js'
 import onboardingRoute from './routes/onboarding.js'
 import backgroundRoute from './routes/background.js'
+import yourWikiRoute from './routes/yourWiki.js'
 import gmailOAuthRoute from './routes/gmailOAuth.js'
 import hubRoute from './routes/hub.js'
 import devRoute from './routes/dev.js'
+import { ensureYourWikiRunning, requestLapNow } from './agent/yourWikiSupervisor.js'
 import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
 import { runStartupChecks } from './lib/runStartupChecks.js'
 import { ensureBrainHomeGitignore } from './lib/brainHomeGitignore.js'
@@ -148,6 +150,7 @@ app.route('/api/messages', imessageRoute)
 app.route('/api/onboarding', onboardingRoute)
 app.route('/api/hub', hubRoute)
 app.route('/api/background', backgroundRoute)
+app.route('/api/your-wiki', yourWikiRoute)
 app.route('/api/oauth/google', gmailOAuthRoute)
 if (isDev) {
   app.route('/api/dev', devRoute)
@@ -163,11 +166,18 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
     void (async () => {
       try {
         await runFullSync()
+        // Wake the wiki supervisor after each sync so it can pick up new mail-sourced content.
+        requestLapNow()
       } catch (e) {
         console.error('[brain-app] periodic sync error:', e)
       }
     })()
   }, intervalMs)
+
+  // Start the Your Wiki continuous loop (idempotent; respects persisted pause state).
+  void ensureYourWikiRunning().catch((e) => {
+    console.error('[your-wiki] startup error:', e)
+  })
 
   startRipmailBackfillSupervisor()
 

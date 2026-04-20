@@ -41,7 +41,7 @@ function buildSkeletonMarkdown(identity: UserIdentityForPeoplePage): string {
     '',
     `# ${title}`,
     '',
-    'Long-form biography, interests, and projects live here and grow over time. The short **session context** for the assistant is in [[me]] (root). Wiki seeding may expand this page from your mail.',
+    'Long-form biography, interests, and projects live here and grow over time. The short **session context** for the assistant is in [[me]] (root). Wiki buildout may expand this page from your mail.',
     '',
   ].join('\n')
 }

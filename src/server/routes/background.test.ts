@@ -6,7 +6,6 @@ import { tmpdir } from 'node:os'
 import backgroundRoute from './background.js'
 
 vi.mock('../agent/wikiExpansionRunner.js', () => ({
-  startWikiExpansionRun: vi.fn().mockResolvedValue({ runId: 'new-run-id' }),
   pauseWikiExpansionRun: vi.fn(),
   resumeWikiExpansionRun: vi.fn(),
 }))
@@ -71,17 +70,12 @@ describe('background routes', () => {
     expect(j.status).toBe('completed')
   })
 
-  it('POST /wiki-expansion/start returns run id', async () => {
+  it('GET /agents returns list (may include your-wiki doc)', async () => {
     const app = new Hono()
     app.route('/api/background', backgroundRoute)
-    const res = await app.request('http://localhost/api/background/wiki-expansion/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'full', timezone: 'America/Los_Angeles' }),
-    })
+    const res = await app.request('http://localhost/api/background/agents')
     expect(res.status).toBe(200)
-    const j = (await res.json()) as { ok: boolean; runId: string }
-    expect(j.ok).toBe(true)
-    expect(j.runId).toBe('new-run-id')
+    const j = (await res.json()) as { agents: unknown[] }
+    expect(Array.isArray(j.agents)).toBe(true)
   })
 })

@@ -169,16 +169,16 @@ describe('parseRoute messages', () => {
   })
 })
 
-describe('parseRoute background-agent', () => {
-  it('parses /background-agent without id', () => {
-    expect(parseRoute('http://localhost/background-agent')).toEqual({
-      overlay: { type: 'background-agent' },
+describe('parseRoute your-wiki / background-agent', () => {
+  it('parses /your-wiki', () => {
+    expect(parseRoute('http://localhost/your-wiki')).toEqual({
+      overlay: { type: 'your-wiki' },
     })
   })
 
-  it('parses /background-agent?id= run id', () => {
-    expect(parseRoute('http://localhost/background-agent?id=abc-123')).toEqual({
-      overlay: { type: 'background-agent', id: 'abc-123' },
+  it('parses /background-agent (legacy redirect)', () => {
+    expect(parseRoute('http://localhost/background-agent')).toEqual({
+      overlay: { type: 'your-wiki' },
     })
   })
 
@@ -197,6 +197,19 @@ describe('parseRoute hub-source', () => {
   it('parses /hub-source?id=', () => {
     expect(parseRoute('http://localhost/hub-source?id=src-1')).toEqual({
       overlay: { type: 'hub-source', id: 'src-1' },
+    })
+  })
+
+  it('parses /hub-add-folders', () => {
+    expect(parseRoute('http://localhost/hub-add-folders')).toEqual({
+      overlay: { type: 'hub-add-folders' },
+    })
+  })
+
+  it('parses /hub/hub-add-folders as hubActive', () => {
+    expect(parseRoute('http://localhost/hub/hub-add-folders')).toEqual({
+      hubActive: true,
+      overlay: { type: 'hub-add-folders' },
     })
   })
 })
@@ -282,14 +295,8 @@ describe('routeToUrl', () => {
     )
   })
 
-  it('background-agent without id', () => {
-    expect(routeToUrl({ overlay: { type: 'background-agent' } })).toBe('/background-agent')
-  })
-
-  it('background-agent with id uses query param id', () => {
-    expect(routeToUrl({ overlay: { type: 'background-agent', id: 'run-uuid' } })).toBe(
-      '/background-agent?id=run-uuid',
-    )
+  it('your-wiki returns /your-wiki', () => {
+    expect(routeToUrl({ overlay: { type: 'your-wiki' } })).toBe('/your-wiki')
   })
 
   it('hub-source without id', () => {
@@ -298,6 +305,16 @@ describe('routeToUrl', () => {
 
   it('hub-source with id uses query param id', () => {
     expect(routeToUrl({ overlay: { type: 'hub-source', id: 'abc' } })).toBe('/hub-source?id=abc')
+  })
+
+  it('hub-add-folders returns /hub-add-folders', () => {
+    expect(routeToUrl({ overlay: { type: 'hub-add-folders' } })).toBe('/hub-add-folders')
+  })
+
+  it('hub-add-folders with hubActive returns /hub/hub-add-folders', () => {
+    expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-add-folders' } })).toBe(
+      '/hub/hub-add-folders',
+    )
   })
 
   it('hub returns /hub', () => {

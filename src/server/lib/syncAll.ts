@@ -69,6 +69,47 @@ export async function runFullSync(): Promise<FullSyncResult> {
   return { wiki, inbox }
 }
 
+/**
+ * Run `ripmail refresh` and **wait** for it to complete (unlike `syncInboxRipmail` which is
+ * fire-and-forget). Used by the Your Wiki supervisor at the start of each lap so the buildout
+ * agent works on freshly-indexed content.
+ *
+ * Caps at `timeoutMs` (default 90 s). If the process times out, it is killed and we resolve
+ * `{ ok: true, timedOut: true }` so the lap proceeds with best-effort fresh data.
+ */
+export async function refreshMailAndWait(timeoutMs = 90_000): Promise<{ ok: boolean; timedOut?: boolean; error?: string }> {
+  try {
+    await ensureGoogleCalendarSourcesForOAuthImap(ripmailHomeForBrain())
+  } catch (e) {
+    console.error('[brain-app] ensureGoogleCalendarSourcesForOAuthImap (lap refresh):', e)
+  }
+  const rm = ripmailBin()
+  return new Promise((resolve) => {
+    const child = spawn(rm, ['refresh'], {
+      stdio: 'ignore',
+      env: ripmailRefreshEnv(),
+    })
+    let settled = false
+    const settle = (result: { ok: boolean; timedOut?: boolean; error?: string }) => {
+      if (settled) return
+      settled = true
+      child.removeAllListeners()
+      clearTimeout(timer)
+      resolve(result)
+    }
+    const timer = setTimeout(() => {
+      try { child.kill() } catch { /* ignore */ }
+      settle({ ok: true, timedOut: true })
+    }, timeoutMs)
+    child.once('error', (err) => {
+      settle({ ok: false, error: formatExecError(err) })
+    })
+    child.once('close', (code) => {
+      settle({ ok: code === 0 || code === null })
+    })
+  })
+}
+
 const DEFAULT_SYNC_INTERVAL_SECONDS = 300
 
 /** Interval for periodic `runFullSync` (server). Invalid/missing env falls back to 300 seconds. */

@@ -14,7 +14,7 @@ export const profilingLeadCopy: OnboardingLeadBlock = {
     'Your personal wiki stays on this Mac—private to this device, not uploaded, and not available on the web. We use mail stored here to draft a short profile into your local notes.',
 }
 
-export const seedingLeadCopy: OnboardingLeadBlock = {
+export const wikiBuildoutLeadCopy: OnboardingLeadBlock = {
   title: 'Setting up your wiki',
   lead:
     "We're creating pages from your profile and mail. Your wiki stays on this Mac only—not uploaded and not reachable from elsewhere.",
