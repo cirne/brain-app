@@ -66,7 +66,7 @@ imessage.get('/thread', (c) => {
     ok: true,
     canonical_chat: chatId,
     chat: displayChat,
-    n: messages.length,
+    returned_count: messages.length,
     total: message_count,
     snippet: buildImessageSnippet(compactRows),
     messages: compactRows,

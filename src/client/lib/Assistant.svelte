@@ -115,7 +115,11 @@
       sidebarOpen = prefs.sidebarOpen ?? true
     }
 
-    const onPopState = () => { route = parseRoute() }
+    route = parseRoute()
+
+    const onPopState = () => {
+      route = parseRoute()
+    }
     window.addEventListener('popstate', onPopState)
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && route.overlay) {
@@ -224,9 +228,14 @@
     }
   }
 
+  function wikiOverlayReplace(): boolean {
+    const t = route.overlay?.type
+    return t === 'wiki' || t === 'wiki-dir'
+  }
+
   function openWikiDoc(path?: string) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
-    const replace = route.overlay?.type === 'wiki'
+    const replace = wikiOverlayReplace()
     const hubActive = route.hubActive || route.overlay?.type === 'hub'
     navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
     route = parseRoute()
@@ -242,7 +251,16 @@
 
   function onWikiNavigate(path: string | undefined) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
-    const replace = route.overlay?.type === 'wiki'
+    const replace = wikiOverlayReplace()
+    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
+    route = parseRoute()
+  }
+
+  function openWikiDir(dirPath?: string) {
+    const trimmed = dirPath?.trim()
+    const overlay: Overlay = trimmed ? { type: 'wiki-dir', path: trimmed } : { type: 'wiki-dir' }
+    const replace = wikiOverlayReplace()
     const hubActive = route.hubActive || route.overlay?.type === 'hub'
     navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
     route = parseRoute()
@@ -476,15 +494,19 @@
         in:historySidebarTransition={{ mobile: isMobile, reduce: reduceSidebarMotion }}
         out:historySidebarTransition={{ mobile: isMobile, reduce: reduceSidebarMotion }}
       >
-        <ChatHistory
-          bind:this={chatHistory}
-          activeSessionId={activeSessionId}
-          streamingSessionIds={streamingSessionIds}
-          onSelect={selectChatSession}
-          onSelectDoc={selectDocFromHistory}
-          onSelectEmail={selectEmailFromHistory}
-          onNewChat={historyNewChat}
-        />
+        <div class="rail-inner">
+          <div class="rail-panel rail-panel--chat">
+            <ChatHistory
+              bind:this={chatHistory}
+              activeSessionId={activeSessionId}
+              streamingSessionIds={streamingSessionIds}
+              onSelect={selectChatSession}
+              onSelectDoc={selectDocFromHistory}
+              onSelectEmail={selectEmailFromHistory}
+              onNewChat={historyNewChat}
+            />
+          </div>
+        </div>
       </aside>
     {/if}
 
@@ -514,6 +536,7 @@
                 wikiStreamingWrite={wikiWriteStreaming}
                 wikiStreamingEdit={wikiEditStreaming}
                 onWikiNavigate={onWikiNavigate}
+                onWikiDirNavigate={openWikiDir}
                 onInboxNavigate={onInboxNavigateSlide}
                 onContextChange={setContext}
                 onOpenSearch={() => { showSearch = true }}
@@ -563,6 +586,7 @@
                 wikiStreamingWrite={wikiWriteStreaming}
                 wikiStreamingEdit={wikiEditStreaming}
                 onWikiNavigate={onWikiNavigate}
+                onWikiDirNavigate={openWikiDir}
                 onInboxNavigate={onInboxNavigateSlide}
                 onContextChange={setContext}
                 onOpenSearch={() => { showSearch = true }}
@@ -592,6 +616,7 @@
           wikiStreamingWrite={wikiWriteStreaming}
           wikiStreamingEdit={wikiEditStreaming}
           onWikiNavigate={onWikiNavigate}
+          onWikiDirNavigate={openWikiDir}
           onInboxNavigate={onInboxNavigateSlide}
           onContextChange={setContext}
           onOpenSearch={() => { showSearch = true }}
@@ -667,6 +692,20 @@
 
   .history-sidebar {
     min-height: 0;
+  }
+
+  .rail-inner {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .rail-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   /**

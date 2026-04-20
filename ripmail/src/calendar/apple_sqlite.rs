@@ -894,7 +894,10 @@ CREATE TABLE OccurrenceCache (
         if !p.is_file() {
             return;
         }
-        let conn = open_apple_calendar_readonly(&p).expect("readonly open");
+        let Ok(conn) = open_apple_calendar_readonly(&p) else {
+            // File may exist but be unreadable without Full Disk Access (or sandbox).
+            return;
+        };
         let rows = read_apple_calendar_events(&conn, "integration-test", "appleCalendar")
             .expect("read events");
         let _ = rows.len();
@@ -910,7 +913,9 @@ CREATE TABLE OccurrenceCache (
         if !p.is_file() {
             return;
         }
-        let apple = open_apple_calendar_readonly(&p).expect("readonly open");
+        let Ok(apple) = open_apple_calendar_readonly(&p) else {
+            return;
+        };
         let expected: i64 = apple
             .query_row(
                 "SELECT

@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, rename, rm } from 'node:fs/promises'
 import { join, basename, resolve, relative, dirname } from 'node:path'
 import { marked } from 'marked'
 import { exec } from 'node:child_process'
@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 import { dirIconsCachePathResolved } from '../lib/brainHome.js'
 import { wikiDir } from '../lib/wikiDir.js'
 import { listWikiFiles, recentWikiFilesByMtime } from '../lib/wikiFiles.js'
-import { readRecentWikiEdits } from '../lib/wikiEditHistory.js'
+import { appendWikiEditRecord, readRecentWikiEdits } from '../lib/wikiEditHistory.js'
 import { syncWikiFromDisk } from '../lib/syncAll.js'
 
 const execAsync = promisify(exec)
@@ -20,6 +20,47 @@ wiki.get('/', async (c) => {
   const paths = await listWikiFiles(dir)
   const files = paths.map(p => ({ path: p, name: basename(p, '.md') }))
   return c.json(files)
+})
+
+// POST /api/wiki — create a new .md (optional body markdown; default empty stub)
+wiki.post('/', async (c) => {
+  const dir = resolve(wikiDir())
+  let body: { path?: unknown; markdown?: unknown } = {}
+  try {
+    body = await c.req.json()
+  } catch {
+    body = {}
+  }
+  const rel = typeof body.path === 'string' ? body.path.trim() : ''
+  if (!rel || !rel.endsWith('.md')) {
+    return c.json({ error: 'Expected { path: string } ending in .md' }, 400)
+  }
+  if (rel.includes('..') || rel.startsWith('/')) {
+    return c.json({ error: 'Invalid path' }, 400)
+  }
+  const fullPath = resolve(join(dir, rel))
+  if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  try {
+    await readFile(fullPath, 'utf-8')
+    return c.json({ error: 'Already exists' }, 409)
+  } catch {
+    /* not exists */
+  }
+  const md = typeof body.markdown === 'string' ? body.markdown : `# ${basename(rel, '.md')}\n\n`
+  try {
+    await mkdir(dirname(fullPath), { recursive: true })
+    await writeFile(fullPath, md, 'utf-8')
+  } catch {
+    return c.json({ error: 'Create failed' }, 500)
+  }
+  try {
+    await appendWikiEditRecord(wikiDir(), 'write', rel, { source: 'user' })
+  } catch {
+    /* best-effort log */
+  }
+  return c.json({ ok: true, path: rel })
 })
 
 // GET /api/wiki/search?q=... — search wiki files by content
@@ -161,6 +202,77 @@ wiki.get('/dir-icon/:dir', async (c) => {
   } catch {
     return c.json({ icon: 'File' })
   }
+})
+
+// POST /api/wiki/move — rename/move a page (JSON { from, to } relative to wiki root)
+wiki.post('/move', async (c) => {
+  const dir = resolve(wikiDir())
+  let body: { from?: unknown; to?: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid JSON' }, 400)
+  }
+  const from = typeof body.from === 'string' ? body.from.trim() : ''
+  const to = typeof body.to === 'string' ? body.to.trim() : ''
+  if (!from.endsWith('.md') || !to.endsWith('.md')) {
+    return c.json({ error: 'Expected { from, to } as .md paths' }, 400)
+  }
+  if (from.includes('..') || to.includes('..')) {
+    return c.json({ error: 'Invalid path' }, 400)
+  }
+  const fromFull = resolve(join(dir, from))
+  const toFull = resolve(join(dir, to))
+  if (!fromFull.startsWith(dir + '/') || !toFull.startsWith(dir + '/')) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  try {
+    await readFile(fromFull, 'utf-8')
+  } catch {
+    return c.json({ error: 'Source not found' }, 404)
+  }
+  try {
+    await readFile(toFull, 'utf-8')
+    return c.json({ error: 'Destination already exists' }, 409)
+  } catch {
+    /* ok */
+  }
+  try {
+    await mkdir(dirname(toFull), { recursive: true })
+    await rename(fromFull, toFull)
+  } catch {
+    return c.json({ error: 'Move failed' }, 500)
+  }
+  try {
+    await appendWikiEditRecord(wikiDir(), 'move', to, { fromPath: from, source: 'user' })
+  } catch {
+    /* best-effort */
+  }
+  return c.json({ ok: true, path: to })
+})
+
+// DELETE /api/wiki/:path — remove a markdown file
+wiki.delete('/:path{.+}', async (c) => {
+  const dir = resolve(wikiDir())
+  const filePath = c.req.param('path')
+  if (!filePath.endsWith('.md')) {
+    return c.json({ error: 'Only .md files can be deleted' }, 400)
+  }
+  const fullPath = resolve(join(dir, filePath))
+  if (!fullPath.startsWith(dir + '/')) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  try {
+    await rm(fullPath, { force: false })
+  } catch {
+    return c.json({ error: 'Not found or delete failed' }, 404)
+  }
+  try {
+    await appendWikiEditRecord(wikiDir(), 'delete', filePath, { source: 'user' })
+  } catch {
+    /* best-effort */
+  }
+  return c.json({ ok: true, path: filePath })
 })
 
 // PATCH /api/wiki/:path — save full markdown file (including YAML front matter)

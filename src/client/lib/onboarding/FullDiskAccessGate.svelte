@@ -106,12 +106,12 @@
         <span class="ob-kicker">Privacy</span>
         <h1 id="fda-title" class="ob-headline">Allow Full Disk Access</h1>
         <p class="ob-lead">
-          macOS needs this permission so Brain can read Mail, Messages, and your files on this Mac—what makes the
+          macOS needs this permission so Braintunnel can read Mail, Messages, and your files on this Mac—what makes the
           assistant personal to you. <strong>That information stays on your Mac.</strong>
         </p>
         <ol class="fda-steps">
           <li>Click <strong>Open System Settings</strong> below.</li>
-          <li>Turn on <strong>Brain</strong> under Full Disk Access.</li>
+          <li>Turn on <strong>Braintunnel</strong> under Full Disk Access.</li>
           <li>Return here — we’ll detect the change and restart the app.</li>
         </ol>
         <div class="ob-cta-group">

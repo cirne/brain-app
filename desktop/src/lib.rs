@@ -43,10 +43,9 @@ pub fn run() {
             }
             crate::embedded::apply_embedded_env()?;
             let port = crate::server_spawn::spawn_brain_server(app.handle())?;
-            // Bundled Node uses HTTPS (self-signed under BRAIN_HOME/var, OPP-023).
-            // NSAppTransportSecurity in Info.plist allows the WebView to load this origin.
+            // Bundled Node uses HTTP for now (TLS optional later; see OPP-036).
             let url =
-                Url::parse(&format!("https://127.0.0.1:{port}/")).map_err(|e| e.to_string())?;
+                Url::parse(&format!("http://127.0.0.1:{port}/")).map_err(|e| e.to_string())?;
             if let Some(w) = app.handle().get_webview_window("main") {
                 w.navigate(url).map_err(|e| e.to_string())?;
             } else {

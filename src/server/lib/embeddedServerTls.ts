@@ -33,7 +33,7 @@ export async function ensureEmbeddedServerTls(): Promise<{ key: string; cert: st
   } catch {
     // selfsigned: replace `extensions` entirely, so include defaults + our SANs (node-forge types).
     const pems = selfsigned.generate(
-      [{ name: 'commonName', value: 'Brain Local' }],
+      [{ name: 'commonName', value: 'Braintunnel Local' }],
       {
         keySize: 2048,
         days: 3650,

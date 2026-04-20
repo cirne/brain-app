@@ -40,7 +40,7 @@
 {#if pending}
   <div class="desktop-update" role="status" aria-live="polite">
     <span class="desktop-update-text">
-      Brain {pending.version} is available{err ? ` — ${err}` : ''}
+      Braintunnel {pending.version} is available{err ? ` — ${err}` : ''}
     </span>
     <button
       type="button"

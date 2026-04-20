@@ -10,7 +10,11 @@ export function applyHubDetailNavigation(
   opts?: NavigateOptions,
 ): void {
   let effectiveOpts = opts
-  if (overlay.type === 'wiki' && effectiveOpts === undefined && route.overlay?.type === 'wiki') {
+  const wikiLike =
+    overlay.type === 'wiki' || overlay.type === 'wiki-dir'
+  const routeWikiLike =
+    route.overlay?.type === 'wiki' || route.overlay?.type === 'wiki-dir'
+  if (wikiLike && effectiveOpts === undefined && routeWikiLike) {
     effectiveOpts = { replace: true }
   }
   navigate({ overlay, hubActive: true }, effectiveOpts)

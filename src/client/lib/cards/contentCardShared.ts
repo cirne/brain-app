@@ -30,7 +30,12 @@ export type { InboxListItemPreview }
     color?: string
   }
 
-export type MessagePreviewRow = { ts: number; m: number; t: string; r?: number }
+export type MessagePreviewRow = {
+  sent_at_unix: number
+  is_from_me: boolean
+  text: string
+  is_read?: boolean
+}
 
 /** Row from `ripmail search --json` for {@link matchContentPreview}. */
 export type MailSearchHitPreview = {
@@ -53,7 +58,7 @@ export type ContentCardPreview =
       canonicalChat: string
       snippet: string
       total: number
-      n: number
+      returnedCount: number
       previewMessages: MessagePreviewRow[]
       person: string[]
     }

@@ -10,7 +10,7 @@ export interface WikiEditRecord {
   path: string
   /** Present for op=move (source path, normalized relative to wiki root). */
   fromPath?: string
-  source: 'agent'
+  source: 'agent' | 'user'
 }
 
 /** `$BRAIN_HOME/var/wiki-edits.jsonl` (see shared/brain-layout.json). */
@@ -42,14 +42,14 @@ export async function appendWikiEditRecord(
   wikiDir: string,
   op: WikiEditOp,
   filePath: string,
-  options?: { fromPath?: string },
+  options?: { fromPath?: string; source?: 'agent' | 'user' },
 ): Promise<void> {
   const path = normalizeWikiRelativePath(wikiDir, filePath)
   const record: WikiEditRecord = {
     ts: new Date().toISOString(),
     op,
     path,
-    source: 'agent',
+    source: options?.source ?? 'agent',
     ...(options?.fromPath != null ? { fromPath: normalizeWikiRelativePath(wikiDir, options.fromPath) } : {}),
   }
   const file = wikiEditHistoryPath()

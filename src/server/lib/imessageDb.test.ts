@@ -10,6 +10,7 @@ import {
   extractTextFromAttributedBody,
   initLocalMessageToolsAvailability,
   listRecentMessages,
+  listRecentMessageThreads,
   getThreadMessages,
   probeImessageDbReadable,
   resetLocalMessageToolsAvailabilityForTests,
@@ -117,6 +118,46 @@ describe('imessageDb', () => {
     })
     expect(error).toBeUndefined()
     expect(messages).toHaveLength(2)
+  })
+
+  it('listRecentMessageThreads groups by chat, newest thread first, messages newest first', () => {
+    const db = new Database(dbPath)
+    const tLate = unixMsToAppleDateNs(Date.parse('2026-04-10T12:00:00.000Z'))
+    db.prepare(`INSERT INTO chat (guid, chat_identifier, display_name) VALUES (?, ?, ?)`).run(
+      'chat-guid-2',
+      '+15550002222',
+      'Other chat',
+    )
+    const mOther = db
+      .prepare(`INSERT INTO message (guid, text, date, is_from_me, is_read) VALUES (?, ?, ?, ?, ?)`)
+      .run('msg-guid-other', 'Latest elsewhere', tLate, 0, 1)
+    const chatRow2 = db.prepare(`SELECT ROWID FROM chat WHERE chat_identifier = ?`).get('+15550002222') as {
+      ROWID: number
+    }
+    db.prepare(`INSERT INTO chat_message_join (chat_id, message_id, message_date) VALUES (?, ?, ?)`).run(
+      chatRow2.ROWID,
+      mOther.lastInsertRowid,
+      tLate,
+    )
+    db.close()
+
+    const since = Date.parse('2026-03-01T00:00:00.000Z')
+    const until = Date.parse('2026-05-01T00:00:00.000Z')
+    const { threads, error } = listRecentMessageThreads(dbPath, {
+      sinceMs: since,
+      untilMs: until,
+      defaultSinceMs: since,
+      threadLimit: 10,
+      messagesPerThread: 10,
+    })
+    expect(error).toBeUndefined()
+    expect(threads).toHaveLength(2)
+    expect(threads[0].chat_identifier).toBe('+15550002222')
+    expect(threads[0].message_count).toBe(1)
+    expect(threads[0].messages[0].text).toBe('Latest elsewhere')
+    expect(threads[1].chat_identifier).toBe('+15550001111')
+    expect(threads[1].message_count).toBe(2)
+    expect(threads[1].messages.map((m) => m.text)).toEqual(['Reply', 'Hello'])
   })
 
   it('getThreadMessages returns oldest first and count', () => {

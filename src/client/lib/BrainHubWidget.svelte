@@ -66,7 +66,7 @@
   class="hub-widget"
   class:active={showActive}
   onclick={onOpen}
-  title={showActive ? `${activeLabel} (Click for Brain Hub)` : 'Brain Hub'}
+  title={showActive ? `${activeLabel} (Click for Braintunnel Hub)` : 'Braintunnel Hub'}
 >
   {#if showActive}
     <div class="pulse-container">

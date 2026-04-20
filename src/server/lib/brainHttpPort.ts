@@ -1,6 +1,6 @@
 import { isBundledNativeServer, NATIVE_APP_PORT_START } from './nativeAppPort.js'
 
-/** Bundled Brain.app uses HTTPS to the embedded server (self-signed, OPP-023). */
+/** Bundled Brain.app serves the embedded Hono server over HTTPS (self-signed cert; OPP-023). */
 export const BUNDLED_EMBEDDED_SERVER_SCHEME = 'https' as const
 export const NON_BUNDLED_EMBEDDED_SERVER_SCHEME = 'http' as const
 

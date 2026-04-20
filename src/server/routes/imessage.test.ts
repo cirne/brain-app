@@ -105,12 +105,12 @@ describe('GET /api/imessage/thread', () => {
       ok: boolean
       chat?: string
       canonical_chat?: string
-      messages?: Array<{ ts: number; m: number; t: string }>
-      n?: number
+      messages?: Array<{ sent_at_unix: number; is_from_me: boolean; text: string }>
+      returned_count?: number
     }
     expect(body.ok).toBe(true)
     expect(body.canonical_chat).toBe('+15550001111')
-    expect(body.messages?.map((m) => m.t)).toEqual(['Hello', 'Reply'])
+    expect(body.messages?.map((m) => m.text)).toEqual(['Hello', 'Reply'])
   })
 
   it('GET /api/messages/thread is an alias for the same handler', async () => {

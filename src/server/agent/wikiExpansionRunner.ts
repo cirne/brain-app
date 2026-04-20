@@ -16,30 +16,43 @@ import { getOrCreateWikiBuildoutAgent, deleteWikiBuildoutSession } from './wikiB
 import { buildDateContext, createCleanupAgent } from './agentFactory.js'
 
 /**
- * First full pass after profile accept or lap-1 enriching.
- * Buildout agent tools include indexed mail, local Messages when available, web_search, fetch_page.
+ * User messages for the wiki **buildout** agent (`write` + indexed mail, optional local Messages,
+ * web_search, fetch_page — no vault read/grep). Each supervisor lap runs buildout first, then a
+ * separate **cleanup** agent — see `buildCleanupSystemPrompt`.
  */
 export const WIKI_EXPANSION_INITIAL_MESSAGE = `Run a comprehensive wiki buildout pass.
 
-Goal: Maximize **useful page count and link graph coverage** for people, active projects, and topics — each page brief and grounded in evidence.
+Goal: Add **navigable, evidence-backed** pages for people, active projects, and *deserving* topics — each brief and grounded in sources. **Prefer fewer right pages over many thin stubs** (especially under \`topics/\`; see the system prompt topic bar).
 
 How:
-- **Breadth over Depth:** Prioritize creating pages for entities not yet in the vault (or only stubbed) before expanding pages that already have substance.
-- **Stay Brief:** Do not spend the pass deeply rewriting the same few pages for narrative richness; do not aim for "complete biography." A page should have a lead summary and bulleted facts.
-- **Accuracy:** When sources (mail, messages, web) clearly show existing wiki text is **wrong or outdated**, use **edit** to fix it — surgical factual corrections only, not new sections or long elaboration.
+- **Coverage:** Prefer filling in **entities that matter from mail/messages** (or only stubbed) before polishing prose on pages that already have substance. Do not chase page count.
+- **Stay Brief:** Do not deeply rewrite the same few pages for narrative richness; no "complete biography." A page should have a lead summary and bulleted facts.
+- **Accuracy:** When sources clearly show existing wiki text is **wrong or outdated**, use **edit** — surgical factual corrections only, not new sections or long elaboration.
 - **Account Holder:** Keep the skeletal people/* page for the account holder compact (3–8 bullets max); link to [[me]] for short assistant context.
-- **Links:** Use correct **[[wikilinks]]** (Obsidian style) and fix mistakes with **edit**.
-- **Parallelism:** Build independent pages in parallel where possible.
+- **Links:** Use correct **[[wikilinks]]** (Obsidian style) and fix mistakes with **edit** as you go (you cannot grep the vault).
 
-Do not treat "a few new pages" as done if major areas (interests, projects, key people) are still thin or missing. Continue iterating until the coverage is in good shape, then wrap up. Narrate briefly as you go.`
+Wrap up when **high-signal** gaps from your tools are addressed — key people, projects, and durable topics — not when an arbitrary page count is hit. If only marginal topic ideas remain, **stop** rather than minting files. Narrate briefly as you go.`
 
-const WIKI_EXPANSION_CONTINUE_MESSAGE =
-  'Continue the wiki buildout: prioritize new coverage (people, projects, topics) and surgical accuracy fixes on existing pages; keep pages brief and evidenced; fix cross-links. Breadth beats volume. Narrate briefly.'
+export const WIKI_EXPANSION_CONTINUE_MESSAGE = `Continue the wiki buildout (follow-up pass after an earlier run, or user-requested continuation).
 
-/** System prompt for the cleanup / lint phase. */
+**What counts as a good page**  
+Something worth opening **later**: a **stable entity** (person, project, org) you will recognize, or a **topic** that names a recurring theme, relationship, or domain you might **correlate** with other mail and notes. Each page: short lead + bullets **grounded in tool evidence** (mail/messages/web), with useful **[[wikilinks]]**.
+
+**What not to create**  
+Do **not** mint pages for **ephemeral** chit-chat, one-off scheduling lines, generic politeness, slogans, or phrases that will not help future you triangulate anything. Fold those into an existing page with **edit** or skip them.
+
+**Priorities**  
+- New **write** for people / projects / orgs when the signal is recurring or clearly reference-worthy.  
+- New **topics/** only when the idea is **durable** (see system prompt); otherwise **edit** a broader or person page.  
+- **edit** for wrong/outdated facts — surgical fixes, not new narrative sections.  
+- Keep pages brief. Narrate briefly as you go.`
+
+/** System prompt for the **cleanup** phase — separate agent from buildout; runs after each enrich pass in the same lap. */
 function buildCleanupSystemPrompt(timezone: string): string {
   const dateCtx = buildDateContext(timezone)
-  return `You are a wiki cleanup agent for a private personal wiki (Obsidian-style vault). Your job is to improve quality without adding new pages. You have \`read\`, \`grep\`, \`find\`, and \`edit\` tools.
+  return `You are a wiki cleanup agent for a private personal wiki (Obsidian-style vault). You run **after** the wiki buildout pass (a different agent that has \`write\` but not vault \`grep\`/\`find\`). Your job is **vault hygiene and light fixes** — not new content pages. You have \`read\`, \`grep\`, \`find\`, and \`edit\` tools.
+
+The checklist below bundles **maintenance** tasks (links, orphans, index) in one pass so a single \`grep\`/\`find\` sweep can cover several items — that is intentional; you are not "doing buildout again."
 
 ## Guidelines
 - ${dateCtx}

@@ -340,3 +340,52 @@ describe('GET /api/wiki/search', () => {
     expect(results).toEqual([])
   })
 })
+
+describe('POST /api/wiki', () => {
+  it('creates a new markdown file', async () => {
+    const res = await app.request('/api/wiki', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'draft-x.md', markdown: '# Hi\n' }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchObject({ ok: true, path: 'draft-x.md' })
+    const get = await app.request('/api/wiki/draft-x.md')
+    expect(get.status).toBe(200)
+  })
+
+  it('returns 409 when file exists', async () => {
+    const res = await app.request('/api/wiki', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'index.md', markdown: 'x' }),
+    })
+    expect(res.status).toBe(409)
+  })
+})
+
+describe('POST /api/wiki/move', () => {
+  it('renames a file', async () => {
+    const res = await app.request('/api/wiki/move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'note.md', to: 'note-renamed.md' }),
+    })
+    expect(res.status).toBe(200)
+    const old = await app.request('/api/wiki/note.md')
+    expect(old.status).toBe(404)
+    const neu = await app.request('/api/wiki/note-renamed.md')
+    expect(neu.status).toBe(200)
+  })
+})
+
+describe('DELETE /api/wiki/:path', () => {
+  it('removes a markdown file', async () => {
+    await writeFile(join(wikiDir, 'gone.md'), '# Bye', 'utf-8')
+    const res = await app.request('/api/wiki/gone.md', { method: 'DELETE' })
+    expect(res.status).toBe(200)
+    const get = await app.request('/api/wiki/gone.md')
+    expect(get.status).toBe(404)
+  })
+})

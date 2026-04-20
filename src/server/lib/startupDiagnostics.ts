@@ -15,7 +15,7 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
   const bundledNative = process.env.BRAIN_BUNDLED_NATIVE === '1'
   if (bundledNative) {
     log(
-      `NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} HTTPS listen port=${listenPort ?? '?'} (bundled native; TLS, port from dynamic bind, not PORT env)`,
+      `NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} HTTP listen port=${listenPort ?? '?'} (bundled native; port from dynamic bind, not PORT env)`,
     )
   } else {
     log(

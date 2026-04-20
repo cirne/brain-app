@@ -1,13 +1,13 @@
 <div class="hub-wiki-about">
   <div class="hub-wiki-about-inner">
     <p class="hub-wiki-about-lead">
-      Your <strong>wiki</strong> is a private set of Markdown pages in <strong>your vault</strong> on this Mac. Brain keeps it growing and
+      Your <strong>wiki</strong> is a private set of Markdown pages in <strong>your vault</strong> on this Mac. Braintunnel keeps it growing and
       tidy automatically—so answers stay grounded in <em>your</em> world, not a generic model guess.
     </p>
 
     <h3 class="hub-wiki-about-h">How the continuous loop works</h3>
     <p>
-      While Brain is running, the <strong>Your Wiki loop</strong> works in the background. Each lap has two phases:
+      While Braintunnel is running, the <strong>Your Wiki loop</strong> works in the background. Each lap has two phases:
     </p>
     <ul class="hub-wiki-about-list">
       <li>
@@ -21,13 +21,13 @@
     </ul>
     <p>
       When the wiki looks up-to-date, the loop backs off and waits for new mail or a manual nudge from the
-      <strong>Your Wiki</strong> card in Brain Hub before running again.
+      <strong>Your Wiki</strong> card in Braintunnel Hub before running again.
     </p>
 
     <h3 class="hub-wiki-about-h">Sources vs. wiki</h3>
     <p>
       Raw material lives in the things you connect: email, documents and folders, calendar, and (when available)
-      Messages. Brain searches those directly. The wiki is different — it is your
+      Messages. Braintunnel searches those directly. The wiki is different — it is your
       <strong>synthesized knowledge base</strong>: names, projects, and context compiled into readable pages. Over
       time it becomes richer and more accurate without duplicating every raw message.
     </p>
@@ -35,10 +35,10 @@
     <h3 class="hub-wiki-about-h">You're in control</h3>
     <ul class="hub-wiki-about-list">
       <li>
-        <strong>Vault.</strong> Opening Brain on this Mac means unlocking your vault with the password you set at setup.
+        <strong>Vault.</strong> Opening Braintunnel on this Mac means unlocking your vault with the password you set at setup.
       </li>
       <li>
-        <strong>Pause / Resume.</strong> Open "Your Wiki" from Brain Hub to pause the loop any time.
+        <strong>Pause / Resume.</strong> Open "Your Wiki" from Braintunnel Hub to pause the loop any time.
         Resume always starts a fresh lap.
       </li>
       <li>
@@ -52,7 +52,7 @@
     </ul>
 
     <p class="hub-wiki-about-foot">
-      Think of the wiki as the map of what matters to you: the distilled picture Brain uses alongside live search
+      Think of the wiki as the map of what matters to you: the distilled picture Braintunnel uses alongside live search
       so help stays personal, consistent, and yours.
     </p>
   </div>

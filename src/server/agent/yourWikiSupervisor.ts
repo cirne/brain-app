@@ -224,9 +224,9 @@ async function supervisorLoop(timezone?: string): Promise<void> {
           syncNote =
             'Mail and calendar sources were synced immediately before this lap. ' +
             'Your tools (search_index, read_doc, find_person) reflect recently indexed content. ' +
-            'Prioritize **new coverage** (people, projects, topics) revealed by these updates. ' +
+            'Prioritize **new high-signal coverage** (people, projects, deserving topics) revealed by these updates—not extra thin topic stubs. ' +
             'Use **edit** for surgical factual corrections if existing pages are now proven wrong or stale, ' +
-            'but maintain focus on overall wiki breadth and coherence rather than only summarizing recent events.'
+            'and balance new material with coherence rather than only summarizing recent events.'
         }
       }
 

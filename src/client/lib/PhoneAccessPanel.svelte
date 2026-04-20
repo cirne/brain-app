@@ -228,7 +228,7 @@
             <span class="label">Same-LAN direct (Wi‑Fi)</span>
             <span class="status"
               >{allowLanDirectAccess
-                ? 'Phone can open Brain on your LAN (vault login required)'
+                ? 'Phone can open Braintunnel on your LAN (vault login required)'
                 : 'Block private LAN; use tunnel or this Mac'}</span
             >
           </div>
@@ -244,7 +244,7 @@
     {/if}
 
     <p class="instruction">
-      Scan this code with your phone to access Brain {#if networkInfo?.tunnelUrl}from anywhere{:else}over your local network{/if}.
+      Scan this code with your phone to access Braintunnel {#if networkInfo?.tunnelUrl}from anywhere{:else}over your local network{/if}.
     </p>
 
     {#if error}

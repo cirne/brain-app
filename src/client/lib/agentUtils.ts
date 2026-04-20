@@ -100,6 +100,7 @@ export function buildChatBody(opts: {
 export function contextPlaceholder(ctx: SurfaceContext): string {
   if (ctx.type === 'email') return 'What do you want to do with this email?'
   if (ctx.type === 'wiki') return 'Ask about this doc...'
+  if (ctx.type === 'wiki-dir') return 'Ask about this folder…'
   if (ctx.type === 'calendar') return 'Ask about your schedule...'
   if (ctx.type === 'inbox') return 'Inbox summary running...'
   if (ctx.type === 'messages') return 'Ask about this conversation…'

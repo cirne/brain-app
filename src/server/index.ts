@@ -9,7 +9,6 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { logger } from 'hono/logger'
 import { getCookie } from 'hono/cookie'
 import { createServer } from 'node:http'
-import { createServer as createHttpsServer } from 'node:https'
 import chatRoute from './routes/chat.js'
 import skillsRoute from './routes/skills.js'
 import wikiRoute from './routes/wiki.js'
@@ -42,7 +41,6 @@ import { startTunnel, stopTunnel, getActiveTunnelUrl, getHostGuid } from './lib/
 import { readOnboardingPreferences } from './lib/onboardingPreferences.js'
 import { BRAIN_DEFAULT_HTTP_PORT, setActualNativePort } from './lib/brainHttpPort.js'
 import { isAllowedBundledNativeClientIp } from './lib/bundledNativeClientAllowlist.js'
-import { ensureEmbeddedServerTls } from './lib/embeddedServerTls.js'
 import { isBundledNativeServer, nativeAppOAuthPortCandidates } from './lib/nativeAppPort.js'
 import {
   duplicateDevListenMessage,
@@ -239,16 +237,15 @@ function tryListen(server: ServerType, port: number): Promise<boolean> {
 /**
  * Bundled Tauri app: bind the first available port from the OAuth candidate list
  * (18473, 18474, 18475, 18476). Multiple users on the same machine each get their own port.
- * TLS: self-signed cert under `$BRAIN_HOME/var` (see {@link ensureEmbeddedServerTls}).
+ * HTTP (cleartext) for now; optional TLS under `$BRAIN_HOME/var` is tracked in OPP-036.
  * Calls {@link setActualNativePort} so the OAuth redirect URI reflects the bound port.
  */
 async function listenNativeBundled(): Promise<ServerType> {
   const candidates = nativeAppOAuthPortCandidates()
-  const { key, cert } = await ensureEmbeddedServerTls()
   const handler = getRequestListener(app.fetch)
 
   for (const p of candidates) {
-    const server = createHttpsServer({ key, cert }, handler) as ServerType
+    const server = createServer(handler) as ServerType
     const bound = await tryListen(server, p)
     if (bound) {
       setActualNativePort(p)
@@ -258,7 +255,7 @@ async function listenNativeBundled(): Promise<ServerType> {
         console.log(`[brain-app] Port ${candidates[0]} in use; bound to fallback port ${p}`)
       }
       console.log(
-        `[brain-app] Bundled server listening on 0.0.0.0:${p} (TLS; Tailscale: https://<this-machine-tailscale-ip>:${p}; OAuth: https://127.0.0.1:${p})`,
+        `[brain-app] Bundled server listening on 0.0.0.0:${p} (HTTP; Tailscale: http://<this-machine-tailscale-ip>:${p}; OAuth: http://127.0.0.1:${p})`,
       )
       return server
     }
@@ -266,7 +263,7 @@ async function listenNativeBundled(): Promise<ServerType> {
   }
 
   throw new Error(
-    `[brain-app] All OAuth ports in use (${candidates.join(', ')}). Stop another Brain instance or free one of these ports.`,
+    `[brain-app] All OAuth ports in use (${candidates.join(', ')}). Stop another Braintunnel instance or free one of these ports.`,
   )
 }
 

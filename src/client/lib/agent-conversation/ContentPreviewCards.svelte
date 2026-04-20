@@ -61,7 +61,7 @@
     snippet={preview.snippet}
     previewMessages={preview.previewMessages}
     total={preview.total}
-    n={preview.n}
+    returnedCount={preview.returnedCount}
     person={preview.person}
     onOpen={() => onOpenMessageThread?.(preview.canonicalChat, preview.displayChat)}
   />

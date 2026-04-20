@@ -40,7 +40,7 @@
       {#if navOpen}
         <div class="nav-brand-lockup">
           <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
-          <span class="nav-brand-title">Brain</span>
+          <span class="nav-brand-title">Braintunnel</span>
         </div>
         <button
           type="button"
@@ -66,7 +66,7 @@
   {/if}
   <div class="brand" class:brand--silent={!showCenterBrand}>
     {#if showCenterBrand}
-      <span class="brand-name">Brain</span>
+      <span class="brand-name">Braintunnel</span>
     {/if}
   </div>
   <div class="search-wrap">

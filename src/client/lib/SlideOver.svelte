@@ -2,6 +2,7 @@
   import { setContext } from 'svelte'
   import { Mail, Maximize2, MessageSquare, Minimize2 } from 'lucide-svelte'
   import Wiki from './Wiki.svelte'
+  import WikiDirList from './WikiDirList.svelte'
   import FileViewer from './FileViewer.svelte'
   import Inbox from './Inbox.svelte'
   import Calendar from './Calendar.svelte'
@@ -42,6 +43,8 @@
     /** Live agent `edit` stream — show “Editing…” for `path` (wiki pane). */
     wikiStreamingEdit?: { path: string; toolId: string } | null
     onWikiNavigate: (_path: string | undefined) => void
+    /** Open wiki folder browser (`/wiki-dir/…`). */
+    onWikiDirNavigate?: (_dirPath: string | undefined) => void
     onInboxNavigate: (_id: string | undefined) => void
     onContextChange: (_ctx: SurfaceContext) => void
     /** Passed to Inbox for in-pane actions — not rendered in the L2 header. */
@@ -74,6 +77,7 @@
     wikiStreamingWrite = null,
     wikiStreamingEdit = null,
     onWikiNavigate,
+    onWikiDirNavigate,
     onInboxNavigate,
     onContextChange,
     onOpenSearch,
@@ -235,7 +239,7 @@
   })
 
   function titleForOverlay(o: Overlay): string {
-    if (o.type === 'wiki') return 'Docs'
+    if (o.type === 'wiki' || o.type === 'wiki-dir') return 'Docs'
     if (o.type === 'file') return 'File'
     if (o.type === 'email') return 'Inbox'
     if (o.type === 'messages') return 'Messages'
@@ -311,6 +315,7 @@
           class="slide-title"
           class:slide-title-wiki={Boolean(
             (overlay.type === 'wiki' && overlay.path) ||
+              overlay.type === 'wiki-dir' ||
               (overlay.type === 'file' && overlay.path) ||
               (overlay.type === 'email' && emailHeaderTitle) ||
               (overlay.type === 'messages' && messagesHeaderTitle),
@@ -318,6 +323,12 @@
         >
           {#if overlay.type === 'wiki' && overlay.path}
             <WikiFileName path={overlay.path} />
+          {:else if overlay.type === 'wiki-dir'}
+            {#if overlay.path}
+              <span>{overlay.path.replace(/\//g, ' / ')}</span>
+            {:else}
+              <span>Wiki</span>
+            {/if}
           {:else if overlay.type === 'file' && overlay.path}
             <WikiFileName path={overlay.path} />
           {:else if overlay.type === 'email' && emailHeaderTitle}
@@ -443,6 +454,15 @@
         streamingWrite={wikiStreamingWrite}
         streamingEdit={wikiStreamingEdit}
         onNavigate={(path) => onWikiNavigate(path)}
+        onNavigateToDir={onWikiDirNavigate}
+        onContextChange={onContextChange}
+      />
+    {:else if overlay.type === 'wiki-dir'}
+      <WikiDirList
+        dirPath={overlay.path}
+        refreshKey={wikiRefreshKey}
+        onOpenFile={(path) => onWikiNavigate(path)}
+        onOpenDir={(path) => onWikiDirNavigate?.(path)}
         onContextChange={onContextChange}
       />
     {:else if overlay.type === 'file'}

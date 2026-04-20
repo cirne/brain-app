@@ -109,13 +109,13 @@ function anyMailboxNeedsBackfill(mailboxes: unknown): boolean {
  */
 export function computeIndexingUserHint(parsed: ParsedRipmailStatus): string | null {
   if (parsed.staleLockInDb) {
-    return 'A previous mail sync stopped unexpectedly. Quit Brain completely (Cmd+Q), open it again, and we’ll resume.'
+    return 'A previous mail sync stopped unexpectedly. Quit Braintunnel completely (Cmd+Q), open it again, and we’ll resume.'
   }
   if (parsed.initialSyncHangSuspected) {
-    return 'This is taking longer than usual. Very large mailboxes can stay at zero for several minutes while the first batch loads. If nothing changes after a long wait, quit Brain and try again.'
+    return 'This is taking longer than usual. Very large mailboxes can stay at zero for several minutes while the first batch loads. If nothing changes after a long wait, quit Braintunnel and try again.'
   }
   if (parsed.pendingRefresh) {
-    return 'Mail sync is starting — the count should begin moving soon. If it stays at zero, quit Brain and try again.'
+    return 'Mail sync is starting — the count should begin moving soon. If it stays at zero, quit Braintunnel and try again.'
   }
   if (
     parsed.syncRunning &&

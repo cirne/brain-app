@@ -99,7 +99,7 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
           chat?: string
           snippet?: string
           total?: number
-          n?: number
+          returned_count?: number
           preview_messages?: MessagePreviewRow[]
           person?: string[]
         }
@@ -118,7 +118,7 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
         canonicalChat,
         snippet: typeof d.snippet === 'string' ? d.snippet : '',
         total: typeof d.total === 'number' ? d.total : 0,
-        n: typeof d.n === 'number' ? d.n : 0,
+        returnedCount: typeof d.returned_count === 'number' ? d.returned_count : 0,
         previewMessages: preview_messages as MessagePreviewRow[],
         person,
       }
@@ -141,8 +141,8 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
           const tail = previewMessages.slice(-3) as MessagePreviewRow[]
           snippet = tail
             .map((r) => {
-              const who = r.m === 1 ? 'You' : 'Them'
-              const t = String(r.t ?? '').replace(/\s+/g, ' ').trim()
+              const who = r.is_from_me ? 'You' : 'Them'
+              const t = String(r.text ?? '').replace(/\s+/g, ' ').trim()
               return `${who}: ${t.slice(0, 80)}${t.length > 80 ? '…' : ''}`
             })
             .join(' · ')
@@ -154,7 +154,8 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
           canonicalChat,
           snippet,
           total: typeof j.total === 'number' ? j.total : 0,
-          n: typeof j.n === 'number' ? j.n : messages.length,
+          returnedCount:
+            typeof j.returned_count === 'number' ? j.returned_count : messages.length,
           previewMessages,
           person,
         }

@@ -46,6 +46,11 @@
   /** Review / accept-profile */
   let profileStepError = $state<string | null>(null)
   let busy = $state(false)
+  /** Tauri: Google OAuth uses the system browser; we wait for the server’s one-shot /last-result. */
+  let googleOauthBrowserWait = $state(false)
+  let googleOauthPoll: ReturnType<typeof setInterval> | null = null
+  const GOOGLE_OAUTH_TAURI_MAX_MS = 10 * 60 * 1000
+  const GOOGLE_OAUTH_TAURI_POLL_MS = 1000
 
   let draftMarkdown = $state('')
   /** Bump to remount {@link ProfileDraftEditor} after reload-from-disk (discards unsaved TipTap edits). */
@@ -116,12 +121,12 @@
 
   const indexingLeadParagraph = $derived.by(() => {
     if (mailProviderPref === 'google') {
-      return 'We’re downloading your recent Gmail into Brain so we can build your profile. Hang tight.'
+      return 'We’re downloading your recent Gmail into Braintunnel so we can build your profile. Hang tight.'
     }
     if (mailProviderPref === 'apple') {
-      return 'We’re copying your recent messages from Apple Mail into Brain so we can build your profile. Hang tight.'
+      return 'We’re copying your recent messages from Apple Mail into Braintunnel so we can build your profile. Hang tight.'
     }
-    return 'We’re copying your recent messages into Brain so we can build your profile. Hang tight.'
+    return 'We’re copying your recent messages into Braintunnel so we can build your profile. Hang tight.'
   })
 
   const indexingElapsedLine = $derived.by(() => {
@@ -222,12 +227,78 @@
     void continueToIndexing()
   })
 
+  function isTauriRuntime(): boolean {
+    return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+  }
+
+  function clearGoogleOauthTauriPoll(): void {
+    if (googleOauthPoll) {
+      clearInterval(googleOauthPoll)
+      googleOauthPoll = null
+    }
+  }
+
+  $effect(() => {
+    if (state !== 'not-started') {
+      clearGoogleOauthTauriPoll()
+      googleOauthBrowserWait = false
+    }
+    return () => clearGoogleOauthTauriPoll()
+  })
+
+  function googleOauthTauriStartUrl(): string {
+    return new URL('/api/oauth/google/start', window.location.origin).href
+  }
+
   async function startGoogleMail() {
     setupError = null
     try {
       await patchOnboardingPreferences('google')
     } catch {
       /* non-fatal */
+    }
+    if (isTauriRuntime()) {
+      if (!googleOauthBrowserWait) {
+        clearGoogleOauthTauriPoll()
+        googleOauthBrowserWait = true
+        const startedAt = Date.now()
+        googleOauthPoll = setInterval(() => {
+          void (async () => {
+            if (Date.now() - startedAt > GOOGLE_OAUTH_TAURI_MAX_MS) {
+              clearGoogleOauthTauriPoll()
+              googleOauthBrowserWait = false
+              setupError =
+                'Sign-in is taking a long time. Use "Open again" or finish sign-in in your browser, then return here.'
+              return
+            }
+            let j: { done: boolean; error: string | null }
+            try {
+              const r = await fetch('/api/oauth/google/last-result')
+              j = (await r.json()) as { done: boolean; error: string | null }
+            } catch {
+              return
+            }
+            if (!j.done) return
+            clearGoogleOauthTauriPoll()
+            googleOauthBrowserWait = false
+            if (j.error) {
+              setupError = j.error
+            } else {
+              setupError = null
+              await loadMailOnly()
+            }
+          })()
+        }, GOOGLE_OAUTH_TAURI_POLL_MS)
+      }
+      try {
+        const { open } = await import('@tauri-apps/plugin-shell')
+        await open(googleOauthTauriStartUrl())
+      } catch (e) {
+        clearGoogleOauthTauriPoll()
+        googleOauthBrowserWait = false
+        setupError = e instanceof Error ? e.message : String(e)
+      }
+      return
     }
     window.location.href = '/api/oauth/google/start'
   }
@@ -379,10 +450,10 @@
   >
     {#if state === 'not-started' && !mail.configured}
       <OnboardingHeroShell>
-          <span class="ob-kicker">Brain</span>
+          <span class="ob-kicker">Braintunnel</span>
           <h1 class="ob-headline">Your assistant, on your Mac</h1>
           <p class="ob-lead">
-            Brain is your local assistant for chat, email, and your notes—personalized to you.
+            Braintunnel is your local assistant for chat, email, and your notes—personalized to you.
             <strong>Mail, Messages, and your files stay on this Mac</strong>—you’re in control. Connect
             <strong>Apple</strong> or <strong>Google</strong> to seed mail and calendar—then add folders later to enrich.
           </p>
@@ -410,20 +481,32 @@
                 onclick={() => void startGoogleMail()}
                 disabled={busy}
               >
-                Google
+                {googleOauthBrowserWait ? 'Open again' : 'Google'}
               </button>
             </div>
+            {#if googleOauthBrowserWait}
+              <p class="ob-fine-print" role="status" aria-live="polite">
+                A browser window should open for Google sign-in (passkeys and 2FA work there). When you are done, return
+                to Braintunnel; we will continue automatically. If the tab did not open, use <strong>Open again</strong>. If
+                Safari warns about <code>127.0.0.1</code>, that is your local Braintunnel server over HTTPS.
+              </p>
+            {/if}
             <p class="ob-fine-print">
-              On Apple, Brain indexes Mail from your library and registers your Mac calendars (same source as
-              Calendar.app) for sync. Full Disk Access lets Brain read Mail, Messages, and paths you choose. Google opens a
-              browser sign-in (mail + calendar read). macOS may prompt for permissions during setup.
+              On Apple, Braintunnel indexes Mail from your library and registers your Mac calendars (same source as
+              Calendar.app) for sync. Full Disk Access lets Braintunnel read Mail, Messages, and paths you choose.
+              {#if isTauriRuntime()}
+                The Braintunnel app opens Google in your default browser for sign-in (mail + calendar read).
+              {:else}
+                Google sign-in uses this browser (mail + calendar read).
+              {/if}
+              macOS may prompt for permissions during setup.
             </p>
           </div>
       </OnboardingHeroShell>
 
     {:else if state === 'not-started' && mail.configured && setupError}
       <OnboardingHeroShell>
-          <span class="ob-kicker">Brain</span>
+          <span class="ob-kicker">Braintunnel</span>
           <h1 class="ob-headline">Couldn’t start indexing</h1>
           <p class="ob-error">{setupError}</p>
           <div class="ob-cta-group">
@@ -451,7 +534,7 @@
               <span class="ob-indexing-orbit ob-indexing-orbit-delayed"></span>
               <span class="ob-indexing-core"></span>
             </div>
-            <span class="ob-kicker">Brain</span>
+            <span class="ob-kicker">Braintunnel</span>
             <h1 class="ob-headline">Getting to Know You.</h1>
             <p class="ob-lead ob-indexing-lead">
               {indexingLeadParagraph}
@@ -474,7 +557,7 @@
               <div class="ob-indexing-early" role="region" aria-label="Continue before full sync">
                 <p class="ob-indexing-early-copy">
                   You’ve got enough mail for a strong first profile. We’ll keep downloading the rest in the background
-                  while you talk with Brain.
+                  while you talk with Braintunnel.
                 </p>
                 <button
                   type="button"
@@ -555,7 +638,7 @@
           <h1 class="ob-headline">You're all set</h1>
           <p class="ob-lead">Your assistant is ready. We’ll keep building your wiki in the background.</p>
           <button type="button" class="ob-btn-primary" onclick={() => void onComplete()}>
-            Open Brain
+            Open Braintunnel
             <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
           </button>
       </OnboardingHeroShell>

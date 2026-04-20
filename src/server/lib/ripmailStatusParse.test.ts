@@ -203,7 +203,7 @@ describe('parseRipmailStatusJson', () => {
     expect(p).not.toBeNull()
     expect(p!.syncRunning).toBe(false)
     expect(p!.staleLockInDb).toBe(true)
-    expect(computeIndexingUserHint(p!)).toContain('Quit Brain')
+    expect(computeIndexingUserHint(p!)).toContain('Quit Braintunnel')
   })
 
   it('flags pending refresh when a mailbox needs backfill and sync is idle', () => {

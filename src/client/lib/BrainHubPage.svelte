@@ -11,11 +11,13 @@
     FolderPlus,
     Calendar,
     Layers,
+    FileText,
   } from 'lucide-svelte'
   import type { BackgroundAgentDoc, YourWikiPhase } from './statusBar/backgroundAgentTypes.js'
   import type { OnboardingMailStatus } from './onboarding/onboardingTypes.js'
   import type { NavigateOptions, Overlay } from '../router.js'
   import { subscribe } from './app/appEvents.js'
+  import { wikiPathParentDir } from './wikiPathDisplay.js'
 
   type HubRipmailSourceRow = {
     id: string
@@ -36,6 +38,9 @@
   let mailStatus = $state<OnboardingMailStatus | null>(null)
   let hubSources = $state<HubRipmailSourceRow[]>([])
   let hubSourcesError = $state<string | null>(null)
+  /** Newest-first from `/api/wiki/edit-history`, else `/api/wiki/recent` when log is empty. */
+  let wikiRecentEdits = $state<{ path: string; date: string }[]>([])
+  let wikiRecentReady = $state(false)
 
   const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
   const wikiIsActive = $derived(
@@ -46,6 +51,25 @@
   function wikiPathBasename(rel: string): string {
     const parts = rel.replace(/\\/g, '/').split('/').filter(Boolean)
     return parts[parts.length - 1] ?? rel
+  }
+
+  async function fetchWikiRecentEditsList(): Promise<{ path: string; date: string }[]> {
+    try {
+      const histRes = await fetch('/api/wiki/edit-history?limit=5')
+      if (histRes.ok) {
+        const j = (await histRes.json()) as { files?: { path: string; date: string }[] }
+        const files = Array.isArray(j.files) ? j.files : []
+        if (files.length > 0) return files
+      }
+      const recentRes = await fetch('/api/wiki/recent?limit=5')
+      if (recentRes.ok) {
+        const j = (await recentRes.json()) as { files?: { path: string; date: string }[] }
+        return Array.isArray(j.files) ? j.files : []
+      }
+    } catch {
+      /* ignore */
+    }
+    return []
   }
 
   /** Primary line: what the user should understand is happening (not internal loop jargon). */
@@ -177,8 +201,11 @@
         hubSources = Array.isArray(j.sources) ? j.sources : []
         hubSourcesError = typeof j.error === 'string' && j.error.trim() ? j.error : null
       }
+      wikiRecentEdits = await fetchWikiRecentEditsList()
     } catch {
       /* ignore */
+    } finally {
+      wikiRecentReady = true
     }
   }
 
@@ -225,7 +252,7 @@
 <div class="hub-page">
   <header class="hub-header">
     <div class="hub-header-content">
-      <h1>Brain Hub</h1>
+      <h1>Braintunnel Hub</h1>
       <p class="hub-subtitle">Admin, settings, and system status</p>
     </div>
   </header>
@@ -265,7 +292,7 @@
         <h2>Search index</h2>
       </div>
       <p class="section-lead">
-        Everything Brain searches lives here: mail accounts, calendars, and your documents.
+        Everything Braintunnel searches lives here: mail accounts, calendars, and your documents.
       </p>
       <div class="index-status-strip" role="status" aria-live="polite">
         {#if mailStatus?.statusError}
@@ -374,6 +401,33 @@
           {/if}
           <ChevronRight size={16} aria-hidden="true" />
         </button>
+        {#if wikiRecentReady && wikiRecentEdits.length > 0}
+          <div class="wiki-recent-block" aria-label="Recent wiki edits">
+            <p class="wiki-recent-label">Recent edits</p>
+            {#each wikiRecentEdits as f (f.path)}
+              {@const parentDir = wikiPathParentDir(f.path)}
+              <button
+                type="button"
+                class="link-item hub-source-row wiki-recent-row"
+                onclick={() => onHubNavigate({ type: 'wiki', path: f.path })}
+              >
+                <div class="link-info wiki-recent-row-main">
+                  <span class="hub-source-icon-wrap" aria-hidden="true"><FileText size={16} /></span>
+                  <div class="source-folder-text">
+                    <span class="source-folder-name">{wikiPathBasename(f.path)}</span>
+                    <span class="source-folder-path">{parentDir ?? 'Wiki root'}</span>
+                  </div>
+                </div>
+                <div class="wiki-recent-row-meta">
+                  <span class="status-sub wiki-recent-time">{formatRelativeDate(f.date)}</span>
+                  <ChevronRight size={16} aria-hidden="true" />
+                </div>
+              </button>
+            {/each}
+          </div>
+        {:else if wikiRecentReady}
+          <p class="empty-msg wiki-recent-empty">No recent edits recorded yet.</p>
+        {/if}
       </div>
     </section>
 
@@ -414,6 +468,53 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: 3.5rem;
+  }
+
+  .wiki-recent-block {
+    display: flex;
+    flex-direction: column;
+    margin-top: 0.35rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  }
+
+  .wiki-recent-label {
+    margin: 0 0 0.35rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-2);
+  }
+
+  .wiki-recent-row {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+
+  .wiki-recent-row-main {
+    min-width: 0;
+  }
+
+  .wiki-recent-row-meta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .wiki-recent-time {
+    font-size: 0.75rem;
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+
+  .wiki-recent-empty {
+    margin-top: 0.5rem;
+    padding: 0.65rem 0 0;
+    border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+    font-size: 0.8125rem;
   }
 
   .hub-section {
@@ -493,6 +594,13 @@
   .link-item:hover:not(.static):not(.disabled) {
     padding-left: 4px;
     color: var(--accent);
+  }
+
+  .link-item.wiki-recent-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 1rem;
   }
 
   .link-info {

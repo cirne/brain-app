@@ -15,7 +15,7 @@ const completeHtml = `<!DOCTYPE html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gmail connected — Brain</title>
+  <title>Gmail connected — Braintunnel</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #111; }
     p { margin: 0.75rem 0; }
@@ -23,8 +23,8 @@ const completeHtml = `<!DOCTYPE html>
 </head>
 <body>
   <h1>Gmail connected</h1>
-  <p>You can close this tab and return to the Brain app. If the app does not continue on its own, switch back to Brain.</p>
-  <p>If your browser warned about the connection to <code>127.0.0.1</code>, that is your local Brain server over HTTPS with a private certificate.</p>
+  <p>You can close this tab and return to the Braintunnel app. If the app does not continue on its own, switch back to Braintunnel.</p>
+  <p>This page is served by your local Braintunnel server at <code>127.0.0.1</code>.</p>
 </body>
 </html>`
 
@@ -47,7 +47,7 @@ app.get('/error', (c) => {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Google sign-in — Brain</title>
+  <title>Google sign-in — Braintunnel</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #111; }
     p { margin: 0.75rem 0; }
@@ -56,8 +56,8 @@ app.get('/error', (c) => {
 <body>
   <h1>Could not connect Gmail</h1>
   <p>${safe}</p>
-  <p>Close this tab and return to Brain to try again or read the message shown in the app.</p>
-  <p>If your browser warned about the connection to <code>127.0.0.1</code>, that is your local Brain server over HTTPS with a private certificate.</p>
+  <p>Close this tab and return to Braintunnel to try again or read the message shown in the app.</p>
+  <p>This page is served by your local Braintunnel server at <code>127.0.0.1</code>.</p>
 </body>
 </html>`
   c.header('Content-Type', 'text/html; charset=utf-8')

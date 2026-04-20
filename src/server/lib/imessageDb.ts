@@ -130,6 +130,17 @@ export interface ThreadParams {
   limit?: number
 }
 
+/** One conversation’s recent messages (for `list_recent_messages` grouped output). */
+export interface ImessageRecentThread {
+  chat_identifier: string
+  display_name: string | null
+  latest_date_ns: number
+  /** Total messages in the time window for this chat (may exceed `messages.length`). */
+  message_count: number
+  /** Newest first, capped by `messagesPerThread`. */
+  messages: ImessageRow[]
+}
+
 function openReadonly(dbPath: string): Database.Database {
   return new Database(dbPath, { readonly: true, fileMustExist: true })
 }
@@ -190,6 +201,135 @@ export function listRecentMessages(dbPath: string, params: ListRecentParams & { 
     const rawRows = stmt.all(bind) as ImessageRowRaw[]
 
     return { messages: rawRows.map(toImessageRow) }
+  } finally {
+    db.close()
+  }
+}
+
+/**
+ * Recent conversations with per-thread message samples (newest first within each thread).
+ * Threads are ordered by latest activity (newest first).
+ */
+export function listRecentMessageThreads(
+  dbPath: string,
+  params: ListRecentParams & {
+    defaultSinceMs: number
+    threadLimit: number
+    messagesPerThread: number
+  },
+): { threads: ImessageRecentThread[]; error?: string } {
+  let db: Database.Database
+  try {
+    db = openReadonly(dbPath)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return {
+      threads: [],
+      error: `Cannot open Messages database at ${dbPath}: ${msg}. On macOS grant Full Disk Access to your terminal or Node, or set IMESSAGE_DB_PATH to a readable copy.`,
+    }
+  }
+
+  try {
+    const untilMs = params.untilMs ?? Date.now()
+    const sinceMs = params.sinceMs ?? params.defaultSinceMs
+    const sinceNs = unixMsToAppleDateNs(sinceMs)
+    const untilNs = unixMsToAppleDateNs(untilMs)
+    const threadLimit = Math.min(Math.max(params.threadLimit, 1), 200)
+    const messagesPerThread = Math.min(Math.max(params.messagesPerThread, 1), 200)
+    const unread = params.unread_only === true
+    const unreadSql = unread
+      ? ` AND m.is_read = 0 AND m.is_from_me = 0 AND m.is_finished = 1 AND m.item_type = 0 AND m.is_system_message = 0`
+      : ''
+
+    let summarySql = `
+      SELECT
+        c.chat_identifier AS chat_identifier,
+        MAX(c.display_name) AS display_name,
+        MAX(m.date) AS latest_ns,
+        COUNT(*) AS message_count
+      FROM message m
+      JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
+      JOIN chat c ON c.ROWID = cmj.chat_id
+      WHERE m.date >= @sinceNs AND m.date <= @untilNs
+      ${unreadSql}
+    `
+    const summaryBind: Record<string, string | number> = { sinceNs, untilNs }
+    if (params.chat_identifier) {
+      summarySql += ` AND c.chat_identifier = @chatId`
+      summaryBind.chatId = params.chat_identifier
+      summarySql += ` GROUP BY c.chat_identifier`
+    } else {
+      summarySql += ` GROUP BY c.chat_identifier ORDER BY latest_ns DESC LIMIT @threadLimit`
+      summaryBind.threadLimit = threadLimit
+    }
+
+    const summaries = db.prepare(summarySql).all(summaryBind) as {
+      chat_identifier: string
+      display_name: string | null
+      latest_ns: number
+      message_count: number
+    }[]
+
+    if (summaries.length === 0) {
+      return { threads: [] }
+    }
+
+    const chatIds = summaries.map((s) => s.chat_identifier)
+    const placeholders = chatIds.map(() => '?').join(', ')
+    const detailSql = `
+      SELECT rowid, text, attributedBody, date, is_from_me, is_read, chat_identifier, display_name FROM (
+        SELECT
+          m.ROWID AS rowid,
+          m.text AS text,
+          m.attributedBody AS attributedBody,
+          m.date AS date,
+          m.is_from_me AS is_from_me,
+          m.is_read AS is_read,
+          c.chat_identifier AS chat_identifier,
+          c.display_name AS display_name,
+          ROW_NUMBER() OVER (PARTITION BY c.chat_identifier ORDER BY m.date DESC) AS rn
+        FROM message m
+        JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
+        JOIN chat c ON c.ROWID = cmj.chat_id
+        WHERE c.chat_identifier IN (${placeholders})
+          AND m.date >= ? AND m.date <= ?
+          ${unreadSql}
+      ) t
+      WHERE t.rn <= ?
+      ORDER BY t.chat_identifier, t.date DESC
+    `
+
+    const detailRows = db.prepare(detailSql).all(
+      ...chatIds,
+      sinceNs,
+      untilNs,
+      messagesPerThread,
+    ) as ImessageRowRaw[]
+
+    const byChat = new Map<string, ImessageRow[]>()
+    for (const raw of detailRows) {
+      const row = toImessageRow(raw)
+      const id = row.chat_identifier ?? ''
+      if (!byChat.has(id)) byChat.set(id, [])
+      byChat.get(id)!.push(row)
+    }
+
+    for (const arr of byChat.values()) {
+      arr.sort((a, b) => b.date - a.date)
+    }
+
+    const threads: ImessageRecentThread[] = summaries.map((s) => {
+      const messages = byChat.get(s.chat_identifier) ?? []
+      return {
+        chat_identifier: s.chat_identifier,
+        display_name: s.display_name,
+        latest_date_ns: s.latest_ns,
+        message_count: s.message_count,
+        messages,
+      }
+    })
+
+    return { threads }
   } finally {
     db.close()
   }

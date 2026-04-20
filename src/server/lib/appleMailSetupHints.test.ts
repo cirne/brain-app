@@ -10,13 +10,13 @@ describe('enrichAppleMailSetupError', () => {
     const out = enrichAppleMailSetupError(
       'grant Full Disk Access to this terminal app',
     )
-    expect(out).toContain('Ensure **Brain** is listed')
+    expect(out).toContain('Ensure **Braintunnel** is listed')
     expect(out).toContain('greyed out')
   })
 
   it('appends hint for could not find Apple Mail', () => {
     const out = enrichAppleMailSetupError('Could not find Apple Mail under /Users/x/Library/Mail')
-    expect(out).toContain('Ensure **Brain** is listed')
+    expect(out).toContain('Ensure **Braintunnel** is listed')
   })
 
   it('does not double-append if already enriched', () => {

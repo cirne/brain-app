@@ -128,7 +128,7 @@ GitHub Releases is the simplest backend: Tauri's community `tauri-action` GitHub
 ## Open questions
 
 - **Where do releases live?** GitHub Releases (simplest, free) vs S3 bucket vs dedicated endpoint. GitHub Releases works out of the box with `tauri-action`.
-- **Code signing + notarization.** macOS Gatekeeper will block an unsigned `.app` downloaded via the updater just as it blocks a DMG from the internet. Requires an Apple Developer account ($99/yr), a Developer ID Application cert, and `xcrun notarytool` in CI. This is a prerequisite for distributing to anyone other than ourselves — separate from the updater plumbing but must land before shipping.
+- **Code signing + notarization.** macOS Gatekeeper will block an unsigned `.app` downloaded via the updater just as it blocks a DMG from the internet. Requires an Apple Developer account ($99/yr), a Developer ID Application cert, and `xcrun notarytool` in CI. This is a prerequisite for distributing to anyone other than ourselves — separate from the updater plumbing but must land before shipping. **Operator playbook:** [OPP-038](OPP-038-macos-developer-id-notarization-playbook.md).
 - **Check frequency.** On launch + every N hours? Configurable? A daily check on launch is the common default.
 - **Rollback.** If the new version fails to start, there is no automatic rollback in Tauri's updater today. Mitigation: keep the previous `.app.tar.gz` around and document a manual recovery path; automated rollback is out of scope initially.
 - **Delta updates.** Tauri ships the whole `.app` tarball, not a binary diff. Acceptable for now; `bsdiff`-based deltas can be added later if download size becomes a complaint.

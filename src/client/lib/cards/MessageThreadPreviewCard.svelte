@@ -1,14 +1,19 @@
 <script lang="ts">
   import { MessageSquare } from 'lucide-svelte'
 
-  type PreviewMsg = { ts: number; m: number; t: string; r?: number }
+  type PreviewMsg = {
+    sent_at_unix: number
+    is_from_me: boolean
+    text: string
+    is_read?: boolean
+  }
 
   let {
     displayChat,
     snippet,
     previewMessages = [],
     total = 0,
-    n = 0,
+    returnedCount = 0,
     person = [],
     onOpen,
   }: {
@@ -16,16 +21,16 @@
     snippet: string
     previewMessages?: PreviewMsg[]
     total?: number
-    n?: number
+    returnedCount?: number
     person?: string[]
     onOpen: () => void
   } = $props()
 
   const tail = $derived(previewMessages.slice(-3))
 
-  function timeLabel(ts: number): string {
+  function timeLabel(sentAtUnix: number): string {
     try {
-      return new Date(ts * 1000).toLocaleString(undefined, {
+      return new Date(sentAtUnix * 1000).toLocaleString(undefined, {
         month: 'short',
         day: 'numeric',
         hour: 'numeric',
@@ -58,15 +63,15 @@
   {#if snippet}
     <p class="message-thread-snippet">{snippet}</p>
   {/if}
-  {#if total > 0 || n > 0}
-    <div class="message-thread-meta">{n} shown · {total} in window</div>
+  {#if total > 0 || returnedCount > 0}
+    <div class="message-thread-meta">{returnedCount} shown · {total} in window</div>
   {/if}
   {#if tail.length > 0}
     <div class="message-thread-bubbles" aria-hidden="true">
-      {#each tail as row}
-        <div class="bubble-row" class:me={row.m === 1}>
-          <span class="bubble">{bubblePreviewText(row.t)}</span>
-          <span class="bubble-time">{timeLabel(row.ts)}</span>
+      {#each tail as row, i (`${row.sent_at_unix}-${i}`)}
+        <div class="bubble-row" class:me={row.is_from_me}>
+          <span class="bubble">{bubblePreviewText(row.text)}</span>
+          <span class="bubble-time">{timeLabel(row.sent_at_unix)}</span>
         </div>
       {/each}
     </div>

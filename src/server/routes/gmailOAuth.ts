@@ -91,14 +91,14 @@ app.get('/callback', async (c) => {
   if (!code || !state) {
     return redirectOauthError(
       c,
-      'Missing code or state from Google. Return to Brain and start Connect Google again.'
+      'Missing code or state from Google. Return to Braintunnel and start Connect Google again.'
     )
   }
   const verifier = takeOAuthVerifier(state)
   if (!verifier) {
     return redirectOauthError(
       c,
-      'Sign-in session expired. Return to Brain and use Connect Google again.'
+      'Sign-in session expired. Return to Braintunnel and use Connect Google again.'
     )
   }
   let tokens
@@ -117,7 +117,7 @@ app.get('/callback', async (c) => {
   if (!tokens.refreshToken) {
     return redirectOauthError(
       c,
-      'No refresh token — revoke Brain access in your Google account and connect again from Brain.'
+      'No refresh token — revoke Braintunnel access in your Google account and connect again from Braintunnel.'
     )
   }
   let email: string

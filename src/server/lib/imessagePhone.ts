@@ -61,3 +61,13 @@ export function formatChatIdentifierForDisplay(chatIdentifier: string | null): s
   }
   return s
 }
+
+/** Prefer Messages `display_name` (contact or group title); otherwise formatted chat_identifier. */
+export function formatThreadChatDisplay(
+  chatIdentifier: string,
+  displayName: string | null | undefined,
+): string {
+  const d = displayName?.trim()
+  if (d) return d
+  return formatChatIdentifierForDisplay(chatIdentifier)
+}

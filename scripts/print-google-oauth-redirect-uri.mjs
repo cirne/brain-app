@@ -28,4 +28,4 @@ const devPort = devDefault ?? 3000
 const nativePort = bundled ?? 18473
 
 console.log(`Dev / npm run dev (default PORT): http://127.0.0.1:${devPort}${path}`)
-console.log(`Brain.app (bundled server, TLS):  https://127.0.0.1:${nativePort}${path}`)
+console.log(`Brain.app (bundled server):       https://127.0.0.1:${nativePort}${path}`)

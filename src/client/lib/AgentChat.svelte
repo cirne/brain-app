@@ -300,18 +300,30 @@
     }
   })
 
-  export function newChat() {
+  export function newChat(options?: { skipOverlayClose?: boolean }) {
     const pk = createPendingSessionKey()
     sessions = setSessionImmutable(sessions, pk, emptySession())
     displayedSessionId = pk
-    onNewChat?.()
+    if (!options?.skipOverlayClose) onNewChat?.()
     void focusAgentTextarea(0)
   }
 
-  export async function newChatWithMessage(text: string) {
-    newChat()
+  export async function newChatWithMessage(
+    text: string,
+    options?: { skipOverlayClose?: boolean },
+  ) {
+    newChat(options)
     await tick()
     await send(text)
+  }
+
+  /** Add text to the composer (e.g. @page.md) without sending. */
+  export function appendToComposer(text: string) {
+    inputEl?.appendText(text)
+  }
+
+  export function focusComposer() {
+    void focusAgentTextarea(0)
   }
 
   export async function loadSession(loadId: string) {

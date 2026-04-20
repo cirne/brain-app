@@ -153,7 +153,7 @@
     const name = source.displayName
     if (
       !confirm(
-        `Remove “${name}” from the search index?\n\nNothing is deleted on disk. Brain will stop searching this source.`,
+        `Remove “${name}” from the search index?\n\nNothing is deleted on disk. Braintunnel will stop searching this source.`,
       )
     ) {
       return
@@ -269,7 +269,7 @@
           {:else if mailStatus}
             {#if mailStatus.index.staleLockInDb}
               <p class="hub-source-status-warn" role="alert">
-                A previous sync stopped unexpectedly. Quit Brain completely and reopen to clear the stale lock.
+                A previous sync stopped unexpectedly. Quit Braintunnel completely and reopen to clear the stale lock.
               </p>
             {/if}
             {#if mailStatus.index.refreshRunning || mailStatus.index.backfillRunning}

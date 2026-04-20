@@ -27,6 +27,8 @@ export type Overlay =
   | { type: 'hub-wiki-about' }
   /** Phone access QR code panel. */
   | { type: 'phone-access' }
+  /** Browse wiki pages under a folder (`/wiki-dir/…`). */
+  | { type: 'wiki-dir'; path?: string }
 
 /** Chat-first shell: optional detail overlay; base route is always chat. */
 export type Route = {
@@ -45,6 +47,7 @@ export type SurfaceContext =
   | { type: 'calendar'; date: string; eventId?: string }
   | { type: 'inbox' }
   | { type: 'messages'; chat: string; displayLabel: string }
+  | { type: 'wiki-dir'; path: string; title: string }
   | { type: 'none' }
 
 /** Serialize a SurfaceContext to a human-readable string for the agent. */
@@ -59,6 +62,10 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
     return s
   }
   if (ctx.type === 'wiki') return `The user is viewing doc: ${ctx.path} (title: "${ctx.title}")`
+  if (ctx.type === 'wiki-dir') {
+    const p = ctx.path.trim() ? ctx.path : '(wiki root)'
+    return `The user is browsing wiki folder "${ctx.title}" (${p}). Listed pages and subfolders are visible.`
+  }
   if (ctx.type === 'file') {
     return `The user is viewing a raw file on disk: ${ctx.path} (title: "${ctx.title}"). Use read_doc with this path if you need the extracted text.`
   }
@@ -112,6 +119,12 @@ export function parseRoute(href: string = location.href): Route {
       return { overlay: { type: 'file', path } }
     }
     return { overlay: { type: 'file' } }
+  }
+  if (seg1 === 'wiki-dir') {
+    if (rest.length > 0 && rest[0]) {
+      return { overlay: { type: 'wiki-dir', path: rest.map(decodeURIComponent).join('/') } }
+    }
+    return { overlay: { type: 'wiki-dir' } }
   }
   if (seg1 === 'wiki') {
     // Legacy: `/wiki/Users/...` or `/wiki//Users/...` pointed at disk — treat as raw file, not wiki markdown.
@@ -192,11 +205,15 @@ export function routeToUrl(route: Route): string {
   if (route.flow === 'restart-seed') return '/restart-seed'
   if (route.flow === 'first-chat') return '/first-chat'
   const o = route.overlay
-  if (!o) return route.hubActive ? '/hub' : '/'
-  
+  if (!o) {
+    return route.hubActive ? '/hub' : '/'
+  }
+
   let path = ''
   if (o.type === 'wiki') {
     path = o.path ? `/wiki/${encodeWikiPathSegmentsForUrl(o.path)}` : '/wiki'
+  } else if (o.type === 'wiki-dir') {
+    path = o.path ? `/wiki-dir/${encodeWikiPathSegmentsForUrl(o.path)}` : '/wiki-dir'
   } else if (o.type === 'file') {
     path = o.path ? `/files/${encodeFilesystemPathForUrl(o.path)}` : '/files'
   } else if (o.type === 'email') {

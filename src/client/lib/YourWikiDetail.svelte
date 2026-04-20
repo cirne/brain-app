@@ -114,7 +114,7 @@
 
 <div class="your-wiki-detail" bind:this={detailScrollRoot}>
   <p class="section-lead">
-    Your Wiki improves continuously while Brain is running — enriching pages from your mail and profile,
+    Your Wiki improves continuously while Braintunnel is running — enriching pages from your mail and profile,
     then cleaning up links and structure. Pause it any time; resume starts a fresh lap.
   </p>
 

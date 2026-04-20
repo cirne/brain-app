@@ -24,7 +24,7 @@ describe('buildWikiBuildoutSystemPrompt', () => {
     expect(p).toMatch(/never add a `wiki\/` prefix/i)
     expect(p).toContain('web_search')
     expect(p).toContain('fetch_page')
-    expect(p).toMatch(/parallel page building/i)
+    expect(p).toMatch(/Parallel writes/i)
     expect(p).toMatch(/cannot scan the vault with \*\*grep\*\*/i)
     expect(p).toMatch(/compact/i)
     expect(p).toContain('people/lewis-cirne.md')
@@ -118,9 +118,12 @@ describe('buildProfilingSystemPrompt', () => {
     expect(p).toContain('me.md')
     expect(p).toMatch(/injected/i)
     expect(p).toMatch(/AGENTS\.md/i)
-    expect(p).toMatch(/read_doc.*20/i)
-    expect(p).toMatch(/Phone numbers and messaging identifiers/i)
-    expect(p).toContain('**people/** pages during buildout')
+    expect(p).toMatch(/read_doc.*12/)
+    expect(p).toMatch(/Phone numbers and iMessage identifiers/)
+    expect(p).toContain('**people/** pages at buildout')
+    expect(p).toMatch(/Anti-recency/i)
+    expect(p).toMatch(/before: 90d/)
+    expect(p).toMatch(/after: 3y/)
   })
 
   it('when whoami is JSON, injects display name and email into the prompt', () => {
@@ -144,7 +147,7 @@ describe('buildProfilingSystemPrompt', () => {
     })
     expect(p).toContain('people/lewis-cirne.md')
     expect(p).toContain('[[people/lewis-cirne]]')
-    expect(p).toMatch(/Do not.*write.*edit.*during profiling/is)
+    expect(p).toMatch(/write.*\/.*edit.*only `me\.md` during profiling/i)
   })
 })
 

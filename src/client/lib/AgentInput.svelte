@@ -163,6 +163,22 @@
     inputEl?.focus()
   }
 
+  /** Append to the draft (e.g. @wiki mention); focuses and resizes. */
+  export function appendText(s: string) {
+    if (!s) return
+    const base = input
+    const sep = base && !base.endsWith('\n') && !base.endsWith(' ') ? ' ' : ''
+    input = base + sep + s
+    void tick().then(() => {
+      if (inputEl) {
+        autoResize(inputEl)
+        inputEl.focus()
+        const len = input.length
+        inputEl.setSelectionRange(len, len)
+      }
+    })
+  }
+
   function submit() {
     const text = input.trim()
     if (!text) return

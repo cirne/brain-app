@@ -9,18 +9,27 @@ import { Exa } from 'exa-js'
 import { appendWikiEditRecord, resolveSafeWikiPath } from '../lib/wikiEditHistory.js'
 import { existsSync } from 'node:fs'
 import {
+  appleDateNsToUnixMs,
   areLocalMessageToolsEnabled,
   getImessageDbPath,
   getThreadMessages,
-  listRecentMessages as listRecentMessagesFromDb,
+  listRecentMessageThreads,
 } from '../lib/imessageDb.js'
-import { buildImessageSnippet, compactImessageListRow, compactImessageThreadRow } from '../lib/imessageFormat.js'
+import {
+  buildImessageSnippet,
+  compactImessageThreadRow,
+  latestMessageSnippetFromCompactRow,
+} from '../lib/imessageFormat.js'
 import {
   canonicalizeImessageChatIdentifier,
-  formatChatIdentifierForDisplay,
+  formatThreadChatDisplay,
   normalizePhoneDigits,
   phoneToFlexibleGrepPattern,
 } from '../lib/imessagePhone.js'
+import {
+  loadWikiContactSectionBodiesByPath,
+  wikiPathsMatchingChatInContactSections,
+} from '../lib/wikiContactIdentifierMatch.js'
 import { execRipmailAsync, ripmailProcessEnv } from '../lib/ripmailExec.js'
 import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
@@ -170,51 +179,6 @@ function parseOptionalIsoMs(s: string | undefined): number | undefined {
   const t = Date.parse(String(s))
   if (Number.isNaN(t)) throw new Error(`Invalid ISO datetime: ${s}`)
   return t
-}
-
-/**
- * Look up a phone number or identifier in the wiki and return the relative
- * path of matching files (if any). Used to enrich local message tool output inline.
- */
-async function resolveIdentifierToWikiFiles(
-  identifier: string,
-  wikiDirPath: string,
-): Promise<string[]> {
-  const phone = normalizePhoneDigits(identifier)
-  if (!phone) return []
-  const pattern = phoneToFlexibleGrepPattern(phone)
-  try {
-    const { stdout } = await execAsync(
-      `grep -rE ${JSON.stringify(pattern)} ${JSON.stringify(wikiDirPath)} --include="*.md" -l`,
-      { timeout: 5000 },
-    )
-    if (!stdout.trim()) return []
-    return stdout.trim().split('\n').map((f) => f.replace(wikiDirPath + '/', ''))
-  } catch {
-    return []
-  }
-}
-
-/**
- * Resolve a batch of chat identifiers to wiki files in parallel.
- * Returns a map: chat_identifier → wiki file paths (only entries with matches).
- */
-async function resolveIdentifiersBatch(
-  identifiers: string[],
-  wikiDirPath: string,
-): Promise<Record<string, string[]>> {
-  const unique = [...new Set(identifiers)]
-  const results = await Promise.all(
-    unique.map(async (id) => {
-      const files = await resolveIdentifierToWikiFiles(id, wikiDirPath)
-      return [id, files] as const
-    }),
-  )
-  const map: Record<string, string[]> = {}
-  for (const [id, files] of results) {
-    if (files.length > 0) map[id] = files
-  }
-  return map
 }
 
 /** Build CLI flags for ripmail draft edit from metadata params. */
@@ -1290,7 +1254,7 @@ Returns the saved text; treat it as active for this session too.`,
     name: 'list_recent_messages',
     label: 'List recent messages',
     description:
-      'Read recent local SMS/text and iMessage from the macOS Messages database when available (read-only; same store as the Messages app). Default time window: last 7 days. Output is compact JSON: n=count, messages[] with ts=Unix seconds, m=1 you/0 them, r=read 1/0 (incoming only), t=text, c=chat id (omitted when chat_identifier filter is set; US phones shown as (NXX) NXX-XXXX). Phone-number chat ids are auto-resolved against wiki people pages — matched ids appear in a top-level "people" map (same display form as c → wiki paths) so you can identify who a conversation is with without extra tool calls.',
+      'Read recent local SMS/text and iMessage from the macOS Messages database when available (read-only; same store as the Messages app). Default time window: last 7 days. Returns JSON with threads[]: each thread has chat_identifier, chat_display (contact/group label or formatted id), person (wiki paths whose **Contact** or **Identifiers** section lists this thread’s phone/email only — null if none), message_count (in the time window), latest_timestamp (Unix seconds), snippet (latest message preview), and messages[] (newest first: sent_at_unix, is_from_me, text, is_read for incoming). returned_count is the number of threads. limit = max threads (1–200, default 30). Optional messages_per_thread caps rows per thread (1–200, default 50).',
     parameters: Type.Object({
       since: Type.Optional(Type.String({ description: 'ISO 8601 start time (optional; default last 7 days)' })),
       until: Type.Optional(Type.String({ description: 'ISO 8601 end time (optional; default now)' })),
@@ -1301,7 +1265,10 @@ Returns the saved text; treat it as active for this session too.`,
             'Filter to one thread: E.164 phone (+15551234567), pretty US format, or email / opaque id as stored in Messages',
         }),
       ),
-      limit: Type.Optional(Type.Number({ description: 'Max rows 1–200 (default 30)' })),
+      limit: Type.Optional(Type.Number({ description: 'Max conversations (threads) 1–200 (default 30)' })),
+      messages_per_thread: Type.Optional(
+        Type.Number({ description: 'Max messages per thread in output 1–200 (default 50)' }),
+      ),
     }),
     async execute(
       _toolCallId: string,
@@ -1311,6 +1278,7 @@ Returns the saved text; treat it as active for this session too.`,
         unread_only?: boolean
         chat_identifier?: string
         limit?: number
+        messages_per_thread?: number
       },
     ) {
       const dbPath = getImessageDbPath()
@@ -1321,13 +1289,16 @@ Returns the saved text; treat it as active for this session too.`,
         params.chat_identifier != null && String(params.chat_identifier).trim() !== ''
           ? canonicalizeImessageChatIdentifier(params.chat_identifier)
           : undefined
-      const { messages, error } = listRecentMessagesFromDb(dbPath, {
+      const threadLimit = Math.min(Math.max(params.limit ?? 30, 1), 200)
+      const messagesPerThread = Math.min(Math.max(params.messages_per_thread ?? 50, 1), 200)
+      const { threads, error } = listRecentMessageThreads(dbPath, {
         sinceMs,
         untilMs,
         unread_only: params.unread_only,
         chat_identifier: chatFilter,
-        limit: params.limit,
         defaultSinceMs,
+        threadLimit: chatFilter ? 1 : threadLimit,
+        messagesPerThread,
       })
       if (error) {
         return {
@@ -1335,20 +1306,31 @@ Returns the saved text; treat it as active for this session too.`,
           details: { ok: false, error },
         }
       }
-      const includeChat = chatFilter == null
-      const chatIds = includeChat
-        ? [...new Set(messages.map((r) => r.chat_identifier).filter(Boolean) as string[])]
-        : []
-      const peopleRaw = await resolveIdentifiersBatch(chatIds, wikiDir)
-      const people: Record<string, string[]> = {}
-      for (const [id, files] of Object.entries(peopleRaw)) {
-        if (files.length) people[formatChatIdentifierForDisplay(id)] = files
+      let contactIndex
+      try {
+        contactIndex = await loadWikiContactSectionBodiesByPath(wikiDir)
+      } catch {
+        contactIndex = new Map<string, string>()
       }
+      const payloadThreads = threads.map((t) => {
+        const compactMsgs = t.messages.map(compactImessageThreadRow)
+        const latestCompact = compactMsgs[0]
+        const snippet = latestCompact ? latestMessageSnippetFromCompactRow(latestCompact) : ''
+        const personPaths = wikiPathsMatchingChatInContactSections(contactIndex, t.chat_identifier)
+        return {
+          chat_identifier: t.chat_identifier,
+          chat_display: formatThreadChatDisplay(t.chat_identifier, t.display_name),
+          person: personPaths.length > 0 ? personPaths : null,
+          message_count: t.message_count,
+          latest_timestamp: Math.floor(appleDateNsToUnixMs(t.latest_date_ns) / 1000),
+          snippet,
+          messages: compactMsgs,
+        }
+      })
       const payload: Record<string, unknown> = {
-        n: messages.length,
-        messages: messages.map((row) => compactImessageListRow(row, includeChat)),
+        returned_count: payloadThreads.length,
+        threads: payloadThreads,
       }
-      if (Object.keys(people).length > 0) payload.people = people
       const text = JSON.stringify(payload)
       return {
         content: [{ type: 'text' as const, text }],
@@ -1361,7 +1343,7 @@ Returns the saved text; treat it as active for this session too.`,
     name: 'get_message_thread',
     label: 'Get message thread',
     description:
-      'Read messages for one local SMS/text or iMessage conversation by chat_identifier (same meaning as c in list_recent_messages; accepts E.164, common US formatting, or email as stored for that thread). Returns messages oldest-first for reading. Default time window: last 7 days. Compact JSON: chat (display form for US phones), n=returned rows, total=in window, messages with ts/m/t/r (same encoding as list_recent_messages). If the chat id is a phone number found in the wiki, a "person" field lists matching wiki paths.',
+      'Read messages for one local SMS/text or iMessage conversation by chat_identifier (same as list_recent_messages thread chat_identifier; accepts E.164, common US formatting, or email as stored for that thread). Returns messages oldest-first for reading. Default time window: last 7 days. JSON: chat (display form for US phones), returned_count, total (in window), snippet, preview_messages (last 5), messages (same fields as list_recent_messages: sent_at_unix, is_from_me, text, is_read for incoming). If the chat id appears in a wiki **Contact** or **Identifiers** section, person lists those paths only (never whole-file grep).',
     parameters: Type.Object({
       chat_identifier: Type.String({
         description: 'Thread id: E.164 phone, formatted US number, Apple ID email, or group id (chat.chat_identifier)',
@@ -1392,11 +1374,17 @@ Returns the saved text; treat it as active for this session too.`,
           details: { ok: false, error },
         }
       }
-      const wikiFiles = await resolveIdentifierToWikiFiles(chatId, wikiDir)
+      let contactIndex
+      try {
+        contactIndex = await loadWikiContactSectionBodiesByPath(wikiDir)
+      } catch {
+        contactIndex = new Map<string, string>()
+      }
+      const wikiFiles = wikiPathsMatchingChatInContactSections(contactIndex, chatId)
       const displayChat =
         messages.length > 0
-          ? formatChatIdentifierForDisplay(messages[0].chat_identifier ?? '')
-          : formatChatIdentifierForDisplay(chatId)
+          ? formatThreadChatDisplay(messages[0].chat_identifier ?? chatId, messages[0].display_name)
+          : formatThreadChatDisplay(chatId, null)
       const compactRows = messages.map(compactImessageThreadRow)
       const snippet = buildImessageSnippet(compactRows)
       const preview_messages = compactRows.slice(-5)
@@ -1404,7 +1392,7 @@ Returns the saved text; treat it as active for this session too.`,
         messageThreadPreview: true,
         canonical_chat: chatId,
         chat: displayChat,
-        n: messages.length,
+        returned_count: messages.length,
         total: message_count,
         snippet,
         preview_messages,

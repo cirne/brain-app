@@ -2,7 +2,12 @@
   import type { SurfaceContext } from '../router.js'
   import { FDA_GATE_OPEN_EVENT } from './onboarding/fdaGateKeys.js'
 
-  type CompactRow = { ts: number; m: number; t: string; r?: number }
+  type CompactRow = {
+    sent_at_unix: number
+    is_from_me: boolean
+    text: string
+    is_read?: boolean
+  }
 
   let {
     initialChat,
@@ -86,9 +91,9 @@
     window.dispatchEvent(new CustomEvent(FDA_GATE_OPEN_EVENT))
   }
 
-  function timeLabel(ts: number): string {
+  function timeLabel(sentAtUnix: number): string {
     try {
-      return new Date(ts * 1000).toLocaleString(undefined, {
+      return new Date(sentAtUnix * 1000).toLocaleString(undefined, {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
@@ -124,10 +129,10 @@
       {/if}
     </div>
     <div class="bubble-list">
-      {#each messages as row}
-        <div class="msg-wrap" class:me={row.m === 1}>
-          <div class="msg-meta">{timeLabel(row.ts)}{#if row.m !== 1 && row.r === 0}<span class="unread"> · Unread</span>{/if}</div>
-          <div class="bubble">{row.t || ' '}</div>
+      {#each messages as row, i (`${row.sent_at_unix}-${i}`)}
+        <div class="msg-wrap" class:me={row.is_from_me}>
+          <div class="msg-meta">{timeLabel(row.sent_at_unix)}{#if !row.is_from_me && row.is_read === false}<span class="unread"> · Unread</span>{/if}</div>
+          <div class="bubble">{row.text || ' '}</div>
         </div>
       {/each}
     </div>

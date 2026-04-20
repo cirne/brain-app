@@ -3,6 +3,7 @@ import {
   canonicalizeImessageChatIdentifier,
   formatChatIdentifierForDisplay,
   formatPhoneForDisplay,
+  formatThreadChatDisplay,
   normalizePhoneDigits,
   phoneToFlexibleGrepPattern,
 } from './imessagePhone.js'
@@ -76,6 +77,16 @@ describe('formatPhoneForDisplay', () => {
 
   it('leaves non-US E.164 unchanged', () => {
     expect(formatPhoneForDisplay('+447700900123')).toBe('+447700900123')
+  })
+})
+
+describe('formatThreadChatDisplay', () => {
+  it('prefers display_name when set', () => {
+    expect(formatThreadChatDisplay('+15550001111', 'Alice')).toBe('Alice')
+  })
+
+  it('falls back to formatted phone when display_name empty', () => {
+    expect(formatThreadChatDisplay('+15550001111', null)).toBe('(555) 000-1111')
   })
 })
 

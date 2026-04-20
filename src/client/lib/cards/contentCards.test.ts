@@ -185,10 +185,10 @@ describe('matchContentPreview', () => {
         canonical_chat: '+15550001111',
         chat: '(555) 000-1111',
         total: 2,
-        n: 2,
+        returned_count: 2,
         snippet: 'Them: Hi · You: Yo',
-        preview_messages: [{ ts: 1, m: 0, t: 'Hi', r: 1 }],
-        messages: [{ ts: 1, m: 0, t: 'Hi', r: 1 }],
+        preview_messages: [{ sent_at_unix: 1, is_from_me: false, text: 'Hi', is_read: true }],
+        messages: [{ sent_at_unix: 1, is_from_me: false, text: 'Hi', is_read: true }],
       },
     })
     const p = matchContentPreview(tool)
@@ -212,7 +212,7 @@ describe('matchContentPreview', () => {
         canonical_chat: '+15550001111',
         chat: '(555) 000-1111',
         total: 1,
-        n: 1,
+        returned_count: 1,
         snippet: 'Hi',
         preview_messages: [],
       },

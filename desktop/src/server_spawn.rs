@@ -210,7 +210,7 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
         );
     }
     log::info!(
-        "Brain WebView: navigate to https://127.0.0.1:{port}/ (TLS; from child BRAIN_LISTEN_PORT)"
+        "Brain WebView: navigate to http://127.0.0.1:{port}/ (from child BRAIN_LISTEN_PORT)"
     );
     app.manage(ServerChild(Mutex::new(Some(child))));
     Ok(port)

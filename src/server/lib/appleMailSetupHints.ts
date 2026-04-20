@@ -5,7 +5,7 @@
 export function enrichAppleMailSetupError(raw: string): string {
   const msg = raw.trim()
   if (!msg) return msg
-  if (msg.includes('Ensure **Brain** is listed under System Settings')) return msg
+  if (msg.includes('Ensure **Braintunnel** is listed under System Settings')) return msg
 
   const lower = msg.toLowerCase()
   const looksFdaOrMail =
@@ -16,7 +16,7 @@ export function enrichAppleMailSetupError(raw: string): string {
   if (!looksFdaOrMail) return msg
 
   const hint =
-    ' — Ensure **Brain** is listed under System Settings → Privacy & Security → Full Disk Access with access allowed (privacy panes often look greyed out in screenshots and screen recordings — that does not mean the toggle is off). Quit Brain completely (Cmd+Q), reopen, then try again. Apple Mail should be installed at least once so ~/Library/Mail exists; ripmail reads that folder.'
+    ' — Ensure **Braintunnel** is listed under System Settings → Privacy & Security → Full Disk Access with access allowed (privacy panes often look greyed out in screenshots and screen recordings — that does not mean the toggle is off). Quit Braintunnel completely (Cmd+Q), reopen, then try again. Apple Mail should be installed at least once so ~/Library/Mail exists; ripmail reads that folder.'
 
   return msg + hint
 }

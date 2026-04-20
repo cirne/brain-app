@@ -74,8 +74,24 @@ describe('parseRoute', () => {
     expect(parseRoute('http://localhost/home')).toEqual({})
   })
 
+  it('parses /wiki-dir as wiki-dir root', () => {
+    expect(parseRoute('http://localhost/wiki-dir')).toEqual({ overlay: { type: 'wiki-dir' } })
+  })
+
+  it('parses /wiki-dir/people/nested as wiki-dir path', () => {
+    expect(parseRoute('http://localhost/wiki-dir/people/nested')).toEqual({
+      overlay: { type: 'wiki-dir', path: 'people/nested' },
+    })
+  })
+
   it('parses /wiki as wiki overlay without path', () => {
     expect(parseRoute('http://localhost/wiki')).toEqual({ overlay: { type: 'wiki' } })
+  })
+
+  it('parses /wiki?nav=tree as wiki overlay (nav=tree ignored)', () => {
+    expect(parseRoute('http://localhost/wiki?nav=tree')).toEqual({
+      overlay: { type: 'wiki' },
+    })
   })
 
   it('parses /wiki/folder/file.md as wiki overlay with path', () => {
@@ -235,6 +251,22 @@ describe('routeToUrl', () => {
     )
   })
 
+  it('wiki-dir without path', () => {
+    expect(routeToUrl({ overlay: { type: 'wiki-dir' } })).toBe('/wiki-dir')
+  })
+
+  it('wiki-dir with path', () => {
+    expect(routeToUrl({ overlay: { type: 'wiki-dir', path: 'people/notes' } })).toBe(
+      '/wiki-dir/people/notes',
+    )
+  })
+
+  it('hub with wiki-dir subroute', () => {
+    expect(
+      routeToUrl({ hubActive: true, overlay: { type: 'wiki-dir', path: 'people' } }),
+    ).toBe('/hub/wiki-dir/people')
+  })
+
   it('file without path', () => {
     expect(routeToUrl({ overlay: { type: 'file' } })).toBe('/files')
   })
@@ -332,6 +364,13 @@ describe('routeToUrl', () => {
     })
   })
 
+  it('parses /hub/wiki-dir/people as hubActive with wiki-dir overlay', () => {
+    expect(parseRoute('http://localhost/hub/wiki-dir/people')).toEqual({
+      hubActive: true,
+      overlay: { type: 'wiki-dir', path: 'people' },
+    })
+  })
+
   it('parses /hub/hub-source?id= as hubActive with hub-source overlay', () => {
     expect(parseRoute('http://localhost/hub/hub-source?id=src-9')).toEqual({
       hubActive: true,
@@ -379,6 +418,8 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     {},
     { overlay: { type: 'wiki' as const } },
     { overlay: { type: 'wiki' as const, path: 'ideas/my note.md' } },
+    { overlay: { type: 'wiki-dir' as const } },
+    { overlay: { type: 'wiki-dir' as const, path: 'people/sub' } },
     { overlay: { type: 'file' as const } },
     { overlay: { type: 'file' as const, path: '/Users/foo/bar.txt' } },
     { overlay: { type: 'email' as const } },
