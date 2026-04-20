@@ -72,8 +72,7 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .env("NODE_ENV", "production")
-        .env("BRAIN_BUNDLED_NATIVE", "1")
-        .env("AUTH_DISABLED", "true");
+        .env("BRAIN_BUNDLED_NATIVE", "1");
 
     // ripmail is bundled alongside node in server-bundle/. Always set the absolute path when
     // present (do not skip when the parent process has RIPMAIL_BIN= or a bare name — GUI apps
@@ -210,7 +209,9 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
             p.display()
         );
     }
-    log::info!("Brain bundled server listening on 127.0.0.1:{port} (from child stdout)");
+    log::info!(
+        "Brain WebView: navigate to https://127.0.0.1:{port}/ (TLS; from child BRAIN_LISTEN_PORT)"
+    );
     app.manage(ServerChild(Mutex::new(Some(child))));
     Ok(port)
 }

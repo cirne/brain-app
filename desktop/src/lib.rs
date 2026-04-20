@@ -22,6 +22,7 @@ pub fn run() {
     let context = tauri::generate_context!();
 
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![check_fda, open_fda_settings])
@@ -42,8 +43,10 @@ pub fn run() {
             }
             crate::embedded::apply_embedded_env()?;
             let port = crate::server_spawn::spawn_brain_server(app.handle())?;
+            // Bundled Node uses HTTPS (self-signed under BRAIN_HOME/var, OPP-023).
+            // NSAppTransportSecurity in Info.plist allows the WebView to load this origin.
             let url =
-                Url::parse(&format!("http://127.0.0.1:{port}/")).map_err(|e| e.to_string())?;
+                Url::parse(&format!("https://127.0.0.1:{port}/")).map_err(|e| e.to_string())?;
             if let Some(w) = app.handle().get_webview_window("main") {
                 w.navigate(url).map_err(|e| e.to_string())?;
             } else {

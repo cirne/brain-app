@@ -8,6 +8,7 @@ import {
   searchIndexDetail,
   webSearchDetail,
 } from './onboardingHelpers.js'
+import { wikiToolPathForSeeding } from './toolArgSummary.js'
 
 export function seedingLineGenericDone(tc: ToolCall): SeedingProgressLine {
   const n = tc.name
@@ -28,12 +29,12 @@ export function buildSeedingLine(
   const n = tc.name
 
   if (n === 'write') {
-    const path = typeof args.path === 'string' ? args.path : undefined
+    const path = wikiToolPathForSeeding(args)
     if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Wrote', path }
     return { id: tc.id, kind: 'active-tool', prefix: 'Writing', path }
   }
   if (n === 'edit') {
-    const path = typeof args.path === 'string' ? args.path : undefined
+    const path = wikiToolPathForSeeding(args)
     if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Updated', path }
     return { id: tc.id, kind: 'active-tool', prefix: 'Updating', path }
   }

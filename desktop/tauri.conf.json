@@ -4,10 +4,16 @@
   "version": "0.1.0",
   "identifier": "com.cirne.brain",
   "build": {
-    "frontendDist": "http://localhost:18473",
+    "frontendDist": "https://127.0.0.1:18473",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run desktop:setup-sidecars && npm run build && npm run desktop:bundle-server"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "RWTgITqS619d/PchIJS49gaMTh9VY7tQvAhOQAHafCOglChd+QN8OYhs",
+      "endpoints": []
+    }
   },
   "app": {
     "windows": [

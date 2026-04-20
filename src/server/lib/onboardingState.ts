@@ -11,8 +11,6 @@ export type OnboardingMachineState =
   | 'indexing'
   | 'profiling'
   | 'reviewing-profile'
-  | 'confirming-categories'
-  | 'seeding'
   | 'done'
 
 export interface OnboardingStateDoc {
@@ -58,16 +56,12 @@ export async function readOnboardingStateDoc(): Promise<OnboardingStateDoc> {
     const parsed = JSON.parse(raw) as unknown
     if (!parsed || typeof parsed !== 'object') return defaultDoc()
     const o = parsed as Record<string, unknown>
-    let state = o.state
-    /** Removed interstitials; old files may still say `warming` or `confirming-identity`. */
-    if (state === 'warming' || state === 'confirming-identity') state = 'profiling'
+    const state = o.state
     const valid: OnboardingMachineState[] = [
       'not-started',
       'indexing',
       'profiling',
       'reviewing-profile',
-      'confirming-categories',
-      'seeding',
       'done',
     ]
     if (typeof state === 'string' && (valid as string[]).includes(state)) {
@@ -99,10 +93,8 @@ const transitions: Record<OnboardingMachineState, OnboardingMachineState[]> = {
   'not-started': ['indexing', 'not-started'],
   indexing: ['profiling', 'not-started'],
   profiling: ['reviewing-profile', 'not-started'],
-  /** Profile accept goes straight to `done` (wiki seeding is optional / background; see wiki expansion). */
-  'reviewing-profile': ['profiling', 'confirming-categories', 'seeding', 'done', 'not-started'],
-  'confirming-categories': ['seeding', 'done', 'not-started'],
-  seeding: ['done', 'not-started'],
+  /** Profile accept goes straight to `done` (background wiki expansion runs separately). */
+  'reviewing-profile': ['profiling', 'done', 'not-started'],
   done: ['not-started'],
 }
 
@@ -130,7 +122,7 @@ export async function resetOnboardingState(): Promise<OnboardingStateDoc> {
 }
 
 /**
- * Set onboarding machine state without transition validation (e.g. `done` → `seeding` to re-run wiki seed).
+ * Set onboarding machine state without transition validation (e.g. dev routes).
  */
 export async function setOnboardingStateForce(next: OnboardingMachineState): Promise<OnboardingStateDoc> {
   const doc: OnboardingStateDoc = { state: next, updatedAt: new Date().toISOString() }

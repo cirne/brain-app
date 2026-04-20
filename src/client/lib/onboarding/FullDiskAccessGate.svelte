@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import type { Snippet } from 'svelte'
+  import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import { invoke } from '@tauri-apps/api/core'
   import { exit, relaunch } from '@tauri-apps/plugin-process'
 
@@ -100,8 +101,8 @@
   <div class="fda-loading">Checking permissions…</div>
 {:else if showModal}
   <div class="fda-overlay" role="dialog" aria-modal="true" aria-labelledby="fda-title">
-    <div class="fda-modal ob-hero">
-      <div class="ob-hero-inner">
+    <div class="fda-modal">
+      <OnboardingHeroShell>
         <span class="ob-kicker">Privacy</span>
         <h1 id="fda-title" class="ob-headline">Allow Full Disk Access</h1>
         <p class="ob-lead">
@@ -119,7 +120,7 @@
           </button>
           <button type="button" class="fda-btn-secondary" onclick={() => void onQuit()}>Quit</button>
         </div>
-      </div>
+      </OnboardingHeroShell>
     </div>
   </div>
 {:else}
@@ -148,58 +149,13 @@
     padding: 1rem;
   }
   .fda-modal {
+    display: flex;
+    flex-direction: column;
     max-height: min(90vh, 720px);
     overflow-y: auto;
     border-radius: 1rem;
     background: var(--bg, #0f0f0f);
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-  }
-  .ob-hero {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    justify-content: center;
-    min-height: min(560px, 85vh);
-    padding: 3.5rem 1.5rem;
-  }
-  @media (min-width: 640px) {
-    .ob-hero {
-      padding: 4rem 2rem;
-    }
-  }
-  .ob-hero-inner {
-    width: 100%;
-    max-width: 28rem;
-    text-align: center;
-  }
-  .ob-kicker {
-    display: block;
-    margin-bottom: 0.75rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-  .ob-headline {
-    font-size: 1.75rem;
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    line-height: 1.2;
-    color: var(--text);
-    text-wrap: balance;
-  }
-  @media (min-width: 640px) {
-    .ob-headline {
-      font-size: 2.25rem;
-    }
-  }
-  .ob-lead {
-    margin-top: 1rem;
-    font-size: 1.0625rem;
-    line-height: 1.6;
-    color: var(--text-2);
-    text-wrap: pretty;
   }
   .fda-steps {
     margin: 1.25rem auto 0;
@@ -209,42 +165,6 @@
     font-size: 0.9375rem;
     line-height: 1.55;
     color: var(--text-2);
-  }
-  .ob-cta-group {
-    margin-top: 2.5rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-  }
-  .ob-btn-primary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.8125rem 2rem;
-    border: none;
-    border-radius: 0.75rem;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: #fff;
-    background: var(--accent);
-    cursor: pointer;
-    transition:
-      background 0.15s,
-      transform 0.1s,
-      opacity 0.15s;
-    -webkit-font-smoothing: antialiased;
-  }
-  .ob-btn-primary:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-  .ob-btn-primary:active:not(:disabled) {
-    transform: scale(0.97);
-  }
-  .ob-btn-block {
-    width: 100%;
   }
   .fda-btn-secondary {
     background: transparent;

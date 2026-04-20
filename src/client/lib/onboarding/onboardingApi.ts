@@ -120,18 +120,6 @@ export async function postAcceptProfile(categories: string[]): Promise<void> {
   }
 }
 
-export async function postPrepareSeed(categories: string[]): Promise<void> {
-  const res = await fetch('/api/onboarding/prepare-seed', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ categories }),
-  })
-  if (!res.ok) {
-    const j = (await res.json()) as { error?: string }
-    throw new Error(j.error ?? 'prepare-seed failed')
-  }
-}
-
 export async function patchOnboardingPreferences(
   mailProvider: 'apple' | 'google' | null,
 ): Promise<void> {

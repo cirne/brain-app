@@ -46,14 +46,18 @@ A user signs up with their Google account, approves email and calendar access, a
 
 ### 3. Authentication
 
-**Current state:** Single shared Basic Auth username/password set via env vars. Skipped entirely in dev.
+**Current state (single-user local):** Vault password set at onboarding; verifier under `$BRAIN_HOME/var/`; **HttpOnly** session cookie gates `/api/*` after unlock ([`runtime-and-routes.md`](architecture/runtime-and-routes.md)).
 
-**What breaks:** Everything. Basic Auth is not multi-user. There's no signup, no per-user identity, no session management, no token rotation.
+**What's still not product-scale:** Single tenant only (no signup, provider identity as product login, per-user isolation on a hosted service).
 
-**Path forward:**
+**Local-first tightening:** Same-LAN access is **opt-in** (`allowLanDirectAccess` in onboarding preferences) with **TLS** to the embedded server; default remains loopback + Tailscale CGNAT only. See [runtime-and-routes.md](architecture/runtime-and-routes.md). [OPP-035](opportunities/OPP-035-local-vault-password-and-session-auth.md).
+
+**What breaks:** Everything at multi-tenant SaaS scale. There's no signup, no per-user identity as first-class product auth, no tenant-isolated deployments.
+
+**Path forward (multi-tenant product):**
 - Google OAuth is the natural fit given the vision (email + calendar are already Google)
 - One OAuth consent screen grants email, calendar, and identity — the user is authenticated and their data sources are connected in one step
-- Session management (JWT or server-side sessions) needs to be added; currently there's nothing
+- Product-scale session and identity (JWT or hosted sessions with tenant id) beyond the local vault cookie
 - Per-user data isolation (wiki content, email index, calendar cache) needs to be scoped to an authenticated identity
 
 ---

@@ -5,7 +5,7 @@ Brain uses **fixed** Google OAuth redirect URIs in code (no env var for the path
 | Mode | Listen port | Redirect URI |
 |------|-------------|--------------|
 | **`npm run dev`** / non-bundled `node dist/server` | `3000` (or `PORT`) | `http://127.0.0.1:3000/api/oauth/google/callback` |
-| **Brain.app** (bundled Tauri, `BRAIN_BUNDLED_NATIVE=1`) | `18473`–`18476` (first available) | `http://127.0.0.1:<bound-port>/api/oauth/google/callback` |
+| **Brain.app** (bundled Tauri, `BRAIN_BUNDLED_NATIVE=1`) | `18473`–`18476` (first available) | `https://127.0.0.1:<bound-port>/api/oauth/google/callback` (TLS, OPP-023) |
 
 If `PORT` is set (non-bundled only), the redirect uses that port instead of `3000`.
 
@@ -21,10 +21,10 @@ If `PORT` is set (non-bundled only), the redirect uses that port instead of `300
 2. Open your **OAuth 2.0 Client ID** (type *Web application*).
 3. Under **Authorized redirect URIs**, add **all** of the following:
    - `http://127.0.0.1:3000/api/oauth/google/callback` (dev)
-   - `http://127.0.0.1:18473/api/oauth/google/callback`
-   - `http://127.0.0.1:18474/api/oauth/google/callback`
-   - `http://127.0.0.1:18475/api/oauth/google/callback`
-   - `http://127.0.0.1:18476/api/oauth/google/callback`
+   - `https://127.0.0.1:18473/api/oauth/google/callback` (Brain.app, TLS)
+   - `https://127.0.0.1:18474/api/oauth/google/callback`
+   - `https://127.0.0.1:18475/api/oauth/google/callback`
+   - `https://127.0.0.1:18476/api/oauth/google/callback`
 
 The number of bundled-mode entries equals `NATIVE_APP_PORT_FAILOVER_COUNT + 1` (currently 4) in `src/server/lib/nativeAppPort.ts`.
 

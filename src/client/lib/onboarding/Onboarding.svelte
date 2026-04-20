@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
+  /** Hero typography + CTAs used by hero shell and by review/profile steps outside the shell. */
+  import './onboardingHeroPrimitives.css'
   import OnboardingWorkspace from './OnboardingWorkspace.svelte'
   import ProfileDraftEditor from './ProfileDraftEditor.svelte'
   import {
@@ -23,12 +25,16 @@
     type OnboardingMailStatus,
   } from './onboardingTypes.js'
   import { resizeMainWindowToBrowserLikeWorkArea } from '../desktop/browserLikeWindow.js'
+  import VaultSetupStep from './VaultSetupStep.svelte'
+  import OnboardingHeroShell from './OnboardingHeroShell.svelte'
 
   interface Props {
     onComplete: () => Promise<void>
     refreshStatus: () => Promise<void>
+    /** True when no vault verifier exists yet — first onboarding screen is vault password. */
+    needsVaultSetup: boolean
   }
-  let { onComplete, refreshStatus }: Props = $props()
+  let { onComplete, refreshStatus, needsVaultSetup }: Props = $props()
 
   let state = $state<string>('not-started')
   /** From server; used for indexing-step copy (Apple vs Google). */
@@ -37,7 +43,7 @@
   let setupError = $state<string | null>(null)
   /** PATCH profiling failed while on indexing (e.g. below server minimum). */
   let indexingAdvanceError = $state<string | null>(null)
-  /** Review / accept-profile / confirming-categories recovery */
+  /** Review / accept-profile */
   let profileStepError = $state<string | null>(null)
   let busy = $state(false)
 
@@ -50,10 +56,6 @@
   let onboardingExitHandled = $state(false)
   /** Tauri: true after we’ve applied the “browser-sized” window for late onboarding (profiling onward). */
   let onboardingLargeWindowApplied = $state(false)
-
-  /** Legacy onboarding: migrate old `seeding` / `confirming-categories` to main app. */
-  let legacySeedingRecoverDone = $state(false)
-
   const mailIndexedCount = $derived(Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0))
   const canAutoProceedToProfiling = $derived(mailIndexedCount >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED)
   const canOfferEarlyProfile = $derived(
@@ -130,12 +132,15 @@
   /** After enough mail is indexed, advance to profiling. */
   let indexingToProfilingInitiated = $state(false)
   $effect(() => {
-    if (state === 'not-started') indexingToProfilingInitiated = false
+    if (state !== 'indexing') {
+      indexingToProfilingInitiated = false
+    }
   })
 
   const showIndexingHero = $derived(
-    state === 'indexing' ||
-      (state === 'not-started' && mail.configured && !setupError),
+    !needsVaultSetup &&
+      (state === 'indexing' ||
+        (state === 'not-started' && mail.configured && !setupError)),
   )
 
   const indexingStatusLine = $derived.by(() => {
@@ -345,25 +350,6 @@
     if (state === 'reviewing-profile') void loadDraft()
   })
 
-  $effect(() => {
-    if (state !== 'seeding' && state !== 'confirming-categories') {
-      legacySeedingRecoverDone = false
-      return
-    }
-    if (legacySeedingRecoverDone || busy) return
-    legacySeedingRecoverDone = true
-    void (async () => {
-      try {
-        await patchState('done')
-        await refreshStatus()
-        await load()
-        await onComplete()
-      } catch {
-        legacySeedingRecoverDone = false
-      }
-    })()
-  })
-
 </script>
 
 <div
@@ -378,6 +364,13 @@
         autoSendMessage="From my indexed email, write a short me.md for my assistant: how to help me, tone, key roles, a few key people — lean and steering, not a full bio. Use the tools; keep it factual. Interests and projects will land in the wiki afterward."
       onStreamFinished={async () => { await patchState('reviewing-profile') }}
     />
+  {:else if needsVaultSetup}
+    <VaultSetupStep
+      onComplete={async () => {
+        await refreshStatus()
+        await load()
+      }}
+    />
   {:else}
   <div
     class="onboarding-main flex min-h-0 flex-1 flex-col"
@@ -385,8 +378,7 @@
     class:onboarding-main-review={state === 'reviewing-profile'}
   >
     {#if state === 'not-started' && !mail.configured}
-      <div class="ob-hero">
-        <div class="ob-hero-inner">
+      <OnboardingHeroShell>
           <span class="ob-kicker">Brain</span>
           <h1 class="ob-headline">Your assistant, on your Mac</h1>
           <p class="ob-lead">
@@ -427,12 +419,10 @@
               browser sign-in (mail + calendar read). macOS may prompt for permissions during setup.
             </p>
           </div>
-        </div>
-      </div>
+      </OnboardingHeroShell>
 
     {:else if state === 'not-started' && mail.configured && setupError}
-      <div class="ob-hero">
-        <div class="ob-hero-inner">
+      <OnboardingHeroShell>
           <span class="ob-kicker">Brain</span>
           <h1 class="ob-headline">Couldn’t start indexing</h1>
           <p class="ob-error">{setupError}</p>
@@ -451,12 +441,10 @@
               {/if}
             </button>
           </div>
-        </div>
-      </div>
+      </OnboardingHeroShell>
 
     {:else if showIndexingHero}
-      <div class="ob-hero ob-hero--indexing" aria-busy="true">
-        <div class="ob-hero-inner ob-indexing-hero-inner">
+      <OnboardingHeroShell indexing ariaBusy="true">
           <div class="ob-indexing-fixed">
             <div class="ob-indexing-visual" aria-hidden="true">
               <span class="ob-indexing-orbit"></span>
@@ -510,8 +498,7 @@
               <p class="ob-error ob-indexing-mail-error">{mail.statusError}</p>
             {/if}
           </div>
-        </div>
-      </div>
+      </OnboardingHeroShell>
 
     {:else if state === 'reviewing-profile'}
       <section class="ob-review" aria-labelledby="ob-review-title">
@@ -564,16 +551,14 @@
       </section>
 
     {:else if state === 'done'}
-      <div class="ob-hero">
-        <div class="ob-hero-inner">
+      <OnboardingHeroShell>
           <h1 class="ob-headline">You're all set</h1>
           <p class="ob-lead">Your assistant is ready. We’ll keep building your wiki in the background.</p>
           <button type="button" class="ob-btn-primary" onclick={() => void onComplete()}>
             Open Brain
             <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
           </button>
-        </div>
-      </div>
+      </OnboardingHeroShell>
     {/if}
   </div>
   {/if}
@@ -586,46 +571,10 @@
     margin-inline: auto;
   }
 
-  /* ── Hero (centered full-height steps) ── */
-  .ob-hero {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    justify-content: center;
-    min-height: min(560px, 85vh);
-    padding: 3.5rem 1.5rem;
-  }
-  @media (min-width: 640px) {
-    .ob-hero { padding: 4rem 2rem; }
-  }
-  .ob-hero-inner {
-    width: 100%;
-    max-width: 28rem;
-    text-align: center;
-  }
-
   /**
    * Indexing: keep orbit + title stack fixed while optional hint / elapsed / error lines update.
    * The status slot reserves height (and caps overflow) so the centered column doesn’t jump when copy updates.
    */
-  .ob-hero--indexing {
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .ob-indexing-hero-inner {
-    max-width: 22rem;
-    width: 100%;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 0;
-  }
-
   .ob-indexing-fixed {
     display: flex;
     flex-direction: column;
@@ -770,145 +719,6 @@
     .ob-indexing-core {
       animation: none;
     }
-  }
-
-  /* ── Typography ── */
-  .ob-kicker {
-    display: block;
-    margin-bottom: 0.75rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-  .ob-headline {
-    font-size: 1.75rem;
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    line-height: 1.2;
-    color: var(--text);
-    text-wrap: balance;
-  }
-  @media (min-width: 640px) {
-    .ob-headline { font-size: 2.25rem; }
-  }
-  .ob-lead {
-    margin-top: 1rem;
-    font-size: 1.0625rem;
-    line-height: 1.6;
-    color: var(--text-2);
-    text-wrap: pretty;
-  }
-  .ob-fine-print {
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: color-mix(in srgb, var(--text-2) 70%, transparent);
-    max-width: 22rem;
-  }
-  /* ── CTA area ── */
-  .ob-cta-group {
-    margin-top: 2.5rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1.75rem;
-  }
-
-  .ob-provider-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    justify-content: center;
-    width: 100%;
-    max-width: 28rem;
-  }
-
-  /* Paired provider tiles (icons can be added later as inline SVGs). */
-  .ob-btn-provider {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    min-width: 10.5rem;
-    padding: 0.75rem 1.25rem;
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: var(--text);
-    background: var(--bg-2);
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, transform 0.1s, opacity 0.15s;
-    -webkit-font-smoothing: antialiased;
-  }
-  .ob-btn-provider:hover:not(:disabled) {
-    background: var(--bg-3, color-mix(in srgb, var(--bg-2) 80%, var(--text) 20%));
-    border-color: color-mix(in srgb, var(--border) 65%, var(--text) 35%);
-  }
-  .ob-btn-provider:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-  .ob-btn-provider:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-  .ob-spinner--provider {
-    border-color: color-mix(in srgb, var(--text) 25%, transparent);
-    border-top-color: var(--text);
-  }
-
-  /* ── Buttons ── */
-  .ob-btn-primary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.8125rem 2rem;
-    border: none;
-    border-radius: 0.75rem;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: #fff;
-    background: var(--accent);
-    cursor: pointer;
-    transition: background 0.15s, transform 0.1s, opacity 0.15s;
-    -webkit-font-smoothing: antialiased;
-  }
-  .ob-btn-primary:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-  .ob-btn-primary:active:not(:disabled) {
-    transform: scale(0.97);
-  }
-  .ob-btn-primary:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  .ob-btn-icon {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-  }
-  .ob-spinner {
-    display: inline-block;
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: ob-spin 0.6s linear infinite;
-  }
-  @keyframes ob-spin {
-    to { transform: rotate(360deg); }
-  }
-
-  .ob-error {
-    font-size: 0.875rem;
-    line-height: 1.5;
-    color: var(--danger, #e05c5c);
   }
 
   .ob-review-error {

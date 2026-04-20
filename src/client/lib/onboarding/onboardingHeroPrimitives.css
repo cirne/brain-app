@@ -1,0 +1,154 @@
+/* Shared onboarding hero step: typography, CTAs, primary buttons (used with OnboardingHeroShell). */
+
+/* ── Typography ── */
+.ob-kicker {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.ob-headline {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  color: var(--text);
+  text-wrap: balance;
+}
+@media (min-width: 640px) {
+  .ob-headline {
+    font-size: 2.25rem;
+  }
+}
+.ob-lead {
+  margin-top: 1rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+.ob-fine-print {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--text-2) 70%, transparent);
+  max-width: 22rem;
+}
+
+/* ── CTA area ── */
+.ob-cta-group {
+  margin-top: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+.ob-provider-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  width: 100%;
+  max-width: 28rem;
+}
+
+.ob-btn-provider {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 10.5rem;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  background: var(--bg-2);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s,
+    opacity 0.15s;
+  -webkit-font-smoothing: antialiased;
+}
+.ob-btn-provider:hover:not(:disabled) {
+  background: var(--bg-3, color-mix(in srgb, var(--bg-2) 80%, var(--text) 20%));
+  border-color: color-mix(in srgb, var(--border) 65%, var(--text) 35%);
+}
+.ob-btn-provider:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.ob-btn-provider:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ob-spinner--provider {
+  border-color: color-mix(in srgb, var(--text) 25%, transparent);
+  border-top-color: var(--text);
+}
+
+/* ── Buttons ── */
+.ob-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8125rem 2rem;
+  border: none;
+  border-radius: 0.75rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+  background: var(--accent);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s,
+    opacity 0.15s;
+  -webkit-font-smoothing: antialiased;
+}
+.ob-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.ob-btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.ob-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ob-btn-block {
+  width: 100%;
+}
+.ob-btn-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+.ob-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ob-spin 0.6s linear infinite;
+}
+@keyframes ob-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ob-error {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--danger, #e05c5c);
+}

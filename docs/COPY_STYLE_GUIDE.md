@@ -41,7 +41,9 @@ Avoid developer-centric terms that leak from the codebase.
 | **Agent / Tool / Call** | Assistant, Feature, Action (or just describe the action) |
 | **Slug** | Name, Link, ID (if necessary) |
 | **FTS / Semantic** | Search, Smart Search |
-| **Vault** | Wiki, Knowledge Base, Library |
+| **`BRAIN_HOME` / paths / “vault” folder on disk** | **Vault on this Mac**, **your vault**, **unlock your vault** |
+
+**Vault vs wiki:** **Vault** is user-facing for the **secured local store** (Obsidian-adjacent): password, unlock, where durable Brain data lives. **Wiki** is user-facing for **Markdown pages and links inside the vault**. Do not use **wiki** when you mean unlocking or the whole datastore—use **vault**. **Brain** — short UI kickers and in-app references. **Brain Tunnel** — working product name; use where full identity or remote/tunnel access is the point (welcome, About), not every headline.
 
 ---
 

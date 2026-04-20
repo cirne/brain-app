@@ -3,13 +3,13 @@
 import { loadDotEnv } from './lib/loadDotEnv.js'
 import { Hono } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
-import { createAdaptorServer, serve, getRequestListener } from '@hono/node-server'
+import { serve, getRequestListener } from '@hono/node-server'
 import type { ServerType } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
-import { basicAuth } from 'hono/basic-auth'
 import { logger } from 'hono/logger'
 import { getCookie } from 'hono/cookie'
 import { createServer } from 'node:http'
+import { createServer as createHttpsServer } from 'node:https'
 import chatRoute from './routes/chat.js'
 import skillsRoute from './routes/skills.js'
 import wikiRoute from './routes/wiki.js'
@@ -22,8 +22,11 @@ import onboardingRoute from './routes/onboarding.js'
 import backgroundRoute from './routes/background.js'
 import yourWikiRoute from './routes/yourWiki.js'
 import gmailOAuthRoute from './routes/gmailOAuth.js'
+import oauthGoogleBrowserPages from './routes/oauthGoogleBrowserPages.js'
 import hubRoute from './routes/hub.js'
 import devRoute from './routes/dev.js'
+import vaultRoute from './routes/vault.js'
+import { vaultGateMiddleware } from './lib/vaultGate.js'
 import { ensureYourWikiRunning, requestLapNow } from './agent/yourWikiSupervisor.js'
 import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
 import { runStartupChecks } from './lib/runStartupChecks.js'
@@ -39,6 +42,7 @@ import { startTunnel, stopTunnel, getActiveTunnelUrl, getHostGuid } from './lib/
 import { readOnboardingPreferences } from './lib/onboardingPreferences.js'
 import { BRAIN_DEFAULT_HTTP_PORT, setActualNativePort } from './lib/brainHttpPort.js'
 import { isAllowedBundledNativeClientIp } from './lib/bundledNativeClientAllowlist.js'
+import { ensureEmbeddedServerTls } from './lib/embeddedServerTls.js'
 import { isBundledNativeServer, nativeAppOAuthPortCandidates } from './lib/nativeAppPort.js'
 import {
   duplicateDevListenMessage,
@@ -53,6 +57,10 @@ const isDev = process.env.NODE_ENV !== 'production'
 
 if (isBundledNativeServer()) {
   app.use('*', async (c, next) => {
+    const prefs = await readOnboardingPreferences()
+    if (prefs.allowLanDirectAccess === true) {
+      return next()
+    }
     let addr: string | undefined
     try {
       addr = getConnInfo(c).remote.address
@@ -111,13 +119,17 @@ app.use('*', async (c, next) => {
   return next()
 })
 
+app.use('/api/*', vaultGateMiddleware)
+
 const requestLogger = logger()
 /** High-frequency onboarding polls — skip Hono access logs to reduce noise */
 function isQuietPollPath(path: string): boolean {
   return (
     path === '/api/onboarding/mail' ||
     path === '/api/onboarding/ripmail' ||
-    path === '/api/hub/sources'
+    path === '/api/oauth/google/last-result' ||
+    path === '/api/hub/sources' ||
+    path === '/api/vault/status'
   )
 }
 app.use('*', async (c, next) => {
@@ -125,19 +137,7 @@ app.use('*', async (c, next) => {
   return requestLogger(c, next)
 })
 
-// Auth: required in production unless AUTH_DISABLED=true (e.g. private subnet).
-// Google OAuth callback must be reachable without browser basic auth.
-if (!isDev && process.env.AUTH_DISABLED !== 'true') {
-  const apiBasicAuth = basicAuth({
-    username: process.env.AUTH_USER ?? 'lew',
-    password: process.env.AUTH_PASS ?? 'changeme',
-  })
-  app.use('/api/*', async (c, next) => {
-    if (c.req.path.startsWith('/api/oauth/google')) return next()
-    return apiBasicAuth(c, next)
-  })
-}
-
+app.route('/api/vault', vaultRoute)
 app.route('/api/chat', chatRoute)
 app.route('/api/skills', skillsRoute)
 app.route('/api/wiki', wikiRoute)
@@ -152,6 +152,7 @@ app.route('/api/hub', hubRoute)
 app.route('/api/background', backgroundRoute)
 app.route('/api/your-wiki', yourWikiRoute)
 app.route('/api/oauth/google', gmailOAuthRoute)
+app.route('/oauth/google', oauthGoogleBrowserPages)
 if (isDev) {
   app.route('/api/dev', devRoute)
 }
@@ -214,7 +215,7 @@ function resolveNonNativePort(): number {
 }
 
 /**
- * Try to bind an http.Server to a single port. Returns true on success, false on EADDRINUSE,
+ * Try to bind an `http`/`https` server to a single port. Returns true on success, false on EADDRINUSE,
  * throws on any other error.
  */
 function tryListen(server: ServerType, port: number): Promise<boolean> {
@@ -238,13 +239,16 @@ function tryListen(server: ServerType, port: number): Promise<boolean> {
 /**
  * Bundled Tauri app: bind the first available port from the OAuth candidate list
  * (18473, 18474, 18475, 18476). Multiple users on the same machine each get their own port.
+ * TLS: self-signed cert under `$BRAIN_HOME/var` (see {@link ensureEmbeddedServerTls}).
  * Calls {@link setActualNativePort} so the OAuth redirect URI reflects the bound port.
  */
 async function listenNativeBundled(): Promise<ServerType> {
   const candidates = nativeAppOAuthPortCandidates()
+  const { key, cert } = await ensureEmbeddedServerTls()
+  const handler = getRequestListener(app.fetch)
 
   for (const p of candidates) {
-    const server = createAdaptorServer({ fetch: app.fetch })
+    const server = createHttpsServer({ key, cert }, handler) as ServerType
     const bound = await tryListen(server, p)
     if (bound) {
       setActualNativePort(p)
@@ -254,7 +258,7 @@ async function listenNativeBundled(): Promise<ServerType> {
         console.log(`[brain-app] Port ${candidates[0]} in use; bound to fallback port ${p}`)
       }
       console.log(
-        `[brain-app] Bundled server listening on 0.0.0.0:${p} (Tailscale: http://<this-machine-tailscale-ip>:${p}; OAuth: http://127.0.0.1:${p})`,
+        `[brain-app] Bundled server listening on 0.0.0.0:${p} (TLS; Tailscale: https://<this-machine-tailscale-ip>:${p}; OAuth: https://127.0.0.1:${p})`,
       )
       return server
     }

@@ -35,20 +35,6 @@ describe('onboardingState', () => {
     expect((await readOnboardingStateDoc()).state).toBe('profiling')
   })
 
-  it('readOnboardingStateDoc maps legacy warming to profiling', async () => {
-    const path = join(chatDir(), 'onboarding.json')
-    await writeFile(path, JSON.stringify({ state: 'warming', updatedAt: '2020-01-01' }), 'utf-8')
-    const { readOnboardingStateDoc } = await import('./onboardingState.js')
-    expect((await readOnboardingStateDoc()).state).toBe('profiling')
-  })
-
-  it('readOnboardingStateDoc maps legacy confirming-identity to profiling', async () => {
-    const path = join(chatDir(), 'onboarding.json')
-    await writeFile(path, JSON.stringify({ state: 'confirming-identity', updatedAt: '2020-01-01' }), 'utf-8')
-    const { readOnboardingStateDoc } = await import('./onboardingState.js')
-    expect((await readOnboardingStateDoc()).state).toBe('profiling')
-  })
-
   it('setOnboardingState rejects invalid transition', async () => {
     const { setOnboardingState } = await import('./onboardingState.js')
     await expect(setOnboardingState('done')).rejects.toThrow()
@@ -61,15 +47,6 @@ describe('onboardingState', () => {
     await setOnboardingState('reviewing-profile')
     await setOnboardingState('done')
     expect((await readOnboardingStateDoc()).state).toBe('done')
-  })
-
-  it('setOnboardingState allows reviewing-profile → seeding (legacy / dev)', async () => {
-    const { setOnboardingState, readOnboardingStateDoc } = await import('./onboardingState.js')
-    await setOnboardingState('indexing')
-    await setOnboardingState('profiling')
-    await setOnboardingState('reviewing-profile')
-    await setOnboardingState('seeding')
-    expect((await readOnboardingStateDoc()).state).toBe('seeding')
   })
 
   it('setOnboardingState allows reviewing-profile → profiling (regenerate)', async () => {
@@ -90,18 +67,16 @@ describe('onboardingState', () => {
     expect((await readOnboardingStateDoc()).state).toBe('not-started')
   })
 
-  it('setOnboardingStateForce allows done → seeding', async () => {
+  it('setOnboardingStateForce allows arbitrary transition from done', async () => {
     const { setOnboardingState, setOnboardingStateForce, readOnboardingStateDoc } = await import(
       './onboardingState.js'
     )
     await setOnboardingState('indexing')
     await setOnboardingState('profiling')
     await setOnboardingState('reviewing-profile')
-    await setOnboardingState('confirming-categories')
-    await setOnboardingState('seeding')
     await setOnboardingState('done')
-    await setOnboardingStateForce('seeding')
-    expect((await readOnboardingStateDoc()).state).toBe('seeding')
+    await setOnboardingStateForce('not-started')
+    expect((await readOnboardingStateDoc()).state).toBe('not-started')
   })
 
   it('wikiMeExists reflects me.md', async () => {
@@ -122,8 +97,7 @@ describe('onboardingState', () => {
     await setOnboardingState('indexing')
     await setOnboardingState('profiling')
     await setOnboardingState('reviewing-profile')
-    await setOnboardingState('confirming-categories')
-    await setOnboardingState('seeding')
+    await setOnboardingState('done')
     await appendTurn({
       sessionId: 'cc0e8400-e29b-41d4-a716-446655440088',
       userMessage: 'x',

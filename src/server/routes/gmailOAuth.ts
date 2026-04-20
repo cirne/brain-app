@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { googleOAuthRedirectUri } from '../lib/brainHttpPort.js'
 import { ripmailHomeForBrain } from '../lib/brainHome.js'
 import {
@@ -17,6 +17,11 @@ import {
   putOAuthSession,
   takeOAuthVerifier,
 } from '../lib/gmailOAuthState.js'
+import {
+  recordGoogleOauthError,
+  recordGoogleOauthSuccess,
+  takeGoogleOauthDesktopResult,
+} from '../lib/googleOauthDesktopResult.js'
 
 const app = new Hono()
 
@@ -29,10 +34,19 @@ function getOAuthConfig(): { clientId: string; clientSecret: string; redirectUri
   return { clientId, clientSecret, redirectUri: googleOAuthRedirectUri() }
 }
 
+function redirectOauthError(c: Context, message: string) {
+  recordGoogleOauthError(message)
+  const q = encodeURIComponent(message)
+  return c.redirect(`/oauth/google/error?reason=${q}`, 302)
+}
+
 app.get('/start', (c) => {
   const oauth = getOAuthConfig()
   if (!oauth) {
-    return c.redirect('/?gmailError=oauth_not_configured')
+    return redirectOauthError(
+      c,
+      'Gmail connection is not configured (missing Google OAuth client credentials).'
+    )
   }
   const { verifier, challenge } = generatePkce()
   const state = newOAuthState()
@@ -47,27 +61,45 @@ app.get('/start', (c) => {
   return c.redirect(url)
 })
 
+app.get('/last-result', (c) => {
+  const r = takeGoogleOauthDesktopResult()
+  if (!r.done) {
+    return c.json({ done: false as const })
+  }
+  if (r.ok) {
+    return c.json({ done: true as const, error: null as null })
+  }
+  return c.json({ done: true as const, error: r.error })
+})
+
 app.get('/callback', async (c) => {
   const oauth = getOAuthConfig()
   if (!oauth) {
-    return c.redirect('/?gmailError=oauth_not_configured')
+    return redirectOauthError(
+      c,
+      'Gmail connection is not configured (missing Google OAuth client credentials).'
+    )
   }
   const providerErr = c.req.query('error')
   const providerDesc = c.req.query('error_description')
   if (providerErr) {
-    const msg = encodeURIComponent(
-      providerDesc ? `${providerErr}: ${providerDesc}` : providerErr
-    )
-    return c.redirect(`/?gmailError=${msg}`)
+    const msg = providerDesc ? `${providerErr}: ${providerDesc}` : providerErr
+    return redirectOauthError(c, msg)
   }
   const code = c.req.query('code')
   const state = c.req.query('state')
   if (!code || !state) {
-    return c.redirect('/?gmailError=missing_code_or_state')
+    return redirectOauthError(
+      c,
+      'Missing code or state from Google. Return to Brain and start Connect Google again.'
+    )
   }
   const verifier = takeOAuthVerifier(state)
   if (!verifier) {
-    return c.redirect('/?gmailError=invalid_or_expired_state')
+    return redirectOauthError(
+      c,
+      'Sign-in session expired. Return to Brain and use Connect Google again.'
+    )
   }
   let tokens
   try {
@@ -79,22 +111,21 @@ app.get('/callback', async (c) => {
       codeVerifier: verifier,
     })
   } catch (e) {
-    const msg = encodeURIComponent(e instanceof Error ? e.message : String(e))
-    return c.redirect(`/?gmailError=${msg}`)
+    const msg = e instanceof Error ? e.message : String(e)
+    return redirectOauthError(c, msg)
   }
   if (!tokens.refreshToken) {
-    return c.redirect(
-      `/?gmailError=${encodeURIComponent(
-        'No refresh token — revoke Brain access in Google Account and connect again'
-      )}`
+    return redirectOauthError(
+      c,
+      'No refresh token — revoke Brain access in your Google account and connect again from Brain.'
     )
   }
   let email: string
   try {
     email = await fetchGoogleUserEmail({ accessToken: tokens.accessToken })
   } catch (e) {
-    const msg = encodeURIComponent(e instanceof Error ? e.message : String(e))
-    return c.redirect(`/?gmailError=${msg}`)
+    const msg = e instanceof Error ? e.message : String(e)
+    return redirectOauthError(c, msg)
   }
   const mailboxId = deriveMailboxId(email)
   const ripmailHome = ripmailHomeForBrain()
@@ -103,10 +134,11 @@ app.get('/callback', async (c) => {
     await upsertRipmailConfig(ripmailHome, mailboxId, email)
     await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
   } catch (e) {
-    const msg = encodeURIComponent(e instanceof Error ? e.message : String(e))
-    return c.redirect(`/?gmailError=${msg}`)
+    const msg = e instanceof Error ? e.message : String(e)
+    return redirectOauthError(c, msg)
   }
-  return c.redirect('/?gmailConnected=1')
+  recordGoogleOauthSuccess()
+  return c.redirect('/oauth/google/complete', 302)
 })
 
 export default app

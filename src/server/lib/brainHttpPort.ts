@@ -1,5 +1,9 @@
 import { isBundledNativeServer, NATIVE_APP_PORT_START } from './nativeAppPort.js'
 
+/** Bundled Brain.app uses HTTPS to the embedded server (self-signed, OPP-023). */
+export const BUNDLED_EMBEDDED_SERVER_SCHEME = 'https' as const
+export const NON_BUNDLED_EMBEDDED_SERVER_SCHEME = 'http' as const
+
 /**
  * Default HTTP listen port for **dev** and **non-bundled** production (`node dist/server` without
  * `BRAIN_BUNDLED_NATIVE`). Keeps `npm run dev` off **18473**, which the packaged Brain.app reserves
@@ -43,6 +47,13 @@ export function oauthRedirectListenPort(): number {
  * Register **both** dev (`:3000` by default) and bundled (`:18473`) URIs in Google Cloud Console.
  * Uses loopback IP so it matches a single registered entry per port regardless of `localhost` DNS.
  */
+export function embeddedServerUrlScheme():
+  | typeof BUNDLED_EMBEDDED_SERVER_SCHEME
+  | typeof NON_BUNDLED_EMBEDDED_SERVER_SCHEME {
+  return isBundledNativeServer() ? BUNDLED_EMBEDDED_SERVER_SCHEME : NON_BUNDLED_EMBEDDED_SERVER_SCHEME
+}
+
 export function googleOAuthRedirectUri(): string {
-  return `http://127.0.0.1:${oauthRedirectListenPort()}${GOOGLE_OAUTH_CALLBACK_PATH}`
+  const scheme = embeddedServerUrlScheme()
+  return `${scheme}://127.0.0.1:${oauthRedirectListenPort()}${GOOGLE_OAUTH_CALLBACK_PATH}`
 }

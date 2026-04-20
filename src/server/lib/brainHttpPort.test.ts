@@ -51,7 +51,7 @@ describe('brainHttpPort', () => {
     process.env.PORT = '9999' // PORT env is ignored in bundled mode
     expect(oauthRedirectListenPort()).toBe(NATIVE_APP_PORT_START)
     expect(googleOAuthRedirectUri()).toBe(
-      `http://127.0.0.1:${NATIVE_APP_PORT_START}${GOOGLE_OAUTH_CALLBACK_PATH}`
+      `https://127.0.0.1:${NATIVE_APP_PORT_START}${GOOGLE_OAUTH_CALLBACK_PATH}`
     )
   })
 
@@ -61,7 +61,7 @@ describe('brainHttpPort', () => {
     setActualNativePort(failoverPort)
     expect(oauthRedirectListenPort()).toBe(failoverPort)
     expect(googleOAuthRedirectUri()).toBe(
-      `http://127.0.0.1:${failoverPort}${GOOGLE_OAUTH_CALLBACK_PATH}`
+      `https://127.0.0.1:${failoverPort}${GOOGLE_OAUTH_CALLBACK_PATH}`
     )
   })
 

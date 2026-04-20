@@ -1,10 +1,12 @@
 # OPP-029: Desktop auto-update (Brain.app)
 
+**Status: partial (2026).** `tauri-plugin-updater` is **wired** in the Rust shell; the client can **check** and **install**; `plugins.updater.endpoints` in `tauri.conf.json` is **empty** until a team hosts a version manifest. **Still to ship:** public `latest.json` (or Tauri v2–equivalent) + signed `*.app.tar.gz`, `TAURI_SIGNING_*` in CI, and the usual **notarization** story for non-developer installs. See [AGENTS.md](../../AGENTS.md).
+
 ## Summary
 
 Brain ships as a macOS `.app` / DMG. Today, getting a new version means rebuilding from source or manually replacing the bundle. Before any real distribution this must be solved: the app needs to detect a new release, download it silently, and offer a one-click restart into the new version.
 
-**Related:** [OPP-007 archive](archive/OPP-007-native-mac-app.md) (Tauri bundling), [OPP-023](OPP-023-local-https-loopback-hardening.md) (HTTPS for embedded server), [OPP-022](OPP-022-google-oauth-app-verification.md) (distribution prerequisites).
+**Related:** [OPP-007 archive](archive/OPP-007-native-mac-app.md) (Tauri bundling), [archived OPP-023](archive/OPP-023-local-https-loopback-hardening.md) (HTTPS to embedded server), [OPP-022](OPP-022-google-oauth-app-verification.md) (distribution prerequisites).
 
 ---
 

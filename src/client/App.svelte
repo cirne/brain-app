@@ -3,13 +3,26 @@
   import Assistant from './lib/Assistant.svelte'
   import FullDiskAccessGate from './lib/onboarding/FullDiskAccessGate.svelte'
   import Onboarding from './lib/onboarding/Onboarding.svelte'
+  import UnlockVault from './lib/onboarding/UnlockVault.svelte'
   import { parseRoute, type Route } from './router.js'
   import { clearBrainClientStorage } from './lib/brainClientStorage.js'
   import { ONBOARDING_SEED_CHAT_STORAGE_KEY } from './lib/onboarding/onboardingStorageKeys.js'
+  import { fetchVaultStatus, type VaultStatus } from './lib/vaultClient.js'
+  import DesktopAppUpdate from './lib/desktop/DesktopAppUpdate.svelte'
 
   let route = $state<Route>(parseRoute())
   let appReady = $state(false)
   let onboardingStatus = $state<{ state: string } | null>(null)
+  let vaultStatus = $state<(VaultStatus & { checked: boolean }) | null>(null)
+
+  async function fetchVaultStatusSafe() {
+    try {
+      const v = await fetchVaultStatus()
+      vaultStatus = { ...v, checked: true }
+    } catch {
+      vaultStatus = { vaultExists: false, unlocked: false, checked: true }
+    }
+  }
 
   async function fetchStatus() {
     try {
@@ -21,8 +34,25 @@
     }
   }
 
+  /** Vault + onboarding state together (vault gate drives `needsVaultSetup` / unlock UI). */
+  async function refreshVaultAndOnboardingStatus() {
+    await fetchVaultStatusSafe()
+    await fetchStatus()
+  }
+
+  const showUnlockVault = $derived(
+    vaultStatus?.checked &&
+      vaultStatus.vaultExists &&
+      !vaultStatus.unlocked,
+  )
+
+  const needsVaultSetup = $derived(
+    vaultStatus?.checked === true && vaultStatus.vaultExists === false,
+  )
+
   const showOnboarding = $derived(
     onboardingStatus != null &&
+      !showUnlockVault &&
       (onboardingStatus.state !== 'done' || route.flow === 'onboarding'),
   )
 
@@ -67,6 +97,7 @@
         history.replaceState(null, '', '/')
         route = parseRoute()
       }
+      await fetchVaultStatusSafe()
       await fetchStatus()
       appReady = true
     })()
@@ -74,6 +105,7 @@
   })
 
   async function onOnboardingComplete() {
+    await fetchVaultStatusSafe()
     await fetchStatus()
     history.replaceState(null, '', '/')
     route = parseRoute()
@@ -82,16 +114,30 @@
 
 {#if !appReady}
   <div class="app-loading">Loading…</div>
+{:else if showUnlockVault}
+  <div class="app-onboarding-shell h-full min-h-0">
+    <UnlockVault
+      onUnlocked={async () => {
+        await fetchVaultStatusSafe()
+        await fetchStatus()
+      }}
+    />
+  </div>
 {:else}
   <FullDiskAccessGate>
     {#if showOnboarding}
       <div class="app-onboarding-shell h-full min-h-0">
-        <Onboarding onComplete={onOnboardingComplete} refreshStatus={fetchStatus} />
+        <Onboarding
+          onComplete={onOnboardingComplete}
+          refreshStatus={refreshVaultAndOnboardingStatus}
+          needsVaultSetup={needsVaultSetup}
+        />
       </div>
     {:else}
       <Assistant />
     {/if}
   </FullDiskAccessGate>
+  <DesktopAppUpdate />
 {/if}
 
 <style>

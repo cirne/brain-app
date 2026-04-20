@@ -35,7 +35,8 @@ import { execRipmailAsync } from '../lib/ripmailExec.js'
 import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '../lib/onboardingPreferences.js'
 import { writeFirstChatPending } from '../lib/firstChatPending.js'
 import { ensureYourWikiRunning } from '../agent/yourWikiSupervisor.js'
-import { oauthRedirectListenPort } from '../lib/brainHttpPort.js'
+import { embeddedServerUrlScheme, oauthRedirectListenPort } from '../lib/brainHttpPort.js'
+import { isBundledNativeServer } from '../lib/nativeAppPort.js'
 
 const onboarding = new Hono()
 
@@ -91,7 +92,12 @@ onboarding.get('/network-info', async (c) => {
     // User turned remote off (or prefs default) — do not expose a tunnel URL; tear down stray tunnel.
     stopTunnel()
   }
-  return c.json({ ips: results, port, tunnelUrl })
+  return c.json({
+    ips: results,
+    port,
+    tunnelUrl,
+    localUrlScheme: isBundledNativeServer() ? embeddedServerUrlScheme() : 'http',
+  })
 })
 
 onboarding.get('/status', async (c) => {
@@ -195,9 +201,10 @@ onboarding.post('/setup-ripmail', runAppleMailSetup)
 
 onboarding.get('/preferences', async (c) => {
   const p = await readOnboardingPreferences()
-  return c.json({ 
+  return c.json({
     mailProvider: p.mailProvider ?? null,
-    remoteAccessEnabled: p.remoteAccessEnabled ?? false
+    remoteAccessEnabled: p.remoteAccessEnabled ?? false,
+    allowLanDirectAccess: p.allowLanDirectAccess ?? false,
   })
 })
 
@@ -205,12 +212,16 @@ onboarding.patch('/preferences', async (c) => {
   const body = await c.req.json().catch(() => ({}))
   const rawMail = body?.mailProvider
   const rawRemote = body?.remoteAccessEnabled
+  const rawAllowLan = body?.allowLanDirectAccess
 
   if (rawMail !== undefined && rawMail !== null && rawMail !== 'apple' && rawMail !== 'google') {
     return c.json({ error: 'mailProvider must be apple, google, or null' }, 400)
   }
   if (rawRemote !== undefined && typeof rawRemote !== 'boolean') {
     return c.json({ error: 'remoteAccessEnabled must be a boolean' }, 400)
+  }
+  if (rawAllowLan !== undefined && typeof rawAllowLan !== 'boolean') {
+    return c.json({ error: 'allowLanDirectAccess must be a boolean' }, 400)
   }
 
   const prev = await readOnboardingPreferences()
@@ -235,11 +246,16 @@ onboarding.patch('/preferences', async (c) => {
     }
   }
 
+  if (rawAllowLan !== undefined) {
+    next.allowLanDirectAccess = rawAllowLan
+  }
+
   await saveOnboardingPreferences(next)
-  return c.json({ 
-    ok: true, 
+  return c.json({
+    ok: true,
     mailProvider: next.mailProvider ?? null,
-    remoteAccessEnabled: next.remoteAccessEnabled ?? false
+    remoteAccessEnabled: next.remoteAccessEnabled ?? false,
+    allowLanDirectAccess: next.allowLanDirectAccess ?? false,
   })
 })
 
@@ -308,19 +324,6 @@ onboarding.post('/accept-profile', async (c) => {
   }
 })
 
-onboarding.post('/prepare-seed', async (c) => {
-  const body = await c.req.json().catch(() => ({}))
-  const categories = Array.isArray(body.categories) ? body.categories.filter((x: unknown) => typeof x === 'string') : []
-  await mkdir(onboardingDataDir(), { recursive: true })
-  await writeFile(categoriesJsonPath(), JSON.stringify({ categories }, null, 2), 'utf-8')
-  try {
-    const doc = await setOnboardingState('seeding')
-    return c.json({ ok: true, state: doc.state, categories })
-  } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'state error' }, 400)
-  }
-})
-
 onboarding.post('/profile', async (c) => {
   const body = await c.req.json()
   const message = typeof body.message === 'string' ? body.message : ''
@@ -378,11 +381,11 @@ onboarding.delete('/session/:kind/:sessionId', async (c) => {
     deleteProfilingSession(sessionId)
     return c.json({ ok: true })
   }
-  if (kind === 'seeding' || kind === 'buildout') {
+  if (kind === 'buildout') {
     deleteWikiBuildoutSession(sessionId)
     return c.json({ ok: true })
   }
-  return c.json({ error: 'kind must be profiling or seeding' }, 400)
+  return c.json({ error: 'kind must be profiling or buildout' }, 400)
 })
 
 export default onboarding

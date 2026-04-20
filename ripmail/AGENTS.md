@@ -26,7 +26,7 @@ cargo install-local   # build --release + install binary + symlink skills/ripmai
 ## Key documents
 
 - **End users of ripmail (publishable skill `/ripmail`):** `[skills/ripmail/SKILL.md](skills/ripmail/SKILL.md)` — [Agent Skills](https://agentskills.io/specification.md) playbook (`name: ripmail`); install, setup, sync, usage; see `[skills/README.md](skills/README.md)`. Distinct from internal `**.cursor/skills/*`** below.
-- **Developing this repo in Cursor:** `.cursor/skills/` — internal skills (`commit`, `db-dev`, `install-local`, `process-feedback`). Not the publishable user skill in `skills/ripmail/`.
+- **Developing this repo in Cursor:** `.cursor/skills/` — internal skills (`commit`, `db-dev`, `install-local`, `process-feedback`, **`ripmail-cli`** for Rust CLI work in `ripmail/`). Not the publishable user skill in `skills/ripmail/`.
 - `[docs/CLI_COPY.md](docs/CLI_COPY.md)` — **draft** checklist for CLI user-facing copy and output (JSON/text/`hints`); includes `**hints` in JSON**; review when changing CLI output ([commit workflow](.cursor/commands/commit.md))
 - `[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)` — technical decisions and rationale (**read before making storage, sync, or interface decisions**)
 - `[docs/RELEASING.md](docs/RELEASING.md)` — **maintainers:** tag and ship Rust binaries (GitHub Releases + `Cargo.toml` version alignment)

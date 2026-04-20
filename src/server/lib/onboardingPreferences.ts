@@ -9,6 +9,11 @@ export type OnboardingMailProvider = 'apple' | 'google'
 export type OnboardingPreferences = {
   mailProvider?: OnboardingMailProvider
   remoteAccessEnabled?: boolean
+  /**
+   * Bundled Brain.app: when true, do not 403 private LAN IPv4s on the embedded server
+   * (TLS + vault session; OPP-035). Default false — only loopback, Tailscale CGNAT, and tunnel.
+   */
+  allowLanDirectAccess?: boolean
 }
 
 function preferencesPath(): string {
@@ -23,13 +28,18 @@ export async function readOnboardingPreferences(): Promise<OnboardingPreferences
     const o = j as Record<string, unknown>
     const mailProvider = o.mailProvider as OnboardingMailProvider | undefined
     const remoteAccessEnabled = typeof o.remoteAccessEnabled === 'boolean' ? o.remoteAccessEnabled : undefined
-    
+    const allowLanDirectAccess =
+      typeof o.allowLanDirectAccess === 'boolean' ? o.allowLanDirectAccess : undefined
+
     const res: OnboardingPreferences = {}
     if (mailProvider === 'apple' || mailProvider === 'google') {
       res.mailProvider = mailProvider
     }
     if (remoteAccessEnabled !== undefined) {
       res.remoteAccessEnabled = remoteAccessEnabled
+    }
+    if (allowLanDirectAccess !== undefined) {
+      res.allowLanDirectAccess = allowLanDirectAccess
     }
     return res
   } catch {

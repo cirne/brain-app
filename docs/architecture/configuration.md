@@ -8,9 +8,7 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 | `BRAIN_WIKI_ROOT` | `~/Documents/Brain` (bundled macOS when unset) | Parent directory of the `wiki/` folder (`$BRAIN_WIKI_ROOT/wiki`). Dev / non-macOS: same as `BRAIN_HOME` when unset. Set by Tauri on macOS; ignored from `.env` when bundled. |
 | `BRAIN_BUNDLED_NATIVE` | — | Set to `1` by Tauri when spawning the bundled server |
 | `BRAIN_EMBED_MASTER_KEY` | — | Tauri release: encrypt allowlisted secrets embedded in the native binary (LLM/tool keys + optional `GOOGLE_OAUTH_*` for packaged Gmail OAuth) |
-| `NODE_ENV` | `development` / `production` | Skips API auth in dev when not production |
-| `AUTH_USER` / `AUTH_PASS` | `lew` / `changeme` | Basic auth for `/api/*` in production |
-| `AUTH_DISABLED` | — | `true` disables Basic Auth in production |
+| `NODE_ENV` | `development` / `production` | Controls build-time behavior for Vite/esbuild (vault session applies in dev and prod) |
 | `PORT` | `3000` | Listen port for dev / non-bundled `node dist/server` (must match [Gmail OAuth redirect](../google-oauth.md)); bundled app uses `18473` on **`0.0.0.0`** ([Tailscale / LAN policy](./runtime-and-routes.md#tailscale--remote-access-bundled-only)) |
 | `RIPMAIL_BIN` | `ripmail` | Path to ripmail executable |
 | `RIPMAIL_HOME` | `$BRAIN_HOME/ripmail` | Ripmail data dir when unset in Brain |

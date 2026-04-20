@@ -3,12 +3,19 @@
   import QRCode from 'qrcode'
   import { Smartphone, Wifi, Copy, Check, ExternalLink, ShieldCheck, Globe, Lock, RefreshCw } from 'lucide-svelte'
 
-  let networkInfo = $state<{ ips: string[]; port: number; tunnelUrl: string | null } | null>(null)
+  let networkInfo = $state<{
+    ips: string[]
+    port: number
+    tunnelUrl: string | null
+    localUrlScheme?: 'http' | 'https'
+  } | null>(null)
   let qrCodeDataUrl = $state<string | null>(null)
   let copied = $state(false)
   let error = $state<string | null>(null)
   let remoteAccessEnabled = $state(false)
+  let allowLanDirectAccess = $state(false)
   let isToggling = $state(false)
+  let isTogglingLan = $state(false)
   let isResetting = $state(false)
 
   async function fetchNetworkInfo() {
@@ -29,15 +36,22 @@
       if (res.ok) {
         const prefs = await res.json()
         remoteAccessEnabled = prefs.remoteAccessEnabled === true
+        allowLanDirectAccess = prefs.allowLanDirectAccess === true
       }
     } catch {
       /* ignore */
     }
   }
 
+  function localNetworkBaseUrl(n: NonNullable<typeof networkInfo>) {
+    const sch = n.localUrlScheme ?? 'http'
+    if (n.ips.length === 0) return null
+    return `${sch}://${n.ips[0]}:${n.port}`
+  }
+
   async function generateQrCode() {
     if (networkInfo) {
-      const url = networkInfo.tunnelUrl || (networkInfo.ips.length > 0 ? `http://${networkInfo.ips[0]}:${networkInfo.port}` : null)
+      const url = networkInfo.tunnelUrl || localNetworkBaseUrl(networkInfo)
 
       if (url) {
         qrCodeDataUrl = await QRCode.toDataURL(url, {
@@ -51,6 +65,28 @@
       } else {
         qrCodeDataUrl = null
       }
+    }
+  }
+
+  async function toggleAllowLan() {
+    if (isTogglingLan) return
+    isTogglingLan = true
+    try {
+      const next = !allowLanDirectAccess
+      const res = await fetch('/api/onboarding/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allowLanDirectAccess: next }),
+      })
+      if (res.ok) {
+        allowLanDirectAccess = next
+        await fetchNetworkInfo()
+        await generateQrCode()
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      isTogglingLan = false
     }
   }
 
@@ -141,9 +177,12 @@
     }
   }
 
-  const primaryUrl = $derived(networkInfo 
-    ? (networkInfo.tunnelUrl || (networkInfo.ips.length > 0 ? `http://${networkInfo.ips[0]}:${networkInfo.port}` : ''))
-    : '')
+  const showsLanToggle = $derived(networkInfo?.localUrlScheme === 'https')
+  const primaryUrl = $derived(
+    networkInfo
+      ? networkInfo.tunnelUrl || localNetworkBaseUrl(networkInfo) || ''
+      : '',
+  )
 </script>
 
 <div class="phone-access-panel">
@@ -176,6 +215,33 @@
         </div>
       </button>
     </div>
+
+    {#if showsLanToggle}
+      <div class="lan-toggle-container">
+        <button
+          type="button"
+          class="lan-toggle {allowLanDirectAccess ? 'enabled' : ''}"
+          onclick={toggleAllowLan}
+          disabled={isTogglingLan}
+        >
+          <div class="toggle-text">
+            <span class="label">Same-LAN direct (Wi‑Fi)</span>
+            <span class="status"
+              >{allowLanDirectAccess
+                ? 'Phone can open Brain on your LAN (vault login required)'
+                : 'Block private LAN; use tunnel or this Mac'}</span
+            >
+          </div>
+          <div class="switch {allowLanDirectAccess ? 'on' : ''}">
+            <div class="knob"></div>
+          </div>
+        </button>
+        <p class="lan-hint">
+          TLS-encrypted. Turn on only on networks you trust; the UI still requires your vault
+          password.
+        </p>
+      </div>
+    {/if}
 
     <p class="instruction">
       Scan this code with your phone to access Brain {#if networkInfo?.tunnelUrl}from anywhere{:else}over your local network{/if}.
@@ -304,6 +370,40 @@
   .remote-toggle.enabled {
     border-color: var(--accent-dim);
     background: var(--accent-dim);
+  }
+
+  .lan-toggle-container {
+    width: 100%;
+    margin-bottom: 1.5rem;
+  }
+
+  .lan-toggle {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.2s;
+    text-align: left;
+  }
+
+  .lan-toggle:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--bg-3);
+  }
+
+  .lan-toggle.enabled {
+    border-color: var(--accent-dim);
+    background: var(--accent-dim);
+  }
+
+  .lan-hint {
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--text-2);
+    margin: 0.5rem 0 0;
   }
 
   .toggle-icon {

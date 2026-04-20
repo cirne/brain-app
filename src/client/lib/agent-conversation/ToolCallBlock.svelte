@@ -5,6 +5,12 @@
   import ContentPreviewCards from './ContentPreviewCards.svelte'
   import { formatToolArgs } from './formatToolArgs.js'
   import WikiFileName from '../WikiFileName.svelte'
+  import {
+    toolCallCollapsedSummaryParts,
+    toolSummaryPartsFromArgs,
+    wikiFilePendingVerb,
+    wikiOpenPathFromArgs,
+  } from '../tools/toolArgSummary.js'
 
   let {
     toolCall,
@@ -29,16 +35,10 @@
   const displayName = $derived(policy.label ?? toolCall.name)
   const toolIcon = $derived(getToolIcon(toolCall.name))
 
-  /** Wiki-relative path from streaming / completed tool args (write). */
-  const writePathFromArgs = $derived.by((): string | null => {
-    if (toolCall.name !== 'write') return null
-    const a = toolCall.args
-    if (a && typeof a === 'object' && typeof (a as { path?: unknown }).path === 'string') {
-      const p = (a as { path: string }).path.trim()
-      return p.length ? p : null
-    }
-    return null
-  })
+  const summaryParts = $derived(toolCallCollapsedSummaryParts(toolCall, preview))
+  const wikiLinkPath = $derived(wikiOpenPathFromArgs(toolCall.name, toolCall.args))
+  const pendingVerb = $derived(wikiFilePendingVerb(toolCall.name))
+  const pendingFromArgs = $derived(toolSummaryPartsFromArgs(toolCall.name, toolCall.args))
 </script>
 
 {#if toolCall.done}
@@ -57,7 +57,24 @@
             {/if}
           {/if}
         </span>
-        <span class="tool-name">{displayName}</span>
+        <span class="tool-summary-body">
+          <span class="tool-name">{displayName}</span>
+          {#if summaryParts}
+            {#if summaryParts.mode === 'single_path'}
+              <span class="tool-summary-wiki">
+                <WikiFileName path={summaryParts.path} />
+              </span>
+            {:else if summaryParts.mode === 'move'}
+              <span class="tool-summary-move">
+                <WikiFileName path={summaryParts.from} />
+                <span class="tool-summary-arrow" aria-hidden="true">→</span>
+                <WikiFileName path={summaryParts.to} />
+              </span>
+            {:else}
+              <span class="tool-summary-plain" title={summaryParts.text}>{summaryParts.text}</span>
+            {/if}
+          {/if}
+        </span>
       </summary>
       {#if toolCall.args}
         <pre class="tool-args">{formatToolArgs(toolCall.args)}</pre>
@@ -89,15 +106,29 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
         {/if}
       </span>
-      {#if writePathFromArgs}
-        <button 
-          class="tool-pending-file tool-pending-label tool-write-link" 
-          onclick={() => onOpenWiki?.(writePathFromArgs)}
-          title="Open {writePathFromArgs}"
+      {#if pendingFromArgs?.mode === 'move'}
+        <div class="tool-pending-move tool-pending-label">
+          <span class="tool-pending-verb">Moving</span>
+          <span class="tool-summary-move tool-summary-move--pending">
+            <WikiFileName path={pendingFromArgs.from} />
+            <span class="tool-summary-arrow" aria-hidden="true">→</span>
+            <WikiFileName path={pendingFromArgs.to} />
+          </span>
+        </div>
+      {:else if pendingVerb && wikiLinkPath}
+        <button
+          class="tool-pending-file tool-pending-label tool-write-link"
+          onclick={() => onOpenWiki?.(wikiLinkPath)}
+          title="Open {wikiLinkPath}"
         >
-          <span class="tool-pending-verb">Writing</span>
-          <WikiFileName path={writePathFromArgs} />
+          <span class="tool-pending-verb">{pendingVerb}</span>
+          <WikiFileName path={wikiLinkPath} />
         </button>
+      {:else if pendingFromArgs?.mode === 'text'}
+        <span class="tool-pending-split tool-pending-label">
+          <span class="tool-name">{displayName}…</span>
+          <span class="tool-pending-plain" title={pendingFromArgs.text}>{pendingFromArgs.text}</span>
+        </span>
       {:else}
         <span class="tool-name tool-pending-label">{displayName}…</span>
       {/if}
@@ -189,12 +220,86 @@
 
   .tool-call summary {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 5px;
     padding: 2px 4px;
     cursor: pointer;
     user-select: none;
     list-style: none;
+  }
+
+  .tool-summary-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35em 0.5em;
+    min-width: 0;
+  }
+
+  .tool-summary-body .tool-name {
+    flex-shrink: 0;
+  }
+
+  .tool-summary-wiki,
+  .tool-summary-move {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25em;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--text-2);
+  }
+
+  .tool-summary-move--pending {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tool-summary-arrow {
+    flex-shrink: 0;
+    opacity: 0.55;
+    font-size: 10px;
+  }
+
+  .tool-summary-plain {
+    font-size: 11px;
+    color: var(--text-2);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: min(100%, 28rem);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .tool-pending-move {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35em;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .tool-pending-split {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35em 0.5em;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .tool-pending-plain {
+    font-size: 11px;
+    color: var(--text-2);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: min(100%, 28rem);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
   .tool-call summary::-webkit-details-marker {
     display: none;

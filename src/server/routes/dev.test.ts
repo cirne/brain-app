@@ -75,7 +75,7 @@ exit 0
     expect(invoke).toContain('--yes')
   })
 
-  it('POST /restart-seed keeps me.md, wipes other wiki files, forces seeding', async () => {
+  it('POST /restart-seed keeps me.md, wipes other wiki files, sets onboarding done', async () => {
     const chatDir = join(brainHome, 'chats')
     await mkdir(chatDir, { recursive: true })
     await writeFile(join(chatDir, 'onboarding.json'), JSON.stringify({ state: 'done', updatedAt: 'x' }), 'utf-8')
@@ -95,7 +95,7 @@ exit 0
     expect(res.status).toBe(200)
 
     const { readOnboardingStateDoc } = await import('../lib/onboardingState.js')
-    expect((await readOnboardingStateDoc()).state).toBe('seeding')
+    expect((await readOnboardingStateDoc()).state).toBe('done')
 
     const { readFile, access } = await import('node:fs/promises')
     expect(await readFile(join(wikiContent, 'me.md'), 'utf-8')).toContain('# profile')

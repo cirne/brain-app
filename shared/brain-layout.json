@@ -12,6 +12,8 @@
     "wikiEditsLog": "wiki-edits.jsonl",
     "dirIconsCache": "wiki-dir-icons.json",
     "calendarPersonal": "calendar-personal.json",
-    "calendarTravel": "calendar-travel.json"
+    "calendarTravel": "calendar-travel.json",
+    "vaultVerifier": "vault-verifier.json",
+    "vaultSessions": "vault-sessions.json"
   }
 }

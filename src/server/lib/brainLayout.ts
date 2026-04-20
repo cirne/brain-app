@@ -15,6 +15,8 @@ export interface BrainLayout {
   files: {
     wikiEditsLog: string
     dirIconsCache: string
+    vaultVerifier?: string
+    vaultSessions?: string
   }
 }
 
@@ -75,4 +77,16 @@ export function brainLayoutWikiEditsPath(base: string): string {
 export function brainLayoutDirIconsCachePath(base: string): string {
   const L = getBrainLayout()
   return join(base, L.directories.cache, L.files.dirIconsCache)
+}
+
+export function brainLayoutVaultVerifierPath(base: string): string {
+  const L = getBrainLayout()
+  const name = L.files.vaultVerifier ?? 'vault-verifier.json'
+  return join(base, L.directories.var, name)
+}
+
+export function brainLayoutVaultSessionsPath(base: string): string {
+  const L = getBrainLayout()
+  const name = L.files.vaultSessions ?? 'vault-sessions.json'
+  return join(base, L.directories.var, name)
 }

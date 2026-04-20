@@ -1,7 +1,7 @@
 <div class="hub-wiki-about">
   <div class="hub-wiki-about-inner">
     <p class="hub-wiki-about-lead">
-      Your <strong>wiki</strong> is a private set of Markdown pages stored on this Mac. Brain keeps it growing and
+      Your <strong>wiki</strong> is a private set of Markdown pages in <strong>your vault</strong> on this Mac. Brain keeps it growing and
       tidy automatically—so answers stay grounded in <em>your</em> world, not a generic model guess.
     </p>
 
@@ -34,6 +34,9 @@
 
     <h3 class="hub-wiki-about-h">You're in control</h3>
     <ul class="hub-wiki-about-list">
+      <li>
+        <strong>Vault.</strong> Opening Brain on this Mac means unlocking your vault with the password you set at setup.
+      </li>
       <li>
         <strong>Pause / Resume.</strong> Open "Your Wiki" from Brain Hub to pause the loop any time.
         Resume always starts a fresh lap.

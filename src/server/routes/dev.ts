@@ -24,8 +24,8 @@ dev.post('/hard-reset', async (c) => {
 })
 
 /**
- * Delete all wiki pages except root `me.md`, clear agent edit history, and return to onboarding buildout.
- * (Profile + mail index unchanged; in-memory buildout agents aborted.)
+ * Delete all wiki pages except root `me.md`, clear agent edit history, keep onboarding `done`.
+ * (Profile + mail index unchanged; in-memory buildout agents aborted. Re-run expansion from the app.)
  */
 dev.post('/restart-seed', async (c) => {
   if (!wikiMeExists()) {
@@ -37,7 +37,7 @@ dev.post('/restart-seed', async (c) => {
   const subject = parseWhoamiProfileSubject(whoami)
   if (subject) await ensureUserPeoplePageSkeleton(wikiDir(), subject)
   await truncateWikiEditHistoryFile()
-  await setOnboardingStateForce('seeding')
+  await setOnboardingStateForce('done')
   return c.json({ ok: true as const })
 })
 

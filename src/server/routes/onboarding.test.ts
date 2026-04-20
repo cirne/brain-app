@@ -13,10 +13,19 @@ const tunnelMocks = vi.hoisted(() => ({
   getActiveTunnelUrl: vi.fn((): string | null => null),
 }))
 
+const yourWikiSupervisorMocks = vi.hoisted(() => ({
+  /** Accept-profile fires this in the background; real supervisor races with `afterEach` `rm(BRAIN_HOME)`. */
+  ensureYourWikiRunning: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('../lib/tunnelManager.js', () => ({
   startTunnel: tunnelMocks.startTunnel,
   stopTunnel: tunnelMocks.stopTunnel,
   getActiveTunnelUrl: tunnelMocks.getActiveTunnelUrl,
+}))
+
+vi.mock('../agent/yourWikiSupervisor.js', () => ({
+  ensureYourWikiRunning: yourWikiSupervisorMocks.ensureYourWikiRunning,
 }))
 
 import onboardingRoute from './onboarding.js'
@@ -269,8 +278,9 @@ describe('onboarding routes', () => {
       app.route('/api/onboarding', onboardingRoute)
       const res = await app.request('http://localhost/api/onboarding/network-info')
       expect(res.status).toBe(200)
-      const j = (await res.json()) as { tunnelUrl: string | null }
+      const j = (await res.json()) as { tunnelUrl: string | null; localUrlScheme: string }
       expect(j.tunnelUrl).toBeNull()
+      expect(j.localUrlScheme).toBe('http')
       expect(tunnelMocks.stopTunnel).toHaveBeenCalled()
     })
 
@@ -287,9 +297,26 @@ describe('onboarding routes', () => {
       app.route('/api/onboarding', onboardingRoute)
       const res = await app.request('http://localhost/api/onboarding/network-info')
       expect(res.status).toBe(200)
-      const j = (await res.json()) as { tunnelUrl: string | null }
+      const j = (await res.json()) as { tunnelUrl: string | null; localUrlScheme: string }
       expect(j.tunnelUrl).toBe('https://fake.trycloudflare.com/')
+      expect(j.localUrlScheme).toBe('http')
       expect(tunnelMocks.stopTunnel).not.toHaveBeenCalled()
+    })
+
+    it('localUrlScheme is https when BRAIN_BUNDLED_NATIVE=1', async () => {
+      const prev = process.env.BRAIN_BUNDLED_NATIVE
+      process.env.BRAIN_BUNDLED_NATIVE = '1'
+      try {
+        const app = new Hono()
+        app.route('/api/onboarding', onboardingRoute)
+        const res = await app.request('http://localhost/api/onboarding/network-info')
+        expect(res.status).toBe(200)
+        const j = (await res.json()) as { localUrlScheme: string }
+        expect(j.localUrlScheme).toBe('https')
+      } finally {
+        if (prev === undefined) delete process.env.BRAIN_BUNDLED_NATIVE
+        else process.env.BRAIN_BUNDLED_NATIVE = prev
+      }
     })
   })
 

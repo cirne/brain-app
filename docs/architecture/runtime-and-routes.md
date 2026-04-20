@@ -41,19 +41,21 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 ## Production vs bundled native
 
 - **Normal production** (`NODE_ENV=production`, not Tauri): listen on `PORT` (default `3000`), static files from `dist/client`.
-- **Bundled Brain.app** (`BRAIN_BUNDLED_NATIVE=1`): the server listens on **`0.0.0.0:18473`** (see [`src/server/index.ts`](../../src/server/index.ts)); `PORT` is not used for that mode. The desktop shell probes the canonical port range until the listener appears (see [`native_port.rs`](../../desktop/src/native_port.rs)).
+- **Bundled Brain.app** (`BRAIN_BUNDLED_NATIVE=1`): the server listens on **`0.0.0.0:18473`** (first free in `18473`–`18476`) with **HTTPS** and a self-signed cert in `$BRAIN_HOME/var` (see [`embeddedServerTls.ts`](../../src/server/lib/embeddedServerTls.ts), OPP-023). `PORT` is not used for that mode. The Tauri webview loads **`https://127.0.0.1:<port>/`**. The desktop shell probes the canonical port range until the listener appears (see [`native_port.rs`](../../desktop/src/native_port.rs)).
 
 ### Tailscale / remote access (bundled only)
 
-Binding **`0.0.0.0`** lets other devices reach Brain on this machine’s **Tailscale IP** (e.g. `http://100.x.x.x:18473`) without `tailscale serve`. Only your tailnet can route to that address; other tailnets cannot.
+Binding **`0.0.0.0`** lets other devices reach Brain on this machine’s **Tailscale IP** (e.g. `https://100.x.x.x:18473`) without `tailscale serve`. Only your tailnet can route to that address; other tailnets cannot.
 
-To avoid exposing the same port to arbitrary **LAN** clients (e.g. `192.168.x.x`), the bundled server **drops** TCP connections whose remote address is not **loopback** (`127.0.0.0/8`, `::1`) or **RFC 6598** CGNAT **`100.64.0.0/10`** (Tailscale node addresses). Gmail OAuth still uses the registered **`http://127.0.0.1:18473/...`** redirect URI; that traffic stays loopback.
+To avoid cleartext session cookies, the embedded app uses **HTTPS**; **Secure** `brain_session` is set for bundled traffic.
 
-Implementation: [`bundledNativeClientAllowlist.ts`](../../src/server/lib/bundledNativeClientAllowlist.ts).
+By default, to avoid arbitrary **private LAN** clients (e.g. `192.168.x.x` on the same Wi‑Fi), the bundled server **drops** TCP connections whose remote address is not **loopback** (`127.0.0.0/8`, `::1`) or **RFC 6598** CGNAT **`100.64.0.0/10`** (Tailscale). Users can opt in to **same-LAN direct** from Hub (Phone access) via `allowLanDirectAccess` in onboarding preferences: then only vault-gated access applies at the HTTP layer (TLS still required for meaningful `Secure` cookies in browsers). Gmail OAuth uses a registered **`https://127.0.0.1:<port>/...`** callback; that flow stays on loopback.
+
+Implementation: [`bundledNativeClientAllowlist.ts`](../../src/server/lib/bundledNativeClientAllowlist.ts), [`onboardingPreferences.ts`](../../src/server/lib/onboardingPreferences.ts).
 
 ## Auth
 
-In production, unless `AUTH_DISABLED=true`, Hono **`basicAuth`** protects `/api/*`. Dev skips auth (`NODE_ENV !== 'production'`).
+The server stores a vault password verifier under `$BRAIN_HOME/var/` (`vault-verifier.json`). After unlock, an **HttpOnly session cookie** (`brain_session`) gates **`/api/*`** except bootstrap routes (`/api/vault/*`, `GET /api/onboarding/status` before a vault exists, Gmail OAuth callbacks, and dev-only `POST /api/dev/hard-reset` … in non-production).
 
 ## Periodic background work
 
