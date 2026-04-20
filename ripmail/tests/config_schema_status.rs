@@ -73,6 +73,7 @@ fn config_loads_defaults() {
     assert_eq!(cfg.inbox_default_window, "24h");
     assert_eq!(cfg.smtp.host, "smtp.gmail.com");
     assert_eq!(cfg.smtp.port, 587);
+    assert_eq!(cfg.db_path, dir.path().join("ripmail.db"));
 }
 
 #[test]

@@ -906,6 +906,8 @@ pub struct Config {
     pub ripmail_home: PathBuf,
     /// Shared non-maildir data: `drafts/`, `sent/`, etc.
     pub data_dir: PathBuf,
+    /// Main SQLite file: `<RIPMAIL_HOME>/ripmail.db` for multi-inbox and new installs; falls back to
+    /// `data/ripmail.db` only when that legacy path exists and the home-root file does not.
     pub db_path: PathBuf,
     pub maildir_path: PathBuf,
     /// Base path for resolving `messages.raw_path` / attachment `stored_path` (legacy: same as
@@ -1510,6 +1512,19 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
     // without path, `applemail` when no Mail library exists, etc.). Fall back to legacy defaults.
     let use_multi_layout = multi && !resolved_sources.is_empty();
 
+    // Multi-inbox and new installs use `$RIPMAIL_HOME/ripmail.db`. Legacy single-mailbox installs
+    // used `data/ripmail.db`. If we always picked `data/` when `sources` was empty, any process
+    // that opened the DB would create a second empty file next to an existing home-root DB.
+    let canonical_home_db = home.join("ripmail.db");
+    let legacy_data_db = data_dir.join("ripmail.db");
+    let db_path_single_fallback = if canonical_home_db.is_file() {
+        canonical_home_db.clone()
+    } else if legacy_data_db.is_file() {
+        legacy_data_db.clone()
+    } else {
+        canonical_home_db.clone()
+    };
+
     let (
         mut imap_host,
         imap_port,
@@ -1533,7 +1548,7 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
             mb.imap_aliases.clone(),
             mb.imap_password.clone(),
             mb.imap_auth,
-            home.join("ripmail.db"),
+            canonical_home_db.clone(),
             mb.maildir_path.clone(),
             home.clone(),
         )
@@ -1554,7 +1569,7 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
             imap_aliases,
             imap_password,
             imap_auth,
-            data_dir.join("ripmail.db"),
+            db_path_single_fallback,
             data_dir.join("maildir"),
             data_dir.clone(),
         )
@@ -1705,6 +1720,33 @@ mod tests {
             env: Some(HashMap::new()),
         });
         assert!(cfg.resolved_sources.is_empty());
+        assert_eq!(cfg.db_path, home.join("ripmail.db"));
+    }
+
+    #[test]
+    fn load_config_prefers_home_root_db_when_both_paths_exist() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        fs::create_dir_all(home.join("data")).unwrap();
+        fs::write(home.join("ripmail.db"), b"x").unwrap();
+        fs::write(home.join("data").join("ripmail.db"), b"y").unwrap();
+        let cfg = load_config(LoadConfigOptions {
+            home: Some(home.to_path_buf()),
+            env: Some(HashMap::new()),
+        });
+        assert_eq!(cfg.db_path, home.join("ripmail.db"));
+    }
+
+    #[test]
+    fn load_config_uses_legacy_data_db_when_home_db_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        fs::create_dir_all(home.join("data")).unwrap();
+        fs::write(home.join("data").join("ripmail.db"), b"x").unwrap();
+        let cfg = load_config(LoadConfigOptions {
+            home: Some(home.to_path_buf()),
+            env: Some(HashMap::new()),
+        });
         assert_eq!(cfg.db_path, home.join("data").join("ripmail.db"));
     }
 

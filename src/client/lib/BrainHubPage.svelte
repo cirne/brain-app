@@ -1,8 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { 
-    FileText, 
-    Clock, 
     User, 
     Mail, 
     RefreshCw, 
@@ -33,8 +31,6 @@
   let { onHubNavigate }: Props = $props()
 
   let docCount = $state<number | null>(null)
-  let recentDocs = $state<{ path: string; name: string; date: string }[]>([])
-  let showAllRecent = $state(false)
   let agents = $state<BackgroundAgentDoc[]>([])
   let mailStatus = $state<OnboardingMailStatus | null>(null)
   let hubSources = $state<HubRipmailSourceRow[]>([])
@@ -108,10 +104,8 @@
 
   async function fetchData() {
     try {
-      const limit = showAllRecent ? 30 : 5
-      const [wikiRes, recentRes, agentsRes, mailRes, sourcesRes] = await Promise.all([
+      const [wikiRes, agentsRes, mailRes, sourcesRes] = await Promise.all([
         fetch('/api/wiki'),
-        fetch(`/api/wiki/recent?limit=${limit}`),
         fetch('/api/background/agents'),
         fetch('/api/onboarding/mail'),
         fetch('/api/hub/sources'),
@@ -120,10 +114,6 @@
       if (wikiRes.ok) {
         const docs = await wikiRes.json()
         docCount = Array.isArray(docs) ? docs.length : null
-      }
-      if (recentRes.ok) {
-        const j = await recentRes.json()
-        recentDocs = j.files || []
       }
       if (agentsRes.ok) {
         const j = await agentsRes.json()
@@ -306,33 +296,7 @@
       </div>
     </section>
 
-    <!-- Section 3: Recently Written -->
-    <section class="hub-section recent-section">
-      <div class="section-header">
-        <Clock size={18} />
-        <h2>Recently Written</h2>
-      </div>
-      <div class="recent-list">
-        {#if recentDocs.length > 0}
-          {#each recentDocs as doc (doc.path)}
-            <button class="recent-item" onclick={() => onHubNavigate({ type: 'wiki', path: doc.path })}>
-              <div class="recent-info">
-                <FileText size={14} />
-                <span class="recent-name">{doc.path}</span>
-              </div>
-              <span class="recent-date">{formatRelativeDate(doc.date)}</span>
-            </button>
-          {/each}
-          <button class="show-more-btn" onclick={() => showAllRecent = !showAllRecent}>
-            {showAllRecent ? 'Show less' : 'Show more...'}
-          </button>
-        {:else}
-          <p class="empty-msg">No recent documents found.</p>
-        {/if}
-      </div>
-    </section>
-
-    <!-- Section 4: Background Agents — open detail in right pane (same as wiki / phone access) -->
+    <!-- Section 3: Background Agents — open detail in right pane (same as wiki / phone access) -->
     <section class="hub-section agents-section" aria-label="Background agents">
       <div class="section-header">
         <RefreshCw size={18} />
@@ -508,12 +472,12 @@
     letter-spacing: 0.01em;
   }
 
-  .recent-list, .links-list {
+  .links-list {
     display: flex;
     flex-direction: column;
   }
 
-  .recent-item, .link-item {
+  .link-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -527,47 +491,18 @@
     transition: padding-left 0.2s ease, color 0.15s;
   }
 
-  .recent-item:hover, .link-item:hover:not(.static):not(.disabled) {
+  .link-item:hover:not(.static):not(.disabled) {
     padding-left: 4px;
     color: var(--accent);
   }
 
-  .recent-info, .link-info {
+  .link-info {
     display: flex;
     align-items: center;
     gap: 12px;
     font-size: 0.9375rem;
     font-weight: 500;
     min-width: 0;
-  }
-
-  .recent-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .recent-date {
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .show-more-btn {
-    align-self: flex-start;
-    background: transparent;
-    border: none;
-    color: var(--text-2);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    padding: 0.75rem 0;
-    cursor: pointer;
-    transition: color 0.15s;
-  }
-
-  .show-more-btn:hover {
-    color: var(--accent);
   }
 
   .status-pill {
