@@ -8,22 +8,24 @@ It is a decision aid, not a commitment: both paths can be valid at different hor
 
 ## Summary comparison
 
-| Dimension | Cloud (multi-tenant) | Native desktop (local-first) |
-| --- | --- | --- |
-| **First-run / onboarding** | Open a URL; **Sign in with Google** (and similar)—low friction for many users | Install binary; **macOS permissions** (FDA, folders); optional OAuth for Gmail/Calendar |
-| **Updates** | **Fast, uniform**—deploy and everyone gets fixes on next session | **Slower, uneven**—auto-updater + users who lag; plan support for old builds |
-| **Reach & clients** | **Any device** with a browser | **Per-OS** packaging (macOS first; Windows later); **feature matrix** (e.g. no iMessage on Windows) |
-| **Gmail / Google Calendar** | **Strong fit**—OAuth and APIs match the “five-minute setup” story | Same cloud APIs **plus** optional local mail/calendar depth |
-| **Apple Mail (local)** | Not reading the user’s local Mail store | Can integrate with **on-machine** mail where product scope allows |
-| **iMessage / local Apple DBs** | **No** unfettered `chat.db`-class access; different architecture if you need parity | **Differentiator** where FDA/OS allows; high-signal local graph |
-| **Local files & folders** | **Upload**, **cloud-drive OAuth**, or **sync client**—extra UX and scope | **Automatic indexing** of user-granted paths; no per-file upload for grounding |
-| **Local permission friction** | **None** (no FDA dance) | **Real**—copy, trust, and support burden for disk/folder access |
-| **Data residency & trust** | Data on **your** infra; some users want managed backup; others resist “life in the cloud” | Default **on disk**; remote use = **their machine** + tunnel/VPN; local-first story |
-| **User isolation** | **Designed and tested**—tenant IDs in every path, worker affinity, no shared mutable roots | **Natural single-tenant** per install—no cross-customer data in one process |
-| **Security program** | **Cross-tenant contamination** (storage, caches, RAG, logs, LLM context) is a **shipping requirement** | **Device** and **supply-chain** risk; cross-tenant bleed **not** inherent until multi-account/sync |
-| **Ops & economics** | **Scales with tenants**—compute, egress, object storage, backups, abuse | **Binary + updates**; user supplies CPU/power; fewer hosted moving parts per user |
-| **Availability** | Can be **always-on** / multi-region (if you invest) | **Mac must be on** (or wake policy); not “open tab anywhere” without remote access setup |
-| **Distribution** | **URL** + your hosting | **Notarized DMG**, **MAS**, or both—review, entitlements, release cadence |
+
+| Dimension                      | Cloud (multi-tenant)                                                                                   | Native desktop (local-first)                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| **First-run / onboarding**     | Open a URL; **Sign in with Google** (and similar)—low friction for many users                          | Install binary; **macOS permissions** (FDA, folders); optional OAuth for Gmail/Calendar             |
+| **Updates**                    | **Fast, uniform**—deploy and everyone gets fixes on next session                                       | **Slower, uneven**—auto-updater + users who lag; plan support for old builds                        |
+| **Reach & clients**            | **Any device** with a browser                                                                          | **Per-OS** packaging (macOS first; Windows later); **feature matrix** (e.g. no iMessage on Windows) |
+| **Gmail / Google Calendar**    | **Strong fit**—OAuth and APIs match the “five-minute setup” story                                      | Same cloud APIs **plus** optional local mail/calendar depth                                         |
+| **Apple Mail (local)**         | Not reading the user’s local Mail store                                                                | Can integrate with **on-machine** mail where product scope allows                                   |
+| **iMessage / local Apple DBs** | **No** unfettered `chat.db`-class access; different architecture if you need parity                    | **Differentiator** where FDA/OS allows; high-signal local graph                                     |
+| **Local files & folders**      | **Upload**, **cloud-drive OAuth**, or **sync client**—extra UX and scope                               | **Automatic indexing** of user-granted paths; no per-file upload for grounding                      |
+| **Local permission friction**  | **None** (no FDA dance)                                                                                | **Real**—copy, trust, and support burden for disk/folder access                                     |
+| **Data residency & trust**     | Data on **your** infra; some users want managed backup; others resist “life in the cloud”              | Default **on disk**; remote use = **their machine** + tunnel/VPN; local-first story                 |
+| **User isolation**             | **Designed and tested**—tenant IDs in every path, worker affinity, no shared mutable roots             | **Natural single-tenant** per install—no cross-customer data in one process                         |
+| **Security program**           | **Cross-tenant contamination** (storage, caches, RAG, logs, LLM context) is a **shipping requirement** | **Device** and **supply-chain** risk; cross-tenant bleed **not** inherent until multi-account/sync  |
+| **Ops & economics**            | **Scales with tenants**—compute, egress, object storage, backups, abuse                                | **Binary + updates**; user supplies CPU/power; fewer hosted moving parts per user                   |
+| **Availability**               | Can be **always-on** / multi-region (if you invest)                                                    | **Mac must be on** (or wake policy); not “open tab anywhere” without remote access setup            |
+| **Distribution**               | **URL** + your hosting                                                                                 | **Notarized DMG**, **MAS**, or both—review, entitlements, release cadence                           |
+
 
 The sections below unpack each column with more nuance.
 
@@ -132,3 +134,4 @@ Use this as a living checklist:
 3. **Multi-tenant readiness**: if cloud is on the roadmap, what is the **minimum** isolation milestone before any paid or non-demo tenant?
 4. **Update and support policy**: acceptable lag for native clients; how long old builds stay supported.
 5. **Hybrid**: intentionally “no hybrid yet” vs “local ingest + optional sync” on the horizon—drives storage design early.
+

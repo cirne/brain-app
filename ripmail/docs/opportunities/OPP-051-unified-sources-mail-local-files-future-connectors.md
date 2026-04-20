@@ -206,6 +206,7 @@ Examples: **Notion**, **Apple Notes**, read-only cloud APIs. Each gets a `kind`,
 
 ## Related
 
+- [brain-app OPP-040](../../../docs/opportunities/OPP-040-one-formerly-pica-integration-layer-ripmail-sources.md) — **One** (formerly **Pica**) as a possible hosted integration layer when many SaaS connectors are desired; evaluation only, not the default direction.
 - [OPP-016 archived](archive/OPP-016-multi-inbox.md) — historical multi-inbox; this opp supersedes the *config model* for new work.
 - [OPP-045](OPP-045-imessage-and-unified-messaging-index.md) — paused messaging index; unified **source** concept should fit the same direction.
 - [OPP-050](OPP-050-applemail-localhost-mailbox.md) — Apple Mail as a mailbox **kind**; in a `sources` world it becomes one `kind` among others.
