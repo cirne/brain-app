@@ -7,7 +7,9 @@
   import Calendar from './Calendar.svelte'
   import MessageThread from './MessageThread.svelte'
   import PhoneAccessPanel from './PhoneAccessPanel.svelte'
-  import BackgroundAgentPanel from './statusBar/BackgroundAgentPanel.svelte'
+  import HubBackgroundAgentsDetail from './HubBackgroundAgentsDetail.svelte'
+  import HubSourceInspectPanel from './HubSourceInspectPanel.svelte'
+  import HubWikiAboutPanel from './HubWikiAboutPanel.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
   import type { Overlay } from '../router.js'
@@ -233,6 +235,8 @@
     if (o.type === 'messages') return 'Messages'
     if (o.type === 'phone-access') return 'Connect Phone'
     if (o.type === 'background-agent') return 'Wiki expansion'
+    if (o.type === 'hub-source') return 'Search index source'
+    if (o.type === 'hub-wiki-about') return 'Your wiki'
     return 'Calendar'
   }
 
@@ -402,8 +406,8 @@
     {:else if overlay.type === 'phone-access'}
       <PhoneAccessPanel />
     {:else if overlay.type === 'background-agent'}
-      <BackgroundAgentPanel
-        id={overlay.id}
+      <HubBackgroundAgentsDetail
+        focusAgentId={overlay.id}
         onOpenWiki={(path) => {
           if (path) onWikiNavigate(path)
         }}
@@ -413,6 +417,10 @@
         onSwitchToCalendar={onCalendarNavigate}
         onOpenMessageThread={toolOnOpenMessageThread}
       />
+    {:else if overlay.type === 'hub-source'}
+      <HubSourceInspectPanel sourceId={overlay.id} onClose={onClose} />
+    {:else if overlay.type === 'hub-wiki-about'}
+      <HubWikiAboutPanel />
     {:else}
       <Calendar
         refreshKey={calendarRefreshKey}
@@ -640,7 +648,9 @@
 
   .slide-body :global(.wiki),
   .slide-body :global(.inbox),
-  .slide-body :global(.calendar) {
+  .slide-body :global(.calendar),
+  .slide-body :global(.hub-bg-agents-detail),
+  .slide-body :global(.hub-source-inspect) {
     flex: 1;
     min-height: 0;
   }

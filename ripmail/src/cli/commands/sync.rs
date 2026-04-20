@@ -1,5 +1,5 @@
 use crate::cli::triage::{
-    print_sync_foreground_metrics, run_sync_foreground_backward, run_sync_foreground_refresh,
+    print_sync_foreground_metrics, run_sync_foreground_backfill, run_sync_foreground_refresh,
 };
 use crate::cli::util::{load_cfg, ripmail_home_path};
 use crate::cli::CliResult;
@@ -8,15 +8,11 @@ use ripmail::{
     print_refresh_text, print_status_text, rebuild_from_maildir, spawn_sync_background_detached,
 };
 
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn run_update(
+pub(crate) fn run_backfill(
     duration: Option<String>,
     since: Option<String>,
-    backfill: bool,
     source: Option<String>,
     foreground: bool,
-    force: bool,
-    text: bool,
     verbose: bool,
 ) -> CliResult {
     let cfg = load_cfg();
@@ -26,34 +22,37 @@ pub(crate) fn run_update(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(|s| s.to_string())
-        .or_else(|| {
-            if backfill {
-                Some(cfg.sync_default_since.clone())
-            } else {
-                None
-            }
-        });
-    let since_spec = since_spec
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty());
+        .unwrap_or_else(|| cfg.sync_default_since.clone());
+    let since_spec = since_spec.as_str().trim();
+    if since_spec.is_empty() {
+        eprintln!("ripmail: specify a window (e.g. `ripmail backfill 1y` or `--since 180d`).");
+        std::process::exit(2);
+    }
     let mailbox_ref = source.as_deref().map(str::trim).filter(|s| !s.is_empty());
 
-    if let Some(spec) = since_spec {
-        if foreground {
-            let result = run_sync_foreground_backward(&cfg, Some(spec), mailbox_ref, verbose)?;
-            print_sync_foreground_metrics(&result);
-        } else {
-            spawn_sync_background_detached(
-                &ripmail_home_path(),
-                &cfg,
-                Some(spec),
-                mailbox_ref,
-                verbose,
-            )?;
-        }
-        return Ok(());
+    if foreground {
+        let result = run_sync_foreground_backfill(&cfg, Some(since_spec), mailbox_ref, verbose)?;
+        print_sync_foreground_metrics(&result);
+    } else {
+        spawn_sync_background_detached(
+            &ripmail_home_path(),
+            &cfg,
+            Some(since_spec),
+            mailbox_ref,
+            verbose,
+        )?;
     }
+    Ok(())
+}
+
+pub(crate) fn run_refresh(
+    source: Option<String>,
+    force: bool,
+    text: bool,
+    verbose: bool,
+) -> CliResult {
+    let cfg = load_cfg();
+    let mailbox_ref = source.as_deref().map(str::trim).filter(|s| !s.is_empty());
 
     let conn = db::open_file(cfg.db_path())?;
     let result = run_sync_foreground_refresh(&cfg, force, true, mailbox_ref, verbose)?;
@@ -83,28 +82,40 @@ pub(crate) fn run_status(json: bool, imap: bool) -> CliResult {
     if json {
         let status = ripmail::get_status(&conn)?;
         let stale_lock = ripmail::status_stale_lock_running(&status);
-        let hang_suspected = ripmail::status_initial_sync_hang_suspected(&status);
-        let last_sync_ago = if status.sync.is_running && status.sync_lock_held_by_live_process {
+        let last_sync_ago = if (status.refresh.is_running
+            && status.refresh_lock_held_by_live_process)
+            || (status.backfill.is_running && status.backfill_lock_held_by_live_process)
+        {
             None
         } else {
-            ripmail::format_time_ago(status.sync.last_sync_at.as_deref())
+            ripmail::format_time_ago(status.refresh.last_sync_at.as_deref())
         };
         // `search.indexedMessages` / `ftsReady`: live COUNT(*) from `messages` (FTS). Same value; use
-        // `indexedMessages` in UIs. `sync.totalMessages` may differ (sync_summary bookkeeping).
+        // `indexedMessages` in UIs. `sync.refresh.totalMessages` may differ (sync_summary bookkeeping).
         let mut out = serde_json::json!({
             "sync": {
-                "isRunning": status.sync.is_running,
-                "lastSyncAt": status.sync.last_sync_at,
-                "totalMessages": status.sync.total_messages,
-                "earliestSyncedDate": status.sync.earliest_synced_date,
-                "latestSyncedDate": status.sync.latest_synced_date,
-                "targetStartDate": status.sync.target_start_date,
-                "syncStartEarliestDate": status.sync.sync_start_earliest_date,
-                "lockHeldByLiveProcess": status.sync_lock_held_by_live_process,
-                "lockAgeMs": status.sync_lock_age_ms.map(|ms| ms as u64),
-                "lockOwnerPid": status.sync.owner_pid,
+                "refresh": {
+                    "isRunning": status.refresh.is_running,
+                    "lastSyncAt": status.refresh.last_sync_at,
+                    "totalMessages": status.refresh.total_messages,
+                    "earliestSyncedDate": status.refresh.earliest_synced_date,
+                    "latestSyncedDate": status.refresh.latest_synced_date,
+                    "targetStartDate": status.refresh.target_start_date,
+                    "syncStartEarliestDate": status.refresh.sync_start_earliest_date,
+                    "lockHeldByLiveProcess": status.refresh_lock_held_by_live_process,
+                    "lockAgeMs": status.refresh_lock_age_ms.map(|ms| ms as u64),
+                    "lockOwnerPid": status.refresh.owner_pid,
+                },
+                "backfill": {
+                    "isRunning": status.backfill.is_running,
+                    "lastSyncAt": status.backfill.last_sync_at,
+                    "targetStartDate": status.backfill.target_start_date,
+                    "syncStartEarliestDate": status.backfill.sync_start_earliest_date,
+                    "lockHeldByLiveProcess": status.backfill_lock_held_by_live_process,
+                    "lockAgeMs": status.backfill_lock_age_ms.map(|ms| ms as u64),
+                    "lockOwnerPid": status.backfill.owner_pid,
+                },
                 "staleLockInDb": stale_lock,
-                "initialSyncHangSuspected": hang_suspected,
             },
             "search": {
                 "indexedMessages": status.fts_ready,

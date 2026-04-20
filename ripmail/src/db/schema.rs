@@ -1,6 +1,6 @@
 //! SQL schema — mirrors `src/db/schema.ts` in the TypeScript tree.
 
-pub const SCHEMA_VERSION: i32 = 25;
+pub const SCHEMA_VERSION: i32 = 27;
 
 pub const SCHEMA: &str = r#"
   CREATE TABLE IF NOT EXISTS sources (
@@ -104,7 +104,7 @@ pub const SCHEMA: &str = r#"
   );
 
   CREATE TABLE IF NOT EXISTS sync_summary (
-    id                   INTEGER PRIMARY KEY CHECK (id = 1),
+    id                   INTEGER PRIMARY KEY CHECK (id IN (1, 2)),
     earliest_synced_date TEXT,
     latest_synced_date   TEXT,
     target_start_date    TEXT,
@@ -244,6 +244,7 @@ pub const SCHEMA: &str = r#"
     source_id       TEXT NOT NULL,
     source_kind     TEXT NOT NULL,
     calendar_id     TEXT NOT NULL,
+    calendar_name   TEXT,
     uid             TEXT NOT NULL,
     summary         TEXT,
     description     TEXT,

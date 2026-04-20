@@ -187,6 +187,20 @@ describe('parseRoute background-agent', () => {
   })
 })
 
+describe('parseRoute hub-source', () => {
+  it('parses /hub-source without id', () => {
+    expect(parseRoute('http://localhost/hub-source')).toEqual({
+      overlay: { type: 'hub-source' },
+    })
+  })
+
+  it('parses /hub-source?id=', () => {
+    expect(parseRoute('http://localhost/hub-source?id=src-1')).toEqual({
+      overlay: { type: 'hub-source', id: 'src-1' },
+    })
+  })
+})
+
 describe('routeToUrl', () => {
   it('chat-only returns /', () => {
     expect(routeToUrl({})).toBe('/')
@@ -278,6 +292,14 @@ describe('routeToUrl', () => {
     )
   })
 
+  it('hub-source without id', () => {
+    expect(routeToUrl({ overlay: { type: 'hub-source' } })).toBe('/hub-source')
+  })
+
+  it('hub-source with id uses query param id', () => {
+    expect(routeToUrl({ overlay: { type: 'hub-source', id: 'abc' } })).toBe('/hub-source?id=abc')
+  })
+
   it('hub returns /hub', () => {
     expect(routeToUrl({ hubActive: true })).toBe('/hub')
   })
@@ -291,6 +313,31 @@ describe('routeToUrl', () => {
       hubActive: true,
       overlay: { type: 'wiki', path: 'me.md' }
     })
+  })
+
+  it('parses /hub/hub-source?id= as hubActive with hub-source overlay', () => {
+    expect(parseRoute('http://localhost/hub/hub-source?id=src-9')).toEqual({
+      hubActive: true,
+      overlay: { type: 'hub-source', id: 'src-9' },
+    })
+  })
+
+  it('parses /hub/wiki-about as hubActive with hub-wiki-about overlay', () => {
+    expect(parseRoute('http://localhost/hub/wiki-about')).toEqual({
+      hubActive: true,
+      overlay: { type: 'hub-wiki-about' },
+    })
+  })
+
+  it('parses /wiki-about without hubActive', () => {
+    expect(parseRoute('http://localhost/wiki-about')).toEqual({
+      overlay: { type: 'hub-wiki-about' },
+    })
+  })
+
+  it('routeToUrl hub-wiki-about respects hubActive', () => {
+    expect(routeToUrl({ overlay: { type: 'hub-wiki-about' } })).toBe('/wiki-about')
+    expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-wiki-about' } })).toBe('/hub/wiki-about')
   })
 
   it('onboarding flow', () => {
@@ -335,6 +382,8 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { flow: 'restart-seed' as const },
     { flow: 'first-chat' as const },
     { overlay: { type: 'hub' as const } },
+    { overlay: { type: 'hub-wiki-about' as const } },
+    { hubActive: true, overlay: { type: 'hub-wiki-about' as const } },
   ] as const
 
   for (const route of cases) {

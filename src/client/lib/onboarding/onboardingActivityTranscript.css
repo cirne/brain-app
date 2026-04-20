@@ -343,6 +343,20 @@
   background: var(--accent-dim);
 }
 
+.ob-prof-mail-row--pending {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.ob-prof-inline-mail {
+  margin-top: 1.25rem;
+  margin-bottom: 20px;
+  max-width: min(800px, 100%);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .ob-prof-mail-lead {
   color: var(--text-2);
   flex-shrink: 0;

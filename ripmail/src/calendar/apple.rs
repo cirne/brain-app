@@ -1,60 +1,88 @@
-//! Apple Calendar via EventKit helper (macOS). Stub returns a clear error until `ripmail-eventkit` ships.
+//! Apple Calendar via read-only SQLite (`Calendar.sqlitedb`), same idea as Apple Mail envelope index.
 
 use std::collections::HashMap;
 use std::path::Path;
+#[cfg(target_os = "macos")]
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::Connection;
 
-/// Whether Calendar.app / EventKit indexing is implemented in this build.
-/// When `false`, `ripmail refresh` **skips** `appleCalendar` sources so mail and other calendars still sync.
-/// Turn this on together with a real [`sync_apple_calendar`] implementation.
+#[cfg(target_os = "macos")]
+use super::apple_sqlite::{
+    apple_calendar_db_path, open_apple_calendar_readonly, read_apple_calendar_events,
+    read_apple_calendar_name_map,
+};
+#[cfg(target_os = "macos")]
+use super::db::{self, upsert_event};
+
+/// Whether `appleCalendar` sources are synced in this build (macOS only; reads local Calendar DB).
 pub fn apple_calendar_sync_available() -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        false
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        false
-    }
+    cfg!(target_os = "macos")
 }
 
 pub fn sync_apple_calendar(
-    _conn: &mut Connection,
-    _home: &Path,
-    _source_id: &str,
+    conn: &mut Connection,
+    home: &Path,
+    source_id: &str,
     _env_file: &HashMap<String, String>,
     _process_env: &HashMap<String, String>,
 ) -> Result<u32, Box<dyn std::error::Error>> {
-    #[cfg(target_os = "macos")]
-    {
-        Err(
-            "appleCalendar: EventKit helper (ripmail-eventkit) is not bundled in this build yet. \
-             Use icsSubscription / icsFile or googleCalendar for now."
-                .into(),
-        )
-    }
     #[cfg(not(target_os = "macos"))]
     {
-        Err("appleCalendar sources are only supported on macOS.".into())
+        let _ = conn;
+        let _ = source_id;
+        return Err("appleCalendar sources are only supported on macOS.".into());
     }
-}
 
-#[cfg(all(test, target_os = "macos"))]
-mod tests_macos {
-    use super::*;
-    use std::collections::HashMap;
+    #[cfg(target_os = "macos")]
+    {
+        let Some(path) = apple_calendar_db_path() else {
+            return Err("appleCalendar: could not resolve home directory.".into());
+        };
+        if !path.is_file() {
+            return Err(format!(
+                "Apple Calendar database not found at:\n  {}\n\n\
+                 Open Calendar.app at least once, or check Full Disk Access for this terminal app:\n\
+                 System Settings → Privacy & Security → Full Disk Access.",
+                path.display()
+            )
+            .into());
+        }
 
-    #[test]
-    fn sync_apple_calendar_stub_message() {
-        let mut conn = rusqlite::Connection::open_in_memory().unwrap();
-        let home = std::path::Path::new(".");
-        let env = HashMap::new();
-        let err = sync_apple_calendar(&mut conn, home, "apple-test", &env, &env).unwrap_err();
-        let s = err.to_string();
-        assert!(
-            s.contains("EventKit") || s.contains("ripmail-eventkit"),
-            "unexpected stub error: {s}"
-        );
+        let apple = open_apple_calendar_readonly(&path).map_err(|e| {
+            format!(
+                "appleCalendar: could not open Calendar database read-only at:\n  {}\n\n\
+                 Grant Full Disk Access to this terminal app (Terminal, iTerm, Cursor, …):\n\
+                 System Settings → Privacy & Security → Full Disk Access.\n\
+                 Underlying error: {e}",
+                path.display()
+            )
+        })?;
+
+        let cal_names = read_apple_calendar_name_map(&apple).unwrap_or_default();
+        if !cal_names.is_empty() {
+            let dir = home.join(source_id);
+            let _ = std::fs::create_dir_all(&dir);
+            if let Ok(json) = serde_json::to_string_pretty(&cal_names) {
+                let _ = std::fs::write(dir.join("calendar-names.json"), json);
+            }
+        }
+
+        let rows = read_apple_calendar_events(&apple, source_id, "appleCalendar")?;
+        let synced_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        let tx = conn.transaction()?;
+        db::delete_source_events(&tx, source_id)?;
+        let mut n = 0u32;
+        for mut row in rows {
+            row.synced_at = Some(synced_at);
+            upsert_event(&tx, &row)?;
+            n += 1;
+        }
+        tx.commit()?;
+        Ok(n)
     }
 }

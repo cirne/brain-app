@@ -51,6 +51,36 @@ fn default_local_dir() -> LocalDirJson {
     LocalDirJson::default()
 }
 
+/// Kinds that support `calendarIds` / `defaultCalendars` in config and `sources list --json`.
+fn source_kind_has_calendar_preferences(k: SourceKind) -> bool {
+    matches!(
+        k,
+        SourceKind::GoogleCalendar
+            | SourceKind::AppleCalendar
+            | SourceKind::IcsSubscription
+            | SourceKind::IcsFile
+    )
+}
+
+fn source_json_for_sources_list(s: &SourceConfigJson) -> serde_json::Value {
+    let mut v = serde_json::to_value(s).unwrap_or_else(|_| {
+        serde_json::json!({
+            "id": s.id,
+            "kind": kind_label(s.kind),
+        })
+    });
+    if source_kind_has_calendar_preferences(s.kind) {
+        if let Some(obj) = v.as_object_mut() {
+            use serde_json::json;
+            obj.entry("calendarIds".to_string())
+                .or_insert_with(|| json!([]));
+            obj.entry("defaultCalendars".to_string())
+                .or_insert_with(|| json!([]));
+        }
+    }
+    v
+}
+
 pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
     use crate::cli::args::SourcesCmd;
     let home = ripmail_home_path();
@@ -59,9 +89,11 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
             let cfg = load_config_json(&home);
             let arr = cfg.sources.clone().unwrap_or_default();
             if json {
+                let rows: Vec<serde_json::Value> =
+                    arr.iter().map(source_json_for_sources_list).collect();
                 println!(
                     "{}",
-                    serde_json::to_string_pretty(&serde_json::json!({ "sources": arr }))?
+                    serde_json::to_string_pretty(&serde_json::json!({ "sources": rows }))?
                 );
             } else if arr.is_empty() {
                 println!("(no sources in config.json)");
@@ -218,7 +250,8 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                     #[cfg(not(target_os = "macos"))]
                     {
                         return Err(
-                            "appleCalendar sources are only supported on macOS (EventKit).".into(),
+                            "appleCalendar sources are only supported on macOS (reads Calendar.app SQLite)."
+                                .into(),
                         );
                     }
                     let id = id.unwrap_or_else(|| "apple-calendar".into());
@@ -348,14 +381,26 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                 sources[pos].path = Some(root.to_string_lossy().to_string());
             }
             if !calendar.is_empty() {
-                if sources[pos].kind != SourceKind::GoogleCalendar {
-                    return Err("--calendar only applies to googleCalendar sources".into());
+                if !matches!(
+                    sources[pos].kind,
+                    SourceKind::GoogleCalendar | SourceKind::AppleCalendar
+                ) {
+                    return Err(
+                        "--calendar only applies to googleCalendar and appleCalendar sources"
+                            .into(),
+                    );
                 }
                 sources[pos].calendar_ids = Some(calendar);
             }
             if !default_calendar.is_empty() {
-                if sources[pos].kind != SourceKind::GoogleCalendar {
-                    return Err("--default-calendar only applies to googleCalendar sources".into());
+                if !matches!(
+                    sources[pos].kind,
+                    SourceKind::GoogleCalendar | SourceKind::AppleCalendar
+                ) {
+                    return Err(
+                        "--default-calendar only applies to googleCalendar and appleCalendar sources"
+                            .into(),
+                    );
                 }
                 sources[pos].default_calendars = Some(default_calendar);
             }

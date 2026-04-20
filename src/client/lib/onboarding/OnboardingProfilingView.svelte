@@ -12,13 +12,13 @@
   import OnboardingLocalWikiLead from './OnboardingLocalWikiLead.svelte'
   import { profilingLeadCopy } from './onboardingLeadCopy.js'
   import {
+    buildProfilingTranscriptEvents,
     extractLastMeMdWriteContent,
     extractProfilingPeople,
     extractProfilingResources,
     isProfilingMeMdPath,
     lastMeaningfulToolCall,
     onboardingActivityLine,
-    type SeedingProgressEvent,
   } from './profilingResources.js'
 
   let {
@@ -31,18 +31,7 @@
 
   let shell = $state<ConversationScrollApi | undefined>()
 
-  const profilingEvents = $derived.by((): SeedingProgressEvent[] => {
-    const events: SeedingProgressEvent[] = []
-    for (const msg of messages) {
-      if (msg.role !== 'assistant') continue
-      for (const part of msg.parts ?? []) {
-        if (part.type === 'text' && part.content?.trim()) {
-          events.push({ type: 'text', content: part.content })
-        }
-      }
-    }
-    return events
-  })
+  const profilingTranscriptEvents = $derived(buildProfilingTranscriptEvents(messages))
 
   const peopleBlock = $derived(extractProfilingPeople(messages))
   const activity = $derived(onboardingActivityLine(messages, streaming, 'profiling'))
@@ -107,7 +96,7 @@
       </p>
     {/if}
 
-    {#each profilingEvents as event}
+    {#each profilingTranscriptEvents as event, i (event.type === 'email' ? event.toolId : `txt-${i}`)}
       {#if event.type === 'text'}
         <div class="ob-prof-chat-msg" role="article">
           <div class="ob-prof-msg-label">Assistant</div>
@@ -115,6 +104,30 @@
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             {@html renderMarkdown(event.content)}
           </div>
+        </div>
+      {:else}
+        <div class="ob-prof-inline-mail" role="article">
+          <button
+            type="button"
+            class="ob-prof-mail-row"
+            class:ob-prof-mail-row--pending={!event.done}
+            onclick={() => onOpenEmail?.(event.row.id, event.row.subject, event.row.from)}
+          >
+            <span class="ob-prof-mail-lead" aria-hidden="true">
+              <Mail size={12} />
+            </span>
+            <span class="ob-prof-mail-body">
+              <span class="ob-prof-mail-subject">
+                {event.row.subject.trim() || (event.done ? '(No subject)' : 'Reading message…')}
+              </span>
+              {#if event.row.from.trim()}
+                <span class="ob-prof-mail-meta">{event.row.from}</span>
+              {/if}
+              {#if event.row.snippet.trim()}
+                <span class="ob-prof-mail-snippet">{event.row.snippet}</span>
+              {/if}
+            </span>
+          </button>
         </div>
       {/if}
     {/each}
@@ -157,37 +170,6 @@
         </ul>
         {#if resources.wikiOverflow > 0}
           <p class="ob-prof-overflow">+{resources.wikiOverflow} more</p>
-        {/if}
-      </section>
-    {/if}
-
-    {#if resources.emails.length > 0 || resources.emailOverflow > 0}
-      <section class="ob-prof-section" aria-labelledby="ob-prof-mail-heading">
-        <h2 id="ob-prof-mail-heading" class="ob-prof-section-title">Mail referenced</h2>
-        <ul class="ob-prof-mail-list">
-          {#each resources.emails as row (row.id)}
-            <li>
-              <button
-                type="button"
-                class="ob-prof-mail-row"
-                onclick={() => onOpenEmail?.(row.id, row.subject, row.from)}
-              >
-                <span class="ob-prof-mail-lead" aria-hidden="true">
-                  <Mail size={12} />
-                </span>
-                <span class="ob-prof-mail-body">
-                  <span class="ob-prof-mail-subject">{row.subject || '(No subject)'}</span>
-                  <span class="ob-prof-mail-meta">{row.from}</span>
-                  {#if row.snippet}
-                    <span class="ob-prof-mail-snippet">{row.snippet}</span>
-                  {/if}
-                </span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-        {#if resources.emailOverflow > 0}
-          <p class="ob-prof-overflow">+{resources.emailOverflow} more</p>
         {/if}
       </section>
     {/if}

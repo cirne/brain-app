@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte'
+  import { onMount } from 'svelte'
   import { 
     FileText, 
     Clock, 
@@ -11,11 +11,12 @@
     Smartphone,
     Folder,
     Calendar,
-    Layers
+    Layers,
+    CircleHelp,
   } from 'lucide-svelte'
   import type { BackgroundAgentDoc } from './statusBar/backgroundAgentTypes.js'
-  import BackgroundAgentPanel from './statusBar/BackgroundAgentPanel.svelte'
   import type { OnboardingMailStatus } from './onboarding/onboardingTypes.js'
+  import type { NavigateOptions, Overlay } from '../router.js'
 
   type HubRipmailSourceRow = {
     id: string
@@ -25,23 +26,11 @@
   }
 
   type Props = {
-    onOpenWiki: (_path: string) => void
-    onOpenFile: (_path: string) => void
-    onOpenEmail: (_id: string, _subject?: string, _from?: string) => void
-    onOpenFullInbox: () => void
-    onSwitchToCalendar: (_date: string, _eventId?: string) => void
-    onOpenMessageThread: (_chat: string, _label: string) => void
-    onSync: () => Promise<void>
+    /** All hub drill-downs use the same overlay + `SlideOver` stack as the chat shell. */
+    onHubNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
   }
 
-  let { 
-    onOpenWiki, 
-    onOpenFile, 
-    onOpenEmail, 
-    onOpenFullInbox, 
-    onSwitchToCalendar, 
-    onOpenMessageThread
-  }: Props = $props()
+  let { onHubNavigate }: Props = $props()
 
   let docCount = $state<number | null>(null)
   let recentDocs = $state<{ path: string; name: string; date: string }[]>([])
@@ -50,9 +39,23 @@
   let mailStatus = $state<OnboardingMailStatus | null>(null)
   let hubSources = $state<HubRipmailSourceRow[]>([])
   let hubSourcesError = $state<string | null>(null)
-  let inspectDialogEl = $state<HTMLDialogElement | null>(null)
-  let inspectSource = $state<HubRipmailSourceRow | null>(null)
-  let removingSource = $state(false)
+  const agentsActiveDoc = $derived(
+    agents.find((a) => ['running', 'queued', 'paused'].includes(a.status)) ?? null,
+  )
+
+  const agentsHubSummarySub = $derived.by(() => {
+    const a = agentsActiveDoc
+    if (a?.status === 'running' || a?.status === 'queued') {
+      return `${a.label || 'Wiki expansion'} · in progress`
+    }
+    if (a?.status === 'paused') {
+      return `${a.label || 'Wiki expansion'} · paused`
+    }
+    if (agents.length === 0) {
+      return 'Open for wiki expansion controls'
+    }
+    return 'Idle — open for controls and history'
+  })
 
   function sourceKindLabel(kind: string): string {
     switch (kind) {
@@ -102,47 +105,6 @@
       return a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
     }),
   )
-
-  async function openSourceInspect(s: HubRipmailSourceRow) {
-    inspectSource = s
-    await tick()
-    inspectDialogEl?.showModal()
-  }
-
-  function closeSourceInspect() {
-    inspectDialogEl?.close()
-  }
-
-  async function confirmRemoveSource() {
-    if (!inspectSource) return
-    const name = inspectSource.displayName
-    if (
-      !confirm(
-        `Remove “${name}” from the search index?\n\nNothing is deleted on disk. Brain will stop searching this source.`,
-      )
-    ) {
-      return
-    }
-    removingSource = true
-    try {
-      const res = await fetch('/api/hub/sources/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: inspectSource.id }),
-      })
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
-      if (!res.ok || !j.ok) {
-        throw new Error(typeof j.error === 'string' ? j.error : 'Could not remove source')
-      }
-      closeSourceInspect()
-      inspectSource = null
-      await fetchData()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Could not remove source')
-    } finally {
-      removingSource = false
-    }
-  }
 
   async function fetchData() {
     try {
@@ -230,7 +192,7 @@
         <h2>Access & Connectivity</h2>
       </div>
       <div class="links-list">
-        <button class="link-item" onclick={() => onOpenWiki('me.md')}>
+        <button class="link-item" onclick={() => onHubNavigate({ type: 'wiki', path: 'me.md' })}>
           <div class="link-info">
             <User size={16} />
             <span>Your Profile (me.md)</span>
@@ -238,14 +200,7 @@
           <ChevronRight size={16} />
         </button>
 
-        <button class="link-item" onclick={() => {
-          const replace = false
-          const hubActive = true
-          import('../router.js').then(r => {
-            r.navigate({ overlay: { type: 'phone-access' }, hubActive }, replace ? { replace: true } : undefined)
-            window.dispatchEvent(new PopStateEvent('popstate'))
-          })
-        }}>
+        <button class="link-item" onclick={() => onHubNavigate({ type: 'phone-access' })}>
           <div class="link-info">
             <Smartphone size={16} />
             <span>Phone Access</span>
@@ -264,8 +219,7 @@
         <h2>Search index</h2>
       </div>
       <p class="section-lead">
-        Everything Brain searches lives here: mail accounts, calendars, and folders on disk. Open a row to
-        inspect it or remove it from the index.
+        Everything Brain searches lives here: mail accounts, calendars, and your documents.
       </p>
       <div class="index-status-strip" role="status" aria-live="polite">
         {#if mailStatus?.statusError}
@@ -295,7 +249,11 @@
           <p class="empty-msg">No sources yet. Connect mail, add calendars, or add folders from chat.</p>
         {:else}
           {#each orderedHubSources as s (s.id)}
-            <button type="button" class="link-item hub-source-row" onclick={() => openSourceInspect(s)}>
+            <button
+              type="button"
+              class="link-item hub-source-row"
+              onclick={() => onHubNavigate({ type: 'hub-source', id: s.id })}
+            >
               <div class="link-info">
                 {#if s.kind === 'localDir'}
                   <span class="hub-source-icon-wrap" aria-hidden="true"><Folder size={16} /></span>
@@ -316,55 +274,23 @@
       </div>
     </section>
 
-    <dialog
-      class="hub-source-dialog"
-      bind:this={inspectDialogEl}
-      onclose={() => {
-        inspectSource = null
-        removingSource = false
-      }}
-    >
-      {#if inspectSource}
-        <div class="hub-source-dialog-inner">
-          <h3 class="hub-source-dialog-title">{inspectSource.displayName}</h3>
-          <dl class="hub-source-meta">
-            <div class="hub-source-meta-row">
-              <dt>Type</dt>
-              <dd>{sourceKindLabel(inspectSource.kind)}</dd>
-            </div>
-            <div class="hub-source-meta-row">
-              <dt>Source id</dt>
-              <dd class="hub-source-id">{inspectSource.id}</dd>
-            </div>
-            {#if inspectSource.path}
-              <div class="hub-source-meta-row">
-                <dt>Path</dt>
-                <dd class="hub-source-path">{inspectSource.path}</dd>
-              </div>
-            {/if}
-          </dl>
-          <div class="hub-source-dialog-actions">
-            <button type="button" class="hub-dialog-btn hub-dialog-btn-secondary" onclick={() => closeSourceInspect()}>
-              Close
-            </button>
-            <button
-              type="button"
-              class="hub-dialog-btn hub-dialog-btn-danger"
-              disabled={removingSource}
-              onclick={() => void confirmRemoveSource()}
-            >
-              {removingSource ? 'Removing…' : 'Remove from index'}
-            </button>
-          </div>
-        </div>
-      {/if}
-    </dialog>
-
     <!-- Section 2: Wiki Summary -->
     <section class="hub-section stats-section">
-      <div class="section-header">
-        <AlertCircle size={18} />
-        <h2>Wiki Summary</h2>
+      <div class="section-header stats-section-header">
+        <div class="stats-header-start">
+          <AlertCircle size={18} />
+          <h2>Wiki Summary</h2>
+        </div>
+        <button
+          type="button"
+          class="wiki-help-inline"
+          onclick={() => onHubNavigate({ type: 'hub-wiki-about' })}
+          title="How your wiki works with Brain"
+          aria-label="What is the wiki? Opens help."
+        >
+          <CircleHelp size={16} strokeWidth={2} aria-hidden="true" />
+          <span>What is this?</span>
+        </button>
       </div>
       <div class="stats-grid">
         <div class="stat-card">
@@ -389,7 +315,7 @@
       <div class="recent-list">
         {#if recentDocs.length > 0}
           {#each recentDocs as doc (doc.path)}
-            <button class="recent-item" onclick={() => onOpenWiki(doc.path)}>
+            <button class="recent-item" onclick={() => onHubNavigate({ type: 'wiki', path: doc.path })}>
               <div class="recent-info">
                 <FileText size={14} />
                 <span class="recent-name">{doc.path}</span>
@@ -406,43 +332,41 @@
       </div>
     </section>
 
-    <!-- Section 4: Background Agents -->
-    <section class="hub-section agents-section">
+    <!-- Section 4: Background Agents — open detail in right pane (same as wiki / phone access) -->
+    <section class="hub-section agents-section" aria-label="Background agents">
       <div class="section-header">
         <RefreshCw size={18} />
         <h2>Background Agents</h2>
       </div>
-      <div class="agents-list">
-        {#if agents.length > 0}
-          {#each agents as agent (agent.id)}
-            <div class="agent-item-container">
-              <div class="agent-summary">
-                <div class="agent-info">
-                  <span class="status-pill {agent.status}">{agent.status}</span>
-                  <span class="agent-label">{agent.label || 'Wiki Expansion'}</span>
-                </div>
-                {#if agent.pageCount > 0}
-                  <span class="page-count">{agent.pageCount} pages</span>
-                {/if}
-              </div>
-              {#if ['running', 'queued', 'paused'].includes(agent.status)}
-                <div class="agent-panel-wrapper">
-                  <BackgroundAgentPanel 
-                    id={agent.id}
-                    onOpenWiki={onOpenWiki}
-                    onOpenFile={onOpenFile}
-                    onOpenEmail={onOpenEmail}
-                    onOpenFullInbox={onOpenFullInbox}
-                    onSwitchToCalendar={onSwitchToCalendar}
-                    onOpenMessageThread={onOpenMessageThread}
-                  />
-                </div>
-              {/if}
+      <div class="links-list">
+        <button
+          type="button"
+          class="link-item hub-source-row"
+          onclick={() =>
+            onHubNavigate(
+              agentsActiveDoc
+                ? { type: 'background-agent', id: agentsActiveDoc.id }
+                : { type: 'background-agent' },
+            )}
+        >
+          <div class="link-info">
+            <span class="hub-source-icon-wrap" aria-hidden="true"><RefreshCw size={16} /></span>
+            <div class="source-folder-text">
+              <span class="source-folder-name">Wiki expansion</span>
+              <span class="source-folder-path">{agentsHubSummarySub}</span>
             </div>
-          {/each}
-        {:else}
-          <p class="empty-msg">No active background agents.</p>
-        {/if}
+          </div>
+          {#if agentsActiveDoc && (agentsActiveDoc.status === 'running' || agentsActiveDoc.status === 'queued')}
+            <div class="link-status">
+              <span class="status-pill {agentsActiveDoc.status}">{agentsActiveDoc.status}</span>
+            </div>
+          {:else if agentsActiveDoc?.status === 'paused'}
+            <div class="link-status">
+              <span class="status-pill paused">{agentsActiveDoc.status}</span>
+            </div>
+          {/if}
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
       </div>
     </section>
 
@@ -491,6 +415,10 @@
     gap: 1.5rem;
   }
 
+  .stats-section {
+    gap: 0.6rem;
+  }
+
   .section-header {
     display: flex;
     align-items: center;
@@ -498,6 +426,48 @@
     color: var(--text);
     padding-bottom: 0.75rem;
     border-bottom: 1px solid var(--border);
+  }
+
+  .stats-section-header {
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .stats-header-start {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .wiki-help-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+    margin-left: auto;
+    padding: 0.25rem 0.4rem;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+      color 0.15s,
+      background 0.15s;
+  }
+
+  .wiki-help-inline:hover {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 9%, var(--bg));
+  }
+
+  .stats-section .stats-grid {
+    gap: 2rem;
   }
 
   h2 {
@@ -538,7 +508,7 @@
     letter-spacing: 0.01em;
   }
 
-  .recent-list, .links-list, .agents-list {
+  .recent-list, .links-list {
     display: flex;
     flex-direction: column;
   }
@@ -600,26 +570,6 @@
     color: var(--accent);
   }
 
-  .agent-item-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1.25rem 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .agent-summary {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .agent-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
   .status-pill {
     font-size: 0.625rem;
     font-weight: 800;
@@ -636,24 +586,14 @@
     color: white;
   }
 
-  .agent-label {
-    font-size: 1rem;
-    font-weight: 600;
+  .status-pill.queued {
+    background: color-mix(in srgb, var(--accent) 55%, var(--bg-3));
+    color: var(--text);
   }
 
-  .page-count {
-    font-size: 0.875rem;
-    color: var(--text-2);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .agent-panel-wrapper {
-    margin-top: 0.5rem;
-    padding: 1rem;
-    background: var(--bg-2);
-    border-radius: 8px;
-    max-height: 400px;
-    overflow: auto;
+  .status-pill.paused {
+    background: color-mix(in srgb, var(--text-2) 22%, var(--bg-3));
+    color: var(--text);
   }
 
   .link-status {
@@ -746,120 +686,6 @@
     color: var(--text-2);
   }
 
-  .hub-source-dialog {
-    max-width: 26rem;
-    width: calc(100vw - 2rem);
-    margin: auto;
-    padding: 0;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--bg);
-    color: var(--text);
-    box-shadow: 0 16px 48px color-mix(in srgb, black 35%, transparent);
-  }
-
-  .hub-source-dialog::backdrop {
-    background: color-mix(in srgb, black 45%, transparent);
-  }
-
-  .hub-source-dialog-inner {
-    padding: 1.25rem 1.35rem 1.35rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .hub-source-dialog-title {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.25;
-  }
-
-  .hub-source-meta {
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-  }
-
-  .hub-source-meta-row {
-    display: grid;
-    grid-template-columns: 6.5rem 1fr;
-    gap: 0.5rem 1rem;
-    font-size: 0.875rem;
-    align-items: baseline;
-  }
-
-  .hub-source-meta-row dt {
-    margin: 0;
-    font-weight: 600;
-    color: var(--text-2);
-  }
-
-  .hub-source-meta-row dd {
-    margin: 0;
-    word-break: break-word;
-  }
-
-  .hub-source-id {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-      monospace;
-    font-size: 0.8125rem;
-    color: var(--text-2);
-  }
-
-  .hub-source-path {
-    font-size: 0.8125rem;
-    line-height: 1.35;
-  }
-
-  .hub-source-dialog-actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    margin-top: 0.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-  }
-
-  .hub-dialog-btn {
-    font-size: 0.875rem;
-    font-weight: 600;
-    padding: 0.45rem 0.9rem;
-    border-radius: 8px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-  }
-
-  .hub-dialog-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .hub-dialog-btn-secondary {
-    background: transparent;
-    color: var(--text);
-    border-color: color-mix(in srgb, var(--border) 80%, transparent);
-  }
-
-  .hub-dialog-btn-secondary:hover:not(:disabled) {
-    background: var(--bg-2);
-  }
-
-  .hub-dialog-btn-danger {
-    background: color-mix(in srgb, var(--danger) 14%, var(--bg));
-    color: var(--danger);
-    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
-  }
-
-  .hub-dialog-btn-danger:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--danger) 24%, var(--bg));
-  }
-
   .source-folder-text {
     display: flex;
     flex-direction: column;
@@ -897,6 +723,9 @@
     }
     .stats-grid {
       gap: 1.5rem;
+    }
+    .stats-section .stats-grid {
+      gap: 1.25rem;
     }
   }
 </style>

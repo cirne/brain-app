@@ -798,6 +798,7 @@ fn wizard_first_mailbox_apple_mail(
     );
 
     let path_opt = validate_apple_mail_envelope_index_auto_detect()?;
+    crate::calendar::apple_sqlite::warn_calendar_db_read_access();
 
     let since = existing_cfg
         .default_since
@@ -837,6 +838,7 @@ fn wizard_add_mailbox_apple_mail(
     println!("\nAdd mailbox (Apple Mail — local index)\n");
 
     let path_opt = validate_apple_mail_envelope_index_auto_detect()?;
+    crate::calendar::apple_sqlite::warn_calendar_db_read_access();
 
     let existing_mbs = load_mailbox_configs_for_wizard(home);
     let email_trim = next_placeholder_applemail_email(&existing_mbs);

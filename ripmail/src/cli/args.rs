@@ -182,28 +182,31 @@ pub(crate) enum Commands {
         #[arg(long)]
         yes: bool,
     },
-    /// Fetch mail from IMAP: forward sync by default; new mailboxes get one automatic backfill
-    /// using `sync.defaultSince` on plain `refresh`. Use `--since` for explicit history windows.
+    /// Incremental IMAP sync: new mail and forward checkpoint only (fast; schedule often).
     #[command(name = "refresh")]
     Refresh {
-        /// Positional duration (e.g. `7d`, `180d`, `1y`) — same as `--since`
-        duration: Option<String>,
-        /// Rolling window — overrides `sync.defaultSince` when set
-        #[arg(long, short = 's')]
-        since: Option<String>,
-        /// Same as `--since` with the value from `sync.defaultSince` in config (explicit backfill)
-        #[arg(long, alias = "init", conflicts_with_all = ["since", "duration"])]
-        backfill: bool,
         /// Sync only this source (email or id from config); default = all configured
-        #[arg(long, short = 'S')]
+        #[arg(long, short = 'S', alias = "mailbox")]
         source: Option<String>,
-        #[arg(long, alias = "fg")]
-        foreground: bool,
         #[arg(long)]
         force: bool,
         #[arg(long)]
         text: bool,
         /// Extra DEBUG lines in the sync log (and stderr progress mirrored to the log when set)
+        #[arg(long, short = 'v')]
+        verbose: bool,
+    },
+    /// Historical mail download for a time window (idempotent; skips already-indexed messages).
+    #[command(name = "backfill")]
+    Backfill {
+        /// Window to cover, e.g. `1y`, `2y`, `180d` (default: `sync.defaultSince` from config)
+        duration: Option<String>,
+        #[arg(long, short = 's')]
+        since: Option<String>,
+        #[arg(long, short = 'S', alias = "mailbox")]
+        source: Option<String>,
+        #[arg(long, alias = "fg")]
+        foreground: bool,
         #[arg(long, short = 'v')]
         verbose: bool,
     },
@@ -490,6 +493,9 @@ pub(crate) enum CalendarCmd {
         to: Option<String>,
         #[arg(long, short = 'S')]
         source: Option<String>,
+        /// Optional calendar IDs (repeat); when set, overrides default_calendars from config
+        #[arg(long = "calendar")]
+        calendar: Vec<String>,
         #[arg(long)]
         json: bool,
     },

@@ -2,8 +2,8 @@
 
 use ripmail::{
     acquire_lock, apply_schema, db, release_lock, run_sync, should_early_exit_forward,
-    FakeImapTransport, FetchedMessage, ImapStatusData, SyncDirection, SyncFileLogger, SyncOptions,
-    SCHEMA_VERSION,
+    FakeImapTransport, FetchedMessage, ImapStatusData, SyncDirection, SyncFileLogger, SyncKind,
+    SyncOptions, SCHEMA_VERSION,
 };
 use rusqlite::Connection;
 use tempfile::tempdir;
@@ -16,7 +16,7 @@ fn open_temp_db(dir: &std::path::Path) -> Connection {
     apply_schema(&conn).unwrap();
     conn
         .execute(
-            "UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id = 1",
+            "UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id IN (1, 2)",
             [],
         )
         .ok();
@@ -47,6 +47,7 @@ fn early_exit_forward_skips_examine_and_returns_flag() {
         fetch_batches: std::collections::VecDeque::new(),
     };
     let opts = SyncOptions {
+        kind: SyncKind::Refresh,
         direction: SyncDirection::Forward,
         since_ymd: "2025-01-01".into(),
         force: false,
@@ -100,6 +101,7 @@ fn forward_checkpoint_fetches_and_persists() {
     let logger = SyncFileLogger::open(home).unwrap();
     let maildir = home.join("data").join("maildir");
     let opts = SyncOptions {
+        kind: SyncKind::Refresh,
         direction: SyncDirection::Forward,
         since_ymd: "2025-01-01".into(),
         force: false,
@@ -211,6 +213,7 @@ fn stale_db_rebuild_preserves_checkpoint_and_skips_cached_mail() {
     };
     let logger = SyncFileLogger::open(home).unwrap();
     let opts = SyncOptions {
+        kind: SyncKind::Refresh,
         direction: SyncDirection::Forward,
         since_ymd: "2025-01-01".into(),
         force: false,
@@ -239,12 +242,13 @@ fn pre_lock_held_returns_empty_without_imap() {
     let home = dir.path();
     let mut conn = open_temp_db(home);
     let pid = 1_i64;
-    acquire_lock(&mut conn, pid).unwrap();
+    acquire_lock(&mut conn, pid, SyncKind::Refresh).unwrap();
 
     let logger = SyncFileLogger::open(home).unwrap();
     let maildir = home.join("data").join("maildir");
     let mut fake = FakeImapTransport::default();
     let opts = SyncOptions {
+        kind: SyncKind::Refresh,
         direction: SyncDirection::Forward,
         since_ymd: "2025-01-01".into(),
         force: false,
@@ -264,7 +268,7 @@ fn pre_lock_held_returns_empty_without_imap() {
     .unwrap();
     assert_eq!(r.synced, 0);
     assert!(r.early_exit.is_none());
-    release_lock(&conn, Some(pid)).unwrap();
+    release_lock(&conn, Some(pid), SyncKind::Refresh).unwrap();
 }
 
 #[test]
@@ -300,6 +304,7 @@ fn backward_batch_skips_duplicate_message_id() {
     let logger = SyncFileLogger::open(home).unwrap();
     let maildir = home.join("data").join("maildir");
     let opts = SyncOptions {
+        kind: SyncKind::Backfill,
         direction: SyncDirection::Backward,
         since_ymd: "2020-01-01".into(),
         force: false,

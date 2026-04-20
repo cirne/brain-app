@@ -17,8 +17,12 @@ export type Overlay =
   | { type: 'messages'; chat?: string }
   /** Background wiki expansion run (`/background-agent?id=`). */
   | { type: 'background-agent'; id?: string }
+  /** Brain Hub: inspect/remove a search index source (`/hub-source?id=`). */
+  | { type: 'hub-source'; id?: string }
   /** Brain Hub admin/settings/status page (`/hub`). */
   | { type: 'hub' }
+  /** Brain Hub: help copy explaining the private wiki (`/hub/wiki-about`). */
+  | { type: 'hub-wiki-about' }
   /** Phone access QR code panel. */
   | { type: 'phone-access' }
 
@@ -149,15 +153,25 @@ export function parseRoute(href: string = location.href): Route {
     const id = url.searchParams.get('id') ?? undefined
     return { overlay: { type: 'background-agent', ...(id ? { id } : {}) } }
   }
+  if (seg1 === 'hub-source') {
+    const id = url.searchParams.get('id') ?? undefined
+    return { overlay: { type: 'hub-source', ...(id ? { id } : {}) } }
+  }
   if (seg1 === 'phone-access') {
     return { overlay: { type: 'phone-access' } }
+  }
+  if (seg1 === 'wiki-about') {
+    return { overlay: { type: 'hub-wiki-about' } }
   }
   if (seg1 === 'hub') {
     if (rest.length > 0) {
       if (rest[0] === 'phone-access') {
         return { overlay: { type: 'phone-access' }, hubActive: true }
       }
-      const subRoute = parseRoute(`http://localhost/${rest.join('/')}`)
+      if (rest[0] === 'wiki-about') {
+        return { overlay: { type: 'hub-wiki-about' }, hubActive: true }
+      }
+      const subRoute = parseRoute(`http://localhost/${rest.join('/')}${url.search}`)
       return { ...subRoute, hubActive: true }
     }
     return { overlay: { type: 'hub' } }
@@ -210,8 +224,17 @@ export function routeToUrl(route: Route): string {
       q.set('id', o.id)
       path = `/background-agent?${q.toString()}`
     }
+  } else if (o.type === 'hub-source') {
+    if (!o.id) path = '/hub-source'
+    else {
+      const q = new URLSearchParams()
+      q.set('id', o.id)
+      path = `/hub-source?${q.toString()}`
+    }
   } else if (o.type === 'hub') {
     return '/hub'
+  } else if (o.type === 'hub-wiki-about') {
+    return route.hubActive ? '/hub/wiki-about' : '/wiki-about'
   } else if (o.type === 'phone-access') {
     return route.hubActive ? '/hub/phone-access' : '/phone-access'
   }

@@ -12,12 +12,25 @@ import {
 import { safeWikiRelativePath } from '../lib/wikiEditDiff.js'
 import { getOrCreateSeedingAgent, deleteSeedingSession } from './seedingAgent.js'
 
-/** Same kickoff as onboarding seeding (see Onboarding.svelte). */
-export const WIKI_EXPANSION_INITIAL_MESSAGE =
-  'From the profile and indexed mail (and local Messages when those tools are available): expand the skeletal people/* page for the account holder with long-form detail (interests, projects, bio). On people/* pages, add Contact/Identifiers with phone and email when evidenced in mail or message tools—never invent numbers. Add other people/projects/topic pages, and link [[me]] for short assistant context. Build independent pages in parallel where you can, then do a final pass to review and fix internal links. Narrate briefly as you go.'
+/**
+ * First full pass after profile accept or from Brain Hub “Full expansion”.
+ * Seeding agent tools include indexed mail, local Messages when available, web_search, fetch_page.
+ */
+export const WIKI_EXPANSION_INITIAL_MESSAGE = `Run a comprehensive wiki expansion pass.
+
+Goal: keep working until the wiki gives a useful overview of this person — interests, active projects, professional or community context, and key people (family, colleagues, collaborators) — grounded in evidence from their sources.
+
+How:
+- Anchor on what they accepted in me.md and expand the skeletal people/* page for the account holder with long-form detail where it helps (bio, interests, projects). Link [[me]] for short assistant context; do not bloat me.md.
+- On every people/* page, add Contact/Identifiers with phone and email only when evidenced via mail, messages, or other tools — never invent numbers or addresses.
+- Add or improve pages under people/, projects/, topics/ or similar so the graph of [[wikilinks]] reads coherently.
+- Complement search_index, read_doc, and find_person with web_search and fetch_page when public context (companies, products, named entities, dates, well-known people) would make pages more accurate than mail alone. Do not invent private facts from the web; use public sources only for public information.
+- Build independent pages in parallel where possible, then a final pass to fix internal links and reduce obvious gaps.
+
+Do not treat “a few new pages” as done if major areas (interests, projects, key people) are still thin or missing. Continue iterating until the overview is in good shape, then wrap up. Narrate briefly as you go.`
 
 const WIKI_EXPANSION_CONTINUE_MESSAGE =
-  'Continue expanding the wiki from the profile and indexed mail (and local Messages when available) — add or improve pages that are still missing, include phone/email on people/* pages when evidence exists, fix cross-links, and keep pages concise. Narrate briefly.'
+  'Continue expanding the wiki: strengthen interests, projects, and key people pages; add phone/email on people/* only with evidence from mail or messages; use web_search or fetch_page where public facts would help accuracy; fix cross-links and keep pages concise. Keep going until obvious gaps are filled. Narrate briefly.'
 
 const pausedRunIds = new Set<string>()
 
@@ -263,12 +276,15 @@ async function runWikiExpansionJob(
   }
 }
 
-/** Create the initial run record and start the job (used from accept-profile). */
-export async function startWikiExpansionRunFromAcceptProfile(options: {
+/** Create a run record and start the job (Brain Hub or onboarding accept-profile). */
+export async function startWikiExpansionRun(options: {
+  mode: 'full' | 'continue'
   timezone?: string
 }): Promise<{ runId: string }> {
   const runId = crypto.randomUUID()
   const now = new Date().toISOString()
+  const message =
+    options.mode === 'full' ? WIKI_EXPANSION_INITIAL_MESSAGE : WIKI_EXPANSION_CONTINUE_MESSAGE
   const doc: BackgroundRunDoc = {
     id: runId,
     kind: 'wiki-expansion',
@@ -283,8 +299,15 @@ export async function startWikiExpansionRunFromAcceptProfile(options: {
     updatedAt: now,
   }
   await writeBackgroundRun(doc)
-  void runWikiExpansionJob(runId, WIKI_EXPANSION_INITIAL_MESSAGE, options).catch((e) => {
+  void runWikiExpansionJob(runId, message, { timezone: options.timezone }).catch((e) => {
     console.error('[wiki-expansion]', runId, e)
   })
   return { runId }
+}
+
+/** Same kickoff as Brain Hub “Full expansion” (see accept-profile onboarding). */
+export async function startWikiExpansionRunFromAcceptProfile(options: {
+  timezone?: string
+}): Promise<{ runId: string }> {
+  return startWikiExpansionRun({ mode: 'full', timezone: options.timezone })
 }

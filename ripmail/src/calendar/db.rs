@@ -3,8 +3,26 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection, OptionalExtension};
+use serde_json::Value as JsonValue;
 
 use super::model::CalendarEventRow;
+
+/// How `ripmail calendar` filters already-indexed rows. Sync indexes all Google list calendars /
+/// all Apple local calendars; this only affects default CLI output unless `--calendar` is set.
+#[derive(Debug, Clone)]
+pub enum CalendarQueryScope<'a> {
+    /// No source or calendar restriction
+    All,
+    /// `calendar_id IN …` across every source (explicit global `--calendar`)
+    GlobalCalendars(&'a [String]),
+    /// One source; empty `calendar_ids` means every calendar for that source
+    Source {
+        source_id: &'a str,
+        calendar_ids: &'a [String],
+    },
+    /// Each listed source is limited to its ids; other sources are unrestricted.
+    PerSourceDefaultCalendars(&'a [(String, Vec<String>)]),
+}
 
 fn now_unix() -> i64 {
     SystemTime::now()
@@ -25,13 +43,14 @@ pub fn upsert_event(conn: &Connection, row: &CalendarEventRow) -> rusqlite::Resu
     let synced_at = row.synced_at.unwrap_or_else(now_unix);
     conn.execute(
         "INSERT INTO calendar_events (
-            source_id, source_kind, calendar_id, uid, summary, description, location,
+            source_id, source_kind, calendar_id, calendar_name, uid, summary, description, location,
             start_at, end_at, all_day, timezone, status, rrule, recurrence_json, attendees_json,
             organizer_email, organizer_name, updated_at, synced_at, color, raw_json
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)
         ON CONFLICT(source_id, uid) DO UPDATE SET
             source_kind = excluded.source_kind,
             calendar_id = excluded.calendar_id,
+            calendar_name = excluded.calendar_name,
             summary = excluded.summary,
             description = excluded.description,
             location = excluded.location,
@@ -53,6 +72,7 @@ pub fn upsert_event(conn: &Connection, row: &CalendarEventRow) -> rusqlite::Resu
             &row.source_id,
             &row.source_kind,
             &row.calendar_id,
+            &row.calendar_name,
             &row.uid,
             &row.summary,
             &row.description,
@@ -263,6 +283,64 @@ pub fn search_events_fts(
     Ok(ids)
 }
 
+#[must_use]
+pub fn calendar_event_json_matches_scope(line: &str, scope: &CalendarQueryScope<'_>) -> bool {
+    let Ok(v) = serde_json::from_str::<JsonValue>(line) else {
+        return false;
+    };
+    let Some(sid) = v.get("sourceId").and_then(|x| x.as_str()) else {
+        return false;
+    };
+    let cal = v.get("calendarId").and_then(|x| x.as_str()).unwrap_or("");
+    match scope {
+        CalendarQueryScope::All => true,
+        CalendarQueryScope::GlobalCalendars(ids) => ids.is_empty() || ids.iter().any(|x| x == cal),
+        CalendarQueryScope::Source {
+            source_id,
+            calendar_ids,
+        } => {
+            if sid != *source_id {
+                return false;
+            }
+            calendar_ids.is_empty() || calendar_ids.iter().any(|x| x == cal)
+        }
+        CalendarQueryScope::PerSourceDefaultCalendars(pairs) => {
+            for (rsid, cals) in pairs.iter() {
+                if rsid == sid {
+                    return cals.iter().any(|x| x == cal);
+                }
+            }
+            true
+        }
+    }
+}
+
+/// FTS search then apply [`CalendarQueryScope`] (defaults / explicit calendars).
+pub fn search_calendar_events_with_scope(
+    conn: &Connection,
+    query: &str,
+    scope: &CalendarQueryScope<'_>,
+    fts_source: Option<&str>,
+    start_min: Option<i64>,
+    start_max: Option<i64>,
+    limit: usize,
+) -> rusqlite::Result<Vec<String>> {
+    let fetch = limit.saturating_mul(8).clamp(1, 500);
+    let ids = search_events_fts(conn, query, fts_source, start_min, start_max, fetch)?;
+    let mut out = Vec::new();
+    for id in ids {
+        if let Some(j) = fetch_event_json_by_rowid(conn, id)? {
+            if calendar_event_json_matches_scope(&j, scope) {
+                out.push(j);
+                if out.len() >= limit {
+                    break;
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
 pub fn fetch_event_json_by_uid(
     conn: &Connection,
     source_id: &str,
@@ -271,6 +349,7 @@ pub fn fetch_event_json_by_uid(
     conn.query_row(
         "SELECT json_object(
             'uid', uid, 'sourceId', source_id, 'sourceKind', source_kind, 'calendarId', calendar_id,
+            'calendarName', calendar_name,
             'summary', summary, 'description', description, 'location', location,
             'startAt', start_at, 'endAt', end_at, 'allDay', all_day, 'timezone', timezone,
             'status', status, 'rrule', rrule, 'color', color
@@ -288,6 +367,7 @@ pub fn fetch_event_json_by_rowid(
     conn.query_row(
         "SELECT json_object(
             'id', id, 'uid', uid, 'sourceId', source_id, 'sourceKind', source_kind, 'calendarId', calendar_id,
+            'calendarName', calendar_name,
             'summary', summary, 'description', description, 'location', location,
             'startAt', start_at, 'endAt', end_at, 'allDay', all_day, 'timezone', timezone,
             'status', status, 'rrule', rrule, 'color', color
@@ -311,6 +391,7 @@ pub fn list_events_in_range(
         let mut s = conn.prepare(
             "SELECT json_object(
                 'uid', uid, 'sourceId', source_id, 'sourceKind', source_kind, 'calendarId', calendar_id,
+            'calendarName', calendar_name,
             'summary', summary, 'location', location,
             'startAt', start_at, 'endAt', end_at, 'allDay', all_day, 'color', color
          ) FROM calendar_events WHERE source_id = ?1 AND start_at >= ?2 AND start_at < ?3
@@ -325,6 +406,7 @@ pub fn list_events_in_range(
         let mut s = conn.prepare(
             "SELECT json_object(
                 'uid', uid, 'sourceId', source_id, 'sourceKind', source_kind, 'calendarId', calendar_id,
+            'calendarName', calendar_name,
             'summary', summary, 'location', location,
             'startAt', start_at, 'endAt', end_at, 'allDay', all_day, 'color', color
          ) FROM calendar_events WHERE start_at >= ?1 AND start_at < ?2
@@ -339,11 +421,10 @@ pub fn list_events_in_range(
     Ok(out)
 }
 
-/// Events overlapping inclusive from/to dates (YYYY-MM-DD), UTC calendar-day bounds.
-pub fn list_events_overlapping(
+/// Events overlapping the time window; see [`CalendarQueryScope`].
+pub fn list_events_overlapping_scoped(
     conn: &Connection,
-    source_id: Option<&str>,
-    calendar_ids: &[String],
+    scope: CalendarQueryScope<'_>,
     range_start: i64,
     range_end: i64,
     limit: usize,
@@ -353,30 +434,87 @@ pub fn list_events_overlapping(
 
     let mut query = "SELECT json_object(
                 'uid', uid, 'sourceId', source_id, 'sourceKind', source_kind, 'calendarId', calendar_id,
+                'calendarName', calendar_name,
                 'summary', summary, 'description', description, 'location', location,
                 'startAt', start_at, 'endAt', end_at, 'allDay', all_day,
                 'organizerEmail', organizer_email,
                 'attendeesJson', attendees_json,
                 'color', color
              ) FROM calendar_events
-             WHERE start_at < ?2 AND end_at > ?1".to_string();
+             WHERE start_at < ?2 AND end_at > ?1"
+        .to_string();
 
     let mut params: Vec<Box<dyn rusqlite::ToSql>> =
         vec![Box::new(range_start), Box::new(range_end)];
 
-    if let Some(sid) = source_id {
-        query.push_str(" AND source_id = ?3");
-        params.push(Box::new(sid.to_string()));
-    }
-
-    if !calendar_ids.is_empty() {
-        let p_start = params.len() + 1;
-        let placeholders: Vec<String> = (0..calendar_ids.len())
-            .map(|i| format!("?{}", p_start + i))
-            .collect();
-        query.push_str(&format!(" AND calendar_id IN ({})", placeholders.join(",")));
-        for id in calendar_ids {
-            params.push(Box::new(id.clone()));
+    match scope {
+        CalendarQueryScope::All => {}
+        CalendarQueryScope::GlobalCalendars(ids) => {
+            if !ids.is_empty() {
+                let p = params.len() + 1;
+                let ph: Vec<String> = (0..ids.len()).map(|i| format!("?{}", p + i)).collect();
+                query.push_str(&format!(" AND calendar_id IN ({})", ph.join(",")));
+                for id in ids {
+                    params.push(Box::new(id.clone()));
+                }
+            }
+        }
+        CalendarQueryScope::Source {
+            source_id,
+            calendar_ids,
+        } => {
+            let sid_slot = params.len() + 1;
+            params.push(Box::new(source_id.to_string()));
+            query.push_str(&format!(" AND source_id = ?{sid_slot}"));
+            if !calendar_ids.is_empty() {
+                let p = params.len() + 1;
+                let ph: Vec<String> = (0..calendar_ids.len())
+                    .map(|i| format!("?{}", p + i))
+                    .collect();
+                query.push_str(&format!(" AND calendar_id IN ({})", ph.join(",")));
+                for id in calendar_ids {
+                    params.push(Box::new(id.clone()));
+                }
+            }
+        }
+        CalendarQueryScope::PerSourceDefaultCalendars(restrictions) => {
+            if !restrictions.is_empty() {
+                query.push_str(" AND (");
+                let mut first_or = true;
+                for (sid, cals) in restrictions.iter() {
+                    if !first_or {
+                        query.push_str(" OR ");
+                    }
+                    first_or = false;
+                    let sid_slot = params.len() + 1;
+                    params.push(Box::new(sid.clone()));
+                    if cals.is_empty() {
+                        query.push_str(&format!("(source_id = ?{sid_slot})"));
+                    } else {
+                        let in_start = params.len() + 1;
+                        for c in cals {
+                            params.push(Box::new(c.clone()));
+                        }
+                        let ph: Vec<String> = (0..cals.len())
+                            .map(|i| format!("?{}", in_start + i))
+                            .collect();
+                        query.push_str(&format!(
+                            "(source_id = ?{sid_slot} AND calendar_id IN ({}))",
+                            ph.join(",")
+                        ));
+                    }
+                }
+                query.push_str(" OR (source_id NOT IN (");
+                let nin_start = params.len() + 1;
+                for (sid, _) in restrictions.iter() {
+                    params.push(Box::new(sid.clone()));
+                }
+                let ph: Vec<String> = (0..restrictions.len())
+                    .map(|i| format!("?{}", nin_start + i))
+                    .collect();
+                query.push_str(&ph.join(", "));
+                query.push_str("))) ");
+            }
         }
     }
 
@@ -392,6 +530,26 @@ pub fn list_events_overlapping(
         out.push(row?);
     }
     Ok(out)
+}
+
+/// Events overlapping inclusive from/to dates (YYYY-MM-DD), UTC calendar-day bounds.
+pub fn list_events_overlapping(
+    conn: &Connection,
+    source_id: Option<&str>,
+    calendar_ids: &[String],
+    range_start: i64,
+    range_end: i64,
+    limit: usize,
+) -> rusqlite::Result<Vec<String>> {
+    let scope = match (source_id, calendar_ids.is_empty()) {
+        (None, true) => CalendarQueryScope::All,
+        (None, false) => CalendarQueryScope::GlobalCalendars(calendar_ids),
+        (Some(sid), _) => CalendarQueryScope::Source {
+            source_id: sid,
+            calendar_ids,
+        },
+    };
+    list_events_overlapping_scoped(conn, scope, range_start, range_end, limit)
 }
 
 #[cfg(test)]
@@ -417,6 +575,7 @@ mod tests {
             source_id: source_id.into(),
             source_kind: "icsFile".into(),
             calendar_id: "cal".into(),
+            calendar_name: None,
             uid: uid.into(),
             summary: Some(summary.into()),
             description: None,
@@ -480,5 +639,70 @@ mod tests {
             list_events_overlapping(&conn, Some("s1"), &["cal_b".into()], 900, 1200, 10).unwrap();
         assert_eq!(rows.len(), 1);
         assert!(rows[0].contains("Cal B Event"));
+    }
+
+    #[test]
+    fn per_source_default_calendars_hides_other_calendars_same_source() {
+        let conn = mem_with_schema();
+        let mut a = sample_row("apple", "u1", "Visible", 1000, 1100);
+        a.calendar_id = "17".into();
+        let mut b = sample_row("apple", "u2", "Hidden indexed", 1000, 1100);
+        b.calendar_id = "99".into();
+        let mut g = sample_row("gcal", "u3", "Other source", 1000, 1100);
+        g.calendar_id = "primary".into();
+        upsert_event(&conn, &a).unwrap();
+        upsert_event(&conn, &b).unwrap();
+        upsert_event(&conn, &g).unwrap();
+
+        let restrictions = vec![("apple".into(), vec!["17".into()])];
+        let rows = list_events_overlapping_scoped(
+            &conn,
+            CalendarQueryScope::PerSourceDefaultCalendars(&restrictions),
+            900,
+            1200,
+            10,
+        )
+        .unwrap();
+        assert_eq!(rows.len(), 2);
+        assert!(rows.iter().any(|r| r.contains("Visible")));
+        assert!(rows.iter().any(|r| r.contains("Other source")));
+        assert!(!rows.iter().any(|r| r.contains("Hidden indexed")));
+    }
+
+    #[test]
+    fn search_respects_per_source_default_calendars() {
+        let conn = mem_with_schema();
+        let mut a = sample_row("apple", "u1", "Quarterly review", 1000, 1100);
+        a.calendar_id = "17".into();
+        let mut b = sample_row("apple", "u2", "Secret project", 1000, 1100);
+        b.calendar_id = "99".into();
+        upsert_event(&conn, &a).unwrap();
+        upsert_event(&conn, &b).unwrap();
+
+        let restrictions = vec![("apple".into(), vec!["17".into()])];
+        let scope = CalendarQueryScope::PerSourceDefaultCalendars(&restrictions);
+        let hits =
+            search_calendar_events_with_scope(&conn, "project", &scope, None, None, None, 20)
+                .unwrap();
+        assert!(
+            hits.is_empty(),
+            "non-default calendar should not appear in default search"
+        );
+
+        let hits_all = search_calendar_events_with_scope(
+            &conn,
+            "project",
+            &CalendarQueryScope::Source {
+                source_id: "apple",
+                calendar_ids: &["99".into()],
+            },
+            Some("apple"),
+            None,
+            None,
+            20,
+        )
+        .unwrap();
+        assert_eq!(hits_all.len(), 1);
+        assert!(hits_all[0].contains("Secret"));
     }
 }

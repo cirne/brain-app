@@ -100,10 +100,13 @@ pub(crate) fn run_setup(
             }
         }
 
+        #[cfg(target_os = "macos")]
+        ripmail::calendar::apple_sqlite::warn_calendar_db_read_access();
+
         let cfg = load_cfg();
         println!("Wrote config under {} (mailbox id: {id})", home.display());
         println!(
-            "Tip: ripmail refresh --foreground --mailbox {} --since {}",
+            "Tip: ripmail backfill --foreground --source {} --since {}",
             email, cfg.sync_default_since
         );
         if !no_skill {
@@ -167,7 +170,7 @@ pub(crate) fn run_setup(
         let cfg = load_cfg();
         println!("Wrote config under {} (mailbox id: {id})", home.display());
         println!(
-            "Tip: ripmail refresh --mailbox {} --since {}",
+            "Tip: ripmail backfill --source {} --since {}",
             email, cfg.sync_default_since
         );
         if !no_skill {
@@ -249,7 +252,7 @@ pub(crate) fn run_setup(
     let cfg = load_cfg();
     println!("Wrote config under {} (mailbox id: {id})", home.display());
     println!(
-        "Tip: ripmail refresh --mailbox {} --since {}",
+        "Tip: ripmail backfill --source {} --since {}",
         email, cfg.sync_default_since
     );
     if !no_skill {

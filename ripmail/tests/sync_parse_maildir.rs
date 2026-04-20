@@ -5,7 +5,7 @@ use ripmail::{
     is_sync_lock_held, oldest_message_date_for_folder, open_memory, parse_index_message,
     parse_raw_message, parse_raw_message_with_options, parse_since_to_date, persist_message,
     release_lock, same_calendar_day, write_maildir_message, LockResult, ParseMessageOptions,
-    ParsedMessage, SyncLockRow,
+    ParsedMessage, SyncKind, SyncLockRow,
 };
 use std::fs;
 use tempfile::tempdir;
@@ -311,7 +311,7 @@ fn fts_trigger_fires_on_insert() {
 fn process_lock_acquire_release() {
     let mut conn = open_memory().unwrap();
     let pid = std::process::id() as i64;
-    let r = acquire_lock(&mut conn, pid).unwrap();
+    let r = acquire_lock(&mut conn, pid, SyncKind::Refresh).unwrap();
     assert_eq!(
         r,
         LockResult {
@@ -333,7 +333,7 @@ fn process_lock_acquire_release() {
         )
         .unwrap();
     assert!(is_sync_lock_held(Some(&row)));
-    release_lock(&conn, Some(pid)).unwrap();
+    release_lock(&conn, Some(pid), SyncKind::Refresh).unwrap();
     let row2: SyncLockRow = conn
         .query_row(
             "SELECT is_running, owner_pid, sync_lock_started_at FROM sync_summary WHERE id = 1",
@@ -359,8 +359,20 @@ fn process_lock_stale_pid() {
             [],
         )
         .unwrap();
-    let r = acquire_lock(&mut conn, 12345).unwrap();
+    let r = acquire_lock(&mut conn, 12345, SyncKind::Refresh).unwrap();
     assert!(r.acquired, "should take over dead owner");
+}
+
+#[test]
+fn process_lock_refresh_and_backfill_independent() {
+    let mut conn = open_memory().unwrap();
+    let pid = std::process::id() as i64;
+    let r1 = acquire_lock(&mut conn, pid, SyncKind::Refresh).unwrap();
+    assert!(r1.acquired);
+    let r2 = acquire_lock(&mut conn, pid + 1, SyncKind::Backfill).unwrap();
+    assert!(r2.acquired);
+    release_lock(&conn, Some(pid), SyncKind::Refresh).unwrap();
+    release_lock(&conn, Some(pid + 1), SyncKind::Backfill).unwrap();
 }
 
 #[test]

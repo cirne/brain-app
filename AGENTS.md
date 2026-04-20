@@ -61,7 +61,7 @@ Optional: run the same stack inside a native window (see [OPP-007 (archived)](do
 npm run ripmail:dev            # cargo build -p ripmail (debug) — use before inbox if not on PATH
 npm run ripmail:build          # cargo build -p ripmail --release
 npm run ripmail:test           # cargo test -p ripmail
-npm run brain:clean:dev        # delete dev durable data: `./data` unless `BRAIN_HOME` is set (same tree as `npm run dev`; not packaged-app bundle paths)
+npm run dev:clean              # delete dev durable data: `./data` unless `BRAIN_HOME` is set (same tree as `npm run dev`; not packaged-app bundle paths)
 npm run desktop:dev            # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
 npm run desktop:build          # npm build + bundle server + Brain.app (+ DMG on macOS)
 npm run desktop:fresh          # `desktop:clean-data` + `desktop:build`, then opens the DMG (default) or `Brain.app` with `-- app` (macOS) — see `scripts/desktop-fresh.mjs`

@@ -85,7 +85,7 @@ pub enum SourceKind {
     /// Google Calendar API ([OPP-053](../docs/opportunities/OPP-053-local-gateway-calendar-and-beyond.md)).
     #[serde(rename = "googleCalendar")]
     GoogleCalendar,
-    /// macOS EventKit (requires native helper).
+    /// macOS Calendar.app — read-only SQLite (`Calendar.sqlitedb` in the app group container).
     #[serde(rename = "appleCalendar")]
     AppleCalendar,
     /// Subscribe to a remote ICS URL.
@@ -159,6 +159,7 @@ pub enum CalendarSourceResolved {
         /// `google-oauth.json` lives under `RIPMAIL_HOME/<token_mailbox_id>/`.
         token_mailbox_id: String,
     },
+    /// Local Calendar.app store: always indexes every calendar; use `default_calendars` in config to hide some from default CLI queries.
     Apple,
     IcsUrl {
         url: String,
@@ -209,10 +210,12 @@ pub struct SourceConfigJson {
     /// Google Calendar: OAuth token reuse — read `google-oauth.json` from this source id’s directory (e.g. existing Gmail mailbox id).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub oauth_source_id: Option<String>,
-    /// Google Calendar: which remote calendars to sync (default `["primary"]`).
+    /// Google Calendar: fallback ids when the calendar list API returns nothing (default `["primary"]`).
+    /// When the list succeeds, **all** listed calendars are indexed regardless of this field.
+    /// Apple Calendar: optional ids for UI / `list-calendars` “selected” list; **all** local calendars are still indexed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calendar_ids: Option<Vec<String>>,
-    /// Calendars to show by default in `ripmail calendar` (subset of `calendar_ids`).
+    /// Calendars included in default `ripmail calendar` today/upcoming/range/search (omit non-listed indexed calendars unless `--calendar` is passed).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_calendars: Option<Vec<String>>,
     /// `icsSubscription`: HTTPS URL to fetch.

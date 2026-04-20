@@ -1,10 +1,29 @@
-//! PID-based sync lock on `sync_summary` (mirrors `src/lib/process-lock.ts`).
+//! PID-based sync lock on `sync_summary` rows `id=1` (refresh) and `id=2` (backfill).
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// One hour — same as TS `SYNC_LOCK_TIMEOUT_MS`.
 pub const SYNC_LOCK_TIMEOUT_MS: u128 = 60 * 60 * 1000;
+
+/// Which sync lane holds the PID lock on `sync_summary` (`id=1` vs `id=2`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SyncKind {
+    /// Forward / incremental `ripmail refresh`.
+    Refresh,
+    /// Historical `ripmail backfill`.
+    Backfill,
+}
+
+impl SyncKind {
+    #[inline]
+    pub fn row_id(self) -> i64 {
+        match self {
+            Self::Refresh => 1,
+            Self::Backfill => 2,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyncLockRow {
@@ -91,10 +110,31 @@ pub fn is_sync_lock_held(row: Option<&SyncLockRow>) -> bool {
     true
 }
 
-fn read_lock_row(conn: &Connection) -> rusqlite::Result<SyncLockRow> {
+/// Read lock columns for a lane, or `None` if the row is missing.
+pub fn read_sync_lock_row_optional(
+    conn: &Connection,
+    kind: SyncKind,
+) -> rusqlite::Result<Option<SyncLockRow>> {
+    let id = kind.row_id();
     conn.query_row(
-        "SELECT is_running, owner_pid, sync_lock_started_at FROM sync_summary WHERE id = 1",
-        [],
+        "SELECT is_running, owner_pid, sync_lock_started_at FROM sync_summary WHERE id = ?1",
+        [id],
+        |row| {
+            Ok(SyncLockRow {
+                is_running: row.get(0)?,
+                owner_pid: row.get(1)?,
+                sync_lock_started_at: row.get(2)?,
+            })
+        },
+    )
+    .optional()
+}
+
+fn read_lock_row(conn: &Connection, kind: SyncKind) -> rusqlite::Result<SyncLockRow> {
+    let id = kind.row_id();
+    conn.query_row(
+        "SELECT is_running, owner_pid, sync_lock_started_at FROM sync_summary WHERE id = ?1",
+        [id],
         |row| {
             Ok(SyncLockRow {
                 is_running: row.get(0)?,
@@ -106,10 +146,15 @@ fn read_lock_row(conn: &Connection) -> rusqlite::Result<SyncLockRow> {
 }
 
 /// Acquire sync lock (BEGIN IMMEDIATE … UPDATE). Simplified vs TS: no SIGTERM kill of stale owner.
-pub fn acquire_lock(conn: &mut Connection, current_pid: i64) -> rusqlite::Result<LockResult> {
+pub fn acquire_lock(
+    conn: &mut Connection,
+    current_pid: i64,
+    kind: SyncKind,
+) -> rusqlite::Result<LockResult> {
     let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+    let row_id = kind.row_id();
 
-    let row = read_lock_row(&tx)?;
+    let row = read_lock_row(&tx, kind)?;
     let was_locked = row.is_running != 0;
     let had_owner = row.owner_pid.is_some();
     let taken_over = was_locked;
@@ -136,8 +181,8 @@ pub fn acquire_lock(conn: &mut Connection, current_pid: i64) -> rusqlite::Result
     }
 
     tx.execute(
-        "UPDATE sync_summary SET is_running = 1, owner_pid = ?1, sync_lock_started_at = datetime('now') WHERE id = 1",
-        [current_pid],
+        "UPDATE sync_summary SET is_running = 1, owner_pid = ?1, sync_lock_started_at = datetime('now') WHERE id = ?2",
+        [current_pid, row_id],
     )?;
     tx.commit()?;
     Ok(LockResult {
@@ -146,15 +191,20 @@ pub fn acquire_lock(conn: &mut Connection, current_pid: i64) -> rusqlite::Result
     })
 }
 
-pub fn release_lock(conn: &Connection, owner_pid: Option<i64>) -> rusqlite::Result<()> {
+pub fn release_lock(
+    conn: &Connection,
+    owner_pid: Option<i64>,
+    kind: SyncKind,
+) -> rusqlite::Result<()> {
+    let row_id = kind.row_id();
     match owner_pid {
         Some(pid) => conn.execute(
-            "UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id = 1 AND owner_pid = ?1",
-            [pid],
+            "UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id = ?1 AND owner_pid = ?2",
+            rusqlite::params![row_id, pid],
         )?,
         None => conn.execute(
-            "UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id = 1",
-            [],
+            "UPDATE sync_summary SET is_running = 0, owner_pid = NULL, sync_lock_started_at = NULL WHERE id = ?1",
+            [row_id],
         )?,
     };
     Ok(())

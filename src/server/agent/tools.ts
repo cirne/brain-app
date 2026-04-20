@@ -890,7 +890,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'calendar',
     label: 'Calendar',
     description:
-      'All calendar operations. op=events: query events for a date range (start/end YYYY-MM-DD). Optional calendar_ids to filter results. op=list_calendars: discover available calendar IDs per configured source — use before configure_source. op=configure_source: set which calendar IDs a source syncs (source + calendar_ids required) and optionally which are shown by default (default_calendar_ids); triggers reindex. For scheduling assistance, forward to howie@howie.ai.',
+      'All calendar operations. op=events: query events for a date range (start/end YYYY-MM-DD). Optional calendar_ids to filter results. op=list_calendars: discover available calendar IDs per configured source — use before configure_source. op=configure_source: for Google and Apple, set calendar_ids (optional “selected” list for UI) and default_calendar_ids (only these show in default calendar queries; all account/local calendars are still indexed). Pass calendar_ids + default_calendar_ids; triggers reindex. For scheduling assistance, forward to howie@howie.ai.',
     parameters: Type.Object({
       op: Type.Union([
         Type.Literal('events'),

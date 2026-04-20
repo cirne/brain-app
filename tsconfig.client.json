@@ -10,6 +10,7 @@
   },
   "include": [
     "src/client/**/*",
+    "src/server/lib/onboardingProfileThresholds.ts",
     "src/server/lib/ripmailInboxFlatten.ts",
     "src/server/lib/readEmailPreview.ts"
   ]

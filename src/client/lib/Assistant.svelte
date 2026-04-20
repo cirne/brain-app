@@ -8,7 +8,15 @@
   import AgentChat from './AgentChat.svelte'
   import ChatHistory from './ChatHistory.svelte'
   import WorkspaceSplit from './WorkspaceSplit.svelte'
-  import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from '../router.js'
+  import {
+    parseRoute,
+    navigate,
+    type Route,
+    type SurfaceContext,
+    type Overlay,
+    type NavigateOptions,
+  } from '../router.js'
+  import { applyHubDetailNavigation } from './hubShellNavigate.js'
   import { runParallelSyncs } from './app/syncAllServices.js'
   import { matchGlobalShortcut } from './app/globalShortcuts.js'
   import { emit, subscribe } from './app/appEvents.js'
@@ -313,6 +321,20 @@
     agentContext = { type: 'messages', chat: canonicalChat, displayLabel }
   }
 
+  /** Brain Hub rows → same detail stack as chat (`SlideOver` + `Overlay`). */
+  function navigateFromHub(overlay: Overlay, opts?: NavigateOptions) {
+    applyHubDetailNavigation(route, overlay, opts)
+    route = parseRoute()
+    if (overlay.type === 'wiki' && overlay.path) {
+      addToNavHistory({
+        id: makeNavHistoryId('doc', overlay.path),
+        type: 'doc',
+        title: overlay.path,
+        path: overlay.path,
+      })
+    }
+  }
+
   $effect(() => {
     const o = route.overlay
     if (o?.type === 'messages' && o.chat) {
@@ -478,17 +500,9 @@
       {#if route.hubActive || route.overlay?.type === 'hub'}
         <div class="hub-container">
           <div class="hub-scroll">
-            <BrainHubPage
-              onOpenWiki={openWikiDoc}
-              onOpenFile={openFileDoc}
-              onOpenEmail={openEmailFromChat}
-              onOpenFullInbox={openFullInboxFromChat}
-              onOpenMessageThread={openMessageThreadFromChat}
-              onSwitchToCalendar={switchToCalendar}
-              onSync={performFullSync}
-            />
+            <BrainHubPage onHubNavigate={navigateFromHub} />
           </div>
-          {#if isMobile && route.overlay && route.overlay.type !== 'hub'}
+          {#if !useDesktopSplitDetail && route.overlay && route.overlay.type !== 'hub'}
             <div class="mobile-detail-layer">
               <SlideOver
                 bind:this={mobileSlideOver}

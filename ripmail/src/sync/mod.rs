@@ -5,7 +5,6 @@ pub mod error;
 pub mod fetch_timeout;
 pub mod imap_date;
 pub mod maildir;
-pub mod onboarding;
 pub mod parse_message;
 pub mod parse_since;
 pub mod process_lock;
@@ -18,9 +17,6 @@ pub mod windows;
 pub use background_spawn::{run_refresh_foreground_subprocess, spawn_sync_background_detached};
 pub use error::RunSyncError;
 pub use maildir::{write_maildir_message, MaildirWrite};
-pub use onboarding::{
-    first_backfill_completed, mailbox_needs_first_backfill, mark_first_backfill_completed,
-};
 pub use parse_message::{
     addresses_from_mailbox_entries, parse_index_message, parse_raw_message,
     parse_raw_message_with_options, parse_read_full, MailboxEntry, ParseMessageOptions,
@@ -29,7 +25,7 @@ pub use parse_message::{
 pub use parse_since::parse_since_to_date;
 pub use process_lock::{
     acquire_lock, is_process_alive, is_sync_lock_held, millis_since_sync_lock_started_at,
-    release_lock, LockResult, SyncLockRow,
+    read_sync_lock_row_optional, release_lock, LockResult, SyncKind, SyncLockRow,
 };
 pub use run::{
     resolve_sync_folder_for_host, resolve_sync_mailbox, resolve_sync_since_ymd, run_sync,

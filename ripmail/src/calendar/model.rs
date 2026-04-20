@@ -5,6 +5,8 @@ pub struct CalendarEventRow {
     pub source_id: String,
     pub source_kind: String,
     pub calendar_id: String,
+    /// Local calendar list title when known (e.g. Apple `Calendar.title`, optional for ICS).
+    pub calendar_name: Option<String>,
     pub uid: String,
     pub summary: Option<String>,
     pub description: Option<String>,

@@ -23,7 +23,12 @@ import {
   deleteProfilingSession,
 } from '../agent/profilingAgent.js'
 import { getOrCreateSeedingAgent, deleteSeedingSession } from '../agent/seedingAgent.js'
-import { getOnboardingMailStatus, ripmailBin, ripmailHomePath } from '../lib/onboardingMailStatus.js'
+import {
+  getOnboardingMailStatus,
+  ripmailBin,
+  ripmailHomePath,
+} from '../lib/onboardingMailStatus.js'
+import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '../lib/onboardingProfileThresholds.js'
 import { enrichAppleMailSetupError } from '../lib/appleMailSetupHints.js'
 import { getFdaProbeDetail, isFdaGranted } from '../lib/fdaProbe.js'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
@@ -108,6 +113,19 @@ onboarding.patch('/state', async (c) => {
   if (!next || typeof next !== 'string') {
     return c.json({ error: 'state or action: reset required' }, 400)
   }
+  const cur = await readOnboardingStateDoc()
+  if (cur.state === 'indexing' && next === 'profiling') {
+    const mail = await getOnboardingMailStatus()
+    const n = Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0)
+    if (n < ONBOARDING_PROFILE_INDEX_MANUAL_MIN) {
+      return c.json(
+        {
+          error: `We need at least ${ONBOARDING_PROFILE_INDEX_MANUAL_MIN.toLocaleString()} messages indexed before building your profile. Keep this window open while we download more, or try again in a few minutes.`,
+        },
+        400,
+      )
+    }
+  }
   try {
     const doc = await setOnboardingState(next)
     return c.json({ ok: true, state: doc.state })
@@ -145,7 +163,7 @@ async function runAppleMailSetup(c: Context) {
   })
   try {
     await execRipmailAsync(cmd, { timeout: 120000 })
-    // Register Calendar.app (EventKit) source next to Apple Mail. Ripmail skips sync until EventKit is bundled.
+    // Register Calendar.app source next to Apple Mail (ripmail reads Calendar.sqlitedb read-only on macOS).
     if (process.platform === 'darwin') {
       const calCmd = `${rm} sources add --kind appleCalendar --id apple-calendar --json`
       try {

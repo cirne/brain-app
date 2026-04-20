@@ -5,19 +5,15 @@ use rusqlite::{Connection, OptionalExtension};
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use crate::config::{Config, MailboxImapAuthKind};
-use crate::sync::onboarding::mailbox_needs_first_backfill;
+use crate::config::{Config, MailboxImapAuthKind, ResolvedMailbox};
+use crate::oauth::google_oauth_credentials_present;
 use crate::sync::process_lock::{
     is_sync_lock_held, millis_since_sync_lock_started_at, SyncLockRow,
 };
-use crate::sync::sync_log_path;
 use crate::sync::{connect_imap_for_resolved_mailbox, RealImapTransport, SyncImapTransport};
 use crate::sync::{resolve_sync_folder_for_host, resolve_sync_mailbox};
 
 const STATUS_LABEL_WIDTH: usize = 13;
-
-/// Text-mode hint when sync has held the lock with zero indexed messages for longer than this.
-const SYNC_INITIAL_HANG_HINT_AFTER_MS: u128 = 5 * 60 * 1000;
 
 #[derive(Debug, Clone)]
 pub struct TimeAgo {
@@ -113,12 +109,17 @@ pub struct SyncStatus {
 
 #[derive(Debug, Clone)]
 pub struct StatusData {
-    pub sync: SyncStatus,
+    /// Aggregate sync state + refresh (`ripmail refresh`) lane lock — `sync_summary` row `id=1`.
+    pub refresh: SyncStatus,
+    /// Historical backfill (`ripmail backfill`) lane — `sync_summary` row `id=2`.
+    pub backfill: SyncStatus,
     pub fts_ready: i64,
-    /// True when the DB lock row matches a live process and is not expired (see `process_lock`).
-    pub sync_lock_held_by_live_process: bool,
-    /// Age of the current lock in milliseconds, or `None` if unknown.
-    pub sync_lock_age_ms: Option<u128>,
+    /// Refresh lane: live PID lock on row 1.
+    pub refresh_lock_held_by_live_process: bool,
+    pub refresh_lock_age_ms: Option<u128>,
+    /// Backfill lane: live PID lock on row 2.
+    pub backfill_lock_held_by_live_process: bool,
+    pub backfill_lock_age_ms: Option<u128>,
 }
 
 /// JSON shape for [`MailboxStatusLine::latest_mail_ago`].
@@ -230,7 +231,7 @@ pub fn mailbox_status_lines(
                 |r| r.get(0),
             )
             .optional()?;
-        let needs_backfill = mailbox_needs_first_backfill(conn, mb)?;
+        let needs_backfill = mailbox_suggest_backfill(conn, cfg, mb)?;
         let range = query_mailbox_date_range(conn, &mb.id)?;
         let (earliest_date, latest_date, latest_mail_ago) = date_fields_from_range(range);
         out.push(MailboxStatusLine {
@@ -348,32 +349,12 @@ type SyncSummaryRow = (
     Option<String>,
 );
 
-pub fn get_status(conn: &Connection) -> Result<StatusData, rusqlite::Error> {
-    let sync_row: Option<SyncSummaryRow> = conn
-        .query_row(
-            "SELECT earliest_synced_date, latest_synced_date, target_start_date, sync_start_earliest_date,
-                    total_messages, last_sync_at, is_running, owner_pid, sync_lock_started_at
-             FROM sync_summary WHERE id = 1",
-            [],
-            |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                    row.get(6)?,
-                    row.get(7)?,
-                    row.get(8)?,
-                ))
-            },
-        )
-        .optional()?;
-
-    let messages_count: i64 = conn.query_row("SELECT COUNT(*) FROM messages", [], |r| r.get(0))?;
-
-    let sync = if let Some((
+fn sync_status_from_row(
+    row: Option<SyncSummaryRow>,
+    messages_count: i64,
+    use_live_message_count: bool,
+) -> SyncStatus {
+    if let Some((
         earliest_synced_date,
         latest_synced_date,
         target_start_date,
@@ -383,13 +364,17 @@ pub fn get_status(conn: &Connection) -> Result<StatusData, rusqlite::Error> {
         is_running,
         owner_pid,
         sync_lock_started_at,
-    )) = sync_row
+    )) = row
     {
-        let total_messages: i64 = total_messages;
+        let total_messages: i64 = if use_live_message_count {
+            total_messages.max(messages_count)
+        } else {
+            total_messages
+        };
         SyncStatus {
             is_running: is_running != 0,
             last_sync_at,
-            total_messages: total_messages.max(messages_count),
+            total_messages,
             earliest_synced_date,
             latest_synced_date,
             target_start_date,
@@ -401,7 +386,11 @@ pub fn get_status(conn: &Connection) -> Result<StatusData, rusqlite::Error> {
         SyncStatus {
             is_running: false,
             last_sync_at: None,
-            total_messages: messages_count,
+            total_messages: if use_live_message_count {
+                messages_count
+            } else {
+                0
+            },
             earliest_synced_date: None,
             latest_synced_date: None,
             target_start_date: None,
@@ -409,38 +398,106 @@ pub fn get_status(conn: &Connection) -> Result<StatusData, rusqlite::Error> {
             owner_pid: None,
             sync_lock_started_at: None,
         }
-    };
+    }
+}
 
-    let lock_row = SyncLockRow {
-        is_running: if sync.is_running { 1 } else { 0 },
-        owner_pid: sync.owner_pid,
-        sync_lock_started_at: sync.sync_lock_started_at.clone(),
+fn query_sync_summary_row(
+    conn: &Connection,
+    id: i64,
+) -> Result<Option<SyncSummaryRow>, rusqlite::Error> {
+    conn.query_row(
+        "SELECT earliest_synced_date, latest_synced_date, target_start_date, sync_start_earliest_date,
+                total_messages, last_sync_at, is_running, owner_pid, sync_lock_started_at
+         FROM sync_summary WHERE id = ?1",
+        [id],
+        |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+            ))
+        },
+    )
+    .optional()
+}
+
+/// True when the mailbox can sync but has no indexed messages yet (run `ripmail backfill`).
+fn mailbox_suggest_backfill(
+    conn: &Connection,
+    cfg: &Config,
+    mb: &ResolvedMailbox,
+) -> rusqlite::Result<bool> {
+    if mb.apple_mail_root.is_some() {
+        let ready = mb
+            .apple_mail_root
+            .as_ref()
+            .map(|p| crate::applemail::envelope_index_path(p).is_file())
+            .unwrap_or(false);
+        if !ready {
+            return Ok(false);
+        }
+    } else if mb.imap_user.trim().is_empty()
+        || (mb.imap_auth == MailboxImapAuthKind::AppPassword && mb.imap_password.trim().is_empty())
+        || (mb.imap_auth == MailboxImapAuthKind::GoogleOAuth
+            && !google_oauth_credentials_present(&cfg.ripmail_home, &mb.id))
+    {
+        return Ok(false);
+    }
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM messages WHERE source_id = ?1",
+        [&mb.id],
+        |r| r.get(0),
+    )?;
+    Ok(count == 0)
+}
+
+pub fn get_status(conn: &Connection) -> Result<StatusData, rusqlite::Error> {
+    let messages_count: i64 = conn.query_row("SELECT COUNT(*) FROM messages", [], |r| r.get(0))?;
+
+    let row1 = query_sync_summary_row(conn, 1)?;
+    let row2 = query_sync_summary_row(conn, 2)?;
+
+    let refresh = sync_status_from_row(row1, messages_count, true);
+    let backfill = sync_status_from_row(row2, messages_count, false);
+
+    let refresh_lock_row = SyncLockRow {
+        is_running: if refresh.is_running { 1 } else { 0 },
+        owner_pid: refresh.owner_pid,
+        sync_lock_started_at: refresh.sync_lock_started_at.clone(),
     };
-    let sync_lock_held_by_live_process = is_sync_lock_held(Some(&lock_row));
-    let sync_lock_age_ms = millis_since_sync_lock_started_at(sync.sync_lock_started_at.as_deref());
+    let backfill_lock_row = SyncLockRow {
+        is_running: if backfill.is_running { 1 } else { 0 },
+        owner_pid: backfill.owner_pid,
+        sync_lock_started_at: backfill.sync_lock_started_at.clone(),
+    };
+    let refresh_lock_held_by_live_process = is_sync_lock_held(Some(&refresh_lock_row));
+    let refresh_lock_age_ms =
+        millis_since_sync_lock_started_at(refresh.sync_lock_started_at.as_deref());
+    let backfill_lock_held_by_live_process = is_sync_lock_held(Some(&backfill_lock_row));
+    let backfill_lock_age_ms =
+        millis_since_sync_lock_started_at(backfill.sync_lock_started_at.as_deref());
 
     Ok(StatusData {
-        sync,
+        refresh,
+        backfill,
         fts_ready: messages_count,
-        sync_lock_held_by_live_process,
-        sync_lock_age_ms,
+        refresh_lock_held_by_live_process,
+        refresh_lock_age_ms,
+        backfill_lock_held_by_live_process,
+        backfill_lock_age_ms,
     })
 }
 
-/// DB says sync is running, but no live process holds the lock (crash, kill, or expired lock).
+/// DB says a lane is running, but no live process holds that lane's lock.
 pub fn status_stale_lock_running(status: &StatusData) -> bool {
-    status.sync.is_running && !status.sync_lock_held_by_live_process
-}
-
-/// Live sync, zero indexed messages, lock age over five minutes.
-pub fn status_initial_sync_hang_suspected(status: &StatusData) -> bool {
-    status.sync_lock_held_by_live_process
-        && status.sync.is_running
-        && status.fts_ready == 0
-        && status
-            .sync_lock_age_ms
-            .map(|m| m > SYNC_INITIAL_HANG_HINT_AFTER_MS)
-            .unwrap_or(false)
+    (status.refresh.is_running && !status.refresh_lock_held_by_live_process)
+        || (status.backfill.is_running && !status.backfill_lock_held_by_live_process)
 }
 
 pub fn get_imap_server_status(
@@ -513,13 +570,18 @@ pub fn get_imap_server_status(
 }
 
 fn progress_suffix(status: &StatusData) -> String {
-    let Some(ref target) = status.sync.target_start_date else {
+    let lane = if status.backfill.target_start_date.is_some() || status.backfill.is_running {
+        &status.backfill
+    } else {
+        &status.refresh
+    };
+    let Some(ref target) = lane.target_start_date else {
         return String::new();
     };
-    let Some(ref start_earliest) = status.sync.sync_start_earliest_date else {
+    let Some(ref start_earliest) = lane.sync_start_earliest_date else {
         return String::new();
     };
-    let Some(ref current_earliest) = status.sync.earliest_synced_date else {
+    let Some(ref current_earliest) = lane.earliest_synced_date else {
         return String::new();
     };
 
@@ -579,22 +641,33 @@ pub fn print_status_text(conn: &Connection, cfg: &Config) -> Result<(), rusqlite
     let progress_text = progress_suffix(&status);
     let pad = |s: &str| format!("{s:<STATUS_LABEL_WIDTH$}");
     let stale = status_stale_lock_running(&status);
-    let hang = status_initial_sync_hang_suspected(&status);
+    let refresh_stale = status.refresh.is_running && !status.refresh_lock_held_by_live_process;
+    let backfill_stale = status.backfill.is_running && !status.backfill_lock_held_by_live_process;
 
     if stale {
         println!(
-            "{}stale (DB shows running, but no live sync process holds the lock)",
+            "{}stale (refresh or backfill: DB shows running, but no live process holds that lane's lock)",
             pad("Sync:")
         );
-    } else if status.sync.is_running && status.sync_lock_held_by_live_process {
+    } else if refresh_stale {
+        println!(
+            "{}refresh lane stale (DB shows running, no live lock)",
+            pad("Refresh:")
+        );
+    } else if backfill_stale {
+        println!(
+            "{}backfill lane stale (DB shows running, no live lock)",
+            pad("Backfill:")
+        );
+    } else if status.refresh.is_running && status.refresh_lock_held_by_live_process {
         let detail = sync_running_explanation(status.fts_ready);
         println!(
             "{}running{}{}",
-            pad("Sync:"),
+            pad("Refresh:"),
             progress_text,
             detail.as_ref()
         );
-    } else if let Some(ref last) = status.sync.last_sync_at {
+    } else if let Some(ref last) = status.refresh.last_sync_at {
         let short = if last.len() >= 10 {
             &last[..10]
         } else {
@@ -602,16 +675,39 @@ pub fn print_status_text(conn: &Connection, cfg: &Config) -> Result<(), rusqlite
         };
         println!(
             "{}idle (last: {}, {} messages){}",
-            pad("Sync:"),
+            pad("Refresh:"),
             short,
-            status.sync.total_messages,
+            status.refresh.total_messages,
             progress_text
         );
     } else {
-        println!("{}never run", pad("Sync:"));
+        println!("{}never run", pad("Refresh:"));
     }
 
-    if status.sync.is_running && status.sync_lock_held_by_live_process && status.fts_ready == 0 {
+    if !stale && !refresh_stale && !backfill_stale {
+        if status.backfill.is_running && status.backfill_lock_held_by_live_process {
+            println!(
+                "{}backfill running (target {})",
+                pad("Backfill:"),
+                status.backfill.target_start_date.as_deref().unwrap_or("—")
+            );
+        } else if let Some(ref last) = status.backfill.last_sync_at {
+            let short = if last.len() >= 10 {
+                &last[..10]
+            } else {
+                last.as_str()
+            };
+            println!("{}backfill idle (last: {})", pad("Backfill:"), short);
+        }
+    }
+
+    if (status.refresh.is_running
+        && status.refresh_lock_held_by_live_process
+        && status.fts_ready == 0)
+        || (status.backfill.is_running
+            && status.backfill_lock_held_by_live_process
+            && status.fts_ready == 0)
+    {
         println!(
             "{}FTS ready (0) — first index pending (UID search / batch in progress)",
             pad("Search:")
@@ -670,10 +766,12 @@ pub fn print_status_text(conn: &Connection, cfg: &Config) -> Result<(), rusqlite
         println!();
     }
 
-    let last_sync_ago = if status.sync.is_running && status.sync_lock_held_by_live_process {
+    let last_sync_ago = if (status.refresh.is_running && status.refresh_lock_held_by_live_process)
+        || (status.backfill.is_running && status.backfill_lock_held_by_live_process)
+    {
         None
     } else {
-        format_time_ago(status.sync.last_sync_at.as_deref())
+        format_time_ago(status.refresh.last_sync_at.as_deref())
     };
     if let Some(ago) = last_sync_ago {
         println!("{}{} ({})", pad("Last sync:"), ago.human, ago.duration);
@@ -682,35 +780,22 @@ pub fn print_status_text(conn: &Connection, cfg: &Config) -> Result<(), rusqlite
     if stale {
         println!();
         println!(
-            "Hint: run `ripmail refresh` (or `ripmail refresh --since {}`) to recover; the next run will take over the lock.",
-            cfg.sync_default_since
-        );
-    } else if hang {
-        println!();
-        let log_path = sync_log_path(&cfg.ripmail_home);
-        let log = log_path.display();
-        let pid = status
-            .sync
-            .owner_pid
-            .map(|p| p.to_string())
-            .unwrap_or_else(|| "?".into());
-        println!(
-            "Hint: sync has been running over 5 minutes with no messages indexed yet. Large mailboxes can spend a long time in UID search; if nothing changes, check `{log}` (e.g. `tail -f`). To force-retry: `kill {pid}` then `ripmail refresh --foreground --since {}`.",
+            "Hint: run `ripmail refresh` or `ripmail backfill {}` to recover; the next run will take over the stale lane's lock.",
             cfg.sync_default_since
         );
     }
 
-    let backfill: Vec<&str> = mbs
+    let backfill_hint: Vec<&str> = mbs
         .iter()
         .filter(|m| m.needs_backfill)
         .filter_map(|m| m.email.as_deref().or(Some(m.mailbox_id.as_str())))
         .take(8)
         .collect();
-    if !status.sync.is_running && !backfill.is_empty() {
+    if !status.refresh.is_running && !status.backfill.is_running && !backfill_hint.is_empty() {
         println!();
         println!(
-            "Hint: first sync pending for {} — run `ripmail refresh` (or `ripmail refresh --since {}`).",
-            backfill.join(", "),
+            "Hint: no indexed mail yet for {} — run `ripmail backfill {}`.",
+            backfill_hint.join(", "),
             cfg.sync_default_since
         );
     }
@@ -736,56 +821,42 @@ mod tests {
         }
     }
 
+    fn lane_status(running: bool, held: bool) -> (SyncStatus, bool) {
+        let mut s = test_sync_status();
+        s.is_running = running;
+        (s, held)
+    }
+
     #[test]
     fn status_stale_when_db_running_without_live_lock() {
-        let mut sync = test_sync_status();
-        sync.is_running = true;
+        let (refresh, r_held) = lane_status(true, false);
+        let (backfill, b_held) = lane_status(false, false);
         let s = StatusData {
-            sync,
+            refresh,
+            backfill,
             fts_ready: 0,
-            sync_lock_held_by_live_process: false,
-            sync_lock_age_ms: Some(0),
+            refresh_lock_held_by_live_process: r_held,
+            refresh_lock_age_ms: Some(0),
+            backfill_lock_held_by_live_process: b_held,
+            backfill_lock_age_ms: Some(0),
         };
         assert!(status_stale_lock_running(&s));
     }
 
     #[test]
     fn status_not_stale_when_lock_held() {
-        let mut sync = test_sync_status();
-        sync.is_running = true;
+        let (refresh, r_held) = lane_status(true, true);
+        let (backfill, b_held) = lane_status(false, false);
         let s = StatusData {
-            sync,
+            refresh,
+            backfill,
             fts_ready: 0,
-            sync_lock_held_by_live_process: true,
-            sync_lock_age_ms: Some(0),
+            refresh_lock_held_by_live_process: r_held,
+            refresh_lock_age_ms: Some(0),
+            backfill_lock_held_by_live_process: b_held,
+            backfill_lock_age_ms: Some(0),
         };
         assert!(!status_stale_lock_running(&s));
-    }
-
-    #[test]
-    fn hang_suspected_when_lock_age_over_five_minutes_and_zero_fts() {
-        let mut sync = test_sync_status();
-        sync.is_running = true;
-        let s = StatusData {
-            sync,
-            fts_ready: 0,
-            sync_lock_held_by_live_process: true,
-            sync_lock_age_ms: Some(5 * 60 * 1000 + 1),
-        };
-        assert!(status_initial_sync_hang_suspected(&s));
-    }
-
-    #[test]
-    fn hang_not_suspected_at_exactly_five_minutes() {
-        let mut sync = test_sync_status();
-        sync.is_running = true;
-        let s = StatusData {
-            sync,
-            fts_ready: 0,
-            sync_lock_held_by_live_process: true,
-            sync_lock_age_ms: Some(5 * 60 * 1000),
-        };
-        assert!(!status_initial_sync_hang_suspected(&s));
     }
 
     #[test]
@@ -833,7 +904,7 @@ mod tests {
         let conn = open_memory().unwrap();
 
         let status = get_status(&conn).unwrap();
-        assert_eq!(status.sync.total_messages, 0);
+        assert_eq!(status.refresh.total_messages, 0);
         assert_eq!(status.fts_ready, 0);
 
         for i in 0..3 {
@@ -856,7 +927,7 @@ mod tests {
         assert_eq!(cached, 0);
 
         let status = get_status(&conn).unwrap();
-        assert_eq!(status.sync.total_messages, 3, "should use live COUNT(*)");
+        assert_eq!(status.refresh.total_messages, 3, "should use live COUNT(*)");
         assert_eq!(status.fts_ready, 3);
     }
 }

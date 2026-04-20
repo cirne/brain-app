@@ -107,7 +107,7 @@ fn status_json_output() {
     );
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert!(v.get("sync").is_some());
-    assert!(v["sync"].get("totalMessages").is_some());
+    assert!(v["sync"]["refresh"].get("totalMessages").is_some());
     assert_eq!(
         v["search"]["indexedMessages"], v["search"]["ftsReady"],
         "indexedMessages must match ftsReady (local messages row count)"

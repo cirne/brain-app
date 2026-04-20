@@ -7,11 +7,11 @@ Setup and management
   ripmail skill install                              # copy embedded `/ripmail` agent skill (Claude Code; OpenClaw if ~/.openclaw/skills exists)
   ripmail wizard [--gmail] [--no-validate] [--clean] [--yes]   # --gmail: Gmail sign-in in browser
   ripmail clean [--yes]   # wipe out all ripmail data and config (if --yes)
-  ripmail refresh [--since <spec>] [--foreground] [--source <email|id>]  # initial history / backfill (long-running; --foreground waits; else background + log path)
+  ripmail backfill [<spec>] [--since <spec>] [--foreground] [--source <email|id>]  # historical mail (long-running; --foreground waits; else background + log path)
   ripmail rebuild-index
 
 Monitor & manage inbox
-  ripmail refresh [--force] [--text] [--source <email|id>]  # fetch mail; new/empty accounts get one auto backfill (sync.defaultSince), then forward-only for new mail
+  ripmail refresh [--force] [--text] [--source <email|id>]  # incremental sync (new mail); run backfill first when the index is empty or you need older history
   ripmail ask "<question>" [--verbose]
   ripmail inbox [<window>] [--since YYYY-MM-DD] [--thorough] [--text]
   ripmail rules --help                             # manage mail classification rules to improve signal to noise

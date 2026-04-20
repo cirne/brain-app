@@ -151,22 +151,21 @@ pub use setup::{
 pub use sources::run_local_dir_sync;
 pub use status::{
     format_time_ago, get_imap_server_status, get_status, mailbox_status_lines, print_status_text,
-    status_initial_sync_hang_suspected, status_stale_lock_running, FreshnessAgoJson,
-    ImapServerComparison, MailboxStatusLine, StatusData,
+    status_stale_lock_running, FreshnessAgoJson, ImapServerComparison, MailboxStatusLine,
+    StatusData,
 };
 pub use sync::{
     acquire_lock, connect_imap_for_resolved_mailbox, connect_imap_session,
-    connect_imap_session_with_auth, filter_uids_after, first_backfill_completed, forward_uid_range,
-    is_process_alive, is_sync_lock_held, mailbox_needs_first_backfill,
-    mark_first_backfill_completed, millis_since_sync_lock_started_at,
-    oldest_message_date_for_folder, parse_index_message, parse_raw_message,
-    parse_raw_message_with_options, parse_read_full, parse_since_to_date, release_lock,
-    resolve_sync_folder_for_host, resolve_sync_mailbox, resolve_sync_since_ymd,
-    run_refresh_foreground_subprocess, run_sync, run_sync_with_parallel_imap_connect,
-    same_calendar_day, should_early_exit_forward, spawn_sync_background_detached, sync_log_path,
-    write_maildir_message, FakeImapTransport, FetchedMessage, ImapAuth, ImapStatusData, LockResult,
-    MailboxEntry, MaildirWrite, ParseMessageOptions, ParsedAttachment, ParsedMessage, ReadForCli,
-    RealImapTransport, RunSyncError, SyncDirection, SyncFileLogger, SyncImapTransport, SyncLockRow,
+    connect_imap_session_with_auth, filter_uids_after, forward_uid_range, is_process_alive,
+    is_sync_lock_held, millis_since_sync_lock_started_at, oldest_message_date_for_folder,
+    parse_index_message, parse_raw_message, parse_raw_message_with_options, parse_read_full,
+    parse_since_to_date, read_sync_lock_row_optional, release_lock, resolve_sync_folder_for_host,
+    resolve_sync_mailbox, resolve_sync_since_ymd, run_refresh_foreground_subprocess, run_sync,
+    run_sync_with_parallel_imap_connect, same_calendar_day, should_early_exit_forward,
+    spawn_sync_background_detached, sync_log_path, write_maildir_message, FakeImapTransport,
+    FetchedMessage, ImapAuth, ImapStatusData, LockResult, MailboxEntry, MaildirWrite,
+    ParseMessageOptions, ParsedAttachment, ParsedMessage, ReadForCli, RealImapTransport,
+    RunSyncError, SyncDirection, SyncFileLogger, SyncImapTransport, SyncKind, SyncLockRow,
     SyncMailboxSummary, SyncOptions, SyncResult,
 };
 pub use thread_view::{list_thread_messages, ThreadMessageRow};

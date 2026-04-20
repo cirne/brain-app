@@ -10,7 +10,7 @@ use crate::db::message_persist::{
     persist_attachments_from_parsed, persist_message, uids_already_indexed,
 };
 use crate::sync::parse_message::{parse_raw_message_with_options, ParseMessageOptions};
-use crate::sync::process_lock::{acquire_lock, release_lock};
+use crate::sync::process_lock::{acquire_lock, release_lock, SyncKind};
 use crate::sync::sync_log::SyncFileLogger;
 use crate::sync::SyncResult;
 
@@ -192,6 +192,7 @@ pub fn run_applemail_sync(
     since_ymd: &str,
     progress_stderr: bool,
     verbose: bool,
+    sync_kind: SyncKind,
 ) -> Result<SyncResult, Box<dyn std::error::Error>> {
     let start = Instant::now();
     let log_path = logger.log_path().display().to_string();
@@ -214,7 +215,7 @@ pub fn run_applemail_sync(
     }
 
     let pid = std::process::id() as i64;
-    let lock_result = acquire_lock(conn, pid)?;
+    let lock_result = acquire_lock(conn, pid, sync_kind)?;
     if !lock_result.acquired {
         let duration_ms = start.elapsed().as_millis() as u64;
         return Ok(SyncResult::empty(duration_ms, log_path));
@@ -246,11 +247,11 @@ pub fn run_applemail_sync(
          WHERE id = 1"#,
                 [],
             );
-            let _ = release_lock(conn, Some(pid));
+            let _ = release_lock(conn, Some(pid), sync_kind);
             Ok(r)
         }
         Err(e) => {
-            let _ = release_lock(conn, Some(pid));
+            let _ = release_lock(conn, Some(pid), sync_kind);
             Err(e)
         }
     }

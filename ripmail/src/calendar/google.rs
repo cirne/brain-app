@@ -52,6 +52,7 @@ fn parse_google_event(cal_id: &str, source_id: &str, v: &Value) -> Option<Calend
         source_id: source_id.to_string(),
         source_kind: "googleCalendar".to_string(),
         calendar_id: cal_id.to_string(),
+        calendar_name: None,
         uid,
         summary,
         description,
@@ -144,12 +145,11 @@ pub fn sync_google_calendars(
         },
     )?;
 
-    let mut effective_calendar_ids = calendar_ids.to_vec();
     let mut discovered_ids = Vec::new();
     let mut calendar_names: HashMap<String, String> = HashMap::new();
 
-    // Always fetch the calendar list to capture human-readable names; also use it to
-    // discover available calendars when none (or only "primary") are configured.
+    // Calendar list: names for agents + **all** list entries are indexed (same idea as Apple:
+    // everything is synced; `default_calendars` in config limits default CLI queries).
     if let Ok(val) = fetch_json(&token, GCAL_LIST) {
         if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
             for item in items {
@@ -160,14 +160,18 @@ pub fn sync_google_calendars(
                     }
                 }
             }
-            if (effective_calendar_ids.is_empty()
-                || effective_calendar_ids == vec!["primary".to_string()])
-                && !discovered_ids.is_empty()
-            {
-                effective_calendar_ids = discovered_ids.clone();
-            }
         }
     }
+
+    let sync_calendar_ids = if !discovered_ids.is_empty() {
+        discovered_ids.clone()
+    } else {
+        let mut fallback = calendar_ids.to_vec();
+        if fallback.is_empty() {
+            fallback.push("primary".into());
+        }
+        fallback
+    };
 
     let tx = conn.transaction()?;
     delete_source_events(&tx, source_id)?;
@@ -175,7 +179,7 @@ pub fn sync_google_calendars(
     let time_min = (Utc::now() - Duration::days(365 * 2)).to_rfc3339();
     let time_max = (Utc::now() + Duration::days(365 * 3)).to_rfc3339();
 
-    for cal_id in &effective_calendar_ids {
+    for cal_id in &sync_calendar_ids {
         let cid_enc = urlencoding::encode(cal_id);
         let mut page_token: Option<String> = None;
 
@@ -204,7 +208,10 @@ pub fn sync_google_calendars(
 
             if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
                 for item in items {
-                    if let Some(row) = parse_google_event(cal_id, source_id, item) {
+                    if let Some(mut row) = parse_google_event(cal_id, source_id, item) {
+                        if let Some(n) = calendar_names.get(cal_id) {
+                            row.calendar_name = Some(n.clone());
+                        }
                         upsert_event(&tx, &row)?;
                         count += 1;
                     }

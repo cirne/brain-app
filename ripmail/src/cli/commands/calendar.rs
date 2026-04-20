@@ -7,9 +7,10 @@ use chrono::{Days, NaiveDate, TimeZone, Utc};
 use crate::cli::util::{load_cfg, ripmail_home_path};
 use crate::cli::CliResult;
 use ripmail::calendar::{
-    fetch_event_json_by_rowid, fetch_event_json_by_uid, list_events_overlapping, search_events_fts,
+    fetch_event_json_by_rowid, fetch_event_json_by_uid, list_events_overlapping_scoped,
+    search_calendar_events_with_scope, CalendarQueryScope,
 };
-use ripmail::config::{load_config_json, SourceKind};
+use ripmail::config::{load_config_json, SourceConfigJson, SourceKind};
 use ripmail::db;
 
 use crate::cli::args::CalendarCmd;
@@ -21,6 +22,78 @@ fn parse_ymd(s: &str) -> Result<NaiveDate, String> {
             Utc::now().format("%Y-%m-%d")
         )
     })
+}
+
+/// `default_calendars` entries for Google / Apple sources (drives default queries only).
+fn default_calendar_restrictions(sources: &[SourceConfigJson]) -> Vec<(String, Vec<String>)> {
+    sources
+        .iter()
+        .filter(|s| {
+            matches!(
+                s.kind,
+                SourceKind::GoogleCalendar | SourceKind::AppleCalendar
+            )
+        })
+        .filter_map(|s| {
+            let d = s.default_calendars.as_ref()?;
+            if d.is_empty() {
+                None
+            } else {
+                Some((s.id.clone(), d.clone()))
+            }
+        })
+        .collect()
+}
+
+fn scope_for_calendar_query<'a>(
+    source: Option<&'a str>,
+    explicit_calendars: &'a [String],
+    sources: &'a [SourceConfigJson],
+    restrictions: &'a [(String, Vec<String>)],
+) -> CalendarQueryScope<'a> {
+    if !explicit_calendars.is_empty() {
+        return match source {
+            Some(sid) => CalendarQueryScope::Source {
+                source_id: sid,
+                calendar_ids: explicit_calendars,
+            },
+            None => CalendarQueryScope::GlobalCalendars(explicit_calendars),
+        };
+    }
+
+    match source {
+        Some(sid) => {
+            let defaults = sources
+                .iter()
+                .find(|s| s.id == sid || s.email == sid)
+                .and_then(|s| s.default_calendars.as_ref())
+                .filter(|d| !d.is_empty());
+            match defaults {
+                Some(d) => CalendarQueryScope::Source {
+                    source_id: sid,
+                    calendar_ids: d.as_slice(),
+                },
+                None => CalendarQueryScope::Source {
+                    source_id: sid,
+                    calendar_ids: &[],
+                },
+            }
+        }
+        None => {
+            if restrictions.is_empty() {
+                CalendarQueryScope::All
+            } else {
+                CalendarQueryScope::PerSourceDefaultCalendars(restrictions)
+            }
+        }
+    }
+}
+
+fn fts_source_for_scope<'a>(scope: &'a CalendarQueryScope<'a>) -> Option<&'a str> {
+    match scope {
+        CalendarQueryScope::Source { source_id, .. } => Some(*source_id),
+        _ => None,
+    }
 }
 
 fn kind_str(k: SourceKind) -> &'static str {
@@ -132,60 +205,24 @@ fn run_calendar_with_conn(conn: &rusqlite::Connection, cmd: CalendarCmd) -> CliR
             let lo = Utc.from_utc_datetime(&start).timestamp();
             let hi = Utc.from_utc_datetime(&end).timestamp();
 
-            let mut filter_calendars = Vec::new();
             let home = ripmail_home_path();
             let cfg = load_config_json(&home);
-            if let Some(sources) = cfg.sources {
-                if let Some(sid) = source.as_deref() {
-                    if let Some(s) = sources.iter().find(|s| s.id == sid || s.email == sid) {
-                        if let Some(ref defaults) = s.default_calendars {
-                            filter_calendars = defaults.clone();
-                        }
-                    }
-                } else {
-                    for s in sources {
-                        if let Some(ref defaults) = s.default_calendars {
-                            filter_calendars.extend(defaults.clone());
-                        }
-                    }
-                }
-            }
-
-            let rows =
-                list_events_overlapping(conn, source.as_deref(), &filter_calendars, lo, hi, 200)?;
+            let sources = cfg.sources.unwrap_or_default();
+            let restrictions = default_calendar_restrictions(&sources);
+            let scope = scope_for_calendar_query(source.as_deref(), &[], &sources, &restrictions);
+            let rows = list_events_overlapping_scoped(conn, scope, lo, hi, 200)?;
             print_json_array(&rows, json)
         }
         CalendarCmd::Upcoming { days, source, json } => {
             let now = Utc::now().timestamp();
             let end_ts = now + (days as i64) * 86400;
 
-            let mut filter_calendars = Vec::new();
             let home = ripmail_home_path();
             let cfg = load_config_json(&home);
-            if let Some(sources) = cfg.sources {
-                if let Some(sid) = source.as_deref() {
-                    if let Some(s) = sources.iter().find(|s| s.id == sid || s.email == sid) {
-                        if let Some(ref defaults) = s.default_calendars {
-                            filter_calendars = defaults.clone();
-                        }
-                    }
-                } else {
-                    for s in sources {
-                        if let Some(ref defaults) = s.default_calendars {
-                            filter_calendars.extend(defaults.clone());
-                        }
-                    }
-                }
-            }
-
-            let rows = list_events_overlapping(
-                conn,
-                source.as_deref(),
-                &filter_calendars,
-                now,
-                end_ts,
-                200,
-            )?;
+            let sources = cfg.sources.unwrap_or_default();
+            let restrictions = default_calendar_restrictions(&sources);
+            let scope = scope_for_calendar_query(source.as_deref(), &[], &sources, &restrictions);
+            let rows = list_events_overlapping_scoped(conn, scope, now, end_ts, 200)?;
             print_json_array(&rows, json)
         }
         CalendarCmd::Range {
@@ -210,31 +247,13 @@ fn run_calendar_with_conn(conn: &rusqlite::Connection, cmd: CalendarCmd) -> CliR
                 )
                 .timestamp();
 
-            let mut filter_calendars = calendar;
-            if filter_calendars.is_empty() {
-                // If no explicit filter, check for default_calendars in config
-                let home = ripmail_home_path();
-                let cfg = load_config_json(&home);
-                if let Some(sources) = cfg.sources {
-                    if let Some(sid) = source.as_deref() {
-                        if let Some(s) = sources.iter().find(|s| s.id == sid || s.email == sid) {
-                            if let Some(ref defaults) = s.default_calendars {
-                                filter_calendars = defaults.clone();
-                            }
-                        }
-                    } else {
-                        // Global query: collect all default_calendars from all sources
-                        for s in sources {
-                            if let Some(ref defaults) = s.default_calendars {
-                                filter_calendars.extend(defaults.clone());
-                            }
-                        }
-                    }
-                }
-            }
-
-            let rows =
-                list_events_overlapping(conn, source.as_deref(), &filter_calendars, lo, hi, 2000)?;
+            let home = ripmail_home_path();
+            let cfg = load_config_json(&home);
+            let sources = cfg.sources.unwrap_or_default();
+            let restrictions = default_calendar_restrictions(&sources);
+            let scope =
+                scope_for_calendar_query(source.as_deref(), &calendar, &sources, &restrictions);
+            let rows = list_events_overlapping_scoped(conn, scope, lo, hi, 2000)?;
             print_json_array(&rows, json)
         }
         CalendarCmd::Search {
@@ -242,6 +261,7 @@ fn run_calendar_with_conn(conn: &rusqlite::Connection, cmd: CalendarCmd) -> CliR
             from,
             to,
             source,
+            calendar,
             json,
         } => {
             let start_min = from.as_deref().map(parse_ymd).transpose()?.map(|d| {
@@ -260,14 +280,16 @@ fn run_calendar_with_conn(conn: &rusqlite::Connection, cmd: CalendarCmd) -> CliR
                 })
                 .map(|d| Utc.from_utc_datetime(&d).timestamp());
 
-            let ids =
-                search_events_fts(conn, &query, source.as_deref(), start_min, start_max, 100)?;
-            let mut out: Vec<String> = Vec::new();
-            for id in ids {
-                if let Some(j) = fetch_event_json_by_rowid(conn, id)? {
-                    out.push(j);
-                }
-            }
+            let home = ripmail_home_path();
+            let cfg = load_config_json(&home);
+            let sources = cfg.sources.unwrap_or_default();
+            let restrictions = default_calendar_restrictions(&sources);
+            let scope =
+                scope_for_calendar_query(source.as_deref(), &calendar, &sources, &restrictions);
+            let fts_source = fts_source_for_scope(&scope);
+            let out = search_calendar_events_with_scope(
+                conn, &query, &scope, fts_source, start_min, start_max, 100,
+            )?;
             print_json_array(&out, json)
         }
         CalendarCmd::Read {

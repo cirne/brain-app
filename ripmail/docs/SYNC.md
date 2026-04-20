@@ -15,9 +15,9 @@ This document describes how email sync works today, the optimizations that were 
 
 The current public contract is:
 
-- `ripmail refresh` is the default freshness-first operation
-- `ripmail refresh --since <spec>` is the explicit backfill operation
-- both paths avoid re-fetching messages already copied locally
+- `ripmail refresh` is the incremental (forward) freshness-first operation
+- `ripmail backfill [<spec>]` / `ripmail backfill --since <spec>` is the historical backfill operation
+- both paths avoid re-fetching messages already copied locally; refresh and backfill use **independent** PID locks (`sync_summary` rows `id=1` and `id=2`) so **`refresh` can run while a long `backfill` is in progress**
 - the default agent expectation is that the most recent unseen mail becomes searchable first
 
 **Incremental refresh (`ripmail refresh`):**
@@ -32,7 +32,7 @@ The current public contract is:
 
 This is the path used when the caller wants the newest mail indexed fast. It does not walk backward through older history.
 
-**Backfill refresh (`ripmail refresh --since <spec>`):**
+**Backfill (`ripmail backfill <spec>` or `ripmail backfill --since <spec>`):**
 
 1. Connect to IMAP (parallel with lock acquisition)
 2. Call `STATUS` (no early exit for backward sync)

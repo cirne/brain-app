@@ -20,6 +20,10 @@ export type OnboardingMailStatusPayload = {
   /** From `ripmail status --json` `sync.lockAgeMs` — how long the current sync has held the lock. */
   syncLockAgeMs: number | null
   ftsReady: number | null
+  /** Mailbox still needs data and no sync is active — resume candidate (see backfill supervisor). */
+  pendingBackfill: boolean
+  /** Stale lock row without a live process — do not stack refreshes until cleared. */
+  staleMailSyncLock: boolean
   /** Plain-language line for the indexing onboarding screen; null when nothing extra to say. */
   indexingHint?: string | null
   statusError?: string
@@ -62,6 +66,8 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
     syncRunning: false,
     syncLockAgeMs: null,
     ftsReady: null,
+    pendingBackfill: false,
+    staleMailSyncLock: false,
     indexingHint: null,
   }
 
@@ -142,6 +148,8 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
         syncRunning: parsed.syncRunning,
         syncLockAgeMs: parsed.syncLockAgeMs,
         ftsReady: parsed.ftsReady,
+        pendingBackfill: parsed.pendingRefresh,
+        staleMailSyncLock: parsed.staleLockInDb,
         indexingHint: computeIndexingUserHint(parsed),
       }
       return payload

@@ -126,6 +126,7 @@ pub fn parse_ics_to_rows(
                     source_id: source_id.to_string(),
                     source_kind: source_kind.to_string(),
                     calendar_id: calendar_id.to_string(),
+                    calendar_name: None,
                     uid: uid_owned,
                     summary,
                     description,

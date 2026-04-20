@@ -31,6 +31,15 @@ fn schema_creates_all_tables() {
     assert!(tables.contains(&"sync_windows".to_string()));
     assert!(tables.contains(&"threads".to_string()));
     assert!(tables.contains(&"source_sync_meta".to_string()));
+
+    let n: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sync_summary WHERE id IN (1, 2)",
+            [],
+            |r| r.get(0),
+        )
+        .expect("sync_summary rows");
+    assert_eq!(n, 2, "sync_summary should seed id=1 and id=2 lock lanes");
 }
 
 #[test]
@@ -167,4 +176,23 @@ fn status_text_shows_earliest_and_latest_timestamps() {
     assert!(stdout.contains("2024-01-01T12:00:00Z"));
     assert!(stdout.contains("Latest:"));
     assert!(stdout.contains("2025-06-15T08:30:00Z"));
+}
+
+#[test]
+fn status_json_has_refresh_and_backfill_lanes() {
+    let dir = tempdir().unwrap();
+    let bin = env!("CARGO_BIN_EXE_ripmail");
+    let out = Command::new(bin)
+        .env("RIPMAIL_HOME", dir.path())
+        .args(["status", "--json"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v["sync"]["refresh"].is_object());
+    assert!(v["sync"]["backfill"].is_object());
 }

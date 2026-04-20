@@ -8,7 +8,20 @@ vi.mock('../lib/ripmailExec.js', () => ({
   execRipmailAsync: vi.fn(),
 }))
 
+vi.mock('../lib/hubRipmailSpawn.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/hubRipmailSpawn.js')>()
+  return {
+    ...actual,
+    spawnRipmailRefreshSource: vi.fn(() => Promise.resolve({ ok: true })),
+    spawnRipmailBackfillSource: vi.fn(() => Promise.resolve({ ok: true })),
+  }
+})
+
 import { execRipmailAsync } from '../lib/ripmailExec.js'
+import {
+  spawnRipmailBackfillSource,
+  spawnRipmailRefreshSource,
+} from '../lib/hubRipmailSpawn.js'
 import hubRoute from './hub.js'
 
 let brainHome: string
@@ -22,6 +35,8 @@ afterEach(async () => {
   await rm(brainHome, { recursive: true, force: true })
   delete process.env.BRAIN_HOME
   vi.mocked(execRipmailAsync).mockReset()
+  vi.mocked(spawnRipmailRefreshSource).mockClear()
+  vi.mocked(spawnRipmailBackfillSource).mockClear()
 })
 
 describe('hub routes', () => {
@@ -96,6 +111,115 @@ describe('hub routes', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST /sources/refresh spawns ripmail refresh for one source', async () => {
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'a_gmail_com' }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean }
+    expect(j.ok).toBe(true)
+    expect(vi.mocked(spawnRipmailRefreshSource)).toHaveBeenCalledWith('a_gmail_com')
+    expect(vi.mocked(spawnRipmailBackfillSource)).not.toHaveBeenCalled()
+  })
+
+  it('POST /sources/refresh 400 when id missing', async () => {
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST /sources/backfill spawns with default since 1y', async () => {
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/backfill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'a_gmail_com' }),
+    })
+    expect(res.status).toBe(200)
+    expect(vi.mocked(spawnRipmailBackfillSource)).toHaveBeenCalledWith('a_gmail_com', '1y')
+  })
+
+  it('POST /sources/backfill 400 when since invalid', async () => {
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/backfill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'a_gmail_com', since: 'bogus' }),
+    })
+    expect(res.status).toBe(400)
+    expect(vi.mocked(spawnRipmailBackfillSource)).not.toHaveBeenCalled()
+  })
+
+  it('GET /sources/mail-status returns parsed mailbox row', async () => {
+    vi.mocked(execRipmailAsync).mockResolvedValue({
+      stdout: JSON.stringify({
+        sync: {
+          staleLockInDb: false,
+          refresh: {
+            isRunning: false,
+            lastSyncAt: '2026-04-18T12:00:00Z',
+            totalMessages: 10,
+            earliestSyncedDate: null,
+            latestSyncedDate: null,
+            targetStartDate: null,
+            syncStartEarliestDate: null,
+            lockHeldByLiveProcess: true,
+            lockAgeMs: null,
+            lockOwnerPid: null,
+          },
+          backfill: {
+            isRunning: false,
+            lastSyncAt: null,
+            targetStartDate: null,
+            syncStartEarliestDate: null,
+            lockHeldByLiveProcess: true,
+            lockAgeMs: null,
+            lockOwnerPid: null,
+          },
+        },
+        search: { indexedMessages: 10, ftsReady: 10 },
+        freshness: { lastSyncAgo: { human: '2 hours ago', duration: 'PT2H' } },
+        mailboxes: [
+          {
+            mailboxId: 'applemail_local',
+            messageCount: 10,
+            lastUid: 3,
+            needsBackfill: false,
+            earliestDate: '2025-01-01',
+            latestDate: '2026-04-01',
+            latestMailAgo: { human: '1 week ago', duration: 'P7D' },
+          },
+        ],
+      }),
+      stderr: '',
+    })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/mail-status?id=applemail_local')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean; mailbox?: { messageCount: number } }
+    expect(j.ok).toBe(true)
+    expect(j.mailbox?.messageCount).toBe(10)
+  })
+
+  it('GET /sources/mail-status 400 when id missing', async () => {
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/mail-status')
     expect(res.status).toBe(400)
   })
 })

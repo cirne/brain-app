@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../agentUtils.js'
 import {
+  buildProfilingTranscriptEvents,
   buildSeedingProgressUi,
   extractLastMeMdWriteContent,
   extractProfilingPeople,
@@ -580,6 +581,103 @@ describe('buildSeedingProgressUi', () => {
     const { events, planning } = buildSeedingProgressUi(messages, false)
     expect(events.length).toBe(1)
     expect(planning).toBeNull()
+  })
+})
+
+describe('buildProfilingTranscriptEvents', () => {
+  it('interleaves assistant text and completed read_doc mail cards in part order', () => {
+    const payload = JSON.stringify({ subject: 'Zoom recap', from: 'no@zoom.us', body: 'Hello' })
+    const messages: ChatMessage[] = [
+      {
+        role: 'assistant',
+        content: '',
+        parts: [
+          { type: 'text', content: 'Checking recent mail.' },
+          {
+            type: 'tool',
+            toolCall: {
+              id: 'r1',
+              name: 'read_doc',
+              args: { id: 'thread-a' },
+              result: payload,
+              done: true,
+            },
+          },
+          { type: 'text', content: 'Summarizing patterns.' },
+        ],
+      },
+    ]
+    const ev = buildProfilingTranscriptEvents(messages)
+    expect(ev).toHaveLength(3)
+    expect(ev[0]).toEqual({ type: 'text', content: 'Checking recent mail.' })
+    expect(ev[1].type).toBe('email')
+    if (ev[1].type === 'email') {
+      expect(ev[1].done).toBe(true)
+      expect(ev[1].toolId).toBe('r1')
+      expect(ev[1].row.subject).toBe('Zoom recap')
+      expect(ev[1].row.id).toBe('thread-a')
+    }
+    expect(ev[2]).toEqual({ type: 'text', content: 'Summarizing patterns.' })
+  })
+
+  it('emits in-flight read_doc as pending mail row', () => {
+    const messages: ChatMessage[] = [
+      {
+        role: 'assistant',
+        content: '',
+        parts: [
+          {
+            type: 'tool',
+            toolCall: {
+              id: 'r2',
+              name: 'read_doc',
+              args: { id: 'thread-b' },
+              result: '',
+              done: false,
+            },
+          },
+        ],
+      },
+    ]
+    const ev = buildProfilingTranscriptEvents(messages)
+    expect(ev).toHaveLength(1)
+    expect(ev[0].type).toBe('email')
+    if (ev[0].type === 'email') {
+      expect(ev[0].done).toBe(false)
+      expect(ev[0].row.id).toBe('thread-b')
+    }
+  })
+
+  it('omits filesystem read_doc and set_chat_title', () => {
+    const messages: ChatMessage[] = [
+      {
+        role: 'assistant',
+        content: '',
+        parts: [
+          {
+            type: 'tool',
+            toolCall: {
+              id: 't',
+              name: 'set_chat_title',
+              args: { title: 'x' },
+              result: 'ok',
+              done: true,
+            },
+          },
+          {
+            type: 'tool',
+            toolCall: {
+              id: 'f',
+              name: 'read_doc',
+              args: { id: '/tmp/secret.pdf' },
+              result: '{}',
+              done: true,
+            },
+          },
+        ],
+      },
+    ]
+    expect(buildProfilingTranscriptEvents(messages)).toEqual([])
   })
 })
 

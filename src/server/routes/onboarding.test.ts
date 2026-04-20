@@ -20,6 +20,7 @@ vi.mock('../lib/tunnelManager.js', () => ({
 }))
 
 import onboardingRoute from './onboarding.js'
+import * as onboardingMailStatus from '../lib/onboardingMailStatus.js'
 
 /** Avoid async wiki-expansion I/O racing with `afterEach` `rm(BRAIN_HOME)`. */
 vi.mock('../agent/wikiExpansionRunner.js', () => ({
@@ -334,6 +335,62 @@ describe('onboarding routes', () => {
       expect(res.status).toBe(200)
       expect(tunnelMocks.startTunnel).toHaveBeenCalledTimes(1)
       expect(tunnelMocks.startTunnel).toHaveBeenCalledWith(bound)
+    })
+  })
+
+  describe('PATCH /state indexing to profiling (mail threshold)', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('returns 400 when indexed count is below minimum', async () => {
+      vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
+        configured: true,
+        indexedTotal: 100,
+        lastSyncedAt: null,
+        dateRange: { from: null, to: null },
+        syncRunning: false,
+        syncLockAgeMs: null,
+        ftsReady: 100,
+        pendingBackfill: true,
+        staleMailSyncLock: false,
+      })
+      const { setOnboardingState } = await import('../lib/onboardingState.js')
+      await setOnboardingState('indexing')
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/state', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'profiling' }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('allows transition at or above minimum indexed count', async () => {
+      vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
+        configured: true,
+        indexedTotal: 200,
+        lastSyncedAt: null,
+        dateRange: { from: null, to: null },
+        syncRunning: false,
+        syncLockAgeMs: null,
+        ftsReady: null,
+        pendingBackfill: true,
+        staleMailSyncLock: false,
+      })
+      const { setOnboardingState } = await import('../lib/onboardingState.js')
+      await setOnboardingState('indexing')
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/state', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'profiling' }),
+      })
+      expect(res.status).toBe(200)
+      const j = (await res.json()) as { state: string }
+      expect(j.state).toBe('profiling')
     })
   })
 })

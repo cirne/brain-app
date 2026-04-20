@@ -11,12 +11,11 @@ use ripmail::{
     build_review_json, connect_imap_for_resolved_mailbox, count_indexed_messages_simple_window,
     count_unarchived_messages_by_mailbox, db, google_oauth_credentials_present, inbox_json_hints,
     inbox_rules_fingerprint_for_scope, mailbox_ids_for_default_search,
-    mailbox_needs_first_backfill, mark_first_backfill_completed, parse_inbox_window_to_iso_cutoff,
-    print_review_text, read_ripmail_env_file, resolve_mailbox_spec, resolve_sync_folder_for_host,
-    resolve_sync_since_ymd, run_applemail_sync, run_inbox_scan, run_local_dir_sync,
-    DeterministicInboxClassifier, InboxSurfaceMode, MailboxImapAuthKind, ResolvedMailbox,
-    RunInboxScanOptions, SourceKind, SyncDirection, SyncFileLogger, SyncMailboxSummary,
-    SyncOptions, SyncResult,
+    parse_inbox_window_to_iso_cutoff, print_review_text, read_ripmail_env_file,
+    resolve_mailbox_spec, resolve_sync_folder_for_host, resolve_sync_since_ymd, run_applemail_sync,
+    run_inbox_scan, run_local_dir_sync, DeterministicInboxClassifier, InboxSurfaceMode,
+    MailboxImapAuthKind, ResolvedMailbox, RunInboxScanOptions, SourceKind, SyncDirection,
+    SyncFileLogger, SyncKind, SyncMailboxSummary, SyncOptions, SyncResult,
 };
 
 fn mailbox_imap_ready(home: &std::path::Path, mb: &ResolvedMailbox) -> bool {
@@ -46,7 +45,7 @@ fn calendar_source_ready(home: &std::path::Path, mb: &ResolvedMailbox) -> bool {
 fn eprintln_calendar_not_ready(mb: &ResolvedMailbox) {
     if mb.kind == SourceKind::AppleCalendar && !apple_calendar_sync_available() {
         eprintln!(
-            "ripmail: skipping {} (Apple Calendar: EventKit sync not available in this build yet)",
+            "ripmail: skipping {} (Apple Calendar: only supported on macOS)",
             mb.id
         );
     } else {
@@ -304,7 +303,7 @@ fn merge_sync_runs(
     }
 }
 
-pub(crate) fn run_sync_foreground_backward(
+pub(crate) fn run_sync_foreground_backfill(
     cfg: &ripmail::Config,
     since_override: Option<&str>,
     mailbox_filter: Option<&str>,
@@ -378,8 +377,15 @@ pub(crate) fn run_sync_foreground_backward(
         }
         if mb.apple_mail_root.is_some() {
             eprintln!("ripmail: indexing Apple Mail for {}…", mb.email);
-            let result = run_applemail_sync(&mut conn, &logger, mb, &since_ymd, true, verbose)?;
-            mark_first_backfill_completed(&conn, &mailbox_id)?;
+            let result = run_applemail_sync(
+                &mut conn,
+                &logger,
+                mb,
+                &since_ymd,
+                true,
+                verbose,
+                SyncKind::Backfill,
+            )?;
             eprintln!("ripmail: Apple Mail index pass done.");
             summaries.push(SyncMailboxSummary {
                 id: mb.id.clone(),
@@ -400,6 +406,7 @@ pub(crate) fn run_sync_foreground_backward(
         let process_env = process_env.clone();
         let maildir_path = mb.maildir_path.clone();
         let opts = SyncOptions {
+            kind: SyncKind::Backfill,
             direction: SyncDirection::Backward,
             since_ymd: since_ymd.clone(),
             force: false,
@@ -416,7 +423,6 @@ pub(crate) fn run_sync_foreground_backward(
             &opts,
             move || connect_imap_for_resolved_mailbox(&home_c, &mb_owned, &env_file, &process_env),
         )?;
-        mark_first_backfill_completed(&conn, &mailbox_id)?;
         eprintln!("ripmail: Connected.");
         summaries.push(SyncMailboxSummary {
             id: mb.id.clone(),
@@ -521,12 +527,15 @@ pub(crate) fn run_sync_foreground_refresh(
             if progress_stderr {
                 eprintln!("ripmail: indexing Apple Mail for {}…", mb.email);
             }
-            let needs_first = mailbox_needs_first_backfill(&conn, mb)?;
-            let result =
-                run_applemail_sync(&mut conn, &logger, mb, &since_ymd, progress_stderr, verbose)?;
-            if needs_first {
-                mark_first_backfill_completed(&conn, &mailbox_id)?;
-            }
+            let result = run_applemail_sync(
+                &mut conn,
+                &logger,
+                mb,
+                &since_ymd,
+                progress_stderr,
+                verbose,
+                SyncKind::Refresh,
+            )?;
             if progress_stderr {
                 eprintln!("ripmail: Apple Mail index pass done.");
             }
@@ -550,14 +559,9 @@ pub(crate) fn run_sync_foreground_refresh(
         let env_file = env_file.clone();
         let process_env = process_env.clone();
         let maildir_path = mb.maildir_path.clone();
-        let needs_first = mailbox_needs_first_backfill(&conn, mb)?;
-        let direction = if needs_first {
-            SyncDirection::Backward
-        } else {
-            SyncDirection::Forward
-        };
         let opts = SyncOptions {
-            direction,
+            kind: SyncKind::Refresh,
+            direction: SyncDirection::Forward,
             since_ymd: since_ymd.clone(),
             force,
             progress_stderr,
@@ -573,9 +577,6 @@ pub(crate) fn run_sync_foreground_refresh(
             &opts,
             move || connect_imap_for_resolved_mailbox(&home_c, &mb_owned, &env_file, &process_env),
         )?;
-        if direction == SyncDirection::Backward {
-            mark_first_backfill_completed(&conn, &mailbox_id)?;
-        }
         if progress_stderr {
             eprintln!("ripmail: Connected.");
         }

@@ -14,7 +14,9 @@ use super::fetch_timeout::timeout_ms_for_fetch_all_attempt;
 use super::imap_date::ymd_to_imap_since;
 use super::parse_raw_message;
 use super::parse_since_to_date;
-use super::process_lock::{acquire_lock, is_sync_lock_held, release_lock, SyncLockRow};
+use super::process_lock::{
+    acquire_lock, is_sync_lock_held, read_sync_lock_row_optional, release_lock, SyncKind,
+};
 use super::retry::{retry_with_backoff, RetryPolicy};
 use super::sync_log::SyncFileLogger;
 use super::transport::{FetchedMessage, ImapStatusData, SyncImapTransport};
@@ -33,6 +35,8 @@ pub enum SyncDirection {
 
 #[derive(Debug, Clone)]
 pub struct SyncOptions {
+    /// Which PID lock row (`sync_summary` id=1 refresh vs id=2 backfill).
+    pub kind: SyncKind,
     pub direction: SyncDirection,
     /// Resolved calendar start `YYYY-MM-DD` (from `--since` or `sync.defaultSince`).
     pub since_ymd: String,
@@ -312,19 +316,7 @@ fn run_sync_pre_acquire(
     logger.write_separator(pid_u32);
     let exclude_lower: HashSet<String> = exclude_labels.iter().map(|s| s.to_lowercase()).collect();
 
-    let lock_row: Option<SyncLockRow> = conn
-        .query_row(
-            "SELECT is_running, owner_pid, sync_lock_started_at FROM sync_summary WHERE id = 1",
-            [],
-            |row| {
-                Ok(SyncLockRow {
-                    is_running: row.get(0)?,
-                    owner_pid: row.get(1)?,
-                    sync_lock_started_at: row.get(2)?,
-                })
-            },
-        )
-        .optional()?;
+    let lock_row = read_sync_lock_row_optional(conn, options.kind)?;
 
     if is_sync_lock_held(lock_row.as_ref()) {
         logger.info("Sync already running, exiting", None);
@@ -338,11 +330,12 @@ fn run_sync_pre_acquire(
     ensure_maildir(maildir_path)?;
 
     let from_ymd = options.since_ymd.as_str();
+    let lane_id = options.kind.row_id();
     conn.execute(
         "UPDATE sync_summary SET target_start_date = ?1,
          sync_start_earliest_date = (SELECT earliest_synced_date FROM sync_summary WHERE id = 1)
-         WHERE id = 1",
-        [from_ymd],
+         WHERE id = ?2",
+        params![from_ymd, lane_id],
     )?;
 
     Ok(RunSyncPreAcquire::AcquireLock(RunSyncLockedPrelude {
@@ -383,7 +376,7 @@ fn run_sync_imap_phase(
             "UPDATE sync_summary SET last_sync_at = datetime('now') WHERE id = 1",
             [],
         )?;
-        release_lock(conn, Some(pid))?;
+        release_lock(conn, Some(pid), options.kind)?;
         let duration_ms = start.elapsed().as_millis() as u64;
         let mut r = SyncResult::empty(duration_ms, log_path_str.clone());
         r.early_exit = Some(true);
@@ -575,7 +568,7 @@ fn run_sync_imap_phase(
             "UPDATE sync_summary SET last_sync_at = datetime('now') WHERE id = 1",
             [],
         )?;
-        release_lock(conn, Some(pid))?;
+        release_lock(conn, Some(pid), options.kind)?;
         let duration_ms = start.elapsed().as_millis() as u64;
         let r = SyncResult::empty(duration_ms, log_path_str.clone());
         log_sync_metrics(logger, &r);
@@ -714,7 +707,13 @@ fn run_sync_imap_phase(
          WHERE id = 1",
         params![earliest_date, latest_date],
     )?;
-    release_lock(conn, Some(pid))?;
+    if options.kind == SyncKind::Backfill {
+        conn.execute(
+            "UPDATE sync_summary SET last_sync_at = datetime('now') WHERE id = 2",
+            [],
+        )?;
+    }
+    release_lock(conn, Some(pid), options.kind)?;
 
     let duration_ms = start.elapsed().as_millis() as u64;
     let duration_sec = (duration_ms as f64) / 1000.0;
@@ -779,7 +778,7 @@ pub fn run_sync<T: SyncImapTransport>(
         RunSyncPreAcquire::AcquireLock(p) => p,
     };
 
-    let lock_result = acquire_lock(conn, pid)?;
+    let lock_result = acquire_lock(conn, pid, options.kind)?;
     if !lock_result.acquired {
         logger.info("Could not acquire sync lock", None);
         let duration_ms = start.elapsed().as_millis() as u64;
@@ -804,7 +803,7 @@ pub fn run_sync<T: SyncImapTransport>(
     );
 
     if sync_result.is_err() {
-        let _ = release_lock(conn, Some(pid));
+        let _ = release_lock(conn, Some(pid), options.kind);
     }
 
     sync_result
@@ -850,7 +849,7 @@ where
         let _ = tx.send(connect());
     });
 
-    let lock_result = acquire_lock(conn, pid)?;
+    let lock_result = acquire_lock(conn, pid, options.kind)?;
     if !lock_result.acquired {
         logger.info("Could not acquire sync lock", None);
         // Drop the receiver only: do not `recv()` — we are not going to use the session, and waiting
@@ -886,7 +885,7 @@ where
     );
 
     if sync_result.is_err() {
-        let _ = release_lock(conn, Some(pid));
+        let _ = release_lock(conn, Some(pid), options.kind);
     }
 
     sync_result

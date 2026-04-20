@@ -17,8 +17,9 @@
   import { buildIndexingElapsedLine } from './onboardingIndexingUi.js'
   import {
     ONBOARDING_LARGE_WINDOW_STATES,
+    ONBOARDING_PROFILE_INDEX_AUTOPROCEED,
+    ONBOARDING_PROFILE_INDEX_MANUAL_MIN,
     emptyOnboardingMail,
-    MIN_INDEXED_FOR_PROFILE,
     type OnboardingMailStatus,
   } from './onboardingTypes.js'
   import { resizeMainWindowToBrowserLikeWorkArea } from '../desktop/browserLikeWindow.js'
@@ -34,6 +35,8 @@
   let mailProviderPref = $state<'apple' | 'google' | null>(null)
   let mail = $state<OnboardingMailStatus>(emptyOnboardingMail())
   let setupError = $state<string | null>(null)
+  /** PATCH profiling failed while on indexing (e.g. below server minimum). */
+  let indexingAdvanceError = $state<string | null>(null)
   /** Review / accept-profile / confirming-categories recovery */
   let profileStepError = $state<string | null>(null)
   let busy = $state(false)
@@ -51,9 +54,17 @@
   /** Legacy onboarding: migrate old `seeding` / `confirming-categories` to main app. */
   let legacySeedingRecoverDone = $state(false)
 
-  const canBuildProfile = $derived((mail.indexedTotal ?? 0) >= MIN_INDEXED_FOR_PROFILE)
+  const mailIndexedCount = $derived(Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0))
+  const canAutoProceedToProfiling = $derived(mailIndexedCount >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED)
+  const canOfferEarlyProfile = $derived(
+    mailIndexedCount >= ONBOARDING_PROFILE_INDEX_MANUAL_MIN &&
+      mailIndexedCount < ONBOARDING_PROFILE_INDEX_AUTOPROCEED,
+  )
   const indexingProgressPercent = $derived(
-    Math.min(100, Math.round(((mail.indexedTotal ?? 0) / MIN_INDEXED_FOR_PROFILE) * 100)),
+    Math.min(
+      100,
+      Math.round((mailIndexedCount / ONBOARDING_PROFILE_INDEX_AUTOPROCEED) * 100),
+    ),
   )
 
   async function loadMailOnly() {
@@ -128,8 +139,8 @@
   )
 
   const indexingStatusLine = $derived.by(() => {
-    if ((mail.indexedTotal ?? 0) > 0) {
-      return `${mail.indexedTotal.toLocaleString()} messages`
+    if (mailIndexedCount > 0) {
+      return `${mailIndexedCount.toLocaleString()} messages`
     }
     if (mail.syncRunning) {
       return 'Sync is running…'
@@ -138,7 +149,7 @@
   })
 
   $effect(() => {
-    if (state !== 'indexing' || !canBuildProfile || busy) return
+    if (state !== 'indexing' || !canAutoProceedToProfiling || busy) return
     if (indexingToProfilingInitiated) return
     indexingToProfilingInitiated = true
     void patchState('profiling').catch(() => {
@@ -158,8 +169,22 @@
 
   async function patchState(next: string) {
     await patchOnboardingState(next)
+    indexingAdvanceError = null
     await refreshStatus()
     await load()
+  }
+
+  async function proceedToProfilingEarly() {
+    indexingAdvanceError = null
+    busy = true
+    await tick()
+    try {
+      await patchState('profiling')
+    } catch (e) {
+      indexingAdvanceError = e instanceof Error ? e.message : String(e)
+    } finally {
+      busy = false
+    }
   }
 
   /** Start background mail sync, then enter indexing (same as post–setup flow). */
@@ -457,6 +482,30 @@
             {#if indexingElapsedLine}
               <p class="ob-indexing-elapsed">{indexingElapsedLine}</p>
             {/if}
+            {#if state === 'indexing' && canOfferEarlyProfile}
+              <div class="ob-indexing-early" role="region" aria-label="Continue before full sync">
+                <p class="ob-indexing-early-copy">
+                  You’ve got enough mail for a strong first profile. We’ll keep downloading the rest in the background
+                  while you talk with Brain.
+                </p>
+                <button
+                  type="button"
+                  class="ob-btn-primary ob-indexing-early-btn"
+                  onclick={() => void proceedToProfilingEarly()}
+                  disabled={busy}
+                >
+                  {#if busy}
+                    <span class="ob-spinner" aria-hidden="true"></span>
+                    Working…
+                  {:else}
+                    Build my profile now
+                  {/if}
+                </button>
+              </div>
+            {/if}
+            {#if indexingAdvanceError}
+              <p class="ob-error ob-indexing-mail-error" role="alert">{indexingAdvanceError}</p>
+            {/if}
             {#if mail.statusError}
               <p class="ob-error ob-indexing-mail-error">{mail.statusError}</p>
             {/if}
@@ -691,6 +740,28 @@
   .ob-indexing-elapsed {
     font-size: 0.8125rem;
     opacity: 0.95;
+  }
+
+  .ob-indexing-early {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.875rem;
+    max-width: 24rem;
+    text-align: center;
+  }
+
+  .ob-indexing-early-copy {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--text-2);
+    text-wrap: balance;
+  }
+
+  .ob-indexing-early-btn {
+    min-width: 12rem;
   }
 
   @media (prefers-reduced-motion: reduce) {

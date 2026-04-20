@@ -549,6 +549,54 @@ pub fn open_file(path: &Path) -> Result<Connection, DbError> {
     open_file_current_schema(path)
 }
 
+/// Old `sync_summary` allowed only `id = 1`. Rebuild so `id = 2` can hold the backfill lock lane.
+fn migrate_sync_summary_allow_id_2(conn: &Connection) -> Result<(), DbError> {
+    conn.execute_batch(
+        r#"
+        CREATE TABLE sync_summary_v26 (
+            id                   INTEGER PRIMARY KEY CHECK (id IN (1, 2)),
+            earliest_synced_date TEXT,
+            latest_synced_date   TEXT,
+            target_start_date    TEXT,
+            sync_start_earliest_date TEXT,
+            total_messages       INTEGER NOT NULL DEFAULT 0,
+            last_sync_at         TEXT,
+            is_running           INTEGER NOT NULL DEFAULT 0,
+            owner_pid            INTEGER,
+            sync_lock_started_at TEXT
+        );
+        INSERT INTO sync_summary_v26 SELECT * FROM sync_summary WHERE id = 1;
+        INSERT OR IGNORE INTO sync_summary_v26 (id, total_messages) VALUES (2, 0);
+        DROP TABLE sync_summary;
+        ALTER TABLE sync_summary_v26 RENAME TO sync_summary;
+        "#,
+    )?;
+    Ok(())
+}
+
+/// Ensure row `id=2` exists for the backfill lock (no-op when already present).
+fn ensure_sync_summary_row_2(conn: &Connection) -> Result<(), DbError> {
+    match conn.execute(
+        "INSERT OR IGNORE INTO sync_summary (id, total_messages) VALUES (2, 0)",
+        [],
+    ) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            let msg = e.to_string();
+            if msg.contains("CHECK") || msg.contains("constraint") {
+                migrate_sync_summary_allow_id_2(conn)?;
+                let _ = conn.execute(
+                    "INSERT OR IGNORE INTO sync_summary (id, total_messages) VALUES (2, 0)",
+                    [],
+                );
+                Ok(())
+            } else {
+                Err(e.into())
+            }
+        }
+    }
+}
+
 /// Apply schema + user_version + sync_summary bootstrap + optional ALTER (matches TS `getDb`).
 pub fn apply_schema(conn: &Connection) -> Result<(), DbError> {
     conn.execute_batch(SCHEMA)?;
@@ -556,8 +604,9 @@ pub fn apply_schema(conn: &Connection) -> Result<(), DbError> {
         "DROP INDEX IF EXISTS idx_inbox_handled_message;
          DROP TABLE IF EXISTS inbox_handled;",
     );
-    conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     conn.execute_batch("INSERT OR IGNORE INTO sync_summary (id, total_messages) VALUES (1, 0);")?;
+    ensure_sync_summary_row_2(conn)?;
+    conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
 
     let mut stmt = conn.prepare("PRAGMA table_info(sync_summary)")?;
     let cols: Vec<String> = stmt

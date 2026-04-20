@@ -56,7 +56,7 @@ curl -fsSL https://raw.githubusercontent.com/cirne/zmail/main/install.sh | bash
 
 1. Install; confirm **`which ripmail`**; **`hash -r`** / new shell if `~/.local/bin` was just added.
 2. **`ripmail setup`** or **`ripmail wizard`** — [SETUP-AND-REGISTRY.md](references/SETUP-AND-REGISTRY.md).
-3. **`ripmail refresh --since …`** then habitual **`ripmail refresh`** / **`ripmail status`**.
+3. **`ripmail backfill …`** (initial history) then habitual **`ripmail refresh`** / **`ripmail status`**.
 4. **Schedule `refresh`** (cron / launchd / heartbeat) so the index stays fresh; run **`refresh`** before mail work when **recency** matters.
 5. Learn from the CLI: **`ripmail`**, **`ripmail --help`**, **`ripmail <cmd> --help`**; read JSON **`hints`** (and truncation fields) after each call.
 6. **Questions:** default **`ripmail ask`**; switch to **`search` → `read` / `thread`** when you need exact rows, IDs, or attachments — [references/CANONICAL-DOCS.md](references/CANONICAL-DOCS.md) → repo `docs/ASK.md`.
@@ -72,7 +72,7 @@ curl -fsSL https://raw.githubusercontent.com/cirne/zmail/main/install.sh | bash
 | Piece | Role |
 | ----- | ---- |
 | **Working set** | Unarchived mail (`is_archived = 0`). Only this set is triaged by **`inbox`**. |
-| **`refresh`** | Pulls from IMAP into the local index. New/empty mailboxes: plain `refresh` runs one history pull via `sync.defaultSince`; then forward-only. **No** LLM. |
+| **`refresh`** | Incremental forward sync (new mail). Run **`ripmail backfill`** first when the index is empty or you need more history. **No** LLM. |
 | **`inbox`** | Deterministic triage (**notify / inform / ignore**) from **`rules.json`** + fallback. JSON: **`decisionSource`**, **`matchedRuleIds`**, optional **`winningRuleId`**, **`hints`**. Use **`--diagnostics`** or **`--thorough`** for full rows / complete rescan. Run **`refresh`** first when recency matters. |
 | **`archive`** | Removes from working **`inbox`** scan; **does not** hide mail from **`search` / `read` / `thread` / `ask`**. |
 
@@ -94,7 +94,7 @@ curl -fsSL https://raw.githubusercontent.com/cirne/zmail/main/install.sh | bash
 ## First sync and daily use
 
 ```bash
-ripmail refresh --since 30d   # initial backfill (background OK; note log path on stdout)
+ripmail backfill 30d          # initial backfill (background OK; note log path on stdout)
 ripmail refresh
 ripmail status
 ripmail inbox                 # or: ripmail inbox 24h
@@ -102,7 +102,7 @@ ripmail ask "your question"
 ripmail search 'query'
 ```
 
-Long **`refresh --since`** is safe in background. **Outbound:** see [DRAFT-AND-SEND.md](references/DRAFT-AND-SEND.md).
+Long **`backfill`** is safe in background. **Outbound:** see [DRAFT-AND-SEND.md](references/DRAFT-AND-SEND.md).
 
 ---
 

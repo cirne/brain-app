@@ -10,6 +10,11 @@
   type Props = {
     /** When omitted, the panel picks the most recent active (queued / running / paused) run. */
     id?: string | undefined
+    /**
+     * Hub detail: transcript flows in the parent scroll (SlideOver body); no inner scroll box,
+     * pause/resume footer, or duplicate status row (parent already shows status).
+     */
+    embedInHubDetail?: boolean
     onOpenWiki: (_path: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
@@ -20,6 +25,7 @@
 
   let {
     id,
+    embedInHubDetail = false,
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
@@ -33,7 +39,7 @@
   let loadError = $state<string | null>(null)
   let actionBusy = $state(false)
 
-  let scrollEl: HTMLElement | undefined
+  let scrollEl = $state<HTMLElement | undefined>(undefined)
   /** Stick to bottom while activity updates; user scroll up disables until Latest (BUG-007 pattern). */
   let followOutput = $state(true)
   let ignoreScrollEvents = false
@@ -136,7 +142,7 @@
   })
 
   function syncFollowFromScroll() {
-    if (!scrollEl || ignoreScrollEvents) return
+    if (embedInHubDetail || !scrollEl || ignoreScrollEvents) return
     followOutput = computePinnedToBottom(scrollEl)
   }
 
@@ -177,11 +183,13 @@
   }
 
   $effect(() => {
+    if (embedInHubDetail) return
     void effectiveId
     void tick().then(() => scrollToBottom())
   })
 
   $effect(() => {
+    if (embedInHubDetail) return
     void timelineSorted.length
     void agent?.detail
     void agent?.updatedAt
@@ -222,25 +230,14 @@
   }
 </script>
 
-<div class="bg-panel">
-  <div class="bg-panel-shell">
-    <div
-      class="bg-panel-scroll"
-      bind:this={scrollEl}
-      onscroll={syncFollowFromScroll}
-    >
+<div class="bg-panel" class:bg-panel--hub-embed={embedInHubDetail}>
+  {#if embedInHubDetail}
+    <div class="bg-panel-hub-flow">
       {#if loadError}
         <p class="bg-panel-muted" role="status">{loadError}</p>
       {:else if !agent}
         <p class="bg-panel-muted" role="status">No active wiki expansion.</p>
       {:else}
-        <div class="bg-panel-summary">
-          <span class="bg-panel-pill">{statusLabel(agent.status)}</span>
-          {#if agent.pageCount > 0}
-            <span class="bg-panel-count" aria-label="Pages created">{agent.pageCount} pages</span>
-          {/if}
-        </div>
-
         {#if agent.detail?.trim()}
           <p class="bg-panel-status-line" aria-live="polite">{agent.detail.trim()}</p>
         {/if}
@@ -290,52 +287,123 @@
         {/if}
       {/if}
     </div>
-
-    {#if showJumpToLatest}
+  {:else}
+    <div class="bg-panel-shell">
       <div
-        class="bg-jump-anchor"
-        in:fly={{ y: 10, duration: jumpTransitionMs }}
-        out:fly={{ y: 8, duration: Math.min(jumpTransitionMs, 160) }}
+        class="bg-panel-scroll"
+        bind:this={scrollEl}
+        onscroll={syncFollowFromScroll}
       >
-        <button
-          type="button"
-          class="bg-jump-to-latest"
-          class:streaming={agentIsLive}
-          aria-label="Jump to latest activity"
-          onclick={() => scrollToBottom()}
-        >
-          {#if agentIsLive}
-            <span class="bg-live-pulse" aria-hidden="true"></span>
-          {/if}
-          <ChevronDown size={16} strokeWidth={2.25} class="bg-jump-chevron" aria-hidden="true" />
-          <span class="bg-jump-text">Latest</span>
-        </button>
-      </div>
-    {/if}
-  </div>
+        {#if loadError}
+          <p class="bg-panel-muted" role="status">{loadError}</p>
+      {:else if !agent}
+        <p class="bg-panel-muted" role="status">No active wiki expansion.</p>
+      {:else}
+        {#if !embedInHubDetail}
+          <div class="bg-panel-summary">
+            <span class="bg-panel-pill">{statusLabel(agent.status)}</span>
+            {#if agent.pageCount > 0}
+              <span class="bg-panel-count" aria-label="Pages created">{agent.pageCount} pages</span>
+            {/if}
+          </div>
+        {/if}
 
-  {#if agent && (agent.status === 'running' || agent.status === 'queued' || agent.status === 'paused')}
-    <div class="bg-panel-footer">
-      {#if agent.status === 'running' || agent.status === 'queued'}
-        <button
-          type="button"
-          class="bg-panel-btn"
-          onclick={pauseAgent}
-          disabled={actionBusy || !effectiveId}
+        {#if agent.detail?.trim()}
+            <p class="bg-panel-status-line" aria-live="polite">{agent.detail.trim()}</p>
+          {/if}
+
+          {#if agent.error}
+            <p class="bg-panel-error" role="alert">{agent.error}</p>
+          {/if}
+
+          {#if timelineSorted.length > 0}
+            <div class="bg-panel-section-label">Activity</div>
+            <ul class="bg-panel-timeline" aria-label="Tool activity, oldest to newest">
+              {#each timelineSorted as ev, i (ev.at + ev.toolName + i)}
+                <li class="bg-timeline-item">
+                  <span class="bg-timeline-time">{formatTimelineTime(ev.at)}</span>
+                  <div class="bg-timeline-tool">
+                    <ToolCallBlock
+                      toolCall={toToolCall(ev, i)}
+                      onOpenWiki={onOpenWiki}
+                      onOpenFile={onOpenFile}
+                      onOpenEmail={onOpenEmail}
+                      onOpenFullInbox={onOpenFullInbox}
+                      onSwitchToCalendar={onSwitchToCalendar}
+                      onOpenMessageThread={onOpenMessageThread}
+                    />
+                  </div>
+                </li>
+              {/each}
+            </ul>
+          {:else}
+            <div class="bg-panel-section-label">Activity</div>
+            <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
+              {#if agent.logEntries && agent.logEntries.length > 0}
+                {#each agent.logEntries as entry}
+                  <li class="bg-panel-activity-line">
+                    <span class="bg-panel-verb">{entry.verb}</span>
+                    {#if entry.detail.trim()}
+                      <span class="bg-panel-detail-inline">{entry.detail}</span>
+                    {/if}
+                  </li>
+                {/each}
+              {:else}
+                {#each agent.logLines as line}
+                  <li class="bg-panel-activity-line bg-panel-activity-fallback">{line}</li>
+                {/each}
+              {/if}
+            </ul>
+          {/if}
+        {/if}
+      </div>
+
+      {#if showJumpToLatest && !embedInHubDetail}
+        <div
+          class="bg-jump-anchor"
+          in:fly={{ y: 10, duration: jumpTransitionMs }}
+          out:fly={{ y: 8, duration: Math.min(jumpTransitionMs, 160) }}
         >
-          Pause
-        </button>
-      {:else if agent.status === 'paused'}
-        <button
-          type="button"
-          class="bg-panel-btn bg-panel-btn-primary"
-          onclick={resumeAgent}
-          disabled={actionBusy || !effectiveId}
-        >
-          Resume
-        </button>
+          <button
+            type="button"
+            class="bg-jump-to-latest"
+            class:streaming={agentIsLive}
+            aria-label="Jump to latest activity"
+            onclick={() => scrollToBottom()}
+          >
+            {#if agentIsLive}
+              <span class="bg-live-pulse" aria-hidden="true"></span>
+            {/if}
+            <ChevronDown size={16} strokeWidth={2.25} class="bg-jump-chevron" aria-hidden="true" />
+            <span class="bg-jump-text">Latest</span>
+          </button>
+        </div>
       {/if}
     </div>
+
+  {#if !embedInHubDetail && agent && (agent.status === 'running' || agent.status === 'queued' || agent.status === 'paused')}
+    <div class="bg-panel-footer">
+        {#if agent.status === 'running' || agent.status === 'queued'}
+          <button
+            type="button"
+            class="bg-panel-btn"
+            onclick={pauseAgent}
+            disabled={actionBusy || !effectiveId}
+          >
+            Pause
+          </button>
+        {:else if agent.status === 'paused'}
+          <button
+            type="button"
+            class="bg-panel-btn bg-panel-btn-primary"
+            onclick={resumeAgent}
+            disabled={actionBusy || !effectiveId}
+          >
+            Resume
+          </button>
+        {/if}
+      </div>
+    {/if}
   {/if}
 </div>
 
@@ -347,6 +415,21 @@
     min-height: 0;
     background: var(--bg);
     color: var(--text);
+  }
+
+  .bg-panel--hub-embed {
+    height: auto;
+    min-height: 0;
+    flex: 0 1 auto;
+    background: transparent;
+  }
+
+  .bg-panel-hub-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.15rem 0 0;
+    min-width: 0;
   }
 
   .bg-panel-shell {

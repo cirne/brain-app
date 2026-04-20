@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import backgroundRoute from './background.js'
+
+vi.mock('../agent/wikiExpansionRunner.js', () => ({
+  startWikiExpansionRun: vi.fn().mockResolvedValue({ runId: 'new-run-id' }),
+  pauseWikiExpansionRun: vi.fn(),
+  resumeWikiExpansionRun: vi.fn(),
+}))
 
 let brainHome: string
 
@@ -63,5 +69,19 @@ describe('background routes', () => {
     const j = (await res.json()) as { id: string; status: string }
     expect(j.id).toBe(id)
     expect(j.status).toBe('completed')
+  })
+
+  it('POST /wiki-expansion/start returns run id', async () => {
+    const app = new Hono()
+    app.route('/api/background', backgroundRoute)
+    const res = await app.request('http://localhost/api/background/wiki-expansion/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'full', timezone: 'America/Los_Angeles' }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean; runId: string }
+    expect(j.ok).toBe(true)
+    expect(j.runId).toBe('new-run-id')
   })
 })

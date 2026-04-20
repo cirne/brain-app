@@ -9,7 +9,8 @@ use crate::config::{resolve_mailbox_spec, Config, MailboxImapAuthKind};
 use crate::db;
 use crate::status::print_status_text;
 use crate::sync::{
-    connect_imap_for_resolved_mailbox, is_sync_lock_held, sync_log_path, SyncLockRow,
+    connect_imap_for_resolved_mailbox, is_sync_lock_held, read_sync_lock_row_optional,
+    sync_log_path, SyncKind,
 };
 
 fn imap_probe_session(
@@ -65,7 +66,7 @@ fn imap_probe_session(
     Ok(())
 }
 
-/// Run `ripmail refresh --foreground --since …` in the foreground (same binary; blocks until done).
+/// Run `ripmail backfill --foreground --since …` in the foreground (same binary; blocks until done).
 pub fn run_refresh_foreground_subprocess(
     home: &Path,
     since: &str,
@@ -74,7 +75,7 @@ pub fn run_refresh_foreground_subprocess(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = std::process::Command::new(std::env::current_exe()?);
     cmd.env("RIPMAIL_HOME", home);
-    cmd.arg("refresh")
+    cmd.arg("backfill")
         .arg("--foreground")
         .arg("--since")
         .arg(since);
@@ -82,16 +83,16 @@ pub fn run_refresh_foreground_subprocess(
         cmd.arg("--verbose");
     }
     if let Some(m) = mailbox.map(str::trim).filter(|s| !s.is_empty()) {
-        cmd.arg("--mailbox").arg(m);
+        cmd.arg("--source").arg(m);
     }
     let status = cmd.status()?;
     if !status.success() {
-        return Err(format!("refresh exited with status {status}").into());
+        return Err(format!("backfill exited with status {status}").into());
     }
     Ok(())
 }
 
-/// Spawn the current binary with `refresh --foreground [--since …] [--mailbox …]` in the background (Node `detached: true`).
+/// Spawn the current binary with `backfill --foreground [--since …] [--source …]` in the background (Node `detached: true`).
 pub fn spawn_sync_background_detached(
     home: &Path,
     cfg: &Config,
@@ -100,22 +101,10 @@ pub fn spawn_sync_background_detached(
     verbose: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let conn = db::open_file(cfg.db_path())?;
-    let lock_row: Option<SyncLockRow> = conn
-        .query_row(
-            "SELECT is_running, owner_pid, sync_lock_started_at FROM sync_summary WHERE id = 1",
-            [],
-            |row| {
-                Ok(SyncLockRow {
-                    is_running: row.get(0)?,
-                    owner_pid: row.get(1)?,
-                    sync_lock_started_at: row.get(2)?,
-                })
-            },
-        )
-        .ok();
+    let lock_row = read_sync_lock_row_optional(&conn, SyncKind::Backfill)?;
     if is_sync_lock_held(lock_row.as_ref()) {
         println!(
-            "Sync already running (PID: {:?})\n",
+            "Backfill already running (PID: {:?})\n",
             lock_row.and_then(|r| r.owner_pid)
         );
         print_status_text(&conn, cfg)?;
@@ -128,14 +117,14 @@ pub fn spawn_sync_background_detached(
     let exe = std::env::current_exe()?;
     let mut cmd = std::process::Command::new(&exe);
     cmd.env("RIPMAIL_HOME", home);
-    cmd.arg("refresh").arg("--foreground");
+    cmd.arg("backfill").arg("--foreground");
     if let Some(s) = since_override {
         if !s.is_empty() {
             cmd.arg("--since").arg(s);
         }
     }
     if let Some(m) = mailbox.map(str::trim).filter(|s| !s.is_empty()) {
-        cmd.arg("--mailbox").arg(m);
+        cmd.arg("--source").arg(m);
     }
     if verbose {
         cmd.arg("--verbose");

@@ -29,6 +29,10 @@ import { ensureBrainHomeGitignore } from './lib/brainHomeGitignore.js'
 import { runSplitLayoutMigrationIfNeeded } from './lib/splitLayoutMigration.js'
 import { ensureDefaultSkillsSeeded } from './lib/skillsSeeder.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
+import {
+  startRipmailBackfillSupervisor,
+  stopRipmailBackfillSupervisor,
+} from './lib/ripmailBackfillSupervisor.js'
 import { startTunnel, stopTunnel, getActiveTunnelUrl, getHostGuid } from './lib/tunnelManager.js'
 import { readOnboardingPreferences } from './lib/onboardingPreferences.js'
 import { BRAIN_DEFAULT_HTTP_PORT, setActualNativePort } from './lib/brainHttpPort.js'
@@ -165,6 +169,8 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
     })()
   }, intervalMs)
 
+  startRipmailBackfillSupervisor()
+
   const shutdown = async () => {
     if (shuttingDown) return
     shuttingDown = true
@@ -172,6 +178,7 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
       clearInterval(syncTimer)
       syncTimer = undefined
     }
+    stopRipmailBackfillSupervisor()
     stopTunnel()
     try {
       await runFullSync()
