@@ -10,6 +10,7 @@
     type NavHistoryItem,
   } from './navHistory.js'
   import WikiFileName from './WikiFileName.svelte'
+  import ConfirmDialog from './ConfirmDialog.svelte'
 
   const emptyStreamingIds = new Set<string>()
 
@@ -147,13 +148,6 @@
     }
   }
 
-  function onDeleteDialogKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && pendingDelete) {
-      e.preventDefault()
-      cancelDelete()
-    }
-  }
-
   onMount(() => {
     void refresh()
   })
@@ -164,8 +158,6 @@
     })
   })
 </script>
-
-<svelte:window onkeydown={onDeleteDialogKeydown} />
 
 {#snippet navRow(item: NavRowItem)}
   {@const agentWorking = chatRowShowsAgentWorking(item, streamingSessionIds)}
@@ -254,36 +246,22 @@
     {/if}
   </div>
 
-  {#if pendingDelete}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div
-      class="ch-delete-backdrop"
-      onclick={cancelDelete}
-      role="presentation"
-    >
-      <div
-        class="ch-delete-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ch-delete-title"
-        tabindex="-1"
-        onclick={(e) => e.stopPropagation()}
-      >
-        <h2 id="ch-delete-title" class="ch-delete-title">Delete chat?</h2>
-        <p class="ch-delete-body">
-          This will permanently remove "{pendingDelete.label}".
-        </p>
-        <div class="ch-delete-actions">
-          <button type="button" class="ch-delete-btn ch-delete-cancel" onclick={cancelDelete}>
-            Cancel
-          </button>
-          <button type="button" class="ch-delete-btn ch-delete-confirm" onclick={() => void confirmDelete()}>
-            Delete
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
+  <ConfirmDialog
+    open={pendingDelete !== null}
+    title="Delete chat?"
+    titleId="ch-delete-title"
+    confirmLabel="Delete"
+    cancelLabel="Cancel"
+    confirmVariant="danger"
+    onDismiss={cancelDelete}
+    onConfirm={() => void confirmDelete()}
+  >
+    {#snippet children()}
+      {#if pendingDelete}
+        <p>This will permanently remove "{pendingDelete.label}".</p>
+      {/if}
+    {/snippet}
+  </ConfirmDialog>
 </div>
 
 <style>
@@ -464,71 +442,5 @@
   .ch-row-delete:hover {
     color: var(--danger);
     background: rgba(224, 92, 92, 0.12);
-  }
-
-  .ch-delete-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 400;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    background: rgba(0, 0, 0, 0.45);
-  }
-
-  .ch-delete-dialog {
-    width: min(100%, 340px);
-    padding: 16px 16px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
-  }
-
-  .ch-delete-title {
-    font-size: 14px;
-    font-weight: 600;
-    margin: 0 0 6px;
-    color: var(--text);
-  }
-
-  .ch-delete-body {
-    font-size: 12px;
-    line-height: 1.4;
-    color: var(--text-2);
-    margin: 0 0 14px;
-    word-break: break-word;
-  }
-
-  .ch-delete-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 6px;
-  }
-
-  .ch-delete-btn {
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    border: 1px solid var(--border);
-    background: var(--bg-3);
-    color: var(--text);
-    transition: background 0.12s, border-color 0.12s;
-  }
-
-  .ch-delete-btn:hover {
-    background: var(--bg-2);
-  }
-
-  .ch-delete-confirm {
-    border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
-    background: color-mix(in srgb, var(--danger) 12%, var(--bg));
-    color: var(--danger);
-  }
-
-  .ch-delete-confirm:hover {
-    background: color-mix(in srgb, var(--danger) 22%, var(--bg));
   }
 </style>

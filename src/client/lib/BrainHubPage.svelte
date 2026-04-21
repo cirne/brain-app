@@ -26,6 +26,7 @@
     postVaultLogout,
   } from './vaultClient.js'
   import { clearBrainClientStorage } from './brainClientStorage.js'
+  import ConfirmDialog from './ConfirmDialog.svelte'
 
   type HubRipmailSourceRow = {
     id: string
@@ -52,6 +53,7 @@
   /** Hosted (`BRAIN_DATA_ROOT`): hide phone QR; show sign-out / delete data. */
   let multiTenant = $state(false)
   let accountBusy = $state(false)
+  let deleteAllConfirmOpen = $state(false)
 
   const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
   const wikiIsActive = $derived(
@@ -278,16 +280,15 @@
     }
   }
 
-  async function onDeleteAllData() {
+  function openDeleteAllConfirm() {
     if (accountBusy) return
-    if (
-      !confirm(
-        'Delete all your data on this server? Your wiki, search index, chats, and profile will be permanently removed. You will be signed out. This cannot be undone.',
-      )
-    ) {
-      return
-    }
+    deleteAllConfirmOpen = true
+  }
+
+  async function executeDeleteAllData() {
+    if (accountBusy) return
     accountBusy = true
+    deleteAllConfirmOpen = false
     try {
       const r = await postVaultDeleteAllData()
       if ('error' in r) {
@@ -343,13 +344,18 @@
             </div>
             <ChevronRight size={16} />
           </button>
-          <button type="button" class="link-item link-item-danger" onclick={onDeleteAllData} disabled={accountBusy}>
+          <button
+            type="button"
+            class="link-item"
+            onclick={openDeleteAllConfirm}
+            disabled={accountBusy}
+          >
             <div class="link-info">
-              <Trash2 size={16} />
+              <span class="hub-delete-trash-wrap" aria-hidden="true"><Trash2 size={16} /></span>
               <span>Delete all my data</span>
             </div>
             <div class="link-status">
-              <span class="status-sub">Removes wiki, index, chats — then signs out</span>
+              <span class="status-sub">Removes wiki, index, chats</span>
             </div>
             <ChevronRight size={16} />
           </button>
@@ -515,6 +521,30 @@
 
   </div>
 </div>
+
+<ConfirmDialog
+  open={deleteAllConfirmOpen}
+  title="Delete all your data?"
+  titleId="hub-delete-all-title"
+  confirmLabel="Delete everything"
+  cancelLabel="Cancel"
+  confirmVariant="danger"
+  onDismiss={() => {
+    deleteAllConfirmOpen = false
+  }}
+  onConfirm={() => void executeDeleteAllData()}
+>
+  {#snippet children()}
+    <p>
+      This permanently removes your wiki, chats, and profile from Brain, plus the search library Brain built from your mail
+      and other sources. You can't undo it.
+    </p>
+    <p>
+      Your email accounts stay as they are: Brain doesn't change or delete messages at your provider, and you can keep
+      using mail the same way you do today.
+    </p>
+  {/snippet}
+</ConfirmDialog>
 
 <style>
   .hub-page {
@@ -683,8 +713,14 @@
     cursor: not-allowed;
   }
 
-  .link-item.link-item-danger:not(:disabled):hover {
+  .hub-delete-trash-wrap {
+    display: flex;
+    flex-shrink: 0;
     color: var(--danger);
+  }
+
+  .hub-delete-trash-wrap :global(svg) {
+    stroke: currentColor;
   }
 
   .link-item.wiki-recent-row {
