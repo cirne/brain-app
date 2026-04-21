@@ -30,6 +30,8 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 | Topic                                                  | Doc                                                                            |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | HTTP routing, auth, periodic sync, native app ports    | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md)       |
+| Desktop vs Cloud deployment models                    | [architecture/deployment-models.md](architecture/deployment-models.md)         |
+| Multi-tenant cloud architecture (NAS, isolation)      | [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) |
 | Agent sessions, chat JSON files, SSE events, tool list | [architecture/agent-chat.md](architecture/agent-chat.md)                       |
 | `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS | [architecture/data-and-sync.md](architecture/data-and-sync.md)                 |
 | Ripmail, unified search, files API, optional iMessage  | [architecture/integrations.md](architecture/integrations.md)                   |
