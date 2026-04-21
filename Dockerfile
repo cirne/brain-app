@@ -1,0 +1,30 @@
+# Brain (Hono + Svelte) + ripmail — Linux server image. See docs/opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md
+#
+# ripmail is **not** compiled in this file. Run `npm run docker:ripmail:build` first (host cargo on
+# Linux, or a one-off rust:bookworm container with cached Cargo volumes on macOS).
+# syntax=docker/dockerfile:1
+
+FROM node:24-bookworm AS node-builder
+WORKDIR /app
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:24-bookworm-slim AS runtime
+WORKDIR /app
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates libssl3 \
+  && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
+COPY --from=node-builder /app/dist ./dist
+COPY --from=node-builder /app/node_modules ./node_modules
+COPY --from=node-builder /app/package.json ./package.json
+COPY .docker/linux-ripmail/ripmail /usr/local/bin/ripmail
+RUN chmod +x /usr/local/bin/ripmail
+ENV RIPMAIL_BIN=/usr/local/bin/ripmail
+EXPOSE 4000
+CMD ["node", "dist/server/index.js"]

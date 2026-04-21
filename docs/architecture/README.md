@@ -7,6 +7,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**.
 | [../google-oauth.md](../google-oauth.md) | Gmail OAuth redirect URIs (dev `:3000` vs bundled `:18473`), Google Console registration |
 | [runtime-and-routes.md](./runtime-and-routes.md) | Hono + Vite, `/api/*` map, auth, bundled listen address + Tailscale allowlist, periodic sync |
 | [cloud-hosted-v1-scope.md](./cloud-hosted-v1-scope.md) | Hosted Linux v1: API/SPA parity matrix, wiki-on-volume decision, OAuth redirect gap ([OPP-041](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md) Phase 0) |
+| [../Dockerfile](../Dockerfile) / [../docker-compose.yml](../docker-compose.yml) | Phase 1: `npm run docker:ripmail:build` stages Linux `ripmail`; compose + `BRAIN_HOME=/brain` ([OPP-041](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md)) |
 | [agent-chat.md](./agent-chat.md) | pi-agent-core, chat persistence, SSE events, tools overview |
 | [data-and-sync.md](./data-and-sync.md) | `$BRAIN_HOME` layout, wiki, calendar cache, ripmail refresh |
 | [integrations.md](./integrations.md) | Ripmail subprocess, `/api/search`, `/api/files`, optional iMessage; **trust boundaries** (ripmail vs `chat.db`) |

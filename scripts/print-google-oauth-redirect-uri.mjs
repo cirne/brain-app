@@ -28,4 +28,7 @@ const devPort = devDefault ?? 3000
 const nativePort = bundled ?? 18473
 
 console.log(`Dev / npm run dev (default PORT): http://127.0.0.1:${devPort}${path}`)
+console.log(
+  `With PUBLIC_WEB_ORIGIN (e.g. Docker):  \${PUBLIC_WEB_ORIGIN}/api/oauth/google/callback`,
+)
 console.log(`Brain.app (bundled server):       https://127.0.0.1:${nativePort}${path}`)

@@ -179,6 +179,10 @@ describe('onboarding routes', () => {
     if (process.platform === 'win32') {
       return
     }
+    const prevForce = process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS
+    if (process.platform !== 'darwin') {
+      process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS = '1'
+    }
     const script = join(tmpdir(), `fake-ripmail-${Date.now()}.sh`)
     await writeFile(script, '#!/bin/sh\nexit 1\n')
     chmodSync(script, 0o755)
@@ -200,12 +204,35 @@ describe('onboarding routes', () => {
       expect(j.ok).toBe(false)
       expect(j.error).toBeTruthy()
     } finally {
+      if (prevForce === undefined) delete process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS
+      else process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS = prevForce
       if (prevBin === undefined) delete process.env.RIPMAIL_BIN
       else process.env.RIPMAIL_BIN = prevBin
       if (prevHome === undefined) delete process.env.RIPMAIL_HOME
       else process.env.RIPMAIL_HOME = prevHome
       await rm(script, { force: true })
       await rm(fakeHome, { recursive: true, force: true })
+    }
+  })
+
+  it('POST /setup-mail returns 400 when Apple local integrations are unavailable', async () => {
+    const prev = process.env.BRAIN_DISABLE_APPLE_LOCAL
+    process.env.BRAIN_DISABLE_APPLE_LOCAL = '1'
+    try {
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/setup-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      expect(res.status).toBe(400)
+      const j = (await res.json()) as { ok: boolean; error?: string }
+      expect(j.ok).toBe(false)
+      expect(j.error).toBeTruthy()
+    } finally {
+      if (prev === undefined) delete process.env.BRAIN_DISABLE_APPLE_LOCAL
+      else process.env.BRAIN_DISABLE_APPLE_LOCAL = prev
     }
   })
 
@@ -318,6 +345,33 @@ describe('onboarding routes', () => {
         else process.env.BRAIN_BUNDLED_NATIVE = prev
       }
     })
+  })
+
+  it('GET /preferences includes appleLocalIntegrationsAvailable', async () => {
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/preferences')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { appleLocalIntegrationsAvailable?: boolean }
+    expect(typeof j.appleLocalIntegrationsAvailable).toBe('boolean')
+  })
+
+  it('PATCH /preferences returns 400 for mailProvider apple when Apple local integrations disabled', async () => {
+    const prev = process.env.BRAIN_DISABLE_APPLE_LOCAL
+    process.env.BRAIN_DISABLE_APPLE_LOCAL = '1'
+    try {
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mailProvider: 'apple' }),
+      })
+      expect(res.status).toBe(400)
+    } finally {
+      if (prev === undefined) delete process.env.BRAIN_DISABLE_APPLE_LOCAL
+      else process.env.BRAIN_DISABLE_APPLE_LOCAL = prev
+    }
   })
 
   describe('PATCH /preferences remote access (tunnel target port)', () => {

@@ -37,6 +37,7 @@ import { writeFirstChatPending } from '../lib/firstChatPending.js'
 import { ensureYourWikiRunning } from '../agent/yourWikiSupervisor.js'
 import { embeddedServerUrlScheme, oauthRedirectListenPort } from '../lib/brainHttpPort.js'
 import { isBundledNativeServer } from '../lib/nativeAppPort.js'
+import { isAppleLocalIntegrationEnvironment } from '../lib/appleLocalIntegrationEnv.js'
 
 const onboarding = new Hono()
 
@@ -154,6 +155,15 @@ onboarding.get('/ripmail', async (c) => {
 })
 
 async function runAppleMailSetup(c: Context) {
+  if (!isAppleLocalIntegrationEnvironment()) {
+    return c.json(
+      {
+        ok: false as const,
+        error: 'Apple Mail setup is only available when Brain runs on macOS with local Apple integrations.',
+      },
+      400,
+    )
+  }
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
   const appleMailPath = typeof body.appleMailPath === 'string' ? body.appleMailPath.trim() : ''
   const rm = ripmailBin()
@@ -201,8 +211,10 @@ onboarding.post('/setup-ripmail', runAppleMailSetup)
 
 onboarding.get('/preferences', async (c) => {
   const p = await readOnboardingPreferences()
+  const appleLocal = isAppleLocalIntegrationEnvironment()
   return c.json({
     mailProvider: p.mailProvider ?? null,
+    appleLocalIntegrationsAvailable: appleLocal,
     remoteAccessEnabled: p.remoteAccessEnabled ?? false,
     allowLanDirectAccess: p.allowLanDirectAccess ?? false,
   })
@@ -216,6 +228,15 @@ onboarding.patch('/preferences', async (c) => {
 
   if (rawMail !== undefined && rawMail !== null && rawMail !== 'apple' && rawMail !== 'google') {
     return c.json({ error: 'mailProvider must be apple, google, or null' }, 400)
+  }
+  if (
+    rawMail === 'apple' &&
+    !isAppleLocalIntegrationEnvironment()
+  ) {
+    return c.json(
+      { error: 'Apple mail provider is only available on macOS with local Apple integrations.' },
+      400,
+    )
   }
   if (rawRemote !== undefined && typeof rawRemote !== 'boolean') {
     return c.json({ error: 'remoteAccessEnabled must be a boolean' }, 400)
@@ -251,9 +272,11 @@ onboarding.patch('/preferences', async (c) => {
   }
 
   await saveOnboardingPreferences(next)
+  const appleLocal = isAppleLocalIntegrationEnvironment()
   return c.json({
     ok: true,
     mailProvider: next.mailProvider ?? null,
+    appleLocalIntegrationsAvailable: appleLocal,
     remoteAccessEnabled: next.remoteAccessEnabled ?? false,
     allowLanDirectAccess: next.allowLanDirectAccess ?? false,
   })

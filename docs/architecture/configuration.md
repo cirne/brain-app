@@ -9,11 +9,12 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 | `BRAIN_BUNDLED_NATIVE` | — | Set to `1` by Tauri when spawning the bundled server |
 | `BRAIN_EMBED_MASTER_KEY` | — | Tauri release: encrypt allowlisted secrets embedded in the native binary (LLM/tool keys + optional `GOOGLE_OAUTH_*` for packaged Gmail OAuth) |
 | `NODE_ENV` | `development` / `production` | Controls build-time behavior for Vite/esbuild (vault session applies in dev and prod) |
-| `PORT` | `3000` | Listen port for dev / non-bundled `node dist/server` (must match [Gmail OAuth redirect](../google-oauth.md)); bundled app uses `18473` on **`0.0.0.0`** ([Tailscale / LAN policy](./runtime-and-routes.md#tailscale--remote-access-bundled-only)) |
+| `PORT` | `3000` | Listen port for dev / non-bundled `node dist/server`; bundled app uses `18473` on **`0.0.0.0`** ([Tailscale / LAN policy](./runtime-and-routes.md#tailscale--remote-access-bundled-only)) |
+| `PUBLIC_WEB_ORIGIN` | — | Optional `http(s)://host:port` (no trailing slash). When set and not bundled, [Gmail OAuth redirect](../google-oauth.md) uses this origin so sign-in returns to the same host as the SPA (avoids `localhost` vs `127.0.0.1` cookies). Docker Compose defaults `http://localhost:4000`. |
 | `RIPMAIL_BIN` | `ripmail` | Path to ripmail executable |
 | `RIPMAIL_HOME` | `$BRAIN_HOME/ripmail` | Ripmail data dir when unset in Brain |
 | `RIPMAIL_EMAIL_ADDRESS` / `RIPMAIL_IMAP_PASSWORD` | — | Non-interactive ripmail setup |
-| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | — | In-app Gmail OAuth ([docs/google-oauth.md](../google-oauth.md)); redirect URI is fixed in code. For **Brain.app**, set in `.env` when building with `BRAIN_EMBED_MASTER_KEY` so they are embedded like other allowlisted secrets (GUI apps do not load shell `.env`). |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | — | In-app Gmail OAuth ([docs/google-oauth.md](../google-oauth.md)); redirect URI follows `PORT` / `PUBLIC_WEB_ORIGIN` / bundled ports. For **Brain.app**, set in `.env` when building with `BRAIN_EMBED_MASTER_KEY` so they are embedded like other allowlisted secrets (GUI apps do not load shell `.env`). |
 | `RIPMAIL_GOOGLE_OAUTH_CLIENT_ID` / `RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET` | — | Ripmail token refresh; if unset, Brain maps from `GOOGLE_OAUTH_*` in `ripmailProcessEnv` |
 | `OPENAI_API_KEY` | — | Ripmail validation / optional ripmail LLM features |
 | `LLM_PROVIDER` | `anthropic` | Agent LLM provider (`anthropic`, `openai`, …) |

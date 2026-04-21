@@ -11,12 +11,15 @@ import { NATIVE_APP_PORT_START } from './nativeAppPort.js'
 describe('brainHttpPort', () => {
   let savedPort: string | undefined
   let savedBundled: string | undefined
+  let savedPublicWebOrigin: string | undefined
 
   beforeEach(() => {
     savedPort = process.env.PORT
     savedBundled = process.env.BRAIN_BUNDLED_NATIVE
+    savedPublicWebOrigin = process.env.PUBLIC_WEB_ORIGIN
     delete process.env.PORT
     delete process.env.BRAIN_BUNDLED_NATIVE
+    delete process.env.PUBLIC_WEB_ORIGIN
     // Reset dynamic port to the default before each test.
     setActualNativePort(NATIVE_APP_PORT_START)
   })
@@ -26,6 +29,8 @@ describe('brainHttpPort', () => {
     else process.env.PORT = savedPort
     if (savedBundled === undefined) delete process.env.BRAIN_BUNDLED_NATIVE
     else process.env.BRAIN_BUNDLED_NATIVE = savedBundled
+    if (savedPublicWebOrigin === undefined) delete process.env.PUBLIC_WEB_ORIGIN
+    else process.env.PUBLIC_WEB_ORIGIN = savedPublicWebOrigin
     setActualNativePort(NATIVE_APP_PORT_START)
   })
 
@@ -43,6 +48,21 @@ describe('brainHttpPort', () => {
     expect(oauthRedirectListenPort()).toBe(4001)
     expect(googleOAuthRedirectUri()).toBe(
       `http://127.0.0.1:4001${GOOGLE_OAUTH_CALLBACK_PATH}`
+    )
+  })
+
+  it('OAuth redirect uses PUBLIC_WEB_ORIGIN when set (non-bundled)', () => {
+    process.env.PUBLIC_WEB_ORIGIN = 'http://localhost:4000'
+    expect(googleOAuthRedirectUri()).toBe(`http://localhost:4000${GOOGLE_OAUTH_CALLBACK_PATH}`)
+    process.env.PUBLIC_WEB_ORIGIN = 'http://localhost:4000/'
+    expect(googleOAuthRedirectUri()).toBe(`http://localhost:4000${GOOGLE_OAUTH_CALLBACK_PATH}`)
+  })
+
+  it('bundled mode ignores PUBLIC_WEB_ORIGIN', () => {
+    process.env.BRAIN_BUNDLED_NATIVE = '1'
+    process.env.PUBLIC_WEB_ORIGIN = 'http://evil.example'
+    expect(googleOAuthRedirectUri()).toBe(
+      `https://127.0.0.1:${NATIVE_APP_PORT_START}${GOOGLE_OAUTH_CALLBACK_PATH}`
     )
   })
 

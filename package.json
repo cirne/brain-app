@@ -31,7 +31,12 @@
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "desktop:fresh": "node scripts/desktop-fresh.mjs",
-    "desktop:setup-sidecars": "node scripts/setup-sidecars.mjs"
+    "desktop:setup-sidecars": "node scripts/setup-sidecars.mjs",
+    "docker:ripmail:build": "node scripts/docker-prebuild-ripmail.mjs",
+    "docker:build": "npm run docker:ripmail:build && docker build -t brain-app:local .",
+    "docker:up": "npm run docker:ripmail:build && docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f brain"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",

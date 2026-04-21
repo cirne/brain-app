@@ -57,7 +57,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 
 ## Deployment
 
-**Primary release:** macOS **Brain.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container** (future): epic [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
+**Primary release:** macOS **Brain.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container:** [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); local image via `Dockerfile` + [`docker-compose.yml`](../docker-compose.yml) (`.env` → `env_file`). Archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
 
 ---
 

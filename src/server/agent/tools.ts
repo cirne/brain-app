@@ -242,7 +242,7 @@ export function buildReindexCommand(params: { sourceId?: string }): string {
 export interface CreateAgentToolsOptions {
   /**
    * Include list_recent_messages / get_message_thread (local SMS/text + iMessage via macOS chat.db when readable).
-   * Default: true only if initLocalMessageToolsAvailability() ran at startup and chat.db was readable.
+   * Default: true only on macOS (Apple local integration env) with chat.db readable at startup.
    */
   includeLocalMessageTools?: boolean
   /** Tool `name`s to drop from the returned list (denylist). Ignored if `onlyToolNames` is set. */

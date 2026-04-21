@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { resolveRepoSharedPath } from './resolveRepoSharedPath.js'
 
 export interface BrainLayout {
   version: number
@@ -22,20 +22,9 @@ export interface BrainLayout {
 
 let cached: BrainLayout | null = null
 
-/** Resolve shared/brain-layout.json from this module (works in src/, dist/server/, and bundled index.js). */
+/** Resolve `shared/brain-layout.json` (see {@link resolveRepoSharedPath}). */
 export function resolveBrainLayoutPath(): string {
-  const here = dirname(fileURLToPath(import.meta.url))
-  const candidates = [
-    join(here, '../../../shared/brain-layout.json'),
-    join(here, '../../shared/brain-layout.json'),
-    join(process.cwd(), 'shared/brain-layout.json'),
-  ]
-  for (const p of candidates) {
-    if (existsSync(p)) return p
-  }
-  throw new Error(
-    `brain-layout.json not found (tried ${candidates.slice(0, 2).join(', ')} and cwd/shared)`,
-  )
+  return resolveRepoSharedPath('brain-layout.json')
 }
 
 export function getBrainLayout(): BrainLayout {

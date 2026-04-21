@@ -1,0 +1,36 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+
+describe('Docker packaging (OPP-041 Phase 1)', () => {
+  it('docker-compose wires .env and container BRAIN_HOME', () => {
+    const raw = readFileSync(join(repoRoot, 'docker-compose.yml'), 'utf-8')
+    expect(raw).toMatch(/env_file:\s*\n\s*-\s*\.env/m)
+    expect(raw).toMatch(/BRAIN_HOME:\s*\/brain/)
+    expect(raw).toMatch(/RIPMAIL_BIN:\s*\/usr\/local\/bin\/ripmail/)
+    expect(raw).toContain('brain_home:/brain')
+    expect(raw).toMatch(/PORT:\s*["']?4000["']?/)
+    expect(raw).toMatch(/\$\{BRAIN_DOCKER_PORT:-4000\}:4000/)
+  })
+
+  it('Dockerfile copies pre-built Linux ripmail + production Node bundle', () => {
+    const raw = readFileSync(join(repoRoot, 'Dockerfile'), 'utf-8')
+    expect(raw).toMatch(/COPY \.docker\/linux-ripmail\/ripmail/)
+    expect(raw).not.toMatch(/cargo build -p ripmail/)
+    expect(raw).toMatch(/npm run build/)
+    expect(raw).toContain('CMD ["node", "dist/server/index.js"]')
+    expect(raw).toContain('RIPMAIL_BIN=/usr/local/bin/ripmail')
+  })
+
+  it('package.json wires docker:ripmail:build before image build', () => {
+    const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf-8')) as {
+      scripts: Record<string, string>
+    }
+    expect(pkg.scripts['docker:ripmail:build']).toContain('docker-prebuild-ripmail.mjs')
+    expect(pkg.scripts['docker:up']).toContain('docker:ripmail:build')
+    expect(pkg.scripts['docker:build']).toContain('docker:ripmail:build')
+  })
+})

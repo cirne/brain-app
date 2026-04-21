@@ -254,23 +254,26 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                                 .into(),
                         );
                     }
-                    let id = id.unwrap_or_else(|| "apple-calendar".into());
-                    SourceConfigJson {
-                        id,
-                        kind: SourceKind::AppleCalendar,
-                        email: email.unwrap_or_default(),
-                        label,
-                        imap: None,
-                        imap_auth: None,
-                        search: None,
-                        identity: None,
-                        apple_mail_path: None,
-                        path: None,
-                        local_dir: None,
-                        oauth_source_id: None,
-                        calendar_ids: None,
-                        default_calendars: None,
-                        ics_url: None,
+                    #[cfg(target_os = "macos")]
+                    {
+                        let id = id.unwrap_or_else(|| "apple-calendar".into());
+                        SourceConfigJson {
+                            id,
+                            kind: SourceKind::AppleCalendar,
+                            email: email.unwrap_or_default(),
+                            label,
+                            imap: None,
+                            imap_auth: None,
+                            search: None,
+                            identity: None,
+                            apple_mail_path: None,
+                            path: None,
+                            local_dir: None,
+                            oauth_source_id: None,
+                            calendar_ids: None,
+                            default_calendars: None,
+                            ics_url: None,
+                        }
                     }
                 }
                 SourceKind::IcsSubscription => {

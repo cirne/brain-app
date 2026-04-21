@@ -1,0 +1,16 @@
+# Build context hygiene — keep `docker build` fast and avoid leaking local state.
+node_modules
+dist
+**/target
+.git
+data
+.env
+.env.*
+!.env.example
+**/.DS_Store
+.cursor
+.vscode
+*.log
+desktop/src-tauri/target
+coverage
+.turbo

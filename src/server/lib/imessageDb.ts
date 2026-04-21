@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { isAppleLocalIntegrationEnvironment } from './appleLocalIntegrationEnv.js'
 
 /** Nanoseconds since 2001-01-01 UTC (Core Data / Messages convention). */
 export function appleDateNsToUnixMs(ns: number): number {
@@ -37,6 +38,10 @@ export function probeImessageDbReadable(): boolean {
 /** Idempotent: first call probes disk; later calls no-op. Run during server startup. */
 export function initLocalMessageToolsAvailability(): void {
   if (localMessagesDbReadableAtStartup !== null) return
+  if (!isAppleLocalIntegrationEnvironment()) {
+    localMessagesDbReadableAtStartup = false
+    return
+  }
   localMessagesDbReadableAtStartup = probeImessageDbReadable()
 }
 

@@ -242,11 +242,13 @@ describe('imessageDb', () => {
 
   describe('availability probe', () => {
     beforeEach(() => {
+      process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS = '1'
       process.env.IMESSAGE_DB_PATH = dbPath
       resetLocalMessageToolsAvailabilityForTests()
     })
 
     afterEach(() => {
+      delete process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS
       delete process.env.IMESSAGE_DB_PATH
       resetLocalMessageToolsAvailabilityForTests()
     })

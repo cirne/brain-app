@@ -29,15 +29,26 @@ export async function fetchOnboardingState(): Promise<string> {
   return j.state
 }
 
-export async function fetchOnboardingPreferences(): Promise<'apple' | 'google' | null> {
+export type OnboardingPreferencesPayload = {
+  mailProvider: 'apple' | 'google' | null
+  appleLocalIntegrationsAvailable: boolean
+}
+
+export async function fetchOnboardingPreferences(): Promise<OnboardingPreferencesPayload> {
   try {
     const res = await fetch('/api/onboarding/preferences')
-    const j = (await res.json()) as { mailProvider?: 'apple' | 'google' | null }
+    const j = (await res.json()) as {
+      mailProvider?: 'apple' | 'google' | null
+      appleLocalIntegrationsAvailable?: boolean
+    }
     const p = j.mailProvider
-    if (p === 'apple' || p === 'google') return p
-    return null
+    const mailProvider = p === 'apple' || p === 'google' ? p : null
+    return {
+      mailProvider,
+      appleLocalIntegrationsAvailable: j.appleLocalIntegrationsAvailable === true,
+    }
   } catch {
-    return null
+    return { mailProvider: null, appleLocalIntegrationsAvailable: false }
   }
 }
 

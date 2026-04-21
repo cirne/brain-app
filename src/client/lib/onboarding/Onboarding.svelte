@@ -39,6 +39,8 @@
   let state = $state<string>('not-started')
   /** From server; used for indexing-step copy (Apple vs Google). */
   let mailProviderPref = $state<'apple' | 'google' | null>(null)
+  /** macOS-only: Apple Mail / Messages / FDA-gated local integrations. */
+  let appleLocalIntegrationsAvailable = $state(false)
   let mail = $state<OnboardingMailStatus>(emptyOnboardingMail())
   let setupError = $state<string | null>(null)
   /** PATCH profiling failed while on indexing (e.g. below server minimum). */
@@ -85,7 +87,8 @@
       fetchOnboardingPreferences(),
     ])
     state = nextState
-    mailProviderPref = pref
+    mailProviderPref = pref.mailProvider
+    appleLocalIntegrationsAvailable = pref.appleLocalIntegrationsAvailable
     await loadMailOnly()
   }
 
@@ -123,7 +126,7 @@
     if (mailProviderPref === 'google') {
       return 'We’re downloading your recent Gmail into Braintunnel so we can build your profile. Hang tight.'
     }
-    if (mailProviderPref === 'apple') {
+    if (mailProviderPref === 'apple' && appleLocalIntegrationsAvailable) {
       return 'We’re copying your recent messages from Apple Mail into Braintunnel so we can build your profile. Hang tight.'
     }
     return 'We’re copying your recent messages into Braintunnel so we can build your profile. Hang tight.'
@@ -451,30 +454,39 @@
     {#if state === 'not-started' && !mail.configured}
       <OnboardingHeroShell>
           <span class="ob-kicker">Braintunnel</span>
-          <h1 class="ob-headline">Your assistant, on your Mac</h1>
+          <h1 class="ob-headline">
+            {appleLocalIntegrationsAvailable ? 'Your assistant, on your Mac' : 'Your assistant'}
+          </h1>
           <p class="ob-lead">
-            Braintunnel is your local assistant for chat, email, and your notes—personalized to you.
-            <strong>Mail, Messages, and your files stay on this Mac</strong>—you’re in control. Connect
-            <strong>Apple</strong> or <strong>Google</strong> to seed mail and calendar—then add folders later to enrich.
+            {#if appleLocalIntegrationsAvailable}
+              Braintunnel is your local assistant for chat, email, and your notes—personalized to you.
+              <strong>Mail, Messages, and your files stay on this Mac</strong>—you’re in control. Connect
+              <strong>Apple</strong> or <strong>Google</strong> to seed mail and calendar—then add folders later to enrich.
+            {:else}
+              Braintunnel is your assistant for chat, email, and your notes—personalized to you. Connect
+              <strong>Google</strong> to seed mail and calendar—then add folders later to enrich.
+            {/if}
           </p>
 
           <div class="ob-cta-group">
             {#if setupError}
               <p class="ob-error">{setupError}</p>
             {/if}
-            <div class="ob-provider-row">
-              <button
-                type="button"
-                class="ob-btn-provider"
-                onclick={() => void setupAppleMail()}
-                disabled={busy}
-              >
-                {#if busy}
-                  <span class="ob-spinner ob-spinner--provider" aria-hidden="true"></span> Setting up…
-                {:else}
-                  Apple
-                {/if}
-              </button>
+            <div class="ob-provider-row" class:ob-provider-row--single={!appleLocalIntegrationsAvailable}>
+              {#if appleLocalIntegrationsAvailable}
+                <button
+                  type="button"
+                  class="ob-btn-provider"
+                  onclick={() => void setupAppleMail()}
+                  disabled={busy}
+                >
+                  {#if busy}
+                    <span class="ob-spinner ob-spinner--provider" aria-hidden="true"></span> Setting up…
+                  {:else}
+                    Apple
+                  {/if}
+                </button>
+              {/if}
               <button
                 type="button"
                 class="ob-btn-provider"
@@ -492,14 +504,18 @@
               </p>
             {/if}
             <p class="ob-fine-print">
-              On Apple, Braintunnel indexes Mail from your library and registers your Mac calendars (same source as
-              Calendar.app) for sync. Full Disk Access lets Braintunnel read Mail, Messages, and paths you choose.
+              {#if appleLocalIntegrationsAvailable}
+                On Apple, Braintunnel indexes Mail from your library and registers your Mac calendars (same source as
+                Calendar.app) for sync. Full Disk Access lets Braintunnel read Mail, Messages, and paths you choose.
+              {/if}
               {#if isTauriRuntime()}
                 The Braintunnel app opens Google in your default browser for sign-in (mail + calendar read).
               {:else}
                 Google sign-in uses this browser (mail + calendar read).
               {/if}
-              macOS may prompt for permissions during setup.
+              {#if appleLocalIntegrationsAvailable}
+                macOS may prompt for permissions during setup.
+              {/if}
             </p>
           </div>
       </OnboardingHeroShell>

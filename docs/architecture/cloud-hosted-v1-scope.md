@@ -86,13 +86,11 @@ For each public origin (staging, production), add **Authorized redirect URIs** i
 
 Keep existing **loopback** URIs for local dev and Brain.app as documented in [google-oauth.md](../google-oauth.md).
 
-### Code gap before hosted sign-in works
+### OAuth redirect and `PUBLIC_WEB_ORIGIN`
 
-[`googleOAuthRedirectUri()`](../../src/server/lib/brainHttpPort.ts) builds:
+[`googleOAuthRedirectUri()`](../../src/server/lib/brainHttpPort.ts): default loopback is `http://127.0.0.1:<PORT>/api/oauth/google/callback` (or bundled HTTPS + port). **`PUBLIC_WEB_ORIGIN`** (e.g. `http://localhost:4000` for Docker) overrides that so the post-consent URL matches the **browser host**—required when the SPA is opened at `localhost` but the default would send Google to `127.0.0.1` (different cookies).
 
-`{http|https}://127.0.0.1:<port>/api/oauth/google/callback`
-
-using `PORT` / bundled port. That is correct for **local** browser + local server, but **incorrect** when the user signs in on the **public web** and Google must redirect to your **TLS hostname**. **Phase 1+** should introduce configuration (e.g. `PUBLIC_BRAIN_ORIGIN` or `GOOGLE_OAUTH_REDIRECT_URI`) and use it for non-bundled production—or when a flag indicates “hosted” mode.
+**Still a gap** for **public TLS** hostnames (production on the internet): set `PUBLIC_WEB_ORIGIN` to your real `https://…` origin and register that redirect URI in Google Cloud.
 
 **Policy:** [OPP-022](../opportunities/OPP-022-google-oauth-app-verification.md) applies when leaving Google’s test-user cap.
 
@@ -103,6 +101,12 @@ using `PORT` / bundled port. That is correct for **local** browser + local serve
 - Parity with **iMessage**, **Apple Mail** local, or **FDA**.
 - **Multi-tenant** security and routing (documented only; implementation is OPP-041 Phase 3–4).
 - **App Platform–only** hosting without persistent block storage (see OPP-041 Phase 5).
+
+---
+
+## Local Docker (Phase 1)
+
+Repo root **`Dockerfile`** + **`docker-compose.yml`**: `env_file: .env` supplies secrets; compose forces `BRAIN_HOME=/brain`, **`PORT=4000`** inside the container, and host **`${BRAIN_DOCKER_PORT:-4000}:4000`**. **`npm run docker:up`** runs **`docker:ripmail:build`** first so a Linux **`ripmail`** ELF is staged at `.docker/linux-ripmail/ripmail` (host cargo or `rust:bookworm` + cached deps). See [OPP-041 Phase 1](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
 
 ---
 

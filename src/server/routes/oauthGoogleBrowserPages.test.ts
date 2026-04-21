@@ -19,7 +19,8 @@ describe('GET /oauth/google/complete & /error', () => {
     expect(res.status).toBe(200)
     const text = await res.text()
     expect(text).toContain('Gmail connected')
-    expect(text).toContain('127.0.0.1')
+    expect(text).toContain('/onboarding')
+    expect(text).toContain('location.replace')
   })
 
   it('serves HTML for error with escaped reason', async () => {

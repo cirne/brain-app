@@ -19,13 +19,14 @@ use crate::config::{
 };
 use crate::db;
 use crate::send::{verify_smtp_credentials, verify_smtp_for_config};
+#[cfg(target_os = "macos")]
+use crate::setup::upsert_mailbox_applemail;
 use crate::setup::{
     derive_imap_settings, load_existing_env_secrets, load_imap_password_for_mailbox_id,
     load_mailbox_configs_for_wizard, mask_secret, merge_root_openai_key,
     remove_mailbox_from_config, replace_mailbox_entry, update_mailbox_management,
-    update_sync_default_since, upsert_mailbox_applemail, upsert_mailbox_setup,
-    validate_imap_credentials, validate_openai_key, wizard_is_first_mailbox_setup,
-    write_google_oauth_setup,
+    update_sync_default_since, upsert_mailbox_setup, validate_imap_credentials,
+    validate_openai_key, wizard_is_first_mailbox_setup, write_google_oauth_setup,
 };
 use crate::sync::spawn_sync_background_detached;
 
@@ -88,6 +89,7 @@ enum InboxMenuChoice {
     Mailbox(MailboxPick),
     AddImap,
     /// macOS only (omitted from the menu elsewhere).
+    #[cfg(target_os = "macos")]
     AddAppleMail,
     AddGmailOAuth,
     Done,
@@ -100,6 +102,7 @@ impl fmt::Display for InboxMenuChoice {
             InboxMenuChoice::AddImap => {
                 write!(f, "Add mailbox — IMAP (email & password, any provider)")
             }
+            #[cfg(target_os = "macos")]
             InboxMenuChoice::AddAppleMail => {
                 write!(f, "Add mailbox — Apple Mail (local index)")
             }
@@ -621,11 +624,9 @@ fn wizard_manage_install(
                 return Ok(first_inbox_menu);
             }
             InboxMenuChoice::AddImap => wizard_add_mailbox_imap(opts, agent_skill_offered)?,
+            #[cfg(target_os = "macos")]
             InboxMenuChoice::AddAppleMail => {
-                #[cfg(target_os = "macos")]
-                wizard_add_mailbox_apple_mail(opts, agent_skill_offered)?;
-                #[cfg(not(target_os = "macos"))]
-                unreachable!("AddAppleMail is only in the menu on macOS")
+                wizard_add_mailbox_apple_mail(opts, agent_skill_offered)?
             }
             InboxMenuChoice::AddGmailOAuth => {
                 wizard_add_mailbox_gmail_oauth(opts, agent_skill_offered)?

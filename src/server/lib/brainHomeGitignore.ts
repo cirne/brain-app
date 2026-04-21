@@ -1,21 +1,12 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { brainHome, brainWikiParentRoot } from './brainHome.js'
+import { tryResolveRepoSharedPath } from './resolveRepoSharedPath.js'
 
-/** Resolve shared/brain-home-default.gitignore (src/, dist/server/, cwd). */
+/** Resolve `shared/brain-home-default.gitignore` (optional; see {@link tryResolveRepoSharedPath}). */
 export function resolveBrainHomeDefaultGitignorePath(): string | null {
-  const here = dirname(fileURLToPath(import.meta.url))
-  const candidates = [
-    join(here, '../../../shared/brain-home-default.gitignore'),
-    join(here, '../../shared/brain-home-default.gitignore'),
-    join(process.cwd(), 'shared/brain-home-default.gitignore'),
-  ]
-  for (const p of candidates) {
-    if (existsSync(p)) return p
-  }
-  return null
+  return tryResolveRepoSharedPath('brain-home-default.gitignore')
 }
 
 const WIKI_PARENT_GITIGNORE = `# Brain wiki tree (sync-friendly)

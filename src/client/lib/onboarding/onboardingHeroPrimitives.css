@@ -109,6 +109,10 @@
   max-width: 28rem;
 }
 
+.ob-provider-row--single {
+  max-width: 14rem;
+}
+
 .ob-btn-provider {
   display: inline-flex;
   align-items: center;

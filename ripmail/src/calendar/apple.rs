@@ -22,7 +22,7 @@ pub fn apple_calendar_sync_available() -> bool {
 
 pub fn sync_apple_calendar(
     conn: &mut Connection,
-    home: &Path,
+    _home: &Path,
     source_id: &str,
     _env_file: &HashMap<String, String>,
     _process_env: &HashMap<String, String>,
@@ -61,7 +61,7 @@ pub fn sync_apple_calendar(
 
         let cal_names = read_apple_calendar_name_map(&apple).unwrap_or_default();
         if !cal_names.is_empty() {
-            let dir = home.join(source_id);
+            let dir = _home.join(source_id);
             let _ = std::fs::create_dir_all(&dir);
             if let Ok(json) = serde_json::to_string_pretty(&cal_names) {
                 let _ = std::fs::write(dir.join("calendar-names.json"), json);

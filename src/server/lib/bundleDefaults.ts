@@ -1,7 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
+import { resolveRepoSharedPath } from './resolveRepoSharedPath.js'
 
 export interface BundleDefaults {
   version: number
@@ -16,18 +16,7 @@ export interface BundleDefaults {
 let cached: BundleDefaults | null = null
 
 export function resolveBundleDefaultsPath(): string {
-  const here = dirname(fileURLToPath(import.meta.url))
-  const candidates = [
-    join(here, '../../../shared/bundle-defaults.json'),
-    join(here, '../../shared/bundle-defaults.json'),
-    join(process.cwd(), 'shared/bundle-defaults.json'),
-  ]
-  for (const p of candidates) {
-    if (existsSync(p)) return p
-  }
-  throw new Error(
-    `bundle-defaults.json not found (tried ${candidates.slice(0, 2).join(', ')} and cwd/shared)`,
-  )
+  return resolveRepoSharedPath('bundle-defaults.json')
 }
 
 export function getBundleDefaults(): BundleDefaults {

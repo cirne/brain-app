@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { isAppleLocalIntegrationEnvironment } from '../lib/appleLocalIntegrationEnv.js'
 import {
   areLocalMessageToolsEnabled,
   getImessageDbPath,
@@ -25,11 +26,15 @@ function parseOptionalIsoMs(s: string | undefined): number | undefined {
 /** GET /api/messages/thread (and /api/imessage/thread) — read-only thread for UI (same defaults as get_message_thread). */
 imessage.get('/thread', (c) => {
   if (!areLocalMessageToolsEnabled()) {
-    const full_disk_access_hint = process.platform === 'darwin' && !isFdaGranted()
+    const onMac = isAppleLocalIntegrationEnvironment()
+    const full_disk_access_hint = onMac && !isFdaGranted()
+    const error = onMac
+      ? 'Local Messages database not available on this host.'
+      : 'Local Messages is only available when Brain runs on macOS.'
     return c.json(
       {
         ok: false,
-        error: 'Local Messages database not available on this host.',
+        error,
         full_disk_access_hint,
       },
       503,

@@ -1,6 +1,7 @@
 import { BRAIN_DEFAULT_HTTP_PORT } from './brainHttpPort.js'
 import { brainHome, brainWikiParentRoot } from './brainHome.js'
 import { wikiDir } from './wikiDir.js'
+import { isAppleLocalIntegrationEnvironment } from './appleLocalIntegrationEnv.js'
 import { areLocalMessageToolsEnabled, initLocalMessageToolsAvailability } from './imessageDb.js'
 import { logFdaProbeForStartup } from './fdaProbe.js'
 import { parseRipmailStatusJson } from './ripmailStatusParse.js'
@@ -55,7 +56,11 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
     log(`ripmail status failed — check RIPMAIL_HOME and ripmail config: ${String(e)}`)
   }
 
-  if (areLocalMessageToolsEnabled()) {
+  if (!isAppleLocalIntegrationEnvironment()) {
+    log(
+      'Local messages / on-device Apple Mail: not available on this host — iMessage/SMS tools disabled (requires macOS)',
+    )
+  } else if (areLocalMessageToolsEnabled()) {
     log('Local messages: chat.db readable (list_recent_messages / get_message_thread enabled)')
   } else {
     log(

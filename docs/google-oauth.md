@@ -1,13 +1,15 @@
 # Gmail OAuth (local Brain)
 
-Brain uses **fixed** Google OAuth redirect URIs in code (no env var for the path). The **TCP port** in the URI must match how you run Brain:
+Redirect URIs must match **Google Cloud Console** and the URL the **browser** loads after consent.
 
-| Mode | Listen port | Redirect URI |
-|------|-------------|--------------|
-| **`npm run dev`** / non-bundled `node dist/server` | `3000` (or `PORT`) | `http://127.0.0.1:3000/api/oauth/google/callback` |
-| **Brain.app** (bundled Tauri, `BRAIN_BUNDLED_NATIVE=1`) | `18473`–`18476` (first available) | `https://127.0.0.1:<bound-port>/api/oauth/google/callback` (TLS, OPP-023) |
+| Mode | Redirect URI |
+|------|--------------|
+| **`npm run dev`** / non-bundled `node dist/server` (default) | `http://127.0.0.1:<PORT>/api/oauth/google/callback` (`PORT` default `3000`) |
+| **Same, with `PUBLIC_WEB_ORIGIN`** | `<PUBLIC_WEB_ORIGIN>/api/oauth/google/callback` — use when the SPA is opened at **`localhost`** so OAuth returns to the same host as cookies (e.g. Docker: `http://localhost:4000`) |
+| **`docker compose`** | Compose sets `PUBLIC_WEB_ORIGIN` default `http://localhost:4000` — register **`http://localhost:4000/api/oauth/google/callback`**. If you change host port, set `PUBLIC_WEB_ORIGIN` to match. |
+| **Brain.app** (bundled Tauri, `BRAIN_BUNDLED_NATIVE=1`) | `https://127.0.0.1:<bound-port>/api/oauth/google/callback` (TLS, OPP-023); ignores `PUBLIC_WEB_ORIGIN` |
 
-If `PORT` is set (non-bundled only), the redirect uses that port instead of `3000`.
+If `PORT` is set (non-bundled, no `PUBLIC_WEB_ORIGIN`), the loopback redirect uses that port on **`127.0.0.1`**.
 
 **Packaged Brain.app:** The bundled server does not read a workspace `.env`. Put `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in the repo `.env` and build with `BRAIN_EMBED_MASTER_KEY` set (see [AGENTS.md](../AGENTS.md) — same embedding pipeline as LLM keys). Without them, `/api/oauth/google/start` redirects to a short error page (`/oauth/google/error?reason=…`) and the app can show the same text via `GET /api/oauth/google/last-result` (see below).
 
@@ -24,7 +26,9 @@ If `PORT` is set (non-bundled only), the redirect uses that port instead of `300
 1. Open [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials) for your project.
 2. Open your **OAuth 2.0 Client ID** (type *Web application*).
 3. Under **Authorized redirect URIs**, add **all** of the following:
-   - `http://127.0.0.1:3000/api/oauth/google/callback` (dev)
+   - `http://127.0.0.1:3000/api/oauth/google/callback` (dev, default)
+   - `http://localhost:4000/api/oauth/google/callback` (Docker Compose default — `PUBLIC_WEB_ORIGIN`; use the same host/port you open in the browser)
+   - `http://127.0.0.1:4000/api/oauth/google/callback` (only if you unset `PUBLIC_WEB_ORIGIN` and use 127.0.0.1 in the browser)
    - `https://127.0.0.1:18473/api/oauth/google/callback` (Brain.app, TLS)
    - `https://127.0.0.1:18474/api/oauth/google/callback`
    - `https://127.0.0.1:18475/api/oauth/google/callback`

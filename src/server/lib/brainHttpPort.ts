@@ -53,7 +53,20 @@ export function embeddedServerUrlScheme():
   return isBundledNativeServer() ? BUNDLED_EMBEDDED_SERVER_SCHEME : NON_BUNDLED_EMBEDDED_SERVER_SCHEME
 }
 
+/**
+ * When set (non-bundled only), Gmail OAuth redirect uses this origin so the browser returns to the
+ * **same host** as the SPA (avoids `localhost` vs `127.0.0.1` cookie / session split). Example:
+ * `http://localhost:4000` for Docker Compose. Must match an entry in Google Cloud redirect URIs.
+ */
 export function googleOAuthRedirectUri(): string {
-  const scheme = embeddedServerUrlScheme()
+  if (isBundledNativeServer()) {
+    const scheme = embeddedServerUrlScheme()
+    return `${scheme}://127.0.0.1:${oauthRedirectListenPort()}${GOOGLE_OAUTH_CALLBACK_PATH}`
+  }
+  const publicOrigin = process.env.PUBLIC_WEB_ORIGIN?.trim().replace(/\/$/, '')
+  if (publicOrigin) {
+    return `${publicOrigin}${GOOGLE_OAUTH_CALLBACK_PATH}`
+  }
+  const scheme = NON_BUNDLED_EMBEDDED_SERVER_SCHEME
   return `${scheme}://127.0.0.1:${oauthRedirectListenPort()}${GOOGLE_OAUTH_CALLBACK_PATH}`
 }

@@ -2,6 +2,7 @@
 /**
  * Production server build: bundle + minify app code into dist/server/*.js.
  * Dependencies stay external (node_modules); dev-only code (e.g. Vite middleware) is tree-shaken.
+ * Copies repo `shared/` → `dist/server/shared/` (sibling of index.js; see resolveRepoSharedPath.ts).
  */
 import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -16,11 +17,6 @@ if (existsSync(outdir)) {
   rmSync(outdir, { recursive: true })
 }
 mkdirSync(outdir, { recursive: true })
-
-const sharedSrc = join(root, 'shared')
-if (existsSync(sharedSrc)) {
-  cpSync(sharedSrc, join(root, 'dist', 'shared'), { recursive: true })
-}
 
 const common = {
   absWorkingDir: root,
@@ -43,5 +39,10 @@ await esbuild.build({
   entryPoints: [join(root, 'src/server/index.ts'), join(root, 'src/server/sync-cli.ts')],
   outdir,
 })
+
+const sharedSrc = join(root, 'shared')
+if (existsSync(sharedSrc)) {
+  cpSync(sharedSrc, join(outdir, 'shared'), { recursive: true })
+}
 
 console.log('[build-server-bundle] done →', outdir)

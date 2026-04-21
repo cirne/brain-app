@@ -15,6 +15,7 @@ let dbPath: string
 let app: Hono
 
 beforeEach(async () => {
+  process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS = '1'
   dir = await mkdtemp(join(tmpdir(), 'imessage-api-test-'))
   dbPath = join(dir, 'chat.db')
   const db = new Database(dbPath)
@@ -92,6 +93,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  delete process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS
   delete process.env.IMESSAGE_DB_PATH
   resetLocalMessageToolsAvailabilityForTests()
   await rm(dir, { recursive: true, force: true })
@@ -137,5 +139,29 @@ describe('GET /api/imessage/thread', () => {
     expect(res.status).toBe(503)
     const body = (await res.json()) as { full_disk_access_hint?: boolean }
     expect(typeof body.full_disk_access_hint).toBe('boolean')
+  })
+
+  it('returns 503 with macOS-only error when Apple local integrations are off', async () => {
+    const prevDisable = process.env.BRAIN_DISABLE_APPLE_LOCAL
+    process.env.BRAIN_DISABLE_APPLE_LOCAL = '1'
+    delete process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS
+    resetLocalMessageToolsAvailabilityForTests()
+    initLocalMessageToolsAvailability()
+    try {
+      const { default: imessageRoute } = await import('./imessage.js')
+      const app2 = new Hono()
+      app2.route('/api/messages', imessageRoute)
+      const res = await app2.request('/api/messages/thread?chat=%2B15550001111')
+      expect(res.status).toBe(503)
+      const body = (await res.json()) as { error?: string; full_disk_access_hint?: boolean }
+      expect(body.error).toContain('macOS')
+      expect(body.full_disk_access_hint).toBe(false)
+    } finally {
+      if (prevDisable === undefined) delete process.env.BRAIN_DISABLE_APPLE_LOCAL
+      else process.env.BRAIN_DISABLE_APPLE_LOCAL = prevDisable
+      process.env.BRAIN_FORCE_APPLE_LOCAL_FOR_TESTS = '1'
+      resetLocalMessageToolsAvailabilityForTests()
+      initLocalMessageToolsAvailability()
+    }
   })
 })
