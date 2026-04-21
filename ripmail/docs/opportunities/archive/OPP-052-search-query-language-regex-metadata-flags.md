@@ -1,6 +1,12 @@
+# Archived: OPP-052 — Search query language redesign
+
+**Status: Deprioritized — archived 2026-04-21.** Full grep/regex + metadata-flag redesign not scheduled; current `ripmail search` + brain `search_index` evolve incrementally.
+
+---
+
 # OPP-052 — Rethink ripmail search: grep-friendly pattern + metadata flags
 
-**Status:** Future / design  
+**Historical status:** Future / design  
 **Scope:** ripmail `search` **user contract** (CLI + agent JSON), filters, and brain-app `search_index`; implementation may still use SQLite FTS5 **under the hood** for tokenization or prefiltering, but **FTS5 must not appear in the interface**—no dual “keyword vs regex” modes, no FTS query syntax exposed to users or agents.
 
 ## Problem

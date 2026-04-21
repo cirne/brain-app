@@ -10,7 +10,7 @@
 
 ## Summary
 
-Add **first-class system contacts** (Google People API + macOS **ContactKit** via the same **native-helper / permission** pattern as calendar in [OPP-053](OPP-053-local-gateway-calendar-and-beyond.md)), and **redefine `ripmail who`** so it returns a **single canonical view per human** — **merged emails**, **phone numbers (E.164)**, **display aliases**, aggregated mail **interaction stats**, and stable **lookup keys** for tools that index by **phone or handle** (local Messages / future messaging index in [OPP-045](OPP-045-imessage-and-unified-messaging-index.md)).
+Add **first-class system contacts** (Google People API + macOS **ContactKit** via the same **native-helper / permission** pattern as calendar in [OPP-053](archive/OPP-053-local-gateway-calendar-and-beyond.md)), and **redefine `ripmail who`** so it returns a **single canonical view per human** — **merged emails**, **phone numbers (E.164)**, **display aliases**, aggregated mail **interaction stats**, and stable **lookup keys** for tools that index by **phone or handle** (local Messages / future messaging index in [OPP-045](OPP-045-imessage-and-unified-messaging-index.md)).
 
 **No LLM** participates in merge or deduplication: use an **offline identity graph** (union over high-confidence edges), deterministic **canonical naming** (Contacts beats mail header; nickname / fuzzy rules only **within** a cluster), and structured **JSON** for host agents.
 
@@ -40,7 +40,7 @@ Each source writes **typed identifiers** and optional **structured name fields**
 Build a graph whose **nodes** are identifiers (normalized email, E.164 phone, external **contact card id**, calendar attendee email, etc.) and **edges** are “same person” when:
 
 - **Hard:** same normalized phone; same Contacts-backed card id; explicit multi-value on one card (email A + email B + phone P).
-- **Medium:** attendee **email** from an indexed calendar event matches an email on a person cluster ([OPP-053](OPP-053-local-gateway-calendar-and-beyond.md) calendars feed this).
+- **Medium:** attendee **email** from an indexed calendar event matches an email on a person cluster ([OPP-053](archive/OPP-053-local-gateway-calendar-and-beyond.md) calendars feed this).
 - **Soft (optional, tunable):** avoid aggressive name-only merges across emails unless additional corroboration exists (shared domain + fuzzy match, etc.). Prefer marking uncertain links with **`mergeConfidence`** in JSON over silent collapse.
 
 Use **union-find** (or equivalent) offline during **`refresh` / `who --rebuild`** — no LLM.
@@ -79,7 +79,7 @@ Use **union-find** (or equivalent) offline during **`refresh` / `who --rebuild`*
 ## Related
 
 - [OPP-012](OPP-012-who-smart-address-book.md) — historical “what shipped” for mail-centric `who`; this opp **supersedes direction** for the next-generation identity layer (may archive or narrow OPP-012 when implementation lands).
-- [OPP-053](OPP-053-local-gateway-calendar-and-beyond.md) — calendar + same-binary native surface; **attendee email** correlation with `who` clusters.
+- [OPP-053](archive/OPP-053-local-gateway-calendar-and-beyond.md) — calendar + same-binary native surface; **attendee email** correlation with `who` clusters.
 - [OPP-051](OPP-051-unified-sources-mail-local-files-future-connectors.md) — `sources` model for connectors.
 - [OPP-042](OPP-042-google-oauth-cli-auth.md) — Google OAuth; scope expansion for People API.
 - [OPP-045](OPP-045-imessage-and-unified-messaging-index.md) — messaging index / handles; complementary to phone-first lookup from `who`.

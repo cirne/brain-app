@@ -1,3 +1,9 @@
+# Archived: OPP-032 — Brain Hub wiki rebuild & factory reset
+
+**Status: Deprioritized — archived 2026-04-21.** Dev/clean routes and manual recovery are sufficient for now; user-facing Hub “rebuild / reset” flows not scheduled.
+
+---
+
 # OPP-032: Brain Hub — wiki rebuild vs factory reset (recovery UX)
 
 ## Summary

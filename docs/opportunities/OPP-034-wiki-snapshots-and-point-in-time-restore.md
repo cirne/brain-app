@@ -2,7 +2,7 @@
 
 ## Summary
 
-Capture **automatic, timestamped backups** of the wiki vault so users can **recover from a bad expansion, accidental edits, or agent mistakes** without a full factory reset ([OPP-032](OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md)). A practical default is **ZIP archives stored under `BRAIN_HOME`** (outside the live `wiki/` tree), created on a predictable cadence—e.g. **once per completed Your Wiki supervisor lap** ([OPP-033](OPP-033-wiki-compounding-karpathy-alignment.md))—with **retention limits** and a **Hub UX** to list, inspect, and restore.
+Capture **automatic, timestamped backups** of the wiki vault so users can **recover from a bad expansion, accidental edits, or agent mistakes** without a full factory reset ([OPP-032](archive/OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md)). A practical default is **ZIP archives stored under `BRAIN_HOME`** (outside the live `wiki/` tree), created on a predictable cadence—e.g. **once per completed Your Wiki supervisor lap** ([OPP-033](OPP-033-wiki-compounding-karpathy-alignment.md))—with **retention limits** and a **Hub UX** to list, inspect, and restore.
 
 ## Problem
 
@@ -26,7 +26,7 @@ Capture **automatic, timestamped backups** of the wiki vault so users can **reco
 
 ## UX (discovery → inspect → restore)
 
-**Placement:** Brain Hub **Data & recovery** (alongside [OPP-032](OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md)): section **“Wiki snapshots”** or **“Previous versions.”**
+**Placement:** Brain Hub **Data & recovery** (alongside [OPP-032](archive/OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md)): section **“Wiki snapshots”** or **“Previous versions.”**
 
 ### List
 
@@ -98,13 +98,13 @@ Initialize a **bare or non-bare** repo beside or under the vault, commit **only*
 
 ## Implementation sketch
 
-- **Server module:** `createWikiSnapshot(reason)`, `listWikiSnapshots()`, `restoreWikiSnapshot(id)`, `extractWikiSnapshotPreview(id) → tempPath` with tests mirroring [dev route](OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md) patterns.
+- **Server module:** `createWikiSnapshot(reason)`, `listWikiSnapshots()`, `restoreWikiSnapshot(id)`, `extractWikiSnapshotPreview(id) → tempPath` with tests mirroring [dev route](archive/OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md) patterns.
 - **Atomic restore:** extract to **temp**, **rename swap** into place (platform-specific care on Windows: extract then move tree), or delete+replace in one transaction where the FS allows.
 - **Permissions:** Same **local-only** stance as destructive Hub actions; no remote API.
 
 ## Relationship to other OPPs
 
-- [OPP-032](OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md): snapshots are **before** rebuild/reset; restore is **lighter** than full rebuild.
+- [OPP-032](archive/OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md): snapshots are **before** rebuild/reset; restore is **lighter** than full rebuild.
 - [OPP-024](OPP-024-split-brain-data-synced-wiki-local-ripmail.md): snapshot source path must follow **wiki root** resolution (`brainWikiParentRoot()` / `wikiDir`).
 - [OPP-033](OPP-033-wiki-compounding-karpathy-alignment.md): **lap completion** is the natural hook for automatic snapshots.
 - [OPP-012](OPP-012-brain-home-data-layout.md): store archives under a **`BRAIN_HOME`** segment; do **not** place giant zip trees **inside** the synced wiki folder unless the user opts in.

@@ -2,7 +2,7 @@
 
 **Status:** Pre-opportunity. Not yet scoped for implementation. These are architectural thoughts on what a centrally operated service — run by us — might eventually look like, and what it absolutely must not be.
 
-**Related opportunities:** [OPP-001](../opportunities/OPP-001-agent-to-agent.md) (agent-to-agent), [OPP-002](../opportunities/OPP-002-public-brain-identity.md) (public brain identity), [OPP-008](../opportunities/OPP-008-tunnel-qr-phone-access.md) (tunnels), [OPP-030](../opportunities/OPP-030-agent-driven-support-bug-to-pr.md) (support/bug pipeline).
+**Related opportunities:** [OPP-001](../opportunities/OPP-001-agent-to-agent.md) (agent-to-agent), [OPP-002](../opportunities/OPP-002-public-brain-identity.md) (public brain identity), [OPP-008](../opportunities/OPP-008-tunnel-qr-phone-access.md) (tunnels), [OPP-030](../opportunities/archive/OPP-030-agent-driven-support-bug-to-pr.md) (support/bug pipeline).
 
 ---
 
@@ -29,7 +29,7 @@ What the registry enables:
 
 ### 2. Support and Bug Infrastructure
 
-The natural home for the bug-filing pipeline described in [OPP-030](../opportunities/OPP-030-agent-driven-support-bug-to-pr.md). Moving it to a cloud endpoint owned by us:
+The natural home for the bug-filing pipeline described in [OPP-030](../opportunities/archive/OPP-030-agent-driven-support-bug-to-pr.md). Moving it to a cloud endpoint owned by us:
 
 - **Registry-linked bug reports.** A brain that files a bug can attach its anonymous registry ID. This lets us associate multiple reports from the same brain over time without knowing who owns it — useful for follow-ups, deduplication, and notifying the reporter when a fix ships.
 - **Brain notifications on fix.** When a bug tied to a registry ID is resolved, the service can notify the registered brain: "Your report #123 is fixed in 0.4.3." The brain delivers this to the user in-app. No email address required.

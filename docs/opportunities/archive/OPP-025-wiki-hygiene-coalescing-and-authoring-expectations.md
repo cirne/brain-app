@@ -1,3 +1,9 @@
+# Archived: OPP-025 — Wiki hygiene coalescing
+
+**Status: Deprioritized — archived 2026-04-21.** Hygiene behavior is folded into the live supervisor / agent prompts; a separate spec epic is not scheduled.
+
+---
+
 # OPP-025: Wiki Hygiene Coalescing and Authoring Expectations
 
 ## Vision

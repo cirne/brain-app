@@ -1,3 +1,9 @@
+# Archived: OPP-026 — Knowledge expansion discovery UI
+
+**Status: Deprioritized — archived 2026-04-21.** Not scheduling a dedicated discovery flow; expansion remains chat- and supervisor-driven.
+
+---
+
 # OPP-026: Knowledge Expansion Discovery UI (Structured Suggestions + Review)
 
 ## Vision

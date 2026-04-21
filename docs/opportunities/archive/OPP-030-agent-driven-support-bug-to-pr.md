@@ -1,3 +1,9 @@
+# Archived: OPP-030 — Agent-driven support (bug → PR)
+
+**Status: Deprioritized — archived 2026-04-21.** Support automation pipeline not on the near-term roadmap; manual triage and docs remain the path.
+
+---
+
 # OPP-030: Agent-driven support — snag → diagnostics → triage → fix PR → user notify
 
 ## Summary

@@ -1,3 +1,9 @@
+# Archived: OPP-031 — Preference and memory tools
+
+**Status: Deprioritized — archived 2026-04-21.** `remember_preference`, `inbox_rules`, and [preference-memory-layering](../../architecture/preference-memory-layering.md) cover the intent; further productization of this epic is not scheduled.
+
+---
+
 # OPP-031: Preference and Memory Tools
 
 ## Problem

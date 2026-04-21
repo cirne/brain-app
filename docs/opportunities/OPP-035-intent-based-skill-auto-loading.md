@@ -216,7 +216,7 @@ Use this list to mark OPP-035 **done**:
 
 **Opportunities**
 
-- [OPP-031: Preference and Memory Tools](./OPP-031-preference-memory-tools.md) — Skills provide the *how*, preferences provide the *what*.
+- [OPP-031: Preference and Memory Tools](./archive/OPP-031-preference-memory-tools.md) — Skills provide the *how*, preferences provide the *what*.
 - [OPP-010: User Skills](./archive/OPP-010-user-skills.md) — Original vision for user-defined skills.
 - [OPP-025: Cross-Platform Agent Skills Packaging](../../ripmail/docs/opportunities/archive/OPP-025-cross-platform-agent-skills-packaging.md) — Packaging and distribution of skills.
 

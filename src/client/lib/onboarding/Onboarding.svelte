@@ -418,7 +418,8 @@
   async function finishOnboarding() {
     if (onboardingExitHandled) return
     onboardingExitHandled = true
-    await patchState('done')
+    await patchOnboardingState('done')
+    indexingAdvanceError = null
     await onComplete()
   }
 
@@ -652,15 +653,6 @@
         </footer>
       </section>
 
-    {:else if state === 'done'}
-      <OnboardingHeroShell>
-          <h1 class="ob-headline">You're all set</h1>
-          <p class="ob-lead">Your assistant is ready. We’ll keep building your wiki in the background.</p>
-          <button type="button" class="ob-btn-primary" onclick={() => void onComplete()}>
-            Open Braintunnel
-            <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-          </button>
-      </OnboardingHeroShell>
     {/if}
   </div>
   {/if}

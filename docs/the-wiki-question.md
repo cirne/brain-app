@@ -1,7 +1,7 @@
 # The wiki question
 
 **Status:** Open product question — not a decision document  
-**Related:** [VISION.md](./VISION.md), [architecture/wiki-read-vs-read-doc.md](./architecture/wiki-read-vs-read-doc.md), [product/personal-wiki.md](./product/personal-wiki.md), [opportunities/OPP-015-wiki-background-maintenance-agents.md](./opportunities/OPP-015-wiki-background-maintenance-agents.md)
+**Related:** [VISION.md](./VISION.md), [architecture/wiki-read-vs-read-doc.md](./architecture/wiki-read-vs-read-doc.md), [product/personal-wiki.md](./product/personal-wiki.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 
 ---
 
@@ -105,7 +105,7 @@ Until the wiki is **obviously** helping, users still face:
 
 ## Automated maintenance: when is the wiki “good enough”?
 
-[OPP-015](./opportunities/OPP-015-wiki-background-maintenance-agents.md) sketches background agents that lint, scaffold, and suggest — with **success criteria** like: broken links and orphans improve **without** user micromanagement.
+[OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md) sketches background agents that lint, scaffold, and suggest — with **success criteria** like: broken links and orphans improve **without** user micromanagement.
 
 That leaves **strategic** questions unanswered:
 
@@ -151,7 +151,7 @@ That directly tests whether the hoped-for benefit is **real at scale** or **illu
 ## References
 
 - Karpathy, **LLM Wiki** (gist): [https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)  
-- Internal: [VISION.md](./VISION.md), [wiki-read-vs-read-doc.md](./architecture/wiki-read-vs-read-doc.md), [OPP-015](./opportunities/OPP-015-wiki-background-maintenance-agents.md)
+- Internal: [VISION.md](./VISION.md), [wiki-read-vs-read-doc.md](./architecture/wiki-read-vs-read-doc.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 - Roadmap umbrella: [OPP-033: Wiki compounding + Karpathy alignment](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md); concrete defect: [BUG-011](./bugs/BUG-011-wiki-expansion-missing-me-md-context.md)
 
 ---

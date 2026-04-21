@@ -1,6 +1,12 @@
+# Archived: OPP-014 — Knowledge expansion (local folders)
+
+**Status: Deprioritized — archived 2026-04-21.** Covered in practice by [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified sources / local dirs); a separate Brain Hub “expansion” initiative is not on the near-term roadmap.
+
+---
+
 # OPP-014: Knowledge Expansion — Suggested Local Folders (Documents / Desktop)
 
-**Status:** Reopened / Active — 2026-04-19.
+**Historical status:** Reopened / Active — 2026-04-19.
 **Direction:** Kicked off from **Brain Hub**, not the initial onboarding flow.
 
 ## Vision

@@ -2,7 +2,7 @@
 
 **Status:** Decided  
 **Scope:** Where user preferences, behavioral rules, and assistant steering live; how they scale over time  
-**See also:** [wiki-vs-managed-memory-honcho.md](./wiki-vs-managed-memory-honcho.md), [agent-chat.md](./agent-chat.md), [OPP-031](../opportunities/OPP-031-preference-memory-tools.md), [OPP-028](../opportunities/OPP-028-named-assistant-identity-and-living-avatar.md)
+**See also:** [wiki-vs-managed-memory-honcho.md](./wiki-vs-managed-memory-honcho.md), [agent-chat.md](./agent-chat.md), [OPP-031](../opportunities/archive/OPP-031-preference-memory-tools.md), [OPP-028](../opportunities/OPP-028-named-assistant-identity-and-living-avatar.md)
 
 ---
 
@@ -31,7 +31,7 @@ Preferences live at the **deepest layer that can express them reliably**.
 - Stored in `~/.ripmail/rules.json`; structured, auditable, git-tracked.
 - Examples: "Archive LinkedIn emails," "ignore newsletters," "always surface emails from my accountant."
 
-The agent's `inbox_rules` tool manages this layer. It should be the **first choice** for email preferences, not a last resort. The current "Rare" framing in the system prompt is wrong and is being corrected (see [OPP-031](../opportunities/OPP-031-preference-memory-tools.md)).
+The agent's `inbox_rules` tool manages this layer. It should be the **first choice** for email preferences, not a last resort. The current "Rare" framing in the system prompt is wrong and is being corrected (see [OPP-031](../opportunities/archive/OPP-031-preference-memory-tools.md)).
 
 ### Layer 2 — Interpretation layer: `me.md`
 
@@ -42,7 +42,7 @@ The agent's `inbox_rules` tool manages this layer. It should be the **first choi
 - It is a living wiki file: user-visible, user-editable, git-tracked.
 - Examples: "Ignore my daughter's calendar in briefings," "lead with blockers when summarizing projects," "prefer concise bullet-point responses."
 
-The `remember_preference` tool (see [OPP-031](../opportunities/OPP-031-preference-memory-tools.md)) manages writes to this layer in a structured, append-only way.
+The `remember_preference` tool (see [OPP-031](../opportunities/archive/OPP-031-preference-memory-tools.md)) manages writes to this layer in a structured, append-only way.
 
 ---
 
@@ -82,7 +82,7 @@ This is a deliberate difference from soul.md-style frameworks used in multi-user
 
 ## Scaling: what happens when `me.md` grows
 
-The wiki hygiene / lint agent ([OPP-015](../opportunities/OPP-015-wiki-background-maintenance-agents.md), [OPP-025](../opportunities/OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md)) handles this as a normal wiki refactoring task:
+The wiki hygiene / lint agent ([OPP-015](../opportunities/archive/OPP-015-wiki-background-maintenance-agents.md), [OPP-025](../opportunities/archive/OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md)) handles this as a normal wiki refactoring task:
 
 1. When a section in `me.md` grows into its own topic (e.g., a long "Calendar Preferences" block), the lint agent extracts it to a dedicated wiki page (e.g., `calendar-preferences.md`).
 2. It replaces the section in `me.md` with a wikilink.
@@ -94,7 +94,7 @@ No schema changes, no migration, no new tools. The wiki's natural link structure
 
 ## Consequences
 
-- `remember_preference` (see [OPP-031](../opportunities/OPP-031-preference-memory-tools.md)) is the agent's path for writing interpretation-layer preferences to `me.md`. It appends to a `## Preferences` section and returns the saved text so it is immediately active in the current session.
+- `remember_preference` (see [OPP-031](../opportunities/archive/OPP-031-preference-memory-tools.md)) is the agent's path for writing interpretation-layer preferences to `me.md`. It appends to a `## Preferences` section and returns the saved text so it is immediately active in the current session.
 - `inbox_rules` is the agent's path for deterministic email filtering. It should be used proactively when a user states an email preference — not only on explicit request.
 - The system prompt routing instruction tells the agent which tool to reach for. The instruction is intentionally brief because the tool descriptions carry the specifics.
-- Calendar filtering belongs at the **data layer**, not `me.md`. Ripmail's `calendar_ids` field on a source already controls which Google calendars are synced — meaning both the agent's `get_calendar_events` tool and the UI calendar preview only see the filtered set. The gap is that `ripmail sources edit` does not yet expose a `--calendar` flag to change `calendar_ids` post-setup, and brain-app's `edit_files_source` agent tool does not expose calendar config at all. Until those are fixed, a user must edit `~/.ripmail/config.json` by hand to change which calendars are indexed. A `me.md` preference is a poor substitute: it steers the LLM's answers but the UI preview still shows all indexed events. See [OPP-031](../opportunities/OPP-031-preference-memory-tools.md) for the agent tool gap.
+- Calendar filtering belongs at the **data layer**, not `me.md`. Ripmail's `calendar_ids` field on a source already controls which Google calendars are synced — meaning both the agent's `get_calendar_events` tool and the UI calendar preview only see the filtered set. The gap is that `ripmail sources edit` does not yet expose a `--calendar` flag to change `calendar_ids` post-setup, and brain-app's `edit_files_source` agent tool does not expose calendar config at all. Until those are fixed, a user must edit `~/.ripmail/config.json` by hand to change which calendars are indexed. A `me.md` preference is a poor substitute: it steers the LLM's answers but the UI preview still shows all indexed events. See [OPP-031](../opportunities/archive/OPP-031-preference-memory-tools.md) for the agent tool gap.

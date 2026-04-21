@@ -82,7 +82,7 @@ pub enum SourceKind {
     AppleMail,
     #[serde(rename = "localDir")]
     LocalDir,
-    /// Google Calendar API ([OPP-053](../docs/opportunities/OPP-053-local-gateway-calendar-and-beyond.md)).
+    /// Google Calendar API ([OPP-053](../docs/opportunities/archive/OPP-053-local-gateway-calendar-and-beyond.md)).
     #[serde(rename = "googleCalendar")]
     GoogleCalendar,
     /// macOS Calendar.app — read-only SQLite (`Calendar.sqlitedb` in the app group container).
@@ -150,7 +150,7 @@ fn default_max_file_bytes() -> u64 {
     10_000_000
 }
 
-/// Calendar-specific resolution for [`ResolvedSource`] ([OPP-053](../docs/opportunities/OPP-053-local-gateway-calendar-and-beyond.md)).
+/// Calendar-specific resolution for [`ResolvedSource`] ([OPP-053](../docs/opportunities/archive/OPP-053-local-gateway-calendar-and-beyond.md)).
 #[derive(Debug, Clone)]
 pub enum CalendarSourceResolved {
     Google {

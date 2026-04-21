@@ -1,3 +1,9 @@
+# Archived: OPP-053 implementation & validation plan
+
+**Status: Closed — archived 2026-04-21** with [OPP-053](OPP-053-local-gateway-calendar-and-beyond.md). Kept for Phase A validation notes and Phase B sketches.
+
+---
+
 # OPP-053: Implementation & Validation Plan
 ## Local Gateway CLI — Calendar (Google + EventKit), Mail, Files, and Beyond
 

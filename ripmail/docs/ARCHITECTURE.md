@@ -686,7 +686,7 @@ Agents today parse the text output of `status` without difficulty. Text stays th
 
 **Brain-app (host) alignment:** The intended integration is **subprocess** to this CLI with **`RIPMAIL_HOME`** pointing at the Brain ripmail directory. **Exception:** Apple **Messages** / **`chat.db`** — documented in **brain-app** [integrations.md](../../docs/architecture/integrations.md#trust-boundaries-ripmail-vs-direct-sqlite-access) (read-only SQLite in Node; different permission surface). Do **not** treat **chat.db** as the template for calendar, contacts, or EventKit-backed data.
 
-**Related work:** [OPP-053](opportunities/OPP-053-local-gateway-calendar-and-beyond.md) (calendar read path + Phase B scheduling), [OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified `sources` / `refresh`).
+**Related work:** [OPP-053](opportunities/archive/OPP-053-local-gateway-calendar-and-beyond.md) (calendar read path + Phase B scheduling), [OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified `sources` / `refresh`).
 
 ---
 

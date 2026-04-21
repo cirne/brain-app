@@ -1,3 +1,9 @@
+# Archived: OPP-015 — Wiki background / maintenance agents
+
+**Status: Deprioritized — archived 2026-04-21.** Ongoing wiki cleanup is handled by the shipped Your Wiki supervisor loop ([OPP-033](../OPP-033-wiki-compounding-karpathy-alignment.md)); this standalone epic is closed for tracking.
+
+---
+
 # OPP-015: Wiki Background / Maintenance Agents
 
 ## Vision

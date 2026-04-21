@@ -31,7 +31,7 @@ The **analogy** holds: **index for search and synthesis**, **don’t fork the en
 
 ## Design goals
 
-1. **Search:** Regex / structured search over **message bodies** (and thread metadata), similar in *feel* to `search_index` for mail—possibly unified under ripmail’s evolving query story ([ripmail OPP-052](../ripmail/docs/opportunities/OPP-052-search-query-language-regex-metadata-flags.md)).
+1. **Search:** Regex / structured search over **message bodies** (and thread metadata), similar in *feel* to `search_index` for mail—possibly unified under ripmail’s evolving query story ([ripmail OPP-052](../ripmail/docs/opportunities/archive/OPP-052-search-query-language-regex-metadata-flags.md)).
 2. **Bounded disk:** Default index is **text-only**; exclude or optionally lazy-fetch **attachments** so we do not balloon to tens of GB.
 3. **Thread fidelity:** Preserve **chat_identifier**, participants, timestamps, read flags where useful—enough to rebuild **conversation context** for the agent and UI.
 4. **Unified people:** Reuse and extend **identifier resolution** (wiki contacts, `find_person`, ripmail’s address book direction) so phone ↔ person ↔ email is a **best-effort join**, not three silos.
@@ -65,7 +65,7 @@ The **analogy** holds: **index for search and synthesis**, **don’t fork the en
 ## Relationship to existing work
 
 - **Shipped baseline:** [archived OPP-003](archive/OPP-003-iMessage-integration.md) — tools on live DB + wiki correlation.
-- **Mail / unified sources:** [ripmail OPP-051](../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md), search language [OPP-052](../ripmail/docs/opportunities/OPP-052-search-query-language-regex-metadata-flags.md).
+- **Mail / unified sources:** [ripmail OPP-051](../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md), search language [OPP-052](../ripmail/docs/opportunities/archive/OPP-052-search-query-language-regex-metadata-flags.md).
 - **Brain layout / where data lives:** [OPP-012](OPP-012-brain-home-data-layout.md).
 
 ## Open questions

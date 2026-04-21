@@ -1,3 +1,9 @@
+# Archived: OPP-027 — Wiki nav indicator + activity surface
+
+**Status: Deprioritized — archived 2026-04-21.** Hub / Your Wiki row covers background activity sufficiently; full-width activity surface not scheduled.
+
+---
+
 # OPP-027: Wiki Nav Indicator and Activity Surface
 
 ## Vision

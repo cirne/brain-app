@@ -4,7 +4,7 @@
 
 **Created:** 2026-04-20.
 
-**Related:** [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified sources / future connectors), [OPP-014](OPP-014-knowledge-expansion-local-folders.md) (knowledge expansion — local folders).
+**Related:** [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified sources / future connectors), [OPP-014](archive/OPP-014-knowledge-expansion-local-folders.md) (knowledge expansion — local folders).
 
 ---
 

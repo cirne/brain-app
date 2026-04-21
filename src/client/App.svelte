@@ -64,8 +64,16 @@
     onboardingStatus != null &&
       !showHostedSignIn &&
       !showUnlockVault &&
-      (onboardingStatus.state !== 'done' || route.flow === 'onboarding'),
+      onboardingStatus.state !== 'done',
   )
+
+  /** Already-onboarded users may land on `/onboarding` after sign-in; send them to the main app. */
+  $effect(() => {
+    if (!appReady || onboardingStatus == null || onboardingStatus.state !== 'done') return
+    if (route.flow !== 'onboarding') return
+    history.replaceState(null, '', '/')
+    route = parseRoute()
+  })
 
   onMount(() => {
     const onPop = () => {

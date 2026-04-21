@@ -12,12 +12,12 @@ This opportunity is the **product/engineering umbrella** for closing the gap: **
 | Agent / flow (today or specified)                                                                                                                        | Karpathy-ish role                                                                                                | When it runs                                                                                                                       |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | **Wiki expansion** (`[wikiExpansionRunner](../../src/server/agent/wikiExpansionRunner.ts)` + seeding agent)                                              | **Batch “ingest” into the wiki** — turn indexed mail (+ web, etc.) into many linked pages in one or a few passes | After **accept-profile**, **Brain Hub “Full expansion”**, **Continue** — user- or setup-initiated, **not** per message             |
-| **Maintenance** ([OPP-015](./OPP-015-wiki-background-maintenance-agents.md), [OPP-025](./OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md)) | **Lint** — link health, drift, safe fixes, coalesced hygiene                                                     | **Periodic** (cron) or **event-threshold** (e.g. changelog size, **mail index completion** as a batch event—not one job per email) |
-| **Discovery / reviewed expansion** ([OPP-026](./OPP-026-knowledge-expansion-discovery-ui.md))                                                            | **Supervised ingest** — structured suggestions, user excludes privacy before writes                              | User opens the flow; execution may call the **same** expansion/maintenance stack                                                   |
+| **Maintenance** ([OPP-015](./archive/OPP-015-wiki-background-maintenance-agents.md), [OPP-025](./archive/OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md)) | **Lint** — link health, drift, safe fixes, coalesced hygiene                                                     | **Periodic** (cron) or **event-threshold** (e.g. changelog size, **mail index completion** as a batch event—not one job per email) |
+| **Discovery / reviewed expansion** ([OPP-026](./archive/OPP-026-knowledge-expansion-discovery-ui.md))                                                            | **Supervised ingest** — structured suggestions, user excludes privacy before writes                              | User opens the flow; execution may call the **same** expansion/maintenance stack                                                   |
 | **Main chat assistant**                                                                                                                                  | **Query** + optional **file-back** (wiki tools when useful); **ripmail** always available for evidence           | Every session                                                                                                                      |
 
 
-So **expansion** is the heavy **initial / explicit** wiki buildout; **maintenance** is the **ongoing gardener**; **chat** is the default **query** surface. [OPP-027](./OPP-027-wiki-nav-indicator-and-activity-surface.md) is where background work surfaces without blocking the main UI.
+So **expansion** is the heavy **initial / explicit** wiki buildout; **maintenance** is the **ongoing gardener**; **chat** is the default **query** surface. [OPP-027](./archive/OPP-027-wiki-nav-indicator-and-activity-surface.md) is where background work surfaces without blocking the main UI.
 
 ## Ingest cadence: Brain vs Karpathy (important distinction)
 
@@ -26,7 +26,7 @@ Karpathy’s gist often reads as **ingest each new source** into the wiki soon a
 Brain’s **source** is mostly **email (and more) at mailbox scale**. Re-running a full wiki **ingestion** agent on **every new message** would be **noise-heavy**, expensive, and would fight users who already have **fast indexed search** (`search_index`, `read_doc`) for raw evidence. The intended shape is:
 
 - **Continuous / automatic:** **ripmail (and friends) keep the corpus indexed** — this is the always-on layer, not an LLM loop per mail.
-- **One setup + periodic / batch wiki updates:** **expansion** after profile accept or on demand; **maintenance** on a schedule or **coarse** triggers (sync finished, weekly lint, Hub “run now”); optional **larger** passes when the user asks or approves ([OPP-026](./OPP-026-knowledge-expansion-discovery-ui.md)).
+- **One setup + periodic / batch wiki updates:** **expansion** after profile accept or on demand; **maintenance** on a schedule or **coarse** triggers (sync finished, weekly lint, Hub “run now”); optional **larger** passes when the user asks or approves ([OPP-026](./archive/OPP-026-knowledge-expansion-discovery-ui.md)).
 
 So the analogy is **not** “LLM ingest ≡ every new email.” It is: **index stays fresh automatically; the wiki is updated in deliberate batches** so synthesis **compounds** without becoming a spam cannon. OPP-033’s “ingest” language means **wiki ingest**, **not** re-indexing mail. Success criteria below use **query / file-back / lint** where **lint + periodic expansion** replace Karpathy’s **per-source ingest** at mail cadence.
 
@@ -35,7 +35,7 @@ So the analogy is **not** “LLM ingest ≡ every new email.” It is: **index s
 Instead of exposing **separate** “expansion” vs “maintenance cron” mental models, the product can offer **one long-running wiki process** while Brain is active (or user-requested):
 
 1. **Build-out** — close gaps vs mail/indexed files: new or deeper pages, structured synthesis, conservative use of web for public facts.
-2. **Lint** — tighten what exists: links, orphans, safe fixes, light hygiene (aligned with [OPP-015](./OPP-015-wiki-background-maintenance-agents.md), [OPP-025](./OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md)).
+2. **Lint** — tighten what exists: links, orphans, safe fixes, light hygiene (aligned with [OPP-015](./archive/OPP-015-wiki-background-maintenance-agents.md), [OPP-025](./archive/OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md)).
 3. **Repeat** — next lap starts with an **updated manifest** (paths in vault) + `me.md` + optional run notes.
 
 **User controls:** **Pause / resume** at any time (hard stop on cost and churn). **Not** “unbounded”: each **lap** and the **overall run** still use **budgets** (turns, tool calls, wall time, token ceilings) and optional **diminishing-returns** heuristics (if a lap adds almost nothing, back off or require user nudge). This is **continuous orchestration** of **bounded chunks**, not one infinite LLM context.
@@ -53,7 +53,7 @@ Instead of exposing **separate** “expansion” vs “maintenance cron” menta
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | **Initial build**            | **One-time** first pass after onboarding (or after a factory reset that clears pages). Establishes the first draft of the personal wiki from profile + indexed sources. | Hub: **Your Wiki** · **Starting your first pages** · Detail: first draft from your profile and mail. |
 | **Building out / enriching** | Ongoing **generative** phase of a lap: new or deeper pages, synthesis, gaps vs mail/files.                                                                              | Hub: **Your Wiki** · **Enriching** · Lap N · Detail: what file or theme is active.                   |
-| **Cleaning up**              | Ongoing **lint / hygiene** phase of the same lap: links, orphans, safe fixes ([OPP-015](./OPP-015-wiki-background-maintenance-agents.md)).                              | Hub: **Your Wiki** · **Cleaning up** · Lap N · Detail: e.g. link pass, last path touched.            |
+| **Cleaning up**              | Ongoing **lint / hygiene** phase of the same lap: links, orphans, safe fixes ([OPP-015](./archive/OPP-015-wiki-background-maintenance-agents.md)).                              | Hub: **Your Wiki** · **Cleaning up** · Lap N · Detail: e.g. link pass, last path touched.            |
 | **Paused**                   | User halted the process; **no** LLM work in flight until resume.                                                                                                        | Hub: **Your Wiki** · **Paused**                                                                      |
 
 
@@ -92,7 +92,7 @@ Product and engineering should converge on **one inspectable background process*
 | **Drill-down**                    | Header **Your Wiki**; body shows **phase** (initial build | enriching | cleaning up), **lap** when not initial build, **last activity** (e.g. path). Default **current lap / current run** only; history optional.                                |
 | **Single process to inspect**     | One timeline / run ID per user-facing process. Internally: separate **enrich** vs **cleanup** agent invocations per lap; **orchestrator** owns pause, budgets, and **resume → new lap at enriching** (see **Pause and resume (contract)** above). |
 | **Pause / resume**                | One **Pause** / **Resume** control. **Resume** does **not** continue the interrupted agent—always **new lap at enriching** (see above).                                                                                                           |
-| **Onboarding / first-run**        | First experience after accept-profile: **Your Wiki** · **Starting your first pages** (initial build). Later: same Hub row, copy shifts to **Enriching** / **Cleaning up** ([OPP-027](./OPP-027-wiki-nav-indicator-and-activity-surface.md)).      |
+| **Onboarding / first-run**        | First experience after accept-profile: **Your Wiki** · **Starting your first pages** (initial build). Later: same Hub row, copy shifts to **Enriching** / **Cleaning up** ([OPP-027](./archive/OPP-027-wiki-nav-indicator-and-activity-surface.md)).      |
 
 
 **Open UX detail:** Whether **cleanup every lap** or **every k laps** is a product toggle; phase label **Cleaning up** still applies when that phase runs.
@@ -107,7 +107,7 @@ Product and engineering should converge on **one inspectable background process*
 | **Initial build** | Background wiki expansion reuses the **seeding** agent but the kickoff message says “anchor on `me.md`” while the model **does not receive** `me.md` in context (unlike the main assistant). | Treat as **BUG** until fixed: [BUG-011](../bugs/BUG-011-wiki-expansion-missing-me-md-context.md).                                                                                                                                                                                               |
 | **Tooling**       | Seeding/expansion **omit** wiki `read` / `grep` / `find` so the agent cannot do Karpathy-style **cross-page maintenance** during bootstrap.                                                  | Either **inject** must-read content (profile, skeleton paths) and/or **narrowly allow** vault read for maintenance passes.                                                                                                                                                                      |
 | **Onboarding UX** | The old **wait until N wiki pages** wizard step was **removed**; accept-profile goes **straight to `done`** while expansion runs in the background.                                          | Throughput ↑, **felt** “wiki is ready” ↓; optional **gate or progress** is a product choice, not nostalgia.                                                                                                                                                                                     |
-| **Operations**    | Karpathy: **index + log**, **lint**, **file good answers back** from chat.                                                                                                                   | Partially covered by [OPP-015](./OPP-015-wiki-background-maintenance-agents.md), [OPP-025](./OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md), [OPP-026](./OPP-026-knowledge-expansion-discovery-ui.md)—but **not** wired as one coherent “compounding loop” narrative or metric. |
+| **Operations**    | Karpathy: **index + log**, **lint**, **file good answers back** from chat.                                                                                                                   | Partially covered by [OPP-015](./archive/OPP-015-wiki-background-maintenance-agents.md), [OPP-025](./archive/OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md), [OPP-026](./archive/OPP-026-knowledge-expansion-discovery-ui.md)—but **not** wired as one coherent “compounding loop” narrative or metric. |
 | **Schema**        | Karpathy co-evolves a **single maintainer constitution** (e.g. `AGENTS.md`-style).                                                                                                           | Brain splits rules across **seeding**, **profiling**, **main assistant** prompts—works, but **consistency** across agent kinds is weaker.                                                                                                                                                       |
 | **Eval**          | Small local wikis (10–20 pages) **under-test** network effects.                                                                                                                              | Deliberate **larger-vault** tests or benchmarks (see [the-wiki-question.md](../the-wiki-question.md)) before big UX investment.                                                                                                                                                                 |
 
@@ -117,11 +117,11 @@ Product and engineering should converge on **one inspectable background process*
 
 | ID                                                                         | Role                                                                                                                             |
 | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| [OPP-015](./OPP-015-wiki-background-maintenance-agents.md)                 | **Lint / scheduled maintenance** — Karpathy “health check” angle; keep as execution track.                                       |
-| [OPP-025](./OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md) | **Hygiene** after edits — complements expansion.                                                                                 |
-| [OPP-026](./OPP-026-knowledge-expansion-discovery-ui.md)                   | **User-reviewed expansion** — supervision Karpathy prefers on ingest; complements blind background passes.                       |
-| [OPP-027](./OPP-027-wiki-nav-indicator-and-activity-surface.md)            | **Activity surface** for background wiki work — user visibility when not blocking onboarding.                                    |
-| [OPP-032](./OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md)           | **Rebuild + re-expand** — recovery when compounding goes wrong.                                                                  |
+| [OPP-015](./archive/OPP-015-wiki-background-maintenance-agents.md)                 | **Lint / scheduled maintenance** — Karpathy “health check” angle; keep as execution track.                                       |
+| [OPP-025](./archive/OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md) | **Hygiene** after edits — complements expansion.                                                                                 |
+| [OPP-026](./archive/OPP-026-knowledge-expansion-discovery-ui.md)                   | **User-reviewed expansion** — supervision Karpathy prefers on ingest; complements blind background passes.                       |
+| [OPP-027](./archive/OPP-027-wiki-nav-indicator-and-activity-surface.md)            | **Activity surface** for background wiki work — user visibility when not blocking onboarding.                                    |
+| [OPP-032](./archive/OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md)           | **Rebuild + re-expand** — recovery when compounding goes wrong.                                                                  |
 | [archive/OPP-006](./archive/OPP-006-email-bootstrap-onboarding.md)         | Historical **profiling → review → seeding**; current path is **review → accept → background expansion** (see onboarding routes). |
 
 
@@ -141,11 +141,11 @@ Product and engineering should converge on **one inspectable background process*
 
 - **Query → file back:** Prompt nudges + optional UI for “save this answer to the wiki” on high-value turns (can start as prompt-only).
 - **Index + log:** Encourage or auto-update `**_index.md` / vault index** and **changelog** conventions so agents and users can navigate at scale (partially present in wiki UI; make it **agent-operational**).
-- **Contradiction / staleness:** Feed **maintenance** agents ([OPP-015](./OPP-015-wiki-background-maintenance-agents.md)) with explicit **wiki vs ripmail spot-check** policies—not only broken links.
+- **Contradiction / staleness:** Feed **maintenance** agents ([OPP-015](./archive/OPP-015-wiki-background-maintenance-agents.md)) with explicit **wiki vs ripmail spot-check** policies—not only broken links.
 
 ### Phase 3 — Product clarity (optional)
 
-- Revisit **post-accept** experience: e.g. **non-blocking** progress (Hub / nav indicator) vs **soft gate** (“wiki still warming up”)—trade latency vs confidence; align with [OPP-027](./OPP-027-wiki-nav-indicator-and-activity-surface.md).
+- Revisit **post-accept** experience: e.g. **non-blocking** progress (Hub / nav indicator) vs **soft gate** (“wiki still warming up”)—trade latency vs confidence; align with [OPP-027](./archive/OPP-027-wiki-nav-indicator-and-activity-surface.md).
 - Implement **Your Wiki** in Hub (see **UX implications** and **“Your Wiki” — user-facing naming and states**): **initial build**, then **Enriching** / **Cleaning up**, **Paused**, **Resume** → new lap at **Enriching**.
 
 ### Phase 4 — Measurement
@@ -154,7 +154,7 @@ Product and engineering should converge on **one inspectable background process*
 
 ## Non-goals (for this OPP)
 
-- Replacing the **substance** of [OPP-015](./OPP-015-wiki-background-maintenance-agents.md) (what lint *does*) or [OPP-026](./OPP-026-knowledge-expansion-discovery-ui.md) (reviewed expansion)—this OPP is **orchestration and UX**; lint remains a **distinct** phase with its own prompt and safety profile.
+- Replacing the **substance** of [OPP-015](./archive/OPP-015-wiki-background-maintenance-agents.md) (what lint *does*) or [OPP-026](./archive/OPP-026-knowledge-expansion-discovery-ui.md) (reviewed expansion)—this OPP is **orchestration and UX**; lint remains a **distinct** phase with its own prompt and safety profile.
 - A **second** philosophical doc; link **from** here **to** [the-wiki-question.md](../the-wiki-question.md) for the full question framing.
 
 ## Success criteria (umbrella)

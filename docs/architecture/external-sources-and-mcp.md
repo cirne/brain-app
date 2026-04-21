@@ -192,7 +192,7 @@ The agent never calls a remote API directly during a conversation. It calls ripm
 ## Related
 
 - [OPP-051: Unified Sources](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) — the `sources[]` model this extends
-- [OPP-053: Calendar](../../ripmail/docs/opportunities/OPP-053-local-gateway-calendar-and-beyond.md) — first non-mail, non-file source; same patterns apply
+- [OPP-053: Calendar](../../ripmail/docs/opportunities/archive/OPP-053-local-gateway-calendar-and-beyond.md) — first non-mail, non-file source; same patterns apply
 - [integrations.md](./integrations.md) — trust boundaries, ripmail subprocess contract
 - [OPP-021](../opportunities/OPP-021-user-settings-page.md) — Settings UI where users connect data sources
 - [OPP-005: Source Ingestion](../opportunities/OPP-005-source-ingestion.md) — cross-tree alignment between brain-app and ripmail OPP-051

@@ -1,6 +1,12 @@
+# Archived: OPP-053 — Indexed calendar in ripmail
+
+**Status: Closed — archived 2026-04-21.** Phase A (sources, `refresh`, SQLite + FTS, `ripmail calendar`) shipped and maintained in code. Phase B (writes / scheduling), EventKit, and “beyond” items are **not** on the near-term roadmap; tracking epic retired.
+
+---
+
 # OPP-053: Indexed calendar in ripmail (read path)
 
-**Status:** Phase A **implemented** (ripmail: sources, `refresh`, SQLite + FTS, `ripmail calendar …`). Phase B (**scheduling** / writes) not started. Optional **EventKit** helper still pending (macOS).
+**Historical status:** Phase A **implemented** (ripmail: sources, `refresh`, SQLite + FTS, `ripmail calendar …`). Phase B (**scheduling** / writes) not started. Optional **EventKit** helper still pending (macOS).
 
 **Created:** 2026-04-19.
 
@@ -8,7 +14,7 @@
 
 ## Summary
 
-Add **calendar** as a first-class `**sources[]` kind** in ripmail: events land in **normalized rows** in SQLite (dedicated tables + FTS), `**ripmail refresh`** pulls Google / ICS / (future) Apple, and agents query via `**ripmail calendar**` (`list-calendars`, `today`, `upcoming`, `search`, `read`) with `**-S` / `--source**` and `**--json**`, consistent with mail.
+Add **calendar** as a first-class `**sources[]` kind** in ripmail: events land in **normalized rows** in SQLite (dedicated tables + FTS), `**ripmail refresh`** pulls Google / ICS / (future) Apple, and agents query via `**ripmail calendar`** (`list-calendars`, `today`, `upcoming`, `search`, `read`) with `**-S` / `--source**` and `**--json**`, consistent with mail.
 
 **Overall architecture** (one CLI, multiple corpora, host alignment, Messages exception): **[ripmail ADR-029](../ARCHITECTURE.md)** and **brain-app** [integrations — trust boundaries](../../../docs/architecture/integrations.md#trust-boundaries-ripmail-vs-direct-sqlite-access).
 
@@ -18,7 +24,7 @@ Add **calendar** as a first-class `**sources[]` kind** in ripmail: events land i
 
 - **ICS-only caches** in a host app are fine for simple read-only subscriptions but are weak for **stable identity**, **incremental sync**, and **writes** (recurrence, exceptions, attendees).
 - **Calendar accounts are not the same as mail accounts**; config should allow linking identities without implying one IMAP mailbox implies one calendar backend.
-- **Agents** need one predictable contract: `**refresh`**, structured **JSON**, `**--source`**, stable ids — same patterns as search/read for mail.
+- **Agents** need one predictable contract: `**refresh`**, structured JSON, `**--source`**, stable ids — same patterns as search/read for mail.
 
 ---
 
@@ -31,11 +37,11 @@ Add **calendar** as a first-class `**sources[]` kind** in ripmail: events land i
 - `**ripmail sources**`: add/list/edit/remove/status for calendar kinds (with `**sources add --help**` for required flags).
 - `**ripmail refresh**`: syncs calendar sources in the same foreground/background pipeline as mail / local dir (`**-S` / `--source**`).
 - Backends: **ICS** (file + URL); **Google Calendar API** with existing OAuth token flow and **read-only** calendar scope; **Apple**: stub until `**ripmail-eventkit`** (or equivalent) ships.
-- CLI: `**ripmail calendar**` query commands; **root help** line + sources line (workflow index, not a second manual).
+- CLI: `**ripmail calendar`** query commands; **root help** line + sources line (workflow index, not a second manual).
 
 ### Phase B (future)
 
-- `**ripmail calendar create|update|delete`**, explicit `**--calendar**` for writes, broader OAuth scopes where needed.
+- `**ripmail calendar create|update|delete`**, explicit `**--calendar`** for writes, broader OAuth scopes where needed.
 - **Apple Calendar** end-to-end via a **single** native helper (NDJSON or similar), **Info.plist** TCC strings — see impl notes in [OPP-053-impl-plan.md](OPP-053-impl-plan.md).
 
 ---
@@ -77,4 +83,3 @@ Today the **web UI** and agent tool `**get_calendar_events`** still use the **IC
 2. **Incremental Google sync** — tune `syncToken` / 410 recovery vs full-window behavior in the field.
 3. **Linux / Windows:** Google API + ICS only; Apple calendar kinds remain **unsupported** off-macOS (clear errors).
 4. Optional **long-lived helper** vs **invoke-per-`refresh`** if sync latency becomes an issue.
-
