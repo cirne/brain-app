@@ -2,7 +2,11 @@
 
 ## Summary
 
-**Status:** Epic — **Phases 0–2 are complete** (April 2026). Next focus: Phase 3 onward (multi-tenant data plane, then identity / DO staging as sequenced below). Advanced storage topics (WAL tuning, Litestream, snapshot playbooks) remain **out of scope** for this epic until needed.
+**Status:** Epic — **Phases 0–2 are complete** (April 2026). **DigitalOcean staging is live:** amd64 image from Container Registry on a **staging droplet** (e.g. internal host `braintunnel-staging`), Brain listening on **port 4000 over plain HTTP**. Durable state uses a **fixed Docker named volume** (`brain_data` → `/brain-data` via `BRAIN_DATA_ROOT` in [`docker-compose.do.yml`](../../docker-compose.do.yml)) so **image pulls, container restarts, and recreate** are **non-destructive** to wiki, vault, ripmail, and chats.
+
+> **WARNING — naked HTTP:** Staging currently exposes the app **without TLS** at the edge. Traffic (cookies, OAuth redirects, page loads) is **visible on the wire** to anyone on the path. Treat this as **internal / staging only** until HTTPS is terminated (reverse proxy, Caddy, nginx, or DigitalOcean Load Balancer). See [Next steps (HTTPS / edge)](#next-steps-https--edge) below.
+
+**Next focus:** wire **HTTPS + public origin** for real testers; then Phase 3–4 (multi-tenant data plane, Google identity + vault). Advanced storage topics (WAL tuning, Litestream, snapshot playbooks) remain **out of scope** until needed.
 
 **Intent:** Sequence milestones from **today** (single-tenant desktop and dev server, `[BRAIN_HOME](OPP-012-brain-home-data-layout.md)` + [layout JSON](../../shared/brain-layout.json)) to a **Linux container** deployment on **DigitalOcean** that is **usable by test users** in a **relatively secure** way: **Google** as the identity and mail/calendar connector, **per-tenant durable disk** (survive image updates and reboots), and a **vault password** layered on top for unlock semantics and future mobile access—without pretending we ship **macOS-only** integrations (Full Disk Access, iMessage, bundled loopback OAuth) in this slice.
 
@@ -26,7 +30,19 @@ Historical Docker artifacts were removed from the monorepo; the last snapshot is
 4. The system provisions or attaches a **tenant-scoped home directory** containing wiki, chats, `var/`, `cache/`, and `**ripmail/`** (`RIPMAIL_HOME` layout unchanged per tenant).
 5. **Background sync** can run 24/7; **container replacements** do not wipe user data because `**BRAIN_HOME` lives on attached block storage**, not the container’s ephemeral layer.
 
-**Security bar:** Treat **cross-tenant contamination** as a shipping risk class; follow the checklist in [packaging-and-distribution.md](../packaging-and-distribution.md) and the guardrails in [multi-tenant-cloud-architecture.md](../architecture/multi-tenant-cloud-architecture.md).
+**Staging (April 2026) — what is deployed today**
+
+| Item | Detail |
+|------|--------|
+| **Compute** | DigitalOcean **staging droplet** (amd64), Docker Engine + Compose plugin |
+| **Image** | `registry.digitalocean.com/braintunnel/brain-app` (`npm run docker:publish`, default **`linux/amd64`**) |
+| **Compose** | [`docker-compose.do.yml`](../../docker-compose.do.yml) — `platform: linux/amd64`, `PORT=4000` in-container |
+| **Listen** | Host **`${BRAIN_DOCKER_PORT:-4000}:4000`**, **HTTP only** (no TLS inside the Brain container) |
+| **Durable data** | Docker **named volume** `brain_data` mounted at **`/brain-data`**; `BRAIN_DATA_ROOT=/brain-data` so the app’s home tree lives **outside** the image layer — **updates and restarts do not wipe data** |
+
+Runbook pointers: [digitalocean.md](../digitalocean.md).
+
+**Security bar:** Treat **cross-tenant contamination** as a shipping risk class; follow the checklist in [packaging-and-distribution.md](../packaging-and-distribution.md) and the guardrails in [multi-tenant-cloud-architecture.md](../architecture/multi-tenant-cloud-architecture.md). **In addition:** until HTTPS is enabled, treat **traffic confidentiality** as **not met** for any sensitive cohort.
 
 ---
 
@@ -34,7 +50,7 @@ Historical Docker artifacts were removed from the monorepo; the last snapshot is
 
 Each phase has **exit criteria** so work can pause between them without half-finished production exposure.
 
-**Done so far:** Phase 0 (scope / parity doc), Phase 1 (single-tenant Docker on a developer machine), and Phase 2 (mounted `BRAIN_HOME` survives container stop/start) are **closed**.
+**Done so far:** Phase 0 (scope / parity doc), Phase 1 (single-tenant Docker on a developer machine), Phase 2 (mounted home survives container stop/start — **validated on staging** via named volume + `BRAIN_DATA_ROOT`), and **Phase 5 staging slice** (droplet + registry + compose + HTTP :4000) are **closed or in progress** as noted under Phase 5.
 
 ### Phase 0 — Written scope and parity matrix (no new infra)
 
@@ -80,7 +96,7 @@ npm run docker:up
 - **Operational notes:** SQLite WAL, single-writer expectations, backup/snapshot story (provider snapshots + optional Litestream/S3-style off-site per [multi-tenant-cloud-architecture.md](../architecture/multi-tenant-cloud-architecture.md)).
 - **Local simulation:** Use a dedicated host path or a single **block volume** on a VM to mimic production before multi-tenant routing exists.
 
-**Exit criteria:** Documented repro: **delete and recreate** the container (same mount) → user data still present; ripmail and wiki paths consistent.
+**Exit criteria:** Documented repro: **delete and recreate** the container (same mount) → user data still present; ripmail and wiki paths consistent. **Staging:** `docker compose -f docker-compose.do.yml pull && … up -d` against the same host leaves **`brain_data`** intact.
 
 ---
 
@@ -114,17 +130,35 @@ npm run docker:up
 
 ### Phase 5 — DigitalOcean: staging environment
 
-**Goals**
+**Status: staging online; TLS / production edge incomplete (April 2026)**
 
-- **Choose compute shape:**
-  - **App Platform:** Officially oriented around **ephemeral** local disk for workloads; persistent data is expected to use **Spaces**, managed DB, or external services ([DO: Store data in App Platform](https://docs.digitalocean.com/products/app-platform/how-to/store-data)). Brain’s current **on-disk wiki + ripmail SQLite** layout maps naturally to **block storage**, not to ephemeral instance disk. **Do not assume** block volumes can mount on App Platform without verifying current product limits—today this is usually a poor fit for “large ripmail index on local filesystem” unless storage is redesigned.
-  - **Droplet + Block Storage Volume (recommended v1):** One or more Droplets, **ext4** volume mounted at `DATA_ROOT`, Docker (or Compose), firewall, automated **volume snapshots**. Matches “NAS / block storage” in [multi-tenant-cloud-architecture.md](../architecture/multi-tenant-cloud-architecture.md).
-  - **DOKS:** Possible later: persistent volumes per tenant or shared node with CSI—more moving parts for a first cohort.
-- **TLS:** Terminate TLS (Caddy/Traefik/Nginx or DO load balancer) with real certificates.
-- **Secrets:** LLM and `GOOGLE_OAUTH_`* via DO secrets or env injection; contrast with **embedded** secrets in the desktop build ([AGENTS.md](../../AGENTS.md)).
-- **Automation:** `doctl` commands or IaC notes for: Droplet, volume, mount, firewall, DNS.
+**Done (staging slice)**
 
-**Exit criteria:** Staging URL used by internal testers; documented **deploy and rollback** steps; backups/snapshots scheduled.
+- **Droplet + Docker + Compose:** Staging host running [`docker-compose.do.yml`](../../docker-compose.do.yml); image from **Container Registry** (`npm run docker:publish`, **`linux/amd64`**).
+- **HTTP :4000:** App reachable on host port **4000** (plain HTTP). Firewall allows the published port per [digitalocean.md](../digitalocean.md).
+- **Non-destructive updates:** Durable data in Docker named volume **`brain_data`** (`BRAIN_DATA_ROOT=/brain-data`); pulling a new image and recreating the container **does not** wipe user data.
+- **CLI / registry:** `doctl` contexts, **`./scripts/doctl-brain.sh`**, publish script — [digitalocean.md](../digitalocean.md).
+
+**Still open (Phase 5 exit criteria)**
+
+- **HTTPS** at the edge and a **stable public origin** (`PUBLIC_WEB_ORIGIN`, Google OAuth redirect URIs) — see [Next steps (HTTPS / edge)](#next-steps-https--edge).
+- **Optional hardening:** Dedicated **Block Storage** volume mounted at the Docker data root (vs default local disk on the droplet), automated **volume snapshots**, documented **rollback** for image tags.
+- **Longer-term compute options** (unchanged from planning):
+  - **App Platform:** Often a poor fit for large on-disk ripmail/wiki without storage redesign ([DO: Store data in App Platform](https://docs.digitalocean.com/products/app-platform/how-to/store-data)).
+  - **Droplet + Block Storage Volume (recommended for production v1):** **ext4** volume at `DATA_ROOT`, snapshots — aligns with [multi-tenant-cloud-architecture.md](../architecture/multi-tenant-cloud-architecture.md).
+  - **DOKS:** Later if we outgrow single-VM Compose.
+
+**Exit criteria (updated):** Staging proves **pull + recreate** without data loss (**met**). Remaining: **HTTPS URL** for internal testers; documented **deploy and rollback**; backups/snapshots **scheduled** for anything beyond dev staging.
+
+---
+
+### Next steps (HTTPS / edge)
+
+1. **Terminate TLS** in front of the container — e.g. **Caddy** or **nginx** on the droplet (Let’s Encrypt), or a **DigitalOcean Load Balancer** / **Cloudflare** (or similar) forwarding to the droplet’s **4000** (or to **80/443** on the proxy).
+2. Set **`PUBLIC_WEB_ORIGIN`** in droplet `.env` to the **canonical `https://…`** origin users open (required for OAuth and cookie semantics; see [google-oauth.md](../google-oauth.md), [cloud-hosted-v1-scope.md](../architecture/cloud-hosted-v1-scope.md)).
+3. In **Google Cloud Console**, add **Authorized redirect URIs** for that origin (e.g. `https://<host>/api/oauth/google/callback`).
+4. **Restrict exposure:** Prefer **not** exposing raw **:4000** on the public Internet once 443 is live; firewall to **22 + 80 + 443** (or LB health paths only) as appropriate.
+5. Re-run **smoke tests** (vault, Gmail connect, chat) over **HTTPS** before widening the tester list.
 
 ---
 
@@ -167,4 +201,4 @@ npm run docker:up
 
 ## Suggested sequencing for a small team
 
-**Fast path to learning:** Phases 0–1 are **done**; then Phase 2 → Phase 5 (single-tenant on a Droplet) **before** full Phase 3–4 multiplexing, if the goal is to validate ripmail + OAuth + TLS on the internet with one brave user. **Do not** skip isolation work before inviting arbitrary parallel users—Phase 3 and Phase 4 are **gating** for a multi-user URL.
+**Fast path to learning:** Phases 0–2 and a **Phase 5 staging droplet** are **done** for **HTTP** and durable volume behavior. **Before** inviting non-internal testers: complete **HTTPS + `PUBLIC_WEB_ORIGIN`** ([Next steps (HTTPS / edge)](#next-steps-https--edge)). Full Phase 3–4 multiplexing remains **gating** for arbitrary **multi-user** URLs.

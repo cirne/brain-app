@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { renderMarkdown } from '../markdown.js'
   import { getToolUiPolicy, type ChatMessage } from '../agentUtils.js'
+  import StreamingAgentMarkdown from './StreamingAgentMarkdown.svelte'
   import ToolCallBlock from './ToolCallBlock.svelte'
 
   let {
@@ -45,10 +45,7 @@
           {onOpenMessageThread}
         />
       {:else if part.type === 'text' && part.content}
-        <div class="msg-content markdown">
-          <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-          {@html renderMarkdown(part.content)}
-        </div>
+        <StreamingAgentMarkdown class="msg-content" content={part.content} />
       {/if}
     {/each}
 
@@ -87,89 +84,6 @@
     white-space: pre-wrap;
     font-size: 14px;
     line-height: 1.5;
-  }
-
-  .markdown {
-    font-size: 14px;
-    line-height: 1.6;
-    min-width: 0;
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-  }
-  .markdown :global(h1) {
-    font-size: 1.4em;
-    margin: 0.8em 0 0.4em;
-  }
-  .markdown :global(h2) {
-    font-size: 1.2em;
-    margin: 0.8em 0 0.3em;
-  }
-  .markdown :global(h3) {
-    font-size: 1.05em;
-    margin: 0.6em 0 0.2em;
-  }
-  .markdown :global(p) {
-    margin-bottom: 0.6em;
-  }
-  .markdown :global(ul),
-  .markdown :global(ol) {
-    margin: 0.4em 0 0.6em 1.2em;
-  }
-  .markdown :global(code) {
-    background: var(--bg-3);
-    padding: 0.1em 0.4em;
-    border-radius: 3px;
-    font-size: 0.88em;
-  }
-  .markdown :global(pre) {
-    background: var(--bg-3);
-    padding: 10px 14px;
-    border-radius: 6px;
-    overflow-x: auto;
-    margin: 0.5em 0;
-  }
-  .markdown :global(pre code) {
-    background: none;
-    padding: 0;
-  }
-  .markdown :global(blockquote) {
-    border-left: 3px solid var(--border);
-    padding-left: 10px;
-    color: var(--text-2);
-    margin: 0.5em 0;
-  }
-  .markdown :global(a) {
-    color: var(--accent);
-  }
-  .markdown :global(table) {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 0.5em 0;
-    font-size: 13px;
-  }
-  .markdown :global(th),
-  .markdown :global(td) {
-    border: 1px solid var(--border);
-    padding: 4px 8px;
-  }
-  .markdown :global(th) {
-    background: var(--bg-3);
-  }
-  .markdown :global(.date-link),
-  .markdown :global(.wiki-link) {
-    color: var(--accent);
-    text-decoration: underline;
-    text-decoration-style: dotted;
-    cursor: pointer;
-    font: inherit;
-    font-size: inherit;
-    padding: 0;
-    background: none;
-    border: none;
-  }
-  .markdown :global(.date-link:hover),
-  .markdown :global(.wiki-link:hover) {
-    text-decoration-style: solid;
   }
 
   .cursor {

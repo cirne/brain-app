@@ -5,9 +5,10 @@
   import { Mail, User } from 'lucide-svelte'
   import type { AgentConversationViewProps, ConversationScrollApi } from '../agentConversationViewTypes.js'
   import WikiFileName from '../WikiFileName.svelte'
+  import StreamingAgentMarkdown from '../agent-conversation/StreamingAgentMarkdown.svelte'
+  import { STREAMING_AGENT_MD_MAX } from '../agent-conversation/streamingAgentMarkdown.js'
   import { getToolIcon } from '../toolIcons.js'
   import { getToolUiPolicy } from '../agentUtils.js'
-  import { renderMarkdown } from '../markdown.js'
   import OnboardingActivityTranscriptShell from './OnboardingActivityTranscriptShell.svelte'
   import OnboardingLocalWikiLead from './OnboardingLocalWikiLead.svelte'
   import { profilingLeadCopy } from './onboardingLeadCopy.js'
@@ -77,15 +78,15 @@
     <OnboardingLocalWikiLead {...profilingLeadCopy} hideTitle />
 
     {#if streaming && activity}
-      <p class="ob-prof-activity" role="status" aria-live="polite">
+      <div class="ob-prof-activity" role="status" aria-live="polite">
         <span class="ob-prof-pulse" aria-hidden="true" class:ob-prof-pulse--still={reduceMotion}></span>
-        {activity}
-      </p>
+        <StreamingAgentMarkdown class="ob-prof-activity-md" content={activity} />
+      </div>
     {:else if streaming}
-      <p class="ob-prof-activity" role="status" aria-live="polite">
+      <div class="ob-prof-activity" role="status" aria-live="polite">
         <span class="ob-prof-pulse" aria-hidden="true"></span>
-        Working…
-      </p>
+        <StreamingAgentMarkdown class="ob-prof-activity-md" content="Working…" />
+      </div>
     {/if}
 
     {#if streaming && lastTool && lastToolIcon}
@@ -100,10 +101,7 @@
       {#if event.type === 'text'}
         <div class="ob-prof-chat-msg" role="article">
           <div class="ob-prof-msg-label">Assistant</div>
-          <div class="ob-prof-msg-body markdown">
-            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-            {@html renderMarkdown(event.content)}
-          </div>
+          <StreamingAgentMarkdown class="ob-prof-msg-body" content={event.content} />
         </div>
       {:else}
         <div class="ob-prof-inline-mail" role="article">
@@ -180,8 +178,11 @@
         {#if profileDraftStreaming}
           <p class="ob-prof-msg-stream-hint" role="status">Writing me.md…</p>
         {/if}
-        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-        <div class="ob-prof-msg-body markdown">{@html renderMarkdown(profileDraftPreview.slice(0, 50000))}</div>
+        <StreamingAgentMarkdown
+          class="ob-prof-msg-body"
+          content={profileDraftPreview}
+          maxLength={STREAMING_AGENT_MD_MAX}
+        />
       </div>
     {/if}
 

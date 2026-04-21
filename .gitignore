@@ -9,6 +9,7 @@ dist/
 .DS_Store
 *.tsbuildinfo
 data/
+data-multitenant/
 # Local wiki tree (markdown); not part of this app repo
 wiki/
 coverage/

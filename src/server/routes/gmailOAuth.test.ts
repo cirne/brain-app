@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -96,7 +97,7 @@ describe('GET /api/oauth/google/callback', () => {
         }
         if (url.includes('googleapis.com/oauth2/v3/userinfo')) {
           return new Response(
-            JSON.stringify({ email: 'user@gmail.com' }),
+            JSON.stringify({ email: 'user@gmail.com', sub: 'userinfo-sub-stable' }),
             { status: 200, headers: { 'Content-Type': 'application/json' } }
           )
         }
@@ -156,7 +157,7 @@ describe('GET /api/oauth/google/callback', () => {
         }
         if (url.includes('googleapis.com/oauth2/v3/userinfo')) {
           return new Response(
-            JSON.stringify({ email: 'u@gmail.com' }),
+            JSON.stringify({ email: 'u@gmail.com', sub: 'last-result-sub' }),
             { status: 200, headers: { 'Content-Type': 'application/json' } }
           )
         }
@@ -184,5 +185,74 @@ describe('GET /api/oauth/google/callback', () => {
     const j1 = (await r1.json()) as { done: boolean; error?: string }
     expect(j1.done).toBe(true)
     expect(j1.error).toContain('expired')
+  })
+
+  describe('multi-tenant data root', () => {
+    let mtRoot: string
+
+    beforeEach(async () => {
+      delete process.env.BRAIN_HOME
+      mtRoot = await mkdtemp(join(tmpdir(), 'gmail-oauth-mt-'))
+      process.env.BRAIN_DATA_ROOT = mtRoot
+    })
+
+    afterEach(async () => {
+      await rm(mtRoot, { recursive: true, force: true })
+      delete process.env.BRAIN_DATA_ROOT
+      process.env.BRAIN_HOME = brainHome
+    })
+
+    it('callback provisions workspace, maps identity, sets session cookie', async () => {
+      const { verifier } = generatePkce()
+      const state = 'state-mt-callback'
+      putOAuthSession(state, verifier)
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = typeof input === 'string' ? input : input.toString()
+          if (url.includes('oauth2.googleapis.com/token')) {
+            return new Response(
+              JSON.stringify({
+                access_token: 'access-token',
+                refresh_token: 'refresh-token',
+                expires_in: 3600,
+              }),
+              { status: 200, headers: { 'Content-Type': 'application/json' } },
+            )
+          }
+          if (url.includes('googleapis.com/oauth2/v3/userinfo')) {
+            return new Response(
+              JSON.stringify({
+                email: 'hosted@gmail.com',
+                sub: 'google-mt-hosted-sub',
+              }),
+              { status: 200, headers: { 'Content-Type': 'application/json' } },
+            )
+          }
+          throw new Error(`unexpected fetch: ${url}`)
+        }),
+      )
+
+      const app = mountApp()
+      const res = await app.request(
+        `http://localhost/api/oauth/google/callback?code=auth-code&state=${encodeURIComponent(state)}`,
+      )
+      expect(res.status).toBe(302)
+      expect(res.headers.get('location')).toContain('/oauth/google/complete')
+      expect(res.headers.get('set-cookie') ?? '').toContain('brain_session=')
+
+      const regRaw = await readFile(join(mtRoot, '.global', 'tenant-registry.json'), 'utf8')
+      const reg = JSON.parse(regRaw) as {
+        sessions: Record<string, string>
+        identities?: Record<string, string>
+      }
+      expect(Object.keys(reg.sessions).length).toBe(1)
+      expect(reg.identities?.['google:google-mt-hosted-sub']).toMatch(/^hosted/)
+
+      const handle = reg.identities!['google:google-mt-hosted-sub']
+      const tokenPath = join(mtRoot, handle, 'ripmail', 'hosted_gmail_com', 'google-oauth.json')
+      expect(existsSync(tokenPath)).toBe(true)
+    })
   })
 })

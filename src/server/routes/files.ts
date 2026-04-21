@@ -9,6 +9,9 @@ import { Hono } from 'hono'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
 import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
+import { isMultiTenantMode } from '../lib/dataRoot.js'
+import { brainHome, ripmailHomeForBrain } from '../lib/brainHome.js'
+import { isAbsolutePathAllowedUnderRoots } from '../lib/resolveTenantSafePath.js'
 
 const files = new Hono()
 
@@ -29,6 +32,12 @@ files.get('/read', async c => {
     return c.json({ error: 'missing path' }, 400)
   }
   const fullPath = expandToAbsolute(raw)
+  if (
+    isMultiTenantMode() &&
+    !isAbsolutePathAllowedUnderRoots(fullPath, brainHome(), [ripmailHomeForBrain()])
+  ) {
+    return c.json({ error: 'path not allowed for this tenant' }, 403)
+  }
   if (!existsSync(fullPath)) {
     return c.json({ error: 'Not found' }, 404)
   }

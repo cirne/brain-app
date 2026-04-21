@@ -17,6 +17,8 @@ export interface BrainLayout {
     dirIconsCache: string
     vaultVerifier?: string
     vaultSessions?: string
+    /** Sidebar RECENTS (docs + email threads), server-backed */
+    navRecents?: string
   }
 }
 
@@ -77,5 +79,11 @@ export function brainLayoutVaultVerifierPath(base: string): string {
 export function brainLayoutVaultSessionsPath(base: string): string {
   const L = getBrainLayout()
   const name = L.files.vaultSessions ?? 'vault-sessions.json'
+  return join(base, L.directories.var, name)
+}
+
+export function brainLayoutNavRecentsPath(base: string): string {
+  const L = getBrainLayout()
+  const name = L.files.navRecents ?? 'nav-recents.json'
   return join(base, L.directories.var, name)
 }

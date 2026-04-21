@@ -21,15 +21,18 @@ import onboardingRoute from './routes/onboarding.js'
 import backgroundRoute from './routes/background.js'
 import yourWikiRoute from './routes/yourWiki.js'
 import gmailOAuthRoute from './routes/gmailOAuth.js'
+import navRecentsRoute from './routes/navRecents.js'
 import oauthGoogleBrowserPages from './routes/oauthGoogleBrowserPages.js'
 import hubRoute from './routes/hub.js'
 import devRoute from './routes/dev.js'
 import vaultRoute from './routes/vault.js'
 import { vaultGateMiddleware } from './lib/vaultGate.js'
+import { tenantMiddleware } from './lib/tenantMiddleware.js'
 import { ensureYourWikiRunning, requestLapNow } from './agent/yourWikiSupervisor.js'
 import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
 import { runStartupChecks } from './lib/runStartupChecks.js'
 import { ensureBrainHomeGitignore } from './lib/brainHomeGitignore.js'
+import { isMultiTenantMode } from './lib/dataRoot.js'
 import { runSplitLayoutMigrationIfNeeded } from './lib/splitLayoutMigration.js'
 import { ensureDefaultSkillsSeeded } from './lib/skillsSeeder.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
@@ -117,6 +120,7 @@ app.use('*', async (c, next) => {
   return next()
 })
 
+app.use('/api/*', tenantMiddleware)
 app.use('/api/*', vaultGateMiddleware)
 
 const requestLogger = logger()
@@ -150,6 +154,7 @@ app.route('/api/hub', hubRoute)
 app.route('/api/background', backgroundRoute)
 app.route('/api/your-wiki', yourWikiRoute)
 app.route('/api/oauth/google', gmailOAuthRoute)
+app.route('/api/nav/recents', navRecentsRoute)
 app.route('/oauth/google', oauthGoogleBrowserPages)
 if (isDev) {
   app.route('/api/dev', devRoute)
@@ -159,26 +164,28 @@ let shuttingDown = false
 let syncTimer: ReturnType<typeof setInterval> | undefined
 
 function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) => void) => void }) {
-  const intervalMs = getSyncIntervalMs()
-  syncTimer = setInterval(() => {
-    if (shuttingDown) return
-    void (async () => {
-      try {
-        await runFullSync()
-        // Wake the wiki supervisor after each sync so it can pick up new mail-sourced content.
-        requestLapNow()
-      } catch (e) {
-        console.error('[brain-app] periodic sync error:', e)
-      }
-    })()
-  }, intervalMs)
+  if (!isMultiTenantMode()) {
+    const intervalMs = getSyncIntervalMs()
+    syncTimer = setInterval(() => {
+      if (shuttingDown) return
+      void (async () => {
+        try {
+          await runFullSync()
+          // Wake the wiki supervisor after each sync so it can pick up new mail-sourced content.
+          requestLapNow()
+        } catch (e) {
+          console.error('[brain-app] periodic sync error:', e)
+        }
+      })()
+    }, intervalMs)
 
-  // Start the Your Wiki continuous loop (idempotent; respects persisted pause state).
-  void ensureYourWikiRunning().catch((e) => {
-    console.error('[your-wiki] startup error:', e)
-  })
+    // Start the Your Wiki continuous loop (idempotent; respects persisted pause state).
+    void ensureYourWikiRunning().catch((e) => {
+      console.error('[your-wiki] startup error:', e)
+    })
 
-  startRipmailBackfillSupervisor()
+    startRipmailBackfillSupervisor()
+  }
 
   const shutdown = async () => {
     if (shuttingDown) return
@@ -187,12 +194,16 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
       clearInterval(syncTimer)
       syncTimer = undefined
     }
-    stopRipmailBackfillSupervisor()
+    if (!isMultiTenantMode()) {
+      stopRipmailBackfillSupervisor()
+    }
     stopTunnel()
-    try {
-      await runFullSync()
-    } catch (e) {
-      console.error('[brain-app] shutdown sync error:', e)
+    if (!isMultiTenantMode()) {
+      try {
+        await runFullSync()
+      } catch (e) {
+        console.error('[brain-app] shutdown sync error:', e)
+      }
     }
     server.close(() => {
       process.exit(0)
@@ -270,9 +281,11 @@ async function listenNativeBundled(): Promise<ServerType> {
 async function start() {
   try {
     initLocalMessageToolsAvailability()
-    await runSplitLayoutMigrationIfNeeded()
-    await ensureBrainHomeGitignore()
-    await ensureDefaultSkillsSeeded()
+    if (!isMultiTenantMode()) {
+      await runSplitLayoutMigrationIfNeeded()
+      await ensureBrainHomeGitignore()
+      await ensureDefaultSkillsSeeded()
+    }
 
     // Inline NODE_ENV check so production bundles can drop the Vite branch (see esbuild define).
     if (process.env.NODE_ENV !== 'production') {

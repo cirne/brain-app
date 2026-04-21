@@ -100,7 +100,7 @@
         return
       }
       sessions = await res.json()
-      navHistory = loadNavHistory()
+      navHistory = await loadNavHistory()
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load'
       sessions = []
@@ -125,7 +125,7 @@
     if (item.type === 'chat' && item.sessionId) {
       pendingDelete = { sessionId: item.sessionId, label: labelForDeleteChatDialog(item.title) }
     } else {
-      navHistory = removeFromNavHistory(item.id)
+      void removeFromNavHistory(item.id)
     }
   }
 
@@ -160,7 +160,7 @@
 
   $effect(() => {
     return subscribe((e) => {
-      if (e.type === 'chat:sessions-changed') void refresh()
+      if (e.type === 'chat:sessions-changed' || e.type === 'nav:recents-changed') void refresh()
     })
   })
 </script>

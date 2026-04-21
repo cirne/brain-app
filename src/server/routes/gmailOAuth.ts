@@ -5,13 +5,19 @@ import {
   buildGoogleAuthorizeUrl,
   deriveMailboxId,
   exchangeAuthorizationCode,
-  fetchGoogleUserEmail,
+  fetchGoogleUserInfo,
   generatePkce,
   GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY,
   upsertRipmailConfig,
   upsertRipmailGoogleCalendarSource,
   writeGoogleOAuthTokenFile,
 } from '../lib/googleOAuth.js'
+import { isMultiTenantMode, tenantHomeDir } from '../lib/dataRoot.js'
+import { resolveOrProvisionWorkspace } from '../lib/googleIdentityWorkspace.js'
+import { createVaultSession } from '../lib/vaultSessionStore.js'
+import { setBrainSessionCookie } from '../lib/vaultCookie.js'
+import { registerSessionTenant } from '../lib/tenantRegistry.js'
+import { runWithTenantContextAsync } from '../lib/tenantContext.js'
 import {
   newOAuthState,
   putOAuthSession,
@@ -25,13 +31,15 @@ import {
 
 const app = new Hono()
 
-function getOAuthConfig(): { clientId: string; clientSecret: string; redirectUri: string } | null {
+function getOAuthConfig(
+  c: Context
+): { clientId: string; clientSecret: string; redirectUri: string } | null {
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim()
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim()
   if (!clientId || !clientSecret) {
     return null
   }
-  return { clientId, clientSecret, redirectUri: googleOAuthRedirectUri() }
+  return { clientId, clientSecret, redirectUri: googleOAuthRedirectUri(c) }
 }
 
 function redirectOauthError(c: Context, message: string) {
@@ -41,7 +49,7 @@ function redirectOauthError(c: Context, message: string) {
 }
 
 app.get('/start', (c) => {
-  const oauth = getOAuthConfig()
+  const oauth = getOAuthConfig(c)
   if (!oauth) {
     return redirectOauthError(
       c,
@@ -73,7 +81,7 @@ app.get('/last-result', (c) => {
 })
 
 app.get('/callback', async (c) => {
-  const oauth = getOAuthConfig()
+  const oauth = getOAuthConfig(c)
   if (!oauth) {
     return redirectOauthError(
       c,
@@ -121,12 +129,38 @@ app.get('/callback', async (c) => {
     )
   }
   let email: string
+  let sub: string
   try {
-    email = await fetchGoogleUserEmail({ accessToken: tokens.accessToken })
+    const u = await fetchGoogleUserInfo({ accessToken: tokens.accessToken })
+    email = u.email
+    sub = u.sub
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return redirectOauthError(c, msg)
   }
+
+  if (isMultiTenantMode()) {
+    const { workspaceHandle } = await resolveOrProvisionWorkspace(sub, email)
+    const homeDir = tenantHomeDir(workspaceHandle)
+    return runWithTenantContextAsync({ workspaceHandle, homeDir }, async () => {
+      const mailboxId = deriveMailboxId(email)
+      const ripmailHome = ripmailHomeForBrain()
+      try {
+        await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
+        await upsertRipmailConfig(ripmailHome, mailboxId, email)
+        await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        return redirectOauthError(c, msg)
+      }
+      const sessionId = await createVaultSession()
+      await registerSessionTenant(sessionId, workspaceHandle)
+      setBrainSessionCookie(c, sessionId)
+      recordGoogleOauthSuccess()
+      return c.redirect('/oauth/google/complete', 302)
+    })
+  }
+
   const mailboxId = deriveMailboxId(email)
   const ripmailHome = ripmailHomeForBrain()
   try {

@@ -3,6 +3,8 @@ import { getCookie } from 'hono/cookie'
 import { BRAIN_SESSION_COOKIE } from './vaultCookie.js'
 import { validateVaultSession } from './vaultSessionStore.js'
 import { vaultVerifierExistsSync } from './vaultVerifierStore.js'
+import { isMultiTenantMode } from './dataRoot.js'
+import { tryGetTenantContext } from './tenantContext.js'
 
 /** Dev-only POST shims used by {@link App.svelte} before vault session exists. */
 function isDevBootstrapPost(path: string, method: string): boolean {
@@ -47,6 +49,22 @@ export async function vaultGateMiddleware(c: Context, next: Next): Promise<Respo
 
   if (isDevBootstrapPost(path, method)) {
     return next()
+  }
+
+  if (isMultiTenantMode()) {
+    const ctx = tryGetTenantContext()
+    const sid = getCookie(c, BRAIN_SESSION_COOKIE)
+    const sessionOk = ctx ? await validateVaultSession(sid) : false
+    if (ctx && sessionOk) {
+      return next()
+    }
+    if (isVaultPublic(path, method) || isBootstrapOnboardingStatus(path, method)) {
+      return next()
+    }
+    return c.json(
+      { error: 'auth_required', message: 'Sign in with Google to continue.' },
+      401,
+    )
   }
 
   const hasVault = vaultVerifierExistsSync()

@@ -29,6 +29,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 - [docs/VISION.md](docs/VISION.md) — product vision and long-term direction
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, configuration overview (brain-app)
 - [docs/architecture/](docs/architecture/) — ADRs and recorded considerations (indexed in [README](docs/architecture/README.md)); ripmail crate: `[ripmail/docs/ARCHITECTURE.md](ripmail/docs/ARCHITECTURE.md)`
+- [docs/digitalocean.md](docs/digitalocean.md) — DigitalOcean CLI (`doctl`): teams, API tokens, named contexts, BrainTunnel helper script
 - [docs/BUGS.md](docs/BUGS.md) — known bugs (active + archived)
 - [docs/OPPORTUNITIES.md](docs/OPPORTUNITIES.md) — feature ideas and improvements (WIP and future)
 - [docs/PRODUCTIZATION.md](docs/PRODUCTIZATION.md) — blockers and tradeoffs for generalizing to multi-user product
@@ -50,6 +51,8 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 ## Configuration
 
 Copy `[.env.example](.env.example)` to `.env` and edit. Variable names and inline comments live in `.env.example`; semantics and architecture-level notes are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/architecture/configuration.md](docs/architecture/configuration.md).
+
+**DigitalOcean:** optional `DO_TOKEN` in `.env` is for your local `doctl` workflow only (Brain does not consume it). See [docs/digitalocean.md](docs/digitalocean.md).
 
 ## Node.js (nvm) — do this before any Node command
 

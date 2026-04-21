@@ -9,8 +9,17 @@ const BUNDLED_NATIVE_SKIP_KEYS = new Set([
   'RIPMAIL_BIN',
   'RIPMAIL_HOME',
   'BRAIN_HOME',
+  'BRAIN_DATA_ROOT',
   'BRAIN_WIKI_ROOT',
 ])
+
+/** When `BRAIN_DATA_ROOT` is set, single-tenant path vars must not apply (.env.example). */
+export function enforceDataRootEnvPrecedence(): void {
+  if (process.env.BRAIN_DATA_ROOT?.trim()) {
+    delete process.env.BRAIN_HOME
+    delete process.env.BRAIN_WIKI_ROOT
+  }
+}
 
 export function loadDotEnv(): void {
   try {
@@ -32,4 +41,5 @@ export function loadDotEnv(): void {
   } catch {
     /* no .env file */
   }
+  enforceDataRootEnvPrecedence()
 }

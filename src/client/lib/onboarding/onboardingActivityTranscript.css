@@ -42,83 +42,33 @@
   margin: 0 0 8px;
 }
 
+/* Layout only — markdown typography lives in streamingAgentMarkdown.css via StreamingAgentMarkdown.svelte */
 .ob-prof-msg-body {
-  font-size: 14px;
-  line-height: 1.6;
-  min-width: 0;
-  overflow-wrap: break-word;
-  word-wrap: break-word;
   padding-right: 2px;
-}
-
-.ob-prof-msg-body :global(h1) {
-  font-size: 1.4em;
-  margin: 0.8em 0 0.4em;
-}
-.ob-prof-msg-body :global(h2) {
-  font-size: 1.2em;
-  margin: 0.8em 0 0.3em;
-}
-.ob-prof-msg-body :global(h3) {
-  font-size: 1.05em;
-  margin: 0.6em 0 0.2em;
-}
-.ob-prof-msg-body :global(p) {
-  margin-bottom: 0.6em;
-}
-.ob-prof-msg-body :global(ul),
-.ob-prof-msg-body :global(ol) {
-  margin: 0.4em 0 0.6em 1.2em;
-}
-.ob-prof-msg-body :global(code) {
-  background: var(--bg-3);
-  padding: 0.1em 0.4em;
-  border-radius: 3px;
-  font-size: 0.88em;
-}
-.ob-prof-msg-body :global(pre) {
-  background: var(--bg-3);
-  padding: 10px 14px;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: 0.5em 0;
-}
-.ob-prof-msg-body :global(pre code) {
-  background: none;
-  padding: 0;
-}
-.ob-prof-msg-body :global(blockquote) {
-  border-left: 3px solid var(--border);
-  padding-left: 10px;
-  color: var(--text-2);
-  margin: 0.5em 0;
-}
-.ob-prof-msg-body :global(a) {
-  color: var(--accent);
-}
-.ob-prof-msg-body :global(table) {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 0.5em 0;
-  font-size: 13px;
-}
-.ob-prof-msg-body :global(th),
-.ob-prof-msg-body :global(td) {
-  border: 1px solid var(--border);
-  padding: 4px 8px;
-}
-.ob-prof-msg-body :global(th) {
-  background: var(--bg-3);
 }
 
 .ob-prof-activity {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
-  font-size: 0.875rem;
   color: var(--text);
   margin: 0 0 0.75rem;
   min-height: 1.25rem;
+}
+
+.ob-prof-activity .ob-prof-pulse {
+  margin-top: 0.42rem;
+}
+
+.ob-prof-activity-md {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.ob-prof-activity-md p {
+  margin-bottom: 0.35em;
 }
 
 .ob-prof-pulse {
@@ -154,7 +104,7 @@
   color: var(--text-2);
 }
 
-.ob-prof-tool-hint :global(.ob-prof-tool-icon) {
+.ob-prof-tool-hint .ob-prof-tool-icon {
   flex-shrink: 0;
   opacity: 0.85;
 }
@@ -197,7 +147,7 @@
   color: var(--accent);
 }
 
-.ob-seed-progress-check :global(.ob-seed-progress-check-icon) {
+.ob-seed-progress-check .ob-seed-progress-check-icon {
   display: block;
 }
 
@@ -215,6 +165,21 @@
   align-items: baseline;
   gap: 0.25rem 0.5rem;
   min-width: 0;
+}
+
+.ob-seed-progress-body .streaming-agent-md {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.ob-seed-progress-detail-md {
+  width: 100%;
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+.ob-seed-progress-detail-md p:last-child {
+  margin-bottom: 0;
 }
 
 .ob-seed-progress-body--mail {

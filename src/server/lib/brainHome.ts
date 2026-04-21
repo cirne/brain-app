@@ -3,6 +3,8 @@ import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { readdir, rm } from 'node:fs/promises'
 import { defaultBundledBrainHomeRoot, defaultBundledWikiParentRoot } from './bundleDefaults.js'
+import { isMultiTenantMode } from './dataRoot.js'
+import { tryGetTenantContext } from './tenantContext.js'
 import {
   brainLayoutChatsDir,
   brainLayoutDirIconsCachePath,
@@ -12,11 +14,8 @@ import {
   brainLayoutWikiEditsPath,
 } from './brainLayout.js'
 
-/**
- * Local durable root (Application Support on bundled macOS; `./data` in dev).
- * Wiki markdown may live under {@link brainWikiParentRoot} when the layout is split (OPP-024).
- */
-export function brainHome(): string {
+/** Same on-disk directory as {@link brainHome} when no request tenant context is set (single-tenant only). */
+export function resolveBrainHomeDiskRoot(): string {
   const e = process.env.BRAIN_HOME
   if (e) return e
   if (process.env.BRAIN_BUNDLED_NATIVE === '1') {
@@ -26,10 +25,30 @@ export function brainHome(): string {
 }
 
 /**
+ * Local durable root (Application Support on bundled macOS; `./data` in dev).
+ * Wiki markdown may live under {@link brainWikiParentRoot} when the layout is split (OPP-024).
+ *
+ * With `BRAIN_DATA_ROOT` (multi-tenant), returns the current request's tenant home from
+ * AsyncLocalStorage; callers outside a request must use {@link resolveBrainHomeDiskRoot} only
+ * when not in multi-tenant mode.
+ */
+export function brainHome(): string {
+  const ctx = tryGetTenantContext()
+  if (ctx) return ctx.homeDir
+  if (isMultiTenantMode()) {
+    throw new Error('tenant_context_required')
+  }
+  return resolveBrainHomeDiskRoot()
+}
+
+/**
  * Parent directory of the `wiki/` segment (`$BRAIN_WIKI_ROOT/wiki`).
  * Bundled macOS defaults to `~/Documents/Brain`; dev and non-macOS use `brainHome()`.
  */
 export function brainWikiParentRoot(): string {
+  if (isMultiTenantMode()) {
+    return brainHome()
+  }
   if (process.env.BRAIN_WIKI_ROOT) {
     return process.env.BRAIN_WIKI_ROOT
   }
@@ -71,9 +90,11 @@ export function chatDataDirResolved(): string {
   return brainLayoutChatsDir(brainHome())
 }
 
-/** Ripmail home when running under Brain (subprocess env). Honors RIPMAIL_HOME override. */
+/** Ripmail home when running under Brain (subprocess env). Honors RIPMAIL_HOME override (single-tenant only). */
 export function ripmailHomeForBrain(): string {
-  if (process.env.RIPMAIL_HOME) return process.env.RIPMAIL_HOME
+  if (!isMultiTenantMode()) {
+    if (process.env.RIPMAIL_HOME) return process.env.RIPMAIL_HOME
+  }
   return brainLayoutRipmailDir(brainHome())
 }
 

@@ -41,9 +41,7 @@
       </div>
       <span class="ob-kicker">Braintunnel</span>
       <h1 id="unlock-vault-title" class="ob-headline">Unlock your vault</h1>
-      <p class="ob-lead">
-        Enter your vault password to open Braintunnel in this browser.
-      </p>
+      <p class="ob-lead">Enter your vault password to open Braintunnel in this browser.</p>
     </header>
 
     <form
@@ -83,13 +81,13 @@
 
 <style>
   .unlock-shell {
-    display: flex;
-    flex-direction: column;
     flex: 1;
     min-height: 0;
-    height: 100%;
-    background: var(--bg);
-    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 1rem;
+    box-sizing: border-box;
   }
-
 </style>

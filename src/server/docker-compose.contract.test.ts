@@ -6,12 +6,12 @@ import { describe, expect, it } from 'vitest'
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 describe('Docker packaging (OPP-041 Phase 1)', () => {
-  it('docker-compose wires .env and container BRAIN_HOME', () => {
+  it('docker-compose wires .env and container BRAIN_DATA_ROOT', () => {
     const raw = readFileSync(join(repoRoot, 'docker-compose.yml'), 'utf-8')
     expect(raw).toMatch(/env_file:\s*\n\s*-\s*\.env/m)
-    expect(raw).toMatch(/BRAIN_HOME:\s*\/brain/)
+    expect(raw).toMatch(/BRAIN_DATA_ROOT:\s*\/brain-data/)
     expect(raw).toMatch(/RIPMAIL_BIN:\s*\/usr\/local\/bin\/ripmail/)
-    expect(raw).toContain('brain_home:/brain')
+    expect(raw).toContain('brain_data:/brain-data')
     expect(raw).toMatch(/PORT:\s*["']?4000["']?/)
     expect(raw).toMatch(/\$\{BRAIN_DOCKER_PORT:-4000\}:4000/)
   })

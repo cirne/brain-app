@@ -1,7 +1,8 @@
 /**
- * Unified navigation history tracking chats, emails, and docs.
- * Stores in localStorage and provides reactive access.
+ * Sidebar RECENTS (docs + email threads): persisted on the server under `$BRAIN_HOME/var/nav-recents.json`.
  */
+
+import { emit } from './app/appEvents.js'
 
 export type NavHistoryItemType = 'chat' | 'email' | 'doc'
 
@@ -17,102 +18,84 @@ export type NavHistoryItem = {
   meta?: string
 }
 
-const STORAGE_KEY = 'brain-nav-history'
-const MAX_ITEMS = 50
+function emitRecentsChanged(): void {
+  emit({ type: 'nav:recents-changed' })
+}
 
-/** Load history from localStorage */
-export function loadNavHistory(): NavHistoryItem[] {
+/** Load RECENTS from the server (empty if unauthenticated / error). */
+export async function loadNavHistory(): Promise<NavHistoryItem[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const items = JSON.parse(raw) as NavHistoryItem[]
-      return Array.isArray(items) ? items : []
-    }
-  } catch { /* ignore */ }
-  return []
+    const res = await fetch('/api/nav/recents')
+    if (!res.ok) return []
+    const j = (await res.json()) as unknown
+    return Array.isArray(j) ? (j as NavHistoryItem[]) : []
+  } catch {
+    return []
+  }
 }
 
-/** Save history to localStorage */
-function saveNavHistory(items: NavHistoryItem[]): void {
+export async function addToNavHistory(item: Omit<NavHistoryItem, 'accessedAt'>): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, MAX_ITEMS)))
-  } catch { /* ignore */ }
+    const res = await fetch('/api/nav/recents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: item.id,
+        type: item.type,
+        title: item.title,
+        path: item.path,
+        meta: item.meta,
+      }),
+    })
+    if (res.ok) emitRecentsChanged()
+  } catch {
+    /* ignore */
+  }
 }
 
-/** Add or update an item in history (moves to top) */
-export function addToNavHistory(item: Omit<NavHistoryItem, 'accessedAt'>): NavHistoryItem[] {
-  const now = new Date().toISOString()
-  const history = loadNavHistory()
-  
-  // Remove existing entry with same id
-  const filtered = history.filter(h => h.id !== item.id)
-  
-  // Add to front
-  const updated: NavHistoryItem[] = [
-    { ...item, accessedAt: now },
-    ...filtered,
-  ].slice(0, MAX_ITEMS)
-  
-  saveNavHistory(updated)
-  return updated
-}
-
-/** Remove an item from history */
-export function removeFromNavHistory(id: string): NavHistoryItem[] {
-  const history = loadNavHistory()
-  const filtered = history.filter(h => h.id !== id)
-  saveNavHistory(filtered)
-  return filtered
-}
-
-/** Clear all history */
-export function clearNavHistory(): void {
+export async function removeFromNavHistory(id: string): Promise<void> {
   try {
-    localStorage.removeItem(STORAGE_KEY)
-  } catch { /* ignore */ }
+    const res = await fetch(`/api/nav/recents?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+    if (res.ok) emitRecentsChanged()
+  } catch {
+    /* ignore */
+  }
 }
 
-/** Create unique ID for different item types */
+export async function clearNavHistory(): Promise<void> {
+  try {
+    const res = await fetch('/api/nav/recents?all=1', { method: 'DELETE' })
+    if (res.ok) emitRecentsChanged()
+  } catch {
+    /* ignore */
+  }
+}
+
 export function makeNavHistoryId(type: NavHistoryItemType, identifier: string): string {
   return `${type}:${identifier}`
 }
 
 /**
  * Add or update an email row with subject/from. Skips while subject is still loading.
- * Updates title in place when replacing a placeholder (e.g. after agent `open` with no subject).
- * Returns whether localStorage was updated.
+ * Returns whether the server reported a change.
  */
-export function upsertEmailNavHistory(threadId: string, subject: string, from: string): boolean {
-  const t = subject.trim()
-  if (!t || t === '(loading)') return false
-
-  const navId = makeNavHistoryId('email', threadId)
-  const history = loadNavHistory()
-  const idx = history.findIndex(h => h.id === navId)
-
-  if (idx < 0) {
-    addToNavHistory({
-      id: navId,
-      type: 'email',
-      title: t,
-      path: threadId,
-      meta: from,
+export async function upsertEmailNavHistory(
+  threadId: string,
+  subject: string,
+  from: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch('/api/nav/recents/upsert-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ threadId, subject, from }),
     })
-    return true
+    if (!res.ok) return false
+    const j = (await res.json()) as { updated?: boolean }
+    const updated = j.updated === true
+    if (updated) emitRecentsChanged()
+    return updated
+  } catch {
+    return false
   }
-
-  const cur = history[idx]
-  const fromNorm = from || ''
-  const metaNorm = cur.meta || ''
-  if (cur.title === t && metaNorm === fromNorm) return false
-
-  const next = [...history]
-  next[idx] = {
-    ...cur,
-    title: t,
-    meta: from || cur.meta,
-    accessedAt: cur.accessedAt,
-  }
-  saveNavHistory(next)
-  return true
 }

@@ -1,3 +1,4 @@
+import type { Context } from 'hono'
 import { isBundledNativeServer, NATIVE_APP_PORT_START } from './nativeAppPort.js'
 
 /** Bundled Brain.app serves the embedded Hono server over HTTPS (self-signed cert; OPP-023). */
@@ -57,8 +58,35 @@ export function embeddedServerUrlScheme():
  * When set (non-bundled only), Gmail OAuth redirect uses this origin so the browser returns to the
  * **same host** as the SPA (avoids `localhost` vs `127.0.0.1` cookie / session split). Example:
  * `http://localhost:4000` for Docker Compose. Must match an entry in Google Cloud redirect URIs.
+ *
+ * **Production without `PUBLIC_WEB_ORIGIN`:** when `NODE_ENV === 'production'`, the handler may pass
+ * `c` so we infer `https://host` from `X-Forwarded-Proto` / `X-Forwarded-Host` / `Host` (DigitalOcean
+ * App Platform, etc.). Prefer setting `PUBLIC_WEB_ORIGIN` explicitly for stability.
  */
-export function googleOAuthRedirectUri(): string {
+function inferPublicOriginFromForwardedHeaders(c: Context): string | null {
+  if (process.env.NODE_ENV !== 'production') return null
+  if (isBundledNativeServer()) return null
+  const proto = c.req
+    .header('x-forwarded-proto')
+    ?.split(',')[0]
+    ?.trim()
+    .toLowerCase()
+  const host =
+    c.req
+      .header('x-forwarded-host')
+      ?.split(',')[0]
+      ?.trim() ||
+    c.req.header('host')?.split(',')[0]?.trim() ||
+    ''
+  if (!host || (proto !== 'https' && proto !== 'http')) return null
+  const h = host.toLowerCase()
+  if (h.startsWith('127.0.0.1') || h.startsWith('localhost') || h.startsWith('0.0.0.0')) {
+    return null
+  }
+  return `${proto}://${host}`
+}
+
+export function googleOAuthRedirectUri(c?: Context): string {
   if (isBundledNativeServer()) {
     const scheme = embeddedServerUrlScheme()
     return `${scheme}://127.0.0.1:${oauthRedirectListenPort()}${GOOGLE_OAUTH_CALLBACK_PATH}`
@@ -66,6 +94,12 @@ export function googleOAuthRedirectUri(): string {
   const publicOrigin = process.env.PUBLIC_WEB_ORIGIN?.trim().replace(/\/$/, '')
   if (publicOrigin) {
     return `${publicOrigin}${GOOGLE_OAUTH_CALLBACK_PATH}`
+  }
+  if (c) {
+    const inferred = inferPublicOriginFromForwardedHeaders(c)
+    if (inferred) {
+      return `${inferred}${GOOGLE_OAUTH_CALLBACK_PATH}`
+    }
   }
   const scheme = NON_BUNDLED_EMBEDDED_SERVER_SCHEME
   return `${scheme}://127.0.0.1:${oauthRedirectListenPort()}${GOOGLE_OAUTH_CALLBACK_PATH}`

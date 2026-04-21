@@ -21,7 +21,7 @@
   cursor: default;
 }
 
-.wfn-lead-icon :global(svg) {
+.wfn-lead-icon svg {
   display: block;
   flex-shrink: 0;
 }

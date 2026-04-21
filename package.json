@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/run-dev.mjs",
+    "dev:multitenant": "node scripts/run-dev-multitenant.mjs",
     "dev:desktop-home": "node scripts/run-dev-desktop-home.mjs",
     "dev:kill": "for p in $(lsof -ti :3000 2>/dev/null); do kill -9 \"$p\"; done",
     "oauth:print-redirect-uri": "node scripts/print-google-oauth-redirect-uri.mjs",
@@ -36,7 +37,9 @@
     "docker:build": "npm run docker:ripmail:build && docker build -t brain-app:local .",
     "docker:up": "npm run docker:ripmail:build && docker compose up --build",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f brain"
+    "docker:logs": "docker compose logs -f brain",
+    "docker:publish": "bash scripts/docker-publish-do.sh",
+    "docker:build:arm64": "DOCKER_PLATFORM=linux/arm64 npm run docker:ripmail:build && docker buildx build --platform linux/arm64 -f Dockerfile -t brain-app:arm64-local --load ."
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",

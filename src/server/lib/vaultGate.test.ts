@@ -6,6 +6,11 @@ import { tmpdir } from 'node:os'
 import vaultRoute from '../routes/vault.js'
 import onboardingRoute from '../routes/onboarding.js'
 import { vaultGateMiddleware } from './vaultGate.js'
+import { tenantMiddleware } from './tenantMiddleware.js'
+import { ensureTenantHomeDir, tenantHomeDir } from './dataRoot.js'
+import { registerSessionTenant } from './tenantRegistry.js'
+import { createVaultSession } from './vaultSessionStore.js'
+import { runWithTenantContextAsync } from './tenantContext.js'
 
 let brainHome: string
 
@@ -21,6 +26,7 @@ afterEach(async () => {
 
 function buildStack(): Hono {
   const app = new Hono()
+  app.use('/api/*', tenantMiddleware)
   app.use('/api/*', vaultGateMiddleware)
   app.route('/api/vault', vaultRoute)
   app.route('/api/onboarding', onboardingRoute)
@@ -32,6 +38,61 @@ function cookieFrom(res: Response): string | undefined {
   const m = raw.match(/brain_session=([^;]+)/)
   return m?.[1]
 }
+
+describe('vaultGateMiddleware (multi-tenant)', () => {
+  const prevRoot = process.env.BRAIN_DATA_ROOT
+
+  beforeEach(async () => {
+    delete process.env.BRAIN_HOME
+  })
+
+  afterEach(async () => {
+    if (prevRoot === undefined) delete process.env.BRAIN_DATA_ROOT
+    else process.env.BRAIN_DATA_ROOT = prevRoot
+  })
+
+  it('allows onboarding/mail without vault verifier when session maps to tenant', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'vg-mt-'))
+    process.env.BRAIN_DATA_ROOT = root
+
+    const handle = 'gate-mt-h'
+    ensureTenantHomeDir(handle)
+    const sid = await runWithTenantContextAsync(
+      { workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      async () => createVaultSession(),
+    )
+    await registerSessionTenant(sid, handle)
+
+    const app = new Hono()
+    app.use('/api/*', tenantMiddleware)
+    app.use('/api/*', vaultGateMiddleware)
+    app.route('/api/onboarding', onboardingRoute)
+
+    const res = await app.request('http://127.0.0.1/api/onboarding/mail', {
+      headers: { Cookie: `brain_session=${sid}` },
+    })
+    expect(res.status).toBe(200)
+
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('returns tenant_required without session cookie', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'vg-mt-no-'))
+    process.env.BRAIN_DATA_ROOT = root
+
+    const app = new Hono()
+    app.use('/api/*', tenantMiddleware)
+    app.use('/api/*', vaultGateMiddleware)
+    app.route('/api/onboarding', onboardingRoute)
+
+    const res = await app.request('http://127.0.0.1/api/onboarding/mail')
+    expect(res.status).toBe(401)
+    const j = (await res.json()) as { error?: string }
+    expect(j.error).toBe('tenant_required')
+
+    await rm(root, { recursive: true, force: true })
+  })
+})
 
 describe('vaultGateMiddleware', () => {
   it('allows GET /api/onboarding/status when no vault', async () => {

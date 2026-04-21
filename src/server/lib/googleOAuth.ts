@@ -135,10 +135,16 @@ export async function exchangeAuthorizationCode(params: {
   }
 }
 
-export async function fetchGoogleUserEmail(params: {
+export type GoogleUserInfo = {
+  email: string
+  /** Stable Google account id (OpenID subject). */
+  sub: string
+}
+
+export async function fetchGoogleUserInfo(params: {
   accessToken: string
   fetchImpl?: typeof fetch
-}): Promise<string> {
+}): Promise<GoogleUserInfo> {
   const fetchFn = params.fetchImpl ?? fetch
   const res = await fetchFn(GOOGLE_USERINFO_URI, {
     headers: { Authorization: `Bearer ${params.accessToken}` },
@@ -151,12 +157,24 @@ export async function fetchGoogleUserEmail(params: {
       text
     )
   }
-  const j = JSON.parse(text) as { email?: string }
+  const j = JSON.parse(text) as { email?: string; sub?: string }
   const email = j.email?.trim()
+  const sub = j.sub?.trim()
   if (!email) {
     throw new GoogleOAuthExchangeError('userinfo missing email', res.status, text)
   }
-  return email
+  if (!sub) {
+    throw new GoogleOAuthExchangeError('userinfo missing sub', res.status, text)
+  }
+  return { email, sub }
+}
+
+export async function fetchGoogleUserEmail(params: {
+  accessToken: string
+  fetchImpl?: typeof fetch
+}): Promise<string> {
+  const u = await fetchGoogleUserInfo(params)
+  return u.email
 }
 
 /** Matches ripmail `GoogleOAuthTokenStore` JSON (camelCase). */

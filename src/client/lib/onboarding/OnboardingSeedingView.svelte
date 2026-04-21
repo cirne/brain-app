@@ -5,7 +5,7 @@
   import { Check, Mail } from 'lucide-svelte'
   import type { AgentConversationViewProps, ConversationScrollApi } from '../agentConversationViewTypes.js'
   import WikiFileName from '../WikiFileName.svelte'
-  import { renderMarkdown } from '../markdown.js'
+  import StreamingAgentMarkdown from '../agent-conversation/StreamingAgentMarkdown.svelte'
   import OnboardingActivityTranscriptShell from './OnboardingActivityTranscriptShell.svelte'
   import OnboardingLocalWikiLead from './OnboardingLocalWikiLead.svelte'
   import { wikiBuildoutLeadCopy } from './onboardingLeadCopy.js'
@@ -51,10 +51,7 @@
             {#if event.type === 'text'}
               <li class="ob-prof-chat-msg ob-seed-text-msg" role="article">
                 <div class="ob-prof-msg-label">Assistant</div>
-                <div class="ob-prof-msg-body markdown">
-                  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                  {@html renderMarkdown(event.content)}
-                </div>
+                <StreamingAgentMarkdown class="ob-prof-msg-body" content={event.content} />
               </li>
             {:else}
               {@const { done: rowDone, line: row } = event}
@@ -74,7 +71,7 @@
                     <span class="ob-prof-pulse" class:ob-prof-pulse--still={reduceMotion}></span>
                   </span>
                 {/if}
-                <span class="ob-seed-progress-body" class:ob-seed-progress-body--mail={!!row.mailPreview}>
+                <div class="ob-seed-progress-body" class:ob-seed-progress-body--mail={!!row.mailPreview}>
                   {#if row.mailPreview}
                     <span class="ob-seed-progress-prefix">{row.prefix}</span>
                     <button
@@ -116,7 +113,7 @@
                       <span class="ob-seed-progress-detail">{row.detail}</span>
                     {/if}
                   {/if}
-                </span>
+                </div>
               </li>
             {/if}
           {/each}
@@ -126,26 +123,26 @@
               <span class="ob-seed-progress-pulse-wrap" aria-hidden="true">
                 <span class="ob-prof-pulse" class:ob-prof-pulse--still={reduceMotion}></span>
               </span>
-              <span class="ob-seed-progress-body">
+              <div class="ob-seed-progress-body">
                 <span class="ob-seed-progress-prefix ob-seed-progress-prefix--planning">{prow.prefix}</span>
                 {#if prow.detail}
-                  <span class="ob-seed-progress-detail">{prow.detail}</span>
+                  <StreamingAgentMarkdown class="ob-seed-progress-detail-md" content={prow.detail} />
                 {/if}
-              </span>
+              </div>
             </li>
           {/if}
         </ul>
       </section>
     {:else if streaming && activity}
-      <p class="ob-prof-activity" role="status" aria-live="polite">
+      <div class="ob-prof-activity" role="status" aria-live="polite">
         <span class="ob-prof-pulse" aria-hidden="true" class:ob-prof-pulse--still={reduceMotion}></span>
-        {activity}
-      </p>
+        <StreamingAgentMarkdown class="ob-prof-activity-md" content={activity} />
+      </div>
     {:else if streaming}
-      <p class="ob-prof-activity" role="status" aria-live="polite">
+      <div class="ob-prof-activity" role="status" aria-live="polite">
         <span class="ob-prof-pulse" aria-hidden="true"></span>
-        Working…
-      </p>
+        <StreamingAgentMarkdown class="ob-prof-activity-md" content="Working…" />
+      </div>
     {/if}
 
     {#if resources.wikiPaths.length > 0}

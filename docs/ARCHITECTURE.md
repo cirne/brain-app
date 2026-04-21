@@ -57,10 +57,12 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 
 ## Deployment
 
-**Primary release:** macOS **Brain.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container:** [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); local image via `Dockerfile` + [`docker-compose.yml`](../docker-compose.yml) (`.env` → `env_file`). Archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
+**Primary release:** macOS **Brain.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container:** [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); local image via `Dockerfile` + [`docker-compose.yml`](../docker-compose.yml) (`.env` → `env_file`). **DigitalOcean staging** (April 2026): [`docker-compose.do.yml`](../docker-compose.do.yml), registry image, **HTTP :4000**, durable **`brain_data`** volume — **HTTPS / load balancer** still to do per OPP-041. Archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
 
 ---
 
 ## Product and multi-tenant notes
+
+**Hosted multi-tenant (`BRAIN_DATA_ROOT`):** Users **sign in with Google** (`/api/oauth/google/start`). The OAuth callback provisions (or rebinds) a workspace directory and issues the same **`brain_session`** cookie + tenant registry mapping as desktop sessions — **no vault password** in MT.
 
 See [PRODUCTIZATION.md](./PRODUCTIZATION.md).

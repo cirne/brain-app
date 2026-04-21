@@ -31,12 +31,18 @@ export type HubSourcesChangedEvent = {
   type: 'hub:sources-changed'
 }
 
+/** Sidebar RECENTS (/api/nav/recents) mutated — chat sidebar refetches server list. */
+export type NavRecentsChangedEvent = {
+  type: 'nav:recents-changed'
+}
+
 export type AppEvent =
   | WikiMutatedEvent
   | SyncCompletedEvent
   | InboxArchivedEvent
   | ChatSessionsChangedEvent
   | HubSourcesChangedEvent
+  | NavRecentsChangedEvent
 
 const listeners = new Set<(event: AppEvent) => void>()
 

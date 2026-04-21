@@ -38,6 +38,8 @@ import { ensureYourWikiRunning } from '../agent/yourWikiSupervisor.js'
 import { embeddedServerUrlScheme, oauthRedirectListenPort } from '../lib/brainHttpPort.js'
 import { isBundledNativeServer } from '../lib/nativeAppPort.js'
 import { isAppleLocalIntegrationEnvironment } from '../lib/appleLocalIntegrationEnv.js'
+import { isMultiTenantMode } from '../lib/dataRoot.js'
+import { tryGetTenantContext } from '../lib/tenantContext.js'
 
 const onboarding = new Hono()
 
@@ -102,6 +104,13 @@ onboarding.get('/network-info', async (c) => {
 })
 
 onboarding.get('/status', async (c) => {
+  if (isMultiTenantMode() && !tryGetTenantContext()) {
+    return c.json({
+      state: 'not-started',
+      wikiMeExists: false,
+      updatedAt: new Date().toISOString(),
+    })
+  }
   const doc = await readOnboardingStateDoc()
   return c.json({
     state: doc.state,

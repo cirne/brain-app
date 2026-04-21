@@ -4,6 +4,7 @@
   import FullDiskAccessGate from './lib/onboarding/FullDiskAccessGate.svelte'
   import Onboarding from './lib/onboarding/Onboarding.svelte'
   import UnlockVault from './lib/onboarding/UnlockVault.svelte'
+  import HostedSignIn from './lib/onboarding/HostedSignIn.svelte'
   import { parseRoute, type Route } from './router.js'
   import { clearBrainClientStorage } from './lib/brainClientStorage.js'
   import { ONBOARDING_SEED_CHAT_STORAGE_KEY } from './lib/onboarding/onboardingStorageKeys.js'
@@ -40,18 +41,28 @@
     await fetchStatus()
   }
 
-  const showUnlockVault = $derived(
-    vaultStatus?.checked &&
-      vaultStatus.vaultExists &&
+  const showHostedSignIn = $derived(
+    vaultStatus?.checked === true &&
+      vaultStatus.multiTenant === true &&
       !vaultStatus.unlocked,
   )
 
+  const showUnlockVault = $derived(
+    vaultStatus?.checked &&
+      vaultStatus.vaultExists &&
+      !vaultStatus.unlocked &&
+      vaultStatus.multiTenant !== true,
+  )
+
   const needsVaultSetup = $derived(
-    vaultStatus?.checked === true && vaultStatus.vaultExists === false,
+    vaultStatus?.checked === true &&
+      vaultStatus.vaultExists === false &&
+      vaultStatus.multiTenant !== true,
   )
 
   const showOnboarding = $derived(
     onboardingStatus != null &&
+      !showHostedSignIn &&
       !showUnlockVault &&
       (onboardingStatus.state !== 'done' || route.flow === 'onboarding'),
   )
@@ -114,6 +125,10 @@
 
 {#if !appReady}
   <div class="app-loading">Loading…</div>
+{:else if showHostedSignIn}
+  <div class="app-onboarding-shell h-full min-h-0">
+    <HostedSignIn />
+  </div>
 {:else if showUnlockVault}
   <div class="app-onboarding-shell h-full min-h-0">
     <UnlockVault

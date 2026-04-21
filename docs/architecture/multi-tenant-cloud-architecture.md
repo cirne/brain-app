@@ -4,7 +4,13 @@
 
 ## Overview
 
-To support a cloud-hosted version of Brain, we will adopt a **Cell-based, Local-First** architecture. Instead of moving to a traditional centralized database (Postgres/RDS), we will maintain the "One Tenant = One Home Directory" model used on the desktop, but scaled horizontally in a cloud environment.
+To support a cloud-hosted version of Brain, we will adopt a **Cell-based, Local-First** architecture. Instead of moving to a traditional centralized database (Postgres/RDS), we will maintain the "One Tenant = One Home Directory" model used on the desktop, but scaled horizontally in a cloud environment. On disk, each tenant is a **workspace handle** (a short URL-safe name) under `BRAIN_DATA_ROOT`, not an opaque UUID.
+
+### Bootstrap identity (hosted)
+
+Hosted cells use **Google OAuth** as the tenant gate: **`openid email`** scopes yield a stable **`sub`** and mailbox address. The server maps **`google:<sub>` → workspace handle** in **`$BRAIN_DATA_ROOT/.global/tenant-registry.json`** (alongside **`brain_session` → handle** entries). Workspace directory names are **derived** from the mailbox (slug rules + collision suffixes), not typed by users. Desktop single-tenant mode is unchanged (local vault password + verifier file).
+
+See [google-oauth.md](../google-oauth.md#multi-tenant-hosted-brain_data_root).
 
 ## Core Principles
 
@@ -31,7 +37,7 @@ We leverage the OS Page Cache and modern cloud block storage to provide a high-p
 
 ## Tenant Isolation & Security Guardrails
 
-While we are deferring application-level encryption (Vault Passwords) to maintain performance and tool compatibility (e.g., `grep`), we enforce isolation through "Defense in Depth" guardrails:
+While **hosted multi-tenant** mode does **not** use the desktop **vault password** verifier (authentication is **Google OAuth + session cookie**), we still enforce tenant isolation through "Defense in Depth" guardrails:
 
 1. **Zero Ambient Authority:** Move away from environment variables (like `BRAIN_HOME` or `RIPMAIL_HOME`). The application must crash if a home directory is not explicitly provided via a request-specific context object.
 2. **Explicit CLI Arguments:** Subprocesses like `ripmail` must receive their home directory via mandatory CLI flags (e.g., `--home`) rather than inheriting environment variables, preventing accidental leakage.

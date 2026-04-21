@@ -38,6 +38,10 @@ The "Convenience-First" entry point. A managed service that allows users to try 
 - Users who primarily want a 24/7 background agent for email and scheduling.
 - Mobile-first users who need access to their wiki on the go.
 
+### Staging on DigitalOcean (April 2026)
+
+An internal **staging droplet** runs the Brain container from **Container Registry** on **HTTP port 4000**, with durable state in a **Docker named volume** (`BRAIN_DATA_ROOT=/brain-data`) so **image pulls and container restarts do not wipe data**. **TLS is not enabled at the edge yet** — traffic is **unencrypted** unless you use a VPN or add a proxy / load balancer. Operational detail: [digitalocean.md](../digitalocean.md); roadmap and **HTTPS next steps**: [OPP-041](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
+
 ---
 
 ## The "Both" Strategy

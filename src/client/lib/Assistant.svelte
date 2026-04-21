@@ -240,7 +240,7 @@
     navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
     route = parseRoute()
     if (path) {
-      addToNavHistory({
+      void addToNavHistory({
         id: makeNavHistoryId('doc', path),
         type: 'doc',
         title: path,
@@ -270,7 +270,7 @@
     const hubActive = route.hubActive || route.overlay?.type === 'hub'
     navigate({ overlay: { type: 'file', path }, hubActive })
     route = parseRoute()
-    addToNavHistory({
+    void addToNavHistory({
       id: makeNavHistoryId('doc', `file:${path}`),
       type: 'doc',
       title: path,
@@ -301,9 +301,7 @@
   function setContext(ctx: SurfaceContext) {
     agentContext = ctx
     if (ctx.type === 'email' && ctx.threadId) {
-      if (upsertEmailNavHistory(ctx.threadId, ctx.subject, ctx.from)) {
-        void chatHistory?.refresh()
-      }
+      void upsertEmailNavHistory(ctx.threadId, ctx.subject, ctx.from)
     }
   }
 
@@ -319,7 +317,7 @@
     route = parseRoute()
     agentContext = { type: 'email', threadId: id, subject, from }
     if (id && subject.trim()) {
-      if (upsertEmailNavHistory(id, subject, from)) void chatHistory?.refresh()
+      void upsertEmailNavHistory(id, subject, from)
     }
   }
 
@@ -344,7 +342,7 @@
     applyHubDetailNavigation(route, overlay, opts)
     route = parseRoute()
     if (overlay.type === 'wiki' && overlay.path) {
-      addToNavHistory({
+      void addToNavHistory({
         id: makeNavHistoryId('doc', overlay.path),
         type: 'doc',
         title: overlay.path,

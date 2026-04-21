@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import {
   deriveMailboxId,
   exchangeAuthorizationCode,
+  fetchGoogleUserInfo,
   generatePkce,
   buildGoogleAuthorizeUrl,
   upsertRipmailConfig,
@@ -46,6 +47,35 @@ describe('buildGoogleAuthorizeUrl', () => {
     expect(parsed.searchParams.get('code_challenge_method')).toBe('S256')
     expect(parsed.searchParams.get('access_type')).toBe('offline')
     expect(parsed.searchParams.get('prompt')).toBe('consent')
+  })
+})
+
+describe('fetchGoogleUserInfo', () => {
+  it('returns email and sub from userinfo JSON', async () => {
+    const fetchImpl = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({ email: '  U@Mail.com ', sub: ' google-sub-id ' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    })
+    const u = await fetchGoogleUserInfo({
+      accessToken: 'tok',
+      fetchImpl: fetchImpl as typeof fetch,
+    })
+    expect(u.email).toBe('U@Mail.com')
+    expect(u.sub).toBe('google-sub-id')
+  })
+
+  it('errors when sub is missing', async () => {
+    const fetchImpl = vi.fn(async () => {
+      return new Response(JSON.stringify({ email: 'a@b.co' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+    await expect(
+      fetchGoogleUserInfo({ accessToken: 'tok', fetchImpl: fetchImpl as typeof fetch }),
+    ).rejects.toThrow(/missing sub/)
   })
 })
 

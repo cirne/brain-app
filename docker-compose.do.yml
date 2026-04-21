@@ -1,0 +1,40 @@
+# DigitalOcean droplet: pull published image from Container Registry (no local build).
+# Requires registry login on the host (./scripts/doctl-brain.sh registry login from your laptop;
+# on the droplet: doctl registry login, or docker login — see docs/digitalocean.md).
+#
+# Usage on the droplet (same directory as `.env`):
+#   docker compose -f docker-compose.do.yml pull
+#   docker compose -f docker-compose.do.yml up -d
+#
+# Set PUBLIC_WEB_ORIGIN in `.env` to your real public origin, e.g. https://brain.example.com
+# (required for Gmail OAuth outside localhost).
+
+services:
+  brain:
+    platform: linux/amd64
+    image: registry.digitalocean.com/braintunnel/brain-app:latest
+    ports:
+      - "${BRAIN_DOCKER_PORT:-4000}:4000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      BRAIN_DATA_ROOT: /brain-data
+      RIPMAIL_BIN: /usr/local/bin/ripmail
+      PORT: "4000"
+      PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:-http://localhost:4000}
+    volumes:
+      - brain_data:/brain-data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(\"http://127.0.0.1:\"+(process.env.PORT||\"4000\")+\"/api/vault/status\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  brain_data:

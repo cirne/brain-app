@@ -1,8 +1,8 @@
-# Local / staging: Brain in Docker with durable BRAIN_HOME on a volume.
+# Local / staging: Brain in Docker with durable BRAIN_DATA_ROOT (multi-tenant volume) on a volume.
 # Usage: copy .env.example → .env, set API keys, then:
 #   npm run docker:up   (prebuilds Linux ripmail on host or via rust:bookworm, then compose --build)
 #
-# Compose overrides BRAIN_HOME, RIPMAIL_BIN, and PORT (4000 in-container); other vars come from .env.
+# Compose overrides BRAIN_DATA_ROOT (multi-tenant volume root), RIPMAIL_BIN, and PORT (4000 in-container); other vars come from .env.
 # Host publish port: BRAIN_DOCKER_PORT (default 4000) → container 4000.
 
 services:
@@ -17,14 +17,14 @@ services:
       - .env
     environment:
       NODE_ENV: production
-      BRAIN_HOME: /brain
+      BRAIN_DATA_ROOT: /brain-data
       RIPMAIL_BIN: /usr/local/bin/ripmail
       PORT: "4000"
       # Same host you use in the browser (avoids localhost vs 127.0.0.1 OAuth cookie mismatch).
       # If BRAIN_DOCKER_PORT is not 4000, set explicitly, e.g. http://localhost:8080
       PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:-http://localhost:4000}
     volumes:
-      - brain_home:/brain
+      - brain_data:/brain-data
     healthcheck:
       test:
         [
@@ -37,4 +37,4 @@ services:
       start_period: 20s
 
 volumes:
-  brain_home:
+  brain_data:
