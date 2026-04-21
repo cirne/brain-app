@@ -30,7 +30,7 @@ describe('manage_sources tool', () => {
   it('op=list calls ripmail sources list', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'manage_sources')!
+    const tool = tools.find((t) => t.name === 'manage_sources')!
 
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"sources": []}', stderr: '' })
 
@@ -41,7 +41,7 @@ describe('manage_sources tool', () => {
   it('op=status calls ripmail sources status', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'manage_sources')!
+    const tool = tools.find((t) => t.name === 'manage_sources')!
 
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"sources": []}', stderr: '' })
 
@@ -52,7 +52,7 @@ describe('manage_sources tool', () => {
   it('op=add calls ripmail sources add', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'manage_sources')!
+    const tool = tools.find((t) => t.name === 'manage_sources')!
 
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"id": "new-src"}', stderr: '' })
 
@@ -63,7 +63,7 @@ describe('manage_sources tool', () => {
   it('op=edit calls ripmail sources edit', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'manage_sources')!
+    const tool = tools.find((t) => t.name === 'manage_sources')!
 
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok": true}', stderr: '' })
 
@@ -74,7 +74,7 @@ describe('manage_sources tool', () => {
   it('op=remove calls ripmail sources remove', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'manage_sources')!
+    const tool = tools.find((t) => t.name === 'manage_sources')!
 
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok": true}', stderr: '' })
 

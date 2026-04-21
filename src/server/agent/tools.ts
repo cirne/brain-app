@@ -906,7 +906,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           text += `\n\n**HINT**: You are currently querying default calendars. If you are looking for a specific person's schedule, you might need to specify one of these available IDs in \`calendar_ids\`:\n${list}`
         }
 
-        const payload: Record<string, any> = {
+        const payload: Record<string, unknown> = {
           ok: true,
           // Include events in details so client can render the preview even when
           // the result text is truncated at 4000 chars by the SSE layer.

@@ -21,7 +21,7 @@ describe('remember_preference tool', () => {
 
   it('creates me.md and ## Preferences section if missing', async () => {
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'remember_preference')!
+    const tool = tools.find((t) => t.name === 'remember_preference')!
     
     await tool.execute('t1', { preference: 'Always ignore my daughter\'s calendar' })
     
@@ -37,7 +37,7 @@ describe('remember_preference tool', () => {
     await writeFile(mePath, '# Me\n\n## Preferences\n\n- Existing pref\n')
     
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'remember_preference')!
+    const tool = tools.find((t) => t.name === 'remember_preference')!
     
     await tool.execute('t2', { preference: 'New preference' })
     
@@ -53,7 +53,7 @@ describe('remember_preference tool', () => {
 
   it('handles optional section sub-heading', async () => {
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'remember_preference')!
+    const tool = tools.find((t) => t.name === 'remember_preference')!
     
     await tool.execute('t3', { preference: 'Lead with blockers', section: 'Style' })
     
@@ -68,7 +68,7 @@ describe('remember_preference tool', () => {
     await writeFile(mePath, '## Preferences\n\n### Style\n\n- Be concise\n')
     
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'remember_preference')!
+    const tool = tools.find((t) => t.name === 'remember_preference')!
     
     await tool.execute('t4', { preference: 'Use bullet points', section: 'Style' })
     
@@ -87,7 +87,7 @@ describe('remember_preference tool', () => {
     await writeFile(mePath, '## Preferences\n\n### General\n\n- Some general pref\n')
     
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'remember_preference')!
+    const tool = tools.find((t) => t.name === 'remember_preference')!
     
     await tool.execute('t5', { preference: 'Lead with blockers', section: 'Style' })
     
@@ -106,7 +106,7 @@ describe('remember_preference tool', () => {
     await writeFile(mePath, original)
     
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'remember_preference')!
+    const tool = tools.find((t) => t.name === 'remember_preference')!
     
     await tool.execute('t6', { preference: 'Prefer dark mode' })
     
@@ -121,7 +121,7 @@ describe('remember_preference tool', () => {
     await writeFile(mePath, '## Preferences\n\n- P1\n\n## Another Section\n\n- Something else\n')
     
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'remember_preference')!
+    const tool = tools.find((t) => t.name === 'remember_preference')!
     
     await tool.execute('t7', { preference: 'P2' })
     

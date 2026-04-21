@@ -38,12 +38,18 @@ describe('truncateJsonResult', () => {
     expect(input.length).toBeGreaterThan(180)
     const result = truncateJsonResult(input, 180)
     expect(result.length).toBeLessThanOrEqual(180)
-    const parsed = JSON.parse(result) as any[]
-    const note = parsed.find((x: any) => x.__note__)
-    const kept = parsed.filter((x: any) => !x.__note__)
+    const parsed = JSON.parse(result) as unknown[]
+    const isTruncationNote = (x: unknown): x is { __note__: string; __removed__: number; __total__: number } =>
+      typeof x === 'object' &&
+      x !== null &&
+      '__removed__' in x &&
+      '__total__' in x &&
+      typeof (x as { __removed__: unknown }).__removed__ === 'number'
+    const note = parsed.find(isTruncationNote)
+    const kept = parsed.filter((x) => !isTruncationNote(x))
     expect(note).toBeDefined()
-    expect(note.__removed__ + kept.length).toBe(10)
-    expect(note.__total__).toBe(10)
+    expect(note!.__removed__ + kept.length).toBe(10)
+    expect(note!.__total__).toBe(10)
   })
 
   it('handles a JSON array that is already small enough even with note overhead', () => {

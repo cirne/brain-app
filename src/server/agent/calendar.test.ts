@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { getCalendarEventsFromRipmail } from '../lib/calendarRipmail.js'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
+import { toolResultFirstText } from './agentTestUtils.js'
 
 vi.mock('../lib/calendarRipmail.js', () => ({
   getCalendarEventsFromRipmail: vi.fn(),
@@ -39,7 +40,7 @@ describe('calendar tool', () => {
   it('op=events calls getCalendarEvents and returns JSON', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'calendar')!
+    const tool = tools.find((t) => t.name === 'calendar')!
 
     vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
       events: [{ id: 'e1', title: 'Meeting', start: '2026-04-20T10:00:00Z', end: '2026-04-20T11:00:00Z', allDay: false, source: 'google' }],
@@ -47,7 +48,7 @@ describe('calendar tool', () => {
     })
 
     const result = await tool.execute('c1', { op: 'events', start: '2026-04-20', end: '2026-04-20' })
-    expect(result.content[0].text).toContain('Meeting')
+    expect(toolResultFirstText(result)).toContain('Meeting')
     expect(getCalendarEventsFromRipmail).toHaveBeenCalledWith({ start: '2026-04-20', end: '2026-04-20', calendarIds: undefined })
 
     // Regression: events are included in details so the client preview card
@@ -64,7 +65,7 @@ describe('calendar tool', () => {
   it('op=events does not show preview for multi-day range', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'calendar')!
+    const tool = tools.find((t) => t.name === 'calendar')!
 
     vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
       events: [],
@@ -81,7 +82,7 @@ describe('calendar tool', () => {
   it('op=list_calendars calls ripmail calendar list-calendars', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'calendar')!
+    const tool = tools.find((t) => t.name === 'calendar')!
 
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"calendars": []}', stderr: '' })
 
@@ -92,19 +93,19 @@ describe('calendar tool', () => {
   it('op=configure_source calls ripmail sources edit --calendar', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'calendar')!
+    const tool = tools.find((t) => t.name === 'calendar')!
 
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok": true}', stderr: '' })
 
     const result = await tool.execute('c3', { op: 'configure_source', source: 'src1', calendar_ids: ['c1', 'c2'] })
     expect(execRipmailAsync).toHaveBeenCalledWith(expect.stringContaining('sources edit "src1" --calendar "c1" --calendar "c2" --json'), expect.any(Object))
-    expect(result.content[0].text).toContain('Source src1 updated')
+    expect(toolResultFirstText(result)).toContain('Source src1 updated')
   })
 
   it('op=events passes calendar_ids to getCalendarEventsFromRipmail', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'calendar')!
+    const tool = tools.find((t) => t.name === 'calendar')!
 
     await tool.execute('c-filter', { op: 'events', start: '2026-04-20', end: '2026-04-20', calendar_ids: ['cal1'] })
     expect(getCalendarEventsFromRipmail).toHaveBeenCalledWith({ start: '2026-04-20', end: '2026-04-20', calendarIds: ['cal1'] })
@@ -113,7 +114,7 @@ describe('calendar tool', () => {
   it('op=configure_source supports default_calendar_ids', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t: any) => t.name === 'calendar')!
+    const tool = tools.find((t) => t.name === 'calendar')!
 
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok": true}', stderr: '' })
 
