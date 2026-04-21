@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { rm } from 'node:fs/promises'
 import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { getCookie } from 'hono/cookie'
@@ -14,7 +16,11 @@ import {
   setBrainSessionCookie,
 } from '../lib/vaultCookie.js'
 import { isMultiTenantMode, tenantHomeDir } from '../lib/dataRoot.js'
-import { lookupTenantBySession, unregisterSessionTenant } from '../lib/tenantRegistry.js'
+import {
+  lookupTenantBySession,
+  removeIdentityMappingsForWorkspace,
+  unregisterSessionTenant,
+} from '../lib/tenantRegistry.js'
 import { runWithTenantContextAsync, tryGetTenantContext } from '../lib/tenantContext.js'
 const vault = new Hono()
 
@@ -174,6 +180,41 @@ vault.post('/logout', async (c) => {
   return c.json({ ok: true, vaultExists: vaultVerifierExistsSync(), unlocked: false } satisfies StatusBody & {
     ok: true
   })
+})
+
+/**
+ * Hosted multi-tenant only: wipe this tenant’s directory, clear identity mapping, end session.
+ * Requires a valid session (tenant context); not available in single-tenant / desktop local mode.
+ */
+vault.post('/delete-all-data', async (c) => {
+  if (!isMultiTenantMode()) {
+    return c.json({ error: 'not_available', message: 'This action is only available in hosted mode.' }, 404)
+  }
+  const ctx = tryGetTenantContext()
+  if (!ctx || ctx.workspaceHandle === '_single') {
+    return c.json({ error: 'tenant_required', message: 'Sign in to continue.' }, 401)
+  }
+  const wh = ctx.workspaceHandle
+  const sid = getCookie(c, BRAIN_SESSION_COOKIE)
+
+  if (sid) {
+    await revokeVaultSession(sid)
+  }
+  await removeIdentityMappingsForWorkspace(wh)
+  await unregisterSessionTenant(sid)
+
+  const home = tenantHomeDir(wh)
+  if (existsSync(home)) {
+    await rm(home, { recursive: true, force: true })
+  }
+
+  clearBrainSessionCookie(c)
+  return c.json({
+    ok: true,
+    vaultExists: false,
+    unlocked: false,
+    multiTenant: true as const,
+  } satisfies StatusBody & { ok: true })
 })
 
 export default vault

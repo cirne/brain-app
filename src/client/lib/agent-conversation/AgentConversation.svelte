@@ -22,6 +22,7 @@
     /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
     empty,
     streamingWrite: _streamingWrite,
+    multiTenant: _multiTenant = false,
   }: AgentConversationViewProps = $props()
 
   let messagesEl: HTMLElement

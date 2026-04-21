@@ -8,6 +8,7 @@ import {
   lookupWorkspaceByIdentity,
   registerIdentityWorkspace,
   registerSessionTenant,
+  removeIdentityMappingsForWorkspace,
   unregisterSessionTenant,
 } from './tenantRegistry.js'
 
@@ -70,6 +71,20 @@ describe('tenantRegistry', () => {
     writeFileSync(regPath, JSON.stringify({ v: 1, sessions: {} }), 'utf-8')
 
     expect(await lookupWorkspaceByIdentity('google:x')).toBeNull()
+
+    rmSync(base, { recursive: true, force: true })
+  })
+
+  it('removeIdentityMappingsForWorkspace clears identity rows for that handle', async () => {
+    const base = join(tmpdir(), `reg-rm-id-${Date.now()}`)
+    process.env.BRAIN_DATA_ROOT = base
+    mkdirSync(base, { recursive: true })
+
+    await registerIdentityWorkspace('google:sub-a', 'ws-one')
+    await registerIdentityWorkspace('google:sub-b', 'ws-two')
+    await removeIdentityMappingsForWorkspace('ws-one')
+    expect(await lookupWorkspaceByIdentity('google:sub-a')).toBeNull()
+    expect(await lookupWorkspaceByIdentity('google:sub-b')).toBe('ws-two')
 
     rmSync(base, { recursive: true, force: true })
   })

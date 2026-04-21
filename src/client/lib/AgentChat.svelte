@@ -88,6 +88,8 @@
     hidePaneContextChip = false,
     /** When set, overrides {@link contextPlaceholder} for the composer hint. */
     inputPlaceholder = undefined as string | undefined,
+    /** Hosted multi-tenant: profiling transcript uses alternate privacy lead copy. */
+    multiTenant = false,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -125,6 +127,7 @@
     streamingWritePreview?: { path: string; body: string } | null
     hidePaneContextChip?: boolean
     inputPlaceholder?: string
+    multiTenant?: boolean
   } = $props()
 
   /** Dynamic transcript component (default {@link AgentConversation}). */
@@ -613,6 +616,7 @@
         {onOpenMessageThread}
         {onSwitchToCalendar}
         streamingWrite={streamingWritePreview}
+        {multiTenant}
       />
 
       {#if isWikiPaused}

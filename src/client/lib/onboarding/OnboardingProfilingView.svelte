@@ -11,7 +11,7 @@
   import { getToolUiPolicy } from '../agentUtils.js'
   import OnboardingActivityTranscriptShell from './OnboardingActivityTranscriptShell.svelte'
   import OnboardingLocalWikiLead from './OnboardingLocalWikiLead.svelte'
-  import { profilingLeadCopy } from './onboardingLeadCopy.js'
+  import { profilingLeadCopy, profilingLeadCopyMultiTenant } from './onboardingLeadCopy.js'
   import {
     buildProfilingTranscriptEvents,
     extractLastMeMdWriteContent,
@@ -28,7 +28,10 @@
     onOpenWiki,
     onOpenEmail,
     streamingWrite = null,
+    multiTenant = false,
   }: AgentConversationViewProps = $props()
+
+  const profilingLead = $derived(multiTenant ? profilingLeadCopyMultiTenant : profilingLeadCopy)
 
   let shell = $state<ConversationScrollApi | undefined>()
 
@@ -75,7 +78,7 @@
   {streamingWrite}
 >
   {#snippet children({ reduceMotion })}
-    <OnboardingLocalWikiLead {...profilingLeadCopy} hideTitle />
+    <OnboardingLocalWikiLead {...profilingLead} hideTitle />
 
     {#if streaming && activity}
       <div class="ob-prof-activity" role="status" aria-live="polite">

@@ -28,6 +28,7 @@ calamine = "0.26"
 docx-rs = "0.4"
 serde_yaml = "0.9"
 imap = { version = "3.0.0-alpha.15", default-features = true, features = ["native-tls"] }
+ctrlc = "3.4"
 async-openai = "0.27"
 async-trait = "0.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }

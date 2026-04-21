@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { 
-    User, 
-    Mail, 
-    RefreshCw, 
+  import {
+    User,
+    Mail,
+    RefreshCw,
     ChevronRight,
     BookOpen,
     Smartphone,
@@ -12,12 +12,20 @@
     Calendar,
     Layers,
     FileText,
+    LogOut,
+    Trash2,
   } from 'lucide-svelte'
   import type { BackgroundAgentDoc, YourWikiPhase } from './statusBar/backgroundAgentTypes.js'
   import type { OnboardingMailStatus } from './onboarding/onboardingTypes.js'
   import type { NavigateOptions, Overlay } from '../router.js'
   import { subscribe } from './app/appEvents.js'
   import { wikiPathParentDir } from './wikiPathDisplay.js'
+  import {
+    fetchVaultStatus,
+    postVaultDeleteAllData,
+    postVaultLogout,
+  } from './vaultClient.js'
+  import { clearBrainClientStorage } from './brainClientStorage.js'
 
   type HubRipmailSourceRow = {
     id: string
@@ -41,6 +49,9 @@
   /** Newest-first from `/api/wiki/edit-history`, else `/api/wiki/recent` when log is empty. */
   let wikiRecentEdits = $state<{ path: string; date: string }[]>([])
   let wikiRecentReady = $state(false)
+  /** Hosted (`BRAIN_DATA_ROOT`): hide phone QR; show sign-out / delete data. */
+  let multiTenant = $state(false)
+  let accountBusy = $state(false)
 
   const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
   const wikiIsActive = $derived(
@@ -210,6 +221,13 @@
   }
 
   onMount(() => {
+    void fetchVaultStatus()
+      .then((v) => {
+        multiTenant = v.multiTenant === true
+      })
+      .catch(() => {
+        multiTenant = false
+      })
     void fetchData()
     const id = setInterval(() => void fetchData(), 2000)
     const unsub = subscribe((e) => {
@@ -247,6 +265,41 @@
     const h = Math.floor(m / 60)
     return ` · ${h}h`
   }
+
+  async function onLogout() {
+    if (accountBusy) return
+    accountBusy = true
+    try {
+      await postVaultLogout()
+      clearBrainClientStorage()
+      window.location.assign('/')
+    } finally {
+      accountBusy = false
+    }
+  }
+
+  async function onDeleteAllData() {
+    if (accountBusy) return
+    if (
+      !confirm(
+        'Delete all your data on this server? Your wiki, search index, chats, and profile will be permanently removed. You will be signed out. This cannot be undone.',
+      )
+    ) {
+      return
+    }
+    accountBusy = true
+    try {
+      const r = await postVaultDeleteAllData()
+      if ('error' in r) {
+        alert(r.error)
+        return
+      }
+      clearBrainClientStorage()
+      window.location.assign('/')
+    } finally {
+      accountBusy = false
+    }
+  }
 </script>
 
 <div class="hub-page">
@@ -258,14 +311,23 @@
   </header>
 
   <div class="hub-grid">
-    <!-- Section 1: Connectivity & Access -->
-    <section class="hub-section links-section">
+    <!-- Section 1: Account / connectivity (phone QR is desktop-only; hosted shows sign-out + delete) -->
+    <section class="hub-section links-section" aria-busy={accountBusy}>
       <div class="section-header">
-        <Smartphone size={18} />
-        <h2>Access & Connectivity</h2>
+        {#if multiTenant}
+          <User size={18} />
+          <h2>Account</h2>
+        {:else}
+          <Smartphone size={18} />
+          <h2>Access & Connectivity</h2>
+        {/if}
       </div>
       <div class="links-list">
-        <button class="link-item" onclick={() => onHubNavigate({ type: 'wiki', path: 'me.md' })}>
+        <button
+          type="button"
+          class="link-item"
+          onclick={() => onHubNavigate({ type: 'wiki', path: 'me.md' })}
+        >
           <div class="link-info">
             <User size={16} />
             <span>Your Profile (me.md)</span>
@@ -273,16 +335,36 @@
           <ChevronRight size={16} />
         </button>
 
-        <button class="link-item" onclick={() => onHubNavigate({ type: 'phone-access' })}>
-          <div class="link-info">
-            <Smartphone size={16} />
-            <span>Phone Access</span>
-          </div>
-          <div class="link-status">
-            <span class="status-sub">Scan QR code</span>
-          </div>
-          <ChevronRight size={16} />
-        </button>
+        {#if multiTenant}
+          <button type="button" class="link-item" onclick={onLogout} disabled={accountBusy}>
+            <div class="link-info">
+              <LogOut size={16} />
+              <span>Sign out</span>
+            </div>
+            <ChevronRight size={16} />
+          </button>
+          <button type="button" class="link-item link-item-danger" onclick={onDeleteAllData} disabled={accountBusy}>
+            <div class="link-info">
+              <Trash2 size={16} />
+              <span>Delete all my data</span>
+            </div>
+            <div class="link-status">
+              <span class="status-sub">Removes wiki, index, chats — then signs out</span>
+            </div>
+            <ChevronRight size={16} />
+          </button>
+        {:else}
+          <button type="button" class="link-item" onclick={() => onHubNavigate({ type: 'phone-access' })}>
+            <div class="link-info">
+              <Smartphone size={16} />
+              <span>Phone Access</span>
+            </div>
+            <div class="link-status">
+              <span class="status-sub">Scan QR code</span>
+            </div>
+            <ChevronRight size={16} />
+          </button>
+        {/if}
       </div>
     </section>
 
@@ -591,9 +673,18 @@
     transition: padding-left 0.2s ease, color 0.15s;
   }
 
-  .link-item:hover:not(.static):not(.disabled) {
+  .link-item:hover:not(.static):not(.disabled):not(:disabled) {
     padding-left: 4px;
     color: var(--accent);
+  }
+
+  .link-item:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .link-item.link-item-danger:not(:disabled):hover {
+    color: var(--danger);
   }
 
   .link-item.wiki-recent-row {

@@ -7,7 +7,9 @@ import vaultRoute from './vault.js'
 import { tenantMiddleware } from '../lib/tenantMiddleware.js'
 import { vaultGateMiddleware } from '../lib/vaultGate.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '../lib/dataRoot.js'
-import { registerSessionTenant } from '../lib/tenantRegistry.js'
+import { registerIdentityWorkspace, registerSessionTenant } from '../lib/tenantRegistry.js'
+import { writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { createVaultSession } from '../lib/vaultSessionStore.js'
 import { runWithTenantContextAsync } from '../lib/tenantContext.js'
 
@@ -126,6 +128,12 @@ describe('/api/vault routes', () => {
     const j = (await st.json()) as { unlocked: boolean }
     expect(j.unlocked).toBe(false)
   })
+
+  it('POST /delete-all-data returns 404 when not multi-tenant', async () => {
+    const app = mountVault()
+    const del = await app.request('http://localhost/api/vault/delete-all-data', { method: 'POST' })
+    expect(del.status).toBe(404)
+  })
 })
 
 describe('/api/vault routes (multi-tenant)', () => {
@@ -220,6 +228,42 @@ describe('/api/vault routes (multi-tenant)', () => {
     expect(j.vaultExists).toBe(true)
     expect(j.unlocked).toBe(true)
     expect(j.workspaceHandle).toBe(handle)
+
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('POST /delete-all-data removes tenant dir, identity map, and session (multi-tenant)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'vault-mt-del-'))
+    process.env.BRAIN_DATA_ROOT = root
+
+    const handle = 'del-ws-handle'
+    const home = ensureTenantHomeDir(handle)
+    await writeFile(join(home, 'marker.txt'), 'x', 'utf-8')
+    const sid = await runWithTenantContextAsync(
+      { workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      async () => createVaultSession(),
+    )
+    await registerSessionTenant(sid, handle)
+    await registerIdentityWorkspace('google:test-sub-delete', handle)
+
+    const app = mountMtVault()
+    const del = await app.request('http://localhost/api/vault/delete-all-data', {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${sid}` },
+    })
+    expect(del.status).toBe(200)
+    const body = (await del.json()) as { ok?: boolean; unlocked?: boolean }
+    expect(body.ok).toBe(true)
+    expect(body.unlocked).toBe(false)
+
+    expect(existsSync(home)).toBe(false)
+
+    const { lookupWorkspaceByIdentity } = await import('../lib/tenantRegistry.js')
+    expect(await lookupWorkspaceByIdentity('google:test-sub-delete')).toBeNull()
+
+    const st = await app.request('http://localhost/api/vault/status')
+    const j = (await st.json()) as { unlocked: boolean }
+    expect(j.unlocked).toBe(false)
 
     await rm(root, { recursive: true, force: true })
   })

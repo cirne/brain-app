@@ -24,7 +24,7 @@ inbox.get('/', async (c) => {
 
 // POST /api/inbox/sync — trigger IMAP sync
 inbox.post('/sync', async (c) => {
-  const result = await syncInboxRipmail()
+  const result = await syncInboxRipmail(c.req.raw.signal)
   if (result.ok) return c.json({ ok: true })
   return c.json({ ok: false, error: result.error ?? 'inbox sync failed' }, 500)
 })

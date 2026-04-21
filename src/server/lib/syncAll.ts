@@ -1,10 +1,10 @@
 import process from 'node:process'
-import { spawn } from 'node:child_process'
+export { ripmailProcessEnv as ripmailRefreshEnv } from './ripmailExec.js'
 import { formatExecError } from './execError.js'
 import { ripmailHomeForBrain } from './brainHome.js'
 import { ensureGoogleCalendarSourcesForOAuthImap } from './googleOAuth.js'
-import { ripmailBin } from './ripmailBin.js'
-import { ripmailProcessEnv } from './ripmailExec.js'
+import { RipmailTimeoutError, ripmailRefreshTimeoutMs } from './ripmailExec.js'
+import { runRipmailHeavyArgv, runRipmailRefreshForBrain } from './ripmailHeavySpawn.js'
 
 export interface SyncComponentResult {
   ok: boolean
@@ -25,89 +25,61 @@ export async function syncWikiFromDisk(): Promise<SyncComponentResult> {
 }
 
 /**
- * Kick off `ripmail refresh` without blocking. Syncs mail, calendar sources, local dirs, etc.
- * The CLI may keep running a supervisor while sync continues; use a detached spawn instead of `exec()`.
+ * Run `ripmail refresh` for the current brain home: single-flight per home+argv, hard timeout,
+ * always wait for exit (no detached spawn).
  */
-export function ripmailRefreshEnv(): typeof process.env {
-  return ripmailProcessEnv()
-}
-
-export async function syncInboxRipmail(): Promise<SyncComponentResult> {
+export async function syncInboxRipmail(signal?: AbortSignal): Promise<SyncComponentResult> {
   try {
     await ensureGoogleCalendarSourcesForOAuthImap(ripmailHomeForBrain())
   } catch (e) {
     console.error('[brain-app] ensureGoogleCalendarSourcesForOAuthImap:', e)
   }
-  const rm = ripmailBin()
-  return new Promise((resolve) => {
-    const child = spawn(rm, ['refresh'], {
-      detached: true,
-      stdio: 'ignore',
-      env: ripmailRefreshEnv(),
-    })
-    const done = (result: SyncComponentResult) => {
-      child.removeAllListeners()
-      resolve(result)
-    }
-    child.once('error', (err) => {
-      const detail = formatExecError(err)
-      console.error('[brain-app] ripmail refresh failed:', detail)
-      done({ ok: false, error: detail })
-    })
-    child.once('spawn', () => {
-      child.unref()
-      done({ ok: true })
-    })
-  })
+  try {
+    await runRipmailRefreshForBrain([], signal)
+    return { ok: true }
+  } catch (e) {
+    const detail = formatExecError(e)
+    console.error('[brain-app] ripmail refresh failed:', detail)
+    return { ok: false, error: detail }
+  }
 }
 
 /**
  * Wiki + ripmail refresh (includes indexed calendar). Does not throw — callers log per-component results.
  */
-export async function runFullSync(): Promise<FullSyncResult> {
-  const [wiki, inbox] = await Promise.all([syncWikiFromDisk(), syncInboxRipmail()])
+export async function runFullSync(inboxSignal?: AbortSignal): Promise<FullSyncResult> {
+  const [wiki, inbox] = await Promise.all([syncWikiFromDisk(), syncInboxRipmail(inboxSignal)])
   return { wiki, inbox }
 }
 
 /**
- * Run `ripmail refresh` and **wait** for it to complete (unlike `syncInboxRipmail` which is
- * fire-and-forget). Used by the Your Wiki supervisor at the start of each lap so the buildout
- * agent works on freshly-indexed content.
- *
- * Caps at `timeoutMs` (default 90 s). If the process times out, it is killed and we resolve
- * `{ ok: true, timedOut: true }` so the lap proceeds with best-effort fresh data.
+ * Run `ripmail refresh` and **wait** for it to complete. Uses the same single-flight + timeout
+ * path as other refresh triggers when `timeoutMs` matches the global refresh cap; the lap uses an
+ * explicit shorter cap by passing `timeoutMs`.
  */
-export async function refreshMailAndWait(timeoutMs = 90_000): Promise<{ ok: boolean; timedOut?: boolean; error?: string }> {
+export async function refreshMailAndWait(
+  timeoutMs = ripmailRefreshTimeoutMs(),
+  signal?: AbortSignal,
+): Promise<{ ok: boolean; timedOut?: boolean; error?: string }> {
   try {
     await ensureGoogleCalendarSourcesForOAuthImap(ripmailHomeForBrain())
   } catch (e) {
     console.error('[brain-app] ensureGoogleCalendarSourcesForOAuthImap (lap refresh):', e)
   }
-  const rm = ripmailBin()
-  return new Promise((resolve) => {
-    const child = spawn(rm, ['refresh'], {
-      stdio: 'ignore',
-      env: ripmailRefreshEnv(),
+  try {
+    await runRipmailHeavyArgv(['refresh'], {
+      timeoutMs,
+      label: 'refresh-lap',
+      signal,
+      ripmailTimeoutSeconds: Math.max(1, Math.ceil(timeoutMs / 1000)),
     })
-    let settled = false
-    const settle = (result: { ok: boolean; timedOut?: boolean; error?: string }) => {
-      if (settled) return
-      settled = true
-      child.removeAllListeners()
-      clearTimeout(timer)
-      resolve(result)
+    return { ok: true }
+  } catch (e) {
+    if (e instanceof RipmailTimeoutError) {
+      return { ok: true, timedOut: true }
     }
-    const timer = setTimeout(() => {
-      try { child.kill() } catch { /* ignore */ }
-      settle({ ok: true, timedOut: true })
-    }, timeoutMs)
-    child.once('error', (err) => {
-      settle({ ok: false, error: formatExecError(err) })
-    })
-    child.once('close', (code) => {
-      settle({ ok: code === 0 || code === null })
-    })
-  })
+    return { ok: false, error: formatExecError(e) }
+  }
 }
 
 const DEFAULT_SYNC_INTERVAL_SECONDS = 300

@@ -1,13 +1,51 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { EventEmitter } from 'node:events'
+import { Buffer } from 'node:buffer'
 import { Hono } from 'hono'
-import { promisify } from 'node:util'
 
-// exec mock — set [promisify.custom] so inbox.ts's promisify(exec) is fully controlled
-const execMock = vi.fn()
-const execCustomMock = vi.fn()
-;(execMock as unknown as Record<symbol, unknown>)[promisify.custom] = execCustomMock
+/** Simulates a spawned ripmail process for `runRipmailArgv` (stdio + close). */
+function createMockChild(options: {
+  stdout?: string
+  stderr?: string
+  code?: number
+  err?: Error
+}): EventEmitter {
+  const stdout = new EventEmitter()
+  const stderr = new EventEmitter()
+  const child = new EventEmitter() as EventEmitter & {
+    stdout: EventEmitter
+    stderr: EventEmitter
+    pid: number
+    killed: boolean
+    kill: (signal?: string) => boolean
+  }
+  child.stdout = stdout
+  child.stderr = stderr
+  child.pid = 42_424
+  child.killed = false
+  child.kill = () => {
+    child.killed = true
+    return true
+  }
 
-vi.mock('node:child_process', () => ({ exec: execMock }))
+  queueMicrotask(() => {
+    if (options.err) {
+      child.emit('error', options.err)
+      return
+    }
+    const { stdout: out = '', stderr: err = '', code = 0 } = options
+    if (out.length > 0) stdout.emit('data', Buffer.from(out, 'utf8'))
+    if (err.length > 0) stderr.emit('data', Buffer.from(err, 'utf8'))
+    child.emit('close', code, null)
+  })
+  return child
+}
+
+const spawnMock = vi.fn()
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>()
+  return { ...actual, spawn: spawnMock }
+})
 
 // Mock draftExtract so we control what the LLM extraction returns
 const extractDraftEditsMock = vi.fn()
@@ -18,7 +56,6 @@ let app: Hono
 beforeEach(async () => {
   process.env.RIPMAIL_BIN = 'ripmail'
   vi.resetModules()
-  // Re-import so promisify(exec) picks up the mock
   const { default: inboxRoute } = await import('./inbox.js')
   app = new Hono()
   app.route('/api/inbox', inboxRoute)
@@ -27,18 +64,16 @@ beforeEach(async () => {
 afterEach(() => {
   delete process.env.RIPMAIL_BIN
   vi.resetAllMocks()
-  // Restore custom symbol after reset
-  ;(execMock as unknown as Record<symbol, unknown>)[promisify.custom] = execCustomMock
 })
 
 // ---- helpers ----------------------------------------------------------------
 
 function mockSuccess(stdout: string) {
-  execCustomMock.mockResolvedValue({ stdout, stderr: '' })
+  spawnMock.mockImplementation(() => createMockChild({ stdout, code: 0 }))
 }
 
-function mockFailure(message = 'command failed') {
-  execCustomMock.mockRejectedValue(new Error(message))
+function mockFailure(_message = 'command failed') {
+  spawnMock.mockImplementation(() => createMockChild({ code: 1, stderr: 'error' }))
 }
 
 // ---- GET /api/inbox ---------------------------------------------------------
@@ -62,7 +97,7 @@ describe('GET /api/inbox', () => {
             ],
           },
         ],
-      })
+      }),
     )
     const res = await app.request('/api/inbox')
     expect(res.status).toBe(200)
@@ -130,9 +165,9 @@ describe('POST /api/inbox/draft/:draftId/edit', () => {
   it('returns updated draft after editing (body-only instruction)', async () => {
     extractDraftEditsMock.mockResolvedValue({ body_instruction: 'make it shorter' })
     const updated = { id: 'draft-1', body: 'Revised body' }
-    execCustomMock
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }) // draft edit
-      .mockResolvedValueOnce({ stdout: JSON.stringify(updated), stderr: '' }) // draft view
+    spawnMock
+      .mockImplementationOnce(() => createMockChild({ stdout: '', code: 0 })) // draft edit
+      .mockImplementationOnce(() => createMockChild({ stdout: JSON.stringify(updated), code: 0 })) // draft view
     const res = await app.request('/api/inbox/draft/draft-1/edit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -151,21 +186,22 @@ describe('POST /api/inbox/draft/:draftId/edit', () => {
       body_instruction: 'make it shorter',
     })
     const updated = { id: 'draft-1', cc: ['bob@example.com'], subject: 'New Subject' }
-    execCustomMock
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }) // draft edit
-      .mockResolvedValueOnce({ stdout: JSON.stringify(updated), stderr: '' }) // draft view
+    spawnMock
+      .mockImplementationOnce(() => createMockChild({ stdout: '', code: 0 })) // draft edit
+      .mockImplementationOnce(() => createMockChild({ stdout: JSON.stringify(updated), code: 0 })) // draft view
     const res = await app.request('/api/inbox/draft/draft-1/edit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ instruction: 'cc bob@example.com, change subject to New Subject, make it shorter' }),
     })
     expect(res.status).toBe(200)
-    // Verify ripmail was called with metadata flags
-    const editCall = execCustomMock.mock.calls[0][0] as string
-    expect(editCall).toContain('--add-cc')
-    expect(editCall).toContain('bob@example.com')
-    expect(editCall).toContain('--subject')
-    expect(editCall).toContain('New Subject')
+    // Verify ripmail argv includes metadata flags (spawn: bin, argv, opts)
+    const argv = spawnMock.mock.calls[0][1] as string[]
+    const flat = argv.join(' ')
+    expect(flat).toContain('--add-cc')
+    expect(flat).toContain('bob@example.com')
+    expect(flat).toContain('--subject')
+    expect(flat).toContain('New Subject')
   })
 
   it('returns 500 when edit fails', async () => {

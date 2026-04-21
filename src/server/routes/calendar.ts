@@ -16,7 +16,7 @@ const calendar = new Hono()
 
 // POST /api/calendar/sync — same as inbox: `ripmail refresh` (indexes mail + calendar sources)
 calendar.post('/sync', async (c) => {
-  const result = await syncInboxRipmail()
+  const result = await syncInboxRipmail(c.req.raw.signal)
   if (result.ok) return c.json({ ok: true })
   return c.json({ ok: false, error: result.error ?? 'calendar sync failed' }, 500)
 })

@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { computeIndexingUserHint, parseRipmailStatusJson } from './ripmailStatusParse.js'
+import { readOnboardingPreferences } from './onboardingPreferences.js'
 import { ripmailHomeForBrain } from './brainHome.js'
 import { execRipmailAsync } from './ripmailExec.js'
 import { ripmailBin } from './ripmailBin.js'
@@ -140,6 +141,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
     }
 
     if (parsed) {
+      const prefs = await readOnboardingPreferences()
       const payload: OnboardingMailStatusPayload = {
         configured: true,
         indexedTotal: parsed.indexedTotal,
@@ -150,7 +152,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
         ftsReady: parsed.ftsReady,
         pendingBackfill: parsed.pendingRefresh,
         staleMailSyncLock: parsed.staleLockInDb,
-        indexingHint: computeIndexingUserHint(parsed),
+        indexingHint: computeIndexingUserHint(parsed, { mailProvider: prefs.mailProvider ?? null }),
       }
       return payload
     }

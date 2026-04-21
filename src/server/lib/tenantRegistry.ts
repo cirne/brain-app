@@ -89,3 +89,17 @@ export async function lookupIdentityKeyForWorkspace(workspaceHandle: string): Pr
   }
   return null
 }
+
+/** Remove every `identities` entry pointing at this workspace (hosted delete-account). */
+export async function removeIdentityMappingsForWorkspace(workspaceHandle: string): Promise<void> {
+  const reg = await readRegistry()
+  if (!reg.identities) return
+  let changed = false
+  for (const [k, h] of Object.entries(reg.identities)) {
+    if (h === workspaceHandle) {
+      delete reg.identities[k]
+      changed = true
+    }
+  }
+  if (changed) await writeRegistry(reg)
+}

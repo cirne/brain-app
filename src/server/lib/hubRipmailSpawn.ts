@@ -1,8 +1,5 @@
-import process from 'node:process'
-import { spawn } from 'node:child_process'
 import { formatExecError } from './execError.js'
-import { ripmailBin } from './ripmailBin.js'
-import { ripmailProcessEnv } from './ripmailExec.js'
+import { runRipmailBackfillForBrain, runRipmailRefreshForBrain } from './ripmailHeavySpawn.js'
 
 export interface HubRipmailSpawnResult {
   ok: boolean
@@ -17,47 +14,33 @@ export function isValidHubBackfillSince(spec: string): boolean {
   return (HUB_BACKFILL_SINCE_OPTIONS as readonly string[]).includes(s)
 }
 
-function spawnRipmailDetached(args: string[]): Promise<HubRipmailSpawnResult> {
-  const rm = ripmailBin()
-  return new Promise((resolve) => {
-    const child = spawn(rm, args, {
-      detached: true,
-      stdio: 'ignore',
-      env: ripmailProcessEnv() as typeof process.env,
-    })
-    const done = (result: HubRipmailSpawnResult) => {
-      child.removeAllListeners()
-      resolve(result)
-    }
-    child.once('error', (err) => {
-      const detail = formatExecError(err)
-      console.error('[brain-app] ripmail spawn failed:', detail, args.join(' '))
-      done({ ok: false, error: detail })
-    })
-    child.once('spawn', () => {
-      child.unref()
-      done({ ok: true })
-    })
-  })
-}
-
 /** Incremental sync for one mailbox (`ripmail refresh --source <id>`). */
-export function spawnRipmailRefreshSource(sourceId: string): Promise<HubRipmailSpawnResult> {
+export async function spawnRipmailRefreshSource(sourceId: string): Promise<HubRipmailSpawnResult> {
   const id = sourceId.trim()
-  if (!id) return Promise.resolve({ ok: false, error: 'source id required' })
-  return spawnRipmailDetached(['refresh', '--source', id])
+  if (!id) return { ok: false, error: 'source id required' }
+  try {
+    await runRipmailRefreshForBrain(['--source', id])
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: formatExecError(e) }
+  }
 }
 
 /** Historical backfill for one mailbox (`ripmail backfill --since <spec> --source <id>`). */
-export function spawnRipmailBackfillSource(
+export async function spawnRipmailBackfillSource(
   sourceId: string,
   since: string,
 ): Promise<HubRipmailSpawnResult> {
   const id = sourceId.trim()
-  if (!id) return Promise.resolve({ ok: false, error: 'source id required' })
+  if (!id) return { ok: false, error: 'source id required' }
   const spec = since.trim().toLowerCase()
   if (!isValidHubBackfillSince(spec)) {
-    return Promise.resolve({ ok: false, error: 'invalid backfill window' })
+    return { ok: false, error: 'invalid backfill window' }
   }
-  return spawnRipmailDetached(['backfill', '--since', spec, '--source', id])
+  try {
+    await runRipmailBackfillForBrain(['--since', spec, '--source', id])
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: formatExecError(e) }
+  }
 }

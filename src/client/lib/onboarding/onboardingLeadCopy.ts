@@ -14,6 +14,13 @@ export const profilingLeadCopy: OnboardingLeadBlock = {
     'Your wiki lives in your vault on this Mac—private to this device, not uploaded, and not available on the web. We use mail stored here to draft a short profile into your local notes.',
 }
 
+/** Hosted multi-tenant: emphasize what we’re doing (no “this Mac” local-vault framing). */
+export const profilingLeadCopyMultiTenant: OnboardingLeadBlock = {
+  title: 'Building your profile',
+  lead:
+    "We're building your profile by learning from your emails. This will take a few moments.",
+}
+
 export const wikiBuildoutLeadCopy: OnboardingLeadBlock = {
   title: 'Setting up your wiki',
   lead:

@@ -1,6 +1,6 @@
 import { createReadTool, createEditTool, createWriteTool, createGrepTool, createFindTool, defineTool } from '@mariozechner/pi-coding-agent'
 import { Type } from '@mariozechner/pi-ai'
-import { exec, spawn } from 'node:child_process'
+import { exec } from 'node:child_process'
 import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { promisify } from 'node:util'
@@ -30,7 +30,8 @@ import {
   loadWikiContactSectionBodiesByPath,
   wikiPathsMatchingChatInContactSections,
 } from '../lib/wikiContactIdentifierMatch.js'
-import { execRipmailAsync, ripmailProcessEnv } from '../lib/ripmailExec.js'
+import { execRipmailAsync } from '../lib/ripmailExec.js'
+import { runRipmailRefreshForBrain } from '../lib/ripmailHeavySpawn.js'
 import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 import { resolveRipmailSourceForCli } from '../lib/ripmailSourceResolve.js'
@@ -352,17 +353,14 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
-  function spawnRipmailRefreshDetached(sourceId?: string): Promise<{ ok: boolean; error?: string }> {
-    const rm = ripmailBin()
-    const args = sourceId?.trim() ? (['refresh', '--source', sourceId.trim()] as const) : (['refresh'] as const)
-    return new Promise((resolve) => {
-      const child = spawn(rm, [...args], { detached: true, stdio: 'ignore', env: ripmailProcessEnv() })
-      child.once('error', (err) => resolve({ ok: false, error: String(err) }))
-      child.once('spawn', () => {
-        child.unref()
-        resolve({ ok: true })
-      })
-    })
+  async function runRipmailRefreshAgent(sourceId?: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const extra = sourceId?.trim() ? ['--source', sourceId.trim()] : []
+      await runRipmailRefreshForBrain(extra)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
   }
 
   // Custom tools: unified ripmail index (mail + files) and source management
@@ -558,7 +556,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         case 'reindex': {
           const sid = params.id ?? params.source_id
           const resolved = await resolveRipmailSourceForCli(sid)
-          const started = await spawnRipmailRefreshDetached(resolved)
+          const started = await runRipmailRefreshAgent(resolved)
           if (!started.ok) throw new Error(started.error ?? 'Failed to start ripmail refresh')
           const scope = sid?.trim() ? `source ${sid.trim()}` : 'all sources'
           return {
@@ -951,7 +949,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           : ''
         const cmd = `${rm} sources edit ${JSON.stringify(params.source)} ${ids}${defaultIds} --json`
         const { stdout } = await execRipmailAsync(cmd, { timeout: 15000 })
-        await spawnRipmailRefreshDetached(params.source)
+        await runRipmailRefreshAgent(params.source)
         return {
           content: [
             {

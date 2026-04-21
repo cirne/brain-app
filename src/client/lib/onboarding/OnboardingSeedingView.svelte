@@ -17,6 +17,7 @@
     onOpenWiki,
     onOpenEmail,
     streamingWrite = null,
+    multiTenant: _multiTenant = false,
   }: AgentConversationViewProps = $props()
 
   let shell = $state<ConversationScrollApi | undefined>()

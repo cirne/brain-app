@@ -36,6 +36,8 @@ import { isMultiTenantMode } from './lib/dataRoot.js'
 import { runSplitLayoutMigrationIfNeeded } from './lib/splitLayoutMigration.js'
 import { ensureDefaultSkillsSeeded } from './lib/skillsSeeder.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
+import { terminateAllTrackedRipmailChildren } from './lib/ripmailExec.js'
+import debugRipmailChildrenRoute from './routes/debugRipmailChildren.js'
 import {
   startRipmailBackfillSupervisor,
   stopRipmailBackfillSupervisor,
@@ -159,6 +161,9 @@ app.route('/oauth/google', oauthGoogleBrowserPages)
 if (isDev) {
   app.route('/api/dev', devRoute)
 }
+if (isDev || process.env.BRAIN_DEBUG_CHILDREN === '1') {
+  app.route('/api/debug', debugRipmailChildrenRoute)
+}
 
 let shuttingDown = false
 let syncTimer: ReturnType<typeof setInterval> | undefined
@@ -198,13 +203,9 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
       stopRipmailBackfillSupervisor()
     }
     stopTunnel()
-    if (!isMultiTenantMode()) {
-      try {
-        await runFullSync()
-      } catch (e) {
-        console.error('[brain-app] shutdown sync error:', e)
-      }
-    }
+    terminateAllTrackedRipmailChildren('SIGTERM')
+    await new Promise((r) => setTimeout(r, 2000))
+    terminateAllTrackedRipmailChildren('SIGKILL')
     server.close(() => {
       process.exit(0)
     })

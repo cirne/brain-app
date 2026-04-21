@@ -219,7 +219,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
       if (!isFirstLap) {
         touchRun(doc, { detail: 'Syncing mail before lap…' })
         await writeBackgroundRun(doc)
-        const syncResult = await refreshMailAndWait()
+        const syncResult = await refreshMailAndWait(90_000)
         if (syncResult.ok) {
           syncNote =
             'Mail and calendar sources were synced immediately before this lap. ' +

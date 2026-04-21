@@ -11,7 +11,7 @@ mod sync;
 
 use clap::CommandFactory;
 
-use crate::cli::args::Commands;
+use crate::cli::args::{Cli, Commands};
 use crate::cli::util::ripmail_home_path;
 use crate::cli::CliResult;
 use ripmail::setup::wizard_is_first_mailbox_setup;
@@ -20,7 +20,7 @@ use ripmail::{
     resolved_ripmail_home_from_env,
 };
 
-pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
+pub(crate) fn handle_command(cli: Cli) -> CliResult {
     let Some(home) = resolved_ripmail_home_from_env() else {
         eprintln!("ripmail: set RIPMAIL_HOME or BRAIN_HOME to a non-empty path.");
         std::process::exit(1);
@@ -30,7 +30,8 @@ pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
         std::process::exit(1);
     }
     migrate_legacy_zmail_home_dir_if_needed()?;
-    let command = match command {
+    let timeout_secs = cli.timeout_secs;
+    let command = match cli.command {
         None => {
             let home = ripmail_home_path();
             if wizard_is_first_mailbox_setup(&home) {
@@ -89,14 +90,28 @@ pub(crate) fn handle_command(command: Option<Commands>) -> CliResult {
             force,
             text,
             verbose,
-        } => sync::run_refresh(source, force, text, verbose),
+        } => {
+            ripmail::runtime_limits::arm(timeout_secs);
+            let out = sync::run_refresh(source, force, text, verbose);
+            ripmail::runtime_limits::disarm();
+            out
+        }
         Commands::Backfill {
             duration,
             since,
             source,
             foreground,
             verbose,
-        } => sync::run_backfill(duration, since, source, foreground, verbose),
+        } => {
+            if foreground {
+                ripmail::runtime_limits::arm(timeout_secs);
+            }
+            let out = sync::run_backfill(duration, since, source, foreground, verbose);
+            if foreground {
+                ripmail::runtime_limits::disarm();
+            }
+            out
+        }
         Commands::Status { json, imap } => sync::run_status(json, imap),
         Commands::Stats { json } => sync::run_stats(json),
         Commands::RebuildIndex => sync::run_rebuild_index(),

@@ -146,6 +146,7 @@
           onComplete={onOnboardingComplete}
           refreshStatus={refreshVaultAndOnboardingStatus}
           needsVaultSetup={needsVaultSetup}
+          multiTenant={vaultStatus?.multiTenant === true}
         />
       </div>
     {:else}

@@ -322,6 +322,14 @@ pub(crate) fn run_sync_foreground_backfill(
     let exclude_labels = cfg.sync_exclude_labels.clone();
     let sync_mailbox = cfg.sync_mailbox.clone();
     for mb in &to_run {
+        if ripmail::runtime_limits::shutdown_requested() {
+            eprintln!("ripmail: interrupted; stopping backfill before next mailbox.");
+            break;
+        }
+        if ripmail::runtime_limits::wall_clock_expired() {
+            eprintln!("ripmail: wall-clock timeout; stopping backfill before next mailbox.");
+            break;
+        }
         if !mailbox_sync_ready(&home, mb) {
             if mb.kind == SourceKind::LocalDir {
                 eprintln!(
@@ -457,6 +465,14 @@ pub(crate) fn run_sync_foreground_refresh(
     let exclude_labels = cfg.sync_exclude_labels.clone();
     let sync_mailbox = cfg.sync_mailbox.clone();
     for mb in &to_run {
+        if ripmail::runtime_limits::shutdown_requested() {
+            eprintln!("ripmail: interrupted; stopping refresh before next mailbox.");
+            break;
+        }
+        if ripmail::runtime_limits::wall_clock_expired() {
+            eprintln!("ripmail: wall-clock timeout; stopping refresh before next mailbox.");
+            break;
+        }
         if !mailbox_sync_ready(&home, mb) {
             if progress_stderr {
                 if mb.kind == SourceKind::LocalDir {

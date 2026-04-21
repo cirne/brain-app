@@ -196,6 +196,8 @@ describe('parseRipmailStatusJson', () => {
     expect(p!.syncLockAgeMs).toBe(125000)
     expect(p!.syncRunning).toBe(true)
     expect(computeIndexingUserHint(p!)).toContain('stay at zero')
+    expect(computeIndexingUserHint(p!, { mailProvider: 'google' })).toContain('first connection')
+    expect(computeIndexingUserHint(p!, { mailProvider: 'google' })).not.toContain('Mail is scanned')
   })
 
   it('treats stale DB lock as not running', () => {

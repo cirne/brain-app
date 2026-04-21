@@ -6,7 +6,25 @@ use crate::cli::CliResult;
 use ripmail::{
     build_refresh_json_value, collect_stats, db, get_imap_server_status, load_refresh_new_mail,
     print_refresh_text, print_status_text, rebuild_from_maildir, spawn_sync_background_detached,
+    RunSyncError,
 };
+
+fn map_sync_fatal(e: Box<dyn std::error::Error>) -> crate::cli::CliResult {
+    match e.downcast::<RunSyncError>() {
+        Ok(re) => match *re {
+            RunSyncError::WallClockLimit => {
+                eprintln!("ripmail: wall-clock timeout");
+                std::process::exit(124);
+            }
+            RunSyncError::Interrupted => {
+                eprintln!("ripmail: interrupted");
+                std::process::exit(143);
+            }
+            other => Err(other.into()),
+        },
+        Err(e) => Err(e),
+    }
+}
 
 pub(crate) fn run_backfill(
     duration: Option<String>,
@@ -31,7 +49,11 @@ pub(crate) fn run_backfill(
     let mailbox_ref = source.as_deref().map(str::trim).filter(|s| !s.is_empty());
 
     if foreground {
-        let result = run_sync_foreground_backfill(&cfg, Some(since_spec), mailbox_ref, verbose)?;
+        let result =
+            match run_sync_foreground_backfill(&cfg, Some(since_spec), mailbox_ref, verbose) {
+                Ok(r) => r,
+                Err(e) => return map_sync_fatal(e),
+            };
         print_sync_foreground_metrics(&result);
     } else {
         spawn_sync_background_detached(
@@ -55,7 +77,10 @@ pub(crate) fn run_refresh(
     let mailbox_ref = source.as_deref().map(str::trim).filter(|s| !s.is_empty());
 
     let conn = db::open_file(cfg.db_path())?;
-    let result = run_sync_foreground_refresh(&cfg, force, true, mailbox_ref, verbose)?;
+    let result = match run_sync_foreground_refresh(&cfg, force, true, mailbox_ref, verbose) {
+        Ok(r) => r,
+        Err(e) => return map_sync_fatal(e),
+    };
     let ids = result.new_message_ids.clone().unwrap_or_default();
     let owner_rank: Option<Vec<String>> = if cfg.imap_user.trim().is_empty() {
         None

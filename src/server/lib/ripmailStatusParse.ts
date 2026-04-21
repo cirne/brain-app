@@ -103,11 +103,18 @@ function anyMailboxNeedsBackfill(mailboxes: unknown): boolean {
   return false
 }
 
+export type ComputeIndexingUserHintOptions = {
+  mailProvider?: 'apple' | 'google' | null
+}
+
 /**
  * Plain-language status for the onboarding “indexing mail” screen (non-technical users).
  * Precedence: stuck DB → sync not started → active but zero count.
  */
-export function computeIndexingUserHint(parsed: ParsedRipmailStatus): string | null {
+export function computeIndexingUserHint(
+  parsed: ParsedRipmailStatus,
+  opts?: ComputeIndexingUserHintOptions,
+): string | null {
   if (parsed.staleLockInDb) {
     return 'A previous mail sync stopped unexpectedly. Quit Braintunnel completely (Cmd+Q), open it again, and we’ll resume.'
   }
@@ -122,6 +129,9 @@ export function computeIndexingUserHint(parsed: ParsedRipmailStatus): string | n
     (parsed.indexedTotal ?? 0) === 0 &&
     (parsed.ftsReady ?? 0) === 0
   ) {
+    if (opts?.mailProvider === 'google') {
+      return 'The first connection may take a few minutes. It’s normal if your message count stays at zero until messages start to appear.'
+    }
     // UI shows `sync.lockAgeMs` as live “sync running” feedback; keep a short note only when we lack that.
     if (parsed.syncLockAgeMs != null && parsed.syncLockAgeMs >= 1000) {
       return 'The count can stay at zero for a few minutes while Mail is scanned — that’s normal.'

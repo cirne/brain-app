@@ -32,6 +32,8 @@
     storageKey = ONBOARDING_DEFAULT_CHAT_STORAGE_KEY,
     /** When true, agent tools never auto-open the right detail panel (desktop + mobile). Default: only suppress on mobile, like the main assistant. */
     suppressAgentDetailAutoOpen = false,
+    /** Hosted multi-tenant: alternate profiling lead copy (no local-Mac vault framing). */
+    multiTenant = false,
   }: {
     chatEndpoint: string
     autoSendMessage: string
@@ -40,6 +42,7 @@
     headerFallbackTitle?: string
     storageKey?: string
     suppressAgentDetailAutoOpen?: boolean
+    multiTenant?: boolean
   } = $props()
 
   const isSeedingWiki = $derived(chatEndpoint === '/api/onboarding/seed')
@@ -354,6 +357,7 @@
           conversationHidden={!!route.overlay && !useDesktopSplitDetail}
           hidePaneContextChip={!!route.overlay && useDesktopSplitDetail}
           suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || !useDesktopSplitDetail || useOnboardingActivity}
+          {multiTenant}
           conversationView={
             isProfiling
               ? OnboardingProfilingView

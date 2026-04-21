@@ -600,6 +600,14 @@ fn run_sync_imap_phase(
 
     let total_batches = uids.len().div_ceil(batch_size);
     for (bi, chunk) in uids.chunks(batch_size).enumerate() {
+        if crate::runtime_limits::shutdown_requested() {
+            let _ = release_lock(conn, Some(pid), options.kind);
+            return Err(RunSyncError::Interrupted);
+        }
+        if crate::runtime_limits::wall_clock_expired() {
+            let _ = release_lock(conn, Some(pid), options.kind);
+            return Err(RunSyncError::WallClockLimit);
+        }
         progress_line(
             options,
             logger,
@@ -862,9 +870,21 @@ where
         logger.info("Recovered stale sync lock", None);
     }
 
-    let connect_result = rx
-        .recv()
-        .map_err(|_| RunSyncError::Imap("IMAP connect thread disconnected".into()))?;
+    let connect_result = match rx.recv_timeout(crate::runtime_limits::imap_connect_timeout()) {
+        Ok(r) => r,
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+            drop(rx);
+            let _ = release_lock(conn, Some(pid), options.kind);
+            return Err(RunSyncError::Imap(
+                "IMAP connect timed out (RIPMAIL_IMAP_CONNECT_TIMEOUT_SECS)".into(),
+            ));
+        }
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+            return Err(RunSyncError::Imap(
+                "IMAP connect thread disconnected".into(),
+            ));
+        }
+    };
     let mut session = connect_result?;
 
     let mut transport = super::transport::RealImapTransport {

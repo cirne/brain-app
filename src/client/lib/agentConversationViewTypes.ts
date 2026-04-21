@@ -31,4 +31,6 @@ export type AgentConversationViewProps = {
    * Live `write` tool body for onboarding (e.g. `me.md` while profiling) — same shape as {@link Wiki}'s `streamingWrite`.
    */
   streamingWrite?: { path: string; body: string } | null
+  /** Hosted multi-tenant onboarding: alternate lead copy in profiling transcript. */
+  multiTenant?: boolean
 }

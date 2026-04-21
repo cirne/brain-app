@@ -82,7 +82,7 @@ pub(crate) fn run() -> CliResult {
     for n in notes {
         eprintln!("ripmail: note: {n}");
     }
-    commands::handle_command(cli.command)
+    commands::handle_command(cli)
 }
 
 #[cfg(test)]

@@ -33,6 +33,10 @@ pub enum RunSyncError {
     Config(String),
     #[error("fetchAll timed out after retries")]
     FetchTimeout,
+    #[error("wall-clock limit reached (RIPMAIL_TIMEOUT / --timeout)")]
+    WallClockLimit,
+    #[error("interrupted by signal")]
+    Interrupted,
 }
 
 #[cfg(test)]

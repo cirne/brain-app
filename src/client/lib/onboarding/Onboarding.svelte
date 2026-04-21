@@ -33,8 +33,10 @@
     refreshStatus: () => Promise<void>
     /** True when no vault verifier exists yet — first onboarding screen is vault password. */
     needsVaultSetup: boolean
+    /** Hosted multi-tenant (BRAIN_DATA_ROOT): profiling uses alternate lead copy. */
+    multiTenant?: boolean
   }
-  let { onComplete, refreshStatus, needsVaultSetup }: Props = $props()
+  let { onComplete, refreshStatus, needsVaultSetup, multiTenant = false }: Props = $props()
 
   let state = $state<string>('not-started')
   /** From server; used for indexing-step copy (Apple vs Google). */
@@ -156,7 +158,7 @@
       return `${mailIndexedCount.toLocaleString()} messages`
     }
     if (mail.syncRunning) {
-      return 'Sync is running…'
+      return mailProviderPref === 'google' ? 'Connecting to Google…' : 'Sync is running…'
     }
     return ''
   })
@@ -437,6 +439,7 @@
       storageKey=""
         autoSendMessage="From my indexed email, write a short me.md for my assistant: how to help me, tone, key roles, a few key people — lean and steering, not a full bio. Use the tools; keep it factual. Interests and projects will land in the wiki afterward."
       onStreamFinished={async () => { await patchState('reviewing-profile') }}
+      {multiTenant}
     />
   {:else if needsVaultSetup}
     <VaultSetupStep

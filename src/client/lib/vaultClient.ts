@@ -59,3 +59,13 @@ export async function postVaultUnlock(
 export async function postVaultLogout(): Promise<void> {
   await fetch('/api/vault/logout', { method: 'POST' })
 }
+
+/** Hosted multi-tenant: wipe server-side tenant data and end session. */
+export async function postVaultDeleteAllData(): Promise<{ ok: true } | { error: string }> {
+  const res = await fetch('/api/vault/delete-all-data', { method: 'POST' })
+  if (!res.ok) {
+    const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+    return { error: j.message ?? j.error ?? 'Could not delete your data.' }
+  }
+  return { ok: true }
+}

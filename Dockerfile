@@ -17,7 +17,7 @@ RUN npm run build
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates libssl3 \
+  && apt-get install -y --no-install-recommends ca-certificates libssl3 tini \
   && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 COPY --from=node-builder /app/dist ./dist
@@ -27,4 +27,6 @@ COPY .docker/linux-ripmail/ripmail /usr/local/bin/ripmail
 RUN chmod +x /usr/local/bin/ripmail
 ENV RIPMAIL_BIN=/usr/local/bin/ripmail
 EXPOSE 4000
+# Reap zombie ripmail children if Node misses a wait (belt-and-suspenders with in-process reaping).
+ENTRYPOINT ["/usr/bin/tini", "-g", "--"]
 CMD ["node", "dist/server/index.js"]
