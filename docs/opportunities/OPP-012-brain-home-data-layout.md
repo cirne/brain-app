@@ -4,7 +4,7 @@
 
 **Implemented:** A single logical **`BRAIN_HOME`** with explicit subdirectories defined in **[`shared/brain-layout.json`](../../shared/brain-layout.json)**. Node, Tauri, and ripmail agree on segment names (ripmail: [`ripmail/src/brain_app_layout.rs`](../../ripmail/src/brain_app_layout.rs)). **`RIPMAIL_HOME`** defaults from **`$BRAIN_HOME/ripmail`** when Brain runs the CLI; optional override for standalone ripmail/tests.
 
-**Removed:** `WIKI_DIR`, `CHAT_DATA_DIR`, `WIKI_EDIT_HISTORY_PATH`, `DIR_ICON_CACHE`, `CALENDAR_CACHE_DIR`, and in-repo **Docker** packaging (Dockerfile, compose, `start.sh`, GHCR workflow). Restoration notes: [OPP-013](OPP-013-docker-deployment-restoration.md).
+**Removed:** `WIKI_DIR`, `CHAT_DATA_DIR`, `WIKI_EDIT_HISTORY_PATH`, `DIR_ICON_CACHE`, `CALENDAR_CACHE_DIR`, and in-repo **Docker** packaging (Dockerfile, compose, `start.sh`, GHCR workflow). Future **hosted container** work: [OPP-041](OPP-041-hosted-cloud-epic-docker-digitalocean.md); historical removal rationale: [archived OPP-013](archive/OPP-013-docker-deployment.md).
 
 **No migration** — wipe local data and re-seed per [AGENTS.md](../../AGENTS.md).
 
@@ -51,4 +51,5 @@ See original discussion in git history: markdown and small JSON sync well; ripma
 ## References
 
 - [docs/ARCHITECTURE.md](../ARCHITECTURE.md) — configuration and deployment
-- [OPP-013](OPP-013-docker-deployment-restoration.md) — Docker snapshot / future container work
+- [OPP-041](OPP-041-hosted-cloud-epic-docker-digitalocean.md) — hosted container epic (Docker, DO, multi-tenant)
+- [Archived OPP-013](archive/OPP-013-docker-deployment.md) — why Docker was dropped as the desktop primary

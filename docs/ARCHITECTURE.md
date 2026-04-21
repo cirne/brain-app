@@ -32,6 +32,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 | HTTP routing, auth, periodic sync, native app ports    | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md)       |
 | Desktop vs Cloud deployment models                    | [architecture/deployment-models.md](architecture/deployment-models.md)         |
 | Multi-tenant cloud architecture (NAS, isolation)      | [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) |
+| Cloud-hosted v1 scope (Phase 0 parity)                  | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md) |
 | Agent sessions, chat JSON files, SSE events, tool list | [architecture/agent-chat.md](architecture/agent-chat.md)                       |
 | `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS | [architecture/data-and-sync.md](architecture/data-and-sync.md)                 |
 | Ripmail, unified search, files API, optional iMessage  | [architecture/integrations.md](architecture/integrations.md)                   |
@@ -56,7 +57,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 
 ## Deployment
 
-**Primary release:** macOS **Brain.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). `**Docker`:** not supported in-repo — [OPP-013](opportunities/OPP-013-docker-deployment-restoration.md).
+**Primary release:** macOS **Brain.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container** (future): epic [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
 
 ---
 
