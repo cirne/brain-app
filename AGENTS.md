@@ -2,6 +2,24 @@
 
 Hono + Svelte + pi-agent-core web app: Chat (agentic), Wiki browser, and Inbox (ripmail).
 
+## Development rules
+
+### Early development (no backward compatibility)
+
+The app is in **early development** with a **near-zero user base**. Optimize for velocity and simplicity, not preserving old state.
+
+- **No backward compatibility by default.** Do not maintain compatibility layers, dual code paths, or “read old + write new” behavior for local data, APIs, or on-disk formats unless [PRODUCTIZATION.md](docs/PRODUCTIZATION.md) (or an explicit product decision) says otherwise.
+- **No data migrations.** When SQLite schema, config files, cache layout, or any persisted format changes, **delete local data / reset stores / start fresh** as needed. Document breaking changes in commits or PRs; do not ship migration scripts for developer-local or pre-release data.
+- **Avoid compatibility complexity.** Prefer a clean break and re-seeding over version flags, upgrade steps, or defensive readers for superseded formats.
+- **Tests required**: every new feature or bug fix needs test coverage in `src/**/*.test.ts`.
+- **CRITICAL: TDD**: write the test case first, then the code, then make sure the test passes. especially when fixing bugs.
+- **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests + `cargo fmt` / `cargo clippy` / `cargo t` for the Rust workspace.
+- **Validate fixes yourself**: when a change has an obvious verification step, **run it without asking the user**—e.g. `npm run lint` / scoped tests after edits, `cargo check -p brain` or `cargo test -p ripmail` after Rust changes, `npm run build && npm run desktop:bundle-server` after packaging or server-bundle changes (confirms `ripmail` release binary is produced and copied). Reserve full `npm run desktop:build` for when the native bundle itself must be proven; it is slower. Only defer if the step needs secrets you do not have or would be destructive without confirmation.
+- **DRY**: extract shared logic; never duplicate. Shared fixtures live in `src/server/test-fixtures.ts`.
+- **Test fixtures**: reuse patterns from existing tests and shared helpers; avoid one-off temp dirs per test.
+- **No React, no Next.js**: Svelte 5 for all UI.
+
+
 **Scope:** This file is for working on the **repository**—stack, dev workflow, and conventions. It is not a catalog of LLM tools or agent runtime behavior; that lives in `src/server/agent/` (see code and tests there).
 
 See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product spec.
@@ -87,21 +105,4 @@ Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The packag
 `tauri build` runs `npm run build && npm run desktop:bundle-server`, which copies `dist/`, production `node_modules`, the current `node` binary, and a **release-built `ripmail`** (from `cargo build -p ripmail --release`) into `desktop/resources/server-bundle/` (gitignored). The packaged app’s WebView navigates to the embedded Hono server at **`https://127.0.0.1:<port>/`** (self-signed TLS, cert under `$BRAIN_HOME/var`, OPP-023); Tauri’s `tauri.conf.json` `build.frontendDist` placeholder is `https://127.0.0.1:18473`. The bundled Node + `dist/server` serves that listener (release only; dev still uses `npm run dev` → `http://localhost:3000`). In-app auto-update uses **`tauri-plugin-updater`**: `tauri.conf.json` includes a `pubkey` and **`plugins.updater.endpoints` is empty by default** (no update checks until you publish a manifest and add endpoint URLs). Replace the checked-in public key with one from **`npx tauri signer generate`** (keep the private key out of git; CI uses `TAURI_SIGNING_PRIVATE_KEY` or `TAURI_SIGNING_PRIVATE_KEY_PATH` to sign artifacts). On macOS, `desktop/tauri.macos.conf.json` limits bundle output to `**dmg**` (instead of `all`).
 
 **Embedded secrets (release builds):** set `BRAIN_EMBED_MASTER_KEY` in the environment or in the workspace `.env` when running `tauri build`. The build script reads allowlisted entries from the repo `.env` (`ANTHROPIC_API_KEY`, other `*_API_KEY` for LLM providers, `EXA_API_KEY`, `SUPADATA_API_KEY`, plus `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` for in-app Gmail OAuth in Brain.app), encrypts them, and embeds ciphertext in the Rust binary; Rust decrypts at launch and sets environment variables on the Tauri process so the bundled Node child inherits them (no decryption in TypeScript). CI should set `BRAIN_EMBED_MASTER_KEY` and the same secrets as env vars (or a generated `.env`) rather than committing secrets. If `BRAIN_EMBED_MASTER_KEY` is unset, the bundle still builds but ships without embedded secrets (users would need local configuration for those APIs and Gmail connect will show `oauth_not_configured` until credentials are embedded or otherwise supplied).
-
-## Development rules
-
-### Early development (no backward compatibility)
-
-The app is in **early development** with a **near-zero user base**. Optimize for velocity and simplicity, not preserving old state.
-
-- **No backward compatibility by default.** Do not maintain compatibility layers, dual code paths, or “read old + write new” behavior for local data, APIs, or on-disk formats unless [PRODUCTIZATION.md](docs/PRODUCTIZATION.md) (or an explicit product decision) says otherwise.
-- **No data migrations.** When SQLite schema, config files, cache layout, or any persisted format changes, **delete local data / reset stores / start fresh** as needed. Document breaking changes in commits or PRs; do not ship migration scripts for developer-local or pre-release data.
-- **Avoid compatibility complexity.** Prefer a clean break and re-seeding over version flags, upgrade steps, or defensive readers for superseded formats.
-- **Tests required**: every new feature or bug fix needs test coverage in `src/**/*.test.ts`.
-- **TDD for bugs**: reproduce with a failing test first, then fix, then confirm green.
-- **Lint before commit**: run `npm run lint` — the `ci` script runs lint + typecheck + tests + `cargo fmt` / `cargo clippy` / `cargo t` for the Rust workspace.
-- **Validate fixes yourself**: when a change has an obvious verification step, **run it without asking the user**—e.g. `npm run lint` / scoped tests after edits, `cargo check -p brain` or `cargo test -p ripmail` after Rust changes, `npm run build && npm run desktop:bundle-server` after packaging or server-bundle changes (confirms `ripmail` release binary is produced and copied). Reserve full `npm run desktop:build` for when the native bundle itself must be proven; it is slower. Only defer if the step needs secrets you do not have or would be destructive without confirmation.
-- **DRY**: extract shared logic; never duplicate. Shared fixtures live in `src/server/test-fixtures.ts`.
-- **Test fixtures**: reuse patterns from existing tests and shared helpers; avoid one-off temp dirs per test.
-- **No React, no Next.js**: Svelte 5 for all UI.
 
