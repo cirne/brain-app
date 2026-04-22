@@ -1,4 +1,9 @@
 //! SQLite access — file-backed, WAL, FTS5 (mirrors TS `~/db`).
+//!
+//! **Read vs write connections:** Query-only paths should use [`open_file_for_queries`] or
+//! [`open_file_readonly`] after the index file exists; sync/inbox/archive and attachment cache
+//! paths need [`open_file`]. See `docs/ARCHITECTURE.md` (ADR-026 and “SQLite read vs write
+//! operations”).
 
 pub mod message_persist;
 pub mod schema;
@@ -6,6 +11,8 @@ pub mod schema;
 use rusqlite::{Connection, OpenFlags};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::thread::sleep;
+use std::time::Duration;
 
 use schema::SCHEMA;
 pub use schema::SCHEMA_VERSION;
@@ -18,6 +25,44 @@ pub enum DbError {
     Io(#[from] std::io::Error),
     #[error("{0}")]
     InvalidInput(String),
+}
+
+/// Total attempts when opening the writable index hits `SQLITE_BUSY` / `SQLITE_LOCKED`.
+const RW_OPEN_BUSY_ATTEMPTS: usize = 3;
+/// Delay before retrying a blocked writable open (after the first failure).
+const RW_OPEN_BUSY_SLEEP: Duration = Duration::from_secs(1);
+
+fn sqlite_busy_or_locked(err: &rusqlite::Error) -> bool {
+    matches!(
+        err,
+        rusqlite::Error::SqliteFailure(sql_err, _)
+            if sql_err.code == rusqlite::ErrorCode::DatabaseBusy
+                || sql_err.code == rusqlite::ErrorCode::DatabaseLocked
+    )
+}
+
+fn db_error_busy_or_locked(err: &DbError) -> bool {
+    match err {
+        DbError::Sqlite(inner) => sqlite_busy_or_locked(inner),
+        _ => false,
+    }
+}
+
+/// Retry on SQLite busy/locked when opening or upgrading the writable index (`open_file`).
+pub(crate) fn retry_on_busy<T, F>(mut f: F) -> Result<T, DbError>
+where
+    F: FnMut() -> Result<T, DbError>,
+{
+    for attempt in 0..RW_OPEN_BUSY_ATTEMPTS {
+        match f() {
+            Ok(v) => return Ok(v),
+            Err(e) if db_error_busy_or_locked(&e) && attempt + 1 < RW_OPEN_BUSY_ATTEMPTS => {
+                sleep(RW_OPEN_BUSY_SLEEP);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!("retry_on_busy: loop always returns Ok or Err");
 }
 
 fn apply_connection_pragmas(conn: &Connection) -> Result<(), DbError> {
@@ -532,6 +577,41 @@ fn open_file_current_schema(path: &Path) -> Result<Connection, DbError> {
     Ok(conn)
 }
 
+fn apply_readonly_connection_pragmas(conn: &Connection) -> Result<(), DbError> {
+    conn.busy_timeout(Duration::from_secs(60))?;
+    conn.execute_batch(
+        "PRAGMA foreign_keys = ON;
+         PRAGMA query_only = ON;",
+    )?;
+    Ok(())
+}
+
+/// Open the index **read-only** (no schema migration, no journal-mode writes). Use for search/read
+/// and other query-only paths when the file already exists.
+pub fn open_file_readonly(path: &Path) -> Result<Connection, DbError> {
+    if !path.exists() {
+        return Err(DbError::InvalidInput(format!(
+            "database file does not exist: {}",
+            path.display()
+        )));
+    }
+    let conn = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?;
+    apply_readonly_connection_pragmas(&conn)?;
+    Ok(conn)
+}
+
+/// Prefer a read-only connection when `path` exists; otherwise create via [`open_file`] (writable).
+pub fn open_file_for_queries(path: &Path) -> Result<Connection, DbError> {
+    if path.exists() {
+        open_file_readonly(path)
+    } else {
+        open_file(path)
+    }
+}
+
 /// Open an in-memory database with full schema (for tests).
 pub fn open_memory() -> Result<Connection, DbError> {
     let conn = Connection::open_in_memory()?;
@@ -540,13 +620,20 @@ pub fn open_memory() -> Result<Connection, DbError> {
     Ok(conn)
 }
 
-/// Open file-backed DB at `path`, creating parent dirs. Applies schema + bootstrap like TS `getDb`.
-pub fn open_file(path: &Path) -> Result<Connection, DbError> {
+fn open_file_inner(path: &Path) -> Result<Connection, DbError> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
     maybe_rebuild_stale_db(path)?;
     open_file_current_schema(path)
+}
+
+/// Open file-backed DB at `path`, creating parent dirs. Applies schema + bootstrap like TS `getDb`.
+///
+/// Retries up to **3 attempts** with **1 second** between attempts when SQLite returns busy or locked
+/// during open/rebuild/schema setup.
+pub fn open_file(path: &Path) -> Result<Connection, DbError> {
+    retry_on_busy(|| open_file_inner(path))
 }
 
 /// Old `sync_summary` allowed only `id = 1`. Rebuild so `id = 2` can hold the backfill lock lane.
@@ -731,6 +818,48 @@ mod tests {
             mode == "wal" || mode == "memory",
             "unexpected journal_mode={mode}"
         );
+    }
+
+    #[test]
+    fn open_file_readonly_errors_when_missing() {
+        let p = PathBuf::from("/nonexistent/ripmail-no-such-file.db");
+        let e = open_file_readonly(&p).unwrap_err();
+        match e {
+            DbError::InvalidInput(msg) => assert!(msg.contains("does not exist")),
+            other => panic!("expected InvalidInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn open_file_for_queries_creates_then_readonly_open() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("ripmail.db");
+        assert!(!db_path.exists());
+        let _ = open_file_for_queries(&db_path).unwrap();
+        assert!(db_path.exists());
+        let conn = open_file_for_queries(&db_path).unwrap();
+        let v: i32 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(v, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn retry_on_busy_succeeds_on_second_attempt() {
+        let mut calls = 0;
+        let r = retry_on_busy(|| {
+            calls += 1;
+            if calls == 1 {
+                Err(DbError::Sqlite(rusqlite::Error::SqliteFailure(
+                    rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_BUSY),
+                    None,
+                )))
+            } else {
+                Ok(7u8)
+            }
+        });
+        assert_eq!(r.unwrap(), 7);
+        assert_eq!(calls, 2);
     }
 
     #[test]

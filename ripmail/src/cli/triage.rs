@@ -647,7 +647,7 @@ pub(crate) fn run_triage_command(cfg: &ripmail::Config, args: &impl InboxCliArgs
     };
 
     let scan = run_triage_scan(cfg, args, &opts)?;
-    let conn = db::open_file(cfg.db_path())?;
+    let conn = db::open_file_readonly(cfg.db_path())?;
     let mailbox_ids_for_index: Vec<String> =
         mailbox_order.iter().map(|(id, _)| id.clone()).collect();
     let indexed_in_window =

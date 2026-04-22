@@ -170,7 +170,7 @@ fn natural_mailbox_id_for_draft(cfg: &Config, meta: &DraftMeta) -> Result<Option
     if !cfg.db_path().exists() {
         return Ok(None);
     }
-    let conn = db::open_file(cfg.db_path()).map_err(|e| e.to_string())?;
+    let conn = db::open_file_for_queries(cfg.db_path()).map_err(|e| e.to_string())?;
     if meta.kind.as_deref() == Some("reply") {
         if let Some(ref sid) = meta.source_message_id {
             return mailbox_id_for_message_id(&conn, sid);
@@ -195,7 +195,9 @@ pub fn send_draft_by_id(
     draft_id: &str,
     dry_run: bool,
 ) -> Result<SendResult, String> {
+    eprintln!("ripmail send: loading draft {draft_id}...");
     let draft = read_draft_in_data_dir(data_dir, draft_id).map_err(|e| e.to_string())?;
+    eprintln!("ripmail send: draft loaded id={}", draft.id);
     let send_cfg = resolve_send_config_for_draft(cfg, &draft.meta)?;
     if !smtp_credentials_ready(&send_cfg) {
         return Err(smtp_credentials_unavailable_reason(&send_cfg));
@@ -223,7 +225,8 @@ pub fn send_draft_by_id(
             .is_some_and(|s| !s.trim().is_empty())
     {
         let sid = draft.meta.source_message_id.as_ref().unwrap().trim();
-        let conn = db::open_file(send_cfg.db_path()).map_err(|e| e.to_string())?;
+        eprintln!("ripmail send: reply draft — loading threading from SQLite/maildir (source_message_id len={})...", sid.len());
+        let conn = db::open_file_for_queries(send_cfg.db_path()).map_err(|e| e.to_string())?;
         match load_threading_from_source_message(&conn, send_cfg.message_path_root(), sid) {
             Ok((irt, refs)) => {
                 in_reply_to = Some(irt);
@@ -239,6 +242,7 @@ pub fn send_draft_by_id(
                 }
             }
         }
+        eprintln!("ripmail send: reply threading headers resolved");
     }
 
     let text = draft_markdown_to_plain_text(&draft.body);
@@ -259,6 +263,7 @@ pub fn send_draft_by_id(
         references,
     };
 
+    eprintln!("ripmail send: invoking SMTP pipeline (dry_run={dry_run})");
     let mut result = send_simple_message(&send_cfg, &fields, dry_run)?;
     if !dry_run && result.ok {
         let _ = archive_draft_to_sent(data_dir, &draft.id);

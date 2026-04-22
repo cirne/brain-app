@@ -66,8 +66,8 @@ pub use config::{
 };
 pub use db::message_persist::{fts_match_count, persist_attachments_from_parsed, persist_message};
 pub use db::{
-    apply_schema, journal_mode, list_user_tables, open_file, open_memory, purge_mailbox_from_index,
-    DbError, SCHEMA_VERSION,
+    apply_schema, journal_mode, list_user_tables, open_file, open_file_for_queries,
+    open_file_readonly, open_memory, purge_mailbox_from_index, DbError, SCHEMA_VERSION,
 };
 pub use ids::{
     attachment_message_id_lookup_keys, message_id_for_json_output, message_id_lookup_keys,

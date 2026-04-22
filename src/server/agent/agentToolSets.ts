@@ -78,8 +78,13 @@ export const ONBOARDING_BUILDOUT_OMIT: readonly AgentToolName[] = ONBOARDING_BAS
   (n) => n !== 'list_recent_messages' && n !== 'get_message_thread',
 )
 
-/** Profiling agent: omit web/video on top of onboarding base (indexed mail only). */
-export const ONBOARDING_PROFILING_EXTRA_OMIT: readonly AgentToolName[] = ['web_search', 'fetch_page', 'youtube_search']
+/** Profiling agent: omit web/video on top of onboarding base (indexed mail only); no chat title (UI shows fixed onboarding copy). */
+export const ONBOARDING_PROFILING_EXTRA_OMIT: readonly AgentToolName[] = [
+  'web_search',
+  'fetch_page',
+  'youtube_search',
+  'set_chat_title',
+]
 
 /**
  * Wiki cleanup / lint agent: keeps `read`, `grep`, `find`, `edit` and mail/web lookup tools,

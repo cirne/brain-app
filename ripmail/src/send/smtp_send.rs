@@ -208,6 +208,15 @@ Inbox/search can work from Apple Mail alone; outbound mail needs a Gmail or IMAP
         }
     }
 
+    eprintln!(
+        "ripmail send: building MIME (to={}, cc={:?}, bcc={:?}, subject_len={}, body_len={})",
+        fields.to.len(),
+        fields.cc.as_ref().map(Vec::len),
+        fields.bcc.as_ref().map(Vec::len),
+        fields.subject.len(),
+        fields.text.len(),
+    );
+
     let outbound_id = generate_outbound_message_id(user);
 
     let from_mb = parse_mailbox(user)?;
@@ -253,8 +262,14 @@ Inbox/search can work from Apple Mail alone; outbound mail needs a Gmail or IMAP
         .map_err(|e| format!("message build: {e}"))?;
 
     let endpoint = smtp_endpoint_label(&cfg.smtp);
+    eprintln!(
+        "ripmail send: SMTP endpoint {} (implicit_tls={}, auth={:?})",
+        endpoint, cfg.smtp.secure, cfg.imap_auth
+    );
+
     let transport = match cfg.imap_auth {
         MailboxImapAuthKind::AppPassword => {
+            eprintln!("ripmail send: constructing SMTP transport (app password)...");
             let creds = Credentials::new(user.to_string(), cfg.imap_password.clone());
             build_smtp_transport_plain(&cfg.smtp, creds).map_err(|e| {
                 format!(
@@ -264,6 +279,7 @@ Inbox/search can work from Apple Mail alone; outbound mail needs a Gmail or IMAP
             })?
         }
         MailboxImapAuthKind::GoogleOAuth => {
+            eprintln!("ripmail send: fetching Google OAuth access token for SMTP...");
             let env_file = crate::config::read_ripmail_env_file(&cfg.ripmail_home);
             let process_env: HashMap<String, String> = std::env::vars().collect();
             let tok = ensure_google_access_token(
@@ -273,6 +289,7 @@ Inbox/search can work from Apple Mail alone; outbound mail needs a Gmail or IMAP
                 &process_env,
             )
             .map_err(|e| format!("OAuth: {e}"))?;
+            eprintln!("ripmail send: OAuth token received; constructing XOAUTH2 transport...");
             let creds = Credentials::new(user.to_string(), tok);
             build_smtp_transport_xoauth2(&cfg.smtp, creds).map_err(|e| {
                 format!(
@@ -283,6 +300,9 @@ Inbox/search can work from Apple Mail alone; outbound mail needs a Gmail or IMAP
         }
     };
 
+    eprintln!(
+        "ripmail send: sending message via SMTP to {endpoint} (blocks until server responds)..."
+    );
     let response = transport
         .send(&email)
         .map_err(|e| format!("SMTP send ({endpoint}): {e}"))?;

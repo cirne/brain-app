@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BrainCircuit, X } from 'lucide-svelte'
+  import { BrainCircuit, MessageSquarePlus, X } from 'lucide-svelte'
   import BrainHubWidget from './BrainHubWidget.svelte'
 
   type Props = {
@@ -14,6 +14,8 @@
     onOpenSearch: () => void
     onToggleSyncErrors: () => void
     onOpenHub: () => void
+    /** L1 “New” — same flow as sidebar / ⌘N (e.g. `historyNewChat`). */
+    onNewChat?: () => void
   }
 
   let {
@@ -26,6 +28,7 @@
     onOpenSearch,
     onToggleSyncErrors,
     onOpenHub,
+    onNewChat,
   }: Props = $props()
 
   /** Sidebar open (wide header + list): desktop or mobile. */
@@ -69,6 +72,20 @@
       <span class="brand-name">Braintunnel</span>
     {/if}
   </div>
+  {#if onNewChat}
+    <div class="new-wrap">
+      <button
+        type="button"
+        class="new-nav-btn"
+        onclick={onNewChat}
+        title="New conversation (⌘N)"
+        aria-label="New conversation"
+      >
+        <MessageSquarePlus size={16} strokeWidth={2} aria-hidden="true" />
+        <span class="new-nav-label">New</span>
+      </button>
+    </div>
+  {/if}
   <div class="search-wrap">
     <button class="search-btn" onclick={onOpenSearch} title="Search (⌘K)" aria-label="Search">
       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -198,6 +215,33 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     color: var(--text);
+  }
+
+  .new-wrap {
+    display: flex;
+    align-items: center;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .new-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-height: var(--tab-h);
+    padding: 0 10px;
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 500;
+    transition: color 0.15s, background 0.15s;
+  }
+  .new-nav-btn:hover {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+  .new-nav-label {
+    line-height: 1;
   }
 
   .search-wrap {

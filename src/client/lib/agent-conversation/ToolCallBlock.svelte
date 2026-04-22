@@ -85,15 +85,17 @@
       {/if}
     </details>
     {#if preview}
-      <ContentPreviewCards
-        {preview}
-        {onOpenWiki}
-        {onOpenFile}
-        {onOpenEmail}
-        {onOpenFullInbox}
-        {onSwitchToCalendar}
-        {onOpenMessageThread}
-      />
+      <div class="tool-content-preview-shell">
+        <ContentPreviewCards
+          {preview}
+          {onOpenWiki}
+          {onOpenFile}
+          {onOpenEmail}
+          {onOpenFullInbox}
+          {onSwitchToCalendar}
+          {onOpenMessageThread}
+        />
+      </div>
     {/if}
   </div>
 {:else}
@@ -145,6 +147,17 @@
     margin: 4px 0 12px;
     min-width: 0;
     max-width: 100%;
+  }
+
+  /** Rich previews (inbox, calendar, mail hits, file read, etc.): primary surface so they read as “cards” on --bg-2 chat pane. */
+  .tool-content-preview-shell {
+    background: var(--bg);
+    border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    border-radius: 6px;
+    padding: 10px 12px;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .tool-call {

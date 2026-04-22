@@ -15,6 +15,7 @@ export type OnboardingMailStatus = {
   pendingBackfill?: boolean
   /** DB lock without a live process — avoid stacking refreshes. */
   staleMailSyncLock?: boolean
+  /** Actionable hint from server (stale sync lock, hang suspected). */
   indexingHint?: string | null
   statusError?: string
 }

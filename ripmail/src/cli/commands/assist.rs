@@ -39,7 +39,7 @@ pub(crate) fn run_ask(mut question: Vec<String>, verbose: bool) -> CliResult {
         }
     };
 
-    let conn = db::open_file(cfg.db_path())?;
+    let conn = db::open_file_for_queries(cfg.db_path())?;
     let runtime = tokio::runtime::Runtime::new()?;
     runtime.block_on(run_ask_query(
         question,

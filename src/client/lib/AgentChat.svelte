@@ -22,11 +22,13 @@
     type SessionState,
   } from './chatSessionStore.js'
   import { shiftQueuedFollowUp } from './agentFollowUpQueue.js'
-  import { MessageSquarePlus } from 'lucide-svelte'
+  import { Trash2 } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import AgentInput from './AgentInput.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
+  import ConfirmDialog from './ConfirmDialog.svelte'
+  import { labelForDeleteChatDialog } from './chatHistoryDelete.js'
   import type { AgentOpenSource } from './navigateFromAgentOpen.js'
   let {
     context = { type: 'none' } as SurfaceContext,
@@ -41,6 +43,8 @@
     onSwitchToCalendar,
     onOpenFromAgent,
     onNewChat,
+    onOpenWikiAbout,
+    onAfterDeleteChat,
     /** Fired when the user submits a chat message (before the request runs). */
     onUserSendMessage,
     /** Active session id changed (new chat, load, or SSE session event). */
@@ -66,7 +70,6 @@
     onStreamingSessionsChange,
     /** Persist transcript under this localStorage key; empty = no persistence. */
     storageKey: _storageKey = 'brain-agent',
-    showNewChatButton = true,
     /**
      * Main transcript UI. Defaults to the standard chat. Pass a different component
      * (e.g. onboarding profiling, future “wiki cleanup” agents) with the same props +
@@ -104,6 +107,10 @@
       _source: AgentOpenSource,
     ) => void
     onNewChat?: () => void
+    /** Empty-state link to wiki help (`hub-wiki-about` overlay). */
+    onOpenWikiAbout?: () => void
+    /** After this chat is deleted (API + confirm); defaults to {@link newChat} with overlay skip. Main app passes the same handler as sidebar “New chat”. */
+    onAfterDeleteChat?: () => void
     onUserSendMessage?: () => void
     onSessionChange?: (_sessionId: string | null) => void
     onChatPersisted?: () => void
@@ -118,7 +125,6 @@
     onStreamingChange?: (_streaming: boolean) => void
     onStreamingSessionsChange?: (_sessionIds: ReadonlySet<string>) => void
     storageKey?: string
-    showNewChatButton?: boolean
     conversationView?: Component<AgentConversationViewProps>
     hideInput?: boolean
     streamingBusyLabel?: string
@@ -538,6 +544,52 @@
   /** When true, vertically center the empty transcript and (when shown) the composer. */
   const centerEmptyInPane = $derived(messages.length === 0)
 
+  let pendingDelete = $state<{ serverId: string | null; label: string } | null>(null)
+
+  function titleForDeleteDialog(): string {
+    if (chatTitle?.trim()) return chatTitle.trim()
+    for (const m of messages) {
+      if (m.role === 'user' && m.content) {
+        const t = typeof m.content === 'string' ? m.content.trim() : ''
+        if (t) return t
+      }
+    }
+    return headerFallbackTitle
+  }
+
+  function requestDeleteCurrentChat() {
+    if (messages.length === 0) return
+    pendingDelete = {
+      serverId: sessions.get(displayedSessionId)?.sessionId ?? null,
+      label: labelForDeleteChatDialog(titleForDeleteDialog()),
+    }
+  }
+
+  function cancelDeleteCurrentChat() {
+    pendingDelete = null
+  }
+
+  async function confirmDeleteCurrentChat() {
+    if (!pendingDelete) return
+    stopChat()
+    const { serverId } = pendingDelete
+    try {
+      if (serverId) {
+        const res = await fetch(`/api/chat/${encodeURIComponent(serverId)}`, { method: 'DELETE' })
+        if (!res.ok) return
+      }
+    } catch {
+      return
+    }
+    pendingDelete = null
+    notifyChatSessionsChanged()
+    if (onAfterDeleteChat) {
+      onAfterDeleteChat()
+    } else {
+      newChat({ skipOverlayClose: true })
+    }
+  }
+
 </script>
 
 <div class="agent-chat">
@@ -564,12 +616,19 @@
           </div>
         {/snippet}
         {#snippet right()}
-          {#if showNewChatButton && messages.length > 0}
-            <button class="new-btn" onclick={() => newChat()} title="New conversation (⌘N)">
-              <MessageSquarePlus size={14} strokeWidth={2} aria-hidden="true" />
-              <span>New</span>
-            </button>
-          {/if}
+          <div class="pane-header-actions">
+            {#if messages.length > 0}
+              <button
+                type="button"
+                class="delete-chat-btn"
+                onclick={requestDeleteCurrentChat}
+                title="Delete chat"
+                aria-label="Delete chat"
+              >
+                <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
+              </button>
+            {/if}
+          </div>
         {/snippet}
       </PaneL2Header>
     </div>
@@ -591,6 +650,7 @@
         {onOpenFullInbox}
         {onOpenMessageThread}
         {onSwitchToCalendar}
+        {onOpenWikiAbout}
         streamingWrite={streamingWritePreview}
         {multiTenant}
       />
@@ -619,6 +679,23 @@
     {/if}
     </div>
   </div>
+
+  <ConfirmDialog
+    open={pendingDelete !== null}
+    title="Delete chat?"
+    titleId="agent-chat-delete-title"
+    confirmLabel="Delete"
+    cancelLabel="Cancel"
+    confirmVariant="danger"
+    onDismiss={cancelDeleteCurrentChat}
+    onConfirm={() => void confirmDeleteCurrentChat()}
+  >
+    {#snippet children()}
+      {#if pendingDelete}
+        <p>This will permanently remove "{pendingDelete.label}".</p>
+      {/if}
+    {/snippet}
+  </ConfirmDialog>
 </div>
 
 <style>
@@ -725,22 +802,36 @@
     opacity: 0.8;
   }
 
-  .new-btn {
+  /* Match SlideOver `.your-wiki-header-actions`: inset from the L2 right edge. */
+  .pane-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+    min-width: 0;
+    margin-inline-end: 4px;
+  }
+
+  .delete-chat-btn {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    color: var(--text-2);
-    padding: 2px 8px;
+    justify-content: center;
+    padding: 4px;
     border-radius: 4px;
     flex-shrink: 0;
-    transition: color 0.15s, background 0.15s;
+    color: var(--text-2);
+    opacity: 0.55;
+    transition: color 0.15s, background 0.15s, opacity 0.15s;
   }
-  .new-btn :global(svg) {
+  .delete-chat-btn :global(svg) {
     flex-shrink: 0;
-    opacity: 0.9;
   }
-  .new-btn:hover { color: var(--text); background: var(--bg-3); }
+  .delete-chat-btn:hover {
+    color: var(--text);
+    opacity: 1;
+    background: var(--bg-3);
+  }
 
   .mid {
     flex: 1;

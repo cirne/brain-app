@@ -243,6 +243,7 @@ fn build_rule_preview(
             )));
         }
     };
+    // Inbox rule preview replays / re-samples the DB and may persist triage state — needs write.
     let conn = db::open_file(cfg.db_path())?;
     let mailbox_ids: Vec<String> = match resolve_mailbox_id(mailbox)? {
         None => vec![],
@@ -339,7 +340,7 @@ pub(crate) fn run_rules(sub: RulesCmd, source: Option<String>) -> CliResult {
             validate_rules_file(&rules)?;
             if sample {
                 let cfg = load_cfg();
-                let conn = db::open_file(cfg.db_path())?;
+                let conn = db::open_file_for_queries(cfg.db_path())?;
                 validate_rules_file_with_db_sample(&rules, &conn)?;
             }
             println!("OK: {} rule(s)", rules.rules.len());

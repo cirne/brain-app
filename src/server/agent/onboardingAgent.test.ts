@@ -88,6 +88,7 @@ describe('onboarding agent tools', () => {
     expect(names).not.toContain('web_search')
     expect(names).not.toContain('fetch_page')
     expect(names).not.toContain('youtube_search')
+    expect(names).not.toContain('set_chat_title')
     expect(names).toContain('search_index')
   })
 

@@ -610,6 +610,26 @@ Agents today parse the text output of `status` without difficulty. Text stays th
 
 4. **When in doubt:** If a new feature **could** work from maildir or draft files alone, **don’t** add a DB dependency until there is a clear query need. If it **must** write, reuse existing lock/transaction patterns and document any new long-running writer.
 
+**Writable `open_file` busy retry:** [`open_file`](../src/db/mod.rs) (read-write, schema, optional rebuild) **retries up to 3 times** with **1 second** between attempts when SQLite returns `SQLITE_BUSY` or `SQLITE_LOCKED` during that open path. Do not add ad-hoc sleeps at other `open_file` call sites.
+
+**SQLite read vs write operations:** Use **read-only** opens ([`open_file_readonly`](../src/db/mod.rs) / [`open_file_for_queries`](../src/db/mod.rs)) for query-only code paths so those processes do not take a write-capable handle. **Read-only** is only valid when the database file **already exists**; the first materialization of the index still uses `open_file` (create + schema).
+
+| Area | Command / entry | Connection | Why |
+| --- | --- | --- | --- |
+| DB bootstrap | `open_file`, `maybe_rebuild_stale_db`, migrations | **RW** | Create file, `journal_mode=WAL`, `user_version`, schema DDL, rebuild |
+| Sync / index | `sync`, `refresh`, rebuild, background sync, IMAP / Apple Mail / local dir / calendar **sync** | **RW** | Inserts/updates `messages`, FTS, `sync_state`, attachments, calendar, locks |
+| Inbox | `inbox` / `run_inbox_scan` | **RW** | Rule triage on `messages`, `inbox_decisions`, `is_archived`, `inbox_scans` / alerts |
+| Archive | `archive` | **RW** | `archive_messages_locally` and provider flow |
+| Rules | `rules` add/edit/move/reset (mutations) | **RW** when code touches the index | File writes; any DB path that mutates or full rule assign |
+| Attachments | `attachment` with text cache or legacy `stored_path` backfill | **RW** | `UPDATE attachments` |
+| Send | `send` (threading from index) | **RO** | `SELECT` only |
+| Mail queries | `search`, `read`, `thread`, `who`, `whoami` | **RO** when DB exists | Queries only |
+| Status | `status` | **RO** when DB exists | Reads `sync_summary`, locks, counts |
+| Calendar | `calendar` query commands | **RO** when DB exists | Reads indexed events |
+| Ask | `ask` | **RO** when DB exists | Search/read tools |
+| Rules | `rules validate --sample`, rule impact **preview** | **RO** when DB exists | Counts / preview without `run_inbox_scan` persist |
+| Wizard / setup | First-time DB open | **RW** | Schema / layout |
+
 **Not a separate pool:** SQLite is not Postgres — there are no distinct “read replicas.” “Many read connections” here means **many processes or short-lived connections issuing read transactions** against the same WAL-backed file, which is the supported pattern. **Write** paths remain **single-writer-at-a-time**; coordination beyond that is **application-level** (sync PID lock, short transactions).
 
 **See also:** [ADR-020](#adr-020-sync-and-indexing--concurrent-single-threaded-resilient), [ADR-023](#adr-023-sqlite-access--file-backed-native--async-facade--abi-recovery), [ADR-024](#adr-024-outbound-email--smtp-send-as-user--local-drafts) (drafts vs index).

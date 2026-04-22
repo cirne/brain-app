@@ -30,7 +30,7 @@ import {
   loadWikiContactSectionBodiesByPath,
   wikiPathsMatchingChatInContactSections,
 } from '../lib/wikiContactIdentifierMatch.js'
-import { execRipmailAsync } from '../lib/ripmailExec.js'
+import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '../lib/ripmailExec.js'
 import { runRipmailRefreshForBrain } from '../lib/ripmailHeavySpawn.js'
 import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
@@ -774,7 +774,9 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     }),
     async execute(_toolCallId: string, params: { draft_id: string }) {
       const rm = ripmailBin()
-      await execRipmailAsync(`${rm} send ${JSON.stringify(params.draft_id)}`, { timeout: 30000 })
+      await execRipmailAsync(`${rm} send ${JSON.stringify(params.draft_id)}`, {
+        timeout: RIPMAIL_SEND_TIMEOUT_MS,
+      })
       return {
         content: [{ type: 'text' as const, text: 'Email sent.' }],
         details: { ok: true },

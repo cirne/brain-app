@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { computeIndexingUserHint, parseRipmailStatusJson } from './ripmailStatusParse.js'
-import { readOnboardingPreferences } from './onboardingPreferences.js'
+import { computeIndexingActionHint, parseRipmailStatusJson } from './ripmailStatusParse.js'
 import { ripmailHomeForBrain } from './brainHome.js'
 import { execRipmailAsync, RIPMAIL_STATUS_TIMEOUT_MS } from './ripmailExec.js'
 import { ripmailBin } from './ripmailBin.js'
@@ -25,7 +24,7 @@ export type OnboardingMailStatusPayload = {
   pendingBackfill: boolean
   /** Stale lock row without a live process — do not stack refreshes until cleared. */
   staleMailSyncLock: boolean
-  /** Plain-language line for the indexing onboarding screen; null when nothing extra to say. */
+  /** Actionable line for the indexing hero (stale lock, hang suspected); null when nothing urgent. */
   indexingHint?: string | null
   statusError?: string
 }
@@ -141,7 +140,6 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
     }
 
     if (parsed) {
-      const prefs = await readOnboardingPreferences()
       const payload: OnboardingMailStatusPayload = {
         configured: true,
         indexedTotal: parsed.indexedTotal,
@@ -152,7 +150,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
         ftsReady: parsed.ftsReady,
         pendingBackfill: parsed.pendingRefresh,
         staleMailSyncLock: parsed.staleLockInDb,
-        indexingHint: computeIndexingUserHint(parsed, { mailProvider: prefs.mailProvider ?? null }),
+        indexingHint: computeIndexingActionHint(parsed),
       }
       return payload
     }

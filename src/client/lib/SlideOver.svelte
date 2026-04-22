@@ -66,6 +66,8 @@
     toolOnOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
     toolOnOpenFullInbox?: () => void
     toolOnOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
+    /** Hub add-folders embedded chat: empty-state “your wiki” help. */
+    onOpenWikiAbout?: () => void
   }
 
   let {
@@ -92,6 +94,7 @@
     toolOnOpenEmail,
     toolOnOpenFullInbox,
     toolOnOpenMessageThread,
+    onOpenWikiAbout,
   }: Props = $props()
 
   let rootEl = $state<HTMLDivElement | undefined>()
@@ -505,6 +508,7 @@
         onOpenFullInbox={toolOnOpenFullInbox}
         onSwitchToCalendar={onCalendarNavigate}
         onOpenMessageThread={toolOnOpenMessageThread}
+        onOpenWikiAbout={onOpenWikiAbout}
       />
     {:else}
       <Calendar

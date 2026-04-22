@@ -108,8 +108,23 @@ export type ComputeIndexingUserHintOptions = {
 }
 
 /**
+ * Actionable hints only — shown on the indexing hero instead of noisy status churn.
+ * Non-actionable reassurance is handled client-side after a quiet period.
+ */
+export function computeIndexingActionHint(parsed: ParsedRipmailStatus): string | null {
+  if (parsed.staleLockInDb) {
+    return 'A previous mail sync stopped unexpectedly. Quit Braintunnel completely (Cmd+Q), open it again, and we’ll resume.'
+  }
+  if (parsed.initialSyncHangSuspected) {
+    return 'This is taking longer than usual. Very large mailboxes can stay at zero for several minutes while the first batch loads. If nothing changes after a long wait, quit Braintunnel and try again.'
+  }
+  return null
+}
+
+/**
  * Plain-language status for the onboarding “indexing mail” screen (non-technical users).
  * Precedence: stuck DB → sync not started → active but zero count.
+ * @deprecated Prefer {@link computeIndexingActionHint} for the onboarding hero; full hint kept for diagnostics/tests.
  */
 export function computeIndexingUserHint(
   parsed: ParsedRipmailStatus,

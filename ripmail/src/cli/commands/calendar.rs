@@ -185,7 +185,7 @@ pub(crate) fn run_calendar(cmd: CalendarCmd) -> CliResult {
         return Ok(());
     }
     let cfg = load_cfg();
-    let conn = db::open_file(cfg.db_path())?;
+    let conn = db::open_file_for_queries(cfg.db_path())?;
     run_calendar_with_conn(&conn, cmd)
 }
 

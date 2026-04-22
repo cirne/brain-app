@@ -142,8 +142,7 @@
           showSearch = true
           break
         case 'newChat':
-          closeOverlayImmediate()
-          agentChat?.newChat()
+          historyNewChat()
           break
         case 'refresh':
           void syncAll()
@@ -432,6 +431,15 @@
     if (isMobile) sidebarOpen = false
   }
 
+  /** Empty-state “your wiki” → same help as Hub (`HubWikiAboutPanel` in SlideOver / mobile stack). */
+  function openHubWikiAbout() {
+    navigate({
+      overlay: { type: 'hub-wiki-about' },
+      hubActive: route.hubActive === true,
+    })
+    route = parseRoute()
+  }
+
   function onSessionChangeFromAgent(id: string | null) {
     activeSessionId = id
   }
@@ -479,6 +487,7 @@
       navigate({ hubActive: true })
       route = parseRoute()
     }}
+    onNewChat={historyNewChat}
   />
 
     <div class="app-main-row">
@@ -549,6 +558,7 @@
                 toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
                 toolOnOpenFullInbox={openFullInboxFromChat}
                 toolOnOpenMessageThread={openMessageThreadFromChat}
+                onOpenWikiAbout={openHubWikiAbout}
                 onClose={closeOverlay}
                 mobilePanel
               />
@@ -570,6 +580,8 @@
           onSwitchToCalendar={switchToCalendar}
           onOpenFromAgent={onOpenFromAgent}
           onNewChat={closeOverlay}
+          onOpenWikiAbout={openHubWikiAbout}
+          onAfterDeleteChat={historyNewChat}
           onUserSendMessage={closeOverlayOnUserSend}
           onSessionChange={onSessionChangeFromAgent}
           onStreamingSessionsChange={(ids) => { streamingSessionIds = ids }}
@@ -599,6 +611,7 @@
                 toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
                 toolOnOpenFullInbox={openFullInboxFromChat}
                 toolOnOpenMessageThread={openMessageThreadFromChat}
+                onOpenWikiAbout={openHubWikiAbout}
                 onClose={closeOverlay}
                 mobilePanel
               />
@@ -629,6 +642,7 @@
           toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
           toolOnOpenFullInbox={openFullInboxFromChat}
           toolOnOpenMessageThread={openMessageThreadFromChat}
+          onOpenWikiAbout={openHubWikiAbout}
           onClose={closeOverlay}
           detailFullscreen={detailPaneFullscreen}
           onToggleFullscreen={() => workspaceSplit?.toggleDetailFullscreen()}

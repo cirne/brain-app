@@ -51,7 +51,6 @@
   const useOnboardingActivity = $derived(isProfiling || isSeedingWiki)
 
   let route = $state<Route>(parseRoute())
-  let syncing = $state(false)
   let syncErrors = $state<string[]>([])
   let showSyncErrors = $state(false)
   let calendarRefreshKey = $state(0)
@@ -218,6 +217,11 @@
     void agentChat?.newChatWithMessage(message)
   }
 
+  function openHubWikiAbout() {
+    navigate({ overlay: { type: 'hub-wiki-about' } })
+    route = parseRoute()
+  }
+
   function openEmailFromSearch(id: string, subject: string, from: string) {
     inboxTargetId = id
     navigate({ overlay: { type: 'email', id } })
@@ -285,15 +289,10 @@
   }
 
   async function syncAll() {
-    syncing = true
     syncErrors = []
     showSyncErrors = false
-    try {
-      syncErrors = await runParallelSyncs(fetch)
-      emit({ type: 'sync:completed' })
-    } finally {
-      syncing = false
-    }
+    syncErrors = await runParallelSyncs(fetch)
+    emit({ type: 'sync:completed' })
   }
 
   function onWriteStreaming(p: { path: string; content: string; done: boolean }) {
@@ -333,13 +332,12 @@
   <AppTopNav
     showChatHistoryButton={false}
     onToggleSidebar={noopSidebar}
-    {syncing}
     {syncErrors}
     {showSyncErrors}
     onOpenSearch={() => { showSearch = true }}
-    onSync={syncAll}
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
-    onOpenExpansion={() => {}}
+    onOpenHub={() => {}}
+    onNewChat={() => { agentChat?.newChat() }}
   />
 
   <div class="ob-ws-main" bind:clientWidth={workspaceColumnWidth}>
@@ -380,7 +378,6 @@
           streamingWritePreview={wikiWriteStreaming}
           {headerFallbackTitle}
           {storageKey}
-          showNewChatButton={false}
           onStreamFinished={handleWorkspaceStreamFinished}
           onOpenWiki={openWikiDoc}
           onOpenFile={openFileDoc}
@@ -390,6 +387,7 @@
           onSwitchToCalendar={switchToCalendar}
           onOpenFromAgent={onOpenFromAgent}
           onNewChat={closeOverlay}
+          onOpenWikiAbout={openHubWikiAbout}
           onUserSendMessage={closeOverlayOnUserSend}
           onWriteStreaming={onWriteStreaming}
           onEditStreaming={onEditStreaming}
@@ -413,6 +411,7 @@
                 onSummarizeInbox={onSummarizeInbox}
                 onCalendarResetToToday={resetCalendarToToday}
                 onCalendarNavigate={switchToCalendar}
+                onOpenWikiAbout={openHubWikiAbout}
                 onClose={closeOverlay}
                 mobilePanel
               />
@@ -438,6 +437,7 @@
             onSummarizeInbox={onSummarizeInbox}
             onCalendarResetToToday={resetCalendarToToday}
             onCalendarNavigate={switchToCalendar}
+            onOpenWikiAbout={openHubWikiAbout}
             onClose={closeOverlay}
             detailFullscreen={detailPaneFullscreen}
             onToggleFullscreen={() => workspaceSplit?.toggleDetailFullscreen()}

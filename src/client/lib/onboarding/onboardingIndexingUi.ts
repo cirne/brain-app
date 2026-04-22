@@ -1,28 +1,18 @@
-export type BuildIndexingElapsedLineOptions = {
-  /**
-   * True when the “Getting to Know You” mail progress hero is shown while server state is still
-   * `not-started` (race / recovery). Same elapsed copy as `state === 'indexing'`.
-   */
-  mailIndexingHero?: boolean
-}
+/** Quiet period before showing generic patience copy (matches prior “elapsed” timing). */
+export const INDEXING_CALM_PATIENCE_MS = 120_000
 
 /**
- * Reassuring copy after indexing has run a while (wall-clock from `indexingStartedAt`).
- * Returns null when not on indexing step, no start time, or under 2 minutes.
+ * Single-line status for the indexing hero: server actionable hint wins, then one generic
+ * patience line after {@link INDEXING_CALM_PATIENCE_MS}.
  */
-export function buildIndexingElapsedLine(
-  state: string,
-  indexingStartedAt: number | null,
-  nowMs: number,
-  options?: BuildIndexingElapsedLineOptions,
-): string | null {
-  const onIndexingUi =
-    state === 'indexing' || (state === 'not-started' && options?.mailIndexingHero === true)
-  if (!onIndexingUi || indexingStartedAt === null) return null
-  const min = Math.floor((nowMs - indexingStartedAt) / 60000)
-  if (min < 2) return null
-  if (min < 5) {
-    return 'Still working — the first batch can take a few minutes on a large mailbox.'
-  }
-  return `About ${min} minutes so far — you can leave this screen open; we’ll continue in the background.`
+export function computeIndexingCalmStatus(args: {
+  actionableHint: string | null | undefined
+  indexingStartedAt: number | null
+  nowMs: number
+}): string | null {
+  const urgent = args.actionableHint?.trim()
+  if (urgent) return urgent
+  if (args.indexingStartedAt == null) return null
+  if (args.nowMs - args.indexingStartedAt < INDEXING_CALM_PATIENCE_MS) return null
+  return 'First sync can take a few minutes — you can leave this screen open; we’ll keep working in the background.'
 }

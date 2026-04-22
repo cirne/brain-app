@@ -23,6 +23,7 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
+    onOpenWikiAbout?: () => void
   }
 
   let {
@@ -32,6 +33,7 @@
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
+    onOpenWikiAbout,
   }: Props = $props()
 </script>
 
@@ -45,7 +47,6 @@
     headerFallbackTitle="Add folders to index"
     inputPlaceholder={PLACEHOLDER}
     autoSendMessage={ADD_FOLDERS_KICKOFF}
-    showNewChatButton={true}
     suppressAgentDetailAutoOpen={true}
     hidePaneContextChip={true}
     {onOpenWiki}
@@ -54,5 +55,6 @@
     {onOpenFullInbox}
     {onSwitchToCalendar}
     {onOpenMessageThread}
+    {onOpenWikiAbout}
   />
 </div>

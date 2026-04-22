@@ -3,7 +3,7 @@ import { extractDraftEdits } from '../lib/draftExtract.js'
 import { buildDraftEditFlags } from '../agent/tools.js'
 import { syncInboxRipmail } from '../lib/syncAll.js'
 import { flattenInboxFromRipmailData } from '../lib/ripmailInboxFlatten.js'
-import { execRipmailAsync } from '../lib/ripmailExec.js'
+import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '../lib/ripmailExec.js'
 import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 
@@ -88,7 +88,9 @@ inbox.post('/draft/:draftId/edit', async (c) => {
 inbox.post('/draft/:draftId/send', async (c) => {
   const draftId = c.req.param('draftId')
   try {
-    await execRipmailAsync(`${ripmailBin()} send ${JSON.stringify(draftId)}`)
+    await execRipmailAsync(`${ripmailBin()} send ${JSON.stringify(draftId)}`, {
+      timeout: RIPMAIL_SEND_TIMEOUT_MS,
+    })
     return c.json({ ok: true })
   } catch (err) {
     return c.json({ ok: false, error: String(err) }, 500)

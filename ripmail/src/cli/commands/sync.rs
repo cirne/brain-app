@@ -103,7 +103,7 @@ pub(crate) fn run_refresh(
 
 pub(crate) fn run_status(json: bool, imap: bool) -> CliResult {
     let cfg = load_cfg();
-    let conn = db::open_file(cfg.db_path())?;
+    let conn = db::open_file_for_queries(cfg.db_path())?;
     if json {
         let status = ripmail::get_status(&conn)?;
         let stale_lock = ripmail::status_stale_lock_running(&status);

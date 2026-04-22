@@ -146,7 +146,7 @@ pub(crate) fn run_draft(sub: ripmail::draft::DraftCmd) -> CliResult {
         ripmail::draft::DraftCmd::Reply { .. } | ripmail::draft::DraftCmd::Forward { .. }
     );
     let conn_owned = if needs_db {
-        Some(db::open_file(cfg.db_path())?)
+        Some(db::open_file_for_queries(cfg.db_path())?)
     } else {
         None
     };
@@ -232,7 +232,7 @@ pub(crate) fn run_read(
     }
 
     let cfg = load_cfg();
-    let conn = db::open_file(cfg.db_path())?;
+    let conn = db::open_file_for_queries(cfg.db_path())?;
     let root = cfg.message_path_root();
 
     if raw {
@@ -340,7 +340,7 @@ pub(crate) fn run_read(
 
 pub(crate) fn run_thread(thread_id: String, json: bool) -> CliResult {
     let cfg = load_cfg();
-    let conn = db::open_file(cfg.db_path())?;
+    let conn = db::open_file_for_queries(cfg.db_path())?;
     let rows = list_thread_messages(&conn, &thread_id)?;
     if json {
         println!("{}", serde_json::to_string_pretty(&rows)?);
@@ -440,7 +440,7 @@ pub(crate) fn run_who(
     text: bool,
 ) -> CliResult {
     let cfg = load_cfg();
-    let conn = db::open_file(cfg.db_path())?;
+    let conn = db::open_file_for_queries(cfg.db_path())?;
     let mailbox_ids = who_mailbox_ids(&cfg, source.as_deref());
     let mut owner_identities = resolve_who_owner_identities(&cfg, mailbox_ids.as_ref());
     let inferred = infer_placeholder_owner_identities(&conn, &cfg, mailbox_ids.as_ref())?;
@@ -493,7 +493,7 @@ pub(crate) fn run_who(
 
 pub(crate) fn run_whoami(source: Option<String>, text: bool) -> CliResult {
     let cfg = load_cfg();
-    let conn = db::open_file(cfg.db_path())?;
+    let conn = db::open_file_for_queries(cfg.db_path())?;
     let spec = source.as_deref().map(str::trim).filter(|s| !s.is_empty());
     if let Some(s) = spec {
         if resolve_mailbox_spec(cfg.resolved_mailboxes(), s).is_none() {
@@ -710,7 +710,7 @@ pub(crate) fn run_search(
         .map(|s| normalize_date_flag("--before", s));
 
     let cfg = load_cfg();
-    let conn = db::open_file(cfg.db_path())?;
+    let conn = db::open_file_for_queries(cfg.db_path())?;
     let owner = (!cfg.imap_user.trim().is_empty()).then(|| cfg.imap_user.clone());
     let mailbox_ids = search_mailbox_ids(&cfg, source.as_deref());
     let result = search_with_meta(

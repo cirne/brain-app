@@ -11,8 +11,18 @@ export const RIPMAIL_REFRESH_TIMEOUT_MS = 2 * 60 * 60 * 1000
 export const RIPMAIL_BACKFILL_TIMEOUT_MS = RIPMAIL_REFRESH_TIMEOUT_MS
 /** `ripmail status --json` may block while sync holds the DB. */
 export const RIPMAIL_STATUS_TIMEOUT_MS = 120_000
+/** Outbound SMTP: normally sub-second; allow headroom for slow networks / OAuth token refresh. */
+export const RIPMAIL_SEND_TIMEOUT_MS = 120_000
+
+/** Max chars per stream embedded in JSON diagnostic logs (NR / docker). */
+const RIPMAIL_DIAGNOSTIC_TAIL_CHARS = 6000
 
 const tracked = new Set<ChildProcess>()
+
+function tailForDiagnosticLog(s: string, max = RIPMAIL_DIAGNOSTIC_TAIL_CHARS): string {
+  if (s.length <= max) return s
+  return `\u2026${s.slice(-max)}`
+}
 
 let spawnCount = 0
 let closeCount = 0
@@ -117,6 +127,7 @@ export async function runRipmailArgv(
   if (mergedEnv.RIPMAIL_TIMEOUT === undefined) {
     mergedEnv.RIPMAIL_TIMEOUT = String(secs)
   }
+  const ripmailTimeoutEnvSec = mergedEnv.RIPMAIL_TIMEOUT
 
   const t0 = Date.now()
   if (options.signal?.aborted) {
@@ -138,6 +149,7 @@ export async function runRipmailArgv(
     argv: [bin, ...argv],
     pid: child.pid,
     timeoutMs: options.timeoutMs,
+    ripmailTimeoutEnvSec,
   })
 
   let stdout = ''
@@ -172,7 +184,14 @@ export async function runRipmailArgv(
           timedOut,
           pid: child.pid,
         }
-        logRipmailLine({
+        const stderrLen = stderr.length
+        const stdoutLen = stdout.length
+        const logOutputDiagnostics =
+          r.timedOut ||
+          r.signal !== null ||
+          (r.code !== null && r.code !== 0) ||
+          label === 'send'
+        const closePayload: Record<string, unknown> = {
           phase: 'close',
           label,
           argv: [bin, ...argv],
@@ -181,7 +200,39 @@ export async function runRipmailArgv(
           signal: r.signal,
           durationMs,
           timedOut: r.timedOut,
-        })
+          stdoutChars: stdoutLen,
+          stderrChars: stderrLen,
+        }
+        if (logOutputDiagnostics) {
+          closePayload.stdoutTail = tailForDiagnosticLog(stdout)
+          closePayload.stderrTail = tailForDiagnosticLog(stderr)
+        }
+        if (r.timedOut && stderrLen === 0 && stdoutLen === 0) {
+          closePayload.diagnosticHint =
+            'ripmail produced no output before Node timeout — likely blocked before first progress line (wrong binary, crash on startup, or stderr not captured); confirm container ripmail build and RIPMAIL_HOME'
+        } else if (r.timedOut && stderrLen > 0) {
+          const tail = stderr.slice(-4000)
+          if (tail.includes('sending message via SMTP')) {
+            closePayload.diagnosticHint =
+              'last progress: about to submit to SMTP — hang is likely TCP/TLS to the SMTP host, DNS, firewall, or the server not completing the transaction'
+          } else if (
+            tail.includes('fetching Google OAuth') &&
+            !tail.includes('OAuth token received')
+          ) {
+            closePayload.diagnosticHint =
+              'hang during Google OAuth token fetch — check network egress, clock skew, refresh token, and Google API reachability from the container'
+          } else if (tail.includes('OAuth token received')) {
+            closePayload.diagnosticHint =
+              'OAuth succeeded; hang is likely while opening TLS or authenticating to the SMTP relay'
+          } else if (tail.includes('constructing SMTP transport')) {
+            closePayload.diagnosticHint =
+              'hang while building/connecting SMTP transport (can include implicit STARTTLS negotiation depending on lettre behavior)'
+          } else if (tail.includes('loading threading from SQLite') || tail.includes('maildir')) {
+            closePayload.diagnosticHint =
+              'hang during reply threading — SQLite open/read may be blocked if another ripmail process holds the DB lock'
+          }
+        }
+        logRipmailLine(closePayload)
 
         if (maxBufferExceeded) {
           reject(

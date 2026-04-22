@@ -1,31 +1,49 @@
 import { describe, expect, it } from 'vitest'
-import { buildIndexingElapsedLine } from './onboardingIndexingUi.js'
+import {
+  computeIndexingCalmStatus,
+  INDEXING_CALM_PATIENCE_MS,
+} from './onboardingIndexingUi.js'
 
-describe('buildIndexingElapsedLine', () => {
+describe('computeIndexingCalmStatus', () => {
   const t0 = 1_000_000_000_000
 
-  it('returns null when not indexing or no start time', () => {
-    expect(buildIndexingElapsedLine('indexing', null, t0)).toBeNull()
-    expect(buildIndexingElapsedLine('not-started', t0, t0 + 120_000)).toBeNull()
-    expect(buildIndexingElapsedLine('not-started', t0, t0 + 119_000, { mailIndexingHero: true })).toBeNull()
+  it('returns actionable hint first', () => {
+    const hint = 'Quit the app and restart.'
+    expect(
+      computeIndexingCalmStatus({
+        actionableHint: hint,
+        indexingStartedAt: t0,
+        nowMs: t0 + INDEXING_CALM_PATIENCE_MS + 1,
+      }),
+    ).toBe(hint)
   })
 
-  it('treats not-started as indexing UI when mailIndexingHero is set', () => {
-    const line = buildIndexingElapsedLine('not-started', t0, t0 + 3 * 60_000, { mailIndexingHero: true })
-    expect(line).toContain('Still working')
+  it('returns null with no hint and no start time', () => {
+    expect(
+      computeIndexingCalmStatus({
+        actionableHint: null,
+        indexingStartedAt: null,
+        nowMs: t0,
+      }),
+    ).toBeNull()
   })
 
-  it('returns null under 2 minutes elapsed', () => {
-    expect(buildIndexingElapsedLine('indexing', t0, t0 + 119_000)).toBeNull()
+  it('returns null under patience window', () => {
+    expect(
+      computeIndexingCalmStatus({
+        actionableHint: null,
+        indexingStartedAt: t0,
+        nowMs: t0 + INDEXING_CALM_PATIENCE_MS - 1,
+      }),
+    ).toBeNull()
   })
 
-  it('returns short reassurance between 2 and 5 minutes', () => {
-    const line = buildIndexingElapsedLine('indexing', t0, t0 + 3 * 60_000)
-    expect(line).toContain('Still working')
-  })
-
-  it('returns long message at 5+ minutes with minute count', () => {
-    const line = buildIndexingElapsedLine('indexing', t0, t0 + 7 * 60_000)
-    expect(line).toContain('7 minutes')
+  it('returns generic patience at or after window', () => {
+    const line = computeIndexingCalmStatus({
+      actionableHint: null,
+      indexingStartedAt: t0,
+      nowMs: t0 + INDEXING_CALM_PATIENCE_MS,
+    })
+    expect(line).toContain('First sync')
   })
 })

@@ -118,7 +118,7 @@ export function buildProfilingSystemPrompt(
     ``,
     `**Tools:** indexed mail only (no web, fetch_page, or youtube in this agent).`,
     ``,
-    `**Workflow:** **set_chat_title** "Building your profile" → **find_person** (empty) → **search_index** (**≤5** calls) → **read_doc** (**≤12** threads/messages; favor mail the user **sent**). Then **write** \`me.md\` in **one** \`write\` (\`edit\` only for tiny fixes). **Only** \`me.md\`.`,
+    `**Workflow:** **find_person** (empty) → **search_index** (**≤5** calls) → **read_doc** (**≤12** threads/messages; favor mail the user **sent**). Then **write** \`me.md\` in **one** \`write\` (\`edit\` only for tiny fixes). **Only** \`me.md\`. **Do not** call \`set_chat_title\`.`,
     ``,
     `**Anti-recency:** Search **defaults to emphasizing recent** mail. Counter that deliberately:`,
     `- **find_person** reflects long-run volume — use for **who** matters, not what is loudest **this week**.`,

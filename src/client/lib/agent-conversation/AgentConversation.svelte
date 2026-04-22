@@ -19,6 +19,7 @@
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
+    onOpenWikiAbout,
     /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
     empty,
     streamingWrite: _streamingWrite,
@@ -165,7 +166,12 @@
       {#if empty}
         {@render empty()}
       {:else}
-        <ConversationEmptyState {onOpenEmail} {onOpenFullInbox} {onSwitchToCalendar} />
+        <ConversationEmptyState
+          {onOpenEmail}
+          {onOpenFullInbox}
+          {onSwitchToCalendar}
+          {onOpenWikiAbout}
+        />
       {/if}
     {/if}
 

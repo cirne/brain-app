@@ -14,7 +14,7 @@
     fetchProfileDraftMarkdown,
     SETUP_MAIL_ABORT_MESSAGE,
   } from './onboardingApi.js'
-  import { buildIndexingElapsedLine } from './onboardingIndexingUi.js'
+  import { computeIndexingCalmStatus } from './onboardingIndexingUi.js'
   import {
     ONBOARDING_LARGE_WINDOW_STATES,
     ONBOARDING_PROFILE_INDEX_AUTOPROCEED,
@@ -71,13 +71,6 @@
     mailIndexedCount >= ONBOARDING_PROFILE_INDEX_MANUAL_MIN &&
       mailIndexedCount < ONBOARDING_PROFILE_INDEX_AUTOPROCEED,
   )
-  const indexingProgressPercent = $derived(
-    Math.min(
-      100,
-      Math.round((mailIndexedCount / ONBOARDING_PROFILE_INDEX_AUTOPROCEED) * 100),
-    ),
-  )
-
   async function loadMailOnly() {
     const next = await fetchOnboardingMailStatus()
     if (next) mail = next
@@ -144,11 +137,12 @@
         (state === 'not-started' && mail.configured && !setupError)),
   )
 
-  const indexingElapsedLine = $derived.by(() => {
+  const indexingCalmStatus = $derived.by(() => {
     void indexingElapsedTick
-    return buildIndexingElapsedLine(state, indexingStartedAt, Date.now(), {
-      mailIndexingHero:
-        !needsVaultSetup && state === 'not-started' && mail.configured && !setupError,
+    return computeIndexingCalmStatus({
+      actionableHint: mail.indexingHint,
+      indexingStartedAt,
+      nowMs: Date.now(),
     })
   })
 
@@ -183,16 +177,6 @@
    * Handles both `indexing` and stale `not-started` (mail can run before the server state catches up).
    */
   let profilingAutoAdvanceInFlight = $state(false)
-
-  const indexingStatusLine = $derived.by(() => {
-    if (mailIndexedCount > 0) {
-      return `${mailIndexedCount.toLocaleString()} messages`
-    }
-    if (mail.syncRunning) {
-      return mailProviderPref === 'google' ? 'Connecting to Google…' : 'Sync is running…'
-    }
-    return ''
-  })
 
   $effect(() => {
     if (!canAutoProceedToProfiling || busy || profilingAutoAdvanceInFlight) return
@@ -620,17 +604,9 @@
             </p>
           </div>
           <div class="ob-indexing-status-slot" aria-live="polite">
-            {#if indexingStatusLine}
-              <p class="ob-indexing-count">{indexingStatusLine}</p>
-            {/if}
-            <div class="ob-indexing-progress-bar" aria-hidden="true">
-              <div class="ob-indexing-progress-fill" style:width="{indexingProgressPercent}%"></div>
-            </div>
-            {#if mail.indexingHint}
-              <p class="ob-indexing-hint">{mail.indexingHint}</p>
-            {/if}
-            {#if indexingElapsedLine}
-              <p class="ob-indexing-elapsed">{indexingElapsedLine}</p>
+            <div class="ob-indexing-progress-bar ob-indexing-progress-bar--indeterminate" aria-hidden="true"></div>
+            {#if indexingCalmStatus}
+              <p class="ob-indexing-calm">{indexingCalmStatus}</p>
             {/if}
             {#if showIndexingHero && (canOfferEarlyProfile || canAutoProceedToProfiling) && (state === 'indexing' || (state === 'not-started' && mail.configured))}
               <div class="ob-indexing-early" role="region" aria-label="Continue to profile building">

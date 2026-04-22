@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  computeIndexingActionHint,
   computeIndexingUserHint,
   parseRipmailStatusJson,
 } from './ripmailStatusParse.js'
@@ -195,6 +196,7 @@ describe('parseRipmailStatusJson', () => {
     expect(p).not.toBeNull()
     expect(p!.syncLockAgeMs).toBe(125000)
     expect(p!.syncRunning).toBe(true)
+    expect(computeIndexingActionHint(p!)).toBeNull()
     expect(computeIndexingUserHint(p!)).toContain('stay at zero')
     expect(computeIndexingUserHint(p!, { mailProvider: 'google' })).toContain('first connection')
     expect(computeIndexingUserHint(p!, { mailProvider: 'google' })).not.toContain('Mail is scanned')
@@ -205,6 +207,7 @@ describe('parseRipmailStatusJson', () => {
     expect(p).not.toBeNull()
     expect(p!.syncRunning).toBe(false)
     expect(p!.staleLockInDb).toBe(true)
+    expect(computeIndexingActionHint(p!)).toContain('Quit Braintunnel')
     expect(computeIndexingUserHint(p!)).toContain('Quit Braintunnel')
   })
 
@@ -212,6 +215,7 @@ describe('parseRipmailStatusJson', () => {
     const p = parseRipmailStatusJson(needsBackfillIdleFixture)
     expect(p).not.toBeNull()
     expect(p!.pendingRefresh).toBe(true)
+    expect(computeIndexingActionHint(p!)).toBeNull()
     expect(computeIndexingUserHint(p!)).toContain('starting')
   })
 
