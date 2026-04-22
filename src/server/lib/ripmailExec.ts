@@ -1,10 +1,7 @@
 import type { ExecOptions, SpawnOptions } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { ripmailBin } from './ripmailBin.js'
-import {
-  ripmailQueryTimeoutMs,
-  runRipmailArgv,
-} from './ripmailRun.js'
+import { RIPMAIL_QUERY_TIMEOUT_MS, runRipmailArgv } from './ripmailRun.js'
 import { tokenizeRipmailArgString } from './ripmailArgvTokenize.js'
 
 function resolveExecCwd(cwd: ExecOptions['cwd']): string | undefined {
@@ -19,9 +16,10 @@ function resolveExecCwd(cwd: ExecOptions['cwd']): string | undefined {
 export { ripmailProcessEnv } from './brainHome.js'
 export {
   getRipmailChildDebugSnapshot,
-  ripmailBackfillTimeoutMs,
-  ripmailQueryTimeoutMs,
-  ripmailRefreshTimeoutMs,
+  RIPMAIL_BACKFILL_TIMEOUT_MS,
+  RIPMAIL_QUERY_TIMEOUT_MS,
+  RIPMAIL_REFRESH_TIMEOUT_MS,
+  RIPMAIL_STATUS_TIMEOUT_MS,
   RipmailNonZeroExitError,
   RipmailTimeoutError,
   runRipmailArgv,
@@ -38,7 +36,7 @@ export async function execRipmailArgv(
   const timeoutMs =
     options?.timeout !== undefined && options.timeout > 0
       ? options.timeout
-      : ripmailQueryTimeoutMs()
+      : RIPMAIL_QUERY_TIMEOUT_MS
   const r = await runRipmailArgv(argv, {
     timeoutMs,
     maxBuffer: options?.maxBuffer,

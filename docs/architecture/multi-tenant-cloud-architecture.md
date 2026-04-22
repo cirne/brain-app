@@ -8,7 +8,7 @@ To support a cloud-hosted version of Brain, we will adopt a **Cell-based, Local-
 
 ### Bootstrap identity (hosted)
 
-Hosted cells use **Google OAuth** as the tenant gate: **`openid email`** scopes yield a stable **`sub`** and mailbox address. The server maps **`google:<sub>` → workspace handle** in **`$BRAIN_DATA_ROOT/.global/tenant-registry.json`** (alongside **`brain_session` → handle** entries). Workspace directory names are **derived** from the mailbox (slug rules + collision suffixes), not typed by users. Desktop single-tenant mode is unchanged (local vault password + verifier file).
+Hosted cells use **Google OAuth** as the tenant gate: `**openid email`** scopes yield a stable `**sub**` and mailbox address. The server maps `**google:<sub>` → workspace handle** in `**$BRAIN_DATA_ROOT/.global/tenant-registry.json`** (alongside `**brain_session` → handle** entries). Workspace directory names are **derived** from the mailbox (slug rules + collision suffixes), not typed by users. Desktop single-tenant mode is unchanged (local vault password + verifier file).
 
 See [google-oauth.md](../google-oauth.md#multi-tenant-hosted-brain_data_root).
 
@@ -37,6 +37,8 @@ We leverage the OS Page Cache and modern cloud block storage to provide a high-p
 
 ## Tenant Isolation & Security Guardrails
 
+**Deeper FS / agent isolation strategies** (micro-VM, POSIX UID, Landlock, directory FDs, `Workspace` jail) and the link to the open critical path-sandbox bug are in **[tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md)** ([BUG-012](../bugs/BUG-012-agent-tool-path-sandbox-escape.md)).
+
 While **hosted multi-tenant** mode does **not** use the desktop **vault password** verifier (authentication is **Google OAuth + session cookie**), we still enforce tenant isolation through "Defense in Depth" guardrails:
 
 1. **Zero Ambient Authority:** Move away from environment variables (like `BRAIN_HOME` or `RIPMAIL_HOME`). The application must crash if a home directory is not explicitly provided via a request-specific context object.
@@ -58,4 +60,3 @@ Moving `ripmail` or the Wiki to a remote database (Postgres/S3) would introduce:
 - **Network Latency:** Every query would incur a round-trip, killing the "instant" feel of the UI.
 - **Architectural Complexity:** We would lose the simplicity of the local-first codebase.
 - **Migration Risk:** Managing a single massive schema for all users is a significant operational burden compared to thousands of independent, small SQLite files.
-

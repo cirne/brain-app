@@ -3,7 +3,7 @@ export { ripmailProcessEnv as ripmailRefreshEnv } from './ripmailExec.js'
 import { formatExecError } from './execError.js'
 import { ripmailHomeForBrain } from './brainHome.js'
 import { ensureGoogleCalendarSourcesForOAuthImap } from './googleOAuth.js'
-import { RipmailTimeoutError, ripmailRefreshTimeoutMs } from './ripmailExec.js'
+import { RipmailTimeoutError, RIPMAIL_REFRESH_TIMEOUT_MS } from './ripmailExec.js'
 import { runRipmailHeavyArgv, runRipmailRefreshForBrain } from './ripmailHeavySpawn.js'
 
 export interface SyncComponentResult {
@@ -58,7 +58,7 @@ export async function runFullSync(inboxSignal?: AbortSignal): Promise<FullSyncRe
  * explicit shorter cap by passing `timeoutMs`.
  */
 export async function refreshMailAndWait(
-  timeoutMs = ripmailRefreshTimeoutMs(),
+  timeoutMs = RIPMAIL_REFRESH_TIMEOUT_MS,
   signal?: AbortSignal,
 ): Promise<{ ok: boolean; timedOut?: boolean; error?: string }> {
   try {

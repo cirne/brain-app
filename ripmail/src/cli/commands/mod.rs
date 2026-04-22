@@ -91,7 +91,9 @@ pub(crate) fn handle_command(cli: Cli) -> CliResult {
             text,
             verbose,
         } => {
-            ripmail::runtime_limits::arm(timeout_secs);
+            ripmail::runtime_limits::arm(ripmail::runtime_limits::resolve_sync_wall_timeout_secs(
+                timeout_secs,
+            ));
             let out = sync::run_refresh(source, force, text, verbose);
             ripmail::runtime_limits::disarm();
             out
@@ -104,7 +106,9 @@ pub(crate) fn handle_command(cli: Cli) -> CliResult {
             verbose,
         } => {
             if foreground {
-                ripmail::runtime_limits::arm(timeout_secs);
+                ripmail::runtime_limits::arm(
+                    ripmail::runtime_limits::resolve_sync_wall_timeout_secs(timeout_secs),
+                );
             }
             let out = sync::run_backfill(duration, since, source, foreground, verbose);
             if foreground {

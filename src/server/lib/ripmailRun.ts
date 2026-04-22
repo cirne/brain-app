@@ -2,9 +2,15 @@ import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process'
 import { ripmailBin } from './ripmailBin.js'
 import { ripmailProcessEnv } from './brainHome.js'
 
-const DEFAULT_QUERY_TIMEOUT_MS = 60_000
-const DEFAULT_REFRESH_TIMEOUT_MS = 600_000
 const KILL_ESCALATION_MS = 5000
+
+/** Default exec budget for typical ripmail queries (search, inbox list, …). */
+export const RIPMAIL_QUERY_TIMEOUT_MS = 60_000
+/** First-time / large-mailbox IMAP sync — matches `RIPMAIL_TIMEOUT` we forward to the child. */
+export const RIPMAIL_REFRESH_TIMEOUT_MS = 2 * 60 * 60 * 1000
+export const RIPMAIL_BACKFILL_TIMEOUT_MS = RIPMAIL_REFRESH_TIMEOUT_MS
+/** `ripmail status --json` may block while sync holds the DB. */
+export const RIPMAIL_STATUS_TIMEOUT_MS = 120_000
 
 const tracked = new Set<ChildProcess>()
 
@@ -57,27 +63,6 @@ export type RipmailRunOptions = {
   ripmailTimeoutSeconds?: number
   /** Log label for observability */
   label?: string
-}
-
-export function ripmailQueryTimeoutMs(): number {
-  const raw = process.env.RIPMAIL_QUERY_TIMEOUT_MS
-  if (raw === undefined || String(raw).trim() === '') return DEFAULT_QUERY_TIMEOUT_MS
-  const n = parseInt(String(raw).trim(), 10)
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_QUERY_TIMEOUT_MS
-}
-
-export function ripmailRefreshTimeoutMs(): number {
-  const raw = process.env.RIPMAIL_REFRESH_TIMEOUT_MS
-  if (raw === undefined || String(raw).trim() === '') return DEFAULT_REFRESH_TIMEOUT_MS
-  const n = parseInt(String(raw).trim(), 10)
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_REFRESH_TIMEOUT_MS
-}
-
-export function ripmailBackfillTimeoutMs(): number {
-  const raw = process.env.RIPMAIL_BACKFILL_TIMEOUT_MS
-  if (raw === undefined || String(raw).trim() === '') return ripmailRefreshTimeoutMs()
-  const n = parseInt(String(raw).trim(), 10)
-  return Number.isFinite(n) && n > 0 ? n : ripmailRefreshTimeoutMs()
 }
 
 export function getRipmailChildDebugSnapshot(): {

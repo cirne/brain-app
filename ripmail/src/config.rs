@@ -1064,6 +1064,18 @@ pub fn mailbox_ids_for_default_search(mailboxes: &[ResolvedMailbox]) -> Vec<Stri
     source_ids_for_default_search(mailboxes)
 }
 
+/// Mailbox used for legacy top-level [`Config`] fields (`imap_*`, `smtp`, `maildir_path`) when
+/// `sources[]` lists several mail accounts. Prefer **IMAP** over **Apple Mail**: the localhost
+/// Apple Mail source has no real SMTP unless `smtp` is set in config, so listing Apple Mail
+/// before Gmail used to make `ripmail send` hit `localhost:587` and fail with connection refused.
+fn default_resolved_mailbox_for_config(sources: &[ResolvedSource]) -> Option<&ResolvedSource> {
+    sources
+        .iter()
+        .find(|s| s.kind == SourceKind::Imap)
+        .or_else(|| sources.iter().find(|s| s.is_mail()))
+        .or_else(|| sources.first())
+}
+
 /// Build a [`Config`] for outbound SMTP using the given mailbox (email or id), or the default
 /// (first resolved mailbox) when `mailbox_spec` is `None` or empty.
 pub fn config_for_outbound_send(
@@ -1536,10 +1548,7 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
         maildir_path,
         message_path_root,
     ) = if use_multi_layout {
-        let mb = resolved_sources
-            .iter()
-            .find(|s| s.is_mail())
-            .or_else(|| resolved_sources.first())
+        let mb = default_resolved_mailbox_for_config(&resolved_sources)
             .expect("sources non-empty when resolved_sources non-empty");
         (
             mb.imap_host.clone(),
@@ -1579,10 +1588,7 @@ pub fn load_config(opts: LoadConfigOptions) -> Config {
         imap_host = "imap.gmail.com".to_string();
     }
 
-    let source_id = resolved_sources
-        .iter()
-        .find(|s| s.is_mail())
-        .or_else(|| resolved_sources.first())
+    let source_id = default_resolved_mailbox_for_config(&resolved_sources)
         .map(|m| m.id.clone())
         .unwrap_or_default();
 
@@ -1756,6 +1762,64 @@ mod tests {
         assert_eq!(r.host, "localhost");
         assert_eq!(r.port, 587);
         assert!(!r.secure);
+    }
+
+    #[test]
+    fn default_resolved_mailbox_prefers_imap_over_applemail_despite_order() {
+        fn apple(id: &str) -> ResolvedSource {
+            ResolvedSource {
+                id: id.into(),
+                kind: SourceKind::AppleMail,
+                email: "apple@local".into(),
+                imap_host: "local.applemail".into(),
+                imap_port: 993,
+                imap_user: "apple@local".into(),
+                imap_aliases: vec![],
+                imap_password: "x".into(),
+                imap_auth: MailboxImapAuthKind::AppPassword,
+                include_in_default: true,
+                maildir_path: PathBuf::from("/tmp/a/maildir"),
+                apple_mail_root: Some(PathBuf::from("/tmp/Mail")),
+                local_dir: None,
+                calendar: None,
+            }
+        }
+        fn imap(id: &str) -> ResolvedSource {
+            ResolvedSource {
+                id: id.into(),
+                kind: SourceKind::Imap,
+                email: "u@gmail.com".into(),
+                imap_host: "imap.gmail.com".into(),
+                imap_port: 993,
+                imap_user: "u@gmail.com".into(),
+                imap_aliases: vec![],
+                imap_password: "x".into(),
+                imap_auth: MailboxImapAuthKind::AppPassword,
+                include_in_default: true,
+                maildir_path: PathBuf::from("/tmp/g/maildir"),
+                apple_mail_root: None,
+                local_dir: None,
+                calendar: None,
+            }
+        }
+        assert_eq!(
+            default_resolved_mailbox_for_config(&[apple("a"), imap("g")])
+                .unwrap()
+                .id,
+            "g"
+        );
+        assert_eq!(
+            default_resolved_mailbox_for_config(&[imap("g"), apple("a")])
+                .unwrap()
+                .id,
+            "g"
+        );
+        assert_eq!(
+            default_resolved_mailbox_for_config(&[apple("only")])
+                .unwrap()
+                .id,
+            "only"
+        );
     }
 
     #[test]

@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { computeIndexingUserHint, parseRipmailStatusJson } from './ripmailStatusParse.js'
 import { readOnboardingPreferences } from './onboardingPreferences.js'
 import { ripmailHomeForBrain } from './brainHome.js'
-import { execRipmailAsync } from './ripmailExec.js'
+import { execRipmailAsync, RIPMAIL_STATUS_TIMEOUT_MS } from './ripmailExec.js'
 import { ripmailBin } from './ripmailBin.js'
 
 export { ripmailBin }
@@ -84,7 +84,7 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
   const t0 = performance.now()
   try {
     const { stdout } = await execRipmailAsync(`${ripmailBin()} status --json`, {
-      timeout: 10000,
+      timeout: RIPMAIL_STATUS_TIMEOUT_MS,
     })
     const ms = Math.round(performance.now() - t0)
     const maxRaw = 6000

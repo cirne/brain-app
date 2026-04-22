@@ -123,6 +123,10 @@ fn parse_mailbox(addr: &str) -> Result<Mailbox, String> {
         .map_err(|e| format!("invalid address {addr:?}: {e}"))
 }
 
+fn smtp_endpoint_label(smtp: &ResolvedSmtp) -> String {
+    format!("{}:{}", smtp.host, smtp.port)
+}
+
 fn build_smtp_transport_plain(
     smtp: &ResolvedSmtp,
     creds: Credentials,
@@ -191,6 +195,19 @@ pub fn send_simple_message(
         return Err("Missing RIPMAIL_IMAP_PASSWORD / imap.password".into());
     }
 
+    // Apple Mail–only: local index (read/inbox) works; inferred SMTP is localhost:587 with no
+    // listener until the user adds a real IMAP/Gmail source or sets `smtp` in config.json.
+    if cfg.imap_host.trim().eq_ignore_ascii_case("local.applemail") {
+        let h = cfg.smtp.host.trim();
+        if h.eq_ignore_ascii_case("localhost") || h == "127.0.0.1" {
+            return Err(
+                "Cannot send: ripmail is using the Apple Mail (local) source only, which has no SMTP server (defaults to localhost:587). \
+Inbox/search can work from Apple Mail alone; outbound mail needs a Gmail or IMAP account in the same ripmail home (Brain mail onboarding / `ripmail setup`), or an explicit smtp.host in config.json."
+                    .into(),
+            );
+        }
+    }
+
     let outbound_id = generate_outbound_message_id(user);
 
     let from_mb = parse_mailbox(user)?;
@@ -235,11 +252,16 @@ pub fn send_simple_message(
         .singlepart(body)
         .map_err(|e| format!("message build: {e}"))?;
 
+    let endpoint = smtp_endpoint_label(&cfg.smtp);
     let transport = match cfg.imap_auth {
         MailboxImapAuthKind::AppPassword => {
             let creds = Credentials::new(user.to_string(), cfg.imap_password.clone());
-            build_smtp_transport_plain(&cfg.smtp, creds)
-                .map_err(|e| format!("SMTP transport: {e}"))?
+            build_smtp_transport_plain(&cfg.smtp, creds).map_err(|e| {
+                format!(
+                    "SMTP transport ({endpoint}, STARTTLS={}): {e}",
+                    !cfg.smtp.secure
+                )
+            })?
         }
         MailboxImapAuthKind::GoogleOAuth => {
             let env_file = crate::config::read_ripmail_env_file(&cfg.ripmail_home);
@@ -252,14 +274,18 @@ pub fn send_simple_message(
             )
             .map_err(|e| format!("OAuth: {e}"))?;
             let creds = Credentials::new(user.to_string(), tok);
-            build_smtp_transport_xoauth2(&cfg.smtp, creds)
-                .map_err(|e| format!("SMTP transport: {e}"))?
+            build_smtp_transport_xoauth2(&cfg.smtp, creds).map_err(|e| {
+                format!(
+                    "SMTP transport ({endpoint}, STARTTLS={}): {e}",
+                    !cfg.smtp.secure
+                )
+            })?
         }
     };
 
     let response = transport
         .send(&email)
-        .map_err(|e| format!("SMTP send: {e}"))?;
+        .map_err(|e| format!("SMTP send ({endpoint}): {e}"))?;
 
     Ok(SendResult {
         ok: true,
@@ -336,6 +362,31 @@ mod tests {
         assert!(r.ok);
         assert!(r.message_id.starts_with("<ripmail-"));
         assert_eq!(r.dry_run, Some(true));
+    }
+
+    #[test]
+    fn applemail_only_inferred_smtp_fails_fast_with_clear_error() {
+        let mut cfg = test_config();
+        cfg.imap_host = "local.applemail".into();
+        cfg.smtp = resolve_smtp_settings("local.applemail", None).unwrap();
+        let r = send_simple_message(
+            &cfg,
+            &SendSimpleFields {
+                to: vec!["x@y.com".into()],
+                cc: None,
+                bcc: None,
+                subject: "s".into(),
+                text: "t".into(),
+                in_reply_to: None,
+                references: None,
+            },
+            false,
+        );
+        let msg = r.expect_err("expected Apple Mail–only send to be rejected");
+        assert!(
+            msg.contains("Apple Mail") && msg.contains("localhost"),
+            "unexpected message: {msg}"
+        );
     }
 
     #[test]

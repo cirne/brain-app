@@ -22,14 +22,12 @@
     type SessionState,
   } from './chatSessionStore.js'
   import { shiftQueuedFollowUp } from './agentFollowUpQueue.js'
-  import { MessageSquarePlus, Play } from 'lucide-svelte'
+  import { MessageSquarePlus } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import AgentInput from './AgentInput.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
   import type { AgentOpenSource } from './navigateFromAgentOpen.js'
-  import type { BackgroundAgentDoc } from './statusBar/backgroundAgentTypes.js'
-
   let {
     context = { type: 'none' } as SurfaceContext,
     conversationHidden = false,
@@ -210,34 +208,6 @@
   let conversationEl = $state<ConversationScrollApi | undefined>(undefined)
   let inputEl = $state<ReturnType<typeof AgentInput> | undefined>(undefined)
 
-  let wikiDoc = $state<BackgroundAgentDoc | null>(null)
-  let actionBusy = $state(false)
-  const isWikiPaused = $derived(wikiDoc?.phase === 'paused')
-
-  async function fetchWikiDoc() {
-    try {
-      const res = await fetch('/api/your-wiki')
-      if (res.ok) {
-        wikiDoc = (await res.json()) as BackgroundAgentDoc
-      }
-    } catch { /* ignore */ }
-  }
-
-  async function resumeWiki() {
-    if (actionBusy) return
-    actionBusy = true
-    try {
-      await fetch('/api/your-wiki/resume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-      })
-      await fetchWikiDoc()
-    } finally {
-      actionBusy = false
-    }
-  }
-
   async function focusAgentTextarea(delayMs: number) {
     await tick()
     if (delayMs > 0) {
@@ -292,14 +262,11 @@
   onMount(() => {
     void fetchWikiFiles()
     void fetchSkills()
-    void fetchWikiDoc()
     const unsubWikiList = registerWikiFileListRefetch(fetchWikiFiles)
     const m = autoSendMessage?.trim()
     if (m) void tick().then(() => send(m))
-    const wikiPollId = setInterval(fetchWikiDoc, 5000)
     return () => {
       unsubWikiList()
-      clearInterval(wikiPollId)
     }
   })
 
@@ -627,23 +594,6 @@
         streamingWrite={streamingWritePreview}
         {multiTenant}
       />
-
-      {#if isWikiPaused}
-        <div class="wiki-paused-notice">
-          <div class="wiki-paused-content">
-            <p>Pausing wiki expansion and maintenance.</p>
-            <button
-              type="button"
-              class="resume-btn"
-              disabled={actionBusy}
-              onclick={resumeWiki}
-            >
-              <Play size={12} fill="currentColor" />
-              Resume
-            </button>
-          </div>
-        </div>
-      {/if}
     </div>
 
     {#if !hideInput}
@@ -800,51 +750,6 @@
     flex-direction: column;
     overflow-x: hidden;
     position: relative;
-  }
-
-  .wiki-paused-notice {
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    flex-shrink: 0;
-  }
-
-  .wiki-paused-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    max-width: var(--chat-column-max);
-    margin: 0 auto;
-    width: 100%;
-  }
-
-  .wiki-paused-content p {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-2);
-  }
-
-  .resume-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    background: var(--accent);
-    color: white;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    transition: filter 0.15s;
-  }
-
-  .resume-btn:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-
-  .resume-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .mobile-detail-layer {

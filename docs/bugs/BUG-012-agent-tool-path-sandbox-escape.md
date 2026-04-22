@@ -21,12 +21,14 @@ It is not limited to a malicious *human* user: **prompt injection** via synced e
 
 ## Evidence in codebase (non-exhaustive)
 
-| Area | Concern |
-| ---- | ------- |
-| `read_doc` | Documented to accept “**a file by absolute path (tilde paths OK)**” and passes the id through to `ripmail read` — no check that the path stays under the current `RIPMAIL_HOME` / `BRAIN_HOME` / configured sources (`src/server/agent/tools.ts`). |
-| `manage_sources` | `op=add` / `op=edit` take **`path: absolute path or ~`** — same class of issue for registering or editing folder sources. |
+
+| Area                                                 | Concern                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read_doc`                                           | Documented to accept “**a file by absolute path (tilde paths OK)**” and passes the id through to `ripmail read` — no check that the path stays under the current `RIPMAIL_HOME` / `BRAIN_HOME` / configured sources (`src/server/agent/tools.ts`).                                                                                                                                                                        |
+| `manage_sources`                                     | `op=add` / `op=edit` take `**path: absolute path or ~`** — same class of issue for registering or editing folder sources.                                                                                                                                                                                                                                                                                                 |
 | Wiki file tools from `@mariozechner/pi-coding-agent` | `createReadTool`, `createFindTool`, etc. are scoped with a `wikiDir` string. **If** the upstream implementation uses standard path joins (e.g. `path.resolve(wikiDir, userPath)`), a **path argument that is already absolute** can reset the base and escape the wiki root (Node: `path.resolve('/wiki', '/etc/passwd')` → `/etc/passwd`). **Confirm upstream behavior;** if unguarded, this is a direct sandbox escape. |
-| Custom tools using `resolveSafeWikiPath` | `move_file` / `delete_file` and wiki edit history use **`resolveSafeWikiPath`** in `src/server/lib/wikiEditHistory.ts`, which **rejects** traversals outside `wikiDir` — **good pattern** to generalize. |
+| Custom tools using `resolveSafeWikiPath`             | `move_file` / `delete_file` and wiki edit history use `**resolveSafeWikiPath`** in `src/server/lib/wikiEditHistory.ts`, which **rejects** traversals outside `wikiDir` — **good pattern** to generalize.                                                                                                                                                                                                                  |
+
 
 ## Threat model (what we must assume)
 
@@ -40,7 +42,7 @@ It is not limited to a malicious *human* user: **prompt injection** via synced e
 
 - Resolve user input with `path.resolve` only **after** rejecting or stripping **absolute** paths **or** re-rooting them under an allowlist.
 - After `realpath` / `fs.realpath`, require  
-  `realpathResult === allowlistedRoot || realpathResult.startsWith(allowlistedRoot + path.sep)`.
+`realpathResult === allowlistedRoot || realpathResult.startsWith(allowlistedRoot + path.sep)`.
 - Reject `..` segments in **logical** path handling before touch; do not rely on the model to send “safe” relative paths.
 - **Pros:** Works in one Node process; can wrap both custom tools and pi primitives if we fork or wrap at registration time. **Cons:** Every new tool must call the same helper — easy to miss without lint/tests.
 
@@ -79,6 +81,7 @@ It is not limited to a malicious *human* user: **prompt injection** via synced e
 
 ## Related docs
 
+- [Tenant filesystem isolation (architecture)](../architecture/tenant-filesystem-isolation.md) — layered strategies (kernel, process, app) that close or bound this class of failure; complements the fix directions below.
 - [Wiki read vs read_doc](../architecture/wiki-read-vs-read-doc.md) — intentional split between wiki-relative tools and `read_doc` / index; the security contract for “where files may live” should be made explicit and enforced.
 - [OPP-012: Brain home data layout](../opportunities/OPP-012-brain-home-data-layout.md), [OPP-024: Split brain data](../opportunities/OPP-024-split-brain-data-synced-wiki-local-ripmail.md) — data roots.
 - `src/server/lib/dataRoot.ts` — `BRAIN_DATA_ROOT`, `tenantHomeDir`.

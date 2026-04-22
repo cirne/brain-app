@@ -30,8 +30,15 @@ const CLI_LONG_VERSION: &str = concat!(
     after_long_help = include_str!("root_help.txt")
 )]
 pub(crate) struct Cli {
-    /// Wall-clock limit in seconds for long commands (`refresh`, `backfill`, …). 0 = no limit.
-    #[arg(long, global = true, env = "RIPMAIL_TIMEOUT", value_name = "SECS")]
+    /// Wall-clock limit in seconds for long commands (`refresh`, `backfill --foreground`, …). 0 = no limit.
+    /// If omitted, `RIPMAIL_TIMEOUT` applies to sync commands.
+    #[arg(
+        long = "timeout",
+        visible_alias = "wall-timeout",
+        global = true,
+        env = "RIPMAIL_TIMEOUT",
+        value_name = "SECS"
+    )]
     pub(crate) timeout_secs: Option<u64>,
     #[command(subcommand)]
     pub(crate) command: Option<Commands>,

@@ -1,7 +1,7 @@
 import { ripmailHomeForBrain } from './brainHome.js'
 import {
-  ripmailBackfillTimeoutMs,
-  ripmailRefreshTimeoutMs,
+  RIPMAIL_BACKFILL_TIMEOUT_MS,
+  RIPMAIL_REFRESH_TIMEOUT_MS,
   runRipmailArgv,
   type RipmailRunResult,
 } from './ripmailRun.js'
@@ -30,7 +30,10 @@ export async function runRipmailHeavyArgv(
   const work = prev.catch(() => {}).then(async () => {
     const existing = inflightByHomeArgv.get(ck) as Promise<RipmailRunResult> | undefined
     if (existing) return existing
-    const p = runRipmailArgv(argv, {
+    const secs =
+      options.ripmailTimeoutSeconds ?? Math.max(1, Math.ceil(options.timeoutMs / 1000))
+    const argvWithTimeout = ['--timeout', String(secs), ...argv] as string[]
+    const p = runRipmailArgv(argvWithTimeout, {
       timeoutMs: options.timeoutMs,
       label: options.label,
       signal: options.signal,
@@ -56,7 +59,7 @@ export async function runRipmailRefreshForBrain(
   extraArgv: string[] = [],
   signal?: AbortSignal,
 ): Promise<RipmailRunResult> {
-  const timeoutMs = ripmailRefreshTimeoutMs()
+  const timeoutMs = RIPMAIL_REFRESH_TIMEOUT_MS
   const argv = ['refresh', ...extraArgv]
   return runRipmailHeavyArgv(argv, {
     timeoutMs,
@@ -70,7 +73,7 @@ export async function runRipmailBackfillForBrain(
   argvTail: string[],
   signal?: AbortSignal,
 ): Promise<RipmailRunResult> {
-  const timeoutMs = ripmailBackfillTimeoutMs()
+  const timeoutMs = RIPMAIL_BACKFILL_TIMEOUT_MS
   const argv = ['backfill', ...argvTail]
   return runRipmailHeavyArgv(argv, {
     timeoutMs,
