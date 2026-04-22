@@ -38,6 +38,7 @@ fn test_setup_google_oauth_cli() {
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 fn test_setup_apple_mail_cli() {
     let tmp = tempdir().unwrap();
     let home = tmp.path();
