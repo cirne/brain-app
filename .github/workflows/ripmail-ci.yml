@@ -1,0 +1,32 @@
+# Rust checks and tests for the ripmail crate only (cargo-nextest).
+# Brain / Tauri crate: see ci.yml.
+
+name: Ripmail CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  ripmail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: rustfmt (ripmail)
+        run: cargo fmt -p ripmail -- --check
+
+      - name: clippy (ripmail)
+        run: cargo clippy -p ripmail -- -D warnings
+
+      - name: nextest (ripmail)
+        run: cargo nextest run -p ripmail --profile ci

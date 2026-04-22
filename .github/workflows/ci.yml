@@ -1,4 +1,5 @@
-# Lint + test TypeScript app; Rust: fmt/clippy on workspace, nextest on ripmail only.
+# Lint + test TypeScript app; Rust: workspace rustfmt, brain (Tauri) clippy + lib tests.
+# Ripmail crate: see ripmail-ci.yml.
 
 name: CI
 
@@ -25,9 +26,5 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-nextest
-
-      - name: Full CI (JS + Rust workspace)
+      - name: Full CI (JS + brain Rust)
         run: npm run ci

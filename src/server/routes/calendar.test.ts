@@ -5,10 +5,19 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import type { CalendarEvent } from '../lib/calendarCache.js'
 import { getCalendarEventsFromRipmail } from '../lib/calendarRipmail.js'
+import { syncInboxRipmail } from '../lib/syncAll.js'
 
 vi.mock('../lib/calendarRipmail.js', () => ({
   getCalendarEventsFromRipmail: vi.fn(),
 }))
+
+vi.mock('../lib/syncAll.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/syncAll.js')>()
+  return {
+    ...actual,
+    syncInboxRipmail: vi.fn().mockResolvedValue({ ok: true }),
+  }
+})
 
 let brainHome: string
 let app: Hono
@@ -21,6 +30,7 @@ beforeEach(async () => {
     events: [],
     meta: { sourcesConfigured: false, ripmail: '' },
   })
+  vi.mocked(syncInboxRipmail).mockResolvedValue({ ok: true })
 
   vi.resetModules()
   const { default: calendarRoute } = await import('./calendar.js')
@@ -125,10 +135,20 @@ describe('GET /api/calendar/related', () => {
 // ─── POST /api/calendar/sync ─────────────────────────────────────────────────
 
 describe('POST /api/calendar/sync', () => {
-  it('returns ok when ripmail refresh spawn succeeds', async () => {
+  it('returns ok when inbox sync succeeds', async () => {
     const res = await app.request('/api/calendar/sync', { method: 'POST' })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.ok).toBe(true)
+    expect(vi.mocked(syncInboxRipmail)).toHaveBeenCalled()
+  })
+
+  it('returns 500 when inbox sync fails', async () => {
+    vi.mocked(syncInboxRipmail).mockResolvedValueOnce({ ok: false, error: 'sync failed' })
+    const res = await app.request('/api/calendar/sync', { method: 'POST' })
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.ok).toBe(false)
+    expect(body.error).toBe('sync failed')
   })
 })
