@@ -14,56 +14,22 @@
   } = $props()
 </script>
 
-<button type="button" class="email-card" onclick={onOpen} aria-label="Open email thread: {subject}">
-  <div class="email-row">
+<button
+  type="button"
+  class="my-2 block w-full cursor-pointer rounded-lg border border-border bg-surface-3 p-2.5 px-3 text-left text-inherit [font:inherit]"
+  onclick={onOpen}
+  aria-label="Open email thread: {subject}"
+>
+  <div class="flex min-w-0 items-center gap-2">
     <Mail size={14} aria-hidden="true" />
-    <span class="email-subject">{subject}</span>
+    <span class="min-w-0 overflow-hidden text-[13px] font-semibold text-ellipsis [white-space:nowrap]">
+      {subject}
+    </span>
   </div>
   {#if from}
-    <div class="email-from">{from}</div>
+    <div class="mt-1 text-xs text-muted">{from}</div>
   {/if}
   {#if snippet}
-    <p class="email-snippet">{snippet}</p>
+    <p class="m-0 mt-2 text-xs leading-snug text-muted">{snippet}</p>
   {/if}
 </button>
-
-<style>
-  .email-card {
-    margin: 8px 0;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-3);
-    display: block;
-    width: 100%;
-    text-align: left;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-  }
-  .email-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-  }
-  .email-subject {
-    font-size: 13px;
-    font-weight: 600;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .email-from {
-    font-size: 12px;
-    color: var(--text-2);
-    margin-top: 4px;
-  }
-  .email-snippet {
-    margin: 8px 0 0;
-    font-size: 12px;
-    line-height: 1.4;
-    color: var(--text-2);
-  }
-</style>

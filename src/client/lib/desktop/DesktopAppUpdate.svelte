@@ -38,13 +38,17 @@
 </script>
 
 {#if pending}
-  <div class="desktop-update" role="status" aria-live="polite">
-    <span class="desktop-update-text">
+  <div
+    class="fixed bottom-3 right-3 z-[20000] flex max-w-[min(100vw-1.5rem,420px)] flex-wrap items-center gap-2.5 rounded-[10px] bg-[var(--panel,#1e1e1e)] p-2.5 px-3.5 text-sm text-[var(--text,#eee)] shadow-[0_4px_24px_rgba(0,0,0,0.4)] [font:inherit]"
+    role="status"
+    aria-live="polite"
+  >
+    <span class="min-w-40 flex-1 [flex:1_1_10rem]">
       Braintunnel {pending.version} is available{err ? ` — ${err}` : ''}
     </span>
     <button
       type="button"
-      class="desktop-update-btn"
+      class="shrink-0 cursor-pointer rounded-md border border-border bg-surface-2 px-3 py-1.5 text-xs text-inherit [font:inherit] [background:var(--button-bg,#2a2a2a)] [border-color:var(--border,#444)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={busy}
       onclick={installAndRelaunch}
     >
@@ -52,43 +56,3 @@
     </button>
   </div>
 {/if}
-
-<style>
-  .desktop-update {
-    position: fixed;
-    z-index: 20000;
-    right: 12px;
-    bottom: 12px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    max-width: min(100vw - 24px, 420px);
-    padding: 10px 14px;
-    border-radius: 10px;
-    background: var(--panel, #1e1e1e);
-    color: var(--text, #eee);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-    font-size: 0.875rem;
-  }
-  .desktop-update-text {
-    flex: 1 1 160px;
-  }
-  .desktop-update-btn {
-    flex: 0 0 auto;
-    padding: 6px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--border, #444);
-    background: var(--button-bg, #2a2a2a);
-    color: inherit;
-    cursor: pointer;
-    font-size: 0.8rem;
-  }
-  .desktop-update-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-  .desktop-update-btn:not(:disabled):hover {
-    filter: brightness(1.08);
-  }
-</style>

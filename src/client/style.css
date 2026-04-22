@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@import "./lib/wfnLeadIcon.css";
+@import "./lib/onboarding/onboardingHeroPrimitives.css";
+@import "./lib/onboarding/onboardingActivityTranscript.css";
+@import "./lib/onboarding/OnboardingView.css";
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -14,6 +18,7 @@
   --border: #e0e0e0;
   --text: #111111;
   --text-2: #6b7280;
+  --muted: var(--text-2);
   --accent: #2563eb;
   --accent-dim: #dbeafe;
   --danger: #e05c5c;
@@ -28,6 +33,10 @@
   --sidebar-history-w: 260px;
   /** Chat-only (no detail pane): centered readable column — matches conversation + composer */
   --chat-column-max: 680px;
+  /** `chat-transcript-scroll`: inset + space below L2 / transcript chrome (shared with main chat). */
+  --chat-transcript-px: 16px;
+  --chat-transcript-pt: 1.25rem;
+  --chat-transcript-pb: 20px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 16px;
   line-height: 1.5;
@@ -114,4 +123,43 @@ svg.sync-spinning {
     --sidebar-w: 220px;
     font-size: 14px;
   }
+}
+
+/**
+ * Transcript scroll: main assistant + onboarding profiling/seeding (shared padding + column width).
+ */
+.chat-transcript-scroll {
+  box-sizing: border-box;
+  padding: var(--chat-transcript-pt) var(--chat-transcript-px) var(--chat-transcript-pb);
+}
+
+@media (min-width: 768px) {
+  .split:not(.has-detail) .chat-transcript-scroll {
+    max-width: var(--chat-column-max);
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+}
+
+@theme {
+  /* Semantic surfaces and text — map :root tokens to Tailwind utilities (bg-surface, text-muted, …) */
+  --color-surface: var(--bg);
+  --color-surface-2: var(--bg-2);
+  --color-surface-3: var(--bg-3);
+  --color-border: var(--border);
+  --color-foreground: var(--text);
+  --color-muted: var(--text-2);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+
+  --height-tab: var(--tab-h);
+  --height-pane-header: var(--pane-header-h);
+  --spacing-pane-x: var(--pane-header-px);
+  --width-sidebar: var(--sidebar-w);
+  --width-sidebar-history: var(--sidebar-history-w);
+  /* max-w-chat — v4 uses --max-width-* (not --max-w-*) */
+  --max-width-chat: var(--chat-column-max);
 }

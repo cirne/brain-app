@@ -82,39 +82,14 @@
   })
 </script>
 
-<div class="ob-prof-shell">
+<div
+  class="onboarding-activity-transcript flex min-h-0 min-w-0 flex-1 flex-col bg-surface-2 [font:inherit]"
+>
   <div
-    class="ob-prof-scroll"
+    class="onboarding-activity-scroll chat-transcript-scroll min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden [font:inherit]"
     bind:this={messagesEl}
     onscroll={syncFollowFromScroll}
   >
-    <div class="ob-prof-inner">
-      {@render children({ reduceMotion })}
-    </div>
+    {@render children({ reduceMotion })}
   </div>
 </div>
-
-<style>
-  .ob-prof-shell {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-2);
-  }
-
-  .ob-prof-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    overflow-x: hidden;
-  }
-
-  .ob-prof-inner {
-    max-width: var(--chat-column-max);
-    margin: 0 auto;
-    padding: 1.25rem 1rem 2rem;
-    box-sizing: border-box;
-  }
-</style>

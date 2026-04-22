@@ -7,7 +7,7 @@
   }
 </script>
 
-<div class="hosted-signin-shell">
+<div class="box-border flex min-h-0 flex-1 flex-col items-center justify-center p-6 px-4">
   <OnboardingHeroShell>
     <header class="ob-stacked-hero-lead" aria-labelledby="hosted-signin-title">
       <div class="ob-stacked-hero-lead-icon" aria-hidden="true">
@@ -25,16 +25,3 @@
     </div>
   </OnboardingHeroShell>
 </div>
-
-<style>
-  .hosted-signin-shell {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 1.5rem 1rem;
-    box-sizing: border-box;
-  }
-</style>

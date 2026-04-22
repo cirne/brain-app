@@ -28,7 +28,7 @@
   }
 </script>
 
-<div class="profile-draft-editor">
+<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
   <TipTapMarkdownEditor
     bind:this={inner}
     initialMarkdown={initialMarkdown}
@@ -37,13 +37,3 @@
     onPersist={onPersist}
   />
 </div>
-
-<style>
-  .profile-draft-editor {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-  }
-</style>

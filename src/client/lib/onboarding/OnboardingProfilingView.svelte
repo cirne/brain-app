@@ -194,7 +194,3 @@
     {/if}
   {/snippet}
 </OnboardingActivityTranscriptShell>
-
-<style>
-  @import './onboardingActivityTranscript.css';
-</style>

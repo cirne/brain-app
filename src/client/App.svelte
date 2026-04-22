@@ -132,13 +132,13 @@
 </script>
 
 {#if !appReady}
-  <div class="app-loading">Loading…</div>
+  <div class="p-8 text-center text-sm text-muted">Loading…</div>
 {:else if showHostedSignIn}
-  <div class="app-onboarding-shell h-full min-h-0">
+  <div class="flex h-full min-h-0 flex-col">
     <HostedSignIn />
   </div>
 {:else if showUnlockVault}
-  <div class="app-onboarding-shell h-full min-h-0">
+  <div class="flex h-full min-h-0 flex-col">
     <UnlockVault
       onUnlocked={async () => {
         await fetchVaultStatusSafe()
@@ -149,7 +149,7 @@
 {:else}
   <FullDiskAccessGate>
     {#if showOnboarding}
-      <div class="app-onboarding-shell h-full min-h-0">
+      <div class="flex h-full min-h-0 flex-col">
         <Onboarding
           onComplete={onOnboardingComplete}
           refreshStatus={refreshVaultAndOnboardingStatus}
@@ -163,16 +163,3 @@
   </FullDiskAccessGate>
   <DesktopAppUpdate />
 {/if}
-
-<style>
-  .app-loading {
-    padding: 2rem;
-    text-align: center;
-    color: var(--muted, #888);
-    font-size: 0.95rem;
-  }
-  .app-onboarding-shell {
-    display: flex;
-    flex-direction: column;
-  }
-</style>

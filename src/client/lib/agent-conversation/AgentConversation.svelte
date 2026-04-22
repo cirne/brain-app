@@ -153,7 +153,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_mouse_events_have_key_events -->
   <div
-    class="conversation"
+    class="conversation chat-transcript-scroll"
     bind:this={messagesEl}
     onscroll={syncFollowFromScroll}
     onclick={handleMessagesClick}
@@ -243,9 +243,6 @@
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
-    padding: 16px;
-    padding-bottom: 20px;
-    box-sizing: border-box;
   }
 
   .conversation-shell[data-conversation-state='empty'] .conversation {
@@ -256,13 +253,6 @@
   }
 
   @media (min-width: 768px) {
-    :global(.split:not(.has-detail)) .conversation {
-      max-width: var(--chat-column-max);
-      margin-left: auto;
-      margin-right: auto;
-      width: 100%;
-    }
-
     :global(.split:not(.has-detail)) .jump-anchor {
       max-width: var(--chat-column-max);
       margin-left: auto;

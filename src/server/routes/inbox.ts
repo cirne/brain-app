@@ -22,11 +22,15 @@ inbox.get('/', async (c) => {
   }
 })
 
-// POST /api/inbox/sync — trigger IMAP sync
-inbox.post('/sync', async (c) => {
-  const result = await syncInboxRipmail(c.req.raw.signal)
-  if (result.ok) return c.json({ ok: true })
-  return c.json({ ok: false, error: result.error ?? 'inbox sync failed' }, 500)
+// POST /api/inbox/sync — kick ripmail refresh (can run up to RIPMAIL_REFRESH_TIMEOUT_MS).
+// Respond immediately so UIs (onboarding, inbox) are not blocked for the full refresh window.
+inbox.post('/sync', (c) => {
+  void syncInboxRipmail(undefined).then((result) => {
+    if (!result.ok) {
+      console.error('[inbox/sync] ripmail refresh failed:', result.error ?? 'inbox sync failed')
+    }
+  })
+  return c.json({ ok: true })
 })
 
 // GET /api/inbox/who — contact autocomplete

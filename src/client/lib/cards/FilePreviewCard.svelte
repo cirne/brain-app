@@ -11,61 +11,22 @@
   } = $props()
 </script>
 
-<div class="file-card">
-  <button type="button" class="file-card-hit" aria-label="Open file: {path}" onclick={onOpen}></button>
-  <div class="file-card-label">File</div>
-  <div class="file-path">{path}</div>
-  <pre class="file-excerpt">{excerpt}</pre>
+<div class="relative my-2 rounded-lg border border-border bg-surface-3 px-3 py-2.5">
+  <button
+    type="button"
+    class="absolute inset-0 z-0 m-0 cursor-pointer rounded-[inherit] border-none bg-transparent p-0"
+    aria-label="Open file: {path}"
+    onclick={onOpen}
+  ></button>
+  <div class="relative z-[1] mb-1 text-[0.7rem] font-normal uppercase tracking-wide text-[var(--muted,#888)]">
+    File
+  </div>
+  <div
+    class="relative z-[1] mb-2 break-all text-[0.8rem] text-foreground [word-break:break-all]"
+  >
+    {path}
+  </div>
+  <pre
+    class="relative z-[1] m-0 max-h-32 overflow-hidden font-mono text-[0.8rem] leading-snug [word-break:break-word] whitespace-pre-wrap text-[var(--muted,#aaa)]"
+  >{excerpt}</pre>
 </div>
-
-<style>
-  .file-card {
-    position: relative;
-    margin: 8px 0;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-3);
-  }
-  .file-card-hit {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    margin: 0;
-    padding: 0;
-    border: none;
-    border-radius: inherit;
-    background: transparent;
-    cursor: pointer;
-  }
-  .file-card-label {
-    position: relative;
-    z-index: 1;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted, #888);
-    margin-bottom: 4px;
-  }
-  .file-path {
-    position: relative;
-    z-index: 1;
-    font-size: 0.8rem;
-    word-break: break-all;
-    color: var(--text);
-    margin-bottom: 8px;
-  }
-  .file-excerpt {
-    position: relative;
-    z-index: 1;
-    margin: 0;
-    font-size: 0.8rem;
-    line-height: 1.4;
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 8rem;
-    overflow: hidden;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    color: var(--muted, #aaa);
-  }
-</style>

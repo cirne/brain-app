@@ -39,9 +39,12 @@
   })
 </script>
 
-<span class="wfn-title-row" class:wfn-title-row--unsaved={unsaved}>
+<span
+  class="wfn-title-row inline-flex min-w-0 items-center gap-1.5 overflow-hidden [font:inherit]"
+  class:opacity-90={unsaved}
+>
   {#if isUserProfileMe}
-    <span class="wfn-lead-icon wfn-lead-icon--profile" title="Profile (me.md)">
+    <span class="wfn-lead-icon text-accent opacity-85" title="Profile (me.md)">
       <User size={12} />
     </span>
   {:else if isSpecial}
@@ -54,36 +57,9 @@
         <IconComponent size={12} />
       </span>
     {:else}
-      <span class="wfn-folder">{folder}</span>
+      <span
+        class="wfn-folder min-w-0 shrink overflow-hidden text-[0.9em] text-ellipsis text-muted/65 [white-space:nowrap]"
+        >{folder}</span>
     {/if}
-  {/if}<span class="wfn-name">{displayName}</span>
+  {/if}<span class="wfn-name shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">{displayName}</span>
 </span>
-
-<style>
-  @import './wfnLeadIcon.css';
-
-  .wfn-lead-icon--profile {
-    color: var(--accent);
-    opacity: 0.85;
-  }
-
-  .wfn-folder {
-    font-size: 0.9em;
-    color: var(--text-2);
-    opacity: 0.65;
-    flex-shrink: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
-
-  .wfn-name {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-shrink: 0;
-  }
-
-
-</style>

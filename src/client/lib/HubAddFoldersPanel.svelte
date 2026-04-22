@@ -35,7 +35,9 @@
   }: Props = $props()
 </script>
 
-<div class="hub-add-folders-panel">
+<div
+  class="flex min-h-0 min-w-0 flex-1 flex-col [&_.agent-chat]:min-h-0 [&_.agent-chat]:flex-1"
+>
   <AgentChat
     context={{ type: 'chat' }}
     chatEndpoint="/api/chat"
@@ -54,18 +56,3 @@
     {onOpenMessageThread}
   />
 </div>
-
-<style>
-  .hub-add-folders-panel {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .hub-add-folders-panel :global(.agent-chat) {
-    flex: 1;
-    min-height: 0;
-  }
-</style>
