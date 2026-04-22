@@ -113,7 +113,7 @@ pub struct RunInboxScanOptions {
     pub cutoff_iso: String,
     pub include_all: bool,
     pub replay: bool,
-    /// When true (`--thorough` or `--reclassify`), candidate SQL includes archived rows so the LLM can re-decide.
+    /// When true (`--thorough`, `--reapply`, or `--reclassify`), candidate SQL includes archived rows so the LLM can re-decide.
     pub reapply_llm: bool,
     /// When true, [`load_inbox_candidates`] and rule-assignment scope include `is_archived = 1` rows.
     /// Used for `ripmail rules add` / `edit` preview so rules are tested against the full historical window.

@@ -113,7 +113,7 @@ impl InboxCliArgs for InboxArgs {
     }
 
     fn replay(&self) -> bool {
-        self.thorough || self.replay
+        self.thorough || self.replay || self.reapply
     }
 
     fn include_all(&self) -> bool {
@@ -126,7 +126,12 @@ impl InboxCliArgs for InboxArgs {
     }
 
     fn inbox_json_full_detail(&self) -> bool {
-        self.diagnostics || self.thorough || self.replay || self.include_all || self.reclassify
+        self.diagnostics
+            || self.thorough
+            || self.replay
+            || self.reapply
+            || self.include_all
+            || self.reclassify
     }
 
     fn text(&self) -> bool {
@@ -134,7 +139,7 @@ impl InboxCliArgs for InboxArgs {
     }
 
     fn reclassify(&self) -> bool {
-        self.thorough || self.reclassify
+        self.thorough || self.reclassify || self.reapply
     }
 }
 

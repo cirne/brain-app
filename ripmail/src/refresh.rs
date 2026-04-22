@@ -327,7 +327,7 @@ pub fn inbox_json_hints(
     let n = surfaced.len();
     if candidates_scanned >= n.saturating_mul(5).max(20) && candidates_scanned > n {
         hints.push(format!(
-            "Scanned {candidates_scanned} candidates but only surfaced {n}. Filters, categories, or rules may be excluding expected mail; use `ripmail rules` to adjust rules or use --thorough."
+            "Scanned {candidates_scanned} candidates but only surfaced {n}. Filters, categories, or rules may be excluding expected mail; use `ripmail rules` to adjust rules or use `ripmail inbox --reapply` / --thorough."
         ));
     }
 

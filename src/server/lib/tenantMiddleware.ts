@@ -5,9 +5,6 @@ import { isMultiTenantMode, tenantHomeDir } from './dataRoot.js'
 import { runWithTenantContextAsync } from './tenantContext.js'
 import { lookupTenantBySession } from './tenantRegistry.js'
 import { BRAIN_SESSION_COOKIE } from './vaultCookie.js'
-import { ensureDefaultSkillsSeeded } from './skillsSeeder.js'
-
-const mtSkillsSeeded = new Set<string>()
 
 /** Multi-tenant: allow these without a mapped session (handler uses explicit tenant or synthetic response). */
 function allowNoTenantContextMt(path: string, method: string): boolean {
@@ -38,13 +35,7 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
   const workspaceHandle = await lookupTenantBySession(sid)
   if (workspaceHandle) {
     const homeDir = tenantHomeDir(workspaceHandle)
-    return runWithTenantContextAsync({ workspaceHandle, homeDir }, async () => {
-      if (!mtSkillsSeeded.has(workspaceHandle)) {
-        await ensureDefaultSkillsSeeded()
-        mtSkillsSeeded.add(workspaceHandle)
-      }
-      return next()
-    })
+    return runWithTenantContextAsync({ workspaceHandle, homeDir }, () => next())
   }
 
   if (allowNoTenantContextMt(path, method)) {

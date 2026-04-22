@@ -136,6 +136,13 @@ fn build_rule_preview_samples(
         .collect()
 }
 
+/// Shown in JSON after mutating rules so agents re-run inbox triage (new `rules_fingerprint`).
+fn rules_change_hints_json() -> serde_json::Value {
+    serde_json::json!([
+        "Re-triage with the current ruleset: ripmail inbox --reapply (optional window, e.g. ripmail inbox 30d --reapply)."
+    ])
+}
+
 fn compact_rules_move_json(rules: &RulesFile, moved_id: &str) -> serde_json::Value {
     let entries: Vec<serde_json::Value> = rules
         .rules
@@ -150,6 +157,7 @@ fn compact_rules_move_json(rules: &RulesFile, moved_id: &str) -> serde_json::Val
     serde_json::json!({
         "moved": moved_id,
         "rules": entries,
+        "hints": rules_change_hints_json(),
     })
 }
 
@@ -433,7 +441,8 @@ Re-run with: ripmail rules reset-defaults --yes",
                     "{}",
                     serde_json::to_string_pretty(&serde_json::json!({
                         "rule": rule,
-                        "preview": preview
+                        "preview": preview,
+                        "hints": rules_change_hints_json(),
                     }))?
                 );
             }
@@ -476,7 +485,8 @@ Re-run with: ripmail rules reset-defaults --yes",
                     "{}",
                     serde_json::to_string_pretty(&serde_json::json!({
                         "rule": rule,
-                        "preview": preview
+                        "preview": preview,
+                        "hints": rules_change_hints_json(),
                     }))?
                 );
             }

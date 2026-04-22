@@ -27,6 +27,13 @@ fn rules_add_persists_file_and_show_reads_it() {
     assert!(added["preview"]["samples"].is_array());
     assert_eq!(added["rule"]["kind"], "search");
     assert_eq!(added["rule"]["query"], "linkedin");
+    let hints = added["hints"].as_array().expect("hints after rules add");
+    assert!(
+        hints[0]
+            .as_str()
+            .is_some_and(|s| s.contains("inbox") && s.contains("--reapply")),
+        "{hints:?}"
+    );
     let rules_path = dir.path().join("rules.json");
     let raw = fs::read_to_string(&rules_path).unwrap();
     let file_json: serde_json::Value = serde_json::from_str(&raw).unwrap();
@@ -90,6 +97,7 @@ fn rules_move_reorders_list() {
     );
     let mv_json: serde_json::Value = serde_json::from_slice(&mv.stdout).unwrap();
     assert_eq!(mv_json["moved"].as_str().unwrap(), id2);
+    assert!(mv_json["hints"].as_array().is_some());
     let order = mv_json["rules"].as_array().unwrap();
     assert!(order.len() >= 2);
     assert!(order
@@ -333,6 +341,7 @@ fn inbox_help_exposes_expected_flags() {
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("--thorough"));
+    assert!(stdout.contains("--reapply"));
     assert!(stdout.contains("--diagnostics"));
     assert!(stdout.contains("--text"));
     assert!(!stdout.contains("--no-update"));

@@ -8,7 +8,7 @@ This companion to [`../SKILL.md`](../SKILL.md) explains how to make **`ripmail i
 
 **Bundled defaults:** On first run, ripmail installs **`default_rules.v3.json`** (same **`search`** shape as user rules): OTP-style FTS queries, **`category:`** filters for provider labels, noreply-style **`from:`** prefixes, marketing phrases, etc. Edit or extend with **`ripmail rules ...`** or by editing **`rules.json`** and running **`ripmail rules validate`** (use **`--sample`** to run counts against your open index).
 
-**Cadence:** Run **`ripmail refresh`** so the local index stays current. Run **`ripmail inbox`** over the **already-indexed** unarchived window; run **`refresh`** first when **recency** matters. JSON output includes **`notify` / `inform` / `ignore`**, **`decisionSource`** (**`rule`** vs **`fallback`**), **`matchedRuleIds`**, optional **`winningRuleId`**, optional **`hints`**, and (for forward compatibility) **`requiresUserAction`**, **`actionSummary`**, **`counts.actionRequired`**. In current deterministic inbox, **`requiresUserAction`** stays **false** and **`actionSummary`** empty unless a future release defines them. Use **`ripmail inbox --diagnostics`** or **`--thorough`** when you need full rows or a complete rescan. Use **`ripmail archive`** when mail no longer needs focused attention; **`search` / `read` / `ask`** still see archived mail. Table: [Inbox workflow](../SKILL.md#inbox-workflow) in **`SKILL.md`**.
+**Cadence:** Run **`ripmail refresh`** so the local index stays current. Run **`ripmail inbox`** over the **already-indexed** window; run **`refresh`** first when **recency** matters. After you **change `rules.json`**, run **`ripmail inbox --reapply`** (optionally with a wider window, e.g. **`ripmail inbox 30d --reapply`**) so the **current** ruleset re-classifies mail already in SQLite and updates **`inbox_decisions`** / local archive flags for that window — same scan depth as **`--thorough`**, clearer name for agents. JSON output includes **`notify` / `inform` / `ignore`**, **`decisionSource`** (**`rule`** vs **`fallback`**), **`matchedRuleIds`**, optional **`winningRuleId`**, optional **`hints`**, and (for forward compatibility) **`requiresUserAction`**, **`actionSummary`**, **`counts.actionRequired`**. In current deterministic inbox, **`requiresUserAction`** stays **false** and **`actionSummary`** empty unless a future release defines them. Use **`ripmail inbox --diagnostics`** or **`--thorough`** when you need full rows or a complete rescan. Use **`ripmail archive`** when mail no longer needs focused attention; **`search` / `read` / `ask`** still see archived mail. Table: [Inbox workflow](../SKILL.md#inbox-workflow) in **`SKILL.md`**.
 
 The core idea: **prototype with `ripmail search`**, then paste the working string into **`rules.json`** so preferences stay explicit and auditable.
 
@@ -182,7 +182,7 @@ If the result surprises the user:
 
 1. Inspect the **rule** that matched, or the **`fallback`** note when no rule matched
 2. Tighten, broaden, or remove the **`query`**
-3. Rerun **`ripmail inbox`** (or **`ripmail inbox --thorough`** for a full rescan)
+3. Rerun **`ripmail inbox --reapply`** (or **`ripmail inbox --thorough`** — same scan) to re-triage indexed mail in the window
 
 Personalization is only trustworthy if the user can understand and edit it.
 

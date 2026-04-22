@@ -569,6 +569,9 @@ pub(crate) struct InboxArgs {
     /// Slow path: all categories; recompute classifications (bypass cache); include archived; ignore prior surfaced dedup
     #[arg(long)]
     pub(crate) thorough: bool,
+    /// Re-run triage with the current ruleset on mail already in the index (bypasses inbox cache; same scan as --thorough). Use after editing rules.json to refresh classifications and local archive flags in the inbox window.
+    #[arg(long)]
+    pub(crate) reapply: bool,
     #[arg(long, hide = true)]
     pub(crate) replay: bool,
     #[arg(long, hide = true)]

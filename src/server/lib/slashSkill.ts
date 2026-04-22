@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import matter from 'gray-matter'
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
+import { bundledUserSkillsDir } from './bundledUserSkillsDir.js'
 import { skillsDir } from './wikiDir.js'
 
 export function parseLeadingSlashCommand(text: string): { slug: string; args: string } | null {
@@ -16,8 +17,16 @@ export function parseLeadingSlashCommand(text: string): { slug: string; args: st
 export async function readSkillMarkdown(
   slug: string,
 ): Promise<{ body: string; name: string; label?: string } | null> {
-  const path = join(skillsDir(), slug, 'SKILL.md')
-  if (!existsSync(path)) return null
+  const userPath = join(skillsDir(), slug, 'SKILL.md')
+  const path = existsSync(userPath)
+    ? userPath
+    : (() => {
+        const b = bundledUserSkillsDir()
+        if (!b) return null
+        const p = join(b, slug, 'SKILL.md')
+        return existsSync(p) ? p : null
+      })()
+  if (!path) return null
   const raw = await readFile(path, 'utf-8')
   const { content, data } = matter(raw)
   const d = data as { name?: unknown; label?: unknown }

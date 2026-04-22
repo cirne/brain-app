@@ -5,9 +5,12 @@ import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
 let brainHome: string
+let emptyBundle: string
 
 beforeEach(async () => {
   brainHome = await mkdtemp(join(tmpdir(), 'skills-api-'))
+  emptyBundle = await mkdtemp(join(tmpdir(), 'skills-api-bundle-'))
+  process.env.BRAIN_USER_SKILLS_BUNDLE = emptyBundle
   const skillsRoot = join(brainHome, 'skills')
   await mkdir(join(skillsRoot, 'demo'), { recursive: true })
   await writeFile(
@@ -25,7 +28,9 @@ Body.`,
 
 afterEach(async () => {
   await rm(brainHome, { recursive: true, force: true })
+  await rm(emptyBundle, { recursive: true, force: true })
   delete process.env.BRAIN_HOME
+  delete process.env.BRAIN_USER_SKILLS_BUNDLE
 })
 
 describe('GET /api/skills', () => {

@@ -36,7 +36,6 @@ import { runStartupChecks } from './lib/runStartupChecks.js'
 import { ensureBrainHomeGitignore } from './lib/brainHomeGitignore.js'
 import { isMultiTenantMode } from './lib/dataRoot.js'
 import { runSplitLayoutMigrationIfNeeded } from './lib/splitLayoutMigration.js'
-import { ensureDefaultSkillsSeeded } from './lib/skillsSeeder.js'
 import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
 import { terminateAllTrackedRipmailChildren } from './lib/ripmailExec.js'
 import debugRipmailChildrenRoute from './routes/debugRipmailChildren.js'
@@ -290,7 +289,6 @@ async function start() {
     if (!isMultiTenantMode()) {
       await runSplitLayoutMigrationIfNeeded()
       await ensureBrainHomeGitignore()
-      await ensureDefaultSkillsSeeded()
     }
 
     // Inline NODE_ENV check so production bundles can drop the Vite branch (see esbuild define).

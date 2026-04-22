@@ -73,7 +73,7 @@ curl -fsSL https://raw.githubusercontent.com/cirne/zmail/main/install.sh | bash
 | ----- | ---- |
 | **Working set** | Unarchived mail (`is_archived = 0`). Only this set is triaged by **`inbox`**. |
 | **`refresh`** | Incremental forward sync (new mail). Run **`ripmail backfill`** first when the index is empty or you need more history. **No** LLM. |
-| **`inbox`** | Deterministic triage (**notify / inform / ignore**) from **`rules.json`** + fallback. JSON: **`decisionSource`**, **`matchedRuleIds`**, optional **`winningRuleId`**, **`hints`**. Use **`--diagnostics`** or **`--thorough`** for full rows / complete rescan. Run **`refresh`** first when recency matters. |
+| **`inbox`** | Deterministic triage (**notify / inform / ignore**) from **`rules.json`** + fallback. JSON: **`decisionSource`**, **`matchedRuleIds`**, optional **`winningRuleId`**, **`hints`**. After **any rule change**, re-triage indexed mail with **`ripmail inbox --reapply`** (same full rescan as **`--thorough`**; add a window if needed, e.g. **`ripmail inbox 30d --reapply`**). Use **`--diagnostics`** for full rows. Run **`refresh`** first when recency matters. |
 | **`archive`** | Removes from working **`inbox`** scan; **does not** hide mail from **`search` / `read` / `thread` / `ask`**. |
 
 **Agents:** schedule **`refresh`**; run **`inbox`** on a cadence; **`archive`** when done; use **`search` / `read`** after archive if you need the thread again. **OTP:** [AUTH-CODES.md](references/AUTH-CODES.md).

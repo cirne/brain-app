@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { join } from 'node:path'
-import { mkdtemp, writeFile, mkdir, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { existsSync } from 'node:fs'
-import { listBundledSkills, ensureDefaultSkillsSeeded } from './skillsSeeder.js'
+import { listBundledSkills } from './skillsSeeder.js'
 import { bundledUserSkillsDir } from './bundledUserSkillsDir.js'
 
 let brainHome: string
@@ -59,28 +58,3 @@ describe('listBundledSkills', () => {
   })
 })
 
-describe('ensureDefaultSkillsSeeded', () => {
-  it('copies bundled skill when missing', async () => {
-    await ensureDefaultSkillsSeeded()
-    const skillMd = join(brainHome, 'skills', 'alpha', 'SKILL.md')
-    expect(existsSync(skillMd)).toBe(true)
-    const body = await readFile(skillMd, 'utf-8')
-    expect(body).toContain('Hello skill.')
-  })
-
-  it('does not overwrite an existing skill dir', async () => {
-    await mkdir(join(brainHome, 'skills', 'alpha'), { recursive: true })
-    await writeFile(join(brainHome, 'skills', 'alpha', 'SKILL.md'), '---\nname: alpha\nversion: 2\n---\nUser edit.', 'utf-8')
-    await ensureDefaultSkillsSeeded()
-    const body = await readFile(join(brainHome, 'skills', 'alpha', 'SKILL.md'), 'utf-8')
-    expect(body).toContain('User edit.')
-  })
-
-  it('does not resurrect after delete when same version already seeded', async () => {
-    await ensureDefaultSkillsSeeded()
-    const skillDir = join(brainHome, 'skills', 'alpha')
-    await rm(skillDir, { recursive: true, force: true })
-    await ensureDefaultSkillsSeeded()
-    expect(existsSync(skillDir)).toBe(false)
-  })
-})

@@ -117,6 +117,7 @@ fn inbox_help_mentions_diagnostics_and_thorough() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("--diagnostics"));
     assert!(stdout.contains("--thorough"));
+    assert!(stdout.contains("--reapply"));
 }
 
 #[test]

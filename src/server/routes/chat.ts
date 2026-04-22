@@ -141,7 +141,7 @@ chat.post('/', async (c) => {
       return streamStaticAssistantSse(c, {
         announceSessionId: sessionId,
         userMessageForPersistence: message,
-        text: `Unknown skill \`/${slash.slug}\`. Use **GET /api/skills** to list skills, or add \`skills/${slash.slug}/SKILL.md\` under your wiki directory.`,
+        text: `Unknown skill \`/${slash.slug}\`. Use **GET /api/skills** to list skills, or add \`$BRAIN_HOME/skills/${slash.slug}/SKILL.md\` to override a bundled skill.`,
         onTurnComplete: persist,
       })
     }

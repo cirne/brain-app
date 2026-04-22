@@ -5,7 +5,6 @@ import { writeFirstChatPending } from '../lib/firstChatPending.js'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 import { ensureBrainHomeGitignore } from '../lib/brainHomeGitignore.js'
-import { ensureDefaultSkillsSeeded } from '../lib/skillsSeeder.js'
 import { wikiDir, wipeWikiContentExceptMeMd } from '../lib/wikiDir.js'
 import { truncateWikiEditHistoryFile } from '../lib/wikiEditHistory.js'
 import { fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from '../agent/profilingAgent.js'
@@ -18,7 +17,6 @@ dev.post('/hard-reset', async (c) => {
   clearAllOnboardingAgentSessions()
   await hardResetOnboardingArtifacts()
   await ensureBrainHomeGitignore()
-  await ensureDefaultSkillsSeeded()
   await execRipmailAsync(`${ripmailBin()} clean --yes`, { timeout: 120000 })
   return c.json({ ok: true })
 })

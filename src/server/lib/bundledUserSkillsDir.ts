@@ -6,7 +6,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 
 /**
  * Shipped default skills (source: repo `assets/user-skills/`; production: `dist/server/assets/user-skills/`).
- * Returns null if neither layout is present (warn in seeder).
+ * Returns null if neither layout is present; slash menu then lists only user `$BRAIN_HOME/skills/`.
  * Tests may set `BRAIN_USER_SKILLS_BUNDLE` to an absolute path.
  */
 export function bundledUserSkillsDir(): string | null {
