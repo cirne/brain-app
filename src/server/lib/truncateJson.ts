@@ -76,3 +76,34 @@ export function truncateJsonResult(text: string, maxChars: number): string {
   const marker = `\n...[result truncated to ${maxChars} chars — response was ${text.length} chars total]`
   return text.slice(0, maxChars - marker.length) + marker
 }
+
+/**
+ * Every agent tool that wraps ripmail (`execRipmailAsync` / indexed mail+calendar data).
+ * The Node SSE layer must not truncate these results — size and shape are ripmail's responsibility.
+ *
+ * Keep in sync with `src/server/agent/tools.ts` (any `defineTool` that shells out to ripmail).
+ */
+const RIPMAIL_SUBPROCESS_TOOLS_PASS_THROUGH = new Set([
+  'search_index',
+  'list_inbox',
+  'read_doc',
+  'read_attachment',
+  'manage_sources',
+  'refresh_sources',
+  'inbox_rules',
+  'archive_emails',
+  'draft_email',
+  'edit_draft',
+  'send_draft',
+  'find_person',
+  'calendar',
+])
+
+/**
+ * Tool result string sent on `tool_end` SSE and stored on the assistant turn.
+ * Ripmail-backed tools pass through unchanged; others use {@link truncateJsonResult}.
+ */
+export function toolResultForSse(toolName: string, resultText: string, maxChars: number): string {
+  if (RIPMAIL_SUBPROCESS_TOOLS_PASS_THROUGH.has(toolName)) return resultText
+  return truncateJsonResult(resultText, maxChars)
+}

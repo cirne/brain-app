@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { truncateJsonResult } from './truncateJson.js'
+import { toolResultForSse, truncateJsonResult } from './truncateJson.js'
 
 describe('truncateJsonResult', () => {
   it('returns string as-is when within limit', () => {
@@ -64,5 +64,27 @@ describe('truncateJsonResult', () => {
     const result = truncateJsonResult(input, 100)
     expect(result.length).toBeLessThanOrEqual(100)
     expect(result).toContain('[result truncated to 100 chars')
+  })
+})
+
+describe('toolResultForSse', () => {
+  it('passes through ripmail subprocess tools without truncation', () => {
+    const input = 'A'.repeat(5000)
+    expect(toolResultForSse('search_index', input, 4000)).toBe(input)
+    expect(toolResultForSse('list_inbox', input, 4000)).toBe(input)
+    expect(toolResultForSse('read_doc', input, 4000)).toBe(input)
+    expect(toolResultForSse('read_attachment', input, 4000)).toBe(input)
+    expect(toolResultForSse('manage_sources', input, 4000)).toBe(input)
+    expect(toolResultForSse('inbox_rules', input, 4000)).toBe(input)
+    expect(toolResultForSse('send_draft', input, 4000)).toBe(input)
+    expect(toolResultForSse('find_person', input, 4000)).toBe(input)
+    expect(toolResultForSse('calendar', input, 4000)).toBe(input)
+  })
+
+  it('truncates non-ripmail tools at maxChars', () => {
+    const input = 'B'.repeat(5000)
+    const out = toolResultForSse('web_search', input, 4000)
+    expect(out.length).toBeLessThanOrEqual(4000)
+    expect(out).toContain('[result truncated to 4000 chars')
   })
 })

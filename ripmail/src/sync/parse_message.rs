@@ -100,6 +100,39 @@ fn strip_id_token(s: &str) -> String {
     s.trim().trim_matches(|c| c == '<' || c == '>').to_string()
 }
 
+/// `multipart/alternative` often has an empty or stub `text/plain` while the real copy lives in
+/// `text/html` (e.g. Shopify / receipt email). In that case we must index the HTML-derived text or
+/// `search` / `document_index` miss phrases that are visible in a mail client.
+fn should_prefer_html_for_body(plain_trimmed: &str, html: &str) -> bool {
+    if html.trim().is_empty() {
+        return false;
+    }
+    if plain_trimmed.is_empty() {
+        return true;
+    }
+    if html.len() < 400 {
+        return false;
+    }
+    plain_trimmed.len() < 200 && html.len() > plain_trimmed.len().saturating_mul(6)
+}
+
+/// Chooses `body_text` and preserves original `text/html` for consumers that need it (forward, debug).
+fn indexable_bodies(plain: Option<String>, html: Option<String>) -> (String, Option<String>) {
+    let Some(html) = html else {
+        return (plain.unwrap_or_default(), None);
+    };
+    let plain_trim = plain.as_deref().map(str::trim).unwrap_or("");
+    if should_prefer_html_for_body(plain_trim, &html) {
+        let md = htmd::convert(&html).unwrap_or_else(|_| html.clone());
+        return (md, Some(html));
+    }
+    if plain_trim.is_empty() {
+        let md = htmd::convert(&html).unwrap_or_else(|_| html.clone());
+        return (md, Some(html));
+    }
+    (plain.unwrap(), Some(html))
+}
+
 fn extract_threading_from_headers(msg: &Message<'_>) -> (Option<String>, Vec<String>) {
     let mut in_reply = None;
     let mut refs = Vec::new();
@@ -485,15 +518,10 @@ pub fn parse_raw_message_with_options(raw: &[u8], options: ParseMessageOptions) 
         },
     );
 
-    let (body_text, body_html) = if let Some(t) = msg.body_text(0) {
-        (t.into_owned(), msg.body_html(0).map(|h| h.into_owned()))
-    } else if let Some(h) = msg.body_html(0) {
-        let html = h.into_owned();
-        let md = htmd::convert(&html).unwrap_or(html.clone());
-        (md, Some(html))
-    } else {
-        (String::new(), None)
-    };
+    let (body_text, body_html) = indexable_bodies(
+        msg.body_text(0).map(|t| t.into_owned()),
+        msg.body_html(0).map(|h| h.into_owned()),
+    );
 
     let from_address = msg
         .from()
@@ -662,15 +690,10 @@ pub fn parse_read_full(raw: &[u8]) -> ReadForCli {
         },
     );
 
-    let (body_text, _body_html) = if let Some(t) = msg.body_text(0) {
-        (t.into_owned(), msg.body_html(0).map(|h| h.into_owned()))
-    } else if let Some(h) = msg.body_html(0) {
-        let html = h.into_owned();
-        let md = htmd::convert(&html).unwrap_or(html.clone());
-        (md, Some(html))
-    } else {
-        (String::new(), None)
-    };
+    let (body_text, _body_html) = indexable_bodies(
+        msg.body_text(0).map(|t| t.into_owned()),
+        msg.body_html(0).map(|h| h.into_owned()),
+    );
 
     let from_address = msg
         .from()
@@ -712,5 +735,70 @@ pub fn parse_read_full(raw: &[u8]) -> ReadForCli {
         references,
         recipients_disclosed,
         body_text,
+    }
+}
+
+#[cfg(test)]
+mod indexable_body_tests {
+    use super::{indexable_bodies, parse_raw_message, should_prefer_html_for_body};
+
+    #[test]
+    fn should_prefer_empty_plain_uses_rich_html() {
+        let html = format!("<p>{}</p>", "x".repeat(500));
+        assert!(should_prefer_html_for_body("", &html));
+        let short_plain = "View in your browser";
+        assert!(should_prefer_html_for_body(short_plain, &html));
+    }
+
+    #[test]
+    fn should_keep_long_plain_when_html_only_slightly_larger() {
+        let plain = "a".repeat(500);
+        let html = format!("<p>{}</p>", "b".repeat(600));
+        assert!(!should_prefer_html_for_body(&plain, &html));
+    }
+
+    #[test]
+    fn indexable_bodies_merges_order_number_from_html_when_plain_empty() {
+        let p = indexable_bodies(
+            Some(String::new()),
+            Some(
+                "<html><body>Thanks! Order <b>#ORD-42</b> — Madison Beer Store</body></html>"
+                    .into(),
+            ),
+        );
+        let body = p.0.to_lowercase();
+        assert!(
+            body.contains("ord-42") && body.contains("madison"),
+            "body was: {:?}",
+            p.0
+        );
+    }
+
+    #[test]
+    fn parse_receipt_multipart_prefer_html_for_searchable_body() {
+        let eml = concat!(
+            "From: noreply@ceremonyofroses.com\r\n",
+            "To: u@example.com\r\n",
+            "Subject: Shipping update #MB12869\r\n",
+            "Message-ID: <receipt-idx-1@local>\r\n",
+            "MIME-Version: 1.0\r\n",
+            "Content-Type: multipart/alternative; boundary=\"bnd\"\r\n",
+            "\r\n",
+            "--bnd\r\n",
+            "Content-Type: text/plain; charset=\"utf-8\"\r\n",
+            "\r\n",
+            "\r\n",
+            "--bnd\r\n",
+            "Content-Type: text/html; charset=\"utf-8\"\r\n",
+            "\r\n",
+            "<html><body>Thank you for your purchase. Order #MB12869 confirmed. Madison Beer Official Store</body></html>\r\n",
+            "--bnd--\r\n"
+        );
+        let msg = parse_raw_message(eml.as_bytes());
+        assert!(msg.body_text.to_lowercase().contains("mb12869"));
+        assert!(msg
+            .body_text
+            .to_lowercase()
+            .contains("thank you for your purchase"));
     }
 }

@@ -430,7 +430,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       pattern: Type.Optional(
         Type.String({
           description:
-            'Regex matched against subject + body (and file path/title for local files). Alternation: `a|b`. Case-insensitive unless caseSensitive is true.',
+            'Rust regex on subject + indexed body (and file path/title for local files). Use `a|b` for alternation; do not add unnecessary `"` in JSON (those are literal quote characters, not “phrase” quotes). For sender/date/subject, use the structured fields below, not `from:` in the string.',
         }),
       ),
       query: Type.Optional(
@@ -1059,8 +1059,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
 
         const payload: Record<string, unknown> = {
           ok: true,
-          // Include events in details so client can render the preview even when
-          // the result text is truncated at 4000 chars by the SSE layer.
+          // Events in details for client calendar preview (SSE passes ripmail-backed tools through untruncated).
           events: enrichedEvents,
           start: params.start,
           end: params.end,

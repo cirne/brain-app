@@ -18,7 +18,7 @@ import { buildReadEmailPreviewDetails } from './readEmailPreview.js'
 import { createWikiUnifiedDiff, safeWikiRelativePath } from './wikiEditDiff.js'
 import { writeWikiPartialFromStreamingWriteArgs } from './wikiStreamingPartialWrite.js'
 import { recordToolCallEnd, recordToolCallStart } from './newRelicHelper.js'
-import { truncateJsonResult } from './truncateJson.js'
+import { toolResultForSse, truncateJsonResult } from './truncateJson.js'
 
 export interface StreamAgentSseOptions {
   /** Wiki root for edit diffs and safeWikiRelativePath (may differ from main app wiki). */
@@ -291,7 +291,7 @@ export function streamAgentSseResponse(
                 }
               }
             }
-            const truncatedResult = truncateJsonResult(resultText, 4000)
+            const truncatedResult = toolResultForSse(ev.toolName, resultText, 4000)
             applyToolEnd(assistantState, ev.toolCallId, truncatedResult, ev.isError, details)
             const toolRow = assistantState.parts.find(
               p => p.type === 'tool' && p.toolCall.id === ev.toolCallId,

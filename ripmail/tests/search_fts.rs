@@ -971,3 +971,43 @@ fn bug_020_integration_domain_query_now_returns_results() {
         ids
     );
 }
+
+/// BUG-060: Merchant receipt bodies often live in HTML; after MIME parse prefers HTML when plain
+/// is a stub, indexed `body_text` includes phrases like `thank you` and order ids with `#`.
+#[test]
+fn search_receipt_phrase_and_hashed_order_id() {
+    let conn = open_memory().unwrap();
+    insert_msg(
+        &conn,
+        "shopify-m1@test",
+        "store@ceremonyofroses.com",
+        "Order shipped",
+        "Thank you for your purchase. Your order #MB12869 is on the way. Madison Beer Official Store.",
+        "2025-08-10T12:00:00Z",
+        1,
+        None,
+        "[]",
+    );
+    for q in [
+        "thank you for your purchase",
+        "MB12869",
+        r"order #MB12869",
+        r"Madison Beer Official Store",
+    ] {
+        let set = search_with_meta(
+            &conn,
+            &SearchOptions {
+                query: Some(q.into()),
+                limit: Some(20),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let ids: Vec<_> = set.results.iter().map(|r| r.message_id.as_str()).collect();
+        assert!(
+            ids.contains(&"shopify-m1@test"),
+            "pattern {q:?} -> {:?}",
+            ids
+        );
+    }
+}
