@@ -41,5 +41,9 @@ jobs:
             libxdo-dev \
             wget
 
+      # Tauri build script validates externalBin paths at compile time; download the Linux sidecar.
+      - name: Download cloudflared sidecar (Linux)
+        run: node scripts/setup-sidecars.mjs
+
       - name: Full CI (JS + brain Rust)
         run: npm run ci

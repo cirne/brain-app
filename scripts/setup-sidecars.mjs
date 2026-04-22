@@ -10,8 +10,9 @@ const binDir = join(root, 'desktop/src-tauri/bin')
 
 const CLOUDFLARED_VERSION = 'latest'
 const TARGETS = [
-  { arch: 'x86_64-apple-darwin', url: 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-amd64.tgz' },
-  { arch: 'aarch64-apple-darwin', url: 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-arm64.tgz' }
+  { arch: 'x86_64-apple-darwin', url: 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-amd64.tgz', tgz: true },
+  { arch: 'aarch64-apple-darwin', url: 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-arm64.tgz', tgz: true },
+  { arch: 'x86_64-unknown-linux-gnu', url: 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64', tgz: false },
 ]
 
 if (!existsSync(binDir)) {
@@ -30,9 +31,8 @@ async function download() {
     const tempTgz = join(binDir, `temp-${target.arch}.tgz`)
     
     try {
-      execSync(`curl -L ${target.url} -o ${tempTgz}`)
-      // cloudflared releases are often just the binary or a tgz containing the binary
-      if (target.url.endsWith('.tgz')) {
+      if (target.tgz) {
+        execSync(`curl -L ${target.url} -o ${tempTgz}`)
         execSync(`tar -xzf ${tempTgz} -C ${binDir}`)
         // The tgz usually contains a file named 'cloudflared'
         const extracted = join(binDir, 'cloudflared')
@@ -40,7 +40,7 @@ async function download() {
           execSync(`mv ${extracted} ${dest}`)
         }
       } else {
-        execSync(`mv ${tempTgz} ${dest}`)
+        execSync(`curl -L ${target.url} -o ${dest}`)
       }
       
       if (existsSync(tempTgz)) execSync(`rm ${tempTgz}`)
