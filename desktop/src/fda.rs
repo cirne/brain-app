@@ -3,7 +3,9 @@
 //! We try several known TCC-protected locations (see BUG-004). If `com.apple.stocks` does not
 //! exist yet (ENOENT), that is **not** proof of missing FDA — we fall through to other probes.
 //! Only permission errors on an existing path indicate FDA is off.
+#[cfg(target_os = "macos")]
 use std::io::ErrorKind;
+#[cfg(target_os = "macos")]
 use std::path::PathBuf;
 
 #[cfg(target_os = "macos")]
@@ -62,6 +64,7 @@ pub fn log_probe_diagnostics() {
 }
 
 #[cfg(not(target_os = "macos"))]
+#[allow(dead_code)]
 pub fn log_probe_diagnostics() {}
 
 /// Returns whether Full Disk Access appears granted (probe-read of a protected path).
