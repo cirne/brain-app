@@ -26,5 +26,20 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      # Tauri (`brain` / desktop) links GTK + WebKit on Linux; runners are minimal without these.
+      - name: Install Linux deps for Tauri (brain)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            wget
+
       - name: Full CI (JS + brain Rust)
         run: npm run ci
