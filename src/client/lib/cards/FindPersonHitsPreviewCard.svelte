@@ -15,7 +15,7 @@
   const more = $derived(Math.max(0, people.length - PREVIEW_ROWS))
 </script>
 
-<div class="find-person-card">
+<div class="find-person-preview">
   <div class="find-person-query" title={queryLine}>{queryLine}</div>
   {#if rows.length === 0}
     <p class="find-person-empty">No contacts in result.</p>
@@ -43,13 +43,10 @@
 </div>
 
 <style>
-  .find-person-card {
-    margin: 4px 0 8px;
-    padding: 6px 8px;
-    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--bg-3) 92%, var(--bg));
+  .find-person-preview {
+    margin: 4px 0 0;
     min-width: 0;
+    max-width: 100%;
   }
   .find-person-query {
     font-size: 11px;

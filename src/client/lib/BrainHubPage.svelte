@@ -27,6 +27,7 @@
   } from './vaultClient.js'
   import { clearBrainClientStorage } from './brainClientStorage.js'
   import ConfirmDialog from './ConfirmDialog.svelte'
+  import { yourWikiDocFromEvents } from './hubEvents/hubEventsStores.js'
 
   type HubRipmailSourceRow = {
     id: string
@@ -192,9 +193,8 @@
 
   async function fetchData() {
     try {
-      const [wikiRes, yourWikiRes, mailRes, sourcesRes] = await Promise.all([
+      const [wikiRes, mailRes, sourcesRes] = await Promise.all([
         fetch('/api/wiki'),
-        fetch('/api/your-wiki'),
         fetch('/api/onboarding/mail'),
         fetch('/api/hub/sources'),
       ])
@@ -202,9 +202,6 @@
       if (wikiRes.ok) {
         const docs = await wikiRes.json()
         docCount = Array.isArray(docs) ? docs.length : null
-      }
-      if (yourWikiRes.ok) {
-        wikiDoc = (await yourWikiRes.json()) as BackgroundAgentDoc
       }
       if (mailRes.ok) {
         mailStatus = await mailRes.json()
@@ -231,13 +228,20 @@
         multiTenant = false
       })
     void fetchData()
-    const id = setInterval(() => void fetchData(), 2000)
-    const unsub = subscribe((e) => {
-      if (e.type === 'hub:sources-changed' || e.type === 'wiki:mutated') void fetchData()
+    const unsubEvents = subscribe((e) => {
+      if (
+        e.type === 'hub:sources-changed' ||
+        e.type === 'wiki:mutated' ||
+        e.type === 'sync:completed'
+      )
+        void fetchData()
+    })
+    const unsubWikiStore = yourWikiDocFromEvents.subscribe((doc) => {
+      if (doc) wikiDoc = doc
     })
     return () => {
-      clearInterval(id)
-      unsub()
+      unsubEvents()
+      unsubWikiStore()
     }
   })
 

@@ -26,7 +26,7 @@
   )
 </script>
 
-<div class="mail-search-card">
+<div class="mail-search-preview">
   <div class="mail-search-query" title={queryLine}>{queryLine}</div>
   {#if rows.length === 0}
     <p class="mail-search-empty">No matching messages.</p>
@@ -62,13 +62,10 @@
 </div>
 
 <style>
-  .mail-search-card {
-    margin: 6px 0 10px;
-    padding: 8px 10px;
-    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--bg-3) 92%, var(--bg));
+  .mail-search-preview {
+    margin: 4px 0 0;
     min-width: 0;
+    max-width: 100%;
   }
   .mail-search-query {
     font-size: 11px;
@@ -101,13 +98,12 @@
     color: inherit;
     background: transparent;
     border: none;
-    padding: 4px 2px;
-    border-radius: 4px;
+    padding: 4px 0;
     cursor: pointer;
     min-width: 0;
   }
-  .mail-search-row:hover {
-    background: color-mix(in srgb, var(--bg-2) 75%, var(--text) 3%);
+  .mail-search-row:hover .mail-search-subject {
+    color: var(--accent);
   }
   .mail-search-icon {
     flex-shrink: 0;

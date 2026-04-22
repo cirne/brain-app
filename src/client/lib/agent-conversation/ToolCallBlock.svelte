@@ -1,4 +1,5 @@
 <script lang="ts">
+  import './toolWriteLink.css'
   import { getToolIcon } from '../toolIcons.js'
   import { matchContentPreview } from '../cards/contentCards.js'
   import { getToolUiPolicy, type ToolCall } from '../agentUtils.js'
@@ -180,32 +181,6 @@
   .tool-pending-verb {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     flex-shrink: 0;
-  }
-
-  .tool-write-link {
-    background: transparent;
-    border: none;
-    padding: 0;
-    margin: 0;
-    cursor: pointer;
-    text-align: left;
-    font-family: inherit;
-    transition: color 0.15s;
-  }
-
-  .tool-write-link:hover {
-    color: var(--accent);
-  }
-
-  .tool-write-link :global(.wfn-name) {
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    text-decoration-thickness: 1px;
-    text-decoration-color: color-mix(in srgb, currentColor 30%, transparent);
-  }
-
-  .tool-write-link:hover :global(.wfn-name) {
-    text-decoration-color: currentColor;
   }
 
   @keyframes tool-pending-pulse {

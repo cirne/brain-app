@@ -85,6 +85,8 @@ function runPath(id: string): string {
 export async function writeBackgroundRun(doc: BackgroundRunDoc): Promise<void> {
   await ensureBackgroundRunsDir()
   await writeFile(runPath(doc.id), JSON.stringify(doc, null, 2), 'utf-8')
+  const { notifyBackgroundRunWritten } = await import('./hubSseBroker.js')
+  notifyBackgroundRunWritten(doc)
 }
 
 export async function readBackgroundRun(id: string): Promise<BackgroundRunDoc | null> {

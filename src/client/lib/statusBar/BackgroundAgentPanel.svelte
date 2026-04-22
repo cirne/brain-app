@@ -6,6 +6,7 @@
   import ToolCallBlock from '../agent-conversation/ToolCallBlock.svelte'
   import { ChevronDown, Play } from 'lucide-svelte'
   import { computePinnedToBottom } from '../scrollPin.js'
+  import { backgroundAgentsFromEvents, yourWikiDocFromEvents } from '../hubEvents/hubEventsStores.js'
 
   type Props = {
     /** When omitted, the panel picks the most recent active (queued / running / paused) run. */
@@ -88,22 +89,32 @@
     }
   }
 
-  async function poll(): Promise<void> {
-    try {
-      const res = await fetch('/api/your-wiki')
-      if (!res.ok) {
-        loadError = `Could not load (${res.status})`
-        agent = null
-        return
-      }
+  /** Live doc from `/api/events` SSE — Your Wiki vs wiki-expansion run by `id`. */
+  $effect(() => {
+    void id
+    const unsubYour = yourWikiDocFromEvents.subscribe((d) => {
+      const useYourWiki = id === undefined || id === 'your-wiki'
+      if (!useYourWiki || !d) return
       loadError = null
-      const doc = (await res.json()) as BackgroundAgentDoc
-      resolvedId = doc.id
-      agent = doc
-    } catch {
-      /* ignore */
+      resolvedId = d.id
+      agent = d
+    })
+    const unsubAgents = backgroundAgentsFromEvents.subscribe((agents) => {
+      if (id === undefined || id === 'your-wiki') return
+      const a = agents.find((x) => x.id === id)
+      loadError = null
+      if (a) {
+        resolvedId = a.id
+        agent = a
+      } else {
+        agent = null
+      }
+    })
+    return () => {
+      unsubYour()
+      unsubAgents()
     }
-  }
+  })
 
   onMount(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -113,16 +124,9 @@
     sync()
     mq.addEventListener('change', sync)
 
-    const t = setInterval(() => void poll(), 2000)
     return () => {
-      clearInterval(t)
       mq.removeEventListener('change', sync)
     }
-  })
-
-  $effect(() => {
-    void id
-    void poll()
   })
 
   function getScrollTarget(): HTMLElement | undefined {
@@ -209,7 +213,6 @@
     actionBusy = true
     try {
       await fetch('/api/your-wiki/pause', { method: 'POST' })
-      await poll()
     } finally {
       actionBusy = false
     }
@@ -223,7 +226,6 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       })
-      await poll()
     } finally {
       actionBusy = false
     }

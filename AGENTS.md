@@ -30,6 +30,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, configuration overview (brain-app)
 - [docs/architecture/](docs/architecture/) — ADRs and recorded considerations (indexed in [README](docs/architecture/README.md)); ripmail crate: `[ripmail/docs/ARCHITECTURE.md](ripmail/docs/ARCHITECTURE.md)`
 - [docs/digitalocean.md](docs/digitalocean.md) — DigitalOcean CLI (`doctl`): teams, API tokens, named contexts, BrainTunnel helper script
+- [docs/newrelic.md](docs/newrelic.md) — New Relic account, entity GUIDs, Node agent wiring, custom events (`ToolCall`); NRQL recipes in `.cursor/skills/newrelic/`
 - [docs/BUGS.md](docs/BUGS.md) — known bugs (active + archived)
 - [docs/OPPORTUNITIES.md](docs/OPPORTUNITIES.md) — feature ideas and improvements (WIP and future)
 - [docs/PRODUCTIZATION.md](docs/PRODUCTIZATION.md) — blockers and tradeoffs for generalizing to multi-user product

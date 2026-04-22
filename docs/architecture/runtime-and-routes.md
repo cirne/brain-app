@@ -23,6 +23,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | `/api/skills` | Slash skills / skill assets under `$BRAIN_HOME/skills` |
 | `/api/onboarding` | Onboarding flow, ripmail setup hints |
 | `/api/background` | Background agent run history and control (wiki expansion) |
+| `/api/events` | **SSE** (`GET /`) — live `your_wiki` + `background_agents` snapshots and push for Hub (see [`hubEvents.ts`](../../src/server/routes/hubEvents.ts)) |
 | `/api/dev` | **Dev only** — diagnostics |
 
 ## Client-side URL paths (SPA routes)

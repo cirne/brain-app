@@ -17,6 +17,7 @@ import {
 import { buildReadEmailPreviewDetails } from './readEmailPreview.js'
 import { createWikiUnifiedDiff, safeWikiRelativePath } from './wikiEditDiff.js'
 import { writeWikiPartialFromStreamingWriteArgs } from './wikiStreamingPartialWrite.js'
+import { recordToolCallEnd, recordToolCallStart } from './newRelicHelper.js'
 import { truncateJsonResult } from './truncateJson.js'
 
 export interface StreamAgentSseOptions {
@@ -202,6 +203,7 @@ export function streamAgentSseResponse(
             const id = te.toolCallId
             const name = te.toolName
             const args = te.args
+            recordToolCallStart(id)
             applyToolStart(assistantState, { id, name, args, done: false })
             if (name === 'set_chat_title' && args && typeof args === 'object' && 'title' in args) {
               const t = String((args as { title?: unknown }).title ?? '').trim().slice(0, 120)
@@ -295,6 +297,21 @@ export function streamAgentSseResponse(
               p => p.type === 'tool' && p.toolCall.id === ev.toolCallId,
             ) as { type: 'tool'; toolCall: { args: unknown } } | undefined
             const toolArgs = toolRow?.toolCall.args
+            recordToolCallEnd({
+              toolCallId: ev.toolCallId,
+              toolName: ev.toolName,
+              args: toolArgs ?? {},
+              isError: ev.isError,
+              source: 'chat',
+              correlation:
+                announceSessionId !== undefined
+                  ? { sessionId: announceSessionId }
+                  : undefined,
+              errorMessage:
+                ev.isError && resultText.trim().length > 0
+                  ? truncateJsonResult(resultText, 400)
+                  : undefined,
+            })
             await stream.writeSSE({
               event: 'tool_end',
               data: JSON.stringify({

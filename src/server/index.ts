@@ -26,6 +26,7 @@ import gmailOAuthRoute from './routes/gmailOAuth.js'
 import navRecentsRoute from './routes/navRecents.js'
 import oauthGoogleBrowserPages from './routes/oauthGoogleBrowserPages.js'
 import hubRoute from './routes/hub.js'
+import hubEventsRoute from './routes/hubEvents.js'
 import devRoute from './routes/dev.js'
 import vaultRoute from './routes/vault.js'
 import { vaultGateMiddleware } from './lib/vaultGate.js'
@@ -137,7 +138,8 @@ function isQuietPollPath(path: string): boolean {
     path === '/api/onboarding/ripmail' ||
     path === '/api/oauth/google/last-result' ||
     path === '/api/hub/sources' ||
-    path === '/api/vault/status'
+    path === '/api/vault/status' ||
+    path === '/api/events'
   )
 }
 app.use('*', async (c, next) => {
@@ -157,6 +159,7 @@ app.route('/api/imessage', imessageRoute)
 app.route('/api/messages', imessageRoute)
 app.route('/api/onboarding', onboardingRoute)
 app.route('/api/hub', hubRoute)
+app.route('/api/events', hubEventsRoute)
 app.route('/api/background', backgroundRoute)
 app.route('/api/your-wiki', yourWikiRoute)
 app.route('/api/oauth/google', gmailOAuthRoute)

@@ -82,6 +82,49 @@ fn draft_list_slim_vs_full() {
 }
 
 #[test]
+fn draft_edit_add_to_without_instruction_skips_llm() {
+    let dir = tempdir().unwrap();
+    let data = dir.path().join("data");
+    let drafts = data.join("drafts");
+    fs::create_dir_all(&drafts).unwrap();
+    let cfg = test_config(dir.path());
+    let meta = DraftMeta {
+        to: Some(vec!["to@x.com".into()]),
+        subject: Some("S".into()),
+        ..Default::default()
+    };
+    write_draft(&drafts, "dr-edit-hdr", &meta, "Keep this body\n").unwrap();
+    run_draft(
+        DraftCmd::Edit {
+            id: "dr-edit-hdr".into(),
+            subject: None,
+            to: None,
+            cc: None,
+            bcc: None,
+            add_to: vec!["whitney.allen@jpmorgan.com".into()],
+            add_cc: vec![],
+            add_bcc: vec![],
+            remove_to: vec![],
+            remove_cc: vec![],
+            remove_bcc: vec![],
+            instruction: vec![],
+            with_body: false,
+            text: true,
+            json: false,
+        },
+        &cfg,
+        None,
+    )
+    .expect("edit headers only");
+    let d = read_draft_in_data_dir(&data, "dr-edit-hdr").expect("read");
+    assert_eq!(d.body.trim_end(), "Keep this body");
+    assert_eq!(
+        d.meta.to,
+        Some(vec!["to@x.com".into(), "whitney.allen@jpmorgan.com".into(),])
+    );
+}
+
+#[test]
 fn draft_rewrite_add_cc_implicit_keep_body() {
     let dir = tempdir().unwrap();
     let data = dir.path().join("data");

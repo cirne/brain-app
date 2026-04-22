@@ -149,6 +149,8 @@ pub enum DraftCmd {
     },
     /// LLM edit of an existing draft. Put `--to` / `--cc` / `--add-cc` / … before the instruction words, or use `--` before the instruction.
     ///
+    /// Recipient or `--subject` flags alone (no trailing instruction) update headers only — no LLM call.
+    ///
     /// Prefer this over `draft rewrite` for natural-language changes to tone or structure.
     Edit {
         id: String,
@@ -682,24 +684,41 @@ pub fn run_draft(
             .join(" ")
             .trim()
             .to_string();
-            if instr.is_empty() {
+            let header_only_changes = subject.is_some()
+                || to.is_some()
+                || cc.is_some()
+                || bcc.is_some()
+                || !add_to.is_empty()
+                || !add_cc.is_empty()
+                || !add_bcc.is_empty()
+                || !remove_to.is_empty()
+                || !remove_cc.is_empty()
+                || !remove_bcc.is_empty();
+            if instr.is_empty() && !header_only_changes {
                 return Err(
-                    "ripmail draft edit: instruction required (words after the draft id).".into(),
+                    "ripmail draft edit: instruction required (words after the draft id), or use recipient/--subject flags to change headers only."
+                        .into(),
                 );
             }
-            let (llm, rt) = resolve_llm_for_draft("edit")?;
             let d = read_draft_in_data_dir(data_dir, &id).map_err(|e| e.to_string())?;
-            let compose_id = draft_identity_for_compose(cfg, None, d.meta.mailbox_id.as_deref());
-            let revised = rt.block_on(rewrite_draft_with_instruction(
-                &d,
-                &instr,
-                &llm,
-                compose_id.as_ref(),
-            ))?;
             let mut meta = d.meta.clone();
-            if let Some(s) = revised.subject {
-                meta.subject = Some(s);
-            }
+            let body_out = if instr.is_empty() {
+                d.body.clone()
+            } else {
+                let (llm, rt) = resolve_llm_for_draft("edit")?;
+                let compose_id =
+                    draft_identity_for_compose(cfg, None, d.meta.mailbox_id.as_deref());
+                let revised = rt.block_on(rewrite_draft_with_instruction(
+                    &d,
+                    &instr,
+                    &llm,
+                    compose_id.as_ref(),
+                ))?;
+                if let Some(s) = revised.subject {
+                    meta.subject = Some(s);
+                }
+                revised.body
+            };
             if let Some(s) = subject {
                 meta.subject = Some(s);
             }
@@ -715,7 +734,7 @@ pub fn run_draft(
                 remove_bcc,
             });
             apply_recipient_header_ops(&mut meta, &ops);
-            write_draft(&drafts_dir, &d.id, &meta, &revised.body)?;
+            write_draft(&drafts_dir, &d.id, &meta, &body_out)?;
             let d2 = read_draft_in_data_dir(data_dir, &id).map_err(|e| e.to_string())?;
             print_draft_output(
                 Some(&format!("Draft updated (edit): {id}")),

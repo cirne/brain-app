@@ -57,17 +57,17 @@
   const hiddenCount = $derived(Math.max(0, daysWithEvents.length - MAX_DAYS))
 </script>
 
-<div class="calendar-card">
-  <div class="card-head">
+<div class="calendar-tool-preview">
+  <div class="calendar-tool-head">
     <Calendar size={14} strokeWidth={2} aria-hidden="true" />
-    <span class="card-title">Calendar</span>
-    <span class="card-meta">{start}{#if end !== start} – {end}{/if}</span>
+    <span class="calendar-tool-title">Calendar</span>
+    <span class="calendar-tool-meta">{start}{#if end !== start} – {end}{/if}</span>
   </div>
 
   {#if daysWithEvents.length === 0}
-    <p class="card-empty">No events in this range.</p>
+    <p class="calendar-tool-empty">No events in this range.</p>
   {:else}
-    <div class="days-list">
+    <div class="calendar-days-list">
       {#each displayDays as day (day.date)}
         <div class="day-group">
           <button
@@ -88,56 +88,53 @@
       {/each}
     </div>
     {#if hiddenCount > 0}
-      <p class="card-more">+ {hiddenCount} more {hiddenCount === 1 ? 'day' : 'days'} with events</p>
+      <p class="calendar-tool-more">+ {hiddenCount} more {hiddenCount === 1 ? 'day' : 'days'} with events</p>
     {/if}
   {/if}
 
   {#if onOpenCalendar}
-    <button type="button" class="calendar-full-btn" onclick={() => onOpenCalendar(start)}>
+    <button type="button" class="calendar-tool-full" onclick={() => onOpenCalendar(start)}>
       Open calendar
     </button>
   {/if}
 </div>
 
 <style>
-  .calendar-card {
-    margin: 8px 0;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-3);
+  .calendar-tool-preview {
+    margin: 4px 0 0;
     max-width: 100%;
+    min-width: 0;
   }
 
-  .card-head {
+  .calendar-tool-head {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     color: var(--text-2);
     flex-wrap: wrap;
   }
 
-  .card-title {
+  .calendar-tool-title {
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
 
-  .card-meta {
+  .calendar-tool-meta {
     font-size: 11px;
     margin-left: auto;
     opacity: 0.85;
   }
 
-  .card-empty {
-    margin: 0 0 8px;
+  .calendar-tool-empty {
+    margin: 0 0 6px;
     font-size: 12px;
     color: var(--text-2);
   }
 
-  .days-list {
+  .calendar-days-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -166,27 +163,25 @@
     text-decoration: underline;
   }
 
-  .card-more {
+  .calendar-tool-more {
     margin: 8px 0 0;
     font-size: 11px;
     color: var(--text-2);
   }
 
-  .calendar-full-btn {
-    margin-top: 10px;
-    width: 100%;
-    padding: 8px 12px;
+  .calendar-tool-full {
+    margin-top: 8px;
+    padding: 0;
+    border: none;
+    background: transparent;
     font-size: 12px;
-    font-weight: 500;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--bg);
+    font-weight: 600;
     color: var(--accent);
     cursor: pointer;
+    text-align: left;
   }
 
-  .calendar-full-btn:hover {
-    border-color: var(--accent);
-    background: var(--accent-dim);
+  .calendar-tool-full:hover {
+    text-decoration: underline;
   }
 </style>

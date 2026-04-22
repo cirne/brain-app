@@ -3,6 +3,7 @@
   import { BookOpen } from 'lucide-svelte'
   import type { BackgroundAgentDoc, YourWikiPhase } from './statusBar/backgroundAgentTypes.js'
   import { subscribe } from './app/appEvents.js'
+  import { yourWikiDocFromEvents } from './hubEvents/hubEventsStores.js'
 
   type Props = {
     onOpen: () => void
@@ -28,20 +29,12 @@
   const showActive = $derived(isRunning || isPaused)
   const displayCount = $derived(wikiDoc ? wikiDoc.pageCount : docCount)
 
-  async function fetchData() {
+  async function fetchWikiDocCount() {
     try {
-      const [wikiRes, yourWikiRes] = await Promise.all([
-        fetch('/api/wiki'),
-        fetch('/api/your-wiki'),
-      ])
-
+      const wikiRes = await fetch('/api/wiki')
       if (wikiRes.ok) {
         const docs = await wikiRes.json()
         docCount = Array.isArray(docs) ? docs.length : null
-      }
-
-      if (yourWikiRes.ok) {
-        wikiDoc = (await yourWikiRes.json()) as BackgroundAgentDoc
       }
     } catch {
       /* ignore */
@@ -49,14 +42,16 @@
   }
 
   onMount(() => {
-    void fetchData()
-    const id = setInterval(() => void fetchData(), 2000)
-    const unsub = subscribe((e) => {
-      if (e.type === 'wiki:mutated') void fetchData()
+    void fetchWikiDocCount()
+    const unsubStore = yourWikiDocFromEvents.subscribe((d) => {
+      if (d) wikiDoc = d
+    })
+    const unsubEvents = subscribe((e) => {
+      if (e.type === 'wiki:mutated' || e.type === 'sync:completed') void fetchWikiDocCount()
     })
     return () => {
-      clearInterval(id)
-      unsub()
+      unsubStore()
+      unsubEvents()
     }
   })
 </script>

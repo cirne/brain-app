@@ -20,6 +20,7 @@
   import { runParallelSyncs } from './app/syncAllServices.js'
   import { matchGlobalShortcut } from './app/globalShortcuts.js'
   import { emit, subscribe } from './app/appEvents.js'
+  import { startHubEventsConnection } from './hubEvents/hubEventsClient.js'
   import {
     cancelPendingDebouncedWikiSync,
     onWikiMutatedForAutoSync,
@@ -183,7 +184,10 @@
     }
     mq.addEventListener('change', onMqChange)
 
+    const stopHubEvents = startHubEventsConnection()
+
     return () => {
+      stopHubEvents()
       mq.removeEventListener('change', onMqChange)
       mqReduce.removeEventListener('change', syncReduce)
       window.removeEventListener('popstate', onPopState)

@@ -3,6 +3,7 @@
   import { Sparkles } from 'lucide-svelte'
   import type { BackgroundAgentDoc } from './statusBar/backgroundAgentTypes.js'
   import BackgroundAgentPanel from './statusBar/BackgroundAgentPanel.svelte'
+  import { backgroundAgentsFromEvents } from './hubEvents/hubEventsStores.js'
 
   type Props = {
     /** When set (e.g. from URL), that run is listed first. */
@@ -80,8 +81,9 @@
 
   onMount(() => {
     void fetchAgents()
-    const id = setInterval(() => void fetchAgents(), 2000)
-    return () => clearInterval(id)
+    return backgroundAgentsFromEvents.subscribe((list) => {
+      agents = list
+    })
   })
 </script>
 

@@ -11,6 +11,9 @@ import {
   writeBackgroundRun,
   type BackgroundRunDoc,
 } from '../lib/backgroundAgentStore.js'
+import { recordToolCallEnd, recordToolCallStart } from '../lib/newRelicHelper.js'
+import { tryGetTenantContext } from '../lib/tenantContext.js'
+import { truncateJsonResult } from '../lib/truncateJson.js'
 import { safeWikiRelativePath } from '../lib/wikiEditDiff.js'
 import { getOrCreateWikiBuildoutAgent, deleteWikiBuildoutSession } from './wikiBuildoutAgent.js'
 import { buildDateContext, createCleanupAgent } from './agentFactory.js'
@@ -187,11 +190,18 @@ export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: s
   return `[Injected context for this expansion pass — use this instead of trying to read me.md via tools]\n\n${parts.join('\n\n')}\n\n---\n\n`
 }
 
+interface AttachRunTrackerNrOptions {
+  source: 'wikiExpansion' | 'wikiCleanup'
+  backgroundRunId: string
+  workspaceHandle?: string
+}
+
 /** Tracks write/edit tool call activity and updates a BackgroundRunDoc in place. */
 function attachRunTracker(
   agent: { subscribe: (cb: (event: Record<string, unknown>) => void | Promise<void>) => () => void },
   doc: BackgroundRunDoc,
   wikiRoot: string,
+  nrOpts: AttachRunTrackerNrOptions,
 ): { unsubscribe: () => void; getChangeCount: () => number } {
   const pendingWritePaths = new Map<string, string>()
   const pendingEditPaths = new Map<string, string>()
@@ -217,6 +227,7 @@ function attachRunTracker(
         case 'tool_execution_start': {
           const te = ev as unknown as { type: 'tool_execution_start' } & ToolExecutionStartPayload
           const { toolCallId, toolName, args } = te
+          recordToolCallStart(toolCallId)
           pendingToolArgs.set(toolCallId, args)
           if (toolName === 'write' && args && typeof args === 'object' && 'path' in args) {
             const raw = String((args as { path: unknown }).path)
@@ -239,6 +250,21 @@ function attachRunTracker(
           pendingToolArgs.delete(endEv.toolCallId)
 
           const resultText = toolResultText(endEv)
+          recordToolCallEnd({
+            toolCallId: endEv.toolCallId,
+            toolName: endEv.toolName,
+            args: argsRaw ?? {},
+            isError: endEv.isError,
+            source: nrOpts.source,
+            correlation: {
+              backgroundRunId: nrOpts.backgroundRunId,
+              ...(nrOpts.workspaceHandle ? { workspaceHandle: nrOpts.workspaceHandle } : {}),
+            },
+            errorMessage:
+              endEv.isError && resultText.trim().length > 0
+                ? truncateJsonResult(resultText, 400)
+                : undefined,
+          })
           const details = safeDetails(endEv.result?.details)
           appendTimelineEvent(doc, {
             at: new Date().toISOString(),
@@ -340,7 +366,12 @@ export async function runEnrichInvocation(
   touchRun(doc, { label: 'Your Wiki', detail: 'Starting enrichment…' })
   await writeBackgroundRun(doc)
 
-  const { unsubscribe, getChangeCount } = attachRunTracker(agent, doc, wikiRoot)
+  const ws = tryGetTenantContext()?.workspaceHandle
+  const { unsubscribe, getChangeCount } = attachRunTracker(agent, doc, wikiRoot, {
+    source: 'wikiExpansion',
+    backgroundRunId: runId,
+    workspaceHandle: ws,
+  })
   try {
     if (pausedRunIds.has(runId)) return 0
     await agent.waitForIdle()
@@ -383,7 +414,12 @@ export async function runCleanupInvocation(
   touchRun(doc, { label: 'Your Wiki', detail: 'Starting cleanup…' })
   await writeBackgroundRun(doc)
 
-  const { unsubscribe, getChangeCount } = attachRunTracker(agent, doc, wikiRoot)
+  const ws = tryGetTenantContext()?.workspaceHandle
+  const { unsubscribe, getChangeCount } = attachRunTracker(agent, doc, wikiRoot, {
+    source: 'wikiCleanup',
+    backgroundRunId: runId,
+    workspaceHandle: ws,
+  })
   try {
     if (pausedRunIds.has(runId)) return 0
     await agent.waitForIdle()

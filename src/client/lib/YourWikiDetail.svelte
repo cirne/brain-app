@@ -4,6 +4,7 @@
   import type { BackgroundAgentDoc, YourWikiPhase } from './statusBar/backgroundAgentTypes.js'
   import BackgroundAgentPanel from './statusBar/BackgroundAgentPanel.svelte'
   import { YOUR_WIKI_HEADER, type RegisterYourWikiHeader } from './yourWikiHeaderContext.js'
+  import { yourWikiDocFromEvents } from './hubEvents/hubEventsStores.js'
 
   type Props = {
     onOpenWiki: (_path: string) => void
@@ -42,23 +43,11 @@
     return ''
   }
 
-  async function fetchDoc() {
-    try {
-      const res = await fetch('/api/your-wiki')
-      if (res.ok) {
-        doc = (await res.json()) as BackgroundAgentDoc
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
   async function pause() {
     if (actionBusy) return
     actionBusy = true
     try {
       await fetch('/api/your-wiki/pause', { method: 'POST' })
-      await fetchDoc()
     } finally {
       actionBusy = false
     }
@@ -73,7 +62,6 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       })
-      await fetchDoc()
     } finally {
       actionBusy = false
     }
@@ -88,16 +76,15 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       })
-      await fetchDoc()
     } finally {
       actionBusy = false
     }
   }
 
   onMount(() => {
-    void fetchDoc()
-    const id = setInterval(() => void fetchDoc(), 2000)
-    return () => clearInterval(id)
+    return yourWikiDocFromEvents.subscribe((d) => {
+      if (d) doc = d
+    })
   })
 
   const registerHeader = getContext<RegisterYourWikiHeader>(YOUR_WIKI_HEADER)

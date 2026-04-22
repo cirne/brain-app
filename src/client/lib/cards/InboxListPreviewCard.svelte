@@ -56,19 +56,19 @@
   }
 </script>
 
-<div class="inbox-list-card">
-  <div class="inbox-list-head">
+<div class="inbox-tool-preview">
+  <div class="inbox-tool-head">
     <Inbox size={14} strokeWidth={2} aria-hidden="true" />
-    <span class="inbox-list-title">Inbox</span>
+    <span class="inbox-tool-title">Inbox</span>
     {#if totalCount > 0}
-      <span class="inbox-list-meta">{totalCount} {totalCount === 1 ? 'message' : 'messages'}</span>
+      <span class="inbox-tool-meta">{totalCount} {totalCount === 1 ? 'message' : 'messages'}</span>
     {/if}
   </div>
 
   {#if visible.length === 0}
-    <p class="inbox-list-empty">No messages in preview.</p>
+    <p class="inbox-tool-empty">No messages in preview.</p>
   {:else}
-    <ul class="inbox-list-rows">
+    <ul class="inbox-tool-rows">
       {#each displayRows as row (row.id)}
         <li class="inbox-row">
           <button
@@ -108,57 +108,54 @@
   {/if}
 
   {#if onOpenFullInbox}
-    <button type="button" class="inbox-full-btn" onclick={() => onOpenFullInbox()}>
+    <button type="button" class="inbox-tool-full" onclick={() => onOpenFullInbox()}>
       Show full inbox
     </button>
   {/if}
 </div>
 
 <style>
-  .inbox-list-card {
-    margin: 8px 0;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-3);
+  .inbox-tool-preview {
+    margin: 4px 0 0;
     max-width: 100%;
+    min-width: 0;
   }
 
-  .inbox-list-head {
+  .inbox-tool-head {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     color: var(--text-2);
     flex-wrap: wrap;
   }
 
-  .inbox-list-title {
+  .inbox-tool-title {
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
 
-  .inbox-list-meta {
+  .inbox-tool-meta {
     font-size: 11px;
     margin-left: auto;
     opacity: 0.85;
   }
 
-  .inbox-list-empty {
-    margin: 0 0 8px;
+  .inbox-tool-empty {
+    margin: 0 0 6px;
     font-size: 12px;
     color: var(--text-2);
   }
 
-  .inbox-list-rows {
+  .inbox-tool-rows {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0;
   }
 
   .inbox-row {
@@ -166,10 +163,12 @@
     align-items: stretch;
     gap: 4px;
     min-width: 0;
-    border-radius: 6px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    overflow: hidden;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    padding: 6px 0;
+  }
+
+  .inbox-row:last-child {
+    border-bottom: none;
   }
 
   .row-open {
@@ -188,8 +187,8 @@
     cursor: pointer;
   }
 
-  .row-open:hover {
-    background: var(--accent-dim);
+  .row-open:hover .row-subject {
+    color: var(--accent);
   }
 
   .row-line1 {
@@ -237,21 +236,20 @@
 
   .row-archive {
     flex-shrink: 0;
-    width: 40px;
+    width: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none;
-    border-left: 1px solid var(--border);
-    background: var(--bg-2);
+    border-left: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    background: transparent;
     color: var(--text-2);
     cursor: pointer;
     padding: 0;
   }
 
   .row-archive:hover:not(:disabled) {
-    color: var(--text);
-    background: var(--bg-3);
+    color: var(--accent);
   }
 
   .row-archive:disabled {
@@ -274,21 +272,19 @@
     }
   }
 
-  .inbox-full-btn {
-    margin-top: 10px;
-    width: 100%;
-    padding: 8px 12px;
+  .inbox-tool-full {
+    margin-top: 8px;
+    padding: 0;
+    border: none;
+    background: transparent;
     font-size: 12px;
-    font-weight: 500;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--bg);
+    font-weight: 600;
     color: var(--accent);
     cursor: pointer;
+    text-align: left;
   }
 
-  .inbox-full-btn:hover {
-    border-color: var(--accent);
-    background: var(--accent-dim);
+  .inbox-tool-full:hover {
+    text-decoration: underline;
   }
 </style>

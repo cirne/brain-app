@@ -49,7 +49,7 @@
 
 <button
   type="button"
-  class="message-thread-card"
+  class="message-thread-preview"
   onclick={onOpen}
   aria-label="Open message thread: {displayChat}"
 >
@@ -67,11 +67,11 @@
     <div class="message-thread-meta">{returnedCount} shown · {total} in window</div>
   {/if}
   {#if tail.length > 0}
-    <div class="message-thread-bubbles" aria-hidden="true">
+    <div class="message-thread-lines" aria-hidden="true">
       {#each tail as row, i (`${row.sent_at_unix}-${i}`)}
-        <div class="bubble-row" class:me={row.is_from_me}>
-          <span class="bubble">{bubblePreviewText(row.text)}</span>
-          <span class="bubble-time">{timeLabel(row.sent_at_unix)}</span>
+        <div class="message-line" class:me={row.is_from_me}>
+          <span class="message-line-text">{bubblePreviewText(row.text)}</span>
+          <span class="message-line-time">{timeLabel(row.sent_at_unix)}</span>
         </div>
       {/each}
     </div>
@@ -79,25 +79,32 @@
 </button>
 
 <style>
-  .message-thread-card {
-    margin: 8px 0;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-3);
+  .message-thread-preview {
+    margin: 4px 0 0;
+    padding: 4px 0;
     display: block;
     width: 100%;
+    max-width: 100%;
     text-align: left;
     font: inherit;
     color: inherit;
     cursor: pointer;
+    border: none;
+    background: transparent;
+    min-width: 0;
   }
+
+  .message-thread-preview:hover .message-thread-chat {
+    color: var(--accent);
+  }
+
   .message-thread-row {
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
   }
+
   .message-thread-chat {
     font-size: 13px;
     font-weight: 600;
@@ -106,56 +113,59 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
   .message-thread-person {
     font-size: 11px;
     color: var(--text-2);
     margin-top: 4px;
   }
+
   .message-thread-snippet {
     margin: 8px 0 0;
     font-size: 12px;
     line-height: 1.4;
     color: var(--text-2);
   }
+
   .message-thread-meta {
     margin-top: 6px;
     font-size: 11px;
     color: var(--text-2);
   }
-  .message-thread-bubbles {
-    margin-top: 10px;
+
+  .message-thread-lines {
+    margin-top: 8px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     max-height: 140px;
     overflow: hidden;
+    padding-top: 6px;
+    border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   }
-  .bubble-row {
+
+  .message-line {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 2px;
     max-width: 100%;
-  }
-  .bubble-row.me {
-    align-items: flex-end;
-  }
-  .bubble {
     font-size: 12px;
     line-height: 1.35;
-    padding: 6px 10px;
-    border-radius: 12px;
-    background: var(--bg-2);
+    color: var(--text-2);
+  }
+
+  .message-line.me {
+    align-items: flex-end;
     color: var(--text);
-    max-width: 92%;
+  }
+
+  .message-line-text {
     word-break: break-word;
   }
-  .bubble-row.me .bubble {
-    background: var(--accent-dim);
-  }
-  .bubble-time {
+
+  .message-line-time {
     font-size: 10px;
     color: var(--text-2);
-    padding: 0 4px;
   }
 </style>

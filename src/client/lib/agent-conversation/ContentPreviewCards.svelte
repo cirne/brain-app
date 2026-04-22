@@ -38,7 +38,12 @@
     onOpenCalendarEvent={(date, eventId) => onSwitchToCalendar?.(date, eventId)}
   />
 {:else if preview.kind === 'wiki'}
-  <WikiPreviewCard path={preview.path} excerpt={preview.excerpt} onOpen={() => onOpenWiki?.(preview.path)} />
+  <WikiPreviewCard
+    path={preview.path}
+    excerpt={preview.excerpt}
+    onOpen={() => onOpenWiki?.(preview.path)}
+    onNavigateWiki={onOpenWiki}
+  />
 {:else if preview.kind === 'file'}
   <FilePreviewCard path={preview.path} excerpt={preview.excerpt} onOpen={() => onOpenFile?.(preview.path)} />
 {:else if preview.kind === 'email'}
