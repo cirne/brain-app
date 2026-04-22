@@ -53,7 +53,7 @@ These are small, localized changes with direct debugging or correctness benefit.
 ## Related docs
 
 - [BUG-054](bugs/archive/BUG-054-gmail-imap-archive-noop.md) — historical no-op analysis (superseded by current Gmail paths).
-- [BUG-055](bugs/BUG-055-imap-archive-slow.md) — latency notes (connection, search, fast path).
+- [BUG-055](bugs/archive/BUG-055-imap-archive-slow.md) — latency notes (connection, search, fast path); closed with mitigations.
 - [OPP-049 archived](opportunities/archive/OPP-049-gmail-archive-stored-labels-metadata.md) — stored-labels fast path rationale.
 
 ---

@@ -258,6 +258,80 @@ fn archive_cli_sets_is_archived_json() {
     assert_eq!(archived, 1);
 }
 
+/// When `mailboxManagement.enabled` is true but `allow` omits `archive`, `ripmail archive` must
+/// not attempt IMAP (`providerMutation.attempted` false). Regression guard for opt-in write scope.
+#[test]
+fn archive_cli_skips_provider_when_mailbox_management_allow_excludes_archive() {
+    let dir = tempdir().unwrap();
+    let mailbox_id = "mm_allow_test_example_com";
+    let config = serde_json::json!({
+        "sources": [{
+            "id": mailbox_id,
+            "kind": "imap",
+            "email": "mm-allow-test@example.com",
+            "imapAuth": "googleOAuth",
+            "imap": { "host": "imap.gmail.com", "port": 993 }
+        }],
+        "mailboxManagement": {
+            "enabled": true,
+            "allow": ["read", "sync"]
+        }
+    });
+    fs::write(
+        dir.path().join("config.json"),
+        serde_json::to_string_pretty(&config).unwrap(),
+    )
+    .unwrap();
+
+    let db_path = dir.path().join("ripmail.db");
+    let conn = db::open_file(&db_path).unwrap();
+    let parsed = ParsedMessage {
+        message_id: "<archive-allow-exclude@test>".into(),
+        from_address: "a@b.com".into(),
+        from_name: None,
+        to_addresses: vec![],
+        cc_addresses: vec![],
+        to_recipients: vec![],
+        cc_recipients: vec![],
+        subject: "hi".into(),
+        date: "2026-01-01T00:00:00Z".into(),
+        body_text: "body".into(),
+        body_html: None,
+        attachments: vec![],
+        category: None,
+        ..Default::default()
+    };
+    persist_message(
+        &conn,
+        &parsed,
+        MAILBOX,
+        mailbox_id,
+        1,
+        r#"["\\Inbox"]"#,
+        "cur/x.eml",
+    )
+    .unwrap();
+    drop(conn);
+
+    let bin = env!("CARGO_BIN_EXE_ripmail");
+    let out = Command::new(bin)
+        .env("RIPMAIL_HOME", dir.path())
+        .args(["archive", "<archive-allow-exclude@test>"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["results"][0]["local"]["ok"], true);
+    assert_eq!(v["results"][0]["local"]["isArchived"], true);
+    assert_eq!(v["results"][0]["providerMutation"]["attempted"], false);
+    assert_eq!(v["results"][0]["providerMutation"]["ok"], false);
+}
+
 #[test]
 fn rules_validate_fails_on_legacy_v1_until_reset() {
     let dir = tempdir().unwrap();

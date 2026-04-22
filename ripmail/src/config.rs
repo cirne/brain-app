@@ -1829,6 +1829,43 @@ mod tests {
     }
 
     #[test]
+    fn load_config_mailbox_management_allow_omits_archive_disables_provider_archive() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        fs::write(
+            home.join("config.json"),
+            r#"{"sources":[{"id":"m1","kind":"imap","email":"a@b.com","imapAuth":"googleOAuth","imap":{"host":"imap.gmail.com","port":993}}],"mailboxManagement":{"enabled":true,"allow":["read"]}}"#,
+        )
+        .unwrap();
+        let cfg = load_config(LoadConfigOptions {
+            home: Some(home.to_path_buf()),
+            env: Some(HashMap::new()),
+        });
+        assert!(cfg.mailbox_management_enabled);
+        assert!(
+            !cfg.mailbox_management_allow_archive,
+            "allow without 'archive' must not permit IMAP archive"
+        );
+    }
+
+    #[test]
+    fn load_config_mailbox_management_allow_archive_is_case_insensitive() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        fs::write(
+            home.join("config.json"),
+            r#"{"sources":[{"id":"m1","kind":"imap","email":"a@b.com","imapAuth":"googleOAuth","imap":{"host":"imap.gmail.com","port":993}}],"mailboxManagement":{"enabled":true,"allow":["Archive"]}}"#,
+        )
+        .unwrap();
+        let cfg = load_config(LoadConfigOptions {
+            home: Some(home.to_path_buf()),
+            env: Some(HashMap::new()),
+        });
+        assert!(cfg.mailbox_management_enabled);
+        assert!(cfg.mailbox_management_allow_archive);
+    }
+
+    #[test]
     fn resolve_source_spec_matches_id_email_and_aliases() {
         let mb = ResolvedSource {
             id: "m1".into(),

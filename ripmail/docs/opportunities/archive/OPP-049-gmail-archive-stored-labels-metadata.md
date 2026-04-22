@@ -2,7 +2,7 @@
 
 **Status:** Archived — **implemented** (2026-04-14). **Created:** 2026-04-14. **Tags:** imap, gmail, archive, sync, performance
 
-**Related:** [BUG-055](../../bugs/BUG-055-imap-archive-slow.md), [BUG-054](../../bugs/archive/BUG-054-gmail-imap-archive-noop.md), [OPP-033](OPP-033-imap-write-operations-and-readonly-mode.md)
+**Related:** [BUG-055](../../bugs/archive/BUG-055-imap-archive-slow.md), [BUG-054](../../bugs/archive/BUG-054-gmail-imap-archive-noop.md), [OPP-033](OPP-033-imap-write-operations-and-readonly-mode.md)
 
 ---
 

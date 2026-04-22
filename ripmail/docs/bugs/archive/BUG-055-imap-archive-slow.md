@@ -1,10 +1,10 @@
 # BUG-055: `ripmail archive` With IMAP Slow (Connect vs Search vs Logout)
 
-**Status:** Partially addressed (2026-04-14); **accepted limitation** on Gmail `SELECT [Gmail]/All Mail` latency. **Created:** 2026-04-14. **Tags:** imap, archive, performance, mailboxManagement
+**Status:** Closed — mitigations shipped; **accepted limitation** on Gmail `SELECT [Gmail]/All Mail` latency for very large mailboxes (2026-04-22). **Created:** 2026-04-14. **Tags:** imap, archive, performance, mailboxManagement
 
 ---
 
-## Symptom
+## Symptom (historical)
 
 `ripmail archive <message-id>` with `mailboxManagement.enabled: true` can take **tens of seconds** after "Connected" before JSON returns. Local-only archive (without `mailboxManagement`) is instant.
 
@@ -20,7 +20,7 @@
 1. **Connection pool / daemon** — reuse IMAP across CLI invocations; large product change.
 2. **Batch archive** — `ripmail archive id1 id2 …` reuses one connection for multiple IDs in one process.
 
-See **[Gmail archive retrospective](../GMAIL_ARCHIVE_NOTES.md)** for what we keep vs defer.
+See **[Gmail archive retrospective](../../GMAIL_ARCHIVE_NOTES.md)** for what we keep vs defer.
 
 ## Near-Term Fixes Shipped
 
@@ -28,8 +28,16 @@ See **[Gmail archive retrospective](../GMAIL_ARCHIVE_NOTES.md)** for what we kee
 - Gmail fast search + quoted HEADER fallback; skip blocking `LOGOUT`.
 - **OPP-049:** stored labels + **`UID STORE -X-GM-LABELS (\Inbox)`** on All Mail when applicable; per-step `SELECT` vs `STORE` timing.
 
+## Enabling Gmail-side archive (user / agent)
+
+IMAP propagation is **off** until the user opts in.
+
+- **CLI:** `ripmail config --mailbox-management on` (requires existing `config.json`; merges `mailboxManagement.enabled`). Use `off` to revert to local-only archive.
+- **Optional JSON:** `mailboxManagement.allow` may list allowed operations; **`archive`** (case-insensitive) must appear when `allow` is set, or provider archive stays disabled. Default when `allow` is omitted: archive allowed.
+- **Agents:** same shell commands; ensure `RIPMAIL_HOME` matches the index (e.g. Brain’s `data/ripmail`).
+
 ## Related
 
 - `src/mailbox/archive.rs` — `provider_archive_message`, `connect_imap_for_resolved_mailbox`
-- [BUG-054](archive/BUG-054-gmail-imap-archive-noop.md) — Gmail archive correctness (fixed)
-- [OPP-049 archived](../opportunities/archive/OPP-049-gmail-archive-stored-labels-metadata.md) — stored-labels fast path
+- [BUG-054](BUG-054-gmail-imap-archive-noop.md) — Gmail archive correctness (fixed)
+- [OPP-049 archived](../../opportunities/archive/OPP-049-gmail-archive-stored-labels-metadata.md) — stored-labels fast path
