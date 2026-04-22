@@ -54,10 +54,13 @@ import {
   isAddrInUse,
   probeDevPortAvailable,
 } from './lib/devServerDuplicatePort.js'
+import { newRelicHonoTransactionMiddleware } from './lib/newRelicHonoTransaction.js'
 
 loadDotEnv()
 
 const app = new Hono()
+// Names NR web transactions from Hono's matched route pattern (not Express-style auto naming).
+app.use('*', newRelicHonoTransactionMiddleware())
 const isDev = process.env.NODE_ENV !== 'production'
 
 if (isBundledNativeServer()) {
