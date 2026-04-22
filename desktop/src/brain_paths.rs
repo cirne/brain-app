@@ -1,4 +1,4 @@
-//! Default `BRAIN_HOME` for the bundled Brain.app (macOS GUI — no shell `.env`).
+//! Default `BRAIN_HOME` for the bundled Braintunnel.app (macOS GUI — no shell `.env`).
 //! Layout segments must match `shared/brain-layout.json` in the repo root.
 //! Default home root segments must match `shared/bundle-defaults.json`.
 

@@ -84,7 +84,7 @@ onboarding.get('/network-info', async (c) => {
     }
   }
 
-  // Bundled Brain.app binds a dynamic port (18473+); must match tunnel target.
+  // Bundled Braintunnel.app binds a dynamic port (18473+); must match tunnel target.
   const port = oauthRedirectListenPort()
   const prefs = await readOnboardingPreferences()
   const remoteOn = prefs.remoteAccessEnabled === true
@@ -168,7 +168,7 @@ async function runAppleMailSetup(c: Context) {
     return c.json(
       {
         ok: false as const,
-        error: 'Apple Mail setup is only available when Brain runs on macOS with local Apple integrations.',
+        error: 'Apple Mail setup is only available when Braintunnel runs on macOS with local Apple integrations.',
       },
       400,
     )

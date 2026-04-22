@@ -4,11 +4,11 @@
 
 ## Overview
 
-The Brain ecosystem will support two primary deployment models: **Desktop (Native)** and **Cloud (Hosted)**. Rather than choosing one over the other, we recognize that each offers structural advantages that cater to different user needs and privacy/convenience trade-offs.
+The Braintunnel product will support two primary deployment models: **Desktop (Native)** and **Cloud (Hosted)**. Rather than choosing one over the other, we recognize that each offers structural advantages that cater to different user needs and privacy/convenience trade-offs.
 
 ## 1. Desktop (Native)
 
-The "Local-First" flagship. This is the most private and performant version of Brain, running directly on the user's hardware.
+The "Local-First" flagship. This is the most private and performant version of Braintunnel, running directly on the user's hardware.
 
 ### Key Characteristics
 - **Privacy:** Data never leaves the machine unless explicitly synced by the user (e.g., via iCloud or manual Git).
@@ -25,12 +25,12 @@ The "Local-First" flagship. This is the most private and performant version of B
 
 ## 2. Cloud (Hosted)
 
-The "Convenience-First" entry point. A managed service that allows users to try Brain instantly without installing software or managing hardware.
+The "Convenience-First" entry point. A managed service that allows users to try Braintunnel instantly without installing software or managing hardware.
 
 ### Key Characteristics
 - **Zero Install:** Accessible via any web browser.
 - **Always On:** Background tasks (like Ripmail sync) run 24/7 without needing the user's laptop to be open.
-- **Multi-Device:** Access the same Brain from a phone, tablet, or work computer.
+- **Multi-Device:** Access the same Braintunnel data from a phone, tablet, or work computer.
 - **Managed:** We handle updates, backups, and infrastructure.
 
 ### Use Cases
@@ -40,7 +40,7 @@ The "Convenience-First" entry point. A managed service that allows users to try 
 
 ### Staging on DigitalOcean (April 2026)
 
-**`https://staging.braintunnel.ai`** — TLS at the edge; the Brain container listens on **port 4000** inside the stack. Durable state lives in a **Docker named volume** (`BRAIN_DATA_ROOT=/brain-data`) so **image pulls and container restarts do not wipe data**. Operational detail: [digitalocean.md](../digitalocean.md); milestone closure and **new-host HTTPS checklist**: [OPP-041](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
+**`https://staging.braintunnel.ai`** — TLS at the edge; the Braintunnel container listens on **port 4000** inside the stack. Durable state lives in a **Docker named volume** (`BRAIN_DATA_ROOT=/brain-data`) so **image pulls and container restarts do not wipe data**. Operational detail: [digitalocean.md](../digitalocean.md); milestone closure and **new-host HTTPS checklist**: [OPP-041](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
 
 ---
 
@@ -58,7 +58,7 @@ We are building for a world where a user might start in the Cloud and move to De
 
 ### Future Synchronization
 While they start as separate instances, we anticipate a need for:
-- **Cloud-to-Desktop Sync:** Moving a "trial" Brain from our cloud to a local machine.
+- **Cloud-to-Desktop Sync:** Moving a "trial" Braintunnel account from our cloud to a local machine.
 - **Hybrid Mode:** Running the heavy Ripmail sync in the cloud while keeping the Wiki and Chat UI local.
 - **Isolated vs. Synchronized:** Users can elect to run their Desktop app in "Isolated Mode" (no cloud connection) or "Synchronized Mode" (paired with a cloud instance).
 

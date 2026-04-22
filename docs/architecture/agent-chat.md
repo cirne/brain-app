@@ -39,7 +39,7 @@ Stream implementation: [`streamAgentSse.ts`](../../src/server/lib/streamAgentSse
 
 ## Agent tools (summary)
 
-**From pi-coding-agent (wiki-scoped):** `read`, `edit`, `write`, `grep`, `find` — plus Brain wrappers `move_file`, `delete_file`.
+**From pi-coding-agent (wiki-scoped):** `read`, `edit`, `write`, `grep`, `find` — plus app wrappers `move_file`, `delete_file`.
 
 **Custom (inline in `tools.ts`):** e.g. `search_index`, `read_doc`, ripmail source and inbox tools, `draft_email` / `send_draft`, `find_person`, `get_calendar_events`, `web_search`, `fetch_page`, YouTube tools, `set_chat_title`, `open`, and optionally `list_recent_messages` / `get_message_thread` when iMessage is available.
 

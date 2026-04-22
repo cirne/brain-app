@@ -1,13 +1,13 @@
 import type { Context } from 'hono'
 import { isBundledNativeServer, NATIVE_APP_PORT_START } from './nativeAppPort.js'
 
-/** Bundled Brain.app serves the embedded Hono server over HTTPS (self-signed cert; OPP-023). */
+/** Bundled Braintunnel.app serves the embedded Hono server over HTTPS (self-signed cert; OPP-023). */
 export const BUNDLED_EMBEDDED_SERVER_SCHEME = 'https' as const
 export const NON_BUNDLED_EMBEDDED_SERVER_SCHEME = 'http' as const
 
 /**
  * Default HTTP listen port for **dev** and **non-bundled** production (`node dist/server` without
- * `BRAIN_BUNDLED_NATIVE`). Keeps `npm run dev` off **18473**, which the packaged Brain.app reserves
+ * `BRAIN_BUNDLED_NATIVE`). Keeps `npm run dev` off **18473**, which the packaged Braintunnel.app reserves
  * for its embedded server + OAuth.
  *
  * The **bundled** Tauri app dynamically binds the first available port starting at
@@ -33,7 +33,7 @@ export function setActualNativePort(port: number): void {
 
 /**
  * Port embedded in the Google OAuth redirect URI. Must match the URL the browser is sent to after
- * consent — i.e. the TCP port Brain is listening on for this process.
+ * consent — i.e. the TCP port Braintunnel is listening on for this process.
  *
  * In bundled native mode the port is determined dynamically at startup (first available from the
  * OAuth candidate list); in dev/non-bundled mode it comes from `PORT` env or the default 3000.

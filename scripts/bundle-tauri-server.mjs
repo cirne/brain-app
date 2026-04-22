@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Copy production server artifacts into desktop/resources/server-bundle for packaged Brain.app.
+ * Copy production server artifacts into desktop/resources/server-bundle for packaged Braintunnel.app.
  * Run after `npm run build`.
  *
  * Includes: dist/, node_modules (prod), node binary, and ripmail binary (release build).

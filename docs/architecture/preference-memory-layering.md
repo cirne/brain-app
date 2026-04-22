@@ -76,7 +76,7 @@ Per [OPP-028](../opportunities/OPP-028-named-assistant-identity-and-living-avata
 
 Behavioral preferences — including style preferences like "be concise" — are user-derived and belong in `me.md`. They express what this user needs, not the assistant's stable identity. `assistant.md` is written at onboarding and rarely updated; `me.md` is a living document.
 
-This is a deliberate difference from soul.md-style frameworks used in multi-user deployments, where the assistant's character must be stable across users. Brain is single-user; the persona and the user's preferences are the same thing.
+This is a deliberate difference from soul.md-style frameworks used in multi-user deployments, where the assistant's character must be stable across users. Braintunnel is single-user; the persona and the user's preferences are the same thing.
 
 ---
 

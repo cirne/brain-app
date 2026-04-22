@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Same as `run-dev.mjs`, but uses Brain.app's default data paths on macOS
+ * Same as `run-dev.mjs`, but uses Braintunnel.app's default data paths on macOS
  * (`~/Library/Application Support/Brain`, `~/Documents/Brain/wiki` parent)
  * instead of repo `./data`.
  */
@@ -14,7 +14,7 @@ const root = join(__dirname, '..')
 
 if (process.platform !== 'darwin') {
   console.error(
-    'dev:desktop-home matches Brain.app paths on macOS only. Use npm run dev with BRAIN_HOME set manually.',
+    'dev:desktop-home matches Braintunnel.app paths on macOS only. Use npm run dev with BRAIN_HOME set manually.',
   )
   process.exit(1)
 }

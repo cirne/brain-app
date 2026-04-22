@@ -1,7 +1,7 @@
 /**
  * Your Wiki continuous supervisor.
  *
- * While Brain is running and not paused, this supervisor runs enrich → cleanup laps
+ * While Braintunnel is running and not paused, this supervisor runs enrich → cleanup laps
  * automatically, updating one persistent "your-wiki" doc in the background store.
  *
  * Design decisions (per OPP-033):

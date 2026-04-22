@@ -1,6 +1,6 @@
 # Productization
 
-Known limitations and friction points for generalizing brain-app from a personal tool into a multi-user product. Each section describes the current assumption, what breaks at scale, and the tradeoff space.
+**Product name:** **Braintunnel** (this repository: `brain-app`). Known limitations and friction points for generalizing Braintunnel from a personal tool into a multi-user product. Each section describes the current assumption, what breaks at scale, and the tradeoff space.
 
 See [OPPORTUNITIES.md](./OPPORTUNITIES.md) for incremental improvements; this doc is for the harder structural blockers.
 

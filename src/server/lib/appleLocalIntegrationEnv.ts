@@ -1,5 +1,5 @@
 /**
- * True when this Brain process can use macOS-local integrations: Apple Mail, Messages (chat.db),
+ * True when this Braintunnel process can use macOS-local integrations: Apple Mail, Messages (chat.db),
  * Calendar.app mail sources, FDA-gated paths, etc.
  *
  * False on non-macOS (e.g. Linux/Docker) and when `BRAIN_DISABLE_APPLE_LOCAL=1`.

@@ -50,7 +50,7 @@ pub fn run() {
                 w.navigate(url).map_err(|e| e.to_string())?;
             } else {
                 log::warn!(
-                    "Brain: main webview not found; could not navigate to bundled server URL"
+                    "Braintunnel: main webview not found; could not navigate to bundled server URL"
                 );
             }
             Ok(())

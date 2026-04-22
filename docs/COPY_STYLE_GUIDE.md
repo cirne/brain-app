@@ -1,6 +1,6 @@
 # Copy Style Guide
 
-This guide defines the voice, tone, and standards for copy throughout the Brain app. Refer to this guide when writing UI text, agent prompts, or system messages to ensure a consistent and user-focused experience.
+This guide defines the voice, tone, and standards for copy throughout **Braintunnel**. Refer to this guide when writing UI text, agent prompts, or system messages to ensure a consistent and user-focused experience. The repository is `brain-app`; the product name is **Braintunnel**.
 
 ## Core Principles
 
@@ -13,7 +13,7 @@ This guide defines the voice, tone, and standards for copy throughout the Brain 
 
 ## Voice & Tone
 
-*   **Voice**: Helpful, intelligent, and private. The Brain is a personal extension of the user's mind.
+*   **Voice**: Helpful, intelligent, and private. Braintunnel is a personal extension of the user's mind.
 *   **Tone**: Professional but approachable. Calm and steady, especially during background tasks.
 
 ---
@@ -43,7 +43,7 @@ Avoid developer-centric terms that leak from the codebase.
 | **FTS / Semantic** | Search, Smart Search |
 | **`BRAIN_HOME` / paths / “vault” folder on disk** | **Vault on this Mac**, **your vault**, **unlock your vault** |
 
-**Vault vs wiki:** **Vault** is user-facing for the **secured local store** (Obsidian-adjacent): password, unlock, where durable Brain data lives. **Wiki** is user-facing for **Markdown pages and links inside the vault**. Do not use **wiki** when you mean unlocking or the whole datastore—use **vault**. **Brain** — short UI kickers and in-app references. **Brain Tunnel** — working product name; use where full identity or remote/tunnel access is the point (welcome, About), not every headline.
+**Vault vs wiki:** **Vault** is user-facing for the **secured local store** (Obsidian-adjacent): password, unlock, where durable data lives. **Wiki** is user-facing for **Markdown pages and links inside the vault**. Do not use **wiki** when you mean unlocking or the whole datastore—use **vault**. **Product name:** use **Braintunnel** in user-facing copy. Repository / env / paths may still say `brain-app` or `BRAIN_*` — that is internal; do not expose raw path names in UI.
 
 ---
 
@@ -63,7 +63,7 @@ Don't say the same thing in the title, description, and status line.
 
 ### 3. Passive vs. Active Voice
 Use active voice to make the app feel responsive.
-*   **Prefer**: "Brain is indexing your mail" over "Your mail is being indexed by the system."
+*   **Prefer**: "Braintunnel is indexing your mail" over "Your mail is being indexed by the system."
 
 ---
 

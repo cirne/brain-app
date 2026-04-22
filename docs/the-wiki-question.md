@@ -7,7 +7,7 @@
 
 ## Why this document exists
 
-Brain’s vision pairs **ripmail** (indexed email and files — rich, messy, authoritative *evidence*) with a **personal wiki** (linked markdown — synthesized, navigable *memory*). The assistant is designed to use **both**: tools for the index (`search_index`, `read_doc`, …) and tools for the vault (`read`, `grep`, … on the wiki tree).
+Braintunnel’s vision pairs **ripmail** (indexed email and files — rich, messy, authoritative *evidence*) with a **personal wiki** (linked markdown — synthesized, navigable *memory*). The assistant is designed to use **both**: tools for the index (`search_index`, `read_doc`, …) and tools for the vault (`read`, `grep`, … on the wiki tree).
 
 In early development we often run with **very small wikis** (on the order of 10–20 pages) to iterate cheaply on onboarding and flows. At that scale it is **not obvious** that the wiki is doing unique work: a capable model with strong access to ripmail might **re-synthesize** answers on demand and look “good enough,” while the wiki adds **product and UX surface area** (what is my wiki, when do I create a page, what does “expanding the wiki” mean, who owns truth between mail and markdown).
 
@@ -45,7 +45,7 @@ Andrej Karpathy’s idea file **[LLM Wiki](https://gist.github.com/karpathy/442a
 
 So in Karpathy’s design, the wiki is **not** primarily “token optimization” as a hack — it is **amortized synthesis**: work done once (and on update), with **structure and consistency** that retrieval-only systems do not accumulate. Token savings can be a **consequence** of reading a small set of curated pages instead of re-scanning a large raw corpus every time, but the **deeper** claim is **compounding structure** and **explicit maintenance workflows** (ingest / query / lint).
 
-**Important mismatch to name:** his writeup assumes the human rarely writes the wiki by hand; the LLM owns the wiki layer. Brain’s product today mixes **user-visible files**, **assistant-authored edits**, and **future** automatic scaffolding. That hybrid can be **stronger** (human ground truth + automation) or **weaker** (unclear ownership, confusing UX) depending on execution.
+**Important mismatch to name:** his writeup assumes the human rarely writes the wiki by hand; the LLM owns the wiki layer. Braintunnel’s product today mixes **user-visible files**, **assistant-authored edits**, and **future** automatic scaffolding. That hybrid can be **stronger** (human ground truth + automation) or **weaker** (unclear ownership, confusing UX) depending on execution.
 
 ---
 
@@ -59,11 +59,11 @@ Below are **distinct** hypotheses. They overlap in practice but failing one whil
 | **A. Amortized synthesis**                  | Repeated questions and multi-step reasoning get **better, faster answers** from stable pages + links than from re-deriving from mail each time.       | User tests: same tasks with wiki stripped to empty/minimal vs rich wiki; no quality/latency win from wiki.                                                         |
 | **B. Consistency & contradiction handling** | The wiki holds **resolved** narrative (who is who, what project status is) and **explicit** conflict notes; mail alone stays noisy and contradictory. | Assistant often contradicts earlier answers; wiki pages drift from mail with no reconciliation story.                                                              |
 | **C. Token / context efficiency**           | Answering from a compact, on-topic set of wiki pages uses less context than assembling from many threads.                                             | Marginal API cost or quality plateaus; tiny wiki in dev never stresses context.                                                                                    |
-| **D. User-legible memory**                  | The vault is **inspectable** — users trust Brain because they can **see** what it “believes.”                                                         | Users never open wiki; trust is identical with wiki hidden.                                                                                                        |
+| **D. User-legible memory**                  | The vault is **inspectable** — users trust Braintunnel because they can **see** what it “believes.”                                                         | Users never open wiki; trust is identical with wiki hidden.                                                                                                        |
 | **E. Provenance & control**                 | Wiki is where **preferences and commitments** live (“always do X”) distinct from **evidence** in mail.                                                | Everything could live as structured memory without markdown; see [architecture/wiki-vs-managed-memory-honcho.md](./architecture/wiki-vs-managed-memory-honcho.md). |
 
 
-Karpathy’s gist stresses **A**, **B**, and the **lint** loop; **C** is secondary; **D/E** depend on product choices Brain has not fully settled.
+Karpathy’s gist stresses **A**, **B**, and the **lint** loop; **C** is secondary; **D/E** depend on product choices Braintunnel has not fully settled.
 
 ---
 
@@ -86,7 +86,7 @@ A reasonable challenge:
 - **Contradictions and drift** across time are easier to **surface in a maintained layer** (Karpathy’s lint + entity pages) than to infer reliably ad hoc.
 - **User intent and compression**: some facts are not in any single email (preferences, decisions, “this is how I want work described”).
 
-None of these “against” points **prove** Brain’s current wiki UX is worth it; they say **when** a compounding layer wins — at **scale** (many sources, many pages, repeated queries), with **good maintenance**, and with **clear ownership** between evidence and synthesis.
+None of these “against” points **prove** Braintunnel’s current wiki UX is worth it; they say **when** a compounding layer wins — at **scale** (many sources, many pages, repeated queries), with **good maintenance**, and with **clear ownership** between evidence and synthesis.
 
 ---
 
@@ -94,7 +94,7 @@ None of these “against” points **prove** Brain’s current wiki UX is worth 
 
 Until the wiki is **obviously** helping, users still face:
 
-- **What is “my wiki”?** Is it my notes, Brain’s notes, or both?
+- **What is “my wiki”?** Is it my notes, the assistant’s notes, or both?
 - **When should I create or edit a file** vs ask in chat vs rely on mail?
 - **What is “expanding the wiki”?** Is it automatic, approval-based, or manual? How does it relate to indexing mail?
 - **What is canonical?** If a wiki page and a thread disagree, which wins?
@@ -111,7 +111,7 @@ That leaves **strategic** questions unanswered:
 
 1. **Good enough for what?** User trust? Answer quality vs ripmail-only? Frequency of contradiction between wiki and index?
 2. **Ground truth checks:** Should maintenance agents **diff** wiki claims against indexed sources (sampled or on schedule)? What’s the false-positive cost?
-3. **Human-in-the-loop:** Karpathy prefers **involved** ingest; Brain may want **suggest → review** for high-stakes pages. What’s the default policy?
+3. **Human-in-the-loop:** Karpathy prefers **involved** ingest; Braintunnel may want **suggest → review** for high-stakes pages. What’s the default policy?
 4. **Metrics:** Link health is measurable; **semantic accuracy** and **staleness vs mail** are harder — do we need periodic **probe questions** (eval harness) with and without wiki enabled?
 
 Until these are defined, “the maintenance agent will fix it” is a **hope**, not a **closure condition**.
@@ -139,7 +139,7 @@ That directly tests whether the hoped-for benefit is **real at scale** or **illu
 
 ## Open questions (summary)
 
-1. **Primary value:** Is Brain’s wiki mainly **amortized synthesis** (Karpathy), **inspectable memory**, **token efficiency**, or **something else** — and in what ratio?
+1. **Primary value:** Is Braintunnel’s wiki mainly **amortized synthesis** (Karpathy), **inspectable memory**, **token efficiency**, or **something else** — and in what ratio?
 2. **Small-wiki trap:** Are we drawing conclusions from wikis too small to exhibit **network** and **lint** effects?
 3. **Ripmail-only parity:** Under what query distributions does **on-the-fly** mail reasoning match wiki-assisted reasoning — and where does it **break** (long horizons, many threads, preference-heavy tasks)?
 4. **Ownership:** If the wiki is mostly **machine-maintained**, how do we explain **user edits** and **conflicts** with mail?

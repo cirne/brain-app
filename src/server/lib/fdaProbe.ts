@@ -69,7 +69,7 @@ function probeOneRow(label: string, absolutePath: string): FdaProbeRow {
 
 /**
  * Per-path FDA probe for the **current Node process** (bundled server). TCC is per executable:
- * Ghostty/Terminal may differ from `Brain.app`’s embedded `node` / `ripmail`.
+ * Ghostty/Terminal may differ from `Braintunnel.app`’s embedded `node` / `ripmail`.
  */
 export function getFdaProbeDetail(): FdaProbeDetail {
   const home = homedir()

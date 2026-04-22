@@ -1,4 +1,4 @@
-# Gmail OAuth (local Brain)
+# Gmail OAuth (Braintunnel)
 
 Redirect URIs must match **Google Cloud Console** and the URL the **browser** loads after consent.
 
@@ -7,16 +7,16 @@ Redirect URIs must match **Google Cloud Console** and the URL the **browser** lo
 | **`npm run dev`** / non-bundled `node dist/server` (default) | `http://127.0.0.1:<PORT>/api/oauth/google/callback` (`PORT` default `3000`) |
 | **Same, with `PUBLIC_WEB_ORIGIN`** | `<PUBLIC_WEB_ORIGIN>/api/oauth/google/callback` — use when the SPA is opened at **`localhost`** so OAuth returns to the same host as cookies (e.g. Docker: `http://localhost:4000`) |
 | **`docker compose`** | Compose sets `PUBLIC_WEB_ORIGIN` default `http://localhost:4000` — register **`http://localhost:4000/api/oauth/google/callback`**. If you change host port, set `PUBLIC_WEB_ORIGIN` to match. |
-| **Brain.app** (bundled Tauri, `BRAIN_BUNDLED_NATIVE=1`) | `https://127.0.0.1:<bound-port>/api/oauth/google/callback` (TLS, OPP-023); ignores `PUBLIC_WEB_ORIGIN` |
+| **Braintunnel.app** (bundled Tauri, `BRAIN_BUNDLED_NATIVE=1`) | `https://127.0.0.1:<bound-port>/api/oauth/google/callback` (TLS, OPP-023); ignores `PUBLIC_WEB_ORIGIN` |
 | **DigitalOcean App Platform** (or similar reverse proxy) | Set **`PUBLIC_WEB_ORIGIN=https://<your-app-host>`** so Google’s `redirect_uri` is your public URL. If you omit it in **`NODE_ENV=production`**, the server **infers** `https://` + `Host` / `X-Forwarded-Host` from the incoming request (so OAuth matches the edge). Prefer an explicit origin so behavior does not depend on headers. |
 
 If `PORT` is set (non-bundled, no `PUBLIC_WEB_ORIGIN`, **not** `NODE_ENV=production` or no forwarded headers), the loopback redirect uses that port on **`127.0.0.1`**.
 
 **Common failure:** `PUBLIC_WEB_ORIGIN` unset in production → authorize URL sends `redirect_uri=http://127.0.0.1:<PORT>/…` → Google sends the **browser** to your laptop’s loopback, not the hosted app → callback on the server sees **no `code`/`state`** (or sign-in never completes). Fix: set `PUBLIC_WEB_ORIGIN` to the exact origin users open (e.g. **`https://staging.braintunnel.ai`**).
 
-**Packaged Brain.app:** The bundled server does not read a workspace `.env`. Put `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in the repo `.env` and build with `BRAIN_EMBED_MASTER_KEY` set (see [AGENTS.md](../AGENTS.md) — same embedding pipeline as LLM keys). Without them, `/api/oauth/google/start` redirects to a short error page (`/oauth/google/error?reason=…`) and the app can show the same text via `GET /api/oauth/google/last-result` (see below).
+**Packaged Braintunnel.app:** The bundled server does not read a workspace `.env`. Put `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in the repo `.env` and build with `BRAIN_EMBED_MASTER_KEY` set (see [AGENTS.md](../AGENTS.md) — same embedding pipeline as LLM keys). Without them, `/api/oauth/google/start` redirects to a short error page (`/oauth/google/error?reason=…`) and the app can show the same text via `GET /api/oauth/google/last-result` (see below).
 
-**Brain.app (Tauri) and the system browser:** The native app does **not** run Google’s sign-in page inside the in-app WebView. When you choose **Connect Google** during onboarding, Brain opens your **default browser** to the same `…/api/oauth/google/start` URL the web app would use, so passkeys, security keys, and 2FA behave like a normal browser. The app polls `GET /api/oauth/google/last-result` (one-shot JSON) to learn when the OAuth **callback** finished, so success and error messages return to the in-app UI even though the sign-in flow ran in the browser. After a successful sign-in, the callback redirects the browser to `/oauth/google/complete` (minimal “return to Brain” page) instead of loading the full app in that tab.
+**Braintunnel (Tauri) and the system browser:** The native app does **not** run Google’s sign-in page inside the in-app WebView. When you choose **Connect Google** during onboarding, Braintunnel opens your **default browser** to the same `…/api/oauth/google/start` URL the web app would use, so passkeys, security keys, and 2FA behave like a normal browser. The app polls `GET /api/oauth/google/last-result` (one-shot JSON) to learn when the OAuth **callback** finished, so success and error messages return to the in-app UI even though the sign-in flow ran in the browser. After a successful sign-in, the callback redirects the browser to `/oauth/google/complete` (minimal “return to Braintunnel” page) instead of loading the full app in that tab.
 
 **Safari and localhost HTTPS (bundled only):** The callback uses `https://127.0.0.1:<port>/api/oauth/google/callback` with a **self-signed** cert (OPP-023). The Tauri web view trusts this via [desktop/Info.plist](../desktop/Info.plist) ATS settings. **Safari** does not—on first connect it may show a **certificate warning** before loading the callback or the `/oauth/google/*` pages. Advancing past that warning is expected for a local, private cert; see [OPP-036](opportunities/OPP-036-trust-surface-and-local-tls-finish.md) for trust-surface follow-ons.
 
@@ -42,7 +42,7 @@ See [multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-archite
    - `http://127.0.0.1:3000/api/oauth/google/callback` (dev, default)
    - `http://localhost:4000/api/oauth/google/callback` (Docker Compose default — `PUBLIC_WEB_ORIGIN`; use the same host/port you open in the browser)
    - `http://127.0.0.1:4000/api/oauth/google/callback` (only if you unset `PUBLIC_WEB_ORIGIN` and use 127.0.0.1 in the browser)
-   - `https://127.0.0.1:18473/api/oauth/google/callback` (Brain.app, TLS)
+   - `https://127.0.0.1:18473/api/oauth/google/callback` (Braintunnel.app, TLS)
    - `https://127.0.0.1:18474/api/oauth/google/callback`
    - `https://127.0.0.1:18475/api/oauth/google/callback`
    - `https://127.0.0.1:18476/api/oauth/google/callback`

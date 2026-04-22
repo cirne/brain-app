@@ -64,15 +64,17 @@ This should feel like **code review or PR approval**, not a social feed—clear,
 
 ## Security model (holistic layers)
 
-| Layer | Intent |
-|--------|--------|
-| **Identity** | Handle resolves to endpoint + key material; optional email/OTP to reduce impersonation. |
-| **Transport** | Direct HTTPS and/or E2E-style payloads; any **cloud coordinator** routes connections only—see [brain-cloud-service.md](../architecture/brain-cloud-service.md). |
-| **Authorization** | Capability-based, least privilege, time-bounded grants; **no ambient escalation** (OPP-001 principles). |
-| **Untrusted peer input** | Treat other brains’ messages like **untrusted documents**; strict tool allowlists; prompt-injection mitigations as in OPP-001. |
-| **Data minimization** | Prefer answers and citations over raw dumps unless explicitly allowed. |
-| **Human gates** | Default **manual approval** for sensitive scopes; rate limits; optional anomaly signals. |
-| **Audit** | Durable local log: request, retrieval, outbound payload; review and export. |
+
+| Layer                    | Intent                                                                                                                                                          |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Identity**             | Handle resolves to endpoint + key material; optional email/OTP to reduce impersonation.                                                                         |
+| **Transport**            | Direct HTTPS and/or E2E-style payloads; any **cloud coordinator** routes connections only—see [brain-cloud-service.md](../architecture/brain-cloud-service.md). |
+| **Authorization**        | Capability-based, least privilege, time-bounded grants; **no ambient escalation** (OPP-001 principles).                                                         |
+| **Untrusted peer input** | Treat other brains’ messages like **untrusted documents**; strict tool allowlists; prompt-injection mitigations as in OPP-001.                                  |
+| **Data minimization**    | Prefer answers and citations over raw dumps unless explicitly allowed.                                                                                          |
+| **Human gates**          | Default **manual approval** for sensitive scopes; rate limits; optional anomaly signals.                                                                        |
+| **Audit**                | Durable local log: request, retrieval, outbound payload; review and export.                                                                                     |
+
 
 **Alpha caveat:** early development with **two live users** (founder + family-office operator with broad personal visibility) is ideal for **stress-testing misuse and over-share**—design as if **one mistake is catastrophic** for that trust class.
 
@@ -96,13 +98,15 @@ Workstreams **1–4** are the minimum credible path to the vision; **5–7** dee
 
 ## Milestones (rough)
 
-| Milestone | Outcome |
-|-----------|---------|
-| **M0** | In-app notification center + rules (including mail-informed urgency). |
-| **M1** | Two-brain connection via handle; explicit scopes; bilateral audit. |
-| **M2** | “Ask the other brain for a status report on topic X” with **human approval every time** on the sender side of the answer. |
-| **M3** | Policy tuning; judge/auto-approval for **narrow** pre-declared scopes only. |
-| **M4** | Optional public slice + discovery (OPP-002), if network growth warrants it. |
+
+| Milestone | Outcome                                                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **M0**    | In-app notification center + rules (including mail-informed urgency).                                                     |
+| **M1**    | Two-brain connection via handle; explicit scopes; bilateral audit.                                                        |
+| **M2**    | “Ask the other brain for a status report on topic X” with **human approval every time** on the sender side of the answer. |
+| **M3**    | Policy tuning; judge/auto-approval for **narrow** pre-declared scopes only.                                               |
+| **M4**    | Optional public slice + discovery (OPP-002), if network growth warrants it.                                               |
+
 
 ---
 

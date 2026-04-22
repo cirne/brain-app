@@ -3,7 +3,7 @@
 **Status:** Planning — to revisit **after** migrating ripmail source into this repository.  
 **Related:** [BUG-004](bugs/BUG-004-full-disk-access-detection-and-onboarding.md) (FDA onboarding UX), [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md) (native Mac app).
 
-This document captures what we know today about **Full Disk Access (FDA)** on macOS, how it interacts with **Brain.app** (Tauri + bundled Node + ripmail), and **architectural options** once **ripmail is developed inside this repo** (no separate “sidecar only” checkout). It is meant to support a later decision on **signing**, **bundle layout**, and **where privileged file I/O runs** — not to prescribe implementation before the migration lands.
+This document captures what we know today about **Full Disk Access (FDA)** on macOS, how it interacts with **Braintunnel.app** (Tauri + bundled Node + ripmail), and **architectural options** once **ripmail is developed inside this repo** (no separate “sidecar only” checkout). It is meant to support a later decision on **signing**, **bundle layout**, and **where privileged file I/O runs** — not to prescribe implementation before the migration lands.
 
 ---
 
@@ -18,7 +18,7 @@ In production we observed a concrete split:
 
 Example (from `GET /api/onboarding/fda?detail=1`):
 
-- `cwd` under `Brain.app/.../server-bundle` (bundled Node).
+- `cwd` under `Braintunnel.app/.../server-bundle` (bundled Node).
 - All three probes failing with **EPERM**, not **ENOENT**.
 
 **Implication:** “User toggled **Brain** ON in System Settings → Full Disk Access” does **not** automatically mean **every** executable inside or next to the app can read TCC-protected locations. **Which Mach-O runs the syscall** and **how it is signed / attributed** matters.
@@ -43,7 +43,7 @@ When **ripmail** is launched **from a shell** in a terminal app that **has** Ful
 
 This is the **same class of effect** as `ls ~/Library/...` working from an FDA-enabled terminal: you are measuring **the terminal’s** permission, not ripmail’s independent identity.
 
-It **contrasts** with **Brain.app → bundled Node**: there the responsible-process chain is different (GUI app spawns a **stock** `node`), and we observed **EPERM** on Node even when the user enabled FDA for **Brain**. So “parent with FDA + child” is **not** one universal rule — **who** the OS considers responsible depends on **how** the child was started and **what** identities are involved.
+It **contrasts** with **Braintunnel.app → bundled Node**: there the responsible-process chain is different (GUI app spawns a **stock** `node`), and we observed **EPERM** on Node even when the user enabled FDA for **Braintunnel**. So “parent with FDA + child” is **not** one universal rule — **who** the OS considers responsible depends on **how** the child was started and **what** identities are involved.
 
 ### How macOS differentiates scenarios (research — not a full spec)
 
@@ -85,7 +85,7 @@ Forum history (including Apple staff) emphasizes **code identity**, bundle struc
 
 ## Current Brain architecture (today)
 
-- **Tauri** hosts the WebView and, in release, spawns the **Node** server (bundled under `Brain.app`, e.g. `server-bundle`).
+- **Tauri** hosts the WebView and, in release, spawns the **Node** server (bundled under `Braintunnel.app`, e.g. `server-bundle`).
 - **ripmail** is bundled inside `server-bundle/ripmail`; `desktop:bundle-server` builds it (release) and the Tauri shell sets `RIPMAIL_BIN` to the bundled path (see `desktop/src/server_spawn.rs`).
 - **FDA probes** exist in:
   - **Rust** (`desktop/src/fda.rs`) — used by the native gate / `invoke`.
@@ -99,7 +99,7 @@ The **failure mode** we care about: **Node** reporting **EPERM** on probes while
 
 **ripmail source code lives in this repository** at `[ripmail/](../ripmail/)` (Cargo workspace member). The old model “separate ripmail repo + symlink into `desktop/binaries` only” is replaced by **building ripmail from the same tree** as Brain’s release pipeline.
 
-That layout supports consolidating **signing**, **CI artifacts**, and **documentation** for “what binaries ship inside Brain.app.”
+That layout supports consolidating **signing**, **CI artifacts**, and **documentation** for “what binaries ship inside Braintunnel.app.”
 
 ---
 
@@ -121,7 +121,7 @@ These are **options**, not commitments. Each should be validated on **real** mac
 - **Large engineering** lift: linking Tauri shell + ripmail into one artifact (or a carefully split static graph), build pipeline complexity, release coupling.
 - **TCC is still not formally guaranteed** to collapse to one toggle — validate empirically.
 
-### B) ripmail remains a **separate** executable inside `Brain.app`, but first-class from this repo
+### B) ripmail remains a **separate** executable inside `Braintunnel.app`, but first-class from this repo
 
 **Idea:** Build `ripmail` from in-repo sources; place it under `Contents/MacOS/` or another **documented** bundle location; sign it with the **same** Developer ID / team as Brain; **never** rely on **stock Node** to open `~/Library/Mail` or other TCC paths.
 
@@ -159,7 +159,7 @@ Any bundling decision should include **one** benchmark pass on “warm search”
 
 ## Operational notes we already learned
 
-- Running **Brain.app from a DMG mount** (e.g. `/Volumes/.../Brain.app`) is brittle for support; prefer `**/Applications`** for realistic FDA/TCC testing.
+- Running **Braintunnel.app from a DMG mount** (e.g. `/Volumes/.../Braintunnel.app`) is brittle for support; prefer `**/Applications`** for realistic FDA/TCC testing.
 - `**GET /api/onboarding/fda?detail=1**` is the **HTTP** probe for the **Node** process (pid, cwd, per-path EPERM/ENOENT). `**[fda]`** logs in unified logging target the **Rust** side. Comparing the two is essential when debugging “gate says yes, mail says no.”
 
 ---

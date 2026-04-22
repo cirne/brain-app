@@ -16,6 +16,8 @@
     onOpenHub: () => void
     /** L1 “New” — same flow as sidebar / ⌘N (e.g. `historyNewChat`). */
     onNewChat?: () => void
+    /** When true, hides the new-chat button (current chat is empty). */
+    isEmptyChat?: boolean
   }
 
   let {
@@ -29,6 +31,7 @@
     onToggleSyncErrors,
     onOpenHub,
     onNewChat,
+    isEmptyChat = false,
   }: Props = $props()
 
   /** Sidebar open (wide header + list): desktop or mobile. */
@@ -72,7 +75,7 @@
       <span class="brand-name">Braintunnel</span>
     {/if}
   </div>
-  {#if onNewChat}
+  {#if onNewChat && !isEmptyChat}
     <div class="new-wrap">
       <button
         type="button"
@@ -82,7 +85,6 @@
         aria-label="New conversation"
       >
         <MessageSquarePlus size={16} strokeWidth={2} aria-hidden="true" />
-        <span class="new-nav-label">New</span>
       </button>
     </div>
   {/if}
@@ -228,22 +230,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
+    width: 40px;
     min-height: var(--tab-h);
-    padding: 0 10px;
     color: var(--text-2);
-    font-size: 12px;
-    font-weight: 500;
     transition: color 0.15s, background 0.15s;
   }
   .new-nav-btn:hover {
     color: var(--text);
     background: var(--bg-3);
   }
-  .new-nav-label {
-    line-height: 1;
-  }
-
   .search-wrap {
     display: flex;
     align-items: center;

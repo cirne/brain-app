@@ -29,7 +29,7 @@ If `doctl account get` shows the wrong team, you are using a token that was issu
 
 ## `doctl` does not read `.env`
 
-The app’s `.env` is for Brain’s server; **`doctl` does not load it**. Either:
+The app’s `.env` is for the Braintunnel server; **`doctl` does not load it**. Either:
 
 - **Export** before running `doctl`: `set -a && source .env && set +a`, or
 - Pass **`-t` / `--access-token`** on each invocation, e.g. `doctl -t "$DO_TOKEN" account get`.
@@ -160,7 +160,7 @@ On a fresh **Ubuntu** droplet (use an **amd64** droplet type to match the defaul
 
 ### Staging: HTTPS public URL
 
-**Current DigitalOcean staging** is **`https://staging.braintunnel.ai`**: TLS terminates **in front of** the Brain container (reverse proxy, load balancer, or tunnel). The container still listens on **HTTP :4000** on the Docker network; browsers never hit plain **:4000** on the public Internet when the edge is configured correctly.
+**Current DigitalOcean staging** is **`https://staging.braintunnel.ai`**: TLS terminates **in front of** the Braintunnel container (reverse proxy, load balancer, or tunnel). The container still listens on **HTTP :4000** on the Docker network; browsers never hit plain **:4000** on the public Internet when the edge is configured correctly.
 
 **New host or environment:** Set **`PUBLIC_WEB_ORIGIN`** to the canonical **`https://…`** origin, register that redirect URI in **Google Cloud Console**, and terminate TLS at the edge — see [OPP-041 — HTTPS / edge checklist](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md#reference-https--edge-checklist-new-hosts).
 
@@ -178,7 +178,7 @@ On a fresh **Ubuntu** droplet (use an **amd64** droplet type to match the defaul
 
 ## Optional: `DO_TOKEN` in `.env`
 
-You may add `DO_TOKEN=` to your **local** `.env` for convenience (see `.env.example`). It is **not** used by `npm run dev` or the Brain server—only for your shell or for passing into `doctl -t "$DO_TOKEN"`.
+You may add `DO_TOKEN=` to your **local** `.env` for convenience (see `.env.example`). It is **not** used by `npm run dev` or the Braintunnel server—only for your shell or for passing into `doctl -t "$DO_TOKEN"`.
 
 ## See also
 

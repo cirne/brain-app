@@ -16,7 +16,7 @@
 
 ## Summary
 
-Brain’s embedded HTTP server (dev `npm run dev`, bundled **Brain.app** on `127.0.0.1` / `localhost` ports) carries **highly sensitive** data: chat, wiki, email-related API responses, OAuth callbacks, and future authenticated session material. **Cleartext HTTP** to a listener that is reachable beyond the loopback interface exposes that traffic to **any device on the same LAN** (coffee-shop WiFi, compromised router, ARP spoofing, etc.). Even with strong cloud auth later, a passive observer on the subnet could **read or replay** local HTTP to the Brain process if the socket is LAN-reachable.
+Braintunnel’s embedded HTTP server (dev `npm run dev`, bundled **Braintunnel.app** on `127.0.0.1` / `localhost` ports) carries **highly sensitive** data: chat, wiki, email-related API responses, OAuth callbacks, and future authenticated session material. **Cleartext HTTP** to a listener that is reachable beyond the loopback interface exposes that traffic to **any device on the same LAN** (coffee-shop WiFi, compromised router, ARP spoofing, etc.). Even with strong cloud auth later, a passive observer on the subnet could **read or replay** local HTTP to the Braintunnel process if the socket is LAN-reachable.
 
 This opportunity tracks **shipping-grade mitigations** before general release: **bind only to loopback** where appropriate, and **encrypt the local leg with TLS** using a **locally generated key + self-signed (or locally issued) certificate** trusted by the WebView—not a public CA or paid “signature service.”
 

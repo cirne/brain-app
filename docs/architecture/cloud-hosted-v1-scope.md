@@ -86,7 +86,7 @@ For each public origin (staging, production), add **Authorized redirect URIs** i
 
 `https://<public-host>/api/oauth/google/callback`
 
-Keep existing **loopback** URIs for local dev and Brain.app as documented in [google-oauth.md](../google-oauth.md).
+Keep existing **loopback** URIs for local dev and Braintunnel.app as documented in [google-oauth.md](../google-oauth.md).
 
 ### OAuth redirect and `PUBLIC_WEB_ORIGIN`
 

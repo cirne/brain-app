@@ -1,5 +1,5 @@
 /**
- * Default HTTP port range when Brain runs as the bundled Tauri native app.
+ * Default HTTP port range when Braintunnel runs as the bundled Tauri native app.
  * Port is chosen at startup from this list (not via `process.env.PORT`).
  *
  * Must stay in sync with `desktop/src/native_port.rs`.
@@ -9,7 +9,7 @@ export const NATIVE_APP_PORT_END = 18522
 
 /**
  * Number of additional ports to try when the primary port is in use.
- * Each macOS user running Brain occupies one port, so 3 failovers supports
+ * Each macOS user running Braintunnel occupies one port, so 3 failovers supports
  * up to 4 simultaneous users on the same machine.
  * Each port must be registered as an Authorized redirect URI in Google Cloud Console.
  */

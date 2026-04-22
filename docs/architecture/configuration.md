@@ -13,10 +13,10 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 | `PORT` | `3000` | Listen port for dev / non-bundled `node dist/server`; bundled app uses `18473` on **`0.0.0.0`** ([Tailscale / LAN policy](./runtime-and-routes.md#tailscale--remote-access-bundled-only)) |
 | `PUBLIC_WEB_ORIGIN` | — | Optional `http(s)://host:port` (no trailing slash). When set and not bundled, [Gmail OAuth redirect](../google-oauth.md) uses this origin so sign-in returns to the same host as the SPA (avoids `localhost` vs `127.0.0.1` cookies). Docker Compose defaults `http://localhost:4000`. **Production:** set to your public `https://…` URL for hosted deploys; if unset, OAuth may infer from `X-Forwarded-Proto` / `Host` (reverse proxies). |
 | `RIPMAIL_BIN` | `ripmail` | Path to ripmail executable |
-| `RIPMAIL_HOME` | `$BRAIN_HOME/ripmail` | Ripmail data dir when unset in Brain (**ignored when `BRAIN_DATA_ROOT` is set** — always `$tenantHome/ripmail`). |
+| `RIPMAIL_HOME` | `$BRAIN_HOME/ripmail` | Ripmail data dir when unset in Braintunnel (**ignored when `BRAIN_DATA_ROOT` is set** — always `$tenantHome/ripmail`). |
 | `RIPMAIL_EMAIL_ADDRESS` / `RIPMAIL_IMAP_PASSWORD` | — | Non-interactive ripmail setup |
-| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | — | In-app Gmail OAuth ([docs/google-oauth.md](../google-oauth.md)); redirect URI follows `PORT` / `PUBLIC_WEB_ORIGIN` / bundled ports. For **Brain.app**, set in `.env` when building with `BRAIN_EMBED_MASTER_KEY` so they are embedded like other allowlisted secrets (GUI apps do not load shell `.env`). |
-| `RIPMAIL_GOOGLE_OAUTH_CLIENT_ID` / `RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET` | — | Ripmail token refresh; if unset, Brain maps from `GOOGLE_OAUTH_*` in `ripmailProcessEnv` |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | — | In-app Gmail OAuth ([docs/google-oauth.md](../google-oauth.md)); redirect URI follows `PORT` / `PUBLIC_WEB_ORIGIN` / bundled ports. For **Braintunnel.app**, set in `.env` when building with `BRAIN_EMBED_MASTER_KEY` so they are embedded like other allowlisted secrets (GUI apps do not load shell `.env`). |
+| `RIPMAIL_GOOGLE_OAUTH_CLIENT_ID` / `RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET` | — | Ripmail token refresh; if unset, Braintunnel maps from `GOOGLE_OAUTH_*` in `ripmailProcessEnv` |
 | `OPENAI_API_KEY` | — | Ripmail validation / optional ripmail LLM features |
 | `LLM_PROVIDER` | `anthropic` | Agent LLM provider (`anthropic`, `openai`, …) |
 | `LLM_MODEL` | `claude-sonnet-4-20250514` | Agent model id |

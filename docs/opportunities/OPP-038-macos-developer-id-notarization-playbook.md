@@ -1,4 +1,4 @@
-# OPP-038: macOS Developer ID signing + notarization playbook (Braintunnel / Brain.app)
+# OPP-038: macOS Developer ID signing + notarization playbook (Braintunnel / Braintunnel.app)
 
 **Status: open (2026).** No repo-automated release pipeline for Apple signing yet; this document captures the **intended operator workflow** for low-friction distribution (e.g. ~50 testers downloading a DMG). **Related:** [OPP-029](OPP-029-auto-update.md) (updater uses separate `TAURI_SIGNING_`* keys), [OPP-036](OPP-036-trust-surface-and-local-tls-finish.md) (TLS to localhost vs OS trust), [docs/ripmail-macos-tcc-and-bundling.md](../ripmail-macos-tcc-and-bundling.md) (every shipped Mach-O should share a coherent identity). Official Tauri reference: [macOS code signing](https://v2.tauri.app/distribute/sign/macos/), [environment variables](https://v2.tauri.app/reference/environment-variables/).
 

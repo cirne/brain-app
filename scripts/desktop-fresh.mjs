@@ -2,7 +2,7 @@
 /**
  * 1. `desktop:clean-data`
  * 2. `npm run desktop:build`
- * 3. macOS: open newest `.dmg` (mode `dmg`) or `Brain.app` under `target/**/release/bundle/macos/` (mode `app`)
+ * 3. macOS: open newest `.dmg` (mode `dmg`) or `Braintunnel.app` under `target/**/release/bundle/macos/` (mode `app`)
  *
  * Usage:
  *   npm run desktop:fresh              # default — DMG for drag-to-Applications
@@ -56,14 +56,17 @@ function findNewestDmg() {
   return best?.path ?? null
 }
 
-function findBrainApp() {
+function findBraintunnelApp() {
+  const names = ['Braintunnel.app', 'Brain.app']
   const bases = [
     join(root, 'target', 'release', 'bundle', 'macos'),
     join(root, 'desktop', 'target', 'release', 'bundle', 'macos'),
   ]
   for (const b of bases) {
-    const app = join(b, 'Brain.app')
-    if (existsSync(app)) return app
+    for (const name of names) {
+      const app = join(b, name)
+      if (existsSync(app)) return app
+    }
   }
   return null
 }
@@ -86,10 +89,10 @@ if (mode === 'dmg') {
     console.log('[desktop:fresh] not macOS — copy/open the DMG from the path above on a Mac')
   }
 } else {
-  const app = findBrainApp()
+  const app = findBraintunnelApp()
   if (!app) {
     console.error(
-      `[desktop:fresh] Brain.app not found under target/**/release/bundle/macos (checked workspace targets)`,
+      `[desktop:fresh] Braintunnel.app not found under target/**/release/bundle/macos (checked Braintunnel.app, legacy Brain.app)`,
     )
     process.exit(1)
   }

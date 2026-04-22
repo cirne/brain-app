@@ -1,11 +1,11 @@
-# OPP-021: User Settings (Brain Hub Home for Non-Chat Configuration)
+# OPP-021: User Settings (Braintunnel Hub — home for non-chat configuration)
 
 **Status:** Completed (Scaffolding) / Archived — 2026-04-19.
 **Successor:** Future feature-specific opportunities (e.g., OPP-051 for Sources).
 
 ## Summary
 
-Introduce **Brain Hub**—reachable from the **top navigation bar** (the `BrainHubWidget` shows doc count or active agent status)—as the **canonical place for everything that is not “run the agent in chat.”**
+Introduce **Braintunnel Hub**—reachable from the **top navigation bar** (the `BrainHubWidget` shows doc count or active agent status)—as the **canonical place for everything that is not “run the agent in chat.”**
 
 ## Progress & Accomplishments (Scaffolding Phase)
 

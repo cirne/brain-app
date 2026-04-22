@@ -1,4 +1,4 @@
-# New Relic (Brain / Braintunnel)
+# New Relic (Braintunnel)
 
 This document is the **in-repo reference** for account identifiers, entities, how the Node agent is wired, and **custom event types** we define. For day-to-day NRQL examples, CLI commands, and analysis hygiene, use the Cursor skill at [.cursor/skills/newrelic/SKILL.md](../.cursor/skills/newrelic/SKILL.md).
 

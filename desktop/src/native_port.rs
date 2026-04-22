@@ -1,4 +1,4 @@
-//! Default HTTP port range for the bundled Brain server (Node picks from this list; see
+//! Default HTTP port range for the bundled Braintunnel server (Node picks from this list; see
 //! `nativeAppPort.ts`). Tauri reads the bound port from child stdout (`BRAIN_LISTEN_PORT`), not
 //! by probing TCP.
 //! Must stay in sync with `src/server/lib/nativeAppPort.ts`.

@@ -4,13 +4,13 @@
 
 ## Symptom
 
-On macOS, when **Brain.app** (release / bundled server path) runs and the **preferred loopback port** (start of the native range, e.g. `18473`) is **already in use** by another login/session or process on the same machine, the **webview can show `404 Not Found`** or otherwise load the **wrong origin**. The address bar / loaded URL does not match the port the **current** Node server actually bound to.
+On macOS, when **Braintunnel.app** (release / bundled server path) runs and the **preferred loopback port** (start of the native range, e.g. `18473`) is **already in use** by another login/session or process on the same machine, the **webview can show `404 Not Found`** or otherwise load the **wrong origin**. The address bar / loaded URL does not match the port the **current** Node server actually bound to.
 
 Dev note: **`npm run desktop:dev`** uses debug Rust and loads `http://localhost:3000` from config; it does **not** exercise the bundled-server + `navigate()` path. Repro requires a **release** Tauri build or **`tauri dev --release`** with a valid `desktop/resources/server-bundle/`.
 
 ## Root cause (confirmed)
 
-The Tauri shell used to infer the listening port by **`TcpStream::connect`** to candidates in order. That returns the **first** port in the range something accepts — often **another user’s** Brain (or any server) on `18473` — not necessarily **this** process’s server after it falls back to `18474`, etc.
+The Tauri shell used to infer the listening port by **`TcpStream::connect`** to candidates in order. That returns the **first** port in the range something accepts — often **another user’s** Braintunnel (or any server) on `18473` — not necessarily **this** process’s server after it falls back to `18474`, etc.
 
 ## Fix attempt (in tree)
 
@@ -28,7 +28,7 @@ The Tauri shell used to infer the listening port by **`TcpStream::connect`** to 
 
 ## Fix direction
 
-- Verify in **`node-server.log`** (app log dir) that `BRAIN_LISTEN_PORT=…` appears and matches the port in Rust logs (`Brain bundled server listening on 127.0.0.1:…`).
+- Verify in **`node-server.log`** (app log dir) that `BRAIN_LISTEN_PORT=…` appears and matches the port in Rust logs (`Braintunnel bundled server listening on 127.0.0.1:…`).
 - If Rust has the right port but UI is wrong, focus on **Tauri window lifecycle**: ensure **one** authoritative URL (e.g. always `navigate` after spawn, or avoid loading `frontendDist` until port known).
 - Add **logging** when `navigate` runs and on failure.
 - Optional: **integration test** that spawns bundled Node and asserts the handshake line (without full GUI).

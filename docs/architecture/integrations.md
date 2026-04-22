@@ -10,7 +10,7 @@
 
 ## Ripmail subprocess
 
-Email and indexed local files are accessed by spawning the **`ripmail`** CLI with `RIPMAIL_HOME` set to Brain’s ripmail dir (`$BRAIN_HOME/ripmail` by default). No in-process Rust linkage from Node.
+Email and indexed local files are accessed by spawning the **`ripmail`** CLI with `RIPMAIL_HOME` set to Braintunnel’s ripmail dir (`$BRAIN_HOME/ripmail` by default). No in-process Rust linkage from Node.
 
 - Binary: `RIPMAIL_BIN` (workspace debug binary wired in dev when present — see [`run-dev.mjs`](../../scripts/run-dev.mjs)); Tauri bundles release `ripmail` in `server-bundle/`.
 - Agent tools wrap `ripmail search`, `ripmail read`, `ripmail draft`, `ripmail inbox`, etc.

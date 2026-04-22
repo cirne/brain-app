@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 /**
  * Path to the ripmail CLI for subprocess calls.
- * Bundled Brain.app sets `RIPMAIL_BIN` to an absolute path; this also falls back to
+ * Bundled Braintunnel.app sets `RIPMAIL_BIN` to an absolute path; this also falls back to
  * `./ripmail` next to cwd when `BRAIN_BUNDLED_NATIVE=1` (server-bundle layout).
  */
 export function ripmailBin(): string {

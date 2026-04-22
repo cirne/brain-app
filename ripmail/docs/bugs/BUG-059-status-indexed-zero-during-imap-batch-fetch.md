@@ -3,13 +3,13 @@
 **Status:** Open  
 **Severity:** High (onboarding and any UI that polls `search.indexedMessages` during first backfill)  
 **Component:** IMAP sync (`src/sync/run.rs`), status (`src/status.rs`, `src/cli/commands/sync.rs`), optional: `src/db/message_persist.rs`  
-**Reported:** 2026-04-19 (Brain onboarding — Gmail flow; `sync.log` vs `ripmail status --json`)
+**Reported:** 2026-04-19 (Braintunnel onboarding — Gmail flow; `sync.log` vs `ripmail status --json`)
 
 ---
 
 ## Summary
 
-During a long **first backfill** (many **`Fetching batch i/n (50 message(s))…`** lines in `sync.log`), **`ripmail status --json`** continues to report **`search.indexedMessages` / `ftsReady` = 0** (and per-mailbox **`messageCount` = 0**) for an extended time. Host apps (e.g. Brain onboarding) poll this and show **“0 / N messages indexed”** even while batches advance into the dozens or hundreds, so progress looks **stuck or wrong**.
+During a long **first backfill** (many **`Fetching batch i/n (50 message(s))…`** lines in `sync.log`), **`ripmail status --json`** continues to report **`search.indexedMessages` / `ftsReady` = 0** (and per-mailbox **`messageCount` = 0**) for an extended time. Host apps (e.g. Braintunnel onboarding) poll this and show **“0 / N messages indexed”** even while batches advance into the dozens or hundreds, so progress looks **stuck or wrong**.
 
 This may be **(A)** a real defect (no rows reaching `messages`, or not visible to a second connection), **(B)** expected behavior that is too subtle (e.g. every message skipped as duplicate / excluded until a later phase), or **(C)** a **product gap**: **`status` has no download-phase fields**, so UIs cannot show “fetched vs persisted” even when sync is healthy.
 
@@ -80,4 +80,4 @@ At least one of:
 ## Related
 
 - Similar class of issue (persistence vs counters): historical **[BUG-057](BUG-057-applemail-sync-new-indexed-zero.md)** (Apple Mail; different root cause, fixed).
-- Host integration: Brain reads **`GET /api/onboarding/mail`** → **`ripmail status --json`** (`brain-app`).
+- Host integration: Braintunnel reads **`GET /api/onboarding/mail`** → **`ripmail status --json`** (`brain-app`).

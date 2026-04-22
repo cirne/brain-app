@@ -48,6 +48,7 @@
   /** Live `edit` tool — wiki pane shows “Editing…” until tool_end. */
   let wikiEditStreaming = $state<{ path: string; toolId: string } | null>(null)
   let agentChat = $state<AgentChat | undefined>()
+  let chatIsEmpty = $state(true)
   let mobileSlideOver = $state<{ closeAnimated: () => void } | undefined>()
   let workspaceSplit = $state<WorkspaceSplit | undefined>()
   /** Desktop: detail pane fills workspace when true (WorkspaceSplit + SlideOver header). */
@@ -226,6 +227,7 @@
 
   /** Slide-over layout: dismiss overlay after send so the transcript is visible. */
   function closeOverlayOnUserSend() {
+    chatIsEmpty = false
     if (!useDesktopSplitDetail && route.overlay) {
       closeOverlayImmediate()
     }
@@ -410,6 +412,7 @@
   async function selectChatSession(id: string) {
     closeOverlayImmediate()
     await agentChat?.loadSession(id)
+    chatIsEmpty = false
     if (isMobile) sidebarOpen = false
   }
 
@@ -428,6 +431,7 @@
     navigate({ hubActive: false })
     route = parseRoute()
     agentChat?.newChat()
+    chatIsEmpty = true
     if (isMobile) sidebarOpen = false
   }
 
@@ -488,6 +492,7 @@
       route = parseRoute()
     }}
     onNewChat={historyNewChat}
+    isEmptyChat={chatIsEmpty}
   />
 
     <div class="app-main-row">

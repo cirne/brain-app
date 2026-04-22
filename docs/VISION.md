@@ -8,7 +8,7 @@ The assistant is genuinely useful on day one (email search, calendar lookup, qui
 
 ### Personal wiki (what we call it)
 
-We use **wiki** on purpose: it is a familiar pattern—**linked text pages** (like the public sites built on the same idea), but **private and yours**. Brain helps you **create and maintain** that wiki so it captures what matters; the assistant then **reads** it to stay personalized instead of generic. New users do not need prior wiki experience—[product copy and onboarding framing](product/personal-wiki.md) explain it in plain language.
+We use **wiki** on purpose: it is a familiar pattern—**linked text pages** (like the public sites built on the same idea), but **private and yours**. Braintunnel helps you **create and maintain** that wiki so it captures what matters; the assistant then **reads** it to stay personalized instead of generic. New users do not need prior wiki experience—[product copy and onboarding framing](product/personal-wiki.md) explain it in plain language.
 
 ---
 
@@ -52,7 +52,7 @@ No setup wizard. No configuration files. No explaining yourself. It just works, 
 
 **Medium term (productization):** Google OAuth replaces manual setup. Email sync starts automatically after consent. Wiki storage moves off git onto something zero-friction (S3-compatible). Calendar integration is OAuth-driven. A new user can be fully set up in minutes without touching a terminal. See [PRODUCTIZATION.md](./PRODUCTIZATION.md) for the blockers.
 
-**Long term (the magic):** Automatic wiki scaffolding on signup — the assistant reads email history and bootstraps the wiki with pages for frequent contacts, ongoing projects, and recurring topics. Proactive suggestions: "you haven't followed up with X in a month," "you have a trip to Y coming up, want me to pull together your notes?" The brain grows passively, not just when you explicitly ask it to.
+**Long term (the magic):** Automatic wiki scaffolding on signup — the assistant reads email history and bootstraps the wiki with pages for frequent contacts, ongoing projects, and recurring topics. Proactive suggestions: "you haven't followed up with X in a month," "you have a trip to Y coming up, want me to pull together your notes?" The wiki grows passively, not just when you explicitly ask it to.
 
 ---
 
@@ -60,5 +60,5 @@ No setup wizard. No configuration files. No explaining yourself. It just works, 
 
 - A generic AI chatbot. The whole point is personalization.
 - A replacement for email or calendar apps. It's a layer on top of them.
-- A team tool. The unit is a person, not an organization. Every user has their own brain.
+- A team tool. The unit is a person, not an organization. Every user has their own Braintunnel.
 - An Obsidian plugin or a notes app. The wiki is a means to an end — grounding the assistant — not the primary interface.

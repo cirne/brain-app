@@ -2,7 +2,7 @@
 
 ## Summary
 
-We can produce a **Brain.app** / **DMG**, but several issues block a **shareable image** that a user with **no developer setup** can run successfully after granting **Full Disk Access (FDA)** and related macOS permissions. This bug tracks those gaps and the **developer experience** problems that make diagnosing them slow.
+We can produce a **Braintunnel.app** / **DMG**, but several issues block a **shareable image** that a user with **no developer setup** can run successfully after granting **Full Disk Access (FDA)** and related macOS permissions. This bug tracks those gaps and the **developer experience** problems that make diagnosing them slow.
 
 **Opportunity context:** [OPP-007: Native Mac App Packaging (archived)](../opportunities/archive/OPP-007-native-mac-app.md) — basic bundle shipped; this bug tracks remaining polish.
 
@@ -18,7 +18,7 @@ We can produce a **Brain.app** / **DMG**, but several issues block a **shareable
 
 - The server historically ran `**verifyLlmAtStartup()` before binding to port 3000**. If `**ANTHROPIC_API_KEY`** (or the active provider’s key) was missing—as is typical for a GUI-launched app without embedded secrets—the Node process **exited before `listen()`**, so **nothing listened on localhost:3000**. Tauri’s bootstrap waits for that port; setup then **failed** and the process could **exit unexpectedly**.
 - **Embedded keys** require a **build-time** `BRAIN_EMBED_MASTER_KEY` and encrypted `.env` material; a local `tauri build` without that path still produces an app with **empty** embedded secrets.
-- **GUI apps** do not inherit shell-only env (`~/.zshrc`, etc.), so “I have keys in my terminal” does not apply to the **Brain.app** process unless we inject them another way (embedded env, Keychain, first-run UI, or docs).
+- **GUI apps** do not inherit shell-only env (`~/.zshrc`, etc.), so “I have keys in my terminal” does not apply to the **Braintunnel.app** process unless we inject them another way (embedded env, Keychain, first-run UI, or docs).
 
 **Mitigation merged:** the server now **binds HTTP first**, then runs diagnostics + LLM smoke checks **after** listen, and LLM failure **logs** instead of killing the process—so the **UI can load** and the app can stay open while keys are fixed.
 

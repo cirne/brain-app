@@ -16,7 +16,7 @@ const completeHtml = `<!DOCTYPE html>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="refresh" content="3;url=/onboarding" />
-  <title>Gmail connected — Brain</title>
+  <title>Gmail connected — Braintunnel</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #111; }
     p { margin: 0.75rem 0; }
@@ -30,7 +30,7 @@ const completeHtml = `<!DOCTYPE html>
 <body>
   <h1>Gmail connected</h1>
   <p>Redirecting to onboarding… If nothing happens, <a href="/onboarding">continue here</a>.</p>
-  <p><strong>Brain.app (desktop):</strong> you can close this tab and return to the app.</p>
+  <p><strong>Braintunnel (desktop):</strong> you can close this tab and return to the app.</p>
 </body>
 </html>`
 

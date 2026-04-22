@@ -1,9 +1,9 @@
 ---
 name: desktop
-description: Troubleshoots Brain macOS Brain.app (Tauri) and bundled Node server — logs, FDA, ports, BRAIN_HOME/RIPMAIL_HOME, API keys, and build iteration. Use when the user invokes /desktop, or when debugging packaged app, DMG, desktop:build, webview 404, wrong data path, inbox/mail permissions, or native shell issues.
+description: Troubleshoots Braintunnel on macOS (Braintunnel.app / Tauri) and bundled Node server — logs, FDA, ports, BRAIN_HOME/RIPMAIL_HOME, API keys, and build iteration. Use when the user invokes /desktop, or when debugging packaged app, DMG, desktop:build, webview 404, wrong data path, inbox/mail permissions, or native shell issues.
 ---
 
-# Desktop (Brain.app) troubleshooting
+# Desktop (Braintunnel.app) troubleshooting
 
 ## Log locations (macOS)
 
@@ -43,14 +43,14 @@ If **`ripmail index: messages≈0`** but mail was synced before: often **FDA off
 
 ### BUG-003 ([docs/bugs/BUG-003-native-mac-app-ship-blockers.md](../../../docs/bugs/BUG-003-native-mac-app-ship-blockers.md))
 
-- **GUI apps do not inherit shell env** (`~/.zshrc`, etc.). Keys that “work in Terminal” may be missing for **Brain.app** unless embedded at build (`BRAIN_EMBED_MASTER_KEY` + allowlisted secrets) or set another documented way.
+- **GUI apps do not inherit shell env** (`~/.zshrc`, etc.). Keys that “work in Terminal” may be missing for **Braintunnel.app** unless embedded at build (`BRAIN_EMBED_MASTER_KEY` + allowlisted secrets) or set another documented way.
 - **Iteration:** Prefer **`npm run desktop:dev`** or **`npm run dev`** for API/UI; reserve **`npm run desktop:build`** / **`tauri build`** for release-style verification. Changing spawn/env/logging: often **`cargo`** in `desktop/` without a full product bundle.
 - **Before any Node command:** **`nvm use`** at repo root (see **[AGENTS.md](../../../AGENTS.md)**) — wrong Node breaks native addons and server-bundle contents.
 
 ### BUG-009 ([docs/bugs/BUG-009-desktop-webview-wrong-port.md](../../../docs/bugs/BUG-009-desktop-webview-wrong-port.md)) — open
 
 - If loopback port **18473** (or the start of the native range) is **already taken** (another session/user/process), the webview can show **404** or the **wrong origin**.
-- Server prints **`BRAIN_LISTEN_PORT=<port>`**; Rust parses child stdout — verify in **`node-server.log`** that the port matches **`Brain bundled server listening on 127.0.0.1:…`** in Rust logs.
+- Server prints **`BRAIN_LISTEN_PORT=<port>`**; Rust parses child stdout — verify in **`node-server.log`** that the port matches **`Braintunnel bundled server listening on 127.0.0.1:…`** in Rust logs.
 - Repro needs **release** bundled path, not only `desktop:dev` (dev uses **:3000**).
 
 ### BUG-004 (FDA) ([docs/bugs/BUG-004-full-disk-access-detection-and-onboarding.md](../../../docs/bugs/BUG-004-full-disk-access-detection-and-onboarding.md))

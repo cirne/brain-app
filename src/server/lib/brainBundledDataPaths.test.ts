@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 
 /**
- * Bundled Brain.app defaults — must match `desktop/src/brain_paths.rs` + `shared/brain-layout.json`
+ * Bundled Braintunnel.app defaults — must match `desktop/src/brain_paths.rs` + `shared/brain-layout.json`
  * + `shared/bundle-defaults.json`.
  */
 function macBundledDefaultPaths(home: string) {

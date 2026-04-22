@@ -1,5 +1,5 @@
 /**
- * Self-signed TLS for the bundled (Brain.app) embedded Hono server (OPP-023).
+ * Self-signed TLS for the bundled (Braintunnel.app) embedded Hono server (OPP-023).
  * Key + cert live under `$BRAIN_HOME/var/`; see shared/brain-layout.json.
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'

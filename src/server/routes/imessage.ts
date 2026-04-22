@@ -30,7 +30,7 @@ imessage.get('/thread', (c) => {
     const full_disk_access_hint = onMac && !isFdaGranted()
     const error = onMac
       ? 'Local Messages database not available on this host.'
-      : 'Local Messages is only available when Brain runs on macOS.'
+      : 'Local Messages is only available when Braintunnel runs on macOS.'
     return c.json(
       {
         ok: false,

@@ -3,7 +3,7 @@
  * Prints Gmail OAuth redirect URIs (must match `googleOAuthRedirectUri()` in
  * src/server/lib/brainHttpPort.ts and Google Cloud Console).
  *
- * Register in Authorized redirect URIs: dev uses :3000 (http); Brain.app uses :18473+ (https).
+ * Register in Authorized redirect URIs: dev uses :3000 (http); Braintunnel.app uses :18473+ (https).
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -31,4 +31,4 @@ console.log(`Dev / npm run dev (default PORT): http://127.0.0.1:${devPort}${path
 console.log(
   `With PUBLIC_WEB_ORIGIN (e.g. Docker):  \${PUBLIC_WEB_ORIGIN}/api/oauth/google/callback`,
 )
-console.log(`Brain.app (bundled server):       https://127.0.0.1:${nativePort}${path}`)
+console.log(`Braintunnel.app (bundled server): https://127.0.0.1:${nativePort}${path}`)

@@ -1,5 +1,5 @@
 /**
- * ripmail prints a generic "terminal app" FDA line; Brain runs ripmail from Brain.app or dev.
+ * ripmail prints a generic "terminal app" FDA line; Braintunnel runs ripmail from Braintunnel.app or dev.
  * Append actionable macOS guidance when the failure looks like Mail path / FDA.
  */
 export function enrichAppleMailSetupError(raw: string): string {

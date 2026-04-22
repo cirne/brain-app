@@ -18,7 +18,7 @@ Modify `buildBaseSystemPrompt` in [`assistantAgent.ts`](../../src/server/agent/a
 ## Available Specialized Skills
 If the user's request relates to any of these areas, you should proactively load the detailed skill instructions using the `load_skill` tool before proceeding:
 - **calendar**: Manage calendars, schedule meetings, and control visibility.
-- **desktop**: Troubleshoot Brain macOS Brain.app (Tauri) and bundled Node server.
+- **desktop**: Troubleshoot Braintunnel macOS Braintunnel.app (Tauri) and bundled Node server.
 - **commit**: Guides pre-commit verification and scoped lint/tests.
 ```
 

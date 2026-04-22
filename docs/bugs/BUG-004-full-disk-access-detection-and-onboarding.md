@@ -30,7 +30,7 @@
 
 ## Summary (historical)
 
-Brain.app requires **Full Disk Access (FDA)** to read iMessage, Notes, Safari history, and Apple Mail data. Previously the app lacked guided onboarding; that gap is addressed by the implementation above.
+Braintunnel.app requires **Full Disk Access (FDA)** to read iMessage, Notes, Safari history, and Apple Mail data. Previously the app lacked guided onboarding; that gap is addressed by the implementation above.
 
 **Related:** [BUG-003](BUG-003-native-mac-app-ship-blockers.md) (native app ship blockers), [OPP-007 (archived)](../opportunities/archive/OPP-007-native-mac-app.md) (native Mac app packaging).
 
@@ -114,19 +114,19 @@ Features that need FDA should surface actionable copy. Messages uses `full_disk_
 - **"Later"** is per-session (sessionStorage). Every cold launch re-checks.
 - **`cargo run --release`:** FDA check behaves like other macOS runs; probe paths exist on typical systems.
 - **Non-macOS:** Rust and Node probes report no FDA concept; gate does not apply.
-- **Sandboxed builds:** FDA detection does not apply; Brain.app is distributed unsandboxed.
+- **Sandboxed builds:** FDA detection does not apply; Braintunnel.app is distributed unsandboxed.
 
 ## Testing
 
 - **Automated:** `cargo test` in `desktop/` (includes `fda` module); Vitest `fdaProbe.test.ts`, `onboarding.test.ts` (`/api/onboarding/fda`), `imessage.test.ts` (`full_disk_access_hint`).
 - **Manual:** see checklist below.
 
-### Manual test checklist (release Brain.app)
+### Manual test checklist (release Braintunnel.app)
 
-1. Build a release DMG (e.g. `npm run desktop:fresh` or `npm run desktop:build`) on macOS **without** Full Disk Access for Brain.
+1. Build a release DMG (e.g. `npm run desktop:fresh` or `npm run desktop:build`) on macOS **without** Full Disk Access for Braintunnel.
 2. Launch the app — the **Full Disk Access** gate modal should appear (production Tauri only; `npm run dev` / browser should not show it).
 3. Tap **Open System Settings** — Privacy & Security → Full Disk Access should open.
-4. Enable **Brain**, return to the app — within a few seconds the UI should show **Permission granted — restarting…** and the app should **relaunch**.
+4. Enable **Braintunnel**, return to the app — within a few seconds the UI should show **Permission granted — restarting…** and the app should **relaunch**.
 5. After relaunch, the gate should **not** appear (FDA granted).
 6. Tap **Later** on a fresh session (or clear FDA and dismiss) — onboarding/chat should load; Messages thread panel should offer **Grant Full Disk Access…** when the API returns `full_disk_access_hint`.
 7. `GET /api/onboarding/fda` returns `{ granted: true | false }`; startup diagnostics include a line **`Full Disk Access: granted`** or **`Full Disk Access: NOT granted`** (Node process), and Console / log stream can show **`[fda]`** lines from the Tauri main process.

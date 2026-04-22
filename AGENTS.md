@@ -1,6 +1,6 @@
-# brain-app
+# brain-app (Braintunnel)
 
-Hono + Svelte + pi-agent-core web app: Chat (agentic), Wiki browser, and Inbox (ripmail).
+Hono + Svelte + pi-agent-core web app: Chat (agentic), Wiki browser, and Inbox (ripmail). **Product name:** **Braintunnel** (macOS bundle: `Braintunnel.app`). The repository and many env vars remain `brain-app` / `BRAIN_*` for historical reasons.
 
 ## Development rules
 
@@ -85,8 +85,8 @@ npm run ripmail:build          # cargo build -p ripmail --release
 npm run ripmail:test           # cargo test -p ripmail
 npm run dev:clean              # delete dev durable data: `./data` unless `BRAIN_HOME` is set (same tree as `npm run dev`; not packaged-app bundle paths)
 npm run desktop:dev            # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
-npm run desktop:build          # npm build + bundle server + Brain.app (+ DMG on macOS)
-npm run desktop:fresh          # `desktop:clean-data` + `desktop:build`, then opens the DMG (default) or `Brain.app` with `-- app` (macOS) — see `scripts/desktop-fresh.mjs`
+npm run desktop:build          # npm build + bundle server + Braintunnel.app (+ DMG on macOS)
+npm run desktop:fresh          # `desktop:clean-data` + `desktop:build`, then opens the DMG (default) or `Braintunnel.app` with `-- app` (macOS) — see `scripts/desktop-fresh.mjs`
 npm run desktop:clean-data     # delete packaged-app data: local `BRAIN_HOME` default + macOS wiki parent (`~/Documents/Brain` from bundle-defaults) when using default paths, or explicit `$BRAIN_HOME` / `$BRAIN_WIKI_ROOT` (+ macOS logs); not `./data` unless `BRAIN_HOME` points there
 ```
 
@@ -108,5 +108,5 @@ Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The packag
 
 `tauri build` runs `npm run build && npm run desktop:bundle-server`, which copies `dist/`, production `node_modules`, the current `node` binary, and a **release-built `ripmail`** (from `cargo build -p ripmail --release`) into `desktop/resources/server-bundle/` (gitignored). The packaged app’s WebView navigates to the embedded Hono server at **`https://127.0.0.1:<port>/`** (self-signed TLS, cert under `$BRAIN_HOME/var`, OPP-023); Tauri’s `tauri.conf.json` `build.frontendDist` placeholder is `https://127.0.0.1:18473`. The bundled Node + `dist/server` serves that listener (release only; dev still uses `npm run dev` → `http://localhost:3000`). In-app auto-update uses **`tauri-plugin-updater`**: `tauri.conf.json` includes a `pubkey` and **`plugins.updater.endpoints` is empty by default** (no update checks until you publish a manifest and add endpoint URLs). Replace the checked-in public key with one from **`npx tauri signer generate`** (keep the private key out of git; CI uses `TAURI_SIGNING_PRIVATE_KEY` or `TAURI_SIGNING_PRIVATE_KEY_PATH` to sign artifacts). On macOS, `desktop/tauri.macos.conf.json` limits bundle output to `**dmg**` (instead of `all`).
 
-**Embedded secrets (release builds):** set `BRAIN_EMBED_MASTER_KEY` in the environment or in the workspace `.env` when running `tauri build`. The build script reads allowlisted entries from the repo `.env` (`ANTHROPIC_API_KEY`, other `*_API_KEY` for LLM providers, `EXA_API_KEY`, `SUPADATA_API_KEY`, plus `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` for in-app Gmail OAuth in Brain.app), encrypts them, and embeds ciphertext in the Rust binary; Rust decrypts at launch and sets environment variables on the Tauri process so the bundled Node child inherits them (no decryption in TypeScript). CI should set `BRAIN_EMBED_MASTER_KEY` and the same secrets as env vars (or a generated `.env`) rather than committing secrets. If `BRAIN_EMBED_MASTER_KEY` is unset, the bundle still builds but ships without embedded secrets (users would need local configuration for those APIs and Gmail connect will show `oauth_not_configured` until credentials are embedded or otherwise supplied).
+**Embedded secrets (release builds):** set `BRAIN_EMBED_MASTER_KEY` in the environment or in the workspace `.env` when running `tauri build`. The build script reads allowlisted entries from the repo `.env` (`ANTHROPIC_API_KEY`, other `*_API_KEY` for LLM providers, `EXA_API_KEY`, `SUPADATA_API_KEY`, plus `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` for in-app Gmail OAuth in Braintunnel.app), encrypts them, and embeds ciphertext in the Rust binary; Rust decrypts at launch and sets environment variables on the Tauri process so the bundled Node child inherits them (no decryption in TypeScript). CI should set `BRAIN_EMBED_MASTER_KEY` and the same secrets as env vars (or a generated `.env`) rather than committing secrets. If `BRAIN_EMBED_MASTER_KEY` is unset, the bundle still builds but ships without embedded secrets (users would need local configuration for those APIs and Gmail connect will show `oauth_not_configured` until credentials are embedded or otherwise supplied).
 

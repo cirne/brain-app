@@ -1,9 +1,9 @@
 # Archived: OPP-013 (Docker Deployment)
 
-**Status: Will not do — archived.** Docker is no longer in scope. Brain is a native desktop app (Tauri + Brain.app / DMG), not a container workload. The local-first, macOS-native architecture is the right call: it enables Full Disk Access for iMessage/Mail, eliminates cloud sync requirements, and keeps all user data on-device. A Docker deployment would work against these core design principles.
+**Status: Will not do — archived.** Docker is no longer in scope. Braintunnel is a native desktop app (Tauri + Braintunnel.app / DMG), not a container workload. The local-first, macOS-native architecture is the right call: it enables Full Disk Access for iMessage/Mail, eliminates cloud sync requirements, and keeps all user data on-device. A Docker deployment would work against these core design principles.
 
 **Why Docker was removed:**
-- Brain.app (Tauri) is shipped as a signed, notarized DMG — the native app is the release artifact
+- Braintunnel.app (Tauri) is shipped as a signed, notarized DMG — the native app is the release artifact
 - Full Disk Access (required for Apple Mail, iMessage) is impossible from a container
 - `BRAIN_HOME` / `RIPMAIL_HOME` data layout is designed around macOS filesystem conventions
 - Container hosting adds cost, latency, and privacy concerns incompatible with local-first

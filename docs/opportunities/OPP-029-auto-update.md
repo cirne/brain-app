@@ -1,10 +1,10 @@
-# OPP-029: Desktop auto-update (Brain.app)
+# OPP-029: Desktop auto-update (Braintunnel.app)
 
 **Status: partial (2026).** `tauri-plugin-updater` is **wired** in the Rust shell; the client can **check** and **install**; `plugins.updater.endpoints` in `tauri.conf.json` is **empty** until a team hosts a version manifest. **Still to ship:** public `latest.json` (or Tauri v2–equivalent) + signed `*.app.tar.gz`, `TAURI_SIGNING_*` in CI, and the usual **notarization** story for non-developer installs. See [AGENTS.md](../../AGENTS.md).
 
 ## Summary
 
-Brain ships as a macOS `.app` / DMG. Today, getting a new version means rebuilding from source or manually replacing the bundle. Before any real distribution this must be solved: the app needs to detect a new release, download it silently, and offer a one-click restart into the new version.
+Braintunnel ships as a macOS `.app` / DMG. Today, getting a new version means rebuilding from source or manually replacing the bundle. Before any real distribution this must be solved: the app needs to detect a new release, download it silently, and offer a one-click restart into the new version.
 
 **Related:** [OPP-007 archive](archive/OPP-007-native-mac-app.md) (Tauri bundling), [archived OPP-023](archive/OPP-023-local-https-loopback-hardening.md) (HTTPS to embedded server), [OPP-022](OPP-022-google-oauth-app-verification.md) (distribution prerequisites).
 
@@ -27,7 +27,7 @@ GET https://releases.myapp.com/latest.json
   "pub_date": "2026-04-19T00:00:00Z",
   "platforms": {
     "darwin-aarch64": {
-      "url": "https://releases.myapp.com/Brain_0.4.2_aarch64.app.tar.gz",
+      "url": "https://releases.myapp.com/Braintunnel_0.4.2_aarch64.app.tar.gz",
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6..."
     },
     "darwin-x86_64": { ... }
@@ -51,9 +51,9 @@ After download, the **signature is verified** against a public key baked into th
 
 **What actually happens:**
 
-1. The updater extracts the new `.app.tar.gz` to a **staging directory** (e.g. `/tmp/Brain-update/Brain.app`).
-2. It uses `NSFileManager.replaceItem(at:withItemAt:)` (or equivalent POSIX `rename(2)`) to **atomically swap** the staging copy into the install path (typically `/Applications/Brain.app`).
-3. `rename(2)` is atomic at the VFS layer on APFS/HFS+ — the old inode stays alive (and the running process's open file descriptors keep working) while the directory entry at `/Applications/Brain.app` now points to the new content.
+1. The updater extracts the new `.app.tar.gz` to a **staging directory** (e.g. `/tmp/Braintunnel-update/Braintunnel.app`).
+2. It uses `NSFileManager.replaceItem(at:withItemAt:)` (or equivalent POSIX `rename(2)`) to **atomically swap** the staging copy into the install path (typically `/Applications/Braintunnel.app`).
+3. `rename(2)` is atomic at the VFS layer on APFS/HFS+ — the old inode stays alive (and the running process's open file descriptors keep working) while the directory entry at `/Applications/Braintunnel.app` now points to the new content.
 4. The running process keeps working. The update is not "live" until the next launch.
 
 On Windows the story is more complicated (files are locked by the OS while open) — Squirrel uses a side-by-side `app-0.4.2/` directory and a stub launcher that switches targets on restart. Not our concern for now.
@@ -89,7 +89,7 @@ tauri::Builder::default()
   "plugins": {
     "updater": {
       "pubkey": "<base64-encoded-public-key>",
-      "endpoints": ["https://releases.brain.app/latest.json"]
+      "endpoints": ["https://releases.braintunnel.ai/latest.json"]
     }
   }
 }
@@ -109,7 +109,7 @@ if (update) {
 }
 ```
 
-The plugin handles: polling, signature verification, download + staging, atomic replace, and exposes the JS surface above. Brain just needs to wire a UI affordance and a release pipeline that publishes the JSON manifest and signed tarballs.
+The plugin handles: polling, signature verification, download + staging, atomic replace, and exposes the JS surface above. Braintunnel just needs to wire a UI affordance and a release pipeline that publishes the JSON manifest and signed tarballs.
 
 ---
 
@@ -118,7 +118,7 @@ The plugin handles: polling, signature verification, download + staging, atomic 
 Each build must:
 
 1. **Sign the update payload.** Tauri ships `tauri signer generate` to produce a keypair. The private key lives in CI secrets; the public key is baked into `tauri.conf.json`. The `tauri build` step produces a `.app.tar.gz` + `.sig` file automatically when `TAURI_SIGNING_PRIVATE_KEY` is set.
-2. **Publish artifacts + manifest.** After a successful build, upload `Brain_<version>_aarch64.app.tar.gz`, `Brain_<version>_aarch64.app.tar.gz.sig`, and the updated `latest.json` to an S3 bucket or GitHub Releases. `latest.json` must be written **last** — it is the "flip the switch" moment.
+2. **Publish artifacts + manifest.** After a successful build, upload `Braintunnel_<version>_aarch64.app.tar.gz`, `Braintunnel_<version>_aarch64.app.tar.gz.sig`, and the updated `latest.json` to an S3 bucket or GitHub Releases. `latest.json` must be written **last** — it is the "flip the switch" moment.
 3. **Version bump.** `tauri.conf.json` `version` field drives everything. A git tag or CI environment variable can inject it.
 
 GitHub Releases is the simplest backend: Tauri's community `tauri-action` GitHub Action handles signing, uploading, and optionally generating the manifest JSON.
@@ -138,7 +138,7 @@ GitHub Releases is the simplest backend: Tauri's community `tauri-action` GitHub
 
 ## Success criteria
 
-- `Brain.app` checks for updates on launch and surfaces a non-intrusive "update available" affordance in the UI.
+- `Braintunnel.app` checks for updates on launch and surfaces a non-intrusive "update available" affordance in the UI.
 - Download and verification happen in the background without blocking the user.
 - Clicking "Restart to update" relaunches into the new version with no manual steps.
 - The release pipeline produces signed artifacts and updates the manifest JSON automatically on each tagged build.

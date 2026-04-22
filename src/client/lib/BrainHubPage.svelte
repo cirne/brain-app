@@ -540,11 +540,11 @@
 >
   {#snippet children()}
     <p>
-      This permanently removes your wiki, chats, and profile from Brain, plus the search library Brain built from your mail
+      This permanently removes your wiki, chats, and profile from Braintunnel, plus the search library Braintunnel built from your mail
       and other sources. You can't undo it.
     </p>
     <p>
-      Your email accounts stay as they are: Brain doesn't change or delete messages at your provider, and you can keep
+      Your email accounts stay as they are: Braintunnel doesn't change or delete messages at your provider, and you can keep
       using mail the same way you do today.
     </p>
   {/snippet}

@@ -10,7 +10,7 @@ export type OnboardingPreferences = {
   mailProvider?: OnboardingMailProvider
   remoteAccessEnabled?: boolean
   /**
-   * Bundled Brain.app: when true, do not 403 private LAN IPv4s on the embedded server
+   * Bundled Braintunnel.app: when true, do not 403 private LAN IPv4s on the embedded server
    * (TLS + vault session; OPP-035). Default false — only loopback, Tailscale CGNAT, and tunnel.
    */
   allowLanDirectAccess?: boolean

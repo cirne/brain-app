@@ -79,11 +79,14 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
     // often inherit a broken value). `RIPMAIL_BIN` on the Command overrides the parent env.
     let bundled_rm = bundle.join("ripmail");
     if bundled_rm.is_file() {
-        log::info!("Brain bundled server: RIPMAIL_BIN={}", bundled_rm.display());
+        log::info!(
+            "Braintunnel bundled server: RIPMAIL_BIN={}",
+            bundled_rm.display()
+        );
         cmd.env("RIPMAIL_BIN", bundled_rm.as_os_str());
     } else {
         log::warn!(
-            "Brain bundled server: bundled ripmail not found at {} — inbox will fail; rebuild with `npm run desktop:bundle-server` then `tauri build`",
+            "Braintunnel bundled server: bundled ripmail not found at {} — inbox will fail; rebuild with `npm run desktop:bundle-server` then `tauri build`",
             bundled_rm.display()
         );
     }
@@ -91,12 +94,12 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
     if let Some(ref home) = resolve_home_for_child(&mut cmd) {
         brain_paths::ensure_dirs_and_apply_defaults(&mut cmd, home);
         log::info!(
-            "Brain bundled server: HOME={} (default BRAIN_HOME / RIPMAIL_HOME applied when unset)",
+            "Braintunnel bundled server: HOME={} (default BRAIN_HOME / RIPMAIL_HOME applied when unset)",
             home
         );
     } else {
         log::warn!(
-            "Brain bundled server: HOME unset — set BRAIN_HOME and RIPMAIL_HOME in the environment"
+            "Braintunnel bundled server: HOME unset — set BRAIN_HOME and RIPMAIL_HOME in the environment"
         );
     }
 
@@ -109,7 +112,7 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
             if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&p) {
                 let _ = writeln!(
                     f,
-                    "\n--- Brain Hono server {:?} ---\n",
+                    "\n--- Braintunnel Hono server {:?} ---\n",
                     std::time::SystemTime::now()
                 );
             }
@@ -205,12 +208,12 @@ pub fn spawn_brain_server(app: &AppHandle) -> Result<u16, String> {
 
     if let Some(ref p) = log_path {
         log::info!(
-            "Brain bundled server: Node/Hono stdout+stderr (incl. ripmail) → {}",
+            "Braintunnel bundled server: Node/Hono stdout+stderr (incl. ripmail) → {}",
             p.display()
         );
     }
     log::info!(
-        "Brain WebView: navigate to http://127.0.0.1:{port}/ (from child BRAIN_LISTEN_PORT)"
+        "Braintunnel WebView: navigate to http://127.0.0.1:{port}/ (from child BRAIN_LISTEN_PORT)"
     );
     app.manage(ServerChild(Mutex::new(Some(child))));
     Ok(port)

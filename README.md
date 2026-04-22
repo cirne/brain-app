@@ -1,6 +1,6 @@
 # brain-app
 
-Hono + Svelte + ripmail — see [AGENTS.md](./AGENTS.md) for development setup and conventions.
+**Product:** **Braintunnel** (this repository is the `brain-app` codebase). Hono + Svelte + ripmail — see [AGENTS.md](./AGENTS.md) for development setup and conventions.
 
 ## Docker and subprocess reaping
 

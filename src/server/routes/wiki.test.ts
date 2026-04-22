@@ -160,7 +160,7 @@ describe('GET /api/wiki/log', () => {
 
   it('parses entries and extracts file mentions (only existing files)', async () => {
     await mkdir(join(wikiDir, 'people'))
-    await writeFile(join(wikiDir, 'ideas', 'brain-app.md'), '# Brain App')
+    await writeFile(join(wikiDir, 'ideas', 'brain-app.md'), '# Braintunnel')
     await writeFile(join(wikiDir, 'people', 'alice.md'), '# Alice')
     await writeFile(join(wikiDir, 'people', 'bob.md'), '# Bob')
     await writeFile(join(wikiDir, '_index.md'), '# Index')
