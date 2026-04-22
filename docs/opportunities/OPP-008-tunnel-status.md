@@ -1,5 +1,7 @@
 # Cloudflare Tunnel & Remote Access Status
 
+**Related:** [OPP-008](./OPP-008-tunnel-qr-phone-access.md) (tunnel + QR product intent), [OPP-042](./OPP-042-brain-network-interbrain-trust-epic.md) (inter-brain endpoints and handle resolution build on stable remote URLs).
+
 ## Current State (POC)
 We have successfully implemented a secure, authenticated remote access path for the Brain app using Cloudflare Tunnels.
 

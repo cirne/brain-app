@@ -1,5 +1,7 @@
 # OPP-001: Agent-to-Agent Communication
 
+**Canonical strategy, UX sequencing, and epic breakdown:** **[OPP-042: Brain Network & Inter-Brain Trust](./OPP-042-brain-network-interbrain-trust-epic.md)**. This document remains the technical deep dive: protocol shape, permission taxonomy, threat model, and use cases. OPP-042 owns milestones, notification-first prerequisites, **Braintunnel handle–first identity**, and the definitive product point of view.
+
 ## The idea
 
 Every brain is an island. Your brain knows everything about *you*, but it can't talk to anyone else's brain. All cross-person coordination still happens through the same channels it always has — email, Slack, calendar invites — with humans doing the translating between what they need and what they type.
@@ -12,13 +14,15 @@ Agent-to-agent communication changes that. Two brains that trust each other can 
 
 ### Discovery and handshake
 
-Email is the universal identity layer. Every brain already has email access, so it's the natural bootstrap:
+**Primary (product): Braintunnel handle.** The human-facing connection key is a **stable handle** that resolves to the peer’s **endpoint URL** and **public key** material. That aligns with hosted deployments, tunnel URLs, and a future opt-in registry ([brain-cloud-service.md](../architecture/brain-cloud-service.md), [OPP-042](./OPP-042-brain-network-interbrain-trust-epic.md)).
 
-1. **Initiation.** You tell your brain: "Connect with Sterling." Your brain finds Sterling's email address (already in your contacts/wiki) and sends a structured connection request — a signed message with your brain's endpoint URL and a public key.
-2. **Approval.** Sterling's brain surfaces the request in his inbox. Sterling reviews and approves, optionally scoping permissions ("Lew's brain can check my availability and share wiki pages tagged `#shared`"). Sterling's brain responds with its own endpoint and key.
-3. **Channel established.** Both brains now have each other's endpoint, public key, and permission scope. All subsequent communication is direct, encrypted, and fast — no email round-trips.
+**Bootstrap (no registry yet):** email and known URLs remain viable fallbacks—every brain already has email access, so structured messages can still initiate trust when handles are unknown.
 
-The handshake is deliberately email-based so it works with zero infrastructure beyond what each brain already has. No central directory, no signup flow, no third-party service. Two people with brains can connect the same way two people with email can — by knowing each other's address.
+1. **Initiation.** You tell your brain: "Connect with Sterling" (by **handle**, email, or explicit URL). Your brain sends a structured connection request — a signed message with your brain's endpoint URL and a public key.
+2. **Approval.** Sterling's brain surfaces the request in **in-app notifications / inbox** (and optionally email). Sterling reviews and approves, optionally scoping permissions ("Lew's brain can check my availability and share wiki pages tagged `#shared`"). Sterling's brain responds with its own endpoint and key.
+3. **Channel established.** Both brains now have each other's endpoint, public key, and permission scope. All subsequent communication is direct, encrypted, and fast — no ongoing email round-trips.
+
+The handshake should work **without a central directory** in the early phase: two people with brains connect by **handle or address** they already share, analogous to email but with agent-native cryptography and scopes. See OPP-042 for **notification-first** UX so approval never depends on mail alone.
 
 ### The protocol
 
@@ -31,7 +35,7 @@ After the handshake, brains communicate over a direct channel (HTTPS with mutual
 
 Open question: build on existing standards (ActivityPub for federation, OAuth for auth, WebFinger for discovery) or design a purpose-built agent protocol? Existing standards bring interoperability but carry baggage. A purpose-built protocol can be optimized for agent semantics (tool invocation, capability negotiation, structured data exchange) but requires adoption.
 
-A hybrid is probably right: use email for discovery, HTTPS for transport, and a custom schema for the agent-level semantics (requests, responses, capabilities, permissions).
+A hybrid is probably right: **handle (and optional registry) for discovery**, **email or manual URL when needed**, **HTTPS** for transport, and a **custom schema** for the agent-level semantics (requests, responses, capabilities, permissions).
 
 ---
 
@@ -107,7 +111,7 @@ Permissions should be fine-grained and composable:
 
 - **Prompt injection via inter-brain messages.** A compromised or malicious brain could send crafted messages designed to manipulate the receiving agent. Mitigation: inter-brain messages are treated as untrusted input, sandboxed from the agent's system prompt and tool access.
 - **Data exfiltration.** A brain could ask seemingly innocent queries to piece together sensitive information. Mitigation: rate limiting, query logging, anomaly detection, and user-reviewable summaries of what was shared.
-- **Impersonation.** Someone could stand up a fake brain claiming to be someone else. Mitigation: the email-based handshake ties brain identity to email identity; the public key exchange prevents MITM.
+- **Impersonation.** Someone could stand up a fake brain claiming to be someone else. Mitigation: **handle resolution bound to key material**, optional **out-of-band confirmation** (email, known URL), and **public key exchange** to prevent MITM—see [OPP-042](./OPP-042-brain-network-interbrain-trust-epic.md).
 - **Permission creep.** Over time, users might grant broad permissions without reviewing them. Mitigation: periodic permission review prompts, permission expiry, and clear dashboards showing what each connection can access.
 
 ---
@@ -118,7 +122,7 @@ Personal AI assistants are becoming commoditized. The underlying models are avai
 
 What's *not* commoditized is the graph. If brain-app is the platform where people establish trust relationships between their agents, every connection creates value that doesn't exist outside the network. A standalone assistant can help you manage your life; a *connected* assistant can help you collaborate with others without the overhead of human-to-human communication protocols.
 
-The closest analog is email itself. Email won because it was federated (anyone can run a server), identity-based (your address is yours), and networked (the value comes from who else is on it). Agent-to-agent communication on top of brain follows the same pattern: federated (everyone runs their own brain), identity-based (tied to your email), and networked (value scales with connections).
+The closest analog is email itself. Email won because it was federated (anyone can run a server), identity-based (your address is yours), and networked (the value comes from who else is on it). Agent-to-agent communication on top of brain follows the same pattern: federated (everyone runs their own brain), identity-based (**handle + key material**, with email as a bootstrap path), and networked (value scales with connections).
 
 The difference is that email is low-bandwidth, high-latency, and requires humans to do all the thinking. Brain-to-brain is high-bandwidth, low-latency, and the agents do the coordination. Email with the boring parts removed.
 
@@ -126,12 +130,14 @@ The difference is that email is low-bandwidth, high-latency, and requires humans
 
 ## Sequencing
 
-This is a long-term vision. Prerequisites:
+**Authoritative phased plan:** [OPP-042](./OPP-042-brain-network-interbrain-trust-epic.md) (notifications first, then connection + policy, then inter-brain MVP with mandatory approval, then automation and public tiers).
 
-1. **Productization basics first.** Multi-user auth, managed email sync, zero-friction onboarding (see [PRODUCTIZATION.md](../PRODUCTIZATION.md)). No point building a network if individual brains are hard to set up.
-2. **Stable agent identity.** Each brain needs a durable identity (keypair, endpoint URL) that persists across deploys. Today's Fly.io deployment doesn't have this.
+Long-term prerequisites (unchanged in spirit):
+
+1. **Productization basics.** Multi-user auth where applicable, managed email sync, zero-friction onboarding (see [PRODUCTIZATION.md](../PRODUCTIZATION.md)). No point building a network if individual brains are hard to set up.
+2. **Stable agent identity.** Each brain needs a durable identity (keypair, endpoint URL, **handle**) that persists across deploys.
 3. **Permission framework.** The fine-grained permission model needs to exist for local features first (e.g., what the agent can access in your own data) before extending it to inter-brain access.
-4. **Protocol design.** Start with the simplest possible inter-brain interaction (calendar availability query?) and expand from there. Don't design the full protocol upfront.
-5. **Security audit.** Before any inter-brain communication touches real user data, the security model needs external review.
+4. **Protocol design.** Start with the simplest possible inter-brain interaction and expand. Don't design the full protocol upfront.
+5. **Security audit.** Before inter-brain communication touches real user data at scale, the security model needs external review.
 
-The right first step is probably a demo between two personal brain instances (yours and a collaborator's) doing calendar availability exchange. Minimal protocol, minimal permissions, maximum learning about what the UX of agent-to-agent collaboration actually feels like.
+The right first **technical** demo may still be two instances exchanging something small (e.g. calendar availability)—but **product sequencing** prioritizes **in-app notifications and approval surfaces** so bilateral trust is usable day one (OPP-042).

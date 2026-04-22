@@ -1,6 +1,6 @@
 # OPP-002: Public Brain Identity
 
-**Related:** [OPP-001: Agent-to-Agent Communication](./OPP-001-agent-to-agent.md) — OPP-001 covers private bilateral channels between connected brains. This doc covers the public-facing layer: your brain as a discoverable, interactive identity on the web.
+**Related:** **[OPP-042: Brain Network & Inter-Brain Trust (Epic)](./OPP-042-brain-network-interbrain-trust-epic.md)** — canonical sequencing (notifications, bilateral MVP, then public tiers). [OPP-001: Agent-to-Agent Communication](./OPP-001-agent-to-agent.md) — private bilateral channels, protocol, and permission taxonomy. This doc covers the **public-facing layer**: your brain as a discoverable, interactive identity on the web.
 
 ## The idea
 
@@ -203,13 +203,13 @@ These two ideas form a natural stack:
 | Initiation | Explicit handshake | Open endpoint |
 | Relationship | Persistent, stateful | Ephemeral (until escalated to OPP-001) |
 
-The flow: OPP-002 is how brains find each other. OPP-001 is what happens after they decide to trust each other. Public identity is the top of the funnel; bilateral trust is the bottom.
+The flow: OPP-002 is how brains find each other. OPP-001 is what happens after they decide to trust each other. Public identity is the top of the funnel; bilateral trust is the bottom. **Phased delivery** is defined in [OPP-042](./OPP-042-brain-network-interbrain-trust-epic.md) (bilateral MVP and notifications before scaling public tiers).
 
 ---
 
 ## Sequencing
 
-1. **After OPP-001 basics exist.** Public identity only makes sense if there's a private channel to graduate into. Build bilateral connections first.
+1. **After bilateral inter-brain MVP (OPP-042 / OPP-001).** Public identity only makes sense if there's a private channel to graduate into. Follow **[OPP-042](./OPP-042-brain-network-interbrain-trust-epic.md)** milestones: notifications and paired connection **before** broad public chat.
 2. **Start with structured public profile.** Before conversational public interface, ship a simple structured endpoint (JSON, `.well-known`) that declares "this person has a brain at this URL." No chat, just discovery.
 3. **Add read-only public chat.** Let anonymous visitors ask questions answered from explicitly public wiki content. Very restricted, heavily rate-limited. Learn what people actually ask.
 4. **Add verified tier.** Email verification, connection request flow, message relay. This is where the receptionist use case comes alive.

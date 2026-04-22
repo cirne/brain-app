@@ -55,6 +55,8 @@
   let googleOauthPoll: ReturnType<typeof setInterval> | null = null
   const GOOGLE_OAUTH_TAURI_MAX_MS = 10 * 60 * 1000
   const GOOGLE_OAUTH_TAURI_POLL_MS = 1000
+  /** If PATCH /status refresh hangs, `busy` would otherwise stay true forever while mail polling still updates the bar. */
+  const ONBOARDING_PATCH_CHAIN_TIMEOUT_MS = 60_000
 
   let draftMarkdown = $state('')
   /** Bump to remount {@link ProfileDraftEditor} after reload-from-disk (discards unsaved TipTap edits). */
@@ -172,18 +174,17 @@
     }
     if (alignIndexingStateInitiated) return
     alignIndexingStateInitiated = true
-    void patchState('indexing').catch(() => {
+    void patchState('indexing').catch((e) => {
       alignIndexingStateInitiated = false
+      indexingAdvanceError = e instanceof Error ? e.message : String(e)
     })
   })
 
-  /** After enough mail is indexed, advance to profiling. */
-  let indexingToProfilingInitiated = $state(false)
-  $effect(() => {
-    if (state !== 'indexing') {
-      indexingToProfilingInitiated = false
-    }
-  })
+  /**
+   * Auto-advance to profiling once the mail threshold is met.
+   * Handles both `indexing` and stale `not-started` (mail can run before the server state catches up).
+   */
+  let profilingAutoAdvanceInFlight = $state(false)
 
   const indexingStatusLine = $derived.by(() => {
     if (mailIndexedCount > 0) {
@@ -196,13 +197,23 @@
   })
 
   $effect(() => {
-    if (state !== 'indexing' || !canAutoProceedToProfiling || busy) return
-    if (indexingToProfilingInitiated) return
-    indexingToProfilingInitiated = true
-    void patchState('profiling').catch((e) => {
-      indexingToProfilingInitiated = false
-      indexingAdvanceError = e instanceof Error ? e.message : String(e)
-    })
+    if (!canAutoProceedToProfiling || busy || profilingAutoAdvanceInFlight) return
+    const fromNotStarted = state === 'not-started' && mail.configured
+    if (state !== 'indexing' && !fromNotStarted) return
+
+    profilingAutoAdvanceInFlight = true
+    void (async () => {
+      try {
+        if (fromNotStarted) {
+          await patchState('indexing')
+        }
+        await patchState('profiling')
+      } catch (e) {
+        indexingAdvanceError = e instanceof Error ? e.message : String(e)
+      } finally {
+        profilingAutoAdvanceInFlight = false
+      }
+    })()
   })
 
   $effect(() => {
@@ -216,10 +227,24 @@
   })
 
   async function patchState(next: string) {
-    await patchOnboardingState(next)
-    indexingAdvanceError = null
-    await refreshStatus()
-    await load()
+    const run = async () => {
+      await patchOnboardingState(next)
+      indexingAdvanceError = null
+      await refreshStatus()
+      await load()
+    }
+    await Promise.race([
+      run(),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(
+            new Error(
+              `Could not save onboarding progress (${Math.round(ONBOARDING_PATCH_CHAIN_TIMEOUT_MS / 1000)}s timeout). Check the app is responding, then try again.`,
+            ),
+          )
+        }, ONBOARDING_PATCH_CHAIN_TIMEOUT_MS)
+      }),
+    ])
   }
 
   async function proceedToProfilingEarly() {
