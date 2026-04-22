@@ -242,6 +242,24 @@ export type RipmailConfigJson = {
   }
 }
 
+/** First IMAP source email from ripmail `config.json` (after Gmail OAuth), if any. */
+export async function readPrimaryRipmailImapEmail(ripmailHome: string): Promise<string | null> {
+  try {
+    const path = join(ripmailHome, 'config.json')
+    const raw = await readFile(path, 'utf8')
+    const cfg = JSON.parse(raw) as RipmailConfigJson
+    for (const s of cfg.sources ?? []) {
+      if (s && s.kind === 'imap' && 'email' in s) {
+        const e = (s as RipmailSourceEntry).email?.trim()
+        if (e) return e
+      }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
 export async function upsertRipmailConfig(
   ripmailHome: string,
   mailboxId: string,

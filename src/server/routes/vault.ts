@@ -16,9 +16,10 @@ import {
   setBrainSessionCookie,
 } from '../lib/vaultCookie.js'
 import { isMultiTenantMode, tenantHomeDir } from '../lib/dataRoot.js'
+import { readHandleMeta } from '../lib/handleMeta.js'
 import {
   lookupTenantBySession,
-  removeIdentityMappingsForWorkspace,
+  removeIdentityMappingsForTenantUserId,
   unregisterSessionTenant,
 } from '../lib/tenantRegistry.js'
 import { runWithTenantContextAsync, tryGetTenantContext } from '../lib/tenantContext.js'
@@ -32,6 +33,10 @@ type StatusBody = {
   multiTenant?: boolean
   /** Present in multi-tenant mode after setup / unlock so clients can reconnect without cookie. */
   workspaceHandle?: string
+  /** Hosted: stable non-PII id for telemetry when session is valid. */
+  userId?: string
+  /** Hosted: true after user confirms handle during onboarding. */
+  handleConfirmed?: boolean
 }
 
 async function vaultStatusHandler(c: Context) {
@@ -45,11 +50,22 @@ async function vaultStatusHandler(c: Context) {
     const ctx = tryGetTenantContext()
     const workspaceHandle =
       ctx && ctx.workspaceHandle !== '_single' ? ctx.workspaceHandle : undefined
+    const extraMt: Partial<Pick<StatusBody, 'userId' | 'handleConfirmed'>> = {}
+    if (ctx && unlocked && workspaceHandle) {
+      const meta = await readHandleMeta(ctx.homeDir)
+      if (meta?.userId) extraMt.userId = meta.userId
+      extraMt.handleConfirmed = !!(
+        meta &&
+        typeof meta.confirmedAt === 'string' &&
+        meta.confirmedAt.length > 0
+      )
+    }
     return c.json({
       vaultExists: true,
       unlocked,
       multiTenant: true as const,
       ...(workspaceHandle ? { workspaceHandle } : {}),
+      ...extraMt,
     } satisfies StatusBody)
   }
 
@@ -154,10 +170,13 @@ vault.post('/logout', async (c) => {
   const sid = getCookie(c, BRAIN_SESSION_COOKIE)
   if (isMultiTenantMode()) {
     if (sid) {
-      const wh = await lookupTenantBySession(sid)
-      if (wh) {
+      const tid = await lookupTenantBySession(sid)
+      if (tid) {
+        const homeDir = tenantHomeDir(tid)
+        const meta = await readHandleMeta(homeDir)
+        const workspaceHandle = meta?.handle ?? tid
         await runWithTenantContextAsync(
-          { workspaceHandle: wh, homeDir: tenantHomeDir(wh) },
+          { tenantUserId: tid, workspaceHandle, homeDir },
           async () => {
             await revokeVaultSession(sid)
           },
@@ -191,19 +210,19 @@ vault.post('/delete-all-data', async (c) => {
     return c.json({ error: 'not_available', message: 'This action is only available in hosted mode.' }, 404)
   }
   const ctx = tryGetTenantContext()
-  if (!ctx || ctx.workspaceHandle === '_single') {
+  if (!ctx || ctx.tenantUserId === '_single') {
     return c.json({ error: 'tenant_required', message: 'Sign in to continue.' }, 401)
   }
-  const wh = ctx.workspaceHandle
+  const tid = ctx.tenantUserId
   const sid = getCookie(c, BRAIN_SESSION_COOKIE)
 
   if (sid) {
     await revokeVaultSession(sid)
   }
-  await removeIdentityMappingsForWorkspace(wh)
+  await removeIdentityMappingsForTenantUserId(tid)
   await unregisterSessionTenant(sid)
 
-  const home = tenantHomeDir(wh)
+  const home = tenantHomeDir(tid)
   if (existsSync(home)) {
     await rm(home, { recursive: true, force: true })
   }

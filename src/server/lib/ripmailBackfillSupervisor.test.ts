@@ -24,6 +24,7 @@ describe('ripmailBackfillSupervisor', () => {
       syncRunning: false,
       syncLockAgeMs: null,
       ftsReady: 100,
+      messageAvailableForProgress: null,
       pendingBackfill: true,
       staleMailSyncLock: false,
     })
@@ -43,6 +44,7 @@ describe('ripmailBackfillSupervisor', () => {
       syncRunning: true,
       syncLockAgeMs: 5000,
       ftsReady: 100,
+      messageAvailableForProgress: null,
       pendingBackfill: false,
       staleMailSyncLock: false,
     })

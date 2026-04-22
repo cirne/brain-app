@@ -120,6 +120,7 @@ describe('parseRipmailStatusJson', () => {
     expect(p!.syncRunning).toBe(false)
     expect(p!.syncLockAgeMs).toBeNull()
     expect(p!.ftsReady).toBe(0)
+    expect(p!.messageAvailableForProgress).toBeNull()
   })
 
   it('parses populated sync (indexed count prefers ftsReady over sync.totalMessages)', () => {
@@ -130,6 +131,7 @@ describe('parseRipmailStatusJson', () => {
     expect(p!.dateRange.to).toBe('2026-04-14')
     expect(p!.syncRunning).toBe(true)
     expect(p!.ftsReady).toBe(1)
+    expect(p!.messageAvailableForProgress).toBe(42)
   })
 
   it('parses Apple Mail interim backfill (uses ftsReady / mailboxes when totalMessages is 0)', () => {
@@ -139,11 +141,13 @@ describe('parseRipmailStatusJson', () => {
     expect(p!.syncRunning).toBe(true)
     expect(p!.syncLockAgeMs).toBeNull()
     expect(p!.ftsReady).toBe(9030)
+    expect(p!.messageAvailableForProgress).toBe(9030)
   })
 
   it('uses indexedMessages when sync.totalMessages is inflated', () => {
     const p = parseRipmailStatusJson(inflatedSyncTotalFixture)
     expect(p!.indexedTotal).toBe(40135)
+    expect(p!.messageAvailableForProgress).toBe(40135)
   })
 
   it('prefers search.indexedMessages over ftsReady when both are present', () => {
@@ -161,6 +165,7 @@ describe('parseRipmailStatusJson', () => {
     const p = parseRipmailStatusJson(raw)
     expect(p!.indexedTotal).toBe(7)
     expect(p!.ftsReady).toBe(7)
+    expect(p!.messageAvailableForProgress).toBe(100)
   })
 
   it('legacy JSON without indexedMessages still parses via ftsReady', () => {

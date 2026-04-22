@@ -8,7 +8,7 @@ import {
 
 describe('tenantContext', () => {
   it('runWithTenantContext sets store for synchronous fn', () => {
-    const ctx = { workspaceHandle: 't1', homeDir: '/tmp/h1' }
+    const ctx = { tenantUserId: 't1', workspaceHandle: 't1', homeDir: '/tmp/h1' }
     runWithTenantContext(ctx, () => {
       expect(getTenantContext()).toEqual(ctx)
       expect(tenantContextExists()).toBe(true)
@@ -21,8 +21,8 @@ describe('tenantContext', () => {
   })
 
   it('nested runWithTenantContext restores outer context', () => {
-    const outer = { workspaceHandle: 'aaa', homeDir: '/h/a' }
-    const inner = { workspaceHandle: 'bbb', homeDir: '/h/b' }
+    const outer = { tenantUserId: 'aaa', workspaceHandle: 'aaa', homeDir: '/h/a' }
+    const inner = { tenantUserId: 'bbb', workspaceHandle: 'bbb', homeDir: '/h/b' }
     runWithTenantContext(outer, () => {
       expect(getTenantContext().workspaceHandle).toBe('aaa')
       runWithTenantContext(inner, () => {
@@ -33,7 +33,7 @@ describe('tenantContext', () => {
   })
 
   it('runWithTenantContextAsync propagates async context', async () => {
-    const ctx = { workspaceHandle: 'async', homeDir: '/tmp/async' }
+    const ctx = { tenantUserId: 'async', workspaceHandle: 'async', homeDir: '/tmp/async' }
     await runWithTenantContextAsync(ctx, async () => {
       await Promise.resolve()
       expect(getTenantContext()).toEqual(ctx)

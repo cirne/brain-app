@@ -11,14 +11,14 @@ describe('brainHome multi-tenant', () => {
     process.env.BRAIN_DATA_ROOT = '/srv/data'
     delete process.env.RIPMAIL_HOME
     const home = '/srv/data/u1'
-    runWithTenantContext({ workspaceHandle: 'user-one', homeDir: home }, () => {
+    runWithTenantContext({ tenantUserId: 'u1', workspaceHandle: 'user-one', homeDir: home }, () => {
       expect(brainHome()).toBe(home)
       expect(brainWikiParentRoot()).toBe(home)
       expect(ripmailHomeForBrain()).toBe(brainLayoutRipmailDir(home))
     })
 
     process.env.RIPMAIL_HOME = '/evil/other'
-    runWithTenantContext({ workspaceHandle: 'user-one', homeDir: home }, () => {
+    runWithTenantContext({ tenantUserId: 'u1', workspaceHandle: 'user-one', homeDir: home }, () => {
       expect(ripmailHomeForBrain()).toBe(brainLayoutRipmailDir(home))
     })
 

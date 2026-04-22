@@ -23,7 +23,7 @@ describe('navRecentsStore', () => {
   it('add, read, remove', async () => {
     home = join(tmpdir(), `nr-${Date.now()}`)
     mkdirSync(home, { recursive: true })
-    await runWithTenantContextAsync({ workspaceHandle: '_single', homeDir: home }, async () => {
+    await runWithTenantContextAsync({ tenantUserId: '_single', workspaceHandle: '_single', homeDir: home }, async () => {
       await addNavRecentsItem({
         id: makeNavRecentsId('doc', 'ideas/x.md'),
         type: 'doc',
@@ -42,7 +42,7 @@ describe('navRecentsStore', () => {
   it('upsertEmailNavRecents dedupes and updates title', async () => {
     home = join(tmpdir(), `nr-email-${Date.now()}`)
     mkdirSync(home, { recursive: true })
-    await runWithTenantContextAsync({ workspaceHandle: '_single', homeDir: home }, async () => {
+    await runWithTenantContextAsync({ tenantUserId: '_single', workspaceHandle: '_single', homeDir: home }, async () => {
       expect(await upsertEmailNavRecents('tid', 'First', 'a@b.c')).toBe(true)
       expect(await upsertEmailNavRecents('tid', 'Second', 'a@b.c')).toBe(true)
       const rows = await readNavRecents()
@@ -56,7 +56,7 @@ describe('navRecentsStore', () => {
   it('clearNavRecents empties file', async () => {
     home = join(tmpdir(), `nr-cl-${Date.now()}`)
     mkdirSync(home, { recursive: true })
-    await runWithTenantContextAsync({ workspaceHandle: '_single', homeDir: home }, async () => {
+    await runWithTenantContextAsync({ tenantUserId: '_single', workspaceHandle: '_single', homeDir: home }, async () => {
       await addNavRecentsItem({
         id: 'doc:x',
         type: 'doc',
@@ -71,7 +71,7 @@ describe('navRecentsStore', () => {
   it('writes under var/nav-recents.json', async () => {
     home = join(tmpdir(), `nr-path-${Date.now()}`)
     mkdirSync(home, { recursive: true })
-    await runWithTenantContextAsync({ workspaceHandle: '_single', homeDir: home }, async () => {
+    await runWithTenantContextAsync({ tenantUserId: '_single', workspaceHandle: '_single', homeDir: home }, async () => {
       await addNavRecentsItem({
         id: 'doc:y',
         type: 'doc',

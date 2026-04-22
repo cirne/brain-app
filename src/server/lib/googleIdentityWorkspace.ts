@@ -1,10 +1,14 @@
-import { existsSync } from 'node:fs'
-import { ensureTenantHomeDir, tenantHomeDir } from './dataRoot.js'
+import { readdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import { ensureTenantHomeDir, dataRoot, tenantHomeDir } from './dataRoot.js'
+import { lookupWorkspaceByIdentity, registerIdentityWorkspace } from './tenantRegistry.js'
 import {
-  lookupIdentityKeyForWorkspace,
-  lookupWorkspaceByIdentity,
-  registerIdentityWorkspace,
-} from './tenantRegistry.js'
+  ensureHandleMetaDocument,
+  generateUserId,
+  readHandleMeta,
+  writeHandleMeta,
+  isValidUserId,
+} from './handleMeta.js'
 import {
   InvalidWorkspaceHandleError,
   WORKSPACE_HANDLE_MAX_LEN,
@@ -86,26 +90,57 @@ export function deriveWorkspaceHandleSeed(email: string, sub: string): string {
   return h
 }
 
-async function canProvisionWorkspace(myKey: string, handle: string): Promise<boolean> {
-  const ownerKey = await lookupIdentityKeyForWorkspace(handle)
-  if (ownerKey !== null && ownerKey !== myKey) return false
+/**
+ * True if no other tenant has claimed this display handle (`handle-meta.handle`).
+ * Optional `exceptTenantUserId` ignores that tenant’s own row (same slug).
+ */
+export async function isDisplayHandleSlugAvailable(
+  slug: string,
+  exceptTenantUserId?: string,
+): Promise<boolean> {
+  const root = dataRoot()
+  let names: string[]
+  try {
+    names = await readdir(root)
+  } catch {
+    return true
+  }
+  for (const name of names) {
+    if (name.startsWith('.') || name === 'lost+found') continue
+    if (!isValidUserId(name)) continue
+    const meta = await readHandleMeta(join(root, name))
+    if (!meta) continue
+    if (meta.handle !== slug) continue
+    if (exceptTenantUserId !== undefined && meta.userId === exceptTenantUserId) continue
+    return false
+  }
+  return true
+}
 
-  const home = tenantHomeDir(handle)
-  if (!existsSync(home)) return ownerKey === null || ownerKey === myKey
-
-  if (ownerKey === myKey) return true
-  return false
+/** @deprecated Prefer {@link isDisplayHandleSlugAvailable} — kept name for incremental refactors */
+export async function canProvisionWorkspace(myKey: string, handle: string): Promise<boolean> {
+  void myKey
+  return isDisplayHandleSlugAvailable(handle)
 }
 
 export async function resolveOrProvisionWorkspace(
   sub: string,
   email: string,
-): Promise<{ workspaceHandle: string; isNew: boolean }> {
+): Promise<{ tenantUserId: string; workspaceHandle: string; isNew: boolean }> {
   const myKey = googleIdentityKey(sub)
   const mapped = await lookupWorkspaceByIdentity(myKey)
   if (mapped) {
     ensureTenantHomeDir(mapped)
-    return { workspaceHandle: mapped, isNew: false }
+    const home = tenantHomeDir(mapped)
+    const existing = await readHandleMeta(home)
+    const displayHandle = existing?.handle ?? mapped
+    await ensureHandleMetaDocument(home, displayHandle, myKey)
+    const meta = await readHandleMeta(home)
+    return {
+      tenantUserId: mapped,
+      workspaceHandle: meta?.handle ?? displayHandle,
+      isNew: false,
+    }
   }
 
   const seed = deriveWorkspaceHandleSeed(email, sub)
@@ -120,12 +155,18 @@ export async function resolveOrProvisionWorkspace(
     }
     if (isReservedWorkspaceHandle(parsed)) continue
 
-    const ok = await canProvisionWorkspace(myKey, parsed)
+    const ok = await isDisplayHandleSlugAvailable(parsed)
     if (!ok) continue
 
-    ensureTenantHomeDir(parsed)
-    await registerIdentityWorkspace(myKey, parsed)
-    return { workspaceHandle: parsed, isNew: true }
+    const tenantUserId = generateUserId()
+    ensureTenantHomeDir(tenantUserId)
+    await registerIdentityWorkspace(myKey, tenantUserId)
+    await writeHandleMeta(tenantHomeDir(tenantUserId), {
+      userId: tenantUserId,
+      handle: parsed,
+      confirmedAt: null,
+    })
+    return { tenantUserId, workspaceHandle: parsed, isNew: true }
   }
 
   throw new Error('Could not allocate a workspace handle')

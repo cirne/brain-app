@@ -28,6 +28,8 @@ The **primary human-facing way to connect** is a **Braintunnel handle** (stable,
 
 **Product implication:** document and implement handle resolution, impersonation resistance (binding handle ↔ keys), and fallback paths (email, manual URL) explicitly—see OPP-001’s updated discovery section.
 
+**Implementation (hosted):** Cloud tenants get a stable non-PII `userId` (`usr_…`, in `handle-meta.json`) for telemetry and future cryptographic/trust binding. On disk, tenant data still lives under `BRAIN_DATA_ROOT/<handle>/` (slug directory name); `userId` is metadata inside that tree, so future handle changes can remap display + directory without losing stable identity. The human-facing **handle** is confirmed during onboarding; changing it later is a product/UI task, not blocked by identity design. `**@handle`** is the intended syntax for addressing another brain in chat when peer resolution lands (connections / registry).
+
 ---
 
 ## UX model (three surfaces)

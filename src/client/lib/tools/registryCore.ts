@@ -49,6 +49,7 @@ const TOOL_DISPLAY_LABELS: Record<string, string> = {
   delete_file: 'Delete file',
   search_index: 'Search mail',
   read_doc: 'Read message',
+  read_attachment: 'Read attachment',
   manage_sources: 'Manage sources',
   refresh_sources: 'Sync sources',
   list_inbox: 'Inbox',

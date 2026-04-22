@@ -30,6 +30,7 @@
   import { wikiPathForReadToolArg } from './cards/contentCards.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from './navigateFromAgentOpen.js'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from './app/workspaceLayout.js'
+  import { fetchVaultStatus } from './vaultClient.js'
   import { addToNavHistory, makeNavHistoryId, upsertEmailNavHistory } from './navHistory.js'
 
   function loadSidebarPrefs(): { sidebarOpen?: boolean } {
@@ -64,6 +65,9 @@
     !isMobile && workspaceColumnWidth >= WORKSPACE_DESKTOP_SPLIT_MIN_PX,
   )
   const slideOverCloseAnimated = $derived(!useDesktopSplitDetail && mobileSlideOver)
+
+  /** Hosted nav pill: `@handle` after onboarding confirmation (from vault status). */
+  let hostedHandleNav = $state<string | undefined>(undefined)
 
   /** History sidebar open (desktop inline or mobile overlay). */
   let sidebarOpen = $state(false)
@@ -109,6 +113,23 @@
     const syncReduce = () => { reduceSidebarMotion = mqReduce.matches }
     syncReduce()
     mqReduce.addEventListener('change', syncReduce)
+
+    void fetchVaultStatus()
+      .then((v) => {
+        if (
+          v.multiTenant === true &&
+          v.handleConfirmed === true &&
+          typeof v.workspaceHandle === 'string' &&
+          v.workspaceHandle.length > 0
+        ) {
+          hostedHandleNav = v.workspaceHandle
+        } else {
+          hostedHandleNav = undefined
+        }
+      })
+      .catch(() => {
+        hostedHandleNav = undefined
+      })
 
     const prefs = loadSidebarPrefs()
     if (mq.matches) {
@@ -458,6 +479,17 @@
     }
   }
 
+  function openHubToHandleSection() {
+    navigate({ hubActive: true })
+    route = parseRoute()
+    void tick().then(() => {
+      document.getElementById('hub-account-handle')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+  }
+
   function onEditStreaming(p: { id: string; path: string; done: boolean }) {
     if (p.done) {
       if (wikiEditStreaming?.toolId === p.id) wikiEditStreaming = null
@@ -493,6 +525,8 @@
     }}
     onNewChat={historyNewChat}
     isEmptyChat={chatIsEmpty}
+    hostedHandlePill={hostedHandleNav}
+    onHostedHandleNavigate={openHubToHandleSection}
   />
 
     <div class="app-main-row">

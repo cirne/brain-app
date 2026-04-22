@@ -8,6 +8,8 @@ import { wipeBrainHomeContents } from './brainHome.js'
 /** Persisted onboarding machine state (OPP-006). */
 export type OnboardingMachineState =
   | 'not-started'
+  /** Hosted only — returned by GET /status until handle is confirmed (may not appear in onboarding.json). */
+  | 'confirming-handle'
   | 'indexing'
   | 'profiling'
   | 'reviewing-profile'
@@ -59,6 +61,7 @@ export async function readOnboardingStateDoc(): Promise<OnboardingStateDoc> {
     const state = o.state
     const valid: OnboardingMachineState[] = [
       'not-started',
+      'confirming-handle',
       'indexing',
       'profiling',
       'reviewing-profile',
@@ -90,7 +93,9 @@ export function wikiMeExists(): boolean {
 }
 
 const transitions: Record<OnboardingMachineState, OnboardingMachineState[]> = {
-  'not-started': ['indexing', 'not-started'],
+  'not-started': ['confirming-handle', 'indexing', 'not-started'],
+  /** Synthetic hosted gate — transitions not persisted from disk alone. */
+  'confirming-handle': ['not-started', 'indexing'],
   indexing: ['profiling', 'not-started'],
   profiling: ['reviewing-profile', 'not-started'],
   /** Profile accept goes straight to `done` (background wiki expansion runs separately). */

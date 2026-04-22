@@ -57,7 +57,7 @@ describe('assertManageSourcePathNotInsideSiblingTenant', () => {
     const { runWithTenantContext } = await import('./tenantContext.js')
     const { assertManageSourcePathNotInsideSiblingTenant } = await import('./agentPathPolicy.js')
 
-    runWithTenantContext({ workspaceHandle: 'alice', homeDir: tenantA }, () => {
+    runWithTenantContext({ tenantUserId: 'alice', workspaceHandle: 'alice', homeDir: tenantA }, () => {
       process.env.BRAIN_HOME = tenantA
       expect(() =>
         assertManageSourcePathNotInsideSiblingTenant(join(tenantB, 'wiki', 'x.md')),

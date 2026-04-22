@@ -25,6 +25,7 @@
   import { resizeMainWindowToBrowserLikeWorkArea } from '../desktop/browserLikeWindow.js'
   import VaultSetupStep from './VaultSetupStep.svelte'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
+  import OnboardingHandleStep from './OnboardingHandleStep.svelte'
 
   interface Props {
     onComplete: () => Promise<void>
@@ -66,6 +67,36 @@
   /** Tauri: true after we’ve applied the “browser-sized” window for late onboarding (profiling onward). */
   let onboardingLargeWindowApplied = $state(false)
   const mailIndexedCount = $derived(Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0))
+  const indexingHasFirstMessage = $derived(mailIndexedCount >= 1)
+  const indexingProgressTotal = $derived.by(() => {
+    const t = mail.messageAvailableForProgress
+    return t != null && t > 0 ? t : null
+  })
+  const indexingProgressPercent = $derived.by(() => {
+    const d = mailIndexedCount
+    if (d < 1) return 0
+    const t = indexingProgressTotal
+    if (t != null) return Math.min(100, (100 * d) / t)
+    return 100
+  })
+  const indexingProgressLabel = $derived.by(() => {
+    const d = mailIndexedCount
+    if (d < 1) return ''
+    const t = indexingProgressTotal
+    if (t != null) {
+      return `${d.toLocaleString()} / ${t.toLocaleString()}`
+    }
+    return `${d.toLocaleString()} messages`
+  })
+  const indexingProgressAriaText = $derived.by(() => {
+    const d = mailIndexedCount
+    if (d < 1) return 'Preparing to download messages'
+    const t = indexingProgressTotal
+    if (t != null) {
+      return `${d.toLocaleString()} of ${t.toLocaleString()} messages`
+    }
+    return `${d.toLocaleString()} messages indexed`
+  })
   const canAutoProceedToProfiling = $derived(mailIndexedCount >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED)
   const canOfferEarlyProfile = $derived(
     mailIndexedCount >= ONBOARDING_PROFILE_INDEX_MANUAL_MIN &&
@@ -485,6 +516,14 @@
       onStreamFinished={async () => { await patchState('reviewing-profile') }}
       {multiTenant}
     />
+  {:else if multiTenant && state === 'confirming-handle'}
+    <OnboardingHandleStep
+      refreshStatus={refreshStatus}
+      onComplete={async () => {
+        await refreshStatus()
+        await load()
+      }}
+    />
   {:else if needsVaultSetup}
     <VaultSetupStep
       onComplete={async () => {
@@ -604,7 +643,26 @@
             </p>
           </div>
           <div class="ob-indexing-status-slot" aria-live="polite">
-            <div class="ob-indexing-progress-bar ob-indexing-progress-bar--indeterminate" aria-hidden="true"></div>
+            {#if !indexingHasFirstMessage}
+              <div class="ob-indexing-progress-bar ob-indexing-progress-bar--indeterminate" aria-hidden="true"></div>
+            {:else}
+              <div
+                class="ob-indexing-progress-block ob-indexing-progress-block--determinate"
+                role="progressbar"
+                aria-label={indexingProgressAriaText}
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow={Math.round(indexingProgressPercent)}
+              >
+                <div class="ob-indexing-progress-bar ob-indexing-progress-bar--determinate" aria-hidden="true">
+                  <div
+                    class="ob-indexing-progress-fill"
+                    style:width="{indexingProgressPercent}%"
+                  ></div>
+                </div>
+                <p class="ob-indexing-progress-fraction" aria-hidden="true">{indexingProgressLabel}</p>
+              </div>
+            {/if}
             {#if indexingCalmStatus}
               <p class="ob-indexing-calm">{indexingCalmStatus}</p>
             {/if}

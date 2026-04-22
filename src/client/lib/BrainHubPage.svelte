@@ -53,6 +53,8 @@
   let wikiRecentReady = $state(false)
   /** Hosted (`BRAIN_DATA_ROOT`): hide phone QR; show sign-out / delete data. */
   let multiTenant = $state(false)
+  let workspaceHandleDisplay = $state<string | undefined>(undefined)
+  let workspaceHandleConfirmed = $state(false)
   let accountBusy = $state(false)
   let deleteAllConfirmOpen = $state(false)
 
@@ -223,9 +225,16 @@
     void fetchVaultStatus()
       .then((v) => {
         multiTenant = v.multiTenant === true
+        workspaceHandleConfirmed = v.handleConfirmed === true
+        workspaceHandleDisplay =
+          typeof v.workspaceHandle === 'string' && v.workspaceHandle.length > 0
+            ? v.workspaceHandle
+            : undefined
       })
       .catch(() => {
         multiTenant = false
+        workspaceHandleConfirmed = false
+        workspaceHandleDisplay = undefined
       })
     void fetchData()
     const unsubEvents = subscribe((e) => {
@@ -289,6 +298,16 @@
     deleteAllConfirmOpen = true
   }
 
+  async function copyWorkspaceHandle() {
+    const h = workspaceHandleDisplay?.trim()
+    if (!h) return
+    try {
+      await navigator.clipboard.writeText(`@${h}`)
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function executeDeleteAllData() {
     if (accountBusy) return
     accountBusy = true
@@ -328,6 +347,23 @@
         {/if}
       </div>
       <div class="links-list">
+        {#if multiTenant && workspaceHandleConfirmed && workspaceHandleDisplay}
+          <div id="hub-account-handle" class="hub-handle-card">
+            <div class="hub-handle-card-title">Your handle</div>
+            <div class="hub-handle-card-row">
+              <span class="hub-handle-mono">@{workspaceHandleDisplay}</span>
+              <button type="button" class="hub-handle-copy" onclick={() => void copyWorkspaceHandle()}>
+                Copy
+              </button>
+            </div>
+            <p class="hub-handle-lead">
+              Share this handle so others can connect to your Braintunnel.
+            </p>
+            <p class="hub-handle-note">
+              Changing your handle may be supported later; your stable account id stays the same either way.
+            </p>
+          </div>
+        {/if}
         <button
           type="button"
           class="link-item"
@@ -869,6 +905,70 @@
     font-size: 0.9375rem;
     color: var(--text-2);
     padding: 1rem 0;
+  }
+
+  .hub-handle-card {
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.35rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 85%, transparent);
+  }
+
+  .hub-handle-card-title {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-2);
+    margin-bottom: 0.35rem;
+  }
+
+  .hub-handle-card-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .hub-handle-mono {
+    font-family: ui-monospace, monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hub-handle-copy {
+    flex-shrink: 0;
+    font-size: 0.8125rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .hub-handle-copy:hover {
+    background: var(--bg-3);
+  }
+
+  .hub-handle-lead {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--text-2);
+    line-height: 1.4;
+  }
+
+  .hub-handle-note {
+    margin: 0.45rem 0 0;
+    font-size: 0.75rem;
+    color: var(--text-3);
+    line-height: 1.35;
   }
 
   @media (max-width: 767px) {

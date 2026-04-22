@@ -40,6 +40,7 @@ import { isBundledNativeServer } from '../lib/nativeAppPort.js'
 import { isAppleLocalIntegrationEnvironment } from '../lib/appleLocalIntegrationEnv.js'
 import { isMultiTenantMode } from '../lib/dataRoot.js'
 import { tryGetTenantContext } from '../lib/tenantContext.js'
+import { isHandleConfirmedForTenant } from '../lib/handleMeta.js'
 
 const onboarding = new Hono()
 
@@ -112,8 +113,13 @@ onboarding.get('/status', async (c) => {
     })
   }
   const doc = await readOnboardingStateDoc()
+  let state: OnboardingMachineState = doc.state
+  const ctx = tryGetTenantContext()
+  if (isMultiTenantMode() && ctx && !(await isHandleConfirmedForTenant(ctx.homeDir))) {
+    state = 'confirming-handle'
+  }
   return c.json({
-    state: doc.state,
+    state,
     wikiMeExists: wikiMeExists(),
     updatedAt: doc.updatedAt,
   })
@@ -128,6 +134,16 @@ onboarding.patch('/state', async (c) => {
   const next = body?.state as OnboardingMachineState | undefined
   if (!next || typeof next !== 'string') {
     return c.json({ error: 'state or action: reset required' }, 400)
+  }
+  const ctxMt = tryGetTenantContext()
+  if (isMultiTenantMode() && ctxMt && !(await isHandleConfirmedForTenant(ctxMt.homeDir))) {
+    const blocked: OnboardingMachineState[] = ['indexing', 'profiling', 'reviewing-profile', 'done']
+    if (blocked.includes(next)) {
+      return c.json(
+        { error: 'Confirm your Braintunnel handle in onboarding before continuing.' },
+        400,
+      )
+    }
   }
   const cur = await readOnboardingStateDoc()
   if (cur.state === 'indexing' && next === 'profiling') {

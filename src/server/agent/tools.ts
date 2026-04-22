@@ -511,7 +511,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'read_doc',
     label: 'Read document',
     description:
-      'Read one item from the ripmail index: an email by Message-ID, or a file by absolute path (tilde paths OK). Use optional source when Message-ID is ambiguous.',
+      'Read one item from the ripmail index: an email by Message-ID, or a file by absolute path (tilde paths OK). Use optional source when Message-ID is ambiguous. For emails, the JSON includes an `attachments` array (index, filename, mimeType, size) when present — metadata only. Use **read_attachment** to fetch extracted text for a specific attachment.',
     parameters: Type.Object({
       id: Type.String({ description: 'Message-ID or filesystem path' }),
       source: Type.Optional(
@@ -524,7 +524,8 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     async execute(_toolCallId: string, params: { id: string; source?: string }) {
       const rm = ripmailBin()
       let readId = params.id
-      if (ripmailReadIdLooksLikeFilesystemPath(readId)) {
+      const originalIdWasPath = ripmailReadIdLooksLikeFilesystemPath(readId)
+      if (originalIdWasPath) {
         readId = await assertAgentReadPathAllowed(readId)
       }
       const resolved = await resolveRipmailSourceForCli(params.source)
@@ -532,6 +533,61 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       const { stdout } = await execRipmailAsync(`${rm} read ${JSON.stringify(readId)} --json${src}`, {
         ...ripmailReadExecOptions(),
       })
+
+      let textOut = stdout
+      if (!originalIdWasPath) {
+        try {
+          const parsed = JSON.parse(stdout) as Record<string, unknown>
+          let attachments: unknown[] = []
+          try {
+            const { stdout: listOut } = await execRipmailAsync(
+              `${rm} attachment list ${JSON.stringify(readId)}`,
+              { timeout: 10000 },
+            )
+            const listed = JSON.parse(listOut.trim() || '[]')
+            attachments = Array.isArray(listed) ? listed : []
+          } catch {
+            attachments = []
+          }
+          parsed.attachments = attachments
+          textOut = JSON.stringify(parsed)
+        } catch {
+          /* keep raw stdout if not JSON */
+        }
+      }
+
+      return {
+        content: [{ type: 'text' as const, text: textOut }],
+        details: {},
+      }
+    },
+  })
+
+  const readAttachment = defineTool({
+    name: 'read_attachment',
+    label: 'Read attachment',
+    description:
+      'Fetch extracted text from a specific email attachment (PDF, CSV, Office, etc.). Pass the filename or index from the `attachments` array returned by read_doc.',
+    parameters: Type.Object({
+      id: Type.String({ description: 'Message-ID of the email' }),
+      attachment: Type.Union(
+        [
+          Type.String({ description: 'Attachment filename (e.g. "Invoice.pdf")' }),
+          Type.Number({ description: 'Attachment index from read_doc attachments[]' }),
+        ],
+        { description: 'Filename or numeric index from read_doc' },
+      ),
+    }),
+    async execute(_toolCallId: string, params: { id: string; attachment: string | number }) {
+      const rm = ripmailBin()
+      const key =
+        typeof params.attachment === 'number'
+          ? JSON.stringify(params.attachment)
+          : JSON.stringify(params.attachment)
+      const { stdout } = await execRipmailAsync(
+        `${rm} attachment read ${JSON.stringify(params.id)} ${key}`,
+        { timeout: 30000 },
+      )
       return {
         content: [{ type: 'text' as const, text: stdout }],
         details: {},
@@ -1512,6 +1568,7 @@ Returns the saved text; treat it as active for this session too.`,
     deleteFile,
     searchIndex,
     readDoc,
+    readAttachment,
     manageSources,
     refreshSources,
     listInbox,

@@ -15,7 +15,9 @@ describe('GET/POST/DELETE /api/nav/recents', () => {
     mkdirSync(home, { recursive: true })
     app = new Hono()
     app.use('/api/*', async (c, next) => {
-      return runWithTenantContextAsync({ workspaceHandle: 't1', homeDir: home }, () => next())
+      return runWithTenantContextAsync({ tenantUserId: 't1', workspaceHandle: 't1', homeDir: home }, () =>
+        next(),
+      )
     })
     app.route('/api/nav/recents', navRecentsRoute)
   })

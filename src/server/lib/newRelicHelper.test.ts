@@ -39,7 +39,7 @@ describe('newRelicHelper', () => {
     expect(mergeToolCallCorrelation({ sessionId: 'sess-1' }).workspaceHandle).toBeUndefined()
 
     runWithTenantContext(
-      { workspaceHandle: 'alice-ws', homeDir: '/tmp/h' },
+      { tenantUserId: 'usr_alice', workspaceHandle: 'alice-ws', homeDir: '/tmp/h' },
       () => {
         recordToolCallStart('tc-1')
         recordToolCallEnd({

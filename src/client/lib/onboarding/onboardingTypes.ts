@@ -11,6 +11,8 @@ export type OnboardingMailStatus = {
   syncRunning: boolean
   syncLockAgeMs: number | null
   ftsReady: number | null
+  /** Denominator for mail download progress (e.g. mailbox row count or sync target). */
+  messageAvailableForProgress: number | null
   /** Ripmail still has mail to pull; sync is idle — good time to kick `refresh`. */
   pendingBackfill?: boolean
   /** DB lock without a live process — avoid stacking refreshes. */
@@ -29,6 +31,7 @@ export function emptyOnboardingMail(): OnboardingMailStatus {
     syncRunning: false,
     syncLockAgeMs: null,
     ftsReady: null,
+    messageAvailableForProgress: null,
     pendingBackfill: false,
     staleMailSyncLock: false,
     indexingHint: null,

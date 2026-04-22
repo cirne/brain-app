@@ -59,6 +59,7 @@ describe('createAgentTools', () => {
     expect(names).toContain('delete_file')
     expect(names).toContain('search_index')
     expect(names).toContain('read_doc')
+    expect(names).toContain('read_attachment')
     expect(names).toContain('manage_sources')
     expect(names).toContain('refresh_sources')
     expect(names).toContain('list_inbox')

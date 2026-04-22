@@ -2,8 +2,13 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 
 export type TenantContext = {
   /**
-   * Multi-tenant: URL-safe workspace handle (directory name under `BRAIN_DATA_ROOT`).
-   * Single-tenant bootstrap: `'_single'`.
+   * Multi-tenant: stable tenant key — directory name under `BRAIN_DATA_ROOT` (`usr_…`).
+   * Single-tenant: `'_single'`.
+   */
+  tenantUserId: string
+  /**
+   * Human-facing Braintunnel handle slug (from `handle-meta.json`); used in API/NR/UI.
+   * Single-tenant: `'_single'`.
    */
   workspaceHandle: string
   /** Full path to this tenant's BRAIN_HOME-equivalent directory. */

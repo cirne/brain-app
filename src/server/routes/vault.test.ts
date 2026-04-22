@@ -208,7 +208,7 @@ describe('/api/vault routes (multi-tenant)', () => {
     const handle = 'sess-ws-handle'
     ensureTenantHomeDir(handle)
     const sid = await runWithTenantContextAsync(
-      { workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      { tenantUserId: handle, workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
       async () => createVaultSession(),
     )
     await registerSessionTenant(sid, handle)
@@ -240,7 +240,7 @@ describe('/api/vault routes (multi-tenant)', () => {
     const home = ensureTenantHomeDir(handle)
     await writeFile(join(home, 'marker.txt'), 'x', 'utf-8')
     const sid = await runWithTenantContextAsync(
-      { workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      { tenantUserId: handle, workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
       async () => createVaultSession(),
     )
     await registerSessionTenant(sid, handle)

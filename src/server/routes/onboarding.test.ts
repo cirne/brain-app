@@ -30,6 +30,18 @@ vi.mock('../agent/yourWikiSupervisor.js', () => ({
 
 import onboardingRoute from './onboarding.js'
 import * as onboardingMailStatus from '../lib/onboardingMailStatus.js'
+import { tenantMiddleware } from '../lib/tenantMiddleware.js'
+import { vaultGateMiddleware } from '../lib/vaultGate.js'
+import { ensureTenantHomeDir, tenantHomeDir } from '../lib/dataRoot.js'
+import {
+  registerIdentityUserId,
+  registerIdentityWorkspace,
+  registerSessionTenant,
+} from '../lib/tenantRegistry.js'
+import { createVaultSession } from '../lib/vaultSessionStore.js'
+import { runWithTenantContextAsync } from '../lib/tenantContext.js'
+import { generateUserId, writeHandleMeta } from '../lib/handleMeta.js'
+import { googleIdentityKey } from '../lib/googleIdentityWorkspace.js'
 
 /** Avoid async wiki-expansion I/O racing with `afterEach` `rm(BRAIN_HOME)`. */
 vi.mock('../agent/wikiExpansionRunner.js', () => ({
@@ -433,6 +445,7 @@ describe('onboarding routes', () => {
         syncRunning: false,
         syncLockAgeMs: null,
         ftsReady: 100,
+        messageAvailableForProgress: 1000,
         pendingBackfill: true,
         staleMailSyncLock: false,
       })
@@ -457,6 +470,7 @@ describe('onboarding routes', () => {
         syncRunning: false,
         syncLockAgeMs: null,
         ftsReady: null,
+        messageAvailableForProgress: 500,
         pendingBackfill: true,
         staleMailSyncLock: false,
       })
@@ -473,5 +487,116 @@ describe('onboarding routes', () => {
       const j = (await res.json()) as { state: string }
       expect(j.state).toBe('profiling')
     })
+  })
+})
+
+describe('onboarding routes (multi-tenant handle gate)', () => {
+  const prevRoot = process.env.BRAIN_DATA_ROOT
+
+  beforeEach(() => {
+    delete process.env.BRAIN_HOME
+  })
+
+  afterEach(async () => {
+    delete process.env.BRAIN_DATA_ROOT
+    if (prevRoot !== undefined) process.env.BRAIN_DATA_ROOT = prevRoot
+  })
+
+  function mountMtOnboarding(): Hono {
+    const app = new Hono()
+    app.use('/api/*', tenantMiddleware)
+    app.use('/api/*', vaultGateMiddleware)
+    app.route('/api/onboarding', onboardingRoute)
+    return app
+  }
+
+  it('GET /status surfaces confirming-handle until meta confirmed', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ob-mt-st-'))
+    process.env.BRAIN_DATA_ROOT = root
+
+    const handle = 'ob-mt-handle'
+    const key = googleIdentityKey('sub-ob-mt')
+    ensureTenantHomeDir(handle)
+    const uid = generateUserId()
+    await registerIdentityWorkspace(key, handle)
+    await registerIdentityUserId(key, uid)
+    await writeHandleMeta(tenantHomeDir(handle), {
+      userId: uid,
+      handle,
+      confirmedAt: null,
+    })
+
+    await runWithTenantContextAsync(
+      { tenantUserId: handle, workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      async () => {
+        await mkdir(join(tenantHomeDir(handle), 'wiki'), { recursive: true })
+        await mkdir(join(tenantHomeDir(handle), 'chats'), { recursive: true })
+        await writeFile(
+          join(tenantHomeDir(handle), 'chats', 'onboarding.json'),
+          JSON.stringify({ state: 'done', updatedAt: new Date().toISOString() }),
+          'utf-8',
+        )
+      },
+    )
+
+    const sid = await runWithTenantContextAsync(
+      { tenantUserId: handle, workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      async () => createVaultSession(),
+    )
+    await registerSessionTenant(sid, handle)
+
+    const app = mountMtOnboarding()
+    const res = await app.request('http://localhost/api/onboarding/status', {
+      headers: { Cookie: `brain_session=${sid}` },
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { state: string }
+    expect(j.state).toBe('confirming-handle')
+
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('PATCH /state rejects indexing until handle confirmed', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ob-mt-patch-'))
+    process.env.BRAIN_DATA_ROOT = root
+
+    const handle = 'ob-mt-patch'
+    const key = googleIdentityKey('sub-ob-patch')
+    ensureTenantHomeDir(handle)
+    const uid = generateUserId()
+    await registerIdentityWorkspace(key, handle)
+    await registerIdentityUserId(key, uid)
+    await writeHandleMeta(tenantHomeDir(handle), {
+      userId: uid,
+      handle,
+      confirmedAt: null,
+    })
+
+    await runWithTenantContextAsync(
+      { tenantUserId: handle, workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      async () => {
+        await mkdir(join(tenantHomeDir(handle), 'wiki'), { recursive: true })
+        await mkdir(join(tenantHomeDir(handle), 'chats'), { recursive: true })
+      },
+    )
+
+    const sid = await runWithTenantContextAsync(
+      { tenantUserId: handle, workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      async () => createVaultSession(),
+    )
+    await registerSessionTenant(sid, handle)
+
+    const app = mountMtOnboarding()
+    const res = await app.request('http://localhost/api/onboarding/state', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `brain_session=${sid}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ state: 'indexing' }),
+    })
+    expect(res.status).toBe(400)
+
+    await rm(root, { recursive: true, force: true })
   })
 })

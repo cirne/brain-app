@@ -32,18 +32,19 @@ export function globalDir(): string {
   return join(dataRoot(), '.global')
 }
 
-export function tenantHomeDir(workspaceHandle: string): string {
-  return join(dataRoot(), workspaceHandle)
+/** Tenant data lives under `BRAIN_DATA_ROOT/<tenantUserId>/` where `tenantUserId` is `usr_…`. Display handle lives in `handle-meta.json`. */
+export function tenantHomeDir(tenantUserId: string): string {
+  return join(dataRoot(), tenantUserId)
 }
 
-/** True if this workspace directory already has a vault verifier on disk (setup collision). */
-export function tenantVaultVerifierExistsSync(workspaceHandle: string): boolean {
-  return existsSync(brainLayoutVaultVerifierPath(tenantHomeDir(workspaceHandle)))
+/** True if this tenant directory already has a vault verifier on disk (setup collision). */
+export function tenantVaultVerifierExistsSync(tenantUserId: string): boolean {
+  return existsSync(brainLayoutVaultVerifierPath(tenantHomeDir(tenantUserId)))
 }
 
-/** Create tenant tree matching {@link shared/brain-layout.json} under `workspaceHandle`. */
-export function ensureTenantHomeDir(workspaceHandle: string): string {
-  const root = tenantHomeDir(workspaceHandle)
+/** Create tenant tree matching {@link shared/brain-layout.json} under `tenantUserId` (`usr_…`). */
+export function ensureTenantHomeDir(tenantUserId: string): string {
+  const root = tenantHomeDir(tenantUserId)
   mkdirSync(brainLayoutWikiDir(root), { recursive: true })
   mkdirSync(brainLayoutSkillsDir(root), { recursive: true })
   mkdirSync(brainLayoutChatsDir(root), { recursive: true })

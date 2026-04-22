@@ -2,6 +2,7 @@ import type { Context, Next } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { resolveBrainHomeDiskRoot } from './brainHome.js'
 import { isMultiTenantMode, tenantHomeDir } from './dataRoot.js'
+import { readHandleMeta } from './handleMeta.js'
 import { runWithTenantContextAsync } from './tenantContext.js'
 import { lookupTenantBySession } from './tenantRegistry.js'
 import { BRAIN_SESSION_COOKIE } from './vaultCookie.js'
@@ -26,16 +27,21 @@ function allowNoTenantContextMt(path: string, method: string): boolean {
 export async function tenantMiddleware(c: Context, next: Next): Promise<Response | void> {
   if (!isMultiTenantMode()) {
     const homeDir = resolveBrainHomeDiskRoot()
-    return runWithTenantContextAsync({ workspaceHandle: '_single', homeDir }, () => next())
+    return runWithTenantContextAsync(
+      { tenantUserId: '_single', workspaceHandle: '_single', homeDir },
+      () => next(),
+    )
   }
 
   const path = c.req.path
   const method = c.req.method
   const sid = getCookie(c, BRAIN_SESSION_COOKIE)
-  const workspaceHandle = await lookupTenantBySession(sid)
-  if (workspaceHandle) {
-    const homeDir = tenantHomeDir(workspaceHandle)
-    return runWithTenantContextAsync({ workspaceHandle, homeDir }, () => next())
+  const tenantUserId = await lookupTenantBySession(sid)
+  if (tenantUserId) {
+    const homeDir = tenantHomeDir(tenantUserId)
+    const meta = await readHandleMeta(homeDir)
+    const workspaceHandle = meta?.handle ?? tenantUserId
+    return runWithTenantContextAsync({ tenantUserId, workspaceHandle, homeDir }, () => next())
   }
 
   if (allowNoTenantContextMt(path, method)) {

@@ -8,6 +8,10 @@ export type VaultStatus = {
   multiTenant?: boolean
   /** When unlocked in multi-tenant mode, the active workspace handle. */
   workspaceHandle?: string
+  /** Hosted: stable non-PII id for telemetry when present. */
+  userId?: string
+  /** Hosted: true after the user confirms their handle during onboarding. */
+  handleConfirmed?: boolean
 }
 
 export async function fetchVaultStatus(): Promise<VaultStatus> {

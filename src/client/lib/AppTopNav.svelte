@@ -18,6 +18,10 @@
     onNewChat?: () => void
     /** When true, hides the new-chat button (current chat is empty). */
     isEmptyChat?: boolean
+    /** Hosted only: `@handle` next to Hub after onboarding confirmation. */
+    hostedHandlePill?: string
+    /** Hosted only: opens Hub scrolled to handle section. */
+    onHostedHandleNavigate?: () => void
   }
 
   let {
@@ -32,6 +36,8 @@
     onOpenHub,
     onNewChat,
     isEmptyChat = false,
+    hostedHandlePill,
+    onHostedHandleNavigate,
   }: Props = $props()
 
   /** Sidebar open (wide header + list): desktop or mobile. */
@@ -96,6 +102,16 @@
     </button>
   </div>
   <div class="sync-wrap">
+    {#if hostedHandlePill && onHostedHandleNavigate}
+      <button
+        type="button"
+        class="nav-hosted-handle"
+        onclick={onHostedHandleNavigate}
+        title="Your Braintunnel handle — open Hub"
+      >
+        @{hostedHandlePill}
+      </button>
+    {/if}
     <BrainHubWidget onOpen={onOpenHub} />
     {#if syncErrors.length > 0}
       <button class="sync-error-badge" onclick={onToggleSyncErrors} title="Show sync errors">!</button>
@@ -263,6 +279,28 @@
     align-items: stretch;
     border-left: 1px solid var(--border);
     flex-shrink: 0;
+  }
+
+  .nav-hosted-handle {
+    align-self: center;
+    margin: 0 6px 0 8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: ui-monospace, monospace;
+    font-weight: 500;
+    color: var(--text-2);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .nav-hosted-handle:hover {
+    color: var(--text);
+    background: var(--bg-3);
   }
 
   .sync-error-badge {

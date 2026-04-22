@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -8,6 +8,7 @@ import {
   resolveOrProvisionWorkspace,
 } from './googleIdentityWorkspace.js'
 import { lookupWorkspaceByIdentity } from './tenantRegistry.js'
+import { HANDLE_META_FILENAME } from './handleMeta.js'
 
 describe('googleIdentityWorkspace', () => {
   const prevRoot = process.env.BRAIN_DATA_ROOT
@@ -30,15 +31,22 @@ describe('googleIdentityWorkspace', () => {
     const email = 'newbie@gmail.com'
     const key = googleIdentityKey(sub)
 
-    const { workspaceHandle, isNew } = await resolveOrProvisionWorkspace(sub, email)
+    const { tenantUserId, workspaceHandle, isNew } = await resolveOrProvisionWorkspace(sub, email)
     expect(isNew).toBe(true)
     expect(workspaceHandle.length).toBeGreaterThanOrEqual(3)
+    expect(tenantUserId).toMatch(/^usr_/)
 
-    expect(await lookupWorkspaceByIdentity(key)).toBe(workspaceHandle)
+    expect(await lookupWorkspaceByIdentity(key)).toBe(tenantUserId)
 
     const regRaw = readFileSync(join(root, '.global', 'tenant-registry.json'), 'utf-8')
     const reg = JSON.parse(regRaw) as { identities?: Record<string, string> }
-    expect(reg.identities?.[key]).toBe(workspaceHandle)
+    expect(reg.identities?.[key]).toBe(tenantUserId)
+
+    const hm = join(root, tenantUserId, HANDLE_META_FILENAME)
+    expect(existsSync(hm)).toBe(true)
+    const hmRaw = JSON.parse(readFileSync(hm, 'utf-8')) as { userId?: string; confirmedAt?: unknown }
+    expect(typeof hmRaw.userId).toBe('string')
+    expect(hmRaw.confirmedAt == null).toBe(true)
 
     rmSync(root, { recursive: true, force: true })
   })

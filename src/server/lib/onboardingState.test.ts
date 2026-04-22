@@ -35,6 +35,14 @@ describe('onboardingState', () => {
     expect((await readOnboardingStateDoc()).state).toBe('profiling')
   })
 
+  it('setOnboardingState allows not-started → confirming-handle → indexing', async () => {
+    const { readOnboardingStateDoc, setOnboardingState } = await import('./onboardingState.js')
+    await setOnboardingState('confirming-handle')
+    expect((await readOnboardingStateDoc()).state).toBe('confirming-handle')
+    await setOnboardingState('indexing')
+    expect((await readOnboardingStateDoc()).state).toBe('indexing')
+  })
+
   it('setOnboardingState rejects invalid transition', async () => {
     const { setOnboardingState } = await import('./onboardingState.js')
     await expect(setOnboardingState('done')).rejects.toThrow()

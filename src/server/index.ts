@@ -29,6 +29,7 @@ import hubRoute from './routes/hub.js'
 import hubEventsRoute from './routes/hubEvents.js'
 import devRoute from './routes/dev.js'
 import vaultRoute from './routes/vault.js'
+import accountRoute from './routes/account.js'
 import { vaultGateMiddleware } from './lib/vaultGate.js'
 import { tenantMiddleware } from './lib/tenantMiddleware.js'
 import { ensureYourWikiRunning, requestLapNow } from './agent/yourWikiSupervisor.js'
@@ -148,6 +149,7 @@ app.use('*', async (c, next) => {
 })
 
 app.route('/api/vault', vaultRoute)
+app.route('/api/account', accountRoute)
 app.route('/api/chat', chatRoute)
 app.route('/api/skills', skillsRoute)
 app.route('/api/wiki', wikiRoute)
@@ -292,6 +294,10 @@ async function start() {
     if (!isMultiTenantMode()) {
       await runSplitLayoutMigrationIfNeeded()
       await ensureBrainHomeGitignore()
+    } else {
+      // One-time: legacy handle dirs → `usr_*`; registry normalization. Remove after deploy confirms (see module).
+      const { migrateTenantDirsToUserIdOnce } = await import('./lib/migrateTenantDirsToUserId.js')
+      await migrateTenantDirsToUserIdOnce()
     }
 
     // Inline NODE_ENV check so production bundles can drop the Vite branch (see esbuild define).

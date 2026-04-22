@@ -58,7 +58,7 @@ describe('vaultGateMiddleware (multi-tenant)', () => {
     const handle = 'gate-mt-h'
     ensureTenantHomeDir(handle)
     const sid = await runWithTenantContextAsync(
-      { workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      { tenantUserId: handle, workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
       async () => createVaultSession(),
     )
     await registerSessionTenant(sid, handle)

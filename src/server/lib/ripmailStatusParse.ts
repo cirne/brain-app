@@ -16,6 +16,11 @@ export type ParsedRipmailStatus = {
   initialSyncHangSuspected: boolean
   /** First-time mailbox: needs a refresh/backfill and nothing is actively syncing. */
   pendingRefresh: boolean
+  /**
+   * Onboarding “downloaded / available” denominator: sum of `mailboxes[].messageCount` when non-zero, else
+   * `sync.refresh.totalMessages`, else `sync.backfill.totalMessages`. Null when no usable total yet.
+   */
+  messageAvailableForProgress: number | null
 }
 
 function readNum(v: unknown): number | null {
@@ -192,6 +197,18 @@ export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | nu
     const lastSyncedAt =
       readStrOrNull(refresh.lastSyncAt) ?? (backfill != null ? readStrOrNull(backfill.lastSyncAt) : null)
 
+    const mbSum = sumMailboxMessageCounts(j.mailboxes)
+    const refreshTot = readNum(refresh.totalMessages)
+    const backfillTot = backfill != null ? readNum((backfill as Record<string, unknown>).totalMessages) : null
+    let messageAvailableForProgress: number | null = null
+    if (mbSum > 0) {
+      messageAvailableForProgress = mbSum
+    } else if (refreshTot != null && refreshTot > 0) {
+      messageAvailableForProgress = refreshTot
+    } else if (backfillTot != null && backfillTot > 0) {
+      messageAvailableForProgress = backfillTot
+    }
+
     return {
       indexedTotal: resolveIndexedTotal(sync, j.mailboxes, search),
       lastSyncedAt,
@@ -205,6 +222,7 @@ export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | nu
       staleLockInDb: stale,
       initialSyncHangSuspected: hang,
       pendingRefresh,
+      messageAvailableForProgress,
     }
   } catch {
     return null

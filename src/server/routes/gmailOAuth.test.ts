@@ -248,10 +248,15 @@ describe('GET /api/oauth/google/callback', () => {
         identities?: Record<string, string>
       }
       expect(Object.keys(reg.sessions).length).toBe(1)
-      expect(reg.identities?.['google:google-mt-hosted-sub']).toMatch(/^hosted/)
-
-      const handle = reg.identities!['google:google-mt-hosted-sub']
-      const tokenPath = join(mtRoot, handle, 'ripmail', 'hosted_gmail_com', 'google-oauth.json')
+      const tenantUserId = reg.identities?.['google:google-mt-hosted-sub']
+      expect(tenantUserId).toMatch(/^usr_/)
+      const tokenPath = join(
+        mtRoot,
+        tenantUserId!,
+        'ripmail',
+        'hosted_gmail_com',
+        'google-oauth.json',
+      )
       expect(existsSync(tokenPath)).toBe(true)
     })
   })

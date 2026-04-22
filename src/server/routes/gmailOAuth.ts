@@ -140,9 +140,9 @@ app.get('/callback', async (c) => {
   }
 
   if (isMultiTenantMode()) {
-    const { workspaceHandle } = await resolveOrProvisionWorkspace(sub, email)
-    const homeDir = tenantHomeDir(workspaceHandle)
-    return runWithTenantContextAsync({ workspaceHandle, homeDir }, async () => {
+    const { tenantUserId, workspaceHandle } = await resolveOrProvisionWorkspace(sub, email)
+    const homeDir = tenantHomeDir(tenantUserId)
+    return runWithTenantContextAsync({ tenantUserId, workspaceHandle, homeDir }, async () => {
       const mailboxId = deriveMailboxId(email)
       const ripmailHome = ripmailHomeForBrain()
       try {
@@ -154,7 +154,7 @@ app.get('/callback', async (c) => {
         return redirectOauthError(c, msg)
       }
       const sessionId = await createVaultSession()
-      await registerSessionTenant(sessionId, workspaceHandle)
+      await registerSessionTenant(sessionId, tenantUserId)
       setBrainSessionCookie(c, sessionId)
       recordGoogleOauthSuccess()
       return c.redirect('/oauth/google/complete', 302)

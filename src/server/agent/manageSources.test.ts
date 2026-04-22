@@ -99,13 +99,16 @@ describe('manage_sources tool', () => {
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"sources":[]}', stderr: '' })
 
     try {
-      await runWithTenantContextAsync({ workspaceHandle: 'alice', homeDir: tenantA }, async () => {
-        const tools = createAgentTools(w)
-        const tool = tools.find((t) => t.name === 'manage_sources')!
-        await expect(
-          tool.execute('s', { op: 'add', path: join(tenantB, 'wiki'), label: 'x' }),
-        ).rejects.toThrow(/path_not_allowed/)
-      })
+      await runWithTenantContextAsync(
+        { tenantUserId: 'alice', workspaceHandle: 'alice', homeDir: tenantA },
+        async () => {
+          const tools = createAgentTools(w)
+          const tool = tools.find((t) => t.name === 'manage_sources')!
+          await expect(
+            tool.execute('s', { op: 'add', path: join(tenantB, 'wiki'), label: 'x' }),
+          ).rejects.toThrow(/path_not_allowed/)
+        },
+      )
       const addCalls = vi.mocked(execRipmailAsync).mock.calls.filter((c) => c[0].includes('sources add'))
       expect(addCalls).toHaveLength(0)
     } finally {

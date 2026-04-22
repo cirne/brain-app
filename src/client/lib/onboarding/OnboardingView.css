@@ -106,6 +106,41 @@
   margin-bottom: 0;
 }
 
+.ob-indexing-progress-block--determinate {
+  width: 100%;
+  max-width: 18rem;
+  margin: 0 auto;
+}
+
+.ob-indexing-progress-bar--determinate {
+  position: relative;
+  overflow: hidden;
+}
+
+.ob-indexing-progress-fill {
+  height: 100%;
+  min-width: 0;
+  border-radius: 1rem;
+  background: var(--accent);
+  transition: width 0.45s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-indexing-progress-fill {
+    transition: none;
+  }
+}
+
+.ob-indexing-progress-fraction {
+  margin: 0.5rem 0 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--text-2, var(--muted));
+  font-variant-numeric: tabular-nums;
+  text-wrap: balance;
+}
+
 .ob-indexing-progress-bar--indeterminate {
   position: relative;
 }
