@@ -151,7 +151,7 @@
     }
   }
 
-  const TEXTAREA_MIN_H = 34
+  const TEXTAREA_MIN_H = 38
 
   function autoResize(el: HTMLTextAreaElement) {
     el.style.height = 'auto'
@@ -379,7 +379,7 @@
   .input-shell {
     flex: 1;
     min-width: 0;
-    min-height: 38px;
+    min-height: 42px;
     padding: 3px 6px 3px 10px;
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -407,11 +407,11 @@
     border-radius: 0;
     padding: 8px 4px 5px 2px;
     font: inherit;
-    font-size: 14px;
-    line-height: 1.35;
+    font-size: 16px;
+    line-height: 1.4;
     background: transparent;
     color: var(--text);
-    min-height: 34px;
+    min-height: 38px;
     max-height: 200px;
   }
 

@@ -110,14 +110,18 @@
   let indexingStartedAt = $state<number | null>(null)
   let indexingElapsedTick = $state(0)
   $effect(() => {
-    if (state === 'indexing') {
+    const onMailIndexingUi =
+      state === 'indexing' || (state === 'not-started' && mail.configured && !needsVaultSetup && !setupError)
+    if (onMailIndexingUi) {
       if (indexingStartedAt === null) indexingStartedAt = Date.now()
     } else {
       indexingStartedAt = null
     }
   })
   $effect(() => {
-    if (state !== 'indexing') return
+    const onMailIndexingUi =
+      state === 'indexing' || (state === 'not-started' && mail.configured && !needsVaultSetup && !setupError)
+    if (!onMailIndexingUi) return
     const id = setInterval(() => {
       indexingElapsedTick += 1
     }, 5000)
@@ -134,9 +138,43 @@
     return 'We’re copying your recent messages into Braintunnel so we can build your profile. Hang tight.'
   })
 
+  const showIndexingHero = $derived(
+    !needsVaultSetup &&
+      (state === 'indexing' ||
+        (state === 'not-started' && mail.configured && !setupError)),
+  )
+
   const indexingElapsedLine = $derived.by(() => {
     void indexingElapsedTick
-    return buildIndexingElapsedLine(state, indexingStartedAt, Date.now())
+    return buildIndexingElapsedLine(state, indexingStartedAt, Date.now(), {
+      mailIndexingHero:
+        !needsVaultSetup && state === 'not-started' && mail.configured && !setupError,
+    })
+  })
+
+  /**
+   * Mail can be indexing while onboarding state is still `not-started` (e.g. Apple path + race).
+   * `indexing` is required for auto-advance and for PATCH `profiling` transitions on the server.
+   */
+  let alignIndexingStateInitiated = $state(false)
+  $effect(() => {
+    if (needsVaultSetup || setupError) {
+      alignIndexingStateInitiated = false
+      return
+    }
+    if (state !== 'not-started') {
+      alignIndexingStateInitiated = false
+      return
+    }
+    if (!mail.configured || busy) {
+      alignIndexingStateInitiated = false
+      return
+    }
+    if (alignIndexingStateInitiated) return
+    alignIndexingStateInitiated = true
+    void patchState('indexing').catch(() => {
+      alignIndexingStateInitiated = false
+    })
   })
 
   /** After enough mail is indexed, advance to profiling. */
@@ -146,12 +184,6 @@
       indexingToProfilingInitiated = false
     }
   })
-
-  const showIndexingHero = $derived(
-    !needsVaultSetup &&
-      (state === 'indexing' ||
-        (state === 'not-started' && mail.configured && !setupError)),
-  )
 
   const indexingStatusLine = $derived.by(() => {
     if (mailIndexedCount > 0) {
@@ -167,8 +199,9 @@
     if (state !== 'indexing' || !canAutoProceedToProfiling || busy) return
     if (indexingToProfilingInitiated) return
     indexingToProfilingInitiated = true
-    void patchState('profiling').catch(() => {
+    void patchState('profiling').catch((e) => {
       indexingToProfilingInitiated = false
+      indexingAdvanceError = e instanceof Error ? e.message : String(e)
     })
   })
 
@@ -194,6 +227,9 @@
     busy = true
     await tick()
     try {
+      if (state === 'not-started' && mail.configured) {
+        await patchState('indexing')
+      }
       await patchState('profiling')
     } catch (e) {
       indexingAdvanceError = e instanceof Error ? e.message : String(e)
@@ -573,12 +609,14 @@
             {#if indexingElapsedLine}
               <p class="ob-indexing-elapsed">{indexingElapsedLine}</p>
             {/if}
-            {#if state === 'indexing' && canOfferEarlyProfile}
-              <div class="ob-indexing-early" role="region" aria-label="Continue before full sync">
-                <p class="ob-indexing-early-copy">
-                  You’ve got enough mail for a strong first profile. We’ll keep downloading the rest in the background
-                  while you talk with Braintunnel.
-                </p>
+            {#if showIndexingHero && (canOfferEarlyProfile || canAutoProceedToProfiling) && (state === 'indexing' || (state === 'not-started' && mail.configured))}
+              <div class="ob-indexing-early" role="region" aria-label="Continue to profile building">
+                {#if canOfferEarlyProfile}
+                  <p class="ob-indexing-early-copy">
+                    You’ve got enough mail for a strong first profile. We’ll keep downloading the rest in the background
+                    while you talk with Braintunnel.
+                  </p>
+                {/if}
                 <button
                   type="button"
                   class="ob-btn-primary ob-indexing-early-btn"
@@ -589,7 +627,7 @@
                     <span class="ob-spinner" aria-hidden="true"></span>
                     Working…
                   {:else}
-                    Build my profile now
+                    {canAutoProceedToProfiling ? 'Continue to profile' : 'Build my profile now'}
                   {/if}
                 </button>
               </div>

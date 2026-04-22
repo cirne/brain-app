@@ -7,6 +7,12 @@ describe('buildIndexingElapsedLine', () => {
   it('returns null when not indexing or no start time', () => {
     expect(buildIndexingElapsedLine('indexing', null, t0)).toBeNull()
     expect(buildIndexingElapsedLine('not-started', t0, t0 + 120_000)).toBeNull()
+    expect(buildIndexingElapsedLine('not-started', t0, t0 + 119_000, { mailIndexingHero: true })).toBeNull()
+  })
+
+  it('treats not-started as indexing UI when mailIndexingHero is set', () => {
+    const line = buildIndexingElapsedLine('not-started', t0, t0 + 3 * 60_000, { mailIndexingHero: true })
+    expect(line).toContain('Still working')
   })
 
   it('returns null under 2 minutes elapsed', () => {
