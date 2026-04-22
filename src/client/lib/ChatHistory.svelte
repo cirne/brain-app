@@ -5,6 +5,10 @@
   import { chatRowShowsAgentWorking } from './chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from './chatHistoryDelete.js'
   import {
+    fetchChatSessionsWith401Retry,
+    formatChatSessionsFetchError,
+  } from './chatHistorySessions.js'
+  import {
     loadNavHistory,
     removeFromNavHistory,
     type NavHistoryItem,
@@ -94,9 +98,14 @@
     loading = true
     error = null
     try {
-      const res = await fetch('/api/chat/sessions')
+      const res = await fetchChatSessionsWith401Retry(fetch)
+      if (!res) {
+        error = 'Could not load chats'
+        sessions = []
+        return
+      }
       if (!res.ok) {
-        error = `${res.status} ${res.statusText}`
+        error = formatChatSessionsFetchError(res)
         sessions = []
         return
       }
