@@ -739,10 +739,10 @@ describe('buildDraftEditFlags', () => {
 describe('buildRipmailSearchCommandLine', () => {
   it('builds pattern-only and filter-only command lines', () => {
     expect(buildRipmailSearchCommandLine({ query: 'foo|bar' })).toBe(
-      '"ripmail" search "foo|bar" --json',
+      'ripmail search "foo|bar" --json',
     )
     expect(buildRipmailSearchCommandLine({ from: 'a@x.com' })).toBe(
-      '"ripmail" search --from "a@x.com" --json',
+      'ripmail search --from "a@x.com" --json',
     )
   })
 
@@ -759,12 +759,12 @@ describe('buildRipmailSearchCommandLine', () => {
         source: 'acct-1',
       }),
     ).toBe(
-      '"ripmail" search "x" --to "b@y.com" --after "7d" --before "2026-01-01" --subject "inv" --category "work,personal" --case-sensitive --json --source "acct-1"',
+      'ripmail search "x" --to "b@y.com" --after "7d" --before "2026-01-01" --subject "inv" --category "work,personal" --case-sensitive --json --source "acct-1"',
     )
   })
 
   it('treats pattern as alias of query', () => {
-    expect(buildRipmailSearchCommandLine({ pattern: 'z' })).toBe('"ripmail" search "z" --json')
+    expect(buildRipmailSearchCommandLine({ pattern: 'z' })).toBe('ripmail search "z" --json')
   })
 })
 

@@ -31,12 +31,12 @@
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    justify-content: flex-start;
-    min-height: 100%;
+    justify-content: center;
+    min-height: 0;
     color: var(--text-2);
     font-size: 14px;
     gap: 8px;
-    padding-bottom: 24px;
+    padding-bottom: 8px;
     box-sizing: border-box;
   }
 

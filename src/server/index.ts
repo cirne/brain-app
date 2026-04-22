@@ -1,3 +1,5 @@
+// New Relic APM: must load before any other application code.
+import 'newrelic'
 // Load .env in dev, overriding existing vars (important: parent shell may
 // set ANTHROPIC_API_KEY to empty, and loadEnvFile won't override it).
 import { loadDotEnv } from './lib/loadDotEnv.js'

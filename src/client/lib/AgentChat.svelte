@@ -568,11 +568,15 @@
     return sessions.get(id)?.pendingQueuedMessages ?? []
   })
 
+  /** When true, vertically center the empty transcript and (when shown) the composer. */
+  const centerEmptyInPane = $derived(messages.length === 0)
+
 </script>
 
 <div class="agent-chat">
-  <!-- Body is the overlay anchor: mobile detail covers header + conversation only, not the input -->
   <div class="chat-body">
+    <div class="chat-top">
+    {#if !centerEmptyInPane}
     <!-- Always in flex flow — prevents height jump when overlay opens/closes -->
     <div inert={conversationHidden || undefined}>
       <PaneL2Header>
@@ -602,7 +606,12 @@
         {/snippet}
       </PaneL2Header>
     </div>
+    {/if}
 
+    <div
+      class="mid-outer"
+      class:mid-outer--empty={centerEmptyInPane}
+    >
     <!-- Always mounted so it is visible behind the overlay during the slide-out animation -->
     <div class="mid" inert={conversationHidden || undefined}>
       <ConversationView
@@ -637,28 +646,29 @@
       {/if}
     </div>
 
+    {#if !hideInput}
+      <div class="input-shell">
+        <AgentInput
+          bind:this={inputEl}
+          {placeholder}
+          {streaming}
+          queuedMessages={pendingQueuedMessages}
+          {wikiFiles}
+          skills={skillsList}
+          onSend={send}
+          onStop={stopChat}
+        />
+      </div>
+    {/if}
+    </div>
+
     {#if conversationHidden && mobileDetail}
       <div class="mobile-detail-layer">
         {@render mobileDetail()}
       </div>
     {/if}
-  </div>
-
-  <!-- Sibling below chat-body: stays outside the mobile slide-over so the user can keep typing or start a new chat -->
-  {#if !hideInput}
-    <div class="input-shell">
-      <AgentInput
-        bind:this={inputEl}
-        {placeholder}
-        {streaming}
-        queuedMessages={pendingQueuedMessages}
-        {wikiFiles}
-        skills={skillsList}
-        onSend={send}
-        onStop={stopChat}
-      />
     </div>
-  {/if}
+  </div>
 </div>
 
 <style>
@@ -680,6 +690,33 @@
     flex-direction: column;
     position: relative;
     overflow-x: hidden;
+  }
+
+  .chat-top {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mid-outer {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mid-outer--empty {
+    justify-content: center;
+  }
+
+  .mid-outer--empty .mid {
+    flex: 0 1 auto;
+    min-height: 0;
   }
 
   .input-shell {

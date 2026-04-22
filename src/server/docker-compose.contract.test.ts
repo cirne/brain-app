@@ -21,6 +21,7 @@ describe('Docker packaging (OPP-041 Phase 1)', () => {
     expect(raw).toMatch(/COPY \.docker\/linux-ripmail\/ripmail/)
     expect(raw).not.toMatch(/cargo build -p ripmail/)
     expect(raw).toMatch(/npm run build/)
+    expect(raw).toMatch(/ENV PORT=4000/)
     expect(raw).toContain('CMD ["node", "dist/server/index.js"]')
     expect(raw).toContain('RIPMAIL_BIN=/usr/local/bin/ripmail')
   })

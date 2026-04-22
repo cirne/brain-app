@@ -149,7 +149,7 @@
   }
 </script>
 
-<div class="conversation-shell">
+<div class="conversation-shell" data-conversation-state={messages.length === 0 ? 'empty' : 'active'}>
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_mouse_events_have_key_events -->
   <div
@@ -232,14 +232,27 @@
     overflow-x: hidden;
   }
 
+  .conversation-shell[data-conversation-state='empty'] {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+
   .conversation {
     flex: 1;
     min-width: 0;
+    min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
     padding: 16px;
     padding-bottom: 20px;
     box-sizing: border-box;
+  }
+
+  .conversation-shell[data-conversation-state='empty'] .conversation {
+    flex: 0 1 auto;
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   @media (min-width: 768px) {

@@ -20,9 +20,8 @@ services:
       BRAIN_DATA_ROOT: /brain-data
       RIPMAIL_BIN: /usr/local/bin/ripmail
       PORT: "4000"
-      # Same host you use in the browser (avoids localhost vs 127.0.0.1 OAuth cookie mismatch).
-      # If BRAIN_DOCKER_PORT is not 4000, set explicitly, e.g. http://localhost:8080
-      PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:-http://localhost:4000}
+      NEW_RELIC_APP_NAME: Braintunnel Local Dev
+      PUBLIC_WEB_ORIGIN: http://localhost:4000
     volumes:
       - brain_data:/brain-data
     healthcheck:

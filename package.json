@@ -55,6 +55,7 @@
     "gray-matter": "^4.0.3",
     "hono": "^4.12.14",
     "marked": "^15.0.0",
+    "newrelic": "^13.19.2",
     "papaparse": "^5.5.3",
     "qrcode": "^1.5.4",
     "selfsigned": "^2.4.1",

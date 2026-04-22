@@ -20,6 +20,13 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates libssl3 tini \
   && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
+ENV PORT=4000
+ENV NEW_RELIC_NO_CONFIG_FILE=true
+ENV NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
+ENV NEW_RELIC_LOG=stdout
+ENV NEW_RELIC_AI_MONITORING_ENABLED=true
+ENV NEW_RELIC_CUSTOM_INSIGHTS_EVENTS_MAX_SAMPLES_STORED=100k
+ENV NEW_RELIC_SPAN_EVENTS_MAX_SAMPLES_STORED=10k
 COPY --from=node-builder /app/dist ./dist
 COPY --from=node-builder /app/node_modules ./node_modules
 COPY --from=node-builder /app/package.json ./package.json

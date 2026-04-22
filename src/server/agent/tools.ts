@@ -57,7 +57,7 @@ export function buildRipmailSearchCommandLine(params: {
   const rm = ripmailBin()
   const q = (params.pattern ?? params.query ?? '').trim()
   const j = (s: string) => JSON.stringify(s)
-  const parts: string[] = [j(rm), 'search']
+  const parts: string[] = [rm, 'search']
   if (q.length > 0) {
     parts.push(j(q))
   }
