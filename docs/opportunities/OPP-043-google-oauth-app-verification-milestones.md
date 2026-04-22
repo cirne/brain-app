@@ -52,7 +52,7 @@ Parallel tracks (can proceed alongside M2–M7):
 
 - Canonical product name locked to **Braintunnel**
 - UI, product docs, and developer docs swept to **Braintunnel** / `**Braintunnel.app`** (see [COPY_STYLE_GUIDE](../COPY_STYLE_GUIDE.md), [product/personal-wiki.md](../product/personal-wiki.md)); Rust/Tauri log prefixes say **Braintunnel** where they name the product
-- **Intentional unchanged names:** repository `**brain-app`**, env `**BRAIN_***`, on-disk defaults `**~/Documents/Brain**` / `**Application Support/Brain**`, component ids like `**BrainHubPage**`, and strategy language such as **“second brain”** or **brain-to-brain** in network OPPs — not the public product name
+- **Intentional unchanged names:** repository `**brain-app`**, env `**BRAIN_*`**, on-disk defaults `**~/Documents/Brain**` / `**Application Support/Brain**`, component ids like `**BrainHubPage**`, and strategy language such as **“second brain”** or **brain-to-brain** in network OPPs — not the public product name
 
 **Still optional (not blocking verification or the 100-user cap):**
 
@@ -83,32 +83,33 @@ The Google consent screen shows **"Published by: entity name"**. The privacy pol
 
 ---
 
-## M2: Domain + public website — **ready to ship quickly**
+## M2: Domain + public website — **in progress (skeleton live)**
 
 **Depends on:** M0 (brand name) ✅  
 **Blocks:** M3 (policy URLs), M7 (consent screen homepage URL)  
 **Note on M1:** **Braintunnel, LLC** is **in progress** (Donna Wilcox). The site can go up under the Braintunnel brand first; **policy pages (M3)** should name **Braintunnel, LLC** as soon as the entity is active and copy is confirmed.
 
-**Domains:** **Owned** — `**braintunnel.ai`** and other similar defensives. No acquisition work left for the primary public origin.
+**Live site (skeletal):** **`https://braintunnel-www.vercel.app`** — HTTPS, Vercel. **Source:** [github.com/cirne/braintunnel-www](https://github.com/cirne/braintunnel-www) (separate repo from `brain-app`).
 
-**Homepage strategy:** **Stealth / “coming soon”** is enough for the **app homepage** URL Google shows on the consent screen. It does not need a full product marketing site for verification. Keep it **clean and intentional** (not a squatter or parking page): one screen, product name, optional one-line tease, optional waitlist or contact — that satisfies “real product, real domain.”
+**Domains:** **Owned** — **`braintunnel.ai`** and other similar defensives. The **production** Vercel project is not required to be on the custom domain for every intermediate step, but the **Google OAuth consent screen** should use a **single canonical** origin you control long-term (typically `https://braintunnel.ai` once DNS → Vercel is wired). Add **`braintunnel.ai`** (and `www` if used) in [Vercel](https://vercel.com) for this project, then set **Authorized domains** in Google Cloud to match.
+
+**Homepage strategy:** **Stealth / “coming soon”** remains the target for the **app homepage** URL. The skeleton is the shell; it does not need a full product marketing build for verification. Keep it **clean and intentional** (not a squatter or parking page).
 
 Google requires (unchanged):
 
-- A **homepage URL** on the OAuth consent screen — **coming soon** at `https://braintunnel.ai/` (or chosen canonical) is fine.
-- A **Privacy Policy URL** and **Terms of Service URL** — these **cannot** be placeholders when you submit for verification; M3 must supply real legal text, hosted at stable paths (e.g. `/privacy`, `/terms`).
+- A **homepage URL** on the OAuth consent screen — can be the **custom domain** at `/` once pointed, or a stable path on the same origin you list for the app.
+- A **Privacy Policy URL** and **Terms of Service URL** — these **cannot** be placeholders when you submit for verification; M3 must supply real legal text, hosted at stable paths (e.g. `/privacy`, `/terms`) on the **same canonical origin** you use for the consent screen.
 
 **Work items:**
 
-- Primary domain and related names (e.g. `**braintunnel.ai`**) — owned
-- Point DNS and hosting at a minimal static deploy (Cloudflare Pages, Vercel, etc.) — should be **fast** given domain control
-- Ship **v1 public site**:
-  - **Homepage** — stealth / coming soon (HTTPS, single branded page)
-  - `/privacy` — real Privacy Policy (content from M3; can go live with M3)
-  - `/terms` — real Terms of Service (content from M3; can go live with M3)
-  - `/support` or mailto in footer (if Google or policy asks for a contact path)
-- **HTTPS** end-to-end (normal for any modern host)
-- **Canonical URL** for the OAuth consent screen (pick one: e.g. `https://braintunnel.ai` without unnecessary redirects); keep policy URLs **stable** after verification
+- [x] **Repo + host** — [cirne/braintunnel-www](https://github.com/cirne/braintunnel-www) on **Vercel**; first deploy at `https://braintunnel-www.vercel.app` (skeletal)
+- [x] **HTTPS** — via Vercel
+- [ ] **Custom domain** — attach **`braintunnel.ai`** (and optional `www`) to the Vercel project; set canonical URL (apex vs `www`) for OAuth + marketing
+- [ ] **Homepage** — finish stealth / coming soon content on the canonical origin
+- [ ] `/privacy` — real Privacy Policy (content from M3; ship with M3)
+- [ ] `/terms` — real Terms of Service (content from M3; ship with M3)
+- [ ] `/support` or mailto in footer (if Google or policy asks for a contact path)
+- [ ] **Google Cloud → OAuth consent screen** — when M7 nears, set **Application home page**, **Privacy policy link**, and **Terms of service link** to the final HTTPS URLs (must match **Authorized domains**)
 
 ---
 
@@ -310,7 +311,7 @@ Google reviews the assessment report and the app itself. This phase may involve:
 | ------------------------- | ----------------------------------------------------------- | ----------- |
 | M0 Brand lock             | 1–2 weeks                                                   | 2 weeks     |
 | M1 Legal entity           | 1–3 weeks — **Braintunnel, LLC** in progress (Donna Wilcox) | 3 weeks     |
-| M2 Public website         | 1–2 weeks (domains owned; stealth homepage + policy paths)  | 4–5 weeks   |
+| M2 Public website         | 1–2 weeks (skeleton on Vercel; custom domain + policy paths remaining) | 4–5 weeks   |
 | M3 Privacy Policy + TOS   | 2–4 weeks (+ legal review)                                  | 7–9 weeks   |
 | M4 Scope audit + controls | 2–3 weeks (parallel)                                        | —           |
 | M5 App polish             | 2–4 weeks (parallel)                                        | —           |
@@ -321,14 +322,14 @@ Google reviews the assessment report and the app itself. This phase may involve:
 | M10 Google review         | 4–6 weeks                                                   | 16–24 weeks |
 
 
-**Realistic total: 4–6 months from brand lock to Google approval**, assuming no re-submissions and no significant delays. **M2** can be shorter now that `**braintunnel.ai` is owned** and the homepage is explicitly **stealth / coming soon** rather than a full marketing build.
+**Realistic total: 4–6 months from brand lock to Google approval**, assuming no re-submissions and no significant delays. **M2** is underway: a **Vercel** skeleton is live at **`https://braintunnel-www.vercel.app`**; remaining work is **custom domain**, **/privacy** + **/terms**, and a stable **canonical** origin for the consent screen.
 
 ---
 
 ## Open questions
 
 1. **Scope set for v1 verification:** Gmail IMAP scopes only? Calendar alongside? Phased (Gmail first, add Calendar in a follow-on)?
-2. **Desktop-only or hosted?** For the initial verification submission, is the primary surface Braintunnel.app (local, downloaded DMG) or `staging.braintunnel.ai` (hosted)? Google reviewers need access to the app — a hosted instance is simpler for them to evaluate. **Public marketing domain** is `braintunnel.ai` (owned; M2).
+2. **Desktop-only or hosted?** For the initial verification submission, is the primary surface Braintunnel.app (local, downloaded DMG) or `staging.braintunnel.ai` (hosted)? Google reviewers need access to the app — a hosted instance is simpler for them to evaluate. **Public marketing / www** is in **[cirne/braintunnel-www](https://github.com/cirne/braintunnel-www)** (Vercel: `https://braintunnel-www.vercel.app` today; point **`braintunnel.ai`** when ready — M2).
 3. **Security assessment budget:** Have we allocated $15k–$75k? When do we need to engage an assessor relative to other milestones?
 4. **LLM subprocessors in privacy policy:** Which providers are named? Do the API terms of those providers allow Braintunnel's use case? (Most do for user-initiated assistant features; worth confirming.)
 5. **Multi-tenant data isolation:** For the hosted path, what is the isolation model between users? This is a primary assessor concern.
@@ -337,6 +338,7 @@ Google reviews the assessment report and the app itself. This phase may involve:
 
 ## Relationship to other docs
 
+- **Public marketing site (www)** — not in this repo: [cirne/braintunnel-www](https://github.com/cirne/braintunnel-www) (deploy: `https://braintunnel-www.vercel.app`).
 - [OPP-022](OPP-022-google-oauth-app-verification.md) — the background doc this plan operationalizes; see it for risk framing and scope policy guidance
 - [OPP-019](OPP-019-gmail-first-class-brain.md) — the product feature (Gmail as first-class connector) that Google verification unlocks at scale
 - [OPP-038](OPP-038-macos-developer-id-notarization-playbook.md) — parallel Apple signing work (M6)
