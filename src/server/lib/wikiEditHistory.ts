@@ -38,6 +38,17 @@ export function resolveSafeWikiPath(wikiDir: string, filePath: string): string {
   return abs
 }
 
+/**
+ * Coerce pi-coding-agent tool paths to a path relative to `wikiDir` so absolute OS paths cannot
+ * bypass the wiki root ({@link resolveSafeWikiPath}).
+ */
+export function coerceWikiToolRelativePath(wikiDir: string, rawPath: string): string {
+  const t = rawPath.trim()
+  if (t === '' || t === '.' || t === './') return '.'
+  const abs = resolveSafeWikiPath(wikiDir, t)
+  return relative(wikiDir, abs)
+}
+
 export async function appendWikiEditRecord(
   wikiDir: string,
   op: WikiEditOp,

@@ -40,7 +40,7 @@ The "Convenience-First" entry point. A managed service that allows users to try 
 
 ### Staging on DigitalOcean (April 2026)
 
-An internal **staging droplet** runs the Brain container from **Container Registry** on **HTTP port 4000**, with durable state in a **Docker named volume** (`BRAIN_DATA_ROOT=/brain-data`) so **image pulls and container restarts do not wipe data**. **TLS is not enabled at the edge yet** — traffic is **unencrypted** unless you use a VPN or add a proxy / load balancer. Operational detail: [digitalocean.md](../digitalocean.md); roadmap and **HTTPS next steps**: [OPP-041](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
+**`https://staging.braintunnel.ai`** — TLS at the edge; the Brain container listens on **port 4000** inside the stack. Durable state lives in a **Docker named volume** (`BRAIN_DATA_ROOT=/brain-data`) so **image pulls and container restarts do not wipe data**. Operational detail: [digitalocean.md](../digitalocean.md); milestone closure and **new-host HTTPS checklist**: [OPP-041](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
 
 ---
 

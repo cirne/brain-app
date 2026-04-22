@@ -1,9 +1,12 @@
-//! SMTP send via lettre (mirrors Node `sendSimpleMessage` + transport).
+//! Outbound send: SMTP via lettre for most providers; Gmail + OAuth uses Gmail API HTTPS (`users.messages.send`).
 
 use std::collections::HashMap;
 
 use crate::config::{Config, MailboxImapAuthKind, ResolvedSmtp};
 use crate::oauth::ensure_google_access_token;
+use crate::send::gmail_api_send::{
+    send_raw_message_via_gmail_api, should_send_via_gmail_api, verify_gmail_api_access,
+};
 use crate::send::recipients::assert_send_recipients_allowed;
 use lettre::message::header::ContentType;
 use lettre::message::{Mailbox, Message, SinglePart};
@@ -40,6 +43,10 @@ pub fn verify_smtp_for_config(cfg: &Config) -> Result<(), String> {
                 &process_env,
             )
             .map_err(|e| e.to_string())?;
+            if should_send_via_gmail_api(&cfg.imap_host, cfg.imap_auth) {
+                verify_gmail_api_access(&tok)?;
+                return Ok(());
+            }
             let creds = Credentials::new(cfg.imap_user.clone(), tok);
             let transport =
                 build_smtp_transport_xoauth2(&cfg.smtp, creds).map_err(|e| e.to_string())?;
@@ -260,6 +267,26 @@ Inbox/search can work from Apple Mail alone; outbound mail needs a Gmail or IMAP
         .subject(&fields.subject)
         .singlepart(body)
         .map_err(|e| format!("message build: {e}"))?;
+
+    // Gmail + OAuth: send via Gmail API (HTTPS :443). SMTP to smtp.gmail.com:587 is blocked on some hosts (e.g. DigitalOcean).
+    if should_send_via_gmail_api(&cfg.imap_host, cfg.imap_auth) {
+        eprintln!("ripmail send: fetching Google OAuth access token for Gmail API...");
+        let env_file = crate::config::read_ripmail_env_file(&cfg.ripmail_home);
+        let process_env: HashMap<String, String> = std::env::vars().collect();
+        let tok =
+            ensure_google_access_token(&cfg.ripmail_home, &cfg.source_id, &env_file, &process_env)
+                .map_err(|e| format!("OAuth: {e}"))?;
+        let raw = email.formatted();
+        eprintln!("ripmail send: sending message via Gmail API (HTTPS, users.messages.send)...");
+        let api_summary = send_raw_message_via_gmail_api(&tok, &raw)?;
+        return Ok(SendResult {
+            ok: true,
+            message_id: outbound_id,
+            smtp_response: Some(api_summary),
+            dry_run: None,
+            hints: vec![],
+        });
+    }
 
     let endpoint = smtp_endpoint_label(&cfg.smtp);
     eprintln!(

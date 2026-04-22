@@ -6,7 +6,7 @@
 
 Hosted Brain keeps the **one tenant, one `$BRAIN_HOME` tree** invariant ([multi-tenant-cloud-architecture.md](./multi-tenant-cloud-architecture.md)). That model is correct for local-first data and SQLite, but **a single Node process with multiple tenant homes on one host** is unsafe if agent tools can resolve or open **arbitrary absolute paths** with the process’s privileges.
 
-**BUG-012** documents the open **critical** issue: agent-facing tools can read paths outside the current tenant slice (cross-tenant leak under shared `BRAIN_DATA_ROOT`, or broader host FS when the service account is over-privileged). See **[bugs/BUG-012-agent-tool-path-sandbox-escape.md](../bugs/BUG-012-agent-tool-path-sandbox-escape.md)** for severity, threat model, evidence, and fix directions.
+**BUG-012** tracked agent-facing tools reading outside the current tenant slice. **App-layer jailing** (allowlisted roots, wrapped pi wiki tools, `read_doc` / HTTP file read checks) is **partially implemented** as of 2026-04 — see **[bugs/BUG-012-agent-tool-path-sandbox-escape.md](../bugs/BUG-012-agent-tool-path-sandbox-escape.md)** **Progress** section. Kernel / VM / UID layers below remain **future** work for hosted density.
 
 This doc records **five complementary isolation strategies** (kernel, process, and app layers). They are **not mutually exclusive**; production should combine them according to tier, cost, and threat model.
 
@@ -82,7 +82,7 @@ This doc records **five complementary isolation strategies** (kernel, process, a
 | Concern                         | Primary layers                                      |
 |--------------------------------|-----------------------------------------------------|
 | Mis-routed HTTP session        | Edge router + session binding (existing MT design)   |
-| Path logic bugs (BUG-012 class)| **(5)** + inventory/wrap of all tools (`BUG-012` § Recommended next steps) |
+| Path logic bugs (BUG-012 class)| **(5)** in progress — shared helpers in `resolveTenantSafePath.ts` / `agentPathPolicy.ts`; OS layers **(2)–(4)** still recommended for defense in depth |
 | Subprocess / `ripmail`         | **(4)** explicit home / FD; no ambient `BRAIN_HOME` |
 | High-density shared Node       | **(3)** and/or **(2)**                               |
 | Strong guarantee / paid tier   | **(1)**                                            |

@@ -12,7 +12,7 @@ Redirect URIs must match **Google Cloud Console** and the URL the **browser** lo
 
 If `PORT` is set (non-bundled, no `PUBLIC_WEB_ORIGIN`, **not** `NODE_ENV=production` or no forwarded headers), the loopback redirect uses that port on **`127.0.0.1`**.
 
-**Common failure:** `PUBLIC_WEB_ORIGIN` unset in production → authorize URL sends `redirect_uri=http://127.0.0.1:<PORT>/…` → Google sends the **browser** to your laptop’s loopback, not the hosted app → callback on the server sees **no `code`/`state`** (or sign-in never completes). Fix: set `PUBLIC_WEB_ORIGIN` to the exact origin users open (e.g. `https://braintunnel-staging-zkpmz.ondigitalocean.app`).
+**Common failure:** `PUBLIC_WEB_ORIGIN` unset in production → authorize URL sends `redirect_uri=http://127.0.0.1:<PORT>/…` → Google sends the **browser** to your laptop’s loopback, not the hosted app → callback on the server sees **no `code`/`state`** (or sign-in never completes). Fix: set `PUBLIC_WEB_ORIGIN` to the exact origin users open (e.g. **`https://staging.braintunnel.ai`**).
 
 **Packaged Brain.app:** The bundled server does not read a workspace `.env`. Put `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in the repo `.env` and build with `BRAIN_EMBED_MASTER_KEY` set (see [AGENTS.md](../AGENTS.md) — same embedding pipeline as LLM keys). Without them, `/api/oauth/google/start` redirects to a short error page (`/oauth/google/error?reason=…`) and the app can show the same text via `GET /api/oauth/google/last-result` (see below).
 

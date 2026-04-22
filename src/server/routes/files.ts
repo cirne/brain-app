@@ -3,27 +3,17 @@
  * Not for wiki markdown — use `/api/wiki` for Brain wiki pages.
  */
 import { existsSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { normalize, resolve } from 'node:path'
 import { Hono } from 'hono'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
 import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
-import { isMultiTenantMode } from '../lib/dataRoot.js'
-import { brainHome, ripmailHomeForBrain } from '../lib/brainHome.js'
-import { isAbsolutePathAllowedUnderRoots } from '../lib/resolveTenantSafePath.js'
+import {
+  buildReadPathAllowlist,
+  expandRawPathToAbsolute,
+  isAgentReadPathAllowed,
+} from '../lib/agentPathPolicy.js'
 
 const files = new Hono()
-
-function expandToAbsolute(raw: string): string {
-  let p = raw.trim()
-  if (p.startsWith('~/')) {
-    p = resolve(homedir(), p.slice(2))
-  } else {
-    p = resolve(p)
-  }
-  return normalize(p)
-}
 
 // GET /api/files/read?path= — JSON from `ripmail read <path> --json`
 files.get('/read', async c => {
@@ -31,11 +21,9 @@ files.get('/read', async c => {
   if (!raw?.trim()) {
     return c.json({ error: 'missing path' }, 400)
   }
-  const fullPath = expandToAbsolute(raw)
-  if (
-    isMultiTenantMode() &&
-    !isAbsolutePathAllowedUnderRoots(fullPath, brainHome(), [ripmailHomeForBrain()])
-  ) {
+  const fullPath = expandRawPathToAbsolute(raw)
+  const allow = await buildReadPathAllowlist()
+  if (!isAgentReadPathAllowed(fullPath, allow)) {
     return c.json({ error: 'path not allowed for this tenant' }, 403)
   }
   if (!existsSync(fullPath)) {

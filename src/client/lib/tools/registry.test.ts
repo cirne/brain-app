@@ -13,6 +13,7 @@ const ALL_AGENT_TOOL_NAMES = [
   'search_index',
   'read_doc',
   'manage_sources',
+  'refresh_sources',
   'list_inbox',
   'inbox_rules',
   'archive_emails',

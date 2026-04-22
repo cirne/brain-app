@@ -6,7 +6,16 @@ import { dirname } from 'node:path'
 import { promisify } from 'node:util'
 import { enrichCalendarEventsForAgent, getCalendarEvents, weekdayLongForUtcYmd } from '../lib/calendarCache.js'
 import { Exa } from 'exa-js'
-import { appendWikiEditRecord, resolveSafeWikiPath } from '../lib/wikiEditHistory.js'
+import {
+  assertAgentReadPathAllowed,
+  assertManageSourcePathAllowed,
+  ripmailReadIdLooksLikeFilesystemPath,
+} from '../lib/agentPathPolicy.js'
+import {
+  appendWikiEditRecord,
+  coerceWikiToolRelativePath,
+  resolveSafeWikiPath,
+} from '../lib/wikiEditHistory.js'
 import { existsSync } from 'node:fs'
 import {
   appleDateNsToUnixMs,
@@ -268,28 +277,76 @@ function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boo
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): any[] {
   const includeLocalMessages = resolveIncludeLocalMessageTools(options)
-  // Pi-coding-agent file tools scoped to wiki directory (edit/write append to data/wiki-edits.jsonl)
-  const read = createReadTool(wikiDir)
-  const editTool = createEditTool(wikiDir)
+  // Pi-coding-agent file tools scoped to wiki directory; coerce paths through resolveSafeWikiPath so
+  // absolute OS paths cannot escape the wiki root (pi-coding-agent resolves absolutes as-is).
+  const readToolInner = createReadTool(wikiDir)
+  const read = {
+    ...readToolInner,
+    async execute(
+      toolCallId: string,
+      params: { path: string; offset?: number; limit?: number },
+    ) {
+      const path = coerceWikiToolRelativePath(wikiDir, params.path)
+      return readToolInner.execute(toolCallId, { ...params, path })
+    },
+  }
+  const editToolInner = createEditTool(wikiDir)
   const edit = {
-    ...editTool,
-    async execute(toolCallId: string, params: { path: string; edits: { oldText: string; newText: string }[] }) {
-      const result = await editTool.execute(toolCallId, params)
-      await appendWikiEditRecord(wikiDir, 'edit', params.path).catch(() => {})
+    ...editToolInner,
+    async execute(
+      toolCallId: string,
+      params: { path: string; edits: { oldText: string; newText: string }[] },
+    ) {
+      const path = coerceWikiToolRelativePath(wikiDir, params.path)
+      const next = { ...params, path }
+      const result = await editToolInner.execute(toolCallId, next)
+      await appendWikiEditRecord(wikiDir, 'edit', path).catch(() => {})
       return result
     },
   }
-  const writeTool = createWriteTool(wikiDir)
+  const writeToolInner = createWriteTool(wikiDir)
   const write = {
-    ...writeTool,
+    ...writeToolInner,
     async execute(toolCallId: string, params: { path: string; content: string }) {
-      const result = await writeTool.execute(toolCallId, params)
-      await appendWikiEditRecord(wikiDir, 'write', params.path).catch(() => {})
+      const path = coerceWikiToolRelativePath(wikiDir, params.path)
+      const next = { ...params, path }
+      const result = await writeToolInner.execute(toolCallId, next)
+      await appendWikiEditRecord(wikiDir, 'write', path).catch(() => {})
       return result
     },
   }
-  const grep = createGrepTool(wikiDir)
-  const find = createFindTool(wikiDir)
+  const grepToolInner = createGrepTool(wikiDir)
+  const grep = {
+    ...grepToolInner,
+    async execute(
+      toolCallId: string,
+      params: {
+        pattern: string
+        path?: string
+        glob?: string
+        ignoreCase?: boolean
+        literal?: boolean
+        context?: number
+        limit?: number
+      },
+    ) {
+      const path =
+        params.path !== undefined ? coerceWikiToolRelativePath(wikiDir, params.path) : undefined
+      return grepToolInner.execute(toolCallId, { ...params, path })
+    },
+  }
+  const findToolInner = createFindTool(wikiDir)
+  const find = {
+    ...findToolInner,
+    async execute(
+      toolCallId: string,
+      params: { pattern: string; path?: string; limit?: number },
+    ) {
+      const path =
+        params.path !== undefined ? coerceWikiToolRelativePath(wikiDir, params.path) : undefined
+      return findToolInner.execute(toolCallId, { ...params, path })
+    },
+  }
 
   const moveFile = defineTool({
     name: 'move_file',
@@ -466,9 +523,13 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     }),
     async execute(_toolCallId: string, params: { id: string; source?: string }) {
       const rm = ripmailBin()
+      let readId = params.id
+      if (ripmailReadIdLooksLikeFilesystemPath(readId)) {
+        readId = await assertAgentReadPathAllowed(readId)
+      }
       const resolved = await resolveRipmailSourceForCli(params.source)
       const src = resolved?.trim() ? ` --source ${JSON.stringify(resolved.trim())}` : ''
-      const { stdout } = await execRipmailAsync(`${rm} read ${JSON.stringify(params.id)} --json${src}`, {
+      const { stdout } = await execRipmailAsync(`${rm} read ${JSON.stringify(readId)} --json${src}`, {
         ...ripmailReadExecOptions(),
       })
       return {
@@ -482,7 +543,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'manage_sources',
     label: 'Manage sources',
     description:
-      'Manage ripmail sources (IMAP, Apple Mail, local folders, calendars). op=list: list all sources; op=status: index health and sync times; op=add: register a local folder; op=edit: update label/path; op=remove: delete a source; op=reindex: start background refresh.',
+      'Manage ripmail sources (IMAP, Apple Mail, local folders, calendars). op=list: list all sources; op=status: index health and sync times; op=add: register a local folder; op=edit: update label/path; op=remove: delete a source; op=reindex: background incremental sync (same as **refresh_sources**); prefer **refresh_sources** when the user only asks to refresh or sync mail/data.',
     parameters: Type.Object({
       op: Type.Union([
         Type.Literal('list'),
@@ -492,10 +553,10 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         Type.Literal('remove'),
         Type.Literal('reindex'),
       ]),
-      id: Type.Optional(Type.String({ description: 'edit/remove/reindex: source id' })),
+      id: Type.Optional(Type.String({ description: 'edit/remove/reindex: source id (reindex: prefer refresh_sources)' })),
       path: Type.Optional(Type.String({ description: 'add/edit: absolute path or ~/…' })),
       label: Type.Optional(Type.String({ description: 'add/edit: display label' })),
-      source_id: Type.Optional(Type.String({ description: 'reindex: alias for id' })),
+      source_id: Type.Optional(Type.String({ description: 'reindex: alias for id (prefer refresh_sources for sync-only)' })),
     }),
     async execute(
       _toolCallId: string,
@@ -529,6 +590,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         }
         case 'add': {
           if (!params.path) throw new Error('path is required for op=add')
+          await assertManageSourcePathAllowed(params.path)
           const tail = buildSourcesAddLocalDirCommand({
             path: params.path,
             label: params.label,
@@ -539,6 +601,9 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         }
         case 'edit': {
           if (!params.id) throw new Error('id is required for op=edit')
+          if (params.path?.trim()) {
+            await assertManageSourcePathAllowed(params.path)
+          }
           const tail = buildSourcesEditCommand({
             id: params.id,
             label: params.label,
@@ -573,6 +638,36 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           const x: never = params.op
           throw new Error(`Unhandled op: ${String(x)}`)
         }
+      }
+    },
+  })
+
+  const refreshSources = defineTool({
+    name: 'refresh_sources',
+    label: 'Refresh sources',
+    description:
+      'Incremental sync of indexed ripmail data (IMAP mail, calendars, local folder sources). Use when the user asks to refresh, sync, or update their email, mail, inbox, or index — e.g. "refresh my email", "sync Gmail", "get new messages". Runs in the background (same as `ripmail refresh`). Omit `source` to sync all configured sources; pass a source id or mailbox email when they name a specific account.',
+    parameters: Type.Object({
+      source: Type.Optional(
+        Type.String({
+          description:
+            'Ripmail source id or mailbox email for `--source`; omit to sync all sources (right for generic "refresh my email" with one account or to update everything).',
+        }),
+      ),
+    }),
+    async execute(_toolCallId: string, params: { source?: string }) {
+      const resolved = await resolveRipmailSourceForCli(params.source)
+      const started = await runRipmailRefreshAgent(resolved)
+      if (!started.ok) throw new Error(started.error ?? 'Failed to start ripmail refresh')
+      const scope = params.source?.trim() ? `source ${(resolved ?? params.source).trim()}` : 'all sources'
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Sync started in the background (${scope}). New mail and index updates will appear shortly; use list_inbox or search_index after a short wait if needed.`,
+          },
+        ],
+        details: { ok: true as const, source: resolved ?? null },
       }
     },
   })
@@ -1418,6 +1513,7 @@ Returns the saved text; treat it as active for this session too.`,
     searchIndex,
     readDoc,
     manageSources,
+    refreshSources,
     listInbox,
     inboxRules,
     archiveEmails,

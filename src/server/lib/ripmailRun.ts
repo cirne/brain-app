@@ -11,8 +11,8 @@ export const RIPMAIL_REFRESH_TIMEOUT_MS = 2 * 60 * 60 * 1000
 export const RIPMAIL_BACKFILL_TIMEOUT_MS = RIPMAIL_REFRESH_TIMEOUT_MS
 /** `ripmail status --json` may block while sync holds the DB. */
 export const RIPMAIL_STATUS_TIMEOUT_MS = 120_000
-/** Outbound SMTP: normally sub-second; allow headroom for slow networks / OAuth token refresh. */
-export const RIPMAIL_SEND_TIMEOUT_MS = 120_000
+/** Outbound SMTP: normally sub-second; cap long hangs (TCP/TLS stuck) with a hard kill. */
+export const RIPMAIL_SEND_TIMEOUT_MS = 30_000
 
 /** Max chars per stream embedded in JSON diagnostic logs (NR / docker). */
 const RIPMAIL_DIAGNOSTIC_TAIL_CHARS = 6000

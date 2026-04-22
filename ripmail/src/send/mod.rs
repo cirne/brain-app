@@ -5,6 +5,7 @@ pub mod draft_list_json;
 pub mod draft_llm;
 pub mod draft_store;
 pub mod forward_excerpt;
+pub mod gmail_api_send;
 pub mod recipients;
 pub mod smtp_resolve;
 pub mod smtp_send;
@@ -263,7 +264,7 @@ pub fn send_draft_by_id(
         references,
     };
 
-    eprintln!("ripmail send: invoking SMTP pipeline (dry_run={dry_run})");
+    eprintln!("ripmail send: invoking outbound send pipeline (dry_run={dry_run})");
     let mut result = send_simple_message(&send_cfg, &fields, dry_run)?;
     if !dry_run && result.ok {
         let _ = archive_draft_to_sent(data_dir, &draft.id);

@@ -158,15 +158,13 @@ On a fresh **Ubuntu** droplet (use an **amd64** droplet type to match the defaul
 
    That pulls **`registry.digitalocean.com/braintunnel/brain-app:latest`** and starts it. Data lives in the **`brain_data`** Docker volume (`BRAIN_DATA_ROOT=/brain-data` inside the container). That volume is **on a fixed path managed by Docker on the host** — **pulling a new image and recreating the container does not delete** wiki, vault, ripmail, or chats (same as any named volume: remove the volume explicitly only if you intend to wipe data).
 
-### Staging warning: plain HTTP
+### Staging: HTTPS public URL
 
-**Current DigitalOcean staging** serves Brain on **HTTP** (default host port **4000** → container **4000**). There is **no TLS** between the browser and the Brain process unless you add a **reverse proxy, load balancer, or tunnel** in front.
+**Current DigitalOcean staging** is **`https://staging.braintunnel.ai`**: TLS terminates **in front of** the Brain container (reverse proxy, load balancer, or tunnel). The container still listens on **HTTP :4000** on the Docker network; browsers never hit plain **:4000** on the public Internet when the edge is configured correctly.
 
-> **Do not treat this as production-safe.** Cookies, OAuth redirects, and page content are **unencrypted on the wire**. Use **internal access, VPN, or IP restriction** until HTTPS is wired.
+**New host or environment:** Set **`PUBLIC_WEB_ORIGIN`** to the canonical **`https://…`** origin, register that redirect URI in **Google Cloud Console**, and terminate TLS at the edge — see [OPP-041 — HTTPS / edge checklist](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md#reference-https--edge-checklist-new-hosts).
 
-**Next steps:** Terminate TLS (Caddy, nginx, DigitalOcean Load Balancer, Cloudflare, etc.), set **`PUBLIC_WEB_ORIGIN`** to the canonical **`https://…`** origin, and update **Google OAuth** redirect URIs — see [OPP-041 — Next steps (HTTPS / edge)](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md#next-steps-https--edge).
-
-4. **Set `PUBLIC_WEB_ORIGIN`** in `.env` to the URL users open in the browser (e.g. **`https://your-domain.com`** once TLS terminates on the droplet or a load balancer). For raw **HTTP :4000** staging, the origin must match what users type (OAuth and cookies depend on it). Localhost defaults do not match production OAuth redirects.
+4. **Set `PUBLIC_WEB_ORIGIN`** in `.env` to the URL users open in the browser (e.g. **`https://staging.braintunnel.ai`** or **`https://your-domain.com`**). The origin must match what users type (OAuth and cookies depend on it). Localhost defaults do not match production OAuth redirects.
 
 5. **Firewall:** allow the published port (default host **`4000`** via `BRAIN_DOCKER_PORT`, or **`80`/`443`** if you put Caddy/nginx in front):
 

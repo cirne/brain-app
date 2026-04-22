@@ -38,6 +38,16 @@ The system prompt instructs the model to use grep / find / `read` for wiki conte
 
 ---
 
+## Security contract (BUG-012)
+
+- **Wiki tools** (`read`, `edit`, `write`, `grep`, `find`): arguments are coerced through [`resolveSafeWikiPath`](../../src/server/lib/wikiEditHistory.ts) / [`coerceWikiToolRelativePath`](../../src/server/lib/wikiEditHistory.ts) before calling `@mariozechner/pi-coding-agent`, so paths stay under `wikiDir` (pi’s own resolver treats absolute paths as host paths).
+- **`read_doc` filesystem branch:** only paths under the current tenant’s allowlist — `BRAIN_HOME`, ripmail home, wiki content directory, and configured `localDir` / `icsFile` roots from `ripmail sources list` — see [`agentPathPolicy.ts`](../../src/server/lib/agentPathPolicy.ts). Message-ID–style identifiers skip filesystem checks.
+- **`GET /api/files/read`:** same allowlist as `read_doc` (all deployment modes).
+
+Details and remaining OS-level gaps: [BUG-012](../bugs/BUG-012-agent-tool-path-sandbox-escape.md).
+
+---
+
 ## Consequences
 
 - **UI alignment:** `GET /api/files/read` uses the same `ripmail read <path> --json` pipeline as `read_doc` for filesystem paths; both use shared exec options in [`src/server/lib/ripmailReadExec.ts`](../../src/server/lib/ripmailReadExec.ts) (20 MiB `maxBuffer`, 120s timeout).

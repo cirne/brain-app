@@ -2,11 +2,9 @@
 
 ## Summary
 
-**Status:** Epic — **Phases 0–2 are complete** (April 2026). **DigitalOcean staging is live:** amd64 image from Container Registry on a **staging droplet** (e.g. internal host `braintunnel-staging`), Brain listening on **port 4000 over plain HTTP**. Durable state uses a **fixed Docker named volume** (`brain_data` → `/brain-data` via `BRAIN_DATA_ROOT` in `[docker-compose.do.yml](../../docker-compose.do.yml)`) so **image pulls, container restarts, and recreate** are **non-destructive** to wiki, vault, ripmail, and chats.
+**Status:** Epic — **Phases 0–2, 5, and 6 are complete** (April 2026). **Public staging:** `**https://staging.braintunnel.ai`** — TLS at the edge, **Sign in with Google**, onboarding (mail sync can take a while on first run), and **automatic wiki build** validated with friendly testers. The Brain container still listens on **port 4000** inside the stack; users hit **HTTPS** on the public hostname. Durable state uses a **fixed Docker named volume** (`brain_data` → `/brain-data` via `BRAIN_DATA_ROOT` in `[docker-compose.do.yml](../../docker-compose.do.yml)`) so **image pulls, container restarts, and recreate** are **non-destructive** to wiki, vault, ripmail, and chats.
 
-> **WARNING — naked HTTP:** Staging currently exposes the app **without TLS** at the edge. Traffic (cookies, OAuth redirects, page loads) is **visible on the wire** to anyone on the path. Treat this as **internal / staging only** until HTTPS is terminated (reverse proxy, Caddy, nginx, or DigitalOcean Load Balancer). See [Next steps (HTTPS / edge)](#next-steps-https--edge) below.
-
-**Next focus:** wire **HTTPS + public origin** for real testers; then Phase 3–4 (multi-tenant data plane, Google identity + vault). Advanced storage topics (WAL tuning, Litestream, snapshot playbooks) remain **out of scope** until needed.
+**Next focus (epic remainder):** **Phase 3–4** as needed for **scale, isolation guarantees, and product identity** beyond the current staging slice — see milestones below. **Path jailing / [BUG-012](../bugs/BUG-012-agent-tool-path-sandbox-escape.md)** and deeper abuse controls stay on the normal security backlog. Advanced storage topics (WAL tuning, Litestream, snapshot playbooks) remain **out of scope** until needed.
 
 **Intent:** Sequence milestones from **today** (single-tenant desktop and dev server, `[BRAIN_HOME](OPP-012-brain-home-data-layout.md)` + [layout JSON](../../shared/brain-layout.json)) to a **Linux container** deployment on **DigitalOcean** that is **usable by test users** in a **relatively secure** way: **Google** as the identity and mail/calendar connector, **per-tenant durable disk** (survive image updates and reboots), and a **vault password** layered on top for unlock semantics and future mobile access—without pretending we ship **macOS-only** integrations (Full Disk Access, iMessage, bundled loopback OAuth) in this slice.
 
@@ -37,16 +35,17 @@ Historical Docker artifacts were removed from the monorepo; the last snapshot is
 
 | Item             | Detail                                                                                                                                                                                                |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Public URL**   | `**https://staging.braintunnel.ai`** (`PUBLIC_WEB_ORIGIN` + Google OAuth redirect URIs registered for this origin)                                                                                    |
 | **Compute**      | DigitalOcean **staging droplet** (amd64), Docker Engine + Compose plugin                                                                                                                              |
 | **Image**        | `registry.digitalocean.com/braintunnel/brain-app` (`npm run docker:publish`, default `**linux/amd64`**)                                                                                               |
 | **Compose**      | `[docker-compose.do.yml](../../docker-compose.do.yml)` — `platform: linux/amd64`, `PORT=4000` in-container                                                                                            |
-| **Listen**       | Host `**${BRAIN_DOCKER_PORT:-4000}:4000`**, **HTTP only** (no TLS inside the Brain container)                                                                                                         |
+| **Edge / TLS**   | TLS terminates **in front of** the Brain container (reverse proxy, LB, or tunnel); browser sees **HTTPS**; container still **HTTP :4000** internally                                                  |
 | **Durable data** | Docker **named volume** `brain_data` mounted at `**/brain-data`**; `BRAIN_DATA_ROOT=/brain-data` so the app’s home tree lives **outside** the image layer — **updates and restarts do not wipe data** |
 
 
 Runbook pointers: [digitalocean.md](../digitalocean.md).
 
-**Security bar:** Treat **cross-tenant contamination** as a shipping risk class; follow the checklist in [packaging-and-distribution.md](../packaging-and-distribution.md) and the guardrails in [multi-tenant-cloud-architecture.md](../architecture/multi-tenant-cloud-architecture.md). **In addition:** until HTTPS is enabled, treat **traffic confidentiality** as **not met** for any sensitive cohort.
+**Security bar:** Treat **cross-tenant contamination** as a shipping risk class; follow the checklist in [packaging-and-distribution.md](../packaging-and-distribution.md) and the guardrails in [multi-tenant-cloud-architecture.md](../architecture/multi-tenant-cloud-architecture.md). **Traffic confidentiality** for staging assumes **HTTPS** is correctly terminated at the edge for the public hostname.
 
 ---
 
@@ -54,7 +53,7 @@ Runbook pointers: [digitalocean.md](../digitalocean.md).
 
 Each phase has **exit criteria** so work can pause between them without half-finished production exposure.
 
-**Done so far:** Phase 0 (scope / parity doc), Phase 1 (single-tenant Docker on a developer machine), Phase 2 (mounted home survives container stop/start — **validated on staging** via named volume + `BRAIN_DATA_ROOT`), and **Phase 5 staging slice** (droplet + registry + compose + HTTP :4000) are **closed or in progress** as noted under Phase 5.
+**Done so far:** Phase 0–2; **Phase 5** (DigitalOcean staging + **HTTPS** + public origin + durable volume + registry deploy); **Phase 6** (initial tester hardening / smoke path for friendly cohort). **Remaining epic milestones:** Phase 3–4 when scaling or tightening the multiplexed tenant story — see below.
 
 ### Phase 0 — Written scope and parity matrix (no new infra)
 
@@ -134,47 +133,52 @@ npm run docker:up
 
 ### Phase 5 — DigitalOcean: staging environment
 
-**Status: staging online; TLS / production edge incomplete (April 2026)**
+**Status: complete (April 2026)**
 
-**Done (staging slice)**
+**Delivered**
 
+- **Public staging:** `**https://staging.braintunnel.ai`** with **TLS** at the edge and `**PUBLIC_WEB_ORIGIN`** + Google **Authorized redirect URIs** aligned to that origin.
 - **Droplet + Docker + Compose:** Staging host running `[docker-compose.do.yml](../../docker-compose.do.yml)`; image from **Container Registry** (`npm run docker:publish`, `**linux/amd64`**).
-- **HTTP :4000:** App reachable on host port **4000** (plain HTTP). Firewall allows the published port per [digitalocean.md](../digitalocean.md).
+- **In-container listen:** App on **port 4000** (HTTP inside the Docker network); edge proxy presents **HTTPS** to browsers.
 - **Non-destructive updates:** Durable data in Docker named volume `**brain_data`** (`BRAIN_DATA_ROOT=/brain-data`); pulling a new image and recreating the container **does not** wipe user data.
 - **CLI / registry:** `doctl` contexts, `**./scripts/doctl-brain.sh`**, publish script — [digitalocean.md](../digitalocean.md).
+- **Product path:** Gmail sign-in, onboarding (initial sync can be slow), **automatic wiki build**, chat and wiki usable on staging.
 
-**Still open (Phase 5 exit criteria)**
+**Optional follow-ons (not gating Phase 5)**
 
-- **HTTPS** at the edge and a **stable public origin** (`PUBLIC_WEB_ORIGIN`, Google OAuth redirect URIs) — see [Next steps (HTTPS / edge)](#next-steps-https--edge).
-- **Optional hardening:** Dedicated **Block Storage** volume mounted at the Docker data root (vs default local disk on the droplet), automated **volume snapshots**, documented **rollback** for image tags.
+- Dedicated **Block Storage** at the Docker data root, automated **volume snapshots**, documented **rollback** for image tags.
 - **Longer-term compute options** (unchanged from planning):
   - **App Platform:** Often a poor fit for large on-disk ripmail/wiki without storage redesign ([DO: Store data in App Platform](https://docs.digitalocean.com/products/app-platform/how-to/store-data)).
   - **Droplet + Block Storage Volume (recommended for production v1):** **ext4** volume at `DATA_ROOT`, snapshots — aligns with [multi-tenant-cloud-architecture.md](../architecture/multi-tenant-cloud-architecture.md).
   - **DOKS:** Later if we outgrow single-VM Compose.
 
-**Exit criteria (updated):** Staging proves **pull + recreate** without data loss (**met**). Remaining: **HTTPS URL** for internal testers; documented **deploy and rollback**; backups/snapshots **scheduled** for anything beyond dev staging.
+**Exit criteria:** Staging proves **pull + recreate** without data loss (**met**). **HTTPS** URL for testers (**met** — `staging.braintunnel.ai`). Deploy/rollback documented in [digitalocean.md](../digitalocean.md); backups/snapshots **recommended** before production traffic.
 
 ---
 
-### Next steps (HTTPS / edge)
+### Reference: HTTPS / edge checklist (new hosts)
 
-1. **Terminate TLS** in front of the container — e.g. **Caddy** or **nginx** on the droplet (Let’s Encrypt), or a **DigitalOcean Load Balancer** / **Cloudflare** (or similar) forwarding to the droplet’s **4000** (or to **80/443** on the proxy).
-2. Set `**PUBLIC_WEB_ORIGIN`** in droplet `.env` to the **canonical `https://…`** origin users open (required for OAuth and cookie semantics; see [google-oauth.md](../google-oauth.md), [cloud-hosted-v1-scope.md](../architecture/cloud-hosted-v1-scope.md)).
+Use when bringing up **another** public origin (e.g. production):
+
+1. **Terminate TLS** in front of the container — e.g. **Caddy** or **nginx** on the droplet (Let’s Encrypt), or a **DigitalOcean Load Balancer** / **Cloudflare** forwarding to the app port.
+2. Set `**PUBLIC_WEB_ORIGIN`** in `.env` to the **canonical `https://…`** origin users open (required for OAuth and cookie semantics; see [google-oauth.md](../google-oauth.md), [cloud-hosted-v1-scope.md](../architecture/cloud-hosted-v1-scope.md)).
 3. In **Google Cloud Console**, add **Authorized redirect URIs** for that origin (e.g. `https://<host>/api/oauth/google/callback`).
-4. **Restrict exposure:** Prefer **not** exposing raw **:4000** on the public Internet once 443 is live; firewall to **22 + 80 + 443** (or LB health paths only) as appropriate.
-5. Re-run **smoke tests** (vault, Gmail connect, chat) over **HTTPS** before widening the tester list.
+4. **Restrict exposure:** Prefer **not** exposing raw **:4000** on the public Internet once **443** is live; firewall to **22 + 80 + 443** (or LB health paths only) as appropriate.
+5. Re-run **smoke tests** (sign-in, Gmail connect, chat, wiki) over **HTTPS** before widening the tester list.
 
 ---
 
 ### Phase 6 — Test-user hardening
 
-**Goals**
+**Status: complete (April 2026)** for the **initial friendly cohort** on staging.
+
+**Goals (as originally scoped)**
 
 - Rate limiting, abuse controls, structured logging with **tenant id** and **redaction** for mail/wiki snippets.
 - Threat modeling pass on **agent tools** (path arguments, file reads, search) under multi-tenant load.
 - Optional: IP allowlists, invite-only signup, or OAuth allowlisting for first cohort.
 
-**Exit criteria:** Checklist completed; known scary gaps documented before widening access.
+**Exit criteria:** Staging cohort can use `**https://staging.braintunnel.ai`** end-to-end without blocking gaps for the intended test surface. **Known follow-ons** stay tracked explicitly: **[BUG-012](../bugs/BUG-012-agent-tool-path-sandbox-escape.md)** (path sandbox / cross-tenant tool args), deeper rate limits and observability as traffic grows, and [OPP-022](OPP-022-google-oauth-app-verification.md) when leaving Google test-user caps.
 
 ---
 
@@ -205,4 +209,4 @@ npm run docker:up
 
 ## Suggested sequencing for a small team
 
-**Fast path to learning:** Phases 0–2 and a **Phase 5 staging droplet** are **done** for **HTTP** and durable volume behavior. **Before** inviting non-internal testers: complete **HTTPS + `PUBLIC_WEB_ORIGIN`** ([Next steps (HTTPS / edge)](#next-steps-https--edge)). Full Phase 3–4 multiplexing remains **gating** for arbitrary **multi-user** URLs.
+**Staging path:** Phases **0–2**, **5**, and **6** are **done**: `**https://staging.braintunnel.ai`**, durable `**brain_data`** volume, Gmail onboarding, automatic wiki build. Use the [HTTPS / edge checklist](#reference-https--edge-checklist-new-hosts) for **additional** public origins (e.g. production). **Phase 3–4** remains the epic’s **next engineering chunk** when tightening **multi-tenant density, isolation proofs, and identity** at scale — not a blocker for the current staging milestone closure.

@@ -50,6 +50,7 @@ const TOOL_DISPLAY_LABELS: Record<string, string> = {
   search_index: 'Search mail',
   read_doc: 'Read message',
   manage_sources: 'Manage sources',
+  refresh_sources: 'Sync sources',
   list_inbox: 'Inbox',
   inbox_rules: 'Inbox rules',
   archive_emails: 'Archive mail',

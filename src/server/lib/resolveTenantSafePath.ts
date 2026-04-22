@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from 'node:fs'
-import { relative, resolve, sep } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 
 export class PathEscapeError extends Error {
   readonly code = 'path_escape'
@@ -10,16 +10,35 @@ export class PathEscapeError extends Error {
   }
 }
 
-function tryReal(path: string): string {
-  try {
-    return existsSync(path) ? realpathSync(path) : resolve(path)
-  } catch {
-    return resolve(path)
+/**
+ * Best-effort physical path aligned with {@link realpathSync} on the deepest existing ancestor
+ * (fixes macOS `/var` vs `/private/var` mismatch when the leaf path does not exist yet).
+ */
+export function normalizePathThroughExistingAncestors(absolutePath: string): string {
+  const resolved = resolve(absolutePath)
+  let cur = resolved
+  let prev = ''
+  while (cur !== prev) {
+    prev = cur
+    try {
+      if (existsSync(cur)) {
+        const real = realpathSync(cur)
+        const suffix = relative(cur, resolved)
+        return suffix ? join(real, suffix) : real
+      }
+    } catch {
+      /* walk up */
+    }
+    const parent = dirname(cur)
+    if (parent === cur) break
+    cur = parent
   }
+  return resolved
 }
 
-function pathIsStrictlyInsideOrEqual(inner: string, outerReal: string): boolean {
-  const innerReal = tryReal(inner)
+export function isPathStrictlyInsideOrEqual(inner: string, outer: string): boolean {
+  const innerReal = normalizePathThroughExistingAncestors(inner)
+  const outerReal = normalizePathThroughExistingAncestors(outer)
   const rel = relative(outerReal, innerReal)
   return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..')
 }
@@ -29,9 +48,9 @@ function pathIsStrictlyInsideOrEqual(inner: string, outerReal: string): boolean 
  * (symlink-safe when the target exists).
  */
 export function resolvePathStrictlyUnderHome(homeDir: string, ...userSegments: string[]): string {
-  const baseReal = tryReal(homeDir)
+  const baseReal = normalizePathThroughExistingAncestors(homeDir)
   const candidate = resolve(baseReal, ...userSegments)
-  const checked = tryReal(candidate)
+  const checked = normalizePathThroughExistingAncestors(candidate)
 
   const rel = relative(baseReal, checked)
   if (rel.startsWith(`..${sep}`) || rel === '..') {
@@ -46,12 +65,11 @@ export function isAbsolutePathAllowedUnderRoots(
   homeDir: string,
   extraRoots: readonly string[],
 ): boolean {
-  const cand = tryReal(absolutePath)
+  const cand = normalizePathThroughExistingAncestors(absolutePath)
   const roots = [homeDir, ...extraRoots]
   for (const r of roots) {
     try {
-      const outer = tryReal(r)
-      if (pathIsStrictlyInsideOrEqual(cand, outer)) return true
+      if (isPathStrictlyInsideOrEqual(cand, r)) return true
     } catch {
       continue
     }

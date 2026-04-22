@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -33,6 +33,16 @@ describe('resolveTenantSafePath', () => {
     base = join(tmpdir(), `safe-${Date.now()}`)
     mkdirSync(base, { recursive: true })
     expect(isAbsolutePathAllowedUnderRoots(join(tmpdir(), 'other'), base, [])).toBe(false)
+  })
+
+  it('normalizePathThroughExistingAncestors preserves suffix under deepest existing ancestor', async () => {
+    const { normalizePathThroughExistingAncestors } = await import('./resolveTenantSafePath.js')
+    const base = mkdtempSync(join(tmpdir(), 'np-'))
+    mkdirSync(join(base, 'a', 'b'), { recursive: true })
+    const leaf = join(base, 'a', 'b', 'missing.md')
+    const n = normalizePathThroughExistingAncestors(leaf)
+    expect(n.endsWith(join('a', 'b', 'missing.md')) || n.endsWith('missing.md')).toBe(true)
+    rmSync(base, { recursive: true, force: true })
   })
 
   it('isAbsolutePathAllowedUnderRoots follows symlink only when target stays inside', () => {

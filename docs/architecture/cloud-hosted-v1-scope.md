@@ -2,7 +2,7 @@
 
 **Status:** Phase 0 complete (April 2026). Part of [OPP-041](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
 
-**Staging (April 2026):** A DigitalOcean **staging droplet** runs the published **`linux/amd64`** image via [`docker-compose.do.yml`](../../docker-compose.do.yml): app on **port 4000 (HTTP)**; durable data in the **`brain_data`** named volume with **`BRAIN_DATA_ROOT=/brain-data`** so container/image updates are **non-destructive**. **Plain HTTP** at the edge until TLS / load balancer — see [OPP-041 staging + HTTPS next steps](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
+**Staging (April 2026):** Public **`https://staging.braintunnel.ai`** — TLS at the edge; Brain container on **port 4000 (HTTP)** behind the proxy. Durable data in the **`brain_data`** named volume with **`BRAIN_DATA_ROOT=/brain-data`** so container/image updates are **non-destructive**. Deploy and edge setup: [OPP-041](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md), [digitalocean.md](../digitalocean.md).
 
 This document is the **parity matrix** and **product/engineering decisions** for running Brain on **hosted Linux** (Docker on a VM with persistent disk). It does **not** describe multi-tenant routing or identity—that starts in Phase 3–4 of the epic.
 

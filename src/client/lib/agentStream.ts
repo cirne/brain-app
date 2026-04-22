@@ -278,9 +278,12 @@ export async function consumeAgentChatStream(
               typeof part.toolCall.args === 'object'
             ) {
               const op = (part.toolCall.args as { op?: string }).op
-              if (op === 'add' || op === 'remove' || op === 'edit') {
+              if (op === 'add' || op === 'remove' || op === 'edit' || op === 'reindex') {
                 emit({ type: 'hub:sources-changed' })
               }
+            }
+            if (name === 'refresh_sources' && !data.isError) {
+              emit({ type: 'hub:sources-changed' })
             }
             if (policy.streamToDetail === 'wiki') {
               writePathByToolId.delete(data.id)

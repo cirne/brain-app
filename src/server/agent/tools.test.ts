@@ -7,6 +7,9 @@ import { getCalendarEventsFromRipmail } from '../lib/calendarRipmail.js'
 vi.mock('../lib/calendarRipmail.js', () => ({
   getCalendarEventsFromRipmail: vi.fn(),
 }))
+vi.mock('../lib/ripmailHeavySpawn.js', () => ({
+  runRipmailRefreshForBrain: vi.fn(),
+}))
 import {
   buildDraftEditFlags,
   buildInboxRulesCommand,
@@ -17,6 +20,7 @@ import {
   buildSourcesRemoveCommand,
 } from './tools.js'
 import { joinToolResultText, toolResultFirstText } from './agentTestUtils.js'
+import { runRipmailRefreshForBrain } from '../lib/ripmailHeavySpawn.js'
 
 // Shared fixture: $BRAIN_HOME/wiki
 let brainHome: string
@@ -56,6 +60,7 @@ describe('createAgentTools', () => {
     expect(names).toContain('search_index')
     expect(names).toContain('read_doc')
     expect(names).toContain('manage_sources')
+    expect(names).toContain('refresh_sources')
     expect(names).toContain('list_inbox')
     expect(names).toContain('inbox_rules')
     expect(names).toContain('archive_emails')
@@ -841,6 +846,47 @@ describe('ripmail sources / refresh command builders', () => {
   it('buildReindexCommand', () => {
     expect(buildReindexCommand({})).toBe('refresh')
     expect(buildReindexCommand({ sourceId: 'docs' })).toBe('refresh --source "docs"')
+  })
+})
+
+describe('refresh_sources tool', () => {
+  beforeEach(() => {
+    vi.mocked(runRipmailRefreshForBrain).mockResolvedValue({
+      stdout: '',
+      stderr: '',
+      code: 0,
+      signal: null,
+      durationMs: 0,
+      timedOut: false,
+      pid: undefined,
+    })
+  })
+
+  afterEach(() => {
+    vi.mocked(runRipmailRefreshForBrain).mockClear()
+    delete process.env.RIPMAIL_BIN
+  })
+
+  it('starts refresh for all sources when source omitted', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+    const tool = tools.find((t) => t.name === 'refresh_sources')!
+    const result = await tool.execute('rs-1', {})
+    expect(runRipmailRefreshForBrain).toHaveBeenCalledWith([])
+    expect(joinToolResultText(result)).toContain('all sources')
+  })
+
+  it('passes --source argv when source provided', async () => {
+    const failRipmail = join(wikiDir, 'fake-ripmail-fail')
+    await writeFile(failRipmail, '#!/bin/sh\nexit 1\n')
+    await chmod(failRipmail, 0o755)
+    process.env.RIPMAIL_BIN = failRipmail
+
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+    const tool = tools.find((t) => t.name === 'refresh_sources')!
+    await tool.execute('rs-2', { source: 'work@example.com' })
+    expect(runRipmailRefreshForBrain).toHaveBeenCalledWith(['--source', 'work@example.com'])
   })
 })
 

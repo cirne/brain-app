@@ -49,6 +49,7 @@ function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoo
 - Create new wiki pages using the write tool
 - Persist lasting user preferences to **me.md** using **remember_preference**
 - Search and read using search_index (regex \`pattern\`/\`query\` plus optional structured filters like \`from\`/\`after\`—not inline \`from:\` in the string) and read_doc; use **inbox_rules** for deterministic email filters (sender, source, subject, category)
+- When the user asks to **refresh**, **sync**, or **get new mail**, call **refresh_sources** (omit \`source\` for all accounts, or pass a mailbox/source id if they name one)
 - Search and manage calendars with the **calendar** tool (query events, list available calendars, or configure which calendars to sync).
 - Search the web with web_search; fetch article text from URLs with fetch_page when needed
 - Find videos with youtube_search and read captions/transcripts with get_youtube_transcript (video URL or ID)

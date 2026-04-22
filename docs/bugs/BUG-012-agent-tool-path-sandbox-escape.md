@@ -6,7 +6,25 @@
 
 ## Status
 
-**Open** — no unified enforcement layer; risk varies by tool and deployment (single-user desktop vs. multi-tenant / shared `BRAIN_DATA_ROOT`).
+**Open (app layer mitigated, 2026-04)** — in-process path jailing and tests are in place for the main agent and HTTP file read surfaces. **OS-level tenant isolation** (see [tenant filesystem isolation](../architecture/tenant-filesystem-isolation.md)) is still out of scope for this bug; a **Node RCE** or similar would bypass app-only checks.
+
+## Progress (app layer)
+
+| Area | State |
+| ---- | ----- |
+| **Shared allowlist** | [`src/server/lib/resolveTenantSafePath.ts`](../../src/server/lib/resolveTenantSafePath.ts) — `normalizePathThroughExistingAncestors` (macOS `/var` vs `/private/var` for non-existent leaves), `isAbsolutePathAllowedUnderRoots`, `isPathStrictlyInsideOrEqual`. |
+| **Policy module** | [`src/server/lib/agentPathPolicy.ts`](../../src/server/lib/agentPathPolicy.ts) — `read_doc` path allowlist = tenant `BRAIN_HOME` + `ripmail` home + `wiki` content dir + `localDir` / `icsFile` paths from `ripmail sources list --json`; `manage_sources` add/edit blocks paths that overlap **sibling** tenant dirs under `BRAIN_DATA_ROOT` and (in MT) paths under the data root that are not in the read allowlist. |
+| **`read_doc`** | Filesystem-like `id` values are checked before `ripmail read`; Message-ID–style ids are unchanged. |
+| **`manage_sources`** | Path validated before CLI spawn. |
+| **Wiki / pi tools** | [`coerceWikiToolRelativePath`](../../src/server/lib/wikiEditHistory.ts) + wrapped `read` / `edit` / `write` / `grep` / `find` in [`tools.ts`](../../src/server/agent/tools.ts) so pi’s `resolveToCwd` cannot accept raw host absolutes outside `wikiDir`. Upstream [`path-utils`](https://github.com/mariozechner/pi-coding-agent) still resolves absolute paths as-is; our wrapper prevents that class of escape. |
+| **`GET /api/files/read`** | Uses the same allowlist as agent reads in **all** modes (no longer MT-only). |
+| **Tests** | [`agentPathPolicy.test.ts`](../../src/server/lib/agentPathPolicy.test.ts), [`readDocPathPolicy.test.ts`](../../src/server/agent/readDocPathPolicy.test.ts), [`manageSources.test.ts`](../../src/server/agent/manageSources.test.ts) (incl. MT sibling), extended [`resolveTenantSafePath.test.ts`](../../src/server/lib/resolveTenantSafePath.test.ts). |
+
+### Still open / later
+
+- **Kernel / VM / UID / Landlock** isolation for high-density hosted Brain ([architecture doc](../architecture/tenant-filesystem-isolation.md)).
+- **Symlink hardening** for wiki-only `resolveSafeWikiPath` if a wiki path links outside the vault (optional `realpath` proof).
+- **Operational:** indexed-folder allowlist requires a successful `ripmail sources list` subprocess when rejecting paths outside brain/ripmail/wiki (acceptable tradeoff).
 
 ## Summary
 
@@ -19,8 +37,7 @@ This is a **confidentiality** failure for:
 
 It is not limited to a malicious *human* user: **prompt injection** via synced email, wiki, or chat could steer the same tools toward sensitive paths if the process can reach them.
 
-## Evidence in codebase (non-exhaustive)
-
+## Evidence in codebase (snapshot before mitigation; see **Progress** above for current code)
 
 | Area                                                 | Concern                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -85,3 +102,4 @@ It is not limited to a malicious *human* user: **prompt injection** via synced e
 - [Wiki read vs read_doc](../architecture/wiki-read-vs-read-doc.md) — intentional split between wiki-relative tools and `read_doc` / index; the security contract for “where files may live” should be made explicit and enforced.
 - [OPP-012: Brain home data layout](../opportunities/OPP-012-brain-home-data-layout.md), [OPP-024: Split brain data](../opportunities/OPP-024-split-brain-data-synced-wiki-local-ripmail.md) — data roots.
 - `src/server/lib/dataRoot.ts` — `BRAIN_DATA_ROOT`, `tenantHomeDir`.
+

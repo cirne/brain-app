@@ -2,7 +2,7 @@
 
 **Monorepo:** This crate lives inside **[brain-app](../AGENTS.md)** at `ripmail/`. Repository-wide conventions and the web app stack are documented there; this file stays focused on ripmail behavior and Rust workflows.
 
-**ripmail** is an agent-first email system. It syncs email from IMAP providers, indexes it locally, and exposes it as a queryable dataset via a **CLI** (subprocess-friendly JSON/text). **Implementation:** **Rust** at the repository root (`cargo build`, `cargo test`). **End-user install:** prebuilt **Rust** binaries from **GitHub Releases** via `**install.sh`**. **Outbound mail** uses SMTP send-as-user (`ripmail send`, `ripmail draft`); optional `RIPMAIL_SEND_TEST=1` restricts recipients for dev/test (see [ADR-024](docs/ARCHITECTURE.md#adr-024-outbound-email--smtp-send-as-user--local-drafts)).
+**ripmail** is an agent-first email system. It syncs email from IMAP providers, indexes it locally, and exposes it as a queryable dataset via a **CLI** (subprocess-friendly JSON/text). **Implementation:** **Rust** at the repository root (`cargo build`, `cargo test`). **End-user install:** prebuilt **Rust** binaries from **GitHub Releases** via `**install.sh`**. **Outbound mail** uses SMTP send-as-user (`ripmail send`, `ripmail draft`) for most providers. **Gmail + Google OAuth** (`imap.gmail.com`, `imapAuth: googleOAuth`) sends via **Gmail API HTTPS** (`users.messages.send`) so installs work where outbound SMTP is blocked (e.g. DigitalOcean — see brain-app BUG-013). Optional `RIPMAIL_SEND_TEST=1` restricts recipients for dev/test (see [ADR-024](docs/ARCHITECTURE.md#adr-024-outbound-email--smtp-send-as-user--local-drafts)).
 
 **Quick install (prebuilt Rust binary — default):**
 
@@ -60,6 +60,44 @@ cargo run -- sync --foreground --since 7d
 cargo run -- refresh
 cargo build --release && ./target/release/ripmail status
 ```
+
+### Gmail OAuth — HTTPS send (SMTP-blocked hosts)
+
+When **`imap.gmail.com`** and **`googleOAuth`** are configured, **`ripmail send`** uses **Gmail REST API** on port **443**, not SMTP to **`smtp.gmail.com:587`**.
+
+**Google Cloud Console (same project as `GOOGLE_OAUTH_CLIENT_ID`):**
+
+1. Enable **Gmail API**: **APIs & Services → Library** → **Gmail API** → **Enable**.
+2. **Scopes:** Existing OAuth already requests **`https://mail.google.com/`**, which authorizes `users.messages.send`. If you still get HTTP **403** after enabling the API, confirm that scope on the OAuth consent screen; optionally add **`https://www.googleapis.com/auth/gmail.send`** in Brain [`src/server/lib/googleOAuth.ts`](../src/server/lib/googleOAuth.ts) and ripmail [`src/oauth/google_flow.rs`](src/oauth/google_flow.rs), then users must **re-consent**.
+
+**Gmail + app password** continues to use **SMTP** only; if the network blocks SMTP, prefer **OAuth**.
+
+**Manual E2E:** unset **`RIPMAIL_SEND_TEST`** when sending to arbitrary addresses (`RIPMAIL_SEND_TEST=1` allows only **`lewiscirne+ripmail@gmail.com`**). From repo root:
+
+```bash
+RIPMAIL_HOME=/path/to/your/oauth/ripmail/home \
+  cargo run -p ripmail -- \
+  send \
+  --to lewiscirne@gmail.com \
+  --subject "Gmail API HTTPS smoke" \
+  --body "Ripmail Gmail API send test." \
+  --text
+```
+
+Expect stderr to mention **Gmail API** / **`users.messages.send`**, not **SMTP** to port **587**.
+
+**Confirm delivery:** pull latest mail, then triage or search (same **`RIPMAIL_HOME`**):
+
+```bash
+RIPMAIL_HOME=/path/to/your/oauth/ripmail/home \
+  cargo run -p ripmail -- refresh --foreground
+RIPMAIL_HOME=/path/to/your/oauth/ripmail/home \
+  cargo run -p ripmail -- inbox 24h --text
+```
+
+If the test send was **to yourself**, the thread may land in **Inbox** or **Sent** depending on Gmail; use **`ripmail search "your subject"`** if **`inbox`** does not list it yet.
+
+**Optional live integration test:** `tests/gmail_api_live_send.rs` is **`#[ignore]`**. Run with **`RIPMAIL_LIVE_GMAIL_SEND=1`**, **`RIPMAIL_HOME`** set to an OAuth Gmail home, and **`cargo nextest run -p ripmail -E 'test(live_gmail_https)' --run-ignored only`**.
 
 **Agents and contributors:** always invoke the CLI from a git clone with `**cargo run -- <subcommand> …`** (note the `--` so Cargo does not swallow flags). A `ripmail` binary on `PATH` may be an older install or release than the sources you are editing.
 
@@ -164,7 +202,7 @@ ripmail clean [--yes]              # preview wipe of RIPMAIL_HOME; with --yes re
 ripmail rebuild-index              # Wipe SQLite and reindex from local maildir (dev/test; same as schema bump)
 ripmail attachment list  [--text]   # `--message-id` / `-m` accepted as alias
 ripmail attachment read  | [--raw] [--no-cache]
-ripmail send [--to addr --subject s] []   # SMTP; saved draft under data/drafts/ (.md optional); optional RIPMAIL_SEND_TEST=1 for dev/test allowlist
+ripmail send [--to addr --subject s] []   # SMTP for most providers; Gmail+OAuth uses Gmail API HTTPS; saved draft under data/drafts/ (.md optional); optional RIPMAIL_SEND_TEST=1 for dev/test allowlist
 ripmail draft new|reply|forward|list|view|edit|rewrite [--help]   # Local drafts (data/drafts/); new/reply/forward optional --mailbox (send-as; reply/forward path resolution multi-inbox); reply/forward: `<message-id>` positional or `--message-id`; prefer `draft new|reply|forward --instruction` for LLM compose (new: omit `--subject`; reply/forward: do not combine with `--subject`/`--body`/`--body-file`) + `draft edit` over literal `--body` (verbatim fallback); list JSON: slim/full like search (--result-format); bodyPreview when full; edit = LLM instruction, rewrite = replace body; edit/rewrite support --to/--cc/--bcc, --add-*/--remove-*, rewrite --keep-body
 ripmail rules validate [--sample]|reset-defaults --yes|list|show |add|edit |remove [--yes|-y] |move |feedback   # ~/.ripmail/rules.json v3 search queries (--query); validate --sample runs DB counts when data/ripmail.db exists
 

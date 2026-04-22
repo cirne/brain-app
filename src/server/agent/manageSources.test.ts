@@ -81,4 +81,37 @@ describe('manage_sources tool', () => {
     await tool.execute('s5', { op: 'remove', id: 'src1' })
     expect(execRipmailAsync).toHaveBeenCalledWith(expect.stringContaining('sources remove "src1" --json'), expect.any(Object))
   })
+
+  it('op=add rejects path inside another tenant workspace in multi-tenant mode', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'mt-man-'))
+    const prevDr = process.env.BRAIN_DATA_ROOT
+    const prevBh = process.env.BRAIN_HOME
+    process.env.BRAIN_DATA_ROOT = base
+    const tenantA = join(base, 'alice')
+    const tenantB = join(base, 'bob')
+    await mkdir(join(tenantA, 'wiki'), { recursive: true })
+    await mkdir(join(tenantB, 'wiki'), { recursive: true })
+    process.env.BRAIN_HOME = tenantA
+    const w = join(tenantA, 'wiki')
+
+    const { runWithTenantContextAsync } = await import('../lib/tenantContext.js')
+    const { createAgentTools } = await import('./tools.js')
+    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"sources":[]}', stderr: '' })
+
+    try {
+      await runWithTenantContextAsync({ workspaceHandle: 'alice', homeDir: tenantA }, async () => {
+        const tools = createAgentTools(w)
+        const tool = tools.find((t) => t.name === 'manage_sources')!
+        await expect(
+          tool.execute('s', { op: 'add', path: join(tenantB, 'wiki'), label: 'x' }),
+        ).rejects.toThrow(/path_not_allowed/)
+      })
+      const addCalls = vi.mocked(execRipmailAsync).mock.calls.filter((c) => c[0].includes('sources add'))
+      expect(addCalls).toHaveLength(0)
+    } finally {
+      process.env.BRAIN_DATA_ROOT = prevDr
+      process.env.BRAIN_HOME = prevBh
+      await rm(base, { recursive: true, force: true })
+    }
+  })
 })
