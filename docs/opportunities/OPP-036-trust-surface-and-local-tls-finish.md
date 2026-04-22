@@ -1,5 +1,7 @@
 # OPP-036: Local TLS trust surface, polish, and optional follow-ons
 
+**Tags:** `desktop` (Tauri + bundled HTTPS) — **Short-term priority:** [cloud / hosted](../OPPORTUNITIES.md) and edge TLS ahead of local WebView trust polish.
+
 ## Summary
 
 The **first ship** in [archived OPP-023](archive/OPP-023-local-https-loopback-hardening.md) (bundled **HTTPS** with self-signed material under `$BRAIN_HOME/var`, Tauri `https://127.0.0.1/…` navigation, `https` Google OAuth redirect URIs, [runtime-and-routes.md](../architecture/runtime-and-routes.md) docs) **closes the cleartext-on-LAN** gap for the embedded server. This opportunity tracks the **residual** product/eng work: **trust**, **hardening**, and **options** the original OPP-023 also listed as open or non-goal-adjacent.
@@ -22,11 +24,11 @@ The **first ship** in [archived OPP-023](archive/OPP-023-local-https-loopback-ha
 
 ### 2. **Dev** TLS (optional)
 
-- [OPP-023](archive/OPP-023-local-https-loopback-hardening.md) open question: optional **`npm run dev`** TLS (e.g. mkcert) for parity and Secure cookies in the browser on `localhost` without shipping story — opt-in only so default `npm run dev` stays frictionless.
+- [OPP-023](archive/OPP-023-local-https-loopback-hardening.md) open question: optional `**npm run dev`** TLS (e.g. mkcert) for parity and Secure cookies in the browser on `localhost` without shipping story — opt-in only so default `npm run dev` stays frictionless.
 
 ### 3. **Bind address** (product tradeoff, optional)
 
-- OPP-023 considered **loopback-only** (`127.0.0.1`) to eliminate non-loopback **reachability**; today we use **`0.0.0.0` + allowlist** / **opt-in LAN** to preserve **Tailscale `100.64.0.0/10`**. A future decision: **tighter bind** (loopback only) and route non-local only via **tunnel** — would change [bundledNativeClientAllowlist.ts](../../src/server/lib/bundledNativeClientAllowlist.ts) and Phone access copy.
+- OPP-023 considered **loopback-only** (`127.0.0.1`) to eliminate non-loopback **reachability**; today we use `**0.0.0.0` + allowlist** / **opt-in LAN** to preserve **Tailscale `100.64.0.0/10`**. A future decision: **tighter bind** (loopback only) and route non-local only via **tunnel** — would change [bundledNativeClientAllowlist.ts](../../src/server/lib/bundledNativeClientAllowlist.ts) and Phone access copy.
 
 ### 4. **Lifecycle & tests**
 

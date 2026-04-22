@@ -1,8 +1,8 @@
 # Cloud-hosted Brain v1 — Phase 0 scope
 
-**Status:** Phase 0 complete (April 2026). Part of [OPP-041](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
+**Status:** Phase 0 complete (April 2026). Part of [OPP-041 (full epic)](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md) (current scale closed; [stub](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md)).
 
-**Staging (April 2026):** Public **`https://staging.braintunnel.ai`** — TLS at the edge; Brain container on **port 4000 (HTTP)** behind the proxy. Durable data in the **`brain_data`** named volume with **`BRAIN_DATA_ROOT=/brain-data`** so container/image updates are **non-destructive**. Deploy and edge setup: [OPP-041](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md), [digitalocean.md](../digitalocean.md).
+**Staging (April 2026):** Public **`https://staging.braintunnel.ai`** — TLS at the edge; Brain container on **port 4000 (HTTP)** behind the proxy. Durable data in the **`brain_data`** named volume with **`BRAIN_DATA_ROOT=/brain-data`** so container/image updates are **non-destructive**. Deploy and edge setup: [OPP-041 (full)](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md), [digitalocean.md](../digitalocean.md).
 
 This document is the **parity matrix** and **product/engineering decisions** for running Brain on **hosted Linux** (Docker on a VM with persistent disk). It does **not** describe multi-tenant routing or identity—that starts in Phase 3–4 of the epic.
 
@@ -108,7 +108,7 @@ Keep existing **loopback** URIs for local dev and Braintunnel.app as documented 
 
 ## Local Docker (Phase 1)
 
-Repo root **`Dockerfile`** + **`docker-compose.yml`**: `env_file: .env` supplies secrets; compose forces `BRAIN_HOME=/brain`, **`PORT=4000`** inside the container, and host **`${BRAIN_DOCKER_PORT:-4000}:4000`**. **`npm run docker:up`** runs **`docker:ripmail:build`** first so a Linux **`ripmail`** ELF is staged at `.docker/linux-ripmail/ripmail` (host cargo or `rust:bookworm` + cached deps). See [OPP-041 Phase 1](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
+Repo root **`Dockerfile`** + **`docker-compose.yml`**: `env_file: .env` supplies secrets; compose forces `BRAIN_HOME=/brain`, **`PORT=4000`** inside the container, and host **`${BRAIN_DOCKER_PORT:-4000}:4000`**. **`npm run docker:up`** runs **`docker:ripmail:build`** first so a Linux **`ripmail`** ELF is staged at `.docker/linux-ripmail/ripmail` (host cargo or `rust:bookworm` + cached deps). See [OPP-041 Phase 1](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
 
 ---
 

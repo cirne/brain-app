@@ -1,5 +1,7 @@
 # OPP-008: Tunnel + QR for Seamless Phone Access
 
+**Tags:** `desktop` (Mac-local listener + `cloudflared`) — **Short-term priority:** [cloud / hosted](../OPPORTUNITIES.md) over phone→Mac remote UX.
+
 ## Summary
 
 Run brain-app locally on the Mac (native app or dev server) and expose it through a managed tunnel (Cloudflare Tunnel as the default story, with alternatives). The Mac UI shows a QR code that encodes the tunnel URL (and optionally a short-lived pairing token). Scanning with a phone opens the same brain session in the mobile browser—remote access from anywhere without typing URLs, copying tokens, or installing a VPN client on the phone first.
@@ -53,12 +55,14 @@ Key properties:
 
 ## Vendor options
 
-| Option | Pros | Cons |
-|--------|------|------|
+
+| Option                                | Pros                                                                  | Cons                                                     |
+| ------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------- |
 | **Cloudflare Tunnel** (`cloudflared`) | Free tier, stable, custom hostname on a domain you control, good docs | Requires Cloudflare account; binary to bundle or install |
-| **Tailscale Funnel** | Same trust model as Tailscale; HTTPS | Still Tailscale-centric; different UX from “pure” tunnel |
-| **ngrok** | Very fast to prototype | Free tier limits; branding on URL unless paid |
-| **localhost.run / similar** | Zero install sometimes | Less control, not ideal for production-feel product |
+| **Tailscale Funnel**                  | Same trust model as Tailscale; HTTPS                                  | Still Tailscale-centric; different UX from “pure” tunnel |
+| **ngrok**                             | Very fast to prototype                                                | Free tier limits; branding on URL unless paid            |
+| **localhost.run / similar**           | Zero install sometimes                                                | Less control, not ideal for production-feel product      |
+
 
 **Default recommendation for a productized story:** Cloudflare Tunnel with optional Bring Your Own Domain, so the QR can show a stable subdomain (e.g. `brain.example.com`) instead of ephemeral `trycloudflare` URLs.
 
@@ -102,3 +106,4 @@ Enhanced (better UX, more to implement):
 2. Add a dev-only or feature-flagged page that renders QR from the current public URL (even if pasted) to validate UX.
 3. Decide pairing token format and whether production basic auth stays compatible with tunnel access.
 4. Document comparison table: Tunnel + QR vs Tailscale for **[docs/VISION.md](../VISION.md)** or product copy.
+

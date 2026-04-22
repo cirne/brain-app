@@ -1,5 +1,7 @@
 # OPP-028: Named Assistant Identity and the Living Avatar
 
+**Tags:** `desktop` (includes dock, window title, and native chrome affordances) — **Short-term priority:** [cloud / hosted](../OPPORTUNITIES.md) before deeper native-only visual polish.
+
 **Context (2026):** The app’s **public product name** is **Braintunnel** (see M0, [OPP-043](OPP-043-google-oauth-app-verification-milestones.md)). This OPP is **not** about renaming the app again; it is about a **user-chosen assistant identity** (name + avatar) that appears *inside* the product beyond the “Braintunnel” chrome.
 
 ## One‑line summary

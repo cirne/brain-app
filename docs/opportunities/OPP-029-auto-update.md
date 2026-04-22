@@ -1,6 +1,8 @@
 # OPP-029: Desktop auto-update (Braintunnel.app)
 
-**Status: partial (2026).** `tauri-plugin-updater` is **wired** in the Rust shell; the client can **check** and **install**; `plugins.updater.endpoints` in `tauri.conf.json` is **empty** until a team hosts a version manifest. **Still to ship:** public `latest.json` (or Tauri v2–equivalent) + signed `*.app.tar.gz`, `TAURI_SIGNING_*` in CI, and the usual **notarization** story for non-developer installs. See [AGENTS.md](../../AGENTS.md).
+**Tags:** `desktop` — **Short-term priority:** cloud / hosted workstreams ahead of publishable `latest.json` + signed updater artifacts.
+
+**Status: partial (2026).** `tauri-plugin-updater` is **wired** in the Rust shell; the client can **check** and **install**; `plugins.updater.endpoints` in `tauri.conf.json` is **empty** until a team hosts a version manifest. **Still to ship:** public `latest.json` (or Tauri v2–equivalent) + signed `*.app.tar.gz`, `TAURI_SIGNING_`* in CI, and the usual **notarization** story for non-developer installs. See [AGENTS.md](../../AGENTS.md).
 
 ## Summary
 

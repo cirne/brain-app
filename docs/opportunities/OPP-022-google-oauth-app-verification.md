@@ -6,7 +6,7 @@ Brain (and ripmail’s Gmail path) may request **restricted Google scopes** (e.g
 
 **The concrete milestone plan lives in [OPP-043](OPP-043-google-oauth-app-verification-milestones.md).** This doc (OPP-022) is the background reference for risk framing, scope policy, and assessment context.
 
-**Related:** [OPP-043](OPP-043-google-oauth-app-verification-milestones.md) — milestone plan and sequencing; [OPP-019](OPP-019-gmail-first-class-brain.md), [OPP-009](OPP-009-oauth-relay-in-app.md), [docs/google-oauth.md](../google-oauth.md), [ripmail OPP-042](../ripmail/docs/opportunities/OPP-042-google-oauth-cli-auth.md).
+**Related:** [OPP-043](OPP-043-google-oauth-app-verification-milestones.md) — milestone plan and sequencing; [OPP-019](OPP-019-gmail-first-class-brain.md) (full spec: [archive](archive/OPP-019-gmail-first-class-brain.md)), [archived OPP-009](archive/OPP-009-oauth-relay-in-app.md), [docs/google-oauth.md](../google-oauth.md), [ripmail OPP-042](../ripmail/docs/opportunities/OPP-042-google-oauth-cli-auth.md).
 
 ## Prerequisites before starting verification
 

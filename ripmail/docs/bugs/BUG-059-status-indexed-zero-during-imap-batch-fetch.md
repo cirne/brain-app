@@ -79,5 +79,5 @@ At least one of:
 
 ## Related
 
-- Similar class of issue (persistence vs counters): historical **[BUG-057](BUG-057-applemail-sync-new-indexed-zero.md)** (Apple Mail; different root cause, fixed).
+- Similar class of issue (persistence vs counters): historical **[BUG-057](archive/BUG-057-applemail-sync-new-indexed-zero.md)** (Apple Mail; different root cause, fixed).
 - Host integration: Braintunnel reads **`GET /api/onboarding/mail`** → **`ripmail status --json`** (`brain-app`).

@@ -1,6 +1,6 @@
 # DigitalOcean CLI access (`doctl`)
 
-Use this when provisioning or operating **BrainTunnel** (or other) infrastructure on DigitalOcean: droplets, volumes, firewalls, Container Registry, DNS, etc. Hosted deployment context lives in [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md).
+Use this when provisioning or operating **BrainTunnel** (or other) infrastructure on DigitalOcean: droplets, volumes, firewalls, Container Registry, DNS, etc. Hosted deployment context lives in [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md) (stub; full runbook: [archive](opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md)).
 
 ## Install
 
@@ -162,7 +162,7 @@ On a fresh **Ubuntu** droplet (use an **amd64** droplet type to match the defaul
 
 **Current DigitalOcean staging** is **`https://staging.braintunnel.ai`**: TLS terminates **in front of** the Braintunnel container (reverse proxy, load balancer, or tunnel). The container still listens on **HTTP :4000** on the Docker network; browsers never hit plain **:4000** on the public Internet when the edge is configured correctly.
 
-**New host or environment:** Set **`PUBLIC_WEB_ORIGIN`** to the canonical **`https://…`** origin, register that redirect URI in **Google Cloud Console**, and terminate TLS at the edge — see [OPP-041 — HTTPS / edge checklist](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md#reference-https--edge-checklist-new-hosts).
+**New host or environment:** Set **`PUBLIC_WEB_ORIGIN`** to the canonical **`https://…`** origin, register that redirect URI in **Google Cloud Console**, and terminate TLS at the edge — see [OPP-041 — HTTPS / edge checklist](opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md#reference-https--edge-checklist-new-hosts) (full epic; the [stub](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md) points here).
 
 4. **Set `PUBLIC_WEB_ORIGIN`** in `.env` to the URL users open in the browser (e.g. **`https://staging.braintunnel.ai`** or **`https://your-domain.com`**). The origin must match what users type (OAuth and cookies depend on it). Localhost defaults do not match production OAuth redirects.
 
@@ -182,5 +182,5 @@ You may add `DO_TOKEN=` to your **local** `.env` for convenience (see `.env.exam
 
 ## See also
 
-- [OPP-041 — Docker / DigitalOcean epic](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md)
+- [OPP-041 — Docker / DigitalOcean epic (full spec)](opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md) · [stub](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md)
 - [DigitalOcean: Authenticating with `doctl`](https://docs.digitalocean.com/reference/doctl/how-to/install/#authenticate-doctl)

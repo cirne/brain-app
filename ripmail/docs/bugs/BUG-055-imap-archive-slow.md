@@ -31,5 +31,5 @@ See **[Gmail archive retrospective](../GMAIL_ARCHIVE_NOTES.md)** for what we kee
 ## Related
 
 - `src/mailbox/archive.rs` — `provider_archive_message`, `connect_imap_for_resolved_mailbox`
-- [BUG-054](BUG-054-gmail-imap-archive-noop.md) — Gmail archive correctness (fixed)
+- [BUG-054](archive/BUG-054-gmail-imap-archive-noop.md) — Gmail archive correctness (fixed)
 - [OPP-049 archived](../opportunities/archive/OPP-049-gmail-archive-stored-labels-metadata.md) — stored-labels fast path

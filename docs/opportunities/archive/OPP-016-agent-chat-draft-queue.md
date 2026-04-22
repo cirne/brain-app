@@ -42,4 +42,4 @@ That blocks a common workflow: **compose your next message** while the model is 
 ## Related
 
 - **[BUG-006](../bugs/archive/BUG-006-agent-concurrent-prompt.md)** — concurrent `prompt()` and possible use of `steer()` / `followUp()`.
-- **[BUG-007](../bugs/BUG-007-agent-view-scroll-stick-to-bottom.md)** — scroll behavior while streaming in the same agent view.
+- **[BUG-007](../bugs/archive/BUG-007-agent-view-scroll-stick-to-bottom.md)** — scroll behavior while streaming in the same agent view.

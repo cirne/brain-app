@@ -32,7 +32,7 @@ These are small, localized changes with direct debugging or correctness benefit.
 ## What we **learned** (not bugs in ripmail per se)
 
 1. **`SELECT [Gmail]/All Mail` can take 10–30+ seconds** on large Gmail accounts. The **`UID STORE`** afterward is often fast. Wall time users see is dominated by Gmail’s response to `SELECT`, not Rust CPU.
-2. **Gmail “archive” = remove `\Inbox`**, not “move to All Mail” when the message is already in All Mail. The old generic `UID MOVE` from All Mail → All Mail was a no-op for server state ([BUG-054](bugs/BUG-054-gmail-imap-archive-noop.md) described that era).
+2. **Gmail “archive” = remove `\Inbox`**, not “move to All Mail” when the message is already in All Mail. The old generic `UID MOVE` from All Mail → All Mail was a no-op for server state ([BUG-054](bugs/archive/BUG-054-gmail-imap-archive-noop.md) described that era).
 3. **Indexed `X-GM-LABELS` in SQLite** can disagree with the web UI if mail changed on the server after sync; fallback path exists for that.
 4. **Rebuild-index** seeds `labels` as `[]` and sync does not backfill labels for duplicate `message_id` rows — operators should not assume labels are complete after rebuild-only workflows (separate from archive, but affects fast path).
 
@@ -52,7 +52,7 @@ These are small, localized changes with direct debugging or correctness benefit.
 
 ## Related docs
 
-- [BUG-054](bugs/BUG-054-gmail-imap-archive-noop.md) — historical no-op analysis (superseded by current Gmail paths).
+- [BUG-054](bugs/archive/BUG-054-gmail-imap-archive-noop.md) — historical no-op analysis (superseded by current Gmail paths).
 - [BUG-055](bugs/BUG-055-imap-archive-slow.md) — latency notes (connection, search, fast path).
 - [OPP-049 archived](opportunities/archive/OPP-049-gmail-archive-stored-labels-metadata.md) — stored-labels fast path rationale.
 

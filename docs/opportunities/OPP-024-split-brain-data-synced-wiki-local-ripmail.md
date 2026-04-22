@@ -1,5 +1,7 @@
 # OPP-024: Split Brain data — synced wiki (Documents / iCloud) vs local Application Support (ripmail, secrets, cache)
 
+**Tags:** `desktop` (bundled macOS layout) — **Short-term priority:** hosted tenants ([archived OPP-041](archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md)) over iCloud/Documents wiki ergonomics.
+
 ## Summary
 
 Move from a **single `BRAIN_HOME` tree** ([OPP-012](OPP-012-brain-home-data-layout.md)) to a **deliberate two-root layout** on macOS: **user-facing, agent-primary knowledge** lives under **`~/Documents/…`** so it participates in **Desktop & Documents → iCloud** when the user has enabled that; **everything else** (especially **ripmail** — SQLite index, sync state, **OAuth artifacts**) stays under **`~/Library/Application Support/Brain`**. **`npm run dev`, tests, and non-macOS stay on one root** — default **`./data`** — per **[Locked decisions](#locked-decisions)**.

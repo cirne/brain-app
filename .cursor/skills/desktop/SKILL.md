@@ -53,7 +53,7 @@ If **`ripmail index: messages≈0`** but mail was synced before: often **FDA off
 - Server prints **`BRAIN_LISTEN_PORT=<port>`**; Rust parses child stdout — verify in **`node-server.log`** that the port matches **`Braintunnel bundled server listening on 127.0.0.1:…`** in Rust logs.
 - Repro needs **release** bundled path, not only `desktop:dev` (dev uses **:3000**).
 
-### BUG-004 (FDA) ([docs/bugs/BUG-004-full-disk-access-detection-and-onboarding.md](../../../docs/bugs/BUG-004-full-disk-access-detection-and-onboarding.md))
+### BUG-004 (FDA) ([docs/bugs/archive/BUG-004-full-disk-access-detection-and-onboarding.md](../../../docs/bugs/archive/BUG-004-full-disk-access-detection-and-onboarding.md))
 
 - FDA **gate is production + Tauri** only — **`npm run desktop:dev`** does **not** show the same gate (use packaged app or `desktop:build` / `desktop:fresh` flow to test).
 - After toggling FDA, **relaunch** may be required for TCC to apply.
