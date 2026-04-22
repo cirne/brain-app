@@ -45,5 +45,10 @@ jobs:
       - name: Download cloudflared sidecar (Linux)
         run: node scripts/setup-sidecars.mjs
 
+      # Tauri build script also asserts that resource directories exist; create the stub so
+      # cargo clippy/test pass without a full desktop:bundle-server run.
+      - name: Create server-bundle stub (Linux CI)
+        run: mkdir -p desktop/resources/server-bundle
+
       - name: Full CI (JS + brain Rust)
         run: npm run ci
