@@ -31,7 +31,7 @@ pub fn sync_apple_calendar(
     {
         let _ = conn;
         let _ = source_id;
-        return Err("appleCalendar sources are only supported on macOS.".into());
+        Err("appleCalendar sources are only supported on macOS.".into())
     }
 
     #[cfg(target_os = "macos")]

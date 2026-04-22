@@ -164,7 +164,7 @@ pub fn infer_name_from_address(address: &str) -> Option<String> {
     }
 
     if !valid_splits.is_empty() {
-        valid_splits.sort_by(|a, b| b.2.cmp(&a.2));
+        valid_splits.sort_by_key(|b| std::cmp::Reverse(b.2));
         let best = &valid_splits[0];
         let has_name_ending = COMMON_ENDINGS.iter().any(|e| best.0.ends_with(e));
         let is_common_first = COMMON_FIRST.contains(&best.0.as_str());
