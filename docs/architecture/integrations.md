@@ -6,7 +6,7 @@
 
 **Exception — Apple Messages:** The server may open Apple’s **`~/Library/Messages/chat.db`** read-only via **`better-sqlite3`** (`list_recent_messages`, `get_message_thread`). That path exists because **`chat.db`** is a plain SQLite file on disk; there is **no** Node-accessible **EventKit-style** API for iMessage history **and** no need to ship a native helper solely to read SQL. Access is gated by **Full Disk Access** (or equivalent). This is a **deliberate** second permission surface, not the model for calendar, contacts, or other framework-backed Apple data.
 
-**Tradeoff:** Two trust surfaces (FDA + Node for Messages vs ripmail for mail/index/calendar direction) rather than one CLI boundary for every corpus. Convergence later (e.g. messaging index via a single native helper) is optional — see [OPP-045](../../docs/opportunities/OPP-045-imessage-and-unified-messaging-index.md). **Calendar/notes/contacts** work should **not** follow the **chat.db** pattern unless we explicitly choose raw SQL over framework APIs.
+**Tradeoff:** Two trust surfaces (FDA + Node for Messages vs ripmail for mail/index/calendar direction) rather than one CLI boundary for every corpus. Convergence later (e.g. messaging index via a single native helper) is optional — see [ripmail OPP-045: iMessage + unified messaging index](../../ripmail/docs/opportunities/OPP-045-imessage-and-unified-messaging-index.md) (not to be confused with [brain-app OPP-045: cloud file sources](../opportunities/OPP-045-cloud-file-sources-drive-dropbox.md)). **Calendar/notes/contacts** work should **not** follow the **chat.db** pattern unless we explicitly choose raw SQL over framework APIs.
 
 ## Ripmail subprocess
 

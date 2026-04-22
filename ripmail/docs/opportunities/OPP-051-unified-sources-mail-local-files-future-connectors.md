@@ -200,12 +200,13 @@ For `localDir` sources, ripmail should **not copy or symlink files**. Instead:
 
 ## Future connectors
 
-Examples: **Notion**, **Apple Notes**, read-only cloud APIs. Each gets a `kind`, optional OAuth/setup subcommands, and rows keyed by `source_id` + remote stable id. **OPP-045** (iMessage / chat) shares the "channel + identity" lesson: do not force chat into email-shaped rows; do align on **one DB + explicit source/channel metadata**.
+Examples: **Notion**, **Apple Notes**, read-only cloud APIs. **Cloud file trees** (**Google Drive**, **Dropbox** as a plausible short-term second) are tracked at the product level in **[brain-app OPP-045](../../../docs/opportunities/OPP-045-cloud-file-sources-drive-dropbox.md)** (same `sources[]` / index direction as `localDir` on disk). Each connector gets a `kind`, optional OAuth/setup subcommands, and rows keyed by `source_id` + remote stable id. **ripmail** [OPP-045 (iMessage / chat)](OPP-045-imessage-and-unified-messaging-index.md) shares the "channel + identity" lesson: do not force chat into email-shaped rows; do align on **one DB + explicit source/channel metadata** (a different OPP-045 in the **ripmail** id namespace, unrelated to the brain-app OPP-045 on cloud files).
 
 ---
 
 ## Related
 
+- [brain-app OPP-045](../../../docs/opportunities/OPP-045-cloud-file-sources-drive-dropbox.md) — **Google Drive** and **Dropbox** as read/index corpus sources (complements `localDir`).
 - [brain-app OPP-040](../../../docs/opportunities/OPP-040-one-formerly-pica-integration-layer-ripmail-sources.md) — **One** (formerly **Pica**) as a possible hosted integration layer when many SaaS connectors are desired; evaluation only, not the default direction.
 - [OPP-016 archived](archive/OPP-016-multi-inbox.md) — historical multi-inbox; this opp supersedes the *config model* for new work.
 - [OPP-045](OPP-045-imessage-and-unified-messaging-index.md) — paused messaging index; unified **source** concept should fit the same direction.
