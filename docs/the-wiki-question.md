@@ -1,7 +1,7 @@
 # The wiki question
 
 **Status:** Open product question — not a decision document  
-**Related:** [VISION.md](./VISION.md), [architecture/wiki-read-vs-read-doc.md](./architecture/wiki-read-vs-read-doc.md), [product/personal-wiki.md](./product/personal-wiki.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
+**Related:** [VISION.md](./VISION.md), [architecture/wiki-read-vs-read-doc.md](./architecture/wiki-read-vs-read-doc.md), [product/personal-wiki.md](./product/personal-wiki.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md) (eval gap: wiki + agent quality), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 
 ---
 
@@ -59,7 +59,7 @@ Below are **distinct** hypotheses. They overlap in practice but failing one whil
 | **A. Amortized synthesis**                  | Repeated questions and multi-step reasoning get **better, faster answers** from stable pages + links than from re-deriving from mail each time.       | User tests: same tasks with wiki stripped to empty/minimal vs rich wiki; no quality/latency win from wiki.                                                         |
 | **B. Consistency & contradiction handling** | The wiki holds **resolved** narrative (who is who, what project status is) and **explicit** conflict notes; mail alone stays noisy and contradictory. | Assistant often contradicts earlier answers; wiki pages drift from mail with no reconciliation story.                                                              |
 | **C. Token / context efficiency**           | Answering from a compact, on-topic set of wiki pages uses less context than assembling from many threads.                                             | Marginal API cost or quality plateaus; tiny wiki in dev never stresses context.                                                                                    |
-| **D. User-legible memory**                  | The vault is **inspectable** — users trust Braintunnel because they can **see** what it “believes.”                                                         | Users never open wiki; trust is identical with wiki hidden.                                                                                                        |
+| **D. User-legible memory**                  | The vault is **inspectable** — users trust Braintunnel because they can **see** what it “believes.”                                                   | Users never open wiki; trust is identical with wiki hidden.                                                                                                        |
 | **E. Provenance & control**                 | Wiki is where **preferences and commitments** live (“always do X”) distinct from **evidence** in mail.                                                | Everything could live as structured memory without markdown; see [architecture/wiki-vs-managed-memory-honcho.md](./architecture/wiki-vs-managed-memory-honcho.md). |
 
 
@@ -151,7 +151,7 @@ That directly tests whether the hoped-for benefit is **real at scale** or **illu
 ## References
 
 - Karpathy, **LLM Wiki** (gist): [https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)  
-- Internal: [VISION.md](./VISION.md), [wiki-read-vs-read-doc.md](./architecture/wiki-read-vs-read-doc.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
+- Internal: [VISION.md](./VISION.md), [wiki-read-vs-read-doc.md](./architecture/wiki-read-vs-read-doc.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 - Roadmap umbrella: [OPP-033: Wiki compounding + Karpathy alignment](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md); concrete defect: [BUG-011](./bugs/BUG-011-wiki-expansion-missing-me-md-context.md)
 
 ---
