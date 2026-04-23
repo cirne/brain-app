@@ -9,6 +9,7 @@
     Smartphone,
     Folder,
     FolderPlus,
+    Cloud,
     Calendar,
     Layers,
     FileText,
@@ -482,6 +483,20 @@
             <div class="source-folder-text">
               <span class="source-folder-name">Add more folders</span>
               <span class="source-folder-path">Suggest Desktop and Documents to add to the index</span>
+            </div>
+          </div>
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="link-item hub-source-row"
+          onclick={() => onHubNavigate({ type: 'hub-add-google-drive' })}
+        >
+          <div class="link-info">
+            <span class="hub-source-icon-wrap" aria-hidden="true"><Cloud size={16} /></span>
+            <div class="source-folder-text">
+              <span class="source-folder-name">Add from Google Drive</span>
+              <span class="source-folder-path">Pick Drive folders to add to the search index</span>
             </div>
           </div>
           <ChevronRight size={16} aria-hidden="true" />

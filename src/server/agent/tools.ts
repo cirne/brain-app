@@ -227,6 +227,24 @@ export function buildSourcesAddLocalDirCommand(params: {
   return parts.join(' ')
 }
 
+/** Build `ripmail sources add --kind googleDrive …` argv tail after the binary name. */
+export function buildSourcesAddGoogleDriveCommand(params: {
+  oauthSourceId: string
+  driveFolderId: string
+  label?: string
+  id?: string
+}): string {
+  const parts = [
+    'sources add --kind googleDrive',
+    `--oauth-source-id ${JSON.stringify(params.oauthSourceId.trim())}`,
+    `--drive-folder-id ${JSON.stringify(params.driveFolderId.trim())}`,
+  ]
+  if (params.label?.trim()) parts.push(`--label ${JSON.stringify(params.label.trim())}`)
+  if (params.id?.trim()) parts.push(`--id ${JSON.stringify(params.id.trim())}`)
+  parts.push('--json')
+  return parts.join(' ')
+}
+
 /** Build `ripmail sources edit …` argv tail after the binary name. */
 export function buildSourcesEditCommand(params: { id: string; label?: string; path?: string }): string {
   const parts = [`sources edit ${JSON.stringify(params.id)}`]
@@ -595,11 +613,84 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
+  const googleDriveList = defineTool({
+    name: 'google_drive_list',
+    label: 'List Google Drive folder',
+    description:
+      'List files in a Google Drive folder via `ripmail drive list` (requires Gmail OAuth with Drive scope). Use **oauth_source** = ripmail source id for the mailbox whose `google-oauth.json` to use. **folder** = Drive folder id; omit or `root` for My Drive root.',
+    parameters: Type.Object({
+      oauth_source: Type.String({
+        description:
+          'Ripmail mailbox/source id whose `RIPMAIL_HOME/<id>/google-oauth.json` holds the token (same as Gmail IMAP id).',
+      }),
+      folder: Type.Optional(
+        Type.String({ description: 'Drive folder id (default: root of My Drive).' }),
+      ),
+      page_token: Type.Optional(Type.String({ description: 'Pagination token from a prior response.' })),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { oauth_source: string; folder?: string; page_token?: string },
+    ) {
+      const rm = ripmailBin()
+      const resolved = await resolveRipmailSourceForCli(params.oauth_source)
+      const sid = resolved ?? params.oauth_source.trim()
+      let cmd = `${rm} drive list --oauth-source ${JSON.stringify(sid)} --json`
+      const folder = params.folder?.trim()
+      if (folder && folder !== 'root') {
+        cmd += ` --folder ${JSON.stringify(folder)}`
+      }
+      if (params.page_token?.trim()) {
+        cmd += ` --page-token ${JSON.stringify(params.page_token.trim())}`
+      }
+      const { stdout } = await execRipmailAsync(cmd, { timeout: 45000 })
+      let details: Record<string, unknown> = {}
+      try {
+        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
+      } catch {
+        details = { raw: stdout }
+      }
+      return { content: [{ type: 'text' as const, text: stdout || '(empty)' }], details }
+    },
+  })
+
+  const googleDriveSearch = defineTool({
+    name: 'google_drive_search',
+    label: 'Search Google Drive',
+    description:
+      'Search Google Drive metadata (`ripmail drive search`) using [Drive query syntax](https://developers.google.com/drive/api/guides/search-files). Same **oauth_source** as **google_drive_list**.',
+    parameters: Type.Object({
+      oauth_source: Type.String({ description: 'Ripmail mailbox source id for OAuth token.' }),
+      q: Type.String({ description: 'Drive search query, e.g. fullText contains \'report\' or mimeType = \'application/pdf\'.' }),
+      page_token: Type.Optional(Type.String()),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { oauth_source: string; q: string; page_token?: string },
+    ) {
+      const rm = ripmailBin()
+      const resolved = await resolveRipmailSourceForCli(params.oauth_source)
+      const sid = resolved ?? params.oauth_source.trim()
+      let cmd = `${rm} drive search --oauth-source ${JSON.stringify(sid)} --query ${JSON.stringify(params.q.trim())} --json`
+      if (params.page_token?.trim()) {
+        cmd += ` --page-token ${JSON.stringify(params.page_token.trim())}`
+      }
+      const { stdout } = await execRipmailAsync(cmd, { timeout: 45000 })
+      let details: Record<string, unknown> = {}
+      try {
+        if (stdout.trim()) details = JSON.parse(stdout) as Record<string, unknown>
+      } catch {
+        details = { raw: stdout }
+      }
+      return { content: [{ type: 'text' as const, text: stdout || '(empty)' }], details }
+    },
+  })
+
   const manageSources = defineTool({
     name: 'manage_sources',
     label: 'Manage sources',
     description:
-      'Manage ripmail sources (IMAP, Apple Mail, local folders, calendars). op=list: list all sources; op=status: index health and sync times; op=add: register a local folder; op=edit: update label/path; op=remove: delete a source; op=reindex: background incremental sync (same as **refresh_sources**); prefer **refresh_sources** when the user only asks to refresh or sync mail/data.',
+      'Manage ripmail sources (IMAP, Apple Mail, local folders, calendars, Google Drive). op=list: list all sources; op=status: index health and sync times; op=add: register a **local folder** (`path`) **or** a **Google Drive** tree (`oauth_source_id` + `drive_folder_id`); op=edit: update label/path; op=remove: delete a source; op=reindex: background incremental sync (same as **refresh_sources**); prefer **refresh_sources** when the user only asks to refresh or sync mail/data.',
     parameters: Type.Object({
       op: Type.Union([
         Type.Literal('list'),
@@ -610,9 +701,20 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         Type.Literal('reindex'),
       ]),
       id: Type.Optional(Type.String({ description: 'edit/remove/reindex: source id (reindex: prefer refresh_sources)' })),
-      path: Type.Optional(Type.String({ description: 'add/edit: absolute path or ~/…' })),
+      path: Type.Optional(Type.String({ description: 'add/edit: absolute path or ~/… (localDir)' })),
       label: Type.Optional(Type.String({ description: 'add/edit: display label' })),
       source_id: Type.Optional(Type.String({ description: 'reindex: alias for id (prefer refresh_sources for sync-only)' })),
+      oauth_source_id: Type.Optional(
+        Type.String({
+          description:
+            'add googleDrive: ripmail source id whose directory contains `google-oauth.json` (the Gmail mailbox id).',
+        }),
+      ),
+      drive_folder_id: Type.Optional(
+        Type.String({
+          description: 'add googleDrive: Drive folder id to index recursively (`root` = My Drive root).',
+        }),
+      ),
     }),
     async execute(
       _toolCallId: string,
@@ -622,6 +724,8 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         path?: string
         label?: string
         source_id?: string
+        oauth_source_id?: string
+        drive_folder_id?: string
       },
     ) {
       const rm = ripmailBin()
@@ -645,7 +749,24 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           return parseStdout(stdout)
         }
         case 'add': {
-          if (!params.path) throw new Error('path is required for op=add')
+          const oauth = params.oauth_source_id?.trim()
+          const driveFolder = params.drive_folder_id?.trim()
+          if (oauth && driveFolder) {
+            const resolvedOAuth = await resolveRipmailSourceForCli(oauth)
+            const tail = buildSourcesAddGoogleDriveCommand({
+              oauthSourceId: resolvedOAuth ?? oauth,
+              driveFolderId: driveFolder,
+              label: params.label,
+              id: params.id,
+            })
+            const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
+            return parseStdout(stdout)
+          }
+          if (!params.path) {
+            throw new Error(
+              'op=add requires either `path` (local folder) or both `oauth_source_id` and `drive_folder_id` (Google Drive)',
+            )
+          }
           await assertManageSourcePathAllowed(params.path)
           const tail = buildSourcesAddLocalDirCommand({
             path: params.path,
@@ -702,7 +823,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'refresh_sources',
     label: 'Refresh sources',
     description:
-      'Incremental sync of indexed ripmail data (IMAP mail, calendars, local folder sources). Use when the user asks to refresh, sync, or update their email, mail, inbox, or index — e.g. "refresh my email", "sync Gmail", "get new messages". Runs in the background (same as `ripmail refresh`). Omit `source` to sync all configured sources; pass a source id or mailbox email when they name a specific account.',
+      'Incremental sync of indexed ripmail data (IMAP mail, calendars, local folders, Google Drive sources). Use when the user asks to refresh, sync, or update their email, mail, inbox, or index — e.g. "refresh my email", "sync Gmail", "get new messages". Runs in the background (same as `ripmail refresh`). Omit `source` to sync all configured sources; pass a source id or mailbox email when they name a specific account.',
     parameters: Type.Object({
       source: Type.Optional(
         Type.String({
@@ -1569,6 +1690,8 @@ Returns the saved text; treat it as active for this session too.`,
     readDoc,
     readAttachment,
     manageSources,
+    googleDriveList,
+    googleDriveSearch,
     refreshSources,
     listInbox,
     inboxRules,

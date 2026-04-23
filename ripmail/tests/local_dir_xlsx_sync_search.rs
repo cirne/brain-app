@@ -44,6 +44,7 @@ fn local_dir_sync_indexes_xlsx_and_fts_finds_cell_token() {
             calendar_ids: None,
             ics_url: None,
             default_calendars: None,
+            drive_folder_id: None,
         }]),
         ..Default::default()
     };
@@ -126,6 +127,7 @@ fn local_dir_fixture_xlsx_sales_data_indexable() {
             calendar_ids: None,
             ics_url: None,
             default_calendars: None,
+            drive_folder_id: None,
         }]),
         ..Default::default()
     };
@@ -208,6 +210,7 @@ fn local_dir_stored_text_matches_extract_attachment_direct() {
             calendar_ids: None,
             ics_url: None,
             default_calendars: None,
+            drive_folder_id: None,
         }]),
         ..Default::default()
     };
@@ -282,6 +285,7 @@ fn local_dir_misnamed_xlsx_bin_matches_extract_attachment_direct() {
             calendar_ids: None,
             ics_url: None,
             default_calendars: None,
+            drive_folder_id: None,
         }]),
         ..Default::default()
     };

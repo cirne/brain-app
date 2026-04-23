@@ -32,6 +32,24 @@ When **`BRAIN_DATA_ROOT`** is set (Docker / cloud cell), Google OAuth is the **p
 2. **`GET /api/oauth/google/callback`** exchanges the code, reads **`openid` userinfo** (`email` + **`sub`**), **creates or looks up** the tenant workspace from Google identity, wires ripmail tokens under **`$tenantHome/ripmail`**, then **`createVaultSession`** + **`registerSessionTenant`** + **`Set-Cookie: brain_session`** — same cookie/session plumbing as desktop, without a vault verifier password.
 3. **`POST /api/vault/setup`** and **`POST /api/vault/unlock`** return **405** in MT; **`GET /api/vault/status`** reflects session validity only.
 
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant G as Google
+  participant S as Brain server
+  B->>S: GET /api/oauth/google/start
+  S-->>B: Redirect to Google authorize URL
+  B->>G: Sign-in / consent
+  G-->>B: Redirect to /api/oauth/google/callback
+  B->>S: GET callback with code + state
+  S->>G: Exchange code + fetch openid userinfo
+  G-->>S: Tokens + email + sub
+  Note over S: Provision tenant dir, ripmail tokens under tenantHome/ripmail, brain_session cookie
+  S-->>B: Set-Cookie + redirect
+```
+
+
+
 See [multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md).
 
 ## Register the redirects in Google Cloud Console
@@ -39,14 +57,14 @@ See [multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-archite
 1. Open [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials) for your project.
 2. Open your **OAuth 2.0 Client ID** (type *Web application*).
 3. Under **Authorized redirect URIs**, add **all** of the following:
-   - `http://127.0.0.1:3000/api/oauth/google/callback` (dev, default)
-   - `http://localhost:4000/api/oauth/google/callback` (Docker Compose default — `PUBLIC_WEB_ORIGIN`; use the same host/port you open in the browser)
-   - `http://127.0.0.1:4000/api/oauth/google/callback` (only if you unset `PUBLIC_WEB_ORIGIN` and use 127.0.0.1 in the browser)
-   - `https://127.0.0.1:18473/api/oauth/google/callback` (Braintunnel.app, TLS)
-   - `https://127.0.0.1:18474/api/oauth/google/callback`
-   - `https://127.0.0.1:18475/api/oauth/google/callback`
-   - `https://127.0.0.1:18476/api/oauth/google/callback`
-   - Your **hosted** HTTPS origin, e.g. `https://<app-name>.ondigitalocean.app/api/oauth/google/callback` (must match `PUBLIC_WEB_ORIGIN` or the inferred public host)
+  - `http://127.0.0.1:3000/api/oauth/google/callback` (dev, default)
+  - `http://localhost:4000/api/oauth/google/callback` (Docker Compose default — `PUBLIC_WEB_ORIGIN`; use the same host/port you open in the browser)
+  - `http://127.0.0.1:4000/api/oauth/google/callback` (only if you unset `PUBLIC_WEB_ORIGIN` and use 127.0.0.1 in the browser)
+  - `https://127.0.0.1:18473/api/oauth/google/callback` (Braintunnel.app, TLS)
+  - `https://127.0.0.1:18474/api/oauth/google/callback`
+  - `https://127.0.0.1:18475/api/oauth/google/callback`
+  - `https://127.0.0.1:18476/api/oauth/google/callback`
+  - Your **hosted** HTTPS origin, e.g. `https://<app-name>.ondigitalocean.app/api/oauth/google/callback` (must match `PUBLIC_WEB_ORIGIN` or the inferred public host)
 
 The number of bundled-mode entries equals `NATIVE_APP_PORT_FAILOVER_COUNT + 1` (currently 4) in `src/server/lib/nativeAppPort.ts`.
 
@@ -58,3 +76,4 @@ The number of bundled-mode entries equals `NATIVE_APP_PORT_FAILOVER_COUNT + 1` (
 
 - [docs/architecture/configuration.md](architecture/configuration.md) — `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`
 - [OPP-019](opportunities/OPP-019-gmail-first-class-brain.md) — product context
+

@@ -378,6 +378,11 @@ pub(crate) enum Commands {
         #[command(subcommand)]
         sub: CalendarCmd,
     },
+    /// Google Drive list/search (OAuth token from an existing Gmail mailbox directory)
+    Drive {
+        #[command(subcommand)]
+        sub: DriveCmd,
+    },
     /// Database counts
     Stats {
         #[arg(long)]
@@ -437,6 +442,9 @@ pub(crate) enum SourcesCmd {
         /// `icsSubscription`: HTTPS URL to fetch.
         #[arg(long)]
         url: Option<String>,
+        /// `googleDrive`: folder id to index (`root` = My Drive root).
+        #[arg(long = "drive-folder-id")]
+        drive_folder_id: Option<String>,
         #[arg(long)]
         json: bool,
     },
@@ -466,6 +474,39 @@ pub(crate) enum SourcesCmd {
     },
     /// Show crawl/sync status hints from config + DB
     Status {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+/// `ripmail drive` — probe and list files (Hello World for Drive API + OAuth).
+#[derive(Subcommand)]
+pub(crate) enum DriveCmd {
+    /// Call `about.get` and list a few files from My Drive root (JSON output)
+    Probe {
+        /// Ripmail source id whose `RIPMAIL_HOME/<id>/google-oauth.json` to use (Gmail OAuth mailbox).
+        #[arg(long)]
+        oauth_source: String,
+    },
+    /// List files whose parent is `folder` (default `root`)
+    List {
+        #[arg(long)]
+        oauth_source: String,
+        #[arg(long)]
+        folder: Option<String>,
+        #[arg(long)]
+        page_token: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Search Drive (`query` uses [Drive query syntax](https://developers.google.com/drive/api/guides/search-files))
+    Search {
+        #[arg(long)]
+        oauth_source: String,
+        #[arg(long = "query")]
+        q: String,
+        #[arg(long)]
+        page_token: Option<String>,
         #[arg(long)]
         json: bool,
     },

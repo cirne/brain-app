@@ -19,6 +19,7 @@ fn kind_label(k: SourceKind) -> &'static str {
         SourceKind::AppleCalendar => "appleCalendar",
         SourceKind::IcsSubscription => "icsSubscription",
         SourceKind::IcsFile => "icsFile",
+        SourceKind::GoogleDrive => "googleDrive",
     }
 }
 
@@ -31,8 +32,9 @@ fn parse_kind(s: &str) -> Result<SourceKind, String> {
         "applecalendar" => Ok(SourceKind::AppleCalendar),
         "icssubscription" => Ok(SourceKind::IcsSubscription),
         "icsfile" => Ok(SourceKind::IcsFile),
+        "googledrive" => Ok(SourceKind::GoogleDrive),
         _ => Err(format!(
-            "unknown --kind {s:?}; expected imap | applemail | localDir | googleCalendar | appleCalendar | icsSubscription | icsFile"
+            "unknown --kind {s:?}; expected imap | applemail | localDir | googleCalendar | appleCalendar | icsSubscription | icsFile | googleDrive"
         )),
     }
 }
@@ -117,6 +119,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
             calendar,
             default_calendar,
             url,
+            drive_folder_id,
             json,
         } => {
             let kind = parse_kind(&kind)?;
@@ -162,6 +165,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         calendar_ids: None,
                         default_calendars: None,
                         ics_url: None,
+                        drive_folder_id: None,
                     }
                 }
                 SourceKind::Imap => {
@@ -191,6 +195,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         calendar_ids: None,
                         default_calendars: None,
                         ics_url: None,
+                        drive_folder_id: None,
                     }
                 }
                 SourceKind::AppleMail => {
@@ -211,6 +216,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         calendar_ids: None,
                         default_calendars: None,
                         ics_url: None,
+                        drive_folder_id: None,
                     }
                 }
                 SourceKind::GoogleCalendar => {
@@ -244,6 +250,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         calendar_ids,
                         default_calendars,
                         ics_url: None,
+                        drive_folder_id: None,
                     }
                 }
                 SourceKind::AppleCalendar => {
@@ -273,6 +280,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                             calendar_ids: None,
                             default_calendars: None,
                             ics_url: None,
+                            drive_folder_id: None,
                         }
                     }
                 }
@@ -301,6 +309,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         calendar_ids: None,
                         default_calendars: None,
                         ics_url: Some(url_s),
+                        drive_folder_id: None,
                     }
                 }
                 SourceKind::IcsFile => {
@@ -336,6 +345,40 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         calendar_ids: None,
                         default_calendars: None,
                         ics_url: None,
+                        drive_folder_id: None,
+                    }
+                }
+                SourceKind::GoogleDrive => {
+                    let oauth = oauth_source_id
+                        .as_ref()
+                        .map(|s| s.trim())
+                        .filter(|s| !s.is_empty())
+                        .ok_or("--oauth-source-id is required for googleDrive")?;
+                    let folder = drive_folder_id
+                        .as_ref()
+                        .map(|s| s.trim())
+                        .filter(|s| !s.is_empty())
+                        .ok_or("--drive-folder-id is required for googleDrive")?;
+                    let id = id.unwrap_or_else(|| {
+                        derive_mailbox_id_from_email(&format!("gdrive-{folder}@local"))
+                    });
+                    SourceConfigJson {
+                        id,
+                        kind: SourceKind::GoogleDrive,
+                        email: email.unwrap_or_default(),
+                        label,
+                        imap: None,
+                        imap_auth: None,
+                        search: None,
+                        identity: None,
+                        apple_mail_path: None,
+                        path: None,
+                        local_dir: None,
+                        oauth_source_id: Some(oauth.to_string()),
+                        calendar_ids: None,
+                        default_calendars: None,
+                        ics_url: None,
+                        drive_folder_id: Some(folder.to_string()),
                     }
                 }
             };

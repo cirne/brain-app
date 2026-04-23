@@ -1,12 +1,33 @@
 # OPP-045: Cloud file sources (Google Drive, Dropbox)
 
-**Status:** Open.
+**Status:** Open — **implementation experimental / blocked** on ripmail ingest (see **Implementation status** below).
 
 **Created:** 2026-04-22.
 
 **Related:** [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified `sources` model; `localDir` for on-disk files), [OPP-040](OPP-040-one-formerly-pica-integration-layer-ripmail-sources.md) (One / Pica as optional connector accelerator), [OPP-021](OPP-021-user-settings-page.md) (Hub data-sources shell), [OPP-043](OPP-043-google-oauth-app-verification-milestones.md) / [shipped OPP-019](OPP-019-gmail-first-class-brain.md) (Google OAuth surface area for additional scopes).
 
 **Tags:** desktop, ingests
+
+---
+
+## Implementation status (2026-04-23)
+
+Work in progress is **not** on `main`. Use git branch **`google-drive`** for the current spike (Hub/connect UI, OAuth, ripmail Drive module, agent tools).
+
+**What works today (spike):**
+
+- **Listing Drive files** via the API (metadata / tree exploration) behaves well enough to validate OAuth and basic connectivity.
+
+**What does not (blocking a merge):**
+
+- **`ripmail search`** against Drive-ingested content **returns nothing** in practice.
+- **Sync / refresh** for the Drive source **hangs** or never reaches a clean completion in normal use.
+
+**Tracking:** [ripmail BUG-061](../../ripmail/docs/bugs/BUG-061-google-drive-sync-hang-search-empty.md).
+
+**Alternative direction (under discussion):**
+
+- Reduce reliance on **full local FTS** for Drive: push **query and file discovery** toward **Drive’s own search / list APIs** inside **agent tools**, and fetch file bytes only when the user or agent needs a deep read. Tradeoffs: latency, quota, consistency with mail/`localDir` in one unified `search` UX, and offline story. If we adopt this, OPP-045’s “sync everything into ripmail SQLite” slice may narrow or become optional.
 
 ---
 

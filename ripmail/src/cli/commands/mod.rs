@@ -2,6 +2,7 @@ mod archive;
 mod assist;
 mod calendar;
 mod config;
+mod drive;
 mod mail;
 mod rules;
 mod setup;
@@ -198,6 +199,7 @@ pub(crate) fn handle_command(cli: Cli) -> CliResult {
         Commands::Draft { sub } => mail::run_draft(sub),
         Commands::Rules { sub, source } => rules::run_rules(sub, source),
         Commands::Sources { sub } => sources::run_sources(sub),
+        Commands::Drive { sub } => drive::run_drive(sub),
         Commands::Calendar { sub } => calendar::run_calendar(sub),
         Commands::Ask { question, verbose } => assist::run_ask(question, verbose),
         Commands::Inbox(args) => assist::run_inbox(args),

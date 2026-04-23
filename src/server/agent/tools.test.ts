@@ -15,6 +15,7 @@ import {
   buildInboxRulesCommand,
   buildReindexCommand,
   buildRipmailSearchCommandLine,
+  buildSourcesAddGoogleDriveCommand,
   buildSourcesAddLocalDirCommand,
   buildSourcesEditCommand,
   buildSourcesRemoveCommand,
@@ -822,6 +823,27 @@ describe('buildInboxRulesCommand', () => {
 })
 
 describe('ripmail sources / refresh command builders', () => {
+  it('buildSourcesAddGoogleDriveCommand builds googleDrive add with oauth + folder', () => {
+    expect(
+      buildSourcesAddGoogleDriveCommand({
+        oauthSourceId: 'mb1',
+        driveFolderId: 'root',
+      }),
+    ).toBe(
+      'sources add --kind googleDrive --oauth-source-id "mb1" --drive-folder-id "root" --json',
+    )
+    expect(
+      buildSourcesAddGoogleDriveCommand({
+        oauthSourceId: 'x',
+        driveFolderId: 'abc',
+        label: 'Work',
+        id: 'gd-1',
+      }),
+    ).toBe(
+      'sources add --kind googleDrive --oauth-source-id "x" --drive-folder-id "abc" --label "Work" --id "gd-1" --json',
+    )
+  })
+
   it('buildSourcesAddLocalDirCommand builds add with path, label, id, json', () => {
     expect(buildSourcesAddLocalDirCommand({ path: '~/Documents' })).toBe(
       'sources add --kind localDir --path "~/Documents" --json',

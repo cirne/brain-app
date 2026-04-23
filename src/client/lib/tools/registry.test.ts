@@ -14,6 +14,8 @@ const ALL_AGENT_TOOL_NAMES = [
   'read_doc',
   'read_attachment',
   'manage_sources',
+  'google_drive_list',
+  'google_drive_search',
   'refresh_sources',
   'list_inbox',
   'inbox_rules',

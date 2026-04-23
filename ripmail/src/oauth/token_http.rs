@@ -56,12 +56,13 @@ pub fn refresh_access_token(
     settings: &GoogleOAuthClientSettings,
     refresh_token: &str,
 ) -> Result<TokenEndpointResponse, TokenHttpError> {
+    // Omit `scope`: Google returns an access token with the same scopes as the original grant.
+    // A fixed scope string here drifted from authorize requests and broke incremental scope adds.
     let body = [
         ("grant_type", "refresh_token"),
         ("refresh_token", refresh_token),
         ("client_id", settings.client_id.as_str()),
         ("client_secret", settings.client_secret.as_str()),
-        ("scope", "https://mail.google.com/ https://www.googleapis.com/auth/calendar.readonly openid email"),
     ];
     post_token(settings, &body)
 }

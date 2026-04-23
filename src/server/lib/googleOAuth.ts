@@ -10,9 +10,9 @@ import { join } from 'node:path'
 export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL =
   'https://mail.google.com/ openid email'
 
-/** Gmail IMAP + Google Calendar read + OpenID/email discovery — matches `ripmail` `GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY`. */
+/** Gmail IMAP + Google Calendar read + Google Drive read + OpenID/email discovery — matches `ripmail` `GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY`. */
 export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY =
-  'https://mail.google.com/ https://www.googleapis.com/auth/calendar.readonly openid email'
+  'https://mail.google.com/ https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly openid email'
 
 const GOOGLE_AUTH_URI = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN_URI = 'https://oauth2.googleapis.com/token'

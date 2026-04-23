@@ -61,6 +61,7 @@ fn whoami_one_mailbox(
         crate::config::SourceKind::AppleCalendar => "appleCalendar".to_string(),
         crate::config::SourceKind::IcsSubscription => "icsSubscription".to_string(),
         crate::config::SourceKind::IcsFile => "icsFile".to_string(),
+        crate::config::SourceKind::GoogleDrive => "googleDrive".to_string(),
     });
     let identity = json_row.and_then(|r| r.identity);
 
@@ -296,6 +297,7 @@ mod tests {
             apple_mail_root: None,
             local_dir: None,
             calendar: None,
+            google_drive: None,
         }
     }
 

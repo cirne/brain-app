@@ -40,6 +40,7 @@ fn local_dir_sync_indexes_files_and_fts_finds_body() {
             calendar_ids: None,
             ics_url: None,
             default_calendars: None,
+            drive_folder_id: None,
         }]),
         ..Default::default()
     };

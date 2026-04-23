@@ -51,6 +51,8 @@ const TOOL_DISPLAY_LABELS: Record<string, string> = {
   read_doc: 'Read message',
   read_attachment: 'Read attachment',
   manage_sources: 'Manage sources',
+  google_drive_list: 'List Drive files',
+  google_drive_search: 'Search Drive',
   refresh_sources: 'Sync sources',
   list_inbox: 'Inbox',
   inbox_rules: 'Inbox rules',

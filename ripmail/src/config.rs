@@ -94,6 +94,9 @@ pub enum SourceKind {
     /// One `.ics` file on disk.
     #[serde(rename = "icsFile")]
     IcsFile,
+    /// Google Drive folder tree (OAuth via existing Gmail mailbox).
+    #[serde(rename = "googleDrive")]
+    GoogleDrive,
 }
 
 impl SourceKind {
@@ -180,6 +183,15 @@ pub struct ResolvedLocalDir {
     pub max_file_bytes: u64,
 }
 
+/// Google Drive folder root for sync (`kind == GoogleDrive`).
+#[derive(Debug, Clone)]
+pub struct ResolvedGoogleDrive {
+    /// Directory under `RIPMAIL_HOME` that holds `google-oauth.json` (same as `oauth_source_id` target).
+    pub oauth_token_mailbox_id: String,
+    /// Drive folder id to index (`root` for “My Drive” root).
+    pub folder_id: String,
+}
+
 /// One source entry in `config.json` ([OPP-051](../docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)).
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -221,6 +233,9 @@ pub struct SourceConfigJson {
     /// `icsSubscription`: HTTPS URL to fetch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ics_url: Option<String>,
+    /// `googleDrive`: folder id to index (`root` for top of My Drive).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drive_folder_id: Option<String>,
 }
 
 /// Back-compat name for mail setup code paths.
@@ -247,6 +262,8 @@ pub struct ResolvedSource {
     pub local_dir: Option<ResolvedLocalDir>,
     /// When set, this source is a calendar connector (not IMAP mail).
     pub calendar: Option<CalendarSourceResolved>,
+    /// Google Drive folder indexing (`kind == GoogleDrive`).
+    pub google_drive: Option<ResolvedGoogleDrive>,
 }
 
 impl ResolvedSource {
@@ -1208,6 +1225,7 @@ fn build_resolved_sources(
                             max_file_bytes,
                         }),
                         calendar: None,
+                        google_drive: None,
                     });
                 }
                 SourceKind::AppleMail => {
@@ -1247,6 +1265,7 @@ fn build_resolved_sources(
                         apple_mail_root: Some(apple_root),
                         local_dir: None,
                         calendar: None,
+                        google_drive: None,
                     });
                 }
                 SourceKind::Imap => {
@@ -1301,6 +1320,48 @@ fn build_resolved_sources(
                         apple_mail_root: None,
                         local_dir: None,
                         calendar: None,
+                        google_drive: None,
+                    });
+                }
+                SourceKind::GoogleDrive => {
+                    let oauth_sid = mb
+                        .oauth_source_id
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty());
+                    let folder_id = mb
+                        .drive_folder_id
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty());
+                    let (Some(oauth_sid), Some(folder_id)) = (oauth_sid, folder_id) else {
+                        continue;
+                    };
+                    let email = mb.email.trim().to_string();
+                    let include_in_default = mb
+                        .search
+                        .as_ref()
+                        .and_then(|s| s.include_in_default)
+                        .unwrap_or(true);
+                    out.push(ResolvedSource {
+                        id: mb.id.clone(),
+                        kind: SourceKind::GoogleDrive,
+                        email,
+                        imap_host: String::new(),
+                        imap_port: 993,
+                        imap_user: String::new(),
+                        imap_aliases: Vec::new(),
+                        imap_password: String::new(),
+                        imap_auth: MailboxImapAuthKind::GoogleOAuth,
+                        include_in_default,
+                        maildir_path: home.join(&mb.id).join("maildir"),
+                        apple_mail_root: None,
+                        local_dir: None,
+                        calendar: None,
+                        google_drive: Some(ResolvedGoogleDrive {
+                            oauth_token_mailbox_id: oauth_sid.to_string(),
+                            folder_id: folder_id.to_string(),
+                        }),
                     });
                 }
                 SourceKind::GoogleCalendar => {
@@ -1344,6 +1405,7 @@ fn build_resolved_sources(
                             calendar_ids,
                             token_mailbox_id,
                         }),
+                        google_drive: None,
                     });
                 }
                 SourceKind::AppleCalendar => {
@@ -1367,6 +1429,7 @@ fn build_resolved_sources(
                         apple_mail_root: None,
                         local_dir: None,
                         calendar: Some(CalendarSourceResolved::Apple),
+                        google_drive: None,
                     });
                 }
                 SourceKind::IcsSubscription => {
@@ -1400,6 +1463,7 @@ fn build_resolved_sources(
                         calendar: Some(CalendarSourceResolved::IcsUrl {
                             url: url.to_string(),
                         }),
+                        google_drive: None,
                     });
                 }
                 SourceKind::IcsFile => {
@@ -1429,6 +1493,7 @@ fn build_resolved_sources(
                         apple_mail_root: None,
                         local_dir: None,
                         calendar: Some(CalendarSourceResolved::IcsPath { path }),
+                        google_drive: None,
                     });
                 }
             }
@@ -1480,6 +1545,7 @@ fn build_resolved_sources(
         apple_mail_root: None,
         local_dir: None,
         calendar: None,
+        google_drive: None,
     }]
 }
 
@@ -1782,6 +1848,7 @@ mod tests {
                 apple_mail_root: Some(PathBuf::from("/tmp/Mail")),
                 local_dir: None,
                 calendar: None,
+                google_drive: None,
             }
         }
         fn imap(id: &str) -> ResolvedSource {
@@ -1800,6 +1867,7 @@ mod tests {
                 apple_mail_root: None,
                 local_dir: None,
                 calendar: None,
+                google_drive: None,
             }
         }
         assert_eq!(
@@ -1882,6 +1950,7 @@ mod tests {
             apple_mail_root: None,
             local_dir: None,
             calendar: None,
+            google_drive: None,
         };
         let sources = vec![mb];
         assert_eq!(resolve_source_spec(&sources, "m1").unwrap().id, "m1");
@@ -2148,6 +2217,7 @@ mod tests {
             calendar_ids: Some(vec!["primary".into()]),
             default_calendars: None,
             ics_url: None,
+            drive_folder_id: None,
         }]);
         write_config_json(home, &cfg).unwrap();
 

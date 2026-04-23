@@ -8,7 +8,7 @@ To support a cloud-hosted version of Brain, we will adopt a **Cell-based, Local-
 
 ### Bootstrap identity (hosted)
 
-Hosted cells use **Google OAuth** as the tenant gate: `**openid email`** scopes yield a stable `**sub**` and mailbox address. The server maps `**google:<sub>` → workspace handle** in `**$BRAIN_DATA_ROOT/.global/tenant-registry.json`** (alongside `**brain_session` → handle** entries). Workspace directory names are **derived** from the mailbox (slug rules + collision suffixes), not typed by users. Desktop single-tenant mode is unchanged (local vault password + verifier file).
+Hosted cells use **Google OAuth** as the tenant gate: **`openid`** + **`email`** scopes yield a stable **`sub`** and mailbox address. The server maps **`google:<sub>`** to **workspace handle** in **`$BRAIN_DATA_ROOT/.global/tenant-registry.json`** (alongside **`brain_session` → handle** entries). Workspace directory names are **derived** from the mailbox (slug rules + collision suffixes), not typed by users. Desktop single-tenant mode is unchanged (local vault password + verifier file).
 
 See [google-oauth.md](../google-oauth.md#multi-tenant-hosted-brain_data_root).
 
@@ -53,6 +53,18 @@ While **hosted multi-tenant** mode does **not** use the desktop **vault password
 - **Phase 2 (Multiplexing):** A lightweight routing layer (Load Balancer / Proxy) that routes requests to specific containers based on a `tenant_id` in the URL or Header.
 - **Phase 3 (Cellular Isolation):** Moving to dedicated micro-containers or pods for high-value or high-usage tenants.
 
+```mermaid
+flowchart LR
+  P1["Phase 1 Uber-Container"]
+  P2["Phase 2 LB or proxy multiplex"]
+  P3["Phase 3 Cellular isolation"]
+  P1 --> P2 --> P3
+```
+
+
+
+Block storage survives container replacement: attach the same tenant volume to a new container after node loss (see **Resiliency & Backups** above).
+
 ## Rationale: Why not a Remote Database?
 
 Moving `ripmail` or the Wiki to a remote database (Postgres/S3) would introduce:
@@ -60,3 +72,4 @@ Moving `ripmail` or the Wiki to a remote database (Postgres/S3) would introduce:
 - **Network Latency:** Every query would incur a round-trip, killing the "instant" feel of the UI.
 - **Architectural Complexity:** We would lose the simplicity of the local-first codebase.
 - **Migration Risk:** Managing a single massive schema for all users is a significant operational burden compared to thousands of independent, small SQLite files.
+

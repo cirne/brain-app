@@ -228,6 +228,19 @@ describe('parseRoute hub-source', () => {
       overlay: { type: 'hub-add-folders' },
     })
   })
+
+  it('parses /hub-add-google-drive', () => {
+    expect(parseRoute('http://localhost/hub-add-google-drive')).toEqual({
+      overlay: { type: 'hub-add-google-drive' },
+    })
+  })
+
+  it('parses /hub/hub-add-google-drive as hubActive', () => {
+    expect(parseRoute('http://localhost/hub/hub-add-google-drive')).toEqual({
+      hubActive: true,
+      overlay: { type: 'hub-add-google-drive' },
+    })
+  })
 })
 
 describe('routeToUrl', () => {
@@ -346,6 +359,16 @@ describe('routeToUrl', () => {
   it('hub-add-folders with hubActive returns /hub/hub-add-folders', () => {
     expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-add-folders' } })).toBe(
       '/hub/hub-add-folders',
+    )
+  })
+
+  it('hub-add-google-drive returns /hub-add-google-drive', () => {
+    expect(routeToUrl({ overlay: { type: 'hub-add-google-drive' } })).toBe('/hub-add-google-drive')
+  })
+
+  it('hub-add-google-drive with hubActive returns /hub/hub-add-google-drive', () => {
+    expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-add-google-drive' } })).toBe(
+      '/hub/hub-add-google-drive',
     )
   })
 

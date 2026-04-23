@@ -409,6 +409,7 @@ pub fn load_mailbox_configs_for_wizard(home: &Path) -> Vec<MailboxConfigJson> {
                     calendar_ids: None,
                     default_calendars: None,
                     ics_url: None,
+                    drive_folder_id: None,
                 }];
             }
         }
@@ -573,6 +574,7 @@ pub fn upsert_mailbox_setup(
         calendar_ids: None,
         default_calendars: None,
         ics_url: None,
+        drive_folder_id: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {
         mailboxes[pos] = entry;
@@ -652,6 +654,7 @@ pub fn upsert_mailbox_applemail(
         calendar_ids: None,
         default_calendars: None,
         ics_url: None,
+        drive_folder_id: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {
         mailboxes[pos] = entry;
@@ -744,6 +747,7 @@ pub fn upsert_mailbox_google_oauth(
         calendar_ids: None,
         default_calendars: None,
         ics_url: None,
+        drive_folder_id: None,
     };
     if let Some(pos) = mailboxes.iter().position(|m| m.id == id) {
         mailboxes[pos] = entry;
@@ -1063,6 +1067,7 @@ fn mailbox_via_label(mb: &MailboxConfigJson) -> &'static str {
         SourceKind::AppleCalendar => "Apple Calendar",
         SourceKind::IcsSubscription => "ICS URL",
         SourceKind::IcsFile => "ICS file",
+        SourceKind::GoogleDrive => "Google Drive",
     }
 }
 

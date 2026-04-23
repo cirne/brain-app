@@ -12,6 +12,7 @@
   import HubSourceInspectPanel from './HubSourceInspectPanel.svelte'
   import HubWikiAboutPanel from './HubWikiAboutPanel.svelte'
   import HubAddFoldersPanel from './HubAddFoldersPanel.svelte'
+  import HubAddGoogleDrivePanel from './HubAddGoogleDrivePanel.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
   import type { Overlay } from '../router.js'
@@ -250,6 +251,7 @@
     if (o.type === 'your-wiki') return 'Your Wiki'
     if (o.type === 'hub-source') return 'Search index source'
     if (o.type === 'hub-add-folders') return 'Add folders to index'
+    if (o.type === 'hub-add-google-drive') return 'Add Google Drive to index'
     if (o.type === 'hub-wiki-about') return 'Your wiki'
     return 'Calendar'
   }
@@ -500,6 +502,18 @@
       <HubWikiAboutPanel />
     {:else if overlay.type === 'hub-add-folders'}
       <HubAddFoldersPanel
+        onOpenWiki={(path) => {
+          if (path) onWikiNavigate(path)
+        }}
+        onOpenFile={toolOnOpenFile}
+        onOpenEmail={toolOnOpenEmail}
+        onOpenFullInbox={toolOnOpenFullInbox}
+        onSwitchToCalendar={onCalendarNavigate}
+        onOpenMessageThread={toolOnOpenMessageThread}
+        onOpenWikiAbout={onOpenWikiAbout}
+      />
+    {:else if overlay.type === 'hub-add-google-drive'}
+      <HubAddGoogleDrivePanel
         onOpenWiki={(path) => {
           if (path) onWikiNavigate(path)
         }}
@@ -811,7 +825,8 @@
   .slide-body :global(.calendar),
   .slide-body :global(.hub-bg-agents-detail),
   .slide-body :global(.hub-source-inspect),
-  .slide-body :global(.hub-add-folders-panel) {
+  .slide-body :global(.hub-add-folders-panel),
+  .slide-body :global(.hub-add-google-drive-panel) {
     flex: 1;
     min-height: 0;
   }

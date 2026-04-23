@@ -18,6 +18,8 @@ export const ALL_AGENT_TOOL_NAMES = [
   'read_doc',
   'read_attachment',
   'manage_sources',
+  'google_drive_list',
+  'google_drive_search',
   'refresh_sources',
   'list_inbox',
   'inbox_rules',
@@ -44,7 +46,12 @@ export type AgentToolName = (typeof ALL_AGENT_TOOL_NAMES)[number]
 export const TOOL_GROUPS = {
   wikiFilesystem: ['read', 'grep', 'find', 'move_file', 'delete_file'] as const satisfies readonly AgentToolName[],
   wikiWrite: ['edit', 'write', 'remember_preference'] as const satisfies readonly AgentToolName[],
-  filesSources: ['manage_sources', 'refresh_sources'] as const satisfies readonly AgentToolName[],
+  filesSources: [
+    'manage_sources',
+    'google_drive_list',
+    'google_drive_search',
+    'refresh_sources',
+  ] as const satisfies readonly AgentToolName[],
   mailCore: ['search_index', 'read_doc', 'read_attachment', 'list_inbox', 'find_person'] as const satisfies readonly AgentToolName[],
   mailHeavy: ['inbox_rules', 'archive_emails', 'draft_email', 'edit_draft', 'send_draft'] as const satisfies readonly AgentToolName[],
   calendar: ['calendar'] as const satisfies readonly AgentToolName[],

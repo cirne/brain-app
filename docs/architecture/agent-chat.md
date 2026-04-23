@@ -18,7 +18,7 @@ Completed turns are stored as **JSON documents** under `$BRAIN_HOME/chats` (see 
 
 - `GET /api/chat/sessions` — list  
 - `GET /api/chat/sessions/:sessionId` — full document  
-- `DELETE /api/chat/:sessionId` — remove file and evict in-memory agent  
+- `DELETE /api/chat/:sessionId` — remove file and evict in-memory agent
 
 Titles can be updated early when `set_chat_title` runs (`patchSessionTitle`).
 
@@ -26,16 +26,18 @@ Titles can be updated early when `set_chat_title` runs (`patchSessionTitle`).
 
 Stream implementation: [`streamAgentSse.ts`](../../src/server/lib/streamAgentSse.ts). Typical events:
 
-| Event | Purpose |
-|-------|---------|
-| `session` | Confirms `sessionId` |
-| `text_delta` | Assistant text token deltas |
-| `thinking` | Model thinking/reasoning deltas (when supported) |
-| `tool_args` | Streaming args for `write` / `edit` (partial wiki updates) |
-| `tool_start` | Tool invocation begins |
-| `tool_end` | Tool result |
-| `done` | Turn complete |
-| `error` | Failure |
+
+| Event        | Purpose                                                    |
+| ------------ | ---------------------------------------------------------- |
+| `session`    | Confirms `sessionId`                                       |
+| `text_delta` | Assistant text token deltas                                |
+| `thinking`   | Model thinking/reasoning deltas (when supported)           |
+| `tool_args`  | Streaming args for `write` / `edit` (partial wiki updates) |
+| `tool_start` | Tool invocation begins                                     |
+| `tool_end`   | Tool result                                                |
+| `done`       | Turn complete                                              |
+| `error`      | Failure                                                    |
+
 
 ## Agent tools (summary)
 

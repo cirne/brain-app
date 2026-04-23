@@ -11,6 +11,7 @@ pub mod config;
 pub mod db;
 pub mod draft;
 mod draft_args;
+pub mod google_drive;
 pub mod ids;
 pub mod inbox;
 pub mod inbox_window;
@@ -69,6 +70,7 @@ pub use db::{
     apply_schema, journal_mode, list_user_tables, open_file, open_file_for_queries,
     open_file_readonly, open_memory, purge_mailbox_from_index, DbError, SCHEMA_VERSION,
 };
+pub use google_drive::run_google_drive_sync;
 pub use ids::{
     attachment_message_id_lookup_keys, message_id_for_json_output, message_id_lookup_keys,
     normalize_message_id, resolve_message_id, resolve_message_id_and_raw_path,

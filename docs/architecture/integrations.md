@@ -8,6 +8,26 @@
 
 **Tradeoff:** Two trust surfaces (FDA + Node for Messages vs ripmail for mail/index/calendar direction) rather than one CLI boundary for every corpus. Convergence later (e.g. messaging index via a single native helper) is optional — see [ripmail OPP-045: iMessage + unified messaging index](../../ripmail/docs/opportunities/OPP-045-imessage-and-unified-messaging-index.md) (not to be confused with [brain-app OPP-045: cloud file sources](../opportunities/OPP-045-cloud-file-sources-drive-dropbox.md)). **Calendar/notes/contacts** work should **not** follow the **chat.db** pattern unless we explicitly choose raw SQL over framework APIs.
 
+```mermaid
+flowchart TB
+  subgraph ripmailPath ["Default: indexed mail, files, calendar"]
+    H1[Hono]
+    RM[ripmail CLI]
+    IDX["SQLite + config under RIPMAIL_HOME"]
+    H1 -->|spawn, RIPMAIL_HOME| RM
+    RM --> IDX
+  end
+  subgraph messagesPath ["Exception: Apple Messages macOS"]
+    H2[Hono]
+    FDA["Full Disk Access gate"]
+    ChatDb["chat.db read-only"]
+    H2 --> FDA
+    FDA --> ChatDb
+  end
+```
+
+
+
 ## Ripmail subprocess
 
 Email and indexed local files are accessed by spawning the **`ripmail`** CLI with `RIPMAIL_HOME` set to Braintunnel’s ripmail dir (`$BRAIN_HOME/ripmail` by default). No in-process Rust linkage from Node.
