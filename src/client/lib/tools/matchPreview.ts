@@ -241,7 +241,7 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
     return { kind: 'wiki', path: displayPath, excerpt: excerpt + (args.content.length > 360 ? '…' : '') }
   }
 
-  if (name === 'read_doc' && typeof args.id === 'string') {
+  if (name === 'read_email' && typeof args.id === 'string') {
     const id = args.id.trim()
     if (isFilesystemAbsolutePath(id)) {
       let excerpt = ''

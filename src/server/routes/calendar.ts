@@ -4,7 +4,7 @@ import { promisify } from 'node:util'
 import { join, relative } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { getCalendarEvents, type CalendarEvent } from '../lib/calendarCache.js'
-import { syncInboxRipmail } from '../lib/syncAll.js'
+import { syncCalendarSourcesRipmail, syncInboxRipmail } from '../lib/syncAll.js'
 import { wikiDir } from '../lib/wikiDir.js'
 import { buildWikiExcerpt } from '../lib/wikiSearchExcerpt.js'
 import { execRipmailAsync } from '../lib/ripmailExec.js'
@@ -19,6 +19,13 @@ calendar.post('/sync', async (c) => {
   const result = await syncInboxRipmail(c.req.raw.signal)
   if (result.ok) return c.json({ ok: true })
   return c.json({ ok: false, error: result.error ?? 'calendar sync failed' }, 500)
+})
+
+// POST /api/calendar/refresh — `ripmail refresh -S <id>` per calendar source only (no IMAP mail)
+calendar.post('/refresh', async (c) => {
+  const result = await syncCalendarSourcesRipmail(c.req.raw.signal)
+  if (result.ok) return c.json({ ok: true })
+  return c.json({ ok: false, error: result.error ?? 'calendar refresh failed' }, 500)
 })
 
 // GET /api/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD — events in date range

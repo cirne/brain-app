@@ -38,7 +38,7 @@ export function webSearchDetail(args: Record<string, unknown>): string | undefin
   return q.length > 56 ? `${q.slice(0, 55)}…` : q
 }
 
-export function readDocIdHint(rawId: string): string | undefined {
+export function readEmailIdHint(rawId: string): string | undefined {
   const s = rawId.trim()
   if (!s) return undefined
   if (s.startsWith('file:') || s.startsWith('/') || /^[A-Za-z]:\\/.test(s)) {
@@ -55,7 +55,7 @@ export function readDocIdHint(rawId: string): string | undefined {
 }
 
 /** Subject/from for completed reads; short id/path hint while tool is in flight or preview unavailable. */
-export function readDocProgressDetail(
+export function readEmailProgressDetail(
   tc: ToolCall,
   matchPreview: (t: ToolCall) => ContentCardPreview | null,
 ): string | undefined {
@@ -80,5 +80,5 @@ export function readDocProgressDetail(
     }
   }
   const id = typeof tc.args?.id === 'string' ? tc.args.id.trim() : ''
-  return readDocIdHint(id)
+  return readEmailIdHint(id)
 }

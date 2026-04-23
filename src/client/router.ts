@@ -67,7 +67,7 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
     return `The user is browsing wiki folder "${ctx.title}" (${p}). Listed pages and subfolders are visible.`
   }
   if (ctx.type === 'file') {
-    return `The user is viewing a raw file on disk: ${ctx.path} (title: "${ctx.title}"). Use read_doc with this path if you need the extracted text.`
+    return `The user is viewing a raw file on disk: ${ctx.path} (title: "${ctx.title}"). Use read_email with this path if you need the extracted text.`
   }
   if (ctx.type === 'calendar') {
     let s = `The user is viewing their calendar for ${ctx.date}`

@@ -13,7 +13,7 @@ let brainHome: string
 let wikiDir: string
 
 beforeEach(async () => {
-  brainHome = await mkdtemp(join(tmpdir(), 'read-doc-policy-'))
+  brainHome = await mkdtemp(join(tmpdir(), 'read-email-policy-'))
   process.env.BRAIN_HOME = brainHome
   wikiDir = join(brainHome, 'wiki')
   await mkdir(wikiDir, { recursive: true })
@@ -25,13 +25,13 @@ afterEach(async () => {
   vi.clearAllMocks()
 })
 
-describe('read_doc path jail', () => {
+describe('read_email path policy', () => {
   it('does not call ripmail for filesystem paths outside the tenant allowlist', async () => {
     const { createAgentTools } = await import('./tools.js')
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{}', stderr: '' })
 
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t) => t.name === 'read_doc')!
+    const tool = tools.find((t) => t.name === 'read_email')!
 
     await expect(tool.execute('x', { id: '/etc/passwd' })).rejects.toThrow(/path_not_allowed/)
 
@@ -51,7 +51,7 @@ describe('read_doc path jail', () => {
     })
 
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t) => t.name === 'read_doc')!
+    const tool = tools.find((t) => t.name === 'read_email')!
 
     await tool.execute('x', { id: allowed })
 
@@ -68,7 +68,7 @@ describe('read_doc path jail', () => {
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{}', stderr: '' })
 
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t) => t.name === 'read_doc')!
+    const tool = tools.find((t) => t.name === 'read_email')!
 
     await tool.execute('x', { id: '<opaque.id@mail.example.com>' })
 

@@ -32,7 +32,7 @@ Chat-first flows for “what should I add to my wiki next?” bury the answer in
 
 ### 1. Purpose-built run (not generic chat)
 
-Trigger from a clear entry point (e.g. **“Expand wiki”**, **“Discover gaps”**, or a section under Settings / wiki chrome—exact placement TBD). The run uses the **same agent runtime and tools** as chat (wiki grep/read, `search_index` / `read_doc` over ripmail-backed mail and indexed files, etc.) but:
+Trigger from a clear entry point (e.g. **“Expand wiki”**, **“Discover gaps”**, or a section under Settings / wiki chrome—exact placement TBD). The run uses the **same agent runtime and tools** as chat (wiki grep/read, `search_index` / `read_email` over ripmail-backed mail and indexed files, etc.) but:
 
 - **System prompt** asks for **prioritized expansion opportunities**: go **wider** (new areas) or **deeper** (existing topics thin on the ground).
 - **Server or contract layer** prefers a **final JSON document** as the **primary artifact** (see below), with optional short human-readable summary for the shell.

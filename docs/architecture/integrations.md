@@ -21,7 +21,7 @@ Email and indexed local files are accessed by spawning the **`ripmail`** CLI wit
 
 ## Raw file read (`GET /api/files/read`)
 
-Returns JSON from `ripmail read <path> --json` for absolute paths (e.g. PDF text extraction). Should stay aligned with agent `read_doc` for filesystem targets — see [wiki-read-vs-read-doc.md](./wiki-read-vs-read-doc.md). Both use shared Node `exec` options (`maxBuffer` 20 MiB, timeout 120s) in [`ripmailReadExec.ts`](../../src/server/lib/ripmailReadExec.ts); Node’s default 1 MiB buffer would throw on large extractions.
+Returns JSON from `ripmail read <path> --json` for absolute paths (e.g. PDF text extraction). Should stay aligned with agent `read_email` for filesystem targets — see [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md). Both use shared Node `exec` options (`maxBuffer` 20 MiB, timeout 120s) in [`ripmailReadExec.ts`](../../src/server/lib/ripmailReadExec.ts); Node’s default 1 MiB buffer would throw on large extractions.
 
 **Inbox message body** (`GET /api/inbox/:id`, plain `ripmail read`) uses the same limits.
 

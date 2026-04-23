@@ -246,7 +246,7 @@ export function streamAgentSseResponse(
             if (ev.result?.details != null && typeof ev.result.details === 'object') {
               details = ev.result.details
             }
-            if (ev.toolName === 'read_doc' && resultText.trim().startsWith('{')) {
+            if (ev.toolName === 'read_email' && resultText.trim().startsWith('{')) {
               try {
                 const parsed = JSON.parse(resultText) as Record<string, unknown>
                 const partBefore = assistantState.parts.find(

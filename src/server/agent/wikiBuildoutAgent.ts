@@ -17,10 +17,10 @@ export function buildWikiBuildoutSystemPrompt(
 ): string {
   const dateCtx = buildDateContext(timezone)
   const mailAndMaybeMessages = localMessagesAvailable
-    ? '**indexed mail** (`search_index`, `read_doc`, `find_person`) and, when available on this Mac, **local SMS/iMessage** (`list_recent_messages`, `get_message_thread`)'
-    : '**indexed mail** (`search_index`, `read_doc`, `find_person`)'
+    ? '**indexed mail** (`search_index`, `read_email`, `find_person`) and, when available on this Mac, **local SMS/iMessage** (`list_recent_messages`, `get_message_thread`)'
+    : '**indexed mail** (`search_index`, `read_email`, `find_person`)'
   const peoplePhoneNote =
-    '- For each **people/*.md** page, add a short **Contact** or **Identifiers** subsection when you have evidence: **primary email** and **phone** (from mail signatures, headers, or quoted text). Use **find_person** and **read_doc** as needed. **Never** invent phone numbers.'
+    '- For each **people/*.md** page, add a short **Contact** or **Identifiers** subsection when you have evidence: **primary email** and **phone** (from mail signatures, headers, or quoted text). Use **find_person** and **read_email** as needed. **Never** invent phone numbers.'
   const messagesWorkflow = localMessagesAvailable
     ? [
         '',
@@ -52,7 +52,7 @@ ${categoriesNote}
 ## Task
 - Treat **me.md** as the canonical **short assistant context**. You cannot read vault files via tools — rely on ${relyOnEvidence}, then **write** / **edit** pages.
 ${userPageNote}
-- Use search_index (regex + structured filters) and read_doc to enrich facts before writing pages.
+- Use search_index (regex + structured filters) and read_email to enrich facts before writing pages.
 ${peoplePhoneNote}
 ${messagesWorkflow}
 - Use **web_search** for current public information (companies, products, named entities) when it helps accuracy; use **fetch_page** for more detail.

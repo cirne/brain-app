@@ -386,7 +386,7 @@
     }
   })
 
-  /** LLM `open` / `read_doc` — navigate on tool_start. Mobile: only `open` opens the panel; `read_doc` stays preview-only. */
+  /** LLM `open` / `read_email` — navigate on tool_start. Mobile: only `open` opens the panel; `read_email` stays preview-only. */
   function onOpenFromAgent(
     target: { type: string; path?: string; id?: string; date?: string },
     source: AgentOpenSource,

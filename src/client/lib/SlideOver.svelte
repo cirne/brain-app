@@ -1,6 +1,6 @@
 <script lang="ts">
   import { setContext } from 'svelte'
-  import { Mail, Maximize2, MessageSquare, Minimize2 } from 'lucide-svelte'
+  import { Calendar as CalendarIcon, Mail, Maximize2, MessageSquare, Minimize2, RefreshCw } from 'lucide-svelte'
   import Wiki from './Wiki.svelte'
   import WikiDirList from './WikiDirList.svelte'
   import FileViewer from './FileViewer.svelte'
@@ -394,7 +394,28 @@
         </div>
       {/if}
       {#if overlay.type === 'calendar' && calendarHeader}
-        <button type="button" class="calendar-today-btn" onclick={calendarHeader.goToday}>Today</button>
+        <button
+          type="button"
+          class="cal-header-icon-btn"
+          onclick={calendarHeader.goToday}
+          disabled={calendarHeader.headerBusy}
+          title="Today"
+          aria-label="Today"
+        >
+          <CalendarIcon size={18} strokeWidth={2} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="cal-header-icon-btn"
+          onclick={calendarHeader.refreshCalendars}
+          disabled={calendarHeader.headerBusy}
+          title="Refresh calendars"
+          aria-label="Refresh calendars"
+        >
+          <span class:cal-refresh-spin={calendarHeader.headerBusy}>
+            <RefreshCw size={18} strokeWidth={2} aria-hidden="true" />
+          </span>
+        </button>
       {/if}
       {#if overlay.type === 'wiki' && wikiHeader}
         {#if wikiHeader.saveState === 'saving'}
@@ -647,18 +668,38 @@
     background: var(--bg-3);
   }
 
-  .calendar-today-btn {
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    color: var(--text-2);
+  .cal-header-icon-btn {
+    width: 28px;
+    height: 28px;
     flex-shrink: 0;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
   }
 
-  .calendar-today-btn:hover {
+  .cal-header-icon-btn:hover:not(:disabled) {
     color: var(--text);
-    border-color: var(--text-2);
+    background: var(--bg-3);
+  }
+
+  .cal-header-icon-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .cal-refresh-spin :global(svg) {
+    animation: cal-refresh-spin 0.8s linear infinite;
+  }
+
+  @keyframes cal-refresh-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .slide-title {

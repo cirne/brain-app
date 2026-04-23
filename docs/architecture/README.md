@@ -15,7 +15,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**.
 | [integrations.md](./integrations.md) | Ripmail subprocess, `/api/search`, `/api/files`, optional iMessage; **trust boundaries** (ripmail vs `chat.db`) |
 | [configuration.md](./configuration.md) | Environment variables |
 | [future-durability.md](./future-durability.md) | Possible future SQLite for app-owned state |
-| [wiki-read-vs-read-doc.md](./wiki-read-vs-read-doc.md) | ADR: wiki file tools vs `read_doc` |
+| [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md) | ADR: wiki file tools vs `read_email` |
 | [wiki-vs-managed-memory-honcho.md](./wiki-vs-managed-memory-honcho.md) | Recorded consideration: wiki-first memory vs Honcho (or similar); **not for now** |
 | [external-sources-and-mcp.md](./external-sources-and-mcp.md) | Strategy: MCP as sync transport (not query API); local-first indexing for remote mutable sources (Notion, Linear, Slack); CRUD sync complexity vs append-only mail |
 | [brain-cloud-service.md](./brain-cloud-service.md) | Pre-opportunity notes: what a Brain-operated cloud service would contain (registry, support infra, tunnel relay) and the hard constraint that no user data ever leaves the local brain. **Brain-to-brain strategy:** [OPP-042](../opportunities/OPP-042-brain-network-interbrain-trust-epic.md) |

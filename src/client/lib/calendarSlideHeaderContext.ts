@@ -6,6 +6,10 @@ export type CalendarSlideHeaderState = {
   prevWeek: () => void
   nextWeek: () => void
   goToday: () => void
+  /** Re-fetch calendar index for configured calendar sources (no full mail sync). */
+  refreshCalendars: () => void
+  /** True while events are loading or a calendar refresh is in progress. */
+  headerBusy: boolean
 }
 
 export type SetCalendarSlideHeader = (_state: CalendarSlideHeaderState | null) => void

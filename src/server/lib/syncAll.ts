@@ -2,6 +2,7 @@ import process from 'node:process'
 export { ripmailProcessEnv as ripmailRefreshEnv } from './ripmailExec.js'
 import { formatExecError } from './execError.js'
 import { ripmailHomeForBrain } from './brainHome.js'
+import { getHubRipmailSourcesList } from './hubRipmailSources.js'
 import { ensureGoogleCalendarSourcesForOAuthImap } from './googleOAuth.js'
 import { RipmailTimeoutError, RIPMAIL_REFRESH_TIMEOUT_MS } from './ripmailExec.js'
 import { runRipmailHeavyArgv, runRipmailRefreshForBrain } from './ripmailHeavySpawn.js'
@@ -28,6 +29,44 @@ export async function syncWikiFromDisk(): Promise<SyncComponentResult> {
  * Run `ripmail refresh` for the current brain home: single-flight per home+argv, hard timeout,
  * always wait for exit (no detached spawn).
  */
+/** `ripmail sources list --json` kinds that map to calendar sync only (no IMAP mail). */
+const CALENDAR_SOURCE_KINDS = new Set([
+  'googleCalendar',
+  'appleCalendar',
+  'icsSubscription',
+  'icsFile',
+])
+
+/**
+ * Run `ripmail refresh -S <id>` for each configured calendar source — does not sync IMAP or other
+ * source types. No-op when there are no calendar sources.
+ */
+export async function syncCalendarSourcesRipmail(signal?: AbortSignal): Promise<SyncComponentResult> {
+  try {
+    await ensureGoogleCalendarSourcesForOAuthImap(ripmailHomeForBrain())
+  } catch (e) {
+    console.error('[brain-app] ensureGoogleCalendarSourcesForOAuthImap (calendar-only refresh):', e)
+  }
+  const { sources, error } = await getHubRipmailSourcesList()
+  if (error) {
+    return { ok: false, error }
+  }
+  const calIds = sources.filter((s) => CALENDAR_SOURCE_KINDS.has(s.kind)).map((s) => s.id)
+  if (calIds.length === 0) {
+    return { ok: true }
+  }
+  for (const id of calIds) {
+    try {
+      await runRipmailRefreshForBrain(['-S', id], signal)
+    } catch (e) {
+      const detail = formatExecError(e)
+      console.error(`[brain-app] ripmail refresh -S ${id} failed:`, detail)
+      return { ok: false, error: detail }
+    }
+  }
+  return { ok: true }
+}
+
 export async function syncInboxRipmail(signal?: AbortSignal): Promise<SyncComponentResult> {
   try {
     await ensureGoogleCalendarSourcesForOAuthImap(ripmailHomeForBrain())

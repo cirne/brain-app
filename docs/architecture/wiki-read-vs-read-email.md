@@ -1,4 +1,4 @@
-# Wiki `read` vs `read_doc` — keep both
+# Wiki `read` vs `read_email` — keep both
 
 **Status:** Accepted  
 **Scope:** brain-app agent tools (`src/server/agent/tools.ts`, system prompt in `src/server/agent/index.ts`)  
@@ -24,9 +24,9 @@ Keep **two tool families**:
 | Surface | Mechanism | Paths / IDs |
 |--------|-----------|-------------|
 | Wiki | `createReadTool` / `createEditTool` / … from `@mariozechner/pi-coding-agent`, scoped to `wikiDir` | Paths **relative to wiki root** (same contract as grep/find) |
-| Indexed mail & files | `read_doc`, `search_index`, … — **`ripmail` CLI** (`ripmail read`, `ripmail search`, …) | **Message-ID** or **absolute filesystem path** (e.g. `~/…`); JSON from ripmail; local files get **extracted text** (PDF, etc.) as implemented in ripmail, not raw bytes through the wiki reader |
+| Indexed mail & files | `read_email`, `search_index`, … — **`ripmail` CLI** (`ripmail read`, `ripmail search`, …) | **Message-ID** or **absolute filesystem path** (e.g. `~/…`); JSON from ripmail; local files get **extracted text** (PDF, etc.) as implemented in ripmail, not raw bytes through the wiki reader |
 
-The system prompt instructs the model to use grep / find / `read` for wiki content vs `search_index` / `read_doc` for the index. Separate **tool names, descriptions, and parameters** encode the distinction without relying on path heuristics alone.
+The system prompt instructs the model to use grep / find / `read` for wiki content vs `search_index` / `read_email` for the index. Separate **tool names, descriptions, and parameters** encode the distinction without relying on path heuristics alone.
 
 ---
 
@@ -41,8 +41,8 @@ The system prompt instructs the model to use grep / find / `read` for wiki conte
 ## Security contract (BUG-012)
 
 - **Wiki tools** (`read`, `edit`, `write`, `grep`, `find`): arguments are coerced through [`resolveSafeWikiPath`](../../src/server/lib/wikiEditHistory.ts) / [`coerceWikiToolRelativePath`](../../src/server/lib/wikiEditHistory.ts) before calling `@mariozechner/pi-coding-agent`, so paths stay under `wikiDir` (pi’s own resolver treats absolute paths as host paths).
-- **`read_doc` filesystem branch:** only paths under the current tenant’s allowlist — `BRAIN_HOME`, ripmail home, wiki content directory, and configured `localDir` / `icsFile` roots from `ripmail sources list` — see [`agentPathPolicy.ts`](../../src/server/lib/agentPathPolicy.ts). Message-ID–style identifiers skip filesystem checks.
-- **`GET /api/files/read`:** same allowlist as `read_doc` (all deployment modes).
+- **`read_email` filesystem branch:** only paths under the current tenant’s allowlist — `BRAIN_HOME`, ripmail home, wiki content directory, and configured `localDir` / `icsFile` roots from `ripmail sources list` — see [`agentPathPolicy.ts`](../../src/server/lib/agentPathPolicy.ts). Message-ID–style identifiers skip filesystem checks.
+- **`GET /api/files/read`:** same allowlist as `read_email` (all deployment modes).
 
 Details and remaining OS-level gaps: [BUG-012](../bugs/BUG-012-agent-tool-path-sandbox-escape.md).
 
@@ -50,8 +50,8 @@ Details and remaining OS-level gaps: [BUG-012](../bugs/BUG-012-agent-tool-path-s
 
 ## Consequences
 
-- **UI alignment:** `GET /api/files/read` uses the same `ripmail read <path> --json` pipeline as `read_doc` for filesystem paths; both use shared exec options in [`src/server/lib/ripmailReadExec.ts`](../../src/server/lib/ripmailReadExec.ts) (20 MiB `maxBuffer`, 120s timeout).
-- **Operational:** `read_doc` runs `ripmail` via `exec`; Node’s default 1 MiB `maxBuffer` is insufficient for large JSON. The wiki file tools use separate I/O paths from pi-coding-agent.
+- **UI alignment:** `GET /api/files/read` uses the same `ripmail read <path> --json` pipeline as `read_email` for filesystem paths; both use shared exec options in [`src/server/lib/ripmailReadExec.ts`](../../src/server/lib/ripmailReadExec.ts) (20 MiB `maxBuffer`, 120s timeout).
+- **Operational:** `read_email` runs `ripmail` via `exec`; Node’s default 1 MiB `maxBuffer` is insufficient for large JSON. The wiki file tools use separate I/O paths from pi-coding-agent.
 - **Future:** A unified `read` with a required `kind` or `scope` field could replace the split while preserving explicit semantics; that would be a deliberate schema and prompt change, not “two directories on one tool.”
 
 ---

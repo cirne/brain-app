@@ -507,9 +507,9 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
-  const readDoc = defineTool({
-    name: 'read_doc',
-    label: 'Read document',
+  const readEmail = defineTool({
+    name: 'read_email',
+    label: 'Read email',
     description:
       'Read one item from the ripmail index: an email by Message-ID, or a file by absolute path (tilde paths OK). Use optional source when Message-ID is ambiguous. For emails, the JSON includes an `attachments` array (index, filename, mimeType, size) when present — metadata only. Use **read_attachment** to fetch extracted text for a specific attachment.',
     parameters: Type.Object({
@@ -567,15 +567,15 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'read_attachment',
     label: 'Read attachment',
     description:
-      'Fetch extracted text from a specific email attachment (PDF, CSV, Office, etc.). Pass the filename or index from the `attachments` array returned by read_doc.',
+      'Fetch extracted text from a specific email attachment (PDF, CSV, Office, etc.). Pass the filename or index from the `attachments` array returned by read_email.',
     parameters: Type.Object({
       id: Type.String({ description: 'Message-ID of the email' }),
       attachment: Type.Union(
         [
           Type.String({ description: 'Attachment filename (e.g. "Invoice.pdf")' }),
-          Type.Number({ description: 'Attachment index from read_doc attachments[]' }),
+          Type.Number({ description: 'Attachment index from read_email attachments[]' }),
         ],
-        { description: 'Filename or numeric index from read_doc' },
+        { description: 'Filename or numeric index from read_email' },
       ),
     }),
     async execute(_toolCallId: string, params: { id: string; attachment: string | number }) {
@@ -732,7 +732,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'list_inbox',
     label: 'List Inbox',
     description:
-      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_index for "everything in my inbox" or when search_index returns no results. JSON includes messageId per item for archive_emails / read_doc.',
+      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_index for "everything in my inbox" or when search_index returns no results. JSON includes messageId per item for archive_emails / read_email.',
     parameters: Type.Object({}),
     async execute(_toolCallId: string, _params: Record<string, never>) {
       const rm = ripmailBin()
@@ -821,7 +821,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'archive_emails',
     label: 'Archive Emails',
     description:
-      'Archive one or more messages by ID (removes them from the inbox view via IMAP). Use IDs from list_inbox, search_index, or read_doc.',
+      'Archive one or more messages by ID (removes them from the inbox view via IMAP). Use IDs from list_inbox, search_index, or read_email.',
     parameters: Type.Object({
       message_ids: Type.Array(Type.String({ description: 'Message ID' }), { minItems: 1 }),
     }),
@@ -1566,7 +1566,7 @@ Returns the saved text; treat it as active for this session too.`,
     moveFile,
     deleteFile,
     searchIndex,
-    readDoc,
+    readEmail,
     readAttachment,
     manageSources,
     refreshSources,

@@ -119,7 +119,7 @@ describe('buildProfilingSystemPrompt', () => {
     expect(p).toContain('me.md')
     expect(p).toMatch(/injected/i)
     expect(p).toMatch(/AGENTS\.md/i)
-    expect(p).toMatch(/read_doc.*12/)
+    expect(p).toMatch(/read_email.*12/)
     expect(p).toMatch(/Phone numbers and iMessage identifiers/)
     expect(p).toContain('**people/** pages at buildout')
     expect(p).toMatch(/Anti-recency/i)

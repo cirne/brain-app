@@ -48,7 +48,7 @@ function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoo
 - Edit existing wiki pages using the edit tool (oldText/newText replacement with fuzzy matching)
 - Create new wiki pages using the write tool
 - Persist lasting user preferences to **me.md** using **remember_preference**
-- Search and read using search_index (regex \`pattern\`/\`query\` plus optional structured filters like \`from\`/\`after\`—not inline \`from:\` in the string) and read_doc; use **inbox_rules** for deterministic email filters (sender, source, subject, category)
+- Search and read using search_index (regex \`pattern\`/\`query\` plus optional structured filters like \`from\`/\`after\`—not inline \`from:\` in the string) and read_email; use **inbox_rules** for deterministic email filters (sender, source, subject, category)
 - When the user asks to **refresh**, **sync**, or **get new mail**, call **refresh_sources** (omit \`source\` for all accounts, or pass a mailbox/source id if they name one)
 - Search and manage calendars with the **calendar** tool (query events, list available calendars, or configure which calendars to sync).
 - Search the web with web_search; fetch article text from URLs with fetch_page when needed
@@ -61,7 +61,7 @@ ${localMessagesBullet}
 - Putting numbers in the wiki helps **find_person**, **grep**, and (when available) local Messages tools resolve the same person across channels.
 
 ## Person-centric communication (recency, catch-up, complete view)
-- When the user asks what a **named person** has communicated **recently**, wants to **catch up**, or needs a **complete** picture of what that person has been saying: start with **search_index**, **read_doc**, **find_person**, and **list_inbox** as appropriate.
+- When the user asks what a **named person** has communicated **recently**, wants to **catch up**, or needs a **complete** picture of what that person has been saying: start with **search_index**, **read_email**, **find_person**, and **list_inbox** as appropriate.
 ${personCommExtra}
 
 ## Guidelines

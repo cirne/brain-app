@@ -1,13 +1,13 @@
 # The wiki question
 
 **Status:** Open product question — not a decision document  
-**Related:** [VISION.md](./VISION.md), [architecture/wiki-read-vs-read-doc.md](./architecture/wiki-read-vs-read-doc.md), [product/personal-wiki.md](./product/personal-wiki.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md) (eval gap: wiki + agent quality), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
+**Related:** [VISION.md](./VISION.md), [architecture/wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [product/personal-wiki.md](./product/personal-wiki.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md) (eval gap: wiki + agent quality), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 
 ---
 
 ## Why this document exists
 
-Braintunnel’s vision pairs **ripmail** (indexed email and files — rich, messy, authoritative *evidence*) with a **personal wiki** (linked markdown — synthesized, navigable *memory*). The assistant is designed to use **both**: tools for the index (`search_index`, `read_doc`, …) and tools for the vault (`read`, `grep`, … on the wiki tree).
+Braintunnel’s vision pairs **ripmail** (indexed email and files — rich, messy, authoritative *evidence*) with a **personal wiki** (linked markdown — synthesized, navigable *memory*). The assistant is designed to use **both**: tools for the index (`search_index`, `read_email`, …) and tools for the vault (`read`, `grep`, … on the wiki tree).
 
 In early development we often run with **very small wikis** (on the order of 10–20 pages) to iterate cheaply on onboarding and flows. At that scale it is **not obvious** that the wiki is doing unique work: a capable model with strong access to ripmail might **re-synthesize** answers on demand and look “good enough,” while the wiki adds **product and UX surface area** (what is my wiki, when do I create a page, what does “expanding the wiki” mean, who owns truth between mail and markdown).
 
@@ -24,7 +24,7 @@ From [VISION.md](./VISION.md):
 - **ripmail** is the “richest personal data source” for many people; the wiki plus queryable mail is the raw material for a **genuinely personalized** assistant.
 - Short-term proof includes: chat grounded in real data, **wiki grows through use**, email is queryable.
 
-The architecture doc [wiki-read-vs-read-doc.md](./architecture/wiki-read-vs-read-doc.md) states the split explicitly:
+The architecture doc [wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md) states the split explicitly:
 
 - Wiki = **edited, cross-linked synthesized** knowledge (“working source of truth for digested information”).
 - ripmail index = **evidence** (messages, attachments, paths) used to *inform* wiki pages — analogous to “read this email,” not “this file is the wiki.”
@@ -71,7 +71,7 @@ Karpathy’s gist stresses **A**, **B**, and the **lint** loop; **C** is seconda
 
 A reasonable challenge:
 
-> If the assistant always has `search_index` + `read_doc` (and enough turns), **maybe** it can answer as well as wiki+ripmail by **reading threads on the fly**, and the wiki is redundant except as a **cache** we pay human and engineering cost to maintain.
+> If the assistant always has `search_index` + `read_email` (and enough turns), **maybe** it can answer as well as wiki+ripmail by **reading threads on the fly**, and the wiki is redundant except as a **cache** we pay human and engineering cost to maintain.
 
 **Arguments for the counterfactual**
 
@@ -151,7 +151,7 @@ That directly tests whether the hoped-for benefit is **real at scale** or **illu
 ## References
 
 - Karpathy, **LLM Wiki** (gist): [https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)  
-- Internal: [VISION.md](./VISION.md), [wiki-read-vs-read-doc.md](./architecture/wiki-read-vs-read-doc.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
+- Internal: [VISION.md](./VISION.md), [wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 - Roadmap umbrella: [OPP-033: Wiki compounding + Karpathy alignment](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md); concrete defect: [BUG-011](./bugs/BUG-011-wiki-expansion-missing-me-md-context.md)
 
 ---

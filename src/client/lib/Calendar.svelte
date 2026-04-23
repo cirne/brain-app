@@ -146,10 +146,10 @@
     }
   }
 
-  async function sync() {
+  async function refreshCalendarSources() {
     loading = true
     try {
-      await fetch('/api/calendar/sync', { method: 'POST' })
+      await fetch('/api/calendar/refresh', { method: 'POST' })
       await loadEvents()
     } finally {
       loading = false
@@ -199,6 +199,10 @@
       prevWeek,
       nextWeek,
       goToday,
+      refreshCalendars: () => {
+        void refreshCalendarSources()
+      },
+      headerBusy: loading,
     })
     return () => registerCalendarHeader(null)
   })
@@ -211,7 +215,7 @@
     <div class="empty-state">
       {#if sourcesConfigured}
         <p>No calendar data yet.</p>
-        <button class="sync-btn" onclick={sync}>↻ Sync now</button>
+        <button class="sync-btn" onclick={() => { void refreshCalendarSources() }}>↻ Sync now</button>
       {:else}
         <p>No calendar configured.</p>
         <p class="hint">

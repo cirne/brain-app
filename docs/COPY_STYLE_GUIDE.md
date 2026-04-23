@@ -50,7 +50,7 @@ Avoid developer-centric terms that leak from the codebase.
 ## Common Mistakes & Gotchas
 
 ### 1. The "Agent Narrator" Problem
-Agents often narrate their own code execution (e.g., "I am now going to use the `read_doc` tool to..."). 
+Agents often narrate their own code execution (e.g., "I am now going to use the `read_email` tool to..."). 
 *   **Fix**: Update agent system prompts to focus on the result, not the process.
 *   **Example**: Instead of "I will now read your email to find a phone number," use "Finding contact details..."
 

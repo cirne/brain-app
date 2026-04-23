@@ -5,7 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import type { CalendarEvent } from '../lib/calendarCache.js'
 import { getCalendarEventsFromRipmail } from '../lib/calendarRipmail.js'
-import { syncInboxRipmail } from '../lib/syncAll.js'
+import { syncCalendarSourcesRipmail, syncInboxRipmail } from '../lib/syncAll.js'
 
 vi.mock('../lib/calendarRipmail.js', () => ({
   getCalendarEventsFromRipmail: vi.fn(),
@@ -16,6 +16,7 @@ vi.mock('../lib/syncAll.js', async (importOriginal) => {
   return {
     ...actual,
     syncInboxRipmail: vi.fn().mockResolvedValue({ ok: true }),
+    syncCalendarSourcesRipmail: vi.fn().mockResolvedValue({ ok: true }),
   }
 })
 
@@ -31,6 +32,7 @@ beforeEach(async () => {
     meta: { sourcesConfigured: false, ripmail: '' },
   })
   vi.mocked(syncInboxRipmail).mockResolvedValue({ ok: true })
+  vi.mocked(syncCalendarSourcesRipmail).mockResolvedValue({ ok: true })
 
   vi.resetModules()
   const { default: calendarRoute } = await import('./calendar.js')
@@ -150,5 +152,27 @@ describe('POST /api/calendar/sync', () => {
     const body = await res.json()
     expect(body.ok).toBe(false)
     expect(body.error).toBe('sync failed')
+  })
+})
+
+// ─── POST /api/calendar/refresh ──────────────────────────────────────────────
+
+describe('POST /api/calendar/refresh', () => {
+  it('returns ok when calendar-only sync succeeds', async () => {
+    vi.mocked(syncCalendarSourcesRipmail).mockClear()
+    const res = await app.request('/api/calendar/refresh', { method: 'POST' })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(vi.mocked(syncCalendarSourcesRipmail)).toHaveBeenCalled()
+  })
+
+  it('returns 500 when calendar-only sync fails', async () => {
+    vi.mocked(syncCalendarSourcesRipmail).mockResolvedValueOnce({ ok: false, error: 'cal failed' })
+    const res = await app.request('/api/calendar/refresh', { method: 'POST' })
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.ok).toBe(false)
+    expect(body.error).toBe('cal failed')
   })
 })

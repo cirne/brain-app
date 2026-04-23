@@ -3,8 +3,8 @@ import type { ToolCall } from '../agentUtils.js'
 import { isFilesystemAbsolutePath } from '../fsPath.js'
 import type { SeedingMailPreview, SeedingProgressLine } from './types.js'
 import {
-  readDocIdHint,
-  readDocProgressDetail,
+  readEmailIdHint,
+  readEmailProgressDetail,
   searchIndexDetail,
   webSearchDetail,
 } from './onboardingHelpers.js'
@@ -43,7 +43,7 @@ export function buildSeedingLine(
     if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Searched mail', detail }
     return { id: tc.id, kind: 'active-tool', prefix: 'Searching mail', detail }
   }
-  if (n === 'read_doc') {
+  if (n === 'read_email') {
     const idArg = typeof args.id === 'string' ? args.id.trim() : ''
     const isFileRef = idArg.length > 0 && isFilesystemAbsolutePath(idArg)
     let mailPreview: SeedingMailPreview | undefined
@@ -63,14 +63,14 @@ export function buildSeedingLine(
           id: idArg,
           subject: '',
           from: '',
-          snippet: readDocIdHint(idArg) ?? '',
+          snippet: readEmailIdHint(idArg) ?? '',
         }
       }
     }
     const detail =
       mailPreview && (phase === 'done' || phase === 'active')
         ? undefined
-        : readDocProgressDetail(tc, matchPreview)
+        : readEmailProgressDetail(tc, matchPreview)
     if (phase === 'done') {
       return { id: tc.id, kind: 'done', prefix: 'Read a message', detail, mailPreview }
     }

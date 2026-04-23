@@ -28,7 +28,7 @@ export const TOOL_ICONS = {
   grep: Search,
   find: FolderSearch,
   search_index: MailSearch,
-  read_doc: Mail,
+  read_email: Mail,
   list_sources: FolderSearch,
   source_status: FolderSearch,
   add_files_source: FilePlus,

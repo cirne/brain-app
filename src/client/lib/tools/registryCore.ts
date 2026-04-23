@@ -48,7 +48,7 @@ const TOOL_DISPLAY_LABELS: Record<string, string> = {
   move_file: 'Move file',
   delete_file: 'Delete file',
   search_index: 'Search mail',
-  read_doc: 'Read message',
+  read_email: 'Read message',
   read_attachment: 'Read attachment',
   manage_sources: 'Manage sources',
   refresh_sources: 'Sync sources',
@@ -81,7 +81,7 @@ function humanizeToolName(name: string): string {
 const ONBOARDING_ACTIVITY = {
   find_person: { profiling: 'Learning who you email…', buildout: 'Learning who you email…' },
   search_index: { profiling: 'Searching mail…', buildout: 'Searching mail…' },
-  read_doc: { profiling: 'Reading a message…', buildout: 'Reading a message…' },
+  read_email: { profiling: 'Reading a message…', buildout: 'Reading a message…' },
   write: { profiling: 'Writing your profile…', buildout: 'Writing a page…' },
   edit: { profiling: 'Updating your profile…', buildout: 'Updating a page…' },
   list_inbox: { profiling: 'Scanning inbox…', buildout: 'Scanning inbox…' },
@@ -103,9 +103,9 @@ const TOOL_REGISTRY: Record<string, ToolRegistryPatch> = {
   search_index: {
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.search_index,
   },
-  read_doc: {
+  read_email: {
     chat: { autoOpen: true },
-    onboardingActivityInFlight: ONBOARDING_ACTIVITY.read_doc,
+    onboardingActivityInFlight: ONBOARDING_ACTIVITY.read_email,
   },
   list_inbox: {
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.list_inbox,

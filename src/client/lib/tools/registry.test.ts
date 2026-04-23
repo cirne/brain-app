@@ -11,7 +11,7 @@ const ALL_AGENT_TOOL_NAMES = [
   'move_file',
   'delete_file',
   'search_index',
-  'read_doc',
+  'read_email',
   'read_attachment',
   'manage_sources',
   'refresh_sources',

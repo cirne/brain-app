@@ -72,7 +72,7 @@ describe('toolResultForSse', () => {
     const input = 'A'.repeat(5000)
     expect(toolResultForSse('search_index', input, 4000)).toBe(input)
     expect(toolResultForSse('list_inbox', input, 4000)).toBe(input)
-    expect(toolResultForSse('read_doc', input, 4000)).toBe(input)
+    expect(toolResultForSse('read_email', input, 4000)).toBe(input)
     expect(toolResultForSse('read_attachment', input, 4000)).toBe(input)
     expect(toolResultForSse('manage_sources', input, 4000)).toBe(input)
     expect(toolResultForSse('inbox_rules', input, 4000)).toBe(input)

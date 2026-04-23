@@ -39,7 +39,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 | Ripmail, unified search, files API, optional iMessage  | [architecture/integrations.md](architecture/integrations.md)                   |
 | Environment variables                                  | [architecture/configuration.md](architecture/configuration.md)                 |
 | Future SQLite consolidation (not current)              | [architecture/future-durability.md](architecture/future-durability.md)         |
-| Wiki `read` vs `read_doc` (indexed sources)            | [architecture/wiki-read-vs-read-doc.md](architecture/wiki-read-vs-read-doc.md) |
+| Wiki `read` vs `read_email` (indexed sources)            | [architecture/wiki-read-vs-read-email.md](architecture/wiki-read-vs-read-email.md) |
 | Wiki-first memory vs managed memory (Honcho) — deferred | [architecture/wiki-vs-managed-memory-honcho.md](architecture/wiki-vs-managed-memory-honcho.md) |
 | Ripmail crate internals                                | [ripmail/docs/ARCHITECTURE.md](../ripmail/docs/ARCHITECTURE.md)                |
 | Brain network & inter-brain trust (strategy epic)      | [opportunities/OPP-042-brain-network-interbrain-trust-epic.md](opportunities/OPP-042-brain-network-interbrain-trust-epic.md) |

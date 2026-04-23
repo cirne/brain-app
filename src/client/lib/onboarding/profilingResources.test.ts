@@ -94,14 +94,14 @@ describe('extractProfilingResources', () => {
     expect(wikiPaths).toEqual(['me.md'])
   })
 
-  it('collects email from read_doc JSON result', () => {
+  it('collects email from read_email JSON result', () => {
     const payload = JSON.stringify({
       subject: 'Hello',
       from: 'a@b.com',
       body: 'Body text here',
     })
     const messages: ChatMessage[] = [
-      toolMsg('read_doc', { id: 'thread-1' }, payload),
+      toolMsg('read_email', { id: 'thread-1' }, payload),
     ]
     const { wikiPaths, emails } = extractProfilingResources(messages)
     expect(wikiPaths).toEqual([])
@@ -115,8 +115,8 @@ describe('extractProfilingResources', () => {
     const first = JSON.stringify({ subject: 'Old', from: 'x@y.com', body: 'a' })
     const second = JSON.stringify({ subject: 'New', from: 'x@y.com', body: 'b' })
     const messages: ChatMessage[] = [
-      toolMsg('read_doc', { id: 'same' }, first),
-      toolMsg('read_doc', { id: 'same' }, second),
+      toolMsg('read_email', { id: 'same' }, first),
+      toolMsg('read_email', { id: 'same' }, second),
     ]
     const { emails } = extractProfilingResources(messages)
     expect(emails).toHaveLength(1)
@@ -243,7 +243,7 @@ describe('onboardingActivityLine', () => {
             type: 'tool',
             toolCall: {
               id: 'x',
-              name: 'read_doc',
+              name: 'read_email',
               args: { id: '1' },
               done: false,
             },
@@ -346,7 +346,7 @@ describe('onboardingActivityLine', () => {
             type: 'tool',
             toolCall: {
               id: 'r',
-              name: 'read_doc',
+              name: 'read_email',
               args: { id: '1' },
               done: false,
             },
@@ -355,7 +355,7 @@ describe('onboardingActivityLine', () => {
       },
     ]
     expect(onboardingActivityLine(messages, true, 'profiling')).toBe('Reading a message…')
-    expect(lastMeaningfulToolCall(messages)?.name).toBe('read_doc')
+    expect(lastMeaningfulToolCall(messages)?.name).toBe('read_email')
   })
 })
 
@@ -501,7 +501,7 @@ describe('buildSeedingProgressUi', () => {
     expect((events[0] as any).line.detail).toContain('after')
   })
 
-  it('adds mail preview to completed read_doc email row', () => {
+  it('adds mail preview to completed read_email email row', () => {
     const payload = JSON.stringify({
       subject: 'Hello from the team',
       from: 'a@b.com',
@@ -516,7 +516,7 @@ describe('buildSeedingProgressUi', () => {
             type: 'tool',
             toolCall: {
               id: 'r',
-              name: 'read_doc',
+              name: 'read_email',
               args: { id: 'mid-1' },
               result: payload,
               done: true,
@@ -585,7 +585,7 @@ describe('buildSeedingProgressUi', () => {
 })
 
 describe('buildProfilingTranscriptEvents', () => {
-  it('interleaves assistant text and completed read_doc mail cards in part order', () => {
+  it('interleaves assistant text and completed read_email mail cards in part order', () => {
     const payload = JSON.stringify({ subject: 'Zoom recap', from: 'no@zoom.us', body: 'Hello' })
     const messages: ChatMessage[] = [
       {
@@ -597,7 +597,7 @@ describe('buildProfilingTranscriptEvents', () => {
             type: 'tool',
             toolCall: {
               id: 'r1',
-              name: 'read_doc',
+              name: 'read_email',
               args: { id: 'thread-a' },
               result: payload,
               done: true,
@@ -620,7 +620,7 @@ describe('buildProfilingTranscriptEvents', () => {
     expect(ev[2]).toEqual({ type: 'text', content: 'Summarizing patterns.' })
   })
 
-  it('emits in-flight read_doc as pending mail row', () => {
+  it('emits in-flight read_email as pending mail row', () => {
     const messages: ChatMessage[] = [
       {
         role: 'assistant',
@@ -630,7 +630,7 @@ describe('buildProfilingTranscriptEvents', () => {
             type: 'tool',
             toolCall: {
               id: 'r2',
-              name: 'read_doc',
+              name: 'read_email',
               args: { id: 'thread-b' },
               result: '',
               done: false,
@@ -648,7 +648,7 @@ describe('buildProfilingTranscriptEvents', () => {
     }
   })
 
-  it('omits filesystem read_doc and set_chat_title', () => {
+  it('omits filesystem read_email and set_chat_title', () => {
     const messages: ChatMessage[] = [
       {
         role: 'assistant',
@@ -668,7 +668,7 @@ describe('buildProfilingTranscriptEvents', () => {
             type: 'tool',
             toolCall: {
               id: 'f',
-              name: 'read_doc',
+              name: 'read_email',
               args: { id: '/tmp/secret.pdf' },
               result: '{}',
               done: true,

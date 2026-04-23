@@ -2,7 +2,7 @@ import type { ChatMessage, ToolCall } from '../agentUtils.js'
 import { matchContentPreview, wikiPathForReadToolArg } from '../cards/contentCards.js'
 import { isFilesystemAbsolutePath } from '../fsPath.js'
 import { getToolDefinitionCore } from '../tools/registryCore.js'
-import { readDocIdHint } from '../tools/onboardingHelpers.js'
+import { readEmailIdHint } from '../tools/onboardingHelpers.js'
 import {
   parseFindPersonResultPeople,
   type ProfilingPersonRef,
@@ -19,13 +19,13 @@ export type ProfilingEmailRef = {
   snippet: string
 }
 
-/** Assistant transcript slice: narrative text interleaved with mail read from `read_doc`. */
+/** Assistant transcript slice: narrative text interleaved with mail read from `read_email`. */
 export type ProfilingTranscriptEvent =
   | { type: 'text'; content: string }
   | { type: 'email'; done: boolean; toolId: string; row: ProfilingEmailRef }
 
 function profilingReadDocEmailRow(tc: ToolCall): ProfilingEmailRef | null {
-  if (tc.name !== 'read_doc') return null
+  if (tc.name !== 'read_email') return null
   const args = (tc.args ?? {}) as Record<string, unknown>
   const idArg = typeof args.id === 'string' ? args.id.trim() : ''
   if (!idArg || isFilesystemAbsolutePath(idArg)) return null
@@ -49,13 +49,13 @@ function profilingReadDocEmailRow(tc: ToolCall): ProfilingEmailRef | null {
     id: idArg,
     subject: '',
     from: '',
-    snippet: readDocIdHint(idArg) ?? '',
+    snippet: readEmailIdHint(idArg) ?? '',
   }
 }
 
 /**
  * Ordered profiling transcript: same assistant part order as the model stream, with each
- * mail `read_doc` shown as a card at its tool position (not batched at the end).
+ * mail `read_email` shown as a card at its tool position (not batched at the end).
  */
 export function buildProfilingTranscriptEvents(messages: ChatMessage[]): ProfilingTranscriptEvent[] {
   const events: ProfilingTranscriptEvent[] = []
@@ -67,7 +67,7 @@ export function buildProfilingTranscriptEvents(messages: ChatMessage[]): Profili
       } else if (part.type === 'tool') {
         const tc = part.toolCall
         if (tc.name === 'set_chat_title') continue
-        if (tc.name !== 'read_doc') continue
+        if (tc.name !== 'read_email') continue
         const row = profilingReadDocEmailRow(tc)
         if (!row) continue
         events.push({
