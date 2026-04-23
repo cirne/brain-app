@@ -42,8 +42,8 @@
 
   /** Sidebar open (wide header + list): desktop or mobile. */
   const navOpen = $derived(sidebarOpen)
-  /** Center title only when nav is collapsed. */
-  const showCenterBrand = $derived(!showChatHistoryButton || !navOpen)
+  /** Center title only when there is no left nav (e.g. onboarding); otherwise title lives in the sidebar control. */
+  const showCenterBrand = $derived(!showChatHistoryButton)
 </script>
 
 <nav class="tabs">
@@ -72,6 +72,7 @@
           aria-label="Open sidebar"
         >
           <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
+          <span class="nav-brand-title">Braintunnel</span>
         </button>
       {/if}
     </div>
@@ -143,7 +144,6 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    border-right: 1px solid var(--border);
     flex-shrink: 0;
     min-height: 100%;
     padding: 0 10px;
@@ -202,15 +202,22 @@
   }
 
   .menu-btn {
-    width: 40px;
-    height: 100%;
-    min-height: var(--tab-h);
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    gap: 8px;
+    min-width: 0;
+    height: 100%;
+    min-height: var(--tab-h);
+    padding: 0 4px 0 2px;
     color: var(--text-2);
     transition: color 0.15s;
-    margin: 0 -6px;
+  }
+  .menu-btn :global(svg) {
+    flex-shrink: 0;
+  }
+  .menu-btn .nav-brand-title {
+    min-width: 0;
   }
   .menu-btn:hover {
     color: var(--text);
@@ -238,7 +245,6 @@
   .new-wrap {
     display: flex;
     align-items: center;
-    border-left: 1px solid var(--border);
     flex-shrink: 0;
   }
 
@@ -258,7 +264,6 @@
   .search-wrap {
     display: flex;
     align-items: center;
-    border-left: 1px solid var(--border);
     flex-shrink: 0;
   }
 
@@ -277,7 +282,6 @@
     position: relative;
     display: flex;
     align-items: stretch;
-    border-left: 1px solid var(--border);
     flex-shrink: 0;
   }
 
