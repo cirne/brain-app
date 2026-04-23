@@ -104,7 +104,11 @@ function previewFromMessages(messages: ChatMessage[]): string | undefined {
   return firstAssistantPreviewLine(messages)
 }
 
-export async function listSessions(): Promise<ChatSessionListItem[]> {
+/**
+ * @param limit — when set to a positive integer, return at most that many sessions (newest first).
+ *   Omit or non-positive for no cap (full list).
+ */
+export async function listSessions(limit?: number): Promise<ChatSessionListItem[]> {
   const dir = chatDataDir()
   const names = (await safeReaddir(dir)).filter(n => n.endsWith('.json'))
   names.sort((a, b) => {
@@ -115,8 +119,11 @@ export async function listSessions(): Promise<ChatSessionListItem[]> {
     return pb.createdAtMs.localeCompare(pa.createdAtMs)
   })
 
+  const cap = typeof limit === 'number' && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : undefined
+
   const items: ChatSessionListItem[] = []
   for (const name of names) {
+    if (cap !== undefined && items.length >= cap) break
     try {
       const raw = await readFile(join(dir, name), 'utf-8')
       const data = JSON.parse(raw) as unknown

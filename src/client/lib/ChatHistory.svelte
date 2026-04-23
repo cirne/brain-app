@@ -94,28 +94,47 @@
     return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
   }
 
-  export async function refresh(): Promise<void> {
-    loading = true
-    error = null
+  /** Bumps on every refresh start; only the latest seq may apply fetched data (avoids races). */
+  let refreshSeq = 0
+
+  export async function refresh(opts?: { background?: boolean }): Promise<void> {
+    const background = opts?.background ?? false
+    const mySeq = ++refreshSeq
+    if (!background) {
+      loading = true
+      error = null
+    }
     try {
       const res = await fetchChatSessionsWith401Retry(fetch)
+      if (mySeq !== refreshSeq) return
+
       if (!res) {
-        error = 'Could not load chats'
-        sessions = []
+        if (!background) {
+          error = 'Could not load chats'
+          sessions = []
+        }
         return
       }
       if (!res.ok) {
-        error = formatChatSessionsFetchError(res)
-        sessions = []
+        if (!background) {
+          error = formatChatSessionsFetchError(res)
+          sessions = []
+        }
         return
       }
-      sessions = await res.json()
+      const nextSessions = (await res.json()) as ChatSessionListItem[]
+      if (mySeq !== refreshSeq) return
+      sessions = nextSessions
       navHistory = await loadNavHistory()
+      if (mySeq !== refreshSeq) return
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to load'
-      sessions = []
+      if (mySeq !== refreshSeq) return
+      if (!background) {
+        error = e instanceof Error ? e.message : 'Failed to load'
+        sessions = []
+      }
     } finally {
-      loading = false
+      if (!background) loading = false
     }
   }
 
@@ -163,7 +182,9 @@
 
   $effect(() => {
     return subscribe((e) => {
-      if (e.type === 'chat:sessions-changed' || e.type === 'nav:recents-changed') void refresh()
+      if (e.type === 'chat:sessions-changed' || e.type === 'nav:recents-changed') {
+        void refresh({ background: true })
+      }
     })
   })
 </script>

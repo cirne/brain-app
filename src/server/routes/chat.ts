@@ -39,9 +39,21 @@ chat.get('/first-chat-pending', async (c) => {
   return c.json({ pending: await hasFirstChatPending() })
 })
 
+/** Ignore absurd limits from clients; sidebar uses a small fixed cap. */
+const CHAT_SESSIONS_LIST_MAX_QUERY = 500
+
 // GET /api/chat/sessions — list persisted sessions (register before /:sessionId)
+// Optional query: `limit` — positive integer, max {@link CHAT_SESSIONS_LIST_MAX_QUERY}; omit for full list.
 chat.get('/sessions', async (c) => {
-  const sessions = await listSessions()
+  const raw = c.req.query('limit')
+  let limit: number | undefined
+  if (raw != null && raw !== '') {
+    const n = Number.parseInt(raw, 10)
+    if (Number.isFinite(n) && n > 0) {
+      limit = Math.min(n, CHAT_SESSIONS_LIST_MAX_QUERY)
+    }
+  }
+  const sessions = await listSessions(limit)
   return c.json(sessions)
 })
 

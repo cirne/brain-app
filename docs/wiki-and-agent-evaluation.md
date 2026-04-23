@@ -33,12 +33,14 @@ The **downstream** product is the **agent**: it must **synthesize** answers usin
 
 That deserves **its own** eval track:
 
-| Dimension | What to explore |
-| -------- | --------------- |
+
+| Dimension          | What to explore                                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | **Answer quality** | Correctness, grounding in mail/wiki, abstention when evidence is thin, user-facing usefulness (judge or task success). |
-| **Latency** | Time to first token / full response under realistic tool-call patterns. |
-| **Tokens** | Total tokens (and breakdown: system, tools, user) per successful task; cost proxies. |
-| **Model** | Same battery **varied by model** — quality/latency/token tradeoffs are not portable. |
+| **Latency**        | Time to first token / full response under realistic tool-call patterns.                                                |
+| **Tokens**         | Total tokens (and breakdown: system, tools, user) per successful task; cost proxies.                                   |
+| **Model**          | Same battery **varied by model** — quality/latency/token tradeoffs are not portable.                                   |
+
 
 **Ripmail and wiki are different failure modes:** the agent can be weak at retrieval, overconfident with a sparse wiki, or strong with mail but wasteful on tokens. Evals should **not** collapse “wiki good” and “agent good” into one number without design.
 

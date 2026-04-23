@@ -233,6 +233,33 @@ describe('GET /api/chat/sessions', () => {
     expect(list[0].title).toBe('My chat')
     expect(list[0].preview).toContain('hello world')
   })
+
+  it('respects limit query (newest first)', async () => {
+    const { appendTurn } = await import('../lib/chatStorage.js')
+    const older = 'aa0e8400-e29b-41d4-a716-446655440099'
+    const newer = 'bb0e8400-e29b-41d4-a716-44665544009a'
+    await appendTurn({
+      sessionId: older,
+      userMessage: 'first',
+      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'a' }] },
+    })
+    await new Promise((r) => setTimeout(r, 5))
+    await appendTurn({
+      sessionId: newer,
+      userMessage: 'second',
+      assistantMessage: { role: 'assistant', content: '', parts: [{ type: 'text', content: 'b' }] },
+    })
+
+    const { default: chatRoute } = await import('./chat.js')
+    const app = new Hono()
+    app.route('/api/chat', chatRoute)
+
+    const res = await app.request('/api/chat/sessions?limit=1')
+    expect(res.status).toBe(200)
+    const list = await res.json()
+    expect(list).toHaveLength(1)
+    expect(list[0].sessionId).toBe(newer)
+  })
 })
 
 describe('GET /api/chat/sessions/:sessionId', () => {

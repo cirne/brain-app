@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  CHAT_HISTORY_SIDEBAR_LIMIT,
   CHAT_SESSIONS_RETRY_DELAYS_MS,
   fetchChatSessionsWith401Retry,
   formatChatSessionsFetchError,
@@ -31,12 +32,15 @@ describe('fetchChatSessionsWith401Retry', () => {
     vi.useRealTimers()
   })
 
-  it('passes credentials and URL to fetch', async () => {
+  it('passes credentials, limit query, and URL to fetch', async () => {
     const fetchImpl = vi.fn(() => Promise.resolve(new Response('[]', { status: 200 })))
     const p = fetchChatSessionsWith401Retry(fetchImpl as unknown as typeof fetch, [])
     await vi.runAllTimersAsync()
     await p
-    expect(fetchImpl).toHaveBeenCalledWith('/api/chat/sessions', { credentials: 'include' })
+    expect(fetchImpl).toHaveBeenCalledWith(
+      `/api/chat/sessions?limit=${CHAT_HISTORY_SIDEBAR_LIMIT}`,
+      { credentials: 'include' },
+    )
   })
 
   it('retries on 401 then succeeds', async () => {
@@ -72,5 +76,11 @@ describe('fetchChatSessionsWith401Retry', () => {
 describe('CHAT_SESSIONS_RETRY_DELAYS_MS', () => {
   it('matches hosted session race timing', () => {
     expect([...CHAT_SESSIONS_RETRY_DELAYS_MS]).toEqual([120, 350, 800])
+  })
+})
+
+describe('CHAT_HISTORY_SIDEBAR_LIMIT', () => {
+  it('is the default list cap sent to the API', () => {
+    expect(CHAT_HISTORY_SIDEBAR_LIMIT).toBe(12)
   })
 })

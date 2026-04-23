@@ -71,7 +71,7 @@
 
   /** History sidebar open (desktop inline or mobile overlay). */
   let sidebarOpen = $state(false)
-  let chatHistory = $state<{ refresh: () => Promise<void> } | undefined>()
+  let chatHistory = $state<{ refresh: (_opts?: { background?: boolean }) => Promise<void> } | undefined>()
   let activeSessionId = $state<string | null>(null)
   /** Server session ids with an in-flight agent stream (sidebar “working” icon), including background chats. */
   let streamingSessionIds = $state<ReadonlySet<string>>(new Set())

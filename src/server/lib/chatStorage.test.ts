@@ -76,6 +76,10 @@ describe('chatStorage', () => {
     const list = await listSessions()
     expect(list.map(x => x.sessionId)).toEqual([s2, s1])
     expect(list[0].preview).toContain('new')
+
+    const capped = await listSessions(1)
+    expect(capped).toHaveLength(1)
+    expect(capped[0].sessionId).toBe(s2)
   })
 
   it('deleteSessionFile removes file', async () => {
