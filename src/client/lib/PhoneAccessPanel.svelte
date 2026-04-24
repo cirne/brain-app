@@ -229,7 +229,7 @@
             <span class="status"
               >{allowLanDirectAccess
                 ? 'Phone can open Braintunnel on your LAN (vault login required)'
-                : 'Block private LAN; use tunnel or this Mac'}</span
+                : 'Block private LAN; use tunnel or this computer'}</span
             >
           </div>
           <div class="switch {allowLanDirectAccess ? 'on' : ''}">

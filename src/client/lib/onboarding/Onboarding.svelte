@@ -494,6 +494,7 @@
     />
   {:else if needsVaultSetup}
     <VaultSetupStep
+      {multiTenant}
       onComplete={async () => {
         await refreshStatus()
         await load()
@@ -508,19 +509,31 @@
     {#if state === 'not-started' && !mail.configured}
       <OnboardingHeroShell>
           <span class="ob-kicker">Braintunnel</span>
-          <h1 class="ob-headline">
-            {appleLocalIntegrationsAvailable ? 'Your assistant, on your Mac' : 'Your assistant'}
-          </h1>
-          <p class="ob-lead">
-            {#if appleLocalIntegrationsAvailable}
+          {#if multiTenant}
+            <h1 class="ob-headline">Your assistant</h1>
+            <p class="ob-lead">
+              Braintunnel is your assistant for chat, email, and your notes—personalized to you.
+              {#if appleLocalIntegrationsAvailable}
+                Connect <strong>Apple</strong> or <strong>Google</strong> to connect mail and calendar—then add
+                folders later to enrich.
+              {:else}
+                Connect <strong>Google</strong> to connect mail and calendar—then add folders later to enrich.
+              {/if}
+            </p>
+          {:else if appleLocalIntegrationsAvailable}
+            <h1 class="ob-headline">Your assistant, on your Mac</h1>
+            <p class="ob-lead">
               Braintunnel is your local assistant for chat, email, and your notes—personalized to you.
               <strong>Mail, Messages, and your files stay on this Mac</strong>—you’re in control. Connect
               <strong>Apple</strong> or <strong>Google</strong> to seed mail and calendar—then add folders later to enrich.
-            {:else}
+            </p>
+          {:else}
+            <h1 class="ob-headline">Your assistant</h1>
+            <p class="ob-lead">
               Braintunnel is your assistant for chat, email, and your notes—personalized to you. Connect
               <strong>Google</strong> to seed mail and calendar—then add folders later to enrich.
-            {/if}
-          </p>
+            </p>
+          {/if}
 
           <div class="ob-cta-group">
             {#if setupError}
@@ -553,12 +566,14 @@
             {#if googleOauthBrowserWait}
               <p class="ob-fine-print" role="status" aria-live="polite">
                 A browser window should open for Google sign-in (passkeys and 2FA work there). When you are done, return
-                to Braintunnel; we will continue automatically. If the tab did not open, use <strong>Open again</strong>. If
-                Safari warns about <code>127.0.0.1</code>, that is your local Braintunnel server over HTTPS.
+                to Braintunnel; we will continue automatically. If the tab did not open, use <strong>Open again</strong>.
+                {#if !multiTenant}
+                  If Safari warns about <code>127.0.0.1</code>, that is your local Braintunnel server over HTTPS.
+                {/if}
               </p>
             {/if}
             <p class="ob-fine-print">
-              {#if appleLocalIntegrationsAvailable}
+              {#if !multiTenant && appleLocalIntegrationsAvailable}
                 On Apple, Braintunnel indexes Mail from your library and registers your Mac calendars (same source as
                 Calendar.app) for sync. Full Disk Access lets Braintunnel read Mail, Messages, and paths you choose.
               {/if}
@@ -567,7 +582,7 @@
               {:else}
                 Google sign-in uses this browser (mail + calendar read).
               {/if}
-              {#if appleLocalIntegrationsAvailable}
+              {#if !multiTenant && appleLocalIntegrationsAvailable}
                 macOS may prompt for permissions during setup.
               {/if}
             </p>

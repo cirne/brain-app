@@ -26,3 +26,10 @@ export const wikiBuildoutLeadCopy: OnboardingLeadBlock = {
   lead:
     "We're creating pages from your profile and mail. Your wiki stays in your vault on this Mac only—not uploaded and not reachable from elsewhere.",
 }
+
+/** Hosted multi-tenant: no local-Mac / device-only privacy framing. */
+export const wikiBuildoutLeadCopyMultiTenant: OnboardingLeadBlock = {
+  title: 'Setting up your wiki',
+  lead:
+    "We're creating pages from your profile and mail. Your wiki lives in your vault so the assistant can stay aligned with you.",
+}

@@ -89,8 +89,8 @@
 
 <div class="hub-bg-agents-detail">
   <p class="section-lead">
-    Wiki expansion fills and updates your vault using your profile, indexed mail, optional Messages on this Mac,
-    and public web research when that improves accuracy. Use a full pass for a broad overview or a continue
+    Wiki expansion fills and updates your vault using your profile, indexed mail, optional Messages (when
+    available), and public web research when that improves accuracy. Use a full pass for a broad overview or a continue
     pass to deepen or fix gaps after mail syncs.
   </p>
   <div class="expansion-actions" role="group" aria-label="Wiki expansion">

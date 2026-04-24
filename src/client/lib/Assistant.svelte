@@ -512,7 +512,7 @@
     navigate({ hubActive: true })
     route = parseRoute()
     void tick().then(() => {
-      document.getElementById('hub-account-handle')?.scrollIntoView({
+      document.getElementById('hub-account-top')?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
       })

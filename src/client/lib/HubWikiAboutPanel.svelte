@@ -1,13 +1,14 @@
 <div class="hub-wiki-about">
   <div class="hub-wiki-about-inner">
     <p class="hub-wiki-about-lead">
-      Your <strong>wiki</strong> is a private set of Markdown pages in <strong>your vault</strong> on this Mac. Braintunnel keeps it growing and
-      tidy automatically—so answers stay grounded in <em>your</em> world, not a generic model guess.
+      Your <strong>wiki</strong> is a private set of Markdown pages in <strong>your vault</strong>, stored with your
+      account. Braintunnel keeps it growing and tidy automatically—so answers stay grounded in <em>your</em> world, not
+      a generic model guess.
     </p>
 
     <h3 class="hub-wiki-about-h">How the continuous loop works</h3>
     <p>
-      While Braintunnel is running, the <strong>Your Wiki loop</strong> works in the background. Each lap has two phases:
+      The <strong>Your Wiki</strong> loop runs in the background. Each lap has two phases:
     </p>
     <ul class="hub-wiki-about-list">
       <li>
@@ -35,7 +36,8 @@
     <h3 class="hub-wiki-about-h">You're in control</h3>
     <ul class="hub-wiki-about-list">
       <li>
-        <strong>Vault.</strong> Opening Braintunnel on this Mac means unlocking your vault with the password you set at setup.
+        <strong>Vault.</strong> Your vault is protected by the password you set at setup—you unlock it when you use
+        Braintunnel.
       </li>
       <li>
         <strong>Pause / Resume.</strong> Open "Your Wiki" from Braintunnel Hub to pause the loop any time.

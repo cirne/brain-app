@@ -20,7 +20,7 @@
     isEmptyChat?: boolean
     /** Hosted only: `@handle` next to Hub after onboarding confirmation. */
     hostedHandlePill?: string
-    /** Hosted only: opens Hub scrolled to handle section. */
+    /** Hosted only: opens Hub scrolled to the Account / connectivity section. */
     onHostedHandleNavigate?: () => void
   }
 

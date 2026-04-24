@@ -5,8 +5,10 @@
 
   interface Props {
     onComplete: () => void | Promise<void>
+    /** Hosted multi-tenant: vault copy without “on this Mac” local-device framing. */
+    multiTenant?: boolean
   }
-  let { onComplete }: Props = $props()
+  let { onComplete, multiTenant = false }: Props = $props()
 
   const MIN_LEN = 8
 
@@ -47,8 +49,15 @@
     <span class="ob-kicker">Braintunnel</span>
     <h1 id="vault-setup-title" class="ob-headline">Create your vault</h1>
     <p class="ob-lead">
-      Braintunnel creates and maintains a personal vault on this Mac that learns from you over time—so your
-      assistant can be completely personalized. Set a password to protect this vault; it isn’t your email password.
+      {#if multiTenant}
+        Braintunnel creates and maintains a personal vault tied to your account that learns from you over
+        time—so your assistant can stay personalized. Set a password to protect this vault; it isn’t your email
+        password.
+      {:else}
+        Braintunnel creates and maintains a personal vault on this Mac that learns from you over time—so your
+        assistant can be completely personalized. Set a password to protect this vault; it isn’t your email
+        password.
+      {/if}
     </p>
   </header>
 

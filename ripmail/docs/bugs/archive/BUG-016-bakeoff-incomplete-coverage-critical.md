@@ -1,6 +1,6 @@
 # BUG-016: Bakeoff Failure — Incomplete Coverage vs Google Adapter — Agent-Reported
 
-**Status:** Archived (2026-03-10). Superseded by [BUG-020](../BUG-020-apple-spending-domain-from-routing.md) for the remaining open item (domain→from routing; apple spending eval). Other issues in this doc have been addressed: agent and tool instructions now direct use of the fromAddress parameter for vendor/domain queries; search excludes noise by default; eval case has minScore 0.4 and knownIssue BUG-020. Hybrid/truncation/totalMatched items remain as design context but are no longer tracked here.
+**Status:** Archived (2026-03-10). Superseded by [BUG-020](BUG-020-apple-spending-domain-from-routing.md) for the domain→from / apple-spending slice (**fixed** 2026-04-10). Other issues in this doc have been addressed: agent and tool instructions now direct use of the fromAddress parameter for vendor/domain queries; search excludes noise by default. Hybrid/truncation/totalMatched items remain as design context but are no longer tracked here.
 
 **Original tags:** semantic, eval
 

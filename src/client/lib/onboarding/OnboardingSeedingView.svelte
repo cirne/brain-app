@@ -8,7 +8,7 @@
   import StreamingAgentMarkdown from '../agent-conversation/StreamingAgentMarkdown.svelte'
   import OnboardingActivityTranscriptShell from './OnboardingActivityTranscriptShell.svelte'
   import OnboardingLocalWikiLead from './OnboardingLocalWikiLead.svelte'
-  import { wikiBuildoutLeadCopy } from './onboardingLeadCopy.js'
+  import { wikiBuildoutLeadCopy, wikiBuildoutLeadCopyMultiTenant } from './onboardingLeadCopy.js'
   import { buildSeedingProgressUi, extractProfilingResources, onboardingActivityLine } from './profilingResources.js'
 
   let {
@@ -17,11 +17,14 @@
     onOpenWiki,
     onOpenEmail,
     streamingWrite = null,
-    multiTenant: _multiTenant = false,
+    multiTenant = false,
   }: AgentConversationViewProps = $props()
 
   let shell = $state<ConversationScrollApi | undefined>()
 
+  const wikiBuildoutLead = $derived(
+    multiTenant ? wikiBuildoutLeadCopyMultiTenant : wikiBuildoutLeadCopy,
+  )
   const seedingProgress = $derived(buildSeedingProgressUi(messages, streaming))
   const activity = $derived(onboardingActivityLine(messages, streaming, 'buildout'))
   const resources = $derived(extractProfilingResources(messages))
@@ -42,7 +45,7 @@
   {streamingWrite}
 >
   {#snippet children({ reduceMotion })}
-    <OnboardingLocalWikiLead {...wikiBuildoutLeadCopy} />
+    <OnboardingLocalWikiLead {...wikiBuildoutLead} />
 
     {#if seedingProgress.events.length > 0 || seedingProgress.planning}
       <section class="ob-seed-progress-section" aria-labelledby="ob-seed-progress-heading">

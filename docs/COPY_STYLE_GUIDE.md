@@ -41,9 +41,17 @@ Avoid developer-centric terms that leak from the codebase.
 | **Agent / Tool / Call** | Assistant, Feature, Action (or just describe the action) |
 | **Slug** | Name, Link, ID (if necessary) |
 | **FTS / Semantic** | Search, Smart Search |
-| **`BRAIN_HOME` / paths / “vault” folder on disk** | **Vault on this Mac**, **your vault**, **unlock your vault** |
+| **`BRAIN_HOME` / paths / “vault” folder on disk** | **Your vault**, **unlock your vault**; for local desktop only, phrasing like **vault on this Mac** is fine when it is true |
 
-**Vault vs wiki:** **Vault** is user-facing for the **secured local store** (Obsidian-adjacent): password, unlock, where durable data lives. **Wiki** is user-facing for **Markdown pages and links inside the vault**. Do not use **wiki** when you mean unlocking or the whole datastore—use **vault**. **Product name:** use **Braintunnel** in user-facing copy. Repository / env / paths may still say `brain-app` or `BRAIN_*` — that is internal; do not expose raw path names in UI.
+**Vault vs wiki:** **Vault** is user-facing for the **secured store** (password, unlock, where durable data lives). **Wiki** is user-facing for **Markdown pages and links inside the vault**. Do not use **wiki** when you mean unlocking or the whole datastore—use **vault**. **Product name:** use **Braintunnel** in user-facing copy. Repository / env / paths may still say `brain-app` or `BRAIN_*` — that is internal; do not expose raw path names in UI.
+
+### Desktop (single-tenant) vs hosted (multi-tenant) copy
+
+We ship both a **local desktop** product and a **hosted** deployment. The same UI may run in either; phrasing about **this Mac / this device / only on your machine** is accurate for desktop, not for cloud.
+
+* **Onboarding and account setup** are the right place for product-line splits. Use **separate lead blocks** (e.g. `profilingLeadCopy` vs `profilingLeadCopyMultiTenant` in `onboardingLeadCopy.ts`, or a `multiTenant` prop with two full variants) instead of one paragraph crammed with inline conditionals.
+* **After onboarding completes, prefer one shared set of product copy** (Hub, chat, wiki help, most settings): wording that is true for both deployments, without `multiTenant ? … : …` sprinkled through the app for small tone differences. Reserve branching for when **behavior** in the product actually differs in a way the user must understand.
+* When in doubt in shared surfaces, choose **hosting-accurate** wording: avoid implying data exists only on the user’s computer or that a local app must be “running” for background work, unless that is true for all users who see the screen.
 
 ---
 
@@ -74,3 +82,4 @@ When reviewing a page, ask:
 2.  **Is this too technical?** Would my non-developer friend understand "seeding the vault"?
 3.  **Is it redundant?** Am I telling the user what I'm doing while they can clearly see the result?
 4.  **Is it "Agent-y"?** Does it sound like a robot describing its own circuits?
+5.  **Is this post-onboarding UI?** If so, is the copy true for both desktop and hosted, without unnecessary `multiTenant` (or similar) branches?
