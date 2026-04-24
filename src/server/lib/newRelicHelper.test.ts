@@ -3,6 +3,7 @@ import { runWithTenantContext } from './tenantContext.js'
 
 const recordCustomEvent = vi.fn()
 const addCustomAttribute = vi.fn()
+const setUserID = vi.fn()
 const startSegment = vi.fn(
   (name: string, record: boolean, handler: (cb?: () => void) => unknown) => handler(),
 )
@@ -10,6 +11,7 @@ const startSegment = vi.fn(
 vi.mock('newrelic', () => ({
   default: {
     setTransactionName: vi.fn(),
+    setUserID: (...args: unknown[]) => setUserID(...args),
     recordCustomEvent: (...args: unknown[]) => recordCustomEvent(...args),
     addCustomAttribute: (...args: unknown[]) => addCustomAttribute(...args),
     startSegment: (
@@ -25,6 +27,7 @@ describe('newRelicHelper', () => {
   beforeEach(() => {
     recordCustomEvent.mockClear()
     addCustomAttribute.mockClear()
+    setUserID.mockClear()
     startSegment.mockClear()
     startSegment.mockImplementation(
       (name: string, record: boolean, handler: (cb?: () => void) => unknown) => handler(),
@@ -249,6 +252,83 @@ describe('newRelicHelper', () => {
     const { setAgentTurnTransactionAttribute } = await import('./newRelicHelper.js')
     setAgentTurnTransactionAttribute('urn-turn-1')
     expect(addCustomAttribute).toHaveBeenCalledWith('agentTurnId', 'urn-turn-1')
+  })
+
+  it('addTransactionCustomAttributes namespaces keys and skips nullish', async () => {
+    const { addTransactionCustomAttributes } = await import('./newRelicHelper.js')
+    addTransactionCustomAttributes({
+      tenantUserId: 'usr_abc',
+      workspaceHandle: 'ws',
+      multiTenant: true,
+      skipMe: undefined,
+      alsoSkip: null,
+    })
+    expect(addCustomAttribute).toHaveBeenCalledWith('brain.tenantUserId', 'usr_abc')
+    expect(addCustomAttribute).toHaveBeenCalledWith('brain.workspaceHandle', 'ws')
+    expect(addCustomAttribute).toHaveBeenCalledWith('brain.multiTenant', true)
+    expect(addCustomAttribute).not.toHaveBeenCalledWith('brain.skipMe', expect.anything())
+  })
+
+  it('addTransactionCustomAttributes leaves dotted keys unprefixed', async () => {
+    const { addTransactionCustomAttributes } = await import('./newRelicHelper.js')
+    addTransactionCustomAttributes({ 'custom.vendor': 'x' })
+    expect(addCustomAttribute).toHaveBeenCalledWith('custom.vendor', 'x')
+  })
+
+  it('resolveNewRelicEndUserId maps tenant sentinel and usr ids', async () => {
+    const { resolveNewRelicEndUserId } = await import('./newRelicHelper.js')
+    const usr =
+      'usr_abcdefghijklmnopqrst' as const
+    expect(
+      resolveNewRelicEndUserId({
+        tenantUserId: usr,
+        workspaceHandle: 'h',
+        homeDir: '/tmp',
+      }),
+    ).toBe(usr)
+    expect(
+      resolveNewRelicEndUserId({
+        tenantUserId: '_single',
+        workspaceHandle: '_single',
+        homeDir: '/tmp',
+      }),
+    ).toBe('single_tenant')
+    expect(
+      resolveNewRelicEndUserId({
+        tenantUserId: '_global',
+        workspaceHandle: '_global',
+        homeDir: '/tmp',
+      }),
+    ).toBeUndefined()
+  })
+
+  it('applyBrainTenantContextToNewRelicTransaction sets attributes and setUserID for usr tenant', async () => {
+    const { applyBrainTenantContextToNewRelicTransaction } = await import('./newRelicHelper.js')
+    const usr = 'usr_abcdefghijklmnopqrst'
+    runWithTenantContext(
+      { tenantUserId: usr, workspaceHandle: 'alice', homeDir: '/tmp/h' },
+      () => {
+        process.env.BRAIN_DATA_ROOT = '/data'
+        applyBrainTenantContextToNewRelicTransaction()
+        delete process.env.BRAIN_DATA_ROOT
+      },
+    )
+    expect(addCustomAttribute).toHaveBeenCalledWith('brain.tenantUserId', usr)
+    expect(addCustomAttribute).toHaveBeenCalledWith('brain.workspaceHandle', 'alice')
+    expect(addCustomAttribute).toHaveBeenCalledWith('brain.multiTenant', true)
+    expect(setUserID).toHaveBeenCalledWith(usr)
+  })
+
+  it('applyBrainTenantContextToNewRelicTransaction does not call setUserID for embed global tenant', async () => {
+    const { applyBrainTenantContextToNewRelicTransaction } = await import('./newRelicHelper.js')
+    runWithTenantContext(
+      { tenantUserId: '_global', workspaceHandle: '_global', homeDir: '/tmp/g' },
+      () => {
+        applyBrainTenantContextToNewRelicTransaction()
+      },
+    )
+    expect(addCustomAttribute).toHaveBeenCalledWith('brain.tenantUserId', '_global')
+    expect(setUserID).not.toHaveBeenCalled()
   })
 
   it('beginToolCallSegment registers a startSegment and endToolCallSegmentBridge closes it', async () => {

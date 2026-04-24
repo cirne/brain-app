@@ -56,6 +56,7 @@ import {
   isAddrInUse,
   probeDevPortAvailable,
 } from './lib/devServerDuplicatePort.js'
+import { newRelicBrainContextMiddleware } from './lib/newRelicBrainContextMiddleware.js'
 import { newRelicHonoTransactionMiddleware } from './lib/newRelicHonoTransaction.js'
 
 loadDotEnv()
@@ -130,6 +131,7 @@ app.use('*', async (c, next) => {
 })
 
 app.use('/api/*', tenantMiddleware)
+app.use('/api/*', newRelicBrainContextMiddleware())
 app.use('/api/*', vaultGateMiddleware)
 
 const requestLogger = logger()

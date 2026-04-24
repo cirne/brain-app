@@ -1,5 +1,11 @@
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
 import newrelic from 'newrelic'
+import { isMultiTenantMode } from './dataRoot.js'
+import { isValidUserId } from './handleMeta.js'
+import type { LlmAgentKind } from './llmAgentKind.js'
+import { countAssistantCompletionsWithUsage, type LlmUsageSnapshot } from './llmUsage.js'
+import { toolResultForSse } from './truncateJson.js'
+import { tryGetTenantContext, type TenantContext } from './tenantContext.js'
 
 /**
  * `startSegment` stays open until the returned Promise resolves. We bridge
@@ -7,10 +13,6 @@ import newrelic from 'newrelic'
  */
 const pendingToolSegmentFinishes = new Map<string, () => void>()
 const MAX_PENDING_TOOL_SEGMENTS = 500
-import type { LlmAgentKind } from './llmAgentKind.js'
-import { countAssistantCompletionsWithUsage, type LlmUsageSnapshot } from './llmUsage.js'
-import { toolResultForSse } from './truncateJson.js'
-import { tryGetTenantContext } from './tenantContext.js'
 
 const PARAMS_JSON_MAX = 4096
 const ERROR_MESSAGE_MAX = 500
@@ -33,6 +35,63 @@ const REDACT_KEY_MARKERS = [
 /** Mirrors {@link newrelic.cjs}: agent off when no license key. */
 export function isAgentEnabled(): boolean {
   return Boolean(process.env.NEW_RELIC_LICENSE_KEY?.trim())
+}
+
+export type TransactionCustomAttributeValue = string | number | boolean
+
+/**
+ * Adds namespaced custom attributes to the current web transaction (when one is active).
+ * Skips `null` / `undefined`. Keys without `.` get prefix `brain.` (override with `keyPrefix: ''`).
+ * Keys that already contain `.` are left unchanged so callers can set vendor-style names.
+ */
+export function addTransactionCustomAttributes(
+  attrs: Record<string, TransactionCustomAttributeValue | undefined | null>,
+  options?: { keyPrefix?: string },
+): void {
+  if (!isAgentEnabled()) return
+  const keyPrefix = options?.keyPrefix ?? 'brain.'
+  try {
+    for (const [rawKey, v] of Object.entries(attrs)) {
+      if (v === undefined || v === null) continue
+      const key = keyPrefix && !rawKey.includes('.') ? `${keyPrefix}${rawKey}` : rawKey
+      newrelic.addCustomAttribute(key, v)
+    }
+  } catch {
+    /* never throw */
+  }
+}
+
+/** Value for {@link newrelic.setUserID} from tenant context; omit for non–end-user scopes. */
+export function resolveNewRelicEndUserId(ctx: TenantContext): string | undefined {
+  const id = ctx.tenantUserId
+  if (id === '_global') return undefined
+  if (id === '_single') return 'single_tenant'
+  // `isValidUserId` is typed `raw is string`; used on `string` that makes the false branch `never`.
+  if (isValidUserId(id as unknown)) return id
+  return id.length > 0 ? id : undefined
+}
+
+/**
+ * Tags the current request’s APM transaction with tenant/workspace and {@link newrelic.setUserID}
+ * when applicable. Call from middleware inside {@link runWithTenantContextAsync} (e.g. after
+ * {@link tenantMiddleware}).
+ */
+export function applyBrainTenantContextToNewRelicTransaction(): void {
+  if (!isAgentEnabled()) return
+  const ctx = tryGetTenantContext()
+  if (!ctx) return
+  addTransactionCustomAttributes({
+    tenantUserId: ctx.tenantUserId,
+    workspaceHandle: ctx.workspaceHandle,
+    multiTenant: isMultiTenantMode(),
+  })
+  const endUserId = resolveNewRelicEndUserId(ctx)
+  if (!endUserId) return
+  try {
+    newrelic.setUserID(endUserId)
+  } catch {
+    /* never throw */
+  }
 }
 
 /** Sanitized, low-cardinality name for a custom segment in transaction traces. */

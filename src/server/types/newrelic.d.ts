@@ -1,6 +1,8 @@
 declare module 'newrelic' {
   const newrelic: {
     setTransactionName: (name: string) => void
+    /** Sets `enduser.id` on the current transaction, traces, and errors. */
+    setUserID: (id: string) => void
     recordCustomEvent: (
       eventType: string,
       attributes: Record<string, string | number | boolean>,
