@@ -260,9 +260,28 @@ When submitting:
 **Depends on:** M8 (Google initiates this after submission)  
 **Blocks:** M10 (Google review)
 
-For apps requesting restricted scopes like `https://mail.google.com/`, Google requires an assessment by a **Google-approved assessor** (examples: Leviathan Security, Bishop Fox, and others in Google's program). See [OPP-022](OPP-022-google-oauth-app-verification.md) for background.
+For apps requesting restricted scopes like `https://mail.google.com/`, Google often routes apps through **CASA** — **Cloud Application Security Assessment** — under the **App Defense Alliance (ADA)**. An approved lab assesses the app, issues a **Letter of Validation (LoV)**, and submits it to Google; **Google** grants or withholds final verification — the lab does not “approve” the OAuth client itself.
 
-**Budget expectation:** ~$15,000–$75,000 depending on scope breadth and assessor. This is a real cost — allocate budget before starting the verification track, and plan lead time for assessor scheduling.
+**Google-approved assessors** include many firms; full custom reviews in the industry are still sometimes quoted in the **~$15,000–$75,000** range for broad scope or non-CASA work (see [OPP-022](OPP-022-google-oauth-app-verification.md)). For the **CASA** path, costs and duration are often **much lower** than that band; see the subsection below. Confirm **Tier 2 vs Tier 3** and exact requirements in **Google Cloud Console** and any email from Google about **CASA** / vendor assessment — do not buy Tier 3 packages unless the project actually requires it.
+
+### CASA assessor: TAC Security (concrete path)
+
+**TAC Security** ([tacsecurity.com](https://tacsecurity.com)) is a **Google-recommended / preferred ADA CASA assessor** (also an App Defense Alliance authorized lab; they publish separate **MASA** mobile offerings — Braintunnel’s **web + cloud** verification track is the **CASA** line, not MASA, unless you also need Play store mobile assessment).
+
+| Topic | Notes |
+| ----- | ----- |
+| **What they do** | Run the **CASA** assessment aligned with Google’s program, help with **remediation guidance**, issue a **Letter of Validation (LoV)**, and **submit the LoV to Google** on their side. |
+| **Intake** | Public landing: [Google CASA – Cloud Application Security Assessment](https://tacsecurity.com/google-casa-cloud-application-security-assessment/); portal: [casa.tacsecurity.com](https://casa.tacsecurity.com/site/home). |
+| **Tier 2 public pricing (indicative, 2026 list)** | TAC’s site lists **Tier 2** CASA packages in roughly the **~$675–$855** range for common one-time / standard SKUs (e.g. Basic vs Premium ESOF AppSec ADA CASA); **Enterprise Tier 2** and **Tier 3** (Workspace Marketplace / badge-style packages) are **much higher** (e.g. **~$1,800+** and **~$4,500+** list for enterprise tiers on their page). **Treat list prices as quotes — they change; contact TAC for a formal SOW.** |
+| **Empirical data point (internal contact)** | **~$720** fee and **~3 weeks** end-to-end for the approval-relevant work — this aligns with TAC’s published **~1–3 weeks** “assessment to LoV” language for several Tier 2 plans and the **$720** tier they have used in promos/FAQ. Add slack for **remediation** if findings require multiple cycles. |
+| **After LoV** | TAC’s FAQ states Google may send the verification follow-up in on the order of **~5–6 business days** after they submit the LoV — **non-guaranteed**; Google’s overall **M10** window still applies. |
+
+**Prerequisites to have ready (typical):** staging or production **URL**, **test credentials**, **data-flow / scope** description, and explicit list of **Google APIs and OAuth scopes** in scope — this mirrors what M4 and assessor prep already imply.
+
+**Budget expectation (tiered):**
+
+- **CASA Tier 2 via an ADA lab (e.g. TAC):** plan **~$500–$900+** for many small/product teams for **Tier 2** one-time packages **unless** Google requires **Tier 3** or a broader review — use **$720** and **~3 weeks** as a **planning** anchor from a trusted contact, validated with TAC at engagement time.
+- **Higher-touch or Tier 3 / enterprise packages:** can reach **$15,000+** and into the **$15,000–$75,000** “full assessment” band depending on assessor, scope, and revalidation needs — keep the **$15k–$75k** range in [OPP-022](OPP-022-google-oauth-app-verification.md) as **upper-planning** for non-minimal paths.
 
 **What the assessor evaluates:**
 
@@ -318,11 +337,11 @@ Google reviews the assessment report and the app itself. This phase may involve:
 | M6 Apple signing          | 1–2 weeks (parallel)                                                   | —           |
 | M7 Consent screen         | 1 week                                                                 | 8–10 weeks  |
 | M8 Submit                 | same day                                                               | 8–10 weeks  |
-| M9 Security assessment    | 4–8 weeks                                                              | 12–18 weeks |
-| M10 Google review         | 4–6 weeks                                                              | 16–24 weeks |
+| M9 Security assessment    | 2–8 weeks — **CASA Tier 2** (e.g. TAC) often **~1–3 weeks** to LoV + remediation slack; longer if Tier 3 or heavy findings | 10–18 weeks (faster on CASA path) |
+| M10 Google review         | 4–6 weeks                                                              | 14–24 weeks |
 
 
-**Realistic total: 4–6 months from brand lock to Google approval**, assuming no re-submissions and no significant delays. **M2** is underway: a **Vercel** skeleton is live at `**https://braintunnel-www.vercel.app`**; remaining work is **custom domain**, **/privacy** + **/terms**, and a stable **canonical** origin for the consent screen.
+**Realistic total: ~3–6 months from brand lock to Google approval** if **M9** stays on a **CASA Tier 2** path (**~1–3 weeks** to LoV per TAC + remediation), and **4–6 months** if assessment or review slips. **M2** is underway: a **Vercel** skeleton is live at `**https://braintunnel-www.vercel.app`**; remaining work is **custom domain**, **/privacy** + **/terms**, and a stable **canonical** origin for the consent screen.
 
 ---
 
@@ -330,7 +349,7 @@ Google reviews the assessment report and the app itself. This phase may involve:
 
 1. **Scope set for v1 verification:** Gmail IMAP scopes only? Calendar alongside? Phased (Gmail first, add Calendar in a follow-on)?
 2. **Desktop-only or hosted?** For the initial verification submission, is the primary surface Braintunnel.app (local, downloaded DMG) or `staging.braintunnel.ai` (hosted)? Google reviewers need access to the app — a hosted instance is simpler for them to evaluate. **Public marketing / www** is in **[cirne/braintunnel-www](https://github.com/cirne/braintunnel-www)** (Vercel: `https://braintunnel-www.vercel.app` today; point `**braintunnel.ai`** when ready — M2).
-3. **Security assessment budget:** Have we allocated $15k–$75k? When do we need to engage an assessor relative to other milestones?
+3. **Security assessment budget and vendor:** For **CASA Tier 2**, plan on **~$500–$900+** list-style pricing (TAC: **~$720** as a contact data point; confirm with [TAC CASA](https://tacsecurity.com/google-casa-cloud-application-security-assessment/)). Reserve **$15k–$75k** only if Google requires **Tier 3** or a broader assessment than Tier 2 CASA. When do we engage **TAC (or another ADA lab)** relative to M8?
 4. **LLM subprocessors in privacy policy:** Which providers are named? Do the API terms of those providers allow Braintunnel's use case? (Most do for user-initiated assistant features; worth confirming.)
 5. **Multi-tenant data isolation:** For the hosted path, what is the isolation model between users? This is a primary assessor concern.
 
