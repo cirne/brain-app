@@ -70,11 +70,16 @@ export type ContentCardPreview =
       /** When JSON includes it, total FTS matches (may exceed `items`). */
       totalMatched?: number
     }
-  | {
+    | {
       kind: 'find_person_hits'
       /** Query string, or a plain label when query was empty (top contacts). */
       queryLine: string
       people: { name: string; email?: string }[]
+    }
+  | {
+      kind: 'feedback_draft'
+      /** Issue markdown (YAML front matter + body); rendered with {@link renderMarkdown}. */
+      markdown: string
     }
 
 /**

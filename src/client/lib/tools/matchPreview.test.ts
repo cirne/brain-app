@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchContentPreview } from './matchPreview.js'
+import { extractProductFeedbackDraftMarkdown, matchContentPreview } from './matchPreview.js'
 import type { ToolCall } from '../agentUtils.js'
 
 function tc(p: Partial<ToolCall> & Pick<ToolCall, 'name'>): ToolCall {
@@ -81,5 +81,46 @@ describe('matchContentPreview', () => {
     expect(prev?.kind).toBe('find_person_hits')
     if (prev?.kind !== 'find_person_hits') return
     expect(prev.queryLine).toContain('Top contacts')
+  })
+
+  it('product_feedback draft maps to feedback_draft with body markdown only', () => {
+    const body = '---\ntype: bug\ntitle: Test issue\n---\n\n## Summary\n\n- a'
+    const result =
+      'Feedback draft (show this to the user; do not save until they confirm):\n\n' + body
+    const prev = matchContentPreview(
+      tc({
+        name: 'product_feedback',
+        args: { op: 'draft' },
+        result,
+      }),
+    )
+    expect(prev?.kind).toBe('feedback_draft')
+    if (prev?.kind !== 'feedback_draft') return
+    expect(prev.markdown).toBe(body)
+  })
+
+  it('product_feedback non-draft result has no feedback_draft preview', () => {
+    const prev = matchContentPreview(
+      tc({
+        name: 'product_feedback',
+        args: { op: 'submit' },
+        result: 'Saved feedback as issue #1 (i-1.md)',
+      }),
+    )
+    expect(prev).toBeNull()
+  })
+})
+
+describe('extractProductFeedbackDraftMarkdown', () => {
+  it('returns markdown after the draft prefix', () => {
+    const md = '---\ntype: feature\ntitle: x\n---\n\nok'
+    const out = extractProductFeedbackDraftMarkdown(
+      'Feedback draft (show this to the user; do not save until they confirm):\n\n' + md,
+    )
+    expect(out).toBe(md)
+  })
+
+  it('returns null for other tool text', () => {
+    expect(extractProductFeedbackDraftMarkdown('Draft failed: no')).toBeNull()
   })
 })

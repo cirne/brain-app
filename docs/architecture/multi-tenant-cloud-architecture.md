@@ -35,6 +35,8 @@ We leverage the OS Page Cache and modern cloud block storage to provide a high-p
 - **Total Loss Recovery:** If a node or container is lost, the orchestrator simply attaches the tenant's persistent volume to a new container.
 - **Off-site Insurance:** For "Region-Down" scenarios, we use tools like **Litestream** (for SQLite) or **S3 Sync** (for files) to stream deltas to a different geographic region.
 
+**Self-host / B2B (idea):** For **one instance per customer** (e.g. SMB, VM + block volume + snapshots), the product expectation may treat **mail corpus + wiki** as the primary durables and **search indices** as **rebuildable** from mail; see [IDEA: Enterprise self-hosted Braintunnel](../ideas/IDEA-enterprise-self-hosted-braintunnel.md).
+
 ## Tenant Isolation & Security Guardrails
 
 **Deeper FS / agent isolation strategies** (micro-VM, POSIX UID, Landlock, directory FDs, `Workspace` jail) and the link to the open critical path-sandbox bug are in **[tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md)** ([BUG-012](../bugs/BUG-012-agent-tool-path-sandbox-escape.md)).

@@ -8,6 +8,7 @@
   import MessageThreadPreviewCard from '../cards/MessageThreadPreviewCard.svelte'
   import MailSearchHitsPreviewCard from '../cards/MailSearchHitsPreviewCard.svelte'
   import FindPersonHitsPreviewCard from '../cards/FindPersonHitsPreviewCard.svelte'
+  import FeedbackDraftPreviewCard from '../cards/FeedbackDraftPreviewCard.svelte'
   import type { ContentCardPreview } from '../cards/contentCards.js'
 
   let {
@@ -81,4 +82,6 @@
   />
 {:else if preview.kind === 'find_person_hits'}
   <FindPersonHitsPreviewCard queryLine={preview.queryLine} people={preview.people} />
+{:else if preview.kind === 'feedback_draft'}
+  <FeedbackDraftPreviewCard markdown={preview.markdown} />
 {/if}

@@ -20,6 +20,19 @@ import { pickReadEmailFields } from '../../../server/lib/readEmailPreview.js'
 import { searchIndexDetail } from './onboardingHelpers.js'
 import { parseFindPersonResultPeople } from './ripmailWhoParse.js'
 
+/** Prefix returned by `product_feedback` op=draft (see `tools.ts`); body after is issue markdown. */
+const PRODUCT_FEEDBACK_DRAFT_PREFIX =
+  'Feedback draft (show this to the user; do not save until they confirm):'
+
+/** Extract draft markdown from a completed `product_feedback` tool result, or null. */
+export function extractProductFeedbackDraftMarkdown(result: string): string | null {
+  const t = result.trimStart()
+  if (!t.startsWith(PRODUCT_FEEDBACK_DRAFT_PREFIX)) return null
+  const after = t.slice(PRODUCT_FEEDBACK_DRAFT_PREFIX.length).replace(/^\s*\n+/, '')
+  if (!after.trim()) return null
+  return after
+}
+
 function parseSearchIndexJsonResult(
   result: string,
 ): { items: MailSearchHitPreview[]; totalMatched?: number } | null {
@@ -279,6 +292,14 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
       }
     } catch {
       return null
+    }
+  }
+
+  if (name === 'product_feedback') {
+    const raw = typeof result === 'string' ? result : String(result)
+    const markdown = extractProductFeedbackDraftMarkdown(raw)
+    if (markdown) {
+      return { kind: 'feedback_draft', markdown }
     }
   }
 
