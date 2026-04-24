@@ -21,7 +21,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | `/api/imessage` | macOS iMessage/SMS tools when `chat.db` is readable |
 | `/api/messages` | Alias mount for the same iMessage router |
 | `/api/skills` | Slash skills / skill assets under `$BRAIN_HOME/skills` |
-| `/api/issues` | Local **feedback** queue (on-disk `issues/`) — `GET` list/fetch with `Authorization: Bearer` + `BRAIN_EMBED_MASTER_KEY` (single-tenant, trusted callers); `POST` draft/submit and the `product_feedback` tool need a vault session — [AGENTS.md](../../AGENTS.md) (OPP-048) |
+| `/api/issues` | **Feedback** issue queue: in multi-tenant mode, the embed key reads the **global** store (`$BRAIN_DATA_ROOT/.global/issues/`); with a user session, `GET` is that workspace’s `issues/`. `POST` submit and `product_feedback` also mirror to **`wiki/feedback/issue-<id>.md`**. `Authorization: Bearer` + `BRAIN_EMBED_MASTER_KEY` for operator triage (trusted callers) — [AGENTS.md](../../AGENTS.md) (OPP-048) |
 | `/api/onboarding` | Onboarding flow, ripmail setup hints |
 | `/api/background` | Background agent run history and control (wiki expansion) |
 | `/api/events` | **SSE** (`GET /`) — live `your_wiki` + `background_agents` snapshots and push for Hub (see [`hubEvents.ts`](../../src/server/routes/hubEvents.ts)) |

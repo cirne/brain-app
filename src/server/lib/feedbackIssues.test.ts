@@ -1,14 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
   getFeedbackIssueById,
   listFeedbackIssues,
   writeFeedbackIssue,
   writeFeedbackIssueFromMarkdown,
+  submitFeedbackMarkdown,
 } from './feedbackIssues.js'
-import { brainLayoutIssuesDir } from './brainLayout.js'
+import { ensureTenantHomeDir, tenantHomeDir } from './dataRoot.js'
+import { brainLayoutIssuesDir, brainLayoutWikiDir } from './brainLayout.js'
+import { runWithTenantContextAsync } from './tenantContext.js'
 
 let brainHome: string
 
@@ -68,5 +71,68 @@ Hello.`
     await writeFile(join(dir, 'junk.md'), 'x', 'utf-8')
     const list = await listFeedbackIssues(brainHome)
     expect(list).toHaveLength(0)
+  })
+
+  it('submitFeedbackMarkdown stores issue and wiki/feedback page (single-tenant)', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'fb-wiki-'))
+    try {
+      const md = `---
+type: bug
+title: Wiki ref
+---
+## Summary
+
+x`
+      let outId = 0
+      await runWithTenantContextAsync(
+        { tenantUserId: '_single', workspaceHandle: '_single', homeDir: home },
+        async () => {
+          const out = await submitFeedbackMarkdown(md)
+          outId = out.id
+        },
+      )
+      const wikiP = join(brainLayoutWikiDir(home), 'feedback', `issue-${outId}.md`)
+      const raw = await readFile(wikiP, 'utf-8')
+      expect(raw).toContain('Wiki ref')
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
+  })
+
+  it('submitFeedbackMarkdown (MT) writes .global, tenant issues copy, and wiki', async () => {
+    const prevRoot = process.env.BRAIN_DATA_ROOT
+    const root = await mkdtemp(join(tmpdir(), 'mt-fb-sub-'))
+    const tid = 'usr_mt_fb_test'
+    process.env.BRAIN_DATA_ROOT = root
+    delete process.env.BRAIN_HOME
+    ensureTenantHomeDir(tid)
+    const md = '---\ntype: bug\ntitle: T\n---\n\nb'
+    let outPath = ''
+    await runWithTenantContextAsync(
+      { tenantUserId: tid, workspaceHandle: 'h', homeDir: tenantHomeDir(tid) },
+      async () => {
+        const out = await submitFeedbackMarkdown(md)
+        outPath = out.path
+        expect(out.id).toBe(1)
+        expect(out.path.startsWith(join(root, '.global'))).toBe(true)
+      },
+    )
+    const tPath = join(brainLayoutIssuesDir(tenantHomeDir(tid)), basename(outPath))
+    const gText = await readFile(outPath, 'utf-8')
+    const tText = await readFile(tPath, 'utf-8')
+    expect(gText).toBe(tText)
+    expect(tText).toContain('reporter:')
+    expect(tText).toContain(tid)
+    const wikiP = join(brainLayoutWikiDir(tenantHomeDir(tid)), 'feedback', 'issue-1.md')
+    const w = await readFile(wikiP, 'utf-8')
+    expect(w).toContain('title: T')
+    const globalList = await listFeedbackIssues(join(root, '.global'))
+    expect(globalList).toHaveLength(1)
+    const tenantList = await listFeedbackIssues(tenantHomeDir(tid))
+    expect(tenantList).toHaveLength(1)
+
+    await rm(root, { recursive: true, force: true })
+    if (prevRoot === undefined) delete process.env.BRAIN_DATA_ROOT
+    else process.env.BRAIN_DATA_ROOT = prevRoot
   })
 })

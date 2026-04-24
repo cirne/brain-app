@@ -44,9 +44,8 @@ import { runRipmailRefreshForBrain } from '../lib/ripmailHeavySpawn.js'
 import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 import { resolveRipmailSourceForCli } from '../lib/ripmailSourceResolve.js'
-import { brainHome } from '../lib/brainHome.js'
 import { composeFeedbackIssueMarkdown } from '../lib/feedbackComposer.js'
-import { writeFeedbackIssueFromMarkdown } from '../lib/feedbackIssues.js'
+import { submitFeedbackMarkdown } from '../lib/feedbackIssues.js'
 
 const execAsync = promisify(exec)
 
@@ -1468,7 +1467,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           }
         }
         try {
-          const out = await writeFeedbackIssueFromMarkdown(brainHome(), md)
+          const out = await submitFeedbackMarkdown(md)
           return {
             content: [
               {

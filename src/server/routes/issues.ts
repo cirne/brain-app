@@ -1,11 +1,7 @@
 import { Hono } from 'hono'
 import { brainHome } from '../lib/brainHome.js'
 import { composeFeedbackIssueMarkdown } from '../lib/feedbackComposer.js'
-import {
-  getFeedbackIssueById,
-  listFeedbackIssues,
-  writeFeedbackIssueFromMarkdown,
-} from '../lib/feedbackIssues.js'
+import { getFeedbackIssueById, listFeedbackIssues, submitFeedbackMarkdown } from '../lib/feedbackIssues.js'
 
 const issues = new Hono()
 
@@ -39,9 +35,8 @@ issues.post('/submit', async c => {
   if (!markdown.trim()) {
     return c.json({ error: 'markdown is required' }, 400)
   }
-  const home = brainHome()
   try {
-    const out = await writeFeedbackIssueFromMarkdown(home, markdown)
+    const out = await submitFeedbackMarkdown(markdown)
     return c.json({ ok: true, id: out.id, filename: out.filename, path: out.path })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)

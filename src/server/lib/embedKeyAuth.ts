@@ -2,8 +2,8 @@ import { timingSafeEqual } from 'node:crypto'
 import type { Context } from 'hono'
 
 /**
- * Bearer token for local operator / automation only (e.g. `BRAIN_EMBED_MASTER_KEY`). Not a public
- * internet auth story — see OPP-048.
+ * Bearer token for operator / automation only (e.g. `BRAIN_EMBED_MASTER_KEY`). Serves the global
+ * issues list in multi-tenant mode — see OPP-048; not an end-user auth story.
  */
 export function getBearerToken(c: Context): string | null {
   const h = c.req.header('Authorization')?.trim()

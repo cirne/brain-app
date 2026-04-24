@@ -52,12 +52,8 @@ export async function vaultGateMiddleware(c: Context, next: Next): Promise<Respo
     return next()
   }
 
-  /** OPP-048: list/fetch issues with `BRAIN_EMBED_MASTER_KEY` (single-tenant / loopback tooling only). */
-  if (
-    !isMultiTenantMode() &&
-    isIssuesEmbedGetPath(path, method) &&
-    isValidEmbedKeyBearer(c)
-  ) {
+  /** OPP-048: list/fetch issues with `BRAIN_EMBED_MASTER_KEY` (operator / coding agent; global queue in MT). */
+  if (isIssuesEmbedGetPath(path, method) && isValidEmbedKeyBearer(c)) {
     return next()
   }
 

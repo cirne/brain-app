@@ -2,6 +2,8 @@ import type { Context, Next } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { resolveBrainHomeDiskRoot } from './brainHome.js'
 import { isMultiTenantMode, tenantHomeDir } from './dataRoot.js'
+import { isValidEmbedKeyBearer, isIssuesEmbedGetPath } from './embedKeyAuth.js'
+import { getGlobalFeedbackBrainHome } from './feedbackGlobalHome.js'
 import { readHandleMeta } from './handleMeta.js'
 import { runWithTenantContextAsync } from './tenantContext.js'
 import { lookupTenantBySession } from './tenantRegistry.js'
@@ -35,6 +37,15 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
 
   const path = c.req.path
   const method = c.req.method
+
+  if (isIssuesEmbedGetPath(path, method) && isValidEmbedKeyBearer(c)) {
+    const homeDir = getGlobalFeedbackBrainHome()
+    return runWithTenantContextAsync(
+      { tenantUserId: '_global', workspaceHandle: '_global', homeDir },
+      () => next(),
+    )
+  }
+
   const sid = getCookie(c, BRAIN_SESSION_COOKIE)
   const tenantUserId = await lookupTenantBySession(sid)
   if (tenantUserId) {

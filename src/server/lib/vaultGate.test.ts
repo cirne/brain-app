@@ -11,6 +11,7 @@ import { ensureTenantHomeDir, tenantHomeDir } from './dataRoot.js'
 import { registerSessionTenant } from './tenantRegistry.js'
 import { createVaultSession } from './vaultSessionStore.js'
 import { runWithTenantContextAsync } from './tenantContext.js'
+import issuesRoute from '../routes/issues.js'
 
 let brainHome: string
 
@@ -90,6 +91,32 @@ describe('vaultGateMiddleware (multi-tenant)', () => {
     const j = (await res.json()) as { error?: string }
     expect(j.error).toBe('tenant_required')
 
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('allows GET /api/issues with embed key and no session (MT)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'vg-embed-'))
+    const prev = process.env.BRAIN_DATA_ROOT
+    const prevK = process.env.BRAIN_EMBED_MASTER_KEY
+    process.env.BRAIN_DATA_ROOT = root
+    process.env.BRAIN_EMBED_MASTER_KEY = 'test-embed-issues-key'
+
+    const app = new Hono()
+    app.use('/api/*', tenantMiddleware)
+    app.use('/api/*', vaultGateMiddleware)
+    app.route('/api/issues', issuesRoute)
+
+    const res = await app.request('http://127.0.0.1/api/issues', {
+      headers: { Authorization: 'Bearer test-embed-issues-key' },
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { issues: unknown[] }
+    expect(j.issues).toEqual([])
+
+    if (prev === undefined) delete process.env.BRAIN_DATA_ROOT
+    else process.env.BRAIN_DATA_ROOT = prev
+    if (prevK === undefined) delete process.env.BRAIN_EMBED_MASTER_KEY
+    else process.env.BRAIN_EMBED_MASTER_KEY = prevK
     await rm(root, { recursive: true, force: true })
   })
 })

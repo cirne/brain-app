@@ -1,3 +1,4 @@
+import matter from 'gray-matter'
 import { marked } from 'marked'
 import { transformWikiPageHtml } from './wikiPageHtml.js'
 
@@ -53,6 +54,59 @@ export function takeFirstLines(text: string, maxLines: number): string {
 // LLM emits [display text](wiki:path) → marked → transformWikiPageHtml turns wiki: + [[wikilinks]] into data-wiki links.
 const DATE_LINK_RE = /<a href="date:(\d{4}-\d{2}-\d{2})">([\s\S]*?)<\/a>/g
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function applyDateLinkButtons(html: string): string {
+  return html.replace(DATE_LINK_RE, '<button class="date-link" data-date="$1">$2</button>')
+}
+
+/** Renders a visible header for product-feedback issue markdown (bug/feature + title; optional appHint). DRY: single place for chat + wiki `renderMarkdown`. */
+export function buildFeedbackIssueHeaderHtml(input: { kind: 'bug' | 'feature'; title: string; appHint?: string }): string {
+  const label = input.kind === 'bug' ? 'Bug' : 'Feature'
+  const typeClass = input.kind === 'bug' ? 'md-fm-type--bug' : 'md-fm-type--feature'
+  const hint =
+    input.appHint?.trim() ?
+      `<div class="md-fm-hint">${escapeHtml(input.appHint.trim())}</div>`
+    : ''
+  return (
+    `<div class="md-fm-meta" role="group" aria-label="Feedback issue">` +
+    `<span class="md-fm-type ${typeClass}">${label}</span>` +
+    `<div class="md-fm-title">${escapeHtml(input.title.trim())}</div>` +
+    `${hint}</div>`
+  )
+}
+
+function feedbackHeaderFromMatterData(data: Record<string, unknown>): string | null {
+  const t = data.type
+  const title = data.title
+  if (typeof t !== 'string' || typeof title !== 'string' || !title.trim()) return null
+  const kind = t.trim().toLowerCase()
+  if (kind !== 'bug' && kind !== 'feature') return null
+  const hint = typeof data.appHint === 'string' ? data.appHint : undefined
+  return buildFeedbackIssueHeaderHtml({ kind: kind as 'bug' | 'feature', title, appHint: hint })
+}
+
+const INLINE_BUG_FEATURE_TITLE_RE = /^type:\s*(bug|feature)\s+title:\s*(.+)$/i
+
+/** When the model omits `---` and emits one line: `type: bug title: …` */
+function trySplitInlineFeedbackLead(body: string): { header: string; rest: string } | null {
+  const lines = body.split(/\r?\n/)
+  const first = (lines[0] ?? '').trim()
+  const m = first.match(INLINE_BUG_FEATURE_TITLE_RE)
+  if (!m) return null
+  const kind = m[1].toLowerCase() as 'bug' | 'feature'
+  const title = m[2].trim()
+  if (!title) return null
+  const rest = lines.slice(1).join('\n').replace(/^\n+/, '')
+  return { header: buildFeedbackIssueHeaderHtml({ kind, title }), rest }
+}
+
 /**
  * Markdown body (no YAML front matter) → HTML: `marked` + Obsidian `[[links]]` + `wiki:` href handling.
  * Use this anywhere we show markdown as HTML (chat, wiki cards, TipTap editor) so wikilinks behave consistently.
@@ -64,9 +118,23 @@ export function renderMarkdownBody(body: string): string {
 
 export function renderMarkdown(text: string): string {
   try {
-    const body = stripFrontMatter(text)
-    const withWiki = renderMarkdownBody(body)
-    return withWiki.replace(DATE_LINK_RE, '<button class="date-link" data-date="$1">$2</button>')
+    let body: string
+    let header: string | null = null
+    try {
+      const { data, content } = matter(text)
+      body = content
+      header = feedbackHeaderFromMatterData(data as Record<string, unknown>)
+    } catch {
+      body = stripFrontMatter(text)
+    }
+    if (!header) {
+      const split = trySplitInlineFeedbackLead(body)
+      if (split) {
+        header = split.header
+        body = split.rest
+      }
+    }
+    return (header ?? '') + applyDateLinkButtons(renderMarkdownBody(body))
   } catch {
     return text
   }

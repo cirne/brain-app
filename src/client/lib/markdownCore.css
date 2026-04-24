@@ -115,3 +115,50 @@
 :is(.wiki-md, .streaming-agent-md) th {
   background: var(--bg-3);
 }
+
+/* Feedback issue frontmatter (renderMarkdown): type badge + title above body */
+:is(.wiki-md, .streaming-agent-md) .md-fm-meta {
+  margin: 0 0 0.85em;
+  padding: 0 0 0.75em;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4em;
+}
+
+:is(.wiki-md, .streaming-agent-md) .md-fm-type {
+  display: inline-block;
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.2em 0.55em;
+  border-radius: 4px;
+  line-height: 1.2;
+}
+
+:is(.wiki-md, .streaming-agent-md) .md-fm-type--bug {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+:is(.wiki-md, .streaming-agent-md) .md-fm-type--feature {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+:is(.wiki-md, .streaming-agent-md) .md-fm-title {
+  font-size: 1.15em;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+  margin: 0;
+}
+
+:is(.wiki-md, .streaming-agent-md) .md-fm-hint {
+  font-size: 0.88em;
+  line-height: 1.4;
+  color: var(--text-2);
+  margin: 0;
+}

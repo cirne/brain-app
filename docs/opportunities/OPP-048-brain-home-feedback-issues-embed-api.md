@@ -8,7 +8,7 @@ Ship a **default `/feedback` skill** so users can submit **bugs or feature reque
 
 **Related:** [OPP-012](OPP-012-brain-home-data-layout.md) (`BRAIN_HOME`, `shared/brain-layout.json`); [archived OPP-030](archive/OPP-030-agent-driven-support-bug-to-pr.md) (full snag→PR automation deprioritized—this is a **narrow, local-first** step); [docs/BUGS.md](../BUGS.md) (triage target).
 
-**Status:** Proposed.
+**Status:** Proposed; core pieces shipped. **Global queue** in multi-tenant: canonical files under `$BRAIN_DATA_ROOT/.global/issues/`; per-user copy under each tenant’s `issues/`; **`wiki/feedback/issue-<id>.md`** in the reporter’s vault wiki; `GET` with `BRAIN_EMBED_MASTER_KEY` lists the global namespace.
 
 ---
 

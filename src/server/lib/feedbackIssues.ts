@@ -1,8 +1,16 @@
-import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises'
+import { copyFile, readFile, readdir, writeFile, mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { existsSync } from 'node:fs'
 import matter from 'gray-matter'
 import { brainLayoutIssuesDir, brainLayoutIssuesCounterPath } from './brainLayout.js'
+import { isMultiTenantMode } from './dataRoot.js'
+import {
+  getCanonicalFeedbackBrainHomeForSubmit,
+  ensureCanonicalFeedbackLayoutForSubmit,
+} from './feedbackGlobalHome.js'
+import { tryGetTenantContext } from './tenantContext.js'
+import { wikiDir } from './wikiDir.js'
+import { appendWikiEditRecord } from './wikiEditHistory.js'
 
 const ISSUE_FILE_RE = /^(\d{4}-\d{2}-\d{2}T[\d:.]+Z)-issue-(\d+)\.md$/
 
@@ -104,6 +112,7 @@ export async function writeFeedbackIssue(
 export async function writeFeedbackIssueFromMarkdown(
   home: string,
   fullMarkdown: string,
+  options?: { extraFrontmatter?: Record<string, unknown> },
 ): Promise<{ id: number; path: string; filename: string }> {
   const parsed = matter(fullMarkdown)
   const id = await allocateIssueId(home)
@@ -116,6 +125,7 @@ export async function writeFeedbackIssueFromMarkdown(
     ...(typeof parsed.data === 'object' && parsed.data != null
       ? (parsed.data as Record<string, unknown>)
       : {}),
+    ...(options?.extraFrontmatter ?? {}),
     issueId: id,
     createdAt: String(createdAt),
   }
@@ -130,6 +140,46 @@ export async function writeFeedbackIssueFromMarkdown(
   await mkdir(dir, { recursive: true })
   await writeFile(path, out, 'utf-8')
   return { id, path, filename }
+}
+
+/**
+ * Write the canonical global issue, optional per-tenant `issues/` copy (MT), and a wiki page for the user.
+ */
+export async function submitFeedbackMarkdown(
+  fullMarkdown: string,
+): Promise<{ id: number; path: string; filename: string }> {
+  await ensureCanonicalFeedbackLayoutForSubmit()
+  const globalHome = getCanonicalFeedbackBrainHomeForSubmit()
+  const ctx = tryGetTenantContext()
+  const extra: Record<string, unknown> = {}
+  if (ctx && ctx.tenantUserId && ctx.tenantUserId !== '_single' && ctx.tenantUserId !== '_global') {
+    extra.reporter = ctx.tenantUserId
+  }
+  const out = await writeFeedbackIssueFromMarkdown(
+    globalHome,
+    fullMarkdown,
+    Object.keys(extra).length > 0 ? { extraFrontmatter: extra } : undefined,
+  )
+
+  if (isMultiTenantMode() && ctx && ctx.tenantUserId && ctx.tenantUserId !== '_global') {
+    const tenantIssues = brainLayoutIssuesDir(ctx.homeDir)
+    await mkdir(tenantIssues, { recursive: true })
+    await copyFile(out.path, join(tenantIssues, out.filename))
+  }
+
+  try {
+    const wroot = wikiDir()
+    const rel = `feedback/issue-${out.id}.md`
+    const abs = join(wroot, rel)
+    const body = await readFile(out.path, 'utf-8')
+    await mkdir(join(wroot, 'feedback'), { recursive: true })
+    await writeFile(abs, body, 'utf-8')
+    await appendWikiEditRecord(wroot, 'write', rel, { source: 'user' })
+  } catch (e) {
+    console.error('[feedback] wiki archive write failed:', e)
+  }
+
+  return out
 }
 
 export async function listFeedbackIssues(home: string): Promise<IssueListItem[]> {

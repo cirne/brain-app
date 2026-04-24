@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  buildFeedbackIssueHeaderHtml,
   renderMarkdown,
   renderMarkdownBody,
   stripFrontMatter,
@@ -69,6 +70,43 @@ Name`
     expect(result).not.toContain('type: user-profile')
     expect(result).toContain('<h1>Lewis Cirne</h1>')
     expect(result).toContain('<p>Name</p>')
+    expect(result).not.toContain('md-fm-meta')
+  })
+
+  it('renders feedback issue (bug) front matter as a header, not a raw yaml paragraph', () => {
+    const raw = `---
+type: bug
+title: Resume does not restart agent
+appHint: Braintunnel 0.1
+---
+## Summary
+
+- Something`
+    const result = renderMarkdown(raw)
+    expect(result).toContain('md-fm-meta')
+    expect(result).toContain('md-fm-type--bug')
+    expect(result).toContain('>Bug</span>')
+    expect(result).toContain('Resume does not restart agent')
+    expect(result).toContain('Braintunnel 0.1')
+    expect(result).not.toContain('type: bug')
+    expect(result).toContain('<h2>Summary</h2>')
+  })
+
+  it('renders single-line type/title (no ---) as the same header', () => {
+    const raw = `type: bug title: Resume does not restart paused background agent in Braintunnel hub
+
+## Summary
+
+- x`
+    const result = renderMarkdown(raw)
+    expect(result).toContain('md-fm-meta')
+    expect(result).toContain('paused background agent in Braintunnel hub')
+  })
+
+  it('escapes HTML in buildFeedbackIssueHeaderHtml title', () => {
+    const h = buildFeedbackIssueHeaderHtml({ kind: 'bug', title: '<x>' })
+    expect(h).toContain('&lt;x&gt;')
+    expect(h).not.toContain('<x>')
   })
 })
 
