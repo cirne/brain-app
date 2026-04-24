@@ -64,6 +64,9 @@
   )
   const wikiIsPaused = $derived(wikiPhase === 'paused')
 
+  /** Match BrainHubWidget / Your Wiki header: `pageCount` from the supervisor doc; `/api/wiki` only until events load. */
+  const wikiPageCount = $derived(wikiDoc != null ? wikiDoc.pageCount : docCount)
+
   function wikiPathBasename(rel: string): string {
     const parts = rel.replace(/\\/g, '/').split('/').filter(Boolean)
     return parts[parts.length - 1] ?? rel
@@ -138,7 +141,7 @@
           const short = wikiDoc.idleReason.split(/\s*[—–-]\s*/)[0]?.trim() ?? wikiDoc.idleReason
           return lastLine ? `${short} · ${lastLine}` : short
         }
-        return lastLine ?? (docCount != null ? `${docCount} pages in your wiki` : 'Ready when you are')
+        return lastLine ?? (wikiPageCount != null ? `${wikiPageCount} pages in your wiki` : 'Ready when you are')
       default:
         return lastLine ?? (wikiDoc.detail || '…')
     }
@@ -497,9 +500,9 @@
         <span
           class="wiki-header-metrics"
           aria-live="polite"
-          aria-label={docCount != null ? `${docCount} pages` : 'Page count loading'}
+          aria-label={wikiPageCount != null ? `${wikiPageCount} pages` : 'Page count loading'}
         >
-          <span class="wiki-header-count" aria-hidden="true">{docCount ?? '—'}</span>
+          <span class="wiki-header-count" aria-hidden="true">{wikiPageCount ?? '—'}</span>
           <span class="wiki-header-count-label" aria-hidden="true">pages</span>
         </span>
       </div>

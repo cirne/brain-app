@@ -1,4 +1,4 @@
-# Local / staging: Brain in Docker with durable BRAIN_DATA_ROOT (multi-tenant volume) on a volume.
+# Local / staging: Brain in Docker with durable BRAIN_DATA_ROOT in a Docker named volume (not a host path / external drive).
 # Usage: copy .env.example → .env, set API keys, then:
 #   npm run docker:up   (prebuilds Linux ripmail on host or via rust:bookworm, then compose --build)
 #

@@ -24,6 +24,10 @@ import {
   takeOAuthVerifier,
 } from '../lib/gmailOAuthState.js'
 import {
+  readOnboardingPreferences,
+  saveOnboardingPreferences,
+} from '../lib/onboardingPreferences.js'
+import {
   recordGoogleOauthError,
   recordGoogleOauthSuccess,
   takeGoogleOauthDesktopResult,
@@ -46,6 +50,16 @@ function redirectOauthError(c: Context, message: string) {
   recordGoogleOauthError(message)
   const q = encodeURIComponent(message)
   return c.redirect(`/oauth/google/error?reason=${q}`, 302)
+}
+
+/** So onboarding “Getting to know you” copy matches Gmail, including flows that skip PATCH /preferences. */
+async function persistGoogleMailProviderPreference(): Promise<void> {
+  try {
+    const prev = await readOnboardingPreferences()
+    await saveOnboardingPreferences({ ...prev, mailProvider: 'google' })
+  } catch (e) {
+    console.error('[oauth/google] could not set onboarding mailProvider=google', e)
+  }
 }
 
 app.get('/start', (c) => {
@@ -153,6 +167,7 @@ app.get('/callback', async (c) => {
         const msg = e instanceof Error ? e.message : String(e)
         return redirectOauthError(c, msg)
       }
+      await persistGoogleMailProviderPreference()
       const sessionId = await createVaultSession()
       await registerSessionTenant(sessionId, tenantUserId)
       setBrainSessionCookie(c, sessionId)
@@ -171,6 +186,7 @@ app.get('/callback', async (c) => {
     const msg = e instanceof Error ? e.message : String(e)
     return redirectOauthError(c, msg)
   }
+  await persistGoogleMailProviderPreference()
   recordGoogleOauthSuccess()
   return c.redirect('/oauth/google/complete', 302)
 })

@@ -125,12 +125,12 @@
 
   const indexingLeadParagraph = $derived.by(() => {
     if (mailProviderPref === 'google') {
-      return 'We’re downloading your recent Gmail into Braintunnel so we can build your profile. Hang tight.'
+      return 'We’re downloading your Gmail into Braintunnel so we can build your profile. Hang tight.'
     }
     if (mailProviderPref === 'apple' && appleLocalIntegrationsAvailable) {
-      return 'We’re copying your recent messages from Apple Mail into Braintunnel so we can build your profile. Hang tight.'
+      return 'We’re copying your messages from Apple Mail into Braintunnel so we can build your profile. Hang tight.'
     }
-    return 'We’re copying your recent messages into Braintunnel so we can build your profile. Hang tight.'
+    return 'We’re connecting Braintunnel to your email so we can build your profile. Hang tight.'
   })
 
   const showIndexingHero = $derived(
@@ -299,6 +299,7 @@
     setupError = null
     try {
       await patchOnboardingPreferences('google')
+      mailProviderPref = 'google'
     } catch {
       /* non-fatal */
     }
@@ -354,6 +355,7 @@
     await tick()
     try {
       await patchOnboardingPreferences('apple')
+      mailProviderPref = 'apple'
       const r = await postSetupAppleMail()
       if (!r.ok) {
         setupError = r.error

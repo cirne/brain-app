@@ -126,6 +126,10 @@ describe('GET /api/oauth/google/callback', () => {
     expect(cfg.sources.find((s) => s.id === 'user_gmail_com')?.imapAuth).toBe(
       'googleOAuth'
     )
+
+    const { readOnboardingPreferences } = await import('../lib/onboardingPreferences.js')
+    const prefs = await readOnboardingPreferences()
+    expect(prefs.mailProvider).toBe('google')
   })
 
   it('redirects on invalid state', async () => {
@@ -258,6 +262,16 @@ describe('GET /api/oauth/google/callback', () => {
         'google-oauth.json',
       )
       expect(existsSync(tokenPath)).toBe(true)
+
+      const { brainLayoutChatsDir } = await import('../lib/brainLayout.js')
+      const prefsPath = join(
+        brainLayoutChatsDir(join(mtRoot, tenantUserId!)),
+        'onboarding',
+        'preferences.json',
+      )
+      const prefsRaw = await readFile(prefsPath, 'utf8')
+      const prefs = JSON.parse(prefsRaw) as { mailProvider?: string }
+      expect(prefs.mailProvider).toBe('google')
     })
   })
 })

@@ -116,7 +116,7 @@ function formatRipmailCommandLine(parts: string[]): string {
 }
 
 /**
- * Human-oriented ripmail logs: full command on one line, then a JSON object of metadata
+ * Human-oriented ripmail logs: one line with the full command and compact inline JSON metadata
  * (`argv` is only on the command line, not repeated in JSON).
  */
 function logRipmailLine(payload: Record<string, unknown>): void {
@@ -125,8 +125,7 @@ function logRipmailLine(payload: Record<string, unknown>): void {
   const cmdLine = parts.length > 0 ? formatRipmailCommandLine(parts) : '(ripmail argv missing)'
   const { argv: _omitArgv, ...meta } = payload
   const doc = { tag: '[ripmail]', ...meta }
-  console.log(`[ripmail] ${cmdLine}`)
-  console.log(JSON.stringify(doc, null, 2))
+  console.log(`[ripmail] ${cmdLine} ${JSON.stringify(doc)}`)
 }
 
 /**
