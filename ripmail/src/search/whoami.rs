@@ -353,7 +353,7 @@ mod tests {
         let mb_id = "mb1";
 
         // A message where the owner sends (so their from_name is recorded).
-        let p = ParsedMessage {
+        let mut p = ParsedMessage {
             message_id: "mid@1".into(),
             from_address: "me@example.com".into(),
             from_name: Some("Morgan Example".into()),
@@ -369,17 +369,17 @@ mod tests {
             category: None,
             ..Default::default()
         };
-        persist_message(&conn, &p, "INBOX", mb_id, 1, "[]", "a.eml").unwrap();
+        persist_message(&conn, &mut p, "INBOX", mb_id, 1, "[]", "a.eml").unwrap();
 
         // Several received messages addressed to the owner — establishes them as primary.
         for i in 0..5 {
-            let p = recv_msg(
+            let mut p = recv_msg(
                 &format!("r{i}@t"),
                 "sender@other.com",
                 "Sender",
                 &["me@example.com"],
             );
-            persist_message(&conn, &p, "INBOX", mb_id, 10 + i, "[]", "r.eml").unwrap();
+            persist_message(&conn, &mut p, "INBOX", mb_id, 10 + i, "[]", "r.eml").unwrap();
         }
 
         let r = whoami(
@@ -406,32 +406,32 @@ mod tests {
 
         // "heavy" sends 40 messages from this mailbox but receives none addressed to them.
         for i in 0..40 {
-            let p = recv_msg(
+            let mut p = recv_msg(
                 &format!("s{i}@t"),
                 "heavy@example.com",
                 "Heavy Sender",
                 &["x@y.com"],
             );
-            persist_message(&conn, &p, "INBOX", mb_id, i, "[]", "s.eml").unwrap();
+            persist_message(&conn, &mut p, "INBOX", mb_id, i, "[]", "s.eml").unwrap();
         }
         // "light" only sends 3, but receives 10 messages addressed directly to them.
         for i in 0..3 {
-            let p = recv_msg(
+            let mut p = recv_msg(
                 &format!("ls{i}@t"),
                 "light@example.com",
                 "Light User",
                 &["x@y.com"],
             );
-            persist_message(&conn, &p, "INBOX", mb_id, 100 + i, "[]", "ls.eml").unwrap();
+            persist_message(&conn, &mut p, "INBOX", mb_id, 100 + i, "[]", "ls.eml").unwrap();
         }
         for i in 0..10 {
-            let p = recv_msg(
+            let mut p = recv_msg(
                 &format!("lr{i}@t"),
                 "someone@other.com",
                 "Someone",
                 &["light@example.com"],
             );
-            persist_message(&conn, &p, "INBOX", mb_id, 200 + i, "[]", "lr.eml").unwrap();
+            persist_message(&conn, &mut p, "INBOX", mb_id, 200 + i, "[]", "lr.eml").unwrap();
         }
 
         let mut mb = mb_fixture(mb_id, "heavy@example.com");
@@ -461,32 +461,32 @@ mod tests {
 
         // Kirsten sends 50 messages (from within Lewis's shared Mail.app).
         for i in 0..50 {
-            let p = recv_msg(
+            let mut p = recv_msg(
                 &format!("k{i}@t"),
                 "kirsten@mac.com",
                 "Kirsten Vliet",
                 &["someone@other.com"],
             );
-            persist_message(&conn, &p, "INBOX", mb_id, i, "[]", "k.emlx").unwrap();
+            persist_message(&conn, &mut p, "INBOX", mb_id, i, "[]", "k.emlx").unwrap();
         }
         // Lewis sends only 13, but his inbox receives 200 messages addressed to him.
         for i in 0..13 {
-            let p = recv_msg(
+            let mut p = recv_msg(
                 &format!("ls{i}@t"),
                 "lewis@mac.com",
                 "Lewis",
                 &["someone@other.com"],
             );
-            persist_message(&conn, &p, "INBOX", mb_id, 100 + i, "[]", "ls.emlx").unwrap();
+            persist_message(&conn, &mut p, "INBOX", mb_id, 100 + i, "[]", "ls.emlx").unwrap();
         }
         for i in 0..200 {
-            let p = recv_msg(
+            let mut p = recv_msg(
                 &format!("lr{i}@t"),
                 "sender@other.com",
                 "Sender",
                 &["lewis@mac.com"],
             );
-            persist_message(&conn, &p, "INBOX", mb_id, 200 + i, "[]", "lr.emlx").unwrap();
+            persist_message(&conn, &mut p, "INBOX", mb_id, 200 + i, "[]", "lr.emlx").unwrap();
         }
 
         let mut mb = mb_fixture(mb_id, "lewis@mac.com");

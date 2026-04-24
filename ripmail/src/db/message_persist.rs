@@ -7,6 +7,7 @@ use rusqlite::types::Value;
 use rusqlite::{params, params_from_iter, CachedStatement, Connection, Transaction};
 
 use crate::mail_category::{is_default_excluded_category, label_to_category};
+use crate::sync::ingest_date::apply_mailbox_index_date_normalization;
 use crate::sync::{MailboxEntry, ParsedAttachment, ParsedMessage};
 
 const SQL_INSERT_MESSAGE: &str = "INSERT INTO messages (
@@ -210,13 +211,16 @@ impl<'conn> RebuildWriter<'conn> {
 /// Other errors (schema, FTS trigger, etc.) propagate.
 pub fn persist_message(
     conn: &Connection,
-    parsed: &ParsedMessage,
+    parsed: &mut ParsedMessage,
     imap_folder: &str,
     source_id: &str,
     uid: i64,
     labels: &str,
     raw_path: &str,
 ) -> rusqlite::Result<bool> {
+    if !apply_mailbox_index_date_normalization(conn, source_id, parsed, raw_path)? {
+        return Ok(false);
+    }
     let (category, to_json, cc_json, to_rec_json, cc_rec_json) =
         message_insert_params(parsed, labels);
     let list_like = list_like_for_store(parsed, labels);
@@ -312,7 +316,7 @@ mod tests {
     #[test]
     fn persist_and_fts() {
         let conn = open_memory().unwrap();
-        let p = ParsedMessage {
+        let mut p = ParsedMessage {
             message_id: "<t@1>".into(),
             from_address: "from@x.com".into(),
             from_name: None,
@@ -328,7 +332,7 @@ mod tests {
             category: None,
             ..Default::default()
         };
-        assert!(persist_message(&conn, &p, "INBOX", "test_mb", 1, "[]", "/tmp/x").unwrap());
+        assert!(persist_message(&conn, &mut p, "INBOX", "test_mb", 1, "[]", "/tmp/x").unwrap());
         let n: i64 = conn
             .query_row("SELECT COUNT(*) FROM messages", [], |row| row.get(0))
             .unwrap();
@@ -340,7 +344,7 @@ mod tests {
     #[test]
     fn persist_duplicate_message_id_returns_false() {
         let conn = open_memory().unwrap();
-        let p = ParsedMessage {
+        let mut p = ParsedMessage {
             message_id: "<dup@x>".into(),
             from_address: "a@b.com".into(),
             from_name: None,
@@ -356,8 +360,8 @@ mod tests {
             category: None,
             ..Default::default()
         };
-        assert!(persist_message(&conn, &p, "Apple Mail", "mb", 1, "[]", "/a").unwrap());
-        assert!(!persist_message(&conn, &p, "Apple Mail", "mb", 2, "[]", "/b").unwrap());
+        assert!(persist_message(&conn, &mut p, "Apple Mail", "mb", 1, "[]", "/a").unwrap());
+        assert!(!persist_message(&conn, &mut p, "Apple Mail", "mb", 2, "[]", "/b").unwrap());
         let n: i64 = conn
             .query_row("SELECT COUNT(*) FROM messages", [], |row| row.get(0))
             .unwrap();
@@ -367,7 +371,7 @@ mod tests {
     #[test]
     fn uids_already_indexed_batch() {
         let conn = open_memory().unwrap();
-        let p = ParsedMessage {
+        let mut p = ParsedMessage {
             message_id: "<u1@x>".into(),
             from_address: "a@b.com".into(),
             from_name: None,
@@ -383,7 +387,7 @@ mod tests {
             category: None,
             ..Default::default()
         };
-        persist_message(&conn, &p, "Apple Mail", "mb", 100, "[]", "/a").unwrap();
+        persist_message(&conn, &mut p, "Apple Mail", "mb", 100, "[]", "/a").unwrap();
         let set = uids_already_indexed(&conn, "mb", &[100, 200, 300]).unwrap();
         assert_eq!(set.len(), 1);
         assert!(set.contains(&100));

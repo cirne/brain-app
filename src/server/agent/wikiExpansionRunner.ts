@@ -61,7 +61,7 @@ Do **not** mint pages for **ephemeral** chit-chat, one-off scheduling lines, gen
 - Keep pages brief. Narrate briefly as you go.`
 
 /** System prompt for the **cleanup** phase — separate agent from buildout; runs after each enrich pass in the same lap. */
-function buildCleanupSystemPrompt(timezone: string): string {
+export function buildCleanupSystemPrompt(timezone: string): string {
   const dateCtx = buildDateContext(timezone)
   return `You are a wiki cleanup agent for a private personal wiki (Obsidian-style vault). You run **after** the wiki buildout pass (a different agent that has \`write\` but not vault \`grep\`/\`find\`). Your job is **vault hygiene and light fixes** — not new content pages. You have \`read\`, \`grep\`, \`find\`, and \`edit\` tools.
 

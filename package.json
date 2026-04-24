@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/run-dev.mjs",
+    "dev:eval": "node scripts/run-dev-eval.mjs",
+    "dev:eval:clean": "node scripts/clean-eval-brain.mjs",
     "dev:multitenant": "node scripts/run-dev-multitenant.mjs",
     "dev:desktop-home": "node scripts/run-dev-desktop-home.mjs",
     "dev:kill": "for p in $(lsof -ti :3000 2>/dev/null); do kill -9 \"$p\"; done",
@@ -40,7 +42,12 @@
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f brain",
     "docker:publish": "bash scripts/docker-publish-do.sh",
-    "docker:build:arm64": "DOCKER_PLATFORM=linux/arm64 npm run docker:ripmail:build && docker buildx build --platform linux/arm64 -f Dockerfile -t brain-app:arm64-local --load ."
+    "docker:build:arm64": "DOCKER_PLATFORM=linux/arm64 npm run docker:ripmail:build && docker buildx build --platform linux/arm64 -f Dockerfile -t brain-app:arm64-local --load .",
+    "eval:build": "node scripts/eval/build-enron-kean.mjs",
+    "eval:run": "BRAIN_HOME=./data-eval/brain vitest run --config vitest.eval.config.ts",
+    "eval:run:assistant": "BRAIN_HOME=./data-eval/brain vitest run --config vitest.eval.config.ts src/server/evals/assistant",
+    "eval:run:enron": "BRAIN_HOME=./data-eval/brain npx tsx src/server/evals/enronV1cli.ts",
+    "eval:run:wiki": "BRAIN_HOME=./data-eval/brain npx tsx src/server/evals/wikiV1cli.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",
@@ -57,6 +64,7 @@
     "hono": "^4.12.14",
     "marked": "^15.0.0",
     "newrelic": "^13.19.2",
+    "p-limit": "^4.0.0",
     "papaparse": "^5.5.3",
     "qrcode": "^1.5.4",
     "selfsigned": "^2.4.1",

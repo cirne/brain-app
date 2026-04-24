@@ -1,0 +1,143 @@
+import { existsSync, mkdirSync } from 'node:fs'
+import { writeFile } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import pLimit from 'p-limit'
+import { addLlmUsage, isZeroUsage, type LlmUsageSnapshot } from '../../lib/llmUsage.js'
+import { hasAnyLlmKey, parseEvalMaxConcurrency } from './llmPreflight.js'
+import type { RunAgentEvalCaseResult } from './runAgentEvalCase.js'
+
+const ZERO: LlmUsageSnapshot = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  totalTokens: 0,
+  costTotal: 0,
+}
+
+/** harness/ -> evals/ -> server/ -> src/ -> repo root (used by Enron/wiki JSONL CLIs) */
+export function getEvalRepoRoot(): string {
+  return fileURLToPath(new URL('../../../..', import.meta.url))
+}
+
+export type LlmJsonlEvalConfig<TTask> = {
+  logPrefix: string
+  /** Used in report filename: `${outSlug}-<timestamp>.json` */
+  outSlug: string
+  resolveTaskFilePath: (root: string) => string
+  loadTasks: (absPath: string) => Promise<TTask[]>
+  runCase: (task: TTask) => Promise<RunAgentEvalCaseResult>
+  defaultMaxConcurrency: number
+  /** Per-case line after a run (stdout). */
+  formatCaseLogLine: (r: RunAgentEvalCaseResult) => string
+  caseToReport: (c: RunAgentEvalCaseResult, task: TTask, index: number) => Record<string, unknown>
+  noLlmKeyMessage: string
+  ripIndexHint: string
+}
+
+export async function runLlmJsonlEvalMain<TTask>(config: LlmJsonlEvalConfig<TTask>): Promise<void> {
+  const {
+    logPrefix,
+    outSlug,
+    resolveTaskFilePath,
+    loadTasks,
+    runCase,
+    defaultMaxConcurrency,
+    formatCaseLogLine,
+    caseToReport,
+    noLlmKeyMessage,
+    ripIndexHint,
+  } = config
+
+  const root = getEvalRepoRoot()
+  const defaultBrain = join(root, 'data-eval', 'brain')
+  const brain = process.env.BRAIN_HOME ? resolve(process.env.BRAIN_HOME) : defaultBrain
+  const rip = join(brain, 'ripmail', 'ripmail.db')
+  process.env.BRAIN_HOME = brain
+
+  const tasksPath = resolveTaskFilePath(root)
+
+  if (!existsSync(tasksPath)) {
+    console.error(`${logPrefix} Task file not found: ${tasksPath}`)
+    process.exit(1)
+  }
+  if (!existsSync(rip)) {
+    console.error(`${logPrefix} ripmail index missing. ${ripIndexHint} (expected ${rip})`)
+    process.exit(1)
+  }
+  if (!hasAnyLlmKey()) {
+    console.error(`${logPrefix} ${noLlmKeyMessage}`)
+    process.exit(1)
+  }
+
+  const tasks = await loadTasks(tasksPath)
+  if (tasks.length === 0) {
+    console.error(`${logPrefix} No tasks in file.`)
+    process.exit(1)
+  }
+
+  const maxConc = parseEvalMaxConcurrency(process.env.EVAL_MAX_CONCURRENCY, defaultMaxConcurrency, tasks.length)
+  const limit = pLimit(maxConc)
+
+  const startedAt = new Date().toISOString()
+  console.log(`${logPrefix} ${tasksPath}  (${tasks.length} cases, concurrency ${maxConc})`)
+  console.log(`${logPrefix} BRAIN_HOME=${brain}`)
+
+  const tAll = performance.now()
+  const caseResults: RunAgentEvalCaseResult[] = await Promise.all(
+    tasks.map(t =>
+      limit(async () => {
+        const r = await runCase(t)
+        const status = r.ok ? 'ok' : 'FAIL'
+        console.log(`${logPrefix} ${status}  ${formatCaseLogLine(r)}`)
+        return r
+      }),
+    ),
+  )
+  const wallTotalMs = performance.now() - tAll
+
+  const pass = caseResults.filter(r => r.ok).length
+  const fail = caseResults.length - pass
+  let sumUsage: LlmUsageSnapshot = { ...ZERO }
+  for (const c of caseResults) {
+    if (!isZeroUsage(c.usage)) {
+      sumUsage = addLlmUsage(sumUsage, c.usage)
+    }
+  }
+
+  const outDir = join(root, 'data-eval', 'eval-runs')
+  mkdirSync(outDir, { recursive: true })
+  const outFile = join(outDir, `${outSlug}-${startedAt.replace(/[:.]/g, '-')}.json`)
+
+  const report = {
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    brainHome: brain,
+    taskFile: tasksPath,
+    maxConcurrency: maxConc,
+    env: {
+      LLM_PROVIDER: process.env.LLM_PROVIDER ?? null,
+      LLM_MODEL: process.env.LLM_MODEL ?? null,
+    },
+    wallTotalMs: Math.round(wallTotalMs),
+    summary: {
+      pass,
+      fail,
+      totalCases: caseResults.length,
+      totalTokens: sumUsage.totalTokens,
+      totalCost: sumUsage.costTotal,
+    },
+    cases: caseResults.map((c, i) => caseToReport(c, tasks[i]!, i)),
+  }
+
+  await writeFile(outFile, JSON.stringify(report, null, 2), 'utf-8')
+  console.log(
+    `${logPrefix} done  pass ${pass} / ${caseResults.length}  totalTokens=${sumUsage.totalTokens}  cost~${sumUsage.costTotal.toFixed(4)}  ${Math.round(wallTotalMs)}ms wall`,
+  )
+  console.log(`${logPrefix} wrote ${outFile}`)
+
+  if (fail > 0) {
+    process.exit(1)
+  }
+}

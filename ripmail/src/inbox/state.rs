@@ -217,7 +217,7 @@ mod tests {
     fn record_scan_inserts_history_and_mode_specific_rows() {
         let conn = open_memory().unwrap();
         for (uid, mid) in [(1, "m1"), (2, "m2")] {
-            let parsed = ParsedMessage {
+            let mut parsed = ParsedMessage {
                 message_id: mid.into(),
                 from_address: "a@b.com".into(),
                 from_name: None,
@@ -233,7 +233,7 @@ mod tests {
                 category: None,
                 ..Default::default()
             };
-            persist_message(&conn, &parsed, "INBOX", "", uid, "[]", "x.eml").unwrap();
+            persist_message(&conn, &mut parsed, "INBOX", "", uid, "[]", "x.eml").unwrap();
         }
         let ids = vec!["m1".to_string(), "m2".to_string()];
         let scan_id = record_inbox_scan(
@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn persist_and_load_cached_decisions_roundtrip() {
         let conn = open_memory().unwrap();
-        let parsed = ParsedMessage {
+        let mut parsed = ParsedMessage {
             message_id: "m1".into(),
             from_address: "a@b.com".into(),
             from_name: None,
@@ -278,7 +278,7 @@ mod tests {
             category: None,
             ..Default::default()
         };
-        persist_message(&conn, &parsed, "INBOX", "", 1, "[]", "x.eml").unwrap();
+        persist_message(&conn, &mut parsed, "INBOX", "", 1, "[]", "x.eml").unwrap();
         let row = RefreshPreviewRow {
             message_id: "m1".into(),
             source_id: "".into(),

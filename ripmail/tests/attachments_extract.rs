@@ -424,7 +424,7 @@ fn utf8_pdf_filename_eml_read_attachment_text_markdown() {
     raw.extend_from_slice(b64.as_bytes());
     raw.extend_from_slice(b"\r\n--b--\r\n");
 
-    let p = parse_raw_message_with_options(
+    let mut p = parse_raw_message_with_options(
         &raw,
         ParseMessageOptions {
             include_attachments: true,
@@ -446,7 +446,7 @@ fn utf8_pdf_filename_eml_read_attachment_text_markdown() {
     fs::write(&eml_path, &raw).unwrap();
 
     let conn = open_memory().unwrap();
-    persist_message(&conn, &p, "INBOX", "", 1, "[]", maildir_rel).unwrap();
+    persist_message(&conn, &mut p, "INBOX", "", 1, "[]", maildir_rel).unwrap();
     persist_attachments_from_parsed(&conn, &p.message_id, &p.attachments, data_dir).unwrap();
 
     let id: i64 = conn

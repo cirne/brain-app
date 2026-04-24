@@ -913,7 +913,7 @@ mod tests {
 
         let conn = open_memory().unwrap();
         apply_schema(&conn).unwrap();
-        let parsed = ParsedMessage {
+        let mut parsed = ParsedMessage {
             message_id: "<snap-action@test>".into(),
             from_address: "a@b.com".into(),
             from_name: None,
@@ -929,7 +929,7 @@ mod tests {
             category: None,
             ..Default::default()
         };
-        persist_message(&conn, &parsed, "INBOX", "test_mb", 1, "[]", "x.eml").unwrap();
+        persist_message(&conn, &mut parsed, "INBOX", "test_mb", 1, "[]", "x.eml").unwrap();
         conn.execute(
             "INSERT INTO inbox_decisions
              (message_id, rules_fingerprint, action, matched_rule_ids, note, decision_source, requires_user_action, action_summary)

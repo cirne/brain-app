@@ -10,6 +10,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::db::message_persist::{persist_attachments_from_parsed, RebuildWriter};
+use crate::sync::ingest_date::{
+    apply_rebuild_index_date_normalization, min_trustworthy_index_date_in_maildir,
+};
 use crate::sync::{parse_raw_message, ParsedMessage};
 
 const DEFAULT_IMAP_FOLDER: &str = "[Gmail]/All Mail";
@@ -93,6 +96,7 @@ pub fn rebuild_from_maildir(conn: &mut Connection, maildir_root: &Path) -> rusql
     let mailbox_id = infer_mailbox_id_from_maildir_root(maildir_root);
     let paths = collect_eml_paths(maildir_root);
     let total_paths = paths.len();
+    let batch_floor = min_trustworthy_index_date_in_maildir(&paths);
     let worker_count = thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(1);
@@ -134,9 +138,13 @@ pub fn rebuild_from_maildir(conn: &mut Connection, maildir_root: &Path) -> rusql
         for work in rx_work {
             pending.insert(work.ordinal, work);
             while let Some(work) = pending.remove(&next_expected) {
-                if let Some(parsed) = work.parsed {
+                if let Some(mut parsed) = work.parsed {
                     let raw_s = work.path.to_string_lossy();
-                    if writer.persist_message(
+                    if apply_rebuild_index_date_normalization(
+                        &mut parsed,
+                        batch_floor.as_deref(),
+                        raw_s.as_ref(),
+                    ) && writer.persist_message(
                         &parsed,
                         DEFAULT_IMAP_FOLDER,
                         mailbox_id.as_str(),
@@ -173,6 +181,7 @@ pub fn rebuild_from_maildir_sequential(
 ) -> rusqlite::Result<usize> {
     let mailbox_id = infer_mailbox_id_from_maildir_root(maildir_root);
     let paths = collect_eml_paths(maildir_root);
+    let batch_floor = min_trustworthy_index_date_in_maildir(&paths);
     let tx = conn.transaction()?;
     tx.execute_batch(
         "DELETE FROM inbox_alerts;
@@ -190,16 +199,18 @@ pub fn rebuild_from_maildir_sequential(
         let Ok(bytes) = fs::read(path) else {
             continue;
         };
-        let p = parse_raw_message(&bytes);
+        let mut p = parse_raw_message(&bytes);
         let raw_s = path.to_string_lossy();
-        if writer.persist_message(
-            &p,
-            DEFAULT_IMAP_FOLDER,
-            mailbox_id.as_str(),
-            next_uid,
-            "[]",
-            raw_s.as_ref(),
-        )? {
+        if apply_rebuild_index_date_normalization(&mut p, batch_floor.as_deref(), raw_s.as_ref())
+            && writer.persist_message(
+                &p,
+                DEFAULT_IMAP_FOLDER,
+                mailbox_id.as_str(),
+                next_uid,
+                "[]",
+                raw_s.as_ref(),
+            )?
+        {
             persist_attachments_from_parsed(&tx, &p.message_id, &p.attachments, maildir_root)?;
             n += 1;
         }

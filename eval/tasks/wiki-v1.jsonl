@@ -1,0 +1,4 @@
+# Wiki buildout + cleanup (lint) agent eval — same agents as Your Wiki (see wikiExpansionRunner).
+# Requires BRAIN_HOME with ripmail index for buildout (search_index). Run: npm run eval:build
+{"id":"wiki-001-buildout-smoke","agent":"buildout","userMessage":"Eval pass: call search_index once (pattern Enron, after 2000-12-31 before 2002-01-01). Then create topics/eval-wiki-smoke.md with exactly two markdown bullets citing one fact from the search results. Stop after that write.","expect":{"all":[{"kind":"toolNamesIncludeAll","names":["search_index","write"]}]}}
+{"id":"wiki-002-cleanup-smoke","agent":"cleanup","userMessage":"Eval pass: use find to list .md files under the vault, read me.md if present. Grep one file for [[ wikilink patterns. Make at most one small edit if you find a clearly broken link; otherwise say no change. Keep this pass short.","expect":{"all":[{"kind":"toolNamesIncludeOneOf","names":["grep","find","read","edit"]}]}}

@@ -4,9 +4,9 @@
 
 - **Runtime:** `@mariozechner/pi-agent-core` `Agent` with `convertToLlm` from `@mariozechner/pi-coding-agent`. **Package options, events, and metering context:** [pi-agent-stack.md](./pi-agent-stack.md) (usage / cost: [OPP-043](../opportunities/OPP-043-llm-usage-token-metering.md)).
 - **Model:** `@mariozechner/pi-ai` `getModel(provider, modelId)` — provider and model from `LLM_PROVIDER` / `LLM_MODEL` (see [configuration.md](./configuration.md)).
-- **Tools:** Built in [`src/server/agent/tools.ts`](../../src/server/agent/tools.ts) — see below.
+- **Tools:** Built in `[src/server/agent/tools.ts](../../src/server/agent/tools.ts)` — see below.
 
-Session factory: [`src/server/agent/index.ts`](../../src/server/agent/index.ts).
+Session factory: `[src/server/agent/index.ts](../../src/server/agent/index.ts)`.
 
 ## In-memory sessions
 
@@ -14,28 +14,30 @@ Session factory: [`src/server/agent/index.ts`](../../src/server/agent/index.ts).
 
 ## Chat history on disk
 
-Completed turns are stored as **JSON documents** under `$BRAIN_HOME/chats` (see [`shared/brain-layout.json`](../../shared/brain-layout.json)). Implementation: [`chatStorage.ts`](../../src/server/lib/chatStorage.ts).
+Completed turns are stored as **JSON documents** under `$BRAIN_HOME/chats` (see `[shared/brain-layout.json](../../shared/brain-layout.json)`). Implementation: `[chatStorage.ts](../../src/server/lib/chatStorage.ts)`.
 
 - `GET /api/chat/sessions` — list  
 - `GET /api/chat/sessions/:sessionId` — full document  
-- `DELETE /api/chat/:sessionId` — remove file and evict in-memory agent  
+- `DELETE /api/chat/:sessionId` — remove file and evict in-memory agent
 
 Titles can be updated early when `set_chat_title` runs (`patchSessionTitle`).
 
 ## SSE wire format (`POST /api/chat`)
 
-Stream implementation: [`streamAgentSse.ts`](../../src/server/lib/streamAgentSse.ts). Typical events:
+Stream implementation: `[streamAgentSse.ts](../../src/server/lib/streamAgentSse.ts)`. Typical events:
 
-| Event | Purpose |
-|-------|---------|
-| `session` | Confirms `sessionId` |
-| `text_delta` | Assistant text token deltas |
-| `thinking` | Model thinking/reasoning deltas (when supported) |
-| `tool_args` | Streaming args for `write` / `edit` (partial wiki updates) |
-| `tool_start` | Tool invocation begins |
-| `tool_end` | Tool result |
-| `done` | Turn complete |
-| `error` | Failure |
+
+| Event        | Purpose                                                    |
+| ------------ | ---------------------------------------------------------- |
+| `session`    | Confirms `sessionId`                                       |
+| `text_delta` | Assistant text token deltas                                |
+| `thinking`   | Model thinking/reasoning deltas (when supported)           |
+| `tool_args`  | Streaming args for `write` / `edit` (partial wiki updates) |
+| `tool_start` | Tool invocation begins                                     |
+| `tool_end`   | Tool result                                                |
+| `done`       | Turn complete                                              |
+| `error`      | Failure                                                    |
+
 
 **Usage (LLM metering):** On each turn, the server handles `agent_end` from `@mariozechner/pi-agent-core` and sums `usage` on every `AssistantMessage` in `event.messages` (one user-visible reply can span multiple tool rounds). That aggregate is stored on the persisted **assistant** row as optional `usage` (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `costTotal`). **Cached input** in provider terms corresponds to **cache read** in pi-ai (`cacheRead`).
 
@@ -49,4 +51,4 @@ Stream implementation: [`streamAgentSse.ts`](../../src/server/lib/streamAgentSse
 
 ---
 
-*See also: [integrations.md](./integrations.md) · [configuration.md](./configuration.md)*
+*See also: [integrations.md](./integrations.md) · [configuration.md*](./configuration.md)

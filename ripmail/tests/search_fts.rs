@@ -22,7 +22,7 @@ fn insert_msg(
     category: Option<&str>,
     to_json: &str,
 ) {
-    let p = ParsedMessage {
+    let mut p = ParsedMessage {
         message_id: mid.into(),
         from_address: from.into(),
         from_name: None,
@@ -38,7 +38,7 @@ fn insert_msg(
         category: category.map(str::to_string),
         ..Default::default()
     };
-    persist_message(conn, &p, MAILBOX, "", uid, "[]", "x.eml").unwrap();
+    persist_message(conn, &mut p, MAILBOX, "", uid, "[]", "x.eml").unwrap();
 }
 
 #[test]

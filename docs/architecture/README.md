@@ -13,6 +13,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**.
 | [agent-chat.md](./agent-chat.md) | pi-agent-core, chat persistence, SSE events, tools overview |
 | [pi-agent-stack.md](./pi-agent-stack.md) | Pi packages reference (`pi-agent-core` / `pi-ai` / `pi-coding-agent`), Agent options; metering → [OPP-043](../opportunities/OPP-043-llm-usage-token-metering.md), NR telemetry + usage CLI → [OPP-046](../opportunities/OPP-046-llm-telemetry-traces-and-usage-cli.md) |
 | [data-and-sync.md](./data-and-sync.md) | `$BRAIN_HOME` layout, wiki, calendar cache, ripmail refresh |
+| [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md) | Eval home (`data-eval/brain`), Enron `kean-s` fixture pipeline, ripmail `.eml` rule, stamps — **living doc** |
 | [integrations.md](./integrations.md) | Ripmail subprocess, `/api/search`, `/api/files`, optional iMessage; **trust boundaries** (ripmail vs `chat.db`) |
 | [configuration.md](./configuration.md) | Environment variables |
 | [future-durability.md](./future-durability.md) | Possible future SQLite for app-owned state |

@@ -560,7 +560,7 @@ fn run_applemail_sync_inner(
                 include_attachments: true,
                 include_attachment_bytes: false,
             };
-            let parsed = parse_raw_message_with_options(&raw_file, opts);
+            let mut parsed = parse_raw_message_with_options(&raw_file, opts);
             let parse_ms = t_parse.elapsed().as_millis();
 
             if !message_date_on_or_after_rfc3339(&parsed.date, since_ymd) {
@@ -609,7 +609,7 @@ fn run_applemail_sync_inner(
             let t_persist = Instant::now();
             let inserted = match persist_message(
                 conn,
-                &parsed,
+                &mut parsed,
                 APPLEMAIL_FOLDER,
                 &mb.id,
                 c.rowid,

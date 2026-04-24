@@ -1,0 +1,9 @@
+{
+  "description": "CMU Enron maildir: single user kean-s → eval ripmail (see eval/README.md, docs/architecture/eval-home-and-mail-corpus.md).",
+  "sourceUrl": "https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz",
+  "expectedSha256": "b3da1b3fe0369ec3140bb4fbce94702c33b7da810ec15d718b3fadf5cd748ca7",
+  "sourceUser": "kean-s",
+  "pathInsideArchive": "maildir/kean-s",
+  "accountEmail": "kean.eval@enron.fixture",
+  "mailboxId": "kean_eval_enron_fixture"
+}

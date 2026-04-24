@@ -18,7 +18,7 @@ fn insert(
     to: &str,
     uid: i64,
 ) {
-    let p = ParsedMessage {
+    let mut p = ParsedMessage {
         message_id: mid.into(),
         from_address: from.into(),
         from_name: from_name.map(String::from),
@@ -34,7 +34,7 @@ fn insert(
         category: None,
         ..Default::default()
     };
-    persist_message(conn, &p, MAILBOX, "", uid, "[]", "x.eml").unwrap();
+    persist_message(conn, &mut p, MAILBOX, "", uid, "[]", "x.eml").unwrap();
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn who_query_fuzzy_match() {
 #[test]
 fn who_uses_to_recipient_display_name() {
     let conn = open_memory().unwrap();
-    let p = ParsedMessage {
+    let mut p = ParsedMessage {
         message_id: "m-to@test".into(),
         from_address: "me@me.com".into(),
         from_name: None,
@@ -139,7 +139,7 @@ fn who_uses_to_recipient_display_name() {
         category: None,
         ..Default::default()
     };
-    persist_message(&conn, &p, MAILBOX, "", 1, "[]", "x.eml").unwrap();
+    persist_message(&conn, &mut p, MAILBOX, "", 1, "[]", "x.eml").unwrap();
     let opts = WhoOptions {
         query: "dwilcox@greenlonghorninc.com".into(),
         limit: 10,
@@ -230,7 +230,7 @@ fn who_suggested_display_name_from_infer_when_no_header_name() {
 #[test]
 fn who_owner_centric_counts_sent_when_from_matches_alias() {
     let conn = open_memory().unwrap();
-    let p = ParsedMessage {
+    let mut p = ParsedMessage {
         message_id: "owner-sent-alias@test".into(),
         from_address: "b@alias.com".into(),
         from_name: None,
@@ -249,7 +249,7 @@ fn who_owner_centric_counts_sent_when_from_matches_alias() {
         category: None,
         ..Default::default()
     };
-    persist_message(&conn, &p, MAILBOX, "", 1, "[]", "x.eml").unwrap();
+    persist_message(&conn, &mut p, MAILBOX, "", 1, "[]", "x.eml").unwrap();
 
     let mut omit = HashSet::new();
     omit.insert(normalize_address("a@primary.com"));

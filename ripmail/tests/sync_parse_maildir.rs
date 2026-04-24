@@ -256,7 +256,7 @@ fn parse_since_spec() {
 #[test]
 fn message_persist_roundtrip() {
     let conn = open_memory().unwrap();
-    let p = ParsedMessage {
+    let mut p = ParsedMessage {
         message_id: "mid-round@test".into(),
         from_address: "a@b.com".into(),
         from_name: None,
@@ -272,7 +272,7 @@ fn message_persist_roundtrip() {
         category: None,
         ..Default::default()
     };
-    assert!(persist_message(&conn, &p, MAILBOX, "", 1, "[]", "maildir/x.eml").unwrap());
+    assert!(persist_message(&conn, &mut p, MAILBOX, "", 1, "[]", "maildir/x.eml").unwrap());
     let sub: String = conn
         .query_row(
             "SELECT subject FROM messages WHERE message_id = ?1",
@@ -286,7 +286,7 @@ fn message_persist_roundtrip() {
 #[test]
 fn fts_trigger_fires_on_insert() {
     let conn = open_memory().unwrap();
-    let p = ParsedMessage {
+    let mut p = ParsedMessage {
         message_id: "mid-fts@test".into(),
         from_address: "a@b.com".into(),
         from_name: None,
@@ -302,7 +302,7 @@ fn fts_trigger_fires_on_insert() {
         category: None,
         ..Default::default()
     };
-    persist_message(&conn, &p, MAILBOX, "", 2, "[]", "y.eml").unwrap();
+    persist_message(&conn, &mut p, MAILBOX, "", 2, "[]", "y.eml").unwrap();
     let n = fts_match_count(&conn, "invoice").unwrap();
     assert!(n >= 1, "fts count {n}");
 }

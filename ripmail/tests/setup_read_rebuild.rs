@@ -125,7 +125,7 @@ fn read_message_text_output() {
 
     let db_path = dir.path().join("data/ripmail.db");
     let conn = db::open_file(&db_path).unwrap();
-    let p = ParsedMessage {
+    let mut p = ParsedMessage {
         message_id: "<mid-read@test>".into(),
         from_address: "a@b.com".into(),
         from_name: None,
@@ -142,7 +142,7 @@ fn read_message_text_output() {
         ..Default::default()
     };
     let rel = "cur/msg1.eml";
-    persist_message(&conn, &p, MAILBOX, "", 1, "[]", rel).unwrap();
+    persist_message(&conn, &mut p, MAILBOX, "", 1, "[]", rel).unwrap();
     drop(conn);
 
     let bin = env!("CARGO_BIN_EXE_ripmail");
@@ -185,7 +185,7 @@ Hello.";
 
     let db_path = dir.path().join("data/ripmail.db");
     let conn = db::open_file(&db_path).unwrap();
-    let p = ParsedMessage {
+    let mut p = ParsedMessage {
         message_id: "<mid-json@test>".into(),
         from_address: "alice@a.com".into(),
         from_name: Some("Alice".into()),
@@ -202,7 +202,7 @@ Hello.";
         ..Default::default()
     };
     let rel = "cur/msg2.eml";
-    persist_message(&conn, &p, MAILBOX, "", 1, "[]", rel).unwrap();
+    persist_message(&conn, &mut p, MAILBOX, "", 1, "[]", rel).unwrap();
     drop(conn);
 
     let bin = env!("CARGO_BIN_EXE_ripmail");
@@ -252,7 +252,7 @@ fn read_multiple_messages_json_is_array_in_cli_order() {
     let conn = db::open_file(&db_path).unwrap();
     for (filename, mid, raw) in cases {
         fs::write(dir.path().join("data/cur").join(filename), raw).unwrap();
-        let p = ParsedMessage {
+        let mut p = ParsedMessage {
             message_id: mid.to_string(),
             from_address: "x@y.com".into(),
             from_name: None,
@@ -269,7 +269,7 @@ fn read_multiple_messages_json_is_array_in_cli_order() {
             ..Default::default()
         };
         let rel = format!("cur/{filename}");
-        persist_message(&conn, &p, MAILBOX, "", 1, "[]", &rel).unwrap();
+        persist_message(&conn, &mut p, MAILBOX, "", 1, "[]", &rel).unwrap();
     }
     drop(conn);
 
@@ -314,7 +314,7 @@ fn read_multiple_messages_text_has_batch_separator() {
     ] {
         fs::write(dir.path().join("data/cur").join(filename), raw).unwrap();
         let conn = db::open_file(&db_path).unwrap();
-        let p = ParsedMessage {
+        let mut p = ParsedMessage {
             message_id: mid.to_string(),
             from_address: "u@t.com".into(),
             from_name: None,
@@ -331,7 +331,7 @@ fn read_multiple_messages_text_has_batch_separator() {
             ..Default::default()
         };
         let rel = format!("cur/{filename}");
-        persist_message(&conn, &p, MAILBOX, "", 1, "[]", &rel).unwrap();
+        persist_message(&conn, &mut p, MAILBOX, "", 1, "[]", &rel).unwrap();
         drop(conn);
     }
 

@@ -126,7 +126,7 @@ fn status_text_shows_earliest_and_latest_timestamps() {
     fs::create_dir_all(dir.path().join("data")).unwrap();
     let db_path = dir.path().join("data/ripmail.db");
     let conn = open_file(&db_path).unwrap();
-    let first = ParsedMessage {
+    let mut first = ParsedMessage {
         message_id: "<early@test>".into(),
         from_address: "a@b.com".into(),
         from_name: None,
@@ -142,7 +142,7 @@ fn status_text_shows_earliest_and_latest_timestamps() {
         category: None,
         ..Default::default()
     };
-    let last = ParsedMessage {
+    let mut last = ParsedMessage {
         message_id: "<late@test>".into(),
         from_address: "a@b.com".into(),
         from_name: None,
@@ -158,8 +158,26 @@ fn status_text_shows_earliest_and_latest_timestamps() {
         category: None,
         ..Default::default()
     };
-    persist_message(&conn, &first, "[Gmail]/All Mail", "", 1, "[]", "cur/1.eml").unwrap();
-    persist_message(&conn, &last, "[Gmail]/All Mail", "", 2, "[]", "cur/2.eml").unwrap();
+    persist_message(
+        &conn,
+        &mut first,
+        "[Gmail]/All Mail",
+        "",
+        1,
+        "[]",
+        "cur/1.eml",
+    )
+    .unwrap();
+    persist_message(
+        &conn,
+        &mut last,
+        "[Gmail]/All Mail",
+        "",
+        2,
+        "[]",
+        "cur/2.eml",
+    )
+    .unwrap();
     drop(conn);
 
     let bin = env!("CARGO_BIN_EXE_ripmail");

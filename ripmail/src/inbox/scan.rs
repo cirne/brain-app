@@ -1374,7 +1374,7 @@ mod tests {
     #[tokio::test]
     async fn preview_rule_impact_filters_to_new_rule_without_side_effects() {
         let conn = open_memory().unwrap();
-        let matching = ParsedMessage {
+        let mut matching = ParsedMessage {
             message_id: "m1".into(),
             from_address: "alice@example.com".into(),
             from_name: Some("Alice".into()),
@@ -1390,7 +1390,7 @@ mod tests {
             category: None,
             ..Default::default()
         };
-        let other = ParsedMessage {
+        let mut other = ParsedMessage {
             message_id: "m2".into(),
             from_address: "bob@example.com".into(),
             from_name: Some("Bob".into()),
@@ -1406,8 +1406,8 @@ mod tests {
             category: None,
             ..Default::default()
         };
-        persist_message(&conn, &matching, "INBOX", "", 1, "[]", "m1.eml").unwrap();
-        persist_message(&conn, &other, "INBOX", "", 2, "[]", "m2.eml").unwrap();
+        persist_message(&conn, &mut matching, "INBOX", "", 1, "[]", "m1.eml").unwrap();
+        persist_message(&conn, &mut other, "INBOX", "", 2, "[]", "m2.eml").unwrap();
 
         let mut classifier = MockInboxClassifier::new(|batch| {
             batch
@@ -1484,7 +1484,7 @@ mod tests {
     #[tokio::test]
     async fn preview_rule_impact_counts_superseded_when_higher_rule_wins() {
         let conn = open_memory().unwrap();
-        let matching = ParsedMessage {
+        let mut matching = ParsedMessage {
             message_id: "m1".into(),
             from_address: "alice@example.com".into(),
             from_name: None,
@@ -1500,7 +1500,7 @@ mod tests {
             category: None,
             ..Default::default()
         };
-        persist_message(&conn, &matching, "INBOX", "", 1, "[]", "m1.eml").unwrap();
+        persist_message(&conn, &mut matching, "INBOX", "", 1, "[]", "m1.eml").unwrap();
 
         let mut classifier = MockInboxClassifier::new(|batch| {
             batch
@@ -1555,7 +1555,7 @@ mod tests {
     #[tokio::test]
     async fn preview_rule_impact_includes_archived_when_explicit_flag_without_reapply_llm() {
         let conn = open_memory().unwrap();
-        let msg = ParsedMessage {
+        let mut msg = ParsedMessage {
             message_id: "<archived-match@test>".into(),
             from_address: "alice@example.com".into(),
             from_name: None,
@@ -1571,7 +1571,7 @@ mod tests {
             category: None,
             ..Default::default()
         };
-        persist_message(&conn, &msg, "INBOX", "", 1, "[]", "a.eml").unwrap();
+        persist_message(&conn, &mut msg, "INBOX", "", 1, "[]", "a.eml").unwrap();
         conn.execute(
             "UPDATE messages SET is_archived = 1 WHERE message_id = '<archived-match@test>'",
             [],

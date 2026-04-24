@@ -646,7 +646,7 @@ fn run_sync_imap_phase(
                 continue;
             }
 
-            let parsed = parse_raw_message(&msg.raw);
+            let mut parsed = parse_raw_message(&msg.raw);
 
             let dup: Option<i32> = conn
                 .query_row(
@@ -666,7 +666,7 @@ fn run_sync_imap_phase(
 
             let inserted = persist_message(
                 conn,
-                &parsed,
+                &mut parsed,
                 imap_folder,
                 mailbox_id,
                 msg.uid as i64,

@@ -4,6 +4,7 @@ pub mod background_spawn;
 pub mod error;
 pub mod fetch_timeout;
 pub mod imap_date;
+pub mod ingest_date;
 pub mod maildir;
 pub mod parse_message;
 pub mod parse_since;

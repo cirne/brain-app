@@ -211,7 +211,7 @@ fn rules_edit_returns_preview_payload() {
 fn archive_cli_sets_is_archived_json() {
     let dir = tempdir().unwrap();
     let conn = db::open_file(&dir.path().join("data/ripmail.db")).unwrap();
-    let parsed = ParsedMessage {
+    let mut parsed = ParsedMessage {
         message_id: "<archive-cli@test>".into(),
         from_address: "a@b.com".into(),
         from_name: None,
@@ -227,7 +227,7 @@ fn archive_cli_sets_is_archived_json() {
         category: None,
         ..Default::default()
     };
-    persist_message(&conn, &parsed, MAILBOX, "", 1, "[]", "cur/x.eml").unwrap();
+    persist_message(&conn, &mut parsed, MAILBOX, "", 1, "[]", "cur/x.eml").unwrap();
     drop(conn);
 
     let bin = env!("CARGO_BIN_EXE_ripmail");
@@ -285,7 +285,7 @@ fn archive_cli_skips_provider_when_mailbox_management_allow_excludes_archive() {
 
     let db_path = dir.path().join("ripmail.db");
     let conn = db::open_file(&db_path).unwrap();
-    let parsed = ParsedMessage {
+    let mut parsed = ParsedMessage {
         message_id: "<archive-allow-exclude@test>".into(),
         from_address: "a@b.com".into(),
         from_name: None,
@@ -303,7 +303,7 @@ fn archive_cli_skips_provider_when_mailbox_management_allow_excludes_archive() {
     };
     persist_message(
         &conn,
-        &parsed,
+        &mut parsed,
         MAILBOX,
         mailbox_id,
         1,

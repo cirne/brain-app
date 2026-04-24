@@ -126,7 +126,7 @@ mod tests {
     fn rule_count_matches_search_from_or_to_union() {
         let conn = open_memory().unwrap();
         let ins = |mid: &str, from: &str, to_json: &str, body: &str, uid: i64| {
-            let p = ParsedMessage {
+            let mut p = ParsedMessage {
                 message_id: mid.into(),
                 from_address: from.into(),
                 from_name: None,
@@ -142,7 +142,7 @@ mod tests {
                 category: None,
                 ..Default::default()
             };
-            persist_message(&conn, &p, MAILBOX, "", uid, "[]", "x.eml").unwrap();
+            persist_message(&conn, &mut p, MAILBOX, "", uid, "[]", "x.eml").unwrap();
         };
         ins(
             "parity-from@test",
