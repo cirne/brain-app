@@ -63,9 +63,15 @@ Custom events are recorded with the Node agent API `recordCustomEvent(eventType,
 
 | Event type | Purpose | Key attributes (non-exhaustive) |
 |------------|---------|----------------------------------|
-| `ToolCall` | Agent tool invocation (success/failure, duration, sanitized args; no tool output). | `toolName`, `success`, `durationMs`, `source`, `paramsJson`, optional `sessionId`, `workspaceHandle`, `backgroundRunId`, optional `errorMessage`. |
+| `ToolCall` | Agent tool invocation (success/failure, duration, sanitized args; **no** raw tool result text). | `toolName`, `success`, `durationMs`, `source`, `paramsJson`, optional `sessionId`, `workspaceHandle`, `backgroundRunId`, optional `errorMessage`, `toolCallId`. **Turn correlation:** `agentTurnId`, `sequence` (order within one `agent.prompt()`). **Approximate result footprint (same string as post-`toolResultForSse` truncation, not billing-grade):** `resultCharCount`, `resultTruncated`, `resultSizeBucket` (`0-1k` / `1k-8k` / `8k+`). |
+| `LlmCompletion` | One row per **assistant** message with provider `usage` (one HTTP completion). | `agentTurnId`, `source`, `completionIndex`, `input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `costTotal`, plus same correlation fields as tools when present. |
+| `LlmAgentTurn` | Rollup for a full `agent.prompt()` (chat reply or one wiki enrich/cleanup invocation). | `agentTurnId`, `source`, token/cost totals (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `costTotal`), `turnDurationMs`, `completionCount`, `toolCallCount`, plus correlation fields. |
 
-Instrumentation lives in [`src/server/lib/newRelicHelper.ts`](../src/server/lib/newRelicHelper.ts) (`recordToolCallStart` / `recordToolCallEnd`; wired from chat SSE and the wiki background runner).
+These support **trace-style** NRQL (`WHERE agentTurnId = '…'`) without OpenTelemetry; they are **not** strict distributed traces.
+
+**Optional later:** in-process APM `startSegment` around tool execution for a native transaction waterfall (not implemented in v1).
+
+Instrumentation lives in [`src/server/lib/newRelicHelper.ts`](../src/server/lib/newRelicHelper.ts) (`recordToolCallStart` / `recordToolCallEnd`, `recordLlmCompletionsForTurn`, `recordLlmAgentTurn`; wired from [`streamAgentSse.ts`](../src/server/lib/streamAgentSse.ts) and [`wikiExpansionRunner.ts`](../src/server/agent/wikiExpansionRunner.ts)).
 
 **Querying custom events:**
 
@@ -79,6 +85,7 @@ Confirm `appName` (or other host attributes) on your events with a raw `SELECT *
 ## Privacy and support correlation
 
 - Do **not** send raw tool **results**, full prompts, or OAuth tokens in custom attributes.
+- **Tool result size** on `ToolCall` is limited to **sanitized length / bucket** derived from the same bounded string used for SSE (`toolResultForSse`), not the full pre-truncation payload sent to logs.
 - **Params** should be redacted and length-capped before export (see helper implementation).
 - For bug reports, prefer opaque identifiers already used in the app: **`sessionId`**, **`workspaceHandle`** (tenant directory handle), and **`backgroundRunId`** for wiki jobs — not email addresses.
 

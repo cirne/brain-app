@@ -2,6 +2,10 @@
  * Mirrors client ChatMessage shape in src/client/lib/agentUtils.ts — keep in sync.
  */
 
+import type { LlmUsageSnapshot } from './llmUsage.js'
+
+export type { LlmUsageSnapshot }
+
 export type ToolCall = {
   id: string
   name: string
@@ -21,6 +25,8 @@ export type ChatMessage = {
   content: string
   parts?: MessagePart[]
   thinking?: string
+  /** Set on assistant rows when the model reported usage (sum over tool rounds for that reply). */
+  usage?: LlmUsageSnapshot
 }
 
 /** One in-progress assistant message while streaming SSE (server mirror of client state). */

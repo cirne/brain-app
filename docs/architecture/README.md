@@ -11,6 +11,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**.
 | [tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md) | Tenant FS isolation (micro-VM, POSIX UID, namespaces/Landlock, dir-FD caps, Workspace jail); **BUG-012** |
 | [../Dockerfile](../Dockerfile) / [../docker-compose.yml](../docker-compose.yml) / [../docker-compose.do.yml](../docker-compose.do.yml) | Local: `npm run docker:ripmail:build` + `BRAIN_HOME=/brain`. **DO staging:** registry image, `brain_data` volume, **`https://staging.braintunnel.ai`** (TLS at edge; :4000 in-container) ([OPP-041 (full)](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md), [digitalocean.md](../digitalocean.md)) |
 | [agent-chat.md](./agent-chat.md) | pi-agent-core, chat persistence, SSE events, tools overview |
+| [pi-agent-stack.md](./pi-agent-stack.md) | Pi packages reference (`pi-agent-core` / `pi-ai` / `pi-coding-agent`), Agent options; metering → [OPP-043](../opportunities/OPP-043-llm-usage-token-metering.md), NR telemetry + usage CLI → [OPP-046](../opportunities/OPP-046-llm-telemetry-traces-and-usage-cli.md) |
 | [data-and-sync.md](./data-and-sync.md) | `$BRAIN_HOME` layout, wiki, calendar cache, ripmail refresh |
 | [integrations.md](./integrations.md) | Ripmail subprocess, `/api/search`, `/api/files`, optional iMessage; **trust boundaries** (ripmail vs `chat.db`) |
 | [configuration.md](./configuration.md) | Environment variables |

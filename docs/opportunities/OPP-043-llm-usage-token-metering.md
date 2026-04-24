@@ -78,6 +78,7 @@ Give users **visibility into model consumption**: token counts (input, cached in
 
 ## References
 
+- [`docs/architecture/pi-agent-stack.md`](../architecture/pi-agent-stack.md) — Pi packages, `Agent` options, where `usage` comes from (pi-ai on assistant messages; multi-completion runs)
 - [`docs/architecture/data-and-sync.md`](../architecture/data-and-sync.md) — `chats/` layout, `BRAIN_HOME`, multi-tenant roots
 - [`docs/architecture/agent-chat.md`](../architecture/agent-chat.md) — chat pipeline overview
 - [`src/server/routes/chat.ts`](../../src/server/routes/chat.ts) — `appendTurn` / SSE entry

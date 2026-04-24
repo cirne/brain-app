@@ -35,6 +35,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 | Tenant filesystem isolation (BUG-012, kernel + app)   | [architecture/tenant-filesystem-isolation.md](architecture/tenant-filesystem-isolation.md)         |
 | Cloud-hosted v1 scope (Phase 0 parity)                  | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md) |
 | Agent sessions, chat JSON files, SSE events, tool list | [architecture/agent-chat.md](architecture/agent-chat.md)                       |
+| Pi stack reference (`pi-agent-core` / `pi-ai` options, metering) | [architecture/pi-agent-stack.md](architecture/pi-agent-stack.md) · [OPP-043](opportunities/OPP-043-llm-usage-token-metering.md) |
 | `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS | [architecture/data-and-sync.md](architecture/data-and-sync.md)                 |
 | Ripmail, unified search, files API, optional iMessage  | [architecture/integrations.md](architecture/integrations.md)                   |
 | Environment variables                                  | [architecture/configuration.md](architecture/configuration.md)                 |

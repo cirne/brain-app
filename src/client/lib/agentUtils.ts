@@ -1,5 +1,15 @@
 import { contextToString, type SurfaceContext } from '../router.js'
 
+/** Keep in sync with `src/server/lib/llmUsage.ts` `LlmUsageSnapshot`. */
+export type LlmUsageSnapshot = {
+  input: number
+  output: number
+  cacheRead: number
+  cacheWrite: number
+  totalTokens: number
+  costTotal: number
+}
+
 export type ToolCall = {
   id: string
   name: string
@@ -20,6 +30,7 @@ export type ChatMessage = {
   content: string
   parts?: MessagePart[]
   thinking?: string
+  usage?: LlmUsageSnapshot
 }
 
 /** GET /api/skills row — slash menu in AgentInput. */

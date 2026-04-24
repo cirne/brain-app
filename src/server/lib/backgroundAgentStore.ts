@@ -1,6 +1,7 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { brainHome } from './brainHome.js'
+import type { LlmUsageSnapshot } from './llmUsage.js'
 
 export type BackgroundAgentKind = 'wiki-expansion' | 'your-wiki'
 
@@ -57,6 +58,10 @@ export interface BackgroundRunDoc {
   idleReason?: string
   /** Your Wiki supervisor: consecutive laps with zero wiki changes */
   consecutiveNoOpLaps?: number
+  /** LLM usage for the most recently completed `agent.prompt()` in this run (enrich or cleanup pass). */
+  usageLastInvocation?: LlmUsageSnapshot
+  /** Running sum of `usageLastInvocation` across all completed invocations for this run id. */
+  usageCumulative?: LlmUsageSnapshot
 }
 
 /** Cap for `logLines` / `logEntries` (oldest dropped). */

@@ -1,7 +1,28 @@
 import { describe, it, expect } from 'vitest'
 import { Hono } from 'hono'
 import type { Agent, AgentEvent } from '@mariozechner/pi-agent-core'
+import type { AssistantMessage } from '@mariozechner/pi-ai'
 import { streamAgentSseResponse } from './streamAgentSse.js'
+
+function mockAssistant(usage: { in: number; out: number; tot: number; cost: number }): AssistantMessage {
+  return {
+    role: 'assistant',
+    content: [],
+    api: 'openai',
+    provider: 'openai',
+    model: 'gpt-4o',
+    usage: {
+      input: usage.in,
+      output: usage.out,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: usage.tot,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: usage.cost },
+    },
+    stopReason: 'stop',
+    timestamp: 0,
+  }
+}
 
 /**
  * Minimal Agent that matches pi-agent-core concurrency semantics for prompt/waitForIdle,
@@ -13,6 +34,8 @@ class FakeSerialAgent {
   /** Max nested prompt() entry — must stay 1 if serialization works */
   maxConcurrentPrompt = 0
   private depth = 0
+
+  constructor(private readonly agentEndEvent: AgentEvent = { type: 'agent_end', messages: [] }) {}
 
   waitForIdle(): Promise<void> {
     return this.activePromise ?? Promise.resolve()
@@ -42,7 +65,7 @@ class FakeSerialAgent {
       const fn = this.listener
       if (fn) {
         const ac = new AbortController()
-        await fn({ type: 'agent_end' } as AgentEvent, ac.signal)
+        await fn(this.agentEndEvent, ac.signal)
       }
     } finally {
       this.depth--
@@ -105,5 +128,41 @@ describe('streamAgentSseResponse Agent serialization (BUG-006)', () => {
     expect(t2).toContain('session')
 
     expect(fakeAgent.maxConcurrentPrompt).toBe(1)
+  })
+})
+
+describe('streamAgentSseResponse usage (OPP-043)', () => {
+  it('passes summed usage on assistant message from agent_end.messages', async () => {
+    const wikiDir = '/tmp/stream-agent-sse-usage-wiki'
+    let captured: {
+      assistantMessage: {
+        usage?: { input: number; output: number; totalTokens: number; costTotal: number }
+      }
+    } | null = null
+
+    const a = mockAssistant({ in: 10, out: 5, tot: 15, cost: 0.01 })
+    const b = mockAssistant({ in: 20, out: 10, tot: 30, cost: 0.02 })
+    const fakeAgent = new FakeSerialAgent({ type: 'agent_end', messages: [a, b] } as AgentEvent)
+    const agent = fakeAgent as unknown as Agent
+    const app = new Hono()
+    app.post('/sse', (c) =>
+      streamAgentSseResponse(c, agent, 'hi', {
+        wikiDirForDiffs: wikiDir,
+        onTurnComplete: async (args) => {
+          captured = args
+        },
+      }),
+    )
+
+    const res = await app.request('/sse', { method: 'POST' })
+    expect(res.status).toBe(200)
+    await res.text()
+    expect(captured).not.toBeNull()
+    const u = captured!.assistantMessage.usage
+    expect(u).toBeDefined()
+    expect(u!.input).toBe(30)
+    expect(u!.output).toBe(15)
+    expect(u!.totalTokens).toBe(45)
+    expect(u!.costTotal).toBeCloseTo(0.03, 5)
   })
 })

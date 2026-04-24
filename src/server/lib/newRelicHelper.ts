@@ -1,4 +1,6 @@
+import type { AgentMessage } from '@mariozechner/pi-agent-core'
 import newrelic from 'newrelic'
+import type { LlmUsageSnapshot } from './llmUsage.js'
 import { tryGetTenantContext } from './tenantContext.js'
 
 const PARAMS_JSON_MAX = 4096
@@ -100,6 +102,15 @@ export function mergeToolCallCorrelation(explicit?: ToolCallCorrelation): ToolCa
   return out
 }
 
+/** Bounded bucket for tool result size (post-SSE truncation); low cardinality for NR. */
+export type ResultSizeBucket = '0-1k' | '1k-8k' | '8k+'
+
+export function resultSizeBucketFromCharCount(n: number): ResultSizeBucket {
+  if (n < 1024) return '0-1k'
+  if (n < 8192) return '1k-8k'
+  return '8k+'
+}
+
 export type RecordToolCallEndOptions = {
   toolCallId: string
   toolName: string
@@ -108,6 +119,17 @@ export type RecordToolCallEndOptions = {
   source: ToolCallSource
   correlation?: ToolCallCorrelation
   errorMessage?: string
+  /** One `agent.prompt()` / subscribe scope — correlates ToolCall, LlmCompletion, LlmAgentTurn. */
+  agentTurnId?: string
+  /** 0-based order of completed tools within the turn. */
+  sequence?: number
+  /**
+   * Length of the string after `toolResultForSse` (what the client stream shows / proxy for
+   * next-context bloat). Never the raw pre-truncation body alone.
+   */
+  resultCharCount?: number
+  resultTruncated?: boolean
+  resultSizeBucket?: ResultSizeBucket
 }
 
 const toolCallStartTimes = new Map<string, number>()
@@ -150,9 +172,84 @@ export function recordToolCallEnd(options: RecordToolCallEndOptions): void {
     if (merged.workspaceHandle) attrs.workspaceHandle = merged.workspaceHandle
     if (merged.backgroundRunId) attrs.backgroundRunId = merged.backgroundRunId
     attrs.toolCallId = options.toolCallId
+    if (options.agentTurnId) attrs.agentTurnId = options.agentTurnId
+    if (options.sequence !== undefined) attrs.sequence = options.sequence
+    if (options.resultCharCount !== undefined) attrs.resultCharCount = options.resultCharCount
+    if (options.resultTruncated !== undefined) attrs.resultTruncated = options.resultTruncated
+    if (options.resultSizeBucket) attrs.resultSizeBucket = options.resultSizeBucket
 
     safeRecordCustomEvent('ToolCall', attrs)
   } catch {
     /* ignore */
   }
+}
+
+export type RecordLlmAgentTurnOptions = {
+  agentTurnId: string
+  source: ToolCallSource
+  correlation?: ToolCallCorrelation
+  usage: LlmUsageSnapshot
+  turnDurationMs: number
+  /** Assistant completions that reported `usage` in this turn. */
+  completionCount: number
+  toolCallCount: number
+}
+
+/** One LlmCompletion per model HTTP completion (assistant message with usage). */
+export function recordLlmCompletionsForTurn(options: {
+  agentTurnId: string
+  source: ToolCallSource
+  correlation?: ToolCallCorrelation
+  messages: AgentMessage[] | null | undefined
+}): void {
+  if (!isAgentEnabled()) return
+  const list = options.messages
+  if (!Array.isArray(list)) return
+  let completionIndex = 0
+  for (const m of list) {
+    if (m.role !== 'assistant') continue
+    const u = m.usage
+    if (u == null) continue
+    const merged = mergeToolCallCorrelation(options.correlation)
+    const costTotal = u.cost && typeof u.cost.total === 'number' ? u.cost.total : 0
+    const attrs: Record<string, string | number | boolean> = {
+      agentTurnId: options.agentTurnId,
+      source: options.source,
+      completionIndex,
+      input: u.input,
+      output: u.output,
+      cacheRead: u.cacheRead,
+      cacheWrite: u.cacheWrite,
+      totalTokens: u.totalTokens,
+      costTotal,
+    }
+    if (merged.sessionId) attrs.sessionId = merged.sessionId
+    if (merged.workspaceHandle) attrs.workspaceHandle = merged.workspaceHandle
+    if (merged.backgroundRunId) attrs.backgroundRunId = merged.backgroundRunId
+    safeRecordCustomEvent('LlmCompletion', attrs)
+    completionIndex++
+  }
+}
+
+export function recordLlmAgentTurn(options: RecordLlmAgentTurnOptions): void {
+  if (!isAgentEnabled()) return
+  const merged = mergeToolCallCorrelation(options.correlation)
+  const u = options.usage
+  const attrs: Record<string, string | number | boolean> = {
+    agentTurnId: options.agentTurnId,
+    source: options.source,
+    input: u.input,
+    output: u.output,
+    cacheRead: u.cacheRead,
+    cacheWrite: u.cacheWrite,
+    totalTokens: u.totalTokens,
+    costTotal: u.costTotal,
+    turnDurationMs: options.turnDurationMs,
+    completionCount: options.completionCount,
+    toolCallCount: options.toolCallCount,
+  }
+  if (merged.sessionId) attrs.sessionId = merged.sessionId
+  if (merged.workspaceHandle) attrs.workspaceHandle = merged.workspaceHandle
+  if (merged.backgroundRunId) attrs.backgroundRunId = merged.backgroundRunId
+  safeRecordCustomEvent('LlmAgentTurn', attrs)
 }

@@ -15,6 +15,16 @@ export type BackgroundTimelineEvent = {
 /** Mirrors server `YourWikiPhase`. */
 export type YourWikiPhase = 'starting' | 'enriching' | 'cleaning' | 'paused' | 'idle' | 'error'
 
+/** Mirrors server `LlmUsageSnapshot` — keep in sync with `src/server/lib/llmUsage.ts`. */
+export type LlmUsageSnapshot = {
+  input: number
+  output: number
+  cacheRead: number
+  cacheWrite: number
+  totalTokens: number
+  costTotal: number
+}
+
 /** Mirrors server `BackgroundRunDoc` for `/api/your-wiki` and `/api/background/agents`. */
 export type BackgroundAgentDoc = {
   id: string
@@ -40,4 +50,6 @@ export type BackgroundAgentDoc = {
   idleReason?: string
   /** Consecutive no-op laps */
   consecutiveNoOpLaps?: number
+  usageLastInvocation?: LlmUsageSnapshot
+  usageCumulative?: LlmUsageSnapshot
 }

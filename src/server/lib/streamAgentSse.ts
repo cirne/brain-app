@@ -1,5 +1,12 @@
+import { randomUUID } from 'node:crypto'
 import type { Agent, AgentMessage } from '@mariozechner/pi-agent-core'
 import type { Context } from 'hono'
+import type { ChatMessage } from './chatTypes.js'
+import {
+  countAssistantCompletionsWithUsage,
+  sumUsageFromMessages,
+  type LlmUsageSnapshot,
+} from './llmUsage.js'
 import { streamSSE } from 'hono/streaming'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -17,7 +24,13 @@ import {
 import { buildReadEmailPreviewDetails } from './readEmailPreview.js'
 import { createWikiUnifiedDiff, safeWikiRelativePath } from './wikiEditDiff.js'
 import { writeWikiPartialFromStreamingWriteArgs } from './wikiStreamingPartialWrite.js'
-import { recordToolCallEnd, recordToolCallStart } from './newRelicHelper.js'
+import {
+  recordLlmAgentTurn,
+  recordLlmCompletionsForTurn,
+  recordToolCallEnd,
+  recordToolCallStart,
+  resultSizeBucketFromCharCount,
+} from './newRelicHelper.js'
 import { toolResultForSse, truncateJsonResult } from './truncateJson.js'
 
 export interface StreamAgentSseOptions {
@@ -29,7 +42,8 @@ export interface StreamAgentSseOptions {
   onTurnComplete?: (args: {
     /** Null when {@link omitUserMessageFromPersistence} — assistant-only turn in storage. */
     userMessage: string | null
-    assistantMessage: ReturnType<typeof toAssistantMessage>
+    /** Usage is set when `agent_end` reported model token/cost totals for this run (multi-round sum). */
+    assistantMessage: ChatMessage
     turnTitle: string | null | undefined
   }) => Promise<void>
   /** When set (e.g. slash skills), passed to `agent.prompt()` instead of `message`. */
@@ -137,10 +151,19 @@ export function streamAgentSseResponse(
     const assistantState = createAssistantTurnState()
     const editBeforeSnapshot = new Map<string, string>()
     let savedThisTurn = false
+    /** Set from `agent_end` (sum of assistant `usage` over the full `prompt()` run). */
+    let lastRunUsage: LlmUsageSnapshot | undefined
+    /** One `agent.prompt()` scope — correlates NR ToolCall / LlmCompletion / LlmAgentTurn. */
+    const agentTurnId = randomUUID()
+    const turnStartedAt = performance.now()
+    /** Completed tools this turn (sequence = 0..n-1). */
+    let toolCallCount = 0
 
     const persistIfNeeded = async (): Promise<void> => {
       if (!onTurnComplete) return
-      const assistantMessage = toAssistantMessage(assistantState)
+      const base = toAssistantMessage(assistantState)
+      const assistantMessage: ChatMessage =
+        lastRunUsage !== undefined ? { ...base, usage: lastRunUsage } : base
       await onTurnComplete({ userMessage: userMessageForStore, assistantMessage, turnTitle })
       savedThisTurn = true
     }
@@ -291,7 +314,12 @@ export function streamAgentSseResponse(
                 }
               }
             }
-            const truncatedResult = toolResultForSse(ev.toolName, resultText, 4000)
+            const sseMaxChars = 4000
+            const truncatedResult = toolResultForSse(ev.toolName, resultText, sseMaxChars)
+            // NR `resultCharCount` / truncation flag: same post-`toolResultForSse` string as SSE (proxy for next-context size).
+            const resultCharCount = truncatedResult.length
+            const resultTruncated = truncatedResult.length < resultText.length
+            const sequence = toolCallCount++
             applyToolEnd(assistantState, ev.toolCallId, truncatedResult, ev.isError, details)
             const toolRow = assistantState.parts.find(
               p => p.type === 'tool' && p.toolCall.id === ev.toolCallId,
@@ -311,6 +339,11 @@ export function streamAgentSseResponse(
                 ev.isError && resultText.trim().length > 0
                   ? truncateJsonResult(resultText, 400)
                   : undefined,
+              agentTurnId,
+              sequence,
+              resultCharCount,
+              resultTruncated,
+              resultSizeBucket: resultSizeBucketFromCharCount(resultCharCount),
             })
             await stream.writeSSE({
               event: 'tool_end',
@@ -327,7 +360,29 @@ export function streamAgentSseResponse(
             })
             break
           }
-          case 'agent_end':
+          case 'agent_end': {
+            const messages = (event as { messages?: AgentMessage[] }).messages
+            const rollup = sumUsageFromMessages(messages)
+            lastRunUsage = rollup
+            {
+              const correlation =
+                announceSessionId !== undefined ? { sessionId: announceSessionId } : undefined
+              recordLlmCompletionsForTurn({
+                agentTurnId,
+                source: 'chat',
+                correlation,
+                messages,
+              })
+              recordLlmAgentTurn({
+                agentTurnId,
+                source: 'chat',
+                correlation,
+                usage: rollup,
+                turnDurationMs: Math.max(0, Math.round(performance.now() - turnStartedAt)),
+                completionCount: countAssistantCompletionsWithUsage(messages),
+                toolCallCount,
+              })
+            }
             await stream.writeSSE({
               event: 'done',
               data: JSON.stringify({}),
@@ -338,6 +393,7 @@ export function streamAgentSseResponse(
               /* best-effort */
             }
             break
+          }
         }
       } catch {
         // Stream may be closed

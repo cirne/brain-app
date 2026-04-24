@@ -106,4 +106,108 @@ describe('newRelicHelper', () => {
     expect(recordCustomEvent).not.toHaveBeenCalled()
     if (saved !== undefined) process.env.NEW_RELIC_LICENSE_KEY = saved
   })
+
+  it('resultSizeBucketFromCharCount returns bounded bands', async () => {
+    const { resultSizeBucketFromCharCount } = await import('./newRelicHelper.js')
+    expect(resultSizeBucketFromCharCount(0)).toBe('0-1k')
+    expect(resultSizeBucketFromCharCount(1023)).toBe('0-1k')
+    expect(resultSizeBucketFromCharCount(1024)).toBe('1k-8k')
+    expect(resultSizeBucketFromCharCount(8191)).toBe('1k-8k')
+    expect(resultSizeBucketFromCharCount(9000)).toBe('8k+')
+  })
+
+  it('recordToolCallEnd includes turn correlation and result size', async () => {
+    const { recordToolCallStart, recordToolCallEnd, resultSizeBucketFromCharCount } = await import(
+      './newRelicHelper.js',
+    )
+    recordToolCallStart('t1')
+    recordToolCallEnd({
+      toolCallId: 't1',
+      toolName: 'grep',
+      args: { pattern: 'x' },
+      source: 'chat',
+      correlation: { sessionId: 's1' },
+      agentTurnId: 'turn-uuid',
+      sequence: 2,
+      resultCharCount: 500,
+      resultTruncated: true,
+      resultSizeBucket: resultSizeBucketFromCharCount(500),
+    })
+    expect(recordCustomEvent).toHaveBeenCalledWith(
+      'ToolCall',
+      expect.objectContaining({
+        agentTurnId: 'turn-uuid',
+        sequence: 2,
+        resultCharCount: 500,
+        resultTruncated: true,
+        resultSizeBucket: '0-1k',
+        sessionId: 's1',
+      }),
+    )
+  })
+
+  it('recordLlmCompletionsForTurn and recordLlmAgentTurn emit', async () => {
+    const { recordLlmCompletionsForTurn, recordLlmAgentTurn } = await import('./newRelicHelper.js')
+    const a = {
+      role: 'assistant' as const,
+      content: [],
+      api: 'openai' as const,
+      provider: 'openai' as const,
+      model: 'gpt-4o',
+      usage: {
+        input: 10,
+        output: 5,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 15,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0.01 },
+      },
+      stopReason: 'stop' as const,
+      timestamp: 0,
+    }
+    const b = { ...a, usage: { ...a.usage, input: 20, output: 10, totalTokens: 30, cost: { ...a.usage.cost, total: 0.02 } } }
+    recordLlmCompletionsForTurn({
+      agentTurnId: 't1',
+      source: 'chat',
+      correlation: { sessionId: 'sess' },
+      messages: [a, b],
+    })
+    expect(recordCustomEvent).toHaveBeenCalledWith(
+      'LlmCompletion',
+      expect.objectContaining({ agentTurnId: 't1', completionIndex: 0, input: 10, sessionId: 'sess' }),
+    )
+    expect(recordCustomEvent).toHaveBeenCalledWith(
+      'LlmCompletion',
+      expect.objectContaining({ agentTurnId: 't1', completionIndex: 1, input: 20 }),
+    )
+    recordCustomEvent.mockClear()
+    recordLlmAgentTurn({
+      agentTurnId: 't1',
+      source: 'wikiExpansion',
+      correlation: { backgroundRunId: 'run-1' },
+      usage: {
+        input: 30,
+        output: 15,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 45,
+        costTotal: 0.03,
+      },
+      turnDurationMs: 1200,
+      completionCount: 2,
+      toolCallCount: 3,
+    })
+    expect(recordCustomEvent).toHaveBeenCalledWith(
+      'LlmAgentTurn',
+      expect.objectContaining({
+        agentTurnId: 't1',
+        source: 'wikiExpansion',
+        backgroundRunId: 'run-1',
+        turnDurationMs: 1200,
+        completionCount: 2,
+        toolCallCount: 3,
+        costTotal: 0.03,
+      }),
+    )
+  })
 })

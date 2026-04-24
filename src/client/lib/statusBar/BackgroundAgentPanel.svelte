@@ -1,7 +1,11 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { fly } from 'svelte/transition'
-  import type { BackgroundAgentDoc, BackgroundTimelineEvent } from './backgroundAgentTypes.js'
+  import type {
+    BackgroundAgentDoc,
+    BackgroundTimelineEvent,
+    LlmUsageSnapshot,
+  } from './backgroundAgentTypes.js'
   import type { ToolCall } from '../agentUtils.js'
   import ToolCallBlock from '../agent-conversation/ToolCallBlock.svelte'
   import { ChevronDown, Play } from 'lucide-svelte'
@@ -192,6 +196,8 @@
     void agent?.detail
     void agent?.updatedAt
     void agent?.pageCount
+    void agent?.usageCumulative
+    void agent?.usageLastInvocation
     void tick().then(() => scrollToBottomIfFollowing())
   })
 
@@ -208,6 +214,36 @@
   function statusLabel(s: string): string {
     return s.replace(/-/g, ' ')
   }
+
+  function formatTokenCount(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+    return String(n)
+  }
+
+  /** Human-readable model usage for Hub (non-authoritative cost estimate from the provider stack). */
+  function formatUsageSnapshot(u: LlmUsageSnapshot): string {
+    const parts: string[] = []
+    if (u.totalTokens > 0) parts.push(`${formatTokenCount(u.totalTokens)} tok`)
+    if (u.costTotal > 0) parts.push(`~$${u.costTotal.toFixed(3)}`)
+    return parts.length > 0 ? parts.join(' · ') : ''
+  }
+
+  const usageHudLine = $derived.by((): string | null => {
+    const a = agent
+    if (!a) return null
+    const last = a.usageLastInvocation
+    const cum = a.usageCumulative
+    if (cum && last && cum.totalTokens !== last.totalTokens) {
+      const t = formatUsageSnapshot(cum)
+      const l = formatUsageSnapshot(last)
+      if (t && l) return `Run total: ${t} · last pass: ${l}`
+    }
+    const one = cum ?? last
+    if (!one) return null
+    const s = formatUsageSnapshot(one)
+    return s || null
+  })
 
   async function pauseAgent() {
     actionBusy = true
@@ -242,6 +278,10 @@
       {:else}
         {#if agent.detail?.trim()}
           <p class="bg-panel-status-line" aria-live="polite">{agent.detail.trim()}</p>
+        {/if}
+
+        {#if usageHudLine}
+          <p class="bg-panel-usage-line" aria-live="polite">{usageHudLine}</p>
         {/if}
 
         {#if agent.error}
@@ -343,6 +383,11 @@
             <span class="bg-panel-pill">{statusLabel(agent.status)}</span>
             {#if agent.pageCount > 0}
               <span class="bg-panel-count" aria-label="Pages created">{agent.pageCount} pages</span>
+            {/if}
+            {#if usageHudLine}
+              <span class="bg-panel-count bg-panel-count--usage" aria-label="Model token usage estimate"
+                >{usageHudLine}</span
+              >
             {/if}
           </div>
         {/if}
@@ -520,6 +565,18 @@
     font-size: 0.8125rem;
     font-variant-numeric: tabular-nums;
     color: var(--text-2);
+  }
+
+  .bg-panel-count--usage {
+    min-width: 0;
+  }
+
+  .bg-panel-usage-line {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
   }
 
   .bg-panel-status-line {
