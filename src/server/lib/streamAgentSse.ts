@@ -23,9 +23,13 @@ import { writeWikiPartialFromStreamingWriteArgs } from './wikiStreamingPartialWr
 import type { LlmAgentKind } from './llmAgentKind.js'
 import {
   type LlmTurnTelemetry,
+  beginToolCallSegment,
+  endToolCallSegmentBridge,
   recordLlmTurnEndEvents,
   recordToolCallEnd,
   recordToolCallStart,
+  releaseAllPendingToolCallSegments,
+  setAgentTurnTransactionAttribute,
   toolResultSseForNr,
 } from './newRelicHelper.js'
 import { truncateJsonResult } from './truncateJson.js'
@@ -125,6 +129,12 @@ export function streamAgentSseResponse(
   } = opts
   const agentKind: LlmAgentKind = agentKindOpt ?? 'chat'
 
+  // One id for the whole turn. Must be created and sent to NR *before* `streamSSE`'s async
+  // callback — that callback runs outside the web request's async context, so
+  // `addCustomAttribute` there would not attach to the transaction.
+  const agentTurnId = randomUUID()
+  setAgentTurnTransactionAttribute(agentTurnId)
+
   return streamSSE(c, async (stream) => {
     if (announceSessionId) {
       await stream.writeSSE({ event: 'session', data: JSON.stringify({ sessionId: announceSessionId }) })
@@ -158,7 +168,6 @@ export function streamAgentSseResponse(
     /** Set from `agent_end` (sum of assistant `usage` over the full `prompt()` run). */
     let lastRunUsage: LlmUsageSnapshot | undefined
     /** One `agent.prompt()` scope — correlates NR ToolCall / LlmCompletion / LlmAgentTurn. */
-    const agentTurnId = randomUUID()
     const turnStartedAt = performance.now()
     /** Completed tools this turn (sequence = 0..n-1). */
     let toolCallCount = 0
@@ -238,6 +247,7 @@ export function streamAgentSseResponse(
             const name = te.toolName
             const args = te.args
             recordToolCallStart(id)
+            beginToolCallSegment(name, id)
             applyToolStart(assistantState, { id, name, args, done: false })
             if (name === 'set_chat_title' && args && typeof args === 'object' && 'title' in args) {
               const t = String((args as { title?: unknown }).title ?? '').trim().slice(0, 120)
@@ -275,6 +285,7 @@ export function streamAgentSseResponse(
           }
           case 'tool_execution_end': {
             const ev = event as unknown as { type: 'tool_execution_end' } & ToolExecutionEndPayload
+            endToolCallSegmentBridge(ev.toolCallId)
             const resultText = toolResultText(ev)
             let details: unknown = undefined
             if (ev.result?.details != null && typeof ev.result.details === 'object') {
@@ -409,6 +420,7 @@ export function streamAgentSseResponse(
         /* closed */
       }
     } finally {
+      releaseAllPendingToolCallSegments()
       unsubscribe()
       if (onTurnComplete && !savedThisTurn) {
         try {

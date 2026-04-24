@@ -1,5 +1,12 @@
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
 import newrelic from 'newrelic'
+
+/**
+ * `startSegment` stays open until the returned Promise resolves. We bridge
+ * `tool_execution_start` → `tool_execution_end` so the APM trace shows one span per tool.
+ */
+const pendingToolSegmentFinishes = new Map<string, () => void>()
+const MAX_PENDING_TOOL_SEGMENTS = 500
 import type { LlmAgentKind } from './llmAgentKind.js'
 import { countAssistantCompletionsWithUsage, type LlmUsageSnapshot } from './llmUsage.js'
 import { toolResultForSse } from './truncateJson.js'
@@ -26,6 +33,76 @@ const REDACT_KEY_MARKERS = [
 /** Mirrors {@link newrelic.cjs}: agent off when no license key. */
 export function isAgentEnabled(): boolean {
   return Boolean(process.env.NEW_RELIC_LICENSE_KEY?.trim())
+}
+
+/** Sanitized, low-cardinality name for a custom segment in transaction traces. */
+function toolCallSegmentName(toolName: string): string {
+  const safe = String(toolName)
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+  const n = (safe.length > 0 ? safe : 'unknown').slice(0, 80)
+  return `ai.tool/${n}`
+}
+
+/**
+ * Adds `agentTurnId` to the current web transaction and root span (when an HTTP request
+ * is active). Call this from the **synchronous** route/middleware stack — not from the
+ * `streamSSE` body callback — or the Node agent will not have an active transaction
+ * (async context is not carried into the stream writer).
+ * No-op when the agent is off.
+ */
+export function setAgentTurnTransactionAttribute(agentTurnId: string): void {
+  if (!isAgentEnabled() || !agentTurnId) return
+  try {
+    newrelic.addCustomAttribute('agentTurnId', agentTurnId)
+  } catch {
+    /* never throw */
+  }
+}
+
+/**
+ * Open an APM segment for a tool; pair with {@link endToolCallSegmentBridge} on `tool_execution_end`.
+ * Safe when no web transaction (e.g. some background wiki runs): the Promise bridge still runs.
+ */
+export function beginToolCallSegment(toolName: string, toolCallId: string): void {
+  if (!isAgentEnabled() || !toolCallId) return
+  if (pendingToolSegmentFinishes.size >= MAX_PENDING_TOOL_SEGMENTS) {
+    pendingToolSegmentFinishes.clear()
+  }
+  const segment = toolCallSegmentName(toolName)
+  void newrelic.startSegment(segment, true, () => {
+    return new Promise<void>(resolve => {
+      pendingToolSegmentFinishes.set(toolCallId, () => {
+        pendingToolSegmentFinishes.delete(toolCallId)
+        resolve()
+      })
+    })
+  })
+}
+
+/** Closes the segment started in {@link beginToolCallSegment} for this `toolCallId`. */
+export function endToolCallSegmentBridge(toolCallId: string): void {
+  if (!isAgentEnabled() || !toolCallId) return
+  const finish = pendingToolSegmentFinishes.get(toolCallId)
+  if (finish) finish()
+}
+
+/** End orphan segments when a stream is torn down (abort, error, or missing `tool_execution_end`). */
+export function releaseAllPendingToolCallSegments(): void {
+  if (!isAgentEnabled()) {
+    pendingToolSegmentFinishes.clear()
+    return
+  }
+  const copy = [...pendingToolSegmentFinishes.values()]
+  pendingToolSegmentFinishes.clear()
+  for (const finish of copy) {
+    try {
+      finish()
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 function shouldRedactKey(key: string): boolean {

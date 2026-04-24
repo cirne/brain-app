@@ -2,21 +2,39 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runWithTenantContext } from './tenantContext.js'
 
 const recordCustomEvent = vi.fn()
+const addCustomAttribute = vi.fn()
+const startSegment = vi.fn(
+  (name: string, record: boolean, handler: (cb?: () => void) => unknown) => handler(),
+)
 
 vi.mock('newrelic', () => ({
   default: {
     setTransactionName: vi.fn(),
     recordCustomEvent: (...args: unknown[]) => recordCustomEvent(...args),
+    addCustomAttribute: (...args: unknown[]) => addCustomAttribute(...args),
+    startSegment: (
+      name: string,
+      record: boolean,
+      handler: (cb?: () => void) => unknown,
+      _callback?: () => void,
+    ) => startSegment(name, record, handler),
   },
 }))
 
 describe('newRelicHelper', () => {
   beforeEach(() => {
     recordCustomEvent.mockClear()
+    addCustomAttribute.mockClear()
+    startSegment.mockClear()
+    startSegment.mockImplementation(
+      (name: string, record: boolean, handler: (cb?: () => void) => unknown) => handler(),
+    )
     process.env.NEW_RELIC_LICENSE_KEY = 'test-license'
   })
 
-  afterEach(() => {
+  afterEach(async () => {
+    const { releaseAllPendingToolCallSegments } = await import('./newRelicHelper.js')
+    releaseAllPendingToolCallSegments()
     delete process.env.NEW_RELIC_LICENSE_KEY
   })
 
@@ -225,5 +243,18 @@ describe('newRelicHelper', () => {
         costTotal: 0.03,
       }),
     )
+  })
+
+  it('setAgentTurnTransactionAttribute forwards agentTurnId to addCustomAttribute', async () => {
+    const { setAgentTurnTransactionAttribute } = await import('./newRelicHelper.js')
+    setAgentTurnTransactionAttribute('urn-turn-1')
+    expect(addCustomAttribute).toHaveBeenCalledWith('agentTurnId', 'urn-turn-1')
+  })
+
+  it('beginToolCallSegment registers a startSegment and endToolCallSegmentBridge closes it', async () => {
+    const { beginToolCallSegment, endToolCallSegmentBridge } = await import('./newRelicHelper.js')
+    beginToolCallSegment('read_email', 'tc-99')
+    expect(startSegment).toHaveBeenCalledWith('ai.tool/read_email', true, expect.any(Function))
+    endToolCallSegmentBridge('tc-99')
   })
 })

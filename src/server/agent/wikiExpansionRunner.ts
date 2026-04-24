@@ -14,9 +14,12 @@ import {
   type BackgroundRunDoc,
 } from '../lib/backgroundAgentStore.js'
 import {
+  beginToolCallSegment,
+  endToolCallSegmentBridge,
   recordLlmTurnEndEvents,
   recordToolCallEnd,
   recordToolCallStart,
+  releaseAllPendingToolCallSegments,
   toolResultSseForNr,
   type LlmTurnTelemetry,
 } from '../lib/newRelicHelper.js'
@@ -252,6 +255,7 @@ function attachRunTracker(
           const te = ev as unknown as { type: 'tool_execution_start' } & ToolExecutionStartPayload
           const { toolCallId, toolName, args } = te
           recordToolCallStart(toolCallId)
+          beginToolCallSegment(toolName, toolCallId)
           pendingToolArgs.set(toolCallId, args)
           if (toolName === 'write' && args && typeof args === 'object' && 'path' in args) {
             const raw = String((args as { path: unknown }).path)
@@ -270,6 +274,7 @@ function attachRunTracker(
         }
         case 'tool_execution_end': {
           const endEv = ev as unknown as { type: 'tool_execution_end' } & ToolExecutionEndPayload
+          endToolCallSegmentBridge(endEv.toolCallId)
           const argsRaw = pendingToolArgs.get(endEv.toolCallId)
           pendingToolArgs.delete(endEv.toolCallId)
 
@@ -428,6 +433,7 @@ export async function runEnrichInvocation(
       await writeBackgroundRun(doc)
     }
   } finally {
+    releaseAllPendingToolCallSegments()
     unsubscribe()
     deleteWikiBuildoutSession(sessionId)
   }
@@ -476,6 +482,7 @@ export async function runCleanupInvocation(
       await writeBackgroundRun(doc)
     }
   } finally {
+    releaseAllPendingToolCallSegments()
     unsubscribe()
     cleanupSessions.delete(sessionId)
   }
