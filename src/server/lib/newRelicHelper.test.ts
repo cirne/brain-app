@@ -209,11 +209,20 @@ describe('newRelicHelper', () => {
         completionIndex: 0,
         input: 10,
         sessionId: 'sess',
+        provider: 'openai',
+        model: 'gpt-4o',
       }),
     )
     expect(recordCustomEvent).toHaveBeenCalledWith(
       'LlmCompletion',
-      expect.objectContaining({ agentTurnId: 't1', completionIndex: 1, input: 20, agentKind: 'chat' }),
+      expect.objectContaining({
+        agentTurnId: 't1',
+        completionIndex: 1,
+        input: 20,
+        agentKind: 'chat',
+        provider: 'openai',
+        model: 'gpt-4o',
+      }),
     )
     recordCustomEvent.mockClear()
     recordLlmAgentTurn({
@@ -232,6 +241,8 @@ describe('newRelicHelper', () => {
       turnDurationMs: 1200,
       completionCount: 2,
       toolCallCount: 3,
+      provider: 'anthropic',
+      model: 'claude-3-5-haiku-latest',
     })
     expect(recordCustomEvent).toHaveBeenCalledWith(
       'LlmAgentTurn',
@@ -244,8 +255,53 @@ describe('newRelicHelper', () => {
         completionCount: 2,
         toolCallCount: 3,
         costTotal: 0.03,
+        provider: 'anthropic',
+        model: 'claude-3-5-haiku-latest',
       }),
     )
+  })
+
+  it('recordLlmTurnEndEvents sets LlmAgentTurn provider/model from last assistant completion', async () => {
+    const { recordLlmTurnEndEvents } = await import('./newRelicHelper.js')
+    const usageCost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0.001 }
+    const first = {
+      role: 'assistant' as const,
+      content: [],
+      api: 'openai' as const,
+      provider: 'openai' as const,
+      model: 'gpt-4o-mini',
+      usage: {
+        input: 1,
+        output: 1,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 2,
+        cost: { ...usageCost, total: 0.001 },
+      },
+      stopReason: 'stop' as const,
+      timestamp: 0,
+    }
+    const last = {
+      ...first,
+      model: 'gpt-4o',
+      usage: {
+        ...first.usage,
+        input: 2,
+        output: 2,
+        totalTokens: 4,
+        cost: { ...usageCost, total: 0.002 },
+      },
+    }
+    recordCustomEvent.mockClear()
+    recordLlmTurnEndEvents({
+      turn: { agentTurnId: 't2', source: 'chat', agentKind: 'chat' },
+      messages: [first, last],
+      usage: { input: 3, output: 3, cacheRead: 0, cacheWrite: 0, totalTokens: 6, costTotal: 0.003 },
+      turnDurationMs: 100,
+      toolCallCount: 0,
+    })
+    const agentTurnCall = vi.mocked(recordCustomEvent).mock.calls.find((c) => c[0] === 'LlmAgentTurn')
+    expect(agentTurnCall?.[1]).toMatchObject({ provider: 'openai', model: 'gpt-4o' })
   })
 
   it('setAgentTurnTransactionAttribute forwards agentTurnId to addCustomAttribute', async () => {

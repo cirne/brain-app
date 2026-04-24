@@ -368,6 +368,35 @@ export type RecordLlmAgentTurnOptions = LlmTurnTelemetry & {
   /** Assistant completions that reported `usage` in this turn. */
   completionCount: number
   toolCallCount: number
+  /** LLM provider id (e.g. `openai`); from last assistant completion with usage when set via {@link recordLlmTurnEndEvents}. */
+  provider?: string
+  /** Model id for this turn’s last completion with usage (multi-round turns rarely switch models). */
+  model?: string
+}
+
+/** `provider` / `model` on assistant messages from pi-agent-core (not on `AgentMessage` type surface). */
+function assistantLlmIdentity(m: AgentMessage): { provider?: string; model?: string } {
+  if (m.role !== 'assistant') return {}
+  const r = m as { provider?: unknown; model?: unknown; api?: unknown }
+  const providerRaw = r.provider ?? r.api
+  const provider = typeof providerRaw === 'string' && providerRaw.length > 0 ? providerRaw : undefined
+  const model = typeof r.model === 'string' && r.model.length > 0 ? r.model : undefined
+  return { provider, model }
+}
+
+/** Last assistant message with `usage` wins (matches final completion in a tool loop). */
+function rollupAssistantLlmIds(messages: AgentMessage[] | null | undefined): {
+  provider?: string
+  model?: string
+} {
+  if (!Array.isArray(messages)) return {}
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.role !== 'assistant' || m.usage == null) continue
+    const id = assistantLlmIdentity(m)
+    if (id.provider !== undefined || id.model !== undefined) return id
+  }
+  return {}
 }
 
 /** One LlmCompletion per model HTTP completion (assistant message with usage). */
@@ -384,6 +413,7 @@ export function recordLlmCompletionsForTurn(
     const u = m.usage
     if (u == null) continue
     const costTotal = u.cost && typeof u.cost.total === 'number' ? u.cost.total : 0
+    const { provider, model } = assistantLlmIdentity(m)
     const attrs: Record<string, string | number | boolean> = {
       agentTurnId: turn.agentTurnId,
       source: turn.source,
@@ -396,6 +426,8 @@ export function recordLlmCompletionsForTurn(
       totalTokens: u.totalTokens,
       costTotal,
     }
+    if (provider !== undefined) attrs.provider = provider
+    if (model !== undefined) attrs.model = model
     appendOptionalCorrelation(attrs, turn.correlation)
     safeRecordCustomEvent('LlmCompletion', attrs)
     completionIndex++
@@ -419,6 +451,8 @@ export function recordLlmAgentTurn(options: RecordLlmAgentTurnOptions): void {
     completionCount: options.completionCount,
     toolCallCount: options.toolCallCount,
   }
+  if (options.provider !== undefined) attrs.provider = options.provider
+  if (options.model !== undefined) attrs.model = options.model
   appendOptionalCorrelation(attrs, options.correlation)
   safeRecordCustomEvent('LlmAgentTurn', attrs)
 }
@@ -432,6 +466,7 @@ export function recordLlmTurnEndEvents(args: {
   toolCallCount: number
 }): void {
   const { turn, messages, usage, turnDurationMs, toolCallCount } = args
+  const { provider, model } = rollupAssistantLlmIds(messages)
   recordLlmCompletionsForTurn(turn, messages)
   recordLlmAgentTurn({
     ...turn,
@@ -439,5 +474,7 @@ export function recordLlmTurnEndEvents(args: {
     turnDurationMs,
     completionCount: countAssistantCompletionsWithUsage(messages),
     toolCallCount,
+    provider,
+    model,
   })
 }
