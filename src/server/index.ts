@@ -25,6 +25,7 @@ import yourWikiRoute from './routes/yourWiki.js'
 import gmailOAuthRoute from './routes/gmailOAuth.js'
 import navRecentsRoute from './routes/navRecents.js'
 import oauthGoogleBrowserPages from './routes/oauthGoogleBrowserPages.js'
+import issuesRoute from './routes/issues.js'
 import hubRoute from './routes/hub.js'
 import hubEventsRoute from './routes/hubEvents.js'
 import devRoute from './routes/dev.js'
@@ -152,6 +153,7 @@ app.route('/api/vault', vaultRoute)
 app.route('/api/account', accountRoute)
 app.route('/api/chat', chatRoute)
 app.route('/api/skills', skillsRoute)
+app.route('/api/issues', issuesRoute)
 app.route('/api/wiki', wikiRoute)
 app.route('/api/files', filesRoute)
 app.route('/api/inbox', inboxRoute)

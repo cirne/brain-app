@@ -47,7 +47,9 @@
     "eval:run": "BRAIN_HOME=./data-eval/brain vitest run --config vitest.eval.config.ts",
     "eval:run:assistant": "BRAIN_HOME=./data-eval/brain vitest run --config vitest.eval.config.ts src/server/evals/assistant",
     "eval:run:enron": "BRAIN_HOME=./data-eval/brain npx tsx src/server/evals/enronV1cli.ts",
-    "eval:run:wiki": "BRAIN_HOME=./data-eval/brain npx tsx src/server/evals/wikiV1cli.ts"
+    "eval:run:wiki": "BRAIN_HOME=./data-eval/brain npx tsx src/server/evals/wikiV1cli.ts",
+    "issues:list": "node scripts/issues-http.mjs list",
+    "issues:fetch": "node scripts/issues-http.mjs fetch"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",

@@ -432,6 +432,15 @@
 
   async function selectChatSession(id: string) {
     closeOverlayImmediate()
+    // Brain Hub uses `/hub` or `/hub/…` and replaces AgentChat with BrainHubPage. After
+    // `closeOverlay`, the URL can still be under /hub (e.g. /hub with `overlay: hub` only, no
+    // `hubActive` in the parsed route), so `agentChat` stays undefined and `loadSession` no-ops.
+    // “New chat” always calls `navigate({ hubActive: false })` — do the same here (BUG-017).
+    if (typeof location !== 'undefined' && (location.pathname === '/hub' || location.pathname.startsWith('/hub/'))) {
+      navigate({ hubActive: false }, { replace: true })
+      route = parseRoute()
+    }
+    await tick()
     await agentChat?.loadSession(id)
     chatIsEmpty = false
     if (isMobile) sidebarOpen = false

@@ -11,10 +11,12 @@ export interface BrainLayout {
     ripmail: string
     cache: string
     var: string
+    issues: string
   }
   files: {
     wikiEditsLog: string
     dirIconsCache: string
+    issuesCounter: string
     vaultVerifier?: string
     vaultSessions?: string
     /** Sidebar RECENTS (docs + email threads), server-backed */
@@ -58,6 +60,16 @@ export function brainLayoutCacheDir(base: string): string {
 
 export function brainLayoutVarDir(base: string): string {
   return join(base, getBrainLayout().directories.var)
+}
+
+export function brainLayoutIssuesDir(base: string): string {
+  return join(base, getBrainLayout().directories.issues)
+}
+
+export function brainLayoutIssuesCounterPath(base: string): string {
+  const L = getBrainLayout()
+  const name = L.files.issuesCounter ?? 'issues-counter.json'
+  return join(base, L.directories.var, name)
 }
 
 export function brainLayoutWikiEditsPath(base: string): string {

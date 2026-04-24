@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import {
   brainLayoutCacheDir,
   brainLayoutChatsDir,
+  brainLayoutIssuesDir,
   brainLayoutRipmailDir,
   brainLayoutSkillsDir,
   brainLayoutVarDir,
@@ -51,6 +52,7 @@ export function ensureTenantHomeDir(tenantUserId: string): string {
   mkdirSync(brainLayoutRipmailDir(root), { recursive: true })
   mkdirSync(brainLayoutCacheDir(root), { recursive: true })
   mkdirSync(brainLayoutVarDir(root), { recursive: true })
+  mkdirSync(brainLayoutIssuesDir(root), { recursive: true })
   return root
 }
 

@@ -6,10 +6,12 @@
     "chats": "chats",
     "ripmail": "ripmail",
     "cache": "cache",
-    "var": "var"
+    "var": "var",
+    "issues": "issues"
   },
   "files": {
     "wikiEditsLog": "wiki-edits.jsonl",
+    "issuesCounter": "issues-counter.json",
     "dirIconsCache": "wiki-dir-icons.json",
     "calendarPersonal": "calendar-personal.json",
     "calendarTravel": "calendar-travel.json",

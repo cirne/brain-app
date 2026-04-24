@@ -4,6 +4,7 @@ import { BRAIN_SESSION_COOKIE } from './vaultCookie.js'
 import { validateVaultSession } from './vaultSessionStore.js'
 import { vaultVerifierExistsSync } from './vaultVerifierStore.js'
 import { isMultiTenantMode } from './dataRoot.js'
+import { isIssuesEmbedGetPath, isValidEmbedKeyBearer } from './embedKeyAuth.js'
 import { tryGetTenantContext } from './tenantContext.js'
 
 /** Dev-only POST shims used by {@link App.svelte} before vault session exists. */
@@ -48,6 +49,15 @@ export async function vaultGateMiddleware(c: Context, next: Next): Promise<Respo
   }
 
   if (isDevBootstrapPost(path, method)) {
+    return next()
+  }
+
+  /** OPP-048: list/fetch issues with `BRAIN_EMBED_MASTER_KEY` (single-tenant / loopback tooling only). */
+  if (
+    !isMultiTenantMode() &&
+    isIssuesEmbedGetPath(path, method) &&
+    isValidEmbedKeyBearer(c)
+  ) {
     return next()
   }
 

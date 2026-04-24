@@ -21,6 +21,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | `/api/imessage` | macOS iMessage/SMS tools when `chat.db` is readable |
 | `/api/messages` | Alias mount for the same iMessage router |
 | `/api/skills` | Slash skills / skill assets under `$BRAIN_HOME/skills` |
+| `/api/issues` | Local **feedback** queue (on-disk `issues/`) — `GET` list/fetch with `Authorization: Bearer` + `BRAIN_EMBED_MASTER_KEY` (single-tenant, trusted callers); `POST` draft/submit and the `product_feedback` tool need a vault session — [AGENTS.md](../../AGENTS.md) (OPP-048) |
 | `/api/onboarding` | Onboarding flow, ripmail setup hints |
 | `/api/background` | Background agent run history and control (wiki expansion) |
 | `/api/events` | **SSE** (`GET /`) — live `your_wiki` + `background_agents` snapshots and push for Hub (see [`hubEvents.ts`](../../src/server/routes/hubEvents.ts)) |

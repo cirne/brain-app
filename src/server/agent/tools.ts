@@ -44,6 +44,9 @@ import { runRipmailRefreshForBrain } from '../lib/ripmailHeavySpawn.js'
 import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
 import { ripmailBin } from '../lib/ripmailBin.js'
 import { resolveRipmailSourceForCli } from '../lib/ripmailSourceResolve.js'
+import { brainHome } from '../lib/brainHome.js'
+import { composeFeedbackIssueMarkdown } from '../lib/feedbackComposer.js'
+import { writeFeedbackIssueFromMarkdown } from '../lib/feedbackIssues.js'
 
 const execAsync = promisify(exec)
 
@@ -1375,6 +1378,121 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
+  const productFeedback = defineTool({
+    name: 'product_feedback',
+    label: 'Product feedback (draft / submit)',
+    description:
+      'Submit structured product feedback (bugs or features) to local files under BRAIN_HOME/issues. ' +
+      'Use op=draft with user_message (and optional transcript) to get a redacted markdown draft. ' +
+      'Show the draft to the user; only after they explicitly agree, call op=submit with the same ' +
+      'markdown and confirmed=true. Never submit without clear user confirmation.',
+    parameters: Type.Object({
+      op: Type.Union([Type.Literal('draft'), Type.Literal('submit')]),
+      user_message: Type.Optional(
+        Type.String({ description: 'Required for op=draft: what the user wants to report' }),
+      ),
+      transcript: Type.Optional(
+        Type.String({ description: 'Optional bounded recent chat for repro context' }),
+      ),
+      tool_hints: Type.Optional(
+        Type.String({ description: 'Optional short structured error text (not full logs)' }),
+      ),
+      markdown: Type.Optional(
+        Type.String({ description: 'Required for op=submit: full issue markdown (from draft step)' }),
+      ),
+      confirmed: Type.Optional(
+        Type.Boolean({
+          description: 'For op=submit: must be true (literal user consent to persist)',
+        }),
+      ),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: {
+        op: 'draft' | 'submit'
+        user_message?: string
+        transcript?: string
+        tool_hints?: string
+        markdown?: string
+        confirmed?: boolean
+      },
+    ) {
+      if (params.op === 'draft') {
+        const um = params.user_message?.trim() ?? ''
+        if (!um) {
+          return {
+            content: [{ type: 'text' as const, text: 'user_message is required for op=draft' }],
+            details: {},
+          }
+        }
+        const { markdown, error } = await composeFeedbackIssueMarkdown({
+          userMessage: um,
+          transcript: params.transcript,
+          toolHints: params.tool_hints,
+        })
+        if (error || !markdown) {
+          return {
+            content: [
+              { type: 'text' as const, text: `Draft failed: ${error ?? 'unknown'}` },
+            ],
+            details: {},
+          }
+        }
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Feedback draft (show this to the user; do not save until they confirm):\n\n${markdown}`,
+            },
+          ],
+          details: {},
+        }
+      }
+      if (params.op === 'submit') {
+        if (params.confirmed !== true) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Refusing to write: set confirmed=true only after the user explicitly approves the draft.',
+              },
+            ],
+            details: {},
+          }
+        }
+        const md = params.markdown?.trim() ?? ''
+        if (!md) {
+          return {
+            content: [{ type: 'text' as const, text: 'markdown is required for op=submit' }],
+            details: {},
+          }
+        }
+        try {
+          const out = await writeFeedbackIssueFromMarkdown(brainHome(), md)
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Saved feedback as issue #${out.id} (${out.filename})`,
+              },
+            ],
+            details: {},
+          }
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e)
+          return {
+            content: [{ type: 'text' as const, text: `Write failed: ${message}` }],
+            details: {},
+          }
+        }
+      }
+      return {
+        content: [{ type: 'text' as const, text: 'Invalid op' }],
+        details: {},
+      }
+    },
+  })
+
   const rememberPreference = defineTool({
     name: 'remember_preference',
     label: 'Remember this',
@@ -1656,6 +1774,7 @@ Returns the saved text; treat it as active for this session too.`,
     youtubeSearch,
     setChatTitle,
     openTool,
+    productFeedback,
     rememberPreference,
     ...(includeLocalMessages ? [listRecentMessagesTool, getMessageThreadTool] : []),
   ]
