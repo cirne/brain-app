@@ -29,6 +29,8 @@ export type Overlay =
   | { type: 'phone-access' }
   /** Browse wiki pages under a folder (`/wiki-dir/…`). */
   | { type: 'wiki-dir'; path?: string }
+  /** Full chat history: search, open, delete (`/chats` or `/hub/chats`). */
+  | { type: 'chat-history' }
 
 /** Chat-first shell: optional detail overlay; base route is always chat. */
 export type Route = {
@@ -107,6 +109,10 @@ export function parseRoute(href: string = location.href): Route {
   }
   if (seg1 === 'first-chat') {
     return { flow: 'first-chat' }
+  }
+
+  if (seg1 === 'chats') {
+    return { overlay: { type: 'chat-history' } }
   }
 
   // Legacy: /chat and /home → chat only
@@ -240,6 +246,8 @@ export function routeToUrl(route: Route): string {
     }
   } else if (o.type === 'your-wiki') {
     path = '/your-wiki'
+  } else if (o.type === 'chat-history') {
+    path = '/chats'
   } else if (o.type === 'hub-source') {
     if (!o.id) path = '/hub-source'
     else {

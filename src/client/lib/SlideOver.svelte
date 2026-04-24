@@ -531,11 +531,11 @@
         onOpenMessageThread={toolOnOpenMessageThread}
         onOpenWikiAbout={onOpenWikiAbout}
       />
-    {:else}
+    {:else if overlay.type === 'calendar'}
       <Calendar
         refreshKey={calendarRefreshKey}
-        initialDate={overlay.type === 'calendar' ? overlay.date : undefined}
-        initialEventId={overlay.type === 'calendar' ? overlay.eventId : undefined}
+        initialDate={overlay.date}
+        initialEventId={overlay.eventId}
         onResetToToday={onCalendarResetToToday}
         onCalendarNavigate={onCalendarNavigate}
         onContextChange={onContextChange}

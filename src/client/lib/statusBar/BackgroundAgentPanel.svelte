@@ -245,10 +245,21 @@
     return s || null
   })
 
+  function isYourWikiRun(): boolean {
+    const eid = effectiveId
+    return eid === 'your-wiki' || agent?.kind === 'your-wiki'
+  }
+
   async function pauseAgent() {
     actionBusy = true
     try {
-      await fetch('/api/your-wiki/pause', { method: 'POST' })
+      const eid = effectiveId
+      if (!eid) return
+      if (isYourWikiRun()) {
+        await fetch('/api/your-wiki/pause', { method: 'POST' })
+      } else {
+        await fetch(`/api/background/agents/${encodeURIComponent(eid)}/pause`, { method: 'POST' })
+      }
     } finally {
       actionBusy = false
     }
@@ -257,11 +268,22 @@
   async function resumeAgent() {
     actionBusy = true
     try {
-      await fetch('/api/your-wiki/resume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-      })
+      const eid = effectiveId
+      if (!eid) return
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (isYourWikiRun()) {
+        await fetch('/api/your-wiki/resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timezone }),
+        })
+      } else {
+        await fetch(`/api/background/agents/${encodeURIComponent(eid)}/resume`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timezone }),
+        })
+      }
     } finally {
       actionBusy = false
     }

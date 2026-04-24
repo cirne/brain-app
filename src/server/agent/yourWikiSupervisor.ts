@@ -189,6 +189,22 @@ async function waitForTriggerOrTimeout(ms: number): Promise<void> {
   })
 }
 
+/**
+ * Start the supervisor if not paused and no loop is running. Schedules a microtask
+ * re-check so resume still starts the loop when the previous run is in `finally`
+ * clearing `loopRunning` (BUG-018: resume during `await setPhase(..., paused)`).
+ */
+function kickSupervisorLoop(timezone?: string): void {
+  const tryStart = (): void => {
+    if (isPaused || loopRunning) return
+    void supervisorLoop(timezone).catch((e) => {
+      console.error('[your-wiki] unhandled loop error:', e)
+    })
+  }
+  tryStart()
+  queueMicrotask(tryStart)
+}
+
 // ─── Core loop ───────────────────────────────────────────────────────────────
 
 async function supervisorLoop(timezone?: string): Promise<void> {
@@ -234,6 +250,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
 
       if (isPaused) {
         await setPhase(doc, 'paused', lap, 'Paused')
+        if (!isPaused) continue
         break
       }
 
@@ -244,6 +261,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
 
       if (isPaused) {
         await setPhase(doc, 'paused', lap, 'Paused')
+        if (!isPaused) continue
         break
       }
 
@@ -333,10 +351,7 @@ export async function ensureYourWikiRunning(options: { timezone?: string } = {})
     }
     return
   }
-  if (loopRunning) return
-  void supervisorLoop(options.timezone).catch((e) => {
-    console.error('[your-wiki] unhandled loop error:', e)
-  })
+  kickSupervisorLoop(options.timezone)
 }
 
 /** Pause the supervisor. Aborts any in-flight agent invocation. */
@@ -369,11 +384,7 @@ export async function resumeYourWiki(options: { timezone?: string } = {}): Promi
   isPaused = false
   await savePersistedState({ paused: false })
   cancelBackoff()
-  if (!loopRunning) {
-    void supervisorLoop(options.timezone).catch((e) => {
-      console.error('[your-wiki] unhandled loop error (resume):', e)
-    })
-  }
+  kickSupervisorLoop(options.timezone)
 
   const doc = await readBackgroundRun(YOUR_WIKI_DOC_ID)
   if (doc) {
@@ -395,11 +406,7 @@ export async function resumeYourWiki(options: { timezone?: string } = {}): Promi
 export function requestLapNow(): void {
   if (isPaused) return
   cancelBackoff()
-  if (!loopRunning) {
-    void supervisorLoop().catch((e) => {
-      console.error('[your-wiki] unhandled loop error (requestLapNow):', e)
-    })
-  }
+  kickSupervisorLoop()
 }
 
 /** Return the current supervisor doc for the API, or a default "not yet started" shape. */

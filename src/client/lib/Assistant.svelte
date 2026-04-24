@@ -7,6 +7,7 @@
   import SlideOver from './SlideOver.svelte'
   import AgentChat from './AgentChat.svelte'
   import ChatHistory from './ChatHistory.svelte'
+  import ChatHistoryPage from './ChatHistoryPage.svelte'
   import WorkspaceSplit from './WorkspaceSplit.svelte'
   import {
     parseRoute,
@@ -239,6 +240,12 @@
 
   function closeOverlay() {
     if (!route.overlay) return
+    const t = route.overlay.type
+    /** Hub and full-page chat list fill the main pane (no detail split / slide). */
+    if (t === 'hub' || t === 'chat-history') {
+      closeOverlayImmediate()
+      return
+    }
     if (useDesktopSplitDetail) {
       workspaceSplit?.closeDesktopAnimated()
       return
@@ -440,8 +447,13 @@
       navigate({ hubActive: false }, { replace: true })
       route = parseRoute()
     }
-    await tick()
-    await agentChat?.loadSession(id)
+    for (let i = 0; i < 16; i++) {
+      await tick()
+      if (agentChat) {
+        await agentChat.loadSession(id)
+        break
+      }
+    }
     chatIsEmpty = false
     if (isMobile) sidebarOpen = false
   }
@@ -469,6 +481,14 @@
   function openHubWikiAbout() {
     navigate({
       overlay: { type: 'hub-wiki-about' },
+      hubActive: route.hubActive === true,
+    })
+    route = parseRoute()
+  }
+
+  function openChatHistoryPage() {
+    navigate({
+      overlay: { type: 'chat-history' },
       hubActive: route.hubActive === true,
     })
     route = parseRoute()
@@ -563,6 +583,7 @@
               onSelectDoc={selectDocFromHistory}
               onSelectEmail={selectEmailFromHistory}
               onNewChat={historyNewChat}
+              onOpenAllChats={openChatHistoryPage}
             />
           </div>
         </div>
@@ -573,17 +594,42 @@
   <WorkspaceSplit
     bind:this={workspaceSplit}
     bind:detailFullscreen={detailPaneFullscreen}
-    hasDetail={!!route.overlay && route.overlay.type !== 'hub'}
-    desktopDetailOpen={!!route.overlay && route.overlay.type !== 'hub' && useDesktopSplitDetail}
+    hasDetail={
+      !!route.overlay &&
+      route.overlay.type !== 'hub' &&
+      route.overlay.type !== 'chat-history'
+    }
+    desktopDetailOpen={
+      !!route.overlay &&
+      route.overlay.type !== 'hub' &&
+      route.overlay.type !== 'chat-history' &&
+      useDesktopSplitDetail
+    }
     onNavigateClear={closeOverlayImmediate}
   >
     {#snippet chat()}
-      {#if route.hubActive || route.overlay?.type === 'hub'}
+      {#if route.overlay?.type === 'chat-history'}
+        <div class="hub-container">
+          <div class="hub-scroll">
+            <ChatHistoryPage
+              activeSessionId={activeSessionId}
+              streamingSessionIds={streamingSessionIds}
+              onSelectSession={selectChatSession}
+              onNewChat={historyNewChat}
+            />
+          </div>
+        </div>
+      {:else if route.hubActive || route.overlay?.type === 'hub'}
         <div class="hub-container">
           <div class="hub-scroll">
             <BrainHubPage onHubNavigate={navigateFromHub} />
           </div>
-          {#if !useDesktopSplitDetail && route.overlay && route.overlay.type !== 'hub'}
+          {#if
+            !useDesktopSplitDetail &&
+            route.overlay &&
+            route.overlay.type !== 'hub' &&
+            route.overlay.type !== 'chat-history'
+          }
             <div class="mobile-detail-layer">
               <SlideOver
                 bind:this={mobileSlideOver}
@@ -637,7 +683,11 @@
           onEditStreaming={onEditStreaming}
         >
           {#snippet mobileDetail()}
-            {#if route.overlay && route.overlay.type !== 'hub'}
+            {#if
+              route.overlay &&
+              route.overlay.type !== 'hub' &&
+              route.overlay.type !== 'chat-history'
+            }
               <SlideOver
                 bind:this={mobileSlideOver}
                 overlay={route.overlay}
@@ -669,7 +719,11 @@
       {/if}
     {/snippet}
     {#snippet desktopDetail()}
-      {#if route.overlay && route.overlay.type !== 'hub'}
+      {#if
+        route.overlay &&
+        route.overlay.type !== 'hub' &&
+        route.overlay.type !== 'chat-history'
+      }
         <SlideOver
           overlay={route.overlay}
           surfaceContext={agentContext}

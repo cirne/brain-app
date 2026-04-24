@@ -185,6 +185,19 @@ describe('parseRoute messages', () => {
   })
 })
 
+describe('parseRoute chat history', () => {
+  it('parses /chats', () => {
+    expect(parseRoute('http://localhost/chats')).toEqual({ overlay: { type: 'chat-history' } })
+  })
+
+  it('parses /hub/chats with hubActive', () => {
+    expect(parseRoute('http://localhost/hub/chats')).toEqual({
+      hubActive: true,
+      overlay: { type: 'chat-history' },
+    })
+  })
+})
+
 describe('parseRoute your-wiki / background-agent', () => {
   it('parses /your-wiki', () => {
     expect(parseRoute('http://localhost/your-wiki')).toEqual({
@@ -329,6 +342,14 @@ describe('routeToUrl', () => {
 
   it('your-wiki returns /your-wiki', () => {
     expect(routeToUrl({ overlay: { type: 'your-wiki' } })).toBe('/your-wiki')
+  })
+
+  it('chat-history returns /chats', () => {
+    expect(routeToUrl({ overlay: { type: 'chat-history' } })).toBe('/chats')
+  })
+
+  it('chat-history with hubActive returns /hub/chats', () => {
+    expect(routeToUrl({ hubActive: true, overlay: { type: 'chat-history' } })).toBe('/hub/chats')
   })
 
   it('hub-source without id', () => {

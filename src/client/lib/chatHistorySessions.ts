@@ -4,6 +4,12 @@ export const CHAT_SESSIONS_RETRY_DELAYS_MS = [120, 350, 800] as const
 /** Max chat rows shown in the left nav; passed as `GET /api/chat/sessions?limit=…`. */
 export const CHAT_HISTORY_SIDEBAR_LIMIT = 12
 
+/** Fetch one extra session so the rail can show a “view all” link when total count exceeds the rail cap. */
+export const CHAT_HISTORY_SIDEBAR_FETCH_LIMIT = CHAT_HISTORY_SIDEBAR_LIMIT + 1
+
+/** Matches server `CHAT_SESSIONS_LIST_MAX_QUERY` — full history page list cap. */
+export const CHAT_HISTORY_PAGE_LIST_LIMIT = 500
+
 export function formatChatSessionsFetchError(res: Response): string {
   const parts = [String(res.status), res.statusText].filter((s) => s.length > 0)
   const line = parts.join(' ').trim()
@@ -13,7 +19,7 @@ export function formatChatSessionsFetchError(res: Response): string {
 export async function fetchChatSessionsWith401Retry(
   fetchImpl: typeof fetch,
   retryDelaysMs: readonly number[] = CHAT_SESSIONS_RETRY_DELAYS_MS,
-  listLimit: number = CHAT_HISTORY_SIDEBAR_LIMIT,
+  listLimit: number = CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
 ): Promise<Response | undefined> {
   const sessionsUrl = `/api/chat/sessions?limit=${encodeURIComponent(String(listLimit))}`
   let res: Response | undefined

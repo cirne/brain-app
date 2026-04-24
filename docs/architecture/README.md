@@ -17,7 +17,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**.
 | [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md) | Eval home (`data-eval/brain`), Enron `kean-s` fixture pipeline, ripmail `.eml` rule, stamps — **living doc** |
 | [integrations.md](./integrations.md) | Ripmail subprocess, `/api/search`, `/api/files`, optional iMessage; **trust boundaries** (ripmail vs `chat.db`) |
 | [configuration.md](./configuration.md) | Environment variables |
-| [future-durability.md](./future-durability.md) | Possible future SQLite for app-owned state |
+| [future-durability.md](./future-durability.md) | Future SQLite for app-owned state (chat, preferences); ripmail-style local DB pattern at Node layer — **not** implemented |
 | [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md) | ADR: wiki file tools vs `read_email` |
 | [wiki-vs-managed-memory-honcho.md](./wiki-vs-managed-memory-honcho.md) | Recorded consideration: wiki-first memory vs Honcho (or similar); **not for now** |
 | [external-sources-and-mcp.md](./external-sources-and-mcp.md) | Strategy: MCP as sync transport (not query API); local-first indexing for remote mutable sources (Notion, Linear, Slack); CRUD sync complexity vs append-only mail |

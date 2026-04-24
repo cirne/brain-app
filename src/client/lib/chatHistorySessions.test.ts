@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
   CHAT_HISTORY_SIDEBAR_LIMIT,
   CHAT_SESSIONS_RETRY_DELAYS_MS,
   fetchChatSessionsWith401Retry,
@@ -38,7 +39,7 @@ describe('fetchChatSessionsWith401Retry', () => {
     await vi.runAllTimersAsync()
     await p
     expect(fetchImpl).toHaveBeenCalledWith(
-      `/api/chat/sessions?limit=${CHAT_HISTORY_SIDEBAR_LIMIT}`,
+      `/api/chat/sessions?limit=${CHAT_HISTORY_SIDEBAR_FETCH_LIMIT}`,
       { credentials: 'include' },
     )
   })

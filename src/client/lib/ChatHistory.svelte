@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { subscribe } from './app/appEvents.js'
+  import { emit, subscribe } from './app/appEvents.js'
   import { Loader2, MessageSquare, Mail, Trash2, Plus } from 'lucide-svelte'
   import { chatRowShowsAgentWorking } from './chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from './chatHistoryDelete.js'
   import {
+    CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
+    CHAT_HISTORY_SIDEBAR_LIMIT,
     fetchChatSessionsWith401Retry,
     formatChatSessionsFetchError,
   } from './chatHistorySessions.js'
@@ -15,16 +17,9 @@
   } from './navHistory.js'
   import WikiFileName from './WikiFileName.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
+  import type { ChatSessionListItem } from './chatSessionTypes.js'
 
   const emptyStreamingIds = new Set<string>()
-
-  export type ChatSessionListItem = {
-    sessionId: string
-    createdAt: string
-    updatedAt: string
-    title: string | null
-    preview?: string
-  }
 
   let {
     activeSessionId = null as string | null,
@@ -34,6 +29,7 @@
     onSelectDoc,
     onSelectEmail,
     onNewChat,
+    onOpenAllChats,
   }: {
     activeSessionId?: string | null
     streamingSessionIds?: ReadonlySet<string>
@@ -41,6 +37,7 @@
     onSelectDoc?: (_path: string) => void
     onSelectEmail?: (_id: string) => void
     onNewChat: () => void
+    onOpenAllChats?: () => void
   } = $props()
 
   let sessions = $state<ChatSessionListItem[]>([])
@@ -48,6 +45,7 @@
   let loading = $state(true)
   let error = $state<string | null>(null)
   let pendingDelete = $state<{ sessionId: string; label: string } | null>(null)
+  let hasMoreChats = $state(false)
 
   type NavRowItem = {
     id: string
@@ -105,13 +103,18 @@
       error = null
     }
     try {
-      const res = await fetchChatSessionsWith401Retry(fetch)
+      const res = await fetchChatSessionsWith401Retry(
+        fetch,
+        undefined,
+        CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
+      )
       if (mySeq !== refreshSeq) return
 
       if (!res) {
         if (!background) {
           error = 'Could not load chats'
           sessions = []
+          hasMoreChats = false
         }
         return
       }
@@ -119,12 +122,14 @@
         if (!background) {
           error = formatChatSessionsFetchError(res)
           sessions = []
+          hasMoreChats = false
         }
         return
       }
-      const nextSessions = (await res.json()) as ChatSessionListItem[]
+      const raw = (await res.json()) as ChatSessionListItem[]
       if (mySeq !== refreshSeq) return
-      sessions = nextSessions
+      hasMoreChats = raw.length > CHAT_HISTORY_SIDEBAR_LIMIT
+      sessions = raw.slice(0, CHAT_HISTORY_SIDEBAR_LIMIT)
       navHistory = await loadNavHistory()
       if (mySeq !== refreshSeq) return
     } catch (e) {
@@ -132,6 +137,7 @@
       if (!background) {
         error = e instanceof Error ? e.message : 'Failed to load'
         sessions = []
+        hasMoreChats = false
       }
     } finally {
       if (!background) loading = false
@@ -170,6 +176,7 @@
       if (!res.ok) return
       pendingDelete = null
       sessions = sessions.filter((s) => s.sessionId !== id)
+      emit({ type: 'chat:sessions-changed' })
       if (activeSessionId === id) onNewChat()
     } catch {
       /* ignore */
@@ -260,6 +267,11 @@
           {#each chatItems as item (item.id)}
             {@render navRow(item)}
           {/each}
+          {#if hasMoreChats && onOpenAllChats}
+            <button type="button" class="ch-view-all" onclick={() => onOpenAllChats()}>
+              View all chats…
+            </button>
+          {/if}
         {/if}
       </div>
 
@@ -368,6 +380,30 @@
     letter-spacing: 0.06em;
     color: var(--text-2);
     padding: 2px 6px 6px;
+  }
+
+  .ch-view-all {
+    display: block;
+    width: calc(100% - 4px);
+    margin: 4px 2px 0;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .ch-view-all:hover {
+    background: var(--bg-3);
+    border-color: var(--text-2);
+  }
+  .ch-view-all:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   .ch-row {

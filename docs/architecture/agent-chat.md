@@ -22,6 +22,14 @@ Completed turns are stored as **JSON documents** under `$BRAIN_HOME/chats` (see 
 
 Titles can be updated early when `set_chat_title` runs (`patchSessionTitle`).
 
+### Architectural limitations (acceptable for now)
+
+The session list is implemented by **reading `*.json` from the chats directory**, sorting filenames by embedded `createdAtMs` so the **newest sessions come first**, then returning list rows (title, timestamps, preview derived from message text). Optional `limit` on `GET /api/chat/sessions` is **capped at 500** at the HTTP layer; omitting `limit` means the handler asks storage for an **uncapped** list (still bounded by scanning every file on disk).
+
+There is **no server-side search**, **pagination**, or **offset** in the API. The full history UI filters **in the browser** over whatever array the client requested (e.g. up to 500 for the “all chats” view). Sessions **older than the returned window** when a limit is applied are not visible to that client until the API and storage model grow beyond directory scan + JSON files.
+
+A future move to **per-user / app-owned SQLite** at the Node layer (same durability idea as ripmail’s mail index, but for brain-app data such as chat history and preferences) is recorded in [future-durability.md](./future-durability.md). **This is not a near-term commitment**; the file-based design is intentional and fine for current scale.
+
 ## SSE wire format (`POST /api/chat`)
 
 Stream implementation: `[streamAgentSse.ts](../../src/server/lib/streamAgentSse.ts)`. Typical events:
