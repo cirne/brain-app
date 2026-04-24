@@ -7,8 +7,8 @@
 }
 
 /**
- * Indexing: keep orbit + title stack fixed while optional hint / elapsed / error lines update.
- * The status slot reserves height (and caps overflow) so the centered column doesn’t jump when copy updates.
+ * Indexing: keep orbit + title stack in a block above the status area.
+ * The status slot may grow; let `.onboarding-main-scroll` own vertical scroll (no inner scrollbar).
  */
 .ob-indexing-fixed {
   display: flex;
@@ -26,7 +26,6 @@
   width: 100%;
   flex: 0 0 auto;
   min-height: 4rem;
-  max-height: 14rem;
   margin-top: 1rem;
   display: flex;
   flex-direction: column;
@@ -35,7 +34,7 @@
   gap: 0.5rem;
   box-sizing: border-box;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: visible;
 }
 
 .ob-indexing-visual {

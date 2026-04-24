@@ -5,6 +5,9 @@ pub mod apple_sqlite;
 pub use apple::apple_calendar_sync_available;
 pub mod db;
 pub mod google;
+pub use google::{
+    build_google_calendar_event_insert_body, insert_google_calendar_event, InsertGoogleEventArgs,
+};
 pub mod ics;
 mod model;
 pub mod sync;

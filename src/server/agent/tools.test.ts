@@ -477,6 +477,50 @@ describe('createAgentTools', () => {
       const text = joinToolResultText(result)
       expect(text).toContain('No calendar sources')
     })
+
+    it('create_event requires source and title', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const tool = tools.find((t) => t.name === 'calendar')!
+      await expect(
+        tool.execute('test-cal-ce-1', { op: 'create_event', source: 'x-gcal' } as never),
+      ).rejects.toThrow(/source and title/)
+    })
+
+    it('runs create-event and refresh', async () => {
+      const ripmailScript = join(wikiDir, 'fake-ripmail-cal-create')
+      await writeFile(
+        ripmailScript,
+        `#!/bin/sh
+if [ "$1" = "calendar" ] && [ "$2" = "create-event" ]; then
+  echo '{"id":"evt-new","htmlLink":"https://calendar.example/e"}'
+  exit 0
+fi
+echo 'bad'
+exit 1
+`,
+      )
+      await chmod(ripmailScript, 0o755)
+      process.env.RIPMAIL_BIN = ripmailScript
+      vi.mocked(runRipmailRefreshForBrain).mockClear()
+
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const tool = tools.find((t) => t.name === 'calendar')!
+      const result = await tool.execute('test-cal-ce-2', {
+        op: 'create_event',
+        source: 'user_gmail_com-gcal',
+        title: 'Standup',
+        event_start: '2026-04-23T10:00:00-04:00',
+        event_end: '2026-04-23T10:30:00-04:00',
+      })
+      const text = joinToolResultText(result)
+      expect(text).toContain('evt-new')
+      expect((result.details as { id?: string }).id).toBe('evt-new')
+      expect(vi.mocked(runRipmailRefreshForBrain)).toHaveBeenCalledWith(['--source', 'user_gmail_com-gcal'])
+
+      delete process.env.RIPMAIL_BIN
+    })
   })
 
   describe('list_inbox tool', () => {

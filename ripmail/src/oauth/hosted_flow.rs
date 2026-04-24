@@ -5,11 +5,13 @@ use std::time::{Duration, Instant};
 use serde::Deserialize;
 
 use super::client::GoogleOAuthClientSettings;
-use super::google_flow::{google_authorize_url, open_browser, random_state};
+use super::google_flow::{
+    google_authorize_url, open_browser, random_state,
+    GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+};
 
-/// Mail + calendar read + OpenID + email so the CLI can learn the mailbox address from Google (no prompt before browser).
-const GOOGLE_HOSTED_SCOPES: &str =
-    "https://mail.google.com/ https://www.googleapis.com/auth/calendar.readonly openid email";
+/// Mail + calendar events + OpenID + email so the CLI can learn the mailbox address from Google (no prompt before browser).
+const GOOGLE_HOSTED_SCOPES: &str = GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS;
 use super::pkce::{code_challenge_s256, new_code_verifier};
 use super::token_http::{exchange_authorization_code, TokenEndpointResponse, TokenHttpError};
 

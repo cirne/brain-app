@@ -7,7 +7,7 @@ import {
   exchangeAuthorizationCode,
   fetchGoogleUserInfo,
   generatePkce,
-  GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY,
+  GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
   upsertRipmailConfig,
   upsertRipmailGoogleCalendarSource,
   writeGoogleOAuthTokenFile,
@@ -62,7 +62,7 @@ app.get('/start', (c) => {
   const url = buildGoogleAuthorizeUrl({
     clientId: oauth.clientId,
     redirectUri: oauth.redirectUri,
-    scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY,
+    scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
     state,
     codeChallenge: challenge,
   })

@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use chrono::{Duration, TimeZone, Utc};
-use serde_json::Value;
+use chrono::{Days, Duration, NaiveDate, TimeZone, Utc};
+use serde_json::{json, Value};
 
 use crate::oauth::ensure_google_access_token;
 
@@ -238,4 +238,132 @@ pub fn sync_google_calendars(
 
     tx.commit()?;
     Ok((count, discovered_ids, calendar_names))
+}
+
+/// Fields for [insert_google_calendar_event] — Google Calendar API `events.insert`.
+pub struct InsertGoogleEventArgs<'a> {
+    pub title: &'a str,
+    pub description: Option<&'a str>,
+    pub location: Option<&'a str>,
+    /// When `true`, [Self::all_day_date] is required (YYYY-MM-DD, local calendar day). End is exclusive (next day).
+    pub all_day: bool,
+    pub all_day_date: Option<&'a str>,
+    /// For timed events: RFC3339 / `dateTime` strings (e.g. `2026-04-23T15:00:00-04:00`). Required when `all_day` is false.
+    pub start_rfc3339: Option<&'a str>,
+    pub end_rfc3339: Option<&'a str>,
+}
+
+/// Build the JSON request body (exposed for unit tests).
+pub fn build_google_calendar_event_insert_body(
+    args: &InsertGoogleEventArgs<'_>,
+) -> Result<Value, String> {
+    if args.title.trim().is_empty() {
+        return Err("title is required".into());
+    }
+    let mut v = json!({ "summary": args.title });
+    if let Some(d) = args.description {
+        if !d.trim().is_empty() {
+            v["description"] = json!(d);
+        }
+    }
+    if let Some(l) = args.location {
+        if !l.trim().is_empty() {
+            v["location"] = json!(l);
+        }
+    }
+    if args.all_day {
+        let d = args
+            .all_day_date
+            .ok_or("all-day events require --date (YYYY-MM-DD)")?;
+        let start = NaiveDate::parse_from_str(d.trim(), "%Y-%m-%d")
+            .map_err(|e| format!("invalid --date: {e}"))?;
+        let end = start
+            .checked_add_days(Days::new(1))
+            .ok_or("date overflow")?;
+        v["start"] = json!({ "date": start.format("%Y-%m-%d").to_string() });
+        v["end"] = json!({ "date": end.format("%Y-%m-%d").to_string() });
+    } else {
+        let s = args
+            .start_rfc3339
+            .ok_or("timed events require --start and --end (RFC3339)")?;
+        let e = args
+            .end_rfc3339
+            .ok_or("timed events require --start and --end (RFC3339)")?;
+        if s.trim().is_empty() || e.trim().is_empty() {
+            return Err("start and end must be non-empty for timed events".into());
+        }
+        v["start"] = json!({ "dateTime": s });
+        v["end"] = json!({ "dateTime": e });
+    }
+    Ok(v)
+}
+
+/// POST [events.insert](https://developers.google.com/calendar/api/v3/reference/events/insert) for a calendar.
+pub fn insert_google_calendar_event(
+    home: &Path,
+    token_mailbox_id: &str,
+    calendar_id: &str,
+    args: &InsertGoogleEventArgs<'_>,
+    env_file: &HashMap<String, String>,
+    process_env: &HashMap<String, String>,
+) -> Result<Value, String> {
+    let body = build_google_calendar_event_insert_body(args)?;
+    let body_str = body.to_string();
+    let token = ensure_google_access_token(home, token_mailbox_id.trim(), env_file, process_env)
+        .map_err(|e| e.to_string())?;
+    let cid = urlencoding::encode(calendar_id.trim());
+    let url = format!("{GCAL_EVENTS}/{cid}/events?sendUpdates=none");
+    eprintln!("ripmail: Google Calendar create event (POST) …");
+    let resp = ureq::post(&url)
+        .set("Authorization", &format!("Bearer {token}"))
+        .set("Content-Type", "application/json; charset=utf-8")
+        .send_string(&body_str)
+        .map_err(|e| format!("Google Calendar events.insert (HTTP): {e}"))?;
+    let status = resp.status();
+    let text = resp
+        .into_string()
+        .map_err(|e| format!("Google Calendar events.insert: read body: {e}"))?;
+    if !(200..300).contains(&status) {
+        return Err(format!(
+            "Google Calendar events.insert: HTTP {status} — {text}"
+        ));
+    }
+    serde_json::from_str(&text).map_err(|e| format!("Google Calendar response JSON: {e}: {text}"))
+}
+
+#[cfg(test)]
+mod insert_tests {
+    use super::{build_google_calendar_event_insert_body, InsertGoogleEventArgs};
+
+    #[test]
+    fn all_day_body_uses_exclusive_end() {
+        let a = InsertGoogleEventArgs {
+            title: "Trip",
+            description: None,
+            location: None,
+            all_day: true,
+            all_day_date: Some("2026-04-23"),
+            start_rfc3339: None,
+            end_rfc3339: None,
+        };
+        let v = build_google_calendar_event_insert_body(&a).unwrap();
+        assert_eq!(v["start"]["date"], "2026-04-23");
+        assert_eq!(v["end"]["date"], "2026-04-24");
+    }
+
+    #[test]
+    fn timed_body_uses_date_time() {
+        let a = InsertGoogleEventArgs {
+            title: "Meet",
+            description: Some("x"),
+            location: Some("HQ"),
+            all_day: false,
+            all_day_date: None,
+            start_rfc3339: Some("2026-04-23T15:00:00-04:00"),
+            end_rfc3339: Some("2026-04-23T16:00:00-04:00"),
+        };
+        let v = build_google_calendar_event_insert_body(&a).unwrap();
+        assert_eq!(v["start"]["dateTime"], "2026-04-23T15:00:00-04:00");
+        assert_eq!(v["end"]["dateTime"], "2026-04-23T16:00:00-04:00");
+    }
 }

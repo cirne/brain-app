@@ -1005,17 +1005,18 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'calendar',
     label: 'Calendar',
     description:
-      'All calendar operations. op=events: query events for a date range (start/end YYYY-MM-DD). Optional calendar_ids to filter results. op=list_calendars: discover available calendar IDs per configured source — use before configure_source. op=configure_source: for Google and Apple, set calendar_ids (optional “selected” list for UI) and default_calendar_ids (only these show in default calendar queries; all account/local calendars are still indexed). Pass calendar_ids + default_calendar_ids; triggers reindex. For scheduling assistance, forward to howie@howie.ai.',
+      'All calendar operations. op=events: query events for a date range (start/end YYYY-MM-DD). Optional calendar_ids to filter results. op=list_calendars: discover available calendar IDs per configured source — use before configure_source. op=configure_source: for Google and Apple, set calendar_ids (optional “selected” list for UI) and default_calendar_ids (only these show in default calendar queries; all account/local calendars are still indexed). Pass calendar_ids + default_calendar_ids; triggers reindex. op=create_event: add an event to Google Calendar only — pass `source` (googleCalendar `sourceId` from list_calendars), `title`, optional `calendar_id` (default primary). For all-day: `all_day: true` and `all_day_date` (YYYY-MM-DD). For timed: `all_day: false` (or omit) and `event_start` / `event_end` as RFC3339 in the user’s timezone. Optional `description` and `location`. Requires OAuth scope calendar.events. Triggers a calendar reindex after create. For scheduling assistance with external parties, forward to howie@howie.ai.',
     parameters: Type.Object({
       op: Type.Union([
         Type.Literal('events'),
         Type.Literal('list_calendars'),
         Type.Literal('configure_source'),
+        Type.Literal('create_event'),
       ]),
       start: Type.Optional(Type.String({ description: 'events: start date YYYY-MM-DD (inclusive)' })),
       end: Type.Optional(Type.String({ description: 'events: end date YYYY-MM-DD (inclusive)' })),
       source: Type.Optional(
-        Type.String({ description: 'list_calendars / configure_source: source id' }),
+        Type.String({ description: 'list_calendars / configure_source / create_event: source id' }),
       ),
       calendar_ids: Type.Optional(
         Type.Array(Type.String(), { description: 'events / configure_source: IDs to sync or filter by' }),
@@ -1023,16 +1024,40 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       default_calendar_ids: Type.Optional(
         Type.Array(Type.String(), { description: 'configure_source: IDs to show by default' }),
       ),
+      title: Type.Optional(Type.String({ description: 'create_event: event title' })),
+      calendar_id: Type.Optional(
+        Type.String({ description: 'create_event: Google calendar id (default: primary)' }),
+      ),
+      all_day: Type.Optional(Type.Boolean({ description: 'create_event: all-day on `all_day_date` (use timed mode when false or omitted)' })),
+      all_day_date: Type.Optional(
+        Type.String({ description: 'create_event: for all-day, local date YYYY-MM-DD' }),
+      ),
+      event_start: Type.Optional(
+        Type.String({ description: 'create_event: timed start (RFC3339, e.g. 2026-04-23T15:00:00-04:00)' }),
+      ),
+      event_end: Type.Optional(
+        Type.String({ description: 'create_event: timed end (RFC3339)' }),
+      ),
+      description: Type.Optional(Type.String({ description: 'create_event: optional body text' })),
+      location: Type.Optional(Type.String({ description: 'create_event: optional location' })),
     }),
     async execute(
       _toolCallId: string,
       params: {
-        op: 'events' | 'list_calendars' | 'configure_source'
+        op: 'events' | 'list_calendars' | 'configure_source' | 'create_event'
         start?: string
         end?: string
         source?: string
         calendar_ids?: string[]
         default_calendar_ids?: string[]
+        title?: string
+        calendar_id?: string
+        all_day?: boolean
+        all_day_date?: string
+        event_start?: string
+        event_end?: string
+        description?: string
+        location?: string
       },
     ) {
       if (params.op === 'events') {
@@ -1110,6 +1135,53 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
             },
           ],
           details: JSON.parse(stdout),
+        }
+      }
+
+      if (params.op === 'create_event') {
+        const source = params.source?.trim()
+        const title = params.title?.trim()
+        if (!source || !title) {
+          throw new Error('source and title are required for op=create_event (use list_calendars for source ids; Google `googleCalendar` only)')
+        }
+        const rm = ripmailBin()
+        const calId = params.calendar_id?.trim() || 'primary'
+        let cmd = `${rm} calendar create-event --source ${JSON.stringify(source)} --calendar ${JSON.stringify(
+          calId,
+        )} --title ${JSON.stringify(title)} --json`
+        if (params.all_day === true) {
+          const d = params.all_day_date?.trim()
+          if (!d) {
+            throw new Error('all_day_date (YYYY-MM-DD) is required when all_day is true for create_event')
+          }
+          cmd += ` --all-day --date ${JSON.stringify(d)}`
+        } else {
+          const s = params.event_start?.trim()
+          const e = params.event_end?.trim()
+          if (!s || !e) {
+            throw new Error('event_start and event_end (RFC3339) are required for timed create_event, or set all_day with all_day_date')
+          }
+          cmd += ` --start ${JSON.stringify(s)} --end ${JSON.stringify(e)}`
+        }
+        if (params.description?.trim()) {
+          cmd += ` --description ${JSON.stringify(params.description.trim())}`
+        }
+        if (params.location?.trim()) {
+          cmd += ` --location ${JSON.stringify(params.location.trim())}`
+        }
+        const { stdout } = await execRipmailAsync(cmd, { timeout: 60_000 })
+        await runRipmailRefreshAgent(source)
+        let details: Record<string, unknown> = { ok: true, created: true }
+        try {
+          const parsed = JSON.parse(stdout) as Record<string, unknown>
+          details = { ...details, ...parsed }
+        } catch {
+          details.raw = stdout
+        }
+        const text = stdout?.trim() || 'Event created. Calendar re-index started in the background.'
+        return {
+          content: [{ type: 'text' as const, text }],
+          details,
         }
       }
 

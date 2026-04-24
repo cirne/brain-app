@@ -481,6 +481,37 @@ pub(crate) enum CalendarCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Create an event on Google Calendar (googleCalendar sources only; requires `calendar.events` OAuth scope)
+    #[command(name = "create-event")]
+    CreateEvent {
+        /// `googleCalendar` source id (from `ripmail calendar list-calendars --json` → `sourceId`)
+        #[arg(long, short = 'S', required = true)]
+        source: String,
+        /// Google calendar id (default: `primary`)
+        #[arg(long, default_value = "primary")]
+        calendar: String,
+        /// Event title
+        #[arg(long, required = true)]
+        title: String,
+        /// All-day event: pass with `--date` (use timed mode without this flag)
+        #[arg(long, default_value_t = false)]
+        all_day: bool,
+        /// All-day: local date (YYYY-MM-DD)
+        #[arg(long)]
+        date: Option<String>,
+        /// Timed: start (RFC3339, e.g. `2026-04-23T15:00:00-04:00`)
+        #[arg(long)]
+        start: Option<String>,
+        /// Timed: end (RFC3339)
+        #[arg(long)]
+        end: Option<String>,
+        #[arg(long)]
+        description: Option<String>,
+        #[arg(long)]
+        location: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     Today {
         #[arg(long, short = 'S')]
         source: Option<String>,

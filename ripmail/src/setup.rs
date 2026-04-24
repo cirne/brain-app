@@ -16,8 +16,8 @@ use crate::oauth::{
     resolve_google_oauth_client_with_diagnostics, resolve_oauth_relay_base,
     run_google_oauth_hosted, run_google_oauth_interactive, save_google_oauth_token_store,
     GoogleOAuthTokenStore, DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID,
-    DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_READONLY,
-    GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY,
+    DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_EVENTS,
+    GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
 };
 use crate::sync::{connect_imap_for_resolved_mailbox, connect_imap_session};
 
@@ -858,9 +858,9 @@ pub fn write_google_oauth_setup(
     let env_file = crate::config::read_ripmail_env_file(home);
     let client = resolve_google_oauth_client_with_diagnostics(Some(home), &env_file, &env_map)?;
     let scope = if email.map(|e| !e.trim().is_empty()).unwrap_or(false) {
-        GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_READONLY
+        GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_EVENTS
     } else {
-        GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY
+        GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS
     };
     let tokens = run_google_oauth_interactive(&client, scope)?;
     let resolved_email = match email {

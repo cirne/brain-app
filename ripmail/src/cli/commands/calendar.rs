@@ -7,10 +7,14 @@ use chrono::{Days, NaiveDate, TimeZone, Utc};
 use crate::cli::util::{load_cfg, ripmail_home_path};
 use crate::cli::CliResult;
 use ripmail::calendar::{
-    fetch_event_json_by_rowid, fetch_event_json_by_uid, list_events_overlapping_scoped,
-    search_calendar_events_with_scope, CalendarQueryScope,
+    fetch_event_json_by_rowid, fetch_event_json_by_uid, insert_google_calendar_event,
+    list_events_overlapping_scoped, search_calendar_events_with_scope, CalendarQueryScope,
+    InsertGoogleEventArgs,
 };
-use ripmail::config::{load_config_json, SourceConfigJson, SourceKind};
+use ripmail::config::{
+    load_config_json, read_ripmail_env_file, resolve_source_spec, CalendarSourceResolved,
+    SourceConfigJson, SourceKind,
+};
 use ripmail::db;
 
 use crate::cli::args::CalendarCmd;
@@ -184,15 +188,115 @@ pub(crate) fn run_calendar(cmd: CalendarCmd) -> CliResult {
         }
         return Ok(());
     }
+    if let CalendarCmd::CreateEvent {
+        source,
+        calendar,
+        title,
+        all_day,
+        date,
+        start,
+        end,
+        description,
+        location,
+        json,
+    } = cmd
+    {
+        return run_calendar_create_event(
+            source,
+            calendar,
+            title,
+            all_day,
+            date,
+            start,
+            end,
+            description,
+            location,
+            json,
+        );
+    }
     let cfg = load_cfg();
     let conn = db::open_file_for_queries(cfg.db_path())?;
     run_calendar_with_conn(&conn, cmd)
+}
+
+#[allow(clippy::too_many_arguments)] // CLI create-event maps one struct of flags
+fn run_calendar_create_event(
+    source: String,
+    calendar: String,
+    title: String,
+    all_day: bool,
+    date: Option<String>,
+    start: Option<String>,
+    end: Option<String>,
+    description: Option<String>,
+    location: Option<String>,
+    json: bool,
+) -> CliResult {
+    let home = ripmail_home_path();
+    let cfg = load_cfg();
+    let Some(rs) = resolve_source_spec(&cfg.resolved_sources, source.trim()) else {
+        return Err(format!("Unknown source: {}", source.trim()).into());
+    };
+    if rs.kind != SourceKind::GoogleCalendar {
+        return Err(
+            "create-event is only for googleCalendar sources (Google Calendar via OAuth).".into(),
+        );
+    }
+    let Some(CalendarSourceResolved::Google {
+        token_mailbox_id, ..
+    }) = rs.calendar.as_ref()
+    else {
+        return Err("internal: google calendar source missing OAuth info".into());
+    };
+    if all_day && (start.is_some() || end.is_some()) {
+        return Err("use either --all-day with --date, or --start/--end (timed) — not both".into());
+    }
+    if !all_day && date.is_some() {
+        return Err("omit --date for timed events; use --start and --end (RFC3339).".into());
+    }
+    let desc = description.as_deref();
+    let loc = location.as_deref();
+    let args = InsertGoogleEventArgs {
+        title: title.as_str(),
+        description: desc,
+        location: loc,
+        all_day,
+        all_day_date: date.as_deref(),
+        start_rfc3339: start.as_deref(),
+        end_rfc3339: end.as_deref(),
+    };
+    let env_file = read_ripmail_env_file(&home);
+    let process_env: HashMap<String, String> = std::env::vars().collect();
+    let out = insert_google_calendar_event(
+        &home,
+        token_mailbox_id,
+        calendar.trim(),
+        &args,
+        &env_file,
+        &process_env,
+    )
+    .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&out)?);
+    } else {
+        let id = out.get("id").and_then(|v| v.as_str()).unwrap_or("?");
+        let link = out.get("htmlLink").and_then(|v| v.as_str()).unwrap_or("");
+        if !link.is_empty() {
+            println!("Created event {id}\n{link}");
+        } else {
+            println!("Created event {id}");
+        }
+    }
+    Ok(())
 }
 
 fn run_calendar_with_conn(conn: &rusqlite::Connection, cmd: CalendarCmd) -> CliResult {
     match cmd {
         CalendarCmd::ListCalendars { .. } => {
             unreachable!("list-calendars is handled in run_calendar before opening the DB")
+        }
+        CalendarCmd::CreateEvent { .. } => {
+            unreachable!("create-event is handled in run_calendar before opening the DB")
         }
         CalendarCmd::Today { source, json } => {
             let now = Utc::now().date_naive();

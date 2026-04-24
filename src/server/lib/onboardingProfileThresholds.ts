@@ -2,4 +2,4 @@
 export const ONBOARDING_PROFILE_INDEX_MANUAL_MIN = 200
 
 /** Target indexed count for automatic advance during onboarding (client auto-continues). */
-export const ONBOARDING_PROFILE_INDEX_AUTOPROCEED = 2000
+export const ONBOARDING_PROFILE_INDEX_AUTOPROCEED = 1000

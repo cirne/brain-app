@@ -15,12 +15,12 @@ use super::token_http::{exchange_authorization_code, TokenEndpointResponse, Toke
 pub const GOOGLE_OAUTH_SCOPE_MAIL: &str = "https://mail.google.com/";
 /// Mail + OpenID + email — needed to discover the mailbox address after browser sign-in (wizard Gmail OAuth path).
 pub const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL: &str = "https://mail.google.com/ openid email";
-/// Gmail IMAP/SMTP + Google Calendar read ([OPP-053](../docs/opportunities/archive/OPP-053-local-gateway-calendar-and-beyond.md)).
-pub const GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_READONLY: &str =
-    "https://mail.google.com/ https://www.googleapis.com/auth/calendar.readonly";
-/// Wizard path: mail + calendar read + OpenID email discovery.
-pub const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_READONLY: &str =
-    "https://mail.google.com/ https://www.googleapis.com/auth/calendar.readonly openid email";
+/// Gmail IMAP/SMTP + Google Calendar (read/create/update events; not full `calendar` ACL scope).
+pub const GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_EVENTS: &str =
+    "https://mail.google.com/ https://www.googleapis.com/auth/calendar.events";
+/// Wizard path: mail + calendar events + OpenID email discovery.
+pub const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS: &str =
+    "https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid email";
 const OAUTH_STATE_LEN: usize = 16;
 
 #[derive(Debug, thiserror::Error)]

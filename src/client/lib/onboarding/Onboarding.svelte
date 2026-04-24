@@ -68,34 +68,27 @@
   let onboardingLargeWindowApplied = $state(false)
   const mailIndexedCount = $derived(Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0))
   const indexingHasFirstMessage = $derived(mailIndexedCount >= 1)
-  const indexingProgressTotal = $derived.by(() => {
-    const t = mail.messageAvailableForProgress
-    return t != null && t > 0 ? t : null
-  })
+  /** Bar tracks progress toward auto-continue, not full mailbox (Ripmail totals often match count). */
   const indexingProgressPercent = $derived.by(() => {
     const d = mailIndexedCount
     if (d < 1) return 0
-    const t = indexingProgressTotal
-    if (t != null) return Math.min(100, (100 * d) / t)
-    return 100
+    return Math.min(100, (100 * d) / ONBOARDING_PROFILE_INDEX_AUTOPROCEED)
   })
   const indexingProgressLabel = $derived.by(() => {
     const d = mailIndexedCount
     if (d < 1) return ''
-    const t = indexingProgressTotal
-    if (t != null) {
-      return `${d.toLocaleString()} / ${t.toLocaleString()}`
+    if (d >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED) {
+      return `${d.toLocaleString()} messages indexed`
     }
-    return `${d.toLocaleString()} messages`
+    return `${d.toLocaleString()} / ${ONBOARDING_PROFILE_INDEX_AUTOPROCEED.toLocaleString()}`
   })
   const indexingProgressAriaText = $derived.by(() => {
     const d = mailIndexedCount
     if (d < 1) return 'Preparing to download messages'
-    const t = indexingProgressTotal
-    if (t != null) {
-      return `${d.toLocaleString()} of ${t.toLocaleString()} messages`
+    if (d >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED) {
+      return `${d.toLocaleString()} messages indexed, ready to continue`
     }
-    return `${d.toLocaleString()} messages indexed`
+    return `${d.toLocaleString()} of ${ONBOARDING_PROFILE_INDEX_AUTOPROCEED.toLocaleString()} messages toward continuing`
   })
   const canAutoProceedToProfiling = $derived(mailIndexedCount >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED)
   const canOfferEarlyProfile = $derived(
@@ -130,28 +123,6 @@
     return () => clearInterval(t)
   })
 
-  /** Wall-clock time on the indexing step so we can show “still working” without sounding stuck. */
-  let indexingStartedAt = $state<number | null>(null)
-  let indexingElapsedTick = $state(0)
-  $effect(() => {
-    const onMailIndexingUi =
-      state === 'indexing' || (state === 'not-started' && mail.configured && !needsVaultSetup && !setupError)
-    if (onMailIndexingUi) {
-      if (indexingStartedAt === null) indexingStartedAt = Date.now()
-    } else {
-      indexingStartedAt = null
-    }
-  })
-  $effect(() => {
-    const onMailIndexingUi =
-      state === 'indexing' || (state === 'not-started' && mail.configured && !needsVaultSetup && !setupError)
-    if (!onMailIndexingUi) return
-    const id = setInterval(() => {
-      indexingElapsedTick += 1
-    }, 5000)
-    return () => clearInterval(id)
-  })
-
   const indexingLeadParagraph = $derived.by(() => {
     if (mailProviderPref === 'google') {
       return 'We’re downloading your recent Gmail into Braintunnel so we can build your profile. Hang tight.'
@@ -168,14 +139,9 @@
         (state === 'not-started' && mail.configured && !setupError)),
   )
 
-  const indexingCalmStatus = $derived.by(() => {
-    void indexingElapsedTick
-    return computeIndexingCalmStatus({
-      actionableHint: mail.indexingHint,
-      indexingStartedAt,
-      nowMs: Date.now(),
-    })
-  })
+  const indexingCalmStatus = $derived(
+    computeIndexingCalmStatus({ actionableHint: mail.indexingHint }),
+  )
 
   /**
    * Mail can be indexing while onboarding state is still `not-started` (e.g. Apple path + race).
