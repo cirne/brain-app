@@ -8,6 +8,7 @@ import {
   type UserPeoplePageRef,
 } from './profilingAgent.js'
 import { ensureUserPeoplePageSkeleton } from '../lib/userPeoplePage.js'
+import { ensureWikiIndexMdStub } from '../lib/wikiIndexStub.js'
 
 export function buildWikiBuildoutSystemPrompt(
   timezone: string,
@@ -46,6 +47,12 @@ Prioritize **accuracy and usefulness over file count**. Prefer merging a margina
 - **Stay brief:** Each page: short lead + bulleted facts grounded in tools. No long biographies or heavy narrative.
 - **Wikilinks:** Cross-link with **\`[[wikilinks]]\`** where it helps; fix mistakes with **\`edit\`**. A smaller, coherent graph beats a large sparse one.
 
+## Vault home: \`index.md\` (required)
+- The vault root must include **\`index.md\`** as the **home / table of contents** (same folder as \`me.md\`). If it already exists, **\`edit\`** it early in your run; otherwise **\`write\`** it first.
+- **Contents:** Short intro, bullet **\`[[me]]\`** (profile / assistant context), bullet for the account holder’s long-form **\`people/...\`** page if one exists (wikilink without \`.md\`), then a **## Directories** (or **Browse**) section.
+- **Directories:** For every **top-level folder** you populate or that already matters (\`people\`, \`projects\`, \`topics\`, \`companies\`, \`ideas\`, \`areas\`, etc.), add a bullet with a working **\`[[wikilink]]\`** to a **landing page** — e.g. a representative note, or a short sub-index file you create — not just backticks. Keep it scannable; update **\`index.md\`** again when you add major new top-level areas.
+- Do not replace **\`index.md\`** with only **\`me.md\`** content; **\`me.md\`** stays the short profile; **\`index.md\`** is the nav hub.
+
 ## Categories / scope
 ${categoriesNote}
 
@@ -67,6 +74,7 @@ ${messagesWorkflow}
 ## Guidelines
 - ${dateCtx}
 - Paths are relative to the wiki root (e.g. \`me.md\`, \`people/foo.md\`); never add a \`wiki/\` prefix.
+- **New page paths:** Prefer **kebab-case** filenames (e.g. \`my-topic.md\`, \`people/jane-doe.md\`). The server normalizes sloppy casing or spaces on \`write\`, but matching this convention keeps tool output quiet and links predictable.
 - Wiki cross-links are **Obsidian-style \`[[path]]\`** (drop the \`.md\`): \`[[me]]\`, \`[[people/jane-doe]]\`, or \`[[projects/foo|Foo]]\` for a custom label. Use plain markdown links **only** for external URLs.
 - Prefer synthesis over pasting private email text into the wiki.`
 }
@@ -91,6 +99,9 @@ export async function getOrCreateWikiBuildoutAgent(
   if (subject) {
     userPeoplePage = await ensureUserPeoplePageSkeleton(wiki, subject)
   }
+  const peopleWikilink =
+    userPeoplePage?.relativePath.replace(/\.md$/i, '') ?? undefined
+  await ensureWikiIndexMdStub(wiki, { accountHolderPeopleWikilink: peopleWikilink })
   const localMessagesAvailable = areLocalMessageToolsEnabled()
   const agent = createOnboardingAgent(
     buildWikiBuildoutSystemPrompt(tz, categories, userPeoplePage, localMessagesAvailable),

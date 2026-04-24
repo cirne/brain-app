@@ -41,10 +41,12 @@ export const WIKI_EXPANSION_INITIAL_MESSAGE = `Run a comprehensive wiki buildout
 Goal: Add **navigable, evidence-backed** pages for people, active projects, and *deserving* topics — each brief and grounded in sources. **Prefer fewer right pages over many thin stubs** (especially under \`topics/\`; see the system prompt topic bar).
 
 How:
+- **Filenames:** Prefer **kebab-case** \`.md\` paths (e.g. \`topics/my-theme.md\`); the server will fix odd casing or spaces on new \`write\`s, but using kebab-case avoids extra rename noise in tool results.
 - **Coverage:** Prefer filling in **entities that matter from mail/messages** (or only stubbed) before polishing prose on pages that already have substance. Do not chase page count.
 - **Stay Brief:** Do not deeply rewrite the same few pages for narrative richness; no "complete biography." A page should have a lead summary and bulleted facts.
 - **Accuracy:** When sources clearly show existing wiki text is **wrong or outdated**, use **edit** — surgical factual corrections only, not new sections or long elaboration.
 - **Account Holder:** Keep the skeletal people/* page for the account holder compact (3–8 bullets max); link to [[me]] for short assistant context.
+- **index.md:** Early in the pass, **write** or **edit** vault-root **\`index.md\`** so it stays a useful hub: **[[me]]**, the account-holder **people/…** page if present, and **[[wikilinks]]** to landing pages for each populated top-level directory (people, projects, topics, …) — not just backtick paths.
 - **Links:** Use correct **[[wikilinks]]** (Obsidian style) and fix mistakes with **edit** as you go (you cannot grep the vault).
 
 Wrap up when **high-signal** gaps from your tools are addressed — key people, projects, and durable topics — not when an arbitrary page count is hit. If only marginal topic ideas remain, **stop** rather than minting files. Narrate briefly as you go.`
@@ -61,6 +63,7 @@ Do **not** mint pages for **ephemeral** chit-chat, one-off scheduling lines, gen
 - New **write** for people / projects / orgs when the signal is recurring or clearly reference-worthy.  
 - New **topics/** only when the idea is **durable** (see system prompt); otherwise **edit** a broader or person page.  
 - **edit** for wrong/outdated facts — surgical fixes, not new narrative sections.  
+- **index.md:** Refresh vault-root **\`index.md\`** so directory wikilinks and **[[me]]** stay accurate as the tree changes.  
 - Keep pages brief. Narrate briefly as you go.`
 
 /** System prompt for the **cleanup** phase — separate agent from buildout; runs after each enrich pass in the same lap. */
@@ -79,8 +82,8 @@ The checklist below bundles **maintenance** tasks (links, orphans, index) in one
 ## What to do
 
 1. **Broken wikilinks:** Use \`grep\` to find \`[[\` patterns, then \`find\` to verify the target path exists. Fix each broken link: either update the path, remove the link if the target clearly should not exist, or leave a TODO comment.
-2. **Orphan pages:** Use \`find\` to list all \`.md\` files, then \`grep\` to check which ones have no inbound \`[[\` links. Note orphans in \`_index.md\` if one exists; do not delete them.
-3. **Index maintenance:** If \`_index.md\` exists at the vault root, update its file listing to reflect the current vault structure. If it does not exist and there are more than 10 pages, create a brief one.
+2. **Orphan pages:** Use \`find\` to list all \`.md\` files, then \`grep\` to check which ones have no inbound \`[[\` links. Note orphans in \`index.md\` or \`_index.md\` if one exists at vault root; do not delete them.
+3. **Index maintenance:** If **\`index.md\`** exists at the vault root, update its directory / nav section so **[[wikilinks]]** match the current top-level layout (and keep **[[me]]** + any **people/…** hub links accurate). If only \`_index.md\` exists at root, maintain that instead. If **neither** exists and there are more than 10 pages, create a brief **\`index.md\`** hub (preferred) or \`_index.md\`.
 4. **Light edits:** Fix obvious typos, formatting inconsistencies, or stale frontmatter \`updated:\` fields you encounter while reading pages. Keep edits minimal — this is not a rewrite pass.
 5. **Deduplication signals:** If you find multiple pages that clearly cover the same person, project, or topic (same slug with/without spaces, etc.), merge the shorter one into the richer one using \`edit\` and leave a note. Do not do major reorganization.
 

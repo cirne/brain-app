@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { safeWikiRelativePath } from './wikiEditDiff.js'
+import { resolveWikiPathForCreate } from './wikiPathNaming.js'
 
 /** Only persist when the path looks like a markdown file — avoids creating a file named `trips` while `trips/foo.md` is still streaming in JSON. */
 function isStreamableWikiWritePath(rel: string): boolean {
@@ -17,9 +18,15 @@ export async function writeWikiPartialFromStreamingWriteArgs(wikiRoot: string, t
   const pathArg = (args as { path?: unknown }).path
   const rel = safeWikiRelativePath(wikiRoot, pathArg)
   if (!rel || !isStreamableWikiWritePath(rel)) return
+  let writeRel: string
+  try {
+    writeRel = resolveWikiPathForCreate(wikiRoot, rel).path
+  } catch {
+    return
+  }
   const content = (args as { content?: unknown }).content
   const body = typeof content === 'string' ? content : ''
-  const abs = join(wikiRoot, rel)
+  const abs = join(wikiRoot, writeRel)
   try {
     await mkdir(dirname(abs), { recursive: true })
     await writeFile(abs, body, 'utf-8')

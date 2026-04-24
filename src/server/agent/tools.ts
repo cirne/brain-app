@@ -16,6 +16,7 @@ import {
   coerceWikiToolRelativePath,
   resolveSafeWikiPath,
 } from '../lib/wikiEditHistory.js'
+import { resolveWikiPathForCreate } from '../lib/wikiPathNaming.js'
 import { existsSync } from 'node:fs'
 import {
   appleDateNsToUnixMs,
@@ -310,11 +311,38 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
   const write = {
     ...writeToolInner,
     async execute(toolCallId: string, params: { path: string; content: string }) {
-      const path = coerceWikiToolRelativePath(wikiDir, params.path)
+      const coerced = coerceWikiToolRelativePath(wikiDir, params.path)
+      let path: string
+      let normFrom: string | null
+      try {
+        const r = resolveWikiPathForCreate(wikiDir, coerced)
+        path = r.path
+        normFrom = r.normalizedFrom
+      } catch {
+        throw new Error('Invalid wiki path for write')
+      }
       const next = { ...params, path }
-      const result = await writeToolInner.execute(toolCallId, next)
+      const result = (await writeToolInner.execute(toolCallId, next)) as {
+        content: { type: 'text'; text: string }[]
+        details?: unknown
+      }
       await appendWikiEditRecord(wikiDir, 'write', path).catch(() => {})
-      return result
+      if (!normFrom) {
+        return result
+      }
+      const note = `\n\nSaved as \`${path}\` (normalized from requested \`${normFrom}\`).`
+      const content = result.content.map((c, i) =>
+        i === 0 && c.type === 'text' ? { ...c, text: c.text + note } : c,
+      )
+      return {
+        ...result,
+        content,
+        details: {
+          ...(typeof result.details === 'object' && result.details !== null ? (result.details as object) : {}),
+          path,
+          requestedPath: normFrom,
+        },
+      }
     },
   }
   const grepToolInner = createGrepTool(wikiDir)
@@ -360,8 +388,16 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       to: Type.String({ description: 'Destination path relative to wiki root (e.g. ideas/new.md)' }),
     }),
     async execute(_toolCallId: string, params: { from: string; to: string }) {
-      const fromAbs = resolveSafeWikiPath(wikiDir, params.from)
-      const toAbs = resolveSafeWikiPath(wikiDir, params.to)
+      const fromRel = coerceWikiToolRelativePath(wikiDir, params.from)
+      const toCoerced = coerceWikiToolRelativePath(wikiDir, params.to)
+      let toRes: { path: string; normalizedFrom: string | null }
+      try {
+        toRes = resolveWikiPathForCreate(wikiDir, toCoerced)
+      } catch {
+        throw new Error('Invalid wiki path for move destination')
+      }
+      const fromAbs = resolveSafeWikiPath(wikiDir, fromRel)
+      const toAbs = resolveSafeWikiPath(wikiDir, toRes.path)
       if (fromAbs === toAbs) {
         throw new Error('from and to must be different paths')
       }
@@ -374,22 +410,26 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       }
       try {
         await stat(toAbs)
-        throw new Error(`Destination already exists: ${params.to}`)
+        throw new Error(`Destination already exists: ${toRes.path}`)
       } catch (e: unknown) {
         const code = typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : ''
         if (code !== 'ENOENT') throw e
       }
       await mkdir(dirname(toAbs), { recursive: true })
       await rename(fromAbs, toAbs)
-      await appendWikiEditRecord(wikiDir, 'move', params.to, { fromPath: params.from }).catch(() => {})
+      await appendWikiEditRecord(wikiDir, 'move', toRes.path, { fromPath: fromRel }).catch(() => {})
+      let text = `Moved ${fromRel} → ${toRes.path}`
+      if (toRes.normalizedFrom) {
+        text += ` (destination normalized from requested \`${toRes.normalizedFrom}\`)`
+      }
       return {
         content: [
           {
             type: 'text' as const,
-            text: `Moved ${params.from} → ${params.to}`,
+            text,
           },
         ],
-        details: { from: params.from, to: params.to },
+        details: { from: fromRel, to: toRes.path, requestedTo: toRes.normalizedFrom ?? undefined },
       }
     },
   })

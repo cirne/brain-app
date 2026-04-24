@@ -12,6 +12,7 @@
     Calendar,
     Layers,
     FileText,
+    List,
     LogOut,
     Trash2,
   } from 'lucide-svelte'
@@ -27,6 +28,7 @@
   } from './vaultClient.js'
   import { clearBrainClientStorage } from './brainClientStorage.js'
   import ConfirmDialog from './ConfirmDialog.svelte'
+  import HubSourceRowBody from './HubSourceRowBody.svelte'
   import { yourWikiDocFromEvents } from './hubEvents/hubEventsStores.js'
 
   type HubRipmailSourceRow = {
@@ -414,7 +416,13 @@
         {#if hubSourcesError}
           <p class="empty-msg hub-sources-err" title={hubSourcesError}>Could not load sources.</p>
         {:else if orderedHubSources.length === 0}
-          <p class="empty-msg">No sources yet. Connect mail, add calendars, or add folders from chat.</p>
+          <p class="empty-msg">
+            {#if multiTenant}
+              No sources yet. Connect mail or add calendars.
+            {:else}
+              No sources yet. Connect mail, add calendars, or add folders from chat.
+            {/if}
+          </p>
         {:else}
           {#each orderedHubSources as s (s.id)}
             <button
@@ -423,36 +431,41 @@
               onclick={() => onHubNavigate({ type: 'hub-source', id: s.id })}
             >
               <div class="link-info">
-                {#if s.kind === 'localDir'}
-                  <span class="hub-source-icon-wrap" aria-hidden="true"><Folder size={16} /></span>
-                {:else if s.kind === 'imap' || s.kind === 'applemail'}
-                  <span class="hub-source-icon-wrap" aria-hidden="true"><Mail size={16} /></span>
-                {:else}
-                  <span class="hub-source-icon-wrap" aria-hidden="true"><Calendar size={16} /></span>
-                {/if}
-                <div class="source-folder-text">
-                  <span class="source-folder-name">{s.displayName}</span>
-                  <span class="source-folder-path">{sourceRowSecondary(s)}</span>
-                </div>
+                <HubSourceRowBody title={s.displayName} subtitle={sourceRowSecondary(s)}>
+                  {#snippet icon()}
+                    {#if s.kind === 'localDir'}
+                      <Folder size={16} />
+                    {:else if s.kind === 'imap' || s.kind === 'applemail'}
+                      <Mail size={16} />
+                    {:else}
+                      <Calendar size={16} />
+                    {/if}
+                  {/snippet}
+                </HubSourceRowBody>
               </div>
               <ChevronRight size={16} aria-hidden="true" />
             </button>
           {/each}
         {/if}
-        <button
-          type="button"
-          class="link-item hub-source-row"
-          onclick={() => onHubNavigate({ type: 'hub-add-folders' })}
-        >
-          <div class="link-info">
-            <span class="hub-source-icon-wrap" aria-hidden="true"><FolderPlus size={16} /></span>
-            <div class="source-folder-text">
-              <span class="source-folder-name">Add more folders</span>
-              <span class="source-folder-path">Suggest Desktop and Documents to add to the index</span>
+        {#if !multiTenant}
+          <button
+            type="button"
+            class="link-item hub-source-row"
+            onclick={() => onHubNavigate({ type: 'hub-add-folders' })}
+          >
+            <div class="link-info">
+              <HubSourceRowBody
+                title="Add more folders"
+                subtitle="Suggest Desktop and Documents to add to the index"
+              >
+                {#snippet icon()}
+                  <FolderPlus size={16} />
+                {/snippet}
+              </HubSourceRowBody>
             </div>
-          </div>
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        {/if}
       </div>
     </section>
 
@@ -477,23 +490,35 @@
           onclick={() => onHubNavigate({ type: 'your-wiki' })}
         >
           <div class="link-info">
-            <span class="hub-source-icon-wrap" aria-hidden="true">
-              {#if wikiIsActive}
-                <RefreshCw size={16} class="spin-icon" aria-hidden="true" />
-              {:else}
-                <BookOpen size={16} aria-hidden="true" />
-              {/if}
-            </span>
-            <div class="source-folder-text">
-              <span class="source-folder-name">{wikiHubTitle}</span>
-              <span class="source-folder-path">{wikiHubSub}</span>
-            </div>
+            <HubSourceRowBody title={wikiHubTitle} subtitle={wikiHubSub}>
+              {#snippet icon()}
+                {#if wikiIsActive}
+                  <RefreshCw size={16} class="spin-icon" aria-hidden="true" />
+                {:else}
+                  <BookOpen size={16} aria-hidden="true" />
+                {/if}
+              {/snippet}
+            </HubSourceRowBody>
           </div>
           {#if wikiIsPaused}
             <div class="link-status">
               <span class="status-pill paused">Paused</span>
             </div>
           {/if}
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="link-item hub-source-row"
+          onclick={() => onHubNavigate({ type: 'wiki' })}
+        >
+          <div class="link-info">
+            <HubSourceRowBody title="Wiki index" subtitle="Browse your private wiki">
+              {#snippet icon()}
+                <List size={16} />
+              {/snippet}
+            </HubSourceRowBody>
+          </div>
           <ChevronRight size={16} aria-hidden="true" />
         </button>
         {#if wikiRecentReady && wikiRecentEdits.length > 0}
@@ -507,11 +532,14 @@
                 onclick={() => onHubNavigate({ type: 'wiki', path: f.path })}
               >
                 <div class="link-info wiki-recent-row-main">
-                  <span class="hub-source-icon-wrap" aria-hidden="true"><FileText size={16} /></span>
-                  <div class="source-folder-text">
-                    <span class="source-folder-name">{wikiPathBasename(f.path)}</span>
-                    <span class="source-folder-path">{parentDir ?? 'Wiki root'}</span>
-                  </div>
+                  <HubSourceRowBody
+                    title={wikiPathBasename(f.path)}
+                    subtitle={parentDir ?? 'Wiki root'}
+                  >
+                    {#snippet icon()}
+                      <FileText size={16} />
+                    {/snippet}
+                  </HubSourceRowBody>
                 </div>
                 <div class="wiki-recent-row-meta">
                   <span class="status-sub wiki-recent-time">{formatRelativeDate(f.date)}</span>
@@ -741,9 +769,10 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    flex: 1;
+    min-width: 0;
     font-size: 0.9375rem;
     font-weight: 500;
-    min-width: 0;
   }
 
   .status-pill {
@@ -830,37 +859,6 @@
   .index-status-err {
     color: var(--text-3);
     cursor: help;
-  }
-
-  .hub-source-row .link-info {
-    align-items: flex-start;
-  }
-
-  .hub-source-icon-wrap {
-    display: flex;
-    flex-shrink: 0;
-    margin-top: 2px;
-    color: var(--text-2);
-  }
-
-  .source-folder-text {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .source-folder-name {
-    font-size: 0.9375rem;
-    font-weight: 500;
-    color: var(--text);
-  }
-
-  .source-folder-path {
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    word-break: break-word;
-    line-height: 1.35;
   }
 
   .hub-sources-err {

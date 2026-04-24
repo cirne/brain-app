@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { existsSync } from 'node:fs'
 import { readFile, writeFile, mkdir, rename, rm } from 'node:fs/promises'
 import { join, basename, resolve, relative, dirname } from 'node:path'
 import { marked } from 'marked'
@@ -8,6 +9,7 @@ import { dirIconsCachePathResolved } from '../lib/brainHome.js'
 import { wikiDir } from '../lib/wikiDir.js'
 import { listWikiFiles, recentWikiFilesByMtime } from '../lib/wikiFiles.js'
 import { appendWikiEditRecord, readRecentWikiEdits } from '../lib/wikiEditHistory.js'
+import { resolveWikiPathForCreate } from '../lib/wikiPathNaming.js'
 import { syncWikiFromDisk } from '../lib/syncAll.js'
 
 const execAsync = promisify(exec)
@@ -38,7 +40,20 @@ wiki.post('/', async (c) => {
   if (rel.includes('..') || rel.startsWith('/')) {
     return c.json({ error: 'Invalid path' }, 400)
   }
-  const fullPath = resolve(join(dir, rel))
+  const fullPathCoerced = resolve(join(dir, rel))
+  if (!fullPathCoerced.startsWith(dir + '/') && fullPathCoerced !== dir) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  let outPath: string
+  let normalizedFrom: string | undefined
+  try {
+    const r = resolveWikiPathForCreate(dir, rel)
+    outPath = r.path
+    if (r.normalizedFrom) normalizedFrom = r.normalizedFrom
+  } catch {
+    return c.json({ error: 'Invalid path' }, 400)
+  }
+  const fullPath = resolve(join(dir, outPath))
   if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
     return c.json({ error: 'Forbidden' }, 403)
   }
@@ -48,7 +63,7 @@ wiki.post('/', async (c) => {
   } catch {
     /* not exists */
   }
-  const md = typeof body.markdown === 'string' ? body.markdown : `# ${basename(rel, '.md')}\n\n`
+  const md = typeof body.markdown === 'string' ? body.markdown : `# ${basename(outPath, '.md')}\n\n`
   try {
     await mkdir(dirname(fullPath), { recursive: true })
     await writeFile(fullPath, md, 'utf-8')
@@ -56,11 +71,11 @@ wiki.post('/', async (c) => {
     return c.json({ error: 'Create failed' }, 500)
   }
   try {
-    await appendWikiEditRecord(wikiDir(), 'write', rel, { source: 'user' })
+    await appendWikiEditRecord(wikiDir(), 'write', outPath, { source: 'user' })
   } catch {
     /* best-effort log */
   }
-  return c.json({ ok: true, path: rel })
+  return c.json({ ok: true, path: outPath, ...(normalizedFrom ? { normalizedFrom } : {}) })
 })
 
 // GET /api/wiki/search?q=... — search wiki files by content
@@ -222,8 +237,17 @@ wiki.post('/move', async (c) => {
     return c.json({ error: 'Invalid path' }, 400)
   }
   const fromFull = resolve(join(dir, from))
-  const toFull = resolve(join(dir, to))
-  if (!fromFull.startsWith(dir + '/') || !toFull.startsWith(dir + '/')) {
+  if (!fromFull.startsWith(dir + '/')) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  let toRes: { path: string; normalizedFrom: string | null }
+  try {
+    toRes = resolveWikiPathForCreate(dir, to)
+  } catch {
+    return c.json({ error: 'Invalid path' }, 400)
+  }
+  const toFull = resolve(join(dir, toRes.path))
+  if (!toFull.startsWith(dir + '/')) {
     return c.json({ error: 'Forbidden' }, 403)
   }
   try {
@@ -244,11 +268,15 @@ wiki.post('/move', async (c) => {
     return c.json({ error: 'Move failed' }, 500)
   }
   try {
-    await appendWikiEditRecord(wikiDir(), 'move', to, { fromPath: from, source: 'user' })
+    await appendWikiEditRecord(wikiDir(), 'move', toRes.path, { fromPath: from, source: 'user' })
   } catch {
     /* best-effort */
   }
-  return c.json({ ok: true, path: to })
+  return c.json({
+    ok: true,
+    path: toRes.path,
+    ...(toRes.normalizedFrom ? { normalizedFrom: toRes.normalizedFrom } : {}),
+  })
 })
 
 // DELETE /api/wiki/:path — remove a markdown file
@@ -279,8 +307,8 @@ wiki.delete('/:path{.+}', async (c) => {
 wiki.patch('/:path{.+}', async (c) => {
   const dir = resolve(wikiDir())
   const filePath = c.req.param('path')
-  const fullPath = resolve(join(dir, filePath))
-
+  let outPath = filePath
+  let fullPath = resolve(join(dir, filePath))
   if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
     return c.json({ error: 'Forbidden' }, 403)
   }
@@ -295,10 +323,29 @@ wiki.patch('/:path{.+}', async (c) => {
     return c.json({ error: 'Expected { markdown: string }' }, 400)
   }
 
+  let normalizedFrom: string | undefined
+  if (!existsSync(fullPath)) {
+    let resolved: { path: string; normalizedFrom: string | null }
+    try {
+      resolved = resolveWikiPathForCreate(dir, filePath)
+    } catch {
+      return c.json({ error: 'Invalid path' }, 400)
+    }
+    outPath = resolved.path
+    fullPath = resolve(join(dir, outPath))
+    if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
+      return c.json({ error: 'Forbidden' }, 403)
+    }
+    if (existsSync(fullPath)) {
+      return c.json({ error: 'Already exists' }, 409)
+    }
+    if (resolved.normalizedFrom) normalizedFrom = resolved.normalizedFrom
+  }
+
   try {
     await mkdir(dirname(fullPath), { recursive: true })
     await writeFile(fullPath, body.markdown, 'utf-8')
-    return c.json({ ok: true, path: filePath })
+    return c.json({ ok: true, path: outPath, ...(normalizedFrom ? { normalizedFrom } : {}) })
   } catch {
     return c.json({ error: 'Write failed' }, 500)
   }

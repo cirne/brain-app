@@ -140,6 +140,24 @@ describe('PATCH /api/wiki/:path', () => {
     })
     expect(res.status).toBeGreaterThanOrEqual(400)
   })
+
+  it('kebab-normalizes when target file does not exist', async () => {
+    const enc = encodeURIComponent('Fresh Page File.md')
+    const patch = await app.request(`/api/wiki/${enc}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markdown: '# New\n' }),
+    })
+    expect(patch.status).toBe(200)
+    const patchBody = await patch.json()
+    expect(patchBody).toMatchObject({
+      ok: true,
+      path: 'fresh-page-file.md',
+      normalizedFrom: 'Fresh Page File.md',
+    })
+    const get = await app.request('/api/wiki/fresh-page-file.md')
+    expect(get.status).toBe(200)
+  })
 })
 
 describe('POST /api/wiki/sync', () => {
@@ -355,11 +373,38 @@ describe('POST /api/wiki', () => {
     expect(get.status).toBe(200)
   })
 
+  it('kebab-normalizes new paths and returns normalizedFrom', async () => {
+    const res = await app.request('/api/wiki', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'My Draft File.md', markdown: '# Hi\n' }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchObject({
+      ok: true,
+      path: 'my-draft-file.md',
+      normalizedFrom: 'My Draft File.md',
+    })
+    const get = await app.request('/api/wiki/my-draft-file.md')
+    expect(get.status).toBe(200)
+  })
+
   it('returns 409 when file exists', async () => {
     const res = await app.request('/api/wiki', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: 'index.md', markdown: 'x' }),
+    })
+    expect(res.status).toBe(409)
+  })
+
+  it('returns 409 when normalized path would collide with existing file', async () => {
+    await writeFile(join(wikiDir, 'kebab-collision.md'), '# existing\n', 'utf-8')
+    const res = await app.request('/api/wiki', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'Kebab-Collision.md', markdown: 'x' }),
     })
     expect(res.status).toBe(409)
   })
@@ -377,6 +422,18 @@ describe('POST /api/wiki/move', () => {
     expect(old.status).toBe(404)
     const neu = await app.request('/api/wiki/note-renamed.md')
     expect(neu.status).toBe(200)
+  })
+
+  it('kebab-normalizes destination and returns normalizedFrom', async () => {
+    await writeFile(join(wikiDir, 'move-src.md'), '# src\n', 'utf-8')
+    const res = await app.request('/api/wiki/move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'move-src.md', to: 'My New Name.md' }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchObject({ ok: true, path: 'my-new-name.md', normalizedFrom: 'My New Name.md' })
   })
 })
 

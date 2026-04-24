@@ -339,6 +339,23 @@ describe('createAgentTools', () => {
       expect(rec.path).toBe('scratch/new-note.md')
     })
 
+    it('write kebab-normalizes new files and appends history with the canonical path', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const write = tools.find((t) => t.name === 'write')!
+      const out = (await write.execute('write-norm-1', {
+        path: 'scratch/My Title Here.md',
+        content: '# New\n',
+      })) as { content: { type: string; text: string }[]; details?: { path?: string; requestedPath?: string } }
+      const { readFile } = await import('node:fs/promises')
+      const raw = await readFile(histFile, 'utf8')
+      const rec = JSON.parse(raw.trim()) as { op: string; path: string }
+      expect(rec.path).toBe('scratch/my-title-here.md')
+      expect(out.content[0].text).toContain('scratch/my-title-here.md')
+      expect(out.content[0].text).toContain('My Title Here.md')
+      expect(out.details).toMatchObject({ path: 'scratch/my-title-here.md', requestedPath: 'scratch/My Title Here.md' })
+    })
+
     it('does not append when edit fails', async () => {
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
@@ -713,6 +730,16 @@ fi
       expect(rec.op).toBe('move')
       expect(rec.path).toBe('ideas/bar.md')
       expect(rec.fromPath).toBe('ideas/foo.md')
+    })
+
+    it('move_file kebab-normalizes the destination', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const move = tools.find((t) => t.name === 'move_file')!
+      const result = await move.execute('mv-2', { from: 'index.md', to: 'Home Renamed.md' })
+      const text = toolResultFirstText(result)
+      expect(text).toContain('home-renamed.md')
+      expect(text).toContain('Home Renamed.md')
     })
 
     it('move_file rejects path traversal', async () => {

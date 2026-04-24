@@ -10,6 +10,7 @@
     transformWikiPageHtml,
   } from './wikiPageHtml.js'
   import { wikiPathForReadToolArg } from './cards/contentCards.js'
+  import { resolveWikiRootIndexPath } from './wikiPathDisplay.js'
   import { renderMarkdown } from './markdown.js'
   import './wikiMarkdown.css'
   import {
@@ -269,34 +270,36 @@
     }
   }
 
-  let initialized = false
+  /** Supersede in-flight `loadFiles` + open so rapid `refreshKey` bumps cannot commit stale landing. */
+  let wikiLoadSerial = 0
 
   $effect(() => {
     void refreshKey
-    loadFiles().then(() => {
-      if (!initialized) {
-        initialized = true
-        if (initialPath) {
-          const match = files.find(f => f.path === initialPath)
-          if (match) void openFile(match.path)
-          else void openFile(initialPath)
-        } else {
-          const index = files.find(f => f.name === '_index' && !f.path.includes('/'))
-          if (index) void openFile(index.path)
-        }
-      } else if (selected && pageMode !== 'edit') {
-        void openFile(selected)
-      }
-    })
-  })
+    const pathFromRoute = initialPath
+    const serial = ++wikiLoadSerial
 
-  // Navigate when initialPath changes while panel is already open
-  $effect(() => {
-    const path = initialPath
-    if (!path || !initialized) return
-    const match = files.find(f => f.path === path)
-    if (match && path !== selected) void openFile(match.path)
-    else if (!match && path !== selected) void openFile(path)
+    void (async () => {
+      await loadFiles()
+      if (serial !== wikiLoadSerial) return
+
+      if (pathFromRoute) {
+        const match = files.find(f => f.path === pathFromRoute)
+        if (match) {
+          if (match.path !== selected) void openFile(match.path)
+        } else if (pathFromRoute !== selected) {
+          void openFile(pathFromRoute)
+        }
+        return
+      }
+
+      if (selected && pageMode !== 'edit') {
+        void openFile(selected)
+        return
+      }
+
+      const landing = resolveWikiRootIndexPath(files)
+      if (landing) void openFile(landing)
+    })()
   })
 </script>
 
