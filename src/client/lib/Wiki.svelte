@@ -17,10 +17,11 @@
     type SetWikiSlideHeader,
   } from './wikiSlideHeaderContext.js'
   import { emit } from './app/appEvents.js'
-
-  type WikiFile = { path: string; name: string }
-
   import type { SurfaceContext } from '../router.js'
+  import type { WikiFileRow } from './wikiDirListModel.js'
+  import { parseWikiFileListJson } from './wikiFileListResponse.js'
+
+  type WikiFile = WikiFileRow
 
   let {
     initialPath,
@@ -85,7 +86,13 @@
 
   async function loadFiles() {
     const res = await fetch('/api/wiki')
-    files = await res.json()
+    let data: unknown
+    try {
+      data = await res.json()
+    } catch {
+      data = null
+    }
+    files = parseWikiFileListJson(data)
   }
 
   async function refreshRenderedFromServer() {
