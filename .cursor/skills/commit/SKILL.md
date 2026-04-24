@@ -7,6 +7,16 @@ description: Guides pre-commit verification, scoped lint/tests per package (Node
 
 Single-maintainer, early development: **direct push to `main` is OK** once the steps below pass.
 
+## Node.js — `nvm use` first
+
+The repo pins Node in **[`.nvmrc`](../../../.nvmrc)** (see **[`AGENTS.md`](../../../AGENTS.md)**). **Before any `npm`, `npx`, or `node` command** (including `npm run lint`, `npm run test`, `npm run ci`, `npm run ripmail:test`, and `npm rebuild`), run from the **repository root**:
+
+```sh
+nvm use
+```
+
+In non-interactive shells (agents, CI scripts), load nvm first if needed (e.g. `source ~/.nvm/nvm.sh`), then `nvm use`. Wrong Node causes native addon mismatches (e.g. `better-sqlite3`) and invalid test results.
+
 ## 1. Classify touched packages
 
 Use staged or unstaged paths (e.g. `git diff --name-only` / `git status`). Map paths to packages:
@@ -40,7 +50,7 @@ Docs-only or comment-only edits: skip new tests unless they document behavior th
 
 ## 3. Commands (scoped)
 
-Run only what applies to the packages identified above.
+Run only what applies to the packages identified above. **Run `nvm use` at the repo root before the Node/npm lines below.**
 
 **Node app**
 
@@ -75,6 +85,7 @@ Do not commit secrets or large generated artifacts; match existing `.gitignore` 
 ## Quick checklist
 
 ```
+- [ ] `nvm use` at repo root before npm/node (see above)
 - [ ] Changed packages identified
 - [ ] Tests added/updated per package (incl. regression tests for bug fixes)
 - [ ] Scoped lint/tests (or full ci) all green
