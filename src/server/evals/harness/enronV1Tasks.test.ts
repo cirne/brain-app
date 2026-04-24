@@ -22,6 +22,19 @@ describe('enron-v1 task file', () => {
       expect(t.expect).toBeDefined()
     }
   })
+  it('no-hit tasks accept ripmail totalMatched (pretty or minified)', async () => {
+    const tasks = await loadEnronV1TasksFromFile(taskFile)
+    const pretty = '{\n  "results": [],\n  "totalMatched": 0\n}\n'
+    const minified = '{"results":[],"totalMatched":0}'
+    for (const id of ['enron-004-no-hit-xyzzy', 'enron-010-no-hit-zzz'] as const) {
+      const t = tasks.find((x) => x.id === id)
+      expect(t, id).toBeDefined()
+      for (const toolJson of [pretty, minified]) {
+        const r = checkExpect(t!.expect, '', toolJson, [])
+        expect(r.ok, `${id} ${toolJson.slice(0, 40)}… → ${r.reasons.join('; ')}`).toBe(true)
+      }
+    }
+  })
 })
 
 describe('checkExpect', () => {

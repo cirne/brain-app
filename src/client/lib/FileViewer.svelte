@@ -2,6 +2,7 @@
   import CsvSpreadsheetView from './CsvSpreadsheetView.svelte'
   import { fileViewerKindForPath } from './fileViewerKind.js'
   import type { SurfaceContext } from '../router.js'
+  import { createAsyncLatest, isAbortError } from './asyncLatest.js'
 
   let {
     initialPath,
@@ -25,6 +26,8 @@
   )
   const useSpreadsheetViewer = $derived(viewerKind === 'spreadsheet')
 
+  const fileLoadLatest = createAsyncLatest({ abortPrevious: true })
+
   function titleFromPath(p: string) {
     const parts = p.split('/').filter(Boolean)
     return parts[parts.length - 1] ?? p
@@ -35,13 +38,15 @@
   })
 
   async function load(p: string) {
+    const { token, signal } = fileLoadLatest.begin()
     loading = true
     err = ''
     bodyText = ''
     resolvedPathFromApi = undefined
     onContextChange?.({ type: 'file', path: p, title: titleFromPath(p) })
     try {
-      const res = await fetch(`/api/files/read?path=${encodeURIComponent(p)}`)
+      const res = await fetch(`/api/files/read?path=${encodeURIComponent(p)}`, { signal })
+      if (fileLoadLatest.isStale(token)) return
       const j = (await res.json().catch(() => ({}))) as { error?: string; bodyText?: string; path?: string }
       if (!res.ok) {
         err = typeof j.error === 'string' ? j.error : `HTTP ${res.status}`
@@ -52,9 +57,10 @@
       const showPath = resolvedPathFromApi
       onContextChange?.({ type: 'file', path: p, title: titleFromPath(showPath) })
     } catch (e) {
+      if (fileLoadLatest.isStale(token) || isAbortError(e)) return
       err = e instanceof Error ? e.message : String(e)
     } finally {
-      loading = false
+      if (!fileLoadLatest.isStale(token)) loading = false
     }
   }
 </script>

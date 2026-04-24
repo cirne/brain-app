@@ -21,9 +21,9 @@ afterEach(() => {
 })
 
 describe('ripmailProcessEnv', () => {
-  it('sets RIPMAIL_LLM_PROVIDER to anthropic when LLM_PROVIDER and RIPMAIL_LLM_PROVIDER are unset', () => {
+  it('sets RIPMAIL_LLM_PROVIDER to openai when LLM_PROVIDER and RIPMAIL_LLM_PROVIDER are unset', () => {
     const env = ripmailProcessEnv()
-    expect(env.RIPMAIL_LLM_PROVIDER).toBe('anthropic')
+    expect(env.RIPMAIL_LLM_PROVIDER).toBe('openai')
   })
 
   it('sets RIPMAIL_LLM_PROVIDER from LLM_PROVIDER (lowercased) when RIPMAIL_LLM_PROVIDER is unset', () => {

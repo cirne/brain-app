@@ -8,7 +8,7 @@
   import StarterKit from '@tiptap/starter-kit'
   import TurndownService from 'turndown'
   import { splitYamlFrontMatter, joinYamlFrontMatter, renderMarkdownBody } from './markdown.js'
-  import './wikiMarkdownProse.css'
+  import './wikiMarkdown.css'
 
   const turndown = new TurndownService({
     headingStyle: 'atx',
@@ -126,7 +126,7 @@
       content: '<p></p>',
       editorProps: {
         attributes: {
-          class: 'wiki-md-prose',
+          class: 'wiki-md',
           spellcheck: 'true',
         },
       },
@@ -204,7 +204,7 @@
     min-height: 12rem;
   }
 
-  .tiptap-md-root :global(.wiki-md-prose) {
+  .tiptap-md-root :global(.wiki-md) {
     min-height: 11rem;
   }
 </style>

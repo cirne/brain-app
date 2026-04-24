@@ -108,11 +108,11 @@ export function ripmailProcessEnv(): typeof process.env {
   const bsec = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim()
   if (!gid && brid) out.RIPMAIL_GOOGLE_OAUTH_CLIENT_ID = brid
   if (!gsec && bsec) out.RIPMAIL_GOOGLE_OAUTH_CLIENT_SECRET = bsec
-  // Brain chat uses `LLM_PROVIDER` (and defaults to anthropic in TS); ripmail only reads
+  // Brain chat uses `LLM_PROVIDER` (defaults to openai in TS); ripmail only reads
   // `RIPMAIL_LLM_PROVIDER` / config.json. Align subprocess env so draft/ask use the same keys.
   if (!out.RIPMAIL_LLM_PROVIDER?.trim()) {
     const fromBrain = process.env.LLM_PROVIDER?.trim().toLowerCase()
-    out.RIPMAIL_LLM_PROVIDER = fromBrain && fromBrain.length > 0 ? fromBrain : 'anthropic'
+    out.RIPMAIL_LLM_PROVIDER = fromBrain && fromBrain.length > 0 ? fromBrain : 'openai'
   }
   return out
 }

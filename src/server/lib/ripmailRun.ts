@@ -104,8 +104,39 @@ export function terminateAllTrackedRipmailChildren(
   }
 }
 
+/** Log-friendly shell quoting (POSIX-style) for argv fragments. */
+function formatRipmailCommandLine(parts: string[]): string {
+  return parts
+    .map((p) => {
+      if (p === '') return "''"
+      if (/^[\w@%+=:,./-]+$/i.test(p)) return p
+      return `'${p.replace(/'/g, `'"'"'`)}'`
+    })
+    .join(' ')
+}
+
+/**
+ * Human-oriented ripmail logs: full command on one line, then a JSON object of metadata
+ * (`argv` is only on the command line, not repeated in JSON).
+ */
 function logRipmailLine(payload: Record<string, unknown>): void {
-  console.log(JSON.stringify({ tag: '[ripmail]', ...payload }))
+  const argvRaw = payload.argv
+  const parts = Array.isArray(argvRaw) ? (argvRaw as string[]) : []
+  const cmdLine = parts.length > 0 ? formatRipmailCommandLine(parts) : '(ripmail argv missing)'
+  const { argv: _omitArgv, ...meta } = payload
+  const doc = { tag: '[ripmail]', ...meta }
+  console.log(`[ripmail] ${cmdLine}`)
+  console.log(JSON.stringify(doc, null, 2))
+}
+
+/**
+ * When `errors`, only log ripmail spawn/close for failures, timeouts, or `send` — successful
+ * search/read noise is omitted (useful during JSONL evals with high concurrency).
+ * Env: `BRAIN_RIPMAIL_SUBPROCESS_LOG` = `errors` | `0` | `off`.
+ */
+function ripmailSubprocessLogErrorsOnly(): boolean {
+  const v = process.env.BRAIN_RIPMAIL_SUBPROCESS_LOG?.trim().toLowerCase()
+  return v === 'errors' || v === 'error' || v === '0' || v === 'off'
 }
 
 /**
@@ -128,6 +159,7 @@ export async function runRipmailArgv(
     mergedEnv.RIPMAIL_TIMEOUT = String(secs)
   }
   const ripmailTimeoutEnvSec = mergedEnv.RIPMAIL_TIMEOUT
+  const ripErrorsOnly = ripmailSubprocessLogErrorsOnly()
 
   const t0 = Date.now()
   if (options.signal?.aborted) {
@@ -143,14 +175,16 @@ export async function runRipmailArgv(
   })
   tracked.add(child)
 
-  logRipmailLine({
-    phase: 'spawn',
-    label,
-    argv: [bin, ...argv],
-    pid: child.pid,
-    timeoutMs: options.timeoutMs,
-    ripmailTimeoutEnvSec,
-  })
+  if (!ripErrorsOnly) {
+    logRipmailLine({
+      phase: 'spawn',
+      label,
+      argv: [bin, ...argv],
+      pid: child.pid,
+      timeoutMs: options.timeoutMs,
+      ripmailTimeoutEnvSec,
+    })
+  }
 
   let stdout = ''
   let stderr = ''
@@ -232,7 +266,10 @@ export async function runRipmailArgv(
               'hang during reply threading — SQLite open/read may be blocked if another ripmail process holds the DB lock'
           }
         }
-        logRipmailLine(closePayload)
+
+        if (!(ripErrorsOnly && !logOutputDiagnostics)) {
+          logRipmailLine(closePayload)
+        }
 
         if (maxBufferExceeded) {
           reject(

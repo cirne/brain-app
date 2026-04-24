@@ -19,19 +19,63 @@ export type CollectedAgentPromptMetrics = {
   error?: string
 }
 
+export type CollectAgentPromptMetricsOptions = {
+  timezone?: string
+  /** When `EVAL_AGENT_TRACE=1`, logs `[eval:agent]` JSON lines for this case (LLM turns vs tools). */
+  evalTraceCaseId?: string
+}
+
 /**
  * One `agent.prompt()`: subscribe for tool results + `agent_end`, then aggregate usage
  * (same pattern as chat SSE and wiki invocations).
  */
-export async function collectAgentPromptMetrics(agent: Agent, message: string): Promise<CollectedAgentPromptMetrics> {
+export async function collectAgentPromptMetrics(
+  agent: Agent,
+  message: string,
+  options: CollectAgentPromptMetricsOptions = {},
+): Promise<CollectedAgentPromptMetrics> {
   const toolNames: string[] = []
   const toolTextParts: string[] = []
   let endMessages: AgentMessage[] = []
 
   await agent.waitForIdle()
   const t0 = performance.now()
+  const traceCaseId =
+    process.env.EVAL_AGENT_TRACE === '1' && options.evalTraceCaseId?.trim()
+      ? options.evalTraceCaseId.trim()
+      : undefined
+  const agentTrace = (event: string, extra?: Record<string, unknown>) => {
+    if (!traceCaseId) return
+    console.log(
+      JSON.stringify({
+        tag: '[eval:agent]',
+        caseId: traceCaseId,
+        event,
+        elapsedMs: Math.round(performance.now() - t0),
+        ...extra,
+      }),
+    )
+  }
+
   const unsubscribe = agent.subscribe(async (ev: AgentEvent) => {
     try {
+      if (traceCaseId) {
+        if (ev.type === 'agent_start') agentTrace('agent_start')
+        if (ev.type === 'turn_start') agentTrace('turn_start', { note: 'LLM request (streaming / thinking)' })
+        if (ev.type === 'turn_end') {
+          const msg = ev.message as { stopReason?: string }
+          agentTrace('turn_end', {
+            stopReason: msg.stopReason,
+            toolResultCount: ev.toolResults.length,
+          })
+        }
+        if (ev.type === 'tool_execution_start') {
+          agentTrace('tool_start', { tool: ev.toolName })
+        }
+        if (ev.type === 'tool_execution_end') {
+          agentTrace('tool_end', { tool: ev.toolName, isError: ev.isError })
+        }
+      }
       if (ev.type === 'tool_execution_start' && 'toolName' in ev) {
         toolNames.push((ev as { toolName: string }).toolName)
       }
@@ -41,6 +85,7 @@ export async function collectAgentPromptMetrics(agent: Agent, message: string): 
       }
       if (ev.type === 'agent_end' && 'messages' in ev) {
         endMessages = (ev as { messages: AgentMessage[] }).messages
+        if (traceCaseId) agentTrace('agent_end')
       }
     } catch {
       /* best-effort */

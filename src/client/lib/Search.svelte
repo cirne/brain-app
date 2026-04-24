@@ -3,6 +3,7 @@
   import { Mail, X, Search } from 'lucide-svelte'
   import { formatDate } from './formatDate.js'
   import WikiFileName from './WikiFileName.svelte'
+  import { createAsyncLatest, isAbortError } from './asyncLatest.js'
 
   type WikiResult = { type: 'wiki'; path: string; score: number; excerpt: string }
   type EmailResult = { type: 'email'; id: string; from: string; subject: string; date: string; snippet: string; score: number }
@@ -25,6 +26,8 @@
 
   let debounceTimer: ReturnType<typeof setTimeout>
 
+  const searchLatest = createAsyncLatest({ abortPrevious: true })
+
   onMount(() => {
     inputEl?.focus()
 
@@ -39,18 +42,27 @@
     const q = query
     clearTimeout(debounceTimer)
     if (!q.trim()) {
+      searchLatest.begin()
       results = []
       loading = false
       return
     }
     loading = true
     debounceTimer = setTimeout(async () => {
+      const { token, signal } = searchLatest.begin()
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`)
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal })
+        if (searchLatest.isStale(token)) return
         const data = await res.json()
+        if (searchLatest.isStale(token)) return
         results = data.results ?? []
-      } catch { /* ignore */ }
-      loading = false
+      } catch (e) {
+        if (!searchLatest.isStale(token) && !isAbortError(e)) {
+          /* ignore */
+        }
+      } finally {
+        if (!searchLatest.isStale(token)) loading = false
+      }
     }, 250)
   })
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SurfaceContext } from '../router.js'
   import { FDA_GATE_OPEN_EVENT } from './onboarding/fdaGateKeys.js'
+  import { createAsyncLatest, isAbortError } from './asyncLatest.js'
 
   type CompactRow = {
     sent_at_unix: number
@@ -25,8 +26,11 @@
   let messages = $state<CompactRow[]>([])
   let total = $state(0)
 
+  const threadFetchLatest = createAsyncLatest({ abortPrevious: true })
+
   $effect(() => {
     if (!initialChat?.trim()) {
+      threadFetchLatest.begin()
       loading = false
       errorText = null
       fullDiskAccessHint = false
@@ -37,7 +41,7 @@
       return
     }
 
-    let cancelled = false
+    const { token, signal } = threadFetchLatest.begin()
     loading = true
     errorText = null
     fullDiskAccessHint = false
@@ -48,7 +52,8 @@
 
     void (async () => {
       try {
-        const res = await fetch(`/api/messages/thread?${q.toString()}`)
+        const res = await fetch(`/api/messages/thread?${q.toString()}`, { signal })
+        if (threadFetchLatest.isStale(token)) return
         const data = (await res.json()) as {
           ok?: boolean
           error?: string
@@ -58,11 +63,10 @@
           messages?: CompactRow[]
           total?: number
         }
-        if (cancelled) return
+        if (threadFetchLatest.isStale(token)) return
         if (!res.ok || !data.ok) {
           errorText = data.error ?? `Request failed (${res.status})`
           fullDiskAccessHint = data.full_disk_access_hint === true
-          loading = false
           return
         }
         fullDiskAccessHint = false
@@ -76,14 +80,15 @@
           displayLabel: displayChat,
         })
       } catch (e) {
-        if (!cancelled) errorText = e instanceof Error ? e.message : String(e)
+        if (threadFetchLatest.isStale(token) || isAbortError(e)) return
+        errorText = e instanceof Error ? e.message : String(e)
       } finally {
-        if (!cancelled) loading = false
+        if (!threadFetchLatest.isStale(token)) loading = false
       }
     })()
 
     return () => {
-      cancelled = true
+      threadFetchLatest.begin()
     }
   })
 

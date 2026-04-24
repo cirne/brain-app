@@ -11,7 +11,7 @@
   } from './wikiPageHtml.js'
   import { wikiPathForReadToolArg } from './cards/contentCards.js'
   import { renderMarkdown } from './markdown.js'
-  import './wikiMarkdownProse.css'
+  import './wikiMarkdown.css'
   import {
     WIKI_SLIDE_HEADER,
     type SetWikiSlideHeader,
@@ -20,6 +20,7 @@
   import type { SurfaceContext } from '../router.js'
   import type { WikiFileRow } from './wikiDirListModel.js'
   import { parseWikiFileListJson } from './wikiFileListResponse.js'
+  import { createAsyncLatest, isAbortError } from './asyncLatest.js'
 
   type WikiFile = WikiFileRow
 
@@ -64,6 +65,9 @@
   let saveState = $state<SaveState>('idle')
   let wikiEditor = $state<{ flushSave: () => Promise<void> } | null>(null)
 
+  /** Supersedes in-flight page GETs (open + server refresh) so rapid nav cannot mix HTML. */
+  const wikiPageLatest = createAsyncLatest({ abortPrevious: true })
+
   const streamBusy = $derived(
     Boolean(
       (streamingWrite && selected && pathsMatchForStream(streamingWrite.path, selected)) ||
@@ -97,12 +101,20 @@
 
   async function refreshRenderedFromServer() {
     if (!selected) return
-    const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(selected)}`)
-    if (!res.ok) return
-    const data = await res.json()
-    meta = data.meta ?? {}
-    content = transformWikiPageHtml(data.html)
-    rawMarkdown = data.raw ?? ''
+    const { token, signal } = wikiPageLatest.begin()
+    const pathKey = selected
+    try {
+      const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(pathKey)}`, { signal })
+      if (wikiPageLatest.isStale(token)) return
+      if (!res.ok) return
+      const data = await res.json()
+      if (wikiPageLatest.isStale(token)) return
+      meta = data.meta ?? {}
+      content = transformWikiPageHtml(data.html)
+      rawMarkdown = data.raw ?? ''
+    } catch (e) {
+      if (!wikiPageLatest.isStale(token) && !isAbortError(e)) throw e
+    }
   }
 
   async function persistWikiMarkdown(md: string) {
@@ -142,38 +154,41 @@
     if (pageMode === 'edit' && wikiEditor) {
       await wikiEditor.flushSave()
     }
+    const { token, signal } = wikiPageLatest.begin()
     selected = path
     onNavigate?.(path)
     loading = true
     pageMode = 'view'
     try {
-      const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(path)}`)
+      const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(path)}`, { signal })
+      if (wikiPageLatest.isStale(token)) return
       if (!res.ok) {
         meta = {}
         content = ''
         rawMarkdown = ''
         pageLoadedOk = false
-        loading = false
         const title = path.replace(/\.md$/, '').split('/').pop() ?? path
         onContextChange?.({ type: 'wiki', path, title })
         return
       }
       const data = await res.json()
+      if (wikiPageLatest.isStale(token)) return
       meta = data.meta ?? {}
       content = transformWikiPageHtml(data.html)
       rawMarkdown = data.raw ?? ''
       pageLoadedOk = true
-      loading = false
       const title = meta.title ?? path.replace(/\.md$/, '').split('/').pop() ?? path
       onContextChange?.({ type: 'wiki', path, title })
-    } catch {
+    } catch (e) {
+      if (wikiPageLatest.isStale(token) || isAbortError(e)) return
       meta = {}
       content = ''
       rawMarkdown = ''
       pageLoadedOk = false
-      loading = false
       const title = path.replace(/\.md$/, '').split('/').pop() ?? path
       onContextChange?.({ type: 'wiki', path, title })
+    } finally {
+      if (!wikiPageLatest.isStale(token)) loading = false
     }
   }
 
@@ -302,7 +317,7 @@
     {:else}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-      <article class="viewer wiki-md-prose" onclick={handleContentClick} use:upgradeWikiLinks={content}>
+      <article class="viewer wiki-md" onclick={handleContentClick} use:upgradeWikiLinks={content}>
         {#if loading}
           <p class="status">Loading...</p>
         {:else if streamingWrite && selected && pathsMatchForStream(streamingWrite.path, selected) && streamingWrite.body}

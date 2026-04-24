@@ -11,6 +11,7 @@
     extractHttpUrls,
     extractMeetingIds,
   } from './calendarNotes.js'
+  import { createAsyncLatest, isAbortError } from './asyncLatest.js'
 
   type WikiR = { type: 'wiki'; path: string; excerpt: string }
   type EmailR = {
@@ -63,9 +64,11 @@
   let relatedEmails = $state<EmailR[]>([])
   let relatedPeople = $state<WhoPerson[]>([])
 
+  const relatedContextLatest = createAsyncLatest({ abortPrevious: true })
+
   $effect(() => {
     const ev = event
-    let cancelled = false
+    const { token, signal } = relatedContextLatest.begin()
     relatedError = null
     relatedWiki = []
     relatedEmails = []
@@ -82,26 +85,28 @@
     relatedLoading = true
     void (async () => {
       try {
-        const res = await fetch(`/api/calendar/related?${params.toString()}`)
-        if (cancelled) return
+        const res = await fetch(`/api/calendar/related?${params.toString()}`, { signal })
+        if (relatedContextLatest.isStale(token)) return
         if (!res.ok) throw new Error(`${res.status}`)
         const data = (await res.json()) as {
           emails?: EmailR[]
           wiki?: WikiR[]
           people?: WhoPerson[]
         }
+        if (relatedContextLatest.isStale(token)) return
         relatedEmails = data.emails ?? []
         relatedWiki = data.wiki ?? []
         relatedPeople = data.people ?? []
-      } catch {
-        if (!cancelled) relatedError = 'Could not load related context.'
+      } catch (e) {
+        if (relatedContextLatest.isStale(token) || isAbortError(e)) return
+        relatedError = 'Could not load related context.'
       } finally {
-        if (!cancelled) relatedLoading = false
+        if (!relatedContextLatest.isStale(token)) relatedLoading = false
       }
     })()
 
     return () => {
-      cancelled = true
+      relatedContextLatest.begin()
     }
   })
 

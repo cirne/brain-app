@@ -1,7 +1,7 @@
 <script lang="ts">
   import { User } from 'lucide-svelte'
 
-  const PREVIEW_ROWS = 4
+  const PREVIEW_ROWS = 3
 
   let {
     queryLine,

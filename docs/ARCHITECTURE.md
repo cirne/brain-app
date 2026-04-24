@@ -30,6 +30,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 | Topic                                                  | Doc                                                                            |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | HTTP routing, auth, periodic sync, native app ports    | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md)       |
+| Client UI: latest-wins async / overlapping `fetch`    | [architecture/client-async-latest.md](architecture/client-async-latest.md)     |
 | Desktop vs Cloud deployment models                    | [architecture/deployment-models.md](architecture/deployment-models.md)         |
 | Multi-tenant cloud architecture (NAS, isolation)      | [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) |
 | Tenant filesystem isolation (BUG-012, kernel + app)   | [architecture/tenant-filesystem-isolation.md](architecture/tenant-filesystem-isolation.md)         |

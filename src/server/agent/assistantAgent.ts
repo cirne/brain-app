@@ -139,8 +139,8 @@ When resolving dates or times for tools (like calendar or search_index), always 
   }
 
   // Model from env vars — supports any provider pi-ai knows about
-  const provider = (process.env.LLM_PROVIDER ?? 'anthropic') as KnownProvider
-  const modelId = process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514'
+  const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
+  const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
   const model = getModel(provider, modelId as never)
 
   const agent = new Agent({

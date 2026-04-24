@@ -84,7 +84,8 @@ export function buildProfilingTranscriptEvents(messages: ChatMessage[]): Profili
 
 const MAX_EMAIL_ROWS = 24
 const MAX_WIKI_ROWS = 40
-const MAX_PEOPLE_ROWS = 48
+/** People section preview row cap (keeps the profiling transcript compact; same idea as `FindPersonHitsPreviewCard`). */
+const MAX_PEOPLE_ROWS = 3
 
 /**
  * People surfaced by completed `find_person` tools, in encounter order, deduped with richer names preferred.

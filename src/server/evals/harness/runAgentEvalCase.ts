@@ -30,7 +30,9 @@ export async function runAgentEvalCase(task: EnronV1Task, options: { timezone?: 
   const agent = await getOrCreateSession(sessionId, { timezone: options.timezone ?? 'America/Chicago' })
   const failReasons: string[] = []
 
-  const m = await collectAgentPromptMetrics(agent, task.userMessage)
+  const m = await collectAgentPromptMetrics(agent, task.userMessage, {
+    evalTraceCaseId: task.id,
+  })
   deleteSession(sessionId)
 
   if (m.error) {

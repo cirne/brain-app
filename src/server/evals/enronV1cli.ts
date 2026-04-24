@@ -9,12 +9,12 @@ loadEvalEnvAndLlmCli(`Usage: npm run eval:run:enron -- [options]
 Loads ./.env from the current working directory (same as the dev server).
 
 Options:
-  --provider, -p   LLM_PROVIDER (e.g. anthropic, openai)
+  --provider, -p   LLM_PROVIDER (e.g. anthropic, openai, xai)
   --model, -m       LLM_MODEL (provider-specific id)
   -h, --help        Show this message
 
 Env still applies (CLI overrides LLM_PROVIDER / LLM_MODEL only).
-Example: npm run eval:run:enron -- --provider openai --model gpt-4o
+Example: npm run eval:run:enron -- --provider xai --model grok-4-1-fast
 `)
 
 const { runEnronV1Main } = await import('./runEnronV1.js')

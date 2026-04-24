@@ -30,6 +30,7 @@
   import ConfirmDialog from './ConfirmDialog.svelte'
   import { labelForDeleteChatDialog } from './chatHistoryDelete.js'
   import type { AgentOpenSource } from './navigateFromAgentOpen.js'
+  import { createAsyncLatest, isAbortError } from './asyncLatest.js'
   let {
     context = { type: 'none' } as SurfaceContext,
     conversationHidden = false,
@@ -177,6 +178,8 @@
   let sessions = $state(init.sessions)
   let displayedSessionId = $state(init.displayed)
 
+  const sessionLoadLatest = createAsyncLatest({ abortPrevious: true })
+
   const messages = $derived.by((): ChatMessage[] => {
     const id = displayedSessionId
     if (!id) return []
@@ -310,8 +313,10 @@
       return
     }
 
+    const { token, signal } = sessionLoadLatest.begin()
     try {
-      const res = await fetch(`/api/chat/sessions/${encodeURIComponent(loadId)}`)
+      const res = await fetch(`/api/chat/sessions/${encodeURIComponent(loadId)}`, { signal })
+      if (sessionLoadLatest.isStale(token)) return
       if (!res.ok) {
         const err = emptySession()
         err.messages = [
@@ -336,6 +341,7 @@
         title?: string | null
         messages?: ChatMessage[]
       }
+      if (sessionLoadLatest.isStale(token)) return
       const list = Array.isArray(doc.messages) ? doc.messages : []
       const sid = typeof doc.sessionId === 'string' ? doc.sessionId : loadId
       sessions = setSessionImmutable(sessions, sid, {
@@ -350,7 +356,8 @@
       await tick()
       conversationEl?.scrollToBottom()
       void focusAgentTextarea(0)
-    } catch {
+    } catch (e) {
+      if (sessionLoadLatest.isStale(token) || isAbortError(e)) return
       const pk = createPendingSessionKey()
       sessions = setSessionImmutable(sessions, pk, {
         messages: [{ role: 'assistant', content: 'Could not load chat.' }],

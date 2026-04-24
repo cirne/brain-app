@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { createAsyncLatest, isAbortError } from './asyncLatest.js'
 
   export interface CalendarEvent {
     id: string
@@ -45,6 +46,8 @@
 
   const interactive = $derived(!!onEventOpen || !!onEventSelect)
 
+  const dayEventsLatest = createAsyncLatest({ abortPrevious: true })
+
   function handleEventClick(e: CalendarEvent) {
     if (onEventOpen) onEventOpen(e)
     else onEventSelect?.(e)
@@ -58,10 +61,19 @@
   })
 
   async function fetchForDate(d: string) {
-    const res = await fetch(`/api/calendar?start=${d}&end=${d}`)
-    if (res.ok) {
-      const data = await res.json()
-      fetchedEvents = data.events as CalendarEvent[]
+    const { token, signal } = dayEventsLatest.begin()
+    try {
+      const res = await fetch(`/api/calendar?start=${d}&end=${d}`, { signal })
+      if (dayEventsLatest.isStale(token)) return
+      if (res.ok) {
+        const data = await res.json()
+        if (dayEventsLatest.isStale(token)) return
+        fetchedEvents = data.events as CalendarEvent[]
+      }
+    } catch (e) {
+      if (!dayEventsLatest.isStale(token) && !isAbortError(e)) {
+        /* ignore */
+      }
     }
   }
 

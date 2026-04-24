@@ -11,26 +11,63 @@
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `**pi-agent-core`**   | Stateful `Agent`: transcript, tool loop, streaming events (`turn_start` / `turn_end` / `agent_end`, etc.).                                                                |
 | `**pi-ai`**           | `getModel(provider, modelId)`, streaming, `**usage`** on each assistant completion (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `cost` where supported). |
-| `**pi-coding-agent**` | `convertToLlm` and wiki-scoped tools (`read`, `edit`, `write`, `grep`, `find`) composed in `[src/server/agent/tools.ts](../../src/server/agent/tools.ts)`.                |
+| `**pi-coding-agent`** | `convertToLlm` and wiki-scoped tools (`read`, `edit`, `write`, `grep`, `find`) composed in `[src/server/agent/tools.ts](../../src/server/agent/tools.ts`).                |
 
+
+## LLM providers (pi-ai)
+
+The agent uses `getModel(provider, modelId)` with `**LLM_PROVIDER`** and `**LLM_MODEL**` (see [configuration.md](./configuration.md)). The first argument must be a `**KnownProvider**` string from `@mariozechner/pi-ai` (see `node_modules/@mariozechner/pi-ai/dist/types.d.ts` in this repo; version is pinned in root `package.json`).
+
+`**KnownProvider` (union as shipped in the current dependency):** `amazon-bedrock`, `anthropic`, `azure-openai-responses`, `cerebras`, `github-copilot`, `google`, `google-antigravity`, `google-gemini-cli`, `google-vertex`, `groq`, `huggingface`, `kimi-coding`, `minimax`, `minimax-cn`, `mistral`, `openai`, `openai-codex`, `openrouter`, `opencode`, `opencode-go`, `vercel-ai-gateway`, `xai`, `zai`.
+
+**We routinely point docs and defaults at these:**
+
+
+| Provider    | Notes                                                                                                                                  |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `openai`    | Default `LLM_PROVIDER` in the server (`**gpt-5.4-mini**` by default; see [configuration.md](./configuration.md)); uses `OPENAI_API_KEY`. |
+| `anthropic` | Uses `ANTHROPIC_API_KEY` (or `ANTHROPIC_OAUTH_TOKEN` if using OAuth) — see pi-ai `getEnvApiKey`. |
+| `xai`       | xAI (Grok, etc.); uses `XAI_API_KEY`.                                                                                                  |
+
+
+**Future candidates (Google):** The same `KnownProvider` set includes `google` (Generative AI), `google-vertex`, `google-gemini-cli`, and related entries. We do not yet have project-standard **Google / Gemini** API credentials for the agent (`GEMINI_API_KEY` and related env vars in pi-ai); when we do, these become viable `LLM_PROVIDER` options alongside the table above.
+
+**Other `KnownProvider` values** (e.g. `openrouter`, `groq`, `mistral`, Bedrock) use the env mappings in pi-ai’s `getEnvApiKey` implementation; some use OAuth or cloud ADC instead of a single API key. Prefer the type definition and `getEnvApiKey` in `node_modules/@mariozechner/pi-ai` for details.
+
+### LLM model ids and tool compatibility
+
+`@mariozechner/pi-ai` keeps a **large** `MODELS` table (per provider) for costs, API routing, and `getModel(provider, id)`. **That is not the same** as “safe for a multi-turn **tool-calling** agent.” The same stack powers the **pi** coding CLI; the pi-mono **coding-agent** README says that for each built-in provider they maintain a list of **tool-capable** models, refreshed each release: [Providers & Models (upstream)](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md#providers--models).
+
+In this repo, `convertToLlm` from `@mariozechner/pi-coding-agent` only shapes **message content**; it does not reject models. Failure modes you can see in practice:
+
+
+| Situation                                                                                                 | What happens                                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getModel` returns `undefined` (unknown id for that `LLM_PROVIDER`)                                       | Startup: `[brain-app] … unknown provider/model … (not in pi-ai registry)` — see `verifyLlmAtStartup` in `[src/server/lib/llmStartupSmoke.ts](../../src/server/lib/llmStartupSmoke.ts)`.                                                                                                                     |
+| Id is in `MODELS` but API rejects parameters (e.g. some OpenAI **Responses** / **reasoning** constraints) | Startup smoke or first completion may throw; this repo maps some cases via `patchOpenAiReasoning…` in `[openAiResponsePayload` helpers](../../src/server/lib/openAiResponsesPayload.ts).                                                                                                                    |
+| Text-only smoke passes but **tool calls** break                                                           | `[verifyLlmAtStartup](../../src/server/lib/llmStartupSmoke.ts)` uses a **single** `completeSimple` user message — **no tools**. A model can pass that and still be a poor or broken fit for the agent loop. Prefer models Pi treats as **tool-capable** for your provider, not an arbitrary `MODELS` entry. |
+| OpenRouter / Vercel AI Gateway, etc.                                                                      | Many routed models; backends differ (tools, message shapes). Default to the **same** model ids the Pi CLI would list with `pi --list-models` (see upstream CLI docs in the [same README](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md)) once keys are set.                 |
+
+
+**Evals / `.env`:** For `LLM_PROVIDER` + `LLM_MODEL`, use **proven tool/agent** model ids (e.g. **Claude Sonnet 4.6** / Haiku / Opus for `anthropic`, **`gpt-5.4*`** for `openai`, **Grok 4.1 fast** / Grok 4 for `xai`) — see [`src/server/evals/supported-llm-models.json`](../../src/server/evals/supported-llm-models.json) for a curated 2026 list. Custom and compat options for edge servers are documented in pi-mono: [docs/models.md](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/models.md).
 
 Session construction: `[src/server/agent/agentFactory.ts](../../src/server/agent/agentFactory.ts)`, `[src/server/agent/assistantAgent.ts](../../src/server/agent/assistantAgent.ts)`. SSE bridge: `[src/server/lib/streamAgentSse.ts](../../src/server/lib/streamAgentSse.ts)`.
 
 ## `Agent` constructor options (summary)
 
-These are the main knobs from `**AgentOptions**` (see pi-agent-core README for full typings and examples).
+These are the main knobs from `**AgentOptions`** (see pi-agent-core README for full typings and examples).
 
 
 | Option                                 | Notes                                                                                                  |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `**initialState**`                     | `systemPrompt`, `**model**`, `**thinkingLevel**` (`off` … `xhigh`), `**tools**`, `**messages**`.       |
+| `**initialState`**                     | `systemPrompt`, `**model**`, `**thinkingLevel**` (`off` … `xhigh`), `**tools**`, `**messages**`.       |
 | `**convertToLlm**`                     | Map `AgentMessage[]` → provider messages; required if you add custom message roles.                    |
 | `**transformContext**`                 | Run **before** `convertToLlm` — pruning, summarization, injected context (major lever for token cost). |
 | `**streamFn`**                         | Custom stream implementation (e.g. proxies).                                                           |
 | `**onPayload`**                        | Inspect raw stream payloads (pi-ai stream options).                                                    |
 | `**beforeToolCall` / `afterToolCall`** | Block tools or reshape results after execution.                                                        |
-| `**steeringMode` / `followUpMode**`    | `"one-at-a-time"` (default) or `"all"` for `steer()` / `followUp()` queues.                            |
-| `**sessionId**`                        | Forwarded for cache-aware providers.                                                                   |
+| `**steeringMode` / `followUpMode`**    | `"one-at-a-time"` (default) or `"all"` for `steer()` / `followUp()` queues.                            |
+| `**sessionId`**                        | Forwarded for cache-aware providers.                                                                   |
 | `**thinkingBudgets**`                  | Per-level token budgets for thinking-capable models.                                                   |
 | `**transport**`                        | Preferred transport (pi-ai).                                                                           |
 | `**maxRetryDelayMs**`                  | Cap provider retry backoff.                                                                            |

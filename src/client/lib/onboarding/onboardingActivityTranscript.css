@@ -42,7 +42,7 @@
   margin: 0 0 8px;
 }
 
-/* Layout only — markdown typography lives in streamingAgentMarkdown.css via StreamingAgentMarkdown.svelte */
+/* Layout only — markdown typography: markdownCore.css + streamingAgentMarkdown.css via StreamingAgentMarkdown.svelte */
 .ob-prof-msg-body {
   padding-right: 2px;
 }

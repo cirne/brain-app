@@ -5,6 +5,7 @@
   import { navigate } from '../router.js'
   import { emailHeadersForDisplay } from './inboxHeaders.js'
   import { formatDate } from './formatDate.js'
+  import { createAsyncLatest, isAbortError } from './asyncLatest.js'
 
   type Email = {
     id: string
@@ -56,6 +57,7 @@
   let threadLoading = $state(false)
   /** Set when GET /api/inbox/:id fails (e.g. 404 — invalid or stale id). */
   let threadLoadError = $state<string | null>(null)
+  const threadOpenLatest = createAsyncLatest({ abortPrevious: true })
   /** When opening by id that is not in the inbox list (e.g. agent read_email id). */
   let orphanThreadMeta = $state<{ subject: string; from: string } | null>(null)
   let error = $state<string | null>(null)
@@ -203,9 +205,24 @@
     return { subject, from }
   }
 
+  /** 404 can be transient right after sync / new mail; brief retries match “refresh fixes it”. */
+  async function fetchInboxMessageForOpen(messageId: string, signal: AbortSignal): Promise<Response> {
+    const url = `/api/inbox/${encodeURIComponent(messageId)}`
+    const delayMs = [0, 400, 900]
+    let last: Response | undefined
+    for (const d of delayMs) {
+      if (d > 0) await new Promise((r) => setTimeout(r, d))
+      if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+      last = await fetch(url, { signal })
+      if (last.ok || last.status !== 404) return last
+    }
+    return last!
+  }
+
   /** Open thread by id when the message is not in the current inbox list (IDs still valid for ripmail read). */
   async function openThreadByRawId(id: string) {
     if (selectedThread === id && (threadContent || threadLoading)) return
+    const { token, signal } = threadOpenLatest.begin()
     orphanThreadMeta = null
     threadLoadError = null
     selectedThread = id
@@ -214,9 +231,11 @@
     onContextChange?.({ type: 'email', threadId: id, subject: '(loading)', from: '' })
     threadLoading = true
     try {
-      const res = await fetch(`/api/inbox/${encodeURIComponent(id)}`)
+      const res = await fetchInboxMessageForOpen(id, signal)
+      if (threadOpenLatest.isStale(token)) return
       if (res.ok) {
         const text = await res.text()
+        if (threadOpenLatest.isStale(token)) return
         const blank = text.indexOf('\n\n')
         const headers = blank === -1 ? '' : text.slice(0, blank)
         const body = blank === -1 ? text : text.slice(blank + 2)
@@ -236,18 +255,22 @@
         } catch {
           /* id may not be in inbox index */
         }
+        if (threadOpenLatest.isStale(token)) return
       } else {
+        if (threadOpenLatest.isStale(token)) return
         threadContent = null
         threadLoadError =
           res.status === 404
             ? 'Message not found. It may have been archived or the id is invalid. Try refreshing the inbox list.'
             : `Could not load message (${res.status}).`
       }
-    } catch {
+    } catch (e) {
+      if (threadOpenLatest.isStale(token) || isAbortError(e)) return
       threadContent = null
       threadLoadError = 'Could not load message.'
+    } finally {
+      if (!threadOpenLatest.isStale(token)) threadLoading = false
     }
-    threadLoading = false
   }
 
   async function openThread(email: Email) {
@@ -257,12 +280,16 @@
     navigate({ overlay: { type: 'email', id: email.id } })
     onNavigate?.(email.id)
     onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from })
+    const { token, signal } = threadOpenLatest.begin()
     threadLoading = true
-    await markRead(email.id)
     try {
-      const res = await fetch(`/api/inbox/${encodeURIComponent(email.id)}`)
+      await markRead(email.id)
+      if (threadOpenLatest.isStale(token)) return
+      const res = await fetchInboxMessageForOpen(email.id, signal)
+      if (threadOpenLatest.isStale(token)) return
       if (res.ok) {
         const text = await res.text()
+        if (threadOpenLatest.isStale(token)) return
         const blank = text.indexOf('\n\n')
         threadContent = blank === -1
           ? { headers: '', body: text }
@@ -270,19 +297,21 @@
         // Update context with body now that it's loaded (cap at 4000 chars)
         onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from, body: threadContent.body.slice(0, 4000) })
       } else {
+        if (threadOpenLatest.isStale(token)) return
         threadContent = null
         threadLoadError =
           res.status === 404
             ? 'Message not found. It may have been archived or the id is invalid. Try refreshing the inbox list.'
             : `Could not load message (${res.status}).`
       }
-    } catch {
+    } catch (e) {
+      if (threadOpenLatest.isStale(token) || isAbortError(e)) return
       threadContent = null
       threadLoadError = 'Could not load message.'
+    } finally {
+      if (!threadOpenLatest.isStale(token)) threadLoading = false
     }
-    threadLoading = false
   }
-
 
   async function loadContacts() {
     if (contactsLoaded) return

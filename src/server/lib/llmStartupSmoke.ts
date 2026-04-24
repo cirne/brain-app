@@ -9,8 +9,8 @@ import {
   type OpenAiResponsesPayload,
 } from './openAiResponsesPayload.js'
 
-const DEFAULT_PROVIDER = 'anthropic' as KnownProvider
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
+const DEFAULT_PROVIDER = 'openai' as KnownProvider
+const DEFAULT_MODEL = 'gpt-5.4-mini'
 const SMOKE_TIMEOUT_MS = 60_000
 
 function hasCredentials(apiKey: string | undefined): boolean {

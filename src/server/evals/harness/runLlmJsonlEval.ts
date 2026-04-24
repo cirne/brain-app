@@ -4,6 +4,11 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pLimit from 'p-limit'
 import { addLlmUsage, isZeroUsage, type LlmUsageSnapshot } from '../../lib/llmUsage.js'
+import {
+  getEffectiveLlmModelForEval,
+  getEffectiveLlmProviderForEval,
+  sanitizeLlmModelIdForFilename,
+} from './effectiveLlmEnv.js'
 import { hasAnyLlmKey, parseEvalMaxConcurrency } from './llmPreflight.js'
 import type { RunAgentEvalCaseResult } from './runAgentEvalCase.js'
 
@@ -23,7 +28,7 @@ export function getEvalRepoRoot(): string {
 
 export type LlmJsonlEvalConfig<TTask> = {
   logPrefix: string
-  /** Used in report filename: `${outSlug}-<timestamp>.json` */
+  /** Used in report filename: `${outSlug}-<model-segment>-<timestamp>.json` (model from effective `LLM_MODEL`) */
   outSlug: string
   resolveTaskFilePath: (root: string) => string
   loadTasks: (absPath: string) => Promise<TTask[]>
@@ -108,7 +113,13 @@ export async function runLlmJsonlEvalMain<TTask>(config: LlmJsonlEvalConfig<TTas
 
   const outDir = join(root, 'data-eval', 'eval-runs')
   mkdirSync(outDir, { recursive: true })
-  const outFile = join(outDir, `${outSlug}-${startedAt.replace(/[:.]/g, '-')}.json`)
+  const effectiveModel = getEffectiveLlmModelForEval()
+  const effectiveProvider = getEffectiveLlmProviderForEval()
+  const modelSegment = sanitizeLlmModelIdForFilename(effectiveModel)
+  const outFile = join(
+    outDir,
+    `${outSlug}-${modelSegment}-${startedAt.replace(/[:.]/g, '-')}.json`,
+  )
 
   const report = {
     startedAt,
@@ -116,10 +127,16 @@ export async function runLlmJsonlEvalMain<TTask>(config: LlmJsonlEvalConfig<TTas
     brainHome: brain,
     taskFile: tasksPath,
     maxConcurrency: maxConc,
+    /** Same defaults as the chat agent when env vars are unset. */
+    effectiveLlm: {
+      provider: effectiveProvider,
+      model: effectiveModel,
+    },
     env: {
       LLM_PROVIDER: process.env.LLM_PROVIDER ?? null,
       LLM_MODEL: process.env.LLM_MODEL ?? null,
     },
+    reportFile: outFile,
     wallTotalMs: Math.round(wallTotalMs),
     summary: {
       pass,

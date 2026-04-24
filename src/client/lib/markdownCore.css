@@ -1,0 +1,117 @@
+/**
+ * Shared `marked` output typography for `.wiki-md` and `.streaming-agent-md`.
+ * Tailwind Preflight sets list-style: none on ul/ol — restore markers here.
+ *
+ * Lists use `outside` + horizontal padding so markers stay on the first line of loose list
+ * items (`<li><p>…</p>`), matching wiki/TipTap. Parent columns should use min-width: 0 /
+ * overflow as needed (see chat message rows), not `list-style-position: inside`.
+ */
+:is(.wiki-md, .streaming-agent-md) ul,
+:is(.wiki-md, .streaming-agent-md) ol {
+  margin: 0.35em 0 0.65em;
+  padding-left: 1.5em;
+  list-style-position: outside;
+}
+
+:is(.wiki-md, .streaming-agent-md) ul {
+  list-style-type: disc;
+}
+
+:is(.wiki-md, .streaming-agent-md) ol {
+  list-style-type: decimal;
+}
+
+:is(.wiki-md, .streaming-agent-md) ul ul,
+:is(.wiki-md, .streaming-agent-md) ol ol,
+:is(.wiki-md, .streaming-agent-md) ul ol,
+:is(.wiki-md, .streaming-agent-md) ol ul {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+  margin-left: 1.15em;
+}
+
+:is(.wiki-md, .streaming-agent-md) ul ul {
+  list-style-type: circle;
+}
+
+:is(.wiki-md, .streaming-agent-md) ul ul ul {
+  list-style-type: square;
+}
+
+:is(.wiki-md, .streaming-agent-md) li {
+  margin: 0.2em 0;
+  padding-left: 0.2em;
+}
+
+:is(.wiki-md, .streaming-agent-md) li > p {
+  margin: 0.25em 0;
+}
+
+:is(.wiki-md, .streaming-agent-md) li > p:first-child {
+  margin-top: 0;
+}
+
+:is(.wiki-md, .streaming-agent-md) li > p:last-child {
+  margin-bottom: 0;
+}
+
+:is(.wiki-md, .streaming-agent-md) a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+:is(.wiki-md, .streaming-agent-md) code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: var(--bg-3);
+  font-size: 0.88em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+}
+
+:is(.wiki-md, .streaming-agent-md) pre {
+  margin: 0.5em 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--bg-3);
+  overflow-x: auto;
+  font-size: 0.84rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+:is(.wiki-md, .streaming-agent-md) pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+:is(.wiki-md, .streaming-agent-md) blockquote {
+  margin: 0.5em 0;
+  padding-left: 0.9rem;
+  border-left: 3px solid var(--border);
+  color: var(--text-2);
+}
+
+:is(.wiki-md, .streaming-agent-md) hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.85em 0;
+}
+
+:is(.wiki-md, .streaming-agent-md) table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+}
+
+:is(.wiki-md, .streaming-agent-md) th,
+:is(.wiki-md, .streaming-agent-md) td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+:is(.wiki-md, .streaming-agent-md) th {
+  background: var(--bg-3);
+}

@@ -226,6 +226,36 @@ describe('extractProfilingPeople', () => {
     expect(people).toHaveLength(1)
     expect(people[0].name).toBe('Bob Jones')
   })
+
+  it('caps the People list and reports overflow (matches find_person preview length)', () => {
+    const many = Array.from({ length: 5 }, (_, i) => ({
+      personId: `p${i}`,
+      displayName: `Person ${i}`,
+      primaryAddress: `p${i}@example.com`,
+    }))
+    const json = JSON.stringify({ query: '', people: many })
+    const messages: ChatMessage[] = [
+      {
+        role: 'assistant',
+        content: '',
+        parts: [
+          {
+            type: 'tool',
+            toolCall: {
+              id: 'fp-many',
+              name: 'find_person',
+              args: { query: '' },
+              result: `## Email Contacts\n${json}`,
+              done: true,
+            },
+          },
+        ],
+      },
+    ]
+    const { people, peopleOverflow } = extractProfilingPeople(messages)
+    expect(people).toHaveLength(3)
+    expect(peopleOverflow).toBe(2)
+  })
 })
 
 describe('onboardingActivityLine', () => {

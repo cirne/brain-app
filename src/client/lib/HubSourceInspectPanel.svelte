@@ -1,6 +1,7 @@
 <script lang="ts">
   import { History, RefreshCw } from 'lucide-svelte'
   import { emit } from './app/appEvents.js'
+  import { createAsyncLatest, isAbortError } from './asyncLatest.js'
 
   type HubRipmailSourceRow = {
     id: string
@@ -51,6 +52,8 @@
   let mailStatusLoading = $state(false)
   let mailStatusError = $state<string | null>(null)
 
+  const hubSourceLatest = createAsyncLatest({ abortPrevious: true })
+
   const BACKFILL_WINDOW_OPTIONS = [
     { value: '30d', label: '30 days' },
     { value: '90d', label: '90 days' },
@@ -96,11 +99,14 @@
     if (!id) return
     const row = source
     if (!row || (row.kind !== 'imap' && row.kind !== 'applemail')) return
+    const { token, signal } = hubSourceLatest.begin()
     mailStatusLoading = true
     mailStatusError = null
     try {
-      const res = await fetch(`/api/hub/sources/mail-status?id=${encodeURIComponent(id)}`)
+      const res = await fetch(`/api/hub/sources/mail-status?id=${encodeURIComponent(id)}`, { signal })
+      if (hubSourceLatest.isStale(token)) return
       const j = (await res.json()) as HubMailStatusOk | { ok: false; error?: string }
+      if (hubSourceLatest.isStale(token)) return
       if (!j.ok) {
         mailStatusError =
           typeof (j as { error?: string }).error === 'string'
@@ -111,24 +117,29 @@
       mailStatusError = null
       mailStatus = j
     } catch (e) {
+      if (hubSourceLatest.isStale(token) || isAbortError(e)) return
       mailStatusError = e instanceof Error ? e.message : 'Could not load status'
     } finally {
-      mailStatusLoading = false
+      if (!hubSourceLatest.isStale(token)) mailStatusLoading = false
     }
   }
 
   async function load() {
+    const { token, signal } = hubSourceLatest.begin()
     loadError = null
     source = null
     mailStatus = null
     mailStatusError = null
+    mailStatusLoading = false
     if (!sourceId) {
       loadError = 'No source selected'
       return
     }
     try {
-      const res = await fetch('/api/hub/sources')
+      const res = await fetch('/api/hub/sources', { signal })
+      if (hubSourceLatest.isStale(token)) return
       const j = (await res.json()) as { sources?: HubRipmailSourceRow[]; error?: string }
+      if (hubSourceLatest.isStale(token)) return
       if (!res.ok) {
         throw new Error(typeof j.error === 'string' ? j.error : 'Could not load sources')
       }
@@ -144,6 +155,7 @@
         void loadMailStatus()
       }
     } catch (e) {
+      if (hubSourceLatest.isStale(token) || isAbortError(e)) return
       loadError = e instanceof Error ? e.message : 'Could not load source'
     }
   }

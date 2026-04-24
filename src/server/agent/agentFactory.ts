@@ -52,8 +52,8 @@ export function createOnboardingAgent(
     extraOmit: options?.extraOmitToolNames,
   })
   const tools = createAgentTools(wikiRoot, toolOpts)
-  const provider = (process.env.LLM_PROVIDER ?? 'anthropic') as KnownProvider
-  const modelId = process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514'
+  const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
+  const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
   const model = getModel(provider, modelId as never)
 
   return new Agent({
@@ -81,8 +81,8 @@ export function createCleanupAgent(systemPrompt: string, wikiRoot: string): Agen
     extraOmit: WIKI_CLEANUP_OMIT,
   })
   const tools = createAgentTools(wikiRoot, toolOpts)
-  const provider = (process.env.LLM_PROVIDER ?? 'anthropic') as KnownProvider
-  const modelId = process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514'
+  const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
+  const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
   const model = getModel(provider, modelId as never)
 
   return new Agent({

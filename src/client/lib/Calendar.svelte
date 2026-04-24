@@ -8,6 +8,7 @@
     CALENDAR_SLIDE_HEADER,
     type SetCalendarSlideHeader,
   } from './calendarSlideHeaderContext.js'
+  import { createAsyncLatest, isAbortError } from './asyncLatest.js'
 
   let {
     refreshKey = 0,
@@ -43,6 +44,8 @@
   /** Avoid immediately re-opening detail after user taps Back while URL still has `event=`. */
   let userClosedDetail = $state(false)
   let lastInitialEventIdProp = $state<string | undefined>(undefined)
+
+  const calendarEventsLatest = createAsyncLatest({ abortPrevious: true })
 
   function openEventDetail(e: CalendarEvent, dateYmd: string) {
     detailEvent = e
@@ -98,13 +101,9 @@
     }
   })
 
-  // Reload when week changes or a global sync completes
+  // Reload when week changes or a global sync completes; single effect avoids duplicate loadEvents.
   $effect(() => {
     void refreshKey
-    loadEvents()
-  })
-
-  $effect(() => {
     void weekStart
     loadEvents()
     const now = new Date()
@@ -130,19 +129,26 @@
   }
 
   async function loadEvents() {
+    const { token, signal } = calendarEventsLatest.begin()
     loading = true
     const start = toYMD(weekStart)
     const end = toYMD(addDays(weekStart, 6))
     try {
-      const res = await fetch(`/api/calendar?start=${start}&end=${end}`)
+      const res = await fetch(`/api/calendar?start=${start}&end=${end}`, { signal })
+      if (calendarEventsLatest.isStale(token)) return
       if (res.ok) {
         const data = await res.json()
+        if (calendarEventsLatest.isStale(token)) return
         events = data.events
         fetchedAt = data.fetchedAt
         sourcesConfigured = data.sourcesConfigured ?? false
       }
+    } catch (e) {
+      if (!calendarEventsLatest.isStale(token) && !isAbortError(e)) {
+        /* ignore */
+      }
     } finally {
-      loading = false
+      if (!calendarEventsLatest.isStale(token)) loading = false
     }
   }
 

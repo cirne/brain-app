@@ -26,7 +26,7 @@ export async function runWikiAgentEvalCase(
     const fullMessage = prefix
       ? `${prefix}${task.userMessage}`
       : task.userMessage
-    const m = await collectAgentPromptMetrics(agent, fullMessage)
+    const m = await collectAgentPromptMetrics(agent, fullMessage, { evalTraceCaseId: task.id })
     deleteWikiBuildoutSession(sessionId)
     return finishWikiCase(task, m, failReasons)
   }
@@ -36,7 +36,7 @@ export async function runWikiAgentEvalCase(
   const fullMessage = prefix
     ? `${prefix}${task.userMessage}`
     : task.userMessage
-  const m = await collectAgentPromptMetrics(agent, fullMessage)
+  const m = await collectAgentPromptMetrics(agent, fullMessage, { evalTraceCaseId: task.id })
   return finishWikiCase(task, m, failReasons)
 }
 
