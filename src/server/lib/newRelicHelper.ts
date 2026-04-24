@@ -1,6 +1,8 @@
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
 import newrelic from 'newrelic'
-import type { LlmUsageSnapshot } from './llmUsage.js'
+import type { LlmAgentKind } from './llmAgentKind.js'
+import { countAssistantCompletionsWithUsage, type LlmUsageSnapshot } from './llmUsage.js'
+import { toolResultForSse } from './truncateJson.js'
 import { tryGetTenantContext } from './tenantContext.js'
 
 const PARAMS_JSON_MAX = 4096
@@ -102,6 +104,17 @@ export function mergeToolCallCorrelation(explicit?: ToolCallCorrelation): ToolCa
   return out
 }
 
+/** Mutates `attrs` with merged session/tenant/background id fields. */
+function appendOptionalCorrelation(
+  attrs: Record<string, string | number | boolean>,
+  explicit?: ToolCallCorrelation,
+): void {
+  const merged = mergeToolCallCorrelation(explicit)
+  if (merged.sessionId) attrs.sessionId = merged.sessionId
+  if (merged.workspaceHandle) attrs.workspaceHandle = merged.workspaceHandle
+  if (merged.backgroundRunId) attrs.backgroundRunId = merged.backgroundRunId
+}
+
 /** Bounded bucket for tool result size (post-SSE truncation); low cardinality for NR. */
 export type ResultSizeBucket = '0-1k' | '1k-8k' | '8k+'
 
@@ -111,16 +124,23 @@ export function resultSizeBucketFromCharCount(n: number): ResultSizeBucket {
   return '8k+'
 }
 
-export type RecordToolCallEndOptions = {
+/**
+ * Shared fields for one `agent.prompt()` turn: all LLM / tool custom events in that scope
+ * use the same `agentTurnId`, `source`, `agentKind`, and optional correlation.
+ */
+export type LlmTurnTelemetry = {
+  agentTurnId: string
+  source: ToolCallSource
+  agentKind: LlmAgentKind
+  correlation?: ToolCallCorrelation
+}
+
+export type RecordToolCallEndOptions = LlmTurnTelemetry & {
   toolCallId: string
   toolName: string
   args: unknown
   isError?: boolean
-  source: ToolCallSource
-  correlation?: ToolCallCorrelation
   errorMessage?: string
-  /** One `agent.prompt()` / subscribe scope — correlates ToolCall, LlmCompletion, LlmAgentTurn. */
-  agentTurnId?: string
   /** 0-based order of completed tools within the turn. */
   sequence?: number
   /**
@@ -130,6 +150,30 @@ export type RecordToolCallEndOptions = {
   resultCharCount?: number
   resultTruncated?: boolean
   resultSizeBucket?: ResultSizeBucket
+}
+
+/**
+ * One `toolResultForSse` call: string used for client stream + post-truncation metrics for NR.
+ * Use this in chat and wiki so we never double-truncate.
+ */
+export function toolResultSseForNr(
+  toolName: string,
+  resultText: string,
+  maxChars: number,
+): {
+  truncated: string
+  resultCharCount: number
+  resultTruncated: boolean
+  resultSizeBucket: ResultSizeBucket
+} {
+  const truncated = toolResultForSse(toolName, resultText, maxChars)
+  const resultCharCount = truncated.length
+  return {
+    truncated,
+    resultCharCount,
+    resultTruncated: resultCharCount < resultText.length,
+    resultSizeBucket: resultSizeBucketFromCharCount(resultCharCount),
+  }
 }
 
 const toolCallStartTimes = new Map<string, number>()
@@ -145,7 +189,6 @@ export function recordToolCallStart(toolCallId: string): void {
 export function recordToolCallEnd(options: RecordToolCallEndOptions): void {
   if (!isAgentEnabled()) return
   try {
-    const merged = mergeToolCallCorrelation(options.correlation)
     const start = toolCallStartTimes.get(options.toolCallId)
     toolCallStartTimes.delete(options.toolCallId)
     const durationMs =
@@ -165,14 +208,13 @@ export function recordToolCallEnd(options: RecordToolCallEndOptions): void {
       success: !options.isError,
       durationMs,
       source: options.source,
+      agentKind: options.agentKind,
       paramsJson,
     }
     if (errMsg) attrs.errorMessage = errMsg
-    if (merged.sessionId) attrs.sessionId = merged.sessionId
-    if (merged.workspaceHandle) attrs.workspaceHandle = merged.workspaceHandle
-    if (merged.backgroundRunId) attrs.backgroundRunId = merged.backgroundRunId
+    appendOptionalCorrelation(attrs, options.correlation)
     attrs.toolCallId = options.toolCallId
-    if (options.agentTurnId) attrs.agentTurnId = options.agentTurnId
+    attrs.agentTurnId = options.agentTurnId
     if (options.sequence !== undefined) attrs.sequence = options.sequence
     if (options.resultCharCount !== undefined) attrs.resultCharCount = options.resultCharCount
     if (options.resultTruncated !== undefined) attrs.resultTruncated = options.resultTruncated
@@ -184,10 +226,7 @@ export function recordToolCallEnd(options: RecordToolCallEndOptions): void {
   }
 }
 
-export type RecordLlmAgentTurnOptions = {
-  agentTurnId: string
-  source: ToolCallSource
-  correlation?: ToolCallCorrelation
+export type RecordLlmAgentTurnOptions = LlmTurnTelemetry & {
   usage: LlmUsageSnapshot
   turnDurationMs: number
   /** Assistant completions that reported `usage` in this turn. */
@@ -196,25 +235,23 @@ export type RecordLlmAgentTurnOptions = {
 }
 
 /** One LlmCompletion per model HTTP completion (assistant message with usage). */
-export function recordLlmCompletionsForTurn(options: {
-  agentTurnId: string
-  source: ToolCallSource
-  correlation?: ToolCallCorrelation
-  messages: AgentMessage[] | null | undefined
-}): void {
+export function recordLlmCompletionsForTurn(
+  turn: LlmTurnTelemetry,
+  messages: AgentMessage[] | null | undefined,
+): void {
   if (!isAgentEnabled()) return
-  const list = options.messages
+  const list = messages
   if (!Array.isArray(list)) return
   let completionIndex = 0
   for (const m of list) {
     if (m.role !== 'assistant') continue
     const u = m.usage
     if (u == null) continue
-    const merged = mergeToolCallCorrelation(options.correlation)
     const costTotal = u.cost && typeof u.cost.total === 'number' ? u.cost.total : 0
     const attrs: Record<string, string | number | boolean> = {
-      agentTurnId: options.agentTurnId,
-      source: options.source,
+      agentTurnId: turn.agentTurnId,
+      source: turn.source,
+      agentKind: turn.agentKind,
       completionIndex,
       input: u.input,
       output: u.output,
@@ -223,9 +260,7 @@ export function recordLlmCompletionsForTurn(options: {
       totalTokens: u.totalTokens,
       costTotal,
     }
-    if (merged.sessionId) attrs.sessionId = merged.sessionId
-    if (merged.workspaceHandle) attrs.workspaceHandle = merged.workspaceHandle
-    if (merged.backgroundRunId) attrs.backgroundRunId = merged.backgroundRunId
+    appendOptionalCorrelation(attrs, turn.correlation)
     safeRecordCustomEvent('LlmCompletion', attrs)
     completionIndex++
   }
@@ -233,11 +268,11 @@ export function recordLlmCompletionsForTurn(options: {
 
 export function recordLlmAgentTurn(options: RecordLlmAgentTurnOptions): void {
   if (!isAgentEnabled()) return
-  const merged = mergeToolCallCorrelation(options.correlation)
   const u = options.usage
   const attrs: Record<string, string | number | boolean> = {
     agentTurnId: options.agentTurnId,
     source: options.source,
+    agentKind: options.agentKind,
     input: u.input,
     output: u.output,
     cacheRead: u.cacheRead,
@@ -248,8 +283,25 @@ export function recordLlmAgentTurn(options: RecordLlmAgentTurnOptions): void {
     completionCount: options.completionCount,
     toolCallCount: options.toolCallCount,
   }
-  if (merged.sessionId) attrs.sessionId = merged.sessionId
-  if (merged.workspaceHandle) attrs.workspaceHandle = merged.workspaceHandle
-  if (merged.backgroundRunId) attrs.backgroundRunId = merged.backgroundRunId
+  appendOptionalCorrelation(attrs, options.correlation)
   safeRecordCustomEvent('LlmAgentTurn', attrs)
+}
+
+/** Both `LlmCompletion` rows and the `LlmAgentTurn` rollup for `agent_end` (one place for DRY). */
+export function recordLlmTurnEndEvents(args: {
+  turn: LlmTurnTelemetry
+  messages: AgentMessage[] | null | undefined
+  usage: LlmUsageSnapshot
+  turnDurationMs: number
+  toolCallCount: number
+}): void {
+  const { turn, messages, usage, turnDurationMs, toolCallCount } = args
+  recordLlmCompletionsForTurn(turn, messages)
+  recordLlmAgentTurn({
+    ...turn,
+    usage,
+    turnDurationMs,
+    completionCount: countAssistantCompletionsWithUsage(messages),
+    toolCallCount,
+  })
 }

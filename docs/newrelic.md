@@ -63,15 +63,15 @@ Custom events are recorded with the Node agent API `recordCustomEvent(eventType,
 
 | Event type | Purpose | Key attributes (non-exhaustive) |
 |------------|---------|----------------------------------|
-| `ToolCall` | Agent tool invocation (success/failure, duration, sanitized args; **no** raw tool result text). | `toolName`, `success`, `durationMs`, `source`, `paramsJson`, optional `sessionId`, `workspaceHandle`, `backgroundRunId`, optional `errorMessage`, `toolCallId`. **Turn correlation:** `agentTurnId`, `sequence` (order within one `agent.prompt()`). **Approximate result footprint (same string as post-`toolResultForSse` truncation, not billing-grade):** `resultCharCount`, `resultTruncated`, `resultSizeBucket` (`0-1k` / `1k-8k` / `8k+`). |
-| `LlmCompletion` | One row per **assistant** message with provider `usage` (one HTTP completion). | `agentTurnId`, `source`, `completionIndex`, `input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `costTotal`, plus same correlation fields as tools when present. |
-| `LlmAgentTurn` | Rollup for a full `agent.prompt()` (chat reply or one wiki enrich/cleanup invocation). | `agentTurnId`, `source`, token/cost totals (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `costTotal`), `turnDurationMs`, `completionCount`, `toolCallCount`, plus correlation fields. |
+| `ToolCall` | Agent tool invocation (success/failure, duration, sanitized args; **no** raw tool result text). | `agentKind` (product class: `chat`, `chat_skill`, `onboarding_profile`, … see `llmAgentKind.ts`), `toolName`, `success`, `durationMs`, `source`, `paramsJson`, optional `sessionId`, `workspaceHandle`, `backgroundRunId`, optional `errorMessage`, `toolCallId`. **Turn correlation:** `agentTurnId`, `sequence` (order within one `agent.prompt()`). **Approximate result footprint (same string as post-`toolResultForSse` truncation, not billing-grade):** `resultCharCount`, `resultTruncated`, `resultSizeBucket` (`0-1k` / `1k-8k` / `8k+`). |
+| `LlmCompletion` | One row per **assistant** message with provider `usage` (one HTTP completion). | `agentKind`, `agentTurnId`, `source`, `completionIndex`, `input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `costTotal`, plus same correlation fields as tools when present. |
+| `LlmAgentTurn` | Rollup for a full `agent.prompt()` (chat reply or one wiki enrich/cleanup invocation). | `agentKind`, `agentTurnId`, `source`, token/cost totals (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `costTotal`), `turnDurationMs`, `completionCount`, `toolCallCount`, plus correlation fields. |
 
 These support **trace-style** NRQL (`WHERE agentTurnId = '…'`) without OpenTelemetry; they are **not** strict distributed traces.
 
 **Optional later:** in-process APM `startSegment` around tool execution for a native transaction waterfall (not implemented in v1).
 
-Instrumentation lives in [`src/server/lib/newRelicHelper.ts`](../src/server/lib/newRelicHelper.ts) (`recordToolCallStart` / `recordToolCallEnd`, `recordLlmCompletionsForTurn`, `recordLlmAgentTurn`; wired from [`streamAgentSse.ts`](../src/server/lib/streamAgentSse.ts) and [`wikiExpansionRunner.ts`](../src/server/agent/wikiExpansionRunner.ts)).
+Shared turn context is [`LlmTurnTelemetry`](../src/server/lib/newRelicHelper.ts) (`agentTurnId`, `source`, `agentKind`, `correlation`). `agent_end` uses `recordLlmTurnEndEvents` (completions + rollup). Tool result sizes use `toolResultSseForNr` (one `toolResultForSse` call). Call sites: [`streamAgentSse.ts`](../src/server/lib/streamAgentSse.ts) and [`wikiExpansionRunner.ts`](../src/server/agent/wikiExpansionRunner.ts).
 
 **Querying custom events:**
 

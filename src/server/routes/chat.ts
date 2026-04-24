@@ -184,6 +184,7 @@ chat.post('/', async (c) => {
     return streamAgentSseResponse(c, agent, message, {
       wikiDirForDiffs: wikiDir(),
       announceSessionId: sessionId,
+      agentKind: 'chat_skill',
       promptMessages,
       userMessageForPersistence: message,
       omitUserMessageFromPersistence: firstChatKickoff,
@@ -198,6 +199,7 @@ chat.post('/', async (c) => {
   return streamAgentSseResponse(c, agent, message, {
     wikiDirForDiffs: wikiDir(),
     announceSessionId: sessionId,
+    agentKind: 'chat',
     omitUserMessageFromPersistence: firstChatKickoff,
     onTurnComplete: persist,
     onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),

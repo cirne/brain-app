@@ -14,15 +14,16 @@ import {
   type BackgroundRunDoc,
 } from '../lib/backgroundAgentStore.js'
 import {
-  recordLlmAgentTurn,
-  recordLlmCompletionsForTurn,
+  recordLlmTurnEndEvents,
   recordToolCallEnd,
   recordToolCallStart,
-  resultSizeBucketFromCharCount,
+  toolResultSseForNr,
+  type LlmTurnTelemetry,
 } from '../lib/newRelicHelper.js'
 import { tryGetTenantContext } from '../lib/tenantContext.js'
-import { addLlmUsage, countAssistantCompletionsWithUsage, sumUsageFromMessages } from '../lib/llmUsage.js'
-import { toolResultForSse, truncateJsonResult } from '../lib/truncateJson.js'
+import { agentKindForWikiSource } from '../lib/llmAgentKind.js'
+import { addLlmUsage, sumUsageFromMessages } from '../lib/llmUsage.js'
+import { truncateJsonResult } from '../lib/truncateJson.js'
 import { safeWikiRelativePath } from '../lib/wikiEditDiff.js'
 import { getOrCreateWikiBuildoutAgent, deleteWikiBuildoutSession } from './wikiBuildoutAgent.js'
 import { buildDateContext, createCleanupAgent } from './agentFactory.js'
@@ -219,8 +220,18 @@ function attachRunTracker(
   let changeCount = 0
   const agentTurnId = randomUUID()
   const turnStartedAt = performance.now()
+  const agentKind = agentKindForWikiSource(nrOpts.source)
   let toolCallCount = 0
   const sseMaxChars = 4000
+  const turnLlm: LlmTurnTelemetry = {
+    agentTurnId,
+    source: nrOpts.source,
+    agentKind,
+    correlation: {
+      backgroundRunId: nrOpts.backgroundRunId,
+      ...(nrOpts.workspaceHandle ? { workspaceHandle: nrOpts.workspaceHandle } : {}),
+    },
+  }
 
   const unsubscribe = agent.subscribe(async (event) => {
     const ev = event as Record<string, unknown>
@@ -263,29 +274,26 @@ function attachRunTracker(
           pendingToolArgs.delete(endEv.toolCallId)
 
           const resultText = toolResultText(endEv)
-          const truncatedForSse = toolResultForSse(endEv.toolName, resultText, sseMaxChars)
-          const resultCharCount = truncatedForSse.length
-          const resultTruncated = truncatedForSse.length < resultText.length
+          const { resultCharCount, resultTruncated, resultSizeBucket } = toolResultSseForNr(
+            endEv.toolName,
+            resultText,
+            sseMaxChars,
+          )
           const sequence = toolCallCount++
           recordToolCallEnd({
+            ...turnLlm,
             toolCallId: endEv.toolCallId,
             toolName: endEv.toolName,
             args: argsRaw ?? {},
             isError: endEv.isError,
-            source: nrOpts.source,
-            correlation: {
-              backgroundRunId: nrOpts.backgroundRunId,
-              ...(nrOpts.workspaceHandle ? { workspaceHandle: nrOpts.workspaceHandle } : {}),
-            },
             errorMessage:
               endEv.isError && resultText.trim().length > 0
                 ? truncateJsonResult(resultText, 400)
                 : undefined,
-            agentTurnId,
             sequence,
             resultCharCount,
             resultTruncated,
-            resultSizeBucket: resultSizeBucketFromCharCount(resultCharCount),
+            resultSizeBucket,
           })
           const details = safeDetails(endEv.result?.details)
           appendTimelineEvent(doc, {
@@ -335,27 +343,13 @@ function attachRunTracker(
           const cumulative = doc.usageCumulative ? addLlmUsage(doc.usageCumulative, last) : last
           touchRun(doc, { usageLastInvocation: last, usageCumulative: cumulative })
           await writeBackgroundRun(doc)
-          {
-            const correlation = {
-              backgroundRunId: nrOpts.backgroundRunId,
-              ...(nrOpts.workspaceHandle ? { workspaceHandle: nrOpts.workspaceHandle } : {}),
-            }
-            recordLlmCompletionsForTurn({
-              agentTurnId,
-              source: nrOpts.source,
-              correlation,
-              messages: end.messages,
-            })
-            recordLlmAgentTurn({
-              agentTurnId,
-              source: nrOpts.source,
-              correlation,
-              usage: last,
-              turnDurationMs: Math.max(0, Math.round(performance.now() - turnStartedAt)),
-              completionCount: countAssistantCompletionsWithUsage(end.messages),
-              toolCallCount,
-            })
-          }
+          recordLlmTurnEndEvents({
+            turn: turnLlm,
+            messages: end.messages,
+            usage: last,
+            turnDurationMs: Math.max(0, Math.round(performance.now() - turnStartedAt)),
+            toolCallCount,
+          })
           break
         }
         default:

@@ -385,6 +385,7 @@ onboarding.post('/profile', async (c) => {
   return streamAgentSseResponse(c, agent, message, {
     wikiDirForDiffs: onboardingStagingWikiDir(),
     announceSessionId: sessionId,
+    agentKind: 'onboarding_profile',
   })
 })
 
@@ -413,6 +414,7 @@ onboarding.post('/seed', async (c) => {
   return streamAgentSseResponse(c, agent, message, {
     wikiDirForDiffs: wikiDir(),
     announceSessionId: sessionId,
+    agentKind: 'onboarding_wiki_buildout',
   })
 })
 

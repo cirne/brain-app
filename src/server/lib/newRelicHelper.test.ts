@@ -43,11 +43,13 @@ describe('newRelicHelper', () => {
       () => {
         recordToolCallStart('tc-1')
         recordToolCallEnd({
+          agentTurnId: 'turn-1',
           toolCallId: 'tc-1',
           toolName: 'grep',
           args: { pattern: 'foo' },
           isError: false,
           source: 'chat',
+          agentKind: 'chat',
           correlation: { sessionId: 'sess-1' },
         })
       },
@@ -60,6 +62,7 @@ describe('newRelicHelper', () => {
         toolName: 'grep',
         success: true,
         source: 'chat',
+        agentKind: 'chat',
         sessionId: 'sess-1',
         workspaceHandle: 'alice-ws',
         paramsJson: expect.stringContaining('pattern'),
@@ -71,11 +74,13 @@ describe('newRelicHelper', () => {
     const { recordToolCallStart, recordToolCallEnd } = await import('./newRelicHelper.js')
     recordToolCallStart('tc-w')
     recordToolCallEnd({
+      agentTurnId: 'turn-w',
       toolCallId: 'tc-w',
       toolName: 'write',
       args: { path: 'a.md' },
       isError: false,
       source: 'wikiExpansion',
+      agentKind: 'wiki_enrichment',
       correlation: {
         backgroundRunId: 'run-42',
         workspaceHandle: 'from-caller',
@@ -86,6 +91,7 @@ describe('newRelicHelper', () => {
       'ToolCall',
       expect.objectContaining({
         source: 'wikiExpansion',
+        agentKind: 'wiki_enrichment',
         backgroundRunId: 'run-42',
         workspaceHandle: 'from-caller',
       }),
@@ -98,10 +104,12 @@ describe('newRelicHelper', () => {
     const { recordToolCallStart, recordToolCallEnd } = await import('./newRelicHelper.js')
     recordToolCallStart('x')
     recordToolCallEnd({
+      agentTurnId: 'turn-x',
       toolCallId: 'x',
       toolName: 'read',
       args: {},
       source: 'chat',
+      agentKind: 'chat',
     })
     expect(recordCustomEvent).not.toHaveBeenCalled()
     if (saved !== undefined) process.env.NEW_RELIC_LICENSE_KEY = saved
@@ -126,6 +134,7 @@ describe('newRelicHelper', () => {
       toolName: 'grep',
       args: { pattern: 'x' },
       source: 'chat',
+      agentKind: 'chat_skill',
       correlation: { sessionId: 's1' },
       agentTurnId: 'turn-uuid',
       sequence: 2,
@@ -142,6 +151,7 @@ describe('newRelicHelper', () => {
         resultTruncated: true,
         resultSizeBucket: '0-1k',
         sessionId: 's1',
+        agentKind: 'chat_skill',
       }),
     )
   })
@@ -166,24 +176,29 @@ describe('newRelicHelper', () => {
       timestamp: 0,
     }
     const b = { ...a, usage: { ...a.usage, input: 20, output: 10, totalTokens: 30, cost: { ...a.usage.cost, total: 0.02 } } }
-    recordLlmCompletionsForTurn({
-      agentTurnId: 't1',
-      source: 'chat',
-      correlation: { sessionId: 'sess' },
-      messages: [a, b],
-    })
-    expect(recordCustomEvent).toHaveBeenCalledWith(
-      'LlmCompletion',
-      expect.objectContaining({ agentTurnId: 't1', completionIndex: 0, input: 10, sessionId: 'sess' }),
+    recordLlmCompletionsForTurn(
+      { agentTurnId: 't1', source: 'chat', agentKind: 'chat', correlation: { sessionId: 'sess' } },
+      [a, b],
     )
     expect(recordCustomEvent).toHaveBeenCalledWith(
       'LlmCompletion',
-      expect.objectContaining({ agentTurnId: 't1', completionIndex: 1, input: 20 }),
+      expect.objectContaining({
+        agentTurnId: 't1',
+        agentKind: 'chat',
+        completionIndex: 0,
+        input: 10,
+        sessionId: 'sess',
+      }),
+    )
+    expect(recordCustomEvent).toHaveBeenCalledWith(
+      'LlmCompletion',
+      expect.objectContaining({ agentTurnId: 't1', completionIndex: 1, input: 20, agentKind: 'chat' }),
     )
     recordCustomEvent.mockClear()
     recordLlmAgentTurn({
       agentTurnId: 't1',
       source: 'wikiExpansion',
+      agentKind: 'wiki_enrichment',
       correlation: { backgroundRunId: 'run-1' },
       usage: {
         input: 30,
@@ -202,6 +217,7 @@ describe('newRelicHelper', () => {
       expect.objectContaining({
         agentTurnId: 't1',
         source: 'wikiExpansion',
+        agentKind: 'wiki_enrichment',
         backgroundRunId: 'run-1',
         turnDurationMs: 1200,
         completionCount: 2,
