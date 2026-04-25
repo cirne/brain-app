@@ -307,13 +307,48 @@
 </div>
 
 <style>
+  /**
+   * Rail typography + row touch layout: set tokens on `.chat-history` and only
+   * override those variables in `@media` — rules stay single-path (no parallel
+   * exhaustive blocks per element).
+   */
   .chat-history {
+    --ch-fs-new-chat: 0.75rem;
+    --ch-fs-muted: 0.75rem;
+    --ch-fs-error: 0.6875rem;
+    --ch-fs-group-label: 0.625rem;
+    --ch-fs-view-all: 0.6875rem;
+    --ch-fs-row-title: 0.75rem;
+    --ch-fs-row-time: 0.625rem;
+    --ch-lh-row-title: 1.3;
+    --ch-row-pad: 5px 6px;
+    --ch-row-min-h: 0;
+    --ch-icon-w: 16px;
+    --ch-wfn-icon-w: 14px;
+
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
     padding-top: 8px;
     background: var(--bg-2);
+  }
+
+  @media (max-width: 768px) {
+    .chat-history {
+      --ch-fs-new-chat: 0.8125rem;
+      --ch-fs-muted: 0.875rem;
+      --ch-fs-error: 0.75rem;
+      --ch-fs-group-label: 0.6875rem;
+      --ch-fs-view-all: 0.75rem;
+      --ch-fs-row-title: 1rem;
+      --ch-fs-row-time: 0.875rem;
+      --ch-lh-row-title: 1.35;
+      --ch-row-pad: 8px 8px;
+      --ch-row-min-h: 44px;
+      --ch-icon-w: 20px;
+      --ch-wfn-icon-w: 16px;
+    }
   }
 
   .new-chat-btn {
@@ -326,7 +361,7 @@
     border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
-    font-size: 12px;
+    font-size: var(--ch-fs-new-chat);
     font-weight: 500;
     transition: background 0.15s, border-color 0.15s;
   }
@@ -344,7 +379,7 @@
 
   .ch-muted {
     padding: 10px;
-    font-size: 12px;
+    font-size: var(--ch-fs-muted);
     color: var(--text-2);
   }
 
@@ -355,7 +390,7 @@
 
   .ch-error {
     padding: 10px;
-    font-size: 11px;
+    font-size: var(--ch-fs-error);
     color: var(--danger);
   }
 
@@ -374,7 +409,7 @@
   }
 
   .ch-group-label {
-    font-size: 10px;
+    font-size: var(--ch-fs-group-label);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -391,7 +426,7 @@
     border: 1px dashed var(--border);
     background: transparent;
     color: var(--accent);
-    font-size: 11px;
+    font-size: var(--ch-fs-view-all);
     font-weight: 500;
     text-align: left;
     cursor: pointer;
@@ -412,7 +447,9 @@
     gap: 6px;
     width: 100%;
     text-align: left;
-    padding: 5px 6px;
+    min-height: var(--ch-row-min-h);
+    padding: var(--ch-row-pad);
+    box-sizing: border-box;
     border-radius: 6px;
     margin-bottom: 1px;
     color: var(--text);
@@ -436,7 +473,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 16px;
+    width: var(--ch-icon-w);
     color: var(--text-2);
     opacity: 0.6;
   }
@@ -462,11 +499,12 @@
   }
 
   .ch-row-doc :global(.wfn-title-row) {
-    font-size: 12px;
+    font-size: var(--ch-fs-row-title);
+    line-height: var(--ch-lh-row-title);
   }
 
   .ch-row-doc :global(.wfn-lead-icon) {
-    width: 14px;
+    width: var(--ch-wfn-icon-w);
   }
 
   .ch-row-doc :global(.wfn-name) {
@@ -480,15 +518,15 @@
   .ch-row-title {
     flex: 1;
     min-width: 0;
-    font-size: 12px;
-    line-height: 1.3;
+    font-size: var(--ch-fs-row-title);
+    line-height: var(--ch-lh-row-title);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .ch-row-time {
-    font-size: 10px;
+    font-size: var(--ch-fs-row-time);
     color: var(--text-2);
     flex-shrink: 0;
     opacity: 0.7;

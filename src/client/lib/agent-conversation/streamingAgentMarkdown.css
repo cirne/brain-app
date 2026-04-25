@@ -59,3 +59,13 @@
 .streaming-agent-md .wiki-link:hover {
   text-decoration-style: solid;
 }
+
+@media (max-width: 768px) {
+  .streaming-agent-md {
+    font-size: 1rem;
+  }
+
+  .streaming-agent-md table {
+    font-size: 0.8125rem;
+  }
+}

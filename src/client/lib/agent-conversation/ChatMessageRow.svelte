@@ -86,6 +86,12 @@
     line-height: 1.5;
   }
 
+  @media (max-width: 768px) {
+    .user-content {
+      font-size: 1rem;
+    }
+  }
+
   .cursor {
     animation: blink 1s infinite;
     color: var(--accent);
