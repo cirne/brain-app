@@ -105,6 +105,44 @@ export function toolCallSummaryPartsFromTool(tc: ToolCall): ToolSummaryParts | n
   return toolCallCollapsedSummaryParts(tc, preview)
 }
 
+function humanizeSkillSlug(slug: string): string {
+  return slug
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}
+
+/** Prefer title from `load_skill` result (`## Skill: Name (\`slug\`)`). */
+function skillNameFromLoadSkillResult(result: string | undefined): string | null {
+  if (!result || typeof result !== 'string') return null
+  const m = result.match(/^## Skill:\s*([^(]+?)\s*\(/m)
+  if (!m) return null
+  const n = m[1].trim()
+  return n.length > 0 ? n : null
+}
+
+/**
+ * Chat tool-row label for `load_skill` (replaces static "Load skill" from the registry when args are present).
+ * In-flight: "Loading {name}…". Completed: "Loaded {name}" using the server skill title when available.
+ */
+export function loadSkillToolDisplayLabel(tc: ToolCall): string | null {
+  if (tc.name !== 'load_skill') return null
+  const args = tc.args && typeof tc.args === 'object' ? (tc.args as Record<string, unknown>) : null
+  const raw = typeof args?.slug === 'string' ? args.slug.trim() : ''
+  const fromSlug = raw.length > 0 ? humanizeSkillSlug(raw) : null
+  if (!fromSlug) return null
+
+  if (!tc.done) {
+    return `Loading ${fromSlug}…`
+  }
+  if (tc.isError) {
+    return null
+  }
+  const fromResult = skillNameFromLoadSkillResult(tc.result)
+  return `Loaded ${fromResult ?? fromSlug}`
+}
+
 /** Wiki path for “open in wiki” affordance — normalizes like read-tool previews. */
 export function wikiOpenPathFromArgs(name: string, args: unknown): string | null {
   if (!args || typeof args !== 'object') return null

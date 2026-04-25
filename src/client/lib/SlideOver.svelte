@@ -10,6 +10,7 @@
     Minimize2,
     RefreshCw,
     Reply,
+    Save,
   } from 'lucide-svelte'
   import Wiki from './Wiki.svelte'
   import WikiDirList from './WikiDirList.svelte'
@@ -455,9 +456,13 @@
           title={wikiHeader.pageMode === 'edit' ? 'View' : 'Edit'}
           aria-label={wikiHeader.pageMode === 'edit' ? 'Switch to view mode' : 'Switch to edit mode'}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>
-          </svg>
+          {#if wikiHeader.pageMode === 'edit'}
+            <Save size={15} strokeWidth={2} aria-hidden="true" />
+          {:else}
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>
+            </svg>
+          {/if}
         </button>
       {/if}
       {#if overlay.type === 'email' && inboxThreadHeader}

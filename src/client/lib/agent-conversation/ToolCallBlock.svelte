@@ -7,6 +7,7 @@
   import { formatToolArgs } from './formatToolArgs.js'
   import WikiFileName from '../WikiFileName.svelte'
   import {
+    loadSkillToolDisplayLabel,
     toolCallCollapsedSummaryParts,
     toolSummaryPartsFromArgs,
     wikiFilePendingVerb,
@@ -41,7 +42,7 @@
 
   const preview = $derived(matchContentPreview(toolCall))
   const policy = $derived(getToolUiPolicy(toolCall.name))
-  const displayName = $derived(policy.label ?? toolCall.name)
+  const displayName = $derived(loadSkillToolDisplayLabel(toolCall) ?? policy.label ?? toolCall.name)
   const toolIcon = $derived(getToolIcon(toolCall.name))
 
   const summaryParts = $derived(toolCallCollapsedSummaryParts(toolCall, preview))

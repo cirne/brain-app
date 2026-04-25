@@ -8,6 +8,8 @@ import { wikiDir as getWikiDir } from '../lib/wikiDir.js'
 import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '../lib/openAiResponsesPayload.js'
 import { areLocalMessageToolsEnabled } from '../lib/imessageDb.js'
 import { formatSkillLibrarySection } from '../lib/skillRegistry.js'
+import { loadSession } from '../lib/chatStorage.js'
+import { persistedChatMessagesToAgentMessages } from '../lib/persistedChatToAgentMessages.js'
 
 const sessions = new Map<string, Agent>()
 
@@ -115,11 +117,22 @@ export interface SessionOptions {
 
 /**
  * Get an existing agent session or create a new one.
- * Sessions are stored in-memory and lost on server restart.
+ * On first create for a `sessionId`, the agent is **hydrated** from the on-disk chat JSON (if any)
+ * so the model sees prior turns after a process restart or when opening a saved chat.
  */
 export async function getOrCreateSession(sessionId: string, options: SessionOptions = {}): Promise<Agent> {
   const existing = sessions.get(sessionId)
   if (existing) return existing
+
+  let messagesForInitial: ReturnType<typeof persistedChatMessagesToAgentMessages> | undefined
+  try {
+    const doc = await loadSession(sessionId)
+    if (doc?.messages.length) {
+      messagesForInitial = persistedChatMessagesToAgentMessages(doc.messages)
+    }
+  } catch {
+    /* ignore — new Agent without history */
+  }
 
   const wikiDir = options.wikiDir ?? getWikiDir()
   const localMessagesEnabled = areLocalMessageToolsEnabled()
@@ -163,6 +176,7 @@ When resolving dates or times for tools (like calendar or search_index), always 
       systemPrompt,
       model,
       tools,
+      ...(messagesForInitial?.length ? { messages: messagesForInitial } : {}),
     },
     onPayload: (params, m) => patchOpenAiReasoningNoneEffort(params as OpenAiResponsesPayload, m),
     getApiKey: (p: string) => {

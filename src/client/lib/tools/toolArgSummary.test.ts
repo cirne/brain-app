@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ToolCall } from '../agentUtils.js'
 import {
+  loadSkillToolDisplayLabel,
   toolCallCollapsedSummaryParts,
   toolCallSummaryPartsFromTool,
   toolSummaryPartsFromArgs,
@@ -130,5 +131,68 @@ describe('wikiFilePendingVerb', () => {
     expect(wikiFilePendingVerb('write')).toBe('Writing')
     expect(wikiFilePendingVerb('edit')).toBe('Updating')
     expect(wikiFilePendingVerb('grep')).toBe(null)
+  })
+})
+
+describe('loadSkillToolDisplayLabel', () => {
+  it('returns null for other tools', () => {
+    expect(
+      loadSkillToolDisplayLabel({ id: '1', name: 'read', args: {}, done: true } satisfies ToolCall),
+    ).toBe(null)
+  })
+
+  it('returns null when slug is missing', () => {
+    expect(
+      loadSkillToolDisplayLabel({ id: '1', name: 'load_skill', args: {}, done: false } satisfies ToolCall),
+    ).toBe(null)
+  })
+
+  it('shows Loading … while in flight', () => {
+    expect(
+      loadSkillToolDisplayLabel({
+        id: '1',
+        name: 'load_skill',
+        args: { slug: 'calendar' },
+        done: false,
+      } satisfies ToolCall),
+    ).toBe('Loading Calendar…')
+  })
+
+  it('shows humanized slug when done if result has no header', () => {
+    expect(
+      loadSkillToolDisplayLabel({
+        id: '1',
+        name: 'load_skill',
+        args: { slug: 'morning_report' },
+        result: 'plain text',
+        done: true,
+      } satisfies ToolCall),
+    ).toBe('Loaded Morning Report')
+  })
+
+  it('uses ## Skill: title from result when present', () => {
+    const result = '## Skill: My Custom Title (`calendar`)\n\nbody'
+    expect(
+      loadSkillToolDisplayLabel({
+        id: '1',
+        name: 'load_skill',
+        args: { slug: 'calendar' },
+        result,
+        done: true,
+      } satisfies ToolCall),
+    ).toBe('Loaded My Custom Title')
+  })
+
+  it('falls back to registry on error', () => {
+    expect(
+      loadSkillToolDisplayLabel({
+        id: '1',
+        name: 'load_skill',
+        args: { slug: 'nope' },
+        result: 'error',
+        done: true,
+        isError: true,
+      } satisfies ToolCall),
+    ).toBe(null)
   })
 })

@@ -10,7 +10,11 @@ Session factory: `[src/server/agent/index.ts](../../src/server/agent/index.ts)`.
 
 ## In-memory sessions
 
-`getOrCreateSession(sessionId)` keeps a live `Agent` in a `Map`. Restart drops in-flight context; **on-disk chat files** remain.
+`getOrCreateSession(sessionId)` keeps a live `Agent` in a `Map`.
+
+**Hydration:** The first time a `sessionId` is loaded in this process, the server reads the matching JSON from disk (if it exists and has messages) and maps it into `initialState.messages` on the `Agent` (`[persistedChatToAgentMessages.ts](../../src/server/lib/persistedChatToAgentMessages.ts)`). That way, after a **process restart** or when the user opens a **saved chat** and sends a message, the model still sees prior user/assistant turns (including short summaries of past tool results), not only the new line. Message rows are capped (see `HYDRATION_MAX_CHAT_MESSAGES` in that file) to bound context size.
+
+While a process is running, the in-memory `Agent` remains the source of truth for new turns; disk is updated as each turn completes (`appendTurn`). Restart still **drops** any in-flight stream, but the next `getOrCreateSession` for an existing session **replays** persisted history from disk as above.
 
 ## Chat history on disk
 

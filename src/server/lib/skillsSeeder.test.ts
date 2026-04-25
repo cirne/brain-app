@@ -48,9 +48,12 @@ describe('listBundledSkills', () => {
       if (!root) return
       const list = await listBundledSkills(root)
       const slugs = list.map((m) => m.slug)
+      expect(slugs).toContain('briefing')
       expect(slugs).toContain('files')
       expect(slugs).toContain('email')
       expect(slugs).toContain('inbox_triage')
+      expect(slugs).toContain('morning_report')
+      expect(slugs).toContain('trip_sheet')
       expect(slugs).toContain('wiki')
     } finally {
       if (savedBundle !== undefined) process.env.BRAIN_USER_SKILLS_BUNDLE = savedBundle
