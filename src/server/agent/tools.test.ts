@@ -865,6 +865,27 @@ describe('buildInboxRulesCommand', () => {
     )
   })
 
+  it('builds add with message-only thread scope', () => {
+    expect(
+      buildInboxRulesCommand({
+        op: 'add',
+        rule_action: 'ignore',
+        query: 'golf',
+        apply_to_thread: false,
+      })
+    ).toBe('rules add --action ignore --query "golf" --message-only')
+  })
+
+  it('builds edit with whole-thread flag', () => {
+    expect(
+      buildInboxRulesCommand({
+        op: 'edit',
+        rule_id: 'r1',
+        apply_to_thread: true,
+      })
+    ).toBe('rules edit "r1" --whole-thread')
+  })
+
   it('builds move with before', () => {
     expect(
       buildInboxRulesCommand({

@@ -85,7 +85,16 @@ pub enum UserRule {
         from_or_to_union: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         description: Option<String>,
+        /// When true (default), a rule that matches one message in a thread applies to every
+        /// still-`pending` message in that thread within the inbox window. Set `threadScope: false`
+        /// for legacy message-only matching.
+        #[serde(default = "default_rule_thread_scope")]
+        thread_scope: bool,
     },
+}
+
+fn default_rule_thread_scope() -> bool {
+    true
 }
 
 impl UserRule {
@@ -113,6 +122,7 @@ pub fn search_options_from_rule(rule: &UserRule, base: &SearchOptions) -> Search
             subject,
             category,
             from_or_to_union,
+            thread_scope,
             ..
         } => {
             let q = query.trim();
@@ -140,6 +150,7 @@ pub fn search_options_from_rule(rule: &UserRule, base: &SearchOptions) -> Search
                 }
             }
             o.from_or_to_union = *from_or_to_union;
+            o.thread_scope = *thread_scope;
         }
     }
     o
@@ -590,6 +601,7 @@ pub fn add_search_rule(
     description: Option<String>,
     insert_before: Option<&str>,
     mailbox_id: Option<&str>,
+    thread_scope: bool,
 ) -> Result<UserRule, RulesError> {
     parse_rule_action(action)?;
     let q = query.trim();
@@ -618,6 +630,7 @@ pub fn add_search_rule(
             category: None,
             from_or_to_union: false,
             description,
+            thread_scope,
         };
         if let Some(before_id) = insert_before.map(str::trim).filter(|s| !s.is_empty()) {
             let Some(idx) = file.rules.iter().position(|r| r.id() == before_id) else {
@@ -677,9 +690,10 @@ pub fn edit_rule(
     id: &str,
     action: Option<&str>,
     query: Option<&str>,
+    thread_scope: Option<bool>,
     mailbox_id: Option<&str>,
 ) -> Result<Option<UserRule>, RulesError> {
-    if action.is_none() && query.is_none() {
+    if action.is_none() && query.is_none() && thread_scope.is_none() {
         return Err(RulesError::MissingUpdateFields);
     }
     if let Some(a) = action {
@@ -700,6 +714,7 @@ pub fn edit_rule(
         let UserRule::Search {
             action: ra,
             query: rq,
+            thread_scope: ts,
             ..
         } = rule;
         if let Some(action) = action {
@@ -707,6 +722,9 @@ pub fn edit_rule(
         }
         if let Some(q) = query {
             *rq = q.trim().to_string();
+        }
+        if let Some(scope) = thread_scope {
+            *ts = scope;
         }
         Ok(Some(rule.clone()))
     })
@@ -869,6 +887,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn rule_json_omitted_thread_scope_defaults_true() {
+        let r: UserRule =
+            serde_json::from_str(r#"{"kind":"search","id":"x","action":"ignore","query":"y"}"#)
+                .unwrap();
+        assert!(matches!(
+            r,
+            UserRule::Search {
+                thread_scope: true,
+                ..
+            }
+        ));
+    }
+
+    #[test]
     fn action_parser_rejects_tag() {
         assert!(parse_rule_action("tag:travel").is_err());
     }
@@ -980,13 +1012,49 @@ mod tests {
     fn add_search_rule_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let _ = load_rules_file(dir.path()).unwrap();
-        let rule =
-            add_search_rule(dir.path(), "ignore", "newsletter|digest", None, None, None).unwrap();
+        let rule = add_search_rule(
+            dir.path(),
+            "ignore",
+            "newsletter|digest",
+            None,
+            None,
+            None,
+            true,
+        )
+        .unwrap();
         assert_eq!(rule.action_str(), "ignore");
         let loaded = load_rules_file_from_path(&rules_path(dir.path())).unwrap();
         assert!(loaded.rules.iter().any(|r| {
             matches!(r, UserRule::Search { query, .. } if query == "newsletter|digest")
         }));
+    }
+
+    #[test]
+    fn edit_rule_thread_scope_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let _ = load_rules_file(dir.path()).unwrap();
+        let rule = add_search_rule(dir.path(), "ignore", "pat", None, None, None, true).unwrap();
+        let id = rule.id().to_string();
+        let updated = edit_rule(dir.path(), &id, None, None, Some(false), None)
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            updated,
+            UserRule::Search {
+                thread_scope: false,
+                ..
+            }
+        ));
+        let again = edit_rule(dir.path(), &id, None, None, Some(true), None)
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            again,
+            UserRule::Search {
+                thread_scope: true,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -1034,8 +1102,16 @@ mod tests {
     fn add_search_rule_insert_before_unknown_id_errors() {
         let dir = tempfile::tempdir().unwrap();
         let _ = load_rules_file(dir.path()).unwrap();
-        let err =
-            add_search_rule(dir.path(), "inform", "x", None, Some("no-such-id"), None).unwrap_err();
+        let err = add_search_rule(
+            dir.path(),
+            "inform",
+            "x",
+            None,
+            Some("no-such-id"),
+            None,
+            true,
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("insert-before"));
     }
 

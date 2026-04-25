@@ -1590,6 +1590,7 @@ mod tests {
                 category: None,
                 from_or_to_union: false,
                 description: None,
+                thread_scope: true,
             }],
             context: vec![],
         };

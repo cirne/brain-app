@@ -637,6 +637,7 @@ Add/edit always run inbox preview against $RIPMAIL_HOME/data (default $BRAIN_HOM
 
 Examples (see ripmail rules add --help):
   ripmail rules add --action ignore --query 'from:no-reply@zoom.us meeting OR summary'
+  ripmail rules add --action ignore --query 'golf|tee time' --message-only   # rare: match per message, not whole thread
   ripmail rules move def-linkedin --before def-cat-list   # see ripmail rules move --help; prints compact full order
 ";
 
@@ -644,18 +645,20 @@ Examples (see ripmail rules add --help):
 const RULES_ADD_AFTER_LONG_HELP: &str = "\
 Pass --query using the same language as `ripmail search` (from:, to:, subject:, after:, before:, category:, FTS terms, OR/AND). See ripmail rules validate.
 
+Thread scope (default): when a rule matches any message in a conversation (same thread id in the index), every other still-pending message in that thread in the inbox window gets the same classification. Use --message-only to restrict to matching messages only (legacy behavior). In rules.json this is `threadScope` (default true).
+
 Preview uses your normal ripmail home and data: config + SQLite at $RIPMAIL_HOME (default $BRAIN_HOME/ripmail when unset), same as sync/search.
 
 Examples:
   ripmail rules add --action ignore --query 'from:newsletter.example.com'
   ripmail rules add --action notify --query 'verification OR otp OR 2fa'
   ripmail rules add --action ignore --query 'category:promotional'
-Flags: --action <ACTION> --query <SEARCH_STRING> [--insert-before <RULE_ID>] [--description] [--preview-window] [--text]
+Flags: --action <ACTION> --query <SEARCH_STRING> [--message-only] [--insert-before <RULE_ID>] [--description] [--preview-window] [--text]
 ";
 
 /// Appended to `ripmail rules edit --help` (long help only).
 const RULES_EDIT_AFTER_LONG_HELP: &str = "\
-Change --action and/or --query (omit either to leave unchanged).
+Change --action and/or --query (omit either to leave unchanged). Thread scope: pass --whole-thread or --message-only to set `threadScope` without changing the query; omit both to leave it unchanged.
 
 Preview uses your normal ripmail home and data: $RIPMAIL_HOME (default $BRAIN_HOME/ripmail when unset) and its ripmail.db, same as ripmail rules add.
 ";
@@ -722,6 +725,9 @@ pub(crate) enum RulesCmd {
         preview_window: Option<String>,
         #[arg(long, hide_long_help = true, help = "text output")]
         text: bool,
+        /// Match individual messages only; do not apply the rule to the whole conversation thread
+        #[arg(long = "message-only")]
+        message_only: bool,
     },
     /// Edit an existing rule
     #[command(
@@ -740,6 +746,18 @@ pub(crate) enum RulesCmd {
         action: Option<String>,
         #[arg(long)]
         query: Option<String>,
+        #[arg(
+            long = "message-only",
+            group = "edit_thread_scope",
+            help = "set rule to message-only matching (`threadScope: false`)"
+        )]
+        set_message_only: bool,
+        #[arg(
+            long = "whole-thread",
+            group = "edit_thread_scope",
+            help = "set rule to apply to the full thread when any message matches (`threadScope: true`)"
+        )]
+        set_whole_thread: bool,
         #[arg(long)]
         preview_window: Option<String>,
         #[arg(long)]
@@ -925,6 +943,59 @@ mod draft_cli_tests {
                     assert_eq!(query, "newsletter");
                 }
                 _ => panic!("expected rules add"),
+            },
+            Some(_) => panic!("wrong command"),
+            None => panic!("expected command"),
+        }
+    }
+
+    #[test]
+    fn rules_add_parses_message_only() {
+        let cli = Cli::try_parse_from([
+            "ripmail",
+            "rules",
+            "add",
+            "--action",
+            "ignore",
+            "--query",
+            "golf",
+            "--message-only",
+        ])
+        .expect("parse");
+        match cli.command {
+            Some(Commands::Rules { sub, .. }) => match sub {
+                RulesCmd::Add {
+                    query,
+                    message_only,
+                    ..
+                } => {
+                    assert_eq!(query, "golf");
+                    assert!(message_only);
+                }
+                _ => panic!("expected rules add"),
+            },
+            Some(_) => panic!("wrong command"),
+            None => panic!("expected command"),
+        }
+    }
+
+    #[test]
+    fn rules_edit_parses_whole_thread() {
+        let cli = Cli::try_parse_from(["ripmail", "rules", "edit", "abc1", "--whole-thread"])
+            .expect("parse");
+        match cli.command {
+            Some(Commands::Rules { sub, .. }) => match sub {
+                RulesCmd::Edit {
+                    id,
+                    set_message_only,
+                    set_whole_thread,
+                    ..
+                } => {
+                    assert_eq!(id, "abc1");
+                    assert!(!set_message_only);
+                    assert!(set_whole_thread);
+                }
+                _ => panic!("expected rules edit"),
             },
             Some(_) => panic!("wrong command"),
             None => panic!("expected command"),

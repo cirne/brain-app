@@ -16,14 +16,43 @@ pub fn count_messages_matching_rule_query(
     let q = opts.query.as_deref().unwrap_or("").trim();
     if q.is_empty() {
         count_filter_only(conn, opts)
+    } else if opts.thread_scope {
+        let ids = matching_message_row_ids_for_pattern(conn, opts, "1=1", &[])?;
+        count_messages_in_threads_of_row_ids(conn, &ids)
     } else {
         count_regex_mail_matches(conn, opts).map_err(rusqlite::Error::InvalidParameterName)
     }
 }
 
+fn count_messages_in_threads_of_row_ids(
+    conn: &Connection,
+    row_ids: &[i64],
+) -> rusqlite::Result<i64> {
+    if row_ids.is_empty() {
+        return Ok(0);
+    }
+    let ph = row_ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let sql = format!(
+        "SELECT COUNT(*) FROM messages WHERE thread_id IN \
+         (SELECT DISTINCT thread_id FROM messages WHERE id IN ({ph}))"
+    );
+    let vals: Vec<Value> = row_ids.iter().map(|i| Value::Integer(*i)).collect();
+    conn.query_row(&sql, params_from_iter(vals.iter()), |r| r.get(0))
+}
+
 fn count_filter_only(conn: &Connection, opts: &SearchOptions) -> rusqlite::Result<i64> {
     let (fc, where_clause) = filter_clause_with_where_prefix(opts, false);
-    let sql = sql_count_messages(&where_clause);
+    let sql = if opts.thread_scope {
+        let inner = if where_clause.is_empty() {
+            "SELECT DISTINCT m2.thread_id FROM messages m2".to_string()
+        } else {
+            let wc2 = where_clause.replace("m.", "m2.");
+            format!("SELECT DISTINCT m2.thread_id FROM messages m2 {wc2}")
+        };
+        format!("SELECT COUNT(*) FROM messages m WHERE m.thread_id IN ({inner})")
+    } else {
+        sql_count_messages(&where_clause)
+    };
     let mut vals: Vec<Value> = fc.params.iter().cloned().map(Value::Text).collect();
     vals.extend(fc.always_and_params.iter().cloned().map(Value::Text));
     if vals.is_empty() {
@@ -75,18 +104,77 @@ fn update_filter_only(
     } else {
         format!("m.rule_triage = 'pending' {inbox_scope_sql} AND ({where_sql})")
     };
-    let sql = format!(
-        "UPDATE messages SET rule_triage = 'assigned', winning_rule_id = ?1
-         WHERE id IN (
-           SELECT m.id FROM messages m
-           WHERE {inner_where}
-         )"
-    );
+    let sql = if opts.thread_scope {
+        let scope_m2 = inbox_scope_sql.replace("m.", "m2.");
+        format!(
+            "UPDATE messages SET rule_triage = 'assigned', winning_rule_id = ?1
+             WHERE id IN (
+               SELECT m2.id FROM messages m2
+               WHERE m2.rule_triage = 'pending' {scope_m2}
+               AND m2.thread_id IN (
+                 SELECT DISTINCT m.thread_id FROM messages m WHERE {inner_where}
+               )
+             )"
+        )
+    } else {
+        format!(
+            "UPDATE messages SET rule_triage = 'assigned', winning_rule_id = ?1
+             WHERE id IN (
+               SELECT m.id FROM messages m
+               WHERE {inner_where}
+             )"
+        )
+    };
     let mut vals: Vec<Value> = vec![Value::Text(winning_rule_id.to_string())];
+    if opts.thread_scope {
+        vals.extend(inbox_scope_params.iter().cloned());
+    }
     vals.extend(inbox_scope_params.iter().cloned());
     vals.extend(fc.params.iter().cloned().map(Value::Text));
     vals.extend(fc.always_and_params.iter().cloned().map(Value::Text));
     conn.execute(&sql, params_from_iter(vals.iter()))
+}
+
+fn expand_pending_row_ids_for_threads(
+    conn: &Connection,
+    seed_row_ids: &[i64],
+    inbox_scope_sql: &str,
+    inbox_scope_params: &[Value],
+) -> rusqlite::Result<Vec<i64>> {
+    if seed_row_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let ph = seed_row_ids
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql_tid = format!("SELECT DISTINCT thread_id FROM messages WHERE id IN ({ph})");
+    let bind: Vec<Value> = seed_row_ids.iter().map(|i| Value::Integer(*i)).collect();
+    let mut threads: Vec<String> = Vec::new();
+    {
+        let mut stmt = conn.prepare(&sql_tid)?;
+        let mut rows = stmt.query(params_from_iter(bind.iter()))?;
+        while let Some(row) = rows.next()? {
+            threads.push(row.get::<_, String>(0)?);
+        }
+    }
+    if threads.is_empty() {
+        return Ok(Vec::new());
+    }
+    let th_ph = threads.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let sql_ids = format!(
+        "SELECT m.id FROM messages m WHERE m.rule_triage = 'pending' {inbox_scope_sql} AND m.thread_id IN ({th_ph})"
+    );
+    let mut vals: Vec<Value> = inbox_scope_params.to_vec();
+    vals.extend(threads.into_iter().map(Value::Text));
+    let mut stmt = conn.prepare(&sql_ids)?;
+    let mut rows = stmt.query(params_from_iter(vals.iter()))?;
+    let mut out = Vec::new();
+    while let Some(row) = rows.next()? {
+        out.push(row.get(0)?);
+    }
+    Ok(out)
 }
 
 fn update_regex(
@@ -101,12 +189,21 @@ fn update_regex(
     if ids.is_empty() {
         return Ok(0);
     }
-    let ph = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let assign_ids = if opts.thread_scope {
+        expand_pending_row_ids_for_threads(conn, &ids, inbox_scope_sql, inbox_scope_params)?
+    } else {
+        ids
+    };
+    let ph = assign_ids
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(", ");
     let sql = format!(
         "UPDATE messages SET rule_triage = 'assigned', winning_rule_id = ?1 WHERE id IN ({ph})"
     );
     let mut vals: Vec<Value> = vec![Value::Text(winning_rule_id.to_string())];
-    vals.extend(ids.iter().map(|i| Value::Integer(*i)));
+    vals.extend(assign_ids.iter().map(|i| Value::Integer(*i)));
     conn.execute(&sql, params_from_iter(vals.iter()))
 }
 
@@ -168,6 +265,7 @@ mod tests {
             category: None,
             from_or_to_union: true,
             description: None,
+            thread_scope: true,
         };
         let base = SearchOptions::default();
         let opts = search_options_from_rule(&rule, &base);
@@ -207,6 +305,7 @@ mod tests {
             category: None,
             from_or_to_union: false,
             description: None,
+            thread_scope: true,
         };
         let opts = search_options_from_rule(&rule, &base);
         let c = count_messages_matching_rule_query(&conn, &opts).unwrap();
@@ -232,6 +331,7 @@ mod tests {
             category: None,
             from_or_to_union: false,
             description: None,
+            thread_scope: true,
         };
         let opts = search_options_from_rule(&rule, &base);
         let n = assign_pending_matching_rule_query(&conn, &opts, "r1", "", &[]).unwrap();
@@ -245,5 +345,120 @@ mod tests {
             .unwrap();
         assert_eq!(triage, "assigned");
         assert_eq!(wr.as_deref(), Some("r1"));
+    }
+
+    #[test]
+    fn assign_pending_thread_scope_assigns_sibling_messages() {
+        let conn = open_memory().unwrap();
+        for (mid, body) in [
+            ("<golf-1@test>", "tee time with david derr"),
+            ("<golf-2@test>", "Re: sounds good"),
+        ] {
+            conn.execute(
+                "INSERT INTO messages (message_id, thread_id, folder, uid, labels, from_address, to_addresses, cc_addresses, subject, body_text, date, raw_path)
+                 VALUES (?1, 'thread-golf', 'INBOX', 1, '[]', 'friend@example.com', '[]', '[]', 'Golf', ?2, '2026-01-15T12:00:00Z', 'p')",
+                rusqlite::params![mid, body],
+            )
+            .unwrap();
+        }
+        let base = SearchOptions::default();
+        let rule = UserRule::Search {
+            id: "r-golf".into(),
+            action: "ignore".into(),
+            query: "tee time".into(),
+            from_address: None,
+            to_address: None,
+            subject: None,
+            category: None,
+            from_or_to_union: false,
+            description: None,
+            thread_scope: true,
+        };
+        let opts = search_options_from_rule(&rule, &base);
+        let n = assign_pending_matching_rule_query(&conn, &opts, "r-golf", "", &[]).unwrap();
+        assert_eq!(n, 2);
+        let pending: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM messages WHERE rule_triage = 'pending'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(pending, 0);
+    }
+
+    #[test]
+    fn assign_pending_message_scope_only_hits_matching_body() {
+        let conn = open_memory().unwrap();
+        for (mid, body) in [
+            ("<solo-1@test>", "tee time friday"),
+            ("<solo-2@test>", "unrelated lunch plan"),
+        ] {
+            conn.execute(
+                "INSERT INTO messages (message_id, thread_id, folder, uid, labels, from_address, to_addresses, cc_addresses, subject, body_text, date, raw_path)
+                 VALUES (?1, 'thread-solo', 'INBOX', 1, '[]', 'a@b.com', '[]', '[]', 's', ?2, '2026-01-15T12:00:00Z', 'p')",
+                rusqlite::params![mid, body],
+            )
+            .unwrap();
+        }
+        let base = SearchOptions::default();
+        let rule = UserRule::Search {
+            id: "r-one".into(),
+            action: "ignore".into(),
+            query: "tee time".into(),
+            from_address: None,
+            to_address: None,
+            subject: None,
+            category: None,
+            from_or_to_union: false,
+            description: None,
+            thread_scope: false,
+        };
+        let opts = search_options_from_rule(&rule, &base);
+        let n = assign_pending_matching_rule_query(&conn, &opts, "r-one", "", &[]).unwrap();
+        assert_eq!(n, 1);
+        let t1: String = conn
+            .query_row(
+                "SELECT rule_triage FROM messages WHERE message_id = '<solo-1@test>'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let t2: String = conn
+            .query_row(
+                "SELECT rule_triage FROM messages WHERE message_id = '<solo-2@test>'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(t1, "assigned");
+        assert_eq!(t2, "pending");
+    }
+
+    #[test]
+    fn count_thread_scope_includes_all_messages_in_matching_threads() {
+        let conn = open_memory().unwrap();
+        conn.execute(
+            "INSERT INTO messages (message_id, thread_id, folder, uid, labels, from_address, to_addresses, cc_addresses, subject, body_text, date, raw_path)
+             VALUES ('<only-one@test>', 't-c', 'INBOX', 1, '[]', 'vip@x.com', '[]', '[]', 'sub', 'hello', '2026-01-01T00:00:00Z', 'p')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO messages (message_id, thread_id, folder, uid, labels, from_address, to_addresses, cc_addresses, subject, body_text, date, raw_path)
+             VALUES ('<buddy@test>', 't-c', 'INBOX', 2, '[]', 'other@y.com', '[]', '[]', 'sub', 'no keyword', '2026-01-02T00:00:00Z', 'p')",
+            [],
+        )
+        .unwrap();
+        let mut opts = SearchOptions {
+            query: Some("hello".into()),
+            thread_scope: true,
+            ..Default::default()
+        };
+        let c = count_messages_matching_rule_query(&conn, &opts).unwrap();
+        assert_eq!(c, 2);
+        opts.thread_scope = false;
+        let c2 = count_messages_matching_rule_query(&conn, &opts).unwrap();
+        assert_eq!(c2, 1);
     }
 }

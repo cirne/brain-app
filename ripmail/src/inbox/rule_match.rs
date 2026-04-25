@@ -136,6 +136,7 @@ mod tests {
                     category: None,
                     from_or_to_union: false,
                     description: None,
+                    thread_scope: true,
                 },
                 UserRule::Search {
                     id: "second".into(),
@@ -147,6 +148,7 @@ mod tests {
                     category: None,
                     from_or_to_union: false,
                     description: None,
+                    thread_scope: true,
                 },
             ],
             context: vec![],
@@ -184,6 +186,7 @@ mod tests {
                 category: None,
                 from_or_to_union: false,
                 description: None,
+                thread_scope: true,
             }],
             context: vec![],
         };

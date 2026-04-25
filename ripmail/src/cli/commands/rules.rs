@@ -139,7 +139,8 @@ fn build_rule_preview_samples(
 /// Shown in JSON after mutating rules so agents re-run inbox triage (new `rules_fingerprint`).
 fn rules_change_hints_json() -> serde_json::Value {
     serde_json::json!([
-        "Re-triage with the current ruleset: ripmail inbox --reapply (optional window, e.g. ripmail inbox 30d --reapply)."
+        "Re-triage with the current ruleset: ripmail inbox --reapply (optional window, e.g. ripmail inbox 30d --reapply).",
+        "Rules apply to whole threads by default (`threadScope` true). Use `ripmail rules add --message-only` or `ripmail rules edit <id> --message-only` for per-message matching; `ripmail rules list` shows each rule JSON including `threadScope`."
     ])
 }
 
@@ -419,7 +420,9 @@ Re-run with: ripmail rules reset-defaults --yes",
             description,
             preview_window,
             text,
+            message_only,
         } => {
+            let thread_scope = !message_only;
             let rule = add_search_rule(
                 &home,
                 &action,
@@ -427,6 +430,7 @@ Re-run with: ripmail rules reset-defaults --yes",
                 description,
                 insert_before.as_deref(),
                 mb_id.as_deref(),
+                thread_scope,
             )?;
             let preview = build_rule_preview(
                 &home,
@@ -452,12 +456,22 @@ Re-run with: ripmail rules reset-defaults --yes",
             id,
             action,
             query,
+            set_message_only,
+            set_whole_thread,
             preview_window,
             text,
         } => {
-            if action.is_none() && query.is_none() {
+            let thread_scope = if set_message_only {
+                Some(false)
+            } else if set_whole_thread {
+                Some(true)
+            } else {
+                None
+            };
+            if action.is_none() && query.is_none() && thread_scope.is_none() {
                 return Err(RulesError::InvalidRules(
-                    "pass at least one of --action or --query".into(),
+                    "pass at least one of --action, --query, --message-only, or --whole-thread"
+                        .into(),
                 )
                 .into());
             }
@@ -466,6 +480,7 @@ Re-run with: ripmail rules reset-defaults --yes",
                 &id,
                 action.as_deref(),
                 query.as_deref(),
+                thread_scope,
                 mb_id.as_deref(),
             )?
             else {

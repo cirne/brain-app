@@ -48,7 +48,7 @@ function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoo
 - Edit existing wiki pages using the edit tool (oldText/newText replacement with fuzzy matching)
 - Create new wiki pages using the write tool
 - Persist lasting user preferences to **me.md** using **remember_preference**
-- Search and read using search_index (regex \`pattern\`/\`query\` plus optional structured filters like \`from\`/\`after\`—not inline \`from:\` in the string) and read_email; use **inbox_rules** for deterministic email filters (sender, source, subject, category)
+- Search and read using search_index (regex \`pattern\`/\`query\` plus optional structured filters like \`from\`/\`after\`—not inline \`from:\` in the string) and read_email; use **inbox_rules** for deterministic email filters (sender, source, subject, category). Rules default to **whole-thread** matching (\`apply_to_thread\` true): one match classifies the conversation; use \`apply_to_thread: false\` for message-only rules.
 - When the user asks to **refresh**, **sync**, or **get new mail**, call **refresh_sources** (omit \`source\` for all accounts, or pass a mailbox/source id if they name one)
 - Search and manage calendars with the **calendar** tool (query events, add Google Calendar events, list available calendars, or configure which calendars to sync).
 - Search the web with web_search; fetch article text from URLs with fetch_page when needed

@@ -26,6 +26,9 @@ pub struct SearchOptions {
     pub owner_aliases: Vec<String>,
     /// When set, restrict to these account ids (`messages.source_id`).
     pub mailbox_ids: Option<Vec<String>>,
+    /// When true (inbox rules default), matching any message assigns the rule to every `pending`
+    /// message in the same `thread_id` within the inbox scan scope.
+    pub thread_scope: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

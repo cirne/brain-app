@@ -113,6 +113,12 @@ export function buildInboxRulesCommand(params: {
   insert_before?: string
   description?: string
   preview_window?: string
+  /**
+   * add: omit or true = classify the whole email thread when any message matches (ripmail default).
+   * add: false = `--message-only` (match individual messages only).
+   * edit: set true/false to run `--whole-thread` / `--message-only`; omit to leave `threadScope` unchanged.
+   */
+  apply_to_thread?: boolean
   before_rule_id?: string
   after_rule_id?: string
   feedback_text?: string
@@ -143,6 +149,9 @@ export function buildInboxRulesCommand(params: {
       if (params.preview_window?.trim()) {
         tail += ` --preview-window ${JSON.stringify(params.preview_window.trim())}`
       }
+      if (params.apply_to_thread === false) {
+        tail += ' --message-only'
+      }
       return tail + mb
     }
     case 'edit': {
@@ -150,15 +159,23 @@ export function buildInboxRulesCommand(params: {
       const has =
         params.rule_action != null ||
         params.query != null ||
-        params.preview_window != null
+        params.preview_window != null ||
+        params.apply_to_thread !== undefined
       if (!has) {
-        throw new Error('op=edit requires at least one of: rule_action, query, preview_window')
+        throw new Error(
+          'op=edit requires at least one of: rule_action, query, preview_window, apply_to_thread',
+        )
       }
       let tail = `rules edit ${JSON.stringify(params.rule_id.trim())}`
       if (params.rule_action != null) tail += ` --action ${params.rule_action}`
       if (params.query != null) tail += ` --query ${JSON.stringify(params.query)}`
       if (params.preview_window?.trim()) {
         tail += ` --preview-window ${JSON.stringify(params.preview_window.trim())}`
+      }
+      if (params.apply_to_thread === true) {
+        tail += ' --whole-thread'
+      } else if (params.apply_to_thread === false) {
+        tail += ' --message-only'
       }
       return tail + mb
     }
@@ -794,7 +811,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'inbox_rules',
     label: 'Inbox Rules',
     description:
-      'Manage ripmail inbox rules (which messages list_inbox surfaces and how). Wraps `ripmail rules`. op=list (JSON rules), validate (optional sample=true for DB match counts), show (one id), add (rule_action + query), edit (rule_id + changes), remove, move (before_rule_id XOR after_rule_id), feedback (feedback_text → proposed rule). Optional source for per-account rules overlay. Prefer this for deterministic email filters (sender, source, subject, category).',
+      'Manage ripmail inbox rules (which messages list_inbox surfaces and how). Wraps `ripmail rules`. op=list (JSON rules; each rule includes `threadScope`), validate (optional sample=true for DB match counts), show (one id), add (rule_action + query), edit (rule_id + changes), remove, move (before_rule_id XOR after_rule_id), feedback (feedback_text → proposed rule). **Thread scope:** by default a rule applies to the **whole conversation** (same ripmail `thread_id`) when any message matches—good for recurring threads (e.g. tee times). Use `apply_to_thread: false` on add, or `apply_to_thread: false` / `true` on edit, for per-message vs whole-thread matching. Optional source for per-account rules overlay. Prefer this for deterministic email filters (sender, source, subject, category).',
     parameters: Type.Object({
       op: Type.Union(
         [
@@ -823,6 +840,12 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       insert_before: Type.Optional(Type.String({ description: 'add: --insert-before rule id' })),
       description: Type.Optional(Type.String({ description: 'add: stored description' })),
       preview_window: Type.Optional(Type.String({ description: 'add/edit: e.g. 7d' })),
+      apply_to_thread: Type.Optional(
+        Type.Boolean({
+          description:
+            'add: omit/true = whole-thread matching when any message matches (default). false = message-only (`--message-only`). edit: true = `--whole-thread`, false = `--message-only`, omit = leave threadScope unchanged.',
+        }),
+      ),
       before_rule_id: Type.Optional(Type.String({ description: 'move: --before <id>' })),
       after_rule_id: Type.Optional(Type.String({ description: 'move: --after <id>' })),
       feedback_text: Type.Optional(Type.String({ description: 'feedback op: natural-language input' })),
@@ -839,6 +862,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         insert_before?: string
         description?: string
         preview_window?: string
+        apply_to_thread?: boolean
         before_rule_id?: string
         after_rule_id?: string
         feedback_text?: string

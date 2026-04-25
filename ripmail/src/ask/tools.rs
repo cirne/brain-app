@@ -234,6 +234,7 @@ pub fn execute_search_tool(
         owner_address: owner_address.map(String::from),
         owner_aliases: Vec::new(),
         mailbox_ids: None,
+        thread_scope: false,
     };
 
     let set = search_with_meta(conn, &opts)?;
