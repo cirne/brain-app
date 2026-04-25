@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { User } from 'lucide-svelte'
+  import { BookOpen, User } from 'lucide-svelte'
   import { getDirIcon, SpecialFileIcon } from './dirIcons.js'
+  import { isWikiRootIndexPath } from './wikiPathDisplay.js'
 
   let { path, unsaved = false }: { path: string; unsaved?: boolean } = $props()
 
@@ -26,6 +27,7 @@
       const seg = folderKey.split('/').pop() || folderKey
       return seg.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     }
+    if (isWikiRootIndexPath(path)) return 'My Wiki'
     if (isIndex) return 'Index'
     const base = isSpecial ? name.slice(1) : name
     return base.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -46,6 +48,10 @@
   {#if isUserProfileMe}
     <span class="wfn-lead-icon text-accent opacity-85" title="Profile (me.md)">
       <User size={12} />
+    </span>
+  {:else if isWikiRootIndexPath(path)}
+    <span class="wfn-lead-icon text-accent opacity-85" title="My Wiki">
+      <BookOpen size={12} />
     </span>
   {:else if isSpecial}
     <span class="wfn-lead-icon wfn-lead-icon--special">

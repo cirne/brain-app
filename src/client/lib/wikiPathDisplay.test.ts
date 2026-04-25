@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { resolveWikiRootIndexPath, wikiPathParentDir } from './wikiPathDisplay.js'
+import {
+  isWikiRootIndexPath,
+  resolveWikiRootIndexPath,
+  wikiPathParentDir,
+} from './wikiPathDisplay.js'
 
 describe('resolveWikiRootIndexPath', () => {
   it('prefers root _index.md over root index.md', () => {
@@ -53,6 +57,29 @@ describe('resolveWikiRootIndexPath', () => {
 
   it('returns null when wiki has no md files', () => {
     expect(resolveWikiRootIndexPath([])).toBeNull()
+  })
+})
+
+describe('isWikiRootIndexPath', () => {
+  it('is true for root index.md variants', () => {
+    expect(isWikiRootIndexPath('index.md')).toBe(true)
+    expect(isWikiRootIndexPath('Index.md')).toBe(true)
+    expect(isWikiRootIndexPath('_index.md')).toBe(true)
+  })
+
+  it('is false for nested index files', () => {
+    expect(isWikiRootIndexPath('ideas/index.md')).toBe(false)
+    expect(isWikiRootIndexPath('ideas/_index.md')).toBe(false)
+  })
+
+  it('is false for other root pages', () => {
+    expect(isWikiRootIndexPath('me.md')).toBe(false)
+    expect(isWikiRootIndexPath('topics.md')).toBe(false)
+  })
+
+  it('normalizes slashes and ignores non-md', () => {
+    expect(isWikiRootIndexPath('/index.md')).toBe(true)
+    expect(isWikiRootIndexPath('index')).toBe(false)
   })
 })
 

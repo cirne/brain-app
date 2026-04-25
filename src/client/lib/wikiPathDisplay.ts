@@ -22,6 +22,20 @@ export function resolveWikiRootIndexPath(files: { path: string; name: string }[]
   return candidates[0]?.path ?? null
 }
 
+/**
+ * True when `rel` is the vault-root landing page (`index.md` / `Index.md` / `_index.md`),
+ * not a nested folder index (e.g. `ideas/index.md`).
+ */
+export function isWikiRootIndexPath(rel: string): boolean {
+  const norm = rel.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '')
+  if (norm.includes('/')) return false
+  const lower = norm.toLowerCase()
+  if (!lower.endsWith('.md')) return false
+  const base = norm.slice(0, -'.md'.length)
+  const baseLower = base.toLowerCase()
+  return base === '_index' || baseLower === 'index'
+}
+
 /** Parent folder path for a wiki-relative path, or null for top-level files. */
 export function wikiPathParentDir(rel: string): string | null {
   const norm = rel.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '')
