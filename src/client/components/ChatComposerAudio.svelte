@@ -40,7 +40,7 @@
 {#if isMobile && (showHearRepliesToggle || pressToTalkUiEnabled)}
   <div
     class="chat-composer-audio"
-    class:chat-composer-audio--hold-slid={draftHidesHold}
+    class:chat-composer-audio--hold-slid={draftHidesHold && pressToTalkUiEnabled}
   >
     {#if showHearRepliesToggle}
       <HearRepliesControl {hearReplies} {onHearRepliesChange} />

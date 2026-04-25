@@ -365,10 +365,6 @@
     font-weight: 500;
     transition: background 0.15s, border-color 0.15s;
   }
-  .new-chat-btn:hover {
-    background: var(--bg);
-    border-color: var(--text-2);
-  }
 
   .ch-scroll {
     flex: 1;
@@ -432,10 +428,6 @@
     cursor: pointer;
     transition: background 0.12s, border-color 0.12s;
   }
-  .ch-view-all:hover {
-    background: var(--bg-3);
-    border-color: var(--text-2);
-  }
   .ch-view-all:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
@@ -459,9 +451,6 @@
   .ch-row:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
-  }
-  .ch-row:hover {
-    background: var(--bg-3);
   }
   .ch-row.active {
     background: var(--accent-dim);
@@ -511,10 +500,6 @@
     color: var(--text);
   }
 
-  .ch-row:hover .ch-row-doc :global(.wfn-name) {
-    color: var(--accent);
-  }
-
   .ch-row-title {
     flex: 1;
     min-width: 0;
@@ -540,11 +525,40 @@
     opacity: 0;
     transition: opacity 0.12s, color 0.12s, background 0.12s;
   }
-  .ch-row:hover .ch-row-delete {
-    opacity: 1;
+
+  /* Touch: first tap must activate the row, not a synthetic :hover; show delete without hover. */
+  @media (hover: none) {
+    .ch-row-delete {
+      opacity: 1;
+    }
   }
-  .ch-row-delete:hover {
-    color: var(--danger);
-    background: rgba(224, 92, 92, 0.12);
+
+  @media (hover: hover) {
+    .new-chat-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-2);
+    }
+
+    .ch-view-all:hover {
+      background: var(--bg-3);
+      border-color: var(--text-2);
+    }
+
+    .ch-row:hover {
+      background: var(--bg-3);
+    }
+
+    .ch-row:hover .ch-row-doc :global(.wfn-name) {
+      color: var(--accent);
+    }
+
+    .ch-row:hover .ch-row-delete {
+      opacity: 1;
+    }
+
+    .ch-row-delete:hover {
+      color: var(--danger);
+      background: rgba(224, 92, 92, 0.12);
+    }
   }
 </style>

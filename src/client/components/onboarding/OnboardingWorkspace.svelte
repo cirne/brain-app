@@ -21,6 +21,7 @@
   import { navigateFromAgentOpen, type AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
   import { ONBOARDING_DEFAULT_CHAT_STORAGE_KEY } from '@client/lib/onboarding/onboardingStorageKeys.js'
+  import { overlaySupportsMobileChatBridge } from '@client/lib/mobileDetailChatOverlay.js'
 
   const {
     chatEndpoint,
@@ -353,6 +354,20 @@
           bind:this={agentChat}
           context={agentContext}
           conversationHidden={!!route.overlay && !useDesktopSplitDetail}
+          hideInput={
+            useOnboardingActivity ||
+            (isMobile &&
+              !useDesktopSplitDetail &&
+              !!route.overlay &&
+              !overlaySupportsMobileChatBridge(route.overlay))
+          }
+          mobileSlideCoversTranscriptOnly={
+            !useOnboardingActivity &&
+            isMobile &&
+            !useDesktopSplitDetail &&
+            !!route.overlay &&
+            overlaySupportsMobileChatBridge(route.overlay)
+          }
           hidePaneContextChip={!!route.overlay && useDesktopSplitDetail}
           suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || !useDesktopSplitDetail || useOnboardingActivity}
           {multiTenant}
@@ -363,7 +378,6 @@
                 ? OnboardingSeedingView
                 : AgentConversation
           }
-          hideInput={useOnboardingActivity}
           streamingBusyLabel={
             useOnboardingActivity
               ? isProfiling

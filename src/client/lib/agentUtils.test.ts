@@ -325,7 +325,7 @@ describe('contextPlaceholder', () => {
 
   it('returns docs placeholder for wiki context', () => {
     const ctx: SurfaceContext = { type: 'wiki', path: 'a.md', title: 'A' }
-    expect(contextPlaceholder(ctx)).toBe('Ask about this doc...')
+    expect(contextPlaceholder(ctx)).toBe('Edit, expand, or ask about this page…')
   })
 
   it('returns calendar placeholder for calendar context', () => {

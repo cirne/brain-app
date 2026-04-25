@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest'
  * (draft-driven collapse + flex gap cleanup).
  */
 describe('ChatComposerAudio', () => {
-  it('collapses the hold control when draftHidesHold is set', () => {
+  it('applies hold-slid layout only when press-to-talk is on (avoids jank with PTT off)', () => {
     const path = join(
       dirname(fileURLToPath(import.meta.url)),
       '../components/ChatComposerAudio.svelte',
@@ -17,6 +17,7 @@ describe('ChatComposerAudio', () => {
     expect(src).toContain('draftHidesHold')
     expect(src).toContain('hold-speak-wrap--draft-slid')
     expect(src).toContain('chat-composer-audio--hold-slid')
+    expect(src).toContain('draftHidesHold && pressToTalkUiEnabled')
   })
 
   it('gates press-to-talk behind isPressToTalkEnabled (OPP-050)', () => {

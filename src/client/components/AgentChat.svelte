@@ -96,6 +96,11 @@
     inputPlaceholder = undefined as string | undefined,
     /** Hosted multi-tenant: profiling transcript uses alternate privacy lead copy. */
     multiTenant = false,
+    /**
+     * Mobile + slide-over: place the slide above the composer only (not full-bleed over it).
+     * When false, the slide covers the full chat column (e.g. non-doc overlays with {@link hideInput}).
+     */
+    mobileSlideCoversTranscriptOnly = false,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -137,7 +142,13 @@
     hidePaneContextChip?: boolean
     inputPlaceholder?: string
     multiTenant?: boolean
+    mobileSlideCoversTranscriptOnly?: boolean
   } = $props()
+
+  /** Slide-over only over transcript; composer stays visible (mobile chat bridge). */
+  const bridgeSlideLayout = $derived(
+    conversationHidden && mobileSlideCoversTranscriptOnly && !!mobileDetail,
+  )
 
   /** Dynamic transcript component (default {@link AgentConversation}). */
   const ConversationView = $derived(conversationView)
@@ -727,28 +738,56 @@
     <div
       class="mid-outer"
       class:mid-outer--empty={centerEmptyInPane}
+      class:mid-outer--bridge-slide={bridgeSlideLayout}
     >
     <!-- Always mounted so it is visible behind the overlay during the slide-out animation -->
-    <div class="mid" inert={conversationHidden || undefined}>
-      <ConversationView
-        bind:this={conversationEl}
-        {messages}
-        {streaming}
-        {onOpenWiki}
-        {onOpenFile}
-        {onOpenEmail}
-        {onOpenFullInbox}
-        {onOpenMessageThread}
-        {onSwitchToCalendar}
-        {onOpenWikiAbout}
-        onSubmitQuickReply={(t) => void send(t)}
-        streamingWrite={streamingWritePreview}
-        {multiTenant}
-      />
-    </div>
+    {#if bridgeSlideLayout}
+      <div class="transcript-slide-stack">
+        <div class="mid" inert={conversationHidden || undefined}>
+          <ConversationView
+            bind:this={conversationEl}
+            {messages}
+            {streaming}
+            {onOpenWiki}
+            {onOpenFile}
+            {onOpenEmail}
+            {onOpenFullInbox}
+            {onOpenMessageThread}
+            {onSwitchToCalendar}
+            {onOpenWikiAbout}
+            onSubmitQuickReply={(t) => void send(t)}
+            streamingWrite={streamingWritePreview}
+            {multiTenant}
+          />
+        </div>
+        {#if mobileDetail}
+          <div class="mobile-detail-layer mobile-detail-layer--over-transcript">
+            {@render mobileDetail()}
+          </div>
+        {/if}
+      </div>
+    {:else}
+      <div class="mid" inert={conversationHidden || undefined}>
+        <ConversationView
+          bind:this={conversationEl}
+          {messages}
+          {streaming}
+          {onOpenWiki}
+          {onOpenFile}
+          {onOpenEmail}
+          {onOpenFullInbox}
+          {onOpenMessageThread}
+          {onSwitchToCalendar}
+          {onOpenWikiAbout}
+          onSubmitQuickReply={(t) => void send(t)}
+          streamingWrite={streamingWritePreview}
+          {multiTenant}
+        />
+      </div>
+    {/if}
 
     {#if !hideInput}
-      <div class="composer-stack">
+      <div class="composer-stack" class:composer-stack--bridge-dock={bridgeSlideLayout}>
         <div class="input-shell">
           <AgentInput
             bind:this={inputEl}
@@ -760,27 +799,30 @@
             onSend={send}
             onStop={stopChat}
             onDraftChange={onAgentInputDraftChange}
+            transparentSurround={bridgeSlideLayout}
           />
         </div>
-        <ChatComposerAudio
-          disabled={streaming}
-          showHearRepliesToggle={messages.length === 0}
-          draftHidesHold={inputDraftForMobileHold.length > 0}
-          hearReplies={hearRepliesForChatComposer}
-          onHearRepliesChange={(v) => {
-            const id = displayedSessionId
-            if (!id) return
-            writeHearRepliesPreference(v)
-            sessions = touchSessionImmutable(sessions, id, { hearReplies: v })
-          }}
-          onTranscribe={(t) => void send(t)}
-        />
+        {#if !bridgeSlideLayout}
+          <ChatComposerAudio
+            disabled={streaming}
+            showHearRepliesToggle={messages.length === 0}
+            draftHidesHold={inputDraftForMobileHold.length > 0}
+            hearReplies={hearRepliesForChatComposer}
+            onHearRepliesChange={(v) => {
+              const id = displayedSessionId
+              if (!id) return
+              writeHearRepliesPreference(v)
+              sessions = touchSessionImmutable(sessions, id, { hearReplies: v })
+            }}
+            onTranscribe={(t) => void send(t)}
+          />
+        {/if}
       </div>
     {/if}
     </div>
 
-    {#if conversationHidden && mobileDetail}
-      <div class="mobile-detail-layer">
+    {#if conversationHidden && mobileDetail && !bridgeSlideLayout}
+      <div class="mobile-detail-layer mobile-detail-layer--full">
         {@render mobileDetail()}
       </div>
     {/if}
@@ -853,10 +895,36 @@
     min-height: 0;
   }
 
+  .mid-outer--bridge-slide {
+    min-height: 0;
+    /* Column uses --bg-2; paint this stack like the document surface so the dock is not a grey bar */
+    background: var(--bg);
+  }
+
+  .transcript-slide-stack {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
   .composer-stack {
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+  }
+
+  .composer-stack--bridge-dock {
+    /* Same surface as .mid-outer--bridge-slide (overrides any inherited --bg-2) */
+    background: var(--bg);
+  }
+
+  @media (max-width: 767px) {
+    .composer-stack {
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
   }
 
   .input-shell {
@@ -933,14 +1001,7 @@
   .hear-replies-header-btn :global(svg) {
     flex-shrink: 0;
   }
-  .hear-replies-header-btn:hover {
-    color: var(--text);
-    background: var(--bg-3);
-  }
   .hear-replies-header-btn--on {
-    color: var(--accent);
-  }
-  .hear-replies-header-btn--on:hover {
     color: var(--accent);
   }
 
@@ -958,9 +1019,19 @@
   .delete-chat-btn :global(svg) {
     flex-shrink: 0;
   }
-  .delete-chat-btn:hover {
-    color: var(--text);
-    background: var(--bg-3);
+
+  @media (hover: hover) {
+    .hear-replies-header-btn:hover {
+      color: var(--text);
+      background: var(--bg-3);
+    }
+    .hear-replies-header-btn--on:hover {
+      color: var(--accent);
+    }
+    .delete-chat-btn:hover {
+      color: var(--text);
+      background: var(--bg-3);
+    }
   }
 
   /* Tap-friendly targets (iOS 44pt minimum); default compact on desktop. */
@@ -992,12 +1063,20 @@
   }
 
   .mobile-detail-layer {
-    position: absolute;
-    inset: 0;
     z-index: 10;
     display: flex;
     flex-direction: column;
     min-height: 0;
+  }
+
+  .mobile-detail-layer--over-transcript {
+    position: absolute;
+    inset: 0;
+  }
+
+  .mobile-detail-layer--full {
+    position: absolute;
+    inset: 0;
   }
 
   .mobile-detail-layer :global(.slide-over) {

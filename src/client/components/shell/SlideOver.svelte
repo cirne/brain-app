@@ -645,6 +645,104 @@
     will-change: transform;
     touch-action: pan-y;
     overscroll-behavior-x: contain;
+    /* L2 (PaneL2Header): roomier bar + type; --pane-header-* flow into height + inline padding */
+    --pane-header-h: 52px;
+    --pane-header-px: 16px;
+  }
+
+  .slide-over.mobile-slide :global(.pane-l2-header) {
+    column-gap: 0.75rem;
+  }
+
+  .slide-over.mobile-slide .back-btn {
+    font-size: 15px;
+    padding: 6px 10px;
+  }
+  .slide-over.mobile-slide .back-btn :global(svg) {
+    width: 22px;
+    height: 22px;
+  }
+
+  .slide-over.mobile-slide .slide-title {
+    font-size: 14px;
+  }
+  .slide-over.mobile-slide .slide-title.slide-title-wiki :global(.wfn-title-row) {
+    font-size: 15px;
+  }
+  .slide-over.mobile-slide .slide-title.slide-title-wiki :global(.wiki-dir-breadcrumb) {
+    font-size: 15px;
+  }
+
+  .slide-over.mobile-slide .slide-title-email-text {
+    font-size: 15px;
+  }
+  .slide-over.mobile-slide .slide-title-email :global(svg) {
+    width: 20px;
+    height: 20px;
+  }
+
+  .slide-over.mobile-slide .cal-week-label {
+    font-size: 15px;
+  }
+  .slide-over.mobile-slide .cal-nav-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    border-radius: 6px;
+  }
+  .slide-over.mobile-slide .cal-header-icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+  }
+  .slide-over.mobile-slide .cal-header-icon-btn :global(svg) {
+    width: 20px;
+    height: 20px;
+  }
+
+  .slide-over.mobile-slide .header-action-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+  }
+  .slide-over.mobile-slide .header-action-btn :global(svg) {
+    width: 20px;
+    height: 20px;
+  }
+
+  .slide-over.mobile-slide .wiki-edit-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+  }
+  .slide-over.mobile-slide .wiki-edit-btn :global(svg) {
+    width: 20px;
+    height: 20px;
+  }
+
+  .slide-over.mobile-slide .inbox-thread-header-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+  }
+  .slide-over.mobile-slide .inbox-thread-header-btn :global(svg) {
+    width: 20px;
+    height: 20px;
+  }
+
+  .slide-over.mobile-slide .wiki-save-hint {
+    font-size: 13px;
+  }
+
+  .slide-over.mobile-slide .your-wiki-header-center {
+    gap: 10px;
+  }
+  .slide-over.mobile-slide .phase-pill-mini {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+  .slide-over.mobile-slide .page-count-mini {
+    font-size: 12px;
   }
 
   .slide-over.mobile-slide.slide-anim:not(.dragging) {
@@ -661,9 +759,6 @@
     border-radius: 6px;
     flex-shrink: 0;
   }
-  .back-btn:hover {
-    background: var(--accent-dim);
-  }
 
   .close-btn-desktop {
     display: none;
@@ -677,9 +772,6 @@
     border-radius: 6px;
     background: transparent;
     transition: color 0.15s;
-  }
-  .close-btn-desktop:hover {
-    color: var(--text);
   }
 
   .inbox-thread-header-actions {
@@ -703,11 +795,6 @@
     transition: color 0.15s, background 0.15s;
   }
 
-  .inbox-thread-header-btn:hover {
-    color: var(--text);
-    background: var(--bg-3);
-  }
-
   .fullscreen-btn-desktop {
     display: none;
     align-items: center;
@@ -720,10 +807,6 @@
     border-radius: 6px;
     background: transparent;
     transition: color 0.15s, background 0.15s;
-  }
-  .fullscreen-btn-desktop:hover {
-    color: var(--text);
-    background: var(--bg-3);
   }
 
   @media (min-width: 768px) {
@@ -770,11 +853,6 @@
     justify-content: center;
   }
 
-  .cal-nav-btn:hover {
-    color: var(--text);
-    background: var(--bg-3);
-  }
-
   .cal-header-icon-btn {
     width: 28px;
     height: 28px;
@@ -787,11 +865,6 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-  }
-
-  .cal-header-icon-btn:hover:not(:disabled) {
-    color: var(--text);
-    background: var(--bg-3);
   }
 
   .cal-header-icon-btn:disabled {
@@ -863,10 +936,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .slide-title.slide-title-wiki :global(.wiki-breadcrumb-seg:hover:not(.wiki-breadcrumb-seg--current)) {
-    text-decoration: underline;
   }
 
   .slide-title.slide-title-wiki :global(.wiki-breadcrumb-seg--current) {
@@ -954,17 +1023,7 @@
     transition: all 0.15s;
   }
 
-  .header-action-btn:hover:not(:disabled) {
-    color: var(--text);
-    background: var(--bg-3);
-  }
-
   .header-action-btn-primary {
-    color: var(--accent);
-  }
-
-  .header-action-btn-primary:hover:not(:disabled) {
-    background: var(--accent-dim);
     color: var(--accent);
   }
 
@@ -979,9 +1038,49 @@
     flex-shrink: 0;
     transition: color 0.15s, background 0.15s;
   }
-  .wiki-edit-btn:hover:not(:disabled) { color: var(--text); background: var(--bg-3); }
   .wiki-edit-btn:disabled { opacity: 0.35; cursor: default; }
   .wiki-edit-btn.active { color: var(--accent); }
+
+  @media (hover: hover) {
+    .back-btn:hover {
+      background: var(--accent-dim);
+    }
+    .close-btn-desktop:hover {
+      color: var(--text);
+    }
+    .inbox-thread-header-btn:hover {
+      color: var(--text);
+      background: var(--bg-3);
+    }
+    .fullscreen-btn-desktop:hover {
+      color: var(--text);
+      background: var(--bg-3);
+    }
+    .cal-nav-btn:hover {
+      color: var(--text);
+      background: var(--bg-3);
+    }
+    .cal-header-icon-btn:hover:not(:disabled) {
+      color: var(--text);
+      background: var(--bg-3);
+    }
+    .slide-title.slide-title-wiki
+      :global(.wiki-breadcrumb-seg:hover:not(.wiki-breadcrumb-seg--current)) {
+      text-decoration: underline;
+    }
+    .header-action-btn:hover:not(:disabled) {
+      color: var(--text);
+      background: var(--bg-3);
+    }
+    .header-action-btn-primary:hover:not(:disabled) {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+    .wiki-edit-btn:hover:not(:disabled) {
+      color: var(--text);
+      background: var(--bg-3);
+    }
+  }
 
   .wiki-save-hint {
     font-size: 12px;

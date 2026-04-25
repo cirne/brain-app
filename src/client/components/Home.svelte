@@ -190,17 +190,18 @@
     color: var(--text-2);
   }
 
-  .inbox-item:hover {
-    background: var(--bg-3);
-  }
-
   .inbox-item.unread {
     color: var(--text);
     background: color-mix(in srgb, var(--accent) 6%, transparent);
   }
 
-  .inbox-item.unread:hover {
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  @media (hover: hover) {
+    .inbox-item:hover {
+      background: var(--bg-3);
+    }
+    .inbox-item.unread:hover {
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+    }
   }
 
   .inbox-from {

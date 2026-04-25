@@ -31,6 +31,8 @@
   --sidebar-w: 240px;
   /** Chat history panel (left rail) */
   --sidebar-history-w: 260px;
+  /** Mobile: history drawer over content (see Assistant `.history-sidebar--slide`) */
+  --sidebar-history-mobile-w: 90vw;
   /** Chat-only (no detail pane): centered readable column — matches conversation + composer */
   --chat-column-max: 680px;
   /** `chat-transcript-scroll`: inset + space below L2 / transcript chrome (shared with main chat). */
@@ -160,6 +162,7 @@ svg.sync-spinning {
   --spacing-pane-x: var(--pane-header-px);
   --width-sidebar: var(--sidebar-w);
   --width-sidebar-history: var(--sidebar-history-w);
+  --width-sidebar-history-mobile: var(--sidebar-history-mobile-w);
   /* max-w-chat — v4 uses --max-width-* (not --max-w-*) */
   --max-width-chat: var(--chat-column-max);
 }

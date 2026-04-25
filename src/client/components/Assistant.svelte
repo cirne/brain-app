@@ -18,6 +18,7 @@
     type NavigateOptions,
   } from '@client/router.js'
   import { applyHubDetailNavigation } from '@client/lib/hubShellNavigate.js'
+  import { overlaySupportsMobileChatBridge } from '@client/lib/mobileDetailChatOverlay.js'
   import { runParallelSyncs } from '@client/lib/app/syncAllServices.js'
   import { matchGlobalShortcut } from '@client/lib/app/globalShortcuts.js'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
@@ -77,7 +78,6 @@
   /** Server session ids with an in-flight agent stream (sidebar “working” icon), including background chats. */
   let streamingSessionIds = $state<ReadonlySet<string>>(new Set())
 
-  const SIDEBAR_FLY_X = 280
   const SIDEBAR_TRANSITION_MS = 220
 
   /** Instant open/close when user prefers reduced motion. */
@@ -92,8 +92,12 @@
     { mobile, reduce }: { mobile: boolean; reduce: boolean }
   ) {
     if (mobile) {
+      const el = node as HTMLElement
+      const w =
+        el.offsetWidth ||
+        Math.round((typeof window !== 'undefined' ? window.innerWidth : 400) * 0.9)
       return fly(node, {
-        x: reduce ? 0 : -SIDEBAR_FLY_X,
+        x: reduce ? 0 : -w,
         duration: reduce ? 0 : SIDEBAR_TRANSITION_MS,
       })
     }
@@ -238,6 +242,15 @@
     wikiEditStreaming = null
   }
 
+  /**
+   * Mobile + doc/email thread: use chat shell (not /hub) so `AgentChat` is mounted
+   * with a composer below the slide-over.
+   */
+  function hubActiveForOpenOverlay(overlay: Overlay): boolean {
+    if (isMobile && overlaySupportsMobileChatBridge(overlay)) return false
+    return Boolean(route.hubActive || route.overlay?.type === 'hub')
+  }
+
   function closeOverlay() {
     if (!route.overlay) return
     const t = route.overlay.type
@@ -253,11 +266,20 @@
     closeOverlayImmediate()
   }
 
-  /** Slide-over layout: dismiss overlay after send so the transcript is visible. */
+  /**
+   * Slide-over layout: dismiss overlay after send so the transcript is visible.
+   * Always return to the main chat column (`/`) so the running agent and transcript are visible
+   * (not `/hub` with hub still active).
+   */
   function closeOverlayOnUserSend() {
     chatIsEmpty = false
     if (!useDesktopSplitDetail && route.overlay) {
-      closeOverlayImmediate()
+      navigate({ hubActive: false }, { replace: true })
+      route = parseRoute()
+      agentContext = { type: 'chat' }
+      inboxTargetId = undefined
+      wikiWriteStreaming = null
+      wikiEditStreaming = null
     }
   }
 
@@ -269,7 +291,7 @@
   function openWikiDoc(path?: string) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = wikiOverlayReplace()
-    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    const hubActive = hubActiveForOpenOverlay(overlay)
     navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
     route = parseRoute()
     if (path) {
@@ -285,7 +307,7 @@
   function onWikiNavigate(path: string | undefined) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = wikiOverlayReplace()
-    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    const hubActive = hubActiveForOpenOverlay(overlay)
     navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
     route = parseRoute()
   }
@@ -294,13 +316,13 @@
     const trimmed = dirPath?.trim()
     const overlay: Overlay = trimmed ? { type: 'wiki-dir', path: trimmed } : { type: 'wiki-dir' }
     const replace = wikiOverlayReplace()
-    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    const hubActive = hubActiveForOpenOverlay(overlay)
     navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
     route = parseRoute()
   }
 
   function openFileDoc(path: string) {
-    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    const hubActive = hubActiveForOpenOverlay({ type: 'file', path })
     navigate({ overlay: { type: 'file', path }, hubActive })
     route = parseRoute()
     void addToNavHistory({
@@ -313,7 +335,7 @@
 
   function onInboxNavigateSlide(id: string | undefined) {
     const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
-    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    const hubActive = hubActiveForOpenOverlay(overlay)
     navigate({ overlay, hubActive })
     route = parseRoute()
   }
@@ -345,7 +367,7 @@
 
   function openEmailFromSearch(id: string, subject: string, from: string) {
     inboxTargetId = id
-    const hubActive = route.hubActive || route.overlay?.type === 'hub'
+    const hubActive = hubActiveForOpenOverlay({ type: 'email', id })
     navigate({ overlay: { type: 'email', id }, hubActive })
     route = parseRoute()
     agentContext = { type: 'email', threadId: id, subject, from }
@@ -372,7 +394,8 @@
 
   /** Brain Hub rows → same detail stack as chat (`SlideOver` + `Overlay`). */
   function navigateFromHub(overlay: Overlay, opts?: NavigateOptions) {
-    applyHubDetailNavigation(route, overlay, opts)
+    const hubActive = !isMobile || !overlaySupportsMobileChatBridge(overlay)
+    applyHubDetailNavigation(route, overlay, opts, hubActive)
     route = parseRoute()
     if (overlay.type === 'wiki' && overlay.path) {
       void addToNavHistory({
@@ -664,6 +687,22 @@
           bind:this={agentChat}
           context={agentContext}
           conversationHidden={!!route.overlay && !useDesktopSplitDetail}
+          hideInput={
+            isMobile &&
+            !useDesktopSplitDetail &&
+            !!route.overlay &&
+            route.overlay.type !== 'hub' &&
+            route.overlay.type !== 'chat-history' &&
+            !overlaySupportsMobileChatBridge(route.overlay)
+          }
+          mobileSlideCoversTranscriptOnly={
+            isMobile &&
+            !useDesktopSplitDetail &&
+            !!route.overlay &&
+            route.overlay.type !== 'hub' &&
+            route.overlay.type !== 'chat-history' &&
+            overlaySupportsMobileChatBridge(route.overlay)
+          }
           hidePaneContextChip={!!route.overlay && useDesktopSplitDetail}
           suppressAgentDetailAutoOpen={!useDesktopSplitDetail}
           onOpenWiki={openWikiDoc}
@@ -854,7 +893,8 @@
       left: 0;
       top: var(--tab-h);
       bottom: 0;
-      width: min(var(--sidebar-history-w), 92vw);
+      width: var(--sidebar-history-mobile-w);
+      max-width: 100%;
       z-index: 200;
     }
   }

@@ -157,6 +157,13 @@
     min-width: var(--sidebar-history-w);
   }
 
+  @media (max-width: 767px) {
+    .nav-left--wide {
+      width: var(--sidebar-history-mobile-w);
+      min-width: var(--sidebar-history-mobile-w);
+    }
+  }
+
   .nav-left--collapsed {
     width: auto;
     min-width: 40px;
@@ -196,10 +203,6 @@
     color: var(--text-2);
     transition: color 0.15s, background 0.15s;
   }
-  .nav-sidebar-close:hover {
-    color: var(--text);
-    background: var(--bg-3);
-  }
 
   .menu-btn {
     display: flex;
@@ -218,9 +221,6 @@
   }
   .menu-btn .nav-brand-title {
     min-width: 0;
-  }
-  .menu-btn:hover {
-    color: var(--text);
   }
 
   .brand {
@@ -257,10 +257,6 @@
     color: var(--text-2);
     transition: color 0.15s, background 0.15s;
   }
-  .new-nav-btn:hover {
-    color: var(--text);
-    background: var(--bg-3);
-  }
   .search-wrap {
     display: flex;
     align-items: center;
@@ -276,7 +272,6 @@
     color: var(--text-2);
     transition: color 0.15s;
   }
-  .search-btn:hover { color: var(--text); }
 
   .sync-wrap {
     position: relative;
@@ -302,10 +297,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .nav-hosted-handle:hover {
-    color: var(--text);
-    background: var(--bg-3);
-  }
 
   .sync-error-badge {
     position: absolute;
@@ -324,7 +315,6 @@
     line-height: 1;
     cursor: pointer;
   }
-  .sync-error-badge:hover { background: #c0392b; }
 
   .sync-error-popup {
     position: absolute;
@@ -356,6 +346,30 @@
     font-family: monospace;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+
+  @media (hover: hover) {
+    .nav-sidebar-close:hover {
+      color: var(--text);
+      background: var(--bg-3);
+    }
+    .menu-btn:hover {
+      color: var(--text);
+    }
+    .new-nav-btn:hover {
+      color: var(--text);
+      background: var(--bg-3);
+    }
+    .search-btn:hover {
+      color: var(--text);
+    }
+    .nav-hosted-handle:hover {
+      color: var(--text);
+      background: var(--bg-3);
+    }
+    .sync-error-badge:hover {
+      background: #c0392b;
+    }
   }
 
 </style>

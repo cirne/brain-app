@@ -16,6 +16,8 @@
     onSend,
     onStop,
     onDraftChange,
+    /** Mobile doc slide-over dock: no gray bar behind the field; only the bordered input shows. */
+    transparentSurround = false,
   }: {
     placeholder?: string
     disabled?: boolean
@@ -27,6 +29,7 @@
     onStop?: () => void
     /** Fires whenever the draft string changes (typing, send clear, @mention, /skill, append). */
     onDraftChange?: (_draft: string) => void
+    transparentSurround?: boolean
   } = $props()
 
   let input = $state('')
@@ -207,7 +210,7 @@
   })
 </script>
 
-<div class="input-area">
+<div class="input-area" class:input-area--transparent={transparentSurround}>
   {#if showSlash}
     <div class="mention-dropdown slash-dropdown" role="listbox">
       {#each filteredSkills() as skill, i}
@@ -255,31 +258,35 @@
           {/each}
         </div>
       {/if}
-      <div class="input-shell-inner">
-        <textarea
-          class="chat-textarea"
-          bind:this={inputEl}
-          bind:value={input}
-          oninput={handleInput}
-          onkeydown={handleKeydown}
-          {placeholder}
-          rows="1"
-          {disabled}
-        ></textarea>
+      <div class="input-composer">
+        <div class="input-shell-inner">
+          <textarea
+            class="chat-textarea"
+            bind:this={inputEl}
+            bind:value={input}
+            oninput={handleInput}
+            onkeydown={handleKeydown}
+            {placeholder}
+            rows="1"
+            {disabled}
+          ></textarea>
+        </div>
         {#if streaming}
-          <button
-            type="button"
-            class="send-btn"
-            onclick={submit}
-            disabled={disabled || !input.trim()}
-            title="Queue message (sends when assistant finishes)"
-            aria-label="Queue message to send when assistant finishes"
-          >
-            <ArrowUp size={14} strokeWidth={2.25} aria-hidden="true" />
-          </button>
-          <button type="button" class="send-btn stop-btn" onclick={() => onStop?.()} aria-label="Stop">
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-          </button>
+          <div class="send-actions" role="group" aria-label="Queue or stop assistant">
+            <button
+              type="button"
+              class="send-btn"
+              onclick={submit}
+              disabled={disabled || !input.trim()}
+              title="Queue message (sends when assistant finishes)"
+              aria-label="Queue message to send when assistant finishes"
+            >
+              <ArrowUp size={20} strokeWidth={2.5} aria-hidden="true" />
+            </button>
+            <button type="button" class="send-btn stop-btn" onclick={() => onStop?.()} aria-label="Stop">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+            </button>
+          </div>
         {:else}
           <button
             type="button"
@@ -288,7 +295,7 @@
             disabled={disabled || !input.trim()}
             aria-label="Send message"
           >
-            <ArrowUp size={14} strokeWidth={2.25} aria-hidden="true" />
+            <ArrowUp size={20} strokeWidth={2.5} aria-hidden="true" />
           </button>
         {/if}
       </div>
@@ -302,6 +309,10 @@
     padding: 6px 12px;
     background: var(--bg-2);
     flex-shrink: 0;
+  }
+
+  .input-area--transparent {
+    background: transparent;
   }
 
   .mention-dropdown {
@@ -357,6 +368,7 @@
     gap: 6px;
     margin-bottom: 2px;
     min-width: 0;
+    padding: 3px 10px 0;
   }
 
   .queued-hint {
@@ -391,32 +403,45 @@
     flex: 1;
     min-width: 0;
     min-height: 42px;
-    padding: 3px 6px 3px 10px;
+    padding: 0;
     border: 1px solid var(--border);
     border-radius: 10px;
     background: var(--bg);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .input-shell:focus-within {
     border-color: var(--accent);
   }
 
+  .input-composer {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    flex: 1;
+    min-width: 0;
+    min-height: 40px;
+  }
+
   .input-shell-inner {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    flex: 1;
     min-width: 0;
+    padding: 3px 6px 3px 10px;
+    align-items: flex-start;
   }
 
   .chat-textarea {
     flex: 1;
+    width: 100%;
     min-width: 0;
     box-sizing: border-box;
     resize: none;
     border: none;
     border-radius: 0;
-    padding: 8px 4px 5px 2px;
+    padding: 8px 2px 5px 2px;
     font: inherit;
     font-size: 16px;
     line-height: 1.4;
@@ -434,15 +459,18 @@
     opacity: 0.6;
   }
 
+  /* Inner radius: shell 10px minus 1px border */
   .send-btn {
+    --send-btn-outer-r: 9px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    align-self: stretch;
+    min-width: 48px;
+    width: 48px;
     padding: 0;
     border: none;
-    border-radius: 50%;
+    border-radius: 0 var(--send-btn-outer-r) var(--send-btn-outer-r) 0;
     background: var(--accent);
     color: white;
     flex-shrink: 0;
@@ -452,6 +480,29 @@
   .send-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  .send-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    align-self: stretch;
+    flex-shrink: 0;
+  }
+
+  .send-actions .send-btn {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    border-radius: 0;
+  }
+
+  .send-actions .send-btn:first-child {
+    border-right: 1px solid rgba(255, 255, 255, 0.25);
+  }
+
+  .send-actions .send-btn:last-child {
+    border-radius: 0 var(--send-btn-outer-r) var(--send-btn-outer-r) 0;
   }
 
   .stop-btn {

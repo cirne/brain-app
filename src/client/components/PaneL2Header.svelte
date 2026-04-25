@@ -13,7 +13,7 @@
 </script>
 
 <header
-  class="grid h-pane-header min-h-pane-header max-h-pane-header shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 overflow-hidden border-b border-border bg-surface-2 [box-sizing:border-box] [padding-inline:var(--pane-header-px)]"
+  class="pane-l2-header grid h-pane-header min-h-pane-header max-h-pane-header shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 overflow-hidden border-b border-border bg-surface-2 [box-sizing:border-box] [padding-inline:var(--pane-header-px)]"
 >
   <div class="flex min-h-0 min-w-0 items-center justify-start gap-2">
     {#if left}{@render left()}{/if}

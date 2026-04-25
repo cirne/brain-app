@@ -328,9 +328,6 @@
     outline: 2px solid var(--accent);
     outline-offset: 1px;
   }
-  .chp-row:hover {
-    background: var(--bg-3);
-  }
   .chp-row.active {
     background: var(--accent-dim);
     outline: 1px solid var(--accent);
@@ -389,11 +386,25 @@
     opacity: 0;
     transition: opacity 0.12s, color 0.12s, background 0.12s;
   }
-  .chp-row:hover .chp-row-delete {
-    opacity: 1;
+
+  @media (hover: none) {
+    .chp-row-delete {
+      opacity: 1;
+    }
   }
-  .chp-row-delete:hover {
-    color: var(--danger);
-    background: rgba(224, 92, 92, 0.12);
+
+  @media (hover: hover) {
+    .chp-row:hover {
+      background: var(--bg-3);
+    }
+
+    .chp-row:hover .chp-row-delete {
+      opacity: 1;
+    }
+
+    .chp-row-delete:hover {
+      color: var(--danger);
+      background: rgba(224, 92, 92, 0.12);
+    }
   }
 </style>
