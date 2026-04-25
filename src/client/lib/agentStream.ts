@@ -4,6 +4,33 @@ import { isFilesystemAbsolutePath } from './fsPath.js'
 import { wikiPathForReadToolArg } from './cards/contentCards.js'
 import type { AgentOpenSource } from './navigateFromAgentOpen.js'
 import { emit } from './app/appEvents.js'
+import { playBrainTtsBlob } from './brainTtsAudio.js'
+
+function ttsMimeType(format: string | undefined): string {
+  switch (format) {
+    case 'mp3':
+      return 'audio/mpeg'
+    case 'opus':
+      return 'audio/ogg'
+    case 'aac':
+      return 'audio/aac'
+    case 'flac':
+      return 'audio/flac'
+    case 'wav':
+      return 'audio/wav'
+    case 'pcm':
+      return 'audio/pcm'
+    default:
+      return 'audio/mpeg'
+  }
+}
+
+function base64ToUint8Array(b64: string): Uint8Array {
+  const bin = atob(b64)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
+}
 
 /** Mirror server `applyToolArgsUpsert` so the chat UI can show tool rows while args stream (e.g. `write`). */
 function upsertStreamingToolPart(
@@ -89,6 +116,7 @@ export async function consumeAgentChatStream(
   const writePathByToolId = new Map<string, string>()
   const writeContentByToolId = new Map<string, string>()
   const toolArgsByToolId = new Map<string, Record<string, unknown>>()
+  const ttsBinaryPartsByToolId = new Map<string, Uint8Array[]>()
 
   const body = res.body
   if (!body) {
@@ -129,6 +157,39 @@ export async function consumeAgentChatStream(
         if (lastEvent === 'done') {
           sawDone = true
           continue
+        }
+
+        if (lastEvent === 'tts_chunk' || lastEvent === 'tts_done' || lastEvent === 'tts_error') {
+          const id = typeof data.id === 'string' ? data.id : ''
+          if (!id) continue
+          if (!isActiveSession()) {
+            ttsBinaryPartsByToolId.delete(id)
+            continue
+          }
+          if (lastEvent === 'tts_chunk') {
+            if (typeof data.b64 === 'string' && data.b64) {
+              const part = base64ToUint8Array(data.b64)
+              const ar = ttsBinaryPartsByToolId.get(id) ?? []
+              ar.push(part)
+              ttsBinaryPartsByToolId.set(id, ar)
+            }
+            continue
+          }
+          if (lastEvent === 'tts_error') {
+            ttsBinaryPartsByToolId.delete(id)
+            continue
+          }
+          if (lastEvent === 'tts_done') {
+            const parts = ttsBinaryPartsByToolId.get(id) ?? []
+            ttsBinaryPartsByToolId.delete(id)
+            const format = typeof data.format === 'string' ? data.format : 'mp3'
+            const blob = new Blob(parts as BlobPart[], { type: ttsMimeType(format) })
+            if (parts.length === 0 || blob.size === 0) {
+              continue
+            }
+            void playBrainTtsBlob(blob).catch(() => {})
+            continue
+          }
         }
 
         const msg = getMessages()[msgIdx]

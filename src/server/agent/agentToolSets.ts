@@ -33,6 +33,7 @@ export const ALL_AGENT_TOOL_NAMES = [
   'youtube_search',
   'set_chat_title',
   'open',
+  'speak',
   'remember_preference',
   'list_recent_messages',
   'get_message_thread',
@@ -50,7 +51,7 @@ export const TOOL_GROUPS = {
   calendar: ['calendar'] as const satisfies readonly AgentToolName[],
   web: ['web_search', 'fetch_page'] as const satisfies readonly AgentToolName[],
   youtube: ['get_youtube_transcript', 'youtube_search'] as const satisfies readonly AgentToolName[],
-  ui: ['set_chat_title', 'open'] as const satisfies readonly AgentToolName[],
+  ui: ['set_chat_title', 'open', 'speak'] as const satisfies readonly AgentToolName[],
   localMessages: ['list_recent_messages', 'get_message_thread'] as const satisfies readonly AgentToolName[],
 } as const
 
@@ -67,6 +68,7 @@ export const ONBOARDING_BASE_OMIT: readonly AgentToolName[] = [
   'calendar',
   'get_youtube_transcript',
   'open',
+  'speak',
   'list_recent_messages',
   'get_message_thread',
   'manage_sources',
@@ -107,6 +109,7 @@ export const WIKI_CLEANUP_OMIT: readonly AgentToolName[] = [
   'youtube_search',
   'open',
   'set_chat_title',
+  'speak',
   'remember_preference',
   'list_recent_messages',
   'get_message_thread',

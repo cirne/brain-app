@@ -30,6 +30,7 @@ describe('loadSession streaming guard', () => {
       sessionId: null,
       chatTitle: null,
       pendingQueuedMessages: [],
+      hearReplies: false,
       ...overrides,
     }
   }

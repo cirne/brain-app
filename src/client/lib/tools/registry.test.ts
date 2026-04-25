@@ -29,6 +29,7 @@ const ALL_AGENT_TOOL_NAMES = [
   'youtube_search',
   'set_chat_title',
   'open',
+  'speak',
   'remember_preference',
   'list_recent_messages',
   'get_message_thread',
@@ -50,5 +51,9 @@ describe('getToolDefinitionCore', () => {
 
   it('hides set_chat_title from transcript', () => {
     expect(getToolDefinitionCore('set_chat_title').chat.showInChat).toBe(false)
+  })
+
+  it('hides speak from transcript', () => {
+    expect(getToolDefinitionCore('speak').chat.showInChat).toBe(false)
   })
 })

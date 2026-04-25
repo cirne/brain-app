@@ -252,6 +252,29 @@ describe('buildChatBody', () => {
     expect('message' in body).toBe(false)
     expect(typeof body.timezone).toBe('string')
   })
+
+  it('sets hearReplies when true', () => {
+    const body = buildChatBody({
+      message: 'hi',
+      sessionId: 's-1',
+      context: noContext,
+      mentionedFiles: [],
+      isFirstMessage: false,
+      hearReplies: true,
+    })
+    expect(body.hearReplies).toBe(true)
+  })
+
+  it('omits hearReplies when false or undefined', () => {
+    const a = buildChatBody({
+      message: 'hi',
+      sessionId: null,
+      context: noContext,
+      mentionedFiles: [],
+      isFirstMessage: true,
+    })
+    expect('hearReplies' in a).toBe(false)
+  })
 })
 
 describe('contextPlaceholder', () => {

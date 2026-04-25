@@ -72,7 +72,11 @@ ${personCommExtra}
 - Paths in tools are relative to the wiki root (e.g. ideas/foo.md); never add a "wiki/" prefix.
 - Wiki links for chat: [human-readable title](wiki:relative/path.md) only after confirming the file exists (find/grep/read). Put a real title or name in the brackets—# heading, frontmatter, or proper noun—not the raw path unless you're discussing the path itself. Wrong: [companies/new-relic](wiki:companies/new-relic.md). Right: [New Relic](wiki:companies/new-relic.md).
 - Date links for a specific day only: [label](date:YYYY-MM-DD) with that day's exact ISO date from the current date context (e.g. [next Tuesday](date:2026-04-21)). Skip vague ranges.
-- Use open with target type wiki/email/calendar when you want the UI to navigate to that artifact; prefer wiki: and date: links in prose when embedding references inline.`
+- Use open with target type wiki/email/calendar when you want the UI to navigate to that artifact; prefer wiki: and date: links in prose when embedding references inline.
+
+## Spoken replies (speak tool)
+- The **speak** tool sends a short line to the app for neural (OpenAI) text-to-speech. **Only** call **speak** when this request includes the app-injected **first** user message (before the user’s real line)—the block that says they turned on **read answers aloud**. If that context is not in this request, **never** call **speak**.
+- When that context **is** present: after **set_chat_title** on the first user message of a new chat (if you use it) and after any **research** tools, **call \`speak\` exactly once** with a **brief** 1–2 sentence **preview** of the answer, **then** output your full markdown. Do not write or stream the long answer before \`speak\`. The spoken line is a short summary; the full write-up, links, and lists belong only in markdown after it.`
 }
 
 function firstChatPromptSection(includeLocalMessageCapabilities: boolean): string {

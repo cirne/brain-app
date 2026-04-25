@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import { consumeAgentChatStream } from './agentStream.js'
 import type { ChatMessage } from './agentUtils.js'
+import { playBrainTtsBlob } from './brainTtsAudio.js'
+
+vi.mock('./brainTtsAudio.js', () => ({
+  playBrainTtsBlob: vi.fn().mockResolvedValue(undefined),
+  primeBrainTtsFromUserGesture: vi.fn(),
+}))
 
 function sseResponse(chunks: string[]): Response {
   const enc = new TextEncoder()
@@ -244,5 +250,62 @@ describe('consumeAgentChatStream', () => {
     expect(onOpenFromAgent).toHaveBeenCalledTimes(2)
     expect(onOpenFromAgent).toHaveBeenNthCalledWith(1, { type: 'wiki', path: 'ideas/x.md' }, 'open')
     expect(onOpenFromAgent).toHaveBeenNthCalledWith(2, { type: 'email', id: 'thread-1' }, 'read_email')
+  })
+
+  it('invokes playBrainTtsBlob after tts_done when playTts is openai', async () => {
+    vi.mocked(playBrainTtsBlob).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const b64a = btoa(String.fromCharCode(255, 251, 144))
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"s1","name":"speak","result":"Hello","isError":false,"playTts":"openai"}\n\n',
+      'event: tts_chunk\n',
+      `data: {"id":"s1","b64":"${b64a}"}\n\n`,
+      'event: tts_done\n',
+      'data: {"id":"s1","format":"mp3"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(playBrainTtsBlob)).toHaveBeenCalled()
+    const arg = vi.mocked(playBrainTtsBlob).mock.calls[0]![0] as Blob
+    expect(arg).toBeInstanceOf(Blob)
+  })
+
+  it('completes without throwing on tts_error (no TTS play)', async () => {
+    vi.mocked(playBrainTtsBlob).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"s1","name":"speak","result":"Hello","isError":false,"playTts":"openai"}\n\n',
+      'event: tts_error\n',
+      'data: {"id":"s1","message":"api down"}\n\n',
+    ])
+    await expect(
+      consumeAgentChatStream(res, {
+        getMessages: () => messages,
+        msgIdx: 1,
+        suppressAgentDetailAutoOpen: false,
+        isActiveSession: () => true,
+        setSessionId: () => {},
+        setChatTitle: () => {},
+        touchMessages: () => {},
+        scrollToBottom: () => {},
+      }),
+    ).resolves.toEqual({ touchedWiki: false, sawDone: false })
+    expect(vi.mocked(playBrainTtsBlob)).not.toHaveBeenCalled()
   })
 })

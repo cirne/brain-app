@@ -85,6 +85,8 @@ export function buildChatBody(opts: {
   isFirstMessage: boolean
   /** Post-onboarding first turn: server opens with assistant (no user bubble). */
   firstChatKickoff?: boolean
+  /** When true, server may inject read-aloud context; assistant uses `speak` (OpenAI TTS on the server). */
+  hearReplies?: boolean
 }): Record<string, unknown> {
   const body: Record<string, unknown> = {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -95,6 +97,7 @@ export function buildChatBody(opts: {
     body.message = opts.message
   }
   if (opts.sessionId) body.sessionId = opts.sessionId
+  if (opts.hearReplies === true) body.hearReplies = true
 
   if (opts.isFirstMessage) {
     const parts: string[] = []

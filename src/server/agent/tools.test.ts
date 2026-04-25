@@ -73,6 +73,7 @@ describe('createAgentTools', () => {
     expect(names).toContain('youtube_search')
     expect(names).toContain('set_chat_title')
     expect(names).toContain('open')
+    expect(names).toContain('speak')
     expect(names).toContain('list_recent_messages')
     expect(names).toContain('get_message_thread')
   })
@@ -116,6 +117,18 @@ describe('createAgentTools', () => {
       const tool = tools.find((t) => t.name === 'set_chat_title')!
       const result = await tool.execute('t-1', { title: '  Planning a trip to Lisbon  ' })
       expect(toolResultFirstText(result)).toContain('Planning a trip to Lisbon')
+    })
+  })
+
+  describe('speak tool', () => {
+    it('returns trimmed text and caps length', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const tool = tools.find((t) => t.name === 'speak')!
+      const long = 'x'.repeat(600)
+      const result = await tool.execute('sp-1', { text: `  ${long}  ` })
+      const text = joinToolResultText(result)
+      expect(text.length).toBeLessThanOrEqual(480)
     })
   })
 

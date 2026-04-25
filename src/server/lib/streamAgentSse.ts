@@ -33,6 +33,11 @@ import {
   toolResultSseForNr,
 } from './newRelicHelper.js'
 import { truncateJsonResult } from './truncateJson.js'
+import {
+  isOpenAiTtsConfigured,
+  openAiTtsResponseFormat,
+  streamOpenAiTtsToBuffers,
+} from './openAiTts.js'
 
 export interface StreamAgentSseOptions {
   /** Wiki root for edit diffs and safeWikiRelativePath (may differ from main app wiki). */
@@ -359,6 +364,12 @@ export function streamAgentSseResponse(
               resultTruncated,
               resultSizeBucket,
             })
+            const speakForTts =
+              ev.toolName === 'speak' && !ev.isError
+                ? (resultText.trim() ? true : false)
+                : false
+            const playTts =
+              speakForTts && isOpenAiTtsConfigured() ? ('openai' as const) : undefined
             await stream.writeSSE({
               event: 'tool_end',
               data: JSON.stringify({
@@ -370,8 +381,40 @@ export function streamAgentSseResponse(
                 ...(toolArgs != null && typeof toolArgs === 'object'
                   ? { args: toolArgs }
                   : {}),
+                ...(playTts !== undefined ? { playTts } : {}),
               }),
             })
+            if (playTts === 'openai') {
+              try {
+                for await (const buf of streamOpenAiTtsToBuffers(resultText)) {
+                  await stream.writeSSE({
+                    event: 'tts_chunk',
+                    data: JSON.stringify({ id: ev.toolCallId, b64: buf.toString('base64') }),
+                  })
+                }
+                await stream.writeSSE({
+                  event: 'tts_done',
+                  data: JSON.stringify({
+                    id: ev.toolCallId,
+                    format: openAiTtsResponseFormat(),
+                  }),
+                })
+              } catch (e) {
+                const message = e instanceof Error ? e.message : String(e)
+                try {
+                  await stream.writeSSE({
+                    event: 'tts_error',
+                    data: JSON.stringify({
+                      id: ev.toolCallId,
+                      message: message.slice(0, 2000),
+                    }),
+                  })
+                } catch {
+                  /* ignore secondary SSE write failure */
+                }
+                console.error('[streamAgentSse] OpenAI TTS failed:', e)
+              }
+            }
             break
           }
           case 'agent_end': {

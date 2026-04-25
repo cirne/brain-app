@@ -9,6 +9,8 @@ export type SessionState = {
   chatTitle: string | null
   /** OPP-016: FIFO follow-ups queued while `streaming`; flushed one per turn when each stream ends. */
   pendingQueuedMessages: string[]
+  /** POST /api/chat `hearReplies` when the user turned on “Read answers aloud” (OpenAI TTS; requires OPENAI_API_KEY on the server). */
+  hearReplies: boolean
 }
 
 export function emptySession(): SessionState {
@@ -19,6 +21,7 @@ export function emptySession(): SessionState {
     sessionId: null,
     chatTitle: null,
     pendingQueuedMessages: [],
+    hearReplies: false,
   }
 }
 
@@ -65,6 +68,7 @@ export function migratePendingToServer(
       abortController: merged.abortController ?? existing.abortController,
       chatTitle: merged.chatTitle ?? existing.chatTitle,
       sessionId: serverId,
+      hearReplies: merged.hearReplies,
       pendingQueuedMessages: [
         ...(merged.pendingQueuedMessages ?? []),
         ...(existing.pendingQueuedMessages ?? []),

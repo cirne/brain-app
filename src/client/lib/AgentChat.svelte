@@ -5,6 +5,8 @@
   import { buildChatBody, extractMentionedFiles, type ChatMessage, type SkillMenuItem } from './agentUtils.js'
   import { contextPlaceholder } from './agentUtils.js'
   import { emit } from './app/appEvents.js'
+  import { ensureBrainTtsAutoplayInUserGesture } from './brainTtsAudio.js'
+  import { readHearRepliesPreference, writeHearRepliesPreference } from './hearRepliesPreference.js'
   import { registerWikiFileListRefetch } from './wikiFileListRefetch.js'
 
   function notifyChatSessionsChanged() {
@@ -22,7 +24,7 @@
     type SessionState,
   } from './chatSessionStore.js'
   import { shiftQueuedFollowUp } from './agentFollowUpQueue.js'
-  import { Trash2 } from 'lucide-svelte'
+  import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import AgentInput from './AgentInput.svelte'
   import WikiFileName from './WikiFileName.svelte'
@@ -145,6 +147,7 @@
   const initial = loadState()
 
   function initialSessionsAndDisplay(): { sessions: Map<string, SessionState>; displayed: string } {
+    const defaultHearReplies = readHearRepliesPreference()
     const map = new Map<string, SessionState>()
     if (initial.sessionId && initial.messages.length > 0) {
       map.set(initial.sessionId, {
@@ -154,6 +157,7 @@
         sessionId: initial.sessionId,
         chatTitle: initial.chatTitle ?? null,
         pendingQueuedMessages: [],
+        hearReplies: defaultHearReplies,
       })
       return { sessions: map, displayed: initial.sessionId }
     }
@@ -166,11 +170,12 @@
         sessionId: null,
         chatTitle: initial.chatTitle ?? null,
         pendingQueuedMessages: [],
+        hearReplies: defaultHearReplies,
       })
       return { sessions: map, displayed: pk }
     }
     const pk = createPendingSessionKey()
-    map.set(pk, emptySession())
+    map.set(pk, { ...emptySession(), hearReplies: defaultHearReplies })
     return { sessions: map, displayed: pk }
   }
 
@@ -225,11 +230,6 @@
     inputEl?.focus()
   }
 
-  $effect(() => {
-    // No-op: localStorage persistence disabled to avoid origin-mismatch issues over tunnels.
-    // Server-side persistence is the source of truth.
-  })
-
   async function fetchSkills() {
     try {
       const res = await fetch('/api/skills')
@@ -281,7 +281,10 @@
 
   export function newChat(options?: { skipOverlayClose?: boolean }) {
     const pk = createPendingSessionKey()
-    sessions = setSessionImmutable(sessions, pk, emptySession())
+    sessions = setSessionImmutable(sessions, pk, {
+      ...emptySession(),
+      hearReplies: readHearRepliesPreference(),
+    })
     displayedSessionId = pk
     if (!options?.skipOverlayClose) onNewChat?.()
     void focusAgentTextarea(0)
@@ -330,6 +333,7 @@
           sessionId: null,
           chatTitle: null,
           pendingQueuedMessages: [],
+          hearReplies: readHearRepliesPreference(),
         })
         displayedSessionId = loadId
         await tick()
@@ -351,6 +355,7 @@
         sessionId: sid,
         chatTitle: doc.title ?? null,
         pendingQueuedMessages: [],
+        hearReplies: readHearRepliesPreference(),
       })
       displayedSessionId = sid
       await tick()
@@ -366,6 +371,7 @@
         sessionId: null,
         chatTitle: null,
         pendingQueuedMessages: [],
+        hearReplies: readHearRepliesPreference(),
       })
       displayedSessionId = pk
       await tick()
@@ -408,6 +414,10 @@
       : [...st.messages, { role: 'user' as const, content: text }, { role: 'assistant' as const, content: '', parts: [] }]
     const msgIdx = nextMessages.length - 1
 
+    if (st.hearReplies === true) {
+      await ensureBrainTtsAutoplayInUserGesture()
+    }
+
     const ac = new AbortController()
     sessions = touchSessionImmutable(sessions, id, {
       messages: nextMessages,
@@ -425,6 +435,7 @@
       mentionedFiles,
       isFirstMessage,
       firstChatKickoff,
+      hearReplies: st.hearReplies === true,
     })
 
     if (!firstChatKickoff) onUserSendMessage?.()
@@ -564,6 +575,18 @@
     return headerFallbackTitle
   }
 
+  function toggleHearRepliesFromHeader() {
+    const id = displayedSessionId
+    if (!id) return
+    const cur = sessions.get(id)?.hearReplies ?? false
+    if (cur === false) {
+      void ensureBrainTtsAutoplayInUserGesture()
+    }
+    const next = !cur
+    writeHearRepliesPreference(next)
+    sessions = touchSessionImmutable(sessions, id, { hearReplies: next })
+  }
+
   function requestDeleteCurrentChat() {
     if (messages.length === 0) return
     pendingDelete = {
@@ -623,7 +646,23 @@
           </div>
         {/snippet}
         {#snippet right()}
+          {@const hearRepliesOn = sessions.get(displayedSessionId)?.hearReplies === true}
           <div class="pane-header-actions">
+            <button
+              type="button"
+              class="hear-replies-header-btn"
+              class:hear-replies-header-btn--on={hearRepliesOn}
+              aria-pressed={hearRepliesOn}
+              title="Read answers aloud"
+              aria-label={hearRepliesOn ? 'Read answers aloud on' : 'Read answers aloud off'}
+              onclick={toggleHearRepliesFromHeader}
+            >
+              {#if hearRepliesOn}
+                <Volume2 size={16} strokeWidth={2} aria-hidden="true" />
+              {:else}
+                <VolumeX size={16} strokeWidth={2} aria-hidden="true" />
+              {/if}
+            </button>
             {#if messages.length > 0}
               <button
                 type="button"
@@ -632,7 +671,7 @@
                 title="Delete chat"
                 aria-label="Delete chat"
               >
-                <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
+                <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
               </button>
             {/if}
           </div>
@@ -658,6 +697,13 @@
         {onOpenMessageThread}
         {onSwitchToCalendar}
         {onOpenWikiAbout}
+        hearReplies={sessions.get(displayedSessionId)?.hearReplies ?? false}
+        onHearRepliesChange={(v) => {
+          const id = displayedSessionId
+          if (!id) return
+          writeHearRepliesPreference(v)
+          sessions = touchSessionImmutable(sessions, id, { hearReplies: v })
+        }}
         streamingWrite={streamingWritePreview}
         {multiTenant}
       />
@@ -820,6 +866,31 @@
     margin-inline-end: 4px;
   }
 
+  .hear-replies-header-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    color: var(--text-2);
+    opacity: 1;
+    transition: color 0.15s, background 0.15s;
+  }
+  .hear-replies-header-btn :global(svg) {
+    flex-shrink: 0;
+  }
+  .hear-replies-header-btn:hover {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+  .hear-replies-header-btn--on {
+    color: var(--accent);
+  }
+  .hear-replies-header-btn--on:hover {
+    color: var(--accent);
+  }
+
   .delete-chat-btn {
     display: inline-flex;
     align-items: center;
@@ -828,16 +899,33 @@
     border-radius: 4px;
     flex-shrink: 0;
     color: var(--text-2);
-    opacity: 0.55;
-    transition: color 0.15s, background 0.15s, opacity 0.15s;
+    opacity: 1;
+    transition: color 0.15s, background 0.15s;
   }
   .delete-chat-btn :global(svg) {
     flex-shrink: 0;
   }
   .delete-chat-btn:hover {
     color: var(--text);
-    opacity: 1;
     background: var(--bg-3);
+  }
+
+  /* Tap-friendly targets (iOS 44pt minimum); default compact on desktop. */
+  @media (max-width: 767px) {
+    .pane-header-actions {
+      gap: 6px;
+    }
+    .hear-replies-header-btn,
+    .delete-chat-btn {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0;
+    }
+    .hear-replies-header-btn :global(svg),
+    .delete-chat-btn :global(svg) {
+      width: 20px;
+      height: 20px;
+    }
   }
 
   .mid {

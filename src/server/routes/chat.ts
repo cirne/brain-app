@@ -21,6 +21,7 @@ import {
   parseLeadingSlashCommand,
   readSkillMarkdown,
 } from '../lib/slashSkill.js'
+import { buildHearRepliesPromptMessages } from '../lib/hearRepliesPrompt.js'
 
 /**
  * Invisible user turn for the model when the client opens first chat after onboarding (no user bubble).
@@ -66,11 +67,12 @@ chat.get('/sessions/:sessionId', async (c) => {
 })
 
 // POST /api/chat
-// Body: { message: string, sessionId?: string, context?: ... , firstChatKickoff?: boolean }
+// Body: { message, sessionId?, context?, firstChatKickoff?, hearReplies? }
 // Response: SSE stream of agent events
 chat.post('/', async (c) => {
   const body = await c.req.json()
   const firstChatKickoff = body.firstChatKickoff === true
+  const hearReplies = body.hearReplies === true
   const { sessionId = crypto.randomUUID(), context, timezone } = body
   const rawMessage = body.message
 
@@ -162,7 +164,10 @@ chat.post('/', async (c) => {
       selection: selectionForSkill,
       openFile: openFileForSkill,
     })
-    const promptMessages = buildSkillPromptMessages(slash.slug, skillBody, slash.args)
+    const skillMessages = buildSkillPromptMessages(slash.slug, skillBody, slash.args)
+    const promptMessages = hearReplies
+      ? [...buildHearRepliesPromptMessages(message), ...skillMessages]
+      : skillMessages
 
     let initialSessionTitle: string | undefined
     try {
@@ -181,12 +186,12 @@ chat.post('/', async (c) => {
 
     const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone, firstChat })
 
-    return streamAgentSseResponse(c, agent, message, {
+    return streamAgentSseResponse(c, agent, rawMessage ?? message, {
       wikiDirForDiffs: wikiDir(),
       announceSessionId: sessionId,
       agentKind: 'chat_skill',
       promptMessages,
-      userMessageForPersistence: message,
+      userMessageForPersistence: firstChatKickoff ? undefined : (rawMessage as string),
       omitUserMessageFromPersistence: firstChatKickoff,
       onTurnComplete: persist,
       onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
@@ -196,10 +201,14 @@ chat.post('/', async (c) => {
 
   const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone, firstChat })
 
-  return streamAgentSseResponse(c, agent, message, {
+  const mainPromptMessages = hearReplies ? buildHearRepliesPromptMessages(message) : undefined
+
+  return streamAgentSseResponse(c, agent, rawMessage ?? message, {
     wikiDirForDiffs: wikiDir(),
     announceSessionId: sessionId,
     agentKind: 'chat',
+    promptMessages: mainPromptMessages,
+    userMessageForPersistence: firstChatKickoff ? undefined : (rawMessage as string),
     omitUserMessageFromPersistence: firstChatKickoff,
     onTurnComplete: persist,
     onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),

@@ -1444,6 +1444,28 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
+  const SPEAK_MAX_CHARS = 480
+
+  const speakTool = defineTool({
+    name: 'speak',
+    label: 'Read aloud',
+    description:
+      'Short line for the app to synthesize (OpenAI TTS). When the first user message is the Braintunnel read-aloud block: after research tools as needed, call this **once** **before** your main markdown, with 1–2 **short** plain sentences that **summarize the gist**—not a readout of the full answer. ' +
+      'Do not skip because you used many tools. ' +
+      'The text field must be plain only: no markdown, links, or code. ' +
+      'If that app context is absent this turn, do not call this tool.',
+    parameters: Type.Object({
+      text: Type.String({ description: 'Brief plain-text recap for listening' }),
+    }),
+    async execute(_toolCallId: string, params: { text: string }) {
+      const text = params.text.trim().slice(0, SPEAK_MAX_CHARS)
+      return {
+        content: [{ type: 'text' as const, text: text.length > 0 ? text : '…' }],
+        details: { text },
+      }
+    },
+  })
+
   const productFeedback = defineTool({
     name: 'product_feedback',
     label: 'Product feedback (draft / submit)',
@@ -1840,6 +1862,7 @@ Returns the saved text; treat it as active for this session too.`,
     youtubeSearch,
     setChatTitle,
     openTool,
+    speakTool,
     productFeedback,
     rememberPreference,
     ...(includeLocalMessages ? [listRecentMessagesTool, getMessageThreadTool] : []),
