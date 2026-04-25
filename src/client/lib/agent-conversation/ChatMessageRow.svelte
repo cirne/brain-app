@@ -1,29 +1,49 @@
 <script lang="ts">
-  import { getToolUiPolicy, type ChatMessage } from '../agentUtils.js'
+  import { assistantHasVisibleTextPart, getToolUiPolicy, type ChatMessage } from '../agentUtils.js'
   import StreamingAgentMarkdown from './StreamingAgentMarkdown.svelte'
+  import StreamingBusyDots from './StreamingBusyDots.svelte'
   import ToolCallBlock from './ToolCallBlock.svelte'
 
   let {
     msg,
     streaming,
     isLastMessage,
+    isLastAssistantInThread,
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
+    onSubmitQuickReply,
   }: {
     msg: ChatMessage
     streaming: boolean
     isLastMessage: boolean
+    /** True when this row is the most recent assistant message in the session transcript. */
+    isLastAssistantInThread: boolean
     onOpenWiki?: (_path: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
+    onSubmitQuickReply?: (_text: string) => void
   } = $props()
+
+  const choiceChipsEnabled = $derived(
+    Boolean(
+      onSubmitQuickReply &&
+        msg.role === 'assistant' &&
+        isLastAssistantInThread &&
+        !streaming,
+    ),
+  )
+
+  /** Shown from stream start until the first `text_delta` (reasoning + tool-only turns stay visible). */
+  const showPreTextThinking = $derived(
+    msg.role === 'assistant' && streaming && isLastMessage && !assistantHasVisibleTextPart(msg),
+  )
 </script>
 
 <div class="message {msg.role}">
@@ -43,14 +63,18 @@
           {onOpenFullInbox}
           {onSwitchToCalendar}
           {onOpenMessageThread}
+          onChoiceSubmit={onSubmitQuickReply}
+          {choiceChipsEnabled}
         />
       {:else if part.type === 'text' && part.content}
         <StreamingAgentMarkdown class="msg-content" content={part.content} />
       {/if}
     {/each}
 
-    {#if streaming && isLastMessage && !msg.parts?.length}
-      <div class="msg-content"><span class="cursor">|</span></div>
+    {#if showPreTextThinking}
+      <div class="msg-content thinking-block" role="status" aria-label="Assistant is working">
+        <StreamingBusyDots />
+      </div>
     {/if}
   {/if}
 </div>
@@ -92,17 +116,10 @@
     }
   }
 
-  .cursor {
-    animation: blink 1s infinite;
-    color: var(--accent);
-  }
-  @keyframes blink {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0;
-    }
+  .thinking-block {
+    display: flex;
+    align-items: center;
+    color: var(--text-2);
+    min-height: 1.1em;
   }
 </style>

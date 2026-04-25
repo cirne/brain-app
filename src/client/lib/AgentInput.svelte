@@ -15,6 +15,7 @@
     skills = [] as SkillMenuItem[],
     onSend,
     onStop,
+    onDraftChange,
   }: {
     placeholder?: string
     disabled?: boolean
@@ -24,6 +25,8 @@
     skills?: SkillMenuItem[]
     onSend: (_text: string) => void
     onStop?: () => void
+    /** Fires whenever the draft string changes (typing, send clear, @mention, /skill, append). */
+    onDraftChange?: (_draft: string) => void
   } = $props()
 
   let input = $state('')
@@ -47,12 +50,15 @@
     if (!slashFilter) return skills.slice(0, 10)
     const q = slashFilter.toLowerCase()
     const matches = skills.filter(
-      s => s.name.toLowerCase().includes(q) || s.label.toLowerCase().includes(q),
+      s =>
+        s.slug.toLowerCase().includes(q) ||
+        s.name.toLowerCase().includes(q) ||
+        s.label.toLowerCase().includes(q),
     )
     matches.sort((a, b) => {
-      const aPrefix = a.name.toLowerCase().startsWith(q) ? 0 : 1
-      const bPrefix = b.name.toLowerCase().startsWith(q) ? 0 : 1
-      return aPrefix - bPrefix || a.name.localeCompare(b.name)
+      const aPrefix = a.slug.toLowerCase().startsWith(q) ? 0 : 1
+      const bPrefix = b.slug.toLowerCase().startsWith(q) ? 0 : 1
+      return aPrefix - bPrefix || a.slug.localeCompare(b.slug)
     })
     return matches.slice(0, 10)
   }
@@ -194,6 +200,11 @@
       inputEl?.focus({ preventScroll: true })
     })
   })
+
+  $effect(() => {
+    const cb = onDraftChange
+    if (cb) cb(input)
+  })
 </script>
 
 <div class="input-area">
@@ -204,9 +215,9 @@
           type="button"
           class="mention-item slash-item"
           class:selected={i === selectedSlash}
-          onmousedown={(e) => { e.preventDefault(); insertSlash(skill.name) }}
+          onmousedown={(e) => { e.preventDefault(); insertSlash(skill.slug) }}
         >
-          <span class="slash-slash">/{skill.name}</span>
+          <span class="slash-slash">/{skill.slug}</span>
           <span class="slash-label">{skill.label}</span>
         </button>
       {:else}

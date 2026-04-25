@@ -416,6 +416,11 @@ Re-run with: ripmail rules reset-defaults --yes",
         RulesCmd::Add {
             action,
             query,
+            from,
+            to,
+            subject,
+            category,
+            from_or_to_union,
             insert_before,
             description,
             preview_window,
@@ -423,10 +428,16 @@ Re-run with: ripmail rules reset-defaults --yes",
             message_only,
         } => {
             let thread_scope = !message_only;
+            let q = query.as_deref().unwrap_or("");
             let rule = add_search_rule(
                 &home,
                 &action,
-                &query,
+                q,
+                from.as_deref(),
+                to.as_deref(),
+                subject.as_deref(),
+                category.as_deref(),
+                from_or_to_union,
                 description,
                 insert_before.as_deref(),
                 mb_id.as_deref(),
@@ -456,6 +467,11 @@ Re-run with: ripmail rules reset-defaults --yes",
             id,
             action,
             query,
+            from,
+            to,
+            subject,
+            category,
+            from_or_to_union,
             set_message_only,
             set_whole_thread,
             preview_window,
@@ -468,9 +484,14 @@ Re-run with: ripmail rules reset-defaults --yes",
             } else {
                 None
             };
-            if action.is_none() && query.is_none() && thread_scope.is_none() {
+            let has_structured = from.is_some()
+                || to.is_some()
+                || subject.is_some()
+                || category.is_some()
+                || from_or_to_union.is_some();
+            if action.is_none() && query.is_none() && thread_scope.is_none() && !has_structured {
                 return Err(RulesError::InvalidRules(
-                    "pass at least one of --action, --query, --message-only, or --whole-thread"
+                    "pass at least one of --action, --query, --from, --to, --subject, --category, --from-or-to-union, --message-only, or --whole-thread"
                         .into(),
                 )
                 .into());
@@ -480,6 +501,11 @@ Re-run with: ripmail rules reset-defaults --yes",
                 &id,
                 action.as_deref(),
                 query.as_deref(),
+                from.as_deref(),
+                to.as_deref(),
+                subject.as_deref(),
+                category.as_deref(),
+                from_or_to_union,
                 thread_scope,
                 mb_id.as_deref(),
             )?

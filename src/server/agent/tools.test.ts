@@ -74,6 +74,8 @@ describe('createAgentTools', () => {
     expect(names).toContain('set_chat_title')
     expect(names).toContain('open')
     expect(names).toContain('speak')
+    expect(names).toContain('load_skill')
+    expect(names).toContain('suggest_reply_options')
     expect(names).toContain('list_recent_messages')
     expect(names).toContain('get_message_thread')
   })
@@ -117,6 +119,123 @@ describe('createAgentTools', () => {
       const tool = tools.find((t) => t.name === 'set_chat_title')!
       const result = await tool.execute('t-1', { title: '  Planning a trip to Lisbon  ' })
       expect(toolResultFirstText(result)).toContain('Planning a trip to Lisbon')
+    })
+  })
+
+  describe('suggest_reply_options tool', () => {
+    it('returns ok and normalized choices in details', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+      const tool = tools.find((t) => t.name === 'suggest_reply_options')!
+      const result = await tool.execute('sro-1', {
+        choices: [
+          { label: '  Archive  ', submit: ' Archive thread abc ' },
+          { label: 'Skip', submit: 'Skip this one', id: ' skip ' },
+        ],
+      })
+      expect('details' in result && result.details && typeof result.details === 'object').toBe(true)
+      const d = result.details as { choices: { label: string; submit: string; id?: string }[] }
+      expect(d.choices).toEqual([
+        { label: 'Archive', submit: 'Archive thread abc' },
+        { label: 'Skip', submit: 'Skip this one', id: 'skip' },
+      ])
+      expect(toolResultFirstText(result)).toMatch(/Quick reply options/)
+    })
+
+    it('rejects duplicate labels (case-insensitive)', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+      const tool = tools.find((t) => t.name === 'suggest_reply_options')!
+      const result = await tool.execute('sro-2', {
+        choices: [
+          { label: 'Yes', submit: 'a' },
+          { label: 'yes', submit: 'b' },
+        ],
+      })
+      expect(toolResultFirstText(result)).toMatch(/Duplicate labels/)
+    })
+
+    it('rejects overlong label', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+      const tool = tools.find((t) => t.name === 'suggest_reply_options')!
+      const result = await tool.execute('sro-3', {
+        choices: [{ label: 'x'.repeat(61), submit: 'ok' }],
+      })
+      expect(toolResultFirstText(result)).toMatch(/label exceeds/)
+    })
+
+    it('rejects overlong submit', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+      const tool = tools.find((t) => t.name === 'suggest_reply_options')!
+      const result = await tool.execute('sro-4', {
+        choices: [{ label: 'Ok', submit: 'x'.repeat(1001) }],
+      })
+      expect(toolResultFirstText(result)).toMatch(/submit exceeds/)
+    })
+  })
+
+  describe('load_skill tool', () => {
+    it('returns skill body for valid slug', async () => {
+      const skillsRoot = join(brainHome, 'skills', 'myskill')
+      await mkdir(skillsRoot, { recursive: true })
+      await writeFile(
+        join(skillsRoot, 'SKILL.md'),
+        `---
+name: My Skill
+---
+Hello {{selection}}`,
+        'utf-8',
+      )
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t) => t.name === 'load_skill')!
+      const result = await tool.execute('t-ls-1', { slug: 'myskill' })
+      const text = toolResultFirstText(result)
+      expect(text).toContain('My Skill')
+      expect(text).toContain('Hello')
+      expect(text).not.toContain('{{selection}}')
+    })
+
+    it('rejects invalid slug characters', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t) => t.name === 'load_skill')!
+      const result = await tool.execute('t-ls-2', { slug: 'bad/slug' })
+      expect(toolResultFirstText(result)).toMatch(/Invalid skill slug/)
+    })
+
+    it('rejects path traversal in slug', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t) => t.name === 'load_skill')!
+      const result = await tool.execute('t-ls-3', { slug: '..' })
+      expect(toolResultFirstText(result)).toMatch(/Invalid skill slug/)
+    })
+
+    it('applies placeholders from skill request context', async () => {
+      const skillsRoot = join(brainHome, 'skills', 'ph')
+      await mkdir(skillsRoot, { recursive: true })
+      await writeFile(
+        join(skillsRoot, 'SKILL.md'),
+        `---
+name: ph
+---
+Sel: {{selection}} File: {{open_file}}`,
+        'utf-8',
+      )
+      const { createAgentTools } = await import('./tools.js')
+      const { runWithSkillRequestContext } = await import('../lib/skillRequestContext.js')
+      const tools = createAgentTools(wikiDir)
+      const tool = tools.find((t) => t.name === 'load_skill')!
+      const result = await runWithSkillRequestContext(
+        { selection: 'hello', openFile: 'ideas/x.md' },
+        () => tool.execute('t-ls-4', { slug: 'ph' }),
+      )
+      const text = toolResultFirstText(result)
+      expect(text).toContain('hello')
+      expect(text).toContain('ideas/x.md')
     })
   })
 
@@ -864,18 +983,31 @@ describe('buildInboxRulesCommand', () => {
     expect(buildInboxRulesCommand({ op: 'validate', sample: true })).toBe('rules validate --sample')
   })
 
-  it('builds add with optional flags and source', () => {
+  it('builds add with structured from, optional flags and source', () => {
     expect(
       buildInboxRulesCommand({
         op: 'add',
         rule_action: 'ignore',
-        query: 'from:spam@x.com',
+        from: 'spam@x.com',
+        query: 'digest|unsubscribe',
         insert_before: 'def-otp',
         source: 'u@mail.com',
       })
     ).toBe(
-      'rules add --action ignore --query "from:spam@x.com" --insert-before "def-otp" --source "u@mail.com"'
+      'rules add --action ignore --query "digest|unsubscribe" --from "spam@x.com" --insert-before "def-otp" --source "u@mail.com"'
     )
+  })
+
+  it('builds add with from only and from-or-to-union', () => {
+    expect(
+      buildInboxRulesCommand({
+        op: 'add',
+        rule_action: 'ignore',
+        from: 'a@x.com',
+        to: 'b@y.com',
+        from_or_to_union: true,
+      })
+    ).toBe('rules add --action ignore --from "a@x.com" --to "b@y.com" --from-or-to-union')
   })
 
   it('builds add with message-only thread scope', () => {
@@ -897,6 +1029,17 @@ describe('buildInboxRulesCommand', () => {
         apply_to_thread: true,
       })
     ).toBe('rules edit "r1" --whole-thread')
+  })
+
+  it('builds edit with structured field and from_or_to_union', () => {
+    expect(
+      buildInboxRulesCommand({
+        op: 'edit',
+        rule_id: 'r1',
+        subject: 'invoice',
+        from_or_to_union: false,
+      })
+    ).toBe('rules edit "r1" --subject "invoice" --from-or-to-union false')
   })
 
   it('builds move with before', () => {
@@ -923,6 +1066,12 @@ describe('buildInboxRulesCommand', () => {
       buildInboxRulesCommand({ op: 'move', rule_id: 'x', before_rule_id: 'a', after_rule_id: 'b' })
     ).toThrow('exactly one')
     expect(() => buildInboxRulesCommand({ op: 'move', rule_id: 'x' })).toThrow('exactly one')
+  })
+
+  it('throws when add has no query and no structured filters', () => {
+    expect(() =>
+      buildInboxRulesCommand({ op: 'add', rule_action: 'ignore' }),
+    ).toThrow('op=add requires')
   })
 })
 

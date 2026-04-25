@@ -6,6 +6,8 @@ import { bundledUserSkillsDir } from './bundledUserSkillsDir.js'
 import { skillsDir } from './wikiDir.js'
 
 export interface SkillListItem {
+  /** Directory name / slash id (e.g. `calendar`); use with `load_skill` and `/<slug>`. */
+  slug: string
   name: string
   label: string
   description: string
@@ -90,6 +92,7 @@ export async function listSkills(): Promise<SkillListItem[]> {
     const raw = await readFile(path, 'utf-8')
     const item = skillListItemFromMatter(raw, slug)
     out.push({
+      slug,
       name: item.name,
       label: item.label,
       description: item.description,
@@ -100,4 +103,27 @@ export async function listSkills(): Promise<SkillListItem[]> {
 
   out.sort((a, b) => a.name.localeCompare(b.name))
   return out
+}
+
+const SKILL_LIB_DESCRIPTION_MAX = 200
+
+/**
+ * Markdown block for the main chat agent system prompt: compact index of installed skills.
+ * Empty string when there are no skills.
+ */
+export async function formatSkillLibrarySection(): Promise<string> {
+  const items = await listSkills()
+  if (items.length === 0) return ''
+  const bullets = items
+    .map(
+      s =>
+        `- **${s.slug}** (${s.name}): ${firstSentence(s.description, SKILL_LIB_DESCRIPTION_MAX)}`,
+    )
+    .join('\n')
+  return `## Available specialized skills
+
+When the user's task clearly matches one of these areas, call **load_skill** with the corresponding \`slug\` (after **set_chat_title** on the first user message of a new topic when you use it) before relying on domain-specific tools or deep workflows. If the full skill text is already in this conversation, do not load it again.
+
+${bullets}
+`
 }

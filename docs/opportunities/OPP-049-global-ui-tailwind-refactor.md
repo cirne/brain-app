@@ -22,8 +22,8 @@
 2. **Prune ad hoc CSS** — Reduce or **eliminate** one-off `<style>` / module CSS in favor of Tailwind, **except** where a **global stylesheet** (or a tightly scoped file) is clearly warranted: resets, `font-face`, print, focus-ring policy, third-party widget overrides, or a few high-leverage **design tokens** that cannot be expressed cleanly as utilities.
 3. **One coherent visual system** — Align spacing, type scale, border radii, and neutrals. Replace “random” grays and sizes with the **same** scale across chat, wiki, hub, and inbox.
 4. **Increase reuse** — Extract repeated patterns into:
-   - shared Tailwind class clusters (Svelte `class` composition or tiny presentational subcomponents);
-   - shared layout primitives (lists, cards, form rows) where the same structure appears in multiple places.
+  - shared Tailwind class clusters (Svelte `class` composition or tiny presentational subcomponents);
+  - shared layout primitives (lists, cards, form rows) where the same structure appears in multiple places.
 5. **Validate thoroughly** — **Automated tests** (existing Vitest / component tests) plus a **human pass** (primary flows, responsive widths, key modals). Add or extend tests when refactor touches behavior (focus traps, a11y labels, layout regressions that can be asserted).
 
 ## Non-goals (for this OPP)
@@ -42,10 +42,10 @@
 
 ## Success criteria
 
-- [ ] Conventions are documented in a **short** note (where to put global CSS vs Tailwind; when to add a subcomponent).
-- [ ] **Net reduction** in bespoke CSS (lines and file count), with a **small, justified** global stylesheet.
-- [ ] **No major visual regressions** in core flows; known intentional tweaks listed in the PR.
-- [ ] **Tests** cover touched behavior; CI stays green.
+- Conventions are documented in a **short** note (where to put global CSS vs Tailwind; when to add a subcomponent).
+- **Net reduction** in bespoke CSS (lines and file count), with a **small, justified** global stylesheet.
+- **No major visual regressions** in core flows; known intentional tweaks listed in the PR.
+- **Tests** cover touched behavior; CI stays green.
 
 ## Related
 

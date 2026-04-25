@@ -18,6 +18,7 @@ import {
   Play,
   PanelRightOpen,
   MessageSquare,
+  ListChecks,
 } from 'lucide-svelte'
 import type { Component } from 'svelte'
 
@@ -54,4 +55,5 @@ export const TOOL_ICONS = {
   list_inbox: BookOpen,
   inbox_rules: BookOpen,
   archive_emails: Mail,
+  suggest_reply_options: ListChecks,
 } as unknown as Record<string, Component>

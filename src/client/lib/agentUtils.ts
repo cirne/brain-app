@@ -33,8 +33,18 @@ export type ChatMessage = {
   usage?: LlmUsageSnapshot
 }
 
+/** True when a text part with non-empty trimmed content exists (first reply token has arrived). */
+export function assistantHasVisibleTextPart(msg: ChatMessage): boolean {
+  for (const p of msg.parts ?? []) {
+    if (p.type === 'text' && p.content.trim().length > 0) return true
+  }
+  return false
+}
+
 /** GET /api/skills row — slash menu in AgentInput. */
 export type SkillMenuItem = {
+  /** Directory / command id (use for `/<slug>`). */
+  slug: string
   name: string
   label: string
   description: string

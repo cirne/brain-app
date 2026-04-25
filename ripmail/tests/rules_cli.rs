@@ -121,7 +121,7 @@ fn rules_move_reorders_list() {
 }
 
 #[test]
-fn rules_add_requires_query() {
+fn rules_add_requires_criteria() {
     let dir = tempdir().unwrap();
     let bin = env!("CARGO_BIN_EXE_ripmail");
     let out = Command::new(bin)
@@ -139,10 +139,43 @@ fn rules_add_requires_query() {
         String::from_utf8_lossy(&out.stderr),
         String::from_utf8_lossy(&out.stdout)
     );
+    let lower = combined.to_ascii_lowercase();
     assert!(
-        combined.contains("--query") || combined.contains("query"),
+        lower.contains("query")
+            || lower.contains("--from")
+            || lower.contains("at least one")
+            || lower.contains("category"),
         "{combined}"
     );
+}
+
+#[test]
+fn rules_add_from_without_query_persists() {
+    let dir = tempdir().unwrap();
+    let bin = env!("CARGO_BIN_EXE_ripmail");
+    let out = Command::new(bin)
+        .env("RIPMAIL_HOME", dir.path())
+        .args([
+            "rules",
+            "add",
+            "--action",
+            "ignore",
+            "--from",
+            "anthony.s@legacycapfunders.com",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let j: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        j["rule"]["fromAddress"].as_str(),
+        Some("anthony.s@legacycapfunders.com")
+    );
+    assert_eq!(j["rule"]["query"].as_str(), Some(""));
 }
 
 #[test]

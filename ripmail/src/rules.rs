@@ -1,4 +1,4 @@
-//! File-backed inbox rules (v3: `ripmail search` query strings per rule).
+//! File-backed inbox rules (v4: search pattern + optional structured filters per rule).
 
 use std::collections::HashSet;
 use std::fmt;
@@ -593,23 +593,42 @@ fn trim_opt_owned(s: Option<String>) -> Option<String> {
     })
 }
 
+fn trim_filter_opt(s: Option<&str>) -> Option<String> {
+    s.and_then(|t| {
+        let t = t.trim();
+        if t.is_empty() {
+            None
+        } else {
+            Some(t.to_string())
+        }
+    })
+}
+
 /// Append a search rule or insert before an existing rule id when `insert_before` is set.
+///
+/// `query` is the body/subject regex pattern only (no inline `from:` / `subject:` tokens). Provide at
+/// least one of a non-empty `query` or a structured filter (`from_address`, `to_address`, `subject`, `category`).
+#[allow(clippy::too_many_arguments)] // CLI aggregates many optional filters; a struct would not simplify callers.
 pub fn add_search_rule(
     home: &Path,
     action: &str,
     query: &str,
+    from_address: Option<&str>,
+    to_address: Option<&str>,
+    subject: Option<&str>,
+    category: Option<&str>,
+    from_or_to_union: bool,
     description: Option<String>,
     insert_before: Option<&str>,
     mailbox_id: Option<&str>,
     thread_scope: bool,
 ) -> Result<UserRule, RulesError> {
     parse_rule_action(action)?;
-    let q = query.trim();
-    if q.is_empty() {
-        return Err(RulesError::InvalidRules(
-            "search rule needs a non-empty --query (same language as ripmail search)".into(),
-        ));
-    }
+    let q = query.trim().to_string();
+    let from_address = trim_filter_opt(from_address);
+    let to_address = trim_filter_opt(to_address);
+    let subject = trim_filter_opt(subject);
+    let category = trim_filter_opt(category);
     let description = trim_opt_owned(description);
     let base = rules_directory_for_mailbox(home, mailbox_id);
     with_locked_rules_file(&base, |file| {
@@ -623,15 +642,21 @@ pub fn add_search_rule(
         let rule = UserRule::Search {
             id,
             action: action.trim().to_string(),
-            query: q.to_string(),
-            from_address: None,
-            to_address: None,
-            subject: None,
-            category: None,
-            from_or_to_union: false,
+            query: q,
+            from_address,
+            to_address,
+            subject,
+            category,
+            from_or_to_union,
             description,
             thread_scope,
         };
+        if !rule_has_search_criteria(&rule) {
+            return Err(RulesError::InvalidRules(
+                "search rule needs a non-empty --query or at least one of --from, --to, --subject, --category"
+                    .into(),
+            ));
+        }
         if let Some(before_id) = insert_before.map(str::trim).filter(|s| !s.is_empty()) {
             let Some(idx) = file.rules.iter().position(|r| r.id() == before_id) else {
                 return Err(RulesError::InvalidRules(format!(
@@ -685,26 +710,34 @@ pub fn add_rule_from_json(
     })
 }
 
+/// Patch optional rule fields. For structured filters (`from_address`, etc.), pass `Some("")` to clear.
+#[allow(clippy::too_many_arguments)] // Same as `add_search_rule`: mirrors CLI patch fields.
 pub fn edit_rule(
     home: &Path,
     id: &str,
     action: Option<&str>,
     query: Option<&str>,
+    from_address: Option<&str>,
+    to_address: Option<&str>,
+    subject: Option<&str>,
+    category: Option<&str>,
+    from_or_to_union: Option<bool>,
     thread_scope: Option<bool>,
     mailbox_id: Option<&str>,
 ) -> Result<Option<UserRule>, RulesError> {
-    if action.is_none() && query.is_none() && thread_scope.is_none() {
+    let has_any = action.is_some()
+        || query.is_some()
+        || from_address.is_some()
+        || to_address.is_some()
+        || subject.is_some()
+        || category.is_some()
+        || from_or_to_union.is_some()
+        || thread_scope.is_some();
+    if !has_any {
         return Err(RulesError::MissingUpdateFields);
     }
     if let Some(a) = action {
         parse_rule_action(a)?;
-    }
-    if let Some(q) = query {
-        if q.trim().is_empty() {
-            return Err(RulesError::InvalidRules(
-                "query cannot be empty when set".into(),
-            ));
-        }
     }
     let base = rules_directory_for_mailbox(home, mailbox_id);
     with_locked_rules_file(&base, |file| {
@@ -714,6 +747,11 @@ pub fn edit_rule(
         let UserRule::Search {
             action: ra,
             query: rq,
+            from_address: fa,
+            to_address: ta,
+            subject: sj,
+            category: cat,
+            from_or_to_union: fotu,
             thread_scope: ts,
             ..
         } = rule;
@@ -723,8 +761,29 @@ pub fn edit_rule(
         if let Some(q) = query {
             *rq = q.trim().to_string();
         }
+        if let Some(f) = from_address {
+            *fa = trim_filter_opt(Some(f));
+        }
+        if let Some(t) = to_address {
+            *ta = trim_filter_opt(Some(t));
+        }
+        if let Some(s) = subject {
+            *sj = trim_filter_opt(Some(s));
+        }
+        if let Some(c) = category {
+            *cat = trim_filter_opt(Some(c));
+        }
+        if let Some(u) = from_or_to_union {
+            *fotu = u;
+        }
         if let Some(scope) = thread_scope {
             *ts = scope;
+        }
+        if !rule_has_search_criteria(rule) {
+            return Err(RulesError::InvalidRules(
+                "edit would leave the rule with no criteria (need non-empty query or at least one of from/to/subject/category)"
+                    .into(),
+            ));
         }
         Ok(Some(rule.clone()))
     })
@@ -827,9 +886,9 @@ pub fn propose_rule_from_feedback(feedback: &str) -> RuleFeedbackProposal {
         || lower.contains("delivery")
     {
         (
-            "from:shipper subject:tracking OR tracking".to_string(),
+            "pattern: tracking|delivery|shipped; optional --from for a specific shipper domain".to_string(),
             "ignore".to_string(),
-            "Add a search rule with `ripmail rules add --query '...'` (same language as ripmail search)."
+            "Use `ripmail rules add`: put keywords in `--query` only; use `--from` / `--subject` for headers (not `from:` inside the pattern). See `ripmail rules add --help`."
                 .to_string(),
         )
     } else if lower.contains("invoice")
@@ -838,9 +897,10 @@ pub fn propose_rule_from_feedback(feedback: &str) -> RuleFeedbackProposal {
         || lower.contains("statement")
     {
         (
-            "from:stripe subject:receipt".to_string(),
+            "--from stripe.com (or your billing sender) plus --query receipt|invoice|statement".to_string(),
             "ignore".to_string(),
-            "Encode with a search rule; run ripmail rules validate.".to_string(),
+            "Structured filters use `--from` / `--subject`; body keywords go in `--query`. Run `ripmail rules validate` after edits."
+                .to_string(),
         )
     } else if lower.contains("flight")
         || lower.contains("hotel")
@@ -848,7 +908,8 @@ pub fn propose_rule_from_feedback(feedback: &str) -> RuleFeedbackProposal {
         || lower.contains("itinerary")
     {
         (
-            "subject:itinerary OR flight OR hotel".to_string(),
+            "--query 'itinerary|flight|hotel' (add --subject for a fixed phrase if needed)"
+                .to_string(),
             "inform".to_string(),
             "Travel mail is often time-sensitive; use notify or inform.".to_string(),
         )
@@ -877,7 +938,7 @@ pub fn propose_rule_from_feedback(feedback: &str) -> RuleFeedbackProposal {
             action: action.clone(),
         },
         reasoning,
-        apply: "Use `ripmail rules add --query '...'` (see `ripmail rules add --help`), or `ripmail rules reset-defaults --yes` if the file is legacy/corrupt, or edit $RIPMAIL_HOME/rules.json by hand / with an agent."
+        apply: "Use `ripmail rules add` with `--query` for the body/subject pattern and `--from` / `--subject` / `--category` for metadata (see `ripmail rules add --help`), or `ripmail rules reset-defaults --yes` if the file is legacy/corrupt, or edit $RIPMAIL_HOME/rules.json by hand / with an agent."
             .to_string(),
     }
 }
@@ -1019,6 +1080,11 @@ mod tests {
             None,
             None,
             None,
+            None,
+            false,
+            None,
+            None,
+            None,
             true,
         )
         .unwrap();
@@ -1030,14 +1096,69 @@ mod tests {
     }
 
     #[test]
+    fn add_search_rule_from_only_succeeds() {
+        let dir = tempfile::tempdir().unwrap();
+        let _ = load_rules_file(dir.path()).unwrap();
+        let rule = add_search_rule(
+            dir.path(),
+            "ignore",
+            "",
+            Some("legacycapfunders.com"),
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            true,
+        )
+        .unwrap();
+        assert!(matches!(
+            rule,
+            UserRule::Search {
+                query,
+                from_address: Some(ref f),
+                ..
+            } if query.is_empty() && f == "legacycapfunders.com"
+        ));
+    }
+
+    #[test]
     fn edit_rule_thread_scope_only() {
         let dir = tempfile::tempdir().unwrap();
         let _ = load_rules_file(dir.path()).unwrap();
-        let rule = add_search_rule(dir.path(), "ignore", "pat", None, None, None, true).unwrap();
+        let rule = add_search_rule(
+            dir.path(),
+            "ignore",
+            "pat",
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            true,
+        )
+        .unwrap();
         let id = rule.id().to_string();
-        let updated = edit_rule(dir.path(), &id, None, None, Some(false), None)
-            .unwrap()
-            .unwrap();
+        let updated = edit_rule(
+            dir.path(),
+            &id,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(false),
+            None,
+        )
+        .unwrap()
+        .unwrap();
         assert!(matches!(
             updated,
             UserRule::Search {
@@ -1045,9 +1166,21 @@ mod tests {
                 ..
             }
         ));
-        let again = edit_rule(dir.path(), &id, None, None, Some(true), None)
-            .unwrap()
-            .unwrap();
+        let again = edit_rule(
+            dir.path(),
+            &id,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(true),
+            None,
+        )
+        .unwrap()
+        .unwrap();
         assert!(matches!(
             again,
             UserRule::Search {
@@ -1106,6 +1239,11 @@ mod tests {
             dir.path(),
             "inform",
             "x",
+            None,
+            None,
+            None,
+            None,
+            false,
             None,
             Some("no-such-id"),
             None,

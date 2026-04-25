@@ -49,6 +49,7 @@ description: First.
     const { listSkills } = await import('./skillRegistry.js')
     const list = await listSkills()
     expect(list.map(s => s.name)).toEqual(['apple', 'zebra'])
+    expect(list.map(s => s.slug).sort()).toEqual(['apple', 'zebra'])
   })
 
   it('merges bundled skills when no user copy exists', async () => {
@@ -105,6 +106,7 @@ Body user.`,
       const { listSkills } = await import('./skillRegistry.js')
       const list = await listSkills()
       expect(list).toHaveLength(1)
+      expect(list[0].slug).toBe('dup')
       expect(list[0].description).toBe('User win.')
 
       const { readSkillMarkdown } = await import('./slashSkill.js')
@@ -114,6 +116,54 @@ Body user.`,
       process.env.BRAIN_USER_SKILLS_BUNDLE = emptyBundle
       await rm(bundle, { recursive: true, force: true })
     }
+  })
+})
+
+describe('formatSkillLibrarySection', () => {
+  it('returns empty string when there are no skills', async () => {
+    const { formatSkillLibrarySection } = await import('./skillRegistry.js')
+    const text = await formatSkillLibrarySection()
+    expect(text).toBe('')
+  })
+
+  it('includes heading, load_skill instruction, and one bullet per skill', async () => {
+    const skillsRoot = join(brainHome, 'skills')
+    await mkdir(join(skillsRoot, 'demo'), { recursive: true })
+    await writeFile(
+      join(skillsRoot, 'demo', 'SKILL.md'),
+      `---
+name: Demo Skill
+description: Short.
+---
+`,
+      'utf-8',
+    )
+    const { formatSkillLibrarySection } = await import('./skillRegistry.js')
+    const text = await formatSkillLibrarySection()
+    expect(text).toContain('## Available specialized skills')
+    expect(text).toContain('**load_skill**')
+    expect(text).toMatch(/\*\*demo\*\*/)
+    expect(text).toContain('Demo Skill')
+    expect(text).toContain('Short.')
+  })
+
+  it('truncates long descriptions in the library line', async () => {
+    const longDesc = 'A'.repeat(300)
+    const skillsRoot = join(brainHome, 'skills')
+    await mkdir(join(skillsRoot, 'longdesc'), { recursive: true })
+    await writeFile(
+      join(skillsRoot, 'longdesc', 'SKILL.md'),
+      `---
+name: longdesc
+description: ${longDesc}
+---
+`,
+      'utf-8',
+    )
+    const { formatSkillLibrarySection } = await import('./skillRegistry.js')
+    const text = await formatSkillLibrarySection()
+    expect(text.length).toBeLessThan(longDesc.length + 500)
+    expect(text).toContain('…')
   })
 })
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  assistantHasVisibleTextPart,
   extractReferencedFiles,
   extractMentionedFiles,
   buildChatBody,
@@ -274,6 +275,45 @@ describe('buildChatBody', () => {
       isFirstMessage: true,
     })
     expect('hearReplies' in a).toBe(false)
+  })
+})
+
+describe('assistantHasVisibleTextPart', () => {
+  it('is false for empty or missing parts', () => {
+    expect(assistantHasVisibleTextPart({ role: 'assistant', content: '' })).toBe(false)
+    expect(assistantHasVisibleTextPart({ role: 'assistant', content: '', parts: [] })).toBe(false)
+  })
+
+  it('is false when only empty or whitespace text parts exist', () => {
+    const msg: ChatMessage = {
+      role: 'assistant',
+      content: '',
+      parts: [{ type: 'text', content: '' }, { type: 'text', content: '  \n' }],
+    }
+    expect(assistantHasVisibleTextPart(msg)).toBe(false)
+  })
+
+  it('is false when only tool parts exist', () => {
+    const msg: ChatMessage = {
+      role: 'assistant',
+      content: '',
+      parts: [
+        { type: 'tool', toolCall: { id: '1', name: 'inbox', args: {}, done: false } },
+      ],
+    }
+    expect(assistantHasVisibleTextPart(msg)).toBe(false)
+  })
+
+  it('is true when a text part has non-whitespace content', () => {
+    const msg: ChatMessage = {
+      role: 'assistant',
+      content: '',
+      parts: [
+        { type: 'tool', toolCall: { id: '1', name: 'inbox', args: {}, done: true } },
+        { type: 'text', content: 'Here is the summary.' },
+      ],
+    }
+    expect(assistantHasVisibleTextPart(msg)).toBe(true)
   })
 })
 

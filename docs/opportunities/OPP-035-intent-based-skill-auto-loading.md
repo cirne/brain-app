@@ -1,5 +1,7 @@
 # OPP-035: Intent-Based Skill Auto-Loading
 
+**Status:** Implemented (2026-04-25). Phase 2 keyword pre-load in `chat.ts` remains deferred (see Follow-ups).
+
 ## Problem
 
 Currently, "Skills" (specialized instruction sets like `calendar`, `desktop`, or `commit`) are gated behind explicit slash commands (e.g., `/calendar`). If a user asks a calendar-related question without the slash command, the assistant uses its base system prompt, which contains only a high-level summary of the `calendar` tool. It misses the detailed guidance, edge cases, and workflows defined in the `SKILL.md` files.
@@ -141,12 +143,12 @@ flowchart LR
 
 ## Implementation checklist
 
-- [ ] Modify [`skillRegistry.ts`](../../src/server/lib/skillRegistry.ts) to provide a helper for a "Skill Library Summary" (names + descriptions).
-- [ ] Update [`assistantAgent.ts`](../../src/server/agent/assistantAgent.ts): inject the summary into the base system prompt; add `load_skill` to the agent's toolset.
-- [ ] Implement `load_skill` in [`tools.ts`](../../src/server/agent/tools.ts): read `SKILL.md` via `skillsDir()` + validated slug; return content as tool result.
-- [ ] Update [`agentToolSets.ts`](../../src/server/agent/agentToolSets.ts): `load_skill` in allowlists / omit lists.
+- [x] Modify [`skillRegistry.ts`](../../src/server/lib/skillRegistry.ts) to provide a helper for a "Skill Library Summary" (names + descriptions).
+- [x] Update [`assistantAgent.ts`](../../src/server/agent/assistantAgent.ts): inject the summary into the base system prompt; add `load_skill` to the agent's toolset.
+- [x] Implement `load_skill` in [`tools.ts`](../../src/server/agent/tools.ts): read `SKILL.md` via `skillsDir()` + validated slug; return content as tool result.
+- [x] Update [`agentToolSets.ts`](../../src/server/agent/agentToolSets.ts): `load_skill` in allowlists / omit lists.
 - [ ] Optionally update [`chat.ts`](../../src/server/routes/chat.ts) for keyword pre-load (Phase 2).
-- [ ] Tests: see below.
+- [x] Tests: see below.
 
 ---
 
@@ -168,7 +170,7 @@ flowchart LR
 ### Regression
 
 - Slash commands: `/calendar` still works via existing [`readSkillMarkdown`](../../src/server/lib/slashSkill.ts) path in `chat.ts`.
-- `GET /api/skills` unchanged contract; list still matches disk.
+- `GET /api/skills` still lists skills from disk; each item includes an additive **`slug`** field.
 
 ---
 
@@ -176,12 +178,12 @@ flowchart LR
 
 Use this list to mark OPP-035 **done**:
 
-- [ ] **Library visible:** New chat session system prompt includes the agreed heading when at least one skill exists under `$BRAIN_HOME/skills/`.
-- [ ] **`load_skill` works:** Calling the tool with `slug: calendar` returns non-empty markdown from `skills/calendar/SKILL.md` in dev.
-- [ ] **No leak:** Invalid slug does not read outside `skillsDir`.
-- [ ] **Assistant preset:** Main Brain assistant has `load_skill`; onboarding/profiling omit it if that was the decision.
+- [x] **Library visible:** New chat session system prompt includes the agreed heading when at least one skill exists under `$BRAIN_HOME/skills/` (or bundled user-skills), via `formatSkillLibrarySection` in `getOrCreateSession`.
+- [x] **`load_skill` works:** Unit tests + valid `myskill` fixture return markdown; a real `calendar` skill in dev works the same.
+- [x] **No leak:** Invalid slug / traversal rejected in tool (`readSkillMarkdown` only resolves validated slugs under `skillsDir` + bundle).
+- [x] **Assistant preset:** Main Brain assistant has `load_skill`; onboarding and wiki-cleanup omit it.
 - [ ] **Manual UX:** A natural-language calendar question (without `/`) leads the model to load the skill or still answer correctly using calendar tools — **product owner sign-off** on one golden path.
-- [ ] **Docs:** [`agent-chat.md`](../architecture/agent-chat.md) updated to describe behavior; implementation checklist above checked off.
+- [x] **Docs:** [`agent-chat.md`](../architecture/agent-chat.md) updated to describe behavior; implementation checklist above checked off.
 
 ---
 

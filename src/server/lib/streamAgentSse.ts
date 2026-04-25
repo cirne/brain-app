@@ -38,6 +38,7 @@ import {
   openAiTtsResponseFormat,
   streamOpenAiTtsToBuffers,
 } from './openAiTts.js'
+import { coerceToolResultDetailsObject } from './coerceToolResultDetails.js'
 
 export interface StreamAgentSseOptions {
   /** Wiki root for edit diffs and safeWikiRelativePath (may differ from main app wiki). */
@@ -293,8 +294,9 @@ export function streamAgentSseResponse(
             endToolCallSegmentBridge(ev.toolCallId)
             const resultText = toolResultText(ev)
             let details: unknown = undefined
-            if (ev.result?.details != null && typeof ev.result.details === 'object') {
-              details = ev.result.details
+            const fromRuntime = coerceToolResultDetailsObject(ev.result?.details)
+            if (fromRuntime !== undefined) {
+              details = fromRuntime
             }
             if (ev.toolName === 'read_email' && resultText.trim().startsWith('{')) {
               try {

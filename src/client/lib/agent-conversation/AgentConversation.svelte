@@ -20,6 +20,7 @@
     onSwitchToCalendar,
     onOpenMessageThread,
     onOpenWikiAbout,
+    onSubmitQuickReply,
     /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
     empty,
     streamingWrite: _streamingWrite,
@@ -49,6 +50,13 @@
   })
 
   const referencedFiles = $derived(extractReferencedFiles(messages))
+
+  const lastAssistantIndex = $derived.by(() => {
+    for (let j = messages.length - 1; j >= 0; j -= 1) {
+      if (messages[j].role === 'assistant') return j
+    }
+    return -1
+  })
 
   const showJumpToLatest = $derived(!followOutput && messages.length > 0)
 
@@ -180,12 +188,14 @@
         {msg}
         {streaming}
         isLastMessage={i === messages.length - 1}
+        isLastAssistantInThread={i === lastAssistantIndex}
         {onOpenWiki}
         {onOpenFile}
         {onOpenEmail}
         {onOpenFullInbox}
         {onSwitchToCalendar}
         {onOpenMessageThread}
+        {onSubmitQuickReply}
       />
     {/each}
 

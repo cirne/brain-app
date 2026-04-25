@@ -636,29 +636,29 @@ const RULES_CMD_AFTER_LONG_HELP: &str = "\
 Add/edit always run inbox preview against $RIPMAIL_HOME/data (default $BRAIN_HOME/ripmail when unset)—your real synced index—not a throwaway empty home.
 
 Examples (see ripmail rules add --help):
-  ripmail rules add --action ignore --query 'from:no-reply@zoom.us meeting OR summary'
+  ripmail rules add --action ignore --from 'no-reply@zoom.us' --query 'meeting|summary'
   ripmail rules add --action ignore --query 'golf|tee time' --message-only   # rare: match per message, not whole thread
   ripmail rules move def-linkedin --before def-cat-list   # see ripmail rules move --help; prints compact full order
 ";
 
 /// Appended to `ripmail rules add --help` (long help only).
 const RULES_ADD_AFTER_LONG_HELP: &str = "\
-Pass --query using the same language as `ripmail search` (from:, to:, subject:, after:, before:, category:, FTS terms, OR/AND). See ripmail rules validate.
+Rule matching uses the same engine as `ripmail search`, but the **--query** string is only the **subject+body pattern** (regex/FTS). Do **not** put `from:`, `subject:`, `category:`, etc. inside `--query`—those tokens are rejected. Use **--from**, **--to**, **--subject**, and **--category** for structured filters (like `ripmail search` flags). You must pass at least one of `--query` or those filters. Combined pattern + filters are **AND**ed. For **OR** between different dimensions (e.g. sender vs subject phrase), use **separate rules** or a single pattern that matches either in the text. When both `--from` and `--to` are set, pass `--from-or-to-union true` to match if **either** address applies.
 
 Thread scope (default): when a rule matches any message in a conversation (same thread id in the index), every other still-pending message in that thread in the inbox window gets the same classification. Use --message-only to restrict to matching messages only (legacy behavior). In rules.json this is `threadScope` (default true).
 
 Preview uses your normal ripmail home and data: config + SQLite at $RIPMAIL_HOME (default $BRAIN_HOME/ripmail when unset), same as sync/search.
 
 Examples:
-  ripmail rules add --action ignore --query 'from:newsletter.example.com'
-  ripmail rules add --action notify --query 'verification OR otp OR 2fa'
-  ripmail rules add --action ignore --query 'category:promotional'
-Flags: --action <ACTION> --query <SEARCH_STRING> [--message-only] [--insert-before <RULE_ID>] [--description] [--preview-window] [--text]
+  ripmail rules add --action ignore --from 'newsletter.example.com'
+  ripmail rules add --action notify --query 'verification|otp|2fa'
+  ripmail rules add --action ignore --category promotional
+Flags: --action <ACTION> [--query <PATTERN>] [--from] [--to] [--subject] [--category] [--from-or-to-union <BOOL>] [--message-only] [--insert-before <RULE_ID>] [--description] [--preview-window] [--text]
 ";
 
 /// Appended to `ripmail rules edit --help` (long help only).
 const RULES_EDIT_AFTER_LONG_HELP: &str = "\
-Change --action and/or --query (omit either to leave unchanged). Thread scope: pass --whole-thread or --message-only to set `threadScope` without changing the query; omit both to leave it unchanged.
+Change --action, --query, and/or structured filters (omit a flag to leave that field unchanged). Pass an empty value to clear a structured filter, e.g. `--from \"\"`. Clearing --query sets an empty pattern; the rule must still have another criterion. Thread scope: --whole-thread or --message-only. Optional: --from-or-to-union true|false to set `fromOrToUnion`.
 
 Preview uses your normal ripmail home and data: $RIPMAIL_HOME (default $BRAIN_HOME/ripmail when unset) and its ripmail.db, same as ripmail rules add.
 ";
@@ -697,7 +697,7 @@ pub(crate) enum RulesCmd {
         #[arg(long)]
         text: bool,
     },
-    /// Add a search rule (`ripmail search` query string)
+    /// Add a search rule (pattern + optional structured filters)
     #[command(
         after_long_help = RULES_ADD_AFTER_LONG_HELP,
         help_template = "\
@@ -711,8 +711,38 @@ pub(crate) enum RulesCmd {
     Add {
         #[arg(long, hide_long_help = true, help = "notify | inform | ignore")]
         action: String,
-        #[arg(long, help = "same language as ripmail search")]
-        query: String,
+        #[arg(
+            long,
+            hide_long_help = true,
+            help = "subject+body pattern (no inline from:/subject:); optional if --from/--to/--subject/--category set"
+        )]
+        query: Option<String>,
+        #[arg(
+            long,
+            hide_long_help = true,
+            help = "From filter (substring; same idea as ripmail search --from)"
+        )]
+        from: Option<String>,
+        #[arg(long, hide_long_help = true, help = "To filter (ripmail search --to)")]
+        to: Option<String>,
+        #[arg(
+            long,
+            hide_long_help = true,
+            help = "Subject filter (ripmail search --subject)"
+        )]
+        subject: Option<String>,
+        #[arg(
+            long,
+            hide_long_help = true,
+            help = "Category label (ripmail search --category)"
+        )]
+        category: Option<String>,
+        #[arg(
+            long = "from-or-to-union",
+            hide_long_help = true,
+            help = "when both --from and --to are set, match if either applies (default false)"
+        )]
+        from_or_to_union: bool,
         #[arg(
             long = "insert-before",
             hide_long_help = true,
@@ -746,6 +776,20 @@ pub(crate) enum RulesCmd {
         action: Option<String>,
         #[arg(long)]
         query: Option<String>,
+        #[arg(long, help = "set or clear From filter (empty string clears)")]
+        from: Option<String>,
+        #[arg(long, help = "set or clear To filter (empty string clears)")]
+        to: Option<String>,
+        #[arg(long, help = "set or clear Subject filter (empty string clears)")]
+        subject: Option<String>,
+        #[arg(long, help = "set or clear category (empty string clears)")]
+        category: Option<String>,
+        #[arg(
+            long = "from-or-to-union",
+            value_parser = clap::builder::BoolishValueParser::new(),
+            help = "set fromOrToUnion (omit to leave unchanged)"
+        )]
+        from_or_to_union: Option<bool>,
         #[arg(
             long = "message-only",
             group = "edit_thread_scope",
@@ -891,24 +935,34 @@ mod draft_cli_tests {
     use ripmail::draft::DraftCmd;
 
     #[test]
-    fn rules_add_parses_query() {
+    fn rules_add_parses_from_and_query() {
         let cli = Cli::try_parse_from([
             "ripmail",
             "rules",
             "add",
             "--action",
             "notify",
+            "--from",
+            "list@example.com",
             "--query",
-            "from:list@example.com",
+            "digest",
         ])
         .expect("parse");
         match cli.command {
             Some(Commands::Rules { sub, source }) => {
                 assert!(source.is_none());
                 match sub {
-                    RulesCmd::Add { action, query, .. } => {
+                    RulesCmd::Add {
+                        action,
+                        query,
+                        from,
+                        from_or_to_union,
+                        ..
+                    } => {
                         assert_eq!(action, "notify");
-                        assert_eq!(query, "from:list@example.com");
+                        assert_eq!(query.as_deref(), Some("digest"));
+                        assert_eq!(from.as_deref(), Some("list@example.com"));
+                        assert!(!from_or_to_union);
                     }
                     _ => panic!("expected rules add"),
                 }
@@ -940,7 +994,7 @@ mod draft_cli_tests {
                     ..
                 } => {
                     assert_eq!(insert_before.as_deref(), Some("def-otp"));
-                    assert_eq!(query, "newsletter");
+                    assert_eq!(query.as_deref(), Some("newsletter"));
                 }
                 _ => panic!("expected rules add"),
             },
@@ -969,7 +1023,7 @@ mod draft_cli_tests {
                     message_only,
                     ..
                 } => {
-                    assert_eq!(query, "golf");
+                    assert_eq!(query.as_deref(), Some("golf"));
                     assert!(message_only);
                 }
                 _ => panic!("expected rules add"),

@@ -371,7 +371,7 @@
                 : isSeedingWiki
                   ? 'Seeding wiki…'
                   : 'Working…'
-              : 'Thinking...'
+              : ''
           }
           {chatEndpoint}
           {autoSendMessage}

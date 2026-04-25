@@ -47,6 +47,8 @@ import { ripmailBin } from '../lib/ripmailBin.js'
 import { resolveRipmailSourceForCli } from '../lib/ripmailSourceResolve.js'
 import { composeFeedbackIssueMarkdown } from '../lib/feedbackComposer.js'
 import { submitFeedbackMarkdown } from '../lib/feedbackIssues.js'
+import { applySkillPlaceholders, readSkillMarkdown } from '../lib/slashSkill.js'
+import { tryGetSkillRequestContext } from '../lib/skillRequestContext.js'
 
 const execAsync = promisify(exec)
 
@@ -109,7 +111,23 @@ export function buildInboxRulesCommand(params: {
   sample?: boolean
   rule_id?: string
   rule_action?: 'ignore' | 'notify' | 'inform'
+  /**
+   * Subject+body regex/FTS pattern only. Do not put `from:`, `subject:`, or `category:` tokens here—ripmail rejects them.
+   * Use `from` / `subject` / `category` parameters instead (same as `ripmail search` flags).
+   */
   query?: string
+  /** Structured From filter (`ripmail rules add --from` / search --from). */
+  from?: string
+  /** Structured To filter. */
+  to?: string
+  /** Structured Subject filter. */
+  subject?: string
+  /** Category label (sync metadata), e.g. promotional. */
+  category?: string
+  /**
+   * When both `from` and `to` are set on add, pass true so the rule matches if either address applies.
+   */
+  from_or_to_union?: boolean
   insert_before?: string
   description?: string
   preview_window?: string
@@ -136,18 +154,35 @@ export function buildInboxRulesCommand(params: {
       return `rules show ${JSON.stringify(params.rule_id.trim())}${mb}`
     }
     case 'add': {
-      if (!params.rule_action || !params.query?.trim()) {
-        throw new Error('rule_action and query are required for op=add')
+      if (!params.rule_action) {
+        throw new Error('rule_action is required for op=add')
       }
-      let tail = `rules add --action ${params.rule_action} --query ${JSON.stringify(params.query)}`
+      const q = params.query?.trim() ?? ''
+      const hasStructured = !!(
+        params.from?.trim() ||
+        params.to?.trim() ||
+        params.subject?.trim() ||
+        params.category?.trim()
+      )
+      if (!q && !hasStructured) {
+        throw new Error('op=add requires query and/or at least one of: from, to, subject, category')
+      }
+      const j = JSON.stringify
+      let tail = `rules add --action ${params.rule_action}`
+      if (q) tail += ` --query ${j(q)}`
+      if (params.from?.trim()) tail += ` --from ${j(params.from.trim())}`
+      if (params.to?.trim()) tail += ` --to ${j(params.to.trim())}`
+      if (params.subject?.trim()) tail += ` --subject ${j(params.subject.trim())}`
+      if (params.category?.trim()) tail += ` --category ${j(params.category.trim())}`
+      if (params.from_or_to_union === true) tail += ' --from-or-to-union'
       if (params.insert_before?.trim()) {
-        tail += ` --insert-before ${JSON.stringify(params.insert_before.trim())}`
+        tail += ` --insert-before ${j(params.insert_before.trim())}`
       }
       if (params.description?.trim()) {
-        tail += ` --description ${JSON.stringify(params.description.trim())}`
+        tail += ` --description ${j(params.description.trim())}`
       }
       if (params.preview_window?.trim()) {
-        tail += ` --preview-window ${JSON.stringify(params.preview_window.trim())}`
+        tail += ` --preview-window ${j(params.preview_window.trim())}`
       }
       if (params.apply_to_thread === false) {
         tail += ' --message-only'
@@ -160,17 +195,30 @@ export function buildInboxRulesCommand(params: {
         params.rule_action != null ||
         params.query != null ||
         params.preview_window != null ||
-        params.apply_to_thread !== undefined
+        params.apply_to_thread !== undefined ||
+        params.from !== undefined ||
+        params.to !== undefined ||
+        params.subject !== undefined ||
+        params.category !== undefined ||
+        params.from_or_to_union !== undefined
       if (!has) {
         throw new Error(
-          'op=edit requires at least one of: rule_action, query, preview_window, apply_to_thread',
+          'op=edit requires at least one of: rule_action, query, from, to, subject, category, from_or_to_union, preview_window, apply_to_thread',
         )
       }
-      let tail = `rules edit ${JSON.stringify(params.rule_id.trim())}`
+      const j = JSON.stringify
+      let tail = `rules edit ${j(params.rule_id.trim())}`
       if (params.rule_action != null) tail += ` --action ${params.rule_action}`
-      if (params.query != null) tail += ` --query ${JSON.stringify(params.query)}`
+      if (params.query != null) tail += ` --query ${j(params.query)}`
+      if (params.from !== undefined) tail += ` --from ${j(params.from)}`
+      if (params.to !== undefined) tail += ` --to ${j(params.to)}`
+      if (params.subject !== undefined) tail += ` --subject ${j(params.subject)}`
+      if (params.category !== undefined) tail += ` --category ${j(params.category)}`
+      if (params.from_or_to_union !== undefined) {
+        tail += ` --from-or-to-union ${params.from_or_to_union ? 'true' : 'false'}`
+      }
       if (params.preview_window?.trim()) {
-        tail += ` --preview-window ${JSON.stringify(params.preview_window.trim())}`
+        tail += ` --preview-window ${j(params.preview_window.trim())}`
       }
       if (params.apply_to_thread === true) {
         tail += ' --whole-thread'
@@ -811,7 +859,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'inbox_rules',
     label: 'Inbox Rules',
     description:
-      'Manage ripmail inbox rules (which messages list_inbox surfaces and how). Wraps `ripmail rules`. op=list (JSON rules; each rule includes `threadScope`), validate (optional sample=true for DB match counts), show (one id), add (rule_action + query), edit (rule_id + changes), remove, move (before_rule_id XOR after_rule_id), feedback (feedback_text → proposed rule). **Thread scope:** by default a rule applies to the **whole conversation** (same ripmail `thread_id`) when any message matches—good for recurring threads (e.g. tee times). Use `apply_to_thread: false` on add, or `apply_to_thread: false` / `true` on edit, for per-message vs whole-thread matching. Optional source for per-account rules overlay. Prefer this for deterministic email filters (sender, source, subject, category).',
+      'Manage ripmail inbox rules (which messages list_inbox surfaces and how). Wraps `ripmail rules`. op=list, validate (sample=true optional), show, add, edit, remove, move, feedback. **Query vs filters:** `query` is only the subject+body regex/FTS pattern—**never** use inline `from:`, `subject:`, `category:`, etc. inside it (ripmail rejects those). Put sender/subject/category constraints in `from`, `to`, `subject`, `category` (same idea as `ripmail search` flags). On add you need `rule_action` plus **either** a non-empty `query` **or** at least one structured filter. Pattern + structured fields are **AND**ed. For **OR** between unrelated dimensions (e.g. “this sender OR that subject line”), use **two rules** or a single pattern that matches either in the text. When both `from` and `to` are set on add, set `from_or_to_union: true` to match if **either** address applies. **Thread scope:** default whole-thread (`apply_to_thread` true); false = message-only. Optional `source` for per-account rules overlay.',
     parameters: Type.Object({
       op: Type.Union(
         [
@@ -836,7 +884,22 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           description: 'add/edit: notify | inform | ignore',
         }),
       ),
-      query: Type.Optional(Type.String({ description: 'add/edit: ripmail search query string' })),
+      query: Type.Optional(
+        Type.String({
+          description:
+            'add/edit: subject+body pattern only (no inline from:/subject:). Omit on add if structured filters alone are enough.',
+        }),
+      ),
+      from: Type.Optional(Type.String({ description: 'add/edit: From filter (ripmail --from); edit: pass "" to clear' })),
+      to: Type.Optional(Type.String({ description: 'add/edit: To filter; edit: pass "" to clear' })),
+      subject: Type.Optional(Type.String({ description: 'add/edit: Subject filter; edit: pass "" to clear' })),
+      category: Type.Optional(Type.String({ description: 'add/edit: category label; edit: pass "" to clear' })),
+      from_or_to_union: Type.Optional(
+        Type.Boolean({
+          description:
+            'add: set true when both from and to are set and the rule should match either address. edit: set true/false to change fromOrToUnion; omit to leave unchanged.',
+        }),
+      ),
       insert_before: Type.Optional(Type.String({ description: 'add: --insert-before rule id' })),
       description: Type.Optional(Type.String({ description: 'add: stored description' })),
       preview_window: Type.Optional(Type.String({ description: 'add/edit: e.g. 7d' })),
@@ -859,6 +922,11 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         rule_id?: string
         rule_action?: 'ignore' | 'notify' | 'inform'
         query?: string
+        from?: string
+        to?: string
+        subject?: string
+        category?: string
+        from_or_to_union?: boolean
         insert_before?: string
         description?: string
         preview_window?: string
@@ -1676,6 +1744,148 @@ Returns the saved text; treat it as active for this session too.`,
     },
   })
 
+  const SUGGEST_REPLY_CHOICES_MIN = 1
+  const SUGGEST_REPLY_CHOICES_MAX = 8
+  const SUGGEST_REPLY_LABEL_MAX = 60
+  const SUGGEST_REPLY_SUBMIT_MAX = 1000
+  const SUGGEST_REPLY_ID_MAX = 64
+
+  function normalizeAndValidateSuggestReplyChoices(raw: {
+    label: string
+    submit: string
+    id?: string
+  }): { ok: true; choice: { label: string; submit: string; id?: string } } | { ok: false; error: string } {
+    const label = typeof raw.label === 'string' ? raw.label.trim() : ''
+    const submit = typeof raw.submit === 'string' ? raw.submit.trim() : ''
+    if (!label) return { ok: false, error: 'Each choice needs a non-empty label.' }
+    if (!submit) return { ok: false, error: 'Each choice needs a non-empty submit string.' }
+    if (label.length > SUGGEST_REPLY_LABEL_MAX) {
+      return { ok: false, error: `label exceeds ${SUGGEST_REPLY_LABEL_MAX} characters.` }
+    }
+    if (submit.length > SUGGEST_REPLY_SUBMIT_MAX) {
+      return { ok: false, error: `submit exceeds ${SUGGEST_REPLY_SUBMIT_MAX} characters.` }
+    }
+    if (raw.id !== undefined) {
+      const id = String(raw.id).trim()
+      if (!id) return { ok: false, error: 'id, if set, must be non-empty when trimmed.' }
+      if (id.length > SUGGEST_REPLY_ID_MAX) return { ok: false, error: `id exceeds ${SUGGEST_REPLY_ID_MAX} characters.` }
+      return { ok: true, choice: { label, submit, id } }
+    }
+    return { ok: true, choice: { label, submit } }
+  }
+
+  const suggestReplyOptions = defineTool({
+    name: 'suggest_reply_options',
+    label: 'Suggest reply options',
+    description:
+      'Offer tappable one-tap replies in the chat UI. After your prose, call with 1–8 options. ' +
+      '**label** = short line on the chip. **submit** = full user message on tap—write each as a **likely** reply the user would send to move forward (reduces typing and decision load). Include message/thread ids, subjects, or actions when the next turn needs them. ' +
+      'Be proactive: after research-style answers (mail, calendar, wiki, web), surface likely follow-ups—dig deeper, open or save an artifact, a related angle, or “done”. Inbox triage and yes/no are examples, not the only use. ' +
+      'Skip only when there is no reasonable preset (e.g. a secret or a truly one-off phrasing the model should not paraphrase).',
+    parameters: Type.Object({
+      choices: Type.Array(
+        Type.Object({
+          label: Type.String({ description: 'One-line text shown on the chip' }),
+          submit: Type.String({ description: 'Full user message to submit when this chip is tapped' }),
+          id: Type.Optional(Type.String({ description: 'Optional stable id for logging (e.g. action key)' })),
+        }),
+        { minItems: SUGGEST_REPLY_CHOICES_MIN, maxItems: SUGGEST_REPLY_CHOICES_MAX },
+      ),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { choices: { label: string; submit: string; id?: string }[] },
+    ) {
+      const list = Array.isArray(params.choices) ? params.choices : []
+      if (list.length < SUGGEST_REPLY_CHOICES_MIN || list.length > SUGGEST_REPLY_CHOICES_MAX) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Invalid choices: provide between ${SUGGEST_REPLY_CHOICES_MIN} and ${SUGGEST_REPLY_CHOICES_MAX} options.`,
+            },
+          ],
+          details: { error: 'count' } as Record<string, unknown>,
+        }
+      }
+      const choices: { label: string; submit: string; id?: string }[] = []
+      const labelSeen = new Set<string>()
+      for (const c of list) {
+        const n = normalizeAndValidateSuggestReplyChoices(c)
+        if (!n.ok) {
+          return {
+            content: [{ type: 'text' as const, text: `Invalid choice: ${n.error}` }],
+            details: { error: 'invalid_choice' } as Record<string, unknown>,
+          }
+        }
+        const key = n.choice.label.toLowerCase()
+        if (labelSeen.has(key)) {
+          return {
+            content: [
+              { type: 'text' as const, text: 'Duplicate labels in one call are not allowed (case-insensitive).' },
+            ],
+            details: { error: 'duplicate_label' } as Record<string, unknown>,
+          }
+        }
+        labelSeen.add(key)
+        choices.push(n.choice)
+      }
+      const text = `Quick reply options (${choices.length}): ${JSON.stringify(choices.map((c) => ({ l: c.label, id: c.id })))}`
+      return {
+        content: [{ type: 'text' as const, text }],
+        details: { choices } as Record<string, unknown>,
+      }
+    },
+  })
+
+  const loadSkill = defineTool({
+    name: 'load_skill',
+    label: 'Load skill instructions',
+    description:
+      'Load the full markdown instructions for a specialized skill. Use the `slug` from the **Available specialized skills** list in your system prompt. ' +
+      'Call when the user’s task clearly matches a listed skill, before using domain tools in depth. ' +
+      'If the full skill text is already in the conversation, do not load again.',
+    parameters: Type.Object({
+      slug: Type.String({ description: 'Skill id (directory name), e.g. calendar or commit' }),
+    }),
+    async execute(_toolCallId: string, params: { slug: string }) {
+      const raw = params.slug?.trim() ?? ''
+      if (!/^[a-z0-9_-]+$/.test(raw)) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Invalid skill slug. Use only lowercase letters, digits, hyphens, and underscores.',
+            },
+          ],
+          details: {},
+        }
+      }
+      const doc = await readSkillMarkdown(raw)
+      if (!doc) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `No skill found for slug \`${raw}\`. Use GET /api/skills to list available skills.`,
+            },
+          ],
+          details: {},
+        }
+      }
+      const req = tryGetSkillRequestContext()
+      const body = applySkillPlaceholders(doc.body, {
+        selection: req?.selection ?? '',
+        openFile: req?.openFile,
+      })
+      const header = `## Skill: ${doc.name} (\`${raw}\`)\n\n`
+      return {
+        content: [{ type: 'text' as const, text: header + body }],
+        details: {},
+      }
+    },
+  })
+
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
 
   const listRecentMessagesTool = defineTool({
@@ -1865,6 +2075,8 @@ Returns the saved text; treat it as active for this session too.`,
     speakTool,
     productFeedback,
     rememberPreference,
+    loadSkill,
+    suggestReplyOptions,
     ...(includeLocalMessages ? [listRecentMessagesTool, getMessageThreadTool] : []),
   ]
   const only = options?.onlyToolNames

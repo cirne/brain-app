@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { wikiDir as getWikiDir } from '../lib/wikiDir.js'
 import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '../lib/openAiResponsesPayload.js'
 import { areLocalMessageToolsEnabled } from '../lib/imessageDb.js'
+import { formatSkillLibrarySection } from '../lib/skillRegistry.js'
 
 const sessions = new Map<string, Agent>()
 
@@ -48,7 +49,7 @@ function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoo
 - Edit existing wiki pages using the edit tool (oldText/newText replacement with fuzzy matching)
 - Create new wiki pages using the write tool
 - Persist lasting user preferences to **me.md** using **remember_preference**
-- Search and read using search_index (regex \`pattern\`/\`query\` plus optional structured filters like \`from\`/\`after\`—not inline \`from:\` in the string) and read_email; use **inbox_rules** for deterministic email filters (sender, source, subject, category). Rules default to **whole-thread** matching (\`apply_to_thread\` true): one match classifies the conversation; use \`apply_to_thread: false\` for message-only rules.
+- Search and read using search_index (regex \`pattern\`/\`query\` plus optional structured filters like \`from\`/\`after\`—not inline \`from:\` in the string) and read_email; use **inbox_rules** for deterministic filters: put the body/subject pattern in \`query\` only (no \`from:\`/\`subject:\` tokens there) and use tool fields \`from\`/\`subject\`/\`category\` for headers/metadata. Rules default to **whole-thread** matching (\`apply_to_thread\` true): one match classifies the conversation; use \`apply_to_thread: false\` for message-only rules.
 - When the user asks to **refresh**, **sync**, or **get new mail**, call **refresh_sources** (omit \`source\` for all accounts, or pass a mailbox/source id if they name one)
 - Search and manage calendars with the **calendar** tool (query events, add Google Calendar events, list available calendars, or configure which calendars to sync).
 - Search the web with web_search; fetch article text from URLs with fetch_page when needed
@@ -63,6 +64,11 @@ ${localMessagesBullet}
 ## Person-centric communication (recency, catch-up, complete view)
 - When the user asks what a **named person** has communicated **recently**, wants to **catch up**, or needs a **complete** picture of what that person has been saying: start with **search_index**, **read_email**, **find_person**, and **list_inbox** as appropriate.
 ${personCommExtra}
+
+## Quick reply options
+- **Be anticipatory:** after you have enough context to answer, **think ahead** to what the user is likely to want next—deeper work, a related path, a safe alternative, or a way to go faster—and call **suggest_reply_options** with those **proactive** steps, not only when they asked a narrow multiple-choice. Prefer it on substantive turns (research, triage, planning, or multi-step work) so one tap advances the job.
+- **Default to chips** when a **small, focused** set of next steps makes sense (usually **2–5**): mix **primary** and **useful alternates** (e.g. refine scope, try another angle, open or save an artifact) instead of ending on an open "anything else?".
+- Each item needs **label** (one line for the tappable chip) and **submit** (the exact user message to send on tap, including any message ids or disambiguation the next turn needs).
 
 ## Guidelines
 - Use tools to look up information before answering — don't guess.
@@ -140,6 +146,11 @@ When resolving dates or times for tools (like calendar or search_index), always 
 
   if (options.context) {
     systemPrompt += `\n\n## Current file context\nThe user is viewing the following file(s). Use this as context for the conversation.\n\n${options.context}`
+  }
+
+  const skillLibrary = await formatSkillLibrarySection()
+  if (skillLibrary) {
+    systemPrompt += `\n\n${skillLibrary}`
   }
 
   // Model from env vars — supports any provider pi-ai knows about

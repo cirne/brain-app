@@ -53,7 +53,14 @@ Stream implementation: `[streamAgentSse.ts](../../src/server/lib/streamAgentSse.
 
 **From pi-coding-agent (wiki-scoped):** `read`, `edit`, `write`, `grep`, `find` — plus app wrappers `move_file`, `delete_file`.
 
-**Custom (inline in `tools.ts`):** e.g. `search_index`, `read_email`, ripmail source and inbox tools, `draft_email` / `send_draft`, `find_person`, `get_calendar_events`, `web_search`, `fetch_page`, YouTube tools, `set_chat_title`, `open`, and optionally `list_recent_messages` / `get_message_thread` when iMessage is available.
+**Custom (inline in `tools.ts`):** e.g. `search_index`, `read_email`, ripmail source and inbox tools, `draft_email` / `send_draft`, `find_person`, `get_calendar_events`, `web_search`, `fetch_page`, YouTube tools, `set_chat_title`, `open`, `load_skill`, and optionally `list_recent_messages` / `get_message_thread` when iMessage is available.
+
+## Skills (slash commands and natural language)
+
+- **Slash path:** A user message that starts with `/<slug>` (e.g. `/calendar`) is handled in `[chat.ts](../../src/server/routes/chat.ts)` by loading that skill’s `SKILL.md` and injecting it as structured user turns — not the general agent message alone.
+- **Natural language (main agent):** On **new** in-memory session creation, `getOrCreateSession` appends an **Available specialized skills** block to the system prompt when `listSkills()` is non-empty (`[skillRegistry.ts](../../src/server/lib/skillRegistry.ts)`). The model can call **`load_skill`** with a `slug` to pull the same `SKILL.md` body into the turn (tool result). `POST /api/chat` runs the stream inside **[skillRequestContext.ts](../../src/server/lib/skillRequestContext.ts)** so `{{selection}}` and `{{open_file}}` placeholders match the slash path for that request.
+- Onboarding and wiki-cleanup agents omit `load_skill` ([`agentToolSets.ts`](../../src/server/agent/agentToolSets.ts) omit lists).
+- **`GET /api/skills`:** Lists installed skills (including a `slug` per item) for the client slash picker and discovery.
 
 **Wiki vs indexed email/files:** separate tool families — [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md).
 

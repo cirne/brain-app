@@ -22,6 +22,7 @@ import {
   readSkillMarkdown,
 } from '../lib/slashSkill.js'
 import { buildHearRepliesPromptMessages } from '../lib/hearRepliesPrompt.js'
+import { runWithSkillRequestContextAsync } from '../lib/skillRequestContext.js'
 
 /**
  * Invisible user turn for the model when the client opens first chat after onboarding (no user bubble).
@@ -186,33 +187,41 @@ chat.post('/', async (c) => {
 
     const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone, firstChat })
 
-    return streamAgentSseResponse(c, agent, rawMessage ?? message, {
-      wikiDirForDiffs: wikiDir(),
-      announceSessionId: sessionId,
-      agentKind: 'chat_skill',
-      promptMessages,
-      userMessageForPersistence: firstChatKickoff ? undefined : (rawMessage as string),
-      omitUserMessageFromPersistence: firstChatKickoff,
-      onTurnComplete: persist,
-      onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
-      initialSessionTitle,
-    })
+    return runWithSkillRequestContextAsync(
+      { selection: selectionForSkill, openFile: openFileForSkill },
+      async () =>
+        await streamAgentSseResponse(c, agent, rawMessage ?? message, {
+          wikiDirForDiffs: wikiDir(),
+          announceSessionId: sessionId,
+          agentKind: 'chat_skill',
+          promptMessages,
+          userMessageForPersistence: firstChatKickoff ? undefined : (rawMessage as string),
+          omitUserMessageFromPersistence: firstChatKickoff,
+          onTurnComplete: persist,
+          onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
+          initialSessionTitle,
+        }),
+    )
   }
 
   const agent = await getOrCreateSession(sessionId, { context: fileContext, timezone, firstChat })
 
   const mainPromptMessages = hearReplies ? buildHearRepliesPromptMessages(message) : undefined
 
-  return streamAgentSseResponse(c, agent, rawMessage ?? message, {
-    wikiDirForDiffs: wikiDir(),
-    announceSessionId: sessionId,
-    agentKind: 'chat',
-    promptMessages: mainPromptMessages,
-    userMessageForPersistence: firstChatKickoff ? undefined : (rawMessage as string),
-    omitUserMessageFromPersistence: firstChatKickoff,
-    onTurnComplete: persist,
-    onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
-  })
+  return runWithSkillRequestContextAsync(
+    { selection: selectionForSkill, openFile: openFileForSkill },
+    async () =>
+      await streamAgentSseResponse(c, agent, rawMessage ?? message, {
+        wikiDirForDiffs: wikiDir(),
+        announceSessionId: sessionId,
+        agentKind: 'chat',
+        promptMessages: mainPromptMessages,
+        userMessageForPersistence: firstChatKickoff ? undefined : (rawMessage as string),
+        omitUserMessageFromPersistence: firstChatKickoff,
+        onTurnComplete: persist,
+        onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
+      }),
+  )
 })
 
 // DELETE /api/chat/:sessionId — delete a session and its persisted file

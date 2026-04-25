@@ -35,8 +35,10 @@ export const ALL_AGENT_TOOL_NAMES = [
   'open',
   'speak',
   'remember_preference',
+  'load_skill',
   'list_recent_messages',
   'get_message_thread',
+  'suggest_reply_options',
 ] as const
 
 export type AgentToolName = (typeof ALL_AGENT_TOOL_NAMES)[number]
@@ -51,7 +53,8 @@ export const TOOL_GROUPS = {
   calendar: ['calendar'] as const satisfies readonly AgentToolName[],
   web: ['web_search', 'fetch_page'] as const satisfies readonly AgentToolName[],
   youtube: ['get_youtube_transcript', 'youtube_search'] as const satisfies readonly AgentToolName[],
-  ui: ['set_chat_title', 'open', 'speak'] as const satisfies readonly AgentToolName[],
+  ui: ['set_chat_title', 'open', 'speak', 'suggest_reply_options'] as const satisfies readonly AgentToolName[],
+  skills: ['load_skill'] as const satisfies readonly AgentToolName[],
   localMessages: ['list_recent_messages', 'get_message_thread'] as const satisfies readonly AgentToolName[],
 } as const
 
@@ -73,6 +76,8 @@ export const ONBOARDING_BASE_OMIT: readonly AgentToolName[] = [
   'get_message_thread',
   'manage_sources',
   'refresh_sources',
+  'load_skill',
+  'suggest_reply_options',
 ]
 
 /**
@@ -111,10 +116,12 @@ export const WIKI_CLEANUP_OMIT: readonly AgentToolName[] = [
   'set_chat_title',
   'speak',
   'remember_preference',
+  'suggest_reply_options',
   'list_recent_messages',
   'get_message_thread',
   'manage_sources',
   'refresh_sources',
+  'load_skill',
 ]
 
 /**

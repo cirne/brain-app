@@ -31,8 +31,10 @@ const ALL_AGENT_TOOL_NAMES = [
   'open',
   'speak',
   'remember_preference',
+  'load_skill',
   'list_recent_messages',
   'get_message_thread',
+  'suggest_reply_options',
 ] as const
 
 describe('getToolDefinitionCore', () => {

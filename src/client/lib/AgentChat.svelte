@@ -83,8 +83,8 @@
     conversationView = AgentConversation as Component<AgentConversationViewProps>,
     /** Hide the composer (e.g. kickoff-only flows). */
     hideInput = false,
-    /** Header label while the model is streaming (default “Thinking…”). */
-    streamingBusyLabel = 'Thinking...',
+    /** When non-empty, header text while streaming; otherwise chat title or {@link headerFallbackTitle}. */
+    streamingBusyLabel = '',
     /** Live `write` stream for onboarding profiling / seeding transcript (e.g. `me.md` preview). */
     streamingWritePreview = null as { path: string; body: string } | null,
     /**
@@ -242,6 +242,12 @@
   let skillsList = $state<SkillMenuItem[]>([])
   let conversationEl = $state<ConversationScrollApi | undefined>(undefined)
   let inputEl = $state<ReturnType<typeof AgentInput> | undefined>(undefined)
+  /** Mobile: hide/slide the hold-to-speak control while the user has any text in the composer. */
+  let inputDraftForMobileHold = $state('')
+
+  function onAgentInputDraftChange(d: string) {
+    inputDraftForMobileHold = d
+  }
 
   async function focusAgentTextarea(delayMs: number) {
     await tick()
@@ -653,8 +659,24 @@
       <PaneL2Header>
         {#snippet center()}
           <div class="header-left">
-            <span class="chat-title" class:thinking={streaming} class:custom-title={!!chatTitle}>
-              {streaming ? streamingBusyLabel : (chatTitle ?? headerFallbackTitle)}
+            <span
+              class="chat-title"
+              class:custom-title={!!chatTitle}
+              aria-label={streaming &&
+              !(streamingBusyLabel ?? '').trim() &&
+              !(chatTitle ?? '').trim()
+                ? 'Assistant is working'
+                : undefined}
+            >
+              {#if streaming}
+                {#if (streamingBusyLabel ?? '').trim()}
+                  {streamingBusyLabel}
+                {:else}
+                  {(chatTitle ?? '').trim() || headerFallbackTitle}
+                {/if}
+              {:else}
+                {chatTitle ?? headerFallbackTitle}
+              {/if}
             </span>
             {#if !hidePaneContextChip}
               {#if context.type === 'wiki'}
@@ -719,6 +741,7 @@
         {onOpenMessageThread}
         {onSwitchToCalendar}
         {onOpenWikiAbout}
+        onSubmitQuickReply={(t) => void send(t)}
         streamingWrite={streamingWritePreview}
         {multiTenant}
       />
@@ -736,11 +759,13 @@
             skills={skillsList}
             onSend={send}
             onStop={stopChat}
+            onDraftChange={onAgentInputDraftChange}
           />
         </div>
         <ChatComposerAudio
           disabled={streaming}
           showHearRepliesToggle={messages.length === 0}
+          draftHidesHold={inputDraftForMobileHold.length > 0}
           hearReplies={hearRepliesForChatComposer}
           onHearRepliesChange={(v) => {
             const id = displayedSessionId
@@ -872,13 +897,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .chat-title.thinking {
-    animation: pulse-thinking 1.5s ease-in-out infinite;
-  }
-  @keyframes pulse-thinking {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
   }
 
   .context-chip {

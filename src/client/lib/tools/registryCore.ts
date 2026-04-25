@@ -67,8 +67,11 @@ const TOOL_DISPLAY_LABELS: Record<string, string> = {
   set_chat_title: 'Chat title',
   speak: 'Read aloud',
   open: 'Open',
+  remember_preference: 'Remember preference',
+  load_skill: 'Load skill',
   list_recent_messages: 'Recent messages',
   get_message_thread: 'Conversation',
+  suggest_reply_options: 'Reply options',
 }
 
 function humanizeToolName(name: string): string {
