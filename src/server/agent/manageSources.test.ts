@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
 import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { execRipmailAsync } from '../lib/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
 
-vi.mock('../lib/ripmailExec.js', () => ({
+vi.mock('@server/lib/ripmail/ripmailExec.js', () => ({
   execRipmailAsync: vi.fn(),
   ripmailProcessEnv: vi.fn(() => ({})),
 }))
@@ -94,7 +94,7 @@ describe('manage_sources tool', () => {
     process.env.BRAIN_HOME = tenantA
     const w = join(tenantA, 'wiki')
 
-    const { runWithTenantContextAsync } = await import('../lib/tenantContext.js')
+    const { runWithTenantContextAsync } = await import('@server/lib/tenant/tenantContext.js')
     const { createAgentTools } = await import('./tools.js')
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"sources":[]}', stderr: '' })
 

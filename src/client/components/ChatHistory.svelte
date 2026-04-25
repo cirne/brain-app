@@ -1,0 +1,550 @@
+<script lang="ts">
+  import { onMount } from 'svelte'
+  import { emit, subscribe } from '@client/lib/app/appEvents.js'
+  import { Loader2, MessageSquare, Mail, Trash2, Plus } from 'lucide-svelte'
+  import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
+  import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
+  import {
+    CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
+    CHAT_HISTORY_SIDEBAR_LIMIT,
+    fetchChatSessionsWith401Retry,
+    formatChatSessionsFetchError,
+  } from '@client/lib/chatHistorySessions.js'
+  import {
+    loadNavHistory,
+    removeFromNavHistory,
+    type NavHistoryItem,
+  } from '@client/lib/navHistory.js'
+  import WikiFileName from './WikiFileName.svelte'
+  import ConfirmDialog from './ConfirmDialog.svelte'
+  import type { ChatSessionListItem } from '@client/lib/chatSessionTypes.js'
+
+  const emptyStreamingIds = new Set<string>()
+
+  let {
+    activeSessionId = null as string | null,
+    /** Server session ids with an in-flight agent response (SSE), including background tabs. */
+    streamingSessionIds = emptyStreamingIds,
+    onSelect,
+    onSelectDoc,
+    onSelectEmail,
+    onNewChat,
+    onOpenAllChats,
+  }: {
+    activeSessionId?: string | null
+    streamingSessionIds?: ReadonlySet<string>
+    onSelect: (_sessionId: string) => void
+    onSelectDoc?: (_path: string) => void
+    onSelectEmail?: (_id: string) => void
+    onNewChat: () => void
+    onOpenAllChats?: () => void
+  } = $props()
+
+  let sessions = $state<ChatSessionListItem[]>([])
+  let navHistory = $state<NavHistoryItem[]>([])
+  let loading = $state(true)
+  let error = $state<string | null>(null)
+  let pendingDelete = $state<{ sessionId: string; label: string } | null>(null)
+  let hasMoreChats = $state(false)
+
+  type NavRowItem = {
+    id: string
+    type: 'chat' | 'email' | 'doc'
+    title: string
+    timestamp: string
+    path?: string
+    meta?: string
+    sessionId?: string
+  }
+
+  const chatItems = $derived.by(() => {
+    const items: NavRowItem[] = sessions.map((s) => ({
+      id: `chat:${s.sessionId}`,
+      type: 'chat' as const,
+      title: s.title?.trim() || s.preview?.trim() || 'New chat',
+      timestamp: s.updatedAt,
+      sessionId: s.sessionId,
+    }))
+    items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    return items
+  })
+
+  const recentItems = $derived.by(() => {
+    const items: NavRowItem[] = []
+    for (const h of navHistory) {
+      if (h.type === 'doc' || h.type === 'email') {
+        items.push({
+          id: h.id,
+          type: h.type,
+          title: h.title,
+          timestamp: h.accessedAt,
+          path: h.path,
+          meta: h.meta,
+        })
+      }
+    }
+    items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    return items
+  })
+
+  function shortTime(iso: string): string {
+    const d = new Date(iso)
+    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  }
+
+  /** Bumps on every refresh start; only the latest seq may apply fetched data (avoids races). */
+  let refreshSeq = 0
+
+  export async function refresh(opts?: { background?: boolean }): Promise<void> {
+    const background = opts?.background ?? false
+    const mySeq = ++refreshSeq
+    if (!background) {
+      loading = true
+      error = null
+    }
+    try {
+      const res = await fetchChatSessionsWith401Retry(
+        fetch,
+        undefined,
+        CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
+      )
+      if (mySeq !== refreshSeq) return
+
+      if (!res) {
+        if (!background) {
+          error = 'Could not load chats'
+          sessions = []
+          hasMoreChats = false
+        }
+        return
+      }
+      if (!res.ok) {
+        if (!background) {
+          error = formatChatSessionsFetchError(res)
+          sessions = []
+          hasMoreChats = false
+        }
+        return
+      }
+      const raw = (await res.json()) as ChatSessionListItem[]
+      if (mySeq !== refreshSeq) return
+      hasMoreChats = raw.length > CHAT_HISTORY_SIDEBAR_LIMIT
+      sessions = raw.slice(0, CHAT_HISTORY_SIDEBAR_LIMIT)
+      navHistory = await loadNavHistory()
+      if (mySeq !== refreshSeq) return
+    } catch (e) {
+      if (mySeq !== refreshSeq) return
+      if (!background) {
+        error = e instanceof Error ? e.message : 'Failed to load'
+        sessions = []
+        hasMoreChats = false
+      }
+    } finally {
+      if (!background) loading = false
+    }
+  }
+
+  function handleItemClick(item: NavRowItem) {
+    if (item.type === 'chat' && item.sessionId) {
+      onSelect(item.sessionId)
+    } else if (item.type === 'doc' && item.path && onSelectDoc) {
+      onSelectDoc(item.path)
+    } else if (item.type === 'email' && item.path && onSelectEmail) {
+      onSelectEmail(item.path)
+    }
+  }
+
+  function requestDelete(e: MouseEvent, item: NavRowItem) {
+    e.stopPropagation()
+    e.preventDefault()
+    if (item.type === 'chat' && item.sessionId) {
+      pendingDelete = { sessionId: item.sessionId, label: labelForDeleteChatDialog(item.title) }
+    } else {
+      void removeFromNavHistory(item.id)
+    }
+  }
+
+  function cancelDelete() {
+    pendingDelete = null
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return
+    const id = pendingDelete.sessionId
+    try {
+      const res = await fetch(`/api/chat/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      if (!res.ok) return
+      pendingDelete = null
+      sessions = sessions.filter((s) => s.sessionId !== id)
+      emit({ type: 'chat:sessions-changed' })
+      if (activeSessionId === id) onNewChat()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  onMount(() => {
+    void refresh()
+  })
+
+  $effect(() => {
+    return subscribe((e) => {
+      if (e.type === 'chat:sessions-changed' || e.type === 'nav:recents-changed') {
+        void refresh({ background: true })
+      }
+    })
+  })
+</script>
+
+{#snippet navRow(item: NavRowItem)}
+  {@const agentWorking = chatRowShowsAgentWorking(item, streamingSessionIds)}
+  <div
+    class="ch-row"
+    class:active={item.type === 'chat' && activeSessionId === item.sessionId}
+    role="button"
+    tabindex="0"
+    onclick={() => handleItemClick(item)}
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        handleItemClick(item)
+      }
+    }}
+  >
+    {#if item.type === 'doc' && item.path}
+      <span class="ch-row-doc">
+        <WikiFileName path={item.path} />
+      </span>
+    {:else}
+      <span
+        class="ch-row-icon"
+        class:ch-row-icon--chat={item.type === 'chat'}
+        class:ch-row-icon--email={item.type === 'email'}
+        class:ch-row-icon--working={agentWorking}
+      >
+        {#if item.type === 'chat'}
+          {#if agentWorking}
+            <Loader2 class="sync-spinning" size={12} strokeWidth={2} aria-hidden="true" />
+          {:else}
+            <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
+          {/if}
+        {:else if item.type === 'email'}
+          <Mail size={12} strokeWidth={2} aria-hidden="true" />
+        {/if}
+      </span>
+      <span class="ch-row-title">{item.title}</span>
+    {/if}
+    <span class="ch-row-time">{shortTime(item.timestamp)}</span>
+    <button
+      type="button"
+      class="ch-row-delete"
+      title={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
+      aria-label={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
+      onclick={(e) => requestDelete(e, item)}
+    >
+      <Trash2 size={12} strokeWidth={2} aria-hidden="true" />
+    </button>
+  </div>
+{/snippet}
+
+<div class="chat-history">
+  <button type="button" class="new-chat-btn" onclick={() => onNewChat()}>
+    <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
+    <span>New chat</span>
+  </button>
+
+  <div class="ch-scroll">
+    {#if loading}
+      <div class="ch-muted">Loading…</div>
+    {:else if error}
+      <div class="ch-error">{error}</div>
+    {:else}
+      <div class="ch-group">
+        <div class="ch-group-label">Chats</div>
+        {#if chatItems.length === 0}
+          <div class="ch-muted ch-muted--section">No chats yet.</div>
+        {:else}
+          {#each chatItems as item (item.id)}
+            {@render navRow(item)}
+          {/each}
+          {#if hasMoreChats && onOpenAllChats}
+            <button type="button" class="ch-view-all" onclick={() => onOpenAllChats()}>
+              View all chats…
+            </button>
+          {/if}
+        {/if}
+      </div>
+
+      <div class="ch-group ch-group--recents">
+        <div class="ch-group-label">Recents</div>
+        {#if recentItems.length === 0}
+          <div class="ch-muted ch-muted--section">No recent documents or email.</div>
+        {:else}
+          {#each recentItems as item (item.id)}
+            {@render navRow(item)}
+          {/each}
+        {/if}
+      </div>
+    {/if}
+  </div>
+
+  <ConfirmDialog
+    open={pendingDelete !== null}
+    title="Delete chat?"
+    titleId="ch-delete-title"
+    confirmLabel="Delete"
+    cancelLabel="Cancel"
+    confirmVariant="danger"
+    onDismiss={cancelDelete}
+    onConfirm={() => void confirmDelete()}
+  >
+    {#snippet children()}
+      {#if pendingDelete}
+        <p>This will permanently remove "{pendingDelete.label}".</p>
+      {/if}
+    {/snippet}
+  </ConfirmDialog>
+</div>
+
+<style>
+  /**
+   * Rail typography + row touch layout: set tokens on `.chat-history` and only
+   * override those variables in `@media` — rules stay single-path (no parallel
+   * exhaustive blocks per element).
+   */
+  .chat-history {
+    --ch-fs-new-chat: 0.75rem;
+    --ch-fs-muted: 0.75rem;
+    --ch-fs-error: 0.6875rem;
+    --ch-fs-group-label: 0.625rem;
+    --ch-fs-view-all: 0.6875rem;
+    --ch-fs-row-title: 0.75rem;
+    --ch-fs-row-time: 0.625rem;
+    --ch-lh-row-title: 1.3;
+    --ch-row-pad: 5px 6px;
+    --ch-row-min-h: 0;
+    --ch-icon-w: 16px;
+    --ch-wfn-icon-w: 14px;
+
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    padding-top: 8px;
+    background: var(--bg-2);
+  }
+
+  @media (max-width: 768px) {
+    .chat-history {
+      --ch-fs-new-chat: 0.8125rem;
+      --ch-fs-muted: 0.875rem;
+      --ch-fs-error: 0.75rem;
+      --ch-fs-group-label: 0.6875rem;
+      --ch-fs-view-all: 0.75rem;
+      --ch-fs-row-title: 1rem;
+      --ch-fs-row-time: 0.875rem;
+      --ch-lh-row-title: 1.35;
+      --ch-row-pad: 8px 8px;
+      --ch-row-min-h: 44px;
+      --ch-icon-w: 20px;
+      --ch-wfn-icon-w: 16px;
+    }
+  }
+
+  .new-chat-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 8px 10px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text);
+    font-size: var(--ch-fs-new-chat);
+    font-weight: 500;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .new-chat-btn:hover {
+    background: var(--bg);
+    border-color: var(--text-2);
+  }
+
+  .ch-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 6px 10px;
+  }
+
+  .ch-muted {
+    padding: 10px;
+    font-size: var(--ch-fs-muted);
+    color: var(--text-2);
+  }
+
+  .ch-muted--section {
+    padding: 6px 6px 8px;
+    font-style: italic;
+  }
+
+  .ch-error {
+    padding: 10px;
+    font-size: var(--ch-fs-error);
+    color: var(--danger);
+  }
+
+  .ch-group {
+    margin-top: 6px;
+  }
+
+  .ch-group:first-child {
+    margin-top: 2px;
+  }
+
+  .ch-group--recents {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ch-group-label {
+    font-size: var(--ch-fs-group-label);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-2);
+    padding: 2px 6px 6px;
+  }
+
+  .ch-view-all {
+    display: block;
+    width: calc(100% - 4px);
+    margin: 4px 2px 0;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--accent);
+    font-size: var(--ch-fs-view-all);
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .ch-view-all:hover {
+    background: var(--bg-3);
+    border-color: var(--text-2);
+  }
+  .ch-view-all:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .ch-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    text-align: left;
+    min-height: var(--ch-row-min-h);
+    padding: var(--ch-row-pad);
+    box-sizing: border-box;
+    border-radius: 6px;
+    margin-bottom: 1px;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .ch-row:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .ch-row:hover {
+    background: var(--bg-3);
+  }
+  .ch-row.active {
+    background: var(--accent-dim);
+    outline: 1px solid var(--accent);
+  }
+
+  .ch-row-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: var(--ch-icon-w);
+    color: var(--text-2);
+    opacity: 0.6;
+  }
+
+  .ch-row-icon--chat {
+    color: var(--accent);
+    opacity: 0.75;
+  }
+
+  .ch-row-icon--working {
+    opacity: 0.9;
+  }
+
+  .ch-row-icon--email {
+    color: var(--text-2);
+    opacity: 0.65;
+  }
+
+  .ch-row-doc {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .ch-row-doc :global(.wfn-title-row) {
+    font-size: var(--ch-fs-row-title);
+    line-height: var(--ch-lh-row-title);
+  }
+
+  .ch-row-doc :global(.wfn-lead-icon) {
+    width: var(--ch-wfn-icon-w);
+  }
+
+  .ch-row-doc :global(.wfn-name) {
+    color: var(--text);
+  }
+
+  .ch-row:hover .ch-row-doc :global(.wfn-name) {
+    color: var(--accent);
+  }
+
+  .ch-row-title {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--ch-fs-row-title);
+    line-height: var(--ch-lh-row-title);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ch-row-time {
+    font-size: var(--ch-fs-row-time);
+    color: var(--text-2);
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  .ch-row-delete {
+    flex-shrink: 0;
+    padding: 3px;
+    border-radius: 4px;
+    color: var(--text-2);
+    opacity: 0;
+    transition: opacity 0.12s, color 0.12s, background 0.12s;
+  }
+  .ch-row:hover .ch-row-delete {
+    opacity: 1;
+  }
+  .ch-row-delete:hover {
+    color: var(--danger);
+    background: rgba(224, 92, 92, 0.12);
+  }
+</style>

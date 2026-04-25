@@ -3,12 +3,23 @@ import {
   isOpenAiSttConfigured,
   OPENAI_STT_MAX_BYTES,
   transcribeOpenAiStt,
-} from '../lib/openAiStt.js'
+} from '@server/lib/llm/openAiStt.js'
+import { isTranscribeHttpAllowed } from '@server/lib/llm/transcribeHttpAllowed.js'
 
 const transcribe = new Hono()
 
 // POST /api/transcribe — multipart form field "audio" (one file)
 transcribe.post('/', async (c) => {
+  if (!isTranscribeHttpAllowed()) {
+    return c.json(
+      {
+        error: 'transcribe_dev_only',
+        message: 'Composer speech-to-text is only enabled in local development.',
+      },
+      503,
+    )
+  }
+
   if (!isOpenAiSttConfigured()) {
     return c.json(
       { error: 'stt_unavailable', message: 'OpenAI API key is not configured for speech-to-text.' },

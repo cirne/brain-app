@@ -2,7 +2,7 @@
  * Shared `.env` load + `--provider` / `--model` / `--help` for eval CLIs (same as dev server env).
  */
 import { parseArgs } from 'node:util'
-import { loadDotEnv } from '../lib/loadDotEnv.js'
+import { loadDotEnv } from '@server/lib/platform/loadDotEnv.js'
 
 const options = {
   provider: { type: 'string' as const, short: 'p' as const },

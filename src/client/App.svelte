@@ -1,15 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Assistant from './lib/Assistant.svelte'
-  import FullDiskAccessGate from './lib/onboarding/FullDiskAccessGate.svelte'
-  import Onboarding from './lib/onboarding/Onboarding.svelte'
-  import UnlockVault from './lib/onboarding/UnlockVault.svelte'
-  import HostedSignIn from './lib/onboarding/HostedSignIn.svelte'
+  import Assistant from '@components/Assistant.svelte'
+  import FullDiskAccessGate from '@components/onboarding/FullDiskAccessGate.svelte'
+  import Onboarding from '@components/onboarding/Onboarding.svelte'
+  import UnlockVault from '@components/onboarding/UnlockVault.svelte'
+  import HostedSignIn from '@components/onboarding/HostedSignIn.svelte'
   import { parseRoute, type Route } from './router.js'
-  import { clearBrainClientStorage } from './lib/brainClientStorage.js'
-  import { ONBOARDING_SEED_CHAT_STORAGE_KEY } from './lib/onboarding/onboardingStorageKeys.js'
-  import { fetchVaultStatus, type VaultStatus } from './lib/vaultClient.js'
-  import DesktopAppUpdate from './lib/desktop/DesktopAppUpdate.svelte'
+  import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
+  import { ONBOARDING_SEED_CHAT_STORAGE_KEY } from '@client/lib/onboarding/onboardingStorageKeys.js'
+  import { fetchVaultStatus, type VaultStatus } from '@client/lib/vaultClient.js'
+  import DesktopAppUpdate from '@components/desktop/DesktopAppUpdate.svelte'
 
   let route = $state<Route>(parseRoute())
   let appReady = $state(false)

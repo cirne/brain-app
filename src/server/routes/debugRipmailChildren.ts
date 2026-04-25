@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { getRipmailChildDebugSnapshot } from '../lib/ripmailExec.js'
+import { getRipmailChildDebugSnapshot } from '@server/lib/ripmail/ripmailExec.js'
 
 const r = new Hono()
 

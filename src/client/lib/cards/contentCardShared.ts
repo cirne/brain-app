@@ -4,11 +4,11 @@ import {
   inboxRowsToPreviewItems,
   parseRipmailInboxFlat,
   type InboxListItemPreview,
-} from '../../../server/lib/ripmailInboxFlatten.js'
+} from '@shared/ripmailInboxFlatten.js'
 import {
   pickReadEmailFields,
   type ReadEmailToolDetails,
-} from '../../../server/lib/readEmailPreview.js'
+} from '@shared/readEmailPreview.js'
 import { isFilesystemAbsolutePath } from '../fsPath.js'
 
 export { formatEmailParticipant, flattenInboxFromRipmailData, parseRipmailInboxFlat }

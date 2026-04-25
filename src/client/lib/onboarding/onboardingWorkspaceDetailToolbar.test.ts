@@ -9,8 +9,11 @@ import { describe, expect, it } from 'vitest'
  */
 describe('OnboardingWorkspace SlideOver toolbar', () => {
   it('does not pass onSync into desktop detail SlideOver', () => {
-    const dir = dirname(fileURLToPath(import.meta.url))
-    const src = readFileSync(join(dir, 'OnboardingWorkspace.svelte'), 'utf8')
+    const path = join(
+      dirname(fileURLToPath(import.meta.url)),
+      '../../components/onboarding/OnboardingWorkspace.svelte',
+    )
+    const src = readFileSync(path, 'utf8')
     const desktop = src.match(/\{#snippet desktopDetail\(\)\}([\s\S]*?)\{\/snippet\}/)?.[1]
     expect(desktop).toBeDefined()
     expect(desktop!).not.toMatch(/onSync/)

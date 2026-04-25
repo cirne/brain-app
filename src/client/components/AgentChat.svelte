@@ -1,0 +1,1006 @@
+<script lang="ts">
+  import { onMount, tick, type Component, type Snippet } from 'svelte'
+  import { type SurfaceContext } from '@client/router.js'
+  import type { AgentConversationViewProps, ConversationScrollApi } from '@client/lib/agentConversationViewTypes.js'
+  import { buildChatBody, extractMentionedFiles, type ChatMessage, type SkillMenuItem } from '@client/lib/agentUtils.js'
+  import { contextPlaceholder } from '@client/lib/agentUtils.js'
+  import { emit } from '@client/lib/app/appEvents.js'
+  import { ensureBrainTtsAutoplayInUserGesture } from '@client/lib/brainTtsAudio.js'
+  import { readHearRepliesPreference, writeHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
+  import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
+
+  function notifyChatSessionsChanged() {
+    emit({ type: 'chat:sessions-changed' })
+  }
+  import { consumeAgentChatStream } from '@client/lib/agentStream.js'
+  import {
+    collectStreamingSessionIds,
+    createPendingSessionKey,
+    emptySession,
+    migratePendingToServer,
+    sessionIsLiveStreaming,
+    setSessionImmutable,
+    touchSessionImmutable,
+    type SessionState,
+  } from '@client/lib/chatSessionStore.js'
+  import { shiftQueuedFollowUp } from '@client/lib/agentFollowUpQueue.js'
+  import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
+  import AgentConversation from './agent-conversation/AgentConversation.svelte'
+  import ChatComposerAudio from './ChatComposerAudio.svelte'
+  import { requestMicrophonePermissionInUserGesture } from '@client/lib/holdToSpeakMedia.js'
+  import AgentInput from './AgentInput.svelte'
+  import WikiFileName from './WikiFileName.svelte'
+  import PaneL2Header from './PaneL2Header.svelte'
+  import ConfirmDialog from './ConfirmDialog.svelte'
+  import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
+  import type { AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
+  import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
+  let {
+    context = { type: 'none' } as SurfaceContext,
+    conversationHidden = false,
+    /** When true, agent tools do not auto-open the right detail panel (wiki from write/edit, `open`, `read_email`, …). */
+    suppressAgentDetailAutoOpen = false,
+    onOpenWiki,
+    onOpenFile,
+    onOpenEmail,
+    onOpenFullInbox,
+    onOpenMessageThread,
+    onSwitchToCalendar,
+    onOpenFromAgent,
+    onNewChat,
+    onOpenWikiAbout,
+    onAfterDeleteChat,
+    /** Fired when the user submits a chat message (before the request runs). */
+    onUserSendMessage,
+    /** Active session id changed (new chat, load, or SSE session event). */
+    onSessionChange,
+    /** After a send() stream finishes (success, error, or abort). */
+    onChatPersisted,
+    /** Live `write` tool body — wiki detail pane only. */
+    onWriteStreaming,
+    /** Live `edit` tool — wiki pane “Editing…” until tool_end. */
+    onEditStreaming,
+    mobileDetail,
+    /** POST target for SSE (default main chat). */
+    chatEndpoint = '/api/chat',
+    /** Title until `set_chat_title` runs. */
+    headerFallbackTitle = 'Chat',
+    /** If set, sent as the first user message after mount (e.g. onboarding kickoff). */
+    autoSendMessage = null as string | null,
+    /** Called once when the server emits a terminal `done` event for the stream. */
+    onStreamFinished,
+    /** Fired when the active session streaming flag changes (request/response cycle). */
+    onStreamingChange,
+    /** All server session ids that currently have an in-flight stream (for nav “busy” state). */
+    onStreamingSessionsChange,
+    /** Persist transcript under this localStorage key; empty = no persistence. */
+    storageKey: _storageKey = 'brain-agent',
+    /**
+     * Main transcript UI. Defaults to the standard chat. Pass a different component
+     * (e.g. onboarding profiling, future “wiki cleanup” agents) with the same props +
+     * {@link ConversationScrollApi} on the instance.
+     */
+    conversationView = AgentConversation as Component<AgentConversationViewProps>,
+    /** Hide the composer (e.g. kickoff-only flows). */
+    hideInput = false,
+    /** When non-empty, header text while streaming; otherwise chat title or {@link headerFallbackTitle}. */
+    streamingBusyLabel = '',
+    /** Live `write` stream for onboarding profiling / seeding transcript (e.g. `me.md` preview). */
+    streamingWritePreview = null as { path: string; body: string } | null,
+    /**
+     * When true, omit wiki/file/subject chips under the chat title — the desktop split detail
+     * header already shows the same context.
+     */
+    hidePaneContextChip = false,
+    /** When set, overrides {@link contextPlaceholder} for the composer hint. */
+    inputPlaceholder = undefined as string | undefined,
+    /** Hosted multi-tenant: profiling transcript uses alternate privacy lead copy. */
+    multiTenant = false,
+  }: {
+    context?: SurfaceContext
+    conversationHidden?: boolean
+    suppressAgentDetailAutoOpen?: boolean
+    onOpenWiki?: (_path: string) => void
+    onOpenFile?: (_path: string) => void
+    onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
+    onOpenFullInbox?: () => void
+    onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
+    onSwitchToCalendar?: (_date: string, _eventId?: string) => void
+    /** LLM `open` / `read_email` — fired from SSE tool_start */
+    onOpenFromAgent?: (
+      _target: { type: string; path?: string; id?: string; date?: string },
+      _source: AgentOpenSource,
+    ) => void
+    onNewChat?: () => void
+    /** Empty-state link to wiki help (`hub-wiki-about` overlay). */
+    onOpenWikiAbout?: () => void
+    /** After this chat is deleted (API + confirm); defaults to {@link newChat} with overlay skip. Main app passes the same handler as sidebar “New chat”. */
+    onAfterDeleteChat?: () => void
+    onUserSendMessage?: () => void
+    onSessionChange?: (_sessionId: string | null) => void
+    onChatPersisted?: () => void
+    onWriteStreaming?: (_p: { path: string; content: string; done: boolean }) => void
+    onEditStreaming?: (_p: { id: string; path: string; done: boolean }) => void
+    /** Full-screen detail stack above input (mobile only) */
+    mobileDetail?: Snippet
+    chatEndpoint?: string
+    headerFallbackTitle?: string
+    autoSendMessage?: string | null
+    onStreamFinished?: () => void | Promise<void>
+    onStreamingChange?: (_streaming: boolean) => void
+    onStreamingSessionsChange?: (_sessionIds: ReadonlySet<string>) => void
+    storageKey?: string
+    conversationView?: Component<AgentConversationViewProps>
+    hideInput?: boolean
+    streamingBusyLabel?: string
+    streamingWritePreview?: { path: string; body: string } | null
+    hidePaneContextChip?: boolean
+    inputPlaceholder?: string
+    multiTenant?: boolean
+  } = $props()
+
+  /** Dynamic transcript component (default {@link AgentConversation}). */
+  const ConversationView = $derived(conversationView)
+
+  function loadState(): { messages: ChatMessage[]; sessionId: string | null; chatTitle?: string | null } {
+    return { messages: [], sessionId: null, chatTitle: null }
+  }
+
+  const initial = loadState()
+
+  function initialSessionsAndDisplay(): { sessions: Map<string, SessionState>; displayed: string } {
+    const defaultHearReplies = readHearRepliesPreference()
+    const map = new Map<string, SessionState>()
+    if (initial.sessionId && initial.messages.length > 0) {
+      map.set(initial.sessionId, {
+        messages: initial.messages,
+        streaming: false,
+        abortController: null,
+        sessionId: initial.sessionId,
+        chatTitle: initial.chatTitle ?? null,
+        pendingQueuedMessages: [],
+        hearReplies: defaultHearReplies,
+      })
+      return { sessions: map, displayed: initial.sessionId }
+    }
+    if (initial.messages.length > 0) {
+      const pk = createPendingSessionKey()
+      map.set(pk, {
+        messages: initial.messages,
+        streaming: false,
+        abortController: null,
+        sessionId: null,
+        chatTitle: initial.chatTitle ?? null,
+        pendingQueuedMessages: [],
+        hearReplies: defaultHearReplies,
+      })
+      return { sessions: map, displayed: pk }
+    }
+    const pk = createPendingSessionKey()
+    map.set(pk, { ...emptySession(), hearReplies: defaultHearReplies })
+    return { sessions: map, displayed: pk }
+  }
+
+  const init = initialSessionsAndDisplay()
+  let sessions = $state(init.sessions)
+  let displayedSessionId = $state(init.displayed)
+
+  const sessionLoadLatest = createAsyncLatest({ abortPrevious: true })
+
+  const messages = $derived.by((): ChatMessage[] => {
+    const id = displayedSessionId
+    if (!id) return []
+    return sessions.get(id)?.messages ?? []
+  })
+
+  const chatTitle = $derived.by((): string | null => {
+    const id = displayedSessionId
+    if (!id) return null
+    return sessions.get(id)?.chatTitle ?? null
+  })
+
+  const streaming = $derived.by((): boolean => {
+    const id = displayedSessionId
+    if (!id) return false
+    return sessions.get(id)?.streaming ?? false
+  })
+
+  /**
+   * If `sessions.get(id)` is briefly undefined during store updates, we must not pass `false`
+   * to the composer: that sets `holdGated`, runs cleanup, and `track.stop()` on the live
+   * getUserMedia stream (all-zero PCM, `readyState: "ended"`, bad STT).
+   * `readHearRepliesPreference() === false` + missing row is still a race → keep mic alive.
+   * Only a row with `hearReplies === false` should gate the hold.
+   */
+  const hearRepliesForChatComposer = $derived.by((): boolean => {
+    const id = displayedSessionId
+    if (id == null) {
+      return false
+    }
+    const row = sessions.get(id)
+    if (row == null) {
+      return true
+    }
+    return row.hearReplies === true
+  })
+
+  $effect(() => {
+    onStreamingChange?.(streaming)
+  })
+
+  let lastStreamingSessionsKey = ''
+
+  function notifyStreamingSessionsChanged() {
+    const ids = collectStreamingSessionIds(sessions)
+    const key = [...ids].sort().join(',')
+    if (key === lastStreamingSessionsKey) return
+    lastStreamingSessionsKey = key
+    onStreamingSessionsChange?.(ids)
+  }
+
+  let wikiFiles = $state<string[]>([])
+  let skillsList = $state<SkillMenuItem[]>([])
+  let conversationEl = $state<ConversationScrollApi | undefined>(undefined)
+  let inputEl = $state<ReturnType<typeof AgentInput> | undefined>(undefined)
+  /** Mobile: hide/slide the hold-to-speak control while the user has any text in the composer. */
+  let inputDraftForMobileHold = $state('')
+
+  function onAgentInputDraftChange(d: string) {
+    inputDraftForMobileHold = d
+  }
+
+  async function focusAgentTextarea(delayMs: number) {
+    await tick()
+    if (delayMs > 0) {
+      await new Promise<void>((r) => setTimeout(r, delayMs))
+    }
+    inputEl?.focus()
+  }
+
+  async function fetchSkills() {
+    try {
+      const res = await fetch('/api/skills')
+      if (!res.ok) return
+      const data: unknown = await res.json()
+      if (!Array.isArray(data)) return
+      skillsList = data as SkillMenuItem[]
+    } catch {
+      /* ignore */
+    }
+  }
+
+  $effect(() => {
+    const id = displayedSessionId
+    if (!id) {
+      onSessionChange?.(null)
+      return
+    }
+    const sid = sessions.get(id)?.sessionId ?? null
+    onSessionChange?.(sid)
+  })
+
+  async function fetchWikiFiles() {
+    try {
+      const res = await fetch('/api/wiki')
+      if (!res.ok) return
+      const data: unknown = await res.json()
+      if (!Array.isArray(data)) return
+      wikiFiles = data
+        .map((f) =>
+          f && typeof f === 'object' && 'path' in f && typeof (f as { path: unknown }).path === 'string'
+            ? (f as { path: string }).path
+            : null,
+        )
+        .filter((p): p is string => p != null)
+    } catch { /* ignore */ }
+  }
+
+  onMount(() => {
+    void fetchWikiFiles()
+    void fetchSkills()
+    const unsubWikiList = registerWikiFileListRefetch(fetchWikiFiles)
+    const m = autoSendMessage?.trim()
+    if (m) void tick().then(() => send(m))
+    return () => {
+      unsubWikiList()
+    }
+  })
+
+  export function newChat(options?: { skipOverlayClose?: boolean }) {
+    const pk = createPendingSessionKey()
+    sessions = setSessionImmutable(sessions, pk, {
+      ...emptySession(),
+      hearReplies: readHearRepliesPreference(),
+    })
+    displayedSessionId = pk
+    if (!options?.skipOverlayClose) onNewChat?.()
+    void focusAgentTextarea(0)
+  }
+
+  export async function newChatWithMessage(
+    text: string,
+    options?: { skipOverlayClose?: boolean },
+  ) {
+    newChat(options)
+    await tick()
+    await send(text)
+  }
+
+  /** Add text to the composer (e.g. @page.md) without sending. */
+  export function appendToComposer(text: string) {
+    inputEl?.appendText(text)
+  }
+
+  export function focusComposer() {
+    void focusAgentTextarea(0)
+  }
+
+  export async function loadSession(loadId: string) {
+    if (sessionIsLiveStreaming(sessions, loadId)) {
+      displayedSessionId = loadId
+      await tick()
+      conversationEl?.scrollToBottom()
+      return
+    }
+
+    const { token, signal } = sessionLoadLatest.begin()
+    try {
+      const res = await fetch(`/api/chat/sessions/${encodeURIComponent(loadId)}`, { signal })
+      if (sessionLoadLatest.isStale(token)) return
+      if (!res.ok) {
+        const err = emptySession()
+        err.messages = [
+          {
+            role: 'assistant',
+            content: `Could not load chat (${res.status}).`,
+          },
+        ]
+        sessions = setSessionImmutable(sessions, loadId, {
+          ...err,
+          sessionId: null,
+          chatTitle: null,
+          pendingQueuedMessages: [],
+          hearReplies: readHearRepliesPreference(),
+        })
+        displayedSessionId = loadId
+        await tick()
+        conversationEl?.scrollToBottom()
+        return
+      }
+      const doc = (await res.json()) as {
+        sessionId?: string
+        title?: string | null
+        messages?: ChatMessage[]
+      }
+      if (sessionLoadLatest.isStale(token)) return
+      const list = Array.isArray(doc.messages) ? doc.messages : []
+      const sid = typeof doc.sessionId === 'string' ? doc.sessionId : loadId
+      sessions = setSessionImmutable(sessions, sid, {
+        messages: list,
+        streaming: false,
+        abortController: null,
+        sessionId: sid,
+        chatTitle: doc.title ?? null,
+        pendingQueuedMessages: [],
+        hearReplies: readHearRepliesPreference(),
+      })
+      displayedSessionId = sid
+      await tick()
+      conversationEl?.scrollToBottom()
+      void focusAgentTextarea(0)
+    } catch (e) {
+      if (sessionLoadLatest.isStale(token) || isAbortError(e)) return
+      const pk = createPendingSessionKey()
+      sessions = setSessionImmutable(sessions, pk, {
+        messages: [{ role: 'assistant', content: 'Could not load chat.' }],
+        streaming: false,
+        abortController: null,
+        sessionId: null,
+        chatTitle: null,
+        pendingQueuedMessages: [],
+        hearReplies: readHearRepliesPreference(),
+      })
+      displayedSessionId = pk
+      await tick()
+      conversationEl?.scrollToBottom()
+    }
+  }
+
+  function stopChat() {
+    const id = displayedSessionId
+    if (!id) return
+    sessions.get(id)?.abortController?.abort()
+  }
+
+  /**
+   * @param forSessionKey — when set (e.g. queued follow-up after a background stream ends), send targets this map key instead of the currently displayed session.
+   * @param firstChatKickoff — post-onboarding: assistant speaks first (no user bubble); see POST /api/chat `firstChatKickoff`.
+   */
+  async function send(text: string, forSessionKey?: string, firstChatKickoff = false) {
+    const id = forSessionKey ?? displayedSessionId
+    if ((!text?.trim() && !firstChatKickoff) || !id) return
+    const st = sessions.get(id)
+    if (!st) return
+
+    if (st.streaming) {
+      if (firstChatKickoff) return
+      const t = text.trim()
+      if (!t) return
+      const prev = st.pendingQueuedMessages ?? []
+      sessions = touchSessionImmutable(sessions, id, { pendingQueuedMessages: [...prev, t] })
+      return
+    }
+
+    const streamKey = id
+    let activeKey = streamKey
+    const mentionedFiles = firstChatKickoff ? [] : extractMentionedFiles(text)
+    const isFirstMessage = st.messages.length === 0
+
+    const nextMessages = firstChatKickoff
+      ? [...st.messages, { role: 'assistant' as const, content: '', parts: [] }]
+      : [...st.messages, { role: 'user' as const, content: text }, { role: 'assistant' as const, content: '', parts: [] }]
+    const msgIdx = nextMessages.length - 1
+
+    if (st.hearReplies === true) {
+      await ensureBrainTtsAutoplayInUserGesture()
+    }
+
+    const ac = new AbortController()
+    sessions = touchSessionImmutable(sessions, id, {
+      messages: nextMessages,
+      streaming: true,
+      abortController: ac,
+    })
+    notifyStreamingSessionsChanged()
+    await tick()
+    conversationEl?.scrollToBottom()
+
+    const body = buildChatBody({
+      message: text,
+      sessionId: st.sessionId,
+      context,
+      mentionedFiles,
+      isFirstMessage,
+      firstChatKickoff,
+      hearReplies: st.hearReplies === true,
+    })
+
+    if (!firstChatKickoff) onUserSendMessage?.()
+
+    let sawDone = false
+    let touchedWiki = false
+
+    try {
+      const res = await fetch(chatEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ac.signal,
+      })
+
+      if (!res.ok) {
+        const row = sessions.get(activeKey)!.messages[msgIdx]
+        if (!row.parts) row.parts = []
+        row.parts.push({ type: 'text', content: `Error: ${res.status} ${res.statusText}` })
+        sessions = touchSessionImmutable(sessions, activeKey, { streaming: false, abortController: null })
+        notifyStreamingSessionsChanged()
+        return
+      }
+
+      const result = await consumeAgentChatStream(res, {
+        getMessages: () => sessions.get(activeKey)!.messages,
+        msgIdx,
+        suppressAgentDetailAutoOpen,
+        isActiveSession: () => displayedSessionId === activeKey,
+        onOpenWiki,
+        onWriteStreaming,
+        onEditStreaming,
+        onOpenFromAgent,
+        setSessionId: (sid) => {
+          if (!sid) return
+          if (activeKey.startsWith('pending:')) {
+            const r = migratePendingToServer(sessions, activeKey, sid, displayedSessionId)
+            sessions = r.sessions
+            displayedSessionId = r.displayedSessionId
+            activeKey = sid
+          } else {
+            sessions = touchSessionImmutable(sessions, activeKey, { sessionId: sid })
+          }
+          notifyStreamingSessionsChanged()
+          notifyChatSessionsChanged()
+        },
+        setChatTitle: (t) => {
+          sessions = touchSessionImmutable(sessions, activeKey, { chatTitle: t })
+          notifyChatSessionsChanged()
+        },
+        touchMessages: () => {
+          const cur = sessions.get(activeKey)
+          if (!cur) return
+          const next = [...cur.messages]
+          const m = next[msgIdx]
+          if (m?.role === 'assistant') {
+            next[msgIdx] = {
+              ...m,
+              parts: m.parts
+                ? m.parts.map((p) =>
+                    p.type === 'text'
+                      ? { type: 'text', content: p.content }
+                      : { type: 'tool', toolCall: { ...p.toolCall } },
+                  )
+                : [],
+            }
+          }
+          sessions = touchSessionImmutable(sessions, activeKey, { messages: next })
+        },
+        scrollToBottom: () => conversationEl?.scrollToBottomIfFollowing(),
+      })
+      touchedWiki = result.touchedWiki
+      sawDone = result.sawDone
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      const name = err instanceof Error ? err.name : ''
+      if (name !== 'AbortError') {
+        const row = sessions.get(activeKey)?.messages[msgIdx]
+        if (row) {
+          if (!row.parts) row.parts = []
+          row.parts.push({ type: 'text', content: `\n\n**Connection error:** ${errMsg}` })
+        }
+      }
+    } finally {
+      sessions = touchSessionImmutable(sessions, activeKey, { abortController: null, streaming: false })
+      notifyStreamingSessionsChanged()
+      conversationEl?.scrollToBottom()
+      if (touchedWiki) emit({ type: 'wiki:mutated', source: 'agent' })
+      notifyChatSessionsChanged()
+      onChatPersisted?.()
+      if (sawDone && displayedSessionId === activeKey) void onStreamFinished?.()
+
+      const { next: queued, rest: queueRest } = shiftQueuedFollowUp(
+        sessions.get(activeKey)?.pendingQueuedMessages,
+      )
+      if (queued) {
+        sessions = touchSessionImmutable(sessions, activeKey, { pendingQueuedMessages: queueRest })
+        void send(queued, activeKey)
+      }
+    }
+  }
+
+  /** First turn after onboarding when the server marked first-chat pending — assistant opens, no user message. */
+  export async function sendFirstChatKickoff(forSessionKey?: string) {
+    await send('', forSessionKey, true)
+  }
+
+  const placeholder = $derived(inputPlaceholder ?? contextPlaceholder(context))
+
+  const contextChip = $derived.by((): string | null => {
+    if (context.type === 'email') return `📧 ${context.subject}`
+    if (context.type === 'calendar') return `📅 ${context.date}`
+    if (context.type === 'inbox') return '📥 Inbox'
+    if (context.type === 'messages') return `💬 ${context.displayLabel}`
+    return null
+  })
+
+  const pendingQueuedMessages = $derived.by((): string[] => {
+    const id = displayedSessionId
+    if (!id) return []
+    return sessions.get(id)?.pendingQueuedMessages ?? []
+  })
+
+  /** When true, vertically center the empty transcript and (when shown) the composer. */
+  const centerEmptyInPane = $derived(messages.length === 0)
+
+  let pendingDelete = $state<{ serverId: string | null; label: string } | null>(null)
+
+  function titleForDeleteDialog(): string {
+    if (chatTitle?.trim()) return chatTitle.trim()
+    for (const m of messages) {
+      if (m.role === 'user' && m.content) {
+        const t = typeof m.content === 'string' ? m.content.trim() : ''
+        if (t) return t
+      }
+    }
+    return headerFallbackTitle
+  }
+
+  function toggleHearRepliesFromHeader() {
+    const id = displayedSessionId
+    if (!id) return
+    const cur = sessions.get(id)?.hearReplies ?? false
+    if (cur === false) {
+      void ensureBrainTtsAutoplayInUserGesture()
+      void requestMicrophonePermissionInUserGesture()
+    }
+    const next = !cur
+    writeHearRepliesPreference(next)
+    sessions = touchSessionImmutable(sessions, id, { hearReplies: next })
+  }
+
+  function requestDeleteCurrentChat() {
+    if (messages.length === 0) return
+    pendingDelete = {
+      serverId: sessions.get(displayedSessionId)?.sessionId ?? null,
+      label: labelForDeleteChatDialog(titleForDeleteDialog()),
+    }
+  }
+
+  function cancelDeleteCurrentChat() {
+    pendingDelete = null
+  }
+
+  async function confirmDeleteCurrentChat() {
+    if (!pendingDelete) return
+    stopChat()
+    const { serverId } = pendingDelete
+    try {
+      if (serverId) {
+        const res = await fetch(`/api/chat/${encodeURIComponent(serverId)}`, { method: 'DELETE' })
+        if (!res.ok) return
+      }
+    } catch {
+      return
+    }
+    pendingDelete = null
+    notifyChatSessionsChanged()
+    if (onAfterDeleteChat) {
+      onAfterDeleteChat()
+    } else {
+      newChat({ skipOverlayClose: true })
+    }
+  }
+
+</script>
+
+<div class="agent-chat">
+  <div class="chat-body">
+    <div class="chat-top">
+    {#if !centerEmptyInPane}
+    <!-- Always in flex flow — prevents height jump when overlay opens/closes -->
+    <div inert={conversationHidden || undefined}>
+      <PaneL2Header>
+        {#snippet center()}
+          <div class="header-left">
+            <span
+              class="chat-title"
+              class:custom-title={!!chatTitle}
+              aria-label={streaming &&
+              !(streamingBusyLabel ?? '').trim() &&
+              !(chatTitle ?? '').trim()
+                ? 'Assistant is working'
+                : undefined}
+            >
+              {#if streaming}
+                {#if (streamingBusyLabel ?? '').trim()}
+                  {streamingBusyLabel}
+                {:else}
+                  {(chatTitle ?? '').trim() || headerFallbackTitle}
+                {/if}
+              {:else}
+                {chatTitle ?? headerFallbackTitle}
+              {/if}
+            </span>
+            {#if !hidePaneContextChip}
+              {#if context.type === 'wiki'}
+                <span class="context-chip"><WikiFileName path={context.path} /></span>
+              {:else if context.type === 'file'}
+                <span class="context-chip"><WikiFileName path={context.path} /></span>
+              {:else if contextChip}
+                <span class="context-chip">{contextChip}</span>
+              {/if}
+            {/if}
+          </div>
+        {/snippet}
+        {#snippet right()}
+          {@const hearRepliesOn = sessions.get(displayedSessionId)?.hearReplies === true}
+          <div class="pane-header-actions">
+            <button
+              type="button"
+              class="hear-replies-header-btn"
+              class:hear-replies-header-btn--on={hearRepliesOn}
+              aria-pressed={hearRepliesOn}
+              title="Read answers aloud"
+              aria-label={hearRepliesOn ? 'Read answers aloud on' : 'Read answers aloud off'}
+              onclick={toggleHearRepliesFromHeader}
+            >
+              {#if hearRepliesOn}
+                <Volume2 size={16} strokeWidth={2} aria-hidden="true" />
+              {:else}
+                <VolumeX size={16} strokeWidth={2} aria-hidden="true" />
+              {/if}
+            </button>
+            {#if messages.length > 0}
+              <button
+                type="button"
+                class="delete-chat-btn"
+                onclick={requestDeleteCurrentChat}
+                title="Delete chat"
+                aria-label="Delete chat"
+              >
+                <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
+            {/if}
+          </div>
+        {/snippet}
+      </PaneL2Header>
+    </div>
+    {/if}
+
+    <div
+      class="mid-outer"
+      class:mid-outer--empty={centerEmptyInPane}
+    >
+    <!-- Always mounted so it is visible behind the overlay during the slide-out animation -->
+    <div class="mid" inert={conversationHidden || undefined}>
+      <ConversationView
+        bind:this={conversationEl}
+        {messages}
+        {streaming}
+        {onOpenWiki}
+        {onOpenFile}
+        {onOpenEmail}
+        {onOpenFullInbox}
+        {onOpenMessageThread}
+        {onSwitchToCalendar}
+        {onOpenWikiAbout}
+        onSubmitQuickReply={(t) => void send(t)}
+        streamingWrite={streamingWritePreview}
+        {multiTenant}
+      />
+    </div>
+
+    {#if !hideInput}
+      <div class="composer-stack">
+        <div class="input-shell">
+          <AgentInput
+            bind:this={inputEl}
+            {placeholder}
+            {streaming}
+            queuedMessages={pendingQueuedMessages}
+            {wikiFiles}
+            skills={skillsList}
+            onSend={send}
+            onStop={stopChat}
+            onDraftChange={onAgentInputDraftChange}
+          />
+        </div>
+        <ChatComposerAudio
+          disabled={streaming}
+          showHearRepliesToggle={messages.length === 0}
+          draftHidesHold={inputDraftForMobileHold.length > 0}
+          hearReplies={hearRepliesForChatComposer}
+          onHearRepliesChange={(v) => {
+            const id = displayedSessionId
+            if (!id) return
+            writeHearRepliesPreference(v)
+            sessions = touchSessionImmutable(sessions, id, { hearReplies: v })
+          }}
+          onTranscribe={(t) => void send(t)}
+        />
+      </div>
+    {/if}
+    </div>
+
+    {#if conversationHidden && mobileDetail}
+      <div class="mobile-detail-layer">
+        {@render mobileDetail()}
+      </div>
+    {/if}
+    </div>
+  </div>
+
+  <ConfirmDialog
+    open={pendingDelete !== null}
+    title="Delete chat?"
+    titleId="agent-chat-delete-title"
+    confirmLabel="Delete"
+    cancelLabel="Cancel"
+    confirmVariant="danger"
+    onDismiss={cancelDeleteCurrentChat}
+    onConfirm={() => void confirmDeleteCurrentChat()}
+  >
+    {#snippet children()}
+      {#if pendingDelete}
+        <p>This will permanently remove "{pendingDelete.label}".</p>
+      {/if}
+    {/snippet}
+  </ConfirmDialog>
+</div>
+
+<style>
+  .agent-chat {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--bg-2);
+    min-height: 0;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .chat-body {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  .chat-top {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mid-outer {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mid-outer--empty {
+    justify-content: center;
+  }
+
+  .mid-outer--empty .mid {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+
+  .composer-stack {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .input-shell {
+    flex-shrink: 0;
+  }
+
+  /* Same width as .conversation when chat is full-width (no detail split) */
+  @media (min-width: 768px) {
+    :global(.split:not(.has-detail)) .composer-stack {
+      max-width: var(--chat-column-max);
+      margin-left: auto;
+      margin-right: auto;
+      width: 100%;
+    }
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .chat-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+  .chat-title.custom-title {
+    text-transform: none;
+    letter-spacing: 0.02em;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .context-chip {
+    font-size: 11px;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.8;
+  }
+
+  /* Match SlideOver `.your-wiki-header-actions`: inset from the L2 right edge. */
+  .pane-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+    min-width: 0;
+    margin-inline-end: 4px;
+  }
+
+  .hear-replies-header-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    color: var(--text-2);
+    opacity: 1;
+    transition: color 0.15s, background 0.15s;
+  }
+  .hear-replies-header-btn :global(svg) {
+    flex-shrink: 0;
+  }
+  .hear-replies-header-btn:hover {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+  .hear-replies-header-btn--on {
+    color: var(--accent);
+  }
+  .hear-replies-header-btn--on:hover {
+    color: var(--accent);
+  }
+
+  .delete-chat-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    color: var(--text-2);
+    opacity: 1;
+    transition: color 0.15s, background 0.15s;
+  }
+  .delete-chat-btn :global(svg) {
+    flex-shrink: 0;
+  }
+  .delete-chat-btn:hover {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+
+  /* Tap-friendly targets (iOS 44pt minimum); default compact on desktop. */
+  @media (max-width: 767px) {
+    .pane-header-actions {
+      gap: 6px;
+    }
+    .hear-replies-header-btn,
+    .delete-chat-btn {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0;
+    }
+    .hear-replies-header-btn :global(svg),
+    .delete-chat-btn :global(svg) {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .mid {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  .mobile-detail-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .mobile-detail-layer :global(.slide-over) {
+    border-left: none;
+  }
+</style>

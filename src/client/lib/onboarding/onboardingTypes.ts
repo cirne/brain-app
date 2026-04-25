@@ -1,7 +1,7 @@
 import {
   ONBOARDING_PROFILE_INDEX_AUTOPROCEED,
   ONBOARDING_PROFILE_INDEX_MANUAL_MIN,
-} from '../../../server/lib/onboardingProfileThresholds.js'
+} from '@shared/onboardingProfileThresholds.js'
 
 export type OnboardingMailStatus = {
   configured: boolean

@@ -1,14 +1,14 @@
 import { Hono } from 'hono'
-import { hardResetOnboardingArtifacts, setOnboardingStateForce, wikiMeExists } from '../lib/onboardingState.js'
+import { hardResetOnboardingArtifacts, setOnboardingStateForce, wikiMeExists } from '@server/lib/onboarding/onboardingState.js'
 import { clearAllSessions, clearAllOnboardingAgentSessions } from '../agent/index.js'
-import { writeFirstChatPending } from '../lib/firstChatPending.js'
-import { execRipmailAsync } from '../lib/ripmailExec.js'
-import { ripmailBin } from '../lib/ripmailBin.js'
-import { ensureBrainHomeGitignore } from '../lib/brainHomeGitignore.js'
-import { wikiDir, wipeWikiContentExceptMeMd } from '../lib/wikiDir.js'
-import { truncateWikiEditHistoryFile } from '../lib/wikiEditHistory.js'
+import { writeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
+import { ensureBrainHomeGitignore } from '@server/lib/platform/brainHomeGitignore.js'
+import { wikiDir, wipeWikiContentExceptMeMd } from '@server/lib/wiki/wikiDir.js'
+import { truncateWikiEditHistoryFile } from '@server/lib/wiki/wikiEditHistory.js'
 import { fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from '../agent/profilingAgent.js'
-import { ensureUserPeoplePageSkeleton } from '../lib/userPeoplePage.js'
+import { ensureUserPeoplePageSkeleton } from '@server/lib/wiki/userPeoplePage.js'
 
 const dev = new Hono()
 

@@ -1,9 +1,9 @@
 import { mkdir } from 'node:fs/promises'
 import type { Agent } from '@mariozechner/pi-agent-core'
-import { onboardingStagingWikiDir } from '../lib/onboardingState.js'
-import { ripmailBin } from '../lib/onboardingMailStatus.js'
-import { execRipmailAsync } from '../lib/ripmailExec.js'
-import { ensureUserPeoplePageSkeleton } from '../lib/userPeoplePage.js'
+import { onboardingStagingWikiDir } from '@server/lib/onboarding/onboardingState.js'
+import { ripmailBin } from '@server/lib/onboarding/onboardingMailStatus.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { ensureUserPeoplePageSkeleton } from '@server/lib/wiki/userPeoplePage.js'
 import { createOnboardingAgent } from './agentFactory.js'
 
 const MAX_WHOAMI_PROMPT_CHARS = 8000

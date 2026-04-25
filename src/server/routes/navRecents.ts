@@ -1,13 +1,13 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import type { NavRecentsItem, NavRecentsItemType } from '../lib/navRecentsStore.js'
+import type { NavRecentsItem, NavRecentsItemType } from '@server/lib/hub/navRecentsStore.js'
 import {
   addNavRecentsItem,
   clearNavRecents,
   readNavRecents,
   removeNavRecentsItem,
   upsertEmailNavRecents,
-} from '../lib/navRecentsStore.js'
+} from '@server/lib/hub/navRecentsStore.js'
 
 const app = new Hono()
 

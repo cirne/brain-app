@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { createAgentTools } from './tools.js'
 import { buildCreateAgentToolsOptions, WIKI_CLEANUP_OMIT } from './agentToolSets.js'
 import { joinToolResultText } from './agentTestUtils.js'
-import { ensureWikiIndexMdStub } from '../lib/wikiIndexStub.js'
+import { ensureWikiIndexMdStub } from '@server/lib/wiki/wikiIndexStub.js'
 
 let testRoot: string
 let wikiRoot: string

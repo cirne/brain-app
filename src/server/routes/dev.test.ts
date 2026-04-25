@@ -41,7 +41,7 @@ exit 0
     process.env.RIPMAIL_HOME = join(brainHome, 'ripmail-test')
 
     await writeFile(join(chatDir, 'onboarding.json'), JSON.stringify({ state: 'done', updatedAt: 'x' }), 'utf-8')
-    const { appendTurn, listSessions } = await import('../lib/chatStorage.js')
+    const { appendTurn, listSessions } = await import('@server/lib/chat/chatStorage.js')
     await appendTurn({
       sessionId: 'bb0e8400-e29b-41d4-a716-446655440099',
       userMessage: 'chat',
@@ -60,14 +60,14 @@ exit 0
     const res = await app.request('http://localhost/api/dev/hard-reset', { method: 'POST' })
     expect(res.status).toBe(200)
 
-    const { readOnboardingStateDoc } = await import('../lib/onboardingState.js')
+    const { readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
     expect((await readOnboardingStateDoc()).state).toBe('not-started')
     expect(await listSessions()).toEqual([])
     const { access } = await import('node:fs/promises')
     await expect(access(join(wikiContent, 'me.md'))).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(access(join(wikiContent, 'topics', 'note.md'))).rejects.toMatchObject({ code: 'ENOENT' })
 
-    const { listSkills } = await import('../lib/skillRegistry.js')
+    const { listSkills } = await import('@server/lib/llm/skillRegistry.js')
     expect((await listSkills()).length).toBeGreaterThan(0)
 
     const invoke = (await readFile(ripmailLog, 'utf8')).trim()
@@ -94,7 +94,7 @@ exit 0
     const res = await app.request('http://localhost/api/dev/restart-seed', { method: 'POST' })
     expect(res.status).toBe(200)
 
-    const { readOnboardingStateDoc } = await import('../lib/onboardingState.js')
+    const { readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
     expect((await readOnboardingStateDoc()).state).toBe('done')
 
     const { readFile, access } = await import('node:fs/promises')
@@ -120,7 +120,7 @@ exit 0
     const res = await app.request('http://localhost/api/dev/first-chat', { method: 'POST' })
     expect(res.status).toBe(200)
 
-    const { readOnboardingStateDoc } = await import('../lib/onboardingState.js')
+    const { readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
     expect((await readOnboardingStateDoc()).state).toBe('done')
 
     const pending = join(chatDir, 'first-chat-pending.json')

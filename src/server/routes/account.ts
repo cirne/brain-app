@@ -1,16 +1,16 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import { isMultiTenantMode } from '../lib/dataRoot.js'
-import { ripmailHomeForBrain } from '../lib/brainHome.js'
-import { readPrimaryRipmailImapEmail } from '../lib/googleOAuth.js'
-import { readHandleMeta, markHandleConfirmed } from '../lib/handleMeta.js'
+import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { readPrimaryRipmailImapEmail } from '@server/lib/platform/googleOAuth.js'
+import { readHandleMeta, markHandleConfirmed } from '@server/lib/tenant/handleMeta.js'
 import {
   InvalidWorkspaceHandleError,
   parseWorkspaceHandle,
-} from '../lib/workspaceHandle.js'
-import { deriveWorkspaceHandleSeed, isDisplayHandleSlugAvailable } from '../lib/googleIdentityWorkspace.js'
-import { lookupIdentityKeyForTenantUserId } from '../lib/tenantRegistry.js'
-import { tryGetTenantContext } from '../lib/tenantContext.js'
+} from '@server/lib/tenant/workspaceHandle.js'
+import { deriveWorkspaceHandleSeed, isDisplayHandleSlugAvailable } from '@server/lib/tenant/googleIdentityWorkspace.js'
+import { lookupIdentityKeyForTenantUserId } from '@server/lib/tenant/tenantRegistry.js'
+import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 
 const app = new Hono()
 

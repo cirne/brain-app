@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto'
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { wikiDir } from '../lib/wikiDir.js'
-import { listWikiFiles } from '../lib/wikiFiles.js'
-import { categoriesJsonPath } from '../lib/onboardingState.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { listWikiFiles } from '@server/lib/wiki/wikiFiles.js'
+import { categoriesJsonPath } from '@server/lib/onboarding/onboardingState.js'
 import {
   appendLogEntry,
   appendTimelineEvent,
@@ -12,7 +12,7 @@ import {
   touchRun,
   writeBackgroundRun,
   type BackgroundRunDoc,
-} from '../lib/backgroundAgentStore.js'
+} from '@server/lib/chat/backgroundAgentStore.js'
 import {
   beginToolCallSegment,
   endToolCallSegmentBridge,
@@ -22,12 +22,12 @@ import {
   releaseAllPendingToolCallSegments,
   toolResultSseForNr,
   type LlmTurnTelemetry,
-} from '../lib/newRelicHelper.js'
-import { tryGetTenantContext } from '../lib/tenantContext.js'
-import { agentKindForWikiSource } from '../lib/llmAgentKind.js'
-import { addLlmUsage, sumUsageFromMessages } from '../lib/llmUsage.js'
-import { truncateJsonResult } from '../lib/truncateJson.js'
-import { safeWikiRelativePath } from '../lib/wikiEditDiff.js'
+} from '@server/lib/observability/newRelicHelper.js'
+import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
+import { agentKindForWikiSource } from '@server/lib/llm/llmAgentKind.js'
+import { addLlmUsage, sumUsageFromMessages } from '@server/lib/llm/llmUsage.js'
+import { truncateJsonResult } from '@server/lib/llm/truncateJson.js'
+import { safeWikiRelativePath } from '@server/lib/wiki/wikiEditDiff.js'
 import {
   getOrCreateWikiBuildoutAgent,
   deleteWikiBuildoutSession,

@@ -8,7 +8,7 @@ import {
   initLocalMessageToolsAvailability,
   resetLocalMessageToolsAvailabilityForTests,
   unixMsToAppleDateNs,
-} from '../lib/imessageDb.js'
+} from '@server/lib/apple/imessageDb.js'
 
 let dir: string
 let dbPath: string

@@ -43,6 +43,7 @@ Add **hold-to-dictate** in the main chat so phone users can speak prompts instea
 
 ## Related
 
+- [OPP-050 (archived, shipped)](archive/OPP-050-press-to-talk-dev-only-feature-flag.md) — dev-only gate for press-to-talk + `/api/transcribe` in production; iterate locally until ready to widen.
 - [OPP-008](OPP-008-tunnel-qr-phone-access.md) — phone as first-class client; same surfaces benefit from low-friction input.
 - [OPP-021](OPP-021-user-settings-page.md) / Hub — natural home for a **Voice** toggle and privacy copy.
 - [OPP-043](OPP-043-google-oauth-app-verification-milestones.md) — if additional third-party data processing requires disclosure updates, align privacy policy and consent timing.

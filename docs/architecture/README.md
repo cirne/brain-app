@@ -4,6 +4,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**.
 
 | Document | Topic |
 |----------|--------|
+| [web-app-source-reorganization-plan.md](./web-app-source-reorganization-plan.md) | Proposed `src/client` / `src/server` layout, phased migration, and oversized files to split (e.g. `agent/tools.ts`, large Svelte parents) |
 | [../google-oauth.md](../google-oauth.md) | Gmail OAuth redirect URIs (dev `:3000` vs bundled `:18473`), Google Console registration |
 | [runtime-and-routes.md](./runtime-and-routes.md) | Hono + Vite, `/api/*` map, auth, bundled listen address + Tailscale allowlist, periodic sync |
 | [client-async-latest.md](./client-async-latest.md) | Svelte: `createAsyncLatest` — overlapping fetches must not clobber detail panes (agent nav, rapid clicks) |

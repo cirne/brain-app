@@ -3,7 +3,10 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-const cssPath = join(dirname(fileURLToPath(import.meta.url)), 'onboardingActivityTranscript.css')
+const cssPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../styles/onboarding/onboardingActivityTranscript.css',
+)
 
 describe('onboardingActivityTranscript.css (profiling / seeding transcript layout)', () => {
   it('keeps tool hint aligned with activity text column (pulse + gap)', () => {

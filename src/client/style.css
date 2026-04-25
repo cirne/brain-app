@@ -1,8 +1,8 @@
 @import "tailwindcss";
-@import "./lib/wfnLeadIcon.css";
-@import "./lib/onboarding/onboardingHeroPrimitives.css";
-@import "./lib/onboarding/onboardingActivityTranscript.css";
-@import "./lib/onboarding/OnboardingView.css";
+@import "./styles/search/wfnLeadIcon.css";
+@import "./styles/onboarding/onboardingHeroPrimitives.css";
+@import "./styles/onboarding/onboardingActivityTranscript.css";
+@import "./styles/onboarding/OnboardingView.css";
 
 *, *::before, *::after {
   box-sizing: border-box;

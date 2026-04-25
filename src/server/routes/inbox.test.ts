@@ -49,7 +49,7 @@ vi.mock('node:child_process', async (importOriginal) => {
 
 // Mock draftExtract so we control what the LLM extraction returns
 const extractDraftEditsMock = vi.fn()
-vi.mock('../lib/draftExtract.js', () => ({ extractDraftEdits: extractDraftEditsMock }))
+vi.mock('@server/lib/llm/draftExtract.js', () => ({ extractDraftEdits: extractDraftEditsMock }))
 
 let app: Hono
 

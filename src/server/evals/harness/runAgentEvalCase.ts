@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { deleteSession, getOrCreateSession } from '../../agent/assistantAgent.js'
 import { checkExpect } from './checkExpect.js'
 import { collectAgentPromptMetrics } from './collectAgentPromptMetrics.js'
-import type { LlmUsageSnapshot } from '../../lib/llmUsage.js'
+import type { LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
 import type { EnronV1Task } from './types.js'
 
 export type RunAgentEvalCaseResult = {

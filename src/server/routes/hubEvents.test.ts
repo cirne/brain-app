@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { mkdtemp, rm, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import type { BackgroundRunDoc } from '../lib/backgroundAgentStore.js'
+import type { BackgroundRunDoc } from '@server/lib/chat/backgroundAgentStore.js'
 
 vi.mock('../agent/yourWikiSupervisor.js', () => ({
   getYourWikiDoc: vi.fn().mockResolvedValue({

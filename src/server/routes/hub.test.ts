@@ -4,12 +4,12 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-vi.mock('../lib/ripmailExec.js', () => ({
+vi.mock('@server/lib/ripmail/ripmailExec.js', () => ({
   execRipmailAsync: vi.fn(),
 }))
 
-vi.mock('../lib/hubRipmailSpawn.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../lib/hubRipmailSpawn.js')>()
+vi.mock('@server/lib/hub/hubRipmailSpawn.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@server/lib/hub/hubRipmailSpawn.js')>()
   return {
     ...actual,
     spawnRipmailRefreshSource: vi.fn(() => Promise.resolve({ ok: true })),
@@ -17,11 +17,11 @@ vi.mock('../lib/hubRipmailSpawn.js', async (importOriginal) => {
   }
 })
 
-import { execRipmailAsync } from '../lib/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
 import {
   spawnRipmailBackfillSource,
   spawnRipmailRefreshSource,
-} from '../lib/hubRipmailSpawn.js'
+} from '@server/lib/hub/hubRipmailSpawn.js'
 import hubRoute from './hub.js'
 
 let brainHome: string

@@ -33,7 +33,7 @@ describe('GET /api/chat/first-chat-pending', () => {
   })
 
   it('returns pending true when marker exists', async () => {
-    const { writeFirstChatPending } = await import('../lib/firstChatPending.js')
+    const { writeFirstChatPending } = await import('@server/lib/onboarding/firstChatPending.js')
     await writeFirstChatPending()
 
     const { default: chatRoute } = await import('./chat.js')
@@ -77,7 +77,7 @@ describe('POST /api/chat', () => {
   })
 
   it('accepts firstChatKickoff when first-chat pending and session is empty', async () => {
-    const { writeFirstChatPending } = await import('../lib/firstChatPending.js')
+    const { writeFirstChatPending } = await import('@server/lib/onboarding/firstChatPending.js')
     await writeFirstChatPending()
 
     const { default: chatRoute } = await import('./chat.js')
@@ -181,7 +181,7 @@ describe('DELETE /api/chat/:sessionId', () => {
 
   it('removes persisted session file when present', async () => {
     const sessionId = 'aa0e8400-e29b-41d4-a716-446655440099'
-    const { appendTurn, loadSession } = await import('../lib/chatStorage.js')
+    const { appendTurn, loadSession } = await import('@server/lib/chat/chatStorage.js')
     await appendTurn({
       sessionId,
       userMessage: 'hi',
@@ -213,7 +213,7 @@ describe('GET /api/chat/sessions', () => {
 
   it('returns session after appendTurn', async () => {
     const sessionId = 'bb0e8400-e29b-41d4-a716-446655440088'
-    const { appendTurn } = await import('../lib/chatStorage.js')
+    const { appendTurn } = await import('@server/lib/chat/chatStorage.js')
     await appendTurn({
       sessionId,
       userMessage: 'hello world',
@@ -235,7 +235,7 @@ describe('GET /api/chat/sessions', () => {
   })
 
   it('respects limit query (newest first)', async () => {
-    const { appendTurn } = await import('../lib/chatStorage.js')
+    const { appendTurn } = await import('@server/lib/chat/chatStorage.js')
     const older = 'aa0e8400-e29b-41d4-a716-446655440099'
     const newer = 'bb0e8400-e29b-41d4-a716-44665544009a'
     await appendTurn({
@@ -274,7 +274,7 @@ describe('GET /api/chat/sessions/:sessionId', () => {
 
   it('returns full document', async () => {
     const sessionId = 'cc0e8400-e29b-41d4-a716-446655440077'
-    const { appendTurn } = await import('../lib/chatStorage.js')
+    const { appendTurn } = await import('@server/lib/chat/chatStorage.js')
     await appendTurn({
       sessionId,
       userMessage: 'q',

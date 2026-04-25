@@ -12,9 +12,9 @@
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { brainHome } from '../lib/brainHome.js'
-import { wikiDir } from '../lib/wikiDir.js'
-import { listWikiFiles } from '../lib/wikiFiles.js'
+import { brainHome } from '@server/lib/platform/brainHome.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { listWikiFiles } from '@server/lib/wiki/wikiFiles.js'
 import {
   appendTimelineEvent,
   readBackgroundRun,
@@ -22,14 +22,14 @@ import {
   writeBackgroundRun,
   type BackgroundRunDoc,
   type YourWikiPhase,
-} from '../lib/backgroundAgentStore.js'
+} from '@server/lib/chat/backgroundAgentStore.js'
 import {
   runEnrichInvocation,
   runCleanupInvocation,
   pauseWikiExpansionRun,
   pauseCleanupSession,
 } from './wikiExpansionRunner.js'
-import { refreshMailAndWait } from '../lib/syncAll.js'
+import { refreshMailAndWait } from '@server/lib/platform/syncAll.js'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 

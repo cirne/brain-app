@@ -1,5 +1,5 @@
 import type { ToolCall } from '../agentUtils.js'
-import type { ReadEmailToolDetails } from '../../../server/lib/readEmailPreview.js'
+import type { ReadEmailToolDetails } from '@shared/readEmailPreview.js'
 import { isFilesystemAbsolutePath } from '../fsPath.js'
 import type {
   CalendarEventLite,
@@ -15,8 +15,8 @@ import {
   flattenInboxFromRipmailData,
   inboxRowsToPreviewItems,
   parseRipmailInboxFlat,
-} from '../../../server/lib/ripmailInboxFlatten.js'
-import { pickReadEmailFields } from '../../../server/lib/readEmailPreview.js'
+} from '@shared/ripmailInboxFlatten.js'
+import { pickReadEmailFields } from '@shared/readEmailPreview.js'
 import { searchIndexDetail } from './onboardingHelpers.js'
 import { parseFindPersonResultPeople } from './ripmailWhoParse.js'
 

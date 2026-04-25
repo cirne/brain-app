@@ -45,6 +45,8 @@ export function spawnDevServer(extraEnv = {}) {
 
   const args = [
     'watch',
+    '--tsconfig',
+    'tsconfig.server.json',
     '--exclude',
     '.env',
     '--exclude',

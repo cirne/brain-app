@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pLimit from 'p-limit'
-import { addLlmUsage, isZeroUsage, type LlmUsageSnapshot } from '../../lib/llmUsage.js'
+import { addLlmUsage, isZeroUsage, type LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
 import {
   getEffectiveLlmModelForEval,
   getEffectiveLlmProviderForEval,

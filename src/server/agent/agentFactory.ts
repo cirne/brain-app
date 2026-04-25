@@ -8,8 +8,8 @@ import {
   WIKI_CLEANUP_OMIT,
   type OnboardingAgentToolVariant,
 } from './agentToolSets.js'
-import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '../lib/openAiResponsesPayload.js'
-import { areLocalMessageToolsEnabled } from '../lib/imessageDb.js'
+import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '@server/lib/llm/openAiResponsesPayload.js'
+import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 
 /** @deprecated Use {@link ONBOARDING_BASE_OMIT} from `agentToolSets.js`. */
 export const ONBOARDING_OMIT_TOOL_NAMES = ONBOARDING_BASE_OMIT

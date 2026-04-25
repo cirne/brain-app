@@ -1,11 +1,11 @@
 import { Hono } from 'hono'
-import { getHubRipmailSourcesList, removeHubRipmailSource } from '../lib/hubRipmailSources.js'
-import { getHubSourceMailStatus } from '../lib/hubRipmailSourceStatus.js'
+import { getHubRipmailSourcesList, removeHubRipmailSource } from '@server/lib/hub/hubRipmailSources.js'
+import { getHubSourceMailStatus } from '@server/lib/hub/hubRipmailSourceStatus.js'
 import {
   isValidHubBackfillSince,
   spawnRipmailBackfillSource,
   spawnRipmailRefreshSource,
-} from '../lib/hubRipmailSpawn.js'
+} from '@server/lib/hub/hubRipmailSpawn.js'
 
 const hub = new Hono()
 

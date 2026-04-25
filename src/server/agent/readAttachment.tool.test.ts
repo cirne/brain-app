@@ -2,17 +2,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { join } from 'node:path'
 import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-vi.mock('../lib/calendarRipmail.js', () => ({
+vi.mock('@server/lib/calendar/calendarRipmail.js', () => ({
   getCalendarEventsFromRipmail: vi.fn(),
 }))
-import { getCalendarEventsFromRipmail } from '../lib/calendarRipmail.js'
-vi.mock('../lib/ripmailHeavySpawn.js', () => ({
+import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipmail.js'
+vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', () => ({
   runRipmailRefreshForBrain: vi.fn(),
 }))
 
 const execRipmailAsync = vi.fn()
 
-vi.mock('../lib/ripmailExec.js', () => ({
+vi.mock('@server/lib/ripmail/ripmailExec.js', () => ({
   execRipmailAsync,
   RIPMAIL_SEND_TIMEOUT_MS: 600000,
 }))

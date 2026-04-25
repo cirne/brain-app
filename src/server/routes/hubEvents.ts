@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { listBackgroundRuns } from '../lib/backgroundAgentStore.js'
-import { registerHubSseSubscriber } from '../lib/hubSseBroker.js'
-import { tryGetTenantContext } from '../lib/tenantContext.js'
+import { listBackgroundRuns } from '@server/lib/chat/backgroundAgentStore.js'
+import { registerHubSseSubscriber } from '@server/lib/hub/hubSseBroker.js'
+import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { getYourWikiDoc } from '../agent/yourWikiSupervisor.js'
 
 const hubEvents = new Hono()

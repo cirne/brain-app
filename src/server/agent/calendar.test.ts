@@ -2,15 +2,15 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
 import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { getCalendarEventsFromRipmail } from '../lib/calendarRipmail.js'
-import { execRipmailAsync } from '../lib/ripmailExec.js'
+import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipmail.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
 import { toolResultFirstText } from './agentTestUtils.js'
 
-vi.mock('../lib/calendarRipmail.js', () => ({
+vi.mock('@server/lib/calendar/calendarRipmail.js', () => ({
   getCalendarEventsFromRipmail: vi.fn(),
 }))
 
-vi.mock('../lib/ripmailExec.js', () => ({
+vi.mock('@server/lib/ripmail/ripmailExec.js', () => ({
   execRipmailAsync: vi.fn(),
   ripmailProcessEnv: vi.fn(() => ({})),
 }))

@@ -11,7 +11,7 @@ vi.mock('./profilingAgent.js', () => ({
   parseWhoamiProfileSubject: vi.fn().mockReturnValue({ displayName: 'Test', primaryEmail: 'test@x.com' }),
 }))
 
-vi.mock('../lib/userPeoplePage.js', () => ({
+vi.mock('@server/lib/wiki/userPeoplePage.js', () => ({
   ensureUserPeoplePageSkeleton: vi.fn().mockRejectedValue(new Error('simulated people page failure')),
 }))
 

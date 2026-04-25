@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { runWithTenantContextAsync } from '../lib/tenantContext.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import navRecentsRoute from './navRecents.js'
 
 describe('GET/POST/DELETE /api/nav/recents', () => {

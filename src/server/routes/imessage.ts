@@ -1,16 +1,16 @@
 import { Hono } from 'hono'
-import { isAppleLocalIntegrationEnvironment } from '../lib/appleLocalIntegrationEnv.js'
+import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocalIntegrationEnv.js'
 import {
   areLocalMessageToolsEnabled,
   getImessageDbPath,
   getThreadMessages,
-} from '../lib/imessageDb.js'
+} from '@server/lib/apple/imessageDb.js'
 import {
   buildImessageSnippet,
   compactImessageThreadRow,
-} from '../lib/imessageFormat.js'
-import { canonicalizeImessageChatIdentifier, formatChatIdentifierForDisplay } from '../lib/imessagePhone.js'
-import { isFdaGranted } from '../lib/fdaProbe.js'
+} from '@server/lib/apple/imessageFormat.js'
+import { canonicalizeImessageChatIdentifier, formatChatIdentifierForDisplay } from '@server/lib/apple/imessagePhone.js'
+import { isFdaGranted } from '@server/lib/apple/fdaProbe.js'
 
 const imessage = new Hono()
 

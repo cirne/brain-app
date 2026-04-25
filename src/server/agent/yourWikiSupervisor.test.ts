@@ -11,7 +11,7 @@ vi.mock('./wikiExpansionRunner.js', () => ({
   pauseCleanupSession: vi.fn(),
 }))
 
-vi.mock('../lib/syncAll.js', () => ({
+vi.mock('@server/lib/platform/syncAll.js', () => ({
   refreshMailAndWait: vi.fn().mockResolvedValue({ ok: true }),
 }))
 
@@ -104,7 +104,7 @@ describe('lap-level mail refresh', () => {
     // Pause immediately so the loop only runs 0 times
     await pauseYourWiki()
     await ensureYourWikiRunning()
-    const { refreshMailAndWait } = await import('../lib/syncAll.js')
+    const { refreshMailAndWait } = await import('@server/lib/platform/syncAll.js')
     // refreshMailAndWait should not have been called since we paused before it could run
     expect(refreshMailAndWait).not.toHaveBeenCalled()
   })

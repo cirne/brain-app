@@ -2,7 +2,7 @@
 import 'newrelic'
 // Load .env in dev, overriding existing vars (important: parent shell may
 // set ANTHROPIC_API_KEY to empty, and loadEnvFile won't override it).
-import { loadDotEnv } from './lib/loadDotEnv.js'
+import { loadDotEnv } from '@server/lib/platform/loadDotEnv.js'
 import { Hono } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { serve, getRequestListener } from '@hono/node-server'
@@ -32,33 +32,33 @@ import devRoute from './routes/dev.js'
 import vaultRoute from './routes/vault.js'
 import accountRoute from './routes/account.js'
 import transcribeRoute from './routes/transcribe.js'
-import { vaultGateMiddleware } from './lib/vaultGate.js'
-import { tenantMiddleware } from './lib/tenantMiddleware.js'
+import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
+import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { ensureYourWikiRunning, requestLapNow } from './agent/yourWikiSupervisor.js'
-import { initLocalMessageToolsAvailability } from './lib/imessageDb.js'
-import { runStartupChecks } from './lib/runStartupChecks.js'
-import { ensureBrainHomeGitignore } from './lib/brainHomeGitignore.js'
-import { isMultiTenantMode } from './lib/dataRoot.js'
-import { runSplitLayoutMigrationIfNeeded } from './lib/splitLayoutMigration.js'
-import { runFullSync, getSyncIntervalMs } from './lib/syncAll.js'
-import { terminateAllTrackedRipmailChildren } from './lib/ripmailExec.js'
+import { initLocalMessageToolsAvailability } from '@server/lib/apple/imessageDb.js'
+import { runStartupChecks } from '@server/lib/platform/runStartupChecks.js'
+import { ensureBrainHomeGitignore } from '@server/lib/platform/brainHomeGitignore.js'
+import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
+import { runSplitLayoutMigrationIfNeeded } from '@server/lib/onboarding/splitLayoutMigration.js'
+import { runFullSync, getSyncIntervalMs } from '@server/lib/platform/syncAll.js'
+import { terminateAllTrackedRipmailChildren } from '@server/lib/ripmail/ripmailExec.js'
 import debugRipmailChildrenRoute from './routes/debugRipmailChildren.js'
 import {
   startRipmailBackfillSupervisor,
   stopRipmailBackfillSupervisor,
-} from './lib/ripmailBackfillSupervisor.js'
-import { startTunnel, stopTunnel, getActiveTunnelUrl, getHostGuid } from './lib/tunnelManager.js'
-import { readOnboardingPreferences } from './lib/onboardingPreferences.js'
-import { BRAIN_DEFAULT_HTTP_PORT, setActualNativePort } from './lib/brainHttpPort.js'
-import { isAllowedBundledNativeClientIp } from './lib/bundledNativeClientAllowlist.js'
-import { isBundledNativeServer, nativeAppOAuthPortCandidates } from './lib/nativeAppPort.js'
+} from '@server/lib/ripmail/ripmailBackfillSupervisor.js'
+import { startTunnel, stopTunnel, getActiveTunnelUrl, getHostGuid } from '@server/lib/platform/tunnelManager.js'
+import { readOnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
+import { BRAIN_DEFAULT_HTTP_PORT, setActualNativePort } from '@server/lib/platform/brainHttpPort.js'
+import { isAllowedBundledNativeClientIp } from '@server/lib/platform/bundledNativeClientAllowlist.js'
+import { isBundledNativeServer, nativeAppOAuthPortCandidates } from '@server/lib/apple/nativeAppPort.js'
 import {
   duplicateDevListenMessage,
   isAddrInUse,
   probeDevPortAvailable,
-} from './lib/devServerDuplicatePort.js'
-import { newRelicBrainContextMiddleware } from './lib/newRelicBrainContextMiddleware.js'
-import { newRelicHonoTransactionMiddleware } from './lib/newRelicHonoTransaction.js'
+} from '@server/lib/platform/devServerDuplicatePort.js'
+import { newRelicBrainContextMiddleware } from '@server/lib/observability/newRelicBrainContextMiddleware.js'
+import { newRelicHonoTransactionMiddleware } from '@server/lib/observability/newRelicHonoTransaction.js'
 
 loadDotEnv()
 
@@ -302,7 +302,9 @@ async function start() {
       await ensureBrainHomeGitignore()
     } else {
       // One-time: legacy handle dirs → `usr_*`; registry normalization. Remove after deploy confirms (see module).
-      const { migrateTenantDirsToUserIdOnce } = await import('./lib/migrateTenantDirsToUserId.js')
+      const { migrateTenantDirsToUserIdOnce } = await import(
+        '@server/lib/tenant/migrateTenantDirsToUserId.js'
+      )
       await migrateTenantDirsToUserIdOnce()
     }
 

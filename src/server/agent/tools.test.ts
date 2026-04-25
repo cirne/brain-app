@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { getCalendarEventsFromRipmail } from '../lib/calendarRipmail.js'
+import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipmail.js'
 
-vi.mock('../lib/calendarRipmail.js', () => ({
+vi.mock('@server/lib/calendar/calendarRipmail.js', () => ({
   getCalendarEventsFromRipmail: vi.fn(),
 }))
-vi.mock('../lib/ripmailHeavySpawn.js', () => ({
+vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', () => ({
   runRipmailRefreshForBrain: vi.fn(),
 }))
 import {
@@ -20,7 +20,7 @@ import {
   buildSourcesRemoveCommand,
 } from './tools.js'
 import { joinToolResultText, toolResultFirstText } from './agentTestUtils.js'
-import { runRipmailRefreshForBrain } from '../lib/ripmailHeavySpawn.js'
+import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 
 // Shared fixture: $BRAIN_HOME/wiki
 let brainHome: string
@@ -226,7 +226,7 @@ Sel: {{selection}} File: {{open_file}}`,
         'utf-8',
       )
       const { createAgentTools } = await import('./tools.js')
-      const { runWithSkillRequestContext } = await import('../lib/skillRequestContext.js')
+      const { runWithSkillRequestContext } = await import('@server/lib/llm/skillRequestContext.js')
       const tools = createAgentTools(wikiDir)
       const tool = tools.find((t) => t.name === 'load_skill')!
       const result = await runWithSkillRequestContext(

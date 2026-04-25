@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { tenantMiddleware } from '../lib/tenantMiddleware.js'
+import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 let brainHome: string
 
 beforeEach(async () => {
@@ -54,7 +54,7 @@ describe('GET /api/issues', () => {
   })
 
   it('GET by id returns content', async () => {
-    const { writeFeedbackIssue } = await import('../lib/feedbackIssues.js')
+    const { writeFeedbackIssue } = await import('@server/lib/feedback/feedbackIssues.js')
     await writeFeedbackIssue(brainHome, {
       type: 'bug',
       title: 'Hi',

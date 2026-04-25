@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { listSkills } from '../lib/skillRegistry.js'
+import { listSkills } from '@server/lib/llm/skillRegistry.js'
 
 const skills = new Hono()
 

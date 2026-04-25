@@ -27,6 +27,23 @@ export default [
     },
   },
   {
+    files: ['src/shared/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: { project: './tsconfig.server.json' },
+      globals: { ...globals.node },
+    },
+    plugins: { '@typescript-eslint': tsPlugin },
+    rules: {
+      ...tsPlugin.configs.recommended.rules,
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' },
+      ],
+    },
+  },
+  {
     files: ['src/client/**/*.svelte'],
     languageOptions: {
       parser: svelteParser,

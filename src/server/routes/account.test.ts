@@ -5,19 +5,19 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import accountRoute from './account.js'
-import { tenantMiddleware } from '../lib/tenantMiddleware.js'
-import { vaultGateMiddleware } from '../lib/vaultGate.js'
-import { ensureTenantHomeDir, tenantHomeDir } from '../lib/dataRoot.js'
-import { brainLayoutRipmailDir } from '../lib/brainLayout.js'
-import { deriveWorkspaceHandleSeed } from '../lib/googleIdentityWorkspace.js'
+import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
+import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
+import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { brainLayoutRipmailDir } from '@server/lib/platform/brainLayout.js'
+import { deriveWorkspaceHandleSeed } from '@server/lib/tenant/googleIdentityWorkspace.js'
 import {
   registerIdentityWorkspace,
   registerSessionTenant,
-} from '../lib/tenantRegistry.js'
-import { createVaultSession } from '../lib/vaultSessionStore.js'
-import { runWithTenantContextAsync } from '../lib/tenantContext.js'
-import { generateUserId, writeHandleMeta } from '../lib/handleMeta.js'
-import { googleIdentityKey } from '../lib/googleIdentityWorkspace.js'
+} from '@server/lib/tenant/tenantRegistry.js'
+import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
+import { generateUserId, writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
+import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js'
 
 describe('/api/account routes', () => {
   const prevRoot = process.env.BRAIN_DATA_ROOT

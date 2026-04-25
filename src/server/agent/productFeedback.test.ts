@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createAgentTools } from './tools.js'
-import { brainLayoutIssuesDir } from '../lib/brainLayout.js'
+import { brainLayoutIssuesDir } from '@server/lib/platform/brainLayout.js'
 
 let brainHome: string
 let wikiDir: string

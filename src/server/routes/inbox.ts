@@ -1,11 +1,11 @@
 import { Hono } from 'hono'
-import { extractDraftEdits } from '../lib/draftExtract.js'
+import { extractDraftEdits } from '@server/lib/llm/draftExtract.js'
 import { buildDraftEditFlags } from '../agent/tools.js'
-import { syncInboxRipmail } from '../lib/syncAll.js'
-import { flattenInboxFromRipmailData } from '../lib/ripmailInboxFlatten.js'
-import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '../lib/ripmailExec.js'
-import { ripmailReadExecOptions } from '../lib/ripmailReadExec.js'
-import { ripmailBin } from '../lib/ripmailBin.js'
+import { syncInboxRipmail } from '@server/lib/platform/syncAll.js'
+import { flattenInboxFromRipmailData } from '@shared/ripmailInboxFlatten.js'
+import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailExec.js'
+import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
+import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 
 const inbox = new Hono()
 

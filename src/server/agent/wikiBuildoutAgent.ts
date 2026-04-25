@@ -1,14 +1,14 @@
 import type { Agent } from '@mariozechner/pi-agent-core'
-import { wikiDir as getWikiDir } from '../lib/wikiDir.js'
-import { areLocalMessageToolsEnabled } from '../lib/imessageDb.js'
+import { wikiDir as getWikiDir } from '@server/lib/wiki/wikiDir.js'
+import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 import { buildDateContext, createOnboardingAgent } from './agentFactory.js'
 import {
   fetchRipmailWhoamiForProfiling,
   parseWhoamiProfileSubject,
   type UserPeoplePageRef,
 } from './profilingAgent.js'
-import { ensureUserPeoplePageSkeleton } from '../lib/userPeoplePage.js'
-import { ensureWikiIndexMdStub } from '../lib/wikiIndexStub.js'
+import { ensureUserPeoplePageSkeleton } from '@server/lib/wiki/userPeoplePage.js'
+import { ensureWikiIndexMdStub } from '@server/lib/wiki/wikiIndexStub.js'
 
 export function buildWikiBuildoutSystemPrompt(
   timezone: string,

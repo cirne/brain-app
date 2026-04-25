@@ -5,12 +5,12 @@ import { join, basename, resolve, relative, dirname } from 'node:path'
 import { marked } from 'marked'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { dirIconsCachePathResolved } from '../lib/brainHome.js'
-import { wikiDir } from '../lib/wikiDir.js'
-import { listWikiFiles, recentWikiFilesByMtime } from '../lib/wikiFiles.js'
-import { appendWikiEditRecord, readRecentWikiEdits } from '../lib/wikiEditHistory.js'
-import { resolveWikiPathForCreate } from '../lib/wikiPathNaming.js'
-import { syncWikiFromDisk } from '../lib/syncAll.js'
+import { dirIconsCachePathResolved } from '@server/lib/platform/brainHome.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { listWikiFiles, recentWikiFilesByMtime } from '@server/lib/wiki/wikiFiles.js'
+import { appendWikiEditRecord, readRecentWikiEdits } from '@server/lib/wiki/wikiEditHistory.js'
+import { resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
+import { syncWikiFromDisk } from '@server/lib/platform/syncAll.js'
 
 const execAsync = promisify(exec)
 

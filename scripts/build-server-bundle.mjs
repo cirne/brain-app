@@ -5,7 +5,7 @@
  * Copies repo `shared/` → `dist/server/shared/` (sibling of index.js; see resolveRepoSharedPath.ts).
  */
 import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as esbuild from 'esbuild'
 
@@ -31,6 +31,11 @@ const common = {
   logLevel: 'info',
   define: {
     'process.env.NODE_ENV': '"production"',
+  },
+  /** Match tsconfig.server.json `paths` (tsx / tsc) so bundled imports resolve. */
+  alias: {
+    '@server': resolve(root, 'src/server'),
+    '@shared': resolve(root, 'src/shared'),
   },
 }
 

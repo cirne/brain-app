@@ -4,12 +4,12 @@ import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { createAgentTools } from './tools.js'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { wikiDir as getWikiDir } from '../lib/wikiDir.js'
-import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '../lib/openAiResponsesPayload.js'
-import { areLocalMessageToolsEnabled } from '../lib/imessageDb.js'
-import { formatSkillLibrarySection } from '../lib/skillRegistry.js'
-import { loadSession } from '../lib/chatStorage.js'
-import { persistedChatMessagesToAgentMessages } from '../lib/persistedChatToAgentMessages.js'
+import { wikiDir as getWikiDir } from '@server/lib/wiki/wikiDir.js'
+import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '@server/lib/llm/openAiResponsesPayload.js'
+import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
+import { formatSkillLibrarySection } from '@server/lib/llm/skillRegistry.js'
+import { loadSession } from '@server/lib/chat/chatStorage.js'
+import { persistedChatMessagesToAgentMessages } from '@server/lib/chat/persistedChatToAgentMessages.js'
 
 const sessions = new Map<string, Agent>()
 

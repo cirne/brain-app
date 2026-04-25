@@ -9,10 +9,10 @@ import gmailOAuthRoute from './gmailOAuth.js'
 import {
   clearGmailOAuthSessionsForTests,
   putOAuthSession,
-} from '../lib/gmailOAuthState.js'
-import { clearGoogleOauthDesktopResultForTests } from '../lib/googleOauthDesktopResult.js'
-import { googleOAuthRedirectUri } from '../lib/brainHttpPort.js'
-import { generatePkce } from '../lib/googleOAuth.js'
+} from '@server/lib/platform/gmailOAuthState.js'
+import { clearGoogleOauthDesktopResultForTests } from '@server/lib/platform/googleOauthDesktopResult.js'
+import { googleOAuthRedirectUri } from '@server/lib/platform/brainHttpPort.js'
+import { generatePkce } from '@server/lib/platform/googleOAuth.js'
 
 let brainHome: string
 let savedRipmailHome: string | undefined
@@ -127,7 +127,7 @@ describe('GET /api/oauth/google/callback', () => {
       'googleOAuth'
     )
 
-    const { readOnboardingPreferences } = await import('../lib/onboardingPreferences.js')
+    const { readOnboardingPreferences } = await import('@server/lib/onboarding/onboardingPreferences.js')
     const prefs = await readOnboardingPreferences()
     expect(prefs.mailProvider).toBe('google')
   })
@@ -263,7 +263,7 @@ describe('GET /api/oauth/google/callback', () => {
       )
       expect(existsSync(tokenPath)).toBe(true)
 
-      const { brainLayoutChatsDir } = await import('../lib/brainLayout.js')
+      const { brainLayoutChatsDir } = await import('@server/lib/platform/brainLayout.js')
       const prefsPath = join(
         brainLayoutChatsDir(join(mtRoot, tenantUserId!)),
         'onboarding',

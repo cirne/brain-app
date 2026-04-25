@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { listBackgroundRuns, readBackgroundRun } from '../lib/backgroundAgentStore.js'
+import { listBackgroundRuns, readBackgroundRun } from '@server/lib/chat/backgroundAgentStore.js'
 import {
   pauseWikiExpansionRun,
   resumeWikiExpansionRun,

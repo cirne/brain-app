@@ -3,10 +3,10 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { join, relative, basename } from 'node:path'
 import { readFile } from 'node:fs/promises'
-import { wikiDir } from '../lib/wikiDir.js'
-import { buildWikiExcerpt } from '../lib/wikiSearchExcerpt.js'
-import { execRipmailAsync } from '../lib/ripmailExec.js'
-import { ripmailBin } from '../lib/ripmailBin.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { buildWikiExcerpt } from '@server/lib/wiki/wikiSearchExcerpt.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 
 const execAsync = promisify(exec)
 const search = new Hono()

@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono'
 import { networkInterfaces } from 'node:os'
 import { mkdir, readFile, writeFile, access, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
-import { wikiDir } from '../lib/wikiDir.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import {
   readOnboardingStateDoc,
   setOnboardingState,
@@ -14,9 +14,9 @@ import {
   onboardingDataDir,
   type OnboardingMachineState,
   onboardingStagingWikiDir,
-} from '../lib/onboardingState.js'
-import { startTunnel, stopTunnel, getActiveTunnelUrl } from '../lib/tunnelManager.js'
-import { streamAgentSseResponse } from '../lib/streamAgentSse.js'
+} from '@server/lib/onboarding/onboardingState.js'
+import { startTunnel, stopTunnel, getActiveTunnelUrl } from '@server/lib/platform/tunnelManager.js'
+import { streamAgentSseResponse } from '@server/lib/chat/streamAgentSse.js'
 import {
   clearAllProfilingSessions,
   getOrCreateProfilingAgent,
@@ -31,20 +31,20 @@ import {
   getOnboardingMailStatus,
   ripmailBin,
   ripmailHomePath,
-} from '../lib/onboardingMailStatus.js'
-import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '../lib/onboardingProfileThresholds.js'
-import { enrichAppleMailSetupError } from '../lib/appleMailSetupHints.js'
-import { getFdaProbeDetail, isFdaGranted } from '../lib/fdaProbe.js'
-import { execRipmailAsync } from '../lib/ripmailExec.js'
-import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '../lib/onboardingPreferences.js'
-import { writeFirstChatPending } from '../lib/firstChatPending.js'
+} from '@server/lib/onboarding/onboardingMailStatus.js'
+import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '@shared/onboardingProfileThresholds.js'
+import { enrichAppleMailSetupError } from '@server/lib/apple/appleMailSetupHints.js'
+import { getFdaProbeDetail, isFdaGranted } from '@server/lib/apple/fdaProbe.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
+import { writeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
 import { ensureYourWikiRunning } from '../agent/yourWikiSupervisor.js'
-import { embeddedServerUrlScheme, oauthRedirectListenPort } from '../lib/brainHttpPort.js'
-import { isBundledNativeServer } from '../lib/nativeAppPort.js'
-import { isAppleLocalIntegrationEnvironment } from '../lib/appleLocalIntegrationEnv.js'
-import { isMultiTenantMode } from '../lib/dataRoot.js'
-import { tryGetTenantContext } from '../lib/tenantContext.js'
-import { isHandleConfirmedForTenant } from '../lib/handleMeta.js'
+import { embeddedServerUrlScheme, oauthRedirectListenPort } from '@server/lib/platform/brainHttpPort.js'
+import { isBundledNativeServer } from '@server/lib/apple/nativeAppPort.js'
+import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocalIntegrationEnv.js'
+import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
+import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
+import { isHandleConfirmedForTenant } from '@server/lib/tenant/handleMeta.js'
 
 const onboarding = new Hono()
 

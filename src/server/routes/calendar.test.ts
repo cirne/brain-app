@@ -3,16 +3,16 @@ import { Hono } from 'hono'
 import { join } from 'node:path'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import type { CalendarEvent } from '../lib/calendarCache.js'
-import { getCalendarEventsFromRipmail } from '../lib/calendarRipmail.js'
-import { syncCalendarSourcesRipmail, syncInboxRipmail } from '../lib/syncAll.js'
+import type { CalendarEvent } from '@server/lib/calendar/calendarCache.js'
+import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipmail.js'
+import { syncCalendarSourcesRipmail, syncInboxRipmail } from '@server/lib/platform/syncAll.js'
 
-vi.mock('../lib/calendarRipmail.js', () => ({
+vi.mock('@server/lib/calendar/calendarRipmail.js', () => ({
   getCalendarEventsFromRipmail: vi.fn(),
 }))
 
-vi.mock('../lib/syncAll.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../lib/syncAll.js')>()
+vi.mock('@server/lib/platform/syncAll.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@server/lib/platform/syncAll.js')>()
   return {
     ...actual,
     syncInboxRipmail: vi.fn().mockResolvedValue({ ok: true }),

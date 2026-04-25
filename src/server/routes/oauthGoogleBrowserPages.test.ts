@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { Hono } from 'hono'
 import oauthGoogleBrowserPages from './oauthGoogleBrowserPages.js'
-import { clearGoogleOauthDesktopResultForTests } from '../lib/googleOauthDesktopResult.js'
+import { clearGoogleOauthDesktopResultForTests } from '@server/lib/platform/googleOauthDesktopResult.js'
 
 const app = new Hono()
 app.route('/oauth/google', oauthGoogleBrowserPages)

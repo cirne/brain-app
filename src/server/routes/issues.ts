@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
-import { brainHome } from '../lib/brainHome.js'
-import { composeFeedbackIssueMarkdown } from '../lib/feedbackComposer.js'
-import { getFeedbackIssueById, listFeedbackIssues, submitFeedbackMarkdown } from '../lib/feedbackIssues.js'
+import { brainHome } from '@server/lib/platform/brainHome.js'
+import { composeFeedbackIssueMarkdown } from '@server/lib/feedback/feedbackComposer.js'
+import { getFeedbackIssueById, listFeedbackIssues, submitFeedbackMarkdown } from '@server/lib/feedback/feedbackIssues.js'
 
 const issues = new Hono()
 

@@ -3,7 +3,7 @@ import {
   countAssistantCompletionsWithUsage,
   sumUsageFromMessages,
   type LlmUsageSnapshot,
-} from '../../lib/llmUsage.js'
+} from '@server/lib/llm/llmUsage.js'
 import { lastAssistantTextFromMessages, toolResultTextFromAgentEvent } from './extractTranscript.js'
 
 export type CollectedAgentPromptMetrics = {

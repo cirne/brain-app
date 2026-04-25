@@ -4,8 +4,8 @@ import { chmodSync } from 'node:fs'
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { setActualNativePort } from '../lib/brainHttpPort.js'
-import { NATIVE_APP_PORT_START } from '../lib/nativeAppPort.js'
+import { setActualNativePort } from '@server/lib/platform/brainHttpPort.js'
+import { NATIVE_APP_PORT_START } from '@server/lib/apple/nativeAppPort.js'
 
 const tunnelMocks = vi.hoisted(() => ({
   startTunnel: vi.fn().mockResolvedValue(null),
@@ -18,7 +18,7 @@ const yourWikiSupervisorMocks = vi.hoisted(() => ({
   ensureYourWikiRunning: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('../lib/tunnelManager.js', () => ({
+vi.mock('@server/lib/platform/tunnelManager.js', () => ({
   startTunnel: tunnelMocks.startTunnel,
   stopTunnel: tunnelMocks.stopTunnel,
   getActiveTunnelUrl: tunnelMocks.getActiveTunnelUrl,
@@ -29,19 +29,19 @@ vi.mock('../agent/yourWikiSupervisor.js', () => ({
 }))
 
 import onboardingRoute from './onboarding.js'
-import * as onboardingMailStatus from '../lib/onboardingMailStatus.js'
-import { tenantMiddleware } from '../lib/tenantMiddleware.js'
-import { vaultGateMiddleware } from '../lib/vaultGate.js'
-import { ensureTenantHomeDir, tenantHomeDir } from '../lib/dataRoot.js'
+import * as onboardingMailStatus from '@server/lib/onboarding/onboardingMailStatus.js'
+import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
+import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
+import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import {
   registerIdentityUserId,
   registerIdentityWorkspace,
   registerSessionTenant,
-} from '../lib/tenantRegistry.js'
-import { createVaultSession } from '../lib/vaultSessionStore.js'
-import { runWithTenantContextAsync } from '../lib/tenantContext.js'
-import { generateUserId, writeHandleMeta } from '../lib/handleMeta.js'
-import { googleIdentityKey } from '../lib/googleIdentityWorkspace.js'
+} from '@server/lib/tenant/tenantRegistry.js'
+import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
+import { generateUserId, writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
+import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js'
 
 /** Avoid async wiki-expansion I/O racing with `afterEach` `rm(BRAIN_HOME)`. */
 vi.mock('../agent/wikiExpansionRunner.js', () => ({
@@ -145,8 +145,8 @@ describe('onboarding routes', () => {
   })
 
   it('PATCH /profile-draft writes markdown when state is reviewing-profile', async () => {
-    const { setOnboardingState } = await import('../lib/onboardingState.js')
-    const { profileDraftAbsolutePath } = await import('../lib/onboardingState.js')
+    const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
+    const { profileDraftAbsolutePath } = await import('@server/lib/onboarding/onboardingState.js')
     await mkdir(wikiDirPath(), { recursive: true })
     await writeFile(profileDraftAbsolutePath(), '---\na: 1\n---\n\n# Old\n', 'utf-8')
     await setOnboardingState('indexing')
@@ -250,7 +250,7 @@ describe('onboarding routes', () => {
 
   it('POST /accept-profile copies draft to me.md, writes categories, and transitions to seeding', async () => {
     const { setOnboardingState, readOnboardingStateDoc, categoriesJsonPath, profileDraftAbsolutePath } =
-      await import('../lib/onboardingState.js')
+      await import('@server/lib/onboarding/onboardingState.js')
     await mkdir(wikiDirPath(), { recursive: true })
     await writeFile(profileDraftAbsolutePath(), '# Profile\n', 'utf-8')
     await setOnboardingState('indexing')
@@ -280,7 +280,7 @@ describe('onboarding routes', () => {
   })
 
   it('POST /accept-profile creates wiki directory if missing (fresh BRAIN_HOME)', async () => {
-    const { setOnboardingState, profileDraftAbsolutePath } = await import('../lib/onboardingState.js')
+    const { setOnboardingState, profileDraftAbsolutePath } = await import('@server/lib/onboarding/onboardingState.js')
     await mkdir(wikiDirPath(), { recursive: true })
     await writeFile(profileDraftAbsolutePath(), '# Profile\n', 'utf-8')
     await setOnboardingState('indexing')
@@ -307,7 +307,7 @@ describe('onboarding routes', () => {
     })
 
     it('omits tunnelUrl and stops tunnel when remoteAccessEnabled is false', async () => {
-      const { onboardingDataDir } = await import('../lib/onboardingState.js')
+      const { onboardingDataDir } = await import('@server/lib/onboarding/onboardingState.js')
       await mkdir(onboardingDataDir(), { recursive: true })
       await writeFile(
         join(onboardingDataDir(), 'preferences.json'),
@@ -326,7 +326,7 @@ describe('onboarding routes', () => {
     })
 
     it('includes tunnelUrl when remoteAccessEnabled is true', async () => {
-      const { onboardingDataDir } = await import('../lib/onboardingState.js')
+      const { onboardingDataDir } = await import('@server/lib/onboarding/onboardingState.js')
       await mkdir(onboardingDataDir(), { recursive: true })
       await writeFile(
         join(onboardingDataDir(), 'preferences.json'),
@@ -451,7 +451,7 @@ describe('onboarding routes', () => {
         pendingBackfill: true,
         staleMailSyncLock: false,
       })
-      const { setOnboardingState } = await import('../lib/onboardingState.js')
+      const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
       await setOnboardingState('indexing')
       const app = new Hono()
       app.route('/api/onboarding', onboardingRoute)
@@ -476,7 +476,7 @@ describe('onboarding routes', () => {
         pendingBackfill: true,
         staleMailSyncLock: false,
       })
-      const { setOnboardingState } = await import('../lib/onboardingState.js')
+      const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
       await setOnboardingState('indexing')
       const app = new Hono()
       app.route('/api/onboarding', onboardingRoute)

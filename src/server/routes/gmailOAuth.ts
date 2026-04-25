@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono'
-import { googleOAuthRedirectUri } from '../lib/brainHttpPort.js'
-import { ripmailHomeForBrain } from '../lib/brainHome.js'
+import { googleOAuthRedirectUri } from '@server/lib/platform/brainHttpPort.js'
+import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import {
   buildGoogleAuthorizeUrl,
   deriveMailboxId,
@@ -11,27 +11,27 @@ import {
   upsertRipmailConfig,
   upsertRipmailGoogleCalendarSource,
   writeGoogleOAuthTokenFile,
-} from '../lib/googleOAuth.js'
-import { isMultiTenantMode, tenantHomeDir } from '../lib/dataRoot.js'
-import { resolveOrProvisionWorkspace } from '../lib/googleIdentityWorkspace.js'
-import { createVaultSession } from '../lib/vaultSessionStore.js'
-import { setBrainSessionCookie } from '../lib/vaultCookie.js'
-import { registerSessionTenant } from '../lib/tenantRegistry.js'
-import { runWithTenantContextAsync } from '../lib/tenantContext.js'
+} from '@server/lib/platform/googleOAuth.js'
+import { isMultiTenantMode, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { resolveOrProvisionWorkspace } from '@server/lib/tenant/googleIdentityWorkspace.js'
+import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
+import { setBrainSessionCookie } from '@server/lib/vault/vaultCookie.js'
+import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import {
   newOAuthState,
   putOAuthSession,
   takeOAuthVerifier,
-} from '../lib/gmailOAuthState.js'
+} from '@server/lib/platform/gmailOAuthState.js'
 import {
   readOnboardingPreferences,
   saveOnboardingPreferences,
-} from '../lib/onboardingPreferences.js'
+} from '@server/lib/onboarding/onboardingPreferences.js'
 import {
   recordGoogleOauthError,
   recordGoogleOauthSuccess,
   takeGoogleOauthDesktopResult,
-} from '../lib/googleOauthDesktopResult.js'
+} from '@server/lib/platform/googleOauthDesktopResult.js'
 
 const app = new Hono()
 

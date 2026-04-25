@@ -1,5 +1,5 @@
-import { loadDotEnv } from './lib/loadDotEnv.js'
-import { runFullSync } from './lib/syncAll.js'
+import { loadDotEnv } from '@server/lib/platform/loadDotEnv.js'
+import { runFullSync } from '@server/lib/platform/syncAll.js'
 
 loadDotEnv()
 

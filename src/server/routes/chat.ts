@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { getOrCreateSession, deleteSession } from '../agent/index.js'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { wikiDir } from '../lib/wikiDir.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import {
   appendTurn,
   deleteSessionFile,
@@ -10,19 +10,19 @@ import {
   loadSession,
   listSessions,
   patchSessionTitle,
-} from '../lib/chatStorage.js'
-import { hasFirstChatPending, tryConsumeFirstChatPending } from '../lib/firstChatPending.js'
-import type { ChatMessage } from '../lib/chatTypes.js'
-import { streamAgentSseResponse, streamStaticAssistantSse } from '../lib/streamAgentSse.js'
+} from '@server/lib/chat/chatStorage.js'
+import { hasFirstChatPending, tryConsumeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
+import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
+import { streamAgentSseResponse, streamStaticAssistantSse } from '@server/lib/chat/streamAgentSse.js'
 import {
   applySkillPlaceholders,
   buildSkillPromptMessages,
   defaultChatTitleForSkill,
   parseLeadingSlashCommand,
   readSkillMarkdown,
-} from '../lib/slashSkill.js'
-import { buildHearRepliesPromptMessages } from '../lib/hearRepliesPrompt.js'
-import { runWithSkillRequestContextAsync } from '../lib/skillRequestContext.js'
+} from '@server/lib/llm/slashSkill.js'
+import { buildHearRepliesPromptMessages } from '@server/lib/llm/hearRepliesPrompt.js'
+import { runWithSkillRequestContextAsync } from '@server/lib/llm/skillRequestContext.js'
 
 /**
  * Invisible user turn for the model when the client opens first chat after onboarding (no user bubble).

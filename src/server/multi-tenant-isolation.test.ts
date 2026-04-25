@@ -4,10 +4,10 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Hono } from 'hono'
 import wikiRoute from './routes/wiki.js'
-import { tenantMiddleware } from './lib/tenantMiddleware.js'
-import { ensureTenantHomeDir } from './lib/dataRoot.js'
-import { registerSessionTenant } from './lib/tenantRegistry.js'
-import { brainLayoutWikiDir } from './lib/brainLayout.js'
+import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
+import { ensureTenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
+import { brainLayoutWikiDir } from '@server/lib/platform/brainLayout.js'
 
 describe('multi-tenant isolation (Phase 3)', () => {
   const prevRoot = process.env.BRAIN_DATA_ROOT

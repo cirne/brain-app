@@ -4,14 +4,14 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import vaultRoute from './vault.js'
-import { tenantMiddleware } from '../lib/tenantMiddleware.js'
-import { vaultGateMiddleware } from '../lib/vaultGate.js'
-import { ensureTenantHomeDir, tenantHomeDir } from '../lib/dataRoot.js'
-import { registerIdentityWorkspace, registerSessionTenant } from '../lib/tenantRegistry.js'
+import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
+import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
+import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { registerIdentityWorkspace, registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
 import { writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { createVaultSession } from '../lib/vaultSessionStore.js'
-import { runWithTenantContextAsync } from '../lib/tenantContext.js'
+import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 
 let brainHome: string
 
@@ -258,7 +258,7 @@ describe('/api/vault routes (multi-tenant)', () => {
 
     expect(existsSync(home)).toBe(false)
 
-    const { lookupWorkspaceByIdentity } = await import('../lib/tenantRegistry.js')
+    const { lookupWorkspaceByIdentity } = await import('@server/lib/tenant/tenantRegistry.js')
     expect(await lookupWorkspaceByIdentity('google:test-sub-delete')).toBeNull()
 
     const st = await app.request('http://localhost/api/vault/status')

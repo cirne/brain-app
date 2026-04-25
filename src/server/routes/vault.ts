@@ -7,22 +7,22 @@ import {
   VAULT_PASSWORD_MIN_LEN,
   createVaultVerifierRecord,
   verifyVaultPassword,
-} from '../lib/vaultCrypto.js'
-import { readVaultVerifier, writeVaultVerifier, vaultVerifierExistsSync } from '../lib/vaultVerifierStore.js'
-import { createVaultSession, revokeVaultSession, validateVaultSession } from '../lib/vaultSessionStore.js'
+} from '@server/lib/vault/vaultCrypto.js'
+import { readVaultVerifier, writeVaultVerifier, vaultVerifierExistsSync } from '@server/lib/vault/vaultVerifierStore.js'
+import { createVaultSession, revokeVaultSession, validateVaultSession } from '@server/lib/vault/vaultSessionStore.js'
 import {
   BRAIN_SESSION_COOKIE,
   clearBrainSessionCookie,
   setBrainSessionCookie,
-} from '../lib/vaultCookie.js'
-import { isMultiTenantMode, tenantHomeDir } from '../lib/dataRoot.js'
-import { readHandleMeta } from '../lib/handleMeta.js'
+} from '@server/lib/vault/vaultCookie.js'
+import { isMultiTenantMode, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import {
   lookupTenantBySession,
   removeIdentityMappingsForTenantUserId,
   unregisterSessionTenant,
-} from '../lib/tenantRegistry.js'
-import { runWithTenantContextAsync, tryGetTenantContext } from '../lib/tenantContext.js'
+} from '@server/lib/tenant/tenantRegistry.js'
+import { runWithTenantContextAsync, tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 const vault = new Hono()
 
 type StatusBody = {
