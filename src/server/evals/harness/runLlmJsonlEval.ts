@@ -55,6 +55,11 @@ export async function runLlmJsonlEvalMain<TTask>(config: LlmJsonlEvalConfig<TTas
     ripIndexHint,
   } = config
 
+  /** JSONL evals must not perform real `ripmail send` (set `EVAL_RIPMAIL_SEND_DRY_RUN=0` to allow). */
+  if (process.env.EVAL_RIPMAIL_SEND_DRY_RUN === undefined) {
+    process.env.EVAL_RIPMAIL_SEND_DRY_RUN = '1'
+  }
+
   const root = getEvalRepoRoot()
   const defaultBrain = join(root, 'data-eval', 'brain')
   const brain = process.env.BRAIN_HOME ? resolve(process.env.BRAIN_HOME) : defaultBrain

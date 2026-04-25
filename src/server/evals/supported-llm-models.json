@@ -101,14 +101,26 @@
         {
           "id": "gemini-3.1-pro-preview",
           "tested": false,
-          "label": "2026 preview — requires GEMINI_API_KEY; verify preview billing terms",
+          "label": "2026 flagship (3.1 Pro) — ~gpt-5.4 class; requires GEMINI_API_KEY or GOOGLE_API_KEY; preview terms",
           "costPerMillionTokens": { "input": 2, "output": 12, "cacheRead": 0.2, "cacheWrite": 0 }
         },
         {
           "id": "gemini-3-pro-preview",
           "tested": false,
-          "label": "Gemini 3 Pro preview (alternate SKU)",
+          "label": "Gemini 3 Pro preview (prior generation; alternate to 3.1 Pro)",
           "costPerMillionTokens": { "input": 2, "output": 12, "cacheRead": 0.2, "cacheWrite": 0 }
+        },
+        {
+          "id": "gemini-3.1-flash-lite-preview",
+          "tested": false,
+          "label": "2026 cost-efficient (3.1 Flash-Lite) — ~gpt-5.4-mini class",
+          "costPerMillionTokens": { "input": 0.25, "output": 1.5, "cacheRead": 0.025, "cacheWrite": 1 }
+        },
+        {
+          "id": "gemini-3-flash-preview",
+          "tested": false,
+          "label": "2026 Gemini 3 Flash — between Flash-Lite and Pro on cost and capability",
+          "costPerMillionTokens": { "input": 0.5, "output": 3, "cacheRead": 0.05, "cacheWrite": 0 }
         },
         {
           "id": "gemini-2.5-pro",

@@ -1,0 +1,92 @@
+---
+name: model-eval-benchmark
+description: Runs brain-app JSONL agent evals (Enron v1, wiki v1) and compares model runs on pass rate, wall time, tokens, and estimated cost from report JSON. Use when benchmarking LLMs, comparing providers, price/performance analysis, or after changing supported-llm-models.json / LLM_PROVIDER + LLM_MODEL.
+---
+
+# Model eval benchmark (brain-app)
+
+## Goal
+
+Produce a **same-harness, same-tasks** comparison across models on:
+
+| Dimension | Where in report |
+|-----------|-----------------|
+| **Quality** | `summary.pass`, `summary.fail`, `summary.totalCases` |
+| **Latency** | `wallTotalMs` (whole run); per case: each `cases[].wallMs` |
+| **Cost** | `summary.totalCost` (USD, from aggregated `usage`) |
+| **Volume** | `summary.totalTokens` |
+
+Reports are JSON under `data-eval/eval-runs/` (gitignored).
+
+## Prerequisites
+
+1. **Node:** from repo root, `nvm use` before any `npm`/`npx` (see [`AGENTS.md`](../../../AGENTS.md)).
+2. **Enron index (Enron + wiki evals):** `npm run eval:build` once so `data-eval/brain/ripmail/ripmail.db` exists ([`eval/README.md`](../../../eval/README.md)).
+3. **API keys:** repo-root `.env` (same as `npm run dev`) with keys for each provider you run (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY` for Gemini, etc. — matches [`@mariozechner/pi-ai`](../../../docs/architecture/pi-agent-stack.md) conventions).
+4. **Model IDs:** each `(LLM_PROVIDER, LLM_MODEL)` must resolve in `getModel()` from `@mariozechner/pi-ai`. Git-tracked lineup: [`src/server/evals/supported-llm-models.json`](../../../src/server/evals/supported-llm-models.json) (validated by `vitest.eval.config.ts` tests).
+
+## Commands (JSONL evals)
+
+**Enron v1** (mail/agent tool tasks, default 16 cases, parallel by default):
+
+```sh
+nvm use
+npm run eval:run:enron -- --provider <KnownProvider> --model <model-id>
+```
+
+**Wiki v1** (buildout + cleanup, fewer cases):
+
+```sh
+npm run eval:run:wiki -- --provider <provider> --model <model-id>
+```
+
+Optional env (see below): `EVAL_MAX_CONCURRENCY`, `EVAL_TASKS` / `EVAL_WIKI_TASKS`, `BRAIN_HOME` (scripts default to `./data-eval/brain`).
+
+**Implementation note:** The npm scripts use `tsx --tsconfig tsconfig.server.json` so `@server/...` imports resolve. If you invoke the CLI by hand, include the same `--tsconfig` or imports break.
+
+## Report files
+
+- Pattern: `data-eval/eval-runs/<slug>-<sanitized-model-id>-<iso-timestamp>.json`
+- `slug` = `enron-v1` or `wiki-v1`
+- `effectiveLlm` and `env` in the JSON record which **provider/model** was used (after CLI overrides)
+
+## Building a comparison table
+
+1. Run the **same** eval (same `EVAL_TASKS` / default `eval/tasks/enron-v1.jsonl`) for each model.
+2. Open the **latest** report per model (or a named file).
+3. Fill one row per model with: pass rate (`pass/totalCases`), `wallTotalMs`, `totalCost`, `totalTokens`.
+4. For **fairer latency** when reasoning about provider speed, prefer **per-case** `wallMs` (mean/median) or keep **`EVAL_MAX_CONCURRENCY` identical** across models — total `wallTotalMs` is pipeline wall clock and is affected by concurrency and which cases slow down.
+
+## Send / outbound mail (important)
+
+The JSONL eval harness **defaults** `send_draft` to **`ripmail send … --dry-run`** so evals do not hit SMTP/Gmail. That is set unless you override it.
+
+- **Default:** dry run (no real send). Good for benchmarks.
+- **Real send (rare for evals):** `EVAL_RIPMAIL_SEND_DRY_RUN=0` in the environment.
+
+See `EVAL_RIPMAIL_SEND_DRY_RUN` and `isEvalRipmailSendDryRun` in the server if behavior changes.
+
+## Gotchas to avoid
+
+1. **Apples to apples:** Same task file, same `BRAIN_HOME`, same concurrency when you care about comparable total wall time.
+2. **Pass rate is the primary quality signal** on this harness; failed cases include `failReasons` in the report for postmortems.
+3. **Cost and tokens** come from the agent’s aggregated usage; if a case fails early, its tokens may still be non-zero — interpret `totalCost` as “spend to reach this outcome,” not only “success cost.”
+4. **Model strings:** Use exact pi-ai catalog ids (e.g. `gemini-3-flash-preview` — there is no `gemini-3.1-flash-preview` in the catalog). Wrong ids fail at startup or in registry tests.
+5. **Vitest split:** Main `npm test` **excludes** `src/server/evals/**`. Harness/registry tests: `npx vitest run --config vitest.eval.config.ts <path>`.
+6. **Do not** treat a single run as proof for production: variance (API, cache, model updates) is normal; rerun or pin dependency versions if you need reproducibility.
+
+## Quick comparison snippet (manual)
+
+For each `report.json`:
+
+- Pass rate: `summary.pass / summary.totalCases`
+- Cost: `summary.totalCost`
+- Tokens: `summary.totalTokens`
+- Wall: `wallTotalMs`
+
+Optionally list `cases[].id` + `ok` for failures only.
+
+## Related docs
+
+- [`eval/README.md`](../../../eval/README.md) — build, env, output naming
+- [`docs/architecture/pi-agent-stack.md`](../../../docs/architecture/pi-agent-stack.md) — providers and model compatibility

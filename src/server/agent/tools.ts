@@ -40,6 +40,7 @@ import {
   loadWikiContactSectionBodiesByPath,
   wikiPathsMatchingChatInContactSections,
 } from '@server/lib/wiki/wikiContactIdentifierMatch.js'
+import { isEvalRipmailSendDryRun } from '@server/lib/ripmail/evalRipmailSendDryRun.js'
 import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailExec.js'
 import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
@@ -824,12 +825,24 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     }),
     async execute(_toolCallId: string, params: { draft_id: string }) {
       const rm = ripmailBin()
-      await execRipmailAsync(`${rm} send ${JSON.stringify(params.draft_id)}`, {
-        timeout: RIPMAIL_SEND_TIMEOUT_MS,
-      })
+      const dry = isEvalRipmailSendDryRun()
+      const { stdout } = await execRipmailAsync(
+        `${rm} send ${JSON.stringify(params.draft_id)}${dry ? ' --dry-run' : ''}`,
+        {
+          timeout: RIPMAIL_SEND_TIMEOUT_MS,
+        },
+      )
+      const out = stdout.trim()
       return {
-        content: [{ type: 'text' as const, text: 'Email sent.' }],
-        details: { ok: true },
+        content: [
+          {
+            type: 'text' as const,
+            text: dry
+              ? `[dry run; no mail sent]${out ? `\n${out}` : ''}`
+              : 'Email sent.',
+          },
+        ],
+        details: { ok: true, dryRun: dry },
       }
     },
   })

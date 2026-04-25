@@ -5,6 +5,8 @@ export function hasAnyLlmKey(): boolean {
   return (
     Boolean(process.env.ANTHROPIC_API_KEY) ||
     Boolean(process.env.OPENAI_API_KEY) ||
+    /** `@mariozechner/pi-ai` `google` provider (Gemini) */
+    Boolean(process.env.GEMINI_API_KEY) ||
     Boolean(process.env.GOOGLE_API_KEY) ||
     Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY) ||
     Boolean(process.env.XAI_API_KEY) ||
