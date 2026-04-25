@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { BookOpen } from 'lucide-svelte'
   import type { BackgroundAgentDoc, YourWikiPhase } from './statusBar/backgroundAgentTypes.js'
+  import WikiPageCountIndicator from './WikiPageCountIndicator.svelte'
   import { subscribe } from './app/appEvents.js'
   import { yourWikiDocFromEvents } from './hubEvents/hubEventsStores.js'
 
@@ -63,19 +63,11 @@
   onclick={onOpen}
   title={showActive ? `${activeLabel} (Click for Braintunnel Hub)` : 'Braintunnel Hub'}
 >
-  {#if showActive}
-    <div class="pulse-container">
-      <span class="pulse-dot" class:running={isRunning}></span>
-    </div>
-    {#if displayCount !== null}
-      <span class="hub-count">{displayCount}</span>
-    {/if}
-  {:else}
-    <BookOpen size={15} strokeWidth={2} aria-hidden="true" />
-    {#if displayCount !== null}
-      <span class="hub-count">{displayCount}</span>
-    {/if}
-  {/if}
+  <WikiPageCountIndicator
+    count={displayCount}
+    showPulse={showActive}
+    pulseAnimating={isRunning}
+  />
 </button>
 
 <style>
@@ -101,50 +93,5 @@
 
   .hub-widget.active {
     color: var(--accent);
-  }
-
-  .hub-count {
-    font-variant-numeric: tabular-nums;
-  }
-
-  .pulse-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-  }
-
-  .pulse-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-
-  .pulse-dot.running {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
-    animation: hub-pulse 2s infinite;
-  }
-
-  @keyframes hub-pulse {
-    0% {
-      transform: scale(0.95);
-      box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
-    }
-    70% {
-      transform: scale(1);
-      box-shadow: 0 0 0 6px transparent;
-    }
-    100% {
-      transform: scale(0.95);
-      box-shadow: 0 0 0 0 transparent;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .pulse-dot.running {
-      animation: none;
-    }
   }
 </style>

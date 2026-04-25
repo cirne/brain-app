@@ -13,6 +13,8 @@ export type OnboardingMachineState =
   | 'indexing'
   | 'profiling'
   | 'reviewing-profile'
+  /** After accept-profile: interstitial while initial wiki build runs in background. */
+  | 'seeding'
   | 'done'
 
 export interface OnboardingStateDoc {
@@ -65,6 +67,7 @@ export async function readOnboardingStateDoc(): Promise<OnboardingStateDoc> {
       'indexing',
       'profiling',
       'reviewing-profile',
+      'seeding',
       'done',
     ]
     if (typeof state === 'string' && (valid as string[]).includes(state)) {
@@ -98,8 +101,10 @@ const transitions: Record<OnboardingMachineState, OnboardingMachineState[]> = {
   'confirming-handle': ['not-started', 'indexing'],
   indexing: ['profiling', 'not-started'],
   profiling: ['reviewing-profile', 'not-started'],
-  /** Profile accept goes straight to `done` (background wiki expansion runs separately). */
-  'reviewing-profile': ['profiling', 'done', 'not-started'],
+  /** Accept-profile moves to `seeding` (interstitial) before `done`. */
+  'reviewing-profile': ['profiling', 'seeding', 'not-started'],
+  /** Building wiki; user continues to the app when ready. */
+  seeding: ['done'],
   done: ['not-started'],
 }
 

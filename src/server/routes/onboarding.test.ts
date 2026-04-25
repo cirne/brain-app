@@ -248,7 +248,7 @@ describe('onboarding routes', () => {
     }
   })
 
-  it('POST /accept-profile copies draft to me.md, writes categories, and transitions to done', async () => {
+  it('POST /accept-profile copies draft to me.md, writes categories, and transitions to seeding', async () => {
     const { setOnboardingState, readOnboardingStateDoc, categoriesJsonPath, profileDraftAbsolutePath } =
       await import('../lib/onboardingState.js')
     await mkdir(wikiDirPath(), { recursive: true })
@@ -267,11 +267,13 @@ describe('onboarding routes', () => {
     expect(res.status).toBe(200)
     const j = (await res.json()) as { ok: boolean; state: string }
     expect(j.ok).toBe(true)
-    expect(j.state).toBe('done')
-    expect((await readOnboardingStateDoc()).state).toBe('done')
+    expect(j.state).toBe('seeding')
+    expect((await readOnboardingStateDoc()).state).toBe('seeding')
     const me = await import('node:fs/promises').then((fs) => fs.readFile(join(wikiDirPath(), 'me.md'), 'utf-8'))
     expect(me).toContain('Profile')
     const { readFile } = await import('node:fs/promises')
+    const index = await readFile(join(wikiDirPath(), 'index.md'), 'utf-8')
+    expect(index).toContain('[[me]]')
     const catRaw = await readFile(categoriesJsonPath(), 'utf-8')
     expect(catRaw).toContain('People')
     expect(catRaw).toContain('Projects')

@@ -46,8 +46,4 @@ export {
 /** @deprecated Prefer {@link ONBOARDING_PROFILE_INDEX_AUTOPROCEED}. */
 export const MIN_INDEXED_FOR_PROFILE = ONBOARDING_PROFILE_INDEX_AUTOPROCEED
 
-export const ONBOARDING_LARGE_WINDOW_STATES = new Set([
-  'profiling',
-  'reviewing-profile',
-  'done',
-])
+export const ONBOARDING_LARGE_WINDOW_STATES = new Set(['profiling', 'reviewing-profile', 'seeding', 'done'])

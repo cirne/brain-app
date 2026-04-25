@@ -26,6 +26,7 @@
   import VaultSetupStep from './VaultSetupStep.svelte'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import OnboardingHandleStep from './OnboardingHandleStep.svelte'
+  import OnboardingSeedingInterstitial from './OnboardingSeedingInterstitial.svelte'
 
   interface Props {
     onComplete: () => Promise<void>
@@ -448,7 +449,12 @@
         .filter(Boolean)
       await postAcceptProfile(categories)
       await refreshStatus()
-      await load()
+      const nextAfterAccept = await fetchOnboardingState()
+      state = nextAfterAccept
+      await loadMailOnly()
+      if (nextAfterAccept === 'seeding') {
+        return
+      }
       await finishOnboarding()
     } catch (e) {
       profileStepError = e instanceof Error ? e.message : String(e)
@@ -473,14 +479,14 @@
 
 <div
   class="onboarding flex h-full min-h-0 w-full flex-col bg-[var(--bg)] text-[var(--text)]"
-  class:onboarding-wide={state !== 'profiling' && state !== 'reviewing-profile'}
+  class:onboarding-wide={state !== 'profiling' && state !== 'reviewing-profile' && state !== 'seeding'}
 >
   {#if state === 'profiling'}
     <OnboardingWorkspace
       chatEndpoint="/api/onboarding/profile"
       headerFallbackTitle="Profiling"
       storageKey=""
-        autoSendMessage="From my indexed email, write a short me.md for my assistant: how to help me, tone, key roles, a few key people — lean and steering, not a full bio. Use the tools; keep it factual. Interests and projects will land in the wiki afterward."
+        autoSendMessage="From my indexed email, write wiki root me.md for the main assistant. Use the tools; ground claims in whoami and mail. Follow the system contract: clear ## sections, Key people as a bullet list (one person per line), blank lines between sections. Interests, CRM-style detail, and long bios belong in the wiki after onboarding, not in me.md."
       onStreamFinished={async () => { await patchState('reviewing-profile') }}
       {multiTenant}
     />
@@ -503,8 +509,9 @@
   {:else}
   <div
     class="onboarding-main flex min-h-0 flex-1 flex-col"
-    class:onboarding-main-scroll={state !== 'reviewing-profile'}
+    class:onboarding-main-scroll={state !== 'reviewing-profile' && state !== 'seeding'}
     class:onboarding-main-review={state === 'reviewing-profile'}
+    class:onboarding-main-seed={state === 'seeding'}
   >
     {#if state === 'not-started' && !mail.configured}
       <OnboardingHeroShell>
@@ -680,6 +687,24 @@
             {/if}
           </div>
       </OnboardingHeroShell>
+
+    {:else if state === 'seeding'}
+      <OnboardingSeedingInterstitial
+        onContinue={async () => {
+          profileStepError = null
+          busy = true
+          try {
+            await finishOnboarding()
+          } catch (e) {
+            profileStepError = e instanceof Error ? e.message : String(e)
+          } finally {
+            busy = false
+          }
+        }}
+        continueBusy={busy}
+        errorText={profileStepError}
+        {multiTenant}
+      />
 
     {:else if state === 'reviewing-profile'}
       <section class="ob-review" aria-labelledby="ob-review-title">

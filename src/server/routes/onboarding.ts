@@ -22,7 +22,11 @@ import {
   getOrCreateProfilingAgent,
   deleteProfilingSession,
 } from '../agent/profilingAgent.js'
-import { getOrCreateWikiBuildoutAgent, deleteWikiBuildoutSession } from '../agent/wikiBuildoutAgent.js'
+import {
+  getOrCreateWikiBuildoutAgent,
+  deleteWikiBuildoutSession,
+  ensureWikiVaultScaffoldForBuildout,
+} from '../agent/wikiBuildoutAgent.js'
 import {
   getOnboardingMailStatus,
   ripmailBin,
@@ -137,7 +141,7 @@ onboarding.patch('/state', async (c) => {
   }
   const ctxMt = tryGetTenantContext()
   if (isMultiTenantMode() && ctxMt && !(await isHandleConfirmedForTenant(ctxMt.homeDir))) {
-    const blocked: OnboardingMachineState[] = ['indexing', 'profiling', 'reviewing-profile', 'done']
+    const blocked: OnboardingMachineState[] = ['indexing', 'profiling', 'reviewing-profile', 'seeding', 'done']
     if (blocked.includes(next)) {
       return c.json(
         { error: 'Confirm your Braintunnel handle in onboarding before continuing.' },
@@ -352,6 +356,7 @@ onboarding.post('/accept-profile', async (c) => {
   await mkdir(wikiRoot, { recursive: true })
   const mePath = join(wikiRoot, 'me.md')
   await writeFile(mePath, text, 'utf-8')
+  await ensureWikiVaultScaffoldForBuildout(wikiRoot)
   await mkdir(onboardingDataDir(), { recursive: true })
   await writeFile(categoriesJsonPath(), JSON.stringify({ categories: categoriesToStore }, null, 2), 'utf-8')
   try {
@@ -361,7 +366,7 @@ onboarding.post('/accept-profile', async (c) => {
     void ensureYourWikiRunning({ timezone }).catch((e) => {
       console.error('[accept-profile] ensureYourWikiRunning error:', e)
     })
-    const doc = await setOnboardingState('done')
+    const doc = await setOnboardingState('seeding')
     return c.json({
       ok: true,
       state: doc.state,

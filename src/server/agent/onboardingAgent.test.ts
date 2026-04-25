@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { buildProfilingSystemPrompt, fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'
+import {
+  buildProfilingSystemPrompt,
+  fetchRipmailWhoamiForProfiling,
+  parseWhoamiProfileSubject,
+  PROFILING_ME_MD_MAX_WORDS,
+} from './profilingAgent.js'
 import { buildWikiBuildoutSystemPrompt } from './wikiBuildoutAgent.js'
 import { ONBOARDING_BASE_OMIT } from './agentToolSets.js'
 import { ALL_AGENT_TOOL_NAMES, buildCreateAgentToolsOptions, ONBOARDING_BUILDOUT_OMIT } from './agentToolSets.js'
@@ -121,6 +126,9 @@ describe('buildProfilingSystemPrompt', () => {
     expect(p).toMatch(/AGENTS\.md/i)
     expect(p).toMatch(/read_email.*12/)
     expect(p).toMatch(/Phone numbers and iMessage identifiers/)
+    expect(p).toContain(String(PROFILING_ME_MD_MAX_WORDS))
+    expect(p).toMatch(/single paragraph|run-on sentence/i)
+    expect(p).toMatch(/blank line.*between sections/i)
     expect(p).toContain('**people/** pages at buildout')
     expect(p).toMatch(/Anti-recency/i)
     expect(p).toMatch(/before: 90d/)

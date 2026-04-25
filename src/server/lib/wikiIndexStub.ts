@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /** Marker so tooling can tell this file was seeded by Brain (optional future use). */
@@ -46,6 +46,7 @@ export async function ensureWikiIndexMdStub(
   if (existsSync(abs)) {
     return { created: false }
   }
+  await mkdir(wikiRoot, { recursive: true })
   const body = buildIndexMarkdown(options?.accountHolderPeopleWikilink)
   await writeFile(abs, body, 'utf-8')
   return { created: true }

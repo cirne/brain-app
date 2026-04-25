@@ -48,11 +48,13 @@ describe('onboardingState', () => {
     await expect(setOnboardingState('done')).rejects.toThrow()
   })
 
-  it('setOnboardingState allows reviewing-profile → done', async () => {
+  it('setOnboardingState allows reviewing-profile → seeding → done', async () => {
     const { setOnboardingState, readOnboardingStateDoc } = await import('./onboardingState.js')
     await setOnboardingState('indexing')
     await setOnboardingState('profiling')
     await setOnboardingState('reviewing-profile')
+    await setOnboardingState('seeding')
+    expect((await readOnboardingStateDoc()).state).toBe('seeding')
     await setOnboardingState('done')
     expect((await readOnboardingStateDoc()).state).toBe('done')
   })
@@ -82,6 +84,7 @@ describe('onboardingState', () => {
     await setOnboardingState('indexing')
     await setOnboardingState('profiling')
     await setOnboardingState('reviewing-profile')
+    await setOnboardingState('seeding')
     await setOnboardingState('done')
     await setOnboardingStateForce('not-started')
     expect((await readOnboardingStateDoc()).state).toBe('not-started')
@@ -105,6 +108,7 @@ describe('onboardingState', () => {
     await setOnboardingState('indexing')
     await setOnboardingState('profiling')
     await setOnboardingState('reviewing-profile')
+    await setOnboardingState('seeding')
     await setOnboardingState('done')
     await appendTurn({
       sessionId: 'cc0e8400-e29b-41d4-a716-446655440088',

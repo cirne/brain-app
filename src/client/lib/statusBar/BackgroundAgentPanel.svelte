@@ -22,6 +22,8 @@
     embedInHubDetail?: boolean
     /** When `embedInHubDetail`, the scrollable element (e.g. YourWikiDetail root) for tail-follow. */
     embedScrollParent?: HTMLElement | undefined
+    /** Onboarding seeding: tail the log on every update (ignore “user scrolled up”). */
+    alwaysScrollToBottom?: boolean
     onOpenWiki: (_path: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
@@ -34,6 +36,7 @@
     id,
     embedInHubDetail = false,
     embedScrollParent = undefined,
+    alwaysScrollToBottom = false,
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
@@ -55,6 +58,14 @@
 
   const effectiveId = $derived(id ?? resolvedId)
 
+  /**
+   * YourWikiDetail already provides the "Tool calls" heading and status line for the your-wiki run.
+   * Wiki-expansion runs (explicit `id`) embed without that wrapper — keep the in-panel section label.
+   */
+  const embedDuplicateParentChrome = $derived(
+    embedInHubDetail && (id === undefined || id === 'your-wiki'),
+  )
+
   const timelineSorted = $derived.by((): BackgroundTimelineEvent[] => {
     const t = agent?.timeline
     if (!t?.length) return []
@@ -62,7 +73,10 @@
   })
 
   const showJumpToLatest = $derived(
-    !followOutput && !!agent && (!embedInHubDetail || !!embedScrollParent),
+    !alwaysScrollToBottom &&
+      !followOutput &&
+      !!agent &&
+      (!embedInHubDetail || !!embedScrollParent),
   )
 
   const jumpTransitionMs = $derived(reduceMotion ? 0 : 200)
@@ -187,6 +201,7 @@
     if (embedInHubDetail && !embedScrollParent) return
     void effectiveId
     void embedScrollParent
+    void alwaysScrollToBottom
     void tick().then(() => scrollToBottom())
   })
 
@@ -198,7 +213,10 @@
     void agent?.pageCount
     void agent?.usageCumulative
     void agent?.usageLastInvocation
-    void tick().then(() => scrollToBottomIfFollowing())
+    void alwaysScrollToBottom
+    void tick().then(() =>
+      alwaysScrollToBottom ? scrollToBottom() : scrollToBottomIfFollowing(),
+    )
   })
 
   $effect(() => {
@@ -298,7 +316,7 @@
       {:else if !agent}
         <p class="bg-panel-muted" role="status">No active wiki expansion.</p>
       {:else}
-        {#if agent.detail?.trim()}
+        {#if agent.detail?.trim() && !embedDuplicateParentChrome}
           <p class="bg-panel-status-line" aria-live="polite">{agent.detail.trim()}</p>
         {/if}
 
@@ -311,7 +329,9 @@
         {/if}
 
         {#if timelineSorted.length > 0}
-          <div class="bg-panel-section-label">Activity</div>
+          {#if !embedDuplicateParentChrome}
+            <div class="bg-panel-section-label">Tool calls</div>
+          {/if}
           <ul class="bg-panel-timeline" aria-label="Tool activity, oldest to newest">
             {#each timelineSorted as ev, i (ev.at + ev.toolName + i)}
               <li class="bg-timeline-item">
@@ -330,24 +350,36 @@
               </li>
             {/each}
           </ul>
-        {:else}
-          <div class="bg-panel-section-label">Activity</div>
+        {:else if agent.logEntries && agent.logEntries.length > 0}
+          {#if !embedDuplicateParentChrome}
+            <div class="bg-panel-section-label">Tool calls</div>
+          {/if}
           <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
-            {#if agent.logEntries && agent.logEntries.length > 0}
-              {#each agent.logEntries as entry}
-                <li class="bg-panel-activity-line">
-                  <span class="bg-panel-verb">{entry.verb}</span>
-                  {#if entry.detail.trim()}
-                    <span class="bg-panel-detail-inline">{entry.detail}</span>
-                  {/if}
-                </li>
-              {/each}
-            {:else}
-              {#each agent.logLines as line}
-                <li class="bg-panel-activity-line bg-panel-activity-fallback">{line}</li>
-              {/each}
-            {/if}
+            {#each agent.logEntries as entry}
+              <li class="bg-panel-activity-line">
+                <span class="bg-panel-verb">{entry.verb}</span>
+                {#if entry.detail.trim()}
+                  <span class="bg-panel-detail-inline">{entry.detail}</span>
+                {/if}
+              </li>
+            {/each}
           </ul>
+        {:else if agent.logLines && agent.logLines.length > 0}
+          {#if !embedDuplicateParentChrome}
+            <div class="bg-panel-section-label">Tool calls</div>
+          {/if}
+          <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
+            {#each agent.logLines as line}
+              <li class="bg-panel-activity-line bg-panel-activity-fallback">{line}</li>
+            {/each}
+          </ul>
+        {:else}
+          {#if !embedDuplicateParentChrome}
+            <div class="bg-panel-section-label">Tool calls</div>
+          {/if}
+          <p class="bg-panel-muted" role="status">
+            No tool calls yet. The assistant may be planning; completed steps will show here.
+          </p>
         {/if}
 
         {#if showJumpToLatest}
@@ -423,7 +455,7 @@
           {/if}
 
           {#if timelineSorted.length > 0}
-            <div class="bg-panel-section-label">Activity</div>
+            <div class="bg-panel-section-label">Tool calls</div>
             <ul class="bg-panel-timeline" aria-label="Tool activity, oldest to newest">
               {#each timelineSorted as ev, i (ev.at + ev.toolName + i)}
                 <li class="bg-timeline-item">
@@ -442,24 +474,30 @@
                 </li>
               {/each}
             </ul>
-          {:else}
-            <div class="bg-panel-section-label">Activity</div>
+          {:else if agent.logEntries && agent.logEntries.length > 0}
+            <div class="bg-panel-section-label">Tool calls</div>
             <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
-              {#if agent.logEntries && agent.logEntries.length > 0}
-                {#each agent.logEntries as entry}
-                  <li class="bg-panel-activity-line">
-                    <span class="bg-panel-verb">{entry.verb}</span>
-                    {#if entry.detail.trim()}
-                      <span class="bg-panel-detail-inline">{entry.detail}</span>
-                    {/if}
-                  </li>
-                {/each}
-              {:else}
-                {#each agent.logLines as line}
-                  <li class="bg-panel-activity-line bg-panel-activity-fallback">{line}</li>
-                {/each}
-              {/if}
+              {#each agent.logEntries as entry}
+                <li class="bg-panel-activity-line">
+                  <span class="bg-panel-verb">{entry.verb}</span>
+                  {#if entry.detail.trim()}
+                    <span class="bg-panel-detail-inline">{entry.detail}</span>
+                  {/if}
+                </li>
+              {/each}
             </ul>
+          {:else if agent.logLines && agent.logLines.length > 0}
+            <div class="bg-panel-section-label">Tool calls</div>
+            <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
+              {#each agent.logLines as line}
+                <li class="bg-panel-activity-line bg-panel-activity-fallback">{line}</li>
+              {/each}
+            </ul>
+          {:else}
+            <div class="bg-panel-section-label">Tool calls</div>
+            <p class="bg-panel-muted" role="status">
+              No tool calls yet. The assistant may be planning; completed steps will show here.
+            </p>
           {/if}
         {/if}
       </div>

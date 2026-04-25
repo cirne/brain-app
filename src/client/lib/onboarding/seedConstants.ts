@@ -1,6 +1,9 @@
 /** Minimum wiki pages (excluding profile) before offering early exit during onboarding seeding. */
 export const SEED_EARLY_EXIT_MIN_PAGES = 10
 
+/** Minimum time on the post-accept wiki interstitial before "Continue" enables (dwell for background work). */
+export const ONBOARDING_SEEDING_MIN_DWELL_MS = 25_000
+
 /**
  * Legacy key still cleared by `clearBrainClientStorage()`. First-chat kickoff uses
  * `GET /api/chat/first-chat-pending` + `first-chat-pending.json` under Brain home.

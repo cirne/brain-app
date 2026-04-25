@@ -39,4 +39,17 @@ describe('ensureWikiIndexMdStub', () => {
     const raw = await readFile(join(dir, 'index.md'), 'utf-8')
     expect(raw).toBe('# Custom\n')
   })
+
+  it('creates the wiki directory when it does not exist yet, then index.md', async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'wiki-index-parent-'))
+    try {
+      const wikiRoot = join(parent, 'deep', 'wiki')
+      const { created } = await ensureWikiIndexMdStub(wikiRoot)
+      expect(created).toBe(true)
+      const raw = await readFile(join(wikiRoot, 'index.md'), 'utf-8')
+      expect(raw).toContain('[[me]]')
+    } finally {
+      await rm(parent, { recursive: true, force: true })
+    }
+  })
 })

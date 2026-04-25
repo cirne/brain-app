@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { countSeedEligibleWikiPages } from './seedWikiPageCount.js'
+import { ONBOARDING_SEEDING_MIN_DWELL_MS } from './seedConstants.js'
+
+describe('onboarding seed constants', () => {
+  it('sets a positive dwell for wiki interstitial', () => {
+    expect(ONBOARDING_SEEDING_MIN_DWELL_MS).toBeGreaterThan(0)
+  })
+})
 
 describe('countSeedEligibleWikiPages', () => {
   it('excludes root me.md', () => {

@@ -28,7 +28,11 @@ import { agentKindForWikiSource } from '../lib/llmAgentKind.js'
 import { addLlmUsage, sumUsageFromMessages } from '../lib/llmUsage.js'
 import { truncateJsonResult } from '../lib/truncateJson.js'
 import { safeWikiRelativePath } from '../lib/wikiEditDiff.js'
-import { getOrCreateWikiBuildoutAgent, deleteWikiBuildoutSession } from './wikiBuildoutAgent.js'
+import {
+  getOrCreateWikiBuildoutAgent,
+  deleteWikiBuildoutSession,
+  ensureWikiVaultScaffoldForBuildout,
+} from './wikiBuildoutAgent.js'
 import { buildDateContext, createCleanupAgent } from './agentFactory.js'
 
 /**
@@ -406,6 +410,11 @@ export async function runEnrichInvocation(
 ): Promise<number> {
   const wikiRoot = wikiDir()
   const sessionId = buildoutSessionIdForRun(runId)
+  // Always ensure vault-root index.md (and people skeleton) before enrich — same as cleanup.
+  // The buildout agent may `edit` index.md on the first turn; without the file, read inside edit → ENOENT.
+  // Previously we only re-ensured when the in-memory session was cached, which missed first-lap races
+  // and any vault that lost index.md while pages remained.
+  await ensureWikiVaultScaffoldForBuildout(wikiRoot)
   const categories = await loadCategoriesFromDisk()
   const agent = await getOrCreateWikiBuildoutAgent(sessionId, {
     timezone: options.timezone,
@@ -453,6 +462,7 @@ export async function runCleanupInvocation(
   options: { timezone?: string },
 ): Promise<number> {
   const wikiRoot = wikiDir()
+  await ensureWikiVaultScaffoldForBuildout(wikiRoot)
   const sessionId = cleanupSessionIdForRun(runId)
 
   const contextPrefix = await buildExpansionContextPrefix(wikiRoot)

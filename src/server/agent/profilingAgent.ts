@@ -8,6 +8,9 @@ import { createOnboardingAgent } from './agentFactory.js'
 
 const MAX_WHOAMI_PROMPT_CHARS = 8000
 
+/** Max words in `me.md` body (after optional YAML front matter). Balances main-chat injection size vs. readable lists. */
+export const PROFILING_ME_MD_MAX_WORDS = 320
+
 /** Parsed from `ripmail whoami` JSON when present (Apple Mail inferred identity). */
 export type WhoamiProfileSubject = {
   displayName: string
@@ -130,15 +133,17 @@ export function buildProfilingSystemPrompt(
     ``,
     `## Output contract (follow exactly)`,
     ``,
-    `**Hard cap:** **≤280 words** of body text after optional YAML front matter. If a draft is longer, **shorten before** \`write\`.`,
+    `**Hard cap:** **≤${PROFILING_ME_MD_MAX_WORDS} words** of body text after optional YAML front matter. If a draft is longer, **shorten before** \`write\`.`,
     ``,
-    `**Shape** (Markdown headings ok; keep this order):`,
+    `**Readability:** Use **##** headings for the sections below. Put a **blank line** between sections so the file is skimmable in the app. Prefer **short lines and lists** over dense paragraphs.`,
+    ``,
+    `**Shape** (keep this order):`,
     ``,
     `1. **Title line** — how to address the user (e.g. their name).`,
     `2. **Contact** — **at most two** lines: primary email; second line only if mail clearly shows another address **they** use for assistant-facing mail. **No other \`@\` addresses** anywhere else in the file.`,
-    `3. **How to help** — **2–5** bullets: brevity/tone; who handles scheduling/logistics if obvious; anything the assistant must protect (e.g. DND blocks) **in one short phrase each**.`,
-    `4. **Roles & place** — **≤4** short lines total: titles/orgs; **region + timezone** only (no street addresses).`,
-    `5. **Key people** — **≤8** lines. Each: \`Name — role\` (or one short clause). **No emails, phone, or account identifiers.**`,
+    `3. **How to help** — **2–5** bullet lines. Infer concrete preferences from **sent** mail where possible. **Do not** use bullets that only **restate** generic rubric (e.g. "be brief") with no user-specific fact; every bullet should be **actionable** for the main assistant. Cover tone/delegation/priorities and must-protects (e.g. DND) in **one short phrase each** when relevant.`,
+    `4. **Roles & place** — **≤4** short lines total: titles/orgs; **region + timezone** only (no street addresses). One idea per line is fine; use a short list if it reads clearer than a long sentence.`,
+    `5. **Key people** — **Up to 8** people. **Required format:** a **markdown bullet list** with **one** \`- Name — short role\` (or one short clause) **per line**. **Do not** pack names into a **single paragraph** or run-on sentence. **No emails, phone, or account identifiers.**`,
     ``,
     `**Do not include:** trip/itinerary/family travel dates; conference lists; hobby catalogs; philanthropy/project portfolios; org-chart depth; anything that looks pasted from mail headers. **Phone numbers and iMessage identifiers** belong on **people/** pages at buildout — **not** in \`me.md\`.`,
     ``,

@@ -81,6 +81,31 @@ ${messagesWorkflow}
 
 const buildoutSessions = new Map<string, Agent>()
 
+/**
+ * Ensures account-holder `people/…` skeleton (when whoami resolves) and vault-root `index.md`
+ * stub. Call at the start of every enrich and cleanup lap (and when creating a new buildout agent)
+ * so `index.md` exists before any `edit` (or cleanup `read`) touches it.
+ * Does not overwrite an existing `index.md`. Returns the account-holder people page when present.
+ */
+export async function ensureWikiVaultScaffoldForBuildout(
+  wikiRoot: string,
+): Promise<UserPeoplePageRef | null> {
+  let userPeoplePage: UserPeoplePageRef | null = null
+  const whoami = await fetchRipmailWhoamiForProfiling()
+  const subject = parseWhoamiProfileSubject(whoami)
+  if (subject) {
+    try {
+      userPeoplePage = await ensureUserPeoplePageSkeleton(wikiRoot, subject)
+    } catch (e) {
+      console.error('[wiki] ensureUserPeoplePageSkeleton failed (continuing to index.md stub):', e)
+    }
+  }
+  const peopleWikilink =
+    userPeoplePage?.relativePath.replace(/\.md$/i, '') ?? undefined
+  await ensureWikiIndexMdStub(wikiRoot, { accountHolderPeopleWikilink: peopleWikilink })
+  return userPeoplePage
+}
+
 export async function getOrCreateWikiBuildoutAgent(
   sessionId: string,
   options: { timezone?: string; categories?: string[] } = {},
@@ -93,15 +118,7 @@ export async function getOrCreateWikiBuildoutAgent(
     ? options.categories.map(c => `- ${c}`).join('\n')
     : '- (No extra filter — use profile and email to infer scope.)'
   const wiki = getWikiDir()
-  let userPeoplePage: UserPeoplePageRef | null = null
-  const whoami = await fetchRipmailWhoamiForProfiling()
-  const subject = parseWhoamiProfileSubject(whoami)
-  if (subject) {
-    userPeoplePage = await ensureUserPeoplePageSkeleton(wiki, subject)
-  }
-  const peopleWikilink =
-    userPeoplePage?.relativePath.replace(/\.md$/i, '') ?? undefined
-  await ensureWikiIndexMdStub(wiki, { accountHolderPeopleWikilink: peopleWikilink })
+  const userPeoplePage = await ensureWikiVaultScaffoldForBuildout(wiki)
   const localMessagesAvailable = areLocalMessageToolsEnabled()
   const agent = createOnboardingAgent(
     buildWikiBuildoutSystemPrompt(tz, categories, userPeoplePage, localMessagesAvailable),

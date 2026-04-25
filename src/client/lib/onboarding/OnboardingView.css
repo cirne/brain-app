@@ -211,7 +211,8 @@
   overflow-y: auto;
 }
 
-.onboarding-main-review {
+.onboarding-main-review,
+.onboarding-main-seed {
   display: flex;
   flex-direction: column;
   overflow: hidden;

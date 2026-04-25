@@ -5,6 +5,7 @@
   import BackgroundAgentPanel from './statusBar/BackgroundAgentPanel.svelte'
   import { YOUR_WIKI_HEADER, type RegisterYourWikiHeader } from './yourWikiHeaderContext.js'
   import { yourWikiDocFromEvents } from './hubEvents/hubEventsStores.js'
+  import { yourWikiNarrativeLine } from './yourWikiNarrative.js'
 
   type Props = {
     onOpenWiki: (_path: string) => void
@@ -13,6 +14,25 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_chat: string, _label: string) => void
+    /** When true, omit the intro paragraph (e.g. onboarding already explains Your Wiki on the left). */
+    hideSectionLead?: boolean
+    /**
+     * When false, omit pause / resume / run-lap (e.g. onboarding split view—activity only).
+     * Hub / SlideOver keep default `true`.
+     */
+    showLoopControls?: boolean
+    /** Seeding / hub: follow new tool rows to the bottom (live tail). */
+    autoScrollActivity?: boolean
+    /**
+     * When true, the view sizes to its content (no extra vertical flex growth). Use in narrow
+     * split layouts so the parent does not show a void below short content.
+     */
+    shrinkToContent?: boolean
+    /**
+     * When the tool log is scrolled in an outer element (e.g. onboarding right column), pass that
+     * element so `autoScrollActivity` can set `scrollTop` on the real scrollport.
+     */
+    activityScrollContainer?: HTMLElement | undefined
   }
 
   let {
@@ -22,6 +42,11 @@
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
+    hideSectionLead = false,
+    showLoopControls = true,
+    autoScrollActivity = false,
+    shrinkToContent = false,
+    activityScrollContainer = undefined,
   }: Props = $props()
 
   let doc = $state<BackgroundAgentDoc | null>(null)
@@ -33,15 +58,11 @@
   const isIdle = $derived(phase === 'idle' || (!isActive && phase !== 'paused' && phase !== 'error'))
   const isPaused = $derived(phase === 'paused')
 
-  function phaseDescription(p: YourWikiPhase | undefined): string {
-    if (!p || p === 'idle') return 'Up to date — waiting for new mail sync or a manual nudge.'
-    if (p === 'starting') return 'Building your first wiki pages from your profile and indexed mail…'
-    if (p === 'enriching') return 'Enriching pages — adding new content, cross-links, and public context.'
-    if (p === 'cleaning') return 'Cleaning up — fixing broken links, orphans, and index.'
-    if (p === 'paused') return 'The wiki loop is paused. Resume to continue enriching and cleaning up.'
-    if (p === 'error') return 'Something went wrong. Resume to retry.'
-    return ''
-  }
+  const statusNarrative = $derived(
+    doc ? yourWikiNarrativeLine(phase, doc.detail) : 'Loading…',
+  )
+
+  const panelScrollTarget = $derived(activityScrollContainer ?? detailScrollRoot)
 
   async function pause() {
     if (actionBusy) return
@@ -87,8 +108,9 @@
     })
   })
 
-  const registerHeader = getContext<RegisterYourWikiHeader>(YOUR_WIKI_HEADER)
+  const registerHeader = getContext<RegisterYourWikiHeader | undefined>(YOUR_WIKI_HEADER)
   $effect(() => {
+    if (!registerHeader) return
     registerHeader({
       doc,
       actionBusy,
@@ -99,14 +121,21 @@
   })
 </script>
 
-<div class="your-wiki-detail" bind:this={detailScrollRoot}>
-  <p class="section-lead">
-    Your Wiki improves continuously in the background—enriching pages from your mail and profile, then cleaning up
-    links and structure. Pause it any time; resume starts a fresh lap.
-  </p>
+<div
+  class="your-wiki-detail"
+  bind:this={detailScrollRoot}
+  class:your-wiki-detail--embed={hideSectionLead}
+  class:your-wiki-detail--tight={shrinkToContent}
+>
+  {#if !hideSectionLead}
+    <p class="section-lead">
+      Your Wiki improves continuously in the background—enriching pages from your mail and profile, then cleaning up
+      links and structure. Pause it any time; resume starts a fresh lap.
+    </p>
+  {/if}
 
   {#if doc}
-    <div class="status-row">
+    <div class="status-row" class:status-row--no-actions={!showLoopControls}>
       <div class="status-info">
         <span class="phase-pill" class:active={isActive} class:paused={isPaused} class:idle={isIdle}>
           {phase === 'starting' ? 'Starting' :
@@ -120,47 +149,49 @@
           <span class="page-count">{doc.pageCount} pages</span>
         {/if}
       </div>
-      <div class="actions">
-        {#if isActive || (isIdle && !isPaused)}
-          <button
-            type="button"
-            class="action-btn action-btn-secondary"
-            disabled={actionBusy}
-            onclick={pause}
-            title="Pause the wiki loop"
-          >
-            <Pause size={14} aria-hidden="true" />
-            Pause
-          </button>
-        {:else if isPaused || phase === 'error'}
-          <button
-            type="button"
-            class="action-btn action-btn-primary"
-            disabled={actionBusy}
-            onclick={resume}
-            title="Resume the wiki loop (starts a new lap)"
-          >
-            <Play size={14} aria-hidden="true" />
-            Resume
-          </button>
-        {/if}
-        {#if isIdle && !isPaused}
-          <button
-            type="button"
-            class="action-btn action-btn-ghost"
-            disabled={actionBusy}
-            onclick={runLap}
-            title="Start a lap now"
-          >
-            <RefreshCw size={14} aria-hidden="true" />
-            Run a lap now
-          </button>
-        {/if}
-      </div>
+      {#if showLoopControls}
+        <div class="actions">
+          {#if isActive || (isIdle && !isPaused)}
+            <button
+              type="button"
+              class="action-btn action-btn-secondary"
+              disabled={actionBusy}
+              onclick={pause}
+              title="Pause the wiki loop"
+            >
+              <Pause size={14} aria-hidden="true" />
+              Pause
+            </button>
+          {:else if isPaused || phase === 'error'}
+            <button
+              type="button"
+              class="action-btn action-btn-primary"
+              disabled={actionBusy}
+              onclick={resume}
+              title="Resume the wiki loop (starts a new lap)"
+            >
+              <Play size={14} aria-hidden="true" />
+              Resume
+            </button>
+          {/if}
+          {#if isIdle && !isPaused}
+            <button
+              type="button"
+              class="action-btn action-btn-ghost"
+              disabled={actionBusy}
+              onclick={runLap}
+              title="Start a lap now"
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              Run a lap now
+            </button>
+          {/if}
+        </div>
+      {/if}
     </div>
 
     <p class="phase-description">
-      {phaseDescription(phase)}
+      {statusNarrative}
     </p>
   {:else}
     <p class="phase-description">Loading…</p>
@@ -169,11 +200,12 @@
   <div class="activity-section">
     <div class="activity-label">
       <Sparkles size={14} aria-hidden="true" />
-      Activity
+      Tool calls
     </div>
     <BackgroundAgentPanel
       embedInHubDetail
-      embedScrollParent={detailScrollRoot}
+      embedScrollParent={panelScrollTarget}
+      alwaysScrollToBottom={autoScrollActivity}
       {onOpenWiki}
       {onOpenFile}
       {onOpenEmail}
@@ -209,6 +241,22 @@
     justify-content: space-between;
     gap: 0.75rem;
     flex-wrap: wrap;
+  }
+
+  .status-row--no-actions {
+    justify-content: flex-start;
+  }
+
+  .your-wiki-detail--embed {
+    padding: 0.75rem 1rem 1rem;
+    gap: 1rem;
+  }
+
+  .your-wiki-detail--tight {
+    flex: 0 1 auto;
+    align-self: stretch;
+    /* Parent panel owns vertical scroll (e.g. seeding interstitial max-height). */
+    overflow: visible;
   }
 
   .status-info {
