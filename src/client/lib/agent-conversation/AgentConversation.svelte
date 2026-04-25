@@ -20,8 +20,6 @@
     onSwitchToCalendar,
     onOpenMessageThread,
     onOpenWikiAbout,
-    hearReplies = false,
-    onHearRepliesChange,
     /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
     empty,
     streamingWrite: _streamingWrite,
@@ -173,8 +171,6 @@
           {onOpenFullInbox}
           {onSwitchToCalendar}
           {onOpenWikiAbout}
-          {hearReplies}
-          {onHearRepliesChange}
         />
       {/if}
     {/if}

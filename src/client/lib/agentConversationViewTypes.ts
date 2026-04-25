@@ -29,9 +29,6 @@ export type AgentConversationViewProps = {
   onOpenWikiAbout?: () => void
   /** Only used by the default chat transcript (empty state override). */
   empty?: Snippet
-  /** Mobile empty state: "Read answers aloud" toggle (session-bound). */
-  hearReplies?: boolean
-  onHearRepliesChange?: (_value: boolean) => void
   /**
    * Live `write` tool body for onboarding (e.g. `me.md` while profiling) — same shape as {@link Wiki}'s `streamingWrite`.
    */

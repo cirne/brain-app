@@ -26,6 +26,8 @@
   import { shiftQueuedFollowUp } from './agentFollowUpQueue.js'
   import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
+  import ChatComposerAudio from './ChatComposerAudio.svelte'
+  import { requestMicrophonePermissionInUserGesture } from './holdToSpeakMedia.js'
   import AgentInput from './AgentInput.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
@@ -201,6 +203,25 @@
     const id = displayedSessionId
     if (!id) return false
     return sessions.get(id)?.streaming ?? false
+  })
+
+  /**
+   * If `sessions.get(id)` is briefly undefined during store updates, we must not pass `false`
+   * to the composer: that sets `holdGated`, runs cleanup, and `track.stop()` on the live
+   * getUserMedia stream (all-zero PCM, `readyState: "ended"`, bad STT).
+   * `readHearRepliesPreference() === false` + missing row is still a race → keep mic alive.
+   * Only a row with `hearReplies === false` should gate the hold.
+   */
+  const hearRepliesForChatComposer = $derived.by((): boolean => {
+    const id = displayedSessionId
+    if (id == null) {
+      return false
+    }
+    const row = sessions.get(id)
+    if (row == null) {
+      return true
+    }
+    return row.hearReplies === true
   })
 
   $effect(() => {
@@ -581,6 +602,7 @@
     const cur = sessions.get(id)?.hearReplies ?? false
     if (cur === false) {
       void ensureBrainTtsAutoplayInUserGesture()
+      void requestMicrophonePermissionInUserGesture()
     }
     const next = !cur
     writeHearRepliesPreference(next)
@@ -697,29 +719,36 @@
         {onOpenMessageThread}
         {onSwitchToCalendar}
         {onOpenWikiAbout}
-        hearReplies={sessions.get(displayedSessionId)?.hearReplies ?? false}
-        onHearRepliesChange={(v) => {
-          const id = displayedSessionId
-          if (!id) return
-          writeHearRepliesPreference(v)
-          sessions = touchSessionImmutable(sessions, id, { hearReplies: v })
-        }}
         streamingWrite={streamingWritePreview}
         {multiTenant}
       />
     </div>
 
     {#if !hideInput}
-      <div class="input-shell">
-        <AgentInput
-          bind:this={inputEl}
-          {placeholder}
-          {streaming}
-          queuedMessages={pendingQueuedMessages}
-          {wikiFiles}
-          skills={skillsList}
-          onSend={send}
-          onStop={stopChat}
+      <div class="composer-stack">
+        <div class="input-shell">
+          <AgentInput
+            bind:this={inputEl}
+            {placeholder}
+            {streaming}
+            queuedMessages={pendingQueuedMessages}
+            {wikiFiles}
+            skills={skillsList}
+            onSend={send}
+            onStop={stopChat}
+          />
+        </div>
+        <ChatComposerAudio
+          disabled={streaming}
+          showHearRepliesToggle={messages.length === 0}
+          hearReplies={hearRepliesForChatComposer}
+          onHearRepliesChange={(v) => {
+            const id = displayedSessionId
+            if (!id) return
+            writeHearRepliesPreference(v)
+            sessions = touchSessionImmutable(sessions, id, { hearReplies: v })
+          }}
+          onTranscribe={(t) => void send(t)}
         />
       </div>
     {/if}
@@ -799,13 +828,19 @@
     min-height: 0;
   }
 
+  .composer-stack {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
   .input-shell {
     flex-shrink: 0;
   }
 
   /* Same width as .conversation when chat is full-width (no detail split) */
   @media (min-width: 768px) {
-    :global(.split:not(.has-detail)) .input-shell {
+    :global(.split:not(.has-detail)) .composer-stack {
       max-width: var(--chat-column-max);
       margin-left: auto;
       margin-right: auto;

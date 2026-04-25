@@ -31,6 +31,7 @@ import hubEventsRoute from './routes/hubEvents.js'
 import devRoute from './routes/dev.js'
 import vaultRoute from './routes/vault.js'
 import accountRoute from './routes/account.js'
+import transcribeRoute from './routes/transcribe.js'
 import { vaultGateMiddleware } from './lib/vaultGate.js'
 import { tenantMiddleware } from './lib/tenantMiddleware.js'
 import { ensureYourWikiRunning, requestLapNow } from './agent/yourWikiSupervisor.js'
@@ -154,6 +155,7 @@ app.use('*', async (c, next) => {
 app.route('/api/vault', vaultRoute)
 app.route('/api/account', accountRoute)
 app.route('/api/chat', chatRoute)
+app.route('/api/transcribe', transcribeRoute)
 app.route('/api/skills', skillsRoute)
 app.route('/api/issues', issuesRoute)
 app.route('/api/wiki', wikiRoute)
