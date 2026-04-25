@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use crate::ids::{message_id_for_json_output, resolve_message_id, resolve_thread_id};
 use crate::mail_category::parse_category_list;
 use crate::search::{search_with_meta, SearchOptions, SearchResult};
-use crate::sync::{parse_read_full, parse_since_to_date};
+use crate::sync::{parse_read_full_with_body_preference, parse_since_to_date, ReadBodyPreference};
 use crate::thread_view::list_thread_messages;
 
 fn parse_date_param(date_str: Option<&str>) -> Option<String> {
@@ -400,7 +400,9 @@ pub fn execute_get_message_tool(
             None
         }
     };
-    let parsed_opt = bytes_opt.as_ref().map(|b| parse_read_full(b));
+    let parsed_opt = bytes_opt
+        .as_ref()
+        .map(|b| parse_read_full_with_body_preference(b, ReadBodyPreference::PlainText));
 
     if raw || detail == "raw" {
         let bytes = bytes_opt.expect("raw implies bytes read ok");
@@ -429,10 +431,15 @@ pub fn execute_get_message_tool(
         .to_string());
     }
 
+    let body_source = parsed_opt
+        .as_ref()
+        .map(|p| p.body_text.clone())
+        .unwrap_or_else(|| body_text.clone());
+
     let body_for_out = if detail == "summary" {
-        body_text.chars().take(200).collect::<String>()
+        body_source.chars().take(200).collect::<String>()
     } else {
-        body_text.chars().take(max_body_chars).collect::<String>()
+        body_source.chars().take(max_body_chars).collect::<String>()
     };
 
     Ok(json!({

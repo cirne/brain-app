@@ -21,7 +21,7 @@
   <div class="flex min-h-0 min-w-0 items-center justify-start gap-2">
     {#if center}{@render center()}{/if}
   </div>
-  <div class="flex min-h-0 min-w-0 items-center justify-end gap-2">
+  <div class="flex min-h-0 min-w-0 items-center justify-end gap-1">
     {#if right}{@render right()}{/if}
   </div>
 </header>

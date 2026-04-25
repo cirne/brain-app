@@ -1,5 +1,5 @@
 /**
- * Read raw files on disk via ripmail (same extraction as CLI `ripmail read <path> --json`).
+ * Read raw files on disk via ripmail (same extraction as CLI `ripmail read <path> --json --full-body`).
  * Not for wiki markdown — use `/api/wiki` for Brain wiki pages.
  */
 import { existsSync, statSync } from 'node:fs'
@@ -15,7 +15,7 @@ import {
 
 const files = new Hono()
 
-// GET /api/files/read?path= — JSON from `ripmail read <path> --json`
+// GET /api/files/read?path= — JSON from `ripmail read <path> --json --full-body`
 files.get('/read', async c => {
   const raw = c.req.query('path')
   if (!raw?.trim()) {
@@ -41,9 +41,12 @@ files.get('/read', async c => {
 
   const rm = ripmailBin()
   try {
-    const { stdout, stderr } = await execRipmailAsync(`${rm} read ${JSON.stringify(fullPath)} --json`, {
-      ...ripmailReadExecOptions(),
-    })
+    const { stdout, stderr } = await execRipmailAsync(
+      `${rm} read ${JSON.stringify(fullPath)} --json --full-body`,
+      {
+        ...ripmailReadExecOptions(),
+      },
+    )
     if (stderr?.trim()) {
       console.warn('[api/files/read] ripmail stderr:', stderr.slice(0, 500))
     }

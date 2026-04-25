@@ -19,8 +19,8 @@ use crate::sync::parse_message::{parse_raw_message_with_options, ParseMessageOpt
 
 mod local_file;
 pub use local_file::{
-    local_file_read_outcome, local_file_skipped_too_large, LocalFileReadJson, LocalFileReadOutcome,
-    MAX_LOCAL_FILE_BYTES,
+    local_file_read_outcome, local_file_read_outcome_with_options, local_file_skipped_too_large,
+    LocalFileReadJson, LocalFileReadOptions, LocalFileReadOutcome, MAX_LOCAL_FILE_BYTES,
 };
 
 /// CLI: present PDF text as markdown (`## filename` + body) for agent readability.

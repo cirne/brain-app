@@ -20,8 +20,9 @@ pub use error::RunSyncError;
 pub use maildir::{write_maildir_message, MaildirWrite};
 pub use parse_message::{
     addresses_from_mailbox_entries, parse_index_message, parse_raw_message,
-    parse_raw_message_with_options, parse_read_full, MailboxEntry, ParseMessageOptions,
-    ParsedAttachment, ParsedMessage, ReadForCli,
+    parse_raw_message_with_options, parse_read_full, parse_read_full_with_body_preference,
+    MailboxEntry, ParseMessageOptions, ParsedAttachment, ParsedMessage, ReadBodyPreference,
+    ReadForCli,
 };
 pub use parse_since::parse_since_to_date;
 pub use process_lock::{

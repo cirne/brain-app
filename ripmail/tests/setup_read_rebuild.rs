@@ -226,6 +226,10 @@ Hello.";
     assert!(refs.iter().any(|x| x == "a@b"));
     assert_eq!(v["recipientsDisclosed"], true);
     assert_eq!(v["body"], "Hello.");
+    let ht = v["headersText"].as_str().unwrap();
+    assert!(ht.contains("From: Alice <alice@a.com>"));
+    assert!(ht.contains("Subject: Meet"));
+    assert!(v.get("bodyHtml").is_none() || v["bodyHtml"].is_null());
 }
 
 #[test]

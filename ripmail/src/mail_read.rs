@@ -33,6 +33,10 @@ pub struct ReadMessageJson<'a> {
     pub references: &'a [String],
     pub recipients_disclosed: bool,
     pub body: &'a str,
+    /// Same header block as text-mode `ripmail read` (without the blank line + body).
+    pub headers_text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_html: Option<&'a str>,
 }
 
 impl<'a> ReadMessageJson<'a> {
@@ -51,6 +55,8 @@ impl<'a> ReadMessageJson<'a> {
             references: &r.references,
             recipients_disclosed: r.recipients_disclosed,
             body: &r.body_text,
+            headers_text: format_read_headers_only(r),
+            body_html: r.body_html.as_deref(),
         }
     }
 }
@@ -74,8 +80,8 @@ fn format_mailboxes_line(label: &str, entries: &[MailboxEntry]) -> Option<String
     Some(format!("{label}: {s}"))
 }
 
-/// Human-readable headers plus body (default `ripmail read` text mode).
-pub fn format_read_message_text(r: &ReadForCli) -> String {
+/// Header lines only (matches text-mode `ripmail read` above the blank line before the body).
+pub fn format_read_headers_only(r: &ReadForCli) -> String {
     let mut lines: Vec<String> = Vec::new();
     lines.push(format!("From: {}", format_mailbox(&r.from)));
     if r.recipients_disclosed {
@@ -103,9 +109,12 @@ pub fn format_read_message_text(r: &ReadForCli) -> String {
     if !r.references.is_empty() {
         lines.push(format!("References: {}", r.references.join(" ")));
     }
-    lines.push(String::new());
-    lines.push(r.body_text.clone());
     lines.join("\n")
+}
+
+/// Human-readable headers plus body (default `ripmail read` text mode).
+pub fn format_read_message_text(r: &ReadForCli) -> String {
+    format!("{}\n\n{}", format_read_headers_only(r), r.body_text)
 }
 
 /// Resolve a `messages.raw_path` (relative to `data_dir` / [`crate::config::Config::message_path_root`])

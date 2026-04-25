@@ -6,7 +6,7 @@
 </script>
 
 <header
-  class="mb-4 flex items-start gap-3 [font:inherit]"
+  class="flex items-start gap-3 [font:inherit]"
   aria-labelledby={hideTitle ? undefined : "ob-local-wiki-title"}
 >
   <div

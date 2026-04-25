@@ -9,8 +9,9 @@ use super::extract_attachment;
 /// Align with brain-app Node `RIPMAIL_READ_MAX_BUFFER_BYTES` — do not read larger files into memory.
 pub const MAX_LOCAL_FILE_BYTES: u64 = 20 * 1024 * 1024;
 
-/// Truncate extracted text for agent context (characters, not bytes).
-const MAX_BODY_TEXT_CHARS: usize = 500_000;
+/// Truncate extracted text for agent context (characters, not bytes) when
+/// [`LocalFileReadOptions::truncate_extracted`] is true (default).
+pub(crate) const MAX_BODY_TEXT_CHARS: usize = 500_000;
 
 const IMAGE_HEAVY_PDF_HINT: &str = "Scanned PDFs are not readable as text yet. Ask the user to open the file locally or describe what they need. Future: multimodal/vision support.";
 
@@ -43,6 +44,22 @@ fn truncate_body(s: String) -> String {
     }
     out.push_str("\n\n[Truncated: content exceeded maximum length for agent context.]");
     out
+}
+
+/// Controls extraction behavior for `ripmail read <path>` (not mailbox Message-IDs).
+#[derive(Debug, Clone, Copy)]
+pub struct LocalFileReadOptions {
+    /// When true (default), cap extracted text at [`MAX_BODY_TEXT_CHARS`]. When false, return the
+    /// full extracted/plain UTF-8 (still subject to [`MAX_LOCAL_FILE_BYTES`] for reading bytes off disk).
+    pub truncate_extracted: bool,
+}
+
+impl Default for LocalFileReadOptions {
+    fn default() -> Self {
+        Self {
+            truncate_extracted: true,
+        }
+    }
 }
 
 fn format_pdf_local(filename: &str, body: &str) -> String {
@@ -220,6 +237,23 @@ pub fn local_file_skipped_too_large(
 
 /// Full read pipeline: extraction, PDF image-heavy detection, binary heuristics, UTF-8 text fallback.
 pub fn local_file_read_outcome(bytes: &[u8], mime: &str, filename: &str) -> LocalFileReadOutcome {
+    local_file_read_outcome_with_options(bytes, mime, filename, LocalFileReadOptions::default())
+}
+
+fn maybe_truncate(s: String, options: LocalFileReadOptions) -> String {
+    if !options.truncate_extracted {
+        return s;
+    }
+    truncate_body(s)
+}
+
+/// Like [`local_file_read_outcome`], with control over the 500k extracted-text cap (for `--full-body`).
+pub fn local_file_read_outcome_with_options(
+    bytes: &[u8],
+    mime: &str,
+    filename: &str,
+    options: LocalFileReadOptions,
+) -> LocalFileReadOutcome {
     let size_bytes = bytes.len() as u64;
 
     // --- PDF ---
@@ -228,7 +262,7 @@ pub fn local_file_read_outcome(bytes: &[u8], mime: &str, filename: &str) -> Loca
         match extracted {
             Some(text) if !negligible_text(&text) => LocalFileReadOutcome {
                 read_status: "ok",
-                body_text: truncate_body(format_pdf_local(filename, &text)),
+                body_text: maybe_truncate(format_pdf_local(filename, &text), options),
                 hint: None,
                 size_bytes,
                 mime: mime.to_string(),
@@ -248,7 +282,7 @@ pub fn local_file_read_outcome(bytes: &[u8], mime: &str, filename: &str) -> Loca
         if let Some(text) = extract_attachment(bytes, mime, filename) {
             return LocalFileReadOutcome {
                 read_status: "ok",
-                body_text: truncate_body(text),
+                body_text: maybe_truncate(text, options),
                 hint: None,
                 size_bytes,
                 mime: mime.to_string(),
@@ -271,7 +305,7 @@ pub fn local_file_read_outcome(bytes: &[u8], mime: &str, filename: &str) -> Loca
             if is_printable_utf8_text(s) {
                 return LocalFileReadOutcome {
                     read_status: "ok",
-                    body_text: truncate_body(s.to_string()),
+                    body_text: maybe_truncate(s.to_string(), options),
                     hint: None,
                     size_bytes,
                     mime: mime.to_string(),
@@ -287,7 +321,7 @@ pub fn local_file_read_outcome(bytes: &[u8], mime: &str, filename: &str) -> Loca
                 if is_printable_utf8_text(&s) {
                     return LocalFileReadOutcome {
                         read_status: "ok",
-                        body_text: truncate_body(s),
+                        body_text: maybe_truncate(s, options),
                         hint: None,
                         size_bytes,
                         mime: mime.to_string(),
@@ -342,5 +376,33 @@ mod tests {
         let o = local_file_skipped_too_large(25 * 1024 * 1024, "application/pdf", "huge.pdf");
         assert_eq!(o.read_status, "too_large");
         assert!(o.body_text.contains("maximum read size"));
+    }
+
+    #[test]
+    fn default_truncate_caps_very_long_utf8_file() {
+        let n = super::MAX_BODY_TEXT_CHARS + 50;
+        let s = "x".repeat(n);
+        let o = local_file_read_outcome(s.as_bytes(), "text/plain", "long.txt");
+        assert_eq!(o.read_status, "ok");
+        assert!(o.body_text.contains("Truncated"));
+        // Capped to MAX chars plus a short suffix, well under the original n.
+        assert!(o.body_text.chars().count() <= super::MAX_BODY_TEXT_CHARS + 120);
+    }
+
+    #[test]
+    fn full_body_returns_entire_extracted_text() {
+        let n = super::MAX_BODY_TEXT_CHARS + 50;
+        let s = "x".repeat(n);
+        let o = local_file_read_outcome_with_options(
+            s.as_bytes(),
+            "text/plain",
+            "long.txt",
+            super::LocalFileReadOptions {
+                truncate_extracted: false,
+            },
+        );
+        assert_eq!(o.read_status, "ok");
+        assert!(!o.body_text.contains("Truncated"));
+        assert_eq!(o.body_text.chars().count(), n);
     }
 }

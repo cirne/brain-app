@@ -141,6 +141,36 @@ describe('GET /api/inbox/who', () => {
   })
 })
 
+// ---- GET /api/inbox/:id -----------------------------------------------------
+
+describe('GET /api/inbox/:id', () => {
+  it('prefers bodyHtml in assembled text for the mail viewer', async () => {
+    const readJson = {
+      headersText: 'From: X <x@test.com>\nSubject: Hi',
+      body: 'plain text body',
+      bodyHtml: '<html><body><p>HTML body</p></body></html>',
+    }
+    mockSuccess(JSON.stringify(readJson))
+    const res = await app.request('/api/inbox/msg-99')
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    expect(text).toContain('From: X')
+    expect(text).toContain('<html><body><p>HTML body</p></body></html>')
+    expect(text).not.toContain('plain text body')
+    const argv = spawnMock.mock.calls[0][1] as string[]
+    const flat = argv.join(' ')
+    expect(flat).toContain('--json')
+    expect(flat).toContain('--full-body')
+  })
+
+  it('falls back to body when bodyHtml absent', async () => {
+    mockSuccess(JSON.stringify({ headersText: 'Subject: Y', body: 'only plain' }))
+    const res = await app.request('/api/inbox/msg-1')
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('only plain')
+  })
+})
+
 // ---- GET /api/inbox/draft/:draftId ------------------------------------------
 
 describe('GET /api/inbox/draft/:draftId', () => {

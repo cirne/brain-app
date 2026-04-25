@@ -11,6 +11,7 @@ The reporter wonders whether the message was **discarded**, treated as **spam**,
 ## Related feedback
 
 - In-app feedback issue **#2**, submitted **2026-04-24** (title: email from named sender not found; possible incorrect filtering).
+- In-app feedback issue **#9**, submitted **2026-04-24** — *different mechanism*: [BUG-022](BUG-022-inbox-surfaced-as-ignored-without-matching-user-rules.md) (**inbox** `ignore` vs this bug’s **search** / default category / index). Same “mail not where I expect it” user story.
 
 ## Repro (from report)
 

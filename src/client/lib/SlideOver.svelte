@@ -1,6 +1,16 @@
 <script lang="ts">
   import { setContext } from 'svelte'
-  import { Calendar as CalendarIcon, Mail, Maximize2, MessageSquare, Minimize2, RefreshCw } from 'lucide-svelte'
+  import {
+    Archive,
+    Calendar as CalendarIcon,
+    Forward,
+    Mail,
+    Maximize2,
+    MessageSquare,
+    Minimize2,
+    RefreshCw,
+    Reply,
+  } from 'lucide-svelte'
   import Wiki from './Wiki.svelte'
   import WikiDirList from './WikiDirList.svelte'
   import FileViewer from './FileViewer.svelte'
@@ -29,6 +39,11 @@
     YOUR_WIKI_HEADER,
     type YourWikiHeaderState,
   } from './yourWikiHeaderContext.js'
+  import {
+    INBOX_THREAD_HEADER,
+    type InboxThreadHeaderActions,
+    type RegisterInboxThreadHeader,
+  } from './inboxSlideHeaderContext.js'
   import { Pause, Play } from 'lucide-svelte'
 
   type Props = {
@@ -47,7 +62,7 @@
     onWikiDirNavigate?: (_dirPath: string | undefined) => void
     onInboxNavigate: (_id: string | undefined) => void
     onContextChange: (_ctx: SurfaceContext) => void
-    /** Passed to Inbox for in-pane actions — not rendered in the L2 header. */
+    /** Inbox list: open search, summarize. Thread Reply/Forward/Archive live in the L2 header. */
     onOpenSearch?: () => void
     onSummarizeInbox?: (_message: string) => void
     /** Calendar “Today”: jump to this week + clear `event=` in URL. */
@@ -271,6 +286,12 @@
     yourWikiHeader = state
   }
   setContext(YOUR_WIKI_HEADER, registerYourWikiHeader)
+
+  let inboxThreadHeader = $state<InboxThreadHeaderActions | null>(null)
+  const registerInboxThreadHeader: RegisterInboxThreadHeader = (state) => {
+    inboxThreadHeader = state
+  }
+  setContext(INBOX_THREAD_HEADER, registerInboxThreadHeader)
 </script>
 
 <div
@@ -439,6 +460,37 @@
           </svg>
         </button>
       {/if}
+      {#if overlay.type === 'email' && inboxThreadHeader}
+        <div class="inbox-thread-header-actions" role="toolbar" aria-label="Thread actions">
+          <button
+            type="button"
+            class="inbox-thread-header-btn"
+            onclick={() => inboxThreadHeader?.onReply()}
+            title="Reply"
+            aria-label="Reply"
+          >
+            <Reply size={18} strokeWidth={2} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            class="inbox-thread-header-btn"
+            onclick={() => inboxThreadHeader?.onForward()}
+            title="Forward"
+            aria-label="Forward"
+          >
+            <Forward size={18} strokeWidth={2} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            class="inbox-thread-header-btn"
+            onclick={() => inboxThreadHeader?.onArchive()}
+            title="Archive"
+            aria-label="Archive thread"
+          >
+            <Archive size={18} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </div>
+      {/if}
       {#if !mobilePanel && onToggleFullscreen}
         <button
           type="button"
@@ -601,6 +653,32 @@
     color: var(--text);
   }
 
+  .inbox-thread-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .inbox-thread-header-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    color: var(--text-2);
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .inbox-thread-header-btn:hover {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+
   .fullscreen-btn-desktop {
     display: none;
     align-items: center;
@@ -729,6 +807,7 @@
     gap: 8px;
     min-width: 0;
     flex: 1;
+    overflow: hidden;
   }
   .slide-title-email :global(svg) {
     flex-shrink: 0;

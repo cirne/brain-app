@@ -1,11 +1,16 @@
 <script lang="ts">
-  import { onMount, tick, untrack } from 'svelte'
+  import { getContext, onMount, tick, untrack } from 'svelte'
   import { Archive, Reply, Forward, Sparkles } from 'lucide-svelte'
   import { emit, subscribe } from './app/appEvents.js'
   import { navigate } from '../router.js'
   import { emailHeadersForDisplay } from './inboxHeaders.js'
   import { formatDate } from './formatDate.js'
   import { createAsyncLatest, isAbortError } from './asyncLatest.js'
+  import { emailBodyToIframeSrcdoc } from './mailBodyDisplay.js'
+  import {
+    INBOX_THREAD_HEADER,
+    type RegisterInboxThreadHeader,
+  } from './inboxSlideHeaderContext.js'
 
   type Email = {
     id: string
@@ -54,6 +59,48 @@
   let syncing = $state(false)
   let selectedThread = $state<string | null>(null)
   let threadContent = $state<{ headers: string; body: string } | null>(null)
+
+  const threadIframeSrcdoc = $derived(
+    threadContent?.body != null ? emailBodyToIframeSrcdoc(threadContent.body) : '',
+  )
+
+  /** Size iframe to document height so the thread pane scrolls as one surface (no nested iframe scrollbars). */
+  function iframeAutoHeight(node: HTMLIFrameElement) {
+    let ro: ResizeObserver | undefined
+    const resize = () => {
+      try {
+        const doc = node.contentDocument
+        if (!doc?.documentElement) return
+        const h = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0)
+        if (h > 0) node.style.height = `${h}px`
+      } catch {
+        /* sandbox / opaque */
+      }
+    }
+    const onLoad = () => {
+      ro?.disconnect()
+      ro = undefined
+      resize()
+      try {
+        const bodyEl = node.contentDocument?.body
+        if (bodyEl && typeof ResizeObserver !== 'undefined') {
+          ro = new ResizeObserver(() => resize())
+          ro.observe(bodyEl)
+        }
+      } catch {
+        /* */
+      }
+    }
+    node.addEventListener('load', onLoad)
+    queueMicrotask(resize)
+    return {
+      destroy() {
+        node.removeEventListener('load', onLoad)
+        ro?.disconnect()
+      },
+    }
+  }
+
   let threadLoading = $state(false)
   /** Set when GET /api/inbox/:id fails (e.g. 404 — invalid or stale id). */
   let threadLoadError = $state<string | null>(null)
@@ -411,18 +458,6 @@
     draftSending = false
   }
 
-  function linkify(text: string): string {
-    // Escape HTML first, then turn bare URLs into anchor tags
-    const escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-    return escaped.replace(
-      /https?:\/\/[^\s)>\]"]+/g,
-      url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
-    )
-  }
-
   onMount(() => {
     void load()
     const unsub = subscribe((e) => {
@@ -470,6 +505,29 @@
         headerOverflow = next
       })
     })
+  })
+
+  const registerInboxThreadHeader = getContext<RegisterInboxThreadHeader | undefined>(
+    INBOX_THREAD_HEADER,
+  )
+
+  /** Reply / Forward / Archive in SlideOver L2 header (icon-only). */
+  $effect(() => {
+    if (!registerInboxThreadHeader) return
+    const showToolbar = Boolean(selectedThread && !composeMode && !currentDraft)
+    if (showToolbar) {
+      registerInboxThreadHeader({
+        onReply: () => startComposeFromThread('reply'),
+        onForward: () => startComposeFromThread('forward'),
+        onArchive: () => {
+          const cur = selectedThread
+          if (cur) void archive(cur)
+        },
+      })
+    } else {
+      registerInboxThreadHeader(null)
+    }
+    return () => registerInboxThreadHeader(null)
   })
 </script>
 
@@ -631,48 +689,18 @@
                 </div>
               {/each}
             </div>
-            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-            <div class="thread-body-text">{@html linkify(threadContent.body)}</div>
+            {#key selectedThread}
+              <iframe
+                class="thread-body-iframe"
+                title="Email message body"
+                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                srcdoc={threadIframeSrcdoc}
+                use:iframeAutoHeight
+              ></iframe>
+            {/key}
           {:else}
             <p class="loading">Failed to load message.</p>
           {/if}
-        </div>
-      {/if}
-
-      {#if !composeMode && !currentDraft}
-        <div class="thread-fab-bar" role="toolbar" aria-label="Thread actions">
-          <div class="thread-fab-inner">
-            <button
-              type="button"
-              class="thread-fab"
-              onclick={() => startComposeFromThread('reply')}
-              title="Reply"
-              aria-label="Reply"
-            >
-              <Reply size={14} strokeWidth={2} aria-hidden="true" />
-              <span class="thread-fab-label">Reply</span>
-            </button>
-            <button
-              type="button"
-              class="thread-fab"
-              onclick={() => startComposeFromThread('forward')}
-              title="Forward"
-              aria-label="Forward"
-            >
-              <Forward size={14} strokeWidth={2} aria-hidden="true" />
-              <span class="thread-fab-label">Forward</span>
-            </button>
-            <button
-              type="button"
-              class="thread-fab"
-              onclick={() => archive(selectedThread!)}
-              title="Archive"
-              aria-label="Archive thread"
-            >
-              <Archive size={14} strokeWidth={2} aria-hidden="true" />
-              <span class="thread-fab-label">Archive</span>
-            </button>
-          </div>
         </div>
       {/if}
     </div>
@@ -828,97 +856,16 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: auto;
     position: relative;
     min-height: 0;
-    container-type: inline-size;
-    container-name: thread-pane;
-  }
-
-  @container thread-pane (max-width: 500px) {
-    .thread-fab-bar {
-      padding-left: 4px;
-      padding-right: 4px;
-    }
-    .thread-fab-inner {
-      gap: 6px;
-      padding: 2px 2px;
-    }
-    .thread-fab-label {
-      display: none;
-    }
-    .thread-fab {
-      padding: 8px;
-      min-width: 36px;
-      min-height: 36px;
-      border-radius: 50%;
-    }
-  }
-
-  .thread-fab-bar {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 8px 6px calc(10px + env(safe-area-inset-bottom, 0px));
-    z-index: 20;
-    pointer-events: none;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .thread-fab-inner {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 2px 4px;
-    scrollbar-width: none;
-    pointer-events: auto;
-  }
-  .thread-fab-inner::-webkit-scrollbar {
-    display: none;
-  }
-
-  .thread-fab {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    flex-shrink: 0;
-    padding: 5px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
-  }
-  .thread-fab-label {
-    white-space: nowrap;
-  }
-  .thread-fab:hover {
-    background: var(--bg-3);
-  }
-  .thread-fab:active {
-    background: var(--bg-2);
   }
 
   .thread-body {
-    flex: 1;
-    overflow-y: auto;
+    flex: 0 0 auto;
+    overflow: visible;
     padding: 16px;
-    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
   .loading { color: var(--text-2); font-size: 14px; }
   .thread-error {
@@ -994,8 +941,16 @@
       padding-top: 0;
     }
   }
-  .thread-body-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-  .thread-body-text :global(a) { color: var(--accent); text-decoration: underline; }
+  .thread-body-iframe {
+    display: block;
+    width: 100%;
+    min-height: 80px;
+    border: none;
+    border-radius: 4px;
+    background: #fff;
+    color-scheme: light;
+    overflow: hidden;
+  }
 
   /* Compose panel */
   .compose-panel {

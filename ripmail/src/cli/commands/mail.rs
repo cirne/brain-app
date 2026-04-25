@@ -10,13 +10,14 @@ use crate::cli::util::{format_attachment_size, load_cfg};
 use crate::cli::CliResult;
 use ripmail::{
     db, format_read_message_text, infer_placeholder_owner_identities, is_placeholder_mailbox_email,
-    list_attachments_for_message, list_thread_messages, local_file_read_outcome,
+    list_attachments_for_message, list_thread_messages, local_file_read_outcome_with_options,
     local_file_skipped_too_large, mailbox_ids_for_default_search, normalize_address,
-    normalize_search_date_spec, parse_category_list, parse_read_full, read_attachment_bytes,
-    read_attachment_text, read_message_bytes_with_thread, resolve_mailbox_spec, resolve_message_id,
-    resolve_search_json_format, search_result_to_slim_json_row, search_with_meta, send_draft_by_id,
-    send_simple_message, smtp_credentials_ready, smtp_credentials_unavailable_reason,
-    split_address_list, who, whoami, Config, ReadMessageJson, SearchOptions,
+    normalize_search_date_spec, parse_category_list, parse_read_full_with_body_preference,
+    read_attachment_bytes, read_attachment_text, read_message_bytes_with_thread,
+    resolve_mailbox_spec, resolve_message_id, resolve_search_json_format,
+    search_result_to_slim_json_row, search_with_meta, send_draft_by_id, send_simple_message,
+    smtp_credentials_ready, smtp_credentials_unavailable_reason, split_address_list, who, whoami,
+    Config, LocalFileReadOptions, ReadBodyPreference, ReadMessageJson, SearchOptions,
     SearchResultFormatPreference, SendSimpleFields, SourceKind, WhoOptions, WhoamiResult,
     MAX_LOCAL_FILE_BYTES,
 };
@@ -186,7 +187,10 @@ fn expand_read_path(raw: &str) -> PathBuf {
 }
 
 /// JSON for `ripmail read <path> --json` on a local file (structured `readStatus`, no `utf8_lossy` binary dump).
-fn local_file_read_json(path: &std::path::Path) -> Result<serde_json::Value, String> {
+fn local_file_read_json(
+    path: &std::path::Path,
+    file_opts: LocalFileReadOptions,
+) -> Result<serde_json::Value, String> {
     let mime = mime_guess::from_path(path)
         .first_or_octet_stream()
         .to_string();
@@ -199,12 +203,15 @@ fn local_file_read_json(path: &std::path::Path) -> Result<serde_json::Value, Str
         serde_json::to_value(o.to_json(path_s)).map_err(|e| e.to_string())
     } else {
         let bytes = fs::read(path).map_err(|e| e.to_string())?;
-        let o = local_file_read_outcome(&bytes, &mime, fname);
+        let o = local_file_read_outcome_with_options(&bytes, &mime, fname, file_opts);
         serde_json::to_value(o.to_json(path_s)).map_err(|e| e.to_string())
     }
 }
 
-fn local_file_read_plain(path: &std::path::Path) -> Result<String, String> {
+fn local_file_read_plain(
+    path: &std::path::Path,
+    file_opts: LocalFileReadOptions,
+) -> Result<String, String> {
     let mime = mime_guess::from_path(path)
         .first_or_octet_stream()
         .to_string();
@@ -216,20 +223,32 @@ fn local_file_read_plain(path: &std::path::Path) -> Result<String, String> {
         return Ok(o.body_text);
     }
     let bytes = fs::read(path).map_err(|e| e.to_string())?;
-    let o = local_file_read_outcome(&bytes, &mime, fname);
+    let o = local_file_read_outcome_with_options(&bytes, &mime, fname, file_opts);
     Ok(o.body_text)
 }
 
 pub(crate) fn run_read(
     message_ids: Vec<String>,
     source_narrow: Option<String>,
+    plain_body: bool,
+    full_body: bool,
     raw: bool,
     json: bool,
 ) -> CliResult {
     if message_ids.is_empty() {
-        eprintln!("Usage: ripmail read <TARGET>… [--source <id|email>] [--raw] [--json|--text]");
+        eprintln!("Usage: ripmail read <TARGET>… [--source <id|email>] [--plain-body] [--full-body] [--raw] [--json|--text]");
         std::process::exit(1);
     }
+
+    let file_read_opts = LocalFileReadOptions {
+        truncate_extracted: !full_body,
+    };
+
+    let body_pref = if plain_body {
+        ReadBodyPreference::PlainText
+    } else {
+        ReadBodyPreference::Auto
+    };
 
     let cfg = load_cfg();
     let conn = db::open_file_for_queries(cfg.db_path())?;
@@ -263,11 +282,11 @@ pub(crate) fn run_read(
             let target = &message_ids[0];
             let path = expand_read_path(target);
             if path.is_file() {
-                let v = local_file_read_json(&path)?;
+                let v = local_file_read_json(&path, file_read_opts)?;
                 println!("{}", serde_json::to_string_pretty(&v)?);
             } else {
                 let (bytes, thread_id) = read_message_for_cli(&conn, target, root)?;
-                let parsed = parse_read_full(&bytes);
+                let parsed = parse_read_full_with_body_preference(&bytes, body_pref);
                 let mut out =
                     serde_json::to_value(ReadMessageJson::from_parsed(&parsed, &thread_id))?;
                 if let Ok(Some((_, _, Some(sid)))) =
@@ -301,10 +320,10 @@ pub(crate) fn run_read(
             for target in &message_ids {
                 let path = expand_read_path(target);
                 if path.is_file() {
-                    values.push(local_file_read_json(&path)?);
+                    values.push(local_file_read_json(&path, file_read_opts)?);
                 } else {
                     let (bytes, thread_id) = read_message_for_cli(&conn, target, root)?;
-                    let parsed = parse_read_full(&bytes);
+                    let parsed = parse_read_full_with_body_preference(&bytes, body_pref);
                     values.push(serde_json::to_value(ReadMessageJson::from_parsed(
                         &parsed, &thread_id,
                     ))?);
@@ -319,7 +338,7 @@ pub(crate) fn run_read(
     for target in &message_ids {
         let path = expand_read_path(target);
         if path.is_file() {
-            let text = local_file_read_plain(&path)?;
+            let text = local_file_read_plain(&path, file_read_opts)?;
             if !first {
                 print!("{READ_BATCH_TEXT_SEP}");
             }
@@ -327,7 +346,7 @@ pub(crate) fn run_read(
             print!("{text}");
         } else {
             let (bytes, _) = read_message_for_cli(&conn, target, root)?;
-            let parsed = parse_read_full(&bytes);
+            let parsed = parse_read_full_with_body_preference(&bytes, body_pref);
             if !first {
                 print!("{READ_BATCH_TEXT_SEP}");
             }

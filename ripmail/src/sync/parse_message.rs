@@ -69,6 +69,16 @@ pub struct MailboxEntry {
     pub address: String,
 }
 
+/// How `ripmail read` (and callers) choose between `text/plain` and `text/html` for the displayed body.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ReadBodyPreference {
+    /// Prefer HTML→markdown when plain is empty, a short stub vs HTML, or a dense one-line “wall” (same heuristic as indexing).
+    #[default]
+    Auto,
+    /// Prefer the MIME `text/plain` part whenever it is non-empty (after trim). Use for agents / CLI when HTML→markdown is noisy; falls back to HTML only when plain is empty.
+    PlainText,
+}
+
 /// Full envelope + body for `ripmail read` (single parse of raw `.eml`).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -89,6 +99,9 @@ pub struct ReadForCli {
     pub recipients_disclosed: bool,
     #[serde(rename = "body")]
     pub body_text: String,
+    /// Raw MIME `text/html` when present (same source as indexing); omitted when there is no HTML part.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_html: Option<String>,
 }
 
 /// Email addresses in the same order as `collect_address_entries`.
@@ -113,15 +126,44 @@ fn should_prefer_html_for_body(plain_trimmed: &str, html: &str) -> bool {
     if html.len() < 400 {
         return false;
     }
-    plain_trimmed.len() < 200 && html.len() > plain_trimmed.len().saturating_mul(6)
+    if plain_trimmed.len() < 200 && html.len() > plain_trimmed.len().saturating_mul(6) {
+        return true;
+    }
+    // Long text/plain with almost no line breaks is usually a useless "wall" while the HTML part
+    // has real structure (marketing / notices). Prefer HTML→markdown when HTML is meaningfully larger.
+    let newline_count = plain_trimmed
+        .as_bytes()
+        .iter()
+        .filter(|&&b| b == b'\n')
+        .count();
+    if plain_trimmed.len() >= 400
+        && newline_count * 800 < plain_trimmed.len()
+        && html.len() > plain_trimmed.len().saturating_mul(4) / 3
+    {
+        return true;
+    }
+    false
 }
 
 /// Chooses `body_text` and preserves original `text/html` for consumers that need it (forward, debug).
 fn indexable_bodies(plain: Option<String>, html: Option<String>) -> (String, Option<String>) {
+    indexable_bodies_with_preference(plain, html, ReadBodyPreference::Auto)
+}
+
+fn indexable_bodies_with_preference(
+    plain: Option<String>,
+    html: Option<String>,
+    pref: ReadBodyPreference,
+) -> (String, Option<String>) {
+    // `mail-parser` may yield `Some("")` for a text/plain-only message; treat as no HTML.
+    let html = html.filter(|h| !h.trim().is_empty());
     let Some(html) = html else {
         return (plain.unwrap_or_default(), None);
     };
     let plain_trim = plain.as_deref().map(str::trim).unwrap_or("");
+    if pref == ReadBodyPreference::PlainText && !plain_trim.is_empty() {
+        return (plain.unwrap(), Some(html));
+    }
     if should_prefer_html_for_body(plain_trim, &html) {
         let md = htmd::convert(&html).unwrap_or_else(|_| html.clone());
         return (md, Some(html));
@@ -131,6 +173,46 @@ fn indexable_bodies(plain: Option<String>, html: Option<String>) -> (String, Opt
         return (md, Some(html));
     }
     (plain.unwrap(), Some(html))
+}
+
+/// `mail-parser` can expose a synthetic `text/html` of the form
+/// `<html><body>…</body></html>` for an otherwise `text/plain`-only message. That is not a
+/// distinct MIME `text/html` alternative: omit it so `ReadForCli::body_html` / JSON `bodyHtml`
+/// stay unset and consumers fall back to plain `body`.
+fn html_is_synthetic_minimal_body_echo(plain: &str, html: &str) -> bool {
+    let p = plain.trim();
+    if p.is_empty() {
+        return false;
+    }
+    let s = html.trim();
+    if s.len() > 16 * 1024 {
+        return false;
+    }
+    let lo = s.to_ascii_lowercase();
+    if !lo.contains("<html") || !lo.contains("<body") || !lo.contains("</body>") {
+        return false;
+    }
+    if lo.contains("href=") || lo.contains("<a ") || lo.contains("img") || lo.contains("style=") {
+        return false;
+    }
+    let Some(body_inner) = first_html_body_inner(s) else {
+        return false;
+    };
+    if body_inner.contains('<') {
+        return false;
+    }
+    body_inner.trim() == p
+}
+
+fn first_html_body_inner(html: &str) -> Option<&str> {
+    let lo = html.to_ascii_lowercase();
+    let i = lo.find("<body")?;
+    let after_tag = html.get(i..)?;
+    let rel = after_tag.find('>')? + 1;
+    let inner_start = i + rel;
+    let after_open = html.get(inner_start..)?;
+    let end = after_open.to_ascii_lowercase().find("</body>")?;
+    html.get(inner_start..inner_start + end)
 }
 
 fn extract_threading_from_headers(msg: &Message<'_>) -> (Option<String>, Vec<String>) {
@@ -622,6 +704,14 @@ fn extract_threading_from_raw_bytes(raw: &[u8]) -> (Option<String>, Vec<String>)
 
 /// Single-parse path for `ripmail read`: body plus To/Cc/Bcc/Reply-To and threading headers.
 pub fn parse_read_full(raw: &[u8]) -> ReadForCli {
+    parse_read_full_with_body_preference(raw, ReadBodyPreference::default())
+}
+
+/// Same as [`parse_read_full`], but controls plain vs HTML body selection (e.g. `--plain-body` for agents).
+pub fn parse_read_full_with_body_preference(
+    raw: &[u8],
+    body_pref: ReadBodyPreference,
+) -> ReadForCli {
     let Some(msg) = MessageParser::default()
         .with_mime_headers()
         .with_date_headers()
@@ -663,6 +753,7 @@ pub fn parse_read_full(raw: &[u8]) -> ReadForCli {
             references,
             recipients_disclosed,
             body_text: p.body_text,
+            body_html: p.body_html,
         };
     };
 
@@ -690,11 +781,22 @@ pub fn parse_read_full(raw: &[u8]) -> ReadForCli {
         },
     );
 
-    let (body_text, _body_html) = indexable_bodies(
+    let (body_text, body_html) = indexable_bodies_with_preference(
         msg.body_text(0).map(|t| t.into_owned()),
         msg.body_html(0).map(|h| h.into_owned()),
+        body_pref,
     );
 
+    read_for_cli_from_parsed_headers(&msg, message_id, date, body_text, body_html)
+}
+
+fn read_for_cli_from_parsed_headers<'m>(
+    msg: &'m Message<'m>,
+    message_id: String,
+    date: String,
+    body_text: String,
+    body_html: Option<String>,
+) -> ReadForCli {
     let from_address = msg
         .from()
         .and_then(|a| match a {
@@ -716,8 +818,10 @@ pub fn parse_read_full(raw: &[u8]) -> ReadForCli {
     let cc = collect_address_entries(msg.cc());
     let bcc = collect_address_entries(msg.bcc());
     let reply_to = collect_address_entries(msg.reply_to());
-    let (in_reply_to, references) = extract_threading_from_headers(&msg);
+    let (in_reply_to, references) = extract_threading_from_headers(msg);
     let recipients_disclosed = !to.is_empty() || !cc.is_empty() || !bcc.is_empty();
+
+    let body_html = body_html.filter(|h| !html_is_synthetic_minimal_body_echo(&body_text, h));
 
     ReadForCli {
         message_id,
@@ -735,12 +839,16 @@ pub fn parse_read_full(raw: &[u8]) -> ReadForCli {
         references,
         recipients_disclosed,
         body_text,
+        body_html,
     }
 }
 
 #[cfg(test)]
 mod indexable_body_tests {
-    use super::{indexable_bodies, parse_raw_message, should_prefer_html_for_body};
+    use super::{
+        indexable_bodies, parse_raw_message, parse_read_full_with_body_preference,
+        should_prefer_html_for_body, ReadBodyPreference,
+    };
 
     #[test]
     fn should_prefer_empty_plain_uses_rich_html() {
@@ -755,6 +863,66 @@ mod indexable_body_tests {
         let plain = "a".repeat(500);
         let html = format!("<p>{}</p>", "b".repeat(600));
         assert!(!should_prefer_html_for_body(&plain, &html));
+    }
+
+    #[test]
+    fn should_prefer_html_when_plain_is_long_with_almost_no_line_breaks() {
+        let plain = "Payment notice ".repeat(40).trim_end().to_string();
+        assert!(
+            plain.len() >= 500 && plain.as_bytes().iter().filter(|&&b| b == b'\n').count() == 0
+        );
+        let html = format!(
+            "<html><body><p>{}</p><p>Second block with more text.</p></body></html>",
+            "x".repeat(900)
+        );
+        assert!(
+            should_prefer_html_for_body(&plain, &html),
+            "expected HTML-derived body for dense one-line plain"
+        );
+    }
+
+    #[test]
+    fn plain_body_preference_keeps_dense_plain_instead_of_html() {
+        let wall = "Payment notice ".repeat(40).trim_end().to_string();
+        let html_inner = format!(
+            "<html><body><p>{}</p><p>Second</p></body></html>",
+            "x".repeat(900)
+        );
+        let eml = format!(
+            "From: a@b\r\n\
+             To: c@b\r\n\
+             Subject: t\r\n\
+             Message-ID: <plain-pref-test@local>\r\n\
+             MIME-Version: 1.0\r\n\
+             Content-Type: multipart/alternative; boundary=\"bnd\"\r\n\
+             \r\n\
+             --bnd\r\n\
+             Content-Type: text/plain; charset=utf-8\r\n\
+             \r\n\
+             {wall}\r\n\
+             --bnd\r\n\
+             Content-Type: text/html; charset=utf-8\r\n\
+             \r\n\
+             {html_inner}\r\n\
+             --bnd--\r\n"
+        );
+        let auto = parse_read_full_with_body_preference(eml.as_bytes(), ReadBodyPreference::Auto);
+        let plain_pref =
+            parse_read_full_with_body_preference(eml.as_bytes(), ReadBodyPreference::PlainText);
+        assert_ne!(
+            auto.body_text, plain_pref.body_text,
+            "auto should use HTML-derived body, plain pref should keep text/plain"
+        );
+        assert!(
+            plain_pref.body_text.contains("Payment notice"),
+            "plain body lost: {:?}",
+            plain_pref.body_text
+        );
+        assert!(
+            !plain_pref.body_text.contains("Second"),
+            "plain pref should not use HTML paragraphs: {:?}",
+            plain_pref.body_text
+        );
     }
 
     #[test]
@@ -800,5 +968,34 @@ mod indexable_body_tests {
             .body_text
             .to_lowercase()
             .contains("thank you for your purchase"));
+    }
+}
+
+#[cfg(test)]
+mod synthetic_minimal_html_tests {
+    use super::html_is_synthetic_minimal_body_echo;
+
+    #[test]
+    fn detect_mail_parser_xhtml_body_echo() {
+        assert!(html_is_synthetic_minimal_body_echo(
+            "Hello.",
+            "<html><body>Hello.</body></html>"
+        ));
+    }
+
+    #[test]
+    fn distinct_plain_and_html_not_synthetic() {
+        assert!(!html_is_synthetic_minimal_body_echo(
+            "Hello plain.",
+            "<html><body>Hello.</body></html>"
+        ));
+    }
+
+    #[test]
+    fn html_with_link_is_not_synthetic() {
+        assert!(!html_is_synthetic_minimal_body_echo(
+            "x",
+            "<html><body><a href=\"https://a.com/\">x</a></body></html>"
+        ));
     }
 }

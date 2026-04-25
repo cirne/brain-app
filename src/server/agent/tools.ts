@@ -553,7 +553,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'read_email',
     label: 'Read email',
     description:
-      'Read one item from the ripmail index: an email by Message-ID, or a file by absolute path (tilde paths OK). Use optional source when Message-ID is ambiguous. For emails, the JSON includes an `attachments` array (index, filename, mimeType, size) when present — metadata only. Use **read_attachment** to fetch extracted text for a specific attachment.',
+      'Read one item from the ripmail index: an email by Message-ID, or a file by absolute path (tilde paths OK). Uses `ripmail read --plain-body` so the MIME text/plain part is preferred when present (better for summarization); the in-app inbox uses the default body choice for display. Use optional source when Message-ID is ambiguous. For emails, the JSON includes an `attachments` array (index, filename, mimeType, size) when present — metadata only. Use **read_attachment** to fetch extracted text for a specific attachment.',
     parameters: Type.Object({
       id: Type.String({ description: 'Message-ID or filesystem path' }),
       source: Type.Optional(
@@ -572,9 +572,12 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       }
       const resolved = await resolveRipmailSourceForCli(params.source)
       const src = resolved?.trim() ? ` --source ${JSON.stringify(resolved.trim())}` : ''
-      const { stdout } = await execRipmailAsync(`${rm} read ${JSON.stringify(readId)} --json${src}`, {
-        ...ripmailReadExecOptions(),
-      })
+      const { stdout } = await execRipmailAsync(
+        `${rm} read ${JSON.stringify(readId)} --json --plain-body --full-body${src}`,
+        {
+          ...ripmailReadExecOptions(),
+        },
+      )
 
       let textOut = stdout
       if (!originalIdWasPath) {

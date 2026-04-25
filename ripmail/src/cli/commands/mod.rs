@@ -164,10 +164,12 @@ pub(crate) fn handle_command(cli: Cli) -> CliResult {
         Commands::Read {
             message_ids,
             source,
+            plain_body,
+            full_body,
             raw,
             json,
             text: _text,
-        } => mail::run_read(message_ids, source, raw, json),
+        } => mail::run_read(message_ids, source, plain_body, full_body, raw, json),
         Commands::Thread {
             thread_id,
             json,

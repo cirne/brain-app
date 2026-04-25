@@ -97,14 +97,30 @@ inbox.post('/draft/:draftId/send', async (c) => {
   }
 })
 
-// GET /api/inbox/:id — read a message
+// GET /api/inbox/:id — read a message (ripmail JSON; prefer raw `bodyHtml` for the iframe when present)
 inbox.get('/:id', async (c) => {
   const id = c.req.param('id')
   try {
-    const { stdout } = await execRipmailAsync(`${ripmailBin()} read ${JSON.stringify(id)}`, {
-      ...ripmailReadExecOptions(),
-    })
-    return c.text(stdout)
+    const { stdout } = await execRipmailAsync(
+      `${ripmailBin()} read ${JSON.stringify(id)} --json --full-body`,
+      {
+        ...ripmailReadExecOptions(),
+      },
+    )
+    const trimmed = stdout.trim()
+    let j: Record<string, unknown>
+    try {
+      j = JSON.parse(trimmed) as Record<string, unknown>
+    } catch {
+      return c.json({ error: 'invalid ripmail json' }, 502)
+    }
+    const headersText = typeof j.headersText === 'string' ? j.headersText : ''
+    const bodyText = typeof j.body === 'string' ? j.body : ''
+    const bh = j.bodyHtml
+    const bodyHtml = typeof bh === 'string' && bh.trim().length > 0 ? bh : ''
+    const displayBody = bodyHtml || bodyText
+    const out = `${headersText}\n\n${displayBody}`
+    return c.text(out)
   } catch {
     return c.json({ error: 'Not found' }, 404)
   }
