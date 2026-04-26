@@ -273,7 +273,8 @@ describe('ToolCallBlock.svelte', () => {
       })
       render(ToolCallBlock, { props: { toolCall } })
 
-      expect(screen.getByText('(2 options)')).toBeInTheDocument()
+      expect(screen.getByText('Quick Replies')).toBeInTheDocument()
+      expect(screen.getByText('(2)')).toBeInTheDocument()
       expect(screen.getByRole('group', { name: /quick replies/i })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Yes' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'No' })).toBeInTheDocument()

@@ -1556,10 +1556,10 @@ Returns the saved text; treat it as active for this session too.`,
     name: 'suggest_reply_options',
     label: 'Suggest reply options',
     description:
-      'Offer tappable one-tap replies in the chat UI. After your prose, call with 1–8 options. ' +
-      '**label** = short line on the chip. **submit** = full user message on tap—write each as a **likely** reply the user would send to move forward (reduces typing and decision load). Include message/thread ids, subjects, or actions when the next turn needs them. ' +
-      'Be proactive: after research-style answers (mail, calendar, wiki, web), surface likely follow-ups—dig deeper, open or save an artifact, a related angle, or “done”. Inbox triage and yes/no are examples, not the only use. ' +
-      'Skip only when there is no reasonable preset (e.g. a secret or a truly one-off phrasing the model should not paraphrase). ' +
+      'Offer tappable one-tap replies in the chat UI. Call **at most once per assistant turn**, only **after** all other tools for this answer are finished and you have written (or are about to finish) your markdown reply—**never** between tool calls or mid-research. Use 1–8 options. ' +
+      '**label** = short line on the chip. **submit** = full user message on tap—likely replies that move the task forward. Include message/thread ids, subjects, or actions when the next turn needs them. ' +
+      'When appropriate, surface follow-ups: dig deeper, open or save an artifact, a related angle, or “done”. ' +
+      'Skip when there is no reasonable preset (e.g. a secret or one-off phrasing). ' +
       '**Never** repeat the options as JSON, fenced code, or a duplicate list in your assistant text—the app draws chips from this tool only.',
     parameters: Type.Object({
       choices: Type.Array(

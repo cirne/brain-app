@@ -71,7 +71,7 @@ const TOOL_DISPLAY_LABELS: Record<string, string> = {
   load_skill: 'Load skill',
   list_recent_messages: 'Recent messages',
   get_message_thread: 'Conversation',
-  suggest_reply_options: 'Reply options',
+  suggest_reply_options: 'Quick Replies',
 }
 
 function humanizeToolName(name: string): string {

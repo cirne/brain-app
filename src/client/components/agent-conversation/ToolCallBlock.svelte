@@ -89,7 +89,7 @@
         <span class="tool-summary-body">
           <span class="tool-name">{displayName}</span>
           {#if showQuickReplyChips && quickReplyChoices}
-            <span class="tool-summary-plain">({quickReplyChoices.length} options)</span>
+            <span class="tool-summary-plain">({quickReplyChoices.length})</span>
           {:else if summaryParts}
             {#if summaryParts.mode === 'single_path'}
               <span class="tool-summary-wiki">
