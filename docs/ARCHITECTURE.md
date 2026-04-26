@@ -50,6 +50,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 | Pi stack reference (`pi-agent-core` / `pi-ai` options, metering) | [architecture/pi-agent-stack.md](architecture/pi-agent-stack.md) · [OPP-043](opportunities/OPP-043-llm-usage-token-metering.md) |
 | `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS | [architecture/data-and-sync.md](architecture/data-and-sync.md)                 |
 | Eval home, Enron fixture mail, index rebuild | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md) |
+| Hosted Enron **demo** tenant (Bearer mint, Docker/staging QA) | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md) |
 | Ripmail, unified search, files API, optional iMessage  | [architecture/integrations.md](architecture/integrations.md)                   |
 | Environment variables                                  | [architecture/configuration.md](architecture/configuration.md)                 |
 | Future SQLite consolidation (not current)              | [architecture/future-durability.md](architecture/future-durability.md)         |

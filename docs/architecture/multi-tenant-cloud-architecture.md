@@ -4,7 +4,7 @@
 
 ## Overview
 
-To support a cloud-hosted version of Brain, we will adopt a **Cell-based, Local-First** architecture. Instead of moving to a traditional centralized database (Postgres/RDS), we will maintain the "One Tenant = One Home Directory" model used on the desktop, but scaled horizontally in a cloud environment. On disk, each tenant is a **workspace handle** (a short URL-safe name) under `BRAIN_DATA_ROOT`, not an opaque UUID.
+To support a cloud-hosted version of Brain, we will adopt a **Cell-based, Local-First** architecture. Instead of moving to a traditional centralized database (Postgres/RDS), we will maintain the "One Tenant = One Home Directory" model used on the desktop, but scaled horizontally in a cloud environment. On disk, each tenant home is **`BRAIN_DATA_ROOT/<tenantUserId>/`** with `tenantUserId` of the form `usr_` + 20 lowercase alphanumerics; the **workspace handle** (URL-safe slug) is stored in **`handle-meta.json`**, not as the directory name. (Fixture exception: [Enron demo tenant](./enron-demo-tenant.md) uses a fixed id for seeded mail.)
 
 ### Bootstrap identity (hosted)
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ToolCall } from '../agentUtils.js'
-import { extractSuggestReplyChoices } from './suggestReplyChoices.js'
+import { extractSuggestReplyChoices, stripTrailingSuggestReplyChoicesJson } from './suggestReplyChoices.js'
 
 function tc(p: Partial<ToolCall> & Pick<ToolCall, 'name'>): ToolCall {
   return {
@@ -75,5 +75,33 @@ describe('extractSuggestReplyChoices', () => {
         }),
       ),
     ).toBeNull()
+  })
+})
+
+describe('stripTrailingSuggestReplyChoicesJson', () => {
+  it('removes trailing choices JSON echoed by the model', () => {
+    const json = JSON.stringify({
+      choices: [
+        { label: 'Draft memo to Ken Lay', submit: 'Draft a short memo to Ken Lay summarizing these priorities for his review.' },
+        { label: 'Link to person page', submit: 'Add a link to this priorities doc on Kenneth Lay\'s person page.' },
+      ],
+    })
+    const prose = 'Summary of priorities.\n\n'
+    expect(stripTrailingSuggestReplyChoicesJson(`${prose}${json}`)).toBe('Summary of priorities.')
+  })
+
+  it('returns original text when there is no trailing choices payload', () => {
+    expect(stripTrailingSuggestReplyChoicesJson('Hello { not json')).toBe('Hello { not json')
+  })
+
+  it('does not strip { error } tool payloads', () => {
+    const t = 'Note.\n{"error":"bad"}'
+    expect(stripTrailingSuggestReplyChoicesJson(t)).toBe(t)
+  })
+
+  it('finds valid JSON when an earlier `{` is not the start of the object', () => {
+    const tail = JSON.stringify({ choices: [{ label: 'A', submit: 'b' }] })
+    const input = `Use {brace} for templates. ${tail}`
+    expect(stripTrailingSuggestReplyChoicesJson(input)).toBe('Use {brace} for templates.')
   })
 })

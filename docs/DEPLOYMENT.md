@@ -19,6 +19,10 @@
 - Manage who may sign in under the current cap: **Google Cloud Console → Audience** (OAuth consent test users) for project `**zmail-492422`**:  
 [https://console.cloud.google.com/auth/audience?project=zmail-492422](https://console.cloud.google.com/auth/audience?project=zmail-492422)
 
+## Enron demo tenant (optional QA)
+
+For **Google-free** sessions against a fixed Enron-backed workspace on staging (or any `BRAIN_DATA_ROOT` deploy), set `BRAIN_ENRON_DEMO_SECRET` (≥16 chars) and optionally pre-seed mail. Same mechanism as local Docker. **Runbook:** [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md). Treat the secret as an operator credential.
+
 ## Staging project (DigitalOcean)
 
 

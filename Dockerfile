@@ -2,6 +2,9 @@
 #
 # ripmail is **not** compiled in this file. Run `npm run docker:ripmail:build` first (host cargo on
 # Linux, or a one-off rust:bookworm container with cached Cargo volumes on macOS).
+#
+# Enron demo tenant data is **not** baked in. Seed with `npm run brain:seed-enron-demo` (host) or
+# `node /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs` in-container — see OPP-051.
 # syntax=docker/dockerfile:1
 
 FROM node:24-bookworm AS node-builder
@@ -17,7 +20,7 @@ RUN npm run build
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates libssl3 tini \
+  && apt-get install -y --no-install-recommends ca-certificates curl libssl3 tini \
   && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 ENV PORT=4000
@@ -30,6 +33,12 @@ ENV NEW_RELIC_SPAN_EVENTS_MAX_SAMPLES_STORED=10k
 COPY --from=node-builder /app/dist ./dist
 COPY --from=node-builder /app/node_modules ./node_modules
 COPY --from=node-builder /app/package.json ./package.json
+# OPP-051: optional Enron demo seed CLI (no corpus in image — run with BRAIN_DATA_ROOT + EVAL_ENRON_TAR).
+COPY scripts/eval/enronKeanIngest.mjs /app/seed-enron/scripts/eval/enronKeanIngest.mjs
+COPY scripts/eval/evalBrainCommon.mjs /app/seed-enron/scripts/eval/evalBrainCommon.mjs
+COPY scripts/eval/ripmailBin.mjs /app/seed-enron/scripts/eval/ripmailBin.mjs
+COPY scripts/brain/seed-enron-demo-tenant.mjs /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs
+COPY eval/fixtures/enron-kean-manifest.json /app/seed-enron/eval/fixtures/enron-kean-manifest.json
 COPY .docker/linux-ripmail/ripmail /usr/local/bin/ripmail
 RUN chmod +x /usr/local/bin/ripmail
 ENV RIPMAIL_BIN=/usr/local/bin/ripmail

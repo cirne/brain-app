@@ -262,6 +262,19 @@ describe('imessageDb', () => {
       expect(areLocalMessageToolsEnabled()).toBe(true)
     })
 
+    it('areLocalMessageToolsEnabled is false in multi-tenant mode even when db is readable', async () => {
+      const root = await mkdtemp(join(tmpdir(), 'imsg-mt-'))
+      process.env.BRAIN_DATA_ROOT = root
+      try {
+        initLocalMessageToolsAvailability()
+        expect(areLocalMessageToolsEnabled()).toBe(false)
+      } finally {
+        await rm(root, { recursive: true, force: true })
+        delete process.env.BRAIN_DATA_ROOT
+        resetLocalMessageToolsAvailabilityForTests()
+      }
+    })
+
     it('probeImessageDbReadable returns false when path does not exist', () => {
       process.env.IMESSAGE_DB_PATH = join(dir, 'missing-chat.db')
       resetLocalMessageToolsAvailabilityForTests()

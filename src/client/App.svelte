@@ -5,6 +5,7 @@
   import Onboarding from '@components/onboarding/Onboarding.svelte'
   import UnlockVault from '@components/onboarding/UnlockVault.svelte'
   import HostedSignIn from '@components/onboarding/HostedSignIn.svelte'
+  import EnronDemoLogin from '@components/onboarding/EnronDemoLogin.svelte'
   import { parseRoute, type Route } from './router.js'
   import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
   import { ONBOARDING_SEED_CHAT_STORAGE_KEY } from '@client/lib/onboarding/onboardingStorageKeys.js'
@@ -41,10 +42,13 @@
     await fetchStatus()
   }
 
+  const showEnronDemoPage = $derived(route.flow === 'enron-demo')
+
   const showHostedSignIn = $derived(
     vaultStatus?.checked === true &&
       vaultStatus.multiTenant === true &&
-      !vaultStatus.unlocked,
+      !vaultStatus.unlocked &&
+      !showEnronDemoPage,
   )
 
   const showUnlockVault = $derived(
@@ -133,6 +137,10 @@
 
 {#if !appReady}
   <div class="p-8 text-center text-sm text-muted">Loading…</div>
+{:else if showEnronDemoPage}
+  <div class="flex h-full min-h-0 flex-col">
+    <EnronDemoLogin />
+  </div>
 {:else if showHostedSignIn}
   <div class="flex h-full min-h-0 flex-col">
     <HostedSignIn />

@@ -3,10 +3,19 @@
 #   npm run docker:up   (prebuilds Linux ripmail on host or via rust:bookworm, then compose --build)
 #
 # Compose overrides BRAIN_DATA_ROOT (multi-tenant volume root), RIPMAIL_BIN, and PORT (4000 in-container); other vars come from .env.
+# OPP-051 Enron demo: first successful `POST /api/auth/demo/enron` (or `/demo/enron` in the browser) starts a **lazy** background seed
+# (download + index) when `ripmail.db` is not present — no separate compose service.
+# Optional: `EVAL_ENRON_TAR` in `.env` avoids downloading the CMU tarball inside the container.
+# Enable demo login with `BRAIN_ENRON_DEMO_SECRET` (min 16 chars) in `.env`.
 # Host publish port: BRAIN_DOCKER_PORT (default 4000) → container 4000.
+#
+# Ripmail arch must match the container OS/arch. If seed logs show `ripmail not runnable`, run `file .docker/linux-ripmail/ripmail`:
+# x86_64 on Apple Silicon often needs `BRAIN_DOCKER_PLATFORM=linux/amd64` in `.env` (or rebuild ripmail for arm64).
+# Default Docker engine arch + default prebuild → leave `BRAIN_DOCKER_PLATFORM` unset.
 
 services:
   brain:
+    platform: ${BRAIN_DOCKER_PLATFORM:-}
     build:
       context: .
       dockerfile: Dockerfile

@@ -20,8 +20,8 @@ export function sha256File(filePath) {
  * @param {string} brain
  */
 export function ensureEvalBrainDirs(brain) {
-  for (const d of [join(brain, 'wiki'), join(brain, 'chats'), join(brain, 'cache'), join(brain, 'var')]) {
-    mkdirSync(d, { recursive: true })
+  for (const seg of ['wiki', 'chats', 'cache', 'var', 'skills', 'issues']) {
+    mkdirSync(join(brain, seg), { recursive: true })
   }
 }
 

@@ -11,6 +11,7 @@ import {
 import { deriveWorkspaceHandleSeed, isDisplayHandleSlugAvailable } from '@server/lib/tenant/googleIdentityWorkspace.js'
 import { lookupIdentityKeyForTenantUserId } from '@server/lib/tenant/tenantRegistry.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
+import { ensureEnronDemoHandleMetaFile } from '@server/lib/auth/enronDemo.js'
 
 const app = new Hono()
 
@@ -58,6 +59,7 @@ app.get('/handle', async (c) => {
   if (!ctx) {
     return c.json({ error: 'tenant_required' }, 401)
   }
+  await ensureEnronDemoHandleMetaFile(ctx.homeDir, ctx.tenantUserId, ctx.workspaceHandle)
   const meta = await readHandleMeta(ctx.homeDir)
   if (!meta) {
     return c.json({ error: 'handle_meta_missing', message: 'Workspace identity is not ready.' }, 500)
@@ -93,11 +95,6 @@ app.get('/handle/check', async (c) => {
     return c.json({ available: false as const, reason: 'invalid' as const, message: msg })
   }
 
-  const identityKey = await lookupIdentityKeyForTenantUserId(ctx.tenantUserId)
-  if (!identityKey) {
-    return c.json({ error: 'identity_not_found' }, 500)
-  }
-
   if (normalized === ctx.workspaceHandle) {
     return c.json({ available: true as const, handle: normalized })
   }
@@ -115,6 +112,7 @@ app.post('/handle/confirm', async (c) => {
   if (!ctx) {
     return c.json({ error: 'tenant_required' }, 401)
   }
+  await ensureEnronDemoHandleMetaFile(ctx.homeDir, ctx.tenantUserId, ctx.workspaceHandle)
 
   const body = (await c.req.json().catch(() => ({}))) as { handle?: string }
   const raw = typeof body.handle === 'string' ? body.handle : ''
@@ -132,11 +130,6 @@ app.post('/handle/confirm', async (c) => {
   }
   if (typeof meta.confirmedAt === 'string' && meta.confirmedAt.length > 0) {
     return c.json({ error: 'already_confirmed', message: 'Your handle is already confirmed.' }, 400)
-  }
-
-  const identityKey = await lookupIdentityKeyForTenantUserId(ctx.tenantUserId)
-  if (!identityKey) {
-    return c.json({ error: 'identity_not_found' }, 500)
   }
 
   if (requested !== meta.handle) {

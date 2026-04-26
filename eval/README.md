@@ -19,6 +19,8 @@ npm run eval:build
 
 Use `--force` to re-extract and reindex. Stamp: `data-eval/.enron-kean-stamp.json`. Message dates are **1999–2002**; use **absolute date ranges** in search/eval tasks.
 
+**Hosted / Docker:** the same ingest pipeline seeds a **fixed multi-tenant demo workspace** (`BRAIN_DATA_ROOT`, Bearer mint, optional lazy download). See [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
+
 ## Agent eval suite (Enron v1)
 
 Mail-centric agent tasks (search/read) run against the **large** `kean-s` index. Tasks live in [`tasks/enron-v1.jsonl`](tasks/enron-v1.jsonl) (one JSON object per line; lines starting with `#` are comments). The harness reuses the same `Agent` + tool stack as chat and records per-case **wall time** and `usage` (tokens + `costTotal`) from `agent_end`.

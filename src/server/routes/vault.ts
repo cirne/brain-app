@@ -41,7 +41,11 @@ type StatusBody = {
 
 async function vaultStatusHandler(c: Context) {
   if (isMultiTenantMode() && !tryGetTenantContext()) {
-    return c.json({ vaultExists: false, unlocked: false, multiTenant: true } satisfies StatusBody)
+    return c.json({
+      vaultExists: false,
+      unlocked: false,
+      multiTenant: true,
+    } satisfies StatusBody)
   }
 
   if (isMultiTenantMode()) {

@@ -23,6 +23,8 @@ import onboardingRoute from './routes/onboarding.js'
 import backgroundRoute from './routes/background.js'
 import yourWikiRoute from './routes/yourWiki.js'
 import gmailOAuthRoute from './routes/gmailOAuth.js'
+import demoEnronAuthRoute from './routes/demoEnronAuth.js'
+import { ENRON_DEMO_SEED_STATUS_PATH } from '@server/lib/auth/enronDemo.js'
 import navRecentsRoute from './routes/navRecents.js'
 import oauthGoogleBrowserPages from './routes/oauthGoogleBrowserPages.js'
 import issuesRoute from './routes/issues.js'
@@ -144,6 +146,7 @@ function isQuietPollPath(path: string): boolean {
     path === '/api/oauth/google/last-result' ||
     path === '/api/hub/sources' ||
     path === '/api/vault/status' ||
+    path === ENRON_DEMO_SEED_STATUS_PATH ||
     path === '/api/events'
   )
 }
@@ -171,6 +174,7 @@ app.route('/api/events', hubEventsRoute)
 app.route('/api/background', backgroundRoute)
 app.route('/api/your-wiki', yourWikiRoute)
 app.route('/api/oauth/google', gmailOAuthRoute)
+app.route('/api/auth/demo', demoEnronAuthRoute)
 app.route('/api/nav/recents', navRecentsRoute)
 app.route('/oauth/google', oauthGoogleBrowserPages)
 if (isDev) {

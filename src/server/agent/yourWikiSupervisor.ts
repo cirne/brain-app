@@ -30,6 +30,11 @@ import {
   pauseCleanupSession,
 } from './wikiExpansionRunner.js'
 import { refreshMailAndWait } from '@server/lib/platform/syncAll.js'
+import {
+  getTenantContextStore,
+  tryGetTenantContext,
+  type TenantContext,
+} from '@server/lib/tenant/tenantContext.js'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -193,11 +198,21 @@ async function waitForTriggerOrTimeout(ms: number): Promise<void> {
  * Start the supervisor if not paused and no loop is running. Schedules a microtask
  * re-check so resume still starts the loop when the previous run is in `finally`
  * clearing `loopRunning` (BUG-018: resume during `await setPhase(..., paused)`).
+ *
+ * `tenantForLoop` must be captured synchronously at the API entry (before the first `await` in
+ * `ensureYourWikiRunning`). Fire-and-forget `void ensureYourWikiRunning()` ends the HTTP
+ * AsyncLocalStorage scope before the async body resumes; without re-binding, Hub SSE and
+ * `brainHome()` see the wrong tenant in multi-tenant mode.
  */
-function kickSupervisorLoop(timezone?: string): void {
+function kickSupervisorLoop(timezone?: string, tenantForLoop: TenantContext | null = null): void {
+  const store = getTenantContextStore()
   const tryStart = (): void => {
     if (isPaused || loopRunning) return
-    void supervisorLoop(timezone).catch((e) => {
+    const p =
+      tenantForLoop != null
+        ? store.run(tenantForLoop, () => supervisorLoop(timezone))
+        : supervisorLoop(timezone)
+    void p.catch((e) => {
       console.error('[your-wiki] unhandled loop error:', e)
     })
   }
@@ -340,6 +355,8 @@ async function supervisorLoop(timezone?: string): Promise<void> {
  * Idempotent — safe to call on every server boot and from accept-profile.
  */
 export async function ensureYourWikiRunning(options: { timezone?: string } = {}): Promise<void> {
+  /** Capture before any await — see `kickSupervisorLoop` (fire-and-forget from onboarding). */
+  const tenantForLoop = tryGetTenantContext() ?? null
   const { paused } = await loadPersistedState()
   isPaused = paused
   if (isPaused) {
@@ -351,7 +368,7 @@ export async function ensureYourWikiRunning(options: { timezone?: string } = {})
     }
     return
   }
-  kickSupervisorLoop(options.timezone)
+  kickSupervisorLoop(options.timezone, tenantForLoop)
 }
 
 /** Pause the supervisor. Aborts any in-flight agent invocation. */
@@ -381,10 +398,11 @@ export async function pauseYourWiki(): Promise<void> {
  * Does NOT continue a mid-stream interrupted session.
  */
 export async function resumeYourWiki(options: { timezone?: string } = {}): Promise<void> {
+  const tenantForLoop = tryGetTenantContext() ?? null
   isPaused = false
   await savePersistedState({ paused: false })
   cancelBackoff()
-  kickSupervisorLoop(options.timezone)
+  kickSupervisorLoop(options.timezone, tenantForLoop)
 
   const doc = await readBackgroundRun(YOUR_WIKI_DOC_ID)
   if (doc) {
@@ -406,7 +424,7 @@ export async function resumeYourWiki(options: { timezone?: string } = {}): Promi
 export function requestLapNow(): void {
   if (isPaused) return
   cancelBackoff()
-  kickSupervisorLoop()
+  kickSupervisorLoop(undefined, tryGetTenantContext() ?? null)
 }
 
 /** Return the current supervisor doc for the API, or a default "not yet started" shape. */

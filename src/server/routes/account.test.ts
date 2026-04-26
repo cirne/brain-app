@@ -142,6 +142,37 @@ describe('/api/account routes', () => {
     await rm(root, { recursive: true, force: true })
   })
 
+  it('GET /handle/check succeeds without Google identity (e.g. Enron demo session)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'acct-check-demo-'))
+    process.env.BRAIN_DATA_ROOT = root
+
+    const handle = 'enron-demo'
+    const uid = generateUserId()
+    ensureTenantHomeDir(uid)
+    await writeHandleMeta(tenantHomeDir(uid), {
+      userId: uid,
+      handle,
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    const sid = await runWithTenantContextAsync(
+      { tenantUserId: uid, workspaceHandle: handle, homeDir: tenantHomeDir(uid) },
+      async () => createVaultSession(),
+    )
+    await registerSessionTenant(sid, uid)
+
+    const app = mountAccount()
+    const res = await app.request(
+      `http://localhost/api/account/handle/check?handle=${encodeURIComponent('enron')}`,
+      { headers: { Cookie: `brain_session=${sid}` } },
+    )
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { available?: boolean }
+    expect(j.available).toBe(true)
+
+    await rm(root, { recursive: true, force: true })
+  })
+
   it('POST /handle/confirm sets confirmedAt', async () => {
     const root = await mkdtemp(join(tmpdir(), 'acct-confirm-'))
     process.env.BRAIN_DATA_ROOT = root

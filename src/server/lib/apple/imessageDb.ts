@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { isAppleLocalIntegrationEnvironment } from './appleLocalIntegrationEnv.js'
 
 /** Nanoseconds since 2001-01-01 UTC (Core Data / Messages convention). */
@@ -46,6 +47,8 @@ export function initLocalMessageToolsAvailability(): void {
 }
 
 export function areLocalMessageToolsEnabled(): boolean {
+  /** Hosted tenants never read the operator’s macOS chat.db; keep tools and prompts mail/wiki-only. */
+  if (isMultiTenantMode()) return false
   return localMessagesDbReadableAtStartup === true
 }
 

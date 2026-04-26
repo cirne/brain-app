@@ -42,7 +42,7 @@ export function buildWikiBuildoutSystemPrompt(
 
 ## Primary objective: the right pages, not the most pages
 Prioritize **accuracy and usefulness over file count**. Prefer merging a marginal idea into an existing page (**\`edit\`**) over minting a thin **\`topics/*\`** stub.
-- **People, projects, orgs:** Create **\`write\`** when mail/messages give enough recurring signal to justify a dedicated note. Use **\`edit\`** to extend existing stubs instead of duplicating.
+- **People, projects, orgs:** Create **\`write\`** when ${localMessagesAvailable ? 'mail and/or local messages give' : 'mail gives'} enough recurring signal to justify a dedicated note. Use **\`edit\`** to extend existing stubs instead of duplicating.
 - **Topics (\`topics/*\`):** Create a **new** topic page only for **durable, navigable** concepts — named domains, recurring themes, or things the user would plausibly open from nav more than once. **Do not** create topic pages for generic phrases, idioms, polite scheduling lines, or one-off wording; capture those with a bullet on an existing person, project, or broader topic page using **\`edit\`**. When unsure, **do not** \`write\` a new topic file.
 - **Stay brief:** Each page: short lead + bulleted facts grounded in tools. No long biographies or heavy narrative.
 - **Wikilinks:** Cross-link with **\`[[wikilinks]]\`** where it helps; fix mistakes with **\`edit\`**. A smaller, coherent graph beats a large sparse one.

@@ -8,6 +8,7 @@ import { readHandleMeta } from './handleMeta.js'
 import { runWithTenantContextAsync } from './tenantContext.js'
 import { lookupTenantBySession } from './tenantRegistry.js'
 import { BRAIN_SESSION_COOKIE } from '@server/lib/vault/vaultCookie.js'
+import { isEnronDemoPublicApiPath } from '@server/lib/auth/enronDemo.js'
 
 /** Multi-tenant: allow these without a mapped session (handler uses explicit tenant or synthetic response). */
 function allowNoTenantContextMt(path: string, method: string): boolean {
@@ -18,6 +19,8 @@ function allowNoTenantContextMt(path: string, method: string): boolean {
   if (path === '/api/vault/unlock' && method === 'POST') return true
   if (path === '/api/vault/logout' && method === 'POST') return true
   if (path === '/api/onboarding/status' && method === 'GET') return true
+  /** OPP-051 Phase 0: handler enforces feature flag + bearer; path is public for correct 404/501. */
+  if (isEnronDemoPublicApiPath(path, method)) return true
   return false
 }
 

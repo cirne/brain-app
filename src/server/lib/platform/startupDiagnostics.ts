@@ -81,7 +81,9 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
     log('ripmail --version / status: skipped at startup in multi-tenant mode (no global RIPMAIL_HOME)')
   }
 
-  if (!isAppleLocalIntegrationEnvironment()) {
+  if (isMultiTenantMode()) {
+    log('Local messages: disabled in multi-tenant / hosted mode (no per-tenant chat.db integration).')
+  } else if (!isAppleLocalIntegrationEnvironment()) {
     log(
       'Local messages / on-device Apple Mail: not available on this host — iMessage/SMS tools disabled (requires macOS)',
     )

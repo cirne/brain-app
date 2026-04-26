@@ -32,6 +32,8 @@ When **`BRAIN_DATA_ROOT`** is set (Docker / cloud cell), Google OAuth is the **p
 2. **`GET /api/oauth/google/callback`** exchanges the code, reads **`openid` userinfo** (`email` + **`sub`**), **creates or looks up** the tenant workspace from Google identity, wires ripmail tokens under **`$tenantHome/ripmail`**, then **`createVaultSession`** + **`registerSessionTenant`** + **`Set-Cookie: brain_session`** — same cookie/session plumbing as desktop, without a vault verifier password.
 3. **`POST /api/vault/setup`** and **`POST /api/vault/unlock`** return **405** in MT; **`GET /api/vault/status`** reflects session validity only.
 
+**Fixture exception:** internal QA may use **`POST /api/auth/demo/enron`** with `BRAIN_ENRON_DEMO_SECRET` (Bearer) to mint the same `brain_session` without Google — [enron-demo-tenant.md](architecture/enron-demo-tenant.md).
+
 See [multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md).
 
 ## Register the redirects in Google Cloud Console

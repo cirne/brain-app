@@ -66,3 +66,25 @@ export function extractSuggestReplyChoices(toolCall: ToolCall): QuickReplyChoice
   if (fromDetails) return fromDetails
   return argsChoicesArray(toolCall.args)
 }
+
+/**
+ * Some models echo the `suggest_reply_options` JSON at the end of prose after the tool runs.
+ * Chips still come from the tool part; strip this duplicate suffix so it is not shown as markdown.
+ */
+export function stripTrailingSuggestReplyChoicesJson(text: string): string {
+  const trimmed = text.replace(/\s+$/u, '')
+  let brace = trimmed.lastIndexOf('{')
+  while (brace >= 0) {
+    const tail = trimmed.slice(brace)
+    try {
+      const parsed = JSON.parse(tail) as unknown
+      if (detailsChooseArray(parsed) != null) {
+        return trimmed.slice(0, brace).replace(/\s+$/u, '')
+      }
+    } catch {
+      // not valid JSON from this `{`
+    }
+    brace = trimmed.lastIndexOf('{', brace - 1)
+  }
+  return text
+}

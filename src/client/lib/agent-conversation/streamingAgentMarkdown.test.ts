@@ -22,6 +22,15 @@ describe('streamingAgentMessageHtml', () => {
     expect(html.includes('strong')).toBe(false)
   })
 
+  it('strips trailing suggest_reply_options JSON leaked into prose', () => {
+    const json = JSON.stringify({
+      choices: [{ label: 'OK', submit: 'go' }],
+    })
+    const html = streamingAgentMessageHtml(`Done.\n\n${json}`)
+    expect(html).not.toContain('choices')
+    expect(html).toContain('Done')
+  })
+
   it('exports a sane default max constant', () => {
     expect(STREAMING_AGENT_MD_MAX).toBeGreaterThan(1000)
   })

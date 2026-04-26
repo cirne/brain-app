@@ -26,6 +26,15 @@ describe('buildBaseSystemPrompt', () => {
     expect(s).toMatch(/wiki.*first/i)
     expect(s).toContain('search_index')
     expect(s).toContain('read_email')
+    expect(s).not.toContain('local Messages tools')
+    expect(s).not.toContain('list_recent_messages')
+  })
+
+  it('forbids echoing suggest_reply_options as JSON or duplicate lists in prose', async () => {
+    const { buildBaseSystemPrompt } = await import('./assistantAgent.js')
+    const s = buildBaseSystemPrompt(false, wiki)
+    expect(s).toContain('Do not duplicate options in prose')
+    expect(s).toContain('Never paste raw JSON')
   })
 })
 

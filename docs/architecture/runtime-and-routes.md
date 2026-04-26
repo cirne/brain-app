@@ -23,6 +23,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | `/api/skills` | Slash skills / skill assets under `$BRAIN_HOME/skills` |
 | `/api/issues` | **Feedback** issue queue: in multi-tenant mode, the embed key reads the **global** store (`$BRAIN_DATA_ROOT/.global/issues/`); with a user session, `GET` is that workspace’s `issues/`. `POST` submit and `product_feedback` also mirror to **`wiki/feedback/issue-<id>.md`**. `Authorization: Bearer` + `BRAIN_EMBED_MASTER_KEY` for operator triage (trusted callers) — [AGENTS.md](../../AGENTS.md) (OPP-048) |
 | `/api/onboarding` | Onboarding flow, ripmail setup hints |
+| `/api/auth/demo` | **Multi-tenant + `BRAIN_ENRON_DEMO_SECRET`:** `POST …/enron` mints session; `GET …/enron/seed-status` polls lazy seed — [enron-demo-tenant.md](./enron-demo-tenant.md) |
 | `/api/background` | Background agent run history and control (wiki expansion) |
 | `/api/events` | **SSE** (`GET /`) — live `your_wiki` + `background_agents` snapshots and push for Hub (see [`hubEvents.ts`](../../src/server/routes/hubEvents.ts)) |
 | `/api/dev` | **Dev only** — diagnostics |
@@ -39,6 +40,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | `/calendar` | Calendar view |
 | `/messages` | SMS/iMessage thread view |
 | `/onboarding` | Onboarding wizard |
+| `/demo/enron` | Secret-gated Enron corpus demo sign-in (SPA); navigate here directly when `BRAIN_ENRON_DEMO_SECRET` is set |
 
 ## Production vs bundled native
 
@@ -57,7 +59,7 @@ Implementation: [`bundledNativeClientAllowlist.ts`](../../src/server/lib/bundled
 
 ## Auth
 
-The server stores a vault password verifier under `$BRAIN_HOME/var/` (`vault-verifier.json`). After unlock, an **HttpOnly session cookie** (`brain_session`) gates **`/api/*`** except bootstrap routes (`/api/vault/*`, `GET /api/onboarding/status` before a vault exists, Gmail OAuth callbacks, and dev-only `POST /api/dev/hard-reset` … in non-production).
+The server stores a vault password verifier under `$BRAIN_HOME/var/` (`vault-verifier.json`). After unlock, an **HttpOnly session cookie** (`brain_session`) gates **`/api/*`** except bootstrap routes (`/api/vault/*`, `GET /api/onboarding/status` before a vault exists, Gmail OAuth callbacks, **Enron demo mint** paths when enabled — handler enforces Bearer secret — and dev-only `POST /api/dev/hard-reset` … in non-production).
 
 ## Periodic background work
 

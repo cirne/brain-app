@@ -6,6 +6,7 @@ import { vaultVerifierExistsSync } from './vaultVerifierStore.js'
 import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { isIssuesEmbedGetPath, isValidEmbedKeyBearer } from './embedKeyAuth.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
+import { isEnronDemoPublicApiPath } from '@server/lib/auth/enronDemo.js'
 
 /** Dev-only POST shims used by {@link App.svelte} before vault session exists. */
 function isDevBootstrapPost(path: string, method: string): boolean {
@@ -49,6 +50,11 @@ export async function vaultGateMiddleware(c: Context, next: Next): Promise<Respo
   }
 
   if (isDevBootstrapPost(path, method)) {
+    return next()
+  }
+
+  /** OPP-051 Phase 0: handler returns 404/501; path must bypass vault for mint + seed-status. */
+  if (isEnronDemoPublicApiPath(path, method)) {
     return next()
   }
 

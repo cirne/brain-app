@@ -1559,7 +1559,8 @@ Returns the saved text; treat it as active for this session too.`,
       'Offer tappable one-tap replies in the chat UI. After your prose, call with 1–8 options. ' +
       '**label** = short line on the chip. **submit** = full user message on tap—write each as a **likely** reply the user would send to move forward (reduces typing and decision load). Include message/thread ids, subjects, or actions when the next turn needs them. ' +
       'Be proactive: after research-style answers (mail, calendar, wiki, web), surface likely follow-ups—dig deeper, open or save an artifact, a related angle, or “done”. Inbox triage and yes/no are examples, not the only use. ' +
-      'Skip only when there is no reasonable preset (e.g. a secret or a truly one-off phrasing the model should not paraphrase).',
+      'Skip only when there is no reasonable preset (e.g. a secret or a truly one-off phrasing the model should not paraphrase). ' +
+      '**Never** repeat the options as JSON, fenced code, or a duplicate list in your assistant text—the app draws chips from this tool only.',
     parameters: Type.Object({
       choices: Type.Array(
         Type.Object({

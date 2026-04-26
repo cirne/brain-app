@@ -36,7 +36,7 @@ export type Overlay =
 export type Route = {
   overlay?: Overlay
   /** Full-page flows (onboarding wizard, dev hard-reset / restart-seed / first-chat). */
-  flow?: 'onboarding' | 'hard-reset' | 'restart-seed' | 'first-chat'
+  flow?: 'onboarding' | 'hard-reset' | 'restart-seed' | 'first-chat' | 'enron-demo'
   /** When true, the Brain Hub is rendered in the main content area instead of chat. */
   hubActive?: boolean
 }
@@ -109,6 +109,9 @@ export function parseRoute(href: string = location.href): Route {
   }
   if (seg1 === 'first-chat') {
     return { flow: 'first-chat' }
+  }
+  if (seg1 === 'demo' && rest[0] === 'enron') {
+    return { flow: 'enron-demo' }
   }
 
   if (seg1 === 'chats') {
@@ -210,6 +213,7 @@ export function routeToUrl(route: Route): string {
   if (route.flow === 'hard-reset') return '/hard-reset'
   if (route.flow === 'restart-seed') return '/restart-seed'
   if (route.flow === 'first-chat') return '/first-chat'
+  if (route.flow === 'enron-demo') return '/demo/enron'
   const o = route.overlay
   if (!o) {
     return route.hubActive ? '/hub' : '/'

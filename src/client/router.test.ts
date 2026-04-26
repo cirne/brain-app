@@ -58,6 +58,10 @@ describe('parseRoute', () => {
     expect(parseRoute('http://localhost/first-chat')).toEqual({ flow: 'first-chat' })
   })
 
+  it('parses /demo/enron as enron-demo flow', () => {
+    expect(parseRoute('http://localhost/demo/enron')).toEqual({ flow: 'enron-demo' })
+  })
+
   it('defaults to chat-only for root path', () => {
     expect(parseRoute('http://localhost/')).toEqual({})
   })
@@ -432,6 +436,10 @@ describe('routeToUrl', () => {
   it('first-chat flow', () => {
     expect(routeToUrl({ flow: 'first-chat' })).toBe('/first-chat')
   })
+
+  it('enron-demo flow', () => {
+    expect(routeToUrl({ flow: 'enron-demo' })).toBe('/demo/enron')
+  })
 })
 
 describe('round-trip: routeToUrl → parseRoute', () => {
@@ -460,6 +468,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { flow: 'hard-reset' as const },
     { flow: 'restart-seed' as const },
     { flow: 'first-chat' as const },
+    { flow: 'enron-demo' as const },
     { overlay: { type: 'hub' as const } },
     { overlay: { type: 'hub-wiki-about' as const } },
     { hubActive: true, overlay: { type: 'hub-wiki-about' as const } },

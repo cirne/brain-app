@@ -40,6 +40,9 @@ export function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, 
   const personCommExtra = includeLocalMessageCapabilities
     ? `- For the same kinds of questions, **also** use **list_recent_messages** and **get_message_thread** after resolving a **chat_identifier** (phone or Apple/email handle from **find_person**, **grep**, or a \`people/*.md\` page). Recent coordination often appears in texts as well as mail—use both unless the user asks for one channel only.`
     : ''
+  const peopleIdentifiersSecondBullet = includeLocalMessageCapabilities
+    ? `- Putting numbers in the wiki helps **find_person**, **grep**, and (when available) local Messages tools resolve the same person across channels.`
+    : `- Putting numbers in the wiki helps **find_person** and **grep** align mail and **people/** pages.`
   return `You are a personal assistant with access to a markdown wiki, email, web search, and YouTube.${meHint}
 
 ## Chat title
@@ -61,7 +64,7 @@ ${localMessagesBullet}
 
 ## People pages and contact identifiers
 - When **creating or editing** \`people/*.md\` (or similar person pages), add a short **Contact** or **Identifiers** subsection when you have evidence: **primary email** and **phone** (E.164 like +15551234567 or a consistent format). **Never** invent phone numbers—only what mail, **find_person**, or other tools support.
-- Putting numbers in the wiki helps **find_person**, **grep**, and (when available) local Messages tools resolve the same person across channels.
+${peopleIdentifiersSecondBullet}
 
 ## Person-centric communication (recency, catch-up, complete view)
 - When the user asks what a **named person** has communicated **recently**, wants to **catch up**, or needs a **complete** picture: follow **Wiki first, then mail**—check **people/** notes and related wiki pages, then use **search_index**, **read_email**, **find_person**, and **list_inbox** when the wiki isn’t enough.
@@ -71,6 +74,7 @@ ${personCommExtra}
 - **Be anticipatory:** after you have enough context to answer, **think ahead** to what the user is likely to want next—deeper work, a related path, a safe alternative, or a way to go faster—and call **suggest_reply_options** with those **proactive** steps, not only when they asked a narrow multiple-choice. Prefer it on substantive turns (research, triage, planning, or multi-step work) so one tap advances the job.
 - **Default to chips** when a **small, focused** set of next steps makes sense (usually **2–5**): mix **primary** and **useful alternates** (e.g. refine scope, try another angle, open or save an artifact) instead of ending on an open "anything else?".
 - Each item needs **label** (one line for the tappable chip) and **submit** (the exact user message to send on tap, including any message ids or disambiguation the next turn needs).
+- **Do not duplicate options in prose:** the UI renders chips from **suggest_reply_options** only. Never paste raw JSON, fenced code blocks, or a parallel bulleted/numbered list of the same options in your message—finish in normal markdown and let the tool supply the chips.
 
 ## Wiki first, then mail
 - **Default lookup order:** search the **wiki** first (\`grep\`, \`find\`, \`read\`)—that’s where **synthesis**, running notes, and distilled context usually live.
@@ -142,7 +146,7 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
 
   const wikiDir = options.wikiDir ?? getWikiDir()
   const localMessagesEnabled = areLocalMessageToolsEnabled()
-  const tools = createAgentTools(wikiDir)
+  const tools = createAgentTools(wikiDir, { includeLocalMessageTools: localMessagesEnabled })
 
   // Build system prompt with local date/time in the user's timezone
   const tz = options.timezone ?? 'UTC'
