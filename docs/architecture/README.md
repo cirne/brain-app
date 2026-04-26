@@ -1,6 +1,6 @@
 # Architecture — detailed docs
 
-Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**.
+Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Product lineages: [VISION.md](../VISION.md), [Karpathy LLM Wiki (full text)](../karpathy-llm-wiki-post.md).
 
 | Document | Topic |
 |----------|--------|
@@ -11,7 +11,9 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**.
 | [cloud-hosted-v1-scope.md](./cloud-hosted-v1-scope.md) | Hosted Linux v1: API/SPA parity matrix, wiki-on-volume decision, OAuth redirect gap ([OPP-041](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md) Phase 0; [stub](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md)) |
 | [multi-tenant-cloud-architecture.md](./multi-tenant-cloud-architecture.md) | Cell-based hosted Brain: one tenant / one home, NAS, scaling phases, guardrails |
 | [tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md) | Tenant FS isolation (micro-VM, POSIX UID, namespaces/Landlock, dir-FD caps, Workspace jail); **BUG-012** |
-| [../Dockerfile](../Dockerfile) / [../docker-compose.yml](../docker-compose.yml) / [../docker-compose.do.yml](../docker-compose.do.yml) | Local: `npm run docker:ripmail:build` + `BRAIN_HOME=/brain`. **DO staging:** registry image, `brain_data` volume, **`https://staging.braintunnel.ai`** (TLS at edge; :4000 in-container) ([OPP-041 (full)](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md), [digitalocean.md](../digitalocean.md)) |
+| [../DEPLOYMENT.md](../DEPLOYMENT.md) | **Staging deploy today:** Cloudflare `braintunnel.io`, DO droplet `braintunnel-staging`, registry + Watchtower, OAuth test-user cap, SSH-only host access |
+| [../SECURITY.md](../SECURITY.md) | **Security architecture + risk register:** auth/session model, tenant isolation, shell injection finding, LLM data flows, P1–P12 risks with mitigations |
+| [../Dockerfile](../Dockerfile) / [../docker-compose.yml](../docker-compose.yml) / [../docker-compose.do.yml](../docker-compose.do.yml) | Local: `npm run docker:ripmail:build` + `BRAIN_HOME=/brain`. **DO staging:** registry image, `brain_data` volume, **`https://staging.braintunnel.ai`** (TLS at edge; :4000 in-container) ([OPP-041 (full)](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md), [digitalocean.md](../digitalocean.md), [DEPLOYMENT.md](../DEPLOYMENT.md)) |
 | [agent-chat.md](./agent-chat.md) | pi-agent-core, chat persistence, SSE events, tools overview |
 | [pi-agent-stack.md](./pi-agent-stack.md) | Pi packages reference (`pi-agent-core` / `pi-ai` / `pi-coding-agent`), Agent options; metering → [OPP-043](../opportunities/OPP-043-llm-usage-token-metering.md), NR telemetry + usage CLI → [OPP-046](../opportunities/OPP-046-llm-telemetry-traces-and-usage-cli.md) |
 | [data-and-sync.md](./data-and-sync.md) | `$BRAIN_HOME` layout, wiki, calendar cache, ripmail refresh |

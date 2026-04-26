@@ -29,12 +29,15 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 
 | Topic                                                  | Doc                                                                            |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Product vision, Karpathy “LLM Wiki” (wiki half) + ripmail (mail half) | [VISION.md](VISION.md) · [karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md) |
 | HTTP routing, auth, periodic sync, native app ports    | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md)       |
 | Client UI: latest-wins async / overlapping `fetch`    | [architecture/client-async-latest.md](architecture/client-async-latest.md)     |
 | Desktop vs Cloud deployment models                    | [architecture/deployment-models.md](architecture/deployment-models.md)         |
 | Multi-tenant cloud architecture (NAS, isolation)      | [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) |
 | Tenant filesystem isolation (BUG-012, kernel + app)   | [architecture/tenant-filesystem-isolation.md](architecture/tenant-filesystem-isolation.md)         |
 | Cloud-hosted v1 scope (Phase 0 parity)                  | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md) |
+| **Staging deploy (DO droplet, registry, Watchtower)**  | [DEPLOYMENT.md](./DEPLOYMENT.md)                                               |
+| **Security architecture and risk register**            | [SECURITY.md](./SECURITY.md)                                                   |
 | Agent sessions, chat JSON files, SSE events, tool list | [architecture/agent-chat.md](architecture/agent-chat.md)                       |
 | Pi stack reference (`pi-agent-core` / `pi-ai` options, metering) | [architecture/pi-agent-stack.md](architecture/pi-agent-stack.md) · [OPP-043](opportunities/OPP-043-llm-usage-token-metering.md) |
 | `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS | [architecture/data-and-sync.md](architecture/data-and-sync.md)                 |
@@ -62,7 +65,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 
 ## Deployment
 
-**Primary release:** macOS **Braintunnel.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container:** [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); local image via `Dockerfile` + [`docker-compose.yml`](../docker-compose.yml) (`.env` → `env_file`). **DigitalOcean staging** (April 2026): [`docker-compose.do.yml`](../docker-compose.do.yml), registry image, **`https://staging.braintunnel.ai`** (TLS at edge), durable **`brain_data`** volume. Archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
+**Primary release:** macOS **Braintunnel.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container:** [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); local image via `Dockerfile` + [`docker-compose.yml`](../docker-compose.yml) (`.env` → `env_file`). **Current staging operations** (Droplet, `docker:publish`, Watchtower, OAuth limits): **[DEPLOYMENT.md](./DEPLOYMENT.md)**. **DigitalOcean staging** (April 2026): [`docker-compose.do.yml`](../docker-compose.do.yml), registry image, **`https://staging.braintunnel.ai`** (TLS at edge), durable volume for `/brain-data`. Archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
 
 ---
 
