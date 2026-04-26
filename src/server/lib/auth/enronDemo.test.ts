@@ -1,10 +1,12 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import {
   ENRON_DEMO_MINT_PATH,
+  ENRON_DEMO_RESEED_PATH,
   ENRON_DEMO_SEED_STATUS_PATH,
   enronDemoSecretConfigured,
   isEnronDemoMintPath,
   isEnronDemoPublicApiPath,
+  isEnronDemoReseedPath,
   isEnronDemoSeedStatusPath,
 } from './enronDemo.js'
 
@@ -29,17 +31,27 @@ describe('enronDemo', () => {
     expect(isEnronDemoSeedStatusPath(ENRON_DEMO_SEED_STATUS_PATH, 'POST')).toBe(false)
   })
 
-  it('isEnronDemoPublicApiPath covers mint POST and seed-status GET', () => {
+  it('isEnronDemoReseedPath matches GET only', () => {
+    expect(isEnronDemoReseedPath(ENRON_DEMO_RESEED_PATH, 'GET')).toBe(true)
+    expect(isEnronDemoReseedPath(`${ENRON_DEMO_RESEED_PATH}/`, 'GET')).toBe(true)
+    expect(isEnronDemoReseedPath(ENRON_DEMO_RESEED_PATH, 'POST')).toBe(false)
+  })
+
+  it('isEnronDemoPublicApiPath covers mint POST, seed-status GET, reseed GET', () => {
     expect(isEnronDemoPublicApiPath(ENRON_DEMO_MINT_PATH, 'POST')).toBe(true)
     expect(isEnronDemoPublicApiPath(ENRON_DEMO_SEED_STATUS_PATH, 'GET')).toBe(true)
     expect(isEnronDemoPublicApiPath(ENRON_DEMO_SEED_STATUS_PATH, 'POST')).toBe(false)
+    expect(isEnronDemoPublicApiPath(ENRON_DEMO_RESEED_PATH, 'GET')).toBe(true)
+    expect(isEnronDemoPublicApiPath(ENRON_DEMO_RESEED_PATH, 'POST')).toBe(false)
   })
 
-  it('enronDemoSecretConfigured requires min-length secret', () => {
+  it('enronDemoSecretConfigured requires non-empty trimmed secret', () => {
     delete process.env.BRAIN_ENRON_DEMO_SECRET
     expect(enronDemoSecretConfigured()).toBe(false)
-    process.env.BRAIN_ENRON_DEMO_SECRET = 'short'
+    process.env.BRAIN_ENRON_DEMO_SECRET = '   '
     expect(enronDemoSecretConfigured()).toBe(false)
+    process.env.BRAIN_ENRON_DEMO_SECRET = 'a'
+    expect(enronDemoSecretConfigured()).toBe(true)
     process.env.BRAIN_ENRON_DEMO_SECRET = 'x'.repeat(16)
     expect(enronDemoSecretConfigured()).toBe(true)
   })

@@ -8,6 +8,7 @@
   import { onMount } from 'svelte'
   import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
+  import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
   import YourWikiDetail from '../YourWikiDetail.svelte'
   import { ONBOARDING_SEEDING_MIN_DWELL_MS } from '@client/lib/onboarding/seedConstants.js'
 
@@ -24,6 +25,13 @@
   let dwellMet = $state(false)
 
   onMount(() => {
+    /**
+     * App renders either Onboarding or Assistant, not both — Assistant is what normally starts
+     * `/api/events` (your_wiki SSE). This screen must start it too or the right-hand feed stays
+     * empty until a full reload lands on the main app.
+     */
+    const stopHubEvents = startHubEventsConnection()
+
     void fetch('/api/your-wiki')
       .then((r) => (r.ok ? (r.json() as Promise<BackgroundAgentDoc>) : Promise.resolve(null)))
       .then((j) => {
@@ -39,6 +47,7 @@
     }, ONBOARDING_SEEDING_MIN_DWELL_MS)
 
     return () => {
+      stopHubEvents()
       unsub()
       clearTimeout(timer)
     }

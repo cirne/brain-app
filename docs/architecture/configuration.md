@@ -24,7 +24,7 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 | `EXA_API_KEY` | — | `web_search` tool |
 | `SUPADATA_API_KEY` | — | `fetch_page`, YouTube tools |
 | `SYNC_INTERVAL_SECONDS` | `300` | Interval for `runFullSync` timer (**disabled when `BRAIN_DATA_ROOT` is set** until per-tenant background sync exists) |
-| `BRAIN_ENRON_DEMO_SECRET` | — | **Hosted/demo only:** min 16 chars enables `POST /api/auth/demo/enron`, `GET /api/auth/demo/enron/seed-status`, and the `/demo/enron` page (no link from hosted Google sign-in). Bearer must match (timing-safe). See [enron-demo-tenant.md](./enron-demo-tenant.md). |
+| `BRAIN_ENRON_DEMO_SECRET` | — | **Hosted/demo only:** any non-empty value enables `POST /api/auth/demo/enron`, `GET /api/auth/demo/enron/seed-status`, and the `/demo` page (no link from hosted Google sign-in). Bearer must match (timing-safe). See [enron-demo-tenant.md](./enron-demo-tenant.md). |
 | `BRAIN_ENRON_DEMO_TENANT_ID` | `usr_enrondemo00000000001` | Fixed demo tenant directory under `BRAIN_DATA_ROOT`; override for tests. |
 | `EVAL_ENRON_TAR` | — | Path to `enron_mail_20150507.tar.gz` for **`npm run brain:seed-enron-demo`** and optional Docker lazy-seed (skips download). |
 | `BRAIN_SEED_REPO_ROOT` | — | **Lazy seed only:** repo root containing `eval/fixtures/enron-kean-manifest.json` (defaults: `/app/seed-enron` in image, else `process.cwd()`). |

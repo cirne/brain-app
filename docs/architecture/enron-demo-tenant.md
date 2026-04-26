@@ -7,7 +7,7 @@
 | Requirement | Notes |
 |-------------|--------|
 | `BRAIN_DATA_ROOT` | Demo is **disabled** in single-tenant mode; `POST /api/auth/demo/enron` returns **501**. |
-| `BRAIN_ENRON_DEMO_SECRET` | Min **16** characters. If unset or too short, demo **routes still exist** but handlers return **404** (`not_found`). There is no in-app link to `/demo/enron`—operators share the URL directly. |
+| `BRAIN_ENRON_DEMO_SECRET` | Any **non-empty** string after trimming. If unset or blank, demo **routes still exist** but handlers return **404** (`not_found`). There is no in-app link to `/demo`—operators share the URL directly. |
 | `BRAIN_ENRON_DEMO_TENANT_ID` | Optional. Default: `usr_enrondemo00000000001` (must pass `isValidUserId`). |
 
 Inline placeholders: [`.env.example`](../../.env.example).
@@ -17,7 +17,7 @@ Inline placeholders: [`.env.example`](../../.env.example).
 ### A. Browser (manual)
 
 1. Deploy or run with the env vars above (e.g. `npm run docker:up` after copying `.env.example` → `.env`).
-2. Open **`/demo/enron`** directly (bookmark or typed URL).
+2. Open **`/demo`** directly (bookmark or typed URL).
 3. Paste the demo secret; submit. First visit may **202** while data is provisioned; the UI polls **`GET /api/auth/demo/enron/seed-status`** every few seconds.
 4. On **200**, the app sets a normal **`brain_session`** cookie and redirects to `/`.
 

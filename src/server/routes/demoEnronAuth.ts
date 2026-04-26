@@ -9,19 +9,23 @@ import {
   enronDemoTenantUserId,
   ensureEnronDemoHandleMetaFile,
   isValidEnronDemoBearer,
+  isValidEnronDemoReseedRequest,
   enronDemoSecretConfigured,
 } from '@server/lib/auth/enronDemo.js'
 import {
+  ensureProvisionedMarkerWhenMailReady,
   getEnronDemoSeedSnapshot,
-  isEnronDemoTenantReady,
+  isEnronDemoTenantProvisioned,
+  startEnronDemoForceReseed,
   startEnronDemoSeedIfNeeded,
 } from '@server/lib/auth/enronDemoSeed.js'
 
 const app = new Hono()
 
-function demoPrelude(c: Parameters<typeof isValidEnronDemoBearer>[0]):
-  | Response
-  | { tenantUserId: string; homeDir: string; dataRoot: string } {
+function demoPrelude(
+  c: Parameters<typeof isValidEnronDemoBearer>[0],
+  auth: 'mint' | 'reseed',
+): Response | { tenantUserId: string; homeDir: string; dataRoot: string } {
   if (!isMultiTenantMode()) {
     return c.json(
       {
@@ -36,7 +40,8 @@ function demoPrelude(c: Parameters<typeof isValidEnronDemoBearer>[0]):
     return c.json({ error: 'not_found' }, 404)
   }
 
-  if (!isValidEnronDemoBearer(c)) {
+  const authOk = auth === 'reseed' ? isValidEnronDemoReseedRequest(c) : isValidEnronDemoBearer(c)
+  if (!authOk) {
     return c.json({ error: 'unauthorized' }, 401)
   }
 
@@ -67,7 +72,7 @@ function demoPrelude(c: Parameters<typeof isValidEnronDemoBearer>[0]):
 }
 
 app.get('/enron/seed-status', async (c) => {
-  const pre = demoPrelude(c)
+  const pre = demoPrelude(c, 'mint')
   if (pre instanceof Response) return pre
 
   const snap = getEnronDemoSeedSnapshot(pre.homeDir)
@@ -75,13 +80,46 @@ app.get('/enron/seed-status', async (c) => {
   return c.json({ ok: true as const, seed: snap })
 })
 
+app.get('/enron/reseed', async (c) => {
+  const pre = demoPrelude(c, 'reseed')
+  if (pre instanceof Response) return pre
+
+  const { tenantUserId, homeDir, dataRoot } = pre
+  const started = startEnronDemoForceReseed(dataRoot, tenantUserId)
+  if (started === 'busy') {
+    return c.json(
+      {
+        ok: false as const,
+        error: 'seed_already_running',
+        message: 'Demo provisioning is already in progress.',
+        seed: getEnronDemoSeedSnapshot(homeDir),
+      },
+      409,
+    )
+  }
+
+  c.header('Cache-Control', 'no-store, must-revalidate')
+  return c.json(
+    {
+      ok: false as const,
+      status: 'reseed' as const,
+      message:
+        'Wiping and rebuilding the Enron demo tenant from the corpus tarball. Poll /api/auth/demo/enron/seed-status until seed.status is ready, then sign in at /demo.',
+      seed: getEnronDemoSeedSnapshot(homeDir),
+    },
+    202,
+  )
+})
+
 app.post('/enron', async (c) => {
-  const pre = demoPrelude(c)
+  const pre = demoPrelude(c, 'mint')
   if (pre instanceof Response) return pre
 
   const { tenantUserId, homeDir, dataRoot } = pre
 
-  if (!isEnronDemoTenantReady(homeDir)) {
+  ensureProvisionedMarkerWhenMailReady(homeDir)
+
+  if (!isEnronDemoTenantProvisioned(homeDir)) {
     startEnronDemoSeedIfNeeded(dataRoot, tenantUserId)
     const snap = getEnronDemoSeedSnapshot(homeDir)
     if (snap.status !== 'ready') {

@@ -11,7 +11,8 @@ export const ENRON_DEMO_MINT_PATH = '/api/auth/demo/enron'
 /** GET — poll while lazy seed runs (same bearer as POST mint). */
 export const ENRON_DEMO_SEED_STATUS_PATH = '/api/auth/demo/enron/seed-status'
 
-const DEMO_SECRET_MIN_LEN = 16
+/** GET — wipe tenant + rebuild Enron corpus (same secret as POST mint; optional `?secret=` for browser GET). */
+export const ENRON_DEMO_RESEED_PATH = '/api/auth/demo/enron/reseed'
 
 /** Effective tenant id; override must satisfy {@link isValidUserId}. */
 export function enronDemoTenantUserId(): string {
@@ -33,9 +34,20 @@ export function isEnronDemoSeedStatusPath(path: string, method: string): boolean
   )
 }
 
+export function isEnronDemoReseedPath(path: string, method: string): boolean {
+  return (
+    method === 'GET' &&
+    (path === ENRON_DEMO_RESEED_PATH || path === `${ENRON_DEMO_RESEED_PATH}/`)
+  )
+}
+
 /** Routes that bypass vault + tenant gate (handler enforces demo secret + bearer). */
 export function isEnronDemoPublicApiPath(path: string, method: string): boolean {
-  return isEnronDemoMintPath(path, method) || isEnronDemoSeedStatusPath(path, method)
+  return (
+    isEnronDemoMintPath(path, method) ||
+    isEnronDemoSeedStatusPath(path, method) ||
+    isEnronDemoReseedPath(path, method)
+  )
 }
 
 function secureStringEqual(a: string, b: string): boolean {
@@ -49,16 +61,29 @@ function secureStringEqual(a: string, b: string): boolean {
 /** True when `Authorization: Bearer` matches `BRAIN_ENRON_DEMO_SECRET` (non-empty, timing-safe). */
 export function isValidEnronDemoBearer(c: Context): boolean {
   const key = process.env.BRAIN_ENRON_DEMO_SECRET?.trim()
-  if (key == null || key.length < DEMO_SECRET_MIN_LEN) return false
+  if (key == null || key.length === 0) return false
   const token = getBearerToken(c)
   if (token == null) return false
   return secureStringEqual(key, token)
 }
 
-/** Enron demo routes and hosted link are enabled when this is true (only env: `BRAIN_ENRON_DEMO_SECRET`). */
+/**
+ * GET reseed only: Bearer or `?secret=` (timing-safe) so a bookmark can trigger reseed without a custom header.
+ * Avoid sharing URLs with the secret in query (logs, Referer).
+ */
+export function isValidEnronDemoReseedRequest(c: Context): boolean {
+  if (isValidEnronDemoBearer(c)) return true
+  const key = process.env.BRAIN_ENRON_DEMO_SECRET?.trim()
+  if (key == null || key.length === 0) return false
+  const q = c.req.query('secret')
+  if (q == null || q.length === 0) return false
+  return secureStringEqual(key, q)
+}
+
+/** Enron demo routes and hosted link are enabled when `BRAIN_ENRON_DEMO_SECRET` trims to a non-empty string. */
 export function enronDemoSecretConfigured(): boolean {
   const key = process.env.BRAIN_ENRON_DEMO_SECRET?.trim()
-  return key != null && key.length >= DEMO_SECRET_MIN_LEN
+  return key != null && key.length > 0
 }
 
 /**

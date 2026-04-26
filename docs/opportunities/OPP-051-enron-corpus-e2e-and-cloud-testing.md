@@ -43,11 +43,11 @@
 2. **Seed data beside the image (CLI), not inside it**
    - **CLI:** [`scripts/brain/seed-enron-demo-tenant.mjs`](../../scripts/brain/seed-enron-demo-tenant.mjs) + `npm run brain:seed-enron-demo` — requires `BRAIN_DATA_ROOT`, `EVAL_ENRON_TAR`, optional `--force`. Writes `$BRAIN_DATA_ROOT/<tenantId>/` with the same ingest pipeline as eval ([`scripts/eval/enronKeanIngest.mjs`](../../scripts/eval/enronKeanIngest.mjs)).
    - **Host:** Run from repo with `BRAIN_DATA_ROOT=./data-multitenant` (or any path), or bind-mount that path into a container.
-   - **Docker / runtime:** No separate compose seed service. The first successful **`POST /api/auth/demo/enron`** (Bearer secret) or browser flow at **`/demo/enron`** starts a **lazy background seed** when `ripmail/ripmail.db` is missing or empty (download + ingest; can take 15–40+ minutes). Poll **`GET /api/auth/demo/enron/seed-status`** with the same bearer. Set **`EVAL_ENRON_TAR`** in the environment to skip downloading the CMU tarball. See [`docker-compose.yml`](../../docker-compose.yml) (single `brain` service).
+   - **Docker / runtime:** No separate compose seed service. The first successful **`POST /api/auth/demo/enron`** (Bearer secret) or browser flow at **`/demo`** starts a **lazy background seed** when `ripmail/ripmail.db` is missing or empty (download + ingest; can take 15–40+ minutes). Poll **`GET /api/auth/demo/enron/seed-status`** with the same bearer. Set **`EVAL_ENRON_TAR`** in the environment to skip downloading the CMU tarball. See [`docker-compose.yml`](../../docker-compose.yml) (single `brain` service).
    - **Reset:** `--force` removes the tenant directory under `BRAIN_DATA_ROOT` and rebuilds from the tarball.
 
 3. **Environment flags and secrets**
-   - `BRAIN_ENRON_DEMO_SECRET` — long random string (min 16 chars). When unset or too short, demo routes return **404** from the handler (no separate `BRAIN_ENRON_DEMO` flag). Request must present it (e.g. `Authorization: Bearer <secret>`). Same operational class as `BRAIN_EMBED_MASTER_KEY` (never commit; rotate if leaked).
+   - `BRAIN_ENRON_DEMO_SECRET` — any non-empty string (e.g. a shared demo password for prospects). When unset or blank, demo routes return **404** from the handler (no separate `BRAIN_ENRON_DEMO` flag). Request must present it (e.g. `Authorization: Bearer <secret>`). Same operational class as `BRAIN_EMBED_MASTER_KEY` (never commit; rotate if leaked).
    - Optional: `BRAIN_ENRON_DEMO_TENANT_ID` override for tests (default `usr_enrondemo00000000001`).
 
 4. **Routes: mint demo session + lazy seed**
@@ -56,7 +56,7 @@
      - Validate bearer secret (`timingSafeEqual`-style; see `enronDemo.ts`).
      - If the demo tenant is not seeded yet (`ripmail.db` missing/empty), start background ingest and return **202** with a seed snapshot; when ready, the same POST completes mint.
      - On success: `createVaultSession()`, `registerSessionTenant`, `setBrainSessionCookie`, **`200`** + `{ ok: true }`.
-   - `GET /api/auth/demo/enron/seed-status` — same bearer; returns `{ seed: { status: … } }` for UI polling (e.g. every 5s on `/demo/enron`).
+   - `GET /api/auth/demo/enron/seed-status` — same bearer; returns `{ seed: { status: … } }` for UI polling (e.g. every 5s on `/demo`).
    - Extend `allowNoTenantContextMt` and `vaultGate.ts` for **`POST /api/auth/demo/enron`** and **`GET /api/auth/demo/enron/seed-status`** (`isEnronDemoPublicApiPath`) so unconfigured demo (no valid secret in env) still returns **404** from the handler.
 
 5. **Tests (TDD)**

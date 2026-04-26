@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('@server/lib/auth/enronDemoSeed.js', () => ({
-  isEnronDemoTenantReady: vi.fn(() => false),
+  ensureProvisionedMarkerWhenMailReady: vi.fn(),
+  isEnronDemoTenantProvisioned: vi.fn(() => false),
   getEnronDemoSeedSnapshot: vi.fn(() => ({
     status: 'running' as const,
     phase: 'downloading' as const,
     startedAt: 1,
   })),
   startEnronDemoSeedIfNeeded: vi.fn(),
+  startEnronDemoForceReseed: vi.fn(),
 }))
 
 import { Hono } from 'hono'

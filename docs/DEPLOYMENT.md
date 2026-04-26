@@ -21,7 +21,7 @@
 
 ## Enron demo tenant (optional QA)
 
-For **Google-free** sessions against a fixed Enron-backed workspace on staging (or any `BRAIN_DATA_ROOT` deploy), set `BRAIN_ENRON_DEMO_SECRET` (≥16 chars) and optionally pre-seed mail. Same mechanism as local Docker. **Runbook:** [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md). Treat the secret as an operator credential.
+For **Google-free** sessions against a fixed Enron-backed workspace on staging (or any `BRAIN_DATA_ROOT` deploy), set `BRAIN_ENRON_DEMO_SECRET` (any non-empty value) and optionally pre-seed mail. Same mechanism as local Docker. **Runbook:** [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md). Treat the secret as an operator credential.
 
 ## Staging project (DigitalOcean)
 

@@ -40,7 +40,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | `/calendar` | Calendar view |
 | `/messages` | SMS/iMessage thread view |
 | `/onboarding` | Onboarding wizard |
-| `/demo/enron` | Secret-gated Enron corpus demo sign-in (SPA); navigate here directly when `BRAIN_ENRON_DEMO_SECRET` is set |
+| `/demo` | Secret-gated Enron corpus demo sign-in (SPA); navigate here directly when `BRAIN_ENRON_DEMO_SECRET` is set |
 
 ## Production vs bundled native
 

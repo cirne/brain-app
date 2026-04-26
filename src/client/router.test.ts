@@ -58,8 +58,14 @@ describe('parseRoute', () => {
     expect(parseRoute('http://localhost/first-chat')).toEqual({ flow: 'first-chat' })
   })
 
-  it('parses /demo/enron as enron-demo flow', () => {
-    expect(parseRoute('http://localhost/demo/enron')).toEqual({ flow: 'enron-demo' })
+  it('parses /demo as enron-demo flow', () => {
+    expect(parseRoute('http://localhost/demo')).toEqual({ flow: 'enron-demo' })
+    expect(parseRoute('http://localhost/demo/')).toEqual({ flow: 'enron-demo' })
+  })
+
+  it('does not treat /demo/... subpaths as enron-demo', () => {
+    expect(parseRoute('http://localhost/demo/other')).toEqual({})
+    expect(parseRoute('http://localhost/demo/enron')).toEqual({})
   })
 
   it('defaults to chat-only for root path', () => {
@@ -438,7 +444,7 @@ describe('routeToUrl', () => {
   })
 
   it('enron-demo flow', () => {
-    expect(routeToUrl({ flow: 'enron-demo' })).toBe('/demo/enron')
+    expect(routeToUrl({ flow: 'enron-demo' })).toBe('/demo')
   })
 })
 

@@ -93,7 +93,7 @@ Without ripmail, the server starts but inbox/email features return errors—this
 
 ## Hosted / multi-tenant: Enron demo (staging parity)
 
-Cloud agents usually run **single-tenant** `npm run dev` without `BRAIN_DATA_ROOT`. To exercise **hosted** flows (inbox + wiki against a fixed Enron-backed tenant), use the same stack as Docker/staging: set `BRAIN_DATA_ROOT`, `BRAIN_ENRON_DEMO_SECRET` (≥16 chars), and optionally pre-seed with `EVAL_ENRON_TAR` + `npm run brain:seed-enron-demo`. Full operator guide: **[docs/architecture/enron-demo-tenant.md](./docs/architecture/enron-demo-tenant.md)**.
+Cloud agents usually run **single-tenant** `npm run dev` without `BRAIN_DATA_ROOT`. To exercise **hosted** flows (inbox + wiki against a fixed Enron-backed tenant), use the same stack as Docker/staging: set `BRAIN_DATA_ROOT`, `BRAIN_ENRON_DEMO_SECRET` (any non-empty value), and optionally pre-seed with `EVAL_ENRON_TAR` + `npm run brain:seed-enron-demo`. Full operator guide: **[docs/architecture/enron-demo-tenant.md](./docs/architecture/enron-demo-tenant.md)**.
 
 ## Full documentation
 

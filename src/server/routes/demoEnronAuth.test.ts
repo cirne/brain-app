@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
 import { readFile, mkdir, mkdtemp, rm, writeFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -8,7 +8,9 @@ import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { writeHandleMeta, readHandleMeta, HANDLE_META_FILENAME } from '@server/lib/tenant/handleMeta.js'
-import { ENRON_DEMO_TENANT_USER_ID_DEFAULT } from '@server/lib/auth/enronDemo.js'
+import { ENRON_DEMO_RESEED_PATH, ENRON_DEMO_TENANT_USER_ID_DEFAULT } from '@server/lib/auth/enronDemo.js'
+import { ENRON_DEMO_PROVISIONED_FILENAME } from '@server/lib/auth/enronDemoSeed.js'
+import * as enronDemoSeed from '@server/lib/auth/enronDemoSeed.js'
 
 const DEMO_SECRET = 'test-demo-secret-16chars'
 
@@ -89,14 +91,17 @@ describe('POST /api/auth/demo/enron', () => {
     expect(res.status).toBe(401)
   })
 
-  it('returns 404 when secret is too short (not configured)', async () => {
+  it('mints session when secret is short but non-empty and bearer matches', async () => {
     process.env.BRAIN_ENRON_DEMO_SECRET = 'tooshort'
     const app = mountStack()
     const res = await app.request('http://127.0.0.1/api/auth/demo/enron', {
       method: 'POST',
       headers: { Authorization: 'Bearer tooshort' },
     })
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok?: boolean; tenantUserId?: string }
+    expect(j.ok).toBe(true)
+    expect(j.tenantUserId).toBe(ENRON_DEMO_TENANT_USER_ID_DEFAULT)
   })
 
   it('returns 503 for invalid BRAIN_ENRON_DEMO_TENANT_ID override', async () => {
@@ -138,6 +143,7 @@ describe('POST /api/auth/demo/enron', () => {
 
   it('mints session and sets cookie when bearer and layout are valid', async () => {
     const app = mountStack()
+    const home = tenantHomeDir(ENRON_DEMO_TENANT_USER_ID_DEFAULT)
     const res = await app.request('http://127.0.0.1/api/auth/demo/enron', {
       method: 'POST',
       headers: { Authorization: `Bearer ${DEMO_SECRET}` },
@@ -153,6 +159,11 @@ describe('POST /api/auth/demo/enron', () => {
     const regRaw = await readFile(join(mtRoot, '.global', 'tenant-registry.json'), 'utf8')
     const reg = JSON.parse(regRaw) as { sessions?: Record<string, string> }
     expect(reg.sessions?.[sid!]).toBe(ENRON_DEMO_TENANT_USER_ID_DEFAULT)
+
+    const markerRaw = await readFile(join(home, ENRON_DEMO_PROVISIONED_FILENAME), 'utf8')
+    expect(JSON.parse(markerRaw) as { provisionedAt?: string }).toMatchObject({
+      provisionedAt: expect.any(String),
+    })
   })
 
   it('returns 501 in single-tenant mode', async () => {
@@ -166,5 +177,100 @@ describe('POST /api/auth/demo/enron', () => {
     expect(res.status).toBe(501)
     await rm(process.env.BRAIN_HOME, { recursive: true, force: true })
     delete process.env.BRAIN_HOME
+  })
+})
+
+describe('GET /api/auth/demo/enron/reseed', () => {
+  const prevRoot = process.env.BRAIN_DATA_ROOT
+  const prevHome = process.env.BRAIN_HOME
+  const prevSecret = process.env.BRAIN_ENRON_DEMO_SECRET
+  const prevTenantId = process.env.BRAIN_ENRON_DEMO_TENANT_ID
+
+  let mtRoot: string
+
+  beforeEach(async () => {
+    vi.restoreAllMocks()
+    delete process.env.BRAIN_HOME
+    mtRoot = await mkdtemp(join(tmpdir(), 'demo-enron-reseed-'))
+    process.env.BRAIN_DATA_ROOT = mtRoot
+    process.env.BRAIN_ENRON_DEMO_SECRET = DEMO_SECRET
+    delete process.env.BRAIN_ENRON_DEMO_TENANT_ID
+
+    ensureTenantHomeDir(ENRON_DEMO_TENANT_USER_ID_DEFAULT)
+    const home = tenantHomeDir(ENRON_DEMO_TENANT_USER_ID_DEFAULT)
+    await writeHandleMeta(home, {
+      userId: ENRON_DEMO_TENANT_USER_ID_DEFAULT,
+      handle: 'enron-fixture',
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+    })
+    await mkdir(join(home, 'ripmail'), { recursive: true })
+    await writeFile(join(home, 'ripmail', 'ripmail.db'), 'fixture', 'utf8')
+  })
+
+  afterEach(async () => {
+    await rm(mtRoot, { recursive: true, force: true })
+    if (prevRoot === undefined) delete process.env.BRAIN_DATA_ROOT
+    else process.env.BRAIN_DATA_ROOT = prevRoot
+    if (prevHome === undefined) delete process.env.BRAIN_HOME
+    else process.env.BRAIN_HOME = prevHome
+    if (prevSecret === undefined) delete process.env.BRAIN_ENRON_DEMO_SECRET
+    else process.env.BRAIN_ENRON_DEMO_SECRET = prevSecret
+    if (prevTenantId === undefined) delete process.env.BRAIN_ENRON_DEMO_TENANT_ID
+    else process.env.BRAIN_ENRON_DEMO_TENANT_ID = prevTenantId
+  })
+
+  function mountStack() {
+    const app = new Hono()
+    app.use('/api/*', tenantMiddleware)
+    app.use('/api/*', vaultGateMiddleware)
+    app.route('/api/auth/demo', demoEnronAuthRoute)
+    return app
+  }
+
+  it('returns 202 with Bearer and kicks force reseed', async () => {
+    const spy = vi.spyOn(enronDemoSeed, 'startEnronDemoForceReseed').mockReturnValue('started')
+    const app = mountStack()
+    const res = await app.request(`http://127.0.0.1${ENRON_DEMO_RESEED_PATH}`, {
+      headers: { Authorization: `Bearer ${DEMO_SECRET}` },
+    })
+    expect(res.status).toBe(202)
+    const j = (await res.json()) as { status?: string; seed?: { status?: string } }
+    expect(j.status).toBe('reseed')
+    expect(j.seed?.status).toBe('ready')
+    expect(spy).toHaveBeenCalledWith(mtRoot, ENRON_DEMO_TENANT_USER_ID_DEFAULT)
+  })
+
+  it('accepts demo secret via query param (no Authorization header)', async () => {
+    const spy = vi.spyOn(enronDemoSeed, 'startEnronDemoForceReseed').mockReturnValue('started')
+    const app = mountStack()
+    const url = `http://127.0.0.1${ENRON_DEMO_RESEED_PATH}?secret=${encodeURIComponent(DEMO_SECRET)}`
+    const res = await app.request(url)
+    expect(res.status).toBe(202)
+    expect(spy).toHaveBeenCalled()
+  })
+
+  it('returns 401 when query secret is wrong', async () => {
+    const spy = vi.spyOn(enronDemoSeed, 'startEnronDemoForceReseed')
+    const app = mountStack()
+    const url = `http://127.0.0.1${ENRON_DEMO_RESEED_PATH}?secret=${encodeURIComponent('wrong-secret-16ch')}`
+    const res = await app.request(url)
+    expect(res.status).toBe(401)
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('returns 409 when force reseed reports busy', async () => {
+    const spy = vi
+      .spyOn(enronDemoSeed, 'startEnronDemoForceReseed')
+      .mockReturnValueOnce('started')
+      .mockReturnValueOnce('busy')
+    const app = mountStack()
+    const h = { Authorization: `Bearer ${DEMO_SECRET}` }
+    const res1 = await app.request(`http://127.0.0.1${ENRON_DEMO_RESEED_PATH}`, { headers: h })
+    const res2 = await app.request(`http://127.0.0.1${ENRON_DEMO_RESEED_PATH}`, { headers: h })
+    expect(res1.status).toBe(202)
+    expect(res2.status).toBe(409)
+    const j2 = (await res2.json()) as { error?: string }
+    expect(j2.error).toBe('seed_already_running')
+    expect(spy).toHaveBeenCalledTimes(2)
   })
 })

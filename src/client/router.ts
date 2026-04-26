@@ -110,8 +110,11 @@ export function parseRoute(href: string = location.href): Route {
   if (seg1 === 'first-chat') {
     return { flow: 'first-chat' }
   }
-  if (seg1 === 'demo' && rest[0] === 'enron') {
-    return { flow: 'enron-demo' }
+  if (seg1 === 'demo') {
+    const first = rest[0]
+    if (first === undefined || first === '') {
+      return { flow: 'enron-demo' }
+    }
   }
 
   if (seg1 === 'chats') {
@@ -213,7 +216,7 @@ export function routeToUrl(route: Route): string {
   if (route.flow === 'hard-reset') return '/hard-reset'
   if (route.flow === 'restart-seed') return '/restart-seed'
   if (route.flow === 'first-chat') return '/first-chat'
-  if (route.flow === 'enron-demo') return '/demo/enron'
+  if (route.flow === 'enron-demo') return '/demo'
   const o = route.overlay
   if (!o) {
     return route.hubActive ? '/hub' : '/'

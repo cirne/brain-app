@@ -1,6 +1,14 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
+import {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -19,6 +27,9 @@ let runStartedAt: number | null = null
 let phase: SeedPhase = 'idle'
 let lastError: string | null = null
 
+/** Written after a successful full seed; prevents re-ingest on every demo login when mail DB already exists. */
+export const ENRON_DEMO_PROVISIONED_FILENAME = 'enron-demo-provisioned.json'
+
 export function resetEnronDemoSeedStateForTests(): void {
   inflight = null
   runStartedAt = null
@@ -34,6 +45,30 @@ export function isEnronDemoTenantReady(tenantHomeDir: string): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * True once the demo tenant has been provisioned: non-empty mail index and/or provision marker.
+ * Marker avoids re-running ingest when `ripmail.db` is missing transiently; use GET reseed to wipe+rebuild.
+ */
+export function isEnronDemoTenantProvisioned(tenantHomeDir: string): boolean {
+  if (existsSync(join(tenantHomeDir, ENRON_DEMO_PROVISIONED_FILENAME))) return true
+  return isEnronDemoTenantReady(tenantHomeDir)
+}
+
+export function writeEnronDemoProvisionedMarker(tenantHomeDir: string): void {
+  writeFileSync(
+    join(tenantHomeDir, ENRON_DEMO_PROVISIONED_FILENAME),
+    `${JSON.stringify({ provisionedAt: new Date().toISOString() })}\n`,
+    'utf8',
+  )
+}
+
+/** One-time: persist marker for tenants that already have mail data from before the marker existed. */
+export function ensureProvisionedMarkerWhenMailReady(tenantHomeDir: string): void {
+  if (!isEnronDemoTenantReady(tenantHomeDir)) return
+  if (existsSync(join(tenantHomeDir, ENRON_DEMO_PROVISIONED_FILENAME))) return
+  writeEnronDemoProvisionedMarker(tenantHomeDir)
 }
 
 export type EnronDemoSeedSnapshot =
@@ -138,7 +173,13 @@ async function ensureTarball(repoRoot: string): Promise<string> {
   return cachePath
 }
 
-function runSeedScript(repoRoot: string, tarPath: string, dataRoot: string, tenantId: string): Promise<void> {
+function runSeedScript(
+  repoRoot: string,
+  tarPath: string,
+  dataRoot: string,
+  tenantId: string,
+  force: boolean,
+): Promise<void> {
   const script = join(repoRoot, 'scripts/brain/seed-enron-demo-tenant.mjs')
   if (!existsSync(script)) {
     return Promise.reject(new Error(`Seed script missing: ${script}`))
@@ -154,8 +195,10 @@ function runSeedScript(repoRoot: string, tarPath: string, dataRoot: string, tena
     RIPMAIL_BIN: ripmailBin,
   }
 
+  const args = [script, ...(force ? (['--force'] as const) : [])]
+
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [script], {
+    const child = spawn(process.execPath, args, {
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -172,18 +215,25 @@ function runSeedScript(repoRoot: string, tarPath: string, dataRoot: string, tena
   })
 }
 
-async function runEnronDemoSeedJob(dataRoot: string, tenantUserId: string): Promise<void> {
+async function runEnronDemoSeedJob(
+  dataRoot: string,
+  tenantUserId: string,
+  options: { force: boolean } = { force: false },
+): Promise<void> {
+  const { force } = options
   lastError = null
   phase = 'downloading'
   const repoRoot = resolveSeedRepoRoot()
   const tarPath = await ensureTarball(repoRoot)
   phase = 'seeding'
-  await runSeedScript(repoRoot, tarPath, dataRoot, tenantUserId)
+  await runSeedScript(repoRoot, tarPath, dataRoot, tenantUserId, force)
   phase = 'idle'
   runStartedAt = null
-  if (!isEnronDemoTenantReady(join(dataRoot, tenantUserId))) {
+  const home = join(dataRoot, tenantUserId)
+  if (!isEnronDemoTenantReady(home)) {
     throw new Error('Seed finished but ripmail.db is still missing or empty.')
   }
+  writeEnronDemoProvisionedMarker(home)
 }
 
 /**
@@ -192,13 +242,13 @@ async function runEnronDemoSeedJob(dataRoot: string, tenantUserId: string): Prom
 export function startEnronDemoSeedIfNeeded(dataRoot: string, tenantUserId?: string): void {
   const tid = tenantUserId ?? enronDemoTenantUserId()
   const home = join(dataRoot, tid)
-  if (isEnronDemoTenantReady(home)) return
+  if (isEnronDemoTenantProvisioned(home)) return
   if (inflight) return
 
   lastError = null
   runStartedAt = Date.now()
   phase = 'downloading'
-  inflight = runEnronDemoSeedJob(dataRoot, tid)
+  inflight = runEnronDemoSeedJob(dataRoot, tid, { force: false })
     .catch((e) => {
       const msg = e instanceof Error ? e.message : String(e)
       lastError = msg
@@ -211,4 +261,30 @@ export function startEnronDemoSeedIfNeeded(dataRoot: string, tenantUserId?: stri
         runStartedAt = null
       }
     })
+}
+
+export type EnronDemoForceReseedStart = 'started' | 'busy'
+
+/** Wipes the demo tenant (see seed script `--force`) and rebuilds mail + wiki layout from the Enron tarball. */
+export function startEnronDemoForceReseed(dataRoot: string, tenantUserId?: string): EnronDemoForceReseedStart {
+  const tid = tenantUserId ?? enronDemoTenantUserId()
+  if (inflight) return 'busy'
+
+  lastError = null
+  runStartedAt = Date.now()
+  phase = 'downloading'
+  inflight = runEnronDemoSeedJob(dataRoot, tid, { force: true })
+    .catch((e) => {
+      const msg = e instanceof Error ? e.message : String(e)
+      lastError = msg
+      phase = 'failed'
+    })
+    .finally(() => {
+      inflight = null
+      if (!lastError) {
+        phase = 'idle'
+        runStartedAt = null
+      }
+    })
+  return 'started'
 }
