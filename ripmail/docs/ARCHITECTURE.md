@@ -710,6 +710,30 @@ Agents today parse the text output of `status` without difficulty. Text stays th
 
 ---
 
+### ADR-030: File Source Indexing — Contentless FTS5, No Local Content Copy
+
+**Context:** As ripmail expands from mail-only to a unified sources model ([OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)), it indexes `localDir` paths and will index cloud file sources (Google Drive, Dropbox — [brain-app OPP-045](../../docs/opportunities/OPP-045-cloud-file-sources-drive-dropbox.md)). The current schema stores full extracted text in two places for each indexed document: `files.body_text` and `document_index.body`. For mail, both copies are load-bearing (the body is served via `ripmail read <message-id>` without a network call). For files, the original always exists on disk or is re-fetchable from a cloud API — local copies are redundant and cause the DB to grow proportionally with the user's file tree.
+
+**Decision:**
+
+1. **Split the FTS tables by corpus kind.** Do not extend the existing mail FTS setup (`document_index_fts` with `content='document_index'`) to cover files. Instead, introduce a separate `files_fts` virtual table for file-kind sources.
+
+2. **`files_fts` uses contentless FTS5** (`content=''`). SQLite stores only the token/position index — not the original document text. This provides full `MATCH` query support and `bm25()` ranking at roughly 20–40% the size of the raw text, rather than 200%+ (two full copies + index). The trade-off: `snippet()` and `highlight()` are unavailable (they require stored content). This is acceptable; the agent's goal at search time is identifying the right document path, not extracting a character-level match. The agent calls `read_doc` for full content.
+
+3. **`files` table stores metadata + excerpt only.** `title`, `path`, `mtime`, `size`, `mime`, and an `excerpt` (~500 chars) for search-result display. No `body_text` column. At index time the full extracted text is fed into `files_fts` for tokenization, then discarded from SQLite.
+
+4. **Mail keeps its current external-content setup.** `document_index` continues to store `body` for mail entries; `document_index_fts` continues to use `content='document_index'`. No change to mail indexing behavior.
+
+5. **Read-time content retrieval is on-demand.** `ripmail read <path>` reads live from disk for `localDir` sources. For cloud sources, it re-downloads via the provider API with a short-TTL cache under `RIPMAIL_HOME/<source-id>/cache/` keyed by path hash + mtime. Plain text/markdown is zero-cost; conversion-heavy formats (PDF, DOCX) are cached on first access.
+
+6. **This is a clean-slate schema change.** SCHEMA_VERSION bump; `ripmail rebuild-index` re-crawls from sources. No migration path required per [early-development norms](../AGENTS.md#early-development-no-user-base-clean-breaks).
+
+**Rationale:** The 50 ms vs 1–2 s search latency difference between local FTS5 and live cloud API calls is non-negotiable for agent UX (agent turns involve multiple search calls). The contentless FTS5 approach preserves that speed while eliminating the content-duplication growth problem. Vector/embedding search was considered and deferred: embedding generation requires a model dependency (local) or API calls with privacy tradeoffs (cloud), the index size is comparable to or larger than FTS5 for the same corpus, and the agent can compensate for FTS recall gaps by reformulating keyword queries across turns.
+
+**Related:** [OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (storage and indexing section), [brain-app OPP-045](../../docs/opportunities/OPP-045-cloud-file-sources-drive-dropbox.md) (cloud file sources), [external-sources-and-mcp.md](../../docs/architecture/external-sources-and-mcp.md) (local-first query principle).
+
+---
+
 ## Open Questions
 
 - **npm deprecation:** If **`@cirne/zmail`** remains on the npm registry, maintainers may deprecate it in favor of **`install.sh`** / GitHub Releases ([RUST_PORT.md](RUST_PORT.md), [OPP-030 archived](opportunities/archive/OPP-030-rust-port-cutover.md)).

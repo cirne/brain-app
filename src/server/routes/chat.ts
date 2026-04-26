@@ -1,8 +1,12 @@
 import { Hono } from 'hono'
 import { getOrCreateSession, deleteSession } from '../agent/index.js'
 import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { safeWikiRelativePath } from '@server/lib/wiki/wikiEditDiff.js'
+import {
+  PathEscapeError,
+  resolvePathStrictlyUnderHome,
+} from '@server/lib/tenant/resolveTenantSafePath.js'
 import {
   appendTurn,
   deleteSessionFile,
@@ -109,28 +113,44 @@ chat.post('/', async (c) => {
   // Build context string for the session system prompt.
   // Two formats:
   //   string  — surface context (email body, wiki path, etc.) from AgentChat
-  //   { files: string[] } — legacy file-grounded chat (wiki panel)
+  //   { files: string[] } — legacy file-grounded chat (wiki panel); paths must stay under wiki root
   let fileContext: string | undefined
+  let validatedContextFiles: string[] | undefined
   if (typeof context === 'string') {
     fileContext = context
   } else if (context?.files?.length) {
-    const parts: string[] = []
+    const wikiRoot = wikiDir()
+    const safeRelPaths: string[] = []
     for (const filePath of context.files) {
+      if (typeof filePath !== 'string') {
+        return c.json({ error: 'context.files entries must be strings' }, 400)
+      }
+      const rel = safeWikiRelativePath(wikiRoot, filePath)
+      if (rel == null) {
+        return c.json({ error: 'Invalid wiki path in context.files' }, 400)
+      }
+      safeRelPaths.push(rel)
+    }
+    validatedContextFiles = safeRelPaths
+    const parts: string[] = []
+    for (const rel of safeRelPaths) {
       try {
-        const content = await readFile(join(wikiDir(), filePath), 'utf-8')
-        parts.push(`### ${filePath}\n\`\`\`markdown\n${content}\n\`\`\``)
-      } catch {
-        // Skip files that can't be read
+        const segments = rel.split('/').filter((s) => s.length > 0)
+        const abs = resolvePathStrictlyUnderHome(wikiRoot, ...segments)
+        const content = await readFile(abs, 'utf-8')
+        parts.push(`### ${rel}\n\`\`\`markdown\n${content}\n\`\`\``)
+      } catch (e) {
+        if (e instanceof PathEscapeError) {
+          return c.json({ error: 'Invalid wiki path in context.files' }, 400)
+        }
+        // Skip files that can't be read (e.g. ENOENT)
       }
     }
     if (parts.length) fileContext = parts.join('\n\n')
   }
 
   const selectionForSkill = typeof context === 'string' ? context : ''
-  const openFileForSkill =
-    context && typeof context === 'object' && Array.isArray(context.files) && context.files.length
-      ? String(context.files[0])
-      : undefined
+  const openFileForSkill = validatedContextFiles?.length ? validatedContextFiles[0] : undefined
 
   const persist = async (args: {
     userMessage: string | null

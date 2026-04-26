@@ -1,6 +1,6 @@
 # Opportunities
 
-Improvement ideas and future features discovered through usage. Each entry captures the problem, motivation, and proposed direction.
+Improvement ideas and future features discovered through usage. Each entry captures the problem, motivation, and proposed direction. **Product roots:** the wiki is the **compounding-LLM-wiki** half of the idea ([full text: karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md)); [ripmail](../ripmail/README.md) is the **indexed-mail** half — [VISION.md](VISION.md) ties them together.
 
 Active and future work lives in [opportunities/](opportunities/). Shipped and deprioritized work moves to [opportunities/archive/](opportunities/archive/).
 
@@ -36,6 +36,7 @@ The **ripmail** workspace member (local-first email CLI + SQLite index) maintain
 | [OPP-047](opportunities/OPP-047-cloud-local-connector-tunneled-messages-and-mcp.md)     | Cloud brain + local connector (Messages, tunnel)     | **Research:** **Cloud-first** Braintunnel with a **small macOS utility** (optional) for **periodic text-first export** to cloud index **and/or** a **tunneled remote query path** to `chat.db` (e.g. `search_messages` via paired device—MCP-style tool host). Focus on **pairing, least privilege, E2E options**, and clear UX when the Mac is offline. Complements [OPP-037](opportunities/OPP-037-messages-index-and-unified-people.md) and [OPP-008](opportunities/OPP-008-tunnel-qr-phone-access.md). |
 | [OPP-048](opportunities/OPP-048-brain-home-feedback-issues-embed-api.md)                | Brain home feedback issues + embed-key API            | **Local-first** queue: hosted MT stores canonical issues in **`$BRAIN_DATA_ROOT/.global/issues/`** + per-tenant + **`wiki/feedback/issue-<id>.md`**; `GET` with **`BRAIN_EMBED_MASTER_KEY`** for global list; `npm` issues scripts; default **`/feedback`** skill. See OPP-048 doc, [archived OPP-030](opportunities/archive/OPP-030-agent-driven-support-bug-to-pr.md). |
 | [OPP-049](opportunities/OPP-049-global-ui-tailwind-refactor.md)                        | Global UI refactor — Tailwind-first                     | **Long-running / branch / large-model epic:** standardize on **Tailwind**; preserve look where it works; remove inconsistent one-off CSS in favor of shared utilities + **small** global layer when warranted; **increase reuse**; **thorough** tests and validation before merge. |
+| [OPP-050](opportunities/OPP-050-hosted-wiki-backup.md)                                  | Hosted wiki backup (cloud DR for staging)               | Back up **wiki Markdown only** (the only irreplaceable per-tenant data) to encrypted off-volume storage (DO Spaces + `age` or `restic`). **Ripmail is intentionally excluded** — it is a re-syncable IMAP cache; including it would re-introduce the full-volume snapshot security risk (email bodies + OAuth tokens). Implement before ~25 active users. Rationale: [DEPLOYMENT.md](DEPLOYMENT.md) (no-snapshot policy). |
 
 
 ---

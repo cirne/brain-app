@@ -163,6 +163,40 @@ describe('POST /api/chat with context', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('text/event-stream')
   })
+
+  it('returns 400 when context.files path escapes the wiki root', async () => {
+    const { default: chatRoute } = await import('./chat.js')
+    const app = new Hono()
+    app.route('/api/chat', chatRoute)
+
+    const res = await app.request('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'leak',
+        context: { files: ['../../package.json'] },
+      }),
+    })
+    expect(res.status).toBe(400)
+    const j = (await res.json()) as { error?: string }
+    expect(j.error).toMatch(/Invalid wiki path/i)
+  })
+
+  it('returns 400 when context.files contains a non-string entry', async () => {
+    const { default: chatRoute } = await import('./chat.js')
+    const app = new Hono()
+    app.route('/api/chat', chatRoute)
+
+    const res = await app.request('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'x',
+        context: { files: ['index.md', 1] },
+      }),
+    })
+    expect(res.status).toBe(400)
+  })
 })
 
 describe('DELETE /api/chat/:sessionId', () => {

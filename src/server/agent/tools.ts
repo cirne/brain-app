@@ -16,6 +16,7 @@ import {
   coerceWikiToolRelativePath,
   resolveSafeWikiPath,
 } from '@server/lib/wiki/wikiEditHistory.js'
+import { assertAgentWikiWriteUsesSubdirectory } from '@server/lib/wiki/wikiAgentWritePolicy.js'
 import { resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
 import { existsSync } from 'node:fs'
 import {
@@ -149,6 +150,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       } catch {
         throw new Error('Invalid wiki path for write')
       }
+      await assertAgentWikiWriteUsesSubdirectory(wikiDir, path)
       const next = { ...params, path }
       const result = (await writeToolInner.execute(toolCallId, next)) as {
         content: { type: 'text'; text: string }[]
@@ -224,6 +226,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       } catch {
         throw new Error('Invalid wiki path for move destination')
       }
+      await assertAgentWikiWriteUsesSubdirectory(wikiDir, toRes.path)
       const fromAbs = resolveSafeWikiPath(wikiDir, fromRel)
       const toAbs = resolveSafeWikiPath(wikiDir, toRes.path)
       if (fromAbs === toAbs) {

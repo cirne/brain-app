@@ -180,10 +180,54 @@ All `sources` subcommands support `--json`. `sources add` outputs `{ "id": "..."
 
 ---
 
-## Storage and indexing (non-prescriptive)
+## Storage and indexing
 
 - **Clean-slate schema:** separate tables for mail vs files vs future connectors, or a unified `documents` abstraction — **decide in implementation** without preserving current `messages`-only FTS layout if something simpler fits.
 - **Rebuild:** schema bump or `rebuild-index`-style command may **wipe and reindex** from sources; acceptable per repo norms.
+
+### Mail vs file FTS — split tables, different content modes
+
+Mail and file sources have **different storage contracts** and must use separate FTS5 virtual tables:
+
+**Mail** (`kind = 'mail'`): use FTS5 **external content** (`content='document_index'`). The email body is stored in `document_index.body` (and mirrored in `messages.body_text`) because ripmail needs to serve the body via `ripmail read <message-id>` without a network call. Two copies of the body exist intentionally; the FTS index references the external table for snippet/highlight support.
+
+**Files** (`localDir`, `googleDrive`, `dropbox`, future cloud kinds): use FTS5 **contentless** (`content=''`). The original file always exists on disk or is re-fetchable from the cloud API. Storing a full copy in SQLite would cause the DB to grow proportionally with the user's indexed file tree — effectively mirroring their storage locally. The contentless index stores only tokens and positions (~20–40% of raw text size vs 200%+ for two full copies + index).
+
+Concrete schema shape:
+
+```sql
+-- Files metadata: NO body_text column
+CREATE TABLE files (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_id TEXT NOT NULL,
+  path      TEXT NOT NULL,   -- abs path (local) or stable remote id (Drive/Dropbox)
+  title     TEXT,
+  mtime     INTEGER,
+  size      INTEGER,
+  mime      TEXT,
+  excerpt   TEXT,            -- first ~500 chars for search result display only
+  UNIQUE(source_id, path)
+);
+
+-- Contentless FTS5: tokens + positions stored; no text copy in SQLite
+CREATE VIRTUAL TABLE files_fts USING fts5(
+  title,
+  body,
+  source_id UNINDEXED,
+  path      UNINDEXED,
+  content=''
+);
+```
+
+At **index time**: extract full text from file (or export from Drive/Dropbox), insert full body into `files_fts` for tokenization (content is NOT stored by SQLite — only the token index), store first ~500 chars as `excerpt` in `files`.
+
+At **search time**: `WHERE files_fts MATCH ?` returns rowids in <50 ms; join to `files` for path/title/excerpt metadata. No network call.
+
+At **read time**: `ripmail read <path-or-id>` reads live from disk (local) or re-downloads via cloud API with a cache under `RIPMAIL_HOME/<source-id>/cache/` keyed by path hash + mtime. Plain text/markdown is zero-cost; conversion-heavy formats (PDF, DOCX) hit the cache on repeat reads.
+
+**Trade-off:** `snippet()` and `highlight()` are not available on contentless FTS5 tables (they require stored content). Agent search results return title + path + excerpt; the agent calls `read_doc` for full content when needed. This is acceptable — the agent's goal at search time is identifying the right document, not extracting a precise character-level match.
+
+See [ADR-030](../ARCHITECTURE.md#adr-030-file-source-indexing--contentless-fts5-no-local-content-copy) for the decision record.
 
 ### File content: no copy, no symlink
 

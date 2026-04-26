@@ -1,7 +1,7 @@
 # The wiki question
 
 **Status:** Open product question — not a decision document  
-**Related:** [VISION.md](./VISION.md), [architecture/wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [product/personal-wiki.md](./product/personal-wiki.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md) (eval gap: wiki + agent quality), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
+**Related:** [VISION.md](./VISION.md), [karpathy-llm-wiki-post.md](./karpathy-llm-wiki-post.md), [architecture/wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [product/personal-wiki.md](./product/personal-wiki.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md) (eval gap: wiki + agent quality), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 
 ---
 
@@ -35,7 +35,7 @@ So **in product language**: the wiki is the **stabilized, structured layer**; ri
 
 ## Karpathy’s pattern (first principles)
 
-Andrej Karpathy’s idea file **[LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)** (gist: `llm-wiki.md`) is the clearest statement of *why* a persistent wiki sits between the user and raw sources. Paraphrasing the core claims:
+Andrej Karpathy’s idea file **[LLM Wiki](./karpathy-llm-wiki-post.md)** ([original gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)) is the clearest statement of *why* a persistent wiki sits between the user and raw sources. Paraphrasing the core claims:
 
 1. **RAG-style retrieval** from a pile of files means the model **rediscovers** knowledge on every question — there is **no accumulation**. Subtle questions that require combining many documents force repeated fragment-finding and stitching.
 2. The alternative: the LLM **incrementally builds and maintains a persistent wiki** — structured, interlinked markdown **between** you and raw sources. New sources are **integrated**: entity pages updated, topic summaries revised, **contradictions** noted, synthesis **kept current**. Knowledge is **compiled** and then maintained, not re-derived from scratch on every query.
@@ -150,7 +150,7 @@ That directly tests whether the hoped-for benefit is **real at scale** or **illu
 
 ## References
 
-- Karpathy, **LLM Wiki** (gist): [https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)  
+- Karpathy, **LLM Wiki**: [karpathy-llm-wiki-post.md](./karpathy-llm-wiki-post.md) (full text); [original gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)  
 - Internal: [VISION.md](./VISION.md), [wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 - Roadmap umbrella: [OPP-033: Wiki compounding + Karpathy alignment](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md); concrete defect: [BUG-011](./bugs/BUG-011-wiki-expansion-missing-me-md-context.md)
 

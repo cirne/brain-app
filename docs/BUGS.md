@@ -1,6 +1,6 @@
 # Bugs
 
-Known issues discovered through development and usage. Root cause and fix direction included where known.
+Known issues discovered through development and usage. Root cause and fix direction included where known. For **why the wiki and inbox exist** (Karpathy [LLM Wiki](karpathy-llm-wiki-post.md) + ripmail), see [VISION.md](VISION.md) and [OPP-033](opportunities/OPP-033-wiki-compounding-karpathy-alignment.md) when a bug touches wiki compounding or mail↔synthesis tradeoffs.
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 

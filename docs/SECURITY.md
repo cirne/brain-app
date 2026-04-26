@@ -50,7 +50,7 @@ All `/api/*` routes (except a small allowlist) go through **both** middleware la
 
 - `**resolvePathStrictlyUnderHome`** — resolves + `realpath`s to defeat symlink traversal; throws `PathEscapeError` on `..` escape.
 - `**isAbsolutePathAllowedUnderRoots`** — used by agent file-read policy to enforce that paths lie inside `brainHome`, `ripmailHome`, wiki dir, or user-configured indexed folders.
-- `**assertManageSourcePathNotInsideSiblingTenant**` — explicitly prevents a tenant registering a source path that falls inside another tenant's home under `BRAIN_DATA_ROOT`.
+- `**assertManageSourcePathNotInsideSiblingTenant`** — explicitly prevents a tenant registering a source path that falls inside another tenant's home under `BRAIN_DATA_ROOT`.
 
 These have test coverage in `src/server/lib/tenant/resolveTenantSafePath.test.ts` and `src/server/multi-tenant-isolation.test.ts` (wiki list, wiki search, 401 without session).
 
@@ -65,7 +65,7 @@ These have test coverage in `src/server/lib/tenant/resolveTenantSafePath.test.ts
 - `src/server/routes/calendar.ts` — similar `grep` pattern (user-supplied search query)
 - `src/server/agent/tools.ts` — `find_person` tool: same `grep` pattern (agent-supplied query)
 
-The user-controlled `q` is wrapped in `JSON.stringify` before interpolation, which adds double-quote escaping. However, it is still passed to a shell via `exec` — the safety depends entirely on `JSON.stringify`'s quoting being shell-safe. This is **not** a reliable sanitization technique for shell exec; it is a latent shell injection vector. See **P4**.
+The user-controlled `q` is wrapped in `JSON.stringify` before interpolation, which adds double-quote escaping. However, it is still passed to a shell via `exec` — the safety depends entirely on `JSON.stringify`'s quoting being shell-safe. This is **not** a reliable sanitization technique for shell exec; it is a latent shell injection vector. See **P1**.
 
 ### Public vs authenticated routes
 
@@ -100,55 +100,29 @@ All `/api/*` routes require a vault/session, **except** this explicit allowlist 
 
 User messages, wiki excerpts, email search results, and email body content (from `read_email` / agent tool calls) flow to configured LLM providers (Anthropic, OpenAI, etc.) as part of the agent context. **There is no redaction layer** between user data and LLM API calls. All content reachable by the agent within the tenant's home can be forwarded to the provider. Provider API calls happen server-side with API keys from `process.env`. Tool results are not truncated before being passed back to the model (they go through `toolResultForSse` in `streamAgentSse.ts`) — full mail bodies can be present in model context.
 
-A client-supplied `context` string or `context.files` list is also injected into the system prompt before the LLM call (see **P3**). New Relic custom `ToolCall` events record parameter/result metadata (size buckets, sanitized keys) but not full content.
+A client-supplied `context` string or `context.files` list (each file path validated to stay under the wiki root via `safeWikiRelativePath` and `resolvePathStrictlyUnderHome` in `src/server/routes/chat.ts`) is also injected into the system prompt before the LLM call. New Relic custom `ToolCall` events record parameter/result metadata (size buckets, sanitized keys) but not full content.
 
 ### Logging
 
 Hono request logger (`hono/logger`) runs on all non-quiet routes, printing method, path, and status to stdout/container logs. `ripmail` spawn/close events are logged as structured JSON to stdout. **Request body content and email/wiki content are not logged.** Error messages from ripmail (`stderr` up to 500 chars) can appear in logs on failures. No structured secrets-scrubbing middleware exists.
 
+### Hosted staging — operator and network access
+
+**DigitalOcean Cloud Firewall** on the staging droplet allows **inbound TCP only** to **port 4000** from the **staging load balancer** (see [DEPLOYMENT.md](DEPLOYMENT.md)). **TCP/22 is not** opened to the public internet from `0.0.0.0/0` or `::/0`.
+
+**Admin SSH** to the host uses the **tailnet** (Tailscale): e.g. `ssh brain@<MagicDNS or 100.x>`; peers must be in the **operator’s tailnet** and present a key accepted in `~brain/.ssh/authorized_keys`. The Cloud Firewall does **not** use a `100.64.0.0/10` allow for SSH; inner SSH to `100.x` is carried over Tailscale, not as raw `public-ip:22` from the world.
+
+`**sshd`:** `PermitRootLogin no`, `PasswordAuthentication no`, `AllowUsers brain` (see [DEPLOYMENT.md](DEPLOYMENT.md) for the live posture).
+
+**Break-glass** if both Tailscale and SSH fail: [DigitalOcean Droplet web console](https://docs.digitalocean.com/products/droplets/how-to/connect-with-console/) (out-of-band; not public SSH). After any `doctl compute firewall update`, confirm public **:22** is not reintroduced.
+
 ---
 
 ## Security risks (priority order)
 
-### P1 — SSH open to the world on the host carrying user email
+**Open issues only** — not a log of past decisions. Snapshot policy, backup posture, and hosting controls live in [DEPLOYMENT.md](DEPLOYMENT.md); wiki DR: [OPP-050](opportunities/OPP-050-hosted-wiki-backup.md).
 
-**What:** Firewall rule allows `TCP 22` from `0.0.0.0/0` and `::/0`. Lew's private key is the sole credential. A stolen or compromised key gives **full OS access** to the machine and **unobstructed read of all user mail, OAuth tokens, and secrets** in the running container volume.
-
-**Why P1:** single point of failure; no compensating control on the network perimeter. All "encryption at rest" is bypassed by OS-level access.
-
-**Mitigations to address:**
-
-- Restrict SSH source addresses to Lew's IPs or a VPN/Tailscale CIDR in the DO firewall rule.
-- `PermitRootLogin no`, `PasswordAuthentication no`, `AllowUsers brain` in `sshd_config`.
-- Consider `fail2ban` or DO's managed SSH alerting.
-
-### P2 — Volume snapshots are a second copy of all user data
-
-**What:** The project resource list shows a **volume snapshot** of `braintunnel-staging-storage`. Snapshots can be mounted on any droplet in the same account. Anyone with DO account access can read all user mail, tokens, and secrets from a snapshot without touching the live server or its firewall.
-
-**Why P2:** largely invisible; not covered by the LB/firewall posture; and the surface grows with each scheduled snapshot.
-
-**Mitigations to address:**
-
-- Audit who has DO account access; enforce 2FA on the team account.
-- Use a **narrow API token** (Container Registry only) for CI/CD; keep the full-access token out of any automated tooling.
-- Review/schedule snapshot retention; consider whether automated snapshots are needed at current scale.
-- When user base grows, treat snapshots like live data: same access controls, same handling.
-
-### P3 — Path traversal in `POST /api/chat` via `context.files`
-
-**What:** When a client sends `{ context: { files: ["../../some/path"] } }` to `POST /api/chat`, the route reads the file with `readFile(join(wikiDir(), filePath), 'utf-8')` and injects its content into the LLM system prompt — **with no path validation**. A valid vault session is sufficient to exploit this. The same `..` / absolute-path checks used everywhere else in the wiki API (`safeWikiRelativePath`, `resolvePathStrictlyUnderHome`) are simply absent here.
-
-**File:** `src/server/routes/chat.ts:113–125`.
-
-**Impact:** Any logged-in user can read any file accessible to the server process (within the OS-level sandbox), including OAuth tokens, vault-sessions.json, and `.env` — then have the LLM summarize or echo the content in a chat response.
-
-**Mitigations to address (straightforward fix):**
-
-- Validate each path in `context.files` with `safeWikiRelativePath` (already exists in `src/server/lib/wiki/wikiEditDiff.ts`) or `resolvePathStrictlyUnderHome`, rejecting anything that escapes the wiki root.
-- Since this is an **exploitable bug today**, it should be fixed before any additional users are onboarded.
-
-### P4 — Shell injection via `grep` with user-supplied query string
+### P1 — Shell injection via `grep` with user-supplied query string
 
 **What:** `GET /api/wiki/search`, `GET /api/search`, `GET /api/calendar/`*, and the `find_person` agent tool pass user-supplied query strings to `exec(grep … ${JSON.stringify(q)} …)`. The `exec` function uses `/bin/sh`. While `JSON.stringify` double-quotes the string, shell metacharacters within a double-quoted string (backticks, `$()`, `\`) can still be interpreted by some shells. This is a latent **shell injection** vector.
 
@@ -159,11 +133,11 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - Replace all `exec(grep …)` calls with `spawn(['grep', '-r', '--include=*.md', q, dir], …)` (argv array, no shell). This is the same no-shell pattern already used for `ripmail`.
 - Alternatively, use a JS-native search (e.g. a recursive `readdir`+`includes` or a bundled ripgrep binding) — eliminates subprocess entirely.
 
-### P5 — Session tokens stored plaintext on block volume
+### P2 — Session tokens stored plaintext on block volume
 
-**What:** `vault-sessions.json` is a plaintext array of UUIDs on disk. If the volume snapshot or any backup is accessed, active session tokens are readable and can be replayed until they expire (7-day TTL).
+**What:** `vault-sessions.json` is a plaintext array of UUIDs on disk. If the block volume or a full backup of it is read by an attacker, active session tokens are readable and can be replayed until they expire (7-day TTL).
 
-**Why this matters:** combined with the snapshot risk (P2), an attacker with a snapshot can impersonate any currently-logged-in user.
+**Why this matters:** anyone with that read access can impersonate currently logged-in users until sessions expire.
 
 **Mitigations to address:**
 
@@ -171,7 +145,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - Alternatively, issue short-lived sessions with refresh (7-day TTL is long).
 - Consider in-memory session store (redis/memcached) to eliminate this on-disk plaintext entirely, if operational complexity allows.
 
-### P6 — `.env` secrets co-located with data on the same host/volume
+### P3 — `.env` secrets co-located with data on the same host/volume
 
 **What:** The host `.env` file sits in the same directory as `docker-compose.do.yml` on the droplet. It contains `BRAIN_MASTER_KEY`, `BRAIN_EMBED_MASTER_KEY`, LLM API keys, and Google OAuth credentials. A directory listing or file read by an attacker who gains limited server access exposes all secrets in one file.
 
@@ -181,7 +155,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - Separate the key that unlocks user data (`BRAIN_MASTER_KEY`) from API keys — different rotation schedules, different blast radius.
 - Ensure the `.env` file is `chmod 600` owned by `brain`, not world-readable.
 
-### P7 — Watchtower + Container Registry = low-friction code execution path
+### P4 — Watchtower + Container Registry = low-friction code execution path
 
 **What:** Watchtower polls the registry and restarts the container with any newly pushed image tagged `:latest`. A compromised developer machine or registry credential allows an attacker to push a malicious image and get code running inside the container in ~60 seconds, with full access to the volume.
 
@@ -191,7 +165,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - Restrict registry push to CI with a dedicated narrow token; never push from a developer laptop directly to staging.
 - Consider requiring image signing (e.g. cosign) and a Watchtower verification policy.
 
-### P8 — User data sent to LLM APIs without redaction
+### P5 — User data sent to LLM APIs without redaction
 
 **What:** The agent sends email bodies, wiki content, and calendar events to OpenAI/Anthropic as part of chat context. There is no PII redaction, no content filter, and no opt-out per data type. Users may not realize their email content leaves the server to a third-party LLM.
 
@@ -202,7 +176,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - Confirm that API calls use TLS and that you have DPA agreements with relevant providers where required.
 - Log (server-side, not in LLM context) which tool calls involve sensitive data categories (mail read, attachment read) — useful for future auditing.
 
-### P9 — OAuth flow: no session fixation protection; state in-memory only
+### P6 — OAuth flow: no session fixation protection; state in-memory only
 
 **What:** The OAuth PKCE verifier is stored in a process-level in-memory map (`gmailOAuthState.ts`). On a single-instance deployment this works, but if the process restarts mid-flow the verifier is lost (benign UX failure). More importantly, there is no rate limiting or lockout on `/api/oauth/google/start`; an adversary can generate unlimited PKCE pairs and flood the in-memory map.
 
@@ -211,7 +185,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - Add a TTL-based eviction on the in-memory OAuth session map (or cap its size).
 - Rate-limit `/api/oauth/google/start` by IP.
 
-### P10 — Dev routes guarded only by `NODE_ENV`
+### P7 — Dev routes guarded only by `NODE_ENV`
 
 **What:** `/api/dev/hard-reset`, `/api/dev/restart-seed`, and `/api/dev/first-chat` are registered when `NODE_ENV !== 'production'`. They require no vault session. If staging were ever accidentally started without `NODE_ENV=production` (e.g. a misconfigured compose env), any unauthenticated request could trigger a destructive hard-reset.
 
@@ -220,7 +194,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - Add an explicit session/auth check to dev routes as a belt-and-suspenders guard, even in dev mode.
 - Ensure `NODE_ENV=production` is set in `docker-compose.do.yml` (verify via `docker exec` on staging).
 
-### P11 — `secure` cookie flag may not be set in staging
+### P8 — `secure` cookie flag may not be set in staging
 
 **What:** `vaultCookie.ts` sets `secure` only when `c.req.url` is `https:` or `X-Forwarded-Proto: https`. Traffic reaches the container over plain HTTP (Cloudflare → LB → app:4000). If Cloudflare does not pass `X-Forwarded-Proto: https` or the LB strips it, the cookie is issued **without the `Secure` flag**, making it theoretically transmissible over HTTP. In practice Cloudflare handles the HTTPS termination, but the configuration should be verified.
 
@@ -229,7 +203,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - Verify `X-Forwarded-Proto` is correctly forwarded from Cloudflare through the LB to the container.
 - Or unconditionally set `secure: true` in production (`NODE_ENV === 'production'`), which is cleaner and avoids the inference logic.
 
-### P12 — No rate limiting on auth or LLM endpoints
+### P9 — No rate limiting on auth or LLM endpoints
 
 **What:** `/api/vault/unlock`, `/api/vault/setup`, `/api/oauth/google/`*, and `/api/chat` (which runs LLM inference) have no rate limiting. `/api/vault/unlock` is the brute-force surface for desktop single-tenant mode. `/api/chat` can be used to run expensive LLM calls without quota enforcement.
 
@@ -238,7 +212,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 - Add IP-based rate limiting on vault and OAuth endpoints (Hono middleware or Cloudflare WAF rules).
 - Add per-session LLM usage budget enforcement (see also [OPP-043](opportunities/OPP-043-llm-usage-token-metering.md)).
 
-### P13 — Inbox route passes message IDs to ripmail without quoting
+### P10 — Inbox route passes message IDs to ripmail without quoting
 
 **What:** `POST /api/inbox/:id/archive` and `POST /api/inbox/:id/read` interpolate the URL parameter `id` directly into the ripmail command string without `JSON.stringify`:
 
@@ -252,7 +226,7 @@ await execRipmailAsync(`${ripmailBin()} archive ${id}`)
 
 **Fix:** Wrap `id` with `JSON.stringify` to match the rest of the codebase: `${ripmailBin()} archive ${JSON.stringify(id)}`.
 
-### P14 — Ripmail failure logs may contain sensitive mail / IMAP content
+### P11 — Ripmail failure logs may contain sensitive mail / IMAP content
 
 **What:** When a ripmail subprocess fails or times out, `ripmailRun.ts` logs up to 6,000 chars of stdout and stderr to `console.log` as structured JSON (`stdoutTail`, `stderrTail`). On a send failure, SMTP transcripts and message content can appear in these tails. All container stdout goes to Docker logs (docker logging driver), which on this host goes to disk or forwarding — whatever is configured.
 
@@ -264,7 +238,7 @@ await execRipmailAsync(`${ripmailBin()} archive ${id}`)
 - Avoid logging full `stdoutTail` for `send` failures (which is when body content is most likely to appear in stderr).
 - Ensure Docker logging driver is not forwarding to any unintended destination.
 
-### P15 — Error responses disclose internal details to authenticated clients
+### P12 — Error responses disclose internal details to authenticated clients
 
 **What:** Several API routes return raw error information to the HTTP client:
 
@@ -276,18 +250,18 @@ await execRipmailAsync(`${ripmailBin()} archive ${id}`)
 
 **Mitigations to address:** Return generic `{ error: 'internal_error' }` for 500s in production; log detail server-side only. At minimum, never return raw ripmail output to the client.
 
-### P16 — Tenant registry mapping is plaintext on disk
+### P13 — Tenant registry mapping is plaintext on disk
 
 **What:** The session→tenantUserId mapping (`tenantRegistry.ts`) is stored on disk. If the block volume is read by a non-tenant actor, session→user mappings are exposed (though not enough alone to replay a session without the cookie).
 
-**Mitigations to address:** lower priority than P5 (session store), but the same HMAC-based approach would help.
+**Mitigations to address:** lower priority than P2 (session store), but the same HMAC-based approach would help.
 
 ---
 
 ## What is well-implemented
 
-- **Ripmail subprocess invocation is shell-safe** (argv array, no shell) in all current ripmail callers. The tokenizer exists to support legacy string-style calls and converts them safely before spawn. (Note: a few inbox routes omit `JSON.stringify` on the id — see P13.)
-- **Path traversal is defended** with `resolvePathStrictlyUnderHome` (symlink-aware, `realpath`-based) and `isAbsolutePathAllowedUnderRoots`. There are unit and integration tests covering `..` escape and symlink escape.
+- **Ripmail subprocess invocation is shell-safe** (argv array, no shell) in all current ripmail callers. The tokenizer exists to support legacy string-style calls and converts them safely before spawn. (Note: a few inbox routes omit `JSON.stringify` on the id — see P10.)
+- **Path traversal is defended** with `resolvePathStrictlyUnderHome` (symlink-aware, `realpath`-based) and `isAbsolutePathAllowedUnderRoots`. There are unit and integration tests covering `..` escape and symlink escape. `**POST /api/chat` `context.files`** uses the same checks (`safeWikiRelativePath` + `resolvePathStrictlyUnderHome`) before reading wiki files into the LLM prompt.
 - **Multi-tenant wiki/search isolation is tested** (`multi-tenant-isolation.test.ts`): session A cannot see session B's files; missing session → 401.
 - **OAuth uses PKCE** (not just `state`) for the authorization code exchange.
 - **Embed key comparison uses `timingSafeEqual`** (constant-time) from `node:crypto`.
@@ -296,6 +270,7 @@ await execRipmailAsync(`${ripmailBin()} archive ${id}`)
 - **Vault password uses scrypt** (memory-hard KDF), not bcrypt or plain SHA.
 - **Cookie is `httpOnly`** (not accessible to JS).
 - **App port `:4000` is firewall-restricted to the LB only** — not open to the public internet.
+- **Admin SSH to the staging host** is not exposed as **public TCP/22**; operator access is over the **tailnet** (subsection *Hosted staging — operator and network access* above) plus hardened `sshd` ([DEPLOYMENT.md](DEPLOYMENT.md)).
 - **Tenant context uses `AsyncLocalStorage`** — no global mutable tenant state, no risk of cross-request tenant bleed in async chains.
 
 ---

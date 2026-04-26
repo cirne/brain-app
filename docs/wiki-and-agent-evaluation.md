@@ -17,7 +17,7 @@ This note captures the **problem** (what we need to learn and measure) and frame
 
 **Inputs** might include: a fixed corpus of **emails** (or threads), and summary stats such as **terms** and **tokens** in the generated or evolved wiki.
 
-**The hard part** is the **subjective** quality of that wiki: coverage, accuracy, link utility, whether pages **compound** (Karpathy-style) vs duplicate mail, and whether maintenance agents improve or erode trust. It is not obvious how to **codify** “good wiki” in a way that is **stable, comparable across runs, and not just a proxy for model verbosity**.
+**The hard part** is the **subjective** quality of that wiki: coverage, accuracy, link utility, whether pages **compound** (Karpathy-style, see [karpathy-llm-wiki-post.md](./karpathy-llm-wiki-post.md)) vs duplicate mail, and whether maintenance agents improve or erode trust. It is not obvious how to **codify** “good wiki” in a way that is **stable, comparable across runs, and not just a proxy for model verbosity**.
 
 **Open threads:**
 

@@ -27,6 +27,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 ## Developer docs
 
 - [docs/VISION.md](docs/VISION.md) — product vision and long-term direction
+- [docs/karpathy-llm-wiki-post.md](docs/karpathy-llm-wiki-post.md) — Karpathy *LLM Wiki* (wiki half of the product idea; [gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f))
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, configuration overview (brain-app)
 - [docs/architecture/](docs/architecture/) — ADRs and recorded considerations (indexed in [README](docs/architecture/README.md)); ripmail crate: `[ripmail/docs/ARCHITECTURE.md](ripmail/docs/ARCHITECTURE.md)`
 - [docs/digitalocean.md](docs/digitalocean.md) — DigitalOcean CLI (`doctl`): teams, API tokens, named contexts, BrainTunnel helper script

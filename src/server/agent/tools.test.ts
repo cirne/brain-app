@@ -488,6 +488,28 @@ Sel: {{selection}} File: {{open_file}}`,
       expect(out.details).toMatchObject({ path: 'scratch/my-title-here.md', requestedPath: 'scratch/My Title Here.md' })
     })
 
+    it('write tool rejects disallowed vault-root markdown and lists top-level directories', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const write = tools.find((t) => t.name === 'write')!
+      await expect(
+        write.execute('write-root-bad', { path: 'Stray Topic.md', content: '# X\n' }),
+      ).rejects.toThrow(/subdirectory of the wiki/i)
+      await expect(
+        write.execute('write-root-bad', { path: 'Stray Topic.md', content: '# X\n' }),
+      ).rejects.toThrow(/ideas/)
+    })
+
+    it('write tool still allows canonical vault-root index.md', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const write = tools.find((t) => t.name === 'write')!
+      await write.execute('write-index-ok', { path: 'index.md', content: '# Home\nok\n' })
+      const { readFile } = await import('node:fs/promises')
+      const body = await readFile(join(wikiDir, 'index.md'), 'utf8')
+      expect(body).toContain('ok')
+    })
+
     it('does not append when edit fails', async () => {
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
@@ -868,9 +890,9 @@ fi
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const move = tools.find((t) => t.name === 'move_file')!
-      const result = await move.execute('mv-2', { from: 'index.md', to: 'Home Renamed.md' })
+      const result = await move.execute('mv-2', { from: 'index.md', to: 'ideas/Home Renamed.md' })
       const text = toolResultFirstText(result)
-      expect(text).toContain('home-renamed.md')
+      expect(text).toContain('ideas/home-renamed.md')
       expect(text).toContain('Home Renamed.md')
     })
 
@@ -884,12 +906,23 @@ fi
     })
 
     it('move_file fails when destination exists', async () => {
+      const { writeFile } = await import('node:fs/promises')
+      await writeFile(join(wikiDir, 'ideas', 'bar.md'), '# Bar\n')
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const move = tools.find((t) => t.name === 'move_file')!
       await expect(
-        move.execute('mv-dup', { from: 'ideas/foo.md', to: 'index.md' }),
+        move.execute('mv-dup', { from: 'ideas/foo.md', to: 'ideas/bar.md' }),
       ).rejects.toThrow('already exists')
+    })
+
+    it('move_file rejects destination at disallowed vault root', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const move = tools.find((t) => t.name === 'move_file')!
+      await expect(
+        move.execute('mv-root', { from: 'ideas/foo.md', to: 'Orphan Note.md' }),
+      ).rejects.toThrow(/subdirectory of the wiki/i)
     })
 
     it('delete_file removes a wiki file and appends history', async () => {

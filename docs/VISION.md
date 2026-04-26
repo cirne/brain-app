@@ -14,11 +14,13 @@ We use **wiki** on purpose: it is a familiar pattern—**linked text pages** (li
 
 ## Inspiration
 
-**Andrej Karpathy's second brain workflow** — Karpathy writes about maintaining a personal knowledge base in an Obsidian vault: notes, links, people, ideas, all cross-referenced and searchable. The insight is that the value of a knowledge base isn't in any single note — it's in the network of connections that builds up over time, and in having a single place to put things so they're not lost.
+The product idea has **two conceptual halves** that we combine: (1) **LLM-maintained personal wiki** — a persistent, compounding markdown layer, not RAG re-discovery every session, and (2) **queryable personal mail** — [ripmail](../ripmail/README.md) (indexed email as rich ground truth). This doc is the outcome; the canonical statement of the wiki half is Andrej Karpathy’s **[LLM Wiki](karpathy-llm-wiki-post.md)** (full [gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)).
+
+**Andrej Karpathy — LLM Wiki** — Karpathy’s pattern: raw sources, a **wiki** the LLM owns (ingest, query, lint), and a **schema** (`AGENTS.md`-style) that keeps the agent disciplined. The insight is that the value isn’t in any single note; it’s in **accumulation** (cross-references, contradictions flagged, synthesis kept current) and in **bookkeeping at scale** — the maintenance humans abandon. [Read the full post in our docs](karpathy-llm-wiki-post.md).
 
 **ripmail** — Email is the richest personal data source most people have. It contains your relationships (who you talk to, about what, how often), your history (travel, purchases, projects), and signals about what matters to you. ripmail makes that data actually queryable. Combine a searchable email index with a growing wiki and you have the raw material for a genuinely personalized assistant.
 
-The combination: a wiki that you (and the assistant) actively maintain, grounded by email and calendar data, queried through natural language. The Obsidian vault, but one that builds itself.
+The combination: a wiki that you (and the assistant) actively maintain, grounded by email and calendar data, queried through natural language. The Obsidian-style vault Karpathy describes, but productized: **wiki half + mail half.**
 
 ---
 
@@ -62,3 +64,4 @@ No setup wizard. No configuration files. No explaining yourself. It just works, 
 - A replacement for email or calendar apps. It's a layer on top of them.
 - A team tool. The unit is a person, not an organization. Every user has their own Braintunnel.
 - An Obsidian plugin or a notes app. The wiki is a means to an end — grounding the assistant — not the primary interface.
+

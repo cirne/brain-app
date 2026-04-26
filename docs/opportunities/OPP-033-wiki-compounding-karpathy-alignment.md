@@ -2,7 +2,7 @@
 
 ## Why this exists
 
-Several threads converge on the same risk: **ripmail is rich ground truth**, but the **wiki’s reason to exist** is **amortized synthesis** (cross-links, stable entity pages, explicit contradictions, compounding over time)—not a second copy of mail. Andrej Karpathy’s **[LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)** pattern stresses **ingest → query → lint**, a **persistent compounding artifact**, and **bookkeeping at scale** (many files per pass). Brain’s [VISION.md](../VISION.md) cites that inspiration; [the-wiki-question.md](../the-wiki-question.md) poses open questions about **when** the wiki pays off vs **re-querying mail**.
+Several threads converge on the same risk: **ripmail is rich ground truth**, but the **wiki’s reason to exist** is **amortized synthesis** (cross-links, stable entity pages, explicit contradictions, compounding over time)—not a second copy of mail. Andrej Karpathy’s **[LLM Wiki](../karpathy-llm-wiki-post.md)** pattern ([gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)) stresses **ingest → query → lint**, a **persistent compounding artifact**, and **bookkeeping at scale** (many files per pass). Brain’s [VISION.md](../VISION.md) cites that inspiration; [the-wiki-question.md](../the-wiki-question.md) poses open questions about **when** the wiki pays off vs **re-querying mail**.
 
 This opportunity is the **product/engineering umbrella** for closing the gap: **make the wiki earn its keep** without opening ten separate initiatives.
 

@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { safeWikiRelativePath } from './wikiEditDiff.js'
+import { isAgentWikiRootMarkdownWriteBlocked } from './wikiAgentWritePolicy.js'
 import { resolveWikiPathForCreate } from './wikiPathNaming.js'
 
 /** Only persist when the path looks like a markdown file — avoids creating a file named `trips` while `trips/foo.md` is still streaming in JSON. */
@@ -24,6 +25,7 @@ export async function writeWikiPartialFromStreamingWriteArgs(wikiRoot: string, t
   } catch {
     return
   }
+  if (isAgentWikiRootMarkdownWriteBlocked(writeRel)) return
   const content = (args as { content?: unknown }).content
   const body = typeof content === 'string' ? content : ''
   const abs = join(wikiRoot, writeRel)
