@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { setContext } from 'svelte'
   import {
     Archive,
     Calendar as CalendarIcon,
@@ -25,9 +24,14 @@
   import HubAddFoldersPanel from '../HubAddFoldersPanel.svelte'
   import WikiFileName from '../WikiFileName.svelte'
   import PaneL2Header from '../PaneL2Header.svelte'
-  import type { Overlay } from '@client/lib/router.js'
-  import type { SurfaceContext } from '@client/lib/router.js'
-  import { shouldDismissMobileSwipe, isInteractiveTarget, swipeDirection } from '@client/lib/slideOverMobile.js'
+  import type { Overlay, SurfaceContext } from '@client/lib/router.js'
+  import { createSlideHeaderRegistration } from '@client/lib/slideHeaderContextRegistration.svelte.js'
+  import { createSlideOverMobilePanel } from '@client/lib/slideOverMobilePanel.svelte.js'
+  import {
+    emailThreadTitleForSlideOver,
+    messagesTitleForSlideOver,
+    titleForOverlay,
+  } from '@client/lib/slideOverHeader.js'
   import {
     CALENDAR_SLIDE_HEADER,
     type CalendarSlideHeaderState,
@@ -43,7 +47,6 @@
   import {
     INBOX_THREAD_HEADER,
     type InboxThreadHeaderActions,
-    type RegisterInboxThreadHeader,
   } from '@client/lib/inboxSlideHeaderContext.js'
   import { Pause, Play } from 'lucide-svelte'
   import { parseWikiDirSegments, wikiDirPathPrefix } from '@client/lib/wikiDirBreadcrumb.js'
@@ -114,65 +117,14 @@
     onOpenWikiAbout,
   }: Props = $props()
 
-  let rootEl = $state<HTMLDivElement | undefined>()
-  let slideBodyEl = $state<HTMLDivElement | undefined>()
-  let panelW = $state(0)
-  /** Rightward offset (px); 0 = fully visible, full width = off-screen right. */
-  let slidePx = $state(0)
-  let transitionEnabled = $state(false)
-  let closing = $state(false)
-  let enterStarted = $state(false)
-  /** 'idle' | 'pending' (waiting for direction lock) | 'dragging' (captured) */
-  let swipeState = $state<'idle' | 'pending' | 'dragging'>('idle')
-  let swipeStartX = 0
-  let swipeStartY = 0
-  let swipeStartSlidePx = 0
-  let lastX = 0
-  let lastT = 0
-  let velocity = 0
-  let swipePointerId = -1
-
-  function effectiveW(): number {
-    if (panelW > 0) return panelW
-    if (typeof window !== 'undefined') return window.innerWidth
-    return 400
-  }
-
-  $effect(() => {
-    if (!mobilePanel || enterStarted) return
-    const w = effectiveW()
-    if (w <= 0) return
-    enterStarted = true
-    slidePx = w
-    transitionEnabled = false
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        transitionEnabled = true
-        slidePx = 0
-      })
-    })
+  const mobile = createSlideOverMobilePanel({
+    getMobilePanel: () => mobilePanel,
+    getOnClose: () => onClose,
   })
-
-  function beginCloseAnimation() {
-    const w = effectiveW()
-    if (slidePx >= w - 0.5) {
-      closing = false
-      onClose()
-      return
-    }
-    closing = true
-    transitionEnabled = true
-    slidePx = w
-  }
 
   /** Animated slide off to the right, then `onClose` (for mobile + Escape). */
   export function closeAnimated() {
-    if (!mobilePanel) {
-      onClose()
-      return
-    }
-    swipeState = 'idle'
-    beginCloseAnimation()
+    mobile.closeAnimated()
   }
 
   function onBackOrHeaderClose() {
@@ -180,132 +132,25 @@
     else onClose()
   }
 
-  function onPointerDown(e: PointerEvent) {
-    if (!mobilePanel || closing || swipeState !== 'idle') return
-    if (e.pointerType === 'mouse' && e.button !== 0) return
-    if (isInteractiveTarget(e.target)) return
-    swipeState = 'pending'
-    swipePointerId = e.pointerId
-    swipeStartX = e.clientX
-    swipeStartY = e.clientY
-    swipeStartSlidePx = slidePx
-    lastX = e.clientX
-    lastT = performance.now()
-    velocity = 0
-  }
+  const emailHeaderTitle = $derived(emailThreadTitleForSlideOver(overlay, surfaceContext))
+  const messagesHeaderTitle = $derived(messagesTitleForSlideOver(overlay, surfaceContext))
 
-  function onPointerMove(e: PointerEvent) {
-    if (!mobilePanel || e.pointerId !== swipePointerId) return
-
-    if (swipeState === 'pending') {
-      const dx = e.clientX - swipeStartX
-      const dy = e.clientY - swipeStartY
-      const dir = swipeDirection(dx, dy)
-      if (dir === 'undecided') return
-      if (dir === 'scroll') { swipeState = 'idle'; return }
-      // Confirmed rightward swipe — capture pointer and start dragging
-      slideBodyEl?.setPointerCapture(e.pointerId)
-      swipeState = 'dragging'
-      transitionEnabled = false
-    }
-
-    if (swipeState !== 'dragging') return
-    const delta = e.clientX - swipeStartX
-    slidePx = Math.min(effectiveW(), swipeStartSlidePx + Math.max(0, delta))
-    const t = performance.now()
-    const dt = t - lastT
-    if (dt > 0) velocity = (e.clientX - lastX) / dt
-    lastX = e.clientX
-    lastT = t
-  }
-
-  function onPointerEnd(e: PointerEvent) {
-    if (!mobilePanel || e.pointerId !== swipePointerId) return
-    if (swipeState === 'dragging') {
-      if (slideBodyEl?.hasPointerCapture(e.pointerId)) slideBodyEl.releasePointerCapture(e.pointerId)
-      transitionEnabled = true
-      if (shouldDismissMobileSwipe(slidePx, effectiveW(), velocity)) {
-        beginCloseAnimation()
-      } else {
-        slidePx = 0
-      }
-    }
-    swipeState = 'idle'
-  }
-
-  function onPanelTransitionEnd(e: TransitionEvent) {
-    if (!mobilePanel || e.propertyName !== 'transform') return
-    if (!closing) return
-    closing = false
-    onClose()
-  }
-
-  const emailHeaderTitle = $derived.by((): string | null => {
-    if (overlay.type !== 'email' || !overlay.id) return null
-    if (surfaceContext.type !== 'email') return null
-    if (surfaceContext.threadId !== overlay.id) return null
-    const s = surfaceContext.subject?.trim()
-    if (!s || s === '(loading)') return null
-    return s
-  })
-
-  const messagesHeaderTitle = $derived.by((): string | null => {
-    if (overlay.type !== 'messages' || !overlay.chat) return null
-    if (surfaceContext.type !== 'messages') return null
-    if (surfaceContext.chat !== overlay.chat) return null
-    const s = surfaceContext.displayLabel?.trim()
-    if (!s || s === '(loading)') return null
-    return s
-  })
-
-  function titleForOverlay(o: Overlay): string {
-    if (o.type === 'wiki' || o.type === 'wiki-dir') return 'Docs'
-    if (o.type === 'file') return 'File'
-    if (o.type === 'email') return 'Inbox'
-    if (o.type === 'messages') return 'Messages'
-    if (o.type === 'phone-access') return 'Connect Phone'
-    if (o.type === 'your-wiki') return 'Your Wiki'
-    if (o.type === 'hub-source') return 'Search index source'
-    if (o.type === 'hub-add-folders') return 'Add folders to index'
-    if (o.type === 'hub-wiki-about') return 'Your wiki'
-    return 'Calendar'
-  }
-
-  let calendarHeader = $state<CalendarSlideHeaderState | null>(null)
-  function registerCalendarHeader(state: CalendarSlideHeaderState | null) {
-    calendarHeader = state
-  }
-  setContext(CALENDAR_SLIDE_HEADER, registerCalendarHeader)
-
-  let wikiHeader = $state<WikiSlideHeaderState | null>(null)
-  function registerWikiHeader(state: WikiSlideHeaderState | null) {
-    wikiHeader = state
-  }
-  setContext(WIKI_SLIDE_HEADER, registerWikiHeader)
-
-  let yourWikiHeader = $state<YourWikiHeaderState | null>(null)
-  function registerYourWikiHeader(state: YourWikiHeaderState | null) {
-    yourWikiHeader = state
-  }
-  setContext(YOUR_WIKI_HEADER, registerYourWikiHeader)
-
-  let inboxThreadHeader = $state<InboxThreadHeaderActions | null>(null)
-  const registerInboxThreadHeader: RegisterInboxThreadHeader = (state) => {
-    inboxThreadHeader = state
-  }
-  setContext(INBOX_THREAD_HEADER, registerInboxThreadHeader)
+  const calendarHdr = createSlideHeaderRegistration<CalendarSlideHeaderState>(CALENDAR_SLIDE_HEADER)
+  const wikiHdr = createSlideHeaderRegistration<WikiSlideHeaderState>(WIKI_SLIDE_HEADER)
+  const yourWikiHdr = createSlideHeaderRegistration<YourWikiHeaderState>(YOUR_WIKI_HEADER)
+  const inboxHdr = createSlideHeaderRegistration<InboxThreadHeaderActions>(INBOX_THREAD_HEADER)
 </script>
 
 <div
-  bind:this={rootEl}
-  bind:clientWidth={panelW}
+  bind:this={mobile.rootEl}
+  bind:clientWidth={mobile.panelW}
   class="slide-over"
   class:mobile-slide={mobilePanel}
-  class:slide-anim={mobilePanel && transitionEnabled}
-  class:dragging={mobilePanel && swipeState === 'dragging'}
+  class:slide-anim={mobilePanel && mobile.transitionEnabled}
+  class:dragging={mobilePanel && mobile.swipeState === 'dragging'}
   data-overlay={overlay.type}
-  style:transform={mobilePanel ? `translateX(${slidePx}px)` : undefined}
-  ontransitionend={onPanelTransitionEnd}
+  style:transform={mobilePanel ? `translateX(${mobile.slidePx}px)` : undefined}
+  ontransitionend={mobile.onPanelTransitionEnd}
 >
   <PaneL2Header>
     {#snippet left()}
@@ -316,21 +161,21 @@
       </button>
     {/snippet}
     {#snippet center()}
-      {#if overlay.type === 'calendar' && calendarHeader}
+      {#if overlay.type === 'calendar' && calendarHdr.current}
         <div class="cal-week-inline" aria-label="Week navigation">
           <button
             type="button"
             class="cal-nav-btn"
-            onclick={calendarHeader.prevWeek}
+            onclick={calendarHdr.current.prevWeek}
             aria-label="Previous week"
           >
             &#8592;
           </button>
-          <span class="cal-week-label">{calendarHeader.weekLabel}</span>
+          <span class="cal-week-label">{calendarHdr.current.weekLabel}</span>
           <button
             type="button"
             class="cal-nav-btn"
-            onclick={calendarHeader.nextWeek}
+            onclick={calendarHdr.current.nextWeek}
             aria-label="Next week"
           >
             &#8594;
@@ -390,20 +235,20 @@
               <MessageSquare size={14} strokeWidth={2} aria-hidden="true" />
               <span class="slide-title-email-text">{messagesHeaderTitle}</span>
             </span>
-          {:else if overlay.type === 'your-wiki' && yourWikiHeader?.doc}
+          {:else if overlay.type === 'your-wiki' && yourWikiHdr.current?.doc}
             <div class="your-wiki-header-center">
               <span class="slide-title">{titleForOverlay(overlay)}</span>
               <div class="your-wiki-status-inline">
-                <span class="phase-pill-mini" class:active={['starting', 'enriching', 'cleaning'].includes(yourWikiHeader.doc.phase)}>
-                  {yourWikiHeader.doc.phase === 'starting' ? 'Starting' :
-                   yourWikiHeader.doc.phase === 'enriching' ? 'Enriching' :
-                   yourWikiHeader.doc.phase === 'cleaning' ? 'Cleaning up' :
-                   yourWikiHeader.doc.phase === 'paused' ? 'Paused' :
-                   yourWikiHeader.doc.phase === 'error' ? 'Error' :
+                <span class="phase-pill-mini" class:active={['starting', 'enriching', 'cleaning'].includes(yourWikiHdr.current.doc.phase)}>
+                  {yourWikiHdr.current.doc.phase === 'starting' ? 'Starting' :
+                   yourWikiHdr.current.doc.phase === 'enriching' ? 'Enriching' :
+                   yourWikiHdr.current.doc.phase === 'cleaning' ? 'Cleaning up' :
+                   yourWikiHdr.current.doc.phase === 'paused' ? 'Paused' :
+                   yourWikiHdr.current.doc.phase === 'error' ? 'Error' :
                    'Idle'}
                 </span>
-                {#if yourWikiHeader.doc.pageCount > 0}
-                  <span class="page-count-mini">{yourWikiHeader.doc.pageCount} pages</span>
+                {#if yourWikiHdr.current.doc.pageCount > 0}
+                  <span class="page-count-mini">{yourWikiHdr.current.doc.pageCount} pages</span>
                 {/if}
               </div>
             </div>
@@ -414,24 +259,24 @@
       {/if}
     {/snippet}
     {#snippet right()}
-      {#if overlay.type === 'your-wiki' && yourWikiHeader}
+      {#if overlay.type === 'your-wiki' && yourWikiHdr.current}
         <div class="your-wiki-header-actions">
-          {#if ['starting', 'enriching', 'cleaning', 'idle'].includes(yourWikiHeader.doc?.phase ?? '') && yourWikiHeader.doc?.phase !== 'paused'}
+          {#if ['starting', 'enriching', 'cleaning', 'idle'].includes(yourWikiHdr.current.doc?.phase ?? '') && yourWikiHdr.current.doc?.phase !== 'paused'}
             <button
               type="button"
               class="header-action-btn"
-              disabled={yourWikiHeader.actionBusy}
-              onclick={yourWikiHeader.pause}
+              disabled={yourWikiHdr.current.actionBusy}
+              onclick={yourWikiHdr.current.pause}
               title="Pause the wiki loop"
             >
               <Pause size={14} aria-hidden="true" />
             </button>
-          {:else if yourWikiHeader.doc?.phase === 'paused' || yourWikiHeader.doc?.phase === 'error'}
+          {:else if yourWikiHdr.current.doc?.phase === 'paused' || yourWikiHdr.current.doc?.phase === 'error'}
             <button
               type="button"
               class="header-action-btn header-action-btn-primary"
-              disabled={yourWikiHeader.actionBusy}
-              onclick={yourWikiHeader.resume}
+              disabled={yourWikiHdr.current.actionBusy}
+              onclick={yourWikiHdr.current.resume}
               title="Resume the wiki loop"
             >
               <Play size={14} aria-hidden="true" />
@@ -439,12 +284,12 @@
           {/if}
         </div>
       {/if}
-      {#if overlay.type === 'calendar' && calendarHeader}
+      {#if overlay.type === 'calendar' && calendarHdr.current}
         <button
           type="button"
           class="cal-header-icon-btn"
-          onclick={calendarHeader.goToday}
-          disabled={calendarHeader.headerBusy}
+          onclick={calendarHdr.current.goToday}
+          disabled={calendarHdr.current.headerBusy}
           title="Today"
           aria-label="Today"
         >
@@ -453,34 +298,34 @@
         <button
           type="button"
           class="cal-header-icon-btn"
-          onclick={calendarHeader.refreshCalendars}
-          disabled={calendarHeader.headerBusy}
+          onclick={calendarHdr.current.refreshCalendars}
+          disabled={calendarHdr.current.headerBusy}
           title="Refresh calendars"
           aria-label="Refresh calendars"
         >
-          <span class:cal-refresh-spin={calendarHeader.headerBusy}>
+          <span class:cal-refresh-spin={calendarHdr.current.headerBusy}>
             <RefreshCw size={18} strokeWidth={2} aria-hidden="true" />
           </span>
         </button>
       {/if}
-      {#if overlay.type === 'wiki' && wikiHeader}
-        {#if wikiHeader.saveState === 'saving'}
+      {#if overlay.type === 'wiki' && wikiHdr.current}
+        {#if wikiHdr.current.saveState === 'saving'}
           <span class="wiki-save-hint" role="status">Saving…</span>
-        {:else if wikiHeader.saveState === 'saved'}
+        {:else if wikiHdr.current.saveState === 'saved'}
           <span class="wiki-save-hint" role="status">Saved</span>
-        {:else if wikiHeader.saveState === 'error'}
+        {:else if wikiHdr.current.saveState === 'error'}
           <span class="wiki-save-hint wiki-save-err" role="status">Save failed</span>
         {/if}
         <button
           type="button"
           class="wiki-edit-btn"
-          class:active={wikiHeader.pageMode === 'edit'}
-          disabled={!wikiHeader.canEdit}
-          onclick={() => wikiHeader?.setPageMode(wikiHeader.pageMode === 'edit' ? 'view' : 'edit')}
-          title={wikiHeader.pageMode === 'edit' ? 'View' : 'Edit'}
-          aria-label={wikiHeader.pageMode === 'edit' ? 'Switch to view mode' : 'Switch to edit mode'}
+          class:active={wikiHdr.current.pageMode === 'edit'}
+          disabled={!wikiHdr.current.canEdit}
+          onclick={() => wikiHdr.current?.setPageMode(wikiHdr.current.pageMode === 'edit' ? 'view' : 'edit')}
+          title={wikiHdr.current.pageMode === 'edit' ? 'View' : 'Edit'}
+          aria-label={wikiHdr.current.pageMode === 'edit' ? 'Switch to view mode' : 'Switch to edit mode'}
         >
-          {#if wikiHeader.pageMode === 'edit'}
+          {#if wikiHdr.current.pageMode === 'edit'}
             <Save size={15} strokeWidth={2} aria-hidden="true" />
           {:else}
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -489,12 +334,12 @@
           {/if}
         </button>
       {/if}
-      {#if overlay.type === 'email' && inboxThreadHeader}
+      {#if overlay.type === 'email' && inboxHdr.current}
         <div class="inbox-thread-header-actions" role="toolbar" aria-label="Thread actions">
           <button
             type="button"
             class="inbox-thread-header-btn"
-            onclick={() => inboxThreadHeader?.onReply()}
+            onclick={() => inboxHdr.current?.onReply()}
             title="Reply"
             aria-label="Reply"
           >
@@ -503,7 +348,7 @@
           <button
             type="button"
             class="inbox-thread-header-btn"
-            onclick={() => inboxThreadHeader?.onForward()}
+            onclick={() => inboxHdr.current?.onForward()}
             title="Forward"
             aria-label="Forward"
           >
@@ -512,7 +357,7 @@
           <button
             type="button"
             class="inbox-thread-header-btn"
-            onclick={() => inboxThreadHeader?.onArchive()}
+            onclick={() => inboxHdr.current?.onArchive()}
             title="Archive"
             aria-label="Archive thread"
           >
@@ -544,13 +389,13 @@
   </PaneL2Header>
   <div
     class="slide-body"
-    bind:this={slideBodyEl}
+    bind:this={mobile.slideBodyEl}
     role={mobilePanel ? 'region' : undefined}
     aria-label={mobilePanel ? 'Detail content' : undefined}
-    onpointerdown={onPointerDown}
-    onpointermove={onPointerMove}
-    onpointerup={onPointerEnd}
-    onpointercancel={onPointerEnd}
+    onpointerdown={mobile.onPointerDown}
+    onpointermove={mobile.onPointerMove}
+    onpointerup={mobile.onPointerEnd}
+    onpointercancel={mobile.onPointerEnd}
   >
     {#if overlay.type === 'wiki'}
       <Wiki

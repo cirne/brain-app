@@ -1,3 +1,10 @@
+/** Width used for slide math: measured panel, then window, then SSR fallback. */
+export function effectiveSlidePanelWidth(panelW: number): number {
+  if (panelW > 0) return panelW
+  if (typeof window !== 'undefined') return window.innerWidth
+  return 400
+}
+
 /**
  * Whether to finish dismissing after pointer up.
  * @param dragPx — rightward offset from the open position (px)

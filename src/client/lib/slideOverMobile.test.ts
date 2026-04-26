@@ -1,5 +1,23 @@
-import { describe, expect, it } from 'vitest'
-import { shouldDismissMobileSwipe, swipeDirection } from './slideOverMobile.js'
+import { describe, expect, it, vi } from 'vitest'
+import { effectiveSlidePanelWidth, shouldDismissMobileSwipe, swipeDirection } from './slideOverMobile.js'
+
+describe('effectiveSlidePanelWidth', () => {
+  it('uses panel width when positive', () => {
+    expect(effectiveSlidePanelWidth(320)).toBe(320)
+  })
+
+  it('falls back to window.innerWidth when panel is 0', () => {
+    vi.stubGlobal('window', { innerWidth: 390 })
+    expect(effectiveSlidePanelWidth(0)).toBe(390)
+    vi.unstubAllGlobals()
+  })
+
+  it('uses 400 when window is undefined', () => {
+    vi.stubGlobal('window', undefined)
+    expect(effectiveSlidePanelWidth(0)).toBe(400)
+    vi.unstubAllGlobals()
+  })
+})
 
 describe('shouldDismissMobileSwipe', () => {
   it('dismisses when dragged past ~22% of width', () => {
