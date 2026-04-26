@@ -65,7 +65,7 @@ describe('Wiki.svelte', () => {
       expect(screen.getByTestId('tiptap-editor-stub')).toBeInTheDocument()
     })
 
-    wikiHeaderRef.current!.setPageMode('view')
+    await wikiHeaderRef.current!.setPageMode('view')
 
     await waitFor(() => {
       expect(patch).toHaveBeenCalled()

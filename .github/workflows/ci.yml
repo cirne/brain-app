@@ -52,3 +52,20 @@ jobs:
 
       - name: Full CI (JS + brain Rust)
         run: npm run ci
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e "
+              const c = require('./coverage/coverage-summary.json').total;
+              const fmt = (m) => m.pct.toFixed(1) + '%';
+              console.log('## Test Coverage\n');
+              console.log('| Metric | Coverage |');
+              console.log('|--------|----------|');
+              console.log('| Lines | ' + fmt(c.lines) + ' |');
+              console.log('| Statements | ' + fmt(c.statements) + ' |');
+              console.log('| Functions | ' + fmt(c.functions) + ' |');
+              console.log('| Branches | ' + fmt(c.branches) + ' |');
+            " >> $GITHUB_STEP_SUMMARY
+          fi
