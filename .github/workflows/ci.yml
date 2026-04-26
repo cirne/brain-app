@@ -1,5 +1,5 @@
-# Lint + test TypeScript app; Rust: workspace rustfmt, brain (Tauri) clippy + lib tests.
-# Ripmail crate: see ripmail-ci.yml.
+# Parallel CI: Node app, ripmail crate, Docker image.
+# Desktop (Tauri) build is manual-only.
 
 name: CI
 
@@ -7,9 +7,16 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      build_desktop:
+        description: 'Build desktop (Tauri) crate'
+        type: boolean
+        default: false
 
 jobs:
-  ci:
+  node:
+    name: Node (lint, typecheck, test)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,38 +26,10 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Install Node dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      # Tauri (`brain` / desktop) links GTK + WebKit on Linux; runners are minimal without these.
-      - name: Install Linux deps for Tauri (brain)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            curl \
-            file \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libssl-dev \
-            libwebkit2gtk-4.1-dev \
-            libxdo-dev \
-            wget
-
-      # Tauri build script validates externalBin paths at compile time; download the Linux sidecar.
-      - name: Download cloudflared sidecar (Linux)
-        run: node scripts/setup-sidecars.mjs
-
-      # Tauri build script also asserts that resource directories exist; create the stub so
-      # cargo clippy/test pass without a full desktop:bundle-server run.
-      - name: Create server-bundle stub (Linux CI)
-        run: mkdir -p desktop/resources/server-bundle
-
-      - name: Full CI (JS + brain Rust)
+      - name: Lint, typecheck, test
         run: npm run ci
 
       - name: Coverage summary
@@ -69,3 +48,126 @@ jobs:
               console.log('| Branches | ' + fmt(c.branches) + ' |');
             " >> $GITHUB_STEP_SUMMARY
           fi
+
+  ripmail:
+    name: Ripmail crate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: fmt, clippy, nextest
+        run: |
+          cargo fmt -p ripmail -- --check
+          cargo clippy -p ripmail -- -D warnings
+          cargo nextest run -p ripmail --profile ci
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build ripmail (Linux)
+        run: |
+          cargo build -p ripmail --release
+          mkdir -p .docker/linux-ripmail
+          cp target/release/ripmail .docker/linux-ripmail/ripmail
+
+      - name: Build Docker image
+        run: docker build -t brain-app:ci .
+
+  ripmail-release:
+    name: Ripmail binary release
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build ripmail (Linux x86_64)
+        run: cargo build -p ripmail --release
+
+      - name: Package binary
+        run: |
+          mkdir -p dist
+          cp target/release/ripmail dist/ripmail-linux-x86_64
+          chmod +x dist/ripmail-linux-x86_64
+          sha256sum dist/ripmail-linux-x86_64 > dist/ripmail-linux-x86_64.sha256
+
+      - name: Update rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ripmail-latest
+          name: Ripmail Latest (Linux x86_64)
+          body: |
+            Pre-built ripmail binary for Linux x86_64 (cloud agents).
+            Updated on each push to main.
+
+            ```sh
+            curl -fsSL https://github.com/${{ github.repository }}/releases/download/ripmail-latest/ripmail-linux-x86_64 -o ripmail
+            chmod +x ripmail
+            ```
+          files: |
+            dist/ripmail-linux-x86_64
+            dist/ripmail-linux-x86_64.sha256
+          prerelease: true
+          make_latest: false
+
+  desktop:
+    name: Desktop (Tauri crate)
+    if: github.event_name == 'workflow_dispatch' && inputs.build_desktop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install Linux deps for Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            wget
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Download cloudflared sidecar
+        run: node scripts/setup-sidecars.mjs
+
+      - name: Create server-bundle stub
+        run: mkdir -p desktop/resources/server-bundle
+
+      - name: fmt, clippy, test
+        run: |
+          cargo fmt -p brain -- --check
+          cargo clippy -p brain -- -D warnings
+          cargo test -p brain --lib

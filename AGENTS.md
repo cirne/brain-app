@@ -2,6 +2,8 @@
 
 Hono + Svelte + pi-agent-core web app: Chat (agentic), Wiki browser, and Inbox (ripmail). **Product name:** **Braintunnel** (macOS bundle: `Braintunnel.app`). The repository and many env vars remain `brain-app` / `BRAIN_*` for historical reasons.
 
+> **Cloud agents:** For fast setup without Rust/ripmail, see **[CLOUD-AGENTS.md](./CLOUD-AGENTS.md)**.
+
 ## Development rules
 
 ### Early development (no backward compatibility)
