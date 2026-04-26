@@ -1,0 +1,102 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import ChatHistory from './ChatHistory.svelte'
+import { render, screen, fireEvent, waitFor } from '@client/test/render.js'
+import { fetchChatSessionsWith401Retry } from '@client/lib/chatHistorySessions.js'
+import { loadNavHistory } from '@client/lib/navHistory.js'
+import { createChatSessionListItem } from '@client/test/fixtures/sessions.js'
+import { jsonResponse } from '@client/test/mocks/fetch.js'
+import {
+  chatHistoryTestProps,
+  stubDeleteChatFetch,
+} from '@client/test/helpers/index.js'
+
+vi.mock('@client/lib/chatHistorySessions.js', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@client/lib/chatHistorySessions.js')>()
+  return {
+    ...mod,
+    fetchChatSessionsWith401Retry: vi.fn(),
+  }
+})
+
+vi.mock('@client/lib/navHistory.js', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@client/lib/navHistory.js')>()
+  return {
+    ...mod,
+    loadNavHistory: vi.fn(),
+    removeFromNavHistory: vi.fn().mockResolvedValue(undefined),
+  }
+})
+
+const mockedFetchSessions = vi.mocked(fetchChatSessionsWith401Retry)
+const mockedLoadNav = vi.mocked(loadNavHistory)
+
+describe('ChatHistory.svelte', () => {
+  beforeEach(() => {
+    mockedLoadNav.mockResolvedValue([])
+  })
+
+  it('renders sessions from fetchChatSessionsWith401Retry', async () => {
+    mockedFetchSessions.mockResolvedValue(
+      jsonResponse([createChatSessionListItem({ title: 'Alpha thread', sessionId: 's1' })]),
+    )
+
+    render(ChatHistory, {
+      props: chatHistoryTestProps(),
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha thread')).toBeInTheDocument()
+    })
+  })
+
+  it('calls onSelect when a chat row is clicked', async () => {
+    mockedFetchSessions.mockResolvedValue(
+      jsonResponse([createChatSessionListItem({ sessionId: 'abc', title: 'Pick me' })]),
+    )
+
+    const props = chatHistoryTestProps()
+    render(ChatHistory, { props })
+
+    const row = await screen.findByText('Pick me')
+    await fireEvent.click(row.closest('[role="button"]')!)
+
+    expect(props.onSelect).toHaveBeenCalledWith('abc')
+  })
+
+  it('calls onNewChat when New chat is pressed', async () => {
+    mockedFetchSessions.mockResolvedValue(jsonResponse([]))
+
+    const props = chatHistoryTestProps()
+    render(ChatHistory, { props })
+
+    await fireEvent.click(await screen.findByRole('button', { name: /new chat/i }))
+    expect(props.onNewChat).toHaveBeenCalled()
+  })
+
+  it('DELETEs session after confirm on trash', async () => {
+    mockedFetchSessions.mockResolvedValue(
+      jsonResponse([createChatSessionListItem({ sessionId: 'del-me', title: 'Trash me' })]),
+    )
+
+    const del = vi.fn(() => Promise.resolve(new Response(null, { status: 204 })))
+    stubDeleteChatFetch('del-me', del)
+
+    const props = chatHistoryTestProps()
+    render(ChatHistory, { props })
+
+    await screen.findByText('Trash me')
+
+    const deleteButtons = screen.getAllByRole('button', { name: /delete chat|remove from history/i })
+    await fireEvent.click(deleteButtons[0]!)
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: /delete chat/i })).toBeInTheDocument()
+    })
+
+    await fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
+
+    await waitFor(() => {
+      expect(del).toHaveBeenCalled()
+    })
+  })
+})

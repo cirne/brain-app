@@ -24,11 +24,19 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 
 ---
 
+## Testing
+
+- **Server and `src/client/lib`**: Vitest with the **Node** environment; co-located `*.test.ts` (see [`vitest.config.ts`](../vitest.config.ts) `server` project).
+- **Svelte components** (`src/client/components/*.test.ts`): Vitest **jsdom** project, `@testing-library/svelte`, shared mocks/fixtures under [`src/client/test/`](../src/client/test/). Details: **[component-testing.md](component-testing.md)**.
+
+---
+
 ## Where to read next
 
 
 | Topic                                                  | Doc                                                                            |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Svelte component tests (Vitest, Testing Library)     | [component-testing.md](component-testing.md)                                   |
 | Product vision, Karpathy “LLM Wiki” (wiki half) + ripmail (mail half) | [VISION.md](VISION.md) · [karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md) |
 | HTTP routing, auth, periodic sync, native app ports    | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md)       |
 | Client UI: latest-wins async / overlapping `fetch`    | [architecture/client-async-latest.md](architecture/client-async-latest.md)     |

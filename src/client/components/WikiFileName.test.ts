@@ -1,0 +1,30 @@
+import { describe, it, expect } from 'vitest'
+import WikiFileName from './WikiFileName.svelte'
+import { render, screen } from '@client/test/render.js'
+
+describe('WikiFileName.svelte', () => {
+  it('shows profile affordance for me.md', () => {
+    render(WikiFileName, { props: { path: 'me.md' } })
+    expect(screen.getByTitle('Profile (me.md)')).toBeInTheDocument()
+    expect(screen.getByText('Me')).toBeInTheDocument()
+  })
+
+  it('shows My Wiki for vault root index', () => {
+    render(WikiFileName, { props: { path: 'index.md' } })
+    expect(screen.getByTitle('My Wiki')).toBeInTheDocument()
+    expect(screen.getByText('My Wiki')).toBeInTheDocument()
+  })
+
+  it('shows folder icon and title-cased name for known dirs', () => {
+    render(WikiFileName, { props: { path: 'ideas/some-topic.md' } })
+    expect(screen.getByTitle('ideas/')).toBeInTheDocument()
+    expect(screen.getByText('Some Topic')).toBeInTheDocument()
+  })
+
+  it('dims text when unsaved', () => {
+    const { container } = render(WikiFileName, {
+      props: { path: 'notes/draft.md', unsaved: true },
+    })
+    expect(container.querySelector('.opacity-90')).toBeTruthy()
+  })
+})
