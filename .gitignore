@@ -13,7 +13,7 @@ data-multitenant/
 # Eval home + zip cache (see eval/README.md)
 data-eval/
 # Local wiki tree (markdown); not part of this app repo
-wiki/
+/wiki/
 coverage/
 target/
 # Linux ripmail ELF staged for Docker COPY (npm run docker:ripmail:build)

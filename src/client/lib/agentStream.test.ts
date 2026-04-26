@@ -1,11 +1,16 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { consumeAgentChatStream } from './agentStream.js'
 import type { ChatMessage } from './agentUtils.js'
 import { playBrainTtsBlob } from './brainTtsAudio.js'
+import * as appEvents from './app/appEvents.js'
 
 vi.mock('./brainTtsAudio.js', () => ({
   playBrainTtsBlob: vi.fn().mockResolvedValue(undefined),
   primeBrainTtsFromUserGesture: vi.fn(),
+}))
+
+vi.mock('./app/appEvents.js', () => ({
+  emit: vi.fn(),
 }))
 
 function sseResponse(chunks: string[]): Response {
@@ -341,6 +346,961 @@ describe('consumeAgentChatStream', () => {
       suppressAgentDetailAutoOpen: false,
       isActiveSession: () => true,
       isHearRepliesEnabled: () => false,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(playBrainTtsBlob)).not.toHaveBeenCalled()
+  })
+
+  it('returns early when response body is null', async () => {
+    const res = new Response(null)
+    const { touchedWiki, sawDone } = await consumeAgentChatStream(res, {
+      getMessages: () => [],
+      msgIdx: 0,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(touchedWiki).toBe(false)
+    expect(sawDone).toBe(false)
+  })
+
+  it('handles chat_title event and trims/limits title', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    let chatTitle: string | null = null
+    const res = sseResponse([
+      'event: chat_title\n',
+      'data: {"title":"  My Chat Title  "}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: (t) => { chatTitle = t },
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(chatTitle).toBe('My Chat Title')
+  })
+
+  it('ignores chat_title event with empty title', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    let chatTitle: string | null = 'original'
+    const res = sseResponse([
+      'event: chat_title\n',
+      'data: {"title":"   "}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: (t) => { chatTitle = t },
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(chatTitle).toBe('original')
+  })
+
+  it('handles thinking event and appends delta to msg.thinking', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: thinking\n',
+      'data: {"delta":"First thought..."}\n\n',
+      'event: thinking\n',
+      'data: {"delta":" Second thought."}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(messages[1].thinking).toBe('First thought... Second thought.')
+  })
+
+  it('handles error event and adds error text part', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: error\n',
+      'data: {"message":"Something went wrong"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(messages[1].parts).toHaveLength(1)
+    expect(messages[1].parts![0]).toEqual({
+      type: 'text',
+      content: '\n\n**Error:** Something went wrong',
+    })
+  })
+
+  it('appends text_delta to existing text part', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [{ type: 'text', content: 'Hello' }] },
+    ]
+    const res = sseResponse([
+      'event: text_delta\n',
+      'data: {"delta":" world"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(messages[1].parts).toHaveLength(1)
+    expect(messages[1].parts![0]).toEqual({ type: 'text', content: 'Hello world' })
+  })
+
+  it('skips message processing when msgIdx points to non-assistant message', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+    ]
+    const touchMessages = vi.fn()
+    const res = sseResponse([
+      'event: text_delta\n',
+      'data: {"delta":"ignored"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 0,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages,
+      scrollToBottom: () => {},
+    })
+    expect(touchMessages).not.toHaveBeenCalled()
+  })
+
+  it('handles set_chat_title tool and updates title from args', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    let chatTitle: string | null = null
+    const res = sseResponse([
+      'event: tool_start\n',
+      'data: {"id":"t1","name":"set_chat_title","args":{"title":"  Agent Set Title  "}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: (t) => { chatTitle = t },
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(chatTitle).toBe('Agent Set Title')
+    expect(messages[1].parts).toHaveLength(1)
+    const p = messages[1].parts![0]
+    expect(p.type).toBe('tool')
+  })
+
+  it('updates existing tool part in set_chat_title (tool_args then tool_start)', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [
+        { type: 'tool', toolCall: { id: 't1', name: 'set_chat_title', args: {}, done: false } },
+      ]},
+    ]
+    let chatTitle: string | null = null
+    const res = sseResponse([
+      'event: tool_start\n',
+      'data: {"id":"t1","name":"set_chat_title","args":{"title":"Updated Title"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: (t) => { chatTitle = t },
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(chatTitle).toBe('Updated Title')
+    expect(messages[1].parts).toHaveLength(1)
+  })
+
+  it('handles read_email with filesystem path (opens as file)', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onOpenFromAgent = vi.fn()
+    const res = sseResponse([
+      'event: tool_start\n',
+      'data: {"id":"e1","name":"read_email","args":{"id":"/Users/test/mail.eml"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      onOpenFromAgent,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onOpenFromAgent).toHaveBeenCalledWith({ type: 'file', path: '/Users/test/mail.eml' }, 'read_email')
+  })
+
+  it('emits hub:sources-changed on manage_sources with add op', async () => {
+    vi.mocked(appEvents.emit).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"m1","name":"manage_sources","args":{"op":"add"},"result":"ok","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(appEvents.emit)).toHaveBeenCalledWith({ type: 'hub:sources-changed' })
+  })
+
+  it('emits hub:sources-changed on refresh_sources tool_end', async () => {
+    vi.mocked(appEvents.emit).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"r1","name":"refresh_sources","result":"ok","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(appEvents.emit)).toHaveBeenCalledWith({ type: 'hub:sources-changed' })
+  })
+
+  it('sets touchedWiki true for delete tool_end', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"d1","name":"delete","args":{"path":"ideas/old.md"},"result":"deleted","isError":false}\n\n',
+    ])
+    const { touchedWiki } = await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(touchedWiki).toBe(true)
+  })
+
+  it('creates new tool part on tool_end when none exists', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"x1","name":"search","args":{"query":"test"},"result":"found","details":{"count":5},"isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(messages[1].parts).toHaveLength(1)
+    const p = messages[1].parts![0]
+    expect(p.type).toBe('tool')
+    if (p.type !== 'tool') throw new Error('expected tool part')
+    expect(p.toolCall.id).toBe('x1')
+    expect(p.toolCall.done).toBe(true)
+    expect(p.toolCall.result).toBe('found')
+    expect(p.toolCall.details).toEqual({ count: 5 })
+  })
+
+  it('ignores tts_chunk with missing id', async () => {
+    vi.mocked(playBrainTtsBlob).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tts_chunk\n',
+      'data: {"b64":"dGVzdA=="}\n\n',
+      'event: tts_done\n',
+      'data: {"format":"mp3"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(playBrainTtsBlob)).not.toHaveBeenCalled()
+  })
+
+  it('skips TTS play when tts_done has zero-size blob', async () => {
+    vi.mocked(playBrainTtsBlob).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tts_done\n',
+      'data: {"id":"s1","format":"mp3"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(playBrainTtsBlob)).not.toHaveBeenCalled()
+  })
+
+  it('handles tts_done with opus format', async () => {
+    vi.mocked(playBrainTtsBlob).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const b64a = btoa(String.fromCharCode(1, 2, 3))
+    const res = sseResponse([
+      'event: tts_chunk\n',
+      `data: {"id":"s1","b64":"${b64a}"}\n\n`,
+      'event: tts_done\n',
+      'data: {"id":"s1","format":"opus"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(playBrainTtsBlob)).toHaveBeenCalled()
+    const blob = vi.mocked(playBrainTtsBlob).mock.calls[0]![0] as Blob
+    expect(blob.type).toBe('audio/ogg')
+  })
+
+  it.each([
+    ['aac', 'audio/aac'],
+    ['flac', 'audio/flac'],
+    ['wav', 'audio/wav'],
+    ['pcm', 'audio/pcm'],
+    ['unknown', 'audio/mpeg'],
+  ])('handles tts_done with %s format', async (format, expectedMime) => {
+    vi.mocked(playBrainTtsBlob).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const b64a = btoa(String.fromCharCode(1, 2, 3))
+    const res = sseResponse([
+      'event: tts_chunk\n',
+      `data: {"id":"s1","b64":"${b64a}"}\n\n`,
+      'event: tts_done\n',
+      `data: {"id":"s1","format":"${format}"}\n\n`,
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(playBrainTtsBlob)).toHaveBeenCalled()
+    const blob = vi.mocked(playBrainTtsBlob).mock.calls[0]![0] as Blob
+    expect(blob.type).toBe(expectedMime)
+  })
+
+  it('calls onWriteStreaming on tool_args and tool_end for write tool', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onWriteStreaming = vi.fn()
+    const res = sseResponse([
+      'event: tool_args\n',
+      'data: {"id":"w1","name":"write","args":{"path":"test.md","content":"# Test"}}\n\n',
+      'event: tool_end\n',
+      'data: {"id":"w1","name":"write","result":"ok","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      onWriteStreaming,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onWriteStreaming).toHaveBeenCalledTimes(2)
+    expect(onWriteStreaming).toHaveBeenNthCalledWith(1, { path: 'test.md', content: '# Test', done: false })
+    expect(onWriteStreaming).toHaveBeenNthCalledWith(2, { path: '', content: '', done: true })
+  })
+
+  it('calls onEditStreaming on tool_args and tool_end for edit tool', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onEditStreaming = vi.fn()
+    const res = sseResponse([
+      'event: tool_args\n',
+      'data: {"id":"e1","name":"edit","args":{"path":"test.md"}}\n\n',
+      'event: tool_end\n',
+      'data: {"id":"e1","name":"edit","result":"ok","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      onEditStreaming,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onEditStreaming).toHaveBeenCalledTimes(2)
+    expect(onEditStreaming).toHaveBeenNthCalledWith(1, { id: 'e1', path: 'test.md', done: false })
+    expect(onEditStreaming).toHaveBeenNthCalledWith(2, { id: 'e1', path: '', done: true })
+  })
+
+  it('does not call scrollToBottom when isActiveSession returns false', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const scrollToBottom = vi.fn()
+    const res = sseResponse([
+      'event: text_delta\n',
+      'data: {"delta":"hi"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => false,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom,
+    })
+    expect(scrollToBottom).not.toHaveBeenCalled()
+  })
+
+  it('handles SSE chunks split across multiple reads', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const enc = new TextEncoder()
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(enc.encode('event: text_del'))
+        controller.enqueue(enc.encode('ta\ndata: {"delta":"Hel'))
+        controller.enqueue(enc.encode('lo"}\n\n'))
+        controller.close()
+      },
+    })
+    const res = new Response(stream)
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(messages[1].parts![0]).toEqual({ type: 'text', content: 'Hello' })
+  })
+
+  it('updates existing tool part args on tool_args', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [
+        { type: 'tool', toolCall: { id: 'w1', name: 'write', args: { path: 'old.md' }, done: false } },
+      ]},
+    ]
+    const res = sseResponse([
+      'event: tool_args\n',
+      'data: {"id":"w1","name":"write","args":{"path":"new.md","content":"updated"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(messages[1].parts).toHaveLength(1)
+    const p = messages[1].parts![0]
+    if (p.type !== 'tool') throw new Error('expected tool part')
+    expect(p.toolCall.args).toEqual({ path: 'new.md', content: 'updated' })
+  })
+
+  it('uses stashed args from tool_start when tool_end has no args', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_start\n',
+      'data: {"id":"s1","name":"search","args":{"query":"test"}}\n\n',
+      'event: tool_end\n',
+      'data: {"id":"s1","name":"search","result":"found","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    const p = messages[1].parts![0]
+    if (p.type !== 'tool') throw new Error('expected tool part')
+    expect(p.toolCall.args).toEqual({ query: 'test' })
+  })
+
+  it('handles manage_sources with reindex op', async () => {
+    vi.mocked(appEvents.emit).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"m1","name":"manage_sources","args":{"op":"reindex"},"result":"ok","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(appEvents.emit)).toHaveBeenCalledWith({ type: 'hub:sources-changed' })
+  })
+
+  it('does not emit hub:sources-changed on manage_sources with isError true', async () => {
+    vi.mocked(appEvents.emit).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"m1","name":"manage_sources","args":{"op":"add"},"result":"failed","isError":true}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(appEvents.emit)).not.toHaveBeenCalled()
+  })
+
+  it('initializes parts array if missing on assistant message', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '' },
+    ]
+    const res = sseResponse([
+      'event: text_delta\n',
+      'data: {"delta":"Hello"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(messages[1].parts).toBeDefined()
+    expect(messages[1].parts![0]).toEqual({ type: 'text', content: 'Hello' })
+  })
+
+  it('updates existing tool part args from tool_end when no stashed args', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [
+        { type: 'tool', toolCall: { id: 'x1', name: 'search', args: { old: 'value' }, done: false } },
+      ]},
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"x1","name":"search","args":{"query":"new"},"result":"ok","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    const p = messages[1].parts![0]
+    if (p.type !== 'tool') throw new Error('expected tool')
+    expect(p.toolCall.args).toEqual({ query: 'new' })
+    expect(p.toolCall.done).toBe(true)
+  })
+
+  it('handles manage_sources with remove op', async () => {
+    vi.mocked(appEvents.emit).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"m1","name":"manage_sources","args":{"op":"remove"},"result":"ok","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(appEvents.emit)).toHaveBeenCalledWith({ type: 'hub:sources-changed' })
+  })
+
+  it('handles manage_sources with edit op', async () => {
+    vi.mocked(appEvents.emit).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"m1","name":"manage_sources","args":{"op":"edit"},"result":"ok","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(appEvents.emit)).toHaveBeenCalledWith({ type: 'hub:sources-changed' })
+  })
+
+  it('does not emit for manage_sources with list op (read-only)', async () => {
+    vi.mocked(appEvents.emit).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"m1","name":"manage_sources","args":{"op":"list"},"result":"[]","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(appEvents.emit)).not.toHaveBeenCalled()
+  })
+
+  it('does not emit for refresh_sources with isError true', async () => {
+    vi.mocked(appEvents.emit).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"r1","name":"refresh_sources","result":"failed","isError":true}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(appEvents.emit)).not.toHaveBeenCalled()
+  })
+
+  it('does not call onWriteStreaming/onEditStreaming when isActiveSession is false', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onWriteStreaming = vi.fn()
+    const onEditStreaming = vi.fn()
+    const res = sseResponse([
+      'event: tool_args\n',
+      'data: {"id":"w1","name":"write","args":{"path":"test.md","content":"# Test"}}\n\n',
+      'event: tool_args\n',
+      'data: {"id":"e1","name":"edit","args":{"path":"test2.md"}}\n\n',
+      'event: tool_end\n',
+      'data: {"id":"w1","name":"write","result":"ok","isError":false}\n\n',
+      'event: tool_end\n',
+      'data: {"id":"e1","name":"edit","result":"ok","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => false,
+      isHearRepliesEnabled: () => true,
+      onWriteStreaming,
+      onEditStreaming,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onWriteStreaming).not.toHaveBeenCalled()
+    expect(onEditStreaming).not.toHaveBeenCalled()
+  })
+
+  it('handles tool_args with non-object args gracefully', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_args\n',
+      'data: {"id":"t1","name":"write","args":null}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(messages[1].parts).toHaveLength(1)
+    const p = messages[1].parts![0]
+    if (p.type !== 'tool') throw new Error('expected tool')
+    expect(p.toolCall.args).toEqual({})
+  })
+
+  it('handles tool_start with non-object args gracefully', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tool_start\n',
+      'data: {"id":"t1","name":"search","args":"not an object"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(messages[1].parts).toHaveLength(1)
+  })
+
+  it('handles tts_chunk with missing b64 field', async () => {
+    vi.mocked(playBrainTtsBlob).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tts_chunk\n',
+      'data: {"id":"s1"}\n\n',
+      'event: tts_done\n',
+      'data: {"id":"s1","format":"mp3"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(playBrainTtsBlob)).not.toHaveBeenCalled()
+  })
+
+  it('handles tts_chunk with empty b64 string', async () => {
+    vi.mocked(playBrainTtsBlob).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const res = sseResponse([
+      'event: tts_chunk\n',
+      'data: {"id":"s1","b64":""}\n\n',
+      'event: tts_done\n',
+      'data: {"id":"s1","format":"mp3"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
       setSessionId: () => {},
       setChatTitle: () => {},
       touchMessages: () => {},
