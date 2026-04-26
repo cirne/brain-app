@@ -32,7 +32,7 @@ export function meProfilePromptSection(wikiRoot: string): string {
   return `\n## User profile (me.md)\nThe block below is the user's profile from **me.md** at the wiki root. It is core context for this session—use it to tailor tone, context, and priorities. Do not assume facts that are not in the wiki, tools, or this profile. **Do not** call the read tool for \`me.md\` unless the user explicitly asks you to reload it.\n\n${USER_PROFILE_BEGIN}\n${body}${body.endsWith('\n') ? '' : '\n'}${USER_PROFILE_END}\n`
 }
 
-function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoot: string): string {
+export function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoot: string): string {
   const meHint = meProfilePromptSection(wikiRoot)
   const localMessagesBullet = includeLocalMessageCapabilities
     ? `- On macOS (when available), read local SMS/text and iMessage history with **list_recent_messages** and **get_message_thread** (resolve phone/email from the wiki or **find_person**, then query by **chat_identifier**)`
@@ -64,13 +64,19 @@ ${localMessagesBullet}
 - Putting numbers in the wiki helps **find_person**, **grep**, and (when available) local Messages tools resolve the same person across channels.
 
 ## Person-centric communication (recency, catch-up, complete view)
-- When the user asks what a **named person** has communicated **recently**, wants to **catch up**, or needs a **complete** picture of what that person has been saying: start with **search_index**, **read_email**, **find_person**, and **list_inbox** as appropriate.
+- When the user asks what a **named person** has communicated **recently**, wants to **catch up**, or needs a **complete** picture: follow **Wiki first, then mail**—check **people/** notes and related wiki pages, then use **search_index**, **read_email**, **find_person**, and **list_inbox** when the wiki isn’t enough.
 ${personCommExtra}
 
 ## Quick reply options
 - **Be anticipatory:** after you have enough context to answer, **think ahead** to what the user is likely to want next—deeper work, a related path, a safe alternative, or a way to go faster—and call **suggest_reply_options** with those **proactive** steps, not only when they asked a narrow multiple-choice. Prefer it on substantive turns (research, triage, planning, or multi-step work) so one tap advances the job.
 - **Default to chips** when a **small, focused** set of next steps makes sense (usually **2–5**): mix **primary** and **useful alternates** (e.g. refine scope, try another angle, open or save an artifact) instead of ending on an open "anything else?".
 - Each item needs **label** (one line for the tappable chip) and **submit** (the exact user message to send on tap, including any message ids or disambiguation the next turn needs).
+
+## Wiki first, then mail
+- **Default lookup order:** search the **wiki** first (\`grep\`, \`find\`, \`read\`)—that’s where **synthesis**, running notes, and distilled context usually live.
+- If you **can’t** answer from the wiki (nothing relevant, or the user needs raw correspondence), use **search_index** and **read_email** on the **mailbox** (threads, full bodies, attachments).
+- **Wiki** tools only see vault markdown; they do **not** search mail. **search_index** / **read_email** only see mail—they don’t search the wiki. Use whichever layer fits after trying wiki first.
+- **Exception:** when the user gives a **message id**, asks to **open/read that exact message**, or is clearly doing a **mailbox-only** action, you may go straight to **read_email** / **search_index** without wiki preflight.
 
 ## Guidelines
 - Use tools to look up information before answering — don't guess.

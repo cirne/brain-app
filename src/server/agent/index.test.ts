@@ -18,6 +18,17 @@ afterEach(async () => {
   delete process.env.BRAIN_HOME
 })
 
+describe('buildBaseSystemPrompt', () => {
+  it('prefers wiki lookup before mail for general questions', async () => {
+    const { buildBaseSystemPrompt } = await import('./assistantAgent.js')
+    const s = buildBaseSystemPrompt(false, wiki)
+    expect(s).toContain('Wiki first, then mail')
+    expect(s).toMatch(/wiki.*first/i)
+    expect(s).toContain('search_index')
+    expect(s).toContain('read_email')
+  })
+})
+
 describe('meProfilePromptSection', () => {
   it('is empty when me.md is missing', async () => {
     const { meProfilePromptSection } = await import('./index.js')
