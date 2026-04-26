@@ -71,6 +71,11 @@ export type ConsumeAgentChatStreamOptions = {
    * Transcript and session state still update.
    */
   isActiveSession: () => boolean
+  /**
+   * Live check for Audio Conversation ("hear replies") toggle.
+   * TTS playback respects the current UI state — if the user toggles off mid-stream, playback stops.
+   */
+  isHearRepliesEnabled: () => boolean
   onOpenWiki?: (_path: string) => void
   onWriteStreaming?: (_p: { path: string; content: string; done: boolean }) => void
   onEditStreaming?: (_p: { id: string; path: string; done: boolean }) => void
@@ -97,6 +102,7 @@ export async function consumeAgentChatStream(
     msgIdx,
     suppressAgentDetailAutoOpen,
     isActiveSession,
+    isHearRepliesEnabled,
     onOpenWiki,
     onWriteStreaming,
     onEditStreaming,
@@ -162,7 +168,7 @@ export async function consumeAgentChatStream(
         if (lastEvent === 'tts_chunk' || lastEvent === 'tts_done' || lastEvent === 'tts_error') {
           const id = typeof data.id === 'string' ? data.id : ''
           if (!id) continue
-          if (!isActiveSession()) {
+          if (!isActiveSession() || !isHearRepliesEnabled()) {
             ttsBinaryPartsByToolId.delete(id)
             continue
           }

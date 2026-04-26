@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import { ArrowUp, List } from 'lucide-svelte'
+  import { ArrowUp, List, Square } from 'lucide-svelte'
   import WikiFileName from './WikiFileName.svelte'
   import type { SkillMenuItem } from '@client/lib/agentUtils.js'
   import { handleTextareaCursorKeys } from '@client/lib/agentInputCursor.js'
@@ -271,33 +271,23 @@
             {disabled}
           ></textarea>
         </div>
-        {#if streaming}
-          <div class="send-actions" role="group" aria-label="Queue or stop assistant">
-            <button
-              type="button"
-              class="send-btn"
-              onclick={submit}
-              disabled={disabled || !input.trim()}
-              title="Queue message (sends when assistant finishes)"
-              aria-label="Queue message to send when assistant finishes"
-            >
-              <ArrowUp size={20} strokeWidth={2.5} aria-hidden="true" />
-            </button>
+        <div class="send-actions" class:send-actions--streaming={streaming} role="group" aria-label={streaming ? 'Queue or stop assistant' : 'Send message'}>
+          {#if streaming}
             <button type="button" class="send-btn stop-btn" onclick={() => onStop?.()} aria-label="Stop">
-              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              <Square size={12} fill="currentColor" strokeWidth={0} aria-hidden="true" />
             </button>
-          </div>
-        {:else}
+          {/if}
           <button
             type="button"
             class="send-btn"
             onclick={submit}
             disabled={disabled || !input.trim()}
-            aria-label="Send message"
+            title={streaming ? 'Queue message (sends when assistant finishes)' : undefined}
+            aria-label={streaming ? 'Queue message to send when assistant finishes' : 'Send message'}
           >
             <ArrowUp size={20} strokeWidth={2.5} aria-hidden="true" />
           </button>
-        {/if}
+        </div>
       </div>
     </div>
   </div>
@@ -491,18 +481,13 @@
   }
 
   .send-actions .send-btn {
-    flex: 1;
-    min-width: 0;
-    width: auto;
+    width: 48px;
+    min-width: 48px;
+  }
+
+  .send-actions--streaming .stop-btn {
     border-radius: 0;
-  }
-
-  .send-actions .send-btn:first-child {
     border-right: 1px solid rgba(255, 255, 255, 0.25);
-  }
-
-  .send-actions .send-btn:last-child {
-    border-radius: 0 var(--send-btn-outer-r) var(--send-btn-outer-r) 0;
   }
 
   .stop-btn {

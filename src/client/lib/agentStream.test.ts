@@ -39,6 +39,7 @@ describe('consumeAgentChatStream', () => {
       msgIdx: 1,
       suppressAgentDetailAutoOpen: false,
       isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
       setSessionId: (id) => { sessionId = id },
       setChatTitle: () => {},
       touchMessages: () => {},
@@ -64,6 +65,7 @@ describe('consumeAgentChatStream', () => {
       msgIdx: 1,
       suppressAgentDetailAutoOpen: false,
       isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
       setSessionId: () => {},
       setChatTitle: () => {},
       touchMessages: () => {},
@@ -87,6 +89,7 @@ describe('consumeAgentChatStream', () => {
       msgIdx: 1,
       suppressAgentDetailAutoOpen: false,
       isActiveSession: () => false,
+      isHearRepliesEnabled: () => true,
       onOpenWiki,
       setSessionId: () => {},
       setChatTitle: () => {},
@@ -111,6 +114,7 @@ describe('consumeAgentChatStream', () => {
       msgIdx: 1,
       suppressAgentDetailAutoOpen: false,
       isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
       onOpenWiki,
       setSessionId: () => {},
       setChatTitle: () => {},
@@ -137,6 +141,7 @@ describe('consumeAgentChatStream', () => {
       msgIdx: 1,
       suppressAgentDetailAutoOpen: false,
       isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
       onOpenWiki,
       setSessionId: () => {},
       setChatTitle: () => {},
@@ -161,6 +166,7 @@ describe('consumeAgentChatStream', () => {
       msgIdx: 1,
       suppressAgentDetailAutoOpen: true,
       isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
       setSessionId: () => {},
       setChatTitle: () => {},
       touchMessages: () => {},
@@ -191,6 +197,7 @@ describe('consumeAgentChatStream', () => {
       msgIdx: 1,
       suppressAgentDetailAutoOpen: true,
       isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
       onOpenFromAgent,
       setSessionId: () => {},
       setChatTitle: () => {},
@@ -215,6 +222,7 @@ describe('consumeAgentChatStream', () => {
       msgIdx: 1,
       suppressAgentDetailAutoOpen: true,
       isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
       onOpenFromAgent,
       setSessionId: () => {},
       setChatTitle: () => {},
@@ -241,6 +249,7 @@ describe('consumeAgentChatStream', () => {
       msgIdx: 1,
       suppressAgentDetailAutoOpen: false,
       isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
       onOpenFromAgent,
       setSessionId: () => {},
       setChatTitle: () => {},
@@ -272,6 +281,7 @@ describe('consumeAgentChatStream', () => {
       msgIdx: 1,
       suppressAgentDetailAutoOpen: false,
       isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
       setSessionId: () => {},
       setChatTitle: () => {},
       touchMessages: () => {},
@@ -300,12 +310,42 @@ describe('consumeAgentChatStream', () => {
         msgIdx: 1,
         suppressAgentDetailAutoOpen: false,
         isActiveSession: () => true,
+        isHearRepliesEnabled: () => true,
         setSessionId: () => {},
         setChatTitle: () => {},
         touchMessages: () => {},
         scrollToBottom: () => {},
       }),
     ).resolves.toEqual({ touchedWiki: false, sawDone: false })
+    expect(vi.mocked(playBrainTtsBlob)).not.toHaveBeenCalled()
+  })
+
+  it('does not play TTS when isHearRepliesEnabled returns false', async () => {
+    vi.mocked(playBrainTtsBlob).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const b64a = btoa(String.fromCharCode(255, 251, 144))
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"s1","name":"speak","result":"Hello","isError":false,"playTts":"openai"}\n\n',
+      'event: tts_chunk\n',
+      `data: {"id":"s1","b64":"${b64a}"}\n\n`,
+      'event: tts_done\n',
+      'data: {"id":"s1","format":"mp3"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => false,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
     expect(vi.mocked(playBrainTtsBlob)).not.toHaveBeenCalled()
   })
 })

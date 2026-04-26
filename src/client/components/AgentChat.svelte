@@ -503,6 +503,7 @@
         msgIdx,
         suppressAgentDetailAutoOpen,
         isActiveSession: () => displayedSessionId === activeKey,
+        isHearRepliesEnabled: () => sessions.get(activeKey)?.hearReplies === true,
         onOpenWiki,
         onWriteStreaming,
         onEditStreaming,

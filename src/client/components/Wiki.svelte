@@ -273,8 +273,13 @@
   /** Supersede in-flight `loadFiles` + open so rapid `refreshKey` bumps cannot commit stale landing. */
   let wikiLoadSerial = 0
 
+  /** Tracks the previous `refreshKey` to detect external refreshes (e.g. agent edits). */
+  const prevRefreshKeyRef = { current: 0 }
+
   $effect(() => {
-    void refreshKey
+    const currentRefreshKey = refreshKey
+    const refreshKeyChanged = currentRefreshKey !== prevRefreshKeyRef.current
+    prevRefreshKeyRef.current = currentRefreshKey
     const pathFromRoute = initialPath
     const serial = ++wikiLoadSerial
 
@@ -285,9 +290,15 @@
       if (pathFromRoute) {
         const match = files.find(f => f.path === pathFromRoute)
         if (match) {
-          if (match.path !== selected) void openFile(match.path)
+          if (match.path !== selected) {
+            void openFile(match.path)
+          } else if (refreshKeyChanged && pageMode !== 'edit') {
+            void refreshRenderedFromServer()
+          }
         } else if (pathFromRoute !== selected) {
           void openFile(pathFromRoute)
+        } else if (refreshKeyChanged && pageMode !== 'edit') {
+          void refreshRenderedFromServer()
         }
         return
       }
