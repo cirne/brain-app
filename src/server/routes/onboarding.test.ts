@@ -144,6 +144,38 @@ describe('onboarding routes', () => {
     expect(res.status).toBe(400)
   })
 
+  it('PATCH /state returns 409 when onboarding is done and client tries indexing', async () => {
+    const { setOnboardingStateForce } = await import('@server/lib/onboarding/onboardingState.js')
+    await setOnboardingStateForce('done')
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/state', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: 'indexing' }),
+    })
+    expect(res.status).toBe(409)
+    const j = (await res.json()) as { code?: string }
+    expect(j.code).toBe('onboarding_complete')
+  })
+
+  it('PATCH /state allows not-started after done (re-run onboarding)', async () => {
+    const { setOnboardingStateForce, readOnboardingStateDoc } = await import(
+      '@server/lib/onboarding/onboardingState.js'
+    )
+    await setOnboardingStateForce('done')
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/state', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: 'not-started' }),
+    })
+    expect(res.status).toBe(200)
+    const doc = await readOnboardingStateDoc()
+    expect(doc.state).toBe('not-started')
+  })
+
   it('PATCH /profile-draft writes markdown when state is reviewing-profile', async () => {
     const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
     const { profileDraftAbsolutePath } = await import('@server/lib/onboarding/onboardingState.js')

@@ -27,12 +27,24 @@ function defaultBundledBrainHomeResolved() {
   return resolve(join(homedir(), rel))
 }
 
-function targetPath() {
-  if (process.env.BRAIN_HOME) return resolve(process.env.BRAIN_HOME)
-  return join(process.cwd(), 'data')
+function targetPaths() {
+  const paths = []
+  if (process.env.BRAIN_HOME) {
+    paths.push(resolve(process.env.BRAIN_HOME))
+  } else {
+    paths.push(join(process.cwd(), 'data'))
+  }
+
+  if (process.env.BRAIN_DATA_ROOT) {
+    paths.push(resolve(process.env.BRAIN_DATA_ROOT))
+  } else {
+    paths.push(join(process.cwd(), 'data-multitenant'))
+  }
+
+  return paths
 }
 
-const target = targetPath()
+const targets = targetPaths()
 const bundledDefault = defaultBundledBrainHomeResolved()
 
 function sameResolvedPath(a, b) {
@@ -43,23 +55,33 @@ function sameResolvedPath(a, b) {
   }
 }
 
-if (target === bundledDefault || sameResolvedPath(target, bundledDefault)) {
-  console.error(
-    '[dev:clean] BRAIN_HOME points at the bundled default app directory. Use npm run desktop:clean-data instead (or unset BRAIN_HOME to wipe ./data).',
-  )
-  process.exit(1)
+for (const target of targets) {
+  if (target === bundledDefault || sameResolvedPath(target, bundledDefault)) {
+    console.error(
+      `[dev:clean] target points at the bundled default app directory: ${target}. Use npm run desktop:clean-data instead (or unset BRAIN_HOME/BRAIN_DATA_ROOT to wipe ./data).`,
+    )
+    process.exit(1)
+  }
 }
 
-if (!existsSync(target)) {
-  console.log(`[dev:clean] nothing to remove (${target})`)
-  process.exit(0)
+let removedAny = false
+for (const target of targets) {
+  if (!existsSync(target)) {
+    console.log(`[dev:clean] nothing to remove (${target})`)
+    continue
+  }
+
+  if (dryRun) {
+    console.log(`[dry-run] would remove ${target}`)
+    removedAny = true
+    continue
+  }
+
+  rmSync(target, { recursive: true, force: true })
+  console.log(`[dev:clean] removed ${target}`)
+  removedAny = true
 }
 
-if (dryRun) {
-  console.log(`[dry-run] would remove ${target}`)
+if (dryRun && removedAny) {
   console.log('[dev:clean] dry run only; omit --dry-run to delete')
-  process.exit(0)
 }
-
-rmSync(target, { recursive: true, force: true })
-console.log(`[dev:clean] removed ${target}`)

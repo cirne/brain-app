@@ -392,6 +392,18 @@ pub(crate) enum Commands {
     /// Rebuild SQLite index from maildir tree
     #[command(name = "rebuild-index")]
     RebuildIndex,
+    /// Clear stale `sync_summary` PID locks (refresh and backfill lanes) when no live process holds them
+    Lock {
+        #[command(subcommand)]
+        sub: LockCmd,
+    },
+}
+
+/// `ripmail lock` — operator recovery for stuck sync state after a crash.
+#[derive(Subcommand)]
+pub(crate) enum LockCmd {
+    /// Reset `sync_summary` lock columns for refresh (`id=1`) and backfill (`id=2`) when not held by a live PID
+    Clear,
 }
 
 #[derive(Subcommand)]

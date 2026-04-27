@@ -4,9 +4,9 @@ use crate::cli::triage::{
 use crate::cli::util::{load_cfg, ripmail_home_path};
 use crate::cli::CliResult;
 use ripmail::{
-    build_refresh_json_value, collect_stats, db, get_imap_server_status, load_refresh_new_mail,
-    print_refresh_text, print_status_text, rebuild_from_maildir, spawn_sync_background_detached,
-    RunSyncError,
+    build_refresh_json_value, collect_stats, db, get_imap_server_status, is_sync_lock_held,
+    load_refresh_new_mail, print_refresh_text, print_status_text, read_sync_lock_row_optional,
+    rebuild_from_maildir, release_lock, spawn_sync_background_detached, RunSyncError, SyncKind,
 };
 
 fn map_sync_fatal(e: Box<dyn std::error::Error>) -> crate::cli::CliResult {
@@ -285,6 +285,35 @@ pub(crate) fn run_rebuild_index() -> CliResult {
             );
         }
         Err(e) => eprintln!("Inbox bootstrap failed: {e}"),
+    }
+    Ok(())
+}
+
+/// Clears `sync_summary` lock rows for refresh/backfill when no live process holds the lane.
+pub(crate) fn run_lock_clear() -> CliResult {
+    let cfg = load_cfg();
+    let conn = db::open_file(cfg.db_path())?;
+    let mut cleared = 0usize;
+    let mut held_by_live = false;
+    for kind in [SyncKind::Refresh, SyncKind::Backfill] {
+        let row = read_sync_lock_row_optional(&conn, kind)?;
+        if is_sync_lock_held(row.as_ref()) {
+            if row.as_ref().is_some_and(|r| r.is_running != 0) {
+                held_by_live = true;
+            }
+            continue;
+        }
+        if row.as_ref().is_some_and(|r| r.is_running != 0) {
+            release_lock(&conn, None, kind)?;
+            cleared += 1;
+        }
+    }
+    if cleared > 0 {
+        println!("ripmail: cleared {cleared} stale sync lock lane(s).");
+    } else if held_by_live {
+        eprintln!("ripmail: sync lock is still held by a running process; not clearing.");
+    } else {
+        println!("ripmail: no stale sync locks to clear.");
     }
     Ok(())
 }

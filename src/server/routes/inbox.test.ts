@@ -114,6 +114,31 @@ describe('GET /api/inbox', () => {
   })
 })
 
+// ---- GET /api/inbox/mail-sync-status ---------------------------------------
+
+describe('GET /api/inbox/mail-sync-status', () => {
+  it('returns JSON from getOnboardingMailStatus', async () => {
+    const mailMod = await import('@server/lib/onboarding/onboardingMailStatus.js')
+    const spy = vi.spyOn(mailMod, 'getOnboardingMailStatus').mockResolvedValue({
+      configured: true,
+      indexedTotal: 7,
+      lastSyncedAt: null,
+      dateRange: { from: null, to: null },
+      syncRunning: false,
+      syncLockAgeMs: null,
+      ftsReady: 7,
+      messageAvailableForProgress: null,
+      pendingBackfill: false,
+      staleMailSyncLock: false,
+      indexingHint: null,
+    })
+    const res = await app.request('http://localhost/api/inbox/mail-sync-status')
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ indexedTotal: 7, configured: true })
+    spy.mockRestore()
+  })
+})
+
 // ---- GET /api/inbox/who -----------------------------------------------------
 
 describe('GET /api/inbox/who', () => {

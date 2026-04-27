@@ -60,6 +60,51 @@ export type GoogleTokenResponse = {
   accessToken: string
   refreshToken?: string
   expiresIn?: number
+  /** Space-separated scopes Google granted (token response). */
+  scope?: string
+}
+
+/** Split token response `scope` into a set (Google uses space-separated URIs and short names). */
+export function grantedGoogleScopesSet(grantedScope: string | undefined): Set<string> {
+  if (grantedScope == null || grantedScope.trim() === '') return new Set()
+  return new Set(
+    grantedScope
+      .split(/\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0),
+  )
+}
+
+/**
+ * Ensure the user approved everything we request in {@link GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS}.
+ * Partial consent (unchecked boxes on Google’s screen) returns tokens without Gmail or Calendar — IMAP/sync then fails with no clear UI error.
+ */
+export function validateGoogleOAuthGrantedScopes(
+  grantedScope: string | undefined,
+): { ok: true } | { ok: false; message: string } {
+  const set = grantedGoogleScopesSet(grantedScope)
+  if (set.size === 0) {
+    return {
+      ok: false,
+      message:
+        'Google did not report which permissions were granted. Close this tab and use Connect Google again.',
+    }
+  }
+  const hasGmail = set.has('https://mail.google.com/')
+  const hasCalendar =
+    set.has('https://www.googleapis.com/auth/calendar.events') ||
+    set.has('https://www.googleapis.com/auth/calendar')
+  const hasOpenId = set.has('openid')
+  const hasEmail =
+    set.has('email') || set.has('https://www.googleapis.com/auth/userinfo.email')
+  if (hasGmail && hasCalendar && hasOpenId && hasEmail) {
+    return { ok: true }
+  }
+  return {
+    ok: false,
+    message:
+      'Google did not grant every permission Braintunnel needs. On the permission screen, leave all Gmail and Calendar access enabled (every checkbox), then use Connect Google again. If you denied access, revoke Braintunnel under your Google Account → Security → Third-party access and try again.',
+  }
 }
 
 export class GoogleOAuthExchangeError extends Error {
@@ -115,6 +160,7 @@ export async function exchangeAuthorizationCode(params: {
     access_token?: string
     refresh_token?: string
     expires_in?: number
+    scope?: string
     error?: string
     error_description?: string
   }
@@ -132,6 +178,7 @@ export async function exchangeAuthorizationCode(params: {
     accessToken: o.access_token,
     refreshToken: o.refresh_token,
     expiresIn: o.expires_in,
+    scope: o.scope,
   }
 }
 

@@ -38,7 +38,7 @@ function defaultFetchHandler(): typeof fetch {
     if (u.includes('/api/wiki') && !u.includes('edit-history') && !u.includes('recent')) {
       return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
     }
-    if (u.includes('/api/onboarding/mail')) {
+    if (u.includes('/api/inbox/mail-sync-status')) {
       return Promise.resolve(
         new Response(JSON.stringify({ indexedTotal: 0, configured: false }), { status: 200 }),
       )
@@ -115,7 +115,7 @@ describe('BrainHubPage.svelte', () => {
         if (u.includes('/api/wiki') && !u.includes('edit-history') && !u.includes('recent')) {
           return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
         }
-        if (u.includes('/api/onboarding/mail')) {
+        if (u.includes('/api/inbox/mail-sync-status')) {
           return Promise.resolve(
             new Response(JSON.stringify({ indexedTotal: 0, configured: true }), { status: 200 }),
           )

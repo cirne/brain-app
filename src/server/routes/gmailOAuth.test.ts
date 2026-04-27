@@ -12,7 +12,10 @@ import {
 } from '@server/lib/platform/gmailOAuthState.js'
 import { clearGoogleOauthDesktopResultForTests } from '@server/lib/platform/googleOauthDesktopResult.js'
 import { googleOAuthRedirectUri } from '@server/lib/platform/brainHttpPort.js'
-import { generatePkce } from '@server/lib/platform/googleOAuth.js'
+import {
+  generatePkce,
+  GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+} from '@server/lib/platform/googleOAuth.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
 import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
@@ -94,6 +97,7 @@ describe('GET /api/oauth/google/callback', () => {
               access_token: 'access-token',
               refresh_token: 'refresh-token',
               expires_in: 3600,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } }
           )
@@ -144,6 +148,38 @@ describe('GET /api/oauth/google/callback', () => {
     expect(res.headers.get('location')).toContain('/oauth/google/error?reason=')
   })
 
+  it('redirects with error when token omits required Gmail scope (partial consent)', async () => {
+    const { verifier } = generatePkce()
+    const state = 'partial-scope-test'
+    putOAuthSession(state, verifier)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url.includes('oauth2.googleapis.com/token')) {
+          return new Response(
+            JSON.stringify({
+              access_token: 'at',
+              refresh_token: 'rt',
+              expires_in: 3600,
+              scope: 'openid email https://www.googleapis.com/auth/calendar.events',
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+        }
+        throw new Error(`unexpected fetch: ${url}`)
+      })
+    )
+    const app = mountApp()
+    const res = await app.request(
+      `http://localhost/api/oauth/google/callback?code=auth-code&state=${encodeURIComponent(state)}`
+    )
+    expect(res.status).toBe(302)
+    const loc = res.headers.get('location')!
+    expect(loc).toContain('/oauth/google/error?reason=')
+    expect(decodeURIComponent(loc)).toMatch(/every permission/i)
+  })
+
   it('GET /api/oauth/google/last-result reports success after callback and clears', async () => {
     const { verifier } = generatePkce()
     const state = 'state-for-last-result'
@@ -158,6 +194,7 @@ describe('GET /api/oauth/google/callback', () => {
               access_token: 'access-token',
               refresh_token: 'refresh-token',
               expires_in: 3600,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } }
           )
@@ -224,6 +261,7 @@ describe('GET /api/oauth/google/callback', () => {
                 access_token: 'access-token',
                 refresh_token: 'refresh-token',
                 expires_in: 3600,
+                scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
               }),
               { status: 200, headers: { 'Content-Type': 'application/json' } },
             )
@@ -339,6 +377,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
             access_token: 'access-token',
             refresh_token: 'refresh-token',
             expires_in: 3600,
+            scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         )
@@ -405,6 +444,44 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
 
     const tokenPath = join(ripmailHome, 'second_gmail_com', 'google-oauth.json')
     expect(existsSync(tokenPath)).toBe(true)
+  })
+
+  it('shared /callback with mode link writes second mailbox (same URI Google redirects to)', async () => {
+    const ripmailHome = join(brainHome, 'ripmail')
+    await import('node:fs/promises').then((m) => m.mkdir(ripmailHome, { recursive: true }))
+    await writeFile(
+      join(ripmailHome, 'config.json'),
+      JSON.stringify({
+        sources: [
+          {
+            id: 'primary_gmail_com',
+            kind: 'imap',
+            email: 'primary@gmail.com',
+            imap: { host: 'imap.gmail.com', port: 993 },
+            imapAuth: 'googleOAuth',
+          },
+        ],
+      }),
+    )
+
+    const { verifier } = generatePkce()
+    const state = 'link-state-via-main-callback'
+    putOAuthSession(state, verifier, { mode: 'link' })
+
+    vi.stubGlobal('fetch', stubFetchOk({ email: 'second@gmail.com', sub: 'sub-second' }))
+
+    const res = await mountApp().request(
+      `http://localhost/api/oauth/google/callback?code=auth-code&state=${encodeURIComponent(state)}`,
+    )
+    expect(res.status).toBe(302)
+    const loc = res.headers.get('location')!
+    expect(loc).toContain('/hub?addedAccount=')
+    expect(decodeURIComponent(loc)).toContain('second@gmail.com')
+
+    const cfg = JSON.parse(await readFile(join(ripmailHome, 'config.json'), 'utf8')) as {
+      sources: Array<{ id: string; kind: string; email?: string }>
+    }
+    expect(cfg.sources.some((s) => s.id === 'second_gmail_com' && s.kind === 'imap')).toBe(true)
   })
 
   it('refreshes tokens but does not duplicate when the same email is re-linked', async () => {
@@ -523,6 +600,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
               access_token: 'tok',
               refresh_token: 'refresh',
               expires_in: 3600,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           )
@@ -564,6 +642,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
               access_token: 'tok',
               refresh_token: 'refresh',
               expires_in: 3600,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           )
@@ -609,6 +688,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
               access_token: 'tok2',
               refresh_token: 'refresh2',
               expires_in: 3600,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           )
@@ -676,6 +756,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
               access_token: 'tok',
               refresh_token: 'refresh',
               expires_in: 3600,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           )
@@ -711,6 +792,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
               access_token: 'tok2',
               refresh_token: 'refresh2',
               expires_in: 3600,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           )

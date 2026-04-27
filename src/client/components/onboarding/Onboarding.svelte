@@ -15,6 +15,7 @@
     SETUP_MAIL_ABORT_MESSAGE,
   } from '@client/lib/onboarding/onboardingApi.js'
   import { computeIndexingCalmStatus } from '@client/lib/onboarding/onboardingIndexingUi.js'
+  import { shouldRetryProfilingAutoAdvance } from '@client/lib/onboarding/profilingAutoAdvanceRetry.js'
   import {
     ONBOARDING_LARGE_WINDOW_STATES,
     ONBOARDING_PROFILE_INDEX_AUTOPROCEED,
@@ -143,29 +144,38 @@
   const indexingCalmStatus = $derived(
     computeIndexingCalmStatus({ actionableHint: mail.indexingHint }),
   )
+  /** Hosted: stale sync lock — show a real button (not “click here” in body copy). */
+  const showStaleLockResumeButton = $derived(multiTenant && mail.staleMailSyncLock === true)
 
   /**
    * Mail can be indexing while onboarding state is still `not-started` (e.g. Apple path + race).
    * `indexing` is required for auto-advance and for PATCH `profiling` transitions on the server.
    */
   let alignIndexingStateInitiated = $state(false)
+  /** Stops a tight loop when PATCH not-started→indexing keeps returning 4xx. */
+  let alignIndexingPatchFailed = $state(false)
   $effect(() => {
     if (needsVaultSetup || setupError) {
       alignIndexingStateInitiated = false
+      alignIndexingPatchFailed = false
       return
     }
     if (state !== 'not-started') {
       alignIndexingStateInitiated = false
+      alignIndexingPatchFailed = false
       return
     }
     if (!mail.configured || busy) {
       alignIndexingStateInitiated = false
+      if (!mail.configured) alignIndexingPatchFailed = false
       return
     }
+    if (alignIndexingPatchFailed) return
     if (alignIndexingStateInitiated) return
     alignIndexingStateInitiated = true
     void patchState('indexing').catch((e) => {
       alignIndexingStateInitiated = false
+      alignIndexingPatchFailed = true
       indexingAdvanceError = e instanceof Error ? e.message : String(e)
     })
   })
@@ -175,9 +185,23 @@
    * Handles both `indexing` and stale `not-started` (mail can run before the server state catches up).
    */
   let profilingAutoAdvanceInFlight = $state(false)
+  /** Indexed count when auto-advance last got 4xx; retry only after mail progress (or manual continue). */
+  let profilingAutoAdvanceLastFailedAtCount = $state<number | null>(null)
+
+  $effect(() => {
+    if (
+      state === 'profiling' ||
+      state === 'reviewing-profile' ||
+      state === 'seeding' ||
+      state === 'done'
+    ) {
+      profilingAutoAdvanceLastFailedAtCount = null
+    }
+  })
 
   $effect(() => {
     if (!canAutoProceedToProfiling || busy || profilingAutoAdvanceInFlight) return
+    if (!shouldRetryProfilingAutoAdvance(mailIndexedCount, profilingAutoAdvanceLastFailedAtCount)) return
     const fromNotStarted = state === 'not-started' && mail.configured
     if (state !== 'indexing' && !fromNotStarted) return
 
@@ -188,8 +212,10 @@
           await patchState('indexing')
         }
         await patchState('profiling')
+        profilingAutoAdvanceLastFailedAtCount = null
       } catch (e) {
         indexingAdvanceError = e instanceof Error ? e.message : String(e)
+        profilingAutoAdvanceLastFailedAtCount = mailIndexedCount
       } finally {
         profilingAutoAdvanceInFlight = false
       }
@@ -227,8 +253,31 @@
     ])
   }
 
+  async function resumeAfterStaleLock() {
+    indexingAdvanceError = null
+    busy = true
+    await tick()
+    try {
+      const r = await fetch('/api/onboarding/clear-stale-lock', { method: 'POST' })
+      if (!r.ok) {
+        const j = (await r.json().catch(() => ({}))) as { message?: string; error?: string }
+        indexingAdvanceError =
+          typeof j.message === 'string'
+            ? j.message
+            : `Could not resume mail sync${j.error ? ` (${j.error})` : ''}.`
+        return
+      }
+      await load()
+    } catch (e) {
+      indexingAdvanceError = e instanceof Error ? e.message : String(e)
+    } finally {
+      busy = false
+    }
+  }
+
   async function proceedToProfilingEarly() {
     indexingAdvanceError = null
+    profilingAutoAdvanceLastFailedAtCount = null
     busy = true
     await tick()
     try {
@@ -653,7 +702,24 @@
                 <p class="ob-indexing-progress-fraction" aria-hidden="true">{indexingProgressLabel}</p>
               </div>
             {/if}
-            {#if indexingCalmStatus}
+            {#if showStaleLockResumeButton}
+              <div class="ob-indexing-stale-recover" role="region" aria-label="Mail sync stopped">
+                <p class="ob-indexing-calm">A previous mail sync stopped unexpectedly.</p>
+                <button
+                  type="button"
+                  class="ob-btn-primary ob-indexing-stale-btn"
+                  onclick={() => void resumeAfterStaleLock()}
+                  disabled={busy}
+                >
+                  {#if busy}
+                    <span class="ob-spinner" aria-hidden="true"></span>
+                    Resuming…
+                  {:else}
+                    Resume mail sync
+                  {/if}
+                </button>
+              </div>
+            {:else if indexingCalmStatus}
               <p class="ob-indexing-calm">{indexingCalmStatus}</p>
             {/if}
             {#if showIndexingHero && (canOfferEarlyProfile || canAutoProceedToProfiling) && (state === 'indexing' || (state === 'not-started' && mail.configured))}

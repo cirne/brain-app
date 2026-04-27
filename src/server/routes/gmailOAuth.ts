@@ -10,6 +10,7 @@ import {
   GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
   upsertRipmailConfig,
   upsertRipmailGoogleCalendarSource,
+  validateGoogleOAuthGrantedScopes,
   writeGoogleOAuthTokenFile,
 } from '@server/lib/platform/googleOAuth.js'
 import { ensureSingleSourceMarkedAsDefaultSend } from '@server/lib/platform/ripmailConfigEdit.js'
@@ -81,6 +82,127 @@ async function persistGoogleMailProviderPreference(): Promise<void> {
   }
 }
 
+function redirectLinkError(c: Context, message: string) {
+  recordGoogleOauthError(message)
+  const q = encodeURIComponent(message)
+  return c.redirect(`/hub?addAccountError=${q}`, 302)
+}
+
+function redirectLinkSuccess(c: Context, email: string) {
+  recordGoogleOauthSuccess()
+  const q = encodeURIComponent(email)
+  return c.redirect(`/hub?addedAccount=${q}`, 302)
+}
+
+/**
+ * Shared body for add-account OAuth: the registered Google redirect is always
+ * `/api/oauth/google/callback`, so `mode: link` is completed from the main callback
+ * and from the legacy `/link/callback` route (tests, optional second redirect URI).
+ */
+async function completeGmailLinkOAuth(
+  c: Context,
+  oauth: { clientId: string; clientSecret: string; redirectUri: string },
+  code: string,
+  codeVerifier: string,
+): Promise<Response> {
+  let tokens
+  try {
+    tokens = await exchangeAuthorizationCode({
+      clientId: oauth.clientId,
+      clientSecret: oauth.clientSecret,
+      redirectUri: oauth.redirectUri,
+      code,
+      codeVerifier,
+    })
+  } catch (e) {
+    return redirectLinkError(c, e instanceof Error ? e.message : String(e))
+  }
+  if (!tokens.refreshToken) {
+    return redirectLinkError(
+      c,
+      'Google did not return a refresh token. Revoke Braintunnel access in your Google account and try linking again.',
+    )
+  }
+  {
+    const scopeCheck = validateGoogleOAuthGrantedScopes(tokens.scope)
+    if (!scopeCheck.ok) {
+      return redirectLinkError(c, scopeCheck.message)
+    }
+  }
+
+  let email: string
+  let sub: string
+  try {
+    const u = await fetchGoogleUserInfo({ accessToken: tokens.accessToken })
+    email = u.email
+    sub = u.sub
+  } catch (e) {
+    return redirectLinkError(c, e instanceof Error ? e.message : String(e))
+  }
+
+  if (isMultiTenantMode()) {
+    const sid = getCookie(c, BRAIN_SESSION_COOKIE)
+    const tenantUserId = await lookupTenantBySession(sid)
+    if (!tenantUserId) {
+      return redirectLinkError(
+        c,
+        'Your sign-in session expired. Sign in to Braintunnel again before linking.',
+      )
+    }
+
+    const existingPrimaryTenant = await lookupWorkspaceByIdentity(googleIdentityKey(sub))
+    if (existingPrimaryTenant && existingPrimaryTenant !== tenantUserId) {
+      return redirectLinkError(
+        c,
+        `That Google account is the sign-in for a different Braintunnel workspace. Sign in with that account or use a different Gmail.`,
+      )
+    }
+
+    const homeDir = tenantHomeDir(tenantUserId)
+    const meta = await readHandleMeta(homeDir)
+    const workspaceHandle = meta?.handle ?? tenantUserId
+    return runWithTenantContextAsync({ tenantUserId, workspaceHandle, homeDir }, async () => {
+      const ripmailHome = ripmailHomeForBrain()
+      try {
+        const existingByEmail = await findLinkedMailboxByEmail(email)
+        const existingBySub = await findLinkedMailboxBySub(sub)
+        if (existingByEmail || existingBySub) {
+          await writeGoogleOAuthTokenFile(ripmailHome, deriveMailboxId(email), tokens)
+        } else {
+          const mailboxId = deriveMailboxId(email)
+          await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
+          await upsertRipmailConfig(ripmailHome, mailboxId, email)
+          await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
+        }
+        await upsertLinkedMailbox({ email, googleSub: sub })
+        await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
+      } catch (e) {
+        return redirectLinkError(c, e instanceof Error ? e.message : String(e))
+      }
+      return redirectLinkSuccess(c, email)
+    })
+  }
+
+  const ripmailHome = ripmailHomeForBrain()
+  try {
+    const existingByEmail = await findLinkedMailboxByEmail(email)
+    const existingBySub = await findLinkedMailboxBySub(sub)
+    if (existingByEmail || existingBySub) {
+      await writeGoogleOAuthTokenFile(ripmailHome, deriveMailboxId(email), tokens)
+    } else {
+      const mailboxId = deriveMailboxId(email)
+      await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
+      await upsertRipmailConfig(ripmailHome, mailboxId, email)
+      await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
+    }
+    await upsertLinkedMailbox({ email, googleSub: sub })
+    await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
+  } catch (e) {
+    return redirectLinkError(c, e instanceof Error ? e.message : String(e))
+  }
+  return redirectLinkSuccess(c, email)
+}
+
 app.get('/start', (c) => {
   const oauth = getOAuthConfig(c)
   if (!oauth) {
@@ -142,11 +264,13 @@ app.get('/callback', async (c) => {
       'Sign-in session expired. Return to Braintunnel and use Connect Google again.'
     )
   }
+  if (session.mode === 'link') {
+    return completeGmailLinkOAuth(c, oauth, code, session.verifier)
+  }
   if (session.mode !== 'signIn') {
-    // Defensive: a `link` state landing on `/callback` should not silently provision a workspace.
     return redirectOauthError(
       c,
-      'That sign-in link belongs to add-account. Open Braintunnel and try again.',
+      'Unrecognized OAuth session mode. Return to Braintunnel and start again.',
     )
   }
   let tokens
@@ -167,6 +291,12 @@ app.get('/callback', async (c) => {
       c,
       'No refresh token — revoke Braintunnel access in your Google account and connect again from Braintunnel.'
     )
+  }
+  {
+    const scopeCheck = validateGoogleOAuthGrantedScopes(tokens.scope)
+    if (!scopeCheck.ok) {
+      return redirectOauthError(c, scopeCheck.message)
+    }
   }
   let email: string
   let sub: string
@@ -225,8 +355,10 @@ app.get('/callback', async (c) => {
  * Add-account ("link") flow — OPP-044 phase 1.
  *
  * `/link/start` requires a valid Brain session (signed-in user) and kicks off the same Google
- * consent screen as primary sign-in, but the callback at `/link/callback` writes the new
- * IMAP source onto the existing tenant instead of provisioning a workspace. This keeps
+ * consent screen as primary sign-in. Google returns to the same registered URI as sign-in
+ * (`/api/oauth/google/callback`); the handler runs `completeGmailLinkOAuth` when
+ * `mode === 'link'`. The legacy `/link/callback` route reuses the same implementation.
+ * The new IMAP source is written onto the existing tenant instead of provisioning a workspace. This keeps
  * "one Braintunnel handle, many Gmail accounts" possible without touching the
  * `tenant-registry.json` `identities` map (which is reserved for sign-in identities).
  *
@@ -269,18 +401,6 @@ app.get('/link/start', async (c) => {
   return c.redirect(url)
 })
 
-function redirectLinkError(c: Context, message: string) {
-  recordGoogleOauthError(message)
-  const q = encodeURIComponent(message)
-  return c.redirect(`/hub?addAccountError=${q}`, 302)
-}
-
-function redirectLinkSuccess(c: Context, email: string) {
-  recordGoogleOauthSuccess()
-  const q = encodeURIComponent(email)
-  return c.redirect(`/hub?addedAccount=${q}`, 302)
-}
-
 app.get('/link/callback', async (c) => {
   const oauth = getOAuthConfig(c)
   if (!oauth) {
@@ -310,98 +430,7 @@ app.get('/link/callback', async (c) => {
     )
   }
 
-  let tokens
-  try {
-    tokens = await exchangeAuthorizationCode({
-      clientId: oauth.clientId,
-      clientSecret: oauth.clientSecret,
-      redirectUri: oauth.redirectUri,
-      code,
-      codeVerifier: session.verifier,
-    })
-  } catch (e) {
-    return redirectLinkError(c, e instanceof Error ? e.message : String(e))
-  }
-  if (!tokens.refreshToken) {
-    return redirectLinkError(
-      c,
-      'Google did not return a refresh token. Revoke Braintunnel access in your Google account and try linking again.',
-    )
-  }
-
-  let email: string
-  let sub: string
-  try {
-    const u = await fetchGoogleUserInfo({ accessToken: tokens.accessToken })
-    email = u.email
-    sub = u.sub
-  } catch (e) {
-    return redirectLinkError(c, e instanceof Error ? e.message : String(e))
-  }
-
-  if (isMultiTenantMode()) {
-    const sid = getCookie(c, BRAIN_SESSION_COOKIE)
-    const tenantUserId = await lookupTenantBySession(sid)
-    if (!tenantUserId) {
-      return redirectLinkError(c, 'Your sign-in session expired. Sign in to Braintunnel again before linking.')
-    }
-
-    // If this Google account is already a primary identity for a different workspace, refuse:
-    // OPP-044 keeps it simple (one primary identity per workspace) and prevents a user from
-    // accidentally pulling someone else's mailbox into their tenant.
-    const existingPrimaryTenant = await lookupWorkspaceByIdentity(googleIdentityKey(sub))
-    if (existingPrimaryTenant && existingPrimaryTenant !== tenantUserId) {
-      return redirectLinkError(
-        c,
-        `That Google account is the sign-in for a different Braintunnel workspace. Sign in with that account or use a different Gmail.`,
-      )
-    }
-
-    const homeDir = tenantHomeDir(tenantUserId)
-    const meta = await readHandleMeta(homeDir)
-    const workspaceHandle = meta?.handle ?? tenantUserId
-    return runWithTenantContextAsync({ tenantUserId, workspaceHandle, homeDir }, async () => {
-      const ripmailHome = ripmailHomeForBrain()
-      try {
-        const existingByEmail = await findLinkedMailboxByEmail(email)
-        const existingBySub = await findLinkedMailboxBySub(sub)
-        if (existingByEmail || existingBySub) {
-          // Already linked: re-write tokens (refresh), but do not duplicate the entry.
-          await writeGoogleOAuthTokenFile(ripmailHome, deriveMailboxId(email), tokens)
-        } else {
-          const mailboxId = deriveMailboxId(email)
-          await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
-          await upsertRipmailConfig(ripmailHome, mailboxId, email)
-          await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
-        }
-        await upsertLinkedMailbox({ email, googleSub: sub })
-        await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
-      } catch (e) {
-        return redirectLinkError(c, e instanceof Error ? e.message : String(e))
-      }
-      return redirectLinkSuccess(c, email)
-    })
-  }
-
-  // Single-tenant (desktop) — same flow without a tenant context wrapper.
-  const ripmailHome = ripmailHomeForBrain()
-  try {
-    const existingByEmail = await findLinkedMailboxByEmail(email)
-    const existingBySub = await findLinkedMailboxBySub(sub)
-    if (existingByEmail || existingBySub) {
-      await writeGoogleOAuthTokenFile(ripmailHome, deriveMailboxId(email), tokens)
-    } else {
-      const mailboxId = deriveMailboxId(email)
-      await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
-      await upsertRipmailConfig(ripmailHome, mailboxId, email)
-      await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
-    }
-    await upsertLinkedMailbox({ email, googleSub: sub })
-    await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
-  } catch (e) {
-    return redirectLinkError(c, e instanceof Error ? e.message : String(e))
-  }
-  return redirectLinkSuccess(c, email)
+  return completeGmailLinkOAuth(c, oauth, code, session.verifier)
 })
 
 /** GET /api/oauth/google/linked — list linked Gmail accounts for the current tenant. */

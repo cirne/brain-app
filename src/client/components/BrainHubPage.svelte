@@ -209,7 +209,7 @@
     try {
       const [wikiRes, mailRes, sourcesRes, mailPrefsRes] = await Promise.all([
         fetch('/api/wiki'),
-        fetch('/api/onboarding/mail'),
+        fetch('/api/inbox/mail-sync-status'),
         fetch('/api/hub/sources'),
         fetch('/api/hub/sources/mail-prefs'),
       ])
