@@ -14,6 +14,7 @@
     FileText,
     List,
     LogOut,
+    Plus,
     Trash2,
   } from 'lucide-svelte'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
@@ -50,6 +51,12 @@
   let mailStatus = $state<OnboardingMailStatus | null>(null)
   let hubSources = $state<HubRipmailSourceRow[]>([])
   let hubSourcesError = $state<string | null>(null)
+  /** Set of IMAP source ids that are excluded from default search (`includeInDefault === false`). */
+  let mailHiddenFromDefault = $state<Set<string>>(new Set())
+  /** Source id chosen to send from when no source is named (Phase 2). */
+  let defaultSendSourceId = $state<string | null>(null)
+  /** Banner shown after the add-account redirect lands back on /hub. */
+  let addAccountBanner = $state<{ kind: 'ok' | 'err'; message: string } | null>(null)
   /** Newest-first from `/api/wiki/edit-history`, else `/api/wiki/recent` when log is empty. */
   let wikiRecentEdits = $state<{ path: string; date: string }[]>([])
   let wikiRecentReady = $state(false)
@@ -200,10 +207,11 @@
 
   async function fetchData() {
     try {
-      const [wikiRes, mailRes, sourcesRes] = await Promise.all([
+      const [wikiRes, mailRes, sourcesRes, mailPrefsRes] = await Promise.all([
         fetch('/api/wiki'),
         fetch('/api/onboarding/mail'),
         fetch('/api/hub/sources'),
+        fetch('/api/hub/sources/mail-prefs'),
       ])
 
       if (wikiRes.ok) {
@@ -218,12 +226,55 @@
         hubSources = Array.isArray(j.sources) ? j.sources : []
         hubSourcesError = typeof j.error === 'string' && j.error.trim() ? j.error : null
       }
+      if (mailPrefsRes.ok) {
+        const j = (await mailPrefsRes.json()) as {
+          ok?: boolean
+          mailboxes?: { id: string; includeInDefault: boolean }[]
+          defaultSendSource?: string | null
+        }
+        if (j.ok && Array.isArray(j.mailboxes)) {
+          const next = new Set<string>()
+          for (const m of j.mailboxes) {
+            if (m && m.includeInDefault === false) next.add(m.id)
+          }
+          mailHiddenFromDefault = next
+        }
+        defaultSendSourceId = typeof j.defaultSendSource === 'string' ? j.defaultSendSource : null
+      }
       wikiRecentEdits = await fetchWikiRecentEditsList()
     } catch {
       /* ignore */
     } finally {
       wikiRecentReady = true
     }
+  }
+
+  /**
+   * After `/api/oauth/google/link/callback` redirects back to `/hub?addedAccount=...`, surface a
+   * non-blocking banner and strip the query so a refresh doesn't repeat the toast.
+   */
+  function consumeAddAccountQuery() {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    const ok = url.searchParams.get('addedAccount')
+    const err = url.searchParams.get('addAccountError')
+    if (!ok && !err) return
+    if (ok) {
+      addAccountBanner = { kind: 'ok', message: `Added ${ok}. Braintunnel is syncing this mailbox now.` }
+    } else if (err) {
+      addAccountBanner = { kind: 'err', message: err }
+    }
+    url.searchParams.delete('addedAccount')
+    url.searchParams.delete('addAccountError')
+    const next = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : '') + url.hash
+    history.replaceState(null, '', next)
+    window.setTimeout(() => {
+      addAccountBanner = null
+    }, 8000)
+  }
+
+  function startAddAnotherGmail() {
+    window.location.assign('/api/oauth/google/link/start')
   }
 
   onMount(() => {
@@ -245,6 +296,7 @@
         multiTenant = false
         hostedWorkspaceHandle = undefined
       })
+    consumeAddAccountQuery()
     void fetchData()
     const unsubEvents = subscribe((e) => {
       if (
@@ -337,6 +389,22 @@
       </div>
     </div>
   </header>
+
+  {#if addAccountBanner}
+    <div
+      class="hub-add-account-banner"
+      class:hub-add-account-banner--err={addAccountBanner.kind === 'err'}
+      role={addAccountBanner.kind === 'err' ? 'alert' : 'status'}
+    >
+      {addAccountBanner.message}
+      <button
+        type="button"
+        class="hub-add-account-banner-dismiss"
+        aria-label="Dismiss"
+        onclick={() => (addAccountBanner = null)}
+      >×</button>
+    </div>
+  {/if}
 
   <div class="hub-grid">
     <!-- Section 1: Account / connectivity (phone QR is desktop-only; hosted shows sign-out + delete) -->
@@ -443,6 +511,9 @@
           </p>
         {:else}
           {#each orderedHubSources as s (s.id)}
+            {@const isMail = s.kind === 'imap' || s.kind === 'applemail'}
+            {@const isDefaultSend = isMail && defaultSendSourceId === s.id}
+            {@const isHidden = isMail && mailHiddenFromDefault.has(s.id)}
             <button
               type="button"
               class="link-item hub-source-row"
@@ -461,10 +532,39 @@
                   {/snippet}
                 </HubSourceRowBody>
               </div>
+              <div class="hub-source-row-flags" aria-hidden={!isMail}>
+                {#if isDefaultSend}
+                  <span class="hub-source-pill hub-source-pill--send" title="Default mailbox for sending">
+                    Default send
+                  </span>
+                {/if}
+                {#if isHidden}
+                  <span class="hub-source-pill hub-source-pill--hidden" title="Excluded from default searches">
+                    Hidden from search
+                  </span>
+                {/if}
+              </div>
               <ChevronRight size={16} aria-hidden="true" />
             </button>
           {/each}
         {/if}
+        <button
+          type="button"
+          class="link-item hub-source-row"
+          onclick={startAddAnotherGmail}
+        >
+          <div class="link-info">
+            <HubSourceRowBody
+              title="Add another Gmail account"
+              subtitle="Search and send from a second mailbox in the same workspace"
+            >
+              {#snippet icon()}
+                <Plus size={16} />
+              {/snippet}
+            </HubSourceRowBody>
+          </div>
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
         {#if !multiTenant}
           <button
             type="button"
@@ -600,6 +700,71 @@
 </ConfirmDialog>
 
 <style>
+  .hub-add-account-banner {
+    margin: 0;
+    padding: 0.75rem 2.5rem 0.75rem 1rem;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg-2));
+    color: var(--text);
+    font-size: 0.9375rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    position: relative;
+  }
+
+  .hub-add-account-banner--err {
+    background: color-mix(in srgb, var(--danger) 12%, var(--bg-2));
+    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+    color: var(--text);
+  }
+
+  .hub-add-account-banner-dismiss {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 0.15rem 0.4rem;
+    border-radius: 6px;
+  }
+
+  .hub-add-account-banner-dismiss:hover {
+    color: var(--text);
+  }
+
+  .hub-source-row-flags {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    margin-right: 8px;
+  }
+
+  .hub-source-pill {
+    font-size: 0.625rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .hub-source-pill--send {
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
+    color: color-mix(in srgb, var(--accent) 92%, var(--text));
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+
+  .hub-source-pill--hidden {
+    background: var(--bg-3);
+    color: var(--text-2);
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  }
+
   .hub-page {
     padding: 2.5rem 2rem;
     max-width: 900px;
