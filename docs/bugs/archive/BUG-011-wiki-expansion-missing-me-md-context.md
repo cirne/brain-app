@@ -1,6 +1,6 @@
 # BUG-011: Background wiki expansion and seeding agent lack injected `me.md` context
 
-**Status:** Open
+**Status:** Fixed (2026-04-27). `buildExpansionContextPrefix` in `wikiExpansionRunner.ts` reads `me.md` and prepends it (plus the vault manifest) to every enrich/cleanup invocation. The function comment explicitly notes "Closes BUG-011". Tests in `wikiExpansionContext.test.ts`.
 
 ## Symptom
 
