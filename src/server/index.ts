@@ -61,8 +61,11 @@ import {
 } from '@server/lib/platform/devServerDuplicatePort.js'
 import { newRelicBrainContextMiddleware } from '@server/lib/observability/newRelicBrainContextMiddleware.js'
 import { newRelicHonoTransactionMiddleware } from '@server/lib/observability/newRelicHonoTransaction.js'
+import { fileURLToPath } from 'node:url'
+import { setPromptsRoot } from '@server/lib/prompts/registry.js'
 
 loadDotEnv()
+setPromptsRoot(fileURLToPath(new URL('./prompts', import.meta.url)))
 
 const app = new Hono()
 // Names NR web transactions from Hono's matched route pattern (not Express-style auto naming).

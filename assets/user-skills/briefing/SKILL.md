@@ -1,6 +1,6 @@
 ---
 name: briefing
-label: "Briefing: prep for a meeting or event (people, context, logistics)"
+label: "Assemble a research brief for a specific meeting or event"
 description: >-
   Pre-meeting or pre-event research: assembles context from email, web, and video when useful;
   explains purpose and participants; deep attendee notes for new or infrequent contacts, light touch

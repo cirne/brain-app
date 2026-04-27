@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
+import { ensurePromptsRoot } from '@server/lib/prompts/registry.js'
 import { deleteSession, getOrCreateSession } from '../../agent/assistantAgent.js'
+
+ensurePromptsRoot(fileURLToPath(new URL('../../prompts', import.meta.url)))
 import { checkExpect } from './checkExpect.js'
 import { collectAgentPromptMetrics } from './collectAgentPromptMetrics.js'
 import type { LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'

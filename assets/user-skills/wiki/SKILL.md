@@ -1,6 +1,6 @@
 ---
 name: wiki
-label: "Wiki: create, tidy, prune, split, fix links — say what you want in plain language"
+label: "Create, tighten, or restructure pages in your vault wiki"
 description: >-
   Umbrella for all wiki work: create a new page in the right place; lint and refactor one page
   (accuracy, DRY, size, links, format); or prune a subtree (duplicates, orphans, structure). Examples:

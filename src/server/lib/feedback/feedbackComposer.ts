@@ -8,29 +8,15 @@ import {
   patchOpenAiReasoningNoneEffort,
   type OpenAiResponsesPayload,
 } from '@server/lib/llm/openAiResponsesPayload.js'
+import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 
 const DEFAULT_PROVIDER = 'openai' as KnownProvider
 const DEFAULT_MODEL = 'gpt-5.4-mini'
 const DRAFT_MAX_TRANSCRIPT_CHARS = 12_000
 
-const SYSTEM = `You draft local feedback issues for a desktop product (Brain / Braintunnel). Your output must be valid markdown with a YAML frontmatter block first, then body sections. No code fences around the file.
-
-Frontmatter (required keys):
-- type: "bug" or "feature"
-- title: short string
-- (optional) appHint: one line of non-identifying build info if the user provided it
-
-After frontmatter, use these sections in order:
-## Summary
-- Clear, neutral summary of the report. Replace emails, person names, phone numbers, API keys, tokens, and physical addresses with placeholders like [EMAIL], [NAME], [PHONE], [REDACTED].
-
-## Repro
-- Numbered steps or "Unclear from context."
-
-## Redaction
-- One short paragraph stating what was redacted (best-effort; not legal guarantees).
-
-Do not include full chat logs. Do not invent repro steps.`
+function feedbackSystemPrompt(): string {
+  return renderPromptTemplate('feedback/system.hbs', {})
+}
 
 /**
  * Produces a full markdown document (with frontmatter) suitable for
@@ -64,7 +50,7 @@ export async function composeFeedbackIssueMarkdown(input: {
   const user = `## User request\n\n${input.userMessage.trim()}\n\n## Recent context (may be empty)\n\n${t || '_none_'}${toolBit}\n\nWrite the full markdown file now.`
 
   const context = {
-    systemPrompt: SYSTEM,
+    systemPrompt: feedbackSystemPrompt(),
     messages: [
       { role: 'user' as const, content: user, timestamp: Date.now() },
     ],

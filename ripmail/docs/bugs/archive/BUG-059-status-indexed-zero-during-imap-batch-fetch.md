@@ -1,6 +1,6 @@
 # BUG-059: `ripmail status --json` shows zero indexed messages while sync logs steady UID fetch batches (Gmail / IMAP)
 
-**Status:** Open  
+**Status:** Fixed (2026-04-27).  
 **Severity:** High (onboarding and any UI that polls `search.indexedMessages` during first backfill)  
 **Component:** IMAP sync (`src/sync/run.rs`), status (`src/status.rs`, `src/cli/commands/sync.rs`), optional: `src/db/message_persist.rs`  
 **Reported:** 2026-04-19 (Braintunnel onboarding — Gmail flow; `sync.log` vs `ripmail status --json`)

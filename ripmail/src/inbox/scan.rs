@@ -299,8 +299,6 @@ fn evaluate_fallback_heuristic(candidate: &InboxCandidate) -> FallbackHeuristic 
         "digest",
         "sale",
         "deal alert",
-        "invitation",
-        "invitations",
         "sitewide",
         "membership",
         "available",
@@ -1347,6 +1345,33 @@ mod tests {
         assert_eq!(p.decision_source.as_deref(), Some("fallback"));
         assert!(p.matched_rule_ids.is_empty());
         assert!(p.note.as_deref().is_some_and(|n| n.contains("Heuristic:")));
+    }
+
+    #[test]
+    fn inbox_fallback_inform_for_event_style_invitation_subject() {
+        let c = InboxCandidate {
+            message_id: "m-invite".into(),
+            source_id: "".into(),
+            date: "2025-01-01".into(),
+            from_address: "organizer@example.com".into(),
+            from_name: None,
+            to_addresses: vec![],
+            cc_addresses: vec![],
+            subject: "Invitation: Q1 planning".into(),
+            snippet: "Please join us Friday.".into(),
+            body_text: "Please join us Friday.".into(),
+            category: None,
+            attachments: vec![],
+        };
+        let p = inbox_fallback_pick(&c);
+        assert_eq!(p.action.as_deref(), Some("inform"));
+        assert_eq!(p.decision_source.as_deref(), Some("fallback"));
+        assert!(p.matched_rule_ids.is_empty());
+        assert!(
+            p.note.as_deref().is_some_and(|n| n.contains("ambiguous")),
+            "{:?}",
+            p.note
+        );
     }
 
     #[test]

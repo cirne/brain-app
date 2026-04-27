@@ -94,6 +94,8 @@ export interface CreateAgentToolsOptions {
    * See {@link buildCreateAgentToolsOptions} in `agentToolSets.ts` for presets.
    */
   onlyToolNames?: readonly string[]
+  /** IANA timezone for calendar agent enrichment (e.g. from chat client). */
+  timezone?: string
 }
 
 function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boolean {
@@ -109,6 +111,7 @@ function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boo
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): any[] {
   const includeLocalMessages = resolveIncludeLocalMessageTools(options)
+  const agentTimeZone = options?.timezone?.trim() || 'UTC'
   // Pi-coding-agent file tools scoped to wiki directory; coerce paths through resolveSafeWikiPath so
   // absolute OS paths cannot escape the wiki root (pi-coding-agent resolves absolutes as-is).
   const readToolInner = createReadTool(wikiDir)
@@ -996,7 +999,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           end: params.end,
           calendarIds: params.calendar_ids,
         })
-        const enrichedEvents = enrichCalendarEventsForAgent(events)
+        const enrichedEvents = enrichCalendarEventsForAgent(events, { timeZone: agentTimeZone })
         let text = enrichedEvents.length
           ? JSON.stringify(enrichedEvents)
           : sourcesConfigured

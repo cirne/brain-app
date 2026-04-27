@@ -124,8 +124,8 @@
       "kind": "search",
       "id": "def-mkt-fts",
       "action": "ignore",
-      "query": "newsletter|digest|sale|deal alert|invitation|sitewide|membership",
-      "description": "Marketing keywords in body/subject (regex)"
+      "query": "newsletter|digest|sale|deal alert|sitewide|membership",
+      "description": "Marketing keywords in body/subject (regex); event invites excluded"
     },
     {
       "kind": "search",

@@ -1,6 +1,6 @@
 ---
 name: morning_report
-label: "Morning report: inbox, calendar, wiki, day prep, doc ideas"
+label: "Create a scannable stand-up from mail, calendar, and notes"
 description: >-
   Produces a concise daily stand-up: surveys inbox and calendar, correlates the vault wiki for what
   is top of mind, and prepares the user for the day with priorities and suggested wiki documents to

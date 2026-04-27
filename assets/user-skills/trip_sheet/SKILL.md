@@ -1,7 +1,6 @@
 ---
-
-## name: trip_sheet
-label: "Trip sheet: reservations, check-ins, leave-by times from home"
+name: trip_sheet
+label: "Write up a trip plan page for upcoming travel"
 description: >-
   Summarizes an upcoming trip from calendar, email, and wiki. Surfaces flight, hotel, and car
   reservations and confirmations, check-in and terminal timing, and door-to-leave times using the

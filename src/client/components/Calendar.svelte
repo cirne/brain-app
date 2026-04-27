@@ -9,6 +9,7 @@
     type SetCalendarSlideHeader,
   } from '@client/lib/calendarSlideHeaderContext.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
+  import { localYmdFromDate } from '@client/lib/calendarLocalYmd.js'
 
   let {
     refreshKey = 0,
@@ -125,7 +126,7 @@
   }
 
   function toYMD(d: Date): string {
-    return d.toISOString().slice(0, 10)
+    return localYmdFromDate(d)
   }
 
   async function loadEvents() {
@@ -188,7 +189,7 @@
     return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', { ...opts, year: 'numeric' })}`
   })
 
-  const todayYMD = new Date().toISOString().slice(0, 10)
+  const todayYMD = localYmdFromDate(new Date())
 
   function formatDayHeader(d: Date): string {
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })

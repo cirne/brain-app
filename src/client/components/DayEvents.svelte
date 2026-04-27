@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
+  import { localYmdFromDate, localYmdFromIsoInstant } from '@client/lib/calendarLocalYmd.js'
 
   export interface CalendarEvent {
     id: string
@@ -86,12 +87,8 @@
     return `${formatTime(e.start)} – ${formatTime(e.end)}`
   }
 
-  function localYMD(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  }
-
   const now = new Date()
-  const todayYMD = localYMD(now)
+  const todayYMD = localYmdFromDate(now)
 
   function isPast(e: CalendarEvent): boolean {
     if (e.allDay) return e.end <= todayYMD
@@ -107,7 +104,7 @@
         // show on all days in [start, end) — DTEND is exclusive
         if (e.start <= date && e.end > date) allDayArr.push(e)
       } else {
-        if (e.start.slice(0, 10) === date) timedArr.push(e)
+        if (localYmdFromIsoInstant(e.start) === date) timedArr.push(e)
       }
     }
     return { allDay: allDayArr, timed: timedArr }

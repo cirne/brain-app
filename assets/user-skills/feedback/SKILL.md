@@ -1,6 +1,6 @@
 ---
 name: feedback
-label: "Submit a bug or feature request"
+label: "File a bug report or feature request for the team"
 description: >-
   Collect bugs or product ideas, draft a redacted report with the product_feedback tool, show the
   user the full draft, and only call submit after they clearly confirm. After submit, a copy is

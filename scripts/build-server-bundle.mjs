@@ -50,4 +50,9 @@ if (existsSync(sharedSrc)) {
   cpSync(sharedSrc, join(outdir, 'shared'), { recursive: true })
 }
 
+const promptsSrc = join(root, 'src/server/prompts')
+if (existsSync(promptsSrc)) {
+  cpSync(promptsSrc, join(outdir, 'prompts'), { recursive: true })
+}
+
 console.log('[build-server-bundle] done →', outdir)
