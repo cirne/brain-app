@@ -8,6 +8,7 @@ import {
 } from '@client/test/helpers/index.js'
 import { consumeAgentChatStream } from '@client/lib/agentStream.js'
 import { jsonResponse, createMockFetch } from '@client/test/mocks/fetch.js'
+import { requestMicrophonePermissionInUserGesture } from '@client/lib/holdToSpeakMedia.js'
 
 vi.mock('./agent-conversation/AgentConversation.svelte', () => import('./test-stubs/AgentConversationStub.svelte'))
 vi.mock('./ChatComposerAudio.svelte', () => import('./test-stubs/ChatComposerAudioStub.svelte'))
@@ -30,6 +31,7 @@ vi.mock('@client/lib/agentStream.js', async (importOriginal) => {
 })
 
 const mockedConsume = vi.mocked(consumeAgentChatStream)
+const mockedRequestMic = vi.mocked(requestMicrophonePermissionInUserGesture)
 
 describe('AgentChat.svelte', () => {
   beforeEach(() => {
@@ -38,6 +40,50 @@ describe('AgentChat.svelte', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('shows composer new-chat and calls onUserInitiatedNewChat after a message exists', async () => {
+    const post = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(
+        new Response(new ReadableStream(), {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      ),
+    )
+
+    stubFetchForAgentChat({ extra: [agentChatPostHandler(post)] })
+
+    const onUserInitiatedNewChat = vi.fn()
+    const { component } = render(AgentChat, {
+      props: {
+        context: { type: 'none' },
+        onUserInitiatedNewChat,
+      },
+    })
+
+    component.newChat({ skipOverlayClose: true })
+    await tick()
+
+    const ta = screen.getByRole('textbox')
+    await fireEvent.input(ta, { target: { value: 'Hi' } })
+    await fireEvent.keyDown(ta, { key: 'Enter', shiftKey: false })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'New chat' })).toBeInTheDocument()
+    })
+
+    await fireEvent.click(screen.getByRole('button', { name: 'New chat' }))
+
+    expect(onUserInitiatedNewChat).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides composer new-chat when the thread is still empty', async () => {
+    const onUserInitiatedNewChat = vi.fn()
+    render(AgentChat, {
+      props: { context: { type: 'none' }, onUserInitiatedNewChat },
+    })
+    expect(screen.queryByRole('button', { name: 'New chat' })).not.toBeInTheDocument()
   })
 
   it('POSTs /api/chat when user sends after newChat', async () => {
@@ -388,6 +434,7 @@ describe('AgentChat.svelte', () => {
       await tick()
 
       expect(hearBtn).toHaveAttribute('aria-pressed', 'true')
+      expect(mockedRequestMic).not.toHaveBeenCalled()
 
       await fireEvent.click(hearBtn)
       await tick()

@@ -55,6 +55,8 @@
   let wikiRecentReady = $state(false)
   /** Hosted (`BRAIN_DATA_ROOT`): hide phone QR; show sign-out / delete data. */
   let multiTenant = $state(false)
+  /** Hosted: `@handle` under the page title (also in the app bar on wide viewports). */
+  let hostedWorkspaceHandle = $state<string | undefined>(undefined)
   let accountBusy = $state(false)
   let deleteAllConfirmOpen = $state(false)
 
@@ -228,9 +230,20 @@
     void fetchVaultStatus()
       .then((v) => {
         multiTenant = v.multiTenant === true
+        if (
+          v.multiTenant === true &&
+          v.handleConfirmed === true &&
+          typeof v.workspaceHandle === 'string' &&
+          v.workspaceHandle.length > 0
+        ) {
+          hostedWorkspaceHandle = v.workspaceHandle
+        } else {
+          hostedWorkspaceHandle = undefined
+        }
       })
       .catch(() => {
         multiTenant = false
+        hostedWorkspaceHandle = undefined
       })
     void fetchData()
     const unsubEvents = subscribe((e) => {
@@ -316,7 +329,12 @@
   <header class="hub-header">
     <div class="hub-header-content">
       <h1>Braintunnel Hub</h1>
-      <p class="hub-subtitle">Admin, settings, and system status</p>
+      <div class="hub-header-deck" class:hub-header-deck--hosted={!!hostedWorkspaceHandle}>
+        {#if hostedWorkspaceHandle}
+          <p class="hub-handle-line" translate="no">@{hostedWorkspaceHandle}</p>
+        {/if}
+        <p class="hub-subtitle">Admin, settings, and system status</p>
+      </div>
     </div>
   </header>
 
@@ -604,8 +622,27 @@
     letter-spacing: -0.02em;
   }
 
-  .hub-subtitle {
+  .hub-header-deck {
     margin: 0.5rem 0 0;
+  }
+
+  .hub-header-deck--hosted {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .hub-handle-line {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 500;
+    color: var(--text-2);
+    letter-spacing: 0.02em;
+  }
+
+  .hub-subtitle {
+    margin: 0;
     color: var(--text-2);
     font-size: 1rem;
     font-weight: 450;

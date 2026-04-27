@@ -122,7 +122,7 @@ export function pickMediaRecorderMimeType(): string | undefined {
 }
 
 /**
- * Requests microphone access in the same user gesture (e.g. enabling Audio conversation).
+ * Requests microphone access in the same user gesture (e.g. arming hold-to-speak).
  * Stops tracks immediately so we only retain permission for later hold-to-speak.
  * Primes a shared `AudioContext` for PCM capture (Safari / BUG-023) when possible.
  */

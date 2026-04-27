@@ -18,7 +18,10 @@
     onNewChat?: () => void
     /** When true, hides the new-chat button (current chat is empty). */
     isEmptyChat?: boolean
-    /** Hosted only: `@handle` next to Hub after onboarding confirmation. */
+    /**
+     * Hosted only: `@handle` next to Hub after onboarding confirmation.
+     * Omitted in the top bar on narrow viewports (handle lives on Braintunnel Hub) so the bar stays scannable.
+     */
     hostedHandlePill?: string
     /** Hosted only: opens Hub scrolled to the Account / connectivity section. */
     onHostedHandleNavigate?: () => void
@@ -27,7 +30,7 @@
   let {
     showChatHistoryButton = true,
     sidebarOpen = false,
-    isMobile: _isMobile = false,
+    isMobile = false,
     onToggleSidebar,
     syncErrors,
     showSyncErrors,
@@ -82,49 +85,51 @@
       <span class="brand-name">Braintunnel</span>
     {/if}
   </div>
-  {#if onNewChat && !isEmptyChat}
-    <div class="new-wrap">
-      <button
-        type="button"
-        class="new-nav-btn"
-        onclick={onNewChat}
-        title="New conversation (⌘N)"
-        aria-label="New conversation"
-      >
-        <MessageSquarePlus size={16} strokeWidth={2} aria-hidden="true" />
+  <div class="nav-actions" aria-label="Top actions">
+    <div class="search-wrap">
+      <button class="search-btn" onclick={onOpenSearch} title="Search (⌘K)" aria-label="Search">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
       </button>
     </div>
-  {/if}
-  <div class="search-wrap">
-    <button class="search-btn" onclick={onOpenSearch} title="Search (⌘K)" aria-label="Search">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-      </svg>
-    </button>
-  </div>
-  <div class="sync-wrap">
-    {#if hostedHandlePill && onHostedHandleNavigate}
-      <button
-        type="button"
-        class="nav-hosted-handle"
-        onclick={onHostedHandleNavigate}
-        title="Your Braintunnel handle — open Hub"
-      >
-        @{hostedHandlePill}
-      </button>
+    {#if onNewChat && !isEmptyChat}
+      <div class="new-wrap">
+        <button
+          type="button"
+          class="new-nav-btn"
+          onclick={onNewChat}
+          title="New chat (⌘N)"
+          aria-label="New conversation"
+        >
+          <MessageSquarePlus size={16} strokeWidth={2.25} aria-hidden="true" />
+        </button>
+      </div>
     {/if}
-    <BrainHubWidget onOpen={onOpenHub} />
-    {#if syncErrors.length > 0}
-      <button class="sync-error-badge" onclick={onToggleSyncErrors} title="Show sync errors">!</button>
-      {#if showSyncErrors}
-        <div class="sync-error-popup">
-          <div class="sync-error-title">Sync errors</div>
-          {#each syncErrors as err}
-            <div class="sync-error-item">{err}</div>
-          {/each}
-        </div>
+    <div class="sync-wrap">
+      {#if hostedHandlePill && onHostedHandleNavigate && !isMobile}
+        <button
+          type="button"
+          class="nav-hosted-handle"
+          onclick={onHostedHandleNavigate}
+          title="Your Braintunnel handle — open Hub"
+        >
+          @{hostedHandlePill}
+        </button>
       {/if}
-    {/if}
+      <BrainHubWidget onOpen={onOpenHub} />
+      {#if syncErrors.length > 0}
+        <button class="sync-error-badge" onclick={onToggleSyncErrors} title="Show sync errors">!</button>
+        {#if showSyncErrors}
+          <div class="sync-error-popup">
+            <div class="sync-error-title">Sync errors</div>
+            {#each syncErrors as err}
+              <div class="sync-error-item">{err}</div>
+            {/each}
+          </div>
+        {/if}
+      {/if}
+    </div>
   </div>
 </nav>
 
@@ -242,6 +247,14 @@
     color: var(--text);
   }
 
+  .nav-actions {
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+    gap: 2px;
+    padding-left: 8px;
+  }
+
   .new-wrap {
     display: flex;
     align-items: center;
@@ -249,13 +262,32 @@
   }
 
   .new-nav-btn {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    min-height: var(--tab-h);
-    color: var(--text-2);
-    transition: color 0.15s, background 0.15s;
+    width: 36px;
+    min-width: 36px;
+    height: 32px;
+    min-height: 32px;
+    margin: 0;
+    padding: 0;
+    border-radius: 6px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    flex-shrink: 0;
+    transition: color 0.15s, background 0.15s, filter 0.15s;
+  }
+
+  .new-nav-btn :global(svg) {
+    flex-shrink: 0;
+    color: #fff;
+  }
+
+  .new-nav-btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--accent);
   }
   .search-wrap {
     display: flex;
@@ -357,8 +389,11 @@
       color: var(--text);
     }
     .new-nav-btn:hover {
-      color: var(--text);
-      background: var(--bg-3);
+      color: #fff;
+      background: color-mix(in srgb, var(--accent) 88%, #000);
+    }
+    .new-nav-btn:hover :global(svg) {
+      color: #fff;
     }
     .search-btn:hover {
       color: var(--text);
@@ -369,6 +404,66 @@
     }
     .sync-error-badge:hover {
       background: #c0392b;
+    }
+  }
+
+  /* Mobile: larger tab strip + 18px type to match left-rail list (see ChatHistory @ 768px) */
+  @media (max-width: 768px) {
+    .nav-brand-title,
+    .brand-name {
+      font-size: 18px;
+    }
+
+    .search-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .new-nav-btn {
+      width: 40px;
+      min-width: 40px;
+      height: 36px;
+      min-height: 36px;
+    }
+
+    .new-nav-btn :global(svg) {
+      width: 18px;
+      height: 18px;
+    }
+
+    .nav-sidebar-close {
+      width: 40px;
+      height: 40px;
+    }
+
+    .menu-btn :global(svg),
+    .nav-brand-lockup :global(svg),
+    .nav-sidebar-close :global(svg) {
+      width: 20px;
+      height: 20px;
+    }
+
+    .sync-wrap :global(.hub-widget) {
+      font-size: 18px;
+    }
+
+    .sync-wrap :global(.wiki-page-count-indicator) {
+      font-size: 18px;
+    }
+
+    .sync-wrap :global(.pulse-container) {
+      width: 16px;
+      height: 16px;
+    }
+
+    .sync-wrap :global(.pulse-dot) {
+      width: 9px;
+      height: 9px;
+    }
+
+    .sync-wrap :global(svg.wpc-book) {
+      width: 18px;
+      height: 18px;
     }
   }
 

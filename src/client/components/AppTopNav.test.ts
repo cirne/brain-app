@@ -32,6 +32,18 @@ describe('AppTopNav.svelte', () => {
 
       expect(screen.getByText('Braintunnel')).toBeInTheDocument()
     })
+
+    it('orders top actions search, then new chat, then hub (reading / tab order)', () => {
+      render(AppTopNav, {
+        props: { ...baseProps, onNewChat: vi.fn(), isEmptyChat: false },
+      })
+      const search = screen.getByRole('button', { name: 'Search' })
+      const newChat = screen.getByRole('button', { name: 'New conversation' })
+      const hub = screen.getByTestId('brain-hub-widget-stub')
+      const after = globalThis.Node.DOCUMENT_POSITION_FOLLOWING
+      expect(search.compareDocumentPosition(newChat) & after).toBe(after)
+      expect(newChat.compareDocumentPosition(hub) & after).toBe(after)
+    })
   })
 
   describe('sidebar toggle', () => {
@@ -254,6 +266,19 @@ describe('AppTopNav.svelte', () => {
       await fireEvent.click(screen.getByText('@testuser'))
 
       expect(onHostedHandleNavigate).toHaveBeenCalledTimes(1)
+    })
+
+    it('hides handle pill on mobile so the bar stays scannable (handle is on Hub)', () => {
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          hostedHandlePill: 'testuser',
+          onHostedHandleNavigate: vi.fn(),
+          isMobile: true,
+        },
+      })
+
+      expect(screen.queryByText('@testuser')).not.toBeInTheDocument()
     })
   })
 })

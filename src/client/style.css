@@ -121,7 +121,8 @@ svg.sync-spinning {
 /* Mobile adjustments */
 @media (max-width: 768px) {
   :root {
-    --tab-h: 40px;
+    /* Taller top bar (tab row + pane headers) for touch; was 40px */
+    --tab-h: 48px;
     --sidebar-w: 220px;
     font-size: 16px;
   }

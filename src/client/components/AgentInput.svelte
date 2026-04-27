@@ -18,6 +18,11 @@
     onDraftChange,
     /** Mobile doc slide-over dock: no gray bar behind the field; only the bordered input shows. */
     transparentSurround = false,
+    /**
+     * When a “new chat” (or other) control sits to the left of the field in the parent row,
+     * omit the default left padding on `.input-area` so the bordered shell aligns with the gap.
+     */
+    trimInputAreaStart = false,
   }: {
     placeholder?: string
     disabled?: boolean
@@ -30,6 +35,7 @@
     /** Fires whenever the draft string changes (typing, send clear, @mention, /skill, append). */
     onDraftChange?: (_draft: string) => void
     transparentSurround?: boolean
+    trimInputAreaStart?: boolean
   } = $props()
 
   let input = $state('')
@@ -210,7 +216,11 @@
   })
 </script>
 
-<div class="input-area" class:input-area--transparent={transparentSurround}>
+<div
+  class="input-area"
+  class:input-area--transparent={transparentSurround}
+  class:input-area--trim-start={trimInputAreaStart}
+>
   {#if showSlash}
     <div class="mention-dropdown slash-dropdown" role="listbox">
       {#each filteredSkills() as skill, i}
@@ -303,6 +313,10 @@
 
   .input-area--transparent {
     background: transparent;
+  }
+
+  .input-area--trim-start {
+    padding-left: 0;
   }
 
   .mention-dropdown {

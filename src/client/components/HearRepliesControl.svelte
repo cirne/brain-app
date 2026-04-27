@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ensureBrainTtsAutoplayInUserGesture } from '@client/lib/brainTtsAudio.js'
   import { requestMicrophonePermissionInUserGesture } from '@client/lib/holdToSpeakMedia.js'
+  import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
 
   let {
     hearReplies = false,
@@ -14,7 +15,9 @@
     onHearRepliesChange?.(checked)
     if (checked) {
       void ensureBrainTtsAutoplayInUserGesture()
-      void requestMicrophonePermissionInUserGesture()
+      if (isPressToTalkEnabled()) {
+        void requestMicrophonePermissionInUserGesture()
+      }
     }
   }
 </script>

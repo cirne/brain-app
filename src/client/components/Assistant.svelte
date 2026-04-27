@@ -713,6 +713,7 @@
           onSwitchToCalendar={switchToCalendar}
           onOpenFromAgent={onOpenFromAgent}
           onNewChat={closeOverlay}
+          onUserInitiatedNewChat={historyNewChat}
           onOpenWikiAbout={openHubWikiAbout}
           onAfterDeleteChat={historyNewChat}
           onUserSendMessage={closeOverlayOnUserSend}

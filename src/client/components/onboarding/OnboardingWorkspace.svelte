@@ -332,6 +332,7 @@
 <div class="onboarding-workspace">
   <AppTopNav
     showChatHistoryButton={false}
+    {isMobile}
     onToggleSidebar={noopSidebar}
     {syncErrors}
     {showSyncErrors}
@@ -401,6 +402,7 @@
           onSwitchToCalendar={switchToCalendar}
           onOpenFromAgent={onOpenFromAgent}
           onNewChat={closeOverlay}
+          onUserInitiatedNewChat={() => { agentChat?.newChat() }}
           onOpenWikiAbout={openHubWikiAbout}
           onUserSendMessage={closeOverlayOnUserSend}
           onWriteStreaming={onWriteStreaming}

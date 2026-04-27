@@ -24,10 +24,11 @@
     type SessionState,
   } from '@client/lib/chatSessionStore.js'
   import { shiftQueuedFollowUp } from '@client/lib/agentFollowUpQueue.js'
-  import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
+  import { MessageSquarePlus, Trash2, Volume2, VolumeX } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import ChatComposerAudio from './ChatComposerAudio.svelte'
   import { requestMicrophonePermissionInUserGesture } from '@client/lib/holdToSpeakMedia.js'
+  import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
   import AgentInput from './AgentInput.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
@@ -52,6 +53,11 @@
     onAfterDeleteChat,
     /** Fired when the user submits a chat message (before the request runs). */
     onUserSendMessage,
+    /**
+     * Full “new chat” chrome flow (navigate, session reset, `chatIsEmpty`, …). Shown as + beside the
+     * composer when the thread has messages. Main app: same handler as the top bar / sidebar.
+     */
+    onUserInitiatedNewChat = undefined as (() => void) | undefined,
     /** Active session id changed (new chat, load, or SSE session event). */
     onSessionChange,
     /** After a send() stream finishes (success, error, or abort). */
@@ -122,6 +128,8 @@
     /** After this chat is deleted (API + confirm); defaults to {@link newChat} with overlay skip. Main app passes the same handler as sidebar “New chat”. */
     onAfterDeleteChat?: () => void
     onUserSendMessage?: () => void
+    /** Optional; when set, a “new chat” control is shown beside the composer (non-empty thread). */
+    onUserInitiatedNewChat?: () => void
     onSessionChange?: (_sessionId: string | null) => void
     onChatPersisted?: () => void
     onWriteStreaming?: (_p: { path: string; content: string; done: boolean }) => void
@@ -148,6 +156,10 @@
   /** Slide-over only over transcript; composer stays visible (mobile chat bridge). */
   const bridgeSlideLayout = $derived(
     conversationHidden && mobileSlideCoversTranscriptOnly && !!mobileDetail,
+  )
+
+  const showComposerNewChat = $derived(
+    typeof onUserInitiatedNewChat === 'function' && messages.length > 0 && !hideInput,
   )
 
   /** Dynamic transcript component (default {@link AgentConversation}). */
@@ -620,7 +632,9 @@
     const cur = sessions.get(id)?.hearReplies ?? false
     if (cur === false) {
       void ensureBrainTtsAutoplayInUserGesture()
-      void requestMicrophonePermissionInUserGesture()
+      if (isPressToTalkEnabled()) {
+        void requestMicrophonePermissionInUserGesture()
+      }
     }
     const next = !cur
     writeHearRepliesPreference(next)
@@ -789,19 +803,33 @@
 
     {#if !hideInput}
       <div class="composer-stack" class:composer-stack--bridge-dock={bridgeSlideLayout}>
-        <div class="input-shell">
-          <AgentInput
-            bind:this={inputEl}
-            {placeholder}
-            {streaming}
-            queuedMessages={pendingQueuedMessages}
-            {wikiFiles}
-            skills={skillsList}
-            onSend={send}
-            onStop={stopChat}
-            onDraftChange={onAgentInputDraftChange}
-            transparentSurround={bridgeSlideLayout}
-          />
+        <div class="composer-input-row" class:composer-input-row--lead={showComposerNewChat}>
+          {#if showComposerNewChat}
+            <button
+              type="button"
+              class="composer-new-chat-btn"
+              onclick={() => onUserInitiatedNewChat!()}
+              title="New chat (⌘N)"
+              aria-label="New chat"
+            >
+              <MessageSquarePlus size={20} strokeWidth={2} aria-hidden="true" />
+            </button>
+          {/if}
+          <div class="composer-input-shell">
+            <AgentInput
+              bind:this={inputEl}
+              {placeholder}
+              {streaming}
+              queuedMessages={pendingQueuedMessages}
+              {wikiFiles}
+              skills={skillsList}
+              onSend={send}
+              onStop={stopChat}
+              onDraftChange={onAgentInputDraftChange}
+              transparentSurround={bridgeSlideLayout}
+              trimInputAreaStart={showComposerNewChat}
+            />
+          </div>
         </div>
         {#if !bridgeSlideLayout}
           <ChatComposerAudio
@@ -917,6 +945,60 @@
     flex-shrink: 0;
   }
 
+  .composer-input-row {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 0 6px;
+    flex-shrink: 0;
+  }
+
+  .composer-input-row--lead {
+    padding: 0 12px 6px;
+  }
+
+  .composer-input-shell {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Match `AgentInput` .input-shell: 10px radius; margin-top = .input-area padding so tops line up */
+  .composer-new-chat-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 42px;
+    height: 42px;
+    margin-top: 6px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-2);
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  .composer-new-chat-btn :global(svg) {
+    flex-shrink: 0;
+  }
+
+  @media (hover: hover) {
+    .composer-new-chat-btn:hover {
+      background: var(--bg-3);
+      border-color: var(--border);
+      color: var(--text);
+    }
+  }
+
+  .composer-new-chat-btn:active {
+    background: var(--bg-2);
+  }
+
   .composer-stack--bridge-dock {
     /* Same surface as .mid-outer--bridge-slide (overrides any inherited --bg-2) */
     background: var(--bg);
@@ -926,10 +1008,6 @@
     .composer-stack {
       padding-bottom: env(safe-area-inset-bottom, 0px);
     }
-  }
-
-  .input-shell {
-    flex-shrink: 0;
   }
 
   /* Same width as .conversation when chat is full-width (no detail split) */

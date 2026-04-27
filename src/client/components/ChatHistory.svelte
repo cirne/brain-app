@@ -341,7 +341,8 @@
       --ch-fs-error: 0.75rem;
       --ch-fs-group-label: 0.6875rem;
       --ch-fs-view-all: 0.75rem;
-      --ch-fs-row-title: 1rem;
+      /* Aligned with AppTopNav / tab row body on small screens (18px) */
+      --ch-fs-row-title: 1.125rem;
       --ch-fs-row-time: 0.875rem;
       --ch-lh-row-title: 1.35;
       --ch-row-pad: 8px 8px;
