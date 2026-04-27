@@ -25,7 +25,8 @@ import {
 } from '@server/lib/observability/newRelicHelper.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { agentKindForWikiSource } from '@server/lib/llm/llmAgentKind.js'
-import { addLlmUsage, sumUsageFromMessages } from '@server/lib/llm/llmUsage.js'
+import { addLlmUsage, rollupAssistantLlmIds, sumUsageFromMessages } from '@server/lib/llm/llmUsage.js'
+import { logger } from '@server/lib/observability/logger.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { truncateJsonResult } from '@server/lib/llm/truncateJson.js'
 import { safeWikiRelativePath } from '@server/lib/wiki/wikiEditDiff.js'
@@ -342,6 +343,21 @@ function attachRunTracker(
             turnDurationMs: Math.max(0, Math.round(performance.now() - turnStartedAt)),
             toolCallCount,
           })
+          {
+            const { provider: pFromMsg, model: mFromMsg } = rollupAssistantLlmIds(end.messages)
+            const provider = pFromMsg ?? process.env.LLM_PROVIDER?.trim() ?? 'unknown'
+            const model = mFromMsg ?? process.env.LLM_MODEL?.trim() ?? 'unknown'
+            logger.info(
+              {
+                kind: agentKind,
+                provider,
+                model,
+                ...last,
+                backgroundRunId: nrOpts.backgroundRunId,
+              },
+              'llm-turn',
+            )
+          }
           break
         }
         default:

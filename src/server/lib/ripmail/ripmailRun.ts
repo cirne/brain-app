@@ -2,6 +2,7 @@ import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process'
 import { ripmailBin } from './ripmailBin.js'
 import { buildRipmailStatusLogSnapshot } from './ripmailStatusParse.js'
 import { ripmailProcessEnv } from '@server/lib/platform/brainHome.js'
+import { logger } from '@server/lib/observability/logger.js'
 
 const KILL_ESCALATION_MS = 5000
 
@@ -116,17 +117,13 @@ function formatRipmailCommandLine(parts: string[]): string {
     .join(' ')
 }
 
-/**
- * Human-oriented ripmail logs: one line with the full command and compact inline JSON metadata
- * (`argv` is only on the command line, not repeated in JSON).
- */
+/** Ripmail subprocess spawn/close: structured log with shell-style `cmd` for grep. */
 function logRipmailLine(payload: Record<string, unknown>): void {
   const argvRaw = payload.argv
   const parts = Array.isArray(argvRaw) ? (argvRaw as string[]) : []
   const cmdLine = parts.length > 0 ? formatRipmailCommandLine(parts) : '(ripmail argv missing)'
   const { argv: _omitArgv, ...meta } = payload
-  const doc = { tag: '[ripmail]', ...meta }
-  console.log(`[ripmail] ${cmdLine} ${JSON.stringify(doc)}`)
+  logger.info({ cmd: cmdLine, ...meta }, 'ripmail')
 }
 
 /**

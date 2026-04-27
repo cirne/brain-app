@@ -4,6 +4,7 @@ import { computeIndexingActionHint, parseRipmailStatusJson } from '@server/lib/r
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { execRipmailAsync, RIPMAIL_STATUS_TIMEOUT_MS } from '@server/lib/ripmail/ripmailExec.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
+import { logger } from '@server/lib/observability/logger.js'
 
 export { ripmailBin }
 
@@ -51,8 +52,8 @@ function logOnboardingMailDebug(
   const want = onboardingMailDebugLevel()
   if (want === 'off') return
   if (level === 'full' && want !== 'full') return
-  const line = JSON.stringify({ tag: '[onboarding/mail]', phase, ...data })
-  console.log(line)
+  const logFn = level === 'full' ? logger.trace.bind(logger) : logger.debug.bind(logger)
+  logFn({ phase, ...data }, 'onboarding/mail')
 }
 
 /** Runs `ripmail status --json` only — lightweight poll for onboarding progress. */

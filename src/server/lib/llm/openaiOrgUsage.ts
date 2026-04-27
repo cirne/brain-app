@@ -1,5 +1,6 @@
 /**
- * OpenAI org-level Usage + Costs (admin API) helpers for `npm run llm:usage`.
+ * Braintunnel OpenAI **project** Usage + Costs (admin API) for `npm run llm:usage`.
+ * Always filters to {@link BRAIN_OPENAI_PROJECT_ID_DEFAULT}; no org-wide mode.
  * @see https://platform.openai.com/docs/api-reference/usage/completions
  * @see https://platform.openai.com/docs/api-reference/usage/costs
  */
@@ -8,6 +9,10 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const API_BASE = 'https://api.openai.com/v1'
+
+/** Braintunnel OpenAI project — the only project `llm:usage` reports on. */
+export const BRAIN_OPENAI_PROJECT_ID_DEFAULT = 'proj_cuDNhdtS2h6Ek2pt4YSDKFHQ'
+
 /** Completions: max daily buckets per request (OpenAI Usage API; bucket_width=1d). */
 const MAX_COMPLETION_DAYS = 31
 /** Costs: max daily buckets per request. */
@@ -106,6 +111,23 @@ export type CompletionAgg = {
   numModelRequests: number
 }
 
+/** Completions from Usage API with `group_by=api_key_id`. */
+export type ApiKeyCompletionAgg = {
+  apiKeyId: string
+  inputTokens: number
+  outputTokens: number
+  inputCachedTokens: number
+  inputAudioTokens: number
+  outputAudioTokens: number
+  numModelRequests: number
+}
+
+export type AdminApiKeyMeta = {
+  name: string
+  redactedValue: string
+  lastUsedAt: number | null
+}
+
 export type LineItemCost = { lineItem: string; usd: number; currency: string }
 
 function addCompletionAgg(
@@ -141,13 +163,56 @@ function addCompletionAgg(
   m.set(model, cur)
 }
 
+function addApiKeyCompletionAgg(
+  m: Map<string, ApiKeyCompletionAgg>,
+  r: {
+    api_key_id?: string | null
+    input_tokens?: number
+    output_tokens?: number
+    input_cached_tokens?: number
+    input_audio_tokens?: number
+    output_audio_tokens?: number
+    num_model_requests?: number
+  },
+): void {
+  const id = (r.api_key_id ?? 'unknown') || 'unknown'
+  const cur =
+    m.get(id) ??
+    {
+      apiKeyId: id,
+      inputTokens: 0,
+      outputTokens: 0,
+      inputCachedTokens: 0,
+      inputAudioTokens: 0,
+      outputAudioTokens: 0,
+      numModelRequests: 0,
+    }
+  cur.inputTokens += r.input_tokens ?? 0
+  cur.outputTokens += r.output_tokens ?? 0
+  cur.inputCachedTokens += r.input_cached_tokens ?? 0
+  cur.inputAudioTokens += r.input_audio_tokens ?? 0
+  cur.outputAudioTokens += r.output_audio_tokens ?? 0
+  cur.numModelRequests += r.num_model_requests ?? 0
+  m.set(id, cur)
+}
+
+/** API may return `amount.value` as string. */
+export function amountValueToNumber(v: unknown): number {
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (typeof v === 'string') {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : 0
+  }
+  return 0
+}
+
 function addLineItem(
   m: Map<string, number>,
-  r: { line_item?: string | null; amount?: { value?: number; currency?: string } | null },
+  r: { line_item?: string | null; amount?: { value?: unknown; currency?: string } | null },
   _currency: { value: string },
 ): void {
   const key = (r.line_item ?? 'unknown') || 'unknown'
-  const v = r.amount?.value ?? 0
+  const v = amountValueToNumber(r.amount?.value)
   m.set(key, (m.get(key) ?? 0) + v)
   if (r.amount?.currency) _currency.value = r.amount.currency
 }
@@ -209,6 +274,27 @@ function buildCompletionsParams(
   return p.toString()
 }
 
+function buildCompletionsParamsByApiKey(
+  chunkStart: number,
+  chunkEnd: number,
+  opts: {
+    models: string[]
+    projectIds: string[]
+    userIds: string[]
+  },
+): string {
+  const p = new URLSearchParams()
+  p.set('start_time', String(chunkStart))
+  p.set('end_time', String(chunkEnd))
+  p.set('bucket_width', '1d')
+  p.append('group_by', 'api_key_id')
+  p.set('limit', String(Math.min(Math.ceil((chunkEnd - chunkStart) / DAY), MAX_COMPLETION_DAYS)))
+  for (const m of opts.models) p.append('models', m)
+  for (const id of opts.projectIds) p.append('project_ids', id)
+  for (const id of opts.userIds) p.append('user_ids', id)
+  return p.toString()
+}
+
 function buildCostsParams(
   chunkStart: number,
   chunkEnd: number,
@@ -255,6 +341,122 @@ async function fetchAllCompletionsInChunk(
     page = body.next_page
   }
   return Array.from(agg.values()).sort((a, b) => b.inputTokens - a.inputTokens)
+}
+
+async function fetchAllCompletionsByApiKeyInChunk(
+  key: string,
+  chunkStart: number,
+  chunkEnd: number,
+  opts: { models: string[]; projectIds: string[]; userIds: string[] },
+  signal?: AbortSignal,
+): Promise<ApiKeyCompletionAgg[]> {
+  const agg = new Map<string, ApiKeyCompletionAgg>()
+  let page: string | undefined
+  for (;;) {
+    const qs = buildCompletionsParamsByApiKey(chunkStart, chunkEnd, opts)
+    const u =
+      page !== undefined
+        ? `/organization/usage/completions?${qs}&page=${encodeURIComponent(page)}`
+        : `/organization/usage/completions?${qs}`
+    const body = (await fetchJson(u, { key, signal })) as {
+      data?: { result?: unknown[]; start_time?: number; end_time?: number }[]
+      has_more?: boolean
+      next_page?: string
+    }
+    for (const bucket of body.data ?? []) {
+      const b = bucket as { result?: unknown[]; results?: unknown[] }
+      const rows = (b.result ?? b.results) as Record<string, unknown>[]
+      for (const row of rows ?? []) {
+        addApiKeyCompletionAgg(agg, row)
+      }
+    }
+    if (!body.has_more || !body.next_page) break
+    page = body.next_page
+  }
+  return Array.from(agg.values()).sort((a, b) => b.inputTokens + b.outputTokens - (a.inputTokens + a.outputTokens))
+}
+
+async function fetchAllCompletionsByApiKey(
+  key: string,
+  startSec: number,
+  endSec: number,
+  opts: { models: string[]; projectIds: string[]; userIds: string[] },
+  signal?: AbortSignal,
+): Promise<Map<string, ApiKeyCompletionAgg>> {
+  const total = new Map<string, ApiKeyCompletionAgg>()
+  for (const { chunkStart, chunkEnd } of splitTimeRange(
+    startSec,
+    endSec,
+    MAX_COMPLETION_DAYS * DAY,
+  )) {
+    const rows = await fetchAllCompletionsByApiKeyInChunk(
+      key,
+      chunkStart,
+      chunkEnd,
+      opts,
+      signal,
+    )
+    for (const r of rows) {
+      const cur =
+        total.get(r.apiKeyId) ??
+        ({
+          apiKeyId: r.apiKeyId,
+          inputTokens: 0,
+          outputTokens: 0,
+          inputCachedTokens: 0,
+          inputAudioTokens: 0,
+          outputAudioTokens: 0,
+          numModelRequests: 0,
+        } as ApiKeyCompletionAgg)
+      cur.inputTokens += r.inputTokens
+      cur.outputTokens += r.outputTokens
+      cur.inputCachedTokens += r.inputCachedTokens
+      cur.inputAudioTokens += r.inputAudioTokens
+      cur.outputAudioTokens += r.outputAudioTokens
+      cur.numModelRequests += r.numModelRequests
+      total.set(r.apiKeyId, cur)
+    }
+  }
+  return total
+}
+
+/**
+ * All org + project API keys (names, redacted prefix, `last_used_at`) for resolving Usage `api_key_id`.
+ * Requires a key with permission to list admin API keys.
+ */
+export async function fetchAllAdminApiKeyMeta(
+  key: string,
+  signal?: AbortSignal,
+): Promise<Map<string, AdminApiKeyMeta>> {
+  const out = new Map<string, AdminApiKeyMeta>()
+  let after: string | undefined
+  for (;;) {
+    const p = new URLSearchParams()
+    p.set('limit', '100')
+    if (after) p.set('after', after)
+    const body = (await fetchJson(`/organization/admin_api_keys?${p}`, { key, signal })) as {
+      data?: {
+        id: string
+        name?: string | null
+        redacted_value?: string | null
+        last_used_at?: number | null
+      }[]
+      has_more?: boolean
+      last_id?: string
+    }
+    for (const row of body.data ?? []) {
+      if (!row.id) continue
+      out.set(row.id, {
+        name: (row.name ?? '').trim() || '(unnamed)',
+        redactedValue: (row.redacted_value ?? '').trim() || '—',
+        lastUsedAt:
+          row.last_used_at != null && Number.isFinite(row.last_used_at) ? row.last_used_at : null,
+      })
+    }
+    if (!body.has_more || !body.last_id) break
+    after = body.last_id
+  }
+  return out
 }
 
 async function fetchAllCompletions(
@@ -358,7 +560,11 @@ async function fetchAllCosts(
     for (const [k, v] of lineToUsd) merged.set(k, (merged.get(k) ?? 0) + v)
   }
   return Array.from(merged.entries())
-    .map(([lineItem, usd]) => ({ lineItem, usd, currency }))
+    .map(([lineItem, usd]) => ({
+      lineItem,
+      usd: amountValueToNumber(usd),
+      currency,
+    }))
     .sort((a, b) => b.usd - a.usd)
 }
 
@@ -366,8 +572,9 @@ export type LlmUsageCliOptions = {
   provider: 'openai'
   since: string | undefined
   until: string | undefined
+  /** Default `model` = `group_by=model`. `api-key` = `group_by=api_key_id` with admin key name lookup. */
+  facet: 'model' | 'api-key'
   models: string[]
-  projectIds: string[]
   userIds: string[]
   json: boolean
   help: boolean
@@ -378,8 +585,8 @@ export function parseLlmUsageArgv(argv: string[]): LlmUsageCliOptions {
     provider: 'openai',
     since: undefined,
     until: undefined,
+    facet: 'model',
     models: [],
-    projectIds: [],
     userIds: [],
     json: false,
     help: false,
@@ -394,6 +601,20 @@ export function parseLlmUsageArgv(argv: string[]): LlmUsageCliOptions {
     if (a === '--json') {
       out.json = true
       continue
+    }
+    if (a === '--facet') {
+      const v = (args[++i] ?? '').trim().toLowerCase()
+      if (v === 'model' || v === 'by-model') {
+        out.facet = 'model'
+        continue
+      }
+      if (v === 'api-key' || v === 'apikey' || v === 'key') {
+        out.facet = 'api-key'
+        continue
+      }
+      throw new Error(
+        `Invalid --facet "${v}" (use model, api-key — completions grouped by model vs API key id)`,
+      )
     }
     if (a === '--provider') {
       out.provider = (args[++i] as 'openai') ?? 'openai'
@@ -412,10 +633,6 @@ export function parseLlmUsageArgv(argv: string[]): LlmUsageCliOptions {
       out.models.push(args[++i] ?? '')
       continue
     }
-    if (a === '--project') {
-      out.projectIds.push(args[++i] ?? '')
-      continue
-    }
     if (a === '--user-id') {
       out.userIds.push(args[++i] ?? '')
       continue
@@ -425,20 +642,27 @@ export function parseLlmUsageArgv(argv: string[]): LlmUsageCliOptions {
   return out
 }
 
+const BRAIN_OPENAI_SCOPE_LABEL = `Braintunnel only — OpenAI project ${BRAIN_OPENAI_PROJECT_ID_DEFAULT} (see BRAIN_OPENAI_PROJECT_ID_DEFAULT in openaiOrgUsage.ts)`
+
 const HELP = `Usage: npm run llm:usage -- [options]
 
-OpenAI org usage (requires OPENAI_ADMIN_API_KEY in .env or env).
-Shows completion token counts by model and billable cost by line item (USD from API).
+OpenAI project usage (requires OPENAI_ADMIN_API_KEY in .env or env).
+**Always** reports the Braintunnel OpenAI project only (${BRAIN_OPENAI_PROJECT_ID_DEFAULT});
+there is no org-wide or other-project mode.
 
 Options:
   --provider openai     Default: openai (only value supported)
   --since <window|date>  Start of range: e.g. 7d, 24h, 2w, or YYYY-MM-DD (UTC). Default: 7d
   --until <now|date>   End of range (exclusive, API): default now, or YYYY-MM-DD
   --model <id>         Repeat to filter to specific models
-  --project <id>       Repeat: OpenAI project id
   --user-id <id>      Repeat: OpenAI request user_id filter (if your app sets it)
+  --facet model       Group completions by model (default; same as --group_by=model)
+  --facet api-key     Group completions by API key id; resolves key names via admin API
   --json               Machine-readable output
   -h, --help           This message
+
+Env (repo .env / .env.local):
+  OPENAI_ADMIN_API_KEY     Required. Org admin or usage access.
 `
 
 function fmtUtc(sec: number): string {
@@ -448,11 +672,13 @@ function fmtUtc(sec: number): string {
 function printText(
   startSec: number,
   endSec: number,
+  projectLabel: string,
   completion: Map<string, CompletionAgg>,
   costs: LineItemCost[],
 ): void {
-  console.log('OpenAI organization usage (admin API)')
+  console.log('OpenAI project usage (admin API) — Braintunnel only')
   console.log(`Range: ${fmtUtc(startSec)} → ${fmtUtc(endSec)} (end exclusive) UTC`)
+  console.log(`Scope: ${projectLabel}`)
   console.log('')
   console.log('## Completion tokens by model')
   console.log('model\ttin\ttout\tcache\t#req')
@@ -489,7 +715,70 @@ function printText(
   )
 }
 
+function printTextByApiKey(
+  startSec: number,
+  endSec: number,
+  projectLabel: string,
+  modelFilterDesc: string,
+  completion: Map<string, ApiKeyCompletionAgg>,
+  nameById: Map<string, AdminApiKeyMeta>,
+  keyListFailed: string | undefined,
+): void {
+  console.log('OpenAI project usage (admin API) — Braintunnel only')
+  console.log(`Range: ${fmtUtc(startSec)} → ${fmtUtc(endSec)} (end exclusive) UTC`)
+  console.log(`Scope: ${projectLabel}`)
+  console.log(`Facet: api_key (Usage API group_by=api_key_id)${modelFilterDesc}`)
+  if (keyListFailed) {
+    console.log(`Key names: (could not list admin keys — ${keyListFailed}; ids are still shown.)`)
+  }
+  console.log('')
+  console.log('## Completion tokens by API key')
+  console.log('name\tredacted_value\tapi_key_id\tlast_used (UTC)\ttin\ttout\tcache\t#req')
+  for (const r of Array.from(completion.values()).sort(
+    (a, b) => b.inputTokens + b.outputTokens - (a.inputTokens + a.outputTokens),
+  )) {
+    const meta = nameById.get(r.apiKeyId)
+    const name = meta?.name ?? '(name unknown — not in list or revoked key)'
+    const redacted = meta?.redactedValue ?? '—'
+    const lu =
+      meta?.lastUsedAt != null
+        ? new Date(meta.lastUsedAt * 1000).toISOString()
+        : '—'
+    console.log(
+      [
+        name,
+        redacted,
+        r.apiKeyId,
+        lu,
+        r.inputTokens,
+        r.outputTokens,
+        r.inputCachedTokens,
+        r.numModelRequests,
+      ].join('\t'),
+    )
+  }
+  const tin = sumByApiKey(completion, (x) => x.inputTokens)
+  const tout = sumByApiKey(completion, (x) => x.outputTokens)
+  const tc = sumByApiKey(completion, (x) => x.inputCachedTokens)
+  const nreq = sumByApiKey(completion, (x) => x.numModelRequests)
+  console.log(`TOTAL\ttin=${tin}\ttout=${tout}\tcache=${tc}\t#req=${nreq}`)
+  console.log('')
+  console.log('Match "name" to how you label keys in platform.openai.com (e.g. dev vs prod).')
+  console.log(
+    'Note: with --model filter, totals are only for those models; omit --model for all models per key.',
+  )
+}
+
 function sum(m: Map<string, CompletionAgg>, f: (x: CompletionAgg) => number): number {
+  let s = 0
+  for (const v of m.values()) s += f(v)
+  return s
+}
+
+function sumByApiKey(
+  m: Map<string, ApiKeyCompletionAgg>,
+  f: (x: ApiKeyCompletionAgg) => number,
+): number {
   let s = 0
   for (const v of m.values()) s += f(v)
   return s
@@ -530,15 +819,89 @@ export async function runLlmUsageCli(argv: string[]): Promise<void> {
   }
 
   const modelFilter = opt.models.map((m) => m.trim()).filter(Boolean)
-  const projectIds = opt.projectIds.map((m) => m.trim()).filter(Boolean)
   const userIds = opt.userIds.map((m) => m.trim()).filter(Boolean)
+  const projectIds = [BRAIN_OPENAI_PROJECT_ID_DEFAULT]
+  const fetchOpts = { models: modelFilter, projectIds, userIds }
+
+  if (opt.facet === 'api-key') {
+    let keyListFailed: string | undefined
+    const [byKey, costs, nameById] = await Promise.all([
+      fetchAllCompletionsByApiKey(key, startSec, endSec, fetchOpts),
+      fetchAllCosts(key, startSec, endSec, projectIds),
+      fetchAllAdminApiKeyMeta(key).catch((e) => {
+        keyListFailed = (e as Error).message
+        return new Map<string, AdminApiKeyMeta>()
+      }),
+    ])
+    const modelFilterDesc =
+      modelFilter.length > 0 ? `; models: ${modelFilter.join(', ')}` : '; models: (all)'
+
+    if (opt.json) {
+      const apiKeyRows = Object.fromEntries(
+        Array.from(byKey.values()).map((r) => {
+          const m = nameById.get(r.apiKeyId)
+          return [
+            r.apiKeyId,
+            {
+              ...r,
+              name: m?.name,
+              redactedValue: m?.redactedValue,
+              lastUsedAt: m?.lastUsedAt,
+            },
+          ] as const
+        }),
+      )
+      console.log(
+        JSON.stringify(
+          {
+            provider: 'openai' as const,
+            facet: 'api-key' as const,
+            startTime: startSec,
+            endTime: endSec,
+            projectId: BRAIN_OPENAI_PROJECT_ID_DEFAULT,
+            scope: 'braintunnel_only' as const,
+            modelFilter: modelFilter.length > 0 ? modelFilter : null,
+            adminKeyListError: keyListFailed ?? null,
+            completionByApiKey: apiKeyRows,
+            allOrgApiKeys: Object.fromEntries(nameById),
+            costsByLineItem: costs,
+            totals: {
+              inputTokens: sumByApiKey(byKey, (x) => x.inputTokens),
+              outputTokens: sumByApiKey(byKey, (x) => x.outputTokens),
+              inputCachedTokens: sumByApiKey(byKey, (x) => x.inputCachedTokens),
+              numModelRequests: sumByApiKey(byKey, (x) => x.numModelRequests),
+              usd: costs.reduce((a, c) => a + c.usd, 0),
+            },
+          },
+          null,
+          2,
+        ),
+      )
+    } else {
+      printTextByApiKey(
+        startSec,
+        endSec,
+        BRAIN_OPENAI_SCOPE_LABEL,
+        modelFilterDesc,
+        byKey,
+        nameById,
+        keyListFailed,
+      )
+      console.log('')
+      console.log('## Cost (API line items, org + project; not split by key)')
+      console.log('line_item\tamount')
+      let totalCost = 0
+      for (const c of costs) {
+        console.log([c.lineItem, c.usd.toFixed(4)].join('\t'))
+        totalCost += c.usd
+      }
+      console.log(`TOTAL_USD\t${totalCost.toFixed(4)}`)
+    }
+    return
+  }
 
   const [compMap, costs] = await Promise.all([
-    fetchAllCompletions(key, startSec, endSec, {
-      models: modelFilter,
-      projectIds,
-      userIds,
-    }),
+    fetchAllCompletions(key, startSec, endSec, fetchOpts),
     fetchAllCosts(key, startSec, endSec, projectIds),
   ])
 
@@ -547,8 +910,11 @@ export async function runLlmUsageCli(argv: string[]): Promise<void> {
       JSON.stringify(
         {
           provider: 'openai' as const,
+          facet: 'model' as const,
           startTime: startSec,
           endTime: endSec,
+          projectId: BRAIN_OPENAI_PROJECT_ID_DEFAULT,
+          scope: 'braintunnel_only' as const,
           completionByModel: Object.fromEntries(compMap),
           costsByLineItem: costs,
           totals: {
@@ -564,6 +930,6 @@ export async function runLlmUsageCli(argv: string[]): Promise<void> {
       ),
     )
   } else {
-    printText(startSec, endSec, compMap, costs)
+    printText(startSec, endSec, BRAIN_OPENAI_SCOPE_LABEL, compMap, costs)
   }
 }

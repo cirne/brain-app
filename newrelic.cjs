@@ -14,4 +14,10 @@ exports.config = {
   agent_enabled: Boolean(licenseKey),
   app_name: [process.env.NEW_RELIC_APP_NAME || 'Braintunnel Local Dev'],
   license_key: licenseKey,
+  application_logging: {
+    enabled: true,
+    forwarding: { enabled: true, max_samples_stored: 10000 },
+    local_decorating: { enabled: false },
+    metrics: { enabled: true },
+  },
 }

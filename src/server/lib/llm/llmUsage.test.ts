@@ -3,6 +3,7 @@ import {
   addLlmUsage,
   countAssistantCompletionsWithUsage,
   isZeroUsage,
+  rollupAssistantLlmIds,
   sumUsageFromMessages,
   type LlmUsageSnapshot,
 } from './llmUsage.js'
@@ -114,3 +115,19 @@ describe('addLlmUsage', () => {
     })
   })
 })
+
+describe('rollupAssistantLlmIds', () => {
+  it('uses the last assistant message with usage for provider/model', () => {
+    const first = mockAssistant({ input: 1, output: 1, totalTokens: 2, costTotal: 0 })
+    const second = {
+      ...mockAssistant({ input: 2, output: 2, totalTokens: 4, costTotal: 0 }),
+      model: 'gpt-5.4-mini',
+      provider: 'openai' as const,
+    }
+    expect(rollupAssistantLlmIds([first, second] as never[])).toEqual({
+      model: 'gpt-5.4-mini',
+      provider: 'openai',
+    })
+  })
+})
+

@@ -8,19 +8,18 @@ import { logFdaProbeForStartup } from '@server/lib/apple/fdaProbe.js'
 import { parseRipmailStatusJson } from '@server/lib/ripmail/ripmailStatusParse.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
-
-const log = (line: string) => console.log(`[brain-app] ${line}`)
+import { logger } from '@server/lib/observability/logger.js'
 
 /** One-shot logs for container / production debugging (paths, ripmail index). */
 export async function logStartupDiagnostics(listenPort?: number): Promise<void> {
   initLocalMessageToolsAvailability()
   const bundledNative = process.env.BRAIN_BUNDLED_NATIVE === '1'
   if (bundledNative) {
-    log(
+    logger.info(
       `NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} HTTP listen port=${listenPort ?? '?'} (bundled native; port from dynamic bind, not PORT env)`,
     )
   } else {
-    log(
+    logger.info(
       `NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} HTTP listen port=${listenPort ?? parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)}`,
     )
   }
@@ -30,38 +29,42 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
     process.env.GOOGLE_OAUTH_CLIENT_ID?.trim() &&
     !process.env.PUBLIC_WEB_ORIGIN?.trim()
   ) {
-    log(
+    logger.info(
       `Gmail OAuth: PUBLIC_WEB_ORIGIN unset — redirect URI will be inferred from X-Forwarded-Proto/Host per request (${GOOGLE_OAUTH_CALLBACK_PATH}); set PUBLIC_WEB_ORIGIN to your canonical https:// origin for stability`,
     )
   }
-  logFdaProbeForStartup(log)
+  logFdaProbeForStartup((line) => logger.info(line))
   if (isMultiTenantMode()) {
-    log(`BRAIN_DATA_ROOT=${process.env.BRAIN_DATA_ROOT}`)
-    log('multi-tenant: BRAIN_HOME is per-request; periodic sync / your-wiki loop disabled at process level')
+    logger.info(`BRAIN_DATA_ROOT=${process.env.BRAIN_DATA_ROOT}`)
+    logger.info(
+      'multi-tenant: BRAIN_HOME is per-request; periodic sync / your-wiki loop disabled at process level',
+    )
   } else {
     const home = resolveBrainHomeDiskRoot()
     const wiki = wikiDir()
     const wikiParent = brainWikiParentRoot()
-    log(`BRAIN_HOME=${home}`)
-    log(`BRAIN_WIKI_ROOT=${wikiParent}`)
-    log(`wiki content dir=${wiki}`)
+    logger.info(`BRAIN_HOME=${home}`)
+    logger.info(`BRAIN_WIKI_ROOT=${wikiParent}`)
+    logger.info(`wiki content dir=${wiki}`)
   }
 
   const ripHome = process.env.RIPMAIL_HOME
-  log(
+  logger.info(
     `RIPMAIL_HOME=${ripHome ?? (isMultiTenantMode() ? '(per-tenant $HOME/ripmail)' : '(derived from BRAIN_HOME/ripmail)')}`,
   )
   if (isMultiTenantMode() && process.env.IMESSAGE_DB_PATH?.trim()) {
-    log('warning: IMESSAGE_DB_PATH is set while BRAIN_DATA_ROOT is set — iMessage is host-level, not tenant-scoped')
+    logger.info(
+      'warning: IMESSAGE_DB_PATH is set while BRAIN_DATA_ROOT is set — iMessage is host-level, not tenant-scoped',
+    )
   }
   const rm = ripmailBin()
-  log(`RIPMAIL_BIN=${rm}`)
+  logger.info(`RIPMAIL_BIN=${rm}`)
   if (!isMultiTenantMode()) {
     try {
       const { stdout } = await execRipmailAsync(`${rm} --version`, { timeout: 5000 })
-      log(`ripmail: ${stdout.trim().split('\n')[0]}`)
+      logger.info(`ripmail: ${stdout.trim().split('\n')[0]}`)
     } catch (e) {
-      log(`ripmail --version failed: ${String(e)}`)
+      logger.info(`ripmail --version failed: ${String(e)}`)
     }
 
     try {
@@ -70,30 +73,30 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
       if (parsed) {
         const total = parsed.indexedTotal
         const last = parsed.lastSyncedAt
-        log(`ripmail index: messages≈${total ?? '?'} lastSync=${last ?? '?'}`)
+        logger.info(`ripmail index: messages≈${total ?? '?'} lastSync=${last ?? '?'}`)
       } else {
-        log(`ripmail status (truncated): ${stdout.slice(0, 240)}`)
+        logger.info(`ripmail status (truncated): ${stdout.slice(0, 240)}`)
       }
     } catch (e) {
-      log(`ripmail status failed — check RIPMAIL_HOME and ripmail config: ${String(e)}`)
+      logger.info(`ripmail status failed — check RIPMAIL_HOME and ripmail config: ${String(e)}`)
     }
   } else {
-    log('ripmail --version / status: skipped at startup in multi-tenant mode (no global RIPMAIL_HOME)')
+    logger.info('ripmail --version / status: skipped at startup in multi-tenant mode (no global RIPMAIL_HOME)')
   }
 
   if (isMultiTenantMode()) {
-    log('Local messages: disabled in multi-tenant / hosted mode (no per-tenant chat.db integration).')
+    logger.info('Local messages: disabled in multi-tenant / hosted mode (no per-tenant chat.db integration).')
   } else if (!isAppleLocalIntegrationEnvironment()) {
-    log(
+    logger.info(
       'Local messages / on-device Apple Mail: not available on this host — iMessage/SMS tools disabled (requires macOS)',
     )
   } else if (areLocalMessageToolsEnabled()) {
-    log('Local messages: chat.db readable (list_recent_messages / get_message_thread enabled)')
+    logger.info('Local messages: chat.db readable (list_recent_messages / get_message_thread enabled)')
   } else {
-    log(
+    logger.info(
       'Local messages: database not readable — SMS/text tools disabled (macOS: grant Full Disk Access to Node/your terminal, or set IMESSAGE_DB_PATH to a readable chat.db copy)',
     )
   }
 
-  log('startup diagnostics complete.')
+  logger.info('startup diagnostics complete.')
 }

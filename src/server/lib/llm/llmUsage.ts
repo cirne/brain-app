@@ -75,3 +75,30 @@ export function isZeroUsage(s: LlmUsageSnapshot): boolean {
     s.costTotal === 0
   )
 }
+
+// --- Provider / model on assistant messages (pi-agent; same shape as newRelicHelper used privately) ---
+
+/** `provider` / `model` on assistant messages from pi-agent-core (not on `AgentMessage` type surface). */
+export function assistantLlmIdentity(m: AgentMessage): { provider?: string; model?: string } {
+  if (m.role !== 'assistant') return {}
+  const r = m as { provider?: unknown; model?: unknown; api?: unknown }
+  const providerRaw = r.provider ?? r.api
+  const provider = typeof providerRaw === 'string' && providerRaw.length > 0 ? providerRaw : undefined
+  const model = typeof r.model === 'string' && r.model.length > 0 ? r.model : undefined
+  return { provider, model }
+}
+
+/** Last assistant message with `usage` wins (final completion in a tool loop). */
+export function rollupAssistantLlmIds(messages: AgentMessage[] | null | undefined): {
+  provider?: string
+  model?: string
+} {
+  if (!Array.isArray(messages)) return {}
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.role !== 'assistant' || m.usage == null) continue
+    const id = assistantLlmIdentity(m)
+    if (id.provider !== undefined || id.model !== undefined) return id
+  }
+  return {}
+}

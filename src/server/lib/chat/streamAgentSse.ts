@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 import type { Agent, AgentMessage } from '@mariozechner/pi-agent-core'
 import type { Context } from 'hono'
 import type { ChatMessage } from './chatTypes.js'
-import { sumUsageFromMessages, type LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
+import { rollupAssistantLlmIds, sumUsageFromMessages, type LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
+import { logger } from '@server/lib/observability/logger.js'
 import { streamSSE } from 'hono/streaming'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -397,6 +398,21 @@ export function streamAgentSseResponse(
               turnDurationMs: Math.max(0, Math.round(performance.now() - turnStartedAt)),
               toolCallCount,
             })
+            {
+              const { provider: pFromMsg, model: mFromMsg } = rollupAssistantLlmIds(messages ?? null)
+              const provider = pFromMsg ?? process.env.LLM_PROVIDER?.trim() ?? 'unknown'
+              const model = mFromMsg ?? process.env.LLM_MODEL?.trim() ?? 'unknown'
+              logger.info(
+                {
+                  kind: agentKind,
+                  provider,
+                  model,
+                  ...rollup,
+                  sessionId: announceSessionId,
+                },
+                'llm-turn',
+              )
+            }
             await stream.writeSSE({
               event: 'done',
               data: JSON.stringify({}),

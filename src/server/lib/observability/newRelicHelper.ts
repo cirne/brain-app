@@ -3,7 +3,12 @@ import newrelic from 'newrelic'
 import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { isValidUserId } from '@server/lib/tenant/handleMeta.js'
 import type { LlmAgentKind } from '@server/lib/llm/llmAgentKind.js'
-import { countAssistantCompletionsWithUsage, type LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
+import {
+  assistantLlmIdentity,
+  countAssistantCompletionsWithUsage,
+  rollupAssistantLlmIds,
+  type LlmUsageSnapshot,
+} from '@server/lib/llm/llmUsage.js'
 import { toolResultForSse } from '@server/lib/llm/truncateJson.js'
 import { tryGetTenantContext, type TenantContext } from '@server/lib/tenant/tenantContext.js'
 
@@ -372,31 +377,6 @@ export type RecordLlmAgentTurnOptions = LlmTurnTelemetry & {
   provider?: string
   /** Model id for this turn’s last completion with usage (multi-round turns rarely switch models). */
   model?: string
-}
-
-/** `provider` / `model` on assistant messages from pi-agent-core (not on `AgentMessage` type surface). */
-function assistantLlmIdentity(m: AgentMessage): { provider?: string; model?: string } {
-  if (m.role !== 'assistant') return {}
-  const r = m as { provider?: unknown; model?: unknown; api?: unknown }
-  const providerRaw = r.provider ?? r.api
-  const provider = typeof providerRaw === 'string' && providerRaw.length > 0 ? providerRaw : undefined
-  const model = typeof r.model === 'string' && r.model.length > 0 ? r.model : undefined
-  return { provider, model }
-}
-
-/** Last assistant message with `usage` wins (matches final completion in a tool loop). */
-function rollupAssistantLlmIds(messages: AgentMessage[] | null | undefined): {
-  provider?: string
-  model?: string
-} {
-  if (!Array.isArray(messages)) return {}
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]
-    if (m.role !== 'assistant' || m.usage == null) continue
-    const id = assistantLlmIdentity(m)
-    if (id.provider !== undefined || id.model !== undefined) return id
-  }
-  return {}
 }
 
 /** One LlmCompletion per model HTTP completion (assistant message with usage). */
