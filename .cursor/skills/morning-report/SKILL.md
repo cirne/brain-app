@@ -1,10 +1,9 @@
 ---
 name: morning-report
 description: >-
-  Produces a tight daily stand-up: mail, calendar, and wiki in short bullets, then
-  tappable next steps via the suggest_reply_options tool. Use when the user asks for
-  a morning report, daily brief, start-the-day prep, "what’s on today," or similar;
-  not for a single meeting deep-dive (use briefing).
+  Produces a tight daily stand-up: mail, calendar, and wiki in short bullets.
+  Use when the user asks for a morning report, daily brief, start-the-day prep,
+  "what's on today," or similar; not for a single meeting deep-dive (use briefing).
 ---
 
 # Morning report
@@ -18,10 +17,10 @@ A **fast, scannable** daily snapshot in chat—not a research paper. **Density o
 
 ## Workflow
 
-1. **Scope** — User’s local "today" (timezone from context). Optional focus (travel, deep work, deadline).
+1. **Scope** — User's local "today" (timezone from context). Optional focus (travel, deep work, deadline).
 2. **Calendar** — Today; tomorrow only if it blocks today. **Times + one phrase** per item; one line for back-to-backs.
 3. **Inbox** — **At most 4 bullets**: urgent, replies owed, high-stakes, one pattern. **Not** full **inbox_triage** unless asked.
-4. **Wiki** — **At most 3 bullets**: stale/missing/linked to today’s calendar.
+4. **Wiki** — **At most 3 bullets**: stale/missing/linked to today's calendar.
 5. **Top of mind** — **3–5 bullets** (mail + calendar + wiki).
 6. **Today** — **now / before lunch / before EOD**, **1–2 items** per non-empty bucket.
 
@@ -29,14 +28,8 @@ A **fast, scannable** daily snapshot in chat—not a research paper. **Density o
 
 Short headings, **single-line** bullets, **bold** for times and must-not-miss. **At most ~6 sections**. **No** long paragraphs or duplicated lists. Optional **"If you only do one thing"** when it helps. **Under ~35 lines** of markdown for a typical day; compress when busy.
 
-**Do not** end with a long prose list of “things you could do next”—use **`suggest_reply_options`**.
-
-## Finish (required)
-
-**After** all other tools and **after** the markdown body, call **`suggest_reply_options`** once with **2–5** choices (`label` + `submit`). Suggestions: brief a specific meeting, `/research` or `/wiki` with path, follow-up focus, open artifact. **Never** repeat the chip text as a markdown list. See tool description for order (after other tools, at most one call per turn). Skip only if no reasonable next step.
-
 ## Related skills
 
-- **calendar** — scheduling and “today” queries.
+- **calendar** — scheduling and "today" queries.
 - **inbox_triage** — batch rules and clearing.
 - **briefing** — one meeting deep-dive, not the whole day.

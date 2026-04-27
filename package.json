@@ -30,6 +30,7 @@
     "ripmail:test": "cargo t -p ripmail",
     "dev:clean": "node scripts/clean-brain-dev-data.mjs",
     "usage:export": "node scripts/brain-usage.mjs",
+    "llm:usage": "npx tsx scripts/llm-usage.ts",
     "desktop": "tauri",
     "desktop:bundle-server": "node scripts/bundle-tauri-server.mjs",
     "desktop:clean-data": "node scripts/clean-tauri-user-data.mjs",

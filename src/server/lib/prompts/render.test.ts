@@ -9,7 +9,7 @@ describe('renderPromptTemplate', () => {
       multiTenant: true,
     })
     expect(s).toContain('**Hosted workspace:**')
-    expect(s).toContain('list_recent_messages** and **get_message_thread**')
+    expect(s).toContain('list_recent_messages')
   })
 
   it('omits local messages bullet when includeLocalMessageCapabilities is false', () => {

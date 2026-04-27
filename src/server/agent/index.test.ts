@@ -22,7 +22,7 @@ describe('buildBaseSystemPrompt', () => {
   it('prefers wiki lookup before mail for general questions', async () => {
     const { buildBaseSystemPrompt } = await import('./assistantAgent.js')
     const s = buildBaseSystemPrompt(false, wiki)
-    expect(s).toContain('Wiki first, then mail')
+    expect(s).toContain('wiki first, then mail')
     expect(s).toMatch(/wiki.*first/i)
     expect(s).toContain('search_index')
     expect(s).toContain('read_email')
@@ -35,7 +35,7 @@ describe('buildBaseSystemPrompt', () => {
     const s = buildBaseSystemPrompt(false, wiki)
     expect(s).toContain('Do not duplicate options in prose')
     expect(s).toContain('Never paste raw JSON')
-    expect(s).toMatch(/if you like/i)
+    expect(s).toMatch(/always/i)
     expect(s).toContain('suggest_reply_options')
   })
 })

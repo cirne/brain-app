@@ -45,12 +45,8 @@ export function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, 
 }
 
 function firstChatPromptSection(includeLocalMessageCapabilities: boolean): string {
-  const proactiveInsight = includeLocalMessageCapabilities
-    ? 'a recent thread worth summarizing (**email and/or local texts** when relevant); a person or project from their profile you can expand on; or a wiki page that was just created they might want to review'
-    : 'a recent email thread worth summarizing; a person or project from their profile you can expand on; or a wiki page that was just created they might want to review'
   return renderPromptTemplate('assistant/first-chat.hbs', {
     includeLocalMessageCapabilities,
-    proactiveInsight: new Handlebars.SafeString(proactiveInsight),
   })
 }
 

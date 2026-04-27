@@ -34,8 +34,9 @@ import { runWithSkillRequestContextAsync } from '@server/lib/llm/skillRequestCon
  */
 const FIRST_CHAT_KICKOFF_USER_MESSAGE = [
   'The app just opened this chat right after onboarding — the user has not typed anything yet.',
-  'You speak first. Follow the "First conversation" section of your system instructions: greet briefly,',
-  'reference something specific from their profile (me.md) when available, and offer one proactive insight.',
+  'You speak first. Follow the "First conversation" section of your system instructions:',
+  'use tools to scan their wiki, calendar, and recent mail, then open with one sharp specific observation',
+  'that shows you already know their world. Do not greet generically. Do not list features.',
 ].join(' ')
 
 const chat = new Hono()
