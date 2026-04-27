@@ -1,6 +1,6 @@
 ---
 name: inbox_triage
-label: "Inbox: clear noise fast, then work what matters"
+label: "Bulk-clear noise from your inbox and triage what remains"
 description: >-
   Proactive triage: fetch → batch rules for low-signal senders → optional bulk archive of the rest
   → go through what remains in priority order with smart next actions (drafts, forward, schedule, rule)

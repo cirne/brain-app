@@ -1,7 +1,10 @@
+import { fileURLToPath } from 'node:url'
 import { loadDotEnv } from '@server/lib/platform/loadDotEnv.js'
+import { setPromptsRoot } from '@server/lib/prompts/registry.js'
 import { runFullSync } from '@server/lib/platform/syncAll.js'
 
 loadDotEnv()
+setPromptsRoot(fileURLToPath(new URL('./prompts', import.meta.url)))
 
 try {
   const result = await runFullSync()

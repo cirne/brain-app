@@ -1,5 +1,7 @@
 import { mkdir } from 'node:fs/promises'
+import Handlebars from 'handlebars'
 import type { Agent } from '@mariozechner/pi-agent-core'
+import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { onboardingStagingWikiDir } from '@server/lib/onboarding/onboardingState.js'
 import { ripmailBin } from '@server/lib/onboarding/onboardingMailStatus.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
@@ -94,65 +96,23 @@ export function buildProfilingSystemPrompt(
   const localTime = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date())
   const name = whoamiSubject?.displayName ?? 'the account holder'
   const email = whoamiSubject?.primaryEmail ?? '(see whoami below)'
-  const userPageLines = userPeoplePage
+  const userPageNote = userPeoplePage
     ? [
         `A **people/** wiki page (skeleton) exists: \`${userPeoplePage.relativePath}\` → \`[[people/${userPeoplePage.slug}]]\`. Wiki seeding will expand it. **write** / **edit** only \`me.md\` during profiling.`,
         `Optional: one trailing line in \`me.md\` like \`More detail: [[people/${userPeoplePage.slug}]]\`.`,
-      ]
-    : [`If identity is unclear, omit a people-page link.`]
+      ].join('\n')
+    : `If identity is unclear, omit a people-page link.`
 
-  return [
-    `Write **\`me.md\`** at the wiki root. It is **injected in full** into every main chat — same job as **AGENTS.md**: **how to help** (tone, delegation, priorities) and a **few** stable facts. It is **not** a bio, CRM dump, or inbox summary.`,
-    ``,
-    `**Now:** ${todayYmd} ${localTime} (${tz})`,
-    ``,
-    `**Subject:** ${name} · ${email}`,
-    ``,
-    `**ripmail whoami:**`,
-    `\`\`\``,
-    ripmailWhoami,
-    `\`\`\``,
-    ``,
-    ...userPageLines,
-    ``,
-    `## Explore mail, then compress`,
-    ``,
-    `Use mail to infer **working style and assistant rules**. Do **not** transcribe threads, names of every project, trip dates, or long contact lists into \`me.md\`.`,
-    ``,
-    `**Tools:** indexed mail only (no web, fetch_page, or youtube in this agent).`,
-    ``,
-    `**Workflow:** **find_person** (empty) → **search_index** (**≤5** calls) → **read_email** (**≤12** threads/messages; favor mail the user **sent**). Then **write** \`me.md\` in **one** \`write\` (\`edit\` only for tiny fixes). **Only** \`me.md\`. **Do not** call \`set_chat_title\`.`,
-    ``,
-    `**Anti-recency:** Search **defaults to emphasizing recent** mail. Counter that deliberately:`,
-    `- **find_person** reflects long-run volume — use for **who** matters, not what is loudest **this week**.`,
-    `- **search_index** \`after\` / \`before\` accept **YYYY-MM-DD** or **rolling** specs (\`90d\`, \`1y\`, \`2y\`, \`3y\` — ripmail normalizes these). Of your **≤5** searches: **≥2** must set \`before: 90d\` (messages on or before ~90 days ago). **≥1** must use a **past band**, e.g. \`after: 3y\` **and** \`before: 1y\` (or \`2y\` / \`1y\` if the index is shallow). **≤2** may omit **both** \`after\` and \`before\`.`,
-    `- **read_email:** **≥6** / **12** reads must come from hits of those **date-bounded** searches — not only from unbounded-time searches.`,
-    `- Sparse mailbox: keep **one** \`before: 90d\` try + one looser band; still do **not** rely solely on undated searches.`,
-    ``,
-    `Stop when \`me.md\` meets the contract below; you do not need to use every budget.`,
-    ``,
-    `## Output contract (follow exactly)`,
-    ``,
-    `**Hard cap:** **≤${PROFILING_ME_MD_MAX_WORDS} words** of body text after optional YAML front matter. If a draft is longer, **shorten before** \`write\`.`,
-    ``,
-    `**Readability:** Use **##** headings for the sections below. Put a **blank line** between sections so the file is skimmable in the app. Prefer **short lines and lists** over dense paragraphs.`,
-    ``,
-    `**Shape** (keep this order):`,
-    ``,
-    `1. **Title line** — how to address the user (e.g. their name).`,
-    `2. **Contact** — **at most two** lines: primary email; second line only if mail clearly shows another address **they** use for assistant-facing mail. **No other \`@\` addresses** anywhere else in the file.`,
-    `3. **How to help** — **2–5** bullet lines. Infer concrete preferences from **sent** mail where possible. **Do not** use bullets that only **restate** generic rubric (e.g. "be brief") with no user-specific fact; every bullet should be **actionable** for the main assistant. Cover tone/delegation/priorities and must-protects (e.g. DND) in **one short phrase each** when relevant.`,
-    `4. **Roles & place** — **≤4** short lines total: titles/orgs; **region + timezone** only (no street addresses). One idea per line is fine; use a short list if it reads clearer than a long sentence.`,
-    `5. **Key people** — **Up to 8** people. **Required format:** a **markdown bullet list** with **one** \`- Name — short role\` (or one short clause) **per line**. **Do not** pack names into a **single paragraph** or run-on sentence. **No emails, phone, or account identifiers.**`,
-    ``,
-    `**Do not include:** trip/itinerary/family travel dates; conference lists; hobby catalogs; philanthropy/project portfolios; org-chart depth; anything that looks pasted from mail headers. **Phone numbers and iMessage identifiers** belong on **people/** pages at buildout — **not** in \`me.md\`.`,
-    ``,
-    `**Privacy:** No street addresses. No financial or membership IDs. Ground claims in whoami + mail only; no invented filler.`,
-    ``,
-    `Optional YAML front matter: e.g. \`type: user-profile\`, \`updated: ${todayYmd}\`.`,
-    ``,
-    `When \`me.md\` satisfies the contract, stop.`,
-  ].join('\n')
+  return renderPromptTemplate('profiling/system.hbs', {
+    todayYmd,
+    localTime,
+    tz,
+    name,
+    email,
+    ripmailWhoami: new Handlebars.SafeString(ripmailWhoami),
+    userPageNote: new Handlebars.SafeString(userPageNote),
+    maxWords: PROFILING_ME_MD_MAX_WORDS,
+  })
 }
 
 const profilingSessions = new Map<string, Agent>()

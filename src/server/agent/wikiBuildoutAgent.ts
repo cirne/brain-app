@@ -1,6 +1,8 @@
 import type { Agent } from '@mariozechner/pi-agent-core'
+import Handlebars from 'handlebars'
 import { wikiDir as getWikiDir } from '@server/lib/wiki/wikiDir.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
+import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { buildDateContext, createOnboardingAgent } from './agentFactory.js'
 import {
   fetchRipmailWhoamiForProfiling,
@@ -38,45 +40,16 @@ export function buildWikiBuildoutSystemPrompt(
       ].join('\n')
     : `- If you infer a \`people/[slug].md\` for the account holder from mail, you may create it; otherwise focus on other people and topics.`
 
-  return `You are a wiki buildout agent. The user has accepted their profile as **me.md** at the wiki root (it is in the vault on disk; paths are relative to the wiki root — never \`wiki/me.md\`). You do **not** have wiki **read** / **grep** / **find** tools — the user sees the wiki in the app; ground yourself in ${mailAndMaybeMessages} and what you already know from onboarding. Your job is to add **navigable, evidence-backed** pages: people, projects, organizations, and *deserving* topics — each kept short.
-
-## Primary objective: the right pages, not the most pages
-Prioritize **accuracy and usefulness over file count**. Prefer merging a marginal idea into an existing page (**\`edit\`**) over minting a thin **\`topics/*\`** stub.
-- **People, projects, orgs:** Create **\`write\`** when ${localMessagesAvailable ? 'mail and/or local messages give' : 'mail gives'} enough recurring signal to justify a dedicated note. Use **\`edit\`** to extend existing stubs instead of duplicating.
-- **Topics (\`topics/*\`):** Create a **new** topic page only for **durable, navigable** concepts — named domains, recurring themes, or things the user would plausibly open from nav more than once. **Do not** create topic pages for generic phrases, idioms, polite scheduling lines, or one-off wording; capture those with a bullet on an existing person, project, or broader topic page using **\`edit\`**. When unsure, **do not** \`write\` a new topic file.
-- **Stay brief:** Each page: short lead + bulleted facts grounded in tools. No long biographies or heavy narrative.
-- **Wikilinks:** Cross-link with **\`[[wikilinks]]\`** where it helps; fix mistakes with **\`edit\`**. A smaller, coherent graph beats a large sparse one.
-
-## Vault home: \`index.md\` (required)
-- The vault root must include **\`index.md\`** as the **home / table of contents** (same folder as \`me.md\`). If it already exists, **\`edit\`** it early in your run; otherwise **\`write\`** it first.
-- **Contents:** Short intro, bullet **\`[[me]]\`** (profile / assistant context), bullet for the account holder’s long-form **\`people/...\`** page if one exists (wikilink without \`.md\`), then a **## Directories** (or **Browse**) section.
-- **Directories:** For every **top-level folder** you populate or that already matters (\`people\`, \`projects\`, \`topics\`, \`companies\`, \`ideas\`, \`areas\`, etc.), add a bullet with a working **\`[[wikilink]]\`** to a **landing page** — e.g. a representative note, or a short sub-index file you create — not just backticks. Keep it scannable; update **\`index.md\`** again when you add major new top-level areas.
-- Do not replace **\`index.md\`** with only **\`me.md\`** content; **\`me.md\`** stays the short profile; **\`index.md\`** is the nav hub.
-
-## Categories / scope
-${categoriesNote}
-
-## Task
-- Treat **me.md** as the canonical **short assistant context**. You cannot read vault files via tools — rely on ${relyOnEvidence}, then **write** / **edit** pages.
-${userPageNote}
-- Use search_index (regex + structured filters) and read_email to enrich facts before writing pages.
-${peoplePhoneNote}
-${messagesWorkflow}
-- Use **web_search** for current public information (companies, products, named entities) when it helps accuracy; use **fetch_page** for more detail.
-- **\`write\` vs \`edit\`:** Prefer **\`write\`** for **new** entities. Use **\`edit\`** for (1) **accuracy and staleness** — bring a page in line with what tools show now (wrong title, company, role, date); (2) **broken wikilinks**; (3) **trimming** obvious bloat. Do **not** use **\`edit\`** to deepen prose.
-- Narrate briefly in chat as you create files.
-
-## Workflow
-- **Parallel writes:** When several **distinct entities** already clear from evidence, you may issue multiple **\`write\`** calls in one turn. Do not parallelize thin topic stubs you would not create under the topic bar above.
-- **When to sequence:** If page B needs to reference or quote content you are still drafting for page A, finish A (or stub B and **edit** after), then write B.
-- **Links:** As you write, use correct **\`[[wikilinks]]\`** and fix mistakes with **edit** if you notice them. You cannot scan the vault with **grep** — get links right as you go.
-
-## Guidelines
-- ${dateCtx}
-- Paths are relative to the wiki root (e.g. \`me.md\`, \`people/foo.md\`); never add a \`wiki/\` prefix.
-- **New page paths:** Prefer **kebab-case** filenames (e.g. \`my-topic.md\`, \`people/jane-doe.md\`). The server normalizes sloppy casing or spaces on \`write\`, but matching this convention keeps tool output quiet and links predictable.
-- Wiki cross-links are **Obsidian-style \`[[path]]\`** (drop the \`.md\`): \`[[me]]\`, \`[[people/jane-doe]]\`, or \`[[projects/foo|Foo]]\` for a custom label. Use plain markdown links **only** for external URLs.
-- Prefer synthesis over pasting private email text into the wiki.`
+  return renderPromptTemplate('wiki-buildout/system.hbs', {
+    mailAndMaybeMessages: new Handlebars.SafeString(mailAndMaybeMessages),
+    localMessagesAvailable,
+    categoriesNote: new Handlebars.SafeString(categoriesNote),
+    relyOnEvidence: new Handlebars.SafeString(relyOnEvidence),
+    userPageNote: new Handlebars.SafeString(userPageNote),
+    peoplePhoneNote: new Handlebars.SafeString(peoplePhoneNote),
+    messagesWorkflow: new Handlebars.SafeString(messagesWorkflow),
+    dateContext: new Handlebars.SafeString(dateCtx),
+  })
 }
 
 const buildoutSessions = new Map<string, Agent>()

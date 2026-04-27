@@ -11,7 +11,7 @@ A reporter had an **invitation**-style message **not** appear in the **inbox** s
 ## Related feedback
 
 - In-app feedback issue **#9**, submitted **2026-04-24** (body redacted: invite misclassified to **ignore**; no matching **explicit** rules).
-- **Submitter (hosted / multi-tenant):** tenant user id **`usr_zj9unkgrbbdapl022hwn`** (from issue **#9** YAML frontmatter `reporter`, via `GET /api/issues/9` with embed auth on the environment that received the report). The issue file does **not** include the workspace handle; on the server, read **`$BRAIN_DATA_ROOT/usr_zj9unkgrbbdapl022hwn/handle-meta.json`** and use the **`handle`** field (see [`handleMeta.ts`](../../src/server/lib/tenant/handleMeta.ts) / [`configuration.md`](../architecture/configuration.md)).
+- **Submitter (hosted / multi-tenant):** tenant user id `**usr_zj9unkgrbbdapl022hwn`** (from issue **#9** YAML frontmatter `reporter`, via `GET /api/issues/9` with embed auth on the environment that received the report). The issue file does **not** include the workspace handle; on the server, read `**$BRAIN_DATA_ROOT/usr_zj9unkgrbbdapl022hwn/handle-meta.json`** and use the `**handle**` field (see `[handleMeta.ts](../../src/server/lib/tenant/handleMeta.ts)` / `[configuration.md](../architecture/configuration.md)`).
 
 ## Repro (from report, generalized)
 

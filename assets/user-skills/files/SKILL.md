@@ -1,6 +1,6 @@
 ---
 name: files
-label: "Files: add or update the folders Brain reads from your computer"
+label: "Manage which local folders are indexed by Brain"
 description: >-
   Manage which folders on your computer Brain has indexed — add a new folder ("use everything in
   ~/Documents"), remove one, change labels or paths, or re-read a folder after you've added new files.

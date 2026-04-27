@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
+import { ensurePromptsRoot } from '@server/lib/prompts/registry.js'
 import { getOrCreateWikiBuildoutAgent, deleteWikiBuildoutSession } from '../../agent/wikiBuildoutAgent.js'
+
+ensurePromptsRoot(fileURLToPath(new URL('../../prompts', import.meta.url)))
 import { createCleanupAgent } from '../../agent/agentFactory.js'
 import { buildExpansionContextPrefix, buildCleanupSystemPrompt } from '../../agent/wikiExpansionRunner.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'

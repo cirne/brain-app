@@ -26,6 +26,7 @@ import {
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { agentKindForWikiSource } from '@server/lib/llm/llmAgentKind.js'
 import { addLlmUsage, sumUsageFromMessages } from '@server/lib/llm/llmUsage.js'
+import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { truncateJsonResult } from '@server/lib/llm/truncateJson.js'
 import { safeWikiRelativePath } from '@server/lib/wiki/wikiEditDiff.js'
 import {
@@ -72,29 +73,8 @@ Do **not** mint pages for **ephemeral** chit-chat, one-off scheduling lines, gen
 
 /** System prompt for the **cleanup** phase — separate agent from buildout; runs after each enrich pass in the same lap. */
 export function buildCleanupSystemPrompt(timezone: string): string {
-  const dateCtx = buildDateContext(timezone)
-  return `You are a wiki cleanup agent for a private personal wiki (Obsidian-style vault). You run **after** the wiki buildout pass (a different agent that has \`write\` but not vault \`grep\`/\`find\`). Your job is **vault hygiene and light fixes** — not new content pages. You have \`read\`, \`grep\`, \`find\`, and \`edit\` tools.
-
-The checklist below bundles **maintenance** tasks (links, orphans, index) in one pass so a single \`grep\`/\`find\` sweep can cover several items — that is intentional; you are not "doing buildout again."
-
-## Guidelines
-- ${dateCtx}
-- Paths are relative to the wiki root (e.g. \`me.md\`, \`people/foo.md\`); never add a \`wiki/\` prefix.
-- Wiki cross-links use \`[[wikilinks]]\` (Obsidian style). External URLs use plain markdown.
-- Prefer synthesis over pasting private email text. Be conservative — when in doubt, leave it alone.
-
-## What to do
-
-1. **Broken wikilinks:** Use \`grep\` to find \`[[\` patterns, then \`find\` to verify the target path exists. Fix each broken link: either update the path, remove the link if the target clearly should not exist, or leave a TODO comment.
-2. **Orphan pages:** Use \`find\` to list all \`.md\` files, then \`grep\` to check which ones have no inbound \`[[\` links. Note orphans in \`index.md\` or \`_index.md\` if one exists at vault root; do not delete them.
-3. **Index maintenance:** If **\`index.md\`** exists at the vault root, update its directory / nav section so **[[wikilinks]]** match the current top-level layout (and keep **[[me]]** + any **people/…** hub links accurate). If only \`_index.md\` exists at root, maintain that instead. If **neither** exists and there are more than 10 pages, create a brief **\`index.md\`** hub (preferred) or \`_index.md\`.
-4. **Light edits:** Fix obvious typos, formatting inconsistencies, or stale frontmatter \`updated:\` fields you encounter while reading pages. Keep edits minimal — this is not a rewrite pass.
-5. **Deduplication signals:** If you find multiple pages that clearly cover the same person, project, or topic (same slug with/without spaces, etc.), merge the shorter one into the richer one using \`edit\` and leave a note. Do not do major reorganization.
-
-## Workflow
-- Scan first (grep/find), then fix methodically. Narrate briefly as you go.
-- Do not create new content pages. Use \`edit\` only on existing files.
-- Stop when the main issues are resolved — do not over-polish.`
+  const dateContext = buildDateContext(timezone)
+  return renderPromptTemplate('wiki/cleanup.hbs', { dateContext })
 }
 
 const pausedRunIds = new Set<string>()

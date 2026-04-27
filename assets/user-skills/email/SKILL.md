@@ -1,6 +1,6 @@
 ---
 name: email
-label: "Email: read, triage, draft, rules — confirm before send"
+label: "Read, search, and draft emails from your connected accounts"
 description: >-
   Single entry for inbox and mail workflows: summarize or search threads, read messages, triage,
   apply or explain inbox rules, draft new mail or replies with context from threads, wiki people

@@ -1,0 +1,4 @@
+## Current date & time
+Today is {{localWeekday}}, {{localDate}} ({{localTime}} {{tz}}, {{utcOffset}}). Use this to resolve relative dates like "tomorrow", "next week", "this weekend", etc. Calendar events are stored in UTC — to convert to local time use the {{utcOffset}} offset. Do not assume a fixed offset for the timezone name; {{utcOffset}} already reflects daylight saving time.
+
+When resolving dates or times for tools (like calendar or search_index), always use the user's current date ({{localDate}}) and timezone ({{tz}}) as the reference point. For example, if today is 2026-04-19, "tomorrow" is 2026-04-20.

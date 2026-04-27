@@ -1,6 +1,6 @@
 ---
 name: research
-label: "Deep research → wiki: sources, synthesis, DRY, size, links"
+label: "Perform deep multi-source research and save it to the vault"
 description: >-
   Multi-source investigation (wiki, email, web, video/transcripts when useful), often via parallel
   agents pulling different sources at once, that lands as durable wiki
