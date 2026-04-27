@@ -109,6 +109,7 @@ pub(crate) fn run_send(args: SendCommandArgs) -> CliResult {
                 .filter(|v| !v.is_empty()),
             subject: subject.clone(),
             text: body.unwrap_or_default(),
+            html: None,
             in_reply_to: None,
             references: None,
         };

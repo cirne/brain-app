@@ -4,12 +4,12 @@ use std::collections::HashMap;
 
 use crate::config::{Config, MailboxImapAuthKind, ResolvedSmtp};
 use crate::oauth::ensure_google_access_token;
+use crate::send::draft_body::plain_to_minimal_html;
 use crate::send::gmail_api_send::{
     send_raw_message_via_gmail_api, should_send_via_gmail_api, verify_gmail_api_access,
 };
 use crate::send::recipients::assert_send_recipients_allowed;
-use lettre::message::header::ContentType;
-use lettre::message::{Mailbox, Message, SinglePart};
+use lettre::message::{Mailbox, Message, MultiPart};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use lettre::{SmtpTransport, Transport};
 use uuid::Uuid;
@@ -63,6 +63,9 @@ pub struct SendSimpleFields {
     pub bcc: Option<Vec<String>>,
     pub subject: String,
     pub text: String,
+    /// When `Some`, used as the `text/html` part (e.g. [`crate::send::draft_body::draft_markdown_to_html`] for drafts).
+    /// When `None`, HTML is a minimal document derived from the normalized plain body (CLI ad-hoc send).
+    pub html: Option<String>,
     pub in_reply_to: Option<String>,
     pub references: Option<String>,
 }
@@ -259,13 +262,16 @@ Inbox/search can work from Apple Mail alone; outbound mail needs a Gmail or IMAP
     }
 
     let plain_body = normalize_smtp_plain_body(&fields.text);
-    let body = SinglePart::builder()
-        .header(ContentType::TEXT_PLAIN)
-        .body(plain_body);
-
+    let html_part = fields
+        .html
+        .as_ref()
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.as_str().to_string())
+        .unwrap_or_else(|| plain_to_minimal_html(&plain_body));
+    let alt = MultiPart::alternative_plain_html(plain_body, html_part);
     let email = builder
         .subject(&fields.subject)
-        .singlepart(body)
+        .multipart(alt)
         .map_err(|e| format!("message build: {e}"))?;
 
     // Gmail + OAuth: send via Gmail API (HTTPS :443). SMTP to smtp.gmail.com:587 is blocked on some hosts (e.g. DigitalOcean).
@@ -357,9 +363,24 @@ fn decoded_plain_body_from_formatted_message(raw: &[u8]) -> String {
 }
 
 #[cfg(test)]
+fn decoded_html_body_from_formatted_message(raw: &[u8]) -> String {
+    use mail_parser::MessageParser;
+    let Some(parsed) = MessageParser::default().parse(raw) else {
+        return String::new();
+    };
+    parsed
+        .body_html(0)
+        .map(|cow| cow.into_owned())
+        .unwrap_or_default()
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{resolve_smtp_settings, Config, MailboxImapAuthKind};
+    use crate::send::draft_body::{draft_markdown_to_html, draft_markdown_to_plain_text};
+    use lettre::message::header::ContentType;
+    use lettre::message::SinglePart;
 
     fn test_config() -> Config {
         let smtp = resolve_smtp_settings("imap.gmail.com", None).unwrap();
@@ -389,6 +410,41 @@ mod tests {
         }
     }
 
+    /// `multipart/alternative` with markdown-derived plain+HTML round-trips through `mail_parser`.
+    #[test]
+    fn formatted_multipart_alternative_plain_and_html() {
+        let from_mb: Mailbox = "sender@example.com".parse().unwrap();
+        let to_mb: Mailbox = "recipient@example.com".parse().unwrap();
+        let body_md = "Hi [link](https://a.test/v)\n\nSecond paragraph.";
+        let plain = draft_markdown_to_plain_text(body_md);
+        let html = draft_markdown_to_html(body_md);
+        let email = Message::builder()
+            .from(from_mb)
+            .to(to_mb)
+            .message_id(Some("<multipart-alternative-roundtrip@example.com>".into()))
+            .subject("multipart test")
+            .multipart(MultiPart::alternative_plain_html(plain.clone(), html))
+            .expect("build message");
+        let raw = email.formatted();
+        let raw_str = String::from_utf8_lossy(&raw);
+        assert!(
+            raw_str
+                .to_ascii_lowercase()
+                .contains("multipart/alternative"),
+            "expected multipart; got: {}",
+            raw_str.lines().take(20).collect::<Vec<_>>().join("\n")
+        );
+        let dec_plain = super::decoded_plain_body_from_formatted_message(&raw);
+        let dec_html = super::decoded_html_body_from_formatted_message(&raw);
+        let dec_plain_lf = dec_plain.replace("\r\n", "\n").trim().to_string();
+        assert_eq!(dec_plain_lf, plain, "plain part round-trip");
+        assert!(
+            dec_html.contains("https://a.test/v") && dec_html.contains("<a "),
+            "html part; got: {}",
+            &dec_html[..dec_html.len().min(500)]
+        );
+    }
+
     #[test]
     fn dry_run_no_network() {
         let cfg = test_config();
@@ -400,6 +456,7 @@ mod tests {
                 bcc: None,
                 subject: "s".into(),
                 text: "t".into(),
+                html: None,
                 in_reply_to: None,
                 references: None,
             },
@@ -424,6 +481,7 @@ mod tests {
                 bcc: None,
                 subject: "s".into(),
                 text: "t".into(),
+                html: None,
                 in_reply_to: None,
                 references: None,
             },

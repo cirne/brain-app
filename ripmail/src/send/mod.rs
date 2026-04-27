@@ -11,7 +11,10 @@ pub mod smtp_resolve;
 pub mod smtp_send;
 pub mod threading;
 
-pub use draft_body::{draft_markdown_to_plain_text, strip_leading_cli_body_flag};
+pub use draft_body::{
+    draft_markdown_to_html, draft_markdown_to_plain_text, plain_to_minimal_html,
+    strip_leading_cli_body_flag,
+};
 pub use draft_list_json::build_draft_list_json_payload;
 pub use draft_llm::{
     compose_forward_preamble_from_instruction, compose_new_draft_from_instruction,
@@ -247,6 +250,7 @@ pub fn send_draft_by_id(
     }
 
     let text = draft_markdown_to_plain_text(&draft.body);
+    let html = draft_markdown_to_html(&draft.body);
     let subject = draft
         .meta
         .subject
@@ -260,6 +264,7 @@ pub fn send_draft_by_id(
         bcc,
         subject,
         text,
+        html: Some(html),
         in_reply_to,
         references,
     };
