@@ -44,6 +44,13 @@ function utcYmdAddDays(yyyyMmDd: string, deltaDays: number): string {
 
 const DESCRIPTION_MAX = 200
 
+/** Long English weekday for an ISO instant in an IANA timezone (BUG-021: not UTC civil date). */
+function weekdayLongInTimeZone(iso: string, timeZone: string): string {
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return ''
+  return new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'long' }).format(new Date(t))
+}
+
 /**
  * Compact agent-facing event format. Strips noisy fields (long IDs, hash organizers, source)
  * and truncates long descriptions so the LLM result stays well within the 4 KB SSE limit.
@@ -51,8 +58,14 @@ const DESCRIPTION_MAX = 200
  * The `id` field is kept (short form) because the agent may reference it for the `open` tool.
  * `startDayOfWeek` is included so the model doesn't have to derive it from UTC ISO strings.
  * For all-day events, ICS `end` is exclusive; `endDayOfWeek` reflects the last inclusive day.
+ *
+ * For timed events, weekdays use `options.timeZone` (session IANA). Default `UTC` matches legacy behavior.
  */
-export function enrichCalendarEventsForAgent(events: CalendarEvent[]): Record<string, unknown>[] {
+export function enrichCalendarEventsForAgent(
+  events: CalendarEvent[],
+  options: { timeZone?: string } = {},
+): Record<string, unknown>[] {
+  const tz = options.timeZone ?? 'UTC'
   return events.map(e => {
     const startYmd = e.start.slice(0, 10)
     const endYmd = e.end.slice(0, 10)
@@ -70,6 +83,11 @@ export function enrichCalendarEventsForAgent(events: CalendarEvent[]): Record<st
         ? e.description.slice(0, DESCRIPTION_MAX) + '…'
         : e.description
 
+    const startDayOfWeek = e.allDay
+      ? weekdayLongForUtcYmd(startYmd)
+      : weekdayLongInTimeZone(e.start, tz)
+    const endDayOfWeek = e.allDay ? weekdayLongForUtcYmd(endForWeekday) : weekdayLongInTimeZone(e.end, tz)
+
     const row: Record<string, unknown> = {
       id: e.id,
       title: e.title,
@@ -77,8 +95,8 @@ export function enrichCalendarEventsForAgent(events: CalendarEvent[]): Record<st
       end: e.end,
       source: e.source,
       calendarId: e.calendarId,
-      startDayOfWeek: weekdayLongForUtcYmd(startYmd),
-      endDayOfWeek: weekdayLongForUtcYmd(endForWeekday),
+      startDayOfWeek,
+      endDayOfWeek,
     }
     if (e.allDay) row.allDay = true
     if (e.location) row.location = e.location

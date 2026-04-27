@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Calendar } from 'lucide-svelte'
+  import { localYmdFromDate, localYmdFromIsoInstant } from '@client/lib/calendarLocalYmd.js'
   import DayEvents from '../DayEvents.svelte'
   import type { CalendarEventLite } from '@client/lib/cards/contentCards.js'
 
@@ -24,7 +25,7 @@
       if (e.allDay) {
         return e.start <= day && e.end > day
       }
-      return e.start.slice(0, 10) === day
+      return localYmdFromIsoInstant(e.start) === day
     })
   }
 
@@ -34,7 +35,7 @@
     const cur = new Date(s + 'T00:00:00')
     const endD = new Date(e + 'T00:00:00')
     while (cur <= endD) {
-      dates.push(cur.toISOString().slice(0, 10))
+      dates.push(localYmdFromDate(cur))
       cur.setDate(cur.getDate() + 1)
     }
     return dates

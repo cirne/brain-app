@@ -9,6 +9,6 @@ Items listed here are **intentionally not** promoted to `docs/bugs/` or `docs/op
 | 7 | Wiki Back / Forward (browser-style history) | [OPP-027](../opportunities/archive/OPP-027-wiki-nav-indicator-and-activity-surface.md) did not cover in-wiki history. Revisit after wiki nav stabilizes. |
 | 8 | Accept / decline / propose time for **external** calendar invites | Write Calendar scope + assistant UX + OAuth/verification path ([OPP-043](../opportunities/OPP-043-google-oauth-app-verification-milestones.md)). Revisit with calendar product milestone. |
 
-**Filed as bugs:** **#6** → [BUG-021](../bugs/BUG-021-calendar-events-utc-instead-of-user-timezone.md), **#9** → [BUG-022](../bugs/BUG-022-inbox-surfaced-as-ignored-without-matching-user-rules.md).
+**Filed as bugs:** **#6** → [BUG-021](../bugs/archive/BUG-021-calendar-events-utc-instead-of-user-timezone.md), **#9** → [BUG-022](../bugs/BUG-022-inbox-surfaced-as-ignored-without-matching-user-rules.md).
 
 When a deferred item is **scheduled** or **rejected**, remove its row from this table, update the **`registry.md`** **Tracked as** link to the new or updated BUG/OPP, and record **Won’t do** in a footer note with date if applicable.

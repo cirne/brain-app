@@ -146,7 +146,10 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
 
   const wikiDir = options.wikiDir ?? getWikiDir()
   const localMessagesEnabled = areLocalMessageToolsEnabled()
-  const tools = createAgentTools(wikiDir, { includeLocalMessageTools: localMessagesEnabled })
+  const tools = createAgentTools(wikiDir, {
+    includeLocalMessageTools: localMessagesEnabled,
+    timezone: options.timezone,
+  })
 
   // Build system prompt with local date/time in the user's timezone
   const tz = options.timezone ?? 'UTC'

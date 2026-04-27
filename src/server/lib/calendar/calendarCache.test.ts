@@ -53,4 +53,21 @@ describe('enrichCalendarEventsForAgent', () => {
     expect(t.startDayOfWeek).toBe('Monday')
     expect(t.endDayOfWeek).toBe('Monday')
   })
+
+  it('uses session timeZone for timed events so weekday is civil not UTC (BUG-021)', () => {
+    const timed: CalendarEvent = {
+      id: 'd',
+      title: 'Late',
+      start: '2026-04-21T01:00:00Z',
+      end: '2026-04-21T02:00:00Z',
+      allDay: false,
+      source: 'personal',
+    }
+    const [utcRow] = enrichCalendarEventsForAgent([timed], { timeZone: 'UTC' })
+    expect(utcRow.startDayOfWeek).toBe('Tuesday')
+
+    const [nyRow] = enrichCalendarEventsForAgent([timed], { timeZone: 'America/New_York' })
+    expect(nyRow.startDayOfWeek).toBe('Monday')
+    expect(nyRow.endDayOfWeek).toBe('Monday')
+  })
 })
