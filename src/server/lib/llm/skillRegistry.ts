@@ -42,11 +42,33 @@ async function listSkillSlugsInRoot(root: string): Promise<string[]> {
   return out
 }
 
+const FM_WARN_MAX = 500
+
+/**
+ * Read YAML front matter from a SKILL.md for the skill list. Does not throw: invalid
+ * front matter logs a warning and returns slug-based fallbacks so one bad file cannot
+ * break the whole `listSkills` / `formatSkillLibrarySection` path.
+ */
 function skillListItemFromMatter(
   raw: string,
   slug: string,
 ): { name: string; label: string; description: string; hint?: string; args?: string } {
-  const { data } = matter(raw)
+  let data: unknown
+  try {
+    data = matter(raw).data
+  } catch (e) {
+    const err = e instanceof Error ? e.message : String(e)
+    console.warn(
+      `[skillRegistry] Invalid YAML front matter for "${slug}/SKILL.md" (using fallbacks for skill list). ${err.slice(0, FM_WARN_MAX)}`,
+    )
+    return {
+      name: slug,
+      label: slug,
+      description: 'No description.',
+      hint: undefined,
+      args: undefined,
+    }
+  }
   const d = data as {
     name?: unknown
     label?: unknown

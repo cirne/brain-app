@@ -71,7 +71,8 @@
 <style>
   .composer-context-bar {
     flex-shrink: 0;
-    padding: 0 0 0.5rem;
+    /* Match `AgentInput` .input-area horizontal padding (12px) so chips align with the shell */
+    padding: 0 12px 0.5rem;
     min-height: 0;
   }
 

@@ -333,13 +333,23 @@ describe('contextPlaceholder', () => {
     expect(contextPlaceholder(ctx)).toBe('Ask about your schedule...')
   })
 
-  it('returns chat placeholder for chat context', () => {
+  it('returns empty-state placeholder for chat context with no messages', () => {
     const ctx: SurfaceContext = { type: 'chat' }
-    expect(contextPlaceholder(ctx)).toContain('mind')
+    expect(contextPlaceholder(ctx)).toBe('What do you need to know or get done?')
   })
 
-  it('returns generic placeholder for none context', () => {
+  it('returns follow-up placeholder for chat context with messages', () => {
+    const ctx: SurfaceContext = { type: 'chat' }
+    expect(contextPlaceholder(ctx, true)).toBe('What else can I help with?')
+  })
+
+  it('returns empty-state placeholder for none context with no messages', () => {
     const ctx: SurfaceContext = { type: 'none' }
-    expect(contextPlaceholder(ctx)).toBe('Ask anything...')
+    expect(contextPlaceholder(ctx)).toBe('What do you need to know or get done?')
+  })
+
+  it('returns follow-up placeholder for none context with messages', () => {
+    const ctx: SurfaceContext = { type: 'none' }
+    expect(contextPlaceholder(ctx, true)).toBe('What else can I help with?')
   })
 })

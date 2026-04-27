@@ -1573,6 +1573,7 @@ Returns the saved text; treat it as active for this session too.`,
     description:
       'Offer tappable one-tap replies in the chat UI. Call **at most once per assistant turn**, only **after** all other tools for this answer are finished and you have written (or are about to finish) your markdown reply—**never** between tool calls or mid-research. Use 1–8 options. ' +
       '**label** = short line on the chip. **submit** = full user message on tap—likely replies that move the task forward. Include message/thread ids, subjects, or actions when the next turn needs them. ' +
+      '**Prefer this tool** whenever you would otherwise end with *if you like I can…*, *want me to…?*, *I can also…*, or a **list of optional next steps**—put those on chips instead of (or in addition to) long rhetorical closers, unless only an open-ended question fits. ' +
       'When appropriate, surface follow-ups: dig deeper, open or save an artifact, a related angle, or “done”. ' +
       'Skip when there is no reasonable preset (e.g. a secret or one-off phrasing). ' +
       '**Never** repeat the options as JSON, fenced code, or a duplicate list in your assistant text—the app draws chips from this tool only.',

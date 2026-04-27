@@ -15,6 +15,7 @@ export function agentInputTestProps(
   overrides: Partial<{
     onSend: (text: string) => void
     onStop: () => void
+    onNewChat: () => void
     wikiFiles: string[]
     skills: SkillMenuItem[]
     disabled: boolean
@@ -23,6 +24,7 @@ export function agentInputTestProps(
 ): {
   onSend: (text: string) => void
   onStop?: () => void
+  onNewChat?: () => void
   wikiFiles: string[]
   skills: SkillMenuItem[]
   disabled?: boolean

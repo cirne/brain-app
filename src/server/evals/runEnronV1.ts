@@ -9,8 +9,8 @@ import { runLlmJsonlEvalMain } from './harness/runLlmJsonlEval.js'
 import { loadEnronV1TasksFromFile } from './harness/loadJsonlEvalTasks.js'
 import type { EnronV1Task } from './harness/types.js'
 
-export async function runEnronV1Main(): Promise<void> {
-  await runLlmJsonlEvalMain<EnronV1Task>({
+export async function runEnronV1Main(): Promise<number> {
+  return runLlmJsonlEvalMain<EnronV1Task>({
     logPrefix: '[eval:enron-v1]',
     outSlug: 'enron-v1',
     resolveTaskFilePath: root =>

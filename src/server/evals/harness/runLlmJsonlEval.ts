@@ -26,7 +26,7 @@ export function getEvalRepoRoot(): string {
   return fileURLToPath(new URL('../../../..', import.meta.url))
 }
 
-export type LlmJsonlEvalConfig<TTask> = {
+export type LlmJsonlEvalConfig<TTask extends { id: string }> = {
   logPrefix: string
   /** Used in report filename: `${outSlug}-<model-segment>-<timestamp>.json` (model from effective `LLM_MODEL`) */
   outSlug: string
@@ -41,7 +41,12 @@ export type LlmJsonlEvalConfig<TTask> = {
   ripIndexHint: string
 }
 
-export async function runLlmJsonlEvalMain<TTask>(config: LlmJsonlEvalConfig<TTask>): Promise<void> {
+/**
+ * @returns How many cases ran (0 when `EVAL_CASE_ID` filters to no match in this suite—skipped).
+ */
+export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
+  config: LlmJsonlEvalConfig<TTask>,
+): Promise<number> {
   const {
     logPrefix,
     outSlug,
@@ -81,10 +86,22 @@ export async function runLlmJsonlEvalMain<TTask>(config: LlmJsonlEvalConfig<TTas
     process.exit(1)
   }
 
-  const tasks = await loadTasks(tasksPath)
-  if (tasks.length === 0) {
+  const allTasks = await loadTasks(tasksPath)
+  if (allTasks.length === 0) {
     console.error(`${logPrefix} No tasks in file.`)
     process.exit(1)
+  }
+
+  const onlyId = process.env.EVAL_CASE_ID?.trim()
+  let tasks: TTask[] = allTasks
+  if (onlyId) {
+    tasks = allTasks.filter(t => t.id === onlyId)
+    if (tasks.length === 0) {
+      console.log(
+        `${logPrefix} Skipping: no case with id ${JSON.stringify(onlyId)} in this suite (${allTasks.length} other case(s) in file).`,
+      )
+      return 0
+    }
   }
 
   const maxConc = parseEvalMaxConcurrency(process.env.EVAL_MAX_CONCURRENCY, defaultMaxConcurrency, tasks.length)
@@ -158,4 +175,5 @@ export async function runLlmJsonlEvalMain<TTask>(config: LlmJsonlEvalConfig<TTas
     `${logPrefix} done  pass ${pass} / ${caseResults.length}  totalTokens=${sumUsage.totalTokens}  cost~${sumUsage.costTotal.toFixed(4)}  ${Math.round(wallTotalMs)}ms wall`,
   )
   console.log(`${logPrefix} wrote ${outFile}`)
+  return caseResults.length
 }

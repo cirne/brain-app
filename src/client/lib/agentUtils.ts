@@ -121,15 +121,14 @@ export function buildChatBody(opts: {
 }
 
 /** Placeholder text for the input bar based on current surface context. */
-export function contextPlaceholder(ctx: SurfaceContext): string {
+export function contextPlaceholder(ctx: SurfaceContext, hasMessages = false): string {
   if (ctx.type === 'email') return 'What do you want to do with this email?'
   if (ctx.type === 'wiki') return 'Edit, expand, or ask about this page…'
   if (ctx.type === 'wiki-dir') return 'Ask about this folder…'
   if (ctx.type === 'calendar') return 'Ask about your schedule...'
   if (ctx.type === 'inbox') return 'Inbox summary running...'
   if (ctx.type === 'messages') return 'Ask about this conversation…'
-  if (ctx.type === 'chat') return "What's on your mind?"
-  return 'Ask anything...'
+  return hasMessages ? 'What else can I help with?' : 'What do you need to know or get done?'
 }
 
 import type { ToolChatPolicy } from './tools/types.js'

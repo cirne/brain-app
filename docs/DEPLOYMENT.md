@@ -16,8 +16,7 @@
 
 ## Google Cloud — test users
 
-- Manage who may sign in under the current cap: **Google Cloud Console → Audience** (OAuth consent test users) for project `**zmail-492422`**:  
-[https://console.cloud.google.com/auth/audience?project=zmail-492422](https://console.cloud.google.com/auth/audience?project=zmail-492422)
+- **Add beta / test users** (who may use Google sign-in while the app is in OAuth **Testing**): open **[Audience](https://console.cloud.google.com/auth/audience?project=zmail-492422)** for project `zmail-492422` and add each Google account. Same URL and full OAuth context: [docs/google-oauth.md — Beta and test users](google-oauth.md#beta-and-test-users-google-cloud).
 
 ## Enron demo tenant (optional QA)
 

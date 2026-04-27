@@ -35,6 +35,8 @@ describe('buildBaseSystemPrompt', () => {
     const s = buildBaseSystemPrompt(false, wiki)
     expect(s).toContain('Do not duplicate options in prose')
     expect(s).toContain('Never paste raw JSON')
+    expect(s).toMatch(/if you like/i)
+    expect(s).toContain('suggest_reply_options')
   })
 })
 

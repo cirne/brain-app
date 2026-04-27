@@ -8,6 +8,8 @@ const options = {
   provider: { type: 'string' as const, short: 'p' as const },
   model: { type: 'string' as const, short: 'm' as const },
   help: { type: 'boolean' as const, short: 'h' as const },
+  /** Run a single case by `id` from the JSONL (sets `EVAL_CASE_ID` for the harness). */
+  id: { type: 'string' as const },
 }
 
 /**
@@ -30,5 +32,8 @@ export function loadEvalEnvAndLlmCli(helpText: string): void {
   }
   if (typeof values.model === 'string' && values.model.trim()) {
     process.env.LLM_MODEL = values.model.trim()
+  }
+  if (typeof values.id === 'string' && values.id.trim()) {
+    process.env.EVAL_CASE_ID = values.id.trim()
   }
 }

@@ -21,8 +21,8 @@ function resolveWikiTaskFilePath(root: string): string {
   return join(root, 'eval', 'tasks', 'wiki-v1.jsonl')
 }
 
-export async function runWikiV1Main(): Promise<void> {
-  await runLlmJsonlEvalMain<WikiV1Task>({
+export async function runWikiV1Main(): Promise<number> {
+  return runLlmJsonlEvalMain<WikiV1Task>({
     logPrefix: '[eval:wiki-v1]',
     outSlug: 'wiki-v1',
     resolveTaskFilePath: root => resolveWikiTaskFilePath(root),

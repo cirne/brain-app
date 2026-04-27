@@ -15,7 +15,16 @@ const passThrough = process.argv.slice(2)
 const helpOnly =
   passThrough.length === 1 && (passThrough[0] === '--help' || passThrough[0] === '-h')
 
-if (!helpOnly) {
+/** Single JSONL case id: skip slow Vitest phase (same as `npm run eval:run -- --id …`). */
+function hasEvalIdFlag(argv) {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--id' && argv[i + 1]) return true
+    if (argv[i]?.startsWith('--id=')) return true
+  }
+  return false
+}
+
+if (!helpOnly && !hasEvalIdFlag(passThrough)) {
   const vitest = spawnSync(
     'npx',
     ['vitest', 'run', '--config', 'vitest.eval.config.ts'],

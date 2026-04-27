@@ -4,7 +4,8 @@ label: "Assemble a research brief for a specific meeting or event"
 description: >-
   Pre-meeting or pre-event research: assembles context from email, web, and video when useful;
   explains purpose and participants; deep attendee notes for new or infrequent contacts, light touch
-  for the user’s regular group; surfaces logistics (location, travel, meals, practicalities). For a
+  for the user’s regular group; surfaces logistics (location, travel, meals, practicalities). The
+  full write-up is saved to the vault wiki and opened—not pasted as a long chat reply. For a
   whole-day scan, use morning_report.
 hint: before my meeting, who is X, prep for the call, context for the interview, event prep
 args: >-
@@ -13,7 +14,7 @@ args: >-
 
 # Briefing (meeting or event)
 
-A **single-meeting (or single-event) prep** in chat: purpose, history, who matters, what to ask, and **logistics** the user might not have considered. **Multi-source** research in proportion to stakes: **email**, **wiki**, **web**, **YouTube** (transcripts, official demos) as in **research**—without necessarily publishing a new wiki page unless the user wants one.
+A **single-meeting (or single-event) prep** document: purpose, history, who matters, what to ask, and **logistics** the user might not have considered. **Multi-source** research in proportion to stakes: **email**, **wiki**, **web**, **YouTube** (transcripts, official demos) as in **research**—the **deliverable is a saved wiki page**, not a wall of text in the assistant message.
 
 ## When to use
 
@@ -35,7 +36,7 @@ If unsure: one line for inner circle, short paragraph for rare/externals.
 4. **Web** — org/product pages, recent news, public context.
 5. **YouTube / transcripts** — when recent talks or demos sharpen the meeting.
 
-Cite or summarize so the user can follow up. Prefer primary sources over hot takes.
+Cite or summarize in the page so the user can follow up. Prefer primary sources over hot takes.
 
 ## Substance
 
@@ -53,18 +54,27 @@ When knowable or worth confirming:
 - **Materials** — deck, NDA, badge, demo hardware.
 - **Follow-ups** — recap, wiki note.
 
-## Output format
+## Page body format (in the wiki file)
+
+Write the full brief in markdown with this structure:
 
 - **Event one-liner** (what / when / where).
 - **Context** (tight bullets).
 - **People** (compress regulars; expand rare/externals).
 - **Risks / unknowns** (gaps).
 - **Questions** and **logistics check**.
-- Optional: **wiki** page/section to update after.
+- **After the meeting** — optional line on which wiki page or section to update (if useful).
+
+## Finish (required)
+
+1. **Path** — `**write`** a new page, or `**edit`** if the user already has a note for this event (search wiki and calendar for an existing file). Default pattern: `briefs/<local-date>-<kebab-title>.md` (use the meeting’s local date from context). If the user’s vault already uses another convention (e.g. `meetings/…` or `notes/briefs/…`), follow that instead.
+2. **Content** — Put the **entire** brief in that file (all sections above—not chat-only).
+3. **Open** — Immediately after a successful `write` or `edit`, call `**open`** with `target: { "type": "wiki", "path": "<same wiki path you used>" }` so the page appears beside chat. Skip `open` only if the user explicitly asked for no preview.
+4. **Chat reply** — At most a **very short** pointer in chat: which file you wrote and that it is open, or one sentence on the top risk. **Do not** paste the full brief in the chat message.
 
 ## Related
 
-- **research** — durable multi-page wiki output.
+- **research** — deeper multi-page investigation and evidence hubs; also wiki-first, wider scope.
 - **morning_report** — full-day; may mention a hard meeting, not a substitute for this depth.
 - **inbox_triage** — only if the user shifts to mail clearing.
 - **calendar** — to fix schedule when prep surfaces a conflict.

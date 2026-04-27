@@ -31,7 +31,7 @@
     type SessionState,
   } from '@client/lib/chatSessionStore.js'
   import { shiftQueuedFollowUp } from '@client/lib/agentFollowUpQueue.js'
-  import { MessageSquarePlus, Trash2, Volume2, VolumeX } from 'lucide-svelte'
+  import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import ComposerContextBar from './agent-conversation/ComposerContextBar.svelte'
   import ChatComposerAudio from './ChatComposerAudio.svelte'
@@ -605,7 +605,7 @@
     await send('', forSessionKey, true)
   }
 
-  const placeholder = $derived(inputPlaceholder ?? contextPlaceholder(context))
+  const placeholder = $derived(inputPlaceholder ?? contextPlaceholder(context, messages.length > 0))
 
   const contextChip = $derived.by((): string | null => {
     if (context.type === 'email') return `📧 ${context.subject}`
@@ -819,18 +819,7 @@
           {onOpenWiki}
           onChoice={(t) => void send(t)}
         />
-        <div class="composer-input-row" class:composer-input-row--lead={showComposerNewChat}>
-          {#if showComposerNewChat}
-            <button
-              type="button"
-              class="composer-new-chat-btn"
-              onclick={() => onUserInitiatedNewChat!()}
-              title="New chat (⌘N)"
-              aria-label="New chat"
-            >
-              <MessageSquarePlus size={20} strokeWidth={2} aria-hidden="true" />
-            </button>
-          {/if}
+        <div class="composer-input-row">
           <div class="composer-input-shell">
             <AgentInput
               bind:this={inputEl}
@@ -843,7 +832,9 @@
               onStop={stopChat}
               onDraftChange={onAgentInputDraftChange}
               transparentSurround={bridgeSlideLayout}
-              trimInputAreaStart={showComposerNewChat}
+              onNewChat={showComposerNewChat && onUserInitiatedNewChat
+                ? () => onUserInitiatedNewChat()
+                : undefined}
             />
           </div>
         </div>
@@ -965,7 +956,6 @@
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    gap: 8px;
     min-width: 0;
     width: 100%;
     box-sizing: border-box;
@@ -973,46 +963,9 @@
     flex-shrink: 0;
   }
 
-  .composer-input-row--lead {
-    padding: 0 12px 6px;
-  }
-
   .composer-input-shell {
     flex: 1;
     min-width: 0;
-  }
-
-  /* Match `AgentInput` .input-shell: 10px radius; margin-top = .input-area padding so tops line up */
-  .composer-new-chat-btn {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    width: 42px;
-    height: 42px;
-    margin-top: 6px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text-2);
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
-  }
-
-  .composer-new-chat-btn :global(svg) {
-    flex-shrink: 0;
-  }
-
-  @media (hover: hover) {
-    .composer-new-chat-btn:hover {
-      background: var(--bg-3);
-      border-color: var(--border);
-      color: var(--text);
-    }
-  }
-
-  .composer-new-chat-btn:active {
-    background: var(--bg-2);
   }
 
   .composer-stack--bridge-dock {

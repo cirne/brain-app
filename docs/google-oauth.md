@@ -52,6 +52,14 @@ See [multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-archite
 
 The number of bundled-mode entries equals `NATIVE_APP_PORT_FAILOVER_COUNT + 1` (currently 4) in `src/server/lib/nativeAppPort.ts`.
 
+## Beta and test users (Google Cloud)
+
+While the app’s [OAuth consent screen](https://support.google.com/cloud/answer/10311615) is in **Testing** (before full [verification](opportunities/OPP-043-google-oauth-app-verification-milestones.md)), you must add each Google account that should be allowed to sign in to the **test users** list for the Braintunnel Cloud project. Manage that under **Google Cloud Console → Audience** (same place Google labels “test users” for restricted apps):
+
+[https://console.cloud.google.com/auth/audience?project=zmail-492422](https://console.cloud.google.com/auth/audience?project=zmail-492422) — project `zmail-492422`.
+
+Staging context (caps, ~100-user testing mode): [DEPLOYMENT.md — Google Cloud — test users](DEPLOYMENT.md#google-cloud--test-users).
+
 ## Why not `gcloud`?
 
 `gcloud iam oauth-clients` manages **IAM** OAuth clients (e.g. workforce identity federation), **not** the classic **OAuth 2.0 Client IDs** under *APIs & Services → Credentials* (`*.apps.googleusercontent.com`). Google does not expose a supported `gcloud` subcommand to list or edit those redirect URIs; use the Console.

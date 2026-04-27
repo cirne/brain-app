@@ -1,7 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdtemp, writeFile, mkdir, rm, readdir, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
+import matter from 'gray-matter'
 
 let brainHome: string
 let emptyBundle: string
@@ -21,6 +24,28 @@ afterEach(async () => {
 })
 
 describe('listSkills', () => {
+  it('tolerates invalid front matter: one bad skill does not break list', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const skillsRoot = join(brainHome, 'skills')
+    await mkdir(join(skillsRoot, 'broken-fm'), { recursive: true })
+    await writeFile(
+      join(skillsRoot, 'broken-fm', 'SKILL.md'),
+      `---\n{ \n---\n# Intentionally invalid front matter: unclosed flow mapping\n`,
+      'utf-8',
+    )
+    const { listSkills } = await import('@server/lib/llm/skillRegistry.js')
+    const list = await listSkills()
+    expect(list).toHaveLength(1)
+    expect(list[0].slug).toBe('broken-fm')
+    expect(list[0].name).toBe('broken-fm')
+    expect(list[0].description).toBe('No description.')
+    expect(warn).toHaveBeenCalled()
+    const call = warn.mock.calls[0]?.[0] as string | undefined
+    expect(call).toMatch(/Invalid YAML front matter/)
+    expect(call).toMatch(/broken-fm/)
+    warn.mockRestore()
+  })
+
   it('lists skills from skillsDir with stable sort (bundle empty)', async () => {
     const skillsRoot = join(brainHome, 'skills')
     await mkdir(join(skillsRoot, 'zebra'), { recursive: true })
@@ -196,5 +221,39 @@ Only in bundle`,
     const { readSkillMarkdown } = await import('@server/lib/llm/slashSkill.js')
     const doc = await readSkillMarkdown('nonexistent-skill-xyz')
     expect(doc).toBeNull()
+  })
+})
+
+/**
+ * Catches bad edits to shipped assets/user-skills SKILL.md files that break front matter.
+ * (Runtime still falls back in listSkills; this test keeps the catalog valid.)
+ */
+describe('bundled assets/user-skills (repo)', () => {
+  it('every SKILL.md has parseable front matter', async () => {
+    const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url))
+    const skillsRoot = join(repoRoot, 'assets', 'user-skills')
+    if (!existsSync(skillsRoot)) {
+      return
+    }
+    const ent = await readdir(skillsRoot, { withFileTypes: true })
+    const files: string[] = []
+    for (const d of ent) {
+      if (!d.isDirectory() || d.name.startsWith('.')) continue
+      const p = join(skillsRoot, d.name, 'SKILL.md')
+      if (existsSync(p)) files.push(p)
+    }
+    expect(
+      files.length,
+      'expected assets/user-skills to contain at least one skill (clone full repo for this test)',
+    ).toBeGreaterThan(0)
+    for (const p of files) {
+      const raw = await readFile(p, 'utf-8')
+      expect(
+        () => {
+          matter(raw)
+        },
+        `invalid YAML front matter in ${p.replace(repoRoot, '') || p}`,
+      ).not.toThrow()
+    }
   })
 })

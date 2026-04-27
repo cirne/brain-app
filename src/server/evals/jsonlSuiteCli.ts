@@ -8,10 +8,12 @@ import { runWikiV1Main } from './runWikiV1.js'
 
 loadEvalEnvAndLlmCli(`Usage: npm run eval:run -- [options]
 
-(JSONL phase only; full eval:run also runs Vitest first — see eval/README.md.)
+(JSONL phase only; full eval:run also runs Vitest first — see eval/README.md —
+unless you pass --id, in which case Vitest is skipped for a fast single-case run.)
 
 Loads ./.env from the repo root (same as the dev server), then runs every
-JSONL agent eval in order:
+JSONL agent eval in order (each suite skips itself when --id is set and that
+id is not in its task file):
   1. Enron v1 — assistant / mail tasks → data-eval/eval-runs/enron-v1-*.json
   2. Wiki v1 — buildout + cleanup → data-eval/eval-runs/wiki-v1-*.json
 
@@ -21,17 +23,26 @@ ripmail index from npm run eval:build.
 Options:
   --provider, -p   LLM_PROVIDER (e.g. openai, anthropic)
   --model, -m      LLM_MODEL
+  --id            Run only the task with this id (e.g. enron-022-suggest-reply-chips);
+                  also sets EVAL_CASE_ID. Exits 1 if the id is missing from both suites.
   -h, --help
 
 One JSONL suite only (advanced): npx tsx --tsconfig tsconfig.server.json src/server/evals/enronV1cli.ts
-  or …/wikiV1cli.ts
+  or …/wikiV1cli.ts (pass --id the same way)
 
-Env: EVAL_MAX_CONCURRENCY, EVAL_TASKS, EVAL_WIKI_TASKS, etc. See eval/README.md.
+Env: EVAL_MAX_CONCURRENCY, EVAL_CASE_ID, EVAL_TASKS, EVAL_WIKI_TASKS, etc. See eval/README.md.
 `)
 
 async function main(): Promise<void> {
-  await runEnronV1Main()
-  await runWikiV1Main()
+  const nEnron = await runEnronV1Main()
+  const nWiki = await runWikiV1Main()
+  const onlyId = process.env.EVAL_CASE_ID?.trim()
+  if (onlyId && nEnron + nWiki === 0) {
+    console.error(
+      `[eval:jsonl] No task with id ${JSON.stringify(onlyId)} in the Enron or wiki JSONL task files (check eval/tasks/enron-v1.jsonl and eval/tasks/wiki-v1.jsonl).`,
+    )
+    process.exit(1)
+  }
 }
 
 void main().catch(e => {

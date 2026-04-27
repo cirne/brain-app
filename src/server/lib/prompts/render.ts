@@ -15,9 +15,14 @@ export function readPromptFile(relPath: string): string {
  * Renders a `.hbs` file under the prompts root. Templates use default HTML escaping;
  * pass `Handlebars.SafeString` (or triple-mustache in the file) for trusted raw blocks.
  */
+const isDev = process.env.NODE_ENV !== 'production'
+
 export function renderPromptTemplate(relPath: string, context: Record<string, unknown>): string {
   const full = join(getPromptsRoot(), relPath)
   const source = readFileSync(full, 'utf-8')
+  if (isDev) {
+    return instance.compile(source, { strict: false })(context)
+  }
   let fn = compileCache.get(full)
   if (!fn) {
     fn = instance.compile(source, { strict: false })

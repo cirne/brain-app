@@ -34,6 +34,7 @@ One script runs the **whole eval pipeline** (same `BRAIN_HOME` as below):
 2. Put provider keys and defaults in the repo-root **`.env`** (same file as `npm run dev`). Set `LLM_PROVIDER` / `LLM_MODEL` and the matching `*_API_KEY` (e.g. `ANTHROPIC_API_KEY`).
 3. `npm run eval:run`  
    Optional: `npm run eval:run -- --provider openai --model gpt-5.4` — flags apply to the **JSONL phase** only (after Vitest).  
+   **Single case:** `npm run eval:run -- --id enron-022-suggest-reply-chips` (skips Vitest, runs only that Enron v1 case — or the matching id in the wiki file). Same as `EVAL_CASE_ID=enron-022-suggest-reply-chips` for the JSONL phase.  
    `npm run eval:run -- --help` prints JSONL CLI help and **skips** Vitest.
 
 **Advanced (one JSONL suite only):** from repo root, run `enronV1cli.ts` or `wikiV1cli.ts` with `npx tsx --tsconfig tsconfig.server.json …` (see `--help` on each file).
@@ -54,6 +55,7 @@ Mail-centric agent tasks (search/read) run against the **large** `kean-s` index.
 |-----|---------|
 | `BRAIN_HOME` | Defaults to `./data-eval/brain` in the npm script |
 | `EVAL_MAX_CONCURRENCY` | Max parallel `agent.prompt()` cases (default `12`) |
+| `EVAL_CASE_ID` | Run a **single** task: set to its JSONL `id` (same as CLI `--id`). The combined `jsonl` runner exits 1 if the id is not in **either** the Enron or wiki task file. |
 | `EVAL_TASKS` | Override path to a JSONL task file (default `eval/tasks/enron-v1.jsonl`) |
 | `EVAL_FORCE_RUN` | Set to `1` to skip the “at least one API key” preflight (e.g. local Ollama-only setups) |
 | `EVAL_AGENT_TRACE` | Set to `1` for `[eval:agent]` JSON lines per case: `turn_start` / `turn_end` = **LLM** time (streaming, reasoning, provider latency); `tool_start` / `tool_end` = tool execution (often ripmail). Gaps in `[ripmail]` logs are usually the model working, or another eval case interleaving stdout (high concurrency). |

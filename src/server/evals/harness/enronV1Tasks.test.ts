@@ -69,4 +69,16 @@ describe('checkExpect', () => {
     const r = checkExpect({ kind: 'toolNamesIncludeAll', names: ['read', 'grep'] }, '', '', ['grep', 'read', 'edit'])
     expect(r.ok).toBe(true)
   })
+  it('enron-022-suggest-reply-chips requires mail tools plus suggest_reply_options', async () => {
+    const tasks = await loadEnronV1TasksFromFile(taskFile)
+    const t = tasks.find((x) => x.id === 'enron-022-suggest-reply-chips')
+    expect(t, 'enron-022 in enron-v1.jsonl').toBeDefined()
+    const r = checkExpect(
+      t!.expect,
+      '',
+      '15323857.1075855428713.JavaMail.evans@thyme',
+      ['search_index', 'read_email', 'suggest_reply_options'],
+    )
+    expect(r.ok, r.reasons.join('; ')).toBe(true)
+  })
 })

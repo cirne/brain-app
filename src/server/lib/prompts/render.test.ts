@@ -8,7 +8,7 @@ describe('renderPromptTemplate', () => {
       includeLocalMessageCapabilities: true,
       multiTenant: true,
     })
-    expect(s).toContain('(Hosted / multi-tenant deployment')
+    expect(s).toContain('**Hosted workspace:**')
     expect(s).toContain('list_recent_messages** and **get_message_thread**')
   })
 

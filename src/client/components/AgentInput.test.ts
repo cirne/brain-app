@@ -81,6 +81,16 @@ describe('AgentInput.svelte', () => {
       const sendBtn = screen.getByRole('button', { name: /send/i })
       expect(sendBtn).toBeDisabled()
     })
+
+    it('renders new chat on the left and calls onNewChat when provided', async () => {
+      const onNewChat = vi.fn()
+      const props = agentInputTestProps({ onNewChat })
+      render(AgentInput, { props })
+
+      const newBtn = screen.getByRole('button', { name: 'New chat' })
+      await fireEvent.click(newBtn)
+      expect(onNewChat).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('@mention menu', () => {
@@ -358,7 +368,9 @@ describe('AgentInput.svelte', () => {
       const props = agentInputTestProps()
       render(AgentInput, { props })
 
-      expect(screen.getByPlaceholderText('Ask anything...')).toBeInTheDocument()
+      expect(
+        screen.getByPlaceholderText('What do you need to know or get done?'),
+      ).toBeInTheDocument()
     })
 
     it('shows custom placeholder', () => {

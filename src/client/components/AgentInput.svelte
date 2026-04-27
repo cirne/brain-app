@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import { ArrowUp, List, Square } from 'lucide-svelte'
+  import { ArrowUp, List, MessageSquarePlus, Square } from 'lucide-svelte'
   import WikiFileName from './WikiFileName.svelte'
   import type { SkillMenuItem } from '@client/lib/agentUtils.js'
   import { handleTextareaCursorKeys } from '@client/lib/agentInputCursor.js'
 
   let {
-    placeholder = 'Ask anything...',
+    placeholder = 'What do you need to know or get done?',
     disabled = false,
     streaming = false,
     /** OPP-016: FIFO texts queued until the current stream ends (shown stacked, oldest first). */
@@ -19,10 +19,9 @@
     /** Mobile doc slide-over dock: no gray bar behind the field; only the bordered input shows. */
     transparentSurround = false,
     /**
-     * When a “new chat” (or other) control sits to the left of the field in the parent row,
-     * omit the default left padding on `.input-area` so the bordered shell aligns with the gap.
+     * When set, a “new chat” control is integrated on the left inside the bordered field (like send on the right).
      */
-    trimInputAreaStart = false,
+    onNewChat = undefined as (() => void) | undefined,
   }: {
     placeholder?: string
     disabled?: boolean
@@ -35,7 +34,7 @@
     /** Fires whenever the draft string changes (typing, send clear, @mention, /skill, append). */
     onDraftChange?: (_draft: string) => void
     transparentSurround?: boolean
-    trimInputAreaStart?: boolean
+    onNewChat?: () => void
   } = $props()
 
   let input = $state('')
@@ -216,11 +215,7 @@
   })
 </script>
 
-<div
-  class="input-area"
-  class:input-area--transparent={transparentSurround}
-  class:input-area--trim-start={trimInputAreaStart}
->
+<div class="input-area" class:input-area--transparent={transparentSurround}>
   {#if showSlash}
     <div class="mention-dropdown slash-dropdown" role="listbox">
       {#each filteredSkills() as skill, i}
@@ -269,7 +264,23 @@
         </div>
       {/if}
       <div class="input-composer">
-        <div class="input-shell-inner">
+        {#if onNewChat}
+          <div class="lead-actions" role="group" aria-label="Start new chat">
+            <button
+              type="button"
+              class="new-chat-btn"
+              onclick={() => onNewChat()}
+              title="New chat (⌘N)"
+              aria-label="New chat"
+            >
+              <MessageSquarePlus size={20} strokeWidth={2} aria-hidden="true" />
+            </button>
+          </div>
+        {/if}
+        <div
+          class="input-shell-inner"
+          class:input-shell-inner--with-lead={!!onNewChat}
+        >
           <textarea
             class="chat-textarea"
             bind:this={inputEl}
@@ -313,10 +324,6 @@
 
   .input-area--transparent {
     background: transparent;
-  }
-
-  .input-area--trim-start {
-    padding-left: 0;
   }
 
   .mention-dropdown {
@@ -429,12 +436,54 @@
     min-height: 40px;
   }
 
+  .lead-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    align-self: stretch;
+    flex-shrink: 0;
+  }
+
+  .new-chat-btn {
+    --new-chat-r: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    min-width: 48px;
+    width: 48px;
+    padding: 0;
+    border: none;
+    border-right: 1px solid var(--border);
+    border-radius: var(--new-chat-r) 0 0 var(--new-chat-r);
+    background: var(--bg);
+    color: var(--text-2);
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  @media (hover: hover) {
+    .new-chat-btn:hover {
+      background: var(--bg-3);
+      color: var(--text);
+    }
+  }
+
+  .new-chat-btn:active {
+    filter: brightness(0.97);
+  }
+
   .input-shell-inner {
     display: flex;
     flex: 1;
     min-width: 0;
     padding: 3px 6px 3px 10px;
     align-items: flex-start;
+  }
+
+  .input-shell-inner--with-lead {
+    padding-left: 8px;
   }
 
   .chat-textarea {
