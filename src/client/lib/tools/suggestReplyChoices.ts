@@ -1,4 +1,4 @@
-import type { ToolCall } from '../agentUtils.js'
+import type { ChatMessage, ToolCall } from '../agentUtils.js'
 
 export type QuickReplyChoice = { label: string; submit: string; id?: string }
 
@@ -65,6 +65,28 @@ export function extractSuggestReplyChoices(toolCall: ToolCall): QuickReplyChoice
   const fromDetails = detailsChooseArray(toolCall.details)
   if (fromDetails) return fromDetails
   return argsChoicesArray(toolCall.args)
+}
+
+/**
+ * Choices for the composer context bar: last assistant turn only, hidden while streaming.
+ */
+export function extractLatestSuggestReplyChoices(
+  messages: ChatMessage[],
+  streaming: boolean,
+): QuickReplyChoice[] {
+  if (streaming) return []
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i].role !== 'assistant') continue
+    const parts = messages[i].parts ?? []
+    for (let j = parts.length - 1; j >= 0; j -= 1) {
+      const part = parts[j]
+      if (part.type !== 'tool') continue
+      const choices = extractSuggestReplyChoices(part.toolCall)
+      if (choices && choices.length > 0) return choices
+    }
+    break
+  }
+  return []
 }
 
 /**

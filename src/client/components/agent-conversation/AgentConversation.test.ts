@@ -6,7 +6,6 @@ import type { ChatMessage } from '@client/lib/agentUtils.js'
 
 vi.mock('./ChatMessageRow.svelte', () => import('../test-stubs/ChatMessageRowStub.svelte'))
 vi.mock('./ConversationEmptyState.svelte', () => import('../test-stubs/ConversationEmptyStateStub.svelte'))
-vi.mock('./ReferencedFilesStrip.svelte', () => import('../test-stubs/ReferencedFilesStripStub.svelte'))
 vi.mock('./CalendarDatePopover.svelte', () => import('../test-stubs/CalendarDatePopoverStub.svelte'))
 
 if (typeof Element.prototype.animate !== 'function') {
@@ -46,29 +45,6 @@ function createAssistantMessage(content: string, parts?: ChatMessage['parts']): 
     role: 'assistant',
     content,
     parts: parts ?? [{ type: 'text', content }],
-  }
-}
-
-function createAssistantMessageWithWikiTool(
-  content: string,
-  wikiPath: string,
-): ChatMessage {
-  return {
-    role: 'assistant',
-    content,
-    parts: [
-      {
-        type: 'tool',
-        toolCall: {
-          id: 'tc-1',
-          name: 'read_wiki',
-          args: { path: wikiPath },
-          result: 'ok',
-          done: true,
-        },
-      },
-      { type: 'text', content },
-    ],
   }
 }
 
@@ -207,49 +183,6 @@ describe('AgentConversation.svelte', () => {
       const rows = screen.getAllByTestId('chat-message-row')
       expect(rows[1]).toHaveAttribute('data-last-assistant', 'false')
       expect(rows[3]).toHaveAttribute('data-last-assistant', 'true')
-    })
-  })
-
-  describe('referenced files strip', () => {
-    it('does not render when no referenced files', () => {
-      render(AgentConversation, {
-        props: {
-          messages: [createUserMessage('Hello')],
-          streaming: false,
-        },
-      })
-
-      expect(screen.queryByTestId('referenced-files-strip')).not.toBeInTheDocument()
-    })
-
-    it('renders when assistant message has wiki tool calls', () => {
-      render(AgentConversation, {
-        props: {
-          messages: [createAssistantMessageWithWikiTool('Done', 'notes/test.md')],
-          streaming: false,
-        },
-      })
-
-      const strip = screen.getByTestId('referenced-files-strip')
-      expect(strip).toHaveAttribute('data-paths', 'notes/test.md')
-    })
-
-    it('extracts wiki links from markdown content', () => {
-      const msg: ChatMessage = {
-        role: 'assistant',
-        content: 'Check [this page](wiki:docs/readme.md)',
-        parts: [{ type: 'text', content: 'Check [this page](wiki:docs/readme.md)' }],
-      }
-
-      render(AgentConversation, {
-        props: {
-          messages: [msg],
-          streaming: false,
-        },
-      })
-
-      const strip = screen.getByTestId('referenced-files-strip')
-      expect(strip).toHaveAttribute('data-paths', 'docs/readme.md')
     })
   })
 

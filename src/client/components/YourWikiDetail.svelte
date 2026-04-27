@@ -200,7 +200,7 @@
   <div class="activity-section">
     <div class="activity-label">
       <Sparkles size={14} aria-hidden="true" />
-      Tool calls
+      Steps
     </div>
     <BackgroundAgentPanel
       embedInHubDetail

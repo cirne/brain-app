@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { ToolCall } from '../agentUtils.js'
-import { extractSuggestReplyChoices, stripTrailingSuggestReplyChoicesJson } from './suggestReplyChoices.js'
+import type { ChatMessage, ToolCall } from '../agentUtils.js'
+import {
+  extractLatestSuggestReplyChoices,
+  extractSuggestReplyChoices,
+  stripTrailingSuggestReplyChoicesJson,
+} from './suggestReplyChoices.js'
 
 function tc(p: Partial<ToolCall> & Pick<ToolCall, 'name'>): ToolCall {
   return {
@@ -75,6 +79,63 @@ describe('extractSuggestReplyChoices', () => {
         }),
       ),
     ).toBeNull()
+  })
+})
+
+describe('extractLatestSuggestReplyChoices', () => {
+  function assistantWithSuggest(choices: { label: string; submit: string }[]): ChatMessage {
+    return {
+      role: 'assistant',
+      content: '',
+      parts: [
+        {
+          type: 'tool',
+          toolCall: {
+            id: 'sr',
+            name: 'suggest_reply_options',
+            args: { choices },
+            result: 'ok',
+            done: true,
+          },
+        },
+      ],
+    }
+  }
+
+  it('returns [] while streaming', () => {
+    const messages: ChatMessage[] = [assistantWithSuggest([{ label: 'A', submit: 'a' }])]
+    expect(extractLatestSuggestReplyChoices(messages, true)).toEqual([])
+  })
+
+  it('returns choices from the last assistant message only', () => {
+    const messages: ChatMessage[] = [
+      assistantWithSuggest([{ label: 'Old', submit: 'old' }]),
+      { role: 'user', content: 'ok' },
+      assistantWithSuggest([
+        { label: 'New', submit: 'new1' },
+        { label: 'New2', submit: 'new2' },
+      ]),
+    ]
+    expect(extractLatestSuggestReplyChoices(messages, false)).toEqual([
+      { label: 'New', submit: 'new1' },
+      { label: 'New2', submit: 'new2' },
+    ])
+  })
+
+  it('returns [] when there is no suggest_reply_options in the last assistant turn', () => {
+    const messages: ChatMessage[] = [
+      {
+        role: 'assistant',
+        content: '',
+        parts: [
+          {
+            type: 'tool',
+            toolCall: { id: 'r', name: 'read', args: { path: 'x.md' }, result: 'ok', done: true },
+          },
+        ],
+      },
+    ]
+    expect(extractLatestSuggestReplyChoices(messages, false)).toEqual([])
   })
 })
 

@@ -15,6 +15,7 @@
     SETUP_MAIL_ABORT_MESSAGE,
   } from '@client/lib/onboarding/onboardingApi.js'
   import { computeIndexingCalmStatus } from '@client/lib/onboarding/onboardingIndexingUi.js'
+  import { shouldKickOnboardingInboxSync } from '@client/lib/onboarding/onboardingInboxSyncKick.js'
   import { shouldRetryProfilingAutoAdvance } from '@client/lib/onboarding/profilingAutoAdvanceRetry.js'
   import {
     ONBOARDING_LARGE_WINDOW_STATES,
@@ -24,6 +25,7 @@
     type OnboardingMailStatus,
   } from '@client/lib/onboarding/onboardingTypes.js'
   import { resizeMainWindowToBrowserLikeWorkArea } from '@client/lib/desktop/browserLikeWindow.js'
+  import { ArrowRight } from 'lucide-svelte'
   import VaultSetupStep from './VaultSetupStep.svelte'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import OnboardingHandleStep from './OnboardingHandleStep.svelte'
@@ -311,13 +313,26 @@
     }
   }
 
-  /** Mail already configured + not-started: start sync once (no Continue interstitial). */
+  /**
+   * One-shot POST /api/inbox/sync after mail is configured. Runs for `indexing` too so refresh /
+   * container / align→indexing does not skip the only sync kick.
+   */
   let mailConnectedIndexingAutoStarted = $state(false)
   $effect(() => {
-    if (state !== 'not-started') mailConnectedIndexingAutoStarted = false
+    if (!mail.configured) {
+      mailConnectedIndexingAutoStarted = false
+    }
   })
   $effect(() => {
-    if (state !== 'not-started' || !mail.configured || mailConnectedIndexingAutoStarted) return
+    if (
+      !shouldKickOnboardingInboxSync({
+        state,
+        mailConfigured: mail.configured,
+        alreadyKicked: mailConnectedIndexingAutoStarted,
+      })
+    ) {
+      return
+    }
     mailConnectedIndexingAutoStarted = true
     void continueToIndexing()
   })
@@ -661,7 +676,7 @@
                 <span class="ob-spinner" aria-hidden="true"></span> Working…
               {:else}
                 Try again
-                <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                <ArrowRight class="ob-btn-icon" size={16} strokeWidth={2} aria-hidden="true" />
               {/if}
             </button>
           </div>
@@ -816,7 +831,7 @@
             </div>
             <button type="button" class="ob-btn-primary ob-review-cta" onclick={() => void acceptProfile()} disabled={busy}>
               <span>{busy ? 'Saving…' : 'Looks Good'}</span>
-              <svg class="ob-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              <ArrowRight class="ob-btn-icon" size={16} strokeWidth={2} aria-hidden="true" />
             </button>
           </div>
         </footer>

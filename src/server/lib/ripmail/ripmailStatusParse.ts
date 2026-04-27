@@ -245,3 +245,36 @@ export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | nu
     return null
   }
 }
+
+/** Compact snapshot for `ripmail status` subprocess close logs (Node logs only; not sent to clients). */
+export function buildRipmailStatusLogSnapshot(
+  stdout: string,
+):
+  | { statusParse: 'failed' }
+  | {
+      statusParse: 'ok'
+      syncRunning: boolean
+      lockAgeMs: number | null
+      indexed: number | null
+      pendingBackfill: boolean
+      staleLock: boolean
+      hangSuspected: boolean
+      lastSyncAt: string | null
+      forProgress: number | null
+    } {
+  const p = parseRipmailStatusJson(stdout)
+  if (!p) {
+    return { statusParse: 'failed' as const }
+  }
+  return {
+    statusParse: 'ok' as const,
+    syncRunning: p.syncRunning,
+    lockAgeMs: p.syncLockAgeMs,
+    indexed: p.indexedTotal ?? p.ftsReady ?? null,
+    pendingBackfill: p.pendingRefresh,
+    staleLock: p.staleLockInDb,
+    hangSuspected: p.initialSyncHangSuspected,
+    lastSyncAt: p.lastSyncedAt,
+    forProgress: p.messageAvailableForProgress,
+  }
+}

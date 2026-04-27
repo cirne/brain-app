@@ -1,5 +1,6 @@
 <script lang="ts">
   import '../../styles/agent-conversation/toolWriteLink.css'
+  import { Wrench } from 'lucide-svelte'
   import { getToolIcon } from '@client/lib/toolIcons.js'
   import { matchContentPreview } from '@client/lib/cards/contentCards.js'
   import { getToolUiPolicy, type ToolCall } from '@client/lib/agentUtils.js'
@@ -13,7 +14,6 @@
     wikiFilePendingVerb,
     wikiOpenPathFromArgs,
   } from '@client/lib/tools/toolArgSummary.js'
-  import { extractSuggestReplyChoices } from '@client/lib/tools/suggestReplyChoices.js'
 
   let {
     toolCall,
@@ -23,8 +23,6 @@
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
-    onChoiceSubmit,
-    choiceChipsEnabled = false,
   }: {
     toolCall: ToolCall
     onOpenWiki?: (_path: string) => void
@@ -33,12 +31,7 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
-    onChoiceSubmit?: (_text: string) => void
-    /** When true, quick-reply chips from **suggest_reply_options** are tappable. */
-    choiceChipsEnabled?: boolean
   } = $props()
-
-  let quickReplyPickedIndex = $state<number | null>(null)
 
   const preview = $derived(matchContentPreview(toolCall))
   const policy = $derived(getToolUiPolicy(toolCall.name))
@@ -49,25 +42,6 @@
   const wikiLinkPath = $derived(wikiOpenPathFromArgs(toolCall.name, toolCall.args))
   const pendingVerb = $derived(wikiFilePendingVerb(toolCall.name))
   const pendingFromArgs = $derived(toolSummaryPartsFromArgs(toolCall.name, toolCall.args))
-
-  const quickReplyChoices = $derived(
-    !toolCall.isError && toolCall.name === 'suggest_reply_options' ? extractSuggestReplyChoices(toolCall) : null,
-  )
-  const showQuickReplyChips = $derived(quickReplyChoices != null && quickReplyChoices.length > 0)
-  const canTapQuickReplies = $derived(
-    Boolean(showQuickReplyChips && choiceChipsEnabled && onChoiceSubmit && quickReplyPickedIndex === null),
-  )
-
-  function pickQuickReply(submit: string, index: number) {
-    if (!onChoiceSubmit || !canTapQuickReplies) return
-    quickReplyPickedIndex = index
-    onChoiceSubmit(submit)
-  }
-
-  $effect(() => {
-    void toolCall.id
-    quickReplyPickedIndex = null
-  })
 </script>
 
 {#if toolCall.done}
@@ -82,15 +56,13 @@
               {@const Icon = toolIcon}
               <Icon size={12} strokeWidth={2.5} />
             {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+              <Wrench size={12} strokeWidth={2.5} />
             {/if}
           {/if}
         </span>
         <span class="tool-summary-body">
           <span class="tool-name">{displayName}</span>
-          {#if showQuickReplyChips && quickReplyChoices}
-            <span class="tool-summary-plain">({quickReplyChoices.length})</span>
-          {:else if summaryParts}
+          {#if summaryParts}
             {#if summaryParts.mode === 'single_path'}
               <span class="tool-summary-wiki">
                 <WikiFileName path={summaryParts.path} />
@@ -107,29 +79,13 @@
           {/if}
         </span>
       </summary>
-      {#if toolCall.args && !showQuickReplyChips}
+      {#if toolCall.args}
         <pre class="tool-args">{formatToolArgs(toolCall.args)}</pre>
       {/if}
-      {#if toolCall.result && !showQuickReplyChips && preview?.kind !== 'wiki_edit_diff' && preview?.kind !== 'message_thread' && preview?.kind !== 'find_person_hits' && preview?.kind !== 'mail_search_hits' && preview?.kind !== 'feedback_draft'}
+      {#if toolCall.result && preview?.kind !== 'wiki_edit_diff' && preview?.kind !== 'message_thread' && preview?.kind !== 'find_person_hits' && preview?.kind !== 'mail_search_hits' && preview?.kind !== 'feedback_draft'}
         <pre class="tool-result" class:tool-error={toolCall.isError} class:muted={!!preview}>{toolCall.result}</pre>
       {/if}
     </details>
-    {#if showQuickReplyChips && quickReplyChoices}
-      <div
-        class="quick-reply-chips"
-        role="group"
-        aria-label="Quick replies"
-      >
-        {#each quickReplyChoices as c, ridx (c.id ?? `${ridx}-${c.label}`)}
-          <button
-            type="button"
-            class="quick-reply-chip"
-            disabled={!canTapQuickReplies}
-            onclick={() => pickQuickReply(c.submit, ridx)}
-          >{c.label}</button>
-        {/each}
-      </div>
-    {/if}
     {#if preview}
       <div class="tool-content-preview-shell">
         <ContentPreviewCards
@@ -152,7 +108,7 @@
           {@const Icon = toolIcon}
           <Icon size={12} strokeWidth={2.5} />
         {:else}
-          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          <Wrench size={12} strokeWidth={2.5} />
         {/if}
       </span>
       {#if pendingFromArgs?.mode === 'move'}
@@ -254,7 +210,7 @@
 
   .tool-call summary {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 5px;
     padding: 2px 4px;
     cursor: pointer;
@@ -385,38 +341,5 @@
     max-height: 80px;
     opacity: 0.65;
     font-size: 10px;
-  }
-
-  .quick-reply-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 8px;
-    align-items: center;
-    margin: 0 0 4px;
-    min-width: 0;
-  }
-
-  .quick-reply-chip {
-    appearance: none;
-    border: 1px solid color-mix(in srgb, var(--border) 80%, var(--text-2) 5%);
-    border-radius: 999px;
-    background: var(--bg);
-    color: var(--text);
-    font: inherit;
-    font-size: 12px;
-    line-height: 1.3;
-    padding: 0.4em 0.9em;
-    max-width: 100%;
-    cursor: pointer;
-    text-align: center;
-  }
-
-  .quick-reply-chip:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--bg) 90%, var(--text-2) 8%);
-  }
-
-  .quick-reply-chip:disabled {
-    opacity: 0.5;
-    cursor: default;
   }
 </style>

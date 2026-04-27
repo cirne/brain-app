@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getContext, onMount, tick, untrack } from 'svelte'
-  import { Archive, Reply, Forward, Sparkles } from 'lucide-svelte'
+  import { Archive, Forward, Reply, Search, Sparkles } from 'lucide-svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { navigate } from '@client/router.js'
   import { emailHeadersForDisplay } from '@client/lib/inboxHeaders.js'
@@ -739,9 +739,7 @@
               <span class="empty-label">No messages</span>
               {#if onOpenSearch}
                 <button class="search-cta" onclick={onOpenSearch}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                  </svg>
+                  <Search size={14} strokeWidth={2} aria-hidden="true" />
                   Search emails
                 </button>
               {/if}

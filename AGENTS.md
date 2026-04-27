@@ -22,6 +22,12 @@ The app is in **early development** with a **near-zero user base**. Optimize for
 - **Test fixtures**: reuse patterns from existing tests and shared helpers; avoid one-off temp dirs per test.
 - **No React, no Next.js**: Svelte 5 for all UI.
 
+### Icons (Lucide) and text
+
+- **Use Lucide as components**, not ad-hoc inline `<svg>`. Import from `lucide-svelte` and register tool-side icons in [`src/client/lib/tools/registryIcons.ts`](src/client/lib/tools/registryIcons.ts) (`getToolIcon` / `toolIcons.js`). For unregistered tool names, use a generic Lucide icon in the UI (e.g. `Wrench` in `ToolCallBlock`)—do not paste raw SVG.
+- **Lucide does not “solve” icon–text alignment**. Each component is still an `<svg>` in a box; there is no prop that optically lines up with a label. Misalignment is normal when the row uses `align-items: flex-start` (tops of boxes) or mixes fixed icon size with a text line box whose height comes from `line-height` and font metrics.
+- **Rule of thumb for icon + text in one row:** use `display: flex` (or `inline-flex`) on the row with `align-items: center`, give the label a stable `line-height` if needed, and **do not** expect zero tweak at 11–13px; a 0–1px nudge on the icon wrapper is acceptable when the row still looks off after centering. Avoid `align-items: flex-start` for icon+title chips unless you deliberately offset.
+
 
 **Scope:** This file is for working on the **repository**—stack, dev workflow, and conventions. It is not a catalog of LLM tools or agent runtime behavior; that lives in `src/server/agent/` (see code and tests there).
 

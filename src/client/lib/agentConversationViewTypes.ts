@@ -25,8 +25,6 @@ export type AgentConversationViewProps = {
   onOpenFullInbox?: () => void
   onSwitchToCalendar?: (_date: string, _eventId?: string) => void
   onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
-  /** When the assistant uses **suggest_reply_options**, chip taps submit this as the next user message. */
-  onSubmitQuickReply?: (_text: string) => void
   /** Empty-state “your wiki” link → `hub-wiki-about` overlay (chat / hub / SlideOver). */
   onOpenWikiAbout?: () => void
   /** Only used by the default chat transcript (empty state override). */

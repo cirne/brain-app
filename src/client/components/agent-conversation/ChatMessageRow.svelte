@@ -8,14 +8,13 @@
     msg,
     streaming,
     isLastMessage,
-    isLastAssistantInThread,
+    isLastAssistantInThread: _isLastAssistantInThread,
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
-    onSubmitQuickReply,
   }: {
     msg: ChatMessage
     streaming: boolean
@@ -28,17 +27,7 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
-    onSubmitQuickReply?: (_text: string) => void
   } = $props()
-
-  const choiceChipsEnabled = $derived(
-    Boolean(
-      onSubmitQuickReply &&
-        msg.role === 'assistant' &&
-        isLastAssistantInThread &&
-        !streaming,
-    ),
-  )
 
   /** Shown from stream start until the first `text_delta` (reasoning + tool-only turns stay visible). */
   const showPreTextThinking = $derived(
@@ -63,8 +52,6 @@
           {onOpenFullInbox}
           {onSwitchToCalendar}
           {onOpenMessageThread}
-          onChoiceSubmit={onSubmitQuickReply}
-          {choiceChipsEnabled}
         />
       {:else if part.type === 'text' && part.content}
         <StreamingAgentMarkdown class="msg-content" content={part.content} />

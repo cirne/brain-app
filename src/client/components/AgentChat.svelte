@@ -2,8 +2,15 @@
   import { onMount, tick, type Component, type Snippet } from 'svelte'
   import { type SurfaceContext } from '@client/router.js'
   import type { AgentConversationViewProps, ConversationScrollApi } from '@client/lib/agentConversationViewTypes.js'
-  import { buildChatBody, extractMentionedFiles, type ChatMessage, type SkillMenuItem } from '@client/lib/agentUtils.js'
-  import { contextPlaceholder } from '@client/lib/agentUtils.js'
+  import {
+    buildChatBody,
+    contextPlaceholder,
+    extractMentionedFiles,
+    extractReferencedFiles,
+    type ChatMessage,
+    type SkillMenuItem,
+  } from '@client/lib/agentUtils.js'
+  import { extractLatestSuggestReplyChoices } from '@client/lib/tools/suggestReplyChoices.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import { ensureBrainTtsAutoplayInUserGesture } from '@client/lib/brainTtsAudio.js'
   import { readHearRepliesPreference, writeHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
@@ -26,6 +33,7 @@
   import { shiftQueuedFollowUp } from '@client/lib/agentFollowUpQueue.js'
   import { MessageSquarePlus, Trash2, Volume2, VolumeX } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
+  import ComposerContextBar from './agent-conversation/ComposerContextBar.svelte'
   import ChatComposerAudio from './ChatComposerAudio.svelte'
   import { requestMicrophonePermissionInUserGesture } from '@client/lib/holdToSpeakMedia.js'
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
@@ -227,6 +235,9 @@
     if (!id) return false
     return sessions.get(id)?.streaming ?? false
   })
+
+  const contextBarFiles = $derived(extractReferencedFiles(messages))
+  const contextBarChoices = $derived(extractLatestSuggestReplyChoices(messages, streaming))
 
   /**
    * If `sessions.get(id)` is briefly undefined during store updates, we must not pass `false`
@@ -770,7 +781,6 @@
             {onOpenMessageThread}
             {onSwitchToCalendar}
             {onOpenWikiAbout}
-            onSubmitQuickReply={(t) => void send(t)}
             streamingWrite={streamingWritePreview}
             {multiTenant}
           />
@@ -794,7 +804,6 @@
           {onOpenMessageThread}
           {onSwitchToCalendar}
           {onOpenWikiAbout}
-          onSubmitQuickReply={(t) => void send(t)}
           streamingWrite={streamingWritePreview}
           {multiTenant}
         />
@@ -803,6 +812,13 @@
 
     {#if !hideInput}
       <div class="composer-stack" class:composer-stack--bridge-dock={bridgeSlideLayout}>
+        <ComposerContextBar
+          files={contextBarFiles}
+          choices={contextBarChoices}
+          choicesDisabled={streaming}
+          {onOpenWiki}
+          onChoice={(t) => void send(t)}
+        />
         <div class="composer-input-row" class:composer-input-row--lead={showComposerNewChat}>
           {#if showComposerNewChat}
             <button

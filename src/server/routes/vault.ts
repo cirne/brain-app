@@ -18,11 +18,11 @@ import {
 import { isMultiTenantMode, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import {
-  lookupTenantBySession,
   removeIdentityMappingsForTenantUserId,
   unregisterSessionTenant,
 } from '@server/lib/tenant/tenantRegistry.js'
-import { runWithTenantContextAsync, tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
+import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
+import { executeVaultLogout } from '@server/lib/vault/vaultLogoutCore.js'
 const vault = new Hono()
 
 type StatusBody = {
@@ -171,38 +171,8 @@ vault.post('/unlock', async (c) => {
 
 /** End session (clears cookie even when session expired or missing). */
 vault.post('/logout', async (c) => {
-  const sid = getCookie(c, BRAIN_SESSION_COOKIE)
-  if (isMultiTenantMode()) {
-    if (sid) {
-      const tid = await lookupTenantBySession(sid)
-      if (tid) {
-        const homeDir = tenantHomeDir(tid)
-        const meta = await readHandleMeta(homeDir)
-        const workspaceHandle = meta?.handle ?? tid
-        await runWithTenantContextAsync(
-          { tenantUserId: tid, workspaceHandle, homeDir },
-          async () => {
-            await revokeVaultSession(sid)
-          },
-        )
-      }
-      await unregisterSessionTenant(sid)
-    }
-    clearBrainSessionCookie(c)
-    return c.json({
-      ok: true,
-      vaultExists: false,
-      unlocked: false,
-      multiTenant: true as const,
-    } satisfies StatusBody & { ok: true })
-  }
-  if (sid) {
-    await revokeVaultSession(sid)
-  }
-  clearBrainSessionCookie(c)
-  return c.json({ ok: true, vaultExists: vaultVerifierExistsSync(), unlocked: false } satisfies StatusBody & {
-    ok: true
-  })
+  const body = await executeVaultLogout(c)
+  return c.json(body)
 })
 
 /**

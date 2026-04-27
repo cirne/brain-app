@@ -2,14 +2,19 @@
   import {
     Archive,
     Calendar as CalendarIcon,
+    ChevronLeft,
     Forward,
     Mail,
     Maximize2,
     MessageSquare,
     Minimize2,
+    Pause,
+    Pencil,
+    Play,
     RefreshCw,
     Reply,
     Save,
+    X,
   } from 'lucide-svelte'
   import Wiki from '../Wiki.svelte'
   import WikiDirList from '../WikiDirList.svelte'
@@ -48,7 +53,6 @@
     INBOX_THREAD_HEADER,
     type InboxThreadHeaderActions,
   } from '@client/lib/inboxSlideHeaderContext.js'
-  import { Pause, Play } from 'lucide-svelte'
   import { parseWikiDirSegments, wikiDirPathPrefix } from '@client/lib/wikiDirBreadcrumb.js'
 
   type Props = {
@@ -155,9 +159,7 @@
   <PaneL2Header>
     {#snippet left()}
       <button type="button" class="back-btn" onclick={onBackOrHeaderClose} aria-label="Back">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m15 18-6-6 6-6"/>
-        </svg>
+        <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
       </button>
     {/snippet}
     {#snippet center()}
@@ -328,9 +330,7 @@
           {#if wikiHdr.current.pageMode === 'edit'}
             <Save size={15} strokeWidth={2} aria-hidden="true" />
           {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>
-            </svg>
+            <Pencil size={15} strokeWidth={2} aria-hidden="true" />
           {/if}
         </button>
       {/if}
@@ -381,9 +381,7 @@
         </button>
       {/if}
       <button type="button" class="close-btn-desktop" onclick={onBackOrHeaderClose} aria-label="Close panel" title="Close">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-        </svg>
+        <X size={18} strokeWidth={2} aria-hidden="true" />
       </button>
     {/snippet}
   </PaneL2Header>

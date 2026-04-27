@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process'
 import { ripmailBin } from './ripmailBin.js'
+import { buildRipmailStatusLogSnapshot } from './ripmailStatusParse.js'
 import { ripmailProcessEnv } from '@server/lib/platform/brainHome.js'
 
 const KILL_ESCALATION_MS = 5000
@@ -242,6 +243,9 @@ export async function runRipmailArgv(
         if (logOutputDiagnostics) {
           closePayload.stdoutTail = tailForDiagnosticLog(stdout)
           closePayload.stderrTail = tailForDiagnosticLog(stderr)
+        }
+        if (label === 'status' && r.code === 0 && stdoutLen > 0) {
+          closePayload.syncStatus = buildRipmailStatusLogSnapshot(stdout)
         }
         if (r.timedOut && stderrLen === 0 && stdoutLen === 0) {
           closePayload.diagnosticHint =

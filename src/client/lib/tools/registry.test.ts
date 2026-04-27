@@ -58,4 +58,8 @@ describe('getToolDefinitionCore', () => {
   it('hides speak from transcript', () => {
     expect(getToolDefinitionCore('speak').chat.showInChat).toBe(false)
   })
+
+  it('hides suggest_reply_options from transcript', () => {
+    expect(getToolDefinitionCore('suggest_reply_options').chat.showInChat).toBe(false)
+  })
 })

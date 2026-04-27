@@ -3,11 +3,9 @@
   import { fly } from 'svelte/transition'
   import { ChevronDown } from 'lucide-svelte'
   import { computePinnedToBottom } from '@client/lib/scrollPin.js'
-  import { extractReferencedFiles } from '@client/lib/agentUtils.js'
   import type { AgentConversationViewProps } from '@client/lib/agentConversationViewTypes.js'
   import ConversationEmptyState from './ConversationEmptyState.svelte'
   import ChatMessageRow from './ChatMessageRow.svelte'
-  import ReferencedFilesStrip from './ReferencedFilesStrip.svelte'
   import CalendarDatePopover from './CalendarDatePopover.svelte'
 
   let {
@@ -20,7 +18,6 @@
     onSwitchToCalendar,
     onOpenMessageThread,
     onOpenWikiAbout,
-    onSubmitQuickReply,
     /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
     empty,
     streamingWrite: _streamingWrite,
@@ -48,8 +45,6 @@
     mq.addEventListener('change', sync)
     return () => mq.removeEventListener('change', sync)
   })
-
-  const referencedFiles = $derived(extractReferencedFiles(messages))
 
   const lastAssistantIndex = $derived.by(() => {
     for (let j = messages.length - 1; j >= 0; j -= 1) {
@@ -195,13 +190,8 @@
         {onOpenFullInbox}
         {onSwitchToCalendar}
         {onOpenMessageThread}
-        {onSubmitQuickReply}
       />
     {/each}
-
-    {#if referencedFiles.length > 0}
-      <ReferencedFilesStrip paths={referencedFiles} {onOpenWiki} />
-    {/if}
   </div>
 
   {#if showJumpToLatest}

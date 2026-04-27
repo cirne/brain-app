@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  buildRipmailStatusLogSnapshot,
   computeIndexingActionHint,
   computeIndexingUserHint,
   parseRipmailStatusJson,
@@ -245,5 +246,33 @@ describe('parseRipmailStatusJson', () => {
 
   it('returns null when sync missing', () => {
     expect(parseRipmailStatusJson('{"search":{}}')).toBeNull()
+  })
+})
+
+describe('buildRipmailStatusLogSnapshot', () => {
+  it('returns ok snapshot for populated fixture', () => {
+    const populatedFixture = `{
+  "sync": {
+    "isRunning": true,
+    "lastSyncAt": "2026-04-15T12:00:00.000Z",
+    "totalMessages": 42,
+    "earliestSyncedDate": "2024-01-01",
+    "latestSyncedDate": "2026-04-14"
+  },
+  "search": {
+    "indexedMessages": 1,
+    "ftsReady": 1
+  }
+}`
+    const s = buildRipmailStatusLogSnapshot(populatedFixture)
+    expect(s.statusParse).toBe('ok')
+    if (s.statusParse !== 'ok') return
+    expect(s.syncRunning).toBe(true)
+    expect(s.indexed).toBe(1)
+    expect(s.lastSyncAt).toBe('2026-04-15T12:00:00.000Z')
+  })
+
+  it('returns failed for invalid input', () => {
+    expect(buildRipmailStatusLogSnapshot('not json')).toEqual({ statusParse: 'failed' })
   })
 })

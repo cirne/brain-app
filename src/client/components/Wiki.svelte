@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getContext } from 'svelte'
+  import { Loader2 } from 'lucide-svelte'
   import { mount, unmount } from 'svelte'
   import WikiFileName from './WikiFileName.svelte'
   import TipTapMarkdownEditor from './TipTapMarkdownEditor.svelte'
@@ -341,7 +342,9 @@
         {:else}
           {#if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
             <p class="stream-label stream-editing" role="status">
-              <svg class="stream-spin" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <span class="stream-spin" aria-hidden="true">
+                <Loader2 size={12} strokeWidth={2.5} />
+              </span>
               Editing…
             </p>
           {/if}
@@ -423,7 +426,10 @@
     gap: 8px;
   }
   .stream-spin {
+    display: inline-flex;
+    align-items: center;
     flex-shrink: 0;
+    line-height: 0;
     animation: wiki-stream-spin 1s linear infinite;
   }
   @keyframes wiki-stream-spin {

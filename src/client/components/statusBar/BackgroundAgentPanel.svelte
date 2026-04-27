@@ -59,7 +59,7 @@
   const effectiveId = $derived(id ?? resolvedId)
 
   /**
-   * YourWikiDetail already provides the "Tool calls" heading and status line for the your-wiki run.
+   * YourWikiDetail already provides the "Steps" heading and status line for the your-wiki run.
    * Wiki-expansion runs (explicit `id`) embed without that wrapper — keep the in-panel section label.
    */
   const embedDuplicateParentChrome = $derived(
@@ -330,9 +330,9 @@
 
         {#if timelineSorted.length > 0}
           {#if !embedDuplicateParentChrome}
-            <div class="bg-panel-section-label">Tool calls</div>
+            <div class="bg-panel-section-label">Steps</div>
           {/if}
-          <ul class="bg-panel-timeline" aria-label="Tool activity, oldest to newest">
+          <ul class="bg-panel-timeline" aria-label="Steps in order, oldest first">
             {#each timelineSorted as ev, i (ev.at + ev.toolName + i)}
               <li class="bg-timeline-item">
                 <span class="bg-timeline-time">{formatTimelineTime(ev.at)}</span>
@@ -352,7 +352,7 @@
           </ul>
         {:else if agent.logEntries && agent.logEntries.length > 0}
           {#if !embedDuplicateParentChrome}
-            <div class="bg-panel-section-label">Tool calls</div>
+            <div class="bg-panel-section-label">Steps</div>
           {/if}
           <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
             {#each agent.logEntries as entry}
@@ -366,7 +366,7 @@
           </ul>
         {:else if agent.logLines && agent.logLines.length > 0}
           {#if !embedDuplicateParentChrome}
-            <div class="bg-panel-section-label">Tool calls</div>
+            <div class="bg-panel-section-label">Steps</div>
           {/if}
           <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
             {#each agent.logLines as line}
@@ -375,10 +375,10 @@
           </ul>
         {:else}
           {#if !embedDuplicateParentChrome}
-            <div class="bg-panel-section-label">Tool calls</div>
+            <div class="bg-panel-section-label">Steps</div>
           {/if}
           <p class="bg-panel-muted" role="status">
-            No tool calls yet. The assistant may be planning; completed steps will show here.
+            No steps yet. The assistant may be planning; completed work will appear here.
           </p>
         {/if}
 
@@ -455,8 +455,8 @@
           {/if}
 
           {#if timelineSorted.length > 0}
-            <div class="bg-panel-section-label">Tool calls</div>
-            <ul class="bg-panel-timeline" aria-label="Tool activity, oldest to newest">
+            <div class="bg-panel-section-label">Steps</div>
+            <ul class="bg-panel-timeline" aria-label="Steps in order, oldest first">
               {#each timelineSorted as ev, i (ev.at + ev.toolName + i)}
                 <li class="bg-timeline-item">
                   <span class="bg-timeline-time">{formatTimelineTime(ev.at)}</span>
@@ -475,7 +475,7 @@
               {/each}
             </ul>
           {:else if agent.logEntries && agent.logEntries.length > 0}
-            <div class="bg-panel-section-label">Tool calls</div>
+            <div class="bg-panel-section-label">Steps</div>
             <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
               {#each agent.logEntries as entry}
                 <li class="bg-panel-activity-line">
@@ -487,16 +487,16 @@
               {/each}
             </ul>
           {:else if agent.logLines && agent.logLines.length > 0}
-            <div class="bg-panel-section-label">Tool calls</div>
+            <div class="bg-panel-section-label">Steps</div>
             <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
               {#each agent.logLines as line}
                 <li class="bg-panel-activity-line bg-panel-activity-fallback">{line}</li>
               {/each}
             </ul>
           {:else}
-            <div class="bg-panel-section-label">Tool calls</div>
+            <div class="bg-panel-section-label">Steps</div>
             <p class="bg-panel-muted" role="status">
-              No tool calls yet. The assistant may be planning; completed steps will show here.
+              No steps yet. The assistant may be planning; completed work will appear here.
             </p>
           {/if}
         {/if}

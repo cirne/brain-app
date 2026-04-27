@@ -132,6 +132,9 @@ const TOOL_REGISTRY: Record<string, ToolRegistryPatch> = {
   speak: {
     chat: { showInChat: false },
   },
+  suggest_reply_options: {
+    chat: { showInChat: false },
+  },
   open: {
     chat: { autoOpen: true },
   },

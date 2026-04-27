@@ -17,7 +17,6 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
-    onSubmitQuickReply?: (_text: string) => void
   } = $props()
 </script>
 

@@ -63,6 +63,7 @@ import { newRelicBrainContextMiddleware } from '@server/lib/observability/newRel
 import { newRelicHonoTransactionMiddleware } from '@server/lib/observability/newRelicHonoTransaction.js'
 import { fileURLToPath } from 'node:url'
 import { setPromptsRoot } from '@server/lib/prompts/registry.js'
+import { executeVaultLogout, safeLogoutRedirectPath } from '@server/lib/vault/vaultLogoutCore.js'
 
 loadDotEnv()
 setPromptsRoot(fileURLToPath(new URL('./prompts', import.meta.url)))
@@ -134,6 +135,19 @@ app.use('*', async (c, next) => {
   }
   
   return next()
+})
+
+/**
+ * Browser-friendly sign-out: clears session and redirects to `/` (or `?next=/path`).
+ * `Accept: application/json` returns the same body as POST /api/vault/logout.
+ */
+app.get('/logout', async (c) => {
+  const body = await executeVaultLogout(c)
+  const accept = c.req.header('accept') ?? ''
+  if (accept.includes('application/json')) {
+    return c.json(body)
+  }
+  return c.redirect(safeLogoutRedirectPath(c.req.query('next')), 302)
 })
 
 app.use('/api/*', tenantMiddleware)
@@ -377,7 +391,14 @@ async function start() {
           }
         }
 
-        if (req.url?.startsWith('/api/')) {
+        const pathname = (() => {
+          try {
+            return new URL(req.url ?? '/', `http://${host ?? 'localhost'}`).pathname
+          } catch {
+            return ''
+          }
+        })()
+        if (req.url?.startsWith('/api/') || (req.method === 'GET' && pathname === '/logout')) {
           honoHandler(req, res)
         } else {
           vite.middlewares(req, res, () => {
