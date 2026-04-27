@@ -321,7 +321,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
       source: Type.Optional(
         Type.String({
           description:
-            'Ripmail source id or mailbox email for --source. Inferred addresses from whoami are mapped to the configured source when there is a single mail account (e.g. Apple Mail placeholder email).',
+            'Ripmail source id or mailbox email. Default search includes every IMAP account whose Hub setting "Search this mailbox by default" is on (the user can hide a mailbox in Hub > Source > Search this mailbox by default). When the user says "my work inbox" or names a specific Gmail, pass that email here so the agent searches only that mailbox.',
         }),
       ),
     }),
@@ -747,27 +747,39 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
 
   const draftEmail = defineTool({
     name: 'draft_email',
-    description: 'Create an email draft. action=new composes a fresh email (requires to); action=reply drafts a reply to an existing message (requires message_id); action=forward forwards an existing message (requires message_id and to). Returns the draft (id, to, subject, body) for review before sending.',
+    description:
+      'Create an email draft. action=new composes a fresh email (requires to); action=reply drafts a reply to an existing message (requires message_id); action=forward forwards an existing message (requires message_id and to). When the workspace has more than one Gmail account, optional `from` picks which mailbox sends — accepts an email address or ripmail source id; omit `from` to use the workspace default send mailbox set in the Hub. Returns the draft (id, to, subject, body) for review before sending.',
     label: 'Draft Email',
     parameters: Type.Object({
       action: Type.Union([Type.Literal('new'), Type.Literal('reply'), Type.Literal('forward')], { description: '"new" | "reply" | "forward"' }),
       instruction: Type.String({ description: 'What the email should say (LLM generates subject+body from this)' }),
       to: Type.Optional(Type.String({ description: 'Recipient address — required for new and forward' })),
       message_id: Type.Optional(Type.String({ description: 'Message ID to reply to or forward — required for reply and forward' })),
+      from: Type.Optional(
+        Type.String({
+          description:
+            'Sender mailbox (email or ripmail source id). Use when the user names an account such as "send from my work email"; omit otherwise to use the workspace default.',
+        }),
+      ),
     }),
-    async execute(_toolCallId: string, params: { action: 'new' | 'reply' | 'forward'; instruction: string; to?: string; message_id?: string }) {
+    async execute(
+      _toolCallId: string,
+      params: { action: 'new' | 'reply' | 'forward'; instruction: string; to?: string; message_id?: string; from?: string },
+    ) {
       const rm = ripmailBin()
+      const resolvedFrom = await resolveRipmailSourceForCli(params.from)
+      const sourceFlag = resolvedFrom?.trim() ? ` --source ${JSON.stringify(resolvedFrom.trim())}` : ''
       let cmd: string
       if (params.action === 'new') {
         if (!params.to) throw new Error('to is required for action=new')
-        cmd = `${rm} draft new --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json`
+        cmd = `${rm} draft new --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json${sourceFlag}`
       } else if (params.action === 'reply') {
         if (!params.message_id) throw new Error('message_id is required for action=reply')
-        cmd = `${rm} draft reply --message-id ${JSON.stringify(params.message_id)} --instruction ${JSON.stringify(params.instruction)} --with-body --json`
+        cmd = `${rm} draft reply --message-id ${JSON.stringify(params.message_id)} --instruction ${JSON.stringify(params.instruction)} --with-body --json${sourceFlag}`
       } else {
         if (!params.message_id) throw new Error('message_id is required for action=forward')
         if (!params.to) throw new Error('to is required for action=forward')
-        cmd = `${rm} draft forward --message-id ${JSON.stringify(params.message_id)} --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json`
+        cmd = `${rm} draft forward --message-id ${JSON.stringify(params.message_id)} --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json${sourceFlag}`
       }
       const { stdout } = await execRipmailAsync(cmd, { timeout: 30000 })
       return {
