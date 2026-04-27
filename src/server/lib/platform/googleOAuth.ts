@@ -234,6 +234,8 @@ export type RipmailGoogleCalendarSourceEntry = {
 
 export type RipmailConfigJson = {
   sources?: Array<RipmailSourceEntry | RipmailGoogleCalendarSourceEntry>
+  /** Source id (or email) to use when drafting/sending and the user did not specify a source. */
+  defaultSendSource?: string
   imap?: unknown
   sync?: {
     defaultSince?: string
