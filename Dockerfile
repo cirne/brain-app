@@ -24,12 +24,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 ENV PORT=4000
-ENV NEW_RELIC_NO_CONFIG_FILE=true
-ENV NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true
-ENV NEW_RELIC_LOG=stdout
-ENV NEW_RELIC_AI_MONITORING_ENABLED=true
-ENV NEW_RELIC_CUSTOM_INSIGHTS_EVENTS_MAX_SAMPLES_STORED=100k
-ENV NEW_RELIC_SPAN_EVENTS_MAX_SAMPLES_STORED=10k
+COPY newrelic.cjs ./newrelic.cjs
 COPY --from=node-builder /app/dist ./dist
 COPY --from=node-builder /app/node_modules ./node_modules
 COPY --from=node-builder /app/package.json ./package.json
@@ -45,4 +40,7 @@ ENV RIPMAIL_BIN=/usr/local/bin/ripmail
 EXPOSE 4000
 # Reap zombie ripmail children if Node misses a wait (belt-and-suspenders with in-process reaping).
 ENTRYPOINT ["/usr/bin/tini", "-g", "--"]
+# NOTE: NR ESM loader (--import newrelic/esm-loader.mjs) breaks @mariozechner/pi-* imports.
+# Without it, pino logs won't auto-forward to NR with APM entity context.
+# APM transactions + custom events still work; logs go to container stdout.
 CMD ["node", "dist/server/index.js"]

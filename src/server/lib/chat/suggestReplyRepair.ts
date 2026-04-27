@@ -1,0 +1,239 @@
+import { completeSimple } from '@mariozechner/pi-ai'
+import type { AssistantMessage, Context, KnownProvider } from '@mariozechner/pi-ai'
+import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
+import { randomUUID } from 'node:crypto'
+import { createAgentTools } from '@server/agent/tools.js'
+import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
+import type { LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
+import type { AssistantTurnState, MessagePart } from '@server/lib/chat/chatTypes.js'
+import { applyToolEnd, applyToolStart } from '@server/lib/chat/chatTranscript.js'
+import { assistantPartsHaveValidSuggestReply } from '@shared/suggestReplyChoicesCore.js'
+
+const REPAIR_SYSTEM = `You output only a tool call to **suggest_reply_options**. Do not write user-facing prose.
+Given the user message and the assistant answer below, supply 2–5 quick-reply chips: each choice has a short **label** (chip text) and **submit** (full user message when tapped). Make them concrete next steps based on the conversation.`
+
+const MAX_USER_CHARS = 4000
+const MAX_ASSISTANT_CHARS = 14000
+
+const FALLBACK_CHOICES = [
+  { label: 'Continue', submit: 'Continue' },
+  { label: 'Thanks', submit: 'Thanks — that is enough for now.' },
+] as const
+
+/** When unset or not \`0\`, run a repair LLM pass if the main turn omitted chips. */
+export function isSuggestReplyRepairEnabled(): boolean {
+  return process.env.BRAIN_SUGGEST_REPLY_REPAIR !== '0'
+}
+
+function usageFromPiAssistantMessage(m: AssistantMessage): LlmUsageSnapshot {
+  const u = m.usage
+  if (u == null) {
+    return {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      costTotal: 0,
+    }
+  }
+  const costTotal = u.cost && typeof u.cost.total === 'number' ? u.cost.total : 0
+  return {
+    input: u.input,
+    output: u.output,
+    cacheRead: u.cacheRead,
+    cacheWrite: u.cacheWrite,
+    totalTokens: u.totalTokens,
+    costTotal,
+  }
+}
+
+function concatAssistantText(state: AssistantTurnState): string {
+  const chunks: string[] = []
+  for (const p of state.parts) {
+    if (p.type === 'text' && p.content.trim()) chunks.push(p.content)
+  }
+  return chunks.join('\n\n').trim()
+}
+
+function truncate(s: string, max: number): string {
+  if (s.length <= max) return s
+  return `${s.slice(0, max)}\n\n[…]`
+}
+
+function cloneParts(parts: MessagePart[]): MessagePart[] {
+  try {
+    return structuredClone(parts)
+  } catch {
+    return [...parts]
+  }
+}
+
+export type SuggestReplyRepairResult =
+  | { applied: false }
+  | {
+      applied: true
+      toolCallId: string
+      resultText: string
+      details: unknown
+      usage: LlmUsageSnapshot
+    }
+
+type SuggestTool = {
+  name: string
+  execute: (id: string, args: { choices: unknown[] }) => Promise<unknown>
+}
+
+async function applySuggestReplyToolCall(
+  assistantState: AssistantTurnState,
+  suggestTool: SuggestTool,
+  args: unknown,
+  usage: LlmUsageSnapshot,
+): Promise<SuggestReplyRepairResult> {
+  const snapshot = cloneParts(assistantState.parts)
+  const toolCallId = randomUUID()
+  applyToolStart(assistantState, {
+    id: toolCallId,
+    name: 'suggest_reply_options',
+    args,
+    done: false,
+  })
+  try {
+    const rawResult = await suggestTool.execute(toolCallId, args as { choices: unknown[] })
+    const r = rawResult as {
+      content?: Array<{ type: string; text?: string }>
+      details?: unknown
+    }
+    const resultText =
+      r.content?.[0]?.type === 'text' && typeof r.content[0].text === 'string' ? r.content[0].text : ''
+    const details = r.details
+    const isError =
+      details != null &&
+      typeof details === 'object' &&
+      'error' in (details as object) &&
+      (details as { error?: unknown }).error != null
+    applyToolEnd(assistantState, toolCallId, resultText, isError, details)
+    if (isError || !assistantPartsHaveValidSuggestReply(assistantState.parts)) {
+      assistantState.parts = snapshot
+      return { applied: false }
+    }
+    return {
+      applied: true,
+      toolCallId,
+      resultText,
+      details: details ?? {},
+      usage,
+    }
+  } catch {
+    assistantState.parts = snapshot
+    return { applied: false }
+  }
+}
+
+/**
+ * If the assistant turn has no valid `suggest_reply_options`, run a minimal second completion
+ * (single tool) and apply the tool to `assistantState`, or apply a small fallback when the LLM fails.
+ */
+export async function runSuggestReplyRepairIfNeeded(options: {
+  wikiDir: string
+  userMessageText: string
+  assistantState: AssistantTurnState
+  includeLocalMessageTools?: boolean
+  timezone?: string
+}): Promise<SuggestReplyRepairResult> {
+  if (!isSuggestReplyRepairEnabled()) return { applied: false }
+  if (assistantPartsHaveValidSuggestReply(options.assistantState.parts)) return { applied: false }
+
+  const userT = truncate(options.userMessageText.trim() || '(no user text)', MAX_USER_CHARS)
+  const assistantT = truncate(concatAssistantText(options.assistantState), MAX_ASSISTANT_CHARS)
+  if (!assistantT.length) return { applied: false }
+
+  const tools = createAgentTools(options.wikiDir, {
+    includeLocalMessageTools: options.includeLocalMessageTools ?? false,
+    onlyToolNames: ['suggest_reply_options'],
+    timezone: options.timezone,
+  })
+  const suggestTool = tools.find((t: { name?: string }) => t.name === 'suggest_reply_options') as
+    | SuggestTool
+    | undefined
+  if (!suggestTool?.execute) return { applied: false }
+
+  const userBody = `### User message\n\n${userT}\n\n### Assistant answer (so far)\n\n${assistantT}\n\nCall **suggest_reply_options** with 2–5 choices.`
+
+  const usageZero: LlmUsageSnapshot = {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    totalTokens: 0,
+    costTotal: 0,
+  }
+
+  const tryFallback = () =>
+    applySuggestReplyToolCall(
+      options.assistantState,
+      suggestTool,
+      { choices: [...FALLBACK_CHOICES] },
+      usageZero,
+    )
+
+  const provider = (process.env.BRAIN_SUGGEST_REPLY_REPAIR_PROVIDER?.trim() ||
+    process.env.LLM_PROVIDER ||
+    'openai') as KnownProvider
+  const modelId =
+    process.env.BRAIN_SUGGEST_REPLY_REPAIR_MODEL?.trim() || process.env.LLM_MODEL || 'gpt-5.4-mini'
+  const model = resolveModel(provider, modelId)
+  if (!model) {
+    return await tryFallback()
+  }
+
+  const getApiKey = (p: string) => resolveLlmApiKey(p)
+
+  const context: Context = {
+    systemPrompt: REPAIR_SYSTEM,
+    messages: [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: userBody }],
+        timestamp: Date.now(),
+      },
+    ],
+    tools,
+  }
+
+  const streamOpts = {
+    getApiKey,
+    onPayload: (params: unknown, m: { id?: string; reasoning?: boolean }) =>
+      chainLlmOnPayload(params, {
+        id: typeof m.id === 'string' ? m.id : modelId,
+        reasoning: m.reasoning,
+        provider: model.provider,
+      }),
+  }
+
+  let assistantMsg: AssistantMessage
+  try {
+    assistantMsg = await completeSimple(model, context, streamOpts)
+  } catch {
+    return await tryFallback()
+  }
+
+  const usage = usageFromPiAssistantMessage(assistantMsg)
+  const content = assistantMsg.content ?? []
+  const toolCall = content.find(
+    (c): c is { type: 'toolCall'; id: string; name: string; arguments: Record<string, unknown> } =>
+      c.type === 'toolCall' && c.name === 'suggest_reply_options',
+  )
+  if (toolCall) {
+    const r = await applySuggestReplyToolCall(
+      options.assistantState,
+      suggestTool,
+      { ...toolCall.arguments },
+      usage,
+    )
+    if (r.applied) return r
+    return await tryFallback()
+  }
+
+  return await tryFallback()
+}

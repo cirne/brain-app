@@ -48,9 +48,10 @@ The **license key** is not interchangeable with the **user API key** for NerdGra
 ## Runtime instrumentation (Node server)
 
 - **Bootstrap:** `import 'newrelic'` must run **before** other application imports — see [`src/server/index.ts`](../src/server/index.ts).
-- **Baseline config:** [`newrelic.cjs`](../newrelic.cjs) sets `agent_enabled` from the presence of `NEW_RELIC_LICENSE_KEY`, `app_name` from `NEW_RELIC_APP_NAME` (default `Braintunnel Local Dev`), and the license key. Without a license key the agent stays off so local work does not require secrets.
-- **Hosted / Docker:** the image may set `NEW_RELIC_NO_CONFIG_FILE=true` and rely on environment variables instead of the file (see Dockerfile comments in repo).
-- **Local compose:** [`docker-compose.yml`](../docker-compose.yml) may set `NEW_RELIC_APP_NAME: Braintunnel Local Dev`.
+- **Baseline config:** [`newrelic.cjs`](../newrelic.cjs) holds non-secret settings (logging, distributed tracing, AI monitoring, application log forwarding, sampling caps). It sets `agent_enabled` from `NEW_RELIC_LICENSE_KEY`, `app_name` from `NEW_RELIC_APP_NAME` (default `Braintunnel Local Dev`), and `license_key` from that env var. Without a license key the agent stays off so local work does not require secrets.
+- **Docker:** the runtime image copies `newrelic.cjs` to `/app` (same as local); only `NEW_RELIC_LICENSE_KEY` and optional `NEW_RELIC_APP_NAME` need to come from compose / `.env`.
+- **Log forwarding limitation:** The NR ESM loader (`--import newrelic/esm-loader.mjs`) breaks `@mariozechner/pi-*` imports due to `import-in-the-middle` bugs. Without it, Pino logs go to container stdout but are **not** auto-forwarded to NR Logs with APM entity context. APM transactions and custom events (`ToolCall`, `LlmAgentTurn`) still work. For log aggregation, use container log collection (e.g. NR infrastructure agent, Fluent Bit).
+- **Local compose:** [`docker-compose.yml`](../docker-compose.yml) sets `NEW_RELIC_APP_NAME: Braintunnel Local Dev`.
 - **HTTP transactions:** route-level naming uses [`src/server/lib/newRelicHonoTransaction.ts`](../src/server/lib/newRelicHonoTransaction.ts) (`setTransactionName`).
 
 Standard APM data types apply: **Transaction**, **TransactionError**, **Span** (if distributed tracing is enabled), **Log** (if forwarding is configured).

@@ -32,8 +32,6 @@ export async function runEnronV1Main(): Promise<number> {
       model: c.model,
       provider: c.provider,
     }),
-    noLlmKeyMessage:
-      'No LLM API key in env. Set e.g. ANTHROPIC_API_KEY or OPENAI_API_KEY, or EVAL_FORCE_RUN=1 to bypass this check.',
     ripIndexHint: 'Run: npm run eval:build',
   })
 }

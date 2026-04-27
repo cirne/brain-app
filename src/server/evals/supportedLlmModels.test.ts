@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getModel } from '@mariozechner/pi-ai'
-import type { KnownProvider } from '@mariozechner/pi-ai'
+import { resolveModel } from '@server/lib/llm/resolveModel.js'
 import {
   getDefaultLlmModelForProvider,
   getSupportedLlmForProvider,
@@ -25,23 +24,23 @@ describe('supported-llm-models.json', () => {
     }
   })
 
-  it('resolves every (provider, id) with pi-ai getModel', () => {
+  it('resolves every (provider, id) with resolveModel (pi-ai + Brain-only providers)', () => {
     const reg = getSupportedLlmRegistry()
     for (const [p, entry] of Object.entries(reg.providers)) {
       for (const id of [entry.default, ...entry.candidates.map((c) => c.id)]) {
-        const m = getModel(p as KnownProvider, id as never)
-        expect(m, `getModel(${p}, ${id})`).toBeDefined()
+        const m = resolveModel(p, id)
+        expect(m, `resolveModel(${p}, ${id})`).toBeDefined()
       }
     }
   })
 
-  it('costPerMillionTokens in JSON matches pi-ai getModel when present', () => {
+  it('costPerMillionTokens in JSON matches resolved model when present', () => {
     const reg = getSupportedLlmRegistry()
     for (const [p, entry] of Object.entries(reg.providers)) {
       for (const c of entry.candidates) {
         if (!c.costPerMillionTokens) continue
-        const m = getModel(p as KnownProvider, c.id as never)
-        expect(m, `getModel(${p}, ${c.id})`).toBeDefined()
+        const m = resolveModel(p, c.id)
+        expect(m, `resolveModel(${p}, ${c.id})`).toBeDefined()
         expect(c.costPerMillionTokens).toEqual(m!.cost)
       }
     }

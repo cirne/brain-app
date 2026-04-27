@@ -1,12 +1,13 @@
 import { Agent } from '@mariozechner/pi-agent-core'
-import { getModel, type KnownProvider } from '@mariozechner/pi-ai'
+import type { KnownProvider } from '@mariozechner/pi-ai'
+import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import Handlebars from 'handlebars'
 import { createAgentTools } from './tools.js'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { wikiDir as getWikiDir } from '@server/lib/wiki/wikiDir.js'
-import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '@server/lib/llm/openAiResponsesPayload.js'
+import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 import { formatSkillLibrarySection } from '@server/lib/llm/skillRegistry.js'
 import { loadSession } from '@server/lib/chat/chatStorage.js'
@@ -122,10 +123,15 @@ ${dateTimeBlock}`
     systemPrompt += `\n\n${skillLibrary}`
   }
 
-  // Model from env vars — supports any provider pi-ai knows about
+  // Model from env vars — pi-ai registry + Brain-only providers (e.g. mlx-local)
   const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
   const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
-  const model = getModel(provider, modelId as never)
+  const model = resolveModel(provider, modelId)
+  if (!model) {
+    throw new Error(
+      `[brain-app] Unknown LLM: LLM_PROVIDER=${provider} LLM_MODEL=${modelId} (not in pi-ai registry or mlx-local catalog)`,
+    )
+  }
 
   const agent = new Agent({
     initialState: {
@@ -134,12 +140,8 @@ ${dateTimeBlock}`
       tools,
       ...(messagesForInitial?.length ? { messages: messagesForInitial } : {}),
     },
-    onPayload: (params, m) => patchOpenAiReasoningNoneEffort(params as OpenAiResponsesPayload, m),
-    getApiKey: (p: string) => {
-      // pi-ai uses PROVIDER_API_KEY env convention
-      const envKey = `${p.toUpperCase()}_API_KEY`
-      return process.env[envKey]
-    },
+    onPayload: (params, m) => chainLlmOnPayload(params, m),
+    getApiKey: (p: string) => resolveLlmApiKey(p),
     convertToLlm,
   })
 

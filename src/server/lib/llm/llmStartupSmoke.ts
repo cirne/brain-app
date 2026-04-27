@@ -1,13 +1,6 @@
-import {
-  completeSimple,
-  getEnvApiKey,
-  getModel,
-  type KnownProvider,
-} from '@mariozechner/pi-ai'
-import {
-  patchOpenAiReasoningNoneEffort,
-  type OpenAiResponsesPayload,
-} from './openAiResponsesPayload.js'
+import { completeSimple, type KnownProvider } from '@mariozechner/pi-ai'
+import { resolveLlmApiKey, resolveModel } from './resolveModel.js'
+import { chainLlmOnPayload } from './llmOnPayloadChain.js'
 
 const DEFAULT_PROVIDER = 'openai' as KnownProvider
 const DEFAULT_MODEL = 'gpt-5.4-mini'
@@ -34,15 +27,15 @@ export async function verifyLlmAtStartup(): Promise<void> {
 
   const provider = (process.env.LLM_PROVIDER ?? DEFAULT_PROVIDER) as KnownProvider
   const modelId = process.env.LLM_MODEL ?? DEFAULT_MODEL
-  const model = getModel(provider, modelId as never)
+  const model = resolveModel(provider, modelId)
 
   if (!model) {
     throw new Error(
-      `[brain-app] LLM startup check failed: unknown provider/model: ${llmEnvLabel(provider, modelId)} (not in pi-ai registry)`,
+      `[brain-app] LLM startup check failed: unknown provider/model: ${llmEnvLabel(provider, modelId)} (not in pi-ai registry or mlx-local catalog)`,
     )
   }
 
-  const apiKey = getEnvApiKey(provider)
+  const apiKey = resolveLlmApiKey(provider)
   if (!hasCredentials(apiKey)) {
     throw new Error(
       `[brain-app] LLM startup check failed: no API credentials for ${llmEnvLabel(provider, modelId)} (see pi-ai env conventions for this provider)`,
@@ -67,8 +60,7 @@ export async function verifyLlmAtStartup(): Promise<void> {
       signal: AbortSignal.timeout(SMOKE_TIMEOUT_MS),
       // Same as Agent `onPayload`: pi-ai maps "thinking off" to reasoning.effort "none",
       // which gpt-5-codex rejects (requires low/medium/high).
-      onPayload: (params, m) =>
-        patchOpenAiReasoningNoneEffort(params as OpenAiResponsesPayload, m),
+      onPayload: (params, m) => chainLlmOnPayload(params, m),
     })
 
     if (msg.stopReason === 'error' || msg.errorMessage) {

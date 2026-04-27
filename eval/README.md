@@ -33,7 +33,8 @@ One script runs the **whole eval pipeline** (same `BRAIN_HOME` as below):
 1. `npm run eval:build` (or ensure `data-eval/brain/ripmail/ripmail.db` exists and matches your stamp)
 2. Put provider keys and defaults in the repo-root **`.env`** (same file as `npm run dev`). Set `LLM_PROVIDER` / `LLM_MODEL` and the matching `*_API_KEY` (e.g. `ANTHROPIC_API_KEY`).
 3. `npm run eval:run`  
-   Optional: `npm run eval:run -- --provider openai --model gpt-5.4` — flags apply to the **JSONL phase** only (after Vitest).  
+   Optional: `npm run eval:run -- --provider openai --model gpt-5.4` — flags apply to the **JSONL phase** only (after Vitest) and **override** repo-root `.env` for `LLM_PROVIDER` / `LLM_MODEL` (the loader sets those from `.env` after your shell exports, so use `-p`/`-m` for one-off providers).  
+   **Local MLX (Qwen on Apple Silicon):** start `mlx_lm.server` (see `.env.example`), then e.g. `npm run eval:run -- -p mlx-local -m mlx-community/Qwen3.6-27B-4bit --id enron-004-no-hit-xyzzy` (no cloud API key).  
    **Single case:** `npm run eval:run -- --id enron-022-suggest-reply-chips` (skips Vitest, runs only that Enron v1 case — or the matching id in the wiki file). Same as `EVAL_CASE_ID=enron-022-suggest-reply-chips` for the JSONL phase.  
    `npm run eval:run -- --help` prints JSONL CLI help and **skips** Vitest.
 
@@ -47,7 +48,7 @@ All live JSONL suites use the same **`BRAIN_HOME`** and **Enron** `ripmail.db`. 
 
 Mail-centric agent tasks (search/read) run against the **large** `kean-s` index. Tasks live in [`tasks/enron-v1.jsonl`](tasks/enron-v1.jsonl) (one JSON object per line; lines starting with `#` are comments). The harness reuses the same `Agent` + tool stack as chat and records per-case **wall time** and `usage` (tokens + `costTotal`) from `agent_end`.
 
-**Supported / tested model ids:** the git-tracked registry [`../src/server/evals/supported-llm-models.json`](../src/server/evals/supported-llm-models.json) lists default and candidate `LLM_MODEL` values per `LLM_PROVIDER` (with `tested` flags for baselines). Import from [`supportedLlmModels.ts`](../src/server/evals/supportedLlmModels.ts) in scripts or extend the JSON when you add a new approved eval configuration. The Vitest phase of `npm run eval:run` asserts every entry resolves with `getModel()` in `@mariozechner/pi-ai`.
+**Supported / tested model ids:** the git-tracked registry [`../src/server/evals/supported-llm-models.json`](../src/server/evals/supported-llm-models.json) lists default and candidate `LLM_MODEL` values per `LLM_PROVIDER` (with `tested` flags for baselines). Import from [`supportedLlmModels.ts`](../src/server/evals/supportedLlmModels.ts) in scripts or extend the JSON when you add a new approved eval configuration. The Vitest phase of `npm run eval:run` asserts every entry resolves via `resolveModel()` (pi-ai registry plus Brain-only providers such as `mlx-local`).
 
 **Output:** a JSON report under `data-eval/eval-runs/` (entire `data-eval/` is gitignored), named `enron-v1-<model-segment>-<iso-timestamp>.json`. The **`<model-segment>`** is derived from the effective **`LLM_MODEL`** (the same default as the chat agent if unset), sanitized for the filesystem, so you can `ls data-eval/eval-runs/enron-v1-gpt-5.4-*.json` and compare runs across models without encoding the provider in the name (it is still in the report JSON: `env` and `effectiveLlm`). The runner parallelizes with **p-limit**; tune **`EVAL_MAX_CONCURRENCY`** (default `12`, capped at task count) so many LLM requests stay in flight on a large machine. The bottleneck should be the provider, not local `ripmail` I/O.
 
@@ -57,7 +58,6 @@ Mail-centric agent tasks (search/read) run against the **large** `kean-s` index.
 | `EVAL_MAX_CONCURRENCY` | Max parallel `agent.prompt()` cases (default `12`) |
 | `EVAL_CASE_ID` | Run a **single** task: set to its JSONL `id` (same as CLI `--id`). The combined `jsonl` runner exits 1 if the id is not in **either** the Enron or wiki task file. |
 | `EVAL_TASKS` | Override path to a JSONL task file (default `eval/tasks/enron-v1.jsonl`) |
-| `EVAL_FORCE_RUN` | Set to `1` to skip the “at least one API key” preflight (e.g. local Ollama-only setups) |
 | `EVAL_AGENT_TRACE` | Set to `1` for `[eval:agent]` JSON lines per case: `turn_start` / `turn_end` = **LLM** time (streaming, reasoning, provider latency); `tool_start` / `tool_end` = tool execution (often ripmail). Gaps in `[ripmail]` logs are usually the model working, or another eval case interleaving stdout (high concurrency). |
 | `BRAIN_RIPMAIL_SUBPROCESS_LOG` | Set to `errors` (or `0` / `off`) to **omit** successful ripmail logs (command line + metadata JSON); still logs failures, timeouts, and `send`. |
 

@@ -1,9 +1,14 @@
 import type { Agent, AgentEvent, AgentMessage } from '@mariozechner/pi-agent-core'
+import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
+import { createAssistantTurnState, applyTextDelta } from '@server/lib/chat/chatTranscript.js'
+import { runSuggestReplyRepairIfNeeded, isSuggestReplyRepairEnabled } from '@server/lib/chat/suggestReplyRepair.js'
 import {
+  addLlmUsage,
   countAssistantCompletionsWithUsage,
   sumUsageFromMessages,
   type LlmUsageSnapshot,
 } from '@server/lib/llm/llmUsage.js'
+import { wikiDir as getWikiDir } from '@server/lib/wiki/wikiDir.js'
 import { lastAssistantTextFromMessages, toolResultTextFromAgentEvent } from './extractTranscript.js'
 
 export type CollectedAgentPromptMetrics = {
@@ -23,6 +28,8 @@ export type CollectAgentPromptMetricsOptions = {
   timezone?: string
   /** When `EVAL_AGENT_TRACE=1`, logs `[eval:agent]` JSON lines for this case (LLM turns vs tools). */
   evalTraceCaseId?: string
+  /** Wiki root for suggest-reply repair (defaults to {@link getWikiDir}). */
+  wikiDir?: string
 }
 
 /**
@@ -102,11 +109,38 @@ export async function collectAgentPromptMetrics(
   }
 
   const wallMs = performance.now() - t0
-  const toolTextConcat = toolTextParts.join('\n\n')
   const finalText = lastAssistantTextFromMessages(endMessages)
-  const usage = sumUsageFromMessages(endMessages)
+  let usage = sumUsageFromMessages(endMessages)
   const completionCount = countAssistantCompletionsWithUsage(endMessages)
   const labels = modelLabelFromTranscript(endMessages)
+  if (
+    !err &&
+    isSuggestReplyRepairEnabled() &&
+    !toolNames.includes('suggest_reply_options') &&
+    finalText.trim().length > 0
+  ) {
+    const st = createAssistantTurnState()
+    applyTextDelta(st, finalText)
+    try {
+      const repair = await runSuggestReplyRepairIfNeeded({
+        wikiDir: options.wikiDir ?? getWikiDir(),
+        userMessageText: message,
+        assistantState: st,
+        includeLocalMessageTools: areLocalMessageToolsEnabled(),
+        timezone: options.timezone,
+      })
+      if (repair.applied) {
+        toolNames.push('suggest_reply_options')
+        if (repair.resultText.trim().length > 0) {
+          toolTextParts.push(repair.resultText)
+        }
+        usage = addLlmUsage(usage, repair.usage)
+      }
+    } catch {
+      /* best-effort */
+    }
+  }
+  const toolTextConcat = toolTextParts.join('\n\n')
   if (err) {
     return {
       wallMs,

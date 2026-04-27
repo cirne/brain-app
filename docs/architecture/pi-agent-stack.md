@@ -10,13 +10,13 @@
 | Package               | Role in brain-app                                                                                                                                                         |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `**pi-agent-core`**   | Stateful `Agent`: transcript, tool loop, streaming events (`turn_start` / `turn_end` / `agent_end`, etc.).                                                                |
-| `**pi-ai`**           | `getModel(provider, modelId)`, streaming, `**usage`** on each assistant completion (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `cost` where supported). |
+| `**pi-ai`**           | `getModel(provider, modelId)` (built-in registry), streaming, `**usage`** on each assistant completion (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `cost` where supported). Brain wires env through `resolveModel()` in `[src/server/lib/llm/resolveModel.ts](../../src/server/lib/llm/resolveModel.ts)` (adds `mlx-local`). |
 | `**pi-coding-agent`** | `convertToLlm` and wiki-scoped tools (`read`, `edit`, `write`, `grep`, `find`) composed in `[src/server/agent/tools.ts](../../src/server/agent/tools.ts`).                |
 
 
 ## LLM providers (pi-ai)
 
-The agent uses `getModel(provider, modelId)` with `**LLM_PROVIDER`** and `**LLM_MODEL**` (see [configuration.md](./configuration.md)). The first argument must be a `**KnownProvider**` string from `@mariozechner/pi-ai` (see `node_modules/@mariozechner/pi-ai/dist/types.d.ts` in this repo; version is pinned in root `package.json`).
+The server resolves `**LLM_PROVIDER`** + `**LLM_MODEL**` via `resolveModel()` (see [configuration.md](./configuration.md)). For pi-ai backends, the provider must be a `**KnownProvider**` string (see `node_modules/@mariozechner/pi-ai/dist/types.d.ts`). **Brain-only:** `**mlx-local**` — Qwen 3.6 on Apple Silicon via `mlx_lm.server` (OpenAI-compatible HTTP); see `.env.example` and `supported-llm-models.json`.
 
 `**KnownProvider` (union as shipped in the current dependency):** `amazon-bedrock`, `anthropic`, `azure-openai-responses`, `cerebras`, `github-copilot`, `google`, `google-antigravity`, `google-gemini-cli`, `google-vertex`, `groq`, `huggingface`, `kimi-coding`, `minimax`, `minimax-cn`, `mistral`, `openai`, `openai-codex`, `openrouter`, `opencode`, `opencode-go`, `vercel-ai-gateway`, `xai`, `zai`.
 
@@ -28,6 +28,7 @@ The agent uses `getModel(provider, modelId)` with `**LLM_PROVIDER`** and `**LLM_
 | `openai`    | Default `LLM_PROVIDER` in the server (`**gpt-5.4-mini**` by default; see [configuration.md](./configuration.md)); uses `OPENAI_API_KEY`. |
 | `anthropic` | Uses `ANTHROPIC_API_KEY` (or `ANTHROPIC_OAUTH_TOKEN` if using OAuth) — see pi-ai `getEnvApiKey`. |
 | `xai`       | xAI (Grok, etc.); uses `XAI_API_KEY`.                                                                                                  |
+| `mlx-local` | Local **mlx_lm.server** (default base `http://localhost:11444/v1`); optional `MLX_LOCAL_BASE_URL`, `MLX_LOCAL_API_KEY` (defaults to `local`). **`MLX_LOCAL_THINKING=1`** enables Qwen extended thinking; unset/false = off (default, lower latency). Not a pi-ai `KnownProvider`. |
 
 
 **Future candidates (Google):** The same `KnownProvider` set includes `google` (Generative AI), `google-vertex`, `google-gemini-cli`, and related entries. We do not yet have project-standard **Google / Gemini** API credentials for the agent (`GEMINI_API_KEY` and related env vars in pi-ai); when we do, these become viable `LLM_PROVIDER` options alongside the table above.

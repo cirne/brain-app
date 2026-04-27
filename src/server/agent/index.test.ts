@@ -30,12 +30,11 @@ describe('buildBaseSystemPrompt', () => {
     expect(s).not.toContain('list_recent_messages')
   })
 
-  it('forbids echoing suggest_reply_options as JSON or duplicate lists in prose', async () => {
+  it('mentions suggest_reply_options and bans bracket placeholder text', async () => {
     const { buildBaseSystemPrompt } = await import('./assistantAgent.js')
     const s = buildBaseSystemPrompt(false, wiki)
-    expect(s).toContain('Do not duplicate options in prose')
-    expect(s).toContain('Never paste raw JSON')
-    expect(s).toMatch(/always/i)
+    expect(s).toContain('[suggest_reply_options]')
+    expect(s).toContain('Quick replies')
     expect(s).toContain('suggest_reply_options')
   })
 })

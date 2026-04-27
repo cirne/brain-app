@@ -1,13 +1,6 @@
-import {
-  completeSimple,
-  getEnvApiKey,
-  getModel,
-  type KnownProvider,
-} from '@mariozechner/pi-ai'
-import {
-  patchOpenAiReasoningNoneEffort,
-  type OpenAiResponsesPayload,
-} from '@server/lib/llm/openAiResponsesPayload.js'
+import { completeSimple, type KnownProvider } from '@mariozechner/pi-ai'
+import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
+import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 
 const DEFAULT_PROVIDER = 'openai' as KnownProvider
@@ -31,11 +24,11 @@ export async function composeFeedbackIssueMarkdown(input: {
 }): Promise<{ markdown: string; error?: string }> {
   const provider = (process.env.LLM_PROVIDER ?? DEFAULT_PROVIDER) as KnownProvider
   const modelId = process.env.LLM_MODEL ?? DEFAULT_MODEL
-  const model = getModel(provider, modelId as never)
+  const model = resolveModel(provider, modelId)
   if (!model) {
     return { markdown: '', error: 'LLM not configured' }
   }
-  const apiKey = getEnvApiKey(provider)
+  const apiKey = resolveLlmApiKey(provider)
   if (apiKey == null || apiKey === '') {
     return { markdown: '', error: 'No API key for current LLM provider' }
   }
@@ -61,7 +54,7 @@ export async function composeFeedbackIssueMarkdown(input: {
       apiKey,
       maxTokens: 4_000,
       signal: AbortSignal.timeout(120_000),
-      onPayload: (params, m) => patchOpenAiReasoningNoneEffort(params as OpenAiResponsesPayload, m),
+      onPayload: (params, m) => chainLlmOnPayload(params, m),
     })
     if (msg.stopReason === 'error' || msg.errorMessage) {
       return { markdown: '', error: msg.errorMessage ?? 'LLM error' }

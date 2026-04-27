@@ -13,7 +13,8 @@ unless you pass --id, in which case Vitest is skipped for a fast single-case run
 
 Loads ./.env from the repo root (same as the dev server), then runs every
 JSONL agent eval in order (each suite skips itself when --id is set and that
-id is not in its task file):
+id is not in its task file). Note: .env overwrites existing LLM_* in the
+process environment; use --provider / --model to force a provider for this run.
   1. Enron v1 — assistant / mail tasks → data-eval/eval-runs/enron-v1-*.json
   2. Wiki v1 — buildout + cleanup → data-eval/eval-runs/wiki-v1-*.json
 

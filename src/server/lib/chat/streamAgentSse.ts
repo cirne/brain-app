@@ -2,7 +2,15 @@ import { randomUUID } from 'node:crypto'
 import type { Agent, AgentMessage } from '@mariozechner/pi-agent-core'
 import type { Context } from 'hono'
 import type { ChatMessage } from './chatTypes.js'
-import { rollupAssistantLlmIds, sumUsageFromMessages, type LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
+import {
+  addLlmUsage,
+  isZeroUsage,
+  rollupAssistantLlmIds,
+  sumUsageFromMessages,
+  type LlmUsageSnapshot,
+} from '@server/lib/llm/llmUsage.js'
+import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
+import { runSuggestReplyRepairIfNeeded } from '@server/lib/chat/suggestReplyRepair.js'
 import { logger } from '@server/lib/observability/logger.js'
 import { streamSSE } from 'hono/streaming'
 import { readFile } from 'node:fs/promises'
@@ -78,6 +86,8 @@ export interface StreamAgentSseOptions {
    * Default `chat` when omitted (tests and legacy call sites).
    */
   agentKind?: LlmAgentKind
+  /** IANA timezone (e.g. for suggest-reply repair `createAgentTools` calendar). */
+  timezone?: string
 }
 
 /**
@@ -100,6 +110,7 @@ export function streamAgentSseResponse(
     onSessionTitlePersist,
     initialSessionTitle: initialSessionTitleOpt,
     agentKind: agentKindOpt,
+    timezone: timezoneOpt,
   } = opts
   const agentKind: LlmAgentKind = agentKindOpt ?? 'chat'
 
@@ -413,15 +424,6 @@ export function streamAgentSseResponse(
                 'llm-turn',
               )
             }
-            await stream.writeSSE({
-              event: 'done',
-              data: JSON.stringify({}),
-            })
-            try {
-              await persistIfNeeded()
-            } catch {
-              /* best-effort */
-            }
             break
           }
         }
@@ -435,6 +437,72 @@ export function streamAgentSseResponse(
         await agent.prompt(promptMessages)
       } else {
         await agent.prompt(message)
+      }
+      try {
+        const userText = userMessageForStore ?? message
+        const repair = await runSuggestReplyRepairIfNeeded({
+          wikiDir: wikiDirForDiffs,
+          userMessageText: userText,
+          assistantState,
+          includeLocalMessageTools: areLocalMessageToolsEnabled(),
+          timezone: timezoneOpt,
+        })
+        if (repair.applied) {
+          if (lastRunUsage === undefined) {
+            lastRunUsage = repair.usage
+          } else {
+            lastRunUsage = isZeroUsage(repair.usage) ? lastRunUsage : addLlmUsage(lastRunUsage, repair.usage)
+          }
+          for (let i = assistantState.parts.length - 1; i >= 0; i -= 1) {
+            const p = assistantState.parts[i]
+            if (p.type !== 'tool' || p.toolCall.name !== 'suggest_reply_options' || p.toolCall.id !== repair.toolCallId) {
+              continue
+            }
+            const tc = p.toolCall
+            const tr = typeof tc.result === 'string' ? tc.result : ''
+            const d = tc.details
+            try {
+              await stream.writeSSE({
+                event: 'tool_start',
+                data: JSON.stringify({
+                  id: tc.id,
+                  name: tc.name,
+                  args: tc.args,
+                }),
+              })
+              const details = coerceToolResultDetailsObject(d) ?? d
+              await stream.writeSSE({
+                event: 'tool_end',
+                data: JSON.stringify({
+                  id: tc.id,
+                  name: tc.name,
+                  result: tr,
+                  isError: tc.isError === true,
+                  ...(details !== undefined ? { details } : {}),
+                  ...(tc.args != null && typeof tc.args === 'object' ? { args: tc.args } : {}),
+                }),
+              })
+            } catch {
+              /* stream closed */
+            }
+            break
+          }
+        }
+      } catch (e) {
+        logger.error({ err: e }, 'suggest-reply-repair failed')
+      }
+      try {
+        await stream.writeSSE({
+          event: 'done',
+          data: JSON.stringify({}),
+        })
+      } catch {
+        /* closed */
+      }
+      try {
+        await persistIfNeeded()
+      } catch {
+        /* best-effort */
       }
     } catch (error: unknown) {
       try {

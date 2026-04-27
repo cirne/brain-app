@@ -137,6 +137,41 @@ describe('extractLatestSuggestReplyChoices', () => {
     ]
     expect(extractLatestSuggestReplyChoices(messages, false)).toEqual([])
   })
+
+  it('uses the last successful suggest_reply when the tool is invoked more than once in one turn', () => {
+    const messages: ChatMessage[] = [
+      {
+        role: 'assistant',
+        content: '',
+        parts: [
+          { type: 'text', content: 'Done.' },
+          {
+            type: 'tool',
+            toolCall: {
+              id: 's1',
+              name: 'suggest_reply_options',
+              args: { choices: [{ label: 'First', submit: 'first' }] },
+              result: 'ok',
+              done: true,
+              details: { choices: [{ label: 'First', submit: 'first' }] },
+            },
+          },
+          {
+            type: 'tool',
+            toolCall: {
+              id: 's2',
+              name: 'suggest_reply_options',
+              args: { choices: [{ label: 'Last', submit: 'last' }] },
+              result: 'ok',
+              done: true,
+              details: { choices: [{ label: 'Last', submit: 'last' }] },
+            },
+          },
+        ],
+      },
+    ]
+    expect(extractLatestSuggestReplyChoices(messages, false)).toEqual([{ label: 'Last', submit: 'last' }])
+  })
 })
 
 describe('stripTrailingSuggestReplyChoicesJson', () => {

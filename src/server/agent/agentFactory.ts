@@ -1,5 +1,6 @@
 import { Agent } from '@mariozechner/pi-agent-core'
-import { getModel, type KnownProvider } from '@mariozechner/pi-ai'
+import type { KnownProvider } from '@mariozechner/pi-ai'
+import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
 import { convertToLlm } from '@mariozechner/pi-coding-agent'
 import { createAgentTools } from './tools.js'
 import {
@@ -8,7 +9,7 @@ import {
   WIKI_CLEANUP_OMIT,
   type OnboardingAgentToolVariant,
 } from './agentToolSets.js'
-import { patchOpenAiReasoningNoneEffort, type OpenAiResponsesPayload } from '@server/lib/llm/openAiResponsesPayload.js'
+import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 
 /** @deprecated Use {@link ONBOARDING_BASE_OMIT} from `agentToolSets.js`. */
@@ -54,7 +55,12 @@ export function createOnboardingAgent(
   const tools = createAgentTools(wikiRoot, toolOpts)
   const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
   const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
-  const model = getModel(provider, modelId as never)
+  const model = resolveModel(provider, modelId)
+  if (!model) {
+    throw new Error(
+      `[brain-app] Unknown LLM: LLM_PROVIDER=${provider} LLM_MODEL=${modelId} (not in pi-ai registry or mlx-local catalog)`,
+    )
+  }
 
   return new Agent({
     initialState: {
@@ -62,11 +68,8 @@ export function createOnboardingAgent(
       model,
       tools,
     },
-    onPayload: (params, m) => patchOpenAiReasoningNoneEffort(params as OpenAiResponsesPayload, m),
-    getApiKey: (p: string) => {
-      const envKey = `${p.toUpperCase()}_API_KEY`
-      return process.env[envKey]
-    },
+    onPayload: (params, m) => chainLlmOnPayload(params, m),
+    getApiKey: (p: string) => resolveLlmApiKey(p),
     convertToLlm,
   })
 }
@@ -83,7 +86,12 @@ export function createCleanupAgent(systemPrompt: string, wikiRoot: string): Agen
   const tools = createAgentTools(wikiRoot, toolOpts)
   const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
   const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
-  const model = getModel(provider, modelId as never)
+  const model = resolveModel(provider, modelId)
+  if (!model) {
+    throw new Error(
+      `[brain-app] Unknown LLM: LLM_PROVIDER=${provider} LLM_MODEL=${modelId} (not in pi-ai registry or mlx-local catalog)`,
+    )
+  }
 
   return new Agent({
     initialState: {
@@ -91,11 +99,8 @@ export function createCleanupAgent(systemPrompt: string, wikiRoot: string): Agen
       model,
       tools,
     },
-    onPayload: (params, m) => patchOpenAiReasoningNoneEffort(params as OpenAiResponsesPayload, m),
-    getApiKey: (p: string) => {
-      const envKey = `${p.toUpperCase()}_API_KEY`
-      return process.env[envKey]
-    },
+    onPayload: (params, m) => chainLlmOnPayload(params, m),
+    getApiKey: (p: string) => resolveLlmApiKey(p),
     convertToLlm,
   })
 }

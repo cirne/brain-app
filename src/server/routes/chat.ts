@@ -221,6 +221,7 @@ chat.post('/', async (c) => {
           onTurnComplete: persist,
           onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
           initialSessionTitle,
+          timezone: typeof timezone === 'string' ? timezone : undefined,
         }),
     )
   }
@@ -241,6 +242,7 @@ chat.post('/', async (c) => {
         omitUserMessageFromPersistence: firstChatKickoff,
         onTurnComplete: persist,
         onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
+        timezone: typeof timezone === 'string' ? timezone : undefined,
       }),
   )
 })

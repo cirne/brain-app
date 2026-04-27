@@ -9,7 +9,7 @@ import {
   getEffectiveLlmProviderForEval,
   sanitizeLlmModelIdForFilename,
 } from './effectiveLlmEnv.js'
-import { hasAnyLlmKey, parseEvalMaxConcurrency } from './llmPreflight.js'
+import { parseEvalMaxConcurrency } from './llmPreflight.js'
 import type { RunAgentEvalCaseResult } from './runAgentEvalCase.js'
 
 const ZERO: LlmUsageSnapshot = {
@@ -37,7 +37,6 @@ export type LlmJsonlEvalConfig<TTask extends { id: string }> = {
   /** Per-case line after a run (stdout). */
   formatCaseLogLine: (r: RunAgentEvalCaseResult) => string
   caseToReport: (c: RunAgentEvalCaseResult, task: TTask, index: number) => Record<string, unknown>
-  noLlmKeyMessage: string
   ripIndexHint: string
 }
 
@@ -56,7 +55,6 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
     defaultMaxConcurrency,
     formatCaseLogLine,
     caseToReport,
-    noLlmKeyMessage,
     ripIndexHint,
   } = config
 
@@ -79,10 +77,6 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
   }
   if (!existsSync(rip)) {
     console.error(`${logPrefix} ripmail index missing. ${ripIndexHint} (expected ${rip})`)
-    process.exit(1)
-  }
-  if (!hasAnyLlmKey()) {
-    console.error(`${logPrefix} ${noLlmKeyMessage}`)
     process.exit(1)
   }
 

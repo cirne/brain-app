@@ -53,6 +53,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 | Hosted Enron **demo** tenant (Bearer mint, Docker/staging QA) | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md) |
 | Ripmail, unified search, files API, optional iMessage  | [architecture/integrations.md](architecture/integrations.md)                   |
 | Environment variables                                  | [architecture/configuration.md](architecture/configuration.md)                 |
+| **Local MLX LLM** (Apple Silicon, `mlx_lm.server`, Qwen 3.6) | [architecture/local-mlx-llm.md](architecture/local-mlx-llm.md) |
 | Future SQLite consolidation (not current)              | [architecture/future-durability.md](architecture/future-durability.md)         |
 | Wiki `read` vs `read_email` (indexed sources)            | [architecture/wiki-read-vs-read-email.md](architecture/wiki-read-vs-read-email.md) |
 | Wiki-first memory vs managed memory (Honcho) — deferred | [architecture/wiki-vs-managed-memory-honcho.md](architecture/wiki-vs-managed-memory-honcho.md) |
@@ -68,7 +69,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 - **Wiki is files** — agent tools from `@mariozechner/pi-coding-agent` are scoped to the wiki directory; brain-app does **not** auto-run git on the wiki (sync hook is a no-op for wiki).
   - **Email and index via ripmail** — subprocess CLI, `RIPMAIL_HOME` under Brain by default.
   - **UI Shell** — Svelte 5 SPA. The top-nav **Brain Hub widget** replaces legacy status bars and sync buttons, providing a single entry point to **Brain Hub** (`/hub`) for administration and system health.
-  - **LLM** — `@mariozechner/pi-ai`, configured via env (see configuration doc).
+  - **LLM** — `@mariozechner/pi-ai`, configured via env (see configuration doc). **Local MLX (Qwen on Apple Silicon):** [local-mlx-llm.md](architecture/local-mlx-llm.md).
 
 ---
 
