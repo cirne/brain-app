@@ -1,10 +1,10 @@
 /**
  * Enron v1 eval CLI: load `.env` from cwd (same as `npm run dev` / server entry), then optional `--provider` / `--model`.
- * Run from repo root: `npm run eval:run:enron -- --model …` (args after `--`).
+ * Advanced: Enron JSONL only. Full eval: `npm run eval:run`.
  */
 import { loadEvalEnvAndLlmCli } from './parseEvalLlmCli.js'
 
-loadEvalEnvAndLlmCli(`Usage: npm run eval:run:enron -- [options]
+loadEvalEnvAndLlmCli(`Usage: npx tsx --tsconfig tsconfig.server.json src/server/evals/enronV1cli.ts [options]
 
 Loads ./.env from the current working directory (same as the dev server).
 
@@ -14,7 +14,9 @@ Options:
   -h, --help        Show this message
 
 Env still applies (CLI overrides LLM_PROVIDER / LLM_MODEL only).
-Example: npm run eval:run:enron -- --provider xai --model grok-4-1-fast
+Example: npx tsx --tsconfig tsconfig.server.json src/server/evals/enronV1cli.ts --provider xai --model grok-4-1-fast
+
+Full eval (Vitest + Enron + Wiki JSONL): npm run eval:run
 `)
 
 const { runEnronV1Main } = await import('./runEnronV1.js')

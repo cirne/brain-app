@@ -1,6 +1,6 @@
 # OPP-051: Enron Corpus — E2E Testing and Cloud Agent Fixtures
 
-**Problem:** The ~25k Enron `kean-s` mailbox is used exclusively for **model eval benchmarks** (`npm run eval:run:enron`). This realistic corpus is underutilized—current unit/integration tests rely on tiny inline fixtures or mocked ripmail, missing FTS5 edge cases, large-index behavior, and real-world threading/attachment scenarios. Cloud agents (Cursor Cloud, staging) cannot run email tests at all without the corpus.
+**Problem:** The ~25k Enron `kean-s` mailbox is used mainly for **model eval benchmarks** (`npm run eval:run`, JSONL phase). This realistic corpus is underutilized—current unit/integration tests rely on tiny inline fixtures or mocked ripmail, missing FTS5 edge cases, large-index behavior, and real-world threading/attachment scenarios. Cloud agents (Cursor Cloud, staging) cannot run email tests at all without the corpus.
 
 **Direction:** Expand Enron usage to:
 0. **Demo / fixture tenant** — Bake at least one Enron mailbox (+ wiki) into deployable images or volumes; **secret-gated session** minting so browsers, Playwright, and humans can use the full app **without Google OAuth**
