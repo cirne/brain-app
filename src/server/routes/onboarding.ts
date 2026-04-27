@@ -1,5 +1,5 @@
 import { Hono, type Context } from 'hono'
-import { networkInterfaces } from 'node:os'
+import { networkInterfaces, platform } from 'node:os'
 import { mkdir, readFile, writeFile, access, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
@@ -43,10 +43,41 @@ import { embeddedServerUrlScheme, oauthRedirectListenPort } from '@server/lib/pl
 import { isBundledNativeServer } from '@server/lib/apple/nativeAppPort.js'
 import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocalIntegrationEnv.js'
 import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
+import { lookupTenantBySession } from '@server/lib/tenant/tenantRegistry.js'
+import { BRAIN_SESSION_COOKIE } from '@server/lib/vault/vaultCookie.js'
+import { getCookie } from 'hono/cookie'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { isHandleConfirmedForTenant } from '@server/lib/tenant/handleMeta.js'
 
 const onboarding = new Hono()
+
+/**
+ * Hosted multi-tenant: clear the stale ripmail lock for the current tenant.
+ * Single-tenant: no-op (user must quit the app).
+ */
+onboarding.post('/clear-stale-lock', async (c) => {
+  if (!isMultiTenantMode()) {
+    return c.json({ error: 'not_available', message: 'Use Cmd+Q to restart the app.' }, 404)
+  }
+  const sid = getCookie(c, BRAIN_SESSION_COOKIE)
+  const tid = await lookupTenantBySession(sid)
+  if (!tid) {
+    return c.json({ error: 'unauthorized', message: 'Sign in to continue.' }, 401)
+  }
+
+  const rm = ripmailBin()
+  const cmd = `${rm} lock clear`
+  
+  try {
+    await execRipmailAsync(cmd, { timeout: 30000 })
+    console.log(`[onboarding/clear-stale-lock] cleared lock for tenant ${tid}`)
+    return c.json({ ok: true })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error(`[onboarding/clear-stale-lock] failed for tenant ${tid}:`, msg)
+    return c.json({ error: 'failed', message: msg }, 500)
+  }
+})
 
 /**
  * Reset the magic link (deletes host-guid.txt).
@@ -139,6 +170,18 @@ onboarding.patch('/state', async (c) => {
   if (!next || typeof next !== 'string') {
     return c.json({ error: 'state or action: reset required' }, 400)
   }
+  const cur = await readOnboardingStateDoc()
+  // Finished users: additional mail accounts sync via Hub/inbox — do not advance the onboarding machine.
+  if (cur.state === 'done' && next !== 'done' && next !== 'not-started') {
+    return c.json(
+      {
+        error:
+          'Onboarding is already complete. Add or manage mail accounts from the Hub; long syncs there do not use onboarding.',
+        code: 'onboarding_complete',
+      },
+      409,
+    )
+  }
   const ctxMt = tryGetTenantContext()
   if (isMultiTenantMode() && ctxMt && !(await isHandleConfirmedForTenant(ctxMt.homeDir))) {
     const blocked: OnboardingMachineState[] = ['indexing', 'profiling', 'reviewing-profile', 'seeding', 'done']
@@ -149,7 +192,6 @@ onboarding.patch('/state', async (c) => {
       )
     }
   }
-  const cur = await readOnboardingStateDoc()
   if (cur.state === 'indexing' && next === 'profiling') {
     const mail = await getOnboardingMailStatus()
     const n = Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0)
@@ -174,8 +216,17 @@ async function jsonMailStatus() {
   return getOnboardingMailStatus()
 }
 
+/**
+ * Mail progress for the **first-time onboarding** UI only (`Onboarding.svelte`).
+ * Payload is global ripmail totals; see GET /api/inbox/mail-sync-status for Hub / post-setup surfaces.
+ */
 onboarding.get('/mail', async (c) => {
-  return c.json(await jsonMailStatus())
+  const doc = await readOnboardingStateDoc()
+  const payload = await jsonMailStatus()
+  if (doc.state === 'done') {
+    return c.json({ ...payload, onboardingFlowActive: false })
+  }
+  return c.json({ ...payload, onboardingFlowActive: true })
 })
 
 /** @deprecated Prefer GET /mail — same payload (no internal paths). */
@@ -209,7 +260,7 @@ async function runAppleMailSetup(c: Context) {
   try {
     await execRipmailAsync(cmd, { timeout: 120000 })
     // Register Calendar.app source next to Apple Mail (ripmail reads Calendar.sqlitedb read-only on macOS).
-    if (process.platform === 'darwin') {
+    if (platform() === 'darwin') {
       const calCmd = `${rm} sources add --kind appleCalendar --id apple-calendar --json`
       try {
         await execRipmailAsync(calCmd, { timeout: 60000 })

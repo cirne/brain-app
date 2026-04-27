@@ -180,6 +180,8 @@ export async function runRipmailArgv(
       label,
       argv: [bin, ...argv],
       pid: child.pid,
+      /** Same store Brain uses (`ripmailProcessEnv()`); ripmail has no global `--home` flag. */
+      RIPMAIL_HOME: mergedEnv.RIPMAIL_HOME,
       timeoutMs: options.timeoutMs,
       ripmailTimeoutEnvSec,
     })
@@ -228,6 +230,7 @@ export async function runRipmailArgv(
           phase: 'close',
           label,
           argv: [bin, ...argv],
+          RIPMAIL_HOME: mergedEnv.RIPMAIL_HOME,
           pid: r.pid,
           code: r.code,
           signal: r.signal,

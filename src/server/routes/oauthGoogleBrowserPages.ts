@@ -62,7 +62,8 @@ app.get('/error', (c) => {
 <body>
   <h1>Could not connect Gmail</h1>
   <p>${safe}</p>
-  <p>Close this tab and return to Braintunnel to try again or read the message shown in the app.</p>
+  <p><a href="/onboarding">Back to onboarding</a> to try Connect Google again.</p>
+  <p>Close this tab and return to the Braintunnel app if you use the desktop build — the app will show this error as well.</p>
   <p>This page is served by your local Braintunnel server at <code>127.0.0.1</code>.</p>
 </body>
 </html>`

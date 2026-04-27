@@ -11,7 +11,7 @@ mod sync;
 
 use clap::CommandFactory;
 
-use crate::cli::args::{Cli, Commands};
+use crate::cli::args::{Cli, Commands, LockCmd};
 use crate::cli::util::ripmail_home_path;
 use crate::cli::CliResult;
 use ripmail::setup::wizard_is_first_mailbox_setup;
@@ -119,6 +119,9 @@ pub(crate) fn handle_command(cli: Cli) -> CliResult {
         Commands::Status { json, imap } => sync::run_status(json, imap),
         Commands::Stats { json } => sync::run_stats(json),
         Commands::RebuildIndex => sync::run_rebuild_index(),
+        Commands::Lock { sub } => match sub {
+            LockCmd::Clear => sync::run_lock_clear(),
+        },
         Commands::Search {
             query,
             limit,

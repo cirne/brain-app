@@ -223,3 +223,136 @@ describe('hub routes', () => {
     expect(res.status).toBe(400)
   })
 })
+
+describe('hub mail-prefs (visibility + default send)', () => {
+  async function seedConfig(cfg: unknown): Promise<void> {
+    const { mkdir, writeFile } = await import('node:fs/promises')
+    const ripmailHome = join(brainHome, 'ripmail')
+    await mkdir(ripmailHome, { recursive: true })
+    await writeFile(join(ripmailHome, 'config.json'), JSON.stringify(cfg, null, 2), 'utf8')
+  }
+
+  it('GET /sources/mail-prefs returns IMAP visibility + default send', async () => {
+    await seedConfig({
+      defaultSendSource: 'a',
+      sources: [
+        { id: 'a', kind: 'imap', email: 'a@gmail.com', imap: { host: 'imap.gmail.com', port: 993 }, imapAuth: 'googleOAuth' },
+        { id: 'b', kind: 'imap', email: 'b@gmail.com', imap: { host: 'imap.gmail.com', port: 993 }, imapAuth: 'googleOAuth', search: { includeInDefault: false } },
+        { id: 'cal', kind: 'googleCalendar', email: 'a@gmail.com', oauthSourceId: 'a' },
+      ],
+    })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/mail-prefs')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as {
+      ok: boolean
+      mailboxes: { id: string; email: string; includeInDefault: boolean }[]
+      defaultSendSource: string | null
+    }
+    expect(j.ok).toBe(true)
+    expect(j.defaultSendSource).toBe('a')
+    expect(j.mailboxes).toEqual([
+      { id: 'a', email: 'a@gmail.com', includeInDefault: true },
+      { id: 'b', email: 'b@gmail.com', includeInDefault: false },
+    ])
+  })
+
+  it('POST /sources/include-in-default flips the flag and persists it', async () => {
+    await seedConfig({
+      sources: [
+        { id: 'a', kind: 'imap', email: 'a@gmail.com', imap: { host: 'imap.gmail.com', port: 993 }, imapAuth: 'googleOAuth' },
+      ],
+    })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/include-in-default', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'a', included: false }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean; includeInDefault: boolean }
+    expect(j.ok).toBe(true)
+    expect(j.includeInDefault).toBe(false)
+
+    const { readFile } = await import('node:fs/promises')
+    const cfg = JSON.parse(
+      await readFile(join(brainHome, 'ripmail', 'config.json'), 'utf8'),
+    ) as { sources: { id: string; search?: { includeInDefault?: boolean } }[] }
+    expect(cfg.sources[0].search?.includeInDefault).toBe(false)
+  })
+
+  it('POST /sources/include-in-default 400 when included missing or not boolean', async () => {
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/include-in-default', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'a' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST /sources/include-in-default 404 when source missing', async () => {
+    await seedConfig({ sources: [] })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/include-in-default', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'missing', included: false }),
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it('POST /sources/default-send sets and clears default', async () => {
+    await seedConfig({
+      sources: [
+        { id: 'a', kind: 'imap', email: 'a@gmail.com', imap: { host: 'imap.gmail.com', port: 993 }, imapAuth: 'googleOAuth' },
+        { id: 'b', kind: 'imap', email: 'b@gmail.com', imap: { host: 'imap.gmail.com', port: 993 }, imapAuth: 'googleOAuth' },
+      ],
+    })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+
+    let res = await app.request('http://localhost/api/hub/sources/default-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'b' }),
+    })
+    expect(res.status).toBe(200)
+    let j = (await res.json()) as { ok: boolean; defaultSendSource: string | null }
+    expect(j.defaultSendSource).toBe('b')
+
+    res = await app.request('http://localhost/api/hub/sources/default-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: '' }),
+    })
+    expect(res.status).toBe(200)
+    j = (await res.json()) as { ok: boolean; defaultSendSource: string | null }
+    expect(j.defaultSendSource).toBeNull()
+  })
+
+  it('POST /sources/default-send 404 / 400 for invalid ids', async () => {
+    await seedConfig({
+      sources: [{ id: 'cal', kind: 'googleCalendar', email: 'a@gmail.com', oauthSourceId: 'a' }],
+    })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    let res = await app.request('http://localhost/api/hub/sources/default-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'a' }),
+    })
+    expect(res.status).toBe(404)
+
+    res = await app.request('http://localhost/api/hub/sources/default-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'cal' }),
+    })
+    expect(res.status).toBe(400)
+  })
+})

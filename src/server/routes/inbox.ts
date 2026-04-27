@@ -6,6 +6,7 @@ import { flattenInboxFromRipmailData } from '@shared/ripmailInboxFlatten.js'
 import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailExec.js'
 import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
+import { getOnboardingMailStatus } from '@server/lib/onboarding/onboardingMailStatus.js'
 
 const inbox = new Hono()
 
@@ -31,6 +32,11 @@ inbox.post('/sync', (c) => {
     }
   })
   return c.json({ ok: true })
+})
+
+/** Global ripmail sync snapshot (all accounts). Hub and post-onboarding UI use this — not onboarding-only. */
+inbox.get('/mail-sync-status', async (c) => {
+  return c.json(await getOnboardingMailStatus())
 })
 
 // GET /api/inbox/who — contact autocomplete

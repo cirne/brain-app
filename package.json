@@ -46,10 +46,7 @@
     "docker:build:arm64": "DOCKER_PLATFORM=linux/arm64 npm run docker:ripmail:build && docker buildx build --platform linux/arm64 -f Dockerfile -t brain-app:arm64-local --load .",
     "eval:build": "node scripts/eval/build-enron-kean.mjs",
     "brain:seed-enron-demo": "node scripts/brain/seed-enron-demo-tenant.mjs",
-    "eval:run": "BRAIN_HOME=./data-eval/brain vitest run --config vitest.eval.config.ts",
-    "eval:run:assistant": "BRAIN_HOME=./data-eval/brain vitest run --config vitest.eval.config.ts src/server/evals/assistant",
-    "eval:run:enron": "BRAIN_HOME=./data-eval/brain npx tsx --tsconfig tsconfig.server.json src/server/evals/enronV1cli.ts",
-    "eval:run:wiki": "BRAIN_HOME=./data-eval/brain npx tsx --tsconfig tsconfig.server.json src/server/evals/wikiV1cli.ts",
+    "eval:run": "BRAIN_HOME=./data-eval/brain node scripts/eval-run.mjs",
     "issues:list": "node scripts/issues-http.mjs list",
     "issues:fetch": "node scripts/issues-http.mjs fetch"
   },

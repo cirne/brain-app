@@ -51,6 +51,11 @@
   let mailStatus = $state<HubMailStatusOk | null>(null)
   let mailStatusLoading = $state(false)
   let mailStatusError = $state<string | null>(null)
+  /** Per-source preferences: visibility (default-search) + default send. */
+  let includedInDefault = $state<boolean | null>(null)
+  let isDefaultSend = $state<boolean | null>(null)
+  let prefsBusy = $state<'visibility' | 'default-send' | null>(null)
+  let prefsError = $state<string | null>(null)
 
   const hubSourceLatest = createAsyncLatest({ abortPrevious: true })
 
@@ -94,6 +99,84 @@
     }
   }
 
+  async function loadMailPrefs() {
+    const id = sourceId?.trim()
+    const row = source
+    if (!id || !row || row.kind !== 'imap') return
+    try {
+      const res = await fetch('/api/hub/sources/mail-prefs')
+      if (!res.ok) return
+      const j = (await res.json()) as {
+        ok?: boolean
+        mailboxes?: { id: string; includeInDefault: boolean }[]
+        defaultSendSource?: string | null
+      }
+      if (!j.ok || !Array.isArray(j.mailboxes)) return
+      const mb = j.mailboxes.find((m) => m.id === id)
+      includedInDefault = mb ? mb.includeInDefault : true
+      isDefaultSend = j.defaultSendSource === id
+    } catch {
+      /* leave previous values */
+    }
+  }
+
+  async function toggleIncludedInDefault() {
+    const id = source?.id
+    if (!id || prefsBusy) return
+    const next = !(includedInDefault ?? true)
+    prefsBusy = 'visibility'
+    prefsError = null
+    try {
+      const res = await fetch('/api/hub/sources/include-in-default', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, included: next }),
+      })
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        error?: string
+        includeInDefault?: boolean
+      }
+      if (!res.ok || !j.ok) {
+        throw new Error(typeof j.error === 'string' ? j.error : 'Could not update visibility')
+      }
+      includedInDefault = j.includeInDefault === true
+      emit({ type: 'hub:sources-changed' })
+    } catch (e) {
+      prefsError = e instanceof Error ? e.message : 'Could not update visibility'
+    } finally {
+      prefsBusy = null
+    }
+  }
+
+  async function setDefaultSend(makeDefault: boolean) {
+    const id = source?.id
+    if (!id || prefsBusy) return
+    prefsBusy = 'default-send'
+    prefsError = null
+    try {
+      const res = await fetch('/api/hub/sources/default-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: makeDefault ? id : '' }),
+      })
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        error?: string
+        defaultSendSource?: string | null
+      }
+      if (!res.ok || !j.ok) {
+        throw new Error(typeof j.error === 'string' ? j.error : 'Could not update default send mailbox')
+      }
+      isDefaultSend = j.defaultSendSource === id
+      emit({ type: 'hub:sources-changed' })
+    } catch (e) {
+      prefsError = e instanceof Error ? e.message : 'Could not update default send mailbox'
+    } finally {
+      prefsBusy = null
+    }
+  }
+
   async function loadMailStatus() {
     const id = sourceId?.trim()
     if (!id) return
@@ -131,6 +214,9 @@
     mailStatus = null
     mailStatusError = null
     mailStatusLoading = false
+    includedInDefault = null
+    isDefaultSend = null
+    prefsError = null
     if (!sourceId) {
       loadError = 'No source selected'
       return
@@ -153,6 +239,9 @@
       backfillWindow = '1y'
       if (row.kind === 'imap' || row.kind === 'applemail') {
         void loadMailStatus()
+      }
+      if (row.kind === 'imap') {
+        void loadMailPrefs()
       }
     } catch (e) {
       if (hubSourceLatest.isStale(token) || isAbortError(e)) return
@@ -343,6 +432,46 @@
             {/if}
           {/if}
         </section>
+        {#if source.kind === 'imap'}
+          <section class="hub-source-prefs-section" aria-labelledby="hub-mail-prefs-heading">
+            <h2 id="hub-mail-prefs-heading" class="hub-source-status-heading">This mailbox</h2>
+            <p class="hub-source-status-note">
+              Settings for this mailbox only — other accounts in your workspace are unaffected.
+            </p>
+            {#if prefsError}
+              <p class="hub-source-status-err" role="alert">{prefsError}</p>
+            {/if}
+            <label class="hub-source-pref-row">
+              <input
+                type="checkbox"
+                checked={includedInDefault ?? true}
+                disabled={prefsBusy !== null || includedInDefault == null}
+                onchange={() => void toggleIncludedInDefault()}
+              />
+              <span class="hub-source-pref-text">
+                <span class="hub-source-pref-title">Search this mailbox by default</span>
+                <span class="hub-source-pref-sub">
+                  When off, Braintunnel only searches this mailbox if you ask it to.
+                  It still gets indexed in the background.
+                </span>
+              </span>
+            </label>
+            <label class="hub-source-pref-row">
+              <input
+                type="checkbox"
+                checked={isDefaultSend === true}
+                disabled={prefsBusy !== null || isDefaultSend == null}
+                onchange={(e) => void setDefaultSend((e.currentTarget as HTMLInputElement).checked)}
+              />
+              <span class="hub-source-pref-text">
+                <span class="hub-source-pref-title">Send from this mailbox by default</span>
+                <span class="hub-source-pref-sub">
+                  When you ask Braintunnel to send a message and don't name an account, it uses this one.
+                </span>
+              </span>
+            </label>
+          </section>
+        {/if}
         <div class="hub-source-mail-sync">
           <p class="hub-source-sync-lead">
             Refresh pulls new mail for this account. Backfill re-downloads history for the window below
@@ -464,6 +593,47 @@
     gap: 0.65rem;
     padding: 0.85rem 0 0;
     border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  }
+
+  .hub-source-prefs-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.85rem 0 0;
+    border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  }
+
+  .hub-source-pref-row {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+    padding: 0.45rem 0;
+    cursor: pointer;
+  }
+
+  .hub-source-pref-row input[type='checkbox'] {
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+  }
+
+  .hub-source-pref-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .hub-source-pref-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .hub-source-pref-sub {
+    font-size: 0.8125rem;
+    color: var(--text-2);
+    line-height: 1.4;
   }
 
   .hub-source-status-heading {

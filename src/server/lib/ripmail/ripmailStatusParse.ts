@@ -1,3 +1,5 @@
+import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
+
 /**
  * Pure parse of `ripmail status --json` stdout for onboarding / diagnostics.
  */
@@ -118,9 +120,15 @@ export type ComputeIndexingUserHintOptions = {
  */
 export function computeIndexingActionHint(parsed: ParsedRipmailStatus): string | null {
   if (parsed.staleLockInDb) {
+    if (isMultiTenantMode()) {
+      return 'A previous mail sync stopped unexpectedly.'
+    }
     return 'A previous mail sync stopped unexpectedly. Quit Braintunnel completely (Cmd+Q), open it again, and we’ll resume.'
   }
   if (parsed.initialSyncHangSuspected) {
+    if (isMultiTenantMode()) {
+      return 'This is taking longer than usual. Very large mailboxes can stay at zero for several minutes while the first batch loads. If nothing changes after a long wait, refresh the page and try again.'
+    }
     return 'This is taking longer than usual. Very large mailboxes can stay at zero for several minutes while the first batch loads. If nothing changes after a long wait, quit Braintunnel and try again.'
   }
   return null
@@ -136,12 +144,21 @@ export function computeIndexingUserHint(
   opts?: ComputeIndexingUserHintOptions,
 ): string | null {
   if (parsed.staleLockInDb) {
+    if (isMultiTenantMode()) {
+      return 'A previous mail sync stopped unexpectedly. Refresh the page to resume.'
+    }
     return 'A previous mail sync stopped unexpectedly. Quit Braintunnel completely (Cmd+Q), open it again, and we’ll resume.'
   }
   if (parsed.initialSyncHangSuspected) {
+    if (isMultiTenantMode()) {
+      return 'This is taking longer than usual. Very large mailboxes can stay at zero for several minutes while the first batch loads. If nothing changes after a long wait, refresh the page and try again.'
+    }
     return 'This is taking longer than usual. Very large mailboxes can stay at zero for several minutes while the first batch loads. If nothing changes after a long wait, quit Braintunnel and try again.'
   }
   if (parsed.pendingRefresh) {
+    if (isMultiTenantMode()) {
+      return 'Mail sync is starting — the count should begin moving soon. If it stays at zero, refresh the page and try again.'
+    }
     return 'Mail sync is starting — the count should begin moving soon. If it stays at zero, quit Braintunnel and try again.'
   }
   if (

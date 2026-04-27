@@ -4,8 +4,16 @@ import { defineConfig } from 'vitest/config'
 
 const root = dirname(fileURLToPath(import.meta.url))
 
-/** Assistant / wiki eval smoke tests; requires `npm run eval:build` first. */
+const resolveAlias = {
+  '@client': join(root, 'src/client'),
+  '@components': join(root, 'src/client/components'),
+  '@server': join(root, 'src/server'),
+  '@shared': join(root, 'src/shared'),
+}
+
+/** Eval Vitest slice (`src/server/evals` glob in `include`) — first phase of `npm run eval:run` (after `eval:build` when tests need the Enron index). */
 export default defineConfig({
+  resolve: { alias: resolveAlias },
   test: {
     globals: true,
     environment: 'node',

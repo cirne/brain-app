@@ -21,19 +21,32 @@ Use `--force` to re-extract and reindex. Stamp: `data-eval/.enron-kean-stamp.jso
 
 **Hosted / Docker:** the same ingest pipeline seeds a **fixed multi-tenant demo workspace** (`BRAIN_DATA_ROOT`, Bearer mint, optional lazy download). See [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
 
+## `npm run eval:run`
+
+One script runs the **whole eval pipeline** (same `BRAIN_HOME` as below):
+
+1. **Vitest** — `vitest.eval.config.ts` → `src/server/evals/**/*.test.ts` (harness, registry, smoke; **no** JSONL / LLM unless a test opts in).
+2. **JSONL LLM suites** — Enron v1, then Wiki v1. Each suite writes **one report** under `data-eval/eval-runs/` (`enron-v1-*.json`, `wiki-v1-*.json`).
+
+**Build order:**
+
+1. `npm run eval:build` (or ensure `data-eval/brain/ripmail/ripmail.db` exists and matches your stamp)
+2. Put provider keys and defaults in the repo-root **`.env`** (same file as `npm run dev`). Set `LLM_PROVIDER` / `LLM_MODEL` and the matching `*_API_KEY` (e.g. `ANTHROPIC_API_KEY`).
+3. `npm run eval:run`  
+   Optional: `npm run eval:run -- --provider openai --model gpt-5.4` — flags apply to the **JSONL phase** only (after Vitest).  
+   `npm run eval:run -- --help` prints JSONL CLI help and **skips** Vitest.
+
+**Advanced (one JSONL suite only):** from repo root, run `enronV1cli.ts` or `wikiV1cli.ts` with `npx tsx --tsconfig tsconfig.server.json …` (see `--help` on each file).
+
+## JSONL LLM evals (Enron-backed)
+
+All live JSONL suites use the same **`BRAIN_HOME`** and **Enron** `ripmail.db`. Invoked as phase 2 of `npm run eval:run` (see above).
+
 ## Agent eval suite (Enron v1)
 
 Mail-centric agent tasks (search/read) run against the **large** `kean-s` index. Tasks live in [`tasks/enron-v1.jsonl`](tasks/enron-v1.jsonl) (one JSON object per line; lines starting with `#` are comments). The harness reuses the same `Agent` + tool stack as chat and records per-case **wall time** and `usage` (tokens + `costTotal`) from `agent_end`.
 
-**Build order** (Enron + agent eval):
-
-1. `npm run eval:build` (or ensure `data-eval/brain/ripmail/ripmail.db` exists and matches your stamp)
-2. Put provider keys and defaults in the repo-root **`.env`** (same file as `npm run dev` — the eval CLI calls `loadDotEnv()` from the server, cwd = project root). Set `LLM_PROVIDER` / `LLM_MODEL` and the matching `*_API_KEY` (e.g. `ANTHROPIC_API_KEY`).
-3. From repo root: `npm run eval:run:enron`
-
-**CLI overrides** (after `npm run`’s `--`): `--provider` / `-p`, `--model` / `-m` set `LLM_PROVIDER` and `LLM_MODEL` for that run (on top of `.env`). Example: `npm run eval:run:enron -- --provider openai --model gpt-5.4`. See `npm run eval:run:enron -- --help`.
-
-**Supported / tested model ids:** the git-tracked registry [`../src/server/evals/supported-llm-models.json`](../src/server/evals/supported-llm-models.json) lists default and candidate `LLM_MODEL` values per `LLM_PROVIDER` (with `tested` flags for baselines). Import from [`supportedLlmModels.ts`](../src/server/evals/supportedLlmModels.ts) in scripts or extend the JSON when you add a new approved eval configuration. Vitest (`npm run eval:run`) asserts every entry resolves with `getModel()` in `@mariozechner/pi-ai`.
+**Supported / tested model ids:** the git-tracked registry [`../src/server/evals/supported-llm-models.json`](../src/server/evals/supported-llm-models.json) lists default and candidate `LLM_MODEL` values per `LLM_PROVIDER` (with `tested` flags for baselines). Import from [`supportedLlmModels.ts`](../src/server/evals/supportedLlmModels.ts) in scripts or extend the JSON when you add a new approved eval configuration. The Vitest phase of `npm run eval:run` asserts every entry resolves with `getModel()` in `@mariozechner/pi-ai`.
 
 **Output:** a JSON report under `data-eval/eval-runs/` (entire `data-eval/` is gitignored), named `enron-v1-<model-segment>-<iso-timestamp>.json`. The **`<model-segment>`** is derived from the effective **`LLM_MODEL`** (the same default as the chat agent if unset), sanitized for the filesystem, so you can `ls data-eval/eval-runs/enron-v1-gpt-5.4-*.json` and compare runs across models without encoding the provider in the name (it is still in the report JSON: `env` and `effectiveLlm`). The runner parallelizes with **p-limit**; tune **`EVAL_MAX_CONCURRENCY`** (default `12`, capped at task count) so many LLM requests stay in flight on a large machine. The bottleneck should be the provider, not local `ripmail` I/O.
 
@@ -46,13 +59,13 @@ Mail-centric agent tasks (search/read) run against the **large** `kean-s` index.
 | `EVAL_AGENT_TRACE` | Set to `1` for `[eval:agent]` JSON lines per case: `turn_start` / `turn_end` = **LLM** time (streaming, reasoning, provider latency); `tool_start` / `tool_end` = tool execution (often ripmail). Gaps in `[ripmail]` logs are usually the model working, or another eval case interleaving stdout (high concurrency). |
 | `BRAIN_RIPMAIL_SUBPROCESS_LOG` | Set to `errors` (or `0` / `off`) to **omit** successful ripmail logs (command line + metadata JSON); still logs failures, timeouts, and `send`. |
 
-`npm test` / main Vitest do **not** run agent eval; use the command above. **`npm run eval:run`** still runs `src/server/evals/**/*.test.ts` (harness + smoke) with `BRAIN_HOME=./data-eval/brain` and no LLM by default.
+`npm test` / main Vitest **exclude** `src/server/evals/**`. Use **`npm run eval:run`** for the eval Vitest slice plus all JSONL LLM suites.
 
 ## Wiki buildout + cleanup (lint) eval (wiki v1)
 
 Two tasks in [`tasks/wiki-v1.jsonl`](tasks/wiki-v1.jsonl): **`buildout`** uses [`getOrCreateWikiBuildoutAgent`](../src/server/agent/wikiBuildoutAgent.ts) (write + `search_index`, same as Your Wiki enrich); **`cleanup`** uses [`createCleanupAgent`](../src/server/agent/agentFactory.ts) (read / grep / find / `edit` — no `write`).
 
-**Requirements:** same **Enron** index as the mail eval (`data-eval/brain/ripmail/ripmail.db`) so buildout can run `search_index`. CLI: `npm run eval:run:wiki` (`.env` + optional `--provider` / `--model` like Enron). Reports: `data-eval/eval-runs/wiki-v1-<model-segment>-<timestamp>.json` (see Enron section for naming) with per-case `usage`, `toolNames`, and `agent` field.
+**Requirements:** same **Enron** index as the mail eval (`data-eval/brain/ripmail/ripmail.db`) so buildout can run `search_index`. Runs as part of `npm run eval:run` (JSONL phase), or invoke `wikiV1cli.ts` directly for wiki-only. Reports: `data-eval/eval-runs/wiki-v1-<model-segment>-<timestamp>.json` (see Enron section for naming) with per-case `usage`, `toolNames`, and `agent` field.
 
 | Env | Purpose |
 |-----|---------|
@@ -67,10 +80,7 @@ Expectations in JSONL can use **`toolNamesIncludeAll`** / **`toolNamesIncludeOne
 | Script | Purpose |
 |--------|---------|
 | `eval:build` | Enron `kean-s` tarball → ~25k `.eml` → index (see [`enron-kean-manifest.json`](fixtures/enron-kean-manifest.json)) |
-| `eval:run` | Vitest for `src/server/evals/` with `BRAIN_HOME=./data-eval/brain` |
-| `eval:run:assistant` | Same, scoped to assistant evals folder |
-| `eval:run:enron` | Enron v1 JSONL agent eval (writes `data-eval/eval-runs/enron-v1-<model>-*.json`); needs LLM keys |
-| `eval:run:wiki` | Wiki buildout + cleanup JSONL eval (writes `data-eval/eval-runs/wiki-v1-<model>-*.json`); needs LLM + Enron index |
+| `eval:run` | [`scripts/eval-run.mjs`](../scripts/eval-run.mjs): Vitest (`vitest.eval.config.ts`) then all JSONL LLM suites (Enron v1, Wiki v1). `BRAIN_HOME=./data-eval/brain`. Pass `--provider` / `--model` / `--help` after `--` for the JSONL phase. |
 
 `npm run ripmail:build` (or `ripmail` on `PATH`); eval scripts prefer `target/release/ripmail`. To reindex after hand-editing maildir: `RIPMAIL_HOME=./data-eval/brain/ripmail BRAIN_HOME=./data-eval/brain ./target/release/ripmail rebuild-index`.
 

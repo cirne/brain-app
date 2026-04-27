@@ -100,7 +100,7 @@ CI should **cache** `data-eval/` (or a prebuilt artifact) on keys derived from t
 ## Test harness (Vitest)
 
 - **`vitest.config.ts`:** main suite **excludes** `src/server/evals/**` so normal `npm test` does not require a built eval home.
-- **`vitest.eval.config.ts`:** includes **`src/server/evals/**/*.test.ts`**; run with `npm run eval:run` (see [`package.json`](../../package.json)). Sets `BRAIN_HOME=./data-eval/brain` for subprocess/env parity.
+- **`npm run eval:run`:** runs Vitest with **`vitest.eval.config.ts`** (`src/server/evals/**/*.test.ts`), then every JSONL LLM suite (Enron v1, Wiki v1) via [`scripts/eval-run.mjs`](../../scripts/eval-run.mjs); `BRAIN_HOME=./data-eval/brain`. See [`eval/README.md`](../../eval/README.md).
 
 ---
 

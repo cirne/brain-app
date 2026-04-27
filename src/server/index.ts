@@ -145,6 +145,7 @@ const requestLogger = logger()
 function isQuietPollPath(path: string): boolean {
   return (
     path === '/api/onboarding/mail' ||
+    path === '/api/inbox/mail-sync-status' ||
     path === '/api/onboarding/ripmail' ||
     path === '/api/oauth/google/last-result' ||
     path === '/api/hub/sources' ||

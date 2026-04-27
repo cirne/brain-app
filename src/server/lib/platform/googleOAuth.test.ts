@@ -11,6 +11,7 @@ import {
   buildGoogleAuthorizeUrl,
   upsertRipmailConfig,
   upsertRipmailGoogleCalendarSource,
+  validateGoogleOAuthGrantedScopes,
   writeGoogleOAuthTokenFile,
 } from './googleOAuth.js'
 
@@ -87,6 +88,7 @@ describe('exchangeAuthorizationCode', () => {
           access_token: 'at',
           refresh_token: 'rt',
           expires_in: 3600,
+          scope: 'openid email',
         }),
         { status: 200 }
       )
@@ -102,7 +104,36 @@ describe('exchangeAuthorizationCode', () => {
     expect(out.accessToken).toBe('at')
     expect(out.refreshToken).toBe('rt')
     expect(out.expiresIn).toBe(3600)
+    expect(out.scope).toBe('openid email')
     expect(fetchImpl).toHaveBeenCalled()
+  })
+})
+
+describe('validateGoogleOAuthGrantedScopes', () => {
+  const full =
+    'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid email'
+
+  it('accepts full Brain sign-in scope string', () => {
+    expect(validateGoogleOAuthGrantedScopes(full)).toEqual({ ok: true })
+  })
+
+  it('accepts userinfo.email instead of email', () => {
+    const s =
+      'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid https://www.googleapis.com/auth/userinfo.email'
+    expect(validateGoogleOAuthGrantedScopes(s)).toEqual({ ok: true })
+  })
+
+  it('rejects missing Gmail scope (partial consent)', () => {
+    const r = validateGoogleOAuthGrantedScopes(
+      'https://www.googleapis.com/auth/calendar.events openid email',
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.message).toMatch(/every permission/i)
+  })
+
+  it('rejects empty scope', () => {
+    const r = validateGoogleOAuthGrantedScopes(undefined)
+    expect(r.ok).toBe(false)
   })
 })
 

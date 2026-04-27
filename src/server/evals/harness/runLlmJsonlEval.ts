@@ -158,8 +158,4 @@ export async function runLlmJsonlEvalMain<TTask>(config: LlmJsonlEvalConfig<TTas
     `${logPrefix} done  pass ${pass} / ${caseResults.length}  totalTokens=${sumUsage.totalTokens}  cost~${sumUsage.costTotal.toFixed(4)}  ${Math.round(wallTotalMs)}ms wall`,
   )
   console.log(`${logPrefix} wrote ${outFile}`)
-
-  if (fail > 0) {
-    process.exit(1)
-  }
 }
