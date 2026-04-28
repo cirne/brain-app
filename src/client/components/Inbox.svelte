@@ -2,7 +2,7 @@
   import { getContext, onMount, tick, untrack } from 'svelte'
   import { Archive, Forward, Reply, Search, Sparkles } from 'lucide-svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
-  import { navigate } from '@client/router.js'
+  import { navigate, parseRoute } from '@client/router.js'
   import { emailHeadersForDisplay } from '@client/lib/inboxHeaders.js'
   import { formatDate } from '@client/lib/formatDate.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
@@ -34,7 +34,16 @@
     body: string
   }
 
-  import type { SurfaceContext } from '@client/router.js'
+  import type { SurfaceContext, Overlay } from '@client/router.js'
+
+  function navInboxEmail(overlay: Extract<Overlay, { type: 'email' }>) {
+    const r = parseRoute()
+    navigate({
+      hubActive: r.hubActive === true,
+      ...(r.hubActive ? {} : r.sessionId ? { sessionId: r.sessionId } : {}),
+      overlay,
+    })
+  }
 
   let {
     initialId,
@@ -273,7 +282,7 @@
     orphanThreadMeta = null
     threadLoadError = null
     selectedThread = id
-    navigate({ overlay: { type: 'email', id } })
+    navInboxEmail({ type: 'email', id })
     onNavigate?.(id)
     onContextChange?.({ type: 'email', threadId: id, subject: '(loading)', from: '' })
     threadLoading = true
@@ -324,7 +333,7 @@
     orphanThreadMeta = null
     threadLoadError = null
     selectedThread = email.id
-    navigate({ overlay: { type: 'email', id: email.id } })
+    navInboxEmail({ type: 'email', id: email.id })
     onNavigate?.(email.id)
     onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from })
     const { token, signal } = threadOpenLatest.begin()

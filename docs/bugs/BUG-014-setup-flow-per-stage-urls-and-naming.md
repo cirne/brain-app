@@ -55,5 +55,6 @@ const completeHtml = `<!DOCTYPE html>
 
 **Related**
 
+- OPP-058 ([runtime-and-routes.md](architecture/runtime-and-routes.md)): chat **`/c` / `/c/:sessionId`**, hub **`/hub`**, overlays **`?panel=`** — OAuth **callback** paths stay `/api/oauth/...`.
 - OPP-042 and other first-run / network docs if they mention onboarding URLs—update when this ships.  
 - BUG-010 (post-setup first-chat kickoff) may interact with "resume" and deep links; coordinate tests.

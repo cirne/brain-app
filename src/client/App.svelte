@@ -75,7 +75,7 @@
   $effect(() => {
     if (!appReady || onboardingStatus == null || onboardingStatus.state !== 'done') return
     if (route.flow !== 'welcome') return
-    history.replaceState(null, '', '/')
+    history.replaceState(null, '', '/c')
     route = parseRoute()
   })
 
@@ -117,7 +117,7 @@
         } catch {
           /* ignore */
         }
-        history.replaceState(null, '', '/')
+        history.replaceState(null, '', '/c')
         route = parseRoute()
       }
       await fetchVaultStatusSafe()
@@ -130,7 +130,7 @@
   async function onOnboardingComplete() {
     await fetchVaultStatusSafe()
     await fetchStatus()
-    history.replaceState(null, '', '/')
+    history.replaceState(null, '', '/c')
     route = parseRoute()
   }
 </script>

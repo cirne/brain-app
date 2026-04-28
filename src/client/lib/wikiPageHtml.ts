@@ -6,9 +6,10 @@
 import { wikiPathForReadToolArg } from './cards/contentCards.js'
 
 /**
- * Encode each path segment for `/api/wiki/...` or `/wiki/...` URLs.
+ * Encode each path segment for `/api/wiki/...` (and legacy path-shaped wiki URLs).
  * Applying `encodeURIComponent` to the full path turns `/` into `%2F`, which breaks
  * server file resolution (Hono sees one segment, not `dir/file.md`).
+ * SPA wiki overlays use `?panel=wiki&path=` with a single encoded path value.
  */
 export function encodeWikiPathSegmentsForUrl(path: string): string {
   return path.split('/').map(encodeURIComponent).join('/')

@@ -52,16 +52,15 @@ This document is the **parity matrix** and **product/engineering decisions** for
 
 ## SPA route parity
 
-| Path | Cloud v1 | Notes |
-|------|----------|-------|
-| `/` | **Supported** | Chat. |
-| `/hub` | **Supported** | Consider hiding or soft-disabling desktop-only controls when not bundled (future UX). |
-| `/wiki/...` | **Supported** | |
-| `/files/...` | **Supported** | |
-| `/inbox` | **Supported** | |
-| `/calendar` | **Supported** | |
-| `/messages` | **Broken / misleading** | iMessage UI; underlying API returns 503 without `chat.db`. **Product:** hide nav entry or show “not available on this deployment” before multi-device polish. |
-| `/onboarding` | **Supported** | Prefer Gmail path for hosted users. |
+Primary + overlay URLs are documented in [runtime-and-routes.md](./runtime-and-routes.md) (`/c`, `/c/:sessionId`, `/hub`, `?panel=…`). Hosted parity is behavioral (same router bundle), not a second path scheme.
+
+| Pattern | Cloud v1 | Notes |
+|---------|----------|-------|
+| `/c`, `/c/:sessionId` | **Supported** | Chat main pane; overlays via `?panel=` + payload keys. |
+| `/hub?…` | **Supported** | Hub main + optional `panel=` overlay; Gmail **link-account** banners use `addedAccount` / `addAccountError` on `/hub` (see [google-oauth.md](../google-oauth.md)). |
+| `/welcome`, `/demo`, dev flows | **Supported** | Same as desktop SPA. |
+| Legacy path-shaped overlays (`/wiki/…`, `/inbox`, …) | **Removed** | Clean break; use `?panel=` on `/c` or `/hub`. |
+| `/messages` (iMessage UI via `panel=messages`) | **Broken / misleading** | Same as before: underlying API returns 503 without `chat.db`. **Product:** hide nav entry or show “not available on this deployment” before multi-device polish. |
 
 ---
 

@@ -27,7 +27,7 @@ describe('navigate', () => {
     const replaceState = vi.fn()
     stubHistory(pushState, replaceState)
     navigate({}, { replace: true })
-    expect(replaceState).toHaveBeenCalledWith(null, '', '/')
+    expect(replaceState).toHaveBeenCalledWith(null, '', '/c')
     expect(pushState).not.toHaveBeenCalled()
   })
 
@@ -36,7 +36,7 @@ describe('navigate', () => {
     const replaceState = vi.fn()
     stubHistory(pushState, replaceState)
     navigate({})
-    expect(pushState).toHaveBeenCalledWith(null, '', '/')
+    expect(pushState).toHaveBeenCalledWith(null, '', '/c')
     expect(replaceState).not.toHaveBeenCalled()
   })
 })
@@ -76,111 +76,104 @@ describe('parseRoute', () => {
     expect(parseRoute('http://localhost/')).toEqual({})
   })
 
+  it('/c is chat without session', () => {
+    expect(parseRoute('http://localhost/c')).toEqual({})
+    expect(parseRoute('http://localhost/c/')).toEqual({})
+  })
+
+  it('/c/:sessionId carries sessionId', () => {
+    expect(parseRoute('http://localhost/c/sess-abc')).toEqual({ sessionId: 'sess-abc' })
+  })
+
+  it('decodes session segment', () => {
+    expect(parseRoute('http://localhost/c/sess%2B1')).toEqual({ sessionId: 'sess+1' })
+  })
+
   it('legacy /chat maps to chat only', () => {
     expect(parseRoute('http://localhost/chat')).toEqual({})
   })
 
-  it('legacy /chat?file=... maps to chat only', () => {
-    expect(parseRoute('http://localhost/chat?file=ideas%2Ffoo.md')).toEqual({})
+  it('legacy /chat?panel=wiki respects overlay', () => {
+    expect(parseRoute('http://localhost/chat?panel=wiki&path=foo.md')).toEqual({
+      overlay: { type: 'wiki', path: 'foo.md' },
+    })
   })
 
   it('legacy /home maps to chat only', () => {
     expect(parseRoute('http://localhost/home')).toEqual({})
   })
 
-  it('parses /wiki-dir as wiki-dir root', () => {
-    expect(parseRoute('http://localhost/wiki-dir')).toEqual({ overlay: { type: 'wiki-dir' } })
-  })
-
-  it('parses /wiki-dir/people/nested as wiki-dir path', () => {
-    expect(parseRoute('http://localhost/wiki-dir/people/nested')).toEqual({
-      overlay: { type: 'wiki-dir', path: 'people/nested' },
-    })
-  })
-
-  it('parses /wiki as wiki overlay without path', () => {
-    expect(parseRoute('http://localhost/wiki')).toEqual({ overlay: { type: 'wiki' } })
-  })
-
-  it('parses /wiki?nav=tree as wiki overlay (nav=tree ignored)', () => {
-    expect(parseRoute('http://localhost/wiki?nav=tree')).toEqual({
-      overlay: { type: 'wiki' },
-    })
-  })
-
-  it('parses /wiki/folder/file.md as wiki overlay with path', () => {
-    expect(parseRoute('http://localhost/wiki/folder/file.md')).toEqual({
+  it('parses wiki overlay via panel on /c', () => {
+    expect(parseRoute('http://localhost/c?panel=wiki')).toEqual({ overlay: { type: 'wiki' } })
+    expect(parseRoute('http://localhost/c?panel=wiki&path=folder/file.md')).toEqual({
       overlay: { type: 'wiki', path: 'folder/file.md' },
     })
   })
 
-  it('parses /files/Users/foo/bar as file overlay (absolute path)', () => {
-    expect(parseRoute('http://localhost/files/Users/foo/bar')).toEqual({
+  it('path-based /wiki/* is not supported (clean break)', () => {
+    expect(parseRoute('http://localhost/wiki/folder/file.md')).toEqual({})
+  })
+
+  it('parses wiki-dir via panel', () => {
+    expect(parseRoute('http://localhost/c?panel=wiki-dir&path=people/nested')).toEqual({
+      overlay: { type: 'wiki-dir', path: 'people/nested' },
+    })
+  })
+
+  it('parses file overlay via panel and file param', () => {
+    expect(
+      parseRoute(
+        `http://localhost/c?panel=file&file=${encodeURIComponent('/Users/foo/bar')}`,
+      ),
+    ).toEqual({
       overlay: { type: 'file', path: '/Users/foo/bar' },
     })
   })
 
-  it('parses /files without path as file overlay', () => {
-    expect(parseRoute('http://localhost/files')).toEqual({ overlay: { type: 'file' } })
+  it('parses email via panel', () => {
+    expect(parseRoute('http://localhost/c?panel=email')).toEqual({ overlay: { type: 'email' } })
   })
 
-  it('legacy /wiki/Users/... maps to file overlay, not wiki', () => {
-    expect(parseRoute('http://localhost/wiki/Users/x/a.txt')).toEqual({
-      overlay: { type: 'file', path: '/Users/x/a.txt' },
-    })
-  })
-
-  it('parses /inbox as email overlay without id', () => {
-    expect(parseRoute('http://localhost/inbox')).toEqual({ overlay: { type: 'email' } })
-  })
-
-  it('parses /inbox/:id (path segment, legacy)', () => {
-    expect(parseRoute('http://localhost/inbox/abc123')).toEqual({
-      overlay: { type: 'email', id: 'abc123' },
-    })
-  })
-
-  it('parses /inbox?m= for opaque ids (preferred)', () => {
+  it('parses email with m= for opaque ids', () => {
     expect(
-      parseRoute('http://localhost/inbox?m=CAAZnHy4%2Btest%40mail.gmail.com'),
+      parseRoute('http://localhost/c?panel=email&m=CAAZnHy4%2Btest%40mail.gmail.com'),
     ).toEqual({
       overlay: { type: 'email', id: 'CAAZnHy4+test@mail.gmail.com' },
     })
   })
 
-  it('parses /inbox?id= as alias for m', () => {
-    expect(parseRoute('http://localhost/inbox?id=opaque%40id')).toEqual({
+  it('parses email?id= as alias for m', () => {
+    expect(parseRoute('http://localhost/c?panel=email&id=opaque%40id')).toEqual({
       overlay: { type: 'email', id: 'opaque@id' },
     })
   })
 
-  it('query param m wins over path when both present', () => {
-    expect(parseRoute('http://localhost/inbox/short?m=full-id-value')).toEqual({
-      overlay: { type: 'email', id: 'full-id-value' },
-    })
-  })
-
-  it('decodes percent-encoded inbox id in path', () => {
-    expect(parseRoute('http://localhost/inbox/msg%3A12345')).toEqual({
-      overlay: { type: 'email', id: 'msg:12345' },
+  it('session + inbox overlay', () => {
+    expect(
+      parseRoute('http://localhost/c/s-1?panel=email&m=abc'),
+    ).toEqual({
+      sessionId: 's-1',
+      overlay: { type: 'email', id: 'abc' },
     })
   })
 })
 
 describe('parseRoute calendar', () => {
-  it('parses /calendar as overlay without date', () => {
-    expect(parseRoute('http://localhost/calendar')).toEqual({ overlay: { type: 'calendar' } })
+  it('parses calendar via panel without date', () => {
+    expect(parseRoute('http://localhost/c?panel=calendar')).toEqual({
+      overlay: { type: 'calendar' },
+    })
   })
 
-  it('parses /calendar?date=2026-04-13', () => {
-    expect(parseRoute('http://localhost/calendar?date=2026-04-13')).toEqual({
+  it('parses calendar with date', () => {
+    expect(parseRoute('http://localhost/c?panel=calendar&date=2026-04-13')).toEqual({
       overlay: { type: 'calendar', date: '2026-04-13' },
     })
   })
 
-  it('parses /calendar?date=...&event=...', () => {
+  it('parses calendar with date and event', () => {
     expect(
-      parseRoute('http://localhost/calendar?date=2026-04-14&event=evt-abc'),
+      parseRoute('http://localhost/c?panel=calendar&date=2026-04-14&event=evt-abc'),
     ).toEqual({
       overlay: { type: 'calendar', date: '2026-04-14', eventId: 'evt-abc' },
     })
@@ -188,82 +181,75 @@ describe('parseRoute calendar', () => {
 })
 
 describe('parseRoute messages', () => {
-  it('parses /messages without chat', () => {
-    expect(parseRoute('http://localhost/messages')).toEqual({ overlay: { type: 'messages' } })
+  it('parses messages without chat', () => {
+    expect(parseRoute('http://localhost/c?panel=messages')).toEqual({
+      overlay: { type: 'messages' },
+    })
   })
 
-  it('parses /messages?c= with canonical chat id', () => {
-    expect(parseRoute('http://localhost/messages?c=%2B15550001111')).toEqual({
+  it('parses messages?c=', () => {
+    expect(parseRoute('http://localhost/c?panel=messages&c=%2B15550001111')).toEqual({
       overlay: { type: 'messages', chat: '+15550001111' },
     })
   })
 })
 
 describe('parseRoute chat history', () => {
-  it('parses /chats', () => {
-    expect(parseRoute('http://localhost/chats')).toEqual({ overlay: { type: 'chat-history' } })
+  it('parses chat-history panel on /c', () => {
+    expect(parseRoute('http://localhost/c?panel=chat-history')).toEqual({
+      overlay: { type: 'chat-history' },
+    })
   })
 
-  it('parses /hub/chats with hubActive', () => {
-    expect(parseRoute('http://localhost/hub/chats')).toEqual({
+  it('parses chat-history on /hub', () => {
+    expect(parseRoute('http://localhost/hub?panel=chat-history')).toEqual({
       hubActive: true,
       overlay: { type: 'chat-history' },
     })
   })
 })
 
-describe('parseRoute your-wiki / background-agent', () => {
-  it('parses /your-wiki', () => {
-    expect(parseRoute('http://localhost/your-wiki')).toEqual({
+describe('parseRoute your-wiki / hub', () => {
+  it('parses your-wiki panel', () => {
+    expect(parseRoute('http://localhost/c?panel=your-wiki')).toEqual({
       overlay: { type: 'your-wiki' },
     })
   })
 
-  it('parses /background-agent (legacy redirect)', () => {
-    expect(parseRoute('http://localhost/background-agent')).toEqual({
-      overlay: { type: 'your-wiki' },
+  it('parses /hub as hub main', () => {
+    expect(parseRoute('http://localhost/hub')).toEqual({
+      hubActive: true,
     })
   })
 
-  it('parses /hub as hub overlay', () => {
-    expect(parseRoute('http://localhost/hub')).toEqual({ overlay: { type: 'hub' } })
+  it('legacy /hub/wiki path not supported', () => {
+    expect(parseRoute('http://localhost/hub/wiki/x')).toEqual({})
   })
 })
 
 describe('parseRoute hub-source', () => {
-  it('parses /hub-source without id', () => {
-    expect(parseRoute('http://localhost/hub-source')).toEqual({
+  it('parses hub-source on /c', () => {
+    expect(parseRoute('http://localhost/c?panel=hub-source')).toEqual({
       overlay: { type: 'hub-source' },
     })
   })
 
-  it('parses /hub-source?id=', () => {
-    expect(parseRoute('http://localhost/hub-source?id=src-1')).toEqual({
+  it('parses hub-source with id', () => {
+    expect(parseRoute('http://localhost/hub?panel=hub-source&id=src-1')).toEqual({
+      hubActive: true,
       overlay: { type: 'hub-source', id: 'src-1' },
     })
   })
 
-  it('parses /hub-add-folders', () => {
-    expect(parseRoute('http://localhost/hub-add-folders')).toEqual({
-      overlay: { type: 'hub-add-folders' },
-    })
-  })
-
-  it('parses /hub/hub-add-folders as hubActive', () => {
-    expect(parseRoute('http://localhost/hub/hub-add-folders')).toEqual({
+  it('parses hub-add-folders on /hub', () => {
+    expect(parseRoute('http://localhost/hub?panel=hub-add-folders')).toEqual({
       hubActive: true,
       overlay: { type: 'hub-add-folders' },
     })
   })
 
-  it('parses /hub-apple-messages', () => {
-    expect(parseRoute('http://localhost/hub-apple-messages')).toEqual({
-      overlay: { type: 'hub-apple-messages' },
-    })
-  })
-
-  it('parses /hub/hub-apple-messages as hubActive', () => {
-    expect(parseRoute('http://localhost/hub/hub-apple-messages')).toEqual({
+  it('parses hub-apple-messages on /hub', () => {
+    expect(parseRoute('http://localhost/hub?panel=hub-apple-messages')).toEqual({
       hubActive: true,
       overlay: { type: 'hub-apple-messages' },
     })
@@ -271,206 +257,102 @@ describe('parseRoute hub-source', () => {
 })
 
 describe('routeToUrl', () => {
-  it('chat-only returns /', () => {
-    expect(routeToUrl({})).toBe('/')
+  it('chat-only returns /c', () => {
+    expect(routeToUrl({})).toBe('/c')
+  })
+
+  it('chat with sessionId', () => {
+    expect(routeToUrl({ sessionId: 'abc' })).toBe('/c/abc')
   })
 
   it('wiki without path', () => {
-    expect(routeToUrl({ overlay: { type: 'wiki' } })).toBe('/wiki')
+    expect(routeToUrl({ overlay: { type: 'wiki' } })).toBe('/c?panel=wiki')
   })
 
-  it('wiki with path uses path segments', () => {
+  it('wiki with path', () => {
     expect(routeToUrl({ overlay: { type: 'wiki', path: 'ideas/foo.md' } })).toBe(
-      '/wiki/ideas/foo.md',
+      '/c?panel=wiki&path=ideas%2Ffoo.md',
     )
   })
 
-  it('wiki with path encodes special chars in segments', () => {
+  it('wiki with space in path', () => {
     expect(routeToUrl({ overlay: { type: 'wiki', path: 'ideas/my note.md' } })).toBe(
-      '/wiki/ideas/my%20note.md',
+      '/c?panel=wiki&path=ideas%2Fmy+note.md',
     )
-  })
-
-  it('wiki-dir without path', () => {
-    expect(routeToUrl({ overlay: { type: 'wiki-dir' } })).toBe('/wiki-dir')
   })
 
   it('wiki-dir with path', () => {
     expect(routeToUrl({ overlay: { type: 'wiki-dir', path: 'people/notes' } })).toBe(
-      '/wiki-dir/people/notes',
+      '/c?panel=wiki-dir&path=people%2Fnotes',
     )
   })
 
-  it('hub with wiki-dir subroute', () => {
-    expect(
-      routeToUrl({ hubActive: true, overlay: { type: 'wiki-dir', path: 'people' } }),
-    ).toBe('/hub/wiki-dir/people')
+  it('hub with wiki-dir overlay', () => {
+    expect(routeToUrl({ hubActive: true, overlay: { type: 'wiki-dir', path: 'people' } })).toBe(
+      '/hub?panel=wiki-dir&path=people',
+    )
   })
 
   it('file without path', () => {
-    expect(routeToUrl({ overlay: { type: 'file' } })).toBe('/files')
+    expect(routeToUrl({ overlay: { type: 'file' } })).toBe('/c?panel=file')
   })
 
-  it('file with absolute path uses /files segments', () => {
+  it('file with absolute path', () => {
     expect(routeToUrl({ overlay: { type: 'file', path: '/Users/foo/my note.txt' } })).toBe(
-      '/files/Users/foo/my%20note.txt',
+      '/c?panel=file&file=%2FUsers%2Ffoo%2Fmy+note.txt',
     )
   })
 
   it('inbox without id', () => {
-    expect(routeToUrl({ overlay: { type: 'email' } })).toBe('/inbox')
+    expect(routeToUrl({ overlay: { type: 'email' } })).toBe('/c?panel=email')
   })
 
-  it('inbox with id uses query param m', () => {
-    expect(routeToUrl({ overlay: { type: 'email', id: 'abc123' } })).toBe('/inbox?m=abc123')
+  it('inbox with id uses m', () => {
+    expect(routeToUrl({ overlay: { type: 'email', id: 'abc123' } })).toBe(
+      '/c?panel=email&m=abc123',
+    )
   })
 
-  it('inbox encodes special chars in id in query', () => {
+  it('inbox encodes special chars in id', () => {
     expect(routeToUrl({ overlay: { type: 'email', id: 'msg:12345' } })).toBe(
-      '/inbox?m=msg%3A12345',
+      '/c?panel=email&m=msg%3A12345',
     )
   })
 
-  it('inbox encodes @ and + in message ids', () => {
-    expect(
-      routeToUrl({
-        overlay: { type: 'email', id: 'CAAZnHy4+test@mail.gmail.com' },
-      }),
-    ).toBe('/inbox?m=CAAZnHy4%2Btest%40mail.gmail.com')
-  })
-
-  it('calendar without date', () => {
-    expect(routeToUrl({ overlay: { type: 'calendar' } })).toBe('/calendar')
-  })
-
-  it('calendar with date', () => {
+  it('calendar', () => {
     expect(routeToUrl({ overlay: { type: 'calendar', date: '2026-04-13' } })).toBe(
-      '/calendar?date=2026-04-13',
+      '/c?panel=calendar&date=2026-04-13',
     )
   })
 
-  it('calendar with date and event id', () => {
-    expect(
-      routeToUrl({
-        overlay: { type: 'calendar', date: '2026-04-14', eventId: 'evt-xyz' },
-      }),
-    ).toBe('/calendar?date=2026-04-14&event=evt-xyz')
-  })
-
-  it('messages without chat', () => {
-    expect(routeToUrl({ overlay: { type: 'messages' } })).toBe('/messages')
-  })
-
-  it('messages with chat uses query param c', () => {
+  it('messages with chat', () => {
     expect(routeToUrl({ overlay: { type: 'messages', chat: '+15550001111' } })).toBe(
-      '/messages?c=%2B15550001111',
+      '/c?panel=messages&c=%2B15550001111',
     )
   })
 
-  it('your-wiki returns /your-wiki', () => {
-    expect(routeToUrl({ overlay: { type: 'your-wiki' } })).toBe('/your-wiki')
-  })
-
-  it('chat-history returns /chats', () => {
-    expect(routeToUrl({ overlay: { type: 'chat-history' } })).toBe('/chats')
-  })
-
-  it('chat-history with hubActive returns /hub/chats', () => {
-    expect(routeToUrl({ hubActive: true, overlay: { type: 'chat-history' } })).toBe('/hub/chats')
-  })
-
-  it('hub-source without id', () => {
-    expect(routeToUrl({ overlay: { type: 'hub-source' } })).toBe('/hub-source')
-  })
-
-  it('hub-source with id uses query param id', () => {
-    expect(routeToUrl({ overlay: { type: 'hub-source', id: 'abc' } })).toBe('/hub-source?id=abc')
-  })
-
-  it('hub-add-folders returns /hub-add-folders', () => {
-    expect(routeToUrl({ overlay: { type: 'hub-add-folders' } })).toBe('/hub-add-folders')
-  })
-
-  it('hub-add-folders with hubActive returns /hub/hub-add-folders', () => {
-    expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-add-folders' } })).toBe(
-      '/hub/hub-add-folders',
-    )
-  })
-
-  it('hub-apple-messages returns /hub-apple-messages', () => {
-    expect(routeToUrl({ overlay: { type: 'hub-apple-messages' } })).toBe('/hub-apple-messages')
-  })
-
-  it('hub-apple-messages with hubActive returns /hub/hub-apple-messages', () => {
-    expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-apple-messages' } })).toBe(
-      '/hub/hub-apple-messages',
+  it('chat-history on hub', () => {
+    expect(routeToUrl({ hubActive: true, overlay: { type: 'chat-history' } })).toBe(
+      '/hub?panel=chat-history',
     )
   })
 
   it('hub returns /hub', () => {
     expect(routeToUrl({ hubActive: true })).toBe('/hub')
+    expect(routeToUrl({ hubActive: true, overlay: { type: 'hub' } })).toBe('/hub')
   })
 
-  it('hub with wiki subroute returns /hub/wiki/...', () => {
-    expect(routeToUrl({ hubActive: true, overlay: { type: 'wiki', path: 'me.md' } })).toBe('/hub/wiki/me.md')
+  it('hub-wiki-about', () => {
+    expect(routeToUrl({ overlay: { type: 'hub-wiki-about' } })).toBe(
+      '/c?panel=hub-wiki-about',
+    )
+    expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-wiki-about' } })).toBe(
+      '/hub?panel=hub-wiki-about',
+    )
   })
 
-  it('parses /hub/wiki/me.md as hubActive with wiki overlay', () => {
-    expect(parseRoute('http://localhost/hub/wiki/me.md')).toEqual({
-      hubActive: true,
-      overlay: { type: 'wiki', path: 'me.md' }
-    })
-  })
-
-  it('parses /hub/wiki-dir/people as hubActive with wiki-dir overlay', () => {
-    expect(parseRoute('http://localhost/hub/wiki-dir/people')).toEqual({
-      hubActive: true,
-      overlay: { type: 'wiki-dir', path: 'people' },
-    })
-  })
-
-  it('parses /hub/hub-source?id= as hubActive with hub-source overlay', () => {
-    expect(parseRoute('http://localhost/hub/hub-source?id=src-9')).toEqual({
-      hubActive: true,
-      overlay: { type: 'hub-source', id: 'src-9' },
-    })
-  })
-
-  it('parses /hub/wiki-about as hubActive with hub-wiki-about overlay', () => {
-    expect(parseRoute('http://localhost/hub/wiki-about')).toEqual({
-      hubActive: true,
-      overlay: { type: 'hub-wiki-about' },
-    })
-  })
-
-  it('parses /wiki-about without hubActive', () => {
-    expect(parseRoute('http://localhost/wiki-about')).toEqual({
-      overlay: { type: 'hub-wiki-about' },
-    })
-  })
-
-  it('routeToUrl hub-wiki-about respects hubActive', () => {
-    expect(routeToUrl({ overlay: { type: 'hub-wiki-about' } })).toBe('/wiki-about')
-    expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-wiki-about' } })).toBe('/hub/wiki-about')
-  })
-
-  it('welcome flow', () => {
+  it('flows unchanged', () => {
     expect(routeToUrl({ flow: 'welcome' })).toBe('/welcome')
-  })
-
-  it('hard-reset flow', () => {
-    expect(routeToUrl({ flow: 'hard-reset' })).toBe('/hard-reset')
-  })
-
-  it('restart-seed flow', () => {
-    expect(routeToUrl({ flow: 'restart-seed' })).toBe('/restart-seed')
-  })
-
-  it('first-chat flow', () => {
-    expect(routeToUrl({ flow: 'first-chat' })).toBe('/first-chat')
-  })
-
-  it('enron-demo flow', () => {
     expect(routeToUrl({ flow: 'enron-demo' })).toBe('/demo')
   })
 })
@@ -478,10 +360,11 @@ describe('routeToUrl', () => {
 describe('round-trip: routeToUrl → parseRoute', () => {
   const cases = [
     {},
+    { sessionId: 'sess-1' },
     { overlay: { type: 'wiki' as const } },
     { overlay: { type: 'wiki' as const, path: 'ideas/my note.md' } },
-    { overlay: { type: 'wiki-dir' as const } },
     { overlay: { type: 'wiki-dir' as const, path: 'people/sub' } },
+    { sessionId: 'z', overlay: { type: 'wiki' as const, path: 'x.md' } },
     { overlay: { type: 'file' as const } },
     { overlay: { type: 'file' as const, path: '/Users/foo/bar.txt' } },
     { overlay: { type: 'email' as const } },
@@ -502,9 +385,10 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { flow: 'restart-seed' as const },
     { flow: 'first-chat' as const },
     { flow: 'enron-demo' as const },
-    { overlay: { type: 'hub' as const } },
-    { overlay: { type: 'hub-wiki-about' as const } },
+    { hubActive: true },
     { hubActive: true, overlay: { type: 'hub-wiki-about' as const } },
+    { overlay: { type: 'hub-wiki-about' as const } },
+    { hubActive: true, overlay: { type: 'chat-history' as const } },
   ] as const
 
   for (const route of cases) {

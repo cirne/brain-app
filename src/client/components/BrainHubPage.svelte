@@ -393,7 +393,7 @@
     try {
       await postVaultLogout()
       clearBrainClientStorage()
-      window.location.assign('/')
+      window.location.assign('/c')
     } finally {
       accountBusy = false
     }
@@ -415,7 +415,7 @@
         return
       }
       clearBrainClientStorage()
-      window.location.assign('/')
+      window.location.assign('/c')
     } finally {
       accountBusy = false
     }

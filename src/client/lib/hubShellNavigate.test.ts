@@ -30,7 +30,7 @@ describe('applyHubDetailNavigation', () => {
     const route: Route = {}
     applyHubDetailNavigation(route, { type: 'wiki', path: 'a.md' }, undefined, false)
     expect(vi.mocked(navigate)).toHaveBeenCalledWith(
-      { overlay: { type: 'wiki', path: 'a.md' }, hubActive: false },
+      { overlay: { type: 'wiki', path: 'a.md' }, hubActive: false, sessionId: undefined },
       undefined,
     )
   })

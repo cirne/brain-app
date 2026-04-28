@@ -77,7 +77,7 @@
     onSummarizeInbox?: (_message: string) => void
     /** Calendar “Today”: jump to this week + clear `event=` in URL. */
     onCalendarResetToToday?: () => void
-    /** `/calendar?date=&event=` — same contract as App `switchToCalendar`. */
+    /** `?panel=calendar&date=&event=` — same contract as App `switchToCalendar`. */
     onCalendarNavigate?: (_date: string, _eventId?: string) => void
     onClose: () => void
     /** Full-screen mobile stack: slide in from right, swipe from left edge / animated close. */

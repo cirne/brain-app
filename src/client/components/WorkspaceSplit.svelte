@@ -2,12 +2,8 @@
   import { untrack } from 'svelte'
   import type { Snippet } from 'svelte'
   import {
-    FALLBACK_DETAIL_PANEL_WIDTH,
-    clampAgentPanelWidth,
-    loadStoredDetailPanelWidth,
+    detailPanelHalfWidth,
     nextPanelWidthAfterDrag,
-    persistDetailPanelWidth,
-    resolveDetailPanelWidth,
   } from '@client/lib/app/agentPanelWidth.js'
   import { easeOutCubic } from '@client/lib/workspaceSplit/easing.js'
 
@@ -39,13 +35,11 @@
     detailFullscreen = !detailFullscreen
   }
 
-  const storedDetailPreference = loadStoredDetailPanelWidth()
-
   let splitEl = $state<HTMLDivElement | null>(null)
-  /** After first successful measure of `.split`, we only clamp; before that we resolve from storage + split. */
-  let splitWidthInitialized = $state(false)
+  /** True until the next time the detail pane opens and we apply a fresh 50% width. */
+  let pendingHalfWidthOnOpen = $state(true)
 
-  let detailPanelWidth = $state(FALLBACK_DETAIL_PANEL_WIDTH)
+  let detailPanelWidth = $state(0)
   /** Current flex width; updated every frame while opening/closing (layout + paint on both panes). */
   let detailVisibleW = $state(0)
   let detailPanelResizing = $state(false)
@@ -93,17 +87,23 @@
 
   function syncDetailWidthToSplit() {
     const sw = splitEl?.clientWidth ?? 0
-    if (sw <= 0) return
-    if (!splitWidthInitialized) {
-      detailPanelWidth = resolveDetailPanelWidth(storedDetailPreference, sw)
-      splitWidthInitialized = true
+    if (sw <= 0 || !desktopDetailOpen) return
+    if (pendingHalfWidthOnOpen) {
+      detailPanelWidth = detailPanelHalfWidth(sw)
+      pendingHalfWidthOnOpen = false
     } else {
-      detailPanelWidth = clampAgentPanelWidth(detailPanelWidth, sw)
+      detailPanelWidth = Math.min(Math.max(0, detailPanelWidth), sw)
     }
-    if (desktopDetailOpen && !animatingWidth) {
+    if (!animatingWidth) {
       detailVisibleW = detailPanelWidth
     }
   }
+
+  $effect(() => {
+    if (!desktopDetailOpen) {
+      pendingHalfWidthOnOpen = true
+    }
+  })
 
   $effect(() => {
     if (typeof window === 'undefined') return
@@ -201,8 +201,6 @@
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       if (el.hasPointerCapture(ev.pointerId)) el.releasePointerCapture(ev.pointerId)
-      const sw = splitEl?.clientWidth ?? 0
-      if (sw > 0) persistDetailPanelWidth(detailPanelWidth, sw)
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)

@@ -21,7 +21,7 @@
     onOpenEmail,
     /** Sync URL + agent context to “today” without `event=` (parent uses router). */
     onResetToToday,
-    /** Keep `/calendar?date=&event=` in sync when opening/closing event drill-down. */
+    /** Keep `?panel=calendar&date=&event=` in sync when opening/closing event drill-down. */
     onCalendarNavigate,
   }: {
     refreshKey?: number
@@ -62,7 +62,7 @@
     }
   }
 
-  /** Sync `/calendar?event=` to detail when opening from chat preview or URL changes. */
+  /** Sync `?panel=calendar&event=` to detail when opening from chat preview or URL changes. */
   $effect(() => {
     if (initialEventId !== lastInitialEventIdProp) {
       lastInitialEventIdProp = initialEventId

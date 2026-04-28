@@ -58,7 +58,7 @@
       headers: { Authorization: authHeader() },
     })
     if (res.status === 200) {
-      window.location.href = '/'
+      window.location.href = '/c'
       return 'ok'
     }
     if (res.status === 202) {

@@ -161,11 +161,11 @@ describe('Assistant.svelte', () => {
       expect(screen.getByTestId('brain-hub-page-stub')).toBeInTheDocument()
     })
 
-    it('renders ChatHistoryPage when at /chats path', async () => {
+    it('renders ChatHistoryPage when URL has chat-history panel', async () => {
       vi.stubGlobal('location', {
-        href: 'http://localhost/chats',
-        pathname: '/chats',
-        search: '',
+        href: 'http://localhost/c?panel=chat-history',
+        pathname: '/c',
+        search: '?panel=chat-history',
         hash: '',
       })
 
@@ -381,11 +381,11 @@ describe('Assistant.svelte', () => {
   })
 
   describe('overlay routes', () => {
-    it('renders with wiki overlay at /wiki/test.md', async () => {
+    it('renders with wiki overlay at /c?panel=wiki&path=', async () => {
       vi.stubGlobal('location', {
-        href: 'http://localhost/wiki/test.md',
-        pathname: '/wiki/test.md',
-        search: '',
+        href: 'http://localhost/c?panel=wiki&path=test.md',
+        pathname: '/c',
+        search: '?panel=wiki&path=test.md',
         hash: '',
       })
 
@@ -396,11 +396,11 @@ describe('Assistant.svelte', () => {
       expect(screen.getAllByTestId('slide-over-stub').length).toBeGreaterThan(0)
     })
 
-    it('renders with email overlay at /inbox?m=123', async () => {
+    it('renders with email overlay at /c?panel=email&m=', async () => {
       vi.stubGlobal('location', {
-        href: 'http://localhost/inbox?m=123',
-        pathname: '/inbox',
-        search: '?m=123',
+        href: 'http://localhost/c?panel=email&m=123',
+        pathname: '/c',
+        search: '?panel=email&m=123',
         hash: '',
       })
 
@@ -411,11 +411,11 @@ describe('Assistant.svelte', () => {
       expect(screen.getAllByTestId('slide-over-stub').length).toBeGreaterThan(0)
     })
 
-    it('renders with calendar overlay at /calendar?date=2024-03-15', async () => {
+    it('renders with calendar overlay at /c?panel=calendar&date=', async () => {
       vi.stubGlobal('location', {
-        href: 'http://localhost/calendar?date=2024-03-15',
-        pathname: '/calendar',
-        search: '?date=2024-03-15',
+        href: 'http://localhost/c?panel=calendar&date=2024-03-15',
+        pathname: '/c',
+        search: '?panel=calendar&date=2024-03-15',
         hash: '',
       })
 
@@ -426,11 +426,11 @@ describe('Assistant.svelte', () => {
       expect(screen.getAllByTestId('slide-over-stub').length).toBeGreaterThan(0)
     })
 
-    it('renders with file overlay at /files/path/to/file', async () => {
+    it('renders with file overlay via panel=file&file=', async () => {
       vi.stubGlobal('location', {
-        href: 'http://localhost/files//Users/test/doc.pdf',
-        pathname: '/files//Users/test/doc.pdf',
-        search: '',
+        href: 'http://localhost/c?panel=file&file=%2FUsers%2Ftest%2Fdoc.pdf',
+        pathname: '/c',
+        search: '?panel=file&file=%2FUsers%2Ftest%2Fdoc.pdf',
         hash: '',
       })
 
@@ -443,11 +443,11 @@ describe('Assistant.svelte', () => {
   })
 
   describe('hub routes with overlays', () => {
-    it('renders hub with wiki overlay at /hub/wiki/test.md', async () => {
+    it('renders hub with wiki overlay at /hub?panel=wiki', async () => {
       vi.stubGlobal('location', {
-        href: 'http://localhost/hub/wiki/test.md',
-        pathname: '/hub/wiki/test.md',
-        search: '',
+        href: 'http://localhost/hub?panel=wiki&path=test.md',
+        pathname: '/hub',
+        search: '?panel=wiki&path=test.md',
         hash: '',
       })
 
@@ -507,11 +507,11 @@ describe('Assistant.svelte', () => {
   })
 
   describe('wiki directory routes', () => {
-    it('renders with wiki-dir overlay at /wiki-dir/folder', async () => {
+    it('renders with wiki-dir overlay at /c?panel=wiki-dir', async () => {
       vi.stubGlobal('location', {
-        href: 'http://localhost/wiki-dir/my-folder',
-        pathname: '/wiki-dir/my-folder',
-        search: '',
+        href: 'http://localhost/c?panel=wiki-dir&path=my-folder',
+        pathname: '/c',
+        search: '?panel=wiki-dir&path=my-folder',
         hash: '',
       })
 

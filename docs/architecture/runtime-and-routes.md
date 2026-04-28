@@ -30,17 +30,45 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 
 ## Client-side URL paths (SPA routes)
 
+Canonical implementation: [`src/client/router.ts`](../../src/client/router.ts) (`parseRoute`, `routeToUrl`, `navigate`, types `Route` and `Overlay`).
+
+### Primary surface (pathname)
+
 | Path | Role |
 |------|------|
-| `/` | Main chat interface |
-| `/hub` | **Brain Hub** — Admin, settings, wiki health, and background activity |
-| `/wiki/...` | Wiki document viewer/editor |
-| `/files/...` | Raw file preview |
-| `/inbox` | Email inbox |
-| `/calendar` | Calendar view |
-| `/messages` | SMS/iMessage thread view |
-| `/onboarding` | Onboarding wizard |
-| `/demo` | Secret-gated Enron corpus demo sign-in (SPA); navigate here directly when `BRAIN_ENRON_DEMO_SECRET` is set |
+| `/c` | **Chat** main pane; no server session id in the URL bar |
+| `/c/:sessionId` | **Chat** with a specific server session (reload restores that thread when vault/session is valid) |
+| `/hub` | **Brain Hub** main pane |
+| `/welcome`, `/onboarding` (alias) | First-run / setup flow |
+| `/hard-reset`, `/restart-seed`, `/first-chat` | Dev / one-shot flows |
+| `/demo` | Secret-gated Enron demo (`BRAIN_ENRON_DEMO_SECRET`) |
+
+Root **`/`** and legacy **`/chat`**, **`/home`** still parse as chat (same as `/c` without a session). New navigation from the app uses **`/c`** as the chat base.
+
+**Google OAuth** and other providers: **`/api/oauth/...` callback paths are fixed** (registered in Cloud Console). Only **post-consent browser redirects** into the SPA (e.g. `/welcome`, `/hub?addedAccount=…`) use these path shapes.
+
+### Overlays (search params)
+
+Detail / slide-over UI (wiki, inbox thread, calendar, messages, hub inspectors, chat history list, etc.) is selected with **`panel=<kind>`** plus kind-specific query keys on the same pathname:
+
+| `panel` | Extra params (when needed) |
+|---------|----------------------------|
+| `wiki` | `path` — wiki-relative path |
+| `wiki-dir` | `path` — folder path under wiki |
+| `file` | `file` — absolute filesystem path for the raw file viewer |
+| `email` | `m` or `id` — opaque thread id |
+| `calendar` | `date`, `event` |
+| `messages` | `c` — canonical chat identifier |
+| `your-wiki`, `chat-history`, `hub-add-folders`, `hub-apple-messages`, `phone-access`, `hub-wiki-about` | (none) |
+| `hub-source` | `id` — source row id |
+
+Examples: `/c/sess-1?panel=wiki&path=ideas%2Fnote.md`, `/hub?panel=email&m=…`, `/hub?addedAccount=…` (hub main + Google link banner; `panel` omitted).
+
+Path-shaped overlay URLs such as **`/wiki/...`**, **`/inbox`**, **`/hub/wiki/...`** are **not** parsed after this change (clean break); bookmarks should use the `panel` form.
+
+The shell renders overlays in the **slide-over / assistant panel** (or full-width chat-history list) — see [client-async-latest.md](./client-async-latest.md).
+
+**Related:** [OPP-058](../opportunities/OPP-058-spa-url-main-pane-vs-overlay-query.md) (implemented); [OPP-056](../opportunities/OPP-056-email-draft-overlay-markdown-editor.md); archived [OPP-027](../opportunities/archive/OPP-027-wiki-nav-indicator-and-activity-surface.md).
 
 ## Production vs bundled native
 

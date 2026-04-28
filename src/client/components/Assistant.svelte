@@ -78,6 +78,15 @@
   /** Server session ids with an in-flight agent stream (sidebar “working” icon), including background chats. */
   let streamingSessionIds = $state<ReadonlySet<string>>(new Set())
 
+  /** Invalidates in-flight `loadSession` when the bar’s `/c/:id` changes again (back/forward). */
+  let urlSessionSyncGen = 0
+
+  /** Preserve `/c/:sessionId` when opening overlays from the chat column. */
+  function chatSessionPart(): Pick<Route, 'sessionId'> {
+    if (route.hubActive) return {}
+    return route.sessionId ? { sessionId: route.sessionId } : {}
+  }
+
   const SIDEBAR_TRANSITION_MS = 220
 
   /** Instant open/close when user prefers reduced motion. */
@@ -234,7 +243,11 @@
   })
 
   function closeOverlayImmediate() {
-    navigate({ hubActive: route.hubActive }, { replace: true })
+    if (route.hubActive) {
+      navigate({ hubActive: true }, { replace: true })
+    } else {
+      navigate({ hubActive: false, ...chatSessionPart() }, { replace: true })
+    }
     route = parseRoute()
     agentContext = { type: 'chat' }
     inboxTargetId = undefined
@@ -268,13 +281,13 @@
 
   /**
    * Slide-over layout: dismiss overlay after send so the transcript is visible.
-   * Always return to the main chat column (`/`) so the running agent and transcript are visible
+   * Always return to the main chat column (`/c`) so the running agent and transcript are visible
    * (not `/hub` with hub still active).
    */
   function closeOverlayOnUserSend() {
     chatIsEmpty = false
     if (!useDesktopSplitDetail && route.overlay) {
-      navigate({ hubActive: false }, { replace: true })
+      navigate({ hubActive: false, ...chatSessionPart() }, { replace: true })
       route = parseRoute()
       agentContext = { type: 'chat' }
       inboxTargetId = undefined
@@ -292,7 +305,14 @@
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = wikiOverlayReplace()
     const hubActive = hubActiveForOpenOverlay(overlay)
-    navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
+    navigate(
+      {
+        overlay,
+        hubActive,
+        ...(hubActive ? {} : chatSessionPart()),
+      },
+      replace ? { replace: true } : undefined,
+    )
     route = parseRoute()
     if (path) {
       void addToNavHistory({
@@ -308,7 +328,14 @@
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = wikiOverlayReplace()
     const hubActive = hubActiveForOpenOverlay(overlay)
-    navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
+    navigate(
+      {
+        overlay,
+        hubActive,
+        ...(hubActive ? {} : chatSessionPart()),
+      },
+      replace ? { replace: true } : undefined,
+    )
     route = parseRoute()
   }
 
@@ -317,13 +344,24 @@
     const overlay: Overlay = trimmed ? { type: 'wiki-dir', path: trimmed } : { type: 'wiki-dir' }
     const replace = wikiOverlayReplace()
     const hubActive = hubActiveForOpenOverlay(overlay)
-    navigate({ overlay, hubActive }, replace ? { replace: true } : undefined)
+    navigate(
+      {
+        overlay,
+        hubActive,
+        ...(hubActive ? {} : chatSessionPart()),
+      },
+      replace ? { replace: true } : undefined,
+    )
     route = parseRoute()
   }
 
   function openFileDoc(path: string) {
     const hubActive = hubActiveForOpenOverlay({ type: 'file', path })
-    navigate({ overlay: { type: 'file', path }, hubActive })
+    navigate({
+      overlay: { type: 'file', path },
+      hubActive,
+      ...(hubActive ? {} : chatSessionPart()),
+    })
     route = parseRoute()
     void addToNavHistory({
       id: makeNavHistoryId('doc', `file:${path}`),
@@ -336,13 +374,21 @@
   function onInboxNavigateSlide(id: string | undefined) {
     const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
     const hubActive = hubActiveForOpenOverlay(overlay)
-    navigate({ overlay, hubActive })
+    navigate({
+      overlay,
+      hubActive,
+      ...(hubActive ? {} : chatSessionPart()),
+    })
     route = parseRoute()
   }
 
   function switchToCalendar(date: string, eventId?: string) {
     const hubActive = route.hubActive || route.overlay?.type === 'hub'
-    navigate({ overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) }, hubActive })
+    navigate({
+      overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) },
+      hubActive,
+      ...(hubActive ? {} : chatSessionPart()),
+    })
     route = parseRoute()
     agentContext = { type: 'calendar', date, ...(eventId ? { eventId } : {}) }
   }
@@ -368,7 +414,11 @@
   function openEmailFromSearch(id: string, subject: string, from: string) {
     inboxTargetId = id
     const hubActive = hubActiveForOpenOverlay({ type: 'email', id })
-    navigate({ overlay: { type: 'email', id }, hubActive })
+    navigate({
+      overlay: { type: 'email', id },
+      hubActive,
+      ...(hubActive ? {} : chatSessionPart()),
+    })
     route = parseRoute()
     agentContext = { type: 'email', threadId: id, subject, from }
     if (id && subject.trim()) {
@@ -382,12 +432,16 @@
 
   function openFullInboxFromChat() {
     inboxTargetId = undefined
-    navigate({ overlay: { type: 'email' } })
+    navigate({ hubActive: false, ...chatSessionPart(), overlay: { type: 'email' } })
     route = parseRoute()
   }
 
   function openMessageThreadFromChat(canonicalChat: string, displayLabel: string) {
-    navigate({ overlay: { type: 'messages', chat: canonicalChat }, hubActive: route.hubActive })
+    navigate({
+      overlay: { type: 'messages', chat: canonicalChat },
+      hubActive: route.hubActive === true,
+      ...(route.hubActive ? {} : chatSessionPart()),
+    })
     route = parseRoute()
     agentContext = { type: 'messages', chat: canonicalChat, displayLabel }
   }
@@ -461,15 +515,12 @@
   }
 
   async function selectChatSession(id: string) {
-    closeOverlayImmediate()
-    // Brain Hub uses `/hub` or `/hub/…` and replaces AgentChat with BrainHubPage. After
-    // `closeOverlay`, the URL can still be under /hub (e.g. /hub with `overlay: hub` only, no
-    // `hubActive` in the parsed route), so `agentChat` stays undefined and `loadSession` no-ops.
-    // “New chat” always calls `navigate({ hubActive: false })` — do the same here (BUG-017).
-    if (typeof location !== 'undefined' && (location.pathname === '/hub' || location.pathname.startsWith('/hub/'))) {
-      navigate({ hubActive: false }, { replace: true })
-      route = parseRoute()
-    }
+    navigate({ hubActive: false, sessionId: id }, { replace: true })
+    route = parseRoute()
+    agentContext = { type: 'chat' }
+    inboxTargetId = undefined
+    wikiWriteStreaming = null
+    wikiEditStreaming = null
     for (let i = 0; i < 16; i++) {
       await tick()
       if (agentChat) {
@@ -492,8 +543,7 @@
   }
 
   function historyNewChat() {
-    closeOverlayImmediate()
-    navigate({ hubActive: false })
+    navigate({ hubActive: false }, { replace: true })
     route = parseRoute()
     agentChat?.newChat()
     chatIsEmpty = true
@@ -505,6 +555,7 @@
     navigate({
       overlay: { type: 'hub-wiki-about' },
       hubActive: route.hubActive === true,
+      ...(route.hubActive ? {} : chatSessionPart()),
     })
     route = parseRoute()
   }
@@ -513,13 +564,41 @@
     navigate({
       overlay: { type: 'chat-history' },
       hubActive: route.hubActive === true,
+      ...(route.hubActive ? {} : chatSessionPart()),
     })
     route = parseRoute()
   }
 
   function onSessionChangeFromAgent(id: string | null) {
     activeSessionId = id
+    if (route.flow || route.hubActive === true) return
+    if (id && id !== route.sessionId) {
+      navigate(
+        { hubActive: false, sessionId: id, overlay: route.overlay },
+        { replace: true },
+      )
+      route = parseRoute()
+    }
   }
+
+  $effect(() => {
+    const sid = route.sessionId
+    const onChat =
+      !route.flow && route.hubActive !== true && route.overlay?.type !== 'hub'
+    if (!onChat || !sid) return
+    if (sid === activeSessionId) return
+    const gen = ++urlSessionSyncGen
+    void (async () => {
+      for (let i = 0; i < 16; i++) {
+        await tick()
+        if (gen !== urlSessionSyncGen) return
+        if (agentChat) {
+          await agentChat.loadSession(sid)
+          break
+        }
+      }
+    })()
+  })
 
   function onWriteStreaming(p: { path: string; content: string; done: boolean }) {
     if (p.done) {

@@ -38,7 +38,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | Svelte component tests (Vitest, Testing Library)     | [component-testing.md](component-testing.md)                                   |
 | Product vision, Karpathy “LLM Wiki” (wiki half) + ripmail (mail half) | [VISION.md](VISION.md) · [karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md) |
-| HTTP routing, auth, periodic sync, native app ports    | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md)       |
+| HTTP routing, auth, periodic sync, native ports; SPA routes/overlays | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md)       |
 | Client UI: latest-wins async / overlapping `fetch`    | [architecture/client-async-latest.md](architecture/client-async-latest.md)     |
 | Desktop vs Cloud deployment models                    | [architecture/deployment-models.md](architecture/deployment-models.md)         |
 | Multi-tenant cloud architecture (NAS, isolation)      | [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) |

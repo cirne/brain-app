@@ -2,6 +2,8 @@
 
 Redirect URIs must match **Google Cloud Console** and the URL the **browser** loads after consent.
 
+**SPA vs API:** Only **`/api/oauth/google/callback`** (and sibling **link** callbacks under `/api/oauth/google/...`) are registered OAuth **redirect URIs**. The app’s normal UI lives at **`/c`**, **`/c/:sessionId`**, **`/hub`**, setup **`/welcome`**, etc. ([runtime-and-routes.md](architecture/runtime-and-routes.md)); post-consent HTML may `replace` to `/welcome` or the shell may open at **`/c`** — that is separate from the Google callback path.
+
 | Mode | Redirect URI |
 |------|--------------|
 | **`npm run dev`** / non-bundled `node dist/server` (default) | `http://127.0.0.1:<PORT>/api/oauth/google/callback` (`PORT` default `3000`) |

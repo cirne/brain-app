@@ -1,45 +1,33 @@
-import {
-  absolutePathFromUrlSegments,
-  encodeFilesystemPathForUrl,
-  isFilesystemAbsolutePath,
-  wikiUrlSegmentsLookLikeFilesystemPath,
-} from './lib/fsPath.js'
-import { encodeWikiPathSegmentsForUrl } from './lib/wikiPageHtml.js'
-
 /** Detail panel target (wiki, email thread, calendar, or raw file on disk). */
 export type Overlay =
   | { type: 'wiki'; path?: string }
-  /** Indexed / readable file path (absolute); shown under `/files/…`, not wiki. */
+  /** Indexed / readable file path (absolute); raw file viewer. */
   | { type: 'file'; path?: string }
   | { type: 'email'; id?: string }
   | { type: 'calendar'; date?: string; eventId?: string }
   /** `chat` is canonical chat_identifier (E.164, email, …) for /api/messages/thread */
   | { type: 'messages'; chat?: string }
-  /** Your Wiki supervisor inspector (`/your-wiki`). */
   | { type: 'your-wiki' }
-  /** Brain Hub: inspect/remove a search index source (`/hub-source?id=`). */
   | { type: 'hub-source'; id?: string }
-  /** Brain Hub: guided assistant to add local folders to the search index (`/hub-add-folders`). */
   | { type: 'hub-add-folders' }
-  /** Brain Hub: Apple Messages (Mac) sync setup (`/hub-apple-messages`). */
   | { type: 'hub-apple-messages' }
-  /** Brain Hub admin/settings/status page (`/hub`). */
+  /** Brain Hub admin/settings/status main surface when hub is primary. */
   | { type: 'hub' }
-  /** Brain Hub: help copy explaining the private wiki (`/hub/wiki-about`). */
   | { type: 'hub-wiki-about' }
-  /** Phone access QR code panel. */
   | { type: 'phone-access' }
-  /** Browse wiki pages under a folder (`/wiki-dir/…`). */
   | { type: 'wiki-dir'; path?: string }
-  /** Full chat history: search, open, delete (`/chats` or `/hub/chats`). */
   | { type: 'chat-history' }
 
-/** Chat-first shell: optional detail overlay; base route is always chat. */
+/**
+ * Chat-first shell: optional detail overlay in `?panel=` (+ payload); base path is `/c` or `/c/:sessionId`;
+ * Brain Hub primary surface is `/hub`. OAuth `/api/oauth/*` callback paths are unchanged (server).
+ */
 export type Route = {
+  /** Server chat session id when URL is `/c/:sessionId`; omitted on `/c` (new / no id in bar). */
+  sessionId?: string
   overlay?: Overlay
-  /** Full-page flows (first-run welcome/setup UI, dev hard-reset / restart-seed / first-chat). */
   flow?: 'welcome' | 'hard-reset' | 'restart-seed' | 'first-chat' | 'enron-demo'
-  /** When true, the Brain Hub is rendered in the main content area instead of chat. */
+  /** True when primary surface is Brain Hub (`/hub`). */
   hubActive?: boolean
 }
 
@@ -87,12 +75,119 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
   return undefined
 }
 
+const PANEL = 'panel'
+
 function safeDecodePathSegment(segment: string): string {
   try {
     return decodeURIComponent(segment)
   } catch {
     return segment
   }
+}
+
+function overlayToSearchParams(overlay: Overlay): URLSearchParams {
+  const q = new URLSearchParams()
+  if (overlay.type === 'hub') {
+    return q
+  }
+  q.set(PANEL, overlay.type)
+  switch (overlay.type) {
+    case 'wiki':
+      if (overlay.path) q.set('path', overlay.path)
+      break
+    case 'wiki-dir':
+      if (overlay.path) q.set('path', overlay.path)
+      break
+    case 'file':
+      if (overlay.path) q.set('file', overlay.path)
+      break
+    case 'email':
+      if (overlay.id) q.set('m', overlay.id)
+      break
+    case 'calendar':
+      if (overlay.date) q.set('date', overlay.date)
+      if (overlay.eventId) q.set('event', overlay.eventId)
+      break
+    case 'messages':
+      if (overlay.chat) q.set('c', overlay.chat)
+      break
+    case 'hub-source':
+      if (overlay.id) q.set('id', overlay.id)
+      break
+    default:
+      break
+  }
+  return q
+}
+
+function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
+  const panel = sp.get(PANEL)
+  if (!panel) return undefined
+  switch (panel) {
+    case 'wiki': {
+      const path = sp.get('path')?.trim() || undefined
+      return path ? { type: 'wiki', path } : { type: 'wiki' }
+    }
+    case 'wiki-dir': {
+      const path = sp.get('path')?.trim() || undefined
+      return path ? { type: 'wiki-dir', path } : { type: 'wiki-dir' }
+    }
+    case 'file': {
+      const file = sp.get('file')?.trim() || undefined
+      return file ? { type: 'file', path: file } : { type: 'file' }
+    }
+    case 'email': {
+      const id = sp.get('m') ?? sp.get('id') ?? undefined
+      return id ? { type: 'email', id } : { type: 'email' }
+    }
+    case 'calendar': {
+      const date = sp.get('date') ?? undefined
+      const eventId = sp.get('event') ?? undefined
+      if (!date) return { type: 'calendar' }
+      return { type: 'calendar', date, ...(eventId ? { eventId } : {}) }
+    }
+    case 'messages': {
+      const c = sp.get('c') ?? undefined
+      return c ? { type: 'messages', chat: c } : { type: 'messages' }
+    }
+    case 'your-wiki':
+      return { type: 'your-wiki' }
+    case 'chat-history':
+      return { type: 'chat-history' }
+    case 'hub-source': {
+      const id = sp.get('id') ?? undefined
+      return id ? { type: 'hub-source', id } : { type: 'hub-source' }
+    }
+    case 'hub-add-folders':
+      return { type: 'hub-add-folders' }
+    case 'hub-apple-messages':
+      return { type: 'hub-apple-messages' }
+    case 'phone-access':
+      return { type: 'phone-access' }
+    case 'hub-wiki-about':
+      return { type: 'hub-wiki-about' }
+    case 'hub':
+      return { type: 'hub' }
+    default:
+      return undefined
+  }
+}
+
+function hubRouteFromSearch(href: string): Route | null {
+  const url = new URL(href, 'http://localhost')
+  if (url.pathname !== '/hub') {
+    return null
+  }
+  const overlay = overlayFromSearchParams(url.searchParams)
+  if (!overlay) {
+    return { hubActive: true }
+  }
+  return { hubActive: true, overlay }
+}
+
+function chatBasePath(sessionId?: string): string {
+  if (sessionId) return `/c/${encodeURIComponent(sessionId)}`
+  return '/c'
 }
 
 /** Parse a URL (defaults to current location) into a Route. */
@@ -119,177 +214,74 @@ export function parseRoute(href: string = location.href): Route {
     }
   }
 
-  if (seg1 === 'chats') {
-    return { overlay: { type: 'chat-history' } }
+  const hubParsed = hubRouteFromSearch(href)
+  if (hubParsed) {
+    return hubParsed
   }
 
-  // Legacy: /chat and /home → chat only
+  if (seg1 === 'c') {
+    const sessionId =
+      rest.length > 0 && rest[0] ? safeDecodePathSegment(rest[0]) : undefined
+    const overlay = overlayFromSearchParams(url.searchParams)
+    const base: Route = { ...(sessionId ? { sessionId } : {}) }
+    if (overlay) return { ...base, overlay }
+    return base
+  }
+
   if (seg1 === 'chat' || seg1 === 'home') {
+    const overlay = overlayFromSearchParams(url.searchParams)
+    if (overlay) return { overlay }
     return {}
   }
-  if (seg1 === 'files') {
-    const path = absolutePathFromUrlSegments(rest)
-    if (path) {
-      return { overlay: { type: 'file', path } }
-    }
-    return { overlay: { type: 'file' } }
-  }
-  if (seg1 === 'wiki-dir') {
-    if (rest.length > 0 && rest[0]) {
-      return { overlay: { type: 'wiki-dir', path: rest.map(decodeURIComponent).join('/') } }
-    }
-    return { overlay: { type: 'wiki-dir' } }
-  }
-  if (seg1 === 'wiki') {
-    // Legacy: `/wiki/Users/...` or `/wiki//Users/...` pointed at disk — treat as raw file, not wiki markdown.
-    if (wikiUrlSegmentsLookLikeFilesystemPath(rest)) {
-      const fsPath = absolutePathFromUrlSegments(rest)
-      if (fsPath && isFilesystemAbsolutePath(fsPath)) {
-        return { overlay: { type: 'file', path: fsPath } }
-      }
-    }
-    if (rest.length > 0 && rest[0]) {
-      return { overlay: { type: 'wiki', path: rest.map(decodeURIComponent).join('/') } }
-    }
-    return { overlay: { type: 'wiki' } }
-  }
-  if (seg1 === 'inbox') {
-    /** Prefer query param so opaque ids (e.g. with `@`, `+`) are not split or mishandled in the path. */
-    const qId = url.searchParams.get('m') ?? url.searchParams.get('id')
-    if (qId) {
-      return { overlay: { type: 'email', id: qId } }
-    }
-    if (rest.length > 0 && rest[0]) {
-      const id = rest.map(safeDecodePathSegment).join('/')
-      return { overlay: { type: 'email', id } }
-    }
-    return { overlay: { type: 'email' } }
-  }
-  if (seg1 === 'calendar') {
-    const date = url.searchParams.get('date') ?? undefined
-    const eventId = url.searchParams.get('event') ?? undefined
-    if (!date) {
-      return { overlay: { type: 'calendar' } }
-    }
-    return { overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) } }
-  }
-  if (seg1 === 'messages') {
-    const c = url.searchParams.get('c') ?? undefined
-    if (c) return { overlay: { type: 'messages', chat: c } }
-    return { overlay: { type: 'messages' } }
-  }
-  if (seg1 === 'your-wiki' || seg1 === 'background-agent') {
-    return { overlay: { type: 'your-wiki' } }
-  }
-  if (seg1 === 'hub-source') {
-    const id = url.searchParams.get('id') ?? undefined
-    return { overlay: { type: 'hub-source', ...(id ? { id } : {}) } }
-  }
-  if (seg1 === 'hub-add-folders') {
-    return { overlay: { type: 'hub-add-folders' } }
-  }
-  if (seg1 === 'hub-apple-messages') {
-    return { overlay: { type: 'hub-apple-messages' } }
-  }
-  if (seg1 === 'phone-access') {
-    return { overlay: { type: 'phone-access' } }
-  }
-  if (seg1 === 'wiki-about') {
-    return { overlay: { type: 'hub-wiki-about' } }
-  }
-  if (seg1 === 'hub') {
-    if (rest.length > 0) {
-      if (rest[0] === 'phone-access') {
-        return { overlay: { type: 'phone-access' }, hubActive: true }
-      }
-      if (rest[0] === 'wiki-about') {
-        return { overlay: { type: 'hub-wiki-about' }, hubActive: true }
-      }
-      const subRoute = parseRoute(`http://localhost/${rest.join('/')}${url.search}`)
-      return { ...subRoute, hubActive: true }
-    }
-    return { overlay: { type: 'hub' } }
+
+  if (seg1 === '' || seg1 === undefined) {
+    const overlay = overlayFromSearchParams(url.searchParams)
+    if (overlay) return { overlay }
+    return {}
   }
 
-  // Default: chat only
   return {}
 }
 
-/** Convert a Route back to a URL string. */
+/** Convert a Route back to a URL string (path + `?panel=…` only; preserves no other query — see Hub OAuth banners). */
 export function routeToUrl(route: Route): string {
   if (route.flow === 'welcome') return '/welcome'
   if (route.flow === 'hard-reset') return '/hard-reset'
   if (route.flow === 'restart-seed') return '/restart-seed'
   if (route.flow === 'first-chat') return '/first-chat'
   if (route.flow === 'enron-demo') return '/demo'
+
+  const hubActive = route.hubActive === true
   const o = route.overlay
+
+  if (hubActive) {
+    if (!o || o.type === 'hub') {
+      return '/hub'
+    }
+    const q = overlayToSearchParams(o)
+    const qs = q.toString()
+    return qs ? `/hub?${qs}` : '/hub'
+  }
+
   if (!o) {
-    return route.hubActive ? '/hub' : '/'
+    return chatBasePath(route.sessionId)
   }
 
-  let path = ''
-  if (o.type === 'wiki') {
-    path = o.path ? `/wiki/${encodeWikiPathSegmentsForUrl(o.path)}` : '/wiki'
-  } else if (o.type === 'wiki-dir') {
-    path = o.path ? `/wiki-dir/${encodeWikiPathSegmentsForUrl(o.path)}` : '/wiki-dir'
-  } else if (o.type === 'file') {
-    path = o.path ? `/files/${encodeFilesystemPathForUrl(o.path)}` : '/files'
-  } else if (o.type === 'email') {
-    if (!o.id) path = '/inbox'
-    else {
-      const q = new URLSearchParams()
-      q.set('m', o.id)
-      path = `/inbox?${q.toString()}`
-    }
-  } else if (o.type === 'calendar') {
-    if (!o.date) path = '/calendar'
-    else {
-      const q = new URLSearchParams()
-      q.set('date', o.date)
-      if (o.eventId) q.set('event', o.eventId)
-      path = `/calendar?${q.toString()}`
-    }
-  } else if (o.type === 'messages') {
-    if (!o.chat) path = '/messages'
-    else {
-      const q = new URLSearchParams()
-      q.set('c', o.chat)
-      path = `/messages?${q.toString()}`
-    }
-  } else if (o.type === 'your-wiki') {
-    path = '/your-wiki'
-  } else if (o.type === 'chat-history') {
-    path = '/chats'
-  } else if (o.type === 'hub-source') {
-    if (!o.id) path = '/hub-source'
-    else {
-      const q = new URLSearchParams()
-      q.set('id', o.id)
-      path = `/hub-source?${q.toString()}`
-    }
-  } else if (o.type === 'hub-add-folders') {
-    path = '/hub-add-folders'
-  } else if (o.type === 'hub-apple-messages') {
-    path = '/hub-apple-messages'
-  } else if (o.type === 'hub') {
-    return '/hub'
-  } else if (o.type === 'hub-wiki-about') {
-    return route.hubActive ? '/hub/wiki-about' : '/wiki-about'
-  } else if (o.type === 'phone-access') {
-    return route.hubActive ? '/hub/phone-access' : '/phone-access'
+  if (o.type === 'hub') {
+    return chatBasePath(route.sessionId)
   }
 
-  if (route.hubActive && path) {
-    return `/hub${path}`
-  }
-  return path || '/'
+  const q = overlayToSearchParams(o)
+  const qs = q.toString()
+  const base = chatBasePath(route.sessionId)
+  return qs ? `${base}?${qs}` : base
 }
 
 export type NavigateOptions = {
   /**
    * Use `history.replaceState` instead of `pushState`. Prefer when leaving an
    * overlay for chat-only so ⌫/⌥← does not immediately restore the closed panel
-   * (same URL stack entry is updated instead of pushing a second `/` on top of `/wiki/…`).
+   * (same URL stack entry is updated instead of pushing a second `/c` on top of a detail URL).
    */
   replace?: boolean
 }

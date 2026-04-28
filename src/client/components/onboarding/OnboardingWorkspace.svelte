@@ -154,8 +154,12 @@
     }
   })
 
+  function obChatSession(): Pick<Route, 'sessionId'> {
+    return route.sessionId ? { sessionId: route.sessionId } : {}
+  }
+
   function closeOverlayImmediate() {
-    navigate({}, { replace: true })
+    navigate({ hubActive: false, ...obChatSession() }, { replace: true })
     route = parseRoute()
     agentContext = { type: 'chat' }
     inboxTargetId = undefined
@@ -186,14 +190,20 @@
   function openWikiDoc(path?: string) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = wikiOverlayReplace()
-    navigate({ overlay }, replace ? { replace: true } : undefined)
+    navigate(
+      { hubActive: false, ...obChatSession(), overlay },
+      replace ? { replace: true } : undefined,
+    )
     route = parseRoute()
   }
 
   function onWikiNavigate(path: string | undefined) {
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = wikiOverlayReplace()
-    navigate({ overlay }, replace ? { replace: true } : undefined)
+    navigate(
+      { hubActive: false, ...obChatSession(), overlay },
+      replace ? { replace: true } : undefined,
+    )
     route = parseRoute()
   }
 
@@ -201,23 +211,30 @@
     const trimmed = dirPath?.trim()
     const overlay: Overlay = trimmed ? { type: 'wiki-dir', path: trimmed } : { type: 'wiki-dir' }
     const replace = wikiOverlayReplace()
-    navigate({ overlay }, replace ? { replace: true } : undefined)
+    navigate(
+      { hubActive: false, ...obChatSession(), overlay },
+      replace ? { replace: true } : undefined,
+    )
     route = parseRoute()
   }
 
   function openFileDoc(path: string) {
-    navigate({ overlay: { type: 'file', path } })
+    navigate({ hubActive: false, ...obChatSession(), overlay: { type: 'file', path } })
     route = parseRoute()
   }
 
   function onInboxNavigateSlide(id: string | undefined) {
     const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
-    navigate({ overlay })
+    navigate({ hubActive: false, ...obChatSession(), overlay })
     route = parseRoute()
   }
 
   function switchToCalendar(date: string, eventId?: string) {
-    navigate({ overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) } })
+    navigate({
+      hubActive: false,
+      ...obChatSession(),
+      overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) },
+    })
     route = parseRoute()
     agentContext = { type: 'calendar', date, ...(eventId ? { eventId } : {}) }
   }
@@ -238,13 +255,13 @@
   }
 
   function openHubWikiAbout() {
-    navigate({ overlay: { type: 'hub-wiki-about' } })
+    navigate({ hubActive: false, ...obChatSession(), overlay: { type: 'hub-wiki-about' } })
     route = parseRoute()
   }
 
   function openEmailFromSearch(id: string, subject: string, from: string) {
     inboxTargetId = id
-    navigate({ overlay: { type: 'email', id } })
+    navigate({ hubActive: false, ...obChatSession(), overlay: { type: 'email', id } })
     route = parseRoute()
     agentContext = { type: 'email', threadId: id, subject, from }
   }
@@ -255,12 +272,16 @@
 
   function openFullInboxFromChat() {
     inboxTargetId = undefined
-    navigate({ overlay: { type: 'email' } })
+    navigate({ hubActive: false, ...obChatSession(), overlay: { type: 'email' } })
     route = parseRoute()
   }
 
   function openMessageThreadFromChat(canonicalChat: string, displayLabel: string) {
-    navigate({ overlay: { type: 'messages', chat: canonicalChat } })
+    navigate({
+      hubActive: false,
+      ...obChatSession(),
+      overlay: { type: 'messages', chat: canonicalChat },
+    })
     route = parseRoute()
     agentContext = { type: 'messages', chat: canonicalChat, displayLabel }
   }

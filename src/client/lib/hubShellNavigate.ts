@@ -1,9 +1,9 @@
 import { navigate, type NavigateOptions, type Overlay, type Route } from '../router.js'
 
 /**
- * Brain Hub list → detail: push `/hub/…` with `hubActive`.
+ * Brain Hub list → detail: push `/hub?panel=…` with `hubActive`.
  * Wiki uses `replace` when already on a wiki overlay (matches `openWikiDoc` / chat shell).
- * When `hubActive` is false, detail opens on the main chat column (`/wiki/…` etc.), not under `/hub/…`.
+ * When `hubActive` is false, detail opens on the main chat column (`/c?panel=…`), not under `/hub?…`.
  */
 export function applyHubDetailNavigation(
   route: Route,
@@ -19,5 +19,10 @@ export function applyHubDetailNavigation(
   if (wikiLike && effectiveOpts === undefined && routeWikiLike) {
     effectiveOpts = { replace: true }
   }
-  navigate({ overlay, hubActive }, effectiveOpts)
+  navigate(
+    hubActive
+      ? { hubActive: true, overlay }
+      : { hubActive: false, sessionId: route.sessionId, overlay },
+    effectiveOpts,
+  )
 }
