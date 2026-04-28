@@ -1,5 +1,6 @@
 <script lang="ts">
   type Props = {
+    onClosePanel?: () => void
     onOpenWiki?: (_path?: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void

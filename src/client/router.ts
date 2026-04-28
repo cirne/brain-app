@@ -21,6 +21,8 @@ export type Overlay =
   | { type: 'hub-source'; id?: string }
   /** Brain Hub: guided assistant to add local folders to the search index (`/hub-add-folders`). */
   | { type: 'hub-add-folders' }
+  /** Brain Hub: Apple Messages (Mac) sync setup (`/hub-apple-messages`). */
+  | { type: 'hub-apple-messages' }
   /** Brain Hub admin/settings/status page (`/hub`). */
   | { type: 'hub' }
   /** Brain Hub: help copy explaining the private wiki (`/hub/wiki-about`). */
@@ -186,6 +188,9 @@ export function parseRoute(href: string = location.href): Route {
   if (seg1 === 'hub-add-folders') {
     return { overlay: { type: 'hub-add-folders' } }
   }
+  if (seg1 === 'hub-apple-messages') {
+    return { overlay: { type: 'hub-apple-messages' } }
+  }
   if (seg1 === 'phone-access') {
     return { overlay: { type: 'phone-access' } }
   }
@@ -264,6 +269,8 @@ export function routeToUrl(route: Route): string {
     }
   } else if (o.type === 'hub-add-folders') {
     path = '/hub-add-folders'
+  } else if (o.type === 'hub-apple-messages') {
+    path = '/hub-apple-messages'
   } else if (o.type === 'hub') {
     return '/hub'
   } else if (o.type === 'hub-wiki-about') {

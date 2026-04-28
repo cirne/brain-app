@@ -83,4 +83,14 @@ describe('appEvents', () => {
     expect(n).toBe(1)
     unsub()
   })
+
+  it('delivers hub:devices-changed', () => {
+    let n = 0
+    const unsub = subscribe((e) => {
+      if (e.type === 'hub:devices-changed') n++
+    })
+    emit({ type: 'hub:devices-changed' })
+    expect(n).toBe(1)
+    unsub()
+  })
 })

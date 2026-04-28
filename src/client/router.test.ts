@@ -251,6 +251,19 @@ describe('parseRoute hub-source', () => {
       overlay: { type: 'hub-add-folders' },
     })
   })
+
+  it('parses /hub-apple-messages', () => {
+    expect(parseRoute('http://localhost/hub-apple-messages')).toEqual({
+      overlay: { type: 'hub-apple-messages' },
+    })
+  })
+
+  it('parses /hub/hub-apple-messages as hubActive', () => {
+    expect(parseRoute('http://localhost/hub/hub-apple-messages')).toEqual({
+      hubActive: true,
+      overlay: { type: 'hub-apple-messages' },
+    })
+  })
 })
 
 describe('routeToUrl', () => {
@@ -377,6 +390,16 @@ describe('routeToUrl', () => {
   it('hub-add-folders with hubActive returns /hub/hub-add-folders', () => {
     expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-add-folders' } })).toBe(
       '/hub/hub-add-folders',
+    )
+  })
+
+  it('hub-apple-messages returns /hub-apple-messages', () => {
+    expect(routeToUrl({ overlay: { type: 'hub-apple-messages' } })).toBe('/hub-apple-messages')
+  })
+
+  it('hub-apple-messages with hubActive returns /hub/hub-apple-messages', () => {
+    expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-apple-messages' } })).toBe(
+      '/hub/hub-apple-messages',
     )
   })
 

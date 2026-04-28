@@ -88,6 +88,11 @@ export type ConsumeAgentChatStreamOptions = {
   /** Call when mutating nested message state that needs a list identity refresh (matches prior `messages = [...messages]`). */
   touchMessages: () => void
   scrollToBottom: () => void
+  /**
+   * After `finish_conversation` tool completes successfully: main chat starts a new thread;
+   * embedded panel chats (e.g. Hub add-folders) close the panel.
+   */
+  onFinishConversation?: () => void
 }
 
 /**
@@ -111,6 +116,7 @@ export async function consumeAgentChatStream(
     setChatTitle,
     touchMessages,
     scrollToBottom,
+    onFinishConversation,
   } = options
 
   /** Agent tools that auto-open the detail panel must respect this (see `getToolDefinitionCore(name).chat.autoOpen` in `tools/registryCore.ts`). */
@@ -351,6 +357,9 @@ export async function consumeAgentChatStream(
             }
             if (name === 'refresh_sources' && !data.isError) {
               emit({ type: 'hub:sources-changed' })
+            }
+            if (name === 'finish_conversation' && !data.isError) {
+              onFinishConversation?.()
             }
             if (policy.streamToDetail === 'wiki') {
               writePathByToolId.delete(data.id)

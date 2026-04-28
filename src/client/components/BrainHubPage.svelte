@@ -16,6 +16,7 @@
     LogOut,
     Plus,
     Trash2,
+    MessageSquare,
   } from 'lucide-svelte'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
@@ -47,11 +48,6 @@
     scopes: string[]
   }
 
-  type HubDeviceActionState =
-    | { kind: 'adding' }
-    | { kind: 'revoking'; deviceId: string }
-    | { kind: 'wiping' }
-
   type Props = {
     /** All hub drill-downs use the same overlay + `SlideOver` stack as the chat shell. */
     onHubNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
@@ -67,7 +63,6 @@
   let connectedDevices = $state<HubConnectedDevice[]>([])
   let connectedDevicesError = $state<string | null>(null)
   let connectedDevicesLoading = $state(false)
-  let connectedDevicesAction = $state<HubDeviceActionState | null>(null)
   /** Set of IMAP source ids that are excluded from default search (`includeInDefault === false`). */
   let mailHiddenFromDefault = $state<Set<string>>(new Set())
   /** Source id chosen to send from when no source is named (Phase 2). */
@@ -89,10 +84,22 @@
     wikiPhase === 'starting' || wikiPhase === 'enriching' || wikiPhase === 'cleaning',
   )
   const wikiIsPaused = $derived(wikiPhase === 'paused')
-  const connectedDevicesBusy = $derived(connectedDevicesAction !== null)
 
   /** Match BrainHubWidget / Your Wiki header: `pageCount` from the supervisor doc; `/api/wiki` only until events load. */
   const wikiPageCount = $derived(wikiDoc != null ? wikiDoc.pageCount : docCount)
+
+  /** Subtitle for Search index row → Apple Messages panel. */
+  const messagesHubRowSubtitleText = $derived.by(() => {
+    if (connectedDevicesLoading) return 'Loading status…'
+    if (connectedDevicesError) return 'Could not load status'
+    if (connectedDevices.length === 0) return 'Turn on to search Apple Messages in Braintunnel'
+    if (connectedDevices.length === 1) {
+      const d = connectedDevices[0]
+      if (d.lastUsedAt) return `Last activity ${formatRelativeDate(d.lastUsedAt)}`
+      return `Linked ${formatRelativeDate(d.createdAt)} · waiting for first sync`
+    }
+    return `${connectedDevices.length} Macs linked · open to manage`
+  })
 
   function wikiPathBasename(rel: string): string {
     const parts = rel.replace(/\\/g, '/').split('/').filter(Boolean)
@@ -314,110 +321,6 @@
     window.location.assign('/api/oauth/google/link/start')
   }
 
-  function connectedDeviceLastSyncLabel(iso: string | null): string {
-    if (!iso) return 'Last sync: Never'
-    return `Last sync: ${formatRelativeDate(iso)}`
-  }
-
-  function connectedDeviceAddedLabel(iso: string): string {
-    return `Added ${formatRelativeDate(iso)}`
-  }
-
-  function connectedDeviceScopesLabel(scopes: string[]): string {
-    if (!Array.isArray(scopes) || scopes.length === 0) return 'No scopes'
-    return scopes.join(', ')
-  }
-
-  async function readApiError(response: Response, fallback: string): Promise<string> {
-    const j = (await response.json().catch(() => null)) as { error?: string } | null
-    const detail = typeof j?.error === 'string' ? j.error.trim() : ''
-    if (!detail) return fallback
-    return `${fallback} (${detail})`
-  }
-
-  async function addMacAgent() {
-    if (connectedDevicesBusy) return
-    const raw = window.prompt('Optional label for this Mac Agent', '')
-    if (raw == null) return
-    const label = raw.trim()
-    if (label.length > 120) {
-      alert('Label must be 120 characters or fewer.')
-      return
-    }
-    connectedDevicesAction = { kind: 'adding' }
-    try {
-      const res = await fetch('/api/devices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: label ? JSON.stringify({ label }) : '{}',
-      })
-      if (!res.ok) {
-        alert(await readApiError(res, 'Could not add Mac Agent'))
-        return
-      }
-      const j = (await res.json()) as { ok?: boolean; token?: string }
-      if (j.ok !== true || typeof j.token !== 'string' || !j.token) {
-        alert('Could not add Mac Agent')
-        return
-      }
-      await fetchData()
-      alert(`Mac Agent token (shown once):\n\n${j.token}`)
-    } catch {
-      alert('Could not add Mac Agent')
-    } finally {
-      connectedDevicesAction = null
-    }
-  }
-
-  async function revokeDevice(device: HubConnectedDevice) {
-    if (connectedDevicesBusy) return
-    const ok = window.confirm(
-      `Revoke "${device.label}"? This stops iMessage ingest from this device until you add it again.`,
-    )
-    if (!ok) return
-    connectedDevicesAction = { kind: 'revoking', deviceId: device.id }
-    try {
-      const res = await fetch(`/api/devices/${encodeURIComponent(device.id)}`, {
-        method: 'DELETE',
-      })
-      if (!res.ok) {
-        alert(await readApiError(res, 'Could not revoke device'))
-        return
-      }
-      await fetchData()
-    } catch {
-      alert('Could not revoke device')
-    } finally {
-      connectedDevicesAction = null
-    }
-  }
-
-  async function wipeSyncedImessages() {
-    if (connectedDevicesBusy) return
-    const ok = window.confirm(
-      'Delete synced iMessages from Braintunnel now? This removes only locally synced data.',
-    )
-    if (!ok) return
-    connectedDevicesAction = { kind: 'wiping' }
-    try {
-      const res = await fetch('/api/ingest/imessage/wipe', {
-        method: 'POST',
-      })
-      if (!res.ok) {
-        alert(await readApiError(res, 'Could not delete synced iMessages'))
-        return
-      }
-      const j = (await res.json()) as { ok?: boolean; deleted?: number }
-      const deleted = typeof j.deleted === 'number' ? j.deleted : 0
-      await fetchData()
-      alert(`Deleted ${deleted} synced iMessage${deleted === 1 ? '' : 's'}.`)
-    } catch {
-      alert('Could not delete synced iMessages')
-    } finally {
-      connectedDevicesAction = null
-    }
-  }
-
   onMount(() => {
     void fetchVaultStatus()
       .then((v) => {
@@ -442,6 +345,7 @@
     const unsubEvents = subscribe((e) => {
       if (
         e.type === 'hub:sources-changed' ||
+        e.type === 'hub:devices-changed' ||
         e.type === 'wiki:mutated' ||
         e.type === 'sync:completed'
       )
@@ -616,7 +520,8 @@
         <h2>Search index</h2>
       </div>
       <p class="section-lead">
-        Everything Braintunnel searches lives here: mail accounts, calendars, and your documents.
+        Everything Braintunnel searches lives here: mail, calendars, documents on disk, and—on your Mac—Apple Messages
+        you choose to sync.
       </p>
       <div class="index-status-strip" role="status" aria-live="polite">
         {#if mailStatus?.statusError}
@@ -724,91 +629,20 @@
             </div>
             <ChevronRight size={16} aria-hidden="true" />
           </button>
-        {/if}
-      </div>
-    </section>
-
-    <section class="hub-section connected-devices-section" aria-busy={connectedDevicesLoading || connectedDevicesBusy}>
-      <div class="section-header">
-        <Smartphone size={18} />
-        <h2>Connected Devices</h2>
-      </div>
-      <p class="section-lead">
-        Manage Mac Agent tokens for iMessage ingest and remove synced iMessages from this workspace. iMessage sync requires Full Disk Access, and optional name enrichment may request Contacts permission; names are resolved locally before upload.
-      </p>
-      <div class="links-list">
-        <button
-          type="button"
-          class="link-item hub-source-row"
-          onclick={() => void addMacAgent()}
-          disabled={connectedDevicesBusy}
-        >
-          <div class="link-info">
-            <HubSourceRowBody title="Add Mac Agent" subtitle="Create a one-time token for setup">
-              {#snippet icon()}
-                <Plus size={16} />
-              {/snippet}
-            </HubSourceRowBody>
-          </div>
-          <div class="link-status">
-            <span class="status-sub">{connectedDevicesAction?.kind === 'adding' ? 'Creating token…' : 'Optional label'}</span>
-          </div>
-        </button>
-        <button
-          type="button"
-          class="link-item hub-source-row"
-          onclick={() => void wipeSyncedImessages()}
-          disabled={connectedDevicesBusy}
-        >
-          <div class="link-info">
-            <HubSourceRowBody
-              title="Delete synced iMessages"
-              subtitle="Clear local iMessage ingest history for all devices"
-            >
-              {#snippet icon()}
-                <Trash2 size={16} />
-              {/snippet}
-            </HubSourceRowBody>
-          </div>
-          <div class="link-status">
-            <span class="status-sub">{connectedDevicesAction?.kind === 'wiping' ? 'Deleting…' : 'Requires confirmation'}</span>
-          </div>
-        </button>
-        {#if connectedDevicesLoading}
-          <p class="empty-msg">Loading connected devices…</p>
-        {:else if connectedDevicesError}
-          <p class="empty-msg hub-sources-err" title={connectedDevicesError}>Could not load connected devices.</p>
-        {:else if connectedDevices.length === 0}
-          <p class="empty-msg">No connected devices yet.</p>
-        {:else}
-          {#each connectedDevices as device (device.id)}
-            <div class="link-item static hub-device-row">
-              <div class="link-info">
-                <HubSourceRowBody
-                  title={device.label}
-                  subtitle={connectedDeviceLastSyncLabel(device.lastUsedAt)}
-                >
-                  {#snippet icon()}
-                    <Smartphone size={16} />
-                  {/snippet}
-                </HubSourceRowBody>
-              </div>
-              <div class="hub-device-row-meta">
-                <span class="status-sub">{connectedDeviceAddedLabel(device.createdAt)}</span>
-                <span class="status-sub">{connectedDeviceScopesLabel(device.scopes)}</span>
-                <button
-                  type="button"
-                  class="hub-device-revoke"
-                  onclick={() => void revokeDevice(device)}
-                  disabled={connectedDevicesBusy}
-                >
-                  {connectedDevicesAction?.kind === 'revoking' && connectedDevicesAction.deviceId === device.id
-                    ? 'Revoking…'
-                    : 'Revoke'}
-                </button>
-              </div>
+          <button
+            type="button"
+            class="link-item hub-source-row"
+            onclick={() => onHubNavigate({ type: 'hub-apple-messages' })}
+          >
+            <div class="link-info">
+              <HubSourceRowBody title="Apple Messages (this Mac)" subtitle={messagesHubRowSubtitleText}>
+                {#snippet icon()}
+                  <MessageSquare size={16} />
+                {/snippet}
+              </HubSourceRowBody>
             </div>
-          {/each}
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
         {/if}
       </div>
     </section>
@@ -989,42 +823,6 @@
     background: var(--bg-3);
     color: var(--text-2);
     border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  }
-
-  .hub-device-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    column-gap: 1rem;
-  }
-
-  .hub-device-row-meta {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-  }
-
-  .hub-device-revoke {
-    border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--danger);
-    font-size: 0.75rem;
-    font-weight: 650;
-    padding: 0.2rem 0.6rem;
-    cursor: pointer;
-  }
-
-  .hub-device-revoke:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--danger) 12%, transparent);
-  }
-
-  .hub-device-revoke:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
   }
 
   .hub-page {

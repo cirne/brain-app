@@ -11,6 +11,8 @@
     onDismiss,
     onConfirm,
     bodyText = 'Test body',
+    useCustomActions = false,
+    onExtra = () => {},
   }: {
     open: boolean
     title: string
@@ -21,20 +23,42 @@
     onDismiss: () => void
     onConfirm: () => void
     bodyText?: string
+    useCustomActions?: boolean
+    onExtra?: () => void
   } = $props()
 </script>
 
-<ConfirmDialog
-  {open}
-  {title}
-  {titleId}
-  {confirmLabel}
-  {cancelLabel}
-  {confirmVariant}
-  {onDismiss}
-  {onConfirm}
->
-  {#snippet children()}
-    <p>{bodyText}</p>
-  {/snippet}
-</ConfirmDialog>
+{#if useCustomActions}
+  <ConfirmDialog
+    {open}
+    {title}
+    {titleId}
+    {confirmLabel}
+    {cancelLabel}
+    {confirmVariant}
+    {onDismiss}
+    {onConfirm}
+  >
+    {#snippet children()}
+      <p>{bodyText}</p>
+    {/snippet}
+    {#snippet actions()}
+      <button type="button" onclick={onExtra}>Extra</button>
+    {/snippet}
+  </ConfirmDialog>
+{:else}
+  <ConfirmDialog
+    {open}
+    {title}
+    {titleId}
+    {confirmLabel}
+    {cancelLabel}
+    {confirmVariant}
+    {onDismiss}
+    {onConfirm}
+  >
+    {#snippet children()}
+      <p>{bodyText}</p>
+    {/snippet}
+  </ConfirmDialog>
+{/if}

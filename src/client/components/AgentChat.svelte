@@ -66,6 +66,11 @@
      * composer when the thread has messages. Main app: same handler as the top bar / sidebar.
      */
     onUserInitiatedNewChat = undefined as (() => void) | undefined,
+    /**
+     * When set (e.g. Hub “add folders” panel), `finish_conversation` calls this instead of
+     * {@link onUserInitiatedNewChat} — typically close the overlay.
+     */
+    onConversationFinishedByAgent = undefined as (() => void) | undefined,
     /** Active session id changed (new chat, load, or SSE session event). */
     onSessionChange,
     /** After a send() stream finishes (success, error, or abort). */
@@ -138,6 +143,7 @@
     onUserSendMessage?: () => void
     /** Optional; when set, a “new chat” control is shown beside the composer (non-empty thread). */
     onUserInitiatedNewChat?: () => void
+    onConversationFinishedByAgent?: () => void
     onSessionChange?: (_sessionId: string | null) => void
     onChatPersisted?: () => void
     onWriteStreaming?: (_p: { path: string; content: string; done: boolean }) => void
@@ -568,6 +574,10 @@
           sessions = touchSessionImmutable(sessions, activeKey, { messages: next })
         },
         scrollToBottom: () => conversationEl?.scrollToBottomIfFollowing(),
+        onFinishConversation: () => {
+          if (onConversationFinishedByAgent) onConversationFinishedByAgent()
+          else onUserInitiatedNewChat?.()
+        },
       })
       touchedWiki = result.touchedWiki
       sawDone = result.sawDone

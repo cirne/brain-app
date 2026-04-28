@@ -12,6 +12,8 @@
     onDismiss: () => void
     onConfirm: () => void
     children: Snippet
+    /** When set, replaces the default Cancel/Confirm row. Backdrop click and Escape still call `onDismiss`. */
+    actions?: Snippet
   }
 
   let {
@@ -24,6 +26,7 @@
     onDismiss,
     onConfirm,
     children,
+    actions,
   }: Props = $props()
 
   function onWindowKeydown(e: KeyboardEvent) {
@@ -57,17 +60,21 @@
         {@render children()}
       </div>
       <div class="cd-actions">
-        <button type="button" class="cd-btn" onclick={onDismiss}>
-          {cancelLabel}
-        </button>
-        <button
-          type="button"
-          class="cd-btn"
-          class:cd-btn--danger={confirmVariant === 'danger'}
-          onclick={() => onConfirm()}
-        >
-          {confirmLabel}
-        </button>
+        {#if actions}
+          {@render actions()}
+        {:else}
+          <button type="button" class="cd-btn" onclick={onDismiss}>
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            class="cd-btn"
+            class:cd-btn--danger={confirmVariant === 'danger'}
+            onclick={() => onConfirm()}
+          >
+            {confirmLabel}
+          </button>
+        {/if}
       </div>
     </div>
   </div>
@@ -155,5 +162,24 @@
 
   .cd-btn--danger:hover {
     background: color-mix(in srgb, var(--danger) 22%, var(--bg));
+  }
+
+  /* Custom `actions` snippets may render plain buttons from the parent; match chrome. */
+  .cd-actions :global(button) {
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.2;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text);
+    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+  }
+
+  .cd-actions :global(button:hover) {
+    background: var(--bg-2);
   }
 </style>

@@ -31,6 +31,11 @@ export type HubSourcesChangedEvent = {
   type: 'hub:sources-changed'
 }
 
+/** Mac Messages device links changed (add / disconnect / wipe). Brain Hub refetches `/api/devices` for the hub row. */
+export type HubDevicesChangedEvent = {
+  type: 'hub:devices-changed'
+}
+
 /** Sidebar RECENTS (/api/nav/recents) mutated — chat sidebar refetches server list. */
 export type NavRecentsChangedEvent = {
   type: 'nav:recents-changed'
@@ -42,6 +47,7 @@ export type AppEvent =
   | InboxArchivedEvent
   | ChatSessionsChangedEvent
   | HubSourcesChangedEvent
+  | HubDevicesChangedEvent
   | NavRecentsChangedEvent
 
 const listeners = new Set<(event: AppEvent) => void>()

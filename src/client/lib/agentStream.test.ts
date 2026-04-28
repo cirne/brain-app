@@ -597,6 +597,56 @@ describe('consumeAgentChatStream', () => {
     expect(onOpenFromAgent).toHaveBeenCalledWith({ type: 'file', path: '/Users/test/mail.eml' }, 'read_email')
   })
 
+  it('calls onFinishConversation when finish_conversation tool ends successfully', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onFinishConversation = vi.fn()
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"fc1","name":"finish_conversation","args":{},"result":"ok","isError":false}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+      onFinishConversation,
+    })
+    expect(onFinishConversation).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not call onFinishConversation when finish_conversation ends with error', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onFinishConversation = vi.fn()
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"fc1","name":"finish_conversation","args":{},"result":"err","isError":true}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+      onFinishConversation,
+    })
+    expect(onFinishConversation).not.toHaveBeenCalled()
+  })
+
   it('emits hub:sources-changed on manage_sources with add op', async () => {
     vi.mocked(appEvents.emit).mockClear()
     const messages: ChatMessage[] = [

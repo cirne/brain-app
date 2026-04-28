@@ -17,6 +17,7 @@ describe('titleForOverlay', () => {
     { overlay: { type: 'your-wiki' }, expected: 'Your Wiki' },
     { overlay: { type: 'hub-source', id: 'x' }, expected: 'Search index source' },
     { overlay: { type: 'hub-add-folders' }, expected: 'Add folders to index' },
+    { overlay: { type: 'hub-apple-messages' }, expected: 'Apple Messages' },
     { overlay: { type: 'hub-wiki-about' }, expected: 'Your wiki' },
     { overlay: { type: 'calendar' }, expected: 'Calendar' },
     { overlay: { type: 'hub' }, expected: 'Calendar' },

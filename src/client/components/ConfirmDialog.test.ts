@@ -87,4 +87,28 @@ describe('ConfirmDialog.svelte', () => {
     await fireEvent.keyDown(window, { key: 'Escape' })
     expect(onDismiss).toHaveBeenCalled()
   })
+
+  it('renders custom actions instead of default buttons when `actions` snippet is passed', async () => {
+    const onDismiss = vi.fn()
+    const onExtra = vi.fn()
+    const { container } = render(ConfirmDialogHarness, {
+      props: {
+        open: true,
+        title: 'Token',
+        onDismiss,
+        onConfirm: vi.fn(),
+        useCustomActions: true,
+        onExtra,
+      },
+    })
+
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'Extra' }))
+    expect(onExtra).toHaveBeenCalledTimes(1)
+    const backdrop = container.querySelector('.cd-backdrop')
+    expect(backdrop).toBeTruthy()
+    await fireEvent.click(backdrop!)
+    expect(onDismiss).toHaveBeenCalledTimes(1)
+  })
 })

@@ -27,6 +27,7 @@ const ALL_AGENT_TOOL_NAMES = [
   'fetch_page',
   'get_youtube_transcript',
   'youtube_search',
+  'finish_conversation',
   'set_chat_title',
   'open',
   'speak',
@@ -53,6 +54,10 @@ describe('getToolDefinitionCore', () => {
 
   it('hides set_chat_title from transcript', () => {
     expect(getToolDefinitionCore('set_chat_title').chat.showInChat).toBe(false)
+  })
+
+  it('hides finish_conversation from transcript', () => {
+    expect(getToolDefinitionCore('finish_conversation').chat.showInChat).toBe(false)
   })
 
   it('hides speak from transcript', () => {

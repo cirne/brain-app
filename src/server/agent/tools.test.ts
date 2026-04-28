@@ -73,6 +73,7 @@ describe('createAgentTools', () => {
     expect(names).toContain('get_youtube_transcript')
     expect(names).toContain('youtube_search')
     expect(names).toContain('set_chat_title')
+    expect(names).toContain('finish_conversation')
     expect(names).toContain('open')
     expect(names).toContain('speak')
     expect(names).toContain('load_skill')
@@ -144,6 +145,17 @@ describe('createAgentTools', () => {
       const tool = tools.find((t) => t.name === 'set_chat_title')!
       const result = await tool.execute('t-1', { title: '  Planning a trip to Lisbon  ' })
       expect(toolResultFirstText(result)).toContain('Planning a trip to Lisbon')
+    })
+  })
+
+  describe('finish_conversation tool', () => {
+    it('returns ok details for client UI handoff', async () => {
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+      const tool = tools.find((t) => t.name === 'finish_conversation')!
+      const result = await tool.execute('fc-1', {})
+      expect((result.details as { ok?: boolean }).ok).toBe(true)
+      expect(toolResultFirstText(result)).toMatch(/finish/i)
     })
   })
 

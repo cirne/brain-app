@@ -27,6 +27,7 @@
   import HubSourceInspectPanel from '../HubSourceInspectPanel.svelte'
   import HubWikiAboutPanel from '../HubWikiAboutPanel.svelte'
   import HubAddFoldersPanel from '../HubAddFoldersPanel.svelte'
+  import HubAppleMessagesPanel from '../HubAppleMessagesPanel.svelte'
   import WikiFileName from '../WikiFileName.svelte'
   import PaneL2Header from '../PaneL2Header.svelte'
   import type { Overlay, SurfaceContext } from '@client/lib/router.js'
@@ -445,6 +446,7 @@
       <HubWikiAboutPanel />
     {:else if overlay.type === 'hub-add-folders'}
       <HubAddFoldersPanel
+        onClosePanel={onClose}
         onOpenWiki={(path) => {
           if (path) onWikiNavigate(path)
         }}
@@ -455,6 +457,8 @@
         onOpenMessageThread={toolOnOpenMessageThread}
         onOpenWikiAbout={onOpenWikiAbout}
       />
+    {:else if overlay.type === 'hub-apple-messages'}
+      <HubAppleMessagesPanel onClosePanel={onClose} />
     {:else if overlay.type === 'calendar'}
       <Calendar
         refreshKey={calendarRefreshKey}
@@ -947,7 +951,8 @@
   .slide-body :global(.calendar),
   .slide-body :global(.hub-bg-agents-detail),
   .slide-body :global(.hub-source-inspect),
-  .slide-body :global(.hub-add-folders-panel) {
+  .slide-body :global(.hub-add-folders-panel),
+  .slide-body :global(.hub-apple-messages) {
     flex: 1;
     min-height: 0;
   }

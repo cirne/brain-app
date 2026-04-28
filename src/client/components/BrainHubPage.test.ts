@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@client/test/render.js'
+import { render, screen, waitFor, fireEvent } from '@client/test/render.js'
+import { fetchVaultStatus } from '@client/lib/vaultClient.js'
 import BrainHubPage from './BrainHubPage.svelte'
 
 vi.mock('@client/lib/vaultClient.js', async (importOriginal) => {
@@ -53,6 +54,9 @@ function defaultFetchHandler(): typeof fetch {
     }
     if (u.includes('/api/hub/sources')) {
       return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
+    }
+    if (u.includes('/api/devices')) {
+      return Promise.resolve(new Response(JSON.stringify({ ok: true, devices: [] }), { status: 200 }))
     }
     return Promise.resolve(new Response('not found', { status: 404 }))
   }) as unknown as typeof fetch
@@ -166,5 +170,21 @@ describe('BrainHubPage.svelte', () => {
       expect(screen.getByText('Default send')).toBeInTheDocument()
     })
     expect(screen.getByText('Hidden from search')).toBeInTheDocument()
+  })
+
+  it('navigates to Apple Messages panel when the Search index row is clicked (desktop / single-tenant)', async () => {
+    vi.mocked(fetchVaultStatus).mockResolvedValueOnce({
+      vaultExists: true,
+      unlocked: true,
+      multiTenant: false,
+    })
+    const onHubNavigate = vi.fn()
+    render(BrainHubPage, { props: { onHubNavigate } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Apple Messages \(this Mac\)/i })).toBeInTheDocument()
+    })
+    await fireEvent.click(screen.getByRole('button', { name: /Apple Messages \(this Mac\)/i }))
+    expect(onHubNavigate).toHaveBeenCalledWith({ type: 'hub-apple-messages' })
   })
 })

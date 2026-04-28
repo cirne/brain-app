@@ -64,6 +64,7 @@ const TOOL_DISPLAY_LABELS: Record<string, string> = {
   fetch_page: 'Fetch page',
   get_youtube_transcript: 'YouTube transcript',
   youtube_search: 'YouTube search',
+  finish_conversation: 'Finish chat',
   set_chat_title: 'Chat title',
   speak: 'Read aloud',
   open: 'Open',
@@ -125,6 +126,9 @@ const TOOL_REGISTRY: Record<string, ToolRegistryPatch> = {
   },
   youtube_search: {
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.youtube_search,
+  },
+  finish_conversation: {
+    chat: { showInChat: false },
   },
   set_chat_title: {
     chat: { showInChat: false },

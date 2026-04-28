@@ -54,11 +54,13 @@
               onclick={() => onChoice?.(c.submit)}
             >
               <span class="composer-context-chip__label">{c.label}</span>
-              <span class="composer-context-chip__sparkle" aria-hidden="true">
-                <Sparkles size={11} strokeWidth={2.25} />
-              </span>
-              <span class="composer-context-chip__arrow-wrap" aria-hidden="true">
-                <ArrowRight size={10} strokeWidth={2.5} />
+              <span class="composer-context-chip__icon-slot" aria-hidden="true">
+                <span class="composer-context-chip__icon composer-context-chip__icon--arrow">
+                  <ArrowRight size={12} strokeWidth={2.5} />
+                </span>
+                <span class="composer-context-chip__icon composer-context-chip__icon--sparkle">
+                  <Sparkles size={12} strokeWidth={2.25} />
+                </span>
               </span>
             </button>
           {/each}
@@ -147,40 +149,51 @@
     background: color-mix(in srgb, var(--color-accent-dim, rgba(100, 200, 255, 0.15)) 100%, transparent);
   }
 
-  .composer-context-chip--action:hover:not(:disabled) .composer-context-chip__arrow-wrap {
-    opacity: 0.9;
-    transform: translateX(1px);
-    transition:
-      opacity 0.18s ease,
-      transform 0.18s ease;
-  }
-
-  .composer-context-chip__arrow-wrap {
-    display: inline-flex;
+  /**
+   * Single fixed box: arrow by default, sparkle on hover/focus — same footprint so the chip width
+   * does not change.
+   */
+  .composer-context-chip__icon-slot {
+    position: relative;
     flex-shrink: 0;
-    opacity: 0.6;
-    transition:
-      opacity 0.18s ease,
-      transform 0.18s ease;
+    width: var(--composer-context-icon-size, 12px);
+    height: var(--composer-context-icon-size, 12px);
   }
 
-  /** Hidden until hover: tiny “sparkle” affordance without stealing focus from the label. */
-  .composer-context-chip__sparkle {
+  .composer-context-chip__icon {
+    position: absolute;
+    inset: 0;
     display: inline-flex;
     align-items: center;
-    flex-shrink: 0;
-    margin-inline: -0.05rem;
+    justify-content: center;
+    pointer-events: none;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+
+  .composer-context-chip__icon :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .composer-context-chip__icon--arrow {
+    opacity: 0.6;
+  }
+
+  .composer-context-chip__icon--sparkle {
     opacity: 0;
     transform: scale(0.88);
     color: color-mix(in srgb, var(--color-accent, #6cf) 75%, var(--color-foreground, #fff));
     filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent, #6cf) 35%, transparent));
-    transition:
-      opacity 0.2s ease,
-      transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
-    pointer-events: none;
   }
 
-  .composer-context-chip--action:hover:not(:disabled) .composer-context-chip__sparkle {
+  .composer-context-chip--action:is(:hover, :focus-visible):not(:disabled) .composer-context-chip__icon--arrow {
+    opacity: 0;
+  }
+
+  .composer-context-chip--action:is(:hover, :focus-visible):not(:disabled) .composer-context-chip__icon--sparkle {
     opacity: 0.88;
     transform: scale(1);
     animation: composer-context-sparkle-nudge 0.55s ease-out 1 both;
@@ -202,20 +215,44 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .composer-context-chip--action:hover:not(:disabled) .composer-context-chip__sparkle {
+    .composer-context-chip--action:is(:hover, :focus-visible):not(:disabled) .composer-context-chip__icon--sparkle {
       animation: none;
       transform: scale(1);
-    }
-
-    .composer-context-chip--action:hover:not(:disabled) .composer-context-chip__arrow-wrap {
-      transform: none;
     }
   }
 
   .composer-context-chip__label {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 14rem;
+  }
+
+  /* Finger-sized targets on small viewports only (matches `--tab-h` / mobile :root tweaks in style.css). */
+  @media (max-width: 768px) {
+    .composer-context-bar {
+      padding-bottom: 0.625rem;
+    }
+
+    .composer-context-bar__scroll {
+      gap: 0.5rem 0.625rem;
+    }
+
+    .composer-context-bar__scroll--mixed {
+      column-gap: 0.75rem;
+    }
+
+    .composer-context-chip {
+      min-height: 44px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.875rem;
+      line-height: 1.3;
+      gap: 0.45rem;
+    }
+
+    .composer-context-chip__icon-slot {
+      --composer-context-icon-size: 14px;
+    }
   }
 </style>

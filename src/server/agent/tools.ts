@@ -1227,6 +1227,25 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
+  const finishConversation = defineTool({
+    name: 'finish_conversation',
+    label: 'Finish conversation',
+    description:
+      'When the user clearly signals they want to **end this chat** (e.g. "Thanks, that\'s all", "Done", "That\'s everything", "Goodbye", "We\'re done", "No more questions"), call this **once** in that turn **before** your short closing message. The app starts a new chat in the main assistant, or closes an embedded panel assistant (e.g. Brain Hub flows). Do **not** call if they might still need help or are only pausing.',
+    parameters: Type.Object({}),
+    async execute(_toolCallId: string) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Conversation finish signaled; the app will apply the close/new-chat action.',
+          },
+        ],
+        details: { ok: true as const },
+      }
+    },
+  })
+
   const setChatTitle = defineTool({
     name: 'set_chat_title',
     label: 'Set chat title',
@@ -1915,6 +1934,7 @@ Returns the saved text; treat it as active for this session too.`,
     fetchPage,
     getYoutubeTranscript,
     youtubeSearch,
+    finishConversation,
     setChatTitle,
     openTool,
     speakTool,

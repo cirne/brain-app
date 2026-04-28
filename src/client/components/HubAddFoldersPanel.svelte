@@ -17,6 +17,8 @@
     'Reply to confirm which folders to add, adjust the list, or say no…'
 
   type Props = {
+    /** Same as slide-over close (X / mobile back): used when the agent calls `finish_conversation`. */
+    onClosePanel: () => void
     onOpenWiki: (_path: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
@@ -27,6 +29,7 @@
   }
 
   let {
+    onClosePanel,
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
@@ -49,6 +52,7 @@
     autoSendMessage={ADD_FOLDERS_KICKOFF}
     suppressAgentDetailAutoOpen={true}
     hidePaneContextChip={true}
+    onConversationFinishedByAgent={onClosePanel}
     {onOpenWiki}
     {onOpenFile}
     {onOpenEmail}

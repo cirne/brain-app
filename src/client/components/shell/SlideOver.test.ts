@@ -25,6 +25,7 @@ vi.mock('../YourWikiDetail.svelte', () => import('../test-stubs/YourWikiDetailSt
 vi.mock('../HubSourceInspectPanel.svelte', () => import('../test-stubs/HubSourceInspectPanelStub.svelte'))
 vi.mock('../HubWikiAboutPanel.svelte', () => import('../test-stubs/HubWikiAboutPanelStub.svelte'))
 vi.mock('../HubAddFoldersPanel.svelte', () => import('../test-stubs/HubAddFoldersPanelStub.svelte'))
+vi.mock('../HubAppleMessagesPanel.svelte', () => import('../test-stubs/HubAppleMessagesPanelStub.svelte'))
 
 type SlideOverProps = ComponentProps<SlideOver>
 
@@ -134,6 +135,14 @@ describe('SlideOver.svelte', () => {
 
     expect(screen.getByText('Add folders to index')).toBeInTheDocument()
     expect(screen.getByTestId('hub-add-folders-stub')).toBeInTheDocument()
+  })
+
+  it('renders with hub-apple-messages overlay', () => {
+    const props = baseProps({ overlay: { type: 'hub-apple-messages' } })
+    render(SlideOver, { props })
+
+    expect(screen.getByText('Apple Messages')).toBeInTheDocument()
+    expect(screen.getByTestId('hub-apple-messages-stub')).toBeInTheDocument()
   })
 
   it('renders with file overlay', () => {
