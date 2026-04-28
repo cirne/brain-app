@@ -59,6 +59,12 @@ let backoffTimer: ReturnType<typeof setTimeout> | null = null
 /** Whether the user has paused the loop. Read from disk on boot; mutated via pauseYourWiki/resumeYourWiki. */
 let isPaused = false
 
+/** Process exit (SIGINT/SIGTERM): stop the loop without persisting "paused" for the user. */
+let wikiSupervisorShutdownRequested = false
+
+/** AbortController for the in-lap `refreshMailAndWait` call (can run up to 90s). */
+let wikiLapSyncAbort: AbortController | null = null
+
 // ─── Persisted pause state ───────────────────────────────────────────────────
 
 interface PersistedState {
@@ -194,6 +200,38 @@ async function waitForTriggerOrTimeout(ms: number): Promise<void> {
   })
 }
 
+function supervisorStopping(): boolean {
+  return wikiSupervisorShutdownRequested || isPaused
+}
+
+/**
+ * Best-effort: abort in-flight enrich/cleanup/refresh so shutdown can finish without waiting on LLMs
+ * or `ripmail refresh`. Does **not** persist pause state — only for SIGINT/SIGTERM.
+ */
+export function prepareWikiSupervisorShutdown(): void {
+  wikiSupervisorShutdownRequested = true
+  wikiLapSyncAbort?.abort()
+  wikiLapSyncAbort = null
+  cancelBackoff()
+  pauseWikiExpansionRun(YOUR_WIKI_DOC_ID)
+  pauseCleanupSession(YOUR_WIKI_DOC_ID)
+}
+
+/**
+ * After enrich or cleanup: stop the outer loop on shutdown, or handle user pause (`setPhase` /
+ * continue / break) — same logic as the historical duplicate blocks.
+ */
+async function gatePauseOrShutdownAfterAgentPhase(
+  doc: BackgroundRunDoc,
+  lap: number,
+): Promise<'proceed' | 'continue' | 'break'> {
+  if (wikiSupervisorShutdownRequested) return 'break'
+  if (!isPaused) return 'proceed'
+  await setPhase(doc, 'paused', lap, 'Paused')
+  if (!isPaused) return 'continue'
+  return 'break'
+}
+
 /**
  * Start the supervisor if not paused and no loop is running. Schedules a microtask
  * re-check so resume still starts the loop when the previous run is in `finally`
@@ -207,7 +245,7 @@ async function waitForTriggerOrTimeout(ms: number): Promise<void> {
 function kickSupervisorLoop(timezone?: string, tenantForLoop: TenantContext | null = null): void {
   const store = getTenantContextStore()
   const tryStart = (): void => {
-    if (isPaused || loopRunning) return
+    if (loopRunning || supervisorStopping()) return
     const p =
       tenantForLoop != null
         ? store.run(tenantForLoop, () => supervisorLoop(timezone))
@@ -232,7 +270,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
     let lap = doc.lap ?? 0
 
     while (true) {
-      if (isPaused) break
+      if (supervisorStopping()) break
 
       // ── Enrich phase ─────────────────────────────────────────────────────
       lap++
@@ -250,7 +288,9 @@ async function supervisorLoop(timezone?: string): Promise<void> {
       if (!isFirstLap) {
         touchRun(doc, { detail: 'Syncing mail before lap…' })
         await writeBackgroundRun(doc)
-        const syncResult = await refreshMailAndWait(90_000)
+        wikiLapSyncAbort = new AbortController()
+        const syncResult = await refreshMailAndWait(90_000, wikiLapSyncAbort.signal)
+        wikiLapSyncAbort = null
         if (syncResult.ok) {
           syncNote =
             'Mail and calendar sources were synced immediately before this lap. ' +
@@ -261,12 +301,14 @@ async function supervisorLoop(timezone?: string): Promise<void> {
         }
       }
 
+      if (supervisorStopping()) break
+
       const enrichChanges = await runEnrichInvocation(YOUR_WIKI_DOC_ID, doc, { timezone, syncNote })
 
-      if (isPaused) {
-        await setPhase(doc, 'paused', lap, 'Paused')
-        if (!isPaused) continue
-        break
+      {
+        const g = await gatePauseOrShutdownAfterAgentPhase(doc, lap)
+        if (g === 'break') break
+        if (g === 'continue') continue
       }
 
       // ── Cleanup phase ─────────────────────────────────────────────────────
@@ -274,10 +316,10 @@ async function supervisorLoop(timezone?: string): Promise<void> {
 
       const cleanupChanges = await runCleanupInvocation(YOUR_WIKI_DOC_ID, doc, { timezone })
 
-      if (isPaused) {
-        await setPhase(doc, 'paused', lap, 'Paused')
-        if (!isPaused) continue
-        break
+      {
+        const g = await gatePauseOrShutdownAfterAgentPhase(doc, lap)
+        if (g === 'break') break
+        if (g === 'continue') continue
       }
 
       // ── No-op tracking and backoff ────────────────────────────────────────
@@ -306,7 +348,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
 
         await waitForTriggerOrTimeout(NO_OP_BACKOFF_MS[NO_OP_BACKOFF_MS.length - 1])
 
-        if (isPaused) break
+        if (supervisorStopping()) break
 
         // After waking from idle, reset no-op counter and run a fresh lap
         consecutiveNoOpLaps = 0
@@ -330,7 +372,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
         }
 
         await waitForTriggerOrTimeout(backoffMs)
-        if (isPaused) break
+        if (supervisorStopping()) break
       }
     }
   } catch (e) {

@@ -98,6 +98,22 @@ describe('YOUR_WIKI_DOC_ID', () => {
   })
 })
 
+describe('prepareWikiSupervisorShutdown', () => {
+  it('does not persist paused=true (unlike pauseYourWiki)', async () => {
+    await mkdir(join(brainHome, 'your-wiki'), { recursive: true })
+    await writeFile(
+      join(brainHome, 'your-wiki', 'state.json'),
+      JSON.stringify({ paused: false }),
+      'utf-8',
+    )
+    const { prepareWikiSupervisorShutdown } = await import('./yourWikiSupervisor.js')
+    prepareWikiSupervisorShutdown()
+    const raw = await readFile(join(brainHome, 'your-wiki', 'state.json'), 'utf-8')
+    const state = JSON.parse(raw) as { paused: boolean }
+    expect(state.paused).toBe(false)
+  })
+})
+
 describe('lap-level mail refresh', () => {
   it('does not call refreshMailAndWait on the first lap (initial build)', async () => {
     const { pauseYourWiki, ensureYourWikiRunning } = await import('./yourWikiSupervisor.js')

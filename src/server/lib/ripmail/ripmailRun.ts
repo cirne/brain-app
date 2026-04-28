@@ -18,12 +18,26 @@ export const RIPMAIL_SEND_TIMEOUT_MS = 30_000
 
 /** Max chars per stream embedded in JSON diagnostic logs (NR / docker). */
 const RIPMAIL_DIAGNOSTIC_TAIL_CHARS = 6000
+/**
+ * When ripmail is stopped by signal (Ctrl+C, server shutdown, AbortSignal) without a timeout,
+ * stderr can be thousands of lines of sync progress — keep close logs readable.
+ */
+const RIPMAIL_SIGNAL_EXIT_TAIL_CHARS = 480
 
 const tracked = new Set<ChildProcess>()
 
 function tailForDiagnosticLog(s: string, max = RIPMAIL_DIAGNOSTIC_TAIL_CHARS): string {
   if (s.length <= max) return s
   return `\u2026${s.slice(-max)}`
+}
+
+/**
+ * Picks stderr/stdout tail length for ripmail close logs: failures and timeouts stay verbose;
+ * signal exits (shutdown, AbortSignal, Ctrl+C) stay short — refresh can spam huge progress lines.
+ */
+export function diagnosticTailCharBudgetForRipmailClose(signal: RipmailSignal, timedOut: boolean): number {
+  if (signal !== null && !timedOut) return RIPMAIL_SIGNAL_EXIT_TAIL_CHARS
+  return RIPMAIL_DIAGNOSTIC_TAIL_CHARS
 }
 
 let spawnCount = 0
@@ -117,13 +131,13 @@ function formatRipmailCommandLine(parts: string[]): string {
     .join(' ')
 }
 
-/** Ripmail subprocess spawn/close: structured log with shell-style `cmd` for grep. */
+/** Ripmail subprocess spawn/close: structured debug log (avoid noise at default `LOG_LEVEL=info`). */
 function logRipmailLine(payload: Record<string, unknown>): void {
   const argvRaw = payload.argv
   const parts = Array.isArray(argvRaw) ? (argvRaw as string[]) : []
   const cmdLine = parts.length > 0 ? formatRipmailCommandLine(parts) : '(ripmail argv missing)'
   const { argv: _omitArgv, ...meta } = payload
-  logger.info({ cmd: cmdLine, ...meta }, 'ripmail')
+  logger.debug({ cmd: cmdLine, ...meta }, 'ripmail')
 }
 
 /**
@@ -238,8 +252,9 @@ export async function runRipmailArgv(
           stderrChars: stderrLen,
         }
         if (logOutputDiagnostics) {
-          closePayload.stdoutTail = tailForDiagnosticLog(stdout)
-          closePayload.stderrTail = tailForDiagnosticLog(stderr)
+          const tailMax = diagnosticTailCharBudgetForRipmailClose(r.signal, r.timedOut)
+          closePayload.stdoutTail = tailForDiagnosticLog(stdout, tailMax)
+          closePayload.stderrTail = tailForDiagnosticLog(stderr, tailMax)
         }
         if (label === 'status' && r.code === 0 && stdoutLen > 0) {
           closePayload.syncStatus = buildRipmailStatusLogSnapshot(stdout)

@@ -7,8 +7,20 @@ import {
   RipmailNonZeroExitError,
   RipmailTimeoutError,
   getRipmailChildDebugSnapshot,
+  diagnosticTailCharBudgetForRipmailClose,
 } from './ripmailRun.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+
+describe('diagnosticTailCharBudgetForRipmailClose', () => {
+  it('uses a short budget for signal exit without timeout (shutdown / interrupt)', () => {
+    expect(diagnosticTailCharBudgetForRipmailClose('SIGTERM', false)).toBe(480)
+    expect(diagnosticTailCharBudgetForRipmailClose('SIGINT', false)).toBe(480)
+  })
+  it('keeps full budget for timeouts (need stderr hints) or clean exit', () => {
+    expect(diagnosticTailCharBudgetForRipmailClose('SIGKILL', true)).toBe(6000)
+    expect(diagnosticTailCharBudgetForRipmailClose(null, false)).toBe(6000)
+  })
+})
 
 describe('runRipmailArgv', () => {
   let brainHome: string

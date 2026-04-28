@@ -38,7 +38,11 @@ import devicesRoute from './routes/devices.js'
 import ingestRoute from './routes/ingest.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
-import { ensureYourWikiRunning, requestLapNow } from './agent/yourWikiSupervisor.js'
+import {
+  ensureYourWikiRunning,
+  prepareWikiSupervisorShutdown,
+  requestLapNow,
+} from './agent/yourWikiSupervisor.js'
 import { initLocalMessageToolsAvailability } from '@server/lib/apple/imessageDb.js'
 import { runStartupChecks } from '@server/lib/platform/runStartupChecks.js'
 import { ensureBrainHomeGitignore } from '@server/lib/platform/brainHomeGitignore.js'
@@ -61,6 +65,7 @@ import {
   isAddrInUse,
   probeDevPortAvailable,
 } from '@server/lib/platform/devServerDuplicatePort.js'
+import { restoreStdinForShell } from '@server/lib/platform/restoreStdinForShell.js'
 import { newRelicBrainContextMiddleware } from '@server/lib/observability/newRelicBrainContextMiddleware.js'
 import { newRelicHonoTransactionMiddleware } from '@server/lib/observability/newRelicHonoTransaction.js'
 import { fileURLToPath } from 'node:url'
@@ -209,7 +214,26 @@ if (isDev || process.env.BRAIN_DEBUG_CHILDREN === '1') {
 let shuttingDown = false
 let syncTimer: ReturnType<typeof setInterval> | undefined
 
-function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) => void) => void }) {
+/** Grace period after SIGTERM on ripmail children before SIGKILL (keep under tsx watch ~5s exit budget). */
+const RIPMAIL_SHUTDOWN_GRACE_MS = 800
+
+/** Bound `vite.close()` — it can stall on file watchers during interrupt. */
+const VITE_SHUTDOWN_BUDGET_MS = 4500
+
+function registerPeriodicSyncAndShutdown(
+  server: { close: (cb?: (err?: Error) => void) => void } & {
+    closeAllConnections?: () => void
+  },
+  vite?: { close: () => Promise<void> },
+) {
+  /** Last signal requesting shutdown — used for exit code when user forces a second interrupt. */
+  let lastDrainSignal: 'SIGINT' | 'SIGTERM' = 'SIGTERM'
+
+  const forcedExitFromRepeatSignal = (): never => {
+    restoreStdinForShell()
+    // 128+n: POSIX shell convention (e.g. 130 SIGINT, 143 SIGTERM)
+    process.exit(lastDrainSignal === 'SIGTERM' ? 143 : 130)
+  }
   if (!isMultiTenantMode()) {
     const intervalMs = getSyncIntervalMs()
     syncTimer = setInterval(() => {
@@ -234,7 +258,8 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
   }
 
   const shutdown = async () => {
-    if (shuttingDown) return
+    /** Second interrupt while teardown runs — used to noop forever; bail out immediately instead. */
+    if (shuttingDown) forcedExitFromRepeatSignal()
     shuttingDown = true
     if (syncTimer !== undefined) {
       clearInterval(syncTimer)
@@ -244,19 +269,42 @@ function registerPeriodicSyncAndShutdown(server: { close: (cb?: (err?: Error) =>
       stopRipmailBackfillSupervisor()
     }
     stopTunnel()
+    prepareWikiSupervisorShutdown()
     terminateAllTrackedRipmailChildren('SIGTERM')
-    await new Promise((r) => setTimeout(r, 2000))
+    try {
+      if (vite !== undefined) {
+        await Promise.race([
+          vite.close(),
+          new Promise<void>((_, reject) => {
+            setTimeout(
+              () => reject(Object.assign(new Error('vite.shutdown.timeout'), { name: 'ViteShutdownTimeout' })),
+              VITE_SHUTDOWN_BUDGET_MS,
+            )
+          }),
+        ])
+      }
+    } catch {
+      /* ignore — continue to HTTP teardown */
+    }
+    server.closeAllConnections?.()
+    await new Promise((r) => setTimeout(r, RIPMAIL_SHUTDOWN_GRACE_MS))
     terminateAllTrackedRipmailChildren('SIGKILL')
     server.close(() => {
+      restoreStdinForShell()
       process.exit(0)
     })
-    setTimeout(() => process.exit(0), 30_000).unref()
+    setTimeout(() => {
+      restoreStdinForShell()
+      process.exit(0)
+    }, 30_000).unref()
   }
 
   process.on('SIGTERM', () => {
+    lastDrainSignal = 'SIGTERM'
     void shutdown()
   })
   process.on('SIGINT', () => {
+    lastDrainSignal = 'SIGINT'
     void shutdown()
   })
 }
@@ -427,7 +475,7 @@ async function start() {
 
       server.listen(port, '0.0.0.0', () => {
         console.log(`Dev server (Hono + Vite HMR) → http://localhost:${port}`)
-        registerPeriodicSyncAndShutdown(server)
+        registerPeriodicSyncAndShutdown(server, vite)
         void runStartupChecks(port)
         void (async () => {
           const prefs = await readOnboardingPreferences()
