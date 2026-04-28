@@ -73,11 +73,11 @@ describe('navHistory', () => {
   })
 
   describe('addToNavHistory', () => {
-    it('posts item and emits recents-changed on success', async () => {
+    it('posts item and emits recents-changed when server reports updated', async () => {
       const mockFetch = createMockFetch([
         {
           match: (url, init) => url === '/api/nav/recents' && init?.method === 'POST',
-          response: () => jsonResponse({ ok: true }),
+          response: () => jsonResponse({ ok: true, updated: true }),
         },
       ])
       vi.stubGlobal('fetch', mockFetch)
@@ -89,6 +89,34 @@ describe('navHistory', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: 'doc:test', type: 'doc', title: 'Test', path: '/test.md', meta: undefined }),
       })
+      expect(emitSpy).toHaveBeenCalledWith({ type: 'nav:recents-changed' })
+    })
+
+    it('does not emit when server reports duplicate no-op', async () => {
+      const mockFetch = createMockFetch([
+        {
+          match: (url, init) => url === '/api/nav/recents' && init?.method === 'POST',
+          response: () => jsonResponse({ ok: true, updated: false }),
+        },
+      ])
+      vi.stubGlobal('fetch', mockFetch)
+
+      await addToNavHistory({ id: 'doc:test', type: 'doc', title: 'Test', path: '/test.md' })
+
+      expect(emitSpy).not.toHaveBeenCalled()
+    })
+
+    it('emits when response omits updated (older servers)', async () => {
+      const mockFetch = createMockFetch([
+        {
+          match: (url, init) => url === '/api/nav/recents' && init?.method === 'POST',
+          response: () => jsonResponse({ ok: true }),
+        },
+      ])
+      vi.stubGlobal('fetch', mockFetch)
+
+      await addToNavHistory({ id: 'doc:test', type: 'doc', title: 'Test', path: '/test.md' })
+
       expect(emitSpy).toHaveBeenCalledWith({ type: 'nav:recents-changed' })
     })
 

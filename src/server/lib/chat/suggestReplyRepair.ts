@@ -10,7 +10,11 @@ import { applyToolEnd, applyToolStart } from '@server/lib/chat/chatTranscript.js
 import { assistantPartsHaveValidSuggestReply } from '@shared/suggestReplyChoicesCore.js'
 
 const REPAIR_SYSTEM = `You output only a tool call to **suggest_reply_options**. Do not write user-facing prose.
-Given the user message and the assistant answer below, supply 2–5 quick-reply chips: each choice has a short **label** (chip text) and **submit** (full user message when tapped). Make them concrete next steps based on the conversation.`
+Given the user message and the assistant answer below, supply 2–5 quick-reply chips: each choice has a short **label** (chip text) and **submit** (full user message when tapped). Make them concrete next steps based on the conversation.
+
+**Workflow-completion priority:** When the assistant has produced a ready-to-act artifact—an email or message draft, a plan, code, a document, a form, or any output that has a natural "execute" step—always include a chip that completes the action (e.g. "Send it", "Post it", "Run it", "Submit", "Confirm", "Publish"). This chip should appear first or second, before refinement options. Refinement chips (edit, shorten, change tone, etc.) are secondary to execution when the artifact is complete and ready.
+
+**Conversation wrap-up:** When the user's goal is clearly achieved or the conversation is winding down—task completed, question fully answered, user expressed thanks or satisfaction—include a closing chip as the last option: label "That's all, thanks", submit "That's all, thanks". This will trigger the app's finish_conversation flow and open a fresh chat.`
 
 const MAX_USER_CHARS = 4000
 const MAX_ASSISTANT_CHARS = 14000
@@ -158,7 +162,7 @@ export async function runSuggestReplyRepairIfNeeded(options: {
     | undefined
   if (!suggestTool?.execute) return { applied: false }
 
-  const userBody = `### User message\n\n${userT}\n\n### Assistant answer (so far)\n\n${assistantT}\n\nCall **suggest_reply_options** with 2–5 choices.`
+  const userBody = `### User message\n\n${userT}\n\n### Assistant answer (so far)\n\n${assistantT}\n\nCall **suggest_reply_options** with 2–5 choices. If the assistant produced a ready-to-act artifact, put the execution chip first.`
 
   const usageZero: LlmUsageSnapshot = {
     input: 0,

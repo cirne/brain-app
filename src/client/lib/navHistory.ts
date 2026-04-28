@@ -47,7 +47,10 @@ export async function addToNavHistory(item: Omit<NavHistoryItem, 'accessedAt'>):
         meta: item.meta,
       }),
     })
-    if (res.ok) emitRecentsChanged()
+    if (!res.ok) return
+    const j = (await res.json().catch(() => ({}))) as { updated?: boolean }
+    // `updated === false` means duplicate no-op; omit `updated` (older servers) → still notify.
+    if (j.updated !== false) emitRecentsChanged()
   } catch {
     /* ignore */
   }

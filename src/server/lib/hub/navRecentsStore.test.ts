@@ -68,6 +68,25 @@ describe('navRecentsStore', () => {
     })
   })
 
+  it('addNavRecentsItem is a no-op when id and payload unchanged (preserves accessedAt)', async () => {
+    home = join(tmpdir(), `nr-dup-${Date.now()}`)
+    mkdirSync(home, { recursive: true })
+    await runWithTenantContextAsync({ tenantUserId: '_single', workspaceHandle: '_single', homeDir: home }, async () => {
+      const payload = {
+        id: makeNavRecentsId('doc', 'ideas/x.md'),
+        type: 'doc' as const,
+        title: 'ideas/x.md',
+        path: 'ideas/x.md',
+      }
+      expect(await addNavRecentsItem(payload)).toBe(true)
+      const t0 = (await readNavRecents())[0].accessedAt
+      expect(await addNavRecentsItem(payload)).toBe(false)
+      const rows = await readNavRecents()
+      expect(rows).toHaveLength(1)
+      expect(rows[0].accessedAt).toBe(t0)
+    })
+  })
+
   it('writes under var/nav-recents.json', async () => {
     home = join(tmpdir(), `nr-path-${Date.now()}`)
     mkdirSync(home, { recursive: true })

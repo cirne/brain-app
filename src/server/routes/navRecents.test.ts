@@ -42,6 +42,20 @@ describe('GET/POST/DELETE /api/nav/recents', () => {
       }),
     })
     expect(p.status).toBe(200)
+    expect(((await p.json()) as { updated?: boolean }).updated).toBe(true)
+
+    const pDup = await app.request('http://localhost/api/nav/recents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: 'doc:test.md',
+        type: 'doc',
+        title: 'test.md',
+        path: 'test.md',
+      }),
+    })
+    expect(pDup.status).toBe(200)
+    expect(((await pDup.json()) as { updated?: boolean }).updated).toBe(false)
 
     const g1 = await app.request('http://localhost/api/nav/recents')
     expect(g1.status).toBe(200)

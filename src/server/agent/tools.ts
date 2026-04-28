@@ -1595,6 +1595,8 @@ Returns the saved text; treat it as active for this session too.`,
       'Tappable one-tap replies. Use **at most once** per assistant turn when 1–8 concrete next steps help. **Call it after** you have the context for this answer (usually after wiki/mail tools—**later in the turn** gives better labels than the first line before you have checked facts). ' +
       'The UI uses the **last successful** result if the tool is invoked more than once. ' +
       '**label** = chip text; **submit** = full user message on tap. ' +
+      '**Workflow-completion priority:** when you have just produced a ready-to-act artifact—a drafted email or message, a plan, code, a document—always include a chip that executes or delivers it (e.g. "Send it", "Post it", "Run it", "Confirm") as the first or second choice, before refinement chips. ' +
+      '**Conversation wrap-up:** when the user\'s goal is clearly achieved or the conversation is winding down (task done, question answered, user said thanks or expressed satisfaction), include a closing chip such as label "That\'s all, thanks" with submit "That\'s all, thanks" — this triggers `finish_conversation` and starts a fresh chat. Place it last among the chips. ' +
       'Do not type `suggest_reply_options` or `[suggest_reply_options]` in your message. ' +
       '**Never** repeat options as JSON or a duplicate list in prose when chips are used.',
     parameters: Type.Object({

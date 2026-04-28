@@ -30,15 +30,15 @@ app.get('/', async (c: Context) => {
   return c.json(items)
 })
 
-/** POST /api/nav/recents — body: item to add/move to front */
+/** POST /api/nav/recents — body: item to add; duplicate unchanged payload is a no-op (no bump). */
 app.post('/', async (c: Context) => {
   const j = await c.req.json().catch(() => null)
   const item = parseItemBody(j)
   if (!item) {
     return c.json({ error: 'Invalid item' }, 400)
   }
-  await addNavRecentsItem(item)
-  return c.json({ ok: true })
+  const updated = await addNavRecentsItem(item)
+  return c.json({ ok: true, updated })
 })
 
 /** POST /api/nav/recents/upsert-email */

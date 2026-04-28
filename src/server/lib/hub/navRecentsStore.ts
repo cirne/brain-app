@@ -54,12 +54,40 @@ export async function readNavRecents(): Promise<NavRecentsItem[]> {
   return doc.items
 }
 
-export async function addNavRecentsItem(item: Omit<NavRecentsItem, 'accessedAt'>): Promise<void> {
-  const now = new Date().toISOString()
+function navRecentsPayloadEqual(
+  stored: NavRecentsItem,
+  incoming: Omit<NavRecentsItem, 'accessedAt'>,
+): boolean {
+  return (
+    stored.type === incoming.type &&
+    stored.title === incoming.title &&
+    stored.path === incoming.path &&
+    (stored.meta ?? '') === (incoming.meta ?? '')
+  )
+}
+
+/**
+ * Insert or update a recents row. Re-posting the same id with identical fields is a no-op so opening
+ * a doc from the sidebar does not bump `accessedAt` or reorder the list.
+ */
+export async function addNavRecentsItem(item: Omit<NavRecentsItem, 'accessedAt'>): Promise<boolean> {
   const doc = await readFileJson()
-  const filtered = doc.items.filter((x) => x.id !== item.id)
-  const next: NavRecentsItem[] = [{ ...item, accessedAt: now }, ...filtered].slice(0, MAX_ITEMS)
+  const idx = doc.items.findIndex((x) => x.id === item.id)
+  if (idx < 0) {
+    const now = new Date().toISOString()
+    const filtered = doc.items.filter((x) => x.id !== item.id)
+    const next: NavRecentsItem[] = [{ ...item, accessedAt: now }, ...filtered].slice(0, MAX_ITEMS)
+    await writeFileJson({ v: 1, items: next })
+    return true
+  }
+  const cur = doc.items[idx]
+  if (navRecentsPayloadEqual(cur, item)) {
+    return false
+  }
+  const next = [...doc.items]
+  next[idx] = { ...cur, ...item, accessedAt: cur.accessedAt }
   await writeFileJson({ v: 1, items: next })
+  return true
 }
 
 export async function removeNavRecentsItem(id: string): Promise<void> {
