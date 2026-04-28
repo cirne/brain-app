@@ -1,13 +1,30 @@
-import { completeSimple, type AssistantMessage, type Context, type KnownProvider } from '@mariozechner/pi-ai'
+import {
+  completeSimple,
+  type Api,
+  type AssistantMessage,
+  type Context,
+  type KnownProvider,
+  type Message,
+  type Model,
+} from '@mariozechner/pi-ai'
 import { resolveLlmApiKey, resolveModel } from '@server/lib/llm/resolveModel.js'
 import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { loadSession } from '@server/lib/chat/chatStorage.js'
+import {
+  HYDRATION_MAX_CHAT_MESSAGES,
+  persistedChatMessagesToAgentMessages,
+} from '@server/lib/chat/persistedChatToAgentMessages.js'
 import { parseSuggestionSetFromLlmText, type SuggestionSet } from '@shared/suggestions.js'
+import { buildOnboardingInterviewSystemPrompt, peekOnboardingInterviewAgent } from '@server/agent/onboardingInterviewAgent.js'
+import { fetchRipmailWhoamiForProfiling } from '@server/agent/profilingAgent.js'
+import { resolveOnboardingSessionTimezone } from '@server/agent/agentFactory.js'
 
-const MAX_TRANSCRIPT_CHARS = 14_000
-
-const SYSTEM_PROMPT = `You help render UI “next step” controls for a guided onboarding chat.
+/**
+ * Internal user turn appended after the real interview transcript. Not shown in the UI.
+ * Former standalone system prompt — kept verbatim so output validation stays identical.
+ */
+export const ONBOARDING_SUGGESTION_META_USER_BODY = `You help render UI “next step” controls for a guided onboarding chat.
 Return ONLY valid JSON — no markdown fences, no commentary before or after.
 
 The JSON must be exactly one of:
@@ -27,6 +44,15 @@ Rules:
 - **composerPlaceholder**: ≤200 characters; conversational stem, not a full sentence unless appropriate.
 - Duplicate labels (case-insensitive) are forbidden within one control set.`
 
+/** Meta user message appended after the interview transcript for the suggestion-only completion (no tools). */
+export function onboardingSuggestionMetaUserMessage(): Message {
+  return {
+    role: 'user',
+    content: [{ type: 'text', text: ONBOARDING_SUGGESTION_META_USER_BODY }],
+    timestamp: Date.now(),
+  }
+}
+
 function assistantTextFromMessage(m: ChatMessage): string {
   const chunks: string[] = []
   if (m.parts) {
@@ -39,6 +65,7 @@ function assistantTextFromMessage(m: ChatMessage): string {
   return chunks.join('\n\n').trim()
 }
 
+/** Legacy markdown transcript helper — kept for tests and any future tooling. */
 export function formatTranscriptForOnboardingSuggestions(messages: ChatMessage[]): string {
   const lines: string[] = []
   for (const m of messages) {
@@ -57,51 +84,78 @@ function extractTextFromAssistantMessage(msg: AssistantMessage): string {
   return parts?.map((p) => p.text).join('').trim() ?? ''
 }
 
-/**
- * Plain LLM completion — no agent, no tools. Loads session by id and returns validated {@link SuggestionSet}.
- */
-export async function fetchOnboardingSuggestionsForSession(sessionId: string): Promise<SuggestionSet | null> {
-  const doc = await loadSession(sessionId)
-  if (!doc?.messages?.length) return null
-
-  let transcript = formatTranscriptForOnboardingSuggestions(doc.messages)
-  if (transcript.length > MAX_TRANSCRIPT_CHARS) {
-    transcript = `${transcript.slice(0, MAX_TRANSCRIPT_CHARS)}\n\n[transcript truncated]`
-  }
-  if (!transcript.trim()) return null
-
+/** Used only when the interview Agent is not in memory — respects `BRAIN_ONBOARDING_SUGGESTIONS_*` / default LLM env. */
+function resolveFallbackModel(): Model<Api> | undefined {
   const provider = (process.env.BRAIN_ONBOARDING_SUGGESTIONS_PROVIDER?.trim() ||
     process.env.LLM_PROVIDER ||
     'openai') as KnownProvider
   const modelId =
     process.env.BRAIN_ONBOARDING_SUGGESTIONS_MODEL?.trim() || process.env.LLM_MODEL || 'gpt-5.4-mini'
-  const model = resolveModel(provider, modelId)
-  if (!model) return null
+  return resolveModel(provider, modelId)
+}
 
-  const apiKey = resolveLlmApiKey(provider)
+export type FetchOnboardingSuggestionsOptions = {
+  /** IANA TZ from client — matches interview session when reconstructing system prompt from storage. */
+  timezone?: string
+}
+
+/**
+ * Plain LLM completion — no agent tools on this call. Prefers the live interview {@link Agent} transcript
+ * + identical system prompt for provider prefix alignment; falls back to hydrated storage + rebuilt interview system prompt.
+ *
+ * On the live-agent path, uses {@link Agent.state.model}. Fallback uses `BRAIN_ONBOARDING_SUGGESTIONS_*` / default LLM env.
+ */
+export async function fetchOnboardingSuggestionsForSession(
+  sessionId: string,
+  options: FetchOnboardingSuggestionsOptions = {},
+): Promise<SuggestionSet | null> {
+  const doc = await loadSession(sessionId)
+  if (!doc?.messages?.length) return null
+
+  const meta = onboardingSuggestionMetaUserMessage()
+  const agent = peekOnboardingInterviewAgent(sessionId)
+
+  let context: Context
+  let model: Model<Api>
+
+  if (agent) {
+    await agent.waitForIdle()
+    // Same model as the interview thread — improves prefix alignment vs overriding with BRAIN_ONBOARDING_SUGGESTIONS_*.
+    model = agent.state.model
+    context = {
+      systemPrompt: agent.state.systemPrompt,
+      messages: [...agent.state.messages, meta] as Message[],
+    }
+  } else {
+    const fallbackModel = resolveFallbackModel()
+    if (!fallbackModel) return null
+    model = fallbackModel
+    const tz = resolveOnboardingSessionTimezone('interview', options.timezone)
+    const ripmailWhoami = await fetchRipmailWhoamiForProfiling()
+    const systemPrompt = buildOnboardingInterviewSystemPrompt(tz, ripmailWhoami)
+    const hydrated = persistedChatMessagesToAgentMessages(doc.messages, {
+      maxMessages: HYDRATION_MAX_CHAT_MESSAGES,
+    })
+    context = {
+      systemPrompt,
+      messages: [...hydrated, meta] as Message[],
+    }
+  }
+
+  const apiKey = resolveLlmApiKey(String(model.provider))
   if (apiKey == null || apiKey === '') return null
 
-  const userBody = `## Conversation (most recent messages last)\n\n${transcript}\n\nReturn JSON only as specified in your system instructions.`
-
-  const context: Context = {
-    systemPrompt: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: [{ type: 'text', text: userBody }],
-        timestamp: Date.now(),
-      },
-    ],
-  }
+  const modelIdForTelemetry = typeof model.id === 'string' ? model.id : 'suggestions'
 
   try {
     const assistantMsg = await completeSimple(model, context, {
       apiKey,
       maxTokens: 2_000,
       signal: AbortSignal.timeout(90_000),
+      sessionId,
       onPayload: (params, m) =>
         chainLlmOnPayload(params, {
-          id: typeof m.id === 'string' ? m.id : modelId,
+          id: typeof m.id === 'string' ? m.id : modelIdForTelemetry,
           reasoning: m.reasoning,
           provider: model.provider,
         }),

@@ -51,6 +51,11 @@ export function buildOnboardingInterviewSystemPrompt(timezone: string, ripmailWh
 
 const interviewSessions = new Map<string, Agent>()
 
+/** In-memory interview agent when present — does **not** create or fetch whoami. */
+export function peekOnboardingInterviewAgent(sessionId: string): Agent | undefined {
+  return interviewSessions.get(sessionId)
+}
+
 export async function getOrCreateOnboardingInterviewAgent(
   sessionId: string,
   options: { timezone?: string } = {},

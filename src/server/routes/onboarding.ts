@@ -376,7 +376,8 @@ onboarding.post('/suggestions', async (c) => {
   if (!sessionId) {
     return c.json({ error: 'sessionId is required' }, 400)
   }
-  const suggestions: SuggestionSet | null = await fetchOnboardingSuggestionsForSession(sessionId)
+  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
+  const suggestions: SuggestionSet | null = await fetchOnboardingSuggestionsForSession(sessionId, { timezone })
   return c.json({ suggestions })
 })
 
