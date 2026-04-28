@@ -19,7 +19,6 @@
   } = $props()
 
   const show = $derived(files.length > 0 || choices.length > 0)
-  const mixed = $derived(files.length > 0 && choices.length > 0)
 </script>
 
 {#if show}
@@ -29,9 +28,9 @@
     aria-label="Referenced pages and suggested replies"
     data-testid="composer-context-bar"
   >
-    <div class="composer-context-bar__scroll" class:composer-context-bar__scroll--mixed={mixed}>
-      {#if files.length > 0}
-        <div class="composer-context-bar__group" role="group" aria-label="Referenced pages">
+    {#if files.length > 0}
+      <div class="composer-context-bar__refs-wrap">
+        <div class="composer-context-bar__refs" role="group" aria-label="Referenced pages">
           {#each files as path (path)}
             <button
               type="button"
@@ -42,31 +41,31 @@
             </button>
           {/each}
         </div>
-      {/if}
+      </div>
+    {/if}
 
-      {#if choices.length > 0}
-        <div class="composer-context-bar__group" role="group" aria-label="Suggested replies">
-          {#each choices as c, idx (c.id ?? `${idx}-${c.label}`)}
-            <button
-              type="button"
-              class="composer-context-chip composer-context-chip--action"
-              disabled={choicesDisabled || !onChoice}
-              onclick={() => onChoice?.(c.submit)}
-            >
-              <span class="composer-context-chip__label">{c.label}</span>
-              <span class="composer-context-chip__icon-slot" aria-hidden="true">
-                <span class="composer-context-chip__icon composer-context-chip__icon--arrow">
-                  <ArrowRight size={12} strokeWidth={2.5} />
-                </span>
-                <span class="composer-context-chip__icon composer-context-chip__icon--sparkle">
-                  <Sparkles size={12} strokeWidth={2.25} />
-                </span>
+    {#if choices.length > 0}
+      <div class="composer-context-bar__actions" role="group" aria-label="Suggested replies">
+        {#each choices as c, idx (c.id ?? `${idx}-${c.label}`)}
+          <button
+            type="button"
+            class="composer-context-chip composer-context-chip--action"
+            disabled={choicesDisabled || !onChoice}
+            onclick={() => onChoice?.(c.submit)}
+          >
+            <span class="composer-context-chip__label">{c.label}</span>
+            <span class="composer-context-chip__icon-slot" aria-hidden="true">
+              <span class="composer-context-chip__icon composer-context-chip__icon--arrow">
+                <ArrowRight size={12} strokeWidth={2.5} />
               </span>
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </div>
+              <span class="composer-context-chip__icon composer-context-chip__icon--sparkle">
+                <Sparkles size={12} strokeWidth={2.25} />
+              </span>
+            </span>
+          </button>
+        {/each}
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -78,7 +77,38 @@
     min-height: 0;
   }
 
-  .composer-context-bar__scroll {
+  .composer-context-bar__refs-wrap {
+    overflow: hidden;
+  }
+
+  /**
+   * Fade the right edge of the refs row (alpha mask), not a solid overlay — avoids wrong
+   * theme colors: `--color-background` / `--color-surface-1` are not defined in style.css,
+   * so the old gradient fell through to `#111` and looked black in light mode.
+   */
+  .composer-context-bar__refs {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.375rem 0.5rem;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      #000 0%,
+      #000 calc(100% - 2rem),
+      transparent 100%
+    );
+    mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 2rem), transparent 100%);
+  }
+
+  .composer-context-bar__refs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .composer-context-bar__actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -86,20 +116,8 @@
     max-width: 100%;
   }
 
-  /**
-   * Doc vs action chips are told apart by surface + border (no pipe). When both exist,
-   * a touch more horizontal gap separates the two runs without forcing a second row.
-   */
-  .composer-context-bar__scroll--mixed {
-    column-gap: 0.625rem;
-  }
-
-  /**
-   * `display: contents` lets each chip participate in the parent flex row so wrapping
-   * is per-chip, not “all actions on the next line” when the doc group is wide.
-   */
-  .composer-context-bar__group {
-    display: contents;
+  .composer-context-bar__actions:not(:first-child) {
+    margin-top: 0.375rem;
   }
 
   .composer-context-chip {
@@ -128,6 +146,7 @@
   .composer-context-chip--doc {
     background: var(--color-surface-3, #2a2a2a);
     color: inherit;
+    flex-shrink: 0;
   }
 
   /** Doc chips: hover = ring/outline only so they stay visually distinct from accent-filled actions. */
@@ -235,12 +254,9 @@
       padding-bottom: 0.625rem;
     }
 
-    .composer-context-bar__scroll {
+    .composer-context-bar__refs,
+    .composer-context-bar__actions {
       gap: 0.5rem 0.625rem;
-    }
-
-    .composer-context-bar__scroll--mixed {
-      column-gap: 0.75rem;
     }
 
     .composer-context-chip {

@@ -51,7 +51,7 @@
     shouldReplaceWikiOverlay,
   } from '@client/lib/assistantShellNavigation.js'
   import { waitUntilDefinedOrMaxTicks } from '@client/lib/async/waitUntilReady.js'
-  import { createAssistantShellState } from '@client/lib/assistantShellModel.js'
+  import { alignShellWithBareChatRoute, createAssistantShellState } from '@client/lib/assistantShellModel.js'
   import { createShellNavigate } from '@client/lib/assistantShellNavigate.js'
   import { emptyAssistantRefs } from './assistantShellRefs.js'
 
@@ -276,10 +276,7 @@
       navigateShell({ hubActive: false, ...chatSessionPart() }, { replace: true })
     }
     shell.route = parseRoute()
-    shell.agentContext = { type: 'chat' }
-    shell.inboxTargetId = undefined
-    shell.wikiWriteStreaming = null
-    shell.wikiEditStreaming = null
+    alignShellWithBareChatRoute(shell)
   }
 
   function hubActiveForOpenOverlay(overlay: Overlay): boolean {
@@ -306,10 +303,7 @@
     if (!useDesktopSplitDetail && shell.route.overlay) {
       navigateShell({ hubActive: false, ...chatSessionPart() }, { replace: true })
       shell.route = parseRoute()
-      shell.agentContext = { type: 'chat' }
-      shell.inboxTargetId = undefined
-      shell.wikiWriteStreaming = null
-      shell.wikiEditStreaming = null
+      alignShellWithBareChatRoute(shell)
     }
   }
 
@@ -540,10 +534,7 @@
     shell.chatTitleForUrl = title?.trim() ? title.trim() : null
     navigateShell({ hubActive: false, sessionId: id }, { replace: true })
     shell.route = parseRoute()
-    shell.agentContext = { type: 'chat' }
-    shell.inboxTargetId = undefined
-    shell.wikiWriteStreaming = null
-    shell.wikiEditStreaming = null
+    alignShellWithBareChatRoute(shell)
     const chat = await waitUntilDefinedOrMaxTicks({
       get: () => refs.agentChat,
       tick,
@@ -568,6 +559,7 @@
     shell.chatTitleForUrl = null
     navigateShell({ hubActive: false }, { replace: true })
     shell.route = parseRoute()
+    alignShellWithBareChatRoute(shell)
     refs.agentChat?.newChat()
     shell.chatIsEmpty = true
     if (shell.isMobile) shell.sidebarOpen = false

@@ -28,6 +28,18 @@ export type AssistantShellState = {
   workspaceColumnWidth: number
 }
 
+/**
+ * Align agent surface with a bare `/c` route (no wiki/email/calendar overlay in the URL).
+ * Call when stripping `?panel=` or navigating to empty chat (`⌘N`, delete-chat → new chat)
+ * so the composer placeholder and first-turn `POST /api/chat` context match what the user sees.
+ */
+export function alignShellWithBareChatRoute(shell: AssistantShellState): void {
+  shell.agentContext = { type: 'chat' }
+  shell.inboxTargetId = undefined
+  shell.wikiWriteStreaming = null
+  shell.wikiEditStreaming = null
+}
+
 export function createAssistantShellState(): AssistantShellState {
   return {
     route: parseRoute(),

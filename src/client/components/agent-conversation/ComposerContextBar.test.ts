@@ -55,8 +55,16 @@ describe('ComposerContextBar.svelte', () => {
 
     const bar = screen.getByTestId('composer-context-bar')
     expect(bar.textContent).not.toContain('|')
-    expect(screen.getByRole('group', { name: /referenced pages/i })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: /suggested replies/i })).toBeInTheDocument()
+
+    const refsGroup = screen.getByRole('group', { name: /referenced pages/i })
+    const actionsGroup = screen.getByRole('group', { name: /suggested replies/i })
+    expect(refsGroup).toHaveClass('composer-context-bar__refs')
+    expect(actionsGroup).toHaveClass('composer-context-bar__actions')
+
+    const children = Array.from(bar.children)
+    expect(children).toHaveLength(2)
+    expect(children[0]).toHaveClass('composer-context-bar__refs-wrap')
+    expect(children[1]).toHaveClass('composer-context-bar__actions')
   })
 
   it('disables action chips when choicesDisabled is true', () => {

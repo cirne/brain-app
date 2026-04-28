@@ -7,6 +7,17 @@
 # `node /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs` in-container — see OPP-051.
 # syntax=docker/dockerfile:1
 
+# Stage 1: production node_modules only — layer hash is stable across web-app-only changes
+# because it only runs npm ci --omit=dev and is keyed purely on package-lock.json.
+FROM node:24-bookworm AS prod-deps
+WORKDIR /app
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# Stage 2: full dev-dep install + build
 FROM node:24-bookworm AS node-builder
 WORKDIR /app
 RUN apt-get update \
@@ -25,9 +36,12 @@ RUN apt-get update \
 ENV NODE_ENV=production
 ENV PORT=4000
 COPY newrelic.cjs ./newrelic.cjs
-COPY --from=node-builder /app/dist ./dist
-COPY --from=node-builder /app/node_modules ./node_modules
+# node_modules from prod-deps stage: stable registry layer, only changes when package-lock.json changes.
+# Must come before dist so it stays cached when only the web app build changes.
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=node-builder /app/package.json ./package.json
+# dist is the only volatile layer on web-app-only deploys — kept last so it lands on top.
+COPY --from=node-builder /app/dist ./dist
 # OPP-051: optional Enron demo seed CLI (no corpus in image — run with BRAIN_DATA_ROOT + EVAL_ENRON_TAR).
 COPY scripts/eval/enronKeanIngest.mjs /app/seed-enron/scripts/eval/enronKeanIngest.mjs
 COPY scripts/eval/evalBrainCommon.mjs /app/seed-enron/scripts/eval/evalBrainCommon.mjs
