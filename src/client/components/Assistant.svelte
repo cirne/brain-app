@@ -81,6 +81,20 @@
   /** Invalidates in-flight `loadSession` when the bar’s `/c/:id` changes again (back/forward). */
   let urlSessionSyncGen = 0
 
+  /** Cosmetic slug for UUID sessions in the bar; canonical id is the `--` + hex tail only. */
+  let chatTitleForUrl = $state<string | null>(null)
+
+  function optsWithBarTitle(opts?: NavigateOptions): NavigateOptions {
+    const title =
+      opts && 'chatTitleForUrl' in opts ? opts.chatTitleForUrl : chatTitleForUrl
+    return { ...opts, chatTitleForUrl: title ?? undefined }
+  }
+
+  /** Like `navigate` but merges {@link chatTitleForUrl} for `/c/{slug}--{uuid}` URLs. */
+  function navigateShell(route: Route, opts?: NavigateOptions) {
+    navigate(route, optsWithBarTitle(opts))
+  }
+
   /** Preserve `/c/:sessionId` when opening overlays from the chat column. */
   function chatSessionPart(): Pick<Route, 'sessionId'> {
     if (route.hubActive) return {}
@@ -244,9 +258,9 @@
 
   function closeOverlayImmediate() {
     if (route.hubActive) {
-      navigate({ hubActive: true }, { replace: true })
+      navigateShell({ hubActive: true }, { replace: true })
     } else {
-      navigate({ hubActive: false, ...chatSessionPart() }, { replace: true })
+      navigateShell({ hubActive: false, ...chatSessionPart() }, { replace: true })
     }
     route = parseRoute()
     agentContext = { type: 'chat' }
@@ -287,7 +301,7 @@
   function closeOverlayOnUserSend() {
     chatIsEmpty = false
     if (!useDesktopSplitDetail && route.overlay) {
-      navigate({ hubActive: false, ...chatSessionPart() }, { replace: true })
+      navigateShell({ hubActive: false, ...chatSessionPart() }, { replace: true })
       route = parseRoute()
       agentContext = { type: 'chat' }
       inboxTargetId = undefined
@@ -305,7 +319,7 @@
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = wikiOverlayReplace()
     const hubActive = hubActiveForOpenOverlay(overlay)
-    navigate(
+    navigateShell(
       {
         overlay,
         hubActive,
@@ -328,7 +342,7 @@
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = wikiOverlayReplace()
     const hubActive = hubActiveForOpenOverlay(overlay)
-    navigate(
+    navigateShell(
       {
         overlay,
         hubActive,
@@ -344,7 +358,7 @@
     const overlay: Overlay = trimmed ? { type: 'wiki-dir', path: trimmed } : { type: 'wiki-dir' }
     const replace = wikiOverlayReplace()
     const hubActive = hubActiveForOpenOverlay(overlay)
-    navigate(
+    navigateShell(
       {
         overlay,
         hubActive,
@@ -357,7 +371,7 @@
 
   function openFileDoc(path: string) {
     const hubActive = hubActiveForOpenOverlay({ type: 'file', path })
-    navigate({
+    navigateShell({
       overlay: { type: 'file', path },
       hubActive,
       ...(hubActive ? {} : chatSessionPart()),
@@ -374,7 +388,7 @@
   function onInboxNavigateSlide(id: string | undefined) {
     const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
     const hubActive = hubActiveForOpenOverlay(overlay)
-    navigate({
+    navigateShell({
       overlay,
       hubActive,
       ...(hubActive ? {} : chatSessionPart()),
@@ -384,7 +398,7 @@
 
   function switchToCalendar(date: string, eventId?: string) {
     const hubActive = route.hubActive || route.overlay?.type === 'hub'
-    navigate({
+    navigateShell({
       overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) },
       hubActive,
       ...(hubActive ? {} : chatSessionPart()),
@@ -414,7 +428,7 @@
   function openEmailFromSearch(id: string, subject: string, from: string) {
     inboxTargetId = id
     const hubActive = hubActiveForOpenOverlay({ type: 'email', id })
-    navigate({
+    navigateShell({
       overlay: { type: 'email', id },
       hubActive,
       ...(hubActive ? {} : chatSessionPart()),
@@ -432,12 +446,12 @@
 
   function openFullInboxFromChat() {
     inboxTargetId = undefined
-    navigate({ hubActive: false, ...chatSessionPart(), overlay: { type: 'email' } })
+    navigateShell({ hubActive: false, ...chatSessionPart(), overlay: { type: 'email' } })
     route = parseRoute()
   }
 
   function openMessageThreadFromChat(canonicalChat: string, displayLabel: string) {
-    navigate({
+    navigateShell({
       overlay: { type: 'messages', chat: canonicalChat },
       hubActive: route.hubActive === true,
       ...(route.hubActive ? {} : chatSessionPart()),
@@ -449,7 +463,7 @@
   /** Brain Hub rows → same detail stack as chat (`SlideOver` + `Overlay`). */
   function navigateFromHub(overlay: Overlay, opts?: NavigateOptions) {
     const hubActive = !isMobile || !overlaySupportsMobileChatBridge(overlay)
-    applyHubDetailNavigation(route, overlay, opts, hubActive)
+    applyHubDetailNavigation(route, overlay, optsWithBarTitle(opts), hubActive)
     route = parseRoute()
     if (overlay.type === 'wiki' && overlay.path) {
       void addToNavHistory({
@@ -514,8 +528,9 @@
     if (sidebarOpen) void chatHistory?.refresh()
   }
 
-  async function selectChatSession(id: string) {
-    navigate({ hubActive: false, sessionId: id }, { replace: true })
+  async function selectChatSession(id: string, title?: string) {
+    chatTitleForUrl = title?.trim() ? title.trim() : null
+    navigateShell({ hubActive: false, sessionId: id }, { replace: true })
     route = parseRoute()
     agentContext = { type: 'chat' }
     inboxTargetId = undefined
@@ -543,7 +558,8 @@
   }
 
   function historyNewChat() {
-    navigate({ hubActive: false }, { replace: true })
+    chatTitleForUrl = null
+    navigateShell({ hubActive: false }, { replace: true })
     route = parseRoute()
     agentChat?.newChat()
     chatIsEmpty = true
@@ -552,7 +568,7 @@
 
   /** Empty-state “your wiki” → same help as Hub (`HubWikiAboutPanel` in SlideOver / mobile stack). */
   function openHubWikiAbout() {
-    navigate({
+    navigateShell({
       overlay: { type: 'hub-wiki-about' },
       hubActive: route.hubActive === true,
       ...(route.hubActive ? {} : chatSessionPart()),
@@ -561,7 +577,7 @@
   }
 
   function openChatHistoryPage() {
-    navigate({
+    navigateShell({
       overlay: { type: 'chat-history' },
       hubActive: route.hubActive === true,
       ...(route.hubActive ? {} : chatSessionPart()),
@@ -569,16 +585,21 @@
     route = parseRoute()
   }
 
-  function onSessionChangeFromAgent(id: string | null) {
+  function onSessionChangeFromAgent(id: string | null, meta?: { chatTitle?: string | null }) {
     activeSessionId = id
-    if (route.flow || route.hubActive === true) return
-    if (id && id !== route.sessionId) {
-      navigate(
-        { hubActive: false, sessionId: id, overlay: route.overlay },
-        { replace: true },
-      )
-      route = parseRoute()
+    if (!id) {
+      chatTitleForUrl = null
+      return
     }
+    if (meta?.chatTitle !== undefined) {
+      chatTitleForUrl = meta.chatTitle
+    }
+    if (route.flow || route.hubActive === true) return
+    navigateShell(
+      { hubActive: false, sessionId: id, overlay: route.overlay },
+      { replace: true },
+    )
+    route = parseRoute()
   }
 
   $effect(() => {
@@ -611,7 +632,7 @@
   }
 
   function openHubToHandleSection() {
-    navigate({ hubActive: true })
+    navigateShell({ hubActive: true })
     route = parseRoute()
     void tick().then(() => {
       document.getElementById('hub-account-top')?.scrollIntoView({
@@ -651,7 +672,7 @@
     onOpenSearch={() => { showSearch = true }}
     onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
     onOpenHub={() => {
-      navigate({ hubActive: true })
+      navigateShell({ hubActive: true })
       route = parseRoute()
     }}
     onNewChat={historyNewChat}

@@ -52,11 +52,11 @@ This document is the **parity matrix** and **product/engineering decisions** for
 
 ## SPA route parity
 
-Primary + overlay URLs are documented in [runtime-and-routes.md](./runtime-and-routes.md) (`/c`, `/c/:sessionId`, `/hub`, `?panel=…`). Hosted parity is behavioral (same router bundle), not a second path scheme.
+Primary + overlay URLs are documented in [runtime-and-routes.md](./runtime-and-routes.md) (`/c`, `/c/{slug}--{uuidHex}`, `/hub`, `?panel=…`). Hosted parity is behavioral (same router bundle), not a second path scheme.
 
 | Pattern | Cloud v1 | Notes |
 |---------|----------|-------|
-| `/c`, `/c/:sessionId` | **Supported** | Chat main pane; overlays via `?panel=` + payload keys. |
+| `/c`, `/c/…` (chat segment; UUID chats use `slug--hex`) | **Supported** | Chat main pane; overlays via `?panel=` + payload keys. |
 | `/hub?…` | **Supported** | Hub main + optional `panel=` overlay; Gmail **link-account** banners use `addedAccount` / `addAccountError` on `/hub` (see [google-oauth.md](../google-oauth.md)). |
 | `/welcome`, `/demo`, dev flows | **Supported** | Same as desktop SPA. |
 | Legacy path-shaped overlays (`/wiki/…`, `/inbox`, …) | **Removed** | Clean break; use `?panel=` on `/c` or `/hub`. |

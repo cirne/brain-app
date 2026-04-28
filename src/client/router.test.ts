@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { parseRoute, routeToUrl, contextToString, navigate, type SurfaceContext } from './router.js'
+import {
+  parseRoute,
+  routeToUrl,
+  contextToString,
+  navigate,
+  slugifyChatTitleForUrl,
+  type SurfaceContext,
+  type RouteUrlOpts,
+} from './router.js'
 
 function stubHistory(pushState: ReturnType<typeof vi.fn>, replaceState: ReturnType<typeof vi.fn>) {
   vi.stubGlobal(
@@ -81,8 +89,26 @@ describe('parseRoute', () => {
     expect(parseRoute('http://localhost/c/')).toEqual({})
   })
 
-  it('/c/:sessionId carries sessionId', () => {
+  it('/c/:segment carries opaque session ids unchanged', () => {
     expect(parseRoute('http://localhost/c/sess-abc')).toEqual({ sessionId: 'sess-abc' })
+  })
+
+  it('/c/:segment parses plain UUID (legacy bookmarks)', () => {
+    expect(
+      parseRoute('http://localhost/c/550e8400-e29b-41d4-a716-446655440000'),
+    ).toEqual({
+      sessionId: '550e8400-e29b-41d4-a716-446655440000',
+    })
+  })
+
+  it('/c/:segment slug is cosmetic; identity is -- + 32 hex', () => {
+    expect(
+      parseRoute(
+        'http://localhost/c/anything-here--550e8400e29b41d4a716446655440000',
+      ),
+    ).toEqual({
+      sessionId: '550e8400-e29b-41d4-a716-446655440000',
+    })
   })
 
   it('decodes session segment', () => {
@@ -257,12 +283,27 @@ describe('parseRoute hub-source', () => {
 })
 
 describe('routeToUrl', () => {
+  const uuid = '550e8400-e29b-41d4-a716-446655440000'
+
   it('chat-only returns /c', () => {
     expect(routeToUrl({})).toBe('/c')
   })
 
-  it('chat with sessionId', () => {
+  it('chat with opaque sessionId', () => {
     expect(routeToUrl({ sessionId: 'abc' })).toBe('/c/abc')
+  })
+
+  it('UUID session uses chat--hex without title opt', () => {
+    expect(routeToUrl({ sessionId: uuid })).toBe(
+      '/c/chat--550e8400e29b41d4a716446655440000',
+    )
+  })
+
+  it('UUID session uses title slug when provided', () => {
+    const opts: RouteUrlOpts = { chatTitleForUrl: 'Hello world!' }
+    expect(routeToUrl({ sessionId: uuid }, opts)).toBe(
+      '/c/hello-world--550e8400e29b41d4a716446655440000',
+    )
   })
 
   it('wiki without path', () => {
@@ -357,13 +398,28 @@ describe('routeToUrl', () => {
   })
 })
 
+describe('slugifyChatTitleForUrl', () => {
+  it('truncates words and strips punctuation', () => {
+    expect(slugifyChatTitleForUrl('Hello — weird')).toBe('hello-weird')
+    expect(slugifyChatTitleForUrl('')).toBe('chat')
+    expect(slugifyChatTitleForUrl('!!!')).toBe('chat')
+  })
+})
+
 describe('round-trip: routeToUrl → parseRoute', () => {
   const cases = [
     {},
     { sessionId: 'sess-1' },
+    {
+      sessionId: '550e8400-e29b-41d4-a716-446655440000',
+    },
     { overlay: { type: 'wiki' as const } },
     { overlay: { type: 'wiki' as const, path: 'ideas/my note.md' } },
     { overlay: { type: 'wiki-dir' as const, path: 'people/sub' } },
+    {
+      sessionId: '550e8400-e29b-41d4-a716-446655440000',
+      overlay: { type: 'wiki' as const, path: 'x.md' },
+    },
     { sessionId: 'z', overlay: { type: 'wiki' as const, path: 'x.md' } },
     { overlay: { type: 'file' as const } },
     { overlay: { type: 'file' as const, path: '/Users/foo/bar.txt' } },
@@ -397,6 +453,13 @@ describe('round-trip: routeToUrl → parseRoute', () => {
       expect(parseRoute(url)).toEqual(route)
     })
   }
+
+  it('round-trips UUID chat with title slug', () => {
+    const r = { sessionId: '550e8400-e29b-41d4-a716-446655440000' }
+    const url = `http://localhost${routeToUrl(r, { chatTitleForUrl: 'My chat title' })}`
+    expect(parseRoute(url)).toEqual(r)
+    expect(url).toContain('my-chat-title--550e8400e29b41d4a716446655440000')
+  })
 })
 
 describe('contextToString', () => {

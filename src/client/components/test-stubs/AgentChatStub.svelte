@@ -43,7 +43,7 @@
     onOpenWikiAbout?: () => void
     onAfterDeleteChat?: () => void
     onUserSendMessage?: () => void
-    onSessionChange?: (_id: string | null) => void
+    onSessionChange?: (_id: string | null, _meta?: { chatTitle?: string | null }) => void
     onStreamingSessionsChange?: (_ids: ReadonlySet<string>) => void
     onWriteStreaming?: (_p: { path: string; content: string; done: boolean }) => void
     onEditStreaming?: (_p: { id: string; path: string; done: boolean }) => void

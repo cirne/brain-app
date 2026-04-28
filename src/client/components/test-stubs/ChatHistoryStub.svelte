@@ -10,7 +10,7 @@
   }: {
     activeSessionId?: string | null
     streamingSessionIds?: ReadonlySet<string>
-    onSelect?: (_id: string) => void
+    onSelect?: (_id: string, _title?: string) => void
     onSelectDoc?: (_path: string) => void
     onSelectEmail?: (_id: string) => void
     onNewChat?: () => void

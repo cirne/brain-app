@@ -77,6 +77,55 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
 
 const PANEL = 'panel'
 
+/** Cosmetic text before `--` + 32 hex tail; identity is only the UUID derived from the hex. */
+const SLUG_UUID_TAIL = /--([0-9a-f]{32})$/i
+
+/** Standard 8-4-4-4-12 hex UUID (any version). */
+const UUID_WITH_DASHES =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function uuidFromFlatHex(flat32: string): string {
+  const h = flat32.toLowerCase()
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`
+}
+
+/** True when `sessionId` is a 128-bit UUID (with or without dashes). */
+export function isUuidSessionId(sessionId: string): boolean {
+  const flat = sessionId.replace(/-/g, '').toLowerCase()
+  return /^[0-9a-f]{32}$/.test(flat)
+}
+
+/** First words of title → kebab slug for the bar; falls back to `chat`. */
+export function slugifyChatTitleForUrl(title?: string | null): string {
+  const t = title?.trim()
+  if (!t) return 'chat'
+  const words = t.split(/\s+/).slice(0, 6).join(' ')
+  let slug = words
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-')
+    .slice(0, 48)
+  return slug || 'chat'
+}
+
+/** `/c/:segment` segment for chat: `{slug}--{uuidHex}` for UUID sessions; opaque ids unchanged. */
+export function chatUrlSegment(sessionId: string, chatTitle?: string | null): string {
+  if (!isUuidSessionId(sessionId)) return sessionId
+  const flat = sessionId.replace(/-/g, '').toLowerCase()
+  const slug = slugifyChatTitleForUrl(chatTitle)
+  return `${slug}--${flat}`
+}
+
+/** Recover canonical session id from `/c/:segment` (UUID, slug--hex, or legacy opaque id). */
+export function sessionIdFromChatUrlSegment(segment: string): string {
+  const dec = safeDecodePathSegment(segment)
+  const m = dec.match(SLUG_UUID_TAIL)
+  if (m) return uuidFromFlatHex(m[1])
+  if (UUID_WITH_DASHES.test(dec)) return dec.toLowerCase()
+  return dec
+}
+
 function safeDecodePathSegment(segment: string): string {
   try {
     return decodeURIComponent(segment)
@@ -185,9 +234,18 @@ function hubRouteFromSearch(href: string): Route | null {
   return { hubActive: true, overlay }
 }
 
-function chatBasePath(sessionId?: string): string {
-  if (sessionId) return `/c/${encodeURIComponent(sessionId)}`
-  return '/c'
+export type RouteUrlOpts = {
+  /**
+   * Used only when emitting `/c/...` for UUID sessions: `{slug}--{uuidHex}`.
+   * Parsing ignores the slug; only the `--` + 32 hex tail identifies the chat.
+   */
+  chatTitleForUrl?: string | null
+}
+
+function chatBasePath(sessionId?: string, urlOpts?: RouteUrlOpts): string {
+  if (!sessionId) return '/c'
+  const seg = chatUrlSegment(sessionId, urlOpts?.chatTitleForUrl)
+  return `/c/${encodeURIComponent(seg)}`
 }
 
 /** Parse a URL (defaults to current location) into a Route. */
@@ -221,7 +279,7 @@ export function parseRoute(href: string = location.href): Route {
 
   if (seg1 === 'c') {
     const sessionId =
-      rest.length > 0 && rest[0] ? safeDecodePathSegment(rest[0]) : undefined
+      rest.length > 0 && rest[0] ? sessionIdFromChatUrlSegment(rest[0]) : undefined
     const overlay = overlayFromSearchParams(url.searchParams)
     const base: Route = { ...(sessionId ? { sessionId } : {}) }
     if (overlay) return { ...base, overlay }
@@ -244,7 +302,7 @@ export function parseRoute(href: string = location.href): Route {
 }
 
 /** Convert a Route back to a URL string (path + `?panel=…` only; preserves no other query — see Hub OAuth banners). */
-export function routeToUrl(route: Route): string {
+export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
   if (route.flow === 'welcome') return '/welcome'
   if (route.flow === 'hard-reset') return '/hard-reset'
   if (route.flow === 'restart-seed') return '/restart-seed'
@@ -264,16 +322,16 @@ export function routeToUrl(route: Route): string {
   }
 
   if (!o) {
-    return chatBasePath(route.sessionId)
+    return chatBasePath(route.sessionId, urlOpts)
   }
 
   if (o.type === 'hub') {
-    return chatBasePath(route.sessionId)
+    return chatBasePath(route.sessionId, urlOpts)
   }
 
   const q = overlayToSearchParams(o)
   const qs = q.toString()
-  const base = chatBasePath(route.sessionId)
+  const base = chatBasePath(route.sessionId, urlOpts)
   return qs ? `${base}?${qs}` : base
 }
 
@@ -284,11 +342,15 @@ export type NavigateOptions = {
    * (same URL stack entry is updated instead of pushing a second `/c` on top of a detail URL).
    */
   replace?: boolean
+  /** See {@link RouteUrlOpts.chatTitleForUrl}. */
+  chatTitleForUrl?: string | null
 }
 
 /** Push (or replace) the route in the browser address bar and history stack. */
 export function navigate(route: Route, opts?: NavigateOptions): void {
-  const url = routeToUrl(route)
+  const url = routeToUrl(route, {
+    chatTitleForUrl: opts?.chatTitleForUrl,
+  })
   if (opts?.replace) {
     history.replaceState(null, '', url)
   } else {

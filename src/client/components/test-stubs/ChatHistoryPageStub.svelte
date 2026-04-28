@@ -7,7 +7,7 @@
   }: {
     activeSessionId?: string | null
     streamingSessionIds?: ReadonlySet<string>
-    onSelectSession?: (_id: string) => void
+    onSelectSession?: (_id: string, _title?: string) => void
     onNewChat?: () => void
   } = $props()
 </script>

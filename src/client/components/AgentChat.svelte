@@ -151,7 +151,10 @@
     /** Optional; when set, a “new chat” control is shown beside the composer (non-empty thread). */
     onUserInitiatedNewChat?: () => void
     onConversationFinishedByAgent?: () => void
-    onSessionChange?: (_sessionId: string | null) => void
+    onSessionChange?: (
+      _sessionId: string | null,
+      _meta?: { chatTitle?: string | null },
+    ) => void
     onChatPersisted?: () => void
     onWriteStreaming?: (_p: { path: string; content: string; done: boolean }) => void
     onEditStreaming?: (_p: { id: string; path: string; done: boolean }) => void
@@ -336,11 +339,13 @@
   $effect(() => {
     const id = displayedSessionId
     if (!id) {
-      onSessionChange?.(null)
+      onSessionChange?.(null, undefined)
       return
     }
-    const sid = sessions.get(id)?.sessionId ?? null
-    onSessionChange?.(sid)
+    const row = sessions.get(id)
+    const sid = row?.sessionId ?? null
+    const chatTitle = row?.chatTitle ?? null
+    onSessionChange?.(sid, { chatTitle })
   })
 
   async function fetchWikiFiles() {

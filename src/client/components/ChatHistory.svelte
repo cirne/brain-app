@@ -33,7 +33,7 @@
   }: {
     activeSessionId?: string | null
     streamingSessionIds?: ReadonlySet<string>
-    onSelect: (_sessionId: string) => void
+    onSelect: (_sessionId: string, _title?: string) => void
     onSelectDoc?: (_path: string) => void
     onSelectEmail?: (_id: string) => void
     onNewChat: () => void
@@ -146,7 +146,7 @@
 
   function handleItemClick(item: NavRowItem) {
     if (item.type === 'chat' && item.sessionId) {
-      onSelect(item.sessionId)
+      onSelect(item.sessionId, item.title)
     } else if (item.type === 'doc' && item.path && onSelectDoc) {
       onSelectDoc(item.path)
     } else if (item.type === 'email' && item.path && onSelectEmail) {

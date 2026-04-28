@@ -22,7 +22,7 @@
   }: {
     activeSessionId?: string | null
     streamingSessionIds?: ReadonlySet<string>
-    onSelectSession: (_sessionId: string) => void
+    onSelectSession: (_sessionId: string, _title?: string) => void
     onNewChat: () => void
   } = $props()
 
@@ -99,8 +99,8 @@
     }
   }
 
-  function rowClick(id: string) {
-    onSelectSession(id)
+  function rowClick(id: string, title?: string) {
+    onSelectSession(id, title)
   }
 
   function requestDelete(e: MouseEvent, s: ChatSessionListItem) {
@@ -179,11 +179,11 @@
           class:active={activeSessionId === s.sessionId}
           role="button"
           tabindex="0"
-          onclick={() => rowClick(s.sessionId)}
+          onclick={() => rowClick(s.sessionId, s.title ?? undefined)}
           onkeydown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
-              rowClick(s.sessionId)
+              rowClick(s.sessionId, s.title ?? undefined)
             }
           }}
         >

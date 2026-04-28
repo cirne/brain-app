@@ -37,7 +37,7 @@ Canonical implementation: [`src/client/router.ts`](../../src/client/router.ts) (
 | Path | Role |
 |------|------|
 | `/c` | **Chat** main pane; no server session id in the URL bar |
-| `/c/:sessionId` | **Chat** with a specific server session (reload restores that thread when vault/session is valid) |
+| `/c/:segment` | **Chat** with a server session. For UUID ids the segment is **`{slug}--{uuidHex32}`** (slug from title, cosmetic only; identity is the `--` + 32 hex chars). Plain **`/c/{uuid-with-dashes}`** still parses. Non-UUID ids stay a single opaque segment (tests / legacy). |
 | `/hub` | **Brain Hub** main pane |
 | `/welcome`, `/onboarding` (alias) | First-run / setup flow |
 | `/hard-reset`, `/restart-seed`, `/first-chat` | Dev / one-shot flows |
@@ -62,7 +62,7 @@ Detail / slide-over UI (wiki, inbox thread, calendar, messages, hub inspectors, 
 | `your-wiki`, `chat-history`, `hub-add-folders`, `hub-apple-messages`, `phone-access`, `hub-wiki-about` | (none) |
 | `hub-source` | `id` — source row id |
 
-Examples: `/c/sess-1?panel=wiki&path=ideas%2Fnote.md`, `/hub?panel=email&m=…`, `/hub?addedAccount=…` (hub main + Google link banner; `panel` omitted).
+Examples: `/c/my-thread-title--550e8400e29b41d4a716446655440000?panel=wiki&path=ideas%2Fnote.md`, `/hub?panel=email&m=…`, `/hub?addedAccount=…` (hub main + Google link banner; `panel` omitted).
 
 Path-shaped overlay URLs such as **`/wiki/...`**, **`/inbox`**, **`/hub/wiki/...`** are **not** parsed after this change (clean break); bookmarks should use the `panel` form.
 
