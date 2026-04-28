@@ -71,10 +71,10 @@
       onboardingStatus.state !== 'done',
   )
 
-  /** Already-onboarded users may land on `/onboarding` after sign-in; send them to the main app. */
+  /** Already-onboarded users may land on `/welcome` after sign-in; send them to the main app. */
   $effect(() => {
     if (!appReady || onboardingStatus == null || onboardingStatus.state !== 'done') return
-    if (route.flow !== 'onboarding') return
+    if (route.flow !== 'welcome') return
     history.replaceState(null, '', '/')
     route = parseRoute()
   })
@@ -92,7 +92,7 @@
         } catch {
           /* ignore */
         }
-        history.replaceState(null, '', '/onboarding')
+        history.replaceState(null, '', '/welcome')
         route = parseRoute()
       }
       if (import.meta.env.DEV && parseRoute().flow === 'restart-seed') {
@@ -108,7 +108,7 @@
         } catch {
           /* ignore */
         }
-        history.replaceState(null, '', '/onboarding')
+        history.replaceState(null, '', '/welcome')
         route = parseRoute()
       }
       if (import.meta.env.DEV && parseRoute().flow === 'first-chat') {

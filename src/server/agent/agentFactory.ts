@@ -16,6 +16,23 @@ import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 /** @deprecated Use {@link ONBOARDING_BASE_OMIT} from `agentToolSets.js`. */
 export const ONBOARDING_OMIT_TOOL_NAMES = ONBOARDING_BASE_OMIT
 
+/**
+ * Single place for onboarding **session IANA timezone**: system prompts and `createAgentTools` calendar enrichment.
+ * - **`interview`:** use client-provided TZ when present; otherwise the host default (historic behavior).
+ * - **`profiling` / `buildout`:** client TZ when present; otherwise **UTC**.
+ */
+export function resolveOnboardingSessionTimezone(
+  variant: OnboardingAgentToolVariant,
+  clientTimezone?: string,
+): string {
+  const t = clientTimezone?.trim()
+  if (t) return t
+  if (variant === 'interview') {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone
+  }
+  return 'UTC'
+}
+
 export function buildDateContext(timezone: string): string {
   const tz = timezone || 'UTC'
   const now = new Date()
@@ -38,6 +55,11 @@ export type CreateOnboardingAgentOptions = {
   variant?: OnboardingAgentToolVariant
   /** Additional tool names to omit after the preset + variant. */
   extraOmitToolNames?: readonly string[]
+  /**
+   * IANA timezone from the client session (e.g. POST body). Resolved with {@link resolveOnboardingSessionTimezone}
+   * for `calendar` tool enrichment defaults.
+   */
+  timezone?: string
 }
 
 /** Build an onboarding agent (profiling or seeding) with the restricted tool set. */
@@ -55,7 +77,11 @@ export function createOnboardingAgent(
     includeLocalMessageTools,
     extraOmit: options?.extraOmitToolNames,
   })
-  const tools = createAgentTools(wikiRoot, toolOpts)
+  const toolTimezone = resolveOnboardingSessionTimezone(variant, options?.timezone)
+  const tools = createAgentTools(wikiRoot, {
+    ...toolOpts,
+    timezone: toolTimezone,
+  })
   const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
   const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
   const model = resolveModel(provider, modelId)

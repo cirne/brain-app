@@ -20,6 +20,9 @@ export function agentInputTestProps(
     skills: SkillMenuItem[]
     disabled: boolean
     streaming: boolean
+    showVoiceEntry: boolean
+    onVoiceEntry: () => void
+    voiceEntryDisabled: boolean
   }> = {},
 ): {
   onSend: (text: string) => void
@@ -29,6 +32,9 @@ export function agentInputTestProps(
   skills: SkillMenuItem[]
   disabled?: boolean
   streaming?: boolean
+  showVoiceEntry?: boolean
+  onVoiceEntry?: () => void
+  voiceEntryDisabled?: boolean
 } {
   return {
     onSend: vi.fn() as (text: string) => void,

@@ -7,7 +7,7 @@ import { homedir } from 'node:os'
 import { normalize, resolve } from 'node:path'
 import { brainHome, ripmailHomeForBrain, wikiContentDir } from '@server/lib/platform/brainHome.js'
 import { dataRoot, isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import {
   PathEscapeError,

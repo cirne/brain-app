@@ -153,8 +153,9 @@ export const ONBOARDING_INTERVIEW_ONLY: readonly AgentToolName[] = [
   'find_person',
   'calendar',
   'inbox_rules',
-  'suggest_reply_options',
   'list_inbox',
+  /** Same UI hook as main assistant: client runs POST /api/onboarding/finalize after tool_end. */
+  'finish_conversation',
 ]
 
 /** Silent post-interview pass: author `me.md` + scan wiki stubs. */

@@ -15,11 +15,15 @@ import { appendTurn, ensureSessionStub } from '@server/lib/chat/chatStorage.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { startTunnel, stopTunnel, getActiveTunnelUrl } from '@server/lib/platform/tunnelManager.js'
 import { streamAgentSseResponse } from '@server/lib/chat/streamAgentSse.js'
+import { fetchOnboardingSuggestionsForSession } from '@server/lib/suggestions/fetchOnboardingSuggestions.js'
+import type { SuggestionSet } from '@shared/suggestions.js'
 import {
+  buildInterviewKickoffUserMessage,
   clearAllInterviewSessions,
   deleteInterviewSession,
   getOrCreateOnboardingInterviewAgent,
 } from '../agent/onboardingInterviewAgent.js'
+import { fetchRipmailWhoamiForProfiling } from '../agent/profilingAgent.js'
 import { runInterviewFinalize } from '../agent/interviewFinalizeAgent.js'
 import { deleteWikiBuildoutSession, ensureWikiVaultScaffoldForBuildout } from '../agent/wikiBuildoutAgent.js'
 import {
@@ -30,7 +34,7 @@ import {
 import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '@shared/onboardingProfileThresholds.js'
 import { enrichAppleMailSetupError } from '@server/lib/apple/appleMailSetupHints.js'
 import { getFdaProbeDetail, isFdaGranted } from '@server/lib/apple/fdaProbe.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
 import { writeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
 import { ensureYourWikiRunning } from '../agent/yourWikiSupervisor.js'
@@ -363,9 +367,26 @@ onboarding.patch('/preferences', async (c) => {
   })
 })
 
-/** OPP-054 guided onboarding interview (streams SSE; persists turns for finalize). */
+/**
+ * Plain JSON next-step UI for the guided interview (separate LLM call — no agent tools).
+ */
+onboarding.post('/suggestions', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
+  if (!sessionId) {
+    return c.json({ error: 'sessionId is required' }, 400)
+  }
+  const suggestions: SuggestionSet | null = await fetchOnboardingSuggestionsForSession(sessionId)
+  return c.json({ suggestions })
+})
+
+/**
+ * OPP-054 guided onboarding interview (streams SSE; persists turns for finalize).
+ * Quick replies: POST /api/onboarding/suggestions after each done event — no `suggest_reply_options` tool here.
+ */
 onboarding.post('/interview', async (c) => {
   const body = await c.req.json()
+  const interviewKickoff = body.interviewKickoff === true
   const message = typeof body.message === 'string' ? body.message : ''
   if (!message.trim()) {
     return c.json({ error: 'message is required' }, 400)
@@ -397,12 +418,21 @@ onboarding.post('/interview', async (c) => {
   }
 
   const agent = await getOrCreateOnboardingInterviewAgent(sessionId, { timezone })
-  return streamAgentSseResponse(c, agent, message, {
+  let promptMessage = message.trim()
+  const omitUserRow = interviewKickoff
+  if (interviewKickoff) {
+    const whoami = await fetchRipmailWhoamiForProfiling()
+    promptMessage = buildInterviewKickoffUserMessage(whoami, message.trim())
+  }
+
+  return streamAgentSseResponse(c, agent, promptMessage, {
     wikiDirForDiffs: wikiDir(),
     announceSessionId: sessionId,
     agentKind: 'onboarding_interview',
     onTurnComplete: persist,
     timezone,
+    omitUserMessageFromPersistence: omitUserRow,
+    runSuggestReplyRepair: false,
   })
 })
 

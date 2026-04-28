@@ -21,6 +21,7 @@
   import { navigateFromAgentOpen, type AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
   import { ONBOARDING_DEFAULT_CHAT_STORAGE_KEY } from '@client/lib/onboarding/onboardingStorageKeys.js'
+  import { onboardingHidesComposerForActivityFlow } from '@client/lib/onboarding/onboardingWorkspaceMode.js'
   import { overlaySupportsMobileChatBridge } from '@client/lib/mobileDetailChatOverlay.js'
 
   const {
@@ -35,6 +36,13 @@
     suppressAgentDetailAutoOpen = false,
     /** Hosted multi-tenant: alternate profiling lead copy (no local-Mac vault framing). */
     multiTenant = false,
+    /** Composer hint; forwarded to AgentChat (e.g. guided onboarding interview). */
+    inputPlaceholder = undefined as string | undefined,
+    /**
+     * Guided interview only: when the model calls `finish_conversation`, same hook as main chat —
+     * runs finalize + exit onboarding (parent implements POST /finalize).
+     */
+    onAgentFinishInterview = undefined as (() => void | Promise<void>) | undefined,
   }: {
     chatEndpoint: string
     autoSendMessage: string
@@ -44,14 +52,18 @@
     storageKey?: string
     suppressAgentDetailAutoOpen?: boolean
     multiTenant?: boolean
+    inputPlaceholder?: string
+    onAgentFinishInterview?: () => void | Promise<void>
   } = $props()
 
   const isSeedingWiki = $derived(chatEndpoint === '/api/onboarding/seed')
   const isProfiling = $derived(
     chatEndpoint === '/api/onboarding/profile' || chatEndpoint === '/api/onboarding/interview',
   )
-  /** Profiling + interview + seeding use the same activity transcript (not the default chat). */
+  /** Profiling + interview + seeding: non-default busy labels / stream chrome (composer visibility is separate). */
   const useOnboardingActivity = $derived(isProfiling || isSeedingWiki)
+
+  const hideComposerForActivity = $derived(onboardingHidesComposerForActivityFlow(chatEndpoint))
 
   let route = $state<Route>(parseRoute())
   let syncErrors = $state<string[]>([])
@@ -363,33 +375,37 @@
           context={agentContext}
           conversationHidden={!!route.overlay && !useDesktopSplitDetail}
           hideInput={
-            useOnboardingActivity ||
+            hideComposerForActivity ||
             (isMobile &&
               !useDesktopSplitDetail &&
               !!route.overlay &&
               !overlaySupportsMobileChatBridge(route.overlay))
           }
           mobileSlideCoversTranscriptOnly={
-            !useOnboardingActivity &&
+            !hideComposerForActivity &&
             isMobile &&
             !useDesktopSplitDetail &&
             !!route.overlay &&
             overlaySupportsMobileChatBridge(route.overlay)
           }
           hidePaneContextChip={!!route.overlay && useDesktopSplitDetail}
-          suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen || !useDesktopSplitDetail || useOnboardingActivity}
+          suppressAgentDetailAutoOpen={
+            suppressAgentDetailAutoOpen || !useDesktopSplitDetail || hideComposerForActivity
+          }
           {multiTenant}
+          {inputPlaceholder}
+          autoSendInterviewKickoffHidden={chatEndpoint === '/api/onboarding/interview'}
           conversationView={
-            isProfiling
+            chatEndpoint === '/api/onboarding/profile'
               ? OnboardingProfilingView
-              : isSeedingWiki
+              : chatEndpoint === '/api/onboarding/seed'
                 ? OnboardingSeedingView
                 : AgentConversation
           }
           streamingBusyLabel={
             useOnboardingActivity
               ? chatEndpoint === '/api/onboarding/interview'
-                ? 'Onboarding…'
+                ? 'Welcome…'
                 : isProfiling
                   ? 'Profiling…'
                   : isSeedingWiki
@@ -412,6 +428,11 @@
           onOpenFromAgent={onOpenFromAgent}
           onNewChat={closeOverlay}
           onUserInitiatedNewChat={() => { agentChat?.newChat() }}
+          onConversationFinishedByAgent={
+            chatEndpoint === '/api/onboarding/interview' && onAgentFinishInterview
+              ? () => void onAgentFinishInterview()
+              : undefined
+          }
           onOpenWikiAbout={openHubWikiAbout}
           onUserSendMessage={closeOverlayOnUserSend}
           onWriteStreaming={onWriteStreaming}

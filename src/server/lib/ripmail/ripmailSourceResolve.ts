@@ -5,7 +5,7 @@
  */
 
 import { ripmailBin } from './ripmailBin.js'
-import { execRipmailAsync } from './ripmailExec.js'
+import { execRipmailAsync } from './ripmailRun.js'
 
 export type RipmailSourceListRow = {
   id: string

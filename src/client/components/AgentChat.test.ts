@@ -11,8 +11,6 @@ import {
 } from '@client/test/helpers/index.js'
 import { consumeAgentChatStream } from '@client/lib/agentStream.js'
 import { jsonResponse, createMockFetch } from '@client/test/mocks/fetch.js'
-import { requestMicrophonePermissionInUserGesture } from '@client/lib/holdToSpeakMedia.js'
-
 vi.mock('./agent-conversation/AgentConversation.svelte', () => import('./test-stubs/AgentConversationStub.svelte'))
 vi.mock('./ChatComposerAudio.svelte', () => import('./test-stubs/ChatComposerAudioStub.svelte'))
 vi.mock('@client/lib/wikiFileListRefetch.js', () => ({
@@ -21,10 +19,6 @@ vi.mock('@client/lib/wikiFileListRefetch.js', () => ({
 vi.mock('@client/lib/brainTtsAudio.js', () => ({
   ensureBrainTtsAutoplayInUserGesture: vi.fn().mockResolvedValue(undefined),
 }))
-vi.mock('@client/lib/holdToSpeakMedia.js', () => ({
-  requestMicrophonePermissionInUserGesture: vi.fn(),
-}))
-
 vi.mock('@client/lib/pressToTalkEnabled.js', () => ({
   isPressToTalkEnabled: vi.fn(() => false),
 }))
@@ -38,7 +32,6 @@ vi.mock('@client/lib/agentStream.js', async (importOriginal) => {
 })
 
 const mockedConsume = vi.mocked(consumeAgentChatStream)
-const mockedRequestMic = vi.mocked(requestMicrophonePermissionInUserGesture)
 
 describe('AgentChat.svelte', () => {
   beforeEach(() => {
@@ -434,14 +427,13 @@ describe('AgentChat.svelte', () => {
       await waitFor(() => expect(post).toHaveBeenCalled())
       await tick()
 
-      const hearBtn = screen.getByRole('button', { name: /Read answers aloud/ })
+      const hearBtn = screen.getByRole('button', { name: /Assistant voice output/ })
       expect(hearBtn).toHaveAttribute('aria-pressed', 'false')
 
       await fireEvent.click(hearBtn)
       await tick()
 
       expect(hearBtn).toHaveAttribute('aria-pressed', 'true')
-      expect(mockedRequestMic).not.toHaveBeenCalled()
 
       await fireEvent.click(hearBtn)
       await tick()
@@ -784,19 +776,21 @@ describe('AgentChat.svelte', () => {
   })
 
   describe('mobile voice panel layout (source contract)', () => {
-    it('orders voice panel between context bar and input; dock padding only when thread empty', () => {
+    it('composes voice + text through UnifiedChatComposer (no stacked voice above input or voice dock padding)', () => {
       const path = join(dirname(fileURLToPath(import.meta.url)), 'AgentChat.svelte')
       const src = readFileSync(path, 'utf8')
-      expect(src).toContain("layout={messages.length > 0 ? 'inline' : 'fixed'}")
+      expect(src).toContain('<UnifiedChatComposer')
+      expect(src).not.toContain('<ChatVoicePanel')
+      expect(src).not.toContain('composer-stack--voice-panel')
       const contextIdx = src.indexOf('<ComposerContextBar')
-      const voiceIdx = src.indexOf('<ChatVoicePanel')
-      const inputRowIdx = src.indexOf('class="composer-input-row"')
+      const unifiedIdx = src.indexOf('<UnifiedChatComposer')
       expect(contextIdx).toBeGreaterThan(-1)
-      expect(voiceIdx).toBeGreaterThan(contextIdx)
-      expect(inputRowIdx).toBeGreaterThan(voiceIdx)
-      const dockStart = src.indexOf('composer-stack--voice-panel=')
-      expect(dockStart).toBeGreaterThan(-1)
-      expect(src.indexOf('messages.length === 0}', dockStart)).toBeGreaterThan(dockStart)
+      expect(unifiedIdx).toBeGreaterThan(contextIdx)
+      const unifiedPath = join(dirname(path), 'UnifiedChatComposer.svelte')
+      const unifiedSrc = readFileSync(unifiedPath, 'utf8')
+      expect(unifiedSrc).toContain('layout="composer-flow"')
+      expect(unifiedSrc).toContain('<ChatVoicePanel')
+      expect(unifiedSrc).toContain('<AgentInput')
     })
   })
 })

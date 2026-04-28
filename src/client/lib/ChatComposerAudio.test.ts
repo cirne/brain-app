@@ -18,13 +18,13 @@ describe('ChatComposerAudio', () => {
     expect(src).not.toContain('hold-speak-wrap')
   })
 
-  it('gates behind isPressToTalkEnabled for related mobile strip behavior', () => {
+  it('only mounts the mobile strip when the hear-replies toggle is shown (no empty PTT shell)', () => {
     const path = join(
       dirname(fileURLToPath(import.meta.url)),
       '../components/ChatComposerAudio.svelte',
     )
     const src = readFileSync(path, 'utf8')
-    expect(src).toContain('isPressToTalkEnabled')
-    expect(src).toContain('@client/lib/pressToTalkEnabled.js')
+    expect(src).toContain('isMobile && showHearRepliesToggle')
+    expect(src).not.toContain('isPressToTalkEnabled')
   })
 })

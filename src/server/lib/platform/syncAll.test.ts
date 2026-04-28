@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { ripmailRefreshEnv } from './syncAll.js'
 import { ripmailHomeForBrain } from './brainHome.js'
-import { ripmailProcessEnv } from '@server/lib/ripmail/ripmailExec.js'
+import { ripmailProcessEnv } from '@server/lib/ripmail/ripmailRun.js'
 
 let brainHome: string
 

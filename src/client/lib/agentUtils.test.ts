@@ -251,7 +251,23 @@ describe('buildChatBody', () => {
     })
     expect(body.firstChatKickoff).toBe(true)
     expect('message' in body).toBe(false)
+    expect('interviewKickoff' in body).toBe(false)
     expect(typeof body.timezone).toBe('string')
+  })
+
+  it('interviewKickoff sends message and flag (onboarding hidden first turn)', () => {
+    const body = buildChatBody({
+      message: 'Start the guided onboarding interview now.',
+      sessionId: 'sess-ob',
+      context: noContext,
+      mentionedFiles: [],
+      isFirstMessage: true,
+      interviewKickoff: true,
+    })
+    expect(body.message).toBe('Start the guided onboarding interview now.')
+    expect(body.interviewKickoff).toBe(true)
+    expect('firstChatKickoff' in body).toBe(false)
+    expect(body.sessionId).toBe('sess-ob')
   })
 
   it('sets hearReplies when true', () => {

@@ -43,7 +43,7 @@ import {
   wikiPathsMatchingChatInContactSections,
 } from '@server/lib/wiki/wikiContactIdentifierMatch.js'
 import { isEvalRipmailSendDryRun } from '@server/lib/ripmail/evalRipmailSendDryRun.js'
-import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
 import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
@@ -52,6 +52,7 @@ import { composeFeedbackIssueMarkdown } from '@server/lib/feedback/feedbackCompo
 import { submitFeedbackMarkdown } from '@server/lib/feedback/feedbackIssues.js'
 import { applySkillPlaceholders, readSkillMarkdown } from '@server/lib/llm/slashSkill.js'
 import { tryGetSkillRequestContext } from '@server/lib/llm/skillRequestContext.js'
+import { logger } from '@server/lib/observability/logger.js'
 
 const execAsync = promisify(exec)
 
@@ -287,14 +288,16 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     },
   })
 
-  async function runRipmailRefreshAgent(sourceId?: string): Promise<{ ok: boolean; error?: string }> {
-    try {
-      const extra = sourceId?.trim() ? ['--source', sourceId.trim()] : []
-      await runRipmailRefreshForBrain(extra)
-      return { ok: true }
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) }
-    }
+  /**
+   * Kick `ripmail refresh` without blocking the agent turn. Refresh can run for a long time
+   * (large IMAP/calendar sync); awaiting it here hung chat/onboarding SSE until timeout.
+   */
+  function runRipmailRefreshAgent(sourceId?: string): { ok: true } {
+    const extra = sourceId?.trim() ? ['--source', sourceId.trim()] : []
+    void Promise.resolve(runRipmailRefreshForBrain(extra)).catch((e) => {
+      logger.error({ err: e, sourceId: sourceId?.trim() ?? null }, 'ripmail refresh (background) failed')
+    })
+    return { ok: true }
   }
 
   // Custom tools: unified ripmail index (mail + files) and source management
@@ -557,8 +560,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         case 'reindex': {
           const sid = params.id ?? params.source_id
           const resolved = await resolveRipmailSourceForCli(sid)
-          const started = await runRipmailRefreshAgent(resolved)
-          if (!started.ok) throw new Error(started.error ?? 'Failed to start ripmail refresh')
+          runRipmailRefreshAgent(resolved)
           const scope = sid?.trim() ? `source ${sid.trim()}` : 'all sources'
           return {
             content: [
@@ -593,8 +595,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     }),
     async execute(_toolCallId: string, params: { source?: string }) {
       const resolved = await resolveRipmailSourceForCli(params.source)
-      const started = await runRipmailRefreshAgent(resolved)
-      if (!started.ok) throw new Error(started.error ?? 'Failed to start ripmail refresh')
+      runRipmailRefreshAgent(resolved)
       const scope = params.source?.trim() ? `source ${(resolved ?? params.source).trim()}` : 'all sources'
       return {
         content: [
@@ -1057,7 +1058,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           : ''
         const cmd = `${rm} sources edit ${JSON.stringify(params.source)} ${ids}${defaultIds} --json`
         const { stdout } = await execRipmailAsync(cmd, { timeout: 15000 })
-        await runRipmailRefreshAgent(params.source)
+        runRipmailRefreshAgent(params.source)
         return {
           content: [
             {
@@ -1101,7 +1102,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           cmd += ` --location ${JSON.stringify(params.location.trim())}`
         }
         const { stdout } = await execRipmailAsync(cmd, { timeout: 60_000 })
-        await runRipmailRefreshAgent(source)
+        runRipmailRefreshAgent(source)
         let details: Record<string, unknown> = { ok: true, created: true }
         try {
           const parsed = JSON.parse(stdout) as Record<string, unknown>
@@ -1231,7 +1232,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'finish_conversation',
     label: 'Finish conversation',
     description:
-      'When the user clearly signals they want to **end this chat** (e.g. "Thanks, that\'s all", "Done", "That\'s everything", "Goodbye", "We\'re done", "No more questions"), call this **once** in that turn **before** your short closing message. The app starts a new chat in the main assistant, or closes an embedded panel assistant (e.g. Brain Hub flows). Do **not** call if they might still need help or are only pausing.',
+      'When the user clearly signals they want to **end this chat** (e.g. "Thanks, that\'s all", "Done", "That\'s everything", "Goodbye", "We\'re done", "No more questions"), call this **once** in that turn **before** your short closing message. The app starts a new chat in the main assistant, closes an embedded panel assistant (e.g. Brain Hub flows), or—in **guided onboarding interview**—runs profile finalize and opens the app. Do **not** call if they might still need help or are only pausing.',
     parameters: Type.Object({}),
     async execute(_toolCallId: string) {
       return {

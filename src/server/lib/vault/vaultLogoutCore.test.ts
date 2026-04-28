@@ -57,11 +57,11 @@ describe('executeVaultLogout', () => {
       await executeVaultLogout(c)
       return c.redirect(safeLogoutRedirectPath(c.req.query('next')), 302)
     })
-    const res = await app.request('http://localhost/logout?next=/onboarding', {
+    const res = await app.request('http://localhost/logout?next=/welcome', {
       method: 'GET',
       headers: { Accept: 'text/html' },
     })
     expect(res.status).toBe(302)
-    expect(res.headers.get('location')).toBe('/onboarding')
+    expect(res.headers.get('location')).toBe('/welcome')
   })
 })

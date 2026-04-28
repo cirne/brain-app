@@ -42,8 +42,12 @@ describe('navigate', () => {
 })
 
 describe('parseRoute', () => {
-  it('parses /onboarding as onboarding flow', () => {
-    expect(parseRoute('http://localhost/onboarding')).toEqual({ flow: 'onboarding' })
+  it('parses /welcome as welcome flow', () => {
+    expect(parseRoute('http://localhost/welcome')).toEqual({ flow: 'welcome' })
+  })
+
+  it('parses /onboarding as welcome flow (legacy path)', () => {
+    expect(parseRoute('http://localhost/onboarding')).toEqual({ flow: 'welcome' })
   })
 
   it('parses /hard-reset as hard-reset flow', () => {
@@ -450,8 +454,8 @@ describe('routeToUrl', () => {
     expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-wiki-about' } })).toBe('/hub/wiki-about')
   })
 
-  it('onboarding flow', () => {
-    expect(routeToUrl({ flow: 'onboarding' })).toBe('/onboarding')
+  it('welcome flow', () => {
+    expect(routeToUrl({ flow: 'welcome' })).toBe('/welcome')
   })
 
   it('hard-reset flow', () => {
@@ -493,7 +497,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     },
     { overlay: { type: 'messages' as const } },
     { overlay: { type: 'messages' as const, chat: '+15550001111' } },
-    { flow: 'onboarding' as const },
+    { flow: 'welcome' as const },
     { flow: 'hard-reset' as const },
     { flow: 'restart-seed' as const },
     { flow: 'first-chat' as const },

@@ -49,7 +49,7 @@ import { ensureBrainHomeGitignore } from '@server/lib/platform/brainHomeGitignor
 import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { runSplitLayoutMigrationIfNeeded } from '@server/lib/onboarding/splitLayoutMigration.js'
 import { runFullSync, getSyncIntervalMs } from '@server/lib/platform/syncAll.js'
-import { terminateAllTrackedRipmailChildren } from '@server/lib/ripmail/ripmailExec.js'
+import { terminateAllTrackedRipmailChildren } from '@server/lib/ripmail/ripmailRun.js'
 import debugRipmailChildrenRoute from './routes/debugRipmailChildren.js'
 import {
   startRipmailBackfillSupervisor,

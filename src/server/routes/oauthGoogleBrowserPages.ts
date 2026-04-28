@@ -15,7 +15,7 @@ const completeHtml = `<!DOCTYPE html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="refresh" content="3;url=/onboarding" />
+  <meta http-equiv="refresh" content="3;url=/welcome" />
   <title>Gmail connected — Braintunnel</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #111; }
@@ -24,12 +24,12 @@ const completeHtml = `<!DOCTYPE html>
   </style>
   <script>
     /* Web: same-window OAuth left the SPA; send user back. Tauri: external tab also redirects (poll still runs in app). */
-    setTimeout(function () { window.location.replace('/onboarding'); }, 600);
+    setTimeout(function () { window.location.replace('/welcome'); }, 600);
   </script>
 </head>
 <body>
   <h1>Gmail connected</h1>
-  <p>Redirecting to onboarding… If nothing happens, <a href="/onboarding">continue here</a>.</p>
+  <p>Redirecting… If nothing happens, <a href="/welcome">continue here</a>.</p>
   <p><strong>Braintunnel (desktop):</strong> you can close this tab and return to the app.</p>
 </body>
 </html>`
@@ -62,7 +62,7 @@ app.get('/error', (c) => {
 <body>
   <h1>Could not connect Gmail</h1>
   <p>${safe}</p>
-  <p><a href="/onboarding">Back to onboarding</a> to try Connect Google again.</p>
+  <p><a href="/welcome">Back to setup</a> to try Connect Google again.</p>
   <p>Close this tab and return to the Braintunnel app if you use the desktop build — the app will show this error as well.</p>
   <p>This page is served by your local Braintunnel server at <code>127.0.0.1</code>.</p>
 </body>

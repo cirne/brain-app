@@ -4,9 +4,9 @@ import type { Agent } from '@mariozechner/pi-agent-core'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { ripmailBin } from '@server/lib/onboarding/onboardingMailStatus.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ensureUserPeoplePageSkeleton } from '@server/lib/wiki/userPeoplePage.js'
-import { createOnboardingAgent } from './agentFactory.js'
+import { createOnboardingAgent, resolveOnboardingSessionTimezone } from './agentFactory.js'
 
 const MAX_WHOAMI_PROMPT_CHARS = 8000
 
@@ -121,7 +121,7 @@ export async function getOrCreateProfilingAgent(sessionId: string, options: { ti
   const existing = profilingSessions.get(sessionId)
   if (existing) return existing
 
-  const tz = options.timezone ?? 'UTC'
+  const tz = resolveOnboardingSessionTimezone('profiling', options.timezone)
   const staging = wikiDir()
   await mkdir(staging, { recursive: true })
   const whoami = await fetchRipmailWhoamiForProfiling()
@@ -137,6 +137,7 @@ export async function getOrCreateProfilingAgent(sessionId: string, options: { ti
   }
   const agent = createOnboardingAgent(buildProfilingSystemPrompt(tz, whoami, whoamiSubject, userPeoplePage), staging, {
     variant: 'profiling',
+    timezone: options.timezone,
   })
   profilingSessions.set(sessionId, agent)
   return agent

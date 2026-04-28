@@ -1,5 +1,5 @@
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 
 /** One row from `ripmail sources list --json`, normalized for Brain Hub. */
 export type HubRipmailSourceRow = {

@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 
-vi.mock('@server/lib/ripmail/ripmailExec.js', () => ({
+vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync: vi.fn(),
   ripmailProcessEnv: vi.fn(() => ({})),
 }))

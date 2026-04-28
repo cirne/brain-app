@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-vi.mock('@server/lib/ripmail/ripmailExec.js', () => ({
+vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync: vi.fn(),
   RIPMAIL_SEND_TIMEOUT_MS: 30000,
 }))
@@ -12,7 +12,7 @@ vi.mock('@server/lib/ripmail/ripmailBin.js', () => ({
   ripmailBin: vi.fn(() => '/bin/ripmail'),
 }))
 
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { createAgentTools } from './tools.js'
 
 let brainHome: string

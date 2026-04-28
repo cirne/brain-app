@@ -6,7 +6,7 @@ import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocal
 import { areLocalMessageToolsEnabled, initLocalMessageToolsAvailability } from '@server/lib/apple/imessageDb.js'
 import { logFdaProbeForStartup } from '@server/lib/apple/fdaProbe.js'
 import { parseRipmailStatusJson } from '@server/lib/ripmail/ripmailStatusParse.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import { logger } from '@server/lib/observability/logger.js'
 

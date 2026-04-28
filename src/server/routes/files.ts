@@ -4,7 +4,7 @@
  */
 import { existsSync, statSync } from 'node:fs'
 import { Hono } from 'hono'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import {

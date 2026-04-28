@@ -3,16 +3,21 @@ import { join } from 'node:path'
 import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipmail.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
+import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import { toolResultFirstText } from './agentTestUtils.js'
 
 vi.mock('@server/lib/calendar/calendarRipmail.js', () => ({
   getCalendarEventsFromRipmail: vi.fn(),
 }))
 
-vi.mock('@server/lib/ripmail/ripmailExec.js', () => ({
+vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync: vi.fn(),
   ripmailProcessEnv: vi.fn(() => ({})),
+}))
+
+vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', () => ({
+  runRipmailRefreshForBrain: vi.fn(),
 }))
 
 // Shared fixture: $BRAIN_HOME/wiki
@@ -100,6 +105,23 @@ describe('calendar tool', () => {
     const result = await tool.execute('c3', { op: 'configure_source', source: 'src1', calendar_ids: ['c1', 'c2'] })
     expect(execRipmailAsync).toHaveBeenCalledWith(expect.stringContaining('sources edit "src1" --calendar "c1" --calendar "c2" --json'), expect.any(Object))
     expect(toolResultFirstText(result)).toContain('Source src1 updated')
+  })
+
+  it('op=configure_source does not block the tool until refresh finishes', async () => {
+    vi.mocked(runRipmailRefreshForBrain).mockReturnValue(new Promise<never>(() => {}))
+    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok": true}', stderr: '' })
+
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+
+    const done = tool.execute('c3-bg', { op: 'configure_source', source: 'src1', calendar_ids: ['o1'] })
+    const result = await Promise.race([
+      done,
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error('tool blocked on refresh')), 1500)),
+    ])
+    expect(toolResultFirstText(result)).toContain('Source src1 updated')
+    expect(runRipmailRefreshForBrain).toHaveBeenCalledWith(['--source', 'src1'])
   })
 
   it('op=events passes calendar_ids to getCalendarEventsFromRipmail', async () => {

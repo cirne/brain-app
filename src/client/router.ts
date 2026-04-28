@@ -37,8 +37,8 @@ export type Overlay =
 /** Chat-first shell: optional detail overlay; base route is always chat. */
 export type Route = {
   overlay?: Overlay
-  /** Full-page flows (onboarding wizard, dev hard-reset / restart-seed / first-chat). */
-  flow?: 'onboarding' | 'hard-reset' | 'restart-seed' | 'first-chat' | 'enron-demo'
+  /** Full-page flows (first-run welcome/setup UI, dev hard-reset / restart-seed / first-chat). */
+  flow?: 'welcome' | 'hard-reset' | 'restart-seed' | 'first-chat' | 'enron-demo'
   /** When true, the Brain Hub is rendered in the main content area instead of chat. */
   hubActive?: boolean
 }
@@ -100,8 +100,8 @@ export function parseRoute(href: string = location.href): Route {
   const url = new URL(href, 'http://localhost')
   const [, seg1, ...rest] = url.pathname.split('/')
 
-  if (seg1 === 'onboarding') {
-    return { flow: 'onboarding' }
+  if (seg1 === 'welcome' || seg1 === 'onboarding') {
+    return { flow: 'welcome' }
   }
   if (seg1 === 'hard-reset') {
     return { flow: 'hard-reset' }
@@ -217,7 +217,7 @@ export function parseRoute(href: string = location.href): Route {
 
 /** Convert a Route back to a URL string. */
 export function routeToUrl(route: Route): string {
-  if (route.flow === 'onboarding') return '/onboarding'
+  if (route.flow === 'welcome') return '/welcome'
   if (route.flow === 'hard-reset') return '/hard-reset'
   if (route.flow === 'restart-seed') return '/restart-seed'
   if (route.flow === 'first-chat') return '/first-chat'

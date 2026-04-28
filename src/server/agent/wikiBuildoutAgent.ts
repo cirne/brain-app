@@ -3,7 +3,7 @@ import Handlebars from 'handlebars'
 import { wikiDir as getWikiDir } from '@server/lib/wiki/wikiDir.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
-import { buildDateContext, createOnboardingAgent } from './agentFactory.js'
+import { buildDateContext, createOnboardingAgent, resolveOnboardingSessionTimezone } from './agentFactory.js'
 import {
   fetchRipmailWhoamiForProfiling,
   parseWhoamiProfileSubject,
@@ -86,7 +86,7 @@ export async function getOrCreateWikiBuildoutAgent(
   const existing = buildoutSessions.get(sessionId)
   if (existing) return existing
 
-  const tz = options.timezone ?? 'UTC'
+  const tz = resolveOnboardingSessionTimezone('buildout', options.timezone)
   const categories = options.categories?.length
     ? options.categories.map(c => `- ${c}`).join('\n')
     : '- (No extra filter — use profile and email to infer scope.)'
@@ -96,7 +96,7 @@ export async function getOrCreateWikiBuildoutAgent(
   const agent = createOnboardingAgent(
     buildWikiBuildoutSystemPrompt(tz, categories, userPeoplePage, localMessagesAvailable),
     wiki,
-    { variant: 'buildout' },
+    { variant: 'buildout', timezone: options.timezone },
   )
   buildoutSessions.set(sessionId, agent)
   return agent

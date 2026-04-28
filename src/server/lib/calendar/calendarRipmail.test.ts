@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { getCalendarEventsFromRipmail, mapRipmailRowToCalendarEvent, type RipmailCalendarEventJson } from './calendarRipmail.js'
-import * as ripmailExec from '@server/lib/ripmail/ripmailExec.js'
+import * as ripmailRun from '@server/lib/ripmail/ripmailRun.js'
 
 describe('mapRipmailRowToCalendarEvent', () => {
   it('maps a timed event', () => {
@@ -92,7 +92,7 @@ describe('getCalendarEventsFromRipmail deduplication', () => {
       ]
     })
 
-    vi.spyOn(ripmailExec, 'execRipmailAsync').mockResolvedValue({
+    vi.spyOn(ripmailRun, 'execRipmailAsync').mockResolvedValue({
       stdout: mockStdout,
       stderr: ''
     })

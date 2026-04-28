@@ -1,10 +1,10 @@
 import process from 'node:process'
-export { ripmailProcessEnv as ripmailRefreshEnv } from '@server/lib/ripmail/ripmailExec.js'
+export { ripmailProcessEnv as ripmailRefreshEnv } from '@server/lib/ripmail/ripmailRun.js'
 import { formatExecError } from './execError.js'
 import { ripmailHomeForBrain } from './brainHome.js'
 import { getHubRipmailSourcesList } from '@server/lib/hub/hubRipmailSources.js'
 import { ensureGoogleCalendarSourcesForOAuthImap } from './googleOAuth.js'
-import { RipmailTimeoutError, RIPMAIL_REFRESH_TIMEOUT_MS } from '@server/lib/ripmail/ripmailExec.js'
+import { RipmailTimeoutError, RIPMAIL_REFRESH_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
 import { runRipmailHeavyArgv, runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 
 export interface SyncComponentResult {

@@ -95,6 +95,11 @@ export function buildChatBody(opts: {
   isFirstMessage: boolean
   /** Post-onboarding first turn: server opens with assistant (no user bubble). */
   firstChatKickoff?: boolean
+  /**
+   * Guided onboarding interview: send short kickoff text; server runs `ripmail whoami` and merges
+   * into the model prompt, and persists the turn without a user row (`interviewKickoff` on POST body).
+   */
+  interviewKickoff?: boolean
   /** When true, server may inject read-aloud context; assistant uses `speak` (OpenAI TTS on the server). */
   hearReplies?: boolean
 }): Record<string, unknown> {
@@ -105,6 +110,9 @@ export function buildChatBody(opts: {
     body.firstChatKickoff = true
   } else {
     body.message = opts.message
+    if (opts.interviewKickoff) {
+      body.interviewKickoff = true
+    }
   }
   if (opts.sessionId) body.sessionId = opts.sessionId
   if (opts.hearReplies === true) body.hearReplies = true

@@ -3,7 +3,7 @@
  */
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { ensureGoogleCalendarSourcesForOAuthImap } from '@server/lib/platform/googleOAuth.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import type { CalendarEvent } from './calendarCache.js'
 
@@ -66,7 +66,7 @@ function unixToIso(startAt: number, endAt: number, allDay: boolean): { start: st
   return { start: iso(startAt), end: iso(endAt) }
 }
 
-  /** Map one ripmail JSON row to brain `CalendarEvent`. */
+/** Map one ripmail JSON row to brain `CalendarEvent`. */
 export function mapRipmailRowToCalendarEvent(row: RipmailCalendarEventJson): CalendarEvent | null {
   const uid = row.uid?.trim()
   const sourceId = row.sourceId?.trim() ?? 'unknown'

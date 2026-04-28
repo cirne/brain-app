@@ -18,7 +18,6 @@
   import {
     ONBOARDING_LARGE_WINDOW_STATES,
     ONBOARDING_PROFILE_INDEX_AUTOPROCEED,
-    ONBOARDING_PROFILE_INDEX_MANUAL_MIN,
     emptyOnboardingMail,
     type OnboardingMailStatus,
   } from '@client/lib/onboarding/onboardingTypes.js'
@@ -85,10 +84,6 @@
     return `${d.toLocaleString()} of ${ONBOARDING_PROFILE_INDEX_AUTOPROCEED.toLocaleString()} messages toward continuing`
   })
   const canAutoProceedToInterview = $derived(mailIndexedCount >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED)
-  const canOfferEarlyProfile = $derived(
-    mailIndexedCount >= ONBOARDING_PROFILE_INDEX_MANUAL_MIN &&
-      mailIndexedCount < ONBOARDING_PROFILE_INDEX_AUTOPROCEED,
-  )
   async function loadMailOnly() {
     const next = await fetchOnboardingMailStatus()
     if (next) mail = next
@@ -262,6 +257,7 @@
     }
   }
 
+  /** Manual retry when auto-advance to guided setup failed (e.g. PATCH error at the indexed threshold). */
   async function proceedToInterviewEarly() {
     indexingAdvanceError = null
     interviewAutoAdvanceLastFailedAtCount = null
@@ -425,7 +421,7 @@
 
   let obWorkspace = $state<{ getInterviewSessionId: () => string | null } | null>(null)
 
-  /** User-triggered: POST /finalize (each assistant turn would incorrectly fire if we used onStreamFinished). */
+  /** Trigger finalize: footer button, or agent `finish_conversation` (see OnboardingWorkspace → AgentChat). Not onStreamFinished — each assistant turn would fire incorrectly. */
   async function continueAfterInterview() {
     finalizeError = null
     busy = true
@@ -468,13 +464,15 @@
         chatEndpoint="/api/onboarding/interview"
         headerFallbackTitle="Setup"
         storageKey=""
-        autoSendMessage="Start the guided onboarding interview now. Begin with phase 1: confirm my identity (name and short bio guess), then continue through the five phases in order."
+        inputPlaceholder="Type an answer or tap a suggestion above."
+        autoSendMessage="Start the guided setup now. Before asking for the user's name: run mail search prioritizing email they sent (from their whoami address, recent window), read a few promising messages for signatures, then open with identity guesses. Continue through assistant name, calendar, inbox rules, and important people in order. Do not mention phases, steps, or numbered sections to the user."
+        onAgentFinishInterview={() => void continueAfterInterview()}
         {multiTenant}
       />
       <div
         class="flex shrink-0 flex-col gap-2 border-t border-[var(--border)] bg-[var(--bg)] px-4 py-3"
         role="region"
-        aria-label="Finish onboarding"
+        aria-label="Finish setup"
       >
         {#if finalizeError}
           <p class="text-sm text-red-600 dark:text-red-400" role="alert">{finalizeError}</p>
@@ -676,31 +674,25 @@
             {:else if indexingCalmStatus}
               <p class="ob-indexing-calm">{indexingCalmStatus}</p>
             {/if}
-            {#if showIndexingHero && (canOfferEarlyProfile || canAutoProceedToInterview) && (state === 'indexing' || (state === 'not-started' && mail.configured))}
-              <div class="ob-indexing-early" role="region" aria-label="Continue to guided setup">
-                {#if canOfferEarlyProfile}
-                  <p class="ob-indexing-early-copy">
-                    You’ve got enough mail to start. We’ll keep downloading the rest in the background while you finish
-                    setup.
-                  </p>
-                {/if}
-                <button
-                  type="button"
-                  class="ob-btn-primary ob-indexing-early-btn"
-                  onclick={() => void proceedToInterviewEarly()}
-                  disabled={busy}
-                >
-                  {#if busy}
-                    <span class="ob-spinner" aria-hidden="true"></span>
-                    Working…
-                  {:else}
-                    {canAutoProceedToInterview ? 'Continue to setup' : 'Start setup now'}
-                  {/if}
-                </button>
-              </div>
-            {/if}
             {#if indexingAdvanceError}
-              <p class="ob-error ob-indexing-mail-error" role="alert">{indexingAdvanceError}</p>
+              <div class="ob-indexing-advance-error" role="alert">
+                <p class="ob-error ob-indexing-mail-error">{indexingAdvanceError}</p>
+                {#if canAutoProceedToInterview && (state === 'indexing' || (state === 'not-started' && mail.configured))}
+                  <button
+                    type="button"
+                    class="ob-btn-primary ob-indexing-advance-retry-btn"
+                    onclick={() => void proceedToInterviewEarly()}
+                    disabled={busy}
+                  >
+                    {#if busy}
+                      <span class="ob-spinner" aria-hidden="true"></span>
+                      Working…
+                    {:else}
+                      Try again
+                    {/if}
+                  </button>
+                {/if}
+              </div>
             {/if}
             {#if mail.statusError}
               <p class="ob-error ob-indexing-mail-error">{mail.statusError}</p>

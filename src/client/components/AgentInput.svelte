@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import { ArrowUp, List, MessageSquarePlus, Square } from 'lucide-svelte'
+  import { ArrowUp, List, MessageSquarePlus, Mic, Square } from 'lucide-svelte'
   import WikiFileName from './WikiFileName.svelte'
   import type { SkillMenuItem } from '@client/lib/agentUtils.js'
   import { handleTextareaCursorKeys } from '@client/lib/agentInputCursor.js'
@@ -22,6 +22,10 @@
      * When set, a “new chat” control is integrated on the left inside the bordered field (like send on the right).
      */
     onNewChat = undefined as (() => void) | undefined,
+    /** Mobile tap-to-talk entry; sits in the send column left of send/stop. */
+    showVoiceEntry = false,
+    onVoiceEntry = undefined as (() => void) | undefined,
+    voiceEntryDisabled = false,
   }: {
     placeholder?: string
     disabled?: boolean
@@ -35,6 +39,9 @@
     onDraftChange?: (_draft: string) => void
     transparentSurround?: boolean
     onNewChat?: () => void
+    showVoiceEntry?: boolean
+    onVoiceEntry?: () => void
+    voiceEntryDisabled?: boolean
   } = $props()
 
   let input = $state('')
@@ -167,11 +174,27 @@
 
   const TEXTAREA_MIN_H = 38
 
+  /** Cap growth so the composer does not eat the whole viewport; page can scroll instead of inner textarea scroll. */
+  function textareaMaxHeightPx(): number {
+    if (typeof window === 'undefined') return 480
+    return Math.min(480, Math.floor(window.innerHeight * 0.55))
+  }
+
   function autoResize(el: HTMLTextAreaElement) {
     el.style.height = 'auto'
-    const next = Math.max(TEXTAREA_MIN_H, Math.min(el.scrollHeight, 200))
+    const cap = textareaMaxHeightPx()
+    const next = Math.max(TEXTAREA_MIN_H, Math.min(el.scrollHeight, cap))
     el.style.height = `${next}px`
   }
+
+  $effect(() => {
+    void input
+    void placeholder
+    void queuedMessages.length
+    void tick().then(() => {
+      if (inputEl) autoResize(inputEl)
+    })
+  })
 
   export function focus() {
     inputEl?.focus()
@@ -203,10 +226,16 @@
   }
 
   onMount(() => {
+    const onResize = () => {
+      if (inputEl) autoResize(inputEl)
+    }
+    window.addEventListener('resize', onResize)
     void tick().then(() => {
+      onResize()
       if (disabled) return
       inputEl?.focus({ preventScroll: true })
     })
+    return () => window.removeEventListener('resize', onResize)
   })
 
   $effect(() => {
@@ -264,7 +293,20 @@
         </div>
       {/if}
       <div class="input-composer">
-        {#if onNewChat}
+        {#if showVoiceEntry && onVoiceEntry}
+          <div class="lead-actions" role="group" aria-label="Voice input">
+            <button
+              type="button"
+              class="voice-lead-btn"
+              disabled={voiceEntryDisabled}
+              onclick={() => onVoiceEntry()}
+              title="Voice input"
+              aria-label="Voice input"
+            >
+              <Mic size={20} strokeWidth={2.25} aria-hidden="true" />
+            </button>
+          </div>
+        {:else if onNewChat}
           <div class="lead-actions" role="group" aria-label="Start new chat">
             <button
               type="button"
@@ -279,7 +321,10 @@
         {/if}
         <div
           class="input-shell-inner"
-          class:input-shell-inner--with-lead={!!onNewChat}
+          class:input-shell-inner--with-lead={!!(
+            (showVoiceEntry && onVoiceEntry) ||
+            onNewChat
+          )}
         >
           <textarea
             class="chat-textarea"
@@ -474,6 +519,43 @@
     filter: brightness(0.97);
   }
 
+  /* Same rail geometry as .new-chat-btn; used when voice replaces new-chat on mobile. */
+  .voice-lead-btn {
+    --voice-lead-r: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    min-width: 48px;
+    width: 48px;
+    padding: 0;
+    border: none;
+    border-right: 1px solid var(--border);
+    border-radius: var(--voice-lead-r) 0 0 var(--voice-lead-r);
+    background: var(--bg);
+    color: var(--text-2);
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .voice-lead-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  @media (hover: hover) {
+    .voice-lead-btn:not(:disabled):hover {
+      background: var(--bg-3);
+      color: var(--text);
+    }
+  }
+
+  .voice-lead-btn:active:not(:disabled) {
+    filter: brightness(0.97);
+  }
+
   .input-shell-inner {
     display: flex;
     flex: 1;
@@ -501,7 +583,17 @@
     background: transparent;
     color: var(--text);
     min-height: 38px;
-    max-height: 200px;
+    max-height: min(480px, 55vh);
+    overflow-x: hidden;
+    overflow-y: hidden;
+  }
+
+  /* Long placeholders stay on one line; full hint still available as native tooltip via title on wrapper if needed later. */
+  .chat-textarea::placeholder {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .chat-textarea:focus {
@@ -512,7 +604,6 @@
     opacity: 0.6;
   }
 
-  /* Inner radius: shell 10px minus 1px border */
   .send-btn {
     --send-btn-outer-r: 9px;
     display: inline-flex;

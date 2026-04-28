@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte'
-  import { Loader2 } from 'lucide-svelte'
+  import { onDestroy, onMount, tick } from 'svelte'
+  import { Keyboard, Loader2 } from 'lucide-svelte'
   import { formatRecordingDuration } from '@client/lib/voicePanelFormat.js'
   import { VoiceTapRecorder, type VoiceTapPhase } from '@client/lib/voiceTapCapture.js'
   import VoiceActionButtons from './VoiceActionButtons.svelte'
@@ -11,14 +11,23 @@
     disabled = false,
     holdGated = false,
     hearReplies = true,
-    /** `fixed` — viewport-bottom dock (empty chat / centered composer). `inline` — flow between context pills and composer. */
-    layout = 'fixed' as 'fixed' | 'inline',
+    /**
+     * `fixed` — viewport-bottom dock (legacy). `inline` — flow between context pills and composer (legacy).
+     * `composer-flow` — single embedded row in the chat composer stack.
+     */
+    layout = 'fixed' as 'fixed' | 'inline' | 'composer-flow',
+    /** When {@link layout} is `composer-flow` and phase is idle: switch back to text entry. */
+    onExitVoiceMode = undefined as (() => void) | undefined,
+    /** After mount, begin arming/recording immediately (mic entry from unified composer). */
+    autoStartRecording = false,
     onTranscribe,
   }: {
     disabled?: boolean
     holdGated?: boolean
     hearReplies?: boolean
-    layout?: 'fixed' | 'inline'
+    layout?: 'fixed' | 'inline' | 'composer-flow'
+    onExitVoiceMode?: () => void
+    autoStartRecording?: boolean
     onTranscribe: (_text: string) => void
   } = $props()
 
@@ -79,6 +88,20 @@
       },
       onTranscribe,
     })
+    if (autoStartRecording && !disabled) {
+      void (async () => {
+        await tick()
+        await tick()
+        const r = recorder
+        if (!r || disabled) return
+        try {
+          await navigator.vibrate?.(12)
+        } catch {
+          /* ignore */
+        }
+        await r.primaryAction()
+      })()
+    }
   })
 
   onDestroy(() => {
@@ -133,6 +156,7 @@
   class="chat-voice-panel"
   class:chat-voice-panel--fixed={layout === 'fixed'}
   class:chat-voice-panel--inline={layout === 'inline'}
+  class:chat-voice-panel--composer-flow={layout === 'composer-flow'}
   role="toolbar"
   aria-label="Voice input"
 >
@@ -145,6 +169,16 @@
           </span>
           <span class="chat-voice-processing-text">Transcribing…</span>
         </div>
+      {:else if layout === 'composer-flow' && phase === 'idle' && onExitVoiceMode}
+        <button
+          type="button"
+          class="voice-exit-keyboard"
+          onclick={() => onExitVoiceMode()}
+          aria-label="Type with keyboard"
+          title="Keyboard"
+        >
+          <Keyboard size={20} strokeWidth={2.25} aria-hidden="true" />
+        </button>
       {:else}
         <VoiceActionButtons
           visible={showActions}
@@ -168,6 +202,8 @@
     <div class="chat-voice-primary-col">
       {#if phase === 'recording'}
         <RecordingWaveformIndicator />
+      {:else if layout === 'composer-flow'}
+        <div class="voice-waveform-placeholder" aria-hidden="true"></div>
       {/if}
       <VoicePrimaryButton
         {phase}
@@ -215,6 +251,98 @@
     border-top: 1px solid var(--border-1, rgba(255, 255, 255, 0.08));
     background: color-mix(in srgb, var(--bg-2) 92%, transparent);
     border-radius: 0;
+  }
+
+  .chat-voice-panel--composer-flow {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    min-height: 56px;
+    margin: 0;
+    padding: 0;
+    background: var(--bg-2);
+    border: none;
+    border-radius: 0;
+  }
+
+  /*
+   * Composer stack: keep the primary tap/send control on the LEFT (same lane as text-mode mic +
+   * send) so it does not jump to the right; secondary actions (cancel/restart, keyboard) sit on the right.
+   */
+  .chat-voice-panel--composer-flow .chat-voice-panel-inner {
+    flex-direction: row-reverse;
+  }
+
+  .chat-voice-panel--composer-flow .chat-voice-primary-col {
+    justify-content: flex-start;
+    flex-direction: row-reverse;
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: 4px;
+  }
+
+  .voice-waveform-placeholder {
+    flex-shrink: 0;
+    box-sizing: border-box;
+    min-width: 44px;
+    width: 44px;
+    height: 36px;
+    padding: 0 2px;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .chat-voice-panel--composer-flow .chat-voice-left {
+    justify-content: flex-end;
+  }
+
+  .chat-voice-panel--composer-flow .voice-exit-keyboard {
+    margin-left: 0;
+    margin-right: max(8px, env(safe-area-inset-right, 0px));
+  }
+
+  .chat-voice-panel--composer-flow .chat-voice-processing {
+    padding-left: 8px;
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .chat-voice-panel--composer-flow :global(.voice-actions) {
+    transform: translateX(8px);
+  }
+
+  .chat-voice-panel--composer-flow :global(.voice-actions--show) {
+    transform: translateX(0);
+    padding-left: 0;
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
+  }
+
+  .voice-exit-keyboard {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    height: 44px;
+    margin-left: max(8px, env(safe-area-inset-left, 0px));
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-3);
+    color: var(--text-2);
+    cursor: pointer;
+    transition:
+      background 0.15s,
+      color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (hover: hover) {
+    .voice-exit-keyboard:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+  }
+
+  .voice-exit-keyboard:active {
+    filter: brightness(0.97);
   }
 
   .chat-voice-panel-inner {
@@ -335,6 +463,9 @@
       background: var(--bg-2);
     }
     .chat-voice-panel--inline {
+      background: var(--bg-2);
+    }
+    .chat-voice-panel--composer-flow {
       background: var(--bg-2);
     }
   }

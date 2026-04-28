@@ -63,9 +63,10 @@ describe('wikiAgentWritePolicy', () => {
       await expect(assertAgentWikiWriteUsesSubdirectory(root, 'oops.md')).rejects.toThrow(/topics/)
     })
 
-    it('does not throw for allowlisted root files (index.md, me.md)', async () => {
+    it('does not throw for allowlisted root files (index.md, me.md, assistant.md)', async () => {
       await expect(assertAgentWikiWriteUsesSubdirectory(root, 'index.md')).resolves.toBeUndefined()
       await expect(assertAgentWikiWriteUsesSubdirectory(root, 'me.md')).resolves.toBeUndefined()
+      await expect(assertAgentWikiWriteUsesSubdirectory(root, 'assistant.md')).resolves.toBeUndefined()
     })
 
     it('does not throw for nested paths', async () => {

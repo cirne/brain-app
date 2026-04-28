@@ -498,6 +498,37 @@ describe('AgentInput.svelte', () => {
     })
   })
 
+  describe('voice lead vs new chat lead', () => {
+    it('puts mic on the left when voice entry is enabled (no inline new-chat in that case)', async () => {
+      const onNewChat = vi.fn()
+      const onVoiceEntry = vi.fn()
+      const props = agentInputTestProps({
+        onNewChat,
+        showVoiceEntry: true,
+        onVoiceEntry,
+        voiceEntryDisabled: false,
+      })
+      render(AgentInput, { props })
+      expect(screen.queryByRole('button', { name: 'New chat' })).not.toBeInTheDocument()
+      const voiceBtn = screen.getByRole('button', { name: 'Voice input' })
+      expect(voiceBtn).toBeInTheDocument()
+      await fireEvent.click(voiceBtn)
+      expect(onVoiceEntry).toHaveBeenCalled()
+      expect(onNewChat).not.toHaveBeenCalled()
+    })
+
+    it('shows new chat on the left when voice entry is off', () => {
+      const onNewChat = vi.fn()
+      const props = agentInputTestProps({
+        onNewChat,
+        showVoiceEntry: false,
+      })
+      render(AgentInput, { props })
+      expect(screen.getByRole('button', { name: 'New chat' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Voice input' })).not.toBeInTheDocument()
+    })
+  })
+
   describe('skill sorting', () => {
     it('sorts skills with prefix matches first', async () => {
       const skills: SkillMenuItem[] = [

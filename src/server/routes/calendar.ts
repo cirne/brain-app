@@ -7,7 +7,7 @@ import { getCalendarEvents, type CalendarEvent } from '@server/lib/calendar/cale
 import { syncCalendarSourcesRipmail, syncInboxRipmail } from '@server/lib/platform/syncAll.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { buildWikiExcerpt } from '@server/lib/wiki/wikiSearchExcerpt.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 
 const execAsync = promisify(exec)

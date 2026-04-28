@@ -1,4 +1,6 @@
-import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process'
+import { spawn, type ChildProcess, type ExecOptions, type SpawnOptions } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { tokenizeRipmailArgString } from './ripmailArgvTokenize.js'
 import { ripmailBin } from './ripmailBin.js'
 import { buildRipmailStatusLogSnapshot } from './ripmailStatusParse.js'
 import { ripmailProcessEnv } from '@server/lib/platform/brainHome.js'
@@ -391,4 +393,63 @@ export async function runRipmailArgv(
         settleClosed(code, signal)
       })
     })
+}
+
+/** Same env/`RIPMAIL_HOME` wiring as `@server/lib/platform/brainHome` — centralized import for routes that only need subprocess env. */
+export { ripmailProcessEnv } from '@server/lib/platform/brainHome.js'
+
+function resolveExecCwd(cwd: ExecOptions['cwd']): string | undefined {
+  if (cwd === undefined) return undefined
+  if (typeof cwd === 'string') return cwd
+  if (cwd instanceof URL) {
+    return cwd.protocol === 'file:' ? fileURLToPath(cwd) : cwd.pathname
+  }
+  return undefined
+}
+
+/**
+ * Convenience API: map Node `ExecOptions.timeout` onto {@link runRipmailArgv}.
+ * Prefer `runRipmailArgv` when you already have bounded argv; use `execRipmailAsync` for legacy command strings only.
+ */
+export async function execRipmailArgv(
+  argv: string[],
+  options?: ExecOptions & { signal?: AbortSignal },
+): Promise<{ stdout: string; stderr: string }> {
+  const timeoutMs =
+    options?.timeout !== undefined && options.timeout > 0
+      ? options.timeout
+      : RIPMAIL_QUERY_TIMEOUT_MS
+  const r = await runRipmailArgv(argv, {
+    timeoutMs,
+    maxBuffer: options?.maxBuffer,
+    env: options?.env as SpawnOptions['env'],
+    cwd: resolveExecCwd(options?.cwd),
+    signal: options?.signal,
+  })
+  return { stdout: r.stdout, stderr: r.stderr }
+}
+
+/**
+ * Legacy: `exec`-style string after resolved binary (no shell). UTF-8 stdout/stderr.
+ * Command must start with `ripmailBin()`; remainder is tokenized.
+ */
+export function execRipmailAsync(
+  command: string,
+  options?: ExecOptions & { signal?: AbortSignal },
+): Promise<{ stdout: string; stderr: string }> {
+  const bin = ripmailBin()
+  const trimmed = command.trimStart()
+  if (!trimmed.startsWith(bin)) {
+    return Promise.reject(new Error(`execRipmailAsync: command must start with ${bin}`))
+  }
+  const tail = trimmed.slice(bin.length).trimStart()
+  const argv = tokenizeRipmailArgString(tail)
+  return execRipmailArgv(argv, options)
+}
+
+/** Dev hard-reset: `ripmail clean --yes` (same argv path as `execRipmailArgv`). */
+export const RIPMAIL_CLEAN_TIMEOUT_MS = 120_000
+
+export function execRipmailCleanYes(): Promise<{ stdout: string; stderr: string }> {
+  return execRipmailArgv(['clean', '--yes'], { timeout: RIPMAIL_CLEAN_TIMEOUT_MS })
 }

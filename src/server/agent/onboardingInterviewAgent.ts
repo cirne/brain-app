@@ -3,7 +3,29 @@ import type { Agent } from '@mariozechner/pi-agent-core'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'
-import { createOnboardingAgent } from './agentFactory.js'
+import { createOnboardingAgent, resolveOnboardingSessionTimezone } from './agentFactory.js'
+
+/**
+ * First user turn for guided onboarding: embed a **fresh** `ripmail whoami` payload before
+ * the kickoff instructions so the model grounds identity in CLI output, not only the address.
+ */
+export function buildInterviewKickoffUserMessage(whoamiRaw: string, instructions: string): string {
+  const who = whoamiRaw.trim() || '(ripmail whoami produced no output.)'
+  const inst = instructions.trim()
+  if (!inst) {
+    return (
+      '### ripmail whoami (source of truth for mailbox identity)\n\n```\n' + who + '\n```\n'
+    )
+  }
+  return (
+    '### ripmail whoami (fresh — source of truth for mailbox identity; do not infer display name only from an email address)\n\n' +
+    '```\n' +
+    who +
+    '\n```\n\n' +
+    '### What to do now\n\n' +
+    inst
+  )
+}
 
 export function buildOnboardingInterviewSystemPrompt(timezone: string, ripmailWhoami: string): string {
   const tz = timezone || 'UTC'
@@ -36,10 +58,13 @@ export async function getOrCreateOnboardingInterviewAgent(
   const existing = interviewSessions.get(sessionId)
   if (existing) return existing
   const ripmailWhoami = await fetchRipmailWhoamiForProfiling()
-  const tz = options.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+  const tz = resolveOnboardingSessionTimezone('interview', options.timezone)
   const systemPrompt = buildOnboardingInterviewSystemPrompt(tz, ripmailWhoami)
   const wikiRoot = wikiDir()
-  const agent = createOnboardingAgent(systemPrompt, wikiRoot, { variant: 'interview' })
+  const agent = createOnboardingAgent(systemPrompt, wikiRoot, {
+    variant: 'interview',
+    timezone: options.timezone,
+  })
   interviewSessions.set(sessionId, agent)
   return agent
 }

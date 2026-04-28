@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { computeIndexingActionHint, parseRipmailStatusJson } from '@server/lib/ripmail/ripmailStatusParse.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
-import { execRipmailAsync, RIPMAIL_STATUS_TIMEOUT_MS } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync, RIPMAIL_STATUS_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import { logger } from '@server/lib/observability/logger.js'
 

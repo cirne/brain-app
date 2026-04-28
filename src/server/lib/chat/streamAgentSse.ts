@@ -88,11 +88,18 @@ export interface StreamAgentSseOptions {
   agentKind?: LlmAgentKind
   /** IANA timezone (e.g. for suggest-reply repair `createAgentTools` calendar). */
   timezone?: string
+  /**
+   * When true (default), after `agent.prompt()` run {@link runSuggestReplyRepairIfNeeded} for
+   * main chat. Onboarding interview sets **false** — suggestions come from POST /api/onboarding/suggestions.
+   */
+  runSuggestReplyRepair?: boolean
 }
 
 /**
  * Stream agent events as SSE (same wire format as /api/chat).
- * Shared by chat route and onboarding profile/seed routes.
+ * Callers: main chat route and onboarding `POST /api/onboarding/interview`.
+ * After each `agent.prompt()`, runs {@link runSuggestReplyRepairIfNeeded} when enabled and the turn
+ * has assistant text but no valid `suggest_reply_options` (unless `BRAIN_SUGGEST_REPLY_REPAIR=0`).
  */
 export function streamAgentSseResponse(
   c: Context,
@@ -111,8 +118,10 @@ export function streamAgentSseResponse(
     initialSessionTitle: initialSessionTitleOpt,
     agentKind: agentKindOpt,
     timezone: timezoneOpt,
+    runSuggestReplyRepair: runSuggestReplyRepairOpt,
   } = opts
   const agentKind: LlmAgentKind = agentKindOpt ?? 'chat'
+  const runSuggestReplyRepair = runSuggestReplyRepairOpt !== false
 
   // One id for the whole turn. Must be created and sent to NR *before* `streamSSE`'s async
   // callback — that callback runs outside the web request's async context, so
@@ -438,58 +447,60 @@ export function streamAgentSseResponse(
       } else {
         await agent.prompt(message)
       }
-      try {
-        const userText = userMessageForStore ?? message
-        const repair = await runSuggestReplyRepairIfNeeded({
-          wikiDir: wikiDirForDiffs,
-          userMessageText: userText,
-          assistantState,
-          includeLocalMessageTools: areLocalMessageToolsEnabled(),
-          timezone: timezoneOpt,
-        })
-        if (repair.applied) {
-          if (lastRunUsage === undefined) {
-            lastRunUsage = repair.usage
-          } else {
-            lastRunUsage = isZeroUsage(repair.usage) ? lastRunUsage : addLlmUsage(lastRunUsage, repair.usage)
-          }
-          for (let i = assistantState.parts.length - 1; i >= 0; i -= 1) {
-            const p = assistantState.parts[i]
-            if (p.type !== 'tool' || p.toolCall.name !== 'suggest_reply_options' || p.toolCall.id !== repair.toolCallId) {
-              continue
+      if (runSuggestReplyRepair) {
+        try {
+          const userText = userMessageForStore ?? message
+          const repair = await runSuggestReplyRepairIfNeeded({
+            wikiDir: wikiDirForDiffs,
+            userMessageText: userText,
+            assistantState,
+            includeLocalMessageTools: areLocalMessageToolsEnabled(),
+            timezone: timezoneOpt,
+          })
+          if (repair.applied) {
+            if (lastRunUsage === undefined) {
+              lastRunUsage = repair.usage
+            } else {
+              lastRunUsage = isZeroUsage(repair.usage) ? lastRunUsage : addLlmUsage(lastRunUsage, repair.usage)
             }
-            const tc = p.toolCall
-            const tr = typeof tc.result === 'string' ? tc.result : ''
-            const d = tc.details
-            try {
-              await stream.writeSSE({
-                event: 'tool_start',
-                data: JSON.stringify({
-                  id: tc.id,
-                  name: tc.name,
-                  args: tc.args,
-                }),
-              })
-              const details = coerceToolResultDetailsObject(d) ?? d
-              await stream.writeSSE({
-                event: 'tool_end',
-                data: JSON.stringify({
-                  id: tc.id,
-                  name: tc.name,
-                  result: tr,
-                  isError: tc.isError === true,
-                  ...(details !== undefined ? { details } : {}),
-                  ...(tc.args != null && typeof tc.args === 'object' ? { args: tc.args } : {}),
-                }),
-              })
-            } catch {
-              /* stream closed */
+            for (let i = assistantState.parts.length - 1; i >= 0; i -= 1) {
+              const p = assistantState.parts[i]
+              if (p.type !== 'tool' || p.toolCall.name !== 'suggest_reply_options' || p.toolCall.id !== repair.toolCallId) {
+                continue
+              }
+              const tc = p.toolCall
+              const tr = typeof tc.result === 'string' ? tc.result : ''
+              const d = tc.details
+              try {
+                await stream.writeSSE({
+                  event: 'tool_start',
+                  data: JSON.stringify({
+                    id: tc.id,
+                    name: tc.name,
+                    args: tc.args,
+                  }),
+                })
+                const details = coerceToolResultDetailsObject(d) ?? d
+                await stream.writeSSE({
+                  event: 'tool_end',
+                  data: JSON.stringify({
+                    id: tc.id,
+                    name: tc.name,
+                    result: tr,
+                    isError: tc.isError === true,
+                    ...(details !== undefined ? { details } : {}),
+                    ...(tc.args != null && typeof tc.args === 'object' ? { args: tc.args } : {}),
+                  }),
+                })
+              } catch {
+                /* stream closed */
+              }
+              break
             }
-            break
           }
+        } catch (e) {
+          logger.error({ err: e }, 'suggest-reply-repair failed')
         }
-      } catch (e) {
-        logger.error({ err: e }, 'suggest-reply-repair failed')
       }
       try {
         await stream.writeSSE({

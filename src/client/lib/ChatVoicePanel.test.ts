@@ -28,6 +28,11 @@ describe('ChatVoicePanel', () => {
     expect(src).toContain('chat-voice-panel')
     expect(src).toContain('chat-voice-panel--fixed')
     expect(src).toContain('chat-voice-panel--inline')
+    expect(src).toContain('chat-voice-panel--composer-flow')
+    expect(src).toContain('flex-direction: row-reverse')
+    expect(src).toContain('voice-waveform-placeholder')
+    expect(src).toContain('voice-exit-keyboard')
+    expect(src).toContain('autoStartRecording')
     expect(src).toContain('Transcribing')
 
     expect(readFileSync(primary, 'utf8')).toContain('voice-pulse-ring')

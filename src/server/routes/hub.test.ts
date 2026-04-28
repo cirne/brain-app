@@ -4,7 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-vi.mock('@server/lib/ripmail/ripmailExec.js', () => ({
+vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync: vi.fn(),
 }))
 
@@ -17,7 +17,7 @@ vi.mock('@server/lib/hub/hubRipmailSpawn.js', async (importOriginal) => {
   }
 })
 
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
+import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import {
   spawnRipmailBackfillSource,
   spawnRipmailRefreshSource,

@@ -6,7 +6,7 @@ import { readdir } from 'node:fs/promises'
  * a subdirectory (e.g. `topics/note.md`). Expand this tuple when product policy adds more root
  * files; keep it defined only here.
  */
-export const AGENT_ALLOWED_WIKI_ROOT_MARKDOWN = ['index.md', 'me.md'] as const
+export const AGENT_ALLOWED_WIKI_ROOT_MARKDOWN = ['index.md', 'me.md', 'assistant.md'] as const
 
 const ALLOWED_ROOT_MARKDOWN = new Set(
   (AGENT_ALLOWED_WIKI_ROOT_MARKDOWN as readonly string[]).map((s) => s.toLowerCase()),

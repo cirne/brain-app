@@ -1,9 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
   import HearRepliesControl from './HearRepliesControl.svelte'
-
-  const pressToTalkUiEnabled = isPressToTalkEnabled()
 
   let {
     /** When false, hide the hear-replies toggle (e.g. header shows it once there are messages). */
@@ -29,11 +26,9 @@
   })
 </script>
 
-{#if isMobile && (showHearRepliesToggle || pressToTalkUiEnabled)}
+{#if isMobile && showHearRepliesToggle}
   <div class="chat-composer-audio">
-    {#if showHearRepliesToggle}
-      <HearRepliesControl {hearReplies} {onHearRepliesChange} />
-    {/if}
+    <HearRepliesControl {hearReplies} {onHearRepliesChange} />
   </div>
 {/if}
 

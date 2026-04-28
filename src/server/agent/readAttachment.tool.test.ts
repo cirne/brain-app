@@ -12,7 +12,7 @@ vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', () => ({
 
 const execRipmailAsync = vi.fn()
 
-vi.mock('@server/lib/ripmail/ripmailExec.js', () => ({
+vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync,
   RIPMAIL_SEND_TIMEOUT_MS: 600000,
 }))

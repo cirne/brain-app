@@ -34,12 +34,12 @@
   import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import ComposerContextBar from './agent-conversation/ComposerContextBar.svelte'
-  import ChatComposerAudio from './ChatComposerAudio.svelte'
-  import ChatVoicePanel from './ChatVoicePanel.svelte'
-  import { requestMicrophonePermissionInUserGesture } from '@client/lib/holdToSpeakMedia.js'
+  import SuggestionWidget from './agent-conversation/SuggestionWidget.svelte'
+  import { getSuggestionComposerPlaceholder, parseSuggestionSetUnknown } from '@shared/suggestions.js'
+  import type { SuggestionSet } from '@shared/suggestions.js'
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
   import { applyVoiceTranscriptToChat } from '@client/lib/voiceTranscribeRouting.js'
-  import AgentInput from './AgentInput.svelte'
+  import UnifiedChatComposer from './UnifiedChatComposer.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
@@ -122,6 +122,11 @@
      * When false, the slide covers the full chat column (e.g. non-doc overlays with {@link hideInput}).
      */
     mobileSlideCoversTranscriptOnly = false,
+    /**
+     * When true with {@link autoSendMessage}, the first send uses no user bubble and sets
+     * `interviewKickoff` on `POST /api/onboarding/interview` so the server prepends fresh `ripmail whoami`.
+     */
+    autoSendInterviewKickoffHidden = false,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -167,6 +172,7 @@
     inputPlaceholder?: string
     multiTenant?: boolean
     mobileSlideCoversTranscriptOnly?: boolean
+    autoSendInterviewKickoffHidden?: boolean
   } = $props()
 
   /** Slide-over only over transcript; composer stays visible (mobile chat bridge). */
@@ -174,6 +180,10 @@
 
   const bridgeSlideLayout = $derived(
     conversationHidden && mobileSlideCoversTranscriptOnly && !!mobileDetail,
+  )
+
+  const voiceComposerEligible = $derived(
+    pressToTalkUiEnabled && isMobileViewport && !bridgeSlideLayout,
   )
 
   const showComposerNewChat = $derived(
@@ -247,14 +257,19 @@
   })
 
   const contextBarFiles = $derived(extractReferencedFiles(messages))
-  const contextBarChoices = $derived(extractLatestSuggestReplyChoices(messages, streaming))
+  const isOnboardingInterviewChat = $derived(chatEndpoint === '/api/onboarding/interview')
+  const contextBarChoices = $derived(
+    isOnboardingInterviewChat ? [] : extractLatestSuggestReplyChoices(messages, streaming),
+  )
+
+  let onboardingSuggestionSet = $state<SuggestionSet | null>(null)
+  let onboardingSuggestionsLoading = $state(false)
 
   /**
-   * If `sessions.get(id)` is briefly undefined during store updates, we must not pass `false`
-   * to the composer: that sets `holdGated`, runs cleanup, and `track.stop()` on the live
-   * getUserMedia stream (all-zero PCM, `readyState: "ended"`, bad STT).
-   * `readHearRepliesPreference() === false` + missing row is still a race → keep mic alive.
-   * Only a row with `hearReplies === false` should gate the hold.
+   * Session TTS output flag (POST `hearReplies`, assistant voice). Passed to the voice capture
+   * layer for WebKit `audioSession` restore after dictation — not for gating the mic.
+   * If the row is briefly missing during store updates, avoid passing `false` (optimistic `true`)
+   * so we do not flash-gate or mis-signal the capture module during races.
    */
   const hearRepliesForChatComposer = $derived.by((): boolean => {
     const id = displayedSessionId
@@ -285,7 +300,7 @@
   let wikiFiles = $state<string[]>([])
   let skillsList = $state<SkillMenuItem[]>([])
   let conversationEl = $state<ConversationScrollApi | undefined>(undefined)
-  let inputEl = $state<ReturnType<typeof AgentInput> | undefined>(undefined)
+  let inputEl = $state<ReturnType<typeof UnifiedChatComposer> | undefined>(undefined)
   /** Mobile: current composer text for voice transcript routing (empty → send, draft → append). */
   let inputDraftForMobileHold = $state('')
   let isMobileViewport = $state(false)
@@ -356,7 +371,7 @@
     void fetchSkills()
     const unsubWikiList = registerWikiFileListRefetch(fetchWikiFiles)
     const m = autoSendMessage?.trim()
-    if (m) void tick().then(() => send(m))
+    if (m) void tick().then(() => send(m, undefined, false, autoSendInterviewKickoffHidden))
     return () => {
       mq.removeEventListener('change', syncMobile)
       unsubWikiList()
@@ -479,15 +494,21 @@
   /**
    * @param forSessionKey — when set (e.g. queued follow-up after a background stream ends), send targets this map key instead of the currently displayed session.
    * @param firstChatKickoff — post-onboarding: assistant speaks first (no user bubble); see POST /api/chat `firstChatKickoff`.
+   * @param interviewKickoffHidden — guided onboarding: no user bubble; server prepends `ripmail whoami` to this message.
    */
-  async function send(text: string, forSessionKey?: string, firstChatKickoff = false) {
+  async function send(
+    text: string,
+    forSessionKey?: string,
+    firstChatKickoff = false,
+    interviewKickoffHidden = false,
+  ) {
     const id = forSessionKey ?? displayedSessionId
     if ((!text?.trim() && !firstChatKickoff) || !id) return
     const st = sessions.get(id)
     if (!st) return
 
     if (st.streaming) {
-      if (firstChatKickoff) return
+      if (firstChatKickoff || interviewKickoffHidden) return
       const t = text.trim()
       if (!t) return
       const prev = st.pendingQueuedMessages ?? []
@@ -495,12 +516,18 @@
       return
     }
 
+    if (chatEndpoint === '/api/onboarding/interview') {
+      onboardingSuggestionSet = null
+      onboardingSuggestionsLoading = false
+    }
+
     const streamKey = id
     let activeKey = streamKey
-    const mentionedFiles = firstChatKickoff ? [] : extractMentionedFiles(text)
+    const mentionedFiles = firstChatKickoff || interviewKickoffHidden ? [] : extractMentionedFiles(text)
     const isFirstMessage = st.messages.length === 0
 
-    const nextMessages = firstChatKickoff
+    const hideUserBubble = firstChatKickoff || interviewKickoffHidden
+    const nextMessages = hideUserBubble
       ? [...st.messages, { role: 'assistant' as const, content: '', parts: [] }]
       : [...st.messages, { role: 'user' as const, content: text }, { role: 'assistant' as const, content: '', parts: [] }]
     const msgIdx = nextMessages.length - 1
@@ -526,10 +553,11 @@
       mentionedFiles,
       isFirstMessage,
       firstChatKickoff,
+      interviewKickoff: interviewKickoffHidden,
       hearReplies: st.hearReplies === true,
     })
 
-    if (!firstChatKickoff) onUserSendMessage?.()
+    if (!hideUserBubble) onUserSendMessage?.()
 
     let sawDone = false
     let touchedWiki = false
@@ -624,6 +652,38 @@
       onChatPersisted?.()
       if (sawDone && displayedSessionId === activeKey) void onStreamFinished?.()
 
+      if (
+        sawDone &&
+        chatEndpoint === '/api/onboarding/interview' &&
+        displayedSessionId === activeKey
+      ) {
+        const sid = sessions.get(activeKey)?.sessionId
+        if (sid) {
+          onboardingSuggestionsLoading = true
+          onboardingSuggestionSet = null
+          void (async () => {
+            try {
+              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+              const res = await fetch('/api/onboarding/suggestions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: sid, timezone: tz }),
+              })
+              if (!res.ok) {
+                onboardingSuggestionSet = null
+                return
+              }
+              const data = (await res.json()) as { suggestions?: unknown }
+              onboardingSuggestionSet = parseSuggestionSetUnknown(data.suggestions ?? null)
+            } catch {
+              onboardingSuggestionSet = null
+            } finally {
+              onboardingSuggestionsLoading = false
+            }
+          })()
+        }
+      }
+
       const { next: queued, rest: queueRest } = shiftQueuedFollowUp(
         sessions.get(activeKey)?.pendingQueuedMessages,
       )
@@ -639,7 +699,12 @@
     await send('', forSessionKey, true)
   }
 
-  const placeholder = $derived(inputPlaceholder ?? contextPlaceholder(context, messages.length > 0))
+  const placeholder = $derived.by(() => {
+    const base = inputPlaceholder ?? contextPlaceholder(context, messages.length > 0)
+    if (!isOnboardingInterviewChat) return base
+    const fromSuggestions = getSuggestionComposerPlaceholder(onboardingSuggestionSet)
+    return fromSuggestions ?? base
+  })
 
   const contextChip = $derived.by((): string | null => {
     if (context.type === 'email') return `📧 ${context.subject}`
@@ -677,9 +742,6 @@
     const cur = sessions.get(id)?.hearReplies ?? false
     if (cur === false) {
       void ensureBrainTtsAutoplayInUserGesture()
-      if (isPressToTalkEnabled()) {
-        void requestMicrophonePermissionInUserGesture()
-      }
     }
     const next = !cur
     writeHearRepliesPreference(next)
@@ -768,8 +830,10 @@
               class="hear-replies-header-btn"
               class:hear-replies-header-btn--on={hearRepliesOn}
               aria-pressed={hearRepliesOn}
-              title="Read answers aloud"
-              aria-label={hearRepliesOn ? 'Read answers aloud on' : 'Read answers aloud off'}
+              title="Assistant speaks replies (text-to-speech)"
+              aria-label={hearRepliesOn
+                ? 'Assistant voice output on'
+                : 'Assistant voice output off'}
               onclick={toggleHearRepliesFromHeader}
             >
               {#if hearRepliesOn}
@@ -845,14 +909,7 @@
     {/if}
 
     {#if !hideInput}
-      <div
-        class="composer-stack"
-        class:composer-stack--bridge-dock={bridgeSlideLayout}
-        class:composer-stack--voice-panel={pressToTalkUiEnabled &&
-          isMobileViewport &&
-          !bridgeSlideLayout &&
-          messages.length === 0}
-      >
+      <div class="composer-stack" class:composer-stack--bridge-dock={bridgeSlideLayout}>
         <ComposerContextBar
           files={contextBarFiles}
           choices={contextBarChoices}
@@ -860,46 +917,42 @@
           {onOpenWiki}
           onChoice={(t) => void send(t)}
         />
-        {#if pressToTalkUiEnabled && isMobileViewport && !bridgeSlideLayout}
-          <ChatVoicePanel
-            layout={messages.length > 0 ? 'inline' : 'fixed'}
+        {#if isOnboardingInterviewChat}
+          <SuggestionWidget
+            suggestionSet={onboardingSuggestionSet}
+            loading={onboardingSuggestionsLoading}
             disabled={streaming}
-            holdGated={!hearRepliesForChatComposer}
-            hearReplies={hearRepliesForChatComposer}
-            onTranscribe={onVoiceTranscribe}
+            onSubmit={(t) => void send(t)}
           />
         {/if}
-        <div class="composer-input-row">
-          <div class="composer-input-shell">
-            <AgentInput
-              bind:this={inputEl}
-              {placeholder}
-              {streaming}
-              queuedMessages={pendingQueuedMessages}
-              {wikiFiles}
-              skills={skillsList}
-              onSend={send}
-              onStop={stopChat}
-              onDraftChange={onAgentInputDraftChange}
-              transparentSurround={bridgeSlideLayout}
-              onNewChat={showComposerNewChat && onUserInitiatedNewChat
-                ? () => onUserInitiatedNewChat()
-                : undefined}
-            />
-          </div>
-        </div>
-        {#if !bridgeSlideLayout}
-          <ChatComposerAudio
-            showHearRepliesToggle={messages.length === 0}
-            hearReplies={hearRepliesForChatComposer}
-            onHearRepliesChange={(v) => {
-              const id = displayedSessionId
-              if (!id) return
-              writeHearRepliesPreference(v)
-              sessions = touchSessionImmutable(sessions, id, { hearReplies: v })
-            }}
-          />
-        {/if}
+        <UnifiedChatComposer
+          bind:this={inputEl}
+          voiceEligible={voiceComposerEligible}
+          sessionResetKey={displayedSessionId}
+          showHearRepliesAudioStrip={!bridgeSlideLayout}
+          {placeholder}
+          {streaming}
+          queuedMessages={pendingQueuedMessages}
+          {wikiFiles}
+          skills={skillsList}
+          transparentSurround={bridgeSlideLayout}
+          onNewChat={showComposerNewChat && onUserInitiatedNewChat
+            ? () => onUserInitiatedNewChat()
+            : undefined}
+          onSend={send}
+          onStop={stopChat}
+          onDraftChange={onAgentInputDraftChange}
+          onTranscribe={onVoiceTranscribe}
+          onRequestFocusText={() => void focusAgentTextarea(0)}
+          hearReplies={hearRepliesForChatComposer}
+          showHearRepliesToggle={messages.length === 0}
+          onHearRepliesChange={(v) => {
+            const id = displayedSessionId
+            if (!id) return
+            writeHearRepliesPreference(v)
+            sessions = touchSessionImmutable(sessions, id, { hearReplies: v })
+          }}
+        />
       </div>
     {/if}
     </div>
@@ -999,22 +1052,6 @@
     flex-shrink: 0;
   }
 
-  .composer-input-row {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    min-width: 0;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 0 0 6px;
-    flex-shrink: 0;
-  }
-
-  .composer-input-shell {
-    flex: 1;
-    min-width: 0;
-  }
-
   .composer-stack--bridge-dock {
     /* Same surface as .mid-outer--bridge-slide (overrides any inherited --bg-2) */
     background: var(--bg);
@@ -1023,10 +1060,6 @@
   @media (max-width: 767px) {
     .composer-stack {
       padding-bottom: env(safe-area-inset-bottom, 0px);
-    }
-
-    .composer-stack--voice-panel {
-      padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
     }
   }
 

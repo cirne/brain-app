@@ -2,8 +2,7 @@ import { Hono } from 'hono'
 import { hardResetOnboardingArtifacts, setOnboardingStateForce, wikiMeExists } from '@server/lib/onboarding/onboardingState.js'
 import { clearAllSessions, clearAllOnboardingAgentSessions } from '../agent/index.js'
 import { writeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
-import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
+import { execRipmailCleanYes } from '@server/lib/ripmail/ripmailRun.js'
 import { ensureBrainHomeGitignore } from '@server/lib/platform/brainHomeGitignore.js'
 import { wikiDir, wipeWikiContentExceptMeMd } from '@server/lib/wiki/wikiDir.js'
 import { truncateWikiEditHistoryFile } from '@server/lib/wiki/wikiEditHistory.js'
@@ -17,7 +16,7 @@ dev.post('/hard-reset', async (c) => {
   clearAllOnboardingAgentSessions()
   await hardResetOnboardingArtifacts()
   await ensureBrainHomeGitignore()
-  await execRipmailAsync(`${ripmailBin()} clean --yes`, { timeout: 120000 })
+  await execRipmailCleanYes()
   return c.json({ ok: true })
 })
 
