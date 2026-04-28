@@ -27,6 +27,7 @@ export function chatSessionPatch(
   effectiveSessionId?: string | null,
 ): Pick<Route, 'sessionId' | 'sessionTail'> {
   if (route.hubActive) return {}
+  if (route.wikiActive) return {}
   const id = effectiveSessionId ?? route.sessionId
   if (id) return { sessionId: id }
   if (route.sessionTail) return { sessionTail: route.sessionTail }
@@ -59,6 +60,7 @@ export function closeOverlayStrategy(
   useDesktopSplitDetail: boolean,
 ): CloseOverlayStrategy {
   if (!route.overlay) return 'none'
+  if (route.wikiActive) return 'immediate'
   const t = route.overlay.type
   if (t === 'hub' || t === 'chat-history') return 'immediate'
   if (useDesktopSplitDetail) return 'animated_desktop'

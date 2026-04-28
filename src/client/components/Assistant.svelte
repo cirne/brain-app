@@ -1,9 +1,12 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
+  import { ArrowLeft } from 'lucide-svelte'
   import { fly, slide } from 'svelte/transition'
   import Search from './Search.svelte'
   import AppTopNav from './AppTopNav.svelte'
   import BrainHubPage from './BrainHubPage.svelte'
+  import Wiki from './Wiki.svelte'
+  import WikiDirList from './WikiDirList.svelte'
   import AssistantSlideOver from './AssistantSlideOver.svelte'
   import AgentChat from './AgentChat.svelte'
   import ChatHistory from './ChatHistory.svelte'
@@ -77,6 +80,16 @@
   const effectiveChatSessionId = $derived(shell.route.sessionId ?? shell.resolvedTailSessionId ?? null)
 
   const sessionHighlightId = $derived<string | null>(effectiveChatSessionId ?? shell.activeSessionId)
+
+  /** Same “Hub is primary” test as the chat snippet (`BrainHubPage`), including `/c?panel=hub`. */
+  const hubMainPane = $derived(
+    shell.route.hubActive === true || shell.route.overlay?.type === 'hub',
+  )
+
+  /** Disable New chat only on empty chat column; enable when Hub or wiki is the main pane. */
+  const topNavNewChatDisabled = $derived(
+    shell.chatIsEmpty && !hubMainPane && shell.route.wikiActive !== true,
+  )
 
   function chatSessionPart(): Pick<Route, 'sessionId' | 'sessionTail'> {
     return chatSessionPatch(shell.route, effectiveChatSessionId)
@@ -185,6 +198,11 @@
     }
     window.addEventListener('popstate', onPopState)
     const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && shell.route.wikiActive) {
+        e.preventDefault()
+        closeWikiPrimary()
+        return
+      }
       if (e.key === 'Escape' && shell.route.overlay) {
         e.preventDefault()
         if (slideOverCloseAnimated) slideOverCloseAnimated.closeAnimated()
@@ -208,6 +226,9 @@
           break
         case 'refresh':
           void syncAll()
+          break
+        case 'wikiHome':
+          navigateWikiPrimary()
           break
       }
     }
@@ -269,11 +290,21 @@
     })
   })
 
+  function closeWikiPrimary() {
+    navigateShell({ wikiActive: false, hubActive: false, ...chatSessionPart() }, { replace: true })
+    shell.route = parseRoute()
+    alignShellWithBareChatRoute(shell)
+  }
+
   function closeOverlayImmediate() {
+    if (shell.route.wikiActive) {
+      closeWikiPrimary()
+      return
+    }
     if (shell.route.hubActive) {
-      navigateShell({ hubActive: true }, { replace: true })
+      navigateShell({ hubActive: true, wikiActive: false }, { replace: true })
     } else {
-      navigateShell({ hubActive: false, ...chatSessionPart() }, { replace: true })
+      navigateShell({ hubActive: false, wikiActive: false, ...chatSessionPart() }, { replace: true })
     }
     shell.route = parseRoute()
     alignShellWithBareChatRoute(shell)
@@ -301,7 +332,7 @@
   function closeOverlayOnUserSend() {
     shell.chatIsEmpty = false
     if (!useDesktopSplitDetail && shell.route.overlay) {
-      navigateShell({ hubActive: false, ...chatSessionPart() }, { replace: true })
+      navigateShell({ hubActive: false, wikiActive: false, ...chatSessionPart() }, { replace: true })
       shell.route = parseRoute()
       alignShellWithBareChatRoute(shell)
     }
@@ -309,6 +340,21 @@
 
   function wikiOverlayReplace(): boolean {
     return shouldReplaceWikiOverlay(shell.route)
+  }
+
+  function navigateWikiPrimary(path?: string) {
+    const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
+    const replace = shell.route.wikiActive && shouldReplaceWikiOverlay(shell.route)
+    navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
+    shell.route = parseRoute()
+    if (path) {
+      void addToNavHistory({
+        id: makeNavHistoryId('doc', path),
+        type: 'doc',
+        title: path,
+        path,
+      })
+    }
   }
 
   function openWikiDoc(path?: string) {
@@ -335,6 +381,13 @@
   }
 
   function onWikiNavigate(path: string | undefined) {
+    if (shell.route.wikiActive) {
+      const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
+      const replace = shouldReplaceWikiOverlay(shell.route)
+      navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
+      shell.route = parseRoute()
+      return
+    }
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = wikiOverlayReplace()
     const hubActive = hubActiveForOpenOverlay(overlay)
@@ -350,6 +403,14 @@
   }
 
   function openWikiDir(dirPath?: string) {
+    if (shell.route.wikiActive) {
+      const trimmed = dirPath?.trim()
+      const overlay: Overlay = trimmed ? { type: 'wiki-dir', path: trimmed } : { type: 'wiki-dir' }
+      const replace = shouldReplaceWikiOverlay(shell.route)
+      navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
+      shell.route = parseRoute()
+      return
+    }
     const trimmed = dirPath?.trim()
     const overlay: Overlay = trimmed ? { type: 'wiki-dir', path: trimmed } : { type: 'wiki-dir' }
     const replace = wikiOverlayReplace()
@@ -368,6 +429,7 @@
   function openFileDoc(path: string) {
     const hubActive = hubActiveForOpenOverlay({ type: 'file', path })
     navigateShell({
+      wikiActive: false,
       overlay: { type: 'file', path },
       hubActive,
       ...(hubActive ? {} : chatSessionPart()),
@@ -385,13 +447,14 @@
     const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
     const hubActive = hubActiveForOpenOverlay(overlay)
     const nextRoute: Route = hubActive
-      ? { hubActive: true, overlay }
-      : { hubActive: false, ...chatSessionPart(), overlay }
+      ? { hubActive: true, wikiActive: false, overlay }
+      : { hubActive: false, wikiActive: false, ...chatSessionPart(), overlay }
     const nextUrl = routeToUrl(nextRoute, optsWithBarTitle())
     if (typeof location !== 'undefined' && nextUrl === `${location.pathname}${location.search}`) {
       return
     }
     navigateShell({
+      wikiActive: false,
       overlay,
       hubActive,
       ...(hubActive ? {} : chatSessionPart()),
@@ -402,6 +465,7 @@
   function switchToCalendar(date: string, eventId?: string) {
     const hubActive = shell.route.hubActive || shell.route.overlay?.type === 'hub'
     navigateShell({
+      wikiActive: false,
       overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) },
       hubActive,
       ...(hubActive ? {} : chatSessionPart()),
@@ -430,6 +494,7 @@
     shell.inboxTargetId = id
     const hubActive = hubActiveForOpenOverlay({ type: 'email', id })
     navigateShell({
+      wikiActive: false,
       overlay: { type: 'email', id },
       hubActive,
       ...(hubActive ? {} : chatSessionPart()),
@@ -447,12 +512,13 @@
 
   function openFullInboxFromChat() {
     shell.inboxTargetId = undefined
-    navigateShell({ hubActive: false, ...chatSessionPart(), overlay: { type: 'email' } })
+    navigateShell({ wikiActive: false, hubActive: false, ...chatSessionPart(), overlay: { type: 'email' } })
     shell.route = parseRoute()
   }
 
   function openMessageThreadFromChat(canonicalChat: string, displayLabel: string) {
     navigateShell({
+      wikiActive: false,
       overlay: { type: 'messages', chat: canonicalChat },
       hubActive: shell.route.hubActive === true,
       ...(shell.route.hubActive ? {} : chatSessionPart()),
@@ -532,7 +598,7 @@
 
   async function selectChatSession(id: string, title?: string) {
     shell.chatTitleForUrl = title?.trim() ? title.trim() : null
-    navigateShell({ hubActive: false, sessionId: id }, { replace: true })
+    navigateShell({ hubActive: false, wikiActive: false, sessionId: id }, { replace: true })
     shell.route = parseRoute()
     alignShellWithBareChatRoute(shell)
     const chat = await waitUntilDefinedOrMaxTicks({
@@ -557,7 +623,7 @@
 
   function historyNewChat() {
     shell.chatTitleForUrl = null
-    navigateShell({ hubActive: false }, { replace: true })
+    navigateShell({ hubActive: false, wikiActive: false }, { replace: true })
     shell.route = parseRoute()
     alignShellWithBareChatRoute(shell)
     refs.agentChat?.newChat()
@@ -568,6 +634,7 @@
   /** Empty-state “your wiki” → same help as Hub (`HubWikiAboutPanel` in SlideOver / mobile stack). */
   function openHubWikiAbout() {
     navigateShell({
+      wikiActive: false,
       overlay: { type: 'hub-wiki-about' },
       hubActive: shell.route.hubActive === true,
       ...(shell.route.hubActive ? {} : chatSessionPart()),
@@ -577,6 +644,7 @@
 
   function openChatHistoryPage() {
     navigateShell({
+      wikiActive: false,
       overlay: { type: 'chat-history' },
       hubActive: shell.route.hubActive === true,
       ...(shell.route.hubActive ? {} : chatSessionPart()),
@@ -597,7 +665,7 @@
     if (meta?.chatTitle !== undefined) {
       shell.chatTitleForUrl = meta.chatTitle
     }
-    if (shell.route.flow || shell.route.hubActive === true) return
+    if (shell.route.flow || shell.route.hubActive === true || shell.route.wikiActive === true) return
     const navRoute: Route = { hubActive: false, sessionId: id, overlay: shell.route.overlay }
     const nextUrl = routeToUrl(navRoute, optsWithBarTitle())
     if (typeof location !== 'undefined' && nextUrl === `${location.pathname}${location.search}`) {
@@ -613,7 +681,10 @@
   $effect(() => {
     const sid = effectiveChatSessionId
     const onChat =
-      !shell.route.flow && shell.route.hubActive !== true && shell.route.overlay?.type !== 'hub'
+      !shell.route.flow &&
+      shell.route.hubActive !== true &&
+      shell.route.wikiActive !== true &&
+      shell.route.overlay?.type !== 'hub'
     if (!onChat || !sid) {
       return
     }
@@ -644,7 +715,7 @@
   }
 
   function openHubToHandleSection() {
-    navigateShell({ hubActive: true })
+    navigateShell({ hubActive: true, wikiActive: false })
     shell.route = parseRoute()
     void tick().then(() => {
       document.getElementById('hub-account-top')?.scrollIntoView({
@@ -669,6 +740,7 @@
 {#if shell.showSearch}
   <Search
     onOpenWiki={(path) => { openWikiDoc(path); shell.showSearch = false }}
+    onWikiHome={navigateWikiPrimary}
     onOpenEmail={(id, subject, from) => { openEmailFromSearch(id, subject, from); shell.showSearch = false }}
     onClose={() => shell.showSearch = false}
   />
@@ -684,11 +756,12 @@
     onOpenSearch={() => { shell.showSearch = true }}
     onToggleSyncErrors={() => { shell.showSyncErrors = !shell.showSyncErrors }}
     onOpenHub={() => {
-      navigateShell({ hubActive: true })
+      navigateShell({ hubActive: true, wikiActive: false })
       shell.route = parseRoute()
     }}
     onNewChat={historyNewChat}
-    isEmptyChat={shell.chatIsEmpty}
+    onWikiHome={() => navigateWikiPrimary()}
+    isEmptyChat={topNavNewChatDisabled}
     hostedHandlePill={shell.hostedHandleNav}
     onHostedHandleNavigate={openHubToHandleSection}
   />
@@ -719,6 +792,7 @@
               onSelectEmail={selectEmailFromHistory}
               onNewChat={historyNewChat}
               onOpenAllChats={openChatHistoryPage}
+              onWikiHome={navigateWikiPrimary}
             />
           </div>
         </div>
@@ -730,11 +804,13 @@
     bind:this={refs.workspaceSplit}
     bind:detailFullscreen={shell.detailPaneFullscreen}
     hasDetail={
+      !shell.route.wikiActive &&
       !!shell.route.overlay &&
       shell.route.overlay.type !== 'hub' &&
       shell.route.overlay.type !== 'chat-history'
     }
     desktopDetailOpen={
+      !shell.route.wikiActive &&
       !!shell.route.overlay &&
       shell.route.overlay.type !== 'hub' &&
       shell.route.overlay.type !== 'chat-history' &&
@@ -752,6 +828,42 @@
               onSelectSession={selectChatSession}
               onNewChat={historyNewChat}
             />
+          </div>
+        </div>
+      {:else if shell.route.wikiActive && shell.route.overlay && (shell.route.overlay.type === 'wiki' || shell.route.overlay.type === 'wiki-dir')}
+        <div class="hub-container">
+          <div class="wiki-primary-bar">
+            <button
+              type="button"
+              class="wiki-primary-back"
+              onclick={closeWikiPrimary}
+              title="Back to chat"
+              aria-label="Back to chat"
+            >
+              <ArrowLeft size={18} strokeWidth={2} aria-hidden="true" />
+              <span>Chat</span>
+            </button>
+          </div>
+          <div class="hub-scroll wiki-primary-body">
+            {#if shell.route.overlay.type === 'wiki'}
+              <Wiki
+                initialPath={shell.route.overlay.path}
+                refreshKey={shell.wikiRefreshKey}
+                streamingWrite={shell.wikiWriteStreaming}
+                streamingEdit={shell.wikiEditStreaming}
+                onNavigate={(path) => onWikiNavigate(path)}
+                onNavigateToDir={openWikiDir}
+                onContextChange={setContext}
+              />
+            {:else}
+              <WikiDirList
+                dirPath={shell.route.overlay.path}
+                refreshKey={shell.wikiRefreshKey}
+                onOpenFile={(path) => onWikiNavigate(path)}
+                onOpenDir={(path) => openWikiDir(path)}
+                onContextChange={setContext}
+              />
+            {/if}
           </div>
         </div>
       {:else if shell.route.hubActive || shell.route.overlay?.type === 'hub'}
@@ -946,6 +1058,31 @@
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
+  }
+
+  .wiki-primary-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-2);
+  }
+
+  .wiki-primary-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.15s;
+  }
+
+  .wiki-primary-back:hover {
+    background: var(--bg-3);
   }
 
   .mobile-detail-layer {

@@ -5,6 +5,7 @@ export type GlobalShortcutAction =
   | { type: 'search' }
   | { type: 'newChat' }
   | { type: 'refresh' }
+  | { type: 'wikiHome' }
 
 /**
  * Maps low-level chords to app actions. Does not call `preventDefault`.
@@ -12,6 +13,7 @@ export type GlobalShortcutAction =
  * - ⌘K / Ctrl+K — search
  * - ⌘N / Ctrl+N — new chat
  * - ⌘R / Ctrl+R — sync (refresh)
+ * - ⌘⇧H / Ctrl+Shift+H — wiki home (same as top-nav wiki control)
  *
  * Note: In Google Chrome, many ⌘ shortcuts are reserved for the browser UI; the page may
  * never receive keydown for them. The packaged app (Tauri) or a different browser profile
@@ -40,6 +42,10 @@ export function matchGlobalShortcut(e: KeyLike): GlobalShortcutAction | null {
 
   if (k === 'r' && !e.shiftKey) {
     return { type: 'refresh' }
+  }
+
+  if (k === 'h' && e.shiftKey) {
+    return { type: 'wikiHome' }
   }
 
   return null

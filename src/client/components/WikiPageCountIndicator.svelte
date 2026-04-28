@@ -3,7 +3,7 @@
    * Shared “pages in vault” affordance: optional pulse (background wiki work) + numeric count.
    * Used in BrainHubWidget and onboarding copy that explains the same indicator.
    */
-  import { BookOpen } from 'lucide-svelte'
+  import { BookOpen, LayoutGrid } from 'lucide-svelte'
 
   type Props = {
     /** Page count from Your Wiki doc or `/api/wiki` list length. */
@@ -14,6 +14,10 @@
     pulseAnimating?: boolean
     /** Larger treatment for onboarding explainer. */
     size?: 'default' | 'lg'
+    /**
+     * When true, idle state uses a grid/hub icon instead of a book (Braintunnel Hub vs wiki home in the top bar).
+     */
+    hubControl?: boolean
   }
 
   let {
@@ -21,6 +25,7 @@
     showPulse = false,
     pulseAnimating = false,
     size = 'default',
+    hubControl = false,
   }: Props = $props()
 </script>
 
@@ -36,6 +41,8 @@
     <div class="pulse-container">
       <span class="pulse-dot" class:running={pulseAnimating}></span>
     </div>
+  {:else if hubControl}
+    <LayoutGrid class="wpc-book" size={size === 'lg' ? 20 : 15} strokeWidth={2} aria-hidden="true" />
   {:else}
     <BookOpen class="wpc-book" size={size === 'lg' ? 20 : 15} strokeWidth={2} aria-hidden="true" />
   {/if}

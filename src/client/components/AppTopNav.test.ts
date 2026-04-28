@@ -33,16 +33,33 @@ describe('AppTopNav.svelte', () => {
       expect(screen.getByText('Braintunnel')).toBeInTheDocument()
     })
 
-    it('orders top actions search, then new chat, then hub (reading / tab order)', () => {
+    it('orders top actions search, wiki home, new chat, then hub (reading / tab order)', () => {
+      const onWikiHome = vi.fn()
       render(AppTopNav, {
-        props: { ...baseProps, onNewChat: vi.fn(), isEmptyChat: false },
+        props: {
+          ...baseProps,
+          onNewChat: vi.fn(),
+          onWikiHome,
+          isEmptyChat: false,
+        },
       })
       const search = screen.getByRole('button', { name: 'Search' })
+      const wikiHome = screen.getByRole('button', { name: 'Wiki home' })
       const newChat = screen.getByRole('button', { name: 'New conversation' })
       const hub = screen.getByTestId('brain-hub-widget-stub')
       const after = globalThis.Node.DOCUMENT_POSITION_FOLLOWING
-      expect(search.compareDocumentPosition(newChat) & after).toBe(after)
+      expect(search.compareDocumentPosition(wikiHome) & after).toBe(after)
+      expect(wikiHome.compareDocumentPosition(newChat) & after).toBe(after)
       expect(newChat.compareDocumentPosition(hub) & after).toBe(after)
+    })
+
+    it('calls onWikiHome when wiki home button is clicked', async () => {
+      const onWikiHome = vi.fn()
+      render(AppTopNav, {
+        props: { ...baseProps, onWikiHome },
+      })
+      await fireEvent.click(screen.getByRole('button', { name: 'Wiki home' }))
+      expect(onWikiHome).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -120,7 +137,7 @@ describe('AppTopNav.svelte', () => {
   })
 
   describe('new chat button', () => {
-    it('shows new chat button when onNewChat provided and chat is not empty', () => {
+    it('shows new chat button when onNewChat is provided', () => {
       render(AppTopNav, {
         props: { ...baseProps, onNewChat: vi.fn(), isEmptyChat: false },
       })
@@ -128,12 +145,13 @@ describe('AppTopNav.svelte', () => {
       expect(screen.getByRole('button', { name: 'New conversation' })).toBeInTheDocument()
     })
 
-    it('hides new chat button when isEmptyChat is true', () => {
+    it('keeps new chat button visible but disabled when isEmptyChat', () => {
       render(AppTopNav, {
         props: { ...baseProps, onNewChat: vi.fn(), isEmptyChat: true },
       })
 
-      expect(screen.queryByRole('button', { name: 'New conversation' })).not.toBeInTheDocument()
+      const btn = screen.getByRole('button', { name: /New conversation \(already empty\)/ })
+      expect(btn).toBeDisabled()
     })
 
     it('hides new chat button when onNewChat is not provided', () => {

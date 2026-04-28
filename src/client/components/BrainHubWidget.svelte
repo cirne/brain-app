@@ -67,6 +67,7 @@
     count={displayCount}
     showPulse={showActive}
     pulseAnimating={isRunning}
+    hubControl
   />
 </button>
 

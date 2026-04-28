@@ -34,6 +34,8 @@ export type Route = {
   flow?: 'welcome' | 'hard-reset' | 'restart-seed' | 'first-chat' | 'enron-demo'
   /** True when primary surface is Brain Hub (`/hub`). */
   hubActive?: boolean
+  /** True when primary surface is wiki-first (`/wiki`, optional `?path=`). */
+  wikiActive?: boolean
 }
 
 export type SurfaceContext =
@@ -320,6 +322,28 @@ export function parseRoute(href: string = location.href): Route {
     return hubParsed
   }
 
+  if (seg1 === 'wiki') {
+    /** Reject path-shaped `/wiki/.../file` (use `/wiki?path=`). */
+    if (rest.some((s) => String(s).length > 0)) {
+      return {}
+    }
+    const sp = url.searchParams
+    const panel = sp.get(PANEL)?.trim()
+    if (panel === 'wiki-dir') {
+      const path = sp.get('path')?.trim() || undefined
+      return { wikiActive: true, overlay: path ? { type: 'wiki-dir', path } : { type: 'wiki-dir' } }
+    }
+    if (panel === 'wiki') {
+      const path = sp.get('path')?.trim() || undefined
+      return { wikiActive: true, overlay: path ? { type: 'wiki', path } : { type: 'wiki' } }
+    }
+    const pathOnly = sp.get('path')?.trim()
+    if (pathOnly) {
+      return { wikiActive: true, overlay: { type: 'wiki', path: pathOnly } }
+    }
+    return { wikiActive: true, overlay: { type: 'wiki' } }
+  }
+
   if (seg1 === 'c') {
     const chatPart =
       rest.length > 0 && rest[0] ? parseChatPathSegment(rest[0]) : {}
@@ -346,8 +370,27 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
   if (route.flow === 'first-chat') return '/first-chat'
   if (route.flow === 'enron-demo') return '/demo'
 
-  const hubActive = route.hubActive === true
+  const wikiActive = route.wikiActive === true
   const o = route.overlay
+
+  if (wikiActive) {
+    if (!o || o.type === 'wiki') {
+      const path = o?.type === 'wiki' ? o.path?.trim() : undefined
+      if (path) {
+        return `/wiki?path=${encodeURIComponent(path)}`
+      }
+      return '/wiki'
+    }
+    if (o.type === 'wiki-dir') {
+      const q = overlayToSearchParams(o)
+      return `/wiki?${q.toString()}`
+    }
+    const q = overlayToSearchParams(o)
+    const qs = q.toString()
+    return qs ? `/wiki?${qs}` : '/wiki'
+  }
+
+  const hubActive = route.hubActive === true
 
   if (hubActive) {
     if (!o || o.type === 'hub') {

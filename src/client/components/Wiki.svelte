@@ -198,12 +198,47 @@
     if (streamBusy) pageMode = 'view'
   })
 
+  /** Clicks on link text often set `event.target` to a Text node — it has no `.closest()`. */
   function handleContentClick(e: MouseEvent) {
-    const a = (e.target as HTMLElement).closest('a[data-wiki]')
+    const start =
+      e.target instanceof Element ? e.target : ((e.target as Node | null)?.parentElement ?? null)
+    if (!start) return
+
+    const a = start.closest('a')
     if (!a) return
+
     e.preventDefault()
-    const link = a.getAttribute('data-wiki')!
-    const path = resolveWikiLinkToFilePath(link, files)
+
+    let ref = a.getAttribute('data-wiki')?.trim() ?? ''
+    if (!ref) {
+      const href = (a.getAttribute('href') ?? '').trim()
+      if (
+        href &&
+        href !== '#' &&
+        !/^https?:\/\//i.test(href) &&
+        !/^mailto:/i.test(href) &&
+        !/^wiki:/i.test(href) &&
+        !/^date:/i.test(href) &&
+        !href.includes('://')
+      ) {
+        const pathOnly = href.split('#')[0].replace(/^\//, '').replace(/^\.\//, '')
+        if (pathOnly) ref = wikiPathForReadToolArg(pathOnly)
+      }
+    }
+    if (!ref) {
+      const href = (a.getAttribute('href') ?? '').trim()
+      if (href === '#' || href === '') {
+        const label = a.textContent?.trim() ?? ''
+        if (label) {
+          ref = wikiPathForReadToolArg(
+            label.includes('/') ? label : label.toLowerCase().replace(/\s+/g, '-'),
+          )
+        }
+      }
+    }
+    if (!ref) return
+
+    const path = resolveWikiLinkToFilePath(ref, files)
     if (path) void openFile(path)
   }
 

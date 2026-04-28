@@ -83,5 +83,39 @@ export function transformWikiPageHtml(html: string): string {
       return `<a href="#" data-wiki="${p}" class="wiki-link">${label}</a>`
     },
   )
+  /**
+   * Markdown internal links without `wiki:`:
+   * - `[label](ideas/note.md)` → `<a href="ideas/note.md">`
+   * - `[label](me)` / `[label](people/lewis-cirne)` → `<a href="me">` / `<a href="people/lewis-cirne">` (no `.md`, no `wiki:`)
+   * Those never matched the `wiki:` rule and had no `data-wiki`, so wiki viewer clicks did nothing.
+   */
+  out = out.replace(/<a\s+([^>]*)>([\s\S]*?)<\/a>/gi, (full, attrs: string, inner: string) => {
+    const hm = attrs.match(/\bhref=(["'])([^"']*)\1/i)
+    if (!hm) return full
+    const pathOnly = hm[2].trim().split('#')[0]
+    if (!pathOnly || pathOnly === '#') return full
+    if (/^https?:\/\//i.test(pathOnly) || /^mailto:/i.test(pathOnly) || /^date:/i.test(pathOnly) || /^wiki:/i.test(pathOnly)) {
+      return full
+    }
+    if (pathOnly.includes('://')) return full
+    const normalized = pathOnly.replace(/^\//, '').replace(/^\.\//, '')
+    if (!normalized) return full
+    const p = wikiPathForReadToolArg(normalized)
+    return `<a href="#" data-wiki="${p}" class="wiki-link">${inner}</a>`
+  })
+  /**
+   * Raw HTML in markdown: `<a href="#">me</a>` — no `data-wiki`; prior pass skipped `href="#"`.
+   * Infer wiki path from link text (same rules as click fallback).
+   */
+  out = out.replace(/<a\s+([^>]*)>([^<]*)<\/a>/gi, (full, attrs: string, text: string) => {
+    if (/\bdata-wiki=/i.test(attrs)) return full
+    if (!/\bhref="#"/i.test(attrs)) return full
+    const label = text.trim()
+    if (!label) return full
+    const p = wikiPathForReadToolArg(
+      label.includes('/') ? label : label.toLowerCase().replace(/\s+/g, '-'),
+    )
+    return `<a href="#" data-wiki="${p}" class="wiki-link">${text}</a>`
+  })
   return out
 }

@@ -107,4 +107,26 @@ describe('Search.svelte', () => {
     expect(onOpenWiki).toHaveBeenCalledWith('ideas/x.md')
     expect(onClose).toHaveBeenCalled()
   })
+
+  it('calls onWikiHome and onClose when Wiki home is clicked (empty query)', async () => {
+    const onWikiHome = vi.fn()
+    const onClose = vi.fn()
+    vi.stubGlobal(
+      'fetch',
+      createMockFetch([
+        {
+          match: () => true,
+          response: () => jsonResponse({ results: [] }),
+        },
+      ]),
+    )
+
+    render(Search, {
+      props: { onOpenWiki: vi.fn(), onOpenEmail: vi.fn(), onClose, onWikiHome },
+    })
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Wiki home' }))
+    expect(onWikiHome).toHaveBeenCalledTimes(1)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
 })

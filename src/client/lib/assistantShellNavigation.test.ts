@@ -19,6 +19,12 @@ describe('assistantShellNavigation', () => {
       expect(chatSessionPatch(makeRoute({ hubActive: true, sessionId: 's1' }))).toEqual({})
     })
 
+    it('returns empty when wiki primary', () => {
+      expect(
+        chatSessionPatch(makeRoute({ wikiActive: true, sessionId: 's1' })),
+      ).toEqual({})
+    })
+
     it('preserves sessionId when not hub', () => {
       expect(chatSessionPatch(makeRoute({ hubActive: false, sessionId: 's1' }))).toEqual({
         sessionId: 's1',
@@ -89,6 +95,18 @@ describe('assistantShellNavigation', () => {
   describe('closeOverlayStrategy', () => {
     it('returns none when no overlay', () => {
       expect(closeOverlayStrategy(makeRoute({ hubActive: false }), true)).toBe('none')
+    })
+
+    it('is immediate for wiki primary surface (not split detail animation)', () => {
+      expect(
+        closeOverlayStrategy(
+          makeRoute({
+            wikiActive: true,
+            overlay: { type: 'wiki', path: 'a.md' },
+          }),
+          true,
+        ),
+      ).toBe('immediate')
     })
 
     it('immediate for hub and chat-history', () => {

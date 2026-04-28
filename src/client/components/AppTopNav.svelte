@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BrainCircuit, MessageSquarePlus, Search, X } from 'lucide-svelte'
+  import { BookOpen, BrainCircuit, MessageSquarePlus, Search, X } from 'lucide-svelte'
   import BrainHubWidget from './BrainHubWidget.svelte'
 
   type Props = {
@@ -16,7 +16,7 @@
     onOpenHub: () => void
     /** L1 “New” — same flow as sidebar / ⌘N (e.g. `historyNewChat`). */
     onNewChat?: () => void
-    /** When true, hides the new-chat button (current chat is empty). */
+    /** When true, new-chat is disabled (already on empty `/c` new chat — keeps layout stable). */
     isEmptyChat?: boolean
     /**
      * Hosted only: `@handle` next to Hub after onboarding confirmation.
@@ -25,6 +25,8 @@
     hostedHandlePill?: string
     /** Hosted only: opens Hub scrolled to the Account / connectivity section. */
     onHostedHandleNavigate?: () => void
+    /** Wiki vault root (`index.md` / resolved landing) — optional; hidden when omitted (e.g. onboarding). */
+    onWikiHome?: () => void
   }
 
   let {
@@ -41,6 +43,7 @@
     isEmptyChat = false,
     hostedHandlePill,
     onHostedHandleNavigate,
+    onWikiHome,
   }: Props = $props()
 
   /** Sidebar open (wide header + list): desktop or mobile. */
@@ -91,14 +94,28 @@
         <Search size={15} strokeWidth={2} aria-hidden="true" />
       </button>
     </div>
-    {#if onNewChat && !isEmptyChat}
+    {#if onWikiHome}
+      <div class="wiki-home-wrap">
+        <button
+          type="button"
+          class="wiki-home-btn"
+          onclick={onWikiHome}
+          title="Wiki home (⌘⇧H)"
+          aria-label="Wiki home"
+        >
+          <BookOpen size={15} strokeWidth={2} aria-hidden="true" />
+        </button>
+      </div>
+    {/if}
+    {#if onNewChat}
       <div class="new-wrap">
         <button
           type="button"
           class="new-nav-btn"
+          disabled={isEmptyChat}
           onclick={onNewChat}
-          title="New chat (⌘N)"
-          aria-label="New conversation"
+          title={isEmptyChat ? 'Already in new chat' : 'New chat (⌘N)'}
+          aria-label={isEmptyChat ? 'New conversation (already empty)' : 'New conversation'}
         >
           <MessageSquarePlus size={16} strokeWidth={2.25} aria-hidden="true" />
         </button>
@@ -287,10 +304,31 @@
     outline-offset: 2px;
     box-shadow: 0 0 0 2px var(--accent);
   }
+
+  .new-nav-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
   .search-wrap {
     display: flex;
     align-items: center;
     flex-shrink: 0;
+  }
+
+  .wiki-home-wrap {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .wiki-home-btn {
+    width: 40px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-2);
+    transition: color 0.15s;
   }
 
   .search-btn {
@@ -386,14 +424,15 @@
     .menu-btn:hover {
       color: var(--text);
     }
-    .new-nav-btn:hover {
+    .new-nav-btn:hover:not(:disabled) {
       color: #fff;
       background: color-mix(in srgb, var(--accent) 88%, #000);
     }
-    .new-nav-btn:hover :global(svg) {
+    .new-nav-btn:hover:not(:disabled) :global(svg) {
       color: #fff;
     }
-    .search-btn:hover {
+    .search-btn:hover,
+    .wiki-home-btn:hover {
       color: var(--text);
     }
     .nav-hosted-handle:hover {
@@ -412,7 +451,8 @@
       font-size: 18px;
     }
 
-    .search-btn :global(svg) {
+    .search-btn :global(svg),
+    .wiki-home-btn :global(svg) {
       width: 18px;
       height: 18px;
     }

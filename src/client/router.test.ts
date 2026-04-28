@@ -281,6 +281,36 @@ describe('parseRoute your-wiki / hub', () => {
   })
 })
 
+describe('parseRoute /wiki primary', () => {
+  it('parses /wiki as wiki home', () => {
+    expect(parseRoute('http://localhost/wiki')).toEqual({
+      wikiActive: true,
+      overlay: { type: 'wiki' },
+    })
+  })
+
+  it('parses /wiki?path= as wiki doc', () => {
+    expect(parseRoute('http://localhost/wiki?path=ideas%2Fnote.md')).toEqual({
+      wikiActive: true,
+      overlay: { type: 'wiki', path: 'ideas/note.md' },
+    })
+  })
+
+  it('parses panel=wiki with path', () => {
+    expect(parseRoute('http://localhost/wiki?panel=wiki&path=x.md')).toEqual({
+      wikiActive: true,
+      overlay: { type: 'wiki', path: 'x.md' },
+    })
+  })
+
+  it('parses wiki-dir on /wiki', () => {
+    expect(parseRoute('http://localhost/wiki?panel=wiki-dir&path=people')).toEqual({
+      wikiActive: true,
+      overlay: { type: 'wiki-dir', path: 'people' },
+    })
+  })
+})
+
 describe('parseRoute hub-source', () => {
   it('parses hub-source on /c', () => {
     expect(parseRoute('http://localhost/c?panel=hub-source')).toEqual({
@@ -416,6 +446,22 @@ describe('routeToUrl', () => {
     expect(routeToUrl({ hubActive: true, overlay: { type: 'hub' } })).toBe('/hub')
   })
 
+  it('wiki primary home', () => {
+    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki' } })).toBe('/wiki')
+  })
+
+  it('wiki primary with path uses path query', () => {
+    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki', path: 'a/b.md' } })).toBe(
+      '/wiki?path=a%2Fb.md',
+    )
+  })
+
+  it('wiki-dir on primary', () => {
+    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki-dir', path: 'people' } })).toBe(
+      '/wiki?panel=wiki-dir&path=people',
+    )
+  })
+
   it('hub-wiki-about', () => {
     expect(routeToUrl({ overlay: { type: 'hub-wiki-about' } })).toBe(
       '/c?panel=hub-wiki-about',
@@ -471,6 +517,9 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { hubActive: true, overlay: { type: 'hub-wiki-about' as const } },
     { overlay: { type: 'hub-wiki-about' as const } },
     { hubActive: true, overlay: { type: 'chat-history' } },
+    { wikiActive: true, overlay: { type: 'wiki' as const } },
+    { wikiActive: true, overlay: { type: 'wiki' as const, path: 'ideas/note.md' } },
+    { wikiActive: true, overlay: { type: 'wiki-dir' as const, path: 'people/sub' } },
   ]
 
   for (const route of cases) {

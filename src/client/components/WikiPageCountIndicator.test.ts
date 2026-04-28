@@ -34,4 +34,12 @@ describe('WikiPageCountIndicator.svelte', () => {
     })
     expect(container.querySelector('.wiki-page-count-indicator--lg')).toBeTruthy()
   })
+
+  it('supports hubControl without changing page-count semantics', () => {
+    render(WikiPageCountIndicator, {
+      props: { count: 79, hubControl: true },
+    })
+    expect(screen.getByRole('img', { name: /79 pages in wiki/i })).toBeInTheDocument()
+    expect(screen.getByText('79')).toBeInTheDocument()
+  })
 })

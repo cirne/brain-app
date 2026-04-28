@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Mail, X, Search } from 'lucide-svelte'
+  import { BookOpen, Mail, X, Search } from 'lucide-svelte'
   import { formatDate } from '@client/lib/formatDate.js'
   import WikiFileName from './WikiFileName.svelte'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
@@ -13,10 +13,12 @@
     onOpenWiki,
     onOpenEmail,
     onClose,
+    onWikiHome,
   }: {
     onOpenWiki: (_path: string) => void
     onOpenEmail: (_id: string, _subject: string, _from: string) => void
     onClose: () => void
+    onWikiHome?: () => void
   } = $props()
 
   let query = $state('')
@@ -95,7 +97,15 @@
 
     <div class="results">
     {#if !query.trim()}
-      <p class="hint">Search your docs and emails</p>
+      <div class="search-empty">
+        <p class="hint">Search your docs and emails</p>
+        {#if onWikiHome}
+          <button type="button" class="wiki-home-cmd" onclick={() => { onWikiHome(); onClose() }}>
+            <BookOpen size={16} strokeWidth={2} aria-hidden="true" />
+            <span>Wiki home</span>
+          </button>
+        {/if}
+      </div>
     {:else if !loading && results.length === 0}
       <p class="hint">No results for "{query}"</p>
     {:else}
@@ -233,6 +243,38 @@
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .search-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 20px 40px;
+  }
+
+  .search-empty .hint {
+    padding: 0;
+    text-align: center;
+    color: var(--text-2);
+    font-size: 14px;
+  }
+
+  .wiki-home-cmd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  .wiki-home-cmd:hover {
+    background: var(--bg-2);
   }
 
   .hint {

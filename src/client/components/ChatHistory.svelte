@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
-  import { Loader2, MessageSquare, Mail, Trash2, Plus } from 'lucide-svelte'
+  import { BookOpen, Loader2, MessageSquare, Mail, Trash2, Plus } from 'lucide-svelte'
   import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
   import {
@@ -29,6 +29,7 @@
     onSelectEmail,
     onNewChat,
     onOpenAllChats,
+    onWikiHome,
   }: {
     activeSessionId?: string | null
     streamingSessionIds?: ReadonlySet<string>
@@ -37,6 +38,7 @@
     onSelectEmail?: (_id: string) => void
     onNewChat: () => void
     onOpenAllChats?: () => void
+    onWikiHome?: () => void
   } = $props()
 
   let sessions = $state<ChatSessionListItem[]>([])
@@ -238,6 +240,12 @@
     <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
     <span>New chat</span>
   </button>
+  {#if onWikiHome}
+    <button type="button" class="wiki-home-btn" onclick={() => onWikiHome()}>
+      <BookOpen size={14} strokeWidth={2.5} aria-hidden="true" />
+      <span>Wiki home</span>
+    </button>
+  {/if}
 
   <div class="ch-scroll">
     {#if loading}
@@ -342,7 +350,22 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin: 8px 10px;
+    margin: 8px 10px 4px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text);
+    font-size: var(--ch-fs-new-chat);
+    font-weight: 500;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .wiki-home-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 10px 8px;
     padding: 7px 10px;
     border-radius: 6px;
     border: 1px solid var(--border);
@@ -521,7 +544,8 @@
   }
 
   @media (hover: hover) {
-    .new-chat-btn:hover {
+    .new-chat-btn:hover,
+    .wiki-home-btn:hover {
       background: var(--bg);
       border-color: var(--text-2);
     }

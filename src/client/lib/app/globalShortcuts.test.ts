@@ -41,6 +41,18 @@ describe('matchGlobalShortcut', () => {
     ).toBeNull()
   })
 
+  it('maps ⌘⇧H / Ctrl+Shift+H to wikiHome', () => {
+    expect(matchGlobalShortcut(k({ key: 'h', metaKey: true, shiftKey: true }))).toEqual({
+      type: 'wikiHome',
+    })
+    expect(matchGlobalShortcut(k({ key: 'H', metaKey: true, shiftKey: true }))).toEqual({
+      type: 'wikiHome',
+    })
+    expect(matchGlobalShortcut(k({ key: 'h', ctrlKey: true, shiftKey: true }))).toEqual({
+      type: 'wikiHome',
+    })
+  })
+
   it('does not map digit keys to actions', () => {
     expect(matchGlobalShortcut(k({ key: '1', metaKey: true }))).toBeNull()
     expect(matchGlobalShortcut(k({ key: '4', ctrlKey: true }))).toBeNull()

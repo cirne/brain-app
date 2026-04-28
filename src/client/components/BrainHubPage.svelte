@@ -12,7 +12,6 @@
     Calendar,
     Layers,
     FileText,
-    List,
     LogOut,
     Plus,
     Trash2,
@@ -683,20 +682,6 @@
               <span class="status-pill paused">Paused</span>
             </div>
           {/if}
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="link-item hub-source-row"
-          onclick={() => onHubNavigate({ type: 'wiki' })}
-        >
-          <div class="link-info">
-            <HubSourceRowBody title="Wiki index" subtitle="Browse your private wiki">
-              {#snippet icon()}
-                <List size={16} />
-              {/snippet}
-            </HubSourceRowBody>
-          </div>
           <ChevronRight size={16} aria-hidden="true" />
         </button>
         {#if wikiRecentReady && wikiRecentEdits.length > 0}

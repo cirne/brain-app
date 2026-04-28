@@ -73,4 +73,34 @@ describe('transformWikiPageHtml', () => {
     )
     expect(h).toContain('data-wiki="people/alice.md"')
   })
+
+  it('converts marked relative `[label](ideas/foo.md)` anchors to data-wiki', () => {
+    const h = transformWikiPageHtml('<p><a href="ideas/foo.md">Foo</a></p>')
+    expect(h).toContain('data-wiki="ideas/foo.md"')
+    expect(h).not.toContain('href="ideas/')
+  })
+
+  it('converts `[label](me)` style anchors (href without .md or wiki: prefix)', () => {
+    const h = transformWikiPageHtml('<p><a href="me">me</a></p>')
+    expect(h).toContain('data-wiki="me.md"')
+    expect(h).toContain('class="wiki-link"')
+  })
+
+  it('converts anchors when href precedes other attributes', () => {
+    const h = transformWikiPageHtml(
+      '<p><a class="x" href="./people/bob.md">Bob</a></p>',
+    )
+    expect(h).toContain('data-wiki="people/bob.md"')
+  })
+
+  it('reads href with single quotes', () => {
+    const h = transformWikiPageHtml("<p><a href='people/ann.md'>Ann</a></p>")
+    expect(h).toContain('data-wiki="people/ann.md"')
+  })
+
+  it('converts raw HTML `<a href="#">slug</a>` to data-wiki from text', () => {
+    const h = transformWikiPageHtml('<ul><li><p><a href="#">people/lewis-cirne</a></p></li></ul>')
+    expect(h).toContain('data-wiki="people/lewis-cirne.md"')
+    expect(h).toContain('class="wiki-link"')
+  })
 })
