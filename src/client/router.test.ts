@@ -1,13 +1,51 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   parseRoute,
   routeToUrl,
   contextToString,
   navigate,
   slugifyChatTitleForUrl,
+  rememberChatTail,
+  CHAT_SESSION_TAIL_HEX_LEN,
   type SurfaceContext,
   type RouteUrlOpts,
+  type Route,
 } from './router.js'
+
+/** Seed tail map so `parseRoute` can sync-resolve UUID sessions (same as in-app navigation). */
+function primeChatSessionTail(sessionId: string) {
+  const flat = sessionId.replace(/-/g, '').toLowerCase()
+  rememberChatTail(flat.slice(0, CHAT_SESSION_TAIL_HEX_LEN), sessionId)
+}
+
+function memorySessionStorage() {
+  const mem: Record<string, string> = {}
+  return {
+    getItem: (k: string) => (k in mem ? mem[k]! : null),
+    setItem: (k: string, v: string) => {
+      mem[k] = v
+    },
+    removeItem: (k: string) => {
+      delete mem[k]
+    },
+    clear: () => {
+      for (const k of Object.keys(mem)) delete mem[k]
+    },
+    key: (i: number) => Object.keys(mem)[i] ?? null,
+    get length() {
+      return Object.keys(mem).length
+    },
+  } as Storage
+}
+
+describe('router', () => {
+  beforeEach(() => {
+    vi.stubGlobal('sessionStorage', memorySessionStorage())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
 
 function stubHistory(pushState: ReturnType<typeof vi.fn>, replaceState: ReturnType<typeof vi.fn>) {
   vi.stubGlobal(
@@ -26,10 +64,6 @@ function stubHistory(pushState: ReturnType<typeof vi.fn>, replaceState: ReturnTy
 }
 
 describe('navigate', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   it('uses replaceState when replace option is true', () => {
     const pushState = vi.fn()
     const replaceState = vi.fn()
@@ -89,43 +123,35 @@ describe('parseRoute', () => {
     expect(parseRoute('http://localhost/c/')).toEqual({})
   })
 
-  it('/c/:segment carries opaque session ids unchanged', () => {
-    expect(parseRoute('http://localhost/c/sess-abc')).toEqual({ sessionId: 'sess-abc' })
+  it('/c/:segment only accepts slug--{12hex}; unknown shapes are ignored', () => {
+    expect(parseRoute('http://localhost/c/sess-abc')).toEqual({})
+    expect(parseRoute('http://localhost/c/550e8400-e29b-41d4-a716-446655440000')).toEqual({})
   })
 
-  it('/c/:segment parses plain UUID (legacy bookmarks)', () => {
+  it('/c/:segment slug--12hex yields sessionTail without cache', () => {
+    expect(parseRoute('http://localhost/c/foo--550e8400e29b')).toEqual({
+      sessionTail: '550e8400e29b',
+    })
+  })
+
+  it('/c/:segment slug--12hex resolves sessionId when tail is primed', () => {
+    const id = '550e8400-e29b-41d4-a716-446655440000'
+    primeChatSessionTail(id)
+    expect(parseRoute('http://localhost/c/anything--550e8400e29b')).toEqual({ sessionId: id })
+  })
+
+  it('decodes percent-encoded slug segment', () => {
+    primeChatSessionTail('550e8400-e29b-41d4-a716-446655440000')
     expect(
-      parseRoute('http://localhost/c/550e8400-e29b-41d4-a716-446655440000'),
+      parseRoute('http://localhost/c/hello--550e8400e29b'),
     ).toEqual({
       sessionId: '550e8400-e29b-41d4-a716-446655440000',
     })
   })
 
-  it('/c/:segment slug is cosmetic; identity is -- + 32 hex', () => {
-    expect(
-      parseRoute(
-        'http://localhost/c/anything-here--550e8400e29b41d4a716446655440000',
-      ),
-    ).toEqual({
-      sessionId: '550e8400-e29b-41d4-a716-446655440000',
-    })
-  })
-
-  it('decodes session segment', () => {
-    expect(parseRoute('http://localhost/c/sess%2B1')).toEqual({ sessionId: 'sess+1' })
-  })
-
-  it('legacy /chat maps to chat only', () => {
+  it('/chat and /home are not routed (broken bookmarks)', () => {
     expect(parseRoute('http://localhost/chat')).toEqual({})
-  })
-
-  it('legacy /chat?panel=wiki respects overlay', () => {
-    expect(parseRoute('http://localhost/chat?panel=wiki&path=foo.md')).toEqual({
-      overlay: { type: 'wiki', path: 'foo.md' },
-    })
-  })
-
-  it('legacy /home maps to chat only', () => {
+    expect(parseRoute('http://localhost/chat?panel=wiki&path=foo.md')).toEqual({})
     expect(parseRoute('http://localhost/home')).toEqual({})
   })
 
@@ -175,10 +201,12 @@ describe('parseRoute', () => {
   })
 
   it('session + inbox overlay', () => {
+    const id = '550e8400-e29b-41d4-a716-446655440000'
+    primeChatSessionTail(id)
     expect(
-      parseRoute('http://localhost/c/s-1?panel=email&m=abc'),
+      parseRoute('http://localhost/c/my-chat--550e8400e29b?panel=email&m=abc'),
     ).toEqual({
-      sessionId: 's-1',
+      sessionId: id,
       overlay: { type: 'email', id: 'abc' },
     })
   })
@@ -289,21 +317,13 @@ describe('routeToUrl', () => {
     expect(routeToUrl({})).toBe('/c')
   })
 
-  it('chat with opaque sessionId', () => {
-    expect(routeToUrl({ sessionId: 'abc' })).toBe('/c/abc')
-  })
-
-  it('UUID session uses chat--hex without title opt', () => {
-    expect(routeToUrl({ sessionId: uuid })).toBe(
-      '/c/chat--550e8400e29b41d4a716446655440000',
-    )
+  it('UUID session uses chat--12hex without title opt', () => {
+    expect(routeToUrl({ sessionId: uuid })).toBe('/c/chat--550e8400e29b')
   })
 
   it('UUID session uses title slug when provided', () => {
     const opts: RouteUrlOpts = { chatTitleForUrl: 'Hello world!' }
-    expect(routeToUrl({ sessionId: uuid }, opts)).toBe(
-      '/c/hello-world--550e8400e29b41d4a716446655440000',
-    )
+    expect(routeToUrl({ sessionId: uuid }, opts)).toBe('/c/hello-world--550e8400e29b')
   })
 
   it('wiki without path', () => {
@@ -407,20 +427,13 @@ describe('slugifyChatTitleForUrl', () => {
 })
 
 describe('round-trip: routeToUrl → parseRoute', () => {
-  const cases = [
+  const uuid = '550e8400-e29b-41d4-a716-446655440000'
+
+  const cases: Route[] = [
     {},
-    { sessionId: 'sess-1' },
-    {
-      sessionId: '550e8400-e29b-41d4-a716-446655440000',
-    },
-    { overlay: { type: 'wiki' as const } },
-    { overlay: { type: 'wiki' as const, path: 'ideas/my note.md' } },
-    { overlay: { type: 'wiki-dir' as const, path: 'people/sub' } },
-    {
-      sessionId: '550e8400-e29b-41d4-a716-446655440000',
-      overlay: { type: 'wiki' as const, path: 'x.md' },
-    },
-    { sessionId: 'z', overlay: { type: 'wiki' as const, path: 'x.md' } },
+    { overlay: { type: 'wiki' } },
+    { overlay: { type: 'wiki', path: 'ideas/my note.md' } },
+    { overlay: { type: 'wiki-dir', path: 'people/sub' } },
     { overlay: { type: 'file' as const } },
     { overlay: { type: 'file' as const, path: '/Users/foo/bar.txt' } },
     { overlay: { type: 'email' as const } },
@@ -444,8 +457,8 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { hubActive: true },
     { hubActive: true, overlay: { type: 'hub-wiki-about' as const } },
     { overlay: { type: 'hub-wiki-about' as const } },
-    { hubActive: true, overlay: { type: 'chat-history' as const } },
-  ] as const
+    { hubActive: true, overlay: { type: 'chat-history' } },
+  ]
 
   for (const route of cases) {
     it(`round-trips ${JSON.stringify(route)}`, () => {
@@ -454,11 +467,27 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     })
   }
 
-  it('round-trips UUID chat with title slug', () => {
-    const r = { sessionId: '550e8400-e29b-41d4-a716-446655440000' }
+  it('round-trips UUID chat when tail is primed', () => {
+    primeChatSessionTail(uuid)
+    const r = { sessionId: uuid }
+    const url = `http://localhost${routeToUrl(r)}`
+    expect(parseRoute(url)).toEqual(r)
+    expect(url).toBe('http://localhost/c/chat--550e8400e29b')
+  })
+
+  it('round-trips UUID chat + overlay when tail is primed', () => {
+    primeChatSessionTail(uuid)
+    const r = { sessionId: uuid, overlay: { type: 'wiki' as const, path: 'x.md' } }
+    const url = `http://localhost${routeToUrl(r)}`
+    expect(parseRoute(url)).toEqual(r)
+  })
+
+  it('round-trips UUID chat with title slug when tail is primed', () => {
+    primeChatSessionTail(uuid)
+    const r = { sessionId: uuid }
     const url = `http://localhost${routeToUrl(r, { chatTitleForUrl: 'My chat title' })}`
     expect(parseRoute(url)).toEqual(r)
-    expect(url).toContain('my-chat-title--550e8400e29b41d4a716446655440000')
+    expect(url).toContain('my-chat-title--550e8400e29b')
   })
 })
 
@@ -558,4 +587,5 @@ describe('contextToString', () => {
     expect(s).toContain('+15550001111')
     expect(s).toContain('(555) 000-1111')
   })
+})
 })

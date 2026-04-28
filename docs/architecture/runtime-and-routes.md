@@ -37,13 +37,13 @@ Canonical implementation: [`src/client/router.ts`](../../src/client/router.ts) (
 | Path | Role |
 |------|------|
 | `/c` | **Chat** main pane; no server session id in the URL bar |
-| `/c/:segment` | **Chat** with a server session. For UUID ids the segment is **`{slug}--{uuidHex32}`** (slug from title, cosmetic only; identity is the `--` + 32 hex chars). Plain **`/c/{uuid-with-dashes}`** still parses. Non-UUID ids stay a single opaque segment (tests / legacy). |
+| `/c/:segment` | **Chat** with a server session only as **`{slug}--{12hex}`** — slug from title (cosmetic); **`12hex`** is the first 12 hex digits of the UUID (flat form). Resolve to full id via `sessionStorage` cache + session list prefix match; older bookmark shapes are intentionally not supported. |
 | `/hub` | **Brain Hub** main pane |
 | `/welcome`, `/onboarding` (alias) | First-run / setup flow |
 | `/hard-reset`, `/restart-seed`, `/first-chat` | Dev / one-shot flows |
 | `/demo` | Secret-gated Enron demo (`BRAIN_ENRON_DEMO_SECRET`) |
 
-Root **`/`** and legacy **`/chat`**, **`/home`** still parse as chat (same as `/c` without a session). New navigation from the app uses **`/c`** as the chat base.
+Root **`/`** parses like **`/c`** without a session (overlays via query only). **`/chat`** and **`/home`** are **not** routed (dead bookmarks). New navigation uses **`/c`** as the chat base.
 
 **Google OAuth** and other providers: **`/api/oauth/...` callback paths are fixed** (registered in Cloud Console). Only **post-consent browser redirects** into the SPA (e.g. `/welcome`, `/hub?addedAccount=…`) use these path shapes.
 
@@ -62,7 +62,7 @@ Detail / slide-over UI (wiki, inbox thread, calendar, messages, hub inspectors, 
 | `your-wiki`, `chat-history`, `hub-add-folders`, `hub-apple-messages`, `phone-access`, `hub-wiki-about` | (none) |
 | `hub-source` | `id` — source row id |
 
-Examples: `/c/my-thread-title--550e8400e29b41d4a716446655440000?panel=wiki&path=ideas%2Fnote.md`, `/hub?panel=email&m=…`, `/hub?addedAccount=…` (hub main + Google link banner; `panel` omitted).
+Examples: `/c/my-thread-title--550e8400e29b?panel=wiki&path=ideas%2Fnote.md`, `/hub?panel=email&m=…`, `/hub?addedAccount=…` (hub main + Google link banner; `panel` omitted).
 
 Path-shaped overlay URLs such as **`/wiki/...`**, **`/inbox`**, **`/hub/wiki/...`** are **not** parsed after this change (clean break); bookmarks should use the `panel` form.
 

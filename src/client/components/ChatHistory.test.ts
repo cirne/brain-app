@@ -60,7 +60,7 @@ describe('ChatHistory.svelte', () => {
     const row = await screen.findByText('Pick me')
     await fireEvent.click(row.closest('[role="button"]')!)
 
-    expect(props.onSelect).toHaveBeenCalledWith('abc')
+    expect(props.onSelect).toHaveBeenCalledWith('abc', 'Pick me')
   })
 
   it('calls onNewChat when New chat is pressed', async () => {

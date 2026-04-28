@@ -4,7 +4,7 @@
   import Search from './Search.svelte'
   import AppTopNav from './AppTopNav.svelte'
   import BrainHubPage from './BrainHubPage.svelte'
-  import SlideOver from './shell/SlideOver.svelte'
+  import AssistantSlideOver from './AssistantSlideOver.svelte'
   import AgentChat from './AgentChat.svelte'
   import ChatHistory from './ChatHistory.svelte'
   import ChatHistoryPage from './ChatHistoryPage.svelte'
@@ -12,11 +12,18 @@
   import {
     parseRoute,
     navigate,
+    readTailFromCache,
+    rememberChatTail,
     type Route,
     type SurfaceContext,
     type Overlay,
     type NavigateOptions,
   } from '@client/router.js'
+  import {
+    CHAT_HISTORY_PAGE_LIST_LIMIT,
+    fetchChatSessionsWith401Retry,
+  } from '@client/lib/chatHistorySessions.js'
+  import { matchSessionIdByFlatPrefix } from '@client/lib/chatSessionTailResolve.js'
   import { applyHubDetailNavigation } from '@client/lib/hubShellNavigate.js'
   import { overlaySupportsMobileChatBridge } from '@client/lib/mobileDetailChatOverlay.js'
   import { runParallelSyncs } from '@client/lib/app/syncAllServices.js'
@@ -34,10 +41,14 @@
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import { addToNavHistory, makeNavHistoryId, upsertEmailNavHistory } from '@client/lib/navHistory.js'
-
-  function loadSidebarPrefs(): { sidebarOpen?: boolean } {
-    return {}
-  }
+  import {
+    chatSessionPatch,
+    closeOverlayStrategy,
+    formatLocalDateYmd,
+    hubActiveForOpenOverlay as hubActiveForOpenOverlayFromRoute,
+    shouldReplaceWikiOverlay,
+  } from '@client/lib/assistantShellNavigation.js'
+  import { waitUntilDefinedOrMaxTicks } from '@client/lib/async/waitUntilReady.js'
 
   let route = $state<Route>(parseRoute())
   let syncErrors = $state<string[]>([])
@@ -52,7 +63,7 @@
   let wikiEditStreaming = $state<{ path: string; toolId: string } | null>(null)
   let agentChat = $state<AgentChat | undefined>()
   let chatIsEmpty = $state(true)
-  let mobileSlideOver = $state<{ closeAnimated: () => void } | undefined>()
+  let mobileSlideOver = $state<AssistantSlideOver | undefined>()
   let workspaceSplit = $state<WorkspaceSplit | undefined>()
   /** Desktop: detail pane fills workspace when true (WorkspaceSplit + SlideOver header). */
   let detailPaneFullscreen = $state(false)
@@ -90,16 +101,52 @@
     return { ...opts, chatTitleForUrl: title ?? undefined }
   }
 
-  /** Like `navigate` but merges {@link chatTitleForUrl} for `/c/{slug}--{uuid}` URLs. */
+  /** Like `navigate` but merges {@link chatTitleForUrl} for `/c/{slug}--{12hex}` URLs. */
   function navigateShell(route: Route, opts?: NavigateOptions) {
     navigate(route, optsWithBarTitle(opts))
   }
 
-  /** Preserve `/c/:sessionId` when opening overlays from the chat column. */
+  /** Resolved full session id when the path only had a 12-hex `sessionTail` (async or cache). */
+  let resolvedTailSessionId = $state<string | null>(null)
+
+  const effectiveChatSessionId = $derived(route.sessionId ?? resolvedTailSessionId ?? null)
+
+  const sessionHighlightId = $derived<string | null>(effectiveChatSessionId ?? activeSessionId)
+
   function chatSessionPart(): Pick<Route, 'sessionId'> {
-    if (route.hubActive) return {}
-    return route.sessionId ? { sessionId: route.sessionId } : {}
+    return chatSessionPatch(route, effectiveChatSessionId)
   }
+
+  $effect(() => {
+    const tail = route.sessionTail
+    const sid = route.sessionId
+    if (sid) {
+      resolvedTailSessionId = null
+      return
+    }
+    if (!tail) {
+      resolvedTailSessionId = null
+      return
+    }
+    const cached = readTailFromCache(tail)
+    if (cached) {
+      resolvedTailSessionId = cached
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const res = await fetchChatSessionsWith401Retry(fetch, undefined, CHAT_HISTORY_PAGE_LIST_LIMIT)
+      if (cancelled || !res?.ok) return
+      const list = (await res.json()) as { sessionId: string }[]
+      const hit = matchSessionIdByFlatPrefix(tail, list.map((s) => s.sessionId))
+      if (cancelled || !hit) return
+      rememberChatTail(tail, hit)
+      resolvedTailSessionId = hit
+    })()
+    return () => {
+      cancelled = true
+    }
+  })
 
   const SIDEBAR_TRANSITION_MS = 220
 
@@ -159,11 +206,10 @@
         hostedHandleNav = undefined
       })
 
-    const prefs = loadSidebarPrefs()
     if (mq.matches) {
-      sidebarOpen = prefs.sidebarOpen ?? false
+      sidebarOpen = false
     } else {
-      sidebarOpen = prefs.sidebarOpen ?? true
+      sidebarOpen = true
     }
 
     route = parseRoute()
@@ -213,17 +259,18 @@
         return
       }
       if (!wantKickoff) return
-      for (let i = 0; i < 16; i++) {
-        await tick()
-        if (agentChat) {
-          try {
-            agentChat.newChat()
-            await tick()
-            await agentChat.sendFirstChatKickoff()
-          } catch {
-            /* ignore */
-          }
-          return
+      const chat = await waitUntilDefinedOrMaxTicks({
+        get: () => agentChat,
+        tick,
+        maxIterations: 16,
+      })
+      if (chat) {
+        try {
+          chat.newChat()
+          await tick()
+          await chat.sendFirstChatKickoff()
+        } catch {
+          /* ignore */
         }
       }
     })()
@@ -269,24 +316,14 @@
     wikiEditStreaming = null
   }
 
-  /**
-   * Mobile + doc/email thread: use chat shell (not /hub) so `AgentChat` is mounted
-   * with a composer below the slide-over.
-   */
   function hubActiveForOpenOverlay(overlay: Overlay): boolean {
-    if (isMobile && overlaySupportsMobileChatBridge(overlay)) return false
-    return Boolean(route.hubActive || route.overlay?.type === 'hub')
+    return hubActiveForOpenOverlayFromRoute(route, overlay, isMobile)
   }
 
   function closeOverlay() {
-    if (!route.overlay) return
-    const t = route.overlay.type
-    /** Hub and full-page chat list fill the main pane (no detail split / slide). */
-    if (t === 'hub' || t === 'chat-history') {
-      closeOverlayImmediate()
-      return
-    }
-    if (useDesktopSplitDetail) {
+    const strategy = closeOverlayStrategy(route, useDesktopSplitDetail)
+    if (strategy === 'none') return
+    if (strategy === 'animated_desktop') {
       workspaceSplit?.closeDesktopAnimated()
       return
     }
@@ -311,8 +348,7 @@
   }
 
   function wikiOverlayReplace(): boolean {
-    const t = route.overlay?.type
-    return t === 'wiki' || t === 'wiki-dir'
+    return shouldReplaceWikiOverlay(route)
   }
 
   function openWikiDoc(path?: string) {
@@ -408,9 +444,7 @@
   }
 
   function resetCalendarToToday() {
-    const d = new Date()
-    const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    switchToCalendar(ymd)
+    switchToCalendar(formatLocalDateYmd(new Date()))
   }
 
   function setContext(ctx: SurfaceContext) {
@@ -463,7 +497,12 @@
   /** Brain Hub rows → same detail stack as chat (`SlideOver` + `Overlay`). */
   function navigateFromHub(overlay: Overlay, opts?: NavigateOptions) {
     const hubActive = !isMobile || !overlaySupportsMobileChatBridge(overlay)
-    applyHubDetailNavigation(route, overlay, optsWithBarTitle(opts), hubActive)
+    const routeForNav: Route = {
+      ...route,
+      sessionId: effectiveChatSessionId ?? route.sessionId,
+      sessionTail: undefined,
+    }
+    applyHubDetailNavigation(routeForNav, overlay, optsWithBarTitle(opts), hubActive)
     route = parseRoute()
     if (overlay.type === 'wiki' && overlay.path) {
       void addToNavHistory({
@@ -519,10 +558,6 @@
     registerDebouncedWikiSyncRunner(performFullSync)
   })
 
-  $effect(() => {
-    // No-op: localStorage persistence disabled.
-  })
-
   function toggleSidebar() {
     sidebarOpen = !sidebarOpen
     if (sidebarOpen) void chatHistory?.refresh()
@@ -536,13 +571,12 @@
     inboxTargetId = undefined
     wikiWriteStreaming = null
     wikiEditStreaming = null
-    for (let i = 0; i < 16; i++) {
-      await tick()
-      if (agentChat) {
-        await agentChat.loadSession(id)
-        break
-      }
-    }
+    const chat = await waitUntilDefinedOrMaxTicks({
+      get: () => agentChat,
+      tick,
+      maxIterations: 16,
+    })
+    if (chat) await chat.loadSession(id)
     chatIsEmpty = false
     if (isMobile) sidebarOpen = false
   }
@@ -603,21 +637,21 @@
   }
 
   $effect(() => {
-    const sid = route.sessionId
+    const sid = effectiveChatSessionId
     const onChat =
       !route.flow && route.hubActive !== true && route.overlay?.type !== 'hub'
     if (!onChat || !sid) return
     if (sid === activeSessionId) return
     const gen = ++urlSessionSyncGen
     void (async () => {
-      for (let i = 0; i < 16; i++) {
-        await tick()
-        if (gen !== urlSessionSyncGen) return
-        if (agentChat) {
-          await agentChat.loadSession(sid)
-          break
-        }
-      }
+      const chat = await waitUntilDefinedOrMaxTicks({
+        get: () => agentChat,
+        tick,
+        maxIterations: 16,
+        shouldAbort: () => gen !== urlSessionSyncGen,
+      })
+      if (gen !== urlSessionSyncGen) return
+      if (chat) await chat.loadSession(sid)
     })()
   })
 
@@ -700,7 +734,7 @@
           <div class="rail-panel rail-panel--chat">
             <ChatHistory
               bind:this={chatHistory}
-              activeSessionId={activeSessionId}
+              activeSessionId={sessionHighlightId}
               streamingSessionIds={streamingSessionIds}
               onSelect={selectChatSession}
               onSelectDoc={selectDocFromHistory}
@@ -735,7 +769,7 @@
         <div class="hub-container">
           <div class="hub-scroll">
             <ChatHistoryPage
-              activeSessionId={activeSessionId}
+              activeSessionId={sessionHighlightId}
               streamingSessionIds={streamingSessionIds}
               onSelectSession={selectChatSession}
               onNewChat={historyNewChat}
@@ -754,8 +788,9 @@
             route.overlay.type !== 'chat-history'
           }
             <div class="mobile-detail-layer">
-              <SlideOver
+              <AssistantSlideOver
                 bind:this={mobileSlideOver}
+                variant="mobile"
                 overlay={route.overlay}
                 surfaceContext={agentContext}
                 wikiRefreshKey={wikiRefreshKey}
@@ -777,7 +812,6 @@
                 toolOnOpenMessageThread={openMessageThreadFromChat}
                 onOpenWikiAbout={openHubWikiAbout}
                 onClose={closeOverlay}
-                mobilePanel
               />
             </div>
           {/if}
@@ -828,8 +862,9 @@
               route.overlay.type !== 'hub' &&
               route.overlay.type !== 'chat-history'
             }
-              <SlideOver
+              <AssistantSlideOver
                 bind:this={mobileSlideOver}
+                variant="mobile"
                 overlay={route.overlay}
                 surfaceContext={agentContext}
                 wikiRefreshKey={wikiRefreshKey}
@@ -851,7 +886,6 @@
                 toolOnOpenMessageThread={openMessageThreadFromChat}
                 onOpenWikiAbout={openHubWikiAbout}
                 onClose={closeOverlay}
-                mobilePanel
               />
             {/if}
           {/snippet}
@@ -864,7 +898,8 @@
         route.overlay.type !== 'hub' &&
         route.overlay.type !== 'chat-history'
       }
-        <SlideOver
+        <AssistantSlideOver
+          variant="desktop"
           overlay={route.overlay}
           surfaceContext={agentContext}
           wikiRefreshKey={wikiRefreshKey}

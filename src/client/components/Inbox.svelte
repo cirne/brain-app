@@ -2,7 +2,7 @@
   import { getContext, onMount, tick, untrack } from 'svelte'
   import { Archive, Forward, Reply, Search, Sparkles } from 'lucide-svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
-  import { navigate, parseRoute } from '@client/router.js'
+  import { navigate, parseRoute, readTailFromCache } from '@client/router.js'
   import { emailHeadersForDisplay } from '@client/lib/inboxHeaders.js'
   import { formatDate } from '@client/lib/formatDate.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
@@ -38,9 +38,11 @@
 
   function navInboxEmail(overlay: Extract<Overlay, { type: 'email' }>) {
     const r = parseRoute()
+    const sid =
+      r.sessionId ?? (r.sessionTail ? readTailFromCache(r.sessionTail) : undefined)
     navigate({
       hubActive: r.hubActive === true,
-      ...(r.hubActive ? {} : r.sessionId ? { sessionId: r.sessionId } : {}),
+      ...(r.hubActive ? {} : sid ? { sessionId: sid } : {}),
       overlay,
     })
   }

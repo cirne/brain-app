@@ -19,12 +19,17 @@ export type Overlay =
   | { type: 'chat-history' }
 
 /**
- * Chat-first shell: optional detail overlay in `?panel=` (+ payload); base path is `/c` or `/c/:sessionId`;
+ * Chat-first shell: optional detail overlay in `?panel=` (+ payload); base path is `/c` or `/c/{slug}--{tail}`;
  * Brain Hub primary surface is `/hub`. OAuth `/api/oauth/*` callback paths are unchanged (server).
  */
 export type Route = {
-  /** Server chat session id when URL is `/c/:sessionId`; omitted on `/c` (new / no id in bar). */
+  /** Server session id (UUID) when known — from cache, prior navigation, or resolved `sessionTail`. */
   sessionId?: string
+  /**
+   * First 12 hex chars of the session UUID when the bar has not been resolved to a full id yet.
+   * Identity is this prefix; resolve via session list + `rememberChatTail`.
+   */
+  sessionTail?: string
   overlay?: Overlay
   flow?: 'welcome' | 'hard-reset' | 'restart-seed' | 'first-chat' | 'enron-demo'
   /** True when primary surface is Brain Hub (`/hub`). */
@@ -77,16 +82,40 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
 
 const PANEL = 'panel'
 
-/** Cosmetic text before `--` + 32 hex tail; identity is only the UUID derived from the hex. */
-const SLUG_UUID_TAIL = /--([0-9a-f]{32})$/i
+/** UUID flat form prefix length in the `/c/slug--{hex}` segment (48 bits; single-user scope). */
+export const CHAT_SESSION_TAIL_HEX_LEN = 12
 
-/** Standard 8-4-4-4-12 hex UUID (any version). */
-const UUID_WITH_DASHES =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const TAIL_MAP_KEY = 'brain.chatTailMap'
 
-function uuidFromFlatHex(flat32: string): string {
-  const h = flat32.toLowerCase()
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`
+function readTailMap(): Record<string, string> {
+  if (typeof sessionStorage === 'undefined') return {}
+  try {
+    return JSON.parse(sessionStorage.getItem(TAIL_MAP_KEY) ?? '{}') as Record<string, string>
+  } catch {
+    return {}
+  }
+}
+
+function writeTailMap(m: Record<string, string>) {
+  if (typeof sessionStorage === 'undefined') return
+  try {
+    sessionStorage.setItem(TAIL_MAP_KEY, JSON.stringify(m))
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+/** Remember 12-hex tail → full session id for sync `parseRoute` on reload. */
+export function rememberChatTail(tail12: string, fullSessionId: string): void {
+  const key = tail12.toLowerCase()
+  const m = readTailMap()
+  m[key] = fullSessionId
+  writeTailMap(m)
+}
+
+/** Sync resolve of tail to full id when the user has visited this session in the tab. */
+export function readTailFromCache(tail12: string): string | undefined {
+  return readTailMap()[tail12.toLowerCase()]
 }
 
 /** True when `sessionId` is a 128-bit UUID (with or without dashes). */
@@ -109,21 +138,27 @@ export function slugifyChatTitleForUrl(title?: string | null): string {
   return slug || 'chat'
 }
 
-/** `/c/:segment` segment for chat: `{slug}--{uuidHex}` for UUID sessions; opaque ids unchanged. */
+/** `/c/:segment` for UUID sessions: `{slug}--` + first {@link CHAT_SESSION_TAIL_HEX_LEN} hex digits. */
 export function chatUrlSegment(sessionId: string, chatTitle?: string | null): string {
   if (!isUuidSessionId(sessionId)) return sessionId
   const flat = sessionId.replace(/-/g, '').toLowerCase()
   const slug = slugifyChatTitleForUrl(chatTitle)
-  return `${slug}--${flat}`
+  const tail = flat.slice(0, CHAT_SESSION_TAIL_HEX_LEN)
+  return `${slug}--${tail}`
 }
 
-/** Recover canonical session id from `/c/:segment` (UUID, slug--hex, or legacy opaque id). */
-export function sessionIdFromChatUrlSegment(segment: string): string {
+/**
+ * Parse `/c/:segment` for chat. Canonical shape: `{slug}--{12 hex}` only (no other bookmark shapes).
+ * Uses {@link readTailFromCache} so repeat loads get `sessionId` synchronously.
+ */
+export function parseChatPathSegment(segment: string): Pick<Route, 'sessionId' | 'sessionTail'> {
   const dec = safeDecodePathSegment(segment)
-  const m = dec.match(SLUG_UUID_TAIL)
-  if (m) return uuidFromFlatHex(m[1])
-  if (UUID_WITH_DASHES.test(dec)) return dec.toLowerCase()
-  return dec
+  const m = dec.match(/^(.+?)--([0-9a-f]{12})$/i)
+  if (!m || !m[2]) return {}
+  const tail = m[2].toLowerCase()
+  const cached = readTailFromCache(tail)
+  if (cached) return { sessionId: cached }
+  return { sessionTail: tail }
 }
 
 function safeDecodePathSegment(segment: string): string {
@@ -235,10 +270,7 @@ function hubRouteFromSearch(href: string): Route | null {
 }
 
 export type RouteUrlOpts = {
-  /**
-   * Used only when emitting `/c/...` for UUID sessions: `{slug}--{uuidHex}`.
-   * Parsing ignores the slug; only the `--` + 32 hex tail identifies the chat.
-   */
+  /** Cosmetic slug source for UUID sessions (`{slug}--{12 hex}`). */
   chatTitleForUrl?: string | null
 }
 
@@ -278,18 +310,12 @@ export function parseRoute(href: string = location.href): Route {
   }
 
   if (seg1 === 'c') {
-    const sessionId =
-      rest.length > 0 && rest[0] ? sessionIdFromChatUrlSegment(rest[0]) : undefined
+    const chatPart =
+      rest.length > 0 && rest[0] ? parseChatPathSegment(rest[0]) : {}
     const overlay = overlayFromSearchParams(url.searchParams)
-    const base: Route = { ...(sessionId ? { sessionId } : {}) }
+    const base: Route = { ...chatPart }
     if (overlay) return { ...base, overlay }
     return base
-  }
-
-  if (seg1 === 'chat' || seg1 === 'home') {
-    const overlay = overlayFromSearchParams(url.searchParams)
-    if (overlay) return { overlay }
-    return {}
   }
 
   if (seg1 === '' || seg1 === undefined) {
@@ -351,6 +377,10 @@ export function navigate(route: Route, opts?: NavigateOptions): void {
   const url = routeToUrl(route, {
     chatTitleForUrl: opts?.chatTitleForUrl,
   })
+  if (route.sessionId && isUuidSessionId(route.sessionId)) {
+    const flat = route.sessionId.replace(/-/g, '').toLowerCase()
+    rememberChatTail(flat.slice(0, CHAT_SESSION_TAIL_HEX_LEN), route.sessionId)
+  }
   if (opts?.replace) {
     history.replaceState(null, '', url)
   } else {

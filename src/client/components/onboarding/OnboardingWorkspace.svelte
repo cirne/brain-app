@@ -13,7 +13,14 @@
   import OnboardingProfilingView from './OnboardingProfilingView.svelte'
   import OnboardingSeedingView from './OnboardingSeedingView.svelte'
   import WorkspaceSplit from '../WorkspaceSplit.svelte'
-  import { parseRoute, navigate, type Route, type SurfaceContext, type Overlay } from '@client/router.js'
+  import {
+    parseRoute,
+    navigate,
+    readTailFromCache,
+    type Route,
+    type SurfaceContext,
+    type Overlay,
+  } from '@client/router.js'
   import { runParallelSyncs } from '@client/lib/app/syncAllServices.js'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { matchGlobalShortcut } from '@client/lib/app/globalShortcuts.js'
@@ -155,7 +162,10 @@
   })
 
   function obChatSession(): Pick<Route, 'sessionId'> {
-    return route.sessionId ? { sessionId: route.sessionId } : {}
+    const sid =
+      route.sessionId ??
+      (route.sessionTail ? readTailFromCache(route.sessionTail) : undefined)
+    return sid ? { sessionId: sid } : {}
   }
 
   function closeOverlayImmediate() {
