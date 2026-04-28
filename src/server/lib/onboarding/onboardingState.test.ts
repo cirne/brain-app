@@ -31,8 +31,8 @@ describe('onboardingState', () => {
     const { readOnboardingStateDoc, setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
     await setOnboardingState('indexing')
     expect((await readOnboardingStateDoc()).state).toBe('indexing')
-    await setOnboardingState('profiling')
-    expect((await readOnboardingStateDoc()).state).toBe('profiling')
+    await setOnboardingState('onboarding-agent')
+    expect((await readOnboardingStateDoc()).state).toBe('onboarding-agent')
   })
 
   it('setOnboardingState allows not-started → confirming-handle → indexing', async () => {
@@ -48,39 +48,29 @@ describe('onboardingState', () => {
     await expect(setOnboardingState('done')).rejects.toThrow()
   })
 
-  it('setOnboardingState allows reviewing-profile → seeding → done', async () => {
+  it('setOnboardingState allows onboarding-agent → done', async () => {
     const { setOnboardingState, readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
     await setOnboardingState('indexing')
-    await setOnboardingState('profiling')
-    await setOnboardingState('reviewing-profile')
-    await setOnboardingState('seeding')
-    expect((await readOnboardingStateDoc()).state).toBe('seeding')
+    await setOnboardingState('onboarding-agent')
     await setOnboardingState('done')
     expect((await readOnboardingStateDoc()).state).toBe('done')
   })
 
-  it('setOnboardingState allows reviewing-profile → profiling (regenerate)', async () => {
-    const { setOnboardingState, readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
-    await setOnboardingState('indexing')
-    await setOnboardingState('profiling')
-    await setOnboardingState('reviewing-profile')
-    await setOnboardingState('profiling')
-    expect((await readOnboardingStateDoc()).state).toBe('profiling')
-  })
-
   it('resetOnboardingState forces not-started', async () => {
-    const { setOnboardingState, resetOnboardingState, readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
+    const { setOnboardingState, resetOnboardingState, readOnboardingStateDoc } = await import(
+      '@server/lib/onboarding/onboardingState.js'
+    )
     await setOnboardingState('indexing')
     await resetOnboardingState()
     expect((await readOnboardingStateDoc()).state).toBe('not-started')
   })
 
   it('setOnboardingStateForce allows arbitrary transition from done', async () => {
-    const { setOnboardingState, setOnboardingStateForce, readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
+    const { setOnboardingState, setOnboardingStateForce, readOnboardingStateDoc } = await import(
+      '@server/lib/onboarding/onboardingState.js'
+    )
     await setOnboardingState('indexing')
-    await setOnboardingState('profiling')
-    await setOnboardingState('reviewing-profile')
-    await setOnboardingState('seeding')
+    await setOnboardingState('onboarding-agent')
     await setOnboardingState('done')
     await setOnboardingStateForce('not-started')
     expect((await readOnboardingStateDoc()).state).toBe('not-started')
@@ -94,17 +84,12 @@ describe('onboardingState', () => {
   })
 
   it('hardResetOnboardingArtifacts wipes all top-level brain home entries', async () => {
-    const {
-      hardResetOnboardingArtifacts,
-      readOnboardingStateDoc,
-      profileDraftAbsolutePath,
-      setOnboardingState,
-    } = await import('@server/lib/onboarding/onboardingState.js')
+    const { hardResetOnboardingArtifacts, readOnboardingStateDoc, setOnboardingState } = await import(
+      '@server/lib/onboarding/onboardingState.js'
+    )
     const { appendTurn, listSessions } = await import('@server/lib/chat/chatStorage.js')
     await setOnboardingState('indexing')
-    await setOnboardingState('profiling')
-    await setOnboardingState('reviewing-profile')
-    await setOnboardingState('seeding')
+    await setOnboardingState('onboarding-agent')
     await setOnboardingState('done')
     await appendTurn({
       sessionId: 'cc0e8400-e29b-41d4-a716-446655440088',
@@ -114,8 +99,6 @@ describe('onboardingState', () => {
     expect((await listSessions()).length).toBe(1)
     await writeFile(join(wikiDirPath(), 'me.md'), '# me', 'utf-8')
     await writeFile(join(wikiDirPath(), 'other.md'), 'x', 'utf-8')
-    const draft = profileDraftAbsolutePath()
-    await writeFile(draft, 'draft', 'utf-8')
     await mkdir(join(brainHome, 'future-subdir'), { recursive: true })
     await writeFile(join(brainHome, 'future-subdir', 'x.txt'), 'y', 'utf-8')
     await hardResetOnboardingArtifacts()
@@ -124,13 +107,26 @@ describe('onboardingState', () => {
     const { access, readdir } = await import('node:fs/promises')
     expect(await readdir(brainHome)).toEqual([])
     await expect(access(join(wikiDirPath(), 'me.md'))).rejects.toMatchObject({ code: 'ENOENT' })
-    await expect(access(draft)).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(access(join(brainHome, 'future-subdir', 'x.txt'))).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('round-trips persisted JSON', async () => {
     const path = join(chatDir(), 'onboarding.json')
     await writeFile(path, JSON.stringify({ state: 'done', updatedAt: '2020-01-01' }), 'utf-8')
+    const { readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
+    expect((await readOnboardingStateDoc()).state).toBe('done')
+  })
+
+  it('migrates legacy profiling states to onboarding-agent on read', async () => {
+    const path = join(chatDir(), 'onboarding.json')
+    await writeFile(path, JSON.stringify({ state: 'profiling', updatedAt: '2020-01-01' }), 'utf-8')
+    const { readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
+    expect((await readOnboardingStateDoc()).state).toBe('onboarding-agent')
+  })
+
+  it('migrates legacy seeding state to done on read', async () => {
+    const path = join(chatDir(), 'onboarding.json')
+    await writeFile(path, JSON.stringify({ state: 'seeding', updatedAt: '2020-01-01' }), 'utf-8')
     const { readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
     expect((await readOnboardingStateDoc()).state).toBe('done')
   })

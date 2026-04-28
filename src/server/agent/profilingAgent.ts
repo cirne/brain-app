@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import Handlebars from 'handlebars'
 import type { Agent } from '@mariozechner/pi-agent-core'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
-import { onboardingStagingWikiDir } from '@server/lib/onboarding/onboardingState.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { ripmailBin } from '@server/lib/onboarding/onboardingMailStatus.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailExec.js'
 import { ensureUserPeoplePageSkeleton } from '@server/lib/wiki/userPeoplePage.js'
@@ -122,7 +122,7 @@ export async function getOrCreateProfilingAgent(sessionId: string, options: { ti
   if (existing) return existing
 
   const tz = options.timezone ?? 'UTC'
-  const staging = onboardingStagingWikiDir()
+  const staging = wikiDir()
   await mkdir(staging, { recursive: true })
   const whoami = await fetchRipmailWhoamiForProfiling()
   const whoamiSubject = parseWhoamiProfileSubject(whoami)

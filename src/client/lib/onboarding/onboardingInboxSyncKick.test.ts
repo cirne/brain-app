@@ -37,7 +37,7 @@ describe('shouldKickOnboardingInboxSync', () => {
   })
 
   it('is false for other states', () => {
-    for (const state of ['profiling', 'reviewing-profile', 'seeding', 'done', 'confirming-handle']) {
+    for (const state of ['onboarding-agent', 'done', 'confirming-handle']) {
       expect(
         shouldKickOnboardingInboxSync({
           state,

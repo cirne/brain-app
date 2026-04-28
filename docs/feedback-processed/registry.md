@@ -13,3 +13,7 @@ When you finish triaging a feedback item, **append a row** (or edit this table) 
 | 7 | 2026-04-24T20:47:45.341Z | [Deferred: wiki Back/Forward](deferred.md) | 2026-04-25 |
 | 8 | 2026-04-24T20:50:05.464Z | [Deferred: external calendar invite actions](deferred.md) | 2026-04-25 |
 | 9 | 2026-04-24T21:02:59.368Z | [BUG-022](../bugs/BUG-022-inbox-surfaced-as-ignored-without-matching-user-rules.md) | 2026-04-25 |
+| 10 | 2026-04-25T15:48:13.100Z | [ripmail BUG-062](../../ripmail/docs/bugs/BUG-062-archive-leading-dash-message-id-parsed-as-cli-flag.md) | 2026-04-28 |
+| 11 | 2026-04-26T16:58:39.622Z | [BUG-027](../bugs/BUG-027-calendar-create-event-empty-list-rejects-source.md) | 2026-04-28 |
+| 12 | 2026-04-27T14:21:21.258Z | [OPP-057](../opportunities/OPP-057-chat-viewport-resize-or-expand.md) | 2026-04-28 |
+| 13 | 2026-04-27T18:42:19.159Z | [BUG-028](../bugs/BUG-028-agent-email-draft-wrong-recipient-and-signature.md) | 2026-04-28 |

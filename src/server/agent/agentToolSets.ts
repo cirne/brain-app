@@ -140,11 +140,42 @@ export function mergeOmitToolNames(...lists: readonly (readonly string[])[]): re
   return out
 }
 
-export type OnboardingAgentToolVariant = 'buildout' | 'profiling'
+export type OnboardingAgentToolVariant = 'buildout' | 'profiling' | 'interview'
+
+/**
+ * OPP-054 guided onboarding: tight allowlist (calendar, inbox rules, mail scan, wiki write for assistant.md only — not me.md in-prompt).
+ */
+export const ONBOARDING_INTERVIEW_ONLY: readonly AgentToolName[] = [
+  'write',
+  'edit',
+  'search_index',
+  'read_email',
+  'find_person',
+  'calendar',
+  'inbox_rules',
+  'suggest_reply_options',
+  'list_inbox',
+]
+
+/** Silent post-interview pass: author `me.md` + scan wiki stubs. */
+export const ONBOARDING_FINALIZE_ONLY: readonly AgentToolName[] = [
+  'write',
+  'edit',
+  'read',
+  'grep',
+  'find',
+  'search_index',
+  'read_email',
+  'find_person',
+]
 
 function omitForOnboardingVariant(variant: OnboardingAgentToolVariant): readonly string[] {
   if (variant === 'profiling') {
     return mergeOmitToolNames(ONBOARDING_BASE_OMIT, ONBOARDING_PROFILING_EXTRA_OMIT)
+  }
+  if (variant === 'interview') {
+    // Satisfied via onlyToolNames in buildCreateAgentToolsOptions; unreachable for omit list.
+    return []
   }
   return [...ONBOARDING_BUILDOUT_OMIT]
 }
@@ -178,6 +209,13 @@ export function buildCreateAgentToolsOptions(args: {
     return {
       includeLocalMessageTools,
       onlyToolNames,
+    }
+  }
+
+  if (preset === 'onboarding' && onboardingVariant === 'interview') {
+    return {
+      includeLocalMessageTools: false,
+      onlyToolNames: ONBOARDING_INTERVIEW_ONLY,
     }
   }
 

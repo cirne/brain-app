@@ -1,17 +1,15 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import OnboardingWorkspace from './OnboardingWorkspace.svelte'
-  import ProfileDraftEditor from './ProfileDraftEditor.svelte'
   import {
     fetchOnboardingMailStatus,
     fetchOnboardingPreferences,
     fetchOnboardingState,
     patchOnboardingState,
     patchOnboardingPreferences,
-    postAcceptProfile,
     postInboxSyncStart,
     postSetupAppleMail,
-    fetchProfileDraftMarkdown,
+    postOnboardingFinalize,
     SETUP_MAIL_ABORT_MESSAGE,
   } from '@client/lib/onboarding/onboardingApi.js'
   import { computeIndexingCalmStatus } from '@client/lib/onboarding/onboardingIndexingUi.js'
@@ -29,8 +27,6 @@
   import VaultSetupStep from './VaultSetupStep.svelte'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import OnboardingHandleStep from './OnboardingHandleStep.svelte'
-  import OnboardingSeedingInterstitial from './OnboardingSeedingInterstitial.svelte'
-
   interface Props {
     onComplete: () => Promise<void>
     refreshStatus: () => Promise<void>
@@ -50,8 +46,8 @@
   let setupError = $state<string | null>(null)
   /** PATCH profiling failed while on indexing (e.g. below server minimum). */
   let indexingAdvanceError = $state<string | null>(null)
-  /** Review / accept-profile */
-  let profileStepError = $state<string | null>(null)
+  /** Finalize after onboarding interview */
+  let finalizeError = $state<string | null>(null)
   let busy = $state(false)
   /** Tauri: Google OAuth uses the system browser; we wait for the server’s one-shot /last-result. */
   let googleOauthBrowserWait = $state(false)
@@ -61,14 +57,8 @@
   /** If PATCH /status refresh hangs, `busy` would otherwise stay true forever while mail polling still updates the bar. */
   const ONBOARDING_PATCH_CHAIN_TIMEOUT_MS = 60_000
 
-  let draftMarkdown = $state('')
-  /** Bump to remount {@link ProfileDraftEditor} after reload-from-disk (discards unsaved TipTap edits). */
-  let draftEditorKey = $state(0)
-  let profileDraftEditor = $state<{ flushSave: () => Promise<void> } | null>(null)
-  let categoriesText = $state('People\nProjects\nInterests\nAreas')
-
   let onboardingExitHandled = $state(false)
-  /** Tauri: true after we’ve applied the “browser-sized” window for late onboarding (profiling onward). */
+  /** Tauri: true after we’ve applied the “browser-sized” window for late onboarding (interview onward). */
   let onboardingLargeWindowApplied = $state(false)
   const mailIndexedCount = $derived(Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0))
   const indexingHasFirstMessage = $derived(mailIndexedCount >= 1)
@@ -94,7 +84,7 @@
     }
     return `${d.toLocaleString()} of ${ONBOARDING_PROFILE_INDEX_AUTOPROCEED.toLocaleString()} messages toward continuing`
   })
-  const canAutoProceedToProfiling = $derived(mailIndexedCount >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED)
+  const canAutoProceedToInterview = $derived(mailIndexedCount >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED)
   const canOfferEarlyProfile = $derived(
     mailIndexedCount >= ONBOARDING_PROFILE_INDEX_MANUAL_MIN &&
       mailIndexedCount < ONBOARDING_PROFILE_INDEX_AUTOPROCEED,
@@ -151,7 +141,7 @@
 
   /**
    * Mail can be indexing while onboarding state is still `not-started` (e.g. Apple path + race).
-   * `indexing` is required for auto-advance and for PATCH `profiling` transitions on the server.
+   * `indexing` is required for auto-advance and for PATCH `onboarding-agent` transitions on the server.
    */
   let alignIndexingStateInitiated = $state(false)
   /** Stops a tight loop when PATCH not-started→indexing keeps returning 4xx. */
@@ -183,43 +173,38 @@
   })
 
   /**
-   * Auto-advance to profiling once the mail threshold is met.
+   * Auto-advance to guided onboarding once the mail threshold is met.
    * Handles both `indexing` and stale `not-started` (mail can run before the server state catches up).
    */
-  let profilingAutoAdvanceInFlight = $state(false)
+  let interviewAutoAdvanceInFlight = $state(false)
   /** Indexed count when auto-advance last got 4xx; retry only after mail progress (or manual continue). */
-  let profilingAutoAdvanceLastFailedAtCount = $state<number | null>(null)
+  let interviewAutoAdvanceLastFailedAtCount = $state<number | null>(null)
 
   $effect(() => {
-    if (
-      state === 'profiling' ||
-      state === 'reviewing-profile' ||
-      state === 'seeding' ||
-      state === 'done'
-    ) {
-      profilingAutoAdvanceLastFailedAtCount = null
+    if (state === 'onboarding-agent' || state === 'done') {
+      interviewAutoAdvanceLastFailedAtCount = null
     }
   })
 
   $effect(() => {
-    if (!canAutoProceedToProfiling || busy || profilingAutoAdvanceInFlight) return
-    if (!shouldRetryProfilingAutoAdvance(mailIndexedCount, profilingAutoAdvanceLastFailedAtCount)) return
+    if (!canAutoProceedToInterview || busy || interviewAutoAdvanceInFlight) return
+    if (!shouldRetryProfilingAutoAdvance(mailIndexedCount, interviewAutoAdvanceLastFailedAtCount)) return
     const fromNotStarted = state === 'not-started' && mail.configured
     if (state !== 'indexing' && !fromNotStarted) return
 
-    profilingAutoAdvanceInFlight = true
+    interviewAutoAdvanceInFlight = true
     void (async () => {
       try {
         if (fromNotStarted) {
           await patchState('indexing')
         }
-        await patchState('profiling')
-        profilingAutoAdvanceLastFailedAtCount = null
+        await patchState('onboarding-agent')
+        interviewAutoAdvanceLastFailedAtCount = null
       } catch (e) {
         indexingAdvanceError = e instanceof Error ? e.message : String(e)
-        profilingAutoAdvanceLastFailedAtCount = mailIndexedCount
+        interviewAutoAdvanceLastFailedAtCount = mailIndexedCount
       } finally {
-        profilingAutoAdvanceInFlight = false
+        interviewAutoAdvanceInFlight = false
       }
     })()
   })
@@ -277,16 +262,16 @@
     }
   }
 
-  async function proceedToProfilingEarly() {
+  async function proceedToInterviewEarly() {
     indexingAdvanceError = null
-    profilingAutoAdvanceLastFailedAtCount = null
+    interviewAutoAdvanceLastFailedAtCount = null
     busy = true
     await tick()
     try {
       if (state === 'not-started' && mail.configured) {
         await patchState('indexing')
       }
-      await patchState('profiling')
+      await patchState('onboarding-agent')
     } catch (e) {
       indexingAdvanceError = e instanceof Error ? e.message : String(e)
     } finally {
@@ -438,122 +423,81 @@
     }
   }
 
-  async function loadDraft() {
-    const md = await fetchProfileDraftMarkdown()
-    if (md != null) draftMarkdown = md
-  }
+  let obWorkspace = $state<{ getInterviewSessionId: () => string | null } | null>(null)
 
-  async function clearProfilingChatSession() {
-    try {
-      await fetch('/api/onboarding/profiling-sessions', { method: 'DELETE' })
-    } catch {
-      /* ignore */
-    }
-  }
-
-  async function reloadProfileDraftFromDisk() {
-    if (
-      !confirm(
-        'Reload the profile text from disk? Any edits you have not saved yet will be replaced.',
-      )
-    ) {
-      return
-    }
-    profileStepError = null
+  /** User-triggered: POST /finalize (each assistant turn would incorrectly fire if we used onStreamFinished). */
+  async function continueAfterInterview() {
+    finalizeError = null
     busy = true
     await tick()
     try {
-      const md = await fetchProfileDraftMarkdown()
-      if (md == null) {
-        profileStepError = 'Could not load profile draft.'
-        return
+      const sessionId = obWorkspace?.getInterviewSessionId() ?? null
+      if (!sessionId?.trim()) {
+        throw new Error(
+          'Send at least one message in the chat above so we can save your session, then try again.',
+        )
       }
-      draftMarkdown = md
-      draftEditorKey += 1
-    } catch (e) {
-      profileStepError = e instanceof Error ? e.message : String(e)
-    } finally {
-      busy = false
-    }
-  }
-
-  async function goBackToProfiling() {
-    if (
-      !confirm(
-        'Go back to profiling to run the profile step again? You will leave this screen and unsaved edits here will be lost.',
-      )
-    ) {
-      return
-    }
-    profileStepError = null
-    busy = true
-    await tick()
-    try {
-      await clearProfilingChatSession()
-      await patchState('profiling')
-    } catch (e) {
-      profileStepError = e instanceof Error ? e.message : String(e)
-    } finally {
-      busy = false
-    }
-  }
-
-  async function acceptProfile() {
-    profileStepError = null
-    try {
-      await profileDraftEditor?.flushSave()
-    } catch {
-      /* flushSave ignores persist errors; continue */
-    }
-    busy = true
-    try {
-      const categories = categoriesText
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean)
-      await postAcceptProfile(categories)
+      await postOnboardingFinalize(sessionId)
       await refreshStatus()
-      const nextAfterAccept = await fetchOnboardingState()
-      state = nextAfterAccept
-      await loadMailOnly()
-      if (nextAfterAccept === 'seeding') {
-        return
-      }
-      await finishOnboarding()
+      await load()
+      await completeOnboardingToApp()
     } catch (e) {
-      profileStepError = e instanceof Error ? e.message : String(e)
+      finalizeError = e instanceof Error ? e.message : String(e)
     } finally {
       busy = false
     }
   }
 
-  async function finishOnboarding() {
+  async function completeOnboardingToApp() {
     if (onboardingExitHandled) return
     onboardingExitHandled = true
-    await patchOnboardingState('done')
     indexingAdvanceError = null
     await onComplete()
   }
-
-  $effect(() => {
-    if (state === 'reviewing-profile') void loadDraft()
-  })
 
 </script>
 
 <div
   class="onboarding flex h-full min-h-0 w-full flex-col bg-[var(--bg)] text-[var(--text)]"
-  class:onboarding-wide={state !== 'profiling' && state !== 'reviewing-profile' && state !== 'seeding'}
+  class:onboarding-wide={state !== 'onboarding-agent'}
 >
-  {#if state === 'profiling'}
-    <OnboardingWorkspace
-      chatEndpoint="/api/onboarding/profile"
-      headerFallbackTitle="Profiling"
-      storageKey=""
-        autoSendMessage="From my indexed email, write wiki root me.md for the main assistant. Use the tools; ground claims in whoami and mail. Follow the system contract: clear ## sections, Key people as a bullet list (one person per line), blank lines between sections. Interests, CRM-style detail, and long bios belong in the wiki after onboarding, not in me.md."
-      onStreamFinished={async () => { await patchState('reviewing-profile') }}
-      {multiTenant}
-    />
+  {#if state === 'onboarding-agent'}
+    <div class="flex min-h-0 flex-1 flex-col">
+      <OnboardingWorkspace
+        bind:this={obWorkspace}
+        chatEndpoint="/api/onboarding/interview"
+        headerFallbackTitle="Setup"
+        storageKey=""
+        autoSendMessage="Start the guided onboarding interview now. Begin with phase 1: confirm my identity (name and short bio guess), then continue through the five phases in order."
+        {multiTenant}
+      />
+      <div
+        class="flex shrink-0 flex-col gap-2 border-t border-[var(--border)] bg-[var(--bg)] px-4 py-3"
+        role="region"
+        aria-label="Finish onboarding"
+      >
+        {#if finalizeError}
+          <p class="text-sm text-red-600 dark:text-red-400" role="alert">{finalizeError}</p>
+        {/if}
+        <p class="text-sm text-[var(--muted)]">
+          When you’re done with setup, continue. We’ll save your profile and open the app.
+        </p>
+        <button
+          type="button"
+          class="ob-btn-primary self-start"
+          onclick={() => void continueAfterInterview()}
+          disabled={busy}
+        >
+          {#if busy}
+            <span class="ob-spinner" aria-hidden="true"></span>
+            Finishing…
+          {:else}
+            Continue to Braintunnel
+            <ArrowRight class="ob-btn-icon" size={16} strokeWidth={2} aria-hidden="true" />
+          {/if}
+        </button>
+      </div>
+    </div>
   {:else if multiTenant && state === 'confirming-handle'}
     <OnboardingHandleStep
       refreshStatus={refreshStatus}
@@ -571,12 +515,7 @@
       }}
     />
   {:else}
-  <div
-    class="onboarding-main flex min-h-0 flex-1 flex-col"
-    class:onboarding-main-scroll={state !== 'reviewing-profile' && state !== 'seeding'}
-    class:onboarding-main-review={state === 'reviewing-profile'}
-    class:onboarding-main-seed={state === 'seeding'}
-  >
+  <div class="onboarding-main onboarding-main-scroll flex min-h-0 flex-1 flex-col">
     {#if state === 'not-started' && !mail.configured}
       <OnboardingHeroShell>
           <span class="ob-kicker">Braintunnel</span>
@@ -737,25 +676,25 @@
             {:else if indexingCalmStatus}
               <p class="ob-indexing-calm">{indexingCalmStatus}</p>
             {/if}
-            {#if showIndexingHero && (canOfferEarlyProfile || canAutoProceedToProfiling) && (state === 'indexing' || (state === 'not-started' && mail.configured))}
-              <div class="ob-indexing-early" role="region" aria-label="Continue to profile building">
+            {#if showIndexingHero && (canOfferEarlyProfile || canAutoProceedToInterview) && (state === 'indexing' || (state === 'not-started' && mail.configured))}
+              <div class="ob-indexing-early" role="region" aria-label="Continue to guided setup">
                 {#if canOfferEarlyProfile}
                   <p class="ob-indexing-early-copy">
-                    You’ve got enough mail for a strong first profile. We’ll keep downloading the rest in the background
-                    while you talk with Braintunnel.
+                    You’ve got enough mail to start. We’ll keep downloading the rest in the background while you finish
+                    setup.
                   </p>
                 {/if}
                 <button
                   type="button"
                   class="ob-btn-primary ob-indexing-early-btn"
-                  onclick={() => void proceedToProfilingEarly()}
+                  onclick={() => void proceedToInterviewEarly()}
                   disabled={busy}
                 >
                   {#if busy}
                     <span class="ob-spinner" aria-hidden="true"></span>
                     Working…
                   {:else}
-                    {canAutoProceedToProfiling ? 'Continue to profile' : 'Build my profile now'}
+                    {canAutoProceedToInterview ? 'Continue to setup' : 'Start setup now'}
                   {/if}
                 </button>
               </div>
@@ -768,74 +707,6 @@
             {/if}
           </div>
       </OnboardingHeroShell>
-
-    {:else if state === 'seeding'}
-      <OnboardingSeedingInterstitial
-        onContinue={async () => {
-          profileStepError = null
-          busy = true
-          try {
-            await finishOnboarding()
-          } catch (e) {
-            profileStepError = e instanceof Error ? e.message : String(e)
-          } finally {
-            busy = false
-          }
-        }}
-        continueBusy={busy}
-        errorText={profileStepError}
-        {multiTenant}
-      />
-
-    {:else if state === 'reviewing-profile'}
-      <section class="ob-review" aria-labelledby="ob-review-title">
-        <div class="ob-review-top">
-          <header class="ob-review-header">
-            <h2 id="ob-review-title" class="ob-review-title">Review your profile</h2>
-            <p class="ob-review-lead">
-              Your assistant uses this to stay current on projects, contacts, and interests. Edit anything below, then continue.
-            </p>
-          </header>
-          {#if profileStepError}
-            <p class="ob-error ob-review-error" role="alert">{profileStepError}</p>
-          {/if}
-        </div>
-        <div class="ob-review-editor">
-          {#key draftEditorKey}
-            <ProfileDraftEditor
-              bind:this={profileDraftEditor}
-              initialMarkdown={draftMarkdown}
-              disabled={busy}
-            />
-          {/key}
-        </div>
-        <footer class="ob-review-footer">
-          <div class="ob-review-actions" role="group" aria-label="Profile actions">
-            <div class="ob-review-secondary" role="group" aria-label="Profile draft options">
-              <button
-                type="button"
-                class="ob-btn-secondary ob-review-secondary-btn"
-                onclick={() => void reloadProfileDraftFromDisk()}
-                disabled={busy}
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                class="ob-btn-secondary ob-review-secondary-btn"
-                onclick={() => void goBackToProfiling()}
-                disabled={busy}
-              >
-                Retry
-              </button>
-            </div>
-            <button type="button" class="ob-btn-primary ob-review-cta" onclick={() => void acceptProfile()} disabled={busy}>
-              <span>{busy ? 'Saving…' : 'Looks Good'}</span>
-              <ArrowRight class="ob-btn-icon" size={16} strokeWidth={2} aria-hidden="true" />
-            </button>
-          </div>
-        </footer>
-      </section>
 
     {/if}
   </div>

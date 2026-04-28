@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono'
 import { networkInterfaces, platform } from 'node:os'
-import { mkdir, readFile, writeFile, access, unlink } from 'node:fs/promises'
+import { unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import {
@@ -8,25 +8,20 @@ import {
   setOnboardingState,
   resetOnboardingState,
   wikiMeExists,
-  profileDraftAbsolutePath,
-  profileDraftRelativePath,
-  categoriesJsonPath,
   onboardingDataDir,
   type OnboardingMachineState,
-  onboardingStagingWikiDir,
 } from '@server/lib/onboarding/onboardingState.js'
+import { appendTurn, ensureSessionStub } from '@server/lib/chat/chatStorage.js'
+import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { startTunnel, stopTunnel, getActiveTunnelUrl } from '@server/lib/platform/tunnelManager.js'
 import { streamAgentSseResponse } from '@server/lib/chat/streamAgentSse.js'
 import {
-  clearAllProfilingSessions,
-  getOrCreateProfilingAgent,
-  deleteProfilingSession,
-} from '../agent/profilingAgent.js'
-import {
-  getOrCreateWikiBuildoutAgent,
-  deleteWikiBuildoutSession,
-  ensureWikiVaultScaffoldForBuildout,
-} from '../agent/wikiBuildoutAgent.js'
+  clearAllInterviewSessions,
+  deleteInterviewSession,
+  getOrCreateOnboardingInterviewAgent,
+} from '../agent/onboardingInterviewAgent.js'
+import { runInterviewFinalize } from '../agent/interviewFinalizeAgent.js'
+import { deleteWikiBuildoutSession, ensureWikiVaultScaffoldForBuildout } from '../agent/wikiBuildoutAgent.js'
 import {
   getOnboardingMailStatus,
   ripmailBin,
@@ -184,7 +179,7 @@ onboarding.patch('/state', async (c) => {
   }
   const ctxMt = tryGetTenantContext()
   if (isMultiTenantMode() && ctxMt && !(await isHandleConfirmedForTenant(ctxMt.homeDir))) {
-    const blocked: OnboardingMachineState[] = ['indexing', 'profiling', 'reviewing-profile', 'seeding', 'done']
+    const blocked: OnboardingMachineState[] = ['indexing', 'onboarding-agent', 'done']
     if (blocked.includes(next)) {
       return c.json(
         { error: 'Confirm your Braintunnel handle in onboarding before continuing.' },
@@ -192,7 +187,7 @@ onboarding.patch('/state', async (c) => {
       )
     }
   }
-  if (cur.state === 'indexing' && next === 'profiling') {
+  if (cur.state === 'indexing' && next === 'onboarding-agent') {
     const mail = await getOnboardingMailStatus()
     const n = Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0)
     if (n < ONBOARDING_PROFILE_INDEX_MANUAL_MIN) {
@@ -206,6 +201,12 @@ onboarding.patch('/state', async (c) => {
   }
   try {
     const doc = await setOnboardingState(next)
+    if (cur.state === 'indexing' && next === 'onboarding-agent') {
+      const tz = typeof body.timezone === 'string' ? body.timezone : undefined
+      void ensureYourWikiRunning({ timezone: tz }).catch((e) => {
+        console.error('[onboarding-state→onboarding-agent] ensureYourWikiRunning error:', e)
+      })
+    }
     return c.json({ ok: true, state: doc.state })
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : 'invalid transition' }, 400)
@@ -362,73 +363,8 @@ onboarding.patch('/preferences', async (c) => {
   })
 })
 
-onboarding.get('/profile-draft', async (c) => {
-  const path = profileDraftAbsolutePath()
-  try {
-    const text = await readFile(path, 'utf-8')
-    return c.json({ path: profileDraftRelativePath(), markdown: text })
-  } catch {
-    return c.json({ error: 'No profile yet' }, 404)
-  }
-})
-
-/** Save edited profile draft while user is on the review step (markdown on disk). */
-onboarding.patch('/profile-draft', async (c) => {
-  const doc = await readOnboardingStateDoc()
-  if (doc.state !== 'reviewing-profile') {
-    return c.json({ error: 'Profile can only be edited while reviewing' }, 400)
-  }
-  const body = await c.req.json().catch(() => ({}))
-  const markdown = typeof body.markdown === 'string' ? body.markdown : null
-  if (markdown === null) {
-    return c.json({ error: 'markdown is required' }, 400)
-  }
-  await mkdir(wikiDir(), { recursive: true })
-  await writeFile(profileDraftAbsolutePath(), markdown, 'utf-8')
-  return c.json({ ok: true as const, path: profileDraftRelativePath() })
-})
-
-onboarding.post('/accept-profile', async (c) => {
-  const draftPath = profileDraftAbsolutePath()
-  try {
-    await access(draftPath)
-  } catch {
-    return c.json({ error: 'me.md not found in wiki — run profiling first' }, 400)
-  }
-  const body = await c.req.json().catch(() => ({}))
-  const rawCategories = Array.isArray(body.categories) ? body.categories : []
-  const categories = rawCategories.filter((x: unknown) => typeof x === 'string' && x.trim().length > 0)
-  const defaultCategories = ['People', 'Projects', 'Interests', 'Areas']
-  const categoriesToStore = categories.length > 0 ? categories : defaultCategories
-  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
-
-  const text = await readFile(draftPath, 'utf-8')
-  const wikiRoot = wikiDir()
-  await mkdir(wikiRoot, { recursive: true })
-  const mePath = join(wikiRoot, 'me.md')
-  await writeFile(mePath, text, 'utf-8')
-  await ensureWikiVaultScaffoldForBuildout(wikiRoot)
-  await mkdir(onboardingDataDir(), { recursive: true })
-  await writeFile(categoriesJsonPath(), JSON.stringify({ categories: categoriesToStore }, null, 2), 'utf-8')
-  try {
-    await writeFirstChatPending()
-    // Start (or wake) the Your Wiki continuous supervisor. It respects persisted pause state
-    // and handles the initial build-out as its first lap.
-    void ensureYourWikiRunning({ timezone }).catch((e) => {
-      console.error('[accept-profile] ensureYourWikiRunning error:', e)
-    })
-    const doc = await setOnboardingState('seeding')
-    return c.json({
-      ok: true,
-      state: doc.state,
-      categories: categoriesToStore,
-    })
-  } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'state error' }, 400)
-  }
-})
-
-onboarding.post('/profile', async (c) => {
+/** OPP-054 guided onboarding interview (streams SSE; persists turns for finalize). */
+onboarding.post('/interview', async (c) => {
   const body = await c.req.json()
   const message = typeof body.message === 'string' ? body.message : ''
   if (!message.trim()) {
@@ -437,61 +373,88 @@ onboarding.post('/profile', async (c) => {
   const sessionId = typeof body.sessionId === 'string' ? body.sessionId : crypto.randomUUID()
   const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
 
-  const agent = await getOrCreateProfilingAgent(sessionId, { timezone })
-  return streamAgentSseResponse(c, agent, message, {
-    wikiDirForDiffs: onboardingStagingWikiDir(),
-    announceSessionId: sessionId,
-    agentKind: 'onboarding_profile',
-  })
-})
-
-onboarding.post('/seed', async (c) => {
-  const body = await c.req.json()
-  const message = typeof body.message === 'string' ? body.message : ''
-  if (!message.trim()) {
-    return c.json({ error: 'message is required' }, 400)
-  }
-  const sessionId = typeof body.sessionId === 'string' ? body.sessionId : crypto.randomUUID()
-  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
-
-  let categories: string[] | undefined
   try {
-    const raw = await readFile(categoriesJsonPath(), 'utf-8')
-    const parsed = JSON.parse(raw) as { categories?: string[] }
-    if (Array.isArray(parsed.categories)) categories = parsed.categories
+    await ensureSessionStub(sessionId)
   } catch {
-    /* optional */
-  }
-  if (Array.isArray(body.categories) && body.categories.length) {
-    categories = body.categories.filter((x: unknown) => typeof x === 'string')
+    /* best-effort */
   }
 
-  const agent = await getOrCreateWikiBuildoutAgent(sessionId, { timezone, categories })
+  const persist = async (args: {
+    userMessage: string | null
+    assistantMessage: ChatMessage
+    turnTitle: string | null | undefined
+  }) => {
+    try {
+      await appendTurn({
+        sessionId,
+        userMessage: args.userMessage,
+        assistantMessage: args.assistantMessage,
+        title: args.turnTitle,
+      })
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  const agent = await getOrCreateOnboardingInterviewAgent(sessionId, { timezone })
   return streamAgentSseResponse(c, agent, message, {
     wikiDirForDiffs: wikiDir(),
     announceSessionId: sessionId,
-    agentKind: 'onboarding_wiki_buildout',
+    agentKind: 'onboarding_interview',
+    onTurnComplete: persist,
+    timezone,
   })
 })
 
-/** Drop all in-memory profiling agents (e.g. “regenerate profile” without client-held session id). */
-onboarding.delete('/profiling-sessions', async (c) => {
-  clearAllProfilingSessions()
+/**
+ * After the interview stream ends: author `me.md`, write default wiki categories, scaffold vault,
+ * wake Your Wiki, mark first-chat pending, transition to **done**.
+ */
+onboarding.post('/finalize', async (c) => {
+  const doc = await readOnboardingStateDoc()
+  if (doc.state !== 'onboarding-agent') {
+    return c.json({ error: 'Onboarding interview is not active.' }, 400)
+  }
+  const body = await c.req.json().catch(() => ({}))
+  const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
+  if (!sessionId) {
+    return c.json({ error: 'sessionId is required' }, 400)
+  }
+  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
+  try {
+    await runInterviewFinalize({ sessionId, timezone })
+    await ensureWikiVaultScaffoldForBuildout(wikiDir())
+    void ensureYourWikiRunning({ timezone }).catch((e) => {
+      console.error('[onboarding/finalize] ensureYourWikiRunning error:', e)
+    })
+    await writeFirstChatPending()
+    await setOnboardingState('done')
+    return c.json({ ok: true as const, state: 'done' })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[onboarding/finalize]', msg)
+    return c.json({ error: msg }, 500)
+  }
+})
+
+/** Drop all in-memory onboarding interview agents. */
+onboarding.delete('/interview-sessions', async (c) => {
+  clearAllInterviewSessions()
   return c.json({ ok: true as const })
 })
 
 onboarding.delete('/session/:kind/:sessionId', async (c) => {
   const kind = c.req.param('kind')
   const sessionId = c.req.param('sessionId')
-  if (kind === 'profiling') {
-    deleteProfilingSession(sessionId)
+  if (kind === 'interview') {
+    deleteInterviewSession(sessionId)
     return c.json({ ok: true })
   }
   if (kind === 'buildout') {
     deleteWikiBuildoutSession(sessionId)
     return c.json({ ok: true })
   }
-  return c.json({ error: 'kind must be profiling or buildout' }, 400)
+  return c.json({ error: 'kind must be interview or buildout' }, 400)
 })
 
 export default onboarding

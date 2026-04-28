@@ -6,6 +6,7 @@ import { createAgentTools } from './tools.js'
 import {
   buildCreateAgentToolsOptions,
   ONBOARDING_BASE_OMIT,
+  ONBOARDING_FINALIZE_ONLY,
   WIKI_CLEANUP_OMIT,
   type OnboardingAgentToolVariant,
 } from './agentToolSets.js'
@@ -31,6 +32,7 @@ export function buildDateContext(timezone: string): string {
 export type CreateOnboardingAgentOptions = {
   /**
    * `profiling` omits web/video tools on top of the shared onboarding base.
+   * `interview` — OPP-054 guided onboarding (allowlisted tools).
    * Default: `buildout`.
    */
   variant?: OnboardingAgentToolVariant
@@ -45,7 +47,8 @@ export function createOnboardingAgent(
   options?: CreateOnboardingAgentOptions,
 ): Agent {
   const variant = options?.variant ?? 'buildout'
-  const includeLocalMessageTools = variant === 'profiling' ? false : areLocalMessageToolsEnabled()
+  const includeLocalMessageTools =
+    variant === 'profiling' || variant === 'interview' ? false : areLocalMessageToolsEnabled()
   const toolOpts = buildCreateAgentToolsOptions({
     preset: 'onboarding',
     onboardingVariant: variant,
@@ -79,6 +82,34 @@ export function createOnboardingAgent(
  * but no `write` (cannot create new pages). Used for the "Cleaning up" phase
  * of the Your Wiki continuous loop.
  */
+/** One-shot silent agent to write `me.md` after guided onboarding (OPP-054). */
+export function createFinalizeAgent(systemPrompt: string, wikiRoot: string): Agent {
+  const toolOpts = buildCreateAgentToolsOptions({
+    onlyToolNames: ONBOARDING_FINALIZE_ONLY,
+    includeLocalMessageTools: false,
+  })
+  const tools = createAgentTools(wikiRoot, toolOpts)
+  const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
+  const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'
+  const model = resolveModel(provider, modelId)
+  if (!model) {
+    throw new Error(
+      `[brain-app] Unknown LLM: LLM_PROVIDER=${provider} LLM_MODEL=${modelId} (not in pi-ai registry or mlx-local catalog)`,
+    )
+  }
+
+  return new Agent({
+    initialState: {
+      systemPrompt,
+      model,
+      tools,
+    },
+    onPayload: (params, m) => chainLlmOnPayload(params, m),
+    getApiKey: (p: string) => resolveLlmApiKey(p),
+    convertToLlm,
+  })
+}
+
 export function createCleanupAgent(systemPrompt: string, wikiRoot: string): Agent {
   const toolOpts = buildCreateAgentToolsOptions({
     extraOmit: WIKI_CLEANUP_OMIT,

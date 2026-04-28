@@ -27,7 +27,7 @@ dev.post('/hard-reset', async (c) => {
  */
 dev.post('/restart-seed', async (c) => {
   if (!wikiMeExists()) {
-    return c.json({ ok: false, error: 'me.md not found — complete profiling first' }, 400)
+    return c.json({ ok: false, error: 'me.md not found — complete onboarding first' }, 400)
   }
   clearAllOnboardingAgentSessions()
   await wipeWikiContentExceptMeMd()

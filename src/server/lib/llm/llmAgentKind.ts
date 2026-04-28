@@ -10,9 +10,11 @@ export const LLM_AGENT_KINDS = [
   'chat',
   /** Slash skill turn in a chat session (`/api/chat` with skill prompt). */
   'chat_skill',
-  /** Onboarding profile / interview agent (`POST /api/onboarding/profile`). */
+  /** @deprecated Legacy telemetry bucket; guided onboarding uses {@link onboarding_interview}. */
   'onboarding_profile',
-  /** Onboarding “seed my wiki” buildout in-session (`POST /api/onboarding/seed`). */
+  /** OPP-054 guided onboarding interview (`POST /api/onboarding/interview`). */
+  'onboarding_interview',
+  /** Onboarding “seed my wiki” buildout in-session (Hub / optional flows). */
   'onboarding_wiki_buildout',
   /** Background Your Wiki buildout / enrichment pass (wiki background runner, enrich). */
   'wiki_enrichment',

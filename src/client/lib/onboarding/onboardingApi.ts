@@ -56,7 +56,10 @@ export async function patchOnboardingState(next: string): Promise<void> {
   const res = await fetch('/api/onboarding/state', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ state: next }),
+    body: JSON.stringify({
+      state: next,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }),
   })
   if (!res.ok) {
     const e = (await res.json().catch(() => ({}))) as { error?: string }
@@ -109,25 +112,19 @@ export async function postSetupAppleMail(): Promise<{ ok: true } | { ok: false; 
   return { ok: true }
 }
 
-export async function fetchProfileDraftMarkdown(): Promise<string | null> {
-  const res = await fetch('/api/onboarding/profile-draft')
-  if (!res.ok) return null
-  const j = (await res.json()) as { markdown: string }
-  return j.markdown
-}
-
-export async function postAcceptProfile(categories: string[]): Promise<void> {
-  const res = await fetch('/api/onboarding/accept-profile', {
+/** Run silent finalize after guided onboarding interview (writes me.md, marks onboarding done). */
+export async function postOnboardingFinalize(sessionId: string): Promise<void> {
+  const res = await fetch('/api/onboarding/finalize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      categories,
+      sessionId,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     }),
   })
   if (!res.ok) {
     const j = (await res.json()) as { error?: string }
-    throw new Error(j.error ?? 'Accept failed')
+    throw new Error(j.error ?? 'Could not finish setup')
   }
 }
 

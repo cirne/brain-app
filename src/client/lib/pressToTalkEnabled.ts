@@ -1,11 +1,10 @@
 /**
- * Press-and-hold voice-to-text in the chat composer (OPP-050).
- * Hardcoded off until the flow is shippable; restore gating in `pressToTalkEnabledFromMetaEnv` when ready.
+ * Tap-to-talk voice input in chat (OPP-050 / OPP-055). Dev-only until product enables STT in prod.
  */
-export function pressToTalkEnabledFromMetaEnv(_env: { readonly DEV: boolean }): boolean {
-  return false
+export function pressToTalkEnabledFromMetaEnv(env: { readonly DEV: boolean }): boolean {
+  return env.DEV
 }
 
 export function isPressToTalkEnabled(): boolean {
-  return false
+  return pressToTalkEnabledFromMetaEnv(import.meta.env)
 }

@@ -47,8 +47,10 @@
   } = $props()
 
   const isSeedingWiki = $derived(chatEndpoint === '/api/onboarding/seed')
-  const isProfiling = $derived(chatEndpoint === '/api/onboarding/profile')
-  /** Profiling + seeding use the same activity transcript (not the default chat). */
+  const isProfiling = $derived(
+    chatEndpoint === '/api/onboarding/profile' || chatEndpoint === '/api/onboarding/interview',
+  )
+  /** Profiling + interview + seeding use the same activity transcript (not the default chat). */
   const useOnboardingActivity = $derived(isProfiling || isSeedingWiki)
 
   let route = $state<Route>(parseRoute())
@@ -91,6 +93,11 @@
 
   async function handleWorkspaceStreamFinished() {
     await onStreamFinished?.()
+  }
+
+  /** For POST /api/onboarding/finalize after the user finishes the interview. */
+  export function getInterviewSessionId(): string | null {
+    return agentChat?.getBackendSessionId() ?? null
   }
 
   onMount(() => {
@@ -381,11 +388,13 @@
           }
           streamingBusyLabel={
             useOnboardingActivity
-              ? isProfiling
-                ? 'Profiling…'
-                : isSeedingWiki
-                  ? 'Seeding wiki…'
-                  : 'Working…'
+              ? chatEndpoint === '/api/onboarding/interview'
+                ? 'Onboarding…'
+                : isProfiling
+                  ? 'Profiling…'
+                  : isSeedingWiki
+                    ? 'Seeding wiki…'
+                    : 'Working…'
               : ''
           }
           {chatEndpoint}

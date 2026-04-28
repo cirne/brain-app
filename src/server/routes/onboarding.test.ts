@@ -28,6 +28,14 @@ vi.mock('../agent/yourWikiSupervisor.js', () => ({
   ensureYourWikiRunning: yourWikiSupervisorMocks.ensureYourWikiRunning,
 }))
 
+const interviewFinalizeMocks = vi.hoisted(() => ({
+  runInterviewFinalize: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../agent/interviewFinalizeAgent.js', () => ({
+  runInterviewFinalize: interviewFinalizeMocks.runInterviewFinalize,
+}))
+
 import onboardingRoute from './onboarding.js'
 import * as onboardingMailStatus from '@server/lib/onboarding/onboardingMailStatus.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
@@ -63,8 +71,6 @@ afterEach(async () => {
 })
 
 describe('onboarding routes', () => {
-  const wikiDirPath = () => join(brainHome, 'wiki')
-
   it('GET /fda returns { granted: boolean }', async () => {
     const app = new Hono()
     app.route('/api/onboarding', onboardingRoute)
@@ -114,25 +120,6 @@ describe('onboarding routes', () => {
     expect(j.state).toBe('not-started')
   })
 
-  it('GET /profile-draft returns 404 when no profile exists', async () => {
-    const app = new Hono()
-    app.route('/api/onboarding', onboardingRoute)
-    const res = await app.request('http://localhost/api/onboarding/profile-draft')
-    expect(res.status).toBe(404)
-  })
-
-  it('GET /profile-draft returns wiki/me.md when present', async () => {
-    await mkdir(wikiDirPath(), { recursive: true })
-    await writeFile(join(wikiDirPath(), 'me.md'), '# Hello\n', 'utf-8')
-    const app = new Hono()
-    app.route('/api/onboarding', onboardingRoute)
-    const res = await app.request('http://localhost/api/onboarding/profile-draft')
-    expect(res.status).toBe(200)
-    const j = (await res.json()) as { path: string; markdown: string }
-    expect(j.path).toBe('me.md')
-    expect(j.markdown).toContain('Hello')
-  })
-
   it('PATCH /state returns 400 for invalid transition', async () => {
     const app = new Hono()
     app.route('/api/onboarding', onboardingRoute)
@@ -176,47 +163,53 @@ describe('onboarding routes', () => {
     expect(doc.state).toBe('not-started')
   })
 
-  it('PATCH /profile-draft writes markdown when state is reviewing-profile', async () => {
-    const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
-    const { profileDraftAbsolutePath } = await import('@server/lib/onboarding/onboardingState.js')
-    await mkdir(wikiDirPath(), { recursive: true })
-    await writeFile(profileDraftAbsolutePath(), '---\na: 1\n---\n\n# Old\n', 'utf-8')
-    await setOnboardingState('indexing')
-    await setOnboardingState('profiling')
-    await setOnboardingState('reviewing-profile')
-
+  it('DELETE /interview-sessions returns ok', async () => {
     const app = new Hono()
     app.route('/api/onboarding', onboardingRoute)
-    const res = await app.request('http://localhost/api/onboarding/profile-draft', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ markdown: '---\na: 1\n---\n\n# New\n' }),
-    })
-    expect(res.status).toBe(200)
-    const text = await import('node:fs/promises').then((fs) => fs.readFile(profileDraftAbsolutePath(), 'utf-8'))
-    expect(text).toContain('# New')
-  })
-
-  it('PATCH /profile-draft returns 400 when not in reviewing-profile', async () => {
-    const app = new Hono()
-    app.route('/api/onboarding', onboardingRoute)
-    const res = await app.request('http://localhost/api/onboarding/profile-draft', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ markdown: '# x\n' }),
-    })
-    expect(res.status).toBe(400)
-  })
-
-  it('DELETE /profiling-sessions returns ok', async () => {
-    const app = new Hono()
-    app.route('/api/onboarding', onboardingRoute)
-    const res = await app.request('http://localhost/api/onboarding/profiling-sessions', {
+    const res = await app.request('http://localhost/api/onboarding/interview-sessions', {
       method: 'DELETE',
     })
     expect(res.status).toBe(200)
     const j = (await res.json()) as { ok: boolean }
     expect(j.ok).toBe(true)
+  })
+
+  it('POST /finalize returns 400 when not in onboarding-agent', async () => {
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/finalize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: '550e8400-e29b-41d4-a716-446655440000' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST /finalize runs finalize, marks done, calls supervisor hooks', async () => {
+    interviewFinalizeMocks.runInterviewFinalize.mockClear()
+    yourWikiSupervisorMocks.ensureYourWikiRunning.mockClear()
+    const { setOnboardingState, readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
+    const sessionId = '550e8400-e29b-41d4-a716-446655440001'
+    await setOnboardingState('indexing')
+    await setOnboardingState('onboarding-agent')
+
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/finalize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, timezone: 'America/Chicago' }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean; state: string }
+    expect(j.ok).toBe(true)
+    expect(j.state).toBe('done')
+    expect((await readOnboardingStateDoc()).state).toBe('done')
+    expect(interviewFinalizeMocks.runInterviewFinalize).toHaveBeenCalledWith({
+      sessionId,
+      timezone: 'America/Chicago',
+    })
+    expect(yourWikiSupervisorMocks.ensureYourWikiRunning).toHaveBeenCalled()
   })
 
   it('POST /setup-mail returns 500 with error when ripmail exits non-zero', async () => {
@@ -278,57 +271,6 @@ describe('onboarding routes', () => {
       if (prev === undefined) delete process.env.BRAIN_DISABLE_APPLE_LOCAL
       else process.env.BRAIN_DISABLE_APPLE_LOCAL = prev
     }
-  })
-
-  it('POST /accept-profile copies draft to me.md, writes categories, and transitions to seeding', async () => {
-    const { setOnboardingState, readOnboardingStateDoc, categoriesJsonPath, profileDraftAbsolutePath } =
-      await import('@server/lib/onboarding/onboardingState.js')
-    await mkdir(wikiDirPath(), { recursive: true })
-    await writeFile(profileDraftAbsolutePath(), '# Profile\n', 'utf-8')
-    await setOnboardingState('indexing')
-    await setOnboardingState('profiling')
-    await setOnboardingState('reviewing-profile')
-
-    const app = new Hono()
-    app.route('/api/onboarding', onboardingRoute)
-    const res = await app.request('http://localhost/api/onboarding/accept-profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ categories: ['People', 'Projects'] }),
-    })
-    expect(res.status).toBe(200)
-    const j = (await res.json()) as { ok: boolean; state: string }
-    expect(j.ok).toBe(true)
-    expect(j.state).toBe('seeding')
-    expect((await readOnboardingStateDoc()).state).toBe('seeding')
-    const me = await import('node:fs/promises').then((fs) => fs.readFile(join(wikiDirPath(), 'me.md'), 'utf-8'))
-    expect(me).toContain('Profile')
-    const { readFile } = await import('node:fs/promises')
-    const index = await readFile(join(wikiDirPath(), 'index.md'), 'utf-8')
-    expect(index).toContain('[[me]]')
-    const catRaw = await readFile(categoriesJsonPath(), 'utf-8')
-    expect(catRaw).toContain('People')
-    expect(catRaw).toContain('Projects')
-  })
-
-  it('POST /accept-profile creates wiki directory if missing (fresh BRAIN_HOME)', async () => {
-    const { setOnboardingState, profileDraftAbsolutePath } = await import('@server/lib/onboarding/onboardingState.js')
-    await mkdir(wikiDirPath(), { recursive: true })
-    await writeFile(profileDraftAbsolutePath(), '# Profile\n', 'utf-8')
-    await setOnboardingState('indexing')
-    await setOnboardingState('profiling')
-    await setOnboardingState('reviewing-profile')
-
-    const app = new Hono()
-    app.route('/api/onboarding', onboardingRoute)
-    const res = await app.request('http://localhost/api/onboarding/accept-profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ categories: ['People'] }),
-    })
-    expect(res.status).toBe(200)
-    const me = await import('node:fs/promises').then((fs) => fs.readFile(join(wikiDirPath(), 'me.md'), 'utf-8'))
-    expect(me).toContain('Profile')
   })
 
   describe('GET /network-info tunnel URL vs remoteAccessEnabled', () => {
@@ -465,7 +407,7 @@ describe('onboarding routes', () => {
     })
   })
 
-  describe('PATCH /state indexing to profiling (mail threshold)', () => {
+  describe('PATCH /state indexing to onboarding-agent (mail threshold)', () => {
     afterEach(() => {
       vi.restoreAllMocks()
     })
@@ -490,7 +432,7 @@ describe('onboarding routes', () => {
       const res = await app.request('http://localhost/api/onboarding/state', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: 'profiling' }),
+        body: JSON.stringify({ state: 'onboarding-agent' }),
       })
       expect(res.status).toBe(400)
     })
@@ -515,11 +457,11 @@ describe('onboarding routes', () => {
       const res = await app.request('http://localhost/api/onboarding/state', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: 'profiling' }),
+        body: JSON.stringify({ state: 'onboarding-agent' }),
       })
       expect(res.status).toBe(200)
       const j = (await res.json()) as { state: string }
-      expect(j.state).toBe('profiling')
+      expect(j.state).toBe('onboarding-agent')
     })
   })
 })

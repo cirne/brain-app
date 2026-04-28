@@ -5,16 +5,14 @@ import { chatDataDir } from '@server/lib/chat/chatStorage.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { wipeBrainHomeContents } from '@server/lib/platform/brainHome.js'
 
-/** Persisted onboarding machine state (OPP-006). */
+/** Persisted onboarding machine state (OPP-006 / OPP-054). */
 export type OnboardingMachineState =
   | 'not-started'
   /** Hosted only — returned by GET /status until handle is confirmed (may not appear in onboarding.json). */
   | 'confirming-handle'
   | 'indexing'
-  | 'profiling'
-  | 'reviewing-profile'
-  /** After accept-profile: interstitial while initial wiki build runs in background. */
-  | 'seeding'
+  /** Guided five-phase interview (replaces profiling + review + seeding interstitial). */
+  | 'onboarding-agent'
   | 'done'
 
 export interface OnboardingStateDoc {
@@ -28,20 +26,7 @@ export function onboardingDataDir(): string {
   return join(chatDataDir(), 'onboarding')
 }
 
-/** Profiling agent wiki root — same as the real wiki vault so `me.md` is always `wiki/me.md`. */
-export function onboardingStagingWikiDir(): string {
-  return wikiDir()
-}
-
-/** User profile draft during onboarding — canonical path is wiki root `me.md` (same file after accept). */
-export function profileDraftRelativePath(): string {
-  return 'me.md'
-}
-
-export function profileDraftAbsolutePath(): string {
-  return join(onboardingStagingWikiDir(), profileDraftRelativePath())
-}
-
+/** Default wiki categories for expansion runs (written at interview finalize). */
 export function categoriesJsonPath(): string {
   return join(onboardingDataDir(), 'categories.json')
 }
@@ -65,15 +50,23 @@ export async function readOnboardingStateDoc(): Promise<OnboardingStateDoc> {
       'not-started',
       'confirming-handle',
       'indexing',
-      'profiling',
-      'reviewing-profile',
-      'seeding',
+      'onboarding-agent',
       'done',
     ]
-    if (typeof state === 'string' && (valid as string[]).includes(state)) {
-      return {
-        state: state as OnboardingMachineState,
-        updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : new Date().toISOString(),
+    if (typeof state === 'string') {
+      let migrated: OnboardingMachineState | null = null
+      // Legacy disk states (pre OPP-054) — map forward without migration scripts.
+      if (state === 'profiling' || state === 'reviewing-profile') migrated = 'onboarding-agent'
+      else if (state === 'seeding') migrated = 'done'
+
+      const resolved =
+        migrated ??
+        ((valid as string[]).includes(state) ? (state as OnboardingMachineState) : null)
+      if (resolved) {
+        return {
+          state: resolved,
+          updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : new Date().toISOString(),
+        }
       }
     }
   } catch (e: unknown) {
@@ -99,12 +92,8 @@ const transitions: Record<OnboardingMachineState, OnboardingMachineState[]> = {
   'not-started': ['confirming-handle', 'indexing', 'not-started'],
   /** Synthetic hosted gate — transitions not persisted from disk alone. */
   'confirming-handle': ['not-started', 'indexing'],
-  indexing: ['profiling', 'not-started'],
-  profiling: ['reviewing-profile', 'not-started'],
-  /** Accept-profile moves to `seeding` (interstitial) before `done`. */
-  'reviewing-profile': ['profiling', 'seeding', 'not-started'],
-  /** Building wiki; user continues to the app when ready. */
-  seeding: ['done'],
+  indexing: ['onboarding-agent', 'not-started'],
+  'onboarding-agent': ['done', 'not-started'],
   done: ['not-started'],
 }
 

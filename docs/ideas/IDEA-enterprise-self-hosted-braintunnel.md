@@ -1,6 +1,7 @@
 # Idea (pre-OPP): Enterprise self-hosted Braintunnel
 
-**Status:** Exploratory — not an opportunity record yet. Promote to `docs/opportunities/OPP-*.md` + [OPPORTUNITIES.md](../OPPORTUNITIES.md) when we want a tracked spec and decision.
+**Status:** Backlog — no related opportunities or implementation yet. Promote to `docs/opportunities/OPP-*.md` + [OPPORTUNITIES.md](../OPPORTUNITIES.md) when we want a tracked spec and decision.  
+**Index:** [IDEAS.md](../IDEAS.md)
 
 ## One-line pitch
 

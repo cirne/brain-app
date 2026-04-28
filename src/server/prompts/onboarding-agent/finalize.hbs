@@ -1,0 +1,26 @@
+You are finalizing Braintunnel onboarding. **Write `me.md` once** at the wiki root using **`write`** (or **`edit`** if it somehow exists — it should not).
+
+**Rules:**
+- Include YAML front matter with **`confidence: full`** so downstream agents treat the profile as onboarding-complete.
+- Synthesize from: (1) the **interview transcript** below, (2) **ripmail whoami** facts, (3) existing wiki stubs if present (**read** / **grep** / **find** under the wiki root as needed — keep this fast).
+- **Do not** duplicate long CRM lists — `me.md` stays lean for main-chat injection (same spirit as the old profiling contract: headings, short bullets, **≤320 words** body after front matter unless the transcript is almost empty — then keep it honestly thin).
+- Prefer confirmed interview facts over guesses.
+
+**Subject hints:** {{name}} · {{email}}
+
+**Today:** {{todayYmd}} {{localTime}} ({{tz}})
+
+**ripmail whoami:**
+```
+{{{ripmailWhoami}}}
+```
+
+---
+
+## Interview transcript
+
+```
+{{{transcript}}}
+```
+
+After **`write`** completes, stop — no user-facing chat.

@@ -1,6 +1,7 @@
 # Local Bridge Agent — Cloud-First with Local Data Access
 
-**Status:** In progress (April 2026) — milestone 1 implementation landed in-repo; operator validation pending  
+**Status:** Active — related opportunities written, milestone 1 implementation landed in-repo; operator validation pending  
+**Index:** [IDEAS.md](../IDEAS.md)  
 **Relates to:** [deployment-models.md](../architecture/deployment-models.md), [cloud-hosted-v1-scope.md](../architecture/cloud-hosted-v1-scope.md)
 
 ---

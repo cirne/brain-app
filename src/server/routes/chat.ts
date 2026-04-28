@@ -41,7 +41,7 @@ const FIRST_CHAT_KICKOFF_USER_MESSAGE = [
 
 const chat = new Hono()
 
-// GET /api/chat/first-chat-pending — whether accept-profile wrote the marker (no consume)
+// GET /api/chat/first-chat-pending — whether onboarding finalize wrote the marker (no consume)
 chat.get('/first-chat-pending', async (c) => {
   return c.json({ pending: await hasFirstChatPending() })
 })

@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { tick } from 'svelte'
 import AgentChat from './AgentChat.svelte'
@@ -20,6 +23,10 @@ vi.mock('@client/lib/brainTtsAudio.js', () => ({
 }))
 vi.mock('@client/lib/holdToSpeakMedia.js', () => ({
   requestMicrophonePermissionInUserGesture: vi.fn(),
+}))
+
+vi.mock('@client/lib/pressToTalkEnabled.js', () => ({
+  isPressToTalkEnabled: vi.fn(() => false),
 }))
 
 vi.mock('@client/lib/agentStream.js', async (importOriginal) => {
@@ -773,6 +780,23 @@ describe('AgentChat.svelte', () => {
       await tick()
 
       expect(screen.getByText('Custom Title')).toBeInTheDocument()
+    })
+  })
+
+  describe('mobile voice panel layout (source contract)', () => {
+    it('orders voice panel between context bar and input; dock padding only when thread empty', () => {
+      const path = join(dirname(fileURLToPath(import.meta.url)), 'AgentChat.svelte')
+      const src = readFileSync(path, 'utf8')
+      expect(src).toContain("layout={messages.length > 0 ? 'inline' : 'fixed'}")
+      const contextIdx = src.indexOf('<ComposerContextBar')
+      const voiceIdx = src.indexOf('<ChatVoicePanel')
+      const inputRowIdx = src.indexOf('class="composer-input-row"')
+      expect(contextIdx).toBeGreaterThan(-1)
+      expect(voiceIdx).toBeGreaterThan(contextIdx)
+      expect(inputRowIdx).toBeGreaterThan(voiceIdx)
+      const dockStart = src.indexOf('composer-stack--voice-panel=')
+      expect(dockStart).toBeGreaterThan(-1)
+      expect(src.indexOf('messages.length === 0}', dockStart)).toBeGreaterThan(dockStart)
     })
   })
 })

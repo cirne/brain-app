@@ -4,29 +4,26 @@ import { dirname, join } from 'node:path'
 import { describe, it, expect } from 'vitest'
 
 /**
- * Regression: mobile + audio hold-to-speak gives space back to the composer when the user types
- * (draft-driven collapse + flex gap cleanup).
+ * Mobile hear-replies strip; tap-to-talk lives in {@link ChatVoicePanel} (OPP-055).
  */
 describe('ChatComposerAudio', () => {
-  it('applies hold-slid layout only when press-to-talk is on (avoids jank with PTT off)', () => {
+  it('does not embed hold-to-speak or draft-hiding (tap panel replaces it)', () => {
     const path = join(
       dirname(fileURLToPath(import.meta.url)),
       '../components/ChatComposerAudio.svelte',
     )
     const src = readFileSync(path, 'utf8')
-    expect(src).toContain('draftHidesHold')
-    expect(src).toContain('hold-speak-wrap--draft-slid')
-    expect(src).toContain('chat-composer-audio--hold-slid')
-    expect(src).toContain('draftHidesHold && pressToTalkUiEnabled')
+    expect(src).not.toContain('AgentHoldToSpeak')
+    expect(src).not.toContain('draftHidesHold')
+    expect(src).not.toContain('hold-speak-wrap')
   })
 
-  it('gates press-to-talk behind isPressToTalkEnabled (OPP-050)', () => {
+  it('gates behind isPressToTalkEnabled for related mobile strip behavior', () => {
     const path = join(
       dirname(fileURLToPath(import.meta.url)),
       '../components/ChatComposerAudio.svelte',
     )
     const src = readFileSync(path, 'utf8')
-    expect(src).toContain('pressToTalkUiEnabled')
     expect(src).toContain('isPressToTalkEnabled')
     expect(src).toContain('@client/lib/pressToTalkEnabled.js')
   })

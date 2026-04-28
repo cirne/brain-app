@@ -35,8 +35,10 @@
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import ComposerContextBar from './agent-conversation/ComposerContextBar.svelte'
   import ChatComposerAudio from './ChatComposerAudio.svelte'
+  import ChatVoicePanel from './ChatVoicePanel.svelte'
   import { requestMicrophonePermissionInUserGesture } from '@client/lib/holdToSpeakMedia.js'
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
+  import { applyVoiceTranscriptToChat } from '@client/lib/voiceTranscribeRouting.js'
   import AgentInput from './AgentInput.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
@@ -168,6 +170,8 @@
   } = $props()
 
   /** Slide-over only over transcript; composer stays visible (mobile chat bridge). */
+  const pressToTalkUiEnabled = isPressToTalkEnabled()
+
   const bridgeSlideLayout = $derived(
     conversationHidden && mobileSlideCoversTranscriptOnly && !!mobileDetail,
   )
@@ -282,11 +286,16 @@
   let skillsList = $state<SkillMenuItem[]>([])
   let conversationEl = $state<ConversationScrollApi | undefined>(undefined)
   let inputEl = $state<ReturnType<typeof AgentInput> | undefined>(undefined)
-  /** Mobile: hide/slide the hold-to-speak control while the user has any text in the composer. */
+  /** Mobile: current composer text for voice transcript routing (empty → send, draft → append). */
   let inputDraftForMobileHold = $state('')
+  let isMobileViewport = $state(false)
 
   function onAgentInputDraftChange(d: string) {
     inputDraftForMobileHold = d
+  }
+
+  function onVoiceTranscribe(text: string) {
+    applyVoiceTranscriptToChat(text, inputDraftForMobileHold, send, appendToComposer)
   }
 
   async function focusAgentTextarea(delayMs: number) {
@@ -336,12 +345,20 @@
   }
 
   onMount(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const syncMobile = () => {
+      isMobileViewport = mq.matches
+    }
+    syncMobile()
+    mq.addEventListener('change', syncMobile)
+
     void fetchWikiFiles()
     void fetchSkills()
     const unsubWikiList = registerWikiFileListRefetch(fetchWikiFiles)
     const m = autoSendMessage?.trim()
     if (m) void tick().then(() => send(m))
     return () => {
+      mq.removeEventListener('change', syncMobile)
       unsubWikiList()
     }
   })
@@ -364,6 +381,13 @@
     newChat(options)
     await tick()
     await send(text)
+  }
+
+  /** Persisted chat session id from the last SSE `session` event (onboarding finalize, etc.). */
+  export function getBackendSessionId(): string | null {
+    const id = displayedSessionId
+    if (!id) return null
+    return sessions.get(id)?.sessionId ?? null
   }
 
   /** Add text to the composer (e.g. @page.md) without sending. */
@@ -821,7 +845,14 @@
     {/if}
 
     {#if !hideInput}
-      <div class="composer-stack" class:composer-stack--bridge-dock={bridgeSlideLayout}>
+      <div
+        class="composer-stack"
+        class:composer-stack--bridge-dock={bridgeSlideLayout}
+        class:composer-stack--voice-panel={pressToTalkUiEnabled &&
+          isMobileViewport &&
+          !bridgeSlideLayout &&
+          messages.length === 0}
+      >
         <ComposerContextBar
           files={contextBarFiles}
           choices={contextBarChoices}
@@ -829,6 +860,15 @@
           {onOpenWiki}
           onChoice={(t) => void send(t)}
         />
+        {#if pressToTalkUiEnabled && isMobileViewport && !bridgeSlideLayout}
+          <ChatVoicePanel
+            layout={messages.length > 0 ? 'inline' : 'fixed'}
+            disabled={streaming}
+            holdGated={!hearRepliesForChatComposer}
+            hearReplies={hearRepliesForChatComposer}
+            onTranscribe={onVoiceTranscribe}
+          />
+        {/if}
         <div class="composer-input-row">
           <div class="composer-input-shell">
             <AgentInput
@@ -850,9 +890,7 @@
         </div>
         {#if !bridgeSlideLayout}
           <ChatComposerAudio
-            disabled={streaming}
             showHearRepliesToggle={messages.length === 0}
-            draftHidesHold={inputDraftForMobileHold.length > 0}
             hearReplies={hearRepliesForChatComposer}
             onHearRepliesChange={(v) => {
               const id = displayedSessionId
@@ -860,7 +898,6 @@
               writeHearRepliesPreference(v)
               sessions = touchSessionImmutable(sessions, id, { hearReplies: v })
             }}
-            onTranscribe={(t) => void send(t)}
           />
         {/if}
       </div>
@@ -986,6 +1023,10 @@
   @media (max-width: 767px) {
     .composer-stack {
       padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .composer-stack--voice-panel {
+      padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
     }
   }
 

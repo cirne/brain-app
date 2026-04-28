@@ -113,7 +113,7 @@ exit 0
   it('POST /first-chat writes pending marker and sets onboarding done', async () => {
     const chatDir = join(brainHome, 'chats')
     await mkdir(chatDir, { recursive: true })
-    await writeFile(join(chatDir, 'onboarding.json'), JSON.stringify({ state: 'profiling', updatedAt: 'x' }), 'utf-8')
+    await writeFile(join(chatDir, 'onboarding.json'), JSON.stringify({ state: 'onboarding-agent', updatedAt: 'x' }), 'utf-8')
 
     const app = new Hono()
     app.route('/api/dev', devRoute)
