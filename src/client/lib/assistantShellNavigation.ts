@@ -1,5 +1,20 @@
 import { overlaySupportsMobileChatBridge } from '@client/lib/mobileDetailChatOverlay.js'
+import { isUuidSessionId } from '@client/router.js'
 import type { Overlay, Route } from '@client/router.js'
+
+/**
+ * AgentChat's `onSessionChange` can fire with a **stale** backend session id right after the user
+ * picks another chat in the sidebar: the bar URL updates immediately but the transcript map still
+ * reflects the previous session briefly. Navigating from that stale id would overwrite the bar.
+ */
+export function isStaleAgentSessionVersusChatBar(
+  agentReportedSessionId: string | null | undefined,
+  urlEffectiveSessionId: string | null | undefined,
+): boolean {
+  if (!agentReportedSessionId || !urlEffectiveSessionId) return false
+  if (agentReportedSessionId === urlEffectiveSessionId) return false
+  return isUuidSessionId(agentReportedSessionId) && isUuidSessionId(urlEffectiveSessionId)
+}
 
 export type CloseOverlayStrategy = 'none' | 'immediate' | 'animated_desktop'
 
@@ -10,10 +25,12 @@ export type CloseOverlayStrategy = 'none' | 'immediate' | 'animated_desktop'
 export function chatSessionPatch(
   route: Route,
   effectiveSessionId?: string | null,
-): Pick<Route, 'sessionId'> {
+): Pick<Route, 'sessionId' | 'sessionTail'> {
   if (route.hubActive) return {}
   const id = effectiveSessionId ?? route.sessionId
-  return id ? { sessionId: id } : {}
+  if (id) return { sessionId: id }
+  if (route.sessionTail) return { sessionTail: route.sessionTail }
+  return {}
 }
 
 export function shouldReplaceWikiOverlay(route: Route): boolean {

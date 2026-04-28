@@ -4,6 +4,7 @@ import {
   closeOverlayStrategy,
   formatLocalDateYmd,
   hubActiveForOpenOverlay,
+  isStaleAgentSessionVersusChatBar,
   shouldReplaceWikiOverlay,
 } from './assistantShellNavigation.js'
 import type { Overlay, Route } from '@client/router.js'
@@ -30,8 +31,14 @@ describe('assistantShellNavigation', () => {
       ).toEqual({ sessionId: 'full-uuid' })
     })
 
-    it('omits sessionId when unset', () => {
+    it('omits session fields when unset', () => {
       expect(chatSessionPatch(makeRoute({ hubActive: false }))).toEqual({})
+    })
+
+    it('preserves sessionTail when session id not resolved yet', () => {
+      expect(
+        chatSessionPatch(makeRoute({ hubActive: false, sessionTail: '550e8400e29b' }), undefined),
+      ).toEqual({ sessionTail: '550e8400e29b' })
     })
   })
 
@@ -112,6 +119,27 @@ describe('assistantShellNavigation', () => {
           false,
         ),
       ).toBe('immediate')
+    })
+  })
+
+  describe('isStaleAgentSessionVersusChatBar', () => {
+    const a = '2143510c-e7c6-4d18-8992-7c2a136eadfa'
+    const b = '0f79dcac-291a-4f2e-98b0-8af845904857'
+
+    it('is true when both are UUIDs and differ', () => {
+      expect(isStaleAgentSessionVersusChatBar(a, b)).toBe(true)
+    })
+
+    it('is false when equal', () => {
+      expect(isStaleAgentSessionVersusChatBar(a, a)).toBe(false)
+    })
+
+    it('is false when bar session unknown', () => {
+      expect(isStaleAgentSessionVersusChatBar(a, null)).toBe(false)
+    })
+
+    it('is false when agent id unknown', () => {
+      expect(isStaleAgentSessionVersusChatBar(null, b)).toBe(false)
     })
   })
 

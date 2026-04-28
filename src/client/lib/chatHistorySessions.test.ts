@@ -3,6 +3,7 @@ import {
   CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
   CHAT_HISTORY_SIDEBAR_LIMIT,
   CHAT_SESSIONS_RETRY_DELAYS_MS,
+  fetchChatSessionListDeduped,
   fetchChatSessionsWith401Retry,
   formatChatSessionsFetchError,
 } from './chatHistorySessions.js'
@@ -83,5 +84,24 @@ describe('CHAT_SESSIONS_RETRY_DELAYS_MS', () => {
 describe('CHAT_HISTORY_SIDEBAR_LIMIT', () => {
   it('is the default list cap sent to the API', () => {
     expect(CHAT_HISTORY_SIDEBAR_LIMIT).toBe(12)
+  })
+})
+
+describe('fetchChatSessionListDeduped', () => {
+  it('dedupes concurrent callers with the same limit (one fetch)', async () => {
+    const fetchImpl = vi.fn(() => Promise.resolve(new Response('[]', { status: 200 })))
+    const p1 = fetchChatSessionListDeduped(fetchImpl as unknown as typeof fetch, CHAT_HISTORY_SIDEBAR_FETCH_LIMIT)
+    const p2 = fetchChatSessionListDeduped(fetchImpl as unknown as typeof fetch, CHAT_HISTORY_SIDEBAR_FETCH_LIMIT)
+    const [a, b] = await Promise.all([p1, p2])
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(a).toEqual([])
+    expect(b).toEqual([])
+  })
+
+  it('uses separate fetches for different limits', async () => {
+    const fetchImpl = vi.fn(() => Promise.resolve(new Response('[]', { status: 200 })))
+    await fetchChatSessionListDeduped(fetchImpl as unknown as typeof fetch, CHAT_HISTORY_SIDEBAR_FETCH_LIMIT)
+    await fetchChatSessionListDeduped(fetchImpl as unknown as typeof fetch, 500)
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 })

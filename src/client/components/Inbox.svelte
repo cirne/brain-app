@@ -7,6 +7,7 @@
   import { formatDate } from '@client/lib/formatDate.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import { emailBodyToIframeSrcdoc } from '@client/lib/mailBodyDisplay.js'
+  import { locationShowsEmailThread } from '@client/lib/inboxEmailLocation.js'
   import {
     INBOX_THREAD_HEADER,
     type RegisterInboxThreadHeader,
@@ -284,8 +285,14 @@
     orphanThreadMeta = null
     threadLoadError = null
     selectedThread = id
-    navInboxEmail({ type: 'email', id })
-    onNavigate?.(id)
+    /** Parent (`onInboxNavigateSlide`) already runs `navigateShell` + `parseRoute` — do not also call `navInboxEmail` or we double-replace history and loop Svelte effects. */
+    if (onNavigate) {
+      const skip =
+        typeof location !== 'undefined' && locationShowsEmailThread(location.href, id)
+      if (!skip) onNavigate(id)
+    } else {
+      navInboxEmail({ type: 'email', id })
+    }
     onContextChange?.({ type: 'email', threadId: id, subject: '(loading)', from: '' })
     threadLoading = true
     try {
@@ -335,8 +342,13 @@
     orphanThreadMeta = null
     threadLoadError = null
     selectedThread = email.id
-    navInboxEmail({ type: 'email', id: email.id })
-    onNavigate?.(email.id)
+    if (onNavigate) {
+      const skip =
+        typeof location !== 'undefined' && locationShowsEmailThread(location.href, email.id)
+      if (!skip) onNavigate(email.id)
+    } else {
+      navInboxEmail({ type: 'email', id: email.id })
+    }
     onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from })
     const { token, signal } = threadOpenLatest.begin()
     threadLoading = true

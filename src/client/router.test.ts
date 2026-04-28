@@ -326,6 +326,19 @@ describe('routeToUrl', () => {
     expect(routeToUrl({ sessionId: uuid }, opts)).toBe('/c/hello-world--550e8400e29b')
   })
 
+  it('sessionTail only rebuilds slug--tail bar segment', () => {
+    expect(routeToUrl({ sessionTail: '550e8400e29b' })).toBe('/c/chat--550e8400e29b')
+    expect(routeToUrl({ sessionTail: '550e8400e29b' }, { chatTitleForUrl: 'Trip notes' })).toBe(
+      '/c/trip-notes--550e8400e29b',
+    )
+  })
+
+  it('sessionTail plus overlay preserves chat segment', () => {
+    expect(routeToUrl({ sessionTail: '550e8400e29b', overlay: { type: 'email', id: 't1' } })).toBe(
+      '/c/chat--550e8400e29b?panel=email&m=t1',
+    )
+  })
+
   it('wiki without path', () => {
     expect(routeToUrl({ overlay: { type: 'wiki' } })).toBe('/c?panel=wiki')
   })
@@ -488,6 +501,15 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     const url = `http://localhost${routeToUrl(r, { chatTitleForUrl: 'My chat title' })}`
     expect(parseRoute(url)).toEqual(r)
     expect(url).toContain('my-chat-title--550e8400e29b')
+  })
+
+  it('round-trips sessionTail + overlay (tail cache miss)', () => {
+    const r = {
+      sessionTail: 'aaaaaaaaaaaa',
+      overlay: { type: 'email' as const, id: 'msg:x' },
+    }
+    const url = `http://localhost${routeToUrl(r)}`
+    expect(parseRoute(url)).toEqual(r)
   })
 })
 

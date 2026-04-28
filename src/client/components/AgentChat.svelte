@@ -430,7 +430,9 @@
     const { token, signal } = sessionLoadLatest.begin()
     try {
       const res = await fetch(`/api/chat/sessions/${encodeURIComponent(loadId)}`, { signal })
-      if (sessionLoadLatest.isStale(token)) return
+      if (sessionLoadLatest.isStale(token)) {
+        return
+      }
       if (!res.ok) {
         const err = emptySession()
         err.messages = [
@@ -456,7 +458,9 @@
         title?: string | null
         messages?: ChatMessage[]
       }
-      if (sessionLoadLatest.isStale(token)) return
+      if (sessionLoadLatest.isStale(token)) {
+        return
+      }
       const list = Array.isArray(doc.messages) ? doc.messages : []
       const sid = typeof doc.sessionId === 'string' ? doc.sessionId : loadId
       sessions = setSessionImmutable(sessions, sid, {

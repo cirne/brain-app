@@ -7,8 +7,7 @@
   import {
     CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
     CHAT_HISTORY_SIDEBAR_LIMIT,
-    fetchChatSessionsWith401Retry,
-    formatChatSessionsFetchError,
+    fetchChatSessionListDeduped,
   } from '@client/lib/chatHistorySessions.js'
   import {
     loadNavHistory,
@@ -103,14 +102,10 @@
       error = null
     }
     try {
-      const res = await fetchChatSessionsWith401Retry(
-        fetch,
-        undefined,
-        CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
-      )
+      const raw = await fetchChatSessionListDeduped(fetch, CHAT_HISTORY_SIDEBAR_FETCH_LIMIT)
       if (mySeq !== refreshSeq) return
 
-      if (!res) {
+      if (!raw) {
         if (!background) {
           error = 'Could not load chats'
           sessions = []
@@ -118,15 +113,6 @@
         }
         return
       }
-      if (!res.ok) {
-        if (!background) {
-          error = formatChatSessionsFetchError(res)
-          sessions = []
-          hasMoreChats = false
-        }
-        return
-      }
-      const raw = (await res.json()) as ChatSessionListItem[]
       if (mySeq !== refreshSeq) return
       hasMoreChats = raw.length > CHAT_HISTORY_SIDEBAR_LIMIT
       sessions = raw.slice(0, CHAT_HISTORY_SIDEBAR_LIMIT)

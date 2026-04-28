@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ChatHistory from './ChatHistory.svelte'
 import { render, screen, fireEvent, waitFor } from '@client/test/render.js'
-import { fetchChatSessionsWith401Retry } from '@client/lib/chatHistorySessions.js'
+import { fetchChatSessionListDeduped } from '@client/lib/chatHistorySessions.js'
 import { loadNavHistory } from '@client/lib/navHistory.js'
 import { createChatSessionListItem } from '@client/test/fixtures/sessions.js'
-import { jsonResponse } from '@client/test/mocks/fetch.js'
 import {
   chatHistoryTestProps,
   stubDeleteChatFetch,
@@ -14,7 +13,7 @@ vi.mock('@client/lib/chatHistorySessions.js', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@client/lib/chatHistorySessions.js')>()
   return {
     ...mod,
-    fetchChatSessionsWith401Retry: vi.fn(),
+    fetchChatSessionListDeduped: vi.fn(),
   }
 })
 
@@ -27,7 +26,7 @@ vi.mock('@client/lib/navHistory.js', async (importOriginal) => {
   }
 })
 
-const mockedFetchSessions = vi.mocked(fetchChatSessionsWith401Retry)
+const mockedFetchSessions = vi.mocked(fetchChatSessionListDeduped)
 const mockedLoadNav = vi.mocked(loadNavHistory)
 
 describe('ChatHistory.svelte', () => {
@@ -35,10 +34,10 @@ describe('ChatHistory.svelte', () => {
     mockedLoadNav.mockResolvedValue([])
   })
 
-  it('renders sessions from fetchChatSessionsWith401Retry', async () => {
-    mockedFetchSessions.mockResolvedValue(
-      jsonResponse([createChatSessionListItem({ title: 'Alpha thread', sessionId: 's1' })]),
-    )
+  it('renders sessions from fetchChatSessionListDeduped', async () => {
+    mockedFetchSessions.mockResolvedValue([
+      createChatSessionListItem({ title: 'Alpha thread', sessionId: 's1' }),
+    ])
 
     render(ChatHistory, {
       props: chatHistoryTestProps(),
@@ -50,9 +49,9 @@ describe('ChatHistory.svelte', () => {
   })
 
   it('calls onSelect when a chat row is clicked', async () => {
-    mockedFetchSessions.mockResolvedValue(
-      jsonResponse([createChatSessionListItem({ sessionId: 'abc', title: 'Pick me' })]),
-    )
+    mockedFetchSessions.mockResolvedValue([
+      createChatSessionListItem({ sessionId: 'abc', title: 'Pick me' }),
+    ])
 
     const props = chatHistoryTestProps()
     render(ChatHistory, { props })
@@ -64,7 +63,7 @@ describe('ChatHistory.svelte', () => {
   })
 
   it('calls onNewChat when New chat is pressed', async () => {
-    mockedFetchSessions.mockResolvedValue(jsonResponse([]))
+    mockedFetchSessions.mockResolvedValue([])
 
     const props = chatHistoryTestProps()
     render(ChatHistory, { props })
@@ -74,9 +73,9 @@ describe('ChatHistory.svelte', () => {
   })
 
   it('DELETEs session after confirm on trash', async () => {
-    mockedFetchSessions.mockResolvedValue(
-      jsonResponse([createChatSessionListItem({ sessionId: 'del-me', title: 'Trash me' })]),
-    )
+    mockedFetchSessions.mockResolvedValue([
+      createChatSessionListItem({ sessionId: 'del-me', title: 'Trash me' }),
+    ])
 
     const del = vi.fn(() => Promise.resolve(new Response(null, { status: 204 })))
     stubDeleteChatFetch('del-me', del)

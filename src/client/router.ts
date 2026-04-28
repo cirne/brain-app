@@ -274,10 +274,21 @@ export type RouteUrlOpts = {
   chatTitleForUrl?: string | null
 }
 
-function chatBasePath(sessionId?: string, urlOpts?: RouteUrlOpts): string {
-  if (!sessionId) return '/c'
-  const seg = chatUrlSegment(sessionId, urlOpts?.chatTitleForUrl)
-  return `/c/${encodeURIComponent(seg)}`
+function chatBasePath(route: Pick<Route, 'sessionId' | 'sessionTail'>, urlOpts?: RouteUrlOpts): string {
+  if (route.sessionId) {
+    const seg = chatUrlSegment(route.sessionId, urlOpts?.chatTitleForUrl)
+    return `/c/${encodeURIComponent(seg)}`
+  }
+  const tailRaw = route.sessionTail?.trim()
+  if (tailRaw) {
+    const tail = tailRaw.replace(/[^0-9a-f]/gi, '').toLowerCase()
+    if (tail.length >= CHAT_SESSION_TAIL_HEX_LEN) {
+      const tail12 = tail.slice(0, CHAT_SESSION_TAIL_HEX_LEN)
+      const slug = slugifyChatTitleForUrl(urlOpts?.chatTitleForUrl)
+      return `/c/${encodeURIComponent(`${slug}--${tail12}`)}`
+    }
+  }
+  return '/c'
 }
 
 /** Parse a URL (defaults to current location) into a Route. */
@@ -347,17 +358,22 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
     return qs ? `/hub?${qs}` : '/hub'
   }
 
+  const chatPath = chatBasePath(
+    { sessionId: route.sessionId, sessionTail: route.sessionTail },
+    urlOpts,
+  )
+
   if (!o) {
-    return chatBasePath(route.sessionId, urlOpts)
+    return chatPath
   }
 
   if (o.type === 'hub') {
-    return chatBasePath(route.sessionId, urlOpts)
+    return chatPath
   }
 
   const q = overlayToSearchParams(o)
   const qs = q.toString()
-  const base = chatBasePath(route.sessionId, urlOpts)
+  const base = chatPath
   return qs ? `${base}?${qs}` : base
 }
 
