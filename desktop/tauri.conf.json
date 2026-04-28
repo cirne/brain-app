@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.cirne.brain",
   "build": {
-    "frontendDist": "http://127.0.0.1:18473",
+    "frontendDist": "https://staging.braintunnel.ai",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run desktop:setup-sidecars && npm run build && npm run desktop:bundle-server"
+    "beforeBuildCommand": "npm run build"
   },
   "plugins": {
     "updater": {
@@ -23,7 +23,7 @@
         "height": 900,
         "resizable": true,
         "fullscreen": false,
-        "url": "http://localhost:3000"
+        "url": "https://staging.braintunnel.ai"
       }
     ],
     "security": {
@@ -32,10 +32,6 @@
   },
   "bundle": {
     "active": true,
-    "externalBin": [
-      "src-tauri/bin/cloudflared"
-    ],
-    "resources": ["resources/server-bundle"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

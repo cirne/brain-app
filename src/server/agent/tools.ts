@@ -26,6 +26,7 @@ import {
   getThreadMessages,
   listRecentMessageThreads,
 } from '@server/lib/apple/imessageDb.js'
+import { searchImessageMessages } from '@server/lib/messages/messagesDb.js'
 import {
   buildImessageSnippet,
   compactImessageThreadRow,
@@ -1839,6 +1840,56 @@ Returns the saved text; treat it as active for this session too.`,
     },
   })
 
+  const searchMessagesTool = defineTool({
+    name: 'search_messages',
+    label: 'Search indexed messages',
+    description:
+      'Search the hosted iMessage text index (messages.sqlite) by keyword query. Returns recent matches with thread id and snippets. Use this in cloud-hosted mode when local chat.db tools are unavailable.',
+    parameters: Type.Object({
+      query: Type.String({ description: 'Keyword/phrase query for indexed iMessage text' }),
+      limit: Type.Optional(Type.Number({ description: 'Max results 1-200 (default 20)' })),
+    }),
+    async execute(_toolCallId: string, params: { query: string; limit?: number }) {
+      const q = params.query?.trim() ?? ''
+      if (q.length === 0) {
+        return {
+          content: [{ type: 'text' as const, text: 'Missing query.' }],
+          details: { ok: false as const, error: 'missing_query' } as Record<string, unknown>,
+        }
+      }
+      if (areLocalMessageToolsEnabled()) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'search_messages targets hosted indexed messages. On local macOS, use list_recent_messages/get_message_thread for direct chat.db access.',
+            },
+          ],
+          details: { ok: false as const, error: 'local_messages_enabled' } as Record<string, unknown>,
+        }
+      }
+      const limit = Math.min(Math.max(params.limit ?? 20, 1), 200)
+      const rows = searchImessageMessages(q, limit)
+      const payload = {
+        returned_count: rows.length,
+        messages: rows.map((r) => ({
+          guid: r.guid,
+          rowid: r.source_rowid,
+          chat_identifier: r.chat_identifier ?? '',
+          chat_display: formatThreadChatDisplay(r.chat_identifier ?? '', r.display_name),
+          sent_at_unix: Math.floor(r.date_ms / 1000),
+          is_from_me: Boolean(r.is_from_me),
+          text: r.text ?? '',
+          display_name: r.display_name,
+        })),
+      }
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(payload) }],
+        details: { ok: true as const, error: '', ...payload } as Record<string, unknown>,
+      }
+    },
+  })
+
   const tools = [
     read,
     edit,
@@ -1871,6 +1922,7 @@ Returns the saved text; treat it as active for this session too.`,
     rememberPreference,
     loadSkill,
     suggestReplyOptions,
+    searchMessagesTool,
     ...(includeLocalMessages ? [listRecentMessagesTool, getMessageThreadTool] : []),
   ]
   const only = options?.onlyToolNames

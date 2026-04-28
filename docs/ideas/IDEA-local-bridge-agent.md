@@ -1,7 +1,49 @@
 # Local Bridge Agent — Cloud-First with Local Data Access
 
-**Status:** Idea (April 2026) — not yet scheduled  
+**Status:** In progress (April 2026) — milestone 1 implementation landed in-repo; operator validation pending  
 **Relates to:** [deployment-models.md](../architecture/deployment-models.md), [cloud-hosted-v1-scope.md](../architecture/cloud-hosted-v1-scope.md)
+
+---
+
+## Implementation Update (Apr 27, 2026)
+
+### Implemented in-repo
+
+- **Bundled desktop prototype stripped** from the Tauri app path:
+  - Removed bundled-server wiring (`embedded.rs`, `server_spawn.rs`, `brain_paths.rs`, `build/embed.rs`) and sidecar/bundle scripts.
+  - Tauri shell now targets cloud origin (`https://staging.braintunnel.ai` by default; dev override supported).
+- **Cloud ingest/auth/store path is implemented**:
+  - `src/server/routes/devices.ts`: mint/list/revoke device tokens.
+  - `src/server/routes/ingest.ts`: ingest, cursor, and vault-gated wipe routes.
+  - `src/server/lib/vault/deviceTokenAuth.ts`: token parsing, scrypt hash verification, tenant resolution, audit append helpers.
+  - `src/server/lib/messages/messagesDb.ts`: tenant-scoped `messages.sqlite` with FTS5, idempotent upsert, per-device cursor, wipe.
+  - Middleware updates in `tenantMiddleware` + `vaultGate` to allow only ingest device-token paths.
+- **Hosted UX + tooling fallback is implemented**:
+  - Agent `search_messages` tool in `src/server/agent/tools.ts` queries hosted `messages.sqlite` when local message tools are unavailable.
+  - `/api/messages/thread` fallback to hosted store when local chat.db is unavailable.
+  - `/hub` now includes **Connected Devices** panel (mint/list/revoke/wipe).
+- **Rust bridge module tree exists and compiles/tests**:
+  - `desktop/src/bridge/{imessage,contacts,cursor,keychain,uploader,scheduler,edits_window}.rs`.
+  - Tauri tray menu wiring added in `desktop/src/lib.rs` (Sync now, pause/resume, open app/settings, quit).
+
+### Not yet done (or only partially done)
+
+- **Contacts enrichment is only partially implemented**:
+  - Phone/email canonicalization exists in Rust.
+  - `CNContactStore` lookup currently remains a placeholder; full contact resolution (`display_name`, `contact_identifier`, `organization`) is not complete yet.
+- **Some bridge parity depth is incomplete**:
+  - Rust `imessage` tests validate core extraction/query behavior, but full parity against every TypeScript fixture edge case (including all group/tapback variants) is not fully proven yet.
+- **Tray UX is functional but minimal**:
+  - Required actions exist, but richer status surfaces (detailed "Last sync: …" live updates, failure affordances, onboarding polish) are still basic.
+
+### Not yet manually validated end-to-end
+
+- The full operator script against live `staging.braintunnel.ai` (mint -> first sync -> restart resume -> revoke 401 -> wipe verification in UI/agent/audit) has **not** been fully executed and recorded yet.
+- Native packaging/manual checks remain pending:
+  - `desktop:build` + DMG validation
+  - real macOS FDA/Contacts prompt behavior
+  - real keychain onboarding/re-pair flow
+- Security checklist has strong automated coverage (allowlist/isolation/hash/no-plaintext tests), but final operator sign-off is still pending manual staging verification.
 
 ---
 
@@ -9,7 +51,7 @@
 
 The cloud Braintunnel is missing the one thing the desktop app has that the cloud can never replicate by itself: access to **local macOS data** gated behind Full Disk Access (FDA). iMessage (`~/Library/Messages/chat.db`) is the primary example — high-value, no web API, no IMAP equivalent, macOS-only.
 
-Today we solve this by bundling the entire backend (Hono + Node + ripmail + Vite) into a native macOS app so it can run locally. That works, but it's a 200MB+ install, requires Node to be bundled, and means every user runs their own server instead of the cloud being the server.
+The **in-repo prototype** bundles the entire backend (Hono + Node + ripmail + Vite) into Braintunnel.app so it could run locally. That path is heavy (~200MB+), duplicates the cloud backend on every laptop, and is **not** the release track—we peel it down as part of the bridge architecture ([likely path](#native-shell--agent-likely-path)).
 
 The flip: **the cloud is always the backend. A tiny Rust utility on the Mac is just a data courier.**
 
@@ -30,18 +72,30 @@ The user's "app" is just `braintunnel.app` in their browser (or a thin WebView w
 
 ---
 
-## Why This Is Better Than the Current Desktop App
+## Rollout: first milestone
+
+The first milestone is **narrow and trust-building**:
+
+- Exercise the pipeline against **personal / operator-owned data only** (e.g. author’s messages on their Mac) until the **secure end-to-end story** is clear: TLS to the tenant, scoped device credential, ingest → vault boundaries, revocation, and any audit surfaces you decide are required for confidence.
+- **Do not distribute** the native Mac shell (or broadly invite others to run it) until that local ingestion path meets the security bar—we are validating implementation, not seeding beta users via the bundled app.
+- This is realistic because Braintunnel’s bundled desktop prototype was never released; there is no installed base or migration narrative to preserve.
+
+Later milestones widen who may install the bridge or the thin shell—but **not before** milestone-one confidence.
+
+---
+
+## Why this beats the bundled local prototype (in-repo history)
 
 
-|                   | Current desktop app            | Local Bridge Agent                 |
-| ----------------- | ------------------------------ | ---------------------------------- |
-| Install size      | ~200MB (Node + ripmail + dist) | ~5MB (single Rust binary)          |
-| What runs locally | Full Hono + ripmail server     | Data courier only                  |
-| Updates           | Full app bundle re-download    | Small binary update                |
-| Backend           | localhost:3000                 | braintunnel.app (cloud)            |
-| iMessage access   | Yes (FDA)                      | Yes (FDA)                          |
-| Multi-device      | No (data is local)             | Yes (cloud is the source of truth) |
-| Privacy           | Maximum (nothing leaves)       | Explicit opt-in per source         |
+|                   | Bundled prototype (historical in-repo) | Local Bridge Agent                 |
+| ----------------- | -------------------------------------- | ---------------------------------- |
+| Install size      | ~200MB (Node + ripmail + dist)         | ~5MB (single Rust binary)          |
+| What runs locally | Full Hono + ripmail server             | Data courier only                  |
+| Updates           | Full app bundle re-download            | Small binary update                |
+| Backend           | localhost:3000                         | braintunnel.app (cloud)            |
+| iMessage access   | Yes (FDA)                              | Yes (FDA)                          |
+| Multi-device      | No (data is local)                     | Yes (cloud is the source of truth) |
+| Privacy           | Maximum (nothing leaves)               | Explicit opt-in per source         |
 
 
 ---
@@ -227,7 +281,9 @@ No dock icon. Lives in the menu bar only. Starts at login (LaunchAgent or Login 
 - **Pure Rust (`tray-icon` + `winit`)**: Smaller (~2MB), but requires more native macOS code for the preferences window. 
 - **Recommendation for MVP**: Tauri without a bundled server. We know the toolchain, code signing works, auto-update works (OPP-029). The WebView can be used for the preferences UI pointing at a `/settings/agent` page on the cloud.
 
-### What Can Be Reused from the Desktop App
+### What Can Be Reused from the Existing Tauri Work
+
+Bundled-server wiring goes away; the list below applies to whichever **thin** native surface remains:
 
 - Rust build pipeline, signing, notarization config (OPP-038)
 - FDA permission request patterns
@@ -237,27 +293,29 @@ No dock icon. Lives in the menu bar only. Starts at login (LaunchAgent or Login 
 
 ---
 
-## The Desktop App's Future
+## Native shell + agent: likely path
 
-With the Local Bridge Agent shipping, the current desktop Tauri app's reason to exist narrows significantly:
+There is **no** phased story where we keep the heavy bundled-desktop product alive while layering the agent beside it—we never shipped or shared that variant, so we treat it as **replaceable prototype code**.
+
+**Single implementation track:**
+
+1. **Thin native shell.** Remove the embedded web stack (**no** bundled Node, `server-bundle`, local Hono, or SPA-in-resources). The Tauri shell provides native affordances—dock/menu bar integration, shortcuts, optionally “Open Braintunnel”—with a WebView pointed at **what is deployed** (**staging URL while iterating**, **production URL** when appropriate). SPA changes ship on normal web deploy cadence; the Mac binary is not redeployed for every UI change.
+2. **Local Bridge Agent** in the same architecture: **FDA-gated read** of `chat.db` (and future local sources), **TLS + device token** upload to the tenant’s cloud vault. The agent stays small and purpose-built alongside or inside that shell.
+3. **Offline / purely local-first Braintunnel** without a reachable cloud tenant is explicitly **out of scope** for this track (use the hosted product + courier model instead).
+
+Browser-only use remains supported; native install is optional for people who want the shell and the bridge—not a prerequisite for SaaS onboarding.
+
+### Capability snapshot (bundled prototype vs thin shell)
 
 
-| Feature         | Current desktop app          | Cloud + Agent                       |
-| --------------- | ---------------------------- | ----------------------------------- |
-| iMessage access | Bundled server reads chat.db | Agent reads chat.db, POSTs to cloud |
-| Email (ripmail) | Local ripmail process        | Cloud ripmail (already works)       |
-| Wiki / Chat     | Local Hono + Svelte          | Cloud Hono + Svelte                 |
-| Offline use     | Full                         | None (agent needs network to sync)  |
-| Multi-device    | No                           | Yes                                 |
+| Feature         | Retired bundled-local prototype                           | Thin shell + bridge + hosted SPA             |
+| --------------- | --------------------------------------------------------- | -------------------------------------------- |
+| iMessage access | Local server reading `chat.db` (never shipped externally) | Agent reads `chat.db`, POSTs to cloud ingest |
+| Email (ripmail) | Local ripmail subprocess in bundle                        | Cloud ripmail (hosted stack)                 |
+| Wiki / Chat     | Local Hono + Svelte in bundle                             | Hosted Hono + Svelte                         |
+| Offline use     | Possible in prototype only                                | None (needs network + cloud session)         |
+| Multi-device    | No (local data)                                           | Yes (cloud is source of truth)               |
 
-
-**Likely path:**
-
-1. **Phase 1**: Local Bridge Agent ships as a separate utility. Desktop app continues for offline/max-privacy users.
-2. **Phase 2**: Desktop app is rearchitected — instead of wrapping `localhost:3000`, it wraps `braintunnel.app` in a WebView. The bundled Hono server is removed. The agent runs in the background. Install size drops from ~200MB to ~20MB.
-3. **Phase 3 (maybe never)**: Desktop app is deprecated. Browser + agent is the canonical Mac experience. Desktop app remains only as an archive for true offline users.
-
-Phase 2 is the practical target. The WebView → cloud pattern is simpler and the "app" feeling is preserved (dock icon, keyboard shortcuts, OS integration) without the maintenance burden of a local server.
 
 ---
 
@@ -275,8 +333,9 @@ Phase 2 is the practical target. The WebView → cloud pattern is simpler and th
 
 ## MVP Scope
 
-For a first working version:
+For a first working technical version (see [Rollout: first milestone](#rollout-first-milestone)—operator-only validation before any wider distribution):
 
+- **Strip the bundled-desktop prototype**: remove bundled Node, embedded SPA, local Hono/`server-bundle` wiring from native packaging; thin WebView loads the **deployed** SPA (**staging URL** while building confidence—see [Native shell + agent: likely path](#native-shell--agent-likely-path)).
 - Rust agent binary (Tauri, menu bar)
 - FDA request on first launch
 - chat.db reader in Rust (port from `imessageDb.ts`, text messages only, no attachments)
@@ -302,7 +361,7 @@ For a first working version:
 
 ## How This Changes the Product Story
 
-Today: "Install Braintunnel.app (200MB) and your AI assistant runs locally on your Mac."  
-Future: "Sign up at braintunnel.app. Optionally install the 5MB bridge agent to connect your iMessage history."
+In-repo history: a **bundled** Braintunnel.app path (~200MB, local server) was explored but **not** released as a consumer product.  
+Future: "Sign up at braintunnel.app. Optionally install the **small** native shell + bridge to connect iMessage and other local sources to your cloud vault."
 
 The cloud is the product. The agent is an enhancement. This is much easier to onboard, supports mobile and multi-device natively, and keeps the privacy-sensitive local data bridge small, auditable, and purpose-built.

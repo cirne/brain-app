@@ -12,6 +12,7 @@ import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
 import { createVaultSession } from './vaultSessionStore.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import issuesRoute from '../../routes/issues.js'
+import { mintDeviceToken } from './deviceTokenAuth.js'
 
 let brainHome: string
 
@@ -175,5 +176,31 @@ describe('vaultGateMiddleware', () => {
     } finally {
       process.env.NODE_ENV = prev
     }
+  })
+
+  it('allows only ingest endpoints with valid device token', async () => {
+    const minted = await mintDeviceToken({ label: 'Operator Mac' })
+    const app = new Hono()
+    app.use('/api/*', tenantMiddleware)
+    app.use('/api/*', vaultGateMiddleware)
+    app.post('/api/ingest/imessage', (c) => c.json({ ok: true }))
+    app.get('/api/ingest/imessage/cursor', (c) => c.json({ ok: true }))
+    app.get('/api/other', (c) => c.json({ ok: true }))
+
+    const okIngest = await app.request('http://127.0.0.1/api/ingest/imessage', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${minted.token}` },
+    })
+    expect(okIngest.status).toBe(200)
+
+    const okCursor = await app.request('http://127.0.0.1/api/ingest/imessage/cursor', {
+      headers: { Authorization: `Bearer ${minted.token}` },
+    })
+    expect(okCursor.status).toBe(200)
+
+    const blockedOther = await app.request('http://127.0.0.1/api/other', {
+      headers: { Authorization: `Bearer ${minted.token}` },
+    })
+    expect(blockedOther.status).toBe(401)
   })
 })

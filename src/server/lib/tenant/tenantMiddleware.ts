@@ -3,6 +3,7 @@ import { getCookie } from 'hono/cookie'
 import { resolveBrainHomeDiskRoot } from '@server/lib/platform/brainHome.js'
 import { isMultiTenantMode, tenantHomeDir } from './dataRoot.js'
 import { isValidEmbedKeyBearer, isIssuesEmbedGetPath } from '@server/lib/vault/embedKeyAuth.js'
+import { isIngestDevicePath, resolveDeviceTokenFromBearer } from '@server/lib/vault/deviceTokenAuth.js'
 import { getGlobalFeedbackBrainHome } from '@server/lib/feedback/feedbackGlobalHome.js'
 import { readHandleMeta } from './handleMeta.js'
 import { runWithTenantContextAsync } from './tenantContext.js'
@@ -47,6 +48,20 @@ export async function tenantMiddleware(c: Context, next: Next): Promise<Response
       { tenantUserId: '_global', workspaceHandle: '_global', homeDir },
       () => next(),
     )
+  }
+
+  if (isIngestDevicePath(path, method)) {
+    const device = await resolveDeviceTokenFromBearer(c)
+    if (device) {
+      return runWithTenantContextAsync(
+        {
+          tenantUserId: device.tenantUserId,
+          workspaceHandle: device.tenantUserId,
+          homeDir: device.homeDir,
+        },
+        () => next(),
+      )
+    }
   }
 
   const sid = getCookie(c, BRAIN_SESSION_COOKIE)

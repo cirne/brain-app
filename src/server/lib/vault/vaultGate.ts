@@ -5,6 +5,7 @@ import { validateVaultSession } from './vaultSessionStore.js'
 import { vaultVerifierExistsSync } from './vaultVerifierStore.js'
 import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { isIssuesEmbedGetPath, isValidEmbedKeyBearer } from './embedKeyAuth.js'
+import { isIngestDevicePath, resolveDeviceTokenFromBearer } from './deviceTokenAuth.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { isEnronDemoPublicApiPath } from '@server/lib/auth/enronDemo.js'
 
@@ -61,6 +62,13 @@ export async function vaultGateMiddleware(c: Context, next: Next): Promise<Respo
   /** OPP-048: list/fetch issues with `BRAIN_EMBED_MASTER_KEY` (operator / coding agent; global queue in MT). */
   if (isIssuesEmbedGetPath(path, method) && isValidEmbedKeyBearer(c)) {
     return next()
+  }
+
+  if (isIngestDevicePath(path, method)) {
+    const resolved = await resolveDeviceTokenFromBearer(c)
+    if (resolved?.scopes.includes('ingest:imessage')) {
+      return next()
+    }
   }
 
   if (isMultiTenantMode()) {

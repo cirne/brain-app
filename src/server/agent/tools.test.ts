@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipmail.js'
+import { upsertImessageBatch } from '@server/lib/messages/messagesDb.js'
 
 vi.mock('@server/lib/calendar/calendarRipmail.js', () => ({
   getCalendarEventsFromRipmail: vi.fn(),
@@ -76,6 +77,7 @@ describe('createAgentTools', () => {
     expect(names).toContain('speak')
     expect(names).toContain('load_skill')
     expect(names).toContain('suggest_reply_options')
+    expect(names).toContain('search_messages')
     expect(names).toContain('list_recent_messages')
     expect(names).toContain('get_message_thread')
   })
@@ -108,8 +110,31 @@ describe('createAgentTools', () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
     const names = tools.map((t) => t.name)
+    expect(names).toContain('search_messages')
     expect(names).not.toContain('list_recent_messages')
     expect(names).not.toContain('get_message_thread')
+  })
+
+  it('search_messages returns hosted indexed results when local message tools are disabled', async () => {
+    upsertImessageBatch('mac-1', [
+      {
+        guid: 'search-1',
+        rowid: 1,
+        date_ms: Date.now(),
+        text: 'Dinner with Sarah tomorrow',
+        is_from_me: false,
+        handle: '+15550001111',
+        chat_identifier: '+15550001111',
+        display_name: 'Sarah',
+      },
+    ])
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
+    const tool = tools.find((t) => t.name === 'search_messages')!
+    const result = await tool.execute('sm-1', { query: 'Sarah', limit: 5 })
+    const text = toolResultFirstText(result)
+    expect(text).toContain('"returned_count":1')
+    expect(text).toContain('Dinner with Sarah tomorrow')
   })
 
   describe('set_chat_title tool', () => {

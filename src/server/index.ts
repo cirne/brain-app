@@ -34,6 +34,8 @@ import devRoute from './routes/dev.js'
 import vaultRoute from './routes/vault.js'
 import accountRoute from './routes/account.js'
 import transcribeRoute from './routes/transcribe.js'
+import devicesRoute from './routes/devices.js'
+import ingestRoute from './routes/ingest.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { ensureYourWikiRunning, requestLapNow } from './agent/yourWikiSupervisor.js'
@@ -177,6 +179,8 @@ app.route('/api/vault', vaultRoute)
 app.route('/api/account', accountRoute)
 app.route('/api/chat', chatRoute)
 app.route('/api/transcribe', transcribeRoute)
+app.route('/api/devices', devicesRoute)
+app.route('/api/ingest', ingestRoute)
 app.route('/api/skills', skillsRoute)
 app.route('/api/issues', issuesRoute)
 app.route('/api/wiki', wikiRoute)
