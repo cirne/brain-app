@@ -37,6 +37,19 @@ export type InboxListRow = {
 /** Subset used by chat inbox preview widget (no action/read). */
 export type InboxListItemPreview = Pick<InboxListRow, 'id' | 'subject' | 'from' | 'snippet' | 'date'>
 
+/** Parseable message time for sort; missing/invalid dates sort last (oldest slot). */
+function inboxRowDateMs(row: InboxListRow): number {
+  const raw = row.date?.trim()
+  if (!raw) return Number.NEGATIVE_INFINITY
+  const t = Date.parse(raw)
+  return Number.isFinite(t) ? t : Number.NEGATIVE_INFINITY
+}
+
+/** Newest first; stable for equal timestamps (preserves ripmail order within ties). */
+function sortInboxRowsByDateDesc(rows: InboxListRow[]): void {
+  rows.sort((a, b) => inboxRowDateMs(b) - inboxRowDateMs(a))
+}
+
 export function inboxRowsToPreviewItems(rows: InboxListRow[]): InboxListItemPreview[] {
   return rows.map(r => ({
     id: r.id,
@@ -84,7 +97,9 @@ export function flattenInboxFromRipmailData(data: unknown): InboxListRow[] | nul
       })
     }
   }
-  return out.length ? out : null
+  if (!out.length) return null
+  sortInboxRowsByDateDesc(out)
+  return out
 }
 
 /** Parse `ripmail inbox` stdout string into flat rows. */
