@@ -8,7 +8,7 @@ Run brain-app locally on the Mac (native app or dev server) and expose it throug
 
 This pairs naturally with **[OPP-007: Native Mac App (archived)](./archive/OPP-007-native-mac-app.md)** but is orthogonal: tunnel + QR is a **remote access and onboarding** pattern; the native app is a **packaging** choice.
 
-**Related:** [OPP-042: Brain network & inter-brain trust](./OPP-042-brain-network-interbrain-trust-epic.md) — reachable tunnel URLs underpin **peer endpoints** for future handle resolution and inter-brain channels.
+**Related:** [Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) — reachable tunnel URLs underpin **peer endpoints** for future handle resolution and inter-brain channels.
 
 ## Problem
 

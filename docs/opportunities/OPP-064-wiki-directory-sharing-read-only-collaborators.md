@@ -2,8 +2,8 @@
 
 **Status:** Open  
 **Tags:** `wiki` · `sharing` · `collaboration` · `multi-tenant`  
-**Epic parent:** [OPP-042: Brain Network & Inter-Brain Trust](OPP-042-brain-network-interbrain-trust-epic.md) (this is the human-assistant wedge of M1's wiki-path-scope workstream)  
-**Idea source:** [IDEA: Wiki sharing with individual collaborators](../ideas/IDEA-wiki-sharing-collaborators.md)  
+**Vision doc:** [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) (this is milestone M0 of the brain-to-brain sequencing)  
+**Vision doc:** [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md)  
 
 ---
 
@@ -26,12 +26,12 @@ This is the **minimal credible version** of the Sterling scenario. Everything el
 | Area | In scope | Deferred |
 | ---- | -------- | -------- |
 | Permission mode | **Read-only** | Write / read-write (follow-on OPP) |
-| Identity | **Email-as-identity** (grantee signs in or creates a Braintunnel account) | Handle-based resolution, cryptographic key exchange (OPP-042 M1) |
+| Identity | **Email-as-identity** (grantee signs in or creates a Braintunnel account) | Handle-based resolution, cryptographic key exchange (see idea doc M1) |
 | Share scope | **Single directory prefix** (`wiki/trips/`, inherits to children) | Multiple disjoint paths per share, file-level invites |
 | Access enforcement | **Wiki file-read API** — deny non-owner, non-grantee reads of shared paths | Write tools, search-index scope, ripmail corpus scope |
-| Agent scope | Not enforced — grantee's assistant cannot use wiki tools against owner's tree yet | Agent-scoped read tools for grantee's assistant (follow-on, aligns with OPP-042 policy layer) |
+| Agent scope | Not enforced — grantee's assistant cannot use wiki tools against owner's tree yet | Agent-scoped read tools for grantee's assistant (follow-on, aligns with M1/M2 policy layer in idea doc) |
 | UI | Owner: share dialog on a wiki directory, active-shares list, revoke. Grantee: accept invite link → browse | Hub management page, share settings, expiry |
-| Notification | Email-only (invite + revoke) | In-app notification center (OPP-042 M0) |
+| Notification | Email-only (invite + revoke) | In-app notification center (idea doc M1-pre) |
 | History / blame | None | OPP-034 (snapshots), future Git-per-user |
 | Conflict resolution | N/A (read-only) | Deferred with write access |
 | Multi-tenant prerequisite | Requires hosted deployment with multi-user auth | — |
@@ -115,10 +115,10 @@ Short-lived **JWT** (7-day) signed with `BRAIN_VAULT_KEY` or a dedicated secret.
 ## Non-goals (Phase 1)
 
 - **Write access** — no edit, create, or delete through a share.
-- **Agent tools scoped to shared paths** — Sterling's assistant cannot call `read_wiki_file` against owner's tree; that waits for the OPP-042 policy layer.
+- **Agent tools scoped to shared paths** — Sterling's assistant cannot call `read_wiki_file` against owner's tree; that waits for the M1/M2 policy layer (see [brain-to-brain idea](../ideas/IDEA-wiki-sharing-collaborators.md)).
 - **Search across shared trees** — grantee's search stays scoped to their own vault.
-- **Handle-based identity** — email only; handle resolution is OPP-042 M1.
-- **In-app notification center** — invite/revoke via email; OPP-042 M0 is the prerequisite for richer approval UX.
+- **Handle-based identity** — email only; handle resolution is M1 in the [brain-to-brain idea](../ideas/IDEA-wiki-sharing-collaborators.md).
+- **In-app notification center** — invite/revoke via email; M1-pre (notification center) is the prerequisite for richer approval UX — see [brain-to-brain idea](../ideas/IDEA-wiki-sharing-collaborators.md).
 - **Per-file invites** — directory prefix only.
 - **Expiry / time-bounded grants** — permanent until revoked.
 - **Group / role shares** — one grantee per share row; groups come later.
@@ -127,7 +127,7 @@ Short-lived **JWT** (7-day) signed with `BRAIN_VAULT_KEY` or a dedicated secret.
 
 ## Open questions (to resolve before or during implementation)
 
-1. **Multi-tenant path addressing** — how does the grantee's client know *which* owner's vault to load? URL scheme (`/wiki/:ownerHandle/…`) or server-side resolution? Should align with how OPP-042 M1 plans to address cross-brain paths.
+1. **Multi-tenant path addressing** — how does the grantee's client know *which* owner's vault to load? URL scheme (`/wiki/:ownerHandle/…`) or server-side resolution? Should align with how M1 in the [brain-to-brain idea](../ideas/IDEA-wiki-sharing-collaborators.md) plans to address cross-brain paths.
 2. **Invite email delivery** — reuse the existing email send path (ripmail / system SMTP) or a transactional service? On staging, must not spam real users during testing.
 3. **"Shared with me" UX placement** — top-nav section, sidebar rail item, or wiki home card? Coordinate with [OPP-061](OPP-061-wiki-top-level-dir-icons-vault-metadata.md) top-level dir conventions so shared trees don't clobber icon/metadata logic.
 4. **Snapshots interaction** — should `wiki_shares` metadata be included in OPP-034 ZIP snapshots? Probably not (it's app DB state, not vault files), but confirm.
@@ -147,7 +147,6 @@ Short-lived **JWT** (7-day) signed with `BRAIN_VAULT_KEY` or a dedicated secret.
 ## Related
 
 - [IDEA: Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md) — full idea including open questions this OPP intentionally defers.
-- [OPP-042](OPP-042-brain-network-interbrain-trust-epic.md) — canonical inter-brain epic; this OPP is the human-collaborator wedge of M1 (wiki path scopes), without the full protocol stack.
-- [OPP-001](OPP-001-agent-to-agent.md) — agent-to-agent protocol; `wiki:read` permission model anticipated here; Phase 1 does not implement agent-scoped reads for grantees.
+- [Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) — full vision and sequencing; this OPP is M0.
 - [OPP-034](OPP-034-wiki-snapshots-and-point-in-time-restore.md) — snapshots; complementary safety net, especially if write access ships in a follow-on.
 - [OPP-061](OPP-061-wiki-top-level-dir-icons-vault-metadata.md) — wiki top-level dir icons; shared tree UX should fit the same directory model.

@@ -58,10 +58,33 @@ No setup wizard. No configuration files. No explaining yourself. It just works, 
 
 ---
 
+## Brain-to-brain: where the value compounds
+
+The single-user brain is useful from day one. But the strategic differentiator is what happens when brains connect.
+
+Personal assistants commoditize. Models and basic tools do not differentiate. What compounds is the **graph**: bilateral trust relationships between brains, each with explicit scopes, audit history, and human-in-the-loop defaults where it matters.
+
+The analog is not a social feed; it is a **trust network**. Value scales with who your brain may query on your behalf and what you permit — not with follower counts. Switching products means rebuilding that graph. That is the real switching cost once the network exists.
+
+The closest analog is email itself. Email won because it was federated (anyone can run a server), identity-based (your address is yours), and networked (value scales with who else is on it). Brain-to-brain follows the same pattern: federated (everyone runs their own brain), identity-based (Braintunnel handle + key material, email as bootstrap), and networked (value scales with connections).
+
+The difference: email is low-bandwidth, high-latency, and requires humans to do all the thinking. Brain-to-brain is high-bandwidth, low-latency, and the agents do the coordination. Email with the boring parts removed.
+
+**The network effect in practice:**
+- More connections = more reachable knowledge. A brain with ten connections can answer questions that a brain with zero connections cannot.
+- Trust is transitive (with limits). Connected brains can broker introductions or relay scoped queries — with explicit consent from all parties.
+- The graph compounds. Early adopters create a collaboration substrate that makes the product dramatically more valuable for the next adopter.
+
+This is a *trust* network, not a social network. There is no feed, no follower count, no public profile. It is a private graph of bilateral trust relationships, each with explicit permissions. The value comes from the quality of connections, not the quantity.
+
+**Product spec and sequencing:** [IDEA: Brain-to-brain collaboration](ideas/IDEA-wiki-sharing-collaborators.md). First concrete step: [OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md).
+
+---
+
 ## What this is not
 
 - A generic AI chatbot. The whole point is personalization.
 - A replacement for email or calendar apps. It's a layer on top of them.
-- A team tool. The unit is a person, not an organization. Every user has their own Braintunnel.
+- A shared team workspace. The unit is a person: every user has their own Braintunnel. Brain-to-brain collaboration is peer-to-peer, not a shared org workspace like Notion or Slack.
 - An Obsidian plugin or a notes app. The wiki is a means to an end — grounding the assistant — not the primary interface.
 

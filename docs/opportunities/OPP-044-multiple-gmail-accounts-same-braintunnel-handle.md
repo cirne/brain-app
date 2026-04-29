@@ -9,7 +9,7 @@ A user should be able to **authorize a second (or Nth) Gmail** (and later other 
 ## Problem
 
 - People commonly have **work and personal** Gmail; forcing a single "primary" OAuth mailbox is a ceiling on usefulness.
-- **Inter-brain and social identity** are handle-first ([OPP-042](OPP-042-brain-network-interbrain-trust-epic.md)); that should not multiply when a user adds another inbox.
+- **Inter-brain and social identity** are handle-first ([brain-to-brain collaboration idea](../ideas/IDEA-wiki-sharing-collaborators.md)); that should not multiply when a user adds another inbox.
 
 ## Motivation
 
