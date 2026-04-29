@@ -162,7 +162,8 @@ describe('ToolCallBlock.svelte', () => {
       render(ToolCallBlock, { props: { toolCall } })
 
       expect(screen.getByText('Read file')).toBeInTheDocument()
-      expect(screen.getByText('Myproject')).toBeInTheDocument()
+      // Summary strip + WikiPreviewCard heading both title the same wiki page.
+      expect(screen.getAllByText('Myproject')).toHaveLength(2)
     })
 
     it('renders move_file with from and to paths', () => {

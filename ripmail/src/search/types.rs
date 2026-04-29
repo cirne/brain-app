@@ -66,4 +66,10 @@ pub struct SearchResultSet {
     pub timings: SearchTimings,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_matched: Option<i64>,
+    /// Guidance for callers (e.g. agents) — regex semantics, typos, next steps when empty or invalid.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hints: Vec<String>,
+    /// When prose `OR …` rewriting changed the regex, the pattern actually searched.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub normalized_query: Option<String>,
 }

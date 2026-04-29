@@ -11,4 +11,14 @@ describe('ONBOARDING_INTERVIEW_ONLY', () => {
       expect.arrayContaining(['read', 'write', 'edit', 'grep', 'find']),
     )
   })
+
+  it('omits calendar and inbox tools (skills / main chat handle those)', () => {
+    expect(ONBOARDING_INTERVIEW_ONLY).not.toContain('calendar')
+    expect(ONBOARDING_INTERVIEW_ONLY).not.toContain('inbox_rules')
+    expect(ONBOARDING_INTERVIEW_ONLY).not.toContain('list_inbox')
+  })
+
+  it('includes suggest_reply_options for composer quick replies (same as main assistant)', () => {
+    expect(ONBOARDING_INTERVIEW_ONLY).toContain('suggest_reply_options')
+  })
 })

@@ -1,10 +1,10 @@
 # Person page template
 
-Use this shape for **`people/<slug>.md`**. **Ground facts in mail, messages, or things the user said** — do not invent phone numbers, roles, or relationships.
+Use this shape for `**people/<slug>.md**`. **Ground facts in mail, messages, or things the user said** — do not invent phone numbers, roles, or relationships.
 
 ## Overview
 
-- **One or two lines:** who they are in *your* world (not a Wikipedia bio).
+- **One or two lines:** who they are in *your* world from **actual message content** — role, topics, how you interact. **Not** contact rank, volume, or “prominent / frequently mentioned in mail” filler (those stats are not a bio).
 
 ## Relationship / context
 
@@ -23,9 +23,5 @@ Use this shape for **`people/<slug>.md`**. **Ground facts in mail, messages, or 
 
 ## Links
 
-- **`[[me]]`** — if they appear in your network section.
-- **`[[projects/…]]`**, **`[[topics/…]]`**, org pages — when it saves repetition.
-
-## Provenance *(optional)*
-
-- For fragile inferences: *“Inferred from email dated …”* vs stable facts you trust.
+- `**[[me]]`** — if they appear in your network section.
+- `**[[projects/…]]`**, `**[[topics/…]]**`, org pages — when it saves repetition.

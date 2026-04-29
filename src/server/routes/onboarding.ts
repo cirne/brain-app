@@ -15,8 +15,6 @@ import { appendTurn, ensureSessionStub } from '@server/lib/chat/chatStorage.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { startTunnel, stopTunnel, getActiveTunnelUrl } from '@server/lib/platform/tunnelManager.js'
 import { streamAgentSseResponse } from '@server/lib/chat/streamAgentSse.js'
-import { fetchOnboardingSuggestionsForSession } from '@server/lib/suggestions/fetchOnboardingSuggestions.js'
-import type { SuggestionSet } from '@shared/suggestions.js'
 import {
   buildInterviewKickoffUserMessage,
   clearAllInterviewSessions,
@@ -368,22 +366,8 @@ onboarding.patch('/preferences', async (c) => {
 })
 
 /**
- * Plain JSON next-step UI for the guided interview (separate LLM call — no agent tools).
- */
-onboarding.post('/suggestions', async (c) => {
-  const body = await c.req.json().catch(() => ({}))
-  const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
-  if (!sessionId) {
-    return c.json({ error: 'sessionId is required' }, 400)
-  }
-  const timezone = typeof body.timezone === 'string' ? body.timezone : undefined
-  const suggestions: SuggestionSet | null = await fetchOnboardingSuggestionsForSession(sessionId, { timezone })
-  return c.json({ suggestions })
-})
-
-/**
  * OPP-054 guided onboarding interview (streams SSE; persists turns for finalize).
- * Quick replies: POST /api/onboarding/suggestions after each done event — no `suggest_reply_options` tool here.
+ * Quick replies: `suggest_reply_options` + suggest-reply repair only — see `docs/architecture/chat-suggestions.md`.
  */
 onboarding.post('/interview', async (c) => {
   const body = await c.req.json()
@@ -433,7 +417,6 @@ onboarding.post('/interview', async (c) => {
     onTurnComplete: persist,
     timezone,
     omitUserMessageFromPersistence: omitUserRow,
-    runSuggestReplyRepair: false,
   })
 })
 

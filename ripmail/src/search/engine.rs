@@ -3,6 +3,7 @@
 use regex::{Regex, RegexBuilder};
 use rusqlite::{params_from_iter, types::Value, Connection};
 
+use super::agent_hints;
 use super::contact_rank::{apply_contact_rank_rerank, RankedSearchRow};
 use super::filter::{
     filter_clause_and_where_sql, filter_clause_with_where_prefix, sql_count_messages,
@@ -354,23 +355,19 @@ fn regex_search_files(
     Ok((matched, total))
 }
 
-fn regex_search(
+fn regex_search_with_regex(
     conn: &Connection,
     opts: &SearchOptions,
+    re: &Regex,
 ) -> Result<(Vec<RankedSearchRow>, i64), String> {
-    let q = opts.query.as_deref().unwrap_or("").trim();
-    if q.is_empty() {
-        return Ok((Vec::new(), 0));
-    }
-    let re = compile_search_regex(q, opts.case_sensitive)?;
     let limit = opts.limit.unwrap_or(50);
     let offset = opts.offset;
     let sql_limit = MAX_PATTERN_SCAN_ROWS as i64;
 
     let (mut mail_rows, mail_total) =
-        regex_search_mail(conn, opts, &re).map_err(|e| e.to_string())?;
+        regex_search_mail(conn, opts, re).map_err(|e| e.to_string())?;
     let (mut file_rows, file_total) = if file_pattern_search_allowed(opts) {
-        regex_search_files(conn, opts, &re, sql_limit).map_err(|e| e.to_string())?
+        regex_search_files(conn, opts, re, sql_limit).map_err(|e| e.to_string())?
     } else {
         (Vec::new(), 0)
     };
@@ -387,6 +384,17 @@ fn regex_search(
     Ok((results, total))
 }
 
+fn structured_filters_present(opts: &SearchOptions) -> bool {
+    opts.from_address.is_some()
+        || opts.to_address.is_some()
+        || opts.subject.is_some()
+        || opts.after_date.is_some()
+        || opts.before_date.is_some()
+        || !opts.categories.is_empty()
+        || opts.from_or_to_union
+        || opts.mailbox_ids.as_ref().is_some_and(|ids| !ids.is_empty())
+}
+
 /// Main entry (sync API).
 pub fn search_with_meta(
     conn: &Connection,
@@ -401,10 +409,10 @@ pub fn search_with_meta(
             }
         }
     }
-    let eff = effective_search_options(opts);
-    let q = eff.query.as_deref().unwrap_or("").trim();
+    let mut eff = effective_search_options(opts);
+    let q_trim = eff.query.as_deref().unwrap_or("").trim();
 
-    if q.is_empty() {
+    if q_trim.is_empty() {
         let (ranked, total) = filter_only_search(conn, &eff)?;
         let results = apply_contact_rank_rerank(
             conn,
@@ -412,6 +420,28 @@ pub fn search_with_meta(
             &eff.owner_aliases,
             ranked,
         )?;
+        let mut hints = if results.is_empty() {
+            agent_hints::hints_filter_only_no_results(
+                eff.mailbox_ids.as_ref().is_some_and(|ids| !ids.is_empty()),
+            )
+        } else {
+            Vec::new()
+        };
+        if results.is_empty()
+            && total == 0
+            && (eff.after_date.is_some() || eff.before_date.is_some())
+        {
+            let mut eff_wide = eff.clone();
+            eff_wide.after_date = None;
+            eff_wide.before_date = None;
+            let (_, total_no_dates) = filter_only_search(conn, &eff_wide)?;
+            if total_no_dates > 0 {
+                hints.insert(
+                    0,
+                    agent_hints::hint_filter_only_date_window_excludes_archive(total_no_dates),
+                );
+            }
+        }
         return Ok(SearchResultSet {
             results,
             timings: SearchTimings {
@@ -419,12 +449,46 @@ pub fn search_with_meta(
                 total_ms: started.elapsed().as_millis() as u64,
             },
             total_matched: Some(total),
+            hints,
+            normalized_query: None,
         });
     }
 
+    let original_pattern_for_hints = q_trim.to_string();
+    let structured = structured_filters_present(&eff);
+    let mut prelude_hints: Vec<String> = Vec::new();
+    let mut normalized_query: Option<String> = None;
+    if let Some((norm, h)) = agent_hints::try_rewrite_prose_or_to_alternation(q_trim) {
+        prelude_hints.push(h.to_string());
+        normalized_query = Some(norm.clone());
+        eff.query = Some(norm);
+    }
+
+    let effective_pattern = eff.query.as_deref().unwrap_or("").trim();
     let t0 = std::time::Instant::now();
-    let (ranked, total) =
-        regex_search(conn, &eff).map_err(rusqlite::Error::InvalidParameterName)?;
+
+    let re = match compile_search_regex(effective_pattern, eff.case_sensitive) {
+        Ok(re) => re,
+        Err(msg) => {
+            let mut hints = agent_hints::hints_compile_failed(&msg);
+            hints.splice(0..0, prelude_hints);
+            return Ok(SearchResultSet {
+                results: Vec::new(),
+                timings: SearchTimings {
+                    pattern_ms: None,
+                    total_ms: started.elapsed().as_millis() as u64,
+                },
+                total_matched: Some(0),
+                hints,
+                normalized_query,
+            });
+        }
+    };
+
+    let (ranked, total) = match regex_search_with_regex(conn, &eff, &re) {
+        Ok(x) => x,
+        Err(msg) => return Err(rusqlite::Error::InvalidParameterName(msg)),
+    };
     let results = apply_contact_rank_rerank(
         conn,
         eff.owner_address.as_deref(),
@@ -433,6 +497,16 @@ pub fn search_with_meta(
     )?;
     let pattern_ms = t0.elapsed().as_millis() as u64;
 
+    let mut hints = prelude_hints;
+    let applied_prose_or = normalized_query.is_some();
+    if results.is_empty() {
+        hints.extend(agent_hints::hints_no_regex_matches(
+            &original_pattern_for_hints,
+            structured,
+            applied_prose_or,
+        ));
+    }
+
     Ok(SearchResultSet {
         results,
         timings: SearchTimings {
@@ -440,6 +514,8 @@ pub fn search_with_meta(
             total_ms: started.elapsed().as_millis() as u64,
         },
         total_matched: Some(total),
+        hints,
+        normalized_query,
     })
 }
 

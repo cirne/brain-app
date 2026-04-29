@@ -56,6 +56,16 @@ describe('SlideOver.svelte', () => {
     expect(screen.getByRole('button', { name: /close panel/i })).toBeInTheDocument()
   })
 
+  it('renders wiki page breadcrumbs from My Wiki root', () => {
+    const props = baseProps({ overlay: { type: 'wiki', path: 'travel.md' } })
+    render(SlideOver, { props })
+
+    const nav = screen.getByRole('navigation', { name: /wiki page path/i })
+    expect(nav).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'My Wiki' })).toBeInTheDocument()
+    expect(screen.getByText('Travel')).toBeInTheDocument()
+  })
+
   it('renders with email overlay', () => {
     const surfaceContext: SurfaceContext = {
       type: 'email',

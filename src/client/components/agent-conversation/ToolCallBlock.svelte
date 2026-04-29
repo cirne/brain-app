@@ -173,7 +173,7 @@
 
   .tool-call.tool-pending {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 5px;
     padding: 2px 4px;
     opacity: 0.92;
@@ -210,24 +210,27 @@
 
   .tool-call summary {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 5px;
     padding: 2px 4px;
     cursor: pointer;
     user-select: none;
     list-style: none;
+    line-height: 1.45;
   }
 
   .tool-summary-body {
-    display: flex;
+    display: inline-flex;
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0.35em 0.5em;
     min-width: 0;
+    flex: 1;
   }
 
   .tool-summary-body .tool-name {
     flex-shrink: 0;
+    line-height: inherit;
   }
 
   .tool-summary-wiki,
@@ -298,11 +301,21 @@
   .tool-icon {
     width: 12px;
     height: 12px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    margin-top: 0.155em;
     color: var(--text-2);
+  }
+
+  /**
+   * Tool strip: match title text baseline instead of vertically centering 12×12 glyphs in the summary row,
+   * and align WikiFileName’s mini-icons with display name baseline (globals use center alignment).
+   */
+  .tool-call .tool-summary-wiki :global(.wfn-title-row),
+  .tool-call .tool-summary-move :global(.wfn-title-row) {
+    align-items: baseline;
   }
 
   .tool-call.error .tool-icon {

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import vaultRoute from '../../routes/vault.js'
 import onboardingRoute from '../../routes/onboarding.js'
 import { vaultGateMiddleware } from './vaultGate.js'
+import { devLocalVaultBootstrapMiddleware } from './devLocalVaultBootstrap.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
@@ -123,6 +124,10 @@ describe('vaultGateMiddleware (multi-tenant)', () => {
 })
 
 describe('vaultGateMiddleware', () => {
+  beforeEach(() => {
+    delete process.env.BRAIN_DATA_ROOT
+  })
+
   it('allows GET /api/onboarding/status when no vault', async () => {
     const app = buildStack()
     const res = await app.request('http://127.0.0.1/api/onboarding/status')
@@ -166,15 +171,35 @@ describe('vaultGateMiddleware', () => {
     expect(j.error).toBe('unlock_required')
   })
 
-  it('applies gate when NODE_ENV is development (no dev bypass)', async () => {
-    const prev = process.env.NODE_ENV
+  it('local tsx dev bootstrap allows protected route without prior vault POST (cold start)', async () => {
+    const prevNode = process.env.NODE_ENV
+    const prevBundled = process.env.BRAIN_BUNDLED_NATIVE
     process.env.NODE_ENV = 'development'
+    delete process.env.BRAIN_BUNDLED_NATIVE
     try {
-      const app = buildStack()
+      const app = new Hono()
+      app.use('/api/*', tenantMiddleware)
+      app.use('/api/*', devLocalVaultBootstrapMiddleware)
+      app.use('/api/*', vaultGateMiddleware)
+      app.route('/api/onboarding', onboardingRoute)
+
       const res = await app.request('http://127.0.0.1/api/onboarding/mail')
-      expect(res.status).toBe(401)
+      expect(res.status).toBe(200)
+      const cookie = cookieFrom(res)
+      expect(cookie).toBeTruthy()
+
+      const app2 = new Hono()
+      app2.use('/api/*', tenantMiddleware)
+      app2.use('/api/*', devLocalVaultBootstrapMiddleware)
+      app2.use('/api/*', vaultGateMiddleware)
+      app2.route('/api/onboarding', onboardingRoute)
+      const mail2 = await app2.request('http://127.0.0.1/api/onboarding/mail')
+      expect(mail2.status).toBe(200)
+
     } finally {
-      process.env.NODE_ENV = prev
+      process.env.NODE_ENV = prevNode
+      if (prevBundled === undefined) delete process.env.BRAIN_BUNDLED_NATIVE
+      else process.env.BRAIN_BUNDLED_NATIVE = prevBundled
     }
   })
 

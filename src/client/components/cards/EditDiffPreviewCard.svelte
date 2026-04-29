@@ -43,9 +43,13 @@
     align-items: baseline;
     flex-wrap: wrap;
     gap: 0.35em;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     font-size: 11px;
     color: var(--text-2);
     margin-bottom: 6px;
+    text-align: left;
   }
 
   .edit-diff-lines {

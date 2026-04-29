@@ -48,6 +48,12 @@ import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn
 import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import { resolveRipmailSourceForCli } from '@server/lib/ripmail/ripmailSourceResolve.js'
+import {
+  coerceSearchIndexInlineOperators,
+  looksLikePersonNameOnly,
+  mergeSearchIndexStdoutHints,
+} from '@server/agent/searchIndexCoerce.js'
+import { parseWhoPrimaryAddresses } from '@server/agent/searchIndexWhoResolve.js'
 import { composeFeedbackIssueMarkdown } from '@server/lib/feedback/feedbackComposer.js'
 import { submitFeedbackMarkdown } from '@server/lib/feedback/feedbackIssues.js'
 import { applySkillPlaceholders, readSkillMarkdown } from '@server/lib/llm/slashSkill.js'
@@ -305,24 +311,40 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     name: 'search_index',
     label: 'Search index',
     description:
-      'Regex search across email and indexed local files (ripmail). Use `pattern` or `query` for text/path matching (e.g. `invoice|receipt`); use structured fields for sender, recipient, dates, subject — do not put `from:` / `to:` inside the pattern string.',
+      'Search indexed email and local files (`ripmail`). Put **sender/recipient/dates/subject** in structured fields (`from`, `to`, `after`, …), not Gmail-style `from:` inside `pattern`. **`pattern` is a Rust regex on subject+body** (use `a|b` for alternation—not the word OR). On empty or odd results, **read the `hints` array** in the JSON response. For person names that are not stored on From lines, pass the **email address** in `from` or rely on `find_person` / `ripmail who`; rolling `after` values (e.g. `180d`) count from **today** and exclude archive mail from past years unless you use ISO date bounds or omit dates.',
     parameters: Type.Object({
       pattern: Type.Optional(
         Type.String({
           description:
-            'Rust regex on subject + indexed body (and file path/title for local files). Use `a|b` for alternation; do not add unnecessary `"` in JSON (those are literal quote characters, not “phrase” quotes). For sender/date/subject, use the structured fields below, not `from:` in the string.',
+            'Regex (Rust) on subject + body (and file path when no mail filters). Alternation: `a|b` — not English "OR". Dots `.` wildcard; paste addresses into `from`/`to` or escape `.` in regex. Gmail-style `from:` blobs belong in structured fields — server may coerce; see `hints` in JSON.',
         }),
       ),
       query: Type.Optional(
         Type.String({
-          description: 'Alias for `pattern` (same semantics). Prefer `pattern` for new calls.',
+          description:
+            'Alias for `pattern`. Prefer `pattern`; same regex semantics.',
         }),
       ),
       caseSensitive: Type.Optional(Type.Boolean({ description: 'Default false (case-insensitive regex).' })),
-      from: Type.Optional(Type.String({ description: 'Filter by sender (substring match on From / name).' })),
-      to: Type.Optional(Type.String({ description: 'Filter by recipient (To/Cc).' })),
-      after: Type.Optional(Type.String({ description: 'Lower date bound (ISO YYYY-MM-DD or rolling e.g. 7d).' })),
-      before: Type.Optional(Type.String({ description: 'Upper date bound (ISO or rolling).' })),
+      from: Type.Optional(
+        Type.String({
+          description:
+            'Sender filter (substring on From address or display name when present). Prefer **email**; display names alone often miss if the index has no `fromName`.',
+        }),
+      ),
+      to: Type.Optional(Type.String({ description: 'Recipient filter (To/Cc substring).' })),
+      after: Type.Optional(
+        Type.String({
+          description:
+            'Lower date bound: ISO `YYYY-MM-DD` **or** rolling spec (`7d`, `1y`, …). Rolling bounds are relative to **today**—they exclude old mail (e.g. Enron 2001) unless you widen or use ISO dates.',
+        }),
+      ),
+      before: Type.Optional(
+        Type.String({
+          description:
+            'Upper date bound: ISO or rolling. With `after`, defines a window in **calendar** space, not message age from “now” alone.',
+        }),
+      ),
       subject: Type.Optional(Type.String({ description: 'Filter by subject substring.' })),
       category: Type.Optional(Type.String({ description: 'Message category (comma-separated list).' })),
       source: Type.Optional(
@@ -347,14 +369,17 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
         source?: string
       },
     ) {
-      const text = (params.pattern ?? params.query ?? '').trim()
+      const coerced = coerceSearchIndexInlineOperators(params)
+      let working = coerced.merged
+
+      const text = (working.pattern ?? working.query ?? '').trim()
       const hasFilter = Boolean(
-        params.from?.trim() ||
-          params.to?.trim() ||
-          params.after?.trim() ||
-          params.before?.trim() ||
-          params.subject?.trim() ||
-          params.category?.trim(),
+        working.from?.trim() ||
+          working.to?.trim() ||
+          working.after?.trim() ||
+          working.before?.trim() ||
+          working.subject?.trim() ||
+          working.category?.trim(),
       )
       if (!text && !hasFilter) {
         return {
@@ -367,19 +392,57 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
           details: {},
         }
       }
-      const resolved = await resolveRipmailSourceForCli(params.source)
-      const cmd = buildRipmailSearchCommandLine({
-        pattern: text || undefined,
-        caseSensitive: params.caseSensitive === true,
-        from: params.from,
-        to: params.to,
-        after: params.after,
-        before: params.before,
-        subject: params.subject,
-        category: params.category,
-        source: resolved?.trim(),
-      })
-      const { stdout } = await execRipmailAsync(cmd, { timeout: 15000 })
+      const resolved = await resolveRipmailSourceForCli(working.source)
+
+      const buildCmd = (p: typeof working) =>
+        buildRipmailSearchCommandLine({
+          pattern: (p.pattern ?? p.query ?? '').trim() || undefined,
+          caseSensitive: p.caseSensitive === true,
+          from: p.from,
+          to: p.to,
+          after: p.after,
+          before: p.before,
+          subject: p.subject,
+          category: p.category,
+          source: resolved?.trim(),
+        })
+
+      let { stdout } = await execRipmailAsync(buildCmd(working), { timeout: 15000 })
+
+      /** Second pass: resolve "Jane Doe" style `from` via `ripmail who` when the index stores email only. */
+      const tryResolveNameToEmail = async (): Promise<void> => {
+        const t = (working.pattern ?? working.query ?? '').trim()
+        if (t.length > 0 || !working.from?.trim()) return
+        try {
+          const parsed = JSON.parse(stdout.trim()) as { results?: unknown[]; totalMatched?: number }
+          const n = Array.isArray(parsed.results) ? parsed.results.length : 0
+          const total =
+            typeof parsed.totalMatched === 'number' ? parsed.totalMatched : n
+          if (total > 0 || n > 0) return
+        } catch {
+          return
+        }
+        if (!looksLikePersonNameOnly(working.from)) return
+        const rm = ripmailBin()
+        const whoCmd = `${rm} who ${JSON.stringify(working.from.trim())} --limit 8 --json`
+        const { stdout: whoOut } = await execRipmailAsync(whoCmd, { timeout: 12000 })
+        const addr = parseWhoPrimaryAddresses(whoOut)
+        if (addr.length !== 1) return
+        const email = addr[0]!
+        if (email.trim().toLowerCase() === working.from!.trim().toLowerCase()) return
+        working = { ...working, from: email }
+        stdout = (await execRipmailAsync(buildCmd(working), { timeout: 15000 })).stdout
+        stdout = mergeSearchIndexStdoutHints(stdout, [
+          `Resolved ambiguous display name "${(params.from ?? working.from)?.trim()}" to primary address ${email} (\`ripmail who\`; index stores sender email, not this phrase in From).`,
+        ])
+      }
+
+      await tryResolveNameToEmail()
+
+      if (coerced.notes.length > 0) {
+        stdout = mergeSearchIndexStdoutHints(stdout, coerced.notes)
+      }
+
       return {
         content: [{ type: 'text' as const, text: stdout || 'No results found.' }],
         details: {},

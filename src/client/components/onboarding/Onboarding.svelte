@@ -22,6 +22,7 @@
     type OnboardingMailStatus,
   } from '@client/lib/onboarding/onboardingTypes.js'
   import { resizeMainWindowToBrowserLikeWorkArea } from '@client/lib/desktop/browserLikeWindow.js'
+  import { isTauriRuntime } from '@client/lib/desktop/isTauriRuntime.js'
   import { ArrowRight } from 'lucide-svelte'
   import VaultSetupStep from './VaultSetupStep.svelte'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
@@ -47,6 +48,8 @@
   let indexingAdvanceError = $state<string | null>(null)
   /** Finalize after onboarding interview */
   let finalizeError = $state<string | null>(null)
+  /** False until first `load()` finishes — avoids showing “Connect Google” while mail status is still default empty. */
+  let mailHydrated = $state(false)
   let busy = $state(false)
   /** Tauri: Google OAuth uses the system browser; we wait for the server’s one-shot /last-result. */
   let googleOauthBrowserWait = $state(false)
@@ -89,15 +92,30 @@
     if (next) mail = next
   }
 
+  /** First load: ensure vault session is refreshed, then retry mail once if the gate returned 401. */
+  async function loadMailFirstHydrate() {
+    let next = await fetchOnboardingMailStatus()
+    if (next === null) {
+      await refreshStatus()
+      next = await fetchOnboardingMailStatus()
+    }
+    if (next) mail = next
+  }
+
   async function load() {
-    const [nextState, pref] = await Promise.all([
-      fetchOnboardingState(),
-      fetchOnboardingPreferences(),
-    ])
-    state = nextState
-    mailProviderPref = pref.mailProvider
-    appleLocalIntegrationsAvailable = pref.appleLocalIntegrationsAvailable
-    await loadMailOnly()
+    try {
+      await refreshStatus()
+      const [nextState, pref] = await Promise.all([
+        fetchOnboardingState(),
+        fetchOnboardingPreferences(),
+      ])
+      state = nextState
+      mailProviderPref = pref.mailProvider
+      appleLocalIntegrationsAvailable = pref.appleLocalIntegrationsAvailable
+      await loadMailFirstHydrate()
+    } finally {
+      mailHydrated = true
+    }
   }
 
   onMount(() => {
@@ -318,10 +336,6 @@
     void continueToIndexing()
   })
 
-  function isTauriRuntime(): boolean {
-    return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-  }
-
   function clearGoogleOauthTauriPoll(): void {
     if (googleOauthPoll) {
       clearInterval(googleOauthPoll)
@@ -473,7 +487,7 @@
         headerFallbackTitle="Setup"
         storageKey=""
         inputPlaceholder="Type an answer or tap a suggestion above."
-        autoSendMessage="Start the guided setup now. Before asking for the user's name: run mail search prioritizing email they sent (from their whoami address, recent window), read a few promising messages for signatures, then open with identity guesses. Continue through assistant name, calendar, inbox rules, and important people in order. Do not mention phases, steps, or numbered sections to the user."
+        autoSendMessage="Start the guided setup now. Before asking for the user's name: run mail search prioritizing email they sent (from their whoami address, recent window), read a few promising messages for signatures, then open with identity guesses. Continue with important people only; do not configure calendar or inbox rules in this flow. Do not ask them to name you. Do not mention phases, steps, or numbered sections to the user."
         onAgentFinishInterview={() => void continueAfterInterview()}
         {multiTenant}
       />
@@ -496,7 +510,12 @@
     />
   {:else}
   <div class="onboarding-main onboarding-main-scroll flex min-h-0 flex-1 flex-col">
-    {#if state === 'not-started' && !mail.configured}
+    {#if state === 'not-started' && !mailHydrated}
+      <OnboardingHeroShell>
+        <span class="ob-kicker">Braintunnel</span>
+        <p class="ob-lead text-[var(--muted)]" role="status" aria-live="polite">Loading setup…</p>
+      </OnboardingHeroShell>
+    {:else if state === 'not-started' && !mail.configured}
       <OnboardingHeroShell>
           <span class="ob-kicker">Braintunnel</span>
           {#if multiTenant}

@@ -4,12 +4,9 @@
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import { invoke } from '@tauri-apps/api/core'
   import { exit, relaunch } from '@tauri-apps/plugin-process'
+  import { isTauriRuntime } from '@client/lib/desktop/isTauriRuntime.js'
 
   let { children }: { children: Snippet } = $props()
-
-  function isTauriRuntime(): boolean {
-    return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-  }
 
   const gateApplies =
     typeof globalThis !== 'undefined' &&

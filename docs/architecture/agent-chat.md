@@ -50,6 +50,10 @@ Stream implementation: `[streamAgentSse.ts](../../src/server/lib/streamAgentSse.
 | `done`       | Turn complete                                              |
 | `error`      | Failure                                                    |
 
+## Quick replies (suggestion chips)
+
+Tappable follow-ups use the **`suggest_reply_options`** tool and an optional **repair** completion when the model omits chips. **Main chat** and **guided onboarding interview** share the same pipeline (no separate “suggestions JSON” HTTP API). Details, env toggles, and client behavior: **[chat-suggestions.md](./chat-suggestions.md)**.
+
 
 **Usage (LLM metering):** On each turn, the server handles `agent_end` from `@mariozechner/pi-agent-core` and sums `usage` on every `AssistantMessage` in `event.messages` (one user-visible reply can span multiple tool rounds). That aggregate is stored on the persisted **assistant** row as optional `usage` (`input`, `output`, `cacheRead`, `cacheWrite`, `totalTokens`, `costTotal`). **Cached input** in provider terms corresponds to **cache read** in pi-ai (`cacheRead`).
 
@@ -57,7 +61,7 @@ Stream implementation: `[streamAgentSse.ts](../../src/server/lib/streamAgentSse.
 
 **From pi-coding-agent (wiki-scoped):** `read`, `edit`, `write`, `grep`, `find` — plus app wrappers `move_file`, `delete_file`.
 
-**Custom (inline in `tools.ts`):** e.g. `search_index`, `read_email`, ripmail source and inbox tools, `draft_email` / `send_draft`, `find_person`, `get_calendar_events`, `web_search`, `fetch_page`, YouTube tools, `set_chat_title`, `open`, `load_skill`, and optionally `list_recent_messages` / `get_message_thread` when iMessage is available.
+**Custom (inline in `tools.ts`):** e.g. `search_index`, `read_email`, ripmail source and inbox tools, `draft_email` / `send_draft`, `find_person`, `get_calendar_events`, `web_search`, `fetch_page`, YouTube tools, `set_chat_title`, `open`, `load_skill`, **`suggest_reply_options`** (quick-reply chips; see [chat-suggestions.md](./chat-suggestions.md)), and optionally `list_recent_messages` / `get_message_thread` when iMessage is available.
 
 ## Skills (slash commands and natural language)
 

@@ -89,8 +89,8 @@ export interface StreamAgentSseOptions {
   /** IANA timezone (e.g. for suggest-reply repair `createAgentTools` calendar). */
   timezone?: string
   /**
-   * When true (default), after `agent.prompt()` run {@link runSuggestReplyRepairIfNeeded} for
-   * main chat. Onboarding interview sets **false** — suggestions come from POST /api/onboarding/suggestions.
+   * When true (default), after `agent.prompt()` run {@link runSuggestReplyRepairIfNeeded} when
+   * the turn has assistant text but no valid `suggest_reply_options` (main chat and onboarding interview).
    */
   runSuggestReplyRepair?: boolean
 }

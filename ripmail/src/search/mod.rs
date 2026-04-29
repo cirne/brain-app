@@ -1,5 +1,6 @@
 //! FTS5 search (mirrors `src/search/index.ts`).
 
+mod agent_hints;
 mod contact_rank;
 mod edit_distance;
 mod engine;

@@ -6,7 +6,7 @@
   "build": {
     "frontendDist": "https://staging.braintunnel.ai",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "npm run dev:server",
     "beforeBuildCommand": "npm run build"
   },
   "plugins": {

@@ -46,7 +46,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 | Cloud-hosted v1 scope (Phase 0 parity)                  | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md) |
 | **Staging deploy (DO droplet, registry, Watchtower)**  | [DEPLOYMENT.md](./DEPLOYMENT.md)                                               |
 | **Security architecture and risk register**            | [SECURITY.md](./SECURITY.md)                                                   |
-| Agent sessions, chat JSON files, SSE events, tool list | [architecture/agent-chat.md](architecture/agent-chat.md)                       |
+| Agent sessions, chat JSON files, SSE events, tool list | [architecture/agent-chat.md](architecture/agent-chat.md) · **Quick replies (chips):** [architecture/chat-suggestions.md](architecture/chat-suggestions.md) |
 | Pi stack reference (`pi-agent-core` / `pi-ai` options, metering) | [architecture/pi-agent-stack.md](architecture/pi-agent-stack.md) · [OPP-043](opportunities/OPP-043-llm-usage-token-metering.md) |
 | `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS, starter wiki seed | [architecture/data-and-sync.md](architecture/data-and-sync.md)                 |
 | Eval home, Enron fixture mail, index rebuild | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md) |

@@ -143,8 +143,7 @@ export function mergeOmitToolNames(...lists: readonly (readonly string[])[]): re
 export type OnboardingAgentToolVariant = 'buildout' | 'profiling' | 'interview'
 
 /**
- * OPP-054 guided onboarding: calendar, inbox rules, mail scan; full wiki read/write/edit
- * (incremental me.md, assistant.md, people/, …) plus grep/find for vault navigation.
+ * Guided onboarding interview: mail + wiki; no calendar/inbox tools here (skills / main assistant later).
  */
 export const ONBOARDING_INTERVIEW_ONLY: readonly AgentToolName[] = [
   'read',
@@ -155,9 +154,8 @@ export const ONBOARDING_INTERVIEW_ONLY: readonly AgentToolName[] = [
   'search_index',
   'read_email',
   'find_person',
-  'calendar',
-  'inbox_rules',
-  'list_inbox',
+  /** Same quick-reply chips as main chat (`ComposerContextBar`). */
+  'suggest_reply_options',
   /** Same UI hook as main assistant: client runs POST /api/onboarding/finalize after tool_end. */
   'finish_conversation',
 ]

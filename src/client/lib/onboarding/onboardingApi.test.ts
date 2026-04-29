@@ -1,5 +1,21 @@
-import { describe, expect, it } from 'vitest'
-import { parseSetupMailJsonBody } from './onboardingApi.js'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { parseSetupMailJsonBody, fetchOnboardingMailStatus } from './onboardingApi.js'
+
+describe('fetchOnboardingMailStatus', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('', { status: 401 })),
+    )
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('returns null when the response is not ok', async () => {
+    await expect(fetchOnboardingMailStatus()).resolves.toBeNull()
+  })
+})
 
 describe('parseSetupMailJsonBody', () => {
   it('parses valid JSON', () => {

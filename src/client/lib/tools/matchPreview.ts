@@ -33,13 +33,19 @@ export function extractProductFeedbackDraftMarkdown(result: string): string | nu
   return after
 }
 
+/** Mail preview lists `results` / `totalMatched` only — `hints` stay in raw tool JSON for the model. */
 function parseSearchIndexJsonResult(
   result: string,
 ): { items: MailSearchHitPreview[]; totalMatched?: number } | null {
   const t = result.trim()
   if (!t.startsWith('{')) return null
   try {
-    const j = JSON.parse(t) as { results?: unknown[]; totalMatched?: number; returned?: number }
+    const j = JSON.parse(t) as {
+      results?: unknown[]
+      totalMatched?: number
+      returned?: number
+      hints?: unknown[]
+    }
     const results = Array.isArray(j.results) ? j.results : []
     const items: MailSearchHitPreview[] = []
     for (const r of results) {

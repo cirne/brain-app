@@ -1,5 +1,6 @@
 import type { Context, Next } from 'hono'
 import { getCookie } from 'hono/cookie'
+import { getInboundOrAckedBrainSessionId } from './vaultSessionSameRequestAck.js'
 import { BRAIN_SESSION_COOKIE } from './vaultCookie.js'
 import { validateVaultSession } from './vaultSessionStore.js'
 import { vaultVerifierExistsSync } from './vaultVerifierStore.js'
@@ -96,8 +97,8 @@ export async function vaultGateMiddleware(c: Context, next: Next): Promise<Respo
     return c.json({ error: 'vault_required', message: 'Create your vault password first.' }, 401)
   }
 
-  const sid = getCookie(c, BRAIN_SESSION_COOKIE)
-  const ok = await validateVaultSession(sid)
+  const sidForValidation = getInboundOrAckedBrainSessionId(c)
+  const ok = sidForValidation ? await validateVaultSession(sidForValidation) : false
 
   if (ok) {
     return next()

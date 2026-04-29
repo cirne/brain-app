@@ -799,6 +799,12 @@ pub(crate) fn run_search(
             "results": rows,
             "totalMatched": result.total_matched.unwrap_or(rows.len() as i64),
         });
+        if !result.hints.is_empty() {
+            out["hints"] = serde_json::json!(result.hints);
+        }
+        if let Some(ref nq) = result.normalized_query {
+            out["normalizedQuery"] = serde_json::json!(nq);
+        }
         if timings {
             out["timings"] = serde_json::to_value(&result.timings)?;
         }

@@ -137,6 +137,29 @@
     else onClose()
   }
 
+  function wikiPageBreadcrumbSegments(path: string): string[] {
+    const segments = path
+      .replace(/\\/g, '/')
+      .replace(/\/+/g, '/')
+      .replace(/^\/+|\/+$/g, '')
+      .replace(/\.md$/i, '')
+      .split('/')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+    const last = segments.at(-1)?.toLowerCase()
+    if (segments.length === 1 && (last === 'index' || last === '_index')) return []
+    if (segments.length > 1 && (last === 'index' || last === '_index')) return segments.slice(0, -1)
+    return segments
+  }
+
+  function wikiBreadcrumbLabel(segment: string): string {
+    const base = segment.startsWith('_') ? segment.slice(1) : segment
+    return base
+      .split('-')
+      .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
+      .join(' ')
+  }
+
   const emailHeaderTitle = $derived(emailThreadTitleForSlideOver(overlay, surfaceContext))
   const messagesHeaderTitle = $derived(messagesTitleForSlideOver(overlay, surfaceContext))
 
@@ -196,7 +219,34 @@
           )}
         >
           {#if overlay.type === 'wiki' && overlay.path}
-            <WikiFileName path={overlay.path} />
+            {@const wikiPageSegs = wikiPageBreadcrumbSegments(overlay.path)}
+            <span
+              class="wiki-dir-breadcrumb"
+              role="navigation"
+              aria-label="Wiki page path"
+            >
+              {#if wikiPageSegs.length === 0}
+                <span class="wiki-breadcrumb-seg wiki-breadcrumb-seg--current">My Wiki</span>
+              {:else}
+                <button
+                  type="button"
+                  class="wiki-breadcrumb-seg"
+                  onclick={() => onWikiDirNavigate?.(undefined)}
+                >My Wiki</button>
+                {#each wikiPageSegs as seg, i (i)}
+                  <span class="wiki-breadcrumb-sep" aria-hidden="true">/</span>
+                  {#if i < wikiPageSegs.length - 1}
+                    <button
+                      type="button"
+                      class="wiki-breadcrumb-seg"
+                      onclick={() => onWikiDirNavigate?.(wikiDirPathPrefix(wikiPageSegs, i))}
+                    >{wikiBreadcrumbLabel(seg)}</button>
+                  {:else}
+                    <span class="wiki-breadcrumb-seg wiki-breadcrumb-seg--current">{wikiBreadcrumbLabel(seg)}</span>
+                  {/if}
+                {/each}
+              {/if}
+            </span>
           {:else if overlay.type === 'wiki-dir'}
             {@const wikiDirSegs = parseWikiDirSegments(overlay.path)}
             <span

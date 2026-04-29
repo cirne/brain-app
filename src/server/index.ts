@@ -37,6 +37,7 @@ import transcribeRoute from './routes/transcribe.js'
 import devicesRoute from './routes/devices.js'
 import ingestRoute from './routes/ingest.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
+import { devLocalVaultBootstrapMiddleware } from '@server/lib/vault/devLocalVaultBootstrap.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import {
   ensureYourWikiRunning,
@@ -159,6 +160,7 @@ app.get('/logout', async (c) => {
 
 app.use('/api/*', tenantMiddleware)
 app.use('/api/*', newRelicBrainContextMiddleware())
+app.use('/api/*', devLocalVaultBootstrapMiddleware)
 app.use('/api/*', vaultGateMiddleware)
 
 const requestLogger = logger()

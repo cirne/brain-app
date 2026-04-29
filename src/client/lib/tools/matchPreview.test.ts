@@ -46,6 +46,27 @@ describe('matchContentPreview', () => {
     expect(prev.totalMatched).toBe(42)
   })
 
+  it('search_index preview uses results only (ignores hints for the card)', () => {
+    const json = JSON.stringify({
+      results: [],
+      totalMatched: 0,
+      hints: ['Use a|b for alternation, not OR'],
+      normalizedQuery: '(?:foo)|(?:bar)',
+    })
+    const prev = matchContentPreview(
+      tc({
+        name: 'search_index',
+        args: { pattern: 'foo OR bar' },
+        result: json,
+      }),
+    )
+    expect(prev?.kind).toBe('mail_search_hits')
+    if (prev?.kind !== 'mail_search_hits') return
+    expect(prev.items).toEqual([])
+    expect(prev.totalMatched).toBe(0)
+    expect('hints' in prev).toBe(false)
+  })
+
   it('find_person shows query line and people from JSON', () => {
     const json = JSON.stringify({
       people: [

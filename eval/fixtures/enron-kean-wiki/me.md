@@ -1,12 +1,12 @@
 # Me
 
-**Synthetic eval account** for the Enron `kean-s` corpus (fixture mailbox `kean.eval@enron.fixture`). Use mail evidence and dates **1999–2002**; do not invent biographical detail beyond this stub.
+**Eval account** for the Enron `kean-s` corpus; indexed mail uses **steven.kean@enron.com** (historical address for this archive user). Use mail evidence and dates **1999–2002**; do not invent biographical detail beyond this stub.
 
 ## Identity
 
 - **Name:** Steven Kean (eval fixture — maps to `kean-s` mail archive)
 - **Call me:** Steven
-- **Contact:** `kean.eval@enron.fixture` (fixture only; not a live inbox)
+- **Contact:** `steven.kean@enron.com`
 - **Bio:** Government affairs / policy-facing role at Enron during the corpus window; use **[[people/…]]** and topics for real relationships from mail.
 
 ## Snapshot

@@ -34,9 +34,6 @@
   import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import ComposerContextBar from './agent-conversation/ComposerContextBar.svelte'
-  import SuggestionWidget from './agent-conversation/SuggestionWidget.svelte'
-  import { getSuggestionComposerPlaceholder, parseSuggestionSetUnknown } from '@shared/suggestions.js'
-  import type { SuggestionSet } from '@shared/suggestions.js'
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
   import { applyVoiceTranscriptToChat } from '@client/lib/voiceTranscribeRouting.js'
   import UnifiedChatComposer from './UnifiedChatComposer.svelte'
@@ -258,16 +255,10 @@
   })
 
   const contextBarFiles = $derived(extractReferencedFiles(messages))
-  const isOnboardingInterviewChat = $derived(chatEndpoint === '/api/onboarding/interview')
-  const contextBarChoices = $derived(
-    isOnboardingInterviewChat ? [] : extractLatestSuggestReplyChoices(messages, streaming),
-  )
+  const contextBarChoices = $derived(extractLatestSuggestReplyChoices(messages, streaming))
   const showComposerContextBar = $derived(
     contextBarFiles.length > 0 || contextBarChoices.length > 0,
   )
-
-  let onboardingSuggestionSet = $state<SuggestionSet | null>(null)
-  let onboardingSuggestionsLoading = $state(false)
 
   /**
    * Session TTS output flag (POST `hearReplies`, assistant voice). Passed to the voice capture
@@ -517,11 +508,6 @@
       return
     }
 
-    if (chatEndpoint === '/api/onboarding/interview') {
-      onboardingSuggestionSet = null
-      onboardingSuggestionsLoading = false
-    }
-
     const streamKey = id
     let activeKey = streamKey
     const mentionedFiles = firstChatKickoff || interviewKickoffHidden ? [] : extractMentionedFiles(text)
@@ -653,38 +639,6 @@
       onChatPersisted?.()
       if (sawDone && displayedSessionId === activeKey) void onStreamFinished?.()
 
-      if (
-        sawDone &&
-        chatEndpoint === '/api/onboarding/interview' &&
-        displayedSessionId === activeKey
-      ) {
-        const sid = sessions.get(activeKey)?.sessionId
-        if (sid) {
-          onboardingSuggestionsLoading = true
-          onboardingSuggestionSet = null
-          void (async () => {
-            try {
-              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-              const res = await fetch('/api/onboarding/suggestions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionId: sid, timezone: tz }),
-              })
-              if (!res.ok) {
-                onboardingSuggestionSet = null
-                return
-              }
-              const data = (await res.json()) as { suggestions?: unknown }
-              onboardingSuggestionSet = parseSuggestionSetUnknown(data.suggestions ?? null)
-            } catch {
-              onboardingSuggestionSet = null
-            } finally {
-              onboardingSuggestionsLoading = false
-            }
-          })()
-        }
-      }
-
       const { next: queued, rest: queueRest } = shiftQueuedFollowUp(
         sessions.get(activeKey)?.pendingQueuedMessages,
       )
@@ -700,12 +654,9 @@
     await send('', forSessionKey, true)
   }
 
-  const placeholder = $derived.by(() => {
-    const base = inputPlaceholder ?? contextPlaceholder(context, messages.length > 0)
-    if (!isOnboardingInterviewChat) return base
-    const fromSuggestions = getSuggestionComposerPlaceholder(onboardingSuggestionSet)
-    return fromSuggestions ?? base
-  })
+  const placeholder = $derived(
+    inputPlaceholder ?? contextPlaceholder(context, messages.length > 0),
+  )
 
   const contextChip = $derived.by((): string | null => {
     if (context.type === 'email') return `📧 ${context.subject}`
@@ -921,14 +872,6 @@
           {onOpenWiki}
           onChoice={(t) => void send(t)}
         />
-        {#if isOnboardingInterviewChat}
-          <SuggestionWidget
-            suggestionSet={onboardingSuggestionSet}
-            loading={onboardingSuggestionsLoading}
-            disabled={streaming}
-            onSubmit={(t) => void send(t)}
-          />
-        {/if}
         <UnifiedChatComposer
           bind:this={inputEl}
           voiceEligible={voiceComposerEligible}

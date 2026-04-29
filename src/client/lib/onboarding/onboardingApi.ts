@@ -8,6 +8,9 @@ export const SETUP_MAIL_ABORT_MESSAGE =
 export async function fetchOnboardingMailStatus(): Promise<OnboardingMailStatus | null> {
   try {
     const res = await fetch('/api/onboarding/mail')
+    if (!res.ok) {
+      return null
+    }
     const j = (await res.json()) as Partial<OnboardingMailStatus>
     const base = emptyOnboardingMail()
     return {

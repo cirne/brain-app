@@ -376,6 +376,7 @@
     bottom: 100%;
     left: 12px;
     right: 12px;
+    z-index: 3;
     max-height: 200px;
     overflow-y: auto;
     background: var(--bg-3);

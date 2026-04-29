@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/run-dev.mjs",
+    "dev:server": "node scripts/run-dev.mjs",
     "dev:eval": "node scripts/run-dev-eval.mjs",
     "dev:eval:clean": "node scripts/clean-eval-brain.mjs",
     "dev:multitenant": "node scripts/run-dev-multitenant.mjs",
