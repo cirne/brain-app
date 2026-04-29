@@ -29,6 +29,7 @@ import {
 } from '@server/lib/llm/openAiTts.js'
 import { coerceToolResultDetailsObject } from '@server/lib/llm/coerceToolResultDetails.js'
 import {
+  countAssistantCompletionsWithUsage,
   rollupAssistantLlmIds,
   sumUsageFromMessages,
   type LlmUsageSnapshot,
@@ -334,23 +335,33 @@ export function handleStreamAgentEnd(
   const messages = event.messages
   const rollup = sumUsageFromMessages(messages)
   deps.refs.lastRunUsage = rollup
+  const turnDurationMs = Math.max(0, Math.round(performance.now() - deps.turnStartedAt))
   recordLlmTurnEndEvents({
     turn: deps.turnLlm,
     messages,
     usage: rollup,
-    turnDurationMs: Math.max(0, Math.round(performance.now() - deps.turnStartedAt)),
+    turnDurationMs,
     toolCallCount: deps.refs.toolCallCount,
   })
+  const completionCount = countAssistantCompletionsWithUsage(messages ?? null)
   const { provider: pFromMsg, model: mFromMsg } = rollupAssistantLlmIds(messages ?? null)
   const provider = pFromMsg ?? process.env.LLM_PROVIDER?.trim() ?? 'unknown'
   const model = mFromMsg ?? process.env.LLM_MODEL?.trim() ?? 'unknown'
+  /** Same envelope as wiki Expansion/Cleanup {@link wikiExpansionRunner} `logger.info(..., 'llm-turn')` for grep/correlation. */
   logger.info(
     {
+      source: deps.turnLlm.source,
       kind: deps.agentKind,
+      agentTurnId: deps.turnLlm.agentTurnId,
       provider,
       model,
+      turnCount: 1,
+      completionCount,
+      cumulativeCompletionCount: completionCount,
+      toolCallCount: deps.refs.toolCallCount,
+      turnDurationMs,
       ...rollup,
-      sessionId: deps.announceSessionId,
+      ...(deps.announceSessionId !== undefined ? { sessionId: deps.announceSessionId } : {}),
     },
     'llm-turn',
   )

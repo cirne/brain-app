@@ -81,4 +81,33 @@ describe('checkExpect', () => {
     )
     expect(r.ok, r.reasons.join('; ')).toBe(true)
   })
+
+  it('enron-024-ken-lay-priorities: mail evidence + Lay name + priorities language', async () => {
+    const tasks = await loadEnronV1TasksFromFile(taskFile)
+    const t = tasks.find((x) => x.id === 'enron-024-ken-lay-priorities')
+    expect(t, 'enron-024 in enron-v1.jsonl').toBeDefined()
+    const haystack =
+      'From: Kenneth Lay <kenneth.lay@enron.com> … 123.456.JavaMail.evans@thyme …'
+    const finalText =
+      'Ken Lay emphasized growth and strategic priorities around energy markets in this period.'
+    const r = checkExpect(t!.expect, finalText, haystack, ['search_index', 'read_email'])
+    expect(r.ok, r.reasons.join('; ')).toBe(true)
+  })
+
+  it('enron-025-shapiro-themes-organic-wiki: mail + write + thematic + structure proxy', async () => {
+    const tasks = await loadEnronV1TasksFromFile(taskFile)
+    const t = tasks.find((x) => x.id === 'enron-025-shapiro-themes-organic-wiki')
+    expect(t, 'enron-025 in enron-v1.jsonl').toBeDefined()
+    const haystack = `# Richard Shapiro
+
+## Overview
+
+Crisis and gratitude themes. 15323857.1075855428713.JavaMail.evans@thyme
+`
+    const r = checkExpect(t!.expect, 'Main themes included crisis and gratitude.', haystack, [
+      'read_email',
+      'write',
+    ])
+    expect(r.ok, r.reasons.join('; ')).toBe(true)
+  })
 })

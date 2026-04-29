@@ -35,7 +35,6 @@ import { getFdaProbeDetail, isFdaGranted } from '@server/lib/apple/fdaProbe.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
 import { writeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
-import { ensureYourWikiRunning } from '../agent/yourWikiSupervisor.js'
 import { embeddedServerUrlScheme, oauthRedirectListenPort } from '@server/lib/platform/brainHttpPort.js'
 import { isBundledNativeServer } from '@server/lib/apple/nativeAppPort.js'
 import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocalIntegrationEnv.js'
@@ -203,12 +202,6 @@ onboarding.patch('/state', async (c) => {
   }
   try {
     const doc = await setOnboardingState(next)
-    if (cur.state === 'indexing' && next === 'onboarding-agent') {
-      const tz = typeof body.timezone === 'string' ? body.timezone : undefined
-      void ensureYourWikiRunning({ timezone: tz }).catch((e) => {
-        console.error('[onboarding-state→onboarding-agent] ensureYourWikiRunning error:', e)
-      })
-    }
     return c.json({ ok: true, state: doc.state })
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : 'invalid transition' }, 400)
@@ -422,7 +415,7 @@ onboarding.post('/interview', async (c) => {
 
 /**
  * After the interview stream ends: silent finalize (polish `me.md`, e.g. confidence + gaps),
- * scaffold vault, wake Your Wiki, mark first-chat pending, transition to **done**.
+ * scaffold vault, mark first-chat pending, transition to **done**.
  */
 onboarding.post('/finalize', async (c) => {
   const doc = await readOnboardingStateDoc()
@@ -438,9 +431,6 @@ onboarding.post('/finalize', async (c) => {
   try {
     await runInterviewFinalize({ sessionId, timezone })
     await ensureWikiVaultScaffoldForBuildout(wikiDir())
-    void ensureYourWikiRunning({ timezone }).catch((e) => {
-      console.error('[onboarding/finalize] ensureYourWikiRunning error:', e)
-    })
     await writeFirstChatPending()
     await setOnboardingState('done')
     return c.json({ ok: true as const, state: 'done' })

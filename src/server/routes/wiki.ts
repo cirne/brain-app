@@ -96,7 +96,8 @@ wiki.post('/sync', async (c) => {
   return c.json({ ok: false, error: result.error ?? 'wiki sync failed' }, 500)
 })
 
-// GET /api/wiki/log — parse last N entries from _log.md
+// GET /api/wiki/log — parse last N entries from legacy vault-root `_log.md` (human/agent markdown).
+// Canonical structured wiki mutation log is `var/wiki-edits.jsonl` (see wikiEditHistory); new work should not rely on `_log.md`.
 wiki.get('/log', async (c) => {
   const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10), 50)
   const dir = wikiDir()

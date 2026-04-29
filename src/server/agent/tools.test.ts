@@ -498,9 +498,13 @@ Sel: {{selection}} File: {{open_file}}`,
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const write = tools.find((t) => t.name === 'write')!
+      const body =
+        '# New\n\n' +
+        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(14) +
+        '\n\nMore synthesis so the page clears the substance gate.\n'
       await write.execute('write-hist-1', {
         path: 'scratch/new-note.md',
-        content: '# New\n',
+        content: body,
       })
       const { readFile } = await import('node:fs/promises')
       const raw = await readFile(histFile, 'utf8')
@@ -513,9 +517,13 @@ Sel: {{selection}} File: {{open_file}}`,
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
       const write = tools.find((t) => t.name === 'write')!
+      const body =
+        '# New\n\n' +
+        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(14) +
+        '\n\nMore synthesis so the page clears the substance gate.\n'
       const out = (await write.execute('write-norm-1', {
         path: 'scratch/My Title Here.md',
-        content: '# New\n',
+        content: body,
       })) as { content: { type: string; text: string }[]; details?: { path?: string; requestedPath?: string } }
       const { readFile } = await import('node:fs/promises')
       const raw = await readFile(histFile, 'utf8')

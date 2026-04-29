@@ -203,6 +203,30 @@ describe('vaultGateMiddleware', () => {
     }
   })
 
+  it('GET /api/vault/status reports unlocked in same request as dev bootstrap', async () => {
+    const prevNode = process.env.NODE_ENV
+    const prevBundled = process.env.BRAIN_BUNDLED_NATIVE
+    process.env.NODE_ENV = 'development'
+    delete process.env.BRAIN_BUNDLED_NATIVE
+    try {
+      const app = new Hono()
+      app.use('/api/*', tenantMiddleware)
+      app.use('/api/*', devLocalVaultBootstrapMiddleware)
+      app.use('/api/*', vaultGateMiddleware)
+      app.route('/api/vault', vaultRoute)
+
+      const res = await app.request('http://127.0.0.1/api/vault/status')
+      expect(res.status).toBe(200)
+      const j = (await res.json()) as { vaultExists: boolean; unlocked: boolean }
+      expect(j.vaultExists).toBe(true)
+      expect(j.unlocked).toBe(true)
+    } finally {
+      process.env.NODE_ENV = prevNode
+      if (prevBundled === undefined) delete process.env.BRAIN_BUNDLED_NATIVE
+      else process.env.BRAIN_BUNDLED_NATIVE = prevBundled
+    }
+  })
+
   it('allows only ingest endpoints with valid device token', async () => {
     const minted = await mintDeviceToken({ label: 'Operator Mac' })
     const app = new Hono()

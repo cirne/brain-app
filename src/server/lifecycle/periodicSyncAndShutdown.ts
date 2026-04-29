@@ -1,9 +1,5 @@
 import { terminateAllTrackedRipmailChildren } from '@server/lib/ripmail/ripmailRun.js'
-import {
-  ensureYourWikiRunning,
-  prepareWikiSupervisorShutdown,
-  requestLapNow,
-} from '@server/agent/yourWikiSupervisor.js'
+import { prepareWikiSupervisorShutdown, requestLapNow } from '@server/agent/yourWikiSupervisor.js'
 import {
   startRipmailBackfillSupervisor,
   stopRipmailBackfillSupervisor,
@@ -47,10 +43,6 @@ export function registerPeriodicSyncAndShutdown(
         }
       })()
     }, intervalMs)
-
-    void ensureYourWikiRunning().catch((e) => {
-      console.error('[your-wiki] startup error:', e)
-    })
 
     startRipmailBackfillSupervisor()
   }

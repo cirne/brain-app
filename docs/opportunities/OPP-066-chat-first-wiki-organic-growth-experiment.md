@@ -1,8 +1,69 @@
 # OPP-066: Chat-first wiki — organic growth experiment
 
-**Status:** Proposal — branch experiment before merging to main  
-**Branch:** `exp/chat-first-wiki`  
-**Related:** [OPP-033](./OPP-033-wiki-compounding-karpathy-alignment.md), [OPP-054](./OPP-054-guided-onboarding-agent.md), [OPP-062](./OPP-062-post-turn-wiki-touch-up-agent.md), [the-wiki-question.md](../the-wiki-question.md), [karpathy-llm-wiki-post.md](../karpathy-llm-wiki-post.md)
+**Status:** Design exploration — **second direction (split chat vs WikiBuilder).** Chat assistant stays **narrow and inline**: it may **`write`** while answering, scoped to the current question and evidence already gathered—not a mandate to deepen entire hubs in one turn. **Depth, refresh, and template-quality** move to a **background WikiBuilder / enrich** role (evolution of today’s buildout/enrich path), scoped by **`var/wiki-edits.jsonl`** (append-only tool audit of wiki mutations), **`## Chat capture`** stubs, **thin-page** heuristics, and related signals—not by scanning the whole vault for arbitrary new entities. **Lint/cleanup** (OPP-062, `wiki/cleanup.hbs`) remains **structural**: dedupe cues, links, orphans, hygiene—not primary enrichment. **`GET /api/wiki/log`** still parses legacy vault-root `_log.md` if present; **new** work should not ask the LLM to maintain that file.  
+**Branch:** `exp/chat-first-wiki` (optional sandbox; topic branches per milestone.)  
+**Related:** [OPP-033](./OPP-033-wiki-compounding-karpathy-alignment.md), [OPP-054](./OPP-054-guided-onboarding-agent.md), [OPP-062](./OPP-062-post-turn-wiki-touch-up-agent.md), [OPP-011 (archived)](./archive/OPP-011-user-skills-strategy.md), `[wikiExpansionRunner](../../src/server/agent/wikiExpansionRunner.ts)`, `[wikiBuildoutAgent](../../src/server/agent/wikiBuildoutAgent.ts)`, [the-wiki-question.md](../the-wiki-question.md), [karpathy-llm-wiki-post.md](../karpathy-llm-wiki-post.md)
+
+---
+
+## Revised direction — chat capture vs WikiBuilder vs linter
+
+**What we walked back**
+
+- **Answer-first / async chat authoring** (defer heavy `write`, sub-agent handoffs from the main assistant prompt) is **not** the active path. That stacked competing objectives in one turn and complicated the assistant prompt without shipping a dedicated async runtime in product.
+
+**Assistant (chat) — today’s contract**
+
+- **Narrow, useful pages on the fly**: when mail/context supports it, **`write` or `edit`** while answering; content should match **the question’s scope**, not a full canonical person/project hub.
+- **Provenance for downstream work**: new pages from chat should carry a short **`## Chat capture`** block (what triggered the page, timing/context, note that the page may be skeletal). This gives **WikiBuilder** a hook without requiring verbose prompts in every turn.
+- **No “finish the hub in chat”**: avoid extra discovery-only mail passes for polish inside the same user turn; that belongs in background enrich.
+
+**WikiBuilder (background enrich / buildout evolution) — intended job**
+
+- **Primary mission:** **deepen and refresh pages that already exist** (or were just created in chat) so they become the **source of truth**: more mail-backed context, template alignment (`people/template.md`, etc.), recency, and relationship coverage.
+- **Input signals:** Tail of **`wiki-edits.jsonl`** (or injected excerpt), **`## Chat capture`**, “new since last lap,” **thin page** heuristics—**not** open-ended “create pages for every entity in the inbox” on every lap.
+- **Methods:** targeted **`search_index` / `read_email`**, re-read templates, expand stubs—same **tool family** as today’s enrich agent, but **tighter eligibility** so work stays anchored on **pages the user’s activity already touched**.
+
+**Linter / cleanup — unchanged separation**
+
+- **Cleanup agent / post-turn touch-up (OPP-062):** structural maintenance—**links, orphans, dedupe hints, index hygiene**—not the main place for “make this person page excellent via six mail searches.”
+
+*Implementation of WikiBuilder rescoping is **documentation + future code**; assistant prompt and removal of chat-side “substance gate” behavior align product intent with narrow capture.*
+
+---
+
+## Where we are — conclusions from the first exploration round
+
+We iterated on the **organic growth** hypothesis (chat-driven wiki ingest instead of only batch buildout) and pressure-tested it against real failure modes (e.g. narrow “Donna + Apple thread” pages instead of a **canonical person hub**).
+
+**What held up**
+
+- **Email-once / amortized synthesis** remains the right economic story: ripmail is fast; the valuable persistence is “don’t re-derive the same entity twice.”
+- **Maintenance stack stays:** supervisor enrich → cleanup, post-turn touch-up (OPP-062), delta-anchored lint — still the right shell regardless of *who* authors pages first.
+- **The tension is real:** optimizing the **immediate reply** in one agent turn biases toward **thin, stimulus-bound wiki pages**. That mirrors software engineering: **shipping the hack** (answer now) vs **paying down structure** (reusable person/project hub). Doing both in one synchronous turn fights itself.
+
+**Direction we believe works** *(partially superseded by [Revised direction](#revised-direction--chat-capture-vs-wikibuilder-vs-linter); kept for history)*
+
+1. **Split budgets by latency, not by lying about one objective.**
+  - **Main chat agent:** answer the user quickly; minimal inline wiki mutation unless trivial or explicit.  
+  - **Async wiki author (“sub-agent” job):** same *semantic* lineage as the turn (structured handoff), **forked** so it can spend extra `search_index` / wiki reads to produce **hub-quality** pages (whole-person, whole-project) **without** blocking TTFT.
+2. **Reuse existing primitives.**
+  Background wiki work already exists: `[wikiExpansionRunner](../../src/server/agent/wikiExpansionRunner.ts)`, `[backgroundAgentStore](../../src/server/lib/chat/backgroundAgentStore.ts)`, wiki buildout/cleanup agents. OPP-066’s next phase is **generalizing that pattern** from onboarding-oriented expansion to **opportunistic post-chat authoring** driven by a small **handoff contract** (entities, suggested queries, target paths, caps)—not inventing a separate runtime from scratch.
+3. **Skills (optional but aligned).**
+  `[load_skill](../../docs/opportunities/OPP-035-intent-based-skill-auto-loading.md)` can swap in a **tuned playbook** for “add page” vs “tidy vault” with different effort tiers and discover-first rules, without stuffing one mega-prompt. A separate `**wiki-add`** vs `**wiki-tidy**` skill (or one `/wiki` router loading two bodies) is compatible with this OPP; metadata helps routing when the user says “remember this” or `/wiki` + create intent.
+4. **Guardrails to design explicitly**
+
+  | Risk                                                   | Mitigation sketch                                                           |
+  | ------------------------------------------------------ | --------------------------------------------------------------------------- |
+  | Write conflicts (chat vs background editing same path) | Per-path serialization, merge policy, or draft → notify                     |
+  | Silent creepy edits                                    | Opt-in, preview, structured activity / edit history, or explicit “enqueue wiki pass”         |
+  | Runaway token cost                                     | Max turns / max mail searches / token budget per job                        |
+  | Weak handoff                                           | Structured brief (not full transcript); entity type → template expectations |
+
+
+**What “done” looks like for confidence**
+
+We can say **dynamic wiki build-out works** when we have: (a) measurable **hub-quality** improvements vs inline-only authoring on benchmark cases (person thread → enriched `people/*`), (b) stable **job + telemetry** for async passes, (c) user-trust story (visibility or consent), and (d) harness coverage (extend wiki eval / LLM-judge paths per [OPP-065](./OPP-065-wiki-eval-llm-as-judge.md)).
 
 ---
 
@@ -27,10 +88,11 @@ In Karpathy's framing: **the ingest cost becomes zero** because ingest is piggy-
 The supervisor (`yourWikiSupervisor.ts`) runs continuous enrich → cleanup laps, waking on mail sync or manual nudge. The cleanup agent (`wiki/cleanup.hbs`) does **structural lint**: broken wikilinks, orphan pages, index maintenance, light edits, and deduplication signals. Post-turn touch-up (OPP-062) fires the same cleanup stack at chat cadence.
 
 **What the cleanup agent does not do:**
+
 - Detect semantic contradictions *between* pages (only structural link integrity)
 - Compare wiki claims against email to flag staleness
 - Identify topics frequently queried in chat but missing from the wiki
-- Append a chronological `log.md` of what has been built and when
+- Maintain a durable **structured** record of what changed (today: **`wiki-edits.jsonl`** per tool write; future: enrich/lint attribution in the same or a sibling stream)
 
 These are gaps regardless of the buildout model, but they matter more in the organic-growth model where wiki content is driven by chat patterns rather than a planned batch pass.
 
@@ -56,13 +118,15 @@ This is the biggest downstream consequence of the chat-first model. The wiki bui
 
 The current onboarding agent ([OPP-054](./OPP-054-guided-onboarding-agent.md)) runs five phases: identity, assistant name, calendars, inbox rules, and important people. In the chat-first model:
 
-| Phase | Why it exists today | Chat-first model |
-|---|---|---|
-| **Confirm identity** | Write accurate `me.md` | Still needed — `me.md` is the assistant context |
-| **Name the assistant** | Write `assistant.md` | Still useful, same exchange as identity |
-| **Calendar setup** | Remove noise before buildout reads calendar | Deferred — "hide my shared calendars" in chat |
-| **Inbox rules** | Reduce noise in buildout's email reads | Deferred — `/inbox` or main chat on demand |
-| **Important people** | Guide the buildout toward the right entities | **Eliminated** — wiki discovers them through use |
+
+| Phase                  | Why it exists today                          | Chat-first model                                 |
+| ---------------------- | -------------------------------------------- | ------------------------------------------------ |
+| **Confirm identity**   | Write accurate `me.md`                       | Still needed — `me.md` is the assistant context  |
+| **Name the assistant** | Write `assistant.md`                         | Still useful, same exchange as identity          |
+| **Calendar setup**     | Remove noise before buildout reads calendar  | Deferred — "hide my shared calendars" in chat    |
+| **Inbox rules**        | Reduce noise in buildout's email reads       | Deferred — `/inbox` or main chat on demand       |
+| **Important people**   | Guide the buildout toward the right entities | **Eliminated** — wiki discovers them through use |
+
 
 Three of five phases exist only to help the buildout. Without it, onboarding's single remaining job is: **write `me.md`** (and optionally name `assistant.md`).
 
@@ -116,33 +180,30 @@ These feel more natural as responses to real friction the user encounters than a
 
 ## Chat agent changes
 
-Strengthen the wiki-writing directive in `src/server/prompts/assistant/base.hbs` from a loose suggestion to a **systematic synthesis rule**:
+Implemented in `src/server/prompts/assistant/base.hbs`:
 
-- **After any turn requiring 2+ email reads about a named entity** (person, project, org, topic), write or update a wiki page for that entity — even if the page is short. The synthesis cost was already paid answering the question; persisting it is nearly free.
-- **Before querying email for a named entity**, check if a wiki page already exists. If it does, start there and supplement with targeted email lookups only for recency or missing facts.
+- **Narrow capture:** **`## Wiki: keep durable notes (chat = narrow capture)`** — write as you answer; stay **question-scoped**; do not expand into full hub synthesis in chat.
+- **`## Chat capture`**: provenance stub on new pages for **WikiBuilder** to pick up later.
+- **Wiki activity:** Documented in **`assistant/base.hbs`** — tools append to **`var/wiki-edits.jsonl`**; no markdown activity log maintained by the model.
+- **Wiki first, then mail** at a high level unchanged; no answer-first / defer-`write` / `load_skill` mandate for hub depth.
 
-The existing prompt already says "wiki first, then mail" and "write when you learn something durable." The change is making *when* to write explicit and mechanical rather than discretionary.
+## Structured wiki activity (`wiki-edits.jsonl`)
 
----
+Because Braintunnel **owns the agent and tools**, wiki mutations are logged **server-side** as JSONL rows under **`$BRAIN_HOME/var/wiki-edits.jsonl`** ([`wikiEditHistory.ts`](../../src/server/lib/wiki/wikiEditHistory.ts); [`shared/brain-layout.json`](../../shared/brain-layout.json) `wikiEditsLog`). Each successful agent **`write`**, **`edit`**, **`move_file`**, and **`delete_file`** on the wiki appends a line (`ts`, `op`, `path`, `source`, …).
 
-## Add `wiki/log.md`
+**WikiBuilder** (and UIs) should **tail or sample** this file—or receive a injected **tail** in the enrich prompt—rather than teaching the model to edit markdown `_log.md`. Legacy **`GET /api/wiki/log`** still parses optional vault-root **`_log.md`** for older vaults; do not seed or require `_log.md` for new product paths.
 
-Karpathy's spec calls out `log.md` as essential infrastructure: an append-only, chronological record of what was ingested, queried, and linted, parseable with simple tools.
+Example line shape:
 
-Add `log.md` to the starter wiki scaffold and have both the chat agent and the supervisor append entries:
-
-```
-## [YYYY-MM-DD] chat | people/jane-doe.md — synthesized from 3 email threads
-## [YYYY-MM-DD] chat | projects/acme-launch.md — created
-## [YYYY-MM-DD] supervisor-enrich | lap 3 — 2 pages updated
-## [YYYY-MM-DD] supervisor-lint | cleaned 1 broken link, 0 orphans
+```json
+{"ts":"2026-04-29T12:00:00.000Z","op":"write","path":"people/jane-doe.md","source":"agent"}
 ```
 
-Benefits:
-- The agent on subsequent laps knows what was built and when (avoids redundant re-synthesis)
-- Cheap to write: an `edit` append to `log.md` after each create adds ~50 tokens
-- Makes wiki evolution visible to the user — they can open `log.md` and see the history
-- Enables semantic lint to identify topics queried frequently (via log) that still lack pages
+**Benefits**
+
+- Predictable, cheap, no markdown format drift from LLM edits
+- Clear ordering for “what changed recently” / dedupe of enrich work
+- Same hook for chat vs enrich if we add `agentKind` / `runId` fields later
 
 ---
 
@@ -151,9 +212,10 @@ Benefits:
 The cleanup agent today does structural hygiene only. The organic-growth model needs a light semantic pass too, because chat-authored pages may contradict each other as evidence evolves.
 
 Add a periodic **semantic lint mode** to the cleanup agent (not every turn — weekly or on manual request):
+
 - Read recently-modified pages and check for internal contradictions (e.g. two people pages claim the same role)
 - For pages with dated evidence notes, flag if the date is more than N months old and a fresher search might change the answer
-- Identify topics queried frequently in chat (via `log.md`) that still lack a wiki page — surface as suggestions, not auto-creates
+- Identify topics queried frequently in chat (from structured telemetry or wiki scans) that still lack a wiki page — surface as suggestions, not auto-creates
 
 This does not require email re-reads in the default pass; it's a read-only vault scan that matches page metadata patterns.
 
@@ -163,15 +225,17 @@ This does not require email re-reads in the default pass; it's a read-only vault
 
 The experiment runs on a branch. Before merging, validate against these questions:
 
-| Metric | How to measure | Target |
-|---|---|---|
-| **Onboarding token cost** | Token logs at onboarding completion | <10K tokens (identity only); current: 100K–500K |
-| **Time to first real answer** | Session start → first substantive response | Under 5 minutes including IMAP sync |
-| **Wiki page count growth curve** | `pageCount` in `your-wiki.json` over time | 10–30 pages per 50 chat turns; no cold-start spike |
-| **Wiki hit rate** | `find`/`grep`/`read` calls in chat: did the turn read wiki before mail? | >40% of entity questions answered wiki-first after 30 days |
-| **Token cost per chat question** | `usageLastInvocation` per turn; wiki-first vs mail-first | Wiki-first turns cost <50% of mail-first equivalents |
-| **Answer quality on repeat topics** | Same question asked 2 weeks apart | No factual regressions; ideally richer second answer |
-| **Supervisor idle rate** | Laps between no-op states | Supervisor reaches idle faster with less open-ended discovery |
+
+| Metric                              | How to measure                                                          | Target                                                        |
+| ----------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------- |
+| **Onboarding token cost**           | Token logs at onboarding completion                                     | <10K tokens (identity only); current: 100K–500K               |
+| **Time to first real answer**       | Session start → first substantive response                              | Under 5 minutes including IMAP sync                           |
+| **Wiki page count growth curve**    | `pageCount` in `your-wiki.json` over time                               | 10–30 pages per 50 chat turns; no cold-start spike            |
+| **Wiki hit rate**                   | `find`/`grep`/`read` calls in chat: did the turn read wiki before mail? | >40% of entity questions answered wiki-first after 30 days    |
+| **Token cost per chat question**    | `usageLastInvocation` per turn; wiki-first vs mail-first                | Wiki-first turns cost <50% of mail-first equivalents          |
+| **Answer quality on repeat topics** | Same question asked 2 weeks apart                                       | No factual regressions; ideally richer second answer          |
+| **Supervisor idle rate**            | Laps between no-op states                                               | Supervisor reaches idle faster with less open-ended discovery |
+
 
 The key comparison is not just cost but **value unlocked per token spent**. A wiki page created because the user asked a real question is more valuable than a page created speculatively by the supervisor.
 
@@ -189,39 +253,30 @@ These don't need to change. The experiment is about **what drives page creation*
 
 ---
 
-## Implementation plan (branch `exp/chat-first-wiki`)
+## Implementation plan
 
-### Step 1 — Simplify onboarding
+### Milestone A — WikiBuilder / enrich rescope (not arbitrary whole-wiki buildout)
 
-- Reduce the onboarding agent's scope to identity confirmation + `me.md` + `assistant.md` only.
-- Remove the "important people" phase from `src/server/prompts/onboarding-agent/system.hbs`.
-- Remove or defer the calendar and inbox rules phases.
-- Lower the corpus gate threshold from ~200 messages to ~10–50 (enough for a name/bio guess).
-- Do not trigger a wiki buildout after `finish_conversation`. The supervisor starts in background at normal priority.
+- **Eligibility:** Prefer work items from **recent `wiki-edits.jsonl` paths**, **`## Chat capture`**, “new since last lap,” or **thin-page** heuristics—**not** greenfield discovery across all mail for every lap.
+- **Behavior:** Same stack as today’s enrich (`wikiBuildoutAgent` / `wikiExpansionRunner`): mail search + read + **`write`/`edit`**, template-aware expansion, refresh stale claims where mail contradicts.
+- **Telemetry / caps:** Reuse `BackgroundRunDoc`; explicit budgets per lap (max pages touched, max searches).
+- **Concurrency:** Same-path editing policy if chat and enrich overlap (document single-flight or merge).
 
-### Step 2 — Strengthen the chat agent's wiki-writing rule
+### Milestone B — Tool logging + enrich consumption
 
-Edit `src/server/prompts/assistant/base.hbs`:
+- **Already shipped:** wiki tools append to **`wiki-edits.jsonl`** on each mutation.
+- **Next:** inject tail of **`wiki-edits.jsonl`** (or path list) into WikiBuilder / enrich prompts; optional schema fields (`agentKind`, `runId`) for chat vs enrich vs lint; migrate **`GET /api/wiki/log`** UI to the structured log when ready.
+- **Do not** automate or prompt LLM edits to markdown **`_log.md`**.
 
-- Replace the loose "write when you learn something durable" guidance with explicit mechanics: after any turn that required multiple email reads about a named entity, write or update a wiki page with the synthesis.
-- Add: before querying email about a named entity, check for an existing wiki page and use it as the starting point.
-- Add: append a one-line entry to `log.md` when creating a new page.
+### Milestone C — Onboarding + product experiment (still valid)
 
-### Step 3 — Add `log.md` to the starter scaffold
+- Simplified onboarding when batch buildout is demoted; lower corpus gate experiments, etc. (see § Onboarding simplification).
 
-- Add `wiki/log.md` to `assets/starter-wiki/` with a brief header comment.
-- Add a short append-to-log instruction to the chat system prompt.
-- Extend the cleanup agent's orphan pass to verify `log.md` exists.
+### Milestone D — Evaluate
 
-### Step 4 — Instrumentation
+- Compare **before/after** enrich rescope: quality of `people/*` after WikiBuilder pass vs chat-only narrow page; cost per lap; fewer orphan speculative pages.
 
-- Add a `wikiHitRate` counter to chat turn telemetry: did the turn call `find`/`grep`/`read` before `search_index`?
-- Track `pagesCreatedByChat` vs `pagesCreatedBySupervisor` in the `your-wiki.json` doc.
-- Export `log.md` line count as a cheap proxy for wiki activity over time.
-
-### Step 5 — Evaluate and decide
-
-Run the branch for 2–4 weeks of real usage. Compare against the `main` buildout model on onboarding cost, wiki growth rate, and repeat-question quality. If the organic model performs comparably or better at lower cost, merge to main. If the wiki stays too sparse, diagnose: is the chat agent's writing rate too low (prompt issue) or is the question distribution too one-off (product issue)?
+**Deprecated (superseded by Milestone A above):** Milestones “async wiki author job / handoff from main assistant” as the **primary** strategy—main assistant no longer drives that; **WikiBuilder** owns depth from logged signals.
 
 ---
 
@@ -229,10 +284,12 @@ Run the branch for 2–4 weeks of real usage. Compare against the `main` buildou
 
 This experiment directly addresses the cold-start economics problem:
 
-| Model | Onboarding LLM cost | Time to first value | Wiki useful by |
-|---|---|---|---|
-| **Current (batch buildout)** | 100K–500K tokens | After buildout completes (20–60 min) | Onboarding complete |
-| **Chat-first (this experiment)** | ~5K tokens (identity only) | Immediately (ripmail + chat from question 1) | ~20–30 chat turns |
+
+| Model                            | Onboarding LLM cost        | Time to first value                          | Wiki useful by      |
+| -------------------------------- | -------------------------- | -------------------------------------------- | ------------------- |
+| **Current (batch buildout)**     | 100K–500K tokens           | After buildout completes (20–60 min)         | Onboarding complete |
+| **Chat-first (this experiment)** | ~5K tokens (identity only) | Immediately (ripmail + chat from question 1) | ~20–30 chat turns   |
+
 
 In the chat-first model, a new user gets a useful answer on question 1 (ripmail + chat), and the wiki starts feeling useful around question 10–20 (entities they've asked about before). They never wait for a buildout. The wiki is an enhancement they notice compounding naturally rather than a progress bar they wait for.
 
@@ -251,23 +308,26 @@ At gpt-5.4-mini pricing, the identity-only onboarding costs cents. The open ques
 
 ## Open questions
 
-1. **Corpus gate size:** What is the minimum message count to write a confident first `me.md`? Current gate is ~200; this model could drop to 10–50. Test with the onboarding eval harness.
-2. **Minimum wiki for felt value:** How many pages need to exist before the user consciously notices the wiki helping? 10? 30? 50? This sets the threshold for "organic growth is working."
-3. **Chat question distribution:** Do users ask about the same person/topic enough times for meaningful coverage to build up? Or are questions one-off? Log.md + hit-rate telemetry answers this.
-4. **Prompt tightness:** How explicit does the chat agent directive need to be for gpt-5.4-mini to reliably write wiki pages after email lookups? Test with the Enron eval harness.
-5. **When to re-enable open-ended supervisor laps:** A reasonable policy: supervisor runs open-ended laps only after the user has had 30+ chat turns, at which point organic coverage exists to anchor on.
-6. **log.md cost at scale:** A log entry per page creation adds ~50 tokens. Not significant in isolation; worth confirming it doesn't compound over thousands of entries.
+1. **WikiBuilder queue:** Exact eligibility (log-only vs thin-page detector vs both); max pages per lap.
+2. **Notification UX:** How does the user know an enrich pass finished?
+3. **Corpus gate size:** Minimum message count for confident first `me.md` if onboarding slim-down ships.
+4. **Minimum wiki for felt value:** How many pages before the user notices compounding?
+5. **Chat question distribution:** Enough repetition for amortized synthesis?
+6. **Model tier for enrich:** Same model as chat vs cheaper/smaller for merge-only vs stronger for hub synthesis.
+7. **When to allow broader discovery:** Only after N chat turns / N logged paths?
+8. **`wiki-edits.jsonl` at scale:** rotation, cap, or compaction policy for very large vaults.
 
 ---
 
 ## Success criteria
 
-- **Onboarding LLM cost** drops by >90% vs current buildout model (measurable from token logs on the branch).
-- **Time to first useful chat answer** is unchanged or better — ripmail available from question 1.
-- **Corpus gate** successfully lowered without producing wrong `me.md` (test with eval fixtures).
-- After 30 chat turns, >40% of entity questions are answered wiki-first without new email queries.
-- `log.md` exists and is readable in all test vaults; no broken entries from the chat agent.
-- Branch experiment reviewed, numbers shared, and a go/no-go decision made before any merge to main.
+- **WikiBuilder rescope:** Enrich laps prefer **logged / thin / chat-originated** pages; speculative whole-inbox page creation is **not** the default loop.
+- **Quality:** After enrich, benchmark `people/*` / `projects/*` read as **hubs** (optional [OPP-065](./OPP-065-wiki-eval-llm-as-judge.md) judge); chat-only narrow pages acceptable as **input** to enrich.
+- **Trust:** User-visible or opt-in policy for background wiki writes.
+- **Onboarding LLM cost** (when onboarding slim-down ships) drops vs full batch buildout model.
+- **Time to first useful chat answer** unchanged or better.
+- After sustained use, >40% of entity questions are answered wiki-first where a page exists.
+- **`wiki-edits.jsonl`** reliably records agent wiki mutations; enrich loop can consume it (tail or injected excerpt).
 
 ---
 
@@ -279,3 +339,5 @@ At gpt-5.4-mini pricing, the identity-only onboarding costs cents. The open ques
 - [the-wiki-question.md](../the-wiki-question.md) — The open product question this experiment is designed to answer empirically.
 - [karpathy-llm-wiki-post.md](../karpathy-llm-wiki-post.md) — Original framing; "file good answers back into the wiki" is the core operation here.
 - [OPP-065](./OPP-065-wiki-eval-llm-as-judge.md) — LLM-as-judge wiki eval; useful for measuring answer quality pre/post experiment.
+- [OPP-035](./OPP-035-intent-based-skill-auto-loading.md) — `load_skill`; optional `**wiki-add` / `wiki-tidy`** split for tuned authoring vs maintenance playbooks.
+

@@ -15,6 +15,7 @@ import {
   clearBrainSessionCookie,
   setBrainSessionCookie,
 } from '@server/lib/vault/vaultCookie.js'
+import { getInboundOrAckedBrainSessionId } from '@server/lib/vault/vaultSessionSameRequestAck.js'
 import { isMultiTenantMode, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import {
@@ -76,7 +77,7 @@ async function vaultStatusHandler(c: Context) {
   }
 
   const exists = vaultVerifierExistsSync()
-  const sid = getCookie(c, BRAIN_SESSION_COOKIE)
+  const sid = getInboundOrAckedBrainSessionId(c)
   const unlocked = exists && (await validateVaultSession(sid))
   const ctx = tryGetTenantContext()
   const workspaceHandle =

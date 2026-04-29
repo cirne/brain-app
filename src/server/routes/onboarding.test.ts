@@ -13,19 +13,10 @@ const tunnelMocks = vi.hoisted(() => ({
   getActiveTunnelUrl: vi.fn((): string | null => null),
 }))
 
-const yourWikiSupervisorMocks = vi.hoisted(() => ({
-  /** Accept-profile fires this in the background; real supervisor races with `afterEach` `rm(BRAIN_HOME)`. */
-  ensureYourWikiRunning: vi.fn().mockResolvedValue(undefined),
-}))
-
 vi.mock('@server/lib/platform/tunnelManager.js', () => ({
   startTunnel: tunnelMocks.startTunnel,
   stopTunnel: tunnelMocks.stopTunnel,
   getActiveTunnelUrl: tunnelMocks.getActiveTunnelUrl,
-}))
-
-vi.mock('../agent/yourWikiSupervisor.js', () => ({
-  ensureYourWikiRunning: yourWikiSupervisorMocks.ensureYourWikiRunning,
 }))
 
 const interviewFinalizeMocks = vi.hoisted(() => ({
@@ -185,9 +176,8 @@ describe('onboarding routes', () => {
     expect(res.status).toBe(400)
   })
 
-  it('POST /finalize runs finalize, marks done, calls supervisor hooks', async () => {
+  it('POST /finalize runs finalize and marks done', async () => {
     interviewFinalizeMocks.runInterviewFinalize.mockClear()
-    yourWikiSupervisorMocks.ensureYourWikiRunning.mockClear()
     const { setOnboardingState, readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
     const sessionId = '550e8400-e29b-41d4-a716-446655440001'
     await setOnboardingState('indexing')
@@ -209,7 +199,6 @@ describe('onboarding routes', () => {
       sessionId,
       timezone: 'America/Chicago',
     })
-    expect(yourWikiSupervisorMocks.ensureYourWikiRunning).toHaveBeenCalled()
   })
 
   it('POST /setup-mail returns 500 with error when ripmail exits non-zero', async () => {

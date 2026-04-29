@@ -14,6 +14,7 @@ import { loadSession } from '@server/lib/chat/chatStorage.js'
 import { persistedChatMessagesToAgentMessages } from '@server/lib/chat/persistedChatToAgentMessages.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
+import { resolveEvalAnchoredNow } from '@server/lib/llm/evalAssistantClock.js'
 
 const sessions = new Map<string, Agent>()
 
@@ -111,7 +112,7 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
 
   // Build system prompt with local date/time in the user's timezone
   const tz = options.timezone ?? 'UTC'
-  const now = new Date()
+  const now = resolveEvalAnchoredNow() ?? new Date()
   const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now)  // YYYY-MM-DD
   const localTime = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(now)
   const localWeekday = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long' }).format(now)

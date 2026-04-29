@@ -71,7 +71,7 @@ describe('buildWikiBuildoutSystemPrompt', () => {
     expect(p).toMatch(/vault manifest/i)
     expect(p).not.toMatch(/starter layout/i)
     expect(p).not.toMatch(/Optional interview focus/i)
-    expect(p).toMatch(/match \*\*existing\*\* pages in that folder/i)
+    expect(p).toMatch(/treat that as the map/i)
   })
 
   it('exposes returning scope copy via buildWikiBuildoutReturningScopeNote', () => {

@@ -58,6 +58,7 @@ Mail-centric agent tasks (search/read) run against the **large** `kean-s` index.
 | `EVAL_MAX_CONCURRENCY` | Max parallel `agent.prompt()` cases (default `12`) |
 | `EVAL_CASE_ID` | Run a **single** task: set to its JSONL `id` (same as CLI `--id`). The combined `jsonl` runner exits 1 if the id is not in **either** the Enron or wiki task file. |
 | `EVAL_TASKS` | Override path to a JSONL task file (default `eval/tasks/enron-v1.jsonl`) |
+| `EVAL_ASSISTANT_NOW` | Optional **`YYYY-MM-DD`** (or ISO8601) used as the assistant’s clock for session date/time in the system prompt—so “today” / relative mail windows match historical eval corpora (Enron mail is ~1999–2002). The **Enron v1** runner sets default **`2002-01-01`** when unset; override for experiments. |
 | `EVAL_AGENT_TRACE` | Set to `1` for `[eval:agent]` JSON lines per case: `turn_start` / `turn_end` = **LLM** time (streaming, reasoning, provider latency); `tool_start` / `tool_end` = tool execution (often ripmail). Gaps in `[ripmail]` logs are usually the model working, or another eval case interleaving stdout (high concurrency). |
 | `BRAIN_RIPMAIL_SUBPROCESS_LOG` | Set to `errors` (or `0` / `off`) to **omit** successful ripmail logs (command line + metadata JSON); still logs failures, timeouts, and `send`. |
 

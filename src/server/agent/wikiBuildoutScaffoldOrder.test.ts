@@ -42,7 +42,6 @@ describe('ensureWikiVaultScaffoldForBuildout', () => {
     expect(raw).toContain('[[me]]')
     if (existsSync(join(repoRoot, 'assets', 'starter-wiki'))) {
       expect(existsSync(join(wikiRoot, 'people/template.md'))).toBe(true)
-      expect(existsSync(join(wikiRoot, 'travel/index.md'))).toBe(true)
     }
   })
 })

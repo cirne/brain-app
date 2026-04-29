@@ -16,11 +16,11 @@ export { ensureWikiVaultScaffoldForBuildout }
 export function buildWikiBuildoutFirstRunScopeNote(): string {
   return [
     'The vault follows the **starter layout** (already on disk after seeding):',
-    '- **Root:** `index.md` (nav hub), `me.md` (short profile / assistant context), `assistant.md` if present.',
-    '- **Typed folders** — each includes **`template.md`**: `people/`, `projects/`, `topics/`, `notes/`, `travel/`. Read that folder’s `template.md` before **`write`** so section titles and structure match the rest of the vault.',
-    '- **Folder `index.md`** — several areas ship a lightweight landing (e.g. `people/index.md`, `projects/index.md`, …). Keep those and vault-root `index.md` in sync with **`[[wikilinks]]`** when you add pages.',
-    '- **Scope:** Put people in **`people/`**, initiatives in **`projects/`**, durable themes in **`topics/`**, scratch and dated material in **`notes/`**, trips in **`travel/`**. Prefer **`edit`** on an existing file over a second file for the same entity; new filenames use **kebab-case** like the templates.',
-    '- **New top-level areas** (e.g. `companies/`, `ideas/`) only when you repeatedly need a new class of page—then add a `template.md` + landing pattern consistent with the starter folders.',
+    '- **Root:** `index.md` (nav hub), `me.md` (short profile / assistant context), `assistant.md` if present. Wiki tool mutations append to structured **`wiki-edits.jsonl`** under **`$BRAIN_HOME/var/`** (server-side — not a markdown file you edit).',
+    '- **Typed folders** — each includes a **`template.md`** describing the intended shape of pages in that folder. Read it before writing a new page; use it as a starting scaffold, not a rigid format.',
+    '- **Folder landing pages** — several areas ship a lightweight `index.md`. Keep those and vault-root `index.md` in sync with **`[[wikilinks]]`** when you add pages.',
+    '- **Scope:** People go in `people/`, initiatives in `projects/`, durable themes in `topics/`, scratch and dated material in `notes/`, trips in `travel/`. Prefer **`edit`** on an existing file over a second file for the same entity; new filenames use **kebab-case**.',
+    '- **New top-level areas** only when you repeatedly need a new class of page — then add a `template.md` + landing page consistent with the starter folders.',
   ].join('\n')
 }
 

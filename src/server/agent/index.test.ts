@@ -34,6 +34,16 @@ describe('buildBaseSystemPrompt', () => {
     expect(s).not.toContain('list_recent_messages')
   })
 
+  it('steers chat wiki toward narrow capture and Chat capture provenance (OPP-066)', async () => {
+    const { buildBaseSystemPrompt } = await import('./assistantAgent.js')
+    const s = buildBaseSystemPrompt(false, wiki)
+    expect(s).toContain('chat = narrow capture')
+    expect(s).toMatch(/narrow and question-scoped/i)
+    expect(s).toContain('## Chat capture')
+    expect(s).toMatch(/WikiBuilder/i)
+    expect(s).toContain('wiki-edits.jsonl')
+  })
+
   it('mentions suggest_reply_options and bans bracket placeholder text', async () => {
     const { buildBaseSystemPrompt } = await import('./assistantAgent.js')
     const s = buildBaseSystemPrompt(false, wiki)

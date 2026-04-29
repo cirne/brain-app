@@ -6,11 +6,13 @@ function normalizeWikiPath(p: string): string {
   return p.replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\/+/, '')
 }
 
+const EXCLUDE_FROM_SEED_COUNT = new Set(['me.md'])
+
 export function countSeedEligibleWikiPages(paths: readonly string[]): number {
   let n = 0
   for (const p of paths) {
     const norm = normalizeWikiPath(p)
-    if (norm === 'me.md') continue
+    if (EXCLUDE_FROM_SEED_COUNT.has(norm)) continue
     n++
   }
   return n
