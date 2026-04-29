@@ -20,6 +20,9 @@ const sessions = new Map<string, Agent>()
 const USER_PROFILE_BEGIN = '<<<BEGIN_USER_PROFILE_FROM_ME_MD>>>'
 const USER_PROFILE_END = '<<<END_USER_PROFILE_FROM_ME_MD>>>'
 
+const ASSISTANT_PROFILE_BEGIN = '<<<BEGIN_ASSISTANT_PROFILE_FROM_ASSISTANT_MD>>>'
+const ASSISTANT_PROFILE_END = '<<<END_ASSISTANT_PROFILE_FROM_ASSISTANT_MD>>>'
+
 /**
  * Non-empty when wiki/me.md exists — full file body is injected into the main agent system prompt.
  * Exported for tests.
@@ -36,10 +39,28 @@ export function meProfilePromptSection(wikiRoot: string): string {
   return `\n## User profile (me.md)\nThe block below is the user's profile from **me.md** at the wiki root. It is core context for this session—use it to tailor tone, context, and priorities. Do not assume facts that are not in the wiki, tools, or this profile. **Do not** call the read tool for \`me.md\` unless the user explicitly asks you to reload it.\n\n${USER_PROFILE_BEGIN}\n${body}${body.endsWith('\n') ? '' : '\n'}${USER_PROFILE_END}\n`
 }
 
+/**
+ * Non-empty when wiki/assistant.md exists — charter, voice, boundaries (same vault as me.md).
+ * Exported for tests.
+ */
+export function assistantProfilePromptSection(wikiRoot: string): string {
+  const path = join(wikiRoot, 'assistant.md')
+  if (!existsSync(path)) return ''
+  let body: string
+  try {
+    body = readFileSync(path, 'utf-8')
+  } catch {
+    return ''
+  }
+  return `\n## Assistant identity & charter (assistant.md)\nThe block below defines **your** role, priorities, tone, and boundaries from **assistant.md** at the wiki root. Follow it unless the user overrides in chat. **Do not** call the read tool for \`assistant.md\` unless the user explicitly asks you to reload it.\n\n${ASSISTANT_PROFILE_BEGIN}\n${body}${body.endsWith('\n') ? '' : '\n'}${ASSISTANT_PROFILE_END}\n`
+}
+
 export function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, wikiRoot: string): string {
   const meHint = meProfilePromptSection(wikiRoot)
+  const assistantHint = assistantProfilePromptSection(wikiRoot)
   return renderPromptTemplate('assistant/base.hbs', {
     meHint: new Handlebars.SafeString(meHint),
+    assistantHint: new Handlebars.SafeString(assistantHint),
     includeLocalMessageCapabilities,
     multiTenant: isMultiTenantMode(),
   })

@@ -48,7 +48,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 | **Security architecture and risk register**            | [SECURITY.md](./SECURITY.md)                                                   |
 | Agent sessions, chat JSON files, SSE events, tool list | [architecture/agent-chat.md](architecture/agent-chat.md)                       |
 | Pi stack reference (`pi-agent-core` / `pi-ai` options, metering) | [architecture/pi-agent-stack.md](architecture/pi-agent-stack.md) · [OPP-043](opportunities/OPP-043-llm-usage-token-metering.md) |
-| `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS | [architecture/data-and-sync.md](architecture/data-and-sync.md)                 |
+| `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS, starter wiki seed | [architecture/data-and-sync.md](architecture/data-and-sync.md)                 |
 | Eval home, Enron fixture mail, index rebuild | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md) |
 | Hosted Enron **demo** tenant (Bearer mint, Docker/staging QA) | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md) |
 | Ripmail, unified search, files API, optional iMessage  | [architecture/integrations.md](architecture/integrations.md)                   |

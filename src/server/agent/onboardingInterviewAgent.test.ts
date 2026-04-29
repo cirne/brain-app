@@ -7,7 +7,7 @@ import {
 describe('buildOnboardingInterviewSystemPrompt', () => {
   it('requires vault-root assistant.md, mail recon before naming, and explicit calendar listing', () => {
     const s = buildOnboardingInterviewSystemPrompt('UTC', '{}')
-    expect(s).toContain('vault root path **`assistant.md`**')
+    expect(s).toContain('**`assistant.md`** at the vault root')
     expect(s).toContain('## Mail recon (before naming)')
     expect(s).toContain('**`search_index`**')
     expect(s).toContain('**`from`**')

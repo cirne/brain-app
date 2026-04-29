@@ -23,6 +23,8 @@ Onboarding staging and `onboarding.json` live under **`chats/onboarding/`** (ins
 
 The agent’s file tools are **scoped to the wiki directory** only (relative paths). Wiki content is **plain files**; users may keep a `.git` folder manually, but **brain-app does not run git commit/push** or remote sync. [`syncWikiFromDisk()`](../../src/server/lib/syncAll.ts) is intentionally a **no-op** (success) so periodic sync and `POST /api/wiki/sync` stay uniform across components.
 
+**Starter vault (OPP-060):** Default markdown trees ship from repo [`assets/starter-wiki/`](../../assets/starter-wiki/) (copied to `dist/server/assets/starter-wiki/` at build). On first vault setup, new hosted workspaces, and wiki scaffold paths, the server **copies missing files only** — it does **not** overwrite existing pages (no migration for old vaults).
+
 Product framing: [product/personal-wiki.md](../product/personal-wiki.md).
 
 ## Calendar

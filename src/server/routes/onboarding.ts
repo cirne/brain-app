@@ -438,8 +438,8 @@ onboarding.post('/interview', async (c) => {
 })
 
 /**
- * After the interview stream ends: author `me.md`, write default wiki categories, scaffold vault,
- * wake Your Wiki, mark first-chat pending, transition to **done**.
+ * After the interview stream ends: silent finalize (polish `me.md`, e.g. confidence + gaps), categories JSON,
+ * scaffold vault, wake Your Wiki, mark first-chat pending, transition to **done**.
  */
 onboarding.post('/finalize', async (c) => {
   const doc = await readOnboardingStateDoc()

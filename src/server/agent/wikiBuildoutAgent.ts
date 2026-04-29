@@ -4,13 +4,10 @@ import { wikiDir as getWikiDir } from '@server/lib/wiki/wikiDir.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { buildDateContext, createOnboardingAgent, resolveOnboardingSessionTimezone } from './agentFactory.js'
-import {
-  fetchRipmailWhoamiForProfiling,
-  parseWhoamiProfileSubject,
-  type UserPeoplePageRef,
-} from './profilingAgent.js'
-import { ensureUserPeoplePageSkeleton } from '@server/lib/wiki/userPeoplePage.js'
-import { ensureWikiIndexMdStub } from '@server/lib/wiki/wikiIndexStub.js'
+import type { UserPeoplePageRef } from './profilingAgent.js'
+import { ensureWikiVaultScaffoldForBuildout } from '@server/lib/wiki/wikiVaultScaffold.js'
+
+export { ensureWikiVaultScaffoldForBuildout }
 
 export function buildWikiBuildoutSystemPrompt(
   timezone: string,
@@ -53,31 +50,6 @@ export function buildWikiBuildoutSystemPrompt(
 }
 
 const buildoutSessions = new Map<string, Agent>()
-
-/**
- * Ensures account-holder `people/…` skeleton (when whoami resolves) and vault-root `index.md`
- * stub. Call at the start of every enrich and cleanup lap (and when creating a new buildout agent)
- * so `index.md` exists before any `edit` (or cleanup `read`) touches it.
- * Does not overwrite an existing `index.md`. Returns the account-holder people page when present.
- */
-export async function ensureWikiVaultScaffoldForBuildout(
-  wikiRoot: string,
-): Promise<UserPeoplePageRef | null> {
-  let userPeoplePage: UserPeoplePageRef | null = null
-  const whoami = await fetchRipmailWhoamiForProfiling()
-  const subject = parseWhoamiProfileSubject(whoami)
-  if (subject) {
-    try {
-      userPeoplePage = await ensureUserPeoplePageSkeleton(wikiRoot, subject)
-    } catch (e) {
-      console.error('[wiki] ensureUserPeoplePageSkeleton failed (continuing to index.md stub):', e)
-    }
-  }
-  const peopleWikilink =
-    userPeoplePage?.relativePath.replace(/\.md$/i, '') ?? undefined
-  await ensureWikiIndexMdStub(wikiRoot, { accountHolderPeopleWikilink: peopleWikilink })
-  return userPeoplePage
-}
 
 export async function getOrCreateWikiBuildoutAgent(
   sessionId: string,

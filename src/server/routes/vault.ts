@@ -23,6 +23,8 @@ import {
 } from '@server/lib/tenant/tenantRegistry.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { executeVaultLogout } from '@server/lib/vault/vaultLogoutCore.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { ensureWikiVaultScaffold } from '@server/lib/wiki/wikiVaultScaffold.js'
 const vault = new Hono()
 
 type StatusBody = {
@@ -123,6 +125,11 @@ vault.post('/setup', async (c) => {
     await writeVaultVerifier(record)
     const sessionId = await createVaultSession()
     setBrainSessionCookie(c, sessionId)
+    try {
+      await ensureWikiVaultScaffold(wikiDir())
+    } catch (e) {
+      console.error('[vault/setup] ensureWikiVaultScaffold:', e)
+    }
     const wh = tryGetTenantContext()?.workspaceHandle
     return c.json({
       ok: true,

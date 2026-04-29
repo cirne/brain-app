@@ -37,6 +37,17 @@ describe('buildBaseSystemPrompt', () => {
     expect(s).toContain('Quick replies')
     expect(s).toContain('suggest_reply_options')
   })
+
+  it('injects assistant.md when the file exists', async () => {
+    await writeFile(join(wiki, 'assistant.md'), '# Assistant\n\nBe brief.', 'utf-8')
+    const { buildBaseSystemPrompt } = await import('./assistantAgent.js')
+    const s = buildBaseSystemPrompt(false, wiki)
+    expect(s).toContain('Assistant identity & charter (assistant.md)')
+    expect(s).toContain('<<<BEGIN_ASSISTANT_PROFILE_FROM_ASSISTANT_MD>>>')
+    expect(s).toContain('<<<END_ASSISTANT_PROFILE_FROM_ASSISTANT_MD>>>')
+    expect(s).toContain('# Assistant')
+    expect(s).toContain('Be brief.')
+  })
 })
 
 describe('meProfilePromptSection', () => {
@@ -55,5 +66,23 @@ describe('meProfilePromptSection', () => {
     expect(s).toContain('<<<END_USER_PROFILE_FROM_ME_MD>>>')
     expect(s).toContain('# Me')
     expect(s).toContain('Lew')
+  })
+})
+
+describe('assistantProfilePromptSection', () => {
+  it('is empty when assistant.md is missing', async () => {
+    const { assistantProfilePromptSection } = await import('./index.js')
+    expect(assistantProfilePromptSection(wiki)).toBe('')
+  })
+
+  it('injects assistant.md body and markers when file exists', async () => {
+    await writeFile(join(wiki, 'assistant.md'), '# Asst\n\nVoice: calm.', 'utf-8')
+    const { assistantProfilePromptSection } = await import('./index.js')
+    const s = assistantProfilePromptSection(wiki)
+    expect(s).toContain('Assistant identity & charter (assistant.md)')
+    expect(s).toContain('<<<BEGIN_ASSISTANT_PROFILE_FROM_ASSISTANT_MD>>>')
+    expect(s).toContain('<<<END_ASSISTANT_PROFILE_FROM_ASSISTANT_MD>>>')
+    expect(s).toContain('# Asst')
+    expect(s).toContain('Voice: calm.')
   })
 })

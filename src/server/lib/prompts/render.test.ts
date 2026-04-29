@@ -5,6 +5,7 @@ describe('renderPromptTemplate', () => {
   it('renders assistant base with multiTenant and local messages flags', () => {
     const s = renderPromptTemplate('assistant/base.hbs', {
       meHint: '',
+      assistantHint: '',
       includeLocalMessageCapabilities: true,
       multiTenant: true,
     })
@@ -15,6 +16,7 @@ describe('renderPromptTemplate', () => {
   it('omits local messages bullet when includeLocalMessageCapabilities is false', () => {
     const s = renderPromptTemplate('assistant/base.hbs', {
       meHint: '',
+      assistantHint: '',
       includeLocalMessageCapabilities: false,
       multiTenant: false,
     })

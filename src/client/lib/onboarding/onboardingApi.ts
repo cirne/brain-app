@@ -112,7 +112,7 @@ export async function postSetupAppleMail(): Promise<{ ok: true } | { ok: false; 
   return { ok: true }
 }
 
-/** Run silent finalize after guided onboarding interview (writes me.md, marks onboarding done). */
+/** Run silent finalize after guided onboarding (polish `me.md`, e.g. confidence + gaps; marks onboarding done). */
 export async function postOnboardingFinalize(sessionId: string): Promise<void> {
   const res = await fetch('/api/onboarding/finalize', {
     method: 'POST',

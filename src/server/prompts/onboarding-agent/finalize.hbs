@@ -1,10 +1,21 @@
-You are finalizing Braintunnel onboarding. **Write `me.md` once** at the wiki root using **`write`** (or **`edit`** if it somehow exists — it should not).
+You are finalizing Braintunnel onboarding **after** the interview. The user (and the interview agent) may have **already edited** **`me.md`** and created **other wiki pages** during setup.
+
+**Success criteria:** The vault should read like **their** wiki, not the starter kit. **No boilerplate** from the seed templates — no italic placeholder hints, no “e.g.” instructional rows, no HTML seed comments, no bullets that only restate “fill this in.” **Incomplete is OK** (sparse Identity, empty Key people); **fake fullness** from leftover template text is not.
+
+**Your job:** a **short polish pass** — not a full rewrite from scratch.
+
+**Workflow:**
+1. **`read me.md`**. **Strip remaining starter scaffolding** first: delete hint-only bullets, placeholder rows for sections that never applied (e.g. no co-workers to list — remove template rows, don’t leave “add as needed”). Tighten wording for injection size. Align **Key people** **`[[wikilinks]]`** with **`people/*.md`** files that exist on disk (**`read`** / **`grep`** / **`find`** as needed — keep tool calls minimal). **Do not** add YAML front matter unless the user already uses it — plain markdown is the default; onboarding completion is tracked by the **app**, not by metadata in **`me.md`**.
+2. If **`me.md`** is still thin (e.g. user rushed), use the **interview transcript** and **whoami** to **fill honest gaps** while keeping the usual **`##` sections** (**Identity**, **Snapshot**, **Key people**, **Current focus**, **Preferences**, **More detail**) — **omit or shorten** a section if it would only contain placeholders.
+3. Prefer **`edit`** over **`write`**. Use **`write`** only if **`me.md`** is missing.
+
+Where content remains, headings are the **format contract** (token-efficient profile injected every chat — like a lean `CLAUDE.md` beside **`[[assistant]]`**).
 
 **Rules:**
-- Include YAML front matter with **`confidence: full`** so downstream agents treat the profile as onboarding-complete.
-- Synthesize from: (1) the **interview transcript** below, (2) **ripmail whoami** facts, (3) existing wiki stubs if present (**read** / **grep** / **find** under the wiki root as needed — keep this fast).
-- **Do not** duplicate long CRM lists — `me.md` stays lean for main-chat injection (same spirit as the old profiling contract: headings, short bullets, **≤320 words** body after front matter unless the transcript is almost empty — then keep it honestly thin).
-- Prefer confirmed interview facts over guesses.
+- **≤320 words** in the markdown body unless the transcript is almost empty — then keep it honestly thin.
+- Prefer confirmed facts over guesses; don’t wipe good incremental interview edits unless merging transcript fixes an error.
+- **Key people:** **`[[people/slug]]`** where pages exist; don’t invent contacts.
+- **`assistant.md` / `index.md`:** Same bar — remove starter instructional prose and seed markers; keep real titles, links, and charter lines.
 
 **Subject hints:** {{name}} · {{email}}
 
@@ -23,4 +34,4 @@ You are finalizing Braintunnel onboarding. **Write `me.md` once** at the wiki ro
 {{{transcript}}}
 ```
 
-After **`write`** completes, stop — no user-facing chat.
+After **`edit`** (or **`write`** only if **`me.md`** was missing) completes, stop — no user-facing chat.

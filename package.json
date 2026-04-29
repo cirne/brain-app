@@ -13,7 +13,7 @@
     "oauth:print-redirect-uri": "node scripts/print-google-oauth-redirect-uri.mjs",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
-    "build:server": "node scripts/build-server-bundle.mjs && node scripts/copy-user-skills.mjs",
+    "build:server": "node scripts/build-server-bundle.mjs && node scripts/copy-user-skills.mjs && node scripts/copy-starter-wiki.mjs",
     "start": "node dist/server/index.js",
     "sync": "node dist/server/sync-cli.js",
     "start:local": "NODE_ENV=production PORT=4000 node dist/server/index.js",

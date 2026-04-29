@@ -31,6 +31,8 @@ import {
   tryGetTenantContext,
 } from '@server/lib/tenant/tenantContext.js'
 import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { ensureWikiVaultScaffold } from '@server/lib/wiki/wikiVaultScaffold.js'
 import { BRAIN_SESSION_COOKIE } from '@server/lib/vault/vaultCookie.js'
 import { getCookie } from 'hono/cookie'
 import {
@@ -310,9 +312,16 @@ app.get('/callback', async (c) => {
   }
 
   if (isMultiTenantMode()) {
-    const { tenantUserId, workspaceHandle } = await resolveOrProvisionWorkspace(sub, email)
+    const { tenantUserId, workspaceHandle, isNew } = await resolveOrProvisionWorkspace(sub, email)
     const homeDir = tenantHomeDir(tenantUserId)
     return runWithTenantContextAsync({ tenantUserId, workspaceHandle, homeDir }, async () => {
+      if (isNew) {
+        try {
+          await ensureWikiVaultScaffold(wikiDir())
+        } catch (e) {
+          console.error('[oauth/google/callback] ensureWikiVaultScaffold:', e)
+        }
+      }
       const mailboxId = deriveMailboxId(email)
       const ripmailHome = ripmailHomeForBrain()
       try {

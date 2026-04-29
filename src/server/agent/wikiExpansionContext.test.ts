@@ -1,5 +1,5 @@
 /**
- * Tests for BUG-011 fix: me.md content and vault manifest are injected
+ * Tests for BUG-011 fix: me.md, assistant.md, and vault manifest are injected
  * into the expansion context prefix.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
@@ -30,6 +30,23 @@ describe('buildExpansionContextPrefix', () => {
     expect(prefix).toContain('Lewis Cirne')
     expect(prefix).toContain('Bio line.')
     expect(prefix).toContain('me.md')
+  })
+
+  it('injects assistant.md when the file exists', async () => {
+    await writeFile(join(wikiRoot, 'assistant.md'), '# Charter\n\nStay concise.', 'utf-8')
+    const prefix = await buildExpansionContextPrefix(wikiRoot)
+    expect(prefix).toContain('assistant.md')
+    expect(prefix).toContain('Charter')
+    expect(prefix).toContain('Stay concise.')
+  })
+
+  it('includes both me.md and assistant.md when both exist', async () => {
+    await writeFile(join(wikiRoot, 'me.md'), '# Me\n\nUser.', 'utf-8')
+    await writeFile(join(wikiRoot, 'assistant.md'), '# Asst\n\nRules.', 'utf-8')
+    const prefix = await buildExpansionContextPrefix(wikiRoot)
+    expect(prefix).toContain('User.')
+    expect(prefix).toContain('Rules.')
+    expect(prefix.indexOf('User.')).toBeLessThan(prefix.indexOf('Rules.'))
   })
 
   it('injects vault manifest listing existing pages', async () => {

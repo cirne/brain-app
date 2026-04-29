@@ -143,11 +143,15 @@ export function mergeOmitToolNames(...lists: readonly (readonly string[])[]): re
 export type OnboardingAgentToolVariant = 'buildout' | 'profiling' | 'interview'
 
 /**
- * OPP-054 guided onboarding: tight allowlist (calendar, inbox rules, mail scan, wiki write for assistant.md only — not me.md in-prompt).
+ * OPP-054 guided onboarding: calendar, inbox rules, mail scan; full wiki read/write/edit
+ * (incremental me.md, assistant.md, people/, …) plus grep/find for vault navigation.
  */
 export const ONBOARDING_INTERVIEW_ONLY: readonly AgentToolName[] = [
+  'read',
   'write',
   'edit',
+  'grep',
+  'find',
   'search_index',
   'read_email',
   'find_person',
@@ -158,7 +162,7 @@ export const ONBOARDING_INTERVIEW_ONLY: readonly AgentToolName[] = [
   'finish_conversation',
 ]
 
-/** Silent post-interview pass: author `me.md` + scan wiki stubs. */
+/** Silent post-interview pass: polish `me.md` (confidence, gaps) + optional wiki reads. */
 export const ONBOARDING_FINALIZE_ONLY: readonly AgentToolName[] = [
   'write',
   'edit',

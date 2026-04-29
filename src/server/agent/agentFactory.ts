@@ -108,7 +108,7 @@ export function createOnboardingAgent(
  * but no `write` (cannot create new pages). Used for the "Cleaning up" phase
  * of the Your Wiki continuous loop.
  */
-/** One-shot silent agent to write `me.md` after guided onboarding (OPP-054). */
+/** One-shot silent agent to polish `me.md` after guided onboarding — interview may have edited it already (OPP-054). */
 export function createFinalizeAgent(systemPrompt: string, wikiRoot: string): Agent {
   const toolOpts = buildCreateAgentToolsOptions({
     onlyToolNames: ONBOARDING_FINALIZE_ONLY,

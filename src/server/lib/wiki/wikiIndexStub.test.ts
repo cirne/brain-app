@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { ensureWikiIndexMdStub, WIKI_INDEX_STUB_MARKER } from './wikiIndexStub.js'
+import {
+  ensureWikiIndexMdStub,
+  ensureWikiIndexAccountHolderPeopleLine,
+  WIKI_INDEX_STUB_MARKER,
+} from './wikiIndexStub.js'
 
 describe('ensureWikiIndexMdStub', () => {
   let dir: string
@@ -38,6 +42,21 @@ describe('ensureWikiIndexMdStub', () => {
     expect(created).toBe(false)
     const raw = await readFile(join(dir, 'index.md'), 'utf-8')
     expect(raw).toBe('# Custom\n')
+  })
+
+  it('inserts account-holder people line after starter-style [[me]] bullet', async () => {
+    await writeFile(
+      join(dir, 'index.md'),
+      ['# Home', '', '- **`[[me]]`** — profile', '', '## Browse', ''].join('\n'),
+      'utf-8',
+    )
+    const { updated } = await ensureWikiIndexAccountHolderPeopleLine(dir, 'people/jane-doe')
+    expect(updated).toBe(true)
+    const raw = await readFile(join(dir, 'index.md'), 'utf-8')
+    expect(raw).toContain('[[people/jane-doe]]')
+    expect(raw.indexOf('[[me]]')).toBeLessThan(raw.indexOf('[[people/jane-doe]]'))
+    const second = await ensureWikiIndexAccountHolderPeopleLine(dir, 'people/jane-doe')
+    expect(second.updated).toBe(false)
   })
 
   it('creates the wiki directory when it does not exist yet, then index.md', async () => {

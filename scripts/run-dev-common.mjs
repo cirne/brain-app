@@ -59,6 +59,8 @@ export function spawnDevServer(extraEnv = {}) {
     '.env.test',
     '--include',
     'assets/user-skills/**/*',
+    '--include',
+    'assets/starter-wiki/**/*',
     'src/server/index.ts',
   ]
 

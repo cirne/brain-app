@@ -67,9 +67,10 @@ export async function runInterviewFinalize(options: { sessionId: string; timezon
 
   const root = wikiDir()
   const agent = createFinalizeAgent(systemPrompt, root)
+  // OPP-054: polish me.md after interview (may already be edited in-chat). Finalize sets confidence, fills gaps.
   await collectAgentPromptMetrics(
     agent,
-    'Finalize onboarding: write wiki/me.md per system prompt. Use tools; ground in transcript and whoami.',
+    'Finalize onboarding: read wiki/me.md, polish per system prompt (confidence, transcript gaps). Ground in whoami.',
     { timezone: tz, wikiDir: root },
   )
 

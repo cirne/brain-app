@@ -151,7 +151,7 @@ function safeDetails(d: unknown): unknown {
 }
 
 /**
- * Read me.md and build a vault manifest to inject as context into the first expansion pass.
+ * Read me.md, assistant.md, and build a vault manifest to inject as context into the first expansion pass.
  * Closes BUG-011: the buildout system prompt says "anchor on me.md" but the model never received
  * the file contents.
  *
@@ -168,10 +168,22 @@ export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: s
     // me.md not yet written (very early first run) — model will rely on buildout system prompt
   }
 
+  const assistantPath = join(wikiRoot, 'assistant.md')
+  let assistantMdContent = ''
+  try {
+    assistantMdContent = await readFile(assistantPath, 'utf-8')
+  } catch {
+    /* optional — starter seed usually provides it */
+  }
+
   const parts: string[] = []
 
   if (meMdContent.trim()) {
-    parts.push(`## Your profile (me.md — canonical short assistant context)\n\n${meMdContent.trim()}`)
+    parts.push(`## Your profile (me.md — user context)\n\n${meMdContent.trim()}`)
+  }
+
+  if (assistantMdContent.trim()) {
+    parts.push(`## Assistant identity & charter (assistant.md)\n\n${assistantMdContent.trim()}`)
   }
 
   const manifestPaths = await listWikiFiles(wikiRoot)
@@ -188,7 +200,7 @@ export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: s
 
   if (parts.length === 0) return ''
 
-  return `[Injected context for this expansion pass — use this instead of trying to read me.md via tools]\n\n${parts.join('\n\n')}\n\n---\n\n`
+  return `[Injected context for this expansion pass — use this instead of trying to read me.md / assistant.md via tools]\n\n${parts.join('\n\n')}\n\n---\n\n`
 }
 
 interface AttachRunTrackerNrOptions {
@@ -395,7 +407,7 @@ async function loadCategoriesFromDisk(): Promise<string[] | undefined> {
 }
 
 /**
- * Run a single enrich (wiki expansion) invocation. Injects me.md and vault manifest for context.
+ * Run a single enrich (wiki expansion) invocation. Injects me.md, assistant.md, and vault manifest for context.
  * `syncNote` is a brief, recency-bias-avoiding note when mail was refreshed before this lap.
  * Returns the number of pages created/edited (for no-op detection).
  */
