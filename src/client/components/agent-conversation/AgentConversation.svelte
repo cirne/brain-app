@@ -249,6 +249,8 @@
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
+    /* Room for `ComposerContextBar` when it overlays the bottom of the transcript (AgentChat) */
+    padding-bottom: var(--composer-context-overlap-pad, 0);
   }
 
   .conversation-shell[data-conversation-state='empty'] .conversation {

@@ -1019,6 +1019,7 @@
               <div class="wiki-primary-composer-stack">
                 <UnifiedChatComposer
                   bind:this={wikiDockComposerRef}
+                  transparentSurround={true}
                   voiceEligible={wikiDockVoiceEligible}
                   sessionResetKey={wikiDockComposerSessionKey}
                   showHearRepliesAudioStrip={true}
@@ -1309,7 +1310,6 @@
 
   .wiki-primary-composer-dock {
     flex-shrink: 0;
-    border-top: 1px solid var(--border);
     background: var(--bg);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }

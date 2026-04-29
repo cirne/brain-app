@@ -5,13 +5,20 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OpenFlags};
 
+/// Effective timestamp for envelope pagination and `--since` filtering.
+///
+/// Apple Mail often leaves **`date_received` NULL** on **Sent** (and some outbound) rows while
+/// **`date_sent` is set**. Using only `date_received` in `WHERE … >= ?` excluded those rows from
+/// sync entirely (SQL NULL comparisons), so ripmail under-indexed outbound mail.
+const ENVELOPE_EFFECTIVE_TS_SQL: &str = "COALESCE(NULLIF(date_received, 0), date_sent)";
+
 /// Lightweight row for Apple Mail sync (no per-column `HashMap`).
 #[derive(Debug, Clone)]
 pub struct EnvelopeCandidate {
     pub rowid: i64,
     /// `messages.mailbox` → `mailboxes.ROWID`.
     pub mailbox: i64,
-    /// Raw `date_received` as Unix seconds (V10+).
+    /// Effective Unix seconds for sort/filter: `COALESCE(NULLIF(date_received,0), date_sent)`.
     pub date_received: i64,
     pub deleted: i32,
     pub flags: i64,
@@ -153,8 +160,8 @@ pub fn sample_messages_page(
 
 /// Paged slice with optional `--since` filter pushed to SQL WHERE clause.
 ///
-/// When `since_unix_ts` is provided, only returns rows where `date_received >= ts`.
-/// Uses `ORDER BY date_received DESC` to leverage the index for both filter and sort.
+/// When `since_unix_ts` is provided, only returns rows where the effective envelope timestamp
+/// ([`ENVELOPE_EFFECTIVE_TS_SQL`]) is `>= ts`. Uses the same expression in `ORDER BY … DESC`.
 /// This dramatically reduces rows fetched for narrow time windows (e.g., 253k → 40k for 1y).
 pub fn sample_messages_page_since(
     conn: &Connection,
@@ -162,15 +169,18 @@ pub fn sample_messages_page_since(
     offset: usize,
     since_unix_ts: Option<i64>,
 ) -> rusqlite::Result<Vec<EnvelopeMessageRow>> {
-    // When filtering by date, order by date_received DESC to use the index.
-    // Without filter, order by ROWID DESC (original behavior).
-    let sql = if since_unix_ts.is_some() {
-        "SELECT ROWID AS _ripmail_rowid, * FROM messages \
-         WHERE date_received >= ?3 \
-         ORDER BY date_received DESC LIMIT ?1 OFFSET ?2"
+    let sql_tail = if since_unix_ts.is_some() {
+        Some(format!(
+            "SELECT ROWID AS _ripmail_rowid, * FROM messages \
+             WHERE {ENVELOPE_EFFECTIVE_TS_SQL} >= ?3 \
+             ORDER BY {ENVELOPE_EFFECTIVE_TS_SQL} DESC LIMIT ?1 OFFSET ?2"
+        ))
     } else {
-        "SELECT ROWID AS _ripmail_rowid, * FROM messages ORDER BY ROWID DESC LIMIT ?1 OFFSET ?2"
+        None
     };
+    let sql: &str = sql_tail.as_deref().unwrap_or(
+        "SELECT ROWID AS _ripmail_rowid, * FROM messages ORDER BY ROWID DESC LIMIT ?1 OFFSET ?2",
+    );
     let mut stmt = conn.prepare(sql)?;
     let col_names: Vec<String> = stmt
         .column_names()
@@ -263,25 +273,29 @@ pub fn list_candidates_since_keyset(
 ) -> rusqlite::Result<Vec<EnvelopeCandidate>> {
     let lim = i64::try_from(limit).unwrap_or(i64::MAX);
     let sel = if include_remote_id {
-        "SELECT ROWID, mailbox, date_received, deleted, flags, remote_id"
+        format!(
+            "SELECT ROWID, mailbox, {ENVELOPE_EFFECTIVE_TS_SQL} AS date_received, deleted, flags, remote_id"
+        )
     } else {
-        "SELECT ROWID, mailbox, date_received, deleted, flags"
+        format!(
+            "SELECT ROWID, mailbox, {ENVELOPE_EFFECTIVE_TS_SQL} AS date_received, deleted, flags"
+        )
     };
     let sql = if after.is_none() {
         format!(
             "{sel} \
          FROM messages \
-         WHERE date_received >= ?1 AND deleted = 0 \
-         ORDER BY date_received DESC, ROWID DESC \
+         WHERE {ENVELOPE_EFFECTIVE_TS_SQL} >= ?1 AND deleted = 0 \
+         ORDER BY {ENVELOPE_EFFECTIVE_TS_SQL} DESC, ROWID DESC \
          LIMIT ?2"
         )
     } else {
         format!(
             "{sel} \
          FROM messages \
-         WHERE date_received >= ?1 AND deleted = 0 \
-         AND (date_received < ?3 OR (date_received = ?3 AND ROWID < ?4)) \
-         ORDER BY date_received DESC, ROWID DESC \
+         WHERE {ENVELOPE_EFFECTIVE_TS_SQL} >= ?1 AND deleted = 0 \
+         AND ({ENVELOPE_EFFECTIVE_TS_SQL} < ?3 OR ({ENVELOPE_EFFECTIVE_TS_SQL} = ?3 AND ROWID < ?4)) \
+         ORDER BY {ENVELOPE_EFFECTIVE_TS_SQL} DESC, ROWID DESC \
          LIMIT ?2"
         )
     };
@@ -578,13 +592,14 @@ mod tests {
             "CREATE TABLE messages (
                 mailbox INTEGER NOT NULL,
                 date_received INTEGER,
+                date_sent INTEGER,
                 deleted INTEGER NOT NULL DEFAULT 0,
                 flags INTEGER NOT NULL DEFAULT 0
             );
-             INSERT INTO messages VALUES (1, 1700000000, 0, 0);
-             INSERT INTO messages VALUES (1, 1700000100, 0, 0);
-             INSERT INTO messages VALUES (1, 1700000200, 0, 0);
-             INSERT INTO messages VALUES (2, 1690000000, 0, 0);",
+             INSERT INTO messages VALUES (1, 1700000000, NULL, 0, 0);
+             INSERT INTO messages VALUES (1, 1700000100, NULL, 0, 0);
+             INSERT INTO messages VALUES (1, 1700000200, NULL, 0, 0);
+             INSERT INTO messages VALUES (2, 1690000000, NULL, 0, 0);",
         )
         .unwrap();
         let since = 1_700_000_000_i64;

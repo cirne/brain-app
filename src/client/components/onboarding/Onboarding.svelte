@@ -421,7 +421,7 @@
 
   let obWorkspace = $state<{ getInterviewSessionId: () => string | null } | null>(null)
 
-  /** Trigger finalize: footer button, or agent `finish_conversation` (see OnboardingWorkspace → AgentChat). Not onStreamFinished — each assistant turn would fire incorrectly. */
+  /** Finalize after interview: agent `finish_conversation` (OnboardingWorkspace → AgentChat). Not onStreamFinished — each assistant turn would fire incorrectly. */
   async function continueAfterInterview() {
     finalizeError = null
     busy = true
@@ -459,6 +459,14 @@
 >
   {#if state === 'onboarding-agent'}
     <div class="flex min-h-0 flex-1 flex-col">
+      {#if finalizeError}
+        <div
+          class="shrink-0 border-b border-[var(--border)] bg-[var(--bg)] px-4 py-2"
+          role="alert"
+        >
+          <p class="text-sm text-red-600 dark:text-red-400">{finalizeError}</p>
+        </div>
+      {/if}
       <OnboardingWorkspace
         bind:this={obWorkspace}
         chatEndpoint="/api/onboarding/interview"
@@ -469,32 +477,6 @@
         onAgentFinishInterview={() => void continueAfterInterview()}
         {multiTenant}
       />
-      <div
-        class="flex shrink-0 flex-col gap-2 border-t border-[var(--border)] bg-[var(--bg)] px-4 py-3"
-        role="region"
-        aria-label="Finish setup"
-      >
-        {#if finalizeError}
-          <p class="text-sm text-red-600 dark:text-red-400" role="alert">{finalizeError}</p>
-        {/if}
-        <p class="text-sm text-[var(--muted)]">
-          When you’re done with setup, continue. We’ll save your profile and open the app.
-        </p>
-        <button
-          type="button"
-          class="ob-btn-primary self-start"
-          onclick={() => void continueAfterInterview()}
-          disabled={busy}
-        >
-          {#if busy}
-            <span class="ob-spinner" aria-hidden="true"></span>
-            Finishing…
-          {:else}
-            Continue to Braintunnel
-            <ArrowRight class="ob-btn-icon" size={16} strokeWidth={2} aria-hidden="true" />
-          {/if}
-        </button>
-      </div>
     </div>
   {:else if multiTenant && state === 'confirming-handle'}
     <OnboardingHandleStep

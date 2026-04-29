@@ -264,6 +264,9 @@
   const contextBarChoices = $derived(
     isOnboardingInterviewChat ? [] : extractLatestSuggestReplyChoices(messages, streaming),
   )
+  const showComposerContextBar = $derived(
+    contextBarFiles.length > 0 || contextBarChoices.length > 0,
+  )
 
   let onboardingSuggestionSet = $state<SuggestionSet | null>(null)
   let onboardingSuggestionsLoading = $state(false)
@@ -793,7 +796,10 @@
 </script>
 
 <div class="agent-chat">
-  <div class="chat-body">
+  <div
+    class="chat-body"
+    style:--composer-context-overlap-pad={showComposerContextBar ? '6.75rem' : '0'}
+  >
     <div class="chat-top">
     {#if !centerEmptyInPane}
     <!-- Always in flex flow — prevents height jump when overlay opens/closes -->
@@ -1056,6 +1062,7 @@
   }
 
   .composer-stack {
+    position: relative;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;

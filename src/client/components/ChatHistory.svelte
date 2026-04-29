@@ -236,25 +236,18 @@
 {/snippet}
 
 <div class="chat-history">
-  <button type="button" class="new-chat-btn" onclick={() => onNewChat()}>
-    <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
-    <span>New chat</span>
-  </button>
-  {#if onWikiHome}
-    <button type="button" class="wiki-home-btn" onclick={() => onWikiHome()}>
-      <BookOpen size={14} strokeWidth={2.5} aria-hidden="true" />
-      <span>Wiki home</span>
-    </button>
-  {/if}
-
   <div class="ch-scroll">
     {#if loading}
       <div class="ch-muted">Loading…</div>
     {:else if error}
       <div class="ch-error">{error}</div>
     {:else}
-      <div class="ch-group">
-        <div class="ch-group-label">Chats</div>
+      <section class="ch-group ch-group--chats" aria-labelledby="ch-heading-chats">
+        <h2 class="ch-group-label" id="ch-heading-chats">Chats</h2>
+        <button type="button" class="new-chat-btn" onclick={() => onNewChat()}>
+          <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
+          <span>New chat</span>
+        </button>
         {#if chatItems.length === 0}
           <div class="ch-muted ch-muted--section">No chats yet.</div>
         {:else}
@@ -267,10 +260,16 @@
             </button>
           {/if}
         {/if}
-      </div>
+      </section>
 
-      <div class="ch-group ch-group--recents">
-        <div class="ch-group-label">Recents</div>
+      <section class="ch-group ch-group--recents" aria-labelledby="ch-heading-recents">
+        <h2 class="ch-group-label" id="ch-heading-recents">Recents</h2>
+        {#if onWikiHome}
+          <button type="button" class="wiki-home-btn" onclick={() => onWikiHome()}>
+            <BookOpen size={14} strokeWidth={2.5} aria-hidden="true" />
+            <span>Wiki home</span>
+          </button>
+        {/if}
         {#if recentItems.length === 0}
           <div class="ch-muted ch-muted--section">No recent documents or email.</div>
         {:else}
@@ -278,7 +277,7 @@
             {@render navRow(item)}
           {/each}
         {/if}
-      </div>
+      </section>
     {/if}
   </div>
 
@@ -350,7 +349,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin: 8px 10px 4px;
+    margin: 0 4px 8px;
     padding: 7px 10px;
     border-radius: 6px;
     border: 1px solid var(--border);
@@ -365,7 +364,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin: 0 10px 8px;
+    margin: 0 4px 8px;
     padding: 7px 10px;
     border-radius: 6px;
     border: 1px solid var(--border);
@@ -401,10 +400,10 @@
   }
 
   .ch-group {
-    margin-top: 6px;
+    margin: 0;
   }
 
-  .ch-group:first-child {
+  .ch-group--chats {
     margin-top: 2px;
   }
 
@@ -415,6 +414,7 @@
   }
 
   .ch-group-label {
+    margin: 0;
     font-size: var(--ch-fs-group-label);
     font-weight: 600;
     text-transform: uppercase;

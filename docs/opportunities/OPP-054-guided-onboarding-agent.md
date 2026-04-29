@@ -1,7 +1,7 @@
 # OPP-054: Guided Onboarding Agent (Replaces First Chat)
 
 **Status:** Active  
-**Related:** [OPP-006 (archived)](../opportunities/archive/OPP-006-email-bootstrap-onboarding.md), [OPP-018 (archived)](../opportunities/archive/OPP-018-first-chat-post-onboarding.md), [OPP-028](OPP-028-named-assistant-identity-and-living-avatar.md), [ripmail OPP-047](../../ripmail/docs/opportunities/OPP-047-adaptive-rules-learning-agent.md)
+**Related:** [OPP-006 (archived)](../opportunities/archive/OPP-006-email-bootstrap-onboarding.md), [OPP-018 (archived)](../opportunities/archive/OPP-018-first-chat-post-onboarding.md), [OPP-028](OPP-028-named-assistant-identity-and-living-avatar.md), [OPP-060](OPP-060-starter-wiki-templates-and-agent-authoring.md) (starter wiki templates — align `me.md` / vault init timing), [ripmail OPP-047](../../ripmail/docs/opportunities/OPP-047-adaptive-rules-learning-agent.md)
 
 ---
 
@@ -13,7 +13,7 @@ Replace the first-chat drop into the main agent with a **structured onboarding c
 
 ## The problem with the current approach
 
-The profiling agent (OPP-006 lineage) historically tried to do too much too soon — including writing **profile artifacts** — while the inbox is still young. Contacts and priorities get distorted; mining “key people” from a thin index mislabels relationships, and shipping an early **`me.md`** anchors bad facts.
+The profiling agent (OPP-006 lineage) historically tried to do too much too soon — including writing **profile artifacts** — while the inbox is still young. Contacts and priorities get distorted; mining “key people” from a thin index mislabels relationships, and shipping an early `**me.md`** anchors bad facts.
 
 The first chat (OPP-018) currently drops the user into the main agent immediately after seeding, with no structured bridge. The onboarding ends, chat begins, and the user has to discover on their own what to ask for.
 
@@ -27,7 +27,7 @@ Email indexing and wiki seeding take several minutes. Early on, the inbox is int
 
 Once **enough messages are indexed for a sane first-pass guess** (~200 messages as a workable threshold — tune in implementation), the user should **leave progress UI and enter the onboarding interview**. The wiki seeding agent can already have been running; it does **not** need its own blocking “building your wiki” phase in the chat flow. Later, **after** calendar rules, inbox rules, and important-people confirmations exist, **rebuild or refresh** the wiki so structure and stubs match reality.
 
-Each interview phase stays short — the onboarding conversation **uses overlapping time productively**, and exits with sufficient signal for a first **`me.md` author**, not a skeletal file written too early.
+Each interview phase stays short — the onboarding conversation **uses overlapping time productively**, and exits with sufficient signal for a first `**me.md` author**, not a skeletal file written too early.
 
 ---
 
@@ -37,13 +37,13 @@ Each interview phase stays short — the onboarding conversation **uses overlapp
 
 **Start the onboarding agent** once indexing has crossed a **minimal corpus gate** (~200 messages — adjust with telemetry). Until then the user stays in indexing/progress UX; once the gate clears, move straight into Phase 1. There is no separate “please wait while we build your wiki first” blocking step in chat — wiki building proceeds **in parallel** with indexing and continues during the interview.
 
-After the interview, **`me.md` is authored once** from confirmed answers + matured index signals + existing wiki stubs (see below).
+After the interview, `**me.md` is authored once** from confirmed answers + matured index signals + existing wiki stubs (see below).
 
 ---
 
 ## The guided onboarding agent
 
-This agent runs once the **`onboarding-agent`** state is entered **after** the corpus threshold is met — see state machine below. Wiki **seeding continues in parallel** throughout; indexing also continues afterward. This flow **replaces** the first chat entirely and immediately precedes the user’s first open-ended session with the main agent.
+This agent runs once the `**onboarding-agent`** state is entered **after** the corpus threshold is met — see state machine below. Wiki **seeding continues in parallel** throughout; indexing also continues afterward. This flow **replaces** the first chat entirely and immediately precedes the user’s first open-ended session with the main agent.
 
 It is a **structured interview** (five phases plus a silent finalize step), delivered as a flowing conversation with suggested actions — quick-select chips where appropriate, always with free-text correction. Each phase stays short.
 
@@ -60,6 +60,7 @@ Open with **one compact paragraph**: your best guesses from OAuth / `whoami`, si
 Prefer **chips where they help** (“Yes / That’s wrong — I’ll type it”) plus free-form edit. Capture corrections for the eventual `me.md`.
 
 **Agent instructions:**
+
 > Offer a tight summary of guesses: name/preferred address form, organization or role line. Invite correction in plain language — no bullet-wall checklist. Confirm or fix, then proceed.
 
 ---
@@ -120,7 +121,7 @@ The agent does a quick pass over the inbox — common senders, domains, subject 
 
 Example rules:
 
-- *"Mark everything from \*.newsletter.com as low-priority"*
+- *"Mark everything from .newsletter.com as low-priority"*
 - *"Always surface emails from your top contacts"*
 - *"Flag emails with 'urgent' or 'action required' in the subject"*
 - *"Suppress calendar notification emails (already in calendar)"*
@@ -141,7 +142,7 @@ On confirmation the agent writes the rules. This phase doubles as proof the assi
 
 **What happens:**
 
-Use existing tooling: **`ripmail who`**-backed contact frequency via the agent’s **`find_person`** tool (empty `query` yields top contacts, same semantics as CLI `who --limit 60`), plus **`ripmail whoami`** / OAuth identity already in context — don’t reinvent identity.
+Use existing tooling: `**ripmail who`**-backed contact frequency via the agent’s `**find_person**` tool (empty `query` yields top contacts, same semantics as CLI `who --limit 60`), plus `**ripmail whoami**` / OAuth identity already in context — don’t reinvent identity.
 
 Propose a **short list of people** as “probably important”; present as selectable chips (**include / exclude / skipped**). Invite one-line fixes (“that’s my accountant, not a friend”).
 
@@ -150,6 +151,7 @@ Tone: **lightly** acknowledge incompleteness without a lecture — e.g. you don�
 Confirmations inform `me.md` (relationship cues) and can tag or prioritize wiki/contact stubs in the downstream rebuild step.
 
 **Agent instructions:**
+
 > Infer from top contacts plus obvious patterns. Surface a compact list — not everyone they’ve ever mailed. Invite corrections. Stay humble about corpus limits in one sentence if needed.
 
 ---
@@ -159,9 +161,7 @@ Confirmations inform `me.md` (relationship cues) and can tag or prioritize wiki/
 There is **no pre-existing `wiki/me.md`** to update. When the user completes the five phases (or skips some), the onboarding flow runs a **silent finalize** before handoff to open chat:
 
 1. **Author `wiki/me.md` once** — synthesize from the interview (identity, assistant name, calendars, rules, important-people confirmations), the current mail index, OAuth / `whoami`, and whatever wiki pages the seeding agent has already created (people/projects/areas stubs).
-
-2. Set frontmatter **`confidence: full`** (or the project’s equivalent) so the main agent treats the profile as onboarding-complete.
-
+2. Set frontmatter `**confidence: full`** (or the project’s equivalent) so the main agent treats the profile as onboarding-complete.
 3. **Wiki refresh / rebuild** — re-run or reschedule the wiki buildout/seeding pass so structure and contact-related pages **respect** hidden calendars, inbox rules, and the user’s **important-people** judgments. Exact mechanism (full rebuild vs incremental refresh) is implementation detail; the requirement is **alignment after settings + people are known**, not midway through a blocking “wiki phase” in chat.
 
 The user does not need a lengthy review UI. A single optional chip (“Open your profile in the wiki”) can close the loop.
@@ -174,7 +174,7 @@ The user does not need a lengthy review UI. A single optional chip (“Open your
 
 After finalize, the agent transitions in one natural line — e.g. that you’re set up, the wiki will catch up with what you confirmed, indexing continues, and you’re free to ask anything.
 
-There is no modal or separate “chat mode.” The main agent loads with **`me.md` and `assistant.md`** in place. **Seeding and indexing can keep running** after handoff.
+There is no modal or separate “chat mode.” The main agent loads with `**me.md` and `assistant.md`** in place. **Seeding and indexing can keep running** after handoff.
 
 The onboarding thread is **preserved** so the user can scroll back to what was configured.
 
@@ -199,9 +199,9 @@ Concurrent: **seeding** runs in the **background** from early indexing onward (a
 Key changes:
 
 - **No `me.md` write** during profiling — the interview supplies the first user-validated profile pass toward `me.md`.
-- **`reviewing-profile` / `confirming-categories`** — remove or collapse into server-side defaults so they don't block entering onboarding.
-- **`onboarding-agent`** — five-phase interview, entered when the **indexed corpus threshold** (~200 messages, tune with telemetry) is met — not contingent on wiki completion.
-- **`finalize`** — author `wiki/me.md` for the **first time** and **trigger or schedule** a **wiki refresh or rebuild** so pages align with calendar, inbox rules, and confirmed important people.
+- `**reviewing-profile` / `confirming-categories`** — remove or collapse into server-side defaults so they don't block entering onboarding.
+- `**onboarding-agent**` — five-phase interview, entered when the **indexed corpus threshold** (~200 messages, tune with telemetry) is met — not contingent on wiki completion.
+- `**finalize`** — author `wiki/me.md` for the **first time** and **trigger or schedule** a **wiki refresh or rebuild** so pages align with calendar, inbox rules, and confirmed important people.
 
 The seeding agent’s upfront “approve categories?” prompts should stay **non-blocking** (toast/status). Deep wiki research prompts belong in **main chat**, not here.
 
@@ -252,15 +252,17 @@ The agent proposes; the user adjusts. Skipping a phase stays valid.
 
 ## Why this is better than the current flow
 
-| Dimension | Current | New |
-|---|---|---|
-| Profile accuracy | Often wrong when written too soon | Threshold + confirm identity before `me.md` |
-| User training | Dropped into open chat | Guided: identity → assistant → calendars → mail → people |
-| `me.md` | Risk of brittle early author | First write at finalize from answers + richer index |
-| Assistant identity | Generic | Named after Phase 1 grounds who they are |
-| Calendar / inbox | Default noise | Explicit defaults confirmed in-chat |
-| Key people | Inferred silently | Named list with user judgment + `find_person` / who |
-| Wiki | Blocking tour / early promises | Builds in parallel; refresh after finalize |
+
+| Dimension          | Current                           | New                                                      |
+| ------------------ | --------------------------------- | -------------------------------------------------------- |
+| Profile accuracy   | Often wrong when written too soon | Threshold + confirm identity before `me.md`              |
+| User training      | Dropped into open chat            | Guided: identity → assistant → calendars → mail → people |
+| `me.md`            | Risk of brittle early author      | First write at finalize from answers + richer index      |
+| Assistant identity | Generic                           | Named after Phase 1 grounds who they are                 |
+| Calendar / inbox   | Default noise                     | Explicit defaults confirmed in-chat                      |
+| Key people         | Inferred silently                 | Named list with user judgment + `find_person` / who      |
+| Wiki               | Blocking tour / early promises    | Builds in parallel; refresh after finalize               |
+
 
 ---
 
@@ -287,7 +289,7 @@ The agent proposes; the user adjusts. Skipping a phase stays valid.
 
 ## Confidence
 
-**High** on primitives (calendar, rules, wiki writes, **`find_person`**, streaming chat chips). Concrete build work:
+**High** on primitives (calendar, rules, wiki writes, `**find_person`**, streaming chat chips). Concrete build work:
 
 1. Stop authoring `wiki/me.md` from profiling — gate on corpus size and run the five-phase onboarding agent instead.
 2. Onboarding prompts + deterministic phase scaffolding (ordering, finalize hook).

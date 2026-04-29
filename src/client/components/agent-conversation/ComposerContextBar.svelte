@@ -71,10 +71,18 @@
 
 <style>
   .composer-context-bar {
+    /* Float above the transcript (see `AgentChat` .composer-stack) so messages show through */
+    position: absolute;
+    right: 0;
+    bottom: 100%;
+    left: 0;
+    z-index: 2;
     flex-shrink: 0;
+    background: transparent;
     /* Match `AgentInput` .input-area horizontal padding (12px) so chips align with the shell */
     padding: 0 12px 0.5rem;
     min-height: 0;
+    pointer-events: auto;
   }
 
   .composer-context-bar__refs-wrap {
