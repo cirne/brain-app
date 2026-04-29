@@ -1,15 +1,15 @@
 ---
 name: commit
-description: Guides pre-commit verification, scoped lint/tests per package (Node app, ripmail, desktop/Tauri), test coverage expectations, then commit and push to main when green. Use when the user invokes /commit, asks to commit, push, prepare a commit, or finish a change with git.
+description: Guides pre-commit verification, scoped lint/tests per package (Node app, ripmail, desktop/Tauri), test coverage expectations, then commit with an integration-safe push or merge path (single checkout or Git worktree). Use when the user invokes /commit, asks to commit, push, prepare a commit, or finish a change with git.
 ---
 
 # Commit workflow (brain-app)
 
-Single-maintainer, early development: **direct push to `main` is OK** once the steps below pass.
+Single-maintainer, early development: **direct push to `main` is OK** once the steps below pass—**when `main` is the branch you are finishing**. In a **worktree** you are usually on a **feature branch**; integrate with upstream (`main`) before or as you publish, instead of assuming every session ends with `push origin main`.
 
 ## Node.js — `nvm use` first
 
-The repo pins Node in **[`.nvmrc`](../../../.nvmrc)** (see **[`AGENTS.md`](../../../AGENTS.md)**). **Before any `npm`, `npx`, or `node` command** (including `npm run lint`, `npm run test`, `npm run ci`, `npm run ripmail:test`, and `npm rebuild`), run from the **repository root**:
+The repo pins Node in **[`.nvmrc`](../../../.nvmrc)** (see **[`AGENTS.md`](../../../AGENTS.md)**). **Before any `npm`, `npx`, or `node` command** (including `npm run lint`, `npm run test`, `npm run ci`, `npm run ripmail:test`, and `npm rebuild`), run from the **root of this checkout** (the directory that contains `.nvmrc`—either the primary clone **or** a linked worktree):
 
 ```sh
 nvm use
@@ -50,7 +50,7 @@ Docs-only or comment-only edits: skip new tests unless they document behavior th
 
 ## 3. Commands (scoped)
 
-Run only what applies to the packages identified above. **Run `nvm use` at the repo root before the Node/npm lines below.**
+Run only what applies to the packages identified above. **Run `nvm use` at this checkout root before the Node/npm lines below.**
 
 **Node app**
 
@@ -74,20 +74,57 @@ Run only what applies to the packages identified above. **Run `nvm use` at the r
 
 - `npm run ci` — lint, typecheck, Node tests, then `cargo fmt` + `cargo clippy` + `cargo test` for the Rust workspace (see `package.json`).
 
-## 4. Commit and push when green
+## 4. Commit when green, then integrate (push and/or merge)
 
 1. Confirm the relevant commands above exited **0**.
 2. Commit with a **clear message** (Conventional Commits encouraged: `feat:`, `fix:`, `refactor:`, etc.).
-3. `git push` to **`main`** (or the current branch if not `main`).
+3. **See which branch you are on**: `git branch --show-current` (and optionally `git worktree list` if you manage multiple checkouts).
+
+**If you are on `main`**
+
+- Prefer **fast-forward safety** before pushing: `git fetch origin` and reconcile (`git pull --ff-only` or rebase **only if** that matches how this repo normally tracks `origin/main`).
+- Then `git push` (to `origin main`).
+
+**If you are not on `main`** (common in a **worktree**)
+
+- **Update from upstream** before pushing your branch (reduces surprises and integrates like a sane “done with this worktree” step):
+
+```sh
+git fetch origin
+git rebase origin/main   # resolve any conflicts here; alternative: git merge origin/main
+```
+
+  Use the integration branch name your team tracks if it is not `main` (e.g. `develop`).
+
+- **Publish the branch** (not `main`): `git push -u origin HEAD` (first time) or `git push` (if upstream is already set).
+
+- **Land the work** according to repo habit:
+  - **PR / review**: open or update a PR from that branch and merge via hosting (typical when others might review).
+  - **Local-first / maintainer solo**: merge from the checkout that has **`main`** checked out (`git checkout main && git merge <feature>` or `git merge --ff-only` after updating `main`), then `git push origin main`. You can merge from whichever machine has **`main`** (often the **primary** worktree path, not the feature worktree)—Git does not require merging from the feature worktree directory itself.
 
 Do not commit secrets or large generated artifacts; match existing `.gitignore` conventions.
+
+## Worktrees (Git)
+
+- **`git worktree list`** shows path → branch bindings. **`git rev-parse --show-toplevel`** is the checkout root—run `nvm use` **there** (`./data`/`BRAIN_HOME` etc. paths are clone-specific; do not merge local data across worktrees blindly).
+- A second worktree checks out **another branch** in parallel; **`git push` pushes whatever branch that worktree has checked out**.
+- Git **refuses two worktrees checking out the same branch** until you detach or swap—respect that constraint.
+- **Removing a finished worktree** is done from **any** clone of the repo, usually **after** the branch is merged and no longer needed:
+
+```sh
+git worktree remove /path/to/worktree   # or: git worktree remove --force ... if dirty and user accepts loss
+```
+
+  Do **not** `rm -rf` a worktree directory without `git worktree remove` (or you leave stale metadata). Only remove when the user wants that cleanup.
+
+- If the user has not set `origin` or does not want to push yet, stop after **commit + rebase/merge with `origin/main`** and report status; do not assume **push** is always the next step.
 
 ## Quick checklist
 
 ```
-- [ ] `nvm use` at repo root before npm/node (see above)
+- [ ] `nvm use` at this checkout root before npm/node (see above)
 - [ ] Changed packages identified
 - [ ] Tests added/updated per package (incl. regression tests for bug fixes)
 - [ ] Scoped lint/tests (or full ci) all green
-- [ ] Commit message + push
+- [ ] Commit message; branch-aware integration (fetch + rebase/merge onto upstream if not main; push branch or main per workflow)
 ```
