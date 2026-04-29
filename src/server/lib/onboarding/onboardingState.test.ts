@@ -130,4 +130,26 @@ describe('onboardingState', () => {
     const { readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
     expect((await readOnboardingStateDoc()).state).toBe('done')
   })
+
+  it('readWikiBuildoutIsFirstRun is true until markWikiBuildoutFirstPassDone', async () => {
+    const {
+      readWikiBuildoutIsFirstRun,
+      markWikiBuildoutFirstPassDone,
+    } = await import('@server/lib/onboarding/onboardingState.js')
+    expect(await readWikiBuildoutIsFirstRun()).toBe(true)
+    await markWikiBuildoutFirstPassDone()
+    expect(await readWikiBuildoutIsFirstRun()).toBe(false)
+  })
+
+  it('clearOnboardingStaging resets wiki buildout first-run flag', async () => {
+    const {
+      readWikiBuildoutIsFirstRun,
+      markWikiBuildoutFirstPassDone,
+      clearOnboardingStaging,
+    } = await import('@server/lib/onboarding/onboardingState.js')
+    await markWikiBuildoutFirstPassDone()
+    expect(await readWikiBuildoutIsFirstRun()).toBe(false)
+    await clearOnboardingStaging()
+    expect(await readWikiBuildoutIsFirstRun()).toBe(true)
+  })
 })

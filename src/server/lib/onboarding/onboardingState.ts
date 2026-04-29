@@ -26,9 +26,39 @@ export function onboardingDataDir(): string {
   return join(chatDataDir(), 'onboarding')
 }
 
-/** Default wiki categories for expansion runs (written at interview finalize). */
-export function categoriesJsonPath(): string {
-  return join(onboardingDataDir(), 'categories.json')
+const WIKI_BUILDOUT_STATE = 'wiki-buildout-state.json'
+
+/** Persisted after the first successful wiki enrich (buildout) pass — later laps omit starter-template prompt copy. */
+export type WikiBuildoutStateDoc = {
+  hasCompletedABuildoutPass: boolean
+  updatedAt?: string
+}
+
+export function wikiBuildoutStatePath(): string {
+  return join(onboardingDataDir(), WIKI_BUILDOUT_STATE)
+}
+
+/** `true` until {@link markWikiBuildoutFirstPassDone} has run after a successful enrich. */
+export async function readWikiBuildoutIsFirstRun(): Promise<boolean> {
+  try {
+    const raw = await readFile(wikiBuildoutStatePath(), 'utf-8')
+    const p = JSON.parse(raw) as WikiBuildoutStateDoc
+    return p.hasCompletedABuildoutPass !== true
+  } catch (e: unknown) {
+    const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
+    if (code === 'ENOENT') return true
+    if (e instanceof SyntaxError) return true
+    throw e
+  }
+}
+
+export async function markWikiBuildoutFirstPassDone(): Promise<void> {
+  await mkdir(onboardingDataDir(), { recursive: true })
+  const doc: WikiBuildoutStateDoc = {
+    hasCompletedABuildoutPass: true,
+    updatedAt: new Date().toISOString(),
+  }
+  await writeFile(wikiBuildoutStatePath(), JSON.stringify(doc, null, 2) + '\n', 'utf-8')
 }
 
 function defaultDoc(): OnboardingStateDoc {
@@ -129,10 +159,10 @@ export async function setOnboardingStateForce(next: OnboardingMachineState): Pro
   return doc
 }
 
-/** Remove onboarding categories file under `$BRAIN_HOME/chats/onboarding/` (keeps `onboarding.json` in `chats/`). */
+/** Remove wiki buildout first-run flag under `$BRAIN_HOME/chats/onboarding/` (keeps `onboarding.json` in `chats/`). */
 export async function clearOnboardingStaging(): Promise<void> {
   try {
-    await unlink(categoriesJsonPath())
+    await unlink(wikiBuildoutStatePath())
   } catch (e: unknown) {
     const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
     if (code !== 'ENOENT') throw e

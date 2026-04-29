@@ -8,7 +8,11 @@ import {
   parseWhoamiProfileSubject,
   PROFILING_ME_MD_MAX_WORDS,
 } from './profilingAgent.js'
-import { buildWikiBuildoutSystemPrompt } from './wikiBuildoutAgent.js'
+import {
+  buildWikiBuildoutFirstRunScopeNote,
+  buildWikiBuildoutReturningScopeNote,
+  buildWikiBuildoutSystemPrompt,
+} from './wikiBuildoutAgent.js'
 import { ONBOARDING_BASE_OMIT } from './agentToolSets.js'
 import { ALL_AGENT_TOOL_NAMES, buildCreateAgentToolsOptions, ONBOARDING_BUILDOUT_OMIT } from './agentToolSets.js'
 
@@ -20,10 +24,20 @@ afterEach(async () => {
   await rm(wikiDir, { recursive: true, force: true })
 })
 
+describe('buildWikiBuildoutFirstRunScopeNote', () => {
+  it('describes starter template folders aligned with seeded vault layout', () => {
+    const n = buildWikiBuildoutFirstRunScopeNote()
+    expect(n).toMatch(/people\/.*projects\/.*topics\//s)
+    expect(n).toContain('template.md')
+  })
+})
+
 describe('buildWikiBuildoutSystemPrompt', () => {
-  it('grounds buildout in mail + write without wiki read tools', () => {
+  it('grounds buildout in mail + write without wiki read tools (first run)', () => {
     const userPage = { relativePath: 'people/lewis-cirne.md', slug: 'lewis-cirne' }
-    const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', '- cats', userPage)
+    const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', userPage, {
+      isFirstBuildoutRun: true,
+    })
     expect(p).toMatch(/do \*\*not\*\* have wiki \*\*read\*\*/i)
     expect(p).toMatch(/never `wiki\/me\.md`/i)
     expect(p).toMatch(/never add a `wiki\/` prefix/i)
@@ -33,6 +47,10 @@ describe('buildWikiBuildoutSystemPrompt', () => {
     expect(p).toMatch(/cannot scan the vault with \*\*grep\*\*/i)
     expect(p).toMatch(/compact/i)
     expect(p).toContain('people/lewis-cirne.md')
+    expect(p).toMatch(/starter layout/i)
+    expect(p).toMatch(/template\.md/i)
+    expect(p).not.toMatch(/Optional interview focus/i)
+    expect(p).not.toContain('- cats')
     expect(p).toMatch(/Obsidian-style/i)
     expect(p).toContain('[[wikilinks]]')
     expect(p).toContain('[[me]]')
@@ -42,16 +60,38 @@ describe('buildWikiBuildoutSystemPrompt', () => {
     expect(p).not.toContain('list_recent_messages')
   })
 
+  it('omits starter layout after first run', () => {
+    const userPage = { relativePath: 'people/lewis-cirne.md', slug: 'lewis-cirne' }
+    const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', userPage, {
+      isFirstBuildoutRun: false,
+    })
+    expect(p).toMatch(/\*\*later\*\* enrichment pass/i)
+    expect(p).toMatch(/vault manifest/i)
+    expect(p).not.toMatch(/starter layout/i)
+    expect(p).not.toMatch(/Optional interview focus/i)
+    expect(p).toMatch(/match \*\*existing\*\* pages in that folder/i)
+  })
+
+  it('exposes returning scope copy via buildWikiBuildoutReturningScopeNote', () => {
+    const n = buildWikiBuildoutReturningScopeNote()
+    expect(n).toMatch(/vault manifest/i)
+    expect(n).not.toMatch(/template\.md/i)
+  })
+
   it('when local messages are available for buildout, mentions Message tools and workflow', () => {
     const userPage = { relativePath: 'people/lewis-cirne.md', slug: 'lewis-cirne' }
-    const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', '- cats', userPage, true)
+    const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', userPage, {
+      localMessagesAvailable: true,
+    })
     expect(p).toContain('list_recent_messages')
     expect(p).toContain('get_message_thread')
     expect(p).toMatch(/Local Messages \(optional\)/i)
   })
 
   it('when user people page is unknown, keeps optional fallback line', () => {
-    const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', '- cats', null)
+    const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', null, {
+      isFirstBuildoutRun: true,
+    })
     expect(p).toMatch(/people\/\[slug\]/i)
   })
 })

@@ -12,6 +12,8 @@ data/
 data-multitenant/
 # Eval home + zip cache (see eval/README.md)
 data-eval/
+# Per-case wiki vaults from wiki JSONL evals (see eval/README.md)
+.data-eval/
 # Local wiki tree (markdown); not part of this app repo
 /wiki/
 coverage/

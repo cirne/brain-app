@@ -24,6 +24,10 @@ Capture **automatic, timestamped backups** of the wiki vault so users can **reco
 - **Continuous** replication or cloud backup (could be a follow-on; zips in `BRAIN_HOME` remain copyable by the user).
 - Backing up **entire** `BRAIN_HOME` (chats, ripmail) in v1—scope is **wiki vault only** unless we explicitly expand later.
 
+**Related (future collaboration):** [IDEA Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md) may need **finer-grained** undo/blame than whole-vault ZIP restore; treat that as additive or superseding only after product decisions, not duplicate scope in OPP-034 v1.
+
+**Related (Git per user):** Same idea file explores **one repo per user** for rollback/diff without bespoke history—vs ZIP snapshots and vs [PRODUCTIZATION § git friction](../PRODUCTIZATION.md#2-wiki-backing-store-git-friction); OPP-034 remains **snapshot-first** until an OPP explicitly adopts Git as the vault backing store.
+
 ## UX (discovery → inspect → restore)
 
 **Placement:** Brain Hub **Data & recovery** (alongside [OPP-032](archive/OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md)): section **“Wiki snapshots”** or **“Previous versions.”**
@@ -56,7 +60,7 @@ Users need confidence they’re picking the **right** moment:
 
 **Layout (illustrative):** `$BRAIN_HOME/var/wiki-snapshots/wiki-20260420T153022Z-lap47.zip` or a dedicated `backups/wiki/` segment added to [brain-layout](OPP-012-brain-home-data-layout.md) if we want it first-class.
 
-**Contents:** The **`wiki/`** directory as it exists on disk for the active vault root ([OPP-024](OPP-024-split-brain-data-synced-wiki-local-ripmail.md) — zip **`BRAIN_WIKI_ROOT/wiki`**, not `BRAIN_HOME/wiki` when split).
+**Contents:** The `**wiki/`** directory as it exists on disk for the active vault root ([OPP-024](OPP-024-split-brain-data-synced-wiki-local-ripmail.md) — zip `**BRAIN_WIKI_ROOT/wiki**`, not `BRAIN_HOME/wiki` when split).
 
 **Pros**
 
@@ -76,7 +80,7 @@ Initialize a **bare or non-bare** repo beside or under the vault, commit **only*
 
 **Pros:** Efficient deltas; familiar to developers; possible future “diff to commit.”
 
-**Cons:** **`.git` may already exist** in user wiki; **merge/rebase** semantics leak into support; **Windows** path + line-ending friction; **harder** for non-technical “pick a zip and restore” story. Better as a **power-user** or **export** path than the primary backup mechanism.
+**Cons:** `**.git` may already exist** in user wiki; **merge/rebase** semantics leak into support; **Windows** path + line-ending friction; **harder** for non-technical “pick a zip and restore” story. Better as a **power-user** or **export** path than the primary backup mechanism.
 
 **Verdict:** Prefer **ZIP for product UX**; git could be **documentation** (“you may also use your own git remote”) rather than built-in v1.
 
@@ -88,11 +92,13 @@ Initialize a **bare or non-bare** repo beside or under the vault, commit **only*
 
 ## Trigger & retention
 
-| Knob | Suggested default |
-|------|-------------------|
-| **When** | End of each **Your Wiki** supervisor lap (success path); skip if wiki unchanged (optional hash of tree manifest) |
-| **Retention** | Last **15–30** snapshots **or** ~**500 MB–1 GB** total, whichever bound hits first (tunable) |
-| **Manual** | Hub button **“Snapshot wiki now”** |
+
+| Knob          | Suggested default                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **When**      | End of each **Your Wiki** supervisor lap (success path); skip if wiki unchanged (optional hash of tree manifest) |
+| **Retention** | Last **15–30** snapshots **or** ~**500 MB–1 GB** total, whichever bound hits first (tunable)                     |
+| **Manual**    | Hub button **“Snapshot wiki now”**                                                                               |
+
 
 **Sidecar metadata (optional JSON next to zip):** `lap`, `phase`, `wikiRoot`, `fileCount`, `bytes`, `contentHash` for UI and for “skip if unchanged.”
 
@@ -107,7 +113,7 @@ Initialize a **bare or non-bare** repo beside or under the vault, commit **only*
 - [OPP-032](archive/OPP-032-brain-hub-wiki-rebuild-and-factory-reset.md): snapshots are **before** rebuild/reset; restore is **lighter** than full rebuild.
 - [OPP-024](OPP-024-split-brain-data-synced-wiki-local-ripmail.md): snapshot source path must follow **wiki root** resolution (`brainWikiParentRoot()` / `wikiDir`).
 - [OPP-033](OPP-033-wiki-compounding-karpathy-alignment.md): **lap completion** is the natural hook for automatic snapshots.
-- [OPP-012](OPP-012-brain-home-data-layout.md): store archives under a **`BRAIN_HOME`** segment; do **not** place giant zip trees **inside** the synced wiki folder unless the user opts in.
+- [OPP-012](OPP-012-brain-home-data-layout.md): store archives under a `**BRAIN_HOME`** segment; do **not** place giant zip trees **inside** the synced wiki folder unless the user opts in.
 
 ## Status
 

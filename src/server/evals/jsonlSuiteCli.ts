@@ -24,6 +24,7 @@ ripmail index from npm run eval:build.
 Options:
   --provider, -p   LLM_PROVIDER (e.g. openai, anthropic)
   --model, -m      LLM_MODEL
+  --brain-wiki-root   Parent of wiki/ (sets BRAIN_WIKI_ROOT for this process, resolved absolute; ignored by Enron-only phases)
   --id            Run only the task with this id (e.g. enron-022-suggest-reply-chips);
                   also sets EVAL_CASE_ID. Exits 1 if the id is missing from both suites.
   -h, --help

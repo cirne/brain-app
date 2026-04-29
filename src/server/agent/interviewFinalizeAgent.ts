@@ -1,5 +1,4 @@
 import Handlebars from 'handlebars'
-import { mkdir, writeFile } from 'node:fs/promises'
 import { loadSession } from '@server/lib/chat/chatStorage.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
@@ -7,7 +6,6 @@ import { fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './pro
 import { createFinalizeAgent } from './agentFactory.js'
 import { collectAgentPromptMetrics } from '@server/evals/harness/collectAgentPromptMetrics.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
-import { categoriesJsonPath, onboardingDataDir } from '@server/lib/onboarding/onboardingState.js'
 
 /**
  * Flatten stored chat messages into a text block for the finalize LLM (no large tool payloads).
@@ -73,8 +71,4 @@ export async function runInterviewFinalize(options: { sessionId: string; timezon
     'Finalize onboarding: read wiki/me.md, polish per system prompt (confidence, transcript gaps). Ground in whoami.',
     { timezone: tz, wikiDir: root },
   )
-
-  await mkdir(onboardingDataDir(), { recursive: true })
-  const defaultCategories = ['People', 'Projects', 'Interests', 'Areas']
-  await writeFile(categoriesJsonPath(), JSON.stringify({ categories: defaultCategories }, null, 2), 'utf-8')
 }

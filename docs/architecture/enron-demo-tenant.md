@@ -43,14 +43,16 @@ Avoid first-hit download + ingest (15–40+ minutes) by building the tenant **be
 
 ```sh
 export BRAIN_DATA_ROOT=/path/to/multitenant-root   # e.g. ./data-multitenant or /brain-data
-export EVAL_ENRON_TAR=/path/to/enron_mail_20150507.tar.gz
+# optional: export EVAL_ENRON_TAR=/path/to/enron_mail_20150507.tar.gz  (skip auto-download)
 npm run brain:seed-enron-demo
 # optional: npm run brain:seed-enron-demo -- --force
 ```
 
+If `EVAL_ENRON_TAR` is unset, the script downloads the corpus (same URL + SHA as `npm run eval:build`) into **`data-eval/.cache/enron/enron_mail_20150507.tar.gz`** when needed.
+
 In **Docker**, the image includes **`/app/seed-enron/`** (manifest + ingest scripts only; **no** corpus). You can `docker exec` the same Node command with `BRAIN_DATA_ROOT` and `EVAL_ENRON_TAR` mounted or copied in. See [`Dockerfile`](../../Dockerfile).
 
-**Lazy seed** (no pre-seed): the server runs that script in a background child process; it resolves repo root from `BRAIN_SEED_REPO_ROOT`, **`cwd()/seed-enron`** (container), or repo root, then uses `EVAL_ENRON_TAR` if set, otherwise downloads the tarball URL + SHA from `eval/fixtures/enron-kean-manifest.json` (overridable with `ENRON_SOURCE_URL` / `ENRON_SHA256` for air-gapped mirrors).
+**Lazy seed** (no pre-seed): the server runs that script in a background child process; it resolves repo root from `BRAIN_SEED_REPO_ROOT`, **`cwd()/seed-enron`** (container), or repo root, then uses `EVAL_ENRON_TAR` if set, otherwise prefers **`data-eval/.cache/enron/enron_mail_20150507.tar.gz`** (same as local `npm run eval:build`), then falls back to downloading the tarball URL + SHA from `eval/fixtures/enron-kean-manifest.json` (overridable with `ENRON_SOURCE_URL` / `ENRON_SHA256` for air-gapped mirrors).
 
 ## Security
 

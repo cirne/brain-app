@@ -438,7 +438,7 @@ onboarding.post('/interview', async (c) => {
 })
 
 /**
- * After the interview stream ends: silent finalize (polish `me.md`, e.g. confidence + gaps), categories JSON,
+ * After the interview stream ends: silent finalize (polish `me.md`, e.g. confidence + gaps),
  * scaffold vault, wake Your Wiki, mark first-chat pending, transition to **done**.
  */
 onboarding.post('/finalize', async (c) => {

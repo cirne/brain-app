@@ -55,6 +55,8 @@ With connected brains: "Schedule a meeting with Sterling next week." Your brain 
 
 Two connected brains can share a wiki namespace — a set of pages both agents can read and write. Your brain writes up meeting notes; Sterling's brain adds action items. Both wikis stay in sync. The shared space is a living document that two agents maintain together on behalf of their users.
 
+**Concrete first-milestone framing** (directory-level invites, human collaborators such as assistants, travel subtrees): [IDEA Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md).
+
 ### Delegation and task routing
 
 "Ask Sarah to review this doc and send me her notes." Your brain sends the document to Sarah's brain with a review request. Sarah's brain surfaces it in her queue, she reviews it (or her brain drafts a review and she approves it), and the notes come back to your brain. Async collaboration with zero email overhead.

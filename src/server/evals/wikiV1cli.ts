@@ -8,16 +8,24 @@ loadEvalEnvAndLlmCli(`Usage: npx tsx --tsconfig tsconfig.server.json src/server/
 Loads ./.env (same as dev server). Default task file: eval/tasks/wiki-v1.jsonl
 (override with EVAL_WIKI_TASKS, or EVAL_TASKS as fallback).
 
+Each JSONL case runs in a subprocess with --brain-wiki-root under ./.data-eval/wiki-eval-cases/<task-id>/ (reset before the run; left on disk for inspection — Enron fixture wiki seeded with starter + me.md / assistant.md).
+
 Options:
-  --provider, -p   LLM_PROVIDER
-  --model, -m      LLM_MODEL
-  --id             Run only this task id (sets EVAL_CASE_ID); exits 1 if not in the wiki file
+  --provider, -p       LLM_PROVIDER
+  --model, -m          LLM_MODEL
+  --id                 Run only this task id (sets EVAL_CASE_ID); exits 1 if not in the wiki file
+  --brain-wiki-root    Parent of wiki/ (overrides BRAIN_WIKI_ROOT for this process). Worker (--id + EVAL_SUBPROCESS_REPORT_FILE) only; orchestrator sets per case.
   -h, --help
 
 Full eval (Vitest + Enron + Wiki JSONL): npm run eval:run
 `)
 
-const { runWikiV1Main } = await import('./runWikiV1.js')
+const { runWikiV1Main, runWikiV1SubprocessWorker } = await import('./runWikiV1.js')
+
+if (process.env.EVAL_SUBPROCESS_REPORT_FILE?.trim()) {
+  const code = await runWikiV1SubprocessWorker()
+  process.exit(code)
+}
 
 void runWikiV1Main()
   .then((n) => {

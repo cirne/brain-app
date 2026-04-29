@@ -3,11 +3,16 @@
  * Build eval home with the Enron kean-s mailbox (tens of thousands of messages, all as .eml for ripmail).
  *
  * Usage: node scripts/eval/build-enron-kean.mjs [--force]
- * Env:   EVAL_ENRON_TAR=/path/to/enron_mail_20150507.tar.gz (default: ~/Downloads/enron_mail_20150507.tar.gz)
+ *
+ * Tarball:
+ * - If `EVAL_ENRON_TAR` is set → use that path (SHA must match the manifest).
+ * - Else → use `data-eval/.cache/enron/enron_mail_20150507.tar.gz`, downloading from
+ *   `eval/fixtures/enron-kean-manifest.json` `sourceUrl` on first run (~1.7 GiB).
+ * - Override download URL / SHA with `ENRON_SOURCE_URL` / `ENRON_SHA256` if needed.
  */
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
+import { ensureEnronTarballPath } from './ensureEnronTarball.mjs'
 import { ingestEnronKeanToBrainRoot, loadEnronKeanManifest } from './enronKeanIngest.mjs'
 import { repoRoot, resolveRipmailBin, ripmailVersionLine } from './ripmailBin.mjs'
 
@@ -50,11 +55,7 @@ function isStampFresh(manifest, versionLine) {
   }
 }
 
-function defaultTarPath() {
-  return join(homedir(), 'Downloads', 'enron_mail_20150507.tar.gz')
-}
-
-function main() {
+async function main() {
   const manifest = loadEnronKeanManifest(manifestPath)
   const ripmailBin = resolveRipmailBin(root)
   const v = ripmailVersionLine(ripmailBin)
@@ -68,7 +69,7 @@ function main() {
     return
   }
 
-  const tarPath = resolve(process.env.EVAL_ENRON_TAR?.trim() || defaultTarPath())
+  const tarPath = await ensureEnronTarballPath({ manifest, repoRoot: root })
   const { fileCount } = ingestEnronKeanToBrainRoot({
     manifest,
     tarPath,
@@ -82,4 +83,7 @@ function main() {
   console.error('  Try: RIPMAIL_HOME=' + ripHome + ' ' + ripmailBin + ' status --json')
 }
 
-main()
+main().catch(e => {
+  console.error(e)
+  process.exit(1)
+})

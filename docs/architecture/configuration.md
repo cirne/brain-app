@@ -27,9 +27,9 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 | `SYNC_INTERVAL_SECONDS` | `300` | Interval for `runFullSync` timer (**disabled when `BRAIN_DATA_ROOT` is set** until per-tenant background sync exists) |
 | `BRAIN_ENRON_DEMO_SECRET` | — | **Hosted/demo only:** any non-empty value enables `POST /api/auth/demo/enron`, `GET /api/auth/demo/enron/seed-status`, and the `/demo` page (no link from hosted Google sign-in). Bearer must match (timing-safe). See [enron-demo-tenant.md](./enron-demo-tenant.md). |
 | `BRAIN_ENRON_DEMO_TENANT_ID` | `usr_enrondemo00000000001` | Fixed demo tenant directory under `BRAIN_DATA_ROOT`; override for tests. |
-| `EVAL_ENRON_TAR` | — | Path to `enron_mail_20150507.tar.gz` for **`npm run brain:seed-enron-demo`** and optional Docker lazy-seed (skips download). |
+| `EVAL_ENRON_TAR` | — | Optional: path to `enron_mail_20150507.tar.gz`. If unset, **`npm run eval:build`** and **`npm run brain:seed-enron-demo`** download once (SHA-checked) to **`data-eval/.cache/enron/enron_mail_20150507.tar.gz`** (or lazy-seed checks that path before `tmpdir`). |
 | `BRAIN_SEED_REPO_ROOT` | — | **Lazy seed only:** repo root containing `eval/fixtures/enron-kean-manifest.json` (defaults: `/app/seed-enron` in image, else `process.cwd()`). |
-| `ENRON_SOURCE_URL` / `ENRON_SHA256` | — | **Lazy seed only:** override manifest URL/hash when downloading the CMU tarball (air-gapped mirrors). |
+| `ENRON_SOURCE_URL` / `ENRON_SHA256` | — | Override CMU tarball URL/hash when downloading (air-gapped mirrors). Used by **`npm run eval:build`**, demo seed, and lazy-seed. |
 
 ### Agent LLM default (2026, staging and COGS)
 

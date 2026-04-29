@@ -7,12 +7,16 @@
  *
  * Required env:
  *   BRAIN_DATA_ROOT — tenant parent (e.g. ./data-multitenant or /brain-data in Docker)
- *   EVAL_ENRON_TAR — path to enron_mail_20150507.tar.gz (SHA checked via manifest)
+ *
+ * Tarball: same as `npm run eval:build` — if `EVAL_ENRON_TAR` is unset, downloads to
+ *   `data-eval/.cache/enron/enron_mail_20150507.tar.gz` (see scripts/eval/ensureEnronTarball.mjs).
  *
  * Optional:
+ *   EVAL_ENRON_TAR — use this path instead of cache (SHA checked via manifest)
  *   BRAIN_ENRON_DEMO_TENANT_ID — default usr_enrondemo00000000001
  *   RIPMAIL_BIN — default: repo target/release, else PATH ripmail (container: /usr/local/bin/ripmail)
  *   BRAIN_SEED_REPO_ROOT — override repo root for eval/fixtures path (normally auto from script location)
+ *   ENRON_SOURCE_URL / ENRON_SHA256 — override manifest URL or hash (air-gapped mirrors)
  *
  * Flags:
  *   --force — remove existing tenant dir and rebuild from tarball
@@ -23,6 +27,7 @@ import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { ensureEnronTarballPath } from '../eval/ensureEnronTarball.mjs'
 import { ingestEnronKeanToBrainRoot, loadEnronKeanManifest } from '../eval/enronKeanIngest.mjs'
 import { ripmailVersionLine, resolveRipmailBin } from '../eval/ripmailBin.mjs'
 
@@ -31,12 +36,6 @@ const wantForce = process.argv.includes('--force')
 const dataRoot = process.env.BRAIN_DATA_ROOT?.trim()
 if (!dataRoot) {
   console.error('[seed-enron-demo] Set BRAIN_DATA_ROOT (multi-tenant data root).')
-  process.exit(1)
-}
-
-const tarPath = process.env.EVAL_ENRON_TAR?.trim()
-if (!tarPath) {
-  console.error('[seed-enron-demo] Set EVAL_ENRON_TAR to enron_mail_20150507.tar.gz')
   process.exit(1)
 }
 
@@ -83,28 +82,37 @@ const extractParent = join(extractRoot, 'expand')
 mkdirSync(extractParent, { recursive: true })
 
 const manifest = loadEnronKeanManifest(manifestPath)
-console.error('[seed-enron-demo] Ingesting Enron kean-s →', tenantHome)
 
-ingestEnronKeanToBrainRoot({
-  manifest,
-  tarPath,
-  brainRoot: tenantHome,
-  ripmailBin,
-  extractParent,
-  force: true,
+async function main() {
+  const tarPath = await ensureEnronTarballPath({ manifest, repoRoot })
+  console.error('[seed-enron-demo] Ingesting Enron kean-s →', tenantHome)
+
+  ingestEnronKeanToBrainRoot({
+    manifest,
+    tarPath,
+    brainRoot: tenantHome,
+    ripmailBin,
+    extractParent,
+    force: true,
+  })
+
+  const handleMeta = {
+    userId: TENANT_ID,
+    handle: 'enron-demo',
+    confirmedAt: new Date().toISOString(),
+  }
+  writeFileSync(join(tenantHome, 'handle-meta.json'), JSON.stringify(handleMeta, null, 2), 'utf8')
+
+  try {
+    rmSync(extractRoot, { recursive: true, force: true })
+  } catch {
+    /* */
+  }
+
+  console.error('[seed-enron-demo] Done.', tenantHome)
+}
+
+main().catch(e => {
+  console.error('[seed-enron-demo]', e)
+  process.exit(1)
 })
-
-const handleMeta = {
-  userId: TENANT_ID,
-  handle: 'enron-demo',
-  confirmedAt: new Date().toISOString(),
-}
-writeFileSync(join(tenantHome, 'handle-meta.json'), JSON.stringify(handleMeta, null, 2), 'utf8')
-
-try {
-  rmSync(extractRoot, { recursive: true, force: true })
-} catch {
-  /* */
-}
-
-console.error('[seed-enron-demo] Done.', tenantHome)

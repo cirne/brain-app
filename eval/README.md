@@ -4,14 +4,14 @@
 
 Integration / e2e fixtures for assistant, wiki, and enrichment agents share one **eval home**: a normal `BRAIN_HOME` tree (`wiki/`, `chats/`, `ripmail/`, …) under [`../shared/brain-layout.json`](../shared/brain-layout.json).
 
-- **Directory** [`data-eval/`](../data-eval/) (gitignored, sibling to `data/`) holds the tarball cache, stamp, and `brain/` tree.
+- **Directory** [`data-eval/`](../data-eval/) (gitignored, sibling to `data/`) holds the tarball cache, stamp, and `brain/` tree. **Wiki JSONL cases** also write **`.data-eval/wiki-eval-cases/<task-id>/wiki/`** (gitignored), reset at each case start and kept after the run for inspection.
 - **Mail** is built from the Enron `kean-s` fixture pipeline (do not commit raw mail; only `data-eval/` on disk, gitignored).
 
 ### Enron `kean-s`
 
 **~25k messages** from the [CMU Enron](https://www.cs.cmu.edu/~enron/) `enron_mail_20150507.tar.gz` distribution, user **`kean-s`**, flattened to `maildir/cur/*.eml` and indexed under a synthetic account ([`fixtures/enron-kean-manifest.json`](fixtures/enron-kean-manifest.json)).
 
-Place the tarball at `~/Downloads/enron_mail_20150507.tar.gz` or set `EVAL_ENRON_TAR`. Then:
+Place the tarball at `~/Downloads/enron_mail_20150507.tar.gz`, set `EVAL_ENRON_TAR`, **or run `npm run eval:build` with neither** — the script downloads CMU’s `enron_mail_20150507.tar.gz` once (**prefers `curl`** with resume on `*.part`; SHA-checked) into **`data-eval/.cache/enron/enron_mail_20150507.tar.gz`** and reuses it on later runs. Set **`EVAL_ENRON_USE_NODE_FETCH=1`** to force Node’s `fetch` downloader. Override the URL with `ENRON_SOURCE_URL` or the hash with `ENRON_SHA256` if you mirror the file.
 
 ```bash
 npm run eval:build
@@ -67,13 +67,32 @@ Mail-centric agent tasks (search/read) run against the **large** `kean-s` index.
 
 Two tasks in [`tasks/wiki-v1.jsonl`](tasks/wiki-v1.jsonl): **`buildout`** uses [`getOrCreateWikiBuildoutAgent`](../src/server/agent/wikiBuildoutAgent.ts) (write + `search_index`, same as Your Wiki enrich); **`cleanup`** uses [`createCleanupAgent`](../src/server/agent/agentFactory.ts) (read / grep / find / `edit` — no `write`).
 
+**Isolated vault per case:** Each JSONL row runs in a **subprocess** with its own `BRAIN_WIKI_ROOT` parent at **`.data-eval/wiki-eval-cases/<task-id>/`** (stable name from the JSONL `id`). The orchestrator **removes and recreates** that directory at **case start**, then the child seeds the starter wiki and copies [`fixtures/enron-kean-wiki/me.md`](fixtures/enron-kean-wiki/me.md) and [`assistant.md`](fixtures/enron-kean-wiki/assistant.md). The tree is **not deleted** after the case so you can inspect **`./.data-eval/wiki-eval-cases/<id>/wiki/`**. (`.data-eval/` is gitignored like `data-eval/`.)
+
+**CLI:** [`wikiV1cli`](../src/server/evals/wikiV1cli.ts) and `npm run eval:run` accept **`--brain-wiki-root <path>`** (same as setting `BRAIN_WIKI_ROOT` to an absolute path; flag **overrides** env for that process). The orchestrator normally sets per-case roots under `.data-eval/wiki-eval-cases/`; use `--brain-wiki-root` manually for a single long run (e.g. `manualWikiFullBuildoutCli`) when you want a fixed vault parent elsewhere.
+
+**Wiki buildout-only tasks:** [`tasks/wiki-buildout-v1.jsonl`](tasks/wiki-buildout-v1.jsonl) — multiple **buildout** cases grounded in the same Enron golden message ids as `enron-v1.jsonl`. Example:
+
+```bash
+BRAIN_HOME=./data-eval/brain EVAL_WIKI_TASKS=eval/tasks/wiki-buildout-v1.jsonl npx tsx --tsconfig tsconfig.server.json src/server/evals/wikiV1cli.ts
+```
+
+**Manual full first buildout** (one `WIKI_EXPANSION_INITIAL_MESSAGE` pass — inspect `wiki/` on disk after; optional `--brain-wiki-root` for a split vault parent):
+
+```bash
+BRAIN_HOME=./data-eval/brain npx tsx --tsconfig tsconfig.server.json src/server/evals/manualWikiFullBuildoutCli.ts
+```
+
+See [`manualWikiFullBuildoutCli.ts`](../src/server/evals/manualWikiFullBuildoutCli.ts) (`--help` for flags).
+
 **Requirements:** same **Enron** index as the mail eval (`data-eval/brain/ripmail/ripmail.db`) so buildout can run `search_index`. Runs as part of `npm run eval:run` (JSONL phase), or invoke `wikiV1cli.ts` directly for wiki-only. Reports: `data-eval/eval-runs/wiki-v1-<model-segment>-<timestamp>.json` (see Enron section for naming) with per-case `usage`, `toolNames`, and `agent` field.
 
 | Env | Purpose |
 |-----|---------|
 | `EVAL_WIKI_TASKS` | Override path to wiki JSONL (default `eval/tasks/wiki-v1.jsonl`) |
 | `EVAL_TASKS` | Wiki: used when `EVAL_WIKI_TASKS` is unset. Enron v1: overrides the default enron task file. |
-| `EVAL_MAX_CONCURRENCY` | Default `2` (two agents); raise if you add more tasks |
+| `EVAL_MAX_CONCURRENCY` | Max **parallel subprocesses** for wiki cases (default `12`, capped by task count; same knob as Enron) |
+| `EVAL_SUBPROCESS_REPORT_FILE` | Internal: child writes one-case JSON result for the parent (do not set by hand) |
 
 Expectations in JSONL can use **`toolNamesIncludeAll`** / **`toolNamesIncludeOneOf`** (see [`src/server/evals/harness/types.ts`](../src/server/evals/harness/types.ts)).
 
@@ -82,7 +101,7 @@ Expectations in JSONL can use **`toolNamesIncludeAll`** / **`toolNamesIncludeOne
 | Script | Purpose |
 |--------|---------|
 | `eval:build` | Enron `kean-s` tarball → ~25k `.eml` → index (see [`enron-kean-manifest.json`](fixtures/enron-kean-manifest.json)) |
-| `eval:run` | [`scripts/eval-run.mjs`](../scripts/eval-run.mjs): Vitest (`vitest.eval.config.ts`) then all JSONL LLM suites (Enron v1, Wiki v1). `BRAIN_HOME=./data-eval/brain`. Pass `--provider` / `--model` / `--help` after `--` for the JSONL phase. |
+| `eval:run` | [`scripts/eval-run.mjs`](../scripts/eval-run.mjs): Vitest (`vitest.eval.config.ts`) then all JSONL LLM suites (Enron v1, Wiki v1). `BRAIN_HOME=./data-eval/brain`. Pass `--provider` / `--model` / `--help` after `--` for the JSONL phase. Wiki-only or buildout-only JSONL: use `npx tsx … wikiV1cli.ts` with `EVAL_WIKI_TASKS`; manual full buildout: `npx tsx … manualWikiFullBuildoutCli.ts` (see Wiki section above). |
 
 `npm run ripmail:build` (or `ripmail` on `PATH`); eval scripts prefer `target/release/ripmail`. To reindex after hand-editing maildir: `RIPMAIL_HOME=./data-eval/brain/ripmail BRAIN_HOME=./data-eval/brain ./target/release/ripmail rebuild-index`.
 

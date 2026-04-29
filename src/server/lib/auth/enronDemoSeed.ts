@@ -148,6 +148,14 @@ async function ensureTarball(repoRoot: string): Promise<string> {
     throw new Error('Missing Enron tarball URL or SHA (manifest or ENRON_SOURCE_URL / ENRON_SHA256).')
   }
 
+  const sharedCache = join(repoRoot, 'data-eval', '.cache', 'enron', 'enron_mail_20150507.tar.gz')
+  if (existsSync(sharedCache)) {
+    const sha = await sha256File(sharedCache)
+    if (sha === expectedSha) {
+      return sharedCache
+    }
+  }
+
   const cacheDir = join(tmpdir(), 'brain-enron-tar-cache')
   mkdirSync(cacheDir, { recursive: true })
   const cachePath = join(cacheDir, `${expectedSha.slice(0, 16)}_enron_mail.tar.gz`)

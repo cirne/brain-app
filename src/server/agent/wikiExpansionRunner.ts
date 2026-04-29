@@ -4,7 +4,10 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { listWikiFiles } from '@server/lib/wiki/wikiFiles.js'
-import { categoriesJsonPath } from '@server/lib/onboarding/onboardingState.js'
+import {
+  markWikiBuildoutFirstPassDone,
+  readWikiBuildoutIsFirstRun,
+} from '@server/lib/onboarding/onboardingState.js'
 import {
   appendLogEntry,
   appendTimelineEvent,
@@ -395,17 +398,6 @@ export function pauseWikiExpansionRun(runId: string): void {
   deleteWikiBuildoutSession(buildoutSessionIdForRun(runId))
 }
 
-async function loadCategoriesFromDisk(): Promise<string[] | undefined> {
-  try {
-    const raw = await readFile(categoriesJsonPath(), 'utf-8')
-    const parsed = JSON.parse(raw) as { categories?: string[] }
-    if (Array.isArray(parsed.categories) && parsed.categories.length) return parsed.categories
-  } catch {
-    /* optional */
-  }
-  return undefined
-}
-
 /**
  * Run a single enrich (wiki expansion) invocation. Injects me.md, assistant.md, and vault manifest for context.
  * `syncNote` is a brief, recency-bias-avoiding note when mail was refreshed before this lap.
@@ -423,10 +415,10 @@ export async function runEnrichInvocation(
   // Previously we only re-ensured when the in-memory session was cached, which missed first-lap races
   // and any vault that lost index.md while pages remained.
   await ensureWikiVaultScaffoldForBuildout(wikiRoot)
-  const categories = await loadCategoriesFromDisk()
+  const isFirstBuildoutRun = await readWikiBuildoutIsFirstRun()
   const agent = await getOrCreateWikiBuildoutAgent(sessionId, {
     timezone: options.timezone,
-    categories,
+    isFirstBuildoutRun,
   })
 
   const contextPrefix = await buildExpansionContextPrefix(wikiRoot, options.syncNote)
@@ -446,6 +438,7 @@ export async function runEnrichInvocation(
     if (pausedRunIds.has(runId)) return 0
     await agent.waitForIdle()
     await agent.prompt(fullMessage)
+    await markWikiBuildoutFirstPassDone().catch(() => {})
   } catch (e: unknown) {
     if (!(e instanceof Error && (e.name === 'AbortError' || /abort/i.test(e.message)))) {
       const msg = e instanceof Error ? e.message : String(e)

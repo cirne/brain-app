@@ -114,6 +114,7 @@ Workstreams **1–4** are the minimum credible path to the vision; **5–7** dee
 
 ## Relationship to existing docs
 
+- **[IDEA Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md)** — Product-framed wedge (directory-level shares with another user, e.g. travel subtree + human assistant): **explicit RO/RW**, **individuals-first**, aligns with wiki path scopes below; unresolved **history/conflict** questions point to future OPPs and [OPP-034](./OPP-034-wiki-snapshots-and-point-in-time-restore.md).
 - **[OPP-001](./OPP-001-agent-to-agent.md)** — Protocol shape, permission table, threat model, and “what inter-brain enables.” **OPP-042** does not duplicate that detail; it **owns sequencing, UX surfaces, handle-first identity, and epic breakdown**.
 - **[OPP-002](./OPP-002-public-brain-identity.md)** — Public and verified tiers **after** bilateral trust MVP is usable; sequencing updated to point here.
 - **[brain-cloud-service.md](../architecture/brain-cloud-service.md)** — Optional coordinator (registry, relay, tunnel signaling) **without holding user content**; complements handle resolution and NAT scenarios.

@@ -34,7 +34,7 @@
     "desktop": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
-    "docker:ripmail:build": "node scripts/docker-prebuild-ripmail.mjs",
+    "docker:ripmail:build": "npx tsx scripts/docker-prebuild-ripmail.ts",
     "docker:build": "npm run docker:ripmail:build && docker build -t brain-app:local .",
     "docker:up": "npm run docker:ripmail:build && docker compose up --build",
     "docker:down": "docker compose down",

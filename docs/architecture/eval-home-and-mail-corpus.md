@@ -19,6 +19,7 @@ Integration and agent evals need a **fixed on-disk profile** that mirrors produc
 |------|---------|
 | **Eval home** | The `BRAIN_HOME` directory used for evals. In-repo convention: **`./data-eval/brain`** (set `BRAIN_HOME` for Vitest and local runs). |
 | **`data-eval/`** | Repo-root directory (sibling to `data/` and `data-multitenant/`) for **all generated** eval material: download cache, stamp, and `brain/`. Listed in [`.gitignore`](../../.gitignore). |
+| **`.data-eval/`** | Repo-root directory for **per–wiki-case** vault parents from JSONL wiki evals: `.data-eval/wiki-eval-cases/<task-id>/` (`BRAIN_WIKI_ROOT`), reset at case start, retained after the run. Listed in [`.gitignore`](../../.gitignore). |
 | **Eval corpus / fixture mail** | Indexed messages backing the suite — **describes content**, not directory names. Avoid “Enron mailbox” as a path name; prefer **eval home** + manifest field for source. |
 | **Synthetic account** | `config.json` may list a normal IMAP identity (e.g. a Gmail-shaped address) for ripmail; **no live IMAP** is required for local index-only fixtures. |
 
@@ -27,6 +28,11 @@ Integration and agent evals need a **fixed on-disk profile** that mirrors produc
 ## Layout (on disk)
 
 ```
+.data-eval/                         # gitignored — wiki JSONL isolated vaults (not BRAIN_HOME)
+  wiki-eval-cases/                  # per JSONL `id`: <id>/wiki/…
+    <task-id>/
+      wiki/
+
 data-eval/                          # gitignored
   .cache/                           # Enron tarball extract cache (`enron/expand/…`)
   .enron-kean-stamp.json            # invalidation (manifest hash, ripmail version, source user, …)
@@ -61,7 +67,7 @@ data-eval/                          # gitignored
 
 ## Enron `kean-s` fixture (primary pipeline)
 
-**Automation:** [`npm run eval:build`](../../package.json) runs [`scripts/eval/build-enron-kean.mjs`](../../scripts/eval/build-enron-kean.mjs), which reads [`eval/fixtures/enron-kean-manifest.json`](../../eval/fixtures/enron-kean-manifest.json), verifies the `.tar.gz` SHA-256, selectively extracts **`maildir/kean-s/`**, copies every message file into **`cur/*.eml`**, writes ripmail `config.json` + env, runs **`ripmail rebuild-index`**, and writes **`data-eval/.enron-kean-stamp.json`**.
+**Automation:** [`npm run eval:build`](../../package.json) runs [`scripts/eval/build-enron-kean.mjs`](../../scripts/eval/build-enron-kean.mjs), which reads [`eval/fixtures/enron-kean-manifest.json`](../../eval/fixtures/enron-kean-manifest.json). If `EVAL_ENRON_TAR` is unset, it **downloads** the tarball once (URL + SHA from the manifest; overridable with `ENRON_SOURCE_URL` / `ENRON_SHA256`) into **`data-eval/.cache/enron/enron_mail_20150507.tar.gz`**, then verifies SHA-256, selectively extracts **`maildir/kean-s/`**, copies every message file into **`cur/*.eml`**, writes ripmail `config.json` + env, runs **`ripmail rebuild-index`**, and writes **`data-eval/.enron-kean-stamp.json`**.
 
 **Source:** [CMU Enron `enron_mail_20150507.tar.gz`](https://www.cs.cmu.edu/~enron/) (and mirrors). The archive unpacks to **`maildir/<user>/…`** for many users; the eval script extracts **one** user subtree only.
 

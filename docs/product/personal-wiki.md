@@ -23,6 +23,8 @@ Braintunnel **creates and helps you maintain** a **personal, private wiki**—a 
 - **Grounded:** Email, calendar, and (where enabled) other sources **feed** the wiki; the assistant uses those sources to **summarize and structure**, not to expose raw mail in random places without intent.
 - **Compounding:** The value is in the **network** of pages over time—the same insight as a “second brain” or Obsidian-style vault, with Braintunnel doing more of the scaffolding.
 
+**Collaboration (future, not shipped):** Explicit **sharing** of a subtree or named files with **another Braintunnel user** (read-only or read-write)—similar in spirit to sharing a note or doc elsewhere—is a planned direction for richer real-life workflows (e.g. assistant + travel folder). It stays **opt-in and scoped**; strategy and sequencing live under [OPP-042: Brain network & inter-brain trust](../opportunities/OPP-042-brain-network-interbrain-trust-epic.md), with a focused product wedge captured in [IDEA Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md).
+
 ---
 
 ## Why the wiki exists: personalized assistant, not generic chat
@@ -86,3 +88,4 @@ User-editable recipes ([OPP-010](../opportunities/OPP-010-user-skills.md)) shoul
 - [VISION.md](../VISION.md) — second brain, compounding value
 - [OPP-006: Email-bootstrap onboarding](../opportunities/OPP-006-email-bootstrap-onboarding.md) — concrete steps
 - [OPP-011: User skills strategy](../opportunities/OPP-011-user-skills-strategy.md) — `/wiki` and NL-first skills
+- [IDEA Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md) — future optional sharing of wiki subtrees (see “Collaboration (future)” above)
