@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import { ArrowLeft } from 'lucide-svelte'
   import { fly, slide } from 'svelte/transition'
   import Search from './Search.svelte'
   import AppTopNav from './AppTopNav.svelte'
   import BrainHubPage from './BrainHubPage.svelte'
   import Wiki from './Wiki.svelte'
   import WikiDirList from './WikiDirList.svelte'
+  import UnifiedChatComposer from './UnifiedChatComposer.svelte'
   import AssistantSlideOver from './AssistantSlideOver.svelte'
   import AgentChat from './AgentChat.svelte'
   import ChatHistory from './ChatHistory.svelte'
@@ -41,6 +41,11 @@
     runSyncOrQueueFollowUp,
   } from '@client/lib/app/debouncedWikiSync.js'
   import { wikiPathForReadToolArg } from '@client/lib/cards/contentCards.js'
+  import {
+    wikiPrimaryCrumbsForDir,
+    wikiPrimaryCrumbsForFile,
+    type WikiPrimaryCrumb,
+  } from '@client/lib/wikiPrimaryBarCrumbs.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
@@ -56,6 +61,12 @@
   import { waitUntilDefinedOrMaxTicks } from '@client/lib/async/waitUntilReady.js'
   import { alignShellWithBareChatRoute, createAssistantShellState } from '@client/lib/assistantShellModel.js'
   import { createShellNavigate } from '@client/lib/assistantShellNavigate.js'
+  import { contextPlaceholder, type SkillMenuItem } from '@client/lib/agentUtils.js'
+  import { applyVoiceTranscriptToChat } from '@client/lib/voiceTranscribeRouting.js'
+  import { readHearRepliesPreference, writeHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
+  import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
+  import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
+  import { wikiPrimaryChatMessageOrNull } from '@client/lib/wikiPrimaryChatSend.js'
   import { emptyAssistantRefs } from './assistantShellRefs.js'
 
   /** Route bar, sync, overlays, and layout — one factory instead of a wall of `let` declarations. */
@@ -90,6 +101,31 @@
   const topNavNewChatDisabled = $derived(
     shell.chatIsEmpty && !hubMainPane && shell.route.wikiActive !== true,
   )
+
+  /** Primary wiki pane header: Wiki / folders / page (see `wiki-primary-bar`). */
+  const wikiPrimaryBarCrumbs = $derived.by((): WikiPrimaryCrumb[] => {
+    if (!shell.route.wikiActive) return []
+    const o = shell.route.overlay
+    if (!o || (o.type !== 'wiki' && o.type !== 'wiki-dir')) return []
+    return o.type === 'wiki'
+      ? wikiPrimaryCrumbsForFile(o.path?.trim() ?? '')
+      : wikiPrimaryCrumbsForDir(o.path)
+  })
+
+  let wikiDockWikiFiles = $state<string[]>([])
+  let wikiDockSkills = $state<SkillMenuItem[]>([])
+  let wikiDockDraft = $state('')
+  let wikiDockHearReplies = $state(readHearRepliesPreference())
+  let wikiDockComposerRef = $state<ReturnType<typeof UnifiedChatComposer> | undefined>(undefined)
+
+  const wikiDockPlaceholder = $derived(contextPlaceholder(shell.agentContext))
+  const wikiDockComposerSessionKey = $derived.by(() => {
+    const o = shell.route.overlay
+    if (!o || (o.type !== 'wiki' && o.type !== 'wiki-dir')) return 'wiki-primary'
+    const p = 'path' in o ? (o.path ?? '') : ''
+    return `wiki-primary-${o.type}-${p}`
+  })
+  const wikiDockVoiceEligible = $derived(isPressToTalkEnabled() && shell.isMobile)
 
   function chatSessionPart(): Pick<Route, 'sessionId' | 'sessionTail'> {
     return chatSessionPatch(shell.route, effectiveChatSessionId)
@@ -631,6 +667,109 @@
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
+  async function fetchWikiDockWikiFiles() {
+    try {
+      const res = await fetch('/api/wiki')
+      if (!res.ok) return
+      const data: unknown = await res.json()
+      if (!Array.isArray(data)) return
+      wikiDockWikiFiles = data
+        .map((f) =>
+          f && typeof f === 'object' && 'path' in f && typeof (f as { path: unknown }).path === 'string'
+            ? (f as { path: string }).path
+            : null,
+        )
+        .filter((p): p is string => p != null)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function fetchWikiDockSkills() {
+    try {
+      const res = await fetch('/api/skills')
+      if (!res.ok) return
+      const data: unknown = await res.json()
+      if (!Array.isArray(data)) return
+      wikiDockSkills = data as SkillMenuItem[]
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function onWikiDockVoiceTranscribe(text: string) {
+    applyVoiceTranscriptToChat(
+      text,
+      wikiDockDraft,
+      (t) => void wikiPrimaryComposeSend(t),
+      (t) => {
+        wikiDockComposerRef?.appendText(t)
+      },
+    )
+  }
+
+  /**
+   * Leave wiki-primary, open the main chat column, start a new session, and send the first message
+   * (same `newChatWithMessage` path as the main composer).
+   * On desktop with a wide workspace, keep the current wiki file or folder open in the right detail
+   * stack (`/c?panel=wiki&path=…` or `panel=wiki-dir`) so chat and doc stay side by side.
+   */
+  async function wikiPrimaryComposeSend(text: string) {
+    const t = wikiPrimaryChatMessageOrNull(text)
+    if (!t) return
+    const o = shell.route.overlay
+    const keepDetailForSplit =
+      !shell.isMobile &&
+      shell.workspaceColumnWidth >= WORKSPACE_DESKTOP_SPLIT_MIN_PX &&
+      o &&
+      (o.type === 'wiki' || o.type === 'wiki-dir')
+
+    shell.chatTitleForUrl = null
+    navigateShell(
+      {
+        hubActive: false,
+        wikiActive: false,
+        ...(keepDetailForSplit ? { overlay: o } : {}),
+      },
+      { replace: true },
+    )
+    shell.route = parseRoute()
+
+    if (keepDetailForSplit && o) {
+      shell.wikiWriteStreaming = null
+      shell.wikiEditStreaming = null
+      shell.inboxTargetId = undefined
+      if (o.type === 'wiki' && o.path) {
+        const title = o.path.replace(/\.md$/i, '').split('/').pop() ?? o.path
+        shell.agentContext = { type: 'wiki', path: o.path, title }
+      } else if (o.type === 'wiki-dir') {
+        const dirPath = o.path?.trim() ?? ''
+        const title = dirPath ? (dirPath.split('/').pop() ?? dirPath) : 'Wiki'
+        shell.agentContext = { type: 'wiki-dir', path: dirPath, title }
+      } else {
+        shell.agentContext = { type: 'chat' }
+      }
+    } else {
+      alignShellWithBareChatRoute(shell)
+    }
+
+    shell.chatIsEmpty = false
+    if (shell.isMobile) shell.sidebarOpen = false
+    const chat = await waitUntilDefinedOrMaxTicks({
+      get: () => refs.agentChat,
+      tick,
+      maxIterations: 48,
+    })
+    if (chat) await chat.newChatWithMessage(t, { skipOverlayClose: true })
+  }
+
+  $effect(() => {
+    if (!shell.route.wikiActive) return
+    void fetchWikiDockWikiFiles()
+    void fetchWikiDockSkills()
+    return registerWikiFileListRefetch(fetchWikiDockWikiFiles)
+  })
+
   /** Empty-state “your wiki” → same help as Hub (`HubWikiAboutPanel` in SlideOver / mobile stack). */
   function openHubWikiAbout() {
     navigateShell({
@@ -833,37 +972,76 @@
       {:else if shell.route.wikiActive && shell.route.overlay && (shell.route.overlay.type === 'wiki' || shell.route.overlay.type === 'wiki-dir')}
         <div class="hub-container">
           <div class="wiki-primary-bar">
-            <button
-              type="button"
-              class="wiki-primary-back"
-              onclick={closeWikiPrimary}
-              title="Back to chat"
-              aria-label="Back to chat"
-            >
-              <ArrowLeft size={18} strokeWidth={2} aria-hidden="true" />
-              <span>Chat</span>
-            </button>
+            <nav class="wiki-primary-crumbs" aria-label="Wiki location">
+              {#each wikiPrimaryBarCrumbs as crumb, i (i)}
+                {#if i > 0}<span class="wiki-primary-crumb-sep" aria-hidden="true">/</span>{/if}
+                {#if crumb.kind === 'wiki-root-link'}
+                  <button
+                    type="button"
+                    class="wiki-primary-crumb-btn"
+                    onclick={() => openWikiDir(undefined)}
+                  >Wiki</button>
+                {:else if crumb.kind === 'folder-link'}
+                  <button
+                    type="button"
+                    class="wiki-primary-crumb-btn"
+                    onclick={() => openWikiDir(crumb.path)}
+                  >{crumb.label}</button>
+                {:else}
+                  <span class="wiki-primary-crumb-current">{crumb.label}</span>
+                {/if}
+              {/each}
+            </nav>
           </div>
-          <div class="hub-scroll wiki-primary-body">
-            {#if shell.route.overlay.type === 'wiki'}
-              <Wiki
-                initialPath={shell.route.overlay.path}
-                refreshKey={shell.wikiRefreshKey}
-                streamingWrite={shell.wikiWriteStreaming}
-                streamingEdit={shell.wikiEditStreaming}
-                onNavigate={(path) => onWikiNavigate(path)}
-                onNavigateToDir={openWikiDir}
-                onContextChange={setContext}
-              />
-            {:else}
-              <WikiDirList
-                dirPath={shell.route.overlay.path}
-                refreshKey={shell.wikiRefreshKey}
-                onOpenFile={(path) => onWikiNavigate(path)}
-                onOpenDir={(path) => openWikiDir(path)}
-                onContextChange={setContext}
-              />
-            {/if}
+          <div class="wiki-primary-main">
+            <div class="hub-scroll wiki-primary-scroll">
+              {#if shell.route.overlay.type === 'wiki'}
+                <Wiki
+                  initialPath={shell.route.overlay.path}
+                  refreshKey={shell.wikiRefreshKey}
+                  streamingWrite={shell.wikiWriteStreaming}
+                  streamingEdit={shell.wikiEditStreaming}
+                  onNavigate={(path) => onWikiNavigate(path)}
+                  onNavigateToDir={openWikiDir}
+                  onContextChange={setContext}
+                />
+              {:else}
+                <WikiDirList
+                  dirPath={shell.route.overlay.path}
+                  refreshKey={shell.wikiRefreshKey}
+                  onOpenFile={(path) => onWikiNavigate(path)}
+                  onOpenDir={(path) => openWikiDir(path)}
+                  onContextChange={setContext}
+                />
+              {/if}
+            </div>
+            <div class="wiki-primary-composer-dock">
+              <div class="wiki-primary-composer-stack">
+                <UnifiedChatComposer
+                  bind:this={wikiDockComposerRef}
+                  voiceEligible={wikiDockVoiceEligible}
+                  sessionResetKey={wikiDockComposerSessionKey}
+                  showHearRepliesAudioStrip={true}
+                  placeholder={wikiDockPlaceholder}
+                  streaming={false}
+                  queuedMessages={[]}
+                  wikiFiles={wikiDockWikiFiles}
+                  skills={wikiDockSkills}
+                  onSend={(t) => void wikiPrimaryComposeSend(t)}
+                  onDraftChange={(d) => {
+                    wikiDockDraft = d
+                  }}
+                  onTranscribe={onWikiDockVoiceTranscribe}
+                  onRequestFocusText={() => void wikiDockComposerRef?.focus()}
+                  hearReplies={wikiDockHearReplies}
+                  showHearRepliesToggle={true}
+                  onHearRepliesChange={(v) => {
+                    writeHearRepliesPreference(v)
+                    wikiDockHearReplies = v
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       {:else if shell.route.hubActive || shell.route.overlay?.type === 'hub'}
@@ -1064,25 +1242,92 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
+    gap: 10px;
     padding: 6px 10px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-2);
   }
 
-  .wiki-primary-back {
-    display: inline-flex;
+  .wiki-primary-crumbs {
+    flex: 1;
+    min-width: 0;
+    display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 14px;
+    flex-wrap: wrap;
+    gap: 2px;
+    font-size: 13px;
     font-weight: 500;
-    transition: background 0.15s;
+    color: var(--text-2);
   }
 
-  .wiki-primary-back:hover {
-    background: var(--bg-3);
+  .wiki-primary-crumb-sep {
+    opacity: 0.45;
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  .wiki-primary-crumb-btn {
+    padding: 4px 2px;
+    margin: -4px -2px;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    flex-shrink: 0;
+    max-width: 100%;
+  }
+
+  .wiki-primary-crumb-btn:hover {
+    color: var(--text);
+  }
+
+  .wiki-primary-crumb-current {
+    color: var(--text);
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wiki-primary-main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .wiki-primary-scroll {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .wiki-primary-composer-dock {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .wiki-primary-composer-stack {
+    max-width: var(--chat-column-max);
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+    padding: 8px clamp(12px, 3vw, 40px) 12px;
+  }
+
+  @media (min-width: 768px) {
+    .wiki-primary-composer-stack {
+      padding-left: clamp(16px, 4%, 40px);
+      padding-right: clamp(16px, 4%, 40px);
+    }
   }
 
   .mobile-detail-layer {

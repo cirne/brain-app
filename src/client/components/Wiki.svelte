@@ -33,7 +33,7 @@
     /** Live `edit` tool — spinner + “Editing…” while args stream / tool runs. */
     streamingEdit = null as { path: string; toolId: string } | null,
     onNavigate,
-    onNavigateToDir,
+    onNavigateToDir: _onNavigateToDir,
     onContextChange,
   }: {
     initialPath?: string
@@ -242,35 +242,6 @@
     if (path) void openFile(path)
   }
 
-  function folderLandingPath(folder: string): string | undefined {
-    const idx = `${folder}/_index.md`
-    if (files.some((f) => f.path === idx)) return idx
-    const direct = files.find((f) => {
-      if (!f.path.startsWith(folder + '/')) return false
-      return !f.path.slice(folder.length + 1).includes('/')
-    })
-    return direct?.path
-  }
-
-  /** Breadcrumb segment index: 0 = first folder, …, last = current file (not clickable). */
-  function navigateBreadcrumb(segmentIndex: number) {
-    if (!selected) return
-    const parts = selected.split('/').filter(Boolean)
-    if (segmentIndex >= parts.length - 1) return
-    const folder = parts.slice(0, segmentIndex + 1).join('/')
-    if (onNavigateToDir) {
-      onNavigateToDir(folder)
-      return
-    }
-    const target = folderLandingPath(folder)
-    if (target) void openFile(target)
-  }
-
-  const crumbLabels = $derived.by((): string[] => {
-    if (!selected) return []
-    return selected.split('/').filter(Boolean).map((p) => p.replace(/\.md$/, ''))
-  })
-
   function formatDate(dateStr: string): string {
     const d = new Date(dateStr)
     if (isNaN(d.getTime())) return dateStr
@@ -384,22 +355,6 @@
             </p>
           {/if}
           {#if content}
-            {#if pageLoadedOk && crumbLabels.length > 1}
-              <nav class="wiki-crumb" aria-label="Page path">
-                {#each crumbLabels as label, i}
-                  {#if i > 0}<span class="wiki-crumb-sep">/</span>{/if}
-                  {#if i < crumbLabels.length - 1}
-                    <button
-                      type="button"
-                      class="wiki-crumb-btn"
-                      onclick={() => navigateBreadcrumb(i)}
-                    >{label}</button>
-                  {:else}
-                    <span class="wiki-crumb-current">{label}</span>
-                  {/if}
-                {/each}
-              </nav>
-            {/if}
             {#if Object.keys(meta).length > 0}
               <div class="page-meta">
                 {#if meta.updated}<span class="meta-date">{formatDate(meta.updated)}</span>{/if}
@@ -469,36 +424,6 @@
   }
   @keyframes wiki-stream-spin {
     to { transform: rotate(360deg); }
-  }
-  .wiki-crumb {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px;
-    margin-bottom: 10px;
-    font-size: 12px;
-    color: var(--text-2);
-  }
-  .wiki-crumb-sep {
-    opacity: 0.45;
-    user-select: none;
-  }
-  .wiki-crumb-btn {
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--accent);
-    font: inherit;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-  .wiki-crumb-btn:hover {
-    color: var(--text);
-  }
-  .wiki-crumb-current {
-    color: var(--text-2);
-    font-weight: 500;
   }
   .page-meta {
     display: flex;
