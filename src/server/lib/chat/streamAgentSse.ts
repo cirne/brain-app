@@ -2,58 +2,37 @@ import { randomUUID } from 'node:crypto'
 import type { Agent, AgentMessage } from '@mariozechner/pi-agent-core'
 import type { Context } from 'hono'
 import type { ChatMessage } from './chatTypes.js'
-import {
-  addLlmUsage,
-  isZeroUsage,
-  rollupAssistantLlmIds,
-  sumUsageFromMessages,
-  type LlmUsageSnapshot,
-} from '@server/lib/llm/llmUsage.js'
+import { isZeroUsage, addLlmUsage } from '@server/lib/llm/llmUsage.js'
+import { coerceToolResultDetailsObject } from '@server/lib/llm/coerceToolResultDetails.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 import { runSuggestReplyRepairIfNeeded } from '@server/lib/chat/suggestReplyRepair.js'
 import { logger } from '@server/lib/observability/logger.js'
 import { streamSSE } from 'hono/streaming'
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import {
   applyStreamError,
   applyTextDelta,
-  applyThinkingDelta,
-  applyToolArgsUpsert,
-  applyToolEnd,
-  applyToolStart,
   createAssistantTurnState,
-  extractStreamingToolCallsFromPartialAssistant,
   toAssistantMessage,
 } from './chatTranscript.js'
-import { buildReadEmailPreviewDetails } from '@shared/readEmailPreview.js'
-import { createWikiUnifiedDiff, safeWikiRelativePath } from '@server/lib/wiki/wikiEditDiff.js'
-import { writeWikiPartialFromStreamingWriteArgs } from '@server/lib/wiki/wikiStreamingPartialWrite.js'
 import type { LlmAgentKind } from '@server/lib/llm/llmAgentKind.js'
 import {
   type LlmTurnTelemetry,
-  beginToolCallSegment,
-  endToolCallSegmentBridge,
-  recordLlmTurnEndEvents,
-  recordToolCallEnd,
-  recordToolCallStart,
   releaseAllPendingToolCallSegments,
   setAgentTurnTransactionAttribute,
-  toolResultSseForNr,
 } from '@server/lib/observability/newRelicHelper.js'
-import { truncateJsonResult } from '@server/lib/llm/truncateJson.js'
 import {
-  isOpenAiTtsConfigured,
-  openAiTtsResponseFormat,
-  streamOpenAiTtsToBuffers,
-} from '@server/lib/llm/openAiTts.js'
-import { coerceToolResultDetailsObject } from '@server/lib/llm/coerceToolResultDetails.js'
+  handleStreamAgentEnd,
+  handleStreamMessageUpdate,
+  handleStreamToolExecutionEnd,
+  handleStreamToolExecutionStart,
+  type StreamAgentSseHandlerDeps,
+  type StreamAgentSseTurnRefs,
+} from './streamAgentSseHandlers.js'
 import type {
   MessageUpdatePayload,
   ToolExecutionEndPayload,
   ToolExecutionStartPayload,
 } from './streamAgentSseTypes.js'
-import { toolResultText } from './streamAgentSseTypes.js'
 
 export interface StreamAgentSseOptions {
   /** Wiki root for edit diffs and safeWikiRelativePath (may differ from main app wiki). */
@@ -134,12 +113,15 @@ export function streamAgentSseResponse(
       await stream.writeSSE({ event: 'session', data: JSON.stringify({ sessionId: announceSessionId }) })
     }
     const initialT = initialSessionTitleOpt?.trim().slice(0, 120)
-    let turnTitle: string | null | undefined =
-      initialT && initialT.length > 0 ? initialT : undefined
-    if (turnTitle) {
+    const refs: StreamAgentSseTurnRefs = {
+      turnTitle: initialT && initialT.length > 0 ? initialT : undefined,
+      lastRunUsage: undefined,
+      toolCallCount: 0,
+    }
+    if (refs.turnTitle) {
       if (onSessionTitlePersist) {
         try {
-          await onSessionTitlePersist(turnTitle)
+          await onSessionTitlePersist(refs.turnTitle)
         } catch {
           /* ignore */
         }
@@ -147,7 +129,7 @@ export function streamAgentSseResponse(
       try {
         await stream.writeSSE({
           event: 'chat_title',
-          data: JSON.stringify({ title: turnTitle }),
+          data: JSON.stringify({ title: refs.turnTitle }),
         })
       } catch {
         /* closed */
@@ -159,12 +141,8 @@ export function streamAgentSseResponse(
     const assistantState = createAssistantTurnState()
     const editBeforeSnapshot = new Map<string, string>()
     let savedThisTurn = false
-    /** Set from `agent_end` (sum of assistant `usage` over the full `prompt()` run). */
-    let lastRunUsage: LlmUsageSnapshot | undefined
     /** One `agent.prompt()` scope — correlates NR ToolCall / LlmCompletion / LlmAgentTurn. */
     const turnStartedAt = performance.now()
-    /** Completed tools this turn (sequence = 0..n-1). */
-    let toolCallCount = 0
     const turnLlm: LlmTurnTelemetry = {
       agentTurnId,
       source: 'chat',
@@ -173,12 +151,26 @@ export function streamAgentSseResponse(
     }
     const sseMaxChars = 4000
 
+    const handlerDeps = (): StreamAgentSseHandlerDeps => ({
+      stream,
+      wikiDirForDiffs,
+      assistantState,
+      editBeforeSnapshot,
+      refs,
+      onSessionTitlePersist,
+      sseMaxChars,
+      turnLlm,
+      turnStartedAt,
+      agentKind,
+      announceSessionId,
+    })
+
     const persistIfNeeded = async (): Promise<void> => {
       if (!onTurnComplete) return
       const base = toAssistantMessage(assistantState)
       const assistantMessage: ChatMessage =
-        lastRunUsage !== undefined ? { ...base, usage: lastRunUsage } : base
-      await onTurnComplete({ userMessage: userMessageForStore, assistantMessage, turnTitle })
+        refs.lastRunUsage !== undefined ? { ...base, usage: refs.lastRunUsage } : base
+      await onTurnComplete({ userMessage: userMessageForStore, assistantMessage, turnTitle: refs.turnTitle })
       savedThisTurn = true
     }
 
@@ -187,252 +179,31 @@ export function streamAgentSseResponse(
     await agent.waitForIdle()
     const unsubscribe = agent.subscribe(async (event) => {
       try {
+        const deps = handlerDeps()
         switch (event.type) {
           case 'message_update': {
-            const payload = event as unknown as { type: 'message_update' } & MessageUpdatePayload
-            const e = payload.assistantMessageEvent
-            if (e?.type === 'text_delta') {
-              const d = typeof e.delta === 'string' ? e.delta : String(e.delta ?? '')
-              applyTextDelta(assistantState, d)
-              await stream.writeSSE({
-                event: 'text_delta',
-                data: JSON.stringify({ delta: d }),
-              })
-            } else if (e?.type === 'thinking_delta') {
-              const d = typeof e.delta === 'string' ? e.delta : String(e.delta ?? '')
-              applyThinkingDelta(assistantState, d)
-              await stream.writeSSE({
-                event: 'thinking',
-                data: JSON.stringify({ delta: d }),
-              })
-            } else if (
-              e?.type === 'toolcall_start' ||
-              e?.type === 'toolcall_delta' ||
-              e?.type === 'toolcall_end'
-            ) {
-              const partialMessage = payload.message
-              const streamingTools = extractStreamingToolCallsFromPartialAssistant(partialMessage)
-              for (const t of streamingTools) {
-                if (t.name !== 'write' && t.name !== 'edit') continue
-                applyToolArgsUpsert(assistantState, {
-                  id: t.id,
-                  name: t.name,
-                  args: t.args,
-                  done: false,
-                })
-                if (t.name === 'write') {
-                  await writeWikiPartialFromStreamingWriteArgs(wikiDirForDiffs, t.name, t.args)
-                }
-                await stream.writeSSE({
-                  event: 'tool_args',
-                  data: JSON.stringify({
-                    id: t.id,
-                    name: t.name,
-                    args: t.args,
-                  }),
-                })
-              }
-            }
+            await handleStreamMessageUpdate(
+              event as unknown as { type: 'message_update' } & MessageUpdatePayload,
+              deps,
+            )
             break
           }
           case 'tool_execution_start': {
-            const te = event as unknown as { type: 'tool_execution_start' } & ToolExecutionStartPayload
-            const id = te.toolCallId
-            const name = te.toolName
-            const args = te.args
-            recordToolCallStart(id)
-            beginToolCallSegment(name, id)
-            applyToolStart(assistantState, { id, name, args, done: false })
-            if (name === 'set_chat_title' && args && typeof args === 'object' && 'title' in args) {
-              const t = String((args as { title?: unknown }).title ?? '').trim().slice(0, 120)
-              if (t) {
-                turnTitle = t
-                if (onSessionTitlePersist) {
-                  try {
-                    await onSessionTitlePersist(t)
-                  } catch {
-                    /* ignore */
-                  }
-                }
-              }
-            }
-            if (name === 'edit' && args && typeof args === 'object' && 'path' in args) {
-              const rel = safeWikiRelativePath(wikiDirForDiffs, (args as { path: unknown }).path)
-              if (rel) {
-                try {
-                  const beforeText = await readFile(join(wikiDirForDiffs, rel), 'utf-8')
-                  editBeforeSnapshot.set(id, beforeText)
-                } catch {
-                  editBeforeSnapshot.set(id, '')
-                }
-              }
-            }
-            await stream.writeSSE({
-              event: 'tool_start',
-              data: JSON.stringify({
-                id,
-                name,
-                args,
-              }),
-            })
+            await handleStreamToolExecutionStart(
+              event as unknown as { type: 'tool_execution_start' } & ToolExecutionStartPayload,
+              deps,
+            )
             break
           }
           case 'tool_execution_end': {
-            const ev = event as unknown as { type: 'tool_execution_end' } & ToolExecutionEndPayload
-            endToolCallSegmentBridge(ev.toolCallId)
-            const resultText = toolResultText(ev)
-            let details: unknown = undefined
-            const fromRuntime = coerceToolResultDetailsObject(ev.result?.details)
-            if (fromRuntime !== undefined) {
-              details = fromRuntime
-            }
-            if (ev.toolName === 'read_email' && resultText.trim().startsWith('{')) {
-              try {
-                const parsed = JSON.parse(resultText) as Record<string, unknown>
-                const partBefore = assistantState.parts.find(
-                  p => p.type === 'tool' && p.toolCall.id === ev.toolCallId,
-                ) as { type: 'tool'; toolCall: { args: unknown } } | undefined
-                const argsObj = partBefore?.toolCall.args
-                const aid =
-                  argsObj != null &&
-                  typeof argsObj === 'object' &&
-                  typeof (argsObj as { id?: unknown }).id === 'string'
-                    ? (argsObj as { id: string }).id
-                    : ''
-                details = buildReadEmailPreviewDetails(parsed, aid)
-              } catch {
-                /* ignore */
-              }
-            } else if (ev.toolName === 'edit') {
-              const snapBefore = editBeforeSnapshot.get(ev.toolCallId)
-              editBeforeSnapshot.delete(ev.toolCallId)
-              if (!ev.isError && snapBefore !== undefined) {
-                const partBefore = assistantState.parts.find(
-                  p => p.type === 'tool' && p.toolCall.id === ev.toolCallId,
-                ) as { type: 'tool'; toolCall: { args: unknown } } | undefined
-                const argsObj = partBefore?.toolCall.args
-                const pathArg =
-                  argsObj != null && typeof argsObj === 'object' && 'path' in argsObj
-                    ? (argsObj as { path: unknown }).path
-                    : undefined
-                const rel = safeWikiRelativePath(wikiDirForDiffs, pathArg)
-                if (rel) {
-                  try {
-                    const afterText = await readFile(join(wikiDirForDiffs, rel), 'utf-8')
-                    details = {
-                      editDiff: {
-                        path: rel,
-                        unified: createWikiUnifiedDiff(rel, snapBefore, afterText),
-                      },
-                    }
-                  } catch {
-                    /* skip */
-                  }
-                }
-              }
-            }
-            const { truncated: truncatedResult, resultCharCount, resultTruncated, resultSizeBucket } =
-              toolResultSseForNr(ev.toolName, resultText, sseMaxChars)
-            const sequence = toolCallCount++
-            applyToolEnd(assistantState, ev.toolCallId, truncatedResult, ev.isError, details)
-            const toolRow = assistantState.parts.find(
-              p => p.type === 'tool' && p.toolCall.id === ev.toolCallId,
-            ) as { type: 'tool'; toolCall: { args: unknown } } | undefined
-            const toolArgs = toolRow?.toolCall.args
-            recordToolCallEnd({
-              ...turnLlm,
-              toolCallId: ev.toolCallId,
-              toolName: ev.toolName,
-              args: toolArgs ?? {},
-              isError: ev.isError,
-              errorMessage:
-                ev.isError && resultText.trim().length > 0
-                  ? truncateJsonResult(resultText, 400)
-                  : undefined,
-              sequence,
-              resultCharCount,
-              resultTruncated,
-              resultSizeBucket,
-            })
-            const speakForTts =
-              ev.toolName === 'speak' && !ev.isError
-                ? (resultText.trim() ? true : false)
-                : false
-            const playTts =
-              speakForTts && isOpenAiTtsConfigured() ? ('openai' as const) : undefined
-            await stream.writeSSE({
-              event: 'tool_end',
-              data: JSON.stringify({
-                id: ev.toolCallId,
-                name: ev.toolName,
-                result: truncatedResult,
-                isError: ev.isError,
-                ...(details !== undefined ? { details } : {}),
-                ...(toolArgs != null && typeof toolArgs === 'object'
-                  ? { args: toolArgs }
-                  : {}),
-                ...(playTts !== undefined ? { playTts } : {}),
-              }),
-            })
-            if (playTts === 'openai') {
-              try {
-                for await (const buf of streamOpenAiTtsToBuffers(resultText)) {
-                  await stream.writeSSE({
-                    event: 'tts_chunk',
-                    data: JSON.stringify({ id: ev.toolCallId, b64: buf.toString('base64') }),
-                  })
-                }
-                await stream.writeSSE({
-                  event: 'tts_done',
-                  data: JSON.stringify({
-                    id: ev.toolCallId,
-                    format: openAiTtsResponseFormat(),
-                  }),
-                })
-              } catch (e) {
-                const message = e instanceof Error ? e.message : String(e)
-                try {
-                  await stream.writeSSE({
-                    event: 'tts_error',
-                    data: JSON.stringify({
-                      id: ev.toolCallId,
-                      message: message.slice(0, 2000),
-                    }),
-                  })
-                } catch {
-                  /* ignore secondary SSE write failure */
-                }
-                console.error('[streamAgentSse] OpenAI TTS failed:', e)
-              }
-            }
+            await handleStreamToolExecutionEnd(
+              event as unknown as { type: 'tool_execution_end' } & ToolExecutionEndPayload,
+              deps,
+            )
             break
           }
           case 'agent_end': {
-            const messages = (event as { messages?: AgentMessage[] }).messages
-            const rollup = sumUsageFromMessages(messages)
-            lastRunUsage = rollup
-            recordLlmTurnEndEvents({
-              turn: turnLlm,
-              messages,
-              usage: rollup,
-              turnDurationMs: Math.max(0, Math.round(performance.now() - turnStartedAt)),
-              toolCallCount,
-            })
-            {
-              const { provider: pFromMsg, model: mFromMsg } = rollupAssistantLlmIds(messages ?? null)
-              const provider = pFromMsg ?? process.env.LLM_PROVIDER?.trim() ?? 'unknown'
-              const model = mFromMsg ?? process.env.LLM_MODEL?.trim() ?? 'unknown'
-              logger.info(
-                {
-                  kind: agentKind,
-                  provider,
-                  model,
-                  ...rollup,
-                  sessionId: announceSessionId,
-                },
-                'llm-turn',
-              )
-            }
+            handleStreamAgentEnd(event as { type: 'agent_end'; messages?: AgentMessage[] }, deps)
             break
           }
         }
@@ -458,10 +229,12 @@ export function streamAgentSseResponse(
             timezone: timezoneOpt,
           })
           if (repair.applied) {
-            if (lastRunUsage === undefined) {
-              lastRunUsage = repair.usage
+            if (refs.lastRunUsage === undefined) {
+              refs.lastRunUsage = repair.usage
             } else {
-              lastRunUsage = isZeroUsage(repair.usage) ? lastRunUsage : addLlmUsage(lastRunUsage, repair.usage)
+              refs.lastRunUsage = isZeroUsage(repair.usage)
+                ? refs.lastRunUsage
+                : addLlmUsage(refs.lastRunUsage, repair.usage)
             }
             for (let i = assistantState.parts.length - 1; i >= 0; i -= 1) {
               const p = assistantState.parts[i]

@@ -35,10 +35,12 @@ export const ALL_AGENT_TOOL_NAMES = [
   'set_chat_title',
   'open',
   'speak',
+  'product_feedback',
   'remember_preference',
   'load_skill',
   'list_recent_messages',
   'get_message_thread',
+  'search_messages',
   'suggest_reply_options',
 ] as const
 
@@ -54,9 +56,18 @@ export const TOOL_GROUPS = {
   calendar: ['calendar'] as const satisfies readonly AgentToolName[],
   web: ['web_search', 'fetch_page'] as const satisfies readonly AgentToolName[],
   youtube: ['get_youtube_transcript', 'youtube_search'] as const satisfies readonly AgentToolName[],
-  ui: ['finish_conversation', 'set_chat_title', 'open', 'speak', 'suggest_reply_options'] as const satisfies readonly AgentToolName[],
+  ui: [
+    'finish_conversation',
+    'set_chat_title',
+    'open',
+    'speak',
+    'product_feedback',
+    'suggest_reply_options',
+  ] as const satisfies readonly AgentToolName[],
   skills: ['load_skill'] as const satisfies readonly AgentToolName[],
   localMessages: ['list_recent_messages', 'get_message_thread'] as const satisfies readonly AgentToolName[],
+  /** Hosted iMessage text index (when local chat.db tools are off). */
+  hostedMessages: ['search_messages'] as const satisfies readonly AgentToolName[],
 } as const
 
 /** Base omit list shared by onboarding profiling + seeding (mail + write/edit; no wiki read, no heavy mail, no sources). */
@@ -125,6 +136,8 @@ export const WIKI_CLEANUP_OMIT: readonly AgentToolName[] = [
   'manage_sources',
   'refresh_sources',
   'load_skill',
+  'product_feedback',
+  'search_messages',
 ]
 
 /**

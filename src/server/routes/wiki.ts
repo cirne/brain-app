@@ -1,18 +1,15 @@
 import { Hono } from 'hono'
 import { existsSync } from 'node:fs'
 import { readFile, writeFile, mkdir, rename, rm } from 'node:fs/promises'
-import { join, basename, resolve, relative, dirname } from 'node:path'
+import { join, basename, resolve, dirname } from 'node:path'
 import { marked } from 'marked'
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import { dirIconsCachePathResolved } from '@server/lib/platform/brainHome.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { listWikiFiles, recentWikiFilesByMtime } from '@server/lib/wiki/wikiFiles.js'
 import { appendWikiEditRecord, readRecentWikiEdits } from '@server/lib/wiki/wikiEditHistory.js'
 import { resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
 import { syncWikiFromDisk } from '@server/lib/platform/syncAll.js'
-
-const execAsync = promisify(exec)
+import { searchWikiMarkdownPaths } from '@server/lib/wiki/wikiMarkdownContentSearch.js'
 
 const wiki = new Hono()
 
@@ -85,10 +82,7 @@ wiki.get('/search', async (c) => {
 
   const dir = wikiDir()
   try {
-    const { stdout } = await execAsync(
-      `grep -r --include="*.md" -il ${JSON.stringify(q)} ${JSON.stringify(dir)} 2>/dev/null || true`
-    )
-    const paths = stdout.trim().split('\n').filter(Boolean).map(p => relative(dir, p))
+    const paths = await searchWikiMarkdownPaths(dir, q)
     return c.json(paths)
   } catch {
     return c.json([])

@@ -38,6 +38,8 @@ async function touchDevBootstrapMarker(): Promise<void> {
 export function isDevLocalAutoVaultEnabled(): boolean {
   if (isMultiTenantMode()) return false
   if (process.env.BRAIN_BUNDLED_NATIVE === '1') return false
+  /** Explicit opt-in for tests / tooling when `NODE_ENV=test` would otherwise disable bootstrap. */
+  if (process.env.BRAIN_DEV_LOCAL_AUTO_VAULT === '1') return true
   const n = process.env.NODE_ENV
   return n !== 'production' && n !== 'test'
 }

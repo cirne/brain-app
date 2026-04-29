@@ -59,8 +59,7 @@
     shouldReplaceWikiOverlay,
   } from '@client/lib/assistantShellNavigation.js'
   import { waitUntilDefinedOrMaxTicks } from '@client/lib/async/waitUntilReady.js'
-  import { alignShellWithBareChatRoute, createAssistantShellState } from '@client/lib/assistantShellModel.js'
-  import { createShellNavigate } from '@client/lib/assistantShellNavigate.js'
+  import { alignShellWithBareChatRoute, createAssistantShellState, createShellNavigate } from '@client/lib/assistant/shell.js'
   import { contextPlaceholder, type SkillMenuItem } from '@client/lib/agentUtils.js'
   import { applyVoiceTranscriptToChat } from '@client/lib/voiceTranscribeRouting.js'
   import { readHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'

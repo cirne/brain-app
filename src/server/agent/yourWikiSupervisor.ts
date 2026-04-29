@@ -35,6 +35,7 @@ import {
   tryGetTenantContext,
   type TenantContext,
 } from '@server/lib/tenant/tenantContext.js'
+import { getWikiSupervisorClock, type WikiSupervisorClock } from './yourWikiSupervisorClock.js'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -54,7 +55,7 @@ const NO_OP_BACKOFF_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000]
 
 let loopRunning = false
 let wakeResolver: (() => void) | null = null
-let backoffTimer: ReturnType<typeof setTimeout> | null = null
+let backoffTimer: ReturnType<WikiSupervisorClock['setTimeout']> | null = null
 
 /** Whether the user has paused the loop. Read from disk on boot; mutated via pauseYourWiki/resumeYourWiki. */
 let isPaused = false
@@ -173,8 +174,9 @@ async function setPhase(doc: BackgroundRunDoc, phase: YourWikiPhase, lap: number
 // ─── Wake / backoff ───────────────────────────────────────────────────────────
 
 function cancelBackoff(): void {
+  const { clearTimeout: ct } = getWikiSupervisorClock()
   if (backoffTimer !== null) {
-    clearTimeout(backoffTimer)
+    ct(backoffTimer)
     backoffTimer = null
   }
   if (wakeResolver) {
@@ -185,15 +187,16 @@ function cancelBackoff(): void {
 }
 
 async function waitForTriggerOrTimeout(ms: number): Promise<void> {
+  const { setTimeout: st, clearTimeout: ct } = getWikiSupervisorClock()
   return new Promise<void>((resolve) => {
-    const timer = setTimeout(() => {
+    const timer = st(() => {
       backoffTimer = null
       wakeResolver = null
       resolve()
     }, ms)
     backoffTimer = timer
     wakeResolver = () => {
-      clearTimeout(timer)
+      ct(timer)
       backoffTimer = null
       resolve()
     }

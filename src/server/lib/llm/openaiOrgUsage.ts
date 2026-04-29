@@ -7,6 +7,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseOpenAiJsonText, usageBucketRows } from './openaiOrgUsageParse.js'
 
 const API_BASE = 'https://api.openai.com/v1'
 
@@ -233,7 +234,11 @@ async function fetchJson(
   if (!r.ok) {
     throw new Error(`OpenAI ${r.status}: ${text.slice(0, 500)}`)
   }
-  return JSON.parse(text) as unknown
+  const parsed = parseOpenAiJsonText(text)
+  if (!parsed.ok) {
+    throw new Error(`OpenAI JSON parse: ${parsed.error}`)
+  }
+  return parsed.value
 }
 
 /** Split [start, end) into chunks of at most `maxSpanSec` seconds (non-overlapping). */
@@ -331,9 +336,7 @@ async function fetchAllCompletionsInChunk(
       next_page?: string
     }
     for (const bucket of body.data ?? []) {
-      const b = bucket as { result?: unknown[]; results?: unknown[] }
-      const rows = (b.result ?? b.results) as Record<string, unknown>[]
-      for (const row of rows ?? []) {
+      for (const row of usageBucketRows(bucket)) {
         addCompletionAgg(agg, row)
       }
     }
@@ -364,9 +367,7 @@ async function fetchAllCompletionsByApiKeyInChunk(
       next_page?: string
     }
     for (const bucket of body.data ?? []) {
-      const b = bucket as { result?: unknown[]; results?: unknown[] }
-      const rows = (b.result ?? b.results) as Record<string, unknown>[]
-      for (const row of rows ?? []) {
+      for (const row of usageBucketRows(bucket)) {
         addApiKeyCompletionAgg(agg, row)
       }
     }
@@ -519,9 +520,7 @@ async function fetchAllCostsInChunk2(
       next_page?: string
     }
     for (const bucket of body.data ?? []) {
-      const b = bucket as { result?: unknown[]; results?: unknown[] }
-      const rows = (b.result ?? b.results) as Record<string, unknown>[]
-      for (const row of rows ?? []) {
+      for (const row of usageBucketRows(bucket)) {
         addLineItem(
           lineToUsd,
           row as { line_item?: string | null; amount?: { value?: number; currency?: string } | null },

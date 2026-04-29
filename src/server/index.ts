@@ -11,52 +11,16 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { logger } from 'hono/logger'
 import { getCookie } from 'hono/cookie'
 import { createServer } from 'node:http'
-import chatRoute from './routes/chat.js'
-import skillsRoute from './routes/skills.js'
-import wikiRoute from './routes/wiki.js'
-import filesRoute from './routes/files.js'
-import inboxRoute from './routes/inbox.js'
-import calendarRoute from './routes/calendar.js'
-import searchRoute from './routes/search.js'
-import imessageRoute from './routes/imessage.js'
-import onboardingRoute from './routes/onboarding.js'
-import backgroundRoute from './routes/background.js'
-import yourWikiRoute from './routes/yourWiki.js'
-import gmailOAuthRoute from './routes/gmailOAuth.js'
-import demoEnronAuthRoute from './routes/demoEnronAuth.js'
-import { ENRON_DEMO_SEED_STATUS_PATH } from '@server/lib/auth/enronDemo.js'
-import navRecentsRoute from './routes/navRecents.js'
-import oauthGoogleBrowserPages from './routes/oauthGoogleBrowserPages.js'
-import issuesRoute from './routes/issues.js'
-import hubRoute from './routes/hub.js'
-import hubEventsRoute from './routes/hubEvents.js'
-import devRoute from './routes/dev.js'
-import vaultRoute from './routes/vault.js'
-import accountRoute from './routes/account.js'
-import transcribeRoute from './routes/transcribe.js'
-import devicesRoute from './routes/devices.js'
-import ingestRoute from './routes/ingest.js'
+import { shouldSuppressAccessLogForApiPath } from '@server/lib/auth/publicRoutePolicy.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
 import { devLocalVaultBootstrapMiddleware } from '@server/lib/vault/devLocalVaultBootstrap.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
-import {
-  ensureYourWikiRunning,
-  prepareWikiSupervisorShutdown,
-  requestLapNow,
-} from './agent/yourWikiSupervisor.js'
 import { initLocalMessageToolsAvailability } from '@server/lib/apple/imessageDb.js'
 import { runStartupChecks } from '@server/lib/platform/runStartupChecks.js'
 import { ensureBrainHomeGitignore } from '@server/lib/platform/brainHomeGitignore.js'
 import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { runSplitLayoutMigrationIfNeeded } from '@server/lib/onboarding/splitLayoutMigration.js'
-import { runFullSync, getSyncIntervalMs } from '@server/lib/platform/syncAll.js'
-import { terminateAllTrackedRipmailChildren } from '@server/lib/ripmail/ripmailRun.js'
-import debugRipmailChildrenRoute from './routes/debugRipmailChildren.js'
-import {
-  startRipmailBackfillSupervisor,
-  stopRipmailBackfillSupervisor,
-} from '@server/lib/ripmail/ripmailBackfillSupervisor.js'
-import { startTunnel, stopTunnel, getActiveTunnelUrl, getHostGuid } from '@server/lib/platform/tunnelManager.js'
+import { startTunnel, getActiveTunnelUrl, getHostGuid } from '@server/lib/platform/tunnelManager.js'
 import { readOnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
 import { BRAIN_DEFAULT_HTTP_PORT, setActualNativePort } from '@server/lib/platform/brainHttpPort.js'
 import { isAllowedBundledNativeClientIp } from '@server/lib/platform/bundledNativeClientAllowlist.js'
@@ -66,16 +30,19 @@ import {
   isAddrInUse,
   probeDevPortAvailable,
 } from '@server/lib/platform/devServerDuplicatePort.js'
-import { restoreStdinForShell } from '@server/lib/platform/restoreStdinForShell.js'
 import { newRelicBrainContextMiddleware } from '@server/lib/observability/newRelicBrainContextMiddleware.js'
 import { newRelicHonoTransactionMiddleware } from '@server/lib/observability/newRelicHonoTransaction.js'
 import { fileURLToPath } from 'node:url'
 import { setPromptsRoot } from '@server/lib/prompts/registry.js'
 import { executeVaultLogout, safeLogoutRedirectPath } from '@server/lib/vault/vaultLogoutCore.js'
+import { registerPeriodicSyncAndShutdown } from './lifecycle/periodicSyncAndShutdown.js'
+import { registerApiRoutes } from './registerApiRoutes.js'
 
 loadDotEnv()
 setPromptsRoot(fileURLToPath(new URL('./prompts', import.meta.url)))
 
+// /api/* pipeline: tenant → New Relic brain context → dev vault bootstrap → vault gate → routes.
+// Embed/device bypasses live in vaultGate after tenant so Context carries workspace; do not reorder lightly.
 const app = new Hono()
 // Names NR web transactions from Hono's matched route pattern (not Express-style auto naming).
 app.use('*', newRelicHonoTransactionMiddleware())
@@ -164,152 +131,12 @@ app.use('/api/*', devLocalVaultBootstrapMiddleware)
 app.use('/api/*', vaultGateMiddleware)
 
 const requestLogger = logger()
-/** High-frequency onboarding polls — skip Hono access logs to reduce noise */
-function isQuietPollPath(path: string): boolean {
-  return (
-    path === '/api/onboarding/mail' ||
-    path === '/api/inbox/mail-sync-status' ||
-    path === '/api/onboarding/ripmail' ||
-    path === '/api/oauth/google/last-result' ||
-    path === '/api/hub/sources' ||
-    path === '/api/vault/status' ||
-    path === ENRON_DEMO_SEED_STATUS_PATH ||
-    path === '/api/events'
-  )
-}
 app.use('*', async (c, next) => {
-  if (isQuietPollPath(c.req.path)) return next()
+  if (shouldSuppressAccessLogForApiPath(c.req.path)) return next()
   return requestLogger(c, next)
 })
 
-app.route('/api/vault', vaultRoute)
-app.route('/api/account', accountRoute)
-app.route('/api/chat', chatRoute)
-app.route('/api/transcribe', transcribeRoute)
-app.route('/api/devices', devicesRoute)
-app.route('/api/ingest', ingestRoute)
-app.route('/api/skills', skillsRoute)
-app.route('/api/issues', issuesRoute)
-app.route('/api/wiki', wikiRoute)
-app.route('/api/files', filesRoute)
-app.route('/api/inbox', inboxRoute)
-app.route('/api/calendar', calendarRoute)
-app.route('/api/search', searchRoute)
-app.route('/api/imessage', imessageRoute)
-app.route('/api/messages', imessageRoute)
-app.route('/api/onboarding', onboardingRoute)
-app.route('/api/hub', hubRoute)
-app.route('/api/events', hubEventsRoute)
-app.route('/api/background', backgroundRoute)
-app.route('/api/your-wiki', yourWikiRoute)
-app.route('/api/oauth/google', gmailOAuthRoute)
-app.route('/api/auth/demo', demoEnronAuthRoute)
-app.route('/api/nav/recents', navRecentsRoute)
-app.route('/oauth/google', oauthGoogleBrowserPages)
-if (isDev) {
-  app.route('/api/dev', devRoute)
-}
-if (isDev || process.env.BRAIN_DEBUG_CHILDREN === '1') {
-  app.route('/api/debug', debugRipmailChildrenRoute)
-}
-
-let shuttingDown = false
-let syncTimer: ReturnType<typeof setInterval> | undefined
-
-/** Grace period after SIGTERM on ripmail children before SIGKILL (keep under tsx watch ~5s exit budget). */
-const RIPMAIL_SHUTDOWN_GRACE_MS = 800
-
-/** Bound `vite.close()` — it can stall on file watchers during interrupt. */
-const VITE_SHUTDOWN_BUDGET_MS = 4500
-
-function registerPeriodicSyncAndShutdown(
-  server: { close: (cb?: (err?: Error) => void) => void } & {
-    closeAllConnections?: () => void
-  },
-  vite?: { close: () => Promise<void> },
-) {
-  /** Last signal requesting shutdown — used for exit code when user forces a second interrupt. */
-  let lastDrainSignal: 'SIGINT' | 'SIGTERM' = 'SIGTERM'
-
-  const forcedExitFromRepeatSignal = (): never => {
-    restoreStdinForShell()
-    // 128+n: POSIX shell convention (e.g. 130 SIGINT, 143 SIGTERM)
-    process.exit(lastDrainSignal === 'SIGTERM' ? 143 : 130)
-  }
-  if (!isMultiTenantMode()) {
-    const intervalMs = getSyncIntervalMs()
-    syncTimer = setInterval(() => {
-      if (shuttingDown) return
-      void (async () => {
-        try {
-          await runFullSync()
-          // Wake the wiki supervisor after each sync so it can pick up new mail-sourced content.
-          requestLapNow()
-        } catch (e) {
-          console.error('[brain-app] periodic sync error:', e)
-        }
-      })()
-    }, intervalMs)
-
-    // Start the Your Wiki continuous loop (idempotent; respects persisted pause state).
-    void ensureYourWikiRunning().catch((e) => {
-      console.error('[your-wiki] startup error:', e)
-    })
-
-    startRipmailBackfillSupervisor()
-  }
-
-  const shutdown = async () => {
-    /** Second interrupt while teardown runs — used to noop forever; bail out immediately instead. */
-    if (shuttingDown) forcedExitFromRepeatSignal()
-    shuttingDown = true
-    if (syncTimer !== undefined) {
-      clearInterval(syncTimer)
-      syncTimer = undefined
-    }
-    if (!isMultiTenantMode()) {
-      stopRipmailBackfillSupervisor()
-    }
-    stopTunnel()
-    prepareWikiSupervisorShutdown()
-    terminateAllTrackedRipmailChildren('SIGTERM')
-    try {
-      if (vite !== undefined) {
-        await Promise.race([
-          vite.close(),
-          new Promise<void>((_, reject) => {
-            setTimeout(
-              () => reject(Object.assign(new Error('vite.shutdown.timeout'), { name: 'ViteShutdownTimeout' })),
-              VITE_SHUTDOWN_BUDGET_MS,
-            )
-          }),
-        ])
-      }
-    } catch {
-      /* ignore — continue to HTTP teardown */
-    }
-    server.closeAllConnections?.()
-    await new Promise((r) => setTimeout(r, RIPMAIL_SHUTDOWN_GRACE_MS))
-    terminateAllTrackedRipmailChildren('SIGKILL')
-    server.close(() => {
-      restoreStdinForShell()
-      process.exit(0)
-    })
-    setTimeout(() => {
-      restoreStdinForShell()
-      process.exit(0)
-    }, 30_000).unref()
-  }
-
-  process.on('SIGTERM', () => {
-    lastDrainSignal = 'SIGTERM'
-    void shutdown()
-  })
-  process.on('SIGINT', () => {
-    lastDrainSignal = 'SIGINT'
-    void shutdown()
-  })
-}
+registerApiRoutes(app, { isDev })
 
 function resolveNonNativePort(): number {
   return parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)

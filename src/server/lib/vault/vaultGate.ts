@@ -9,31 +9,11 @@ import { isIssuesEmbedGetPath, isValidEmbedKeyBearer } from './embedKeyAuth.js'
 import { isIngestDevicePath, resolveDeviceTokenFromBearer } from './deviceTokenAuth.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { isEnronDemoPublicApiPath } from '@server/lib/auth/enronDemo.js'
-
-/** Dev-only POST shims used by {@link App.svelte} before vault session exists. */
-function isDevBootstrapPost(path: string, method: string): boolean {
-  if (method !== 'POST') return false
-  if (process.env.NODE_ENV === 'production') return false
-  return (
-    path === '/api/dev/hard-reset' ||
-    path === '/api/dev/restart-seed' ||
-    path === '/api/dev/first-chat'
-  )
-}
-
-/** GET /api/onboarding/status allowed without vault so the client can route first-run onboarding. */
-function isBootstrapOnboardingStatus(path: string, method: string): boolean {
-  return method === 'GET' && path === '/api/onboarding/status'
-}
-
-function isVaultPublic(path: string, method: string): boolean {
-  if (path === '/api/vault/status' && (method === 'GET' || method === 'POST')) return true
-  if (path === '/api/vault/setup' && method === 'POST') return true
-  if (path === '/api/vault/unlock' && method === 'POST') return true
-  /** Clear cookie even when session expired or missing. */
-  if (path === '/api/vault/logout' && method === 'POST') return true
-  return false
-}
+import {
+  isDevBootstrapPostPath,
+  isOnboardingStatusPublicPath,
+  isVaultPublicRoute,
+} from '@server/lib/auth/publicRoutePolicy.js'
 
 function isOAuthPublic(path: string): boolean {
   return path.startsWith('/api/oauth/google')
@@ -51,7 +31,7 @@ export async function vaultGateMiddleware(c: Context, next: Next): Promise<Respo
     return next()
   }
 
-  if (isDevBootstrapPost(path, method)) {
+  if (isDevBootstrapPostPath(path, method)) {
     return next()
   }
 
@@ -79,7 +59,7 @@ export async function vaultGateMiddleware(c: Context, next: Next): Promise<Respo
     if (ctx && sessionOk) {
       return next()
     }
-    if (isVaultPublic(path, method) || isBootstrapOnboardingStatus(path, method)) {
+    if (isVaultPublicRoute(path, method) || isOnboardingStatusPublicPath(path, method)) {
       return next()
     }
     return c.json(
@@ -91,7 +71,7 @@ export async function vaultGateMiddleware(c: Context, next: Next): Promise<Respo
   const hasVault = vaultVerifierExistsSync()
 
   if (!hasVault) {
-    if (isVaultPublic(path, method) || isBootstrapOnboardingStatus(path, method)) {
+    if (isVaultPublicRoute(path, method) || isOnboardingStatusPublicPath(path, method)) {
       return next()
     }
     return c.json({ error: 'vault_required', message: 'Create your vault password first.' }, 401)
@@ -104,7 +84,7 @@ export async function vaultGateMiddleware(c: Context, next: Next): Promise<Respo
     return next()
   }
 
-  if (isVaultPublic(path, method)) {
+  if (isVaultPublicRoute(path, method)) {
     return next()
   }
 

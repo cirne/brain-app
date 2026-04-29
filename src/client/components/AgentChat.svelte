@@ -19,7 +19,7 @@
   function notifyChatSessionsChanged() {
     emit({ type: 'chat:sessions-changed' })
   }
-  import { consumeAgentChatStream } from '@client/lib/agentStream.js'
+  import { consumeAgentChatStream } from '@client/lib/agentChat/streamClient.js'
   import {
     collectStreamingSessionIds,
     createPendingSessionKey,
