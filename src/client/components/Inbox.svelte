@@ -968,8 +968,8 @@
     min-height: 80px;
     border: none;
     border-radius: 4px;
-    background: #fff;
-    color-scheme: light;
+    background: var(--bg);
+    color-scheme: light dark;
     overflow: hidden;
   }
 

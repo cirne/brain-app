@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
+import * as openAiStt from '@server/lib/llm/openAiStt.js'
 import transcribeRoute from './transcribe.js'
 
 describe('/api/transcribe', () => {
@@ -27,17 +28,19 @@ describe('/api/transcribe', () => {
     expect(j.error).toBe('stt_unavailable')
   })
 
-  it('returns 503 transcribe_dev_only when NODE_ENV is production (OPP-050)', async () => {
+  it('transcribes when NODE_ENV is production (STT mocked)', async () => {
     const prev = process.env.NODE_ENV
     process.env.NODE_ENV = 'production'
+    const spy = vi.spyOn(openAiStt, 'transcribeOpenAiStt').mockResolvedValue('hello')
     try {
       const fd = new FormData()
       fd.set('audio', new File([new Uint8Array([1, 2, 3])], 'a.webm', { type: 'audio/webm' }))
       const res = await app.request('http://localhost/api/transcribe', { method: 'POST', body: fd })
-      expect(res.status).toBe(503)
-      const j = (await res.json()) as { error?: string }
-      expect(j.error).toBe('transcribe_dev_only')
+      expect(res.status).toBe(200)
+      const j = (await res.json()) as { text?: string }
+      expect(j.text).toBe('hello')
     } finally {
+      spy.mockRestore()
       if (prev === undefined) delete process.env.NODE_ENV
       else process.env.NODE_ENV = prev
     }

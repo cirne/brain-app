@@ -345,26 +345,16 @@
     }
   }
 
-  .new-chat-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0 4px 8px;
-    padding: 7px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--bg-3);
-    color: var(--text);
-    font-size: var(--ch-fs-new-chat);
-    font-weight: 500;
-    transition: background 0.15s, border-color 0.15s;
-  }
-
+  /* Full rail width like `.ch-row`; icon + label left-aligned */
+  .new-chat-btn,
   .wiki-home-btn {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 6px;
-    margin: 0 4px 8px;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0 0 8px;
     padding: 7px 10px;
     border-radius: 6px;
     border: 1px solid var(--border);

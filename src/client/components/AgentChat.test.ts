@@ -12,7 +12,6 @@ import {
 import { consumeAgentChatStream } from '@client/lib/agentStream.js'
 import { jsonResponse, createMockFetch } from '@client/test/mocks/fetch.js'
 vi.mock('./agent-conversation/AgentConversation.svelte', () => import('./test-stubs/AgentConversationStub.svelte'))
-vi.mock('./ChatComposerAudio.svelte', () => import('./test-stubs/ChatComposerAudioStub.svelte'))
 vi.mock('@client/lib/wikiFileListRefetch.js', () => ({
   registerWikiFileListRefetch: vi.fn(() => vi.fn()),
 }))
@@ -775,7 +774,16 @@ describe('AgentChat.svelte', () => {
     })
   })
 
-  describe('mobile voice panel layout (source contract)', () => {
+  describe('voice panel layout (source contract)', () => {
+    it('voice eligibility follows press-to-talk only (not viewport width)', () => {
+      const path = join(dirname(fileURLToPath(import.meta.url)), 'AgentChat.svelte')
+      const src = readFileSync(path, 'utf8')
+      expect(src).toContain(
+        'const voiceComposerEligible = $derived(pressToTalkUiEnabled)',
+      )
+      expect(src).not.toContain('isMobileViewport && !bridgeSlideLayout')
+    })
+
     it('composes voice + text through UnifiedChatComposer (no stacked voice above input or voice dock padding)', () => {
       const path = join(dirname(fileURLToPath(import.meta.url)), 'AgentChat.svelte')
       const src = readFileSync(path, 'utf8')

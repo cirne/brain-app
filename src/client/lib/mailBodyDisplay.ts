@@ -2,25 +2,65 @@
  * Wrap a MIME body for `iframe.srcdoc` when it is not already a full document.
  * Ensures the browser parses markup as HTML (charset, viewport, links open in a new tab).
  * The inner HTML is not escaped — combine with `sandbox` (no `allow-scripts`) on the iframe.
+ * Injects base theme colors (`IFRAME_DOC_BASE_STYLE`) because srcdoc is isolated from host CSS variables;
+ * values mirror `src/client/style.css` until the message’s own CSS or inline styles override.
  */
-/** No vertical (or horizontal) overflow inside the iframe document — parent sizes the iframe to content; avoids html+body double scrollbars. */
-const IFRAME_DOC_SANDBOX_STYLE = `<style>
-  html,body{margin:0!important;overflow-x:hidden!important;overflow-y:hidden!important}
-  img,table{max-width:100%!important;height:auto}
-  table{border-collapse:collapse}
+const IFRAME_DOC_BASE_STYLE = `<style>
+  :root {
+    --mail-bg: #ffffff;
+    --mail-text: #111111;
+    --mail-text-2: #6b7280;
+    --mail-accent: #2563eb;
+    --mail-border: #e0e0e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --mail-bg: #0f0f0f;
+      --mail-text: #e8e8e8;
+      --mail-text-2: #999999;
+      --mail-accent: #4a9eff;
+      --mail-border: #2e2e2e;
+    }
+    /* Beat common inline / class colors from light-mode HTML mail (overrides only when not !important on sender side). */
+    body * {
+      color: var(--mail-text) !important;
+    }
+    a,
+    a:link,
+    a:visited,
+    a:hover,
+    a:active,
+    a * {
+      color: var(--mail-accent) !important;
+    }
+  }
+  html { color-scheme: light dark; }
+  html, body {
+    margin: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    background: var(--mail-bg);
+    color: var(--mail-text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  a { color: var(--mail-accent); }
+  img, table { max-width: 100% !important; height: auto; }
+  table { border-collapse: collapse; }
 </style>`
 
-const IFRAME_FRAGMENT_HEAD = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank" rel="noopener noreferrer">${IFRAME_DOC_SANDBOX_STYLE}`
+const IFRAME_FRAGMENT_HEAD = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank" rel="noopener noreferrer">${IFRAME_DOC_BASE_STYLE}`
 
 /** Insert overflow/layout guard into a full HTML document so passthrough mail still has no inner scrolling. */
 function injectIframeDocGuard(html: string): string {
   if (/<head[^>]*>/i.test(html)) {
-    return html.replace(/<head[^>]*>/i, (open) => `${open}${IFRAME_DOC_SANDBOX_STYLE}`)
+    return html.replace(/<head[^>]*>/i, (open) => `${open}${IFRAME_DOC_BASE_STYLE}`)
   }
   if (/<html[^>]*>/i.test(html)) {
     return html.replace(
       /<html[^>]*>/i,
-      (open) => `${open}<head><meta charset="utf-8">${IFRAME_DOC_SANDBOX_STYLE}</head>`,
+      (open) => `${open}<head><meta charset="utf-8">${IFRAME_DOC_BASE_STYLE}</head>`,
     )
   }
   return html

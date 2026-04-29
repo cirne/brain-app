@@ -63,7 +63,7 @@
   import { createShellNavigate } from '@client/lib/assistantShellNavigate.js'
   import { contextPlaceholder, type SkillMenuItem } from '@client/lib/agentUtils.js'
   import { applyVoiceTranscriptToChat } from '@client/lib/voiceTranscribeRouting.js'
-  import { readHearRepliesPreference, writeHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
+  import { readHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
   import { wikiPrimaryChatMessageOrNull } from '@client/lib/wikiPrimaryChatSend.js'
@@ -125,7 +125,7 @@
     const p = 'path' in o ? (o.path ?? '') : ''
     return `wiki-primary-${o.type}-${p}`
   })
-  const wikiDockVoiceEligible = $derived(isPressToTalkEnabled() && shell.isMobile)
+  const wikiDockVoiceEligible = $derived(isPressToTalkEnabled())
 
   function chatSessionPart(): Pick<Route, 'sessionId' | 'sessionTail'> {
     return chatSessionPatch(shell.route, effectiveChatSessionId)
@@ -1022,7 +1022,6 @@
                   transparentSurround={true}
                   voiceEligible={wikiDockVoiceEligible}
                   sessionResetKey={wikiDockComposerSessionKey}
-                  showHearRepliesAudioStrip={true}
                   placeholder={wikiDockPlaceholder}
                   streaming={false}
                   queuedMessages={[]}
@@ -1035,11 +1034,6 @@
                   onTranscribe={onWikiDockVoiceTranscribe}
                   onRequestFocusText={() => void wikiDockComposerRef?.focus()}
                   hearReplies={wikiDockHearReplies}
-                  showHearRepliesToggle={true}
-                  onHearRepliesChange={(v) => {
-                    writeHearRepliesPreference(v)
-                    wikiDockHearReplies = v
-                  }}
                 />
               </div>
             </div>

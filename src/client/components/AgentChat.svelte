@@ -185,9 +185,7 @@
     conversationHidden && mobileSlideCoversTranscriptOnly && !!mobileDetail,
   )
 
-  const voiceComposerEligible = $derived(
-    pressToTalkUiEnabled && isMobileViewport && !bridgeSlideLayout,
-  )
+  const voiceComposerEligible = $derived(pressToTalkUiEnabled)
 
   const showComposerNewChat = $derived(
     typeof onUserInitiatedNewChat === 'function' && messages.length > 0 && !hideInput,
@@ -307,9 +305,8 @@
   let skillsList = $state<SkillMenuItem[]>([])
   let conversationEl = $state<ConversationScrollApi | undefined>(undefined)
   let inputEl = $state<ReturnType<typeof UnifiedChatComposer> | undefined>(undefined)
-  /** Mobile: current composer text for voice transcript routing (empty → send, draft → append). */
+  /** Current composer text for voice transcript routing (empty → send, draft → append). */
   let inputDraftForMobileHold = $state('')
-  let isMobileViewport = $state(false)
 
   function onAgentInputDraftChange(d: string) {
     inputDraftForMobileHold = d
@@ -368,20 +365,12 @@
   }
 
   onMount(() => {
-    const mq = window.matchMedia('(max-width: 767px)')
-    const syncMobile = () => {
-      isMobileViewport = mq.matches
-    }
-    syncMobile()
-    mq.addEventListener('change', syncMobile)
-
     void fetchWikiFiles()
     void fetchSkills()
     const unsubWikiList = registerWikiFileListRefetch(fetchWikiFiles)
     const m = autoSendMessage?.trim()
     if (m) void tick().then(() => send(m, undefined, false, autoSendInterviewKickoffHidden))
     return () => {
-      mq.removeEventListener('change', syncMobile)
       unsubWikiList()
     }
   })
@@ -944,7 +933,6 @@
           bind:this={inputEl}
           voiceEligible={voiceComposerEligible}
           sessionResetKey={displayedSessionId}
-          showHearRepliesAudioStrip={!bridgeSlideLayout}
           {placeholder}
           {streaming}
           queuedMessages={pendingQueuedMessages}
@@ -960,13 +948,6 @@
           onTranscribe={onVoiceTranscribe}
           onRequestFocusText={() => void focusAgentTextarea(0)}
           hearReplies={hearRepliesForChatComposer}
-          showHearRepliesToggle={messages.length === 0}
-          onHearRepliesChange={(v) => {
-            const id = displayedSessionId
-            if (!id) return
-            writeHearRepliesPreference(v)
-            sessions = touchSessionImmutable(sessions, id, { hearReplies: v })
-          }}
         />
       </div>
     {/if}

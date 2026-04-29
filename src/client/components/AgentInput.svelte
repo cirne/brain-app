@@ -22,7 +22,7 @@
      * When set, a “new chat” control is integrated on the left inside the bordered field (like send on the right).
      */
     onNewChat = undefined as (() => void) | undefined,
-    /** Mobile tap-to-talk entry; sits in the send column left of send/stop. */
+    /** Tap mic to open the voice panel; lead rail left of the textarea. */
     showVoiceEntry = false,
     onVoiceEntry = undefined as (() => void) | undefined,
     voiceEntryDisabled = false,

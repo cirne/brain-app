@@ -1,8 +1,10 @@
 /**
- * Tap-to-talk voice input in chat (OPP-050 / OPP-055). Dev-only until product enables STT in prod.
+ * Tap-to-talk voice input in chat (OPP-050 / OPP-055).
+ * Revert to dev-only: `return env.DEV` in pressToTalkEnabledFromMetaEnv.
  */
 export function pressToTalkEnabledFromMetaEnv(env: { readonly DEV: boolean }): boolean {
-  return env.DEV
+  void env
+  return true
 }
 
 export function isPressToTalkEnabled(): boolean {

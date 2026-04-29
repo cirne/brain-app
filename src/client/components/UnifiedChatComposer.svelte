@@ -2,7 +2,6 @@
   import { tick } from 'svelte'
   import type { SkillMenuItem } from '@client/lib/agentUtils.js'
   import AgentInput from './AgentInput.svelte'
-  import ChatComposerAudio from './ChatComposerAudio.svelte'
   import ChatVoicePanel from './ChatVoicePanel.svelte'
 
   type ComposerMode = 'text' | 'voice'
@@ -12,7 +11,6 @@
     voiceEligible = false,
     /** When this key changes, reset to text mode (e.g. active session id). */
     sessionResetKey = '',
-    showHearRepliesAudioStrip = false,
     placeholder = 'What do you need to know or get done?',
     streaming = false,
     queuedMessages = [] as string[],
@@ -26,13 +24,10 @@
     onTranscribe,
     onRequestFocusText = undefined as (() => void) | undefined,
     hearReplies = false,
-    showHearRepliesToggle = true,
-    onHearRepliesChange,
     holdGated = false,
   }: {
     voiceEligible?: boolean
     sessionResetKey?: string
-    showHearRepliesAudioStrip?: boolean
     placeholder?: string
     streaming?: boolean
     queuedMessages?: string[]
@@ -46,8 +41,6 @@
     onTranscribe: (_text: string) => void
     onRequestFocusText?: () => void
     hearReplies?: boolean
-    showHearRepliesToggle?: boolean
-    onHearRepliesChange: (_value: boolean) => void
     holdGated?: boolean
   } = $props()
 
@@ -128,13 +121,6 @@
       {/if}
     </div>
   </div>
-  {#if showHearRepliesAudioStrip && composerMode === 'text'}
-    <ChatComposerAudio
-      {showHearRepliesToggle}
-      {hearReplies}
-      {onHearRepliesChange}
-    />
-  {/if}
 </div>
 
 <style>
