@@ -1,6 +1,7 @@
 import Handlebars from 'handlebars'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { isDevRuntime } from '@server/lib/platform/isDevRuntime.js'
 import { getPromptsRoot } from './registry.js'
 
 const instance = Handlebars.create()
@@ -15,7 +16,7 @@ export function readPromptFile(relPath: string): string {
  * Renders a `.hbs` file under the prompts root. Templates use default HTML escaping;
  * pass `Handlebars.SafeString` (or triple-mustache in the file) for trusted raw blocks.
  */
-const isDev = process.env.NODE_ENV !== 'production'
+const isDev = isDevRuntime()
 
 export function renderPromptTemplate(relPath: string, context: Record<string, unknown>): string {
   const full = join(getPromptsRoot(), relPath)

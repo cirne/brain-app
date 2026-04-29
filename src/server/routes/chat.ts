@@ -18,6 +18,11 @@ import {
 import { hasFirstChatPending, tryConsumeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { streamAgentSseResponse, streamStaticAssistantSse } from '@server/lib/chat/streamAgentSse.js'
+import { readBackgroundRun } from '@server/lib/chat/backgroundAgentStore.js'
+import {
+  enqueueWikiTouchUpAfterChatTurn,
+  wikiTouchUpBackgroundRunId,
+} from '@server/lib/chat/wikiTouchUpJob.js'
 import {
   applySkillPlaceholders,
   buildSkillPromptMessages,
@@ -41,7 +46,27 @@ const FIRST_CHAT_KICKOFF_USER_MESSAGE = [
 
 const chat = new Hono()
 
-// GET /api/chat/first-chat-pending — whether onboarding finalize wrote the marker (no consume)
+// GET /api/chat/wiki-touch-up/:sessionId — latest post-chat wiki polish run for header UI
+chat.get('/wiki-touch-up/:sessionId', async (c) => {
+  const sessionId = c.req.param('sessionId')
+  const id = wikiTouchUpBackgroundRunId(sessionId)
+  const doc = await readBackgroundRun(id)
+  if (!doc || doc.kind !== 'wiki-touch-up') {
+    return c.json({
+      status: 'idle',
+      detail: null,
+      anchorPaths: [] as string[],
+      editedPaths: [] as string[],
+    })
+  }
+  return c.json({
+    status: doc.status,
+    detail: doc.detail,
+    anchorPaths: doc.wikiTouchUpAnchorPaths ?? [],
+    editedPaths: doc.wikiTouchUpEditedPaths ?? [],
+  })
+})
+
 chat.get('/first-chat-pending', async (c) => {
   return c.json({ pending: await hasFirstChatPending() })
 })
@@ -222,6 +247,14 @@ chat.post('/', async (c) => {
           onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
           initialSessionTitle,
           timezone: typeof timezone === 'string' ? timezone : undefined,
+          onWikiFilesTouchedAfterTurn: ({ changedFiles, timezone: tz, workspaceHandle }) => {
+            enqueueWikiTouchUpAfterChatTurn({
+              sessionId,
+              changedFiles,
+              timezone: tz,
+              workspaceHandle,
+            })
+          },
         }),
     )
   }
@@ -243,6 +276,14 @@ chat.post('/', async (c) => {
         onTurnComplete: persist,
         onSessionTitlePersist: (t) => patchSessionTitle(sessionId, t),
         timezone: typeof timezone === 'string' ? timezone : undefined,
+        onWikiFilesTouchedAfterTurn: ({ changedFiles, timezone: tz, workspaceHandle }) => {
+          enqueueWikiTouchUpAfterChatTurn({
+            sessionId,
+            changedFiles,
+            timezone: tz,
+            workspaceHandle,
+          })
+        },
       }),
   )
 })

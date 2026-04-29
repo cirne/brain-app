@@ -34,6 +34,7 @@ describe('chatSessionStore helpers', () => {
     expect(r.sessions.get(server)?.streaming).toBe(true)
     expect(r.sessions.get(server)?.sessionId).toBe(server)
     expect(r.displayedSessionId).toBe(server)
+    expect(r.sessions.get(server)?.composerResetKey).toBe(pending)
   })
 
   it('migratePendingToServer carries pendingQueuedMessages onto server session (OPP-016)', () => {

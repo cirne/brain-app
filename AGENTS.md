@@ -13,6 +13,7 @@ The app is in **early development** with a **near-zero user base**. Optimize for
 - **No backward compatibility by default.** Do not maintain compatibility layers, dual code paths, or “read old + write new” behavior for local data, APIs, or on-disk formats unless [PRODUCTIZATION.md](docs/PRODUCTIZATION.md) (or an explicit product decision) says otherwise.
 - **No data migrations.** When SQLite schema, config files, cache layout, or any persisted format changes, **delete local data / reset stores / start fresh** as needed. Document breaking changes in commits or PRs; do not ship migration scripts for developer-local or pre-release data.
 - **Avoid compatibility complexity.** Prefer a clean break and re-seeding over version flags, upgrade steps, or defensive readers for superseded formats.
+- **Agent diagnostics** (`$BRAIN_HOME/var/agent-diagnostics/`): dev-only JSONL/JSON. **Never** migrate old log files, **never** add code that reads legacy on-disk shapes. Change schema (e.g. `AGENT_DIAGNOSTICS_SCHEMA_VERSION` in `agentDiagnostics.ts`) and fields as needed; delete stale files locally if they confuse you.
 - **Tests required**: every new feature or bug fix needs test coverage in `src/**/*.test.ts`.
 - **Component tests**: Svelte UI uses Vitest (jsdom) + `@testing-library/svelte`; helpers and conventions are in [docs/component-testing.md](docs/component-testing.md).
 - **CRITICAL: TDD**: write the test case first, then the code, then make sure the test passes. especially when fixing bugs.

@@ -16,7 +16,7 @@
     onOpenHub: () => void
     /** L1 “New” — same flow as sidebar / ⌘N (e.g. `historyNewChat`). */
     onNewChat?: () => void
-    /** When true, new-chat is disabled (already on empty `/c` new chat — keeps layout stable). */
+    /** When true, new-chat is disabled (already on idle `/c` with nothing in the bar — ⌘N is a no-op). */
     isEmptyChat?: boolean
     /**
      * Hosted only: `@handle` next to Hub after onboarding confirmation.
@@ -99,11 +99,13 @@
         <button
           type="button"
           class="wiki-home-btn"
+          class:wiki-home-btn--labeled={!isMobile}
           onclick={onWikiHome}
           title="Wiki home (⌘⇧H)"
-          aria-label="Wiki home"
+          aria-label={isMobile ? 'Wiki home' : undefined}
         >
           <BookOpen size={15} strokeWidth={2} aria-hidden="true" />
+          {#if !isMobile}<span class="nav-action-label">Wiki</span>{/if}
         </button>
       </div>
     {/if}
@@ -112,12 +114,14 @@
         <button
           type="button"
           class="new-nav-btn"
+          class:new-nav-btn--labeled={!isMobile}
           disabled={isEmptyChat}
           onclick={onNewChat}
           title={isEmptyChat ? 'Already in new chat' : 'New chat (⌘N)'}
-          aria-label={isEmptyChat ? 'New conversation (already empty)' : 'New conversation'}
+          aria-label={isEmptyChat ? 'New conversation (already empty)' : isMobile ? 'New conversation' : undefined}
         >
           <MessageSquarePlus size={16} strokeWidth={2.25} aria-hidden="true" />
+          {#if !isMobile}<span class="nav-action-label">Chat</span>{/if}
         </button>
       </div>
     {/if}
@@ -280,6 +284,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 0;
     width: 36px;
     min-width: 36px;
     height: 32px;
@@ -292,6 +297,24 @@
     color: #fff;
     flex-shrink: 0;
     transition: color 0.15s, background 0.15s, filter 0.15s;
+  }
+
+  .new-nav-btn--labeled {
+    gap: 6px;
+    width: auto;
+    min-width: 36px;
+    padding: 0 12px;
+  }
+
+  .nav-action-label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  .wiki-home-btn .nav-action-label {
+    color: inherit;
   }
 
   .new-nav-btn :global(svg) {
@@ -324,11 +347,21 @@
   .wiki-home-btn {
     width: 40px;
     height: 100%;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 0;
+    padding: 0;
+    box-sizing: border-box;
     color: var(--text-2);
     transition: color 0.15s;
+  }
+
+  .wiki-home-btn--labeled {
+    gap: 6px;
+    width: auto;
+    min-width: 40px;
+    padding: 0 10px;
   }
 
   .search-btn {
@@ -457,14 +490,14 @@
       height: 18px;
     }
 
-    .new-nav-btn {
+    .new-nav-btn:not(.new-nav-btn--labeled) {
       width: 40px;
       min-width: 40px;
       height: 36px;
       min-height: 36px;
     }
 
-    .new-nav-btn :global(svg) {
+    .new-nav-btn:not(.new-nav-btn--labeled) :global(svg) {
       width: 18px;
       height: 18px;
     }

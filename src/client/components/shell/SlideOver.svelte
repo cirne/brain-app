@@ -137,19 +137,16 @@
     else onClose()
   }
 
+  /** Folder stems + final segment as full filename (e.g. `projects/index.md` → `projects`, `index.md`). */
   function wikiPageBreadcrumbSegments(path: string): string[] {
-    const segments = path
-      .replace(/\\/g, '/')
-      .replace(/\/+/g, '/')
-      .replace(/^\/+|\/+$/g, '')
-      .replace(/\.md$/i, '')
-      .split('/')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-    const last = segments.at(-1)?.toLowerCase()
-    if (segments.length === 1 && (last === 'index' || last === '_index')) return []
-    if (segments.length > 1 && (last === 'index' || last === '_index')) return segments.slice(0, -1)
-    return segments
+    const norm = path.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '')
+    if (!norm) return []
+    const rawParts = norm.split('/').map((s) => s.trim()).filter((s) => s.length > 0)
+    if (rawParts.length === 0) return []
+    const dirs = rawParts.slice(0, -1)
+    const fileName = rawParts[rawParts.length - 1]!
+    const dirSegs = dirs.map((d) => d.replace(/\.md$/i, ''))
+    return [...dirSegs, fileName]
   }
 
   function wikiBreadcrumbLabel(segment: string): string {

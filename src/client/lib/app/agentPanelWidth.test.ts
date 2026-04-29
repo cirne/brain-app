@@ -1,5 +1,23 @@
 import { describe, it, expect } from 'vitest'
-import { detailPanelHalfWidth, nextPanelWidthAfterDrag } from './agentPanelWidth.js'
+import {
+  detailPanelHalfWidth,
+  nextPanelWidthAfterDrag,
+  workspaceSplitBasisPx,
+} from './agentPanelWidth.js'
+
+describe('workspaceSplitBasisPx', () => {
+  it('prefers bounded workspace column over measured split when column is known', () => {
+    expect(workspaceSplitBasisPx(920, 2000)).toBe(920)
+  })
+
+  it('falls back to measured split when workspace column binding is unset', () => {
+    expect(workspaceSplitBasisPx(0, 1100)).toBe(1100)
+  })
+
+  it('treats non-positive workspace column same as unset', () => {
+    expect(workspaceSplitBasisPx(-1, 800)).toBe(800)
+  })
+})
 
 describe('detailPanelHalfWidth', () => {
   it('returns half of split width, rounded', () => {

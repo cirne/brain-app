@@ -8,6 +8,7 @@ import type { LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
 import type { AssistantTurnState, MessagePart } from '@server/lib/chat/chatTypes.js'
 import { applyToolEnd, applyToolStart } from '@server/lib/chat/chatTranscript.js'
 import { assistantPartsHaveValidSuggestReply } from '@shared/suggestReplyChoicesCore.js'
+import { writeSuggestReplyRepairDiagnostics } from '@server/lib/observability/agentDiagnostics.js'
 
 const REPAIR_SYSTEM = `You output only a tool call to **suggest_reply_options**. Do not write user-facing prose.
 Given the user message and the assistant answer below, supply 2–5 quick-reply chips: each choice has a short **label** (chip text) and **submit** (full user message when tapped). Make them concrete next steps based on the conversation.
@@ -144,6 +145,9 @@ export async function runSuggestReplyRepairIfNeeded(options: {
   assistantState: AssistantTurnState
   includeLocalMessageTools?: boolean
   timezone?: string
+  /** Correlates with main turn artifact from attachAgentDiagnosticsCollector; dev-only */
+  parentAgentTurnId?: string
+  sessionId?: string
 }): Promise<SuggestReplyRepairResult> {
   if (!isSuggestReplyRepairEnabled()) return { applied: false }
   if (assistantPartsHaveValidSuggestReply(options.assistantState.parts)) return { applied: false }
@@ -181,6 +185,9 @@ export async function runSuggestReplyRepairIfNeeded(options: {
       usageZero,
     )
 
+  const parentAgentTurnId = options.parentAgentTurnId?.trim()
+  const repairStartedAt = performance.now()
+
   const provider = (process.env.BRAIN_SUGGEST_REPLY_REPAIR_PROVIDER?.trim() ||
     process.env.LLM_PROVIDER ||
     'openai') as KnownProvider
@@ -188,6 +195,20 @@ export async function runSuggestReplyRepairIfNeeded(options: {
     process.env.BRAIN_SUGGEST_REPLY_REPAIR_MODEL?.trim() || process.env.LLM_MODEL || 'gpt-5.4-mini'
   const model = resolveModel(provider, modelId)
   if (!model) {
+    const durationMs = Math.round(performance.now() - repairStartedAt)
+    if (parentAgentTurnId) {
+      await writeSuggestReplyRepairDiagnostics({
+        parentAgentTurnId,
+        ...(options.sessionId !== undefined ? { sessionId: options.sessionId } : {}),
+        provider,
+        modelId,
+        systemPrompt: REPAIR_SYSTEM,
+        userBody,
+        usage: usageZero,
+        durationMs,
+        outcome: 'fallback',
+      })
+    }
     return await tryFallback()
   }
 
@@ -218,11 +239,42 @@ export async function runSuggestReplyRepairIfNeeded(options: {
   let assistantMsg: AssistantMessage
   try {
     assistantMsg = await completeSimple(model, context, streamOpts)
-  } catch {
+  } catch (e: unknown) {
+    const durationMs = Math.round(performance.now() - repairStartedAt)
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    if (parentAgentTurnId) {
+      await writeSuggestReplyRepairDiagnostics({
+        parentAgentTurnId,
+        ...(options.sessionId !== undefined ? { sessionId: options.sessionId } : {}),
+        provider,
+        modelId,
+        systemPrompt: REPAIR_SYSTEM,
+        userBody,
+        usage: usageZero,
+        durationMs,
+        outcome: 'error',
+        errorMessage,
+      })
+    }
     return await tryFallback()
   }
 
   const usage = usageFromPiAssistantMessage(assistantMsg)
+  const durAfterMainLlm = Math.round(performance.now() - repairStartedAt)
+  if (parentAgentTurnId) {
+    await writeSuggestReplyRepairDiagnostics({
+      parentAgentTurnId,
+      ...(options.sessionId !== undefined ? { sessionId: options.sessionId } : {}),
+      provider,
+      modelId,
+      systemPrompt: REPAIR_SYSTEM,
+      userBody,
+      usage,
+      durationMs: durAfterMainLlm,
+      outcome: 'completeSimple',
+    })
+  }
+
   const content = assistantMsg.content ?? []
   const toolCall = content.find(
     (c): c is { type: 'toolCall'; id: string; name: string; arguments: Record<string, unknown> } =>
@@ -236,6 +288,19 @@ export async function runSuggestReplyRepairIfNeeded(options: {
       usage,
     )
     if (r.applied) return r
+    if (parentAgentTurnId) {
+      await writeSuggestReplyRepairDiagnostics({
+        parentAgentTurnId,
+        ...(options.sessionId !== undefined ? { sessionId: options.sessionId } : {}),
+        provider,
+        modelId,
+        systemPrompt: REPAIR_SYSTEM,
+        userBody,
+        usage: usageZero,
+        durationMs: Math.round(performance.now() - repairStartedAt),
+        outcome: 'fallback',
+      })
+    }
     return await tryFallback()
   }
 

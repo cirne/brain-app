@@ -44,8 +44,8 @@ describe('AppTopNav.svelte', () => {
         },
       })
       const search = screen.getByRole('button', { name: 'Search' })
-      const wikiHome = screen.getByRole('button', { name: 'Wiki home' })
-      const newChat = screen.getByRole('button', { name: 'New conversation' })
+      const wikiHome = screen.getByRole('button', { name: 'Wiki' })
+      const newChat = screen.getByRole('button', { name: 'Chat' })
       const hub = screen.getByTestId('brain-hub-widget-stub')
       const after = globalThis.Node.DOCUMENT_POSITION_FOLLOWING
       expect(search.compareDocumentPosition(wikiHome) & after).toBe(after)
@@ -53,12 +53,41 @@ describe('AppTopNav.svelte', () => {
       expect(newChat.compareDocumentPosition(hub) & after).toBe(after)
     })
 
+    it('shows Wiki and Chat labels on desktop (not isMobile)', () => {
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          onWikiHome: vi.fn(),
+          onNewChat: vi.fn(),
+          isEmptyChat: false,
+          isMobile: false,
+        },
+      })
+      expect(screen.getByText('Wiki')).toBeInTheDocument()
+      expect(screen.getByText('Chat')).toBeInTheDocument()
+    })
+
+    it('uses icon-only wiki/new actions when isMobile (no visible Wiki/New labels)', () => {
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          onWikiHome: vi.fn(),
+          onNewChat: vi.fn(),
+          isEmptyChat: false,
+          isMobile: true,
+        },
+      })
+      expect(screen.getByRole('button', { name: 'Wiki home' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'New conversation' })).toBeInTheDocument()
+      expect(document.querySelector('.nav-action-label')).toBeNull()
+    })
+
     it('calls onWikiHome when wiki home button is clicked', async () => {
       const onWikiHome = vi.fn()
       render(AppTopNav, {
         props: { ...baseProps, onWikiHome },
       })
-      await fireEvent.click(screen.getByRole('button', { name: 'Wiki home' }))
+      await fireEvent.click(screen.getByRole('button', { name: 'Wiki' }))
       expect(onWikiHome).toHaveBeenCalledTimes(1)
     })
   })
@@ -142,7 +171,7 @@ describe('AppTopNav.svelte', () => {
         props: { ...baseProps, onNewChat: vi.fn(), isEmptyChat: false },
       })
 
-      expect(screen.getByRole('button', { name: 'New conversation' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument()
     })
 
     it('keeps new chat button visible but disabled when isEmptyChat', () => {
@@ -159,7 +188,7 @@ describe('AppTopNav.svelte', () => {
         props: { ...baseProps, isEmptyChat: false },
       })
 
-      expect(screen.queryByRole('button', { name: 'New conversation' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Chat' })).not.toBeInTheDocument()
     })
 
     it('calls onNewChat when new chat button is clicked', async () => {
@@ -168,7 +197,7 @@ describe('AppTopNav.svelte', () => {
         props: { ...baseProps, onNewChat, isEmptyChat: false },
       })
 
-      await fireEvent.click(screen.getByRole('button', { name: 'New conversation' }))
+      await fireEvent.click(screen.getByRole('button', { name: 'Chat' }))
 
       expect(onNewChat).toHaveBeenCalledTimes(1)
     })

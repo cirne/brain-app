@@ -88,7 +88,7 @@ These are milestone-sized tracks (order reflects dependencies):
 
 1. **Notifications & alerting foundation** — Rules engine, channels, mail-driven **urgency classification**, in-app inbox; optional push later.
 2. **Identity & connection (handle-first)** — Braintunnel handle, connection requests, mutual confirmation, key/endpoint exchange; align with registry/tunnel story over time.
-3. **Policy & wiki scoping** — Permissions as data; UI to edit, preview (“what would this peer see?”), and revoke.
+3. **Policy & wiki scoping** — Permissions as data; UI to edit, preview (“what would this peer see?”), and revoke. **[OPP-064](./OPP-064-wiki-directory-sharing-read-only-collaborators.md)** is the first concrete step: directory-level read-only share via email invite, without the full handle-first protocol stack.
 4. **Inter-brain MVP (paired alpha)** — Structured request/response; **receiver approval required**; full audit; no public tier required yet.
 5. **Cross-brain Q&A and delegation** — Status reports, scoped knowledge queries, task handoff; optional shared wiki namespaces (OPP-001).
 6. **Progressive automation** — LLM-as-judge within caps; auto-respond inside narrow scopes; periodic permission review prompts.
@@ -104,6 +104,7 @@ Workstreams **1–4** are the minimum credible path to the vision; **5–7** dee
 | Milestone | Outcome                                                                                                                   |
 | --------- | ------------------------------------------------------------------------------------------------------------------------- |
 | **M0**    | In-app notification center + rules (including mail-informed urgency).                                                     |
+| **M1-pre** | Directory-level read-only wiki share for a specific collaborator (email invite, no handle required). **[OPP-064](./OPP-064-wiki-directory-sharing-read-only-collaborators.md).** |
 | **M1**    | Two-brain connection via handle; explicit scopes; bilateral audit.                                                        |
 | **M2**    | “Ask the other brain for a status report on topic X” with **human approval every time** on the sender side of the answer. |
 | **M3**    | Policy tuning; judge/auto-approval for **narrow** pre-declared scopes only.                                               |
@@ -114,7 +115,7 @@ Workstreams **1–4** are the minimum credible path to the vision; **5–7** dee
 
 ## Relationship to existing docs
 
-- **[IDEA Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md)** — Product-framed wedge (directory-level shares with another user, e.g. travel subtree + human assistant): **explicit RO/RW**, **individuals-first**, aligns with wiki path scopes below; unresolved **history/conflict** questions point to future OPPs and [OPP-034](./OPP-034-wiki-snapshots-and-point-in-time-restore.md).
+- **[IDEA Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md)** — Product-framed wedge (directory-level shares with another user, e.g. travel subtree + human assistant): **explicit RO/RW**, **individuals-first**, aligns with wiki path scopes below; unresolved **history/conflict** questions point to future OPPs and [OPP-034](./OPP-034-wiki-snapshots-and-point-in-time-restore.md). **First step: [OPP-064](./OPP-064-wiki-directory-sharing-read-only-collaborators.md)** (read-only, email-as-identity, no write/agent-scope).
 - **[OPP-001](./OPP-001-agent-to-agent.md)** — Protocol shape, permission table, threat model, and “what inter-brain enables.” **OPP-042** does not duplicate that detail; it **owns sequencing, UX surfaces, handle-first identity, and epic breakdown**.
 - **[OPP-002](./OPP-002-public-brain-identity.md)** — Public and verified tiers **after** bilateral trust MVP is usable; sequencing updated to point here.
 - **[brain-cloud-service.md](../architecture/brain-cloud-service.md)** — Optional coordinator (registry, relay, tunnel signaling) **without holding user content**; complements handle resolution and NAT scenarios.

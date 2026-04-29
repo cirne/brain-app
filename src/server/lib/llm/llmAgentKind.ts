@@ -20,6 +20,8 @@ export const LLM_AGENT_KINDS = [
   'wiki_enrichment',
   /** Background Your Wiki cleanup / lint pass (wiki background runner, cleanup). */
   'wiki_cleanup',
+  /** Async post-chat wiki polish (delta-anchored cleanup; not Your Wiki supervisor). */
+  'wiki_touch_up',
 ] as const
 
 export type LlmAgentKind = (typeof LLM_AGENT_KINDS)[number]
@@ -28,6 +30,8 @@ export function isLlmAgentKind(s: string): s is LlmAgentKind {
   return (LLM_AGENT_KINDS as readonly string[]).includes(s)
 }
 
-export function agentKindForWikiSource(source: 'wikiExpansion' | 'wikiCleanup'): LlmAgentKind {
-  return source === 'wikiExpansion' ? 'wiki_enrichment' : 'wiki_cleanup'
+export function agentKindForWikiSource(source: 'wikiExpansion' | 'wikiCleanup' | 'wikiTouchUp'): LlmAgentKind {
+  if (source === 'wikiExpansion') return 'wiki_enrichment'
+  if (source === 'wikiTouchUp') return 'wiki_touch_up'
+  return 'wiki_cleanup'
 }

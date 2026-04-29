@@ -240,7 +240,7 @@
 
   .conversation-shell[data-conversation-state='empty'] {
     flex: 0 1 auto;
-    min-height: 0;
+    min-height: auto;
   }
 
   .conversation {
@@ -253,11 +253,17 @@
     padding-bottom: var(--composer-context-overlap-pad, 0);
   }
 
+  /*
+   * Empty thread: no inner scrollport. Do not use overflow-y: visible here: with overflow-x: hidden,
+   * CSS resolves the other axis to auto, which recreates a scrollbar (same for the shell’s child).
+   * clip avoids a scroll container while still clipping rare horizontal bleed.
+   */
   .conversation-shell[data-conversation-state='empty'] .conversation {
     flex: 0 1 auto;
-    max-height: 100%;
+    min-height: auto;
+    max-height: none;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: clip;
   }
 
   @media (min-width: 768px) {

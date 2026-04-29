@@ -3,6 +3,21 @@ import { isUuidSessionId } from '@client/router.js'
 import type { Overlay, Route } from '@client/router.js'
 
 /**
+ * Grey out nav “New chat” only on the idle `/c` slate: no slug in the path, no detail `?panel=…`,
+ * and no session id in the bar (empty transcript alone must not disable it).
+ */
+export function shouldDisableTopNavNewChat(
+  route: Route,
+  effectiveChatSessionId: string | null | undefined,
+): boolean {
+  if (route.wikiActive === true || route.hubActive === true) return false
+  if (effectiveChatSessionId) return false
+  if (route.sessionId ?? route.sessionTail) return false
+  if (route.overlay) return false
+  return true
+}
+
+/**
  * AgentChat's `onSessionChange` can fire with a **stale** backend session id right after the user
  * picks another chat in the sidebar: the bar URL updates immediately but the transcript map still
  * reflects the previous session briefly. Navigating from that stale id would overwrite the bar.

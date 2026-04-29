@@ -1,5 +1,6 @@
 import type { Context } from 'hono'
 import { isBundledNativeServer, NATIVE_APP_PORT_START } from '@server/lib/apple/nativeAppPort.js'
+import { isDevRuntime } from '@server/lib/platform/isDevRuntime.js'
 
 /** Bundled Braintunnel.app serves the embedded Hono server over HTTPS (self-signed cert; OPP-023). */
 export const BUNDLED_EMBEDDED_SERVER_SCHEME = 'https' as const
@@ -64,7 +65,7 @@ export function embeddedServerUrlScheme():
  * App Platform, etc.). Prefer setting `PUBLIC_WEB_ORIGIN` explicitly for stability.
  */
 function inferPublicOriginFromForwardedHeaders(c: Context): string | null {
-  if (process.env.NODE_ENV !== 'production') return null
+  if (isDevRuntime()) return null
   if (isBundledNativeServer()) return null
   const proto = c.req
     .header('x-forwarded-proto')

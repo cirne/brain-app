@@ -22,6 +22,13 @@ vi.mock('@client/lib/pressToTalkEnabled.js', () => ({
   isPressToTalkEnabled: vi.fn(() => false),
 }))
 
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver
+
 vi.mock('@client/lib/agentStream.js', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@client/lib/agentStream.js')>()
   return {
@@ -771,6 +778,19 @@ describe('AgentChat.svelte', () => {
       await tick()
 
       expect(screen.getByText('Custom Title')).toBeInTheDocument()
+    })
+  })
+
+  describe('wiki polish header (OPP-062)', () => {
+    it('places wiki polish Sparkles control before hear-replies in pane header markup', () => {
+      const path = join(dirname(fileURLToPath(import.meta.url)), 'AgentChat.svelte')
+      const src = readFileSync(path, 'utf8')
+      const polish = src.indexOf('wiki-polish-slot')
+      const hear = src.indexOf('hear-replies-header-btn')
+      expect(polish).toBeGreaterThan(-1)
+      expect(hear).toBeGreaterThan(-1)
+      expect(polish).toBeLessThan(hear)
+      expect(src).toContain('<Sparkles')
     })
   })
 

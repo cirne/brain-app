@@ -26,9 +26,16 @@ import {
   toolResultSseForNr,
   type LlmTurnTelemetry,
 } from '@server/lib/observability/newRelicHelper.js'
+import { attachAgentDiagnosticsCollector } from '@server/lib/observability/agentDiagnostics.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { agentKindForWikiSource } from '@server/lib/llm/llmAgentKind.js'
-import { addLlmUsage, rollupAssistantLlmIds, sumUsageFromMessages } from '@server/lib/llm/llmUsage.js'
+import {
+  addLlmUsage,
+  countAssistantCompletionsWithUsage,
+  rollupAssistantLlmIds,
+  sumUsageFromMessages,
+  type LlmUsageSnapshot,
+} from '@server/lib/llm/llmUsage.js'
 import { logger } from '@server/lib/observability/logger.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { truncateJsonResult } from '@server/lib/llm/truncateJson.js'
@@ -53,7 +60,7 @@ How:
 - **Filenames:** Prefer **kebab-case** \`.md\` paths (e.g. \`topics/my-theme.md\`); the server will fix odd casing or spaces on new \`write\`s, but using kebab-case avoids extra rename noise in tool results.
 - **Coverage:** Prefer filling in **entities that matter from mail/messages** (or only stubbed) before polishing prose on pages that already have substance. Do not chase page count.
 - **Stay Brief:** Do not deeply rewrite the same few pages for narrative richness; no "complete biography." A page should have a lead summary and bulleted facts.
-- **Accuracy:** When sources clearly show existing wiki text is **wrong or outdated**, use **edit** — surgical factual corrections only, not new sections or long elaboration.
+- **Accuracy:** When sources clearly show existing wiki text is **wrong or outdated**, use **edit** — surgical factual corrections only, not new sections or long elaboration. If source results conflict, treat the newest dated relevant message/thread as the current-state signal and older messages as history.
 - **Account Holder:** Keep the skeletal people/* page for the account holder compact (3–8 bullets max); link to [[me]] for short assistant context.
 - **index.md:** Early in the pass, **write** or **edit** vault-root **\`index.md\`** so it stays a useful hub: **[[me]]**, the account-holder **people/…** page if present, and **[[wikilinks]]** to landing pages for each populated top-level directory (people, projects, topics, …) — not just backtick paths.
 - **Links:** Use correct **[[wikilinks]]** (Obsidian style) and fix mistakes with **edit** as you go (you cannot grep the vault).
@@ -72,13 +79,68 @@ Do **not** mint pages for **ephemeral** chit-chat, one-off scheduling lines, gen
 - New **write** for people / projects / orgs when the signal is recurring or clearly reference-worthy.  
 - New **topics/** only when the idea is **durable** (see system prompt); otherwise **edit** a broader or person page.  
 - **edit** for wrong/outdated facts — surgical fixes, not new narrative sections.  
+- If evidence conflicts, prefer the newest dated relevant source for current-state facts; keep older facts only as useful history.  
 - **index.md:** Refresh vault-root **\`index.md\`** so directory wikilinks and **[[me]]** stay accurate as the tree changes.  
 - Keep pages brief. Narrate briefly as you go.`
 
-/** System prompt for the **cleanup** phase — separate agent from buildout; runs after each enrich pass in the same lap. */
+/** System prompt for the **cleanup** phase — separate agent from buildout; runs after enrich, post-chat touch-up, or full-vault passes. */
 export function buildCleanupSystemPrompt(timezone: string): string {
   const dateContext = buildDateContext(timezone)
   return renderPromptTemplate('wiki/cleanup.hbs', { dateContext })
+}
+
+/** Trigger for cleanup / lint invocation (delta-anchored vs vault-wide). */
+export type CleanupInvocationTrigger = 'supervisor' | 'post_chat_turn' | 'full_vault'
+
+/**
+ * Builds the user message for a cleanup invocation. Delta runs list `changedFiles` as the anchor;
+ * full-vault mode uses an untargeted pass (optionally empty `changedFiles`).
+ */
+export function buildCleanupUserMessage(parts: {
+  contextPrefix: string
+  changedFiles: readonly string[]
+  trigger: CleanupInvocationTrigger
+}): string {
+  const { contextPrefix, changedFiles, trigger } = parts
+  const useAnchor =
+    trigger !== 'full_vault' && changedFiles.length > 0
+
+  const supervisorAnchoredTask = (): string => `## Files changed in the preceding writer session (start here)
+
+${changedFiles.map((p) => `- ${sanitizeWikiPathOneLine(p)}`).join('\n')}
+
+These paths are the **starting anchor** for this cleanup pass. Prioritize link hygiene, consistency, and safe fixes **starting from** this set. You may need to **read** and **edit other vault pages** when fixing broken [[wikilinks]], orphan/index alignment, or cross-page duplication — targets for those fixes were not necessarily in the list above.
+
+Follow your system instructions: scan (grep/find), fix broken links and light issues, maintain root nav when needed, avoid over-polishing. Narrate briefly as you go.`
+
+  const touchUpAnchoredTask = (): string => `## Files changed in this chat turn (anchors — prioritize these first)
+
+${changedFiles.map((p) => `- ${sanitizeWikiPathOneLine(p)}`).join('\n')}
+
+You are running a **focused post-chat polish** — narrower than the full supervisor cleanup pass:
+
+- Start by **reading these anchor paths**. Repair **broken [[wikilinks]]** and trivial typos/formatting you see **in context** along the way.
+- You may **read or edit other vault pages** only when **strictly necessary** to fix a cross-page issue **linked to anchors** (e.g. a broken target renamed elsewhere, reconciling inbound links pointing at an anchor).
+- **Do not** enumerate every orphan across the vault, run an exhaustive orphan inventory, or do a sweeping **index.md / _index.md** rewrite **unless**: (i) **one anchor is \`index.md\` or \`_index.md\`**, or (ii) a clear fix demands a minimal hub/nav tweak tied to anchors.
+- Keep edits minimal; stop when urgent link hygiene on anchors (and unavoidable follow-through) is settled — avoid whole-vault polishing.
+
+Continue to follow broader safety norms in your system instructions (facts, synthesis, dated evidence).
+
+Narrate briefly as you go.`
+
+  const taskBody = !useAnchor
+    ? `Run a cleanup pass on this wiki vault: fix broken wikilinks, check orphans, update index.md or _index.md if present, and make light edits where needed. Work methodically and narrate briefly.`
+    : trigger === 'post_chat_turn'
+      ? touchUpAnchoredTask()
+      : supervisorAnchoredTask()
+
+  const task = `${taskBody}`
+  const combined = contextPrefix.trim() ? `${contextPrefix}${task}` : task
+  return combined
+}
+
+function sanitizeWikiPathOneLine(s: string): string {
+  return s.replace(/\s+/g, ' ').trim().slice(0, 500)
 }
 
 const pausedRunIds = new Set<string>()
@@ -207,9 +269,11 @@ export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: s
 }
 
 interface AttachRunTrackerNrOptions {
-  source: 'wikiExpansion' | 'wikiCleanup'
+  source: 'wikiExpansion' | 'wikiCleanup' | 'wikiTouchUp'
   backgroundRunId: string
   workspaceHandle?: string
+  /** When set, must match {@link attachAgentDiagnosticsCollector} so NR and JSONL share one id */
+  agentTurnId?: string
 }
 
 /** Tracks write/edit tool call activity and updates a BackgroundRunDoc in place. */
@@ -218,16 +282,26 @@ function attachRunTracker(
   doc: BackgroundRunDoc,
   wikiRoot: string,
   nrOpts: AttachRunTrackerNrOptions,
-): { unsubscribe: () => void; getChangeCount: () => number } {
+): {
+  unsubscribe: () => void
+  getChangeCount: () => number
+  getChangedFiles: () => string[]
+  getTelemetry: () => CleanupInvocationTelemetry
+} {
   const pendingWritePaths = new Map<string, string>()
   const pendingEditPaths = new Map<string, string>()
+  /** All vault-relative paths touched successfully by write/edit (cleanup “anchor” export). */
+  const changedRelPaths = new Set<string>()
   const pendingToolArgs = new Map<string, unknown>()
   let lastTextSnippet = ''
   let changeCount = 0
-  const agentTurnId = randomUUID()
+  const agentTurnId = nrOpts.agentTurnId ?? randomUUID()
   const turnStartedAt = performance.now()
   const agentKind = agentKindForWikiSource(nrOpts.source)
   let toolCallCount = 0
+  let llmTurnCount = 0
+  let llmCompletionCount = 0
+  let llmUsage = sumUsageFromMessages([])
   const sseMaxChars = 4000
   const turnLlm: LlmTurnTelemetry = {
     agentTurnId,
@@ -319,6 +393,7 @@ function attachRunTracker(
             pendingWritePaths.delete(endEv.toolCallId)
             const rel = safeWikiRelativePath(wikiRoot, rawPath)
             if (rel) {
+              changedRelPaths.add(rel)
               const patch: Partial<BackgroundRunDoc> = { lastWikiPath: rel }
               if (isBuildoutEligibleWikiPage(rel)) {
                 const paths = await listWikiFiles(wikiRoot)
@@ -333,6 +408,7 @@ function attachRunTracker(
             pendingEditPaths.delete(endEv.toolCallId)
             const rel = safeWikiRelativePath(wikiRoot, rawPath)
             if (rel) {
+              changedRelPaths.add(rel)
               const paths = await listWikiFiles(wikiRoot)
               touchRun(doc, { lastWikiPath: rel, pageCount: paths.length })
               appendLogEntry(doc, { verb: 'Updated', detail: rel })
@@ -348,6 +424,11 @@ function attachRunTracker(
         case 'agent_end': {
           const end = ev as { type: 'agent_end'; messages: AgentMessage[] }
           const last = sumUsageFromMessages(end.messages)
+          const completionCount = countAssistantCompletionsWithUsage(end.messages)
+          const turnDurationMs = Math.max(0, Math.round(performance.now() - turnStartedAt))
+          llmTurnCount++
+          llmCompletionCount += completionCount
+          llmUsage = addLlmUsage(llmUsage, last)
           const cumulative = doc.usageCumulative ? addLlmUsage(doc.usageCumulative, last) : last
           touchRun(doc, { usageLastInvocation: last, usageCumulative: cumulative })
           await writeBackgroundRun(doc)
@@ -355,7 +436,7 @@ function attachRunTracker(
             turn: turnLlm,
             messages: end.messages,
             usage: last,
-            turnDurationMs: Math.max(0, Math.round(performance.now() - turnStartedAt)),
+            turnDurationMs,
             toolCallCount,
           })
           {
@@ -364,13 +445,20 @@ function attachRunTracker(
             const model = mFromMsg ?? process.env.LLM_MODEL?.trim() ?? 'unknown'
             logger.info(
               {
+                source: nrOpts.source,
                 kind: agentKind,
+                agentTurnId,
                 provider,
                 model,
+                turnCount: llmTurnCount,
+                completionCount,
+                cumulativeCompletionCount: llmCompletionCount,
+                toolCallCount,
+                turnDurationMs,
                 ...last,
                 backgroundRunId: nrOpts.backgroundRunId,
               },
-              'llm-turn',
+              nrOpts.source === 'wikiTouchUp' ? 'wiki-touch-up-llm-turn' : 'llm-turn',
             )
           }
           break
@@ -383,7 +471,17 @@ function attachRunTracker(
     }
   })
 
-  return { unsubscribe, getChangeCount: () => changeCount }
+  return {
+    unsubscribe,
+    getChangeCount: () => changeCount,
+    getChangedFiles: (): string[] => Array.from(changedRelPaths).sort(),
+    getTelemetry: () => ({
+      turnCount: llmTurnCount,
+      completionCount: llmCompletionCount,
+      toolCallCount,
+      usage: llmUsage,
+    }),
+  }
 }
 
 export async function resumeWikiExpansionRun(runId: string, options: { timezone?: string } = {}): Promise<void> {
@@ -401,13 +499,13 @@ export function pauseWikiExpansionRun(runId: string): void {
 /**
  * Run a single enrich (wiki expansion) invocation. Injects me.md, assistant.md, and vault manifest for context.
  * `syncNote` is a brief, recency-bias-avoiding note when mail was refreshed before this lap.
- * Returns the number of pages created/edited (for no-op detection).
+ * Returns wiki page create/edit counts and the vault-relative paths touched (writes/edits — cleanup anchor export).
  */
 export async function runEnrichInvocation(
   runId: string,
   doc: BackgroundRunDoc,
   options: { message?: string; timezone?: string; syncNote?: string },
-): Promise<number> {
+): Promise<{ changeCount: number; changedFiles: string[] }> {
   const wikiRoot = wikiDir()
   const sessionId = buildoutSessionIdForRun(runId)
   // Always ensure vault-root index.md (and people skeleton) before enrich — same as cleanup.
@@ -429,13 +527,22 @@ export async function runEnrichInvocation(
   await writeBackgroundRun(doc)
 
   const ws = tryGetTenantContext()?.workspaceHandle
-  const { unsubscribe, getChangeCount } = attachRunTracker(agent, doc, wikiRoot, {
+  const wikiRunAgentTurnId = randomUUID()
+  const enrichKind = agentKindForWikiSource('wikiExpansion')
+  const unsubscribeDiag = attachAgentDiagnosticsCollector(agent, {
+    agentTurnId: wikiRunAgentTurnId,
+    agentKind: enrichKind,
+    source: 'wiki_enrich',
+    backgroundRunId: runId,
+  })
+  const { unsubscribe, getChangeCount, getChangedFiles } = attachRunTracker(agent, doc, wikiRoot, {
     source: 'wikiExpansion',
     backgroundRunId: runId,
     workspaceHandle: ws,
+    agentTurnId: wikiRunAgentTurnId,
   })
   try {
-    if (pausedRunIds.has(runId)) return 0
+    if (pausedRunIds.has(runId)) return { changeCount: 0, changedFiles: [] }
     await agent.waitForIdle()
     await agent.prompt(fullMessage)
     await markWikiBuildoutFirstPassDone().catch(() => {})
@@ -447,21 +554,51 @@ export async function runEnrichInvocation(
     }
   } finally {
     releaseAllPendingToolCallSegments()
+    unsubscribeDiag()
     unsubscribe()
     deleteWikiBuildoutSession(sessionId)
   }
-  return getChangeCount()
+  return { changeCount: getChangeCount(), changedFiles: getChangedFiles() }
+}
+
+export interface RunCleanupInvocationOptions {
+  timezone?: string
+  /** Paths created or edited in the preceding writer phase; anchors the pass (use empty array with trigger `full_vault`). */
+  changedFiles: string[]
+  trigger: CleanupInvocationTrigger
+  /** NR / agentKind routing; defaults to supervisor-style wiki cleanup telemetry. */
+  attachRunTrackerSource?: 'wikiCleanup' | 'wikiTouchUp'
+  /**
+   * Braintunnel handle when `attachRunTrackerSource` runs outside request-bound tenant ALS (e.g. debounced
+   * post-chat wiki polish). Overrides `tryGetTenantContext()` snapshot for NR `workspaceHandle`.
+   */
+  workspaceHandle?: string
+}
+
+export interface CleanupInvocationTelemetry {
+  latencyMs?: number
+  turnCount: number
+  completionCount: number
+  toolCallCount: number
+  usage: LlmUsageSnapshot
+}
+
+export interface RunCleanupInvocationResult {
+  editCount: number
+  editedRelativePaths: string[]
+  telemetry: CleanupInvocationTelemetry
 }
 
 /**
- * Run a single cleanup / lint invocation. Has read/grep/find/edit but no write.
- * Returns the number of edits made (for no-op detection).
+ * Run a single cleanup / lint invocation. Has read/grep/find/edit but no new-file write.
+ * Returns edit count and edited paths (for telemetry and UI).
  */
 export async function runCleanupInvocation(
   runId: string,
   doc: BackgroundRunDoc,
-  options: { timezone?: string },
-): Promise<number> {
+  options: RunCleanupInvocationOptions,
+): Promise<RunCleanupInvocationResult> {
+  const invocationStartedAt = performance.now()
   const wikiRoot = wikiDir()
   await ensureWikiVaultScaffoldForBuildout(wikiRoot)
   const sessionId = cleanupSessionIdForRun(runId)
@@ -472,23 +609,65 @@ export async function runCleanupInvocation(
   const agent = createCleanupAgent(systemPrompt, wikiRoot)
   cleanupSessions.set(sessionId, agent)
 
-  const cleanupMessage = contextPrefix
-    ? `${contextPrefix}Run a cleanup pass on this wiki vault: fix broken wikilinks, check orphans, update _index.md if present, and make light edits where needed. Work methodically and narrate briefly.`
-    : 'Run a cleanup pass on this wiki vault: fix broken wikilinks, check orphans, update _index.md if present, and make light edits where needed. Work methodically and narrate briefly.'
+  const trigger = options.trigger
+  const changedFilesSorted = [...new Set(options.changedFiles)].sort()
+  const cleanupBody = buildCleanupUserMessage({
+    contextPrefix,
+    changedFiles: changedFilesSorted,
+    trigger,
+  })
 
-  touchRun(doc, { label: 'Your Wiki', detail: 'Starting cleanup…' })
+  logger.info(
+    {
+      kind: 'cleanup-invocation',
+      backgroundRunId: runId,
+      cleanupTrigger: trigger,
+      changedFilesCount: changedFilesSorted.length,
+    },
+    'wiki-cleanup-start',
+  )
+
+  const isPostChatTouchUp = trigger === 'post_chat_turn'
+  touchRun(doc, {
+    ...(isPostChatTouchUp
+      ? { label: 'Wiki polish', detail: 'Polishing wiki…' }
+      : { label: 'Your Wiki', detail: 'Starting cleanup…' }),
+  })
   await writeBackgroundRun(doc)
 
-  const ws = tryGetTenantContext()?.workspaceHandle
-  const { unsubscribe, getChangeCount } = attachRunTracker(agent, doc, wikiRoot, {
-    source: 'wikiCleanup',
+  const trackerSource = options.attachRunTrackerSource ?? 'wikiCleanup'
+
+  const wikiRunAgentTurnId = randomUUID()
+  const cleanupDiagKind = agentKindForWikiSource(trackerSource)
+  const unsubscribeDiag = attachAgentDiagnosticsCollector(agent, {
+    agentTurnId: wikiRunAgentTurnId,
+    agentKind: cleanupDiagKind,
+    source:
+      trackerSource === 'wikiTouchUp' ? 'wiki_touch_up_cleanup_invocation' : 'wiki_supervisor_cleanup_invocation',
+    backgroundRunId: runId,
+  })
+
+  const ws =
+    options.workspaceHandle ?? tryGetTenantContext()?.workspaceHandle
+  const { unsubscribe, getChangeCount, getChangedFiles, getTelemetry } = attachRunTracker(agent, doc, wikiRoot, {
+    source: trackerSource,
     backgroundRunId: runId,
     workspaceHandle: ws,
+    agentTurnId: wikiRunAgentTurnId,
   })
   try {
-    if (pausedRunIds.has(runId)) return 0
+    if (pausedRunIds.has(runId)) {
+      return {
+        editCount: 0,
+        editedRelativePaths: [],
+        telemetry: {
+          ...getTelemetry(),
+          latencyMs: Math.max(0, Math.round(performance.now() - invocationStartedAt)),
+        },
+      }
+    }
     await agent.waitForIdle()
-    await agent.prompt(cleanupMessage)
+    await agent.prompt(cleanupBody)
   } catch (e: unknown) {
     if (!(e instanceof Error && (e.name === 'AbortError' || /abort/i.test(e.message)))) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -497,10 +676,18 @@ export async function runCleanupInvocation(
     }
   } finally {
     releaseAllPendingToolCallSegments()
+    unsubscribeDiag()
     unsubscribe()
     cleanupSessions.delete(sessionId)
   }
-  return getChangeCount()
+  return {
+    editCount: getChangeCount(),
+    editedRelativePaths: getChangedFiles(),
+    telemetry: {
+      ...getTelemetry(),
+      latencyMs: Math.max(0, Math.round(performance.now() - invocationStartedAt)),
+    },
+  }
 }
 
 export function pauseCleanupSession(runId: string): void {

@@ -395,6 +395,7 @@
   <div class="ob-ws-main" bind:clientWidth={workspaceColumnWidth}>
     <WorkspaceSplit
       bind:this={workspaceSplit}
+      workspaceColumnWidthPx={workspaceColumnWidth}
       bind:detailFullscreen={detailPaneFullscreen}
       hasDetail={!!route.overlay}
       desktopDetailOpen={!!route.overlay && useDesktopSplitDetail}
@@ -464,7 +465,7 @@
               ? () => void onAgentFinishInterview()
               : undefined
           }
-          onOpenWikiAbout={openHubWikiAbout}
+          onOpenWikiAbout={() => openWikiDoc()}
           onUserSendMessage={closeOverlayOnUserSend}
           onWriteStreaming={onWriteStreaming}
           onEditStreaming={onEditStreaming}

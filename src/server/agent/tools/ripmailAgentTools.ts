@@ -10,10 +10,12 @@ import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import { resolveRipmailSourceForCli } from '@server/lib/ripmail/ripmailSourceResolve.js'
 import {
+  addSearchIndexRecencyHints,
   coerceSearchIndexInlineOperators,
   looksLikePersonNameOnly,
   mergeSearchIndexStdoutHints,
 } from '@server/agent/searchIndexCoerce.js'
+import { stripSearchIndexResult } from './ripmailCli.js'
 import { parseWhoPrimaryAddresses } from '@server/agent/searchIndexWhoResolve.js'
 import { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '@server/lib/apple/imessagePhone.js'
 import {
@@ -50,7 +52,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'search_index',
     label: 'Search index',
     description:
-      'Search indexed email and local files (`ripmail`). Put **sender/recipient/dates/subject** in structured fields (`from`, `to`, `after`, …), not Gmail-style `from:` inside `pattern`. **`pattern` is a Rust regex on subject+body** (use `a|b` for alternation—not the word OR). On empty or odd results, **read the `hints` array** in the JSON response. For person names that are not stored on From lines, pass the **email address** in `from` or rely on `find_person` / `ripmail who`; rolling `after` values (e.g. `180d`) count from **today** and exclude archive mail from past years unless you use ISO date bounds or omit dates.',
+      'Search indexed email and local files (`ripmail`). Put **sender/recipient/dates/subject** in structured fields (`from`, `to`, `after`, …), not Gmail-style `from:` inside `pattern`. **`pattern` is a Rust regex on subject+body** (use `a|b` for alternation—not the word OR). On empty, odd, or broad date-spanning results, **read the `hints` array** in the JSON response. For current-state facts, read the newest relevant results first; older conflicting messages are history unless newer evidence confirms them. For person names that are not stored on From lines, pass the **email address** in `from` or rely on `find_person` / `ripmail who`; rolling `after` values (e.g. `180d`) count from **today** and exclude archive mail from past years unless you use ISO date bounds or omit dates.',
     parameters: Type.Object({
       pattern: Type.Optional(
         Type.String({
@@ -143,6 +145,7 @@ export function createRipmailAgentTools(wikiDir: string) {
           subject: p.subject,
           category: p.category,
           source: resolved?.trim(),
+          limit: 20,
         })
 
       let { stdout } = await execRipmailAsync(buildCmd(working), { timeout: 15000 })
@@ -179,6 +182,8 @@ export function createRipmailAgentTools(wikiDir: string) {
       if (coerced.notes.length > 0) {
         stdout = mergeSearchIndexStdoutHints(stdout, coerced.notes)
       }
+      stdout = addSearchIndexRecencyHints(stdout, working)
+      stdout = stripSearchIndexResult(stdout)
 
       return {
         content: [{ type: 'text' as const, text: stdout || 'No results found.' }],
@@ -217,6 +222,7 @@ export function createRipmailAgentTools(wikiDir: string) {
         },
       )
 
+      const READ_EMAIL_BODY_MAX_CHARS = 5000
       let textOut = stdout
       if (!originalIdWasPath) {
         try {
@@ -233,6 +239,12 @@ export function createRipmailAgentTools(wikiDir: string) {
             attachments = []
           }
           parsed.attachments = attachments
+          const body = parsed.body
+          if (typeof body === 'string' && body.length > READ_EMAIL_BODY_MAX_CHARS) {
+            parsed.body =
+              body.slice(0, READ_EMAIL_BODY_MAX_CHARS) +
+              `\n...[body truncated at ${READ_EMAIL_BODY_MAX_CHARS} chars; ${body.length} chars total — use read_attachment for any attachment text]`
+          }
           textOut = JSON.stringify(parsed)
         } catch {
           /* keep raw stdout if not JSON */

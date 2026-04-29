@@ -19,6 +19,7 @@ import {
   buildSourcesAddLocalDirCommand,
   buildSourcesEditCommand,
   buildSourcesRemoveCommand,
+  stripSearchIndexResult,
 } from './tools.js'
 import { joinToolResultText, toolResultFirstText } from './agentTestUtils.js'
 import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
@@ -1044,6 +1045,82 @@ describe('buildRipmailSearchCommandLine', () => {
 
   it('treats pattern as alias of query', () => {
     expect(buildRipmailSearchCommandLine({ pattern: 'z' })).toBe('ripmail search "z" --json')
+  })
+
+  it('includes --limit flag before --json when provided', () => {
+    expect(buildRipmailSearchCommandLine({ query: 'foo', limit: 20 })).toBe(
+      'ripmail search "foo" --limit 20 --json',
+    )
+    expect(buildRipmailSearchCommandLine({ from: 'a@x.com', limit: 5 })).toBe(
+      'ripmail search --from "a@x.com" --limit 5 --json',
+    )
+  })
+
+  it('omits --limit when not provided', () => {
+    expect(buildRipmailSearchCommandLine({ query: 'foo' })).toBe('ripmail search "foo" --json')
+  })
+})
+
+describe('stripSearchIndexResult', () => {
+  const makeResult = (overrides: Record<string, unknown> = {}) => ({
+    messageId: 'msg-1',
+    threadId: 'thr-1',
+    sourceId: 'src-1',
+    sourceKind: 'imap',
+    fromAddress: 'alice@example.com',
+    fromName: 'Alice',
+    subject: 'Hello world',
+    date: '2024-01-15T10:00:00Z',
+    snippet: 'Hello there…',
+    bodyPreview: 'Hello there, this is a long body preview that wastes tokens…'.repeat(10),
+    rank: 0.95,
+    ...overrides,
+  })
+
+  it('strips bulk fields and keeps only agent-needed fields', () => {
+    const raw = JSON.stringify({ results: [makeResult()], totalMatched: 1 })
+    const parsed = JSON.parse(stripSearchIndexResult(raw)) as { results: Record<string, unknown>[]; totalMatched: number }
+    expect(parsed.totalMatched).toBe(1)
+    expect(Object.keys(parsed.results[0]!).sort()).toEqual([
+      'date',
+      'fromAddress',
+      'fromName',
+      'messageId',
+      'snippet',
+      'subject',
+    ])
+    expect(parsed.results[0]!.bodyPreview).toBeUndefined()
+    expect(parsed.results[0]!.threadId).toBeUndefined()
+    expect(parsed.results[0]!.sourceId).toBeUndefined()
+    expect(parsed.results[0]!.rank).toBeUndefined()
+  })
+
+  it('preserves hints and totalMatched', () => {
+    const raw = JSON.stringify({
+      results: [makeResult()],
+      totalMatched: 42,
+      hints: ['widen --after to see more'],
+    })
+    const parsed = JSON.parse(stripSearchIndexResult(raw)) as { hints: string[]; totalMatched: number }
+    expect(parsed.totalMatched).toBe(42)
+    expect(parsed.hints).toEqual(['widen --after to see more'])
+  })
+
+  it('passes through empty results unchanged (no mutation)', () => {
+    const raw = JSON.stringify({ results: [], totalMatched: 0, hints: ['no results'] })
+    expect(stripSearchIndexResult(raw)).toBe(raw)
+  })
+
+  it('passes through non-JSON stdout unchanged', () => {
+    expect(stripSearchIndexResult('not json')).toBe('not json')
+    expect(stripSearchIndexResult('')).toBe('')
+  })
+
+  it('significantly reduces payload size', () => {
+    const results = Array.from({ length: 20 }, (_, i) => makeResult({ messageId: `msg-${i}` }))
+    const raw = JSON.stringify({ results, totalMatched: 20 })
+    const stripped = stripSearchIndexResult(raw)
+    expect(stripped.length).toBeLessThan(raw.length * 0.5)
   })
 })
 

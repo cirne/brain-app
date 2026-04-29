@@ -37,6 +37,7 @@ import { setPromptsRoot } from '@server/lib/prompts/registry.js'
 import { executeVaultLogout, safeLogoutRedirectPath } from '@server/lib/vault/vaultLogoutCore.js'
 import { registerPeriodicSyncAndShutdown } from './lifecycle/periodicSyncAndShutdown.js'
 import { registerApiRoutes } from './registerApiRoutes.js'
+import { isDevRuntime } from '@server/lib/platform/isDevRuntime.js'
 
 loadDotEnv()
 setPromptsRoot(fileURLToPath(new URL('./prompts', import.meta.url)))
@@ -46,7 +47,7 @@ setPromptsRoot(fileURLToPath(new URL('./prompts', import.meta.url)))
 const app = new Hono()
 // Names NR web transactions from Hono's matched route pattern (not Express-style auto naming).
 app.use('*', newRelicHonoTransactionMiddleware())
-const isDev = process.env.NODE_ENV !== 'production'
+const isDev = isDevRuntime()
 
 if (isBundledNativeServer()) {
   app.use('*', async (c, next) => {

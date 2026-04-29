@@ -13,6 +13,8 @@ export function buildRipmailSearchCommandLine(params: {
   subject?: string
   category?: string
   source?: string
+  /** Max results to return. Omit to use ripmail's default (50). */
+  limit?: number
 }): string {
   const rm = ripmailBin()
   const q = (params.pattern ?? params.query ?? '').trim()
@@ -42,11 +44,44 @@ export function buildRipmailSearchCommandLine(params: {
   if (params.caseSensitive) {
     parts.push('--case-sensitive')
   }
+  if (params.limit != null && params.limit > 0) {
+    parts.push('--limit', String(params.limit))
+  }
   parts.push('--json')
   if (params.source?.trim()) {
     parts.push('--source', j(params.source.trim()))
   }
   return parts.join(' ')
+}
+
+/**
+ * Fields the agent actually needs from a ripmail search result.
+ * Strips bodyPreview, threadId, sourceId, sourceKind, and rank — which together
+ * account for ~75% of the result payload — while keeping the fields needed to
+ * decide which messages to read next.
+ *
+ * Passes through unchanged if stdout is not valid JSON or has no results array.
+ */
+export function stripSearchIndexResult(stdout: string): string {
+  try {
+    const parsed = JSON.parse(stdout) as {
+      results?: Record<string, unknown>[]
+      totalMatched?: number
+      hints?: string[]
+    }
+    if (!Array.isArray(parsed.results) || parsed.results.length === 0) return stdout
+    parsed.results = parsed.results.map(({ messageId, fromAddress, fromName, subject, date, snippet }) => ({
+      messageId,
+      fromAddress,
+      fromName,
+      subject,
+      date,
+      snippet,
+    }))
+    return JSON.stringify(parsed)
+  } catch {
+    return stdout
+  }
 }
 
 /** Build `ripmail …` argv after the binary name (e.g. `rules list`). Used by inbox_rules and tests. */

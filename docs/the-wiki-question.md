@@ -31,6 +31,8 @@ The architecture doc [wiki-read-vs-read-email.md](./architecture/wiki-read-vs-re
 
 So **in product language**: the wiki is the **stabilized, structured layer**; ripmail is the **audit trail and raw corpus**. They are intentionally different *kinds* of truth (synthesis vs primary records).
 
+**Reliability rule:** wiki synthesis is only as trustworthy as its evidence reconciliation. A wiki hit should orient the assistant, not end the investigation when a question depends on raw facts. If mail sources conflict, **recency is the default conflict resolver** for current-state facts: the latest relevant dated thread/message normally represents the present state; older messages are historical context. This is especially important for high-stakes domains like travel, deadlines, commitments, and scheduling, where one stale departure time or meeting detail can destroy user trust.
+
 ---
 
 ## Karpathy’s pattern (first principles)
@@ -97,7 +99,7 @@ Until the wiki is **obviously** helping, users still face:
 - **What is “my wiki”?** Is it my notes, the assistant’s notes, or both?
 - **When should I create or edit a file** vs ask in chat vs rely on mail?
 - **What is “expanding the wiki”?** Is it automatic, approval-based, or manual? How does it relate to indexing mail?
-- **What is canonical?** If a wiki page and a thread disagree, which wins?
+- **What is canonical?** If a wiki page and a thread disagree, which wins? Current product rule: wiki is synthesized working memory, mail is evidence, and the newest relevant dated source normally wins for current-state facts.
 
 [product/personal-wiki.md](./product/personal-wiki.md) already aims to reduce this (“wiki is not the product for its own sake — it is memory and structure”). The open issue is: **until** maintenance and scaffolding are strong, **marketing clarity cannot fully substitute** for **felt benefit**.
 

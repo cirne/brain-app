@@ -8,13 +8,13 @@
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
-    /** Opens the “what is a wiki” help (`hub-wiki-about`) in the detail stack. */
+    /** Opens wiki at vault landing (`index.md` / resolved root), same as the Wiki nav control. */
     onOpenWikiAbout?: () => void
   } = $props()
 </script>
 
 <div
-  class="box-border flex min-h-0 flex-col items-stretch justify-center gap-2 pb-2 text-sm text-muted"
+  class="box-border flex flex-col items-stretch justify-center gap-2 pb-2 text-sm text-muted"
 >
   <div class="w-full text-center">
     <p>Ask anything about your docs, email, or calendar.</p>

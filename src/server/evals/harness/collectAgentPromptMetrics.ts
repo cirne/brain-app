@@ -1,4 +1,5 @@
 import type { Agent, AgentEvent, AgentMessage } from '@mariozechner/pi-agent-core'
+import { randomUUID } from 'node:crypto'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 import { createAssistantTurnState, applyTextDelta } from '@server/lib/chat/chatTranscript.js'
 import { runSuggestReplyRepairIfNeeded, isSuggestReplyRepairEnabled } from '@server/lib/chat/suggestReplyRepair.js'
@@ -10,6 +11,7 @@ import {
 } from '@server/lib/llm/llmUsage.js'
 import { wikiDir as getWikiDir } from '@server/lib/wiki/wikiDir.js'
 import { lastAssistantTextFromMessages, toolResultTextFromAgentEvent } from './extractTranscript.js'
+import { attachAgentDiagnosticsCollector } from '@server/lib/observability/agentDiagnostics.js'
 
 export type CollectedAgentPromptMetrics = {
   wallMs: number
@@ -30,6 +32,10 @@ export type CollectAgentPromptMetricsOptions = {
   evalTraceCaseId?: string
   /** Wiki root for suggest-reply repair (defaults to {@link getWikiDir}). */
   wikiDir?: string
+  /** Dev agent-diagnostics: {@link collectAgentPromptMetrics}-scoped turn id grouping (filename label). */
+  diagnosticsAgentKind?: string
+  /** Optional session key for correlating suggest-repair child artifacts */
+  diagnosticsSessionId?: string
 }
 
 /**
@@ -46,6 +52,13 @@ export async function collectAgentPromptMetrics(
   let endMessages: AgentMessage[] = []
 
   await agent.waitForIdle()
+  const diagnosticsTurnId = randomUUID()
+  const unsubscribeDiag = attachAgentDiagnosticsCollector(agent, {
+    agentTurnId: diagnosticsTurnId,
+    agentKind: options.diagnosticsAgentKind ?? 'eval_or_finalize',
+    source: 'collect_agent_prompt_metrics',
+    ...(options.diagnosticsSessionId !== undefined ? { sessionId: options.diagnosticsSessionId } : {}),
+  })
   const t0 = performance.now()
   const traceCaseId =
     process.env.EVAL_AGENT_TRACE === '1' && options.evalTraceCaseId?.trim()
@@ -105,6 +118,7 @@ export async function collectAgentPromptMetrics(
   } catch (e) {
     err = e instanceof Error ? e.message : String(e)
   } finally {
+    unsubscribeDiag()
     unsubscribe()
   }
 
@@ -128,6 +142,8 @@ export async function collectAgentPromptMetrics(
         assistantState: st,
         includeLocalMessageTools: areLocalMessageToolsEnabled(),
         timezone: options.timezone,
+        parentAgentTurnId: diagnosticsTurnId,
+        ...(options.diagnosticsSessionId !== undefined ? { sessionId: options.diagnosticsSessionId } : {}),
       })
       if (repair.applied) {
         toolNames.push('suggest_reply_options')

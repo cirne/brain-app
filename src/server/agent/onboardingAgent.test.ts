@@ -55,6 +55,8 @@ describe('buildWikiBuildoutSystemPrompt', () => {
     expect(p).toContain('[[wikilinks]]')
     expect(p).toContain('[[me]]')
     expect(p).toContain('[[people/jane-doe]]')
+    expect(p).toMatch(/newest relevant/i)
+    expect(p).toMatch(/conflict.*latest dated/i)
     expect(p).toMatch(/Contact.*Identifiers/i)
     expect(p).toMatch(/Never.*invent phone/i)
     expect(p).not.toContain('list_recent_messages')

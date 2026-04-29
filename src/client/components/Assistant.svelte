@@ -56,6 +56,7 @@
     formatLocalDateYmd,
     hubActiveForOpenOverlay as hubActiveForOpenOverlayFromRoute,
     isStaleAgentSessionVersusChatBar,
+    shouldDisableTopNavNewChat,
     shouldReplaceWikiOverlay,
   } from '@client/lib/assistantShellNavigation.js'
   import { waitUntilDefinedOrMaxTicks } from '@client/lib/async/waitUntilReady.js'
@@ -91,15 +92,8 @@
 
   const sessionHighlightId = $derived<string | null>(effectiveChatSessionId ?? shell.activeSessionId)
 
-  /** Same “Hub is primary” test as the chat snippet (`BrainHubPage`), including `/c?panel=hub`. */
-  const hubMainPane = $derived(
-    shell.route.hubActive === true || shell.route.overlay?.type === 'hub',
-  )
-
-  /** Disable New chat only on empty chat column; enable when Hub or wiki is the main pane. */
-  const topNavNewChatDisabled = $derived(
-    shell.chatIsEmpty && !hubMainPane && shell.route.wikiActive !== true,
-  )
+  /** Disable New chat only on bare `/c` (no slug, no `?panel=`), not merely when the transcript is empty. */
+  const topNavNewChatDisabled = $derived(shouldDisableTopNavNewChat(shell.route, effectiveChatSessionId))
 
   /** Primary wiki pane header: Wiki / folders / page (see `wiki-primary-bar`). */
   const wikiPrimaryBarCrumbs = $derived.by((): WikiPrimaryCrumb[] => {
@@ -940,6 +934,7 @@
     <div class="workspace-column" bind:clientWidth={shell.workspaceColumnWidth}>
   <WorkspaceSplit
     bind:this={refs.workspaceSplit}
+    workspaceColumnWidthPx={shell.workspaceColumnWidth}
     bind:detailFullscreen={shell.detailPaneFullscreen}
     hasDetail={
       !shell.route.wikiActive &&
@@ -1110,7 +1105,7 @@
           onOpenFromAgent={onOpenFromAgent}
           onNewChat={closeOverlay}
           onUserInitiatedNewChat={historyNewChat}
-          onOpenWikiAbout={openHubWikiAbout}
+          onOpenWikiAbout={() => navigateWikiPrimary()}
           onAfterDeleteChat={historyNewChat}
           onUserSendMessage={closeOverlayOnUserSend}
           onSessionChange={onSessionChangeFromAgent}

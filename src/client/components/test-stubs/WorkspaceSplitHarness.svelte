@@ -3,6 +3,7 @@
 
   type Props = {
     hasDetail?: boolean
+    workspaceColumnWidthPx?: number
     desktopDetailOpen?: boolean
     onNavigateClear?: () => void
     detailFullscreen?: boolean
@@ -12,6 +13,7 @@
 
   let {
     hasDetail = false,
+    workspaceColumnWidthPx = 0,
     desktopDetailOpen = false,
     onNavigateClear = () => {},
     detailFullscreen = $bindable(false),
@@ -29,6 +31,7 @@
 <WorkspaceSplit
   bind:this={componentRef}
   {hasDetail}
+  workspaceColumnWidthPx={workspaceColumnWidthPx}
   {desktopDetailOpen}
   {onNavigateClear}
   bind:detailFullscreen

@@ -10,6 +10,7 @@
     desktopDetail,
   }: {
     hasDetail?: boolean
+    workspaceColumnWidthPx?: number
     desktopDetailOpen?: boolean
     detailFullscreen?: boolean
     onNavigateClear?: () => void

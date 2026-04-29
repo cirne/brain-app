@@ -76,6 +76,8 @@ Shared turn context is [`LlmTurnTelemetry`](../src/server/lib/newRelicHelper.ts)
 
 **Querying custom events:**
 
+**Per-user cost (handle):** use `workspaceHandle` on `LlmAgentTurn`, `LlmCompletion`, and `ToolCall`; e.g. `FACET workspaceHandle`. Chat merges `sessionId` + tenant handle **before** the SSE stream starts so handle is frozen even though Async Local Storage may not cover the streaming callback; debounced post-chat wiki polish forwards that handle into cleanup runs.
+
 ```sql
 SELECT * FROM ToolCall WHERE appName = 'Braintunnel Staging' SINCE 1 hour ago LIMIT 20
 SHOW ATTRIBUTES FROM ToolCall

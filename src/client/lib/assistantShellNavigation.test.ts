@@ -5,6 +5,7 @@ import {
   formatLocalDateYmd,
   hubActiveForOpenOverlay,
   isStaleAgentSessionVersusChatBar,
+  shouldDisableTopNavNewChat,
   shouldReplaceWikiOverlay,
 } from './assistantShellNavigation.js'
 import type { Overlay, Route } from '@client/router.js'
@@ -14,6 +15,39 @@ function makeRoute(partial: Partial<Route> = {}): Route {
 }
 
 describe('assistantShellNavigation', () => {
+  describe('shouldDisableTopNavNewChat', () => {
+    it('is true only on bare chat route (idle /c)', () => {
+      expect(shouldDisableTopNavNewChat(makeRoute({}), null)).toBe(true)
+    })
+
+    it('is false when a session slug is in the route', () => {
+      expect(
+        shouldDisableTopNavNewChat(
+          makeRoute({ sessionTail: '550e8400e29b' }),
+          null,
+        ),
+      ).toBe(false)
+    })
+
+    it('is false when effective chat session id is set', () => {
+      expect(shouldDisableTopNavNewChat(makeRoute({}), 'uuid-session')).toBe(false)
+    })
+
+    it('is false with any detail overlay (e.g. wiki on /c)', () => {
+      expect(
+        shouldDisableTopNavNewChat(
+          makeRoute({ overlay: { type: 'wiki', path: 'a.md' } }),
+          null,
+        ),
+      ).toBe(false)
+    })
+
+    it('is false when wiki or hub is the primary surface', () => {
+      expect(shouldDisableTopNavNewChat(makeRoute({ wikiActive: true }), null)).toBe(false)
+      expect(shouldDisableTopNavNewChat(makeRoute({ hubActive: true }), null)).toBe(false)
+    })
+  })
+
   describe('chatSessionPatch', () => {
     it('returns empty when hub active', () => {
       expect(chatSessionPatch(makeRoute({ hubActive: true, sessionId: 's1' }))).toEqual({})

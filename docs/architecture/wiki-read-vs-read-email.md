@@ -13,6 +13,13 @@ The agent needs to read two different kinds of content:
 1. **Markdown wiki pages** under `$BRAIN_WIKI_ROOT/wiki` (dev: `$BRAIN_HOME/wiki`) — the user’s edited, cross-linked **synthesized** knowledge (working source of truth for digested information).
 2. **Email and indexed local files** from the ripmail SQLite index — **evidence** (messages by Message-ID, attachments, paths under configured folder sources) used to *inform* wiki pages, analogous to “read this email,” not “this file is the wiki.”
 
+This split is a reliability contract, not just a tool-routing detail:
+
+- **Wiki = synthesis / working memory.** It orients the assistant around people, projects, vocabulary, and prior conclusions.
+- **Email = primary evidence.** It contains the raw thread text, attachments, dates, commitments, and final wording.
+- **Dates resolve conflicts.** When source messages disagree about a current-state fact, the newest relevant dated source normally wins; older messages become historical context unless newer evidence confirms they still apply.
+- **Wiki is always a work in progress.** A wiki hit should shape subsequent lookup, not automatically terminate lookup. For high-stakes or evolving facts (travel times, decisions, commitments, project status, roles), the agent should verify or enrich from `search_index` / `read_email`.
+
 The codebase could theoretically expose a single “read file” tool with multiple roots or absolute paths. That would reuse `@mariozechner/pi-coding-agent` primitives for everything, but it blurs product semantics and mixes incompatible identifier and I/O models.
 
 ---
@@ -28,6 +35,8 @@ Keep **two tool families**:
 
 The system prompt instructs the model to use grep / find / `read` for wiki content vs `search_index` / `read_email` for the index. Separate **tool names, descriptions, and parameters** encode the distinction without relying on path heuristics alone.
 
+The prompt should say **wiki first** as an orientation step, not as a stopping rule. Current-state answers and wiki writes should reconcile the wiki with source evidence, especially when broad search results span dates or conflict.
+
 ---
 
 ## Rationale
@@ -35,6 +44,7 @@ The system prompt instructs the model to use grep / find / `read` for wiki conte
 1. **Email is not a wiki path.** Identifiers are RFC Message-IDs (and thread semantics), not files under `wikiDir`.
 2. **Extraction vs raw text.** PDFs and office formats are handled by ripmail’s extractors; the wiki `read` tool targets markdown/text in the vault.
 3. **Avoid ambiguous schemas.** A single `read` with two roots would mix relative wiki paths and absolute disk paths unless the schema required an explicit discriminator (e.g. `kind: "wiki" | "source"`). Until/unless we introduce that unified API, **two tools** are clearer for the model.
+4. **Trust depends on temporal accuracy.** For factual synthesis, especially travel, scheduling, roles, decisions, and commitments, stale but relevant-looking evidence is dangerous. Search can surface old and new messages together, so agents and tool output must explicitly remind models that newest relevant evidence governs the current state.
 
 ---
 

@@ -63,7 +63,16 @@ describe('SlideOver.svelte', () => {
     const nav = screen.getByRole('navigation', { name: /wiki page path/i })
     expect(nav).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'My Wiki' })).toBeInTheDocument()
-    expect(screen.getByText('Travel')).toBeInTheDocument()
+    expect(screen.getByText('Travel.md')).toBeInTheDocument()
+  })
+
+  it('nested index.md shows directory link plus filename crumb', () => {
+    const props = baseProps({ overlay: { type: 'wiki', path: 'projects/index.md' } })
+    render(SlideOver, { props })
+
+    expect(screen.getByRole('button', { name: 'My Wiki' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Projects' })).toBeInTheDocument()
+    expect(screen.getByText('Index.md')).toBeInTheDocument()
   })
 
   it('renders with email overlay', () => {

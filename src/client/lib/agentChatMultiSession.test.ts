@@ -31,6 +31,7 @@ describe('loadSession streaming guard', () => {
       chatTitle: null,
       pendingQueuedMessages: [],
       hearReplies: false,
+      composerResetKey: '',
       ...overrides,
     }
   }

@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os'
 
 // Mock the heavy agent runners so tests stay fast
 vi.mock('./wikiExpansionRunner.js', () => ({
-  runEnrichInvocation: vi.fn().mockResolvedValue(1),
-  runCleanupInvocation: vi.fn().mockResolvedValue(0),
+  runEnrichInvocation: vi.fn().mockResolvedValue({ changeCount: 1, changedFiles: ['x.md'] }),
+  runCleanupInvocation: vi.fn().mockResolvedValue({ editCount: 0, editedRelativePaths: [] }),
   pauseWikiExpansionRun: vi.fn(),
   pauseCleanupSession: vi.fn(),
 }))

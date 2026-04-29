@@ -71,14 +71,13 @@
 
 <style>
   .composer-context-bar {
-    /* Float above the transcript (see `AgentChat` .composer-stack) so messages show through */
-    position: absolute;
-    right: 0;
-    bottom: 100%;
-    left: 0;
-    z-index: 2;
+    /* Positioned by the .context-bar-overlay wrapper in AgentChat; this element fills that box */
+    position: relative;
     flex-shrink: 0;
-    background: transparent;
+    /* 80% transparent backdrop so transcript text shows through with a subtle tint */
+    background: color-mix(in srgb, var(--bg-2, #111) 20%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     /* Match `AgentInput` .input-area horizontal padding (12px) so chips align with the shell */
     padding: 0 12px 0.5rem;
     min-height: 0;

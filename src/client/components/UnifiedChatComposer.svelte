@@ -9,7 +9,7 @@
   let {
     /** When true, show mic and allow switching to the voice panel. */
     voiceEligible = false,
-    /** When this key changes, reset to text mode (e.g. active session id). */
+    /** When this key changes, reset to text mode (e.g. switching chats). Stable across pending→server session migration via SessionState.composerResetKey. */
     sessionResetKey = '',
     placeholder = 'What do you need to know or get done?',
     streaming = false,

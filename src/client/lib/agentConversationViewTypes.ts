@@ -25,7 +25,7 @@ export type AgentConversationViewProps = {
   onOpenFullInbox?: () => void
   onSwitchToCalendar?: (_date: string, _eventId?: string) => void
   onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
-  /** Empty-state “your wiki” link → `hub-wiki-about` overlay (chat / hub / SlideOver). */
+  /** Empty-state “your wiki” link → wiki vault landing (same as Wiki in the top bar). */
   onOpenWikiAbout?: () => void
   /** Only used by the default chat transcript (empty state override). */
   empty?: Snippet

@@ -261,6 +261,48 @@ describe('newRelicHelper', () => {
     )
   })
 
+  it('LlmAgentTurn keeps workspaceHandle when correlation merged synchronously and ALS is inactive at emit', async () => {
+    const {
+      mergeToolCallCorrelation,
+      recordLlmAgentTurn,
+    } = await import('@server/lib/observability/newRelicHelper.js')
+    recordCustomEvent.mockClear()
+
+    let cap: ReturnType<typeof mergeToolCallCorrelation>
+    runWithTenantContext(
+      { tenantUserId: 'usr_sync_cap', workspaceHandle: 'sync-handle-ws', homeDir: '/tmp/hcap' },
+      () => {
+        cap = mergeToolCallCorrelation({ sessionId: 'sess-sync' })
+      },
+    )
+
+    recordLlmAgentTurn({
+      agentTurnId: 'capsule-turn',
+      source: 'chat',
+      agentKind: 'chat',
+      correlation: cap!,
+      usage: {
+        input: 1,
+        output: 1,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 2,
+        costTotal: 0,
+      },
+      turnDurationMs: 42,
+      completionCount: 1,
+      toolCallCount: 0,
+    })
+
+    expect(recordCustomEvent).toHaveBeenCalledWith(
+      'LlmAgentTurn',
+      expect.objectContaining({
+        workspaceHandle: 'sync-handle-ws',
+        sessionId: 'sess-sync',
+      }),
+    )
+  })
+
   it('recordLlmTurnEndEvents sets LlmAgentTurn provider/model from last assistant completion', async () => {
     const { recordLlmTurnEndEvents } = await import('@server/lib/observability/newRelicHelper.js')
     const usageCost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0.001 }

@@ -4,12 +4,18 @@
   import {
     detailPanelHalfWidth,
     nextPanelWidthAfterDrag,
+    workspaceSplitBasisPx,
   } from '@client/lib/app/agentPanelWidth.js'
   import { easeOutCubic } from '@client/lib/workspaceSplit/easing.js'
 
   type Props = {
     /** `!!route.overlay` — drives `.split.has-detail` for chat column width rules. */
     hasDetail: boolean
+    /**
+     * `bind:clientWidth` from the Assistant workspace column (main flex area beside the history
+     * rail). Keeps default half-width + drag caps on that region, not a mistaken viewport-wide measure.
+     */
+    workspaceColumnWidthPx?: number
     /** Desktop side-by-side detail pane (measured workspace width + not mobile viewport). */
     desktopDetailOpen: boolean
     chat: Snippet
@@ -22,6 +28,7 @@
 
   let {
     hasDetail,
+    workspaceColumnWidthPx = 0,
     desktopDetailOpen,
     chat,
     desktopDetail,
@@ -85,8 +92,13 @@
 
   const DURATION_MS = 320
 
+  function splitBasisPx(): number {
+    const measured = splitEl?.clientWidth ?? 0
+    return workspaceSplitBasisPx(workspaceColumnWidthPx ?? 0, measured)
+  }
+
   function syncDetailWidthToSplit() {
-    const sw = splitEl?.clientWidth ?? 0
+    const sw = splitBasisPx()
     if (sw <= 0 || !desktopDetailOpen) return
     if (pendingHalfWidthOnOpen) {
       detailPanelWidth = detailPanelHalfWidth(sw)
@@ -114,6 +126,11 @@
     mq.addEventListener('change', onMq)
     onMq()
     return () => mq.removeEventListener('change', onMq)
+  })
+
+  $effect(() => {
+    void workspaceColumnWidthPx
+    syncDetailWidthToSplit()
   })
 
   $effect(() => {
@@ -189,7 +206,7 @@
     document.body.style.userSelect = 'none'
 
     function onMove(ev: PointerEvent) {
-      const sw = splitEl?.clientWidth ?? 0
+      const sw = splitBasisPx()
       if (sw <= 0) return
       detailPanelWidth = nextPanelWidthAfterDrag(startW, startX, ev.clientX, sw)
       detailVisibleW = detailPanelWidth

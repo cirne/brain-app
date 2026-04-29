@@ -20,6 +20,25 @@ afterEach(async () => {
   vi.resetModules()
 })
 
+describe('GET /api/chat/wiki-touch-up/:sessionId', () => {
+  it('returns idle placeholder when no background doc exists', async () => {
+    const { default: chatRoute } = await import('./chat.js')
+    const app = new Hono()
+    app.route('/api/chat', chatRoute)
+
+    const res = await app.request('/api/chat/wiki-touch-up/session-aaa')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as {
+      status: string
+      anchorPaths: unknown[]
+      editedPaths: unknown[]
+    }
+    expect(j.status).toBe('idle')
+    expect(j.anchorPaths).toEqual([])
+    expect(j.editedPaths).toEqual([])
+  })
+})
+
 describe('GET /api/chat/first-chat-pending', () => {
   it('returns pending false when marker missing', async () => {
     const { default: chatRoute } = await import('./chat.js')

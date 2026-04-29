@@ -48,6 +48,8 @@ export interface StreamAgentSseTurnRefs {
   turnTitle: string | null | undefined
   lastRunUsage: LlmUsageSnapshot | undefined
   toolCallCount: number
+  /** Vault-relative wiki paths successfully mutated this turn (anchors post-turn polish). */
+  touchedWikiRelPaths: Set<string>
 }
 
 export interface StreamAgentSseHandlerDeps {
@@ -201,6 +203,42 @@ async function resolveToolEndDetails(
   return details
 }
 
+/** Record wiki-relative paths for successful write/edit/move/delete_file (post-turn touch-up anchor). */
+function recordWikiMutationRelPaths(
+  toolName: string,
+  toolArgs: unknown | undefined,
+  wikiRoot: string,
+  into: Set<string>,
+): void {
+  if (!toolArgs || typeof toolArgs !== 'object') return
+  const args = toolArgs as Record<string, unknown>
+
+  switch (toolName) {
+    case 'write':
+    case 'edit':
+    case 'delete_file': {
+      const p = args.path
+      if (typeof p === 'string') {
+        const rel = safeWikiRelativePath(wikiRoot, p)
+        if (rel) into.add(rel)
+      }
+      break
+    }
+    case 'move_file': {
+      for (const key of ['from', 'to'] as const) {
+        const raw = args[key]
+        if (typeof raw === 'string') {
+          const rel = safeWikiRelativePath(wikiRoot, raw)
+          if (rel) into.add(rel)
+        }
+      }
+      break
+    }
+    default:
+      break
+  }
+}
+
 /** NR bridge end + transcript mutation + tool_end SSE (+ optional TTS). */
 export async function handleStreamToolExecutionEnd(
   ev: { type: 'tool_execution_end' } & ToolExecutionEndPayload,
@@ -237,6 +275,9 @@ export async function handleStreamToolExecutionEnd(
     resultTruncated,
     resultSizeBucket,
   })
+  if (!ev.isError) {
+    recordWikiMutationRelPaths(ev.toolName, toolArgs, deps.wikiDirForDiffs, deps.refs.touchedWikiRelPaths)
+  }
   const speakForTts =
     ev.toolName === 'speak' && !ev.isError ? (resultText.trim() ? true : false) : false
   const playTts =

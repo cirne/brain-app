@@ -153,3 +153,53 @@ export function mergeSearchIndexStdoutHints(stdout: string, prepend: string[]): 
     return `${head.join('\n')}\n\n${stdout}`
   }
 }
+
+const CURRENT_STATE_RECENCY_HINT =
+  'Search results can mix old and current information. For current-state facts, read the newest relevant messages first; if older messages conflict with newer ones, treat older messages as historical context.'
+
+/** Add lightweight date-range metadata and a recency hint for broad searches. */
+export function addSearchIndexRecencyHints(stdout: string, params: SearchIndexRawParams): string {
+  if (params.after?.trim() || params.before?.trim()) return stdout
+
+  const t = stdout.trim()
+  if (!t.startsWith('{')) return stdout
+
+  try {
+    const j = JSON.parse(t) as Record<string, unknown>
+    const results = Array.isArray(j.results) ? j.results : []
+    const dated = results
+      .map((r) => {
+        if (!r || typeof r !== 'object') return null
+        const raw = (r as Record<string, unknown>).date
+        if (typeof raw !== 'string' || !raw.trim()) return null
+        const ms = Date.parse(raw)
+        if (Number.isNaN(ms)) return null
+        return { raw, ms }
+      })
+      .filter((r): r is { raw: string; ms: number } => r !== null)
+
+    if (dated.length < 2) return stdout
+
+    dated.sort((a, b) => b.ms - a.ms)
+    const newest = dated[0]!
+    const oldest = dated[dated.length - 1]!
+    const spanDays = Math.floor((newest.ms - oldest.ms) / 86_400_000)
+    if (spanDays < 30) return stdout
+
+    j.dateRange = {
+      newest: newest.raw,
+      oldest: oldest.raw,
+      spanDays,
+    }
+
+    const hintArr = Array.isArray(j.hints)
+      ? (j.hints as unknown[]).filter((x): x is string => typeof x === 'string')
+      : []
+    if (!hintArr.some((h) => h === CURRENT_STATE_RECENCY_HINT)) {
+      j.hints = [CURRENT_STATE_RECENCY_HINT, ...hintArr]
+    }
+    return `${JSON.stringify(j, null, 2)}\n`
+  } catch {
+    return stdout
+  }
+}

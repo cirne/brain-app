@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { brainHome } from '@server/lib/platform/brainHome.js'
 import type { LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
 
-export type BackgroundAgentKind = 'wiki-expansion' | 'your-wiki'
+export type BackgroundAgentKind = 'wiki-expansion' | 'your-wiki' | 'wiki-touch-up'
 
 export type BackgroundRunStatus = 'queued' | 'running' | 'paused' | 'completed' | 'error'
 
@@ -62,6 +62,12 @@ export interface BackgroundRunDoc {
   usageLastInvocation?: LlmUsageSnapshot
   /** Running sum of `usageLastInvocation` across all completed invocations for this run id. */
   usageCumulative?: LlmUsageSnapshot
+  /** Post-chat wiki polish: chat session this job belongs to (for client poll / header). */
+  chatSessionId?: string
+  /** Post-chat wiki polish: vault-relative paths the main turn changed (cleanup anchor). */
+  wikiTouchUpAnchorPaths?: string[]
+  /** Post-chat wiki polish: paths the cleanup agent edited in this job (for header dropdown). */
+  wikiTouchUpEditedPaths?: string[]
 }
 
 /** Cap for `logLines` / `logEntries` (oldest dropped). */

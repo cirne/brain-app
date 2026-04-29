@@ -11,6 +11,11 @@ export type SessionState = {
   pendingQueuedMessages: string[]
   /** POST /api/chat `hearReplies` when the user turned on “Read answers aloud” (OpenAI TTS; requires OPENAI_API_KEY on the server). */
   hearReplies: boolean
+  /**
+   * Stable id for UnifiedChatComposer `sessionResetKey`: survives pending → server map key migration
+   * so voice mode is not cleared when `displayedSessionId` changes after the first SSE `session` event.
+   */
+  composerResetKey: string
 }
 
 export function emptySession(): SessionState {
@@ -22,6 +27,7 @@ export function emptySession(): SessionState {
     chatTitle: null,
     pendingQueuedMessages: [],
     hearReplies: false,
+    composerResetKey: '',
   }
 }
 
@@ -55,12 +61,21 @@ export function migratePendingToServer(
     return { sessions, displayedSessionId }
   }
   next.delete(pendingKey)
+  const composerResetKey =
+    prev.composerResetKey?.trim() !== '' ? prev.composerResetKey : pendingKey
   const merged: SessionState = {
     ...prev,
     sessionId: serverId,
+    composerResetKey,
   }
   const existing = next.get(serverId)
   if (existing) {
+    const mergedComposer =
+      merged.composerResetKey?.trim() !== ''
+        ? merged.composerResetKey
+        : existing.composerResetKey?.trim() !== ''
+          ? existing.composerResetKey
+          : serverId
     next.set(serverId, {
       ...existing,
       messages: merged.messages.length >= existing.messages.length ? merged.messages : existing.messages,
@@ -69,6 +84,7 @@ export function migratePendingToServer(
       chatTitle: merged.chatTitle ?? existing.chatTitle,
       sessionId: serverId,
       hearReplies: merged.hearReplies,
+      composerResetKey: mergedComposer,
       pendingQueuedMessages: [
         ...(merged.pendingQueuedMessages ?? []),
         ...(existing.pendingQueuedMessages ?? []),

@@ -16,10 +16,14 @@ import {
 } from './chatTranscript.js'
 import type { LlmAgentKind } from '@server/lib/llm/llmAgentKind.js'
 import {
+  mergeToolCallCorrelation,
   type LlmTurnTelemetry,
   releaseAllPendingToolCallSegments,
   setAgentTurnTransactionAttribute,
 } from '@server/lib/observability/newRelicHelper.js'
+import {
+  attachAgentDiagnosticsCollector,
+} from '@server/lib/observability/agentDiagnostics.js'
 import {
   handleStreamAgentEnd,
   handleStreamMessageUpdate,
@@ -72,6 +76,17 @@ export interface StreamAgentSseOptions {
    * the turn has assistant text but no valid `suggest_reply_options` (main chat and onboarding interview).
    */
   runSuggestReplyRepair?: boolean
+  /**
+   * After a turn completes, when the agent successfully wrote/edited/moved/deleted wiki files,
+   * enqueue post-turn polish (non-blocking).
+   */
+  onWikiFilesTouchedAfterTurn?: (args: {
+    sessionId: string
+    changedFiles: string[]
+    timezone?: string
+    /** Stable Braintunnel handle merged pre-stream (ALS may be gone later). */
+    workspaceHandle?: string
+  }) => void | Promise<void>
 }
 
 /**
@@ -98,6 +113,7 @@ export function streamAgentSseResponse(
     agentKind: agentKindOpt,
     timezone: timezoneOpt,
     runSuggestReplyRepair: runSuggestReplyRepairOpt,
+    onWikiFilesTouchedAfterTurn,
   } = opts
   const agentKind: LlmAgentKind = agentKindOpt ?? 'chat'
   const runSuggestReplyRepair = runSuggestReplyRepairOpt !== false
@@ -107,6 +123,12 @@ export function streamAgentSseResponse(
   // `addCustomAttribute` there would not attach to the transaction.
   const agentTurnId = randomUUID()
   setAgentTurnTransactionAttribute(agentTurnId)
+  // Merge tenant `workspaceHandle` while request ALS is active. Inside `streamSSE`, tool/end
+  // telemetry may run detached from AsyncLocalStorage; `mergeToolCallCorrelation` at emit time
+  // misses the handle unless we freeze it here.
+  const turnCorrelation = mergeToolCallCorrelation(
+    announceSessionId !== undefined ? { sessionId: announceSessionId } : undefined,
+  )
 
   return streamSSE(c, async (stream) => {
     if (announceSessionId) {
@@ -117,6 +139,7 @@ export function streamAgentSseResponse(
       turnTitle: initialT && initialT.length > 0 ? initialT : undefined,
       lastRunUsage: undefined,
       toolCallCount: 0,
+      touchedWikiRelPaths: new Set(),
     }
     if (refs.turnTitle) {
       if (onSessionTitlePersist) {
@@ -147,7 +170,7 @@ export function streamAgentSseResponse(
       agentTurnId,
       source: 'chat',
       agentKind,
-      correlation: announceSessionId !== undefined ? { sessionId: announceSessionId } : undefined,
+      correlation: turnCorrelation,
     }
     const sseMaxChars = 4000
 
@@ -165,6 +188,22 @@ export function streamAgentSseResponse(
       announceSessionId,
     })
 
+    const maybeEnqueueWikiTouchUp = async (): Promise<void> => {
+      if (!onWikiFilesTouchedAfterTurn || announceSessionId === undefined) return
+      if (refs.touchedWikiRelPaths.size === 0) return
+      const changedFiles = [...refs.touchedWikiRelPaths].sort()
+      try {
+        await onWikiFilesTouchedAfterTurn({
+          sessionId: announceSessionId,
+          changedFiles,
+          timezone: timezoneOpt,
+          workspaceHandle: turnCorrelation.workspaceHandle,
+        })
+      } catch (e) {
+        logger.error({ err: e }, 'wiki-touch-up-after-turn')
+      }
+    }
+
     const persistIfNeeded = async (): Promise<void> => {
       if (!onTurnComplete) return
       const base = toAssistantMessage(assistantState)
@@ -177,6 +216,12 @@ export function streamAgentSseResponse(
     // Serialize per-Agent: must be immediately before subscribe (no await between here and
     // prompt). If waitForIdle ran earlier, another request could interleave after session writeSSE.
     await agent.waitForIdle()
+    const unsubscribeDiag = attachAgentDiagnosticsCollector(agent, {
+      agentTurnId,
+      agentKind,
+      source: 'chat_sse',
+      ...(announceSessionId !== undefined ? { sessionId: announceSessionId } : {}),
+    })
     const unsubscribe = agent.subscribe(async (event) => {
       try {
         const deps = handlerDeps()
@@ -227,6 +272,8 @@ export function streamAgentSseResponse(
             assistantState,
             includeLocalMessageTools: areLocalMessageToolsEnabled(),
             timezone: timezoneOpt,
+            parentAgentTurnId: agentTurnId,
+            ...(announceSessionId !== undefined ? { sessionId: announceSessionId } : {}),
           })
           if (repair.applied) {
             if (refs.lastRunUsage === undefined) {
@@ -301,6 +348,7 @@ export function streamAgentSseResponse(
       }
     } finally {
       releaseAllPendingToolCallSegments()
+      unsubscribeDiag()
       unsubscribe()
       if (onTurnComplete && !savedThisTurn) {
         try {
@@ -309,6 +357,7 @@ export function streamAgentSseResponse(
           /* ignore */
         }
       }
+      await maybeEnqueueWikiTouchUp()
     }
   })
 }

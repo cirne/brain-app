@@ -306,7 +306,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
 
       if (supervisorStopping()) break
 
-      const enrichChanges = await runEnrichInvocation(YOUR_WIKI_DOC_ID, doc, { timezone, syncNote })
+      const enrich = await runEnrichInvocation(YOUR_WIKI_DOC_ID, doc, { timezone, syncNote })
 
       {
         const g = await gatePauseOrShutdownAfterAgentPhase(doc, lap)
@@ -317,7 +317,12 @@ async function supervisorLoop(timezone?: string): Promise<void> {
       // ── Cleanup phase ─────────────────────────────────────────────────────
       await setPhase(doc, 'cleaning', lap, `Cleaning up · Lap ${lap}…`)
 
-      const cleanupChanges = await runCleanupInvocation(YOUR_WIKI_DOC_ID, doc, { timezone })
+      const cleanupChanges = await runCleanupInvocation(YOUR_WIKI_DOC_ID, doc, {
+        timezone,
+        changedFiles:
+          enrich.changedFiles.length > 0 ? enrich.changedFiles : [],
+        trigger: enrich.changedFiles.length > 0 ? 'supervisor' : 'full_vault',
+      })
 
       {
         const g = await gatePauseOrShutdownAfterAgentPhase(doc, lap)
@@ -326,7 +331,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
       }
 
       // ── No-op tracking and backoff ────────────────────────────────────────
-      const totalChanges = enrichChanges + cleanupChanges
+      const totalChanges = enrich.changeCount + cleanupChanges.editCount
       if (totalChanges === 0) {
         consecutiveNoOpLaps++
       } else {

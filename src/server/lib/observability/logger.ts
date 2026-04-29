@@ -1,6 +1,7 @@
 import pino from 'pino'
+import { isDevRuntime } from '@server/lib/platform/isDevRuntime.js'
 
-const isDev = process.env.NODE_ENV !== 'production'
+const isDev = isDevRuntime()
 
 /** Shared server logger; name appears in every line. New Relic forwards JSON logs in production. */
 export const logger = pino({

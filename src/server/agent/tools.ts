@@ -16,6 +16,7 @@ export {
   buildSourcesEditCommand,
   buildSourcesRemoveCommand,
   buildReindexCommand,
+  stripSearchIndexResult,
 } from './tools/ripmailCli.js'
 
 export interface CreateAgentToolsOptions {

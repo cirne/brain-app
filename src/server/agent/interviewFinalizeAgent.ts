@@ -69,6 +69,11 @@ export async function runInterviewFinalize(options: { sessionId: string; timezon
   await collectAgentPromptMetrics(
     agent,
     'Finalize onboarding: read wiki/me.md, polish per system prompt (confidence, transcript gaps). Ground in whoami.',
-    { timezone: tz, wikiDir: root },
+    {
+      timezone: tz,
+      wikiDir: root,
+      diagnosticsAgentKind: 'interview_finalize',
+      diagnosticsSessionId: sessionId,
+    },
   )
 }
