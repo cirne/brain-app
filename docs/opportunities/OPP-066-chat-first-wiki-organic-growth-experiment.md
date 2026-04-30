@@ -1,9 +1,20 @@
 # OPP-066: Chat-first wiki — organic growth experiment
 
-**Status:** Design exploration — **second direction (split chat vs WikiBuilder).** Chat assistant stays **narrow and inline**: it may **`write`** while answering, scoped to the current question and evidence already gathered—not a mandate to deepen entire hubs in one turn. **Depth, refresh, and template-quality** move to a **background WikiBuilder / enrich** role (evolution of today’s buildout/enrich path), scoped by **`var/wiki-edits.jsonl`** (append-only tool audit of wiki mutations), **`## Chat capture`** stubs, **thin-page** heuristics, and related signals—not by scanning the whole vault for arbitrary new entities. **Lint/cleanup** (OPP-062, `wiki/cleanup.hbs`) remains **structural**: dedupe cues, links, orphans, hygiene—not primary enrichment. **`GET /api/wiki/log`** still parses legacy vault-root `_log.md` if present; **new** work should not ask the LLM to maintain that file.  
-**Branch:** `exp/chat-first-wiki` (optional sandbox; topic branches per milestone.)  
-**Related:** [OPP-033](./OPP-033-wiki-compounding-karpathy-alignment.md), [OPP-054](./OPP-054-guided-onboarding-agent.md), [OPP-062](./OPP-062-post-turn-wiki-touch-up-agent.md), [OPP-011 (archived)](./archive/OPP-011-user-skills-strategy.md), `[wikiExpansionRunner](../../src/server/agent/wikiExpansionRunner.ts)`, `[wikiBuildoutAgent](../../src/server/agent/wikiBuildoutAgent.ts)`, [the-wiki-question.md](../the-wiki-question.md), [karpathy-llm-wiki-post.md](../karpathy-llm-wiki-post.md)
+**Status:** Partially shipped (2026-04-30). Core direction landed in `main`:
+- ✅ Chat = **narrow capture** (`assistant/base.hbs` — question-scoped writes, `## Chat capture` stub, no hub tangents in chat)
+- ✅ WikiBuilder gains **`read` / `grep` / `find`** tools — inspects existing vault before writing (`wikiBuildoutAgent.ts`, `wiki-buildout/system.hbs`)
+- ✅ WikiBuilder **quality bar**: synthesize conclusions, no raw mail-volume stats, assistant-facing callouts
+- ✅ **`wiki-edits.jsonl`** signal documented and in production (`wikiEditHistory.ts`, `shared/brain-layout.json`)
+- ✅ **Onboarding** narrowed to identity-only (~2–3 min); people-pages phase removed — wiki discovers people through chat use
+- ✅ **Eval clock** anchoring (`EVAL_ASSISTANT_NOW` / `resolveEvalAnchoredNow`) for historical-corpus evals
+- ✅ Vault status bug fix (`getInboundOrAckedBrainSessionId`)
 
+Remaining open work:
+- 🔲 **OPP-067** — WikiBuilder deepen-only (no new-page creation); eligibility queue from `wiki-edits.jsonl` tail
+- 🔲 Thin-page detector + lap-level work queue injection
+- 🔲 **OPP-065** — LLM-as-judge eval scoring for wiki quality properties
+
+**Related:** [OPP-033](./OPP-033-wiki-compounding-karpathy-alignment.md), [OPP-054](./OPP-054-guided-onboarding-agent.md), [OPP-062](./OPP-062-post-turn-wiki-touch-up-agent.md), [OPP-067](./OPP-067-wiki-buildout-agent-no-new-pages.md), [OPP-065](./OPP-065-wiki-eval-llm-as-judge.md), [OPP-011 (archived)](./archive/OPP-011-user-skills-strategy.md), `[wikiExpansionRunner](../../src/server/agent/wikiExpansionRunner.ts)`, `[wikiBuildoutAgent](../../src/server/agent/wikiBuildoutAgent.ts)`, [the-wiki-question.md](../the-wiki-question.md), [karpathy-llm-wiki-post.md](../karpathy-llm-wiki-post.md)
 ---
 
 ## Revised direction — chat capture vs WikiBuilder vs linter
@@ -302,7 +313,7 @@ At gpt-5.4-mini pricing, the identity-only onboarding costs cents. The open ques
 - **Not a removal of the supervisor.** The enrich → cleanup loop remains; it just has less to do in the first days and kicks in more meaningfully once chat-authored pages need maintenance.
 - **Not a promise the wiki won't need rebuilding.** If the user rarely chats about the same topic twice, the wiki stays sparse. The experiment tests whether real usage patterns generate enough repetition for organic compounding to work.
 - **Not a change to the semantic accuracy bar.** Chat-authored pages follow the same quality rules: synthesize, don't paste email text; recency wins for current-state facts; short paragraphs and bullets.
-- **Not a merge without data.** The branch lives as an experiment until numbers say it works.
+- **Not a merge without data.** The core direction shipped (2026-04-30) after eval validation: 24/25 Enron cases pass with zero regressions on the original 23 tasks; WikiBuilder read/grep/find tools confirmed working. Remaining open items are tracked in OPP-067 and OPP-065.
 
 ---
 

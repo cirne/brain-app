@@ -78,4 +78,4 @@ The chat assistant remains the **only path for new page creation**:
 1. **Thin-page threshold:** What word count / section count makes a page eligible for a deepening pass?
 2. **Lap ordering:** Should the agent sort by recency of `wiki-edits.jsonl` entry, or by thinness?
 3. **First-run behavior:** On a brand-new vault with no chat history, the buildout agent has nothing to work on. Is this acceptable? (Yes — the user just hasn't asked any questions yet. The supervisor should idle until chat creates the first pages.)
-4. **Template alignment without `read` tool:** The buildout agent currently cannot read existing pages via tools. For deepening to work well it needs to know what's already on the page. Options: inject page content in the user message, add a `read` tool scoped to the vault, or use the manifest summary.
+4. **Template alignment — resolved (2026-04-30):** The buildout agent now has **`read`**, **`grep`**, and **`find`** tools (landed in `main` as part of OPP-066 Milestone A). It can read existing pages and grep for structure before editing. No longer a blocker.
