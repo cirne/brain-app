@@ -27,6 +27,10 @@
     postVaultDeleteAllData,
     postVaultLogout,
   } from '@client/lib/vaultClient.js'
+  import {
+    readChatToolDisplayPreference,
+    writeChatToolDisplayPreference,
+  } from '@client/lib/chatToolDisplayPreference.js'
   import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import HubSourceRowBody from './HubSourceRowBody.svelte'
@@ -77,6 +81,13 @@
   let hostedWorkspaceHandle = $state<string | undefined>(undefined)
   let accountBusy = $state(false)
   let deleteAllConfirmOpen = $state(false)
+  /** Toggle: detailed tool rows in main chat (Hub setting; persisted in localStorage). */
+  let chatToolDisplayDetailed = $state(readChatToolDisplayPreference() === 'detailed')
+
+  function onChatToolDisplayPrefChange(checked: boolean) {
+    chatToolDisplayDetailed = checked
+    writeChatToolDisplayPreference(checked ? 'detailed' : 'compact')
+  }
 
   const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
   const wikiIsActive = $derived(
@@ -513,6 +524,33 @@
       </div>
     </section>
 
+    <section class="hub-section hub-chat-section" aria-labelledby="hub-chat-prefs-heading">
+      <div class="section-header">
+        <MessageSquare size={18} />
+        <h2 id="hub-chat-prefs-heading">Chat</h2>
+      </div>
+      <p class="section-lead">
+        How assistant tool use appears in your message history.
+      </p>
+      <div class="hub-chat-pref-section">
+        <label class="hub-chat-pref-row">
+          <input
+            type="checkbox"
+            checked={chatToolDisplayDetailed}
+            onchange={(e) =>
+              onChatToolDisplayPrefChange((e.currentTarget as HTMLInputElement).checked)}
+          />
+          <span class="hub-chat-pref-text">
+            <span class="hub-chat-pref-title">Show detailed tool steps in chat</span>
+            <span class="hub-chat-pref-sub">
+              When on, each tool shows expandable arguments, results, and previews inline. The default is a compact
+              one-line summary.
+            </span>
+          </span>
+        </label>
+      </div>
+    </section>
+
     <section class="hub-section search-index-section">
       <div class="section-header">
         <Layers size={18} />
@@ -915,6 +953,45 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+  }
+
+  .hub-chat-pref-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .hub-chat-pref-row {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+    padding: 0.45rem 0;
+    cursor: pointer;
+  }
+
+  .hub-chat-pref-row input[type='checkbox'] {
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+  }
+
+  .hub-chat-pref-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .hub-chat-pref-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .hub-chat-pref-sub {
+    font-size: 0.8125rem;
+    color: var(--text-2);
+    line-height: 1.4;
   }
 
   :global(.spin-icon) {

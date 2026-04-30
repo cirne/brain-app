@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ChatToolDisplayMode } from '@client/lib/chatToolDisplayPreference.js'
   import { assistantHasVisibleTextPart, getToolUiPolicy, type ChatMessage } from '@client/lib/agentUtils.js'
   import type { ContentCardPreview } from '@client/lib/cards/contentCards.js'
   import StreamingAgentMarkdown from './StreamingAgentMarkdown.svelte'
@@ -18,6 +19,7 @@
     onSwitchToCalendar,
     onOpenMessageThread,
     onOpenMailSearchResults,
+    toolDisplayMode = 'compact',
   }: {
     msg: ChatMessage
     streaming: boolean
@@ -35,6 +37,7 @@
       _preview: Extract<ContentCardPreview, { kind: 'mail_search_hits' }>,
       _sourceId: string,
     ) => void
+    toolDisplayMode?: ChatToolDisplayMode
   } = $props()
 
   /** Shown from stream start until the first `text_delta` (reasoning + tool-only turns stay visible). */
@@ -54,6 +57,7 @@
       {#if part.type === 'tool' && getToolUiPolicy(part.toolCall.name).showInChat}
         <ToolCallBlock
           toolCall={part.toolCall}
+          displayMode={toolDisplayMode}
           {onOpenWiki}
           {onOpenFile}
           {onOpenEmail}

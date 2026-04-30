@@ -12,8 +12,9 @@
     type SkillMenuItem,
   } from '@client/lib/agentUtils.js'
   import { extractLatestSuggestReplyChoices } from '@client/lib/tools/suggestReplyChoices.js'
-  import { emit } from '@client/lib/app/appEvents.js'
+  import { emit, subscribe as subscribeAppEvents } from '@client/lib/app/appEvents.js'
   import { ensureBrainTtsAutoplayInUserGesture } from '@client/lib/brainTtsAudio.js'
+  import { readChatToolDisplayPreference } from '@client/lib/chatToolDisplayPreference.js'
   import { readHearRepliesPreference, writeHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
 
@@ -250,6 +251,7 @@
   const init = initialSessionsAndDisplay()
   let sessions = $state(init.sessions)
   let displayedSessionId = $state(init.displayed)
+  let toolDisplayMode = $state(readChatToolDisplayPreference())
 
   const sessionLoadLatest = createAsyncLatest({ abortPrevious: true })
 
@@ -402,10 +404,16 @@
     void fetchWikiFiles()
     void fetchSkills()
     const unsubWikiList = registerWikiFileListRefetch(fetchWikiFiles)
+    const unsubPrefs = subscribeAppEvents((e) => {
+      if (e.type === 'chat:tool-display-changed') {
+        toolDisplayMode = e.mode
+      }
+    })
     const m = autoSendMessage?.trim()
     if (m) void tick().then(() => send(m, undefined, false, autoSendInterviewKickoffHidden))
     return () => {
       unsubWikiList()
+      unsubPrefs()
     }
   })
 
@@ -877,6 +885,7 @@
             bind:this={conversationEl}
             {messages}
             {streaming}
+            toolDisplayMode={toolDisplayMode}
             {onOpenWiki}
             {onOpenFile}
             {onOpenEmail}
@@ -902,6 +911,7 @@
           bind:this={conversationEl}
           {messages}
           {streaming}
+          toolDisplayMode={toolDisplayMode}
           {onOpenWiki}
           {onOpenFile}
           {onOpenEmail}

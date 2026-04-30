@@ -21,6 +21,7 @@ vi.mock('@client/lib/vaultClient.js', async (importOriginal) => {
 
 vi.mock('@client/lib/app/appEvents.js', () => ({
   subscribe: vi.fn(() => () => {}),
+  emit: vi.fn(),
 }))
 
 vi.mock('@client/lib/hubEvents/hubEventsStores.js', () => ({
@@ -170,6 +171,34 @@ describe('BrainHubPage.svelte', () => {
       expect(screen.getByText('Default send')).toBeInTheDocument()
     })
     expect(screen.getByText('Hidden from search')).toBeInTheDocument()
+  })
+
+  it('renders chat tool display preference and persists when toggled', async () => {
+    const store: Record<string, string> = {}
+    vi.stubGlobal(
+      'localStorage',
+      {
+        getItem: (k: string) => store[k] ?? null,
+        setItem: (k: string, v: string) => {
+          store[k] = v
+        },
+        removeItem: vi.fn(),
+        clear: vi.fn(),
+        key: vi.fn(),
+        length: 0,
+      } as Storage,
+    )
+    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: 'Chat' })).toBeInTheDocument()
+    })
+    const cb = screen.getByRole('checkbox', { name: /show detailed tool steps in chat/i })
+    expect(cb).not.toBeChecked()
+    await fireEvent.click(cb)
+    expect(store['brain.chat.toolDisplay']).toBe('detailed')
+    expect(cb).toBeChecked()
+    await fireEvent.click(cb)
+    expect(store['brain.chat.toolDisplay']).toBe('compact')
   })
 
   it('navigates to Apple Messages panel when the Search index row is clicked (desktop / single-tenant)', async () => {

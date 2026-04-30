@@ -41,7 +41,8 @@ export function stripTrailingSuggestReplyChoicesJson(text: string): string {
     } catch {
       // not valid JSON from this `{`
     }
-    brace = trimmed.lastIndexOf('{', brace - 1)
+    // When brace === 0, `lastIndexOf('{', -1)` coerces to index 0 and finds `{` again — infinite loop.
+    brace = brace > 0 ? trimmed.lastIndexOf('{', brace - 1) : -1
   }
   return text
 }

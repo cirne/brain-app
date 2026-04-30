@@ -6,6 +6,7 @@
     streaming: _streaming = false,
     isLastMessage = false,
     isLastAssistantInThread = false,
+    toolDisplayMode: _toolDisplayMode = 'compact',
   }: {
     msg: ChatMessage
     streaming?: boolean
@@ -18,6 +19,7 @@
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
+    toolDisplayMode?: 'compact' | 'detailed'
   } = $props()
 </script>
 
@@ -26,6 +28,7 @@
   data-role={msg.role}
   data-last-message={isLastMessage}
   data-last-assistant={isLastAssistantInThread}
+  data-tool-display-mode={_toolDisplayMode}
 >
   {msg.content ?? ''}
 </div>

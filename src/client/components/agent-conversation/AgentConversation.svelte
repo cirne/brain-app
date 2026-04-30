@@ -24,6 +24,7 @@
     empty,
     streamingWrite: _streamingWrite,
     multiTenant: _multiTenant = false,
+    toolDisplayMode = 'compact',
   }: AgentConversationViewProps = $props()
 
   let messagesEl: HTMLElement
@@ -186,6 +187,7 @@
         {streaming}
         isLastMessage={i === messages.length - 1}
         isLastAssistantInThread={i === lastAssistantIndex}
+        {toolDisplayMode}
         {onOpenWiki}
         {onOpenFile}
         {onOpenEmail}

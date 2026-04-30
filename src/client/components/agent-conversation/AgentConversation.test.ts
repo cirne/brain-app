@@ -557,4 +557,27 @@ describe('AgentConversation.svelte', () => {
       expect(rows.length).toBe(1)
     })
   })
+
+  describe('toolDisplayMode', () => {
+    it('forwards toolDisplayMode to ChatMessageRow', () => {
+      render(AgentConversation, {
+        props: {
+          messages: [createAssistantMessage('Hi')],
+          streaming: false,
+          toolDisplayMode: 'detailed',
+        },
+      })
+      expect(screen.getByTestId('chat-message-row')).toHaveAttribute('data-tool-display-mode', 'detailed')
+    })
+
+    it('defaults toolDisplayMode to compact on rows', () => {
+      render(AgentConversation, {
+        props: {
+          messages: [createAssistantMessage('Hi')],
+          streaming: false,
+        },
+      })
+      expect(screen.getByTestId('chat-message-row')).toHaveAttribute('data-tool-display-mode', 'compact')
+    })
+  })
 })

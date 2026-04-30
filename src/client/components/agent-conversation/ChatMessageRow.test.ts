@@ -53,4 +53,33 @@ describe('ChatMessageRow.svelte', () => {
     expect(screen.getByRole('status', { name: /assistant is working/i })).toBeInTheDocument()
     expect(document.querySelector('.streaming-busy-dots')).toBeTruthy()
   })
+
+  it('uses detailed ToolCallBlock when toolDisplayMode is detailed', () => {
+    const msg: ChatMessage = {
+      role: 'assistant',
+      content: '',
+      parts: [
+        {
+          type: 'tool',
+          toolCall: {
+            id: '1',
+            name: 'read',
+            args: { path: 'notes/x.md' },
+            done: true,
+            result: '{}',
+          },
+        },
+      ],
+    }
+    const { container } = render(ChatMessageRow, {
+      props: {
+        msg,
+        streaming: false,
+        isLastMessage: true,
+        isLastAssistantInThread: true,
+        toolDisplayMode: 'detailed',
+      },
+    })
+    expect(container.querySelector('details.tool-call')).toBeTruthy()
+  })
 })

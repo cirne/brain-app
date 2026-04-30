@@ -1,5 +1,6 @@
 import type { Snippet } from 'svelte'
 import type { ChatMessage } from './agentUtils.js'
+import type { ChatToolDisplayMode } from './chatToolDisplayPreference.js'
 import type { ContentCardPreview } from './cards/contentCards.js'
 
 /**
@@ -41,4 +42,9 @@ export type AgentConversationViewProps = {
   streamingWrite?: { path: string; body: string } | null
   /** Hosted multi-tenant onboarding: alternate lead copy in profiling transcript. */
   multiTenant?: boolean
+  /**
+   * Tool rows in the transcript: compact (default) vs detailed (expandable args and results).
+   * Used by the default transcript only; onboarding views ignore this prop.
+   */
+  toolDisplayMode?: ChatToolDisplayMode
 }

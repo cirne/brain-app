@@ -15,6 +15,7 @@
     RefreshCw,
     Reply,
     Save,
+    Send,
     X,
   } from 'lucide-svelte'
   import Wiki from '../Wiki.svelte'
@@ -497,7 +498,7 @@
                 <Loader2 size={18} strokeWidth={2} />
               </span>
             {:else}
-              <Mail size={18} strokeWidth={2} aria-hidden="true" />
+              <Send size={18} strokeWidth={2} aria-hidden="true" />
             {/if}
           </button>
         </div>

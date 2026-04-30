@@ -200,4 +200,9 @@ describe('stripTrailingSuggestReplyChoicesJson', () => {
     const input = `Use {brace} for templates. ${tail}`
     expect(stripTrailingSuggestReplyChoicesJson(input)).toBe('Use {brace} for templates.')
   })
+
+  it('does not spin when the only `{` starts valid JSON that is not a choices payload (e.g. `{}`)', () => {
+    expect(stripTrailingSuggestReplyChoicesJson('{}')).toBe('{}')
+    expect(stripTrailingSuggestReplyChoicesJson('{"choices":[]}')).toBe('{"choices":[]}')
+  })
 })
