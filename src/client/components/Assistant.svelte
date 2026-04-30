@@ -50,6 +50,7 @@
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import { addToNavHistory, makeNavHistoryId, upsertEmailNavHistory } from '@client/lib/navHistory.js'
+  import type { MailSearchResultsState } from '@client/lib/assistantShellModel.js'
   import {
     chatSessionPatch,
     closeOverlayStrategy,
@@ -91,6 +92,12 @@
   const effectiveChatSessionId = $derived(shell.route.sessionId ?? shell.resolvedTailSessionId ?? null)
 
   const sessionHighlightId = $derived<string | null>(effectiveChatSessionId ?? shell.activeSessionId)
+
+  const activeMailSearchResults = $derived.by((): MailSearchResultsState | null => {
+    const overlay = shell.route.overlay
+    if (overlay?.type !== 'mail-search' || !overlay.id) return null
+    return shell.mailSearchResults[overlay.id] ?? null
+  })
 
   /** Disable New chat only on bare `/c` (no slug, no `?panel=`), not merely when the transcript is empty. */
   const topNavNewChatDisabled = $derived(shouldDisableTopNavNewChat(shell.route, effectiveChatSessionId))
@@ -539,10 +546,43 @@
     openEmailFromSearch(threadId, subject ?? '', from ?? '')
   }
 
+  function openEmailDraftFromChat(draftId: string, subject?: string) {
+    const hubActive = hubActiveForOpenOverlay({ type: 'email-draft', id: draftId })
+    navigateShell({
+      wikiActive: false,
+      overlay: { type: 'email-draft', id: draftId },
+      hubActive,
+      ...(hubActive ? {} : chatSessionPart()),
+    })
+    shell.route = parseRoute()
+    shell.agentContext = {
+      type: 'email-draft',
+      draftId,
+      subject: subject?.trim() || '(loading)',
+      toLine: '',
+      bodyPreview: '',
+    }
+  }
+
   function openFullInboxFromChat() {
     shell.inboxTargetId = undefined
     navigateShell({ wikiActive: false, hubActive: false, ...chatSessionPart(), overlay: { type: 'email' } })
     shell.route = parseRoute()
+  }
+
+  function openMailSearchResultsFromChat(preview: MailSearchResultsState, sourceId: string) {
+    const id = sourceId.trim() || `mail-search-${Date.now()}`
+    shell.mailSearchResults = { ...shell.mailSearchResults, [id]: preview }
+    const overlay: Overlay = { type: 'mail-search', id, query: preview.queryLine }
+    const hubActive = hubActiveForOpenOverlay(overlay)
+    navigateShell({
+      wikiActive: false,
+      overlay,
+      hubActive,
+      ...(hubActive ? {} : chatSessionPart()),
+    })
+    shell.route = parseRoute()
+    shell.agentContext = { type: 'mail-search', query: preview.queryLine }
   }
 
   function openMessageThreadFromChat(canonicalChat: string, displayLabel: string) {
@@ -1053,6 +1093,7 @@
                 wikiRefreshKey={shell.wikiRefreshKey}
                 calendarRefreshKey={shell.calendarRefreshKey}
                 inboxTargetId={shell.inboxTargetId}
+                mailSearchResults={activeMailSearchResults}
                 wikiStreamingWrite={shell.wikiWriteStreaming}
                 wikiStreamingEdit={shell.wikiEditStreaming}
                 onWikiNavigate={onWikiNavigate}
@@ -1065,6 +1106,7 @@
                 onCalendarNavigate={switchToCalendar}
                 toolOnOpenFile={openFileDoc}
                 toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+                toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
                 toolOnOpenFullInbox={openFullInboxFromChat}
                 toolOnOpenMessageThread={openMessageThreadFromChat}
                 onOpenWikiAbout={openHubWikiAbout}
@@ -1099,10 +1141,13 @@
           onOpenWiki={openWikiDoc}
           onOpenFile={openFileDoc}
           onOpenEmail={openEmailFromChat}
+          onOpenDraft={openEmailDraftFromChat}
           onOpenFullInbox={openFullInboxFromChat}
           onOpenMessageThread={openMessageThreadFromChat}
           onSwitchToCalendar={switchToCalendar}
+          onOpenMailSearchResults={openMailSearchResultsFromChat}
           onOpenFromAgent={onOpenFromAgent}
+          onOpenDraftFromAgent={openEmailDraftFromChat}
           onNewChat={closeOverlay}
           onUserInitiatedNewChat={historyNewChat}
           onOpenWikiAbout={() => navigateWikiPrimary()}
@@ -1127,6 +1172,7 @@
                 wikiRefreshKey={shell.wikiRefreshKey}
                 calendarRefreshKey={shell.calendarRefreshKey}
                 inboxTargetId={shell.inboxTargetId}
+                mailSearchResults={activeMailSearchResults}
                 wikiStreamingWrite={shell.wikiWriteStreaming}
                 wikiStreamingEdit={shell.wikiEditStreaming}
                 onWikiNavigate={onWikiNavigate}
@@ -1139,6 +1185,7 @@
                 onCalendarNavigate={switchToCalendar}
                 toolOnOpenFile={openFileDoc}
                 toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+                toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
                 toolOnOpenFullInbox={openFullInboxFromChat}
                 toolOnOpenMessageThread={openMessageThreadFromChat}
                 onOpenWikiAbout={openHubWikiAbout}
@@ -1162,6 +1209,7 @@
           wikiRefreshKey={shell.wikiRefreshKey}
           calendarRefreshKey={shell.calendarRefreshKey}
           inboxTargetId={shell.inboxTargetId}
+          mailSearchResults={activeMailSearchResults}
           wikiStreamingWrite={shell.wikiWriteStreaming}
           wikiStreamingEdit={shell.wikiEditStreaming}
           onWikiNavigate={onWikiNavigate}
@@ -1174,6 +1222,7 @@
           onCalendarNavigate={switchToCalendar}
           toolOnOpenFile={openFileDoc}
           toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+          toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
           toolOnOpenFullInbox={openFullInboxFromChat}
           toolOnOpenMessageThread={openMessageThreadFromChat}
           onOpenWikiAbout={openHubWikiAbout}
@@ -1329,6 +1378,8 @@
 
   .mobile-detail-layer :global(.slide-over) {
     border-left: none;
+    flex: 1;
+    min-height: 0;
   }
 
   .history-sidebar {

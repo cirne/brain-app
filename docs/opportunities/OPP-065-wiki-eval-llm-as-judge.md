@@ -60,7 +60,7 @@ Example usage in `wiki-v1.jsonl`:
 - Current smoke tests: `eval/tasks/wiki-v1.jsonl` (`wiki-001` through `wiki-005`)
 - Buildout quality prompt: `src/server/prompts/wiki-buildout/system.hbs`
 - Harness: `src/server/evals/harness/runWikiAgentEvalCase.ts`, `checkExpect.ts`
-- Related: [OPP-060](OPP-060-starter-wiki-templates-and-agent-authoring.md) (starter templates), [OPP-062](OPP-062-post-turn-wiki-touch-up-agent.md) (post-turn touch-up)
+- Related: [OPP-060](OPP-060-starter-wiki-templates-and-agent-authoring.md) (starter templates), [archive/OPP-062](archive/OPP-062-post-turn-wiki-touch-up-agent.md) (post-turn touch-up retired 2026-04-30; lap cleanup + planned log-anchored lint)
 
 ## Effort
 

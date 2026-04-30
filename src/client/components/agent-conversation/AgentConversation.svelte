@@ -14,9 +14,11 @@
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
+    onOpenDraft,
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
+    onOpenMailSearchResults,
     onOpenWikiAbout,
     /** When set, shown instead of the default inbox/calendar empty state (e.g. onboarding). */
     empty,
@@ -187,9 +189,11 @@
         {onOpenWiki}
         {onOpenFile}
         {onOpenEmail}
+        {onOpenDraft}
         {onOpenFullInbox}
         {onSwitchToCalendar}
         {onOpenMessageThread}
+        {onOpenMailSearchResults}
       />
     {/each}
   </div>

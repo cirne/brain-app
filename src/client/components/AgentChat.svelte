@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onMount, tick, untrack, type Component, type Snippet } from 'svelte'
+  import { onMount, tick, type Component, type Snippet } from 'svelte'
   import { type SurfaceContext } from '@client/router.js'
   import type { AgentConversationViewProps, ConversationScrollApi } from '@client/lib/agentConversationViewTypes.js'
+  import type { ContentCardPreview } from '@client/lib/cards/contentCards.js'
   import {
     buildChatBody,
     contextPlaceholder,
@@ -31,7 +32,7 @@
     type SessionState,
   } from '@client/lib/chatSessionStore.js'
   import { shiftQueuedFollowUp } from '@client/lib/agentFollowUpQueue.js'
-  import { Trash2, Volume2, VolumeX, Sparkles } from 'lucide-svelte'
+  import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import ComposerContextBar from './agent-conversation/ComposerContextBar.svelte'
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
@@ -46,15 +47,18 @@
   let {
     context = { type: 'none' } as SurfaceContext,
     conversationHidden = false,
-    /** When true, agent tools do not auto-open the right detail panel (wiki from write/edit, `open`, `read_email`, …). */
+    /** When true, agent tools do not auto-open the right detail panel (wiki from write/edit, `open`, `read_email`, **`draft_email`** overlay, …). */
     suppressAgentDetailAutoOpen = false,
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
+    onOpenDraft,
     onOpenFullInbox,
     onOpenMessageThread,
     onSwitchToCalendar,
+    onOpenMailSearchResults,
     onOpenFromAgent,
+    onOpenDraftFromAgent,
     onNewChat,
     onOpenWikiAbout,
     onAfterDeleteChat,
@@ -131,14 +135,21 @@
     onOpenWiki?: (_path: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
+    onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
+    onOpenMailSearchResults?: (
+      _preview: Extract<ContentCardPreview, { kind: 'mail_search_hits' }>,
+      _sourceId: string,
+    ) => void
     /** LLM `open` / `read_email` — fired from SSE tool_start */
     onOpenFromAgent?: (
       _target: { type: string; path?: string; id?: string; date?: string },
       _source: AgentOpenSource,
     ) => void
+    /** SSE `draft_email` tool_end — desktop split opens draft overlay when set */
+    onOpenDraftFromAgent?: (_draftId: string, _subject?: string) => void
     onNewChat?: () => void
     /** Empty-state “your wiki” link → wiki vault landing (same as Wiki in the top bar). */
     onOpenWikiAbout?: () => void
@@ -612,6 +623,7 @@
         onWriteStreaming,
         onEditStreaming,
         onOpenFromAgent,
+        onOpenDraftFromAgent,
         setSessionId: (sid) => {
           if (!sid) return
           if (activeKey.startsWith('pending:')) {
@@ -624,7 +636,6 @@
           }
           notifyStreamingSessionsChanged()
           notifyChatSessionsChanged()
-          scheduleWikiTouchBootstrapFetch(sid)
         },
         setChatTitle: (t) => {
           sessions = touchSessionImmutable(sessions, activeKey, { chatTitle: t })
@@ -674,8 +685,6 @@
       if (touchedWiki) emit({ type: 'wiki:mutated', source: 'agent' })
       notifyChatSessionsChanged()
       onChatPersisted?.()
-      const sidPoll = sessions.get(activeKey)?.sessionId
-      if (touchedWiki && sidPoll) scheduleWikiTouchBurst(sidPoll)
       if (sawDone && displayedSessionId === activeKey) void onStreamFinished?.()
 
       const { next: queued, rest: queueRest } = shiftQueuedFollowUp(
@@ -715,116 +724,6 @@
   const centerEmptyInPane = $derived(messages.length === 0)
 
   let pendingDelete = $state<{ serverId: string | null; label: string } | null>(null)
-
-  type WikiTouchApi = {
-    status: string
-    detail: string | null
-    anchorPaths: string[]
-    editedPaths: string[]
-  }
-
-  let wikiTouchUi = $state<WikiTouchApi>({
-    status: 'idle',
-    detail: null,
-    anchorPaths: [],
-    editedPaths: [],
-  })
-  let wikiPolishMenuOpen = $state(false)
-  let wikiTouchBurstTimeout: ReturnType<typeof setTimeout> | undefined
-  /** Debounces one-shot status GET when session/chat switches (avoids re-fetch on every `sessions` churn). */
-  let wikiTouchBootstrapTimer: ReturnType<typeof setTimeout> | undefined
-
-  function clearWikiTouchBootstrapDebounced(): void {
-    if (wikiTouchBootstrapTimer !== undefined) {
-      clearTimeout(wikiTouchBootstrapTimer)
-      wikiTouchBootstrapTimer = undefined
-    }
-  }
-
-  function clearWikiTouchPollers(): void {
-    clearWikiTouchBootstrapDebounced()
-    if (wikiTouchBurstTimeout !== undefined) {
-      clearTimeout(wikiTouchBurstTimeout)
-      wikiTouchBurstTimeout = undefined
-    }
-  }
-
-  async function fetchWikiTouchStatusOnce(serverSessionId: string): Promise<WikiTouchApi | null> {
-    try {
-      const res = await fetch(`/api/chat/wiki-touch-up/${encodeURIComponent(serverSessionId)}`)
-      if (!res.ok) return null
-      const j = (await res.json()) as WikiTouchApi
-      wikiTouchUi = j
-      return j
-    } catch {
-      return null
-    }
-  }
-
-  /** One debounced bootstrap fetch when navigating / binding (not on streaming map churn). */
-  function scheduleWikiTouchBootstrapFetch(serverSessionId: string): void {
-    clearWikiTouchBootstrapDebounced()
-    wikiTouchBootstrapTimer = window.setTimeout(() => {
-      wikiTouchBootstrapTimer = undefined
-      void fetchWikiTouchStatusOnce(serverSessionId)
-    }, 280)
-  }
-
-  /**
-   * Poll briefly after wiki tools run (server debounces enqueue ~400ms).
-   * IMPORTANT: serialize ticks with chained setTimeout — `setInterval` + async `runTick()` without awaiting
-   * stacks overlapping fetches (~same‑ms burst in server logs) while GETs race the network.
-   */
-  function scheduleWikiTouchBurst(serverSessionId: string): void {
-    clearWikiTouchPollers()
-    let attempts = 0
-
-    function scheduleBurstAfter(ms: number): void {
-      wikiTouchBurstTimeout = window.setTimeout(() => void burstTick(), ms)
-    }
-
-    async function burstTick(): Promise<void> {
-      attempts++
-      const j = await fetchWikiTouchStatusOnce(serverSessionId)
-      const st = j?.status ?? 'idle'
-      if (attempts >= 50 || st === 'completed' || st === 'error') {
-        clearWikiTouchPollers()
-        return
-      }
-      wikiTouchBurstTimeout = undefined
-      scheduleBurstAfter(900)
-    }
-
-    scheduleBurstAfter(450)
-  }
-
-  $effect(() => {
-    wikiPolishMenuOpen = false
-    clearWikiTouchPollers()
-    displayedSessionId
-    const sid = untrack(() => sessions.get(displayedSessionId)?.sessionId ?? null)
-    if (!sid) {
-      wikiTouchUi = { status: 'idle', detail: null, anchorPaths: [], editedPaths: [] }
-    } else {
-      scheduleWikiTouchBootstrapFetch(sid)
-    }
-    return () => clearWikiTouchPollers()
-  })
-
-  const wikiPolishBusy = $derived(
-    wikiTouchUi.status === 'running' || wikiTouchUi.status === 'queued',
-  )
-
-  const wikiPolishPaths = $derived.by((): string[] => {
-    const seen = new Set<string>()
-    const out: string[] = []
-    for (const p of [...wikiTouchUi.editedPaths, ...wikiTouchUi.anchorPaths]) {
-      if (!p || seen.has(p)) continue
-      seen.add(p)
-      out.push(p)
-    }
-    return out.slice(0, 30)
-  })
 
   function titleForDeleteDialog(): string {
     if (chatTitle?.trim()) return chatTitle.trim()
@@ -930,53 +829,7 @@
         {/snippet}
         {#snippet right()}
           {@const hearRepliesOn = sessions.get(displayedSessionId)?.hearReplies === true}
-          {@const srvForPolish = sessions.get(displayedSessionId)?.sessionId}
           <div class="pane-header-actions">
-            {#if srvForPolish && messages.length > 0}
-              <div class="wiki-polish-slot">
-                <button
-                  type="button"
-                  class="wiki-polish-header-btn"
-                  class:wiki-polish-header-btn--busy={wikiPolishBusy}
-                  title={wikiPolishBusy
-                    ? wikiTouchUi.detail ?? 'Polishing wiki…'
-                    : 'Wiki polish — link & cleanup after vault edits'}
-                  aria-busy={wikiPolishBusy}
-                  aria-expanded={wikiPolishMenuOpen}
-                  aria-haspopup="menu"
-                  aria-label={wikiPolishBusy ? 'Wiki polish in progress' : 'Wiki polish menu'}
-                  onclick={() => (wikiPolishMenuOpen = !wikiPolishMenuOpen)}
-                >
-                  <Sparkles
-                    size={16}
-                    strokeWidth={2}
-                    class="wiki-polish-sparkles"
-                    aria-hidden="true"
-                  />
-                </button>
-                {#if wikiPolishMenuOpen}
-                  <div class="wiki-polish-dropdown" role="menu">
-                    {#each wikiPolishPaths as path (path)}
-                      <button
-                        type="button"
-                        class="wiki-polish-row"
-                        role="menuitem"
-                        onclick={() => {
-                          onOpenWiki?.(path)
-                          wikiPolishMenuOpen = false
-                        }}
-                      >
-                        <WikiFileName {path} />
-                      </button>
-                    {:else}
-                      <div class="wiki-polish-empty" role="presentation">
-                        {wikiPolishBusy ? 'Polishing…' : 'No paths yet'}
-                      </div>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            {/if}
             <button
               type="button"
               class="hear-replies-header-btn"
@@ -1027,9 +880,11 @@
             {onOpenWiki}
             {onOpenFile}
             {onOpenEmail}
+            {onOpenDraft}
             {onOpenFullInbox}
             {onOpenMessageThread}
             {onSwitchToCalendar}
+            {onOpenMailSearchResults}
             {onOpenWikiAbout}
             streamingWrite={streamingWritePreview}
             {multiTenant}
@@ -1050,9 +905,11 @@
           {onOpenWiki}
           {onOpenFile}
           {onOpenEmail}
+          {onOpenDraft}
           {onOpenFullInbox}
           {onOpenMessageThread}
           {onSwitchToCalendar}
+          {onOpenMailSearchResults}
           {onOpenWikiAbout}
           streamingWrite={streamingWritePreview}
           {multiTenant}
@@ -1274,87 +1131,6 @@
     margin-inline-end: 4px;
   }
 
-  .wiki-polish-slot {
-    position: relative;
-    display: inline-flex;
-    flex-shrink: 0;
-  }
-
-  .wiki-polish-header-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    border-radius: 4px;
-    flex-shrink: 0;
-    color: var(--text-2);
-    opacity: 1;
-    transition: color 0.15s, background 0.15s;
-    border: none;
-    background: none;
-    cursor: pointer;
-  }
-  .wiki-polish-header-btn :global(.wiki-polish-sparkles) {
-    flex-shrink: 0;
-    display: block;
-  }
-  .wiki-polish-header-btn--busy :global(.wiki-polish-sparkles) {
-    animation: wiki-polish-sparkle 1.25s ease-in-out infinite;
-    color: var(--accent);
-  }
-
-  .wiki-polish-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 30;
-    min-width: min(260px, 70vw);
-    max-height: 12rem;
-    overflow-y: auto;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.14));
-    padding: 6px;
-  }
-
-  .wiki-polish-row {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    gap: 6px;
-    border: none;
-    background: transparent;
-    border-radius: 6px;
-    padding: 6px 8px;
-    text-align: left;
-    cursor: pointer;
-    font-size: 13px;
-    color: var(--text);
-    min-height: 2rem;
-  }
-  .wiki-polish-row:hover {
-    background: var(--bg-3);
-  }
-
-  .wiki-polish-empty {
-    padding: 8px;
-    font-size: 12px;
-    color: var(--text-2);
-  }
-
-  @keyframes wiki-polish-sparkle {
-    0%,
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.55;
-      transform: scale(0.94);
-    }
-  }
-
   .hear-replies-header-btn {
     display: inline-flex;
     align-items: center;
@@ -1389,10 +1165,6 @@
   }
 
   @media (hover: hover) {
-    .wiki-polish-header-btn:hover {
-      color: var(--text);
-      background: var(--bg-3);
-    }
     .hear-replies-header-btn:hover {
       color: var(--text);
       background: var(--bg-3);
@@ -1412,14 +1184,12 @@
       gap: 6px;
     }
     .hear-replies-header-btn,
-    .wiki-polish-header-btn,
     .delete-chat-btn {
       min-width: 44px;
       min-height: 44px;
       padding: 0;
     }
     .hear-replies-header-btn :global(svg),
-    .wiki-polish-header-btn :global(.wiki-polish-sparkles),
     .delete-chat-btn :global(svg) {
       width: 20px;
       height: 20px;
@@ -1455,5 +1225,7 @@
 
   .mobile-detail-layer :global(.slide-over) {
     border-left: none;
+    flex: 1;
+    min-height: 0;
   }
 </style>

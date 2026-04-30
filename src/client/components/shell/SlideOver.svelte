@@ -4,6 +4,7 @@
     Calendar as CalendarIcon,
     ChevronLeft,
     Forward,
+    Loader2,
     Mail,
     Maximize2,
     MessageSquare,
@@ -22,6 +23,7 @@
   import Inbox from '../Inbox.svelte'
   import Calendar from '../Calendar.svelte'
   import MessageThread from '../MessageThread.svelte'
+  import MailSearchResultsPanel from '../MailSearchResultsPanel.svelte'
   import PhoneAccessPanel from '../PhoneAccessPanel.svelte'
   import YourWikiDetail from '../YourWikiDetail.svelte'
   import HubSourceInspectPanel from '../HubSourceInspectPanel.svelte'
@@ -29,11 +31,14 @@
   import HubAddFoldersPanel from '../HubAddFoldersPanel.svelte'
   import HubAppleMessagesPanel from '../HubAppleMessagesPanel.svelte'
   import WikiFileName from '../WikiFileName.svelte'
+  import EmailDraftEditor from '../EmailDraftEditor.svelte'
   import PaneL2Header from '../PaneL2Header.svelte'
   import type { Overlay, SurfaceContext } from '@client/lib/router.js'
+  import type { MailSearchResultsState } from '@client/lib/assistantShellModel.js'
   import { createSlideHeaderRegistration } from '@client/lib/slideHeaderContextRegistration.svelte.js'
   import { createSlideOverMobilePanel } from '@client/lib/slideOverMobilePanel.svelte.js'
   import {
+    emailDraftTitleForSlideOver,
     emailThreadTitleForSlideOver,
     messagesTitleForSlideOver,
     titleForOverlay,
@@ -54,6 +59,10 @@
     INBOX_THREAD_HEADER,
     type InboxThreadHeaderActions,
   } from '@client/lib/inboxSlideHeaderContext.js'
+  import {
+    EMAIL_DRAFT_HEADER,
+    type EmailDraftHeaderActions,
+  } from '@client/lib/emailDraftSlideHeaderContext.js'
   import { parseWikiDirSegments, wikiDirPathPrefix } from '@client/lib/wikiDirBreadcrumb.js'
 
   type Props = {
@@ -63,6 +72,7 @@
     wikiRefreshKey: number
     calendarRefreshKey: number
     inboxTargetId: string | undefined
+    mailSearchResults?: MailSearchResultsState | null
     /** Live agent `write` stream — markdown body for `path` (wiki pane). */
     wikiStreamingWrite?: { path: string; body: string } | null
     /** Live agent `edit` stream — show “Editing…” for `path` (wiki pane). */
@@ -89,6 +99,7 @@
     /** Background-agent panel: same navigations as ToolCallBlock / chat tool previews. */
     toolOnOpenFile?: (_path: string) => void
     toolOnOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
+    toolOnOpenDraft?: (_draftId: string, _subject?: string) => void
     toolOnOpenFullInbox?: () => void
     toolOnOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
     /** Hub add-folders embedded chat: empty-state “your wiki” help. */
@@ -101,6 +112,7 @@
     wikiRefreshKey,
     calendarRefreshKey,
     inboxTargetId,
+    mailSearchResults = null,
     wikiStreamingWrite = null,
     wikiStreamingEdit = null,
     onWikiNavigate,
@@ -117,6 +129,7 @@
     onToggleFullscreen,
     toolOnOpenFile,
     toolOnOpenEmail,
+    toolOnOpenDraft,
     toolOnOpenFullInbox,
     toolOnOpenMessageThread,
     onOpenWikiAbout,
@@ -158,12 +171,23 @@
   }
 
   const emailHeaderTitle = $derived(emailThreadTitleForSlideOver(overlay, surfaceContext))
+  const emailDraftHeaderTitle = $derived(emailDraftTitleForSlideOver(overlay, surfaceContext))
   const messagesHeaderTitle = $derived(messagesTitleForSlideOver(overlay, surfaceContext))
 
   const calendarHdr = createSlideHeaderRegistration<CalendarSlideHeaderState>(CALENDAR_SLIDE_HEADER)
   const wikiHdr = createSlideHeaderRegistration<WikiSlideHeaderState>(WIKI_SLIDE_HEADER)
   const yourWikiHdr = createSlideHeaderRegistration<YourWikiHeaderState>(YOUR_WIKI_HEADER)
   const inboxHdr = createSlideHeaderRegistration<InboxThreadHeaderActions>(INBOX_THREAD_HEADER)
+  const emailDraftHdr = createSlideHeaderRegistration<EmailDraftHeaderActions>(EMAIL_DRAFT_HEADER)
+
+  /** Back / desktop X: draft uses editor discard (return to thread when applicable). */
+  function headerDismiss() {
+    if (overlay.type === 'email-draft' && emailDraftHdr.current) {
+      emailDraftHdr.current.onDiscard()
+      return
+    }
+    onBackOrHeaderClose()
+  }
 </script>
 
 <div
@@ -179,8 +203,17 @@
 >
   <PaneL2Header>
     {#snippet left()}
-      <button type="button" class="back-btn" onclick={onBackOrHeaderClose} aria-label="Back">
-        <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
+      <button
+        type="button"
+        class="back-btn"
+        onclick={headerDismiss}
+        aria-label={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Back'}
+      >
+        {#if overlay.type === 'email-draft' && emailDraftHdr.current}
+          <X size={18} strokeWidth={2} aria-hidden="true" />
+        {:else}
+          <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
+        {/if}
       </button>
     {/snippet}
     {#snippet center()}
@@ -212,6 +245,8 @@
               overlay.type === 'wiki-dir' ||
               (overlay.type === 'file' && overlay.path) ||
               (overlay.type === 'email' && emailHeaderTitle) ||
+              (overlay.type === 'email-draft' && emailDraftHeaderTitle) ||
+              overlay.type === 'mail-search' ||
               (overlay.type === 'messages' && messagesHeaderTitle),
           )}
         >
@@ -279,6 +314,11 @@
             <span class="slide-title-email">
               <Mail size={14} strokeWidth={2} aria-hidden="true" />
               <span class="slide-title-email-text">{emailHeaderTitle}</span>
+            </span>
+          {:else if overlay.type === 'email-draft' && emailDraftHeaderTitle}
+            <span class="slide-title-email">
+              <Mail size={14} strokeWidth={2} aria-hidden="true" />
+              <span class="slide-title-email-text">{emailDraftHeaderTitle}</span>
             </span>
           {:else if overlay.type === 'messages' && messagesHeaderTitle}
             <span class="slide-title-email">
@@ -413,6 +453,55 @@
           </button>
         </div>
       {/if}
+      {#if overlay.type === 'email-draft' && emailDraftHdr.current}
+        <div class="inbox-thread-header-actions" role="toolbar" aria-label="Draft actions">
+          {#if emailDraftHdr.current.saveState === 'saving'}
+            <span class="wiki-save-hint" role="status">Saving…</span>
+          {:else if emailDraftHdr.current.saveState === 'saved'}
+            <span class="wiki-save-hint" role="status">Saved</span>
+          {:else if emailDraftHdr.current.saveState === 'error'}
+            <span class="wiki-save-hint wiki-save-err" role="status">Save failed</span>
+          {/if}
+          <button
+            type="button"
+            class="inbox-thread-header-btn"
+            onclick={() => void emailDraftHdr.current?.onSave()}
+            disabled={
+              emailDraftHdr.current.sendState === 'sending' ||
+              emailDraftHdr.current.saveState === 'saving'
+            }
+            title="Save draft"
+            aria-label="Save draft"
+          >
+            {#if emailDraftHdr.current.saveState === 'saving'}
+              <span class="cal-refresh-spin" aria-hidden="true">
+                <Loader2 size={18} strokeWidth={2} />
+              </span>
+            {:else}
+              <Save size={18} strokeWidth={2} aria-hidden="true" />
+            {/if}
+          </button>
+          <button
+            type="button"
+            class="inbox-thread-header-btn"
+            onclick={() => void emailDraftHdr.current?.onSend()}
+            disabled={
+              emailDraftHdr.current.sendState === 'sending' ||
+              emailDraftHdr.current.saveState === 'saving'
+            }
+            title="Send"
+            aria-label="Send"
+          >
+            {#if emailDraftHdr.current.sendState === 'sending'}
+              <span class="cal-refresh-spin" aria-hidden="true">
+                <Loader2 size={18} strokeWidth={2} />
+              </span>
+            {:else}
+              <Mail size={18} strokeWidth={2} aria-hidden="true" />
+            {/if}
+          </button>
+        </div>
+      {/if}
       {#if !mobilePanel && onToggleFullscreen}
         <button
           type="button"
@@ -428,7 +517,13 @@
           {/if}
         </button>
       {/if}
-      <button type="button" class="close-btn-desktop" onclick={onBackOrHeaderClose} aria-label="Close panel" title="Close">
+      <button
+        type="button"
+        class="close-btn-desktop"
+        onclick={headerDismiss}
+        aria-label={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Close panel'}
+        title={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Close'}
+      >
         <X size={18} strokeWidth={2} aria-hidden="true" />
       </button>
     {/snippet}
@@ -472,6 +567,20 @@
         onOpenSearch={onOpenSearch}
         onSummarizeInbox={onSummarizeInbox}
       />
+    {:else if overlay.type === 'email-draft'}
+      <EmailDraftEditor
+        draftId={overlay.id}
+        onContextChange={onContextChange}
+        onReturnToThread={(mid) => onInboxNavigate(mid)}
+        onClosePanel={onClose}
+      />
+    {:else if overlay.type === 'mail-search'}
+      <MailSearchResultsPanel
+        queryLine={mailSearchResults?.queryLine ?? overlay.query ?? 'Mail search'}
+        items={mailSearchResults?.items ?? null}
+        totalMatched={mailSearchResults?.totalMatched}
+        onOpenEmail={toolOnOpenEmail}
+      />
     {:else if overlay.type === 'messages'}
       <MessageThread initialChat={overlay.chat} onContextChange={onContextChange} />
     {:else if overlay.type === 'phone-access'}
@@ -483,6 +592,7 @@
         }}
         onOpenFile={toolOnOpenFile}
         onOpenEmail={toolOnOpenEmail}
+        onOpenDraft={toolOnOpenDraft}
         onOpenFullInbox={toolOnOpenFullInbox}
         onSwitchToCalendar={onCalendarNavigate}
         onOpenMessageThread={toolOnOpenMessageThread}
@@ -499,6 +609,7 @@
         }}
         onOpenFile={toolOnOpenFile}
         onOpenEmail={toolOnOpenEmail}
+        onOpenDraft={toolOnOpenDraft}
         onOpenFullInbox={toolOnOpenFullInbox}
         onSwitchToCalendar={onCalendarNavigate}
         onOpenMessageThread={toolOnOpenMessageThread}
@@ -686,7 +797,23 @@
     border: none;
     border-radius: 6px;
     background: transparent;
+    outline: none;
     transition: color 0.15s, background 0.15s;
+  }
+
+  .inbox-thread-header-btn:focus:not(:focus-visible) {
+    background: transparent;
+    color: var(--text-2);
+  }
+
+  .inbox-thread-header-btn:focus-visible {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+
+  .inbox-thread-header-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 
   .fullscreen-btn-desktop {
@@ -700,7 +827,18 @@
     border: none;
     border-radius: 6px;
     background: transparent;
+    outline: none;
     transition: color 0.15s, background 0.15s;
+  }
+
+  .fullscreen-btn-desktop:focus:not(:focus-visible) {
+    background: transparent;
+    color: var(--text-2);
+  }
+
+  .fullscreen-btn-desktop:focus-visible {
+    color: var(--text);
+    background: var(--bg-3);
   }
 
   @media (min-width: 768px) {
@@ -942,11 +1080,11 @@
     .close-btn-desktop:hover {
       color: var(--text);
     }
-    .inbox-thread-header-btn:hover {
+    .inbox-thread-header-btn:hover:not(:disabled) {
       color: var(--text);
       background: var(--bg-3);
     }
-    .fullscreen-btn-desktop:hover {
+    .fullscreen-btn-desktop:hover:not(:disabled) {
       color: var(--text);
       background: var(--bg-3);
     }
@@ -996,6 +1134,7 @@
   .slide-body :global(.wiki),
   .slide-body :global(.inbox),
   .slide-body :global(.calendar),
+  .slide-body :global(.mail-search-panel),
   .slide-body :global(.hub-bg-agents-detail),
   .slide-body :global(.hub-source-inspect),
   .slide-body :global(.hub-add-folders-panel),

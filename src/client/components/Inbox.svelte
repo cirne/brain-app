@@ -2,7 +2,7 @@
   import { getContext, onMount, tick, untrack } from 'svelte'
   import { Archive, Forward, Reply, Search, Sparkles } from 'lucide-svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
-  import { navigate, parseRoute, readTailFromCache } from '@client/router.js'
+  import { navigate, parseRoute, readTailFromCache, type Overlay, type SurfaceContext } from '@client/router.js'
   import { emailHeadersForDisplay } from '@client/lib/inboxHeaders.js'
   import { formatDate } from '@client/lib/formatDate.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
@@ -27,17 +27,18 @@
     primaryAddress: string
   }
 
-  type Draft = {
-    id: string
-    to: string[]
-    cc: string[]
-    subject: string
-    body: string
+  function navInboxEmail(overlay: Extract<Overlay, { type: 'email' }>) {
+    const r = parseRoute()
+    const sid =
+      r.sessionId ?? (r.sessionTail ? readTailFromCache(r.sessionTail) : undefined)
+    navigate({
+      hubActive: r.hubActive === true,
+      ...(r.hubActive ? {} : sid ? { sessionId: sid } : {}),
+      overlay,
+    })
   }
 
-  import type { SurfaceContext, Overlay } from '@client/router.js'
-
-  function navInboxEmail(overlay: Extract<Overlay, { type: 'email' }>) {
+  function navEmailDraft(overlay: Extract<Overlay, { type: 'email-draft' }>) {
     const r = parseRoute()
     const sid =
       r.sessionId ?? (r.sessionTail ? readTailFromCache(r.sessionTail) : undefined)
@@ -128,13 +129,6 @@
   let composeTo = $state('')
   let composing = $state(false)
   let composeError = $state<string | null>(null)
-
-  // Draft state
-  let currentDraft = $state<Draft | null>(null)
-  let draftRefine = $state('')
-  let draftEditing = $state(false)
-  let draftSending = $state(false)
-  let draftSent = $state(false)
 
   /** Thread header rows with long values (To/Cc/…) — collapsed to 3 lines with optional expand. */
   let headerExpanded = $state<Record<string, boolean>>({})
@@ -398,8 +392,6 @@
     composeInstruction = ''
     composeTo = ''
     composeError = null
-    currentDraft = null
-    draftSent = false
     if (action === 'forward') loadContacts()
     if (selectedThread !== email.id) openThread(email)
   }
@@ -412,8 +404,6 @@
     composeInstruction = ''
     composeTo = ''
     composeError = null
-    currentDraft = null
-    draftSent = false
     if (action === 'forward') loadContacts()
   }
 
@@ -441,44 +431,14 @@
       if (!res.ok || data.error) {
         composeError = data.error ?? 'Failed to create draft'
       } else {
-        currentDraft = data
         composeMode = null
+        const id = typeof data.id === 'string' ? data.id.trim() : ''
+        if (id) navEmailDraft({ type: 'email-draft', id })
       }
     } catch (err) {
       composeError = String(err)
     }
     composing = false
-  }
-
-  async function refineDraft() {
-    if (!currentDraft || !draftRefine.trim()) return
-    draftEditing = true
-    try {
-      const res = await fetch(`/api/inbox/draft/${currentDraft.id}/edit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instruction: draftRefine }),
-      })
-      if (res.ok) {
-        currentDraft = await res.json()
-        draftRefine = ''
-      }
-    } catch { /* ignore */ }
-    draftEditing = false
-  }
-
-  async function sendDraft() {
-    if (!currentDraft) return
-    draftSending = true
-    try {
-      const res = await fetch(`/api/inbox/draft/${currentDraft.id}/send`, { method: 'POST' })
-      if (res.ok) {
-        draftSent = true
-        currentDraft = null
-        await load()
-      }
-    } catch { /* ignore */ }
-    draftSending = false
   }
 
   onMount(() => {
@@ -537,7 +497,7 @@
   /** Reply / Forward / Archive in SlideOver L2 header (icon-only). */
   $effect(() => {
     if (!registerInboxThreadHeader) return
-    const showToolbar = Boolean(selectedThread && !composeMode && !currentDraft)
+    const showToolbar = Boolean(selectedThread && !composeMode)
     if (showToolbar) {
       registerInboxThreadHeader({
         onReply: () => startComposeFromThread('reply'),
@@ -641,44 +601,6 @@
               {composing ? 'Drafting...' : 'Draft'}
             </button>
           </div>
-        </div>
-
-      {:else if currentDraft}
-        <div class="draft-panel">
-          {#if draftSent}
-            <p class="sent-msg">Sent!</p>
-          {:else}
-            <div class="draft-meta">
-              <div class="draft-meta-row">
-                <span class="meta-label">To</span>
-                <span>{currentDraft.to?.join(', ')}</span>
-              </div>
-              <div class="draft-meta-row">
-                <span class="meta-label">Subject</span>
-                <span>{currentDraft.subject}</span>
-              </div>
-            </div>
-            <pre class="draft-body">{currentDraft.body}</pre>
-            <div class="refine-area">
-              <textarea
-                class="refine-textarea"
-                bind:value={draftRefine}
-                placeholder="Refine instructions... (⌘↵ to apply)"
-                onkeydown={(e) => { if (e.key === 'Enter' && e.metaKey) refineDraft() }}
-              ></textarea>
-              <button
-                class="refine-btn"
-                onclick={refineDraft}
-                disabled={draftEditing || !draftRefine.trim()}
-              >{draftEditing ? '...' : 'Apply'}</button>
-            </div>
-            <div class="draft-footer">
-              <button class="discard-btn" onclick={() => { currentDraft = null; draftSent = false }}>Discard</button>
-              <button class="send-btn" onclick={sendDraft} disabled={draftSending}>
-                {draftSending ? 'Sending...' : 'Send'}
-              </button>
-            </div>
-          {/if}
         </div>
 
       {:else}
@@ -1019,56 +941,6 @@
     padding: 6px 14px; border: 1px solid var(--accent-dim); border-radius: 4px;
   }
   .draft-btn:disabled { opacity: 0.5; cursor: default; }
-
-  /* Draft panel */
-  .draft-panel {
-    flex: 1; display: flex; flex-direction: column; gap: 0;
-    overflow: hidden;
-  }
-  .draft-meta {
-    padding: 12px 16px; background: var(--bg-2);
-    border-bottom: 1px solid var(--border); flex-shrink: 0;
-    display: flex; flex-direction: column; gap: 4px;
-  }
-  .draft-meta-row { display: flex; gap: 8px; font-size: 12px; }
-  .meta-label { color: var(--text-2); min-width: 50px; }
-  .draft-body {
-    flex: 1; overflow-y: auto; padding: 16px;
-    font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
-    margin: 0;
-  }
-
-  .refine-area {
-    display: flex; gap: 8px; align-items: flex-start;
-    padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg-2);
-    flex-shrink: 0;
-  }
-  .refine-textarea {
-    flex: 1; padding: 8px 10px; font-size: 13px; line-height: 1.4;
-    background: var(--bg-3); border: 1px solid var(--border); border-radius: 4px;
-    color: var(--text); resize: none; font-family: inherit; min-height: 60px;
-  }
-  .refine-textarea:focus { outline: none; border-color: var(--accent); }
-  .refine-btn {
-    font-size: 13px; color: var(--accent); padding: 6px 10px;
-    border: 1px solid var(--accent-dim); border-radius: 4px; white-space: nowrap;
-    align-self: flex-end;
-  }
-  .refine-btn:disabled { opacity: 0.5; }
-
-  .draft-footer {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0;
-  }
-  .discard-btn { font-size: 13px; color: var(--text-2); }
-  .discard-btn:hover { color: var(--danger); }
-  .send-btn {
-    font-size: 13px; color: var(--bg); background: var(--accent);
-    padding: 7px 20px; border-radius: 4px; font-weight: 600;
-  }
-  .send-btn:disabled { opacity: 0.5; }
-
-  .sent-msg { padding: 32px; text-align: center; color: var(--success); font-size: 14px; }
 
   @media (max-width: 768px) {
     .email-body { grid-template-columns: 1fr; gap: 2px; }

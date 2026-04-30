@@ -20,12 +20,14 @@ vi.mock('../FileViewer.svelte', () => import('../test-stubs/FileViewerStub.svelt
 vi.mock('../Inbox.svelte', () => import('../test-stubs/InboxStub.svelte'))
 vi.mock('../Calendar.svelte', () => import('../test-stubs/CalendarStub.svelte'))
 vi.mock('../MessageThread.svelte', () => import('../test-stubs/MessageThreadStub.svelte'))
+vi.mock('../MailSearchResultsPanel.svelte', () => import('../test-stubs/MailSearchResultsPanelStub.svelte'))
 vi.mock('../PhoneAccessPanel.svelte', () => import('../test-stubs/PhoneAccessPanelStub.svelte'))
 vi.mock('../YourWikiDetail.svelte', () => import('../test-stubs/YourWikiDetailStub.svelte'))
 vi.mock('../HubSourceInspectPanel.svelte', () => import('../test-stubs/HubSourceInspectPanelStub.svelte'))
 vi.mock('../HubWikiAboutPanel.svelte', () => import('../test-stubs/HubWikiAboutPanelStub.svelte'))
 vi.mock('../HubAddFoldersPanel.svelte', () => import('../test-stubs/HubAddFoldersPanelStub.svelte'))
 vi.mock('../HubAppleMessagesPanel.svelte', () => import('../test-stubs/HubAppleMessagesPanelStub.svelte'))
+vi.mock('../EmailDraftEditor.svelte', () => import('../test-stubs/EmailDraftEditorStub.svelte'))
 
 type SlideOverProps = ComponentProps<SlideOver>
 
@@ -116,6 +118,21 @@ describe('SlideOver.svelte', () => {
     expect(screen.getByText(/John Doe/i)).toBeInTheDocument()
   })
 
+  it('renders with mail-search overlay', () => {
+    const props = baseProps({
+      overlay: { type: 'mail-search', id: 'search-1', query: 'Donna' },
+      mailSearchResults: {
+        queryLine: 'Search mail: Donna',
+        items: [{ id: 'msg-1', subject: 'Hello', from: 'a@example.com', snippet: 'Body' }],
+        totalMatched: 1,
+      },
+    })
+    render(SlideOver, { props })
+
+    expect(screen.getByText('Mail search')).toBeInTheDocument()
+    expect(screen.getByTestId('mail-search-results-panel-stub')).toHaveTextContent('Search mail: Donna')
+  })
+
   it('renders with phone-access overlay', () => {
     const props = baseProps({ overlay: { type: 'phone-access' } })
     render(SlideOver, { props })
@@ -162,6 +179,23 @@ describe('SlideOver.svelte', () => {
 
     expect(screen.getByText('Apple Messages')).toBeInTheDocument()
     expect(screen.getByTestId('hub-apple-messages-stub')).toBeInTheDocument()
+  })
+
+  it('renders email-draft overlay with draft editor stub', () => {
+    const surfaceContext: SurfaceContext = {
+      type: 'email-draft',
+      draftId: 'draft-1',
+      subject: 'Hi',
+      toLine: '',
+      bodyPreview: '',
+    }
+    const props = baseProps({
+      overlay: { type: 'email-draft', id: 'draft-1' },
+      surfaceContext,
+    })
+    render(SlideOver, { props })
+
+    expect(screen.getByTestId('email-draft-editor-stub')).toHaveTextContent(/draft-1/)
   })
 
   it('renders with file overlay', () => {

@@ -39,7 +39,12 @@ import {
 import { logger } from '@server/lib/observability/logger.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { truncateJsonResult } from '@server/lib/llm/truncateJson.js'
+import { readRecentWikiEdits } from '@server/lib/wiki/wikiEditHistory.js'
 import { safeWikiRelativePath } from '@server/lib/wiki/wikiEditDiff.js'
+import {
+  listThinWikiPageCandidates,
+  mergeWikiDeepenPriorityPaths,
+} from '@server/lib/wiki/wikiThinPageCandidates.js'
 import {
   getOrCreateWikiBuildoutAgent,
   deleteWikiBuildoutSession,
@@ -47,50 +52,54 @@ import {
 } from './wikiBuildoutAgent.js'
 import { buildDateContext, createCleanupAgent } from './agentFactory.js'
 
-/**
- * User messages for the wiki **buildout** agent (`write` + indexed mail, optional local Messages,
- * web_search, fetch_page — no vault read/grep). Each supervisor lap runs buildout first, then a
- * separate **cleanup** agent — see `buildCleanupSystemPrompt`.
- */
-export const WIKI_EXPANSION_INITIAL_MESSAGE = `Run a comprehensive wiki buildout pass.
+/** Tail size for \`wiki-edits.jsonl\` injection into enrich laps (OPP-067). */
+export const WIKI_DEEPEN_RECENT_EDITS_LIMIT = 35
 
-Goal: Add **navigable, evidence-backed** pages for people, active projects, and *deserving* topics — each brief and grounded in sources. **Prefer fewer right pages over many thin stubs** (especially under \`topics/\`; see the system prompt topic bar).
+/** Max paths in the merged **Deepen this lap** list. */
+export const WIKI_DEEPEN_WORK_QUEUE_CAP = 30
+
+/**
+ * User messages for the wiki **buildout** (enrich) agent: **`read` / `grep` / `find` / `edit`** plus
+ * indexed mail, optional local Messages, **web_search**, **fetch_page**. Does **not** create new pages
+ * (**`write`** is blocked for new paths — chat owns creation). Each supervisor lap runs enrich first,
+ * then **cleanup** — see `buildCleanupSystemPrompt`.
+ */
+export const WIKI_EXPANSION_INITIAL_MESSAGE = `Run a **wiki deepen** pass (enrichment only).
+
+Goal: Improve **existing** pages listed in the injected **Deepen this lap** queue and manifest — evidence-backed, concise. Do **not** create new markdown files; use **edit** only.
 
 How:
-- **Filenames:** Prefer **kebab-case** \`.md\` paths (e.g. \`topics/my-theme.md\`); the server will fix odd casing or spaces on new \`write\`s, but using kebab-case avoids extra rename noise in tool results.
-- **Coverage:** Prefer filling in **entities that matter from mail/messages** (or only stubbed) before polishing prose on pages that already have substance. Do not chase page count.
-- **Stay Brief:** Do not deeply rewrite the same few pages for narrative richness; no "complete biography." A page should have a lead summary and bulleted facts.
-- **Accuracy:** When sources clearly show existing wiki text is **wrong or outdated**, use **edit** — surgical factual corrections only, not new sections or long elaboration. If source results conflict, treat the newest dated relevant message/thread as the current-state signal and older messages as history.
-- **Account Holder:** Keep the skeletal people/* page for the account holder compact (3–8 bullets max); link to [[me]] for short assistant context.
-- **index.md:** Early in the pass, **write** or **edit** vault-root **\`index.md\`** so it stays a useful hub: **[[me]]**, the account-holder **people/…** page if present, and **[[wikilinks]]** to landing pages for each populated top-level directory (people, projects, topics, …) — not just backtick paths.
-- **Links:** Use correct **[[wikilinks]]** (Obsidian style) and fix mistakes with **edit** as you go (you cannot grep the vault).
+- **Start** from **Deepen this lap (priority)** and **Recent wiki edits** / **Thin pages** sections in the injected context, then the vault manifest.
+- **Mail:** Use **search_index** and **read_email** only to support deepening **those targets** (and minimal cross-links), not to discover brand-new entities for new files.
+- **Stay brief:** Lead + bullets; no full biography. Prefer synthesis over quoting mail.
+- **Accuracy:** When sources show text is wrong or outdated, **edit** surgically. Prefer the newest dated relevant message for current-state facts.
+- **Account holder \`people/*\`:** Keep compact (3–8 bullets); link to [[me]].
+- **index.md:** **edit** vault-root **\`index.md\`** only if hub links need fixing after other **edit**s — do **not** **write** a new file.
+- **Links:** Fix **[[wikilinks]]** with **edit**. Use **grep** / **find** / **read** as needed.
 
-Wrap up when **high-signal** gaps from your tools are addressed — key people, projects, and durable topics — not when an arbitrary page count is hit. If only marginal topic ideas remain, **stop** rather than minting files. Narrate briefly as you go.`
+If the injected queue is empty or says idle, do **not** run speculative inbox-wide discovery — finish after a light **index.md** check if needed. Narrate briefly.`
 
-export const WIKI_EXPANSION_CONTINUE_MESSAGE = `Continue the wiki buildout (follow-up pass after an earlier run, or user-requested continuation).
+export const WIKI_EXPANSION_CONTINUE_MESSAGE = `Continue the **wiki deepen** pass (follow-up lap).
 
-**What counts as a good page**  
-Something worth opening **later**: a **stable entity** (person, project, org) you will recognize, or a **topic** that names a recurring theme, relationship, or domain you might **correlate** with other mail and notes. Each page: short lead + bullets **grounded in tool evidence** (mail/messages/web), with useful **[[wikilinks]]**.
-
-**What not to create**  
-Do **not** mint pages for **ephemeral** chit-chat, one-off scheduling lines, generic politeness, slogans, or phrases that will not help future you triangulate anything. Fold those into an existing page with **edit** or skip them.
+**Focus**  
+Existing pages only — **edit** to add evidence, fix staleness, fix **[[wikilinks]]**, add Contact/Identifiers on **people/*.md** when tools provide facts.
 
 **Priorities**  
-- New **write** for people / projects / orgs when the signal is recurring or clearly reference-worthy.  
-- New **topics/** only when the idea is **durable** (see system prompt); otherwise **edit** a broader or person page.  
-- **edit** for wrong/outdated facts — surgical fixes, not new narrative sections.  
-- If evidence conflicts, prefer the newest dated relevant source for current-state facts; keep older facts only as useful history.  
-- **index.md:** Refresh vault-root **\`index.md\`** so directory wikilinks and **[[me]]** stay accurate as the tree changes.  
-- Keep pages brief. Narrate briefly as you go.`
+- Paths in **Deepen this lap (priority)** and recent/thin sections above.  
+- **edit** only — no new **people/**, **projects/**, or **topics/** files (chat creates those).  
+- **index.md:** refresh with **edit** if your other edits change what the hub should list.  
+- If evidence conflicts, prefer the newest dated relevant source for current-state facts.
 
-/** System prompt for the **cleanup** phase — separate agent from buildout; runs after enrich, post-chat touch-up, or full-vault passes. */
+Keep pages brief. If there is nothing meaningful to deepen this lap, say so and stop. Narrate briefly.`
+
+/** System prompt for the **cleanup** phase — separate agent from buildout; runs after enrich or full-vault passes. */
 export function buildCleanupSystemPrompt(timezone: string): string {
   const dateContext = buildDateContext(timezone)
   return renderPromptTemplate('wiki/cleanup.hbs', { dateContext })
 }
 
 /** Trigger for cleanup / lint invocation (delta-anchored vs vault-wide). */
-export type CleanupInvocationTrigger = 'supervisor' | 'post_chat_turn' | 'full_vault'
+export type CleanupInvocationTrigger = 'supervisor' | 'full_vault'
 
 /**
  * Builds the user message for a cleanup invocation. Delta runs list `changedFiles` as the anchor;
@@ -113,26 +122,9 @@ These paths are the **starting anchor** for this cleanup pass. Prioritize link h
 
 Follow your system instructions: scan (grep/find), fix broken links and light issues, maintain root nav when needed, avoid over-polishing. Narrate briefly as you go.`
 
-  const touchUpAnchoredTask = (): string => `## Files changed in this chat turn (anchors — prioritize these first)
-
-${changedFiles.map((p) => `- ${sanitizeWikiPathOneLine(p)}`).join('\n')}
-
-You are running a **focused post-chat polish** — narrower than the full supervisor cleanup pass:
-
-- Start by **reading these anchor paths**. Repair **broken [[wikilinks]]** and trivial typos/formatting you see **in context** along the way.
-- You may **read or edit other vault pages** only when **strictly necessary** to fix a cross-page issue **linked to anchors** (e.g. a broken target renamed elsewhere, reconciling inbound links pointing at an anchor).
-- **Do not** enumerate every orphan across the vault, run an exhaustive orphan inventory, or do a sweeping **index.md / _index.md** rewrite **unless**: (i) **one anchor is \`index.md\` or \`_index.md\`**, or (ii) a clear fix demands a minimal hub/nav tweak tied to anchors.
-- Keep edits minimal; stop when urgent link hygiene on anchors (and unavoidable follow-through) is settled — avoid whole-vault polishing.
-
-Continue to follow broader safety norms in your system instructions (facts, synthesis, dated evidence).
-
-Narrate briefly as you go.`
-
   const taskBody = !useAnchor
     ? `Run a cleanup pass on this wiki vault: fix broken wikilinks, check orphans, update index.md or _index.md if present, and make light edits where needed. Work methodically and narrate briefly.`
-    : trigger === 'post_chat_turn'
-      ? touchUpAnchoredTask()
-      : supervisorAnchoredTask()
+    : supervisorAnchoredTask()
 
   const task = `${taskBody}`
   const combined = contextPrefix.trim() ? `${contextPrefix}${task}` : task
@@ -216,9 +208,8 @@ function safeDetails(d: unknown): unknown {
 }
 
 /**
- * Read me.md, assistant.md, and build a vault manifest to inject as context into the first expansion pass.
- * Closes BUG-011: the buildout system prompt says "anchor on me.md" but the model never received
- * the file contents.
+ * Read me.md, assistant.md, vault manifest, recent `wiki-edits.jsonl` paths, and thin-page candidates
+ * for enrich (buildout) laps — OPP-067 deepen-only queue injection.
  *
  * `syncNote` is an optional note about recent mail sync freshness (added for laps 2+). It is
  * kept deliberately minimal to avoid recency bias — we inform the agent that data is fresh
@@ -253,6 +244,37 @@ export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: s
 
   const manifestPaths = await listWikiFiles(wikiRoot)
 
+  const recentRows = await readRecentWikiEdits(WIKI_DEEPEN_RECENT_EDITS_LIMIT)
+  const recentPaths = recentRows.map((r) => r.path)
+  const thinPaths = await listThinWikiPageCandidates(wikiRoot, manifestPaths)
+  const priorityPaths = mergeWikiDeepenPriorityPaths(
+    recentPaths,
+    thinPaths,
+    WIKI_DEEPEN_WORK_QUEUE_CAP,
+  )
+
+  if (recentPaths.length > 0) {
+    parts.push(
+      `## Recent wiki edits (from wiki-edits.jsonl, newest-first)\n\n${recentPaths.map((p) => `- ${p}`).join('\n')}`,
+    )
+  }
+
+  if (thinPaths.length > 0) {
+    parts.push(`## Thin pages (deepen candidates)\n\n${thinPaths.map((p) => `- ${p}`).join('\n')}`)
+  }
+
+  if (priorityPaths.length > 0) {
+    parts.push(
+      `## Deepen this lap (priority)\n\n${priorityPaths.map((p) => `- ${p}`).join('\n')}`,
+    )
+  } else {
+    parts.push(
+      `## Deepen this lap (priority)\n\n` +
+        `*No recent wiki edits logged and no thin **people/** / **projects/** / **topics/** candidates detected.* ` +
+        `**Idle:** do not run speculative inbox-wide entity discovery. You may **read**/**edit** vault-root \`index.md\` lightly if links are clearly stale; otherwise finish with no changes.`,
+    )
+  }
+
   if (manifestPaths.length > 0) {
     parts.push(
       `## Existing wiki pages (vault manifest)\n\n${manifestPaths.map(p => `- ${p}`).join('\n')}`,
@@ -269,7 +291,7 @@ export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: s
 }
 
 interface AttachRunTrackerNrOptions {
-  source: 'wikiExpansion' | 'wikiCleanup' | 'wikiTouchUp'
+  source: 'wikiExpansion' | 'wikiCleanup'
   backgroundRunId: string
   workspaceHandle?: string
   /** When set, must match {@link attachAgentDiagnosticsCollector} so NR and JSONL share one id */
@@ -458,7 +480,7 @@ function attachRunTracker(
                 ...last,
                 backgroundRunId: nrOpts.backgroundRunId,
               },
-              nrOpts.source === 'wikiTouchUp' ? 'wiki-touch-up-llm-turn' : 'llm-turn',
+              'llm-turn',
             )
           }
           break
@@ -497,7 +519,8 @@ export function pauseWikiExpansionRun(runId: string): void {
 }
 
 /**
- * Run a single enrich (wiki expansion) invocation. Injects me.md, assistant.md, and vault manifest for context.
+ * Run a single enrich (wiki expansion / deepen) invocation. Injects profile, manifest,
+ * `wiki-edits.jsonl` tail, thin-page candidates, and merged priority queue (OPP-067).
  * `syncNote` is a brief, recency-bias-avoiding note when mail was refreshed before this lap.
  * Returns wiki page create/edit counts and the vault-relative paths touched (writes/edits — cleanup anchor export).
  */
@@ -566,13 +589,6 @@ export interface RunCleanupInvocationOptions {
   /** Paths created or edited in the preceding writer phase; anchors the pass (use empty array with trigger `full_vault`). */
   changedFiles: string[]
   trigger: CleanupInvocationTrigger
-  /** NR / agentKind routing; defaults to supervisor-style wiki cleanup telemetry. */
-  attachRunTrackerSource?: 'wikiCleanup' | 'wikiTouchUp'
-  /**
-   * Braintunnel handle when `attachRunTrackerSource` runs outside request-bound tenant ALS (e.g. debounced
-   * post-chat wiki polish). Overrides `tryGetTenantContext()` snapshot for NR `workspaceHandle`.
-   */
-  workspaceHandle?: string
 }
 
 export interface CleanupInvocationTelemetry {
@@ -627,30 +643,21 @@ export async function runCleanupInvocation(
     'wiki-cleanup-start',
   )
 
-  const isPostChatTouchUp = trigger === 'post_chat_turn'
-  touchRun(doc, {
-    ...(isPostChatTouchUp
-      ? { label: 'Wiki polish', detail: 'Polishing wiki…' }
-      : { label: 'Your Wiki', detail: 'Starting cleanup…' }),
-  })
+  touchRun(doc, { label: 'Your Wiki', detail: 'Starting cleanup…' })
   await writeBackgroundRun(doc)
 
-  const trackerSource = options.attachRunTrackerSource ?? 'wikiCleanup'
-
   const wikiRunAgentTurnId = randomUUID()
-  const cleanupDiagKind = agentKindForWikiSource(trackerSource)
+  const cleanupDiagKind = agentKindForWikiSource('wikiCleanup')
   const unsubscribeDiag = attachAgentDiagnosticsCollector(agent, {
     agentTurnId: wikiRunAgentTurnId,
     agentKind: cleanupDiagKind,
-    source:
-      trackerSource === 'wikiTouchUp' ? 'wiki_touch_up_cleanup_invocation' : 'wiki_supervisor_cleanup_invocation',
+    source: 'wiki_supervisor_cleanup_invocation',
     backgroundRunId: runId,
   })
 
-  const ws =
-    options.workspaceHandle ?? tryGetTenantContext()?.workspaceHandle
+  const ws = tryGetTenantContext()?.workspaceHandle
   const { unsubscribe, getChangeCount, getChangedFiles, getTelemetry } = attachRunTracker(agent, doc, wikiRoot, {
-    source: trackerSource,
+    source: 'wikiCleanup',
     backgroundRunId: runId,
     workspaceHandle: ws,
     agentTurnId: wikiRunAgentTurnId,

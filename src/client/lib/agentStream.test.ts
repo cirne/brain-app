@@ -266,6 +266,96 @@ describe('consumeAgentChatStream', () => {
     expect(onOpenFromAgent).toHaveBeenNthCalledWith(2, { type: 'email', id: 'thread-1' }, 'read_email')
   })
 
+  it('calls onOpenDraftFromAgent on draft_email tool_end when detail auto-open allowed', async () => {
+    vi.mocked(appEvents.emit).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onOpenDraftFromAgent = vi.fn()
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"de1","name":"draft_email","result":"{}","isError":false,"details":{"id":"draft-x","subject":"Hello"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      onOpenDraftFromAgent,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onOpenDraftFromAgent).toHaveBeenCalledWith('draft-x', 'Hello')
+    expect(vi.mocked(appEvents.emit)).toHaveBeenCalledWith({
+      type: 'email-draft:refresh',
+      draftId: 'draft-x',
+    })
+  })
+
+  it('does not call onOpenDraftFromAgent for draft_email when suppressAgentDetailAutoOpen', async () => {
+    vi.mocked(appEvents.emit).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onOpenDraftFromAgent = vi.fn()
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"de1","name":"draft_email","result":"{}","isError":false,"details":{"id":"draft-x","subject":"Hello"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: true,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      onOpenDraftFromAgent,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onOpenDraftFromAgent).not.toHaveBeenCalled()
+    expect(vi.mocked(appEvents.emit)).toHaveBeenCalledWith({
+      type: 'email-draft:refresh',
+      draftId: 'draft-x',
+    })
+  })
+
+  it('does not call onOpenDraftFromAgent for edit_draft tool_end', async () => {
+    vi.mocked(appEvents.emit).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onOpenDraftFromAgent = vi.fn()
+    const res = sseResponse([
+      'event: tool_end\n',
+      'data: {"id":"ed1","name":"edit_draft","result":"{}","isError":false,"details":{"id":"draft-x","subject":"Hello"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      onOpenDraftFromAgent,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onOpenDraftFromAgent).not.toHaveBeenCalled()
+    expect(vi.mocked(appEvents.emit)).toHaveBeenCalledWith({
+      type: 'email-draft:refresh',
+      draftId: 'draft-x',
+    })
+  })
+
   it('invokes playBrainTtsBlob after tts_done when playTts is openai', async () => {
     vi.mocked(playBrainTtsBlob).mockClear()
     const messages: ChatMessage[] = [

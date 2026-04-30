@@ -18,6 +18,12 @@
   export async function flushSave(): Promise<void> {
     await onPersist?.(md)
   }
+
+  export function cancelDebouncedSave(): void {}
+
+  export function serializeMarkdown(): string {
+    return md
+  }
 </script>
 
 <div data-testid="tiptap-editor-stub">{md}</div>

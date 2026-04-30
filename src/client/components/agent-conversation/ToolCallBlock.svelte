@@ -1,12 +1,13 @@
 <script lang="ts">
   import '../../styles/agent-conversation/toolWriteLink.css'
-  import { Wrench } from 'lucide-svelte'
+  import { ChevronRight, Wrench } from 'lucide-svelte'
   import { getToolIcon } from '@client/lib/toolIcons.js'
-  import { matchContentPreview } from '@client/lib/cards/contentCards.js'
+  import { matchContentPreview, type ContentCardPreview } from '@client/lib/cards/contentCards.js'
   import { getToolUiPolicy, type ToolCall } from '@client/lib/agentUtils.js'
   import ContentPreviewCards from './ContentPreviewCards.svelte'
   import { formatToolArgs } from '@client/lib/agent-conversation/formatToolArgs.js'
   import WikiFileName from '../WikiFileName.svelte'
+  import { toolDrilldownForTool } from '@client/lib/tools/toolDrilldown.js'
   import {
     loadSkillToolDisplayLabel,
     toolCallCollapsedSummaryParts,
@@ -20,17 +21,26 @@
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
+    onOpenDraft,
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
+    onOpenMailSearchResults,
+    displayMode = 'compact',
   }: {
     toolCall: ToolCall
     onOpenWiki?: (_path: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
+    onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
+    onOpenMailSearchResults?: (
+      _preview: Extract<ContentCardPreview, { kind: 'mail_search_hits' }>,
+      _sourceId: string,
+    ) => void
+    displayMode?: 'compact' | 'detailed'
   } = $props()
 
   const preview = $derived(matchContentPreview(toolCall))
@@ -39,65 +49,208 @@
   const toolIcon = $derived(getToolIcon(toolCall.name))
 
   const summaryParts = $derived(toolCallCollapsedSummaryParts(toolCall, preview))
+  const drilldown = $derived(toolDrilldownForTool(toolCall, preview))
+  const canOpenDrilldown = $derived.by(() => {
+    if (!drilldown) return false
+    switch (drilldown.kind) {
+      case 'wiki':
+        return typeof onOpenWiki === 'function'
+      case 'file':
+        return typeof onOpenFile === 'function'
+      case 'email':
+        return typeof onOpenEmail === 'function'
+      case 'email_draft':
+        return typeof onOpenDraft === 'function'
+      case 'calendar':
+        return typeof onSwitchToCalendar === 'function'
+      case 'message_thread':
+        return typeof onOpenMessageThread === 'function'
+      case 'inbox':
+        return typeof onOpenFullInbox === 'function'
+      case 'mail_search':
+        return typeof onOpenMailSearchResults === 'function'
+    }
+  })
   const wikiLinkPath = $derived(wikiOpenPathFromArgs(toolCall.name, toolCall.args))
   const pendingVerb = $derived(wikiFilePendingVerb(toolCall.name))
   const pendingFromArgs = $derived(toolSummaryPartsFromArgs(toolCall.name, toolCall.args))
+
+  const compactAriaLabel = $derived.by(() => {
+    const prefix = `Open ${displayName}`
+    if (!summaryParts) return prefix
+    if (summaryParts.mode === 'single_path') return `${prefix}: ${summaryParts.path}`
+    if (summaryParts.mode === 'move') return `${prefix}: ${summaryParts.from} to ${summaryParts.to}`
+    return `${prefix}: ${summaryParts.text}`
+  })
+
+  function openDrilldown() {
+    if (!drilldown) return
+    switch (drilldown.kind) {
+      case 'wiki':
+        onOpenWiki?.(drilldown.path)
+        break
+      case 'file':
+        onOpenFile?.(drilldown.path)
+        break
+      case 'email':
+        onOpenEmail?.(drilldown.id, drilldown.subject, drilldown.from)
+        break
+      case 'email_draft':
+        onOpenDraft?.(drilldown.draftId, drilldown.subject)
+        break
+      case 'calendar':
+        onSwitchToCalendar?.(drilldown.date, drilldown.eventId)
+        break
+      case 'message_thread':
+        onOpenMessageThread?.(drilldown.canonicalChat, drilldown.displayLabel)
+        break
+      case 'inbox':
+        onOpenFullInbox?.()
+        break
+      case 'mail_search':
+        onOpenMailSearchResults?.(drilldown.preview, toolCall.id)
+        break
+    }
+  }
 </script>
 
 {#if toolCall.done}
   <div class="tool-part">
-    <details class="tool-call" class:error={toolCall.isError} open={false}>
-      <summary>
-        <span class="tool-icon">
-          {#if toolCall.isError}
-            !
-          {:else}
-            {#if toolIcon}
-              {@const Icon = toolIcon}
-              <Icon size={12} strokeWidth={2.5} />
+    {#if displayMode === 'compact'}
+      {#if drilldown && canOpenDrilldown}
+        <button
+          type="button"
+          class="tool-call tool-compact tool-compact--drilldown"
+          class:error={toolCall.isError}
+          onclick={openDrilldown}
+          aria-label={compactAriaLabel}
+          title={compactAriaLabel}
+        >
+          <span class="tool-icon">
+            {#if toolCall.isError}
+              !
             {:else}
-              <Wrench size={12} strokeWidth={2.5} />
+              {#if toolIcon}
+                {@const Icon = toolIcon}
+                <Icon size={12} strokeWidth={2.5} />
+              {:else}
+                <Wrench size={12} strokeWidth={2.5} />
+              {/if}
             {/if}
-          {/if}
-        </span>
-        <span class="tool-summary-body">
-          <span class="tool-name">{displayName}</span>
-          {#if summaryParts}
-            {#if summaryParts.mode === 'single_path'}
-              <span class="tool-summary-wiki">
-                <WikiFileName path={summaryParts.path} />
-              </span>
-            {:else if summaryParts.mode === 'move'}
-              <span class="tool-summary-move">
-                <WikiFileName path={summaryParts.from} />
-                <span class="tool-summary-arrow" aria-hidden="true">→</span>
-                <WikiFileName path={summaryParts.to} />
-              </span>
+          </span>
+          <span class="tool-compact-truncate">
+            <span class="tool-compact-truncate-inner">
+              <span class="tool-name">{displayName}</span>
+              {#if summaryParts}
+                {#if summaryParts.mode === 'single_path'}
+                  <span class="tool-summary-wiki tool-summary-wiki--compact">
+                    <WikiFileName path={summaryParts.path} />
+                  </span>
+                {:else if summaryParts.mode === 'move'}
+                  <span class="tool-summary-move tool-summary-move--compact">
+                    <WikiFileName path={summaryParts.from} />
+                    <span class="tool-summary-arrow" aria-hidden="true">→</span>
+                    <WikiFileName path={summaryParts.to} />
+                  </span>
+                {:else}
+                  <span class="tool-summary-plain tool-summary-plain--compact">{summaryParts.text}</span>
+                {/if}
+              {/if}
+            </span>
+          </span>
+          <span class="tool-compact-pill" aria-hidden="true">
+            <ChevronRight size={14} strokeWidth={2.25} aria-hidden="true" />
+          </span>
+        </button>
+      {:else}
+        <div class="tool-call tool-compact" class:error={toolCall.isError}>
+          <span class="tool-icon">
+            {#if toolCall.isError}
+              !
             {:else}
-              <span class="tool-summary-plain" title={summaryParts.text}>{summaryParts.text}</span>
+              {#if toolIcon}
+                {@const Icon = toolIcon}
+                <Icon size={12} strokeWidth={2.5} />
+              {:else}
+                <Wrench size={12} strokeWidth={2.5} />
+              {/if}
             {/if}
-          {/if}
-        </span>
-      </summary>
-      {#if toolCall.args}
-        <pre class="tool-args">{formatToolArgs(toolCall.args)}</pre>
+          </span>
+          <span class="tool-summary-body">
+            <span class="tool-name">{displayName}</span>
+            {#if summaryParts}
+              {#if summaryParts.mode === 'single_path'}
+                <span class="tool-summary-wiki">
+                  <WikiFileName path={summaryParts.path} />
+                </span>
+              {:else if summaryParts.mode === 'move'}
+                <span class="tool-summary-move">
+                  <WikiFileName path={summaryParts.from} />
+                  <span class="tool-summary-arrow" aria-hidden="true">→</span>
+                  <WikiFileName path={summaryParts.to} />
+                </span>
+              {:else}
+                <span class="tool-summary-plain" title={summaryParts.text}>{summaryParts.text}</span>
+              {/if}
+            {/if}
+          </span>
+        </div>
       {/if}
-      {#if toolCall.result && preview?.kind !== 'wiki_edit_diff' && preview?.kind !== 'message_thread' && preview?.kind !== 'find_person_hits' && preview?.kind !== 'mail_search_hits' && preview?.kind !== 'feedback_draft'}
-        <pre class="tool-result" class:tool-error={toolCall.isError} class:muted={!!preview}>{toolCall.result}</pre>
+    {:else}
+      <details class="tool-call" class:error={toolCall.isError} open={false}>
+        <summary>
+          <span class="tool-icon">
+            {#if toolCall.isError}
+              !
+            {:else}
+              {#if toolIcon}
+                {@const Icon = toolIcon}
+                <Icon size={12} strokeWidth={2.5} />
+              {:else}
+                <Wrench size={12} strokeWidth={2.5} />
+              {/if}
+            {/if}
+          </span>
+          <span class="tool-summary-body">
+            <span class="tool-name">{displayName}</span>
+            {#if summaryParts}
+              {#if summaryParts.mode === 'single_path'}
+                <span class="tool-summary-wiki">
+                  <WikiFileName path={summaryParts.path} />
+                </span>
+              {:else if summaryParts.mode === 'move'}
+                <span class="tool-summary-move">
+                  <WikiFileName path={summaryParts.from} />
+                  <span class="tool-summary-arrow" aria-hidden="true">→</span>
+                  <WikiFileName path={summaryParts.to} />
+                </span>
+              {:else}
+                <span class="tool-summary-plain" title={summaryParts.text}>{summaryParts.text}</span>
+              {/if}
+            {/if}
+          </span>
+        </summary>
+        {#if toolCall.args}
+          <pre class="tool-args">{formatToolArgs(toolCall.args)}</pre>
+        {/if}
+        {#if toolCall.result && preview?.kind !== 'wiki_edit_diff' && preview?.kind !== 'message_thread' && preview?.kind !== 'find_person_hits' && preview?.kind !== 'mail_search_hits' && preview?.kind !== 'feedback_draft' && preview?.kind !== 'email_draft'}
+          <pre class="tool-result" class:tool-error={toolCall.isError} class:muted={!!preview}>{toolCall.result}</pre>
+        {/if}
+      </details>
+      {#if preview}
+        <div class="tool-content-preview-shell">
+          <ContentPreviewCards
+            {preview}
+            {onOpenWiki}
+            {onOpenFile}
+            {onOpenEmail}
+            {onOpenDraft}
+            {onOpenFullInbox}
+            {onSwitchToCalendar}
+            {onOpenMessageThread}
+          />
+        </div>
       {/if}
-    </details>
-    {#if preview}
-      <div class="tool-content-preview-shell">
-        <ContentPreviewCards
-          {preview}
-          {onOpenWiki}
-          {onOpenFile}
-          {onOpenEmail}
-          {onOpenFullInbox}
-          {onSwitchToCalendar}
-          {onOpenMessageThread}
-        />
-      </div>
     {/if}
   </div>
 {:else}
@@ -177,6 +330,90 @@
     gap: 5px;
     padding: 2px 4px;
     opacity: 0.92;
+  }
+
+  .tool-call.tool-compact {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 4px;
+    line-height: 1.45;
+    box-sizing: border-box;
+  }
+
+  .tool-call.tool-compact .tool-icon {
+    margin-top: 0;
+  }
+
+  .tool-compact-truncate {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .tool-compact-truncate-inner {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .tool-compact-truncate-inner .tool-name,
+  .tool-compact-truncate-inner .tool-summary-wiki--compact,
+  .tool-compact-truncate-inner .tool-summary-move--compact,
+  .tool-compact-truncate-inner .tool-summary-plain--compact {
+    font-size: 11px;
+    color: var(--text-2);
+  }
+
+  .tool-compact-truncate-inner .tool-summary-wiki--compact,
+  .tool-compact-truncate-inner .tool-summary-move--compact {
+    display: inline;
+  }
+
+  .tool-compact-truncate-inner .tool-summary-plain--compact {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .tool-compact-truncate-inner > * {
+    vertical-align: baseline;
+  }
+
+  .tool-compact-pill {
+    flex-shrink: 0;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 4px;
+    border-radius: 999px;
+    color: var(--text-2);
+    background: color-mix(in srgb, var(--border) 35%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  }
+
+  button.tool-call.tool-compact {
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  button.tool-call.tool-compact--drilldown:hover .tool-compact-pill,
+  button.tool-call.tool-compact--drilldown:focus-visible .tool-compact-pill {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  button.tool-call.tool-compact--drilldown:hover .tool-name,
+  button.tool-call.tool-compact--drilldown:focus-visible .tool-name {
+    color: var(--accent);
   }
 
   .tool-pending-label {

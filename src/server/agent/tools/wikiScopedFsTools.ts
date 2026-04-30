@@ -1,6 +1,9 @@
 /**
  * Pi coding-agent file tools scoped to a wiki root with path coercion and write hooks.
  */
+import { constants as FsConstants } from 'node:fs'
+import { access } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import {
   createReadTool,
   createEditTool,
@@ -12,7 +15,13 @@ import { appendWikiEditRecord, coerceWikiToolRelativePath } from '@server/lib/wi
 import { assertAgentWikiWriteUsesSubdirectory } from '@server/lib/wiki/wikiAgentWritePolicy.js'
 import { resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
 
-export function createWikiScopedPiTools(wikiDir: string) {
+/** `forbidden` blocks **`write`** when the target file does not exist (wiki buildout deepen-only — OPP-067). */
+export type WikiWriteCreatesPolicy = 'allowed' | 'forbidden'
+
+export function createWikiScopedPiTools(
+  wikiDir: string,
+  options?: { wikiWriteCreates?: WikiWriteCreatesPolicy },
+) {
   const readToolInner = createReadTool(wikiDir)
   const read = {
     ...readToolInner,
@@ -53,6 +62,16 @@ export function createWikiScopedPiTools(wikiDir: string) {
         throw new Error('Invalid wiki path for write')
       }
       await assertAgentWikiWriteUsesSubdirectory(wikiDir, path)
+      if (options?.wikiWriteCreates === 'forbidden') {
+        const abs = resolve(wikiDir, path)
+        try {
+          await access(abs, FsConstants.F_OK)
+        } catch {
+          throw new Error(
+            'Wiki buildout cannot create new pages with `write`. Use `edit` on an existing path. New markdown pages are created by the chat assistant.',
+          )
+        }
+      }
       const next = { ...params, path }
       const result = (await writeToolInner.execute(toolCallId, next)) as {
         content: { type: 'text'; text: string }[]

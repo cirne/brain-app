@@ -29,7 +29,7 @@ Examples of `meta.source` / `agentKind` (see `attachAgentDiagnosticsCollector` c
 
 - Chat / onboarding SSE: `source` **chat_sse**, kinds like `chat`, `chat_skill`, `onboarding_interview`.
 - Wiki background enrich: **wiki_enrich**, kind **wiki_enrichment**.
-- Wiki cleanup: **wiki_supervisor_cleanup_invocation** vs **wiki_touch_up_cleanup_invocation**, kinds **wiki_cleanup** / **wiki_touch_up** (see `wikiExpansionRunner`).
+- Wiki cleanup: **wiki_supervisor_cleanup_invocation**, kind **wiki_cleanup** (`wikiExpansionRunner`); post-chat **`wiki_touch_up`** path **removed 2026-04-30**.
 - Eval / interview finalize helpers: **collect_agent_prompt_metrics** (`diagnosticsAgentKind` may be **eval_or_finalize** or **interview_finalize**, etc.).
 
 Wiki background runs share **one** `agentTurnId` between JSONL diagnostics and New Relic `agentTurnId` (`attachRunTracker`).
@@ -46,7 +46,7 @@ Structured server logs use message **`agent-diagnostics-written`** and typically
 - **`agentTurnId`** — UUID; matches New Relic / wiki telemetry for the same run when applicable.
 - **`agentKind`**, **`source`** (often implied by paths above).
 - **`sessionId`** — chat/onboarding session when present.
-- **`backgroundRunId`** — wiki supervisor / touch-up run id when present.
+- **`backgroundRunId`** — wiki supervisor run id when present.
 
 Workflow:
 

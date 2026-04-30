@@ -43,8 +43,8 @@ describe('buildWikiBuildoutSystemPrompt', () => {
     expect(p).toMatch(/never add a `wiki\/` prefix/i)
     expect(p).toContain('web_search')
     expect(p).toContain('fetch_page')
-    expect(p).toMatch(/Parallel writes/i)
-    expect(p).toMatch(/grep.*existing paths/i)
+    expect(p).toMatch(/Parallel edits/i)
+    expect(p).toMatch(/grep.*verify link targets/i)
     expect(p).toMatch(/compact/i)
     expect(p).toContain('people/lewis-cirne.md')
     expect(p).toMatch(/starter layout/i)
@@ -54,7 +54,6 @@ describe('buildWikiBuildoutSystemPrompt', () => {
     expect(p).toMatch(/Obsidian-style/i)
     expect(p).toContain('[[wikilinks]]')
     expect(p).toContain('[[me]]')
-    expect(p).toContain('[[people/jane-doe]]')
     expect(p).toMatch(/newest relevant/i)
     expect(p).toMatch(/conflict.*latest dated/i)
     expect(p).toMatch(/Contact.*Identifiers/i)
@@ -71,7 +70,7 @@ describe('buildWikiBuildoutSystemPrompt', () => {
     expect(p).toMatch(/vault manifest/i)
     expect(p).not.toMatch(/starter layout/i)
     expect(p).not.toMatch(/Optional interview focus/i)
-    expect(p).toMatch(/treat that as the map/i)
+    expect(p).toMatch(/wiki-edits\.jsonl/i)
   })
 
   it('exposes returning scope copy via buildWikiBuildoutReturningScopeNote', () => {
@@ -90,11 +89,11 @@ describe('buildWikiBuildoutSystemPrompt', () => {
     expect(p).toMatch(/Local Messages \(optional\)/i)
   })
 
-  it('when user people page is unknown, keeps optional fallback line', () => {
+  it('when user people page is unknown, instructs not to create account-holder page', () => {
     const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', null, {
       isFirstBuildoutRun: true,
     })
-    expect(p).toMatch(/people\/\[slug\]/i)
+    expect(p).toMatch(/do not create one/i)
   })
 })
 

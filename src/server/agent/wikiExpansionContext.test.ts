@@ -9,19 +9,29 @@ import { tmpdir } from 'node:os'
 import { buildExpansionContextPrefix } from './wikiExpansionRunner.js'
 
 let wikiRoot: string
+/** Isolated `BRAIN_HOME` so `readRecentWikiEdits` does not read the developer's real `wiki-edits.jsonl`. */
+let isolatedBrainHome: string
 
 beforeEach(async () => {
+  isolatedBrainHome = await mkdtemp(join(tmpdir(), 'wiki-expansion-ctx-brain-'))
+  process.env.BRAIN_HOME = isolatedBrainHome
+  await mkdir(join(isolatedBrainHome, 'var'), { recursive: true })
   wikiRoot = await mkdtemp(join(tmpdir(), 'wiki-expansion-context-test-'))
 })
 
 afterEach(async () => {
   await rm(wikiRoot, { recursive: true, force: true })
+  await rm(isolatedBrainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_HOME
 })
 
 describe('buildExpansionContextPrefix', () => {
-  it('returns empty string when vault is empty and me.md is missing', async () => {
+  it('when vault has only deepen idle signal (no me.md), still injects idle deepen guidance', async () => {
     const prefix = await buildExpansionContextPrefix(wikiRoot)
-    expect(prefix).toBe('')
+    expect(prefix).toMatch(/Injected context/i)
+    expect(prefix).toMatch(/Deepen this lap/i)
+    expect(prefix).toMatch(/Idle/i)
+    expect(prefix).not.toContain('Existing wiki pages')
   })
 
   it('injects me.md content when the file exists (BUG-011 fix)', async () => {
@@ -64,6 +74,8 @@ describe('buildExpansionContextPrefix', () => {
     expect(prefix).toContain('people/alice.md')
     expect(prefix).toContain('projects/foo.md')
     expect(prefix).toContain('Existing wiki pages')
+    expect(prefix).toMatch(/Thin pages \(deepen candidates\)/i)
+    expect(prefix).toMatch(/Deepen this lap \(priority\)/i)
   })
 
   it('does not include hidden directories in the manifest', async () => {
@@ -100,5 +112,25 @@ describe('buildExpansionContextPrefix', () => {
     await writeFile(join(wikiRoot, 'me.md'), '# Me', 'utf-8')
     const prefix = await buildExpansionContextPrefix(wikiRoot)
     expect(prefix).not.toContain('Data freshness')
+  })
+
+  it('includes Recent wiki edits when wiki-edits.jsonl has rows under BRAIN_HOME', async () => {
+    await writeFile(
+      join(isolatedBrainHome, 'var', 'wiki-edits.jsonl'),
+      `${JSON.stringify({
+        ts: '2026-01-15T12:00:00.000Z',
+        op: 'write',
+        path: 'people/bob.md',
+        source: 'agent',
+      })}\n`,
+      'utf-8',
+    )
+    await writeFile(join(wikiRoot, 'me.md'), '# Me', 'utf-8')
+    await mkdir(join(wikiRoot, 'people'), { recursive: true })
+    await writeFile(join(wikiRoot, 'people', 'bob.md'), '# Bob\nstub', 'utf-8')
+
+    const prefix = await buildExpansionContextPrefix(wikiRoot)
+    expect(prefix).toContain('Recent wiki edits')
+    expect(prefix).toContain('people/bob.md')
   })
 })

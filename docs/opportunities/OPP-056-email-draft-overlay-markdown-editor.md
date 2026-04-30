@@ -32,7 +32,7 @@ Ripmail (and the bundled stack) already treats drafts as **Markdown** on disk wi
 
 ### Primary UX
 
-1. **Open draft in overlay** — When the user (or agent) “opens” the current draft, navigate the detail pane to a **draft document** view — analogous to `overlay.type === 'wiki'` in [`SlideOver.svelte`](../../src/client/components/shell/SlideOver.svelte) (see [`Assistant.svelte`](../../src/client/components/Assistant.svelte) overlay routing).
+1. **Open draft in overlay** — When the user (or agent) “opens” the current draft, navigate the detail pane to a **draft document** view — analogous to `overlay.type === 'wiki'` in `[SlideOver.svelte](../../src/client/components/shell/SlideOver.svelte)` (see `[Assistant.svelte](../../src/client/components/Assistant.svelte)` overlay routing).
 2. **Markdown editing** — Reuse the **wiki-authoring patterns** where possible: same editor component family, preview/edit toggles if the wiki uses them, keyboard-friendly editing — **do not build a parallel one-off rich editor** for mail-only.
 3. **Explicit send (and safety)** — Chrome actions such as **Send** (and possibly **Discard / save-only**) live on the draft panel, aligned with how users expect mail clients to behave; optional confirmation remains compatible with agent-mediated send flows.
 4. **Dual modality** — The user can still **refine via chat** (“make the tone warmer”); the agent applies changes to the **same underlying draft** that the panel shows, so chat and editor stay **in sync** rather than competing sources of truth.

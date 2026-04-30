@@ -1,5 +1,5 @@
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
-import { createWikiScopedPiTools } from './tools/wikiScopedFsTools.js'
+import { createWikiScopedPiTools, type WikiWriteCreatesPolicy } from './tools/wikiScopedFsTools.js'
 import { createWikiFileManagementTools } from './tools/wikiFileManagementTools.js'
 import { createRipmailAgentTools } from './tools/ripmailAgentTools.js'
 import { createCalendarTool } from './tools/calendarTools.js'
@@ -34,6 +34,11 @@ export interface CreateAgentToolsOptions {
   onlyToolNames?: readonly string[]
   /** IANA timezone for calendar agent enrichment (e.g. from chat client). */
   timezone?: string
+  /**
+   * When `forbidden`, **`write`** rejects targets that do not already exist on disk (wiki buildout — OPP-067).
+   * @default 'allowed'
+   */
+  wikiWriteCreates?: WikiWriteCreatesPolicy
 }
 
 function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boolean {
@@ -51,7 +56,9 @@ function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boo
 export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): any[] {
   const includeLocalMessages = resolveIncludeLocalMessageTools(options)
   const agentTimeZone = options?.timezone?.trim() || 'UTC'
-  const { read, edit, write, grep, find } = createWikiScopedPiTools(wikiDir)
+  const { read, edit, write, grep, find } = createWikiScopedPiTools(wikiDir, {
+    wikiWriteCreates: options?.wikiWriteCreates ?? 'allowed',
+  })
 
   const { moveFile, deleteFile } = createWikiFileManagementTools(wikiDir)
 

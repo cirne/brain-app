@@ -136,6 +136,7 @@ export function contextPlaceholder(ctx: SurfaceContext, hasMessages = false): st
   if (ctx.type === 'calendar') return 'Ask about your schedule...'
   if (ctx.type === 'inbox') return 'Inbox summary running...'
   if (ctx.type === 'messages') return 'Ask about this conversation…'
+  if (ctx.type === 'email-draft') return 'Refine this draft or adjust recipients…'
   return hasMessages ? 'What else can I help with?' : 'What do you need to know or get done?'
 }
 

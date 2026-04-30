@@ -1,13 +1,14 @@
 # Wiki and agent evaluation (open problem)
 
-**Status:** Open — **critical to-do** (research and tooling; not a product opportunity ticket)  
-**Related:** [the-wiki-question.md](./the-wiki-question.md), [VISION.md](./VISION.md), [architecture/agent-chat.md](./architecture/agent-chat.md), [OPP-033](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md), [ripmail OPP-043 (token metering)](./opportunities/OPP-043-llm-usage-token-metering.md)
+**Status:** Open — **critical to-do** (research and tooling; not a product opportunity ticket). **Update (2026-04-30):** Pieces that help measurement landed with [OPP-066](./opportunities/OPP-066-chat-first-wiki-organic-growth-experiment.md) (shipped; epic **closed** — stub + [full archive](./opportunities/archive/OPP-066-chat-first-wiki-organic-growth-experiment.md)): **eval clock anchoring** (`EVAL_ASSISTANT_NOW` / `resolveEvalAnchoredNow`) for historical-corpus runs, and **structured wiki mutation logging** via `var/wiki-edits.jsonl` (server-side rows per agent `write` / `edit` / `move_file` / `delete_file`) so “what changed” is ordered and machine-consumable. A **minimal task harness** (e.g. Enron-case regression checks cited in OPP-066) exists before a full wiki-quality ontology does. **Still open:** systematic wiki-property scoring and CI-shaped suites — see [OPP-065](./opportunities/OPP-065-wiki-eval-llm-as-judge.md); **WikiBuilder** queue from the log tail — [OPP-067](./opportunities/OPP-067-wiki-buildout-agent-no-new-pages.md).
+
+**Related:** [the-wiki-question.md](./the-wiki-question.md), [VISION.md](./VISION.md), [architecture/agent-chat.md](./architecture/agent-chat.md), [OPP-033](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md), [OPP-066](./opportunities/OPP-066-chat-first-wiki-organic-growth-experiment.md), [OPP-065](./opportunities/OPP-065-wiki-eval-llm-as-judge.md), [OPP-067](./opportunities/OPP-067-wiki-buildout-agent-no-new-pages.md), [ripmail OPP-043 (token metering)](./opportunities/OPP-043-llm-usage-token-metering.md)
 
 ---
 
 ## Why this document exists
 
-We do **not** have an **eval suite** for Braintunnel’s knowledge loop: **mail and files → wiki** and **wiki + tools → answers**. Without that, it is hard to justify iteration, compare models, or know whether the wiki and the agent are improving.
+We do **not** yet have a **complete eval suite** for Braintunnel’s knowledge loop: **mail and files → wiki** and **wiki + tools → answers**. Targeted harnesses and telemetry hooks are landing (see status above); a **durable** suite across wiki quality dimensions, models, and CI is still missing. Without that, it remains hard to justify broad iteration, compare models, or know whether the wiki and the agent are improving end to end.
 
 This note captures the **problem** (what we need to learn and measure) and frames **two separable concerns**. It is intentionally **not** filed as an opportunity: it is a **foundational research and engineering** gap. Follow-on work may spin out as OPPs, benchmarks, or CI jobs once the measurement story is clearer.
 
@@ -23,7 +24,7 @@ This note captures the **problem** (what we need to learn and measure) and frame
 
 - Distinguish **structural** signals (link graph health, orphan rate, title normalization) from **semantic** alignment with **ground truth** in mail (contradiction checks, spot audits, or LLM-judge on sampled claims).
 - Accept that some dimensions may stay **human-in-the-loop** for a long time, while we still build **reproducible harnesses** (fixed corpora, fixed prompts, frozen judge prompts).
-- **Next step:** deliberate **research** time and **discussion with a strong model** (and humans) on how to define **wiki quality** we care about, what can be automated, and what should remain manual review.
+- **Next step:** deliberate **research** time and **discussion with a strong model** (and humans) on how to define **wiki quality** we care about, what can be automated, and what should remain manual review. Product tracking for **LLM-as-judge** and wiki property scores: [OPP-065](./opportunities/OPP-065-wiki-eval-llm-as-judge.md).
 
 ---
 
@@ -48,8 +49,8 @@ That deserves **its own** eval track:
 
 ## 3. Critical to-do (summary)
 
-1. **Build or adopt an eval suite** (datasets, tasks, scoring hooks, optional CI) for Brain — starting with a **minimal** harness rather than a perfect ontology of quality.
-2. **Wiki track:** research and define **measurable** (and explicitly subjective) **wiki quality** given mail + size/token constraints; align with [the-wiki-question.md](./the-wiki-question.md) and [OPP-033](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md).
+1. **Build or adopt a complete eval suite** (datasets, tasks, scoring hooks, optional CI) for Brain — extending the **minimal harness + telemetry** now in flight (OPP-066) rather than restarting from zero.
+2. **Wiki track:** research and define **measurable** (and explicitly subjective) **wiki quality** given mail + size/token constraints; align with [the-wiki-question.md](./the-wiki-question.md) and [OPP-033](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md); use **`wiki-edits.jsonl`** and enrich outcomes as **ordered before/after** signals where helpful.
 3. **Agent track:** measure **end-to-end answer quality**, **latency**, and **token use**, with **per-model** matrices, including tool use (ripmail, wiki reads, etc.).
 
 ---

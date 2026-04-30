@@ -556,6 +556,32 @@ Sel: {{selection}} File: {{open_file}}`,
       expect(body).toContain('ok')
     })
 
+    it('write rejects new paths when wikiWriteCreates is forbidden', async () => {
+      const { createWikiScopedPiTools } = await import('./tools/wikiScopedFsTools.js')
+      await mkdir(join(wikiDir, 'topics'), { recursive: true })
+      const body =
+        '# New\n\n' +
+        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(14) +
+        '\n\nMore synthesis so the page clears the substance gate.\n'
+
+      const { write } = createWikiScopedPiTools(wikiDir, { wikiWriteCreates: 'forbidden' })
+      await expect(
+        write.execute('write-forbid-new', { path: 'topics/new-forbid.md', content: body }),
+      ).rejects.toThrow(/cannot create new pages/)
+
+      await writeFile(
+        join(wikiDir, 'topics', 'existing-forbid.md'),
+        '# Old\n\n' +
+          'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(14) +
+          '\n\nGate.\n',
+        'utf8',
+      )
+      await write.execute('write-forbid-existing', { path: 'topics/existing-forbid.md', content: body })
+      const { readFile } = await import('node:fs/promises')
+      const disk = await readFile(join(wikiDir, 'topics', 'existing-forbid.md'), 'utf8')
+      expect(disk).toContain('Lorem ipsum')
+    })
+
     it('does not append when edit fails', async () => {
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
@@ -875,6 +901,10 @@ fi
         instruction: 'make it shorter',
       })
       expect(result.details.cc).toContain('c@x.com')
+      const modelText = toolResultFirstText(result)
+      expect(modelText).toContain('preview card')
+      expect(modelText).not.toContain('Hello')
+      expect((result.details as { body?: string }).body).toBe('Hello')
       const { readFile } = await import('node:fs/promises')
       const log = await readFile(join(wikiDir, 'ripmail-calls.log'), 'utf8')
       expect(log).toContain('--add-cc')
@@ -891,6 +921,10 @@ fi
         remove_to: ['old@example.com'],
       })
       expect(result.details.id).toBe('d1')
+      const modelText = toolResultFirstText(result)
+      expect(modelText).toContain('preview card')
+      expect(modelText).not.toContain('Hello')
+      expect((result.details as { body?: string }).body).toBe('Hello')
       const { readFile } = await import('node:fs/promises')
       const log = await readFile(join(wikiDir, 'ripmail-calls.log'), 'utf8')
       expect(log).toContain('--subject')

@@ -76,17 +76,6 @@ export interface StreamAgentSseOptions {
    * the turn has assistant text but no valid `suggest_reply_options` (main chat and onboarding interview).
    */
   runSuggestReplyRepair?: boolean
-  /**
-   * After a turn completes, when the agent successfully wrote/edited/moved/deleted wiki files,
-   * enqueue post-turn polish (non-blocking).
-   */
-  onWikiFilesTouchedAfterTurn?: (args: {
-    sessionId: string
-    changedFiles: string[]
-    timezone?: string
-    /** Stable Braintunnel handle merged pre-stream (ALS may be gone later). */
-    workspaceHandle?: string
-  }) => void | Promise<void>
 }
 
 /**
@@ -113,7 +102,6 @@ export function streamAgentSseResponse(
     agentKind: agentKindOpt,
     timezone: timezoneOpt,
     runSuggestReplyRepair: runSuggestReplyRepairOpt,
-    onWikiFilesTouchedAfterTurn,
   } = opts
   const agentKind: LlmAgentKind = agentKindOpt ?? 'chat'
   const runSuggestReplyRepair = runSuggestReplyRepairOpt !== false
@@ -187,22 +175,6 @@ export function streamAgentSseResponse(
       agentKind,
       announceSessionId,
     })
-
-    const maybeEnqueueWikiTouchUp = async (): Promise<void> => {
-      if (!onWikiFilesTouchedAfterTurn || announceSessionId === undefined) return
-      if (refs.touchedWikiRelPaths.size === 0) return
-      const changedFiles = [...refs.touchedWikiRelPaths].sort()
-      try {
-        await onWikiFilesTouchedAfterTurn({
-          sessionId: announceSessionId,
-          changedFiles,
-          timezone: timezoneOpt,
-          workspaceHandle: turnCorrelation.workspaceHandle,
-        })
-      } catch (e) {
-        logger.error({ err: e }, 'wiki-touch-up-after-turn')
-      }
-    }
 
     const persistIfNeeded = async (): Promise<void> => {
       if (!onTurnComplete) return
@@ -357,7 +329,6 @@ export function streamAgentSseResponse(
           /* ignore */
         }
       }
-      await maybeEnqueueWikiTouchUp()
     }
   })
 }

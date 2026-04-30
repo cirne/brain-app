@@ -200,6 +200,12 @@ describe('parseRoute', () => {
     })
   })
 
+  it('parses mail-search overlay', () => {
+    expect(parseRoute('http://localhost/c?panel=mail-search&s=search-1&q=Donna')).toEqual({
+      overlay: { type: 'mail-search', id: 'search-1', query: 'Donna' },
+    })
+  })
+
   it('session + inbox overlay', () => {
     const id = '550e8400-e29b-41d4-a716-446655440000'
     primeChatSessionTail(id)
@@ -208,6 +214,18 @@ describe('parseRoute', () => {
     ).toEqual({
       sessionId: id,
       overlay: { type: 'email', id: 'abc' },
+    })
+  })
+
+  it('parses email-draft panel', () => {
+    expect(parseRoute('http://localhost/c?panel=email-draft')).toEqual({
+      overlay: { type: 'email-draft' },
+    })
+  })
+
+  it('parses email-draft with draft id', () => {
+    expect(parseRoute('http://localhost/c?panel=email-draft&draft=draft-abc')).toEqual({
+      overlay: { type: 'email-draft', id: 'draft-abc' },
     })
   })
 })
@@ -423,6 +441,22 @@ describe('routeToUrl', () => {
     )
   })
 
+  it('email-draft without id', () => {
+    expect(routeToUrl({ overlay: { type: 'email-draft' } })).toBe('/c?panel=email-draft')
+  })
+
+  it('email-draft encodes draft id', () => {
+    expect(routeToUrl({ overlay: { type: 'email-draft', id: 'rid:123' } })).toBe(
+      '/c?panel=email-draft&draft=rid%3A123',
+    )
+  })
+
+  it('mail-search encodes search id and query', () => {
+    expect(routeToUrl({ overlay: { type: 'mail-search', id: 'search-1', query: 'Donna Wilcox' } })).toBe(
+      '/c?panel=mail-search&s=search-1&q=Donna+Wilcox',
+    )
+  })
+
   it('calendar', () => {
     expect(routeToUrl({ overlay: { type: 'calendar', date: '2026-04-13' } })).toBe(
       '/c?panel=calendar&date=2026-04-13',
@@ -497,6 +531,9 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { overlay: { type: 'file' as const, path: '/Users/foo/bar.txt' } },
     { overlay: { type: 'email' as const } },
     { overlay: { type: 'email' as const, id: 'msg:12345@mail.example.com' } },
+    { overlay: { type: 'email-draft' as const } },
+    { overlay: { type: 'email-draft' as const, id: 'draft-msg:x' } },
+    { overlay: { type: 'mail-search' as const, id: 'search-1', query: 'Donna Wilcox' } },
     { overlay: { type: 'calendar' as const } },
     { overlay: { type: 'calendar' as const, date: '2026-04-13' } },
     {
@@ -657,6 +694,21 @@ describe('contextToString', () => {
     expect(s).toContain('get_message_thread')
     expect(s).toContain('+15550001111')
     expect(s).toContain('(555) 000-1111')
+  })
+
+  it('formats email-draft context', () => {
+    const ctx: SurfaceContext = {
+      type: 'email-draft',
+      draftId: 'd1',
+      subject: 'Hello',
+      toLine: 'a@b.com',
+      bodyPreview: 'Line one',
+    }
+    const s = contextToString(ctx)!
+    expect(s).toContain('d1')
+    expect(s).toContain('Hello')
+    expect(s).toContain('a@b.com')
+    expect(s).toContain('edit_draft')
   })
 })
 })

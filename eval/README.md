@@ -66,7 +66,7 @@ Mail-centric agent tasks (search/read) run against the **large** `kean-s` index.
 
 ## Wiki buildout + cleanup (lint) eval (wiki v1)
 
-Two tasks in [`tasks/wiki-v1.jsonl`](tasks/wiki-v1.jsonl): **`buildout`** uses [`getOrCreateWikiBuildoutAgent`](../src/server/agent/wikiBuildoutAgent.ts) (write + `search_index`, same as Your Wiki enrich); **`cleanup`** uses [`createCleanupAgent`](../src/server/agent/agentFactory.ts) (read / grep / find / `edit` — no `write`).
+Two tasks in [`tasks/wiki-v1.jsonl`](tasks/wiki-v1.jsonl): **`buildout`** uses [`getOrCreateWikiBuildoutAgent`](../src/server/agent/wikiBuildoutAgent.ts) (**`edit`** + mail/web tools + `search_index`; **`write`** cannot create new pages — same deepen-only rules as Your Wiki enrich, OPP-067); **`cleanup`** uses [`createCleanupAgent`](../src/server/agent/agentFactory.ts) (read / grep / find / `edit` — no `write`).
 
 **Isolated vault per case:** Each JSONL row runs in a **subprocess** with its own `BRAIN_WIKI_ROOT` parent at **`.data-eval/wiki-eval-cases/<task-id>/`** (stable name from the JSONL `id`). The orchestrator **removes and recreates** that directory at **case start**, then the child seeds the starter wiki and copies [`fixtures/enron-kean-wiki/me.md`](fixtures/enron-kean-wiki/me.md) and [`assistant.md`](fixtures/enron-kean-wiki/assistant.md). The tree is **not deleted** after the case so you can inspect **`./.data-eval/wiki-eval-cases/<id>/wiki/`**. (`.data-eval/` is gitignored like `data-eval/`.)
 

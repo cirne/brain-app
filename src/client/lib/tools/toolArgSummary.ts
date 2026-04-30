@@ -75,6 +75,19 @@ export function toolSummaryPartsFromArgs(name: string, args: unknown): ToolSumma
       }
       return { mode: 'text', text: pat }
     }
+    case 'search_index': {
+      const raw =
+        typeof a.pattern === 'string' && a.pattern.trim()
+          ? a.pattern.trim()
+          : typeof a.query === 'string' && a.query.trim()
+            ? a.query.trim()
+            : ''
+      return raw.length ? { mode: 'text', text: truncateEnd(raw, MAX_PATTERN) } : null
+    }
+    case 'read_email': {
+      const raw = typeof a.id === 'string' ? a.id.trim() : ''
+      return raw.length ? { mode: 'text', text: truncateEnd(raw, MAX_PATTERN) } : null
+    }
     default:
       return null
   }
@@ -94,6 +107,25 @@ export function toolCallCollapsedSummaryParts(
     }
     if (preview.kind === 'file') {
       return { mode: 'single_path', path: preview.path }
+    }
+    if (preview.kind === 'email') {
+      const from = preview.from.trim()
+      return { mode: 'text', text: truncateEnd(from ? `${preview.subject} · ${from}` : preview.subject, MAX_PATTERN) }
+    }
+    if (preview.kind === 'email_draft') {
+      return { mode: 'text', text: truncateEnd(preview.subject, MAX_PATTERN) }
+    }
+    if (preview.kind === 'calendar') {
+      return { mode: 'text', text: `${preview.start} · ${preview.end}` }
+    }
+    if (preview.kind === 'message_thread') {
+      return { mode: 'text', text: truncateEnd(preview.displayChat, MAX_PATTERN) }
+    }
+    if (preview.kind === 'inbox_list') {
+      return { mode: 'text', text: `${preview.totalCount} item${preview.totalCount === 1 ? '' : 's'}` }
+    }
+    if (preview.kind === 'mail_search_hits' || preview.kind === 'find_person_hits') {
+      return { mode: 'text', text: truncateEnd(preview.queryLine, MAX_PATTERN) }
     }
   }
   return toolSummaryPartsFromArgs(tc.name, tc.args)

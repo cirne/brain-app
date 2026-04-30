@@ -159,6 +159,23 @@ describe('ContentPreviewCards.svelte', () => {
     })
   })
 
+  describe('email_draft preview', () => {
+    it('renders DraftPreviewCard and calls onOpenDraft', async () => {
+      const onOpenDraft = vi.fn()
+      const preview: ContentCardPreview = {
+        kind: 'email_draft',
+        draftId: 'draft-42',
+        subject: 'Meeting notes',
+        snippet: 'Short body preview…',
+      }
+
+      render(ContentPreviewCards, { props: { preview, onOpenDraft } })
+
+      await fireEvent.click(screen.getByRole('button', { name: /open email draft: meeting notes/i }))
+      expect(onOpenDraft).toHaveBeenCalledWith('draft-42', 'Meeting notes')
+    })
+  })
+
   describe('inbox_list preview', () => {
     it('renders InboxListPreviewCard and calls onOpenEmail', async () => {
       const onOpenEmail = vi.fn()

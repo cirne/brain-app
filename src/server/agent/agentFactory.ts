@@ -81,6 +81,7 @@ export function createOnboardingAgent(
   const tools = createAgentTools(wikiRoot, {
     ...toolOpts,
     timezone: toolTimezone,
+    wikiWriteCreates: variant === 'buildout' ? 'forbidden' : 'allowed',
   })
   const provider = (process.env.LLM_PROVIDER ?? 'openai') as KnownProvider
   const modelId = process.env.LLM_MODEL ?? 'gpt-5.4-mini'

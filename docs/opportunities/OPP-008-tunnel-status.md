@@ -2,7 +2,7 @@
 
 **Tags:** `desktop` (Mac-local tunnel sidecar) — **Short-term priority:** [cloud / hosted](../OPPORTUNITIES.md) (`staging` etc.) over remote-access-to-Mac features.
 
-**Related:** [OPP-008](./OPP-008-tunnel-qr-phone-access.md) (tunnel + QR product intent), [Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) (inter-brain endpoints and handle resolution build on stable remote URLs).
+**Related:** [OPP-008 stub](./OPP-008-tunnel-qr-phone-access.md) (full product spec: [archive](archive/OPP-008-tunnel-qr-phone-access.md)), [Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) (inter-brain endpoints and handle resolution build on stable remote URLs).
 
 ## Current State (POC)
 We have successfully implemented a secure, authenticated remote access path for the Brain app using Cloudflare Tunnels.

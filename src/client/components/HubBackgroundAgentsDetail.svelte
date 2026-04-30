@@ -11,6 +11,7 @@
     onOpenWiki: (_path: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
+    onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_chat: string, _label: string) => void
@@ -21,6 +22,7 @@
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
+    onOpenDraft,
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
@@ -138,6 +140,7 @@
               {onOpenWiki}
               {onOpenFile}
               {onOpenEmail}
+              {onOpenDraft}
               {onOpenFullInbox}
               {onSwitchToCalendar}
               {onOpenMessageThread}

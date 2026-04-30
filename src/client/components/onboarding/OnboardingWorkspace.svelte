@@ -280,6 +280,22 @@
     openEmailFromSearch(threadId, subject ?? '', from ?? '')
   }
 
+  function openEmailDraftFromChat(draftId: string, subject?: string) {
+    navigate({
+      hubActive: false,
+      ...obChatSession(),
+      overlay: { type: 'email-draft', id: draftId },
+    })
+    route = parseRoute()
+    agentContext = {
+      type: 'email-draft',
+      draftId,
+      subject: subject?.trim() || '(loading)',
+      toLine: '',
+      bodyPreview: '',
+    }
+  }
+
   function openFullInboxFromChat() {
     inboxTargetId = undefined
     navigate({ hubActive: false, ...obChatSession(), overlay: { type: 'email' } })
@@ -321,6 +337,17 @@
     if (o?.type === 'messages' && o.chat) {
       if (agentContext.type !== 'messages' || agentContext.chat !== o.chat) {
         agentContext = { type: 'messages', chat: o.chat, displayLabel: '(loading)' }
+      }
+    }
+    if (o?.type === 'email-draft' && o.id) {
+      if (agentContext.type !== 'email-draft' || agentContext.draftId !== o.id) {
+        agentContext = {
+          type: 'email-draft',
+          draftId: o.id,
+          subject: '(loading)',
+          toLine: '',
+          bodyPreview: '',
+        }
       }
     }
   })
@@ -454,10 +481,12 @@
           onOpenWiki={openWikiDoc}
           onOpenFile={openFileDoc}
           onOpenEmail={openEmailFromChat}
+          onOpenDraft={openEmailDraftFromChat}
           onOpenFullInbox={openFullInboxFromChat}
           onOpenMessageThread={openMessageThreadFromChat}
           onSwitchToCalendar={switchToCalendar}
           onOpenFromAgent={onOpenFromAgent}
+          onOpenDraftFromAgent={openEmailDraftFromChat}
           onNewChat={closeOverlay}
           onUserInitiatedNewChat={() => { agentChat?.newChat() }}
           onConversationFinishedByAgent={
@@ -489,6 +518,11 @@
                 onSummarizeInbox={onSummarizeInbox}
                 onCalendarResetToToday={resetCalendarToToday}
                 onCalendarNavigate={switchToCalendar}
+                toolOnOpenFile={openFileDoc}
+                toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+                toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
+                toolOnOpenFullInbox={openFullInboxFromChat}
+                toolOnOpenMessageThread={openMessageThreadFromChat}
                 onOpenWikiAbout={openHubWikiAbout}
                 onClose={closeOverlay}
                 mobilePanel
@@ -515,6 +549,11 @@
             onSummarizeInbox={onSummarizeInbox}
             onCalendarResetToToday={resetCalendarToToday}
             onCalendarNavigate={switchToCalendar}
+            toolOnOpenFile={openFileDoc}
+            toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+            toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
+            toolOnOpenFullInbox={openFullInboxFromChat}
+            toolOnOpenMessageThread={openMessageThreadFromChat}
             onOpenWikiAbout={openHubWikiAbout}
             onClose={closeOverlay}
             detailFullscreen={detailPaneFullscreen}

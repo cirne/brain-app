@@ -50,6 +50,12 @@ export type ContentCardPreview =
   | { kind: 'wiki'; path: string; excerpt: string }
   | { kind: 'file'; path: string; excerpt: string }
   | { kind: 'email'; id: string; subject: string; from: string; snippet: string }
+  | {
+      kind: 'email_draft'
+      draftId: string
+      subject: string
+      snippet: string
+    }
   | { kind: 'inbox_list'; items: InboxListItemPreview[]; totalCount: number }
   | { kind: 'wiki_edit_diff'; path: string; unified: string }
   | {

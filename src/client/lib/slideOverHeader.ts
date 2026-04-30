@@ -5,6 +5,8 @@ export function titleForOverlay(o: Overlay): string {
   if (o.type === 'wiki' || o.type === 'wiki-dir') return 'Docs'
   if (o.type === 'file') return 'File'
   if (o.type === 'email') return 'Inbox'
+  if (o.type === 'email-draft') return 'Draft'
+  if (o.type === 'mail-search') return 'Mail search'
   if (o.type === 'messages') return 'Messages'
   if (o.type === 'phone-access') return 'Connect Phone'
   if (o.type === 'your-wiki') return 'Your Wiki'
@@ -37,6 +39,19 @@ export function messagesTitleForSlideOver(
   if (surfaceContext.type !== 'messages') return null
   if (surfaceContext.chat !== overlay.chat) return null
   const s = surfaceContext.displayLabel?.trim()
+  if (!s || s === '(loading)') return null
+  return s
+}
+
+/** Email draft subject for SlideOver center title when context matches overlay draft id. */
+export function emailDraftTitleForSlideOver(
+  overlay: Overlay,
+  surfaceContext: SurfaceContext,
+): string | null {
+  if (overlay.type !== 'email-draft' || !overlay.id) return null
+  if (surfaceContext.type !== 'email-draft') return null
+  if (surfaceContext.draftId !== overlay.id) return null
+  const s = surfaceContext.subject?.trim()
   if (!s || s === '(loading)') return null
   return s
 }

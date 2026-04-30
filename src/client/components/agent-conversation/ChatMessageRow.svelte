@@ -1,5 +1,6 @@
 <script lang="ts">
   import { assistantHasVisibleTextPart, getToolUiPolicy, type ChatMessage } from '@client/lib/agentUtils.js'
+  import type { ContentCardPreview } from '@client/lib/cards/contentCards.js'
   import StreamingAgentMarkdown from './StreamingAgentMarkdown.svelte'
   import StreamingBusyDots from './StreamingBusyDots.svelte'
   import ToolCallBlock from './ToolCallBlock.svelte'
@@ -12,9 +13,11 @@
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
+    onOpenDraft,
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
+    onOpenMailSearchResults,
   }: {
     msg: ChatMessage
     streaming: boolean
@@ -24,9 +27,14 @@
     onOpenWiki?: (_path: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
+    onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
+    onOpenMailSearchResults?: (
+      _preview: Extract<ContentCardPreview, { kind: 'mail_search_hits' }>,
+      _sourceId: string,
+    ) => void
   } = $props()
 
   /** Shown from stream start until the first `text_delta` (reasoning + tool-only turns stay visible). */
@@ -49,9 +57,11 @@
           {onOpenWiki}
           {onOpenFile}
           {onOpenEmail}
+          {onOpenDraft}
           {onOpenFullInbox}
           {onSwitchToCalendar}
           {onOpenMessageThread}
+          {onOpenMailSearchResults}
         />
       {:else if part.type === 'text' && part.content}
         <StreamingAgentMarkdown class="msg-content" content={part.content} />

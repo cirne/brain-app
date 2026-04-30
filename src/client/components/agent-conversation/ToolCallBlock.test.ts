@@ -126,7 +126,7 @@ describe('ToolCallBlock.svelte', () => {
   })
 
   describe('completed state (done)', () => {
-    it('renders completed tool as collapsed details', () => {
+    it('renders completed tool as compact row by default', () => {
       const toolCall = makeToolCall({
         name: 'web_search',
         args: { query: 'test' },
@@ -135,9 +135,11 @@ describe('ToolCallBlock.svelte', () => {
       })
       const { container } = render(ToolCallBlock, { props: { toolCall } })
 
-      const details = container.querySelector('details.tool-call')
-      expect(details).toBeTruthy()
-      expect(details?.getAttribute('open')).toBeNull()
+      expect(container.querySelector('.tool-call')).toBeTruthy()
+      expect(container.querySelector('details.tool-call')).toBeNull()
+      expect(container.querySelector('.tool-content-preview-shell')).toBeNull()
+      expect(container.querySelector('.tool-args')).toBeNull()
+      expect(container.querySelector('.tool-result')).toBeNull()
     })
 
     it('renders tool name in summary', () => {
@@ -162,8 +164,7 @@ describe('ToolCallBlock.svelte', () => {
       render(ToolCallBlock, { props: { toolCall } })
 
       expect(screen.getByText('Read file')).toBeInTheDocument()
-      // Summary strip + WikiPreviewCard heading both title the same wiki page.
-      expect(screen.getAllByText('Myproject')).toHaveLength(2)
+      expect(screen.getByText('Myproject')).toBeInTheDocument()
     })
 
     it('renders move_file with from and to paths', () => {
@@ -201,7 +202,7 @@ describe('ToolCallBlock.svelte', () => {
         result: 'results',
         done: true,
       })
-      const { container } = render(ToolCallBlock, { props: { toolCall } })
+      const { container } = render(ToolCallBlock, { props: { toolCall, displayMode: 'detailed' } })
 
       const details = container.querySelector('details.tool-call')
       expect(details).toBeTruthy()
@@ -218,7 +219,7 @@ describe('ToolCallBlock.svelte', () => {
         result: 'Found 3 results',
         done: true,
       })
-      const { container } = render(ToolCallBlock, { props: { toolCall } })
+      const { container } = render(ToolCallBlock, { props: { toolCall, displayMode: 'detailed' } })
 
       const resultElement = container.querySelector('.tool-result')
       expect(resultElement?.textContent).toContain('Found 3 results')
@@ -234,16 +235,16 @@ describe('ToolCallBlock.svelte', () => {
         done: true,
         isError: true,
       })
-      const { container } = render(ToolCallBlock, { props: { toolCall } })
+      const { container } = render(ToolCallBlock, { props: { toolCall, displayMode: 'detailed' } })
 
-      const details = container.querySelector('details.tool-call.error')
-      expect(details).toBeTruthy()
+      const row = container.querySelector('.tool-call.error')
+      expect(row).toBeTruthy()
 
       const iconSpan = container.querySelector('.tool-icon')
       expect(iconSpan?.textContent?.trim()).toBe('!')
     })
 
-    it('applies error styling to result', () => {
+    it('applies error styling to result in detailed mode', () => {
       const toolCall = makeToolCall({
         name: 'read',
         args: { path: 'missing.md' },
@@ -251,7 +252,7 @@ describe('ToolCallBlock.svelte', () => {
         done: true,
         isError: true,
       })
-      const { container } = render(ToolCallBlock, { props: { toolCall } })
+      const { container } = render(ToolCallBlock, { props: { toolCall, displayMode: 'detailed' } })
 
       const result = container.querySelector('.tool-result.tool-error')
       expect(result).toBeTruthy()
@@ -313,7 +314,7 @@ describe('ToolCallBlock.svelte', () => {
   })
 
   describe('callback handlers', () => {
-    it('passes onOpenWiki to ContentPreviewCards for wiki preview', () => {
+    it('clicking compact wiki preview opens the wiki document', async () => {
       const onOpenWiki = vi.fn()
       const toolCall = makeToolCall({
         name: 'read',
@@ -323,11 +324,12 @@ describe('ToolCallBlock.svelte', () => {
       })
       const { container } = render(ToolCallBlock, { props: { toolCall, onOpenWiki } })
 
-      const previewShell = container.querySelector('.tool-content-preview-shell')
-      expect(previewShell).toBeTruthy()
+      expect(container.querySelector('.tool-content-preview-shell')).toBeNull()
+      await fireEvent.click(screen.getByRole('button', { name: /open read file/i }))
+      expect(onOpenWiki).toHaveBeenCalledWith('notes/test.md')
     })
 
-    it('passes onOpenEmail for email preview', () => {
+    it('clicking compact email preview opens the email thread', async () => {
       const onOpenEmail = vi.fn()
       const toolCall = makeToolCall({
         name: 'read_email',
@@ -341,11 +343,12 @@ describe('ToolCallBlock.svelte', () => {
       })
       const { container } = render(ToolCallBlock, { props: { toolCall, onOpenEmail } })
 
-      const previewShell = container.querySelector('.tool-content-preview-shell')
-      expect(previewShell).toBeTruthy()
+      expect(container.querySelector('.tool-content-preview-shell')).toBeNull()
+      await fireEvent.click(screen.getByRole('button', { name: /open read message/i }))
+      expect(onOpenEmail).toHaveBeenCalledWith('msg-123', 'Test Subject', 'sender@example.com')
     })
 
-    it('passes onSwitchToCalendar for calendar preview', () => {
+    it('clicking compact calendar preview opens calendar', async () => {
       const onSwitchToCalendar = vi.fn()
       const toolCall = makeToolCall({
         name: 'calendar',
@@ -359,8 +362,31 @@ describe('ToolCallBlock.svelte', () => {
         props: { toolCall, onSwitchToCalendar },
       })
 
-      const previewShell = container.querySelector('.tool-content-preview-shell')
-      expect(previewShell).toBeTruthy()
+      expect(container.querySelector('.tool-content-preview-shell')).toBeNull()
+      await fireEvent.click(screen.getByRole('button', { name: /open calendar/i }))
+      expect(onSwitchToCalendar).toHaveBeenCalledWith('2024-01-02', 'e1')
+    })
+
+    it('clicking compact mail search opens the search results drill-down', async () => {
+      const onOpenMailSearchResults = vi.fn()
+      const toolCall = makeToolCall({
+        id: 'tool-search-1',
+        name: 'search_index',
+        args: { pattern: 'invoice' },
+        result: JSON.stringify({
+          results: [{ messageId: 'msg-1', subject: 'Invoice', fromAddress: 'a@example.com' }],
+          totalMatched: 1,
+        }),
+        done: true,
+      })
+      render(ToolCallBlock, { props: { toolCall, onOpenMailSearchResults } })
+
+      await fireEvent.click(screen.getByRole('button', { name: /open search mail/i }))
+
+      expect(onOpenMailSearchResults).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'mail_search_hits' }),
+        'tool-search-1',
+      )
     })
   })
 
@@ -378,7 +404,7 @@ describe('ToolCallBlock.svelte', () => {
         },
         done: true,
       })
-      const { container } = render(ToolCallBlock, { props: { toolCall } })
+      const { container } = render(ToolCallBlock, { props: { toolCall, displayMode: 'detailed' } })
 
       expect(container.querySelector('.tool-result')).toBeNull()
     })
@@ -390,7 +416,7 @@ describe('ToolCallBlock.svelte', () => {
         result: 'File content here',
         done: true,
       })
-      const { container } = render(ToolCallBlock, { props: { toolCall } })
+      const { container } = render(ToolCallBlock, { props: { toolCall, displayMode: 'detailed' } })
 
       const result = container.querySelector('.tool-result.muted')
       expect(result).toBeTruthy()
@@ -419,7 +445,7 @@ describe('ToolCallBlock.svelte', () => {
       })
       const { container } = render(ToolCallBlock, { props: { toolCall } })
 
-      expect(container.querySelector('details.tool-call')).toBeTruthy()
+      expect(container.querySelector('.tool-call')).toBeTruthy()
       expect(container.querySelector('.tool-result')).toBeNull()
     })
 
@@ -432,7 +458,7 @@ describe('ToolCallBlock.svelte', () => {
       })
       const { container } = render(ToolCallBlock, { props: { toolCall } })
 
-      expect(container.querySelector('details.tool-call')).toBeTruthy()
+      expect(container.querySelector('.tool-call')).toBeTruthy()
     })
 
     it('renders list_inbox tool with inbox label', () => {
@@ -467,7 +493,7 @@ describe('ToolCallBlock.svelte', () => {
       })
       const { container } = render(ToolCallBlock, { props: { toolCall } })
 
-      expect(container.querySelector('details.tool-call')).toBeTruthy()
+      expect(container.querySelector('.tool-call')).toBeTruthy()
     })
 
     it('renders search_index tool with query', () => {
@@ -479,7 +505,7 @@ describe('ToolCallBlock.svelte', () => {
       })
       const { container } = render(ToolCallBlock, { props: { toolCall } })
 
-      expect(container.querySelector('details.tool-call')).toBeTruthy()
+      expect(container.querySelector('.tool-call')).toBeTruthy()
     })
 
     it('handles tool without result', () => {
@@ -546,6 +572,23 @@ describe('ToolCallBlock.svelte', () => {
       const { container } = render(ToolCallBlock, { props: { toolCall } })
 
       expect(container.querySelector('.tool-result')).toBeNull()
+    })
+
+    it('hides result for email_draft preview and Open calls onOpenDraft', async () => {
+      const onOpenDraft = vi.fn()
+      const toolCall = makeToolCall({
+        name: 'draft_email',
+        args: {},
+        details: { id: 'draft-x', subject: 'Hi there', body: 'Hello world text here' },
+        result: '{"id":"draft-x"}',
+        done: true,
+      })
+      const { container } = render(ToolCallBlock, { props: { toolCall, onOpenDraft } })
+
+      expect(container.querySelector('.tool-result')).toBeNull()
+
+      await fireEvent.click(screen.getByRole('button', { name: /open draft email/i }))
+      expect(onOpenDraft).toHaveBeenCalledWith('draft-x', 'Hi there')
     })
   })
 })

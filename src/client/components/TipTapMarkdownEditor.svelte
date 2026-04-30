@@ -106,6 +106,20 @@
     await persist(true)
   }
 
+  /** Cancel debounced autosave timer without persisting. */
+  export function cancelDebouncedSave() {
+    if (saveTimer) {
+      clearTimeout(saveTimer)
+      saveTimer = null
+    }
+  }
+
+  /** Current markdown including any preserved YAML front matter segment. */
+  export function serializeMarkdown(): string {
+    if (!editor) return ''
+    return fullMarkdownFromEditor(editor.getHTML())
+  }
+
   onMount(() => {
     if (!mountEl) return
 

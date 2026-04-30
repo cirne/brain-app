@@ -22,7 +22,7 @@ ensurePromptsRoot(fileURLToPath(new URL('../prompts', import.meta.url)))
 
 loadEvalEnvAndLlmCli(`Usage: npx tsx --tsconfig tsconfig.server.json src/server/evals/manualWikiFullBuildoutCli.ts [options]
 
-Runs one full wiki buildout pass (same user message as “Your Wiki” enrich). Seeds starter + Enron eval me.md / assistant.md into the vault.
+Runs one full wiki enrich pass (same user message as “Your Wiki” deepen lap). Seeds starter + Enron eval me.md / assistant.md + buildout eval stubs into the vault.
 
 Requires BRAIN_HOME with Enron ripmail index (npm run eval:build).
 

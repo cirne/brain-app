@@ -79,6 +79,15 @@ After initial build completes, the **steady loop** is **enriching → cleaning u
 
 So: **do not** rely only on “please review your work” inside the build-out prompt for **full** maintenance value. **Do** run a **dedicated lint pass** after build-out each lap (or every *k* laps if lint is expensive). Optionally allow a **short** self-review instruction at the end of build-out **only** for pages edited in that phase; still run **lint** as its own step.
 
+### Lint inputs and cadence (2026)
+
+Karpathy’s **lint** step aligns here with **batch maintenance on supervisor laps**, not with running a **second cleanup agent after every chat message**.
+
+- **Chat → durable log:** Successful wiki **`write` / `edit` / `move_file` / `delete_file`** from the main assistant append rows to **`$BRAIN_HOME/var/wiki-edits.jsonl`** ([`wikiEditHistory.ts`](../../src/server/lib/wiki/wikiEditHistory.ts)).
+- **Enrich** already consumes a **recent tail** of that file (injected context in [`buildExpansionContextPrefix`](../../src/server/agent/wikiExpansionRunner.ts)) so deepen/buildout laps prioritize pages the user recently touched.
+- **Cleanup** today anchors on **`changedFiles` produced by the enrich phase** of each lap (`runCleanupInvocation` after enrich in the supervisor loop). Chat-only edits are **visible in the vault and in the edit log**, but structural link/orphan hygiene for those paths waits until the **next** cleanup invocation unless enrich touches them—in line with narrower **chat-first authoring** prompts.
+- **Open engineering:** merge **recent `wiki-edits.jsonl` paths** (or a “since last cleanup” watermark) into the **`changedFiles`** input for **`runCleanupInvocation`**, optional union with enrich outputs, so the **same cleanup agent** covers chat-authored surfaces **without** the retired post-turn job ([archived OPP-062](./archive/OPP-062-post-turn-wiki-touch-up-agent.md)).
+
 The **user-facing** surface remains **one process** (**Your Wiki**); implementation is **sequenced specialists**, not one confused generalist.
 
 ## UX implications (what would need to change)

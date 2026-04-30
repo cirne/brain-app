@@ -33,16 +33,6 @@ export function stubFetchForAgentChat(
       match: (u: string) => u === '/api/skills',
       response: () => jsonResponse(skillsList),
     },
-    {
-      match: (u: string) => u.startsWith('/api/chat/wiki-touch-up/'),
-      response: () =>
-        jsonResponse({
-          status: 'idle',
-          detail: null,
-          anchorPaths: [],
-          editedPaths: [],
-        }),
-    },
     ...(opts.extra ?? []),
   ])
   vi.stubGlobal('fetch', mock)

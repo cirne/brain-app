@@ -9,6 +9,7 @@
   import MailSearchHitsPreviewCard from '../cards/MailSearchHitsPreviewCard.svelte'
   import FindPersonHitsPreviewCard from '../cards/FindPersonHitsPreviewCard.svelte'
   import FeedbackDraftPreviewCard from '../cards/FeedbackDraftPreviewCard.svelte'
+  import DraftPreviewCard from '../cards/DraftPreviewCard.svelte'
   import type { ContentCardPreview } from '@client/lib/cards/contentCards.js'
 
   let {
@@ -16,6 +17,7 @@
     onOpenWiki,
     onOpenFile,
     onOpenEmail,
+    onOpenDraft,
     onOpenFullInbox,
     onSwitchToCalendar,
     onOpenMessageThread,
@@ -24,6 +26,7 @@
     onOpenWiki?: (_path: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
+    onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
@@ -84,4 +87,11 @@
   <FindPersonHitsPreviewCard queryLine={preview.queryLine} people={preview.people} />
 {:else if preview.kind === 'feedback_draft'}
   <FeedbackDraftPreviewCard markdown={preview.markdown} />
+{:else if preview.kind === 'email_draft'}
+  <DraftPreviewCard
+    draftId={preview.draftId}
+    subject={preview.subject}
+    snippet={preview.snippet}
+    onOpen={() => onOpenDraft?.(preview.draftId, preview.subject)}
+  />
 {/if}

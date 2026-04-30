@@ -14,6 +14,7 @@
     wikiRefreshKey,
     calendarRefreshKey,
     inboxTargetId,
+    mailSearchResults,
     wikiStreamingWrite,
     wikiStreamingEdit,
     onWikiNavigate,
@@ -29,6 +30,7 @@
     onToggleFullscreen,
     toolOnOpenFile,
     toolOnOpenEmail,
+    toolOnOpenDraft,
     toolOnOpenFullInbox,
     toolOnOpenMessageThread,
     onOpenWikiAbout,
@@ -48,6 +50,7 @@
   {wikiRefreshKey}
   {calendarRefreshKey}
   {inboxTargetId}
+  mailSearchResults={mailSearchResults}
   wikiStreamingWrite={wikiStreamingWrite}
   wikiStreamingEdit={wikiStreamingEdit}
   {onWikiNavigate}
@@ -64,6 +67,7 @@
   onToggleFullscreen={onToggleFullscreen}
   {toolOnOpenFile}
   {toolOnOpenEmail}
+  {toolOnOpenDraft}
   {toolOnOpenFullInbox}
   {toolOnOpenMessageThread}
   {onOpenWikiAbout}

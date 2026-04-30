@@ -1,5 +1,6 @@
 import type { Snippet } from 'svelte'
 import type { ChatMessage } from './agentUtils.js'
+import type { ContentCardPreview } from './cards/contentCards.js'
 
 /**
  * Scroll API exposed by conversation UIs bound to AgentChat (`bind:this`).
@@ -22,9 +23,14 @@ export type AgentConversationViewProps = {
   onOpenWiki?: (_path: string) => void
   onOpenFile?: (_path: string) => void
   onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
+  onOpenDraft?: (_draftId: string, _subject?: string) => void
   onOpenFullInbox?: () => void
   onSwitchToCalendar?: (_date: string, _eventId?: string) => void
   onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
+  onOpenMailSearchResults?: (
+    _preview: Extract<ContentCardPreview, { kind: 'mail_search_hits' }>,
+    _sourceId: string,
+  ) => void
   /** Empty-state “your wiki” link → wiki vault landing (same as Wiki in the top bar). */
   onOpenWikiAbout?: () => void
   /** Only used by the default chat transcript (empty state override). */

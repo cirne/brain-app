@@ -1,7 +1,7 @@
 # OPP-067: Wiki buildout agent — deepen only, no new page creation
 
-**Status:** Planned — implements [OPP-066](./OPP-066-chat-first-wiki-organic-growth-experiment.md) Milestone A.  
-**Related:** [OPP-066](./OPP-066-chat-first-wiki-organic-growth-experiment.md) (chat-first wiki strategy), [OPP-062](./OPP-062-post-turn-wiki-touch-up-agent.md) (post-turn cleanup), [OPP-065](./OPP-065-wiki-eval-llm-as-judge.md) (eval harness)
+**Status:** Planned — implements Milestone A of [OPP-066 (archived epic)](archive/OPP-066-chat-first-wiki-organic-growth-experiment.md).  
+**Related:** [archived OPP-062](./archive/OPP-062-post-turn-wiki-touch-up-agent.md) (retired post-chat cleanup), [OPP-065](./OPP-065-wiki-eval-llm-as-judge.md)
 
 ---
 

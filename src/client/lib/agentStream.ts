@@ -62,8 +62,8 @@ export type ConsumeAgentChatStreamOptions = {
   msgIdx: number
   /**
    * When true, skip agent-driven **opening** of the right detail panel: wiki from `write`/`edit`,
-   * and navigation from `open` / `read_email`. Transcript still updates; `onWriteStreaming` /
-   * `onEditStreaming` still run when the session is active (they do not open the panel by themselves).
+   * navigation from `open` / `read_email`, and opening the draft overlay from **`draft_email`** on `tool_end`.
+   * Transcript still updates; `onWriteStreaming` / `onEditStreaming` still run when the session is active.
    */
   suppressAgentDetailAutoOpen: boolean
   /**
@@ -83,6 +83,8 @@ export type ConsumeAgentChatStreamOptions = {
     _target: { type: string; path?: string; id?: string; date?: string },
     _source: AgentOpenSource,
   ) => void
+  /** Desktop split only: open draft overlay when **`draft_email`** completes (`tool_end`). Respects {@link suppressAgentDetailAutoOpen}. */
+  onOpenDraftFromAgent?: (_draftId: string, _subject?: string) => void
   setSessionId: (_id: string | null) => void
   setChatTitle: (_t: string | null) => void
   /** Call when mutating nested message state that needs a list identity refresh (matches prior `messages = [...messages]`). */
@@ -112,6 +114,7 @@ export async function consumeAgentChatStream(
     onWriteStreaming,
     onEditStreaming,
     onOpenFromAgent,
+    onOpenDraftFromAgent,
     setSessionId,
     setChatTitle,
     touchMessages,
@@ -357,6 +360,27 @@ export async function consumeAgentChatStream(
             }
             if (name === 'refresh_sources' && !data.isError) {
               emit({ type: 'hub:sources-changed' })
+            }
+            if (
+              (name === 'draft_email' || name === 'edit_draft') &&
+              !data.isError &&
+              data.details &&
+              typeof data.details === 'object'
+            ) {
+              const draftId = String((data.details as { id?: unknown }).id ?? '').trim()
+              if (draftId) {
+                emit({ type: 'email-draft:refresh', draftId })
+                if (
+                  name === 'draft_email' &&
+                  allowAgentDetailOpen() &&
+                  onOpenDraftFromAgent
+                ) {
+                  const sub = (data.details as { subject?: unknown }).subject
+                  const subject =
+                    typeof sub === 'string' && sub.trim() ? sub.trim() : undefined
+                  onOpenDraftFromAgent(draftId, subject)
+                }
+              }
             }
             if (name === 'finish_conversation' && !data.isError) {
               onFinishConversation?.()

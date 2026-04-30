@@ -214,6 +214,67 @@ describe('GET /api/inbox/draft/:draftId', () => {
   })
 })
 
+// ---- PATCH /api/inbox/draft/:draftId ----------------------------------------
+
+describe('PATCH /api/inbox/draft/:draftId', () => {
+  it('runs draft rewrite with body-file and optional headers', async () => {
+    const updated = { id: 'draft-1', subject: 'Hi', body: 'Line1\n\nLine2', to: ['a@example.com'] }
+    mockSuccess(JSON.stringify(updated))
+    const res = await app.request('/api/inbox/draft/draft-1', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        body: 'Line1\n\nLine2',
+        subject: 'Hi',
+        to: ['a@example.com'],
+      }),
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ id: 'draft-1', body: 'Line1\n\nLine2' })
+    const argv = spawnMock.mock.calls[0][1] as string[]
+    expect(argv[0]).toBe('draft')
+    expect(argv[1]).toBe('rewrite')
+    expect(argv[2]).toBe('draft-1')
+    expect(argv).toContain('--body-file')
+    expect(argv).toContain('--with-body')
+    expect(argv).toContain('--json')
+    expect(argv).toContain('--subject')
+    expect(argv).toContain('Hi')
+    expect(argv).toContain('--to')
+    expect(argv).toContain('a@example.com')
+  })
+
+  it('returns 400 when body is not a string', async () => {
+    const res = await app.request('/api/inbox/draft/draft-1', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject: 'x' }),
+    })
+    expect(res.status).toBe(400)
+    expect(spawnMock).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when to is malformed', async () => {
+    const res = await app.request('/api/inbox/draft/draft-1', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'x', to: [1, 2] }),
+    })
+    expect(res.status).toBe(400)
+    expect(spawnMock).not.toHaveBeenCalled()
+  })
+
+  it('returns 500 when rewrite fails', async () => {
+    mockFailure()
+    const res = await app.request('/api/inbox/draft/draft-1', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'only body' }),
+    })
+    expect(res.status).toBe(500)
+  })
+})
+
 // ---- POST /api/inbox/draft/:draftId/edit ------------------------------------
 
 describe('POST /api/inbox/draft/:draftId/edit', () => {

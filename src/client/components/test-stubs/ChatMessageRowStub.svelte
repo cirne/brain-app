@@ -14,6 +14,7 @@
     onOpenWiki?: (_path: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
+    onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void

@@ -1,7 +1,8 @@
 # The wiki question
 
-**Status:** Open product question — not a decision document  
-**Related:** [VISION.md](./VISION.md), [karpathy-llm-wiki-post.md](./karpathy-llm-wiki-post.md), [architecture/wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [product/personal-wiki.md](./product/personal-wiki.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md) (eval gap: wiki + agent quality), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
+**Status:** Open product question — not a decision document. **Product direction (2026-04-30):** Core **chat-first / organic growth** mechanics shipped in `main` ([OPP-066 stub](./opportunities/OPP-066-chat-first-wiki-organic-growth-experiment.md), [archived spec](./opportunities/archive/OPP-066-chat-first-wiki-organic-growth-experiment.md)): narrow chat capture + `## Chat capture`, `wiki-edits.jsonl`, WikiBuilder inspect-and-deepen tooling, identity-focused onboarding. Empirical closure on “is the wiki worth it?” still depends on **usage-scale evals** and **background deepen** queue work ([OPP-067](./opportunities/OPP-067-wiki-buildout-agent-no-new-pages.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md)).
+
+**Related:** [VISION.md](./VISION.md), [karpathy-llm-wiki-post.md](./karpathy-llm-wiki-post.md), [architecture/wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [product/personal-wiki.md](./product/personal-wiki.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md) (eval gap: wiki + agent quality), [OPP-066](./opportunities/OPP-066-chat-first-wiki-organic-growth-experiment.md), [OPP-062](./opportunities/archive/OPP-062-post-turn-wiki-touch-up-agent.md) (retired), [OPP-033](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 
 ---
 
@@ -120,22 +121,24 @@ Until these are defined, “the maintenance agent will fix it” is a **hope**, 
 
 ---
 
-## Product state and a possible next experiment
+## Product state and what we are still measuring
 
-**Current state (early dev):**
+**Current state (after OPP-066 core ship, 2026-04-30):**
 
-- Vision and architecture **commit to** wiki + ripmail + assistant tools.
-- **Local/dev wikis are often tiny**, which **under-samples** the compounding and lint value Karpathy describes.
-- **Automatic marriage** of ripmail → wiki (bootstrap, ongoing sync) is **directionally** in [VISION.md](./VISION.md) medium/long term but not fully realized.
+- Vision and architecture still **commit to** wiki + ripmail + assistant tools.
+- **Chat** is tuned for **narrow capture** while answering (question-scoped writes, provenance stub for downstream deepen) — not for finishing full person/project hubs in one turn; **WikiBuilder** is intended to **deepen** pages already touched (with `read` / `grep` / `find` before writing) using signals like the tail of **`wiki-edits.jsonl`**.
+- **Onboarding** is **identity-first** (~2–3 min); “important people” and other buildout-oriented phases are **removed** so entities enter the wiki through **real questions** rather than a long interview.
+- **Maintenance stack:** **Your Wiki** supervisor **enrich → cleanup** on each lap ([OPP-033](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md)); chat-authored paths are logged in **`wiki-edits.jsonl`** — **planned:** fold recent log paths into **`runCleanupInvocation`** anchors (replacement for retired post-turn touch-up, [archived OPP-062](./opportunities/archive/OPP-062-post-turn-wiki-touch-up-agent.md)).
+- **Local/dev wikis can stay small**, which still **under-samples** network and lint effects — the open question is whether **organic growth from chat** reaches **felt compounding** fast enough vs batch buildout.
 
-**A concrete experiment (proposal, not a plan):**
+**Still the empirical experiment (not closed):**
 
-1. Build or seed a **real personal-scale wiki** (order of **hundreds** of pages / meaningful link graph — not 10–20 toy pages), grounded in the same ripmail corpus used for evals.
-2. Run the **same task battery** with: (a) ripmail tools only, (b) wiki + ripmail, (c) wiki minimized or stripped.
-3. Measure **answer quality** (human or LLM-judge), **latency**, **token use**, and **user trust** (if user-facing).
+1. At **personal scale** (tens→hundreds of pages, meaningful link graph), does **wiki + ripmail** beat **ripmail-only** on repeat entity questions — **quality**, **latency**, **tokens** — with the new capture/deepen split?
+2. Run comparable **task batteries** with: (a) ripmail tools only, (b) wiki + ripmail, (c) wiki minimized or stripped; use anchored historical evals where needed (`EVAL_ASSISTANT_NOW` / `resolveEvalAnchoredNow` per OPP-066).
+3. Add **wiki quality** scoring beyond regression harnesses — [OPP-065](./opportunities/OPP-065-wiki-eval-llm-as-judge.md) — and wire **WikiBuilder** eligibility to **logged paths** without speculative whole-inbox page farms — [OPP-067](./opportunities/OPP-067-wiki-buildout-agent-no-new-pages.md).
 4. Optionally track **contradiction rate** between wiki answers and thread evidence for the same queries.
 
-That directly tests whether the hoped-for benefit is **real at scale** or **illusory at small scale**, and informs how much to invest in **wiki UX** vs **ripmail quality** vs **automatic maintenance**.
+That still tests whether the hoped-for benefit is **real at scale** or **illusory at small scale**, and how much to invest in **wiki UX** vs **ripmail quality** vs **automatic maintenance** under the shipped ingest model.
 
 ---
 
@@ -153,7 +156,7 @@ That directly tests whether the hoped-for benefit is **real at scale** or **illu
 ## References
 
 - Karpathy, **LLM Wiki**: [karpathy-llm-wiki-post.md](./karpathy-llm-wiki-post.md) (full text); [original gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)  
-- Internal: [VISION.md](./VISION.md), [wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
+- Internal: [VISION.md](./VISION.md), [wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md), [OPP-066](./opportunities/OPP-066-chat-first-wiki-organic-growth-experiment.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 - Roadmap umbrella: [OPP-033: Wiki compounding + Karpathy alignment](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md); concrete defect: [BUG-011](./bugs/BUG-011-wiki-expansion-missing-me-md-context.md)
 
 ---

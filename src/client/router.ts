@@ -4,6 +4,10 @@ export type Overlay =
   /** Indexed / readable file path (absolute); raw file viewer. */
   | { type: 'file'; path?: string }
   | { type: 'email'; id?: string }
+  /** Ripmail draft id (local `drafts/*.md`); editable in overlay before send. */
+  | { type: 'email-draft'; id?: string }
+  /** Tool-derived mail search hits kept in shell state under `id`; `query` is for URL/title fallback. */
+  | { type: 'mail-search'; id?: string; query?: string }
   | { type: 'calendar'; date?: string; eventId?: string }
   /** `chat` is canonical chat_identifier (E.164, email, …) for /api/messages/thread */
   | { type: 'messages'; chat?: string }
@@ -45,8 +49,18 @@ export type SurfaceContext =
   | { type: 'file'; path: string; title: string }
   | { type: 'calendar'; date: string; eventId?: string }
   | { type: 'inbox' }
+  | { type: 'mail-search'; query: string }
   | { type: 'messages'; chat: string; displayLabel: string }
   | { type: 'wiki-dir'; path: string; title: string }
+  | {
+      type: 'email-draft'
+      draftId: string
+      subject: string
+      /** Short To line for agent context */
+      toLine?: string
+      /** First lines of body for agent context */
+      bodyPreview?: string
+    }
   | { type: 'none' }
 
 /** Serialize a SurfaceContext to a human-readable string for the agent. */
@@ -76,8 +90,19 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
   if (ctx.type === 'inbox') {
     return 'The user asked for a summary of the triaged inbox items in their message. Use the ripmail tool (e.g. read <id> --json, or search with --json) with the message ids provided as needed, then answer concisely.'
   }
+  if (ctx.type === 'mail-search') {
+    return `The user is viewing mail search results for: ${ctx.query}`
+  }
   if (ctx.type === 'messages') {
     return `The user is viewing a local SMS/text thread (${ctx.displayLabel}). The canonical chat_identifier is ${ctx.chat}. Use get_message_thread with that identifier if you need more messages.`
+  }
+  if (ctx.type === 'email-draft') {
+    let s = `The user is editing email draft id ${ctx.draftId}${ctx.subject.trim() ? `: "${ctx.subject}"` : ''}.`
+    if (ctx.toLine?.trim()) s += `\nTo: ${ctx.toLine.trim()}`
+    if (ctx.bodyPreview?.trim()) s += `\n\nDraft body (preview):\n${ctx.bodyPreview.trim()}`
+    s +=
+      '\nUse edit_draft or draft_email tools to change this draft; the overlay saves literal Markdown via the app.'
+    return s
   }
   return undefined
 }
@@ -190,6 +215,13 @@ function overlayToSearchParams(overlay: Overlay): URLSearchParams {
     case 'email':
       if (overlay.id) q.set('m', overlay.id)
       break
+    case 'email-draft':
+      if (overlay.id) q.set('draft', overlay.id)
+      break
+    case 'mail-search':
+      if (overlay.id) q.set('s', overlay.id)
+      if (overlay.query) q.set('q', overlay.query)
+      break
     case 'calendar':
       if (overlay.date) q.set('date', overlay.date)
       if (overlay.eventId) q.set('event', overlay.eventId)
@@ -225,6 +257,15 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
     case 'email': {
       const id = sp.get('m') ?? sp.get('id') ?? undefined
       return id ? { type: 'email', id } : { type: 'email' }
+    }
+    case 'email-draft': {
+      const draft = sp.get('draft')?.trim() || undefined
+      return draft ? { type: 'email-draft', id: draft } : { type: 'email-draft' }
+    }
+    case 'mail-search': {
+      const id = sp.get('s')?.trim() || undefined
+      const query = sp.get('q')?.trim() || undefined
+      return id || query ? { type: 'mail-search', ...(id ? { id } : {}), ...(query ? { query } : {}) } : { type: 'mail-search' }
     }
     case 'calendar': {
       const date = sp.get('date') ?? undefined

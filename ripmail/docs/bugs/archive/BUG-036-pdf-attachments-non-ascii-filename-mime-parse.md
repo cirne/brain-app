@@ -1,3 +1,9 @@
+# Archived: BUG-036 — PDF attachments + non-ASCII `filename=` (reference)
+
+**Archived 2026-04-30 for index hygiene.** **Status: Fixed (2026-04-03).** See **Resolution** below; regression tests in `attachments_extract`, `sync_parse_maildir`.
+
+---
+
 # BUG-036: PDF Attachments Not Surfaced When Filename Has Non-ASCII Characters — Agent-Reported
 
 **Status:** Fixed (verified 2026-04-03). **Created:** 2026-04-03. **Tags:** attachments, pdf, mime, utf-8, sync, agent-first

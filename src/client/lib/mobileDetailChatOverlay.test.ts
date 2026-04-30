@@ -15,6 +15,12 @@ describe('overlaySupportsMobileChatBridge', () => {
     expect(overlaySupportsMobileChatBridge({ type: 'email', id: '' })).toBe(false)
   })
 
+  it('returns true for email-draft only when draft id is set', () => {
+    expect(overlaySupportsMobileChatBridge({ type: 'email-draft', id: 'd1' })).toBe(true)
+    expect(overlaySupportsMobileChatBridge({ type: 'email-draft' })).toBe(false)
+    expect(overlaySupportsMobileChatBridge({ type: 'email-draft', id: '' })).toBe(false)
+  })
+
   it('returns false for non-doc overlays', () => {
     expect(overlaySupportsMobileChatBridge({ type: 'calendar', date: '2026-01-01' })).toBe(false)
     expect(overlaySupportsMobileChatBridge({ type: 'messages', chat: 'x' })).toBe(false)

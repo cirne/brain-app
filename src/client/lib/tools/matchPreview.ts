@@ -217,6 +217,26 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
     }
   }
 
+  function draftPreviewFromDetails(details: unknown): ContentCardPreview | null {
+    if (!details || typeof details !== 'object') return null
+    const d = details as Record<string, unknown>
+    const id = typeof d.id === 'string' ? d.id.trim() : ''
+    if (!id) return null
+    const subject =
+      typeof d.subject === 'string' && d.subject.trim()
+        ? d.subject.trim()
+        : '(Draft)'
+    const body = typeof d.body === 'string' ? d.body : ''
+    const flat = body.replace(/\s+/g, ' ').trim()
+    const snippet = flat.slice(0, 220) + (flat.length > 220 ? '…' : '')
+    return { kind: 'email_draft', draftId: id, subject, snippet }
+  }
+
+  if (name === 'draft_email' || name === 'edit_draft') {
+    const preview = draftPreviewFromDetails(tool.details)
+    if (preview) return preview
+  }
+
   if (tool.result == null) return null
 
   if ((name === 'calendar' || name === 'get_calendar_events') && typeof args.start === 'string' && typeof args.end === 'string') {

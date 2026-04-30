@@ -1,4 +1,7 @@
 import { parseRoute, type Route, type SurfaceContext } from '@client/router.js'
+import type { ContentCardPreview } from './cards/contentCards.js'
+
+export type MailSearchResultsState = Extract<ContentCardPreview, { kind: 'mail_search_hits' }>
 
 /**
  * Route URL bar + sync + overlays + layout measurements for the Assistant shell.
@@ -12,6 +15,7 @@ export type AssistantShellState = {
   wikiRefreshKey: number
   showSearch: boolean
   inboxTargetId: string | undefined
+  mailSearchResults: Record<string, MailSearchResultsState>
   wikiWriteStreaming: { path: string; body: string } | null
   wikiEditStreaming: { path: string; toolId: string } | null
   chatIsEmpty: boolean
@@ -36,6 +40,7 @@ export type AssistantShellState = {
 export function alignShellWithBareChatRoute(shell: AssistantShellState): void {
   shell.agentContext = { type: 'chat' }
   shell.inboxTargetId = undefined
+  shell.mailSearchResults = {}
   shell.wikiWriteStreaming = null
   shell.wikiEditStreaming = null
 }
@@ -49,6 +54,7 @@ export function createAssistantShellState(): AssistantShellState {
     wikiRefreshKey: 0,
     showSearch: false,
     inboxTargetId: undefined,
+    mailSearchResults: {},
     wikiWriteStreaming: null,
     wikiEditStreaming: null,
     chatIsEmpty: true,

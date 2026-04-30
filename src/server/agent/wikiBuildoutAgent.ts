@@ -17,19 +17,19 @@ export function buildWikiBuildoutFirstRunScopeNote(): string {
   return [
     'The vault follows the **starter layout** (already on disk after seeding):',
     '- **Root:** `index.md` (nav hub), `me.md` (short profile / assistant context), `assistant.md` if present. Wiki tool mutations append to structured **`wiki-edits.jsonl`** under **`$BRAIN_HOME/var/`** (server-side — not a markdown file you edit).',
-    '- **Typed folders** — each includes a **`template.md`** describing the intended shape of pages in that folder. Read it before writing a new page; use it as a starting scaffold, not a rigid format.',
-    '- **Folder landing pages** — several areas ship a lightweight `index.md`. Keep those and vault-root `index.md` in sync with **`[[wikilinks]]`** when you add pages.',
-    '- **Scope:** People go in `people/`, initiatives in `projects/`, durable themes in `topics/`, scratch and dated material in `notes/`, trips in `travel/`. Prefer **`edit`** on an existing file over a second file for the same entity; new filenames use **kebab-case**.',
-    '- **New top-level areas** only when you repeatedly need a new class of page — then add a `template.md` + landing page consistent with the starter folders.',
+    '- **Typed folders** — each includes a **`template.md`** describing the intended shape of pages in that folder. Read **`template.md`** before **`edit`**ing pages in that folder; use it as a scaffold, not a rigid format.',
+    '- **Folder landing pages** — several areas ship a lightweight `index.md`. Keep those and vault-root `index.md` in sync with **`[[wikilinks]]`** when you deepen pages elsewhere.',
+    '- **Scope:** People live under `people/`, initiatives under `projects/`, themes under `topics/`, scratch under `notes/`, trips under `travel/`. You **only `edit`** existing files — **chat** creates new entity pages.',
+    '- Do **not** add new top-level vault areas or mint new markdown paths; refresh and deepen what already exists.',
   ].join('\n')
 }
 
 /** Injected on **subsequent** buildout runs — no starter-template hand-holding. */
 export function buildWikiBuildoutReturningScopeNote(): string {
   return [
-    'This is a **later** enrichment pass. Each run’s user message includes **injected context**: your profile, assistant charter, and a **vault manifest** listing existing pages — **treat that as the map** of what is already on disk. Prefer **`edit`** when the same entity already has a path there.',
-    '- **`write`** only for **new** entities with clear evidence from mail/messages/web. Match section style and filename conventions implied by paths in the manifest.',
-    '- Keep **`index.md`** and folder landing pages useful with **`[[wikilinks]]`** as you add or fix pages.',
+    'This is a **later** enrichment pass. Each run’s user message includes **injected context**: profile, assistant charter, **vault manifest**, **recent wiki edits** (from `wiki-edits.jsonl`), and **thin-page candidates** — **start from that queue**, then the manifest.',
+    '- **`edit` only** for markdown pages. Do **not** **`write`** new entity files; match section style and filenames already on disk.',
+    '- Keep **`index.md`** and folder landing pages useful with **`[[wikilinks]]`** when your **`edit`**s change the tree meaningfully.',
   ].join('\n')
 }
 
@@ -50,9 +50,6 @@ export function buildWikiBuildoutSystemPrompt(
 ): string {
   const isFirstBuildoutRun = options.isFirstBuildoutRun !== false
   const dateCtx = buildDateContext(timezone)
-  const mailAndMaybeMessages = options.localMessagesAvailable
-    ? '**indexed mail** (`search_index`, `read_email`, `find_person`) and, when available on this Mac, **local SMS/iMessage** (`list_recent_messages`, `get_message_thread`)'
-    : '**indexed mail** (`search_index`, `read_email`, `find_person`)'
   const peoplePhoneNote =
     '- For each **people/*.md** page, add a short **Contact** or **Identifiers** subsection when you have evidence: **primary email** and **phone** (from mail signatures, headers, or quoted text). Use **find_person** and **read_email** as needed. **Never** invent phone numbers.'
   const messagesWorkflow = options.localMessagesAvailable
@@ -66,17 +63,15 @@ export function buildWikiBuildoutSystemPrompt(
     : 'mail tools + your task context'
   const userPageNote = userPeoplePage
     ? [
-        `- A **skeletal long-form page for the account holder** already exists at \`${userPeoplePage.relativePath}\` (wikilink \`[[people/${userPeoplePage.slug}]]\`). **Keep it compact**: link to \`[[me]]\` for short assistant context; add 3–8 bullet facts max from mail + web — this is NOT the place for a long biography.`,
-        `- Build out **other** people, projects, and topic pages as usual; link the account holder to \`[[me]]\` and to \`[[people/${userPeoplePage.slug}]]\` where appropriate.`,
+        `- A **skeletal long-form page for the account holder** already exists at \`${userPeoplePage.relativePath}\` (wikilink \`[[people/${userPeoplePage.slug}]]\`). **Keep it compact**: link to \`[[me]]\` for short assistant context; add 3–8 bullet facts max from mail + web via **\`edit\`** only — this is NOT the place for a long biography.`,
+        `- Deepen **other** queued people, projects, and topic pages with **\`edit\`** when they appear in the injected list; link the account holder to \`[[me]]\` and \`[[people/${userPeoplePage.slug}]]\` where appropriate.`,
       ].join('\n')
-    : `- If you infer a \`people/[slug].md\` for the account holder from mail, you may create it; otherwise focus on other people and topics.`
+    : `- If no account-holder \`people/*.md\` is in the manifest yet, **do not create one** — chat onboarding or the assistant will add it. Focus **\`edit\`** on paths in the injected queue.`
 
   const firstRunScopeNote = buildWikiBuildoutFirstRunScopeNote()
   const returningRunScopeNote = buildWikiBuildoutReturningScopeNote()
 
   return renderPromptTemplate('wiki-buildout/system.hbs', {
-    mailAndMaybeMessages: new Handlebars.SafeString(mailAndMaybeMessages),
-    localMessagesAvailable: options.localMessagesAvailable ?? false,
     isFirstBuildoutRun,
     firstRunScopeNote: new Handlebars.SafeString(firstRunScopeNote),
     returningRunScopeNote: new Handlebars.SafeString(returningRunScopeNote),

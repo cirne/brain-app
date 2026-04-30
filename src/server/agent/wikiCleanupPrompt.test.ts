@@ -23,20 +23,6 @@ describe('buildCleanupUserMessage', () => {
     expect(m).toContain('Files changed in the preceding writer session')
     expect(m).toContain('- people/foo.md')
     expect(m).toContain('- topics/bar.md')
-    expect(m).not.toContain('focused post-chat polish')
-  })
-
-  it('uses tighter post-chat touch-up wording without orphan-sweep breadth', () => {
-    const m = buildCleanupUserMessage({
-      contextPrefix: '',
-      changedFiles: ['topics/a.md'],
-      trigger: 'post_chat_turn',
-    })
-    expect(m).toContain('focused post-chat polish')
-    expect(m).toContain('- topics/a.md')
-    expect(m).not.toContain('Files changed in the preceding writer session')
-    expect(m).toMatch(/Do not.*enumerate every orphan/i)
-    expect(m).not.toMatch(/Vault size/i)
   })
 
   it('uses vault-wide wording for full_vault trigger', () => {

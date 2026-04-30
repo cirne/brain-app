@@ -1,14 +1,43 @@
+import { writeFile, unlink } from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { Hono } from 'hono'
 import { extractDraftEdits } from '@server/lib/llm/draftExtract.js'
 import { buildDraftEditFlags } from '../agent/tools.js'
 import { syncInboxRipmail } from '@server/lib/platform/syncAll.js'
 import { flattenInboxFromRipmailData } from '@shared/ripmailInboxFlatten.js'
-import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
+import { execRipmailAsync, execRipmailArgv, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import { getOnboardingMailStatus } from '@server/lib/onboarding/onboardingMailStatus.js'
 
 const inbox = new Hono()
+
+function normalizeRecipients(label: string, v: unknown): string | undefined {
+  if (v === undefined || v === null) return undefined
+  if (typeof v === 'string') {
+    const t = v.trim()
+    return t.length ? t : undefined
+  }
+  if (Array.isArray(v)) {
+    const parts: string[] = []
+    for (const x of v) {
+      if (typeof x !== 'string') throw new Error(`${label} must be an array of strings`)
+      const t = x.trim()
+      if (t) parts.push(t)
+    }
+    return parts.length ? parts.join(',') : undefined
+  }
+  throw new Error(`${label} must be a string or string array`)
+}
+
+function optionalSubject(v: unknown): string | undefined {
+  if (v === undefined || v === null) return undefined
+  if (typeof v !== 'string') throw new Error('subject must be a string')
+  const t = v.trim()
+  return t.length ? t : undefined
+}
 
 // GET /api/inbox — list inbox messages (via ripmail inbox)
 inbox.get('/', async (c) => {
@@ -64,6 +93,53 @@ inbox.get('/draft/:draftId', async (c) => {
     return c.json(JSON.parse(stdout))
   } catch (err) {
     return c.json({ error: String(err) }, 500)
+  }
+})
+
+// PATCH /api/inbox/draft/:draftId — literal body + headers via ripmail draft rewrite (no LLM)
+inbox.patch('/draft/:draftId', async (c) => {
+  const draftId = c.req.param('draftId')
+  let parsed: unknown
+  try {
+    parsed = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid json' }, 400)
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return c.json({ error: 'expected JSON object' }, 400)
+  }
+  const rec = parsed as Record<string, unknown>
+  if (typeof rec.body !== 'string') {
+    return c.json({ error: 'body must be a string' }, 400)
+  }
+  let subjectFlags: string | undefined
+  let toCsv: string | undefined
+  let ccCsv: string | undefined
+  let bccCsv: string | undefined
+  try {
+    subjectFlags = optionalSubject(rec.subject)
+    toCsv = normalizeRecipients('to', rec.to)
+    ccCsv = normalizeRecipients('cc', rec.cc)
+    bccCsv = normalizeRecipients('bcc', rec.bcc)
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 400)
+  }
+
+  const tmpPath = join(tmpdir(), `brain-draft-${randomBytes(16).toString('hex')}.md`)
+  try {
+    await writeFile(tmpPath, rec.body, 'utf8')
+    const argv = ['draft', 'rewrite', draftId, '--body-file', tmpPath, '--with-body', '--json']
+    if (subjectFlags !== undefined) argv.push('--subject', subjectFlags)
+    if (toCsv !== undefined) argv.push('--to', toCsv)
+    if (ccCsv !== undefined) argv.push('--cc', ccCsv)
+    if (bccCsv !== undefined) argv.push('--bcc', bccCsv)
+    const { stdout } = await execRipmailArgv(argv, { timeout: 30_000 })
+    const trimmed = stdout.trim()
+    return c.json(JSON.parse(trimmed))
+  } catch (err) {
+    return c.json({ error: String(err) }, 500)
+  } finally {
+    await unlink(tmpPath).catch(() => {})
   }
 })
 

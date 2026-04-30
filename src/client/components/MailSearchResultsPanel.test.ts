@@ -1,0 +1,56 @@
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen, fireEvent } from '@client/test/render.js'
+import MailSearchResultsPanel from './MailSearchResultsPanel.svelte'
+
+describe('MailSearchResultsPanel.svelte', () => {
+  it('renders all search hits and opens the selected email', async () => {
+    const onOpenEmail = vi.fn()
+    render(MailSearchResultsPanel, {
+      props: {
+        queryLine: 'Search mail: invoice',
+        totalMatched: 3,
+        items: [
+          { id: 'msg-1', subject: 'First invoice', from: 'a@example.com', snippet: 'First body' },
+          { id: 'msg-2', subject: 'Second invoice', from: 'b@example.com', snippet: 'Second body' },
+          { id: 'msg-3', subject: 'Third invoice', from: 'c@example.com', snippet: 'Third body' },
+        ],
+        onOpenEmail,
+      },
+    })
+
+    expect(screen.getByText('Search mail: invoice')).toBeInTheDocument()
+    expect(screen.getByText('3 results')).toBeInTheDocument()
+    expect(screen.getByText('First invoice')).toBeInTheDocument()
+    expect(screen.getByText('Second invoice')).toBeInTheDocument()
+    expect(screen.getByText('Third invoice')).toBeInTheDocument()
+    expect(screen.queryByText(/\+.*more/)).not.toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: /open email second invoice/i }))
+
+    expect(onOpenEmail).toHaveBeenCalledWith('msg-2', 'Second invoice', 'b@example.com')
+  })
+
+  it('renders empty state for no hits', () => {
+    render(MailSearchResultsPanel, {
+      props: {
+        queryLine: 'Search mail: no hits',
+        items: [],
+      },
+    })
+
+    expect(screen.getByText('Search mail: no hits')).toBeInTheDocument()
+    expect(screen.getByText('No matching messages.')).toBeInTheDocument()
+  })
+
+  it('renders unavailable state when tool-derived results are not in memory', () => {
+    render(MailSearchResultsPanel, {
+      props: {
+        queryLine: 'Search mail: invoice',
+        items: null,
+      },
+    })
+
+    expect(screen.getByText('Search mail: invoice')).toBeInTheDocument()
+    expect(screen.getByText(/Search results are no longer available/i)).toBeInTheDocument()
+  })
+})

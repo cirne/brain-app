@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Overlay, SurfaceContext } from '../router.js'
 import {
+  emailDraftTitleForSlideOver,
   emailThreadTitleForSlideOver,
   messagesTitleForSlideOver,
   titleForOverlay,
@@ -12,6 +13,8 @@ describe('titleForOverlay', () => {
     { overlay: { type: 'wiki-dir' }, expected: 'Docs' },
     { overlay: { type: 'file' }, expected: 'File' },
     { overlay: { type: 'email' }, expected: 'Inbox' },
+    { overlay: { type: 'email-draft' }, expected: 'Draft' },
+    { overlay: { type: 'mail-search' }, expected: 'Mail search' },
     { overlay: { type: 'messages' }, expected: 'Messages' },
     { overlay: { type: 'phone-access' }, expected: 'Connect Phone' },
     { overlay: { type: 'your-wiki' }, expected: 'Your Wiki' },
@@ -102,5 +105,46 @@ describe('messagesTitleForSlideOver', () => {
   it('returns trimmed label when aligned', () => {
     const surface: SurfaceContext = { type: 'messages', chat: '+15551212', displayLabel: '  Jane  ' }
     expect(messagesTitleForSlideOver(overlay, surface)).toBe('Jane')
+  })
+})
+
+describe('emailDraftTitleForSlideOver', () => {
+  const overlay: Overlay = { type: 'email-draft', id: 'd1' }
+  const chat: SurfaceContext = { type: 'chat' }
+
+  it('returns null when overlay is not email-draft', () => {
+    expect(
+      emailDraftTitleForSlideOver({ type: 'wiki' }, {
+        type: 'email-draft',
+        draftId: 'd1',
+        subject: 'S',
+      }),
+    ).toBeNull()
+  })
+
+  it('returns null when draft overlay has no id', () => {
+    expect(emailDraftTitleForSlideOver({ type: 'email-draft' }, chat)).toBeNull()
+  })
+
+  it('returns null when surface is not email-draft', () => {
+    expect(emailDraftTitleForSlideOver(overlay, chat)).toBeNull()
+  })
+
+  it('returns null when draft id does not match', () => {
+    const surface: SurfaceContext = {
+      type: 'email-draft',
+      draftId: 'other',
+      subject: 'Hi',
+    }
+    expect(emailDraftTitleForSlideOver(overlay, surface)).toBeNull()
+  })
+
+  it('returns trimmed subject when aligned', () => {
+    const surface: SurfaceContext = {
+      type: 'email-draft',
+      draftId: 'd1',
+      subject: '  Reply — OK  ',
+    }
+    expect(emailDraftTitleForSlideOver(overlay, surface)).toBe('Reply — OK')
   })
 })

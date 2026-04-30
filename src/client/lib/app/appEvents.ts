@@ -41,6 +41,12 @@ export type NavRecentsChangedEvent = {
   type: 'nav:recents-changed'
 }
 
+/** Agent completed draft_email / edit_draft — EmailDraftEditor reloads when showing this id. */
+export type EmailDraftRefreshEvent = {
+  type: 'email-draft:refresh'
+  draftId: string
+}
+
 export type AppEvent =
   | WikiMutatedEvent
   | SyncCompletedEvent
@@ -49,6 +55,7 @@ export type AppEvent =
   | HubSourcesChangedEvent
   | HubDevicesChangedEvent
   | NavRecentsChangedEvent
+  | EmailDraftRefreshEvent
 
 const listeners = new Set<(event: AppEvent) => void>()
 

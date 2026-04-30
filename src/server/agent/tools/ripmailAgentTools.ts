@@ -34,6 +34,50 @@ import {
 
 const execAsync = promisify(exec)
 
+/**
+ * Assistant-visible tool text: short metadata + hint not to paste the body in chat (draft is in the panel / preview).
+ * {@link details} stays the full ripmail JSON for UI cards and streaming.
+ */
+const DRAFT_TOOL_MODEL_REPLY_HINT =
+  'The user already sees this draft in the editor or preview card. Do not paste or reproduce the full email body in your reply unless they explicitly ask for the text; acknowledge briefly or suggest next steps.'
+
+function ripmailDraftStdoutToToolContent(stdout: string): {
+  contentText: string
+  details: Record<string, unknown>
+} {
+  const trimmed = stdout.trim()
+  let details: Record<string, unknown>
+  try {
+    details = JSON.parse(trimmed) as Record<string, unknown>
+  } catch {
+    return {
+      contentText: trimmed ? `${trimmed}\n\n${DRAFT_TOOL_MODEL_REPLY_HINT}` : DRAFT_TOOL_MODEL_REPLY_HINT,
+      details: trimmed ? { parseError: true, raw: trimmed } : {},
+    }
+  }
+  const lines: string[] = ['Draft is saved in the app.']
+  const id = typeof details.id === 'string' ? details.id.trim() : ''
+  const subject = typeof details.subject === 'string' ? details.subject.trim() : ''
+  if (id) lines.push(`Draft id: ${id}`)
+  if (subject) lines.push(`Subject: ${subject}`)
+  const appendRecipients = (label: string, v: unknown) => {
+    if (Array.isArray(v) && v.length > 0) {
+      const parts = v
+        .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+        .map((x) => x.trim())
+      if (parts.length) lines.push(`${label}: ${parts.join(', ')}`)
+    } else if (typeof v === 'string' && v.trim()) {
+      lines.push(`${label}: ${v.trim()}`)
+    }
+  }
+  appendRecipients('To', details.to)
+  appendRecipients('Cc', details.cc)
+  appendRecipients('Bcc', details.bcc)
+  lines.push('')
+  lines.push(DRAFT_TOOL_MODEL_REPLY_HINT)
+  return { contentText: lines.join('\n'), details }
+}
+
 export function createRipmailAgentTools(wikiDir: string) {
   /**
    * Kick `ripmail refresh` without blocking the agent turn. Refresh can run for a long time
@@ -565,7 +609,7 @@ export function createRipmailAgentTools(wikiDir: string) {
   const draftEmail = defineTool({
     name: 'draft_email',
     description:
-      'Create an email draft. action=new composes a fresh email (requires to); action=reply drafts a reply to an existing message (requires message_id); action=forward forwards an existing message (requires message_id and to). When the workspace has more than one Gmail account, optional `from` picks which mailbox sends — accepts an email address or ripmail source id; omit `from` to use the workspace default send mailbox set in the Hub. Returns the draft (id, to, subject, body) for review before sending.',
+      'Create an email draft. action=new composes a fresh email (requires to); action=reply drafts a reply to an existing message (requires message_id); action=forward forwards an existing message (requires message_id and to). When the workspace has more than one Gmail account, optional `from` picks which mailbox sends — accepts an email address or ripmail source id; omit `from` to use the workspace default send mailbox set in the Hub. Returns draft id, recipients, and subject for the tool message; **the full body appears in the draft editor/preview only** — do not repeat the body in your next chat turn unless the user asks for it.',
     label: 'Draft Email',
     parameters: Type.Object({
       action: Type.Union([Type.Literal('new'), Type.Literal('reply'), Type.Literal('forward')], { description: '"new" | "reply" | "forward"' }),
@@ -599,16 +643,18 @@ export function createRipmailAgentTools(wikiDir: string) {
         cmd = `${rm} draft forward --message-id ${JSON.stringify(params.message_id)} --to ${JSON.stringify(params.to)} --instruction ${JSON.stringify(params.instruction)} --with-body --json${sourceFlag}`
       }
       const { stdout } = await execRipmailAsync(cmd, { timeout: 30000 })
+      const { contentText, details } = ripmailDraftStdoutToToolContent(stdout)
       return {
-        content: [{ type: 'text' as const, text: stdout }],
-        details: JSON.parse(stdout),
+        content: [{ type: 'text' as const, text: contentText }],
+        details,
       }
     },
   })
 
   const editDraft = defineTool({
     name: 'edit_draft',
-    description: 'Refine an existing draft. Can modify body (via instruction), subject, and recipients (to/cc/bcc). Use add_cc/remove_cc etc. to adjust recipients without replacing them entirely. Returns the updated draft.',
+    description:
+      'Refine an existing draft. Can modify body (via instruction), subject, and recipients (to/cc/bcc). Use add_cc/remove_cc etc. to adjust recipients without replacing them entirely. Returns updated draft metadata in the tool message; **full body stays in the draft editor/preview** — do not paste the body into chat unless the user asks.',
     label: 'Edit Draft',
     parameters: Type.Object({
       draft_id: Type.String({ description: 'Draft ID to edit' }),
@@ -641,9 +687,10 @@ export function createRipmailAgentTools(wikiDir: string) {
         `${rm} draft view ${JSON.stringify(params.draft_id)} --with-body --json`,
         { timeout: 15000 },
       )
+      const { contentText, details } = ripmailDraftStdoutToToolContent(stdout)
       return {
-        content: [{ type: 'text' as const, text: stdout }],
-        details: JSON.parse(stdout),
+        content: [{ type: 'text' as const, text: contentText }],
+        details,
       }
     },
   })

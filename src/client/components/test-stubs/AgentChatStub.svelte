@@ -12,10 +12,12 @@
     onOpenWiki: _onOpenWiki = () => {},
     onOpenFile: _onOpenFile = () => {},
     onOpenEmail: _onOpenEmail = () => {},
+    onOpenDraft: _onOpenDraft = () => {},
     onOpenFullInbox: _onOpenFullInbox = () => {},
     onOpenMessageThread: _onOpenMessageThread = () => {},
     onSwitchToCalendar: _onSwitchToCalendar = () => {},
     onOpenFromAgent: _onOpenFromAgent = () => {},
+    onOpenDraftFromAgent: _onOpenDraftFromAgent = () => {},
     onNewChat: _onNewChat = () => {},
     onOpenWikiAbout: _onOpenWikiAbout = () => {},
     onAfterDeleteChat: _onAfterDeleteChat = () => {},
@@ -35,10 +37,12 @@
     onOpenWiki?: (_path?: string) => void
     onOpenFile?: (_path: string) => void
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
+    onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
     onOpenMessageThread?: (_chat: string, _label: string) => void
     onSwitchToCalendar?: (_date: string, _eventId?: string) => void
     onOpenFromAgent?: (_target: unknown, _source: unknown) => void
+    onOpenDraftFromAgent?: (_draftId: string, _subject?: string) => void
     onNewChat?: () => void
     onOpenWikiAbout?: () => void
     onAfterDeleteChat?: () => void

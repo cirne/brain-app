@@ -10,8 +10,11 @@ export function overlaySupportsMobileChatBridge(overlay: Overlay | undefined): b
     case 'wiki':
     case 'file':
     case 'wiki-dir':
+    case 'mail-search':
       return true
     case 'email':
+      return typeof overlay.id === 'string' && overlay.id.length > 0
+    case 'email-draft':
       return typeof overlay.id === 'string' && overlay.id.length > 0
     default:
       return false
