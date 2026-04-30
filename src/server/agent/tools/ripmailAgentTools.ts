@@ -836,7 +836,7 @@ export function createRipmailAgentTools(wikiDir: string) {
       const ripmail = ripmailBin()
       const q = params.query.trim()
       if (q.length === 0) {
-        let stdout = ''
+        let stdout: string
         try {
           const { stdout: out } = await execRipmailAsync(`${ripmail} who --limit 60`, { timeout: 15000 })
           stdout = out.trim()

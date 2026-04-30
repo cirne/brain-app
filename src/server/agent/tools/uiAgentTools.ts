@@ -292,7 +292,7 @@ Returns the saved text; treat it as active for this session too.`,
         lines.push(bullet)
       } else {
         // Find the end of the Preferences section or the specific sub-section
-        let insertAt = -1
+        let insertAt: number
         if (sectionHeader) {
           const sectionIndex = lines.findIndex((l, i) => i > prefIndex && l.trim() === sectionHeader)
           if (sectionIndex !== -1) {

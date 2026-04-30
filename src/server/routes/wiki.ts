@@ -24,7 +24,7 @@ wiki.get('/', async (c) => {
 // POST /api/wiki — create a new .md (optional body markdown; default empty stub)
 wiki.post('/', async (c) => {
   const dir = resolve(wikiDir())
-  let body: { path?: unknown; markdown?: unknown } = {}
+  let body: { path?: unknown; markdown?: unknown }
   try {
     body = await c.req.json()
   } catch {

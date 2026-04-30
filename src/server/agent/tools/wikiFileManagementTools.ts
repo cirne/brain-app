@@ -39,7 +39,9 @@ export function createWikiFileManagementTools(wikiDir: string) {
         await stat(fromAbs)
       } catch (e: unknown) {
         const code = typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : ''
-        if (code === 'ENOENT') throw new Error(`Source does not exist: ${params.from}`)
+        if (code === 'ENOENT') {
+          throw new Error(`Source does not exist: ${params.from}`, { cause: e })
+        }
         throw e
       }
       try {

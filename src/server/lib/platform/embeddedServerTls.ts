@@ -4,7 +4,7 @@
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import selfsigned from 'selfsigned'
+import { generate as generateSelfSignedPem } from 'selfsigned'
 import { brainHome } from './brainHome.js'
 
 const KEY_NAME = 'embedded-server-tls.key.pem'
@@ -31,12 +31,16 @@ export async function ensureEmbeddedServerTls(): Promise<{ key: string; cert: st
     const [key, cert] = await Promise.all([readFile(keyPath, 'utf-8'), readFile(certPath, 'utf-8')])
     return { key, cert }
   } catch {
-    // selfsigned: replace `extensions` entirely, so include defaults + our SANs (node-forge types).
-    const pems = selfsigned.generate(
+    const notBeforeDate = new Date()
+    const notAfterDate = new Date(notBeforeDate)
+    notAfterDate.setFullYear(notAfterDate.getFullYear() + 10)
+    // selfsigned v5: replace `extensions` entirely, so include defaults + our SANs.
+    const pems = await generateSelfSignedPem(
       [{ name: 'commonName', value: 'Braintunnel Local' }],
       {
         keySize: 2048,
-        days: 3650,
+        notBeforeDate,
+        notAfterDate,
         algorithm: 'sha256',
         extensions: [
           { name: 'basicConstraints', cA: true },
@@ -56,7 +60,7 @@ export async function ensureEmbeddedServerTls(): Promise<{ key: string; cert: st
             ],
           },
         ],
-      }
+      },
     )
     const key = pems.private
     const cert = pems.cert

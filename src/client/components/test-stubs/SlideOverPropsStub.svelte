@@ -1,5 +1,4 @@
 <script lang="ts">
-  /* eslint-disable svelte/valid-compile -- test double: accept full SlideOver prop bag */
   /** Records SlideOver shell props for AssistantSlideOver tests (no wiki/inbox UI). */
   let props = $props()
 

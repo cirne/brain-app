@@ -87,7 +87,7 @@ export async function truncateWikiEditHistoryFile(): Promise<void> {
 
 export async function readRecentWikiEdits(limit: number): Promise<{ path: string; date: string }[]> {
   const file = wikiEditHistoryPath()
-  let raw = ''
+  let raw: string
   try {
     raw = await readFile(file, 'utf8')
   } catch {
