@@ -76,5 +76,5 @@ Write the full brief in markdown with this structure:
 
 - **research** — deeper multi-page investigation and evidence hubs; also wiki-first, wider scope.
 - **morning_report** — full-day; may mention a hard meeting, not a substitute for this depth.
-- **inbox_triage** — only if the user shifts to mail clearing.
+- **email** — only if the user shifts to inbox clearing or filter tuning.
 - **calendar** — to fix schedule when prep surfaces a conflict.

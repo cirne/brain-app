@@ -51,7 +51,6 @@ describe('listBundledSkills', () => {
       expect(slugs).toContain('briefing')
       expect(slugs).toContain('files')
       expect(slugs).toContain('email')
-      expect(slugs).toContain('inbox_triage')
       expect(slugs).toContain('morning_report')
       expect(slugs).toContain('trip_sheet')
       expect(slugs).toContain('wiki')

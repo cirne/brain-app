@@ -469,11 +469,19 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'list_inbox',
     label: 'List Inbox',
     description:
-      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_index for "everything in my inbox" or when search_index returns no results. JSON includes messageId per item for archive_emails / read_email.',
-    parameters: Type.Object({}),
-    async execute(_toolCallId: string, _params: Record<string, never>) {
+      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_index for "everything in my inbox" or when search_index returns no results. JSON includes messageId per item for archive_emails / read_email. Set `thorough: true` when diagnosing why mail is missing from the normal inbox scan: ripmail `--thorough` includes hidden/suppressed categories and messages that matched an ignore/suppress-style rule, often with winningRuleId for which filter hid them.',
+    parameters: Type.Object({
+      thorough: Type.Optional(
+        Type.Boolean({
+          description:
+            'Ripmail inbox `--thorough`: include suppressed/hidden candidates and fuller decision metadata so the agent can tie a missing message to its matched filter.',
+        }),
+      ),
+    }),
+    async execute(_toolCallId: string, params: { thorough?: boolean }) {
       const rm = ripmailBin()
-      const { stdout } = await execRipmailAsync(`${rm} inbox`, { timeout: 30000 })
+      const flag = params.thorough ? ' --thorough' : ''
+      const { stdout } = await execRipmailAsync(`${rm} inbox${flag}`, { timeout: 30000 })
       const details = JSON.parse(stdout) as Record<string, unknown>
       return {
         content: [{ type: 'text' as const, text: stdout }],

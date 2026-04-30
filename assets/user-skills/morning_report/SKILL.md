@@ -22,7 +22,7 @@ A **fast, scannable** daily snapshot in chat—not a research paper. **Density o
 
 1. **Scope** — Local "today" (timezone from context). Optional one-line user focus.
 2. **Calendar** — Today; add tomorrow only if it blocks today (hard deadline, travel). **Fixed times + one phrase each**; flag back-to-backs in one line.
-3. **Inbox** — **At most 4 bullets**: urgent, awaiting reply, money/legal if any, and one "pattern" line if helpful. **Not** full **inbox_triage** unless the user asked.
+3. **Inbox** — **At most 4 bullets**: urgent, awaiting reply, money/legal if any, and one "pattern" line if helpful. **Not** deep **email** triage unless the user asked.
 4. **Wiki** — **At most 3 bullets**: stale or missing pages that matter **today**, or links to people/projects on the calendar.
 5. **Top of mind** — **3–5 bullets** tying mail + calendar + wiki (risks, must-verify).
 6. **Today's order** — **now / before lunch / before EOD** with **1–2 items per bucket** (drop the bucket if empty).
@@ -40,5 +40,5 @@ Use **short headings** and **single-line bullets** where possible. **Bold** time
 ## Related
 
 - **briefing** — one meeting or event, deep prep.
-- **inbox_triage** — if the user pivots to rules and batch clearing.
+- **email** — if the user pivots to inbox filtering, bulk clearing, or detailed mail handling.
 - **calendar** — schedule fixes.

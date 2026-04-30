@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { join } from 'node:path'
-import { mkdtemp, writeFile, mkdir, rm, chmod } from 'node:fs/promises'
+import { mkdtemp, writeFile, mkdir, rm, chmod, readFile, unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipmail.js'
 import { upsertImessageBatch } from '@server/lib/messages/messagesDb.js'
@@ -774,7 +774,10 @@ exit 1
       await writeFile(
         ripmailScript,
         `#!/bin/sh
-if [ "$1" = "inbox" ]; then
+echo "$*" >> "$(dirname "$0")/list-inbox-args.log"
+if [ "$1" = "inbox" ] && [ "$2" = "--thorough" ]; then
+  echo '{"mailboxes":[{"id":"mb1","items":[{"messageId":"mid-hidden","subject":"Filtered","winningRuleId":"noisy-list"}]}]}'
+elif [ "$1" = "inbox" ] && [ -z "$2" ]; then
   echo '{"mailboxes":[{"id":"mb1","items":[{"messageId":"mid-1","subject":"Hello","action":"inform"}]}]}'
 else
   exit 1
@@ -785,8 +788,13 @@ fi
       process.env.RIPMAIL_BIN = ripmailScript
     })
 
-    afterEach(() => {
+    afterEach(async () => {
       delete process.env.RIPMAIL_BIN
+      try {
+        await unlink(join(wikiDir, 'list-inbox-args.log'))
+      } catch {
+        /* ignore */
+      }
     })
 
     it('runs ripmail inbox and returns JSON in content and details', async () => {
@@ -797,6 +805,20 @@ fi
       expect(toolResultFirstText(result)).toContain('mid-1')
       expect((result.details as { mailboxes?: { items?: { messageId: string }[] }[] }).mailboxes?.[0]?.items?.[0]?.messageId).toBe(
         'mid-1'
+      )
+    })
+
+    it('runs ripmail inbox --thorough when thorough is true', async () => {
+      const logPath = join(wikiDir, 'list-inbox-args.log')
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const tool = tools.find((t) => t.name === 'list_inbox')!
+      const result = await tool.execute('li-2', { thorough: true })
+      expect(toolResultFirstText(result)).toContain('mid-hidden')
+      const log = await readFile(logPath, 'utf8')
+      expect(log.trim()).toContain('inbox --thorough')
+      expect((result.details as { mailboxes?: { items?: { winningRuleId?: string }[] }[] }).mailboxes?.[0]?.items?.[0]?.winningRuleId).toBe(
+        'noisy-list',
       )
     })
   })

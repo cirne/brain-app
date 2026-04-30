@@ -64,5 +64,5 @@ Call out, when knowable or inferable from tools:
 
 - **research** — Durable, multi-page wiki output; use when the user wants a **written asset**, not just chat prep.
 - **morning-report** — whole-day scan; can **mention** a hard meeting but does not replace this depth.
-- **inbox_triage** — only if the user derails into clearing mail instead of meeting prep.
+- **email** — only if the user derails into clearing mail instead of meeting prep.
 - **calendar** — for creating or moving events when prep surfaces a scheduling fix.
