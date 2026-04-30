@@ -1,6 +1,6 @@
 # Architecture — detailed docs
 
-Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Product lineages: [VISION.md](../VISION.md), [Karpathy LLM Wiki (full text)](../karpathy-llm-wiki-post.md).
+Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Product lineages: [VISION.md](../VISION.md), **[STRATEGY.md](../STRATEGY.md)** (positioning/moats), [Karpathy LLM Wiki (full text)](../karpathy-llm-wiki-post.md).
 
 | Document | Topic |
 |----------|--------|
@@ -23,11 +23,15 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 | [local-mlx-llm.md](./local-mlx-llm.md) | **Apple Silicon:** run Qwen (etc.) via `mlx-lm` OpenAI-compatible server; `LLM_PROVIDER=mlx-local`, `MLX_LOCAL_*` env |
 | [integrations.md](./integrations.md) | Ripmail subprocess, `/api/search`, `/api/files`, optional iMessage; **trust boundaries** (ripmail vs `chat.db`) |
 | [configuration.md](./configuration.md) | Environment variables |
-| [future-durability.md](./future-durability.md) | Future SQLite for app-owned state (chat, preferences); ripmail-style local DB pattern at Node layer — **not** implemented |
+| [chat-history-sqlite.md](./chat-history-sqlite.md) | Chat history → SQLite: current JSON-file limits, target schema, why now |
+|| [preferences-store.md](./preferences-store.md) | Preferences consolidation: scattered JSON files + localStorage → SQLite table + typed client module |
+|| [tailwind-migration.md](./tailwind-migration.md) | Completing Tailwind: already in build; 68 components still use BEM `<style>` blocks |
+|| [calendar-write-path.md](./calendar-write-path.md) | Calendar writes: subprocess limitations; direct Google Calendar API as alternative for mutations |
+|| [agent-session-store.md](./agent-session-store.md) | Agent session Map: in-memory design, vault session race, horizontal-scale limits |
 | [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md) | ADR: wiki file tools vs `read_email` |
 | [wiki-vs-managed-memory-honcho.md](./wiki-vs-managed-memory-honcho.md) | Recorded consideration: wiki-first memory vs Honcho (or similar); **not for now** |
 | [external-data-sources.md](./external-data-sources.md) | Unified corpus: local FTS query layer, `sources[]` kinds (mail, localDir, cloud files, SaaS docs), sync vs query split, contentless file indexing, MCP as optional sync aid — **Google Drive:** [OPP-045](../opportunities/OPP-045-google-drive.md) |
-| [brain-cloud-service.md](./brain-cloud-service.md) | Pre-opportunity notes: what a Brain-operated cloud service would contain (registry, support infra, tunnel relay) and the hard constraint that no user data ever leaves the local brain. **Brain-to-brain strategy:** [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) |
+| [brain-cloud-service.md](./brain-cloud-service.md) | Pre-opportunity notes: what a Brain-operated cloud service would contain (registry, support infra, tunnel relay) and the hard constraint that no user data ever leaves the local brain. **Brain-to-brain strategy:** [STRATEGY.md](../STRATEGY.md); product spec → [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) |
 
 **Ripmail** (Rust CLI + index): [`../../ripmail/docs/ARCHITECTURE.md`](../../ripmail/docs/ARCHITECTURE.md).
 

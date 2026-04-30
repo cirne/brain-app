@@ -32,7 +32,7 @@ The session list is implemented by **reading `*.json` from the chats directory**
 
 There is **no server-side search**, **pagination**, or **offset** in the API. The full history UI filters **in the browser** over whatever array the client requested (e.g. up to 500 for the “all chats” view). Sessions **older than the returned window** when a limit is applied are not visible to that client until the API and storage model grow beyond directory scan + JSON files.
 
-A future move to **per-user / app-owned SQLite** at the Node layer (same durability idea as ripmail’s mail index, but for brain-app data such as chat history and preferences) is recorded in [future-durability.md](./future-durability.md). **This is not a near-term commitment**; the file-based design is intentional and fine for current scale.
+A move to **per-user / app-owned SQLite** at the Node layer (same pattern as ripmail’s mail index, but for brain-app data: chat history, preferences, nav recents) is detailed in [chat-history-sqlite.md](./chat-history-sqlite.md). The file-based design is acceptable at current scale; the schema is stable enough to migrate cleanly whenever prioritized.
 
 ## SSE wire format (`POST /api/chat`)
 

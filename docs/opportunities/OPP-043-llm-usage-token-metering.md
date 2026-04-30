@@ -11,7 +11,7 @@ Give users **visibility into model consumption**: token counts (input, cached in
 1. **Opaque spend:** Agent chat can trigger **multiple provider API calls per user message** (tool rounds). Users and operators cannot see what drove usage or cost.
 2. **Silent background usage:** **Wiki expansion** and **cleanup / lint** runs use the same LLM stack as chat ([`wikiExpansionRunner.ts`](../../src/server/agent/wikiExpansionRunner.ts) — `runEnrichInvocation`, `runCleanupInvocation`) and the **Your Wiki supervisor** loops those passes ([`yourWikiSupervisor.ts`](../../src/server/agent/yourWikiSupervisor.ts), [OPP-033](OPP-033-wiki-compounding-karpathy-alignment.md)). Activity is visible in Brain Hub as **`BackgroundRunDoc`** JSON under `background/runs/` ([`backgroundAgentStore.ts`](../../src/server/lib/backgroundAgentStore.ts)), but **token totals are not**—so users can underestimate spend when the wiki runs unattended.
 3. **Hosted economics:** Multi-tenant deployments need **per-tenant rollups** for fairness, limits, and support without coupling to mail index storage.
-4. **No shared app DB today:** Chat is **JSON session files** under `chats/` ([`chatStorage.ts`](../../src/server/lib/chatStorage.ts), [`chatTypes.ts`](../../src/server/lib/chatTypes.ts)). Usage should follow that pattern until a consolidated store exists ([`future-durability.md`](../architecture/future-durability.md)).
+4. **No shared app DB today:** Chat is **JSON session files** under `chats/` ([`chatStorage.ts`](../../src/server/lib/chatStorage.ts), [`chatTypes.ts`](../../src/server/lib/chatTypes.ts)). Usage should follow that pattern until the SQLite migration is done ([`chat-history-sqlite.md`](../architecture/chat-history-sqlite.md)).
 
 ## Goals
 
