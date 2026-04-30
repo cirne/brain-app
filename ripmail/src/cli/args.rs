@@ -156,6 +156,9 @@ pub(crate) enum Commands {
         /// Skip installing the embedded `/ripmail` agent skill after successful setup (default: install).
         #[arg(long)]
         no_skill: bool,
+        /// With `--google-oauth`, include Google Drive read-only scope (for Drive indexing).
+        #[arg(long, requires = "google_oauth")]
+        drive: bool,
         #[command(flatten)]
         identity: IdentityArgs,
     },
@@ -418,6 +421,7 @@ pub(crate) enum SkillCmd {
 
 /// `ripmail sources` — CRUD for `config.json` `sources[]`.
 #[derive(Subcommand)]
+#[allow(clippy::large_enum_variant)] // clap aggregates many optional flags on Add
 pub(crate) enum SourcesCmd {
     /// List all sources
     List {
@@ -429,9 +433,28 @@ pub(crate) enum SourcesCmd {
         /// `imap` | `applemail` | `localDir` (camelCase)
         #[arg(long)]
         kind: String,
-        /// Required for `localDir`: root directory to index
+        /// `icsFile` / optional legacy single-dir: one filesystem path
         #[arg(long)]
         path: Option<String>,
+        /// Indexed folder: absolute path (`localDir`) or Drive folder id (`googleDrive`). Repeat for multiple.
+        #[arg(long = "root-id")]
+        root_id: Vec<String>,
+        /// Optional display name per `--root-id` (same order; default: directory / folder name)
+        #[arg(long = "root-name")]
+        root_name: Vec<String>,
+        /// Set when added roots should not crawl subfolders (all roots in this invocation).
+        #[arg(long = "no-root-recursive")]
+        no_root_recursive: bool,
+        /// Gitignore-style globs relative to root / file name (repeatable)
+        #[arg(long = "include-glob")]
+        include_glob: Vec<String>,
+        #[arg(long = "ignore-glob")]
+        ignore_glob: Vec<String>,
+        #[arg(long = "max-file-bytes")]
+        max_file_bytes: Option<u64>,
+        /// `localDir` only (default true)
+        #[arg(long)]
+        respect_gitignore: Option<bool>,
         /// Optional display label (used to derive id when omitted)
         #[arg(long)]
         label: Option<String>,
@@ -459,6 +482,9 @@ pub(crate) enum SourcesCmd {
         /// `icsSubscription`: HTTPS URL to fetch.
         #[arg(long)]
         url: Option<String>,
+        /// `googleDrive`: include Shared-with-me corpus (same OAuth)
+        #[arg(long)]
+        include_shared_with_me: bool,
         #[arg(long)]
         json: bool,
     },
@@ -476,10 +502,22 @@ pub(crate) enum SourcesCmd {
         /// Calendar IDs to show by default (repeat for multiple; subset of --calendar).
         #[arg(long = "default-calendar")]
         default_calendar: Vec<String>,
+        /// Replace entire `fileSource` JSON (localDir / googleDrive)
+        #[arg(long = "file-source-json")]
+        file_source_json: Option<String>,
         #[arg(long)]
         json: bool,
     },
-    /// Remove a source by id
+    /// List child folders (local path or Drive folder id) for the Hub folder picker
+    #[command(name = "browse-folders")]
+    BrowseFolders {
+        #[arg(long)]
+        id: String,
+        #[arg(long = "parent-id")]
+        parent_id: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     Remove {
         #[arg(required = true)]
         id: String,

@@ -35,6 +35,7 @@ pub(crate) fn run_setup(
     imap_port: Option<u16>,
     no_validate: bool,
     no_skill: bool,
+    drive: bool,
     identity: IdentityArgs,
 ) -> CliResult {
     let home = ripmail_home_path();
@@ -138,6 +139,7 @@ pub(crate) fn run_setup(
             args.imap_host.as_deref(),
             args.imap_port,
             no_validate,
+            drive,
             args.identity_patch.as_ref(),
         )?;
         if !no_validate {

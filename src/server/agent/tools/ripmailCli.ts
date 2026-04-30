@@ -405,9 +405,47 @@ export function buildDraftEditFlags(params: {
   return parts.length ? parts.join(' ') + ' ' : ''
 }
 
+/** Build `ripmail sources add --kind googleDrive …` argv tail after the binary name. */
+export function buildSourcesAddGoogleDriveCommand(params: {
+  email: string
+  oauthSourceId: string
+  label?: string
+  id?: string
+  folderIds?: string[]
+  includeSharedWithMe?: boolean
+  maxFileBytes?: number
+}): string {
+  const parts = [
+    'sources add --kind googleDrive',
+    `--email ${JSON.stringify(params.email)}`,
+    `--oauth-source-id ${JSON.stringify(params.oauthSourceId)}`,
+  ]
+  if (params.label?.trim()) parts.push(`--label ${JSON.stringify(params.label.trim())}`)
+  if (params.id?.trim()) parts.push(`--id ${JSON.stringify(params.id.trim())}`)
+  for (const fid of params.folderIds ?? []) {
+    const t = fid.trim()
+    if (t) parts.push(`--root-id ${JSON.stringify(t)}`)
+  }
+  if (params.includeSharedWithMe) parts.push('--include-shared-with-me')
+  if (params.maxFileBytes != null && params.maxFileBytes > 0) {
+    parts.push(`--max-file-bytes ${params.maxFileBytes}`)
+  }
+  parts.push('--json')
+  return parts.join(' ')
+}
+
 /** Build `ripmail sources add --kind localDir …` argv tail after the binary name. Used by add_files_source and tests. */
-export function buildSourcesAddLocalDirCommand(params: { path: string; label?: string; id?: string }): string {
-  const parts = ['sources add --kind localDir', `--path ${JSON.stringify(params.path)}`]
+export function buildSourcesAddLocalDirCommand(params: {
+  rootIds: string[]
+  label?: string
+  id?: string
+}): string {
+  const roots = params.rootIds.map((r) => r.trim()).filter(Boolean)
+  if (!roots.length) throw new Error('buildSourcesAddLocalDirCommand: rootIds required')
+  const parts = ['sources add --kind localDir']
+  for (const r of roots) {
+    parts.push(`--root-id ${JSON.stringify(r)}`)
+  }
   if (params.label?.trim()) parts.push(`--label ${JSON.stringify(params.label.trim())}`)
   if (params.id?.trim()) parts.push(`--id ${JSON.stringify(params.id.trim())}`)
   parts.push('--json')

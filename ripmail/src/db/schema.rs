@@ -1,6 +1,6 @@
 //! SQL schema — mirrors `src/db/schema.ts` in the TypeScript tree.
 
-pub const SCHEMA_VERSION: i32 = 27;
+pub const SCHEMA_VERSION: i32 = 29;
 
 pub const SCHEMA: &str = r#"
   CREATE TABLE IF NOT EXISTS sources (
@@ -306,6 +306,21 @@ pub const SCHEMA: &str = r#"
     synced_at    INTEGER,
     PRIMARY KEY (source_id, calendar_id)
   );
+
+  CREATE TABLE IF NOT EXISTS google_drive_sync_state (
+    source_id          TEXT NOT NULL PRIMARY KEY,
+    change_page_token  TEXT,
+    last_synced_at     TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS cloud_file_meta (
+    source_id       TEXT NOT NULL,
+    remote_id       TEXT NOT NULL,
+    content_hash    TEXT,
+    remote_mtime    TEXT,
+    cached_md_path  TEXT,
+    PRIMARY KEY (source_id, remote_id)
+  );
 "#;
 
 #[cfg(test)]
@@ -321,5 +336,7 @@ mod tests {
         assert!(SCHEMA.contains("source_sync_meta"));
         assert!(SCHEMA.contains("calendar_events"));
         assert!(SCHEMA.contains("calendar_sync_state"));
+        assert!(SCHEMA.contains("google_drive_sync_state"));
+        assert!(SCHEMA.contains("cloud_file_meta"));
     }
 }

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use unicode_normalization::UnicodeNormalization;
 
 use crate::cli::args::AttachmentCmd;
-use crate::cli::util::{format_attachment_size, load_cfg};
+use crate::cli::util::{format_attachment_size, load_cfg, ripmail_home_path};
 use crate::cli::CliResult;
 use ripmail::{
     db, format_read_message_text, infer_placeholder_owner_identities, is_placeholder_mailbox_email,
@@ -16,10 +16,10 @@ use ripmail::{
     read_attachment_bytes, read_attachment_text, read_message_bytes_with_thread,
     resolve_mailbox_spec, resolve_message_id, resolve_search_json_format,
     search_result_to_slim_json_row, search_with_meta, send_draft_by_id, send_simple_message,
-    smtp_credentials_ready, smtp_credentials_unavailable_reason, split_address_list, who, whoami,
-    Config, LocalFileReadOptions, ReadBodyPreference, ReadMessageJson, SearchOptions,
-    SearchResultFormatPreference, SendSimpleFields, SourceKind, WhoOptions, WhoamiResult,
-    MAX_LOCAL_FILE_BYTES,
+    smtp_credentials_ready, smtp_credentials_unavailable_reason, split_address_list,
+    try_read_google_drive_cached_body, who, whoami, Config, LocalFileReadOptions,
+    ReadBodyPreference, ReadMessageJson, SearchOptions, SearchResultFormatPreference,
+    SendSimpleFields, SourceKind, WhoOptions, WhoamiResult, MAX_LOCAL_FILE_BYTES,
 };
 
 fn source_kind_cli_label(k: SourceKind) -> &'static str {
@@ -31,6 +31,7 @@ fn source_kind_cli_label(k: SourceKind) -> &'static str {
         SourceKind::AppleCalendar => "appleCalendar",
         SourceKind::IcsSubscription => "icsSubscription",
         SourceKind::IcsFile => "icsFile",
+        SourceKind::GoogleDrive => "googleDrive",
     }
 }
 
@@ -255,6 +256,7 @@ pub(crate) fn run_read(
     let cfg = load_cfg();
     let conn = db::open_file_for_queries(cfg.db_path())?;
     let root = cfg.message_path_root();
+    let drive_home = ripmail_home_path();
 
     if raw {
         let mut first = true;
@@ -267,6 +269,16 @@ pub(crate) fn run_read(
                 }
                 first = false;
                 std::io::stdout().write_all(&bytes)?;
+            } else if let Some((body, _title)) =
+                try_read_google_drive_cached_body(&conn, &drive_home, target.trim())
+                    .ok()
+                    .flatten()
+            {
+                if !first {
+                    std::io::stdout().write_all(b"\n\n")?;
+                }
+                first = false;
+                std::io::stdout().write_all(body.as_bytes())?;
             } else {
                 let (bytes, _) = read_message_for_cli(&conn, target, root)?;
                 if !first {
@@ -286,6 +298,20 @@ pub(crate) fn run_read(
             if path.is_file() {
                 let v = local_file_read_json(&path, file_read_opts)?;
                 println!("{}", serde_json::to_string_pretty(&v)?);
+            } else if let Some((body, title)) =
+                try_read_google_drive_cached_body(&conn, &drive_home, target.trim())
+                    .ok()
+                    .flatten()
+            {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "sourceKind": "googleDrive",
+                        "title": title,
+                        "body": body,
+                        "readStatus": "ok",
+                    }))?
+                );
             } else {
                 let (bytes, thread_id) = read_message_for_cli(&conn, target, root)?;
                 let parsed = parse_read_full_with_body_preference(&bytes, body_pref);
@@ -326,6 +352,17 @@ pub(crate) fn run_read(
                 let path = expand_read_path(target);
                 if path.is_file() {
                     values.push(local_file_read_json(&path, file_read_opts)?);
+                } else if let Some((body, title)) =
+                    try_read_google_drive_cached_body(&conn, &drive_home, target.trim())
+                        .ok()
+                        .flatten()
+                {
+                    values.push(serde_json::json!({
+                        "sourceKind": "googleDrive",
+                        "title": title,
+                        "body": body,
+                        "readStatus": "ok",
+                    }));
                 } else {
                     let (bytes, thread_id) = read_message_for_cli(&conn, target, root)?;
                     let parsed = parse_read_full_with_body_preference(&bytes, body_pref);
@@ -351,6 +388,16 @@ pub(crate) fn run_read(
             }
             first = false;
             print!("{text}");
+        } else if let Some((body, _title)) =
+            try_read_google_drive_cached_body(&conn, &drive_home, target.trim())
+                .ok()
+                .flatten()
+        {
+            if !first {
+                print!("{READ_BATCH_TEXT_SEP}");
+            }
+            first = false;
+            print!("{body}");
         } else {
             let (bytes, _) = read_message_for_cli(&conn, target, root)?;
             let parsed = parse_read_full_with_body_preference(&bytes, body_pref);

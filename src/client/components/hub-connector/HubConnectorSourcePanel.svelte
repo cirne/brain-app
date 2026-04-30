@@ -1,40 +1,16 @@
 <script lang="ts">
-  import { History, RefreshCw } from 'lucide-svelte'
+  import { untrack } from 'svelte'
   import { emit } from '@client/lib/app/appEvents.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
-
-  type HubRipmailSourceRow = {
-    id: string
-    kind: string
-    displayName: string
-    path: string | null
-  }
-
-  type HubMailStatusMailbox = {
-    messageCount: number
-    earliestDate: string | null
-    latestDate: string | null
-    newestIndexedAgo: string | null
-    needsBackfill: boolean
-    lastUid: number | null
-  }
-
-  type HubMailStatusIndex = {
-    totalIndexed: number | null
-    syncRunning: boolean
-    staleLockInDb: boolean
-    refreshRunning: boolean
-    backfillRunning: boolean
-    lastSyncAt: string | null
-    lastSyncAgoHuman: string | null
-  }
-
-  type HubMailStatusOk = {
-    ok: true
-    sourceId: string
-    mailbox: HubMailStatusMailbox | null
-    index: HubMailStatusIndex
-  }
+  import {
+    isMailSourceKind,
+    type HubRipmailSourceRow,
+    type HubMailStatusOk,
+    type HubSourceDetailOk,
+  } from '@client/lib/hub/hubRipmailSource.js'
+  import HubConnectorIndexSections from './HubConnectorIndexSections.svelte'
+  import HubConnectorMailSections from './HubConnectorMailSections.svelte'
+  import HubConnectorSourceMeta from './HubConnectorSourceMeta.svelte'
 
   type Props = {
     sourceId: string | undefined
@@ -56,48 +32,23 @@
   let isDefaultSend = $state<boolean | null>(null)
   let prefsBusy = $state<'visibility' | 'default-send' | null>(null)
   let prefsError = $state<string | null>(null)
+  let sourceDetail = $state<HubSourceDetailOk | null>(null)
+  let _sourceDetailLoading = $state(false)
+  let sourceDetailError = $state<string | null>(null)
+  /** Hub kicked off `ripmail refresh` in background — disable refresh until stats move or timeout. */
+  let indexRefreshPending = $state(false)
+  let indexRefreshBaseline = $state<{
+    docs: number
+    cal: number
+    last: string | null
+  } | null>(null)
+  let indexRefreshStartedAt = $state<number | null>(null)
 
-  const hubSourceLatest = createAsyncLatest({ abortPrevious: true })
+  const hubSourceListLatest = createAsyncLatest({ abortPrevious: true })
+  const hubSourceMailLatest = createAsyncLatest({ abortPrevious: true })
+  const hubSourceDetailLatest = createAsyncLatest({ abortPrevious: true })
 
-  const BACKFILL_WINDOW_OPTIONS = [
-    { value: '30d', label: '30 days' },
-    { value: '90d', label: '90 days' },
-    { value: '180d', label: '180 days' },
-    { value: '1y', label: '1 year' },
-    { value: '2y', label: '2 years' },
-  ] as const
-
-  function formatDay(iso: string | null): string {
-    if (!iso?.trim()) return '—'
-    const t = iso.trim()
-    return t.length >= 10 ? t.slice(0, 10) : t
-  }
-
-  function formatLastSync(idx: HubMailStatusIndex): string {
-    if (idx.lastSyncAgoHuman?.trim()) return idx.lastSyncAgoHuman.trim()
-    return formatDay(idx.lastSyncAt)
-  }
-
-  function sourceKindLabel(kind: string): string {
-    switch (kind) {
-      case 'imap':
-        return 'Email (IMAP)'
-      case 'applemail':
-        return 'Apple Mail'
-      case 'localDir':
-        return 'Local folder'
-      case 'googleCalendar':
-        return 'Google Calendar'
-      case 'appleCalendar':
-        return 'Apple Calendar'
-      case 'icsSubscription':
-        return 'Subscribed calendar'
-      case 'icsFile':
-        return 'Calendar file'
-      default:
-        return kind
-    }
-  }
+  const INDEX_REFRESH_MAX_MS = 15 * 60 * 1000
 
   async function loadMailPrefs() {
     const id = sourceId?.trim()
@@ -182,14 +133,14 @@
     if (!id) return
     const row = source
     if (!row || (row.kind !== 'imap' && row.kind !== 'applemail')) return
-    const { token, signal } = hubSourceLatest.begin()
+    const { token, signal } = hubSourceMailLatest.begin()
     mailStatusLoading = true
     mailStatusError = null
     try {
       const res = await fetch(`/api/hub/sources/mail-status?id=${encodeURIComponent(id)}`, { signal })
-      if (hubSourceLatest.isStale(token)) return
+      if (hubSourceMailLatest.isStale(token)) return
       const j = (await res.json()) as HubMailStatusOk | { ok: false; error?: string }
-      if (hubSourceLatest.isStale(token)) return
+      if (hubSourceMailLatest.isStale(token)) return
       if (!j.ok) {
         mailStatusError =
           typeof (j as { error?: string }).error === 'string'
@@ -200,32 +151,141 @@
       mailStatusError = null
       mailStatus = j
     } catch (e) {
-      if (hubSourceLatest.isStale(token) || isAbortError(e)) return
+      if (hubSourceMailLatest.isStale(token) || isAbortError(e)) return
       mailStatusError = e instanceof Error ? e.message : 'Could not load status'
     } finally {
-      if (!hubSourceLatest.isStale(token)) mailStatusLoading = false
+      if (!hubSourceMailLatest.isStale(token)) mailStatusLoading = false
+    }
+  }
+
+  function maybeClearIndexRefreshPending(detail: HubSourceDetailOk) {
+    if (!indexRefreshPending || indexRefreshStartedAt == null) return
+    if (Date.now() - indexRefreshStartedAt > INDEX_REFRESH_MAX_MS) {
+      indexRefreshPending = false
+      indexRefreshBaseline = null
+      indexRefreshStartedAt = null
+      return
+    }
+    const b = indexRefreshBaseline
+    const st = detail.status
+    if (b == null) {
+      if (st?.lastSyncedAt != null) {
+        indexRefreshPending = false
+        indexRefreshBaseline = null
+        indexRefreshStartedAt = null
+      }
+      return
+    }
+    if (!st) return
+    if (
+      st.documentIndexRows !== b.docs ||
+      st.calendarEventRows !== b.cal ||
+      (st.lastSyncedAt ?? '') !== (b.last ?? '')
+    ) {
+      indexRefreshPending = false
+      indexRefreshBaseline = null
+      indexRefreshStartedAt = null
+    }
+  }
+
+  /** JSON-stable view of detail fields that drive this panel; used to skip noop `sourceDetail` reassign. */
+  function hubSourceDetailPanelSnapshot(d: HubSourceDetailOk | null): string | null {
+    if (!d) return null
+    return JSON.stringify({
+      id: d.id,
+      kind: d.kind,
+      status: d.status,
+      statusError: d.statusError ?? null,
+      oauthSourceId: d.oauthSourceId,
+      fileSource: d.fileSource,
+      includeSharedWithMe: d.includeSharedWithMe,
+      calendarIds: d.calendarIds,
+      icsUrl: d.icsUrl,
+    })
+  }
+
+  async function loadSourceDetail(opts?: { keepPreviousDetail?: boolean }) {
+    const keep = opts?.keepPreviousDetail === true
+    const id = sourceId?.trim()
+    const row = source
+    if (!id || !row || isMailSourceKind(row.kind)) return
+    const { token, signal } = hubSourceDetailLatest.begin()
+    if (!keep) {
+      _sourceDetailLoading = true
+      sourceDetailError = null
+      sourceDetail = null
+    }
+    try {
+      const res = await fetch(`/api/hub/sources/detail?id=${encodeURIComponent(id)}`, { signal })
+      if (hubSourceDetailLatest.isStale(token)) return
+      const j = (await res.json()) as HubSourceDetailOk | { ok: false; error?: string }
+      if (hubSourceDetailLatest.isStale(token)) return
+      if (!res.ok || !j.ok) {
+        const err =
+          typeof (j as { error?: string }).error === 'string'
+            ? (j as { error: string }).error
+            : 'Could not load source detail'
+        sourceDetailError = err
+        return
+      }
+      sourceDetailError = null
+      const next = j as HubSourceDetailOk
+      const prev = sourceDetail
+      const detailSkippedNoop =
+        prev != null && hubSourceDetailPanelSnapshot(prev) === hubSourceDetailPanelSnapshot(next)
+      if (!detailSkippedNoop) {
+        sourceDetail = next
+      }
+      maybeClearIndexRefreshPending(next)
+    } catch (e) {
+      if (hubSourceDetailLatest.isStale(token) || isAbortError(e)) return
+      sourceDetailError = e instanceof Error ? e.message : 'Could not load source detail'
+    } finally {
+      const staleFinally = hubSourceDetailLatest.isStale(token)
+      if (!staleFinally) {
+        _sourceDetailLoading = false
+      }
     }
   }
 
   async function load() {
-    const { token, signal } = hubSourceLatest.begin()
+    const sid = sourceId?.trim() ?? ''
+    /** Avoid `$effect` re-running `load()` every time `source` is reassigned (same id, new object). */
+    const keepExisting = untrack(
+      () => sid.length > 0 && source !== null && source.id === sid,
+    )
+    /** Only invalidate in-flight detail when the panel resets; avoids abort+stale-finally fighting refresh polls. */
+    if (!keepExisting) {
+      hubSourceDetailLatest.begin()
+    }
+    hubSourceMailLatest.begin()
+    const { token, signal } = hubSourceListLatest.begin()
+
     loadError = null
-    source = null
-    mailStatus = null
-    mailStatusError = null
-    mailStatusLoading = false
-    includedInDefault = null
-    isDefaultSend = null
-    prefsError = null
+    if (!keepExisting) {
+      source = null
+      mailStatus = null
+      mailStatusError = null
+      mailStatusLoading = false
+      includedInDefault = null
+      isDefaultSend = null
+      prefsError = null
+      sourceDetail = null
+      sourceDetailError = null
+      _sourceDetailLoading = false
+      indexRefreshPending = false
+      indexRefreshBaseline = null
+      indexRefreshStartedAt = null
+    }
     if (!sourceId) {
       loadError = 'No source selected'
       return
     }
     try {
       const res = await fetch('/api/hub/sources', { signal })
-      if (hubSourceLatest.isStale(token)) return
+      if (hubSourceListLatest.isStale(token)) return
       const j = (await res.json()) as { sources?: HubRipmailSourceRow[]; error?: string }
-      if (hubSourceLatest.isStale(token)) return
+      if (hubSourceListLatest.isStale(token)) return
       if (!res.ok) {
         throw new Error(typeof j.error === 'string' ? j.error : 'Could not load sources')
       }
@@ -233,10 +293,17 @@
       const row = rows.find((r) => r.id === sourceId)
       if (!row) {
         loadError = 'This source is no longer in the index.'
+        if (keepExisting) {
+          source = null
+          sourceDetail = null
+        }
         return
       }
       source = row
       backfillWindow = '1y'
+      if (!isMailSourceKind(row.kind)) {
+        void loadSourceDetail({ keepPreviousDetail: keepExisting })
+      }
       if (row.kind === 'imap' || row.kind === 'applemail') {
         void loadMailStatus()
       }
@@ -244,7 +311,7 @@
         void loadMailPrefs()
       }
     } catch (e) {
-      if (hubSourceLatest.isStale(token) || isAbortError(e)) return
+      if (hubSourceListLatest.isStale(token) || isAbortError(e)) return
       loadError = e instanceof Error ? e.message : 'Could not load source'
     }
   }
@@ -281,6 +348,7 @@
 
   async function hubSourceRefresh() {
     if (!source) return
+    if (driveSyncBlocked) return
     if (sourceSyncAction) return
     sourceSyncAction = 'refresh'
     try {
@@ -293,9 +361,27 @@
       if (!res.ok || !j.ok) {
         throw new Error(typeof j.error === 'string' ? j.error : 'Could not start refresh')
       }
-      await load()
+      if (!isMailSourceKind(source.kind)) {
+        indexRefreshPending = true
+        indexRefreshStartedAt = Date.now()
+        indexRefreshBaseline = sourceDetail?.status
+          ? {
+              docs: sourceDetail.status.documentIndexRows,
+              cal: sourceDetail.status.calendarEventRows,
+              last: sourceDetail.status.lastSyncedAt,
+            }
+          : null
+      }
+      if (isMailSourceKind(source.kind)) {
+        await load()
+      } else {
+        void loadSourceDetail({ keepPreviousDetail: true })
+      }
       await loadMailStatus()
     } catch (e) {
+      indexRefreshPending = false
+      indexRefreshBaseline = null
+      indexRefreshStartedAt = null
       alert(e instanceof Error ? e.message : 'Could not start refresh')
     } finally {
       sourceSyncAction = null
@@ -336,178 +422,49 @@
     const t = window.setInterval(() => void loadMailStatus(), 6000)
     return () => window.clearInterval(t)
   })
+
+  const driveSyncBlocked = $derived(
+    source?.kind === 'googleDrive' &&
+      (sourceDetail?.fileSource == null || sourceDetail.fileSource.roots.length === 0),
+  )
 </script>
 
-<div class="hub-source-inspect">
+<div class="hub-connector-source">
   {#if loadError}
-    <p class="hub-source-inspect-err" role="alert">{loadError}</p>
+    <p class="hub-connector-err" role="alert">{loadError}</p>
   {:else if source}
-    <div class="hub-source-inspect-inner">
-      <h3 class="hub-source-inspect-title">{source.displayName}</h3>
-      <dl class="hub-source-meta">
-        <div class="hub-source-meta-row">
-          <dt>Type</dt>
-          <dd>{sourceKindLabel(source.kind)}</dd>
-        </div>
-        <div class="hub-source-meta-row">
-          <dt>Source id</dt>
-          <dd class="hub-source-id">{source.id}</dd>
-        </div>
-        {#if source.path}
-          <div class="hub-source-meta-row">
-            <dt>Path</dt>
-            <dd class="hub-source-path">{source.path}</dd>
-          </div>
-        {/if}
-      </dl>
-      {#if source.kind === 'imap' || source.kind === 'applemail'}
-        <section class="hub-source-status-section" aria-labelledby="hub-mail-status-heading">
-          <h2 id="hub-mail-status-heading" class="hub-source-status-heading">Index status</h2>
-          {#if mailStatusLoading && !mailStatus}
-            <p class="hub-source-status-note" role="status">Loading status…</p>
-          {:else if mailStatusError}
-            <p class="hub-source-status-err" role="alert">{mailStatusError}</p>
-          {:else if mailStatus}
-            {#if mailStatus.index.staleLockInDb}
-              <p class="hub-source-status-warn" role="alert">
-                A previous sync stopped unexpectedly. Quit Braintunnel completely and reopen to clear the stale lock.
-              </p>
-            {/if}
-            {#if mailStatus.index.refreshRunning || mailStatus.index.backfillRunning}
-              <p class="hub-source-status-note hub-source-status-note--active" role="status">
-                {#if mailStatus.index.refreshRunning && mailStatus.index.backfillRunning}
-                  Refresh and backfill are running…
-                {:else if mailStatus.index.backfillRunning}
-                  Backfill is running…
-                {:else}
-                  Refresh is running…
-                {/if}
-              </p>
-            {/if}
-            {#if mailStatus.mailbox?.needsBackfill}
-              <p class="hub-source-status-warn">
-                This account is configured but has no indexed mail yet. Run backfill (or refresh) to pull history.
-              </p>
-            {/if}
-            {#if mailStatus.mailbox}
-              {@const mb = mailStatus.mailbox}
-              {@const idx = mailStatus.index}
-              <dl class="hub-source-meta hub-source-meta--dense">
-                <div class="hub-source-meta-row">
-                  <dt>Messages (this source)</dt>
-                  <dd>{mb.messageCount.toLocaleString()}</dd>
-                </div>
-                <div class="hub-source-meta-row">
-                  <dt>Indexed date range</dt>
-                  <dd>
-                    {formatDay(mb.earliestDate)} — {formatDay(mb.latestDate)}
-                  </dd>
-                </div>
-                <div class="hub-source-meta-row">
-                  <dt>Newest indexed mail</dt>
-                  <dd>{mb.newestIndexedAgo?.trim() || '—'}</dd>
-                </div>
-                <div class="hub-source-meta-row">
-                  <dt>Last sync</dt>
-                  <dd>{formatLastSync(idx)}</dd>
-                </div>
-                {#if mb.lastUid != null}
-                  <div class="hub-source-meta-row">
-                    <dt>Last UID</dt>
-                    <dd>{mb.lastUid}</dd>
-                  </div>
-                {/if}
-                {#if idx.totalIndexed != null}
-                  <div class="hub-source-meta-row">
-                    <dt>All sources (search index)</dt>
-                    <dd>{idx.totalIndexed.toLocaleString()} messages</dd>
-                  </div>
-                {/if}
-              </dl>
-            {:else}
-              <p class="hub-source-status-note">
-                No mailbox row in <code class="hub-source-code">ripmail status</code> for this source id yet. After the
-                first successful sync, counts and dates will appear here.
-              </p>
-            {/if}
-          {/if}
-        </section>
-        {#if source.kind === 'imap'}
-          <section class="hub-source-prefs-section" aria-labelledby="hub-mail-prefs-heading">
-            <h2 id="hub-mail-prefs-heading" class="hub-source-status-heading">This mailbox</h2>
-            <p class="hub-source-status-note">
-              Settings for this mailbox only — other accounts in your workspace are unaffected.
-            </p>
-            {#if prefsError}
-              <p class="hub-source-status-err" role="alert">{prefsError}</p>
-            {/if}
-            <label class="hub-source-pref-row">
-              <input
-                type="checkbox"
-                checked={includedInDefault ?? true}
-                disabled={prefsBusy !== null || includedInDefault == null}
-                onchange={() => void toggleIncludedInDefault()}
-              />
-              <span class="hub-source-pref-text">
-                <span class="hub-source-pref-title">Search this mailbox by default</span>
-                <span class="hub-source-pref-sub">
-                  When off, Braintunnel only searches this mailbox if you ask it to.
-                  It still gets indexed in the background.
-                </span>
-              </span>
-            </label>
-            <label class="hub-source-pref-row">
-              <input
-                type="checkbox"
-                checked={isDefaultSend === true}
-                disabled={prefsBusy !== null || isDefaultSend == null}
-                onchange={(e) => void setDefaultSend((e.currentTarget as HTMLInputElement).checked)}
-              />
-              <span class="hub-source-pref-text">
-                <span class="hub-source-pref-title">Send from this mailbox by default</span>
-                <span class="hub-source-pref-sub">
-                  When you ask Braintunnel to send a message and don't name an account, it uses this one.
-                </span>
-              </span>
-            </label>
-          </section>
-        {/if}
-        <div class="hub-source-mail-sync">
-          <p class="hub-source-sync-lead">
-            Refresh pulls new mail for this account. Backfill re-downloads history for the window below
-            (long-running).
-          </p>
-          <div class="hub-source-sync-controls">
-            <label class="hub-backfill-label" for="hub-panel-backfill-since">Backfill window</label>
-            <select id="hub-panel-backfill-since" class="hub-backfill-select" bind:value={backfillWindow}>
-              {#each BACKFILL_WINDOW_OPTIONS as opt (opt.value)}
-                <option value={opt.value}>{opt.label}</option>
-              {/each}
-            </select>
-          </div>
-          <div class="hub-source-sync-buttons">
-            <button
-              type="button"
-              class="hub-dialog-btn hub-dialog-btn-primary hub-source-sync-btn"
-              disabled={sourceSyncAction !== null}
-              onclick={() => void hubSourceRefresh()}
-            >
-              <RefreshCw size={16} aria-hidden="true" />
-              {sourceSyncAction === 'refresh' ? 'Starting…' : 'Refresh'}
-            </button>
-            <button
-              type="button"
-              class="hub-dialog-btn hub-dialog-btn-secondary hub-source-sync-btn"
-              disabled={sourceSyncAction !== null}
-              onclick={() => void hubSourceBackfill()}
-            >
-              <History size={16} aria-hidden="true" />
-              {sourceSyncAction === 'backfill' ? 'Starting…' : 'Retry sync (backfill)'}
-            </button>
-          </div>
-        </div>
+    <div class="hub-connector-inner">
+      <HubConnectorSourceMeta {source} />
+      {#if !isMailSourceKind(source.kind)}
+        <HubConnectorIndexSections
+          sourceDetailError={sourceDetailError}
+          sourceDetail={sourceDetail}
+          driveSyncBlocked={driveSyncBlocked}
+          sourceSyncAction={sourceSyncAction}
+          indexRefreshPending={indexRefreshPending}
+          onRefresh={() => void hubSourceRefresh()}
+          onReloadDetail={() => void loadSourceDetail({ keepPreviousDetail: false })}
+        />
       {/if}
-      <div class="hub-source-inspect-footer">
+      {#if source.kind === 'imap' || source.kind === 'applemail'}
+        <HubConnectorMailSections
+          mailKind={source.kind}
+          mailStatus={mailStatus}
+          mailStatusLoading={mailStatusLoading}
+          mailStatusError={mailStatusError}
+          includedInDefault={includedInDefault}
+          isDefaultSend={isDefaultSend}
+          prefsBusy={prefsBusy}
+          prefsError={prefsError}
+          bind:backfillWindow
+          sourceSyncAction={sourceSyncAction}
+          onToggleIncludedInDefault={() => void toggleIncludedInDefault()}
+          onSetDefaultSend={(checked) => void setDefaultSend(checked)}
+          onRefresh={() => void hubSourceRefresh()}
+          onBackfill={() => void hubSourceBackfill()}
+        />
+      {/if}
+      <div class="hub-connector-footer">
         <button
           type="button"
           class="hub-dialog-btn hub-dialog-btn-danger"
@@ -519,37 +476,37 @@
       </div>
     </div>
   {:else}
-    <p class="hub-source-inspect-loading" role="status">Loading…</p>
+    <p class="hub-connector-loading" role="status">Loading…</p>
   {/if}
 </div>
 
 <style>
-  .hub-source-inspect {
+  .hub-connector-source {
     padding: 1rem 1.25rem 1.5rem;
     min-height: 0;
     flex: 1;
     overflow: auto;
   }
 
-  .hub-source-inspect-loading,
-  .hub-source-inspect-err {
+  .hub-connector-loading,
+  .hub-connector-err {
     margin: 0;
     font-size: 0.9375rem;
     color: var(--text-2);
     line-height: 1.45;
   }
 
-  .hub-source-inspect-err {
+  .hub-connector-err {
     color: var(--danger);
   }
 
-  .hub-source-inspect-inner {
+  .hub-connector-inner {
     display: flex;
     flex-direction: column;
     gap: 1rem;
   }
 
-  .hub-source-inspect-title {
+  .hub-connector-source :global(.hub-connector-title) {
     margin: 0;
     font-size: 1.125rem;
     font-weight: 700;
@@ -557,14 +514,14 @@
     line-height: 1.25;
   }
 
-  .hub-source-meta {
+  .hub-connector-source :global(.hub-source-meta) {
     margin: 0;
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
   }
 
-  .hub-source-meta-row {
+  .hub-connector-source :global(.hub-source-meta-row) {
     display: grid;
     grid-template-columns: 6.5rem 1fr;
     gap: 0.5rem 1rem;
@@ -572,22 +529,22 @@
     align-items: baseline;
   }
 
-  .hub-source-meta-row dt {
+  .hub-connector-source :global(.hub-source-meta-row dt) {
     margin: 0;
     font-weight: 600;
     color: var(--text-2);
   }
 
-  .hub-source-meta-row dd {
+  .hub-connector-source :global(.hub-source-meta-row dd) {
     margin: 0;
     word-break: break-word;
   }
 
-  .hub-source-meta--dense {
+  .hub-connector-source :global(.hub-source-meta--dense) {
     gap: 0.5rem;
   }
 
-  .hub-source-status-section {
+  .hub-connector-source :global(.hub-source-status-section) {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
@@ -595,7 +552,7 @@
     border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   }
 
-  .hub-source-prefs-section {
+  .hub-connector-source :global(.hub-source-prefs-section) {
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
@@ -603,7 +560,7 @@
     border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   }
 
-  .hub-source-pref-row {
+  .hub-connector-source :global(.hub-source-pref-row) {
     display: flex;
     gap: 0.6rem;
     align-items: flex-start;
@@ -611,32 +568,32 @@
     cursor: pointer;
   }
 
-  .hub-source-pref-row input[type='checkbox'] {
+  .hub-connector-source :global(.hub-source-pref-row input[type='checkbox']) {
     margin-top: 0.2rem;
     flex-shrink: 0;
     accent-color: var(--accent);
   }
 
-  .hub-source-pref-text {
+  .hub-connector-source :global(.hub-source-pref-text) {
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
   }
 
-  .hub-source-pref-title {
+  .hub-connector-source :global(.hub-source-pref-title) {
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--text);
     line-height: 1.3;
   }
 
-  .hub-source-pref-sub {
+  .hub-connector-source :global(.hub-source-pref-sub) {
     font-size: 0.8125rem;
     color: var(--text-2);
     line-height: 1.4;
   }
 
-  .hub-source-status-heading {
+  .hub-connector-source :global(.hub-source-status-heading) {
     margin: 0;
     font-size: 0.6875rem;
     font-weight: 700;
@@ -645,26 +602,36 @@
     color: var(--text-2);
   }
 
-  .hub-source-status-note {
+  .hub-connector-source :global(.hub-source-status-note) {
     margin: 0;
     font-size: 0.8125rem;
     line-height: 1.45;
     color: var(--text-2);
   }
 
-  .hub-source-status-note--active {
+  .hub-connector-source :global(.hub-source-status-note--active) {
     color: var(--accent);
     font-weight: 600;
   }
 
-  .hub-source-status-err {
+  :global(.hub-refresh-working) {
+    animation: hub-refresh-spin 0.85s linear infinite;
+  }
+
+  @keyframes hub-refresh-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .hub-connector-source :global(.hub-source-status-err) {
     margin: 0;
     font-size: 0.8125rem;
     color: var(--danger);
     line-height: 1.45;
   }
 
-  .hub-source-status-warn {
+  .hub-connector-source :global(.hub-source-status-warn) {
     margin: 0;
     font-size: 0.8125rem;
     line-height: 1.45;
@@ -675,25 +642,25 @@
     border-radius: 8px;
   }
 
-  .hub-source-code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-      monospace;
+  .hub-connector-source :global(.hub-source-code) {
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     font-size: 0.8em;
   }
 
-  .hub-source-id {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-      monospace;
+  .hub-connector-source :global(.hub-source-id) {
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     font-size: 0.8125rem;
     color: var(--text-2);
   }
 
-  .hub-source-path {
+  .hub-connector-source :global(.hub-source-path) {
     font-size: 0.8125rem;
     line-height: 1.35;
   }
 
-  .hub-source-mail-sync {
+  .hub-connector-source :global(.hub-source-mail-sync) {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -701,27 +668,27 @@
     border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   }
 
-  .hub-source-sync-lead {
+  .hub-connector-source :global(.hub-source-sync-lead) {
     margin: 0;
     font-size: 0.8125rem;
     line-height: 1.45;
     color: var(--text-2);
   }
 
-  .hub-source-sync-controls {
+  .hub-connector-source :global(.hub-source-sync-controls) {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem 1rem;
   }
 
-  .hub-backfill-label {
+  .hub-connector-source :global(.hub-backfill-label) {
     font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-2);
   }
 
-  .hub-backfill-select {
+  .hub-connector-source :global(.hub-backfill-select) {
     font-size: 0.875rem;
     padding: 0.35rem 0.6rem;
     border-radius: 8px;
@@ -732,19 +699,19 @@
     cursor: pointer;
   }
 
-  .hub-source-sync-buttons {
+  .hub-connector-source :global(.hub-source-sync-buttons) {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
   }
 
-  .hub-source-sync-btn {
+  .hub-connector-source :global(.hub-source-sync-btn) {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
   }
 
-  .hub-source-inspect-footer {
+  .hub-connector-footer {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
@@ -754,48 +721,51 @@
     border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   }
 
-  .hub-dialog-btn {
+  .hub-connector-source :global(.hub-dialog-btn) {
     font-size: 0.875rem;
     font-weight: 600;
     padding: 0.45rem 0.9rem;
     border-radius: 8px;
     cursor: pointer;
     border: 1px solid transparent;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    transition:
+      background 0.15s,
+      color 0.15s,
+      border-color 0.15s;
   }
 
-  .hub-dialog-btn:disabled {
+  .hub-connector-source :global(.hub-dialog-btn:disabled) {
     opacity: 0.6;
     cursor: not-allowed;
   }
 
-  .hub-dialog-btn-secondary {
+  .hub-connector-source :global(.hub-dialog-btn-secondary) {
     background: transparent;
     color: var(--text);
     border-color: color-mix(in srgb, var(--border) 80%, transparent);
   }
 
-  .hub-dialog-btn-secondary:hover:not(:disabled) {
+  .hub-connector-source :global(.hub-dialog-btn-secondary:hover:not(:disabled)) {
     background: var(--bg-2);
   }
 
-  .hub-dialog-btn-danger {
+  .hub-connector-source :global(.hub-dialog-btn-danger) {
     background: color-mix(in srgb, var(--danger) 14%, var(--bg));
     color: var(--danger);
     border-color: color-mix(in srgb, var(--danger) 40%, transparent);
   }
 
-  .hub-dialog-btn-danger:hover:not(:disabled) {
+  .hub-connector-source :global(.hub-dialog-btn-danger:hover:not(:disabled)) {
     background: color-mix(in srgb, var(--danger) 24%, var(--bg));
   }
 
-  .hub-dialog-btn-primary {
+  .hub-connector-source :global(.hub-dialog-btn-primary) {
     background: var(--accent);
     color: white;
     border-color: color-mix(in srgb, var(--accent) 80%, black);
   }
 
-  .hub-dialog-btn-primary:hover:not(:disabled) {
+  .hub-connector-source :global(.hub-dialog-btn-primary:hover:not(:disabled)) {
     filter: brightness(1.06);
   }
 </style>

@@ -7,7 +7,7 @@ import {
   exchangeAuthorizationCode,
   fetchGoogleUserInfo,
   generatePkce,
-  GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+  GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
   upsertRipmailConfig,
   upsertRipmailGoogleCalendarSource,
   validateGoogleOAuthGrantedScopes,
@@ -90,10 +90,15 @@ function redirectLinkError(c: Context, message: string) {
   return c.redirect(`/settings?addAccountError=${q}`, 302)
 }
 
-function redirectLinkSuccess(c: Context, email: string) {
+function redirectLinkSuccess(
+  c: Context,
+  email: string,
+  opts?: { needsDriveReconnect?: boolean },
+) {
   recordGoogleOauthSuccess()
   const q = encodeURIComponent(email)
-  return c.redirect(`/settings?addedAccount=${q}`, 302)
+  const drive = opts?.needsDriveReconnect ? '&needsGoogleDrive=1' : ''
+  return c.redirect(`/settings?addedAccount=${q}${drive}`, 302)
 }
 
 /**
@@ -125,12 +130,11 @@ async function completeGmailLinkOAuth(
       'Google did not return a refresh token. Revoke Braintunnel access in your Google account and try linking again.',
     )
   }
-  {
-    const scopeCheck = validateGoogleOAuthGrantedScopes(tokens.scope)
-    if (!scopeCheck.ok) {
-      return redirectLinkError(c, scopeCheck.message)
-    }
+  const scopeCheck = validateGoogleOAuthGrantedScopes(tokens.scope)
+  if (!scopeCheck.ok) {
+    return redirectLinkError(c, scopeCheck.message)
   }
+  const needsDriveReconnect = scopeCheck.needsDriveReconnect
 
   let email: string
   let sub: string
@@ -181,7 +185,7 @@ async function completeGmailLinkOAuth(
       } catch (e) {
         return redirectLinkError(c, e instanceof Error ? e.message : String(e))
       }
-      return redirectLinkSuccess(c, email)
+      return redirectLinkSuccess(c, email, { needsDriveReconnect })
     })
   }
 
@@ -202,7 +206,7 @@ async function completeGmailLinkOAuth(
   } catch (e) {
     return redirectLinkError(c, e instanceof Error ? e.message : String(e))
   }
-  return redirectLinkSuccess(c, email)
+  return redirectLinkSuccess(c, email, { needsDriveReconnect })
 }
 
 app.get('/start', (c) => {
@@ -219,7 +223,7 @@ app.get('/start', (c) => {
   const url = buildGoogleAuthorizeUrl({
     clientId: oauth.clientId,
     redirectUri: oauth.redirectUri,
-    scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+    scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
     state,
     codeChallenge: challenge,
   })
@@ -294,12 +298,14 @@ app.get('/callback', async (c) => {
       'No refresh token — revoke Braintunnel access in your Google account and connect again from Braintunnel.'
     )
   }
-  {
-    const scopeCheck = validateGoogleOAuthGrantedScopes(tokens.scope)
-    if (!scopeCheck.ok) {
-      return redirectOauthError(c, scopeCheck.message)
-    }
+  const scopeCheck = validateGoogleOAuthGrantedScopes(tokens.scope)
+  if (!scopeCheck.ok) {
+    return redirectOauthError(c, scopeCheck.message)
   }
+  const needsDriveReconnect = scopeCheck.needsDriveReconnect
+  const oauthCompleteUrl = needsDriveReconnect
+    ? '/oauth/google/complete?needsGoogleDrive=1'
+    : '/oauth/google/complete'
   let email: string
   let sub: string
   try {
@@ -339,7 +345,7 @@ app.get('/callback', async (c) => {
       await registerSessionTenant(sessionId, tenantUserId)
       setBrainSessionCookie(c, sessionId)
       recordGoogleOauthSuccess()
-      return c.redirect('/oauth/google/complete', 302)
+      return c.redirect(oauthCompleteUrl, 302)
     })
   }
 
@@ -357,7 +363,7 @@ app.get('/callback', async (c) => {
   }
   await persistGoogleMailProviderPreference()
   recordGoogleOauthSuccess()
-  return c.redirect('/oauth/google/complete', 302)
+  return c.redirect(oauthCompleteUrl, 302)
 })
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -403,7 +409,7 @@ app.get('/link/start', async (c) => {
   const url = buildGoogleAuthorizeUrl({
     clientId: oauth.clientId,
     redirectUri: oauth.redirectUri,
-    scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+    scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
     state,
     codeChallenge: challenge,
   })

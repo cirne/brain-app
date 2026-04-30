@@ -64,9 +64,10 @@ pub use config::{
     merge_mailbox_identity, migrate_legacy_zmail_home_dir_if_needed, read_ripmail_env_file,
     resolve_config_target_mailbox_id, resolve_llm, resolve_llm_with_env, resolve_mailbox_spec,
     resolve_openai_api_key, resolve_smtp_settings, resolved_ripmail_home_from_env,
-    write_config_json, Config, ConfigJson, DraftComposeIdentity, IdentityPatch, LlmJson,
-    LlmProvider, LoadConfigOptions, MailboxConfigJson, MailboxIdentityJson, MailboxImapAuthKind,
-    ResolvedLlm, ResolvedMailbox, ResolvedSmtp, SourceKind,
+    write_config_json, Config, ConfigJson, DraftComposeIdentity, FileSourceConfigJson,
+    FileSourceRoot, IdentityPatch, LlmJson, LlmProvider, LoadConfigOptions, MailboxConfigJson,
+    MailboxIdentityJson, MailboxImapAuthKind, ResolvedGoogleDrive, ResolvedLlm, ResolvedMailbox,
+    ResolvedSmtp, SourceKind,
 };
 pub use db::message_persist::{fts_match_count, persist_attachments_from_parsed, persist_message};
 pub use db::{
@@ -153,7 +154,10 @@ pub use setup::{
     write_google_oauth_setup_hosted, write_ripmail_config_and_env, write_setup, DerivedImap,
     ExistingEnvSecrets, ExistingWizardConfig, SetupArgs, StatsJson, WriteZmailParams,
 };
-pub use sources::run_local_dir_sync;
+pub use sources::{
+    browse_google_drive_folders, content_fingerprint, drive_cache_rel_path, run_google_drive_sync,
+    run_local_dir_sync, try_read_google_drive_cached_body, DriveBrowseFolderRow,
+};
 pub use status::{
     format_time_ago, get_imap_server_status, get_status, mailbox_status_lines, print_status_text,
     status_stale_lock_running, FreshnessAgoJson, ImapServerComparison, MailboxStatusLine,

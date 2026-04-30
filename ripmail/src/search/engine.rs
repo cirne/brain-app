@@ -355,6 +355,81 @@ fn regex_search_files(
     Ok((matched, total))
 }
 
+/// Indexed Google Drive files: regex on title + file id + body when mail-only filters are absent.
+fn regex_search_google_drive(
+    conn: &Connection,
+    opts: &SearchOptions,
+    re: &Regex,
+    sql_limit: i64,
+) -> rusqlite::Result<(Vec<RankedSearchRow>, i64)> {
+    if !file_pattern_search_allowed(opts) {
+        return Ok((Vec::new(), 0));
+    }
+
+    let (src_clause, src_params) = match &opts.mailbox_ids {
+        Some(ids) if !ids.is_empty() => {
+            let ph = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            (format!(" AND di.source_id IN ({ph})"), ids.clone())
+        }
+        _ => (String::new(), Vec::new()),
+    };
+
+    let sql = format!(
+        "SELECT di.ext_id, di.source_id, di.title, di.date_iso, di.body
+         FROM document_index di
+         WHERE di.kind = 'googleDrive'{src_clause}
+         ORDER BY di.date_iso DESC
+         LIMIT ?"
+    );
+
+    let mut vals: Vec<Value> = src_params.iter().cloned().map(Value::Text).collect();
+    vals.push(Value::Integer(sql_limit));
+
+    let mut stmt = conn.prepare(&sql)?;
+    let mut rows = stmt.query(params_from_iter(vals.iter()))?;
+
+    let mut matched: Vec<RankedSearchRow> = Vec::new();
+    while let Some(row) = rows.next()? {
+        let ext_id: String = row.get(0)?;
+        let source_id: String = row.get(1)?;
+        let title: String = row.get(2)?;
+        let date_iso: String = row.get(3)?;
+        let body: String = row.get(4)?;
+        let hay = format!("{title}\n{ext_id}\n{body}");
+        if !re.is_match(&hay) {
+            continue;
+        }
+        let m = re.find(&hay).unwrap();
+        let snip = snippet_for_match(&hay, &m);
+        let body_prev = if body.chars().count() > 300 {
+            format!("{}…", body.chars().take(300).collect::<String>())
+        } else {
+            body.clone()
+        };
+        let rank_v = 0.0_f64;
+        let cr = combined_rank_for_date(&date_iso, rank_v);
+        matched.push(RankedSearchRow {
+            result: row_from_cols(
+                ext_id,
+                String::new(),
+                source_id,
+                "googleDrive".into(),
+                String::new(),
+                None,
+                title,
+                date_iso,
+                snip,
+                body_prev,
+                rank_v,
+            ),
+            combined_rank: cr,
+        });
+    }
+
+    let total = matched.len() as i64;
+    Ok((matched, total))
+}
+
 fn regex_search_with_regex(
     conn: &Connection,
     opts: &SearchOptions,
@@ -371,15 +446,23 @@ fn regex_search_with_regex(
     } else {
         (Vec::new(), 0)
     };
+    let (mut drive_rows, drive_total) = if file_pattern_search_allowed(opts) {
+        regex_search_google_drive(conn, opts, re, sql_limit).map_err(|e| e.to_string())?
+    } else {
+        (Vec::new(), 0)
+    };
 
     mail_rows.append(&mut file_rows);
+    mail_rows.append(&mut drive_rows);
     mail_rows.sort_by(|a, b| {
         a.combined_rank
             .partial_cmp(&b.combined_rank)
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| b.result.date.cmp(&a.result.date))
     });
-    let total = mail_total.saturating_add(file_total);
+    let total = mail_total
+        .saturating_add(file_total)
+        .saturating_add(drive_total);
     let results: Vec<RankedSearchRow> = mail_rows.into_iter().skip(offset).take(limit).collect();
     Ok((results, total))
 }

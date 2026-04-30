@@ -14,6 +14,13 @@ export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL =
 export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS =
   'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid email'
 
+/** Google Drive read-only scope (matches ripmail `GOOGLE_OAUTH_SCOPE_DRIVE_READONLY`). */
+export const GOOGLE_OAUTH_SCOPE_DRIVE_READONLY =
+  'https://www.googleapis.com/auth/drive.readonly'
+
+/** Gmail + Calendar + OpenID/email + Drive read-only — use for authorize URLs when Drive indexing is supported. */
+export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE = `${GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS} ${GOOGLE_OAUTH_SCOPE_DRIVE_READONLY}`
+
 const GOOGLE_AUTH_URI = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN_URI = 'https://oauth2.googleapis.com/token'
 const GOOGLE_USERINFO_URI = 'https://www.googleapis.com/oauth2/v3/userinfo'
@@ -76,12 +83,16 @@ export function grantedGoogleScopesSet(grantedScope: string | undefined): Set<st
 }
 
 /**
- * Ensure the user approved everything we request in {@link GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS}.
- * Partial consent (unchecked boxes on Google’s screen) returns tokens without Gmail or Calendar — IMAP/sync then fails with no clear UI error.
+ * Ensure Gmail + Calendar + OpenID + email were granted. When Drive read-only is missing (older connections),
+ * returns `needsDriveReconnect: true` so the UI can prompt to reconnect — mail and calendar still work.
  */
+export type GoogleOAuthScopeValidationResult =
+  | { ok: true; needsDriveReconnect: boolean }
+  | { ok: false; message: string }
+
 export function validateGoogleOAuthGrantedScopes(
   grantedScope: string | undefined,
-): { ok: true } | { ok: false; message: string } {
+): GoogleOAuthScopeValidationResult {
   const set = grantedGoogleScopesSet(grantedScope)
   if (set.size === 0) {
     return {
@@ -97,14 +108,15 @@ export function validateGoogleOAuthGrantedScopes(
   const hasOpenId = set.has('openid')
   const hasEmail =
     set.has('email') || set.has('https://www.googleapis.com/auth/userinfo.email')
-  if (hasGmail && hasCalendar && hasOpenId && hasEmail) {
-    return { ok: true }
+  if (!hasGmail || !hasCalendar || !hasOpenId || !hasEmail) {
+    return {
+      ok: false,
+      message:
+        'Google did not grant every permission Braintunnel needs. On the permission screen, leave all Gmail and Calendar access enabled (every checkbox), then use Connect Google again. If you denied access, revoke Braintunnel under your Google Account → Security → Third-party access and try again.',
+    }
   }
-  return {
-    ok: false,
-    message:
-      'Google did not grant every permission Braintunnel needs. On the permission screen, leave all Gmail and Calendar access enabled (every checkbox), then use Connect Google again. If you denied access, revoke Braintunnel under your Google Account → Security → Third-party access and try again.',
-  }
+  const hasDrive = set.has(GOOGLE_OAUTH_SCOPE_DRIVE_READONLY)
+  return { ok: true, needsDriveReconnect: !hasDrive }
 }
 
 export class GoogleOAuthExchangeError extends Error {

@@ -66,7 +66,7 @@ This plan combines **(1) domain-based directory layout** for `src/client` and `s
 - `lib/chat/` — `Assistant`, `AgentChat`, `AgentInput`, `agentStream`, hold-to-speak, chat history UIs, etc.
 - `lib/wiki/` — `Wiki`, wiki lists, file viewer entry points for wiki, wiki CSS modules that are not global.
 - `lib/inbox/` — `Inbox`, mail body, inbox slide/header context.
-- `lib/hub/` — `BrainHubPage`, `HubSourceInspectPanel`, merge `hubEvents/` here if desired.
+- `lib/hub/` — `BrainHubPage`, `HubConnectorSourcePanel` (under `components/hub-connector/`), merge `hubEvents/` here if desired.
 - `lib/calendar/` — `Calendar`, `DayEvents`, `CalendarEventDetail`, calendar formatting.
 - `lib/shell/` or `lib/layout/` — `SlideOver`, `WorkspaceSplit`, `AppTopNav` (naming is team preference; goal is “app chrome”).
 - `lib/shared/` or `lib/ui/` — `ConfirmDialog`, `markdown`, `formatDate`, `asyncLatest`, `fsPath` (only if truly cross-feature).
@@ -140,7 +140,7 @@ Threshold: flag files **~400+ lines** in TS and **~500+ lines** in Svelte (or an
 | `AgentHoldToSpeak.svelte` | ~620 | Audio pipeline vs. UI. |
 | `PhoneAccessPanel.svelte` | ~600 | |
 | `ChatHistory.svelte` | ~550 | |
-| `HubSourceInspectPanel.svelte` | ~631 | |
+| `hub-connector/HubConnectorSourcePanel.svelte` | (split meta/mail/index) | |
 | `ChatHistoryPage.svelte` | ~399 | |
 | `AgentInput.svelte` | ~463 | |
 | `ToolCallBlock.svelte` | ~422 | |

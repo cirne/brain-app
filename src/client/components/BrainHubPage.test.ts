@@ -60,6 +60,13 @@ function defaultFetchHandler(): typeof fetch {
         new Response(JSON.stringify({ indexedTotal: 0, configured: false }), { status: 200 }),
       )
     }
+    if (u.includes('/api/hub/sources/detail')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ ok: false, error: 'not used in hub page test' }), {
+          status: 200,
+        }),
+      )
+    }
     if (u.includes('/api/hub/sources')) {
       return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
     }
@@ -104,6 +111,11 @@ describe('BrainHubPage.svelte (Activity)', () => {
         if (u.includes('/api/inbox/mail-sync-status')) {
           return Promise.resolve(
             new Response(JSON.stringify({ indexedTotal: 2, configured: true }), { status: 200 }),
+          )
+        }
+        if (u.includes('/api/hub/sources/detail')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ ok: false, error: 'not used' }), { status: 200 }),
           )
         }
         if (u.includes('/api/hub/sources')) {

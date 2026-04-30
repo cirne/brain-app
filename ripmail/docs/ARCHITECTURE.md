@@ -712,7 +712,7 @@ Agents today parse the text output of `status` without difficulty. Text stays th
 
 ### ADR-030: File Source Indexing — Contentless FTS5, No Local Content Copy
 
-**Context:** As ripmail expands from mail-only to a unified sources model ([OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)), it indexes `localDir` paths and will index cloud file sources (Google Drive, Dropbox — [brain-app OPP-045](../../docs/opportunities/OPP-045-cloud-file-sources-drive-dropbox.md)). The current schema stores full extracted text in two places for each indexed document: `files.body_text` and `document_index.body`. For mail, both copies are load-bearing (the body is served via `ripmail read <message-id>` without a network call). For files, the original always exists on disk or is re-fetchable from a cloud API — local copies are redundant and cause the DB to grow proportionally with the user's file tree.
+**Context:** As ripmail expands from mail-only to a unified sources model ([OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)), it indexes `localDir` paths and will index cloud file sources (lead: Google Drive — [brain-app OPP-045](../../docs/opportunities/OPP-045-google-drive.md)). The current schema stores full extracted text in two places for each indexed document: `files.body_text` and `document_index.body`. For mail, both copies are load-bearing (the body is served via `ripmail read <message-id>` without a network call). For files, the original always exists on disk or is re-fetchable from a cloud API — local copies are redundant and cause the DB to grow proportionally with the user's file tree.
 
 **Decision:**
 
@@ -730,7 +730,7 @@ Agents today parse the text output of `status` without difficulty. Text stays th
 
 **Rationale:** The 50 ms vs 1–2 s search latency difference between local FTS5 and live cloud API calls is non-negotiable for agent UX (agent turns involve multiple search calls). The contentless FTS5 approach preserves that speed while eliminating the content-duplication growth problem. Vector/embedding search was considered and deferred: embedding generation requires a model dependency (local) or API calls with privacy tradeoffs (cloud), the index size is comparable to or larger than FTS5 for the same corpus, and the agent can compensate for FTS recall gaps by reformulating keyword queries across turns.
 
-**Related:** [OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (storage and indexing section), [brain-app OPP-045](../../docs/opportunities/OPP-045-cloud-file-sources-drive-dropbox.md) (cloud file sources), [external-sources-and-mcp.md](../../docs/architecture/external-sources-and-mcp.md) (local-first query principle).
+**Related:** [OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (storage and indexing section), [brain-app OPP-045](../../docs/opportunities/OPP-045-google-drive.md) (Google Drive milestone), [external-data-sources.md](../../docs/architecture/external-data-sources.md) (unified external-source architecture).
 
 ---
 

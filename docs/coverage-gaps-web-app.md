@@ -47,7 +47,7 @@ This document summarizes **V8 line coverage** from `npm run test:coverage` (Vite
 | --------------------------------------------- | ------------------------------------------------------------------------- |
 | `components/Wiki.svelte`                      | Partial coverage; many wiki branches unexercised.                         |
 | `components/BrainHubPage.svelte`              | **0%** — hub home.                                                        |
-| `components/HubSourceInspectPanel.svelte`     | **0%** — source inspection.                                               |
+| `components/hub-connector/HubConnectorSourcePanel.svelte` | **0%** — search index connector detail.                                      |
 | `components/HubBackgroundAgentsDetail.svelte` | **0%** — background agent detail.                                         |
 | `components/YourWikiDetail.svelte`            | **0%** — "your wiki" narrative.                                           |
 | `components/TipTapMarkdownEditor.svelte`      | **0%** — editing (heavier to test; consider targeted unit tests + mocks). |

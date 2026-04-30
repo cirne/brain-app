@@ -7,7 +7,7 @@ use std::fs;
 
 use tempfile::tempdir;
 
-use ripmail::config::{ConfigJson, LoadConfigOptions, LocalDirJson, SourceConfigJson, SourceKind};
+use ripmail::config::{ConfigJson, LoadConfigOptions, SourceConfigJson, SourceKind};
 use ripmail::db::open_file;
 use ripmail::search_with_meta;
 use ripmail::write_config_json;
@@ -39,11 +39,12 @@ fn local_dir_sync_indexes_xlsx_and_fts_finds_cell_token() {
             identity: None,
             apple_mail_path: None,
             path: Some(root.to_string_lossy().into()),
-            local_dir: Some(LocalDirJson::default()),
+            file_source: None,
+            include_shared_with_me: false,
             oauth_source_id: None,
             calendar_ids: None,
-            ics_url: None,
             default_calendars: None,
+            ics_url: None,
         }]),
         ..Default::default()
     };
@@ -121,11 +122,12 @@ fn local_dir_fixture_xlsx_sales_data_indexable() {
             identity: None,
             apple_mail_path: None,
             path: Some(root.to_string_lossy().into()),
-            local_dir: Some(LocalDirJson::default()),
+            file_source: None,
+            include_shared_with_me: false,
             oauth_source_id: None,
             calendar_ids: None,
-            ics_url: None,
             default_calendars: None,
+            ics_url: None,
         }]),
         ..Default::default()
     };
@@ -203,11 +205,12 @@ fn local_dir_stored_text_matches_extract_attachment_direct() {
             identity: None,
             apple_mail_path: None,
             path: Some(root.to_string_lossy().into()),
-            local_dir: Some(LocalDirJson::default()),
+            file_source: None,
+            include_shared_with_me: false,
             oauth_source_id: None,
             calendar_ids: None,
-            ics_url: None,
             default_calendars: None,
+            ics_url: None,
         }]),
         ..Default::default()
     };
@@ -277,11 +280,12 @@ fn local_dir_misnamed_xlsx_bin_matches_extract_attachment_direct() {
             identity: None,
             apple_mail_path: None,
             path: Some(root.to_string_lossy().into()),
-            local_dir: Some(LocalDirJson::default()),
+            file_source: None,
+            include_shared_with_me: false,
             oauth_source_id: None,
             calendar_ids: None,
-            ics_url: None,
             default_calendars: None,
+            ics_url: None,
         }]),
         ..Default::default()
     };

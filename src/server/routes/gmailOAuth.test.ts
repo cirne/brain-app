@@ -14,7 +14,7 @@ import { clearGoogleOauthDesktopResultForTests } from '@server/lib/platform/goog
 import { googleOAuthRedirectUri } from '@server/lib/platform/brainHttpPort.js'
 import {
   generatePkce,
-  GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+  GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
 } from '@server/lib/platform/googleOAuth.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
@@ -69,6 +69,7 @@ describe('GET /api/oauth/google/start', () => {
     expect(u.searchParams.get('code_challenge_method')).toBe('S256')
     expect(u.searchParams.get('access_type')).toBe('offline')
     expect(u.searchParams.get('state')).toBeTruthy()
+    expect(u.searchParams.get('scope')).toBe(GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE)
   })
 
   it('redirects with error when OAuth env is missing', async () => {
@@ -97,7 +98,7 @@ describe('GET /api/oauth/google/callback', () => {
               access_token: 'access-token',
               refresh_token: 'refresh-token',
               expires_in: 3600,
-              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } }
           )
@@ -194,7 +195,7 @@ describe('GET /api/oauth/google/callback', () => {
               access_token: 'access-token',
               refresh_token: 'refresh-token',
               expires_in: 3600,
-              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } }
           )
@@ -261,7 +262,7 @@ describe('GET /api/oauth/google/callback', () => {
                 access_token: 'access-token',
                 refresh_token: 'refresh-token',
                 expires_in: 3600,
-                scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+                scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
               }),
               { status: 200, headers: { 'Content-Type': 'application/json' } },
             )
@@ -377,7 +378,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
             access_token: 'access-token',
             refresh_token: 'refresh-token',
             expires_in: 3600,
-            scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+                scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         )
@@ -600,7 +601,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
               access_token: 'tok',
               refresh_token: 'refresh',
               expires_in: 3600,
-              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           )
@@ -642,7 +643,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
               access_token: 'tok',
               refresh_token: 'refresh',
               expires_in: 3600,
-              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           )
@@ -688,7 +689,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
               access_token: 'tok2',
               refresh_token: 'refresh2',
               expires_in: 3600,
-              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           )
@@ -756,7 +757,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
               access_token: 'tok',
               refresh_token: 'refresh',
               expires_in: 3600,
-              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           )
@@ -792,7 +793,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
               access_token: 'tok2',
               refresh_token: 'refresh2',
               expires_in: 3600,
-              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+              scope: GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
             }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           )

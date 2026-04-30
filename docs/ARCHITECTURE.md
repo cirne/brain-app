@@ -52,6 +52,7 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 | Eval home, Enron fixture mail, index rebuild | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md) |
 | Hosted Enron **demo** tenant (Bearer mint, Docker/staging QA) | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md) |
 | Ripmail, unified search, files API, optional iMessage  | [architecture/integrations.md](architecture/integrations.md)                   |
+| External corpus (Drive, SaaS docs, local-first index) | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045](opportunities/OPP-045-google-drive.md) |
 | Environment variables                                  | [architecture/configuration.md](architecture/configuration.md)                 |
 | **Local MLX LLM** (Apple Silicon, `mlx_lm.server`, Qwen 3.6) | [architecture/local-mlx-llm.md](architecture/local-mlx-llm.md) |
 | Future SQLite consolidation (not current)              | [architecture/future-durability.md](architecture/future-durability.md)         |

@@ -21,6 +21,7 @@ import {
   buildInboxRulesCommand,
   buildReindexCommand,
   buildRipmailSearchCommandLine,
+  buildSourcesAddGoogleDriveCommand,
   buildSourcesAddLocalDirCommand,
   buildSourcesEditCommand,
   buildSourcesRemoveCommand,
@@ -1531,16 +1532,41 @@ describe('buildInboxRulesCommand', () => {
 })
 
 describe('ripmail sources / refresh command builders', () => {
-  it('buildSourcesAddLocalDirCommand builds add with path, label, id, json', () => {
-    expect(buildSourcesAddLocalDirCommand({ path: '~/Documents' })).toBe(
-      'sources add --kind localDir --path "~/Documents" --json',
+  it('buildSourcesAddGoogleDriveCommand builds add with oauth + optional folders', () => {
+    expect(
+      buildSourcesAddGoogleDriveCommand({
+        email: 'a@b.com',
+        oauthSourceId: 'a_b_com',
+      }),
+    ).toBe(
+      'sources add --kind googleDrive --email "a@b.com" --oauth-source-id "a_b_com" --json',
     )
-    expect(buildSourcesAddLocalDirCommand({ path: '/a/b', label: 'Work' })).toBe(
-      'sources add --kind localDir --path "/a/b" --label "Work" --json',
+    expect(
+      buildSourcesAddGoogleDriveCommand({
+        email: 'x@gmail.com',
+        oauthSourceId: 'mb1',
+        label: 'Drive',
+        id: 'my-drive',
+        folderIds: ['f1', ' f2 '],
+        includeSharedWithMe: true,
+        maxFileBytes: 5_000_000,
+      }),
+    ).toBe(
+      'sources add --kind googleDrive --email "x@gmail.com" --oauth-source-id "mb1" --label "Drive" --id "my-drive" --root-id "f1" --root-id "f2" --include-shared-with-me --max-file-bytes 5000000 --json',
     )
-    expect(buildSourcesAddLocalDirCommand({ path: '/x', id: 'my-id' })).toBe(
-      'sources add --kind localDir --path "/x" --id "my-id" --json',
+  })
+
+  it('buildSourcesAddLocalDirCommand builds add with root-id, label, id, json', () => {
+    expect(buildSourcesAddLocalDirCommand({ rootIds: ['~/Documents'] })).toBe(
+      'sources add --kind localDir --root-id "~/Documents" --json',
     )
+    expect(buildSourcesAddLocalDirCommand({ rootIds: ['/a/b'], label: 'Work' })).toBe(
+      'sources add --kind localDir --root-id "/a/b" --label "Work" --json',
+    )
+    expect(buildSourcesAddLocalDirCommand({ rootIds: ['/x'], id: 'my-id' })).toBe(
+      'sources add --kind localDir --root-id "/x" --id "my-id" --json',
+    )
+    expect(() => buildSourcesAddLocalDirCommand({ rootIds: [] })).toThrow('rootIds required')
   })
 
   it('buildSourcesEditCommand builds edit with optional fields', () => {

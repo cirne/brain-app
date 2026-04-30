@@ -452,7 +452,7 @@
 </div>
 
 <style>
-  /* Layout aligned with HubWikiAboutPanel + HubSourceInspectPanel (scoped tokens, not Tailwind). */
+  /* Layout aligned with HubWikiAboutPanel + HubConnectorSourcePanel (scoped tokens, not Tailwind). */
   .hub-apple-messages {
     padding: 1rem 1.25rem 1.25rem;
     min-height: 0;
@@ -812,7 +812,7 @@
     padding-top: 0.25rem;
   }
 
-  /* Match HubSourceInspectPanel button recipe (scoped duplicate — same tokens). */
+  /* Match HubConnectorSourcePanel button recipe (scoped duplicate — same tokens). */
   .hub-dialog-btn {
     font-size: 0.875rem;
     font-weight: 600;

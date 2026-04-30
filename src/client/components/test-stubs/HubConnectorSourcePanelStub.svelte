@@ -6,4 +6,4 @@
   let { sourceId }: Props = $props()
 </script>
 
-<div data-testid="hub-source-stub">HubSourceInspect: {sourceId ?? 'none'}</div>
+<div data-testid="hub-source-stub">HubConnectorSource: {sourceId ?? 'none'}</div>

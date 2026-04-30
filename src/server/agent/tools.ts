@@ -12,6 +12,7 @@ export {
   buildRipmailSearchCommandLine,
   buildInboxRulesCommand,
   buildDraftEditFlags,
+  buildSourcesAddGoogleDriveCommand,
   buildSourcesAddLocalDirCommand,
   buildSourcesEditCommand,
   buildSourcesRemoveCommand,

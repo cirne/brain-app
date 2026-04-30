@@ -16,8 +16,8 @@ use crate::oauth::{
     resolve_google_oauth_client_with_diagnostics, resolve_oauth_relay_base,
     run_google_oauth_hosted, run_google_oauth_interactive, save_google_oauth_token_store,
     GoogleOAuthTokenStore, DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID,
-    DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_EVENTS,
-    GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+    DEFAULT_PUBLIC_GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_SCOPE_DRIVE_READONLY,
+    GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_EVENTS, GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
 };
 use crate::sync::{connect_imap_for_resolved_mailbox, connect_imap_session};
 
@@ -404,7 +404,8 @@ pub fn load_mailbox_configs_for_wizard(home: &Path) -> Vec<MailboxConfigJson> {
                     identity: None,
                     apple_mail_path: None,
                     path: None,
-                    local_dir: None,
+                    file_source: None,
+                    include_shared_with_me: false,
                     oauth_source_id: None,
                     calendar_ids: None,
                     default_calendars: None,
@@ -568,7 +569,8 @@ pub fn upsert_mailbox_setup(
         identity,
         apple_mail_path: None,
         path: None,
-        local_dir: None,
+        file_source: None,
+        include_shared_with_me: false,
         oauth_source_id: None,
         calendar_ids: None,
         default_calendars: None,
@@ -647,7 +649,8 @@ pub fn upsert_mailbox_applemail(
         identity,
         apple_mail_path: apple_path_json,
         path: None,
-        local_dir: None,
+        file_source: None,
+        include_shared_with_me: false,
         oauth_source_id: None,
         calendar_ids: None,
         default_calendars: None,
@@ -739,7 +742,8 @@ pub fn upsert_mailbox_google_oauth(
         identity,
         apple_mail_path: None,
         path: None,
-        local_dir: None,
+        file_source: None,
+        include_shared_with_me: false,
         oauth_source_id: None,
         calendar_ids: None,
         default_calendars: None,
@@ -851,18 +855,23 @@ pub fn write_google_oauth_setup(
     imap_host: Option<&str>,
     imap_port: Option<u16>,
     no_validate: bool,
+    include_drive_scope: bool,
     identity_patch: Option<&IdentityPatch>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let env_map: std::collections::HashMap<String, String> = std::env::vars().collect();
     merge_root_google_oauth_client_if_missing(home)?;
     let env_file = crate::config::read_ripmail_env_file(home);
     let client = resolve_google_oauth_client_with_diagnostics(Some(home), &env_file, &env_map)?;
-    let scope = if email.map(|e| !e.trim().is_empty()).unwrap_or(false) {
-        GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_EVENTS
+    let mut scope = if email.map(|e| !e.trim().is_empty()).unwrap_or(false) {
+        GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_EVENTS.to_string()
     } else {
-        GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS
+        GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS.to_string()
     };
-    let tokens = run_google_oauth_interactive(&client, scope)?;
+    if include_drive_scope {
+        scope.push(' ');
+        scope.push_str(GOOGLE_OAUTH_SCOPE_DRIVE_READONLY);
+    }
+    let tokens = run_google_oauth_interactive(&client, &scope)?;
     let resolved_email = match email {
         Some(e) if !e.trim().is_empty() => e.trim().to_string(),
         _ => fetch_google_account_email(&tokens.access_token).map_err(|e| e.to_string())?,
@@ -1063,6 +1072,7 @@ fn mailbox_via_label(mb: &MailboxConfigJson) -> &'static str {
         SourceKind::AppleCalendar => "Apple Calendar",
         SourceKind::IcsSubscription => "ICS URL",
         SourceKind::IcsFile => "ICS file",
+        SourceKind::GoogleDrive => "Google Drive",
     }
 }
 

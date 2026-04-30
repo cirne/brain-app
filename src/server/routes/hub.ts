@@ -1,5 +1,12 @@
 import { Hono } from 'hono'
-import { getHubRipmailSourcesList, removeHubRipmailSource } from '@server/lib/hub/hubRipmailSources.js'
+import {
+  browseHubRipmailFolders,
+  getHubRipmailSourceDetail,
+  getHubRipmailSourcesList,
+  removeHubRipmailSource,
+  updateHubRipmailFileSource,
+  type HubFileSourceConfig,
+} from '@server/lib/hub/hubRipmailSources.js'
 import { getHubSourceMailStatus } from '@server/lib/hub/hubRipmailSourceStatus.js'
 import {
   isValidHubBackfillSince,
@@ -19,6 +26,49 @@ const hub = new Hono()
 hub.get('/sources', async (c) => {
   const payload = await getHubRipmailSourcesList()
   return c.json(payload)
+})
+
+/** One source: config (`ripmail sources list --json`) + index stats (`ripmail sources status --json`). */
+hub.get('/sources/detail', async (c) => {
+  const id = c.req.query('id')?.trim() ?? ''
+  if (!id) {
+    return c.json({ ok: false as const, error: 'id required' }, 400)
+  }
+  const payload = await getHubRipmailSourceDetail(id)
+  return c.json(payload)
+})
+
+hub.get('/sources/browse-folders', async (c) => {
+  const id = c.req.query('id')?.trim() ?? ''
+  const parentId = c.req.query('parentId')?.trim() ?? ''
+  if (!id) {
+    return c.json({ ok: false as const, error: 'id required' }, 400)
+  }
+  const payload = await browseHubRipmailFolders(id, parentId || undefined)
+  if (!payload.ok) {
+    return c.json(payload, 400)
+  }
+  return c.json({ ok: true as const, folders: payload.folders })
+})
+
+hub.post('/sources/update-file-source', async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as {
+    id?: unknown
+    fileSource?: unknown
+  }
+  const id = typeof body.id === 'string' ? body.id.trim() : ''
+  if (!id) {
+    return c.json({ ok: false as const, error: 'id required' }, 400)
+  }
+  if (!body.fileSource || typeof body.fileSource !== 'object') {
+    return c.json({ ok: false as const, error: 'fileSource required' }, 400)
+  }
+  const fs = body.fileSource as HubFileSourceConfig
+  const r = await updateHubRipmailFileSource(id, fs)
+  if (!r.ok) {
+    return c.json({ ok: false as const, error: r.error }, 400)
+  }
+  return c.json({ ok: true as const })
 })
 
 hub.get('/sources/mail-status', async (c) => {
@@ -52,10 +102,13 @@ hub.post('/sources/refresh', async (c) => {
   if (!id) {
     return c.json({ ok: false as const, error: 'id required' }, 400)
   }
-  const r = await spawnRipmailRefreshSource(id)
-  if (!r.ok) {
-    return c.json({ ok: false as const, error: r.error ?? 'spawn failed' }, 400)
-  }
+  // Same pattern as POST /api/inbox/sync: ripmail can run for RIPMAIL_REFRESH_TIMEOUT_MS — respond
+  // immediately so Hub UI (mail + Drive) is not blocked for the full window.
+  void spawnRipmailRefreshSource(id).then((r) => {
+    if (!r.ok) {
+      console.error('[hub/sources/refresh] ripmail refresh failed:', r.error ?? 'refresh failed')
+    }
+  })
   return c.json({ ok: true as const })
 })
 
@@ -126,10 +179,11 @@ hub.post('/sources/backfill', async (c) => {
   if (!isValidHubBackfillSince(since)) {
     return c.json({ ok: false as const, error: 'invalid backfill window' }, 400)
   }
-  const r = await spawnRipmailBackfillSource(id, since)
-  if (!r.ok) {
-    return c.json({ ok: false as const, error: r.error ?? 'spawn failed' }, 400)
-  }
+  void spawnRipmailBackfillSource(id, since).then((r) => {
+    if (!r.ok) {
+      console.error('[hub/sources/backfill] ripmail backfill failed:', r.error ?? 'backfill failed')
+    }
+  })
   return c.json({ ok: true as const })
 })
 

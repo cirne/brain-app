@@ -18,9 +18,11 @@ pub use client::{
     DEFAULT_PUBLIC_OAUTH_RELAY_BASE,
 };
 pub use google_flow::{
-    run_google_oauth_interactive, GoogleOAuthInteractiveError, GOOGLE_OAUTH_SCOPE_MAIL,
-    GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_EVENTS, GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL,
+    run_google_oauth_interactive, GoogleOAuthInteractiveError, GOOGLE_OAUTH_SCOPE_DRIVE_READONLY,
+    GOOGLE_OAUTH_SCOPE_MAIL, GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_EVENTS,
+    GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_EVENTS_DRIVE, GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL,
     GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS,
+    GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
 };
 pub use google_userinfo::{fetch_google_account_email, GoogleUserinfoError};
 pub use hosted_flow::{run_google_oauth_hosted, GoogleOAuthHostedError};

@@ -26,7 +26,7 @@ Hand-rolled `cancelled` flags in `$effect` cleanups are equivalent; the shared h
 | Unified search overlay | [`src/client/lib/Search.svelte`](../../src/client/lib/Search.svelte) |
 | Calendar week grid | [`src/client/lib/Calendar.svelte`](../../src/client/lib/Calendar.svelte) |
 | Single-day calendar fetch | [`src/client/lib/DayEvents.svelte`](../../src/client/lib/DayEvents.svelte) |
-| Hub source inspector | [`src/client/lib/HubSourceInspectPanel.svelte`](../../src/client/lib/HubSourceInspectPanel.svelte) |
+| Hub connector source panel | [`src/client/components/hub-connector/HubConnectorSourcePanel.svelte`](../../src/client/components/hub-connector/HubConnectorSourcePanel.svelte) |
 | iMessage thread | [`src/client/lib/MessageThread.svelte`](../../src/client/lib/MessageThread.svelte) |
 | Calendar related context | [`src/client/lib/CalendarEventDetail.svelte`](../../src/client/lib/CalendarEventDetail.svelte) |
 

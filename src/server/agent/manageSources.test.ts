@@ -54,10 +54,23 @@ describe('manage_sources tool', () => {
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'manage_sources')!
 
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"id": "new-src"}', stderr: '' })
+    vi.mocked(execRipmailAsync)
+      .mockResolvedValueOnce({ stdout: '{"sources": []}', stderr: '' })
+      .mockResolvedValueOnce({ stdout: '{"id": "new-src"}', stderr: '' })
 
     await tool.execute('s3', { op: 'add', path: '/tmp/dir', label: 'My Dir' })
-    expect(execRipmailAsync).toHaveBeenCalledWith(expect.stringContaining('sources add --kind localDir --path "/tmp/dir" --label "My Dir" --json'), expect.any(Object))
+    expect(execRipmailAsync).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('sources list --json'),
+      expect.any(Object),
+    )
+    expect(execRipmailAsync).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining(
+        'sources add --kind localDir --root-id "/tmp/dir" --label "My Dir" --json',
+      ),
+      expect.any(Object),
+    )
   })
 
   it('op=edit calls ripmail sources edit', async () => {

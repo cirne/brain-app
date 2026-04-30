@@ -36,6 +36,13 @@ function defaultFetchHandler(): typeof fetch {
         ),
       )
     }
+    if (u.includes('/api/hub/sources/detail')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ ok: false, error: 'not used in settings test' }), {
+          status: 200,
+        }),
+      )
+    }
     if (u.includes('/api/hub/sources')) {
       return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
     }
@@ -157,5 +164,51 @@ describe('BrainSettingsPage.svelte', () => {
     })
     await fireEvent.click(screen.getByRole('button', { name: /work@example\.com/i }))
     expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'hub-source', id: 'work_x' })
+  })
+
+  it('shows Google Drive label for googleDrive sources', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: RequestInfo) => {
+        const u = String(url)
+        if (u.includes('/api/hub/sources/mail-prefs')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
+              { status: 200 },
+            ),
+          )
+        }
+        if (u.includes('/api/hub/sources/detail')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ ok: false, error: 'not used' }), { status: 200 }),
+          )
+        }
+        if (u.includes('/api/hub/sources')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                sources: [
+                  {
+                    id: 'gd1',
+                    kind: 'googleDrive',
+                    displayName: 'you@gmail.com',
+                    path: null,
+                  },
+                ],
+              }),
+              { status: 200 },
+            ),
+          )
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }) as unknown as typeof fetch,
+    )
+    render(BrainSettingsPage, {
+      props: { onSettingsNavigate: vi.fn() },
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Google Drive')).toBeInTheDocument()
+    })
   })
 })

@@ -4,7 +4,7 @@
 
 **Created:** 2026-04-20.
 
-**Related:** [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified sources / future connectors), [OPP-014](archive/OPP-014-knowledge-expansion-local-folders.md) (knowledge expansion — local folders), [OPP-045](OPP-045-cloud-file-sources-drive-dropbox.md) (Google Drive / Dropbox as cloud file sources).
+**Related:** [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified sources / future connectors), [OPP-014](archive/OPP-014-knowledge-expansion-local-folders.md) (knowledge expansion — local folders), [OPP-045](OPP-045-google-drive.md) (Google Drive corpus source), [external-data-sources.md](../architecture/external-data-sources.md) (unified external-source architecture).
 
 ---
 
@@ -52,13 +52,15 @@ If the product direction includes **“search everything the user connects”** 
 
 ## Tradeoffs and risks
 
-| Dimension | Notes |
-| --------- | ----- |
-| **Privacy / trust** | User content and tokens may transit One’s cloud. Conflicts with strict local-only guarantees unless we scope to low-sensitivity connectors or offer opt-in per source. |
-| **Architecture** | Ripmail today is **Rust + local SQLite**; adding a Node-side or subprocess **fetch** layer that calls One is an explicit split. Avoid duplicating index state in two systems. |
-| **Agent stack** | brain-app uses **pi-agent-core / pi-coding-agent**, not LangChain/Vercel AI SDK by default. One’s first-party SDKs may not drop in; likely **custom tools** calling One’s HTTP API. |
-| **Alternatives** | Hand-rolled OAuth per provider; **direct** vendor APIs; **MCP servers** per system; **export + import** (batch) for infrequently changing sources. |
-| **Open source** | Historical community edition (e.g. `integration-os` on GitHub) has been described as less actively maintained; treat **hosted One** as the realistic integration path unless we verify otherwise at evaluation time. |
+
+| Dimension           | Notes                                                                                                                                                                                                                |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Privacy / trust** | User content and tokens may transit One’s cloud. Conflicts with strict local-only guarantees unless we scope to low-sensitivity connectors or offer opt-in per source.                                               |
+| **Architecture**    | Ripmail today is **Rust + local SQLite**; adding a Node-side or subprocess **fetch** layer that calls One is an explicit split. Avoid duplicating index state in two systems.                                        |
+| **Agent stack**     | brain-app uses **pi-agent-core / pi-coding-agent**, not LangChain/Vercel AI SDK by default. One’s first-party SDKs may not drop in; likely **custom tools** calling One’s HTTP API.                                  |
+| **Alternatives**    | Hand-rolled OAuth per provider; **direct** vendor APIs; **MCP servers** per system; **export + import** (batch) for infrequently changing sources.                                                                   |
+| **Open source**     | Historical community edition (e.g. `integration-os` on GitHub) has been described as less actively maintained; treat **hosted One** as the realistic integration path unless we verify otherwise at evaluation time. |
+
 
 ---
 
@@ -77,3 +79,4 @@ If the product direction includes **“search everything the user connects”** 
 - One changelog (rebrand context): [withone.ai/changelog](https://www.withone.ai/changelog)
 - Brain unified sources design: [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)
 - Brain-app agent tools (today’s surface): `src/server/agent/tools.ts`, `src/server/agent/agentToolSets.ts`
+

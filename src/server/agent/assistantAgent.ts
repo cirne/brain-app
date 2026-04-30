@@ -7,7 +7,7 @@ import { createAgentTools } from './tools.js'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { wikiDir as getWikiDir } from '@server/lib/wiki/wikiDir.js'
-import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
+import { chainLlmOnPayloadNoThinking } from '@server/lib/llm/llmOnPayloadChain.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 import { formatSkillLibrarySection } from '@server/lib/llm/skillRegistry.js'
 import { loadSession } from '@server/lib/chat/chatStorage.js'
@@ -160,9 +160,10 @@ ${dateTimeBlock}`
       systemPrompt,
       model,
       tools,
+      thinkingLevel: 'off',
       ...(messagesForInitial?.length ? { messages: messagesForInitial } : {}),
     },
-    onPayload: (params, m) => chainLlmOnPayload(params, m),
+    onPayload: (params, m) => chainLlmOnPayloadNoThinking(params, m),
     getApiKey: (p: string) => resolveLlmApiKey(p),
     convertToLlm,
   })

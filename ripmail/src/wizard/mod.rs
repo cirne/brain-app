@@ -432,6 +432,12 @@ fn wizard_gmail_oauth_path(
         }
     };
 
+    let include_drive = Confirm::new(
+        "Also allow read-only access to Google Drive (for indexing Drive files later)?",
+    )
+    .with_default(false)
+    .prompt()?;
+
     write_google_oauth_setup(
         home,
         None,
@@ -440,6 +446,7 @@ fn wizard_gmail_oauth_path(
         Some("imap.gmail.com"),
         Some(993),
         opts.no_validate,
+        include_drive,
         identity_patch.as_ref(),
     )?;
 
@@ -947,6 +954,12 @@ fn wizard_add_mailbox_gmail_oauth(
     println!("\nAdd mailbox (Gmail — Sign in with Google)\n");
 
     let existing_mbs = load_mailbox_configs_for_wizard(home);
+    let include_drive = Confirm::new(
+        "Also allow read-only access to Google Drive (for indexing Drive files later)?",
+    )
+    .with_default(false)
+    .prompt()?;
+
     let id = write_google_oauth_setup(
         home,
         None,
@@ -955,6 +968,7 @@ fn wizard_add_mailbox_gmail_oauth(
         Some("imap.gmail.com"),
         Some(993),
         opts.no_validate,
+        include_drive,
         None,
     )?;
     if let Some(src) = existing_mbs.iter().find_map(|m| m.identity.as_ref()) {

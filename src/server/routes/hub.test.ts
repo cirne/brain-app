@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 
 vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync: vi.fn(),
+  runRipmailArgv: vi.fn(),
 }))
 
 vi.mock('@server/lib/hub/hubRipmailSpawn.js', async (importOriginal) => {
@@ -17,7 +18,7 @@ vi.mock('@server/lib/hub/hubRipmailSpawn.js', async (importOriginal) => {
   }
 })
 
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
+import { execRipmailAsync, runRipmailArgv } from '@server/lib/ripmail/ripmailRun.js'
 import {
   spawnRipmailBackfillSource,
   spawnRipmailRefreshSource,
@@ -35,6 +36,7 @@ afterEach(async () => {
   await rm(brainHome, { recursive: true, force: true })
   delete process.env.BRAIN_HOME
   vi.mocked(execRipmailAsync).mockReset()
+  vi.mocked(runRipmailArgv).mockReset()
   vi.mocked(spawnRipmailRefreshSource).mockClear()
   vi.mocked(spawnRipmailBackfillSource).mockClear()
 })
@@ -72,6 +74,88 @@ describe('hub routes', () => {
       path: '/Users/me/Desktop/NetJets',
     })
     expect(j.sources[1].displayName).toBe('a@gmail.com')
+  })
+
+  it('GET /sources/detail merges list and status for a Google Drive source', async () => {
+    vi.mocked(execRipmailAsync).mockImplementation(async (cmd: string) => {
+      if (cmd.includes('sources list')) {
+        return {
+          stdout: JSON.stringify({
+            sources: [
+              {
+                id: 'drive_x',
+                kind: 'googleDrive',
+                email: 'u@gmail.com',
+                oauthSourceId: 'mailbox_a',
+                includeSharedWithMe: true,
+                fileSource: {
+                  roots: [{ id: 'abc', name: 'Work', recursive: true }],
+                  includeGlobs: [],
+                  ignoreGlobs: [],
+                  maxFileBytes: 5_000_000,
+                  respectGitignore: true,
+                },
+              },
+            ],
+          }),
+          stderr: '',
+        }
+      }
+      if (cmd.includes('sources status')) {
+        return {
+          stdout: JSON.stringify({
+            sources: [
+              {
+                id: 'drive_x',
+                kind: 'googleDrive',
+                documentIndexRows: 42,
+                calendarEventRows: 0,
+                lastSyncedAt: '2026-04-30T10:00:00Z',
+              },
+            ],
+          }),
+          stderr: '',
+        }
+      }
+      return { stdout: '{}', stderr: '' }
+    })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/detail?id=drive_x')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as {
+      ok: true
+      status?: { documentIndexRows: number }
+      fileSource?: { roots: { id: string }[] }
+      includeSharedWithMe?: boolean
+      oauthSourceId?: string | null
+    }
+    expect(j.ok).toBe(true)
+    expect(j.status?.documentIndexRows).toBe(42)
+    expect(j.fileSource?.roots.map((r) => r.id)).toEqual(['abc'])
+    expect(j.includeSharedWithMe).toBe(true)
+    expect(j.oauthSourceId).toBe('mailbox_a')
+  })
+
+  it('GET /sources/detail returns ok:false when source id not in config', async () => {
+    vi.mocked(execRipmailAsync).mockResolvedValue({
+      stdout: JSON.stringify({ sources: [{ id: 'other', kind: 'localDir', path: '/tmp' }] }),
+      stderr: '',
+    })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/detail?id=missing')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean; error?: string }
+    expect(j.ok).toBe(false)
+    expect(j.error).toBe('Source not found')
+  })
+
+  it('GET /sources/detail 400 when id missing', async () => {
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/detail')
+    expect(res.status).toBe(400)
   })
 
   it('GET /sources returns error payload when ripmail fails', async () => {
@@ -221,6 +305,82 @@ describe('hub routes', () => {
     app.route('/api/hub', hubRoute)
     const res = await app.request('http://localhost/api/hub/sources/mail-status')
     expect(res.status).toBe(400)
+  })
+
+  it('GET /sources/browse-folders returns folders from ripmail', async () => {
+    vi.mocked(runRipmailArgv).mockResolvedValue({
+      stdout: JSON.stringify({
+        folders: [{ id: 'a', name: 'Alpha', hasChildren: true }],
+      }),
+      stderr: '',
+      code: 0,
+      signal: null,
+      durationMs: 1,
+      timedOut: false,
+      pid: 1,
+    })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request(
+      'http://localhost/api/hub/sources/browse-folders?id=src1&parentId=root',
+    )
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean; folders?: { id: string }[] }
+    expect(j.ok).toBe(true)
+    expect(j.folders?.map((f) => f.id)).toEqual(['a'])
+    expect(vi.mocked(runRipmailArgv).mock.calls[0]?.[0]).toEqual([
+      'sources',
+      'browse-folders',
+      '--id',
+      'src1',
+      '--json',
+      '--parent-id',
+      'root',
+    ])
+  })
+
+  it('GET /sources/browse-folders 400 when id missing', async () => {
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/browse-folders')
+    expect(res.status).toBe(400)
+  })
+
+  it('POST /sources/update-file-source runs ripmail sources edit --file-source-json', async () => {
+    vi.mocked(runRipmailArgv).mockResolvedValue({
+      stdout: '{}',
+      stderr: '',
+      code: 0,
+      signal: null,
+      durationMs: 1,
+      timedOut: false,
+      pid: 1,
+    })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const fileSource = {
+      roots: [{ id: 'f1', name: 'Docs', recursive: true }],
+      includeGlobs: [] as string[],
+      ignoreGlobs: [] as string[],
+      maxFileBytes: 9_000_000,
+      respectGitignore: false,
+    }
+    const res = await app.request('http://localhost/api/hub/sources/update-file-source', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'gd1', fileSource }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean }
+    expect(j.ok).toBe(true)
+    expect(vi.mocked(runRipmailArgv).mock.calls[0]?.[0]).toEqual([
+      'sources',
+      'edit',
+      'gd1',
+      '--file-source-json',
+      JSON.stringify(fileSource),
+      '--json',
+    ])
   })
 })
 

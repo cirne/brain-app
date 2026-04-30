@@ -57,6 +57,7 @@ pub(crate) fn handle_command(cli: Cli) -> CliResult {
             imap_port,
             no_validate,
             no_skill,
+            drive,
             identity,
         } => setup::run_setup(
             email,
@@ -70,6 +71,7 @@ pub(crate) fn handle_command(cli: Cli) -> CliResult {
             imap_port,
             no_validate,
             no_skill,
+            drive,
             identity,
         ),
         Commands::Config {

@@ -11,6 +11,16 @@ use super::client::GoogleOAuthClientSettings;
 use super::pkce::{code_challenge_s256, new_code_verifier};
 use super::token_http::{exchange_authorization_code, TokenEndpointResponse, TokenHttpError};
 
+/// Read-only metadata + file content for Drive indexing (`ripmail sources add --kind googleDrive`).
+pub const GOOGLE_OAUTH_SCOPE_DRIVE_READONLY: &str =
+    "https://www.googleapis.com/auth/drive.readonly";
+/// Gmail IMAP/SMTP + Google Calendar events + Drive read-only.
+pub const GOOGLE_OAUTH_SCOPE_MAIL_CALENDAR_EVENTS_DRIVE: &str =
+    "https://mail.google.com/ https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.readonly";
+/// Wizard / OpenID path with mail + calendar + Drive read-only + OpenID email.
+pub const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE: &str =
+    "https://mail.google.com/ https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.readonly openid email";
+
 /// Gmail IMAP/SMTP only (use when the account email is already known, e.g. `ripmail setup --email`).
 pub const GOOGLE_OAUTH_SCOPE_MAIL: &str = "https://mail.google.com/";
 /// Mail + OpenID + email — needed to discover the mailbox address after browser sign-in (wizard Gmail OAuth path).

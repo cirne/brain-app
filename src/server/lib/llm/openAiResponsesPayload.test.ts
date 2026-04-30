@@ -28,4 +28,13 @@ describe('patchOpenAiReasoningNoneEffort', () => {
     expect(next?.reasoning).toEqual({ effort: 'low', summary: 'auto' })
     expect(next?.include).toEqual(expect.arrayContaining(['other', 'reasoning.encrypted_content']))
   })
+
+  it('no-ops for reasoning gpt-5.4-mini when effort is none (assistant thinking off)', () => {
+    expect(
+      patchOpenAiReasoningNoneEffort(
+        { reasoning: { effort: 'none' } },
+        { id: 'gpt-5.4-mini', reasoning: true },
+      ),
+    ).toBeUndefined()
+  })
 })

@@ -23,7 +23,9 @@ vi.mock('../MessageThread.svelte', () => import('../test-stubs/MessageThreadStub
 vi.mock('../MailSearchResultsPanel.svelte', () => import('../test-stubs/MailSearchResultsPanelStub.svelte'))
 vi.mock('../PhoneAccessPanel.svelte', () => import('../test-stubs/PhoneAccessPanelStub.svelte'))
 vi.mock('../YourWikiDetail.svelte', () => import('../test-stubs/YourWikiDetailStub.svelte'))
-vi.mock('../HubSourceInspectPanel.svelte', () => import('../test-stubs/HubSourceInspectPanelStub.svelte'))
+vi.mock('../hub-connector/HubConnectorSourcePanel.svelte', () =>
+  import('../test-stubs/HubConnectorSourcePanelStub.svelte'),
+)
 vi.mock('../HubWikiAboutPanel.svelte', () => import('../test-stubs/HubWikiAboutPanelStub.svelte'))
 vi.mock('../HubAddFoldersPanel.svelte', () => import('../test-stubs/HubAddFoldersPanelStub.svelte'))
 vi.mock('../HubAppleMessagesPanel.svelte', () => import('../test-stubs/HubAppleMessagesPanelStub.svelte'))

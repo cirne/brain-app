@@ -27,6 +27,7 @@ import {
   buildDraftEditFlags,
   buildInboxRulesCommand,
   buildRipmailSearchCommandLine,
+  buildSourcesAddGoogleDriveCommand,
   buildSourcesAddLocalDirCommand,
   buildSourcesEditCommand,
   buildSourcesRemoveCommand,
@@ -349,7 +350,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'manage_sources',
     label: 'Manage sources',
     description:
-      'Manage ripmail sources (IMAP, Apple Mail, local folders, calendars). op=list: list all sources; op=status: index health and sync times; op=add: register a local folder; op=edit: update label/path; op=remove: delete a source; op=reindex: background incremental sync (same as **refresh_sources**); prefer **refresh_sources** when the user only asks to refresh or sync mail/data.',
+      'Manage ripmail sources (IMAP, Apple Mail, local folders, calendars, Google Drive). op=list: list all sources; op=status: index health and sync times; op=add: register a local folder (kind localDir) or Google Drive (kind googleDrive with email + oauth_source_id). File corpus roots live in **fileSource.roots** (`id` = filesystem path or Drive folder id). Use **root_ids** when adding (maps to `ripmail sources add --root-id`). Google Drive sync requires at least one folder root (no whole-drive). op=edit: update label/path; op=remove: delete a source; op=reindex: background incremental sync (same as **refresh_sources**); prefer **refresh_sources** when the user only asks to refresh or sync mail/data.',
     parameters: Type.Object({
       op: Type.Union([
         Type.Literal('list'),
@@ -359,18 +360,54 @@ export function createRipmailAgentTools(wikiDir: string) {
         Type.Literal('remove'),
         Type.Literal('reindex'),
       ]),
+      kind: Type.Optional(
+        Type.Union([Type.Literal('localDir'), Type.Literal('googleDrive')], {
+          description:
+            'add: localDir (folder paths as root_ids) or googleDrive (needs email + oauth_source_id + folder roots)',
+        }),
+      ),
       id: Type.Optional(Type.String({ description: 'edit/remove/reindex: source id (reindex: prefer refresh_sources)' })),
-      path: Type.Optional(Type.String({ description: 'add/edit: absolute path or ~/…' })),
+      path: Type.Optional(
+        Type.String({
+          description:
+            'add localDir: single folder path (shortcut for one `--root-id`; combine with root_ids if needed)',
+        }),
+      ),
+      root_ids: Type.Optional(
+        Type.Array(Type.String(), {
+          description:
+            'add localDir or googleDrive: folder path(s) or Drive folder id(s) — Drive requires at least one for sync',
+        }),
+      ),
       label: Type.Optional(Type.String({ description: 'add/edit: display label' })),
+      email: Type.Optional(Type.String({ description: 'add googleDrive: mailbox email (display / token lookup)' })),
+      oauth_source_id: Type.Optional(
+        Type.String({
+          description:
+            'add googleDrive: ripmail source id whose directory holds google-oauth.json (usually the Gmail mailbox id)',
+        }),
+      ),
+      folder_ids: Type.Optional(
+        Type.Array(Type.String(), { description: 'add googleDrive: alias for root_ids (Drive folder ids)' }),
+      ),
+      include_shared_with_me: Type.Optional(Type.Boolean({ description: 'add googleDrive: set when indexing shared trees' })),
+      max_file_bytes: Type.Optional(Type.Number({ description: 'add googleDrive: max file size in bytes (default 10MB in ripmail)' })),
       source_id: Type.Optional(Type.String({ description: 'reindex: alias for id (prefer refresh_sources for sync-only)' })),
     }),
     async execute(
       _toolCallId: string,
       params: {
         op: 'list' | 'status' | 'add' | 'edit' | 'remove' | 'reindex'
+        kind?: 'localDir' | 'googleDrive'
         id?: string
         path?: string
+        root_ids?: string[]
         label?: string
+        email?: string
+        oauth_source_id?: string
+        folder_ids?: string[]
+        include_shared_with_me?: boolean
+        max_file_bytes?: number
         source_id?: string
       },
     ) {
@@ -395,10 +432,35 @@ export function createRipmailAgentTools(wikiDir: string) {
           return parseStdout(stdout)
         }
         case 'add': {
-          if (!params.path) throw new Error('path is required for op=add')
-          await assertManageSourcePathAllowed(params.path)
+          if (params.kind === 'googleDrive') {
+            const email = params.email?.trim()
+            const oauthSid = params.oauth_source_id?.trim()
+            if (!email) throw new Error('email is required for add with kind=googleDrive')
+            if (!oauthSid) throw new Error('oauth_source_id is required for add with kind=googleDrive')
+            const fromFolder = (params.folder_ids ?? []).map((s) => s.trim()).filter(Boolean)
+            const fromRoot = (params.root_ids ?? []).map((s) => s.trim()).filter(Boolean)
+            const folderIds = [...fromRoot, ...fromFolder]
+            const tail = buildSourcesAddGoogleDriveCommand({
+              email,
+              oauthSourceId: oauthSid,
+              label: params.label,
+              id: params.id,
+              folderIds,
+              includeSharedWithMe: params.include_shared_with_me === true,
+              maxFileBytes: params.max_file_bytes,
+            })
+            const { stdout } = await execRipmailAsync(`${rm} ${tail}`, { timeout: 15000 })
+            return parseStdout(stdout)
+          }
+          const path = params.path?.trim() ?? ''
+          const extra = (params.root_ids ?? []).map((s) => s.trim()).filter(Boolean)
+          const rootIds = path ? [path, ...extra] : extra
+          if (!rootIds.length) throw new Error('path or root_ids is required for op=add (localDir)')
+          for (const r of rootIds) {
+            await assertManageSourcePathAllowed(r)
+          }
           const tail = buildSourcesAddLocalDirCommand({
-            path: params.path,
+            rootIds,
             label: params.label,
             id: params.id,
           })

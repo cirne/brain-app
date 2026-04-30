@@ -26,7 +26,7 @@
   import MessageThread from '../MessageThread.svelte'
   import MailSearchResultsPanel from '../MailSearchResultsPanel.svelte'
   import YourWikiDetail from '../YourWikiDetail.svelte'
-  import HubSourceInspectPanel from '../HubSourceInspectPanel.svelte'
+  import HubConnectorSourcePanel from '../hub-connector/HubConnectorSourcePanel.svelte'
   import HubWikiAboutPanel from '../HubWikiAboutPanel.svelte'
   import WikiFileName from '../WikiFileName.svelte'
   import EmailDraftEditor from '../EmailDraftEditor.svelte'
@@ -594,7 +594,7 @@
         onOpenMessageThread={toolOnOpenMessageThread}
       />
     {:else if overlay.type === 'hub-source'}
-      <HubSourceInspectPanel sourceId={overlay.id} onClose={onClose} />
+      <HubConnectorSourcePanel sourceId={overlay.id} onClose={onClose} />
     {:else if overlay.type === 'hub-wiki-about'}
       <HubWikiAboutPanel />
     {:else if overlay.type === 'calendar'}
@@ -1116,7 +1116,7 @@
   .slide-body :global(.calendar),
   .slide-body :global(.mail-search-panel),
   .slide-body :global(.hub-bg-agents-detail),
-  .slide-body :global(.hub-source-inspect) {
+  .slide-body :global(.hub-connector-source) {
     flex: 1;
     min-height: 0;
   }

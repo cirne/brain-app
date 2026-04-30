@@ -2,12 +2,15 @@
 
 use crate::cli::util::{load_cfg, ripmail_home_path};
 use crate::cli::CliResult;
+use ripmail::browse_google_drive_folders;
 use ripmail::config::{
-    derive_mailbox_id_from_email, load_config_json, write_config_json, ImapJson, LocalDirJson,
-    SourceConfigJson, SourceKind,
+    derive_mailbox_id_from_email, load_config_json, write_config_json, FileSourceConfigJson,
+    FileSourceRoot, ImapJson, SourceConfigJson, SourceKind,
 };
+use ripmail::oauth::ensure_google_access_token;
 use rusqlite::{Connection, OptionalExtension};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 fn kind_label(k: SourceKind) -> &'static str {
@@ -19,6 +22,7 @@ fn kind_label(k: SourceKind) -> &'static str {
         SourceKind::AppleCalendar => "appleCalendar",
         SourceKind::IcsSubscription => "icsSubscription",
         SourceKind::IcsFile => "icsFile",
+        SourceKind::GoogleDrive => "googleDrive",
     }
 }
 
@@ -31,8 +35,9 @@ fn parse_kind(s: &str) -> Result<SourceKind, String> {
         "applecalendar" => Ok(SourceKind::AppleCalendar),
         "icssubscription" => Ok(SourceKind::IcsSubscription),
         "icsfile" => Ok(SourceKind::IcsFile),
+        "googledrive" => Ok(SourceKind::GoogleDrive),
         _ => Err(format!(
-            "unknown --kind {s:?}; expected imap | applemail | localDir | googleCalendar | appleCalendar | icsSubscription | icsFile"
+            "unknown --kind {s:?}; expected imap | applemail | localDir | googleCalendar | appleCalendar | icsSubscription | icsFile | googleDrive"
         )),
     }
 }
@@ -47,11 +52,6 @@ fn expand_tilde_path(s: &str) -> PathBuf {
     PathBuf::from(s)
 }
 
-fn default_local_dir() -> LocalDirJson {
-    LocalDirJson::default()
-}
-
-/// Kinds that support `calendarIds` / `defaultCalendars` in config and `sources list --json`.
 fn source_kind_has_calendar_preferences(k: SourceKind) -> bool {
     matches!(
         k,
@@ -107,6 +107,13 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
         SourcesCmd::Add {
             kind,
             path,
+            root_id,
+            root_name,
+            no_root_recursive,
+            include_glob,
+            ignore_glob,
+            max_file_bytes,
+            respect_gitignore,
             label,
             id,
             email,
@@ -117,37 +124,67 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
             calendar,
             default_calendar,
             url,
+            include_shared_with_me,
             json,
         } => {
             let kind = parse_kind(&kind)?;
             let mut cfg = load_config_json(&home);
             let mut sources = cfg.sources.take().unwrap_or_default();
+            let rec = !no_root_recursive;
             let entry = match kind {
                 SourceKind::LocalDir => {
-                    let path_s = path.ok_or("--path is required for --kind localDir")?;
-                    let root = expand_tilde_path(&path_s);
-                    let root = root
-                        .canonicalize()
-                        .map_err(|e| format!("localDir --path {}: {e}", path_s))?;
-                    if !root.is_dir() {
-                        return Err(format!(
-                            "localDir --path is not a directory: {}",
-                            root.display()
-                        )
-                        .into());
+                    let raw_ids: Vec<String> = if !root_id.is_empty() {
+                        root_id
+                    } else if let Some(p) = path.clone() {
+                        vec![p]
+                    } else {
+                        return Err(
+                            "localDir requires --root-id (repeatable) or a single --path folder"
+                                .into(),
+                        );
+                    };
+                    let mut roots: Vec<FileSourceRoot> = Vec::new();
+                    for (i, path_s) in raw_ids.iter().enumerate() {
+                        let root = expand_tilde_path(path_s);
+                        let root = root
+                            .canonicalize()
+                            .map_err(|e| format!("localDir --root-id {}: {e}", path_s))?;
+                        if !root.is_dir() {
+                            return Err(format!(
+                                "localDir --root-id is not a directory: {}",
+                                root.display()
+                            )
+                            .into());
+                        }
+                        let name = root_name
+                            .get(i)
+                            .cloned()
+                            .filter(|s| !s.trim().is_empty())
+                            .or_else(|| {
+                                root.file_name()
+                                    .and_then(|s| s.to_str())
+                                    .map(|s| s.to_string())
+                            })
+                            .unwrap_or_else(|| format!("root{}", i));
+                        roots.push(FileSourceRoot {
+                            id: root.to_string_lossy().to_string(),
+                            name,
+                            recursive: rec,
+                        });
                     }
-                    let id = id.unwrap_or_else(|| {
+                    let source_id = id.unwrap_or_else(|| {
                         label
                             .as_ref()
                             .map(|l| derive_mailbox_id_from_email(&format!("x@{l}.local")))
                             .unwrap_or_else(|| {
+                                let first = PathBuf::from(&roots[0].id);
                                 let stem =
-                                    root.file_name().and_then(|s| s.to_str()).unwrap_or("dir");
+                                    first.file_name().and_then(|s| s.to_str()).unwrap_or("dir");
                                 derive_mailbox_id_from_email(&format!("x@{stem}.local"))
                             })
                     });
                     SourceConfigJson {
-                        id,
+                        id: source_id,
                         kind: SourceKind::LocalDir,
                         email: String::new(),
                         label,
@@ -156,8 +193,15 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         search: None,
                         identity: None,
                         apple_mail_path: None,
-                        path: Some(root.to_string_lossy().to_string()),
-                        local_dir: Some(default_local_dir()),
+                        path: None,
+                        file_source: Some(FileSourceConfigJson {
+                            roots,
+                            include_globs: include_glob,
+                            ignore_globs: ignore_glob,
+                            max_file_bytes: max_file_bytes.unwrap_or(10_000_000),
+                            respect_gitignore: respect_gitignore.unwrap_or(true),
+                        }),
+                        include_shared_with_me: false,
                         oauth_source_id: None,
                         calendar_ids: None,
                         default_calendars: None,
@@ -186,7 +230,8 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         identity: None,
                         apple_mail_path: None,
                         path: None,
-                        local_dir: None,
+                        file_source: None,
+                        include_shared_with_me: false,
                         oauth_source_id: None,
                         calendar_ids: None,
                         default_calendars: None,
@@ -206,7 +251,8 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         identity: None,
                         apple_mail_path,
                         path: None,
-                        local_dir: None,
+                        file_source: None,
+                        include_shared_with_me: false,
                         oauth_source_id: None,
                         calendar_ids: None,
                         default_calendars: None,
@@ -237,7 +283,8 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         identity: None,
                         apple_mail_path: None,
                         path: None,
-                        local_dir: None,
+                        file_source: None,
+                        include_shared_with_me: false,
                         oauth_source_id: oauth_source_id
                             .map(|s| s.trim().to_string())
                             .filter(|s| !s.is_empty()),
@@ -268,7 +315,8 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                             identity: None,
                             apple_mail_path: None,
                             path: None,
-                            local_dir: None,
+                            file_source: None,
+                            include_shared_with_me: false,
                             oauth_source_id: None,
                             calendar_ids: None,
                             default_calendars: None,
@@ -296,7 +344,8 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         identity: None,
                         apple_mail_path: None,
                         path: None,
-                        local_dir: None,
+                        file_source: None,
+                        include_shared_with_me: false,
                         oauth_source_id: None,
                         calendar_ids: None,
                         default_calendars: None,
@@ -331,8 +380,77 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                         identity: None,
                         apple_mail_path: None,
                         path: Some(root.to_string_lossy().to_string()),
-                        local_dir: None,
+                        file_source: None,
+                        include_shared_with_me: false,
                         oauth_source_id: None,
+                        calendar_ids: None,
+                        default_calendars: None,
+                        ics_url: None,
+                    }
+                }
+                SourceKind::GoogleDrive => {
+                    let email = email.ok_or("--email is required for --kind googleDrive")?;
+                    if root_id.is_empty() {
+                        return Err(
+                            "googleDrive requires at least one --root-id (Drive folder id)".into(),
+                        );
+                    }
+                    let token_src = oauth_source_id
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(String::from)
+                        .unwrap_or_else(|| derive_mailbox_id_from_email(&email));
+                    let source_id = id.unwrap_or_else(|| {
+                        let slug = derive_mailbox_id_from_email(&email);
+                        format!("{slug}-drive")
+                    });
+                    let mut roots: Vec<FileSourceRoot> = Vec::new();
+                    for (i, rid) in root_id.iter().enumerate() {
+                        let id_trim = rid.trim().to_string();
+                        if id_trim.is_empty() {
+                            continue;
+                        }
+                        let name = root_name
+                            .get(i)
+                            .cloned()
+                            .filter(|s| !s.trim().is_empty())
+                            .unwrap_or_else(|| {
+                                if id_trim.len() > 12 {
+                                    format!("…{}", &id_trim[id_trim.len().saturating_sub(8)..])
+                                } else {
+                                    id_trim.clone()
+                                }
+                            });
+                        roots.push(FileSourceRoot {
+                            id: id_trim,
+                            name,
+                            recursive: rec,
+                        });
+                    }
+                    if roots.is_empty() {
+                        return Err("googleDrive: no valid --root-id values".into());
+                    }
+                    SourceConfigJson {
+                        id: source_id,
+                        kind: SourceKind::GoogleDrive,
+                        email: email.clone(),
+                        label,
+                        imap: None,
+                        imap_auth: None,
+                        search: None,
+                        identity: None,
+                        apple_mail_path: None,
+                        path: None,
+                        file_source: Some(FileSourceConfigJson {
+                            roots,
+                            include_globs: include_glob,
+                            ignore_globs: ignore_glob,
+                            max_file_bytes: max_file_bytes.unwrap_or(10_000_000),
+                            respect_gitignore: true,
+                        }),
+                        include_shared_with_me,
+                        oauth_source_id: Some(token_src),
                         calendar_ids: None,
                         default_calendars: None,
                         ics_url: None,
@@ -359,6 +477,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
             path,
             calendar,
             default_calendar,
+            file_source_json,
             json,
         } => {
             let mut cfg = load_config_json(&home);
@@ -381,7 +500,22 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                 if sources[pos].kind == SourceKind::IcsFile && !root.is_file() {
                     return Err("--path must be an existing file for icsFile".into());
                 }
+                if sources[pos].kind == SourceKind::LocalDir && !root.is_dir() {
+                    return Err("--path must be an existing directory for localDir".into());
+                }
                 sources[pos].path = Some(root.to_string_lossy().to_string());
+            }
+            if let Some(raw) = file_source_json {
+                if sources[pos].kind != SourceKind::LocalDir
+                    && sources[pos].kind != SourceKind::GoogleDrive
+                {
+                    return Err(
+                        "--file-source-json only applies to localDir and googleDrive".into(),
+                    );
+                }
+                let fsc: FileSourceConfigJson =
+                    serde_json::from_str(&raw).map_err(|e| format!("--file-source-json: {e}"))?;
+                sources[pos].file_source = Some(fsc);
             }
             if !calendar.is_empty() {
                 if !matches!(
@@ -413,6 +547,105 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                 println!("{}", serde_json::json!({ "ok": true, "id": id }));
             } else {
                 println!("Updated source {id}");
+            }
+            Ok(())
+        }
+        SourcesCmd::BrowseFolders {
+            id,
+            parent_id,
+            json,
+        } => {
+            let cfg = load_config_json(&home);
+            let sources = cfg.sources.as_ref().ok_or("no sources in config")?;
+            let row = sources
+                .iter()
+                .find(|s| s.id == id)
+                .ok_or_else(|| format!("unknown source id {id:?}"))?;
+            let folders: Vec<serde_json::Value> = match row.kind {
+                SourceKind::LocalDir => {
+                    let base = parent_id
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty());
+                    let scan = if let Some(p) = base {
+                        expand_tilde_path(p)
+                            .canonicalize()
+                            .map_err(|e| format!("parent-id: {e}"))?
+                    } else if let Some(h) = dirs::home_dir() {
+                        h
+                    } else {
+                        return Err("browse-folders: cannot resolve home directory".into());
+                    };
+                    if !scan.is_dir() {
+                        return Err(format!("not a directory: {}", scan.display()).into());
+                    }
+                    let mut out = Vec::new();
+                    for ent in std::fs::read_dir(&scan).map_err(|e| e.to_string())? {
+                        let ent = ent.map_err(|e| e.to_string())?;
+                        let ty = ent.file_type().map_err(|e| e.to_string())?;
+                        if ty.is_dir() {
+                            let p = ent.path();
+                            let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("dir");
+                            let id_str = p.to_string_lossy().to_string();
+                            let mut has_children = false;
+                            if let Ok(rd) = std::fs::read_dir(&p) {
+                                has_children = rd
+                                    .flatten()
+                                    .any(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false));
+                            }
+                            out.push(serde_json::json!({
+                                "id": id_str,
+                                "name": name,
+                                "hasChildren": has_children,
+                            }));
+                        }
+                    }
+                    out.sort_by(|a, b| {
+                        let na = a["name"].as_str().unwrap_or("");
+                        let nb = b["name"].as_str().unwrap_or("");
+                        na.cmp(nb)
+                    });
+                    out
+                }
+                SourceKind::GoogleDrive => {
+                    let token_src = row
+                        .oauth_source_id
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(String::from)
+                        .unwrap_or_else(|| row.id.clone());
+                    let env_file = ripmail::config::read_ripmail_env_file(&home);
+                    let process_env: HashMap<String, String> = std::env::vars().collect();
+                    let token =
+                        ensure_google_access_token(&home, &token_src, &env_file, &process_env)
+                            .map_err(|e| e.to_string())?;
+                    let rows = browse_google_drive_folders(&token, parent_id.as_deref())?;
+                    rows.into_iter()
+                        .map(|r| {
+                            serde_json::json!({
+                                "id": r.id,
+                                "name": r.name,
+                                "hasChildren": r.has_children,
+                            })
+                        })
+                        .collect()
+                }
+                _ => {
+                    return Err(
+                        "browse-folders supports only localDir and googleDrive sources".into(),
+                    );
+                }
+            };
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({ "folders": folders }))?
+                );
+            } else {
+                for f in folders {
+                    println!("{}", serde_json::to_string(&f)?);
+                }
             }
             Ok(())
         }

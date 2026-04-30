@@ -186,7 +186,7 @@ Current: Shows all ripmail sources (mail, calendar, local dirs).
 
 #### Source Inspect Panel (Mail Source Detail)
 
-Clicking a mail source opens `HubSourceInspectPanel` with:
+Clicking a mail source opens `HubConnectorSourcePanel` with:
 
 - **Search visibility toggle:** "Include in default searches" (maps to `search.includeInDefault`).
 - **Default send source:** Radio selection across all IMAP sources — "Send from this address by default".

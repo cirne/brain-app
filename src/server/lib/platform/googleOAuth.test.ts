@@ -110,17 +110,31 @@ describe('exchangeAuthorizationCode', () => {
 })
 
 describe('validateGoogleOAuthGrantedScopes', () => {
-  const full =
+  const base =
     'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid email'
 
-  it('accepts full Brain sign-in scope string', () => {
-    expect(validateGoogleOAuthGrantedScopes(full)).toEqual({ ok: true })
+  it('accepts mail+calendar+openid+email and reports Drive reconnect when drive scope missing', () => {
+    expect(validateGoogleOAuthGrantedScopes(base)).toEqual({
+      ok: true,
+      needsDriveReconnect: true,
+    })
+  })
+
+  it('accepts full scope including Drive read-only', () => {
+    const s = `${base} https://www.googleapis.com/auth/drive.readonly`
+    expect(validateGoogleOAuthGrantedScopes(s)).toEqual({
+      ok: true,
+      needsDriveReconnect: false,
+    })
   })
 
   it('accepts userinfo.email instead of email', () => {
     const s =
-      'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid https://www.googleapis.com/auth/userinfo.email'
-    expect(validateGoogleOAuthGrantedScopes(s)).toEqual({ ok: true })
+      'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.readonly'
+    expect(validateGoogleOAuthGrantedScopes(s)).toEqual({
+      ok: true,
+      needsDriveReconnect: false,
+    })
   })
 
   it('rejects missing Gmail scope (partial consent)', () => {

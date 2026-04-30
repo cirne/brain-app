@@ -27,13 +27,10 @@
   import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import HubSourceRowBody from './HubSourceRowBody.svelte'
-
-  type HubRipmailSourceRow = {
-    id: string
-    kind: string
-    displayName: string
-    path: string | null
-  }
+  import {
+    sourceKindLabel,
+    type HubRipmailSourceRow,
+  } from '@client/lib/hub/hubRipmailSource.js'
 
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
@@ -55,27 +52,6 @@
   function onChatToolDisplayPrefChange(mode: ChatToolDisplayMode) {
     chatToolDisplayMode = mode
     writeChatToolDisplayPreference(mode)
-  }
-
-  function sourceKindLabel(kind: string): string {
-    switch (kind) {
-      case 'imap':
-        return 'Email (IMAP)'
-      case 'applemail':
-        return 'Apple Mail'
-      case 'localDir':
-        return 'Local folder'
-      case 'googleCalendar':
-        return 'Google Calendar'
-      case 'appleCalendar':
-        return 'Apple Calendar'
-      case 'icsSubscription':
-        return 'Subscribed calendar'
-      case 'icsFile':
-        return 'Calendar file'
-      default:
-        return kind
-    }
   }
 
   function sourceTier(kind: string): number {

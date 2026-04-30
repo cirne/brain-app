@@ -13,9 +13,9 @@ use ripmail::{
     inbox_rules_fingerprint_for_scope, mailbox_ids_for_default_search,
     parse_inbox_window_to_iso_cutoff, print_review_text, read_ripmail_env_file,
     resolve_mailbox_spec, resolve_sync_folder_for_host, resolve_sync_since_ymd, run_applemail_sync,
-    run_inbox_scan, run_local_dir_sync, DeterministicInboxClassifier, InboxSurfaceMode,
-    MailboxImapAuthKind, ResolvedMailbox, RunInboxScanOptions, SourceKind, SyncDirection,
-    SyncFileLogger, SyncKind, SyncMailboxSummary, SyncOptions, SyncResult,
+    run_google_drive_sync, run_inbox_scan, run_local_dir_sync, DeterministicInboxClassifier,
+    InboxSurfaceMode, MailboxImapAuthKind, ResolvedMailbox, RunInboxScanOptions, SourceKind,
+    SyncDirection, SyncFileLogger, SyncKind, SyncMailboxSummary, SyncOptions, SyncResult,
 };
 
 fn mailbox_imap_ready(home: &std::path::Path, mb: &ResolvedMailbox) -> bool {
@@ -60,11 +60,26 @@ fn mailbox_sync_ready(home: &std::path::Path, mb: &ResolvedMailbox) -> bool {
     if mb.calendar.is_some() {
         return calendar_source_ready(home, mb);
     }
+    if mb.kind == SourceKind::GoogleDrive {
+        let oauth_ok = mb
+            .google_drive
+            .as_ref()
+            .map(|gd| google_oauth_credentials_present(home, &gd.token_mailbox_id))
+            .unwrap_or(false);
+        let roots_ok = mb.file_source.as_ref().is_some_and(|f| !f.roots.is_empty());
+        return oauth_ok && roots_ok;
+    }
     if mb.kind == SourceKind::LocalDir {
         return mb
-            .local_dir
+            .file_source
             .as_ref()
-            .map(|l| l.root.is_dir())
+            .map(|fs| {
+                !fs.roots.is_empty()
+                    && fs
+                        .roots
+                        .iter()
+                        .all(|r| std::path::Path::new(r.id.trim()).is_dir())
+            })
             .unwrap_or(false);
     }
     if mb.apple_mail_root.is_some() {
@@ -336,7 +351,12 @@ pub(crate) fn run_sync_foreground_backfill(
             break;
         }
         if !mailbox_sync_ready(&home, mb) {
-            if mb.kind == SourceKind::LocalDir {
+            if mb.kind == SourceKind::GoogleDrive {
+                eprintln!(
+                    "ripmail: skipping {} (Google Drive: missing OAuth token for linked mailbox)",
+                    mb.id
+                );
+            } else if mb.kind == SourceKind::LocalDir {
                 eprintln!(
                     "ripmail: skipping {} (localDir root missing or not a directory)",
                     mb.id
@@ -380,6 +400,21 @@ pub(crate) fn run_sync_foreground_backfill(
             summaries.push(SyncMailboxSummary {
                 id: mb.id.clone(),
                 email: String::new(),
+                synced: result.synced,
+                messages_fetched: result.messages_fetched,
+                bytes_downloaded: result.bytes_downloaded,
+                duration_ms: result.duration_ms,
+            });
+            runs.push(result);
+            continue;
+        }
+        if mb.kind == SourceKind::GoogleDrive {
+            eprintln!("ripmail: syncing Google Drive source {}…", mb.id);
+            let result =
+                run_google_drive_sync(&mut conn, mb, &home, &env_file, &process_env, true)?;
+            summaries.push(SyncMailboxSummary {
+                id: mb.id.clone(),
+                email: mb.email.clone(),
                 synced: result.synced,
                 messages_fetched: result.messages_fetched,
                 bytes_downloaded: result.bytes_downloaded,
@@ -480,7 +515,12 @@ pub(crate) fn run_sync_foreground_refresh(
         }
         if !mailbox_sync_ready(&home, mb) {
             if progress_stderr {
-                if mb.kind == SourceKind::LocalDir {
+                if mb.kind == SourceKind::GoogleDrive {
+                    eprintln!(
+                        "ripmail: skipping {} (Google Drive: missing OAuth token for linked mailbox)",
+                        mb.id
+                    );
+                } else if mb.kind == SourceKind::LocalDir {
                     eprintln!(
                         "ripmail: skipping {} (localDir root missing or not a directory)",
                         mb.id
@@ -536,6 +576,29 @@ pub(crate) fn run_sync_foreground_refresh(
             summaries.push(SyncMailboxSummary {
                 id: mb.id.clone(),
                 email: String::new(),
+                synced: result.synced,
+                messages_fetched: result.messages_fetched,
+                bytes_downloaded: result.bytes_downloaded,
+                duration_ms: result.duration_ms,
+            });
+            runs.push(result);
+            continue;
+        }
+        if mb.kind == SourceKind::GoogleDrive {
+            if progress_stderr {
+                eprintln!("ripmail: syncing Google Drive source {}…", mb.id);
+            }
+            let result = run_google_drive_sync(
+                &mut conn,
+                mb,
+                &home,
+                &env_file,
+                &process_env,
+                progress_stderr,
+            )?;
+            summaries.push(SyncMailboxSummary {
+                id: mb.id.clone(),
+                email: mb.email.clone(),
                 synced: result.synced,
                 messages_fetched: result.messages_fetched,
                 bytes_downloaded: result.bytes_downloaded,

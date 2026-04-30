@@ -109,6 +109,7 @@ fn kind_str(k: SourceKind) -> &'static str {
         SourceKind::AppleCalendar => "appleCalendar",
         SourceKind::IcsSubscription => "icsSubscription",
         SourceKind::IcsFile => "icsFile",
+        SourceKind::GoogleDrive => "googleDrive",
     }
 }
 

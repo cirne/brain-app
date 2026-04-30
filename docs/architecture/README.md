@@ -26,7 +26,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 | [future-durability.md](./future-durability.md) | Future SQLite for app-owned state (chat, preferences); ripmail-style local DB pattern at Node layer — **not** implemented |
 | [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md) | ADR: wiki file tools vs `read_email` |
 | [wiki-vs-managed-memory-honcho.md](./wiki-vs-managed-memory-honcho.md) | Recorded consideration: wiki-first memory vs Honcho (or similar); **not for now** |
-| [external-sources-and-mcp.md](./external-sources-and-mcp.md) | Strategy: MCP as sync transport (not query API); local-first indexing for remote mutable sources (Notion, Linear, Slack); CRUD sync complexity vs append-only mail |
+| [external-data-sources.md](./external-data-sources.md) | Unified corpus: local FTS query layer, `sources[]` kinds (mail, localDir, cloud files, SaaS docs), sync vs query split, contentless file indexing, MCP as optional sync aid — **Google Drive:** [OPP-045](../opportunities/OPP-045-google-drive.md) |
 | [brain-cloud-service.md](./brain-cloud-service.md) | Pre-opportunity notes: what a Brain-operated cloud service would contain (registry, support infra, tunnel relay) and the hard constraint that no user data ever leaves the local brain. **Brain-to-brain strategy:** [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) |
 
 **Ripmail** (Rust CLI + index): [`../../ripmail/docs/ARCHITECTURE.md`](../../ripmail/docs/ARCHITECTURE.md).

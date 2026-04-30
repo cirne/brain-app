@@ -40,6 +40,7 @@ export function shouldSuppressAccessLogForApiPath(path: string): boolean {
     path === '/api/onboarding/ripmail' ||
     path === '/api/oauth/google/last-result' ||
     path === '/api/hub/sources' ||
+    path === '/api/hub/sources/detail' ||
     path === '/api/vault/status' ||
     path === ENRON_DEMO_SEED_STATUS_PATH ||
     path === '/api/events'
