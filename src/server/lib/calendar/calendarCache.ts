@@ -16,8 +16,69 @@ export interface CalendarEvent {
   location?: string
   description?: string
   attendees?: string[]
+  /** Part of a recurring series: ripmail RRULE / recurrence JSON, or expanded-instance UID (`#occ…`, `/RID=`). */
+  recurring?: boolean
   organizer?: string
   color?: string
+}
+
+/** Adaptive detail tier for `calendar` op=events (OPP-069). */
+export type ResolutionTier = 'landmarks' | 'overview' | 'full'
+
+export interface ResolutionMeta {
+  tier: ResolutionTier
+  windowDays: number
+  recurringSuppressedCount: number
+}
+
+const LANDMARK_MIN_TIMED_SEC = 4 * 3600
+
+/** Inclusive calendar-day span from YYYY-MM-DD bounds (UTC noon per day). */
+export function windowDaysFromYmd(start: string, end: string): number {
+  const parse = (ymd: string) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.slice(0, 10))
+    if (!m) return NaN
+    return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0)
+  }
+  const a = parse(start)
+  const b = parse(end)
+  if (Number.isNaN(a) || Number.isNaN(b)) return 1
+  const diffDays = Math.round((b - a) / 86400000)
+  return Math.max(1, diffDays + 1)
+}
+
+/** Tier from window length only — no agent-controlled “full over wide range” escape hatch. */
+export function selectResolutionTier(windowDays: number): ResolutionTier {
+  if (windowDays > 30) return 'landmarks'
+  if (windowDays >= 10) return 'overview'
+  return 'full'
+}
+
+/** Filter events by tier before agent enrichment. */
+export function applyResolutionFilter(
+  events: CalendarEvent[],
+  tier: ResolutionTier,
+): { filtered: CalendarEvent[]; recurringSuppressedCount: number } {
+  if (tier === 'full') {
+    return { filtered: events, recurringSuppressedCount: 0 }
+  }
+  const recurringSuppressedCount = events.filter(e => e.recurring).length
+
+  if (tier === 'overview') {
+    return {
+      filtered: events.filter(e => !e.recurring),
+      recurringSuppressedCount,
+    }
+  }
+
+  const filtered = events.filter(e => {
+    if (e.recurring) return false
+    if (e.allDay) return true
+    const durSec = (Date.parse(e.end) - Date.parse(e.start)) / 1000
+    return durSec >= LANDMARK_MIN_TIMED_SEC
+  })
+
+  return { filtered, recurringSuppressedCount }
 }
 
 /** Weekday name (e.g. "Monday") for a UTC calendar date YYYY-MM-DD. */
@@ -63,9 +124,11 @@ function weekdayLongInTimeZone(iso: string, timeZone: string): string {
  */
 export function enrichCalendarEventsForAgent(
   events: CalendarEvent[],
-  options: { timeZone?: string } = {},
+  options: { timeZone?: string; tier?: ResolutionTier } = {},
 ): Record<string, unknown>[] {
   const tz = options.timeZone ?? 'UTC'
+  const tier = options.tier ?? 'full'
+  const compactTimed = tier === 'overview'
   return events.map(e => {
     const startYmd = e.start.slice(0, 10)
     const endYmd = e.end.slice(0, 10)
@@ -99,8 +162,11 @@ export function enrichCalendarEventsForAgent(
       endDayOfWeek,
     }
     if (e.allDay) row.allDay = true
-    if (e.location) row.location = e.location
-    if (description) row.description = description
+    if (e.recurring) row.recurring = true
+    if (!(compactTimed && !e.allDay)) {
+      if (e.location) row.location = e.location
+      if (description) row.description = description
+    }
     if (e.attendees?.length) row.attendees = e.attendees
     if (organizer) row.organizer = organizer
     if (e.color) row.color = e.color

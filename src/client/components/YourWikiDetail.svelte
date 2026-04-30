@@ -5,6 +5,7 @@
   import BackgroundAgentPanel from './statusBar/BackgroundAgentPanel.svelte'
   import { YOUR_WIKI_HEADER, type RegisterYourWikiHeader } from '@client/lib/yourWikiHeaderContext.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
+  import { postYourWikiPause, postYourWikiResume } from '@client/lib/yourWikiLoopApi.js'
   import { yourWikiNarrativeLine } from '@client/lib/yourWikiNarrative.js'
 
   type Props = {
@@ -70,7 +71,7 @@
     if (actionBusy) return
     actionBusy = true
     try {
-      await fetch('/api/your-wiki/pause', { method: 'POST' })
+      await postYourWikiPause()
     } finally {
       actionBusy = false
     }
@@ -80,11 +81,7 @@
     if (actionBusy) return
     actionBusy = true
     try {
-      await fetch('/api/your-wiki/resume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-      })
+      await postYourWikiResume()
     } finally {
       actionBusy = false
     }

@@ -6,10 +6,15 @@ import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipma
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import { toolResultFirstText } from './agentTestUtils.js'
+import type { CalendarEvent } from '@server/lib/calendar/calendarCache.js'
 
-vi.mock('@server/lib/calendar/calendarRipmail.js', () => ({
-  getCalendarEventsFromRipmail: vi.fn(),
-}))
+vi.mock('@server/lib/calendar/calendarRipmail.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@server/lib/calendar/calendarRipmail.js')>()
+  return {
+    ...actual,
+    getCalendarEventsFromRipmail: vi.fn(),
+  }
+})
 
 vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync: vi.fn(),
@@ -150,5 +155,280 @@ describe('calendar tool', () => {
       expect.stringContaining('sources edit "src1" --calendar "c1" --calendar "c2" --default-calendar "c1" --json'),
       expect.any(Object)
     )
+  })
+})
+
+function baseEventsForAdaptive(): CalendarEvent[] {
+  const shortTimed: CalendarEvent = {
+    id: 'short',
+    title: 'Quick sync',
+    start: '2026-04-10T10:00:00Z',
+    end: '2026-04-10T10:30:00Z',
+    allDay: false,
+    source: 'googleCalendar',
+  }
+  const longTimed: CalendarEvent = {
+    id: 'long',
+    title: 'Retreat',
+    start: '2026-04-10T09:00:00Z',
+    end: '2026-04-10T15:00:00Z',
+    allDay: false,
+    source: 'googleCalendar',
+  }
+  const allDay: CalendarEvent = {
+    id: 'trip',
+    title: 'Cabo',
+    start: '2026-04-15',
+    end: '2026-04-18',
+    allDay: true,
+    source: 'googleCalendar',
+    description: 'Vacation',
+    location: 'Mexico',
+  }
+  const recurring: CalendarEvent = {
+    id: 'standup',
+    title: 'Standup',
+    start: '2026-04-12T15:00:00Z',
+    end: '2026-04-12T15:30:00Z',
+    allDay: false,
+    source: 'googleCalendar',
+    recurring: true,
+  }
+  return [shortTimed, longTimed, allDay, recurring]
+}
+
+describe('calendar tool adaptive resolution', () => {
+  it('landmarks tier (>30d): drops recurring and short timed; keeps all-day and long timed; adds hint', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+
+    vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
+      events: baseEventsForAdaptive(),
+      meta: { sourcesConfigured: true, ripmail: '2026-04-01T00:00:00Z' },
+    })
+
+    const result = await tool.execute('cal-land', {
+      op: 'events',
+      start: '2026-04-01',
+      end: '2026-05-05',
+    })
+    const text = toolResultFirstText(result)
+    expect(text).toContain('[resolution: landmarks')
+    expect(text).toContain('recurring instances omitted')
+    expect(text).toContain('Cabo')
+    expect(text).toContain('Retreat')
+    expect(text).not.toContain('Quick sync')
+    expect(text).not.toContain('Standup')
+    expect((result.details as { resolutionMeta?: { tier: string } }).resolutionMeta?.tier).toBe('landmarks')
+  })
+
+  it('overview tier (10–30d): drops recurring; strips desc/loc from timed; adds hint', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+
+    const timedWithMeta: CalendarEvent = {
+      id: 't1',
+      title: 'Meeting',
+      start: '2026-04-10T10:00:00Z',
+      end: '2026-04-10T11:00:00Z',
+      allDay: false,
+      source: 'googleCalendar',
+      description: 'Secret agenda',
+      location: 'Room A',
+    }
+    vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
+      events: [...baseEventsForAdaptive(), timedWithMeta],
+      meta: { sourcesConfigured: true, ripmail: 'x' },
+    })
+
+    const result = await tool.execute('cal-ov', {
+      op: 'events',
+      start: '2026-04-01',
+      end: '2026-04-15',
+    })
+    const text = toolResultFirstText(result)
+    expect(text).toContain('[resolution: overview')
+    expect(text).not.toContain('Secret agenda')
+    expect(text).not.toContain('Room A')
+    expect(text).toContain('Cabo')
+    expect(text).toMatch(/Mexico|"Vacation"/)
+    expect((result.details as { resolutionMeta?: { tier: string } }).resolutionMeta?.tier).toBe('overview')
+  })
+
+  it('full tier (<10d): no resolution hint', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+
+    vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
+      events: baseEventsForAdaptive(),
+      meta: { sourcesConfigured: true, ripmail: 'x' },
+    })
+
+    const result = await tool.execute('cal-full', {
+      op: 'events',
+      start: '2026-04-10',
+      end: '2026-04-12',
+    })
+    const text = toolResultFirstText(result)
+    expect(text).not.toContain('[resolution:')
+    expect((result.details as { resolutionMeta?: unknown }).resolutionMeta).toBeUndefined()
+    expect(text).toContain('Standup')
+    expect(text).toContain('Quick sync')
+  })
+
+  it('calendar_ids on wide window still uses landmarks tier', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+
+    vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
+      events: baseEventsForAdaptive(),
+      meta: { sourcesConfigured: true, ripmail: 'x' },
+    })
+
+    const result = await tool.execute('cal-ids', {
+      op: 'events',
+      start: '2026-04-01',
+      end: '2026-05-05',
+      calendar_ids: ['primary'],
+    })
+    const text = toolResultFirstText(result)
+    expect(text).toContain('[resolution: landmarks')
+    expect(text).not.toContain('Standup')
+    expect(getCalendarEventsFromRipmail).toHaveBeenCalledWith({
+      start: '2026-04-01',
+      end: '2026-05-05',
+      calendarIds: ['primary'],
+    })
+    expect((result.details as { resolutionMeta?: { tier: string } }).resolutionMeta?.tier).toBe('landmarks')
+  })
+
+  it('caps event list when many events in a short window', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+
+    const many: CalendarEvent[] = Array.from({ length: 260 }, (_, i) => ({
+      id: `e-${i}`,
+      title: `Meeting ${i}`,
+      start: `2026-04-10T${String(10 + (i % 8)).padStart(2, '0')}:00:00Z`,
+      end: `2026-04-10T${String(11 + (i % 8)).padStart(2, '0')}:00:00Z`,
+      allDay: false,
+      source: 'googleCalendar',
+    }))
+    vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
+      events: many,
+      meta: { sourcesConfigured: true, ripmail: 'x' },
+    })
+
+    const result = await tool.execute('cal-cap', {
+      op: 'events',
+      start: '2026-04-10',
+      end: '2026-04-12',
+    })
+    const text = toolResultFirstText(result)
+    expect(text).toContain('[truncated:')
+    expect(text).toContain('10 more events omitted')
+    const details = result.details as { events: unknown[]; truncated?: boolean; eventsOmitted?: number }
+    expect(details.events).toHaveLength(250)
+    expect(details.truncated).toBe(true)
+    expect(details.eventsOmitted).toBe(10)
+  })
+
+  it('search uses ripmail calendar search and skips getCalendarEvents', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+
+    vi.mocked(execRipmailAsync).mockResolvedValue({
+      stdout: JSON.stringify({
+        events: [
+          {
+            uid: 'x1',
+            sourceId: 's-gcal',
+            sourceKind: 'googleCalendar',
+            summary: 'Cabo trip',
+            startAt: 1776711600,
+            endAt: 1776715200,
+            allDay: false,
+          },
+        ],
+      }),
+      stderr: '',
+    })
+
+    const result = await tool.execute('cal-search', {
+      op: 'events',
+      start: '2026-04-20',
+      end: '2026-04-21',
+      search: 'Cabo',
+    })
+
+    expect(execRipmailAsync).toHaveBeenCalledWith(
+      expect.stringMatching(/calendar search "Cabo" --from "2026-04-20" --to "2026-04-21"/),
+      expect.any(Object),
+    )
+    expect(getCalendarEventsFromRipmail).not.toHaveBeenCalled()
+    const text = toolResultFirstText(result)
+    expect(text).toContain('Cabo trip')
+    expect(text).toContain('totalMatchCount')
+    expect(text).toContain('[search:')
+    expect(text).not.toContain('[resolution:')
+    const d = result.details as {
+      search?: string
+      totalMatchCount?: number
+      hints?: unknown[]
+      hintsReturned?: number
+      searchTruncated?: boolean
+    }
+    expect(d.search).toBe('Cabo')
+    expect(d.totalMatchCount).toBe(1)
+    expect(d.hintsReturned).toBe(1)
+    expect(d.hints).toHaveLength(1)
+    expect(d.searchTruncated).toBe(false)
+  })
+
+  it('search truncates to fixed hints and reports total match count', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+
+    const manyEvents = Array.from({ length: 45 }, (_, i) => ({
+      uid: `u${i}`,
+      sourceId: 's-gcal',
+      sourceKind: 'googleCalendar',
+      summary: `Meet ${i}`,
+      startAt: 1776711600 + i * 3600,
+      endAt: 1776715200 + i * 3600,
+      allDay: false,
+    }))
+    vi.mocked(execRipmailAsync).mockResolvedValue({
+      stdout: JSON.stringify({ events: manyEvents }),
+      stderr: '',
+    })
+
+    const result = await tool.execute('cal-search-cap', {
+      op: 'events',
+      start: '2026-04-20',
+      end: '2026-04-25',
+      search: 'Meet',
+    })
+    const d = result.details as {
+      totalMatchCount: number
+      hintsReturned: number
+      hints: unknown[]
+      hintsOmitted: number
+      searchTruncated: boolean
+    }
+    expect(d.totalMatchCount).toBe(45)
+    expect(d.hintsReturned).toBe(40)
+    expect(d.hints).toHaveLength(40)
+    expect(d.hintsOmitted).toBe(5)
+    expect(d.searchTruncated).toBe(true)
+    expect(toolResultFirstText(result)).toContain('40 of 45')
+    expect(toolResultFirstText(result)).toContain('5 more not shown')
   })
 })

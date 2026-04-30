@@ -8,6 +8,7 @@
     contextPlaceholder,
     extractMentionedFiles,
     extractReferencedFiles,
+    sumAssistantUsageTotalTokens,
     type ChatMessage,
     type SkillMenuItem,
   } from '@client/lib/agentUtils.js'
@@ -41,6 +42,7 @@
   import UnifiedChatComposer from './UnifiedChatComposer.svelte'
   import WikiFileName from './WikiFileName.svelte'
   import PaneL2Header from './PaneL2Header.svelte'
+  import ConversationTokenMeter from './ConversationTokenMeter.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
   import type { AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
@@ -274,6 +276,7 @@
   })
 
   const contextBarFiles = $derived(extractReferencedFiles(messages))
+  const conversationTokenTotal = $derived(sumAssistantUsageTotalTokens(messages))
   const contextBarChoices = $derived(extractLatestSuggestReplyChoices(messages, streaming))
   const showComposerContextBar = $derived(
     contextBarFiles.length > 0 || contextBarChoices.length > 0,
@@ -838,6 +841,7 @@
         {#snippet right()}
           {@const hearRepliesOn = sessions.get(displayedSessionId)?.hearReplies === true}
           <div class="pane-header-actions">
+            <ConversationTokenMeter totalTokens={conversationTokenTotal} />
             <button
               type="button"
               class="hear-replies-header-btn"

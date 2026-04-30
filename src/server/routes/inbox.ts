@@ -184,7 +184,7 @@ inbox.get('/:id', async (c) => {
   const id = c.req.param('id')
   try {
     const { stdout } = await execRipmailAsync(
-      `${ripmailBin()} read ${JSON.stringify(id)} --json --full-body`,
+      `${ripmailBin()} read ${JSON.stringify(id)} --json --full-body --include-html`,
       {
         ...ripmailReadExecOptions(),
       },

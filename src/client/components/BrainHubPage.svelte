@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { RefreshCw, ChevronRight, BookOpen, FileText, Radio } from 'lucide-svelte'
+  import { RefreshCw, ChevronRight, BookOpen, FileText, Radio, Pause, Play } from 'lucide-svelte'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
@@ -9,6 +9,7 @@
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import HubSourceRowBody from './HubSourceRowBody.svelte'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
+  import { postYourWikiPause, postYourWikiResume } from '@client/lib/yourWikiLoopApi.js'
 
   type HubRipmailSourceRow = {
     id: string
@@ -19,9 +20,11 @@
 
   type Props = {
     onHubNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
+    /** Opens Settings primary column (`/settings`); when set, click uses SPA navigation. */
+    onOpenSettings?: () => void
   }
 
-  let { onHubNavigate }: Props = $props()
+  let { onHubNavigate, onOpenSettings }: Props = $props()
 
   let docCount = $state<number | null>(null)
   let wikiDoc = $state<BackgroundAgentDoc | null>(null)
@@ -31,12 +34,17 @@
   let wikiRecentEdits = $state<{ path: string; date: string }[]>([])
   let wikiRecentReady = $state(false)
   let hostedWorkspaceHandle = $state<string | undefined>(undefined)
+  let wikiActionBusy = $state(false)
 
   const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
   const wikiIsActive = $derived(
     wikiPhase === 'starting' || wikiPhase === 'enriching' || wikiPhase === 'cleaning',
   )
   const wikiIsPaused = $derived(wikiPhase === 'paused')
+  const wikiIsIdle = $derived(
+    wikiPhase === 'idle' ||
+      (!wikiIsActive && wikiPhase !== 'paused' && wikiPhase !== 'error'),
+  )
 
   const wikiPageCount = $derived(wikiDoc != null ? wikiDoc.pageCount : docCount)
 
@@ -99,7 +107,7 @@
       case 'cleaning':
         return lastLine ?? 'Cleaning up from the last pass'
       case 'paused':
-        return lastLine ?? 'Resume from Settings if you paused background updates'
+        return lastLine ?? 'Press Resume when you want background updates again'
       case 'error': {
         const msg = (wikiDoc.error ?? wikiDoc.detail ?? 'Open for details').trim()
         return msg.length > 140 ? `${msg.slice(0, 137)}…` : msg
@@ -247,6 +255,26 @@
     const h = Math.floor(m / 60)
     return ` · ${h}h`
   }
+
+  async function wikiPause() {
+    if (wikiActionBusy) return
+    wikiActionBusy = true
+    try {
+      await postYourWikiPause()
+    } finally {
+      wikiActionBusy = false
+    }
+  }
+
+  async function wikiResume() {
+    if (wikiActionBusy) return
+    wikiActionBusy = true
+    try {
+      await postYourWikiResume()
+    } finally {
+      wikiActionBusy = false
+    }
+  }
 </script>
 
 <div class="hub-page">
@@ -276,8 +304,39 @@
         </span>
       </div>
       <p class="section-lead">
-        Your wiki is your Second Brain—linked pages in your vault that, over time, grow into your complete place for synthesized knowledge: sense and lasting value drawn from your mountain of email. Open the detail view to pause or dig in.
+        Your wiki connects pages in your vault into one place for synthesized knowledge—threading context from email
+        and other sources so it grows more useful over time. Braintunnel refines it in the background; pause or resume
+        anytime with the controls below, or open the row for the full activity log.
       </p>
+      {#if wikiDoc && wikiPhase}
+        <div class="wiki-loop-toolbar" role="group" aria-label="Background wiki updates">
+          <div class="wiki-loop-toolbar-actions">
+            {#if wikiIsActive || (wikiIsIdle && !wikiIsPaused)}
+              <button
+                type="button"
+                class="wiki-loop-btn wiki-loop-btn-secondary"
+                disabled={wikiActionBusy}
+                onclick={() => void wikiPause()}
+                title="Pause background wiki updates"
+              >
+                <Pause size={14} aria-hidden="true" />
+                Pause
+              </button>
+            {:else if wikiIsPaused || wikiPhase === 'error'}
+              <button
+                type="button"
+                class="wiki-loop-btn wiki-loop-btn-primary"
+                disabled={wikiActionBusy}
+                onclick={() => void wikiResume()}
+                title="Resume background wiki updates"
+              >
+                <Play size={14} aria-hidden="true" />
+                Resume
+              </button>
+            {/if}
+          </div>
+        </div>
+      {/if}
       <div class="links-list">
         <button
           type="button"
@@ -341,9 +400,21 @@
         <h2 id="hub-index-heading">Search index</h2>
       </div>
       <p class="section-lead">
-        Read-only snapshot of what Braintunnel is pulling in for search and drafting (mail, calendars, and other
-        sources). Use <strong class="section-lead-strong">Settings</strong> in the top bar to connect accounts or
-        change indexing.
+        Braintunnel indexes your email, calendars, and other connected sources for instant access and lightning-fast
+        search while you work in chat. Add or manage data sources in
+        <a
+          href="/settings"
+          class="section-lead-strong section-lead-settings-link"
+          onclick={(e) => {
+            if (onOpenSettings) {
+              e.preventDefault()
+              onOpenSettings()
+            }
+          }}
+        >
+          Settings
+        </a>
+        .
       </p>
       <div class="index-status-strip" role="status" aria-live="polite">
         {#if mailStatus?.statusError}
@@ -530,6 +601,58 @@
     letter-spacing: 0.05em;
   }
 
+  .wiki-loop-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    margin: -0.25rem 0 0.35rem;
+  }
+
+  .wiki-loop-toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .wiki-loop-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, filter 0.15s;
+  }
+
+  .wiki-loop-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .wiki-loop-btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: color-mix(in srgb, var(--accent) 80%, black);
+  }
+
+  .wiki-loop-btn-primary:hover:not(:disabled) {
+    filter: brightness(1.07);
+  }
+
+  .wiki-loop-btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--border) 80%, transparent);
+  }
+
+  .wiki-loop-btn-secondary:hover:not(:disabled) {
+    background: var(--bg-2);
+  }
+
   .links-list {
     display: flex;
     flex-direction: column;
@@ -639,6 +762,17 @@
   .section-lead-strong {
     font-weight: 650;
     color: var(--text);
+  }
+
+  .section-lead-settings-link {
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--text) 40%, transparent);
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+
+  .section-lead-settings-link:hover {
+    text-decoration-color: var(--text);
   }
 
   .index-status-strip {

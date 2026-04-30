@@ -499,7 +499,7 @@ describe('AgentInput.svelte', () => {
   })
 
   describe('voice lead vs new chat lead', () => {
-    it('puts mic on the left when voice entry is enabled (no inline new-chat in that case)', async () => {
+    it('shows new chat alongside voice entry when unified composer exposes both controls', async () => {
       const onNewChat = vi.fn()
       const onVoiceEntry = vi.fn()
       const props = agentInputTestProps({
@@ -509,7 +509,7 @@ describe('AgentInput.svelte', () => {
         voiceEntryDisabled: false,
       })
       render(AgentInput, { props })
-      expect(screen.queryByRole('button', { name: 'New chat' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'New chat' })).toBeInTheDocument()
       const voiceBtn = screen.getByRole('button', { name: 'Voice input' })
       expect(voiceBtn).toBeInTheDocument()
       await fireEvent.click(voiceBtn)

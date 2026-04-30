@@ -27,7 +27,25 @@ To control which calendars are visible in the UI or included in default queries,
 
 - **`op: 'events'`**: Query events for a specific date range.
     - Use `start` and `end` (YYYY-MM-DD).
-    - Optionally pass `calendar_ids` to filter the results to specific calendars.
+    - Optionally pass `calendar_ids` to limit to specific calendars (tier still follows window length — **narrow** `start`/`end` for more detail).
+    - **`search`**: FTS keyword within `start`/`end`. Results are **compact hints** (capped, max ~40) plus **`totalMatchCount`** in the tool payload — not full event rows. If the right event is missing, narrow the date range or refine the keyword and call again.
+
+### 2b. Adaptive resolution (date window only)
+
+`op: 'events'` without **`search`** uses tiering from **how many days** are in `start`/`end` (there is **no** parameter to force a full dump):
+
+| Window | Tier | Behavior |
+|--------|------|----------|
+| **> 30 days** | Landmarks | All-day + timed events **≥ 4 hours** only; **recurring** instances omitted. |
+| **10–30 days** | Overview | Recurring omitted; **timed** events omit `description` and `location` (all-day keeps those fields). |
+| **< 10 days** | Full rows | All events in range with full agent row fields (still capped — see tool description). |
+
+The tool appends a **`[resolution: …]`** hint when tier isn’t “full”, and may append **`[truncated: …]`** if the row cap is hit — **narrow the range** or **`search`**.
+
+**Agent guidance:**
+- **Default:** choose `start`/`end`; read hints for what was filtered.
+- **Named topic / trip / event:** use **`search`** (plus a sensible range).
+- **More recurring or timed detail** across a wide span: **shorter windows** (<10 days) and/or **`search`**, not a bigger single call.
 
 ### 3. Creating Events (Google Calendar)
 
@@ -47,7 +65,8 @@ To control which calendars are visible in the UI or included in default queries,
 
 ## Best Practices for the Agent
 
-- **Context Awareness**: Before scheduling, always check the user's current schedule using `op: 'events'` for the relevant date range.
+- **Context Awareness**: Before scheduling, always check the user's current schedule using `op: 'events'` for the relevant date range (or `search` when they name a specific trip or topic).
 - **Source Discovery**: If the user refers to a calendar by name but you don't have the ID, use `op: 'list_calendars'` to find the matching `source` and `id`.
 - **Incremental Configuration**: When changing visibility, preserve the existing configuration unless explicitly asked to overwrite it.
 - **Timezones**: For `op: 'events'`, `start` and `end` are `YYYY-MM-DD`. For `create_event` timed mode, use RFC3339 in `event_start` / `event_end` and the user’s local timezone from context when translating "tomorrow at 3pm" into concrete instants.
+- **Token efficiency**: Prefer **`search`** for keyword-specific questions over loading an entire quarter and reading it in the transcript.

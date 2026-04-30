@@ -15,7 +15,7 @@ import {
   looksLikePersonNameOnly,
   mergeSearchIndexStdoutHints,
 } from '@server/agent/searchIndexCoerce.js'
-import { stripSearchIndexResult } from './ripmailCli.js'
+import { applyInboxResolution, selectSearchResultTier, stripReadEmailResult, stripSearchIndexResult } from './ripmailCli.js'
 import { parseWhoPrimaryAddresses } from '@server/agent/searchIndexWhoResolve.js'
 import { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '@server/lib/apple/imessagePhone.js'
 import {
@@ -96,7 +96,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'search_index',
     label: 'Search index',
     description:
-      'Search indexed email and local files (`ripmail`). Put **sender/recipient/dates/subject** in structured fields (`from`, `to`, `after`, …), not Gmail-style `from:` inside `pattern`. **`pattern` is a Rust regex on subject+body** (use `a|b` for alternation—not the word OR). On empty, odd, or broad date-spanning results, **read the `hints` array** in the JSON response. For current-state facts, read the newest relevant results first; older conflicting messages are history unless newer evidence confirms them. For person names that are not stored on From lines, pass the **email address** in `from` or rely on `find_person` / `ripmail who`; rolling `after` values (e.g. `180d`) count from **today** and exclude archive mail from past years unless you use ISO date bounds or omit dates.',
+      'Search indexed email and local files (`ripmail`). Put **sender/recipient/dates/subject** in structured fields (`from`, `to`, `after`, …), not Gmail-style `from:` inside `pattern`. **`pattern` is a Rust regex on subject+body** (use `a|b` for alternation—not the word OR). On empty, odd, or broad date-spanning results, **read the `hints` array** in the JSON response. For current-state facts, read the newest relevant results first; older conflicting messages are history unless newer evidence confirms them. For person names that are not stored on From lines, pass the **email address** in `from` or rely on `find_person` / `ripmail who`; rolling `after` values (e.g. `180d`) count from **today** and exclude archive mail from past years unless you use ISO date bounds or omit dates. **Adaptive resolution:** results are field-reduced when counts are large — ≤5 results: full (includes snippet); 6–15: compact (snippet omitted); >15: minimal (snippet + fromName omitted) — read the `[resolution: …]` annotation and narrow filters if you need more detail.',
     parameters: Type.Object({
       pattern: Type.Optional(
         Type.String({
@@ -229,6 +229,23 @@ export function createRipmailAgentTools(wikiDir: string) {
       stdout = addSearchIndexRecencyHints(stdout, working)
       stdout = stripSearchIndexResult(stdout)
 
+      // Append resolution hint when fields were reduced due to large result count
+      try {
+        const parsed = JSON.parse(stdout) as { results?: unknown[]; totalMatched?: number }
+        const resultCount = Array.isArray(parsed.results) ? parsed.results.length : 0
+        if (resultCount > 0) {
+          const tier = selectSearchResultTier(resultCount)
+          const totalMatched = parsed.totalMatched ?? resultCount
+          if (tier === 'compact') {
+            stdout += `\n\n[resolution: compact — ${resultCount} results, snippet omitted. Narrow filters (from/subject/after/before/pattern) for snippet detail. Total matched: ${totalMatched}.]`
+          } else if (tier === 'minimal') {
+            stdout += `\n\n[resolution: minimal — ${resultCount} results, snippet and fromName omitted. Narrow filters for more detail. Total matched: ${totalMatched}.]`
+          }
+        }
+      } catch {
+        // not JSON — leave as-is
+      }
+
       return {
         content: [{ type: 'text' as const, text: stdout || 'No results found.' }],
         details: {},
@@ -283,13 +300,7 @@ export function createRipmailAgentTools(wikiDir: string) {
             attachments = []
           }
           parsed.attachments = attachments
-          const body = parsed.body
-          if (typeof body === 'string' && body.length > READ_EMAIL_BODY_MAX_CHARS) {
-            parsed.body =
-              body.slice(0, READ_EMAIL_BODY_MAX_CHARS) +
-              `\n...[body truncated at ${READ_EMAIL_BODY_MAX_CHARS} chars; ${body.length} chars total — use read_attachment for any attachment text]`
-          }
-          textOut = JSON.stringify(parsed)
+          textOut = stripReadEmailResult(JSON.stringify(parsed), READ_EMAIL_BODY_MAX_CHARS)
         } catch {
           /* keep raw stdout if not JSON */
         }
@@ -469,7 +480,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'list_inbox',
     label: 'List Inbox',
     description:
-      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_index for "everything in my inbox" or when search_index returns no results. JSON includes messageId per item for archive_emails / read_email. Set `thorough: true` when diagnosing why mail is missing from the normal inbox scan: ripmail `--thorough` includes hidden/suppressed categories and messages that matched an ignore/suppress-style rule, often with winningRuleId for which filter hid them.',
+      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_index for "everything in my inbox" or when search_index returns no results. JSON includes messageId per item for archive_emails / read_email. Set `thorough: true` when diagnosing why mail is missing from the normal inbox scan: ripmail `--thorough` includes hidden/suppressed categories and messages that matched an ignore/suppress-style rule, often with winningRuleId for which filter hid them. **Adaptive resolution:** per-item fields are reduced when the inbox is large — ≤8 items: full; 9–20: compact (snippet omitted); >20: minimal (snippet + fromName omitted) — use read_email to get full content for any item.',
     parameters: Type.Object({
       thorough: Type.Optional(
         Type.Boolean({
@@ -482,9 +493,23 @@ export function createRipmailAgentTools(wikiDir: string) {
       const rm = ripmailBin()
       const flag = params.thorough ? ' --thorough' : ''
       const { stdout } = await execRipmailAsync(`${rm} inbox${flag}`, { timeout: 30000 })
-      const details = JSON.parse(stdout) as Record<string, unknown>
+
+      const { text: resolvedText, tier, totalItems } = applyInboxResolution(stdout)
+      let text = resolvedText
+      if (tier === 'compact') {
+        text += `\n\n[resolution: compact — ${totalItems} inbox items, snippet omitted. Use read_email for full message content.]`
+      } else if (tier === 'minimal') {
+        text += `\n\n[resolution: minimal — ${totalItems} inbox items, snippet and fromName omitted. Use read_email for full content.]`
+      }
+
+      let details: Record<string, unknown> = {}
+      try {
+        details = JSON.parse(stdout) as Record<string, unknown>
+      } catch {
+        // non-JSON stdout: details stays empty
+      }
       return {
-        content: [{ type: 'text' as const, text: stdout }],
+        content: [{ type: 'text' as const, text }],
         details,
       }
     },

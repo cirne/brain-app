@@ -79,6 +79,39 @@ describe('consumeAgentChatStream', () => {
     expect(sawDone).toBe(true)
   })
 
+  it('applies usage from done event to the assistant message and calls touchMessages', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const touchMessages = vi.fn()
+    const res = sseResponse([
+      'event: done\n',
+      'data: {"usage":{"input":10,"output":5,"cacheRead":0,"cacheWrite":0,"totalTokens":15,"costTotal":0.01}}\n\n',
+    ])
+    const { sawDone } = await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages,
+      scrollToBottom: () => {},
+    })
+    expect(sawDone).toBe(true)
+    expect(messages[1].usage).toEqual({
+      input: 10,
+      output: 5,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 15,
+      costTotal: 0.01,
+    })
+    expect(touchMessages).toHaveBeenCalledTimes(1)
+  })
+
   it('does not call onOpenWiki when isActiveSession is false (tool_start)', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },

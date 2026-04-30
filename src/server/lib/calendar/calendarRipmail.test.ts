@@ -1,5 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
-import { getCalendarEventsFromRipmail, mapRipmailRowToCalendarEvent, type RipmailCalendarEventJson } from './calendarRipmail.js'
+import {
+  getCalendarEventsFromRipmail,
+  mapRipmailRowToCalendarEvent,
+  eventIsRecurringFromRipmailRow,
+  calendarUidLooksLikeExpandedRecurrence,
+  calendarEventsFromRipmailRangeJsonStdout,
+  type RipmailCalendarEventJson,
+} from './calendarRipmail.js'
 import * as ripmailRun from '@server/lib/ripmail/ripmailRun.js'
 
 describe('mapRipmailRowToCalendarEvent', () => {
@@ -61,9 +68,123 @@ describe('mapRipmailRowToCalendarEvent', () => {
     expect(ev.organizer).toBe('org@example.com')
   })
 
+  it('sets recurring when uid looks like an expanded instance (#occ) without recurrenceJson (Apple / Google)', () => {
+    const row: RipmailCalendarEventJson = {
+      uid: '7tdrcpd2mjp34lstf5cq3hr4j7@google.com#occ33886',
+      sourceId: 'apple-cal',
+      sourceKind: 'appleCalendar',
+      summary: 'Kirsten Girls Trip',
+      startAt: 1745971200,
+      endAt: 1746057600,
+      allDay: true,
+    }
+    const ev = mapRipmailRowToCalendarEvent(row)!
+    expect(ev.recurring).toBe(true)
+  })
+
+  it('sets recurring when uid contains Google /RID=', () => {
+    const row: RipmailCalendarEventJson = {
+      uid: '6npv9mikb1fv3ikd3p528s7r1k@google.com/RID=799336800#occ61802',
+      sourceId: 'apple-cal',
+      sourceKind: 'appleCalendar',
+      summary: 'Susan',
+      startAt: 1712919600,
+      endAt: 1712948400,
+      allDay: false,
+    }
+    const ev = mapRipmailRowToCalendarEvent(row)!
+    expect(ev.recurring).toBe(true)
+  })
+
   it('returns null for missing required fields', () => {
     expect(mapRipmailRowToCalendarEvent({ uid: 'x' })).toBeNull()
     expect(mapRipmailRowToCalendarEvent({ startAt: 1, endAt: 2 })).toBeNull()
+  })
+
+  it('sets recurring when recurrenceJson is a non-empty array (Google expanded instance)', () => {
+    const row: RipmailCalendarEventJson = {
+      uid: 'inst-1',
+      sourceId: 'gcal',
+      sourceKind: 'googleCalendar',
+      startAt: 1712919600,
+      endAt: 1712921400,
+      recurrenceJson: JSON.stringify(['RRULE:FREQ=WEEKLY;BYDAY=MO']),
+    }
+    const ev = mapRipmailRowToCalendarEvent(row)!
+    expect(ev.recurring).toBe(true)
+  })
+
+  it('sets recurring when rrule is non-empty (ICS)', () => {
+    const row: RipmailCalendarEventJson = {
+      uid: 'ics-1',
+      sourceId: 'ics',
+      sourceKind: 'icsSubscription',
+      startAt: 1712919600,
+      endAt: 1712921400,
+      rrule: 'FREQ=WEEKLY;BYDAY=TU',
+    }
+    const ev = mapRipmailRowToCalendarEvent(row)!
+    expect(ev.recurring).toBe(true)
+  })
+
+  it('does not set recurring for empty recurrence array string', () => {
+    const row: RipmailCalendarEventJson = {
+      uid: 'x',
+      sourceId: 's',
+      startAt: 1,
+      endAt: 2,
+      recurrenceJson: '[]',
+    }
+    const ev = mapRipmailRowToCalendarEvent(row)!
+    expect(ev.recurring).toBeFalsy()
+  })
+})
+
+describe('eventIsRecurringFromRipmailRow', () => {
+  it('returns false for invalid recurrence JSON (falls through to uid)', () => {
+    expect(eventIsRecurringFromRipmailRow(null, 'not-json')).toBe(false)
+  })
+
+  it('returns true from uid when #occ present', () => {
+    expect(eventIsRecurringFromRipmailRow(null, null, 'x@y#occ1')).toBe(true)
+  })
+})
+
+describe('calendarUidLooksLikeExpandedRecurrence', () => {
+  it('matches #occ + digit', () => {
+    expect(calendarUidLooksLikeExpandedRecurrence('a#occ2591')).toBe(true)
+    expect(calendarUidLooksLikeExpandedRecurrence('a#occ')).toBe(false)
+  })
+  it('matches /RID=', () => {
+    expect(calendarUidLooksLikeExpandedRecurrence('u@i/RID=1')).toBe(true)
+  })
+})
+
+describe('calendarEventsFromRipmailRangeJsonStdout', () => {
+  it('parses events array and dedupes by start|end|title', () => {
+    const stdout = JSON.stringify({
+      events: [
+        {
+          uid: 'a',
+          sourceId: 's1',
+          summary: 'Dup',
+          startAt: 1000,
+          endAt: 2000,
+          attendeesJson: JSON.stringify(['x@y.com']),
+        },
+        {
+          uid: 'b',
+          sourceId: 's1',
+          summary: 'dup ',
+          startAt: 1000,
+          endAt: 2000,
+          attendeesJson: JSON.stringify(['x@y.com', 'z@y.com']),
+        },
+      ],
+    })
+    const evs = calendarEventsFromRipmailRangeJsonStdout(stdout)
+    expect(evs).toHaveLength(1)
+    expect(evs[0].attendees).toHaveLength(2)
   })
 })
 

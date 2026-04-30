@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import {
   assistantHasVisibleTextPart,
+  CHAT_TOKEN_METER_REFERENCE,
+  coerceLlmUsageSnapshot,
   extractReferencedFiles,
   extractMentionedFiles,
   buildChatBody,
   contextPlaceholder,
+  sumAssistantUsageTotalTokens,
   type ChatMessage,
 } from './agentUtils.js'
 import type { SurfaceContext } from '../router.js'
@@ -171,6 +174,109 @@ describe('extractReferencedFiles', () => {
       ],
     }]
     expect(extractReferencedFiles(msgs)).toEqual(['a.md', 'b.md'])
+  })
+})
+
+describe('sumAssistantUsageTotalTokens', () => {
+  it('returns 0 for empty list', () => {
+    expect(sumAssistantUsageTotalTokens([])).toBe(0)
+  })
+
+  it('sums input + output (not totalTokens) to avoid counting cacheRead', () => {
+    const msgs: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      {
+        role: 'assistant',
+        content: 'a',
+        usage: {
+          input: 1,
+          output: 2,
+          cacheRead: 50,   // 50 cached tokens — should NOT be counted
+          cacheWrite: 0,
+          totalTokens: 53, // input + cacheRead + output — inflated, not used
+          costTotal: 0,
+        },
+      },
+      {
+        role: 'assistant',
+        content: 'b',
+        usage: {
+          input: 2,
+          output: 3,
+          cacheRead: 80,
+          cacheWrite: 0,
+          totalTokens: 85,
+          costTotal: 0,
+        },
+      },
+    ]
+    // (1+2) + (2+3) = 8, not 53+85=138
+    expect(sumAssistantUsageTotalTokens(msgs)).toBe(8)
+  })
+
+  it('aggregates unique content across multi-turn chats (cacheRead excluded)', () => {
+    const msgs: ChatMessage[] = [
+      { role: 'user', content: 'q1' },
+      {
+        role: 'assistant',
+        content: 'a1',
+        usage: {
+          input: 100,
+          output: 50,
+          cacheRead: 0,
+          cacheWrite: 0,
+          totalTokens: 150,
+          costTotal: 0,
+        },
+      },
+      { role: 'user', content: 'q2' },
+      {
+        role: 'assistant',
+        content: 'a2',
+        usage: {
+          input: 200,
+          output: 100,
+          cacheRead: 1500, // prior turn is now cached — should not be re-counted
+          cacheWrite: 0,
+          totalTokens: 1800,
+          costTotal: 0,
+        },
+      },
+    ]
+    // (100+50) + (200+100) = 450, not 150+1800=1950
+    expect(sumAssistantUsageTotalTokens(msgs)).toBe(450)
+  })
+
+  it('ignores assistant rows without usage', () => {
+    const msgs: ChatMessage[] = [
+      { role: 'assistant', content: 'x' },
+      { role: 'assistant', content: 'y', usage: { input: 3, output: 2, cacheRead: 100, cacheWrite: 0, totalTokens: 105, costTotal: 0 } },
+    ]
+    expect(sumAssistantUsageTotalTokens(msgs)).toBe(5)
+  })
+})
+
+describe('coerceLlmUsageSnapshot', () => {
+  it('returns null for non-objects', () => {
+    expect(coerceLlmUsageSnapshot(null)).toBeNull()
+    expect(coerceLlmUsageSnapshot('x')).toBeNull()
+  })
+
+  it('coerces numeric fields with defaults', () => {
+    expect(coerceLlmUsageSnapshot({ totalTokens: 42 })).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 42,
+      costTotal: 0,
+    })
+  })
+})
+
+describe('CHAT_TOKEN_METER_REFERENCE', () => {
+  it('is 200k', () => {
+    expect(CHAT_TOKEN_METER_REFERENCE).toBe(200_000)
   })
 })
 

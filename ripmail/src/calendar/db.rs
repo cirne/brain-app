@@ -439,6 +439,7 @@ pub fn list_events_overlapping_scoped(
                 'startAt', start_at, 'endAt', end_at, 'allDay', all_day,
                 'organizerEmail', organizer_email,
                 'attendeesJson', attendees_json,
+                'rrule', rrule, 'recurrenceJson', recurrence_json,
                 'color', color
              ) FROM calendar_events
              WHERE start_at < ?2 AND end_at > ?1"
@@ -639,6 +640,24 @@ mod tests {
             list_events_overlapping(&conn, Some("s1"), &["cal_b".into()], 900, 1200, 10).unwrap();
         assert_eq!(rows.len(), 1);
         assert!(rows[0].contains("Cal B Event"));
+    }
+
+    #[test]
+    fn list_events_overlapping_includes_rrule_and_recurrence_json_in_json() {
+        let conn = mem_with_schema();
+        let mut a = sample_row("s1", "u1", "Weekly standup", 1000, 1100);
+        a.rrule = Some("FREQ=WEEKLY;BYDAY=MO".into());
+        a.recurrence_json = Some(r#"["RRULE:FREQ=WEEKLY;BYDAY=MO"]"#.into());
+        upsert_event(&conn, &a).unwrap();
+
+        let rows = list_events_overlapping(&conn, Some("s1"), &[], 900, 1200, 10).unwrap();
+        assert_eq!(rows.len(), 1);
+        let v: serde_json::Value = serde_json::from_str(&rows[0]).expect("json_object row");
+        assert_eq!(v["rrule"], "FREQ=WEEKLY;BYDAY=MO");
+        assert_eq!(
+            v["recurrenceJson"].as_str().expect("recurrenceJson string"),
+            r#"["RRULE:FREQ=WEEKLY;BYDAY=MO"]"#
+        );
     }
 
     #[test]

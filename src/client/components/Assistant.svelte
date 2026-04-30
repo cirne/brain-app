@@ -1171,7 +1171,7 @@
       {:else if shell.route.hubActive || shell.route.overlay?.type === 'hub'}
         <div class="hub-container">
           <div class="hub-scroll">
-            <BrainHubPage onHubNavigate={navigateFromHub} />
+            <BrainHubPage onHubNavigate={navigateFromHub} onOpenSettings={openSettings} />
           </div>
           {#if
             !useDesktopSplitDetail &&

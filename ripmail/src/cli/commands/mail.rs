@@ -235,6 +235,7 @@ pub(crate) fn run_read(
     full_body: bool,
     raw: bool,
     json: bool,
+    include_html: bool,
 ) -> CliResult {
     if message_ids.is_empty() {
         eprintln!("Usage: ripmail read <TARGET>… [--source <id|email>] [--plain-body] [--full-body] [--raw] [--json|--text]");
@@ -288,8 +289,11 @@ pub(crate) fn run_read(
             } else {
                 let (bytes, thread_id) = read_message_for_cli(&conn, target, root)?;
                 let parsed = parse_read_full_with_body_preference(&bytes, body_pref);
-                let mut out =
-                    serde_json::to_value(ReadMessageJson::from_parsed(&parsed, &thread_id))?;
+                let mut out = serde_json::to_value(ReadMessageJson::from_parsed(
+                    &parsed,
+                    &thread_id,
+                    include_html,
+                ))?;
                 if let Ok(Some((_, _, Some(sid)))) =
                     ripmail::ids::resolve_message_id_and_raw_path(&conn, target)
                 {
@@ -326,7 +330,9 @@ pub(crate) fn run_read(
                     let (bytes, thread_id) = read_message_for_cli(&conn, target, root)?;
                     let parsed = parse_read_full_with_body_preference(&bytes, body_pref);
                     values.push(serde_json::to_value(ReadMessageJson::from_parsed(
-                        &parsed, &thread_id,
+                        &parsed,
+                        &thread_id,
+                        include_html,
                     ))?);
                 }
             }

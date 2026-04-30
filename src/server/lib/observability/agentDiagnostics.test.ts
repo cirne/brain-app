@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import type { Agent, AgentEvent } from '@mariozechner/pi-agent-core'
+import type { AssistantMessageEvent } from '@mariozechner/pi-ai'
+import type { Agent, AgentEvent, AgentMessage } from '@mariozechner/pi-agent-core'
 
 import {
   AGENT_DIAGNOSTICS_SCHEMA_VERSION,
@@ -101,10 +102,182 @@ describe('agentDiagnostics', () => {
     const last = objs[objs.length - 1] as {
       kind: string
       summary: { durationMs: number; toolCallCount: number }
+      toolTrace: unknown[]
     }
     expect(last.kind).toBe('diag_footer')
+    expect(Array.isArray(last.toolTrace)).toBe(true)
+    expect(last.toolTrace).toEqual([])
     expect(last.summary.toolCallCount).toBe(0)
     expect(last.summary.durationMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it('attachAgentDiagnosticsCollector omits message_update and tool_execution_update lines', async () => {
+    process.env.NODE_ENV = 'development'
+
+    let listener: Parameters<Agent['subscribe']>[0] | undefined
+    const agent = {
+      subscribe(fn: Parameters<Agent['subscribe']>[0]) {
+        listener = fn
+        return () => {
+          listener = undefined
+        }
+      },
+    } as Agent
+
+    attachAgentDiagnosticsCollector(agent, {
+      agentTurnId: 'bbbbbbbb-bbbb-4ccc-dddd-eeeeeeeeeeee',
+      agentKind: 'omit_stream_test',
+      source: 'agent_diagnostics_test',
+    })
+    const ac = new AbortController()
+    const assistantMsg = {
+      role: 'assistant',
+      content: [],
+      api: 'test',
+      provider: 'test',
+      model: 'm',
+    } as unknown as AgentMessage
+    await listener!(
+      {
+        type: 'message_update',
+        message: assistantMsg,
+        assistantMessageEvent: {} as AssistantMessageEvent,
+      } as AgentEvent,
+      ac.signal,
+    )
+    await listener!(
+      {
+        type: 'tool_execution_update',
+        toolCallId: 'c1',
+        toolName: 't',
+        args: {},
+        partialResult: {},
+      } as AgentEvent,
+      ac.signal,
+    )
+    await listener!({ type: 'agent_end', messages: [] }, ac.signal)
+
+    const diagDir = join(brainHome, 'var', 'agent-diagnostics')
+    const raw = await readFile(join(diagDir, (await readdir(diagDir)).find((f) => f.endsWith('.jsonl'))!), 'utf-8')
+    expect(raw.includes('message_update')).toBe(false)
+    expect(raw.includes('tool_execution_update')).toBe(false)
+    const objs = parseJsonl(raw)
+    const events = objs.filter((o) => (o as { kind?: string }).kind === 'event') as { type: string }[]
+    expect(events.map((e) => e.type)).toEqual(['agent_end'])
+  })
+
+  it('attachAgentDiagnosticsCollector footer toolTrace matches tool_execution_*', async () => {
+    process.env.NODE_ENV = 'development'
+
+    let listener: Parameters<Agent['subscribe']>[0] | undefined
+    const agent = {
+      subscribe(fn: Parameters<Agent['subscribe']>[0]) {
+        listener = fn
+        return () => {
+          listener = undefined
+        }
+      },
+    } as Agent
+
+    attachAgentDiagnosticsCollector(agent, {
+      agentTurnId: 'cccccccc-bbbb-4ccc-dddd-eeeeeeeeeeee',
+      agentKind: 'tool_trace_test',
+      source: 'agent_diagnostics_test',
+    })
+    const ac = new AbortController()
+    await listener!(
+      {
+        type: 'tool_execution_start',
+        toolCallId: 'tc-1',
+        toolName: 'my_tool',
+        args: { q: 'hi' },
+      } as AgentEvent,
+      ac.signal,
+    )
+    await listener!(
+      {
+        type: 'tool_execution_end',
+        toolCallId: 'tc-1',
+        toolName: 'my_tool',
+        result: { ok: true, out: 'done' },
+        isError: false,
+      } as AgentEvent,
+      ac.signal,
+    )
+    await listener!({ type: 'agent_end', messages: [] }, ac.signal)
+
+    const diagDir = join(brainHome, 'var', 'agent-diagnostics')
+    const jl = (await readdir(diagDir)).find((f) => f.endsWith('.jsonl'))!
+    const objs = parseJsonl(await readFile(join(diagDir, jl), 'utf-8'))
+    const last = objs[objs.length - 1] as { toolTrace: Array<{ toolCallId: string; toolName: string; resultTruncated: boolean }> }
+    expect(last.toolTrace).toHaveLength(1)
+    expect(last.toolTrace[0].toolCallId).toBe('tc-1')
+    expect(last.toolTrace[0].toolName).toBe('my_tool')
+    expect(last.toolTrace[0].resultTruncated).toBe(false)
+    const toolEndLine = objs.find(
+      (o) => (o as { type?: string }).type === 'tool_execution_end',
+    ) as { result: { ok: boolean } }
+    expect(toolEndLine.result.ok).toBe(true)
+  })
+
+  it('attachAgentDiagnosticsCollector spills large tool result to sidecar JSON', async () => {
+    process.env.NODE_ENV = 'development'
+
+    let listener: Parameters<Agent['subscribe']>[0] | undefined
+    const agent = {
+      subscribe(fn: Parameters<Agent['subscribe']>[0]) {
+        listener = fn
+        return () => {
+          listener = undefined
+        }
+      },
+    } as Agent
+
+    attachAgentDiagnosticsCollector(agent, {
+      agentTurnId: 'dddddddd-bbbb-4ccc-dddd-eeeeeeeeeeee',
+      agentKind: 'sidecar_test',
+      source: 'agent_diagnostics_test',
+    })
+    const ac = new AbortController()
+    const huge = 'y'.repeat(70_000)
+    await listener!(
+      {
+        type: 'tool_execution_start',
+        toolCallId: 'big-tool',
+        toolName: 'blob',
+        args: {},
+      } as AgentEvent,
+      ac.signal,
+    )
+    await listener!(
+      {
+        type: 'tool_execution_end',
+        toolCallId: 'big-tool',
+        toolName: 'blob',
+        result: { payload: huge },
+        isError: false,
+      } as AgentEvent,
+      ac.signal,
+    )
+    await listener!({ type: 'agent_end', messages: [] }, ac.signal)
+
+    const diagDir = join(brainHome, 'var', 'agent-diagnostics')
+    const files = await readdir(diagDir)
+    expect(files.some((f) => f.includes('_tool_big-tool') && f.endsWith('.json'))).toBe(true)
+    const jl = files.find((f) => f.endsWith('.jsonl'))!
+    const objs = parseJsonl(await readFile(join(diagDir, jl), 'utf-8'))
+    const toolLine = objs.find((o) => (o as { type?: string }).type === 'tool_execution_end') as {
+      result: { ref: string; kind: string; bytes: number }
+    }
+    expect(toolLine.result.kind).toBe('diag_tool_sidecar')
+    expect(typeof toolLine.result.ref).toBe('string')
+    expect(toolLine.result.bytes).toBeGreaterThan(60_000)
+    const sidePath = join(diagDir, toolLine.result.ref)
+    const sideRaw = await readFile(sidePath, 'utf-8')
+    const side = JSON.parse(sideRaw) as { result: { payload: string } }
+    expect(side.result.payload.length).toBe(70_000)
+    const last = objs[objs.length - 1] as { toolTrace: Array<{ sidecarRef?: string }> }
+    expect(last.toolTrace[0].sidecarRef).toBe(toolLine.result.ref)
   })
 
   it('attachAgentDiagnosticsCollector is a no-op in production', () => {

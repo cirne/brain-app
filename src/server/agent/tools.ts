@@ -17,6 +17,10 @@ export {
   buildSourcesRemoveCommand,
   buildReindexCommand,
   stripSearchIndexResult,
+  stripReadEmailResult,
+  selectSearchResultTier,
+  selectInboxTier,
+  applyInboxResolution,
 } from './tools/ripmailCli.js'
 
 export interface CreateAgentToolsOptions {

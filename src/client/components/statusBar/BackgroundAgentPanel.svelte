@@ -11,6 +11,7 @@
   import { ChevronDown, Play } from 'lucide-svelte'
   import { computePinnedToBottom } from '@client/lib/scrollPin.js'
   import { backgroundAgentsFromEvents, yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
+  import { postYourWikiPause, postYourWikiResume } from '@client/lib/yourWikiLoopApi.js'
 
   type Props = {
     /** When omitted, the panel picks the most recent active (queued / running / paused) run. */
@@ -276,7 +277,7 @@
       const eid = effectiveId
       if (!eid) return
       if (isYourWikiRun()) {
-        await fetch('/api/your-wiki/pause', { method: 'POST' })
+        await postYourWikiPause()
       } else {
         await fetch(`/api/background/agents/${encodeURIComponent(eid)}/pause`, { method: 'POST' })
       }
@@ -292,11 +293,7 @@
       if (!eid) return
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
       if (isYourWikiRun()) {
-        await fetch('/api/your-wiki/resume', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ timezone }),
-        })
+        await postYourWikiResume()
       } else {
         await fetch(`/api/background/agents/${encodeURIComponent(eid)}/resume`, {
           method: 'POST',

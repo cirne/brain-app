@@ -293,20 +293,7 @@
         </div>
       {/if}
       <div class="input-composer">
-        {#if showVoiceEntry && onVoiceEntry}
-          <div class="lead-actions" role="group" aria-label="Voice input">
-            <button
-              type="button"
-              class="voice-lead-btn"
-              disabled={voiceEntryDisabled}
-              onclick={() => onVoiceEntry()}
-              title="Voice input"
-              aria-label="Voice input"
-            >
-              <Mic size={20} strokeWidth={2.25} aria-hidden="true" />
-            </button>
-          </div>
-        {:else if onNewChat}
+        {#if onNewChat}
           <div class="lead-actions" role="group" aria-label="Start new chat">
             <button
               type="button"
@@ -321,10 +308,7 @@
         {/if}
         <div
           class="input-shell-inner"
-          class:input-shell-inner--with-lead={!!(
-            (showVoiceEntry && onVoiceEntry) ||
-            onNewChat
-          )}
+          class:input-shell-inner--with-lead={!!onNewChat}
         >
           <textarea
             class="chat-textarea"
@@ -342,17 +326,38 @@
             <button type="button" class="send-btn stop-btn" onclick={() => onStop?.()} aria-label="Stop">
               <Square size={12} fill="currentColor" strokeWidth={0} aria-hidden="true" />
             </button>
+            <button
+              type="button"
+              class="send-btn"
+              onclick={submit}
+              disabled={disabled || !input.trim()}
+              title="Queue message (sends when assistant finishes)"
+              aria-label="Queue message to send when assistant finishes"
+            >
+              <ArrowUp size={20} strokeWidth={2.5} aria-hidden="true" />
+            </button>
+          {:else if showVoiceEntry && onVoiceEntry && !input.trim()}
+            <button
+              type="button"
+              class="send-btn voice-right-btn"
+              disabled={voiceEntryDisabled}
+              onclick={() => onVoiceEntry()}
+              title="Voice input"
+              aria-label="Voice input"
+            >
+              <Mic size={20} strokeWidth={2.25} aria-hidden="true" />
+            </button>
+          {:else}
+            <button
+              type="button"
+              class="send-btn"
+              onclick={submit}
+              disabled={disabled || !input.trim()}
+              aria-label="Send message"
+            >
+              <ArrowUp size={20} strokeWidth={2.5} aria-hidden="true" />
+            </button>
           {/if}
-          <button
-            type="button"
-            class="send-btn"
-            onclick={submit}
-            disabled={disabled || !input.trim()}
-            title={streaming ? 'Queue message (sends when assistant finishes)' : undefined}
-            aria-label={streaming ? 'Queue message to send when assistant finishes' : 'Send message'}
-          >
-            <ArrowUp size={20} strokeWidth={2.5} aria-hidden="true" />
-          </button>
         </div>
       </div>
     </div>
@@ -520,40 +525,20 @@
     filter: brightness(0.97);
   }
 
-  /* Same rail geometry as .new-chat-btn; used when voice replaces new-chat on mobile. */
-  .voice-lead-btn {
-    --voice-lead-r: 9px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    align-self: stretch;
-    min-width: 48px;
-    width: 48px;
-    padding: 0;
-    border: none;
-    border-right: 1px solid var(--border);
-    border-radius: var(--voice-lead-r) 0 0 var(--voice-lead-r);
-    background: var(--bg);
+  /* Same rail geometry as .send-btn; used when mic replaces send on the right when no text is typed. */
+  .voice-right-btn {
+    background: var(--bg-3);
     color: var(--text-2);
-    flex-shrink: 0;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .voice-lead-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
   }
 
   @media (hover: hover) {
-    .voice-lead-btn:not(:disabled):hover {
-      background: var(--bg-3);
+    .voice-right-btn:not(:disabled):hover {
+      background: var(--bg-2);
       color: var(--text);
     }
   }
 
-  .voice-lead-btn:active:not(:disabled) {
+  .voice-right-btn:active:not(:disabled) {
     filter: brightness(0.97);
   }
 

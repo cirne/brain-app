@@ -266,18 +266,19 @@
   }
 
   /*
-   * Composer stack: keep the primary tap/send control on the LEFT (same lane as text-mode mic +
-   * send) so it does not jump to the right; secondary actions (cancel/restart, keyboard) sit on the right.
+   * Composer stack: the primary tap/send control sits on the RIGHT (same lane as text-mode
+   * send/mic) so it does not jump when switching modes; secondary actions (cancel/restart,
+   * keyboard) sit on the left.
    */
   .chat-voice-panel--composer-flow .chat-voice-panel-inner {
-    flex-direction: row-reverse;
+    flex-direction: row;
   }
 
   .chat-voice-panel--composer-flow .chat-voice-primary-col {
-    justify-content: flex-start;
-    flex-direction: row-reverse;
-    padding-left: max(10px, env(safe-area-inset-left, 0px));
-    padding-right: 4px;
+    justify-content: flex-end;
+    flex-direction: row;
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
+    padding-left: 4px;
   }
 
   .voice-waveform-placeholder {
@@ -292,27 +293,27 @@
   }
 
   .chat-voice-panel--composer-flow .chat-voice-left {
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
 
   .chat-voice-panel--composer-flow .voice-exit-keyboard {
-    margin-left: 0;
-    margin-right: max(8px, env(safe-area-inset-right, 0px));
+    margin-left: max(8px, env(safe-area-inset-left, 0px));
+    margin-right: 0;
   }
 
   .chat-voice-panel--composer-flow .chat-voice-processing {
-    padding-left: 8px;
-    padding-right: max(12px, env(safe-area-inset-right, 0px));
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: 8px;
   }
 
   .chat-voice-panel--composer-flow :global(.voice-actions) {
-    transform: translateX(8px);
+    transform: translateX(-8px);
   }
 
   .chat-voice-panel--composer-flow :global(.voice-actions--show) {
     transform: translateX(0);
-    padding-left: 0;
-    padding-right: max(10px, env(safe-area-inset-right, 0px));
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: 0;
   }
 
   .voice-exit-keyboard {

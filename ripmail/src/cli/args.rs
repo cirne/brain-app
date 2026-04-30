@@ -305,6 +305,10 @@ pub(crate) enum Commands {
         json: bool,
         #[arg(long, conflicts_with = "json")]
         text: bool,
+        /// Include `bodyHtml` in JSON output. Omitted by default to reduce token use.
+        /// The app UI must pass this flag when it needs HTML for iframe rendering.
+        #[arg(long)]
+        include_html: bool,
     },
     /// List messages in a thread
     Thread {

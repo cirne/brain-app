@@ -18,6 +18,10 @@ export type RipmailCalendarEventJson = {
   startAt?: number
   endAt?: number
   allDay?: number | boolean
+  /** ICS RRULE line when indexed from ICS (one row per VEVENT). */
+  rrule?: string | null
+  /** Google Calendar API `recurrence` array serialized to string (expanded instances still carry it). */
+  recurrenceJson?: string | null
   organizerEmail?: string | null
   attendeesJson?: string | null
   color?: string | null
@@ -30,6 +34,36 @@ export type CalendarFetchMeta = {
   ripmail: string
   /** Available calendars (cached from the same ripmail call that checks sourcesConfigured) */
   availableCalendars?: { id: string; name?: string; sourceId: string }[]
+}
+
+/**
+ * Expanded instance UIDs often omit `rrule` / `recurrence_json` in the index (Apple CalDAV, Google).
+ * Detect common suffixes so adaptive tiers can drop standing meetings.
+ */
+export function calendarUidLooksLikeExpandedRecurrence(uid?: string | null): boolean {
+  const u = uid?.trim() ?? ''
+  if (!u) return false
+  if (/\/RID=/i.test(u)) return true
+  if (/#occ\d/i.test(u)) return true
+  return false
+}
+
+/** True when ripmail row is part of a recurring series (RRULE, recurrence array, or expanded-instance UID). */
+export function eventIsRecurringFromRipmailRow(
+  rrule?: string | null,
+  recurrenceJson?: string | null,
+  uid?: string | null,
+): boolean {
+  if (typeof rrule === 'string' && rrule.trim().length > 0) return true
+  if (recurrenceJson?.trim()) {
+    try {
+      const raw = JSON.parse(recurrenceJson) as unknown
+      if (Array.isArray(raw) && raw.length > 0) return true
+    } catch {
+      /* fall through */
+    }
+  }
+  return calendarUidLooksLikeExpandedRecurrence(uid)
 }
 
 function parseAttendees(attendeesJson: string | null | undefined): string[] | undefined {
@@ -76,6 +110,7 @@ export function mapRipmailRowToCalendarEvent(row: RipmailCalendarEventJson): Cal
   const source = (row.sourceKind ?? 'ripmail').trim() || 'ripmail'
   const attendees = parseAttendees(row.attendeesJson)
   const organizer = row.organizerEmail?.trim()?.toLowerCase()
+  const recurring = eventIsRecurringFromRipmailRow(row.rrule, row.recurrenceJson, uid)
 
   return {
     id: `${sourceId}:${uid}`,
@@ -88,9 +123,48 @@ export function mapRipmailRowToCalendarEvent(row: RipmailCalendarEventJson): Cal
     location: row.location?.trim() || undefined,
     description: row.description?.trim()?.slice(0, 2000) || undefined,
     attendees,
+    recurring,
     organizer,
     color: row.color?.trim() || undefined,
   }
+}
+
+/**
+ * Parse `ripmail calendar range --json` / `calendar search --json` stdout `{ "events": [...] }`
+ * into deduplicated sorted `CalendarEvent`s.
+ */
+export function calendarEventsFromRipmailRangeJsonStdout(stdout: string): CalendarEvent[] {
+  let parsed: { events?: RipmailCalendarEventJson[] }
+  try {
+    parsed = JSON.parse(stdout) as { events?: RipmailCalendarEventJson[] }
+  } catch {
+    return []
+  }
+  const raw = Array.isArray(parsed.events) ? parsed.events : []
+  const events: CalendarEvent[] = []
+  const seen = new Map<string, CalendarEvent>()
+
+  for (const r of raw) {
+    const ev = mapRipmailRowToCalendarEvent(r)
+    if (!ev) continue
+    const key = `${ev.start}|${ev.end}|${ev.title.trim().toLowerCase()}`
+    const existing = seen.get(key)
+    if (existing) {
+      const existingAttendees = existing.attendees?.length ?? 0
+      const newAttendees = ev.attendees?.length ?? 0
+      if (newAttendees > existingAttendees) {
+        seen.set(key, ev)
+      }
+    } else {
+      seen.set(key, ev)
+    }
+  }
+
+  for (const ev of seen.values()) {
+    events.push(ev)
+  }
+  events.sort((a, b) => a.start.localeCompare(b.start))
+  return events
 }
 
 async function ripmailCalendarSourcesInfo(): Promise<{ configured: boolean; calendars: { id: string; name?: string; sourceId: string }[] }> {
@@ -146,42 +220,7 @@ export async function getCalendarEventsFromRipmail(opts: {
     return { events: [], meta: { sourcesConfigured: info.configured, availableCalendars: info.calendars, ripmail: '' } }
   }
 
-  let parsed: { events?: RipmailCalendarEventJson[] }
-  try {
-    parsed = JSON.parse(cmdOut.stdout) as { events?: RipmailCalendarEventJson[] }
-  } catch {
-    return { events: [], meta: { sourcesConfigured: info.configured, ripmail: '' } }
-  }
-
-  const raw = Array.isArray(parsed.events) ? parsed.events : []
-  const events: CalendarEvent[] = []
-  const seen = new Map<string, CalendarEvent>()
-
-  for (const r of raw) {
-    const ev = mapRipmailRowToCalendarEvent(r)
-    if (!ev) continue
-
-    // Deduplicate by start, end, and title.
-    // We normalize the title by trimming and lowercasing to catch minor variations.
-    const key = `${ev.start}|${ev.end}|${ev.title.trim().toLowerCase()}`
-    const existing = seen.get(key)
-    if (existing) {
-      // Prefer the one with more attendees or a non-hash organizer.
-      const existingAttendees = existing.attendees?.length ?? 0
-      const newAttendees = ev.attendees?.length ?? 0
-      if (newAttendees > existingAttendees) {
-        seen.set(key, ev)
-      }
-    } else {
-      seen.set(key, ev)
-    }
-  }
-
-  for (const ev of seen.values()) {
-    events.push(ev)
-  }
-
-  events.sort((a, b) => a.start.localeCompare(b.start))
+  const events = calendarEventsFromRipmailRangeJsonStdout(cmdOut.stdout)
 
   return {
     events,

@@ -33,6 +33,57 @@ export type ChatMessage = {
   usage?: LlmUsageSnapshot
 }
 
+/** UI reference scale for the chat header token ring (not necessarily the active model context window). */
+export const CHAT_TOKEN_METER_REFERENCE = 200_000
+
+/**
+ * Conversation unique-content token count: `input + output` summed across turns.
+ *
+ * **Why not `totalTokens`?**
+ * Each turn's `totalTokens` = `input + cacheRead + output`. The `cacheRead` portion is the
+ * cached context (system prompt, prior turns) re-read on every model completion within a turn —
+ * a 6-completion turn re-reads the 12K system prompt 5 extra times as `cacheRead`, inflating
+ * `totalTokens` without representing new content.
+ *
+ * **Why `input + output` counts correctly (once per unique token):**
+ * - `input` is cumulative across completions: each token counted the first time it enters the
+ *   context. System prompt counted on call-1, then only in `cacheRead` for calls 2-N.
+ *   Same for user messages, tool calls, tool results.
+ * - `output` counts each generated token once.
+ * - Across turns: prior-turn content is already cached, so turn-N `input` only adds new content.
+ *
+ * Result: the same "unique tokens" figure you'd see in Cursor — system prompt once, each
+ * message once, each tool result once. Use `totalTokens` only for cost calculations.
+ */
+export function sumAssistantUsageTotalTokens(messages: ChatMessage[]): number {
+  let n = 0
+  for (const m of messages) {
+    if (m.role !== 'assistant') continue
+    const u = m.usage
+    if (u == null) continue
+    n += u.input + u.output
+  }
+  return n
+}
+
+function num(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0
+}
+
+/** Coerce SSE / JSON `usage` to {@link LlmUsageSnapshot}; returns null if not an object. */
+export function coerceLlmUsageSnapshot(raw: unknown): LlmUsageSnapshot | null {
+  if (raw == null || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  return {
+    input: num(o.input),
+    output: num(o.output),
+    cacheRead: num(o.cacheRead),
+    cacheWrite: num(o.cacheWrite),
+    totalTokens: num(o.totalTokens),
+    costTotal: num(o.costTotal),
+  }
+}
+
 /** True when a text part with non-empty trimmed content exists (first reply token has arrived). */
 export function assistantHasVisibleTextPart(msg: ChatMessage): boolean {
   for (const p of msg.parts ?? []) {

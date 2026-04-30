@@ -2,11 +2,29 @@ import type { AgentMessage } from '@mariozechner/pi-agent-core'
 
 /** JSON-safe usage for chat sessions and background run docs. Keep in sync with client `LlmUsageSnapshot` in `agentUtils.ts`. */
 export type LlmUsageSnapshot = {
+  /**
+   * New (non-cached) input tokens summed across all completions in the turn.
+   * Each token is counted exactly once — the first time it enters the context.
+   * Together with `output`, this gives the unique-content token count for the turn
+   * (comparable to what Cursor / IDE tools show as "conversation size").
+   */
   input: number
+  /** Generated output tokens summed across all completions. */
   output: number
-  /** Provider prompt cache read (cached input), per pi-ai. */
+  /**
+   * Cached-prefix tokens re-read on subsequent completions (billed at ~10% rate).
+   * These are NOT unique tokens — the system prompt, for example, appears here once
+   * per completion after the first. Do NOT add to `input` to get conversation size;
+   * use `input + output` for that. Include `cacheRead` only for cost calculations.
+   */
   cacheRead: number
   cacheWrite: number
+  /**
+   * input + cacheRead + output summed across all completions.
+   * Useful only for billing context (reflects total API token traffic).
+   * Overcounts for conversation-size purposes because cached context is re-counted
+   * on every completion. Prefer `input + output` for a "how big is this turn" metric.
+   */
   totalTokens: number
   /** Sum of `usage.cost.total` from assistant completions in the run. */
   costTotal: number

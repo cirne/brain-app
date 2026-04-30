@@ -5,13 +5,18 @@ import { tmpdir } from 'node:os'
 import { getCalendarEventsFromRipmail } from '@server/lib/calendar/calendarRipmail.js'
 import { upsertImessageBatch } from '@server/lib/messages/messagesDb.js'
 
-vi.mock('@server/lib/calendar/calendarRipmail.js', () => ({
-  getCalendarEventsFromRipmail: vi.fn(),
-}))
+vi.mock('@server/lib/calendar/calendarRipmail.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@server/lib/calendar/calendarRipmail.js')>()
+  return {
+    ...actual,
+    getCalendarEventsFromRipmail: vi.fn(),
+  }
+})
 vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', () => ({
   runRipmailRefreshForBrain: vi.fn(),
 }))
 import {
+  applyInboxResolution,
   buildDraftEditFlags,
   buildInboxRulesCommand,
   buildReindexCommand,
@@ -19,6 +24,9 @@ import {
   buildSourcesAddLocalDirCommand,
   buildSourcesEditCommand,
   buildSourcesRemoveCommand,
+  selectInboxTier,
+  selectSearchResultTier,
+  stripReadEmailResult,
   stripSearchIndexResult,
 } from './tools.js'
 import { joinToolResultText, toolResultFirstText } from './agentTestUtils.js'
@@ -1185,6 +1193,242 @@ describe('stripSearchIndexResult', () => {
     const raw = JSON.stringify({ results, totalMatched: 20 })
     const stripped = stripSearchIndexResult(raw)
     expect(stripped.length).toBeLessThan(raw.length * 0.5)
+  })
+
+  it('compact tier (6 results): keeps fromName, drops snippet', () => {
+    const results = Array.from({ length: 6 }, (_, i) => makeResult({ messageId: `msg-${i}` }))
+    const raw = JSON.stringify({ results, totalMatched: 6 })
+    const parsed = JSON.parse(stripSearchIndexResult(raw)) as { results: Record<string, unknown>[] }
+    expect(Object.keys(parsed.results[0]!).sort()).toEqual([
+      'date', 'fromAddress', 'fromName', 'messageId', 'subject',
+    ])
+    expect(parsed.results[0]!.snippet).toBeUndefined()
+  })
+
+  it('minimal tier (16 results): drops snippet and fromName', () => {
+    const results = Array.from({ length: 16 }, (_, i) => makeResult({ messageId: `msg-${i}` }))
+    const raw = JSON.stringify({ results, totalMatched: 16 })
+    const parsed = JSON.parse(stripSearchIndexResult(raw)) as { results: Record<string, unknown>[] }
+    expect(Object.keys(parsed.results[0]!).sort()).toEqual([
+      'date', 'fromAddress', 'messageId', 'subject',
+    ])
+    expect(parsed.results[0]!.snippet).toBeUndefined()
+    expect(parsed.results[0]!.fromName).toBeUndefined()
+  })
+})
+
+describe('stripReadEmailResult', () => {
+  // Note: bodyHtml is NOT included here — ripmail omits it by default (requires --include-html,
+  // which only the UI route passes). headersText/references/threadId/sourceId/sourceKind
+  // are still present in default output and stripped in the Node layer.
+  const makeEmail = (overrides: Record<string, unknown> = {}) => ({
+    messageId: '<msg@example.com>',
+    threadId: '<thread@example.com>',
+    from: 'Alice <alice@example.com>',
+    subject: 'Hello',
+    date: '2024-01-15T10:00:00Z',
+    to: 'bob@example.com',
+    sourceId: 'src-imap-1',
+    sourceKind: 'imap',
+    body: 'Hello there.',
+    headersText: 'From: alice@example.com\r\nTo: bob@example.com\r\n'.repeat(10),
+    references: '<prev1@x.com> <prev2@x.com> <prev3@x.com>',
+    ...overrides,
+  })
+
+  it('strips headersText, references, threadId, sourceId, sourceKind', () => {
+    const raw = JSON.stringify(makeEmail())
+    const parsed = JSON.parse(stripReadEmailResult(raw)) as Record<string, unknown>
+    // bodyHtml is absent by default from ripmail (requires --include-html, UI only)
+    // but if it somehow arrives, it passes through unchanged (not our job to strip it)
+    expect(parsed.headersText).toBeUndefined()
+    expect(parsed.references).toBeUndefined()
+    expect(parsed.threadId).toBeUndefined()
+    expect(parsed.sourceId).toBeUndefined()
+    expect(parsed.sourceKind).toBeUndefined()
+  })
+
+  it('keeps agent-needed fields intact', () => {
+    const raw = JSON.stringify(makeEmail())
+    const parsed = JSON.parse(stripReadEmailResult(raw)) as Record<string, unknown>
+    expect(parsed.messageId).toBe('<msg@example.com>')
+    expect(parsed.from).toBe('Alice <alice@example.com>')
+    expect(parsed.subject).toBe('Hello')
+    expect(parsed.body).toBe('Hello there.')
+    expect(parsed.to).toBe('bob@example.com')
+  })
+
+  it('truncates long body with hint', () => {
+    const longBody = 'x'.repeat(6000)
+    const raw = JSON.stringify(makeEmail({ body: longBody }))
+    const parsed = JSON.parse(stripReadEmailResult(raw, 5000)) as Record<string, unknown>
+    const body = parsed.body as string
+    expect(body.length).toBeLessThan(6000)
+    expect(body).toContain('[body truncated at 5000 chars; 6000 chars total')
+  })
+
+  it('does not truncate body within limit', () => {
+    const raw = JSON.stringify(makeEmail({ body: 'short body' }))
+    const parsed = JSON.parse(stripReadEmailResult(raw)) as Record<string, unknown>
+    expect(parsed.body).toBe('short body')
+  })
+
+  it('significantly reduces payload size by stripping header/reference bloat', () => {
+    // headersText dominates the remaining bloat (bodyHtml is now absent from ripmail by default)
+    const raw = JSON.stringify(makeEmail())
+    const stripped = stripReadEmailResult(raw)
+    expect(stripped.length).toBeLessThan(raw.length * 0.30)
+  })
+
+  it('passes through non-JSON unchanged', () => {
+    expect(stripReadEmailResult('not json')).toBe('not json')
+    expect(stripReadEmailResult('')).toBe('')
+  })
+})
+
+describe('selectSearchResultTier', () => {
+  it('returns full for ≤5 results', () => {
+    expect(selectSearchResultTier(0)).toBe('full')
+    expect(selectSearchResultTier(1)).toBe('full')
+    expect(selectSearchResultTier(5)).toBe('full')
+  })
+
+  it('returns compact for 6–15 results', () => {
+    expect(selectSearchResultTier(6)).toBe('compact')
+    expect(selectSearchResultTier(15)).toBe('compact')
+  })
+
+  it('returns minimal for >15 results', () => {
+    expect(selectSearchResultTier(16)).toBe('minimal')
+    expect(selectSearchResultTier(20)).toBe('minimal')
+  })
+})
+
+describe('selectInboxTier', () => {
+  it('returns full for ≤8 items', () => {
+    expect(selectInboxTier(0)).toBe('full')
+    expect(selectInboxTier(1)).toBe('full')
+    expect(selectInboxTier(8)).toBe('full')
+  })
+
+  it('returns compact for 9–20 items', () => {
+    expect(selectInboxTier(9)).toBe('compact')
+    expect(selectInboxTier(20)).toBe('compact')
+  })
+
+  it('returns minimal for >20 items', () => {
+    expect(selectInboxTier(21)).toBe('minimal')
+    expect(selectInboxTier(50)).toBe('minimal')
+  })
+})
+
+describe('applyInboxResolution', () => {
+  const makeItem = (id: string, overrides: Record<string, unknown> = {}) => ({
+    messageId: id,
+    date: '2024-01-15T10:00:00Z',
+    fromAddress: 'alice@example.com',
+    fromName: 'Alice',
+    subject: 'Hello world',
+    snippet: 'Hello there…',
+    note: 'some note',
+    category: 'promotional',
+    action: 'notify',
+    matchedRuleIds: ['rule-1'],
+    decisionSource: 'rules',
+    requiresUserAction: false,
+    ...overrides,
+  })
+
+  const makeInboxJson = (itemCount: number) =>
+    JSON.stringify({
+      mailboxes: [
+        {
+          id: 'mb-1',
+          email: 'alice@example.com',
+          items: Array.from({ length: itemCount }, (_, i) => makeItem(`msg-${i}`)),
+          counts: { notify: itemCount, inform: 0, ignore: 0, actionRequired: 0 },
+          meta: { inScanScope: true, indexedInWindow: itemCount, candidatesConsidered: itemCount },
+        },
+      ],
+      hints: [],
+    })
+
+  it('full tier (≤8 items): passes through unchanged', () => {
+    const raw = makeInboxJson(5)
+    const { text, tier, totalItems } = applyInboxResolution(raw)
+    expect(tier).toBe('full')
+    expect(totalItems).toBe(5)
+    expect(text).toBe(raw)
+  })
+
+  it('compact tier (9–20 items): strips snippet', () => {
+    const raw = makeInboxJson(10)
+    const { text, tier, totalItems } = applyInboxResolution(raw)
+    expect(tier).toBe('compact')
+    expect(totalItems).toBe(10)
+    const parsed = JSON.parse(text) as { mailboxes: Array<{ items: Record<string, unknown>[] }> }
+    const item = parsed.mailboxes[0]!.items[0]!
+    expect(item.snippet).toBeUndefined()
+    expect(item.fromName).toBe('Alice')
+    expect(item.messageId).toBeDefined()
+    expect(item.subject).toBeDefined()
+    expect(item.action).toBeDefined()
+  })
+
+  it('minimal tier (>20 items): strips snippet and fromName', () => {
+    const raw = makeInboxJson(25)
+    const { text, tier, totalItems } = applyInboxResolution(raw)
+    expect(tier).toBe('minimal')
+    expect(totalItems).toBe(25)
+    const parsed = JSON.parse(text) as { mailboxes: Array<{ items: Record<string, unknown>[] }> }
+    const item = parsed.mailboxes[0]!.items[0]!
+    expect(item.snippet).toBeUndefined()
+    expect(item.fromName).toBeUndefined()
+    expect(item.messageId).toBeDefined()
+    expect(item.subject).toBeDefined()
+  })
+
+  it('preserves outer mailbox metadata (counts, meta) when reducing', () => {
+    const raw = makeInboxJson(15)
+    const { text } = applyInboxResolution(raw)
+    const parsed = JSON.parse(text) as { mailboxes: Array<Record<string, unknown>> }
+    const mb = parsed.mailboxes[0]!
+    expect(mb.counts).toBeDefined()
+    expect(mb.meta).toBeDefined()
+    expect(mb.id).toBe('mb-1')
+  })
+
+  it('counts items across multiple mailboxes', () => {
+    const raw = JSON.stringify({
+      mailboxes: [
+        { id: 'mb-1', email: 'a@x.com', items: Array.from({ length: 5 }, (_, i) => makeItem(`a-${i}`)), meta: {} },
+        { id: 'mb-2', email: 'b@x.com', items: Array.from({ length: 6 }, (_, i) => makeItem(`b-${i}`)), meta: {} },
+      ],
+    })
+    const { tier, totalItems } = applyInboxResolution(raw)
+    expect(totalItems).toBe(11)
+    expect(tier).toBe('compact')
+  })
+
+  it('passes through non-JSON stdout unchanged', () => {
+    const { text, tier, totalItems } = applyInboxResolution('not json')
+    expect(text).toBe('not json')
+    expect(tier).toBe('full')
+    expect(totalItems).toBe(0)
+  })
+
+  it('passes through when no mailboxes key', () => {
+    const raw = JSON.stringify({ hints: ['no mailboxes'] })
+    const { text } = applyInboxResolution(raw)
+    expect(text).toBe(raw)
+  })
+
+  it('passes through empty mailboxes unchanged', () => {
+    const raw = JSON.stringify({ mailboxes: [{ id: 'mb-1', items: [] }] })
+    const { text, tier, totalItems } = applyInboxResolution(raw)
+    expect(tier).toBe('full')
+    expect(totalItems).toBe(0)
+    expect(text).toBe(raw)
   })
 })
 

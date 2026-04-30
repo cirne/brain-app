@@ -55,12 +55,38 @@ export function buildRipmailSearchCommandLine(params: {
 }
 
 /**
- * Fields the agent actually needs from a ripmail search result.
- * Strips bodyPreview, threadId, sourceId, sourceKind, and rank — which together
- * account for ~75% of the result payload — while keeping the fields needed to
- * decide which messages to read next.
+ * Resolution tier for search and inbox results. Higher result counts use lower-resolution
+ * fields to reduce token consumption, with a hint guiding the agent to tighten filters.
+ */
+export type EmailResolutionTier = 'full' | 'compact' | 'minimal'
+
+/**
+ * Selects a resolution tier based on how many search results are being returned.
+ *   full    (≤5 results):  all key fields including snippet
+ *   compact (6-15 results): snippet omitted
+ *   minimal (>15 results):  snippet and fromName omitted
+ */
+export function selectSearchResultTier(resultCount: number): EmailResolutionTier {
+  if (resultCount <= 5) return 'full'
+  if (resultCount <= 15) return 'compact'
+  return 'minimal'
+}
+
+/** Fields kept per tier for search results. */
+const SEARCH_TIER_KEYS: Record<EmailResolutionTier, readonly string[]> = {
+  full: ['messageId', 'fromAddress', 'fromName', 'subject', 'date', 'snippet'],
+  compact: ['messageId', 'fromAddress', 'fromName', 'subject', 'date'],
+  minimal: ['messageId', 'fromAddress', 'subject', 'date'],
+}
+
+/**
+ * Dynamically reduces search result payload based on result count:
+ * - ≤5 results  → full (messageId, fromAddress, fromName, subject, date, snippet)
+ * - 6–15 results → compact (same minus snippet)
+ * - >15 results  → minimal (same minus snippet and fromName)
  *
- * Passes through unchanged if stdout is not valid JSON or has no results array.
+ * Strips bodyPreview, threadId, sourceId, sourceKind, rank unconditionally.
+ * Passes through unchanged if stdout is not valid JSON or has no results.
  */
 export function stripSearchIndexResult(stdout: string): string {
   try {
@@ -70,14 +96,130 @@ export function stripSearchIndexResult(stdout: string): string {
       hints?: string[]
     }
     if (!Array.isArray(parsed.results) || parsed.results.length === 0) return stdout
-    parsed.results = parsed.results.map(({ messageId, fromAddress, fromName, subject, date, snippet }) => ({
-      messageId,
-      fromAddress,
-      fromName,
-      subject,
-      date,
-      snippet,
-    }))
+    const tier = selectSearchResultTier(parsed.results.length)
+    const keys = SEARCH_TIER_KEYS[tier]
+    parsed.results = parsed.results.map((row) => {
+      const out: Record<string, unknown> = {}
+      for (const k of keys) {
+        if (row[k] !== undefined) out[k] = row[k]
+      }
+      return out
+    })
+    return JSON.stringify(parsed)
+  } catch {
+    return stdout
+  }
+}
+
+/**
+ * Selects a resolution tier for inbox items based on total item count across all mailboxes.
+ *   full    (≤8 items):  all fields
+ *   compact (9–20 items): snippet omitted
+ *   minimal (>20 items):  snippet and fromName omitted
+ */
+export function selectInboxTier(totalItems: number): EmailResolutionTier {
+  if (totalItems <= 8) return 'full'
+  if (totalItems <= 20) return 'compact'
+  return 'minimal'
+}
+
+/** Fields kept per tier for inbox items (beyond the identity/date fields, decision fields are always kept). */
+const INBOX_TIER_KEEP_KEYS: Record<EmailResolutionTier, readonly string[]> = {
+  full: [
+    'messageId', 'date', 'fromAddress', 'fromName', 'subject', 'snippet',
+    'note', 'category', 'attachments', 'action',
+    'matchedRuleIds', 'decisionSource', 'requiresUserAction', 'actionSummary',
+  ],
+  compact: [
+    'messageId', 'date', 'fromAddress', 'fromName', 'subject',
+    'note', 'category', 'action',
+    'matchedRuleIds', 'decisionSource', 'requiresUserAction', 'actionSummary',
+  ],
+  minimal: [
+    'messageId', 'date', 'fromAddress', 'subject', 'action',
+    'matchedRuleIds', 'decisionSource', 'requiresUserAction', 'actionSummary',
+  ],
+}
+
+/**
+ * Applies dynamic resolution to `ripmail inbox` JSON output.
+ * Counts items across all mailboxes and strips per-item fields based on tier:
+ *   full    (≤8):  all fields retained
+ *   compact (9–20): snippet stripped
+ *   minimal (>20):  snippet and fromName stripped
+ *
+ * Returns the resolution metadata so callers can append agent-facing hints.
+ * Passes through unchanged if stdout is not valid JSON or has no mailboxes array.
+ */
+export function applyInboxResolution(stdout: string): {
+  text: string
+  tier: EmailResolutionTier
+  totalItems: number
+} {
+  const passthrough = { text: stdout, tier: 'full' as EmailResolutionTier, totalItems: 0 }
+  try {
+    const parsed = JSON.parse(stdout) as {
+      mailboxes?: Array<{ items?: Record<string, unknown>[] } & Record<string, unknown>>
+    } & Record<string, unknown>
+    if (!Array.isArray(parsed.mailboxes)) return passthrough
+
+    let totalItems = 0
+    for (const mb of parsed.mailboxes) {
+      if (Array.isArray(mb.items)) totalItems += mb.items.length
+    }
+    if (totalItems === 0) return { text: stdout, tier: 'full', totalItems: 0 }
+
+    const tier = selectInboxTier(totalItems)
+    if (tier === 'full') return { text: stdout, tier, totalItems }
+
+    const keys = INBOX_TIER_KEEP_KEYS[tier]
+    for (const mb of parsed.mailboxes) {
+      if (Array.isArray(mb.items)) {
+        mb.items = mb.items.map((item) => {
+          const out: Record<string, unknown> = {}
+          for (const k of keys) {
+            if (item[k] !== undefined) out[k] = item[k]
+          }
+          return out
+        })
+      }
+    }
+    return { text: JSON.stringify(parsed), tier, totalItems }
+  } catch {
+    return passthrough
+  }
+}
+
+/**
+ * Strips agent-irrelevant fields from a `ripmail read --json` result.
+ * `bodyHtml` is already absent by default (requires `--include-html`, which only the
+ * UI route passes). The remaining stripped fields are also not useful to the agent:
+ *   headersText   — raw RFC 2822 header block; structured fields cover what matters
+ *   references    — full In-Reply-To chain of Message-IDs; can be 500–1000 chars
+ *   threadId      — implementation id; rarely needed beyond messageId
+ *   sourceId      — mailbox implementation detail
+ *   sourceKind    — mailbox implementation detail
+ *
+ * Also truncates `body` to `bodyMaxChars` (default 5000) with a hint when over limit.
+ * Passes through unchanged when stdout is not valid JSON.
+ */
+export function stripReadEmailResult(
+  stdout: string,
+  bodyMaxChars = 5000,
+): string {
+  try {
+    const parsed = JSON.parse(stdout) as Record<string, unknown>
+    delete parsed.headersText
+    delete parsed.references
+    delete parsed.threadId
+    delete parsed.sourceId
+    delete parsed.sourceKind
+    const body = parsed.body
+    if (typeof body === 'string' && body.length > bodyMaxChars) {
+      parsed.body =
+        body.slice(0, bodyMaxChars) +
+        `\n...[body truncated at ${bodyMaxChars} chars; ${body.length} chars total — use read_attachment for any attachment text]`
+    }
     return JSON.stringify(parsed)
   } catch {
     return stdout

@@ -40,7 +40,9 @@ pub struct ReadMessageJson<'a> {
 }
 
 impl<'a> ReadMessageJson<'a> {
-    pub fn from_parsed(r: &'a ReadForCli, thread_id: &'a str) -> Self {
+    /// `include_html`: when false (the default for CLI / agent use), `body_html` is omitted.
+    /// The app UI must pass `--include-html` to get the HTML field for iframe rendering.
+    pub fn from_parsed(r: &'a ReadForCli, thread_id: &'a str, include_html: bool) -> Self {
         ReadMessageJson {
             message_id: &r.message_id,
             thread_id,
@@ -56,7 +58,11 @@ impl<'a> ReadMessageJson<'a> {
             recipients_disclosed: r.recipients_disclosed,
             body: &r.body_text,
             headers_text: format_read_headers_only(r),
-            body_html: r.body_html.as_deref(),
+            body_html: if include_html {
+                r.body_html.as_deref()
+            } else {
+                None
+            },
         }
     }
 }

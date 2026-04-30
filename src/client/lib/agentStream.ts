@@ -1,4 +1,5 @@
 import type { ChatMessage, ToolPart } from './agentUtils.js'
+import { coerceLlmUsageSnapshot } from './agentUtils.js'
 import { getToolDefinitionCore } from './tools/registryCore.js'
 import { isFilesystemAbsolutePath } from './fsPath.js'
 import { wikiPathForReadToolArg } from './cards/contentCards.js'
@@ -171,6 +172,16 @@ export async function consumeAgentChatStream(
         }
         if (lastEvent === 'done') {
           sawDone = true
+          if (data != null && typeof data === 'object' && 'usage' in data) {
+            const usage = coerceLlmUsageSnapshot((data as { usage: unknown }).usage)
+            if (usage !== null) {
+              const msg = getMessages()[msgIdx]
+              if (msg?.role === 'assistant') {
+                msg.usage = usage
+                touchMessages()
+              }
+            }
+          }
           continue
         }
 

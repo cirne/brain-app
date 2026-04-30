@@ -9,7 +9,7 @@ brain-app writes **developer-only** per-turn agent diagnostics when **`isDevRunt
 
 ## Schema invariant (never migrate old logs)
 
-On-disk diagnostics are **throwaway dev artifacts**. There is **no** migration path, **no** backward-compatible readers for older layouts, and **no** expectation that files from last week parse today. Bump `AGENT_DIAGNOSTICS_SCHEMA_VERSION` / reshape lines whenever the codebase needs it; wipe `var/agent-diagnostics/` locally if stale files clutter debugging.
+On-disk diagnostics are **throwaway dev artifacts**. There is **no** migration path, **no** backward-compatible readers for older layouts, and **no** expectation that files from last week parse today. Bump `AGENT_DIAGNOSTICS_SCHEMA_VERSION` / reshape lines whenever the codebase needs it; wipe `var/agent-diagnostics/` locally if stale files clutter debugging. **`toolTrace`**, sidecar refs, and omission of `message_update` / `tool_execution_update` lines are **schema v3+** (see `AGENT_DIAGNOSTICS_SCHEMA_VERSION` in [`agentDiagnostics.ts`](../../../src/server/lib/observability/agentDiagnostics.ts)); older artifacts may look different.
 
 ## Where files live on disk
 
@@ -23,7 +23,7 @@ Main turn (pi-agent `prompt` run):
 
 `<ISO-ish-timestamp>_<agentTurnId-first-8-chars>_<sanitized-agentKind>.jsonl`
 
-Each line is one JSON value: **header** (`diag_header`, includes `schemaVersion`), then **events** (`kind: event`, one pi-agent event per line), then **footer** (`diag_footer` with `summary` + `transcript`).
+Each line is one JSON value: **header** (`diag_header`, includes `schemaVersion`), then **events** (`kind: event`, one pi-agent event per line; **streaming deltas omitted** — no `message_update` or `tool_execution_update` lines), then **footer** (`diag_footer` with `summary` + **`toolTrace`** + `transcript`).
 
 Examples of `meta.source` / `agentKind` (see `attachAgentDiagnosticsCollector` callsites):
 
@@ -58,10 +58,51 @@ Workflow:
 ## What to read in a main `.jsonl` artifact
 
 - **First line** — `diag_header`: `meta` (`agentTurnId`, `agentKind`, `source`, optional ids), `wallClockStarted`, `schemaVersion`.
-- **Middle lines** — `kind: event`, one serialized **`AgentEvent`** per line (truncated where huge); **`agent_end`** rows are abbreviated (`messageCount`).
-- **Last line** — `diag_footer`: `wallClockEnded`, **`summary`** (duration, usage, completions, tool count, provider/model), **`transcript`** (modeled messages; truncated).
+- **Middle lines** — `kind: event`, one serialized **`AgentEvent`** per line (truncated where huge); **`agent_end`** rows are abbreviated (`messageCount`). Token streaming and tool partials are **not** logged here (see `transcript` in the footer for final assistant text).
+- **Last line** — `diag_footer`: `wallClockEnded`, **`summary`** (duration, usage, completions, tool count, provider/model), **`toolTrace`** (one entry per tool invocation: ids, `durationMs`, byte sizes, `resultTruncated`, `resultSha256`, `resultPreview`, optional `sidecarRef`), **`transcript`** (modeled messages; truncated).
 
 Use **`head -n 1`**, **`tail -n 1`**, **`rg` per line** for quick inspection without loading the whole file into an editor.
+
+**Processing model:** The file is **JSONL** (one JSON object per line), not a single JSON array. Tools should **not** slurp the whole file into one `JSON.parse` expecting `[ … ]`. The **last line** is the footer only — but that line can be **very large** because it embeds **`transcript`**. Prefer **extracting subfields** with `jq` (below) so you only *see* `toolTrace` / `summary` in the terminal, not the full transcript.
+
+### Parsing efficiently (agents and humans)
+
+- **Header only (tiny):** `head -n 1 "$file" | jq '{schemaVersion, meta: .meta, wallClockStarted}'`
+- **Footer without dumping `transcript`:** pick fields explicitly — still parses the full footer line once in `jq`, but output stays small:
+
+  ```bash
+  tail -n 1 "$file" | jq '{kind, wallClockEnded, summary, toolTrace}'
+  ```
+
+- **Tool index only (smallest useful view):**
+
+  ```bash
+  tail -n 1 "$file" | jq '.toolTrace[] | {toolName, toolCallId, durationMs, resultTruncated, sidecarRef, resultPreview: .resultPreview[0:240]}'
+  ```
+
+- **Usage / model only:** `tail -n 1 "$file" | jq '.summary'`
+- **Transcript only when you need it:** `tail -n 1 "$file" | jq '.transcript'` (large)
+- **Event lines (`tool_execution_*`, `turn_end`, …):** stream-friendly listing without parsing the footer:
+
+  ```bash
+  rg -n '"type":"tool_execution_(start|end)"' "$file"
+  ```
+
+  Or **all** event types: `rg -n '"kind":"event"' "$file"` (one match per non-header/footer line).
+
+- **Sidecar files** live next to the `.jsonl`; name pattern `*_tool_*.json`. After reading `toolTrace[].sidecarRef` or a footer event’s `result.ref`, open that path under the same directory. `ls *tool*.json` in the diagnostics dir is a quick fallback.
+
+- **Order:** Event lines include monotonic **`seq`**. **`toolTrace`** entries are appended in the order each tool **completed** (`tool_execution_end`), which matches how runs are usually read.
+
+### Finding tool outputs (quick)
+
+1. **Fast index** — Prefer `toolTrace` in the footer (see **Tool index only** above).
+
+2. **Full inline result** — Still available on the `tool_execution_end` event row (`rg` as above). If `result` is `{ "kind": "diag_tool_sidecar", "ref": "…", "bytes": N }`, read the sibling **`*.json`** named in `ref` for the full payload (wrapper object includes `toolCallId`, `toolName`, `isError`, `result`).
+
+3. **`turn_end` events** — Include `toolResultCount` only, not raw tool payloads.
+
+4. **Footer `transcript`** — Modeled `AgentMessage[]` after the run (large; separate truncation budget from per-event tool rows).
 
 ## When nothing appears
 

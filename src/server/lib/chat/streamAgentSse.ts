@@ -297,7 +297,9 @@ export function streamAgentSseResponse(
       try {
         await stream.writeSSE({
           event: 'done',
-          data: JSON.stringify({}),
+          data: JSON.stringify(
+            refs.lastRunUsage !== undefined ? { usage: refs.lastRunUsage } : {},
+          ),
         })
       } catch {
         /* closed */

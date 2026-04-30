@@ -7,6 +7,7 @@
  * paths. Old files under this directory are undefined — bump {@link AGENT_DIAGNOSTICS_SCHEMA_VERSION}
  * and reshape records whenever useful; callers must not preserve prior on-disk layouts.
  */
+import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Agent, AgentEvent, AgentMessage } from '@mariozechner/pi-agent-core'
@@ -28,12 +29,16 @@ export function shouldWriteAgentDiagnostics(): boolean {
 }
 
 /** Bumped freely; see file comment — no compatibility with prior schema versions. */
-export const AGENT_DIAGNOSTICS_SCHEMA_VERSION = 2 as const
+export const AGENT_DIAGNOSTICS_SCHEMA_VERSION = 3 as const
 
 const DIAG_SUBDIR = 'agent-diagnostics'
 const MAX_REASONABLE_STRING = 48_000
 const MAX_AGENT_END_PREVIEW_STRING = 120_000
 const REPAIR_PREVIEW = 28_000
+
+/** Min UTF-8 size of `result` JSON before spilling a sidecar file (inline row stays small). */
+const TOOL_RESULT_SIDECAR_MIN_UTF8_BYTES = 65_536
+const TOOL_TRACE_PREVIEW_CHARS = 2_000
 
 export type AgentDiagnosticsMeta = {
   agentTurnId: string
@@ -43,6 +48,19 @@ export type AgentDiagnosticsMeta = {
   source: string
   sessionId?: string
   backgroundRunId?: string
+}
+
+export type DiagToolTraceEntry = {
+  toolCallId: string
+  toolName: string
+  isError: boolean
+  durationMs?: number
+  argsJsonBytes?: number
+  resultJsonBytes?: number
+  resultTruncated: boolean
+  resultSha256: string
+  resultPreview: string
+  sidecarRef?: string
 }
 
 export type DiagHeaderLine = {
@@ -68,6 +86,7 @@ export type DiagFooterLine = {
     provider?: string
     model?: string
   }
+  toolTrace: DiagToolTraceEntry[]
   transcript: unknown
 }
 
@@ -79,6 +98,10 @@ function sanitizeKindForFilename(kind: string): string {
   return kind.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 64)
 }
 
+function sanitizeToolCallIdForFilename(id: string): string {
+  return id.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 48)
+}
+
 function compactIsoForFilename(): string {
   return new Date().toISOString().replace(/[:.]/g, '-')
 }
@@ -86,6 +109,36 @@ function compactIsoForFilename(): string {
 function truncateDeepString(text: string, max: number): string {
   if (text.length <= max) return text
   return truncateJsonResult(text, max)
+}
+
+function utf8ByteLength(s: string): number {
+  return Buffer.byteLength(s, 'utf8')
+}
+
+function jsonUtf8Bytes(value: unknown): number {
+  try {
+    return utf8ByteLength(JSON.stringify(value))
+  } catch {
+    return utf8ByteLength(String(value))
+  }
+}
+
+function sha256InputFromResult(value: unknown): string {
+  try {
+    return typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function resultPreviewString(value: unknown): string {
+  try {
+    const s = typeof value === 'string' ? value : JSON.stringify(value)
+    if (s.length <= TOOL_TRACE_PREVIEW_CHARS) return s
+    return `${s.slice(0, TOOL_TRACE_PREVIEW_CHARS)}…`
+  } catch {
+    return String(value).slice(0, TOOL_TRACE_PREVIEW_CHARS)
+  }
 }
 
 /** JSON-safe-ish snapshot of an event; avoids duplicating full `agent_end.messages` in the stream. */
@@ -191,32 +244,44 @@ function buildSummary(
   }
 }
 
+function shouldOmitEventLine(ev: AgentEvent): boolean {
+  return ev.type === 'message_update' || ev.type === 'tool_execution_update'
+}
+
 async function writeAgentDiagnosticsJsonl(
-  meta: AgentDiagnosticsMeta,
+  diagnosticsDir: string,
+  fileStem: string,
   lines: string[],
 ): Promise<string> {
-  const dir = agentDiagnosticsRoot()
-  await mkdir(dir, { recursive: true })
-  const shortId = meta.agentTurnId.slice(0, 8)
-  const name = `${compactIsoForFilename()}_${shortId}_${sanitizeKindForFilename(meta.agentKind)}.jsonl`
-  const path = join(dir, name)
+  await mkdir(diagnosticsDir, { recursive: true })
+  const path = join(diagnosticsDir, `${fileStem}.jsonl`)
   await writeFile(path, `${lines.join('\n')}\n`, 'utf-8')
   return path
 }
 
+type PendingToolDiag = {
+  startedAt: number
+  argsJsonBytes: number
+}
+
 /**
- * Second subscriber on the same Agent; writes **JSONL** (header + one line per event + footer) on `agent_end`.
- * No-op when not dev. Returns unsubscribe to pair with the primary stream handler.
+ * Second subscriber on the same Agent; writes **JSONL** (header + one line per `AgentEvent` + footer) on `agent_end`.
+ * Omits `message_update` / `tool_execution_update` lines. No-op when not dev. Returns unsubscribe to pair with the primary stream handler.
  */
 export function attachAgentDiagnosticsCollector(agent: Agent, meta: AgentDiagnosticsMeta): () => void {
   if (!shouldWriteAgentDiagnostics()) {
     return () => {}
   }
+  const diagnosticsDir = agentDiagnosticsRoot()
+  const shortId = meta.agentTurnId.slice(0, 8)
+  const fileStem = `${compactIsoForFilename()}_${shortId}_${sanitizeKindForFilename(meta.agentKind)}`
   const wallClockStarted = new Date().toISOString()
   const startedAt = performance.now()
   let seq = 0
   let toolStartCount = 0
   const lines: string[] = []
+  const pendingTools = new Map<string, PendingToolDiag>()
+  const toolTrace: DiagToolTraceEntry[] = []
 
   const header: DiagHeaderLine = {
     kind: 'diag_header',
@@ -228,13 +293,87 @@ export function attachAgentDiagnosticsCollector(agent: Agent, meta: AgentDiagnos
 
   const unsub = agent.subscribe(async (ev: AgentEvent) => {
     try {
-      if (ev.type === 'tool_execution_start') toolStartCount++
-      const payload = serializeAgentEventForDiagnostics(ev)
-      const row: DiagEventLine = { kind: 'event', seq: ++seq, ...payload }
-      lines.push(JSON.stringify(row))
+      if (ev.type === 'tool_execution_start') {
+        toolStartCount++
+        pendingTools.set(ev.toolCallId, {
+          startedAt: performance.now(),
+          argsJsonBytes: jsonUtf8Bytes(ev.args),
+        })
+      }
+
+      if (!shouldOmitEventLine(ev)) {
+        if (ev.type === 'tool_execution_end') {
+          const pending = pendingTools.get(ev.toolCallId)
+          pendingTools.delete(ev.toolCallId)
+          const durationMs =
+            pending !== undefined ? Math.max(0, Math.round(performance.now() - pending.startedAt)) : undefined
+
+          const argsJsonBytes = pending !== undefined ? pending.argsJsonBytes : undefined
+          const resultJsonBytes = jsonUtf8Bytes(ev.result)
+          const previewSource = resultPreviewString(ev.result)
+          let displayedResult: unknown
+          let resultTruncated = false
+          let sidecarRef: string | undefined
+          let shaInput: string
+
+          if (resultJsonBytes >= TOOL_RESULT_SIDECAR_MIN_UTF8_BYTES) {
+            sidecarRef = `${fileStem}_tool_${sanitizeToolCallIdForFilename(ev.toolCallId)}.json`
+            const sidecarPayload = {
+              toolCallId: ev.toolCallId,
+              toolName: ev.toolName,
+              isError: ev.isError,
+              result: ev.result,
+            }
+            const sidecarBody = `${JSON.stringify(sidecarPayload, null, 2)}\n`
+            await mkdir(diagnosticsDir, { recursive: true })
+            await writeFile(join(diagnosticsDir, sidecarRef), sidecarBody, 'utf-8')
+            displayedResult = {
+              ref: sidecarRef,
+              bytes: utf8ByteLength(sidecarBody),
+              kind: 'diag_tool_sidecar',
+            }
+            shaInput = sidecarBody
+          } else {
+            const truncated = truncateStringsInValue(ev.result, MAX_REASONABLE_STRING)
+            displayedResult = truncated
+            resultTruncated = jsonUtf8Bytes(truncated) < resultJsonBytes
+            shaInput = sha256InputFromResult(ev.result)
+          }
+
+          const resultSha256 = createHash('sha256').update(shaInput).digest('hex')
+          toolTrace.push({
+            toolCallId: ev.toolCallId,
+            toolName: ev.toolName,
+            isError: ev.isError,
+            durationMs,
+            argsJsonBytes,
+            resultJsonBytes,
+            resultTruncated,
+            resultSha256,
+            resultPreview: previewSource,
+            ...(sidecarRef !== undefined ? { sidecarRef } : {}),
+          })
+
+          const row: DiagEventLine = {
+            kind: 'event',
+            seq: ++seq,
+            type: 'tool_execution_end',
+            toolCallId: ev.toolCallId,
+            toolName: ev.toolName,
+            isError: ev.isError,
+            result: displayedResult,
+          }
+          lines.push(JSON.stringify(row))
+        } else {
+          const payload = serializeAgentEventForDiagnostics(ev)
+          const row: DiagEventLine = { kind: 'event', seq: ++seq, ...payload }
+          lines.push(JSON.stringify(row))
+        }
+      }
     } catch {
       lines.push(JSON.stringify({ kind: 'event', seq: ++seq, type: 'serialization_error' }))
     }
+
     if (ev.type !== 'agent_end') return
 
     const messages = ev.messages
@@ -245,11 +384,12 @@ export function attachAgentDiagnosticsCollector(agent: Agent, meta: AgentDiagnos
       kind: 'diag_footer',
       wallClockEnded,
       summary,
+      toolTrace,
       transcript: transcriptForFile(messages),
     }
     lines.push(JSON.stringify(footer))
     try {
-      const path = await writeAgentDiagnosticsJsonl(meta, lines)
+      const path = await writeAgentDiagnosticsJsonl(diagnosticsDir, fileStem, lines)
       logger.info(
         {
           agentDiagnosticsFile: path,

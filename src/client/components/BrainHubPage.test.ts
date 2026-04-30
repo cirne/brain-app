@@ -1,8 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@client/test/render.js'
 import { fetchVaultStatus } from '@client/lib/vaultClient.js'
+import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
 import BrainHubPage from './BrainHubPage.svelte'
 
+const hubStoreTest = vi.hoisted(() => {
+  let wikiDoc: BackgroundAgentDoc | null = null
+  return {
+    setWikiDoc(doc: BackgroundAgentDoc | null) {
+      wikiDoc = doc
+    },
+    yourWikiDocFromEvents: {
+      subscribe(fn: (d: BackgroundAgentDoc) => void) {
+        if (wikiDoc) fn(wikiDoc)
+        return () => {}
+      },
+    },
+  }
+})
 vi.mock('@client/lib/vaultClient.js', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@client/lib/vaultClient.js')>()
   return {
@@ -25,7 +40,7 @@ vi.mock('@client/lib/app/appEvents.js', () => ({
 }))
 
 vi.mock('@client/lib/hubEvents/hubEventsStores.js', () => ({
-  yourWikiDocFromEvents: { subscribe: vi.fn(() => () => {}) },
+  yourWikiDocFromEvents: hubStoreTest.yourWikiDocFromEvents,
 }))
 
 function defaultFetchHandler(): typeof fetch {
@@ -59,6 +74,7 @@ describe('BrainHubPage.svelte (Activity)', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    hubStoreTest.setWikiDoc(null)
     if (typeof window !== 'undefined') {
       window.history.replaceState(null, '', '/hub')
     }
@@ -119,5 +135,54 @@ describe('BrainHubPage.svelte (Activity)', () => {
       expect(screen.getByText(/1 mailbox/i)).toBeInTheDocument()
     })
     expect(screen.queryByRole('button', { name: /Add another Gmail account/i })).not.toBeInTheDocument()
+  })
+
+  it('Settings in Search index lead is a link that calls onOpenSettings when wired', async () => {
+    const onOpenSettings = vi.fn()
+    render(BrainHubPage, { props: { onHubNavigate: vi.fn(), onOpenSettings } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /^search index$/i })).toBeInTheDocument()
+    })
+
+    const link = screen.getByRole('link', { name: /^settings$/i })
+    expect(link).toHaveAttribute('href', '/settings')
+    await fireEvent.click(link)
+    expect(onOpenSettings).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows Pause when wiki loop is active and POSTs /api/your-wiki/pause on click', async () => {
+    hubStoreTest.setWikiDoc({
+      id: 'your-wiki',
+      kind: 'your-wiki',
+      status: 'running',
+      label: 'Your Wiki',
+      detail: '',
+      pageCount: 3,
+      logLines: [],
+      startedAt: '2025-01-01T00:00:00Z',
+      updatedAt: '2025-01-01T00:00:00Z',
+      phase: 'enriching',
+    })
+
+    const baseFetch = defaultFetchHandler()
+    const fetchMock = vi.fn((url: RequestInfo, init?: RequestInit) => {
+      const u = String(url)
+      if (u === '/api/your-wiki/pause') {
+        return Promise.resolve(new Response(null, { status: 200 }))
+      }
+      return baseFetch(url, init)
+    }) as unknown as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^pause$/i })).toBeInTheDocument()
+    })
+    await fireEvent.click(screen.getByRole('button', { name: /^pause$/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/your-wiki/pause', { method: 'POST' })
+    })
   })
 })

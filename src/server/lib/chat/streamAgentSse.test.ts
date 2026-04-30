@@ -156,7 +156,7 @@ describe('streamAgentSseResponse usage (OPP-043)', () => {
 
     const res = await app.request('/sse', { method: 'POST' })
     expect(res.status).toBe(200)
-    await res.text()
+    const body = await res.text()
     expect(captured).not.toBeNull()
     const u = captured!.assistantMessage.usage
     expect(u).toBeDefined()
@@ -164,5 +164,17 @@ describe('streamAgentSseResponse usage (OPP-043)', () => {
     expect(u!.output).toBe(15)
     expect(u!.totalTokens).toBe(45)
     expect(u!.costTotal).toBeCloseTo(0.03, 5)
+
+    const doneIdx = body.indexOf('event: done')
+    expect(doneIdx).toBeGreaterThan(-1)
+    const afterDone = body.slice(doneIdx)
+    const dataLine = afterDone.split('\n').find((l) => l.startsWith('data: '))
+    expect(dataLine).toBeDefined()
+    const parsed = JSON.parse(dataLine!.slice('data: '.length)) as {
+      usage?: { totalTokens: number; input: number; output: number }
+    }
+    expect(parsed.usage?.totalTokens).toBe(45)
+    expect(parsed.usage?.input).toBe(30)
+    expect(parsed.usage?.output).toBe(15)
   })
 })
