@@ -272,12 +272,12 @@ describe('AppTopNav.svelte', () => {
   })
 
   describe('hosted handle pill', () => {
-    it('shows handle pill when hostedHandlePill and onHostedHandleNavigate provided', () => {
+    it('shows handle pill when hostedHandlePill and onOpenSettings provided', () => {
       render(AppTopNav, {
         props: {
           ...baseProps,
           hostedHandlePill: 'testuser',
-          onHostedHandleNavigate: vi.fn(),
+          onOpenSettings: vi.fn(),
         },
       })
 
@@ -286,13 +286,13 @@ describe('AppTopNav.svelte', () => {
 
     it('hides handle pill when hostedHandlePill not provided', () => {
       render(AppTopNav, {
-        props: { ...baseProps, onHostedHandleNavigate: vi.fn() },
+        props: { ...baseProps, onOpenSettings: vi.fn() },
       })
 
       expect(screen.queryByText(/@/)).not.toBeInTheDocument()
     })
 
-    it('hides handle pill when onHostedHandleNavigate not provided', () => {
+    it('hides handle pill when onOpenSettings not provided', () => {
       render(AppTopNav, {
         props: { ...baseProps, hostedHandlePill: 'testuser' },
       })
@@ -300,32 +300,58 @@ describe('AppTopNav.svelte', () => {
       expect(screen.queryByText('@testuser')).not.toBeInTheDocument()
     })
 
-    it('calls onHostedHandleNavigate when handle pill is clicked', async () => {
-      const onHostedHandleNavigate = vi.fn()
+    it('calls onOpenSettings when handle pill is clicked', async () => {
+      const onOpenSettings = vi.fn()
       render(AppTopNav, {
         props: {
           ...baseProps,
           hostedHandlePill: 'testuser',
-          onHostedHandleNavigate,
+          onOpenSettings,
         },
       })
 
       await fireEvent.click(screen.getByText('@testuser'))
 
-      expect(onHostedHandleNavigate).toHaveBeenCalledTimes(1)
+      expect(onOpenSettings).toHaveBeenCalledTimes(1)
     })
 
-    it('hides handle pill on mobile so the bar stays scannable (handle is on Hub)', () => {
+    it('hides handle pill on mobile so the bar stays scannable (open Activity → Settings)', () => {
       render(AppTopNav, {
         props: {
           ...baseProps,
           hostedHandlePill: 'testuser',
-          onHostedHandleNavigate: vi.fn(),
+          onOpenSettings: vi.fn(),
           isMobile: true,
         },
       })
 
       expect(screen.queryByText('@testuser')).not.toBeInTheDocument()
+    })
+
+    it('shows Settings control on mobile when onOpenSettings is provided', async () => {
+      const onOpenSettings = vi.fn()
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          onOpenSettings,
+          isMobile: true,
+        },
+      })
+      await fireEvent.click(screen.getByRole('button', { name: /^settings$/i }))
+      expect(onOpenSettings).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not show separate Settings label next to Wiki when hosted handle is present (desktop)', () => {
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          hostedHandlePill: 'acme',
+          onOpenSettings: vi.fn(),
+          isMobile: false,
+        },
+      })
+      expect(screen.getByText('@acme')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^settings$/i })).not.toBeInTheDocument()
     })
   })
 })

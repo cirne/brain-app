@@ -87,13 +87,13 @@ async function persistGoogleMailProviderPreference(): Promise<void> {
 function redirectLinkError(c: Context, message: string) {
   recordGoogleOauthError(message)
   const q = encodeURIComponent(message)
-  return c.redirect(`/hub?addAccountError=${q}`, 302)
+  return c.redirect(`/settings?addAccountError=${q}`, 302)
 }
 
 function redirectLinkSuccess(c: Context, email: string) {
   recordGoogleOauthSuccess()
   const q = encodeURIComponent(email)
-  return c.redirect(`/hub?addedAccount=${q}`, 302)
+  return c.redirect(`/settings?addedAccount=${q}`, 302)
 }
 
 /**

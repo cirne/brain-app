@@ -24,11 +24,65 @@
   let query = $state('')
   let results = $state<SearchResult[]>([])
   let loading = $state(false)
+  let highlightIndex = $state(-1)
   let inputEl: HTMLInputElement
+  let resultsEl: HTMLDivElement | undefined
 
   let debounceTimer: ReturnType<typeof setTimeout>
 
   const searchLatest = createAsyncLatest({ abortPrevious: true })
+
+  $effect(() => {
+    void results
+    highlightIndex = -1
+  })
+
+  $effect(() => {
+    const idx = highlightIndex
+    if (idx < 0 || !resultsEl) return
+    queueMicrotask(() => {
+      const el = resultsEl?.querySelector(`button[data-result-index="${idx}"]`)
+      if (el && typeof (el as HTMLElement).scrollIntoView === 'function') {
+        ;(el as HTMLElement).scrollIntoView({ block: 'nearest' })
+      }
+    })
+  })
+
+  function openResultAt(index: number) {
+    const result = results[index]
+    if (!result) return
+    if (result.type === 'wiki') {
+      onOpenWiki(result.path)
+    } else {
+      onOpenEmail(result.id, result.subject, result.from)
+    }
+    onClose()
+  }
+
+  function handleSearchInputKeydown(e: KeyboardEvent) {
+    const len = results.length
+    if (!len || loading) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (highlightIndex < len - 1) highlightIndex = highlightIndex + 1
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      if (highlightIndex > 0) {
+        e.preventDefault()
+        highlightIndex -= 1
+      } else if (highlightIndex === 0) {
+        e.preventDefault()
+        highlightIndex = -1
+      }
+      return
+    }
+    if (e.key === 'Enter' && highlightIndex >= 0 && highlightIndex < len) {
+      e.preventDefault()
+      openResultAt(highlightIndex)
+    }
+  }
 
   onMount(() => {
     inputEl?.focus()
@@ -84,6 +138,7 @@
       autocorrect="off"
       spellcheck="false"
       type="search"
+      onkeydown={handleSearchInputKeydown}
     />
     {#if loading}
       <span class="spinner" aria-hidden="true"></span>
@@ -95,7 +150,7 @@
     <button class="close-btn" onclick={onClose}>Cancel</button>
     </div>
 
-    <div class="results">
+    <div class="results" bind:this={resultsEl}>
     {#if !query.trim()}
       <div class="search-empty">
         <p class="hint">Search your docs and emails</p>
@@ -109,10 +164,13 @@
     {:else if !loading && results.length === 0}
       <p class="hint">No results for "{query}"</p>
     {:else}
-      {#each results as result (result.type === 'wiki' ? result.path : result.id)}
+      {#each results as result, i (result.type === 'wiki' ? result.path : result.id)}
         {#if result.type === 'wiki'}
           <button
+            type="button"
             class="result"
+            class:result-highlight={highlightIndex === i}
+            data-result-index={i}
             onclick={() => { onOpenWiki(result.path); onClose() }}
           >
             <span class="result-body">
@@ -126,7 +184,10 @@
           </button>
         {:else}
           <button
+            type="button"
             class="result"
+            class:result-highlight={highlightIndex === i}
+            data-result-index={i}
             onclick={() => { onOpenEmail(result.id, result.subject, result.from); onClose() }}
           >
             <span class="result-body">
@@ -293,6 +354,10 @@
     min-height: 52px;
   }
   .result:active { background: var(--bg-3); }
+
+  .result.result-highlight {
+    background: var(--bg-3);
+  }
 
   .result-body {
     flex: 1;

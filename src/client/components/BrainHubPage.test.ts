@@ -45,25 +45,14 @@ function defaultFetchHandler(): typeof fetch {
         new Response(JSON.stringify({ indexedTotal: 0, configured: false }), { status: 200 }),
       )
     }
-    if (u.includes('/api/hub/sources/mail-prefs')) {
-      return Promise.resolve(
-        new Response(
-          JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
-          { status: 200 },
-        ),
-      )
-    }
     if (u.includes('/api/hub/sources')) {
       return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
-    }
-    if (u.includes('/api/devices')) {
-      return Promise.resolve(new Response(JSON.stringify({ ok: true, devices: [] }), { status: 200 }))
     }
     return Promise.resolve(new Response('not found', { status: 404 }))
   }) as unknown as typeof fetch
 }
 
-describe('BrainHubPage.svelte', () => {
+describe('BrainHubPage.svelte (Activity)', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', defaultFetchHandler())
   })
@@ -75,41 +64,17 @@ describe('BrainHubPage.svelte', () => {
     }
   })
 
-  it('shows hosted workspace handle under the page title', async () => {
+  it('shows Activity title and hosted workspace handle', async () => {
     render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
 
-    expect(screen.getByRole('heading', { level: 1, name: /braintunnel hub/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /activity/i })).toBeInTheDocument()
 
     await waitFor(() => {
       expect(screen.getByText('@testuser')).toBeInTheDocument()
     })
   })
 
-  it('renders an Add another Gmail account row', async () => {
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
-    await waitFor(() => {
-      expect(screen.getByText(/Add another Gmail account/i)).toBeInTheDocument()
-    })
-  })
-
-  it('shows a banner when the URL contains addedAccount and strips the param', async () => {
-    window.history.replaceState(null, '', '/hub?addedAccount=second%40example.com')
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
-    await waitFor(() => {
-      expect(screen.getByText(/Added second@example\.com/i)).toBeInTheDocument()
-    })
-    expect(window.location.search).toBe('')
-  })
-
-  it('shows an error banner when the URL contains addAccountError', async () => {
-    window.history.replaceState(null, '', '/hub?addAccountError=Could%20not%20link%20account')
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
-    await waitFor(() => {
-      expect(screen.getByText(/Could not link account/i)).toBeInTheDocument()
-    })
-  })
-
-  it('renders default-send and hidden-from-search pills based on mail-prefs', async () => {
+  it('shows Search index section with aggregate summary when sources exist', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: RequestInfo) => {
@@ -122,22 +87,7 @@ describe('BrainHubPage.svelte', () => {
         }
         if (u.includes('/api/inbox/mail-sync-status')) {
           return Promise.resolve(
-            new Response(JSON.stringify({ indexedTotal: 0, configured: true }), { status: 200 }),
-          )
-        }
-        if (u.includes('/api/hub/sources/mail-prefs')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                ok: true,
-                mailboxes: [
-                  { id: 'work_x', email: 'work@example.com', includeInDefault: true },
-                  { id: 'personal_x', email: 'personal@example.com', includeInDefault: false },
-                ],
-                defaultSendSource: 'work_x',
-              }),
-              { status: 200 },
-            ),
+            new Response(JSON.stringify({ indexedTotal: 2, configured: true }), { status: 200 }),
           )
         }
         if (u.includes('/api/hub/sources')) {
@@ -146,15 +96,9 @@ describe('BrainHubPage.svelte', () => {
               JSON.stringify({
                 sources: [
                   {
-                    id: 'work_x',
+                    id: 'a',
                     kind: 'imap',
-                    displayName: 'work@example.com',
-                    path: null,
-                  },
-                  {
-                    id: 'personal_x',
-                    kind: 'imap',
-                    displayName: 'personal@example.com',
+                    displayName: 'you@example.com',
                     path: null,
                   },
                 ],
@@ -166,54 +110,14 @@ describe('BrainHubPage.svelte', () => {
         return Promise.resolve(new Response('not found', { status: 404 }))
       }) as unknown as typeof fetch,
     )
+
     render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
-    await waitFor(() => {
-      expect(screen.getByText('Default send')).toBeInTheDocument()
-    })
-    expect(screen.getByText('Hidden from search')).toBeInTheDocument()
-  })
-
-  it('renders chat tool display preference and persists when toggled', async () => {
-    const store: Record<string, string> = {}
-    vi.stubGlobal(
-      'localStorage',
-      {
-        getItem: (k: string) => store[k] ?? null,
-        setItem: (k: string, v: string) => {
-          store[k] = v
-        },
-        removeItem: vi.fn(),
-        clear: vi.fn(),
-        key: vi.fn(),
-        length: 0,
-      } as Storage,
-    )
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 2, name: 'Chat' })).toBeInTheDocument()
-    })
-    const cb = screen.getByRole('checkbox', { name: /show detailed tool steps in chat/i })
-    expect(cb).not.toBeChecked()
-    await fireEvent.click(cb)
-    expect(store['brain.chat.toolDisplay']).toBe('detailed')
-    expect(cb).toBeChecked()
-    await fireEvent.click(cb)
-    expect(store['brain.chat.toolDisplay']).toBe('compact')
-  })
-
-  it('navigates to Apple Messages panel when the Search index row is clicked (desktop / single-tenant)', async () => {
-    vi.mocked(fetchVaultStatus).mockResolvedValueOnce({
-      vaultExists: true,
-      unlocked: true,
-      multiTenant: false,
-    })
-    const onHubNavigate = vi.fn()
-    render(BrainHubPage, { props: { onHubNavigate } })
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Apple Messages \(this Mac\)/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /^search index$/i })).toBeInTheDocument()
+      expect(screen.getByText(/Feeding this index/i)).toBeInTheDocument()
+      expect(screen.getByText(/1 mailbox/i)).toBeInTheDocument()
     })
-    await fireEvent.click(screen.getByRole('button', { name: /Apple Messages \(this Mac\)/i }))
-    expect(onHubNavigate).toHaveBeenCalledWith({ type: 'hub-apple-messages' })
+    expect(screen.queryByRole('button', { name: /Add another Gmail account/i })).not.toBeInTheDocument()
   })
 })

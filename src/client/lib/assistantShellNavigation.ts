@@ -10,7 +10,7 @@ export function shouldDisableTopNavNewChat(
   route: Route,
   effectiveChatSessionId: string | null | undefined,
 ): boolean {
-  if (route.wikiActive === true || route.hubActive === true) return false
+  if (route.wikiActive === true || route.hubActive === true || route.settingsActive === true) return false
   if (effectiveChatSessionId) return false
   if (route.sessionId ?? route.sessionTail) return false
   if (route.overlay) return false
@@ -42,6 +42,7 @@ export function chatSessionPatch(
   effectiveSessionId?: string | null,
 ): Pick<Route, 'sessionId' | 'sessionTail'> {
   if (route.hubActive) return {}
+  if (route.settingsActive) return {}
   if (route.wikiActive) return {}
   const id = effectiveSessionId ?? route.sessionId
   if (id) return { sessionId: id }
@@ -64,7 +65,7 @@ export function hubActiveForOpenOverlay(
   isMobile: boolean,
 ): boolean {
   if (isMobile && overlaySupportsMobileChatBridge(overlay)) return false
-  return Boolean(route.hubActive || route.overlay?.type === 'hub')
+  return Boolean(route.hubActive || route.settingsActive || route.overlay?.type === 'hub')
 }
 
 /**

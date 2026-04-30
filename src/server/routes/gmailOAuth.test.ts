@@ -429,7 +429,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
     )
     expect(res.status).toBe(302)
     const loc = res.headers.get('location')!
-    expect(loc).toContain('/hub?addedAccount=')
+    expect(loc).toContain('/settings?addedAccount=')
     expect(decodeURIComponent(loc)).toContain('second@gmail.com')
 
     const cfg = JSON.parse(await readFile(join(ripmailHome, 'config.json'), 'utf8')) as {
@@ -475,7 +475,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
     )
     expect(res.status).toBe(302)
     const loc = res.headers.get('location')!
-    expect(loc).toContain('/hub?addedAccount=')
+    expect(loc).toContain('/settings?addedAccount=')
     expect(decodeURIComponent(loc)).toContain('second@gmail.com')
 
     const cfg = JSON.parse(await readFile(join(ripmailHome, 'config.json'), 'utf8')) as {
@@ -525,7 +525,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
       `http://localhost/api/oauth/google/link/callback?code=auth-code&state=${encodeURIComponent(state)}`,
     )
     expect(res.status).toBe(302)
-    expect(res.headers.get('location')).toContain('/hub?addedAccount=')
+    expect(res.headers.get('location')).toContain('/settings?addedAccount=')
 
     const cfg = JSON.parse(await readFile(join(ripmailHome, 'config.json'), 'utf8')) as {
       sources: Array<{ id: string; kind: string }>
@@ -549,7 +549,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
     )
     expect(res.status).toBe(302)
     const loc = res.headers.get('location')!
-    expect(loc).toContain('/hub?addAccountError=')
+    expect(loc).toContain('/settings?addAccountError=')
   })
 
   it('redirects with error on invalid state', async () => {
@@ -558,7 +558,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
     )
     expect(res.status).toBe(302)
     const loc = res.headers.get('location')!
-    expect(loc).toContain('/hub?addAccountError=')
+    expect(loc).toContain('/settings?addAccountError=')
     expect(decodeURIComponent(loc)).toContain('expired')
   })
 })
@@ -620,7 +620,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
     )
     expect(res.status).toBe(302)
     const loc = res.headers.get('location')!
-    expect(loc).toContain('/hub?addAccountError=')
+    expect(loc).toContain('/settings?addAccountError=')
     expect(decodeURIComponent(loc)).toContain('session expired')
   })
 
@@ -708,7 +708,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
       { headers: { Cookie: sessionCookieValue } },
     )
     expect(linkRes.status).toBe(302)
-    expect(linkRes.headers.get('location')).toContain('/hub?addedAccount=')
+    expect(linkRes.headers.get('location')).toContain('/settings?addedAccount=')
 
     // The new mailbox should sit under the SAME tenant directory.
     const linked = JSON.parse(
@@ -813,7 +813,7 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
     )
     expect(linkRes.status).toBe(302)
     const loc = linkRes.headers.get('location')!
-    expect(loc).toContain('/hub?addAccountError=')
+    expect(loc).toContain('/settings?addAccountError=')
     expect(decodeURIComponent(loc)).toContain('different Braintunnel workspace')
   })
 })

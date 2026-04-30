@@ -129,4 +129,103 @@ describe('Search.svelte', () => {
     expect(onWikiHome).toHaveBeenCalledTimes(1)
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('keyboard: ArrowDown/ArrowUp moves highlight among results; Enter opens highlighted wiki', async () => {
+    const onOpenWiki = vi.fn()
+    const onClose = vi.fn()
+
+    vi.stubGlobal(
+      'fetch',
+      createMockFetch([
+        {
+          match: (u) => u.startsWith('/api/search?'),
+          response: () =>
+            jsonResponse({
+              results: [
+                createWikiSearchResult({ path: 'first.md', excerpt: 'one' }),
+                createWikiSearchResult({ path: 'second.md', excerpt: 'two' }),
+              ],
+            }),
+        },
+      ]),
+    )
+
+    render(Search, {
+      props: { onOpenWiki, onOpenEmail: vi.fn(), onClose },
+    })
+
+    const input = screen.getByPlaceholderText(/Search your docs and emails/i)
+    await fireEvent.input(input, { target: { value: 'q' } })
+    await vi.advanceTimersByTimeAsync(250)
+
+    await screen.findByText('one')
+
+    const hit = (label: string) =>
+      screen.getByText(label).closest('button.result') as HTMLButtonElement
+
+    await fireEvent.keyDown(input, { key: 'ArrowDown' })
+    expect(hit('one')).toHaveClass('result-highlight')
+
+    await fireEvent.keyDown(input, { key: 'ArrowDown' })
+    expect(hit('two')).toHaveClass('result-highlight')
+    expect(hit('one')).not.toHaveClass('result-highlight')
+
+    await fireEvent.keyDown(input, { key: 'ArrowUp' })
+    expect(hit('one')).toHaveClass('result-highlight')
+
+    await fireEvent.keyDown(input, { key: 'ArrowUp' })
+    expect(hit('one')).not.toHaveClass('result-highlight')
+    expect(hit('two')).not.toHaveClass('result-highlight')
+
+    await fireEvent.keyDown(input, { key: 'ArrowDown' })
+    await fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onOpenWiki).toHaveBeenCalledWith('first.md')
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('keyboard: Enter opens highlighted email result', async () => {
+    const onOpenEmail = vi.fn()
+    const onClose = vi.fn()
+
+    vi.stubGlobal(
+      'fetch',
+      createMockFetch([
+        {
+          match: (u) => u.startsWith('/api/search?'),
+          response: () =>
+            jsonResponse({
+              results: [
+                createWikiSearchResult({ path: 'only.md', excerpt: 'skip' }),
+                {
+                  type: 'email' as const,
+                  id: 'e99',
+                  from: 'donna@example.com',
+                  subject: 'Invoice',
+                  date: new Date().toISOString(),
+                  snippet: 'yo',
+                  score: 1,
+                },
+              ],
+            }),
+        },
+      ]),
+    )
+
+    render(Search, {
+      props: { onOpenWiki: vi.fn(), onOpenEmail, onClose },
+    })
+
+    const input = screen.getByPlaceholderText(/Search your docs and emails/i)
+    await fireEvent.input(input, { target: { value: 'inv' } })
+    await vi.advanceTimersByTimeAsync(250)
+
+    await screen.findByText('Invoice')
+
+    await fireEvent.keyDown(input, { key: 'ArrowDown' })
+    await fireEvent.keyDown(input, { key: 'ArrowDown' })
+    await fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(onOpenEmail).toHaveBeenCalledWith('e99', 'Invoice', 'donna@example.com')
+    expect(onClose).toHaveBeenCalled()
+  })
 })

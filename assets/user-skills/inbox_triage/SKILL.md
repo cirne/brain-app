@@ -1,10 +1,10 @@
 ---
 name: inbox_triage
-label: "Bulk-clear noise from your inbox and triage what remains"
+label: "Clear inbox noise and act on what matters"
 description: >-
-  Proactive triage: fetch → batch rules for low-signal senders → optional bulk archive of the rest
-  → go through what remains in priority order with smart next actions (drafts, forward, schedule, rule)
-  beyond plain archive. Nothing is lost—search and recovery always work.
+  Proactive triage: fetch → cluster noise by pattern → mute or archive in batches
+  → act on what's left in priority order (reply, forward, archive). Nothing is lost—
+  search always finds archived mail.
 hint: triage my inbox, clear the inbox, find spam, improve signal to noise, bulk archive, walk my mail
 args: >-
   Optional: account, time range, or goal (e.g. "newsletters / last 7 days / before vacation"). None required.
@@ -12,82 +12,96 @@ args: >-
 
 # Inbox triage
 
-Use the same **mail and inbox tools** as the main assistant (**list_inbox**, **search_index**, **read_email**, **archive_emails**, **inbox_rules**, **draft** / **send** where allowed). This skill is a **phased, proactive playbook**: reduce noise in batches first, then invest attention where it matters—turn by turn until the user stops or the scoped queue is empty.
+Use **list_inbox**, **search_index**, **read_email**, **archive_emails**, **inbox_rules**, **draft**, and **send**. This skill is a **phased, proactive playbook**: reduce noise in batches first, then invest attention where it matters—turn by turn until the user stops or the scoped queue is empty.
 
-**Mindset — "magical" here means:** you **fetch and scan first** (do not make the user enumerate mail), you **name patterns** (senders, subjects, "looks like X"), you **order by impact** (what unblocks the user or prevents mistakes first), and you **default to one strong primary action** while still offering subset, skip, and custom exits.
+**Mindset:** you **fetch and scan first** (do not make the user enumerate mail), you **name patterns** in plain English ("GitHub notifications", "LinkedIn digests"), you **order by impact**, and you **default to one strong primary action** while offering clear alternates.
 
-**Reassurance (say it when archiving or rules apply):** mail stays **indexed**; **search_index** and **read_email** still find it. Archiving and rules **change what surfaces first**, not what exists. The user can **recover** anything by search—**nothing is thrown away** by this flow unless they explicitly ask for **delete** and you confirm.
+**The two actions:**
+- **Mute** — archive now + suppress similar ones going forward (primary default; use **inbox_rules** internally to make it stick). Say it as "Mute these" not "create a rule."
+- **Archive** — archive this thread only, no future suppression.
+
+Never surface "rules" as a concept to the user. Use **inbox_rules** behind the scenes; present outcomes in plain language.
+
+**Reassurance (one line, naturally):** archived mail is still searchable—nothing is gone.
 
 ---
 
 ## Phase 0 — Scope and fetch
 
-1. If account, window, or goal is unclear, **ask once** (or pick a sensible default, e.g. last 7–14 days in primary inbox, and state it).
-2. **Fetch** with **list_inbox** and/or **search_index** to build a **working set** in scope. You are the one who **loads** the inbox; the user should not have to paste threads.
+1. If account, window, or goal is unclear, **ask once** (or pick a sensible default, e.g. last 7–14 days, and state it).
+2. **Fetch** with **list_inbox** and/or **search_index**. You load the inbox—the user should not have to paste threads.
 
 ---
 
-## Phase 1 — Find low-signal mail and **propose rules** (batch signal boost)
+## Phase 1 — Cluster noise and propose mutes (batch signal boost)
 
-1. **Scan** the working set for **likely noise**: obvious spam, marketing, noreply blasts, repeated automated receipts/alerts, mailing lists the user plausibly does not need in the primary view, and **"low quality"** heuristics (clickbait subjects, no meaningful sender, bulk patterns).
-2. **Cluster** by pattern: sender, domain, `List-*` / newsletter signatures, subject prefixes, "do-not-reply" traffic.
-3. Propose **multiple concrete rules** (not one vague rule)—each with a **short human label** and **what it catches**. Prefer **inbox_rules** over one-off archive when a pattern is **repeating**. **List** existing rules first if needed so you do not duplicate.
-4. Offer a **strong primary** option and clear alternates:
-   - **Primary (recommended):** e.g. "Add all N rules, archive what matches, show the inbox that's left"
-   - **Subsets:** "Add rules 1–2 only", "This rule only", etc.
-   - **Escape:** "Skip rules; go to my mail as-is", "Only list candidates—don't change rules yet"
-5. On confirmation — **apply** (**inbox_rules** add/edit as needed, then **archive_emails** for matches). **Re-fetch** the inbox in scope. In the same turn: briefly say **what's left** (counts + examples), then offer the next steps.
+1. **Scan** for likely noise: marketing, noreply blasts, automated alerts, newsletters, mailing lists, repeated low-signal senders.
+2. **Cluster** by pattern: sender, domain, subject prefix, newsletter signatures, "do-not-reply" traffic. Name each cluster in plain English.
+3. Present clusters as **mute proposals**—not one-by-one, in a batch. Lead with the highest-impact cluster. Example:
 
-**Safety:** no **send** in this phase. Bulk archive is **explicitly** what the user chose; still **list what you will affect** if the batch is **large** or **ambiguous** (e.g. "~40 threads from these senders").
+   > I found a few patterns worth muting:
+   > - **GitHub notifications** (23 messages) — mute these?
+   > - **LinkedIn digests** (11 messages) — mute these?
+   > - **Stripe receipts** (8 messages) — mute or just archive?
 
----
+4. Offer a **strong primary** and clear alternates:
+   - **Primary:** "Mute all of these — archive what's here, suppress similar ones going forward"
+   - **Subsets:** "Just GitHub notifications", "All except Stripe", etc.
+   - **Escape:** "Skip for now — show me my actual mail"
 
-## Phase 2 — **Remaining** mail: what to clear in bulk?
+5. On confirmation — apply **inbox_rules** (ignore action) for each muted pattern, then **archive_emails** for all matches. Re-fetch. In the same turn: say what's left (counts + examples) and move to Phase 2.
 
-1. On the **post-rules** set, **separate** what still looks **safe to clear without reading every line** (stale promos, obvious FYI, ancient notifications) from what deserves **a real decision**.
-2. **Recommend** a bulk archive of the "clearable" bucket if it is **material**; otherwise **skip** this phase and go to Phase 3. If you do recommend bulk clear, offer:
-   - **Primary:** e.g. "Archive all of these (N)—I can search any time"
-   - **Alternates:** "Archive half / bottom priority only", "Show me a list first", "Don't bulk—go item by item"
-3. **Remind** once: **search/recovery** is always available; this is about **inbox headspace**, not data loss. After the user's choice, **act** and offer next steps (Phase 3 or bulk sub-step).
+**Safety:** list what you will affect when a batch is large or ambiguous (e.g. "~40 threads"). No send in this phase.
 
 ---
 
-## Phase 3 — **Priority pass** (what's left, one focus at a time)
+## Phase 2 — Remaining noise: anything safe to bulk-clear?
 
-Work **in priority order** (you set it: deadlines, people who matter, money/legal, "waiting on you", then the rest). For **each** current thread:
-
-1. **Short context** in plain language: who, subject, age, **why it might matter** (or why it is probably skippable).
-2. Propose **the most likely useful actions**—**go past "just archive"** when the text supports it, for example:
-   - **Draft** a short reply: RSVP yes/no, acknowledge receipt, decline politely, ask a clarifying question, "thanks, handled".
-   - **Forward** to someone in **user context**—only name people/addresses you **reasonably** infer.
-   - **Unsubscribe + archive** (when safe and the user is clearly done with a list).
-   - **New/updated rule** for this class of mail.
-   - **Archive** or **mark handled** as the sensible default for true noise.
-3. The **last** option is often: **"Leave in inbox—I'll deal with it later"** (no shame; preserves trust).
-4. For **any draft reply** — include an option to use it; the `submit` should carry the **draft text or intent** so the next turn can call **draft** / prep **send** per policy.
-5. **Honour the tap** — execute with tools, then **advance** to the **next** open item in the same scope. After each action, move to the next item unless they chose **stop** or the queue is empty.
-6. **No send** without **plain-language confirmation**; an option may say "Confirm send: …" only after the draft is visible.
+1. From the post-mute set, **separate** what is still clearly low-signal (stale promos, ancient FYI) from what deserves attention.
+2. If there is a material clearable bucket, recommend bulk archiving it:
+   - **Primary:** "Archive all of these (N) — you can search any of them anytime"
+   - **Alternates:** "Show me the list first", "Skip — go item by item"
+3. After the user's choice, act and move to Phase 3.
 
 ---
 
-## Rules and durable taste (ripmail **inbox_rules**)
+## Phase 3 — Priority pass (what's left, one at a time)
 
-- Prefer **inbox_rules** for **repeating** patterns; use **remember_preference** only when a **rule** cannot represent it.
-- **Actions** in rules: use **ignore** (or the closest match) when the goal is "out of the default signal path but still **searchable**"; use **notify** / **inform** when mail should stay visible in a lighter way.
+Work in priority order (deadlines, people who matter, money/legal, "waiting on you", then the rest). For each thread:
+
+1. **Short context:** who, subject, age, why it might matter (or why it is probably skippable).
+2. Propose **the most useful action** — go past "just archive":
+   - **Reply:** draft a short reply (RSVP, acknowledgement, decline, clarifying question). Show the draft before any send.
+   - **Forward** to someone inferable from context.
+   - **Archive** — sensible default for true noise.
+   - **Mute** — if this looks like a repeating pattern the user hasn't dealt with yet.
+3. Last option: **"Leave it — I'll deal with it later"** (no shame).
+4. **On reply/send confirmation:** archive the thread automatically — no prompt needed. A sent reply means it's handled.
+5. **Honour the tap** — execute, then advance to the next item. Keep moving unless the user says stop or the queue is empty.
+6. No send without the user seeing the draft and confirming.
+
+---
+
+## Session wrap-up
+
+When the scoped queue is empty or the user stops, briefly say what changed:
+
+> "Your inbox is cleaner — I muted GitHub notifications, LinkedIn digests, and Stripe receipts going forward. 4 threads are still in your inbox."
+
+This is the payoff moment. Name patterns, not rules.
 
 ---
 
 ## Multi-turn flow
 
-- **Session loop:** noise batches → optional bulk clear → **priority queue** of threads → act → next.
-- **Memory:** use the **transcript**; re-query the inbox if **stale** or after big batches.
-- **Empty queue** — say the **scope** is **clear** and offer next steps: wider/narrower filters, inbox_rules review, done.
-- **Escalation** — if the user **asks a free-form question** or **changes topic**, answer normally; when they return to triage, resume.
+- **Loop:** noise clusters → optional bulk clear → priority queue → act → next.
+- **Memory:** use the transcript; re-query if stale or after big batches.
+- **Escalation:** if the user asks a free-form question or changes topic, answer normally; resume triage when they return.
 
 ---
 
 ## When things go wrong
 
-- **Errors from tools** — say what failed and offer retry options (retry smaller, skip batch, read one thread first).
-- **Uncertain identity** — **read_email** for one thread before a risky bulk action, then offer options to continue.
-- **User fatigue** — offer a "Pause here; resume later" option alongside one small next step.
+- **Tool errors** — say what failed; offer retry smaller, skip batch, or read one thread first.
+- **Uncertain identity** — read one thread before a risky bulk action, then offer options.
+- **User fatigue** — offer "Pause here; resume later" alongside one small next step.

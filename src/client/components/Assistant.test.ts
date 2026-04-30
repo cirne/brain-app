@@ -47,6 +47,7 @@ if (typeof Element !== 'undefined' && !Element.prototype.animate) {
 vi.mock('./Search.svelte', () => import('./test-stubs/SearchStub.svelte'))
 vi.mock('./AppTopNav.svelte', () => import('./test-stubs/AppTopNavStub.svelte'))
 vi.mock('./BrainHubPage.svelte', () => import('./test-stubs/BrainHubPageStub.svelte'))
+vi.mock('./BrainSettingsPage.svelte', () => import('./test-stubs/BrainSettingsPageStub.svelte'))
 vi.mock('./shell/SlideOver.svelte', () => import('./test-stubs/SlideOverStub.svelte'))
 vi.mock('./AgentChat.svelte', () => import('./test-stubs/AgentChatStub.svelte'))
 vi.mock('./ChatHistory.svelte', () => import('./test-stubs/ChatHistoryStub.svelte'))
@@ -145,6 +146,20 @@ describe('Assistant.svelte', () => {
 
       expect(screen.getByTestId('agent-chat-stub')).toBeInTheDocument()
       expect(screen.queryByTestId('brain-hub-page-stub')).not.toBeInTheDocument()
+    })
+
+    it('renders BrainSettingsPage when at /settings path', async () => {
+      vi.stubGlobal('location', {
+        href: 'http://localhost/settings',
+        pathname: '/settings',
+        search: '',
+        hash: '',
+      })
+
+      render(Assistant)
+      await tick()
+
+      expect(screen.getByTestId('brain-settings-page-stub')).toBeInTheDocument()
     })
 
     it('renders BrainHubPage when at /hub path', async () => {

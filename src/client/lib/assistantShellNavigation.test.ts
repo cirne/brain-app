@@ -42,13 +42,18 @@ describe('assistantShellNavigation', () => {
       ).toBe(false)
     })
 
-    it('is false when wiki or hub is the primary surface', () => {
+    it('is false when wiki, hub, or settings is the primary surface', () => {
       expect(shouldDisableTopNavNewChat(makeRoute({ wikiActive: true }), null)).toBe(false)
       expect(shouldDisableTopNavNewChat(makeRoute({ hubActive: true }), null)).toBe(false)
+      expect(shouldDisableTopNavNewChat(makeRoute({ settingsActive: true }), null)).toBe(false)
     })
   })
 
   describe('chatSessionPatch', () => {
+    it('returns empty when settings active', () => {
+      expect(chatSessionPatch(makeRoute({ settingsActive: true, sessionId: 's1' }))).toEqual({})
+    })
+
     it('returns empty when hub active', () => {
       expect(chatSessionPatch(makeRoute({ hubActive: true, sessionId: 's1' }))).toEqual({})
     })
@@ -115,6 +120,12 @@ describe('assistantShellNavigation', () => {
 
     it('follows hub route when not mobile bridge case', () => {
       const r = makeRoute({ hubActive: true })
+      const cal: Overlay = { type: 'calendar', date: '2024-01-01' }
+      expect(hubActiveForOpenOverlay(r, cal, true)).toBe(true)
+    })
+
+    it('follows settings route when not mobile bridge case', () => {
+      const r = makeRoute({ settingsActive: true })
       const cal: Overlay = { type: 'calendar', date: '2024-01-01' }
       expect(hubActiveForOpenOverlay(r, cal, true)).toBe(true)
     })

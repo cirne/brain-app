@@ -13,12 +13,9 @@ export type Overlay =
   | { type: 'messages'; chat?: string }
   | { type: 'your-wiki' }
   | { type: 'hub-source'; id?: string }
-  | { type: 'hub-add-folders' }
-  | { type: 'hub-apple-messages' }
   /** Brain Hub admin/settings/status main surface when hub is primary. */
   | { type: 'hub' }
   | { type: 'hub-wiki-about' }
-  | { type: 'phone-access' }
   | { type: 'wiki-dir'; path?: string }
   | { type: 'chat-history' }
 
@@ -38,6 +35,8 @@ export type Route = {
   flow?: 'welcome' | 'hard-reset' | 'restart-seed' | 'first-chat' | 'enron-demo'
   /** True when primary surface is Brain Hub (`/hub`). */
   hubActive?: boolean
+  /** True when primary surface is Settings (`/settings`). */
+  settingsActive?: boolean
   /** True when primary surface is wiki-first (`/wiki`, optional `?path=`). */
   wikiActive?: boolean
 }
@@ -285,12 +284,6 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
       const id = sp.get('id') ?? undefined
       return id ? { type: 'hub-source', id } : { type: 'hub-source' }
     }
-    case 'hub-add-folders':
-      return { type: 'hub-add-folders' }
-    case 'hub-apple-messages':
-      return { type: 'hub-apple-messages' }
-    case 'phone-access':
-      return { type: 'phone-access' }
     case 'hub-wiki-about':
       return { type: 'hub-wiki-about' }
     case 'hub':
@@ -310,6 +303,18 @@ function hubRouteFromSearch(href: string): Route | null {
     return { hubActive: true }
   }
   return { hubActive: true, overlay }
+}
+
+function settingsRouteFromSearch(href: string): Route | null {
+  const url = new URL(href, 'http://localhost')
+  if (url.pathname !== '/settings') {
+    return null
+  }
+  const overlay = overlayFromSearchParams(url.searchParams)
+  if (!overlay) {
+    return { settingsActive: true }
+  }
+  return { settingsActive: true, overlay }
 }
 
 export type RouteUrlOpts = {
@@ -361,6 +366,11 @@ export function parseRoute(href: string = location.href): Route {
   const hubParsed = hubRouteFromSearch(href)
   if (hubParsed) {
     return hubParsed
+  }
+
+  const settingsParsed = settingsRouteFromSearch(href)
+  if (settingsParsed) {
+    return settingsParsed
   }
 
   if (seg1 === 'wiki') {
@@ -440,6 +450,17 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
     const q = overlayToSearchParams(o)
     const qs = q.toString()
     return qs ? `/hub?${qs}` : '/hub'
+  }
+
+  const settingsActive = route.settingsActive === true
+
+  if (settingsActive) {
+    if (!o || o.type === 'hub') {
+      return '/settings'
+    }
+    const q = overlayToSearchParams(o)
+    const qs = q.toString()
+    return qs ? `/settings?${qs}` : '/settings'
   }
 
   const chatPath = chatBasePath(

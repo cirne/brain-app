@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BookOpen, BrainCircuit, MessageSquarePlus, Search, X } from 'lucide-svelte'
+  import { BookOpen, BrainCircuit, MessageSquarePlus, Search, X, Settings } from 'lucide-svelte'
   import BrainHubWidget from './BrainHubWidget.svelte'
 
   type Props = {
@@ -20,11 +20,11 @@
     isEmptyChat?: boolean
     /**
      * Hosted only: `@handle` next to Hub after onboarding confirmation.
-     * Omitted in the top bar on narrow viewports (handle lives on Braintunnel Hub) so the bar stays scannable.
+     * Omitted in the top bar on narrow viewports; use the top Settings control instead.
      */
     hostedHandlePill?: string
-    /** Hosted only: opens Hub scrolled to the Account / connectivity section. */
-    onHostedHandleNavigate?: () => void
+    /** Hosted and desktop: opens Settings (`/settings`). */
+    onOpenSettings?: () => void
     /** Wiki vault root (`index.md` / resolved landing) — optional; hidden when omitted (e.g. onboarding). */
     onWikiHome?: () => void
   }
@@ -42,7 +42,7 @@
     onNewChat,
     isEmptyChat = false,
     hostedHandlePill,
-    onHostedHandleNavigate,
+    onOpenSettings,
     onWikiHome,
   }: Props = $props()
 
@@ -120,18 +120,33 @@
           title={isEmptyChat ? 'Already in new chat' : 'New chat (⌘N)'}
           aria-label={isEmptyChat ? 'New conversation (already empty)' : isMobile ? 'New conversation' : undefined}
         >
-          <MessageSquarePlus size={16} strokeWidth={2.25} aria-hidden="true" />
+          <MessageSquarePlus size={15} strokeWidth={2.25} aria-hidden="true" />
           {#if !isMobile}<span class="nav-action-label">Chat</span>{/if}
         </button>
       </div>
     {/if}
+    {#if onOpenSettings && (isMobile || !hostedHandlePill)}
+      <div class="settings-wrap">
+        <button
+          type="button"
+          class="settings-nav-btn"
+          class:settings-nav-btn--labeled={!isMobile}
+          onclick={onOpenSettings}
+          title="Settings"
+          aria-label={isMobile ? 'Settings' : undefined}
+        >
+          <Settings size={15} strokeWidth={2} aria-hidden="true" />
+          {#if !isMobile}<span class="nav-action-label">Settings</span>{/if}
+        </button>
+      </div>
+    {/if}
     <div class="sync-wrap">
-      {#if hostedHandlePill && onHostedHandleNavigate && !isMobile}
+      {#if hostedHandlePill && onOpenSettings && !isMobile}
         <button
           type="button"
           class="nav-hosted-handle"
-          onclick={onHostedHandleNavigate}
-          title="Your Braintunnel handle — open Hub"
+          onclick={onOpenSettings}
+          title="Workspace settings"
         >
           @{hostedHandlePill}
         </button>
@@ -281,29 +296,32 @@
   }
 
   .new-nav-btn {
+    width: 40px;
+    height: 100%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0;
-    width: 36px;
-    min-width: 36px;
-    height: 32px;
-    min-height: 32px;
+    min-width: 40px;
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
     border-radius: 6px;
     border: none;
-    background: var(--accent);
-    color: #fff;
+    background: transparent;
+    color: var(--text-2);
     flex-shrink: 0;
-    transition: color 0.15s, background 0.15s, filter 0.15s;
+    cursor: pointer;
+    transition:
+      color 0.15s,
+      background 0.15s;
   }
 
   .new-nav-btn--labeled {
     gap: 6px;
     width: auto;
-    min-width: 36px;
-    padding: 0 12px;
+    min-width: 40px;
+    padding: 0 10px;
   }
 
   .nav-action-label {
@@ -313,19 +331,19 @@
     white-space: nowrap;
   }
 
-  .wiki-home-btn .nav-action-label {
+  .wiki-home-btn .nav-action-label,
+  .new-nav-btn .nav-action-label {
     color: inherit;
   }
 
   .new-nav-btn :global(svg) {
     flex-shrink: 0;
-    color: #fff;
+    color: currentColor;
   }
 
   .new-nav-btn:focus-visible {
-    outline: 2px solid #fff;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   .new-nav-btn:disabled {
@@ -342,6 +360,48 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
+  }
+
+  .settings-wrap {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .settings-nav-btn {
+    width: 40px;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    box-sizing: border-box;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    transition:
+      color 0.15s,
+      background 0.15s;
+  }
+
+  .settings-nav-btn--labeled {
+    gap: 6px;
+    width: auto;
+    min-width: 40px;
+    padding: 0 10px;
+  }
+
+  .settings-nav-btn:hover {
+    color: var(--text);
+    background: var(--bg-3);
+  }
+
+  .settings-nav-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   .wiki-home-btn {
@@ -457,16 +517,12 @@
     .menu-btn:hover {
       color: var(--text);
     }
-    .new-nav-btn:hover:not(:disabled) {
-      color: #fff;
-      background: color-mix(in srgb, var(--accent) 88%, #000);
-    }
-    .new-nav-btn:hover:not(:disabled) :global(svg) {
-      color: #fff;
-    }
     .search-btn:hover,
-    .wiki-home-btn:hover {
+    .wiki-home-btn:hover,
+    .settings-nav-btn:hover,
+    .new-nav-btn:hover:not(:disabled) {
       color: var(--text);
+      background: var(--bg-3);
     }
     .nav-hosted-handle:hover {
       color: var(--text);
@@ -485,7 +541,9 @@
     }
 
     .search-btn :global(svg),
-    .wiki-home-btn :global(svg) {
+    .wiki-home-btn :global(svg),
+    .settings-nav-btn :global(svg),
+    .new-nav-btn :global(svg) {
       width: 18px;
       height: 18px;
     }
@@ -495,11 +553,6 @@
       min-width: 40px;
       height: 36px;
       min-height: 36px;
-    }
-
-    .new-nav-btn:not(.new-nav-btn--labeled) :global(svg) {
-      width: 18px;
-      height: 18px;
     }
 
     .nav-sidebar-close {

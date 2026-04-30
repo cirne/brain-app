@@ -11,7 +11,7 @@
     onNewChat: _onNewChat = () => {},
     isEmptyChat: _isEmptyChat = true,
     hostedHandlePill: _hostedHandlePill = undefined,
-    onHostedHandleNavigate: _onHostedHandleNavigate = () => {},
+    onOpenSettings: _onOpenSettings = () => {},
   }: {
     isMobile?: boolean
     sidebarOpen?: boolean
@@ -21,10 +21,10 @@
     onOpenSearch?: () => void
     onToggleSyncErrors?: () => void
     onOpenHub?: () => void
+    onOpenSettings?: () => void
     onNewChat?: () => void
     isEmptyChat?: boolean
     hostedHandlePill?: string
-    onHostedHandleNavigate?: () => void
   } = $props()
 </script>
 

@@ -294,6 +294,12 @@ describe('parseRoute your-wiki / hub', () => {
     })
   })
 
+  it('parses /settings as settings main', () => {
+    expect(parseRoute('http://localhost/settings')).toEqual({
+      settingsActive: true,
+    })
+  })
+
   it('legacy /hub/wiki path not supported', () => {
     expect(parseRoute('http://localhost/hub/wiki/x')).toEqual({})
   })
@@ -343,17 +349,10 @@ describe('parseRoute hub-source', () => {
     })
   })
 
-  it('parses hub-add-folders on /hub', () => {
-    expect(parseRoute('http://localhost/hub?panel=hub-add-folders')).toEqual({
-      hubActive: true,
-      overlay: { type: 'hub-add-folders' },
-    })
-  })
-
-  it('parses hub-apple-messages on /hub', () => {
-    expect(parseRoute('http://localhost/hub?panel=hub-apple-messages')).toEqual({
-      hubActive: true,
-      overlay: { type: 'hub-apple-messages' },
+  it('parses hub-source with id on /settings', () => {
+    expect(parseRoute('http://localhost/settings?panel=hub-source&id=src-1')).toEqual({
+      settingsActive: true,
+      overlay: { type: 'hub-source', id: 'src-1' },
     })
   })
 })
@@ -480,6 +479,14 @@ describe('routeToUrl', () => {
     expect(routeToUrl({ hubActive: true, overlay: { type: 'hub' } })).toBe('/hub')
   })
 
+  it('settings returns /settings', () => {
+    expect(routeToUrl({ settingsActive: true })).toBe('/settings')
+    expect(routeToUrl({ settingsActive: true, overlay: { type: 'hub' } })).toBe('/settings')
+    expect(routeToUrl({ settingsActive: true, overlay: { type: 'hub-source', id: 'x' } })).toBe(
+      '/settings?panel=hub-source&id=x',
+    )
+  })
+
   it('wiki primary home', () => {
     expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki' } })).toBe('/wiki')
   })
@@ -552,6 +559,9 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { flow: 'enron-demo' as const },
     { hubActive: true },
     { hubActive: true, overlay: { type: 'hub-wiki-about' as const } },
+    { settingsActive: true },
+    { settingsActive: true, overlay: { type: 'hub-wiki-about' as const } },
+    { settingsActive: true, overlay: { type: 'hub-source', id: 'src-x' } },
     { overlay: { type: 'hub-wiki-about' as const } },
     { hubActive: true, overlay: { type: 'chat-history' } },
     { wikiActive: true, overlay: { type: 'wiki' as const } },

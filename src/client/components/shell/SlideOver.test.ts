@@ -133,14 +133,6 @@ describe('SlideOver.svelte', () => {
     expect(screen.getByTestId('mail-search-results-panel-stub')).toHaveTextContent('Search mail: Donna')
   })
 
-  it('renders with phone-access overlay', () => {
-    const props = baseProps({ overlay: { type: 'phone-access' } })
-    render(SlideOver, { props })
-
-    expect(screen.getByText('Connect Phone')).toBeInTheDocument()
-    expect(screen.getByTestId('phone-access-stub')).toBeInTheDocument()
-  })
-
   it('renders with your-wiki overlay', () => {
     const props = baseProps({ overlay: { type: 'your-wiki' } })
     render(SlideOver, { props })
@@ -163,22 +155,6 @@ describe('SlideOver.svelte', () => {
 
     expect(screen.getByText('Your wiki')).toBeInTheDocument()
     expect(screen.getByTestId('hub-wiki-about-stub')).toBeInTheDocument()
-  })
-
-  it('renders with hub-add-folders overlay', () => {
-    const props = baseProps({ overlay: { type: 'hub-add-folders' } })
-    render(SlideOver, { props })
-
-    expect(screen.getByText('Add folders to index')).toBeInTheDocument()
-    expect(screen.getByTestId('hub-add-folders-stub')).toBeInTheDocument()
-  })
-
-  it('renders with hub-apple-messages overlay', () => {
-    const props = baseProps({ overlay: { type: 'hub-apple-messages' } })
-    render(SlideOver, { props })
-
-    expect(screen.getByText('Apple Messages')).toBeInTheDocument()
-    expect(screen.getByTestId('hub-apple-messages-stub')).toBeInTheDocument()
   })
 
   it('renders email-draft overlay with draft editor stub', () => {

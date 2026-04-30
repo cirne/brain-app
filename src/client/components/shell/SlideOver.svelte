@@ -25,12 +25,9 @@
   import Calendar from '../Calendar.svelte'
   import MessageThread from '../MessageThread.svelte'
   import MailSearchResultsPanel from '../MailSearchResultsPanel.svelte'
-  import PhoneAccessPanel from '../PhoneAccessPanel.svelte'
   import YourWikiDetail from '../YourWikiDetail.svelte'
   import HubSourceInspectPanel from '../HubSourceInspectPanel.svelte'
   import HubWikiAboutPanel from '../HubWikiAboutPanel.svelte'
-  import HubAddFoldersPanel from '../HubAddFoldersPanel.svelte'
-  import HubAppleMessagesPanel from '../HubAppleMessagesPanel.svelte'
   import WikiFileName from '../WikiFileName.svelte'
   import EmailDraftEditor from '../EmailDraftEditor.svelte'
   import PaneL2Header from '../PaneL2Header.svelte'
@@ -103,7 +100,7 @@
     toolOnOpenDraft?: (_draftId: string, _subject?: string) => void
     toolOnOpenFullInbox?: () => void
     toolOnOpenMessageThread?: (_canonicalChat: string, _displayLabel: string) => void
-    /** Hub add-folders embedded chat: empty-state “your wiki” help. */
+    /** Reserved for future empty-state hooks (previously used by add-folders panel). */
     onOpenWikiAbout?: () => void
   }
 
@@ -133,7 +130,7 @@
     toolOnOpenDraft,
     toolOnOpenFullInbox,
     toolOnOpenMessageThread,
-    onOpenWikiAbout,
+    onOpenWikiAbout: _onOpenWikiAbout,
   }: Props = $props()
 
   const mobile = createSlideOverMobilePanel({
@@ -584,8 +581,6 @@
       />
     {:else if overlay.type === 'messages'}
       <MessageThread initialChat={overlay.chat} onContextChange={onContextChange} />
-    {:else if overlay.type === 'phone-access'}
-      <PhoneAccessPanel />
     {:else if overlay.type === 'your-wiki'}
       <YourWikiDetail
         onOpenWiki={(path) => {
@@ -602,22 +597,6 @@
       <HubSourceInspectPanel sourceId={overlay.id} onClose={onClose} />
     {:else if overlay.type === 'hub-wiki-about'}
       <HubWikiAboutPanel />
-    {:else if overlay.type === 'hub-add-folders'}
-      <HubAddFoldersPanel
-        onClosePanel={onClose}
-        onOpenWiki={(path) => {
-          if (path) onWikiNavigate(path)
-        }}
-        onOpenFile={toolOnOpenFile}
-        onOpenEmail={toolOnOpenEmail}
-        onOpenDraft={toolOnOpenDraft}
-        onOpenFullInbox={toolOnOpenFullInbox}
-        onSwitchToCalendar={onCalendarNavigate}
-        onOpenMessageThread={toolOnOpenMessageThread}
-        onOpenWikiAbout={onOpenWikiAbout}
-      />
-    {:else if overlay.type === 'hub-apple-messages'}
-      <HubAppleMessagesPanel onClosePanel={onClose} />
     {:else if overlay.type === 'calendar'}
       <Calendar
         refreshKey={calendarRefreshKey}
@@ -1137,9 +1116,7 @@
   .slide-body :global(.calendar),
   .slide-body :global(.mail-search-panel),
   .slide-body :global(.hub-bg-agents-detail),
-  .slide-body :global(.hub-source-inspect),
-  .slide-body :global(.hub-add-folders-panel),
-  .slide-body :global(.hub-apple-messages) {
+  .slide-body :global(.hub-source-inspect) {
     flex: 1;
     min-height: 0;
   }

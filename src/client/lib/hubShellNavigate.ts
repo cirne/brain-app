@@ -21,8 +21,38 @@ export function applyHubDetailNavigation(
   }
   navigate(
     hubActive
-      ? { hubActive: true, overlay }
-      : { hubActive: false, sessionId: route.sessionId, overlay },
+      ? { hubActive: true, wikiActive: false, settingsActive: false, overlay }
+      : { hubActive: false, wikiActive: false, settingsActive: false, sessionId: route.sessionId, overlay },
+    effectiveOpts,
+  )
+}
+
+/**
+ * Settings list → detail: push `/settings?panel=…` with `settingsActive`.
+ * Mirrors {@link applyHubDetailNavigation} for the `/settings` primary column.
+ */
+export function applySettingsDetailNavigation(
+  route: Route,
+  overlay: Overlay,
+  opts?: NavigateOptions,
+  settingsColumnActive: boolean = true,
+): void {
+  let effectiveOpts = opts
+  const wikiLike = overlay.type === 'wiki' || overlay.type === 'wiki-dir'
+  const routeWikiLike = route.overlay?.type === 'wiki' || route.overlay?.type === 'wiki-dir'
+  if (wikiLike && effectiveOpts === undefined && routeWikiLike) {
+    effectiveOpts = { replace: true }
+  }
+  navigate(
+    settingsColumnActive
+      ? { settingsActive: true, hubActive: false, wikiActive: false, overlay }
+      : {
+          settingsActive: false,
+          hubActive: false,
+          wikiActive: false,
+          sessionId: route.sessionId,
+          overlay,
+        },
     effectiveOpts,
   )
 }

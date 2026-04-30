@@ -8,11 +8,8 @@ export function titleForOverlay(o: Overlay): string {
   if (o.type === 'email-draft') return 'Draft'
   if (o.type === 'mail-search') return 'Mail search'
   if (o.type === 'messages') return 'Messages'
-  if (o.type === 'phone-access') return 'Connect Phone'
   if (o.type === 'your-wiki') return 'Your Wiki'
   if (o.type === 'hub-source') return 'Search index source'
-  if (o.type === 'hub-add-folders') return 'Add folders to index'
-  if (o.type === 'hub-apple-messages') return 'Apple Messages'
   if (o.type === 'hub-wiki-about') return 'Your wiki'
   return 'Calendar'
 }
