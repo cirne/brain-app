@@ -167,15 +167,72 @@ export function calendarEventsFromRipmailRangeJsonStdout(stdout: string): Calend
   return events
 }
 
-async function ripmailCalendarSourcesInfo(): Promise<{ configured: boolean; calendars: { id: string; name?: string; sourceId: string }[] }> {
+export type RipmailListCalendarRow = { id: string; name?: string; sourceId: string }
+
+/**
+ * Normalizes `ripmail calendar list-calendars --json` stdout: top-level `calendars` is an array of
+ * **sources**, each with nested `calendars` (configured ids) and optional `allCalendars` (names index).
+ */
+export function flattenRipmailListCalendarsJson(parsed: unknown): {
+  sourcesConfigured: boolean
+  availableCalendars: RipmailListCalendarRow[]
+} {
+  if (!parsed || typeof parsed !== 'object') {
+    return { sourcesConfigured: false, availableCalendars: [] }
+  }
+  const sourceRows = Array.isArray((parsed as { calendars?: unknown }).calendars)
+    ? ((parsed as { calendars: unknown[] }).calendars as unknown[])
+    : []
+  const sourcesConfigured = sourceRows.length > 0
+  const availableCalendars: RipmailListCalendarRow[] = []
+
+  const pushEntries = (entries: unknown[], sourceId: string) => {
+    for (const e of entries) {
+      if (!e || typeof e !== 'object') continue
+      const o = e as Record<string, unknown>
+      const id = typeof o.id === 'string' ? o.id.trim() : ''
+      if (!id) continue
+      const rawName = typeof o.name === 'string' ? o.name.trim() : ''
+      const row: RipmailListCalendarRow = { id, sourceId }
+      if (rawName.length > 0) row.name = rawName
+      availableCalendars.push(row)
+    }
+  }
+
+  for (const row of sourceRows) {
+    if (!row || typeof row !== 'object') continue
+    const r = row as Record<string, unknown>
+    const sourceId = typeof r.sourceId === 'string' ? r.sourceId.trim() : ''
+    if (!sourceId) continue
+
+    const nested = r.calendars
+    if (Array.isArray(nested) && nested.length > 0) {
+      pushEntries(nested, sourceId)
+      continue
+    }
+    const allCals = r.allCalendars
+    if (Array.isArray(allCals) && allCals.length > 0) {
+      pushEntries(allCals, sourceId)
+    }
+  }
+
+  return { sourcesConfigured, availableCalendars }
+}
+
+async function ripmailCalendarSourcesInfo(): Promise<{ configured: boolean; calendars: RipmailListCalendarRow[] }> {
   try {
     const { stdout } = await execRipmailAsync(
       `${ripmailBin()} calendar list-calendars --json`,
       { timeout: 15000 },
     )
-    const j = JSON.parse(stdout) as { calendars?: { id: string; name?: string; sourceId: string }[] }
-    const calendars = Array.isArray(j.calendars) ? j.calendars : []
-    return { configured: calendars.length > 0, calendars }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(stdout) as unknown
+    } catch {
+      return { configured: false, calendars: [] }
+    }
+    const { sourcesConfigured, availableCalendars } = flattenRipmailListCalendarsJson(parsed)
+    return { configured: sourcesConfigured, calendars: availableCalendars }
   } catch {
     return { configured: false, calendars: [] }
   }

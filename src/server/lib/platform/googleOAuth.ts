@@ -10,15 +10,15 @@ import { join } from 'node:path'
 export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL =
   'https://mail.google.com/ openid email'
 
-/** Gmail IMAP + Google Calendar events (read/write) + OpenID/email — matches `ripmail` `GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS`. */
+/** Gmail IMAP + Google Calendar full access (events + calendarList) + OpenID/email — matches `ripmail` `GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS`. */
 export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS =
-  'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid email'
+  'https://mail.google.com/ https://www.googleapis.com/auth/calendar openid email'
 
 /** Google Drive read-only scope (matches ripmail `GOOGLE_OAUTH_SCOPE_DRIVE_READONLY`). */
 export const GOOGLE_OAUTH_SCOPE_DRIVE_READONLY =
   'https://www.googleapis.com/auth/drive.readonly'
 
-/** Gmail + Calendar + OpenID/email + Drive read-only — use for authorize URLs when Drive indexing is supported. */
+/** Gmail + full Calendar + OpenID/email + Drive read-only — use for authorize URLs when Drive indexing is supported. */
 export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE = `${GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS} ${GOOGLE_OAUTH_SCOPE_DRIVE_READONLY}`
 
 const GOOGLE_AUTH_URI = 'https://accounts.google.com/o/oauth2/v2/auth'

@@ -121,6 +121,38 @@ fn parse_mailbox_management_on_off(s: &str) -> Result<bool, String> {
     }
 }
 
+/// `calendar cancel-event --scope` (recurring semantics).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CancelMutationScopeCli {
+    This,
+    Future,
+    All,
+}
+
+/// `calendar delete-event --scope`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DeleteMutationScopeCli {
+    This,
+    All,
+}
+
+fn parse_cancel_scope(s: &str) -> Result<CancelMutationScopeCli, String> {
+    match s.trim().to_ascii_lowercase().as_str() {
+        "this" => Ok(CancelMutationScopeCli::This),
+        "future" => Ok(CancelMutationScopeCli::Future),
+        "all" => Ok(CancelMutationScopeCli::All),
+        x => Err(format!("expected this|future|all, got {x:?}")),
+    }
+}
+
+fn parse_delete_scope(s: &str) -> Result<DeleteMutationScopeCli, String> {
+    match s.trim().to_ascii_lowercase().as_str() {
+        "this" => Ok(DeleteMutationScopeCli::This),
+        "all" => Ok(DeleteMutationScopeCli::All),
+        x => Err(format!("expected this|all, got {x:?}")),
+    }
+}
+
 #[derive(Subcommand)]
 pub(crate) enum Commands {
     /// Write config under RIPMAIL_HOME (non-interactive)
@@ -569,6 +601,74 @@ pub(crate) enum CalendarCmd {
         description: Option<String>,
         #[arg(long)]
         location: Option<String>,
+        #[arg(long)]
+        recurrence_preset: Option<String>,
+        #[arg(long)]
+        rrule: Option<String>,
+        #[arg(long)]
+        recurrence_count: Option<u32>,
+        #[arg(long)]
+        recurrence_until: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    #[command(name = "update-event")]
+    UpdateEvent {
+        #[arg(long, short = 'S', required = true)]
+        source: String,
+        #[arg(long, default_value = "primary")]
+        calendar: String,
+        /// Stored event `uid` (Google resource id — same field returned in `calendar range --json`).
+        #[arg(long, required = true)]
+        event_id: String,
+        #[arg(long)]
+        title: Option<String>,
+        #[arg(long)]
+        description: Option<String>,
+        #[arg(long)]
+        location: Option<String>,
+        #[arg(long, default_value_t = false)]
+        all_day: bool,
+        #[arg(long)]
+        date: Option<String>,
+        #[arg(long)]
+        start: Option<String>,
+        #[arg(long)]
+        end: Option<String>,
+        #[arg(long)]
+        recurrence_preset: Option<String>,
+        #[arg(long)]
+        rrule: Option<String>,
+        #[arg(long)]
+        recurrence_count: Option<u32>,
+        #[arg(long)]
+        recurrence_until: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    #[command(name = "cancel-event")]
+    CancelEvent {
+        #[arg(long, short = 'S', required = true)]
+        source: String,
+        #[arg(long, default_value = "primary")]
+        calendar: String,
+        #[arg(long, required = true)]
+        event_id: String,
+        #[arg(long, value_parser = parse_cancel_scope)]
+        scope: Option<CancelMutationScopeCli>,
+        #[arg(long)]
+        json: bool,
+    },
+    #[command(name = "delete-event")]
+    DeleteEvent {
+        #[arg(long, short = 'S', required = true)]
+        source: String,
+        #[arg(long, default_value = "primary")]
+        calendar: String,
+        #[arg(long, required = true)]
+        event_id: String,
+        #[arg(long, value_parser = parse_delete_scope)]
+        scope: Option<DeleteMutationScopeCli>,
         #[arg(long)]
         json: bool,
     },

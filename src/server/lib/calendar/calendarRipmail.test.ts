@@ -5,6 +5,7 @@ import {
   eventIsRecurringFromRipmailRow,
   calendarUidLooksLikeExpandedRecurrence,
   calendarEventsFromRipmailRangeJsonStdout,
+  flattenRipmailListCalendarsJson,
   type RipmailCalendarEventJson,
 } from './calendarRipmail.js'
 import * as ripmailRun from '@server/lib/ripmail/ripmailRun.js'
@@ -160,6 +161,73 @@ describe('calendarUidLooksLikeExpandedRecurrence', () => {
   })
 })
 
+describe('flattenRipmailListCalendarsJson', () => {
+  it('flattens nested list-calendars JSON (googleCalendar primary)', () => {
+    const parsed = {
+      calendars: [
+        {
+          sourceId: 'lewiscirne_gmail_com-gcal',
+          kind: 'googleCalendar',
+          calendars: [{ id: 'primary' }],
+          icsUrl: null,
+          path: null,
+          email: 'lewiscirne@gmail.com',
+        },
+      ],
+    }
+    const { sourcesConfigured, availableCalendars } = flattenRipmailListCalendarsJson(parsed)
+    expect(sourcesConfigured).toBe(true)
+    expect(availableCalendars).toEqual([{ id: 'primary', sourceId: 'lewiscirne_gmail_com-gcal' }])
+  })
+
+  it('uses allCalendars when nested calendars is empty', () => {
+    const parsed = {
+      calendars: [
+        {
+          sourceId: 'apple-cal',
+          kind: 'appleCalendar',
+          calendars: [],
+          allCalendars: [
+            { id: 'cal-1', name: 'Home' },
+            { id: 'cal-2', name: 'Work' },
+          ],
+        },
+      ],
+    }
+    const { sourcesConfigured, availableCalendars } = flattenRipmailListCalendarsJson(parsed)
+    expect(sourcesConfigured).toBe(true)
+    expect(availableCalendars).toEqual([
+      { id: 'cal-1', name: 'Home', sourceId: 'apple-cal' },
+      { id: 'cal-2', name: 'Work', sourceId: 'apple-cal' },
+    ])
+  })
+
+  it('prefers nested calendars when non-empty over allCalendars', () => {
+    const parsed = {
+      calendars: [
+        {
+          sourceId: 's',
+          calendars: [{ id: 'primary', name: 'Main' }],
+          allCalendars: [{ id: 'other', name: 'Other' }],
+        },
+      ],
+    }
+    const { availableCalendars } = flattenRipmailListCalendarsJson(parsed)
+    expect(availableCalendars).toEqual([{ id: 'primary', name: 'Main', sourceId: 's' }])
+  })
+
+  it('returns sourcesConfigured false for empty top-level calendars', () => {
+    expect(flattenRipmailListCalendarsJson({ calendars: [] }).sourcesConfigured).toBe(false)
+  })
+
+  it('skips calendar rows when sourceId is missing', () => {
+    const parsed = {
+      calendars: [{ kind: 'googleCalendar', calendars: [{ id: 'orphan' }] }],
+    }
+    expect(flattenRipmailListCalendarsJson(parsed).availableCalendars).toHaveLength(0)
+  })
+})
+
 describe('calendarEventsFromRipmailRangeJsonStdout', () => {
   it('parses events array and dedupes by start|end|title', () => {
     const stdout = JSON.stringify({
@@ -213,9 +281,23 @@ describe('getCalendarEventsFromRipmail deduplication', () => {
       ]
     })
 
-    vi.spyOn(ripmailRun, 'execRipmailAsync').mockResolvedValue({
-      stdout: mockStdout,
-      stderr: ''
+    const listCalStdout = JSON.stringify({
+      calendars: [
+        {
+          sourceId: 'src-meta',
+          kind: 'googleCalendar',
+          calendars: [{ id: 'primary' }],
+        },
+      ],
+    })
+    vi.spyOn(ripmailRun, 'execRipmailAsync').mockImplementation(async (cmd: string) => {
+      if (cmd.includes('list-calendars')) {
+        return { stdout: listCalStdout, stderr: '' }
+      }
+      if (cmd.includes('calendar range')) {
+        return { stdout: mockStdout, stderr: '' }
+      }
+      return { stdout: '', stderr: '' }
     })
 
     const result = await getCalendarEventsFromRipmail({ start: '2026-04-20', end: '2026-04-20' })
@@ -225,5 +307,7 @@ describe('getCalendarEventsFromRipmail deduplication', () => {
     // Should prefer the one with more attendees
     expect(result.events[0].attendees).toHaveLength(2)
     expect(result.events[0].organizer).toBe('lewiscirne@gmail.com')
+    expect(result.meta.sourcesConfigured).toBe(true)
+    expect(result.meta.availableCalendars).toEqual([{ id: 'primary', sourceId: 'src-meta' }])
   })
 })

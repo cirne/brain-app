@@ -5,7 +5,9 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{Days, Duration, NaiveDate, TimeZone, Utc};
+use regex::Regex;
 use serde_json::{json, Value};
+use std::sync::OnceLock;
 
 use crate::oauth::ensure_google_access_token;
 
@@ -127,6 +129,36 @@ fn fetch_json(auth: &str, url: &str) -> Result<Value, Box<dyn std::error::Error>
     Ok(serde_json::from_str(&body)?)
 }
 
+/// Fetch all calendars accessible to the Google account directly from the Calendar API.
+/// Returns a map of `calendar_id → display_name`. Does not write to disk or modify any index.
+pub fn fetch_google_calendar_names_api(
+    home: &Path,
+    token_mailbox_id: &str,
+    env_file: &HashMap<String, String>,
+    process_env: &HashMap<String, String>,
+) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+    let token =
+        ensure_google_access_token(home, token_mailbox_id, env_file, process_env).map_err(|e| {
+            format!(
+                "Google Calendar OAuth: {e}. Ensure `google-oauth.json` exists under \
+                 RIPMAIL_HOME/{token_mailbox_id}/."
+            )
+        })?;
+    let mut names = HashMap::new();
+    if let Ok(val) = fetch_json(&token, GCAL_LIST) {
+        if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
+            for item in items {
+                if let Some(id) = item.get("id").and_then(|id| id.as_str()) {
+                    if let Some(name) = item.get("summary").and_then(|s| s.as_str()) {
+                        names.insert(id.to_string(), name.to_string());
+                    }
+                }
+            }
+        }
+    }
+    Ok(names)
+}
+
 pub fn sync_google_calendars(
     conn: &mut rusqlite::Connection,
     home: &Path,
@@ -240,6 +272,175 @@ pub fn sync_google_calendars(
     Ok((count, discovered_ids, calendar_names))
 }
 
+/// Preset vs raw RRULE for [build_recurrence_json_array].
+pub struct RecurrenceArgs<'a> {
+    pub preset: Option<&'a str>,
+    pub rrule: Option<&'a str>,
+    pub count: Option<u32>,
+    pub until: Option<&'a str>,
+}
+
+/// Build `recurrence` array for Google Calendar (single `RRULE:` line).
+pub fn build_recurrence_json_array(recur: &RecurrenceArgs<'_>) -> Result<Vec<String>, String> {
+    let preset = recur
+        .preset
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let raw = recur
+        .rrule
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    match (preset, raw) {
+        (Some(_), Some(_)) => {
+            Err("provide either recurrence preset or raw --rrule, not both".into())
+        }
+        (_, Some(line)) => {
+            let rr = normalize_rrule_line(line)?;
+            Ok(vec![finalize_rrule_with_count_until(
+                &rr,
+                recur.count,
+                recur.until,
+            )?])
+        }
+        (Some(p), _) => {
+            let base_rrule = match p.to_ascii_lowercase().as_str() {
+                "daily" => "RRULE:FREQ=DAILY",
+                "weekdays" => "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+                "weekly" => "RRULE:FREQ=WEEKLY",
+                "biweekly" => "RRULE:FREQ=WEEKLY;INTERVAL=2",
+                "monthly" => "RRULE:FREQ=MONTHLY",
+                "yearly" => "RRULE:FREQ=YEARLY",
+                _ => return Err(format!("unknown recurrence preset {p:?} (try daily|weekdays|weekly|biweekly|monthly|yearly)")),
+            };
+            Ok(vec![finalize_rrule_with_count_until(
+                base_rrule,
+                recur.count,
+                recur.until,
+            )?])
+        }
+        (None, None) => {
+            let line = finalize_rrule_with_count_until("", recur.count, recur.until)?;
+            if line.is_empty() {
+                return Err(
+                    "recurrence requires recurrence_preset, --rrule, recurrence_count, or recurrence_until".into(),
+                );
+            }
+            Ok(vec![line])
+        }
+    }
+}
+
+fn normalize_rrule_line(line: &str) -> Result<String, String> {
+    let t = line.trim();
+    let u = if t.to_ascii_uppercase().starts_with("RRULE:") {
+        format!("RRULE:{}", &t[6..].trim_start_matches(':'))
+    } else {
+        format!("RRULE:{t}")
+    };
+    Ok(u.trim().to_string())
+}
+
+fn naive_ymd_to_until_z(naive: NaiveDate) -> String {
+    format!("{}T235959Z", naive.format("%Y%m%d"))
+}
+
+/// Append COUNT / UNTIL to an RRULE line (or finalize empty stub when only COUNT/UNTIL given).
+pub fn finalize_rrule_with_count_until(
+    base_rrule: &str,
+    count: Option<u32>,
+    until_ymd: Option<&str>,
+) -> Result<String, String> {
+    let mut s = base_rrule.trim().to_string();
+    if !(s.is_empty() || s.starts_with("RRULE:")) {
+        s = normalize_rrule_line(&s)?;
+    }
+
+    let until_part = match until_ymd {
+        Some(d) => {
+            let naive = NaiveDate::parse_from_str(d.trim(), "%Y-%m-%d")
+                .map_err(|e| format!("invalid recurrence_until: {e}"))?;
+            naive_ymd_to_until_z(naive)
+        }
+        None => String::new(),
+    };
+
+    if s.is_empty() {
+        match (count, until_ymd) {
+            (Some(c), None) => Ok(format!(
+                "{}{}",
+                "RRULE:FREQ=DAILY",
+                format_counts_until(Some(c), &until_part)
+            )),
+            (_, Some(_)) => {
+                if until_part.is_empty() {
+                    return Err("until parse failed".into());
+                }
+                Ok(format!(
+                    "{}{}",
+                    "RRULE:FREQ=DAILY",
+                    format_counts_until(count, &until_part)
+                ))
+            }
+            _ => Err("cannot build recurrence: empty RRULE".into()),
+        }
+    } else {
+        let mut stripped = strip_rrule_count_until(&s);
+        if count.is_some() || until_ymd.is_some() {
+            stripped.push_str(&format_counts_until(count, &until_part));
+        }
+        Ok(stripped)
+    }
+}
+
+fn format_counts_until(count: Option<u32>, until_z: &str) -> String {
+    let mut o = String::new();
+    if let Some(c) = count {
+        o.push_str(&format!(";COUNT={c}"));
+    }
+    if !until_z.is_empty() {
+        o.push_str(&format!(";UNTIL={until_z}"));
+    }
+    o
+}
+
+fn strip_rrule_count_until(rrule_full: &str) -> String {
+    strip_until_count_via_split(rrule_full)
+}
+
+fn strip_until_count_via_split(rrule_full: &str) -> String {
+    let up = rrule_full.trim();
+    let rest = up
+        .strip_prefix("RRULE:")
+        .or_else(|| up.strip_prefix("rrule:"))
+        .unwrap_or(up);
+    let parts: Vec<_> = rest
+        .split(';')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .filter(|p| {
+            let lu = (*p).to_ascii_lowercase();
+            !lu.starts_with("count=") && !lu.starts_with("until=")
+        })
+        .collect();
+    format!("RRULE:{}", parts.join(";"))
+}
+
+/// Strip Google Calendar recurring **instance** id suffix `_YYYYMMDDTHHmmssZ`.
+pub fn infer_google_recurring_master_event_id(event_id: &str) -> &str {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let trimmed = event_id.trim();
+    if let Some(caps) = RE
+        .get_or_init(|| Regex::new(r"^(.*)_\d{8}T\d{6}Z$").expect("infer master regex"))
+        .captures(trimmed)
+    {
+        caps.get(1).map(|m| m.as_str()).unwrap_or(trimmed)
+    } else {
+        trimmed
+    }
+}
+
 /// Fields for [insert_google_calendar_event] — Google Calendar API `events.insert`.
 pub struct InsertGoogleEventArgs<'a> {
     pub title: &'a str,
@@ -251,6 +452,295 @@ pub struct InsertGoogleEventArgs<'a> {
     /// For timed events: RFC3339 / `dateTime` strings (e.g. `2026-04-23T15:00:00-04:00`). Required when `all_day` is false.
     pub start_rfc3339: Option<&'a str>,
     pub end_rfc3339: Option<&'a str>,
+    pub recurrence: Option<RecurrenceArgs<'a>>,
+}
+
+/// Build PATCH body for selective Google Calendar updates.
+#[allow(clippy::too_many_arguments)]
+pub fn build_google_calendar_event_patch_body(
+    title: Option<&str>,
+    description: Option<&str>,
+    location: Option<&str>,
+    start_rfc3339: Option<&str>,
+    end_rfc3339: Option<&str>,
+    all_day: bool,
+    all_day_date: Option<&str>,
+    recurrence_patch: Option<RecurrenceArgs<'_>>,
+    clear_recurrence: bool,
+) -> Result<Value, String> {
+    let mut v = json!({});
+    if clear_recurrence {
+        v["recurrence"] = json!(serde_json::Value::Null);
+    }
+    if let Some(rec) = recurrence_patch {
+        let arr = build_recurrence_json_array(&rec)?;
+        v["recurrence"] = serde_json::to_value(arr).unwrap();
+    }
+    if let Some(t) = title.filter(|x| !x.trim().is_empty()) {
+        v["summary"] = json!(t);
+    }
+    if let Some(d) = description.filter(|x| !x.trim().is_empty()) {
+        v["description"] = json!(d);
+    } else if let Some(d) = description {
+        if d.is_empty() {
+            v["description"] = json!(serde_json::Value::Null);
+        }
+    }
+    if let Some(l) = location.filter(|x| !x.trim().is_empty()) {
+        v["location"] = json!(l);
+    } else if let Some(l) = location {
+        if l.is_empty() {
+            v["location"] = json!(serde_json::Value::Null);
+        }
+    }
+    if all_day {
+        let d = all_day_date.ok_or("all_day_date is required when all_day is true for patch")?;
+        let start = NaiveDate::parse_from_str(d.trim(), "%Y-%m-%d")
+            .map_err(|e| format!("invalid all_day_date: {e}"))?;
+        let end = start
+            .checked_add_days(Days::new(1))
+            .ok_or("date overflow")?;
+        v["start"] = json!({ "date": start.format("%Y-%m-%d").to_string() });
+        v["end"] = json!({ "date": end.format("%Y-%m-%d").to_string() });
+    } else if start_rfc3339.is_some() || end_rfc3339.is_some() {
+        let s = start_rfc3339.ok_or("both start and end required for timed patch")?;
+        let e = end_rfc3339.ok_or("both start and end required for timed patch")?;
+        if s.trim().is_empty() || e.trim().is_empty() {
+            return Err("timed patch: start/end must not be empty".into());
+        }
+        v["start"] = json!({ "dateTime": s.trim() });
+        v["end"] = json!({ "dateTime": e.trim() });
+    }
+
+    Ok(v)
+}
+
+fn calendar_event_http_error(status: u16, text: &str, verb: &str) -> String {
+    format!("Google Calendar events.{verb}: HTTP {status} — {text}")
+}
+
+/// GET calendar event JSON.
+pub fn get_google_calendar_event(
+    home: &Path,
+    token_mailbox_id: &str,
+    calendar_id: &str,
+    event_id: &str,
+    env_file: &HashMap<String, String>,
+    process_env: &HashMap<String, String>,
+) -> Result<Value, String> {
+    let token = ensure_google_access_token(home, token_mailbox_id.trim(), env_file, process_env)
+        .map_err(|e| e.to_string())?;
+    let cid = urlencoding::encode(calendar_id.trim());
+    let eid = urlencoding::encode(event_id.trim());
+    let url = format!("{GCAL_EVENTS}/{cid}/events/{eid}");
+    eprintln!("ripmail: Google Calendar get event (GET) …");
+    let resp = ureq::get(&url)
+        .set("Authorization", &format!("Bearer {token}"))
+        .call()
+        .map_err(|e| format!("Google Calendar events.get (HTTP): {e}"))?;
+    let status = resp.status();
+    let text = resp
+        .into_string()
+        .map_err(|e| format!("Google Calendar events.get: read body: {e}"))?;
+    if !(200..300).contains(&status) {
+        return Err(calendar_event_http_error(status, &text, "get"));
+    }
+    serde_json::from_str(&text).map_err(|e| format!("Google Calendar events.get JSON: {e}: {text}"))
+}
+
+/// PATCH calendar event (`events.patch`).
+#[allow(clippy::too_many_arguments)]
+pub fn patch_google_calendar_event_json(
+    home: &Path,
+    token_mailbox_id: &str,
+    calendar_id: &str,
+    event_id: &str,
+    body: &Value,
+    send_updates_none: bool,
+    env_file: &HashMap<String, String>,
+    process_env: &HashMap<String, String>,
+) -> Result<Value, String> {
+    let token = ensure_google_access_token(home, token_mailbox_id.trim(), env_file, process_env)
+        .map_err(|e| e.to_string())?;
+    let cid = urlencoding::encode(calendar_id.trim());
+    let eid = urlencoding::encode(event_id.trim());
+    let su = if send_updates_none {
+        "sendUpdates=none"
+    } else {
+        "sendUpdates=all"
+    };
+    let url = format!("{GCAL_EVENTS}/{cid}/events/{eid}?{su}");
+    let body_str = body.to_string();
+    eprintln!("ripmail: Google Calendar patch event (PATCH) …");
+    let resp = ureq::request("PATCH", &url)
+        .set("Authorization", &format!("Bearer {token}"))
+        .set("Content-Type", "application/json; charset=utf-8")
+        .send_string(&body_str)
+        .map_err(|e| format!("Google Calendar events.patch (HTTP): {e}"))?;
+    let status = resp.status();
+    let text = resp
+        .into_string()
+        .map_err(|e| format!("Google Calendar events.patch: read body: {e}"))?;
+    if !(200..300).contains(&status) {
+        return Err(calendar_event_http_error(status, &text, "patch"));
+    }
+    serde_json::from_str(&text).map_err(|e| format!("Google Calendar response JSON: {e}: {text}"))
+}
+
+/// DELETE calendar event.
+pub fn delete_google_calendar_event(
+    home: &Path,
+    token_mailbox_id: &str,
+    calendar_id: &str,
+    event_id: &str,
+    send_updates_none: bool,
+    env_file: &HashMap<String, String>,
+    process_env: &HashMap<String, String>,
+) -> Result<(), String> {
+    let token = ensure_google_access_token(home, token_mailbox_id.trim(), env_file, process_env)
+        .map_err(|e| e.to_string())?;
+    let cid = urlencoding::encode(calendar_id.trim());
+    let eid = urlencoding::encode(event_id.trim());
+    let su = if send_updates_none {
+        "sendUpdates=none"
+    } else {
+        "sendUpdates=all"
+    };
+    let url = format!("{GCAL_EVENTS}/{cid}/events/{eid}?{su}");
+    eprintln!("ripmail: Google Calendar delete event (DELETE) …");
+    let resp = ureq::delete(&url)
+        .set("Authorization", &format!("Bearer {token}"))
+        .call()
+        .map_err(|e| format!("Google Calendar events.delete (HTTP): {e}"))?;
+    let status = resp.status();
+    let text = resp.into_string().unwrap_or_default();
+    if status == 204 || (200..300).contains(&status) {
+        return Ok(());
+    }
+    Err(format!(
+        "Google Calendar events.delete: HTTP {status} — {text}"
+    ))
+}
+
+/// Shorten a recurring master's RRULE so occurrences strictly before `until_compact` remain.
+pub fn recurrence_until_before_occurrence(
+    rrule_lines: &[String],
+    until_compact: &str,
+) -> Result<Vec<String>, String> {
+    let first = rrule_lines
+        .first()
+        .ok_or_else(|| "recurrence array is empty on master".to_string())?;
+    let norm = normalize_rrule_line(first.as_str())?;
+    let stripped = strip_rrule_count_until(&norm);
+    let base = stripped.trim_end_matches(';').trim();
+    Ok(vec![format!("{base};UNTIL={until_compact}")])
+}
+
+/// Best-effort original instance start from Google event JSON (`dateTime` or all-day `date`).
+fn instance_original_start_rfc(inst: &Value) -> Option<String> {
+    inst.pointer("/originalStartTime/dateTime")
+        .and_then(|x| x.as_str())
+        .map(String::from)
+        .or_else(|| {
+            inst.pointer("/originalStartTime/date")
+                .and_then(|x| x.as_str())
+                .map(|d| format!("{}T12:00:00Z", d.trim()))
+        })
+        .or_else(|| {
+            inst.pointer("/start/dateTime")
+                .and_then(|x| x.as_str())
+                .map(String::from)
+        })
+        .or_else(|| {
+            inst.pointer("/start/date")
+                .and_then(|x| x.as_str())
+                .map(|d| format!("{}T12:00:00Z", d.trim()))
+        })
+}
+
+/// Parse RRULE ending date from instance `originalStartTime`/`start` minus one second → UNTIL value.
+pub fn until_compact_truncating_before_original_start(
+    orig_rfc3339: &str,
+) -> Result<String, String> {
+    let dt = chrono::DateTime::parse_from_rfc3339(orig_rfc3339.trim())
+        .map_err(|e| format!("parse originalStartTime/start: {e}"))?;
+    let cut = dt.with_timezone(&Utc) - Duration::seconds(1);
+    Ok(format!("{}Z", cut.format("%Y%m%dT%H%M%S")))
+}
+
+pub fn truncate_recurring_master_before_instance(
+    home: &Path,
+    token_mailbox_id: &str,
+    calendar_id: &str,
+    instance_event_id: &str,
+    env_file: &HashMap<String, String>,
+    process_env: &HashMap<String, String>,
+) -> Result<Value, String> {
+    let inst = get_google_calendar_event(
+        home,
+        token_mailbox_id,
+        calendar_id,
+        instance_event_id,
+        env_file,
+        process_env,
+    )?;
+    let master_id = inst
+        .get("recurringEventId")
+        .and_then(|x| x.as_str())
+        .ok_or_else(|| {
+            "scope=future applies only to instances of recurring events (missing recurringEventId)"
+                .to_string()
+        })?;
+    let orig = instance_original_start_rfc(&inst).ok_or_else(|| {
+        "instance missing parseable originalStartTime/start (dateTime or date)".to_string()
+    })?;
+    let until = until_compact_truncating_before_original_start(&orig)?;
+    let master = get_google_calendar_event(
+        home,
+        token_mailbox_id,
+        calendar_id,
+        master_id,
+        env_file,
+        process_env,
+    )?;
+    let rec_arr = master
+        .get("recurrence")
+        .and_then(|r| r.as_array())
+        .ok_or("master missing recurrence rules")?;
+    let lines: Vec<String> = rec_arr
+        .iter()
+        .filter_map(|x| x.as_str().map(String::from))
+        .collect();
+    let patched = recurrence_until_before_occurrence(&lines, &until)?;
+    let body = json!({ "recurrence": patched });
+    patch_google_calendar_event_json(
+        home,
+        token_mailbox_id,
+        calendar_id,
+        master_id,
+        &body,
+        false,
+        env_file,
+        process_env,
+    )
+}
+
+pub fn google_calendar_cancel_future(
+    home: &Path,
+    token_mailbox_id: &str,
+    calendar_id: &str,
+    instance_event_id: &str,
+    env_file: &HashMap<String, String>,
+    process_env: &HashMap<String, String>,
+) -> Result<Value, String> {
+    truncate_recurring_master_before_instance(
+        home,
+        token_mailbox_id,
+        calendar_id,
+        instance_event_id,
+        env_file,
+        process_env,
+    )
 }
 
 /// Build the JSON request body (exposed for unit tests).
@@ -292,8 +782,12 @@ pub fn build_google_calendar_event_insert_body(
         if s.trim().is_empty() || e.trim().is_empty() {
             return Err("start and end must be non-empty for timed events".into());
         }
-        v["start"] = json!({ "dateTime": s });
-        v["end"] = json!({ "dateTime": e });
+        v["start"] = json!({ "dateTime": s.trim() });
+        v["end"] = json!({ "dateTime": e.trim() });
+    }
+    if let Some(rec) = &args.recurrence {
+        let arr = build_recurrence_json_array(rec)?;
+        v["recurrence"] = serde_json::to_value(arr).map_err(|e| e.to_string())?;
     }
     Ok(v)
 }
@@ -345,6 +839,7 @@ mod insert_tests {
             all_day_date: Some("2026-04-23"),
             start_rfc3339: None,
             end_rfc3339: None,
+            recurrence: None,
         };
         let v = build_google_calendar_event_insert_body(&a).unwrap();
         assert_eq!(v["start"]["date"], "2026-04-23");
@@ -361,9 +856,92 @@ mod insert_tests {
             all_day_date: None,
             start_rfc3339: Some("2026-04-23T15:00:00-04:00"),
             end_rfc3339: Some("2026-04-23T16:00:00-04:00"),
+            recurrence: None,
         };
         let v = build_google_calendar_event_insert_body(&a).unwrap();
         assert_eq!(v["start"]["dateTime"], "2026-04-23T15:00:00-04:00");
         assert_eq!(v["end"]["dateTime"], "2026-04-23T16:00:00-04:00");
+    }
+
+    #[test]
+    fn insert_with_weekly_recurrence() {
+        use super::{
+            build_google_calendar_event_insert_body, InsertGoogleEventArgs, RecurrenceArgs,
+        };
+        let rec = RecurrenceArgs {
+            preset: Some("weekly"),
+            rrule: None,
+            count: Some(10),
+            until: None,
+        };
+        let a = InsertGoogleEventArgs {
+            title: "Standup",
+            description: None,
+            location: None,
+            all_day: false,
+            all_day_date: None,
+            start_rfc3339: Some("2026-04-23T15:00:00Z"),
+            end_rfc3339: Some("2026-04-23T15:30:00Z"),
+            recurrence: Some(rec),
+        };
+        let v = build_google_calendar_event_insert_body(&a).unwrap();
+        let arr = v["recurrence"].as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert!(arr[0].as_str().unwrap().contains("FREQ=WEEKLY"));
+        assert!(arr[0].as_str().unwrap().contains("COUNT=10"));
+    }
+
+    #[test]
+    fn build_rrule_preset_and_raw_exclusive() {
+        use super::{build_recurrence_json_array, RecurrenceArgs};
+        let r = RecurrenceArgs {
+            preset: Some("daily"),
+            rrule: Some("FREQ=WEEKLY"),
+            count: None,
+            until: None,
+        };
+        assert!(build_recurrence_json_array(&r).is_err());
+    }
+
+    #[test]
+    fn build_rrule_with_until() {
+        use super::{build_recurrence_json_array, RecurrenceArgs};
+        let r = RecurrenceArgs {
+            preset: Some("weekly"),
+            rrule: None,
+            count: None,
+            until: Some("2026-12-31"),
+        };
+        let a = build_recurrence_json_array(&r).unwrap();
+        assert!(a[0].contains("UNTIL=20261231T235959Z"));
+    }
+
+    #[test]
+    fn patch_body_title_only() {
+        use super::build_google_calendar_event_patch_body;
+        let v = build_google_calendar_event_patch_body(
+            Some("Renamed"),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(v["summary"], "Renamed");
+        assert!(!v.as_object().unwrap().contains_key("start"));
+    }
+
+    #[test]
+    fn infer_master_strips_google_instance_suffix() {
+        use super::infer_google_recurring_master_event_id;
+        assert_eq!(
+            infer_google_recurring_master_event_id("abcd_20260315T140000Z"),
+            "abcd"
+        );
+        assert_eq!(infer_google_recurring_master_event_id("solo_id"), "solo_id");
     }
 }

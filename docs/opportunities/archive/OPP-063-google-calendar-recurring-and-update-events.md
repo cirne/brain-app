@@ -1,9 +1,10 @@
 # OPP-063: Google Calendar — recurring series and updating events
 
-**Status:** Open  
-**Tags:** `calendar` · `agent` · `google`  
+**Status:** Archived (2026-04-30) — **Superseded by** [OPP-070](../OPP-070-full-calendar-read-write-agent-surface.md) (single umbrella for **recurring create**, **update_event**, **cancel_event**, **delete_event**, and related ripmail primitives).
 
-**Related:** [OPP-019](OPP-019-gmail-first-class-brain.md) (Gmail + Google Calendar integration); [`calendar` tool](../../src/server/agent/tools/calendarTools.ts) (`op=create_event` today); [BUG-027](../bugs/BUG-027-calendar-create-event-empty-list-rejects-source.md) (empty calendar list / source — separate failure mode).
+**Tags:** `calendar` · `agent` · `google`
+
+**Related:** [OPP-019](../OPP-019-gmail-first-class-brain.md); [`calendar` tool](../../../src/server/agent/tools/calendarTools.ts); [BUG-027](../../bugs/BUG-027-calendar-create-event-empty-list-rejects-source.md); [OPP-070](../OPP-070-full-calendar-read-write-agent-surface.md) (tracking).
 
 ---
 

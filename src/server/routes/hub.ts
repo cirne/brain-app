@@ -1,9 +1,11 @@
 import { Hono } from 'hono'
 import {
   browseHubRipmailFolders,
+  getHubRipmailCalendarsForSource,
   getHubRipmailSourceDetail,
   getHubRipmailSourcesList,
   removeHubRipmailSource,
+  updateHubRipmailCalendarIds,
   updateHubRipmailFileSource,
   type HubFileSourceConfig,
 } from '@server/lib/hub/hubRipmailSources.js'
@@ -49,6 +51,41 @@ hub.get('/sources/browse-folders', async (c) => {
     return c.json(payload, 400)
   }
   return c.json({ ok: true as const, folders: payload.folders })
+})
+
+hub.get('/sources/calendars', async (c) => {
+  const id = c.req.query('id')?.trim() ?? ''
+  if (!id) {
+    return c.json({ ok: false as const, error: 'id required' }, 400)
+  }
+  const r = await getHubRipmailCalendarsForSource(id)
+  if (!r.ok) {
+    return c.json({ ok: false as const, error: r.error }, 400)
+  }
+  return c.json({ ok: true as const, allCalendars: r.allCalendars, configuredIds: r.configuredIds })
+})
+
+hub.post('/sources/update-calendar-ids', async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { id?: unknown; calendarIds?: unknown }
+  const id = typeof body.id === 'string' ? body.id.trim() : ''
+  if (!id) {
+    return c.json({ ok: false as const, error: 'id required' }, 400)
+  }
+  if (!Array.isArray(body.calendarIds) || body.calendarIds.length === 0) {
+    return c.json({ ok: false as const, error: 'calendarIds (non-empty array) required' }, 400)
+  }
+  const calendarIds = (body.calendarIds as unknown[]).filter(
+    (x): x is string => typeof x === 'string' && x.trim().length > 0,
+  )
+  if (!calendarIds.length) {
+    return c.json({ ok: false as const, error: 'no valid calendar IDs provided' }, 400)
+  }
+  const r = await updateHubRipmailCalendarIds(id, calendarIds)
+  if (!r.ok) {
+    return c.json({ ok: false as const, error: r.error }, 400)
+  }
+  void spawnRipmailRefreshSource(id).catch(() => {})
+  return c.json({ ok: true as const })
 })
 
 hub.post('/sources/update-file-source', async (c) => {

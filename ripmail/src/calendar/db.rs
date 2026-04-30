@@ -149,7 +149,7 @@ pub fn upsert_source_registry(
     let inc = if include_in_default { 1 } else { 0 };
     conn.execute(
         "INSERT INTO sources (id, kind, label, include_in_default, last_synced_at, doc_count)
-         VALUES (?1, ?2, NULL, ?3, datetime('now'), ?4)
+         VALUES (?1, ?2, NULL, ?3, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), ?4)
          ON CONFLICT(id) DO UPDATE SET
            kind = excluded.kind,
            include_in_default = excluded.include_in_default,

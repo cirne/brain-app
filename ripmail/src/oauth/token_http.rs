@@ -63,7 +63,7 @@ pub fn refresh_access_token(
         ("client_secret", settings.client_secret.as_str()),
         (
             "scope",
-            "https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid email",
+            "https://mail.google.com/ https://www.googleapis.com/auth/calendar openid email",
         ),
     ];
     post_token(settings, &body)

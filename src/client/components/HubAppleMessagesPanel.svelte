@@ -3,6 +3,7 @@
   import { MessageSquare, ChevronDown, ChevronRight, Smartphone, CheckCircle2, AlertTriangle } from 'lucide-svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { FDA_GATE_OPEN_EVENT } from '@client/lib/onboarding/fdaGateKeys.js'
+  import { formatRelativeDate } from '@client/lib/hub/hubRipmailSource.js'
 
   type HubConnectedDevice = {
     id: string
@@ -35,24 +36,6 @@
   let fdaGranted = $state<boolean | null>(null)
 
   const busy = $derived(action !== null)
-
-  function formatRelativeDate(iso: string): string {
-    const d = new Date(iso)
-    if (isNaN(d.getTime())) return iso
-    const now = new Date()
-    const diffMs = now.getTime() - d.getTime()
-    const diffSec = Math.floor(diffMs / 1000)
-    const diffMin = Math.floor(diffSec / 60)
-    const diffHour = Math.floor(diffMin / 60)
-    const diffDay = Math.floor(diffHour / 24)
-
-    if (diffSec < 60) return 'just now'
-    if (diffMin < 60) return `${diffMin}m ago`
-    if (diffHour < 24) return `${diffHour}h ago`
-    if (diffDay === 1) return 'yesterday'
-    if (diffDay < 7) return `${diffDay}d ago`
-    return d.toLocaleDateString()
-  }
 
   function activityLine(lastUsedAt: string | null, createdAt: string): string {
     if (lastUsedAt) return `Last sync ${formatRelativeDate(lastUsedAt)}`

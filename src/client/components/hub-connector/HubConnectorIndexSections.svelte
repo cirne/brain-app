@@ -1,8 +1,9 @@
 <script lang="ts">
   import { RefreshCw } from 'lucide-svelte'
   import FileSourceConfigEditor from '../FileSourceConfigEditor.svelte'
+  import HubConnectorCalendarSection from './HubConnectorCalendarSection.svelte'
   import {
-    formatDay,
+    formatRelativeDate,
     type HubSourceDetailOk,
   } from '@client/lib/hub/hubRipmailSource.js'
 
@@ -25,78 +26,78 @@
     onRefresh,
     onReloadDetail,
   }: Props = $props()
+
+  const isGoogleCalendar = $derived(sourceDetail?.kind === 'googleCalendar')
 </script>
 
-<section class="hub-source-status-section" aria-labelledby="hub-index-detail-heading">
-  <h2 id="hub-index-detail-heading" class="hub-source-status-heading">Index &amp; sync</h2>
-  <p class="hub-source-status-note">
-    From <code class="hub-source-code">ripmail sources status</code> and your source config.
-  </p>
-  {#if sourceDetailError}
+{#if sourceDetailError}
+  <section class="hub-source-status-section">
     <p class="hub-source-status-err" role="alert">{sourceDetailError}</p>
-  {:else if sourceDetail}
-    {@const st = sourceDetail.status}
-    <dl class="hub-source-meta hub-source-meta--dense">
-      <div class="hub-source-meta-row">
-        <dt>Documents indexed</dt>
-        <dd>{st != null ? st.documentIndexRows.toLocaleString() : '—'}</dd>
-      </div>
-      <div class="hub-source-meta-row">
-        <dt>Calendar events</dt>
-        <dd>{st != null ? st.calendarEventRows.toLocaleString() : '—'}</dd>
-      </div>
-      <div class="hub-source-meta-row">
-        <dt>Last synced</dt>
-        <dd>{st != null ? formatDay(st.lastSyncedAt) : '—'}</dd>
-      </div>
-      <div class="hub-source-meta-row">
-        <dt>Index note</dt>
-        <dd>
-          {#if sourceDetail.statusError}
-            {sourceDetail.statusError}
-          {:else}
-            —
-          {/if}
-        </dd>
-      </div>
-    </dl>
-    {#if sourceDetail.oauthSourceId}
-      <dl class="hub-source-meta hub-source-meta--dense">
-        <div class="hub-source-meta-row">
-          <dt>OAuth token source</dt>
-          <dd class="hub-source-id">{sourceDetail.oauthSourceId}</dd>
-        </div>
-      </dl>
-    {/if}
-    {#if sourceDetail.kind === 'localDir' || sourceDetail.kind === 'googleDrive'}
-      <FileSourceConfigEditor
-        sourceId={sourceDetail.id}
-        sourceKind={sourceDetail.kind === 'googleDrive' ? 'googleDrive' : 'localDir'}
-        fileSource={sourceDetail.fileSource}
-        onSaved={onReloadDetail}
-      />
-    {/if}
-    {#if sourceDetail.kind === 'googleDrive'}
+  </section>
+{:else if sourceDetail}
+  {#if isGoogleCalendar}
+    <HubConnectorCalendarSection
+      sourceId={sourceDetail.id}
+      configuredIds={sourceDetail.calendarIds}
+      onSaved={onReloadDetail}
+    />
+  {/if}
+
+  {#if sourceDetail.kind === 'localDir' || sourceDetail.kind === 'googleDrive'}
+    <FileSourceConfigEditor
+      sourceId={sourceDetail.id}
+      sourceKind={sourceDetail.kind === 'googleDrive' ? 'googleDrive' : 'localDir'}
+      fileSource={sourceDetail.fileSource}
+      onSaved={onReloadDetail}
+    />
+  {/if}
+
+  {#if sourceDetail.kind === 'googleDrive'}
+    <section class="hub-source-status-section" aria-labelledby="hub-drive-prefs-heading">
+      <h2 id="hub-drive-prefs-heading" class="hub-source-status-heading">Preferences</h2>
       <dl class="hub-source-meta hub-source-meta--dense">
         <div class="hub-source-meta-row">
           <dt>Shared with me</dt>
           <dd>{sourceDetail.includeSharedWithMe ? 'Included' : 'Not included'}</dd>
         </div>
       </dl>
-    {/if}
-    {#if sourceDetail.calendarIds != null && sourceDetail.calendarIds.length > 0}
-      <dl class="hub-source-meta hub-source-meta--dense">
-        <div class="hub-source-meta-row">
-          <dt>Calendar IDs</dt>
-          <dd class="hub-source-path">{sourceDetail.calendarIds.join(', ')}</dd>
-        </div>
-      </dl>
-    {/if}
-    {#if sourceDetail.icsUrl}
+    </section>
+  {/if}
+
+  {#if sourceDetail.icsUrl}
+    <section class="hub-source-status-section" aria-labelledby="hub-ics-heading">
+      <h2 id="hub-ics-heading" class="hub-source-status-heading">Calendar feed</h2>
       <dl class="hub-source-meta hub-source-meta--dense">
         <div class="hub-source-meta-row">
           <dt>ICS URL</dt>
           <dd class="hub-source-path">{sourceDetail.icsUrl}</dd>
+        </div>
+      </dl>
+    </section>
+  {/if}
+
+  <section class="hub-source-status-section" aria-labelledby="hub-sync-heading">
+    <h2 id="hub-sync-heading" class="hub-source-status-heading">Index &amp; sync</h2>
+    {#if sourceDetail.statusError}
+      <p class="hub-source-status-err" role="alert">{sourceDetail.statusError}</p>
+    {/if}
+    {#if sourceDetail.status}
+      {@const st = sourceDetail.status}
+      <dl class="hub-source-meta hub-source-meta--dense">
+        {#if isGoogleCalendar}
+          <div class="hub-source-meta-row">
+            <dt>Events indexed</dt>
+            <dd>{st.calendarEventRows.toLocaleString()}</dd>
+          </div>
+        {:else}
+          <div class="hub-source-meta-row">
+            <dt>Documents indexed</dt>
+            <dd>{st.documentIndexRows.toLocaleString()}</dd>
+          </div>
+        {/if}
+        <div class="hub-source-meta-row">
+          <dt>Last synced</dt>
+          <dd>{formatRelativeDate(st.lastSyncedAt)}</dd>
         </div>
       </dl>
     {/if}
@@ -116,5 +117,5 @@
             : 'Refresh index'}
       </button>
     </div>
-  {/if}
-</section>
+  </section>
+{/if}

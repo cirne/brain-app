@@ -68,6 +68,31 @@ export function formatDay(iso: string | null): string {
   return t.length >= 10 ? t.slice(0, 10) : t
 }
 
+/**
+ * Convert an ISO timestamp (or YYYY-MM-DD date string) to a human-friendly relative string.
+ * e.g. "just now", "3h ago", "yesterday", "Apr 28"
+ */
+export function formatRelativeDate(iso: string | null): string {
+  if (!iso?.trim()) return '—'
+  const s = iso.trim()
+  // Normalize SQLite datetime('now') output "YYYY-MM-DD HH:MM:SS" → ISO 8601
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s) ? s.replace(' ', 'T') + 'Z' : s
+  const d = new Date(normalized)
+  if (isNaN(d.getTime())) return iso.trim().slice(0, 10) || '—'
+  const now = Date.now()
+  const diffMs = now - d.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHour = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHour / 24)
+  if (diffSec < 60) return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffHour < 24) return `${diffHour}h ago`
+  if (diffDay === 1) return 'yesterday'
+  if (diffDay < 7) return `${diffDay}d ago`
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
 export function isMailSourceKind(kind: string): boolean {
   return kind === 'imap' || kind === 'applemail'
 }

@@ -17,4 +17,4 @@ When you finish triaging a feedback item, **append a row** (or edit this table) 
 | 11 | 2026-04-26T16:58:39.622Z | [BUG-027](../bugs/BUG-027-calendar-create-event-empty-list-rejects-source.md) | 2026-04-28 |
 | 12 | 2026-04-27T14:21:21.258Z | [OPP-057](../opportunities/OPP-057-chat-viewport-resize-or-expand.md) | 2026-04-28 |
 | 13 | 2026-04-27T18:42:19.159Z | [BUG-028](../bugs/BUG-028-agent-email-draft-wrong-recipient-and-signature.md) | 2026-04-28 |
-| 14 | 2026-04-29T17:52:59.719Z | [OPP-063](../opportunities/OPP-063-google-calendar-recurring-and-update-events.md) | 2026-04-29 |
+| 14 | 2026-04-29T17:52:59.719Z | [OPP-070](../opportunities/OPP-070-full-calendar-read-write-agent-surface.md) — **shipped** (was [archived OPP-063](../opportunities/archive/OPP-063-google-calendar-recurring-and-update-events.md)) | 2026-04-30 |

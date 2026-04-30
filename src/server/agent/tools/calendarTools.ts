@@ -59,18 +59,73 @@ function capAgentCalendarRows(
   }
 }
 
+/**
+ * Parse compound event id from op=events (`sourceId:uid`). The `uid` is the stored Google event
+ * resource id in the ripmail index (same value passed to `ripmail calendar update-event --event-id`).
+ */
+export function parseCalendarEventRef(compoundId: string): { sourceId: string; eventUid: string } {
+  const t = compoundId.trim()
+  const idx = t.indexOf(':')
+  if (idx < 1 || idx === t.length - 1) {
+    throw new Error(
+      `event_id must be the compound id from op=events (format "sourceId:uid"), got: ${JSON.stringify(t)}`,
+    )
+  }
+  return { sourceId: t.slice(0, idx).trim(), eventUid: t.slice(idx + 1).trim() }
+}
+
+const RECURRENCE_PRESETS = new Set([
+  'daily',
+  'weekdays',
+  'weekly',
+  'biweekly',
+  'monthly',
+  'yearly',
+])
+
+/** Build ripmail CLI recurrence flags for create-event / update-event. */
+export function ripmailRecurrenceCliFlags(params: {
+  recurrence?: string
+  recurrence_count?: number
+  recurrence_until?: string
+}): string {
+  const raw = params.recurrence?.trim()
+  const until = params.recurrence_until?.trim()
+  const count = params.recurrence_count
+  if (!raw && count == null && !until) return ''
+  if (!raw && (count != null || until)) {
+    throw new Error('recurrence_count / recurrence_until require recurrence (preset name or RRULE string)')
+  }
+  if (!raw) return ''
+  const isRruleLine = /^rrule:/i.test(raw) || /^freq=/i.test(raw)
+  const lower = raw.toLowerCase()
+  if (!isRruleLine && RECURRENCE_PRESETS.has(lower)) {
+    let f = ` --recurrence-preset ${JSON.stringify(lower)}`
+    if (count != null) f += ` --recurrence-count ${count}`
+    if (until) f += ` --recurrence-until ${JSON.stringify(until)}`
+    return f
+  }
+  let f = ` --rrule ${JSON.stringify(raw)}`
+  if (count != null) f += ` --recurrence-count ${count}`
+  if (until) f += ` --recurrence-until ${JSON.stringify(until)}`
+  return f
+}
+
 export function createCalendarTool(agentTimeZone: string) {
   const calendar = defineTool({
     name: 'calendar',
     label: 'Calendar',
     description:
-      'All calendar operations. op=events: query events for `start`/`end` (YYYY-MM-DD). **Adaptive tiers only** (no way to force full calendar dumps): >30 days = landmarks (all-day + timed ≥4h, recurring omitted); 10–30 days = overview (recurring omitted, trimmed timed fields); <10 days = full row detail for that window. **`calendar_ids`** limits to specific calendars; tier is still derived from the date span — narrow `start`/`end` or use **`search`** for more detail. **`search`**: FTS in range — returns up to **40 compact hints** (id, title, dates, weekdays) plus **`totalMatchCount`**; if your event is missing, narrow `start`/`end` or refine the keyword. Range responses are capped (~250 events). op=list_calendars / op=configure_source / op=create_event unchanged. Requires calendar.events for create_event; reindex after changes. For external scheduling help, forward to howie@howie.ai.',
+      'All calendar operations. op=events: query events for `start`/`end` (YYYY-MM-DD). **Adaptive tiers only** (no way to force full calendar dumps): >30 days = landmarks (all-day + timed ≥4h, recurring omitted); 10–30 days = overview (recurring omitted, trimmed timed fields); <10 days = full row detail for that window. **`calendar_ids`** limits to specific calendars; tier is still derived from the date span — narrow `start`/`end` or use **`search`** for more detail. **`search`**: FTS in range — returns up to **40 compact hints** (id, title, dates, weekdays) plus **`totalMatchCount`**; if your event is missing, narrow `start`/`end` or refine the keyword. Range responses are capped (~250 events). **Writes (Google Calendar only):** `create_event` (optional recurrence preset or RRULE), `update_event`, `cancel_event`, `delete_event` — pass **`event_id`** as the compound **`id`** from `op=events` / search (`sourceId:uid`). **`scope`**: cancel supports `this`|`future`|`all`; delete supports `this`|`all` only. Non-Google sources return an error from ripmail. Re-index after mutations. Requires `calendar.events` OAuth scope. For external scheduling help, forward to howie@howie.ai.',
     parameters: Type.Object({
       op: Type.Union([
         Type.Literal('events'),
         Type.Literal('list_calendars'),
         Type.Literal('configure_source'),
         Type.Literal('create_event'),
+        Type.Literal('update_event'),
+        Type.Literal('cancel_event'),
+        Type.Literal('delete_event'),
       ]),
       start: Type.Optional(Type.String({ description: 'events: start date YYYY-MM-DD (inclusive)' })),
       end: Type.Optional(Type.String({ description: 'events: end date YYYY-MM-DD (inclusive)' })),
@@ -81,7 +136,10 @@ export function createCalendarTool(agentTimeZone: string) {
         }),
       ),
       source: Type.Optional(
-        Type.String({ description: 'list_calendars / configure_source / create_event: source id' }),
+        Type.String({
+          description:
+            'list_calendars / configure_source / create_event only (optional for reads): source id — not needed for update/cancel/delete when event_id is compound.',
+        }),
       ),
       calendar_ids: Type.Optional(
         Type.Array(Type.String(), { description: 'events / configure_source: IDs to sync or filter by' }),
@@ -89,27 +147,80 @@ export function createCalendarTool(agentTimeZone: string) {
       default_calendar_ids: Type.Optional(
         Type.Array(Type.String(), { description: 'configure_source: IDs to show by default' }),
       ),
-      title: Type.Optional(Type.String({ description: 'create_event: event title' })),
+      title: Type.Optional(Type.String({ description: 'create_event: required title; update_event: optional new title' })),
       calendar_id: Type.Optional(
-        Type.String({ description: 'create_event: Google calendar id (default: primary)' }),
+        Type.String({
+          description:
+            'create_event / update_event / cancel_event / delete_event: Google calendar id (default: primary)',
+        }),
       ),
-      all_day: Type.Optional(Type.Boolean({ description: 'create_event: all-day on `all_day_date` (use timed mode when false or omitted)' })),
+      all_day: Type.Optional(
+        Type.Boolean({
+          description:
+            'create_event / update_event: all-day on `all_day_date` (use timed mode when false or omitted)',
+        }),
+      ),
       all_day_date: Type.Optional(
-        Type.String({ description: 'create_event: for all-day, local date YYYY-MM-DD' }),
+        Type.String({
+          description:
+            'create_event / update_event: for all-day, local date YYYY-MM-DD',
+        }),
       ),
       event_start: Type.Optional(
-        Type.String({ description: 'create_event: timed start (RFC3339, e.g. 2026-04-23T15:00:00-04:00)' }),
+        Type.String({
+          description:
+            'create_event / update_event: timed start (RFC3339). For update, pair with event_end.',
+        }),
       ),
       event_end: Type.Optional(
-        Type.String({ description: 'create_event: timed end (RFC3339)' }),
+        Type.String({
+          description: 'create_event / update_event: timed end (RFC3339)',
+        }),
       ),
-      description: Type.Optional(Type.String({ description: 'create_event: optional body text' })),
-      location: Type.Optional(Type.String({ description: 'create_event: optional location' })),
+      description: Type.Optional(Type.String({ description: 'create_event / update_event: optional body text' })),
+      location: Type.Optional(
+        Type.String({ description: 'create_event / update_event: optional location' }),
+      ),
+      event_id: Type.Optional(
+        Type.String({
+          description:
+            'update_event / cancel_event / delete_event: compound id from op=events (format sourceId:uid).',
+        }),
+      ),
+      scope: Type.Optional(
+        Type.Union([Type.Literal('this'), Type.Literal('future'), Type.Literal('all')], {
+          description:
+            'cancel_event: this | future | all (recurring semantics). delete_event: this | all only — do not use future.',
+        }),
+      ),
+      recurrence: Type.Optional(
+        Type.String({
+          description:
+            'create_event / update_event: preset (daily|weekdays|weekly|biweekly|monthly|yearly) or raw RRULE (e.g. RRULE:FREQ=WEEKLY;BYDAY=MO,WE). Mutually exclusive presets vs RRULE line.',
+        }),
+      ),
+      recurrence_count: Type.Optional(
+        Type.Number({
+          description: 'create_event / update_event: stop after N occurrences (with recurrence)',
+        }),
+      ),
+      recurrence_until: Type.Optional(
+        Type.String({
+          description: 'create_event / update_event: recurrence ends on this YYYY-MM-DD (with recurrence)',
+        }),
+      ),
     }),
     async execute(
       _toolCallId: string,
       params: {
-        op: 'events' | 'list_calendars' | 'configure_source' | 'create_event'
+        op:
+          | 'events'
+          | 'list_calendars'
+          | 'configure_source'
+          | 'create_event'
+          | 'update_event'
+          | 'cancel_event'
+          | 'delete_event'
         start?: string
         end?: string
         search?: string
@@ -124,6 +235,11 @@ export function createCalendarTool(agentTimeZone: string) {
         event_end?: string
         description?: string
         location?: string
+        event_id?: string
+        scope?: 'this' | 'future' | 'all'
+        recurrence?: string
+        recurrence_count?: number
+        recurrence_until?: string
       },
     ) {
       if (params.op === 'events') {
@@ -317,6 +433,11 @@ export function createCalendarTool(agentTimeZone: string) {
         if (params.location?.trim()) {
           cmd += ` --location ${JSON.stringify(params.location.trim())}`
         }
+        cmd += ripmailRecurrenceCliFlags({
+          recurrence: params.recurrence,
+          recurrence_count: params.recurrence_count,
+          recurrence_until: params.recurrence_until,
+        })
         const { stdout } = await execRipmailAsync(cmd, { timeout: 60_000 })
         runCalendarRefreshAgent(source)
         let details: Record<string, unknown> = { ok: true, created: true }
@@ -327,6 +448,133 @@ export function createCalendarTool(agentTimeZone: string) {
           details.raw = stdout
         }
         const text = stdout?.trim() || 'Event created. Calendar re-index started in the background.'
+        return {
+          content: [{ type: 'text' as const, text }],
+          details,
+        }
+      }
+
+      if (params.op === 'update_event') {
+        const eid = params.event_id?.trim()
+        if (!eid) throw new Error('event_id is required for op=update_event')
+        const { sourceId, eventUid } = parseCalendarEventRef(eid)
+        const rm = ripmailBin()
+        const calId = params.calendar_id?.trim() || 'primary'
+        let cmd = `${rm} calendar update-event --source ${JSON.stringify(sourceId)} --calendar ${JSON.stringify(
+          calId,
+        )} --event-id ${JSON.stringify(eventUid)} --json`
+        let hasField = false
+        if (params.title?.trim()) {
+          cmd += ` --title ${JSON.stringify(params.title.trim())}`
+          hasField = true
+        }
+        if (params.description !== undefined) {
+          cmd += ` --description ${JSON.stringify(params.description)}`
+          hasField = true
+        }
+        if (params.location !== undefined) {
+          cmd += ` --location ${JSON.stringify(params.location)}`
+          hasField = true
+        }
+        if (params.all_day === true) {
+          const d = params.all_day_date?.trim()
+          if (!d) {
+            throw new Error('all_day_date (YYYY-MM-DD) is required when all_day is true for update_event')
+          }
+          cmd += ` --all-day --date ${JSON.stringify(d)}`
+          hasField = true
+        } else if (params.event_start?.trim() || params.event_end?.trim()) {
+          const s = params.event_start?.trim()
+          const e = params.event_end?.trim()
+          if (!s || !e) {
+            throw new Error('update_event: provide both event_start and event_end (RFC3339) for timed updates')
+          }
+          cmd += ` --start ${JSON.stringify(s)} --end ${JSON.stringify(e)}`
+          hasField = true
+        }
+        const recFlags = ripmailRecurrenceCliFlags({
+          recurrence: params.recurrence,
+          recurrence_count: params.recurrence_count,
+          recurrence_until: params.recurrence_until,
+        })
+        if (recFlags) {
+          cmd += recFlags
+          hasField = true
+        }
+        if (!hasField) {
+          throw new Error(
+            'update_event needs at least one of: title, description, location, timed start/end, all_day+all_day_date, or recurrence fields',
+          )
+        }
+        const { stdout } = await execRipmailAsync(cmd, { timeout: 60_000 })
+        runCalendarRefreshAgent(sourceId)
+        let details: Record<string, unknown> = { ok: true, updated: true }
+        try {
+          const parsed = JSON.parse(stdout) as Record<string, unknown>
+          details = { ...details, ...parsed }
+        } catch {
+          details.raw = stdout
+        }
+        const text = stdout?.trim() || 'Event updated. Calendar re-index started in the background.'
+        return {
+          content: [{ type: 'text' as const, text }],
+          details,
+        }
+      }
+
+      if (params.op === 'cancel_event') {
+        const eid = params.event_id?.trim()
+        if (!eid) throw new Error('event_id is required for op=cancel_event')
+        const { sourceId, eventUid } = parseCalendarEventRef(eid)
+        const rm = ripmailBin()
+        const calId = params.calendar_id?.trim() || 'primary'
+        let cmd = `${rm} calendar cancel-event --source ${JSON.stringify(sourceId)} --calendar ${JSON.stringify(
+          calId,
+        )} --event-id ${JSON.stringify(eventUid)}`
+        const sc = params.scope?.trim()
+        if (sc) cmd += ` --scope ${JSON.stringify(sc)}`
+        cmd += ' --json'
+        const { stdout } = await execRipmailAsync(cmd, { timeout: 60_000 })
+        runCalendarRefreshAgent(sourceId)
+        let details: Record<string, unknown> = { ok: true, cancelled: true }
+        try {
+          const parsed = JSON.parse(stdout) as Record<string, unknown>
+          details = { ...details, ...parsed }
+        } catch {
+          details.raw = stdout
+        }
+        const text = stdout?.trim() || 'Event cancelled. Calendar re-index started in the background.'
+        return {
+          content: [{ type: 'text' as const, text }],
+          details,
+        }
+      }
+
+      if (params.op === 'delete_event') {
+        const eid = params.event_id?.trim()
+        if (!eid) throw new Error('event_id is required for op=delete_event')
+        if (params.scope === 'future') {
+          throw new Error('delete_event does not support scope=future (use cancel_event with scope=future)')
+        }
+        const { sourceId, eventUid } = parseCalendarEventRef(eid)
+        const rm = ripmailBin()
+        const calId = params.calendar_id?.trim() || 'primary'
+        let cmd = `${rm} calendar delete-event --source ${JSON.stringify(sourceId)} --calendar ${JSON.stringify(
+          calId,
+        )} --event-id ${JSON.stringify(eventUid)}`
+        const sc = params.scope?.trim()
+        if (sc) cmd += ` --scope ${JSON.stringify(sc)}`
+        cmd += ' --json'
+        const { stdout } = await execRipmailAsync(cmd, { timeout: 60_000 })
+        runCalendarRefreshAgent(sourceId)
+        let details: Record<string, unknown> = { ok: true, deleted: true }
+        try {
+          const parsed = JSON.parse(stdout) as Record<string, unknown>
+          details = { ...details, ...parsed }
+        } catch {
+          details.raw = stdout
+        }
+        const text = stdout?.trim() || 'Event deleted. Calendar re-index started in the background.'
         return {
           content: [{ type: 'text' as const, text }],
           details,

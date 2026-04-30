@@ -1,15 +1,21 @@
 ---
 name: calendar
-description: Manage calendars, schedule meetings, and control visibility. Use when the user asks to see their schedule, hide/show specific calendars, or schedule new events.
+description: Manage calendars, schedule meetings, recurring events, edits, cancellations, and visibility. Use when the user asks to see their schedule, change events on Google Calendar, hide/show calendars, or update/delete occurrences.
 ---
 
 # Calendar Management Skill
 
 This skill provides guidance for managing calendars and scheduling using the `calendar` tool.
 
+**Writes** (`create_event`, `update_event`, `cancel_event`, `delete_event`) target **Google Calendar** only (`googleCalendar` source + `calendar.events`). Other calendar kinds (Apple, ICS subscriptions, etc.) are **read-only** through this stack.
+
 ## Core Tool: `calendar`
 
 The `calendar` tool is the primary interface for all calendar-related actions.
+
+### Event identity (mutations)
+
+For write ops, pass **`event_id`** as the compound **`id`** from **`op: 'events'`** or **`search`** hints: **`"<sourceId>:<uid>"`**. The **`uid`** segment is the indexed Google event resource id (used as `ripmail calendar … --event-id`).
 
 ### 1. Visibility Management (Hide/Show)
 
@@ -58,10 +64,43 @@ The tool appends a **`[resolution: …]`** hint when tier isn’t “full”, an
 - Optional `description` and `location`.
 - After a successful create, the local index is refreshed in the background; you can call `op: 'events'` to confirm the new event once indexing completes.
 
-### 4. Scheduling and Assistance
+**Recurrence (optional on create/update):**
+
+- **`recurrence`**: Either a preset — `daily`, `weekdays`, `weekly`, `biweekly`, `monthly`, `yearly` — or a **raw RRULE** line (e.g. `RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR`).
+- **`recurrence_count`**: Stop after **`N`** occurrences (optional).
+- **`recurrence_until`**: End recurrence after this **`YYYY-MM-DD`** inclusive (optional; complements RRULE COUNT/UNTIL in ripmail).
+- Do **not** pass both a preset name and an RRULE string in **`recurrence`** — pick one.
+
+### 4. Updating events (`update_event`)
+
+- **`event_id`** (required): compound id from **`events`** / **`search`**.
+- **`calendar_id`** (optional): defaults to `primary`.
+- Patch fields (at least one required): **`title`**, **`description`**, **`location`**, **`event_start`** + **`event_end`** (timed, RFC3339), **`all_day`** + **`all_day_date`**, or recurrence fields (**`recurrence`**, **`recurrence_count`**, **`recurrence_until`**).
+- For recurring masters vs instances: the stored **`uid`** is what Google identifies; narrowing to one instance typically uses an instance **`uid`** ending in **`_YYYYMMDDTHHmmssZ`**.
+
+### 5. Cancelling events (`cancel_event`)
+
+**Cancel** marks the event **cancelled** (organizer path; attendees are notified depending on provider). Use when the meeting should formally be called off.
+
+- **`event_id`**, **`calendar_id`**, **`scope`**:
+  - **`this`**: Cancel this occurrence (default).
+  - **`future`**: Cancel **this occurrence and future** occurrences in the series (truncates recurrence after the pivot instance).
+  - **`all`**: Cancel the entire series (`scope=all` resolves to the recurrence master).
+
+**Confirmation:** Quote **title**, **start time**, and **`scope`** (especially recurring) before running **`cancel_event`**.
+
+### 6. Deleting events (`delete_event`)
+
+**Delete** removes the event (**hard delete**). Use **only** when the user wants it gone—not the same UX as cancelling for attendee-facing meetings.
+
+- **`scope`**: **`this`** (default) or **`all`** (series master via id resolution). **`future` is invalid** — use **`cancel_event`** with **`future`** instead.
+
+**Confirmation:** Same as cancel — quote title + time + series vs single instance.
+
+### 7. Scheduling and Assistance
 
 - For complex scheduling assistance (e.g., finding times with others), the system can forward requests to `howie@howie.ai`.
-- When the user asks to "schedule a meeting," the agent should use the `calendar` tool to check for conflicts first, then add the event with `create_event` when asked, or use external scheduling integrations if configured.
+- When the user asks to "schedule a meeting," the agent should use the `calendar` tool to check for conflicts first, then add or change events via **`create_event`** / **`update_event`** when asked, or use external scheduling integrations if configured.
 
 ## Best Practices for the Agent
 
@@ -70,3 +109,4 @@ The tool appends a **`[resolution: …]`** hint when tier isn’t “full”, an
 - **Incremental Configuration**: When changing visibility, preserve the existing configuration unless explicitly asked to overwrite it.
 - **Timezones**: For `op: 'events'`, `start` and `end` are `YYYY-MM-DD`. For `create_event` timed mode, use RFC3339 in `event_start` / `event_end` and the user’s local timezone from context when translating "tomorrow at 3pm" into concrete instants.
 - **Token efficiency**: Prefer **`search`** for keyword-specific questions over loading an entire quarter and reading it in the transcript.
+- **Destructive confirmations**: Before **`cancel_event`** or **`delete_event`**, briefly restate **event title**, **start** (human-readable), and for recurring rows whether you are affecting **this instance**, **future**, or **the whole series** — e.g. "Cancel **Team standup** on Wed May 1 at 10:00 (**this occurrence only**, `scope=this`)?".

@@ -1,9 +1,10 @@
 # OPP-069: Calendar tool — token efficiency and adaptive resolution
 
-**Status:** Partially shipped  
-**Tags:** `calendar` · `agent` · `ripmail` · `onboarding`  
+**Status:** Archived (2026-04-30) — **Shipped:** adaptive tiers, **`search`** (FTS), **`rrule`** / **`recurrenceJson`** / **`recurring`** in agent JSON. **Remaining** Hub primary-calendar UI + onboarding-driven defaults: **[OPP-054](../OPP-054-guided-onboarding-agent.md)**.
 
-**Related:** [`calendar` tool](../../src/server/agent/tools/calendarTools.ts); [`calendarRipmail.ts`](../../src/server/lib/calendar/calendarRipmail.ts); [`calendarCache.ts`](../../src/server/lib/calendar/calendarCache.ts); [OPP-054](OPP-054-guided-onboarding-agent.md) (onboarding — configure calendars); [OPP-063](OPP-063-google-calendar-recurring-and-update-events.md) (create recurring / update in Google).
+**Tags:** `calendar` · `agent` · `ripmail` · `onboarding`
+
+**Related:** [`calendar` tool](../../../src/server/agent/tools/calendarTools.ts); [`calendarRipmail.ts`](../../../src/server/lib/calendar/calendarRipmail.ts); [`calendarCache.ts`](../../../src/server/lib/calendar/calendarCache.ts); [OPP-054](../OPP-054-guided-onboarding-agent.md); [OPP-070](../OPP-070-full-calendar-read-write-agent-surface.md) (calendar **writes** — update / cancel / delete + recurring **create**).
 
 ---
 
@@ -24,7 +25,7 @@ The `calendar` tool’s `op: 'events'` loads **all default calendars** for a dat
 Today `configure_source` distinguishes `calendar_ids` (synced) and `default_calendar_ids` (default query scope), but many installs never narrow defaults.
 
 1. **Hub:** explicit **primary calendars** — a small named subset of `default_calendar_ids` that the agent uses for undifferentiated schedule queries unless the user asks for “all calendars” or names a calendar.
-2. **Onboarding ([OPP-054](OPP-054-guided-onboarding-agent.md) — “configure calendars”):**
+2. **Onboarding ([OPP-054](../OPP-054-guided-onboarding-agent.md) — “configure calendars”):**
    - Call `op: 'list_calendars'`.
    - Sample a recent narrow window of events per calendar if needed.
    - Cross-reference names and organizer emails with `wiki/me.md` (user’s name, employer, collaborators) to separate **my calendars** from visibility-only.
@@ -34,7 +35,7 @@ Today `configure_source` distinguishes `calendar_ids` (synced) and `default_cale
 
 ## Part 2 — Adaptive resolution (shipped)
 
-**Implemented** in [`calendarTools.ts`](../../src/server/agent/tools/calendarTools.ts) + [`calendarCache.ts`](../../src/server/lib/calendar/calendarCache.ts):
+**Implemented** in [`calendarTools.ts`](../../../src/server/agent/tools/calendarTools.ts) + [`calendarCache.ts`](../../../src/server/lib/calendar/calendarCache.ts):
 
 - **Landmarks** (`>30` days): all-day + timed **≥4h**; recurring omitted; `[resolution: …]` hint + `details.resolutionMeta`.
 - **Overview** (`10–30` days): recurring omitted; timed rows omit `description`/`location` in agent JSON; hint + `resolutionMeta`.
@@ -56,4 +57,4 @@ Optional **payload-size** compaction for Full tier was described in early drafts
 - [ ] Hub UI for primary calendar set.
 - [ ] Onboarding flow integration (OPP-054).
 - [x] `calendar` tool: `resolution` + `search` + adaptive tier logic + `resolutionMeta` + hints.
-- [x] Skill [`.agents/skills/calendar/SKILL.md`](../../.agents/skills/calendar/SKILL.md): adaptive tiers + `search`.
+- [x] Skill [`.agents/skills/calendar/SKILL.md`](../../../.agents/skills/calendar/SKILL.md): adaptive tiers + `search`.

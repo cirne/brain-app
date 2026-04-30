@@ -248,7 +248,7 @@ pub fn run_local_dir_sync(
     )?;
     tx.execute(
         "INSERT INTO sources (id, kind, label, include_in_default, last_synced_at, doc_count)
-         VALUES (?1, 'localDir', NULL, ?2, datetime('now'), ?3)
+         VALUES (?1, 'localDir', NULL, ?2, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), ?3)
          ON CONFLICT(id) DO UPDATE SET
            kind = excluded.kind,
            include_in_default = excluded.include_in_default,

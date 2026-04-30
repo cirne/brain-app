@@ -323,7 +323,7 @@ fn write_change_token(
 ) -> rusqlite::Result<()> {
     tx.execute(
         "INSERT INTO google_drive_sync_state (source_id, change_page_token, last_synced_at)
-         VALUES (?1, ?2, datetime('now'))
+         VALUES (?1, ?2, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
          ON CONFLICT(source_id) DO UPDATE SET
            change_page_token = excluded.change_page_token,
            last_synced_at = excluded.last_synced_at",
@@ -831,7 +831,7 @@ pub fn run_google_drive_sync(
     let inc = if mb.include_in_default { 1 } else { 0 };
     conn.execute(
         "INSERT INTO sources (id, kind, label, include_in_default, last_synced_at, doc_count)
-         VALUES (?1, 'googleDrive', NULL, ?2, datetime('now'), ?3)
+         VALUES (?1, 'googleDrive', NULL, ?2, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), ?3)
          ON CONFLICT(id) DO UPDATE SET
            kind = excluded.kind,
            include_in_default = excluded.include_in_default,

@@ -156,6 +156,103 @@ describe('calendar tool', () => {
       expect.any(Object)
     )
   })
+
+  it('op=update_event forwards compound event_id and title to ripmail', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+    vi.mocked(execRipmailAsync).mockResolvedValue({
+      stdout: JSON.stringify({ ok: true, eventId: 'e1', htmlLink: 'https://x' }),
+      stderr: '',
+    })
+    await tool.execute('upd', {
+      op: 'update_event',
+      event_id: 'src-gcal:googleEv123',
+      title: 'Renamed',
+    })
+    expect(execRipmailAsync).toHaveBeenCalledWith(
+      expect.stringContaining('calendar update-event --source "src-gcal"'),
+      expect.any(Object),
+    )
+    const cmd0 = vi.mocked(execRipmailAsync).mock.calls[0][0] as string
+    expect(cmd0).toContain('--event-id "googleEv123"')
+    expect(cmd0).toContain('--title "Renamed"')
+    expect(runRipmailRefreshForBrain).toHaveBeenCalledWith(['--source', 'src-gcal'])
+  })
+
+  it('op=update_event throws without event_id', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+    await expect(
+      tool.execute('bad', {
+        op: 'update_event',
+        title: 'x',
+      } as never),
+    ).rejects.toThrow(/event_id is required/)
+  })
+
+  it('op=cancel_event passes scope=all', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok":true}', stderr: '' })
+    await tool.execute('can', {
+      op: 'cancel_event',
+      event_id: 's:evt',
+      scope: 'all',
+    })
+    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).toContain('cancel-event')
+    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).toContain('--scope "all"')
+  })
+
+  it('op=delete_event rejects scope=future', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+    await expect(
+      tool.execute('del', {
+        op: 'delete_event',
+        event_id: 's:evt',
+        scope: 'future',
+      } as never),
+    ).rejects.toThrow(/does not support scope=future/)
+  })
+
+  it('op=create_event adds recurrence preset flags', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{}', stderr: '' })
+    await tool.execute('cre', {
+      op: 'create_event',
+      source: 'g',
+      title: 'Weekly',
+      event_start: '2026-04-01T15:00:00Z',
+      event_end: '2026-04-01T16:00:00Z',
+      recurrence: 'weekly',
+      recurrence_until: '2026-06-01',
+    })
+    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).toContain('--recurrence-preset "weekly"')
+    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).toContain('--recurrence-until "2026-06-01"')
+  })
+
+  it('op=create_event passes raw RRULE via --rrule', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{}', stderr: '' })
+    await tool.execute('cre2', {
+      op: 'create_event',
+      source: 'g',
+      title: 'R',
+      event_start: '2026-04-01T15:00:00Z',
+      event_end: '2026-04-01T16:00:00Z',
+      recurrence: 'RRULE:FREQ=DAILY;COUNT=5',
+    })
+    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).toContain('--rrule')
+    expect(vi.mocked(execRipmailAsync).mock.calls[0][0]).not.toContain('--recurrence-preset')
+  })
 })
 
 function baseEventsForAdaptive(): CalendarEvent[] {

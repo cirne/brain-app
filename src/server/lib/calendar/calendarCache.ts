@@ -22,7 +22,7 @@ export interface CalendarEvent {
   color?: string
 }
 
-/** Adaptive detail tier for `calendar` op=events (OPP-069). */
+/** Adaptive detail tier for `calendar` op=events (shipped; see archived docs/opportunities/archive/OPP-069-calendar-token-efficiency.md). */
 export type ResolutionTier = 'landmarks' | 'overview' | 'full'
 
 export interface ResolutionMeta {

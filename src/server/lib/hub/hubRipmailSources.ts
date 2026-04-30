@@ -321,3 +321,69 @@ export async function updateHubRipmailFileSource(
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
 }
+
+export type HubCalendarRow = { id: string; name: string }
+
+/**
+ * Returns all available calendars (from `allCalendars`) and currently configured calendar IDs
+ * for a `googleCalendar` source, by calling `ripmail calendar list-calendars --source <id> --json`.
+ */
+export async function getHubRipmailCalendarsForSource(sourceId: string): Promise<
+  | { ok: true; allCalendars: HubCalendarRow[]; configuredIds: string[] }
+  | { ok: false; error: string }
+> {
+  const trimmed = sourceId?.trim()
+  if (!trimmed) return { ok: false, error: 'id required' }
+  const rm = ripmailBin()
+  try {
+    const { stdout } = await execRipmailAsync(
+      `${rm} calendar list-calendars --source ${JSON.stringify(trimmed)} --json`,
+      { timeout: 15_000 },
+    )
+    const parsed = JSON.parse(stdout) as {
+      calendars?: Array<{
+        sourceId?: string
+        calendars?: Array<{ id: string; name?: string }>
+        allCalendars?: Array<{ id: string; name?: string }>
+      }>
+    }
+    const sourceRows = Array.isArray(parsed.calendars) ? parsed.calendars : []
+    const row = sourceRows.find((r) => r.sourceId === trimmed) ?? sourceRows[0]
+    if (!row) return { ok: true, allCalendars: [], configuredIds: [] }
+
+    const rawAll = Array.isArray(row.allCalendars) ? row.allCalendars : []
+    const rawConfigured = Array.isArray(row.calendars) ? row.calendars : []
+    const source = rawAll.length > 0 ? rawAll : rawConfigured
+
+    const allCalendars: HubCalendarRow[] = source
+      .filter((c) => c.id?.trim())
+      .map((c) => ({ id: c.id.trim(), name: c.name?.trim() || c.id.trim() }))
+
+    const configuredIds = rawConfigured
+      .filter((c) => c.id?.trim())
+      .map((c) => c.id.trim())
+
+    return { ok: true, allCalendars, configuredIds }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+/** Update which Google Calendar IDs are synced for a source via `ripmail sources edit`. */
+export async function updateHubRipmailCalendarIds(
+  sourceId: string,
+  calendarIds: string[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const trimmed = sourceId?.trim()
+  if (!trimmed) return { ok: false, error: 'id required' }
+  if (!calendarIds.length) return { ok: false, error: 'at least one calendar ID required' }
+  try {
+    await runRipmailArgv(
+      ['sources', 'edit', trimmed, ...calendarIds.flatMap((id) => ['--calendar', id]), '--json'],
+      { timeoutMs: 30_000, label: 'sources-edit-calendar-ids' },
+    )
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}

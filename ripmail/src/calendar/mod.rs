@@ -6,7 +6,11 @@ pub use apple::apple_calendar_sync_available;
 pub mod db;
 pub mod google;
 pub use google::{
-    build_google_calendar_event_insert_body, insert_google_calendar_event, InsertGoogleEventArgs,
+    build_google_calendar_event_insert_body, build_google_calendar_event_patch_body,
+    build_recurrence_json_array, delete_google_calendar_event, fetch_google_calendar_names_api,
+    finalize_rrule_with_count_until, get_google_calendar_event, google_calendar_cancel_future,
+    infer_google_recurring_master_event_id, insert_google_calendar_event,
+    patch_google_calendar_event_json, InsertGoogleEventArgs, RecurrenceArgs,
 };
 pub mod ics;
 mod model;
