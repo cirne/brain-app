@@ -95,10 +95,11 @@ export const ONBOARDING_BASE_OMIT: readonly AgentToolName[] = [
 
 /**
  * Onboarding **buildout** omit list: same as {@link ONBOARDING_BASE_OMIT} but keeps
- * `list_recent_messages` / `get_message_thread` when `includeLocalMessageTools` is true in `createAgentTools`.
+ * `list_recent_messages` / `get_message_thread` when `includeLocalMessageTools` is true in `createAgentTools`,
+ * and keeps `read` / `grep` / `find` so the buildout agent can inspect existing vault pages before deepening them.
  */
 export const ONBOARDING_BUILDOUT_OMIT: readonly AgentToolName[] = ONBOARDING_BASE_OMIT.filter(
-  (n) => n !== 'list_recent_messages' && n !== 'get_message_thread',
+  (n) => n !== 'list_recent_messages' && n !== 'get_message_thread' && n !== 'read' && n !== 'grep' && n !== 'find',
 )
 
 /** Profiling agent: omit web/video on top of onboarding base (indexed mail only); no chat title (UI shows fixed onboarding copy). */

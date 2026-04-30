@@ -33,18 +33,18 @@ describe('buildWikiBuildoutFirstRunScopeNote', () => {
 })
 
 describe('buildWikiBuildoutSystemPrompt', () => {
-  it('grounds buildout in mail + write without wiki read tools (first run)', () => {
+  it('grounds buildout in mail + wiki read tools (first run)', () => {
     const userPage = { relativePath: 'people/lewis-cirne.md', slug: 'lewis-cirne' }
     const p = buildWikiBuildoutSystemPrompt('America/Los_Angeles', userPage, {
       isFirstBuildoutRun: true,
     })
-    expect(p).toMatch(/do \*\*not\*\* have wiki \*\*read\*\*/i)
+    expect(p).toMatch(/`read`.*`grep`.*`find`/i)
     expect(p).toMatch(/never `wiki\/me\.md`/i)
     expect(p).toMatch(/never add a `wiki\/` prefix/i)
     expect(p).toContain('web_search')
     expect(p).toContain('fetch_page')
     expect(p).toMatch(/Parallel writes/i)
-    expect(p).toMatch(/cannot scan the vault with \*\*grep\*\*/i)
+    expect(p).toMatch(/grep.*existing paths/i)
     expect(p).toMatch(/compact/i)
     expect(p).toContain('people/lewis-cirne.md')
     expect(p).toMatch(/starter layout/i)
@@ -153,9 +153,26 @@ describe('onboarding agent tools', () => {
     expect(names).toContain('web_search')
   })
 
-  it('ONBOARDING_BUILDOUT_OMIT does not drop local message tool names', () => {
+  it('onboarding buildout preset includes read, grep, and find for inspecting existing vault pages', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const opts = buildCreateAgentToolsOptions({
+      preset: 'onboarding',
+      onboardingVariant: 'buildout',
+      includeLocalMessageTools: false,
+    })
+    const tools = createAgentTools(wikiDir, opts)
+    const names = tools.map((t: { name?: string }) => t.name)
+    expect(names).toContain('read')
+    expect(names).toContain('grep')
+    expect(names).toContain('find')
+  })
+
+  it('ONBOARDING_BUILDOUT_OMIT does not drop local message tool names or wiki read tools', () => {
     expect(ONBOARDING_BUILDOUT_OMIT).not.toContain('list_recent_messages')
     expect(ONBOARDING_BUILDOUT_OMIT).not.toContain('get_message_thread')
+    expect(ONBOARDING_BUILDOUT_OMIT).not.toContain('read')
+    expect(ONBOARDING_BUILDOUT_OMIT).not.toContain('grep')
+    expect(ONBOARDING_BUILDOUT_OMIT).not.toContain('find')
   })
 })
 
