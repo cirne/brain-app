@@ -11,7 +11,7 @@ pub const MAX_LOCAL_FILE_BYTES: u64 = 20 * 1024 * 1024;
 
 /// Truncate extracted text for agent context (characters, not bytes) when
 /// [`LocalFileReadOptions::truncate_extracted`] is true (default).
-pub(crate) const MAX_BODY_TEXT_CHARS: usize = 500_000;
+pub(crate) const MAX_BODY_TEXT_CHARS: usize = 50_000;
 
 const IMAGE_HEAVY_PDF_HINT: &str = "Scanned PDFs are not readable as text yet. Ask the user to open the file locally or describe what they need. Future: multimodal/vision support.";
 
@@ -247,7 +247,7 @@ fn maybe_truncate(s: String, options: LocalFileReadOptions) -> String {
     truncate_body(s)
 }
 
-/// Like [`local_file_read_outcome`], with control over the 500k extracted-text cap (for `--full-body`).
+/// Like [`local_file_read_outcome`], with control over the 50k extracted-text cap (for `--full-body`).
 pub fn local_file_read_outcome_with_options(
     bytes: &[u8],
     mime: &str,

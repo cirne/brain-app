@@ -331,7 +331,7 @@ pub(crate) enum Commands {
         /// Prefer MIME text/plain when non-empty (skip HTML→markdown heuristic). Useful for agents; the app UI keeps the default.
         #[arg(long)]
         plain_body: bool,
-        /// For `read <file>` local paths, return full extracted/plain text (default caps at 500k chars for agent context). Ignored for indexed mailbox Message-IDs (those already return the full MIME body).
+        /// For `read <file>` local paths, return full extracted/plain text (default caps at 50k chars for agent context). Ignored for indexed mailbox Message-IDs (those already return the full MIME body).
         #[arg(long)]
         full_body: bool,
         #[arg(long)]

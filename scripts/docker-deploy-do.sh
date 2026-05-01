@@ -13,14 +13,29 @@
 #   DOCKER_IMAGE_TAG — image tag and git tag (default: UTC deploy-YYYYMMDD-HHMMSSutc)
 #   DOCKER_PUBLISH_LATEST — set to 0 to skip tagging/pushing :latest (default: also push :latest)
 #   DOCKER_PUBLISH_PLATFORM — image/ripmail arch (default: linux/amd64)
-#   NEW_RELIC_API_KEY — user API key for `newrelic` CLI (not the Node license key)
-#   NEW_RELIC_DEPLOY_USER — optional; defaults to git user.email or whoami
+#   NEW_RELIC_API_KEY — user API key for `newrelic` CLI (not the Node license key); also read from repo `.env` via loadDotEnv (see scripts/dotenv-shell-exports.ts)
+#   NEW_RELIC_DEPLOY_USER — optional; defaults to git user.email or whoami (may be set in `.env`)
 #   SKIP_NEW_RELIC_DEPLOYMENT — set to 1 to skip recording the NR deployment marker (still builds/pushes/tags git)
+#   OPENAI_API_KEY — optional; used by scripts/generate-release-notes.ts (defaults in NR marker if missing)
+#   RELEASE_NOTES_MODEL — optional OpenAI model for release notes (default: gpt-4.1-mini)
+#   SKIP_RELEASE_NOTES — set to 1 to skip LLM release notes + docs/release-notes/<tag>.md (NR falls back to generic description/changelog)
 #
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+# Same `.env` rules as the server (`loadDotEnv`): populate shell for NR CLI + optional DOCKER_* overrides.
+load_deploy_env_from_repo_dotenv() {
+  local out
+  if ! out="$(npx tsx scripts/dotenv-shell-exports.ts 2>/dev/null)"; then
+    return 0
+  fi
+  if [[ -n "${out// }" ]]; then
+    eval "$out"
+  fi
+}
+load_deploy_env_from_repo_dotenv
 
 DOCKER_IMAGE='registry.digitalocean.com/braintunnel/brain-app'
 NR_ACCOUNT_ID='3774651'
@@ -89,6 +104,16 @@ echo "docker-deploy-do: pushed git tag $TAG"
 COMMIT_SHA="$(git rev-parse HEAD)"
 DEPLOY_USER="${NEW_RELIC_DEPLOY_USER:-$(git config user.email 2>/dev/null || whoami)}"
 
+RELEASE_DESCRIPTION="Docker deploy $TAG"
+RELEASE_CHANGELOG="Image $DOCKER_IMAGE:$TAG"
+if [[ "${SKIP_RELEASE_NOTES:-0}" != "1" ]]; then
+  release_meta="$(npx tsx scripts/generate-release-notes.ts "$TAG" 2>/dev/null || true)"
+  if [[ -n "${release_meta// }" ]]; then
+    eval "$release_meta"
+    echo "docker-deploy-do: release notes written to docs/release-notes/$TAG.md"
+  fi
+fi
+
 if [[ "${SKIP_NEW_RELIC_DEPLOYMENT:-0}" == "1" ]]; then
   echo "docker-deploy-do: skipping New Relic deployment marker (SKIP_NEW_RELIC_DEPLOYMENT=1)" >&2
   exit 0
@@ -108,8 +133,8 @@ newrelic entity deployment create \
   --guid "$NR_ENTITY_GUID" \
   --version "$TAG" \
   --commit "$COMMIT_SHA" \
-  --description "Docker deploy $TAG" \
-  --changelog "Image $DOCKER_IMAGE:$TAG" \
+  --description "$RELEASE_DESCRIPTION" \
+  --changelog "$RELEASE_CHANGELOG" \
   --deploymentType BASIC \
   --user "$DEPLOY_USER"
 
