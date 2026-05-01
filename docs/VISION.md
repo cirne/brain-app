@@ -64,7 +64,7 @@ The single-user brain is useful from day one. The differentiation that **compoun
 
 Strategy, competitive dynamics, moats (**network**, **trust/security**), and the email analogy: **[STRATEGY.md](./STRATEGY.md)**.
 
-**Product spec and sequencing:** [IDEA: Brain-to-brain collaboration](ideas/IDEA-wiki-sharing-collaborators.md). First concrete step: [OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md).
+**Product spec and sequencing:** [IDEA: Brain-to-brain collaboration](ideas/IDEA-wiki-sharing-collaborators.md). First concrete step: [OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md). Encapsulation and symlink direction: [architecture/wiki-directory-sharing.md](architecture/wiki-directory-sharing.md).
 
 ---
 

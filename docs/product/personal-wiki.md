@@ -23,7 +23,7 @@ Braintunnel **creates and helps you maintain** a **personal, private wiki**—a 
 - **Grounded:** Email, calendar, and (where enabled) other sources **feed** the wiki; the assistant uses those sources to **summarize and structure**, not to expose raw mail in random places without intent. The wiki is working synthesis, not a substitute for source evidence: when facts may have changed, the assistant should verify against the newest relevant dated source.
 - **Compounding:** The value is in the **network** of pages over time—the same insight as a “second brain” or Obsidian-style vault, with Braintunnel doing more of the scaffolding.
 
-**Collaboration (future, not shipped):** Explicit **sharing** of a subtree or named files with **another Braintunnel user** (read-only or read-write)—similar in spirit to sharing a note or doc elsewhere—is a planned direction for richer real-life workflows (e.g. assistant + travel folder). It stays **opt-in and scoped**; product spec and sequencing live in [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md); first concrete step is [OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md).
+**Collaboration (future, not shipped):** Explicit **sharing** of a subtree with **another Braintunnel user** (read-only or read-write)—similar in spirit to sharing a folder elsewhere—is a planned direction (e.g. assistant + travel). Direction is **per-tenant share metadata** (files in each brain home), **server checks on every read**, and optional **symlinks** so tools see shared pages locally; **prefix grants** imply *everything new under that folder* may be visible unless mitigated (confirm-on-write, exclusions, UX). Spec: [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md), [OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md), [wiki-directory-sharing](../architecture/wiki-directory-sharing.md).
 
 ---
 
@@ -89,3 +89,4 @@ User-editable recipes ([OPP-010](../opportunities/OPP-010-user-skills.md)) shoul
 - [OPP-006: Email-bootstrap onboarding](../opportunities/OPP-006-email-bootstrap-onboarding.md) — concrete steps
 - [OPP-011: User skills strategy](../opportunities/OPP-011-user-skills-strategy.md) — `/wiki` and NL-first skills
 - [IDEA Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md) — future optional sharing of wiki subtrees (see “Collaboration (future)” above)
+- [OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) · [wiki-directory-sharing.md](../architecture/wiki-directory-sharing.md) — planned implementation shape (manifests, symlinks, read checks)

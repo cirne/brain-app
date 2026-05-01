@@ -56,7 +56,7 @@ The product manifestation of **network + trust** is **brain-to-brain**: bilatera
 
 **Email as analogy:** federation, identity-bearing addresses, and **value that grows with who else participates**. Brain-to-brain aims for similarly **network-shaped** upside with **much higher-bandwidth coordination** delegated to agents — while keeping sovereignty visible.
 
-Detailed sequencing and milestones: **[IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md)** (first concrete step: **[OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)**).
+Detailed sequencing and milestones: **[IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md)** (first concrete step: **[OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)**; **M0 architecture:** [wiki-directory-sharing.md](architecture/wiki-directory-sharing.md)).
 
 ---
 
@@ -68,4 +68,4 @@ Detailed sequencing and milestones: **[IDEA-wiki-sharing-collaborators.md](ideas
 | [VISION.md](VISION.md)                                                               | What the product feels like and why personalization compounding matters |
 | [PRODUCTIZATION.md](PRODUCTIZATION.md)                                               | Blockers/tradeoffs to multi-user productization                         |
 | [SECURITY.md](SECURITY.md)                                                           | Security architecture and risk register                                 |
-| [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) | Brain-to-brain product + sequencing                                     |
+| [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) | Brain-to-brain product + sequencing · [wiki-directory-sharing.md](architecture/wiki-directory-sharing.md) (M0 implementation direction) |
