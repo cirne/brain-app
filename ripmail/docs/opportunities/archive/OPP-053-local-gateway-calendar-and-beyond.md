@@ -68,7 +68,7 @@ Today the **web UI** and agent tool `**get_calendar_events`** still use the **IC
 
 ## Related
 
-- [OPP-051](OPP-051-unified-sources-mail-local-files-future-connectors.md) — unified `sources`, `refresh`, `--source`.
+- [OPP-087](../../../../docs/opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md) — unified `sources`, `refresh`, `--source`.
 - [OPP-052](OPP-052-search-query-language-regex-metadata-flags.md) — generalized search language (alignment over time).
 - [OPP-042](OPP-042-google-oauth-cli-auth.md) — Google OAuth for CLI; token reuse for Calendar API.
 - [OPP-050](OPP-050-applemail-localhost-mailbox.md) — Apple Mail indexing; same “local macOS resource” family as EventKit.

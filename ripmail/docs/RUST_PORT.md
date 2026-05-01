@@ -33,7 +33,7 @@ These items were called out when retiring `node/`; they are **not** blockers for
 
 ### Data and heuristics
 
-- **Nickname map (`who`):** Rust intentionally ships a smaller embedded map (`src/search/nicknames.rs`) than the old TypeScript list; expanding or externalizing it is a product decision ([BUG-026](bugs/BUG-026-who-nicknames-i18n-and-query-contract.md)).
+- **Nickname map (`who`):** Rust intentionally ships a smaller embedded map (`src/search/nicknames.rs`) than the old TypeScript list; expanding or externalizing it is a product decision ([BUG-034](../../../docs/bugs/BUG-034-who-nicknames-i18n-and-query-contract.md)).
 - **Optional:** snapshot or document **large reference artifacts** (e.g. old nickname list) from git if you need a single place to diff without spelunking history.
 
 ### Production validation
@@ -66,7 +66,7 @@ These were **acceptable by default** when the Node implementation existed; Rust 
 | **IMAP client** | Rust **`imap`** crate — different API/behavior than **imapflow** (Node). |
 | **CPU-bound work** | **Rayon** / OS threads for maildir parse where appropriate — different from Node `worker_threads`. |
 | **Async model** | Synchronous SQLite and blocking IMAP on many paths — acceptable for a CLI. |
-| **Nickname map (`who`)** | Smaller embedded map in Rust; see [BUG-026](bugs/BUG-026-who-nicknames-i18n-and-query-contract.md). |
+| **Nickname map (`who`)** | Smaller embedded map in Rust; see [BUG-034](../../../docs/bugs/BUG-034-who-nicknames-i18n-and-query-contract.md). |
 | **Wizard UX** | **inquire** + **indicatif** — flags and config shape preserved. |
 | **JSON `messageId` / `threadId`** | Rust CLI emits **bare** ids (no RFC 5322 `<>`); bracketed or bare accepted on input. |
 

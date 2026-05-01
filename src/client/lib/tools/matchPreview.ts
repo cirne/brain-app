@@ -100,7 +100,7 @@ export function searchHitIsIndexedFile(hit: MailSearchHitPreview, scopedSource?:
 }
 
 /** Mail preview lists `results` / `totalMatched` only — `hints` stay in raw tool JSON for the model. */
-function parseSearchIndexJsonResult(
+export function parseSearchIndexJsonResult(
   result: string,
 ): { items: MailSearchHitPreview[]; totalMatched?: number } | null {
   const t = normalizeSearchIndexToolResultText(result)
@@ -127,13 +127,27 @@ function parseSearchIndexJsonResult(
       snippet = snippet.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
       const sourceKindRaw = typeof o.sourceKind === 'string' ? o.sourceKind.trim() : ''
       const sourceKind = sourceKindRaw.length > 0 ? sourceKindRaw : undefined
-      if (!id && !subject.trim() && !from && !snippet) continue
+      const dateRaw = typeof o.date === 'string' ? o.date.trim() : ''
+      const date = dateRaw.length > 0 ? dateRaw : undefined
+      let indexedRelPath: string | undefined
+      if (typeof o.indexedRelPath === 'string' && o.indexedRelPath.trim()) {
+        indexedRelPath = o.indexedRelPath
+          .trim()
+          .replace(/\\/g, '/')
+          .replace(/\/+/g, '/')
+      }
+      const bodyPreviewRaw = typeof o.bodyPreview === 'string' ? o.bodyPreview.trim() : ''
+      const bodyPreview = bodyPreviewRaw.length > 0 ? bodyPreviewRaw : undefined
+      if (!id && !subject.trim() && !from && !snippet && !date) continue
       items.push({
         id: id || '(unknown)',
         subject: subject.trim() || '(No subject)',
         from,
         snippet,
         ...(sourceKind ? { sourceKind } : {}),
+        ...(date ? { date } : {}),
+        ...(indexedRelPath ? { indexedRelPath } : {}),
+        ...(bodyPreview ? { bodyPreview } : {}),
       })
     }
     const totalMatched = typeof j.totalMatched === 'number' ? j.totalMatched : undefined

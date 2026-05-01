@@ -43,4 +43,4 @@ A reporter had an **invitation**-style message **not** appear in the **inbox** s
 
 ## References
 
-- `ripmail` `**inbox`**, **rules** — `ripmail/AGENTS.md`; [ripmail `docs/BUGS.md](../ripmail/docs/BUGS.md)` if the defect is **CLI-only** and should live there (still register this brain-app id for the same in-app report).
+- `ripmail` **`inbox`**, **rules** — `ripmail/AGENTS.md`; track **CLI/root-cause work** in **`docs/bugs/`** via [`docs/BUGS.md`](../BUGS.md) (same canonical index links from [`ripmail/docs/BUGS.md`](../../ripmail/docs/BUGS.md)); keep **`BUG-022`** here for **in-app** reports.

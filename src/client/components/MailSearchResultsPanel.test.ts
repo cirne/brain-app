@@ -52,9 +52,30 @@ describe('MailSearchResultsPanel.svelte', () => {
       },
     })
 
-    await fireEvent.click(screen.getByRole('button', { name: /open indexed file notes\.pdf/i }))
+    await fireEvent.click(
+      screen.getByRole('button', { name: /open indexed file notes\.pdf.*google drive/i }),
+    )
     expect(onOpenIndexedFile).toHaveBeenCalledWith('f1', 'acct-drive')
     expect(onOpenEmail).not.toHaveBeenCalled()
+  })
+
+  it('shows date for slim indexed row without sourceKind', () => {
+    render(MailSearchResultsPanel, {
+      props: {
+        queryLine: 'q',
+        totalMatched: 50,
+        items: [
+          {
+            id: 'x1',
+            subject: 'doc.pdf',
+            from: '',
+            snippet: '',
+            date: '2026-03-15T00:00:00.000Z',
+          },
+        ],
+      },
+    })
+    expect(screen.getByText(/2026/)).toBeInTheDocument()
   })
 
   it('renders empty state for no hits', () => {

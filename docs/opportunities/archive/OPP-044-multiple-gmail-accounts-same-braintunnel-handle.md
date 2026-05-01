@@ -35,7 +35,7 @@ A user should be able to **authorize a second (or Nth) Gmail** (and later other 
 
 ### Ripmail Multi-Source (already shipped)
 
-Ripmail's `config.json` uses a unified `**sources[]`** array (OPP-051 model):
+Ripmail's `config.json` uses a unified `**sources[]`** array (OPP-087 model):
 
 ```json
 {
@@ -329,7 +329,7 @@ Most multi-source CLI support is already shipped. Remaining work:
 
 - [OPP-019](../OPP-019-gmail-first-class-brain.md) — Gmail OAuth, shared on-disk with ripmail.
 - [ripmail OPP-016 (archived)](../../../ripmail/docs/opportunities/archive/OPP-016-multi-inbox.md) — multi-mailbox architecture.
-- [ripmail OPP-051 — unified sources](../../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) — corpus and connectors.
+- [ripmail OPP-087 — unified sources](../OPP-087-unified-sources-mail-local-files-future-connectors.md) — corpus and connectors.
 - [OPP-043](../OPP-043-google-oauth-app-verification-milestones.md) — Google OAuth verification caps (may affect how many "test users" or consent surfaces you maintain).
 
 **Status:** Open — Phase 1 ready to implement

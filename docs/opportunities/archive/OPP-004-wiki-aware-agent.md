@@ -100,7 +100,7 @@ Benefits:
 
 ## Related
 
-- [ripmail OPP-051: Unified Sources](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) — first-class local directories + mail in one corpus (supersedes the old [OPP-005](./OPP-005-source-ingestion.md) brain-app upload sketch).
+- [OPP-087: Unified Sources](../OPP-087-unified-sources-mail-local-files-future-connectors.md) — first-class local directories + mail in one corpus (supersedes the old [OPP-005](./OPP-005-source-ingestion.md) brain-app upload sketch).
 - **[OPP-015: Wiki Background / Maintenance Agents](./OPP-015-wiki-background-maintenance-agents.md)** — Umbrella for scheduled/triggered maintenance agents (lint, cleanup, scaffold, etc.); the **background lint** proposal above is one instance. Downstream of [OPP-014](./OPP-014-onboarding-local-folder-suggestions.md) agent infrastructure generalization.
 
 ## Success criteria

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { FileText, Mail } from 'lucide-svelte'
   import type { MailSearchHitPreview } from '@client/lib/cards/contentCards.js'
+  import { searchHitPrimarySubtitle, searchHitSnippetLine } from '@client/lib/cards/searchHitRowMeta.js'
   import { searchHitIsIndexedFile } from '@client/lib/tools/matchPreview.js'
 
   let {
@@ -35,7 +36,17 @@
 
   function ariaOpenLabel(row: MailSearchHitPreview): string {
     const sub = row.subject || '(No subject)'
-    return searchHitIsIndexedFile(row, searchSource) ? `Open indexed file ${sub}` : `Open email ${sub}`
+    const idx = searchHitIsIndexedFile(row, searchSource)
+    const meta = searchHitPrimarySubtitle(row, { isIndexed: idx, searchSource }).trim()
+    const kind = idx ? 'Open indexed file' : 'Open email'
+    return meta ? `${kind} ${sub}, ${meta}` : `${kind} ${sub}`
+  }
+
+  function primaryLine(row: MailSearchHitPreview): string {
+    return searchHitPrimarySubtitle(row, {
+      isIndexed: searchHitIsIndexedFile(row, searchSource),
+      searchSource,
+    })
   }
 </script>
 
@@ -61,24 +72,22 @@
             onclick={() => openRow(row)}
             aria-label={ariaOpenLabel(row)}
           >
-            <span class="mail-search-icon" aria-hidden="true">
-              {#if searchHitIsIndexedFile(row, searchSource)}
-                <FileText size={14} />
-              {:else}
-                <Mail size={14} />
-              {/if}
-            </span>
-            <span class="mail-search-body">
+            <span class="mail-search-title-line">
+              <span class="mail-search-icon" aria-hidden="true">
+                {#if searchHitIsIndexedFile(row, searchSource)}
+                  <FileText size={14} />
+                {:else}
+                  <Mail size={14} />
+                {/if}
+              </span>
               <span class="mail-search-subject">{row.subject || '(No subject)'}</span>
-              {#if row.from}
-                <span class="mail-search-from">{row.from}</span>
-              {:else if searchHitIsIndexedFile(row, searchSource)}
-                <span class="mail-search-from">Indexed file</span>
-              {/if}
-              {#if row.snippet}
-                <span class="mail-search-snippet">{row.snippet}</span>
-              {/if}
             </span>
+            {#if primaryLine(row)}
+              <span class="mail-search-from">{primaryLine(row)}</span>
+            {/if}
+            {#if searchHitSnippetLine(row)}
+              <span class="mail-search-snippet">{searchHitSnippetLine(row)}</span>
+            {/if}
           </button>
         </li>
       {/each}
@@ -144,9 +153,11 @@
   }
 
   .mail-search-row {
+    --mail-hit-gutter: calc(14px + 8px);
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
     width: 100%;
     min-width: 0;
     margin: 0;
@@ -174,38 +185,48 @@
     color: var(--accent);
   }
 
-  .mail-search-icon {
-    flex-shrink: 0;
-    color: var(--text-2);
-    padding-top: 2px;
-  }
-
-  .mail-search-body {
+  .mail-search-title-line {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
   }
 
+  .mail-search-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    color: var(--text-2);
+  }
+
   .mail-search-subject {
+    flex: 1;
+    min-width: 0;
     font-size: 13px;
     font-weight: 600;
+    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .mail-search-from,
-  .mail-search-snippet {
+  .mail-search-from {
+    padding-inline-start: var(--mail-hit-gutter);
     font-size: 12px;
     line-height: 1.35;
     color: var(--text-2);
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .mail-search-snippet {
+    padding-inline-start: var(--mail-hit-gutter);
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--text-2);
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    overflow-wrap: anywhere;
   }
 </style>

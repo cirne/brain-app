@@ -1,6 +1,7 @@
 <script lang="ts">
   import { FileText, Mail } from 'lucide-svelte'
   import type { MailSearchHitPreview } from '@client/lib/cards/contentCardShared.js'
+  import { searchHitPrimarySubtitle, searchHitSnippetLine } from '@client/lib/cards/searchHitRowMeta.js'
   import { searchHitIsIndexedFile } from '@client/lib/tools/matchPreview.js'
 
   const PREVIEW_ROWS = 3
@@ -38,6 +39,13 @@
       onOpenEmail?.(hit.id, hit.subject, hit.from)
     }
   }
+
+  function primaryLine(row: MailSearchHitPreview): string {
+    return searchHitPrimarySubtitle(row, {
+      isIndexed: searchHitIsIndexedFile(row, searchSource),
+      searchSource,
+    })
+  }
 </script>
 
 <div class="mail-search-preview">
@@ -53,24 +61,22 @@
             class="mail-search-row"
             onclick={() => openRow(row)}
           >
-            <span class="mail-search-icon" aria-hidden="true">
-              {#if searchHitIsIndexedFile(row, searchSource)}
-                <FileText size={12} />
-              {:else}
-                <Mail size={12} />
-              {/if}
-            </span>
-            <span class="mail-search-body">
+            <span class="mail-search-title-line">
+              <span class="mail-search-icon" aria-hidden="true">
+                {#if searchHitIsIndexedFile(row, searchSource)}
+                  <FileText size={12} />
+                {:else}
+                  <Mail size={12} />
+                {/if}
+              </span>
               <span class="mail-search-subject">{row.subject || '(No subject)'}</span>
-              {#if row.from}
-                <span class="mail-search-from">{row.from}</span>
-              {:else if searchHitIsIndexedFile(row, searchSource)}
-                <span class="mail-search-from">Indexed file</span>
-              {/if}
-              {#if row.snippet}
-                <span class="mail-search-snippet">{row.snippet}</span>
-              {/if}
             </span>
+            {#if primaryLine(row)}
+              <span class="mail-search-from">{primaryLine(row)}</span>
+            {/if}
+            {#if searchHitSnippetLine(row)}
+              <span class="mail-search-snippet">{searchHitSnippetLine(row)}</span>
+            {/if}
           </button>
         </li>
       {/each}
@@ -113,10 +119,13 @@
     padding-top: 10px;
     border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
   }
+  /* Icon 12px + gap 6px — indent meta/snippet so they never share a row with the title (mobile-safe). */
   .mail-search-row {
+    --mail-hit-gutter: calc(12px + 6px);
     display: flex;
-    gap: 6px;
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
     width: 100%;
     text-align: left;
     font: inherit;
@@ -127,32 +136,40 @@
     cursor: pointer;
     min-width: 0;
   }
+  .mail-search-title-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
   .mail-search-row:hover .mail-search-subject {
     color: var(--accent);
   }
   .mail-search-icon {
     flex-shrink: 0;
+    display: inline-flex;
     color: var(--text-2);
-    padding-top: 2px;
-  }
-  .mail-search-body {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
   }
   .mail-search-subject {
+    flex: 1;
+    min-width: 0;
     font-size: 12px;
     font-weight: 600;
+    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .mail-search-from {
+    padding-inline-start: var(--mail-hit-gutter);
     font-size: 11px;
+    line-height: 1.35;
     color: var(--text-2);
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .mail-search-snippet {
+    padding-inline-start: var(--mail-hit-gutter);
     font-size: 11px;
     line-height: 1.35;
     color: var(--text-2);
@@ -160,6 +177,7 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    overflow-wrap: anywhere;
   }
   .mail-search-more {
     margin: 6px 0 0;

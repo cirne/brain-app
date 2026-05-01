@@ -100,7 +100,7 @@ ripmail refresh [--since <spec>]    ← Update local mail index; `--since` backf
 ripmail search <query> [flags]    ← FTS5 full-text search
                                   Query supports inline operators: from:, to:, subject:, after:, before:
                                   Example: ripmail search "from:alice@example.com invoice OR receipt"
-ripmail who [query] [flags]        ← people by address or display name; owner-centric counts + contactRank sort when owner configured ([OPP-012](opportunities/OPP-012-who-smart-address-book.md)); omit query for top contacts
+ripmail who [query] [flags]        ← people by address or display name; owner-centric counts + contactRank sort when owner configured ([OPP-077](../../../docs/opportunities/OPP-077-who-smart-address-book.md)); omit query for top contacts
 ripmail status [--imap]           ← sync/indexing/search readiness (--imap for IMAP server comparison)
 ripmail stats                     ← DB stats (volume + top senders/folders)
 ripmail read <id> [--raw]         ← read a message (or: ripmail message <id>)
@@ -706,13 +706,13 @@ Agents today parse the text output of `status` without difficulty. Text stays th
 
 **Brain-app (host) alignment:** The intended integration is **subprocess** to this CLI with **`RIPMAIL_HOME`** pointing at the Brain ripmail directory. **Exception:** Apple **Messages** / **`chat.db`** — documented in **brain-app** [integrations.md](../../docs/architecture/integrations.md#trust-boundaries-ripmail-vs-direct-sqlite-access) (read-only SQLite in Node; different permission surface). Do **not** treat **chat.db** as the template for calendar, contacts, or EventKit-backed data.
 
-**Related work:** [OPP-053](opportunities/archive/OPP-053-local-gateway-calendar-and-beyond.md) (calendar read path + Phase B scheduling), [OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified `sources` / `refresh`).
+**Related work:** [OPP-053](opportunities/archive/OPP-053-local-gateway-calendar-and-beyond.md) (calendar read path + Phase B scheduling), [OPP-087](../../../docs/opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md) (unified `sources` / `refresh`).
 
 ---
 
 ### ADR-030: File Source Indexing — Contentless FTS5, No Local Content Copy
 
-**Context:** As ripmail expands from mail-only to a unified sources model ([OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)), it indexes `localDir` paths and will index cloud file sources (lead: Google Drive — [brain-app OPP-045](../../docs/opportunities/OPP-045-google-drive.md)). The current schema stores full extracted text in two places for each indexed document: `files.body_text` and `document_index.body`. For mail, both copies are load-bearing (the body is served via `ripmail read <message-id>` without a network call). For files, the original always exists on disk or is re-fetchable from a cloud API — local copies are redundant and cause the DB to grow proportionally with the user's file tree.
+**Context:** As ripmail expands from mail-only to a unified sources model ([OPP-087](../../../docs/opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md)), it indexes `localDir` paths and will index cloud file sources (lead: Google Drive — [brain-app OPP-045](../../docs/opportunities/OPP-045-google-drive.md)). The current schema stores full extracted text in two places for each indexed document: `files.body_text` and `document_index.body`. For mail, both copies are load-bearing (the body is served via `ripmail read <message-id>` without a network call). For files, the original always exists on disk or is re-fetchable from a cloud API — local copies are redundant and cause the DB to grow proportionally with the user's file tree.
 
 **Decision:**
 
@@ -730,7 +730,7 @@ Agents today parse the text output of `status` without difficulty. Text stays th
 
 **Rationale:** The 50 ms vs 1–2 s search latency difference between local FTS5 and live cloud API calls is non-negotiable for agent UX (agent turns involve multiple search calls). The contentless FTS5 approach preserves that speed while eliminating the content-duplication growth problem. Vector/embedding search was considered and deferred: embedding generation requires a model dependency (local) or API calls with privacy tradeoffs (cloud), the index size is comparable to or larger than FTS5 for the same corpus, and the agent can compensate for FTS recall gaps by reformulating keyword queries across turns.
 
-**Related:** [OPP-051](opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (storage and indexing section), [brain-app OPP-045](../../docs/opportunities/OPP-045-google-drive.md) (Google Drive milestone), [external-data-sources.md](../../docs/architecture/external-data-sources.md) (unified external-source architecture).
+**Related:** [OPP-087](../../../docs/opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md) (storage and indexing section), [brain-app OPP-045](../../docs/opportunities/OPP-045-google-drive.md) (Google Drive milestone), [external-data-sources.md](../../docs/architecture/external-data-sources.md) (unified external-source architecture).
 
 ---
 

@@ -109,6 +109,7 @@ mod tests {
             date: "2026-01-01T00:00:00.000Z".into(),
             snippet: "snip".into(),
             body_preview: "p".into(),
+            indexed_rel_path: String::new(),
             rank: -1.0,
         };
         let v = search_result_to_slim_json_row(&r);
@@ -132,9 +133,31 @@ mod tests {
             date: "d".into(),
             snippet: "".into(),
             body_preview: "".into(),
+            indexed_rel_path: String::new(),
             rank: 0.0,
         };
         let v = search_result_to_slim_json_row(&r);
         assert!(v.get("fromName").is_none());
+    }
+
+    #[test]
+    fn full_search_result_json_includes_indexed_rel_path_when_set() {
+        let r = SearchResult {
+            message_id: "mid".into(),
+            thread_id: "tid".into(),
+            source_id: "src".into(),
+            source_kind: "localDir".into(),
+            from_address: String::new(),
+            from_name: None,
+            subject: "doc.pdf".into(),
+            date: "2026-01-01T00:00:00.000Z".into(),
+            snippet: "hit".into(),
+            body_preview: "prev".into(),
+            indexed_rel_path: "Work/Invoices/doc.pdf".into(),
+            rank: 0.0,
+        };
+        let v = serde_json::to_value(&r).unwrap();
+        assert_eq!(v["indexedRelPath"], "Work/Invoices/doc.pdf");
+        assert_eq!(v["sourceKind"], "localDir");
     }
 }

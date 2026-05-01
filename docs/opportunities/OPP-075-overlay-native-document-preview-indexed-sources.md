@@ -76,4 +76,4 @@ Define a **single ripmail capability** analogous to **attachment bytes** for mai
 - [OPP-045 — Google Drive indexed source](OPP-045-google-drive.md)
 - [OPP-017 — Multimodal PDFs / vision](OPP-017-multimodal-pdf-scanned-images.md)
 - [external-data-sources.md](../architecture/external-data-sources.md)
-- Ripmail unified sources: [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)
+- Ripmail unified sources: [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md)

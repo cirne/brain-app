@@ -28,4 +28,24 @@ describe('MailSearchHitsPreviewCard.svelte', () => {
     await fireEvent.click(screen.getByRole('button'))
     expect(onOpenEmail).toHaveBeenCalledWith('m1', 'Hello', 'bob@x.test')
   })
+
+  it('shows Google Drive metadata for Drive hits, not Indexed file', () => {
+    render(MailSearchHitsPreviewCard, {
+      props: {
+        queryLine: 'drive',
+        items: [
+          {
+            id: 'f1',
+            subject: 'Summary.pdf',
+            from: '',
+            snippet: 'hit',
+            sourceKind: 'googleDrive',
+            date: '2026-06-01T12:00:00.000Z',
+          },
+        ],
+      },
+    })
+    expect(screen.getByText(/Google Drive/i)).toBeInTheDocument()
+    expect(screen.queryByText(/^Indexed file$/)).not.toBeInTheDocument()
+  })
 })

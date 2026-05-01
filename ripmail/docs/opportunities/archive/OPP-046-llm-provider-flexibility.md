@@ -5,7 +5,7 @@
 
 **Shipped:** Optional `llm` block in `config.json` with **`fastModel`** and **`defaultModel`** (not per-phase names): investigation uses `fastModel`, synthesis and draft LLM use `defaultModel`. `resolve_llm` / `resolve_llm_with_env`, `build_llm_client`, wired through `ripmail ask` and draft LLM compose (`src/config.rs`, `src/ask/agent.rs`, `src/send/draft_llm.rs`, `src/draft.rs`, `src/cli/commands/assist.rs`).
 
-**Follow-up (not shipped here):** Wizard/setup still only collect an OpenAI key — see [BUG-053](../../bugs/BUG-053-wizard-llm-provider-selection.md).
+**Follow-up (not shipped here):** Wizard/setup still only collect an OpenAI key — see [BUG-037](../../../../docs/bugs/BUG-037-wizard-llm-provider-selection.md).
 
 ---
 
@@ -186,7 +186,7 @@ The rest of `src/ask/agent.rs` and `src/send/draft_llm.rs` is unchanged — same
 
 ## Setup / Wizard Integration (deferred)
 
-Tracked as [BUG-053](../../bugs/BUG-053-wizard-llm-provider-selection.md): `ripmail setup` should accept flags such as `--llm-provider` / Anthropic key / Ollama base URL; the wizard should add a shared-settings step for LLM provider and optional models. Users configure `llm` manually today (`config.json` + `.env`).
+Tracked as [BUG-037](../../../../docs/bugs/BUG-037-wizard-llm-provider-selection.md): `ripmail setup` should accept flags such as `--llm-provider` / Anthropic key / Ollama base URL; the wizard should add a shared-settings step for LLM provider and optional models. Users configure `llm` manually today (`config.json` + `.env`).
 
 ---
 

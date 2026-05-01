@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { extractProductFeedbackDraftMarkdown, matchContentPreview, searchHitIsIndexedFile } from './matchPreview.js'
+import {
+  extractProductFeedbackDraftMarkdown,
+  matchContentPreview,
+  parseSearchIndexJsonResult,
+  searchHitIsIndexedFile,
+} from './matchPreview.js'
 import type { ToolCall } from '../agentUtils.js'
 
 function tc(p: Partial<ToolCall> & Pick<ToolCall, 'name'>): ToolCall {
@@ -277,6 +282,39 @@ describe('matchContentPreview', () => {
     expect(prev.sourceKind).toBe('localDir')
     expect(prev.excerpt).toContain('Hello')
     expect(prev.excerpt).toContain('world')
+  })
+})
+
+describe('parseSearchIndexJsonResult', () => {
+  it('parses full rows with date, indexedRelPath, bodyPreview', () => {
+    const json = JSON.stringify({
+      results: [
+        {
+          messageId: '/path',
+          subject: 'Notes.md',
+          sourceKind: 'localDir',
+          date: '2026-04-01T10:00:00.000Z',
+          snippet: '',
+          bodyPreview: 'First line',
+          indexedRelPath: 'Wiki/Notes.md',
+        },
+      ],
+    })
+    const out = parseSearchIndexJsonResult(json)
+    expect(out?.items).toHaveLength(1)
+    const row = out!.items[0]
+    expect(row.date).toBe('2026-04-01T10:00:00.000Z')
+    expect(row.indexedRelPath).toBe('Wiki/Notes.md')
+    expect(row.bodyPreview).toBe('First line')
+  })
+
+  it('parses slim rows with messageId subject date only', () => {
+    const json = JSON.stringify({
+      results: [{ messageId: 'm1', subject: 'Hi', date: '2026-01-01T00:00:00.000Z' }],
+    })
+    const out = parseSearchIndexJsonResult(json)
+    expect(out?.items[0].sourceKind).toBeUndefined()
+    expect(out?.items[0].date).toBe('2026-01-01T00:00:00.000Z')
   })
 })
 

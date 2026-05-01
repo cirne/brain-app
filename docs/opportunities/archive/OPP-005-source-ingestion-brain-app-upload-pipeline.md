@@ -1,6 +1,6 @@
 # Archived: OPP-005 (brain-app upload pipeline sketch)
 
-**Archived** when [OPP-005](../OPP-005-source-ingestion.md) was marked **superseded** by [ripmail OPP-051: Unified Sources — Mail, Local Files, and Future Connectors](../../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md). The text below is the original brain-app–centric proposal, kept for historical reference.
+**Archived** when [OPP-005](../OPP-005-source-ingestion.md) was marked **superseded** by [OPP-087: Unified Sources — Mail, Local Files, and Future Connectors](../OPP-087-unified-sources-mail-local-files-future-connectors.md). The text below is the original brain-app–centric proposal, kept for historical reference.
 
 ---
 

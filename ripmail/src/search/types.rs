@@ -48,6 +48,8 @@ pub struct SearchResult {
     pub date: String,
     pub snippet: String,
     pub body_preview: String,
+    #[serde(rename = "indexedRelPath", skip_serializing_if = "String::is_empty")]
+    pub indexed_rel_path: String,
     pub rank: f64,
 }
 

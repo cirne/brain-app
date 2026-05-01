@@ -80,7 +80,7 @@ Order is **suggested priority**, not a commitment to ship all at once.
 
 ### 2. Data sources
 
-- **Folders:** add/remove, validation, re-index triggers; complements onboarding folder suggestions **[OPP-014](./OPP-014-onboarding-local-folder-suggestions.md)** and the unified sources direction in **[ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)**.
+- **Folders:** add/remove, validation, re-index triggers; complements onboarding folder suggestions **[OPP-014](./OPP-014-onboarding-local-folder-suggestions.md)** and the unified sources direction in **[OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md)**.
 - **Mail / accounts:** status, connect additional accounts—ties to **[OPP-019](./OPP-019-gmail-first-class-brain.md)** and ripmail’s OAuth story.
 - **Future connectors:** same section grows (calendar-only, drive, etc.) without a new top-level nav item each time.
 
@@ -110,7 +110,7 @@ Order is **suggested priority**, not a commitment to ship all at once.
 
 - **[OPP-008](./OPP-008-tunnel-qr-phone-access.md)** — **Phone Access** (QR, URL, GUID rotation) shipped as core POC; operational detail: [OPP-008-tunnel-status](./OPP-008-tunnel-status.md).
 - **[OPP-014](./OPP-014-onboarding-local-folder-suggestions.md)** — Onboarding proposes folders; Brain Hub is where users **manage** them later.
-- **[ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)** — Unified “sources” model informs the Data sources section.
+- **[OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md)** — Unified “sources” model informs the Data sources section.
 - **[OPP-010](./OPP-010-user-skills.md) / [OPP-011**](./OPP-011-user-skills-strategy.md) — Skills discovery and strategy; Brain Hub is the **navigational** anchor.
 - **[OPP-019](./OPP-019-gmail-first-class-brain.md)** — Google / mail account UX converges here.
 

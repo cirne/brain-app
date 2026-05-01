@@ -509,6 +509,7 @@ fn json_slim_row_shape() {
         date: "2025-01-01T00:00:00Z".into(),
         snippet: "".into(),
         body_preview: "".into(),
+        indexed_rel_path: String::new(),
         rank: 0.0,
     };
     let v = search_result_to_slim_json_row(&r);

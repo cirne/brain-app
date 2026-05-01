@@ -62,6 +62,6 @@ Secondary: **no in-app tool** documents or exposes **`ripmail rebuild-index`**; 
 
 ## References
 
-- `ripmail` CLI: `search`, `inbox`, `rebuild-index`, `refresh` — [`ripmail/AGENTS.md`](../../ripmail/AGENTS.md); [`ripmail/docs/BUGS.md`](../../ripmail/docs/BUGS.md) if a companion ripmail bug is filed.
+- `ripmail` CLI: `search`, `inbox`, `rebuild-index`, `refresh` — [`ripmail/AGENTS.md`](../../ripmail/AGENTS.md); backlog is [**`docs/BUGS.md`**](../BUGS.md) (see [`ripmail/docs/BUGS.md`](../../ripmail/docs/BUGS.md)).
 - Default excluded categories: [`ripmail/src/mail_category.rs`](../../ripmail/src/mail_category.rs) (`DEFAULT_EXCLUDED_CATEGORIES`, `default_category_filter_sql`).
 - Agent tools: `search_index` — [`docs/architecture/integrations.md`](../architecture/integrations.md), `src/server/agent/tools.ts` (`buildRipmailSearchCommandLine`).

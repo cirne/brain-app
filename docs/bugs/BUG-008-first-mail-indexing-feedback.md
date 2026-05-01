@@ -63,4 +63,4 @@ In `src/client/lib/onboarding/Onboarding.svelte`, `indexingElapsedLine` is **nul
 
 - `src/client/lib/onboarding/Onboarding.svelte` — `indexingElapsedLine`, `indexingStartedAt`, polling `loadMailOnly`
 - `src/server/lib/ripmailStatusParse.ts` — long-wait messaging for ripmail status strings
-- `ripmail/docs/BUGS.md` — if root cause is purely in the CLI/indexer, file a linked ripmail bug there
+- **`docs/BUGS.md`** — if root cause is purely in the CLI/indexer, file or cross-link bugs there (`ripmail/docs/BUGS.md` redirects to it)

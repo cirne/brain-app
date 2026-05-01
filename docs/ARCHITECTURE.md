@@ -98,15 +98,15 @@ Chat transport, tooling surface, Pi integration, metering hooks, and local model
 On-disk layout, integrations, evaluations, and the Rust inbox implementation.
 
 
-| Topic                                                                | Doc                                                                                                                               |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS, starter wiki | [architecture/data-and-sync.md](architecture/data-and-sync.md)                                                                    |
-| Ripmail subprocess, unified search, files API, optional iMessage     | [architecture/integrations.md](architecture/integrations.md)                                                                      |
-| Wiki `read` vs indexed mail/files (`read_mail_message` / `read_indexed_file`)          | [architecture/wiki-read-vs-read-email.md](architecture/wiki-read-vs-read-email.md)                                                |
-| External corpus (Drive, SaaS docs, local-first index)                | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045](opportunities/OPP-045-google-drive.md) |
-| Eval home, Enron fixture mail, search index rebuild                  | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md)                                            |
-| Hosted Enron **demo** tenant (Bearer mint, Docker / staging QA)      | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md)                                                            |
-| Ripmail crate (Rust internals)                                       | [ripmail/docs/ARCHITECTURE.md](../ripmail/docs/ARCHITECTURE.md)                                                                   |
+| Topic                                                                         | Doc                                                                                                                               |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS, starter wiki          | [architecture/data-and-sync.md](architecture/data-and-sync.md)                                                                    |
+| Ripmail subprocess, unified search, files API, optional iMessage              | [architecture/integrations.md](architecture/integrations.md)                                                                      |
+| Wiki `read` vs indexed mail/files (`read_mail_message` / `read_indexed_file`) | [architecture/wiki-read-vs-read-email.md](architecture/wiki-read-vs-read-email.md)                                                |
+| External corpus (Drive, SaaS docs, local-first index)                         | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045](opportunities/OPP-045-google-drive.md) |
+| Eval home, Enron fixture mail, search index rebuild                           | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md)                                            |
+| Hosted Enron **demo** tenant (Bearer mint, Docker / staging QA)               | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md)                                                            |
+| Ripmail crate (Rust internals)                                                | [ripmail/docs/ARCHITECTURE.md](../ripmail/docs/ARCHITECTURE.md)                                                                   |
 
 
 ---

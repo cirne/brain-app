@@ -100,6 +100,7 @@ fn row_from_cols(
     date: String,
     snippet: String,
     body_preview: String,
+    indexed_rel_path: String,
     rank: f64,
 ) -> SearchResult {
     SearchResult {
@@ -113,6 +114,7 @@ fn row_from_cols(
         date,
         snippet,
         body_preview,
+        indexed_rel_path,
         rank,
     }
 }
@@ -165,6 +167,7 @@ fn filter_only_search(
             row.get(6)?,
             row.get::<_, String>(7)?,
             row.get(8)?,
+            String::new(),
             0.0,
         ))
     })?;
@@ -262,6 +265,7 @@ fn regex_search_mail(
                 date_s,
                 snip,
                 body_prev,
+                String::new(),
                 rank_v,
             ),
             combined_rank: cr,
@@ -320,6 +324,7 @@ fn regex_search_files(
         let date_iso: String = row.get(3)?;
         let body: String = row.get(4)?;
         let rel_path: String = row.get(5)?;
+        let indexed_rel_path = rel_path.trim().replace('\\', "/");
         let hay = format!("{title}\n{rel_path}\n{abs_path}\n{body}");
         if !re.is_match(&hay) {
             continue;
@@ -345,6 +350,7 @@ fn regex_search_files(
                 date_iso,
                 snip,
                 body_prev,
+                indexed_rel_path,
                 rank_v,
             ),
             combined_rank: cr,
@@ -420,6 +426,7 @@ fn regex_search_google_drive(
                 date_iso,
                 snip,
                 body_prev,
+                String::new(),
                 rank_v,
             ),
             combined_rank: cr,

@@ -42,6 +42,12 @@ export type MailSearchHitPreview = {
   snippet: string
   /** From ripmail JSON `sourceKind` when present — distinguishes mail vs Drive/localDir files. */
   sourceKind?: string
+  /** ISO date from ripmail full rows; also on slim rows. */
+  date?: string
+  /** Root-relative path (`indexedRelPath` in JSON); localDir from ripmail. */
+  indexedRelPath?: string
+  /** Full-format fallback when `snippet` is empty. */
+  bodyPreview?: string
 }
 
 export type ContentCardPreview =

@@ -14,7 +14,7 @@
 Search today is built around **email-shaped** assumptions:
 
 - A **single query string** mixes **FTS5 keyword** text with **inline operators** (`from:`, `to:`, `subject:`, `after:`, …) parsed in `[query_parse](../../src/search/query_parse.rs)`. That made sense when the index was mostly mail.
-- **Unified sources** ([OPP-051](OPP-051-unified-sources-mail-local-files-future-connectors.md)) already put **mail and local files** in one index; the **language** still reads like “inbox search,” not “search everything we indexed.”
+- **Unified sources** ([OPP-087](../../../../docs/opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md)) already put **mail and local files** in one index; the **language** still reads like “inbox search,” not “search everything we indexed.”
 - **Power users and agents** want **grep-like** behavior: alternation, boundaries, literals—without fighting FTS5 token rules and escape layers (`escape_fts5_query`, special-character UX bugs).
 - **Metadata** (time range, sender, recipient, source id, MIME/category) is **orthogonal** to “what text matched”; cramming it into the same string as full-text query is fragile and hard to document.
 
@@ -29,7 +29,7 @@ A deliberate **redesign**, not a patch:
   - **Default: case-insensitive.** Matches how people search mail and notes: `gallery` finds `Gallery` without thinking about regex flags.
   - **Override:** e.g. `--case-sensitive` (long) so callers **never** need to embed `(?i)` or inline mode switches for the common case. Simple patterns like `beloved|gallery` “just work” for case; opt into strict case only when needed.
 3. **Less email-specific vocabulary.**
-  - Prefer **neutral** names where the same filter applies across mail and files: e.g. “author” / “origin” vs only `from:`; “time range” as first-class; **source** scoping aligned with [OPP-051](OPP-051-unified-sources-mail-local-files-future-connectors.md).
+  - Prefer **neutral** names where the same filter applies across mail and files: e.g. “author” / “origin” vs only `from:`; “time range” as first-class; **source** scoping aligned with [OPP-087](../../../../docs/opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md).
   - Keep **email**-specific aliases (`from:` / `to:`) only as **compatibility shims** during transition, or document a one-time breaking change per repo early-dev policy.
 4. **Implementation (out of band for callers).**
   - Pattern search over large corpora can be slow unless scoped (filters: source, date window, path prefix). Options include prefilter + line scan, SQLite `REGEXP` / application-defined function, or a **RE2**-style subset for safety. Document **denial-of-service** and how the index is used **internally**—without leaking FTS concepts into CLI help or agent prompts.
@@ -38,7 +38,7 @@ A deliberate **redesign**, not a patch:
 
 ## Dependencies
 
-- **Unified sources** ([OPP-051](OPP-051-unified-sources-mail-local-files-future-connectors.md)) — search should be defined against the **same** index model (mail + files + future connectors).
+- **Unified sources** ([OPP-087](../../../../docs/opportunities/OPP-087-unified-sources-mail-local-files-future-connectors.md)) — search should be defined against the **same** index model (mail + files + future connectors).
 - **Archive** [OPP-038](archive/OPP-038-inbox-rules-as-search-language.md) — historical “rules as search language” thinking; OPP-052 is **product-wide search UX**, not only inbox.
 
 ## Non-goals (for this note)

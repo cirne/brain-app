@@ -4,7 +4,7 @@
 
 **Created:** 2026-04-20.
 
-**Related:** [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified sources / future connectors), [OPP-014](archive/OPP-014-knowledge-expansion-local-folders.md) (knowledge expansion — local folders), [OPP-045](OPP-045-google-drive.md) (Google Drive corpus source), [external-data-sources.md](../architecture/external-data-sources.md) (unified external-source architecture).
+**Related:** [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md) (unified sources / future connectors), [OPP-014](archive/OPP-014-knowledge-expansion-local-folders.md) (knowledge expansion — local folders), [OPP-045](OPP-045-google-drive.md) (Google Drive corpus source), [external-data-sources.md](../architecture/external-data-sources.md) (unified external-source architecture).
 
 ---
 
@@ -18,7 +18,7 @@ This document records why the team might revisit **One** when expanding **what r
 
 ## Problem
 
-[ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) describes a **unified personal corpus**: mail plus **local directories** and **future connectors** (Notion, Apple Notes, and similar) as first-class `sources` in one index.
+[OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md) describes a **unified personal corpus**: mail plus **local directories** and **future connectors** (Notion, Apple Notes, and similar) as first-class `sources` in one index.
 
 Implementing each connector in Rust (or in brain-app) implies:
 
@@ -46,7 +46,7 @@ If the product direction includes **“search everything the user connects”** 
 2. **Auth UX** — AuthKit-style flows could complement existing Gmail/Google flows in brain-app, for **non-mail** systems—if we accept routing user authorization through One’s stack.
 3. **Agent tooling (optional)** — Universal MCP / ToolKit patterns matter more for **brain-app’s pi-agent** tool surface than for ripmail’s CLI; still relevant if we expose “call connected SaaS” tools alongside `search_index` / `read_mail_message` / `read_indexed_file`.
 
-**Ripmail-specific framing:** A plausible pattern is **not** “One replaces the index,” but **“scheduled or on-demand jobs pull normalized documents via One’s API, then write into ripmail’s unified source model”** (see OPP-051 `kind` / `sources[]` design). The index remains **local**; the **sync transport** might be mediated by One.
+**Ripmail-specific framing:** A plausible pattern is **not** “One replaces the index,” but **“scheduled or on-demand jobs pull normalized documents via One’s API, then write into ripmail’s unified source model”** (see OPP-087 `kind` / `sources[]` design). The index remains **local**; the **sync transport** might be mediated by One.
 
 ---
 
@@ -77,6 +77,6 @@ If the product direction includes **“search everything the user connects”** 
 ## Links
 
 - One changelog (rebrand context): [withone.ai/changelog](https://www.withone.ai/changelog)
-- Brain unified sources design: [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)
+- Brain unified sources design: [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md)
 - Brain-app agent tools (today’s surface): `src/server/agent/tools.ts`, `src/server/agent/agentToolSets.ts`
 

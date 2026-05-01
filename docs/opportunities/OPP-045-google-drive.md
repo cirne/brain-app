@@ -35,7 +35,7 @@ After shipping: confirm the live consent UI lists Drive alongside Gmail and Cale
 
 ## Scope (aligned with architecture doc)
 
-1. **Ripmail** — `googleDrive` source kind under [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md); credentials under `RIPMAIL_HOME/<source-id>/`; `**refresh`** pulls metadata + bytes for tokenization into **contentless** FTS ([ADR-030](../../ripmail/docs/ARCHITECTURE.md#adr-030-file-source-indexing--contentless-fts5-no-local-content-copy)); search JSON includes `sourceId` / `sourceKind`.
+1. **Ripmail** — `googleDrive` source kind under [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md); credentials under `RIPMAIL_HOME/<source-id>/`; `**refresh`** pulls metadata + bytes for tokenization into **contentless** FTS ([ADR-030](../../ripmail/docs/ARCHITECTURE.md#adr-030-file-source-indexing--contentless-fts5-no-local-content-copy)); search JSON includes `sourceId` / `sourceKind`.
 2. **brain-app** — connect flow and token storage consistent with Gmail work ([OPP-019](OPP-019-gmail-first-class-brain.md)); **request Drive read scope(s) in the OAuth authorize URL** (today missing — see § OAuth above); verification/consent implications ([OPP-043](OPP-043-google-oauth-app-verification-milestones.md)).
 3. **Agent tools** — `**search_index`**, `**list_files`**, `**read_doc**`, `**manage_sources**`, `**refresh_sources**` parameterized by source—not standalone `google_drive_*` tools ([architecture doc § Unified agent tools](../architecture/external-data-sources.md#unified-agent-tools-source-parameter-not-per-vendor)).
 
@@ -68,4 +68,4 @@ Prior work (~`59072ac`) validated direction (`kind=googleDrive`, unified sources
 
 ## Namespace note
 
-**ripmail** uses a **different** [OPP-045 (iMessage / unified messaging)](../../ripmail/docs/opportunities/OPP-045-imessage-and-unified-messaging-index.md). IDs are **not** shared across repos—only the number collides by convention.
+**ripmail** uses a **different** [OPP-045 (iMessage / unified messaging)](OPP-083-imessage-and-unified-messaging-index.md). IDs are **not** shared across repos—only the number collides by convention.

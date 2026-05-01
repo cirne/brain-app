@@ -100,5 +100,5 @@ A single new bullet in the `## Guidelines` section:
 - [OPP-028](./OPP-028-named-assistant-identity-and-living-avatar.md) — `assistant.md` identity (not a preference store)
 - [OPP-015](./OPP-015-wiki-background-maintenance-agents.md) — wiki lint agent handles `me.md` size over time
 - [OPP-025](./OPP-025-wiki-hygiene-coalescing-and-authoring-expectations.md) — wiki hygiene and refactoring standards
-- [ripmail OPP-047](../../ripmail/docs/opportunities/OPP-047-adaptive-rules-learning-agent.md) — adaptive inbox rules (ripmail-side complement)
+- [ripmail OPP-047](../OPP-084-adaptive-rules-learning-agent.md) — adaptive inbox rules (ripmail-side complement)
 

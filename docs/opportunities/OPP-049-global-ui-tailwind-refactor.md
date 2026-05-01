@@ -98,5 +98,6 @@ New work should follow target conventions **from the start**, even before the br
 - [Archived BUG-005](../bugs/archive/BUG-005-tailwind-css-consolidation.md) — consolidated into this epic
 - [AGENTS.md](../../AGENTS.md) — Svelte 5, lint/test expectations.
 - [archived OPP-007](archive/OPP-007-native-mac-app.md) — Native shell; refactors should remain OK in Tauri webview.
+- [OPP-089](OPP-089-google-design-md-exploratory.md) — optional **DESIGN.md** spike (agent-facing design spec + tooling); exploratory only, **depends on** this epic’s token baseline.
 - [ARCHITECTURE.md](../ARCHITECTURE.md) — optional future “client styling” subsection.
 - Svelte 5 + styling skills under `.cursor` / Svelte MCP for component-level best practices when implementing.

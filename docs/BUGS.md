@@ -4,9 +4,9 @@ Known issues discovered through development and usage. Root cause and fix direct
 
 Fixed bugs are archived in [bugs/archive/](bugs/archive/).
 
-### Ripmail crate (`ripmail/`)
+**Unified index:** The table below mixes **brain-app / desktop** regressions **and** **ripmail** CLI/index defects. Canonical specs live here under **`bugs/`**. Historical **`ripmail/docs/bugs/`** stubs redirect when an old **`BUG-*` number differs** ([`ripmail/docs/BUGS.md`](../ripmail/docs/BUGS.md)).
 
-The **ripmail** workspace member indexes its own bugs: **[`ripmail/docs/BUGS.md`](../ripmail/docs/BUGS.md)** with files under [`ripmail/docs/bugs/`](../ripmail/docs/bugs/) (and [`ripmail/docs/bugs/archive/`](../ripmail/docs/bugs/archive/)). `BUG-*` IDs there are **independent** from brain-app `BUG-*` in this file. When inbox, sync, or CLI behavior is owned by ripmail, file and link bugs under `ripmail/docs/`; when the bug is in the Hono/Svelte app or integration, it belongs here. **Feedback #10:** `ripmail archive` vs leading-dash Message-ID — **[BUG-062](../ripmail/docs/bugs/BUG-062-archive-leading-dash-message-id-parsed-as-cli-flag.md)**.
+User feedback **#10** (`ripmail archive`, leading-dash `Message-ID`): **[BUG-039](bugs/BUG-039-archive-leading-dash-message-id-parsed-as-cli-flag.md)**.
 
 ---
 
@@ -34,7 +34,13 @@ The **ripmail** workspace member indexes its own bugs: **[`ripmail/docs/BUGS.md`
 | BUG-029 | First-run setup: `/welcome` URL, vault-root `assistant.md`, calendar list UX | Replace user-visible `/onboarding` with **`/welcome`** for guided setup + OAuth return; allow **`assistant.md`** at wiki root (was blocked → **`onboarding/assistant.md`** fallback); calendar phase must **list all calendars** from `list_calendars`, not “primary only” copy. See [bugs/BUG-029-onboarding-welcome-url-assistant-md-calendar-list.md](bugs/BUG-029-onboarding-welcome-url-assistant-md-calendar-list.md). Overlaps **BUG-014** / **BUG-027**. |
 | BUG-030 | Inbox: `Could not load message (401)` opening mail from chat while search/agent succeeds | Right pane loads bodies via **`GET /api/inbox/:id`**; **401 is tenant/vault middleware**, not ripmail. Agent mail tools run **server-side** on `POST /api/chat` with that request’s session — **two auth surfaces**. Misleading vs assistant “opened” copy; retries only **404**. See [bugs/BUG-030-inbox-open-email-401-agent-vs-panel-load.md](bugs/BUG-030-inbox-open-email-401-agent-vs-panel-load.md). |
 | BUG-031 | Wiki viewer: internal links often don’t navigate (`href="#"`, missing `data-wiki`) | **Open.** Multiple client transforms + click fallbacks still insufficient; **simple fix:** real **`href`s** to SPA wiki URLs + fewer regex layers. See [bugs/BUG-031-wiki-viewer-internal-links-navigation.md](bugs/BUG-031-wiki-viewer-internal-links-navigation.md). |
-
+| BUG-033 | Eval judge rejects fixture dates as “future” (`ask` evals) | `ask` fixture answers around 2026 score low despite correct mail list; judge model cutoff vs fixture “today”. See [bugs/BUG-033-eval-judge-rejects-fixture-dates.md](bugs/BUG-033-eval-judge-rejects-fixture-dates.md). |
+| BUG-034 | `who`: English-heavy nicknames, Rust subset, no OR/multi-term API | Legacy nickname map parity + agents cannot pass variants in one query. See [bugs/BUG-034-who-nicknames-i18n-and-query-contract.md](bugs/BUG-034-who-nicknames-i18n-and-query-contract.md). |
+| BUG-035 | Raw file/OS errors not actionable (`read`/send paths) | Leaks `os error 2` instead of ripmail-shaped errors + suggested `refresh`. See [bugs/BUG-035-actionable-file-not-found-errors.md](bugs/BUG-035-actionable-file-not-found-errors.md). |
+| BUG-036 | `stats`: misleading threads/people counts | Threads ≈ messages; people always 0. See [bugs/BUG-036-stats-inaccurate-threads-and-people.md](bugs/BUG-036-stats-inaccurate-threads-and-people.md). |
+| BUG-037 | Wizard/setup omit LLM provider + models | Only OpenAI surfaced; multi-provider `llm` in config needs onboarding. See [bugs/BUG-037-wizard-llm-provider-selection.md](bugs/BUG-037-wizard-llm-provider-selection.md). |
+| BUG-038 | Wizard exits on bad IMAP password (no retry) | Typo trap; should re-prompt in credential loop. See [bugs/BUG-038-wizard-bad-password-exits-instead-of-retry.md](bugs/BUG-038-wizard-bad-password-exits-instead-of-retry.md). |
+| BUG-039 | `archive`: leading-dash `Message-ID` parsed as CLI flags | Clap/`getopt` treats `-…` operands as flags. See [bugs/BUG-039-archive-leading-dash-message-id-parsed-as-cli-flag.md](bugs/BUG-039-archive-leading-dash-message-id-parsed-as-cli-flag.md). |
 
 ## Fixed (archived)
 

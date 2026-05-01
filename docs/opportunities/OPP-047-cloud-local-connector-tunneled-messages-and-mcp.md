@@ -56,7 +56,7 @@ The hard problem is not “read `chat.db`” (we already know how, with Full Dis
 - [OPP-008](OPP-008-tunnel-qr-phone-access.md) — tunnel/QR/remote access patterns; potential transport baseline.
 - [OPP-041](OPP-041-hosted-cloud-epic-docker-digitalocean.md) (archived narrative: [archive/OPP-041](archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md)) — hosted multi-tenant context.
 - [Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) — identity, trust, progressive pairing — may inform **device** trust layers.
-- [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) — unified local sources; mail/files vs Messages stay distinct but **query surface** may converge.
+- [OPP-087](OPP-087-unified-sources-mail-local-files-future-connectors.md) — unified local sources; mail/files vs Messages stay distinct but **query surface** may converge.
 
 ## Open questions
 

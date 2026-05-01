@@ -1,6 +1,6 @@
 # Archived: OPP-014 — Knowledge expansion (local folders)
 
-**Status: Deprioritized — archived 2026-04-21.** Covered in practice by [ripmail OPP-051](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md) (unified sources / local dirs); a separate Brain Hub “expansion” initiative is not on the near-term roadmap.
+**Status: Deprioritized — archived 2026-04-21.** Covered in practice by [OPP-087](../OPP-087-unified-sources-mail-local-files-future-connectors.md) (unified sources / local dirs); a separate Brain Hub “expansion” initiative is not on the near-term roadmap.
 
 ---
 
@@ -21,7 +21,7 @@ The moment should feel like a proactive assistant: *"I can find more context in 
 2. **Trigger:** User clicks to start the discovery agent.
 3. **Agent Run:** The discovery agent runs (using the specialized presentation model) to find candidate folders in `~/Documents` and `~/Desktop`.
 4. **Handoff:** Agent returns a structured list of suggestions to a Hub-hosted wizard.
-5. **Registration:** Selected folders are registered via `ripmail sources add` (OPP-051).
+5. **Registration:** Selected folders are registered via `ripmail sources add` (OPP-087).
 
 ## Agent-specific presentation (not only default chat)
 
@@ -76,4 +76,4 @@ As we add more specialized agents, some flows need **different UI**: related com
 
 - **[OPP-021: User Settings (Brain Hub)](./OPP-021-user-settings-page.md)** — Host for the discovery flow
 - **[OPP-015: Wiki Background / Maintenance Agents](./OPP-015-wiki-background-maintenance-agents.md)** — Same agent/presentation generalization
-- **[ripmail OPP-051: Unified Sources](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)** — Implementation home for directory sources
+- **[OPP-087: Unified Sources](../OPP-087-unified-sources-mail-local-files-future-connectors.md)** — Implementation home for directory sources
