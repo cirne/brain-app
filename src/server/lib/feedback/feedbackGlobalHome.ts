@@ -1,28 +1,15 @@
 import { mkdir } from 'node:fs/promises'
-import { isMultiTenantMode, globalDir } from '@server/lib/tenant/dataRoot.js'
-import { resolveBrainHomeDiskRoot } from '@server/lib/platform/brainHome.js'
+import { globalDir } from '@server/lib/tenant/dataRoot.js'
 import { brainLayoutIssuesDir, brainLayoutVarDir } from '@server/lib/platform/brainLayout.js'
-import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 
-/**
- * On-disk "brain home" for list/fetch with embed key (global queue in MT; user home in ST).
- */
+/** On-disk root for list/fetch with embed key (global queue under `BRAIN_DATA_ROOT/.global`). */
 export function getGlobalFeedbackBrainHome(): string {
-  if (isMultiTenantMode()) {
-    return globalDir()
-  }
-  return resolveBrainHomeDiskRoot()
+  return globalDir()
 }
 
-/**
- * On-disk "brain home" for **submitting** a new feedback issue: `/.global/` in multi-tenant;
- * in single-tenant, the current request’s brain home (AsyncLocalStorage or env).
- */
+/** On-disk root for submitting a new feedback issue. */
 export function getCanonicalFeedbackBrainHomeForSubmit(): string {
-  if (isMultiTenantMode()) {
-    return getGlobalFeedbackBrainHome()
-  }
-  return tryGetTenantContext()?.homeDir ?? getGlobalFeedbackBrainHome()
+  return getGlobalFeedbackBrainHome()
 }
 
 export async function ensureCanonicalFeedbackLayoutForSubmit(): Promise<void> {

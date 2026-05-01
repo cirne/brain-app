@@ -4,19 +4,25 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createAgentTools } from './tools.js'
 import { brainLayoutIssuesDir } from '@server/lib/platform/brainLayout.js'
+import { globalDir } from '@server/lib/tenant/dataRoot.js'
 
 let brainHome: string
 let wikiDir: string
+let prevDataRoot: string | undefined
 
 beforeEach(async () => {
   brainHome = await mkdtemp(join(tmpdir(), 'pfb-'))
-  wikiDir = join(brainHome, 'wiki')
+  prevDataRoot = process.env.BRAIN_DATA_ROOT
+  process.env.BRAIN_DATA_ROOT = brainHome
+  wikiDir = join(brainHome, 'usr_tooltest', 'wiki')
   await mkdir(wikiDir, { recursive: true })
-  process.env.BRAIN_HOME = brainHome
+  process.env.BRAIN_HOME = join(brainHome, 'usr_tooltest')
 })
 
 afterEach(async () => {
   await rm(brainHome, { recursive: true, force: true })
+  if (prevDataRoot === undefined) delete process.env.BRAIN_DATA_ROOT
+  else process.env.BRAIN_DATA_ROOT = prevDataRoot
   delete process.env.BRAIN_HOME
 })
 
@@ -39,7 +45,7 @@ From tool.`
     } as { op: 'submit'; markdown: string; confirmed: boolean })
     const text = r.content[0] && r.content[0].type === 'text' ? r.content[0].text : ''
     expect(text).toContain('issue #1')
-    const dir = brainLayoutIssuesDir(brainHome)
+    const dir = brainLayoutIssuesDir(globalDir())
     const files = await readdir(dir)
     expect(files.some(f => f.includes('-issue-1.md'))).toBe(true)
   })

@@ -12,8 +12,8 @@ describe('ONBOARDING_INTERVIEW_ONLY', () => {
     )
   })
 
-  it('omits calendar and inbox tools (skills / main chat handle those)', () => {
-    expect(ONBOARDING_INTERVIEW_ONLY).not.toContain('calendar')
+  it('includes calendar for default-calendar setup; still omits inbox tools', () => {
+    expect(ONBOARDING_INTERVIEW_ONLY).toContain('calendar')
     expect(ONBOARDING_INTERVIEW_ONLY).not.toContain('inbox_rules')
     expect(ONBOARDING_INTERVIEW_ONLY).not.toContain('list_inbox')
   })

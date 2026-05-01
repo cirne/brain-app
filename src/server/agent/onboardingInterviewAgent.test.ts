@@ -5,16 +5,17 @@ import {
 } from './onboardingInterviewAgent.js'
 
 describe('buildOnboardingInterviewSystemPrompt', () => {
-  it('leans identity-first; deferred calendar/inbox to main assistant', () => {
+  it('includes identity-first mail recon, calendar default step, and defers inbox rules', () => {
     const s = buildOnboardingInterviewSystemPrompt('UTC', '{}')
     expect(s).not.toContain('## Assistant name')
-    expect(s).not.toContain('list_calendars')
+    expect(s).toContain('list_calendars')
     expect(s).not.toContain('inbox_rules')
-    expect(s).toMatch(/out of scope/i)
-    expect(s).toContain('Calendar and inbox rules')
+    expect(s).toMatch(/Inbox rules.*out of scope/i)
+    expect(s).toContain('googleCalendar')
+    expect(s).toContain('default_calendar_ids')
     expect(s).toContain('Do **not** ask the user to name you')
     expect(s).toContain('**Do not** ask them to name the assistant')
-    expect(s).toContain('normal chat')
+    expect(s).toMatch(/normal chat/)
     expect(s).toContain('## Mail recon (before identity with the user)')
     expect(s).toContain('**`search_index`**')
     expect(s).toContain('**`from`**')
@@ -23,6 +24,7 @@ describe('buildOnboardingInterviewSystemPrompt', () => {
     expect(s).toContain('suggest_reply_options')
     expect(s).toMatch(/Phase 1|step numbers|checklist voice/i)
     expect(s).not.toContain('## Important people')
+    expect(s).toContain('## After identity: default Google calendar')
   })
 })
 

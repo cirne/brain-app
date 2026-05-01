@@ -6,7 +6,7 @@ import { readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { normalize, resolve } from 'node:path'
 import { brainHome, ripmailHomeForBrain, wikiContentDir } from '@server/lib/platform/brainHome.js'
-import { dataRoot, isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
+import { dataRoot } from '@server/lib/tenant/dataRoot.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import {
@@ -83,7 +83,6 @@ export async function loadRipmailIndexedFolderRoots(): Promise<string[]> {
  * `BRAIN_DATA_ROOT` (multi-tenant only).
  */
 export function assertManageSourcePathNotInsideSiblingTenant(expandedAbsolutePath: string): void {
-  if (!isMultiTenantMode()) return
   const mine = normalizePathThroughExistingAncestors(brainHome())
   const dr = dataRoot()
   let entries
@@ -155,17 +154,13 @@ export async function assertAgentReadPathAllowed(rawPath: string): Promise<strin
 /**
  * Validate path for `manage_sources` add/edit: never inside a sibling tenant; on MT, paths under
  * `BRAIN_DATA_ROOT` must fall under the read allowlist (your home, ripmail, wiki, indexed roots);
- * paths outside the data root (e.g. `~/Documents/...`) are allowed. Single-tenant: allow after
- * sibling check (no-op).
+ * paths outside the data root (e.g. `~/Documents/...`) are allowed.
  */
 export async function assertManageSourcePathAllowed(rawPath: string): Promise<string> {
   const expanded = expandRawPathToAbsolute(rawPath)
   assertManageSourcePathNotInsideSiblingTenant(expanded)
   const list = await buildReadPathAllowlist()
   if (isAgentReadPathAllowed(expanded, list)) {
-    return expanded
-  }
-  if (!isMultiTenantMode()) {
     return expanded
   }
   const drPath = dataRoot()

@@ -3,8 +3,7 @@
  *
  * Same predicate as {@link ../../index.ts}: `process.env.NODE_ENV !== 'production'` (covers
  * `development`, `test`, and undefined). Used for dev-only routes, pretty logging, prompt
- * reload, and agent diagnostics — not the stricter “local tsx only” vault bootstrap (see
- * `devLocalVaultBootstrap.ts` — excludes `test` and multi-tenant).
+ * reload, and agent diagnostics.
  */
 export function isDevRuntime(): boolean {
   return process.env.NODE_ENV !== 'production'

@@ -27,8 +27,16 @@ describe('brainHome multi-tenant', () => {
   })
 
   it('brainHome throws outside tenant context when BRAIN_DATA_ROOT set', () => {
-    process.env.BRAIN_DATA_ROOT = '/data'
-    expect(() => brainHome()).toThrow(/tenant_context_required/)
-    delete process.env.BRAIN_DATA_ROOT
+    const prevHome = process.env.BRAIN_HOME
+    try {
+      delete process.env.BRAIN_HOME
+      process.env.BRAIN_DATA_ROOT = '/data'
+      expect(() => brainHome()).toThrow(/tenant_context_required/)
+    } finally {
+      if (prevHome === undefined) delete process.env.BRAIN_HOME
+      else process.env.BRAIN_HOME = prevHome
+      if (prevRoot === undefined) delete process.env.BRAIN_DATA_ROOT
+      else process.env.BRAIN_DATA_ROOT = prevRoot
+    }
   })
 })

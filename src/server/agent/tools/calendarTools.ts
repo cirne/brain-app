@@ -111,7 +111,13 @@ export function ripmailRecurrenceCliFlags(params: {
   return f
 }
 
-export function createCalendarTool(agentTimeZone: string) {
+export type CreateCalendarToolOptions = {
+  /** When set, only these `op` values are allowed (e.g. onboarding interview). */
+  allowedOps?: readonly string[]
+}
+
+export function createCalendarTool(agentTimeZone: string, options?: CreateCalendarToolOptions) {
+  const allowedOps = options?.allowedOps
   const calendar = defineTool({
     name: 'calendar',
     label: 'Calendar',
@@ -242,6 +248,11 @@ export function createCalendarTool(agentTimeZone: string) {
         recurrence_until?: string
       },
     ) {
+      if (allowedOps?.length && !allowedOps.includes(params.op)) {
+        throw new Error(
+          `Calendar op "${params.op}" is not available in this session. Allowed: ${allowedOps.join(', ')}.`,
+        )
+      }
       if (params.op === 'events') {
         if (!params.start || !params.end) {
           throw new Error('start and end are required for op=events')

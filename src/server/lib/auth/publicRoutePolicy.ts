@@ -12,22 +12,9 @@ export function isOnboardingStatusPublicPath(path: string, method: string): bool
   return method === 'GET' && path === '/api/onboarding/status'
 }
 
-/** Dev-only POST shims before vault session exists. */
-export function isDevBootstrapPostPath(path: string, method: string): boolean {
-  if (method !== 'POST') return false
-  if (process.env.NODE_ENV === 'production') return false
-  return (
-    path === '/api/dev/hard-reset' ||
-    path === '/api/dev/restart-seed' ||
-    path === '/api/dev/first-chat'
-  )
-}
-
-/** Vault setup/unlock/status/logout — public for bootstrap and session teardown. */
+/** Vault status/logout — public for bootstrap and session teardown. */
 export function isVaultPublicRoute(path: string, method: string): boolean {
   if (path === '/api/vault/status' && (method === 'GET' || method === 'POST')) return true
-  if (path === '/api/vault/setup' && method === 'POST') return true
-  if (path === '/api/vault/unlock' && method === 'POST') return true
   if (path === '/api/vault/logout' && method === 'POST') return true
   return false
 }

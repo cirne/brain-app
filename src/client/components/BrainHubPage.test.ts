@@ -24,7 +24,6 @@ vi.mock('@client/lib/vaultClient.js', async (importOriginal) => {
     ...mod,
     fetchVaultStatus: vi.fn(() =>
       Promise.resolve({
-        vaultExists: true,
         unlocked: true,
         multiTenant: true,
         handleConfirmed: true,

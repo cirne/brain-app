@@ -36,10 +36,8 @@ import { getFdaProbeDetail, isFdaGranted } from '@server/lib/apple/fdaProbe.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
 import { writeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
-import { embeddedServerUrlScheme, oauthRedirectListenPort } from '@server/lib/platform/brainHttpPort.js'
-import { isBundledNativeServer } from '@server/lib/apple/nativeAppPort.js'
+import { oauthRedirectListenPort } from '@server/lib/platform/brainHttpPort.js'
 import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocalIntegrationEnv.js'
-import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { lookupTenantBySession } from '@server/lib/tenant/tenantRegistry.js'
 import { BRAIN_SESSION_COOKIE } from '@server/lib/vault/vaultCookie.js'
 import { getCookie } from 'hono/cookie'
@@ -48,14 +46,8 @@ import { isHandleConfirmedForTenant } from '@server/lib/tenant/handleMeta.js'
 
 const onboarding = new Hono()
 
-/**
- * Hosted multi-tenant: clear the stale ripmail lock for the current tenant.
- * Single-tenant: no-op (user must quit the app).
- */
+/** Clear the stale ripmail lock for the current tenant. */
 onboarding.post('/clear-stale-lock', async (c) => {
-  if (!isMultiTenantMode()) {
-    return c.json({ error: 'not_available', message: 'Use Cmd+Q to restart the app.' }, 404)
-  }
   const sid = getCookie(c, BRAIN_SESSION_COOKIE)
   const tid = await lookupTenantBySession(sid)
   if (!tid) {
@@ -132,12 +124,12 @@ onboarding.get('/network-info', async (c) => {
     ips: results,
     port,
     tunnelUrl,
-    localUrlScheme: isBundledNativeServer() ? embeddedServerUrlScheme() : 'http',
+    localUrlScheme: 'http' as const,
   })
 })
 
 onboarding.get('/status', async (c) => {
-  if (isMultiTenantMode() && !tryGetTenantContext()) {
+  if (!tryGetTenantContext()) {
     return c.json({
       state: 'not-started',
       wikiMeExists: false,
@@ -147,7 +139,7 @@ onboarding.get('/status', async (c) => {
   const doc = await readOnboardingStateDoc()
   let state: OnboardingMachineState = doc.state
   const ctx = tryGetTenantContext()
-  if (isMultiTenantMode() && ctx && !(await isHandleConfirmedForTenant(ctx.homeDir))) {
+  if (ctx && !(await isHandleConfirmedForTenant(ctx.homeDir))) {
     state = 'confirming-handle'
   }
   return c.json({
@@ -180,7 +172,7 @@ onboarding.patch('/state', async (c) => {
     )
   }
   const ctxMt = tryGetTenantContext()
-  if (isMultiTenantMode() && ctxMt && !(await isHandleConfirmedForTenant(ctxMt.homeDir))) {
+  if (ctxMt && !(await isHandleConfirmedForTenant(ctxMt.homeDir))) {
     const blocked: OnboardingMachineState[] = ['indexing', 'onboarding-agent', 'done']
     if (blocked.includes(next)) {
       return c.json(

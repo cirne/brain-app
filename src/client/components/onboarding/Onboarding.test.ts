@@ -54,7 +54,6 @@ describe('Onboarding.svelte', () => {
       props: {
         onComplete: vi.fn(async () => {}),
         refreshStatus: vi.fn(async () => {}),
-        needsVaultSetup: false,
         multiTenant: false,
       },
     })

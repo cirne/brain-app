@@ -1,31 +1,17 @@
 import { BRAIN_DEFAULT_HTTP_PORT, GOOGLE_OAUTH_CALLBACK_PATH } from './brainHttpPort.js'
-import { brainWikiParentRoot, resolveBrainHomeDiskRoot, ripmailHomeForBrain } from './brainHome.js'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
-import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
-import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocalIntegrationEnv.js'
-import { areLocalMessageToolsEnabled, initLocalMessageToolsAvailability } from '@server/lib/apple/imessageDb.js'
+import { initLocalMessageToolsAvailability } from '@server/lib/apple/imessageDb.js'
 import { logFdaProbeForStartup } from '@server/lib/apple/fdaProbe.js'
-import { parseRipmailStatusJson } from '@server/lib/ripmail/ripmailStatusParse.js'
-import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import { logger } from '@server/lib/observability/logger.js'
 
 /** One-shot logs for container / production debugging (paths, ripmail index). */
 export async function logStartupDiagnostics(listenPort?: number): Promise<void> {
   initLocalMessageToolsAvailability()
-  const bundledNative = process.env.BRAIN_BUNDLED_NATIVE === '1'
-  if (bundledNative) {
-    logger.info(
-      `NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} HTTP listen port=${listenPort ?? '?'} (bundled native; port from dynamic bind, not PORT env)`,
-    )
-  } else {
-    logger.info(
-      `NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} HTTP listen port=${listenPort ?? parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)}`,
-    )
-  }
+  logger.info(
+    `NODE_ENV=${process.env.NODE_ENV ?? 'undefined'} HTTP listen port=${listenPort ?? parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)}`,
+  )
   if (
     process.env.NODE_ENV === 'production' &&
-    process.env.BRAIN_BUNDLED_NATIVE !== '1' &&
     process.env.GOOGLE_OAUTH_CLIENT_ID?.trim() &&
     !process.env.PUBLIC_WEB_ORIGIN?.trim()
   ) {
@@ -34,86 +20,31 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
     )
   }
   logFdaProbeForStartup((line) => logger.info(line))
-  if (isMultiTenantMode()) {
-    logger.info(`BRAIN_DATA_ROOT=${process.env.BRAIN_DATA_ROOT}`)
-    logger.info(
-      'multi-tenant: BRAIN_HOME is per-request; periodic sync / your-wiki loop disabled at process level',
+  logger.info(`BRAIN_DATA_ROOT=${process.env.BRAIN_DATA_ROOT}`)
+  logger.info(
+    'multi-tenant: BRAIN_HOME is per-request; periodic sync / your-wiki loop disabled at process level',
+  )
+  logger.info(
+    'ripmail home (Brain)=per-tenant `$BRAIN_DATA_ROOT/<tenantUserId>/<layout ripmail>/` (resolved per request; not logged globally)',
+  )
+  if (process.env.RIPMAIL_HOME?.trim()) {
+    logger.warn(
+      'RIPMAIL_HOME is set in the environment but Brain ignores it in multi-tenant mode — unset RIPMAIL_HOME to avoid confusion.',
     )
-  } else {
-    const home = resolveBrainHomeDiskRoot()
-    const wiki = wikiDir()
-    const wikiParent = brainWikiParentRoot()
-    logger.info(`BRAIN_HOME=${home}`)
-    logger.info(`BRAIN_WIKI_ROOT=${wikiParent}`)
-    logger.info(`wiki content dir=${wiki}`)
   }
-
-  if (isMultiTenantMode()) {
-    logger.info(
-      'ripmail home (Brain)=per-tenant `$BRAIN_DATA_ROOT/<tenantUserId>/<layout ripmail>/` (resolved per request; not logged globally)',
-    )
-    if (process.env.RIPMAIL_HOME?.trim()) {
-      logger.warn(
-        'RIPMAIL_HOME is set in the environment but Brain ignores it in multi-tenant mode — unset RIPMAIL_HOME to avoid confusion.',
-      )
-    }
-    logger.info(
-      'RIPMAIL_HOME env has no effect on Brain mail paths in multi-tenant mode (ripmail home is derived per tenant).',
-    )
-  } else {
-    logger.info(`ripmail home (Brain)=${ripmailHomeForBrain()}`)
-    const ripEnv = process.env.RIPMAIL_HOME?.trim()
-    if (ripEnv) {
-      logger.warn(
-        'RIPMAIL_HOME is set in the environment but Brain ignores it for mail storage — ripmail data uses BRAIN_HOME + layout only; spawned ripmail gets RIPMAIL_HOME overwritten to match. Unset RIPMAIL_HOME to avoid confusion.',
-      )
-    }
-  }
-  if (isMultiTenantMode() && process.env.IMESSAGE_DB_PATH?.trim()) {
+  logger.info(
+    'RIPMAIL_HOME env has no effect on Brain mail paths in multi-tenant mode (ripmail home is derived per tenant).',
+  )
+  if (process.env.IMESSAGE_DB_PATH?.trim()) {
     logger.info(
       'warning: IMESSAGE_DB_PATH is set while BRAIN_DATA_ROOT is set — iMessage is host-level, not tenant-scoped',
     )
   }
   const rm = ripmailBin()
   logger.info(`RIPMAIL_BIN=${rm}`)
-  if (!isMultiTenantMode()) {
-    try {
-      const { stdout } = await execRipmailAsync(`${rm} --version`, { timeout: 5000 })
-      logger.info(`ripmail: ${stdout.trim().split('\n')[0]}`)
-    } catch (e) {
-      logger.info(`ripmail --version failed: ${String(e)}`)
-    }
+  logger.info('ripmail --version / status: skipped at startup in multi-tenant mode (no global RIPMAIL_HOME)')
 
-    try {
-      const { stdout } = await execRipmailAsync(`${rm} status --json`, { timeout: 8000 })
-      const parsed = parseRipmailStatusJson(stdout)
-      if (parsed) {
-        const total = parsed.indexedTotal
-        const last = parsed.lastSyncedAt
-        logger.info(`ripmail index: messages≈${total ?? '?'} lastSync=${last ?? '?'}`)
-      } else {
-        logger.info(`ripmail status (truncated): ${stdout.slice(0, 240)}`)
-      }
-    } catch (e) {
-      logger.info(`ripmail status failed — check BRAIN_HOME / ripmail config under ripmail home (Brain): ${String(e)}`)
-    }
-  } else {
-    logger.info('ripmail --version / status: skipped at startup in multi-tenant mode (no global RIPMAIL_HOME)')
-  }
-
-  if (isMultiTenantMode()) {
-    logger.info('Local messages: disabled in multi-tenant / hosted mode (no per-tenant chat.db integration).')
-  } else if (!isAppleLocalIntegrationEnvironment()) {
-    logger.info(
-      'Local messages / on-device Apple Mail: not available on this host — iMessage/SMS tools disabled (requires macOS)',
-    )
-  } else if (areLocalMessageToolsEnabled()) {
-    logger.info('Local messages: chat.db readable (list_recent_messages / get_message_thread enabled)')
-  } else {
-    logger.info(
-      'Local messages: database not readable — SMS/text tools disabled (macOS: grant Full Disk Access to Node/your terminal, or set IMESSAGE_DB_PATH to a readable chat.db copy)',
-    )
-  }
+  logger.info('Local messages / iMessage tools: disabled in hosted multi-tenant mode.')
 
   logger.info('startup diagnostics complete.')
 }

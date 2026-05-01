@@ -81,12 +81,15 @@ In non-interactive shells (scripts, agents, CI), ensure nvm is loaded first, e.g
 ```sh
 nvm use          # must match .nvmrc before npm/node (see “Node.js (nvm)” above)
 npm install
-npm run dev      # starts Hono + Vite HMR on single port 3000 (see docs/google-oauth.md)
+npm run dev      # BRAIN_DATA_ROOT=./data; Hono + Vite HMR on single port 3000 (see docs/google-oauth.md)
+npm run dev:clean  # delete ./data (all tenants + `.global/`) — full local wipe
 ```
 
 Single server: Vite runs as middleware inside Hono. API requests go to Hono routes; everything else goes to Vite for HMR.
 
-Vault login applies in dev and production (`npm run dev`): create your vault password on first run (`/api/vault/setup`) or unlock when returning; see [`docs/architecture/runtime-and-routes.md`](docs/architecture/runtime-and-routes.md).
+**Dev data directory:** everything durable lives under **`./data`** (`BRAIN_DATA_ROOT`). Tenants are subdirs (`usr_…`); registry and shared files are under **`./data/.global/`**. **`npm run dev:clean`** removes that entire tree (full reset). In-app **delete all my data** only removes the **current signed-in tenant**, not other tenants on disk.
+
+Sign in applies in dev and production (`npm run dev`): Google OAuth → session; see [`docs/architecture/runtime-and-routes.md`](docs/architecture/runtime-and-routes.md).
 
 ### Native macOS (Tauri v2)
 
@@ -96,7 +99,6 @@ Optional: run the same stack inside a native window (see [OPP-007 (archived)](do
 npm run ripmail:dev            # cargo build -p ripmail (debug) — use before inbox if not on PATH
 npm run ripmail:build          # cargo build -p ripmail --release
 npm run ripmail:test           # cargo test -p ripmail
-npm run dev:clean              # delete dev durable data: `./data` unless `BRAIN_HOME` is set (same tree as `npm run dev`; not packaged-app bundle paths)
 npm run desktop:dev            # Hono + Vite on :3000 + Tauri WebView → http://localhost:3000
 npm run desktop:build          # npm build + bundle server + Braintunnel.app (+ DMG on macOS)
 npm run desktop:fresh          # `desktop:clean-data` + `desktop:build`, then opens the DMG (default) or `Braintunnel.app` with `-- app` (macOS) — see `scripts/desktop-fresh.mjs`
@@ -117,7 +119,7 @@ cargo test                     # standard cargo test (runs integration test bina
 
 Requires **Rust** (`cargo`/`rustc`) and **Xcode** toolchain on macOS. The packaged app bundles a release-built `ripmail` binary inside `server-bundle/`; `desktop:bundle-server` builds it automatically. For local dev, `npm run ripmail:dev` builds the debug binary and `run-dev.mjs` sets `RIPMAIL_BIN` when it exists.
 
-**Ripmail storage under Brain:** Always **`$BRAIN_HOME/<ripmail>/`** ([`shared/brain-layout.json`](shared/brain-layout.json)). Braintunnel does **not** read **`RIPMAIL_HOME`** from your environment for mail paths—only **`BRAIN_HOME`** (+ layout). The server still passes a **computed** `RIPMAIL_HOME` into ripmail subprocesses. Default dev **`BRAIN_HOME`** is **`./data`** → **`./data/ripmail`**. To run **`ripmail` manually** against the same index as the app, use the **same `BRAIN_HOME`** (the Rust CLI resolves `$BRAIN_HOME/<ripmail>/` when `RIPMAIL_HOME` is unset) or set **`RIPMAIL_HOME`** on that one-off command to that directory. **`RIPMAIL_BIN`** selects which binary runs (`npm run dev` prefers the workspace Cargo artifact when built). Standalone installs may still default to **`~/.ripmail`**—do not confuse that with Brain’s tree.
+**Ripmail storage under Brain:** Index and config live under **`<tenant>/ripmail/`** relative to **`BRAIN_DATA_ROOT`** ([`shared/brain-layout.json`](shared/brain-layout.json)). On disk that is **`$BRAIN_DATA_ROOT/<usr_…>/ripmail/`**. Braintunnel does **not** read **`RIPMAIL_HOME`** from your environment for mail paths; the server passes a **computed** `RIPMAIL_HOME` into ripmail subprocesses. **`RIPMAIL_BIN`** selects which binary runs (`npm run dev` prefers the workspace Cargo artifact when built). Standalone `ripmail` may still default to **`~/.ripmail`**—do not confuse that with Brain’s tree.
 
 `tauri build` runs `npm run build && npm run desktop:bundle-server`, which copies `dist/`, production `node_modules`, the current `node` binary, and a **release-built `ripmail`** (from `cargo build -p ripmail --release`) into `desktop/resources/server-bundle/` (gitignored). The packaged app’s WebView navigates to the embedded Hono server at **`https://127.0.0.1:<port>/`** (self-signed TLS, cert under `$BRAIN_HOME/var`, OPP-023); Tauri’s `tauri.conf.json` `build.frontendDist` placeholder is `https://127.0.0.1:18473`. The bundled Node + `dist/server` serves that listener (release only; dev still uses `npm run dev` → `http://localhost:3000`). In-app auto-update uses **`tauri-plugin-updater`**: `tauri.conf.json` includes a `pubkey` and **`plugins.updater.endpoints` is empty by default** (no update checks until you publish a manifest and add endpoint URLs). Replace the checked-in public key with one from **`npx tauri signer generate`** (keep the private key out of git; CI uses `TAURI_SIGNING_PRIVATE_KEY` or `TAURI_SIGNING_PRIVATE_KEY_PATH` to sign artifacts). On macOS, `desktop/tauri.macos.conf.json` limits bundle output to `**dmg**` (instead of `all`).
 

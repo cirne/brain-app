@@ -13,7 +13,6 @@ import { formatSkillLibrarySection } from '@server/lib/llm/skillRegistry.js'
 import { loadSession } from '@server/lib/chat/chatStorage.js'
 import { persistedChatMessagesToAgentMessages } from '@server/lib/chat/persistedChatToAgentMessages.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
-import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { resolveEvalAnchoredNow } from '@server/lib/llm/evalAssistantClock.js'
 import { buildRipmailSourcesPromptSection } from '@server/lib/ripmail/ripmailSourcesPromptSection.js'
 
@@ -64,7 +63,7 @@ export function buildBaseSystemPrompt(includeLocalMessageCapabilities: boolean, 
     meHint: new Handlebars.SafeString(meHint),
     assistantHint: new Handlebars.SafeString(assistantHint),
     includeLocalMessageCapabilities,
-    multiTenant: isMultiTenantMode(),
+    multiTenant: true,
   })
 }
 

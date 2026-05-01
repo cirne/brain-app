@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(root, '..')
-const brainHome = process.env.BRAIN_HOME ?? join(repoRoot, 'data-eval', 'brain')
-const env = { ...process.env, BRAIN_HOME: brainHome }
+const dataRoot = process.env.BRAIN_DATA_ROOT ?? join(repoRoot, 'data')
+const env = { ...process.env, BRAIN_DATA_ROOT: dataRoot }
 const passThrough = process.argv.slice(2)
 const helpOnly =
   passThrough.length === 1 && (passThrough[0] === '--help' || passThrough[0] === '-h')

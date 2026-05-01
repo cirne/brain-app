@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import type { Context } from 'hono'
 import { brainHome } from '@server/lib/platform/brainHome.js'
 import { brainLayoutVarDir } from '@server/lib/platform/brainLayout.js'
-import { dataRoot, isMultiTenantMode, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { dataRoot, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { isValidUserId } from '@server/lib/tenant/handleMeta.js'
 import { getBearerToken } from './embedKeyAuth.js'
 
@@ -240,18 +240,6 @@ function writeCache(resolved: ResolvedDeviceToken): void {
   })
 }
 
-async function resolveSingleTenantToken(parsed: ParsedDeviceToken): Promise<ResolvedDeviceToken | null> {
-  const homeDir = brainHome()
-  const record = await findDeviceInHome(homeDir, parsed)
-  if (!record) return null
-  return {
-    tenantUserId: '_single',
-    homeDir,
-    deviceId: parsed.id,
-    scopes: record.scopes,
-  }
-}
-
 async function resolveMultiTenantToken(parsed: ParsedDeviceToken): Promise<ResolvedDeviceToken | null> {
   const cached = maybeFromCache(parsed)
   if (cached) {
@@ -284,10 +272,7 @@ export async function resolveDeviceToken(
 ): Promise<ResolvedDeviceToken | null> {
   const parsed = typeof tokenOrParsed === 'string' ? parseDeviceTokenValue(tokenOrParsed) : tokenOrParsed
   if (!parsed) return null
-  if (isMultiTenantMode()) {
-    return resolveMultiTenantToken(parsed)
-  }
-  return resolveSingleTenantToken(parsed)
+  return resolveMultiTenantToken(parsed)
 }
 
 export async function resolveDeviceTokenFromBearer(c: Context): Promise<ResolvedDeviceToken | null> {

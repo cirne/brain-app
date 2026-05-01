@@ -1,30 +1,20 @@
 // New Relic APM: must load before any other application code.
 import 'newrelic'
-// Load .env in dev, overriding existing vars (important: parent shell may
-// set ANTHROPIC_API_KEY to empty, and loadEnvFile won't override it).
 import { loadDotEnv } from '@server/lib/platform/loadDotEnv.js'
 import { Hono } from 'hono'
-import { getConnInfo } from '@hono/node-server/conninfo'
+import { getCookie } from 'hono/cookie'
 import { serve, getRequestListener } from '@hono/node-server'
-import type { ServerType } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { logger } from 'hono/logger'
-import { getCookie } from 'hono/cookie'
 import { createServer } from 'node:http'
 import { shouldSuppressAccessLogForApiPath } from '@server/lib/auth/publicRoutePolicy.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
-import { devLocalVaultBootstrapMiddleware } from '@server/lib/vault/devLocalVaultBootstrap.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { initLocalMessageToolsAvailability } from '@server/lib/apple/imessageDb.js'
 import { runStartupChecks } from '@server/lib/platform/runStartupChecks.js'
-import { ensureBrainHomeGitignore } from '@server/lib/platform/brainHomeGitignore.js'
-import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
-import { runSplitLayoutMigrationIfNeeded } from '@server/lib/onboarding/splitLayoutMigration.js'
 import { startTunnel, getActiveTunnelUrl, getHostGuid } from '@server/lib/platform/tunnelManager.js'
 import { readOnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
-import { BRAIN_DEFAULT_HTTP_PORT, setActualNativePort } from '@server/lib/platform/brainHttpPort.js'
-import { isAllowedBundledNativeClientIp } from '@server/lib/platform/bundledNativeClientAllowlist.js'
-import { isBundledNativeServer, nativeAppOAuthPortCandidates } from '@server/lib/apple/nativeAppPort.js'
+import { BRAIN_DEFAULT_HTTP_PORT } from '@server/lib/platform/brainHttpPort.js'
 import {
   duplicateDevListenMessage,
   isAddrInUse,
@@ -42,62 +32,32 @@ import { isDevRuntime } from '@server/lib/platform/isDevRuntime.js'
 loadDotEnv()
 setPromptsRoot(fileURLToPath(new URL('./prompts', import.meta.url)))
 
-// /api/* pipeline: tenant → New Relic brain context → dev vault bootstrap → vault gate → routes.
-// Embed/device bypasses live in vaultGate after tenant so Context carries workspace; do not reorder lightly.
 const app = new Hono()
-// Names NR web transactions from Hono's matched route pattern (not Express-style auto naming).
 app.use('*', newRelicHonoTransactionMiddleware())
 const isDev = isDevRuntime()
 
-if (isBundledNativeServer()) {
-  app.use('*', async (c, next) => {
-    const prefs = await readOnboardingPreferences()
-    if (prefs.allowLanDirectAccess === true) {
-      return next()
-    }
-    let addr: string | undefined
-    try {
-      addr = getConnInfo(c).remote.address
-    } catch {
-      addr = undefined
-    }
-    if (addr === undefined) {
-      const incoming = (c.env as { incoming?: { socket?: { remoteAddress?: string } } }).incoming
-      addr = incoming?.socket?.remoteAddress
-    }
-    if (!isAllowedBundledNativeClientIp(addr)) {
-      return c.text('Forbidden', 403)
-    }
-    return next()
-  })
-}
-
 // Global middleware to enforce Host GUID protection for tunnel traffic
-// (This is redundant in dev mode as it's handled in createServer, but kept for prod/native)
 app.use('*', async (c, next) => {
   const tunnelUrl = getActiveTunnelUrl()
   if (!tunnelUrl) return next()
 
-  // Only enforce Magic GUID on the named host (predictable URL). Quick Tunnels
-  // (trycloudflare.com) rely on the ephemeral hostname as the secret.
   const host = c.req.header('host')
   if (host && host.includes('brain.chatdnd.io')) {
     const guid = getHostGuid()
     const providedGuid = c.req.query('g')
 
-    // Check for GUID in query or in a cookie (for subsequent requests)
     const cookieGuid = getCookie(c, 'brain_g')
-    
+
     if (providedGuid === guid) {
-      // Valid GUID provided, set a long-lived cookie and proceed
-      // Use Secure and SameSite=None for tunnel compatibility
-      c.header('Set-Cookie', `brain_g=${guid}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=31536000`, { append: true })
-      
-      // If this is a top-level document request, redirect to strip the GUID
+      c.header(
+        'Set-Cookie',
+        `brain_g=${guid}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=31536000`,
+        { append: true },
+      )
+
       if (c.req.header('accept')?.includes('text/html') && !c.req.path.startsWith('/api/')) {
         const url = new URL(c.req.url)
         url.searchParams.delete('g')
-        // Use 302 to ensure the browser doesn't cache the redirect without the cookie
         return c.redirect(url.toString(), 302)
       }
       return next()
@@ -109,13 +69,12 @@ app.use('*', async (c, next) => {
 
     return c.text('Unauthorized: Invalid or missing Magic GUID', 401)
   }
-  
+
   return next()
 })
 
 /**
  * Browser-friendly sign-out: clears session and redirects to `/` (or `?next=/path`).
- * `Accept: application/json` returns the same body as POST /api/vault/logout.
  */
 app.get('/logout', async (c) => {
   const body = await executeVaultLogout(c)
@@ -128,7 +87,6 @@ app.get('/logout', async (c) => {
 
 app.use('/api/*', tenantMiddleware)
 app.use('/api/*', newRelicBrainContextMiddleware())
-app.use('/api/*', devLocalVaultBootstrapMiddleware)
 app.use('/api/*', vaultGateMiddleware)
 
 const requestLogger = logger()
@@ -143,80 +101,16 @@ function resolveNonNativePort(): number {
   return parseInt(process.env.PORT ?? String(BRAIN_DEFAULT_HTTP_PORT), 10)
 }
 
-/**
- * Try to bind an `http`/`https` server to a single port. Returns true on success, false on EADDRINUSE,
- * throws on any other error.
- */
-function tryListen(server: ServerType, port: number): Promise<boolean> {
-  return new Promise((resolve, reject) => {
-    const onErr = (err: Error & { code?: string }) => {
-      server.removeListener('error', onErr)
-      if (err.code === 'EADDRINUSE') {
-        resolve(false)
-      } else {
-        reject(err)
-      }
-    }
-    server.once('error', onErr)
-    server.listen(port, '0.0.0.0', () => {
-      server.removeListener('error', onErr)
-      resolve(true)
-    })
-  })
-}
-
-/**
- * Bundled Tauri app: bind the first available port from the OAuth candidate list
- * (18473, 18474, 18475, 18476). Multiple users on the same machine each get their own port.
- * HTTP (cleartext) for now; optional TLS under `$BRAIN_HOME/var` is tracked in OPP-036.
- * Calls {@link setActualNativePort} so the OAuth redirect URI reflects the bound port.
- */
-async function listenNativeBundled(): Promise<ServerType> {
-  const candidates = nativeAppOAuthPortCandidates()
-  const handler = getRequestListener(app.fetch)
-
-  for (const p of candidates) {
-    const server = createServer(handler) as ServerType
-    const bound = await tryListen(server, p)
-    if (bound) {
-      setActualNativePort(p)
-      // Tauri reads this line to navigate the webview; do not remove or prefix with other text.
-      console.log(`BRAIN_LISTEN_PORT=${p}`)
-      if (p !== candidates[0]) {
-        console.log(`[brain-app] Port ${candidates[0]} in use; bound to fallback port ${p}`)
-      }
-      console.log(
-        `[brain-app] Bundled server listening on 0.0.0.0:${p} (HTTP; Tailscale: http://<this-machine-tailscale-ip>:${p}; OAuth: http://127.0.0.1:${p})`,
-      )
-      return server
-    }
-    server.close(() => {})
-  }
-
-  throw new Error(
-    `[brain-app] All OAuth ports in use (${candidates.join(', ')}). Stop another Braintunnel instance or free one of these ports.`,
-  )
-}
-
 async function start() {
   try {
     initLocalMessageToolsAvailability()
-    if (!isMultiTenantMode()) {
-      await runSplitLayoutMigrationIfNeeded()
-      await ensureBrainHomeGitignore()
-    } else {
-      // One-time: legacy handle dirs → `usr_*`; registry normalization. Remove after deploy confirms (see module).
-      const { migrateTenantDirsToUserIdOnce } = await import(
-        '@server/lib/tenant/migrateTenantDirsToUserId.js'
-      )
-      await migrateTenantDirsToUserIdOnce()
-    }
+    const { migrateTenantDirsToUserIdOnce } = await import(
+      '@server/lib/tenant/migrateTenantDirsToUserId.js'
+    )
+    await migrateTenantDirsToUserIdOnce()
 
-    // Inline NODE_ENV check so production bundles can drop the Vite branch (see esbuild define).
     if (process.env.NODE_ENV !== 'production') {
       const port = resolveNonNativePort()
-      // If another `npm run dev` already owns this port, exit before createViteServer — otherwise Vite
-      // would still start a second HMR WebSocket (e.g. :24678) and fight the first dev server.
       const portFree = await probeDevPortAvailable(port)
       if (!portFree) {
         console.error(duplicateDevListenMessage(port))
@@ -224,16 +118,14 @@ async function start() {
         return
       }
 
-      // In dev: Vite runs as middleware inside the same server.
-      // API requests go to Hono; everything else goes to Vite (HMR included).
       const { createServer: createViteServer } = await import('vite')
       const vite = await createViteServer({
         configFile: 'vite.config.ts',
-        server: { 
+        server: {
           middlewareMode: true,
           hmr: {
-            clientPort: port
-          }
+            clientPort: port,
+          },
         },
         appType: 'spa',
       })
@@ -248,17 +140,17 @@ async function start() {
           const url = new URL(req.url ?? '/', `http://${host}`)
           const providedGuid = url.searchParams.get('g')
           const guid = getHostGuid()
-          
-          // Simple cookie parser for the raw header
+
           const cookies = req.headers['cookie'] ?? ''
           const cookieMatch = cookies.match(/brain_g=([^;]+)/)
           const cookieGuid = cookieMatch ? cookieMatch[1] : null
 
           if (providedGuid === guid) {
-            // Valid GUID provided, set a long-lived cookie and proceed
-            res.setHeader('Set-Cookie', `brain_g=${guid}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=31536000`)
-            
-            // If this is a top-level document request, redirect to strip the GUID
+            res.setHeader(
+              'Set-Cookie',
+              `brain_g=${guid}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=31536000`,
+            )
+
             const accept = req.headers['accept'] ?? ''
             if (accept.includes('text/html') && !req.url?.startsWith('/api/')) {
               url.searchParams.delete('g')
@@ -315,39 +207,21 @@ async function start() {
         })()
       })
     } else {
-      // In production: serve pre-built client from dist/client
       app.use('*', serveStatic({ root: './dist/client' }))
       app.get('*', serveStatic({ path: './dist/client/index.html' }))
 
-      if (isBundledNativeServer()) {
-        const server = await listenNativeBundled()
+      const port = resolveNonNativePort()
+      const server = serve({ fetch: app.fetch, port }, () => {
+        console.log(`Server running on http://localhost:${port}`)
         registerPeriodicSyncAndShutdown(server)
-        const addr = server.address()
-        const listenPort =
-          typeof addr === 'object' && addr !== null ? addr.port : undefined
-        void runStartupChecks(listenPort)
-        if (listenPort) {
-          void (async () => {
-            const prefs = await readOnboardingPreferences()
-            if (prefs.remoteAccessEnabled) {
-              void startTunnel(listenPort)
-            }
-          })()
-        }
-      } else {
-        const port = resolveNonNativePort()
-        const server = serve({ fetch: app.fetch, port }, () => {
-          console.log(`Server running on http://localhost:${port}`)
-          registerPeriodicSyncAndShutdown(server)
-          void runStartupChecks(port)
-          void (async () => {
-            const prefs = await readOnboardingPreferences()
-            if (prefs.remoteAccessEnabled) {
-              void startTunnel(port)
-            }
-          })()
-        })
-      }
+        void runStartupChecks(port)
+        void (async () => {
+          const prefs = await readOnboardingPreferences()
+          if (prefs.remoteAccessEnabled) {
+            void startTunnel(port)
+          }
+        })()
+      })
     }
   } catch (e) {
     console.error(e)

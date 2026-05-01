@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { existsSync, mkdirSync, readdirSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   brainLayoutCacheDir,
@@ -8,19 +8,13 @@ import {
   brainLayoutRipmailDir,
   brainLayoutSkillsDir,
   brainLayoutVarDir,
-  brainLayoutVaultVerifierPath,
   brainLayoutWikiDir,
 } from '@server/lib/platform/brainLayout.js'
 
 /**
- * Multi-tenant mode: `BRAIN_DATA_ROOT` points at the mounted volume; each tenant is a subdirectory.
- * When unset, single-tenant mode uses `BRAIN_HOME` / bundled defaults / `./data`.
+ * Multi-tenant storage: `BRAIN_DATA_ROOT` points at the mounted volume; each tenant is a subdirectory.
+ * Required in all environments (local dev sets it via `npm run dev`).
  */
-export function isMultiTenantMode(): boolean {
-  const r = process.env.BRAIN_DATA_ROOT?.trim()
-  return typeof r === 'string' && r.length > 0
-}
-
 export function dataRoot(): string {
   const r = process.env.BRAIN_DATA_ROOT?.trim()
   if (!r) {
@@ -38,11 +32,6 @@ export function tenantHomeDir(tenantUserId: string): string {
   return join(dataRoot(), tenantUserId)
 }
 
-/** True if this tenant directory already has a vault verifier on disk (setup collision). */
-export function tenantVaultVerifierExistsSync(tenantUserId: string): boolean {
-  return existsSync(brainLayoutVaultVerifierPath(tenantHomeDir(tenantUserId)))
-}
-
 /** Create tenant tree matching {@link shared/brain-layout.json} under `tenantUserId` (`usr_…`). */
 export function ensureTenantHomeDir(tenantUserId: string): string {
   const root = tenantHomeDir(tenantUserId)
@@ -54,27 +43,4 @@ export function ensureTenantHomeDir(tenantUserId: string): string {
   mkdirSync(brainLayoutVarDir(root), { recursive: true })
   mkdirSync(brainLayoutIssuesDir(root), { recursive: true })
   return root
-}
-
-/**
- * True if any tenant directory under the data root contains a vault verifier (not including `.global`).
- */
-export function anyTenantVaultVerifierExistsSync(): boolean {
-  if (!isMultiTenantMode()) return false
-  const dr = process.env.BRAIN_DATA_ROOT?.trim()
-  if (!dr || !existsSync(dr)) return false
-  let names: string[]
-  try {
-    names = readdirSync(dr)
-  } catch {
-    return false
-  }
-  for (const name of names) {
-    if (name.startsWith('.') || name === 'lost+found') continue
-    const home = join(dr, name)
-    if (existsSync(brainLayoutVaultVerifierPath(home))) {
-      return true
-    }
-  }
-  return false
 }

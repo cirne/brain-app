@@ -15,7 +15,7 @@ import {
   writeGoogleOAuthTokenFile,
 } from '@server/lib/platform/googleOAuth.js'
 import { ensureSingleSourceMarkedAsDefaultSend } from '@server/lib/platform/ripmailConfigEdit.js'
-import { isMultiTenantMode, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import {
   googleIdentityKey,
   resolveOrProvisionWorkspace,
@@ -141,71 +141,48 @@ async function completeGmailLinkOAuth(
     return redirectLinkError(c, e instanceof Error ? e.message : String(e))
   }
 
-  if (isMultiTenantMode()) {
-    const sid = getCookie(c, BRAIN_SESSION_COOKIE)
-    const tenantUserId = await lookupTenantBySession(sid)
-    if (!tenantUserId) {
-      return redirectLinkError(
-        c,
-        'Your sign-in session expired. Sign in to Braintunnel again before linking.',
-      )
-    }
+  const sid = getCookie(c, BRAIN_SESSION_COOKIE)
+  const tenantUserId = await lookupTenantBySession(sid)
+  if (!tenantUserId) {
+    return redirectLinkError(
+      c,
+      'Your sign-in session expired. Sign in to Braintunnel again before linking.',
+    )
+  }
 
-    const existingPrimaryTenant = await lookupWorkspaceByIdentity(googleIdentityKey(sub))
-    if (existingPrimaryTenant && existingPrimaryTenant !== tenantUserId) {
-      return redirectLinkError(
-        c,
-        `That Google account is the sign-in for a different Braintunnel workspace. Sign in with that account or use a different Gmail.`,
-      )
-    }
+  const existingPrimaryTenant = await lookupWorkspaceByIdentity(googleIdentityKey(sub))
+  if (existingPrimaryTenant && existingPrimaryTenant !== tenantUserId) {
+    return redirectLinkError(
+      c,
+      `That Google account is the sign-in for a different Braintunnel workspace. Sign in with that account or use a different Gmail.`,
+    )
+  }
 
-    const homeDir = tenantHomeDir(tenantUserId)
-    const meta = await readHandleMeta(homeDir)
-    const workspaceHandle = meta?.handle ?? tenantUserId
-    return runWithTenantContextAsync({ tenantUserId, workspaceHandle, homeDir }, async () => {
-      const ripmailHome = ripmailHomeForBrain()
-      try {
-        const existingByEmail = await findLinkedMailboxByEmail(email)
-        const existingBySub = await findLinkedMailboxBySub(sub)
-        if (existingByEmail || existingBySub) {
-          await writeGoogleOAuthTokenFile(ripmailHome, deriveMailboxId(email), tokens)
-          await upsertRipmailGoogleDriveSource(ripmailHome, deriveMailboxId(email), email)
-        } else {
-          const mailboxId = deriveMailboxId(email)
-          await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
-          await upsertRipmailConfig(ripmailHome, mailboxId, email)
-          await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
-          await upsertRipmailGoogleDriveSource(ripmailHome, mailboxId, email)
-        }
-        await upsertLinkedMailbox({ email, googleSub: sub })
-        await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
-      } catch (e) {
-        return redirectLinkError(c, e instanceof Error ? e.message : String(e))
+  const homeDir = tenantHomeDir(tenantUserId)
+  const meta = await readHandleMeta(homeDir)
+  const workspaceHandle = meta?.handle ?? tenantUserId
+  return runWithTenantContextAsync({ tenantUserId, workspaceHandle, homeDir }, async () => {
+    const ripmailHome = ripmailHomeForBrain()
+    try {
+      const existingByEmail = await findLinkedMailboxByEmail(email)
+      const existingBySub = await findLinkedMailboxBySub(sub)
+      if (existingByEmail || existingBySub) {
+        await writeGoogleOAuthTokenFile(ripmailHome, deriveMailboxId(email), tokens)
+        await upsertRipmailGoogleDriveSource(ripmailHome, deriveMailboxId(email), email)
+      } else {
+        const mailboxId = deriveMailboxId(email)
+        await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
+        await upsertRipmailConfig(ripmailHome, mailboxId, email)
+        await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
+        await upsertRipmailGoogleDriveSource(ripmailHome, mailboxId, email)
       }
-      return redirectLinkSuccess(c, email)
-    })
-  }
-
-  const ripmailHome = ripmailHomeForBrain()
-  try {
-    const existingByEmail = await findLinkedMailboxByEmail(email)
-    const existingBySub = await findLinkedMailboxBySub(sub)
-    if (existingByEmail || existingBySub) {
-      await writeGoogleOAuthTokenFile(ripmailHome, deriveMailboxId(email), tokens)
-      await upsertRipmailGoogleDriveSource(ripmailHome, deriveMailboxId(email), email)
-    } else {
-      const mailboxId = deriveMailboxId(email)
-      await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
-      await upsertRipmailConfig(ripmailHome, mailboxId, email)
-      await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
-      await upsertRipmailGoogleDriveSource(ripmailHome, mailboxId, email)
+      await upsertLinkedMailbox({ email, googleSub: sub })
+      await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
+    } catch (e) {
+      return redirectLinkError(c, e instanceof Error ? e.message : String(e))
     }
-    await upsertLinkedMailbox({ email, googleSub: sub })
-    await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
-  } catch (e) {
-    return redirectLinkError(c, e instanceof Error ? e.message : String(e))
-  }
-  return redirectLinkSuccess(c, email)
+    return redirectLinkSuccess(c, email)
+  })
 }
 
 app.get('/start', (c) => {
@@ -312,55 +289,36 @@ app.get('/callback', async (c) => {
     return redirectOauthError(c, msg)
   }
 
-  if (isMultiTenantMode()) {
-    const { tenantUserId, workspaceHandle, isNew } = await resolveOrProvisionWorkspace(sub, email)
-    const homeDir = tenantHomeDir(tenantUserId)
-    return runWithTenantContextAsync({ tenantUserId, workspaceHandle, homeDir }, async () => {
-      if (isNew) {
-        try {
-          await ensureWikiVaultScaffold(wikiDir())
-        } catch (e) {
-          console.error('[oauth/google/callback] ensureWikiVaultScaffold:', e)
-        }
-      }
-      const mailboxId = deriveMailboxId(email)
-      const ripmailHome = ripmailHomeForBrain()
+  const { tenantUserId, workspaceHandle, isNew } = await resolveOrProvisionWorkspace(sub, email)
+  const homeDir = tenantHomeDir(tenantUserId)
+  return runWithTenantContextAsync({ tenantUserId, workspaceHandle, homeDir }, async () => {
+    if (isNew) {
       try {
-        await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
-        await upsertRipmailConfig(ripmailHome, mailboxId, email)
-        await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
-        await upsertRipmailGoogleDriveSource(ripmailHome, mailboxId, email)
-        await upsertLinkedMailbox({ email, googleSub: sub, isPrimary: true })
-        await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
+        await ensureWikiVaultScaffold(wikiDir())
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        return redirectOauthError(c, msg)
+        console.error('[oauth/google/callback] ensureWikiVaultScaffold:', e)
       }
-      await persistGoogleMailProviderPreference()
-      const sessionId = await createVaultSession()
-      await registerSessionTenant(sessionId, tenantUserId)
-      setBrainSessionCookie(c, sessionId)
-      recordGoogleOauthSuccess()
-      return c.redirect('/oauth/google/complete', 302)
-    })
-  }
-
-  const mailboxId = deriveMailboxId(email)
-  const ripmailHome = ripmailHomeForBrain()
-  try {
-    await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
-    await upsertRipmailConfig(ripmailHome, mailboxId, email)
-    await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
-    await upsertRipmailGoogleDriveSource(ripmailHome, mailboxId, email)
-    await upsertLinkedMailbox({ email, googleSub: sub, isPrimary: true })
-    await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return redirectOauthError(c, msg)
-  }
-  await persistGoogleMailProviderPreference()
-  recordGoogleOauthSuccess()
-  return c.redirect('/oauth/google/complete', 302)
+    }
+    const mailboxId = deriveMailboxId(email)
+    const ripmailHome = ripmailHomeForBrain()
+    try {
+      await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
+      await upsertRipmailConfig(ripmailHome, mailboxId, email)
+      await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
+      await upsertRipmailGoogleDriveSource(ripmailHome, mailboxId, email)
+      await upsertLinkedMailbox({ email, googleSub: sub, isPrimary: true })
+      await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return redirectOauthError(c, msg)
+    }
+    await persistGoogleMailProviderPreference()
+    const sessionId = await createVaultSession()
+    await registerSessionTenant(sessionId, tenantUserId)
+    setBrainSessionCookie(c, sessionId)
+    recordGoogleOauthSuccess()
+    return c.redirect('/oauth/google/complete', 302)
+  })
 })
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -381,9 +339,6 @@ app.get('/callback', async (c) => {
  * ────────────────────────────────────────────────────────────────────────── */
 
 async function requireBrainSession(c: Context): Promise<boolean> {
-  if (!isMultiTenantMode()) {
-    return true
-  }
   const sid = getCookie(c, BRAIN_SESSION_COOKIE)
   const tenantUserId = await lookupTenantBySession(sid)
   return !!tenantUserId
@@ -447,10 +402,8 @@ app.get('/link/callback', async (c) => {
 
 /** GET /api/oauth/google/linked — list linked Gmail accounts for the current tenant. */
 app.get('/linked', async (c) => {
-  if (isMultiTenantMode()) {
-    if (!tryGetTenantContext()) {
-      return c.json({ error: 'tenant_required', message: 'Sign in to Braintunnel.' }, 401)
-    }
+  if (!tryGetTenantContext()) {
+    return c.json({ error: 'tenant_required', message: 'Sign in to Braintunnel.' }, 401)
   }
   const { readLinkedMailboxes } = await import('@server/lib/tenant/linkedMailboxes.js')
   const doc = await readLinkedMailboxes()

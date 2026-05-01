@@ -296,7 +296,6 @@ describe('Assistant.svelte', () => {
     it('sets hosted handle when vault status indicates multi-tenant with confirmed handle', async () => {
       const { fetchVaultStatus } = await import('@client/lib/vaultClient.js')
       vi.mocked(fetchVaultStatus).mockResolvedValue({
-        vaultExists: true,
         unlocked: true,
         multiTenant: true,
         handleConfirmed: true,

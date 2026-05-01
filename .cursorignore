@@ -1,0 +1,7 @@
+# Local Brain durable data (multi-tenant): tenants, registry, ripmail maildir/SQLite, wiki, chats.
+# Keeps Cursor search / agent context off huge trees (align with .gitignore).
+/data/
+/data-multitenant/
+data-eval/
+.data-eval/
+

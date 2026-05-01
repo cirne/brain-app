@@ -19,6 +19,10 @@ import {
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
 import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
+import { brainLayoutChatsDir } from '@server/lib/platform/brainLayout.js'
+import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { generateUserId, writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
 
 let brainHome: string
 let savedRipmailHome: string | undefined
@@ -27,7 +31,8 @@ beforeEach(async () => {
   savedRipmailHome = process.env.RIPMAIL_HOME
   delete process.env.RIPMAIL_HOME
   brainHome = await mkdtemp(join(tmpdir(), 'gmail-oauth-route-'))
-  process.env.BRAIN_HOME = brainHome
+  process.env.BRAIN_DATA_ROOT = brainHome
+  delete process.env.BRAIN_HOME
   process.env.GOOGLE_OAUTH_CLIENT_ID = 'cid.apps.googleusercontent.com'
   process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'secret'
   clearGmailOAuthSessionsForTests()
@@ -37,6 +42,7 @@ beforeEach(async () => {
 afterEach(async () => {
   vi.unstubAllGlobals()
   await rm(brainHome, { recursive: true, force: true })
+  delete process.env.BRAIN_DATA_ROOT
   delete process.env.BRAIN_HOME
   delete process.env.GOOGLE_OAUTH_CLIENT_ID
   delete process.env.GOOGLE_OAUTH_CLIENT_SECRET
@@ -120,7 +126,12 @@ describe('GET /api/oauth/google/callback', () => {
     expect(res.status).toBe(302)
     expect(res.headers.get('location')).toContain('/oauth/google/complete')
 
-    const ripmailHome = join(brainHome, 'ripmail')
+    const regRaw = await readFile(join(brainHome, '.global', 'tenant-registry.json'), 'utf8')
+    const reg = JSON.parse(regRaw) as { identities?: Record<string, string> }
+    const tenantUserId = reg.identities?.['google:userinfo-sub-stable']
+    expect(tenantUserId).toMatch(/^usr_/)
+
+    const ripmailHome = join(brainHome, tenantUserId!, 'ripmail')
     const tokenPath = join(ripmailHome, 'user_gmail_com', 'google-oauth.json')
     const tokenRaw = await readFile(tokenPath, 'utf8')
     const tok = JSON.parse(tokenRaw) as { refreshToken: string }
@@ -135,8 +146,9 @@ describe('GET /api/oauth/google/callback', () => {
       'googleOAuth'
     )
 
-    const { readOnboardingPreferences } = await import('@server/lib/onboarding/onboardingPreferences.js')
-    const prefs = await readOnboardingPreferences()
+    const prefsPath = join(brainLayoutChatsDir(join(brainHome, tenantUserId!)), 'onboarding', 'preferences.json')
+    const prefsRaw = await readFile(prefsPath, 'utf8')
+    const prefs = JSON.parse(prefsRaw) as { mailProvider?: string }
     expect(prefs.mailProvider).toBe('google')
   })
 
@@ -277,7 +289,6 @@ describe('GET /api/oauth/google/callback', () => {
     afterEach(async () => {
       await rm(mtRoot, { recursive: true, force: true })
       delete process.env.BRAIN_DATA_ROOT
-      process.env.BRAIN_HOME = brainHome
     })
 
     it('callback provisions workspace, maps identity, sets session cookie', async () => {
@@ -369,10 +380,26 @@ describe('GET /api/oauth/google/callback', () => {
  * Add-account ("link") flow — OPP-044 phase 1.
  * ────────────────────────────────────────────────────────────────────────── */
 describe('GET /api/oauth/google/link/start', () => {
-  it('redirects to Google with PKCE params (single-tenant mode)', async () => {
+  it('redirects to Google with PKCE when Brain session is present', async () => {
+    const uid = generateUserId()
+    ensureTenantHomeDir(uid)
+    await writeHandleMeta(tenantHomeDir(uid), {
+      userId: uid,
+      handle: 'link-start-test',
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+    })
+    const sid = await runWithTenantContextAsync(
+      { tenantUserId: uid, workspaceHandle: 'link-start-test', homeDir: tenantHomeDir(uid) },
+      async () => createVaultSession(),
+    )
+    await registerSessionTenant(sid, uid)
+
     const app = new Hono()
+    app.use('/api/*', tenantMiddleware)
     app.route('/api/oauth/google', gmailOAuthRoute)
-    const res = await app.request('http://localhost/api/oauth/google/link/start')
+    const res = await app.request('http://localhost/api/oauth/google/link/start', {
+      headers: { Cookie: `brain_session=${sid}` },
+    })
     expect(res.status).toBe(302)
     const loc = res.headers.get('location')!
     const u = new URL(loc)
@@ -395,13 +422,31 @@ describe('GET /api/oauth/google/link/start', () => {
       expect(decodeURIComponent(loc)).toContain('Sign in to Braintunnel')
     } finally {
       delete process.env.BRAIN_DATA_ROOT
-      process.env.BRAIN_HOME = brainHome
       await rm(mtRoot, { recursive: true, force: true })
     }
   })
 })
 
-describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
+describe('GET /api/oauth/google/link/callback (tenant session)', () => {
+  let tenantUid: string
+  let sessionCookieValue: string
+
+  beforeEach(async () => {
+    tenantUid = generateUserId()
+    ensureTenantHomeDir(tenantUid)
+    await writeHandleMeta(tenantHomeDir(tenantUid), {
+      userId: tenantUid,
+      handle: 'link-callback-test',
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+    })
+    const sid = await runWithTenantContextAsync(
+      { tenantUserId: tenantUid, workspaceHandle: 'link-callback-test', homeDir: tenantHomeDir(tenantUid) },
+      async () => createVaultSession(),
+    )
+    await registerSessionTenant(sid, tenantUid)
+    sessionCookieValue = `brain_session=${sid}`
+  })
+
   function stubFetchOk(opts: { email: string; sub: string }) {
     return vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -435,7 +480,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
 
   it('writes a second mailbox into ripmail config, registers it as linked, and redirects to /hub', async () => {
     // Seed primary IMAP source so the new account is "second".
-    const ripmailHome = join(brainHome, 'ripmail')
+    const ripmailHome = join(brainHome, tenantUid, 'ripmail')
     await import('node:fs/promises').then((m) => m.mkdir(ripmailHome, { recursive: true }))
     await writeFile(
       join(ripmailHome, 'config.json'),
@@ -460,6 +505,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
 
     const res = await mountApp().request(
       `http://localhost/api/oauth/google/link/callback?code=auth-code&state=${encodeURIComponent(state)}`,
+      { headers: { Cookie: sessionCookieValue } },
     )
     expect(res.status).toBe(302)
     const loc = res.headers.get('location')!
@@ -472,7 +518,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
     expect(cfg.sources.some((s) => s.id === 'second_gmail_com' && s.kind === 'imap')).toBe(true)
     expect(cfg.sources.some((s) => s.id === 'second_gmail_com-gcal' && s.kind === 'googleCalendar')).toBe(true)
 
-    const linkedRaw = await readFile(join(brainHome, 'var', 'linked-mailboxes.json'), 'utf8')
+    const linkedRaw = await readFile(join(brainHome, tenantUid, 'var', 'linked-mailboxes.json'), 'utf8')
     const linked = JSON.parse(linkedRaw) as { mailboxes: { email: string; isPrimary?: boolean }[] }
     expect(linked.mailboxes.some((m) => m.email === 'second@gmail.com' && m.isPrimary !== true)).toBe(true)
 
@@ -481,7 +527,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
   })
 
   it('shared /callback with mode link writes second mailbox (same URI Google redirects to)', async () => {
-    const ripmailHome = join(brainHome, 'ripmail')
+    const ripmailHome = join(brainHome, tenantUid, 'ripmail')
     await import('node:fs/promises').then((m) => m.mkdir(ripmailHome, { recursive: true }))
     await writeFile(
       join(ripmailHome, 'config.json'),
@@ -506,6 +552,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
 
     const res = await mountApp().request(
       `http://localhost/api/oauth/google/callback?code=auth-code&state=${encodeURIComponent(state)}`,
+      { headers: { Cookie: sessionCookieValue } },
     )
     expect(res.status).toBe(302)
     const loc = res.headers.get('location')!
@@ -519,7 +566,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
   })
 
   it('refreshes tokens but does not duplicate when the same email is re-linked', async () => {
-    const ripmailHome = join(brainHome, 'ripmail')
+    const ripmailHome = join(brainHome, tenantUid, 'ripmail')
     await import('node:fs/promises').then((m) => m.mkdir(ripmailHome, { recursive: true }))
     await writeFile(
       join(ripmailHome, 'config.json'),
@@ -535,9 +582,9 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
         ],
       }),
     )
-    await import('node:fs/promises').then((m) => m.mkdir(join(brainHome, 'var'), { recursive: true }))
+    await import('node:fs/promises').then((m) => m.mkdir(join(brainHome, tenantUid, 'var'), { recursive: true }))
     await writeFile(
-      join(brainHome, 'var', 'linked-mailboxes.json'),
+      join(brainHome, tenantUid, 'var', 'linked-mailboxes.json'),
       JSON.stringify({
         v: 1,
         mailboxes: [
@@ -557,6 +604,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
     vi.stubGlobal('fetch', stubFetchOk({ email: 'work@example.com', sub: 'sub-work' }))
     const res = await mountApp().request(
       `http://localhost/api/oauth/google/link/callback?code=auth-code&state=${encodeURIComponent(state)}`,
+      { headers: { Cookie: sessionCookieValue } },
     )
     expect(res.status).toBe(302)
     expect(res.headers.get('location')).toContain('/settings?addedAccount=')
@@ -568,7 +616,7 @@ describe('GET /api/oauth/google/link/callback (single-tenant)', () => {
     expect(imapEntries).toHaveLength(1)
 
     const linked = JSON.parse(
-      await readFile(join(brainHome, 'var', 'linked-mailboxes.json'), 'utf8'),
+      await readFile(join(brainHome, tenantUid, 'var', 'linked-mailboxes.json'), 'utf8'),
     ) as { mailboxes: { email: string }[] }
     expect(linked.mailboxes).toHaveLength(1)
   })
@@ -609,7 +657,6 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
   afterEach(async () => {
     await rm(mtRoot, { recursive: true, force: true })
     delete process.env.BRAIN_DATA_ROOT
-    process.env.BRAIN_HOME = brainHome
   })
 
   function mountApp() {
@@ -853,10 +900,23 @@ describe('GET /api/oauth/google/link/callback (multi-tenant)', () => {
 })
 
 describe('GET /api/oauth/google/linked', () => {
-  it('returns linked mailboxes (single-tenant)', async () => {
-    await import('node:fs/promises').then((m) => m.mkdir(join(brainHome, 'var'), { recursive: true }))
+  it('returns linked mailboxes for the signed-in tenant', async () => {
+    const uid = generateUserId()
+    ensureTenantHomeDir(uid)
+    await writeHandleMeta(tenantHomeDir(uid), {
+      userId: uid,
+      handle: 'linked-list-test',
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+    })
+    const sid = await runWithTenantContextAsync(
+      { tenantUserId: uid, workspaceHandle: 'linked-list-test', homeDir: tenantHomeDir(uid) },
+      async () => createVaultSession(),
+    )
+    await registerSessionTenant(sid, uid)
+
+    await import('node:fs/promises').then((m) => m.mkdir(join(brainHome, uid, 'var'), { recursive: true }))
     await writeFile(
-      join(brainHome, 'var', 'linked-mailboxes.json'),
+      join(brainHome, uid, 'var', 'linked-mailboxes.json'),
       JSON.stringify({
         v: 1,
         mailboxes: [
@@ -877,7 +937,9 @@ describe('GET /api/oauth/google/linked', () => {
     const app = new Hono()
     app.use('/api/*', tenantMiddleware)
     app.route('/api/oauth/google', gmailOAuthRoute)
-    const res = await app.request('http://localhost/api/oauth/google/linked')
+    const res = await app.request('http://localhost/api/oauth/google/linked', {
+      headers: { Cookie: `brain_session=${sid}` },
+    })
     expect(res.status).toBe(200)
     const j = (await res.json()) as { mailboxes: { email: string; isPrimary: boolean }[] }
     expect(j.mailboxes).toHaveLength(2)
@@ -897,11 +959,7 @@ describe('GET /api/oauth/google/linked', () => {
       expect(res.status).toBe(401)
     } finally {
       delete process.env.BRAIN_DATA_ROOT
-      process.env.BRAIN_HOME = brainHome
       await rm(mtRoot, { recursive: true, force: true })
     }
   })
 })
-
-void registerSessionTenant
-void createVaultSession

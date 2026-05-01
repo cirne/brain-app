@@ -44,6 +44,10 @@ export interface CreateAgentToolsOptions {
    * @default 'allowed'
    */
   wikiWriteCreates?: WikiWriteCreatesPolicy
+  /**
+   * When set, **`calendar`** tool only allows these `op` values (onboarding interview guardrail).
+   */
+  calendarAllowedOps?: readonly string[]
 }
 
 function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boolean {
@@ -83,7 +87,9 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     findPerson,
   } = createRipmailAgentTools(wikiDir)
 
-  const { calendar } = createCalendarTool(agentTimeZone)
+  const { calendar } = createCalendarTool(agentTimeZone, {
+    allowedOps: options?.calendarAllowedOps,
+  })
 
   const { webSearch, fetchPage, getYoutubeTranscript, youtubeSearch } = createWebAgentTools()
 

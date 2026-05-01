@@ -166,18 +166,6 @@ describe('POST /api/auth/demo/enron', () => {
     })
   })
 
-  it('returns 501 in single-tenant mode', async () => {
-    delete process.env.BRAIN_DATA_ROOT
-    process.env.BRAIN_HOME = await mkdtemp(join(tmpdir(), 'demo-enron-st-'))
-    const app = mountStack()
-    const res = await app.request('http://127.0.0.1/api/auth/demo/enron', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${DEMO_SECRET}` },
-    })
-    expect(res.status).toBe(501)
-    await rm(process.env.BRAIN_HOME, { recursive: true, force: true })
-    delete process.env.BRAIN_HOME
-  })
 })
 
 describe('GET /api/auth/demo/enron/reseed', () => {

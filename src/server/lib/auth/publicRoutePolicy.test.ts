@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  isDevBootstrapPostPath,
   isOnboardingStatusPublicPath,
   isVaultPublicRoute,
   shouldSuppressAccessLogForApiPath,
@@ -15,7 +14,8 @@ describe('publicRoutePolicy', () => {
 
   it('identifies vault public routes', () => {
     expect(isVaultPublicRoute('/api/vault/status', 'GET')).toBe(true)
-    expect(isVaultPublicRoute('/api/vault/unlock', 'POST')).toBe(true)
+    expect(isVaultPublicRoute('/api/vault/status', 'POST')).toBe(true)
+    expect(isVaultPublicRoute('/api/vault/logout', 'POST')).toBe(true)
     expect(isVaultPublicRoute('/api/vault/setup', 'GET')).toBe(false)
   })
 
@@ -25,16 +25,4 @@ describe('publicRoutePolicy', () => {
     expect(shouldSuppressAccessLogForApiPath('/api/chat')).toBe(false)
   })
 
-  it('dev bootstrap posts only in non-production', () => {
-    const prev = process.env.NODE_ENV
-    try {
-      process.env.NODE_ENV = 'test'
-      expect(isDevBootstrapPostPath('/api/dev/first-chat', 'POST')).toBe(true)
-      expect(isDevBootstrapPostPath('/api/dev/first-chat', 'GET')).toBe(false)
-      process.env.NODE_ENV = 'production'
-      expect(isDevBootstrapPostPath('/api/dev/first-chat', 'POST')).toBe(false)
-    } finally {
-      process.env.NODE_ENV = prev
-    }
-  })
 })

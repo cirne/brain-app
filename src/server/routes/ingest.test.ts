@@ -12,6 +12,9 @@ import { searchImessageMessages } from '@server/lib/messages/messagesDb.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { mintDeviceToken } from '@server/lib/vault/deviceTokenAuth.js'
+import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
+import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
+import { generateUserId } from '@server/lib/tenant/handleMeta.js'
 
 let root: string
 let prevBrainHome: string | undefined
@@ -21,8 +24,8 @@ beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'ingest-route-'))
   prevBrainHome = process.env.BRAIN_HOME
   prevDataRoot = process.env.BRAIN_DATA_ROOT
-  delete process.env.BRAIN_DATA_ROOT
-  process.env.BRAIN_HOME = root
+  delete process.env.BRAIN_HOME
+  process.env.BRAIN_DATA_ROOT = root
 })
 
 afterEach(async () => {
@@ -33,16 +36,16 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 
-function sessionFromResponse(res: Response): string | undefined {
-  const list =
-    typeof res.headers.getSetCookie === 'function'
-      ? res.headers.getSetCookie()
-      : [res.headers.get('set-cookie') ?? '']
-  for (const raw of list) {
-    const m = raw.match(/brain_session=([^;]+)/)
-    if (m?.[1]) return m[1].trim()
-  }
-  return undefined
+async function mintTenantSessionAndDeviceToken(uid: string): Promise<{ sid: string; token: string }> {
+  ensureTenantHomeDir(uid)
+  const home = tenantHomeDir(uid)
+  const sid = await runWithTenantContextAsync(
+    { tenantUserId: uid, workspaceHandle: uid, homeDir: home },
+    async () => createVaultSession(),
+  )
+  await registerSessionTenant(sid, uid)
+  const { token } = await mintDeviceToken({ label: 'Mac', homeDir: home })
+  return { sid, token }
 }
 
 function mountSingleTenantApp(): Hono {
@@ -55,25 +58,13 @@ function mountSingleTenantApp(): Hono {
   return app
 }
 
-describe('/api/ingest/imessage single-tenant', () => {
+describe('/api/ingest/imessage', () => {
   it('supports ingest, cursor, duplicate batch, and wipe', async () => {
+    const uid = generateUserId()
+    const { sid, token } = await mintTenantSessionAndDeviceToken(uid)
+    const home = tenantHomeDir(uid)
+
     const app = mountSingleTenantApp()
-    const setup = await app.request('http://localhost/api/vault/setup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: 'good-pass-phrase', confirm: 'good-pass-phrase' }),
-    })
-    const sid = sessionFromResponse(setup)!
-    const mintedRes = await app.request('http://localhost/api/devices', {
-      method: 'POST',
-      headers: {
-        Cookie: `brain_session=${sid}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ label: 'Mac' }),
-    })
-    const minted = (await mintedRes.json()) as { token: string; device: { id: string } }
-    const token = minted.token
 
     const ingest = await app.request('http://localhost/api/ingest/imessage', {
       method: 'POST',
@@ -125,7 +116,12 @@ describe('/api/ingest/imessage single-tenant', () => {
       }),
     })
     expect(dup.status).toBe(200)
-    expect(searchImessageMessages('updated', 10)).toHaveLength(1)
+    await runWithTenantContextAsync(
+      { tenantUserId: uid, workspaceHandle: uid, homeDir: home },
+      async () => {
+        expect(searchImessageMessages('updated', 10)).toHaveLength(1)
+      },
+    )
 
     const cursor = await app.request('http://localhost/api/ingest/imessage/cursor?device_id=mac-abc', {
       headers: { Authorization: `Bearer ${token}` },
@@ -157,25 +153,13 @@ describe('/api/ingest/imessage single-tenant', () => {
   })
 
   it('does not allow device token to call wipe endpoint', async () => {
+    const uid = generateUserId()
+    const { token } = await mintTenantSessionAndDeviceToken(uid)
+
     const app = mountSingleTenantApp()
-    const setup = await app.request('http://localhost/api/vault/setup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: 'good-pass-phrase', confirm: 'good-pass-phrase' }),
-    })
-    const sid = sessionFromResponse(setup)!
-    const mintedRes = await app.request('http://localhost/api/devices', {
-      method: 'POST',
-      headers: {
-        Cookie: `brain_session=${sid}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ label: 'Mac' }),
-    })
-    const minted = (await mintedRes.json()) as { token: string }
     const res = await app.request('http://localhost/api/ingest/imessage/wipe', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${minted.token}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
     expect(res.status).toBe(401)
   })
@@ -193,11 +177,11 @@ describe('/api/ingest/imessage multi-tenant isolation', () => {
     ensureTenantHomeDir(tB)
     const tokenA = await runWithTenantContextAsync(
       { tenantUserId: tA, workspaceHandle: 'a', homeDir: tenantHomeDir(tA) },
-      async () => (await mintDeviceToken({ label: 'A' })).token,
+      async () => (await mintDeviceToken({ label: 'A', homeDir: tenantHomeDir(tA) })).token,
     )
     const tokenB = await runWithTenantContextAsync(
       { tenantUserId: tB, workspaceHandle: 'b', homeDir: tenantHomeDir(tB) },
-      async () => (await mintDeviceToken({ label: 'B' })).token,
+      async () => (await mintDeviceToken({ label: 'B', homeDir: tenantHomeDir(tB) })).token,
     )
 
     const app = new Hono()

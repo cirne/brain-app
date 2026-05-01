@@ -1,21 +1,29 @@
 #!/usr/bin/env node
 /**
- * Reset **eval** Brain app data under `./data-eval/brain`: wiki vault, chat history,
+ * Reset eval Brain data under `$BRAIN_DATA_ROOT/<Enron tenant>/`: wiki vault, chat history,
  * and `var/` / `cache/` (edit log, nav recents, sessions, dir icon cache, calendar JSON, etc.).
  * Does **not** remove `ripmail/` (indexed mail, maildir, config) or `skills/`.
  *
  * Usage: npm run dev:eval:clean [--dry-run]
  *
- * Always targets `data-eval/brain` relative to the repo root — ignores `BRAIN_HOME`.
+ * Defaults: `BRAIN_DATA_ROOT` = `./data`; tenant id from `BRAIN_ENRON_DEMO_TENANT_ID` or
+ * `usr_enrondemo00000000001`.
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { mkdir, rm } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+const ENRON_DEMO_TENANT_USER_ID_DEFAULT = 'usr_enrondemo00000000001'
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(__dirname, '..')
-const evalBrain = resolve(repoRoot, 'data-eval/brain')
+const dataRoot = process.env.BRAIN_DATA_ROOT?.trim()
+  ? resolve(repoRoot, process.env.BRAIN_DATA_ROOT)
+  : resolve(repoRoot, 'data')
+const tenantId =
+  process.env.BRAIN_ENRON_DEMO_TENANT_ID?.trim() || ENRON_DEMO_TENANT_USER_ID_DEFAULT
+const evalTenantHome = join(dataRoot, tenantId)
 
 /** Dirs to remove and recreate: all layout directories except `ripmail` and `skills`. */
 function resetDirsFromLayout() {
@@ -29,12 +37,12 @@ function resetDirsFromLayout() {
 const dryRun = process.argv.includes('--dry-run')
 
 async function main() {
-  if (!existsSync(evalBrain)) {
-    console.error(`[dev:eval:clean] nothing at ${evalBrain} — run eval:build first.`)
+  if (!existsSync(evalTenantHome)) {
+    console.error(`[dev:eval:clean] nothing at ${evalTenantHome} — seed Enron demo tenant first.`)
     process.exit(1)
   }
 
-  const rip = join(evalBrain, 'ripmail')
+  const rip = join(evalTenantHome, 'ripmail')
   if (!existsSync(rip)) {
     console.warn(`[dev:eval:clean] note: ${rip} missing — ripmail index was already absent.`)
   }
@@ -42,7 +50,7 @@ async function main() {
   const toReset = resetDirsFromLayout()
 
   if (dryRun) {
-    console.log(`[dry-run] would reset under ${evalBrain}:`)
+    console.log(`[dry-run] would reset under ${evalTenantHome}:`)
     for (const d of toReset) {
       console.log(`  - remove and recreate empty: ${d}/`)
     }
@@ -52,7 +60,7 @@ async function main() {
   }
 
   for (const name of toReset) {
-    const p = join(evalBrain, name)
+    const p = join(evalTenantHome, name)
     if (existsSync(p)) {
       await rm(p, { recursive: true, force: true })
     }

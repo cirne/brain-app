@@ -1,16 +1,9 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import {
-  anyTenantVaultVerifierExistsSync,
-  dataRoot,
-  ensureTenantHomeDir,
-  globalDir,
-  isMultiTenantMode,
-  tenantHomeDir,
-} from './dataRoot.js'
-import { brainLayoutWikiDir, brainLayoutVaultVerifierPath } from '@server/lib/platform/brainLayout.js'
+import { dataRoot, ensureTenantHomeDir, globalDir, tenantHomeDir } from './dataRoot.js'
+import { brainLayoutWikiDir } from '@server/lib/platform/brainLayout.js'
 
 describe('dataRoot', () => {
   const prev = process.env.BRAIN_DATA_ROOT
@@ -23,14 +16,9 @@ describe('dataRoot', () => {
     }
   })
 
-  it('isMultiTenantMode false when BRAIN_DATA_ROOT unset', () => {
+  it('dataRoot throws when BRAIN_DATA_ROOT unset', () => {
     delete process.env.BRAIN_DATA_ROOT
-    expect(isMultiTenantMode()).toBe(false)
-  })
-
-  it('isMultiTenantMode true when set', () => {
-    process.env.BRAIN_DATA_ROOT = '/data'
-    expect(isMultiTenantMode()).toBe(true)
+    expect(() => dataRoot()).toThrow('BRAIN_DATA_ROOT is not set')
   })
 
   it('tenantHomeDir and globalDir resolve under data root', () => {
@@ -52,17 +40,6 @@ describe('dataRoot', () => {
     expect(existsSync(join(home, 'wiki'))).toBe(true)
     expect(existsSync(join(home, 'ripmail'))).toBe(true)
     expect(existsSync(join(home, 'var'))).toBe(true)
-    rmSync(base, { recursive: true, force: true })
-  })
-
-  it('anyTenantVaultVerifierExistsSync detects verifier in a tenant dir', () => {
-    const base = join(tmpdir(), `brain-any-vault-${Date.now()}`)
-    process.env.BRAIN_DATA_ROOT = base
-    mkdirSync(base, { recursive: true })
-    const tid = 'u1'
-    const home = ensureTenantHomeDir(tid)
-    writeFileSync(brainLayoutVaultVerifierPath(home), '{"v":1}', 'utf-8')
-    expect(anyTenantVaultVerifierExistsSync()).toBe(true)
     rmSync(base, { recursive: true, force: true })
   })
 })

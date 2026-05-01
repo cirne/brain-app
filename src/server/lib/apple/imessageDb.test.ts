@@ -257,9 +257,9 @@ describe('imessageDb', () => {
       expect(probeImessageDbReadable()).toBe(true)
     })
 
-    it('initLocalMessageToolsAvailability enables tools when db is readable', () => {
+    it('initLocalMessageToolsAvailability keeps hosted-only policy (no local chat.db reads)', () => {
       initLocalMessageToolsAvailability()
-      expect(areLocalMessageToolsEnabled()).toBe(true)
+      expect(areLocalMessageToolsEnabled()).toBe(false)
     })
 
     it('areLocalMessageToolsEnabled is false in multi-tenant mode even when db is readable', async () => {

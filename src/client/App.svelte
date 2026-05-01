@@ -3,16 +3,16 @@
   import Assistant from '@components/Assistant.svelte'
   import FullDiskAccessGate from '@components/onboarding/FullDiskAccessGate.svelte'
   import Onboarding from '@components/onboarding/Onboarding.svelte'
-  import UnlockVault from '@components/onboarding/UnlockVault.svelte'
   import HostedSignIn from '@components/onboarding/HostedSignIn.svelte'
   import EnronDemoLogin from '@components/onboarding/EnronDemoLogin.svelte'
   import { parseRoute, type Route } from './router.js'
-  import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
-  import { ONBOARDING_SEED_CHAT_STORAGE_KEY } from '@client/lib/onboarding/onboardingStorageKeys.js'
   import { fetchVaultStatus, type VaultStatus } from '@client/lib/vaultClient.js'
+  import { isReplayOnboardingWelcomeSearch } from '@client/lib/welcomeReplayDev.js'
   import DesktopAppUpdate from '@components/desktop/DesktopAppUpdate.svelte'
 
   let route = $state<Route>(parseRoute())
+  /** DEV: prevents duplicate PATCH when replay-onboarding effect runs twice. */
+  let replayOnboardingDevLock = false
   let appReady = $state(false)
   let onboardingStatus = $state<{ state: string } | null>(null)
   let vaultStatus = $state<(VaultStatus & { checked: boolean }) | null>(null)
@@ -22,7 +22,7 @@
       const v = await fetchVaultStatus()
       vaultStatus = { ...v, checked: true }
     } catch {
-      vaultStatus = { vaultExists: false, unlocked: false, checked: true }
+      vaultStatus = { unlocked: false, checked: true }
     }
   }
 
@@ -36,7 +36,6 @@
     }
   }
 
-  /** Vault + onboarding state together (vault gate drives `needsVaultSetup` / unlock UI). */
   async function refreshVaultAndOnboardingStatus() {
     await fetchVaultStatusSafe()
     await fetchStatus()
@@ -45,38 +44,55 @@
   const showEnronDemoPage = $derived(route.flow === 'enron-demo')
 
   const showHostedSignIn = $derived(
-    vaultStatus?.checked === true &&
-      vaultStatus.multiTenant === true &&
-      !vaultStatus.unlocked &&
-      !showEnronDemoPage,
-  )
-
-  const showUnlockVault = $derived(
-    vaultStatus?.checked &&
-      vaultStatus.vaultExists &&
-      !vaultStatus.unlocked &&
-      vaultStatus.multiTenant !== true,
-  )
-
-  const needsVaultSetup = $derived(
-    vaultStatus?.checked === true &&
-      vaultStatus.vaultExists === false &&
-      vaultStatus.multiTenant !== true,
+    vaultStatus?.checked === true && !vaultStatus.unlocked && !showEnronDemoPage,
   )
 
   const showOnboarding = $derived(
-    onboardingStatus != null &&
-      !showHostedSignIn &&
-      !showUnlockVault &&
-      onboardingStatus.state !== 'done',
+    onboardingStatus != null && !showHostedSignIn && onboardingStatus.state !== 'done',
   )
 
   /** Already-onboarded users may land on `/welcome` after sign-in; send them to the main app. */
   $effect(() => {
     if (!appReady || onboardingStatus == null || onboardingStatus.state !== 'done') return
     if (route.flow !== 'welcome') return
+    if (import.meta.env.DEV && typeof location !== 'undefined' && isReplayOnboardingWelcomeSearch(location.search)) {
+      return
+    }
     history.replaceState(null, '', '/c')
     route = parseRoute()
+  })
+
+  /**
+   * DEV only: `/welcome?replay-onboarding=1` PATCH-resets onboarding machine state so the shell
+   * shows again without deleting `./data`. Plain `/welcome` still redirects to `/c` when state is `done`.
+   */
+  $effect(() => {
+    if (!import.meta.env.DEV || !appReady || route.flow !== 'welcome') return
+    if (typeof location === 'undefined' || !isReplayOnboardingWelcomeSearch(location.search)) return
+    if (replayOnboardingDevLock) return
+    if (!vaultStatus?.checked || !vaultStatus.unlocked) return
+    replayOnboardingDevLock = true
+    void (async () => {
+      try {
+        const res = await fetch('/api/onboarding/state', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'reset' }),
+        })
+        if (!res.ok) {
+          replayOnboardingDevLock = false
+          return
+        }
+        /** Refresh before stripping query so redirect $effect never sees `done` on `/welcome` without the replay param. */
+        await refreshVaultAndOnboardingStatus()
+        history.replaceState(null, '', '/welcome')
+        route = parseRoute()
+      } catch {
+        /* leave query in URL so dev can retry */
+      } finally {
+        replayOnboardingDevLock = false
+      }
+    })()
   })
 
   onMount(() => {
@@ -85,41 +101,6 @@
     }
     window.addEventListener('popstate', onPop)
     void (async () => {
-      if (import.meta.env.DEV && parseRoute().flow === 'hard-reset') {
-        try {
-          const res = await fetch('/api/dev/hard-reset', { method: 'POST' })
-          if (res.ok) clearBrainClientStorage()
-        } catch {
-          /* ignore */
-        }
-        history.replaceState(null, '', '/welcome')
-        route = parseRoute()
-      }
-      if (import.meta.env.DEV && parseRoute().flow === 'restart-seed') {
-        try {
-          const res = await fetch('/api/dev/restart-seed', { method: 'POST' })
-          if (res.ok) {
-            try {
-              localStorage.removeItem(ONBOARDING_SEED_CHAT_STORAGE_KEY)
-            } catch {
-              /* ignore */
-            }
-          }
-        } catch {
-          /* ignore */
-        }
-        history.replaceState(null, '', '/welcome')
-        route = parseRoute()
-      }
-      if (import.meta.env.DEV && parseRoute().flow === 'first-chat') {
-        try {
-          await fetch('/api/dev/first-chat', { method: 'POST' })
-        } catch {
-          /* ignore */
-        }
-        history.replaceState(null, '', '/c')
-        route = parseRoute()
-      }
       await fetchVaultStatusSafe()
       await fetchStatus()
       appReady = true
@@ -145,15 +126,6 @@
   <div class="flex h-full min-h-0 flex-col">
     <HostedSignIn />
   </div>
-{:else if showUnlockVault}
-  <div class="flex h-full min-h-0 flex-col">
-    <UnlockVault
-      onUnlocked={async () => {
-        await fetchVaultStatusSafe()
-        await fetchStatus()
-      }}
-    />
-  </div>
 {:else}
   <FullDiskAccessGate>
     {#if showOnboarding}
@@ -161,8 +133,7 @@
         <Onboarding
           onComplete={onOnboardingComplete}
           refreshStatus={refreshVaultAndOnboardingStatus}
-          needsVaultSetup={needsVaultSetup}
-          multiTenant={vaultStatus?.multiTenant === true}
+          multiTenant={true}
         />
       </div>
     {:else}

@@ -7,30 +7,37 @@ import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
 import vaultRoute from './vault.js'
 import devicesRoute from './devices.js'
+import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { generateUserId } from '@server/lib/tenant/handleMeta.js'
+import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
+import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 
-let brainHome: string
+let dataRoot: string
+let prevDataRoot: string | undefined
 
 beforeEach(async () => {
-  brainHome = await mkdtemp(join(tmpdir(), 'devices-route-'))
-  process.env.BRAIN_HOME = brainHome
-  delete process.env.BRAIN_DATA_ROOT
-})
-
-afterEach(async () => {
-  await rm(brainHome, { recursive: true, force: true })
+  dataRoot = await mkdtemp(join(tmpdir(), 'devices-route-'))
+  prevDataRoot = process.env.BRAIN_DATA_ROOT
+  process.env.BRAIN_DATA_ROOT = dataRoot
   delete process.env.BRAIN_HOME
 })
 
-function sessionFromResponse(res: Response): string | undefined {
-  const list =
-    typeof res.headers.getSetCookie === 'function'
-      ? res.headers.getSetCookie()
-      : [res.headers.get('set-cookie') ?? '']
-  for (const raw of list) {
-    const m = raw.match(/brain_session=([^;]+)/)
-    if (m?.[1]) return m[1].trim()
-  }
-  return undefined
+afterEach(async () => {
+  await rm(dataRoot, { recursive: true, force: true })
+  if (prevDataRoot === undefined) delete process.env.BRAIN_DATA_ROOT
+  else process.env.BRAIN_DATA_ROOT = prevDataRoot
+})
+
+async function mintSessionCookie(): Promise<string> {
+  const uid = generateUserId()
+  ensureTenantHomeDir(uid)
+  const home = tenantHomeDir(uid)
+  return runWithTenantContextAsync({ tenantUserId: uid, workspaceHandle: uid, homeDir: home }, async () => {
+    const sid = await createVaultSession()
+    await registerSessionTenant(sid, uid)
+    return sid
+  })
 }
 
 function mountApp(): Hono {
@@ -51,14 +58,7 @@ describe('/api/devices', () => {
 
   it('mints, lists, and revokes devices', async () => {
     const app = mountApp()
-    const setup = await app.request('http://localhost/api/vault/setup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: 'good-pass-phrase', confirm: 'good-pass-phrase' }),
-    })
-    expect(setup.status).toBe(200)
-    const sid = sessionFromResponse(setup)
-    expect(sid).toBeTruthy()
+    const sid = await mintSessionCookie()
 
     const create = await app.request('http://localhost/api/devices', {
       method: 'POST',

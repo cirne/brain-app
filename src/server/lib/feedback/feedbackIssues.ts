@@ -3,7 +3,6 @@ import { dirname, join } from 'node:path'
 import { existsSync } from 'node:fs'
 import matter from 'gray-matter'
 import { brainLayoutIssuesDir, brainLayoutIssuesCounterPath } from '@server/lib/platform/brainLayout.js'
-import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import {
   getCanonicalFeedbackBrainHomeForSubmit,
   ensureCanonicalFeedbackLayoutForSubmit,
@@ -161,7 +160,7 @@ export async function submitFeedbackMarkdown(
     Object.keys(extra).length > 0 ? { extraFrontmatter: extra } : undefined,
   )
 
-  if (isMultiTenantMode() && ctx && ctx.tenantUserId && ctx.tenantUserId !== '_global') {
+  if (ctx && ctx.tenantUserId && ctx.tenantUserId !== '_global') {
     const tenantIssues = brainLayoutIssuesDir(ctx.homeDir)
     await mkdir(tenantIssues, { recursive: true })
     await copyFile(out.path, join(tenantIssues, out.filename))

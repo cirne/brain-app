@@ -6,7 +6,7 @@
  *   node /app/seed-enron/scripts/brain/seed-enron-demo-tenant.mjs
  *
  * Required env:
- *   BRAIN_DATA_ROOT — tenant parent (e.g. ./data-multitenant or /brain-data in Docker)
+ *   BRAIN_DATA_ROOT — tenant parent (e.g. ./data or /brain-data in Docker)
  *
  * Tarball: same as `npm run eval:build` — if `EVAL_ENRON_TAR` is unset, downloads to
  *   `data-eval/.cache/enron/enron_mail_20150507.tar.gz` (see scripts/eval/ensureEnronTarball.mjs).

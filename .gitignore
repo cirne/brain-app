@@ -8,8 +8,11 @@ dist/
 *.db-wal
 .DS_Store
 *.tsbuildinfo
-data/
-data-multitenant/
+# Multi-tenant durable root: tenants (`usr_…/`), `.global/`, and **ripmail** (indexed mail, maildir, SQLite).
+# Do not commit — millions of lines come from `ripmail/.../maildir/` under each tenant.
+/data/
+# Legacy name; same contents as `data/` until you rename/remove the folder
+/data-multitenant/
 # Eval home + zip cache (see eval/README.md)
 data-eval/
 # Per-case wiki vaults from wiki JSONL evals (see eval/README.md)

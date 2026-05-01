@@ -1,6 +1,5 @@
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
 import newrelic from 'newrelic'
-import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { isValidUserId } from '@server/lib/tenant/handleMeta.js'
 import type { LlmAgentKind } from '@server/lib/llm/llmAgentKind.js'
 import {
@@ -88,7 +87,7 @@ export function applyBrainTenantContextToNewRelicTransaction(): void {
   addTransactionCustomAttributes({
     tenantUserId: ctx.tenantUserId,
     workspaceHandle: ctx.workspaceHandle,
-    multiTenant: isMultiTenantMode(),
+    multiTenant: true,
   })
   const endUserId = resolveNewRelicEndUserId(ctx)
   if (!endUserId) return

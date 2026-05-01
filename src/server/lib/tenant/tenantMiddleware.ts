@@ -1,7 +1,6 @@
 import type { Context, Next } from 'hono'
 import { getCookie } from 'hono/cookie'
-import { resolveBrainHomeDiskRoot } from '@server/lib/platform/brainHome.js'
-import { isMultiTenantMode, tenantHomeDir } from './dataRoot.js'
+import { tenantHomeDir } from './dataRoot.js'
 import { isValidEmbedKeyBearer, isIssuesEmbedGetPath } from '@server/lib/vault/embedKeyAuth.js'
 import { isIngestDevicePath, resolveDeviceTokenFromBearer } from '@server/lib/vault/deviceTokenAuth.js'
 import { getGlobalFeedbackBrainHome } from '@server/lib/feedback/feedbackGlobalHome.js'
@@ -11,34 +10,21 @@ import { lookupTenantBySession } from './tenantRegistry.js'
 import { BRAIN_SESSION_COOKIE } from '@server/lib/vault/vaultCookie.js'
 import { isEnronDemoPublicApiPath } from '@server/lib/auth/enronDemo.js'
 
-/** Multi-tenant: allow these without a mapped session (handler uses explicit tenant or synthetic response). */
+/** Allow these without a mapped session (handler uses explicit tenant or synthetic response). */
 function allowNoTenantContextMt(path: string, method: string): boolean {
-  /** Google OAuth (PKCE); callback runs before `brain_session` exists. */
   if (path.startsWith('/api/oauth/google')) return true
   if (path === '/api/vault/status' && (method === 'GET' || method === 'POST')) return true
-  if (path === '/api/vault/setup' && method === 'POST') return true
-  if (path === '/api/vault/unlock' && method === 'POST') return true
   if (path === '/api/vault/logout' && method === 'POST') return true
   if (path === '/api/onboarding/status' && method === 'GET') return true
-  /** OPP-051 Phase 0: handler enforces feature flag + bearer; path is public for correct 404/501. */
   if (isEnronDemoPublicApiPath(path, method)) return true
   return false
 }
 
 /**
  * Establishes per-request tenant home directory (AsyncLocalStorage).
- * Single-tenant: wraps every `/api/*` request with `{ _single, resolveBrainHomeDiskRoot() }`.
- * Multi-tenant: maps `brain_session` cookie via global registry, or allows a small bootstrap allowlist.
+ * Maps `brain_session` cookie via global registry, or allows a small bootstrap allowlist.
  */
 export async function tenantMiddleware(c: Context, next: Next): Promise<Response | void> {
-  if (!isMultiTenantMode()) {
-    const homeDir = resolveBrainHomeDiskRoot()
-    return runWithTenantContextAsync(
-      { tenantUserId: '_single', workspaceHandle: '_single', homeDir },
-      () => next(),
-    )
-  }
-
   const path = c.req.path
   const method = c.req.method
 

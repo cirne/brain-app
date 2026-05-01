@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { isMultiTenantMode, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { readHandleMeta, isValidUserId } from '@server/lib/tenant/handleMeta.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
@@ -26,16 +26,6 @@ function demoPrelude(
   c: Parameters<typeof isValidEnronDemoBearer>[0],
   auth: 'mint' | 'reseed',
 ): Response | { tenantUserId: string; homeDir: string; dataRoot: string } {
-  if (!isMultiTenantMode()) {
-    return c.json(
-      {
-        error: 'not_supported',
-        message: 'Enron demo auth requires multi-tenant mode (set BRAIN_DATA_ROOT).',
-      },
-      501,
-    )
-  }
-
   if (!enronDemoSecretConfigured()) {
     return c.json({ error: 'not_found' }, 404)
   }

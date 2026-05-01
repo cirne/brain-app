@@ -42,7 +42,7 @@ Poll **`GET /api/auth/demo/enron/seed-status`** with the same `Authorization` he
 Avoid first-hit download + ingest (15–40+ minutes) by building the tenant **before** first browser visit:
 
 ```sh
-export BRAIN_DATA_ROOT=/path/to/multitenant-root   # e.g. ./data-multitenant or /brain-data
+export BRAIN_DATA_ROOT=/path/to/multitenant-root   # e.g. ./data or /brain-data
 # optional: export EVAL_ENRON_TAR=/path/to/enron_mail_20150507.tar.gz  (skip auto-download)
 npm run brain:seed-enron-demo
 # optional: npm run brain:seed-enron-demo -- --force

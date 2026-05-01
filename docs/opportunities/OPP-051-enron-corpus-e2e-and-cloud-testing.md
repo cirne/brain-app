@@ -42,7 +42,7 @@
 
 2. **Seed data beside the image (CLI), not inside it**
    - **CLI:** [`scripts/brain/seed-enron-demo-tenant.mjs`](../../scripts/brain/seed-enron-demo-tenant.mjs) + `npm run brain:seed-enron-demo` — requires `BRAIN_DATA_ROOT`, `EVAL_ENRON_TAR`, optional `--force`. Writes `$BRAIN_DATA_ROOT/<tenantId>/` with the same ingest pipeline as eval ([`scripts/eval/enronKeanIngest.mjs`](../../scripts/eval/enronKeanIngest.mjs)).
-   - **Host:** Run from repo with `BRAIN_DATA_ROOT=./data-multitenant` (or any path), or bind-mount that path into a container.
+   - **Host:** Run from repo with `BRAIN_DATA_ROOT=./data` (or any path), or bind-mount that path into a container.
    - **Docker / runtime:** No separate compose seed service. The first successful **`POST /api/auth/demo/enron`** (Bearer secret) or browser flow at **`/demo`** starts a **lazy background seed** when `ripmail/ripmail.db` is missing or empty (download + ingest; can take 15–40+ minutes). Poll **`GET /api/auth/demo/enron/seed-status`** with the same bearer. Set **`EVAL_ENRON_TAR`** in the environment to skip downloading the CMU tarball. See [`docker-compose.yml`](../../docker-compose.yml) (single `brain` service).
    - **Reset:** `--force` removes the tenant directory under `BRAIN_DATA_ROOT` and rebuilds from the tarball.
 

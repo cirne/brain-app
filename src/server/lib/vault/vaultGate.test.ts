@@ -3,10 +3,8 @@ import { Hono } from 'hono'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import vaultRoute from '../../routes/vault.js'
 import onboardingRoute from '../../routes/onboarding.js'
 import { vaultGateMiddleware } from './vaultGate.js'
-import { devLocalVaultBootstrapMiddleware } from './devLocalVaultBootstrap.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { registerSessionTenant } from '@server/lib/tenant/tenantRegistry.js'
@@ -15,37 +13,12 @@ import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import issuesRoute from '../../routes/issues.js'
 import { mintDeviceToken } from './deviceTokenAuth.js'
 
-let brainHome: string
+const TENANT_A = 'usr_enrondemo00000000001'
 
-beforeEach(async () => {
-  brainHome = await mkdtemp(join(tmpdir(), 'vault-gate-'))
-  process.env.BRAIN_HOME = brainHome
-})
-
-afterEach(async () => {
-  await rm(brainHome, { recursive: true, force: true })
-  delete process.env.BRAIN_HOME
-})
-
-function buildStack(): Hono {
-  const app = new Hono()
-  app.use('/api/*', tenantMiddleware)
-  app.use('/api/*', vaultGateMiddleware)
-  app.route('/api/vault', vaultRoute)
-  app.route('/api/onboarding', onboardingRoute)
-  return app
-}
-
-function cookieFrom(res: Response): string | undefined {
-  const raw = res.headers.get('set-cookie') ?? ''
-  const m = raw.match(/brain_session=([^;]+)/)
-  return m?.[1]
-}
-
-describe('vaultGateMiddleware (multi-tenant)', () => {
+describe('vaultGateMiddleware', () => {
   const prevRoot = process.env.BRAIN_DATA_ROOT
 
-  beforeEach(async () => {
+  beforeEach(() => {
     delete process.env.BRAIN_HOME
   })
 
@@ -58,13 +31,12 @@ describe('vaultGateMiddleware (multi-tenant)', () => {
     const root = await mkdtemp(join(tmpdir(), 'vg-mt-'))
     process.env.BRAIN_DATA_ROOT = root
 
-    const handle = 'gate-mt-h'
-    ensureTenantHomeDir(handle)
+    ensureTenantHomeDir(TENANT_A)
     const sid = await runWithTenantContextAsync(
-      { tenantUserId: handle, workspaceHandle: handle, homeDir: tenantHomeDir(handle) },
+      { tenantUserId: TENANT_A, workspaceHandle: TENANT_A, homeDir: tenantHomeDir(TENANT_A) },
       async () => createVaultSession(),
     )
-    await registerSessionTenant(sid, handle)
+    await registerSessionTenant(sid, TENANT_A)
 
     const app = new Hono()
     app.use('/api/*', tenantMiddleware)
@@ -96,7 +68,7 @@ describe('vaultGateMiddleware (multi-tenant)', () => {
     await rm(root, { recursive: true, force: true })
   })
 
-  it('allows GET /api/issues with embed key and no session (MT)', async () => {
+  it('allows GET /api/issues with embed key and no session', async () => {
     const root = await mkdtemp(join(tmpdir(), 'vg-embed-'))
     const prev = process.env.BRAIN_DATA_ROOT
     const prevK = process.env.BRAIN_EMBED_MASTER_KEY
@@ -121,114 +93,16 @@ describe('vaultGateMiddleware (multi-tenant)', () => {
     else process.env.BRAIN_EMBED_MASTER_KEY = prevK
     await rm(root, { recursive: true, force: true })
   })
-})
-
-describe('vaultGateMiddleware', () => {
-  beforeEach(() => {
-    delete process.env.BRAIN_DATA_ROOT
-  })
-
-  it('allows GET /api/onboarding/status when no vault', async () => {
-    const app = buildStack()
-    const res = await app.request('http://127.0.0.1/api/onboarding/status')
-    expect(res.status).toBe(200)
-  })
-
-  it('returns 401 for protected route when no vault', async () => {
-    const app = buildStack()
-    const res = await app.request('http://127.0.0.1/api/onboarding/mail')
-    expect(res.status).toBe(401)
-    const j = (await res.json()) as { error?: string }
-    expect(j.error).toBe('vault_required')
-  })
-
-  it('allows full API after setup with session cookie', async () => {
-    const app = buildStack()
-    const setup = await app.request('http://127.0.0.1/api/vault/setup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: 'vault-pass-1234', confirm: 'vault-pass-1234' }),
-    })
-    expect(setup.status).toBe(200)
-    const sid = cookieFrom(setup)!
-    const mail = await app.request('http://127.0.0.1/api/onboarding/mail', {
-      headers: { Cookie: `brain_session=${sid}` },
-    })
-    expect(mail.status).toBe(200)
-  })
-
-  it('returns unlock_required when vault exists but no cookie', async () => {
-    const app = buildStack()
-    await app.request('http://127.0.0.1/api/vault/setup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: 'vault-pass-1234', confirm: 'vault-pass-1234' }),
-    })
-    const app2 = buildStack()
-    const res = await app2.request('http://127.0.0.1/api/onboarding/mail')
-    expect(res.status).toBe(401)
-    const j = (await res.json()) as { error?: string }
-    expect(j.error).toBe('unlock_required')
-  })
-
-  it('local tsx dev bootstrap allows protected route without prior vault POST (cold start)', async () => {
-    const prevNode = process.env.NODE_ENV
-    const prevBundled = process.env.BRAIN_BUNDLED_NATIVE
-    process.env.NODE_ENV = 'development'
-    delete process.env.BRAIN_BUNDLED_NATIVE
-    try {
-      const app = new Hono()
-      app.use('/api/*', tenantMiddleware)
-      app.use('/api/*', devLocalVaultBootstrapMiddleware)
-      app.use('/api/*', vaultGateMiddleware)
-      app.route('/api/onboarding', onboardingRoute)
-
-      const res = await app.request('http://127.0.0.1/api/onboarding/mail')
-      expect(res.status).toBe(200)
-      const cookie = cookieFrom(res)
-      expect(cookie).toBeTruthy()
-
-      const app2 = new Hono()
-      app2.use('/api/*', tenantMiddleware)
-      app2.use('/api/*', devLocalVaultBootstrapMiddleware)
-      app2.use('/api/*', vaultGateMiddleware)
-      app2.route('/api/onboarding', onboardingRoute)
-      const mail2 = await app2.request('http://127.0.0.1/api/onboarding/mail')
-      expect(mail2.status).toBe(200)
-
-    } finally {
-      process.env.NODE_ENV = prevNode
-      if (prevBundled === undefined) delete process.env.BRAIN_BUNDLED_NATIVE
-      else process.env.BRAIN_BUNDLED_NATIVE = prevBundled
-    }
-  })
-
-  it('GET /api/vault/status reports unlocked in same request as dev bootstrap', async () => {
-    const prevNode = process.env.NODE_ENV
-    const prevBundled = process.env.BRAIN_BUNDLED_NATIVE
-    process.env.NODE_ENV = 'development'
-    delete process.env.BRAIN_BUNDLED_NATIVE
-    try {
-      const app = new Hono()
-      app.use('/api/*', tenantMiddleware)
-      app.use('/api/*', devLocalVaultBootstrapMiddleware)
-      app.use('/api/*', vaultGateMiddleware)
-      app.route('/api/vault', vaultRoute)
-
-      const res = await app.request('http://127.0.0.1/api/vault/status')
-      expect(res.status).toBe(200)
-      const j = (await res.json()) as { vaultExists: boolean; unlocked: boolean }
-      expect(j.vaultExists).toBe(true)
-      expect(j.unlocked).toBe(true)
-    } finally {
-      process.env.NODE_ENV = prevNode
-      if (prevBundled === undefined) delete process.env.BRAIN_BUNDLED_NATIVE
-      else process.env.BRAIN_BUNDLED_NATIVE = prevBundled
-    }
-  })
 
   it('allows only ingest endpoints with valid device token', async () => {
-    const minted = await mintDeviceToken({ label: 'Operator Mac' })
+    const root = await mkdtemp(join(tmpdir(), 'vg-devtok-'))
+    process.env.BRAIN_DATA_ROOT = root
+
+    const tid = 'usr_devtokentest00000001'
+    ensureTenantHomeDir(tid)
+    const homeDir = tenantHomeDir(tid)
+    const minted = await mintDeviceToken({ label: 'Operator Mac', homeDir })
+
     const app = new Hono()
     app.use('/api/*', tenantMiddleware)
     app.use('/api/*', vaultGateMiddleware)
@@ -251,5 +125,7 @@ describe('vaultGateMiddleware', () => {
       headers: { Authorization: `Bearer ${minted.token}` },
     })
     expect(blockedOther.status).toBe(401)
+
+    await rm(root, { recursive: true, force: true })
   })
 })

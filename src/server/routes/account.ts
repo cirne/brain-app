@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import { readPrimaryRipmailImapEmail } from '@server/lib/platform/googleOAuth.js'
 import { readHandleMeta, markHandleConfirmed } from '@server/lib/tenant/handleMeta.js'
@@ -49,12 +48,7 @@ function computeSuggestedHandle(tenantUserId: string, email: string, identityKey
   }
 }
 
-function mt404(c: Context) {
-  return c.json({ error: 'not_found', message: 'Account handle API is only available in hosted mode.' }, 404)
-}
-
 app.get('/handle', async (c) => {
-  if (!isMultiTenantMode()) return mt404(c)
   const ctx = tryGetTenantContext()
   if (!ctx) {
     return c.json({ error: 'tenant_required' }, 401)
@@ -76,7 +70,6 @@ app.get('/handle', async (c) => {
 })
 
 app.get('/handle/check', async (c) => {
-  if (!isMultiTenantMode()) return mt404(c)
   const ctx = tryGetTenantContext()
   if (!ctx) {
     return c.json({ error: 'tenant_required' }, 401)
@@ -107,7 +100,6 @@ app.get('/handle/check', async (c) => {
 })
 
 app.post('/handle/confirm', async (c) => {
-  if (!isMultiTenantMode()) return mt404(c)
   const ctx = tryGetTenantContext()
   if (!ctx) {
     return c.json({ error: 'tenant_required' }, 401)

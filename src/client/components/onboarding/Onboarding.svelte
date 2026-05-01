@@ -24,18 +24,15 @@
   import { resizeMainWindowToBrowserLikeWorkArea } from '@client/lib/desktop/browserLikeWindow.js'
   import { isTauriRuntime } from '@client/lib/desktop/isTauriRuntime.js'
   import { ArrowRight } from 'lucide-svelte'
-  import VaultSetupStep from './VaultSetupStep.svelte'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import OnboardingHandleStep from './OnboardingHandleStep.svelte'
   interface Props {
     onComplete: () => Promise<void>
     refreshStatus: () => Promise<void>
-    /** True when no vault verifier exists yet — first onboarding screen is vault password. */
-    needsVaultSetup: boolean
-    /** Hosted multi-tenant (BRAIN_DATA_ROOT): profiling uses alternate lead copy. */
+    /** Hosted multi-tenant: profiling uses alternate lead copy. */
     multiTenant?: boolean
   }
-  let { onComplete, refreshStatus, needsVaultSetup, multiTenant = false }: Props = $props()
+  let { onComplete, refreshStatus, multiTenant = false }: Props = $props()
 
   let state = $state<string>('not-started')
   /** From server; used for indexing-step copy (Apple vs Google). */
@@ -141,9 +138,7 @@
   })
 
   const showIndexingHero = $derived(
-    !needsVaultSetup &&
-      (state === 'indexing' ||
-        (state === 'not-started' && mail.configured && !setupError)),
+    state === 'indexing' || (state === 'not-started' && mail.configured && !setupError),
   )
 
   const indexingCalmStatus = $derived(
@@ -160,7 +155,7 @@
   /** Stops a tight loop when PATCH not-started→indexing keeps returning 4xx. */
   let alignIndexingPatchFailed = $state(false)
   $effect(() => {
-    if (needsVaultSetup || setupError) {
+    if (setupError) {
       alignIndexingStateInitiated = false
       alignIndexingPatchFailed = false
       return
@@ -487,7 +482,7 @@
         headerFallbackTitle="Setup"
         storageKey=""
         inputPlaceholder="Type an answer or tap a suggestion above."
-        autoSendMessage="Start the guided setup now. Before asking for the user's name: run mail search prioritizing email they sent (from their whoami address, recent window), read a few promising messages for signatures, then open with identity guesses. Continue with important people only; do not configure calendar or inbox rules in this flow. Do not ask them to name you. Do not mention phases, steps, or numbered sections to the user."
+        autoSendMessage="Start the guided setup now. Before asking for the user's name: run mail search prioritizing email they sent (from their whoami address, recent window), read a few promising messages for signatures, then open with identity guesses. After identity is confirmed, follow the system prompt for Google calendar defaults (list_calendars / configure_source only when they have more than one synced Google calendar). Do not configure inbox rules in this flow. Do not ask them to name you. Do not mention phases, steps, or numbered sections to the user."
         onAgentFinishInterview={() => void continueAfterInterview()}
         {multiTenant}
       />
@@ -495,14 +490,6 @@
   {:else if multiTenant && state === 'confirming-handle'}
     <OnboardingHandleStep
       refreshStatus={refreshStatus}
-      onComplete={async () => {
-        await refreshStatus()
-        await load()
-      }}
-    />
-  {:else if needsVaultSetup}
-    <VaultSetupStep
-      {multiTenant}
       onComplete={async () => {
         await refreshStatus()
         await load()

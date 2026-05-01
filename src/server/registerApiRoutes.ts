@@ -17,7 +17,6 @@ import oauthGoogleBrowserPages from './routes/oauthGoogleBrowserPages.js'
 import issuesRoute from './routes/issues.js'
 import hubRoute from './routes/hub.js'
 import hubEventsRoute from './routes/hubEvents.js'
-import devRoute from './routes/dev.js'
 import vaultRoute from './routes/vault.js'
 import accountRoute from './routes/account.js'
 import transcribeRoute from './routes/transcribe.js'
@@ -52,9 +51,6 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   app.route('/api/auth/demo', demoEnronAuthRoute)
   app.route('/api/nav/recents', navRecentsRoute)
   app.route('/oauth/google', oauthGoogleBrowserPages)
-  if (isDev) {
-    app.route('/api/dev', devRoute)
-  }
   if (isDev || process.env.BRAIN_DEBUG_CHILDREN === '1') {
     app.route('/api/debug', debugRipmailChildrenRoute)
   }

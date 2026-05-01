@@ -213,23 +213,8 @@ describe('parseRipmailStatusJson', () => {
     expect(p).not.toBeNull()
     expect(p!.syncRunning).toBe(false)
     expect(p!.staleLockInDb).toBe(true)
-    expect(computeIndexingActionHint(p!)).toContain('Quit Braintunnel')
-    expect(computeIndexingUserHint(p!)).toContain('Quit Braintunnel')
-  })
-
-  it('treats stale DB lock as not running (multi-tenant)', () => {
-    const prev = process.env.BRAIN_DATA_ROOT
-    process.env.BRAIN_DATA_ROOT = '/tmp/brain-data'
-    try {
-      const p = parseRipmailStatusJson(staleLockFixture)
-      expect(p).not.toBeNull()
-      expect(p!.staleLockInDb).toBe(true)
-      expect(computeIndexingActionHint(p!)).toBe('A previous mail sync stopped unexpectedly.')
-      expect(computeIndexingUserHint(p!)).toContain('Refresh the page')
-    } finally {
-      if (prev === undefined) delete process.env.BRAIN_DATA_ROOT
-      else process.env.BRAIN_DATA_ROOT = prev
-    }
+    expect(computeIndexingActionHint(p!)).toBe('A previous mail sync stopped unexpectedly.')
+    expect(computeIndexingUserHint(p!)).toContain('Refresh the page')
   })
 
   it('flags pending refresh when a mailbox needs backfill and sync is idle', () => {

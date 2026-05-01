@@ -7,11 +7,9 @@ import { brainLayoutRipmailDir } from './brainLayout.js'
 
 let brainHome: string
 let savedWikiRoot: string | undefined
-let extraWikiParent: string | undefined
 
 beforeEach(async () => {
   brainHome = await mkdtemp(join(tmpdir(), 'brain-home-wipe-'))
-  extraWikiParent = undefined
   process.env.BRAIN_HOME = brainHome
   savedWikiRoot = process.env.BRAIN_WIKI_ROOT
   delete process.env.BRAIN_WIKI_ROOT
@@ -19,9 +17,6 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(brainHome, { recursive: true, force: true })
-  if (extraWikiParent) {
-    await rm(extraWikiParent, { recursive: true, force: true })
-  }
   delete process.env.BRAIN_HOME
   if (savedWikiRoot === undefined) delete process.env.BRAIN_WIKI_ROOT
   else process.env.BRAIN_WIKI_ROOT = savedWikiRoot
@@ -43,10 +38,8 @@ describe('wipeBrainHomeContents', () => {
     await expect(wipeBrainHomeContents()).resolves.toBeUndefined()
   })
 
-  it('removes split wiki when BRAIN_WIKI_ROOT is outside BRAIN_HOME', async () => {
-    extraWikiParent = await mkdtemp(join(tmpdir(), 'wiki-par-'))
-    process.env.BRAIN_WIKI_ROOT = extraWikiParent
-    const wikiDir = join(extraWikiParent, 'wiki')
+  it('removes wiki under tenant home (wiki lives inside BRAIN_HOME in MT layout)', async () => {
+    const wikiDir = join(brainHome, 'wiki')
     await mkdir(wikiDir, { recursive: true })
     await writeFile(join(wikiDir, 'p.md'), 'p', 'utf-8')
 

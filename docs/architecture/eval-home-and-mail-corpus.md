@@ -18,7 +18,7 @@ Integration and agent evals need a **fixed on-disk profile** that mirrors produc
 | Term | Meaning |
 |------|---------|
 | **Eval home** | The `BRAIN_HOME` directory used for evals. In-repo convention: **`./data-eval/brain`** (set `BRAIN_HOME` for Vitest and local runs). |
-| **`data-eval/`** | Repo-root directory (sibling to `data/` and `data-multitenant/`) for **all generated** eval material: download cache, stamp, and `brain/`. Listed in [`.gitignore`](../../.gitignore). |
+| **`data-eval/`** | Repo-root directory (sibling to `data/`) for **all generated** eval material: download cache, stamp, and `brain/`. Listed in [`.gitignore`](../../.gitignore). |
 | **`.data-eval/`** | Repo-root directory for **per–wiki-case** vault parents from JSONL wiki evals: `.data-eval/wiki-eval-cases/<task-id>/` (`BRAIN_WIKI_ROOT`), reset at case start, retained after the run. Listed in [`.gitignore`](../../.gitignore). |
 | **Eval corpus / fixture mail** | Indexed messages backing the suite — **describes content**, not directory names. Avoid “Enron mailbox” as a path name; prefer **eval home** + manifest field for source. |
 | **Synthetic account** | `config.json` may list a normal IMAP identity (e.g. a Gmail-shaped address) for ripmail; **no live IMAP** is required for local index-only fixtures. |

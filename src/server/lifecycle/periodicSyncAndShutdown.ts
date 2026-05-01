@@ -1,16 +1,9 @@
 import { terminateAllTrackedRipmailChildren } from '@server/lib/ripmail/ripmailRun.js'
-import { prepareWikiSupervisorShutdown, requestLapNow } from '@server/agent/yourWikiSupervisor.js'
-import {
-  startRipmailBackfillSupervisor,
-  stopRipmailBackfillSupervisor,
-} from '@server/lib/ripmail/ripmailBackfillSupervisor.js'
+import { prepareWikiSupervisorShutdown } from '@server/agent/yourWikiSupervisor.js'
 import { stopTunnel } from '@server/lib/platform/tunnelManager.js'
-import { runFullSync, getSyncIntervalMs } from '@server/lib/platform/syncAll.js'
-import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { restoreStdinForShell } from '@server/lib/platform/restoreStdinForShell.js'
 
 let shuttingDown = false
-let syncTimer: ReturnType<typeof setInterval> | undefined
 
 /** Grace period after SIGTERM on ripmail children before SIGKILL (keep under tsx watch ~5s exit budget). */
 const RIPMAIL_SHUTDOWN_GRACE_MS = 800
@@ -30,33 +23,10 @@ export function registerPeriodicSyncAndShutdown(
     restoreStdinForShell()
     process.exit(lastDrainSignal === 'SIGTERM' ? 143 : 130)
   }
-  if (!isMultiTenantMode()) {
-    const intervalMs = getSyncIntervalMs()
-    syncTimer = setInterval(() => {
-      if (shuttingDown) return
-      void (async () => {
-        try {
-          await runFullSync()
-          requestLapNow()
-        } catch (e) {
-          console.error('[brain-app] periodic sync error:', e)
-        }
-      })()
-    }, intervalMs)
-
-    startRipmailBackfillSupervisor()
-  }
 
   const shutdown = async () => {
     if (shuttingDown) forcedExitFromRepeatSignal()
     shuttingDown = true
-    if (syncTimer !== undefined) {
-      clearInterval(syncTimer)
-      syncTimer = undefined
-    }
-    if (!isMultiTenantMode()) {
-      stopRipmailBackfillSupervisor()
-    }
     stopTunnel()
     prepareWikiSupervisorShutdown()
     terminateAllTrackedRipmailChildren('SIGTERM')

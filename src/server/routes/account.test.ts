@@ -39,16 +39,6 @@ describe('/api/account routes', () => {
     return app
   }
 
-  it('GET /handle returns 404 when not multi-tenant', async () => {
-    process.env.BRAIN_HOME = await mkdtemp(join(tmpdir(), 'acct-st-'))
-    const app = new Hono()
-    app.route('/api/account', accountRoute)
-    const res = await app.request('http://localhost/api/account/handle')
-    expect(res.status).toBe(404)
-    await rm(process.env.BRAIN_HOME!, { recursive: true, force: true })
-    delete process.env.BRAIN_HOME
-  })
-
   it('GET /handle returns userId and unconfirmed meta', async () => {
     const root = await mkdtemp(join(tmpdir(), 'acct-get-'))
     process.env.BRAIN_DATA_ROOT = root
