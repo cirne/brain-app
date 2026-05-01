@@ -156,7 +156,7 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 
 ## Deployment
 
-**Primary release:** macOS **Braintunnel.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container:** [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); local image via `Dockerfile` + `[docker-compose.yml](../docker-compose.yml)` (`.env` → `env_file`). **Current staging operations** (Droplet, `docker:publish`, Watchtower, OAuth limits): **[DEPLOYMENT.md](./DEPLOYMENT.md)**. **DigitalOcean staging** (April 2026): [docker-compose.do.yml](../docker-compose.do.yml), registry image, **[https://staging.braintunnel.ai](https://staging.braintunnel.ai)** (TLS at edge), durable volume for `/brain-data`. Archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
+**Primary release:** macOS **Braintunnel.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container:** [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); local image via `Dockerfile` + `[docker-compose.yml](../docker-compose.yml)` (`.env` → `env_file`). **Current staging operations** (Droplet, `docker:deploy`, Watchtower, OAuth limits): **[DEPLOYMENT.md](./DEPLOYMENT.md)**. **DigitalOcean staging** (April 2026): [docker-compose.do.yml](../docker-compose.do.yml), registry image, **[https://staging.braintunnel.ai](https://staging.braintunnel.ai)** (TLS at edge), durable volume for `/brain-data`. Archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
 
 ---
 

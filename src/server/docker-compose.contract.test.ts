@@ -33,5 +33,6 @@ describe('Docker packaging (OPP-041 Phase 1)', () => {
     expect(pkg.scripts['docker:ripmail:build']).toContain('docker-prebuild-ripmail.ts')
     expect(pkg.scripts['docker:up']).toContain('docker:ripmail:build')
     expect(pkg.scripts['docker:build']).toContain('docker:ripmail:build')
+    expect(pkg.scripts['docker:deploy']).toBe('bash scripts/docker-deploy-do.sh')
   })
 })

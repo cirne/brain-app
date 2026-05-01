@@ -101,13 +101,13 @@ Then push/pull images to `registry.digitalocean.com/...` as usual.
 
 ### Publish from this repo (linux/amd64)
 
-After login, build and push the app image (ripmail prebuild + `docker buildx --push`). The destination is fixed at **`registry.digitalocean.com/braintunnel/brain-app`** (`scripts/docker-publish-do.sh`). The default target is **`linux/amd64`** (typical DigitalOcean droplets). For ARM droplets, set **`DOCKER_PUBLISH_PLATFORM=linux/arm64`** when publishing.
+After login, build and push the app image (ripmail prebuild + `docker buildx --push`). The destination is fixed at **`registry.digitalocean.com/braintunnel/brain-app`** (`scripts/docker-deploy-do.sh`). The default target is **`linux/amd64`** (typical DigitalOcean droplets). For ARM droplets, set **`DOCKER_PUBLISH_PLATFORM=linux/arm64`** when deploying.
 
 ```sh
-npm run docker:publish
+npm run docker:deploy
 ```
 
-Tags: **`registry.digitalocean.com/braintunnel/brain-app:<package.json version>`** and **`:latest`** by default. Override with **`DOCKER_IMAGE_TAG`**; set **`DOCKER_PUBLISH_LATEST=0`** to skip the `:latest` tag.
+Tags: **`registry.digitalocean.com/braintunnel/brain-app:deploy-YYYYMMDD-HHMMSSutc`** (UTC) and **`:latest`** by default. Override the tag string with **`DOCKER_IMAGE_TAG`**; set **`DOCKER_PUBLISH_LATEST=0`** to skip the `:latest` tag.
 
 For a local arm64 image load (no registry), use **`npm run docker:build:arm64`** (`brain-app:arm64-local`). Optional **`DOCKER_*`** overrides are documented in `.env.example`.
 

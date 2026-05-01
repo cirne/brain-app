@@ -186,14 +186,14 @@ If `remove-rules` does not match, replace inbound rules with `doctl compute fire
 - **Secrets:** a `**.env`** file in that host directory holds secrets (e.g. OpenAI API key, `BRAIN_MASTER_KEY` / related keys as configured). This file is **not** in git; see [.env.example](../.env.example) for variable names.
 - **Watchtower:** runs on the droplet and **pulls** new images from the registry and **restarts** the stack when a new image is published — typically **~60 seconds** of downtime per rollout.
 
-## Build and publish
+## Build and deploy
 
 - **Image:** `registry.digitalocean.com/braintunnel/brain-app` (see [digitalocean.md](./digitalocean.md) and the archived [OPP-041](opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md) epic).
-- **Publish from a developer machine:** build and push to DigitalOcean Container Registry with:
+- **Deploy from a developer machine:** build and push to DigitalOcean Container Registry, tag `main` with a `deploy-*` identifier, and record a New Relic staging deployment marker (unless skipped):
   ```sh
-  npm run docker:publish
+  npm run docker:deploy
   ```
-  (Uses `scripts/docker-publish-do.sh`; run from repo root with correct Node per `.nvmrc` — see [AGENTS.md](../AGENTS.md).)
+  (Uses `scripts/docker-deploy-do.sh`; requires branch `main` and a clean working tree; run from repo root with correct Node per `.nvmrc` — see [AGENTS.md](../AGENTS.md). See [newrelic.md](./newrelic.md) for `NEW_RELIC_API_KEY` / `SKIP_NEW_RELIC_DEPLOYMENT`.)
 - After push, **Watchtower** on the droplet applies the new image (see above).
 
 ## Related docs

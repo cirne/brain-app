@@ -121,6 +121,7 @@ Default time window if unspecified: `SINCE 1 hour ago`. Expand for “today”, 
 
 ## References
 
+- Deployment markers (`newrelic apm deployment`, `entity deployment create`): [**docs/newrelic.md — Deployment markers (CLI)**](../../docs/newrelic.md#deployment-markers-cli).
 - [New Relic CLI](https://docs.newrelic.com/docs/new-relic-solutions/tutorials/new-relic-cli/)
 - [NRQL reference](https://docs.newrelic.com/docs/nrql/get-started/introduction-nrql-new-relics-query-language/)
 - [MCP setup](https://docs.newrelic.com/docs/agentic-ai/mcp/setup/)

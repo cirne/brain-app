@@ -43,7 +43,7 @@ Historical Docker artifacts were removed from the monorepo; the last snapshot is
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Public URL**   | `**https://staging.braintunnel.ai`** (`PUBLIC_WEB_ORIGIN` + Google OAuth redirect URIs registered for this origin)                                                                                    |
 | **Compute**      | DigitalOcean **staging droplet** (amd64), Docker Engine + Compose plugin                                                                                                                              |
-| **Image**        | `registry.digitalocean.com/braintunnel/brain-app` (`npm run docker:publish`, default `**linux/amd64`**)                                                                                               |
+| **Image**        | `registry.digitalocean.com/braintunnel/brain-app` (`npm run docker:deploy`, default `**linux/amd64`**)                                                                                               |
 | **Compose**      | `[docker-compose.do.yml](../../../docker-compose.do.yml)` — `platform: linux/amd64`, `PORT=4000` in-container                                                                                            |
 | **Edge / TLS**   | TLS terminates **in front of** the Brain container (reverse proxy, LB, or tunnel); browser sees **HTTPS**; container still **HTTP :4000** internally                                                  |
 | **Durable data** | Docker **named volume** `brain_data` mounted at `**/brain-data`**; `BRAIN_DATA_ROOT=/brain-data` so the app’s home tree lives **outside** the image layer — **updates and restarts do not wipe data** |
@@ -144,7 +144,7 @@ npm run docker:up
 **Delivered**
 
 - **Public staging:** `**https://staging.braintunnel.ai`** with **TLS** at the edge and `**PUBLIC_WEB_ORIGIN`** + Google **Authorized redirect URIs** aligned to that origin.
-- **Droplet + Docker + Compose:** Staging host running `[docker-compose.do.yml](../../../docker-compose.do.yml)`; image from **Container Registry** (`npm run docker:publish`, `**linux/amd64`**).
+- **Droplet + Docker + Compose:** Staging host running `[docker-compose.do.yml](../../../docker-compose.do.yml)`; image from **Container Registry** (`npm run docker:deploy`, `**linux/amd64`**).
 - **In-container listen:** App on **port 4000** (HTTP inside the Docker network); edge proxy presents **HTTPS** to browsers.
 - **Non-destructive updates:** Durable data in Docker named volume `**brain_data`** (`BRAIN_DATA_ROOT=/brain-data`); pulling a new image and recreating the container **does not** wipe user data.
 - **CLI / registry:** `doctl` contexts, `**./scripts/doctl-brain.sh`**, publish script — [digitalocean.md](../../digitalocean.md).

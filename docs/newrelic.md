@@ -1,6 +1,6 @@
 # New Relic (Braintunnel)
 
-This document is the **in-repo reference** for account identifiers, entities, how the Node agent is wired, and **custom event types** we define. For day-to-day NRQL examples, CLI commands, and analysis hygiene, use the Cursor skill at [.cursor/skills/newrelic/SKILL.md](../.cursor/skills/newrelic/SKILL.md).
+This document is the **in-repo reference** for account identifiers, entities, **deployment markers** (CLI), how the Node agent is wired, and **custom event types** we define. For day-to-day NRQL examples, CLI commands, and analysis hygiene, use the Cursor skill at [.cursor/skills/newrelic/SKILL.md](../.cursor/skills/newrelic/SKILL.md).
 
 ## Account
 
@@ -40,10 +40,54 @@ There is **no production APM application** in this account yet; default monitori
 | Use case | Credential | Where |
 |----------|------------|--------|
 | Node agent at runtime | License key | `NEW_RELIC_LICENSE_KEY` and related `NEW_RELIC_*` in `.env` (see [.env.example](../.env.example) if present). |
-| New Relic CLI (`newrelic nrql`, `newrelic entity`) | User API key (`NRAK-…`) | `newrelic profile add` or `NEW_RELIC_API_KEY` for the session. |
+| New Relic CLI (`newrelic nrql`, `newrelic entity`, `apm deployment`) | User API key (`NRAK-…`) | `newrelic profile add` or `NEW_RELIC_API_KEY` for the session. |
 | New Relic MCP | User API key + account | `NEW_RELIC_API_KEY`, `NEW_RELIC_ACCOUNT_ID=3774651` |
 
 The **license key** is not interchangeable with the **user API key** for NerdGraph / NRQL / entity APIs.
+
+## Deployment markers (CLI)
+
+Deployment markers annotate APM timelines (a vertical line on charts) when you ship a revision. Recording them is **explicit**: a successful `create` call writes data to New Relic. The CLI has **no** `--dry-run` on these commands.
+
+**Requirements:** [`newrelic` CLI](https://docs.newrelic.com/docs/new-relic-solutions/tutorials/new-relic-cli/) on `PATH` and a configured profile or `NEW_RELIC_API_KEY` (user API key, `NRAK-…`) for account **`3774651`**. Optionally `export NEW_RELIC_ACCOUNT_ID=3774651`. Use application IDs and entity GUIDs from [Entities and GUIDs](#entities-and-guids); do not confuse **staging** with **local dev**.
+
+**Staging image deploys:** `npm run docker:deploy` runs [`scripts/docker-deploy-do.sh`](../scripts/docker-deploy-do.sh) after pushing to DigitalOcean Container Registry: it creates a git tag (`deploy-…` UTC by default), pushes it, then calls **`newrelic entity deployment create`** for **Braintunnel Staging** with `--version` set to that tag and `--commit` set to the current `HEAD` SHA. Set **`SKIP_NEW_RELIC_DEPLOYMENT=1`** to skip only the New Relic step (still requires `main`, clean tree, registry login).
+
+**Classic APM (application ID + revision string):**
+
+```bash
+newrelic apm deployment create \
+  --accountId 3774651 \
+  --applicationId 618240237 \
+  --revision "<git-sha-tag-or-build-id>" \
+  --description "<short summary>" \
+  --change-log "<optional notes or URL>" \
+  --user "<deployer-or-bot>"
+```
+
+**Entity-scoped (`version` + entity GUID):**
+
+```bash
+newrelic entity deployment create \
+  --accountId 3774651 \
+  --guid Mzc3NDY1MXxBUE18QVBQTElDQVRJT058NjE4MjQwMjM3 \
+  --version "<semver-tag-or-build-id>" \
+  --commit "<optional-git-sha>" \
+  --description "<short summary>" \
+  --changelog "<optional URL or bullets>" \
+  --deploymentType BASIC \
+  --user "<deployer-or-bot>"
+```
+
+`--deploymentType` is one of `BASIC`, `BLUE_GREEN`, `CANARY`, `OTHER`, `ROLLING`, or `SHADOW`. Run `newrelic entity deployment create --help` for the exact flags supported by your installed CLI version.
+
+**List existing markers (read-only):**
+
+```bash
+newrelic apm deployment list --accountId 3774651 --applicationId 618240237
+```
+
+Prefer real revision identifiers from CI or `git`; NRQL queries do **not** replace deployment markers.
 
 ## Runtime instrumentation (Node server)
 
@@ -94,6 +138,7 @@ Confirm `appName` (or other host attributes) on your events with a raw `SELECT *
 
 ## Related links
 
+- Deployment markers: [Deployment markers (CLI)](#deployment-markers-cli); `newrelic apm deployment --help`, `newrelic entity deployment create --help`.
 - New Relic CLI: [docs.newrelic.com — New Relic CLI](https://docs.newrelic.com/docs/new-relic-solutions/tutorials/new-relic-cli/)
 - NRQL: [docs.newrelic.com — NRQL](https://docs.newrelic.com/docs/nrql/get-started/introduction-nrql-new-relics-query-language/)
 - Cursor skill (queries, NRQL snippets, log patterns): [.cursor/skills/newrelic/SKILL.md](../.cursor/skills/newrelic/SKILL.md)

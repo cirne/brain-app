@@ -40,7 +40,7 @@
     "docker:up": "npm run docker:ripmail:build && docker compose up --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f brain",
-    "docker:publish": "bash scripts/docker-publish-do.sh",
+    "docker:deploy": "bash scripts/docker-deploy-do.sh",
     "docker:build:arm64": "DOCKER_PLATFORM=linux/arm64 npm run docker:ripmail:build && docker buildx build --platform linux/arm64 -f Dockerfile -t brain-app:arm64-local --load .",
     "eval:build": "node scripts/eval/build-enron-kean.mjs",
     "brain:seed-enron-demo": "node scripts/brain/seed-enron-demo-tenant.mjs",
