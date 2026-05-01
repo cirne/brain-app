@@ -517,6 +517,30 @@
     })
   }
 
+  function openIndexedFileDoc(id: string, source?: string) {
+    const overlay: Overlay = {
+      type: 'indexed-file',
+      id,
+      ...(source?.trim() ? { source: source.trim() } : {}),
+    }
+    const flags = routeSurfaceFlagsForOverlay(overlay)
+    navigateShell({
+      wikiActive: false,
+      overlay,
+      hubActive: flags.hubActive,
+      settingsActive: flags.settingsActive,
+      ...(flags.useChatSession ? chatSessionPart() : {}),
+    })
+    shell.route = parseRoute()
+    shell.agentContext = {
+      type: 'indexed-file',
+      id,
+      title: '(loading)',
+      sourceKind: '',
+      ...(source?.trim() ? { source: source.trim() } : {}),
+    }
+  }
+
   function onInboxNavigateSlide(id: string | undefined) {
     const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
     const flags = routeSurfaceFlagsForOverlay(overlay)
@@ -705,7 +729,7 @@
 
   /** LLM `open` / **`read_mail_message`** / **`read_indexed_file`** — navigate on tool_start. Mobile: only `open` opens the panel; mail/file reads stay preview-only. */
   function onOpenFromAgent(
-    target: { type: string; path?: string; id?: string; date?: string },
+    target: { type: string; path?: string; id?: string; date?: string; source?: string },
     source: AgentOpenSource,
   ) {
     navigateFromAgentOpen(target, {
@@ -713,6 +737,7 @@
       isMobile: !useDesktopSplitDetail,
       openWikiDoc: (path) => openWikiDoc(path),
       openFileDoc: (path) => openFileDoc(path),
+      openIndexedFileDoc: (fid, src) => openIndexedFileDoc(fid, src),
       openEmailFromSearch,
       switchToCalendar,
     })
@@ -1200,6 +1225,7 @@
                 onCalendarResetToToday={resetCalendarToToday}
                 onCalendarNavigate={switchToCalendar}
                 toolOnOpenFile={openFileDoc}
+                toolOnOpenIndexedFile={openIndexedFileDoc}
                 toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
                 toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
                 toolOnOpenFullInbox={openFullInboxFromChat}
@@ -1247,6 +1273,7 @@
                 onCalendarResetToToday={resetCalendarToToday}
                 onCalendarNavigate={switchToCalendar}
                 toolOnOpenFile={openFileDoc}
+                toolOnOpenIndexedFile={openIndexedFileDoc}
                 toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
                 toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
                 toolOnOpenFullInbox={openFullInboxFromChat}
@@ -1282,6 +1309,7 @@
           suppressAgentDetailAutoOpen={!useDesktopSplitDetail}
           onOpenWiki={openWikiDoc}
           onOpenFile={openFileDoc}
+          onOpenIndexedFile={openIndexedFileDoc}
           onOpenEmail={openEmailFromChat}
           onOpenDraft={openEmailDraftFromChat}
           onOpenFullInbox={openFullInboxFromChat}
@@ -1326,6 +1354,7 @@
                 onCalendarResetToToday={resetCalendarToToday}
                 onCalendarNavigate={switchToCalendar}
                 toolOnOpenFile={openFileDoc}
+                toolOnOpenIndexedFile={openIndexedFileDoc}
                 toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
                 toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
                 toolOnOpenFullInbox={openFullInboxFromChat}
@@ -1363,6 +1392,7 @@
           onCalendarResetToToday={resetCalendarToToday}
           onCalendarNavigate={switchToCalendar}
           toolOnOpenFile={openFileDoc}
+          toolOnOpenIndexedFile={openIndexedFileDoc}
           toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
           toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
           toolOnOpenFullInbox={openFullInboxFromChat}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     Archive,
+    FileText,
     Calendar as CalendarIcon,
     ChevronLeft,
     Forward,
@@ -21,6 +22,7 @@
   import Wiki from '../Wiki.svelte'
   import WikiDirList from '../WikiDirList.svelte'
   import FileViewer from '../FileViewer.svelte'
+  import IndexedFileViewer from '../IndexedFileViewer.svelte'
   import Inbox from '../Inbox.svelte'
   import Calendar from '../Calendar.svelte'
   import MessageThread from '../MessageThread.svelte'
@@ -38,6 +40,7 @@
   import {
     emailDraftTitleForSlideOver,
     emailThreadTitleForSlideOver,
+    indexedFileTitleForSlideOver,
     messagesTitleForSlideOver,
     titleForOverlay,
   } from '@client/lib/slideOverHeader.js'
@@ -100,6 +103,7 @@
     onToggleFullscreen?: () => void
     /** Background-agent panel: same navigations as ToolCallBlock / chat tool previews. */
     toolOnOpenFile?: (_path: string) => void
+    toolOnOpenIndexedFile?: (_id: string, _source?: string) => void
     toolOnOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
     toolOnOpenDraft?: (_draftId: string, _subject?: string) => void
     toolOnOpenFullInbox?: () => void
@@ -130,6 +134,7 @@
     detailFullscreen = false,
     onToggleFullscreen,
     toolOnOpenFile,
+    toolOnOpenIndexedFile,
     toolOnOpenEmail,
     toolOnOpenDraft,
     toolOnOpenFullInbox,
@@ -175,6 +180,7 @@
   const emailHeaderTitle = $derived(emailThreadTitleForSlideOver(overlay, surfaceContext))
   const emailDraftHeaderTitle = $derived(emailDraftTitleForSlideOver(overlay, surfaceContext))
   const messagesHeaderTitle = $derived(messagesTitleForSlideOver(overlay, surfaceContext))
+  const indexedFileHeaderTitle = $derived(indexedFileTitleForSlideOver(overlay, surfaceContext))
 
   const calendarHdr = createSlideHeaderRegistration<CalendarSlideHeaderState>(CALENDAR_SLIDE_HEADER)
   const wikiHdr = createSlideHeaderRegistration<WikiSlideHeaderState>(WIKI_SLIDE_HEADER)
@@ -247,6 +253,7 @@
             (overlay.type === 'wiki' && overlay.path) ||
               overlay.type === 'wiki-dir' ||
               (overlay.type === 'file' && overlay.path) ||
+              (overlay.type === 'indexed-file' && indexedFileHeaderTitle) ||
               (overlay.type === 'email' && emailHeaderTitle) ||
               (overlay.type === 'email-draft' && emailDraftHeaderTitle) ||
               overlay.type === 'mail-search' ||
@@ -313,6 +320,11 @@
             </span>
           {:else if overlay.type === 'file' && overlay.path}
             <WikiFileName path={overlay.path} />
+          {:else if overlay.type === 'indexed-file' && overlay.id && indexedFileHeaderTitle}
+            <span class="slide-title-email">
+              <FileText size={14} strokeWidth={2} aria-hidden="true" />
+              <span class="slide-title-email-text">{indexedFileHeaderTitle}</span>
+            </span>
           {:else if overlay.type === 'email' && emailHeaderTitle}
             <span class="slide-title-email">
               <Mail size={14} strokeWidth={2} aria-hidden="true" />
@@ -585,6 +597,8 @@
       />
     {:else if overlay.type === 'file'}
       <FileViewer initialPath={overlay.path} onContextChange={onContextChange} />
+    {:else if overlay.type === 'indexed-file' && overlay.id}
+      <IndexedFileViewer id={overlay.id} source={overlay.source} onContextChange={onContextChange} />
     {:else if overlay.type === 'email'}
       <Inbox
         initialId={overlay.id}
@@ -606,7 +620,9 @@
         queryLine={mailSearchResults?.queryLine ?? overlay.query ?? 'Mail search'}
         items={mailSearchResults?.items ?? null}
         totalMatched={mailSearchResults?.totalMatched}
+        searchSource={mailSearchResults?.searchSource}
         onOpenEmail={toolOnOpenEmail}
+        onOpenIndexedFile={toolOnOpenIndexedFile}
       />
     {:else if overlay.type === 'messages'}
       <MessageThread initialChat={overlay.chat} onContextChange={onContextChange} />
@@ -616,6 +632,7 @@
           if (path) onWikiNavigate(path)
         }}
         onOpenFile={toolOnOpenFile}
+        onOpenIndexedFile={toolOnOpenIndexedFile}
         onOpenEmail={toolOnOpenEmail}
         onOpenDraft={toolOnOpenDraft}
         onOpenFullInbox={toolOnOpenFullInbox}

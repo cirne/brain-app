@@ -4,6 +4,7 @@ import type { Overlay, SurfaceContext } from '../router.js'
 export function titleForOverlay(o: Overlay): string {
   if (o.type === 'wiki' || o.type === 'wiki-dir') return 'Docs'
   if (o.type === 'file') return 'File'
+  if (o.type === 'indexed-file') return 'File'
   if (o.type === 'email') return 'Inbox'
   if (o.type === 'email-draft') return 'Draft'
   if (o.type === 'mail-search') return 'Mail search'
@@ -41,6 +42,19 @@ export function messagesTitleForSlideOver(
 }
 
 /** Email draft subject for SlideOver center title when context matches overlay draft id. */
+/** Indexed Drive/local file title when context matches overlay id. */
+export function indexedFileTitleForSlideOver(
+  overlay: Overlay,
+  surfaceContext: SurfaceContext,
+): string | null {
+  if (overlay.type !== 'indexed-file' || !overlay.id) return null
+  if (surfaceContext.type !== 'indexed-file') return null
+  if (surfaceContext.id !== overlay.id) return null
+  const s = surfaceContext.title?.trim()
+  if (!s || s === '(loading)') return null
+  return s
+}
+
 export function emailDraftTitleForSlideOver(
   overlay: Overlay,
   surfaceContext: SurfaceContext,

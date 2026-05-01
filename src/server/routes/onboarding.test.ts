@@ -41,6 +41,7 @@ import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { generateUserId, writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js'
+import { BRAIN_FINISH_CONVERSATION_SUBMIT } from '@shared/finishConversationShortcut.js'
 
 /** Avoid async wiki-expansion I/O racing with `afterEach` `rm(BRAIN_HOME)`. */
 vi.mock('../agent/wikiExpansionRunner.js', () => ({
@@ -163,6 +164,24 @@ describe('onboarding routes', () => {
     expect(res.status).toBe(200)
     const j = (await res.json()) as { ok: boolean }
     expect(j.ok).toBe(true)
+  })
+
+  it('POST /interview finish shortcut emits finish_conversation tool_end without agent LLM', async () => {
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/interview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: BRAIN_FINISH_CONVERSATION_SUBMIT,
+        userMessageDisplay: 'Done',
+        timezone: 'UTC',
+      }),
+    })
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    expect(text).toContain('event: tool_end')
+    expect(text).toContain('"name":"finish_conversation"')
   })
 
   it('POST /finalize returns 400 when not in onboarding-agent', async () => {

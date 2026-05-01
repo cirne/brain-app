@@ -6,6 +6,7 @@ import { wikiOpenPathFromArgs } from './toolArgSummary.js'
 export type ToolDrilldown =
   | { kind: 'wiki'; path: string }
   | { kind: 'file'; path: string }
+  | { kind: 'indexed_file'; id: string; source?: string }
   | { kind: 'email'; id: string; subject: string; from: string }
   | { kind: 'email_draft'; draftId: string; subject: string }
   | { kind: 'calendar'; date: string; eventId?: string }
@@ -32,6 +33,12 @@ export function toolDrilldownForTool(
         return { kind: 'wiki', path: preview.path }
       case 'file':
         return { kind: 'file', path: preview.path }
+      case 'indexed-file':
+        return {
+          kind: 'indexed_file',
+          id: preview.id,
+          ...(preview.source ? { source: preview.source } : {}),
+        }
       case 'email':
         return { kind: 'email', id: preview.id, subject: preview.subject, from: preview.from }
       case 'email_draft':

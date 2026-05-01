@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 use std::fs;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use serde::Serialize;
 use unicode_normalization::UnicodeNormalization;
 
 use crate::cli::args::AttachmentCmd;
@@ -210,8 +211,68 @@ fn local_file_read_json(
     }
 }
 
-fn local_file_read_plain(
-    path: &std::path::Path,
+/// YAML frontmatter + body for agent-readable `ripmail read <path>` text mode (indexed local files).
+#[derive(Serialize)]
+struct LocalIndexedFrontmatter<'a> {
+    path: &'a str,
+    #[serde(rename = "sourceKind")]
+    source_kind: &'a str,
+    title: &'a str,
+    mime: &'a str,
+    #[serde(rename = "readStatus")]
+    read_status: &'a str,
+}
+
+/// YAML frontmatter + body for agent-readable `ripmail read <driveFileId>` text mode.
+#[derive(Serialize)]
+struct DriveIndexedFrontmatter<'a> {
+    id: &'a str,
+    source: &'a str,
+    #[serde(rename = "sourceKind")]
+    source_kind: &'a str,
+    title: &'a str,
+    #[serde(rename = "readStatus")]
+    read_status: &'a str,
+}
+
+fn wrap_local_indexed_text(
+    path_s: &str,
+    title: &str,
+    mime: &str,
+    read_status: &str,
+    body: &str,
+) -> Result<String, String> {
+    let fm = LocalIndexedFrontmatter {
+        path: path_s,
+        source_kind: "localDir",
+        title,
+        mime,
+        read_status,
+    };
+    let yaml = serde_yaml::to_string(&fm).map_err(|e| e.to_string())?;
+    Ok(format!("---\n{yaml}\n---\n\n{body}"))
+}
+
+fn wrap_drive_indexed_text(
+    file_id: &str,
+    source_id: &str,
+    title: &str,
+    read_status: &str,
+    body: &str,
+) -> Result<String, String> {
+    let fm = DriveIndexedFrontmatter {
+        id: file_id,
+        source: source_id,
+        source_kind: "googleDrive",
+        title,
+        read_status,
+    };
+    let yaml = serde_yaml::to_string(&fm).map_err(|e| e.to_string())?;
+    Ok(format!("---\n{yaml}\n---\n\n{body}"))
+}
+
+fn local_file_read_indexed_text(
+    path: &Path,
     file_opts: LocalFileReadOptions,
 ) -> Result<String, String> {
     let mime = mime_guess::from_path(path)
@@ -220,13 +281,14 @@ fn local_file_read_plain(
     let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("file");
     let meta = fs::metadata(path).map_err(|e| e.to_string())?;
     let size = meta.len();
+    let path_s = path.to_string_lossy().to_string();
     if size > MAX_LOCAL_FILE_BYTES {
         let o = local_file_skipped_too_large(size, &mime, fname);
-        return Ok(o.body_text);
+        return wrap_local_indexed_text(&path_s, fname, &mime, o.read_status, &o.body_text);
     }
     let bytes = fs::read(path).map_err(|e| e.to_string())?;
     let o = local_file_read_outcome_with_options(&bytes, &mime, fname, file_opts);
-    Ok(o.body_text)
+    wrap_local_indexed_text(&path_s, fname, &mime, o.read_status, &o.body_text)
 }
 
 pub(crate) fn run_read(
@@ -269,7 +331,7 @@ pub(crate) fn run_read(
                 }
                 first = false;
                 std::io::stdout().write_all(&bytes)?;
-            } else if let Some((body, _title)) =
+            } else if let Some((body, _title, _source_id)) =
                 try_read_google_drive_cached_body(&conn, &drive_home, target.trim())
                     .ok()
                     .flatten()
@@ -298,7 +360,7 @@ pub(crate) fn run_read(
             if path.is_file() {
                 let v = local_file_read_json(&path, file_read_opts)?;
                 println!("{}", serde_json::to_string_pretty(&v)?);
-            } else if let Some((body, title)) =
+            } else if let Some((body, title, _source_id)) =
                 try_read_google_drive_cached_body(&conn, &drive_home, target.trim())
                     .ok()
                     .flatten()
@@ -352,7 +414,7 @@ pub(crate) fn run_read(
                 let path = expand_read_path(target);
                 if path.is_file() {
                     values.push(local_file_read_json(&path, file_read_opts)?);
-                } else if let Some((body, title)) =
+                } else if let Some((body, title, _source_id)) =
                     try_read_google_drive_cached_body(&conn, &drive_home, target.trim())
                         .ok()
                         .flatten()
@@ -382,22 +444,25 @@ pub(crate) fn run_read(
     for target in &message_ids {
         let path = expand_read_path(target);
         if path.is_file() {
-            let text = local_file_read_plain(&path, file_read_opts)?;
+            let text = local_file_read_indexed_text(&path, file_read_opts)
+                .map_err(|s| -> Box<dyn std::error::Error> { s.into() })?;
             if !first {
                 print!("{READ_BATCH_TEXT_SEP}");
             }
             first = false;
             print!("{text}");
-        } else if let Some((body, _title)) =
+        } else if let Some((body, title, source_id)) =
             try_read_google_drive_cached_body(&conn, &drive_home, target.trim())
                 .ok()
                 .flatten()
         {
+            let text = wrap_drive_indexed_text(target.trim(), &source_id, &title, "ok", &body)
+                .map_err(|s| -> Box<dyn std::error::Error> { s.into() })?;
             if !first {
                 print!("{READ_BATCH_TEXT_SEP}");
             }
             first = false;
-            print!("{body}");
+            print!("{text}");
         } else {
             let (bytes, _) = read_message_for_cli(&conn, target, root)?;
             let parsed = parse_read_full_with_body_preference(&bytes, body_pref);

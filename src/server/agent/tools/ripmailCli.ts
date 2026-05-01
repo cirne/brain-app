@@ -74,18 +74,18 @@ export function selectSearchResultTier(resultCount: number): EmailResolutionTier
 
 /** Fields kept per tier for search results. */
 const SEARCH_TIER_KEYS: Record<EmailResolutionTier, readonly string[]> = {
-  full: ['messageId', 'fromAddress', 'fromName', 'subject', 'date', 'snippet'],
-  compact: ['messageId', 'fromAddress', 'fromName', 'subject', 'date'],
-  minimal: ['messageId', 'fromAddress', 'subject', 'date'],
+  full: ['messageId', 'fromAddress', 'fromName', 'subject', 'date', 'snippet', 'sourceKind'],
+  compact: ['messageId', 'fromAddress', 'fromName', 'subject', 'date', 'sourceKind'],
+  minimal: ['messageId', 'fromAddress', 'subject', 'date', 'sourceKind'],
 }
 
 /**
  * Dynamically reduces search result payload based on result count:
- * - ≤5 results  → full (messageId, fromAddress, fromName, subject, date, snippet)
+ * - ≤5 results  → full (messageId, fromAddress, fromName, subject, date, snippet, sourceKind)
  * - 6–15 results → compact (same minus snippet)
  * - >15 results  → minimal (same minus snippet and fromName)
  *
- * Strips bodyPreview, threadId, sourceId, sourceKind, rank unconditionally.
+ * Strips bodyPreview, threadId, sourceId, rank unconditionally. Keeps **sourceKind** (mail vs Drive/local file sources).
  * Passes through unchanged if stdout is not valid JSON or has no results.
  */
 export function stripSearchIndexResult(stdout: string): string {

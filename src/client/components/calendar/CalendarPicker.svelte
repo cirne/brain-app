@@ -171,7 +171,7 @@
             <span class="cal-picker-marker-track" aria-hidden="true">
               {#if checked}
                 <span class="cal-picker-marker cal-picker-marker--on">
-                  <Check size={15} strokeWidth={2.75} aria-hidden="true" />
+                  <Check size={12} strokeWidth={2.5} aria-hidden="true" />
                 </span>
               {:else}
                 <span class="cal-picker-marker cal-picker-marker--off"></span>
@@ -272,12 +272,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: 0.65rem;
     width: 100%;
-    min-height: 2.75rem;
+    min-height: 2.35rem;
     box-sizing: border-box;
     margin: 0;
-    padding: 0.55rem 0.75rem;
+    padding: 0.4rem 0.65rem;
     border-radius: 10px;
     border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
     background: color-mix(in srgb, var(--bg-2, var(--bg)) 94%, var(--text));
@@ -313,7 +313,7 @@
     min-width: 0;
     display: flex;
     align-items: center;
-    min-height: 1.35rem;
+    min-height: 1.2rem;
   }
 
   .cal-picker-name {
@@ -331,8 +331,8 @@
 
   .cal-picker-marker-track {
     flex-shrink: 0;
-    width: 2.125rem;
-    height: 2.125rem;
+    width: 1.75rem;
+    height: 1.75rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -342,8 +342,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.8125rem;
-    height: 1.8125rem;
+    width: 1.5rem;
+    height: 1.5rem;
     border-radius: 999px;
     box-sizing: border-box;
   }

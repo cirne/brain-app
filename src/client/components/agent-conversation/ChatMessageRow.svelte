@@ -13,6 +13,7 @@
     isLastAssistantInThread: _isLastAssistantInThread,
     onOpenWiki,
     onOpenFile,
+    onOpenIndexedFile,
     onOpenEmail,
     onOpenDraft,
     onOpenFullInbox,
@@ -28,6 +29,7 @@
     isLastAssistantInThread: boolean
     onOpenWiki?: (_path: string) => void
     onOpenFile?: (_path: string) => void
+    onOpenIndexedFile?: (_id: string, _source?: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
@@ -60,6 +62,7 @@
           displayMode={toolDisplayMode}
           {onOpenWiki}
           {onOpenFile}
+          {onOpenIndexedFile}
           {onOpenEmail}
           {onOpenDraft}
           {onOpenFullInbox}

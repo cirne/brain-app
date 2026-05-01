@@ -82,6 +82,27 @@ describe('toolCallCollapsedSummaryParts', () => {
     })
   })
 
+  it('uses indexed-file preview title in collapsed summary', () => {
+    const tc = {
+      id: 't1',
+      name: 'read_indexed_file',
+      args: { id: '1T_x' },
+      result: '',
+      done: true,
+    } satisfies ToolCall
+    const preview: ContentCardPreview = {
+      kind: 'indexed-file',
+      id: '1T_x',
+      title: 'Brief.pdf',
+      sourceKind: 'googleDrive',
+      excerpt: '',
+    }
+    expect(toolCallCollapsedSummaryParts(tc, preview)).toEqual({
+      mode: 'text',
+      text: 'Brief.pdf',
+    })
+  })
+
   it('falls back to args when preview missing', () => {
     const tc = {
       id: '1',

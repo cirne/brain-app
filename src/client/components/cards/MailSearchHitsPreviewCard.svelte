@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { Mail } from 'lucide-svelte'
+  import { FileText, Mail } from 'lucide-svelte'
   import type { MailSearchHitPreview } from '@client/lib/cards/contentCardShared.js'
+  import { searchHitIsIndexedFile } from '@client/lib/tools/matchPreview.js'
 
   const PREVIEW_ROWS = 3
 
@@ -8,12 +9,17 @@
     queryLine,
     items,
     totalMatched,
+    searchSource,
     onOpenEmail,
+    onOpenIndexedFile,
   }: {
     queryLine: string
     items: MailSearchHitPreview[]
     totalMatched?: number
+    /** From search_index `source` arg — forwarded when opening Drive/local file hits. */
+    searchSource?: string
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
+    onOpenIndexedFile?: (_id: string, _source?: string) => void
   } = $props()
 
   const rows = $derived(items.slice(0, PREVIEW_ROWS))
@@ -24,12 +30,20 @@
         ? items.length - PREVIEW_ROWS
         : 0,
   )
+
+  function openRow(hit: MailSearchHitPreview) {
+    if (searchHitIsIndexedFile(hit, searchSource)) {
+      onOpenIndexedFile?.(hit.id, searchSource)
+    } else {
+      onOpenEmail?.(hit.id, hit.subject, hit.from)
+    }
+  }
 </script>
 
 <div class="mail-search-preview">
   <div class="mail-search-query" title={queryLine}>{queryLine}</div>
   {#if rows.length === 0}
-    <p class="mail-search-empty">No matching messages.</p>
+    <p class="mail-search-empty">No matching emails or indexed files.</p>
   {:else}
     <ul class="mail-search-list" role="list">
       {#each rows as row (row.id)}
@@ -37,15 +51,21 @@
           <button
             type="button"
             class="mail-search-row"
-            onclick={() => onOpenEmail?.(row.id, row.subject, row.from)}
+            onclick={() => openRow(row)}
           >
             <span class="mail-search-icon" aria-hidden="true">
-              <Mail size={12} />
+              {#if searchHitIsIndexedFile(row, searchSource)}
+                <FileText size={12} />
+              {:else}
+                <Mail size={12} />
+              {/if}
             </span>
             <span class="mail-search-body">
               <span class="mail-search-subject">{row.subject || '(No subject)'}</span>
               {#if row.from}
                 <span class="mail-search-from">{row.from}</span>
+              {:else if searchHitIsIndexedFile(row, searchSource)}
+                <span class="mail-search-from">Indexed file</span>
               {/if}
               {#if row.snippet}
                 <span class="mail-search-snippet">{row.snippet}</span>
@@ -86,7 +106,12 @@
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0;
+  }
+  .mail-search-list li:not(:first-child) .mail-search-row {
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
   }
   .mail-search-row {
     display: flex;

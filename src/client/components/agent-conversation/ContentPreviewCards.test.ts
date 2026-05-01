@@ -274,6 +274,32 @@ describe('ContentPreviewCards.svelte', () => {
       await fireEvent.click(screen.getByRole('button', { name: /important update/i }))
       expect(onOpenEmail).toHaveBeenCalledWith('hit-99', 'Important Update', 'ceo@company.com')
     })
+
+    it('indexed file hits call onOpenIndexedFile with search source', async () => {
+      const onOpenEmail = vi.fn()
+      const onOpenIndexedFile = vi.fn()
+      const preview: ContentCardPreview = {
+        kind: 'mail_search_hits',
+        queryLine: 'pattern: netjets · source: acct-drive',
+        searchSource: 'acct-drive',
+        items: [
+          makeMailSearchHit({
+            id: 'drive-file-1',
+            subject: 'Contract.pdf',
+            from: '',
+            snippet: '',
+            sourceKind: 'googleDrive',
+          }),
+        ],
+        totalMatched: 1,
+      }
+
+      render(ContentPreviewCards, { props: { preview, onOpenEmail, onOpenIndexedFile } })
+
+      await fireEvent.click(screen.getByRole('button', { name: /contract\.pdf/i }))
+      expect(onOpenIndexedFile).toHaveBeenCalledWith('drive-file-1', 'acct-drive')
+      expect(onOpenEmail).not.toHaveBeenCalled()
+    })
   })
 
   describe('find_person_hits preview', () => {

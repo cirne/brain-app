@@ -170,7 +170,7 @@ async function resolveToolEndDetails(
   detailsSoFar: unknown | undefined,
 ): Promise<unknown | undefined> {
   let details: unknown | undefined = detailsSoFar
-  if (ev.toolName === 'read_mail_message' || ev.toolName === 'read_indexed_file') {
+  if (ev.toolName === 'read_mail_message') {
     const shaped = shapeReadEmailStreamDetails(resultText, ev.toolCallId, deps.assistantState)
     if (shaped !== undefined) details = shaped
   } else if (ev.toolName === 'edit') {

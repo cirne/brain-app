@@ -10,6 +10,8 @@ export function shapeReadEmailStreamDetails(
   toolCallId: string,
   assistantState: AssistantTurnState,
 ): unknown | undefined {
+  // Indexed file reads return YAML frontmatter + markdown; preserve runtime `ReadFileToolDetails`.
+  if (resultText.trimStart().startsWith('---')) return undefined
   if (!resultText.trim().startsWith('{')) return undefined
   try {
     const parsed = JSON.parse(resultText) as Record<string, unknown>

@@ -6,6 +6,7 @@ function desktopCtx(overrides: Partial<Parameters<typeof navigateFromAgentOpen>[
     isMobile: false,
     openWikiDoc: vi.fn(),
     openFileDoc: vi.fn(),
+    openIndexedFileDoc: vi.fn(),
     openEmailFromSearch: vi.fn(),
     switchToCalendar: vi.fn(),
     source: 'open' as const,
@@ -19,11 +20,13 @@ describe('navigateFromAgentOpen', () => {
     const openEmailFromSearch = vi.fn()
     const switchToCalendar = vi.fn()
     const openFileDoc = vi.fn()
+    const openIndexedFileDoc = vi.fn()
     const ctx = {
       source: 'read_mail_message' as const,
       isMobile: true,
       openWikiDoc,
       openFileDoc,
+      openIndexedFileDoc,
       openEmailFromSearch,
       switchToCalendar,
     }
@@ -44,11 +47,13 @@ describe('navigateFromAgentOpen', () => {
     const openEmailFromSearch = vi.fn()
     const switchToCalendar = vi.fn()
     const openFileDoc = vi.fn()
+    const openIndexedFileDoc = vi.fn()
     const ctx = {
       source: 'open' as const,
       isMobile: true,
       openWikiDoc,
       openFileDoc,
+      openIndexedFileDoc,
       openEmailFromSearch,
       switchToCalendar,
     }
@@ -80,6 +85,12 @@ describe('navigateFromAgentOpen', () => {
     const ctx = desktopCtx({ source: 'read_mail_message' })
     navigateFromAgentOpen({ type: 'email', id: 'abc' }, ctx)
     expect(ctx.openEmailFromSearch).toHaveBeenCalledWith('abc', '', '')
+  })
+
+  it('opens indexed file on desktop (read_indexed_file)', () => {
+    const ctx = desktopCtx({ source: 'read_indexed_file' })
+    navigateFromAgentOpen({ type: 'indexed-file', id: 'driveFile1', source: 'mailbox-drive' }, ctx)
+    expect(ctx.openIndexedFileDoc).toHaveBeenCalledWith('driveFile1', 'mailbox-drive')
   })
 
   it('opens calendar day on desktop (open)', () => {

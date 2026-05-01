@@ -6,6 +6,7 @@
     ChevronRight,
     Folder,
     Calendar,
+    HardDrive,
     LogOut,
     Plus,
     Trash2,
@@ -66,7 +67,7 @@
     ) {
       return 1
     }
-    if (kind === 'localDir') return 2
+    if (kind === 'localDir' || kind === 'googleDrive') return 2
     return 3
   }
 
@@ -314,6 +315,8 @@
                   {#snippet icon()}
                     {#if s.kind === 'localDir'}
                       <Folder size={16} />
+                    {:else if s.kind === 'googleDrive'}
+                      <HardDrive size={16} />
                     {:else if s.kind === 'imap' || s.kind === 'applemail'}
                       <Mail size={16} />
                     {:else}

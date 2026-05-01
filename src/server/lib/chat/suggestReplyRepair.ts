@@ -7,6 +7,7 @@ import { chainLlmOnPayload } from '@server/lib/llm/llmOnPayloadChain.js'
 import type { LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
 import type { AssistantTurnState, MessagePart } from '@server/lib/chat/chatTypes.js'
 import { applyToolEnd, applyToolStart } from '@server/lib/chat/chatTranscript.js'
+import { BRAIN_FINISH_CONVERSATION_SUBMIT } from '@shared/finishConversationShortcut.js'
 import { assistantPartsHaveValidSuggestReply } from '@shared/suggestReplyChoicesCore.js'
 import { writeSuggestReplyRepairDiagnostics } from '@server/lib/observability/agentDiagnostics.js'
 
@@ -15,14 +16,14 @@ Given the user message and the assistant answer below, supply 2–5 quick-reply 
 
 **Workflow-completion priority:** When the assistant has produced a ready-to-act artifact—an email or message draft, a plan, code, a document, a form, or any output that has a natural "execute" step—always include a chip that completes the action (e.g. "Send it", "Post it", "Run it", "Submit", "Confirm", "Publish"). This chip should appear first or second, before refinement options. Refinement chips (edit, shorten, change tone, etc.) are secondary to execution when the artifact is complete and ready.
 
-**Conversation wrap-up:** When the user's goal is clearly achieved or the conversation is winding down—task completed, question fully answered, user expressed thanks or satisfaction—include a closing chip as the last option: label "That's all, thanks", submit "That's all, thanks". This will trigger the app's finish_conversation flow and open a fresh chat.`
+**Conversation wrap-up:** When the user's goal is clearly achieved or the conversation is winding down—task completed, question fully answered, user expressed thanks or satisfaction—include a closing chip as the last option: **label** natural language (e.g. "That's all, thanks"); **submit** exactly this string with no changes: ${BRAIN_FINISH_CONVERSATION_SUBMIT}. That submit triggers finish_conversation without a full LLM round-trip.`
 
 const MAX_USER_CHARS = 4000
 const MAX_ASSISTANT_CHARS = 14000
 
 const FALLBACK_CHOICES = [
   { label: 'Continue', submit: 'Continue' },
-  { label: 'Thanks', submit: 'Thanks — that is enough for now.' },
+  { label: 'Thanks', submit: BRAIN_FINISH_CONVERSATION_SUBMIT },
 ] as const
 
 /** When unset or not \`0\`, run a repair LLM pass if the main turn omitted chips. */

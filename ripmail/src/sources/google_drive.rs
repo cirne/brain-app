@@ -863,11 +863,12 @@ pub fn run_google_drive_sync(
 }
 
 /// Resolve `ripmail read <driveFileId>` when `document_index` has a matching `googleDrive` row.
+/// Returns `(body, title, source_id)` when the cached export exists.
 pub fn try_read_google_drive_cached_body(
     conn: &Connection,
     home: &Path,
     file_id: &str,
-) -> rusqlite::Result<Option<(String, String)>> {
+) -> rusqlite::Result<Option<(String, String, String)>> {
     let row: Option<(String, String)> = conn
         .query_row(
             "SELECT source_id, title FROM document_index WHERE kind = 'googleDrive' AND ext_id = ?1 LIMIT 1",
@@ -891,7 +892,7 @@ pub fn try_read_google_drive_cached_body(
     let abs = home.join(&source_id).join(&rel_path);
     if abs.is_file() {
         let body = fs::read_to_string(abs).unwrap_or_default();
-        return Ok(Some((body, title)));
+        return Ok(Some((body, title, source_id)));
     }
     Ok(None)
 }

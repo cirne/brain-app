@@ -1,6 +1,6 @@
 # Archived: OPP-044 — Multiple mailboxes, one Braintunnel handle
 
-**Archived 2026-04-30.** **Status: Shipped (core).** `/api/oauth/google/link/*`, `linkedMailboxes.ts`, second `sources[]` in ripmail; tests in `gmailOAuth.test.ts`. Hub UX polish may continue. **Stable URL:** [stub](../OPP-044-multiple-gmail-accounts-same-braintunnel-handle.md).
+**Archived 2026-04-30.** **Status: Shipped (core).** `/api/oauth/google/link/`*, `linkedMailboxes.ts`, second `sources[]` in ripmail; tests in `gmailOAuth.test.ts`. Hub UX polish may continue. **Stable URL:** [stub](../OPP-044-multiple-gmail-accounts-same-braintunnel-handle.md).
 
 ---
 

@@ -1,5 +1,6 @@
 import { defineTool } from '@mariozechner/pi-coding-agent'
 import { Type } from '@mariozechner/pi-ai'
+import matter from 'gray-matter'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { logger } from '@server/lib/observability/logger.js'
@@ -15,6 +16,7 @@ import {
   looksLikePersonNameOnly,
   mergeSearchIndexStdoutHints,
 } from '@server/agent/searchIndexCoerce.js'
+import { extractRipmailIndexedMarkdownTitle } from '@shared/readEmailPreview.js'
 import { applyInboxResolution, selectSearchResultTier, stripReadEmailResult, stripSearchIndexResult } from './ripmailCli.js'
 import { parseWhoPrimaryAddresses } from '@server/agent/searchIndexWhoResolve.js'
 import { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '@server/lib/apple/imessagePhone.js'
@@ -37,12 +39,88 @@ const execAsync = promisify(exec)
 
 const READ_MAIL_BODY_MAX_CHARS = 5000
 
-/** Shared `ripmail read --json` path for mail messages, indexed Drive/local files, and allowed filesystem paths. */
-async function ripmailReadToolExecute(params: {
+/** `ripmail read` text mode: YAML frontmatter + markdown body (Drive / localDir / path). */
+function buildReadFileToolDetailsFromIndexedStdout(
+  fullStdout: string,
+  fallbackId: string,
+): Record<string, unknown> {
+  const trimmed = fullStdout.trim()
+  try {
+    if (!trimmed.startsWith('---')) {
+      const flat = trimmed.replace(/\s+/g, ' ').trim()
+      const excerpt = flat.slice(0, 200) + (flat.length > 200 ? '…' : '')
+      const title = extractRipmailIndexedMarkdownTitle(trimmed) ?? fallbackId
+      return {
+        readFilePreview: true,
+        id: fallbackId,
+        sourceKind: 'unknown',
+        title,
+        excerpt,
+      }
+    }
+    const parsed = matter(trimmed)
+    const data = parsed.data as Record<string, unknown>
+    const body = typeof parsed.content === 'string' ? parsed.content.trim() : ''
+    const flat = body.replace(/\s+/g, ' ').trim()
+    const excerpt = flat.slice(0, 200) + (flat.length > 200 ? '…' : '')
+    const sourceKind = String(data.sourceKind ?? 'unknown')
+    let title = String(data.title ?? fallbackId)
+    let id = fallbackId
+    if (typeof data.id === 'string' && data.id.trim()) id = data.id.trim()
+    else if (typeof data.path === 'string' && data.path.trim()) id = data.path.trim()
+    const headingTitle = extractRipmailIndexedMarkdownTitle(trimmed)
+    const bareAsIdTitle = title === id || title === fallbackId
+    if (headingTitle != null && (bareAsIdTitle || sourceKind === 'unknown')) {
+      title = headingTitle
+    }
+    return {
+      readFilePreview: true,
+      id,
+      sourceKind,
+      title,
+      excerpt,
+    }
+  } catch {
+    const title = extractRipmailIndexedMarkdownTitle(trimmed) ?? fallbackId
+    return {
+      readFilePreview: true,
+      id: fallbackId,
+      sourceKind: 'unknown',
+      title,
+      excerpt: trimmed.slice(0, 200) + (trimmed.length > 200 ? '…' : ''),
+    }
+  }
+}
+
+/** Indexed files / Drive / localDir: `ripmail read` without `--json` — frontmatter + body for the model. */
+async function ripmailReadIndexedFileToolExecute(params: {
   id: string
   source?: string
-  /** When false, skip `attachment list` merge (paths only today). */
-  mergeAttachmentMetadata: boolean
+}): Promise<{ content: { type: 'text'; text: string }[]; details: Record<string, unknown> }> {
+  const rm = ripmailBin()
+  let readId = params.id
+  if (ripmailReadIdLooksLikeFilesystemPath(readId)) {
+    readId = await assertAgentReadPathAllowed(readId)
+  }
+  const resolved = await resolveRipmailSourceForCli(params.source)
+  const src = resolved?.trim() ? ` --source ${JSON.stringify(resolved.trim())}` : ''
+  const { stdout } = await execRipmailAsync(
+    `${rm} read ${JSON.stringify(readId)} --full-body${src}`,
+    {
+      ...ripmailReadExecOptions(),
+    },
+  )
+  const details = buildReadFileToolDetailsFromIndexedStdout(stdout, params.id.trim())
+  return {
+    content: [{ type: 'text' as const, text: stdout }],
+    details,
+  }
+}
+
+/** Shared `ripmail read --json` path for mail messages only. */
+async function ripmailReadMailToolExecute(params: {
+  id: string
+  source?: string
 }): Promise<{ content: { type: 'text'; text: string }[]; details: Record<string, unknown> }> {
   const rm = ripmailBin()
   let readId = params.id
@@ -60,7 +138,7 @@ async function ripmailReadToolExecute(params: {
   )
 
   let textOut = stdout
-  const shouldMergeAttachments = params.mergeAttachmentMetadata && !originalIdWasPath
+  const shouldMergeAttachments = !originalIdWasPath
   if (shouldMergeAttachments) {
     try {
       const parsed = JSON.parse(stdout) as Record<string, unknown>
@@ -336,10 +414,9 @@ export function createRipmailAgentTools(wikiDir: string) {
           details: {},
         }
       }
-      return ripmailReadToolExecute({
+      return ripmailReadMailToolExecute({
         id: params.id,
         source: params.source,
-        mergeAttachmentMetadata: true,
       })
     },
   })
@@ -362,10 +439,9 @@ export function createRipmailAgentTools(wikiDir: string) {
       ),
     }),
     async execute(_toolCallId: string, params: { id: string; source?: string }) {
-      return ripmailReadToolExecute({
+      return ripmailReadIndexedFileToolExecute({
         id: params.id,
         source: params.source,
-        mergeAttachmentMetadata: !ripmailReadIdLooksLikeFilesystemPath(params.id),
       })
     },
   })

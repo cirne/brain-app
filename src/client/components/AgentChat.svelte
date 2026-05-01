@@ -34,6 +34,7 @@
     type SessionState,
   } from '@client/lib/chatSessionStore.js'
   import { shiftQueuedFollowUp } from '@client/lib/agentFollowUpQueue.js'
+  import { isBrainFinishConversationSubmit } from '@shared/finishConversationShortcut.js'
   import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
   import AgentConversation from './agent-conversation/AgentConversation.svelte'
   import ComposerContextBar from './agent-conversation/ComposerContextBar.svelte'
@@ -54,6 +55,7 @@
     suppressAgentDetailAutoOpen = false,
     onOpenWiki,
     onOpenFile,
+    onOpenIndexedFile,
     onOpenEmail,
     onOpenDraft,
     onOpenFullInbox,
@@ -137,6 +139,7 @@
     suppressAgentDetailAutoOpen?: boolean
     onOpenWiki?: (_path: string) => void
     onOpenFile?: (_path: string) => void
+    onOpenIndexedFile?: (_id: string, _source?: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
@@ -148,7 +151,7 @@
     ) => void
     /** LLM `open` / **`read_mail_message`** / **`read_indexed_file`** — fired from SSE tool_start */
     onOpenFromAgent?: (
-      _target: { type: string; path?: string; id?: string; date?: string },
+      _target: { type: string; path?: string; id?: string; date?: string; source?: string },
       _source: AgentOpenSource,
     ) => void
     /** SSE `draft_email` tool_end — desktop split opens draft overlay when set */
@@ -545,12 +548,14 @@
    * @param forSessionKey — when set (e.g. queued follow-up after a background stream ends), send targets this map key instead of the currently displayed session.
    * @param firstChatKickoff — post-onboarding: assistant speaks first (no user bubble); see POST /api/chat `firstChatKickoff`.
    * @param interviewKickoffHidden — guided onboarding: no user bubble; server prepends `ripmail whoami` to this message.
+   * @param sendOpts.userBubbleText — shown in the user bubble when different from wire `text` (e.g. finish chip label).
    */
   async function send(
     text: string,
     forSessionKey?: string,
     firstChatKickoff = false,
     interviewKickoffHidden = false,
+    sendOpts?: { userBubbleText?: string },
   ) {
     const id = forSessionKey ?? displayedSessionId
     if ((!text?.trim() && !firstChatKickoff) || !id) return
@@ -572,9 +577,10 @@
     const isFirstMessage = st.messages.length === 0
 
     const hideUserBubble = firstChatKickoff || interviewKickoffHidden
+    const userBubbleContent = sendOpts?.userBubbleText ?? text
     const nextMessages = hideUserBubble
       ? [...st.messages, { role: 'assistant' as const, content: '', parts: [] }]
-      : [...st.messages, { role: 'user' as const, content: text }, { role: 'assistant' as const, content: '', parts: [] }]
+      : [...st.messages, { role: 'user' as const, content: userBubbleContent }, { role: 'assistant' as const, content: '', parts: [] }]
     const msgIdx = nextMessages.length - 1
 
     if (st.hearReplies === true) {
@@ -600,6 +606,9 @@
       firstChatKickoff,
       interviewKickoff: interviewKickoffHidden,
       hearReplies: st.hearReplies === true,
+      userMessageDisplay: sendOpts?.userBubbleText?.trim()
+        ? sendOpts.userBubbleText.trim()
+        : undefined,
     })
 
     if (!hideUserBubble) onUserSendMessage?.()
@@ -892,6 +901,7 @@
             toolDisplayMode={toolDisplayMode}
             {onOpenWiki}
             {onOpenFile}
+            {onOpenIndexedFile}
             {onOpenEmail}
             {onOpenDraft}
             {onOpenFullInbox}
@@ -918,6 +928,7 @@
           toolDisplayMode={toolDisplayMode}
           {onOpenWiki}
           {onOpenFile}
+          {onOpenIndexedFile}
           {onOpenEmail}
           {onOpenDraft}
           {onOpenFullInbox}
@@ -939,7 +950,10 @@
             choices={contextBarChoices}
             choicesDisabled={streaming}
             {onOpenWiki}
-            onChoice={(t) => void send(t)}
+            onChoice={(c) =>
+              void send(c.submit, undefined, false, autoSendInterviewKickoffHidden, {
+                userBubbleText: isBrainFinishConversationSubmit(c.submit) ? c.label : undefined,
+              })}
           />
         </div>
         <UnifiedChatComposer

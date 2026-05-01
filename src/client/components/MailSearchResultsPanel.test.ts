@@ -30,6 +30,33 @@ describe('MailSearchResultsPanel.svelte', () => {
     expect(onOpenEmail).toHaveBeenCalledWith('msg-2', 'Second invoice', 'b@example.com')
   })
 
+  it('opens indexed file hits via onOpenIndexedFile', async () => {
+    const onOpenEmail = vi.fn()
+    const onOpenIndexedFile = vi.fn()
+    render(MailSearchResultsPanel, {
+      props: {
+        queryLine: 'Drive search',
+        totalMatched: 1,
+        searchSource: 'acct-drive',
+        items: [
+          {
+            id: 'f1',
+            subject: 'Notes.pdf',
+            from: '',
+            snippet: '',
+            sourceKind: 'googleDrive',
+          },
+        ],
+        onOpenEmail,
+        onOpenIndexedFile,
+      },
+    })
+
+    await fireEvent.click(screen.getByRole('button', { name: /open indexed file notes\.pdf/i }))
+    expect(onOpenIndexedFile).toHaveBeenCalledWith('f1', 'acct-drive')
+    expect(onOpenEmail).not.toHaveBeenCalled()
+  })
+
   it('renders empty state for no hits', () => {
     render(MailSearchResultsPanel, {
       props: {
@@ -39,7 +66,7 @@ describe('MailSearchResultsPanel.svelte', () => {
     })
 
     expect(screen.getByText('Search mail: no hits')).toBeInTheDocument()
-    expect(screen.getByText('No matching messages.')).toBeInTheDocument()
+    expect(screen.getByText(/No matching emails or indexed files/i)).toBeInTheDocument()
   })
 
   it('renders unavailable state when tool-derived results are not in memory', () => {

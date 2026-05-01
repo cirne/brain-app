@@ -13,6 +13,7 @@
     streaming,
     onOpenWiki,
     onOpenFile,
+    onOpenIndexedFile,
     onOpenEmail,
     onOpenDraft,
     onOpenFullInbox,
@@ -190,6 +191,7 @@
         {toolDisplayMode}
         {onOpenWiki}
         {onOpenFile}
+        {onOpenIndexedFile}
         {onOpenEmail}
         {onOpenDraft}
         {onOpenFullInbox}

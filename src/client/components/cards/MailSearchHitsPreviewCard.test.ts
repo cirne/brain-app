@@ -8,7 +8,9 @@ describe('MailSearchHitsPreviewCard.svelte', () => {
       props: { queryLine: 'from:alice', items: [] },
     })
     expect(screen.getByText('from:alice')).toBeInTheDocument()
-    expect(screen.getByText(/no matching messages/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/no matching emails or indexed files/i),
+    ).toBeInTheDocument()
   })
 
   it('lists rows and calls onOpenEmail', async () => {

@@ -29,6 +29,7 @@
     detailFullscreen,
     onToggleFullscreen,
     toolOnOpenFile,
+    toolOnOpenIndexedFile,
     toolOnOpenEmail,
     toolOnOpenDraft,
     toolOnOpenFullInbox,
@@ -66,6 +67,7 @@
   detailFullscreen={detailFullscreen}
   onToggleFullscreen={onToggleFullscreen}
   {toolOnOpenFile}
+  toolOnOpenIndexedFile={toolOnOpenIndexedFile}
   {toolOnOpenEmail}
   {toolOnOpenDraft}
   {toolOnOpenFullInbox}

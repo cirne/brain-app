@@ -27,6 +27,7 @@
     alwaysScrollToBottom?: boolean
     onOpenWiki: (_path: string) => void
     onOpenFile?: (_path: string) => void
+    onOpenIndexedFile?: (_id: string, _source?: string) => void
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
     onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
@@ -41,6 +42,7 @@
     alwaysScrollToBottom = false,
     onOpenWiki,
     onOpenFile,
+    onOpenIndexedFile,
     onOpenEmail,
     onOpenDraft,
     onOpenFullInbox,
@@ -340,6 +342,7 @@
                     toolCall={toToolCall(ev, i)}
                     onOpenWiki={onOpenWiki}
                     onOpenFile={onOpenFile}
+                    onOpenIndexedFile={onOpenIndexedFile}
                     onOpenEmail={onOpenEmail}
                     onOpenDraft={onOpenDraft}
                     onOpenFullInbox={onOpenFullInbox}
@@ -465,6 +468,7 @@
                       toolCall={toToolCall(ev, i)}
                       onOpenWiki={onOpenWiki}
                       onOpenFile={onOpenFile}
+                      onOpenIndexedFile={onOpenIndexedFile}
                       onOpenEmail={onOpenEmail}
                       onOpenDraft={onOpenDraft}
                       onOpenFullInbox={onOpenFullInbox}

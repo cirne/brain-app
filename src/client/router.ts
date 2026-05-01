@@ -3,6 +3,8 @@ export type Overlay =
   | { type: 'wiki'; path?: string }
   /** Indexed / readable file path (absolute); raw file viewer. */
   | { type: 'file'; path?: string }
+  /** Google Drive or localDir document id (ripmail `read`); {@link IndexedFileViewer}. */
+  | { type: 'indexed-file'; id?: string; source?: string }
   | { type: 'email'; id?: string }
   /** Ripmail draft id (local `drafts/*.md`); editable in overlay before send. */
   | { type: 'email-draft'; id?: string }
@@ -46,6 +48,7 @@ export type SurfaceContext =
   | { type: 'email'; threadId: string; subject: string; from: string; body?: string }
   | { type: 'wiki'; path: string; title: string }
   | { type: 'file'; path: string; title: string }
+  | { type: 'indexed-file'; id: string; title: string; sourceKind: string; source?: string }
   | { type: 'calendar'; date: string; eventId?: string }
   | { type: 'inbox' }
   | { type: 'mail-search'; query: string }
@@ -80,6 +83,9 @@ export function contextToString(ctx: SurfaceContext): string | undefined {
   }
   if (ctx.type === 'file') {
     return `The user is viewing a raw file on disk: ${ctx.path} (title: "${ctx.title}"). Use read_indexed_file with this path if you need the extracted text.`
+  }
+  if (ctx.type === 'indexed-file') {
+    return `The user is viewing indexed file id "${ctx.id}" (${ctx.sourceKind}${ctx.title.trim() ? `: "${ctx.title}"` : ''}). Use read_indexed_file with this id if you need the content.`
   }
   if (ctx.type === 'calendar') {
     let s = `The user is viewing their calendar for ${ctx.date}`
@@ -211,6 +217,10 @@ function overlayToSearchParams(overlay: Overlay): URLSearchParams {
     case 'file':
       if (overlay.path) q.set('file', overlay.path)
       break
+    case 'indexed-file':
+      if (overlay.id) q.set('idx', overlay.id)
+      if (overlay.source) q.set('src', overlay.source)
+      break
     case 'email':
       if (overlay.id) q.set('m', overlay.id)
       break
@@ -252,6 +262,12 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
     case 'file': {
       const file = sp.get('file')?.trim() || undefined
       return file ? { type: 'file', path: file } : { type: 'file' }
+    }
+    case 'indexed-file': {
+      const idx = sp.get('idx')?.trim() || undefined
+      const src = sp.get('src')?.trim() || undefined
+      if (!idx) return { type: 'indexed-file' }
+      return src ? { type: 'indexed-file', id: idx, source: src } : { type: 'indexed-file', id: idx }
     }
     case 'email': {
       const id = sp.get('m') ?? sp.get('id') ?? undefined

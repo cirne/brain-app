@@ -5,10 +5,7 @@ import {
   parseRipmailInboxFlat,
   type InboxListItemPreview,
 } from '@shared/ripmailInboxFlatten.js'
-import {
-  pickReadEmailFields,
-  type ReadEmailToolDetails,
-} from '@shared/readEmailPreview.js'
+import { pickReadEmailFields, type ReadEmailToolDetails } from '@shared/readEmailPreview.js'
 import { isFilesystemAbsolutePath } from '../fsPath.js'
 
 export { formatEmailParticipant, flattenInboxFromRipmailData, parseRipmailInboxFlat }
@@ -43,12 +40,23 @@ export type MailSearchHitPreview = {
   subject: string
   from: string
   snippet: string
+  /** From ripmail JSON `sourceKind` when present — distinguishes mail vs Drive/localDir files. */
+  sourceKind?: string
 }
 
 export type ContentCardPreview =
   | { kind: 'calendar'; start: string; end: string; events: CalendarEventLite[] }
   | { kind: 'wiki'; path: string; excerpt: string }
   | { kind: 'file'; path: string; excerpt: string }
+  | {
+      kind: 'indexed-file'
+      id: string
+      title: string
+      sourceKind: string
+      excerpt: string
+      /** Optional ripmail `--source` when opening the panel */
+      source?: string
+    }
   | { kind: 'email'; id: string; subject: string; from: string; snippet: string }
   | {
       kind: 'email_draft'
@@ -75,6 +83,8 @@ export type ContentCardPreview =
       items: MailSearchHitPreview[]
       /** When JSON includes it, total FTS matches (may exceed `items`). */
       totalMatched?: number
+      /** `search_index` `source` tool arg when set — used to open indexed file hits. */
+      searchSource?: string
     }
     | {
       kind: 'find_person_hits'

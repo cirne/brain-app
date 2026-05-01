@@ -720,6 +720,34 @@ describe('consumeAgentChatStream', () => {
     expect(onOpenFromAgent).toHaveBeenCalledWith({ type: 'file', path: '/Users/test/mail.eml' }, 'read_indexed_file')
   })
 
+  it('handles read_indexed_file with Drive id (opens indexed-file, not email)', async () => {
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    const onOpenFromAgent = vi.fn()
+    const res = sseResponse([
+      'event: tool_start\n',
+      'data: {"id":"e2","name":"read_indexed_file","args":{"id":"1aEUa2RqJabc","source":"user-drive"}}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => true,
+      isHearRepliesEnabled: () => true,
+      onOpenFromAgent,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(onOpenFromAgent).toHaveBeenCalledWith(
+      { type: 'indexed-file', id: '1aEUa2RqJabc', source: 'user-drive' },
+      'read_indexed_file',
+    )
+  })
+
   it('calls onFinishConversation when finish_conversation tool ends successfully', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },

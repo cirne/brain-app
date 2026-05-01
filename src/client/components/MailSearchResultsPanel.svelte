@@ -1,17 +1,22 @@
 <script lang="ts">
-  import { Mail } from 'lucide-svelte'
+  import { FileText, Mail } from 'lucide-svelte'
   import type { MailSearchHitPreview } from '@client/lib/cards/contentCards.js'
+  import { searchHitIsIndexedFile } from '@client/lib/tools/matchPreview.js'
 
   let {
     queryLine,
     items,
     totalMatched,
+    searchSource,
     onOpenEmail,
+    onOpenIndexedFile,
   }: {
     queryLine: string
     items: MailSearchHitPreview[] | null
     totalMatched?: number
+    searchSource?: string
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
+    onOpenIndexedFile?: (_id: string, _source?: string) => void
   } = $props()
 
   const countLabel = $derived.by(() => {
@@ -19,6 +24,19 @@
     const n = typeof totalMatched === 'number' ? totalMatched : items.length
     return `${n} result${n === 1 ? '' : 's'}`
   })
+
+  function openRow(row: MailSearchHitPreview) {
+    if (searchHitIsIndexedFile(row, searchSource)) {
+      onOpenIndexedFile?.(row.id, searchSource)
+    } else {
+      onOpenEmail?.(row.id, row.subject, row.from)
+    }
+  }
+
+  function ariaOpenLabel(row: MailSearchHitPreview): string {
+    const sub = row.subject || '(No subject)'
+    return searchHitIsIndexedFile(row, searchSource) ? `Open indexed file ${sub}` : `Open email ${sub}`
+  }
 </script>
 
 <div class="mail-search-panel">
@@ -32,7 +50,7 @@
   {#if items === null}
     <p class="mail-search-empty">Search results are no longer available. Run the search again to refresh this view.</p>
   {:else if items.length === 0}
-    <p class="mail-search-empty">No matching messages.</p>
+    <p class="mail-search-empty">No matching emails or indexed files.</p>
   {:else}
     <ul class="mail-search-list" role="list">
       {#each items as row (row.id)}
@@ -40,16 +58,22 @@
           <button
             type="button"
             class="mail-search-row"
-            onclick={() => onOpenEmail?.(row.id, row.subject, row.from)}
-            aria-label="Open email {row.subject || '(No subject)'}"
+            onclick={() => openRow(row)}
+            aria-label={ariaOpenLabel(row)}
           >
             <span class="mail-search-icon" aria-hidden="true">
-              <Mail size={14} />
+              {#if searchHitIsIndexedFile(row, searchSource)}
+                <FileText size={14} />
+              {:else}
+                <Mail size={14} />
+              {/if}
             </span>
             <span class="mail-search-body">
               <span class="mail-search-subject">{row.subject || '(No subject)'}</span>
               {#if row.from}
                 <span class="mail-search-from">{row.from}</span>
+              {:else if searchHitIsIndexedFile(row, searchSource)}
+                <span class="mail-search-from">Indexed file</span>
               {/if}
               {#if row.snippet}
                 <span class="mail-search-snippet">{row.snippet}</span>

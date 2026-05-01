@@ -11,6 +11,8 @@ import { streamSSE } from 'hono/streaming'
 import {
   applyStreamError,
   applyTextDelta,
+  applyToolEnd,
+  applyToolStart,
   createAssistantTurnState,
   toAssistantMessage,
 } from './chatTranscript.js'
@@ -330,6 +332,83 @@ export function streamAgentSseResponse(
         } catch {
           /* ignore */
         }
+      }
+    }
+  })
+}
+
+/** Matches `finish_conversation` execute text in `createUiAgentTools` (`uiAgentTools.ts`). */
+export const FINISH_CONVERSATION_TOOL_RESULT_TEXT =
+  'Conversation finish signaled; the app will apply the close/new-chat action.'
+
+/**
+ * No LLM: emits `finish_conversation` like a real tool run so the client closes / starts fresh chat.
+ * Pi-agent session is not updated — callers should only use this when the UI will abandon the thread.
+ */
+export function streamFinishConversationShortcutSse(
+  c: Context,
+  options: {
+    announceSessionId?: string
+    userMessageForPersistence: string
+    onTurnComplete?: StreamAgentSseOptions['onTurnComplete']
+  },
+): Response | Promise<Response> {
+  const { announceSessionId, userMessageForPersistence, onTurnComplete } = options
+  const toolId = randomUUID()
+  return streamSSE(c, async (stream) => {
+    if (announceSessionId) {
+      await stream.writeSSE({ event: 'session', data: JSON.stringify({ sessionId: announceSessionId }) })
+    }
+    const assistantState = createAssistantTurnState()
+    applyToolStart(assistantState, {
+      id: toolId,
+      name: 'finish_conversation',
+      args: {},
+      done: false,
+    })
+    applyToolEnd(
+      assistantState,
+      toolId,
+      FINISH_CONVERSATION_TOOL_RESULT_TEXT,
+      false,
+      { ok: true as const },
+    )
+    try {
+      await stream.writeSSE({
+        event: 'tool_start',
+        data: JSON.stringify({
+          id: toolId,
+          name: 'finish_conversation',
+          args: {},
+        }),
+      })
+      await stream.writeSSE({
+        event: 'tool_end',
+        data: JSON.stringify({
+          id: toolId,
+          name: 'finish_conversation',
+          args: {},
+          result: FINISH_CONVERSATION_TOOL_RESULT_TEXT,
+          isError: false,
+          details: { ok: true },
+        }),
+      })
+      await stream.writeSSE({
+        event: 'done',
+        data: JSON.stringify({}),
+      })
+    } catch {
+      /* stream closed */
+    }
+    if (onTurnComplete) {
+      try {
+        await onTurnComplete({
+          userMessage: userMessageForPersistence,
+          assistantMessage: toAssistantMessage(assistantState),
+          turnTitle: null,
+        })
+      } catch {
+        /* best-effort */
       }
     }
   })

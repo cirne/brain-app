@@ -42,7 +42,7 @@ describe('ComposerContextBar.svelte', () => {
     const btn = actionGroup.querySelector('button')!
     expect(btn).toHaveAccessibleName(/do it/i)
     await fireEvent.click(btn)
-    expect(onChoice).toHaveBeenCalledWith('do the thing')
+    expect(onChoice).toHaveBeenCalledWith({ label: 'Do it', submit: 'do the thing' })
   })
 
   it('renders doc and action chips together without a pipe separator', () => {

@@ -17,7 +17,12 @@ import {
 } from '@server/lib/chat/chatStorage.js'
 import { hasFirstChatPending, tryConsumeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
-import { streamAgentSseResponse, streamStaticAssistantSse } from '@server/lib/chat/streamAgentSse.js'
+import {
+  streamAgentSseResponse,
+  streamFinishConversationShortcutSse,
+  streamStaticAssistantSse,
+} from '@server/lib/chat/streamAgentSse.js'
+import { isBrainFinishConversationSubmit } from '@shared/finishConversationShortcut.js'
 import {
   applySkillPlaceholders,
   buildSkillPromptMessages,
@@ -110,6 +115,38 @@ chat.post('/', async (c) => {
     return c.json({ error: 'first chat kickoff is not available' }, 400)
   }
 
+  const persist = async (args: {
+    userMessage: string | null
+    assistantMessage: ChatMessage
+    turnTitle: string | null | undefined
+  }) => {
+    try {
+      await appendTurn({
+        sessionId,
+        userMessage: args.userMessage,
+        assistantMessage: args.assistantMessage,
+        title: args.turnTitle,
+      })
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  if (
+    !firstChatKickoff &&
+    typeof rawMessage === 'string' &&
+    isBrainFinishConversationSubmit(rawMessage.trim())
+  ) {
+    const display =
+      typeof body.userMessageDisplay === 'string' ? body.userMessageDisplay.trim() : ''
+    const userMessageForPersistence = display || rawMessage.trim()
+    return streamFinishConversationShortcutSse(c, {
+      announceSessionId: sessionId,
+      userMessageForPersistence,
+      onTurnComplete: persist,
+    })
+  }
+
   // Build context string for the session system prompt.
   // Two formats:
   //   string  — surface context (email body, wiki path, etc.) from AgentChat
@@ -151,23 +188,6 @@ chat.post('/', async (c) => {
 
   const selectionForSkill = typeof context === 'string' ? context : ''
   const openFileForSkill = validatedContextFiles?.length ? validatedContextFiles[0] : undefined
-
-  const persist = async (args: {
-    userMessage: string | null
-    assistantMessage: ChatMessage
-    turnTitle: string | null | undefined
-  }) => {
-    try {
-      await appendTurn({
-        sessionId,
-        userMessage: args.userMessage,
-        assistantMessage: args.assistantMessage,
-        title: args.turnTitle,
-      })
-    } catch {
-      /* best-effort */
-    }
-  }
 
   const slash = parseLeadingSlashCommand(message)
   if (slash) {

@@ -14,7 +14,8 @@ import {
 import { appendTurn, ensureSessionStub } from '@server/lib/chat/chatStorage.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { startTunnel, stopTunnel, getActiveTunnelUrl } from '@server/lib/platform/tunnelManager.js'
-import { streamAgentSseResponse } from '@server/lib/chat/streamAgentSse.js'
+import { streamAgentSseResponse, streamFinishConversationShortcutSse } from '@server/lib/chat/streamAgentSse.js'
+import { isBrainFinishConversationSubmit } from '@shared/finishConversationShortcut.js'
 import {
   buildInterviewKickoffUserMessage,
   clearAllInterviewSessions,
@@ -393,6 +394,17 @@ onboarding.post('/interview', async (c) => {
     } catch {
       /* best-effort */
     }
+  }
+
+  if (!interviewKickoff && isBrainFinishConversationSubmit(message.trim())) {
+    const display =
+      typeof body.userMessageDisplay === 'string' ? body.userMessageDisplay.trim() : ''
+    const userMessageForPersistence = display || message.trim()
+    return streamFinishConversationShortcutSse(c, {
+      announceSessionId: sessionId,
+      userMessageForPersistence,
+      onTurnComplete: persist,
+    })
   }
 
   const agent = await getOrCreateOnboardingInterviewAgent(sessionId, { timezone })

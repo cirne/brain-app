@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { join } from 'node:path'
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { BRAIN_FINISH_CONVERSATION_SUBMIT } from '@shared/finishConversationShortcut.js'
 
 describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
   let brainHome: string
@@ -144,6 +145,27 @@ describe.sequential('chat routes (BRAIN_HOME isolation)', () => {
       const text = await res.text()
       expect(text).toContain('Unknown skill')
       expect(text).toContain('not_a_skill_xyz')
+    })
+
+    it('finish shortcut: SSE emits finish_conversation tool_end without agent LLM', async () => {
+      const { default: chatRoute } = await import('./chat.js')
+      const app = new Hono()
+      app.route('/api/chat', chatRoute)
+
+      const res = await app.request('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: BRAIN_FINISH_CONVERSATION_SUBMIT,
+          userMessageDisplay: "That's all, thanks",
+          timezone: 'UTC',
+        }),
+      })
+      expect(res.status).toBe(200)
+      const text = await res.text()
+      expect(text).toContain('event: tool_end')
+      expect(text).toContain('"name":"finish_conversation"')
+      expect(text).not.toContain('event: error')
     })
   })
 

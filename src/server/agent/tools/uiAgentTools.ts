@@ -8,6 +8,7 @@ import { submitFeedbackMarkdown } from '@server/lib/feedback/feedbackIssues.js'
 import { applySkillPlaceholders, readSkillMarkdown } from '@server/lib/llm/slashSkill.js'
 import { tryGetSkillRequestContext } from '@server/lib/llm/skillRequestContext.js'
 import { appendWikiEditRecord, resolveSafeWikiPath } from '../agentToolPolicy.js'
+import { BRAIN_FINISH_CONVERSATION_SUBMIT } from '@shared/finishConversationShortcut.js'
 
 export function createUiAgentTools(wikiDir: string) {
   const finishConversation = defineTool({
@@ -378,7 +379,9 @@ Returns the saved text; treat it as active for this session too.`,
       'The UI uses the **last successful** result if the tool is invoked more than once. ' +
       '**label** = chip text; **submit** = full user message on tap. ' +
       '**Workflow-completion priority:** when you have just produced a ready-to-act artifact—a drafted email or message, a plan, code, a document—always include a chip that executes or delivers it (e.g. "Send it", "Post it", "Run it", "Confirm") as the first or second choice, before refinement chips. ' +
-      '**Conversation wrap-up:** when the user\'s goal is clearly achieved or the conversation is winding down (task done, question answered, user said thanks or expressed satisfaction), include a closing chip such as label "That\'s all, thanks" with submit "That\'s all, thanks" — this triggers `finish_conversation` and starts a fresh chat. Place it last among the chips. ' +
+      '**Conversation wrap-up:** when the user\'s goal is clearly achieved or the conversation is winding down (task done, question answered, user said thanks or expressed satisfaction), include a closing chip: **label** = natural language (e.g. "That\'s all, thanks"); **submit** = exactly `' +
+      BRAIN_FINISH_CONVERSATION_SUBMIT +
+      '` (verbatim) — triggers `finish_conversation` without an extra LLM turn for that tap. Place it last among the chips. ' +
       'Do not type `suggest_reply_options` or `[suggest_reply_options]` in your message. ' +
       '**Never** repeat options as JSON or a duplicate list in prose when chips are used.',
     parameters: Type.Object({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extractProductFeedbackDraftMarkdown, matchContentPreview } from './matchPreview.js'
+import { extractProductFeedbackDraftMarkdown, matchContentPreview, searchHitIsIndexedFile } from './matchPreview.js'
 import type { ToolCall } from '../agentUtils.js'
 
 function tc(p: Partial<ToolCall> & Pick<ToolCall, 'name'>): ToolCall {
@@ -44,6 +44,74 @@ describe('matchContentPreview', () => {
     expect(prev.items[0].subject).toBe('Hello')
     expect(prev.items[0].snippet).not.toContain('<')
     expect(prev.totalMatched).toBe(42)
+  })
+
+  it('parses search_index JSON after adaptive resolution suffix', () => {
+    const json = JSON.stringify({
+      results: [
+        {
+          messageId: 'file-id-1',
+          subject: 'Report.pdf',
+          fromAddress: '',
+          fromName: null,
+          sourceKind: 'googleDrive',
+        },
+      ],
+      totalMatched: 1,
+    })
+    const suffix = '\n\n[resolution: compact — 1 results, snippet omitted. Total matched: 1.]'
+    const prev = matchContentPreview(
+      tc({
+        name: 'search_index',
+        args: { pattern: '.', source: 'acct-drive' },
+        result: json + suffix,
+      }),
+    )
+    expect(prev?.kind).toBe('mail_search_hits')
+    if (prev?.kind !== 'mail_search_hits') return
+    expect(prev.items).toHaveLength(1)
+    expect(prev.items[0].subject).toBe('Report.pdf')
+    expect(prev.items[0].sourceKind).toBe('googleDrive')
+    expect(prev.searchSource).toBe('acct-drive')
+    expect(prev.totalMatched).toBe(1)
+  })
+
+  it('search_index unwraps tool result content wrapper before parsing', () => {
+    const inner = JSON.stringify({
+      results: [{ messageId: 'm1', subject: 'Hi', fromAddress: 'a@b.com', snippet: 'x' }],
+      totalMatched: 1,
+    })
+    const wrapped = JSON.stringify({ content: [{ type: 'text', text: inner }] })
+    const prev = matchContentPreview(
+      tc({
+        name: 'search_index',
+        args: { pattern: 'hi' },
+        result: wrapped,
+      }),
+    )
+    expect(prev?.kind).toBe('mail_search_hits')
+    if (prev?.kind !== 'mail_search_hits') return
+    expect(prev.items).toHaveLength(1)
+    expect(prev.items[0].id).toBe('m1')
+  })
+
+  it('searchHitIsIndexedFile uses sourceKind and fallbacks', () => {
+    expect(
+      searchHitIsIndexedFile(
+        { id: '1', subject: 'a.pdf', from: '', snippet: '', sourceKind: 'googleDrive' },
+      ),
+    ).toBe(true)
+    expect(
+      searchHitIsIndexedFile(
+        { id: '1', subject: 'Hi', from: 'x@y.com', snippet: '', sourceKind: 'imap' },
+      ),
+    ).toBe(false)
+    expect(
+      searchHitIsIndexedFile({ id: '1', subject: 'doc.pdf', from: '', snippet: '' }, 'inbox-drive'),
+    ).toBe(true)
+    expect(
+      searchHitIsIndexedFile({ id: '1', subject: 'Fwd: doc.pdf', from: 'a@b.com', snippet: '' }),
+    ).toBe(false)
   })
 
   it('search_index preview uses results only (ignores hints for the card)', () => {
@@ -129,6 +197,86 @@ describe('matchContentPreview', () => {
       }),
     )
     expect(prev).toBeNull()
+  })
+
+  it('read_indexed_file uses ReadFileToolDetails for indexed-file preview', () => {
+    const prev = matchContentPreview(
+      tc({
+        name: 'read_indexed_file',
+        args: { id: 'driveFile1', source: 'my-drive' },
+        details: {
+          readFilePreview: true,
+          id: 'driveFile1',
+          title: 'Spreadsheet.csv',
+          sourceKind: 'googleDrive',
+          excerpt: 'col1,col2…',
+        },
+        result: '---\nid: driveFile1\ntitle: Spreadsheet.csv\n---\n\n# Body',
+      }),
+    )
+    expect(prev?.kind).toBe('indexed-file')
+    if (prev?.kind !== 'indexed-file') return
+    expect(prev.id).toBe('driveFile1')
+    expect(prev.title).toBe('Spreadsheet.csv')
+    expect(prev.sourceKind).toBe('googleDrive')
+    expect(prev.excerpt).toBe('col1,col2…')
+    expect(prev.source).toBe('my-drive')
+  })
+
+  it('read_indexed_file prefers ## heading when details title equals id', () => {
+    const prev = matchContentPreview(
+      tc({
+        name: 'read_indexed_file',
+        args: { id: 'driveFile1' },
+        details: {
+          readFilePreview: true,
+          id: 'driveFile1',
+          title: 'driveFile1',
+          sourceKind: 'unknown',
+          excerpt: '## Praetor500Contract.pdf Docu sign envelop…',
+        },
+        result: '---',
+      }),
+    )
+    expect(prev?.kind).toBe('indexed-file')
+    if (prev?.kind !== 'indexed-file') return
+    expect(prev.title).toBe('Praetor500Contract.pdf')
+    expect(prev.id).toBe('driveFile1')
+  })
+
+  it('read_indexed_file markdown-only body yields preview title from ## line', () => {
+    const body = '## Lease.pdf\n\nYearly rent adjustments…'
+    const prev = matchContentPreview(
+      tc({
+        name: 'read_indexed_file',
+        args: { id: 'abcDriveId' },
+        result: body,
+      }),
+    )
+    expect(prev?.kind).toBe('indexed-file')
+    if (prev?.kind !== 'indexed-file') return
+    expect(prev.title).toBe('Lease.pdf')
+    expect(prev.id).toBe('abcDriveId')
+    expect(prev.sourceKind).toBe('unknown')
+  })
+
+  it('read_indexed_file falls back to frontmatter in result when details absent', () => {
+    const fm =
+      '---\nid: abc\nsourceKind: localDir\ntitle: Notes.md\n---\n\nHello **world** there.'
+    const prev = matchContentPreview(
+      tc({
+        name: 'read_indexed_file',
+        args: { id: 'abc' },
+        result: fm,
+      }),
+    )
+    expect(prev?.kind).toBe('indexed-file')
+    if (prev?.kind !== 'indexed-file') return
+    expect(prev.id).toBe('abc')
+    expect(prev.title).toBe('Notes.md')
+    expect(prev.sourceKind).toBe('localDir')
+    expect(prev.excerpt).toContain('Hello')
+    expect(prev.excerpt).toContain('world')
   })
 })
 

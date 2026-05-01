@@ -388,6 +388,31 @@ describe('buildChatBody', () => {
     expect(body.hearReplies).toBe(true)
   })
 
+  it('includes userMessageDisplay when provided', () => {
+    const body = buildChatBody({
+      message: '__brain_finish_conversation__',
+      sessionId: 's-1',
+      context: noContext,
+      mentionedFiles: [],
+      isFirstMessage: false,
+      userMessageDisplay: "That's all, thanks",
+    })
+    expect(body.message).toBe('__brain_finish_conversation__')
+    expect(body.userMessageDisplay).toBe("That's all, thanks")
+  })
+
+  it('omits userMessageDisplay when empty or whitespace', () => {
+    const body = buildChatBody({
+      message: 'hi',
+      sessionId: null,
+      context: noContext,
+      mentionedFiles: [],
+      isFirstMessage: true,
+      userMessageDisplay: '   ',
+    })
+    expect('userMessageDisplay' in body).toBe(false)
+  })
+
   it('omits hearReplies when false or undefined', () => {
     const a = buildChatBody({
       message: 'hi',

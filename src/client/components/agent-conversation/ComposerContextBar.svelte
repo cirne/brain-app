@@ -13,7 +13,7 @@
     files: string[]
     choices: QuickReplyChoice[]
     onOpenWiki?: (_path: string) => void
-    onChoice?: (_submit: string) => void
+    onChoice?: (_choice: QuickReplyChoice) => void
     /** When true, action chips are non-interactive (e.g. while streaming). */
     choicesDisabled?: boolean
   } = $props()
@@ -51,7 +51,7 @@
             type="button"
             class="composer-context-chip composer-context-chip--action"
             disabled={choicesDisabled || !onChoice}
-            onclick={() => onChoice?.(c.submit)}
+            onclick={() => onChoice?.(c)}
           >
             <span class="composer-context-chip__label">{c.label}</span>
             <span class="composer-context-chip__icon-slot" aria-hidden="true">

@@ -153,6 +153,11 @@ export function buildChatBody(opts: {
   interviewKickoff?: boolean
   /** When true, server may inject read-aloud context; assistant uses `speak` (OpenAI TTS on the server). */
   hearReplies?: boolean
+  /**
+   * Human-readable user line for persistence when `message` is a wire token (e.g. finish chip).
+   * Omit when the visible bubble matches `message`.
+   */
+  userMessageDisplay?: string
 }): Record<string, unknown> {
   const body: Record<string, unknown> = {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -167,6 +172,9 @@ export function buildChatBody(opts: {
   }
   if (opts.sessionId) body.sessionId = opts.sessionId
   if (opts.hearReplies === true) body.hearReplies = true
+
+  const display = opts.userMessageDisplay?.trim()
+  if (display) body.userMessageDisplay = display
 
   if (opts.isFirstMessage) {
     const parts: string[] = []

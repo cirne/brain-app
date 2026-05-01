@@ -109,6 +109,9 @@ export function toolCallCollapsedSummaryParts(
     if (preview.kind === 'file') {
       return { mode: 'single_path', path: preview.path }
     }
+    if (preview.kind === 'indexed-file') {
+      return { mode: 'text', text: truncateEnd(preview.title, MAX_PATTERN) }
+    }
     if (preview.kind === 'email') {
       const from = preview.from.trim()
       return { mode: 'text', text: truncateEnd(from ? `${preview.subject} · ${from}` : preview.subject, MAX_PATTERN) }

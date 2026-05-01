@@ -3,6 +3,7 @@
   import EditDiffPreviewCard from '../cards/EditDiffPreviewCard.svelte'
   import WikiPreviewCard from '../cards/WikiPreviewCard.svelte'
   import FilePreviewCard from '../cards/FilePreviewCard.svelte'
+  import IndexedFilePreviewCard from '../cards/IndexedFilePreviewCard.svelte'
   import EmailPreviewCard from '../cards/EmailPreviewCard.svelte'
   import InboxListPreviewCard from '../cards/InboxListPreviewCard.svelte'
   import MessageThreadPreviewCard from '../cards/MessageThreadPreviewCard.svelte'
@@ -16,6 +17,7 @@
     preview,
     onOpenWiki,
     onOpenFile,
+    onOpenIndexedFile,
     onOpenEmail,
     onOpenDraft,
     onOpenFullInbox,
@@ -25,6 +27,7 @@
     preview: ContentCardPreview
     onOpenWiki?: (_path: string) => void
     onOpenFile?: (_path: string) => void
+    onOpenIndexedFile?: (_id: string, _source?: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
@@ -50,6 +53,13 @@
   />
 {:else if preview.kind === 'file'}
   <FilePreviewCard path={preview.path} excerpt={preview.excerpt} onOpen={() => onOpenFile?.(preview.path)} />
+{:else if preview.kind === 'indexed-file'}
+  <IndexedFilePreviewCard
+    title={preview.title}
+    sourceKind={preview.sourceKind}
+    excerpt={preview.excerpt}
+    onOpen={() => onOpenIndexedFile?.(preview.id, preview.source)}
+  />
 {:else if preview.kind === 'email'}
   <EmailPreviewCard
     subject={preview.subject}
@@ -81,7 +91,9 @@
     queryLine={preview.queryLine}
     items={preview.items}
     totalMatched={preview.totalMatched}
-    onOpenEmail={onOpenEmail}
+    searchSource={preview.searchSource}
+    {onOpenEmail}
+    {onOpenIndexedFile}
   />
 {:else if preview.kind === 'find_person_hits'}
   <FindPersonHitsPreviewCard queryLine={preview.queryLine} people={preview.people} />

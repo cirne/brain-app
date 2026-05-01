@@ -287,7 +287,7 @@ export async function consumeAgentChatStream(
                 if (allowAgentDetailOpen() && policy.autoOpen) onOpenFromAgent(data.args.target, 'open')
               }
               if (
-                (data.name === 'read_mail_message' || data.name === 'read_indexed_file') &&
+                data.name === 'read_mail_message' &&
                 typeof data.args?.id === 'string' &&
                 onOpenFromAgent &&
                 !openedFromAgentByToolId.has(data.id)
@@ -295,11 +295,39 @@ export async function consumeAgentChatStream(
                 openedFromAgentByToolId.add(data.id)
                 if (allowAgentDetailOpen() && policy.autoOpen) {
                   const rid = String(data.args.id).trim()
-                  const source = data.name as 'read_mail_message' | 'read_indexed_file'
                   if (isFilesystemAbsolutePath(rid)) {
-                    onOpenFromAgent({ type: 'file', path: rid }, source)
+                    onOpenFromAgent({ type: 'file', path: rid }, 'read_mail_message')
                   } else {
-                    onOpenFromAgent({ type: 'email', id: rid }, source)
+                    onOpenFromAgent({ type: 'email', id: rid }, 'read_mail_message')
+                  }
+                }
+              }
+              if (
+                data.name === 'read_indexed_file' &&
+                typeof data.args?.id === 'string' &&
+                onOpenFromAgent &&
+                !openedFromAgentByToolId.has(data.id)
+              ) {
+                openedFromAgentByToolId.add(data.id)
+                if (allowAgentDetailOpen() && policy.autoOpen) {
+                  const rid = String(data.args.id).trim()
+                  const src =
+                    data.args != null &&
+                    typeof data.args === 'object' &&
+                    typeof (data.args as { source?: unknown }).source === 'string'
+                      ? (data.args as { source: string }).source.trim()
+                      : undefined
+                  if (isFilesystemAbsolutePath(rid)) {
+                    onOpenFromAgent({ type: 'file', path: rid }, 'read_indexed_file')
+                  } else {
+                    onOpenFromAgent(
+                      {
+                        type: 'indexed-file',
+                        id: rid,
+                        ...(src ? { source: src } : {}),
+                      },
+                      'read_indexed_file',
+                    )
                   }
                 }
               }

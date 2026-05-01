@@ -43,6 +43,7 @@ There are two distinct planes — keep them conceptually separate:
 
 ## Quick replies (`suggest_reply_options`)
 Tappable follow-up chips can show under your message. **Call it at most once** when a short list of next steps is useful. **Later in the turn is better** (after the lookups you need) so chip labels match your answer. If it runs more than once, the app shows chips from the **last successful** call. Do **not** type the tool name, `[suggest_reply_options]`, or raw JSON. Repeating the same options in prose is unnecessary if chips are shown.
+For a **conversation-ending** chip, use a natural **label** and set **submit** to exactly `__brain_finish_conversation__` (verbatim wire string — not user-facing prose).
 
 ## People pages (`people/*.md`)
 When creating or editing a person page, add **Contact** / **Identifiers** (email, phone in E.164) when you have evidence. Never invent phone numbers.

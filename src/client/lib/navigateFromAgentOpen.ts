@@ -3,6 +3,8 @@ export type AgentOpenTarget = {
   path?: string
   id?: string
   date?: string
+  /** Ripmail source id (`read_indexed_file` args.source) for indexed-file opens */
+  source?: string
 }
 
 export type AgentOpenSource = 'open' | 'read_mail_message' | 'read_indexed_file'
@@ -21,6 +23,8 @@ export function navigateFromAgentOpen(
     openWikiDoc: (path: string) => void
     /** Raw filesystem path — `/files/…` in the app, not wiki. */
     openFileDoc?: (path: string) => void
+    /** Drive / localDir indexed document id (not email thread). */
+    openIndexedFileDoc?: (id: string, source?: string) => void
     openEmailFromSearch: (id: string, subject: string, from: string) => void
     switchToCalendar: (date: string, eventId?: string) => void
   },
@@ -28,6 +32,10 @@ export function navigateFromAgentOpen(
   if (ctx.isMobile && ctx.source !== 'open') return
   if (target.type === 'file' && target.path) {
     ctx.openFileDoc?.(target.path)
+    return
+  }
+  if (target.type === 'indexed-file' && target.id) {
+    ctx.openIndexedFileDoc?.(target.id, target.source)
     return
   }
   if (target.type === 'wiki' && target.path) {

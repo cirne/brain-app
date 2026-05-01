@@ -1161,6 +1161,7 @@ describe('stripSearchIndexResult', () => {
       'fromName',
       'messageId',
       'snippet',
+      'sourceKind',
       'subject',
     ])
     expect(parsed.results[0]!.bodyPreview).toBeUndefined()
@@ -1202,7 +1203,7 @@ describe('stripSearchIndexResult', () => {
     const raw = JSON.stringify({ results, totalMatched: 6 })
     const parsed = JSON.parse(stripSearchIndexResult(raw)) as { results: Record<string, unknown>[] }
     expect(Object.keys(parsed.results[0]!).sort()).toEqual([
-      'date', 'fromAddress', 'fromName', 'messageId', 'subject',
+      'date', 'fromAddress', 'fromName', 'messageId', 'sourceKind', 'subject',
     ])
     expect(parsed.results[0]!.snippet).toBeUndefined()
   })
@@ -1212,7 +1213,7 @@ describe('stripSearchIndexResult', () => {
     const raw = JSON.stringify({ results, totalMatched: 16 })
     const parsed = JSON.parse(stripSearchIndexResult(raw)) as { results: Record<string, unknown>[] }
     expect(Object.keys(parsed.results[0]!).sort()).toEqual([
-      'date', 'fromAddress', 'messageId', 'subject',
+      'date', 'fromAddress', 'messageId', 'sourceKind', 'subject',
     ])
     expect(parsed.results[0]!.snippet).toBeUndefined()
     expect(parsed.results[0]!.fromName).toBeUndefined()

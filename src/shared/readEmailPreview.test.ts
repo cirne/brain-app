@@ -1,7 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { buildReadEmailPreviewDetails, pickReadEmailFields } from './readEmailPreview.js'
+import {
+  buildReadEmailPreviewDetails,
+  extractRipmailIndexedMarkdownTitle,
+  pickReadEmailFields,
+} from './readEmailPreview.js'
 
 describe('readEmailPreview', () => {
+  it('extractRipmailIndexedMarkdownTitle reads markdown ## line', () => {
+    expect(extractRipmailIndexedMarkdownTitle('## Report.pdf\n\nHello')).toBe('Report.pdf')
+  })
+
+  it('extractRipmailIndexedMarkdownTitle reads flattened excerpt', () => {
+    expect(extractRipmailIndexedMarkdownTitle('## Contract.pdf Docu sign envelope')).toBe('Contract.pdf')
+  })
+
   it('pickReadEmailFields uses first thread message when top-level fields missing', () => {
     const j = {
       messages: [

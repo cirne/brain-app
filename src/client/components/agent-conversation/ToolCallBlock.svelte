@@ -20,6 +20,7 @@
     toolCall,
     onOpenWiki,
     onOpenFile,
+    onOpenIndexedFile,
     onOpenEmail,
     onOpenDraft,
     onOpenFullInbox,
@@ -31,6 +32,7 @@
     toolCall: ToolCall
     onOpenWiki?: (_path: string) => void
     onOpenFile?: (_path: string) => void
+    onOpenIndexedFile?: (_id: string, _source?: string) => void
     onOpenEmail?: (_threadId: string, _subject?: string, _from?: string) => void
     onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
@@ -57,6 +59,8 @@
         return typeof onOpenWiki === 'function'
       case 'file':
         return typeof onOpenFile === 'function'
+      case 'indexed_file':
+        return typeof onOpenIndexedFile === 'function'
       case 'email':
         return typeof onOpenEmail === 'function'
       case 'email_draft':
@@ -91,6 +95,9 @@
         break
       case 'file':
         onOpenFile?.(drilldown.path)
+        break
+      case 'indexed_file':
+        onOpenIndexedFile?.(drilldown.id, drilldown.source)
         break
       case 'email':
         onOpenEmail?.(drilldown.id, drilldown.subject, drilldown.from)
@@ -243,6 +250,7 @@
             {preview}
             {onOpenWiki}
             {onOpenFile}
+            {onOpenIndexedFile}
             {onOpenEmail}
             {onOpenDraft}
             {onOpenFullInbox}

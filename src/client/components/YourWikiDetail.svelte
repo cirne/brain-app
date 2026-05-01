@@ -11,6 +11,7 @@
   type Props = {
     onOpenWiki: (_path: string) => void
     onOpenFile?: (_path: string) => void
+    onOpenIndexedFile?: (_id: string, _source?: string) => void
     onOpenEmail?: (_id: string, _subject?: string, _from?: string) => void
     onOpenDraft?: (_draftId: string, _subject?: string) => void
     onOpenFullInbox?: () => void
@@ -40,6 +41,7 @@
   let {
     onOpenWiki,
     onOpenFile,
+    onOpenIndexedFile,
     onOpenEmail,
     onOpenDraft,
     onOpenFullInbox,
@@ -207,6 +209,7 @@
       alwaysScrollToBottom={autoScrollActivity}
       {onOpenWiki}
       {onOpenFile}
+      {onOpenIndexedFile}
       {onOpenEmail}
       {onOpenDraft}
       {onOpenFullInbox}

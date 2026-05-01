@@ -1,5 +1,6 @@
+import matter from 'gray-matter'
 import type { ToolCall } from '../agentUtils.js'
-import type { ReadEmailToolDetails } from '@shared/readEmailPreview.js'
+import type { ReadEmailToolDetails, ReadFileToolDetails } from '@shared/readEmailPreview.js'
 import { isFilesystemAbsolutePath } from '../fsPath.js'
 import type {
   CalendarEventLite,
@@ -16,9 +17,29 @@ import {
   inboxRowsToPreviewItems,
   parseRipmailInboxFlat,
 } from '@shared/ripmailInboxFlatten.js'
-import { pickReadEmailFields } from '@shared/readEmailPreview.js'
+import { extractRipmailIndexedMarkdownTitle, pickReadEmailFields } from '@shared/readEmailPreview.js'
 import { searchIndexDetail } from './onboardingHelpers.js'
 import { parseFindPersonResultPeople } from './ripmailWhoParse.js'
+
+/** Excerpt for path reads when ripmail returns JSON or YAML frontmatter + body. */
+function excerptFromReadFileResult(result: string): string {
+  const t = result.trim()
+  try {
+    if (t.startsWith('---')) {
+      const parsed = matter(t)
+      const body = typeof parsed.content === 'string' ? parsed.content.trim() : ''
+      const flat = body.replace(/\s+/g, ' ').trim()
+      return flat.slice(0, 200) + (flat.length > 200 ? '…' : '')
+    }
+    const j = JSON.parse(t) as { bodyText?: string; body?: string }
+    const body =
+      typeof j.bodyText === 'string' ? j.bodyText : typeof j.body === 'string' ? j.body : ''
+    const flat = body.replace(/\s+/g, ' ').trim()
+    return flat.slice(0, 200) + (flat.length > 200 ? '…' : '')
+  } catch {
+    return t.slice(0, 200) + (t.length > 200 ? '…' : '')
+  }
+}
 
 /** Prefix returned by `product_feedback` op=draft (see `tools.ts`); body after is issue markdown. */
 const PRODUCT_FEEDBACK_DRAFT_PREFIX =
@@ -33,11 +54,56 @@ export function extractProductFeedbackDraftMarkdown(result: string): string | nu
   return after
 }
 
+/** Extract JSON object text from search_index tool stdout (resolution hints break JSON.parse). */
+function normalizeSearchIndexToolResultText(result: string): string {
+  let s = typeof result === 'string' ? result : String(result)
+  s = s.trim()
+  if (s.startsWith('{')) {
+    try {
+      const j = JSON.parse(s) as { content?: Array<{ type?: string; text?: string }> }
+      if (Array.isArray(j.content) && j.content.length > 0) {
+        const texts = j.content
+          .filter((c): c is { type: string; text: string } => c?.type === 'text' && typeof c.text === 'string')
+          .map((c) => c.text)
+        if (texts.length > 0) s = texts.join('')
+      }
+    } catch {
+      /* use raw */
+    }
+  }
+  s = s.trim()
+  for (const marker of ['\n\n[resolution:', '\n\n[truncated:']) {
+    const i = s.indexOf(marker)
+    if (i >= 0) s = s.slice(0, i).trimEnd()
+  }
+  return s
+}
+
+const INDEXED_FILE_SOURCE_KINDS = new Set(['googleDrive', 'localDir', 'file'])
+
+function subjectLooksLikeFileName(subject: string): boolean {
+  const s = subject.trim()
+  if (!s || s === '(No subject)') return false
+  if (s.includes('@')) return false
+  return /\.[a-z0-9]{2,8}$/i.test(s)
+}
+
+/** True when this search row is an indexed file (Drive/local) rather than an email thread. */
+export function searchHitIsIndexedFile(hit: MailSearchHitPreview, scopedSource?: string): boolean {
+  const sk = hit.sourceKind?.trim() ?? ''
+  if (sk && INDEXED_FILE_SOURCE_KINDS.has(sk)) return true
+  if (sk === 'imap' || sk === 'applemail') return false
+  const src = scopedSource?.trim() ?? ''
+  if (src.endsWith('-drive')) return true
+  if (!hit.from.trim() && subjectLooksLikeFileName(hit.subject)) return true
+  return false
+}
+
 /** Mail preview lists `results` / `totalMatched` only — `hints` stay in raw tool JSON for the model. */
 function parseSearchIndexJsonResult(
   result: string,
 ): { items: MailSearchHitPreview[]; totalMatched?: number } | null {
-  const t = result.trim()
+  const t = normalizeSearchIndexToolResultText(result)
   if (!t.startsWith('{')) return null
   try {
     const j = JSON.parse(t) as {
@@ -59,12 +125,15 @@ function parseSearchIndexJsonResult(
         ''
       let snippet = typeof o.snippet === 'string' ? o.snippet : ''
       snippet = snippet.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+      const sourceKindRaw = typeof o.sourceKind === 'string' ? o.sourceKind.trim() : ''
+      const sourceKind = sourceKindRaw.length > 0 ? sourceKindRaw : undefined
       if (!id && !subject.trim() && !from && !snippet) continue
       items.push({
         id: id || '(unknown)',
         subject: subject.trim() || '(No subject)',
         from,
         snippet,
+        ...(sourceKind ? { sourceKind } : {}),
       })
     }
     const totalMatched = typeof j.totalMatched === 'number' ? j.totalMatched : undefined
@@ -192,11 +261,14 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
     const raw = tool.result ?? ''
     const parsed = parseSearchIndexJsonResult(typeof raw === 'string' ? raw : String(raw))
     const items = parsed?.items ?? []
+    const srcArg =
+      typeof argRec.source === 'string' && argRec.source.trim() ? argRec.source.trim() : undefined
     return {
       kind: 'mail_search_hits',
       queryLine,
       items,
       totalMatched: parsed?.totalMatched,
+      ...(srcArg ? { searchSource: srcArg } : {}),
     }
   }
 
@@ -280,10 +352,86 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
     return { kind: 'wiki', path: displayPath, excerpt: excerpt + (args.content.length > 360 ? '…' : '') }
   }
 
-  if (
-    (name === 'read_mail_message' || name === 'read_indexed_file') &&
-    typeof args.id === 'string'
-  ) {
+  if (name === 'read_indexed_file' && typeof args.id === 'string') {
+    const id = args.id.trim()
+    if (isFilesystemAbsolutePath(id)) {
+      return { kind: 'file', path: id, excerpt: excerptFromReadFileResult(result) }
+    }
+    const fd = tool.details as ReadFileToolDetails | undefined
+    if (fd?.readFilePreview === true) {
+      const srcRaw =
+        args && typeof args === 'object' && 'source' in args ? (args as { source?: unknown }).source : undefined
+      const src = typeof srcRaw === 'string' && srcRaw.trim() ? srcRaw.trim() : undefined
+      const heading =
+        extractRipmailIndexedMarkdownTitle(result) ??
+        extractRipmailIndexedMarkdownTitle(fd.excerpt ?? '')
+      const bareIdTitle =
+        fd.title.trim() === fd.id.trim() || fd.title.trim() === id.trim()
+      const title =
+        heading != null && (bareIdTitle || fd.sourceKind === 'unknown') ? heading : fd.title
+      return {
+        kind: 'indexed-file',
+        id: fd.id,
+        title,
+        sourceKind: fd.sourceKind,
+        excerpt: fd.excerpt,
+        ...(src ? { source: src } : {}),
+      }
+    }
+    if (result.trimStart().startsWith('---')) {
+      try {
+        const parsed = matter(result.trim())
+        const data = parsed.data as Record<string, unknown>
+        const body = typeof parsed.content === 'string' ? parsed.content.trim() : ''
+        const flat = body.replace(/\s+/g, ' ').trim()
+        const excerpt = flat.slice(0, 200) + (flat.length > 200 ? '…' : '')
+        let title = String(data.title ?? id)
+        const sourceKind = String(data.sourceKind ?? 'unknown')
+        const rid = typeof data.id === 'string' && data.id.trim() ? data.id.trim() : id
+        const heading = extractRipmailIndexedMarkdownTitle(result)
+        const bareAsIdTitle = title === rid || title === id
+        if (heading != null && (bareAsIdTitle || sourceKind === 'unknown')) {
+          title = heading
+        }
+        return {
+          kind: 'indexed-file',
+          id: rid,
+          title,
+          sourceKind,
+          excerpt,
+        }
+      } catch {
+        const headingFall = extractRipmailIndexedMarkdownTitle(result)
+        if (headingFall != null) {
+          const flat = result.trim().replace(/\s+/g, ' ').trim()
+          const excerpt = flat.slice(0, 200) + (flat.length > 200 ? '…' : '')
+          return {
+            kind: 'indexed-file',
+            id,
+            title: headingFall,
+            sourceKind: 'unknown',
+            excerpt,
+          }
+        }
+        return null
+      }
+    }
+    const markdownOnlyHeading = extractRipmailIndexedMarkdownTitle(result)
+    if (markdownOnlyHeading != null) {
+      const flat = result.trim().replace(/\s+/g, ' ').trim()
+      const excerpt = flat.slice(0, 200) + (flat.length > 200 ? '…' : '')
+      return {
+        kind: 'indexed-file',
+        id,
+        title: markdownOnlyHeading,
+        sourceKind: 'unknown',
+        excerpt,
+      }
+    }
+    return null
+  }
+
+  if (name === 'read_mail_message' && typeof args.id === 'string') {
     const id = args.id.trim()
     if (isFilesystemAbsolutePath(id)) {
       let excerpt = ''
