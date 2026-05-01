@@ -137,6 +137,24 @@ Best-effort `ripmail draft new` + send via `shareInviteEmail.ts`; failures do no
 
 ---
 
+## Follow-on (WIP): policy → filesystem projection for tool-native search/read
+
+Phase 1 exposes shared trees through **HTTP + virtual paths** (`Shared with me/…`, `@handle/…` URLs). Stock agent tools (`grep` / ripgrep, `read`, `find`) are rooted on the **grantee’s physical wiki directory**, so they do not automatically see another tenant’s vault.
+
+**Agreed direction (not “filesystem only”):**
+
+1. **Authorization stays out of band** — the durable rule for “who may read whose subtree” remains in a **trusted policy layer** (today `wiki_shares` in global SQLite; future refinements might add owner-authored manifests or dotfiles under the vault, but enforcement still resolves through the server).
+
+2. **Filesystem as denormalized projection** — To make ripgrep and ordinary reads “just work,” **materialize** allowed paths into the grantee’s wiki tree (e.g. symlinks, bind mounts, or a documented subdirectory of stable layout) pointing **only** into covered paths on the owner’s wiki. The filesystem then provides a single merged namespace for tools without replacing ACL.
+
+3. **Atomic propagation** — Any change to the sharer’s effective ACL (create share, revoke, prefix repair, owner rename hooks) must update this projection **in sync with policy**: same logical operation should either fully succeed or fully roll back—no intermediate state where `rg` can observe revoked content or miss newly granted paths. Prefer patterns such as **write-new-then-rename** or equivalent so swaps are atomic at the OS level where possible.
+
+4. **Revocation** — Removing access must remove or invalidate the projection in the **same** operation as marking the share revoked (so grep/read cannot follow stale links).
+
+**Status:** Design captured here; implementation **work in progress** on branch `sharing` (global search + unified grep/find/read parity with shared trees).
+
+---
+
 ## Related
 
 - [IDEA: Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md) — full idea including open questions this OPP intentionally defers.

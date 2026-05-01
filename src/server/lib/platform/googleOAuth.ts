@@ -18,8 +18,11 @@ export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS =
 export const GOOGLE_OAUTH_SCOPE_DRIVE_READONLY =
   'https://www.googleapis.com/auth/drive.readonly'
 
-/** Gmail + full Calendar + OpenID/email + Drive read-only — use for authorize URLs when Drive indexing is supported. */
-export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE = `${GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS} ${GOOGLE_OAUTH_SCOPE_DRIVE_READONLY}`
+/** OIDC profile scope so userinfo returns the user's `name` for collaborator verification UI. */
+export const GOOGLE_OAUTH_SCOPE_PROFILE = 'profile'
+
+/** Gmail + full Calendar + OpenID/email + Drive read-only + profile — use for authorize URLs when Drive indexing is supported. */
+export const GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE = `${GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS} ${GOOGLE_OAUTH_SCOPE_DRIVE_READONLY} ${GOOGLE_OAUTH_SCOPE_PROFILE}`
 
 const GOOGLE_AUTH_URI = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN_URI = 'https://oauth2.googleapis.com/token'
@@ -106,6 +109,8 @@ export function validateGoogleOAuthGrantedScopes(
   const hasEmail =
     set.has('email') || set.has('https://www.googleapis.com/auth/userinfo.email')
   const hasDrive = set.has(GOOGLE_OAUTH_SCOPE_DRIVE_READONLY)
+  const hasProfile =
+    set.has('profile') || set.has('https://www.googleapis.com/auth/userinfo.profile')
   if (!hasGmail || !hasCalendar || !hasOpenId || !hasEmail) {
     return {
       ok: false,
@@ -118,6 +123,13 @@ export function validateGoogleOAuthGrantedScopes(
       ok: false,
       message:
         'Google did not grant Google Drive access. Braintunnel needs read-only Drive access together with Gmail and Calendar. Revoke Braintunnel under your Google Account → Security → Third-party access and connect again; on the consent screen, allow Drive (and other requested permissions).',
+    }
+  }
+  if (!hasProfile) {
+    return {
+      ok: false,
+      message:
+        'Google did not grant access to your basic profile (name). Revoke Braintunnel under your Google Account → Security → Third-party access and connect again; on the consent screen, leave the profile checkbox enabled so collaborators can verify your name.',
     }
   }
   return { ok: true }
@@ -202,6 +214,8 @@ export type GoogleUserInfo = {
   email: string
   /** Stable Google account id (OpenID subject). */
   sub: string
+  /** Full display name from the OIDC `profile` scope; absent if Google did not return one. */
+  name?: string
 }
 
 export async function fetchGoogleUserInfo(params: {
@@ -220,16 +234,17 @@ export async function fetchGoogleUserInfo(params: {
       text
     )
   }
-  const j = JSON.parse(text) as { email?: string; sub?: string }
+  const j = JSON.parse(text) as { email?: string; sub?: string; name?: string }
   const email = j.email?.trim()
   const sub = j.sub?.trim()
+  const name = typeof j.name === 'string' ? j.name.trim() : ''
   if (!email) {
     throw new GoogleOAuthExchangeError('userinfo missing email', res.status, text)
   }
   if (!sub) {
     throw new GoogleOAuthExchangeError('userinfo missing sub', res.status, text)
   }
-  return { email, sub }
+  return name.length > 0 ? { email, sub, name } : { email, sub }
 }
 
 export async function fetchGoogleUserEmail(params: {

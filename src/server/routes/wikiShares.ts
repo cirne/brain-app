@@ -14,6 +14,11 @@ import {
   type WikiShareRow,
 } from '@server/lib/shares/wikiSharesRepo.js'
 import { sendWikiShareInviteEmail } from '@server/lib/shares/shareInviteEmail.js'
+import {
+  InvalidWorkspaceHandleError,
+  parseWorkspaceHandle,
+} from '@server/lib/tenant/workspaceHandle.js'
+import { resolveConfirmedHandle } from '@server/lib/tenant/workspaceHandleDirectory.js'
 
 export type WikiShareApi = {
   id: string
@@ -49,19 +54,65 @@ const wikiShares = new Hono()
 /** POST /api/wiki-shares — owner creates invite */
 wikiShares.post('/', async (c) => {
   const ctx = getTenantContext()
-  let body: { pathPrefix?: unknown; granteeEmail?: unknown; targetKind?: unknown }
+  let body: {
+    pathPrefix?: unknown
+    granteeEmail?: unknown
+    granteeHandle?: unknown
+    targetKind?: unknown
+  }
   try {
     body = await c.req.json()
   } catch {
     return c.json({ error: 'invalid_json' }, 400)
   }
   const pathPrefix = typeof body.pathPrefix === 'string' ? body.pathPrefix : ''
-  const granteeEmail = typeof body.granteeEmail === 'string' ? body.granteeEmail : ''
+  const granteeEmailRaw = typeof body.granteeEmail === 'string' ? body.granteeEmail.trim() : ''
+  const granteeHandleRaw = typeof body.granteeHandle === 'string' ? body.granteeHandle.trim() : ''
   const targetKind =
     body.targetKind === 'file' ? ('file' as const) : body.targetKind === 'dir' ? ('dir' as const) : undefined
-  if (!pathPrefix.trim() || !granteeEmail.trim()) {
-    return c.json({ error: 'pathPrefix_and_granteeEmail_required' }, 400)
+  if (!pathPrefix.trim()) {
+    return c.json({ error: 'pathPrefix_required' }, 400)
   }
+  if (!granteeEmailRaw && !granteeHandleRaw) {
+    return c.json({ error: 'grantee_required', message: 'Provide a handle or email.' }, 400)
+  }
+  if (granteeEmailRaw && granteeHandleRaw) {
+    return c.json(
+      { error: 'grantee_conflict', message: 'Provide either a handle or email, not both.' },
+      400,
+    )
+  }
+
+  let granteeEmail = granteeEmailRaw
+  let resolvedHandle: string | undefined
+  if (granteeHandleRaw) {
+    let normalized: string
+    try {
+      normalized = parseWorkspaceHandle(granteeHandleRaw.replace(/^@/, ''))
+    } catch (e) {
+      const msg = e instanceof InvalidWorkspaceHandleError ? e.message : 'Invalid handle.'
+      return c.json({ error: 'invalid_handle', message: msg }, 400)
+    }
+    const entry = await resolveConfirmedHandle({
+      handle: normalized,
+      excludeUserId: ctx.tenantUserId,
+    })
+    if (!entry) {
+      return c.json({ error: 'handle_not_found', message: `No Braintunnel user @${normalized}.` }, 400)
+    }
+    if (!entry.primaryEmail) {
+      return c.json(
+        {
+          error: 'handle_has_no_email',
+          message: `@${entry.handle} has not connected an email account yet.`,
+        },
+        400,
+      )
+    }
+    granteeEmail = entry.primaryEmail
+    resolvedHandle = entry.handle
+  }
+
   try {
     const row = createShare({
       ownerId: ctx.tenantUserId,
@@ -79,7 +130,12 @@ wikiShares.post('/', async (c) => {
       ownerHandle,
     })
     const api = await toApiShare(row)
-    return c.json({ ...api, inviteUrl, emailSent })
+    return c.json({
+      ...api,
+      inviteUrl,
+      emailSent,
+      ...(resolvedHandle ? { granteeHandle: resolvedHandle } : {}),
+    })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'create_failed'
     if (

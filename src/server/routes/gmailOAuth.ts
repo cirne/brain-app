@@ -31,7 +31,7 @@ import {
   runWithTenantContextAsync,
   tryGetTenantContext,
 } from '@server/lib/tenant/tenantContext.js'
-import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
+import { mergeProfileIntoHandleMeta, readHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { ensureWikiVaultScaffold } from '@server/lib/wiki/wikiVaultScaffold.js'
 import { BRAIN_SESSION_COOKIE } from '@server/lib/vault/vaultCookie.js'
@@ -280,10 +280,12 @@ app.get('/callback', async (c) => {
   }
   let email: string
   let sub: string
+  let profileName: string | undefined
   try {
     const u = await fetchGoogleUserInfo({ accessToken: tokens.accessToken })
     email = u.email
     sub = u.sub
+    profileName = u.name
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return redirectOauthError(c, msg)
@@ -297,6 +299,13 @@ app.get('/callback', async (c) => {
         await ensureWikiVaultScaffold(wikiDir())
       } catch (e) {
         console.error('[oauth/google/callback] ensureWikiVaultScaffold:', e)
+      }
+    }
+    if (profileName) {
+      try {
+        await mergeProfileIntoHandleMeta(homeDir, { displayName: profileName })
+      } catch (e) {
+        console.error('[oauth/google/callback] mergeProfileIntoHandleMeta:', e)
       }
     }
     const mailboxId = deriveMailboxId(email)

@@ -11,6 +11,10 @@ import { deriveWorkspaceHandleSeed, isDisplayHandleSlugAvailable } from '@server
 import { lookupIdentityKeyForTenantUserId } from '@server/lib/tenant/tenantRegistry.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { ensureEnronDemoHandleMetaFile } from '@server/lib/auth/enronDemo.js'
+import {
+  searchWorkspaceHandleDirectory,
+  WORKSPACE_HANDLE_DIRECTORY_DEFAULT_LIMIT,
+} from '@server/lib/tenant/workspaceHandleDirectory.js'
 
 const app = new Hono()
 
@@ -97,6 +101,28 @@ app.get('/handle/check', async (c) => {
     return c.json({ available: false as const, reason: 'taken' as const })
   }
   return c.json({ available: true as const, handle: normalized })
+})
+
+app.get('/workspace-handles', async (c) => {
+  const ctx = tryGetTenantContext()
+  if (!ctx) {
+    return c.json({ error: 'tenant_required' }, 401)
+  }
+  const ip = clientIp(c)
+  if (!rateLimitCheck(ip)) {
+    return c.json({ error: 'rate_limited', message: 'Too many requests. Try again in a minute.' }, 429)
+  }
+  const q = c.req.query('q')?.trim() ?? ''
+  const limitRaw = Number(c.req.query('limit'))
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0
+    ? Math.min(Math.floor(limitRaw), WORKSPACE_HANDLE_DIRECTORY_DEFAULT_LIMIT)
+    : WORKSPACE_HANDLE_DIRECTORY_DEFAULT_LIMIT
+  const results = await searchWorkspaceHandleDirectory({
+    prefix: q,
+    excludeUserId: ctx.tenantUserId,
+    limit,
+  })
+  return c.json({ results })
 })
 
 app.post('/handle/confirm', async (c) => {

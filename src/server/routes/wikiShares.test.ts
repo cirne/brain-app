@@ -141,4 +141,105 @@ describe('/api/wiki-shares', () => {
     })
     expect(delOk.status).toBe(200)
   })
+
+  it('POST resolves granteeHandle to the tenant primary email', async () => {
+    const ownerId = 'usr_30303030303030303030'
+    const granteeId = 'usr_40404040404040404040'
+    const ownerSid = await sessionFor(ownerId, 'owner-h2')
+    await registerSessionTenant(ownerSid, ownerId)
+
+    const wiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(wiki, 'trips'), { recursive: true })
+
+    const granteeSid = await sessionFor(granteeId, 'sterling')
+    await registerSessionTenant(granteeSid, granteeId)
+    const rip = brainLayoutRipmailDir(tenantHomeDir(granteeId))
+    await mkdir(rip, { recursive: true })
+    await writeFile(
+      join(rip, 'config.json'),
+      JSON.stringify({
+        sources: [
+          {
+            id: 'mb',
+            kind: 'imap',
+            email: 'sterling@example.com',
+            imap: { host: 'imap.gmail.com', port: 993 },
+            imapAuth: 'googleOAuth',
+          },
+        ],
+      }),
+      'utf-8',
+    )
+
+    const app = mountWikiShares()
+    const post = await app.request('http://localhost/api/wiki-shares', {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pathPrefix: 'trips/', granteeHandle: '@sterling' }),
+    })
+    expect(post.status).toBe(200)
+    const created = (await post.json()) as {
+      granteeEmail: string
+      granteeHandle?: string
+      inviteUrl: string
+    }
+    expect(created.granteeEmail).toBe('sterling@example.com')
+    expect(created.granteeHandle).toBe('sterling')
+    expect(created.inviteUrl).toContain('/api/wiki-shares/accept/')
+  })
+
+  it('POST returns 400 when handle is unknown', async () => {
+    const ownerId = 'usr_50505050505050505050'
+    const ownerSid = await sessionFor(ownerId, 'owner-h3')
+    await registerSessionTenant(ownerSid, ownerId)
+
+    const app = mountWikiShares()
+    const res = await app.request('http://localhost/api/wiki-shares', {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pathPrefix: 'trips/', granteeHandle: 'nobody-here' }),
+    })
+    expect(res.status).toBe(400)
+    const j = (await res.json()) as { error: string }
+    expect(j.error).toBe('handle_not_found')
+  })
+
+  it('POST returns 400 when handle resolves but tenant has no email yet', async () => {
+    const ownerId = 'usr_60606060606060606060'
+    const granteeId = 'usr_70707070707070707070'
+    const ownerSid = await sessionFor(ownerId, 'owner-h4')
+    await registerSessionTenant(ownerSid, ownerId)
+
+    await sessionFor(granteeId, 'newcomer')
+
+    const app = mountWikiShares()
+    const res = await app.request('http://localhost/api/wiki-shares', {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pathPrefix: 'trips/', granteeHandle: 'newcomer' }),
+    })
+    expect(res.status).toBe(400)
+    const j = (await res.json()) as { error: string }
+    expect(j.error).toBe('handle_has_no_email')
+  })
+
+  it('POST rejects when both granteeEmail and granteeHandle are provided', async () => {
+    const ownerId = 'usr_80808080808080808080'
+    const ownerSid = await sessionFor(ownerId, 'owner-h5')
+    await registerSessionTenant(ownerSid, ownerId)
+
+    const app = mountWikiShares()
+    const res = await app.request('http://localhost/api/wiki-shares', {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pathPrefix: 'trips/',
+        granteeEmail: 'a@example.com',
+        granteeHandle: 'cirne',
+      }),
+    })
+    expect(res.status).toBe(400)
+    const j = (await res.json()) as { error: string }
+    expect(j.error).toBe('grantee_conflict')
+  })
 })

@@ -16,6 +16,8 @@ export type HandleMetaDoc = {
   handle: string
   /** ISO timestamp when user confirmed chosen handle during onboarding */
   confirmedAt?: string | null
+  /** Full name from Google OIDC `profile` scope; surfaced in collaborator-verification UI. */
+  displayName?: string | null
 }
 
 export function generateUserId(): string {
@@ -55,6 +57,7 @@ export async function readHandleMeta(tenantHomeDir: string): Promise<HandleMetaD
     const userId = o.userId
     const handle = o.handle
     const confirmedAt = o.confirmedAt
+    const displayName = o.displayName
     if (typeof userId !== 'string' || typeof handle !== 'string') return null
     if (!isValidUserId(userId)) return null
     let ca: string | null = null
@@ -65,7 +68,18 @@ export async function readHandleMeta(tenantHomeDir: string): Promise<HandleMetaD
     } else {
       return null
     }
-    return { userId, handle, confirmedAt: ca }
+    let dn: string | null = null
+    if (displayName === null || displayName === undefined) {
+      dn = null
+    } else if (typeof displayName === 'string') {
+      const trimmed = displayName.trim()
+      dn = trimmed.length > 0 ? trimmed : null
+    } else {
+      return null
+    }
+    const out: HandleMetaDoc = { userId, handle, confirmedAt: ca }
+    if (dn !== null) out.displayName = dn
+    return out
   } catch (e: unknown) {
     const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : ''
     if (code === 'ENOENT') return null
@@ -110,4 +124,28 @@ export async function ensureHandleMetaDocument(
   const doc: HandleMetaDoc = { userId, handle: workspaceHandle, confirmedAt: null }
   await writeHandleMeta(tenantHomeDir, doc)
   return doc
+}
+
+/**
+ * Update `displayName` (from Google OIDC `profile`) without touching `handle`, `userId`, or
+ * `confirmedAt`. No-ops when the new value is empty or unchanged, or when the doc is missing.
+ */
+export async function mergeProfileIntoHandleMeta(
+  tenantHomeDir: string,
+  partial: { displayName?: string | null },
+): Promise<HandleMetaDoc | null> {
+  const cur = await readHandleMeta(tenantHomeDir)
+  if (!cur) return null
+  const next: HandleMetaDoc = { ...cur }
+  let changed = false
+  if (typeof partial.displayName === 'string') {
+    const trimmed = partial.displayName.trim()
+    if (trimmed.length > 0 && trimmed !== cur.displayName) {
+      next.displayName = trimmed
+      changed = true
+    }
+  }
+  if (!changed) return cur
+  await writeHandleMeta(tenantHomeDir, next)
+  return next
 }

@@ -10,6 +10,7 @@ import {
   readHandleMeta,
   writeHandleMeta,
   isHandleConfirmedForTenant,
+  mergeProfileIntoHandleMeta,
   HANDLE_META_FILENAME,
 } from './handleMeta.js'
 
@@ -56,6 +57,65 @@ describe('handleMeta', () => {
         confirmedAt: new Date().toISOString(),
       })
       expect(await isHandleConfirmedForTenant(dir)).toBe(true)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('mergeProfileIntoHandleMeta sets displayName without touching handle/userId/confirmedAt', async () => {
+    const dir = join(tmpdir(), `hm-merge-${Date.now()}`)
+    mkdirSync(dir, { recursive: true })
+    try {
+      const userId = generateUserId()
+      await writeHandleMeta(dir, {
+        userId,
+        handle: 'merge-test',
+        confirmedAt: '2026-01-01T00:00:00.000Z',
+      })
+
+      const updated = await mergeProfileIntoHandleMeta(dir, {
+        displayName: '  Lewis Cirne  ',
+      })
+      expect(updated?.displayName).toBe('Lewis Cirne')
+      expect(updated?.handle).toBe('merge-test')
+      expect(updated?.userId).toBe(userId)
+      expect(updated?.confirmedAt).toBe('2026-01-01T00:00:00.000Z')
+
+      const reread = await readHandleMeta(dir)
+      expect(reread?.displayName).toBe('Lewis Cirne')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('mergeProfileIntoHandleMeta no-ops when displayName empty or unchanged', async () => {
+    const dir = join(tmpdir(), `hm-merge-noop-${Date.now()}`)
+    mkdirSync(dir, { recursive: true })
+    try {
+      const userId = generateUserId()
+      await writeHandleMeta(dir, {
+        userId,
+        handle: 'merge-noop',
+        confirmedAt: null,
+        displayName: 'Existing Name',
+      })
+
+      const same = await mergeProfileIntoHandleMeta(dir, { displayName: 'Existing Name' })
+      expect(same?.displayName).toBe('Existing Name')
+
+      const blank = await mergeProfileIntoHandleMeta(dir, { displayName: '   ' })
+      expect(blank?.displayName).toBe('Existing Name')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('mergeProfileIntoHandleMeta returns null when no doc exists', async () => {
+    const dir = join(tmpdir(), `hm-merge-missing-${Date.now()}`)
+    mkdirSync(dir, { recursive: true })
+    try {
+      const result = await mergeProfileIntoHandleMeta(dir, { displayName: 'x' })
+      expect(result).toBeNull()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

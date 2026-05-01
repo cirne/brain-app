@@ -67,6 +67,35 @@ describe('fetchGoogleUserInfo', () => {
     })
     expect(u.email).toBe('U@Mail.com')
     expect(u.sub).toBe('google-sub-id')
+    expect(u.name).toBeUndefined()
+  })
+
+  it('returns trimmed name when profile scope is granted', async () => {
+    const fetchImpl = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({ email: 'a@b.co', sub: 'sub-1', name: '  Lewis Cirne  ' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    })
+    const u = await fetchGoogleUserInfo({
+      accessToken: 'tok',
+      fetchImpl: fetchImpl as typeof fetch,
+    })
+    expect(u.name).toBe('Lewis Cirne')
+  })
+
+  it('omits name when userinfo returns an empty string', async () => {
+    const fetchImpl = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({ email: 'a@b.co', sub: 'sub-1', name: '   ' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    })
+    const u = await fetchGoogleUserInfo({
+      accessToken: 'tok',
+      fetchImpl: fetchImpl as typeof fetch,
+    })
+    expect(u.name).toBeUndefined()
   })
 
   it('errors when sub is missing', async () => {
@@ -113,7 +142,7 @@ describe('exchangeAuthorizationCode', () => {
 
 describe('validateGoogleOAuthGrantedScopes', () => {
   const base =
-    'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid email'
+    'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid email profile'
 
   it('rejects when mail+calendar+openid+email but Drive read-only missing', () => {
     const r = validateGoogleOAuthGrantedScopes(base)
@@ -121,23 +150,31 @@ describe('validateGoogleOAuthGrantedScopes', () => {
     if (!r.ok) expect(r.message).toMatch(/Google Drive/i)
   })
 
-  it('accepts full scope including Drive read-only', () => {
+  it('accepts full scope including Drive read-only and profile', () => {
     const s = `${base} https://www.googleapis.com/auth/drive.readonly`
     expect(validateGoogleOAuthGrantedScopes(s)).toEqual({ ok: true })
   })
 
-  it('accepts userinfo.email instead of email', () => {
+  it('accepts userinfo.email and userinfo.profile aliases', () => {
     const s =
-      'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.readonly'
+      'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/drive.readonly'
     expect(validateGoogleOAuthGrantedScopes(s)).toEqual({ ok: true })
   })
 
   it('rejects missing Gmail scope (partial consent)', () => {
     const r = validateGoogleOAuthGrantedScopes(
-      'https://www.googleapis.com/auth/calendar.events openid email',
+      'https://www.googleapis.com/auth/calendar.events openid email profile',
     )
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.message).toMatch(/every permission/i)
+  })
+
+  it('rejects when profile scope is missing', () => {
+    const without =
+      'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid email https://www.googleapis.com/auth/drive.readonly'
+    const r = validateGoogleOAuthGrantedScopes(without)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.message).toMatch(/profile|name/i)
   })
 
   it('rejects empty scope', () => {

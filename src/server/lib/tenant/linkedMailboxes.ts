@@ -35,12 +35,25 @@ export function linkedMailboxesPath(): string {
   return join(brainLayoutVarDir(brainHome()), LINKED_MAILBOXES_FILENAME)
 }
 
+/** Returns the on-disk path for an explicit tenant home (no AsyncLocalStorage). */
+export function linkedMailboxesPathFor(tenantHomeDir: string): string {
+  return join(brainLayoutVarDir(tenantHomeDir), LINKED_MAILBOXES_FILENAME)
+}
+
 function emptyDoc(): LinkedMailboxesFileV1 {
   return { v: 1, mailboxes: [] }
 }
 
+/** Read linked mailboxes for an explicit tenant home; same parser as {@link readLinkedMailboxes}. */
+export async function readLinkedMailboxesFor(tenantHomeDir: string): Promise<LinkedMailboxesFileV1> {
+  return readLinkedMailboxesAtPath(linkedMailboxesPathFor(tenantHomeDir))
+}
+
 export async function readLinkedMailboxes(): Promise<LinkedMailboxesFileV1> {
-  const path = linkedMailboxesPath()
+  return readLinkedMailboxesAtPath(linkedMailboxesPath())
+}
+
+async function readLinkedMailboxesAtPath(path: string): Promise<LinkedMailboxesFileV1> {
   if (!existsSync(path)) return emptyDoc()
   try {
     const raw = await readFile(path, 'utf-8')
