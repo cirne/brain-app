@@ -6,7 +6,7 @@
 
 **Code:** Repository root — `cargo test`, `cargo build --release` → `./target/release/ripmail`.
 
-**Historical note:** The **TypeScript / Node** implementation lived under **`node/`** until cutover; it was published as **`@cirne/zmail`** on npm. That tree is **removed** from the repository; use **git history** (e.g. last commit before deletion, or a maintainer tag) to compare or recover reference code.
+**Historical note:** The **TypeScript / Node** implementation lived under **`node/`** until cutover; it was published as **`@cirne/zmail`** on npm. That tree is **removed** from the repository; use **git history** (e.g. last commit before deletion, or a maintainer tag) to compare or recover reference code. (Example from that stack: sync could **hang** when **`mailparser`**’s stream `Writable` path never completed under **Bun**; the fix there was **`postal-mime`** before the Rust port replaced parsing entirely.)
 
 This document is the **single place** for (1) **future development** considerations carried forward from the dual-stack era, (2) **intentional** differences vs the old Node behavior where it still matters, and (3) **risks** (ecosystem maturity, behavioral drift). Link here instead of duplicating long checklists elsewhere.
 
