@@ -1,7 +1,7 @@
 //! ripmail library — Rust CLI implementation (workspace root).
 //!
 //! **Tests:** this crate’s integration tests expect `cargo nextest run -p ripmail` (not plain `cargo test`);
-//! see `tests/aaa_use_nextest.rs`.
+//! see `tests/suite/aaa_use_nextest.rs`.
 
 pub mod agent_skill_install;
 pub mod applemail;

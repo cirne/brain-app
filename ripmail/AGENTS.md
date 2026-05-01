@@ -97,7 +97,7 @@ RIPMAIL_HOME=/path/to/your/oauth/ripmail/home \
 
 If the test send was **to yourself**, the thread may land in **Inbox** or **Sent** depending on Gmail; use **`ripmail search "your subject"`** if **`inbox`** does not list it yet.
 
-**Optional live integration test:** `tests/gmail_api_live_send.rs` is **`#[ignore]`**. Run with **`RIPMAIL_LIVE_GMAIL_SEND=1`**, **`RIPMAIL_HOME`** set to an OAuth Gmail home, and **`cargo nextest run -p ripmail -E 'test(live_gmail_https)' --run-ignored only`**.
+**Optional live integration test:** `tests/suite/gmail_api_live_send.rs` is **`#[ignore]`**. Run with **`RIPMAIL_LIVE_GMAIL_SEND=1`**, **`RIPMAIL_HOME`** set to an OAuth Gmail home, and **`cargo nextest run -p ripmail -E 'test(live_gmail_https)' --run-ignored only`**.
 
 **Agents and contributors:** always invoke the CLI from a git clone with `**cargo run -- <subcommand> …`** (note the `--` so Cargo does not swallow flags). A `ripmail` binary on `PATH` may be an older install or release than the sources you are editing.
 

@@ -1,7 +1,7 @@
 # cargo-nextest — https://nexte.st/docs/configuration/
 # Used for the ripmail crate only (`cargo nextest run -p ripmail`).
-# Schedules each #[test] as its own process and runs many of them concurrently,
-# unlike `cargo test` which runs each integration-test binary serially.
+# Schedules each #[test] as its own process and runs many of them concurrently.
+# Integration tests are in `tests/suite/` (one binary); unit tests remain in `src/`.
 
 [store]
 dir = "target/nextest"

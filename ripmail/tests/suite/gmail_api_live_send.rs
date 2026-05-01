@@ -31,7 +31,7 @@ fn live_gmail_https_send_smoke() {
             "--subject",
             "ripmail live Gmail API HTTPS smoke",
             "--body",
-            "Automated ignored integration test (gmail_api_live_send.rs). Safe to delete.",
+            "Automated ignored integration test (suite/gmail_api_live_send). Safe to delete.",
             "--text",
         ])
         .output()

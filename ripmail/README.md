@@ -131,7 +131,7 @@ cargo run -- inbox
 cargo run -- ask "summarize invoices from last week" --verbose
 ```
 
-Unit tests live in `src/` under `#[cfg(test)] mod tests { ... }` next to the code they exercise. Integration tests are one crate per file under `tests/` (e.g. `search_fts`) and exercise the public CLI end-to-end. After changing a module, a fast check is `cargo test --lib <filter>`; run full `cargo test` before merging.
+Unit tests live in `src/` under `#[cfg(test)] mod tests { ... }` next to the code they exercise. Integration tests live as modules under `tests/suite/` (one `tests/suite/main.rs` binary links `libripmail` once — much faster than one crate per file) and exercise the public CLI end-to-end. After changing a module, a fast check is `cargo test --lib <filter>`; use **`cargo nextest run -p ripmail`** (or `cargo t -p ripmail`) for the full suite before merging.
 
 **`cargo test` and CPU cores:** By default, Cargo uses one parallel `rustc` job per logical CPU for builds (`cargo test` included). The Rust test harness also runs tests in parallel across logical CPUs when `RUST_TEST_THREADS` is unset. This is documented in [.cargo/config.toml](.cargo/config.toml) (we do not cap jobs). To force serial tests (e.g. clearer logs), run `RUST_TEST_THREADS=1 cargo test`.
 

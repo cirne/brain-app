@@ -1,4 +1,4 @@
-/// This test exists solely to prevent accidental use of `cargo test`.
+/// This test exists solely to prevent accidental use of `cargo test` on this crate.
 ///
 /// cargo-nextest sets NEXTEST=1 in every test process. The standard
 /// Rust test harness does not. So this test passes under nextest and
