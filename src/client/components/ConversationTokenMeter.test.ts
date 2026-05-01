@@ -7,15 +7,14 @@ describe('ConversationTokenMeter.svelte', () => {
     render(ConversationTokenMeter, { props: { totalTokens: 12345 } })
     const el = screen.getByRole('img')
     const label = el.getAttribute('aria-label') ?? ''
-    expect(label).toContain('12,345')
-    expect(label).toMatch(/model-reported assistant turns/i)
+    expect(label).toBe('12.3K / 200K Tokens (6%)')
     expect(el.getAttribute('title')).toBe(label)
   })
 
-  it('shows about 6% for 12k of 200k reference', () => {
+  it('shows 12K / 200K Tokens (6%) for 12k of default reference', () => {
     render(ConversationTokenMeter, { props: { totalTokens: 12000 } })
     const label = screen.getByRole('img').getAttribute('aria-label') ?? ''
-    expect(label).toMatch(/about 6%/)
+    expect(label).toBe('12K / 200K Tokens (6%)')
   })
 
   it('does not show abbreviated count at or below 100k', () => {

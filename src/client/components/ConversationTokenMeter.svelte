@@ -11,6 +11,12 @@
     return x.toLocaleString()
   }
 
+  /** Tooltip: token counts in thousands (K). */
+  function formatTokensK(tokens: number): string {
+    const k = Math.max(0, Math.floor(tokens)) / 1000
+    return Number.isInteger(k) ? `${k}K` : `${k.toFixed(1)}K`
+  }
+
   let {
     totalTokens = 0,
     referenceTokens = CHAT_TOKEN_METER_REFERENCE,
@@ -33,8 +39,8 @@
 
   const titleText = $derived.by(() => {
     const n = Math.max(0, Math.floor(totalTokens))
-    const formatted = n.toLocaleString()
-    return `Conversation usage: ${formatted} tokens (model-reported assistant turns), about ${pctRounded}% of ${(referenceTokens / 1000).toFixed(0)}k reference — not exact context window fill.`
+    const ref = Math.max(0, Math.floor(referenceTokens))
+    return `${formatTokensK(n)} / ${formatTokensK(ref)} Tokens (${pctRounded}%)`
   })
 
   const showCount = $derived(totalTokens > SHOW_COUNT_MIN_EXCLUSIVE)
