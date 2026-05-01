@@ -20,7 +20,7 @@ export function pickReadEmailFields(j: Record<string, unknown>): { subject: stri
   }
 }
 
-/** Stored on `tool.details` when `read_email` completes — survives 4k result truncation in SSE. */
+/** Stored on `tool.details` when **`read_mail_message`** or **`read_indexed_file`** completes — survives 4k result truncation in SSE. */
 export type ReadEmailToolDetails = {
   readEmailPreview: true
   id: string

@@ -2,7 +2,7 @@
 
 High-level map of **brain-app** (Hono + Svelte + pi-agent-core). Roadmap: [OPPORTUNITIES.md](./OPPORTUNITIES.md). Issues: [BUGS.md](./BUGS.md).
 
-**Detailed decision notes and deep dives** live in `**[docs/architecture/README.md](architecture/README.md)`**. This page stays an **index + short rationale** only.
+**Detailed decision notes and deep dives** live in **[docs/architecture/README.md](architecture/README.md)**. Below, further reading is **grouped by topic** with a small table per group; this page stays **index + short rationale** beyond that.
 
 ---
 
@@ -31,39 +31,115 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 
 ---
 
-## Where to read next
+## Vision, strategy, and product narrative
+
+Why the product exists, how we talk about it, and collaboration ideas — not routing or hosting mechanics.
 
 
-| Topic                                                                     | Doc                                                                                                                                                        |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Svelte component tests (Vitest, Testing Library)                          | [component-testing.md](component-testing.md)                                                                                                               |
-| Product vision, Karpathy “LLM Wiki” (wiki half) + ripmail (mail half)     | [VISION.md](VISION.md) · **[STRATEGY.md](STRATEGY.md)** (segments, moats) · [karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md)                         |
-| HTTP routing, auth, periodic sync, native ports; SPA routes/overlays      | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md)                                                                                   |
-| Client UI: latest-wins async / overlapping `fetch`                        | [architecture/client-async-latest.md](architecture/client-async-latest.md)                                                                                 |
-| Desktop vs Cloud deployment models                                        | [architecture/deployment-models.md](architecture/deployment-models.md)                                                                                     |
-| Multi-tenant cloud architecture (NAS, isolation)                          | [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md)                                                         |
-| Tenant filesystem isolation (BUG-012, kernel + app)                       | [architecture/tenant-filesystem-isolation.md](architecture/tenant-filesystem-isolation.md)                                                                 |
-| Cloud-hosted v1 scope (Phase 0 parity)                                    | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md)                                                                             |
-| **Staging deploy (DO droplet, registry, Watchtower)**                     | [DEPLOYMENT.md](./DEPLOYMENT.md)                                                                                                                           |
-| **Security architecture and risk register**                               | [SECURITY.md](./SECURITY.md)                                                                                                                               |
-| Agent sessions, chat JSON files, SSE events, tool list                    | [architecture/agent-chat.md](architecture/agent-chat.md) · **Quick replies (chips):** [architecture/chat-suggestions.md](architecture/chat-suggestions.md) |
-| Pi stack reference (`pi-agent-core` / `pi-ai` options, metering)          | [architecture/pi-agent-stack.md](architecture/pi-agent-stack.md) · [OPP-043](opportunities/OPP-043-llm-usage-token-metering.md)                            |
-| `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS, starter wiki seed | [architecture/data-and-sync.md](architecture/data-and-sync.md)                                                                                             |
-| Eval home, Enron fixture mail, index rebuild                              | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md)                                                                     |
-| Hosted Enron **demo** tenant (Bearer mint, Docker/staging QA)             | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md)                                                                                     |
-| Ripmail, unified search, files API, optional iMessage                     | [architecture/integrations.md](architecture/integrations.md)                                                                                               |
-| External corpus (Drive, SaaS docs, local-first index)                     | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045](opportunities/OPP-045-google-drive.md)                          |
-| Environment variables                                                     | [architecture/configuration.md](architecture/configuration.md)                                                                                             |
-| **Local MLX LLM** (Apple Silicon, `mlx_lm.server`, Qwen 3.6)              | [architecture/local-mlx-llm.md](architecture/local-mlx-llm.md)                                                                                             |
-| **Chat history → SQLite** (current: JSON files; perf + search limits)     | [architecture/chat-history-sqlite.md](architecture/chat-history-sqlite.md)                                                                                 |
-|                                                                           | **Preferences store** (current: scattered JSON files + localStorage)                                                                                       |
-|                                                                           | **Tailwind migration** (Tailwind in build; BEM `<style>` blocks remain)                                                                                    |
-|                                                                           | **Calendar write path** (subprocess vs direct Google API for mutations)                                                                                    |
-|                                                                           | **Agent session store** (in-memory Map; horizontal-scale limits)                                                                                           |
-| Wiki `read` vs `read_email` (indexed sources)                             | [architecture/wiki-read-vs-read-email.md](architecture/wiki-read-vs-read-email.md)                                                                         |
-| Wiki-first memory vs managed memory (Honcho) — deferred                   | [architecture/wiki-vs-managed-memory-honcho.md](architecture/wiki-vs-managed-memory-honcho.md)                                                             |
-| Ripmail crate internals                                                   | [ripmail/docs/ARCHITECTURE.md](../ripmail/docs/ARCHITECTURE.md)                                                                                            |
-| Brain-to-brain (strategy + sequencing)                                    | [STRATEGY.md](STRATEGY.md) · [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md)                                          |
+| Topic                                       | Doc                                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Product vision (wiki + inbox narrative)     | [VISION.md](VISION.md)                                                               |
+| Strategy: segments and moats                | [STRATEGY.md](STRATEGY.md)                                                           |
+| Karpathy *LLM Wiki* (wiki half of the idea) | [karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md)                               |
+| Wiki sharing / brain-to-brain collaborators | [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) |
+| Hosted cloud v1 scope (Phase 0 parity)      | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md)       |
+
+
+---
+
+## Hosting, tenancy, and operations
+
+Deployment topology, isolation, staging, and formal security posture.
+
+
+| Topic                                                           | Doc                                                                                                |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Desktop vs cloud deployment models                              | [architecture/deployment-models.md](architecture/deployment-models.md)                             |
+| Multi-tenant cloud architecture (NAS, isolation)                | [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) |
+| Tenant filesystem isolation (BUG-012, kernel + app)             | [architecture/tenant-filesystem-isolation.md](architecture/tenant-filesystem-isolation.md)         |
+| **Staging deploy** (DigitalOcean droplet, registry, Watchtower) | [DEPLOYMENT.md](./DEPLOYMENT.md)                                                                   |
+| **Security architecture and risk register**                     | [SECURITY.md](./SECURITY.md)                                                                       |
+
+
+---
+
+## Runtime, SPA stack, and local development
+
+How the unified server behaves, how the client is exercised in tests, and environment wiring.
+
+
+| Topic                                                                    | Doc                                                                        |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| HTTP routing, auth, periodic sync, native ports; SPA routes and overlays | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md)   |
+| Environment variables and config surface                                 | [architecture/configuration.md](architecture/configuration.md)             |
+| Svelte component tests (Vitest, Testing Library)                         | [component-testing.md](component-testing.md)                               |
+| Client UI: latest-wins async / overlapping `fetch`                       | [architecture/client-async-latest.md](architecture/client-async-latest.md) |
+
+
+---
+
+## Agent stack and inference
+
+Chat transport, tooling surface, Pi integration, metering hooks, and local model serving.
+
+
+| Topic                                                    | Doc                                                                                                                             |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Agent sessions, chat JSON persistence, SSE, tool catalog | [architecture/agent-chat.md](architecture/agent-chat.md)                                                                        |
+| Quick replies (chips / suggestions UI)                   | [architecture/chat-suggestions.md](architecture/chat-suggestions.md)                                                            |
+| Pi stack (`pi-agent-core` / `pi-ai`, options, metering)  | [architecture/pi-agent-stack.md](architecture/pi-agent-stack.md) · [OPP-072](opportunities/OPP-072-llm-usage-token-metering.md) |
+| Local MLX LLM (Apple Silicon, `mlx_lm.server`, Qwen 3.6) | [architecture/local-mlx-llm.md](architecture/local-mlx-llm.md)                                                                  |
+
+
+---
+
+## Data plane: `$BRAIN_HOME`, ripmail, search, corpora
+
+On-disk layout, integrations, evaluations, and the Rust inbox implementation.
+
+
+| Topic                                                                | Doc                                                                                                                               |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS, starter wiki | [architecture/data-and-sync.md](architecture/data-and-sync.md)                                                                    |
+| Ripmail subprocess, unified search, files API, optional iMessage     | [architecture/integrations.md](architecture/integrations.md)                                                                      |
+| Wiki `read` vs indexed mail/files (`read_mail_message` / `read_indexed_file`)          | [architecture/wiki-read-vs-read-email.md](architecture/wiki-read-vs-read-email.md)                                                |
+| External corpus (Drive, SaaS docs, local-first index)                | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045](opportunities/OPP-045-google-drive.md) |
+| Eval home, Enron fixture mail, search index rebuild                  | [architecture/eval-home-and-mail-corpus.md](architecture/eval-home-and-mail-corpus.md)                                            |
+| Hosted Enron **demo** tenant (Bearer mint, Docker / staging QA)      | [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md)                                                            |
+| Ripmail crate (Rust internals)                                       | [ripmail/docs/ARCHITECTURE.md](../ripmail/docs/ARCHITECTURE.md)                                                                   |
+
+
+---
+
+## Known architectural issues
+
+Limits, split stores, unfinished migrations, or deferred directions — overlap with [BUGS.md](./BUGS.md) and [OPPORTUNITIES.md](./OPPORTUNITIES.md).
+
+### Persistence and preference storage
+
+
+| Topic                                                                   | Doc                                                                        |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Chat history as JSON files; SQLite direction (perf and search ceilings) | [architecture/chat-history-sqlite.md](architecture/chat-history-sqlite.md) |
+| Preferences scattered across JSON + `localStorage`                      | [architecture/preferences-store.md](architecture/preferences-store.md)     |
+
+
+### UI stack and calendars
+
+
+| Topic                                                       | Doc                                                                        |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Tailwind in the build alongside legacy BEM `<style>` blocks | [architecture/tailwind-migration.md](architecture/tailwind-migration.md)   |
+| Calendar writes: subprocess vs direct Google Calendar API   | [architecture/calendar-write-path.md](architecture/calendar-write-path.md) |
+
+
+### Sessions and long-term architecture
+
+
+| Topic                                                   | Doc                                                                                            |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Agent session store (in-memory `Map`; horizontal scale) | [architecture/agent-session-store.md](architecture/agent-session-store.md)                     |
+| Wiki-first memory vs managed memory (Honcho) — deferred | [architecture/wiki-vs-managed-memory-honcho.md](architecture/wiki-vs-managed-memory-honcho.md) |
 
 
 ---
@@ -80,12 +156,12 @@ Vite runs **inside** the same server in dev; production serves `dist/client`. Se
 
 ## Deployment
 
-**Primary release:** macOS **Braintunnel.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container:** [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); local image via `Dockerfile` + `[docker-compose.yml](../docker-compose.yml)` (`.env` → `env_file`). **Current staging operations** (Droplet, `docker:publish`, Watchtower, OAuth limits): **[DEPLOYMENT.md](./DEPLOYMENT.md)**. **DigitalOcean staging** (April 2026): `[docker-compose.do.yml](../docker-compose.do.yml)`, registry image, `**https://staging.braintunnel.ai`** (TLS at edge), durable volume for `/brain-data`. Archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
+**Primary release:** macOS **Braintunnel.app** (Tauri) — [OPP-007 (archived)](opportunities/archive/OPP-007-native-mac-app.md). **Hosted Linux container:** [OPP-041](opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md); local image via `Dockerfile` + `[docker-compose.yml](../docker-compose.yml)` (`.env` → `env_file`). **Current staging operations** (Droplet, `docker:publish`, Watchtower, OAuth limits): **[DEPLOYMENT.md](./DEPLOYMENT.md)**. **DigitalOcean staging** (April 2026): [docker-compose.do.yml](../docker-compose.do.yml), registry image, **[https://staging.braintunnel.ai](https://staging.braintunnel.ai)** (TLS at edge), durable volume for `/brain-data`. Archived [OPP-013](opportunities/archive/OPP-013-docker-deployment.md) explains why Docker is not the **desktop** substitute.
 
 ---
 
 ## Product and multi-tenant notes
 
-**Hosted multi-tenant (`BRAIN_DATA_ROOT`):** Users **sign in with Google** (`/api/oauth/google/start`). The OAuth callback provisions (or rebinds) a workspace directory and issues the same `**brain_session`** cookie + tenant registry mapping as desktop sessions — **no vault password** in MT.
+**Hosted multi-tenant (`BRAIN_DATA_ROOT`):** Users **sign in with Google** (`/api/oauth/google/start`). The OAuth callback provisions (or rebinds) a workspace directory and issues the same **brain_session** cookie + tenant registry mapping as desktop sessions — **no vault password** in MT.
 
 See [PRODUCTIZATION.md](./PRODUCTIZATION.md).

@@ -16,7 +16,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 | [../Dockerfile](../Dockerfile) / [../docker-compose.yml](../docker-compose.yml) / [../docker-compose.do.yml](../docker-compose.do.yml) | Local: `npm run docker:ripmail:build` + `BRAIN_HOME=/brain`. **DO staging:** registry image, `brain_data` volume, **`https://staging.braintunnel.ai`** (TLS at edge; :4000 in-container) ([OPP-041 (full)](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md), [digitalocean.md](../digitalocean.md), [DEPLOYMENT.md](../DEPLOYMENT.md)) |
 | [agent-chat.md](./agent-chat.md) | pi-agent-core, chat persistence, SSE events, tools overview |
 | [chat-suggestions.md](./chat-suggestions.md) | Quick reply chips: `suggest_reply_options` tool + suggest-reply repair (same path for main chat and onboarding interview) |
-| [pi-agent-stack.md](./pi-agent-stack.md) | Pi packages reference (`pi-agent-core` / `pi-ai` / `pi-coding-agent`), Agent options; metering → [OPP-043](../opportunities/OPP-043-llm-usage-token-metering.md), NR telemetry + usage CLI → [OPP-046](../opportunities/OPP-046-llm-telemetry-traces-and-usage-cli.md) |
+| [pi-agent-stack.md](./pi-agent-stack.md) | Pi packages reference (`pi-agent-core` / `pi-ai` / `pi-coding-agent`), Agent options; metering → [OPP-072](../opportunities/OPP-072-llm-usage-token-metering.md), NR telemetry + usage CLI → [OPP-071](../opportunities/OPP-071-llm-telemetry-traces-and-usage-cli.md) |
 | [data-and-sync.md](./data-and-sync.md) | `$BRAIN_HOME` layout, wiki, calendar cache, ripmail refresh |
 | [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md) | Eval home (`data-eval/brain`), Enron `kean-s` fixture pipeline, ripmail `.eml` rule, stamps — **living doc** |
 | [enron-demo-tenant.md](./enron-demo-tenant.md) | **OPP-051 Phase 0:** hosted Enron fixture tenant, Bearer mint, lazy seed, Docker/staging/automation |
@@ -28,7 +28,7 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 || [tailwind-migration.md](./tailwind-migration.md) | Completing Tailwind: already in build; 68 components still use BEM `<style>` blocks |
 || [calendar-write-path.md](./calendar-write-path.md) | Calendar writes: subprocess limitations; direct Google Calendar API as alternative for mutations |
 || [agent-session-store.md](./agent-session-store.md) | Agent session Map: in-memory design, vault session race, horizontal-scale limits |
-| [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md) | ADR: wiki file tools vs `read_email` |
+| [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md) | ADR: wiki file tools vs `read_mail_message` / `read_indexed_file` |
 | [wiki-vs-managed-memory-honcho.md](./wiki-vs-managed-memory-honcho.md) | Recorded consideration: wiki-first memory vs Honcho (or similar); **not for now** |
 | [external-data-sources.md](./external-data-sources.md) | Unified corpus: local FTS query layer, `sources[]` kinds (mail, localDir, cloud files, SaaS docs), sync vs query split, contentless file indexing, MCP as optional sync aid — **Google Drive:** [OPP-045](../opportunities/OPP-045-google-drive.md) |
 | [brain-cloud-service.md](./brain-cloud-service.md) | Pre-opportunity notes: what a Brain-operated cloud service would contain (registry, support infra, tunnel relay) and the hard constraint that no user data ever leaves the local brain. **Brain-to-brain strategy:** [STRATEGY.md](../STRATEGY.md); product spec → [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) |

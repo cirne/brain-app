@@ -25,11 +25,11 @@ Tappable follow-up chips use the **same tool as the main assistant**. **Call it 
 
 - **finish_conversation** — User is clearly done (“that's all”, “let's go”, …). Call **once** that turn **before** your closing sentence. Not if they might still fix identity.
 - **read** / **grep** / **find** / **write** / **edit** — Wiki only; paths relative to vault root (never `wiki/`).
-- **search_index**, **read_email**, **find_person** — Indexed mail.
+- **search_index**, **read_mail_message**, **read_indexed_file**, **find_person** — Ripmail index (mail + indexed Drive/local files when connected).
 
 ## Mail recon (before identity with the user)
 
-Before your **first user-visible reply**, when possible: **`search_index`** with **`from`** = whoami **primary** email, **`after`** e.g. `180d`; **`read_email`** on up to **three** human sent messages (signatures). If no hits, proceed with whoami. **Do not** ask how they like to be named until after this attempt or you know sent-mail is empty.
+Before your **first user-visible reply**, when possible: **`search_index`** with **`from`** = whoami **primary** email, **`after`** e.g. `180d`; **`read_mail_message`** on up to **three** human sent messages (signatures). If no hits, proceed with whoami. **Do not** ask how they like to be named until after this attempt or you know sent-mail is empty.
 
 ## Identity
 

@@ -40,10 +40,10 @@ export function buildSeedingLine(
   }
   if (n === 'search_index') {
     const detail = searchIndexDetail(args)
-    if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Searched mail', detail }
-    return { id: tc.id, kind: 'active-tool', prefix: 'Searching mail', detail }
+    if (phase === 'done') return { id: tc.id, kind: 'done', prefix: 'Searched index', detail }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Searching index', detail }
   }
-  if (n === 'read_email') {
+  if (n === 'read_mail_message') {
     const idArg = typeof args.id === 'string' ? args.id.trim() : ''
     const isFileRef = idArg.length > 0 && isFilesystemAbsolutePath(idArg)
     let mailPreview: SeedingMailPreview | undefined
@@ -72,9 +72,42 @@ export function buildSeedingLine(
         ? undefined
         : readEmailProgressDetail(tc, matchPreview)
     if (phase === 'done') {
-      return { id: tc.id, kind: 'done', prefix: 'Read a message', detail, mailPreview }
+      return { id: tc.id, kind: 'done', prefix: 'Read mail', detail, mailPreview }
     }
-    return { id: tc.id, kind: 'active-tool', prefix: 'Reading a message', detail, mailPreview }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Reading mail', detail, mailPreview }
+  }
+  if (n === 'read_indexed_file') {
+    const idArg = typeof args.id === 'string' ? args.id.trim() : ''
+    const isFileRef = idArg.length > 0 && isFilesystemAbsolutePath(idArg)
+    let mailPreview: SeedingMailPreview | undefined
+    if (!isFileRef && idArg) {
+      if (phase === 'done' && tc.done && !tc.isError) {
+        const prev = matchPreview(tc)
+        if (prev?.kind === 'email') {
+          mailPreview = {
+            id: prev.id,
+            subject: prev.subject,
+            from: prev.from,
+            snippet: prev.snippet,
+          }
+        }
+      } else if (phase === 'active') {
+        mailPreview = {
+          id: idArg,
+          subject: '',
+          from: '',
+          snippet: readEmailIdHint(idArg) ?? '',
+        }
+      }
+    }
+    const detail =
+      mailPreview && (phase === 'done' || phase === 'active')
+        ? undefined
+        : readEmailProgressDetail(tc, matchPreview)
+    if (phase === 'done') {
+      return { id: tc.id, kind: 'done', prefix: 'Read file', detail, mailPreview }
+    }
+    return { id: tc.id, kind: 'active-tool', prefix: 'Reading file', detail, mailPreview }
   }
   if (n === 'find_person') {
     const q = typeof args.query === 'string' ? args.query.trim() : ''

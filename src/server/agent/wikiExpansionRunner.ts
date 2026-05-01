@@ -70,7 +70,7 @@ Goal: Improve **existing** pages listed in the injected **Deepen this lap** queu
 
 How:
 - **Start** from **Deepen this lap (priority)** and **Recent wiki edits** / **Thin pages** sections in the injected context, then the vault manifest.
-- **Mail:** Use **search_index** and **read_email** only to support deepening **those targets** (and minimal cross-links), not to discover brand-new entities for new files.
+- **Mail:** Use **search_index** and **read_mail_message** / **read_indexed_file** only to support deepening **those targets** (and minimal cross-links), not to discover brand-new entities for new files.
 - **Stay brief:** Lead + bullets; no full biography. Prefer synthesis over quoting mail.
 - **Accuracy:** When sources show text is wrong or outdated, **edit** surgically. Prefer the newest dated relevant message for current-state facts.
 - **Account holder \`people/*\`:** Keep compact (3–8 bullets); link to [[me]].

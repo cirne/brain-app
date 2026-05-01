@@ -1,7 +1,11 @@
 <script lang="ts">
-  import { untrack } from 'svelte'
+  import { untrack, getContext } from 'svelte'
   import { emit } from '@client/lib/app/appEvents.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
+  import {
+    HUB_SOURCE_SLIDE_HEADER,
+    type RegisterHubSourceSlideHeader,
+  } from '@client/lib/hubSourceSlideHeaderContext.js'
   import {
     isMailSourceKind,
     type HubRipmailSourceRow,
@@ -47,6 +51,9 @@
   const hubSourceListLatest = createAsyncLatest({ abortPrevious: true })
   const hubSourceMailLatest = createAsyncLatest({ abortPrevious: true })
   const hubSourceDetailLatest = createAsyncLatest({ abortPrevious: true })
+
+  const registerHubHeader = getContext<RegisterHubSourceSlideHeader | undefined>(HUB_SOURCE_SLIDE_HEADER)
+  const showInlineRefresh = $derived(registerHubHeader === undefined)
 
   const INDEX_REFRESH_MAX_MS = 15 * 60 * 1000
 
@@ -425,8 +432,30 @@
 
   const driveSyncBlocked = $derived(
     source?.kind === 'googleDrive' &&
-      (sourceDetail?.fileSource == null || sourceDetail.fileSource.roots.length === 0),
+      sourceDetail != null &&
+      (sourceDetail.fileSource == null || sourceDetail.fileSource.roots.length === 0),
   )
+
+  $effect(() => {
+    if (!registerHubHeader) return
+    const src = source
+    if (!src) {
+      registerHubHeader(null)
+      return
+    }
+    const mail = isMailSourceKind(src.kind)
+    const blocked = !mail && driveSyncBlocked
+    registerHubHeader({
+      title: src.displayName,
+      onRefresh: () => void hubSourceRefresh(),
+      refreshDisabled: Boolean(sourceSyncAction) || blocked,
+      refreshSpinning: Boolean(sourceSyncAction === 'refresh' || (!mail && indexRefreshPending)),
+      refreshTitle: blocked
+        ? 'Add at least one Drive folder in the list below before syncing'
+        : undefined,
+    })
+    return () => registerHubHeader(null)
+  })
 </script>
 
 <div class="hub-connector-source">
@@ -442,6 +471,7 @@
           driveSyncBlocked={driveSyncBlocked}
           sourceSyncAction={sourceSyncAction}
           indexRefreshPending={indexRefreshPending}
+          showInlineRefresh={showInlineRefresh}
           onRefresh={() => void hubSourceRefresh()}
           onReloadDetail={() => void loadSourceDetail({ keepPreviousDetail: false })}
         />
@@ -458,6 +488,7 @@
           prefsError={prefsError}
           bind:backfillWindow
           sourceSyncAction={sourceSyncAction}
+          showInlineRefresh={showInlineRefresh}
           onToggleIncludedInDefault={() => void toggleIncludedInDefault()}
           onSetDefaultSend={(checked) => void setDefaultSend(checked)}
           onRefresh={() => void hubSourceRefresh()}
@@ -506,42 +537,86 @@
     gap: 1rem;
   }
 
-  .hub-connector-source :global(.hub-connector-title) {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.25;
-  }
-
-  .hub-connector-source :global(.hub-source-meta) {
+  .hub-connector-source :global(.hub-source-meta-compact) {
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 0.35rem;
   }
 
-  .hub-connector-source :global(.hub-source-meta-row) {
-    display: grid;
-    grid-template-columns: 6.5rem 1fr;
-    gap: 0.5rem 1rem;
-    font-size: 0.875rem;
-    align-items: baseline;
-  }
-
-  .hub-connector-source :global(.hub-source-meta-row dt) {
+  .hub-connector-source :global(.hub-source-kind-line) {
     margin: 0;
+    font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-2);
+    line-height: 1.35;
   }
 
-  .hub-connector-source :global(.hub-source-meta-row dd) {
+  .hub-connector-source :global(.hub-source-path-line) {
     margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--text-2);
     word-break: break-word;
   }
 
-  .hub-connector-source :global(.hub-source-meta--dense) {
-    gap: 0.5rem;
+  .hub-connector-source :global(.hub-source-index-line) {
+    margin: 0 0 0.25rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--text-2);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.45rem;
+  }
+
+  .hub-connector-source :global(.hub-source-index-line-sep) {
+    opacity: 0.45;
+    user-select: none;
+    font-weight: 400;
+  }
+
+  .hub-connector-source :global(.hub-drive-pref-line) {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--text-2);
+  }
+
+  .hub-connector-source :global(.hub-drive-pref-val) {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .hub-connector-source :global(.hub-ics-line) {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--text-2);
+  }
+
+  .hub-connector-source :global(.hub-ics-label) {
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.6875rem;
+  }
+
+  .hub-connector-source :global(.hub-ics-url) {
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    font-size: 0.78rem;
+    word-break: break-all;
+    color: var(--text);
+  }
+
+  .hub-connector-source :global(.hub-source-sync-buttons--inline) {
+    margin-top: 0.35rem;
   }
 
   .hub-connector-source :global(.hub-source-status-section) {

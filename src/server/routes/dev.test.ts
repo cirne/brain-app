@@ -31,7 +31,7 @@ describe('dev routes', () => {
     await writeFile(
       fakeRipmail,
       `#!/bin/sh
-echo "$@" >> ${JSON.stringify(ripmailLog)}
+echo "$RIPMAIL_HOME $@" >> ${JSON.stringify(ripmailLog)}
 exit 0
 `,
       'utf-8',
@@ -70,9 +70,15 @@ exit 0
     const { listSkills } = await import('@server/lib/llm/skillRegistry.js')
     expect((await listSkills()).length).toBeGreaterThan(0)
 
-    const invoke = (await readFile(ripmailLog, 'utf8')).trim()
-    expect(invoke).toContain('clean')
-    expect(invoke).toContain('--yes')
+    const lines = (await readFile(ripmailLog, 'utf8'))
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+    expect(lines.length).toBe(1)
+    expect(lines[0]).toContain('clean')
+    expect(lines[0]).toContain('--yes')
+    expect(lines[0]).toContain(join(brainHome, 'ripmail'))
+    expect(lines[0]).not.toContain('ripmail-test')
   })
 
   it('POST /restart-seed keeps me.md, wipes other wiki files, sets onboarding done', async () => {

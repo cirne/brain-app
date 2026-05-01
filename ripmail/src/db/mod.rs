@@ -636,6 +636,19 @@ pub fn open_file(path: &Path) -> Result<Connection, DbError> {
     retry_on_busy(|| open_file_inner(path))
 }
 
+/// A write connection shared across parallel sync threads via a mutex.
+///
+/// WAL mode means readers never block writers and vice-versa. Concurrent writers queue on the
+/// mutex; since writes are a tiny fraction of wall-clock time (the rest is network I/O), contention
+/// is negligible in practice.
+pub type SharedConn = std::sync::Arc<std::sync::Mutex<Connection>>;
+
+/// Open a writable connection and wrap it for shared use across sync threads.
+pub fn open_shared(path: &Path) -> Result<SharedConn, DbError> {
+    let conn = open_file(path)?;
+    Ok(std::sync::Arc::new(std::sync::Mutex::new(conn)))
+}
+
 /// Old `sync_summary` allowed only `id = 1`. Rebuild so `id = 2` can hold the backfill lock lane.
 fn migrate_sync_summary_allow_id_2(conn: &Connection) -> Result<(), DbError> {
     conn.execute_batch(

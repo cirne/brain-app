@@ -5,10 +5,10 @@ export type AgentOpenTarget = {
   date?: string
 }
 
-export type AgentOpenSource = 'open' | 'read_email'
+export type AgentOpenSource = 'open' | 'read_mail_message' | 'read_indexed_file'
 
 /**
- * Navigate wiki / inbox / calendar when the agent uses `open` or when `read_email` mirrors email open on desktop.
+ * Navigate wiki / inbox / calendar when the agent uses `open` or when **`read_mail_message`** / **`read_indexed_file`** mirrors email/file open on desktop.
  * When `isMobile` is true (viewport) **or** the UI is using slide-over detail (narrow chat workspace),
  * only the explicit `open` tool opens the detail panel; other tools stay as in-chat previews until the user opens them.
  */

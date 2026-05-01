@@ -8,10 +8,7 @@ import {
 } from '@server/lib/tenant/tenantRegistry.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { revokeVaultSession } from '@server/lib/vault/vaultSessionStore.js'
-import {
-  BRAIN_SESSION_COOKIE,
-  clearBrainSessionCookie,
-} from '@server/lib/vault/vaultCookie.js'
+import { BRAIN_SESSION_COOKIE, clearBrainSessionCookie } from '@server/lib/vault/vaultCookie.js'
 import { vaultVerifierExistsSync } from '@server/lib/vault/vaultVerifierStore.js'
 
 type LogoutJsonBody =

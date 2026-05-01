@@ -39,7 +39,7 @@ afterEach(async () => {
   delete process.env.BRAIN_HOME
 })
 
-describe('read_attachment / read_email attachments', () => {
+describe('read_attachment / read_mail_message attachments', () => {
   it('read_attachment runs ripmail attachment read', async () => {
     execRipmailAsync.mockResolvedValue({ stdout: '## doc.pdf\n\nTotal $42\n' })
     const { createAgentTools } = await import('./tools.js')
@@ -67,7 +67,7 @@ describe('read_attachment / read_email attachments', () => {
     expect(cmd).toMatch(/attachment read.*2/)
   })
 
-  it('read_email merges attachment list into email JSON', async () => {
+  it('read_mail_message merges attachment list into email JSON', async () => {
     execRipmailAsync.mockImplementation(async (cmd: string) => {
       if (cmd.includes(' read ') && cmd.includes('--json')) {
         return { stdout: '{"messageId":"x","subject":"Hi","body":"hello"}' }
@@ -81,8 +81,8 @@ describe('read_attachment / read_email attachments', () => {
     })
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir, { includeLocalMessageTools: false })
-    const readEmail = tools.find((t) => t.name === 'read_email')!
-    const result = await readEmail.execute('t2', { id: 'x@id' })
+    const readMail = tools.find((t) => t.name === 'read_mail_message')!
+    const result = await readMail.execute('t2', { id: 'x@id' })
     const text = toolResultFirstText(result)
     const j = JSON.parse(text) as { attachments: unknown[] }
     expect(j.attachments).toEqual([

@@ -11,20 +11,9 @@
   let { source }: Props = $props()
 </script>
 
-<h3 class="hub-connector-title">{source.displayName}</h3>
-<dl class="hub-source-meta">
-  <div class="hub-source-meta-row">
-    <dt>Type</dt>
-    <dd>{sourceKindLabel(source.kind)}</dd>
-  </div>
-  <div class="hub-source-meta-row">
-    <dt>Source id</dt>
-    <dd class="hub-source-id">{source.id}</dd>
-  </div>
-  {#if source.path}
-    <div class="hub-source-meta-row">
-      <dt>Path</dt>
-      <dd class="hub-source-path">{source.path}</dd>
-    </div>
+<div class="hub-source-meta-compact">
+  <p class="hub-source-kind-line">{sourceKindLabel(source.kind)}</p>
+  {#if source.path?.trim()}
+    <p class="hub-source-path-line">{source.path}</p>
   {/if}
-</dl>
+</div>

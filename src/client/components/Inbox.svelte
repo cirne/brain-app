@@ -118,7 +118,7 @@
   /** Set when GET /api/inbox/:id fails (e.g. 404 — invalid or stale id). */
   let threadLoadError = $state<string | null>(null)
   const threadOpenLatest = createAsyncLatest({ abortPrevious: true })
-  /** When opening by id that is not in the inbox list (e.g. agent read_email id). */
+  /** When opening by id that is not in the inbox list (e.g. agent **`read_mail_message`** id). */
   let orphanThreadMeta = $state<{ subject: string; from: string } | null>(null)
   let error = $state<string | null>(null)
 
@@ -210,7 +210,7 @@
 
   function buildInboxSummarizeMessage(): string {
     const header =
-      'Summarize my current inbox. For each thread give a one-line summary; then overall themes and anything urgent or actionable. Use read_email with the message ids below to read bodies when needed (or search_index).'
+      'Summarize my current inbox. For each thread give a one-line summary; then overall themes and anything urgent or actionable. Use read_mail_message with the message ids below to read bodies when needed (or search_index).'
     if (emails.length === 0) {
       return `${header}\n\nThe inbox list is currently empty (no rows after refresh).`
     }

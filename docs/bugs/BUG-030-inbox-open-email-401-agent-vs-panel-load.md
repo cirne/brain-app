@@ -3,7 +3,7 @@
 ## Symptom
 
 - Chat successfully runs mail discovery (e.g. `search` / search-index style tools) and surfaces metadata for a message.
-- The assistant reports that it opened the email (navigation / `open` / `read_email` mirror UX).
+- The assistant reports that it opened the email (navigation / `open` / `read_mail_message` mirror UX).
 - The **right-hand inbox/detail pane** shows: **`Could not load message (401).`**
 
 Repro context: user was signed in (`@cirne` visible); same session where mail tools ran.
@@ -47,4 +47,4 @@ This is **not** “ripmail returned unauthorized”; it is **HTTP-level auth** b
 
 - Middleware order: [`src/server/index.ts`](../../src/server/index.ts) (`tenantMiddleware` → `vaultGateMiddleware`).
 - Panel fetch: [`src/client/components/Inbox.svelte`](../../src/client/components/Inbox.svelte) (`fetchInboxMessageForOpen`, `openThreadByRawId`).
-- Agent-side mail tools do not use `GET /api/inbox/:id`; they call ripmail from [`src/server/agent/tools.ts`](../../src/server/agent/tools.ts) (`read_email`, etc.).
+- Agent-side mail tools do not use `GET /api/inbox/:id`; they call ripmail from [`src/server/agent/tools.ts`](../../src/server/agent/tools.ts) (`read_mail_message`, `read_indexed_file`, etc.).

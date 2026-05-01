@@ -15,6 +15,7 @@ import { persistedChatMessagesToAgentMessages } from '@server/lib/chat/persisted
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { resolveEvalAnchoredNow } from '@server/lib/llm/evalAssistantClock.js'
+import { buildRipmailSourcesPromptSection } from '@server/lib/ripmail/ripmailSourcesPromptSection.js'
 
 const sessions = new Map<string, Agent>()
 
@@ -131,6 +132,11 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
   let systemPrompt = `${buildBaseSystemPrompt(localMessagesEnabled, wikiDir)}
 
 ${dateTimeBlock}`
+
+  const ripmailSourcesSection = await buildRipmailSourcesPromptSection()
+  if (ripmailSourcesSection) {
+    systemPrompt += `\n\n${ripmailSourcesSection}`
+  }
 
   if (options.firstChat) {
     systemPrompt += firstChatPromptSection(localMessagesEnabled)

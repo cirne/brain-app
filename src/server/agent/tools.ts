@@ -69,7 +69,8 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
 
   const {
     searchIndex,
-    readEmail,
+    readMailMessage,
+    readIndexedFile,
     readAttachment,
     manageSources,
     refreshSources,
@@ -108,7 +109,8 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     moveFile,
     deleteFile,
     searchIndex,
-    readEmail,
+    readMailMessage,
+    readIndexedFile,
     readAttachment,
     manageSources,
     refreshSources,

@@ -1,4 +1,4 @@
-# OPP-043: LLM usage and token metering (per turn, per chat, per tenant)
+# OPP-072: LLM usage and token metering (per turn, per chat, per tenant)
 
 **Status:** Proposed.
 

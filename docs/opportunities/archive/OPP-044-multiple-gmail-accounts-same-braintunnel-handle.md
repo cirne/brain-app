@@ -198,7 +198,7 @@ Clicking a mail source opens `HubConnectorSourcePanel` with:
 #### Current Behavior
 
 - `search_email`: Searches all IMAP sources in the ripmail index.
-- `read_email`: Reads any message by ID.
+- `read_mail_message`: Reads any mail message by RFC Message-ID.
 - `send_email`: Uses... which source? (ambiguous today)
 
 #### Enhanced Behavior

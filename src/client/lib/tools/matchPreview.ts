@@ -188,7 +188,7 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
   if (name === 'search_index') {
     const argRec = (args ?? {}) as Record<string, unknown>
     const queryLine =
-      searchIndexDetail(argRec)?.trim() || 'Search mail index'
+      searchIndexDetail(argRec)?.trim() || 'Search index'
     const raw = tool.result ?? ''
     const parsed = parseSearchIndexJsonResult(typeof raw === 'string' ? raw : String(raw))
     const items = parsed?.items ?? []
@@ -280,7 +280,10 @@ export function matchContentPreview(tool: ToolCall): ContentCardPreview | null {
     return { kind: 'wiki', path: displayPath, excerpt: excerpt + (args.content.length > 360 ? '…' : '') }
   }
 
-  if (name === 'read_email' && typeof args.id === 'string') {
+  if (
+    (name === 'read_mail_message' || name === 'read_indexed_file') &&
+    typeof args.id === 'string'
+  ) {
     const id = args.id.trim()
     if (isFilesystemAbsolutePath(id)) {
       let excerpt = ''

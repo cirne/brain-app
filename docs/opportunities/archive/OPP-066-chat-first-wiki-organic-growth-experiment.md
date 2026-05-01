@@ -1,6 +1,6 @@
 # Archived: OPP-066 — Chat-first wiki / organic growth experiment
 
-**Archived 2026-04-30.** This epic is **closed for backlog tracking**: the shipped pieces below remain in `main`. **Operational “where we are”** (product question, eval harness posture, backlog): [the-wiki-question.md](../../the-wiki-question.md), [wiki-and-agent-evaluation.md](../../wiki-and-agent-evaluation.md); follow-on tickets [OPP-067](../OPP-067-wiki-buildout-agent-no-new-pages.md), [OPP-065](../OPP-065-wiki-eval-llm-as-judge.md). **Stable short URL:** [stub](../OPP-066-chat-first-wiki-organic-growth-experiment.md).
+**Archived 2026-04-30.** This epic is **closed for backlog tracking**: the shipped pieces below remain in `main`. **Operational “where we are”** (product question, eval harness posture, backlog): [the-wiki-question.md](../../the-wiki-question.md), [wiki-and-agent-evaluation.md](../../wiki-and-agent-evaluation.md); follow-on tickets [OPP-067](../OPP-067-wiki-buildout-agent-no-new-pages.md), [OPP-065](../OPP-065-wiki-eval-llm-as-judge.md). **Stable short URL:** this archived file (`opportunities/archive/OPP-066-….md`).
 
 ---
 
@@ -40,7 +40,7 @@ Follow-on work (tracked outside this file):
 
 - **Primary mission:** **deepen and refresh pages that already exist** (or were just created in chat) so they become the **source of truth**: more mail-backed context, template alignment (`people/template.md`, etc.), recency, and relationship coverage.
 - **Input signals:** Tail of `**wiki-edits.jsonl`** (or injected excerpt), `**## Chat capture`**, “new since last lap,” **thin page** heuristics—**not** open-ended “create pages for every entity in the inbox” on every lap.
-- **Methods:** targeted `**search_index` / `read_email`**, re-read templates, expand stubs—same **tool family** as today’s enrich agent, but **tighter eligibility** so work stays anchored on **pages the user’s activity already touched**.
+- **Methods:** targeted **`search_index` / `read_mail_message`**, re-read templates, expand stubs—same **tool family** as today’s enrich agent, but **tighter eligibility** so work stays anchored on **pages the user’s activity already touched**.
 
 **Linter / cleanup — unchanged separation**
 
@@ -68,7 +68,7 @@ We iterated on the **organic growth** hypothesis (chat-driven wiki ingest instea
 2. **Reuse existing primitives.**
   Background wiki work already exists: `[wikiExpansionRunner](../../../src/server/agent/wikiExpansionRunner.ts)`, `[backgroundAgentStore](../../../src/server/lib/chat/backgroundAgentStore.ts)`, wiki buildout/cleanup agents. OPP-066’s next phase is **generalizing that pattern** from onboarding-oriented expansion to **opportunistic post-chat authoring** driven by a small **handoff contract** (entities, suggested queries, target paths, caps)—not inventing a separate runtime from scratch.
 3. **Skills (optional but aligned).**
-  `[load_skill](../OPP-035-intent-based-skill-auto-loading.md)` can swap in a **tuned playbook** for “add page” vs “tidy vault” with different effort tiers and discover-first rules, without stuffing one mega-prompt. A separate `**wiki-add`** vs `**wiki-tidy`** skill (or one `/wiki` router loading two bodies) is compatible with this OPP; metadata helps routing when the user says “remember this” or `/wiki` + create intent.
+  `[load_skill](./OPP-073-intent-based-skill-auto-loading.md)` can swap in a **tuned playbook** for “add page” vs “tidy vault” with different effort tiers and discover-first rules, without stuffing one mega-prompt. A separate `**wiki-add`** vs `**wiki-tidy`** skill (or one `/wiki` router loading two bodies) is compatible with this OPP; metadata helps routing when the user says “remember this” or `/wiki` + create intent.
 4. **Guardrails to design explicitly**
 
   | Risk                                                   | Mitigation sketch                                                                    |
@@ -358,5 +358,5 @@ At gpt-5.4-mini pricing, the identity-only onboarding costs cents. The open ques
 - [the-wiki-question.md](../../the-wiki-question.md) — The open product question this experiment is designed to answer empirically.
 - [karpathy-llm-wiki-post.md](../../karpathy-llm-wiki-post.md) — Original framing; "file good answers back into the wiki" is the core operation here.
 - [OPP-065](../OPP-065-wiki-eval-llm-as-judge.md) — LLM-as-judge wiki eval; useful for measuring answer quality pre/post experiment.
-- [OPP-035](../OPP-035-intent-based-skill-auto-loading.md) — `load_skill`; optional `**wiki-add` / `wiki-tidy`** split for tuned authoring vs maintenance playbooks.
+- [OPP-073](./OPP-073-intent-based-skill-auto-loading.md) — `load_skill`; optional `**wiki-add` / `wiki-tidy`** split for tuned authoring vs maintenance playbooks.
 

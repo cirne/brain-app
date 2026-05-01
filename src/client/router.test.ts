@@ -668,7 +668,7 @@ describe('contextToString', () => {
     }
     const s = contextToString(ctx)!
     expect(s).toContain('/Users/me/Documents/a.xlsx')
-    expect(s).toContain('read_email')
+    expect(s).toContain('read_indexed_file')
   })
 
   it('formats calendar context with date', () => {

@@ -209,7 +209,7 @@ describe('HubConnectorSourcePanel.svelte preferences', () => {
     expect(JSON.parse(seenPosts[1].body)).toEqual({ id: '' })
   })
 
-  it('shows Index & sync for Google Drive with detail payload', async () => {
+  it('shows index stats for Google Drive with detail payload', async () => {
     vi.stubGlobal(
       'fetch',
       makeFetch(async (url) => {
@@ -266,10 +266,7 @@ describe('HubConnectorSourcePanel.svelte preferences', () => {
     render(HubConnectorSourcePanel, { props: { sourceId: 'gd1', onClose: () => {} } })
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Index & sync/i })).toBeInTheDocument()
-    })
-    await waitFor(() => {
-      expect(screen.getByText('100')).toBeInTheDocument()
+      expect(screen.getByText(/100 documents/)).toBeInTheDocument()
     })
     expect(screen.getByText(/Google Drive/i)).toBeInTheDocument()
   })
@@ -338,7 +335,7 @@ describe('HubConnectorSourcePanel.svelte preferences', () => {
     render(HubConnectorSourcePanel, { props: { sourceId: 'gd1', onClose: () => {} } })
 
     await waitFor(() => {
-      expect(screen.getByText('60')).toBeInTheDocument()
+      expect(screen.getByText(/60 documents/)).toBeInTheDocument()
     })
     expect(sourcesListGets).toBe(1)
 

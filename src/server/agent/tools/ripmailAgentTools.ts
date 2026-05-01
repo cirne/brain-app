@@ -35,6 +35,59 @@ import {
 
 const execAsync = promisify(exec)
 
+const READ_MAIL_BODY_MAX_CHARS = 5000
+
+/** Shared `ripmail read --json` path for mail messages, indexed Drive/local files, and allowed filesystem paths. */
+async function ripmailReadToolExecute(params: {
+  id: string
+  source?: string
+  /** When false, skip `attachment list` merge (paths only today). */
+  mergeAttachmentMetadata: boolean
+}): Promise<{ content: { type: 'text'; text: string }[]; details: Record<string, unknown> }> {
+  const rm = ripmailBin()
+  let readId = params.id
+  const originalIdWasPath = ripmailReadIdLooksLikeFilesystemPath(readId)
+  if (originalIdWasPath) {
+    readId = await assertAgentReadPathAllowed(readId)
+  }
+  const resolved = await resolveRipmailSourceForCli(params.source)
+  const src = resolved?.trim() ? ` --source ${JSON.stringify(resolved.trim())}` : ''
+  const { stdout } = await execRipmailAsync(
+    `${rm} read ${JSON.stringify(readId)} --json --plain-body --full-body${src}`,
+    {
+      ...ripmailReadExecOptions(),
+    },
+  )
+
+  let textOut = stdout
+  const shouldMergeAttachments = params.mergeAttachmentMetadata && !originalIdWasPath
+  if (shouldMergeAttachments) {
+    try {
+      const parsed = JSON.parse(stdout) as Record<string, unknown>
+      let attachments: unknown[] = []
+      try {
+        const { stdout: listOut } = await execRipmailAsync(
+          `${rm} attachment list ${JSON.stringify(readId)}`,
+          { timeout: 10000 },
+        )
+        const listed = JSON.parse(listOut.trim() || '[]')
+        attachments = Array.isArray(listed) ? listed : []
+      } catch {
+        attachments = []
+      }
+      parsed.attachments = attachments
+      textOut = stripReadEmailResult(JSON.stringify(parsed), READ_MAIL_BODY_MAX_CHARS)
+    } catch {
+      /* keep raw stdout if not JSON */
+    }
+  }
+
+  return {
+    content: [{ type: 'text' as const, text: textOut }],
+    details: {},
+  }
+}
+
 /**
  * Assistant-visible tool text: short metadata + hint not to paste the body in chat (draft is in the panel / preview).
  * {@link details} stays the full ripmail JSON for UI cards and streaming.
@@ -97,7 +150,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'search_index',
     label: 'Search index',
     description:
-      'Search indexed email and local files (`ripmail`). Put **sender/recipient/dates/subject** in structured fields (`from`, `to`, `after`, …), not Gmail-style `from:` inside `pattern`. **`pattern` is a Rust regex on subject+body** (use `a|b` for alternation—not the word OR). On empty, odd, or broad date-spanning results, **read the `hints` array** in the JSON response. For current-state facts, read the newest relevant results first; older conflicting messages are history unless newer evidence confirms them. For person names that are not stored on From lines, pass the **email address** in `from` or rely on `find_person` / `ripmail who`; rolling `after` values (e.g. `180d`) count from **today** and exclude archive mail from past years unless you use ISO date bounds or omit dates. **Adaptive resolution:** results are field-reduced when counts are large — ≤5 results: full (includes snippet); 6–15: compact (snippet omitted); >15: minimal (snippet + fromName omitted) — read the `[resolution: …]` annotation and narrow filters if you need more detail.',
+      'Search all ripmail-indexed content — **email, documents, and connected sources** (Google Drive, and any other sources the user has connected). Put **sender/recipient/dates/subject** in structured fields (`from`, `to`, `after`, …), not Gmail-style `from:` inside `pattern`. **`pattern` is a Rust regex on subject+body** (use `a|b` for alternation—not the word OR). On empty, odd, or broad date-spanning results, **read the `hints` array** in the JSON response. For current-state facts, read the newest relevant results first; older conflicting messages are history unless newer evidence confirms them. For person names that are not stored on From lines, pass the **email address** in `from` or rely on `find_person` / `ripmail who`; rolling `after` values (e.g. `180d`) count from **today** and exclude archive mail from past years unless you use ISO date bounds or omit dates. **Adaptive resolution:** results are field-reduced when counts are large — ≤5 results: full (includes snippet); 6–15: compact (snippet omitted); >15: minimal (snippet + fromName omitted) — read the `[resolution: …]` annotation and narrow filters if you need more detail. **`source` discipline:** Prefer **omit** `source` so all default-search connectors run. If set, pass only a **configured ripmail source id** (from system prompt **Configured ripmail sources** or **`manage_sources` op=list**) or a mailbox **email** — never a Drive folder name, vendor name, or project nickname (those go in **`pattern`**, not `source`).',
     parameters: Type.Object({
       pattern: Type.Optional(
         Type.String({
@@ -135,7 +188,7 @@ export function createRipmailAgentTools(wikiDir: string) {
       source: Type.Optional(
         Type.String({
           description:
-            'Ripmail source id or mailbox email. Default search includes every IMAP account whose Hub setting "Search this mailbox by default" is on (the user can hide a mailbox in Hub > Source > Search this mailbox by default). When the user says "my work inbox" or names a specific Gmail, pass that email here so the agent searches only that mailbox.',
+            'Optional. Omit unless narrowing to one connector. Must be an exact **source id** from **Configured ripmail sources** / `manage_sources op=list` (e.g. `…-drive` for Google Drive) or a configured **mailbox email**. Never a folder label, company name, or search keyword.',
         }),
       ),
     }),
@@ -254,63 +307,66 @@ export function createRipmailAgentTools(wikiDir: string) {
     },
   })
 
-  const readEmail = defineTool({
-    name: 'read_email',
-    label: 'Read email',
+  const readMailMessage = defineTool({
+    name: 'read_mail_message',
+    label: 'Read mail',
     description:
-      'Read one item from the ripmail index: an email by Message-ID, or a file by absolute path (tilde paths OK). Uses `ripmail read --plain-body` so the MIME text/plain part is preferred when present (better for summarization); the in-app inbox uses the default body choice for display. Use optional source when Message-ID is ambiguous. For emails, the JSON includes an `attachments` array (index, filename, mimeType, size) when present — metadata only. Use **read_attachment** to fetch extracted text for a specific attachment.',
+      '**Ripmail mail only (not the wiki `read` tool).** Load one **email** by Message-ID or thread id string from **`list_inbox`** or **`search_index`** mail hits (`messageId`). JSON may list `attachments` (metadata only) — use **`read_attachment`** for a specific MIME part. **Do not use this for Google Drive or local indexed folder files:** use **`read_indexed_file`** with the search hit `messageId` (file id). **Do not use filesystem paths here** — use **`read_indexed_file`**.',
     parameters: Type.Object({
-      id: Type.String({ description: 'Message-ID or filesystem path' }),
+      id: Type.String({
+        description:
+          'Email Message-ID from inbox or search (same field name as JSON `messageId` on mail rows). Never a filesystem path.',
+      }),
       source: Type.Optional(
         Type.String({
           description:
-            'Narrows Message-ID resolution when ambiguous; same source normalization as search_index (single-mailbox inferred email → configured id).',
+            'Optional ripmail source id or mailbox email — same rules as search_index `source` (never folder/vendor nicknames).',
         }),
       ),
     }),
     async execute(_toolCallId: string, params: { id: string; source?: string }) {
-      const rm = ripmailBin()
-      let readId = params.id
-      const originalIdWasPath = ripmailReadIdLooksLikeFilesystemPath(readId)
-      if (originalIdWasPath) {
-        readId = await assertAgentReadPathAllowed(readId)
-      }
-      const resolved = await resolveRipmailSourceForCli(params.source)
-      const src = resolved?.trim() ? ` --source ${JSON.stringify(resolved.trim())}` : ''
-      const { stdout } = await execRipmailAsync(
-        `${rm} read ${JSON.stringify(readId)} --json --plain-body --full-body${src}`,
-        {
-          ...ripmailReadExecOptions(),
-        },
-      )
-
-      const READ_EMAIL_BODY_MAX_CHARS = 5000
-      let textOut = stdout
-      if (!originalIdWasPath) {
-        try {
-          const parsed = JSON.parse(stdout) as Record<string, unknown>
-          let attachments: unknown[] = []
-          try {
-            const { stdout: listOut } = await execRipmailAsync(
-              `${rm} attachment list ${JSON.stringify(readId)}`,
-              { timeout: 10000 },
-            )
-            const listed = JSON.parse(listOut.trim() || '[]')
-            attachments = Array.isArray(listed) ? listed : []
-          } catch {
-            attachments = []
-          }
-          parsed.attachments = attachments
-          textOut = stripReadEmailResult(JSON.stringify(parsed), READ_EMAIL_BODY_MAX_CHARS)
-        } catch {
-          /* keep raw stdout if not JSON */
+      if (ripmailReadIdLooksLikeFilesystemPath(params.id)) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'read_mail_message is only for email ids from inbox/search — not filesystem paths. Use read_indexed_file for paths and for Drive/local indexed document ids.',
+            },
+          ],
+          details: {},
         }
       }
+      return ripmailReadToolExecute({
+        id: params.id,
+        source: params.source,
+        mergeAttachmentMetadata: true,
+      })
+    },
+  })
 
-      return {
-        content: [{ type: 'text' as const, text: textOut }],
-        details: {},
-      }
+  const readIndexedFile = defineTool({
+    name: 'read_indexed_file',
+    label: 'Read file',
+    description:
+      '**Ripmail indexed files only (not the wiki `read` tool).** Read body text for **Google Drive** or **localDir** items indexed into ripmail: pass **`messageId`** from **`search_index`** (same JSON field as mail — for Drive it is the remote file id, usually long alphanumeric). Also use for **allowed absolute filesystem paths** (tilde ok) when you need extracted text/PDF/etc. Contents come from ripmail’s local cache/export — **not** email MIME attachments; never call **`read_attachment`** for these.',
+    parameters: Type.Object({
+      id: Type.String({
+        description:
+          '`messageId` from search_index for Drive/localDir/file hits, or an absolute path allowlisted for this tenant.',
+      }),
+      source: Type.Optional(
+        Type.String({
+          description:
+            'Optional ripmail source id (e.g. `…-drive`) when ids are ambiguous — same rules as search_index `source`.',
+        }),
+      ),
+    }),
+    async execute(_toolCallId: string, params: { id: string; source?: string }) {
+      return ripmailReadToolExecute({
+        id: params.id,
+        source: params.source,
+        mergeAttachmentMetadata: !ripmailReadIdLooksLikeFilesystemPath(params.id),
+      })
     },
   })
 
@@ -318,15 +374,15 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'read_attachment',
     label: 'Read attachment',
     description:
-      'Fetch extracted text from a specific email attachment (PDF, CSV, Office, etc.). Pass the filename or index from the `attachments` array returned by read_email.',
+      '**Email only.** Fetch extracted text from a MIME attachment on a mail message (PDF, CSV, Office, etc.). `id` must be an email Message-ID after **read_mail_message** on that message listed `attachments`. **Never use this for Google Drive or indexed folder files** — those are not mail attachments; use **read_indexed_file** with the search result `messageId` (Drive file id).',
     parameters: Type.Object({
-      id: Type.String({ description: 'Message-ID of the email' }),
+      id: Type.String({ description: 'Email Message-ID only (not a Drive file id).' }),
       attachment: Type.Union(
         [
           Type.String({ description: 'Attachment filename (e.g. "Invoice.pdf")' }),
-          Type.Number({ description: 'Attachment index from read_email attachments[]' }),
+          Type.Number({ description: 'Attachment index from read_mail_message attachments[]' }),
         ],
-        { description: 'Filename or numeric index from read_email' },
+        { description: 'Filename or numeric index from read_mail_message' },
       ),
     }),
     async execute(_toolCallId: string, params: { id: string; attachment: string | number }) {
@@ -350,7 +406,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'manage_sources',
     label: 'Manage sources',
     description:
-      'Manage ripmail sources (IMAP, Apple Mail, local folders, calendars, Google Drive). op=list: list all sources; op=status: index health and sync times; op=add: register a local folder (kind localDir) or Google Drive (kind googleDrive with email + oauth_source_id). File corpus roots live in **fileSource.roots** (`id` = filesystem path or Drive folder id). Use **root_ids** when adding (maps to `ripmail sources add --root-id`). Google Drive sync requires at least one folder root (no whole-drive). op=edit: update label/path; op=remove: delete a source; op=reindex: background incremental sync (same as **refresh_sources**); prefer **refresh_sources** when the user only asks to refresh or sync mail/data.',
+      'Manage ripmail sources (IMAP, Apple Mail, local folders, calendars, Google Drive). **op=list** — authoritative **source ids** and kinds; call this before passing **`source`** to `search_index` / reads when unsure or after **Unknown source**. op=status: index health and sync times; op=add: register a local folder (kind localDir) or Google Drive (kind googleDrive with email + oauth_source_id). File corpus roots live in **fileSource.roots** (`id` = filesystem path or Drive folder id). Use **root_ids** when adding (maps to `ripmail sources add --root-id`). Google Drive sync requires at least one folder root (no whole-drive). op=edit: update label/path; op=remove: delete a source; op=reindex: background incremental sync (same as **refresh_sources**); prefer **refresh_sources** when the user only asks to refresh or sync mail/data.',
     parameters: Type.Object({
       op: Type.Union([
         Type.Literal('list'),
@@ -518,7 +574,7 @@ export function createRipmailAgentTools(wikiDir: string) {
       source: Type.Optional(
         Type.String({
           description:
-            'Ripmail source id or mailbox email for `--source`; omit to sync all sources (right for generic "refresh my email" with one account or to update everything).',
+            'Ripmail source id or mailbox email for `--source` (from **Configured ripmail sources** / `manage_sources op=list`); omit to sync all. Never a folder or vendor label.',
         }),
       ),
     }),
@@ -542,7 +598,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'list_inbox',
     label: 'List Inbox',
     description:
-      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_index for "everything in my inbox" or when search_index returns no results. JSON includes messageId per item for archive_emails / read_email. Set `thorough: true` when diagnosing why mail is missing from the normal inbox scan: ripmail `--thorough` includes hidden/suppressed categories and messages that matched an ignore/suppress-style rule, often with winningRuleId for which filter hid them. **Adaptive resolution:** per-item fields are reduced when the inbox is large — ≤8 items: full; 9–20: compact (snippet omitted); >20: minimal (snippet + fromName omitted) — use read_email to get full content for any item.',
+      'List messages in the inbox using the same ripmail rules as the app UI (not full-text search). Prefer this over search_index for "everything in my inbox" or when search_index returns no results. JSON includes messageId per item for archive_emails / read_mail_message. Set `thorough: true` when diagnosing why mail is missing from the normal inbox scan: ripmail `--thorough` includes hidden/suppressed categories and messages that matched an ignore/suppress-style rule, often with winningRuleId for which filter hid them. **Adaptive resolution:** per-item fields are reduced when the inbox is large — ≤8 items: full; 9–20: compact (snippet omitted); >20: minimal (snippet + fromName omitted) — use read_mail_message to get full content for any item.',
     parameters: Type.Object({
       thorough: Type.Optional(
         Type.Boolean({
@@ -559,9 +615,9 @@ export function createRipmailAgentTools(wikiDir: string) {
       const { text: resolvedText, tier, totalItems } = applyInboxResolution(stdout)
       let text = resolvedText
       if (tier === 'compact') {
-        text += `\n\n[resolution: compact — ${totalItems} inbox items, snippet omitted. Use read_email for full message content.]`
+        text += `\n\n[resolution: compact — ${totalItems} inbox items, snippet omitted. Use read_mail_message for full message content.]`
       } else if (tier === 'minimal') {
-        text += `\n\n[resolution: minimal — ${totalItems} inbox items, snippet and fromName omitted. Use read_email for full content.]`
+        text += `\n\n[resolution: minimal — ${totalItems} inbox items, snippet and fromName omitted. Use read_mail_message for full content.]`
       }
 
       let details: Record<string, unknown> = {}
@@ -680,7 +736,7 @@ export function createRipmailAgentTools(wikiDir: string) {
     name: 'archive_emails',
     label: 'Archive Emails',
     description:
-      'Archive one or more messages by ID (removes them from the inbox view via IMAP). Use IDs from list_inbox, search_index, or read_email.',
+      'Archive one or more messages by ID (removes them from the inbox view via IMAP). Use IDs from list_inbox, search_index, or read_mail_message.',
     parameters: Type.Object({
       message_ids: Type.Array(Type.String({ description: 'Message ID' }), { minItems: 1 }),
     }),
@@ -890,7 +946,8 @@ export function createRipmailAgentTools(wikiDir: string) {
 
   return {
     searchIndex,
-    readEmail,
+    readMailMessage,
+    readIndexedFile,
     readAttachment,
     manageSources,
     refreshSources,

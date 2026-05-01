@@ -1,5 +1,5 @@
 /**
- * Tap-to-talk voice input in chat (OPP-050 / OPP-055).
+ * Tap-to-talk voice input in chat (archived OPP-074 dev guardrail history / OPP-055 UX).
  * Revert to dev-only: `return env.DEV` in pressToTalkEnabledFromMetaEnv.
  */
 export function pressToTalkEnabledFromMetaEnv(env: { readonly DEV: boolean }): boolean {

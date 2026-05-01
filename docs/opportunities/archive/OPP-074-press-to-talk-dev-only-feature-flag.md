@@ -1,4 +1,4 @@
-# Archived: OPP-050 (Press-to-talk — dev-only feature flag)
+# Archived: OPP-074 (Press-to-talk — dev-only feature flag)
 
 **Status: Shipped — archived (2026-04-25).** Hold-to-speak was originally gated to **local Vite dev** (`import.meta.env.DEV`) in composer audio; `POST /api/transcribe` returned **503** `transcribe_dev_only` when `NODE_ENV === 'production'`. Tests cover the helper and route. **As of 2026-04:** client + server guards were relaxed (`pressToTalkEnabled.ts`, `transcribeHttpAllowed.ts`) so voice can run in production when STT keys exist. **Voice UX / Wispr research:** [stub](../OPP-046-voice-input-press-to-talk-wispr-flow.md); full write-up [archive/OPP-046-voice-input-press-to-talk-wispr-flow.md](./OPP-046-voice-input-press-to-talk-wispr-flow.md); tap-to-talk polish **[OPP-055](../OPP-055-tap-to-talk-mobile-panel-ux.md)** (active).
 
@@ -6,7 +6,7 @@
 
 ---
 
-# OPP-050: Press-to-talk — dev-only feature flag (ship guardrail)
+# OPP-074: Press-to-talk — dev-only feature flag (ship guardrail)
 
 **Status:** ~~Open~~ → **Shipped** (see archive banner above)  
 **Tags:** `chat` · `mobile` · `quality` · `shipping`

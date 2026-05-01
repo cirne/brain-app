@@ -1,9 +1,10 @@
 import { spawn, type ChildProcess, type ExecOptions, type SpawnOptions } from 'node:child_process'
+import { resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { tokenizeRipmailArgString } from './ripmailArgvTokenize.js'
 import { ripmailBin } from './ripmailBin.js'
 import { buildRipmailStatusLogSnapshot } from './ripmailStatusParse.js'
-import { ripmailProcessEnv } from '@server/lib/platform/brainHome.js'
+import { ripmailHomeForBrain, ripmailProcessEnv } from '@server/lib/platform/brainHome.js'
 import { logger } from '@server/lib/observability/logger.js'
 
 const KILL_ESCALATION_MS = 5000
@@ -263,7 +264,7 @@ export async function runRipmailArgv(
         }
         if (r.timedOut && stderrLen === 0 && stdoutLen === 0) {
           closePayload.diagnosticHint =
-            'ripmail produced no output before Node timeout — likely blocked before first progress line (wrong binary, crash on startup, or stderr not captured); confirm container ripmail build and RIPMAIL_HOME'
+            'ripmail produced no output before Node timeout — likely blocked before first progress line (wrong binary, crash on startup, or stderr not captured); confirm container ripmail build and BRAIN_HOME / ripmail subtree path'
         } else if (r.timedOut && stderrLen > 0) {
           const tail = stderr.slice(-4000)
           if (tail.includes('sending message via SMTP')) {
@@ -450,6 +451,11 @@ export function execRipmailAsync(
 /** Dev hard-reset: `ripmail clean --yes` (same argv path as `execRipmailArgv`). */
 export const RIPMAIL_CLEAN_TIMEOUT_MS = 120_000
 
-export function execRipmailCleanYes(): Promise<{ stdout: string; stderr: string }> {
-  return execRipmailArgv(['clean', '--yes'], { timeout: RIPMAIL_CLEAN_TIMEOUT_MS })
+/** Dev hard-reset: `ripmail clean --yes` at Brain’s canonical ripmail dir (`$BRAIN_HOME/<layout ripmail>/`). */
+export async function execRipmailCleanYes(): Promise<{ stdout: string; stderr: string }> {
+  const root = resolvePath(ripmailHomeForBrain())
+  return execRipmailArgv(['clean', '--yes'], {
+    timeout: RIPMAIL_CLEAN_TIMEOUT_MS,
+    env: { RIPMAIL_HOME: root },
+  })
 }

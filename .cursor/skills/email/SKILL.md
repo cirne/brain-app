@@ -5,7 +5,7 @@ description: >-
   Use for anything email-related in Braintunnel: finding a message, reading a thread,
   checking what's in the inbox, drafting or sending a reply, or investigating
   why an expected email didn't show up or was hidden by a filter. Prefer the
-  built-in tools (`search_index`, `read_email`, `list_inbox`, `inbox_rules`, `draft_email`,
+  built-in tools (`search_index`, `read_mail_message`, `read_indexed_file`, `list_inbox`, `inbox_rules`, `draft_email`,
   `send_draft`, etc.); do not assume a raw `ripmail` shell is available.
 ---
 
@@ -16,7 +16,7 @@ User-facing email workflows in the assistant. **No slash commands assumed** — 
 ## Agent checklist
 
 1. **Freshness:** If the user cares about *right now*, run **`refresh_sources`** first (or say you’re starting a background sync and to wait briefly before `search_index` / `list_inbox`).
-2. **Find then read:** Prefer **`search_index`** for “where is that mail,” then **`read_email`** (and **`read_attachment`** if needed) with the returned `messageId`.
+2. **Find then read:** Prefer **`search_index`** for “where is that mail,” then **`read_mail_message`** for RFC Message-IDs or **`read_indexed_file`** for indexed file/Drive **`messageId`** (and **`read_attachment`** for MIME parts) as appropriate.
 3. **Inbox vs search:** Use **`list_inbox`** for “what’s in my triaged inbox / what the app surfaces,” not full-text search across everything. See [references/INBOX.md](references/INBOX.md).
 4. **People:** Use **`find_person`** for contact-style questions (who is this, top correspondents, phone/name).
 5. **Never paste secrets:** OTPs, reset links, credentials — summarize or confirm found without dumping full bodies unless asked.
@@ -27,7 +27,8 @@ User-facing email workflows in the assistant. **No slash commands assumed** — 
 | Goal | Tool |
 | --- | --- |
 | Full-text / keyword find | `search_index` |
-| Open a message | `read_email` |
+| Open a mail thread body | `read_mail_message` |
+| Open indexed file / Drive body | `read_indexed_file` |
 | Attachments | `read_attachment` |
 | What the inbox shows | `list_inbox` (optional `thorough: true` when diagnosing missing mail) |
 | Filters / rules | `inbox_rules` |
@@ -45,7 +46,7 @@ User-facing email workflows in the assistant. **No slash commands assumed** — 
 
 ## OTP / verification codes
 
-Use **`search_index`** for the provider or sender, then **`read_email`** on the best `messageId`. Do not rely only on “refresh finished” messages for the code. (Detail: ripmail’s [AUTH-CODES.md](https://github.com/cirne/zmail/blob/main/skills/ripmail/references/AUTH-CODES.md) describes the CLI pattern; Brain uses the tools above.)
+Use **`search_index`** for the provider or sender, then **`read_mail_message`** on the best mail `messageId`. Do not rely only on “refresh finished” messages for the code. (Detail: ripmail’s [AUTH-CODES.md](https://github.com/cirne/zmail/blob/main/skills/ripmail/references/AUTH-CODES.md) describes the CLI pattern; Brain uses the tools above.)
 
 ## Related skills
 

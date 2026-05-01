@@ -44,7 +44,7 @@ If the product direction includes **“search everything the user connects”** 
 
 1. **Connector breadth** — Reach many providers (CRM, ticketing, docs, chat, etc.) without implementing each OAuth + client in-tree first.
 2. **Auth UX** — AuthKit-style flows could complement existing Gmail/Google flows in brain-app, for **non-mail** systems—if we accept routing user authorization through One’s stack.
-3. **Agent tooling (optional)** — Universal MCP / ToolKit patterns matter more for **brain-app’s pi-agent** tool surface than for ripmail’s CLI; still relevant if we expose “call connected SaaS” tools alongside `search_index` / `read_email`.
+3. **Agent tooling (optional)** — Universal MCP / ToolKit patterns matter more for **brain-app’s pi-agent** tool surface than for ripmail’s CLI; still relevant if we expose “call connected SaaS” tools alongside `search_index` / `read_mail_message` / `read_indexed_file`.
 
 **Ripmail-specific framing:** A plausible pattern is **not** “One replaces the index,” but **“scheduled or on-demand jobs pull normalized documents via One’s API, then write into ripmail’s unified source model”** (see OPP-051 `kind` / `sources[]` design). The index remains **local**; the **sync transport** might be mediated by One.
 

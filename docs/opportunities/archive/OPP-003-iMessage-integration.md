@@ -86,7 +86,7 @@ Agent resolves Alex's chat (from wiki or from a prior search), uses `get_message
 
 1. **Find Brett in the wiki** — search or open `people/brett` (or equivalent); extract phone, email, nicknames.
 2. **SMS / iMessage** — map phone/handle → thread; `get_message_thread` with a reasonable default window (e.g. 30 days) or `list_recent_messages` filtered by resolved identifiers.
-3. **Email** — existing ripmail / `search_email` / `read_email` using addresses from the same page.
+3. **Email** — existing ripmail / `search_email` / `read_mail_message` using addresses from the same page.
 4. **Synthesize** — one answer that cites channel (SMS vs Mail) and time, without duplicating raw dumps unless asked.
 
 This is the same **correlation pattern** as calendar + email: structured identity in the wiki, multiple backends queried by the agent.

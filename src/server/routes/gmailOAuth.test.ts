@@ -181,6 +181,39 @@ describe('GET /api/oauth/google/callback', () => {
     expect(decodeURIComponent(loc)).toMatch(/every permission/i)
   })
 
+  it('redirects with error when token omits Drive scope', async () => {
+    const { verifier } = generatePkce()
+    const state = 'no-drive-scope-test'
+    putOAuthSession(state, verifier)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url.includes('oauth2.googleapis.com/token')) {
+          return new Response(
+            JSON.stringify({
+              access_token: 'at',
+              refresh_token: 'rt',
+              expires_in: 3600,
+              scope:
+                'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid email',
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+        }
+        throw new Error(`unexpected fetch: ${url}`)
+      })
+    )
+    const app = mountApp()
+    const res = await app.request(
+      `http://localhost/api/oauth/google/callback?code=auth-code&state=${encodeURIComponent(state)}`
+    )
+    expect(res.status).toBe(302)
+    const loc = res.headers.get('location')!
+    expect(loc).toContain('/oauth/google/error?reason=')
+    expect(decodeURIComponent(loc)).toMatch(/Google Drive/i)
+  })
+
   it('GET /api/oauth/google/last-result reports success after callback and clears', async () => {
     const { verifier } = generatePkce()
     const state = 'state-for-last-result'

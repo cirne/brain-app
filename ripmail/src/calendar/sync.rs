@@ -6,9 +6,7 @@ use std::time::Instant;
 
 use rusqlite::Connection;
 
-use crate::config::{
-    load_config_json, write_config_json, CalendarSourceResolved, ResolvedMailbox, SourceKind,
-};
+use crate::config::{CalendarSourceResolved, ResolvedMailbox, SourceKind};
 use crate::sync::run::SyncResult;
 use crate::sync::sync_log::SyncFileLogger;
 
@@ -58,7 +56,7 @@ pub fn run_calendar_sync(
                 token_mailbox_id,
                 ..
             } => {
-                let (n, discovered, cal_names) = sync_google_calendars(
+                let (n, _discovered, cal_names, cal_colors) = sync_google_calendars(
                     conn,
                     home,
                     &mb.id,
@@ -67,20 +65,22 @@ pub fn run_calendar_sync(
                     env_file,
                     process_env,
                 )?;
-                if !discovered.is_empty() && discovered != *calendar_ids {
-                    let mut cfg_json = load_config_json(home);
-                    if let Some(sources) = cfg_json.sources.as_mut() {
-                        if let Some(idx) = sources.iter().position(|s| s.id == mb.id) {
-                            sources[idx].calendar_ids = Some(discovered);
-                            let _ = write_config_json(home, &cfg_json);
-                        }
-                    }
-                }
-                if !cal_names.is_empty() {
+                // Do not overwrite `sources[].calendarIds` from Google's full calendar list.
+                // Sync already pulls every calendarList entry into the index; `calendarIds` is the
+                // user's subset for default queries (Hub / `sources edit --calendar`). Replacing it
+                // with the discovered list cleared Hub selections after each refresh.
+                if !cal_names.is_empty() || !cal_colors.is_empty() {
                     let dir = home.join(&mb.id);
                     let _ = std::fs::create_dir_all(&dir);
-                    if let Ok(json) = serde_json::to_string_pretty(&cal_names) {
-                        let _ = std::fs::write(dir.join("calendar-names.json"), json);
+                    if !cal_names.is_empty() {
+                        if let Ok(json) = serde_json::to_string_pretty(&cal_names) {
+                            let _ = std::fs::write(dir.join("calendar-names.json"), json);
+                        }
+                    }
+                    if !cal_colors.is_empty() {
+                        if let Ok(json) = serde_json::to_string_pretty(&cal_colors) {
+                            let _ = std::fs::write(dir.join("calendar-colors.json"), json);
+                        }
                     }
                 }
                 n

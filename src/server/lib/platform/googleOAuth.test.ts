@@ -11,6 +11,8 @@ import {
   buildGoogleAuthorizeUrl,
   upsertRipmailConfig,
   upsertRipmailGoogleCalendarSource,
+  upsertRipmailGoogleDriveSource,
+  ensureGoogleDriveSourcesForOAuthImap,
   validateGoogleOAuthGrantedScopes,
   writeGoogleOAuthTokenFile,
 } from './googleOAuth.js'
@@ -113,28 +115,21 @@ describe('validateGoogleOAuthGrantedScopes', () => {
   const base =
     'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid email'
 
-  it('accepts mail+calendar+openid+email and reports Drive reconnect when drive scope missing', () => {
-    expect(validateGoogleOAuthGrantedScopes(base)).toEqual({
-      ok: true,
-      needsDriveReconnect: true,
-    })
+  it('rejects when mail+calendar+openid+email but Drive read-only missing', () => {
+    const r = validateGoogleOAuthGrantedScopes(base)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.message).toMatch(/Google Drive/i)
   })
 
   it('accepts full scope including Drive read-only', () => {
     const s = `${base} https://www.googleapis.com/auth/drive.readonly`
-    expect(validateGoogleOAuthGrantedScopes(s)).toEqual({
-      ok: true,
-      needsDriveReconnect: false,
-    })
+    expect(validateGoogleOAuthGrantedScopes(s)).toEqual({ ok: true })
   })
 
   it('accepts userinfo.email instead of email', () => {
     const s =
       'https://mail.google.com/ https://www.googleapis.com/auth/calendar.events openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.readonly'
-    expect(validateGoogleOAuthGrantedScopes(s)).toEqual({
-      ok: true,
-      needsDriveReconnect: false,
-    })
+    expect(validateGoogleOAuthGrantedScopes(s)).toEqual({ ok: true })
   })
 
   it('rejects missing Gmail scope (partial consent)', () => {
@@ -254,5 +249,56 @@ describe('upsertRipmailGoogleCalendarSource', () => {
     expect(gcal).toBeDefined()
     expect(gcal!.oauthSourceId).toBe('a_gmail_com')
     expect(gcal!.calendarIds).toEqual(['primary'])
+  })
+})
+
+describe('upsertRipmailGoogleDriveSource', () => {
+  let home: string
+  beforeEach(async () => {
+    home = await mkdtemp(join(tmpdir(), 'ripmail-gdrive-'))
+  })
+  afterEach(async () => {
+    await rm(home, { recursive: true, force: true })
+  })
+
+  it('adds googleDrive next to imap with empty folder roots', async () => {
+    await upsertRipmailConfig(home, 'a_gmail_com', 'a@gmail.com')
+    await upsertRipmailGoogleDriveSource(home, 'a_gmail_com', 'a@gmail.com')
+    const raw = await readFile(join(home, 'config.json'), 'utf8')
+    const j = JSON.parse(raw) as {
+      sources: Array<{
+        id: string
+        kind: string
+        oauthSourceId?: string
+        email?: string
+        fileSource?: { roots: unknown[] }
+      }>
+    }
+    const gd = j.sources.find((s) => s.kind === 'googleDrive')
+    expect(gd).toBeDefined()
+    expect(gd!.id).toBe('a_gmail_com-drive')
+    expect(gd!.oauthSourceId).toBe('a_gmail_com')
+    expect(gd!.email).toBe('a@gmail.com')
+    expect(Array.isArray(gd!.fileSource?.roots)).toBe(true)
+    expect(gd!.fileSource!.roots).toHaveLength(0)
+  })
+})
+
+describe('ensureGoogleDriveSourcesForOAuthImap', () => {
+  let home: string
+  beforeEach(async () => {
+    home = await mkdtemp(join(tmpdir(), 'ripmail-ensure-gd-'))
+  })
+  afterEach(async () => {
+    await rm(home, { recursive: true, force: true })
+  })
+
+  it('adds googleDrive when oauth imap exists but drive sibling missing', async () => {
+    await upsertRipmailConfig(home, 'x_gmail_com', 'x@gmail.com')
+    await upsertRipmailGoogleCalendarSource(home, 'x_gmail_com', 'x@gmail.com')
+    await ensureGoogleDriveSourcesForOAuthImap(home)
+    const raw = await readFile(join(home, 'config.json'), 'utf8')
+    const j = JSON.parse(raw) as { sources: Array<{ kind: string }> }
+    expect(j.sources.some((s) => s.kind === 'googleDrive')).toBe(true)
   })
 })

@@ -322,7 +322,31 @@ export async function updateHubRipmailFileSource(
   }
 }
 
-export type HubCalendarRow = { id: string; name: string }
+export async function updateIncludeSharedWithMe(
+  id: string,
+  include: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const trimmed = id?.trim()
+  if (!trimmed) return { ok: false, error: 'id required' }
+  try {
+    await runRipmailArgv(
+      [
+        'sources',
+        'edit',
+        trimmed,
+        '--include-shared-with-me',
+        include ? 'true' : 'false',
+        '--json',
+      ],
+      { timeoutMs: 30_000, label: 'sources-edit-include-shared-with-me' },
+    )
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+export type HubCalendarRow = { id: string; name: string; color?: string }
 
 /**
  * Returns all available calendars (from `allCalendars`) and currently configured calendar IDs
@@ -343,8 +367,8 @@ export async function getHubRipmailCalendarsForSource(sourceId: string): Promise
     const parsed = JSON.parse(stdout) as {
       calendars?: Array<{
         sourceId?: string
-        calendars?: Array<{ id: string; name?: string }>
-        allCalendars?: Array<{ id: string; name?: string }>
+        calendars?: Array<{ id: string; name?: string; color?: string }>
+        allCalendars?: Array<{ id: string; name?: string; color?: string }>
       }>
     }
     const sourceRows = Array.isArray(parsed.calendars) ? parsed.calendars : []
@@ -357,7 +381,13 @@ export async function getHubRipmailCalendarsForSource(sourceId: string): Promise
 
     const allCalendars: HubCalendarRow[] = source
       .filter((c) => c.id?.trim())
-      .map((c) => ({ id: c.id.trim(), name: c.name?.trim() || c.id.trim() }))
+      .map((c) => ({
+        id: c.id.trim(),
+        name: c.name?.trim() || c.id.trim(),
+        ...(typeof c.color === 'string' && c.color.trim()
+          ? { color: c.color.trim() }
+          : {}),
+      }))
 
     const configuredIds = rawConfigured
       .filter((c) => c.id?.trim())

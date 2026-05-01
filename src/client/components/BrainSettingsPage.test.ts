@@ -166,6 +166,59 @@ describe('BrainSettingsPage.svelte', () => {
     expect(onSettingsNavigate).toHaveBeenCalledWith({ type: 'hub-source', id: 'work_x' })
   })
 
+  it('marks the hub source row as selected when selectedHubSourceId matches', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: RequestInfo) => {
+        const u = String(url)
+        if (u.includes('/api/hub/sources/mail-prefs')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
+              { status: 200 },
+            ),
+          )
+        }
+        if (u.includes('/api/hub/sources')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                sources: [
+                  {
+                    id: 'mail_a',
+                    kind: 'imap',
+                    displayName: 'a@example.com',
+                    path: null,
+                  },
+                  {
+                    id: 'cal_b',
+                    kind: 'googleCalendar',
+                    displayName: 'b@example.com',
+                    path: null,
+                  },
+                ],
+              }),
+              { status: 200 },
+            ),
+          )
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }) as unknown as typeof fetch,
+    )
+    render(BrainSettingsPage, {
+      props: { onSettingsNavigate: vi.fn(), selectedHubSourceId: 'cal_b' },
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /b@example\.com/i })).toHaveAttribute(
+        'aria-current',
+        'true',
+      )
+    })
+    expect(screen.getByRole('button', { name: /a@example\.com/i })).not.toHaveAttribute(
+      'aria-current',
+    )
+  })
+
   it('shows Google Drive label for googleDrive sources', async () => {
     vi.stubGlobal(
       'fetch',

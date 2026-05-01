@@ -2,7 +2,7 @@
  * Query indexed calendar events via `ripmail calendar range --json` ([OPP-053]).
  */
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
-import { ensureGoogleCalendarSourcesForOAuthImap } from '@server/lib/platform/googleOAuth.js'
+import { ensureGoogleOAuthImapSiblingSources } from '@server/lib/platform/googleOAuth.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 import type { CalendarEvent } from './calendarCache.js'
@@ -246,7 +246,7 @@ export async function getCalendarEventsFromRipmail(opts: {
   end?: string
   calendarIds?: string[]
 }): Promise<{ events: CalendarEvent[]; meta: CalendarFetchMeta }> {
-  await ensureGoogleCalendarSourcesForOAuthImap(ripmailHomeForBrain())
+  await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
   const start = opts.start?.trim()
   const end = opts.end?.trim()
   if (!start || !end) {

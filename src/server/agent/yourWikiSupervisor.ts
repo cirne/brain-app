@@ -297,7 +297,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
         if (syncResult.ok) {
           syncNote =
             'Mail and calendar sources were synced immediately before this lap. ' +
-            'Your tools (search_index, read_email, find_person) reflect recently indexed content. ' +
+            'Your tools (search_index, read_mail_message, read_indexed_file, find_person) reflect recently indexed content. ' +
             'Prioritize **new high-signal coverage** (people, projects, deserving topics) revealed by these updates—not extra thin topic stubs. ' +
             'Use **edit** for surgical factual corrections if existing pages are now proven wrong or stale, ' +
             'and balance new material with coherence rather than only summarizing recent events.'

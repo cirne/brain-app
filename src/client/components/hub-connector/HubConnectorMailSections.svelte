@@ -18,6 +18,8 @@
     prefsError: string | null
     backfillWindow: string
     sourceSyncAction: 'refresh' | 'backfill' | null
+    /** When false, mailbox refresh is only in SlideOver header. */
+    showInlineRefresh: boolean
     onToggleIncludedInDefault: () => void
     onSetDefaultSend: (_checked: boolean) => void
     onRefresh: () => void
@@ -35,6 +37,7 @@
     prefsError,
     backfillWindow = $bindable(),
     sourceSyncAction,
+    showInlineRefresh,
     onToggleIncludedInDefault,
     onSetDefaultSend,
     onRefresh,
@@ -43,7 +46,7 @@
 </script>
 
 <section class="hub-source-status-section" aria-labelledby="hub-mail-status-heading">
-  <h2 id="hub-mail-status-heading" class="hub-source-status-heading">Index status</h2>
+  <h2 id="hub-mail-status-heading" class="hub-source-status-heading">Mailbox</h2>
   {#if mailStatusLoading && !mailStatus}
     <p class="hub-source-status-note" role="status">Loading status…</p>
   {:else if mailStatusError}
@@ -73,38 +76,13 @@
     {#if mailStatus.mailbox}
       {@const mb = mailStatus.mailbox}
       {@const idx = mailStatus.index}
-      <dl class="hub-source-meta hub-source-meta--dense">
-        <div class="hub-source-meta-row">
-          <dt>Messages (this source)</dt>
-          <dd>{mb.messageCount.toLocaleString()}</dd>
-        </div>
-        <div class="hub-source-meta-row">
-          <dt>Indexed date range</dt>
-          <dd>
-            {formatDay(mb.earliestDate)} — {formatDay(mb.latestDate)}
-          </dd>
-        </div>
-        <div class="hub-source-meta-row">
-          <dt>Newest indexed mail</dt>
-          <dd>{mb.newestIndexedAgo?.trim() || '—'}</dd>
-        </div>
-        <div class="hub-source-meta-row">
-          <dt>Last sync</dt>
-          <dd>{formatLastSync(idx)}</dd>
-        </div>
-        {#if mb.lastUid != null}
-          <div class="hub-source-meta-row">
-            <dt>Last UID</dt>
-            <dd>{mb.lastUid}</dd>
-          </div>
-        {/if}
-        {#if idx.totalIndexed != null}
-          <div class="hub-source-meta-row">
-            <dt>All sources (search index)</dt>
-            <dd>{idx.totalIndexed.toLocaleString()} messages</dd>
-          </div>
-        {/if}
-      </dl>
+      <p class="hub-source-index-line" role="status">
+        <span>{mb.messageCount.toLocaleString()} messages</span>
+        <span class="hub-source-index-line-sep" aria-hidden="true">·</span>
+        <span>{formatDay(mb.earliestDate)} — {formatDay(mb.latestDate)}</span>
+        <span class="hub-source-index-line-sep" aria-hidden="true">·</span>
+        <span>Last sync {formatLastSync(idx)}</span>
+      </p>
     {:else}
       <p class="hub-source-status-note">
         No mailbox row in <code class="hub-source-code">ripmail status</code> for this source id yet. After the first
@@ -167,15 +145,17 @@
     </select>
   </div>
   <div class="hub-source-sync-buttons">
-    <button
-      type="button"
-      class="hub-dialog-btn hub-dialog-btn-primary hub-source-sync-btn"
-      disabled={sourceSyncAction !== null}
-      onclick={onRefresh}
-    >
-      <RefreshCw size={16} aria-hidden="true" />
-      {sourceSyncAction === 'refresh' ? 'Starting…' : 'Refresh'}
-    </button>
+    {#if showInlineRefresh}
+      <button
+        type="button"
+        class="hub-dialog-btn hub-dialog-btn-primary hub-source-sync-btn"
+        disabled={sourceSyncAction !== null}
+        onclick={onRefresh}
+      >
+        <RefreshCw size={16} aria-hidden="true" />
+        {sourceSyncAction === 'refresh' ? 'Starting…' : 'Refresh'}
+      </button>
+    {/if}
     <button
       type="button"
       class="hub-dialog-btn hub-dialog-btn-secondary hub-source-sync-btn"

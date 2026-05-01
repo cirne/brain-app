@@ -96,3 +96,65 @@ fn test_calendar_list_and_query() {
     });
     assert_eq!(val["events"].as_array().unwrap().len(), 1);
 }
+
+#[test]
+fn list_calendars_json_includes_colors_from_calendar_colors_json() {
+    let tmp = tempdir().unwrap();
+    let ics_path = tmp.path().join("noop.ics");
+    fs::write(&ics_path, "").unwrap();
+
+    fs::create_dir_all(tmp.path().join("src_colors")).unwrap();
+    let config = serde_json::json!({
+        "sources": [{
+            "id": "src_colors",
+            "kind": "icsFile",
+            "path": ics_path.to_str().unwrap(),
+            "email": "colors@example.com",
+            "calendarIds": ["cal_a"]
+        }]
+    });
+    fs::write(
+        tmp.path().join("config.json"),
+        serde_json::to_string_pretty(&config).unwrap(),
+    )
+    .unwrap();
+
+    fs::write(
+        tmp.path().join("src_colors").join("calendar-names.json"),
+        r#"{"cal_a":"Alpha Cal"}"#,
+    )
+    .unwrap();
+    fs::write(
+        tmp.path().join("src_colors").join("calendar-colors.json"),
+        r##"{"cal_a":"#abcdef"}"##,
+    )
+    .unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_ripmail"))
+        .env("RIPMAIL_HOME", tmp.path())
+        .args(["calendar", "list-calendars", "--json"])
+        .output()
+        .expect("list-calendars failed");
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let val: serde_json::Value = serde_json::from_str(&stdout).unwrap_or_else(|e| {
+        panic!(
+            "failed to parse JSON: {e}\nSTDOUT: {stdout}\nSTDERR: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    });
+    let rows = val["calendars"].as_array().expect("calendars array");
+    let row = rows
+        .iter()
+        .find(|r| r["sourceId"] == "src_colors")
+        .expect("src_colors row");
+    let configured = row["calendars"].as_array().unwrap();
+    assert_eq!(configured[0]["id"], "cal_a");
+    assert_eq!(configured[0]["color"], "#abcdef");
+    let all = row["allCalendars"].as_array().unwrap();
+    assert_eq!(all[0]["color"], "#abcdef");
+}

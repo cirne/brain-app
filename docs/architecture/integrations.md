@@ -2,7 +2,7 @@
 
 ## Trust boundaries: ripmail vs direct SQLite access
 
-**Default pattern:** For **local-first** data that ripmail already indexes (mail, maildir-adjacent workflows, indexed **files on disk**, **calendar events** once configured in ripmail — see [`ripmail` ADR-029](../../ripmail/docs/ARCHITECTURE.md#adr-029-local-gateway--one-binary-multiple-corpora-mail-calendar-)), the **brain-app** server spawns **`ripmail`** with **`RIPMAIL_HOME`** set to **`$BRAIN_HOME/ripmail`** (unless overridden). One subprocess contract, one config + SQLite store under that home.
+**Default pattern:** For **local-first** data that ripmail already indexes (mail, maildir-adjacent workflows, indexed **files on disk**, **calendar events** once configured in ripmail — see [`ripmail` ADR-029](../../ripmail/docs/ARCHITECTURE.md#adr-029-local-gateway--one-binary-multiple-corpora-mail-calendar-)), the **brain-app** server spawns **`ripmail`** with **`RIPMAIL_HOME`** set on the child env to **`$BRAIN_HOME/<layout ripmail>/`** ([`shared/brain-layout.json`](../../shared/brain-layout.json)) — derived from **`BRAIN_HOME`** only, not from the parent process **`RIPMAIL_HOME`** env var. One subprocess contract, one config + SQLite store under that home.
 
 **Exception — Apple Messages:** The server may open Apple’s **`~/Library/Messages/chat.db`** read-only via **`better-sqlite3`** (`list_recent_messages`, `get_message_thread`). That path exists because **`chat.db`** is a plain SQLite file on disk; there is **no** Node-accessible **EventKit-style** API for iMessage history **and** no need to ship a native helper solely to read SQL. Access is gated by **Full Disk Access** (or equivalent). This is a **deliberate** second permission surface, not the model for calendar, contacts, or other framework-backed Apple data.
 
@@ -10,7 +10,7 @@
 
 ## Ripmail subprocess
 
-Email and indexed local files are accessed by spawning the **`ripmail`** CLI with `RIPMAIL_HOME` set to Braintunnel’s ripmail dir (`$BRAIN_HOME/ripmail` by default). No in-process Rust linkage from Node.
+Email and indexed local files are accessed by spawning the **`ripmail`** CLI with `RIPMAIL_HOME` on the child env set to Braintunnel’s ripmail dir (`$BRAIN_HOME/<layout ripmail>/`). No in-process Rust linkage from Node.
 
 - Binary: `RIPMAIL_BIN` (workspace debug binary wired in dev when present — see [`run-dev.mjs`](../../scripts/run-dev.mjs)); Tauri bundles release `ripmail` in `server-bundle/`.
 - Agent tools wrap `ripmail search`, `ripmail read`, `ripmail draft`, `ripmail inbox`, etc.
@@ -21,7 +21,7 @@ Email and indexed local files are accessed by spawning the **`ripmail`** CLI wit
 
 ## Raw file read (`GET /api/files/read`)
 
-Returns JSON from `ripmail read <path> --json` for absolute paths (e.g. PDF text extraction). Should stay aligned with agent `read_email` for filesystem targets — see [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md). Both use shared Node `exec` options (`maxBuffer` 20 MiB, timeout 120s) in [`ripmailReadExec.ts`](../../src/server/lib/ripmailReadExec.ts); Node’s default 1 MiB buffer would throw on large extractions.
+Returns JSON from `ripmail read <path> --json` for absolute paths (e.g. PDF text extraction). Should stay aligned with agent `read_indexed_file` for filesystem targets — see [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md). Both use shared Node `exec` options (`maxBuffer` 20 MiB, timeout 120s) in [`ripmailReadExec.ts`](../../src/server/lib/ripmailReadExec.ts); Node’s default 1 MiB buffer would throw on large extractions.
 
 **Inbox message body** (`GET /api/inbox/:id`, plain `ripmail read`) uses the same limits.
 

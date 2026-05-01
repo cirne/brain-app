@@ -127,7 +127,7 @@ export async function buildReadPathAllowlist(): Promise<ReadPathAllowlist> {
   }
 }
 
-/** True if `absolutePath` may be read via `read_email` / `/api/files/read` for this tenant. */
+/** True if `absolutePath` may be read via **`read_indexed_file`** / `/api/files/read` for this tenant. */
 export function isAgentReadPathAllowed(absolutePath: string, list: ReadPathAllowlist): boolean {
   const extras = [list.ripmail, list.wiki, ...list.indexedRoots]
   return isAbsolutePathAllowedUnderRoots(absolutePath, list.brain, extras)

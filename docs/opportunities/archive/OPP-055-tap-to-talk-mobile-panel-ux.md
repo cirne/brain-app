@@ -7,7 +7,7 @@
 # OPP-055: Tap-to-Talk Mobile Panel — Redesigned Voice UX
 
 **Tags:** `mobile` · `chat` · `voice` · `ux`  
-**Replaces:** hold-to-speak in [archived OPP-050](./OPP-050-press-to-talk-dev-only-feature-flag.md)  
+**Replaces:** hold-to-speak in [archived OPP-074](./OPP-074-press-to-talk-dev-only-feature-flag.md)  
 **Continues:** [OPP-046 stub](../OPP-046-voice-input-press-to-talk-wispr-flow.md) / [archive](../archive/OPP-046-voice-input-press-to-talk-wispr-flow.md) (vendor/STT research)
 
 ---
@@ -178,7 +178,7 @@ No change from the existing dev-mode capture path: `MediaRecorder` → blob → 
 
 ### Feature flag
 
-The panel respects the same `pressToTalkEnabled` flag from OPP-050. When `false`, `ChatVoicePanel` renders nothing. When the feature graduates from dev-only (per OPP-046 vendor decisions), the flag source changes — the panel code does not need to change.
+The panel respects the same `pressToTalkEnabled` flag from OPP-074. When `false`, `ChatVoicePanel` renders nothing. When the feature graduates from dev-only (per OPP-046 vendor decisions), the flag source changes — the panel code does not need to change.
 
 ---
 
@@ -203,6 +203,6 @@ The panel respects the same `pressToTalkEnabled` flag from OPP-050. When `false`
 ## Related
 
 - [OPP-046](../OPP-046-voice-input-press-to-talk-wispr-flow.md) — STT vendor research, Wispr Flow vs alternatives; context injection.
-- [OPP-050 (archived)](./OPP-050-press-to-talk-dev-only-feature-flag.md) — shipped dev gate; component history.
+- [OPP-074 (archived)](./OPP-074-press-to-talk-dev-only-feature-flag.md) — shipped dev gate; component history.
 - [OPP-008 stub](../OPP-008-tunnel-qr-phone-access.md) — phone as primary client; same surface this UX targets.
 

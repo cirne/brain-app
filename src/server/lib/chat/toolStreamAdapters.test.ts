@@ -17,7 +17,7 @@ describe('shapeReadEmailStreamDetails', () => {
     const state = createAssistantTurnState()
     applyToolStart(state, {
       id: 'tc1',
-      name: 'read_email',
+      name: 'read_mail_message',
       args: { id: 'msg-123' },
       done: false,
     })

@@ -10,6 +10,7 @@ import {
   GOOGLE_OAUTH_SCOPE_MAIL_OPENID_EMAIL_CALENDAR_EVENTS_DRIVE,
   upsertRipmailConfig,
   upsertRipmailGoogleCalendarSource,
+  upsertRipmailGoogleDriveSource,
   validateGoogleOAuthGrantedScopes,
   writeGoogleOAuthTokenFile,
 } from '@server/lib/platform/googleOAuth.js'
@@ -90,15 +91,10 @@ function redirectLinkError(c: Context, message: string) {
   return c.redirect(`/settings?addAccountError=${q}`, 302)
 }
 
-function redirectLinkSuccess(
-  c: Context,
-  email: string,
-  opts?: { needsDriveReconnect?: boolean },
-) {
+function redirectLinkSuccess(c: Context, email: string) {
   recordGoogleOauthSuccess()
   const q = encodeURIComponent(email)
-  const drive = opts?.needsDriveReconnect ? '&needsGoogleDrive=1' : ''
-  return c.redirect(`/settings?addedAccount=${q}${drive}`, 302)
+  return c.redirect(`/settings?addedAccount=${q}`, 302)
 }
 
 /**
@@ -134,7 +130,6 @@ async function completeGmailLinkOAuth(
   if (!scopeCheck.ok) {
     return redirectLinkError(c, scopeCheck.message)
   }
-  const needsDriveReconnect = scopeCheck.needsDriveReconnect
 
   let email: string
   let sub: string
@@ -174,18 +169,20 @@ async function completeGmailLinkOAuth(
         const existingBySub = await findLinkedMailboxBySub(sub)
         if (existingByEmail || existingBySub) {
           await writeGoogleOAuthTokenFile(ripmailHome, deriveMailboxId(email), tokens)
+          await upsertRipmailGoogleDriveSource(ripmailHome, deriveMailboxId(email), email)
         } else {
           const mailboxId = deriveMailboxId(email)
           await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
           await upsertRipmailConfig(ripmailHome, mailboxId, email)
           await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
+          await upsertRipmailGoogleDriveSource(ripmailHome, mailboxId, email)
         }
         await upsertLinkedMailbox({ email, googleSub: sub })
         await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
       } catch (e) {
         return redirectLinkError(c, e instanceof Error ? e.message : String(e))
       }
-      return redirectLinkSuccess(c, email, { needsDriveReconnect })
+      return redirectLinkSuccess(c, email)
     })
   }
 
@@ -195,18 +192,20 @@ async function completeGmailLinkOAuth(
     const existingBySub = await findLinkedMailboxBySub(sub)
     if (existingByEmail || existingBySub) {
       await writeGoogleOAuthTokenFile(ripmailHome, deriveMailboxId(email), tokens)
+      await upsertRipmailGoogleDriveSource(ripmailHome, deriveMailboxId(email), email)
     } else {
       const mailboxId = deriveMailboxId(email)
       await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
       await upsertRipmailConfig(ripmailHome, mailboxId, email)
       await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
+      await upsertRipmailGoogleDriveSource(ripmailHome, mailboxId, email)
     }
     await upsertLinkedMailbox({ email, googleSub: sub })
     await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
   } catch (e) {
     return redirectLinkError(c, e instanceof Error ? e.message : String(e))
   }
-  return redirectLinkSuccess(c, email, { needsDriveReconnect })
+  return redirectLinkSuccess(c, email)
 }
 
 app.get('/start', (c) => {
@@ -302,10 +301,6 @@ app.get('/callback', async (c) => {
   if (!scopeCheck.ok) {
     return redirectOauthError(c, scopeCheck.message)
   }
-  const needsDriveReconnect = scopeCheck.needsDriveReconnect
-  const oauthCompleteUrl = needsDriveReconnect
-    ? '/oauth/google/complete?needsGoogleDrive=1'
-    : '/oauth/google/complete'
   let email: string
   let sub: string
   try {
@@ -334,6 +329,7 @@ app.get('/callback', async (c) => {
         await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
         await upsertRipmailConfig(ripmailHome, mailboxId, email)
         await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
+        await upsertRipmailGoogleDriveSource(ripmailHome, mailboxId, email)
         await upsertLinkedMailbox({ email, googleSub: sub, isPrimary: true })
         await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
       } catch (e) {
@@ -345,7 +341,7 @@ app.get('/callback', async (c) => {
       await registerSessionTenant(sessionId, tenantUserId)
       setBrainSessionCookie(c, sessionId)
       recordGoogleOauthSuccess()
-      return c.redirect(oauthCompleteUrl, 302)
+      return c.redirect('/oauth/google/complete', 302)
     })
   }
 
@@ -355,6 +351,7 @@ app.get('/callback', async (c) => {
     await writeGoogleOAuthTokenFile(ripmailHome, mailboxId, tokens)
     await upsertRipmailConfig(ripmailHome, mailboxId, email)
     await upsertRipmailGoogleCalendarSource(ripmailHome, mailboxId, email)
+    await upsertRipmailGoogleDriveSource(ripmailHome, mailboxId, email)
     await upsertLinkedMailbox({ email, googleSub: sub, isPrimary: true })
     await ensureSingleSourceMarkedAsDefaultSend(ripmailHome)
   } catch (e) {
@@ -363,7 +360,7 @@ app.get('/callback', async (c) => {
   }
   await persistGoogleMailProviderPreference()
   recordGoogleOauthSuccess()
-  return c.redirect(oauthCompleteUrl, 302)
+  return c.redirect('/oauth/google/complete', 302)
 })
 
 /* ──────────────────────────────────────────────────────────────────────────

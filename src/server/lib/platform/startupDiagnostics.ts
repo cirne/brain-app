@@ -1,5 +1,5 @@
 import { BRAIN_DEFAULT_HTTP_PORT, GOOGLE_OAUTH_CALLBACK_PATH } from './brainHttpPort.js'
-import { brainWikiParentRoot, resolveBrainHomeDiskRoot } from './brainHome.js'
+import { brainWikiParentRoot, resolveBrainHomeDiskRoot, ripmailHomeForBrain } from './brainHome.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { isMultiTenantMode } from '@server/lib/tenant/dataRoot.js'
 import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocalIntegrationEnv.js'
@@ -48,10 +48,27 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
     logger.info(`wiki content dir=${wiki}`)
   }
 
-  const ripHome = process.env.RIPMAIL_HOME
-  logger.info(
-    `RIPMAIL_HOME=${ripHome ?? (isMultiTenantMode() ? '(per-tenant $HOME/ripmail)' : '(derived from BRAIN_HOME/ripmail)')}`,
-  )
+  if (isMultiTenantMode()) {
+    logger.info(
+      'ripmail home (Brain)=per-tenant `$BRAIN_DATA_ROOT/<tenantUserId>/<layout ripmail>/` (resolved per request; not logged globally)',
+    )
+    if (process.env.RIPMAIL_HOME?.trim()) {
+      logger.warn(
+        'RIPMAIL_HOME is set in the environment but Brain ignores it in multi-tenant mode — unset RIPMAIL_HOME to avoid confusion.',
+      )
+    }
+    logger.info(
+      'RIPMAIL_HOME env has no effect on Brain mail paths in multi-tenant mode (ripmail home is derived per tenant).',
+    )
+  } else {
+    logger.info(`ripmail home (Brain)=${ripmailHomeForBrain()}`)
+    const ripEnv = process.env.RIPMAIL_HOME?.trim()
+    if (ripEnv) {
+      logger.warn(
+        'RIPMAIL_HOME is set in the environment but Brain ignores it for mail storage — ripmail data uses BRAIN_HOME + layout only; spawned ripmail gets RIPMAIL_HOME overwritten to match. Unset RIPMAIL_HOME to avoid confusion.',
+      )
+    }
+  }
   if (isMultiTenantMode() && process.env.IMESSAGE_DB_PATH?.trim()) {
     logger.info(
       'warning: IMESSAGE_DB_PATH is set while BRAIN_DATA_ROOT is set — iMessage is host-level, not tenant-scoped',
@@ -78,7 +95,7 @@ export async function logStartupDiagnostics(listenPort?: number): Promise<void> 
         logger.info(`ripmail status (truncated): ${stdout.slice(0, 240)}`)
       }
     } catch (e) {
-      logger.info(`ripmail status failed — check RIPMAIL_HOME and ripmail config: ${String(e)}`)
+      logger.info(`ripmail status failed — check BRAIN_HOME / ripmail config under ripmail home (Brain): ${String(e)}`)
     }
   } else {
     logger.info('ripmail --version / status: skipped at startup in multi-tenant mode (no global RIPMAIL_HOME)')

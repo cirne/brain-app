@@ -478,6 +478,7 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
             calendar,
             default_calendar,
             file_source_json,
+            include_shared_with_me,
             json,
         } => {
             let mut cfg = load_config_json(&home);
@@ -540,6 +541,14 @@ pub(crate) fn run_sources(cmd: crate::cli::args::SourcesCmd) -> CliResult {
                     );
                 }
                 sources[pos].default_calendars = Some(default_calendar);
+            }
+            if let Some(shared) = include_shared_with_me {
+                if sources[pos].kind != SourceKind::GoogleDrive {
+                    return Err(
+                        "--include-shared-with-me only applies to googleDrive sources".into(),
+                    );
+                }
+                sources[pos].include_shared_with_me = shared;
             }
             cfg.sources = Some(sources);
             write_config_json(&home, &cfg)?;

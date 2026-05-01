@@ -1,4 +1,4 @@
-# OPP-046: New Relic LLM/turn telemetry (trace-style) + local usage export CLI
+# OPP-071: New Relic LLM/turn telemetry (trace-style) + local usage export CLI
 
 **Status:** Proposed.
 
@@ -6,7 +6,7 @@
 
 Send **well-correlated observability** to New Relic for each `agent.prompt()` “turn”: **LLM token/cost** (per completion and rolled up), **tool execution latency** (existing `ToolCall` path), and **approximate tool-output footprint** so operators and engineers can find **token-efficiency bottlenecks**—including cases where a tool is “expensive” because it returns a **large** result that inflates the **next** model context. In parallel, add a **first-party `npm` script** that reads **local** `$BRAIN_HOME` JSON ([`chats/`](../../src/server/lib/chatStorage.ts), [`background/runs/`](../../src/server/lib/backgroundAgentStore.ts)) and prints rollups, since that ad hoc analysis is a recurring workflow.
 
-**Builds on:** [OPP-043](OPP-043-llm-usage-token-metering.md) (durable `usage` on messages / background docs), [docs/newrelic.md](../newrelic.md) (`ToolCall` custom events, privacy rules).
+**Builds on:** [OPP-072](OPP-072-llm-usage-token-metering.md) (durable `usage` on messages / background docs), [docs/newrelic.md](../newrelic.md) (`ToolCall` custom events, privacy rules).
 
 ---
 
@@ -27,7 +27,7 @@ Send **well-correlated observability** to New Relic for each `agent.prompt()` �
 ## Problem
 
 1. **New Relic today** records [`ToolCall`](../../src/server/lib/newRelicHelper.ts) with `durationMs`, `toolName`, sanitized `paramsJson`, and correlation to `sessionId` / `backgroundRunId` / `workspaceHandle`—but **not** to a single **turn** id, and **not** with **LLM usage** or **result size**. Operators cannot easily answer: “For this tenant/session, what did we spend, and which steps dominated?”
-2. **OPP-043** stores usage **on disk**; NR does not see it without explicit emission.
+2. **OPP-072** stores usage **on disk**; NR does not see it without explicit emission.
 3. **Engineers** repeatedly aggregate usage from local JSON; that should be a **supported** CLI, not one-off `jq`.
 4. **Bottleneck hunting:** Teams want to know whether inefficiency is **model churn** vs ** fat tool payloads**; we need **approximate** (not billing-grade) signals that line up in the same **correlated** event stream as completions.
 
@@ -74,7 +74,7 @@ flowchart TB
   turn --> c0 --> t1 --> c1 --> t2 --> c2
 ```
 
-**Why `resultCharCount` is useful (approximate):** The **next** `LlmCompletion`’s `input` tokens (and cache behavior) are driven in part by **conversation + tool result text length**. You cannot equate bytes to tokens without a tokenizer, but **ranking** tools by p95 `resultCharCount` and correlating with **per-completion** `input` in NRQL is a standard way to find **which tools to trim** (smaller results, stricter `grep`, fewer rows from `read_email`).
+**Why `resultCharCount` is useful (approximate):** The **next** `LlmCompletion`’s `input` tokens (and cache behavior) are driven in part by **conversation + tool result text length**. You cannot equate bytes to tokens without a tokenizer, but **ranking** tools by p95 `resultCharCount` and correlating with **per-completion** `input` in NRQL is a standard way to find **which tools to trim** (smaller results, stricter `grep`, fewer rows from `read_mail_message` / `read_indexed_file`).
 
 **Optional (later):** A documented **heuristic** to label a completion’s input as *likely dominated by* “previous tool results” (e.g. diff input tokens before/after a known tool) — still an estimate; keep as research, not a promise in v1.
 
@@ -119,7 +119,7 @@ flowchart TB
 
 ## Dependencies
 
-- **Soft dependency on OPP-043** for on-disk **validation** of the same `usage` numbers; NR emission can be implemented in parallel.
+- **Soft dependency on OPP-072** for on-disk **validation** of the same `usage` numbers; NR emission can be implemented in parallel.
 - **Enables** Ops dashboards, support correlation, and internal **token-efficiency** work (with **result-size** + **LLM** columns).
 
 ---
@@ -133,7 +133,7 @@ flowchart TB
 
 ## References
 
-- [OPP-043](OPP-043-llm-usage-token-metering.md) — on-disk token metering
+- [OPP-072](OPP-072-llm-usage-token-metering.md) — on-disk token metering
 - [../newrelic.md](../newrelic.md) — account, `ToolCall`, privacy
 - [../architecture/data-and-sync.md](../architecture/data-and-sync.md) — `chats/`, `background/`
 - [../architecture/agent-chat.md](../architecture/agent-chat.md) — SSE, persistence

@@ -3,7 +3,7 @@ export { ripmailProcessEnv as ripmailRefreshEnv } from '@server/lib/ripmail/ripm
 import { formatExecError } from './execError.js'
 import { ripmailHomeForBrain } from './brainHome.js'
 import { getHubRipmailSourcesList } from '@server/lib/hub/hubRipmailSources.js'
-import { ensureGoogleCalendarSourcesForOAuthImap } from './googleOAuth.js'
+import { ensureGoogleOAuthImapSiblingSources } from './googleOAuth.js'
 import { RipmailTimeoutError, RIPMAIL_REFRESH_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
 import { runRipmailHeavyArgv, runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 
@@ -43,9 +43,9 @@ const CALENDAR_SOURCE_KINDS = new Set([
  */
 export async function syncCalendarSourcesRipmail(signal?: AbortSignal): Promise<SyncComponentResult> {
   try {
-    await ensureGoogleCalendarSourcesForOAuthImap(ripmailHomeForBrain())
+    await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
   } catch (e) {
-    console.error('[brain-app] ensureGoogleCalendarSourcesForOAuthImap (calendar-only refresh):', e)
+    console.error('[brain-app] ensureGoogleOAuthImapSiblingSources (calendar-only refresh):', e)
   }
   const { sources, error } = await getHubRipmailSourcesList()
   if (error) {
@@ -69,9 +69,9 @@ export async function syncCalendarSourcesRipmail(signal?: AbortSignal): Promise<
 
 export async function syncInboxRipmail(signal?: AbortSignal): Promise<SyncComponentResult> {
   try {
-    await ensureGoogleCalendarSourcesForOAuthImap(ripmailHomeForBrain())
+    await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
   } catch (e) {
-    console.error('[brain-app] ensureGoogleCalendarSourcesForOAuthImap:', e)
+    console.error('[brain-app] ensureGoogleOAuthImapSiblingSources:', e)
   }
   try {
     await runRipmailRefreshForBrain([], signal)
@@ -101,9 +101,9 @@ export async function refreshMailAndWait(
   signal?: AbortSignal,
 ): Promise<{ ok: boolean; timedOut?: boolean; error?: string }> {
   try {
-    await ensureGoogleCalendarSourcesForOAuthImap(ripmailHomeForBrain())
+    await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
   } catch (e) {
-    console.error('[brain-app] ensureGoogleCalendarSourcesForOAuthImap (lap refresh):', e)
+    console.error('[brain-app] ensureGoogleOAuthImapSiblingSources (lap refresh):', e)
   }
   try {
     await runRipmailHeavyArgv(['refresh'], {

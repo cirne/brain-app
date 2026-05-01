@@ -77,7 +77,7 @@ describe('checkExpect', () => {
       t!.expect,
       '',
       '15323857.1075855428713.JavaMail.evans@thyme',
-      ['search_index', 'read_email', 'suggest_reply_options'],
+      ['search_index', 'read_mail_message', 'read_indexed_file', 'suggest_reply_options'],
     )
     expect(r.ok, r.reasons.join('; ')).toBe(true)
   })
@@ -90,7 +90,7 @@ describe('checkExpect', () => {
       'From: Kenneth Lay <kenneth.lay@enron.com> … 123.456.JavaMail.evans@thyme …'
     const finalText =
       'Ken Lay emphasized growth and strategic priorities around energy markets in this period.'
-    const r = checkExpect(t!.expect, finalText, haystack, ['search_index', 'read_email'])
+    const r = checkExpect(t!.expect, finalText, haystack, ['search_index', 'read_mail_message'])
     expect(r.ok, r.reasons.join('; ')).toBe(true)
   })
 
@@ -105,7 +105,7 @@ describe('checkExpect', () => {
 Crisis and gratitude themes. 15323857.1075855428713.JavaMail.evans@thyme
 `
     const r = checkExpect(t!.expect, 'Main themes included crisis and gratitude.', haystack, [
-      'read_email',
+      'read_mail_message',
       'write',
     ])
     expect(r.ok, r.reasons.join('; ')).toBe(true)

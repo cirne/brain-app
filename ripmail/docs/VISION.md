@@ -2,7 +2,7 @@
 ## Vision
 
 > Architectural decisions and the technical design log live in [ARCHITECTURE.md](./ARCHITECTURE.md).
-> Competitive positioning and strategic differentiation live in [STRATEGY.md](./STRATEGY.md).
+> Competitive positioning and strategic differentiation live in [STRATEGY.md](../../docs/STRATEGY.md).
 > Product improvement opportunities live in [OPPORTUNITIES.md](./OPPORTUNITIES.md).
 
 ### Summary

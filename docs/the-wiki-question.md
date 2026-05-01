@@ -1,14 +1,14 @@
 # The wiki question
 
-**Status:** Open product question — not a decision document. **Product direction (2026-04-30):** Core **chat-first / organic growth** mechanics shipped in `main` ([OPP-066 stub](./opportunities/OPP-066-chat-first-wiki-organic-growth-experiment.md), [archived spec](./opportunities/archive/OPP-066-chat-first-wiki-organic-growth-experiment.md)): narrow chat capture + `## Chat capture`, `wiki-edits.jsonl`, WikiBuilder inspect-and-deepen tooling, identity-focused onboarding. Empirical closure on “is the wiki worth it?” still depends on **usage-scale evals** and **background deepen** queue work ([OPP-067](./opportunities/OPP-067-wiki-buildout-agent-no-new-pages.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md)).
+**Status:** Open product question — not a decision document. **Product direction (2026-04-30):** Core **chat-first / organic growth** mechanics shipped in `main` ([archived OPP-066](./opportunities/archive/OPP-066-chat-first-wiki-organic-growth-experiment.md)): narrow chat capture + `## Chat capture`, `wiki-edits.jsonl`, WikiBuilder inspect-and-deepen tooling, identity-focused onboarding. Empirical closure on “is the wiki worth it?” still depends on **usage-scale evals** and **background deepen** queue work ([OPP-067](./opportunities/OPP-067-wiki-buildout-agent-no-new-pages.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md)).
 
-**Related:** [VISION.md](./VISION.md), [karpathy-llm-wiki-post.md](./karpathy-llm-wiki-post.md), [architecture/wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [product/personal-wiki.md](./product/personal-wiki.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md) (eval gap: wiki + agent quality), [OPP-066](./opportunities/OPP-066-chat-first-wiki-organic-growth-experiment.md), [OPP-062](./opportunities/archive/OPP-062-post-turn-wiki-touch-up-agent.md) (retired), [OPP-033](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
+**Related:** [VISION.md](./VISION.md), [karpathy-llm-wiki-post.md](./karpathy-llm-wiki-post.md), [architecture/wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [product/personal-wiki.md](./product/personal-wiki.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md) (eval gap: wiki + agent quality), [OPP-066](./opportunities/archive/OPP-066-chat-first-wiki-organic-growth-experiment.md), [OPP-062](./opportunities/archive/OPP-062-post-turn-wiki-touch-up-agent.md) (retired), [OPP-033](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 
 ---
 
 ## Why this document exists
 
-Braintunnel’s vision pairs **ripmail** (indexed email and files — rich, messy, authoritative *evidence*) with a **personal wiki** (linked markdown — synthesized, navigable *memory*). The assistant is designed to use **both**: tools for the index (`search_index`, `read_email`, …) and tools for the vault (`read`, `grep`, … on the wiki tree).
+Braintunnel’s vision pairs **ripmail** (indexed email and files — rich, messy, authoritative *evidence*) with a **personal wiki** (linked markdown — synthesized, navigable *memory*). The assistant is designed to use **both**: tools for the index (`search_index`, `read_mail_message`, `read_indexed_file`, …) and tools for the vault (`read`, `grep`, … on the wiki tree).
 
 In early development we often run with **very small wikis** (on the order of 10–20 pages) to iterate cheaply on onboarding and flows. At that scale it is **not obvious** that the wiki is doing unique work: a capable model with strong access to ripmail might **re-synthesize** answers on demand and look “good enough,” while the wiki adds **product and UX surface area** (what is my wiki, when do I create a page, what does “expanding the wiki” mean, who owns truth between mail and markdown).
 
@@ -74,7 +74,7 @@ Karpathy’s gist stresses **A**, **B**, and the **lint** loop; **C** is seconda
 
 A reasonable challenge:
 
-> If the assistant always has `search_index` + `read_email` (and enough turns), **maybe** it can answer as well as wiki+ripmail by **reading threads on the fly**, and the wiki is redundant except as a **cache** we pay human and engineering cost to maintain.
+> If the assistant always has `search_index` plus **`read_mail_message` / `read_indexed_file`** (and enough turns), **maybe** it can answer as well as wiki+ripmail by **reading threads on the fly**, and the wiki is redundant except as a **cache** we pay human and engineering cost to maintain.
 
 **Arguments for the counterfactual**
 
@@ -156,7 +156,7 @@ That still tests whether the hoped-for benefit is **real at scale** or **illusor
 ## References
 
 - Karpathy, **LLM Wiki**: [karpathy-llm-wiki-post.md](./karpathy-llm-wiki-post.md) (full text); [original gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)  
-- Internal: [VISION.md](./VISION.md), [wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md), [OPP-066](./opportunities/OPP-066-chat-first-wiki-organic-growth-experiment.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
+- Internal: [VISION.md](./VISION.md), [wiki-read-vs-read-email.md](./architecture/wiki-read-vs-read-email.md), [wiki-and-agent-evaluation.md](./wiki-and-agent-evaluation.md), [OPP-066](./opportunities/archive/OPP-066-chat-first-wiki-organic-growth-experiment.md), [OPP-015](./opportunities/archive/OPP-015-wiki-background-maintenance-agents.md)
 - Roadmap umbrella: [OPP-033: Wiki compounding + Karpathy alignment](./opportunities/OPP-033-wiki-compounding-karpathy-alignment.md); concrete defect: [BUG-011](./bugs/BUG-011-wiki-expansion-missing-me-md-context.md)
 
 ---

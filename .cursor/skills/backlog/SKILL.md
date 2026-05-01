@@ -25,7 +25,7 @@ The repo tracks work in **markdown files** plus **index tables** in `docs/BUGS.m
 | Archived opportunities | `docs/opportunities/archive/` | `ripmail/docs/opportunities/archive/` |
 | OPP index | `docs/OPPORTUNITIES.md` (+ `ripmail/docs/OPPORTUNITIES.md` for the crate) | same |
 
-**Convention:** The next id is the **smallest unused integer** in that tree (see existing files); don’t reuse numbers.
+**Convention:** The next id is the **smallest unused integer** in that tree (see existing files); don’t reuse numbers. **One ticket = one number:** never leave two different living specs sharing the same `OPP-*` / `BUG-*` id in the same tree (renumber immediately if a collision appears).
 
 ## Hygiene: doc vs code
 

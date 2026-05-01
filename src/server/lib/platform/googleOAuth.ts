@@ -83,12 +83,9 @@ export function grantedGoogleScopesSet(grantedScope: string | undefined): Set<st
 }
 
 /**
- * Ensure Gmail + Calendar + OpenID + email were granted. When Drive read-only is missing (older connections),
- * returns `needsDriveReconnect: true` so the UI can prompt to reconnect — mail and calendar still work.
+ * Ensure Gmail + Calendar + Drive read-only + OpenID + email were granted (matches authorize URL).
  */
-export type GoogleOAuthScopeValidationResult =
-  | { ok: true; needsDriveReconnect: boolean }
-  | { ok: false; message: string }
+export type GoogleOAuthScopeValidationResult = { ok: true } | { ok: false; message: string }
 
 export function validateGoogleOAuthGrantedScopes(
   grantedScope: string | undefined,
@@ -108,15 +105,22 @@ export function validateGoogleOAuthGrantedScopes(
   const hasOpenId = set.has('openid')
   const hasEmail =
     set.has('email') || set.has('https://www.googleapis.com/auth/userinfo.email')
+  const hasDrive = set.has(GOOGLE_OAUTH_SCOPE_DRIVE_READONLY)
   if (!hasGmail || !hasCalendar || !hasOpenId || !hasEmail) {
     return {
       ok: false,
       message:
-        'Google did not grant every permission Braintunnel needs. On the permission screen, leave all Gmail and Calendar access enabled (every checkbox), then use Connect Google again. If you denied access, revoke Braintunnel under your Google Account → Security → Third-party access and try again.',
+        'Google did not grant every permission Braintunnel needs. On the permission screen, leave Gmail, Calendar, and Google Drive access enabled (every checkbox), then use Connect Google again. If you denied access, revoke Braintunnel under your Google Account → Security → Third-party access and try again.',
     }
   }
-  const hasDrive = set.has(GOOGLE_OAUTH_SCOPE_DRIVE_READONLY)
-  return { ok: true, needsDriveReconnect: !hasDrive }
+  if (!hasDrive) {
+    return {
+      ok: false,
+      message:
+        'Google did not grant Google Drive access. Braintunnel needs read-only Drive access together with Gmail and Calendar. Revoke Braintunnel under your Google Account → Security → Third-party access and connect again; on the consent screen, allow Drive (and other requested permissions).',
+    }
+  }
+  return { ok: true }
 }
 
 export class GoogleOAuthExchangeError extends Error {
@@ -291,8 +295,26 @@ export type RipmailGoogleCalendarSourceEntry = {
   calendarIds?: string[]
 }
 
+/** `config.json` entry for `googleDrive` (same OAuth tokens as `oauthSourceId` mailbox). */
+export type RipmailGoogleDriveSourceEntry = {
+  id: string
+  kind: 'googleDrive'
+  email: string
+  oauthSourceId: string
+  includeSharedWithMe?: boolean
+  fileSource: {
+    roots: Array<{ id: string; name: string; recursive: boolean }>
+    includeGlobs: string[]
+    ignoreGlobs: string[]
+    maxFileBytes: number
+    respectGitignore: boolean
+  }
+}
+
 export type RipmailConfigJson = {
-  sources?: Array<RipmailSourceEntry | RipmailGoogleCalendarSourceEntry>
+  sources?: Array<
+    RipmailSourceEntry | RipmailGoogleCalendarSourceEntry | RipmailGoogleDriveSourceEntry
+  >
   /** Source id (or email) to use when drafting/sending and the user did not specify a source. */
   defaultSendSource?: string
   imap?: unknown
@@ -418,6 +440,65 @@ export async function upsertRipmailGoogleCalendarSource(
   await writeFile(path, out, 'utf8')
 }
 
+/** Adds or updates a `googleDrive` source (empty folder roots until the user picks folders in Hub). */
+export async function upsertRipmailGoogleDriveSource(
+  ripmailHome: string,
+  mailboxId: string,
+  email: string,
+): Promise<void> {
+  await mkdir(ripmailHome, { recursive: true })
+  const path = join(ripmailHome, 'config.json')
+  let cfg: RipmailConfigJson = {}
+  try {
+    const raw = await readFile(path, 'utf8')
+    cfg = JSON.parse(raw) as RipmailConfigJson
+  } catch {
+    /* new file */
+  }
+
+  const driveId = `${mailboxId}-drive`
+  const defaultFileSource: RipmailGoogleDriveSourceEntry['fileSource'] = {
+    roots: [],
+    includeGlobs: [],
+    ignoreGlobs: [],
+    maxFileBytes: 10_000_000,
+    respectGitignore: true,
+  }
+
+  const sources = [...(cfg.sources ?? [])] as Array<
+    RipmailSourceEntry | RipmailGoogleCalendarSourceEntry | RipmailGoogleDriveSourceEntry
+  >
+  const idx = sources.findIndex((s) => s.id === driveId)
+  let fileSource = defaultFileSource
+  let includeSharedWithMe = false
+  if (idx >= 0) {
+    const prev = sources[idx]
+    if (prev.kind === 'googleDrive') {
+      fileSource = prev.fileSource ?? defaultFileSource
+      includeSharedWithMe = prev.includeSharedWithMe === true
+    }
+  }
+
+  const entry: RipmailGoogleDriveSourceEntry = {
+    id: driveId,
+    kind: 'googleDrive',
+    email: email.trim(),
+    oauthSourceId: mailboxId,
+    ...(includeSharedWithMe ? { includeSharedWithMe: true } : {}),
+    fileSource,
+  }
+
+  if (idx >= 0) {
+    sources[idx] = entry
+  } else {
+    sources.push(entry)
+  }
+
+  cfg.sources = sources as RipmailConfigJson['sources']
+  const out = `${JSON.stringify(cfg, null, 2)}\n`
+  await writeFile(path, out, 'utf8')
+}
+
 /**
  * Ensures each Gmail-OAuth IMAP source has a sibling `googleCalendar` entry (reusing the same
  * `google-oauth.json`). Callers that only ran `upsertRipmailConfig` before calendar support shipped,
@@ -459,4 +540,51 @@ export async function ensureGoogleCalendarSourcesForOAuthImap(ripmailHome: strin
     await upsertRipmailGoogleCalendarSource(ripmailHome, id, email)
     covered.add(id)
   }
+}
+
+/**
+ * Ensures each Gmail-OAuth IMAP source has a sibling `googleDrive` entry (same OAuth; user adds
+ * folder roots in Hub). Mirrors {@link upsertRipmailGoogleDriveSource} after primary sign-in / link.
+ */
+export async function ensureGoogleDriveSourcesForOAuthImap(ripmailHome: string): Promise<void> {
+  const path = join(ripmailHome, 'config.json')
+  let raw: string
+  try {
+    raw = await readFile(path, 'utf8')
+  } catch {
+    return
+  }
+  let cfg: RipmailConfigJson
+  try {
+    cfg = JSON.parse(raw) as RipmailConfigJson
+  } catch {
+    return
+  }
+  const sources = cfg.sources ?? []
+  const covered = new Set<string>()
+  for (const s of sources) {
+    if (!s || typeof s !== 'object') continue
+    const o = s as { kind?: string; oauthSourceId?: string }
+    if (o.kind === 'googleDrive' && typeof o.oauthSourceId === 'string' && o.oauthSourceId.trim()) {
+      covered.add(o.oauthSourceId.trim())
+    }
+  }
+  for (const s of sources) {
+    if (!s || typeof s !== 'object') continue
+    const o = s as { kind?: string; id?: string; email?: string; imapAuth?: string }
+    if (o.kind !== 'imap') continue
+    if (o.imapAuth !== 'googleOAuth') continue
+    const id = typeof o.id === 'string' ? o.id.trim() : ''
+    const email = typeof o.email === 'string' ? o.email.trim() : ''
+    if (!id || !email) continue
+    if (covered.has(id)) continue
+    await upsertRipmailGoogleDriveSource(ripmailHome, id, email)
+    covered.add(id)
+  }
+}
+
+/** Ensures calendar + Drive entries exist for every Google-OAuth IMAP mailbox. */
+export async function ensureGoogleOAuthImapSiblingSources(ripmailHome: string): Promise<void> {
+  await ensureGoogleCalendarSourcesForOAuthImap(ripmailHome)
+  await ensureGoogleDriveSourcesForOAuthImap(ripmailHome)
 }

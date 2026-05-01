@@ -1,7 +1,7 @@
 # OPP-017 — Multimodal PDFs and local images (ripmail + agent)
 
 **Status:** Future  
-**Scope:** brain-app agent (`read_email`, files API), ripmail CLI (`ripmail read`), local directory sources
+**Scope:** brain-app agent (`read_mail_message`, `read_indexed_file`, files API), ripmail CLI (`ripmail read`), local directory sources
 
 ## Problem
 
@@ -21,4 +21,4 @@ Structured `readStatus` + hints for `ripmail read <path> --json` and localDir in
 ## See also
 
 - [ripmail OPP-051 — unified sources](../../ripmail/docs/opportunities/OPP-051-unified-sources-mail-local-files-future-connectors.md)
-- [Wiki read vs read_email](../architecture/wiki-read-vs-read-email.md)
+- [Wiki read vs indexed mail/files](../architecture/wiki-read-vs-read-email.md)

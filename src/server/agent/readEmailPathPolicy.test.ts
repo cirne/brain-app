@@ -25,13 +25,13 @@ afterEach(async () => {
   vi.clearAllMocks()
 })
 
-describe('read_email path policy', () => {
+describe('read_indexed_file path policy', () => {
   it('does not call ripmail for filesystem paths outside the tenant allowlist', async () => {
     const { createAgentTools } = await import('./tools.js')
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{}', stderr: '' })
 
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t) => t.name === 'read_email')!
+    const tool = tools.find((t) => t.name === 'read_indexed_file')!
 
     await expect(tool.execute('x', { id: '/etc/passwd' })).rejects.toThrow(/path_not_allowed/)
 
@@ -51,7 +51,7 @@ describe('read_email path policy', () => {
     })
 
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t) => t.name === 'read_email')!
+    const tool = tools.find((t) => t.name === 'read_indexed_file')!
 
     await tool.execute('x', { id: allowed })
 
@@ -62,13 +62,15 @@ describe('read_email path policy', () => {
     expect(readCall).toBeDefined()
     expect(String(readCall![0])).toContain(JSON.stringify(allowed))
   })
+})
 
+describe('read_mail_message', () => {
   it('calls ripmail for Message-ID style ids without path pre-check', async () => {
     const { createAgentTools } = await import('./tools.js')
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{}', stderr: '' })
 
     const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t) => t.name === 'read_email')!
+    const tool = tools.find((t) => t.name === 'read_mail_message')!
 
     await tool.execute('x', { id: '<opaque.id@mail.example.com>' })
 

@@ -1,6 +1,6 @@
 use regex::Regex;
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use crate::cli::args::InboxArgs;
 use crate::cli::util::ripmail_home_path;
@@ -331,190 +331,19 @@ pub(crate) fn run_sync_foreground_backfill(
 ) -> Result<SyncResult, Box<dyn std::error::Error>> {
     let home = ripmail_home_path();
     let to_run = mailboxes_to_run(cfg, mailbox_filter)?;
-    let logger = SyncFileLogger::open(&home)?;
-    let mut conn = db::open_file(cfg.db_path())?;
+    let logger = Arc::new(SyncFileLogger::open(&home)?);
     let since_ymd = resolve_sync_since_ymd(cfg, since_override)?;
-    let mut runs = Vec::new();
-    let mut summaries = Vec::new();
     let log_path = logger.log_path().display().to_string();
     let env_file = read_ripmail_env_file(&home);
     let process_env: HashMap<String, String> = std::env::vars().collect();
     let exclude_labels = cfg.sync_exclude_labels.clone();
     let sync_mailbox = cfg.sync_mailbox.clone();
-    for mb in &to_run {
-        if ripmail::runtime_limits::shutdown_requested() {
-            eprintln!("ripmail: interrupted; stopping backfill before next mailbox.");
-            break;
-        }
-        if ripmail::runtime_limits::wall_clock_expired() {
-            eprintln!("ripmail: wall-clock timeout; stopping backfill before next mailbox.");
-            break;
-        }
-        if !mailbox_sync_ready(&home, mb) {
-            if mb.kind == SourceKind::GoogleDrive {
-                eprintln!(
-                    "ripmail: skipping {} (Google Drive: missing OAuth token for linked mailbox)",
-                    mb.id
-                );
-            } else if mb.kind == SourceKind::LocalDir {
-                eprintln!(
-                    "ripmail: skipping {} (localDir root missing or not a directory)",
-                    mb.id
-                );
-            } else if mb.calendar.is_some() {
-                eprintln_calendar_not_ready(mb);
-                logger.warn(
-                    &format!(
-                        "Skipping calendar source {} (not ready: OAuth token, ICS path, or unsupported Apple sync)",
-                        mb.id
-                    ),
-                    None,
-                );
-            } else {
-                eprintln!(
-                    "ripmail: skipping {} (missing IMAP credentials or Apple Mail Envelope Index)",
-                    mb.id
-                );
-            }
-            continue;
-        }
-        let mailbox_id = mb.id.clone();
-        if mb.calendar.is_some() {
-            eprintln!("ripmail: syncing calendar source {}…", mb.id);
-            let result =
-                run_calendar_sync(&mut conn, &home, mb, &env_file, &process_env, &logger, true)?;
-            summaries.push(SyncMailboxSummary {
-                id: mb.id.clone(),
-                email: mb.email.clone(),
-                synced: result.synced,
-                messages_fetched: result.messages_fetched,
-                bytes_downloaded: result.bytes_downloaded,
-                duration_ms: result.duration_ms,
-            });
-            runs.push(result);
-            continue;
-        }
-        if mb.kind == SourceKind::LocalDir {
-            eprintln!("ripmail: indexing local directory {}…", mb.id);
-            let result = run_local_dir_sync(&mut conn, mb, true)?;
-            summaries.push(SyncMailboxSummary {
-                id: mb.id.clone(),
-                email: String::new(),
-                synced: result.synced,
-                messages_fetched: result.messages_fetched,
-                bytes_downloaded: result.bytes_downloaded,
-                duration_ms: result.duration_ms,
-            });
-            runs.push(result);
-            continue;
-        }
-        if mb.kind == SourceKind::GoogleDrive {
-            eprintln!("ripmail: syncing Google Drive source {}…", mb.id);
-            let result =
-                run_google_drive_sync(&mut conn, mb, &home, &env_file, &process_env, true)?;
-            summaries.push(SyncMailboxSummary {
-                id: mb.id.clone(),
-                email: mb.email.clone(),
-                synced: result.synced,
-                messages_fetched: result.messages_fetched,
-                bytes_downloaded: result.bytes_downloaded,
-                duration_ms: result.duration_ms,
-            });
-            runs.push(result);
-            continue;
-        }
-        if mb.apple_mail_root.is_some() {
-            eprintln!("ripmail: indexing Apple Mail for {}…", mb.email);
-            let result = run_applemail_sync(
-                &mut conn,
-                &logger,
-                mb,
-                &since_ymd,
-                true,
-                verbose,
-                SyncKind::Backfill,
-            )?;
-            eprintln!("ripmail: Apple Mail index pass done.");
-            summaries.push(SyncMailboxSummary {
-                id: mb.id.clone(),
-                email: mb.email.clone(),
-                synced: result.synced,
-                messages_fetched: result.messages_fetched,
-                bytes_downloaded: result.bytes_downloaded,
-                duration_ms: result.duration_ms,
-            });
-            runs.push(result);
-            continue;
-        }
-        eprintln!("ripmail: Connecting to {} ({})…", mb.imap_host, mb.email);
-        let imap_folder = resolve_sync_folder_for_host(&sync_mailbox, &mb.imap_host);
-        let mb_owned = mb.clone();
-        let home_c = home.clone();
-        let env_file = env_file.clone();
-        let process_env = process_env.clone();
-        let maildir_path = mb.maildir_path.clone();
-        let opts = SyncOptions {
-            kind: SyncKind::Backfill,
-            direction: SyncDirection::Backward,
-            since_ymd: since_ymd.clone(),
-            force: false,
-            progress_stderr: true,
-            verbose,
-        };
-        let result = ripmail::run_sync_with_parallel_imap_connect(
-            &mut conn,
-            &logger,
-            &mailbox_id,
-            &imap_folder,
-            &maildir_path,
-            &exclude_labels,
-            &opts,
-            move || connect_imap_for_resolved_mailbox(&home_c, &mb_owned, &env_file, &process_env),
-        )?;
-        eprintln!("ripmail: Connected.");
-        summaries.push(SyncMailboxSummary {
-            id: mb.id.clone(),
-            email: mb.email.clone(),
-            synced: result.synced,
-            messages_fetched: result.messages_fetched,
-            bytes_downloaded: result.bytes_downloaded,
-            duration_ms: result.duration_ms,
-        });
-        runs.push(result);
-    }
-    Ok(merge_sync_runs(runs, summaries, log_path))
-}
+    let db_path = cfg.db_path().to_path_buf();
 
-pub(crate) fn run_sync_foreground_refresh(
-    cfg: &ripmail::Config,
-    force: bool,
-    progress_stderr: bool,
-    mailbox_filter: Option<&str>,
-    verbose: bool,
-) -> Result<SyncResult, Box<dyn std::error::Error>> {
-    let home = ripmail_home_path();
-    let to_run = mailboxes_to_run(cfg, mailbox_filter)?;
-    let logger = SyncFileLogger::open(&home)?;
-    let mut conn = db::open_file(cfg.db_path())?;
-    let since_ymd = resolve_sync_since_ymd(cfg, None)?;
-    let log_path = logger.log_path().display().to_string();
-    let mut runs = Vec::new();
-    let mut summaries = Vec::new();
-    let env_file = read_ripmail_env_file(&home);
-    let process_env: HashMap<String, String> = std::env::vars().collect();
-    let exclude_labels = cfg.sync_exclude_labels.clone();
-    let sync_mailbox = cfg.sync_mailbox.clone();
-    for mb in &to_run {
-        if ripmail::runtime_limits::shutdown_requested() {
-            eprintln!("ripmail: interrupted; stopping refresh before next mailbox.");
-            break;
-        }
-        if ripmail::runtime_limits::wall_clock_expired() {
-            eprintln!("ripmail: wall-clock timeout; stopping refresh before next mailbox.");
-            break;
-        }
-        if !mailbox_sync_ready(&home, mb) {
-            if progress_stderr {
+    let ready: Vec<ResolvedMailbox> = to_run
+        .into_iter()
+        .filter(|mb| {
+            if !mailbox_sync_ready(&home, mb) {
                 if mb.kind == SourceKind::GoogleDrive {
                     eprintln!(
                         "ripmail: skipping {} (Google Drive: missing OAuth token for linked mailbox)",
@@ -540,139 +369,331 @@ pub(crate) fn run_sync_foreground_refresh(
                         mb.id
                     );
                 }
+                false
+            } else {
+                true
             }
-            continue;
-        }
-        let mailbox_id = mb.id.clone();
-        if mb.calendar.is_some() {
-            if progress_stderr {
-                eprintln!("ripmail: syncing calendar source {}…", mb.id);
+        })
+        .collect();
+
+    let handles: Vec<_> = ready
+        .into_iter()
+        .map(|mb| {
+            let home = home.clone();
+            let logger = Arc::clone(&logger);
+            let env_file = env_file.clone();
+            let process_env = process_env.clone();
+            let exclude_labels = exclude_labels.clone();
+            let sync_mailbox = sync_mailbox.clone();
+            let since_ymd = since_ymd.clone();
+            let db_path = db_path.clone();
+            std::thread::spawn(
+                move || -> Result<(SyncMailboxSummary, SyncResult), String> {
+                    if ripmail::runtime_limits::shutdown_requested()
+                        || ripmail::runtime_limits::wall_clock_expired()
+                    {
+                        return Err(format!("ripmail: skipping {} (shutdown/timeout)", mb.id));
+                    }
+                    // Each thread opens its own connection. SQLite WAL serialises concurrent writers
+                    // automatically; the 15-second busy_timeout handles transient contention.
+                    let mut conn = db::open_file(&db_path)
+                        .map_err(|e| format!("{}: open_file: {e}", mb.id))?;
+                    let result = if mb.calendar.is_some() {
+                        eprintln!("ripmail: syncing calendar source {}…", mb.id);
+                        run_calendar_sync(
+                            &mut conn,
+                            &home,
+                            &mb,
+                            &env_file,
+                            &process_env,
+                            &logger,
+                            true,
+                        )
+                        .map_err(|e| e.to_string())?
+                    } else if mb.kind == SourceKind::LocalDir {
+                        eprintln!("ripmail: indexing local directory {}…", mb.id);
+                        run_local_dir_sync(&mut conn, &mb, true).map_err(|e| e.to_string())?
+                    } else if mb.kind == SourceKind::GoogleDrive {
+                        eprintln!("ripmail: syncing Google Drive source {}…", mb.id);
+                        run_google_drive_sync(&mut conn, &mb, &home, &env_file, &process_env, true)
+                            .map_err(|e| e.to_string())?
+                    } else if mb.apple_mail_root.is_some() {
+                        eprintln!("ripmail: indexing Apple Mail for {}…", mb.email);
+                        let r = run_applemail_sync(
+                            &mut conn,
+                            &logger,
+                            &mb,
+                            &since_ymd,
+                            true,
+                            verbose,
+                            SyncKind::Backfill,
+                        )
+                        .map_err(|e| e.to_string())?;
+                        eprintln!("ripmail: Apple Mail index pass done.");
+                        r
+                    } else {
+                        eprintln!("ripmail: Connecting to {} ({})…", mb.imap_host, mb.email);
+                        let imap_folder =
+                            resolve_sync_folder_for_host(&sync_mailbox, &mb.imap_host);
+                        let maildir_path = mb.maildir_path.clone();
+                        let mb_owned = mb.clone();
+                        let home_c = home.clone();
+                        let env_file_c = env_file.clone();
+                        let process_env_c = process_env.clone();
+                        let opts = SyncOptions {
+                            kind: SyncKind::Backfill,
+                            direction: SyncDirection::Backward,
+                            since_ymd: since_ymd.clone(),
+                            force: false,
+                            progress_stderr: true,
+                            verbose,
+                        };
+                        let r = ripmail::run_sync_with_parallel_imap_connect(
+                            &mut conn,
+                            &logger,
+                            &mb.id,
+                            &imap_folder,
+                            &maildir_path,
+                            &exclude_labels,
+                            &opts,
+                            move || {
+                                connect_imap_for_resolved_mailbox(
+                                    &home_c,
+                                    &mb_owned,
+                                    &env_file_c,
+                                    &process_env_c,
+                                )
+                            },
+                        )
+                        .map_err(|e| e.to_string())?;
+                        eprintln!("ripmail: Connected.");
+                        r
+                    };
+                    let summary = SyncMailboxSummary {
+                        id: mb.id.clone(),
+                        email: mb.email.clone(),
+                        synced: result.synced,
+                        messages_fetched: result.messages_fetched,
+                        bytes_downloaded: result.bytes_downloaded,
+                        duration_ms: result.duration_ms,
+                    };
+                    Ok((summary, result))
+                },
+            )
+        })
+        .collect();
+
+    let mut runs = Vec::new();
+    let mut summaries = Vec::new();
+    for handle in handles {
+        match handle.join() {
+            Ok(Ok((summary, result))) => {
+                summaries.push(summary);
+                runs.push(result);
             }
-            let result = run_calendar_sync(
-                &mut conn,
-                &home,
-                mb,
-                &env_file,
-                &process_env,
-                &logger,
-                progress_stderr,
-            )?;
-            summaries.push(SyncMailboxSummary {
-                id: mb.id.clone(),
-                email: mb.email.clone(),
-                synced: result.synced,
-                messages_fetched: result.messages_fetched,
-                bytes_downloaded: result.bytes_downloaded,
-                duration_ms: result.duration_ms,
-            });
-            runs.push(result);
-            continue;
+            Ok(Err(e)) => eprintln!("ripmail: sync error: {e}"),
+            Err(_) => eprintln!("ripmail: a sync thread panicked"),
         }
-        if mb.kind == SourceKind::LocalDir {
-            if progress_stderr {
-                eprintln!("ripmail: indexing local directory {}…", mb.id);
+    }
+    Ok(merge_sync_runs(runs, summaries, log_path))
+}
+
+pub(crate) fn run_sync_foreground_refresh(
+    cfg: &ripmail::Config,
+    force: bool,
+    progress_stderr: bool,
+    mailbox_filter: Option<&str>,
+    verbose: bool,
+) -> Result<SyncResult, Box<dyn std::error::Error>> {
+    let home = ripmail_home_path();
+    let to_run = mailboxes_to_run(cfg, mailbox_filter)?;
+    let logger = Arc::new(SyncFileLogger::open(&home)?);
+    let since_ymd = resolve_sync_since_ymd(cfg, None)?;
+    let log_path = logger.log_path().display().to_string();
+    let env_file = read_ripmail_env_file(&home);
+    let process_env: HashMap<String, String> = std::env::vars().collect();
+    let exclude_labels = cfg.sync_exclude_labels.clone();
+    let sync_mailbox = cfg.sync_mailbox.clone();
+    let db_path = cfg.db_path().to_path_buf();
+
+    let ready: Vec<ResolvedMailbox> = to_run
+        .into_iter()
+        .filter(|mb| {
+            if !mailbox_sync_ready(&home, mb) {
+                if progress_stderr {
+                    if mb.kind == SourceKind::GoogleDrive {
+                        eprintln!(
+                            "ripmail: skipping {} (Google Drive: missing OAuth token for linked mailbox)",
+                            mb.id
+                        );
+                    } else if mb.kind == SourceKind::LocalDir {
+                        eprintln!(
+                            "ripmail: skipping {} (localDir root missing or not a directory)",
+                            mb.id
+                        );
+                    } else if mb.calendar.is_some() {
+                        eprintln_calendar_not_ready(mb);
+                        logger.warn(
+                            &format!(
+                                "Skipping calendar source {} (not ready: OAuth token, ICS path, or unsupported Apple sync)",
+                                mb.id
+                            ),
+                            None,
+                        );
+                    } else {
+                        eprintln!(
+                            "ripmail: skipping {} (missing IMAP credentials or Apple Mail Envelope Index)",
+                            mb.id
+                        );
+                    }
+                }
+                false
+            } else {
+                true
             }
-            let result = run_local_dir_sync(&mut conn, mb, progress_stderr)?;
-            summaries.push(SyncMailboxSummary {
-                id: mb.id.clone(),
-                email: String::new(),
-                synced: result.synced,
-                messages_fetched: result.messages_fetched,
-                bytes_downloaded: result.bytes_downloaded,
-                duration_ms: result.duration_ms,
-            });
-            runs.push(result);
-            continue;
-        }
-        if mb.kind == SourceKind::GoogleDrive {
-            if progress_stderr {
-                eprintln!("ripmail: syncing Google Drive source {}…", mb.id);
+        })
+        .collect();
+
+    let handles: Vec<_> = ready
+        .into_iter()
+        .map(|mb| {
+            let home = home.clone();
+            let logger = Arc::clone(&logger);
+            let env_file = env_file.clone();
+            let process_env = process_env.clone();
+            let exclude_labels = exclude_labels.clone();
+            let sync_mailbox = sync_mailbox.clone();
+            let since_ymd = since_ymd.clone();
+            let db_path = db_path.clone();
+            std::thread::spawn(
+                move || -> Result<(SyncMailboxSummary, SyncResult), String> {
+                    if ripmail::runtime_limits::shutdown_requested()
+                        || ripmail::runtime_limits::wall_clock_expired()
+                    {
+                        return Err(format!("ripmail: skipping {} (shutdown/timeout)", mb.id));
+                    }
+                    // Each thread opens its own connection. SQLite WAL serialises concurrent writers
+                    // automatically; the 15-second busy_timeout handles transient contention.
+                    let mut conn = db::open_file(&db_path)
+                        .map_err(|e| format!("{}: open_file: {e}", mb.id))?;
+                    let result = if mb.calendar.is_some() {
+                        if progress_stderr {
+                            eprintln!("ripmail: syncing calendar source {}…", mb.id);
+                        }
+                        run_calendar_sync(
+                            &mut conn,
+                            &home,
+                            &mb,
+                            &env_file,
+                            &process_env,
+                            &logger,
+                            progress_stderr,
+                        )
+                        .map_err(|e| e.to_string())?
+                    } else if mb.kind == SourceKind::LocalDir {
+                        if progress_stderr {
+                            eprintln!("ripmail: indexing local directory {}…", mb.id);
+                        }
+                        run_local_dir_sync(&mut conn, &mb, progress_stderr)
+                            .map_err(|e| e.to_string())?
+                    } else if mb.kind == SourceKind::GoogleDrive {
+                        if progress_stderr {
+                            eprintln!("ripmail: syncing Google Drive source {}…", mb.id);
+                        }
+                        run_google_drive_sync(
+                            &mut conn,
+                            &mb,
+                            &home,
+                            &env_file,
+                            &process_env,
+                            progress_stderr,
+                        )
+                        .map_err(|e| e.to_string())?
+                    } else if mb.apple_mail_root.is_some() {
+                        if progress_stderr {
+                            eprintln!("ripmail: indexing Apple Mail for {}…", mb.email);
+                        }
+                        let r = run_applemail_sync(
+                            &mut conn,
+                            &logger,
+                            &mb,
+                            &since_ymd,
+                            progress_stderr,
+                            verbose,
+                            SyncKind::Refresh,
+                        )
+                        .map_err(|e| e.to_string())?;
+                        if progress_stderr {
+                            eprintln!("ripmail: Apple Mail index pass done.");
+                        }
+                        r
+                    } else {
+                        if progress_stderr {
+                            eprintln!("ripmail: Connecting to {} ({})…", mb.imap_host, mb.email);
+                        }
+                        let imap_folder =
+                            resolve_sync_folder_for_host(&sync_mailbox, &mb.imap_host);
+                        let maildir_path = mb.maildir_path.clone();
+                        let mb_owned = mb.clone();
+                        let home_c = home.clone();
+                        let env_file_c = env_file.clone();
+                        let process_env_c = process_env.clone();
+                        let opts = SyncOptions {
+                            kind: SyncKind::Refresh,
+                            direction: SyncDirection::Forward,
+                            since_ymd: since_ymd.clone(),
+                            force,
+                            progress_stderr,
+                            verbose,
+                        };
+                        let r = ripmail::run_sync_with_parallel_imap_connect(
+                            &mut conn,
+                            &logger,
+                            &mb.id,
+                            &imap_folder,
+                            &maildir_path,
+                            &exclude_labels,
+                            &opts,
+                            move || {
+                                connect_imap_for_resolved_mailbox(
+                                    &home_c,
+                                    &mb_owned,
+                                    &env_file_c,
+                                    &process_env_c,
+                                )
+                            },
+                        )
+                        .map_err(|e| e.to_string())?;
+                        if progress_stderr {
+                            eprintln!("ripmail: Connected.");
+                        }
+                        r
+                    };
+                    let summary = SyncMailboxSummary {
+                        id: mb.id.clone(),
+                        email: mb.email.clone(),
+                        synced: result.synced,
+                        messages_fetched: result.messages_fetched,
+                        bytes_downloaded: result.bytes_downloaded,
+                        duration_ms: result.duration_ms,
+                    };
+                    Ok((summary, result))
+                },
+            )
+        })
+        .collect();
+
+    let mut runs = Vec::new();
+    let mut summaries = Vec::new();
+    for handle in handles {
+        match handle.join() {
+            Ok(Ok((summary, result))) => {
+                summaries.push(summary);
+                runs.push(result);
             }
-            let result = run_google_drive_sync(
-                &mut conn,
-                mb,
-                &home,
-                &env_file,
-                &process_env,
-                progress_stderr,
-            )?;
-            summaries.push(SyncMailboxSummary {
-                id: mb.id.clone(),
-                email: mb.email.clone(),
-                synced: result.synced,
-                messages_fetched: result.messages_fetched,
-                bytes_downloaded: result.bytes_downloaded,
-                duration_ms: result.duration_ms,
-            });
-            runs.push(result);
-            continue;
+            Ok(Err(e)) => eprintln!("ripmail: sync error: {e}"),
+            Err(_) => eprintln!("ripmail: a sync thread panicked"),
         }
-        if mb.apple_mail_root.is_some() {
-            if progress_stderr {
-                eprintln!("ripmail: indexing Apple Mail for {}…", mb.email);
-            }
-            let result = run_applemail_sync(
-                &mut conn,
-                &logger,
-                mb,
-                &since_ymd,
-                progress_stderr,
-                verbose,
-                SyncKind::Refresh,
-            )?;
-            if progress_stderr {
-                eprintln!("ripmail: Apple Mail index pass done.");
-            }
-            summaries.push(SyncMailboxSummary {
-                id: mb.id.clone(),
-                email: mb.email.clone(),
-                synced: result.synced,
-                messages_fetched: result.messages_fetched,
-                bytes_downloaded: result.bytes_downloaded,
-                duration_ms: result.duration_ms,
-            });
-            runs.push(result);
-            continue;
-        }
-        if progress_stderr {
-            eprintln!("ripmail: Connecting to {} ({})…", mb.imap_host, mb.email);
-        }
-        let imap_folder = resolve_sync_folder_for_host(&sync_mailbox, &mb.imap_host);
-        let mb_owned = mb.clone();
-        let home_c = home.clone();
-        let env_file = env_file.clone();
-        let process_env = process_env.clone();
-        let maildir_path = mb.maildir_path.clone();
-        let opts = SyncOptions {
-            kind: SyncKind::Refresh,
-            direction: SyncDirection::Forward,
-            since_ymd: since_ymd.clone(),
-            force,
-            progress_stderr,
-            verbose,
-        };
-        let result = ripmail::run_sync_with_parallel_imap_connect(
-            &mut conn,
-            &logger,
-            &mailbox_id,
-            &imap_folder,
-            &maildir_path,
-            &exclude_labels,
-            &opts,
-            move || connect_imap_for_resolved_mailbox(&home_c, &mb_owned, &env_file, &process_env),
-        )?;
-        if progress_stderr {
-            eprintln!("ripmail: Connected.");
-        }
-        summaries.push(SyncMailboxSummary {
-            id: mb.id.clone(),
-            email: mb.email.clone(),
-            synced: result.synced,
-            messages_fetched: result.messages_fetched,
-            bytes_downloaded: result.bytes_downloaded,
-            duration_ms: result.duration_ms,
-        });
-        runs.push(result);
     }
     Ok(merge_sync_runs(runs, summaries, log_path))
 }

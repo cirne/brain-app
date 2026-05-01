@@ -2,7 +2,7 @@ import type { AssistantTurnState } from './chatTypes.js'
 import { buildReadEmailPreviewDetails } from '@shared/readEmailPreview.js'
 
 /**
- * Pure shaping for `read_email` tool_end `details` (no I/O, no NR).
+ * Pure shaping for **`read_mail_message`** / **`read_indexed_file`** tool_end `details` (no I/O, no NR).
  * Returns `undefined` if the payload should be left to runtime defaults.
  */
 export function shapeReadEmailStreamDetails(

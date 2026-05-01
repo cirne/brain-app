@@ -12,7 +12,7 @@ export type ToolChatPolicy = {
 
 export type OnboardingVariant = 'profiling' | 'buildout'
 
-/** Rich mail row for read_email progress (same shape as ProfilingEmailRef). */
+/** Rich mail row for **`read_mail_message`** progress (same shape as ProfilingEmailRef). */
 export type SeedingMailPreview = {
   id: string
   subject: string
@@ -27,7 +27,7 @@ export type SeedingProgressLine = {
   prefix: string
   path?: string
   detail?: string
-  /** read_email email: show Mail referenced–style card at this step. */
+  /** **`read_mail_message`** mail: show Mail referenced–style card at this step. */
   mailPreview?: SeedingMailPreview
 }
 

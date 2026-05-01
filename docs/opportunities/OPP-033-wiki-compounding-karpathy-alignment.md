@@ -23,7 +23,7 @@ So **expansion** is the heavy **initial / explicit** wiki buildout; **maintenanc
 
 Karpathy’s gist often reads as **ingest each new source** into the wiki soon after it lands, sometimes **one file at a time** with the human watching—reasonable when “sources” are articles, PDFs, or clipped pages at **human scale**.
 
-Brain’s **source** is mostly **email (and more) at mailbox scale**. Re-running a full wiki **ingestion** agent on **every new message** would be **noise-heavy**, expensive, and would fight users who already have **fast indexed search** (`search_index`, `read_email`) for raw evidence. The intended shape is:
+Brain’s **source** is mostly **email (and more) at mailbox scale**. Re-running a full wiki **ingestion** agent on **every new message** would be **noise-heavy**, expensive, and would fight users who already have **fast indexed search** (`search_index`, `read_mail_message`, `read_indexed_file`) for raw evidence. The intended shape is:
 
 - **Continuous / automatic:** **ripmail (and friends) keep the corpus indexed** — this is the always-on layer, not an LLM loop per mail.
 - **One setup + periodic / batch wiki updates:** **expansion** after profile accept or on demand; **maintenance** on a schedule or **coarse** triggers (sync finished, weekly lint, Hub “run now”); optional **larger** passes when the user asks or approves ([OPP-026](./archive/OPP-026-knowledge-expansion-discovery-ui.md)).

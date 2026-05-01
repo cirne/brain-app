@@ -1,0 +1,71 @@
+# Strategy
+
+**Status:** Initial thoughts — hypotheses, not commitments. Treat as a central place we refine over time.
+
+This document is the **single source of truth** for go-to-market, competitive positioning, and moats. **[VISION.md](VISION.md)** stays the narrative of *what Braintunnel is* and why personalization matters at the human level.
+
+---
+
+## Competitive landscape
+
+**Large platform vendors** — Microsoft, Anthropic, OpenAI, Google, Apple, Meta, etc. — have distribution, budgets, models, and product suites adjacent to generalized “assistant” workflows. Delegating AI life-work to someone else’s omnibus product puts us in lanes they intend to occupy.
+
+**Many small competitors** — the cost of shipping new software is near zero relative to historic norms. Features and demos can be copied quickly. We should assume **imitators multiply** and optimize for differentiation that survives that dynamic, not surface-level novelty alone.
+
+---
+
+## Where to focus
+
+Avoid competing head-on in the **mass-market generalized assistant** category; incumbents and platform-owned products (including **Claude Cowork**–style team workspaces from model vendors) will be expected to lead there.
+
+Prefer **narrow markets and segments** first:
+
+- **Small businesses**, roughly **5–50 employees** (initial guess), whose leaders are **aware of AI** (e.g., have heard of ChatGPT) but are **not** already committed to one platform cowork product and **need a credible place to start** with life-and-work personalization (email, calendar, wiki grounding).
+- **Vertical focus** remains an option inside that segment — narrower bets before broader ones — if it sharpens positioning and repeatable onboarding.
+- **Graduation**, if it works: grow into **mid-size** contexts (examples: **100- or ~500-person** organizations) once playbooks prove out — not Day 1 breadth.
+
+*[PRODUCTIZATION.md](PRODUCTIZATION.md) covers concrete multi-tenant/engineering gaps; strategy here is segment choice.*
+
+---
+
+## Moats
+
+We need **defensibility from below** (startups/clones) and **realistic expectations from above** (platforms).
+
+### From platforms (above)
+
+**Depth in a wedge that is strategically small for them.** If the addressable wedge is deliberate and narrow, generalized platform roadmaps pay less reward for cloning our exact playbook. Winning means **meaningful differentiation and delight** in that wedge, not parity on every assistant feature.
+
+### From imitators (below)
+
+**(1) Network**
+
+Braintunnels that **coordinate with each other** create a graph of relationships and delegated trust. Larger network → harder for a bottom-up clone to replicate the same relational fabric; switching would mean rebuilding **connections and scopes**, not just exporting files.
+
+**(2) Trust (security posture)**
+
+Users bring **among the most sensitive possible data**: mail, calendars, wiki, eventually messages, docs — effectively a curated **lifetime brain**. Competitive advantage includes being the **provider people choose because they refuse to normalize another party reading all of it**. That implies relentless security engineering, transparency, optional **hardware / local-first** narratives where true, and over time evaluating **everything that makes plaintext on our infra unnecessary** — including contemplating **strong end-to-end encryption** models where operators never see plaintext. **Telegram** (optional E2EE “secret chats”) and **WhatsApp** (defaults on message E2EE) are reference points for how consumer trust aligns with cryptography story — product tradeoffs apply and must be spelled out separately.
+
+Operational controls and today's threat model belong in **[SECURITY.md](SECURITY.md)**.
+
+---
+
+## Brain-to-brain and the trust network
+
+The product manifestation of **network + trust** is **brain-to-brain**: bilateral trust edges, explicit scopes, human-in-the-loop where it matters — a **trust network**, not a social feed. Economic value scales with **who your brain may query on your behalf** and what you authorize, **not follower counts**.
+
+**Email as analogy:** federation, identity-bearing addresses, and **value that grows with who else participates**. Brain-to-brain aims for similarly **network-shaped** upside with **much higher-bandwidth coordination** delegated to agents — while keeping sovereignty visible.
+
+Detailed sequencing and milestones: **[IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md)** (first concrete step: **[OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)**).
+
+---
+
+## Related docs
+
+
+| Doc                                                                                  | Purpose                                                                 |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| [VISION.md](VISION.md)                                                               | What the product feels like and why personalization compounding matters |
+| [PRODUCTIZATION.md](PRODUCTIZATION.md)                                               | Blockers/tradeoffs to multi-user productization                         |
+| [SECURITY.md](SECURITY.md)                                                           | Security architecture and risk register                                 |
+| [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) | Brain-to-brain product + sequencing                                     |

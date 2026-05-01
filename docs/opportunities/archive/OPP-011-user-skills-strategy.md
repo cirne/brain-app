@@ -21,7 +21,7 @@
 | Area | Tools (names) | Typical use |
 | --- | --- | --- |
 | **Wiki files** | `read`, `edit`, `write`, `grep`, `find`, `move_file`, `delete_file` | Create/edit pages, search paths and content, reorganize files |
-| **Email** | `search_email`, `read_email`, `list_inbox`, `inbox_rules`, `archive_emails`, `draft_email`, `edit_draft`, `send_draft` | Find threads, read messages, triage inbox, draft/send (send is sensitive) |
+| **Email** | `search_email`, `read_mail_message`, `read_indexed_file`, `list_inbox`, `inbox_rules`, `archive_emails`, `draft_email`, `edit_draft`, `send_draft` | Find threads, read messages, triage inbox, draft/send (send is sensitive) |
 | **People** | `find_person` | Resolve contacts to wiki pages / ripmail identity |
 | **Calendar** | `get_calendar_events` | Context for scheduling and email |
 | **Web / video** | `web_search`, `fetch_page`, `get_youtube_transcript`, `youtube_search` | External research and citations |

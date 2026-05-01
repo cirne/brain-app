@@ -63,7 +63,7 @@ export type ConsumeAgentChatStreamOptions = {
   msgIdx: number
   /**
    * When true, skip agent-driven **opening** of the right detail panel: wiki from `write`/`edit`,
-   * navigation from `open` / `read_email`, and opening the draft overlay from **`draft_email`** on `tool_end`.
+   * navigation from `open` / **`read_mail_message`** / **`read_indexed_file`**, and opening the draft overlay from **`draft_email`** on `tool_end`.
    * Transcript still updates; `onWriteStreaming` / `onEditStreaming` still run when the session is active.
    */
   suppressAgentDetailAutoOpen: boolean
@@ -286,14 +286,20 @@ export async function consumeAgentChatStream(
                 openedFromAgentByToolId.add(data.id)
                 if (allowAgentDetailOpen() && policy.autoOpen) onOpenFromAgent(data.args.target, 'open')
               }
-              if (data.name === 'read_email' && typeof data.args?.id === 'string' && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
+              if (
+                (data.name === 'read_mail_message' || data.name === 'read_indexed_file') &&
+                typeof data.args?.id === 'string' &&
+                onOpenFromAgent &&
+                !openedFromAgentByToolId.has(data.id)
+              ) {
                 openedFromAgentByToolId.add(data.id)
                 if (allowAgentDetailOpen() && policy.autoOpen) {
                   const rid = String(data.args.id).trim()
+                  const source = data.name as 'read_mail_message' | 'read_indexed_file'
                   if (isFilesystemAbsolutePath(rid)) {
-                    onOpenFromAgent({ type: 'file', path: rid }, 'read_email')
+                    onOpenFromAgent({ type: 'file', path: rid }, source)
                   } else {
-                    onOpenFromAgent({ type: 'email', id: rid }, 'read_email')
+                    onOpenFromAgent({ type: 'email', id: rid }, source)
                   }
                 }
               }

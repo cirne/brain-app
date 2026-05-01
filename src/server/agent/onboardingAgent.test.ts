@@ -182,7 +182,7 @@ describe('buildProfilingSystemPrompt', () => {
     expect(p).toContain('me.md')
     expect(p).toMatch(/injected/i)
     expect(p).toMatch(/AGENTS\.md/i)
-    expect(p).toMatch(/read_email.*12/)
+    expect(p).toMatch(/read_mail_message.*12/)
     expect(p).toMatch(/Phone numbers and iMessage identifiers/)
     expect(p).toContain(String(PROFILING_ME_MD_MAX_WORDS))
     expect(p).toMatch(/single paragraph|run-on sentence/i)

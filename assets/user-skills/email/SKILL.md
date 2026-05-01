@@ -5,7 +5,7 @@ description: >-
   Single skill for inbox and mail: search/read threads; triage including batch “mute noisy stuff” flows;
   draft replies or new mail with context from threads, wiki people pages, or calendar when relevant;
   investigate why an expected message did not appear (often an aggressive filter—“filters,” not jargon).
-  Prefer built-in Brain tools (`search_index`, `read_email`, `list_inbox`, `inbox_rules`, `draft_email`, etc.);
+  Prefer built-in Brain tools (`search_index`, `read_mail_message`, `read_indexed_file`, `list_inbox`, `inbox_rules`, `draft_email`, etc.);
   assume no raw ripmail shell. Never send mail without explicit user confirmation.
 hint: >-
   what's in my inbox, find that email, why didn't X show up, mute these newsletters,
@@ -26,7 +26,7 @@ The user wants help with **connected email**, not standalone wiki authoring or a
 
 1. **Clarify** when needed — which account (`from` / source), approximate date, sender, or topic.
 2. **Fresh index** — when “right now” matters, **`refresh_sources`** first (or note background sync and short wait).
-3. **Retrieve** — **`search_index`** to find IDs; **`read_email`** / **`read_attachment`** to open; **`list_inbox`** for inbox-shaped summaries; **`find_person`** for contact questions.
+3. **Retrieve** — **`search_index`** to find IDs; **`read_mail_message`** / **`read_indexed_file`** / **`read_attachment`** to open (mail vs indexed file vs MIME part); **`list_inbox`** for inbox-shaped summaries; **`find_person`** for contact questions.
 4. **Act** — summarize, mute/archive patterns (**see [references/INBOX.md](references/INBOX.md)**), tighten filters (**same doc** — user-facing wording: filters, not infrastructure).
 5. **Draft** — **`draft_email`** / **`edit_draft`**; respect tone from **`me.md`** and sent mail context when inferable (**[references/COMPOSE.md](references/COMPOSE.md)**).
 6. **Send** — only **`send_draft`** after **explicit** confirmation; see compose doc.

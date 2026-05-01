@@ -431,8 +431,8 @@ describe('newRelicHelper', () => {
 
   it('beginToolCallSegment registers a startSegment and endToolCallSegmentBridge closes it', async () => {
     const { beginToolCallSegment, endToolCallSegmentBridge } = await import('@server/lib/observability/newRelicHelper.js')
-    beginToolCallSegment('read_email', 'tc-99')
-    expect(startSegment).toHaveBeenCalledWith('ai.tool/read_email', true, expect.any(Function))
+    beginToolCallSegment('read_mail_message', 'tc-99')
+    expect(startSegment).toHaveBeenCalledWith('ai.tool/read_mail_message', true, expect.any(Function))
     endToolCallSegmentBridge('tc-99')
   })
 })

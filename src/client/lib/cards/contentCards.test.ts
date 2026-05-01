@@ -72,10 +72,10 @@ describe('matchContentPreview', () => {
     expect(wikiPathForReadToolArg('data/config.json')).toBe('data/config.json')
   })
 
-  it('returns email preview for read_email with object from and body', () => {
+  it('returns email preview for read_mail_message with object from and body', () => {
     const tool = tc({
       id: 'e1',
-      name: 'read_email',
+      name: 'read_mail_message',
       done: true,
       args: { id: 'msg-1' },
       result: JSON.stringify({
@@ -94,10 +94,10 @@ describe('matchContentPreview', () => {
     }
   })
 
-  it('read_email preview uses details when result JSON is truncated (invalid parse)', () => {
+  it('read_mail_message preview uses details when result JSON is truncated (invalid parse)', () => {
     const tool = tc({
       id: 'e-trunc',
-      name: 'read_email',
+      name: 'read_mail_message',
       done: true,
       args: { id: 'CABA-big' },
       result: '{"subject":"Re: X","from":"a@b.com","body":"' + 'x'.repeat(5000), // truncated mid-string — parse fails

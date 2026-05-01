@@ -74,7 +74,7 @@ describe('extractSuggestReplyChoices', () => {
     expect(
       extractSuggestReplyChoices(
         tc({
-          name: 'read_email',
+          name: 'read_mail_message',
           details: { choices: [{ label: 'A', submit: 'b' }] },
         }),
       ),

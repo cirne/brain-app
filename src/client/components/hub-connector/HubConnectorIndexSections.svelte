@@ -2,6 +2,7 @@
   import { RefreshCw } from 'lucide-svelte'
   import FileSourceConfigEditor from '../FileSourceConfigEditor.svelte'
   import HubConnectorCalendarSection from './HubConnectorCalendarSection.svelte'
+  import HubConnectorDriveSection from './HubConnectorDriveSection.svelte'
   import {
     formatRelativeDate,
     type HubSourceDetailOk,
@@ -13,6 +14,8 @@
     driveSyncBlocked: boolean
     sourceSyncAction: 'refresh' | 'backfill' | null
     indexRefreshPending: boolean
+    /** When false, primary refresh lives in SlideOver header (production). */
+    showInlineRefresh: boolean
     onRefresh: () => void
     onReloadDetail: () => void
   }
@@ -23,6 +26,7 @@
     driveSyncBlocked,
     sourceSyncAction,
     indexRefreshPending,
+    showInlineRefresh,
     onRefresh,
     onReloadDetail,
   }: Props = $props()
@@ -35,6 +39,19 @@
     <p class="hub-source-status-err" role="alert">{sourceDetailError}</p>
   </section>
 {:else if sourceDetail}
+  {#if sourceDetail.status}
+    {@const st = sourceDetail.status}
+    <p class="hub-source-index-line" role="status">
+      {#if isGoogleCalendar}
+        <span>{st.calendarEventRows.toLocaleString()} events</span>
+      {:else}
+        <span>{st.documentIndexRows.toLocaleString()} documents</span>
+      {/if}
+      <span class="hub-source-index-line-sep" aria-hidden="true">·</span>
+      <span>Last synced {formatRelativeDate(st.lastSyncedAt)}</span>
+    </p>
+  {/if}
+
   {#if isGoogleCalendar}
     <HubConnectorCalendarSection
       sourceId={sourceDetail.id}
@@ -43,65 +60,35 @@
     />
   {/if}
 
-  {#if sourceDetail.kind === 'localDir' || sourceDetail.kind === 'googleDrive'}
+  {#if sourceDetail.kind === 'googleDrive'}
+    <HubConnectorDriveSection
+      sourceId={sourceDetail.id}
+      fileSource={sourceDetail.fileSource}
+      includeSharedWithMe={sourceDetail.includeSharedWithMe}
+      onSaved={onReloadDetail}
+    />
+  {:else if sourceDetail.kind === 'localDir'}
     <FileSourceConfigEditor
       sourceId={sourceDetail.id}
-      sourceKind={sourceDetail.kind === 'googleDrive' ? 'googleDrive' : 'localDir'}
+      sourceKind="localDir"
       fileSource={sourceDetail.fileSource}
       onSaved={onReloadDetail}
     />
   {/if}
 
-  {#if sourceDetail.kind === 'googleDrive'}
-    <section class="hub-source-status-section" aria-labelledby="hub-drive-prefs-heading">
-      <h2 id="hub-drive-prefs-heading" class="hub-source-status-heading">Preferences</h2>
-      <dl class="hub-source-meta hub-source-meta--dense">
-        <div class="hub-source-meta-row">
-          <dt>Shared with me</dt>
-          <dd>{sourceDetail.includeSharedWithMe ? 'Included' : 'Not included'}</dd>
-        </div>
-      </dl>
-    </section>
-  {/if}
-
   {#if sourceDetail.icsUrl}
-    <section class="hub-source-status-section" aria-labelledby="hub-ics-heading">
-      <h2 id="hub-ics-heading" class="hub-source-status-heading">Calendar feed</h2>
-      <dl class="hub-source-meta hub-source-meta--dense">
-        <div class="hub-source-meta-row">
-          <dt>ICS URL</dt>
-          <dd class="hub-source-path">{sourceDetail.icsUrl}</dd>
-        </div>
-      </dl>
-    </section>
+    <p class="hub-ics-line">
+      <span class="hub-ics-label">Feed</span>
+      <span class="hub-ics-url" title={sourceDetail.icsUrl}>{sourceDetail.icsUrl}</span>
+    </p>
   {/if}
 
-  <section class="hub-source-status-section" aria-labelledby="hub-sync-heading">
-    <h2 id="hub-sync-heading" class="hub-source-status-heading">Index &amp; sync</h2>
-    {#if sourceDetail.statusError}
-      <p class="hub-source-status-err" role="alert">{sourceDetail.statusError}</p>
-    {/if}
-    {#if sourceDetail.status}
-      {@const st = sourceDetail.status}
-      <dl class="hub-source-meta hub-source-meta--dense">
-        {#if isGoogleCalendar}
-          <div class="hub-source-meta-row">
-            <dt>Events indexed</dt>
-            <dd>{st.calendarEventRows.toLocaleString()}</dd>
-          </div>
-        {:else}
-          <div class="hub-source-meta-row">
-            <dt>Documents indexed</dt>
-            <dd>{st.documentIndexRows.toLocaleString()}</dd>
-          </div>
-        {/if}
-        <div class="hub-source-meta-row">
-          <dt>Last synced</dt>
-          <dd>{formatRelativeDate(st.lastSyncedAt)}</dd>
-        </div>
-      </dl>
-    {/if}
-    <div class="hub-source-sync-buttons">
+  {#if sourceDetail.statusError}
+    <p class="hub-source-status-err" role="alert">{sourceDetail.statusError}</p>
+  {/if}
+
+  {#if showInlineRefresh}
+    <div class="hub-source-sync-buttons hub-source-sync-buttons--inline">
       <button
         type="button"
         class="hub-dialog-btn hub-dialog-btn-primary hub-source-sync-btn"
@@ -117,5 +104,5 @@
             : 'Refresh index'}
       </button>
     </div>
-  </section>
+  {/if}
 {/if}

@@ -703,7 +703,7 @@
     }
   })
 
-  /** LLM `open` / `read_email` — navigate on tool_start. Mobile: only `open` opens the panel; `read_email` stays preview-only. */
+  /** LLM `open` / **`read_mail_message`** / **`read_indexed_file`** — navigate on tool_start. Mobile: only `open` opens the panel; mail/file reads stay preview-only. */
   function onOpenFromAgent(
     target: { type: string; path?: string; id?: string; date?: string },
     source: AgentOpenSource,
@@ -1213,7 +1213,12 @@
       {:else if shell.route.settingsActive}
         <div class="hub-container">
           <div class="hub-scroll">
-            <BrainSettingsPage onSettingsNavigate={navigateFromSettings} />
+            <BrainSettingsPage
+              onSettingsNavigate={navigateFromSettings}
+              selectedHubSourceId={shell.route.overlay?.type === 'hub-source'
+                ? shell.route.overlay.id
+                : undefined}
+            />
           </div>
           {#if
             !useDesktopSplitDetail &&

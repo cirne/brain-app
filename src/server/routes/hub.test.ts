@@ -515,4 +515,52 @@ describe('hub mail-prefs (visibility + default send)', () => {
     })
     expect(res.status).toBe(400)
   })
+
+  it('POST /sources/update-include-shared-with-me calls ripmail with correct args', async () => {
+    vi.mocked(runRipmailArgv).mockResolvedValue({
+      stdout: '{"ok":true,"id":"drive_x"}',
+      stderr: '',
+      code: 0,
+      signal: null,
+      durationMs: 1,
+      timedOut: false,
+      pid: 1,
+    })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/update-include-shared-with-me', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'drive_x', include: true }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean }
+    expect(j.ok).toBe(true)
+    const calls = vi.mocked(runRipmailArgv).mock.calls
+    const editCall = calls.find((c) => c[0].includes('edit') && c[0].includes('--include-shared-with-me'))
+    expect(editCall).toBeDefined()
+    expect(editCall?.[0]).toContain('true')
+  })
+
+  it('POST /sources/update-include-shared-with-me 400 when include is not boolean', async () => {
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/update-include-shared-with-me', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'drive_x', include: 'yes' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('POST /sources/update-include-shared-with-me 400 when id missing', async () => {
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/update-include-shared-with-me', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ include: false }),
+    })
+    expect(res.status).toBe(400)
+  })
 })

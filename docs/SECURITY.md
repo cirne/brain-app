@@ -98,7 +98,7 @@ All `/api/*` routes require a vault/session, **except** this explicit allowlist 
 
 ### LLM data flows
 
-User messages, wiki excerpts, email search results, and email body content (from `read_email` / agent tool calls) flow to configured LLM providers (Anthropic, OpenAI, etc.) as part of the agent context. **There is no redaction layer** between user data and LLM API calls. All content reachable by the agent within the tenant's home can be forwarded to the provider. Provider API calls happen server-side with API keys from `process.env`. Tool results are not truncated before being passed back to the model (they go through `toolResultForSse` in `streamAgentSse.ts`) — full mail bodies can be present in model context.
+User messages, wiki excerpts, email search results, and email body content (from `read_mail_message` / `read_indexed_file` / agent tool calls) flow to configured LLM providers (Anthropic, OpenAI, etc.) as part of the agent context. **There is no redaction layer** between user data and LLM API calls. All content reachable by the agent within the tenant's home can be forwarded to the provider. Provider API calls happen server-side with API keys from `process.env`. Tool results are not truncated before being passed back to the model (they go through `toolResultForSse` in `streamAgentSse.ts`) — full mail bodies can be present in model context.
 
 A client-supplied `context` string or `context.files` list (each file path validated to stay under the wiki root via `safeWikiRelativePath` and `resolvePathStrictlyUnderHome` in `src/server/routes/chat.ts`) is also injected into the system prompt before the LLM call. New Relic custom `ToolCall` events record parameter/result metadata (size buckets, sanitized keys) but not full content.
 
@@ -210,7 +210,7 @@ Hono request logger (`hono/logger`) runs on all non-quiet routes, printing metho
 **Mitigations to address:**
 
 - Add IP-based rate limiting on vault and OAuth endpoints (Hono middleware or Cloudflare WAF rules).
-- Add per-session LLM usage budget enforcement (see also [OPP-043](opportunities/OPP-043-llm-usage-token-metering.md)).
+- Add per-session LLM usage budget enforcement (see also [OPP-072](opportunities/OPP-072-llm-usage-token-metering.md)).
 
 ### P10 — Inbox route passes message IDs to ripmail without quoting
 

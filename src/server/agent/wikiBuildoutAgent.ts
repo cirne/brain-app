@@ -51,7 +51,7 @@ export function buildWikiBuildoutSystemPrompt(
   const isFirstBuildoutRun = options.isFirstBuildoutRun !== false
   const dateCtx = buildDateContext(timezone)
   const peoplePhoneNote =
-    '- For each **people/*.md** page, add a short **Contact** or **Identifiers** subsection when you have evidence: **primary email** and **phone** (from mail signatures, headers, or quoted text). Use **find_person** and **read_email** as needed. **Never** invent phone numbers.'
+    '- For each **people/*.md** page, add a short **Contact** or **Identifiers** subsection when you have evidence: **primary email** and **phone** (from mail signatures, headers, or quoted text). Use **find_person** and **read_mail_message** as needed. **Never** invent phone numbers.'
   const messagesWorkflow = options.localMessagesAvailable
     ? [
         '',

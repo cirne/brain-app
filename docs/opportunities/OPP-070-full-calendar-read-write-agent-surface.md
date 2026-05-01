@@ -1,27 +1,26 @@
 # OPP-070: Full calendar read/write — agent surface, ripmail primitives, UX guardrails
 
-**Status:** Open  
+**Status:** Mostly shipped (2026-04) — **residual:** onboarding / primary-calendar UX ([OPP-054](OPP-054-guided-onboarding-agent.md)), acceptance checklist audit, edge-case polish.  
 **Tags:** `calendar` · `agent` · `ripmail` · `google`  
 
-**Related:** [archived OPP-063](archive/OPP-063-google-calendar-recurring-and-update-events.md) (**superseded** — recurring create + patch scope folded here); [archived OPP-069](archive/OPP-069-calendar-token-efficiency.md) (read path: tiers, search — **shipped**; primary calendars remain [OPP-054](OPP-054-guided-onboarding-agent.md)); [`calendar` tool](../../src/server/agent/tools/calendarTools.ts); [`.agents/skills/calendar/SKILL.md`](../../.agents/skills/calendar/SKILL.md); [OPP-043](OPP-043-google-oauth-app-verification-milestones.md) (OAuth verification if scopes or sensitive operations expand).
+**Reality check:** `**calendar`** in [`calendarTools.ts`](../../src/server/agent/tools/calendarTools.ts) exposes **`create_event`** (recurrence / RRULE), **`update_event`**, **`cancel_event`**, **`delete_event`** backed by **`ripmail calendar`** (`create-event`, `update-event`, `cancel-event`, `delete-event`). Reads use adaptive tiers + **`search`** ([archived OPP-069](archive/OPP-069-calendar-token-efficiency.md)). Treat the **Problem** and **Acceptance** sections below as the **original spec**; many boxes are already satisfied in `main`.
+
+**Related:** [archived OPP-063](archive/OPP-063-google-calendar-recurring-and-update-events.md) (**superseded** by this doc); [archived OPP-069](archive/OPP-069-calendar-token-efficiency.md) (read path — **shipped**; primary calendars remain [OPP-054](OPP-054-guided-onboarding-agent.md)); [`calendar` tool](../../src/server/agent/tools/calendarTools.ts); [`.agents/skills/calendar/SKILL.md`](../../.agents/skills/calendar/SKILL.md); [OPP-043](OPP-043-google-oauth-app-verification-milestones.md) (OAuth verification if scopes expand).
 
 ---
 
 ## One-line summary
 
-Give the assistant **real calendar lifecycle control** (not only **single-instance create**): **recurring create**, **update** (patch time, title, location, recurrence), **cancel**, **delete**, and **move/reschedule** — implemented once in **ripmail** (Google Calendar API), exposed as **one coherent `calendar` tool** in brain-app, with **clear provider limits** and **safe UX defaults**.
+Give the assistant **real calendar lifecycle control** (not only **single-instance create**): **recurring create**, **update** (patch time, title, location, recurrence), **cancel**, **delete**, and **move/reschedule** — implemented in **ripmail** (Google Calendar API), exposed as **one coherent `calendar` tool** in brain-app, with **clear provider limits** and **safe UX defaults**.
 
 ---
 
-## Problem
+## Problem (historical — pre-2026-04)
 
-Today the stack is **read-heavy, write-narrow**:
+The stack was **read-heavy, write-narrow** until **`calendar`** gained full mutation **`op`** values:
 
-- **`calendar` `op=events`** (plus [adaptive tiers + search](archive/OPP-069-calendar-token-efficiency.md)) gives a strong **read** path backed by the local ripmail index.
-- **`op=create_event`** adds **single-instance** Google events only (no RRULE / recurrence presets).
-- Users cannot **update** an existing event, **create a recurring series**, **cancel** meetings, **delete** events, or **reschedule** via the agent — even though Gmail OAuth already requests **`https://www.googleapis.com/auth/calendar.events`** (sufficient for insert/update/delete on Google’s side once implemented).
-
-Users hit this as “**I can see my calendar but the assistant can’t act on it**” — screenshot-level friction for vacations, conflicts, standups, and routine hygiene.
+- **`calendar` `op=events`** (plus [adaptive tiers + search](archive/OPP-069-calendar-token-efficiency.md)) gives a strong **read** path.
+- Previously **`op=create_event`** was **single-instance** only; **update** / **recurring** / **cancel** / **delete** were missing from the agent surface even when OAuth had **`calendar.events`**.
 
 ---
 
@@ -86,24 +85,26 @@ Illustrative — final names follow ripmail CLI alignment:
 
 ## Acceptance criteria
 
+**As of 2026-04-30:** ripmail **`calendar`** implements **create-event** (recurrence), **update-event**, **cancel-event**, **delete-event** with JSON stdout; brain-app maps them in **`createCalendarTool`**. Use this list to audit **tests**, **docs**, and **manual smoke** — not as “not started.”
+
 ### Ripmail
 
-- [ ] **`create-event`** (or equivalent) supports **recurrence** (preset and/or RRULE + end) with **`--json`** returning stable **`eventId`** / ids needed for follow-up mutations.
-- [ ] Documented CLI for **update**, **cancel**, and **delete** (names TBD) with **`--json`** output including **`ok`**, **`eventId`**, **`htmlLink`** (when applicable), and structured **`error`** on failure.
-- [ ] **Recurring:** explicit flags or enums for **this instance** vs **all instances** vs **this and following** on **cancel** / **delete** / **update** where API requires it; integration or unit tests for Google payload construction.
-- [ ] After mutation, **incremental sync or targeted fetch** updates local `calendar_events` so a subsequent **`calendar range`** reflects the change (or documents acceptable lag + `refresh` hint).
+- [x] **`create-event`** supports **recurrence** (preset and/or RRULE + end) with **`--json`** returning stable ids for mutations.
+- [x] CLI **update**, **cancel**, and **delete** with **`--json`** (verify error shapes on failure in tests / smoke).
+- [x] **Recurring:** **scope** for cancel/delete (and update where applicable); covered in CLI + agent plumbing.
+- [x] Post-mutation **refresh** path (`runCalendarRefreshAgent`) after agent writes.
 
 ### Brain-app
 
-- [ ] `calendar` tool **`op`** includes **`update_event`**, **`cancel_event`**, **`delete_event`**, and **`create_event`** gains recurrence parameters; parameters validated in **`calendarTools.ts`** with clear **`Error`** messages (missing `source`, missing event ref, unsupported source kind).
-- [ ] **`createAgentTools` / `ALL_AGENT_TOOL_NAMES`** unchanged except **no new top-level tool names** (still a single `calendar` tool).
-- [ ] Tests in **`src/server/agent/tools.test.ts`** (or **`calendarTools`-focused test file**) covering: happy path JSON parse, unsupported source, missing required fields.
-- [ ] [`.agents/skills/calendar/SKILL.md`](../../.agents/skills/calendar/SKILL.md) updated: when to use create vs update vs cancel vs delete; recurring create + scope; Google-only mutations.
+- [x] `calendar` tool **`op`** includes **`update_event`**, **`cancel_event`**, **`delete_event`**, and **`create_event`** recurrence parameters; validation in **`calendarTools.ts`**.
+- [x] Single top-level **`calendar`** tool (no separate write tool).
+- [ ] Expand automated tests: happy paths + unsupported source + missing fields (**audit** `calendarTools` / integration coverage).
+- [ ] [`.agents/skills/calendar/SKILL.md`](../../.agents/skills/calendar/SKILL.md): keep aligned with shipped **`op`** list and recurring **scope** semantics.
 
 ### Cross-cutting
 
-- [ ] Manual smoke: **create recurring** event from chat; **patch** time/title; **cancel** one instance vs series; confirm in Google Calendar UI and **`op=events`** after refresh.
-- [ ] **Feedback #14:** mark resolved in [feedback registry](../feedback-processed/registry.md) when shipped.
+- [ ] Manual smoke on a live mailbox: recurring create → patch → cancel instance vs series → verify Google UI + **`op=events`**.
+- [ ] **Feedback #14:** triage registry notes **core mutations shipped**; file new bugs for concrete regressions ([registry](../feedback-processed/registry.md)).
 
 ---
 

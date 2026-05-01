@@ -332,7 +332,7 @@ describe('ToolCallBlock.svelte', () => {
     it('clicking compact email preview opens the email thread', async () => {
       const onOpenEmail = vi.fn()
       const toolCall = makeToolCall({
-        name: 'read_email',
+        name: 'read_mail_message',
         args: { id: 'msg-123' },
         result: JSON.stringify({
           subject: 'Test Subject',
@@ -344,7 +344,7 @@ describe('ToolCallBlock.svelte', () => {
       const { container } = render(ToolCallBlock, { props: { toolCall, onOpenEmail } })
 
       expect(container.querySelector('.tool-content-preview-shell')).toBeNull()
-      await fireEvent.click(screen.getByRole('button', { name: /open read message/i }))
+      await fireEvent.click(screen.getByRole('button', { name: /open read mail/i }))
       expect(onOpenEmail).toHaveBeenCalledWith('msg-123', 'Test Subject', 'sender@example.com')
     })
 
@@ -381,7 +381,7 @@ describe('ToolCallBlock.svelte', () => {
       })
       render(ToolCallBlock, { props: { toolCall, onOpenMailSearchResults } })
 
-      await fireEvent.click(screen.getByRole('button', { name: /open search mail/i }))
+      await fireEvent.click(screen.getByRole('button', { name: /open search index/i }))
 
       expect(onOpenMailSearchResults).toHaveBeenCalledWith(
         expect.objectContaining({ kind: 'mail_search_hits' }),

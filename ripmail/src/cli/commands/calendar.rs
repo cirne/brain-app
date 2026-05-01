@@ -142,7 +142,12 @@ pub(crate) fn run_calendar(cmd: CalendarCmd) -> CliResult {
             })
             .map(|s| {
                 let names_path = home.join(&s.id).join("calendar-names.json");
+                let colors_path = home.join(&s.id).join("calendar-colors.json");
                 let mut names: HashMap<String, String> = std::fs::read_to_string(&names_path)
+                    .ok()
+                    .and_then(|c| serde_json::from_str(&c).ok())
+                    .unwrap_or_default();
+                let mut colors: HashMap<String, String> = std::fs::read_to_string(&colors_path)
                     .ok()
                     .and_then(|c| serde_json::from_str(&c).ok())
                     .unwrap_or_default();
@@ -155,20 +160,30 @@ pub(crate) fn run_calendar(cmd: CalendarCmd) -> CliResult {
                             token_mailbox_id, ..
                         }) = resolved.calendar.as_ref()
                         {
-                            if let Ok(fetched) = fetch_google_calendar_names_api(
-                                &home,
-                                token_mailbox_id,
-                                &env_file,
-                                &process_env,
-                            ) {
-                                if !fetched.is_empty() {
+                            if let Ok((fetched_names, fetched_colors)) =
+                                fetch_google_calendar_names_api(
+                                    &home,
+                                    token_mailbox_id,
+                                    &env_file,
+                                    &process_env,
+                                )
+                            {
+                                if !fetched_names.is_empty() {
                                     // Persist for future calls (same path as sync).
                                     let dir = home.join(&s.id);
                                     let _ = std::fs::create_dir_all(&dir);
-                                    if let Ok(j) = serde_json::to_string_pretty(&fetched) {
+                                    if let Ok(j) = serde_json::to_string_pretty(&fetched_names) {
                                         let _ = std::fs::write(dir.join("calendar-names.json"), j);
                                     }
-                                    names = fetched;
+                                    if !fetched_colors.is_empty() {
+                                        if let Ok(j) = serde_json::to_string_pretty(&fetched_colors)
+                                        {
+                                            let _ =
+                                                std::fs::write(dir.join("calendar-colors.json"), j);
+                                        }
+                                    }
+                                    names = fetched_names;
+                                    colors = fetched_colors;
                                 }
                             }
                         }
@@ -185,13 +200,22 @@ pub(crate) fn run_calendar(cmd: CalendarCmd) -> CliResult {
                         if let Some(name) = names.get(id) {
                             obj["name"] = serde_json::Value::String(name.clone());
                         }
+                        if let Some(color) = colors.get(id) {
+                            obj["color"] = serde_json::Value::String(color.clone());
+                        }
                         obj
                     })
                     .collect();
 
                 let all_calendars: Vec<serde_json::Value> = names
                     .iter()
-                    .map(|(id, name)| serde_json::json!({ "id": id, "name": name }))
+                    .map(|(id, name)| {
+                        let mut obj = serde_json::json!({ "id": id, "name": name });
+                        if let Some(color) = colors.get(id) {
+                            obj["color"] = serde_json::Value::String(color.clone());
+                        }
+                        obj
+                    })
                     .collect();
 
                 let mut obj = serde_json::json!({

@@ -3,7 +3,7 @@
 **Status:** Active — **[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** is the first concrete step (read-only wiki directory sharing, email invite). The broader peer-to-peer vision, protocol, identity, and public-brain layer are sequenced below as future milestones.  
 **Index:** [IDEAS.md](../IDEAS.md)
 
-**Why it matters:** The moat, network-effect reasoning, and email analogy live in [VISION.md](../VISION.md) (§ Brain-to-brain). This doc is the product and sequencing spec.
+**Why it matters:** Moat, network-effect reasoning, competitive framing, trust posture, and the email analogy live in **[STRATEGY.md](../STRATEGY.md)** (single source). This doc is the product and sequencing spec.
 
 ---
 
@@ -259,7 +259,8 @@ A natural question for write access and audit: **one Git repository per user** f
 ## References
 
 - **[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** — First concrete step: read-only directory invite, email-as-identity, server-mediated access.
-- [VISION.md](../VISION.md) — Brain-to-brain moat, network effect, and strategic framing.
+- [STRATEGY.md](../STRATEGY.md) — Competitive landscape, segmented focus, brain-to-brain moats (network + trust), email analogy.
+- [VISION.md](../VISION.md) — Product narrative for personalization compounding ("what it is").
 - [OPP-034](../opportunities/OPP-034-wiki-snapshots-and-point-in-time-restore.md) — Wiki snapshots; relevant to write access and audit (follow-on OPPs).
 - [brain-cloud-service.md](../architecture/brain-cloud-service.md) — Cloud coordinator: no user content at the coordinator; complements handle resolution and NAT scenarios.
 - [architecture/data-and-sync.md](../architecture/data-and-sync.md) — Today's wiki is plain files, local-first; Git would be an evolution, not mandatory for the current model.

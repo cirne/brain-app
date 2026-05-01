@@ -220,7 +220,7 @@ describe('consumeAgentChatStream', () => {
     expect((p.toolCall.args as { path?: string }).path).toBe('companies/new-relic.md')
   })
 
-  it('does not call onOpenFromAgent for read_email when suppressAgentDetailAutoOpen is true', async () => {
+  it('does not call onOpenFromAgent for read_mail_message when suppressAgentDetailAutoOpen is true', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: '', parts: [] },
@@ -228,7 +228,7 @@ describe('consumeAgentChatStream', () => {
     const onOpenFromAgent = vi.fn()
     const res = sseResponse([
       'event: tool_start\n',
-      'data: {"id":"e1","name":"read_email","args":{"id":"thread-1"}}\n\n',
+      'data: {"id":"e1","name":"read_mail_message","args":{"id":"thread-1"}}\n\n',
     ])
     await consumeAgentChatStream(res, {
       getMessages: () => messages,
@@ -270,7 +270,7 @@ describe('consumeAgentChatStream', () => {
     expect(onOpenFromAgent).not.toHaveBeenCalled()
   })
 
-  it('calls onOpenFromAgent for open and read_email when suppressAgentDetailAutoOpen is false', async () => {
+  it('calls onOpenFromAgent for open and read_mail_message when suppressAgentDetailAutoOpen is false', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: '', parts: [] },
@@ -280,7 +280,7 @@ describe('consumeAgentChatStream', () => {
       'event: tool_start\n',
       'data: {"id":"o1","name":"open","args":{"target":{"type":"wiki","path":"ideas/x.md"}}}\n\n',
       'event: tool_start\n',
-      'data: {"id":"e1","name":"read_email","args":{"id":"thread-1"}}\n\n',
+      'data: {"id":"e1","name":"read_mail_message","args":{"id":"thread-1"}}\n\n',
     ])
     await consumeAgentChatStream(res, {
       getMessages: () => messages,
@@ -296,7 +296,7 @@ describe('consumeAgentChatStream', () => {
     })
     expect(onOpenFromAgent).toHaveBeenCalledTimes(2)
     expect(onOpenFromAgent).toHaveBeenNthCalledWith(1, { type: 'wiki', path: 'ideas/x.md' }, 'open')
-    expect(onOpenFromAgent).toHaveBeenNthCalledWith(2, { type: 'email', id: 'thread-1' }, 'read_email')
+    expect(onOpenFromAgent).toHaveBeenNthCalledWith(2, { type: 'email', id: 'thread-1' }, 'read_mail_message')
   })
 
   it('calls onOpenDraftFromAgent on draft_email tool_end when detail auto-open allowed', async () => {
@@ -695,7 +695,7 @@ describe('consumeAgentChatStream', () => {
     expect(messages[1].parts).toHaveLength(1)
   })
 
-  it('handles read_email with filesystem path (opens as file)', async () => {
+  it('handles read_indexed_file with filesystem path (opens as file)', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: '', parts: [] },
@@ -703,7 +703,7 @@ describe('consumeAgentChatStream', () => {
     const onOpenFromAgent = vi.fn()
     const res = sseResponse([
       'event: tool_start\n',
-      'data: {"id":"e1","name":"read_email","args":{"id":"/Users/test/mail.eml"}}\n\n',
+      'data: {"id":"e1","name":"read_indexed_file","args":{"id":"/Users/test/mail.eml"}}\n\n',
     ])
     await consumeAgentChatStream(res, {
       getMessages: () => messages,
@@ -717,7 +717,7 @@ describe('consumeAgentChatStream', () => {
       touchMessages: () => {},
       scrollToBottom: () => {},
     })
-    expect(onOpenFromAgent).toHaveBeenCalledWith({ type: 'file', path: '/Users/test/mail.eml' }, 'read_email')
+    expect(onOpenFromAgent).toHaveBeenCalledWith({ type: 'file', path: '/Users/test/mail.eml' }, 'read_indexed_file')
   })
 
   it('calls onFinishConversation when finish_conversation tool ends successfully', async () => {

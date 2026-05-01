@@ -26,11 +26,11 @@ The combination: a wiki that you (and the assistant) actively maintain, grounded
 
 ## The problem with generic LLM assistants
 
-Claude Code and tools like it are powerful but generic. Every session starts cold. The model doesn't know who you are, who your colleagues are, what you're working on, or what happened last week. You spend half the conversation providing context that you've already provided a dozen times before.
+Many general-purpose assistants are powerful but generic. Every session starts cold. The model doesn't know who you are, who your colleagues are, what you're working on, or what happened last week. You spend half the conversation providing context that you've already provided a dozen times before.
 
 Generic assistants are also error-prone precisely because they're generic — they fill in gaps with plausible-sounding guesses rather than facts from your actual life. A personalized assistant with access to your real data makes fewer mistakes and requires less hand-holding.
 
-The number one use case people actually want from an LLM assistant is: *help me manage my life*. Not write code in the abstract, not explain concepts in a vacuum — help me with my specific emails, my specific calendar, my specific projects, my specific people. That use case demands personalization. Brain-app is what happens when you build for that use case from the start instead of bolting it on.
+The number one use case people actually want from an LLM assistant is: *help me manage my life*. Not write code in the abstract, not explain concepts in a vacuum — help me with my specific emails, my specific calendar, my specific projects, my specific people. That use case demands personalization. Brain-app is what happens when you build for that use case from the start instead of bolting it on. **Who we compete against, which segments we avoid or pursue, and how we think about moats** live in **[STRATEGY.md](./STRATEGY.md)**.
 
 ---
 
@@ -60,22 +60,9 @@ No setup wizard. No configuration files. No explaining yourself. It just works, 
 
 ## Brain-to-brain: where the value compounds
 
-The single-user brain is useful from day one. But the strategic differentiator is what happens when brains connect.
+The single-user brain is useful from day one. The differentiation that **compounds across users** is when brains **connect deliberately**: a bilateral **trust graph** (scopes, audit, consent) rather than a public social feed — so value scales with **who you trust to answer on your behalf**, not vanity metrics.
 
-Personal assistants commoditize. Models and basic tools do not differentiate. What compounds is the **graph**: bilateral trust relationships between brains, each with explicit scopes, audit history, and human-in-the-loop defaults where it matters.
-
-The analog is not a social feed; it is a **trust network**. Value scales with who your brain may query on your behalf and what you permit — not with follower counts. Switching products means rebuilding that graph. That is the real switching cost once the network exists.
-
-The closest analog is email itself. Email won because it was federated (anyone can run a server), identity-based (your address is yours), and networked (value scales with who else is on it). Brain-to-brain follows the same pattern: federated (everyone runs their own brain), identity-based (Braintunnel handle + key material, email as bootstrap), and networked (value scales with connections).
-
-The difference: email is low-bandwidth, high-latency, and requires humans to do all the thinking. Brain-to-brain is high-bandwidth, low-latency, and the agents do the coordination. Email with the boring parts removed.
-
-**The network effect in practice:**
-- More connections = more reachable knowledge. A brain with ten connections can answer questions that a brain with zero connections cannot.
-- Trust is transitive (with limits). Connected brains can broker introductions or relay scoped queries — with explicit consent from all parties.
-- The graph compounds. Early adopters create a collaboration substrate that makes the product dramatically more valuable for the next adopter.
-
-This is a *trust* network, not a social network. There is no feed, no follower count, no public profile. It is a private graph of bilateral trust relationships, each with explicit permissions. The value comes from the quality of connections, not the quantity.
+Strategy, competitive dynamics, moats (**network**, **trust/security**), and the email analogy: **[STRATEGY.md](./STRATEGY.md)**.
 
 **Product spec and sequencing:** [IDEA: Brain-to-brain collaboration](ideas/IDEA-wiki-sharing-collaborators.md). First concrete step: [OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md).
 

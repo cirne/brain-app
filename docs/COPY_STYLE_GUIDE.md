@@ -63,7 +63,7 @@ We ship both a **local desktop** product and a **hosted** deployment. The same U
 
 ### 1. The "Agent Narrator" Problem
 
-Agents often narrate their own code execution (e.g., "I am now going to use the `read_email` tool to..."). 
+Agents often narrate their own code execution (e.g., "I am now going to use the `read_mail_message` tool to..."). 
 
 - **Fix**: Update agent system prompts to focus on the result, not the process.
 - **Example**: Instead of "I will now read your email to find a phone number," use "Finding contact details..."
@@ -82,6 +82,17 @@ Don't say the same thing in the title, description, and status line.
 Use active voice to make the app feel responsive.
 
 - **Prefer**: "Braintunnel is indexing your mail" over "Your mail is being indexed by the system."
+
+---
+
+## Calendar picker (Hub)
+
+Post-onboarding Hub copy should stay **deployment-neutral** where possible. Explain **what the user gains** (schedule + chat stay accurate) without plumbing (“sync everything vs query subset”) or inner jargon (**agent** → describe chat or say **assistant** if needed).
+
+**Canonical strings** (defaults in [`CalendarPicker.svelte`](../src/client/components/calendar/CalendarPicker.svelte)):
+
+- **Hint**: Your calendars stay updated automatically. Choose which ones Braintunnel shows first in your schedule and when you chat about your calendar.
+- **Empty**: No calendars found yet. Try refreshing once your calendar account has connected.
 
 ---
 

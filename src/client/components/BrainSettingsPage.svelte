@@ -34,9 +34,11 @@
 
   type Props = {
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
+    /** When settings detail shows this hub connection (`overlay.type === 'hub-source'`), highlight its row. */
+    selectedHubSourceId?: string
   }
 
-  let { onSettingsNavigate }: Props = $props()
+  let { onSettingsNavigate, selectedHubSourceId }: Props = $props()
 
   let hubSources = $state<HubRipmailSourceRow[]>([])
   let hubSourcesError = $state<string | null>(null)
@@ -303,6 +305,8 @@
             <button
               type="button"
               class="link-item hub-source-row"
+              class:link-item--selected={selectedHubSourceId === s.id}
+              aria-current={selectedHubSourceId === s.id ? 'true' : undefined}
               onclick={() => onSettingsNavigate({ type: 'hub-source', id: s.id })}
             >
               <div class="link-info">
@@ -610,19 +614,38 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 0;
+    padding: 0.5rem;
     background: transparent;
-    border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+    /* Uniform border keeps row height stable; color shows selection/focus flush with fill */
+    border: 1px solid transparent;
+    border-bottom-color: color-mix(in srgb, var(--border) 40%, transparent);
     color: var(--text);
     cursor: pointer;
     text-align: left;
-    transition: padding-left 0.2s ease, color 0.15s;
+    transition:
+      padding-left 0.2s ease,
+      color 0.15s,
+      background 0.12s ease,
+      border-color 0.12s ease;
   }
 
-  .link-item:hover:not(:disabled) {
-    padding-left: 4px;
-    color: var(--accent);
+  .link-item:focus-visible:not(:disabled) {
+    background: var(--accent-dim);
+    outline: none;
+    border-color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /** Matches open hub-source detail (`selectedHubSourceId`) — not focus-only. */
+  .link-item.link-item--selected:not(:disabled) {
+    background: var(--accent-dim);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    border-bottom-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  .link-item.link-item--selected:not(:disabled):focus-visible {
+    border-color: var(--accent);
+    border-bottom-color: var(--accent);
   }
 
   .link-item:disabled {

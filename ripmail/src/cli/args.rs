@@ -537,6 +537,9 @@ pub(crate) enum SourcesCmd {
         /// Replace entire `fileSource` JSON (localDir / googleDrive)
         #[arg(long = "file-source-json")]
         file_source_json: Option<String>,
+        /// `googleDrive`: set whether Shared-with-me corpus is included (true/false)
+        #[arg(long = "include-shared-with-me")]
+        include_shared_with_me: Option<bool>,
         #[arg(long)]
         json: bool,
     },

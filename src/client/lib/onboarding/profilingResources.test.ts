@@ -94,14 +94,14 @@ describe('extractProfilingResources', () => {
     expect(wikiPaths).toEqual(['me.md'])
   })
 
-  it('collects email from read_email JSON result', () => {
+  it('collects email from read_mail_message JSON result', () => {
     const payload = JSON.stringify({
       subject: 'Hello',
       from: 'a@b.com',
       body: 'Body text here',
     })
     const messages: ChatMessage[] = [
-      toolMsg('read_email', { id: 'thread-1' }, payload),
+      toolMsg('read_mail_message', { id: 'thread-1' }, payload),
     ]
     const { wikiPaths, emails } = extractProfilingResources(messages)
     expect(wikiPaths).toEqual([])
@@ -115,8 +115,8 @@ describe('extractProfilingResources', () => {
     const first = JSON.stringify({ subject: 'Old', from: 'x@y.com', body: 'a' })
     const second = JSON.stringify({ subject: 'New', from: 'x@y.com', body: 'b' })
     const messages: ChatMessage[] = [
-      toolMsg('read_email', { id: 'same' }, first),
-      toolMsg('read_email', { id: 'same' }, second),
+      toolMsg('read_mail_message', { id: 'same' }, first),
+      toolMsg('read_mail_message', { id: 'same' }, second),
     ]
     const { emails } = extractProfilingResources(messages)
     expect(emails).toHaveLength(1)
@@ -273,7 +273,7 @@ describe('onboardingActivityLine', () => {
             type: 'tool',
             toolCall: {
               id: 'x',
-              name: 'read_email',
+              name: 'read_mail_message',
               args: { id: '1' },
               done: false,
             },
@@ -281,7 +281,7 @@ describe('onboardingActivityLine', () => {
         ],
       },
     ]
-    expect(onboardingActivityLine(messages, true, 'profiling')).toBe('Reading a message…')
+    expect(onboardingActivityLine(messages, true, 'profiling')).toBe('Reading mail…')
   })
 
   it('uses seeding labels for write', () => {
@@ -376,7 +376,7 @@ describe('onboardingActivityLine', () => {
             type: 'tool',
             toolCall: {
               id: 'r',
-              name: 'read_email',
+              name: 'read_mail_message',
               args: { id: '1' },
               done: false,
             },
@@ -384,8 +384,8 @@ describe('onboardingActivityLine', () => {
         ],
       },
     ]
-    expect(onboardingActivityLine(messages, true, 'profiling')).toBe('Reading a message…')
-    expect(lastMeaningfulToolCall(messages)?.name).toBe('read_email')
+    expect(onboardingActivityLine(messages, true, 'profiling')).toBe('Reading mail…')
+    expect(lastMeaningfulToolCall(messages)?.name).toBe('read_mail_message')
   })
 })
 
@@ -525,13 +525,13 @@ describe('buildSeedingProgressUi', () => {
       },
     ]
     const { events } = buildSeedingProgressUi(messages, true)
-    expect((events[0] as any).line.prefix).toBe('Searched mail')
+    expect((events[0] as any).line.prefix).toBe('Searched index')
     expect((events[0] as any).line.detail).toContain('from')
     expect((events[0] as any).line.detail).toContain('acme@example.com')
     expect((events[0] as any).line.detail).toContain('after')
   })
 
-  it('adds mail preview to completed read_email email row', () => {
+  it('adds mail preview to completed read_mail_message email row', () => {
     const payload = JSON.stringify({
       subject: 'Hello from the team',
       from: 'a@b.com',
@@ -546,7 +546,7 @@ describe('buildSeedingProgressUi', () => {
             type: 'tool',
             toolCall: {
               id: 'r',
-              name: 'read_email',
+              name: 'read_mail_message',
               args: { id: 'mid-1' },
               result: payload,
               done: true,
@@ -556,7 +556,7 @@ describe('buildSeedingProgressUi', () => {
       },
     ]
     const { events } = buildSeedingProgressUi(messages, true)
-    expect((events[0] as any).line.prefix).toBe('Read a message')
+    expect((events[0] as any).line.prefix).toBe('Read mail')
     expect((events[0] as any).line.mailPreview?.subject).toBe('Hello from the team')
     expect((events[0] as any).line.mailPreview?.from).toBe('a@b.com')
     expect((events[0] as any).line.detail).toBeUndefined()
@@ -615,7 +615,7 @@ describe('buildSeedingProgressUi', () => {
 })
 
 describe('buildProfilingTranscriptEvents', () => {
-  it('interleaves assistant text and completed read_email mail cards in part order', () => {
+  it('interleaves assistant text and completed read_mail_message mail cards in part order', () => {
     const payload = JSON.stringify({ subject: 'Zoom recap', from: 'no@zoom.us', body: 'Hello' })
     const messages: ChatMessage[] = [
       {
@@ -627,7 +627,7 @@ describe('buildProfilingTranscriptEvents', () => {
             type: 'tool',
             toolCall: {
               id: 'r1',
-              name: 'read_email',
+              name: 'read_mail_message',
               args: { id: 'thread-a' },
               result: payload,
               done: true,
@@ -650,7 +650,7 @@ describe('buildProfilingTranscriptEvents', () => {
     expect(ev[2]).toEqual({ type: 'text', content: 'Summarizing patterns.' })
   })
 
-  it('emits in-flight read_email as pending mail row', () => {
+  it('emits in-flight read_mail_message as pending mail row', () => {
     const messages: ChatMessage[] = [
       {
         role: 'assistant',
@@ -660,7 +660,7 @@ describe('buildProfilingTranscriptEvents', () => {
             type: 'tool',
             toolCall: {
               id: 'r2',
-              name: 'read_email',
+              name: 'read_mail_message',
               args: { id: 'thread-b' },
               result: '',
               done: false,
@@ -678,7 +678,7 @@ describe('buildProfilingTranscriptEvents', () => {
     }
   })
 
-  it('omits filesystem read_email and set_chat_title', () => {
+  it('omits filesystem read_mail_message and set_chat_title', () => {
     const messages: ChatMessage[] = [
       {
         role: 'assistant',
@@ -698,7 +698,7 @@ describe('buildProfilingTranscriptEvents', () => {
             type: 'tool',
             toolCall: {
               id: 'f',
-              name: 'read_email',
+              name: 'read_mail_message',
               args: { id: '/tmp/secret.pdf' },
               result: '{}',
               done: true,

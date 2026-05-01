@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { chmod, mkdtemp, writeFile, rm } from 'node:fs/promises'
+import { chmod, mkdtemp, writeFile, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   runRipmailArgv,
+  execRipmailCleanYes,
   RipmailNonZeroExitError,
   RipmailTimeoutError,
   getRipmailChildDebugSnapshot,
@@ -96,5 +97,58 @@ exit 0
     const b = runRipmailHeavyArgv(['refresh'], { timeoutMs: 5000 })
     await Promise.all([a, b])
     expect(getRipmailChildDebugSnapshot().spawnCount).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('execRipmailCleanYes', () => {
+  let brainHome: string
+  let binDir: string
+  let logPath: string
+
+  beforeEach(async () => {
+    brainHome = await mkdtemp(join(tmpdir(), 'ripmail-clean-'))
+    binDir = await mkdtemp(join(tmpdir(), 'ripmail-clean-bin-'))
+    logPath = join(binDir, 'invoke.log')
+    process.env.BRAIN_HOME = brainHome
+    process.env.RIPMAIL_HOME = join(brainHome, 'override-ripmail')
+    const fake = join(binDir, 'fake-ripmail')
+    await writeFile(
+      fake,
+      `#!/bin/sh
+echo "$RIPMAIL_HOME $@" >> ${JSON.stringify(logPath)}
+exit 0
+`,
+      'utf-8',
+    )
+    await chmod(fake, 0o755)
+    process.env.RIPMAIL_BIN = fake
+  })
+
+  afterEach(async () => {
+    delete process.env.BRAIN_HOME
+    delete process.env.RIPMAIL_HOME
+    delete process.env.RIPMAIL_BIN
+    await rm(brainHome, { recursive: true, force: true }).catch(() => {})
+    await rm(binDir, { recursive: true, force: true }).catch(() => {})
+  })
+
+  it('runs clean once at canonical $BRAIN_HOME/<layout ripmail> even when process RIPMAIL_HOME differs', async () => {
+    await execRipmailCleanYes()
+    const lines = (await readFile(logPath, 'utf-8')).trim().split('\n').filter(Boolean)
+    expect(lines).toHaveLength(1)
+    const canonicalSeg = join(brainHome, 'ripmail')
+    expect(lines[0]).toContain(canonicalSeg)
+    expect(lines[0]).toContain('clean')
+    expect(lines[0]).toContain('--yes')
+    expect(lines[0]).not.toContain('override-ripmail')
+  })
+
+  it('runs clean once when process RIPMAIL_HOME matches canonical layout dir', async () => {
+    process.env.RIPMAIL_HOME = join(brainHome, 'ripmail')
+    await execRipmailCleanYes()
+    const lines = (await readFile(logPath, 'utf-8')).trim().split('\n').filter(Boolean)
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toContain('clean')
+    expect(lines[0]).toContain('--yes')
   })
 })

@@ -21,7 +21,7 @@ For SMTP / provider details and product rationale see **ADR-024** in repo `docs/
 | Goal | Tool |
 | --- | --- |
 | Find the message to reply to / forward | **`search_index`** → note **`messageId`** |
-| Read for tone and facts | **`read_email`**, or search again for thread context |
+| Read for tone and facts | **`read_mail_message`** (or **`read_indexed_file`** for indexed non-mail files), or search again for thread context |
 | Person / address hints | **`find_person`** |
 
 Prefer knowing **which `messageId`** applies before **`draft_email`** with `action=reply` or `forward`.

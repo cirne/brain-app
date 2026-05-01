@@ -61,6 +61,10 @@
     EMAIL_DRAFT_HEADER,
     type EmailDraftHeaderActions,
   } from '@client/lib/emailDraftSlideHeaderContext.js'
+  import {
+    HUB_SOURCE_SLIDE_HEADER,
+    type HubSourceSlideHeaderState,
+  } from '@client/lib/hubSourceSlideHeaderContext.js'
   import { parseWikiDirSegments, wikiDirPathPrefix } from '@client/lib/wikiDirBreadcrumb.js'
 
   type Props = {
@@ -177,6 +181,7 @@
   const yourWikiHdr = createSlideHeaderRegistration<YourWikiHeaderState>(YOUR_WIKI_HEADER)
   const inboxHdr = createSlideHeaderRegistration<InboxThreadHeaderActions>(INBOX_THREAD_HEADER)
   const emailDraftHdr = createSlideHeaderRegistration<EmailDraftHeaderActions>(EMAIL_DRAFT_HEADER)
+  const hubSourceHdr = createSlideHeaderRegistration<HubSourceSlideHeaderState>(HUB_SOURCE_SLIDE_HEADER)
 
   /** Back / desktop X: draft uses editor discard (return to thread when applicable). */
   function headerDismiss() {
@@ -340,6 +345,10 @@
                 {/if}
               </div>
             </div>
+          {:else if overlay.type === 'hub-source'}
+            <span class="slide-title slide-title-hub-source">
+              {hubSourceHdr.current?.title?.trim() ? hubSourceHdr.current.title : titleForOverlay(overlay)}
+            </span>
           {:else}
             {titleForOverlay(overlay)}
           {/if}
@@ -393,6 +402,26 @@
         >
           <span class:cal-refresh-spin={calendarHdr.current.headerBusy}>
             <RefreshCw size={18} strokeWidth={2} aria-hidden="true" />
+          </span>
+        </button>
+      {/if}
+      {#if overlay.type === 'hub-source' && hubSourceHdr.current}
+        <button
+          type="button"
+          class="cal-header-icon-btn"
+          disabled={hubSourceHdr.current.refreshDisabled}
+          title={hubSourceHdr.current.refreshTitle ?? 'Refresh index'}
+          aria-label="Refresh index"
+          aria-busy={hubSourceHdr.current.refreshSpinning ? 'true' : undefined}
+          onclick={() => hubSourceHdr.current?.onRefresh()}
+        >
+          <span class:cal-refresh-spin={hubSourceHdr.current.refreshSpinning}>
+            <RefreshCw
+              size={18}
+              strokeWidth={2}
+              aria-hidden="true"
+              class={hubSourceHdr.current.refreshSpinning ? 'hub-refresh-working' : ''}
+            />
           </span>
         </button>
       {/if}
@@ -651,6 +680,10 @@
   .slide-over.mobile-slide .slide-title {
     font-size: 14px;
   }
+  .slide-over.mobile-slide .slide-title.slide-title-hub-source {
+    font-size: 16px;
+  }
+
   .slide-over.mobile-slide .slide-title.slide-title-wiki :global(.wfn-title-row) {
     font-size: 15px;
   }
@@ -908,6 +941,17 @@
     text-transform: none;
     letter-spacing: normal;
     font-weight: normal;
+  }
+
+  .slide-title.slide-title-hub-source {
+    text-transform: none;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .slide-title.slide-title-wiki :global(.wfn-title-row) {

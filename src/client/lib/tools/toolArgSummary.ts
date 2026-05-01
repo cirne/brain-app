@@ -84,7 +84,8 @@ export function toolSummaryPartsFromArgs(name: string, args: unknown): ToolSumma
             : ''
       return raw.length ? { mode: 'text', text: truncateEnd(raw, MAX_PATTERN) } : null
     }
-    case 'read_email': {
+    case 'read_mail_message':
+    case 'read_indexed_file': {
       const raw = typeof a.id === 'string' ? a.id.trim() : ''
       return raw.length ? { mode: 'text', text: truncateEnd(raw, MAX_PATTERN) } : null
     }

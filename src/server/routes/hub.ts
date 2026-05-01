@@ -7,8 +7,10 @@ import {
   removeHubRipmailSource,
   updateHubRipmailCalendarIds,
   updateHubRipmailFileSource,
+  updateIncludeSharedWithMe,
   type HubFileSourceConfig,
 } from '@server/lib/hub/hubRipmailSources.js'
+import { suggestDriveFolders } from '@server/lib/hub/hubDriveSuggest.js'
 import { getHubSourceMailStatus } from '@server/lib/hub/hubRipmailSourceStatus.js'
 import {
   isValidHubBackfillSince,
@@ -222,6 +224,35 @@ hub.post('/sources/backfill', async (c) => {
     }
   })
   return c.json({ ok: true as const })
+})
+
+hub.post('/sources/update-include-shared-with-me', async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { id?: unknown; include?: unknown }
+  const id = typeof body.id === 'string' ? body.id.trim() : ''
+  if (!id) {
+    return c.json({ ok: false as const, error: 'id required' }, 400)
+  }
+  if (typeof body.include !== 'boolean') {
+    return c.json({ ok: false as const, error: 'include (boolean) required' }, 400)
+  }
+  const r = await updateIncludeSharedWithMe(id, body.include)
+  if (!r.ok) {
+    return c.json({ ok: false as const, error: r.error }, 400)
+  }
+  return c.json({ ok: true as const })
+})
+
+hub.post('/sources/suggest-drive-folders', async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { id?: unknown }
+  const id = typeof body.id === 'string' ? body.id.trim() : ''
+  if (!id) {
+    return c.json({ ok: false as const, error: 'id required' }, 400)
+  }
+  const r = await suggestDriveFolders(id)
+  if (!r.ok) {
+    return c.json({ ok: false as const, error: r.error }, 400)
+  }
+  return c.json({ ok: true as const, suggestions: r.suggestions, ignoreGlobs: r.ignoreGlobs })
 })
 
 export default hub

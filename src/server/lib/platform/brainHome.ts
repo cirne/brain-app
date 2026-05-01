@@ -90,11 +90,8 @@ export function chatDataDirResolved(): string {
   return brainLayoutChatsDir(brainHome())
 }
 
-/** Ripmail home when running under Brain (subprocess env). Honors RIPMAIL_HOME override (single-tenant only). */
+/** Ripmail config + SQLite root under Brain: `$BRAIN_HOME/<layout ripmail>/` only (never reads `RIPMAIL_HOME`). */
 export function ripmailHomeForBrain(): string {
-  if (!isMultiTenantMode()) {
-    if (process.env.RIPMAIL_HOME) return process.env.RIPMAIL_HOME
-  }
   return brainLayoutRipmailDir(brainHome())
 }
 

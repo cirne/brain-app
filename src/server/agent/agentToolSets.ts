@@ -15,7 +15,8 @@ export const ALL_AGENT_TOOL_NAMES = [
   'move_file',
   'delete_file',
   'search_index',
-  'read_email',
+  'read_mail_message',
+  'read_indexed_file',
   'read_attachment',
   'manage_sources',
   'refresh_sources',
@@ -51,7 +52,7 @@ export const TOOL_GROUPS = {
   wikiFilesystem: ['read', 'grep', 'find', 'move_file', 'delete_file'] as const satisfies readonly AgentToolName[],
   wikiWrite: ['edit', 'write', 'remember_preference'] as const satisfies readonly AgentToolName[],
   filesSources: ['manage_sources', 'refresh_sources'] as const satisfies readonly AgentToolName[],
-  mailCore: ['search_index', 'read_email', 'read_attachment', 'list_inbox', 'find_person'] as const satisfies readonly AgentToolName[],
+  mailCore: ['search_index', 'read_mail_message', 'read_indexed_file', 'read_attachment', 'list_inbox', 'find_person'] as const satisfies readonly AgentToolName[],
   mailHeavy: ['inbox_rules', 'archive_emails', 'draft_email', 'edit_draft', 'send_draft'] as const satisfies readonly AgentToolName[],
   calendar: ['calendar'] as const satisfies readonly AgentToolName[],
   web: ['web_search', 'fetch_page'] as const satisfies readonly AgentToolName[],
@@ -166,7 +167,8 @@ export const ONBOARDING_INTERVIEW_ONLY: readonly AgentToolName[] = [
   'grep',
   'find',
   'search_index',
-  'read_email',
+  'read_mail_message',
+  'read_indexed_file',
   'find_person',
   /** Same quick-reply chips as main chat (`ComposerContextBar`). */
   'suggest_reply_options',
@@ -182,7 +184,8 @@ export const ONBOARDING_FINALIZE_ONLY: readonly AgentToolName[] = [
   'grep',
   'find',
   'search_index',
-  'read_email',
+  'read_mail_message',
+  'read_indexed_file',
   'find_person',
 ]
 

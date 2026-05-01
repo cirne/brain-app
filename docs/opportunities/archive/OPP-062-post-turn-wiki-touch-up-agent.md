@@ -88,7 +88,7 @@ Archived **background maintenance** ([OPP-015](./OPP-015-wiki-background-mainten
 ### 5. Accuracy-heavy content (optional escalation)
 
 - Phase 1: link hygiene, Obsidian link style, obvious duplication stubs, “confidence” callouts—**no** full `search_index` pass.
-- Phase 2 (flag-gated): allow **targeted** `search_index` / `read_email` **only** when the touched page matches templates (e.g. trip / briefing) and the prompt mandates recency checks—ties to [the-wiki-question.md](../../the-wiki-question.md) reliability rules.
+- Phase 2 (flag-gated): allow **targeted** `search_index` / `read_mail_message` **only** when the touched page matches templates (e.g. trip / briefing) and the prompt mandates recency checks—ties to [the-wiki-question.md](../../the-wiki-question.md) reliability rules.
 
 ## Risks
 

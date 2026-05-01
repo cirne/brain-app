@@ -32,7 +32,7 @@ describe('toolDrilldownForTool', () => {
     expect(
       toolDrilldownForTool(
         tc({
-          name: 'read_email',
+          name: 'read_mail_message',
           args: { id: 'msg-1' },
           result: JSON.stringify({ subject: 'Hello', from: 'a@example.com', bodyText: 'Body' }),
         }),

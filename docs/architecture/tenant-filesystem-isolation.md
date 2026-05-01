@@ -6,7 +6,7 @@
 
 Hosted Brain keeps the **one tenant, one `$BRAIN_HOME` tree** invariant ([multi-tenant-cloud-architecture.md](./multi-tenant-cloud-architecture.md)). That model is correct for local-first data and SQLite, but **a single Node process with multiple tenant homes on one host** is unsafe if agent tools can resolve or open **arbitrary absolute paths** with the process’s privileges.
 
-**BUG-012** tracked agent-facing tools reading outside the current tenant slice. **App-layer jailing** (allowlisted roots, wrapped pi wiki tools, `read_email` / HTTP file read checks) is **partially implemented** as of 2026-04 — see **[bugs/BUG-012-agent-tool-path-sandbox-escape.md](../bugs/BUG-012-agent-tool-path-sandbox-escape.md)** **Progress** section. Kernel / VM / UID layers below remain **future** work for hosted density.
+**BUG-012** tracked agent-facing tools reading outside the current tenant slice. **App-layer jailing** (allowlisted roots, wrapped pi wiki tools, `read_mail_message` / `read_indexed_file` / HTTP file read checks) is **partially implemented** as of 2026-04 — see **[bugs/BUG-012-agent-tool-path-sandbox-escape.md](../bugs/BUG-012-agent-tool-path-sandbox-escape.md)** **Progress** section. Kernel / VM / UID layers below remain **future** work for hosted density.
 
 This doc records **five complementary isolation strategies** (kernel, process, and app layers). They are **not mutually exclusive**; production should combine them according to tier, cost, and threat model.
 

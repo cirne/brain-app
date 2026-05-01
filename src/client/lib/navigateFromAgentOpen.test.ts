@@ -14,13 +14,13 @@ function desktopCtx(overrides: Partial<Parameters<typeof navigateFromAgentOpen>[
 }
 
 describe('navigateFromAgentOpen', () => {
-  it('does not navigate on mobile for read_email — previews only until user opens', () => {
+  it('does not navigate on mobile for read_mail_message — previews only until user opens', () => {
     const openWikiDoc = vi.fn()
     const openEmailFromSearch = vi.fn()
     const switchToCalendar = vi.fn()
     const openFileDoc = vi.fn()
     const ctx = {
-      source: 'read_email' as const,
+      source: 'read_mail_message' as const,
       isMobile: true,
       openWikiDoc,
       openFileDoc,
@@ -76,8 +76,8 @@ describe('navigateFromAgentOpen', () => {
     expect(ctx.openFileDoc).toHaveBeenCalledWith('/Users/me/a.txt')
   })
 
-  it('opens email on desktop (read_email)', () => {
-    const ctx = desktopCtx({ source: 'read_email' })
+  it('opens email on desktop (read_mail_message)', () => {
+    const ctx = desktopCtx({ source: 'read_mail_message' })
     navigateFromAgentOpen({ type: 'email', id: 'abc' }, ctx)
     expect(ctx.openEmailFromSearch).toHaveBeenCalledWith('abc', '', '')
   })

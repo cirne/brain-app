@@ -18,7 +18,7 @@ describe('buildOnboardingInterviewSystemPrompt', () => {
     expect(s).toContain('## Mail recon (before identity with the user)')
     expect(s).toContain('**`search_index`**')
     expect(s).toContain('**`from`**')
-    expect(s).toContain('**`read_email`** on up to **three**')
+    expect(s).toContain('**`read_mail_message`** on up to **three**')
     expect(s).toContain('**finish_conversation**')
     expect(s).toContain('suggest_reply_options')
     expect(s).toMatch(/Phase 1|step numbers|checklist voice/i)

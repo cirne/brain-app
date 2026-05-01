@@ -86,7 +86,8 @@ export function truncateJsonResult(text: string, maxChars: number): string {
 const RIPMAIL_SUBPROCESS_TOOLS_PASS_THROUGH = new Set([
   'search_index',
   'list_inbox',
-  'read_email',
+  'read_mail_message',
+  'read_indexed_file',
   'read_attachment',
   'manage_sources',
   'refresh_sources',

@@ -14,7 +14,17 @@ use crate::oauth::ensure_google_access_token;
 use super::db::{self, delete_source_events, upsert_event};
 use super::model::CalendarEventRow;
 
-type SyncResult = Result<(u32, Vec<String>, HashMap<String, String>), Box<dyn std::error::Error>>;
+type SyncResult = Result<
+    (
+        u32,
+        Vec<String>,
+        HashMap<String, String>,
+        HashMap<String, String>,
+    ),
+    Box<dyn std::error::Error>,
+>;
+
+type GoogleCalendarNamesAndColors = (HashMap<String, String>, HashMap<String, String>);
 
 const GCAL_EVENTS: &str = "https://www.googleapis.com/calendar/v3/calendars";
 const GCAL_LIST: &str = "https://www.googleapis.com/calendar/v3/users/me/calendarList";
@@ -26,7 +36,12 @@ fn unix_now() -> i64 {
         .unwrap_or(0)
 }
 
-fn parse_google_event(cal_id: &str, source_id: &str, v: &Value) -> Option<CalendarEventRow> {
+fn parse_google_event(
+    cal_id: &str,
+    source_id: &str,
+    v: &Value,
+    calendar_color: Option<&str>,
+) -> Option<CalendarEventRow> {
     let id = v.get("id")?.as_str()?;
     let uid = id.to_string();
     let status = v.get("status").and_then(|s| s.as_str()).map(String::from);
@@ -42,7 +57,9 @@ fn parse_google_event(cal_id: &str, source_id: &str, v: &Value) -> Option<Calend
     let color = v
         .get("backgroundColor")
         .and_then(|s| s.as_str())
-        .map(String::from);
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .or_else(|| calendar_color.filter(|s| !s.is_empty()).map(String::from));
     let (all_day, start_at, end_at, tz) = parse_google_time(v)?;
     let updated_at = v
         .get("updated")
@@ -129,14 +146,43 @@ fn fetch_json(auth: &str, url: &str) -> Result<Value, Box<dyn std::error::Error>
     Ok(serde_json::from_str(&body)?)
 }
 
+/// Parses Google Calendar [`calendarList`](https://developers.google.com/calendar/api/v3/reference/calendarList/list) response `items`.
+fn ingest_google_calendar_list(
+    val: &Value,
+) -> (
+    Vec<String>,
+    HashMap<String, String>,
+    HashMap<String, String>,
+) {
+    let mut discovered_ids = Vec::new();
+    let mut calendar_names = HashMap::new();
+    let mut calendar_colors = HashMap::new();
+    if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
+        for item in items {
+            if let Some(id) = item.get("id").and_then(|id| id.as_str()) {
+                discovered_ids.push(id.to_string());
+                if let Some(name) = item.get("summary").and_then(|s| s.as_str()) {
+                    calendar_names.insert(id.to_string(), name.to_string());
+                }
+                if let Some(bg) = item.get("backgroundColor").and_then(|s| s.as_str()) {
+                    if !bg.is_empty() {
+                        calendar_colors.insert(id.to_string(), bg.to_string());
+                    }
+                }
+            }
+        }
+    }
+    (discovered_ids, calendar_names, calendar_colors)
+}
+
 /// Fetch all calendars accessible to the Google account directly from the Calendar API.
-/// Returns a map of `calendar_id → display_name`. Does not write to disk or modify any index.
+/// Returns `(calendar_id → display_name, calendar_id → backgroundColor hex)`. Does not write to disk or modify any index.
 pub fn fetch_google_calendar_names_api(
     home: &Path,
     token_mailbox_id: &str,
     env_file: &HashMap<String, String>,
     process_env: &HashMap<String, String>,
-) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+) -> Result<GoogleCalendarNamesAndColors, Box<dyn std::error::Error>> {
     let token =
         ensure_google_access_token(home, token_mailbox_id, env_file, process_env).map_err(|e| {
             format!(
@@ -144,19 +190,11 @@ pub fn fetch_google_calendar_names_api(
                  RIPMAIL_HOME/{token_mailbox_id}/."
             )
         })?;
-    let mut names = HashMap::new();
     if let Ok(val) = fetch_json(&token, GCAL_LIST) {
-        if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
-            for item in items {
-                if let Some(id) = item.get("id").and_then(|id| id.as_str()) {
-                    if let Some(name) = item.get("summary").and_then(|s| s.as_str()) {
-                        names.insert(id.to_string(), name.to_string());
-                    }
-                }
-            }
-        }
+        let (_, names, colors) = ingest_google_calendar_list(&val);
+        return Ok((names, colors));
     }
-    Ok(names)
+    Ok((HashMap::new(), HashMap::new()))
 }
 
 pub fn sync_google_calendars(
@@ -177,23 +215,12 @@ pub fn sync_google_calendars(
         },
     )?;
 
-    let mut discovered_ids = Vec::new();
-    let mut calendar_names: HashMap<String, String> = HashMap::new();
-
-    // Calendar list: names for agents + **all** list entries are indexed (same idea as Apple:
+    // Calendar list: names + colors for agents + **all** list entries are indexed (same idea as Apple:
     // everything is synced; `default_calendars` in config limits default CLI queries).
-    if let Ok(val) = fetch_json(&token, GCAL_LIST) {
-        if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
-            for item in items {
-                if let Some(id) = item.get("id").and_then(|id| id.as_str()) {
-                    discovered_ids.push(id.to_string());
-                    if let Some(name) = item.get("summary").and_then(|s| s.as_str()) {
-                        calendar_names.insert(id.to_string(), name.to_string());
-                    }
-                }
-            }
-        }
-    }
+    let (discovered_ids, calendar_names, calendar_colors) = match fetch_json(&token, GCAL_LIST) {
+        Ok(val) => ingest_google_calendar_list(&val),
+        Err(_) => (Vec::new(), HashMap::new(), HashMap::new()),
+    };
 
     let sync_calendar_ids = if !discovered_ids.is_empty() {
         discovered_ids.clone()
@@ -212,6 +239,7 @@ pub fn sync_google_calendars(
     let time_max = (Utc::now() + Duration::days(365 * 3)).to_rfc3339();
 
     for cal_id in &sync_calendar_ids {
+        let calendar_color = calendar_colors.get(cal_id).map(|s| s.as_str());
         let cid_enc = urlencoding::encode(cal_id);
         let mut page_token: Option<String> = None;
 
@@ -240,7 +268,9 @@ pub fn sync_google_calendars(
 
             if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
                 for item in items {
-                    if let Some(mut row) = parse_google_event(cal_id, source_id, item) {
+                    if let Some(mut row) =
+                        parse_google_event(cal_id, source_id, item, calendar_color)
+                    {
                         if let Some(n) = calendar_names.get(cal_id) {
                             row.calendar_name = Some(n.clone());
                         }
@@ -269,7 +299,63 @@ pub fn sync_google_calendars(
     }
 
     tx.commit()?;
-    Ok((count, discovered_ids, calendar_names))
+    Ok((count, discovered_ids, calendar_names, calendar_colors))
+}
+
+#[cfg(test)]
+mod parse_google_event_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parse_google_event_uses_calendar_color_when_event_has_none() {
+        let v = json!({
+            "id": "evt1",
+            "start": { "dateTime": "2025-06-01T10:00:00Z", "timeZone": "UTC" },
+            "end": { "dateTime": "2025-06-01T11:00:00Z", "timeZone": "UTC" }
+        });
+        let row = parse_google_event("cal_a", "src1", &v, Some("#aabbcc")).expect("row");
+        assert_eq!(row.color.as_deref(), Some("#aabbcc"));
+        assert_eq!(row.calendar_id, "cal_a");
+    }
+
+    #[test]
+    fn parse_google_event_prefers_event_background_over_calendar_default() {
+        let v = json!({
+            "id": "evt2",
+            "backgroundColor": "#111111",
+            "start": { "dateTime": "2025-06-02T15:00:00Z", "timeZone": "UTC" },
+            "end": { "dateTime": "2025-06-02T16:00:00Z", "timeZone": "UTC" }
+        });
+        let row = parse_google_event("cal_a", "src1", &v, Some("#aabbcc")).expect("row");
+        assert_eq!(row.color.as_deref(), Some("#111111"));
+    }
+
+    #[test]
+    fn parse_google_event_skips_empty_calendar_color_string() {
+        let v = json!({
+            "id": "evt3",
+            "start": { "dateTime": "2025-06-03T08:00:00Z", "timeZone": "UTC" },
+            "end": { "dateTime": "2025-06-03T09:00:00Z", "timeZone": "UTC" }
+        });
+        let row = parse_google_event("cal_a", "src1", &v, Some("")).expect("row");
+        assert!(row.color.is_none());
+    }
+
+    #[test]
+    fn ingest_google_calendar_list_reads_background_colors() {
+        let val = json!({
+            "items": [
+                {"id": "cal1", "summary": "One", "backgroundColor": "#111111"},
+                {"id": "cal2", "summary": "Two"}
+            ]
+        });
+        let (ids, names, colors) = ingest_google_calendar_list(&val);
+        assert_eq!(ids.len(), 2);
+        assert_eq!(names.get("cal1").map(|s| s.as_str()), Some("One"));
+        assert_eq!(colors.get("cal1").map(|s| s.as_str()), Some("#111111"));
+        assert!(colors.get("cal2").is_none());
+    }
 }
 
 /// Preset vs raw RRULE for [build_recurrence_json_array].

@@ -1,6 +1,12 @@
-# OPP-035: Intent-Based Skill Auto-Loading
+# Archived: OPP-073 — Intent-based skill auto-loading (`load_skill`)
+
+**Renumbered from OPP-035 (2026-04-30)** — **`OPP-035` in the brain-app index is reserved for** [local vault + session](../OPP-035-local-vault-password-and-session-auth.md).
 
 **Status:** Implemented (2026-04-25). Phase 2 keyword pre-load in `chat.ts` remains deferred (see Follow-ups).
+
+---
+
+# OPP-073: Intent-Based Skill Auto-Loading
 
 ## Problem
 
@@ -14,7 +20,7 @@ Implement a mechanism for the `AssistantAgent` to auto-detect and load relevant 
 
 ### 1. High-Level Skill Registry in System Prompt
 
-Modify `buildBaseSystemPrompt` in [`assistantAgent.ts`](../../src/server/agent/assistantAgent.ts) to include a lightweight "Skill Library" section. This section will list the names and descriptions of all installed skills from `$BRAIN_HOME/skills/` (see [`skillsDir()`](../../src/server/lib/wikiDir.ts)).
+Modify `buildBaseSystemPrompt` in [`assistantAgent.ts`](../../../src/server/agent/assistantAgent.ts) to include a lightweight "Skill Library" section. This section will list the names and descriptions of all installed skills from `$BRAIN_HOME/skills/` (see [`skillsDir()`](../../../src/server/lib/wikiDir.ts)).
 
 ```markdown
 ## Available Specialized Skills
@@ -43,7 +49,7 @@ Loading a skill provides specific guidance on tool usage, edge cases, and best p
 
 ### 3. Automated Loading Heuristics (Optional but Recommended)
 
-In the [`chat.ts`](../../src/server/routes/chat.ts) route, before initializing the agent session, perform a lightweight "intent check":
+In the [`chat.ts`](../../../src/server/routes/chat.ts) route, before initializing the agent session, perform a lightweight "intent check":
 
 - If the user's message contains strong keywords (e.g., "calendar", "schedule", "meeting"), proactively load the `calendar` skill by appending its content to the `systemPrompt` during `getOrCreateSession`.
 - This avoids the "cold start" problem where the agent has to decide to load a skill in its first turn.
@@ -64,29 +70,29 @@ Skills should be framed as the "manual" for specific tools. For example, the `ca
 | **B. Reuse `read` on wiki path** | No new tool | Skills live under `$BRAIN_HOME/skills/`, not the wiki vault |
 | **C. Both** | Flexible | More surface area |
 
-**Decision:** Implement **A** (`load_skill`) that reads via the same path as [`readSkillMarkdown`](../../src/server/lib/slashSkill.ts) (`skillsDir()` + `slug/SKILL.md`), strips frontmatter for the body (reuse `gray-matter` like `readSkillMarkdown`), and returns markdown. The wiki `read` tool is scoped to the vault root (`createReadTool(wikiDir)` in [`tools.ts`](../../src/server/agent/tools.ts)), so agents **cannot** load `$BRAIN_HOME/skills/...` via `read` — a dedicated tool is appropriate.
+**Decision:** Implement **A** (`load_skill`) that reads via the same path as [`readSkillMarkdown`](../../../src/server/lib/slashSkill.ts) (`skillsDir()` + `slug/SKILL.md`), strips frontmatter for the body (reuse `gray-matter` like `readSkillMarkdown`), and returns markdown. The wiki `read` tool is scoped to the vault root (`createReadTool(wikiDir)` in [`tools.ts`](../../../src/server/agent/tools.ts)), so agents **cannot** load `$BRAIN_HOME/skills/...` via `read` — a dedicated tool is appropriate.
 
 Document that the model should follow returned instructions for the rest of the turn and follow-ups in the same chat (they remain in message history once the assistant cites them). If product needs **sticky** system prompt mutation across turns without re-showing the blob, that is a follow-up (session state on `Agent`); v1 can rely on conversation history.
 
 ### Skill library in system prompt
 
-- Add **`skillLibraryPromptSection()`** (or similar) in [`skillRegistry.ts`](../../src/server/lib/skillRegistry.ts): bullet list of `slug`, `name`/`label`, truncated `description` from frontmatter — reuse data from `listSkills()` or factor shared parsing.
+- Add **`skillLibraryPromptSection()`** (or similar) in [`skillRegistry.ts`](../../../src/server/lib/skillRegistry.ts): bullet list of `slug`, `name`/`label`, truncated `description` from frontmatter — reuse data from `listSkills()` or factor shared parsing.
 - **`getOrCreateSession`** already builds `systemPrompt`: await the library section and append it to `buildBaseSystemPrompt` output. Handle missing `skills/` (empty section or omit section).
 - **Performance:** One directory read per **new session** (not per message).
 
 ### Optional keyword pre-load (Phase 2)
 
-- Implement in [`chat.ts`](../../src/server/routes/chat.ts) **only for non-slash** messages: if user text matches a small configurable map (`calendar` → `calendar` slug, etc.), append that skill’s body (after placeholders) to `systemPrompt` for that request’s `getOrCreateSession` options, **or** inject a single line: “Skill `calendar` is pre-loaded; follow it.”
+- Implement in [`chat.ts`](../../../src/server/routes/chat.ts) **only for non-slash** messages: if user text matches a small configurable map (`calendar` → `calendar` slug, etc.), append that skill’s body (after placeholders) to `systemPrompt` for that request’s `getOrCreateSession` options, **or** inject a single line: “Skill `calendar` is pre-loaded; follow it.”
 - **Risk:** False positives (e.g. “calendar year” unrelated). Mitigate with conservative keyword lists or ship Phase 1 without pre-load first.
 
 ### Tool allowlist
 
-- Add `load_skill` to [`ALL_AGENT_TOOL_NAMES`](../../src/server/agent/agentToolSets.ts) and to the appropriate `TOOL_GROUPS` (new `skills` group or `ui`).
+- Add `load_skill` to [`ALL_AGENT_TOOL_NAMES`](../../../src/server/agent/agentToolSets.ts) and to the appropriate `TOOL_GROUPS` (new `skills` group or `ui`).
 - **Onboarding / profiling / wiki-cleanup** agents should **omit** `load_skill` (same rationale as other unrelated tools).
 
 ### Security and scope
 
-- `load_skill` only resolves paths under `skillsDir()` + `[slug]/SKILL.md` with strict slug validation (`^[a-z0-9_-]+$` — align with [`parseLeadingSlashCommand`](../../src/server/lib/slashSkill.ts)).
+- `load_skill` only resolves paths under `skillsDir()` + `[slug]/SKILL.md` with strict slug validation (`^[a-z0-9_-]+$` — align with [`parseLeadingSlashCommand`](../../../src/server/lib/slashSkill.ts)).
 - No arbitrary filesystem reads.
 
 ### Non-goals (v1)
@@ -137,17 +143,17 @@ flowchart LR
 ### Phase 3 — Polish
 
 8. **Client (optional):** Subtle “Skill: calendar” chip when `load_skill` runs — only if cheap; otherwise transcript tool labels suffice.
-9. **Docs:** Update [`agent-chat.md`](../architecture/agent-chat.md) with `load_skill` and skill library behavior.
+9. **Docs:** Update [`agent-chat.md`](../../architecture/agent-chat.md) with `load_skill` and skill library behavior.
 
 ---
 
 ## Implementation checklist
 
-- [x] Modify [`skillRegistry.ts`](../../src/server/lib/skillRegistry.ts) to provide a helper for a "Skill Library Summary" (names + descriptions).
-- [x] Update [`assistantAgent.ts`](../../src/server/agent/assistantAgent.ts): inject the summary into the base system prompt; add `load_skill` to the agent's toolset.
-- [x] Implement `load_skill` in [`tools.ts`](../../src/server/agent/tools.ts): read `SKILL.md` via `skillsDir()` + validated slug; return content as tool result.
-- [x] Update [`agentToolSets.ts`](../../src/server/agent/agentToolSets.ts): `load_skill` in allowlists / omit lists.
-- [ ] Optionally update [`chat.ts`](../../src/server/routes/chat.ts) for keyword pre-load (Phase 2).
+- [x] Modify [`skillRegistry.ts`](../../../src/server/lib/skillRegistry.ts) to provide a helper for a "Skill Library Summary" (names + descriptions).
+- [x] Update [`assistantAgent.ts`](../../../src/server/agent/assistantAgent.ts): inject the summary into the base system prompt; add `load_skill` to the agent's toolset.
+- [x] Implement `load_skill` in [`tools.ts`](../../../src/server/agent/tools.ts): read `SKILL.md` via `skillsDir()` + validated slug; return content as tool result.
+- [x] Update [`agentToolSets.ts`](../../../src/server/agent/agentToolSets.ts): `load_skill` in allowlists / omit lists.
+- [ ] Optionally update [`chat.ts`](../../../src/server/routes/chat.ts) for keyword pre-load (Phase 2).
 - [x] Tests: see below.
 
 ---
@@ -169,7 +175,7 @@ flowchart LR
 
 ### Regression
 
-- Slash commands: `/calendar` still works via existing [`readSkillMarkdown`](../../src/server/lib/slashSkill.ts) path in `chat.ts`.
+- Slash commands: `/calendar` still works via existing [`readSkillMarkdown`](../../../src/server/lib/slashSkill.ts) path in `chat.ts`.
 - `GET /api/skills` still lists skills from disk; each item includes an additive **`slug`** field.
 
 ---
@@ -183,7 +189,7 @@ Use this list to mark OPP-035 **done**:
 - [x] **No leak:** Invalid slug / traversal rejected in tool (`readSkillMarkdown` only resolves validated slugs under `skillsDir` + bundle).
 - [x] **Assistant preset:** Main Brain assistant has `load_skill`; onboarding and wiki-cleanup omit it.
 - [ ] **Manual UX:** A natural-language calendar question (without `/`) leads the model to load the skill or still answer correctly using calendar tools — **product owner sign-off** on one golden path.
-- [x] **Docs:** [`agent-chat.md`](../architecture/agent-chat.md) updated to describe behavior; implementation checklist above checked off.
+- [x] **Docs:** [`agent-chat.md`](../../architecture/agent-chat.md) updated to describe behavior; implementation checklist above checked off.
 
 ---
 
@@ -192,7 +198,7 @@ Use this list to mark OPP-035 **done**:
 1. Mark all items in **Implementation checklist** and **Validation** as done (`[x]`).
 2. Add a short **“Status: Implemented (date)”** note at the top of this doc with PR link if applicable.
 3. If keyword pre-load was deferred, record under **Follow-ups** below.
-4. Run scoped CI per [`AGENTS.md`](../../AGENTS.md): `npm run lint`, `npm run typecheck`, `npm run test` for touched packages.
+4. Run scoped CI per [`AGENTS.md`](../../../AGENTS.md): `npm run lint`, `npm run typecheck`, `npm run test` for touched packages.
 
 ---
 
@@ -218,13 +224,13 @@ Use this list to mark OPP-035 **done**:
 
 **Opportunities**
 
-- [OPP-031: Preference and Memory Tools](./archive/OPP-031-preference-memory-tools.md) — Skills provide the *how*, preferences provide the *what*.
-- [OPP-010: User Skills](./archive/OPP-010-user-skills.md) — Original vision for user-defined skills.
-- [OPP-025: Cross-Platform Agent Skills Packaging](../../ripmail/docs/opportunities/archive/OPP-025-cross-platform-agent-skills-packaging.md) — Packaging and distribution of skills.
+- [OPP-031: Preference and Memory Tools](./OPP-031-preference-memory-tools.md) — Skills provide the *how*, preferences provide the *what*.
+- [OPP-010: User Skills](./OPP-010-user-skills.md) — Original vision for user-defined skills.
+- [OPP-025: Cross-Platform Agent Skills Packaging](../../../ripmail/docs/opportunities/archive/OPP-025-cross-platform-agent-skills-packaging.md) — Packaging and distribution of skills.
 
 **Code (implementation references)**
 
-- [`slashSkill.ts`](../../src/server/lib/slashSkill.ts) — `readSkillMarkdown`, placeholders
-- [`skillRegistry.ts`](../../src/server/lib/skillRegistry.ts) — `listSkills`
-- [`assistantAgent.ts`](../../src/server/agent/assistantAgent.ts) — session factory
-- [`chat.ts`](../../src/server/routes/chat.ts) — slash vs normal flow
+- [`slashSkill.ts`](../../../src/server/lib/slashSkill.ts) — `readSkillMarkdown`, placeholders
+- [`skillRegistry.ts`](../../../src/server/lib/skillRegistry.ts) — `listSkills`
+- [`assistantAgent.ts`](../../../src/server/agent/assistantAgent.ts) — session factory
+- [`chat.ts`](../../../src/server/routes/chat.ts) — slash vs normal flow
