@@ -40,7 +40,7 @@ A user signs up with their Google account, approves email and calendar access, a
 
 **Likely answer:** S3 or similar for the storage layer, with our own lightweight versioning (keep last N versions of each file). Lose git but gain zero-friction onboarding.
 
-**See also:** [IDEA Wiki sharing with collaborators](ideas/IDEA-wiki-sharing-collaborators.md) (§ Git per user) explores **internal** per-user repos for rollback/diff/collaboration history without exposing git to novices—a deliberate revisit of this tradeoff, not a contradiction of “likely answer” until product chooses. **M0 sharing (read-only prefix):** per-tenant manifests and symlink ergonomics in [architecture/wiki-directory-sharing.md](architecture/wiki-directory-sharing.md) / [OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md).
+**See also:** [IDEA Wiki sharing with collaborators](ideas/IDEA-wiki-sharing-collaborators.md) (§ Git per user) explores **internal** per-user repos for rollback/diff/collaboration history without exposing git to novices—a deliberate revisit of this tradeoff, not a contradiction of “likely answer” until product chooses.
 
 **Related (app state):** Durable **app** data — chat history, settings, and other metadata the product owns — is separate from the wiki backing store above. A plausible pattern is **local SQLite per tenant** with **periodic backup of the database file to tenant-scoped object storage**, so state survives deploys and restarts alongside other per-tenant blobs. Schema and scope are TBD. See [ARCHITECTURE.md](./ARCHITECTURE.md#future-durable-app-state-sqlite).
 

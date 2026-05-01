@@ -41,7 +41,7 @@ Why the product exists, how we talk about it, and collaboration ideas — not ro
 | Product vision (wiki + inbox narrative)     | [VISION.md](VISION.md)                                                               |
 | Strategy: segments and moats                | [STRATEGY.md](STRATEGY.md)                                                           |
 | Karpathy *LLM Wiki* (wiki half of the idea) | [karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md)                               |
-| Wiki sharing / brain-to-brain collaborators | [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) · M0 tech direction [architecture/wiki-directory-sharing.md](architecture/wiki-directory-sharing.md) |
+| Wiki sharing / brain-to-brain collaborators | [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) |
 | Hosted cloud v1 scope (Phase 0 parity)      | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md)       |
 
 

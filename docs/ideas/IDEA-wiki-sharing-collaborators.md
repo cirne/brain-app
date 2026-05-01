@@ -30,19 +30,7 @@ That single scenario forces the right early questions: **scope** (tree vs files)
 | **Audience** | **Individuals first** (one invited Braintunnel identity). Groups reuse the same policy object later. |
 | **Parity** | Familiar model: **share link / invite** + **access list** + **remove access** — not a public feed. |
 
-**[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** implements this: email invite, **server-mediated read enforcement**, grantee **“Shared with me”**, revoke — with **share policy recorded in each user’s brain home** (files), not as a global app-table-only design (optional SQLite cache is allowed later). Details: [architecture/wiki-directory-sharing.md](../architecture/wiki-directory-sharing.md).
-
----
-
-## M0 architecture direction (encapsulation)
-
-Today, **everything under a user’s brain home is theirs**; nothing is cross-tenant by default. Sharing should extend that model rather than a single central store of all grants:
-
-- **Owner** and **grantee** each keep **manifests** (YAML/JSON or dotfiles) in **fixed regions** of their trees: who shared what, which prefix, invite/accept/revoke state. **Listing a directory** can return colocated share metadata alongside entries; **incoming/outgoing hubs** are “list this small `in/` / `out/` folder,” not a standing need for unrelated aggregate queries.
-- After **accept**, the grantee tree may gain **app-managed symlinks** **only at the granted directory prefix** (one symlink for a prefix grant) so **existing tools** (`rg`, read, list) see shared pages like local files. **Authorization on every read** stays server-side; symlinks are ergonomics, not the security boundary.
-- **Rare events** (accept, revoke, narrow scope, move the granted root): **reconcile** symlinks and manifests for affected grantees (“subscribers”). That cold path can be slower; **hot paths** are ordinary file read/search.
-- **Symlinks are path-based:** renames **inside** a shared directory work with a **directory-level** symlink; renaming the **grant root** or per-file links needs **repair** (retry / re-request from owner).
-- **Prefix sharing** implies **implicit widening**: any new file dropped under the prefix (user, agent, or external app) may become visible to grantees. Mitigations: **write/move friction** (confirm flag) on server- and agent-owned paths, optional **path exclusions**, **UI badges** on shared dirs, optional **owner notifications**. See [wiki-directory-sharing.md](../architecture/wiki-directory-sharing.md).
+**[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** implements this: policy store, email invite, server-mediated read enforcement, grantee "Shared with me" view, revoke.
 
 ---
 
@@ -66,7 +54,7 @@ Beyond wiki sharing, connected brains unlock qualitatively different collaborati
 
 ### Phase 1: human-to-human, email as the protocol (OPP-064)
 
-The grantee is identified by **email address**. The owner creates a share → grantee receives an email invite link → grantee logs in with their Braintunnel account → access is granted server-side; **each side persists share metadata under their own brain home** (see [wiki-directory-sharing.md](../architecture/wiki-directory-sharing.md)). No agent-to-agent communication; no handle registry; no bilateral protocol. The owner's wiki **bytes** stay on the owner's disk; the grantee may see them via **API and/or app-managed symlinks** under the grantee vault—always with **access checks**.
+The grantee is identified by **email address**. The owner creates a share → grantee receives an email invite link → grantee logs in with their Braintunnel account → access is granted server-side. No agent-to-agent communication; no handle registry; no bilateral protocol. The owner's wiki files stay in the owner's tenant; the grantee reads through an access-checked API.
 
 This is the simplest viable form. It resolves the Sterling use case without any of the protocol complexity below.
 
@@ -166,7 +154,7 @@ Should feel like **code review**, not a social feed — clear, accountable, reve
 | `profile:basic` | Name, timezone, preferred contact method |
 | `query:general` | Ask general questions (brain decides what to reveal) |
 
-*OPP-064 implements `wiki:read` scoped to a directory prefix, via **server-side access check** on every read (no live permission negotiation yet). Grantee **symlinks** are optional ergonomics; they do not replace enforcement.*
+*OPP-064 implements `wiki:read` scoped to a directory prefix, via server-side access check (no live permission negotiation yet).*
 
 ### Threat model
 
@@ -213,7 +201,6 @@ Should feel like **code review**, not a social feed — clear, accountable, reve
 6. **Offline/degraded behavior:** Minimum behavior when a peer brain is unreachable.
 7. **Agent scope enforcement:** When the grantee's assistant runs, its tools must respect only the granted subtree on the owner's wiki. Deferred — OPP-064 covers human browser access only; agent-tool scoping is a follow-on aligned with the policy layer (M1/M2).
 8. **Read-only vs indexing:** Grantee search stays scoped to their own vault (OPP-064); widening to shared search is a separate grant.
-9. **Implicit widening:** Is default **confirm-on-write** into outgoing-shared paths sufficient alongside optional **exclusions**, or do we need a stricter **publish** workflow for some tenants?
 
 ---
 
@@ -272,7 +259,6 @@ A natural question for write access and audit: **one Git repository per user** f
 ## References
 
 - **[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** — First concrete step: read-only directory invite, email-as-identity, server-mediated access.
-- **[architecture/wiki-directory-sharing.md](../architecture/wiki-directory-sharing.md)** — M0 technical direction: per-tenant file manifests, symlinks, hot/cold path, implicit widening mitigations.
 - [STRATEGY.md](../STRATEGY.md) — Competitive landscape, segmented focus, brain-to-brain moats (network + trust), email analogy.
 - [VISION.md](../VISION.md) — Product narrative for personalization compounding ("what it is").
 - [OPP-034](../opportunities/OPP-034-wiki-snapshots-and-point-in-time-restore.md) — Wiki snapshots; relevant to write access and audit (follow-on OPPs).

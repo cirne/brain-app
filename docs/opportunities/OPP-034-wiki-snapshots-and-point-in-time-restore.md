@@ -24,7 +24,7 @@ Capture **automatic, timestamped backups** of the wiki vault so users can **reco
 - **Continuous** replication or cloud backup (could be a follow-on; zips in `BRAIN_HOME` remain copyable by the user).
 - Backing up **entire** `BRAIN_HOME` (chats, ripmail) in v1—scope is **wiki vault only** unless we explicitly expand later.
 
-**Related (future collaboration):** [IDEA Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md) may need **finer-grained** undo/blame than whole-vault ZIP restore; treat that as additive or superseding only after product decisions, not duplicate scope in OPP-034 v1. **Share policy files** (if stored under the tenant tree per [wiki-directory-sharing.md](../architecture/wiki-directory-sharing.md)) may be included in user backup strategy alongside vault markdown; rebuildable caches stay out of scope unless we document restores for them.
+**Related (future collaboration):** [IDEA Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md) may need **finer-grained** undo/blame than whole-vault ZIP restore; treat that as additive or superseding only after product decisions, not duplicate scope in OPP-034 v1.
 
 **Related (Git per user):** Same idea file explores **one repo per user** for rollback/diff without bespoke history—vs ZIP snapshots and vs [PRODUCTIZATION § git friction](../PRODUCTIZATION.md#2-wiki-backing-store-git-friction); OPP-034 remains **snapshot-first** until an OPP explicitly adopts Git as the vault backing store.
 
