@@ -30,6 +30,7 @@
   import { ONBOARDING_DEFAULT_CHAT_STORAGE_KEY } from '@client/lib/onboarding/onboardingStorageKeys.js'
   import { onboardingHidesComposerForActivityFlow } from '@client/lib/onboarding/onboardingWorkspaceMode.js'
   import { overlaySupportsMobileChatBridge } from '@client/lib/mobileDetailChatOverlay.js'
+  import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
 
   const {
     chatEndpoint,
@@ -101,8 +102,9 @@
         fetch('/api/wiki'),
         fetch('/api/wiki/edit-history?limit=1'),
       ])
-      const files = (await wikiRes.json()) as { path?: string }[]
-      const paths = Array.isArray(files) ? files.map((f) => f.path).filter((p): p is string => typeof p === 'string') : []
+      const paths = parseWikiListApiBody(await wikiRes.json())
+        .files.map((f) => f.path)
+        .filter((p): p is string => typeof p === 'string')
       const pageCount = countSeedEligibleWikiPages(paths)
       const hist = (await histRes.json()) as { files?: { path: string; date: string }[] }
       const lastDocPath = hist.files?.[0]?.path ?? null

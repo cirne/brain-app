@@ -4,6 +4,7 @@
   import { mount, unmount } from 'svelte'
   import WikiFileName from './WikiFileName.svelte'
   import TipTapMarkdownEditor from './TipTapMarkdownEditor.svelte'
+  import WikiShareDialog from './WikiShareDialog.svelte'
   import {
     encodeWikiPathSegmentsForUrl,
     normalizeWikiPathForMatch,
@@ -11,7 +12,6 @@
     transformWikiPageHtml,
   } from '@client/lib/wikiPageHtml.js'
   import { wikiPathForReadToolArg } from '@client/lib/cards/contentCards.js'
-  import { resolveWikiRootIndexPath } from '@client/lib/wikiPathDisplay.js'
   import { renderMarkdown } from '@client/lib/markdown.js'
   import '../styles/wiki/wikiMarkdown.css'
   import {
@@ -21,7 +21,7 @@
   import { emit } from '@client/lib/app/appEvents.js'
   import type { SurfaceContext } from '@client/router.js'
   import type { WikiFileRow } from '@client/lib/wikiDirListModel.js'
-  import { parseWikiFileListJson } from '@client/lib/wikiFileListResponse.js'
+  import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
 
   type WikiFile = WikiFileRow
@@ -29,6 +29,9 @@
   let {
     initialPath,
     refreshKey = 0,
+    shareOwner,
+    sharePrefix,
+    shareHandle,
     streamingWrite = null as { path: string; body: string } | null,
     /** Live `edit` tool — spinner + “Editing…” while args stream / tool runs. */
     streamingEdit = null as { path: string; toolId: string } | null,
@@ -38,6 +41,11 @@
   }: {
     initialPath?: string
     refreshKey?: number
+    /** Read-only shared wiki: owner tenant id + list prefix (e.g. `trips/`). */
+    shareOwner?: string
+    sharePrefix?: string
+    /** When set, use `/api/wiki/shared-by-handle/...` (canonical with path URLs). */
+    shareHandle?: string
     /** Live markdown while agent streams `write` for this path (file may not exist yet). */
     streamingWrite?: { path: string; body: string } | null
     streamingEdit?: { path: string; toolId: string } | null
@@ -46,6 +54,25 @@
     onNavigateToDir?: (_dirPath: string) => void
     onContextChange?: (_ctx: SurfaceContext) => void
   } = $props()
+
+  const sharedMode = $derived(
+    Boolean(
+      shareHandle?.trim() ||
+        (shareOwner?.trim() && sharePrefix?.trim()),
+    ),
+  )
+
+  function wikiFileUrl(rel: string): string {
+    const sh = shareHandle?.trim()
+    if (sh && sharedMode) {
+      return `/api/wiki/shared-by-handle/${encodeURIComponent(sh)}/${encodeWikiPathSegmentsForUrl(rel)}`
+    }
+    const so = shareOwner?.trim()
+    if (sharedMode && so) {
+      return `/api/wiki/shared/${encodeURIComponent(so)}/${encodeWikiPathSegmentsForUrl(rel)}`
+    }
+    return `/api/wiki/${encodeWikiPathSegmentsForUrl(rel)}`
+  }
 
   function pathsMatchForStream(streamPath: string, currentSelected: string | null): boolean {
     if (!currentSelected) return false
@@ -66,6 +93,7 @@
   type SaveState = 'idle' | 'saving' | 'saved' | 'error'
   let saveState = $state<SaveState>('idle')
   let wikiEditor = $state<{ flushSave: () => Promise<void> } | null>(null)
+  let shareDialogOpen = $state(false)
 
   /** Supersedes in-flight page GETs (open + server refresh) so rapid nav cannot mix HTML. */
   const wikiPageLatest = createAsyncLatest({ abortPrevious: true })
@@ -77,7 +105,11 @@
     ),
   )
 
-  const canEdit = $derived(Boolean(selected && pageLoadedOk && !streamBusy && !loading))
+  const canEdit = $derived(Boolean(selected && pageLoadedOk && !streamBusy && !loading && !sharedMode))
+
+  const canSharePage = $derived(
+    Boolean(selected && pageLoadedOk && !streamBusy && !loading && !sharedMode && selected.endsWith('.md')),
+  )
 
   const registerWikiHeader = getContext<SetWikiSlideHeader | undefined>(WIKI_SLIDE_HEADER)
   $effect(() => {
@@ -86,19 +118,37 @@
       canEdit,
       saveState,
       setPageMode: (m: 'view' | 'edit') => void setPageMode(m),
+      canShare: canSharePage,
+      onOpenShare: () => {
+        shareDialogOpen = true
+      },
+      shareTargetLabel: selected ?? undefined,
+      sharedIncoming: sharedMode,
     })
     return () => registerWikiHeader?.(null)
   })
 
   async function loadFiles() {
-    const res = await fetch('/api/wiki')
+    const sh = shareHandle?.trim()
+    const so = shareOwner?.trim()
+    const sp = sharePrefix?.trim()
+    let listUrl = '/api/wiki'
+    if (sharedMode && sh) {
+      listUrl =
+        sp && sp.length > 0
+          ? `/api/wiki/shared-by-handle/${encodeURIComponent(sh)}?prefix=${encodeURIComponent(sp)}`
+          : `/api/wiki/shared-by-handle/${encodeURIComponent(sh)}`
+    } else if (sharedMode && so && sp) {
+      listUrl = `/api/wiki/shared/${encodeURIComponent(so)}?prefix=${encodeURIComponent(sp)}`
+    }
+    const res = await fetch(listUrl)
     let data: unknown
     try {
       data = await res.json()
     } catch {
       data = null
     }
-    files = parseWikiFileListJson(data)
+    files = parseWikiListApiBody(data).files
   }
 
   async function refreshRenderedFromServer() {
@@ -106,7 +156,7 @@
     const { token, signal } = wikiPageLatest.begin()
     const pathKey = selected
     try {
-      const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(pathKey)}`, { signal })
+      const res = await fetch(wikiFileUrl(pathKey), { signal })
       if (wikiPageLatest.isStale(token)) return
       if (!res.ok) return
       const data = await res.json()
@@ -123,7 +173,7 @@
     if (!selected) return
     saveState = 'saving'
     try {
-      const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(selected)}`, {
+      const res = await fetch(wikiFileUrl(selected), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ markdown: md }),
@@ -162,7 +212,7 @@
     loading = true
     pageMode = 'view'
     try {
-      const res = await fetch(`/api/wiki/${encodeWikiPathSegmentsForUrl(path)}`, { signal })
+      const res = await fetch(wikiFileUrl(path), { signal })
       if (wikiPageLatest.isStale(token)) return
       if (!res.ok) {
         meta = {}
@@ -285,6 +335,9 @@
 
   $effect(() => {
     const currentRefreshKey = refreshKey
+    void shareOwner
+    void sharePrefix
+    void shareHandle
     const refreshKeyChanged = currentRefreshKey !== prevRefreshKeyRef.current
     prevRefreshKeyRef.current = currentRefreshKey
     const pathFromRoute = initialPath
@@ -314,14 +367,19 @@
         void openFile(selected)
         return
       }
-
-      const landing = resolveWikiRootIndexPath(files)
-      if (landing) void openFile(landing)
     })()
   })
 </script>
 
 <div class="wiki">
+  <WikiShareDialog
+    open={shareDialogOpen}
+    pathPrefix={selected ?? ''}
+    targetKind="file"
+    onDismiss={() => {
+      shareDialogOpen = false
+    }}
+  />
   <div class="content-area" class:content-area-edit={pageMode === 'edit' && canEdit}>
     {#if pageMode === 'edit' && canEdit}
       {#key selected}

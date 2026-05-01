@@ -23,7 +23,7 @@ Onboarding staging and `onboarding.json` live under **`chats/onboarding/`** (ins
 
 The agent’s file tools are **scoped to the wiki directory** only (relative paths). Wiki content is **plain files**; users may keep a `.git` folder manually, but **brain-app does not run git commit/push** or remote sync. [`syncWikiFromDisk()`](../../src/server/lib/syncAll.ts) is intentionally a **no-op** (success) so periodic sync and `POST /api/wiki/sync` stay uniform across components.
 
-**Future:** Optional **multi-user sharing** of subtrees (invited collaborator, RO/RW) is an active product idea only—see [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) and [OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) (Phase 1); implementation must preserve explicit scope and tenancy rules described in [PRODUCTIZATION](../PRODUCTIZATION.md).
+**Wiki sharing:** **Read-only** subtree invites ([**OPP-064**](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) Phase 1, [**wiki-sharing.md**](./wiki-sharing.md)) are implemented with explicit scope and tenancy checks; read-write and agent tool scope remain future. See [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) and [PRODUCTIZATION](../PRODUCTIZATION.md).
 
 **Starter vault (OPP-060):** Default markdown trees ship from repo [`assets/starter-wiki/`](../../assets/starter-wiki/) (copied to `dist/server/assets/starter-wiki/` at build). On first vault setup, new hosted workspaces, and wiki scaffold paths, the server **copies missing files only** — it does **not** overwrite existing pages (no migration for old vaults).
 

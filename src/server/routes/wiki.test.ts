@@ -32,16 +32,20 @@ afterEach(async () => {
 })
 
 describe('GET /api/wiki', () => {
-  it('lists all markdown files', async () => {
+  it('lists all markdown files with share envelope', async () => {
     const res = await app.request('/api/wiki')
     expect(res.status).toBe(200)
-    const files = await res.json()
-    expect(files).toEqual(
+    const body = (await res.json()) as {
+      files: { path: string; name: string }[]
+      shares: { owned: unknown[]; received: unknown[] }
+    }
+    expect(body.files).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: 'ideas/foo.md', name: 'foo' }),
         expect.objectContaining({ path: 'index.md', name: 'index' }),
-      ])
+      ]),
     )
+    expect(body.shares).toEqual({ owned: [], received: [] })
   })
 })
 

@@ -162,8 +162,18 @@ describe('parseRoute', () => {
     })
   })
 
-  it('path-based /wiki/* is not supported (clean break)', () => {
-    expect(parseRoute('http://localhost/wiki/folder/file.md')).toEqual({})
+  it('parses path-based /wiki/folder/file.md as local wiki doc', () => {
+    expect(parseRoute('http://localhost/wiki/folder/file.md')).toEqual({
+      wikiActive: true,
+      overlay: { type: 'wiki', path: 'folder/file.md' },
+    })
+  })
+
+  it('parses /wiki/@handle/owner/rel.md as shared wiki doc', () => {
+    expect(parseRoute('http://localhost/wiki/%40cirne/travel/trip.md')).toEqual({
+      wikiActive: true,
+      overlay: { type: 'wiki', path: 'travel/trip.md', shareHandle: 'cirne' },
+    })
   })
 
   it('parses wiki-dir via panel', () => {
@@ -306,10 +316,21 @@ describe('parseRoute your-wiki / hub', () => {
 })
 
 describe('parseRoute /wiki primary', () => {
-  it('parses /wiki as wiki home', () => {
+  it('parses /wiki as wiki-dir hub (file list + shares)', () => {
     expect(parseRoute('http://localhost/wiki')).toEqual({
       wikiActive: true,
-      overlay: { type: 'wiki' },
+      overlay: { type: 'wiki-dir' },
+    })
+    expect(parseRoute('http://localhost/wiki/')).toEqual({
+      wikiActive: true,
+      overlay: { type: 'wiki-dir' },
+    })
+  })
+
+  it('parses /wiki/my-wiki/ as local wiki folder browser', () => {
+    expect(parseRoute('http://localhost/wiki/my-wiki/')).toEqual({
+      wikiActive: true,
+      overlay: { type: 'wiki-dir', path: 'my-wiki' },
     })
   })
 
@@ -487,20 +508,20 @@ describe('routeToUrl', () => {
     )
   })
 
-  it('wiki primary home', () => {
-    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki' } })).toBe('/wiki')
+  it('wiki primary empty reader uses panel=wiki (bare /wiki is wiki-dir hub)', () => {
+    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki' } })).toBe('/wiki?panel=wiki')
   })
 
-  it('wiki primary with path uses path query', () => {
-    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki', path: 'a/b.md' } })).toBe(
-      '/wiki?path=a%2Fb.md',
-    )
+  it('wiki primary with path uses path segments', () => {
+    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki', path: 'a/b.md' } })).toBe('/wiki/a/b.md')
   })
 
-  it('wiki-dir on primary', () => {
-    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki-dir', path: 'people' } })).toBe(
-      '/wiki?panel=wiki-dir&path=people',
-    )
+  it('wiki-dir on primary uses trailing slash', () => {
+    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki-dir', path: 'people' } })).toBe('/wiki/people/')
+  })
+
+  it('wiki-dir hub without path uses /wiki/', () => {
+    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki-dir' } })).toBe('/wiki/')
   })
 
   it('hub-wiki-about', () => {

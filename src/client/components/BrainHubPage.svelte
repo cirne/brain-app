@@ -10,6 +10,7 @@
   import HubSourceRowBody from './HubSourceRowBody.svelte'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
   import { postYourWikiPause, postYourWikiResume } from '@client/lib/yourWikiLoopApi.js'
+  import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
 
   type HubRipmailSourceRow = {
     id: string
@@ -180,8 +181,7 @@
       ])
 
       if (wikiRes.ok) {
-        const docs = await wikiRes.json()
-        docCount = Array.isArray(docs) ? docs.length : null
+        docCount = parseWikiListApiBody(await wikiRes.json()).files.length
       }
       if (mailRes.ok) {
         mailStatus = await mailRes.json()

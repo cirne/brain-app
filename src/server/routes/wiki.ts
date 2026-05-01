@@ -4,6 +4,20 @@ import { readFile, writeFile, mkdir, rename, rm } from 'node:fs/promises'
 import { join, basename, resolve, dirname } from 'node:path'
 import { marked } from 'marked'
 import { dirIconsCachePathResolved } from '@server/lib/platform/brainHome.js'
+import { brainLayoutWikiDir } from '@server/lib/platform/brainLayout.js'
+import { tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { getTenantContext, tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
+import { buildWikiListShareEnvelope } from '@server/lib/shares/wikiListShareEnvelope.js'
+import {
+  granteeCanReadOwnerWikiPath,
+  granteeShareCoversWikiPath,
+  listSharesForGrantee,
+  normalizeWikiShareFilePath,
+  normalizeWikiSharePathPrefix,
+  wikiPathUnderSharePrefix,
+  type WikiShareRow,
+} from '@server/lib/shares/wikiSharesRepo.js'
+import { resolveShareOwnerIdForGranteeHandle } from '@server/lib/shares/wikiShareByHandle.js'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { listWikiFiles, recentWikiFilesByMtime } from '@server/lib/wiki/wikiFiles.js'
 import { appendWikiEditRecord, readRecentWikiEdits } from '@server/lib/wiki/wikiEditHistory.js'
@@ -13,12 +27,17 @@ import { searchWikiMarkdownPaths } from '@server/lib/wiki/wikiMarkdownContentSea
 
 const wiki = new Hono()
 
-// GET /api/wiki — list all markdown files
+// GET /api/wiki — list vault markdown files + share hints for this tenant (single round trip)
 wiki.get('/', async (c) => {
   const dir = wikiDir()
   const paths = await listWikiFiles(dir)
-  const files = paths.map(p => ({ path: p, name: basename(p, '.md') }))
-  return c.json(files)
+  const files = paths.map((p) => ({ path: p, name: basename(p, '.md') }))
+  const ctx = tryGetTenantContext()
+  if (!ctx) {
+    return c.json({ files, shares: { owned: [], received: [] } })
+  }
+  const shares = await buildWikiListShareEnvelope(ctx.tenantUserId)
+  return c.json({ files, shares })
 })
 
 // POST /api/wiki — create a new .md (optional body markdown; default empty stub)
@@ -163,6 +182,164 @@ wiki.get('/recent', async (c) => {
     return c.json({ files: [] })
   }
 })
+
+// GET /api/wiki/shared-by-handle/:handle — same as shared/:ownerUserId but owner resolved by workspace handle
+wiki.get('/shared-by-handle/:handle', async (c) => {
+  const handleParam = c.req.param('handle')
+  const granteeId = getTenantContext().tenantUserId
+  const ownerId = await resolveShareOwnerIdForGranteeHandle({ granteeId, handle: handleParam })
+  if (!ownerId) {
+    return c.json({ error: 'forbidden' }, 403)
+  }
+
+  const rawPrefix = c.req.query('prefix')?.trim() ?? ''
+  const rows = listSharesForGrantee(granteeId).filter((r) => r.owner_id === ownerId)
+  const wikiRoot = resolve(brainLayoutWikiDir(tenantHomeDir(ownerId)))
+  const allPaths = await listWikiFiles(wikiRoot)
+  const visible = allPaths.filter((p) => rows.some((r) => granteeShareCoversWikiPath(r, p)))
+
+  if (!rawPrefix) {
+    const files = visible.map((p) => ({ path: p, name: basename(p, '.md') }))
+    return c.json(files)
+  }
+
+  if (rawPrefix.endsWith('.md')) {
+    let nf: string
+    try {
+      nf = normalizeWikiShareFilePath(rawPrefix)
+    } catch {
+      return c.json({ error: 'invalid_prefix' }, 400)
+    }
+    const match = rows.find((r) => r.target_kind === 'file' && r.path_prefix === nf)
+    if (!match) {
+      return c.json({ error: 'forbidden' }, 403)
+    }
+    const one = visible.filter((p) => p === nf)
+    const files = one.map((p) => ({ path: p, name: basename(p, '.md') }))
+    return c.json(files)
+  }
+
+  let normalizedPrefix: string
+  try {
+    normalizedPrefix = normalizeWikiSharePathPrefix(rawPrefix)
+  } catch {
+    return c.json({ error: 'invalid_prefix' }, 400)
+  }
+  const match = rows.find((r) => r.target_kind === 'dir' && r.path_prefix === normalizedPrefix)
+  if (!match) {
+    return c.json({ error: 'forbidden' }, 403)
+  }
+  const filtered = visible.filter((p) => wikiPathUnderSharePrefix(p, normalizedPrefix))
+  const files = filtered.map((p) => ({ path: p, name: basename(p, '.md') }))
+  return c.json(files)
+})
+
+// GET /api/wiki/shared-by-handle/:handle/:path{.+} — read one shared markdown file by owner handle
+wiki.get('/shared-by-handle/:handle/:path{.+}', async (c) => {
+  const handleParam = c.req.param('handle')
+  const filePath = c.req.param('path')
+  if (!filePath.endsWith('.md')) {
+    return c.json({ error: 'Only .md paths are supported for shared reads' }, 400)
+  }
+  const granteeId = getTenantContext().tenantUserId
+  const ownerId = await resolveShareOwnerIdForGranteeHandle({ granteeId, handle: handleParam })
+  if (!ownerId) {
+    return c.json({ error: 'forbidden' }, 403)
+  }
+  if (!granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: filePath })) {
+    return c.json({ error: 'forbidden' }, 403)
+  }
+  const dir = resolve(brainLayoutWikiDir(tenantHomeDir(ownerId)))
+  const fullPath = resolve(join(dir, filePath))
+  if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  try {
+    const raw = await readFile(fullPath, 'utf-8')
+    const { meta, body } = parseFrontmatter(raw)
+    const html = await marked(body)
+    return c.json({ path: filePath, raw, html, meta })
+  } catch {
+    return c.json({ error: 'Not found' }, 404)
+  }
+})
+
+wiki.patch('/shared-by-handle/:handle/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
+wiki.delete('/shared-by-handle/:handle/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
+wiki.post('/shared-by-handle/:handle/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
+
+// GET /api/wiki/shared/:ownerUserId — markdown file list filtered to an accepted share (`?prefix=dir/` or `?prefix=file.md`)
+wiki.get('/shared/:ownerUserId', async (c) => {
+  const ownerId = c.req.param('ownerUserId')
+  const rawPrefix = c.req.query('prefix')?.trim() ?? ''
+  if (!rawPrefix) {
+    return c.json({ error: 'prefix_required', message: 'Add ?prefix=vault-relative-dir/ or path to .md' }, 400)
+  }
+  const granteeId = getTenantContext().tenantUserId
+  const rows = listSharesForGrantee(granteeId).filter((r) => r.owner_id === ownerId)
+  let match: WikiShareRow | undefined
+  if (rawPrefix.endsWith('.md')) {
+    let nf: string
+    try {
+      nf = normalizeWikiShareFilePath(rawPrefix)
+    } catch {
+      return c.json({ error: 'invalid_prefix' }, 400)
+    }
+    match = rows.find((r) => r.target_kind === 'file' && r.path_prefix === nf)
+  } else {
+    let normalizedPrefix: string
+    try {
+      normalizedPrefix = normalizeWikiSharePathPrefix(rawPrefix)
+    } catch {
+      return c.json({ error: 'invalid_prefix' }, 400)
+    }
+    match = rows.find((r) => r.target_kind === 'dir' && r.path_prefix === normalizedPrefix)
+  }
+  if (!match) {
+    return c.json({ error: 'forbidden' }, 403)
+  }
+  const dir = resolve(brainLayoutWikiDir(tenantHomeDir(ownerId)))
+  const paths = await listWikiFiles(dir)
+  if (match.target_kind === 'file') {
+    const one = paths.filter((p) => p === match.path_prefix)
+    const files = one.map((p) => ({ path: p, name: basename(p, '.md') }))
+    return c.json(files)
+  }
+  const normalizedPrefix = match.path_prefix
+  const filtered = paths.filter((p) => wikiPathUnderSharePrefix(p, normalizedPrefix))
+  const files = filtered.map((p) => ({ path: p, name: basename(p, '.md') }))
+  return c.json(files)
+})
+
+// GET /api/wiki/shared/:ownerUserId/:path{.+} — read one markdown file from owner's wiki (grantee read-only)
+wiki.get('/shared/:ownerUserId/:path{.+}', async (c) => {
+  const ownerId = c.req.param('ownerUserId')
+  const filePath = c.req.param('path')
+  if (!filePath.endsWith('.md')) {
+    return c.json({ error: 'Only .md paths are supported for shared reads' }, 400)
+  }
+  const granteeId = getTenantContext().tenantUserId
+  if (!granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: filePath })) {
+    return c.json({ error: 'forbidden' }, 403)
+  }
+  const dir = resolve(brainLayoutWikiDir(tenantHomeDir(ownerId)))
+  const fullPath = resolve(join(dir, filePath))
+  if (!fullPath.startsWith(dir + '/') && fullPath !== dir) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  try {
+    const raw = await readFile(fullPath, 'utf-8')
+    const { meta, body } = parseFrontmatter(raw)
+    const html = await marked(body)
+    return c.json({ path: filePath, raw, html, meta })
+  } catch {
+    return c.json({ error: 'Not found' }, 404)
+  }
+})
+
+wiki.patch('/shared/:ownerUserId/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
+wiki.delete('/shared/:ownerUserId/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
+wiki.post('/shared/:ownerUserId/:path{.+}', async (c) => c.json({ error: 'forbidden' }, 403))
 
 // GET /api/wiki/dir-icon/:dir — resolve a Lucide icon name for a wiki directory
 // Checks hardcoded defaults, then a JSON cache, then falls back to LLM.

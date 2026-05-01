@@ -18,6 +18,7 @@
   import { readChatToolDisplayPreference } from '@client/lib/chatToolDisplayPreference.js'
   import { readHearRepliesPreference, writeHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
+  import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
 
   function notifyChatSessionsChanged() {
     emit({ type: 'chat:sessions-changed' })
@@ -395,14 +396,7 @@
       const res = await fetch('/api/wiki')
       if (!res.ok) return
       const data: unknown = await res.json()
-      if (!Array.isArray(data)) return
-      wikiFiles = data
-        .map((f) =>
-          f && typeof f === 'object' && 'path' in f && typeof (f as { path: unknown }).path === 'string'
-            ? (f as { path: string }).path
-            : null,
-        )
-        .filter((p): p is string => p != null)
+      wikiFiles = parseWikiListApiBody(data).files.map((f) => f.path)
     } catch { /* ignore */ }
   }
 

@@ -14,7 +14,7 @@ Personal assistant web app: **Chat** (agent), **Wiki** (markdown vault), **Inbox
 Browser (Svelte 5)
   ↔  HTTP + SSE
 Hono (Node 22)
-  ├── /api/chat, /api/wiki, /api/files, /api/inbox, /api/calendar, /api/search, …
+  ├── /api/chat, /api/wiki (+ `/api/wiki/shared/…` for cross-tenant read shares), `/api/wiki-shares`, /api/files, /api/inbox, /api/calendar, /api/search, …
   ├── /api/skills, /api/onboarding
   ├── /api/imessage  (+ /api/messages alias)  — macOS, when chat.db readable
   └── /api/dev  — development only
@@ -41,7 +41,7 @@ Why the product exists, how we talk about it, and collaboration ideas — not ro
 | Product vision (wiki + inbox narrative)     | [VISION.md](VISION.md)                                                               |
 | Strategy: segments and moats                | [STRATEGY.md](STRATEGY.md)                                                           |
 | Karpathy *LLM Wiki* (wiki half of the idea) | [karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md)                               |
-| Wiki sharing / brain-to-brain collaborators | [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) |
+| Wiki sharing / brain-to-brain collaborators | [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) · **Phase 1 shipped:** [architecture/wiki-sharing.md](architecture/wiki-sharing.md) ([OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)) |
 | Hosted cloud v1 scope (Phase 0 parity)      | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md)       |
 
 

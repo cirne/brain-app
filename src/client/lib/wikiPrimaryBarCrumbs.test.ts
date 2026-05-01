@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { wikiPrimaryCrumbsForDir, wikiPrimaryCrumbsForFile } from './wikiPrimaryBarCrumbs.js'
+import {
+  wikiPrimaryCrumbsForDir,
+  wikiPrimaryCrumbsForFile,
+  wikiPrimaryCrumbsForMyWikiFile,
+  wikiPrimaryCrumbsForSharedFile,
+} from './wikiPrimaryBarCrumbs.js'
 
 describe('wikiPrimaryCrumbsForFile', () => {
   it('empty path is wiki root label only', () => {
@@ -50,6 +55,26 @@ describe('wikiPrimaryCrumbsForDir', () => {
       { kind: 'wiki-root-link' },
       { kind: 'folder-link', path: 'people', label: 'people' },
       { kind: 'tail', label: 'notes' },
+    ])
+  })
+})
+
+describe('wikiPrimaryCrumbs shared / My Wiki', () => {
+  it('shared file: Wiki → @handle → folders → page', () => {
+    expect(wikiPrimaryCrumbsForSharedFile('cirne', 'travel/trip.md')).toEqual([
+      { kind: 'wiki-root-link' },
+      { kind: 'folder-link', path: '@cirne', label: '@cirne' },
+      { kind: 'folder-link', path: '@cirne/travel', label: 'travel' },
+      { kind: 'tail', label: 'trip' },
+    ])
+  })
+
+  it('My Wiki file: Wiki → My Wiki → folders → page (`my-wiki` URL segment)', () => {
+    expect(wikiPrimaryCrumbsForMyWikiFile('people/adam.md')).toEqual([
+      { kind: 'wiki-root-link' },
+      { kind: 'folder-link', path: 'my-wiki', label: 'My Wiki' },
+      { kind: 'folder-link', path: 'my-wiki/people', label: 'people' },
+      { kind: 'tail', label: 'adam' },
     ])
   })
 })

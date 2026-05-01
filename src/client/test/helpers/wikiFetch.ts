@@ -31,7 +31,11 @@ export function wikiListAndPageHandlers(opts: {
   const handlers: Parameters<typeof createMockFetch>[0] = [
     {
       match: (u) => u === '/api/wiki',
-      response: () => jsonResponse(opts.files),
+      response: () =>
+        jsonResponse({
+          files: opts.files,
+          shares: { owned: [] as const, received: [] as const },
+        }),
     },
     {
       match: (u, init) =>

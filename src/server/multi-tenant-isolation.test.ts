@@ -51,16 +51,16 @@ describe('multi-tenant isolation (Phase 3)', () => {
       headers: { Cookie: `brain_session=${sessA}` },
     })
     expect(ra.status).toBe(200)
-    const ja = (await ra.json()) as { path: string }[]
-    expect(ja.some((x) => x.path.includes('secret-a'))).toBe(true)
-    expect(ja.some((x) => x.path.includes('secret-b'))).toBe(false)
+    const ja = (await ra.json()) as { files: { path: string }[] }
+    expect(ja.files.some((x) => x.path.includes('secret-a'))).toBe(true)
+    expect(ja.files.some((x) => x.path.includes('secret-b'))).toBe(false)
 
     const rb = await app.request('http://localhost/api/wiki', {
       headers: { Cookie: `brain_session=${sessB}` },
     })
-    const jb = (await rb.json()) as { path: string }[]
-    expect(jb.some((x) => x.path.includes('secret-b'))).toBe(true)
-    expect(jb.some((x) => x.path.includes('secret-a'))).toBe(false)
+    const jb = (await rb.json()) as { files: { path: string }[] }
+    expect(jb.files.some((x) => x.path.includes('secret-b'))).toBe(true)
+    expect(jb.files.some((x) => x.path.includes('secret-a'))).toBe(false)
   })
 
   it('wiki search does not leak other tenant matches', async () => {

@@ -17,6 +17,7 @@
     Reply,
     Save,
     Send,
+    Share2,
     X,
   } from 'lucide-svelte'
   import Wiki from '../Wiki.svelte'
@@ -85,6 +86,9 @@
     onWikiNavigate: (_path: string | undefined) => void
     /** Open wiki folder browser (`/wiki-dir/…`). */
     onWikiDirNavigate?: (_dirPath: string | undefined) => void
+    /** Navigate into an accepted directory share (grantee). */
+    onOpenSharedWiki?: (_p: { ownerId: string; pathPrefix: string }) => void
+    onOpenSharedWikiFile?: (_p: { ownerId: string; filePath: string }) => void
     onInboxNavigate: (_id: string | undefined) => void
     onContextChange: (_ctx: SurfaceContext) => void
     /** Inbox list: open search, summarize. Thread Reply/Forward/Archive live in the L2 header. */
@@ -123,6 +127,8 @@
     wikiStreamingEdit = null,
     onWikiNavigate,
     onWikiDirNavigate,
+    onOpenSharedWiki,
+    onOpenSharedWikiFile,
     onInboxNavigate,
     onContextChange,
     onOpenSearch,
@@ -437,6 +443,21 @@
           </span>
         </button>
       {/if}
+      {#if (overlay.type === 'wiki' || overlay.type === 'wiki-dir') && wikiHdr.current}
+        {#if wikiHdr.current.sharedIncoming}
+          <span class="wiki-save-hint" role="status">Read-only</span>
+        {:else if wikiHdr.current.canShare && wikiHdr.current.onOpenShare}
+          <button
+            type="button"
+            class="wiki-edit-btn"
+            onclick={() => wikiHdr.current?.onOpenShare?.()}
+            title="Share"
+            aria-label="Share"
+          >
+            <Share2 size={15} strokeWidth={2} aria-hidden="true" />
+          </button>
+        {/if}
+      {/if}
       {#if overlay.type === 'wiki' && wikiHdr.current}
         {#if wikiHdr.current.saveState === 'saving'}
           <span class="wiki-save-hint" role="status">Saving…</span>
@@ -580,6 +601,9 @@
     {#if overlay.type === 'wiki'}
       <Wiki
         initialPath={overlay.path}
+        shareOwner={overlay.shareOwner}
+        sharePrefix={overlay.sharePrefix}
+        shareHandle={overlay.shareHandle}
         refreshKey={wikiRefreshKey}
         streamingWrite={wikiStreamingWrite}
         streamingEdit={wikiStreamingEdit}
@@ -590,9 +614,14 @@
     {:else if overlay.type === 'wiki-dir'}
       <WikiDirList
         dirPath={overlay.path}
+        shareOwner={overlay.shareOwner}
+        sharePrefix={overlay.sharePrefix}
+        shareHandle={overlay.shareHandle}
         refreshKey={wikiRefreshKey}
         onOpenFile={(path) => onWikiNavigate(path)}
         onOpenDir={(path) => onWikiDirNavigate?.(path)}
+        onOpenSharedDir={onOpenSharedWiki}
+        onOpenSharedFile={onOpenSharedWikiFile}
         onContextChange={onContextChange}
       />
     {:else if overlay.type === 'file'}

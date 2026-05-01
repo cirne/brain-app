@@ -1,9 +1,8 @@
 # OPP-064: Wiki directory sharing — read-only collaborator invite (Phase 1)
 
-**Status:** Open  
+**Status:** Shipped (Phase 1)  
 **Tags:** `wiki` · `sharing` · `collaboration` · `multi-tenant`  
-**Vision doc:** [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) (this is milestone M0 of the brain-to-brain sequencing)  
-**Vision doc:** [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md)  
+**Vision doc:** [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) (milestone M0 of the brain-to-brain sequencing)
 
 ---
 
@@ -30,7 +29,7 @@ This is the **minimal credible version** of the Sterling scenario. Everything el
 | Share scope | **Single directory prefix** (`wiki/trips/`, inherits to children) | Multiple disjoint paths per share, file-level invites |
 | Access enforcement | **Wiki file-read API** — deny non-owner, non-grantee reads of shared paths | Write tools, search-index scope, ripmail corpus scope |
 | Agent scope | Not enforced — grantee's assistant cannot use wiki tools against owner's tree yet | Agent-scoped read tools for grantee's assistant (follow-on, aligns with M1/M2 policy layer in idea doc) |
-| UI | Owner: share dialog on a wiki directory, active-shares list, revoke. Grantee: accept invite link → browse | Hub management page, share settings, expiry |
+| UI | Owner: share dialog on a wiki directory. Grantee: **Shared with me** + accept invite → browse. Revoke: **`DELETE`** API (owned-shares UI follow-on) | Hub management page, share settings, expiry |
 | Notification | Email-only (invite + revoke) | In-app notification center (idea doc M1-pre) |
 | History / blame | None | OPP-034 (snapshots), future Git-per-user |
 | Conflict resolution | N/A (read-only) | Deferred with write access |
@@ -42,41 +41,27 @@ This is the **minimal credible version** of the Sterling scenario. Everything el
 
 ### 1. Share policy store
 
-New SQLite table in the app DB (not the vault):
-
-```sql
-CREATE TABLE wiki_shares (
-  id          TEXT PRIMARY KEY,         -- nanoid
-  owner_id    TEXT NOT NULL,            -- user whose wiki is shared
-  grantee_email TEXT NOT NULL,          -- invited person's email (lowercased)
-  grantee_id  TEXT,                     -- filled in when grantee accepts
-  path_prefix TEXT NOT NULL,            -- vault-relative dir, e.g. "trips/"
-  permission  TEXT NOT NULL DEFAULT 'read',
-  created_at  INTEGER NOT NULL,
-  accepted_at INTEGER,
-  revoked_at  INTEGER
-);
-```
+`wiki_shares` table in **cross-tenant** SQLite at **`$BRAIN_DATA_ROOT/.global/brain-global.sqlite`** (not inside the vault tree). Columns include `invite_token`, `created_at_ms` / `accepted_at_ms` / `revoked_at_ms` (see [wiki-sharing.md](../architecture/wiki-sharing.md)).
 
 `path_prefix` is normalized (no leading `/`, trailing `/` required for directories). Access is granted when the request path **starts with** `path_prefix` (prefix match, inherits to children).
 
 ### 2. Invite flow
 
 1. **Owner** right-clicks (or uses menu on) a wiki directory → "Share with collaborator…"
-2. Enters grantee email + optional note. Server creates a `wiki_share` row and emails the grantee a **signed one-time invite link** (e.g. `/api/wiki-shares/accept/:token`).
-3. **Grantee** clicks link → log in or create Braintunnel account → share is accepted (`grantee_id` filled in, `accepted_at` set).
+2. Enters grantee email. Server creates a row and best-effort emails an **opaque-token** invite link (e.g. `/api/wiki-shares/accept/:token`); owner can copy the link from the dialog if mail is unavailable.
+3. **Grantee** clicks link → tenant + vault session → primary ripmail mailbox email must match invite → share is accepted (`grantee_id`, `accepted_at_ms`).
 4. Grantee sees the shared subtree in their wiki browser under a **"Shared with me"** section.
 
 ### 3. Access enforcement
 
-- Every wiki file-read API call (`GET /api/wiki/*`) checks the request caller against the share table when the path falls outside the caller's own vault.
+- Grantee reads via **`GET /api/wiki/shared/:ownerUserId/...`** (list + file); handlers check `wiki_shares` for an **accepted**, non-revoked row.
 - No share record (or revoked) → **403**.
-- Read-only share → `PUT`/`PATCH`/`DELETE` on shared paths return **403** even if the caller has a valid session.
+- Read-only share → `PUT`/`PATCH`/`DELETE` on **`/api/wiki/shared/...`** return **403** even if the caller has a valid session.
 - The owner's vault search index is **not** exposed to the grantee (separate from read access to individual files).
 
 ### 4. Revoke
 
-Owner revokes via the active-shares list → `revoked_at` set → immediate denial on next request. No grace window.
+Owner revokes with **`DELETE /api/wiki-shares/:id`** → `revoked_at_ms` set → immediate denial on next request. No grace window. (In-app **owned-shares** management UI is a follow-on; API is live.)
 
 ### 5. Grantee experience
 
@@ -89,26 +74,34 @@ Owner revokes via the active-shares list → `revoked_at` set → immediate deni
 
 ## Technical approach
 
+**Implementation reference:** [wiki-sharing.md](../architecture/wiki-sharing.md) (paths, schema, API map, validation commands).
+
 ### API surface (Hono routes)
 
 ```
 POST   /api/wiki-shares               -- create share (owner only)
 GET    /api/wiki-shares               -- list active shares for current user (owned + received)
 DELETE /api/wiki-shares/:id           -- revoke (owner only)
-GET    /api/wiki-shares/accept/:token -- accept invite link (signed JWT, 7-day TTL)
+GET    /api/wiki-shares/accept/:token -- accept invite link (opaque token, 7-day TTL from row)
+GET    /api/wiki/shared/:ownerUserId  -- directory listing (filtered to share prefix)
+GET    /api/wiki/shared/:ownerUserId/:path  -- single .md read
 ```
 
-### Wiki read API changes
+### Policy store
 
-`GET /api/wiki/files/:path` (and directory listing variant) currently scopes to the authenticated user's vault. Extend to:
+`wiki_shares` lives in **`$BRAIN_DATA_ROOT/.global/brain-global.sqlite`** (first use of cross-tenant SQLite; `tenant-registry.json` migration is deferred). Repo: `wikiSharesRepo.ts`, `brainGlobalDb.ts`.
 
-1. Parse whether the requested path belongs to the current user or another user (URL includes owner prefix in multi-tenant mode, or a `?owner=<userId>` param).
-2. Check `wiki_shares` for an active, accepted, non-revoked record matching `(owner_id, grantee_id, path_prefix)`.
-3. Return file content or **403**.
+### Wiki read enforcement
+
+Grantee reads the owner’s tree via **`/api/wiki/shared/:ownerUserId/...`**, not by reusing `GET /api/wiki/files/:path` with an owner override. The handler checks **`wiki_shares`** for an **accepted**, non-revoked row where the path is under `path_prefix`. Mutations (`PATCH` / `DELETE` / `POST`) on shared URLs return **403**.
 
 ### Invite token
 
-Short-lived **JWT** (7-day) signed with `BRAIN_VAULT_KEY` or a dedicated secret. Payload: `{ shareId, granteeEmail, exp }`. On accept, verify signature + expiry + email matches the logged-in user, then set `grantee_id` and `accepted_at`.
+**Opaque** `invite_token` stored on the row (not a JWT). Accept requires **tenant + vault** session; **grantee email** must match the **primary ripmail IMAP mailbox** (`readPrimaryRipmailImapEmail`). On success: `grantee_id` + `accepted_at_ms` set; redirect to wiki with `shareOwner` + `sharePrefix` query params.
+
+### Email
+
+Best-effort `ripmail draft new` + send via `shareInviteEmail.ts`; failures do not block share creation (`emailSent: false`).
 
 ---
 
@@ -125,12 +118,12 @@ Short-lived **JWT** (7-day) signed with `BRAIN_VAULT_KEY` or a dedicated secret.
 
 ---
 
-## Open questions (to resolve before or during implementation)
+## Resolved in Phase 1
 
-1. **Multi-tenant path addressing** — how does the grantee's client know *which* owner's vault to load? URL scheme (`/wiki/:ownerHandle/…`) or server-side resolution? Should align with how M1 in the [brain-to-brain idea](../ideas/IDEA-wiki-sharing-collaborators.md) plans to address cross-brain paths.
-2. **Invite email delivery** — reuse the existing email send path (ripmail / system SMTP) or a transactional service? On staging, must not spam real users during testing.
-3. **"Shared with me" UX placement** — top-nav section, sidebar rail item, or wiki home card? Coordinate with [OPP-061](OPP-061-wiki-top-level-dir-icons-vault-metadata.md) top-level dir conventions so shared trees don't clobber icon/metadata logic.
-4. **Snapshots interaction** — should `wiki_shares` metadata be included in OPP-034 ZIP snapshots? Probably not (it's app DB state, not vault files), but confirm.
+1. **Grantee addressing** — `shareOwner` (owner `usr_…` id) + `sharePrefix` in wiki URL query; list/detail fetch uses `/api/wiki/shared/:ownerUserId/...`.
+2. **Invite email** — ripmail draft + send when configured; otherwise owner copies invite URL from the dialog.
+3. **"Shared with me"** — section above the wiki directory list (primary wiki pane); not duplicated in the slide-over in this slice.
+4. **Snapshots** — unchanged: share rows are **not** in vault ZIPs (global DB only).
 
 ---
 

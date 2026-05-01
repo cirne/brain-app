@@ -4,6 +4,7 @@
   import WikiPageCountIndicator from './WikiPageCountIndicator.svelte'
   import { subscribe } from '@client/lib/app/appEvents.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
+  import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
 
   type Props = {
     onOpen: () => void
@@ -33,8 +34,7 @@
     try {
       const wikiRes = await fetch('/api/wiki')
       if (wikiRes.ok) {
-        const docs = await wikiRes.json()
-        docCount = Array.isArray(docs) ? docs.length : null
+        docCount = parseWikiListApiBody(await wikiRes.json()).files.length
       }
     } catch {
       /* ignore */

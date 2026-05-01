@@ -7,6 +7,7 @@
   import BrainSettingsPage from './BrainSettingsPage.svelte'
   import Wiki from './Wiki.svelte'
   import WikiDirList from './WikiDirList.svelte'
+  import WikiPrimaryShell from './WikiPrimaryShell.svelte'
   import UnifiedChatComposer from './UnifiedChatComposer.svelte'
   import AssistantSlideOver from './AssistantSlideOver.svelte'
   import AgentChat from './AgentChat.svelte'
@@ -45,8 +46,14 @@
   import {
     wikiPrimaryCrumbsForDir,
     wikiPrimaryCrumbsForFile,
+    wikiPrimaryCrumbsForMyWikiDir,
+    wikiPrimaryCrumbsForMyWikiFile,
+    wikiPrimaryCrumbsForSharedDir,
+    wikiPrimaryCrumbsForSharedFile,
     type WikiPrimaryCrumb,
   } from '@client/lib/wikiPrimaryBarCrumbs.js'
+  import { MY_WIKI_SEGMENT, MY_WIKI_URL_SEGMENT } from '@client/lib/wikiDirListModel.js'
+  import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
@@ -70,13 +77,103 @@
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
   import { wikiPrimaryChatMessageOrNull } from '@client/lib/wikiPrimaryChatSend.js'
   import { emptyAssistantRefs } from './assistantShellRefs.js'
+  import type { WikiSlideHeaderRegistration } from '@client/lib/wikiSlideHeaderContext.js'
+  import { Pencil, Save, Share2 } from 'lucide-svelte'
 
   /** Route bar, sync, overlays, and layout — one factory instead of a wall of `let` declarations. */
   let shell = $state(createAssistantShellState())
   /** `bind:this` targets for AgentChat / WorkspaceSplit / slide stack / history list. */
   let refs = $state(emptyAssistantRefs())
 
+  /** Wiki-primary slide header registration (edit / share) when wiki is the main surface. */
+  let wikiPrimaryHdr = $state<WikiSlideHeaderRegistration | null>(null)
+
   const { navigateShell, optsWithBarTitle } = createShellNavigate(() => shell.chatTitleForUrl)
+
+  function wikiShareOptsFromRoute(): {
+    shareOwner?: string
+    sharePrefix?: string
+    shareHandle?: string
+  } {
+    const o = shell.route.overlay
+    if (!shell.route.wikiActive || !o) return {}
+    if (o.type !== 'wiki' && o.type !== 'wiki-dir') return {}
+    const out: {
+      shareOwner?: string
+      sharePrefix?: string
+      shareHandle?: string
+    } = {}
+    const so = o.shareOwner?.trim()
+    const sp = o.sharePrefix?.trim()
+    const sh = o.shareHandle?.trim()
+    if (so) out.shareOwner = so
+    if (sp) out.sharePrefix = sp
+    if (sh) out.shareHandle = sh
+    return out
+  }
+
+  function openSharedWiki(p: { ownerId: string; pathPrefix: string; ownerHandle?: string }) {
+    const raw = p.pathPrefix.trim()
+    const sharePrefix = raw.endsWith('/') ? raw : `${raw}/`
+    const dirPath = sharePrefix.replace(/\/$/, '') || undefined
+    const handle = p.ownerHandle?.trim()
+    const overlay: Overlay = {
+      type: 'wiki-dir',
+      path: dirPath,
+      shareOwner: p.ownerId,
+      sharePrefix,
+      ...(handle ? { shareHandle: handle } : {}),
+    }
+    if (shell.route.wikiActive) {
+      const replace = shouldReplaceWikiOverlay(shell.route)
+      navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
+    } else {
+      const replace = wikiOverlayReplace()
+      const flags = routeSurfaceFlagsForOverlay(overlay)
+      navigateShell(
+        {
+          overlay,
+          wikiActive: false,
+          hubActive: flags.hubActive,
+          settingsActive: flags.settingsActive,
+          ...(flags.useChatSession ? chatSessionPart() : {}),
+        },
+        replace ? { replace: true } : undefined,
+      )
+    }
+    shell.route = parseRoute()
+  }
+
+  function openSharedWikiFile(p: { ownerId: string; filePath: string; ownerHandle?: string }) {
+    const path = p.filePath.trim()
+    if (!path.endsWith('.md')) return
+    const handle = p.ownerHandle?.trim()
+    const overlay: Overlay = {
+      type: 'wiki',
+      path,
+      shareOwner: p.ownerId,
+      sharePrefix: path,
+      ...(handle ? { shareHandle: handle } : {}),
+    }
+    if (shell.route.wikiActive) {
+      const replace = shouldReplaceWikiOverlay(shell.route)
+      navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
+    } else {
+      const replace = wikiOverlayReplace()
+      const flags = routeSurfaceFlagsForOverlay(overlay)
+      navigateShell(
+        {
+          overlay,
+          wikiActive: false,
+          hubActive: flags.hubActive,
+          settingsActive: flags.settingsActive,
+          ...(flags.useChatSession ? chatSessionPart() : {}),
+        },
+        replace ? { replace: true } : undefined,
+      )
+    }
+    shell.route = parseRoute()
+  }
 
   /** Invalidates in-flight `loadSession` when the bar’s `/c/:id` changes again (back/forward). */
   let urlSessionSyncGen = 0
@@ -108,9 +205,59 @@
     if (!shell.route.wikiActive) return []
     const o = shell.route.overlay
     if (!o || (o.type !== 'wiki' && o.type !== 'wiki-dir')) return []
+    const sh = o.shareHandle?.trim()
+    if (sh) {
+      return o.type === 'wiki'
+        ? wikiPrimaryCrumbsForSharedFile(sh, o.path?.trim() ?? '')
+        : wikiPrimaryCrumbsForSharedDir(sh, o.path)
+    }
+    const p = o.path?.trim() ?? ''
+    if (
+      p === MY_WIKI_SEGMENT ||
+      p.startsWith(`${MY_WIKI_SEGMENT}/`) ||
+      p === MY_WIKI_URL_SEGMENT ||
+      p.startsWith(`${MY_WIKI_URL_SEGMENT}/`)
+    ) {
+      const localRel =
+        p === MY_WIKI_SEGMENT || p === MY_WIKI_URL_SEGMENT
+          ? ''
+          : p.startsWith(`${MY_WIKI_URL_SEGMENT}/`)
+            ? p.slice(MY_WIKI_URL_SEGMENT.length + 1)
+            : p.slice(MY_WIKI_SEGMENT.length + 1)
+      return o.type === 'wiki'
+        ? wikiPrimaryCrumbsForMyWikiFile(localRel)
+        : wikiPrimaryCrumbsForMyWikiDir(localRel || undefined)
+    }
     return o.type === 'wiki'
       ? wikiPrimaryCrumbsForFile(o.path?.trim() ?? '')
       : wikiPrimaryCrumbsForDir(o.path)
+  })
+
+  /** Bare `/wiki` hub lists My Wiki + shares; with no received shares, redirect to `/wiki/my-wiki/`. */
+  $effect(() => {
+    if (!shell.route.wikiActive) return
+    const o = shell.route.overlay
+    if (!o || o.type !== 'wiki-dir') return
+    if (o.path?.trim() || o.shareHandle?.trim() || o.shareOwner?.trim()) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch('/api/wiki')
+        if (!res.ok) return
+        const received = parseWikiListApiBody(await res.json()).shares.received
+        if (cancelled || received.length > 0) return
+        navigateShell(
+          { wikiActive: true, overlay: { type: 'wiki-dir', path: MY_WIKI_URL_SEGMENT } },
+          { replace: true },
+        )
+        shell.route = parseRoute()
+      } catch {
+        /* keep browsing hub on fetch failure */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   })
 
   let wikiDockWikiFiles = $state<string[]>([])
@@ -124,7 +271,8 @@
     const o = shell.route.overlay
     if (!o || (o.type !== 'wiki' && o.type !== 'wiki-dir')) return 'wiki-primary'
     const p = 'path' in o ? (o.path ?? '') : ''
-    return `wiki-primary-${o.type}-${p}`
+    const h = 'shareHandle' in o ? (o.shareHandle ?? '') : ''
+    return `wiki-primary-${o.type}-${h}-${p}`
   })
   const wikiDockVoiceEligible = $derived(isPressToTalkEnabled())
 
@@ -410,7 +558,8 @@
   }
 
   function navigateWikiPrimary(path?: string) {
-    const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
+    const shareOpts = wikiShareOptsFromRoute()
+    const overlay: Overlay = path ? { type: 'wiki', path, ...shareOpts } : { type: 'wiki-dir', ...shareOpts }
     const replace = shell.route.wikiActive && shouldReplaceWikiOverlay(shell.route)
     navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
     shell.route = parseRoute()
@@ -451,7 +600,8 @@
 
   function onWikiNavigate(path: string | undefined) {
     if (shell.route.wikiActive) {
-      const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
+      const shareOpts = wikiShareOptsFromRoute()
+      const overlay: Overlay = path ? { type: 'wiki', path, ...shareOpts } : { type: 'wiki-dir', ...shareOpts }
       const replace = shouldReplaceWikiOverlay(shell.route)
       navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
       shell.route = parseRoute()
@@ -473,17 +623,39 @@
     shell.route = parseRoute()
   }
 
+  function overlayForWikiDirNavigate(trimmed: string | undefined): Overlay {
+    if (trimmed?.startsWith('@')) {
+      const rest = trimmed.slice(1)
+      const slash = rest.indexOf('/')
+      const handle = (slash === -1 ? rest : rest.slice(0, slash)).trim()
+      const ownerDir =
+        slash === -1 ? undefined : rest.slice(slash + 1).replace(/\/+$/, '').trim() || undefined
+      return {
+        type: 'wiki-dir',
+        ...(ownerDir ? { path: ownerDir } : {}),
+        shareHandle: handle,
+      }
+    }
+    if (trimmed) {
+      let path = trimmed
+      if (path === MY_WIKI_SEGMENT) path = MY_WIKI_URL_SEGMENT
+      else if (path.startsWith(`${MY_WIKI_SEGMENT}/`)) {
+        path = `${MY_WIKI_URL_SEGMENT}/${path.slice(MY_WIKI_SEGMENT.length + 1)}`
+      }
+      return { type: 'wiki-dir', path }
+    }
+    return { type: 'wiki-dir' }
+  }
+
   function openWikiDir(dirPath?: string) {
+    const trimmed = dirPath?.trim()
+    const overlay = overlayForWikiDirNavigate(trimmed)
     if (shell.route.wikiActive) {
-      const trimmed = dirPath?.trim()
-      const overlay: Overlay = trimmed ? { type: 'wiki-dir', path: trimmed } : { type: 'wiki-dir' }
       const replace = shouldReplaceWikiOverlay(shell.route)
       navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
       shell.route = parseRoute()
       return
     }
-    const trimmed = dirPath?.trim()
-    const overlay: Overlay = trimmed ? { type: 'wiki-dir', path: trimmed } : { type: 'wiki-dir' }
     const replace = wikiOverlayReplace()
     const flags = routeSurfaceFlagsForOverlay(overlay)
     navigateShell(
@@ -808,14 +980,7 @@
       const res = await fetch('/api/wiki')
       if (!res.ok) return
       const data: unknown = await res.json()
-      if (!Array.isArray(data)) return
-      wikiDockWikiFiles = data
-        .map((f) =>
-          f && typeof f === 'object' && 'path' in f && typeof (f as { path: unknown }).path === 'string'
-            ? (f as { path: string }).path
-            : null,
-        )
-        .filter((p): p is string => p != null)
+      wikiDockWikiFiles = parseWikiListApiBody(data).files.map((f) => f.path)
     } catch {
       /* ignore */
     }
@@ -1125,73 +1290,140 @@
         </div>
       {:else if shell.route.wikiActive && shell.route.overlay && (shell.route.overlay.type === 'wiki' || shell.route.overlay.type === 'wiki-dir')}
         <div class="hub-container">
-          <div class="wiki-primary-bar">
-            <nav class="wiki-primary-crumbs" aria-label="Wiki location">
-              {#each wikiPrimaryBarCrumbs as crumb, i (i)}
-                {#if i > 0}<span class="wiki-primary-crumb-sep" aria-hidden="true">/</span>{/if}
-                {#if crumb.kind === 'wiki-root-link'}
-                  <button
-                    type="button"
-                    class="wiki-primary-crumb-btn"
-                    onclick={() => openWikiDir(undefined)}
-                  >Wiki</button>
-                {:else if crumb.kind === 'folder-link'}
-                  <button
-                    type="button"
-                    class="wiki-primary-crumb-btn"
-                    onclick={() => openWikiDir(crumb.path)}
-                  >{crumb.label}</button>
-                {:else}
-                  <span class="wiki-primary-crumb-current">{crumb.label}</span>
-                {/if}
-              {/each}
-            </nav>
-          </div>
-          <div class="wiki-primary-main">
-            <div class="hub-scroll wiki-primary-scroll">
-              {#if shell.route.overlay.type === 'wiki'}
-                <Wiki
-                  initialPath={shell.route.overlay.path}
-                  refreshKey={shell.wikiRefreshKey}
-                  streamingWrite={shell.wikiWriteStreaming}
-                  streamingEdit={shell.wikiEditStreaming}
-                  onNavigate={(path) => onWikiNavigate(path)}
-                  onNavigateToDir={openWikiDir}
-                  onContextChange={setContext}
-                />
-              {:else}
-                <WikiDirList
-                  dirPath={shell.route.overlay.path}
-                  refreshKey={shell.wikiRefreshKey}
-                  onOpenFile={(path) => onWikiNavigate(path)}
-                  onOpenDir={(path) => openWikiDir(path)}
-                  onContextChange={setContext}
-                />
-              {/if}
-            </div>
-            <div class="wiki-primary-composer-dock">
-              <div class="wiki-primary-composer-stack">
-                <UnifiedChatComposer
-                  bind:this={wikiDockComposerRef}
-                  transparentSurround={true}
-                  voiceEligible={wikiDockVoiceEligible}
-                  sessionResetKey={wikiDockComposerSessionKey}
-                  placeholder={wikiDockPlaceholder}
-                  streaming={false}
-                  queuedMessages={[]}
-                  wikiFiles={wikiDockWikiFiles}
-                  skills={wikiDockSkills}
-                  onSend={(t) => void wikiPrimaryComposeSend(t)}
-                  onDraftChange={(d) => {
-                    wikiDockDraft = d
-                  }}
-                  onTranscribe={onWikiDockVoiceTranscribe}
-                  onRequestFocusText={() => void wikiDockComposerRef?.focus()}
-                  hearReplies={wikiDockHearReplies}
-                />
+          <WikiPrimaryShell bind:wikiHdrRef={wikiPrimaryHdr}>
+            {#snippet bar()}
+              <div class="wiki-primary-bar">
+                <nav class="wiki-primary-crumbs" aria-label="Wiki location">
+                  {#each wikiPrimaryBarCrumbs as crumb, i (i)}
+                    {#if i > 0}<span class="wiki-primary-crumb-sep" aria-hidden="true">/</span>{/if}
+                    {#if crumb.kind === 'wiki-root-link'}
+                      <button
+                        type="button"
+                        class="wiki-primary-crumb-btn"
+                        onclick={() => openWikiDir(undefined)}
+                      >Wiki</button>
+                    {:else if crumb.kind === 'folder-link'}
+                      <button
+                        type="button"
+                        class="wiki-primary-crumb-btn"
+                        onclick={() => openWikiDir(crumb.path)}
+                      >{crumb.label}</button>
+                    {:else}
+                      <span class="wiki-primary-crumb-current">{crumb.label}</span>
+                    {/if}
+                  {/each}
+                </nav>
+                <div class="wiki-primary-actions" role="toolbar" aria-label="Wiki actions">
+                  {#if wikiPrimaryHdr?.current?.sharedIncoming}
+                    <span class="wiki-primary-pill">Read-only</span>
+                  {/if}
+                  {#if wikiPrimaryHdr?.current?.canShare && wikiPrimaryHdr.current.onOpenShare}
+                    <button
+                      type="button"
+                      class="wiki-primary-icon-btn"
+                      onclick={() => wikiPrimaryHdr?.current?.onOpenShare?.()}
+                      title="Share"
+                      aria-label="Share"
+                    >
+                      <Share2 size={17} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  {/if}
+                  {#if shell.route.overlay.type === 'wiki' && wikiPrimaryHdr?.current}
+                    {#if wikiPrimaryHdr.current.saveState === 'saving'}
+                      <span class="wiki-save-hint" role="status">Saving…</span>
+                    {:else if wikiPrimaryHdr.current.saveState === 'saved'}
+                      <span class="wiki-save-hint" role="status">Saved</span>
+                    {:else if wikiPrimaryHdr.current.saveState === 'error'}
+                      <span class="wiki-save-hint wiki-save-err" role="status">Save failed</span>
+                    {/if}
+                    <button
+                      type="button"
+                      class="wiki-edit-btn wiki-primary-icon-btn"
+                      class:active={wikiPrimaryHdr.current.pageMode === 'edit'}
+                      disabled={!wikiPrimaryHdr.current.canEdit}
+                      onclick={() =>
+                        wikiPrimaryHdr?.current?.setPageMode(
+                          wikiPrimaryHdr.current.pageMode === 'edit' ? 'view' : 'edit',
+                        )}
+                      title={wikiPrimaryHdr.current.pageMode === 'edit' ? 'View' : 'Edit'}
+                      aria-label={wikiPrimaryHdr.current.pageMode === 'edit' ? 'Switch to view mode' : 'Switch to edit mode'}
+                    >
+                      {#if wikiPrimaryHdr.current.pageMode === 'edit'}
+                        <Save size={15} strokeWidth={2} aria-hidden="true" />
+                      {:else}
+                        <Pencil size={15} strokeWidth={2} aria-hidden="true" />
+                      {/if}
+                    </button>
+                  {/if}
+                </div>
               </div>
-            </div>
-          </div>
+            {/snippet}
+            {#snippet children()}
+              <div class="wiki-primary-main">
+                <div class="hub-scroll wiki-primary-scroll">
+                  {#if shell.route.overlay.type === 'wiki'}
+                    <Wiki
+                      initialPath={shell.route.overlay.path}
+                      shareOwner={shell.route.overlay.shareOwner}
+                      sharePrefix={shell.route.overlay.sharePrefix}
+                      shareHandle={shell.route.overlay.shareHandle}
+                      refreshKey={shell.wikiRefreshKey}
+                      streamingWrite={shell.wikiWriteStreaming}
+                      streamingEdit={shell.wikiEditStreaming}
+                      onNavigate={(path) => onWikiNavigate(path)}
+                      onNavigateToDir={openWikiDir}
+                      onContextChange={setContext}
+                    />
+                  {:else}
+                    <WikiDirList
+                      dirPath={shell.route.overlay.path}
+                      shareOwner={shell.route.overlay.shareOwner}
+                      sharePrefix={shell.route.overlay.sharePrefix}
+                      shareHandle={shell.route.overlay.shareHandle}
+                      refreshKey={shell.wikiRefreshKey}
+                      onOpenFile={(path) => onWikiNavigate(path)}
+                      onOpenDir={(path) => openWikiDir(path)}
+                      onOpenSharedDir={(p) =>
+                        openSharedWiki({
+                          ownerId: p.ownerId,
+                          pathPrefix: p.sharePrefix,
+                          ownerHandle: p.ownerHandle,
+                        })}
+                      onOpenSharedFile={(p) =>
+                        openSharedWikiFile({
+                          ownerId: p.ownerId,
+                          filePath: p.sharePrefix,
+                          ownerHandle: p.ownerHandle,
+                        })}
+                      onContextChange={setContext}
+                    />
+                  {/if}
+                </div>
+                <div class="wiki-primary-composer-dock">
+                  <div class="wiki-primary-composer-stack">
+                    <UnifiedChatComposer
+                      bind:this={wikiDockComposerRef}
+                      transparentSurround={true}
+                      voiceEligible={wikiDockVoiceEligible}
+                      sessionResetKey={wikiDockComposerSessionKey}
+                      placeholder={wikiDockPlaceholder}
+                      streaming={false}
+                      queuedMessages={[]}
+                      wikiFiles={wikiDockWikiFiles}
+                      skills={wikiDockSkills}
+                      onSend={(t) => void wikiPrimaryComposeSend(t)}
+                      onDraftChange={(d) => {
+                        wikiDockDraft = d
+                      }}
+                      onTranscribe={onWikiDockVoiceTranscribe}
+                      onRequestFocusText={() => void wikiDockComposerRef?.focus()}
+                      hearReplies={wikiDockHearReplies}
+                    />
+                  </div>
+                </div>
+              </div>
+            {/snippet}
+          </WikiPrimaryShell>
         </div>
       {:else if shell.route.hubActive || shell.route.overlay?.type === 'hub'}
         <div class="hub-container">
@@ -1218,6 +1450,8 @@
                 wikiStreamingEdit={shell.wikiEditStreaming}
                 onWikiNavigate={onWikiNavigate}
                 onWikiDirNavigate={openWikiDir}
+                onOpenSharedWiki={openSharedWiki}
+                onOpenSharedWikiFile={openSharedWikiFile}
                 onInboxNavigate={onInboxNavigateSlide}
                 onContextChange={setContext}
                 onOpenSearch={() => { shell.showSearch = true }}
@@ -1266,6 +1500,8 @@
                 wikiStreamingEdit={shell.wikiEditStreaming}
                 onWikiNavigate={onWikiNavigate}
                 onWikiDirNavigate={openWikiDir}
+                onOpenSharedWiki={openSharedWiki}
+                onOpenSharedWikiFile={openSharedWikiFile}
                 onInboxNavigate={onInboxNavigateSlide}
                 onContextChange={setContext}
                 onOpenSearch={() => { shell.showSearch = true }}
@@ -1347,6 +1583,8 @@
                 wikiStreamingEdit={shell.wikiEditStreaming}
                 onWikiNavigate={onWikiNavigate}
                 onWikiDirNavigate={openWikiDir}
+                onOpenSharedWiki={openSharedWiki}
+                onOpenSharedWikiFile={openSharedWikiFile}
                 onInboxNavigate={onInboxNavigateSlide}
                 onContextChange={setContext}
                 onOpenSearch={() => { shell.showSearch = true }}
@@ -1385,6 +1623,8 @@
           wikiStreamingEdit={shell.wikiEditStreaming}
           onWikiNavigate={onWikiNavigate}
           onWikiDirNavigate={openWikiDir}
+          onOpenSharedWiki={openSharedWiki}
+          onOpenSharedWikiFile={openSharedWikiFile}
           onInboxNavigate={onInboxNavigateSlide}
           onContextChange={setContext}
           onOpenSearch={() => { shell.showSearch = true }}
@@ -1452,10 +1692,62 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
     padding: 6px 10px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-2);
+  }
+
+  .wiki-primary-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .wiki-primary-pill {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-3);
+  }
+
+  .wiki-primary-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+  }
+
+  .wiki-primary-icon-btn:hover:not(:disabled) {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .wiki-primary-icon-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .wiki-save-hint {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .wiki-save-err {
+    color: var(--text-3);
+  }
+
+  .wiki-edit-btn.wiki-primary-icon-btn.active {
+    color: var(--accent);
   }
 
   .wiki-primary-crumbs {

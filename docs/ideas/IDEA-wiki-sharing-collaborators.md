@@ -1,6 +1,6 @@
 # Idea: Brain-to-brain collaboration
 
-**Status:** Active — **[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** is the first concrete step (read-only wiki directory sharing, email invite). The broader peer-to-peer vision, protocol, identity, and public-brain layer are sequenced below as future milestones.  
+**Status:** Active — **[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** Phase 1 **shipped** (read-only wiki directory sharing, email invite; see [wiki-sharing.md](../architecture/wiki-sharing.md)). The broader peer-to-peer vision, protocol, identity, and public-brain layer are sequenced below as future milestones.  
 **Index:** [IDEAS.md](../IDEAS.md)
 
 **Why it matters:** Moat, network-effect reasoning, competitive framing, trust posture, and the email analogy live in **[STRATEGY.md](../STRATEGY.md)** (single source). This doc is the product and sequencing spec.
@@ -30,7 +30,7 @@ That single scenario forces the right early questions: **scope** (tree vs files)
 | **Audience** | **Individuals first** (one invited Braintunnel identity). Groups reuse the same policy object later. |
 | **Parity** | Familiar model: **share link / invite** + **access list** + **remove access** — not a public feed. |
 
-**[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** implements this: policy store, email invite, server-mediated read enforcement, grantee "Shared with me" view, revoke.
+**[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** shipped Phase 1: `wiki_shares` in **`brain-global.sqlite`**, email invite + accept URL, **`/api/wiki/shared/...`** read enforcement, grantee **Shared with me**, revoke. Details: [wiki-sharing.md](../architecture/wiki-sharing.md).
 
 ---
 
@@ -95,7 +95,7 @@ A likely hybrid: **handle (and optional registry) for discovery**, **email or ma
 
 | Stage | Identity mechanism |
 | ----- | ------------------ |
-| **OPP-064 (now)** | Grantee email address; Braintunnel account required to accept invite |
+| **OPP-064 (Phase 1 shipped)** | Grantee email address; Braintunnel account + vault session required to accept invite |
 | **Handle MVP** | Stable `@handle` resolving to endpoint + public key; email as bootstrap/verification channel |
 | **Full registry** | Opt-in global registry; DNS-based discovery (`_brain.` TXT records); WebFinger from email address |
 
