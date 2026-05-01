@@ -155,6 +155,19 @@ Phase 1 exposes shared trees through **HTTP + virtual paths** (`Shared with me/�
 
 ---
 
+## Deferred safeguards (live shared prefixes)
+
+Directory grants imply **implicit widening**: anything added under `path_prefix` may surface to grantees without an explicit publish. Useful mitigation themes — largely **not** Phase 1 product commitments yet:
+
+1. **Write / move hooks** on wiki tools: failing writes into paths covered by an **outgoing** share unless an explicit confirmation flag names “who sees this” risk — aligns agent ergonomics with human intent ([wiki-sharing § Live prefix semantics](../architecture/wiki-sharing.md#live-prefix-semantics-implicit-widening)).
+2. **Optional path exclusions** in policy — drafts outside the visible set without reshuffling trees.
+3. **UI affordances** — badges/rails marking directories inside shared prefixes (“published zone”).
+4. **Optional notifications** when new files appear under a shared prefix (detection, not primary prevention).
+
+Tool friction alone does **not** cover editors or sync that bypass BrainTunnel unless those flows eventually honor the same policy gates — capture expectation explicitly before labeling prefixes “safe.”
+
+---
+
 ## Related
 
 - [IDEA: Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md) — full idea including open questions this OPP intentionally defers.
