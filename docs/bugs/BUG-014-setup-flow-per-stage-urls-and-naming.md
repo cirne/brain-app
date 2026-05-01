@@ -2,6 +2,8 @@
 
 **Status:** Open
 
+**Related:** [BUG-029](BUG-029-onboarding-welcome-url-assistant-md-calendar-list.md) (`/welcome`, `assistant.md`, calendar list UX — overlaps this bug).
+
 **Summary**
 
 First-time **setup** (internal: onboarding) should have a **dedicated URL for each stage** so users can bookmark, share support links, and return cleanly after external flows. Direct navigation to a **stage the user is not ready for** should **redirect to the latest valid stage** for their current server state, not a blank or wrong screen. The **Google OAuth browser callback** (after hosted Gmail connect) should **land on the correct setup stage URL**, not a single generic path.
