@@ -21,6 +21,7 @@ describe('mailBodyDisplay', () => {
     expect(wrapped).toContain('prefers-color-scheme: dark')
     expect(wrapped).toContain('body *')
     expect(wrapped).toContain('color: var(--mail-accent) !important')
+    expect(wrapped).toContain('border-radius: 0 !important')
     const full = '<!DOCTYPE html><html><body>x</body></html>'
     const passthrough = emailBodyToIframeSrcdoc(full)
     expect(passthrough).toContain('overflow-y: hidden')

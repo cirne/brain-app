@@ -48,6 +48,10 @@ const IFRAME_DOC_BASE_STYLE = `<style>
   a { color: var(--mail-accent); }
   img, table { max-width: 100% !important; height: auto; }
   table { border-collapse: collapse; }
+  /* Flatten sender “card” corners so HTML mail aligns with inbox chrome (no nested rounded slabs). */
+  table, thead, tbody, tr, td, th, div, section, article, main {
+    border-radius: 0 !important;
+  }
 </style>`
 
 const IFRAME_FRAGMENT_HEAD = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank" rel="noopener noreferrer">${IFRAME_DOC_BASE_STYLE}`
