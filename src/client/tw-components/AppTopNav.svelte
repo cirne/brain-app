@@ -24,10 +24,12 @@
      * Omitted in the top bar on narrow viewports; use the top Settings control instead.
      */
     hostedHandlePill?: string
-    /** Pending wiki share invites — dot on handle (desktop) and on the hub widget. */
+    /** Pending wiki share invites — dot on Settings / @handle when set; opens Sharing with badge. */
     shareInviteBadge?: boolean
     /** Hosted and desktop: opens Settings (`/settings`). */
     onOpenSettings?: () => void
+    /** When pending invites exist, opens Settings scrolled to Sharing (`#sharing`). */
+    onOpenSharing?: () => void
     /** Wiki vault root (`index.md` / resolved landing) — optional; hidden when omitted (e.g. onboarding). */
     onWikiHome?: () => void
   }
@@ -47,6 +49,7 @@
     hostedHandlePill,
     shareInviteBadge = false,
     onOpenSettings,
+    onOpenSharing,
     onWikiHome,
   }: Props = $props()
 
@@ -54,6 +57,12 @@
   const navOpen = $derived(sidebarOpen)
   /** Center title only when there is no left nav (e.g. onboarding); otherwise title lives in the sidebar control. */
   const showCenterBrand = $derived(!showChatHistoryButton)
+
+  /** Routes click: pending invite → Sharing, otherwise plain Settings. */
+  function handleSettingsClick() {
+    if (shareInviteBadge && onOpenSharing) onOpenSharing()
+    else onOpenSettings?.()
+  }
 
   /** Shared icon-button recipe used across the action row. */
   const iconBtn =
@@ -175,8 +184,9 @@
             iconBtn,
             '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]',
             !isMobile && cn('settings-nav-btn--labeled', iconBtnLabeled),
+            shareInviteBadge && 'settings-nav-btn--badge relative pr-3.5',
           )}
-          onclick={onOpenSettings}
+          onclick={handleSettingsClick}
           title="Settings"
           aria-label={isMobile ? 'Settings' : undefined}
         >
@@ -193,16 +203,13 @@
             'nav-hosted-handle ml-2 mr-1.5 max-w-[9rem] cursor-pointer self-center overflow-hidden truncate whitespace-nowrap rounded-md border-none bg-transparent px-2 py-1 font-mono text-xs font-medium text-muted hover:bg-surface-3 hover:text-foreground',
             shareInviteBadge && 'nav-hosted-handle--badge relative pr-3.5',
           )}
-          onclick={onOpenSettings}
+          onclick={handleSettingsClick}
           title="Workspace settings"
         >
           @{hostedHandlePill}
         </button>
       {/if}
-      <BrainHubWidget
-        onOpen={onOpenHub}
-        shareInviteBadge={shareInviteBadge && (!!isMobile || !hostedHandlePill)}
-      />
+      <BrainHubWidget onOpen={onOpenHub} />
       {#if syncErrors.length > 0}
         <button
           class="sync-error-badge absolute right-1 top-1 flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-full bg-[#e74c3c] text-[9px] font-bold leading-none text-white hover:bg-[#c0392b]"
@@ -230,7 +237,7 @@
 
 <style>
   /*
-   * Pseudo-element badge for the hosted handle pill (top-right accent dot).
+   * Pseudo-element badges (top-right accent dot). Kept as scoped CSS because
    * Tailwind ::after with positioned dot is awkward inline.
    */
   .nav-hosted-handle--badge::after {
@@ -242,6 +249,25 @@
     height: 6px;
     border-radius: 50%;
     background: var(--accent);
+  }
+
+  .settings-nav-btn--badge::after {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* Mobile labeled Settings button: nudge dot to keep it clear of the text. */
+  @media (max-width: 768px) {
+    .settings-nav-btn--badge.settings-nav-btn--labeled::after {
+      top: 8px;
+      right: 10px;
+    }
   }
 
   /* Mobile sizing for sub-elements rendered inside the hub widget (`:global` reach). */

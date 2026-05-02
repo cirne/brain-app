@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { RefreshCw, ChevronRight, BookOpen, FileText, Radio, Pause, Play, Share2 } from 'lucide-svelte'
+  import { RefreshCw, ChevronRight, BookOpen, FileText, Radio, Pause, Play } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
-  import { subscribe, emit } from '@client/lib/app/appEvents.js'
-  import { fetchWikiSharesList, type WikiShareApiRow } from '@client/lib/wikiSharesClient.js'
-  import { wikiPathParentDir } from '@client/lib/wikiPathDisplay.js'
+  import { subscribe } from '@client/lib/app/appEvents.js'
+  import { wikiVaultPathDisplayName } from '@client/lib/wikiFileNameLabels.js'
+  import WikiFileName from '@tw-components/WikiFileName.svelte'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import HubSourceRowBody from '@tw-components/HubSourceRowBody.svelte'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
@@ -25,16 +25,9 @@
     onHubNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     /** Opens Settings primary column (`/settings`); when set, click uses SPA navigation. */
     onOpenSettings?: () => void
-    /** After accepting a share, open the shared wiki in the main shell. */
-    onNavigateToSharedWiki?: (_p: {
-      ownerId: string
-      ownerHandle: string
-      pathPrefix: string
-      targetKind: 'dir' | 'file'
-    }) => void
   }
 
-  let { onHubNavigate, onOpenSettings, onNavigateToSharedWiki }: Props = $props()
+  let { onHubNavigate, onOpenSettings }: Props = $props()
 
   let docCount = $state<number | null>(null)
   let wikiDoc = $state<BackgroundAgentDoc | null>(null)
@@ -45,13 +38,6 @@
   let wikiRecentReady = $state(false)
   let hostedWorkspaceHandle = $state<string | undefined>(undefined)
   let wikiActionBusy = $state(false)
-
-  let shareOwned = $state<WikiShareApiRow[]>([])
-  let shareReceived = $state<WikiShareApiRow[]>([])
-  let sharePending = $state<WikiShareApiRow[]>([])
-  let shareLoadError = $state<string | null>(null)
-  let shareAcceptBusyId = $state<string | null>(null)
-  let shareRevokeBusyId = $state<string | null>(null)
 
   const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
   const wikiIsActive = $derived(
@@ -64,11 +50,6 @@
   )
 
   const wikiPageCount = $derived(wikiDoc != null ? wikiDoc.pageCount : docCount)
-
-  function wikiPathBasename(rel: string): string {
-    const parts = rel.replace(/\\/g, '/').split('/').filter(Boolean)
-    return parts[parts.length - 1] ?? rel
-  }
 
   async function fetchWikiRecentEditsList(): Promise<{ path: string; date: string }[]> {
     try {
@@ -112,7 +93,7 @@
   const wikiHubSub = $derived.by(() => {
     if (!wikiDoc) return 'Loading status…'
     const last = wikiDoc.lastWikiPath?.trim()
-    const lastLine = last ? `Last: ${wikiPathBasename(last)}` : null
+    const lastLine = last ? `Last: ${wikiVaultPathDisplayName(last)}` : null
 
     switch (wikiPhase) {
       case 'starting':
@@ -188,91 +169,6 @@
     return bits.join(' · ')
   })
 
-  async function loadWikiShares() {
-    shareLoadError = null
-    try {
-      const data = await fetchWikiSharesList()
-      if (!data) {
-        shareLoadError = 'Could not load sharing.'
-        return
-      }
-      shareOwned = data.owned ?? []
-      shareReceived = data.received ?? []
-      sharePending = data.pendingReceived ?? []
-    } catch {
-      shareLoadError = 'Could not load sharing.'
-    }
-  }
-
-  function scrollSharingHash() {
-    if (typeof location === 'undefined' || location.hash !== '#sharing') return
-    queueMicrotask(() => {
-      document.getElementById('hub-sharing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
-  }
-
-  async function acceptPendingShare(row: WikiShareApiRow) {
-    if (shareAcceptBusyId) return
-    shareAcceptBusyId = row.id
-    try {
-      const res = await fetch(`/api/wiki-shares/${encodeURIComponent(row.id)}/accept`, { method: 'POST' })
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean
-        ownerId?: string
-        ownerHandle?: string
-        pathPrefix?: string
-        targetKind?: 'dir' | 'file'
-        error?: string
-        message?: string
-      }
-      if (!res.ok || !j.ok || typeof j.ownerId !== 'string') {
-        shareLoadError = j.message ?? j.error ?? 'Could not accept invite.'
-        return
-      }
-      onNavigateToSharedWiki?.({
-        ownerId: j.ownerId,
-        ownerHandle: typeof j.ownerHandle === 'string' ? j.ownerHandle : row.ownerHandle,
-        pathPrefix: typeof j.pathPrefix === 'string' ? j.pathPrefix : row.pathPrefix,
-        targetKind: j.targetKind === 'file' ? 'file' : 'dir',
-      })
-      await loadWikiShares()
-      emit({ type: 'wiki-shares-changed' })
-    } finally {
-      shareAcceptBusyId = null
-    }
-  }
-
-  async function revokeOwnedShare(row: WikiShareApiRow) {
-    if (shareRevokeBusyId) return
-    shareRevokeBusyId = row.id
-    try {
-      const res = await fetch(`/api/wiki-shares/${encodeURIComponent(row.id)}`, { method: 'DELETE' })
-      if (!res.ok) {
-        shareLoadError = 'Could not revoke share.'
-        return
-      }
-      await loadWikiShares()
-      emit({ type: 'wiki-shares-changed' })
-    } finally {
-      shareRevokeBusyId = null
-    }
-  }
-
-  function openReceivedShare(row: WikiShareApiRow) {
-    onNavigateToSharedWiki?.({
-      ownerId: row.ownerId,
-      ownerHandle: row.ownerHandle,
-      pathPrefix: row.pathPrefix,
-      targetKind: row.targetKind,
-    })
-  }
-
-  function sharePathLabel(row: WikiShareApiRow): string {
-    const p = row.pathPrefix.trim().replace(/\\/g, '/')
-    if (row.targetKind === 'file') return p
-    return p.endsWith('/') ? p.slice(0, -1) || '(wiki root)' : p
-  }
-
   async function fetchData() {
     try {
       const [wikiRes, mailRes, sourcesRes] = await Promise.all([
@@ -318,13 +214,10 @@
         hostedWorkspaceHandle = undefined
       })
     void fetchData()
-    void loadWikiShares()
-    scrollSharingHash()
     const unsubEvents = subscribe((e) => {
       if (e.type === 'hub:sources-changed' || e.type === 'wiki:mutated' || e.type === 'sync:completed') {
         void fetchData()
       }
-      if (e.type === 'wiki-shares-changed') void loadWikiShares()
     })
     const unsubWikiStore = yourWikiDocFromEvents.subscribe((doc) => {
       if (doc) wikiDoc = doc
@@ -394,13 +287,6 @@
     'wiki-loop-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.07)]'
   const wikiLoopBtnSecondary =
     'wiki-loop-btn-secondary border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground hover:not-disabled:bg-surface-2'
-  /** Sharing block buttons. */
-  const shareBtnBase =
-    'hub-share-btn shrink-0 cursor-pointer rounded-md border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent px-3 py-[0.35rem] text-[0.8125rem] font-semibold text-foreground hover:not-disabled:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-60'
-  const shareBtnPrimary =
-    'hub-share-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.06)]'
-  const shareBtnDanger =
-    'hub-share-btn-danger border-[color-mix(in_srgb,#c0392b_45%,var(--border))] !text-[#e74c3c] hover:not-disabled:bg-[color-mix(in_srgb,#e74c3c_12%,transparent)]'
 </script>
 
 <div
@@ -520,7 +406,6 @@
               class="wiki-recent-label mb-[0.35rem] mt-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted"
             >Recent edits</p>
             {#each wikiRecentEdits as f (f.path)}
-              {@const parentDir = wikiPathParentDir(f.path)}
               <button
                 type="button"
                 class={cn(
@@ -532,12 +417,12 @@
                 <div
                   class="link-info wiki-recent-row-main flex min-w-0 items-center gap-3 text-[0.9375rem] font-medium"
                 >
-                  <HubSourceRowBody
-                    title={wikiPathBasename(f.path)}
-                    subtitle={parentDir ?? 'Wiki root'}
-                  >
+                  <HubSourceRowBody subtitle="">
                     {#snippet icon()}
-                      <FileText size={16} />
+                      <FileText size={16} aria-hidden="true" />
+                    {/snippet}
+                    {#snippet titleContent()}
+                      <WikiFileName path={f.path} />
                     {/snippet}
                   </HubSourceRowBody>
                 </div>
@@ -554,126 +439,6 @@
           <p
             class="empty-msg wiki-recent-empty mt-2 border-t border-t-[color-mix(in_srgb,var(--border)_40%,transparent)] px-0 pb-0 pt-[0.65rem] text-[0.8125rem] text-muted"
           >No recent edits recorded yet.</p>
-        {/if}
-      </div>
-    </section>
-
-    <section
-      id="hub-sharing"
-      class="hub-section hub-sharing-section flex flex-col gap-6"
-      aria-labelledby="hub-sharing-heading"
-    >
-      <div class={sectionHeaderBase}>
-        <Share2 size={18} />
-        <h2 id="hub-sharing-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Sharing</h2>
-      </div>
-      <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
-        Accept read-only wiki invites from others and manage what you have shared. Invites match your
-        <strong>primary mailbox email</strong> from Settings; acceptance happens here, not through email links.
-      </p>
-      {#if shareLoadError}
-        <p class="empty-msg hub-sharing-err m-0 py-4 text-[0.9375rem] !text-foreground" role="alert">{shareLoadError}</p>
-      {/if}
-
-      {#if sharePending.length > 0}
-        <div class="hub-share-block flex flex-col gap-[0.65rem]">
-          <h3 class="hub-share-subhead m-0 text-[0.8125rem] font-bold tracking-[0.02em] text-foreground">Invitations</h3>
-          <ul class="hub-share-list m-0 flex list-none flex-col gap-2 p-0">
-            {#each sharePending as row (row.id)}
-              <li
-                class="hub-share-row flex flex-wrap items-start justify-between gap-x-4 gap-y-3 rounded-lg border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color-mix(in_srgb,var(--bg-2)_50%,transparent)] px-3 py-[0.65rem]"
-              >
-                <div class="hub-share-main flex min-w-0 flex-1 flex-col gap-1">
-                  <span class="hub-share-path" translate="no"
-                    ><code class="text-[0.8125rem] [word-break:break-all]">{sharePathLabel(row)}</code></span
-                  >
-                  <span
-                    class="hub-share-meta flex flex-wrap items-center gap-[0.35rem] text-xs text-muted"
-                  >From @{row.ownerHandle} · {row.granteeEmail}</span>
-                </div>
-                <button
-                  type="button"
-                  class={cn(shareBtnBase, shareBtnPrimary)}
-                  disabled={shareAcceptBusyId !== null}
-                  onclick={() => void acceptPendingShare(row)}
-                >
-                  {shareAcceptBusyId === row.id ? 'Accepting…' : 'Accept'}
-                </button>
-              </li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-
-      <div class="hub-share-block flex flex-col gap-[0.65rem]">
-        <h3 class="hub-share-subhead m-0 text-[0.8125rem] font-bold tracking-[0.02em] text-foreground">Shared with you</h3>
-        {#if shareReceived.length === 0}
-          <p class="empty-msg hub-share-empty m-0 py-2 text-[0.9375rem] text-muted">No active shared wikis yet.</p>
-        {:else}
-          <ul class="hub-share-list m-0 flex list-none flex-col gap-2 p-0">
-            {#each shareReceived as row (row.id)}
-              <li
-                class="hub-share-row flex flex-wrap items-start justify-between gap-x-4 gap-y-3 rounded-lg border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color-mix(in_srgb,var(--bg-2)_50%,transparent)] px-3 py-[0.65rem]"
-              >
-                <div class="hub-share-main flex min-w-0 flex-1 flex-col gap-1">
-                  <span class="hub-share-path" translate="no"
-                    ><code class="text-[0.8125rem] [word-break:break-all]">{sharePathLabel(row)}</code></span
-                  >
-                  <span class="hub-share-meta flex flex-wrap items-center gap-[0.35rem] text-xs text-muted"
-                    >@{row.ownerHandle}</span
-                  >
-                </div>
-                <button
-                  type="button"
-                  class={shareBtnBase}
-                  onclick={() => openReceivedShare(row)}
-                >
-                  Open
-                </button>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </div>
-
-      <div class="hub-share-block flex flex-col gap-[0.65rem]">
-        <h3 class="hub-share-subhead m-0 text-[0.8125rem] font-bold tracking-[0.02em] text-foreground">What you’ve shared</h3>
-        {#if shareOwned.length === 0}
-          <p class="empty-msg hub-share-empty m-0 py-2 text-[0.9375rem] text-muted">You have not shared any wiki paths yet.</p>
-        {:else}
-          <ul class="hub-share-list m-0 flex list-none flex-col gap-2 p-0">
-            {#each shareOwned as row (row.id)}
-              <li
-                class="hub-share-row flex flex-wrap items-start justify-between gap-x-4 gap-y-3 rounded-lg border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color-mix(in_srgb,var(--bg-2)_50%,transparent)] px-3 py-[0.65rem]"
-              >
-                <div class="hub-share-main flex min-w-0 flex-1 flex-col gap-1">
-                  <span class="hub-share-path" translate="no"
-                    ><code class="text-[0.8125rem] [word-break:break-all]">{sharePathLabel(row)}</code></span
-                  >
-                  <span class="hub-share-meta flex flex-wrap items-center gap-[0.35rem] text-xs text-muted">
-                    → {row.granteeEmail}
-                    {#if row.granteeId}
-                      <span
-                        class="hub-share-pill rounded bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] px-[0.35rem] py-[0.12rem] text-[0.65rem] font-semibold uppercase tracking-[0.04em] text-foreground"
-                      >Active</span>
-                    {:else}
-                      <span
-                        class="hub-share-pill hub-share-pill-muted rounded bg-[color-mix(in_srgb,var(--border)_60%,transparent)] px-[0.35rem] py-[0.12rem] text-[0.65rem] font-semibold uppercase tracking-[0.04em] text-muted"
-                      >Pending</span>
-                    {/if}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  class={cn(shareBtnBase, shareBtnDanger)}
-                  disabled={shareRevokeBusyId !== null}
-                  onclick={() => void revokeOwnedShare(row)}
-                >
-                  {shareRevokeBusyId === row.id ? 'Revoking…' : 'Revoke'}
-                </button>
-              </li>
-            {/each}
-          </ul>
         {/if}
       </div>
     </section>
