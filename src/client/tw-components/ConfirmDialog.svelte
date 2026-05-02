@@ -33,12 +33,39 @@
     panelClass,
   }: Props = $props()
 
-  function onWindowKeydown(e: KeyboardEvent) {
-    if (!open) return
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      onDismiss()
+  /** Non-null while `{#if open}` — synced with `.showModal()` for top-layer stacking above split panes. */
+  let dialogEl = $state<HTMLDialogElement | null>(null)
+
+  $effect(() => {
+    const el = dialogEl
+    if (!el || !open) return
+
+    function openModal() {
+      if (typeof el!.showModal === 'function') {
+        try {
+          el!.showModal()
+          return
+        } catch {
+          /* allow without transient user gesture in strict hosts */
+        }
+      }
+      el!.setAttribute('open', '')
     }
+
+    if (!el.open) openModal()
+  })
+
+  function onDialogCancel(e: Event) {
+    e.preventDefault()
+    onDismiss()
+  }
+
+  function onBackdropClick() {
+    onDismiss()
+  }
+
+  function onPanelClick(e: MouseEvent) {
+    e.stopPropagation()
   }
 
   const btnBase =
@@ -47,25 +74,34 @@
     'cd-btn--danger border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] bg-[color-mix(in_srgb,var(--danger)_12%,var(--bg))] text-danger hover:bg-[color-mix(in_srgb,var(--danger)_22%,var(--bg))]'
 </script>
 
-<svelte:window onkeydown={onWindowKeydown} />
-
 {#if open}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div
-    class="cd-backdrop fixed inset-0 z-[400] box-border flex items-center justify-center bg-black/45 p-4"
-    onclick={onDismiss}
-    role="presentation"
+  <!--
+    Native `<dialog>` + showModal(): browser top layer, above sibling stacking contexts (e.g. chat vs detail pane).
+    See https://developer.mozilla.org/en-US/docs/Web/API/HTMLDialogElement/showModal
+  -->
+  <dialog
+    bind:this={dialogEl}
+    class="cd-modal-shell fixed inset-0 m-0 box-border flex h-full max-h-screen w-full max-w-screen items-center justify-center overflow-hidden border-none bg-transparent p-4"
+    aria-modal="true"
+    aria-labelledby={titleId}
+    oncancel={onDialogCancel}
   >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="cd-backdrop absolute inset-0 z-0 cursor-pointer"
+      role="presentation"
+      onclick={onBackdropClick}
+    ></div>
+
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class={cn(
-        'cd-panel box-border w-full max-w-[22rem] rounded-[10px] border border-border bg-surface px-4 pt-4 pb-3 [box-shadow:0_12px_40px_rgba(0,0,0,0.25)]',
+        'cd-panel relative z-[1] box-border w-full max-w-[22rem] cursor-auto rounded-[10px] border border-border bg-surface px-4 pt-4 pb-3 [box-shadow:0_12px_40px_rgba(0,0,0,0.25)]',
         panelClass,
       )}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      tabindex="-1"
-      onclick={(e) => e.stopPropagation()}
+      onclick={onPanelClick}
     >
       <h2 id={titleId} class="cd-title m-0 mb-[0.4rem] text-sm font-semibold leading-tight text-foreground">{title}</h2>
       <div class="cd-body mb-[0.9rem] mt-0 text-xs leading-snug text-muted [overflow-wrap:anywhere] [&>p+p]:mt-2 [&>p]:m-0">
@@ -88,10 +124,16 @@
         {/if}
       </div>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 <style>
+  /* Top-layer dimming (modal); covers the viewport including high-z split panes. */
+  .cd-modal-shell::backdrop {
+    background: rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+  }
+
   /* Style buttons rendered inside the dialog body / actions snippet by their semantic class names. */
   .cd-panel :global(button.cd-btn) {
     cursor: pointer;
