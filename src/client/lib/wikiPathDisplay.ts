@@ -43,3 +43,20 @@ export function wikiPathParentDir(rel: string): string | null {
   if (i <= 0) return null
   return norm.slice(0, i)
 }
+
+/** Share target kind mirrors `WikiShareApiRow.targetKind` / server `WikiShareRow.target_kind`. */
+export type WikiShareTargetKind = 'dir' | 'file'
+
+/**
+ * Maps a wiki share `pathPrefix` + `targetKind` to a vault-relative path for [`WikiFileName`](../components/WikiFileName.svelte).
+ * Directory shares use a synthetic `…/index.md` so folder index display rules apply.
+ */
+export function wikiShareVaultPathForWikiFileName(params: {
+  pathPrefix: string
+  targetKind: WikiShareTargetKind
+}): string {
+  const prefix = params.pathPrefix.trim().replace(/^\/+/, '').replace(/\\/g, '/').replace(/\/+/g, '/')
+  if (params.targetKind === 'file') return prefix
+  const dir = prefix.replace(/\/+$/, '')
+  return dir.length > 0 ? `${dir}/index.md` : 'index.md'
+}

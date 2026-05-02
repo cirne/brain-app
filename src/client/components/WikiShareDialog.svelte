@@ -1,6 +1,8 @@
 <script lang="ts">
   import ConfirmDialog from './ConfirmDialog.svelte'
+  import WikiFileName from './WikiFileName.svelte'
   import { wikiShareCoversVaultPath } from '@client/lib/wikiDirListModel.js'
+  import { wikiShareVaultPathForWikiFileName } from '@client/lib/wikiPathDisplay.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import { tick } from 'svelte'
 
@@ -75,6 +77,10 @@
   const dialogTitle = $derived(targetKind === 'file' ? 'Share wiki page' : 'Share wiki folder')
 
   const shareActionLabel = $derived(targetKind === 'file' ? 'Share Page' : 'Share Folder')
+
+  const wikiShareDisplayPathForFileName = $derived(
+    wikiShareVaultPathForWikiFileName({ pathPrefix, targetKind }),
+  )
 
   $effect(() => {
     if (!open) {
@@ -430,7 +436,10 @@
     </button>
   {/snippet}
   <p class="wsh-lead">
-    Read-only access to <code class="wsh-code">{pathPrefix}</code>. Collaborators accept in
+    Read-only access to{' '}
+    <span class="wsh-share-path-name" translate="no">
+      <WikiFileName path={wikiShareDisplayPathForFileName} />
+    </span>. Collaborators accept in
     <strong>Settings → Sharing</strong> while signed in with the invited email.
   </p>
   <section class="wsh-section" aria-labelledby="wsh-audience-heading">
@@ -473,7 +482,7 @@
 
   <h3 class="wsh-section-title wsh-invite-heading">Invite more people</h3>
   <label class="wsh-label" for="wsh-grantees">
-    By handle (e.g. <code>@cirne</code>) or email
+    By handle (e.g. <code class="wsh-code">@cirne</code>) or email
   </label>
   <div class="wsh-field">
     <div class="wsh-chips">
@@ -575,9 +584,14 @@
   <p class="wsh-revoke-lead">
     {#if targetKind === 'dir'}
       They lose read-only access to this folder and everything inside it under{' '}
-      <code class="wsh-code">{pathPrefix}</code>.
+      <span class="wsh-share-path-name" translate="no">
+        <WikiFileName path={wikiShareDisplayPathForFileName} />
+      </span>.
     {:else}
-      They lose read-only access to <code class="wsh-code">{pathPrefix}</code>.
+      They lose read-only access to{' '}
+      <span class="wsh-share-path-name" translate="no">
+        <WikiFileName path={wikiShareDisplayPathForFileName} />.
+      </span>
     {/if}
   </p>
   {#if revokeTarget}
@@ -594,6 +608,12 @@
     margin: 0 0 12px;
     font-size: 14px;
     color: var(--color-muted, #888);
+  }
+  .wsh-share-path-name {
+    display: inline-flex;
+    vertical-align: text-bottom;
+    max-width: 100%;
+    color: var(--text, inherit);
   }
   .wsh-code {
     font-size: 13px;

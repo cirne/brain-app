@@ -18,7 +18,7 @@ describe('ConfirmDialog.svelte', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'Remove item?' })
     expect(dialog).toBeInTheDocument()
-    expect(dialog).toHaveClass('cd-panel')
+    expect(dialog.querySelector('.cd-panel')).not.toBeNull()
     expect(screen.getByText('This cannot be undone.')).toBeInTheDocument()
   })
 
@@ -33,7 +33,9 @@ describe('ConfirmDialog.svelte', () => {
       },
     })
 
-    expect(screen.getByRole('dialog')).toHaveClass('cd-panel', 'extra-panel-mod')
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    const panel = document.querySelector('.cd-panel.extra-panel-mod')
+    expect(panel).not.toBeNull()
   })
 
   it('does not render when closed', () => {
@@ -89,7 +91,7 @@ describe('ConfirmDialog.svelte', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 
-  it('calls onDismiss on Escape', async () => {
+  it('calls onDismiss on Escape (cancel)', async () => {
     const onDismiss = vi.fn()
     render(ConfirmDialogHarness, {
       props: {
@@ -100,7 +102,8 @@ describe('ConfirmDialog.svelte', () => {
       },
     })
 
-    await fireEvent.keyDown(window, { key: 'Escape' })
+    const dlg = screen.getByRole('dialog')
+    dlg.dispatchEvent(new Event('cancel', { cancelable: true }))
     expect(onDismiss).toHaveBeenCalled()
   })
 

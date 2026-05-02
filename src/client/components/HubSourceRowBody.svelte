@@ -2,22 +2,38 @@
   import type { Snippet } from 'svelte'
 
   let {
-    title,
-    subtitle,
+    title = '',
+    subtitle = '',
+    titleContent,
+    subtitleContent,
     icon,
   }: {
-    title: string
-    subtitle: string
+    title?: string
+    subtitle?: string
+    /** Primary label (e.g. WikiFileName). When set, `title` is ignored. */
+    titleContent?: Snippet
+    /** Secondary line. When set, `subtitle` is ignored. Omit both for single-line rows. */
+    subtitleContent?: Snippet
     icon: Snippet
   } = $props()
 </script>
 
-<div class="hub-source-row-body">
+<div class="hub-source-row-body" class:single-main={titleContent !== undefined && subtitleContent === undefined && subtitle === ''}>
   <span class="hub-source-icon-wrap" aria-hidden="true">
     {@render icon()}
   </span>
-  <span class="source-folder-name">{title}</span>
-  <span class="source-folder-path">{subtitle}</span>
+  {#if titleContent}
+    <span class="source-folder-name">
+      {@render titleContent()}
+    </span>
+  {:else}
+    <span class="source-folder-name">{title}</span>
+  {/if}
+  {#if subtitleContent}
+    <span class="source-folder-path">{@render subtitleContent()}</span>
+  {:else if subtitle !== ''}
+    <span class="source-folder-path">{subtitle}</span>
+  {/if}
 </div>
 
 <style>
@@ -31,6 +47,11 @@
     align-items: center;
   }
 
+  .hub-source-row-body.single-main {
+    row-gap: 0;
+    align-items: center;
+  }
+
   .hub-source-icon-wrap {
     grid-column: 1;
     grid-row: 1;
@@ -39,6 +60,10 @@
     align-items: center;
     justify-content: center;
     color: var(--text-2);
+  }
+
+  .single-main .hub-source-icon-wrap {
+    align-self: center;
   }
 
   .source-folder-name {
