@@ -14,13 +14,23 @@ Ensure you have environment variables before setup. If they are not present, exi
 
 ## Setup (30 seconds)
 
+Cursor Cloud images may not have `nvm` installed even though the main developer guide uses `nvm use`. In cloud agents, prefer `fnm` and verify the active Node matches `.nvmrc` before running `npm`, `npx`, or `node`.
+
 ```sh
 # Install Node 24 (matches .nvmrc) and dependencies
 curl -fsSL https://fnm.vercel.app/install | bash
 source ~/.bashrc  # or restart shell
-fnm install 24
-fnm use 24
+fnm install "$(cat .nvmrc)"
+fnm use "$(cat .nvmrc)"
+node --version
 npm install
+```
+
+If `node` / `npm` still point at the wrong version in a non-interactive shell, initialize `fnm` in that shell before running commands:
+
+```sh
+eval "$(fnm env --use-on-cd --shell bash)"
+fnm use "$(cat .nvmrc)"
 ```
 
 ## Optional: Download ripmail binary
@@ -75,6 +85,7 @@ Without ripmail, the server starts but inbox/email features return errors—this
 
 ## What NOT to do
 
+- **Do NOT assume `nvm` exists** in Cursor Cloud. `AGENTS.md` remains correct for local/dev machines with `nvm`, but cloud images commonly use the `fnm` setup above; verify with `node --version` before running Node commands.
 - **Do NOT run `cargo build`** or any Rust commands—cloud agents don't have Rust toolchain
 - **Do NOT run `npm run ripmail:*`** commands—they require Rust
 - **Do NOT run `npm run desktop:*`** commands—they require macOS + Rust
