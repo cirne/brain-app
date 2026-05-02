@@ -22,8 +22,8 @@ Risk concentrates in **reconciliation when ACL or paths change** (revoke, prefix
 | Store               | Path                                           | Contents                                                                                           |
 | ------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Cross-tenant SQLite | `$BRAIN_DATA_ROOT/.global/brain-global.sqlite` | `wiki_shares` table (first consumer of this file; `tenant-registry.json` migration is a follow-on) |
-| Owner wiki files    | `$BRAIN_DATA_ROOT/<ownerUserId>/wiki/`         | Normal vault markdown (unchanged)                                                                  |
-| Grantee inbound share mounts | `$BRAIN_DATA_ROOT/<granteeUserId>/wiki/<wikiShareMount>/` | Symlinks named **`wiki_shares.id`** targeting allowed owner wiki paths; **planned:** peer roots under **`wikis/`** per [OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md) |
+| Owner wiki files    | `$BRAIN_DATA_ROOT/<ownerUserId>/wikis/me/`     | Personal vault markdown                                                                                 |
+| Grantee inbound share projection | `$BRAIN_DATA_ROOT/<granteeUserId>/wikis/@<handle>/…` | **App-managed** symlinks into the owner’s allowed prefix only ([`wikiShareProjection.ts`](../../src/server/lib/shares/wikiShareProjection.ts))                                                                          |
 
 
 **Tests** may set `BRAIN_GLOBAL_SQLITE_PATH` to isolate the DB file.
@@ -41,7 +41,8 @@ Created at runtime with `CREATE TABLE IF NOT EXISTS` (no migration runner).
 | `owner_id`                                           | Owner tenant id (`usr_…`)                                     |
 | `grantee_email`                                      | Invited email, lowercased                                     |
 | `grantee_id`                                         | Set when invite accepted                                      |
-| `path_prefix`                                        | Vault-relative directory prefix, trailing `/`, no leading `/` |
+| `path_prefix`                                        | Vault-relative prefix: directory shares end with `/`; file shares are a single `*.md` path      |
+| `target_kind`                                        | `dir` (subtree) or `file` (one markdown file) — API **`targetKind`** on create                 |
 | `invite_token`                                       | Opaque token in accept URL                                    |
 | `created_at_ms` / `accepted_at_ms` / `revoked_at_ms` | Timestamps                                                    |
 
@@ -90,7 +91,7 @@ Created at runtime with `CREATE TABLE IF NOT EXISTS` (no migration runner).
 ## Security notes
 
 - **Email match on accept:** uses `readPrimaryRipmailImapEmail` (first IMAP source in ripmail `config.json`). If unknown, accept returns **400** with `mailbox_email_unknown`.
-- **Vault search (`search_index` / FTS) vs agent tools:** full-text helpers that index only the caller’s vault stay **own-vault** in Phase 1. **`grep`** / **`find`** / **`read`** are rooted at the grantee wiki dir but **traverse symlink projection**: accepted shares appear under **`wiki/.brain-share-mount/<shareId>/…`** (`shared/brain-layout.json` **`directories.wikiShareMount`**, default `.brain-share-mount`) as symlinks into the owner’s subtree. Paths **`@handle/path/file.md`** rewrite to that mount before those tools run. **`edit`** / **`write`** / **`move_file`** / **`delete_file`** on projection paths fail (read-only). **`grep`** prefers **`rg --follow`** when `rg` is on `PATH`; the fallback walker also follows mounts.
+- **Agent tool root** is **`wikis/`** (`me/` + `@handle/`). **`grep`** / **`find`** / **`read`** follow symlink projections. **`edit`** / **`write`** / **`move_file`** / **`delete_file`** under **`@…`** fail (read-only). When the signed-in tenant has an **accepted** outgoing share whose prefix covers a **`write`** target under `me/…`, the tool result includes a **WARNING** naming the grantee mailbox(es) so the LLM can confirm visibility with the user ([`wikiScopedFsTools.ts`](../../src/server/agent/tools/wikiScopedFsTools.ts)).
 
 ### Design posture (maintainability)
 
@@ -103,6 +104,12 @@ When **`find`** or **`grep`** (fallback walker) misses a file the UI can open:
 1. Use **`{BRAIN_HOME}/var/agent-diagnostics/`** in dev — inspect `toolTrace` for **`find`**/**`grep`** args ([debug-agent skill](../../.cursor/skills/debug-agent/SKILL.md)).
 2. **Single-file share:** mount path is **`wsh_…`** without the owner filename in the link name; globs match the **basename of the symlink target** (`wikiVaultSymlinkGlob.ts`) so patterns like **`*virginia*`** resolve to `…/virginia-trip-2026.md`.
 3. **Literal grep:** multi-word phrases must appear **verbatim** (or widen the pattern); “Virginia Trip Sheet” won’t match `virginia trip plan`.
+
+---
+
+## Overlapping shares (file + directory)
+
+Policy is **not** glob-based: a row is either a **directory prefix** (`target_kind: dir`) or a **single file** (`target_kind: file`). An owner may have **both** a file row and a directory row that covers the same path (e.g. `a/b/c.md` and `a/b/`). Projection uses a **path-shaped** layout when parents are real directories; when a **directory** symlink already occupies a prefix, **file** shares fall back to `wikis/@peer/<shareId>` so `ensureSymlinkAt` never `rm`s through a parent symlink into the owner vault. **Revoking** the file row must **not** delete the owner’s real file: **`removeWikiShareProjectionForShare`** only **`unlink`**s paths that **`lstat` reports as symlinks**. **ACL** (`granteeCanReadOwnerWikiPath`) is unchanged: if the directory share stays active, the grantee can still read `a/b/c.md`. See [wiki-share-acl-and-projection-sync.md](./wiki-share-acl-and-projection-sync.md).
 
 ---
 
@@ -125,7 +132,7 @@ Renaming the **shared folder** on disk without updating `path_prefix` **breaks**
 
 A **directory-level grant** means **anything new** under `path_prefix` (owner, agent, sync, external editor) can become visible to grantees **without a separate publish step**. Product mitigation themes — mostly **deferred**, tracked per [archived OPP-064 § Deferred safeguards](../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md#deferred-safeguards-live-shared-prefixes):
 
-1. Friction on **writes into shared prefixes** (explicit confirmations naming invite risk).
+1. **`write`** tool **WARNING** when the path is under an **accepted** outgoing share (implemented).
 2. **Optional exclusions** in policy (e.g. share `trips/` but not `trips/_private/**`).
 3. **Badges / cues** on directories inside active shares (“published zone”).
 4. Optional **owner alerts** when new files appear under a shared prefix.
@@ -158,7 +165,7 @@ Front matter keys that embed share tokens or grantee lists were **not** chosen b
 nvm use
 npx vitest run src/server/lib/shares/wikiSharesRepo.test.ts \
   src/server/lib/shares/wikiShareProjection.integration.test.ts \
-  src/server/lib/wiki/wikiVaultSymlinkGlob.test.ts \
+  src/server/agent/tools/wikiScopedFsTools.test.ts \
   src/server/routes/wikiShares.test.ts \
   src/server/routes/wiki.shared.test.ts \
   src/server/routes/wiki.test.ts \

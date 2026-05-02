@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import wikiSharesRoute from './wikiShares.js'
+import * as wikiShareProjection from '@server/lib/shares/wikiShareProjection.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
@@ -15,6 +16,7 @@ import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js
 import { brainLayoutRipmailDir, brainLayoutWikiDir } from '@server/lib/platform/brainLayout.js'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import { getShareById } from '@server/lib/shares/wikiSharesRepo.js'
+import { syncWikiShareProjectionsForGrantee } from '@server/lib/shares/wikiShareProjection.js'
 
 function mountWikiShares(): Hono {
   const app = new Hono()
@@ -344,5 +346,67 @@ describe('/api/wiki-shares', () => {
       headers: { Cookie: `brain_session=${ownerSid}` },
     })
     expect(res.status).toBe(404)
+  })
+
+  it('DELETE revoke returns 500 when projection rm fails; share stays active', async () => {
+    const ownerId = 'usr_gggggggggggggggggggg'
+    const granteeId = 'usr_hhhhhhhhhhhhhhhhhhhh'
+    const ownerSid = await sessionFor(ownerId, 'owner-rmfail')
+    await registerSessionTenant(ownerSid, ownerId)
+
+    const wiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(wiki, 'trips'), { recursive: true })
+    await writeFile(join(wiki, 'trips', 'hello.md'), '# Hi\n', 'utf-8')
+
+    const granteeSid = await sessionFor(granteeId, 'grantee-rmfail')
+    await registerSessionTenant(granteeSid, granteeId)
+    const rip = brainLayoutRipmailDir(tenantHomeDir(granteeId))
+    await mkdir(rip, { recursive: true })
+    await writeFile(
+      join(rip, 'config.json'),
+      JSON.stringify({
+        sources: [
+          {
+            id: 'mb',
+            kind: 'imap',
+            email: 'rmfailgrantee@example.com',
+            imap: { host: 'imap.gmail.com', port: 993 },
+            imapAuth: 'googleOAuth',
+          },
+        ],
+      }),
+      'utf-8',
+    )
+
+    const app = mountWikiShares()
+    const post = await app.request('http://localhost/api/wiki-shares', {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pathPrefix: 'trips/', granteeEmail: 'rmfailgrantee@example.com' }),
+    })
+    expect(post.status).toBe(200)
+    const created = (await post.json()) as { id: string }
+
+    const acc = await app.request(`http://localhost/api/wiki-shares/${encodeURIComponent(created.id)}/accept`, {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${granteeSid}` },
+    })
+    expect(acc.status).toBe(200)
+
+    await syncWikiShareProjectionsForGrantee(granteeId)
+
+    const spy = vi.spyOn(wikiShareProjection, 'removeWikiShareProjectionForShare').mockResolvedValueOnce(false)
+
+    const delOk = await app.request(`http://localhost/api/wiki-shares/${encodeURIComponent(created.id)}`, {
+      method: 'DELETE',
+      headers: { Cookie: `brain_session=${ownerSid}` },
+    })
+    spy.mockRestore()
+
+    expect(delOk.status).toBe(500)
+    const body = (await delOk.json()) as { error?: string }
+    expect(body.error).toBe('revoke_projection_failed')
+    const row = getShareById(created.id)
+    expect(row?.revoked_at_ms).toBeNull()
   })
 })

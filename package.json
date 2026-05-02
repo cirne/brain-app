@@ -19,6 +19,7 @@
     "start:local": "NODE_ENV=production PORT=4000 node dist/server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:wiki-shares": "vitest run src/server/lib/shares/wikiSharesRepo.test.ts src/server/lib/shares/wikiShareProjection.integration.test.ts src/server/agent/tools/wikiScopedFsTools.test.ts src/server/routes/wikiShares.test.ts src/server/routes/wiki.shared.test.ts",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",

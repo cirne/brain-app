@@ -10,12 +10,15 @@ import {
   deleteWikiSharesForOwner,
   getShareByToken,
   granteeCanReadOwnerWikiPath,
+  granteeShareCoversWikiPath,
   listPendingInvitesForGranteeEmail,
   listSharesForGrantee,
   listSharesForOwner,
   normalizeWikiSharePathPrefix,
   revokeShare,
+  wikiPathUnderSharePrefix,
   WIKI_SHARE_INVITE_TTL_MS,
+  type WikiShareRow,
 } from './wikiSharesRepo.js'
 
 describe('wikiSharesRepo', () => {
@@ -232,5 +235,99 @@ describe('wikiSharesRepo', () => {
     const second = acceptShareById({ shareId: row.id, granteeId, granteeEmail: 'idem@example.com' })
     expect(second?.grantee_id).toBe(granteeId)
     expect(second?.accepted_at_ms).toBe(first?.accepted_at_ms)
+  })
+
+  describe('wikiPathUnderSharePrefix', () => {
+    it('treats directory root and children as in-prefix', () => {
+      expect(wikiPathUnderSharePrefix('trips', 'trips/')).toBe(true)
+      expect(wikiPathUnderSharePrefix('trips/', 'trips/')).toBe(true)
+      expect(wikiPathUnderSharePrefix('trips/virginia/trip.md', 'trips/')).toBe(true)
+    })
+
+    it('rejects prefix without trailing slash', () => {
+      expect(wikiPathUnderSharePrefix('trips/foo.md', 'trips')).toBe(false)
+    })
+
+    it('rejects paths outside prefix', () => {
+      expect(wikiPathUnderSharePrefix('other/foo.md', 'trips/')).toBe(false)
+    })
+
+    it('normalizes leading slashes on wiki path', () => {
+      expect(wikiPathUnderSharePrefix('/trips/a.md', 'trips/')).toBe(true)
+    })
+  })
+
+  describe('granteeShareCoversWikiPath', () => {
+    function rowDir(prefix: string): WikiShareRow {
+      return {
+        id: '',
+        owner_id: 'o',
+        grantee_email: '',
+        grantee_id: 'g',
+        path_prefix: prefix,
+        target_kind: 'dir',
+        invite_token: '',
+        created_at_ms: 0,
+        accepted_at_ms: 1,
+        revoked_at_ms: null,
+      }
+    }
+    function rowFile(mdPath: string): WikiShareRow {
+      return { ...rowDir(mdPath), target_kind: 'file', path_prefix: mdPath }
+    }
+
+    it('dir share covers subtree only', () => {
+      const r = rowDir('ideas/')
+      expect(granteeShareCoversWikiPath(r, 'ideas/note.md')).toBe(true)
+      expect(granteeShareCoversWikiPath(r, 'ideas')).toBe(true)
+      expect(granteeShareCoversWikiPath(r, 'ideas2/foo.md')).toBe(false)
+    })
+
+    it('file share covers exact md path only', () => {
+      const r = rowFile('x/plan.md')
+      expect(granteeShareCoversWikiPath(r, 'x/plan.md')).toBe(true)
+      expect(granteeShareCoversWikiPath(r, '/x/plan.md')).toBe(true)
+      expect(granteeShareCoversWikiPath(r, 'x/other.md')).toBe(false)
+      expect(granteeShareCoversWikiPath(r, 'x/plan.md.bak')).toBe(false)
+    })
+  })
+
+  it('granteeCanReadOwnerWikiPath ORs multiple accepted shares', () => {
+    const ownerId = 'usr_orrrrrrrrrrrrrrrrrrr'
+    const granteeId = 'usr_or222222222222222222'
+    const a = createShare({ ownerId, granteeEmail: 'or@x.com', pathPrefix: 'a/' })
+    const b = createShare({ ownerId, granteeEmail: 'or@x.com', pathPrefix: 'b/' })
+    acceptShare({ token: a.invite_token, granteeId, granteeEmail: 'or@x.com' })
+    acceptShare({ token: b.invite_token, granteeId, granteeEmail: 'or@x.com' })
+    expect(granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: 'a/x.md' })).toBe(true)
+    expect(granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: 'b/y.md' })).toBe(true)
+    expect(granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: 'c/z.md' })).toBe(false)
+  })
+
+  it('pending invite does not grant read', () => {
+    const ownerId = 'usr_pendrd11111111111111'
+    const granteeId = 'usr_pendrd22222222222222'
+    createShare({ ownerId, granteeEmail: 'pend@x.com', pathPrefix: 'pub/' })
+    expect(
+      granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: 'pub/x.md' }),
+    ).toBe(false)
+  })
+
+  it('file share row grants read only for that file via granteeCanReadOwnerWikiPath', () => {
+    const ownerId = 'usr_fileacl1111111111111'
+    const granteeId = 'usr_fileacl2222222222222'
+    const row = createShare({
+      ownerId,
+      granteeEmail: 'f@f.com',
+      targetKind: 'file',
+      pathPrefix: 'notes/special.md',
+    })
+    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'f@f.com' })
+    expect(
+      granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: 'notes/special.md' }),
+    ).toBe(true)
+    expect(
+      granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: 'notes/other.md' }),
+    ).toBe(false)
   })
 })

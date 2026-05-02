@@ -20,6 +20,11 @@ import { assertAgentWikiWriteUsesSubdirectory } from '@server/lib/wiki/wikiAgent
 import { resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
 import { wikiFindGlobAbsolutePaths } from '@server/lib/wiki/wikiFindGlob.js'
 import { executeWikiSymlinkAwareGrep } from '@server/agent/tools/wikiSymlinkAwareGrep.js'
+import { WIKIS_ME_SEGMENT } from '@server/lib/platform/brainLayout.js'
+import {
+  granteeShareCoversWikiPath,
+  listSharesForOwner,
+} from '@server/lib/shares/wikiSharesRepo.js'
 
 /** Per-find call: glob case-sensitivity (fd + walk). Passed into `glob` via ALS because pi's find does not forward tool params there. */
 const wikiFindCaseSensitiveAls = new AsyncLocalStorage<boolean>()
@@ -53,9 +58,27 @@ function assertWritable(relPathUnderWiki: string, label: string) {
     throw new Error(`Cannot ${label} files inside shared wiki projection (read-only).`)
 }
 
+/** Vault-relative path under personal `me/` or null if `relPath` is not under `me/`. */
+export function vaultRelPathFromMeToolPath(relPosix: string): string | null {
+  const p = relPosix.trim().replace(/\\/g, '/').replace(/^\.\/+/, '')
+  const prefix = `${WIKIS_ME_SEGMENT}/`
+  if (p === WIKIS_ME_SEGMENT || p === `${WIKIS_ME_SEGMENT}/`) return ''
+  if (!p.startsWith(prefix)) return null
+  return p.slice(prefix.length)
+}
+
+/** Non-empty warning line for the LLM when the written path is inside an accepted outgoing share. */
+export function buildWikiWriteShareVisibilityHint(ownerId: string, vaultRelPath: string): string | null {
+  const rows = listSharesForOwner(ownerId).filter((r) => r.grantee_id != null && r.accepted_at_ms != null)
+  const matching = rows.filter((r) => granteeShareCoversWikiPath(r, vaultRelPath))
+  if (matching.length === 0) return null
+  const who = matching.map((r) => r.grantee_email).join(', ')
+  return `\n\nWARNING: This path is covered by an active wiki share to ${who}. New or updated content may be visible to those recipients. Confirm this is intended.`
+}
+
 export function createWikiScopedPiTools(
   wikiDir: string,
-  options?: { wikiWriteCreates?: WikiWriteCreatesPolicy },
+  options?: { wikiWriteCreates?: WikiWriteCreatesPolicy; wikiWriteShareHintOwnerId?: string },
 ) {
   const granteePath = async (raw: string): Promise<string> => {
     const trimmed = raw.trim()
@@ -107,7 +130,22 @@ export function createWikiScopedPiTools(
       const next = { ...params, path }
       const result = await editToolInner.execute(toolCallId, next)
       await appendWikiEditRecord(wikiDir, 'edit', path).catch(() => {})
-      return result
+
+      const vaultRel = vaultRelPathFromMeToolPath(path)
+      const shareHint =
+        vaultRel != null && options?.wikiWriteShareHintOwnerId
+          ? buildWikiWriteShareVisibilityHint(options.wikiWriteShareHintOwnerId, vaultRel)
+          : null
+      if (!shareHint) return result
+
+      const out = result as { content: { type: string; text: string }[] }
+      if (!Array.isArray(out.content) || out.content.length === 0) return result
+      return {
+        ...out,
+        content: out.content.map((c, i) =>
+          i === 0 && c.type === 'text' ? { ...c, text: c.text + shareHint } : c,
+        ),
+      }
     },
   }
   const writeToolInner = createWriteTool(wikiDir)
@@ -143,20 +181,35 @@ export function createWikiScopedPiTools(
         details?: unknown
       }
       await appendWikiEditRecord(wikiDir, 'write', path).catch(() => {})
-      if (!normFrom) return result
 
-      const note = `\n\nSaved as \`${path}\` (normalized from requested \`${normFrom}\`).`
-      const content = result.content.map((c, i) =>
-        i === 0 && c.type === 'text' ? { ...c, text: c.text + note } : c,
-      )
+      const tailNotes: string[] = []
+      if (normFrom) {
+        tailNotes.push(`\n\nSaved as \`${path}\` (normalized from requested \`${normFrom}\`).`)
+      }
+      const vaultRel = vaultRelPathFromMeToolPath(path)
+      const shareHint =
+        vaultRel != null && options?.wikiWriteShareHintOwnerId
+          ? buildWikiWriteShareVisibilityHint(options.wikiWriteShareHintOwnerId, vaultRel)
+          : null
+      if (shareHint) tailNotes.push(shareHint)
+
+      if (tailNotes.length === 0) return result
+
+      const suffix = tailNotes.join('')
       return {
         ...result,
-        content,
-        details: {
-          ...(typeof result.details === 'object' && result.details !== null ? (result.details as object) : {}),
-          path,
-          requestedPath: normFrom,
-        },
+        content: result.content.map((c, i) =>
+          i === 0 && c.type === 'text' ? { ...c, text: c.text + suffix } : c,
+        ),
+        ...(normFrom
+          ? {
+              details: {
+                ...(typeof result.details === 'object' && result.details !== null ? (result.details as object) : {}),
+                path,
+                requestedPath: normFrom,
+              },
+            }
+          : {}),
       }
     },
   }

@@ -1,5 +1,5 @@
 import { lstat, mkdir, readdir, readlink, rm, stat, symlink } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { brainLayoutWikisDir, brainLayoutWikisPeerDir, sanitizeHandleForWikisPeerDir } from '@server/lib/platform/brainLayout.js'
 import { migrateWikiToWikisMe, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { listSharesForGrantee, type WikiShareRow } from '@server/lib/shares/wikiSharesRepo.js'
@@ -51,8 +51,43 @@ async function mkdirParentsForLink(peerRootAbs: string, linkAbs: string): Promis
   else await mkdir(pr, { recursive: true })
 }
 
-async function ensureSymlinkAt(linkAbs: string, targetAbs: string, isDir: boolean): Promise<void> {
+/**
+ * True if any path segment from `peerRootAbs` through `dirPathAbs` exists and is a symlink, or a non-directory blocks the chain.
+ * Uses `lstat` per segment (no follow on the segment itself). Missing tail is OK (not yet materialized).
+ */
+async function peerPathHasSymlinkInParentChain(peerRootAbs: string, dirPathAbs: string): Promise<boolean> {
+  const pr = resolve(peerRootAbs)
+  const target = resolve(dirPathAbs)
+  const rel = relative(pr, target).replace(/\\/g, '/')
+  if (rel === '' || rel === '.') return false
+  if (rel.startsWith('..') || rel.includes('/..')) return true
+  const segs = rel.split('/').filter(Boolean)
+  let cur = pr
+  for (const seg of segs) {
+    const next = join(cur, seg)
+    let st
+    try {
+      st = await lstat(next)
+    } catch {
+      return false
+    }
+    if (st.isSymbolicLink()) return true
+    if (!st.isDirectory()) return true
+    cur = next
+  }
+  return false
+}
+
+async function ensureSymlinkAt(
+  peerRootAbs: string,
+  linkAbs: string,
+  targetAbs: string,
+  isDir: boolean,
+): Promise<void> {
   const kind = symlinkTypeForOs(isDir)
+  if (await peerPathHasSymlinkInParentChain(peerRootAbs, dirname(linkAbs))) {
+    throw new Error('wiki_share_projection_parent_symlink')
+  }
   try {
     const cur = await readlink(linkAbs).catch(() => null)
     if (cur !== null) {
@@ -61,8 +96,14 @@ async function ensureSymlinkAt(linkAbs: string, targetAbs: string, isDir: boolea
       await rm(linkAbs, { recursive: false, force: true })
     } else {
       try {
-        await stat(linkAbs)
-        await rm(linkAbs, { recursive: true, force: true })
+        const st = await lstat(linkAbs)
+        if (st.isSymbolicLink()) {
+          await rm(linkAbs, { recursive: false, force: true })
+        } else if (st.isDirectory()) {
+          await rm(linkAbs, { recursive: true, force: true })
+        } else {
+          await rm(linkAbs, { recursive: false, force: true })
+        }
       } catch {
         /* absent */
       }
@@ -112,24 +153,29 @@ export async function ensureWikiShareSymlinkForRow(params: {
   })
 
   await mkdir(peerRootAbs, { recursive: true })
-  await mkdirParentsForLink(peerRootAbs, primaryLink)
 
-  try {
-    await ensureSymlinkAt(primaryLink, targetAbs, isDir)
-    return
-  } catch (e) {
-    log.warn(
-      {
-        shareId: share.id,
-        primaryLink,
-        err: e instanceof Error ? e.message : String(e),
-      },
-      'wiki_share_projection_primary_symlink_failed_try_fallback',
-    )
+  const primaryParentBlocked = await peerPathHasSymlinkInParentChain(peerRootAbs, dirname(primaryLink))
+  if (!primaryParentBlocked) {
+    await mkdirParentsForLink(peerRootAbs, primaryLink)
+    try {
+      await ensureSymlinkAt(peerRootAbs, primaryLink, targetAbs, isDir)
+      return
+    } catch (e) {
+      log.warn(
+        {
+          shareId: share.id,
+          primaryLink,
+          err: e instanceof Error ? e.message : String(e),
+        },
+        'wiki_share_projection_primary_symlink_failed_try_fallback',
+      )
+    }
+  } else {
+    log.warn({ shareId: share.id, primaryLink }, 'wiki_share_projection_primary_blocked_parent_symlink')
   }
 
   await mkdir(dirname(fallbackLink), { recursive: true })
-  await ensureSymlinkAt(fallbackLink, targetAbs, isDir)
+  await ensureSymlinkAt(peerRootAbs, fallbackLink, targetAbs, isDir)
 }
 
 function keeperSetForPeer(peerRootAbs: string, terminalPaths: string[]): Set<string> {
@@ -233,11 +279,16 @@ export async function removeWikiShareProjectionForShare(params: {
 
   let fail = false
   for (const p of [primaryLink, fallbackLink]) {
+    let st
     try {
-      await lstat(p)
+      st = await lstat(p)
     } catch {
       continue
     }
+    // Only remove projection entries that are symlinks. If a directory share masks a file-share
+    // path, `p` may resolve through the dir link to the owner's real file — `lstat` follows the
+    // symlink chain and returns a non-symlink; skipping avoids deleting user content.
+    if (!st.isSymbolicLink()) continue
     try {
       await rm(p, { recursive: false, force: true })
     } catch {
@@ -276,7 +327,12 @@ export async function syncWikiShareProjectionsForGrantee(granteeId: string): Pro
     /* noop */
   }
 
-  for (const s of shares) {
+  const sharesForEnsure = [...shares].sort((a, b) => {
+    const rank = (k: WikiShareRow['target_kind']) => (k === 'dir' ? 0 : 1)
+    return rank(a.target_kind) - rank(b.target_kind)
+  })
+
+  for (const s of sharesForEnsure) {
     await ensureWikiShareSymlinkForRow({ share: s, granteeTenantUserId: granteeId }).catch((e) =>
       log.warn({ shareId: s.id, err: e instanceof Error ? e.message : String(e) }, 'wiki_share_projection_sync_row_failed'),
     )

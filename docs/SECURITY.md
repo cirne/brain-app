@@ -54,6 +54,10 @@ All `/api/*` routes (except a small allowlist) go through **both** middleware la
 
 These have test coverage in `src/server/lib/tenant/resolveTenantSafePath.test.ts` and `src/server/multi-tenant-isolation.test.ts` (wiki list, wiki search, 401 without session).
 
+### Wiki shares (cross-tenant read)
+
+Read-only sharing is enforced in **`wiki_shares`** ([`brain-global.sqlite`](architecture/data-and-sync.md)). Grantees see allowed owner paths via **app-managed symlinks** under each grantee’s **`wikis/@handle/…`**. **Revoke** removes those links before committing `revoked_at_ms` (or returns **500** with `revoke_projection_failed` if removal fails, leaving the share active). **`removeWikiShareProjectionForShare`** only **`unlink`**s paths where **`lstat(…).isSymbolicLink()`** is true. **`ensureSymlinkAt`** refuses to **`rm`**/`symlink` when a parent under `wikis/@peer/` is already a symlink (file rows use **`wsh_*`** fallback instead) so creation cannot delete owner content — see [wiki-share-acl-and-projection-sync.md](architecture/wiki-share-acl-and-projection-sync.md).
+
 ### Subprocess invocation (ripmail)
 
 `ripmail` is invoked via `**spawn` with an explicit argv array** (no shell). The `execRipmailAsync` wrapper tokenizes the string tail after the binary path, then passes to `runRipmailArgv` which calls `spawn(bin, argv, { stdio: ... })`. This prevents shell injection via user-supplied arguments to ripmail.

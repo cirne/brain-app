@@ -6,6 +6,7 @@ import { createCalendarTool } from './tools/calendarTools.js'
 import { createWebAgentTools } from './tools/webAgentTools.js'
 import { createUiAgentTools } from './tools/uiAgentTools.js'
 import { createLocalMessageTools } from './tools/localMessageTools.js'
+import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 
 export { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '@server/lib/apple/imessagePhone.js'
 export {
@@ -48,6 +49,11 @@ export interface CreateAgentToolsOptions {
    * When set, **`calendar`** tool only allows these `op` values (onboarding interview guardrail).
    */
   calendarAllowedOps?: readonly string[]
+  /**
+   * When set, **`write`** appends a share-visibility hint for paths under outgoing accepted shares.
+   * Defaults to current {@link tryGetTenantContext} tenant when omitted (chat under tenant middleware).
+   */
+  wikiWriteShareHintOwnerId?: string
 }
 
 function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boolean {
@@ -65,8 +71,11 @@ function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boo
 export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOptions): any[] {
   const includeLocalMessages = resolveIncludeLocalMessageTools(options)
   const agentTimeZone = options?.timezone?.trim() || 'UTC'
+  const wikiWriteShareHintOwnerId =
+    options?.wikiWriteShareHintOwnerId ?? tryGetTenantContext()?.tenantUserId
   const { read, edit, write, grep, find } = createWikiScopedPiTools(wikiDir, {
     wikiWriteCreates: options?.wikiWriteCreates ?? 'allowed',
+    ...(wikiWriteShareHintOwnerId !== undefined ? { wikiWriteShareHintOwnerId } : {}),
   })
 
   const { moveFile, deleteFile } = createWikiFileManagementTools(wikiDir)

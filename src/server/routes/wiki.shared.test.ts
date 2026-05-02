@@ -14,7 +14,7 @@ import { writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js'
 import { brainLayoutWikiDir } from '@server/lib/platform/brainLayout.js'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
-import { acceptShare, createShare } from '@server/lib/shares/wikiSharesRepo.js'
+import { acceptShare, createShare, revokeShare } from '@server/lib/shares/wikiSharesRepo.js'
 
 function mountWikiMt(): Hono {
   const app = new Hono()
@@ -161,5 +161,216 @@ describe('/api/wiki/shared', () => {
       headers: { Cookie: `brain_session=${granteeSid}` },
     })
     expect(readDeny.status).toBe(403)
+  })
+
+  it('path traversal in shared read does not escape owner wiki root', async () => {
+    const ownerId = 'usr_trav1111111111111111'
+    const granteeId = 'usr_trav2222222222222222'
+    const ownerSid = await sessionFor(ownerId, 'travown')
+    await registerSessionTenant(ownerSid, ownerId)
+    const granteeSid = await sessionFor(granteeId, 'travgnt')
+    await registerSessionTenant(granteeSid, granteeId)
+
+    const wiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(wiki, 'trips'), { recursive: true })
+    await writeFile(join(wiki, 'trips', 'a.md'), '# A\n', 'utf-8')
+    await writeFile(join(wiki, 'evil.md'), '# Evil\n', 'utf-8')
+
+    const share = createShare({
+      ownerId,
+      granteeEmail: 't@t.com',
+      pathPrefix: 'trips',
+    })
+    acceptShare({ token: share.invite_token, granteeId, granteeEmail: 't@t.com' })
+
+    const app = mountWikiMt()
+    const traversal = await app.request(
+      `http://localhost/api/wiki/shared/${encodeURIComponent(ownerId)}/trips/../../evil.md`,
+      { headers: { Cookie: `brain_session=${granteeSid}` } },
+    )
+    expect([400, 403]).toContain(traversal.status)
+  })
+
+  it('shared list/read denied after revoke (DB only)', async () => {
+    const ownerId = 'usr_revk1111111111111111'
+    const granteeId = 'usr_revk2222222222222222'
+    const ownerSid = await sessionFor(ownerId, 'revkown')
+    await registerSessionTenant(ownerSid, ownerId)
+    const granteeSid = await sessionFor(granteeId, 'revkgnt')
+    await registerSessionTenant(granteeSid, granteeId)
+
+    const wiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(wiki, 'shared'), { recursive: true })
+    await writeFile(join(wiki, 'shared', 'x.md'), '# X\n', 'utf-8')
+
+    const share = createShare({
+      ownerId,
+      granteeEmail: 'rev@x.com',
+      pathPrefix: 'shared',
+    })
+    acceptShare({ token: share.invite_token, granteeId, granteeEmail: 'rev@x.com' })
+    revokeShare({ shareId: share.id, ownerId })
+
+    const app = mountWikiMt()
+    const list = await app.request(
+      `http://localhost/api/wiki/shared/${ownerId}?prefix=${encodeURIComponent('shared/')}`,
+      { headers: { Cookie: `brain_session=${granteeSid}` } },
+    )
+    expect(list.status).toBe(403)
+
+    const read = await app.request(`http://localhost/api/wiki/shared/${ownerId}/shared/x.md`, {
+      headers: { Cookie: `brain_session=${granteeSid}` },
+    })
+    expect(read.status).toBe(403)
+  })
+
+  it('shared list with prefix not covered by any row returns 403', async () => {
+    const ownerId = 'usr_prfx1111111111111111'
+    const granteeId = 'usr_prfx2222222222222222'
+    const ownerSid = await sessionFor(ownerId, 'prfxown')
+    await registerSessionTenant(ownerSid, ownerId)
+    const granteeSid = await sessionFor(granteeId, 'prfxgnt')
+    await registerSessionTenant(granteeSid, granteeId)
+
+    const wiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(wiki, 'alpha'), { recursive: true })
+    await writeFile(join(wiki, 'alpha', 'a.md'), 'a', 'utf-8')
+
+    const share = createShare({
+      ownerId,
+      granteeEmail: 'pr@x.com',
+      pathPrefix: 'alpha',
+    })
+    acceptShare({ token: share.invite_token, granteeId, granteeEmail: 'pr@x.com' })
+
+    const app = mountWikiMt()
+    const list = await app.request(
+      `http://localhost/api/wiki/shared/${ownerId}?prefix=${encodeURIComponent('beta/')}`,
+      { headers: { Cookie: `brain_session=${granteeSid}` } },
+    )
+    expect(list.status).toBe(403)
+  })
+
+  it('shared read with wrong ownerUserId returns 403', async () => {
+    const ownerId = 'usr_owna1111111111111111'
+    const otherOwner = 'usr_ownb1111111111111111'
+    const granteeId = 'usr_grtc1111111111111111'
+    const ownerSid = await sessionFor(ownerId, 'ownaa')
+    await registerSessionTenant(ownerSid, ownerId)
+    const otherSid = await sessionFor(otherOwner, 'ownbb')
+    await registerSessionTenant(otherSid, otherOwner)
+    const granteeSid = await sessionFor(granteeId, 'grntc')
+    await registerSessionTenant(granteeSid, granteeId)
+
+    const wiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(wiki, 'd'), { recursive: true })
+    await writeFile(join(wiki, 'd', 'f.md'), 'f', 'utf-8')
+
+    const share = createShare({
+      ownerId,
+      granteeEmail: 'wo@x.com',
+      pathPrefix: 'd',
+    })
+    acceptShare({ token: share.invite_token, granteeId, granteeEmail: 'wo@x.com' })
+
+    const app = mountWikiMt()
+    const read = await app.request(`http://localhost/api/wiki/shared/${otherOwner}/d/f.md`, {
+      headers: { Cookie: `brain_session=${granteeSid}` },
+    })
+    expect(read.status).toBe(403)
+  })
+
+  it('shared-by-handle returns 403 when handle is unknown to grantee shares', async () => {
+    const ownerId = 'usr_noh111111111111111111'
+    const granteeId = 'usr_nog222222222222222222'
+    const ownerSid = await sessionFor(ownerId, 'hasinv')
+    await registerSessionTenant(ownerSid, ownerId)
+    const granteeSid = await sessionFor(granteeId, 'nognt')
+    await registerSessionTenant(granteeSid, granteeId)
+
+    const wiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(wiki, 'q'), { recursive: true })
+    await writeFile(join(wiki, 'q', 'z.md'), 'z', 'utf-8')
+    const share = createShare({
+      ownerId,
+      granteeEmail: 'nh@x.com',
+      pathPrefix: 'q',
+    })
+    acceptShare({ token: share.invite_token, granteeId, granteeEmail: 'nh@x.com' })
+
+    const app = mountWikiMt()
+    const list = await app.request(`http://localhost/api/wiki/shared-by-handle/nobody-with-this-handle`, {
+      headers: { Cookie: `brain_session=${granteeSid}` },
+    })
+    expect(list.status).toBe(403)
+  })
+
+  it('grantee with no shares gets 403 on shared-by-handle', async () => {
+    const ownerId = 'usr_lone11111111111111111'
+    const granteeId = 'usr_emt222222222222222222'
+    const ownerSid = await sessionFor(ownerId, 'lonown')
+    await registerSessionTenant(ownerSid, ownerId)
+    const granteeSid = await sessionFor(granteeId, 'emptg')
+    await registerSessionTenant(granteeSid, granteeId)
+
+    await mkdir(brainLayoutWikiDir(tenantHomeDir(ownerId)), { recursive: true })
+
+    const app = mountWikiMt()
+    const list = await app.request(`http://localhost/api/wiki/shared-by-handle/lonown`, {
+      headers: { Cookie: `brain_session=${granteeSid}` },
+    })
+    expect(list.status).toBe(403)
+  })
+
+  it('shared-by-handle picks one owner when two grantors share the same display handle', async () => {
+    const ownerAlpha = 'usr_dupa1111111111111111'
+    const ownerBeta = 'usr_dupb1111111111111111'
+    const granteeId = 'usr_dupg2222222222222222'
+
+    const aSid = await sessionFor(ownerAlpha, 'duphandle')
+    await registerSessionTenant(aSid, ownerAlpha)
+    const bSid = await sessionFor(ownerBeta, 'duphandle')
+    await registerSessionTenant(bSid, ownerBeta)
+    const granteeSid = await sessionFor(granteeId, 'dupgrant')
+    await registerSessionTenant(granteeSid, granteeId)
+
+    const wikiA = brainLayoutWikiDir(tenantHomeDir(ownerAlpha))
+    await mkdir(join(wikiA, 'from-alpha'), { recursive: true })
+    await writeFile(join(wikiA, 'from-alpha', 'a.md'), 'ALPHA', 'utf-8')
+    const wikiB = brainLayoutWikiDir(tenantHomeDir(ownerBeta))
+    await mkdir(join(wikiB, 'from-beta'), { recursive: true })
+    await writeFile(join(wikiB, 'from-beta', 'b.md'), 'BETA', 'utf-8')
+
+    const shA = createShare({
+      ownerId: ownerAlpha,
+      granteeEmail: 'dup@x.com',
+      pathPrefix: 'from-alpha',
+    })
+    const shB = createShare({
+      ownerId: ownerBeta,
+      granteeEmail: 'dup@x.com',
+      pathPrefix: 'from-beta',
+    })
+    acceptShare({ token: shA.invite_token, granteeId, granteeEmail: 'dup@x.com' })
+    acceptShare({ token: shB.invite_token, granteeId, granteeEmail: 'dup@x.com' })
+
+    const app = mountWikiMt()
+    const list = await app.request(`http://localhost/api/wiki/shared-by-handle/duphandle`, {
+      headers: { Cookie: `brain_session=${granteeSid}` },
+    })
+    expect(list.status).toBe(200)
+    const files = (await list.json()) as { path: string }[]
+    const hasAlpha = files.some((f) => f.path.startsWith('from-alpha/'))
+    const hasBeta = files.some((f) => f.path.startsWith('from-beta/'))
+    expect(hasAlpha && hasBeta).toBe(false)
+    expect(hasAlpha || hasBeta).toBe(true)
+
+    const readAlpha = await app.request(`http://localhost/api/wiki/shared-by-handle/duphandle/from-alpha/a.md`, {
+      headers: { Cookie: `brain_session=${granteeSid}` },
+    })
+    const readBeta = await app.request(`http://localhost/api/wiki/shared-by-handle/duphandle/from-beta/b.md`, {
+      headers: { Cookie: `brain_session=${granteeSid}` },
+    })
+    expect(new Set([readAlpha.status, readBeta.status])).toEqual(new Set([200, 403]))
   })
 })
