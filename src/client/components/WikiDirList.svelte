@@ -73,7 +73,6 @@
               >
                 <span class="wiki-dir-icon" aria-hidden="true"><Folder size={18} /></span>
                 <span class="wiki-dir-label">{entry.label}</span>
-                <span class="wiki-dir-meta">Folder</span>
                 <span class="wiki-dir-chevron" aria-hidden="true"><ChevronRight size={18} /></span>
               </button>
             {:else}
@@ -84,7 +83,6 @@
               >
                 <span class="wiki-dir-icon" aria-hidden="true"><FileText size={18} /></span>
                 <span class="wiki-dir-label">{entry.label}</span>
-                <span class="wiki-dir-meta">Page</span>
                 <span class="wiki-dir-chevron" aria-hidden="true"><ChevronRight size={18} /></span>
               </button>
             {/if}
@@ -136,7 +134,7 @@
 
   .wiki-dir-row {
     display: grid;
-    grid-template-columns: auto 1fr auto auto;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
     gap: 12px 14px;
     width: 100%;
@@ -166,15 +164,6 @@
     font-weight: 600;
     min-width: 0;
     word-break: break-word;
-  }
-
-  .wiki-dir-meta {
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-3);
-    flex-shrink: 0;
   }
 
   .wiki-dir-chevron {
