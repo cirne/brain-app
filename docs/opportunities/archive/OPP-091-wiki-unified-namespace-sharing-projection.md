@@ -1,6 +1,6 @@
 # OPP-091: Unified wiki namespace — sharing projection + ordinary tools
 
-**Status:** Active (design + implementation)  
+**Status:** Shipped MVP (2026-05-02). UI rough edges remain; core `wikis/me` + `wikis/@handle` projection, accept-by-id API, and share management in Settings are working.  
 **Tags:** `wiki` · `sharing` · `filesystem` · `multi-tenant`  
 **Replaces (for follow-on work):** Intermediate projection described in archived [OPP-064 § Follow-on](archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md#follow-on-moved-to-opp-091). **Phase 1 product + policy** remain as in [OPP-064 stub](OPP-064-wiki-directory-sharing-read-only-collaborators.md).  
 **Vision / sequencing:** [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md)  
