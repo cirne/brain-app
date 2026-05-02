@@ -101,4 +101,23 @@ describe('EmailDraftEditor.svelte', () => {
       expect(calls.filter((m) => m === 'POST').length).toBeGreaterThanOrEqual(1)
     })
   })
+
+  it('calls onClosePanel after send succeeds', async () => {
+    mountFetchHandlers()
+    const onClosePanel = vi.fn()
+    const { component } = render(EmailDraftEditor, {
+      props: { draftId: 'd1', onClosePanel },
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText(/loading draft/i)).not.toBeInTheDocument()
+    })
+
+    await component.sendDraft()
+
+    await waitFor(() => {
+      expect(onClosePanel).toHaveBeenCalledTimes(1)
+    })
+    expect(screen.queryByText(/^sent!$/i)).not.toBeInTheDocument()
+  })
 })

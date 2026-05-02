@@ -109,6 +109,7 @@ describe('HubConnectorDriveSection', () => {
                 { id: 'f2', name: 'Photos', reason: 'Media', include: false },
               ],
               ignoreGlobs: ['*.tmp'],
+              ignoreSummary: 'Skips temp files.',
             }),
             { status: 200 },
           )
@@ -128,14 +129,55 @@ describe('HubConnectorDriveSection', () => {
 
     fireEvent.click(screen.getByText('Suggest folders with AI'))
     await waitFor(() => {
-      expect(screen.getByText('AI Suggestions')).toBeTruthy()
+      expect(screen.getByText('Suggested folders')).toBeTruthy()
       expect(screen.getByText('Projects')).toBeTruthy()
       expect(screen.getByText('Photos')).toBeTruthy()
       expect(screen.getByText(/Work docs/)).toBeTruthy()
+      expect(screen.getByText(/Skips temp files/)).toBeTruthy()
     })
 
-    // Apply button shows count of included suggestions
-    expect(screen.getByText(/Apply 1 folder/)).toBeTruthy()
+    // Apply button shows count of included suggestions plus file skips label
+    expect(screen.getByText(/Apply · 1 folder and file skips/)).toBeTruthy()
+  })
+
+  it('shows Apply file skips when all suggested folders already exist but new ignores are pending', async () => {
+    vi.stubGlobal(
+      'fetch',
+      makeFetch(async (url) => {
+        if (String(url).includes('suggest-drive-folders')) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              suggestions: [
+                { id: 'f1', name: 'Projects', reason: 'Work docs', include: true },
+                { id: 'f2', name: 'Notes', reason: 'Notes', include: true },
+              ],
+              ignoreGlobs: ['*.zzz'],
+              ignoreSummary: '',
+            }),
+            { status: 200 },
+          )
+        }
+        return new Response('{}', { status: 200 })
+      }),
+    )
+
+    render(HubConnectorDriveSection, {
+      props: {
+        sourceId: 'drive_x',
+        fileSource: FILE_SOURCE_WITH_FOLDERS,
+        includeSharedWithMe: false,
+        onSaved: vi.fn(),
+      },
+    })
+
+    fireEvent.click(screen.getByText('Suggest'))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Apply file skips/ })).toBeTruthy()
+    })
+    const applyBtn = screen.getByRole('button', { name: /Apply file skips/ }) as HTMLButtonElement
+    expect(applyBtn.disabled).toBe(false)
+    expect(screen.queryByText('Already added')).toBeNull()
   })
 
   it('shows Advanced section toggle after folders are configured', () => {

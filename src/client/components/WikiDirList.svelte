@@ -399,11 +399,9 @@
   }
 
   .wiki-dir-meta {
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: 0.8125rem;
     color: var(--text-3);
+    white-space: nowrap;
     flex-shrink: 0;
   }
 

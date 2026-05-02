@@ -44,7 +44,7 @@
   let loading = $state(true)
   let loadError = $state<string | null>(null)
   let saveState = $state<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  let sendState = $state<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  let sendState = $state<'idle' | 'sending' | 'error'>('idle')
   let actionError = $state<string | null>(null)
   let sourceThreadId = $state<string | null>(null)
 
@@ -172,8 +172,9 @@
         actionError = typeof sendJson.error === 'string' ? sendJson.error : 'Send failed'
         return
       }
-      sendState = 'sent'
+      sendState = 'idle'
       emit({ type: 'sync:completed' })
+      onClosePanel?.()
     } catch (e) {
       sendState = 'error'
       actionError = String(e)
@@ -195,7 +196,7 @@
   })
 
   $effect(() => {
-    if (loading || loadError || sendState === 'sent') {
+    if (loading || loadError) {
       registerEmailDraftHeader?.(null)
       return () => registerEmailDraftHeader?.(null)
     }
@@ -228,11 +229,6 @@
     </div>
   {:else if loadError}
     <p class="draft-load-error" role="alert">{loadError}</p>
-  {:else if sendState === 'sent'}
-    <div class="draft-sent">
-      <p class="sent-msg">Sent!</p>
-      <button type="button" class="btn-secondary" onclick={() => onClosePanel?.()}>Done</button>
-    </div>
   {:else}
     <div class="draft-meta" aria-label="Draft recipients and subject">
       <div class="meta-row">
@@ -317,19 +313,6 @@
     padding: 0 2px;
     font-size: 13px;
     flex-shrink: 0;
-  }
-
-  .draft-sent {
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    align-items: flex-start;
-  }
-
-  .sent-msg {
-    font-weight: 600;
-    margin: 0;
   }
 
   .draft-meta {
@@ -458,13 +441,4 @@
     overflow: hidden;
   }
 
-  .btn-secondary {
-    font: inherit;
-    padding: 8px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-  }
 </style>
