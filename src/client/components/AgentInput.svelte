@@ -466,7 +466,8 @@ margin-bottom: 4px;
     min-height: 42px;
     padding: 0;
     border: 1px solid var(--border);
-background: var(--bg);
+    border-radius: 0.5rem;
+    background: var(--bg);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -519,23 +520,6 @@ background: var(--bg);
   }
 
   .new-chat-btn:active {
-    filter: brightness(0.97);
-  }
-
-  /* Same rail geometry as .send-btn; used when mic replaces send on the right when no text is typed. */
-  .voice-right-btn {
-    background: var(--bg-3);
-    color: var(--text-2);
-  }
-
-  @media (hover: hover) {
-    .voice-right-btn:not(:disabled):hover {
-      background: var(--bg-2);
-      color: var(--text);
-    }
-  }
-
-  .voice-right-btn:active:not(:disabled) {
     filter: brightness(0.97);
   }
 

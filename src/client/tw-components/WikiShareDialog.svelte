@@ -75,9 +75,9 @@
   let revokingId = $state<string | null>(null)
   let audienceFetchToken = 0
 
-  const dialogTitle = $derived(targetKind === 'file' ? 'Share wiki page' : 'Share wiki folder')
+  const dialogTitle = $derived(targetKind === 'file' ? 'Share this page' : 'Share this folder')
 
-  const shareActionLabel = $derived(targetKind === 'file' ? 'Share Page' : 'Share Folder')
+  const shareActionLabel = 'Send invites'
 
   const wikiShareDisplayPathForFileName = $derived(
     wikiShareVaultPathForWikiFileName({ pathPrefix, targetKind }),
@@ -142,7 +142,7 @@
       const j = (await res.json().catch(() => ({}))) as { owned?: unknown }
       if (t !== audienceFetchToken) return
       if (!res.ok) {
-        audienceFetchError = 'Could not load who has access.'
+        audienceFetchError = 'Couldn’t load this list.'
         audienceRows = []
         return
       }
@@ -152,7 +152,7 @@
       audienceRows = parsed.filter((r) => wikiShareCoversVaultPath(vp, r.pathPrefix, r.targetKind))
     } catch {
       if (t !== audienceFetchToken) return
-      audienceFetchError = 'Could not load who has access.'
+      audienceFetchError = 'Couldn’t load this list.'
       audienceRows = []
     } finally {
       if (t === audienceFetchToken) audienceLoading = false
@@ -175,7 +175,7 @@
     try {
       const res = await fetch(`/api/wiki-shares/${encodeURIComponent(row.id)}`, { method: 'DELETE' })
       if (!res.ok) {
-        audienceFetchError = 'Could not remove access.'
+        audienceFetchError = 'Couldn’t remove access.'
         return
       }
       revokeTarget = null
@@ -265,7 +265,7 @@
     }
     perGranteeErrors = {
       ...perGranteeErrors,
-      [`@${handle}`]: 'Pick a user from the list.',
+      [`@${handle}`]: 'Choose someone from the list.',
     }
   }
 
@@ -352,7 +352,7 @@
       const trimmed = inputValue.trim()
       if (trimmed) commitTyped()
       if (selected.length === 0) {
-        errorMsg = 'Add at least one collaborator.'
+        errorMsg = 'Add someone to invite.'
         return
       }
     }
@@ -416,7 +416,7 @@
   const mutedText = 'wsh-muted m-0 text-[13px] text-muted'
   const errBase = 'wsh-err m-0 mt-2 text-[13px] text-[var(--danger,#b42318)]'
   const pillBase =
-    'wsh-pill bg-[color-mix(in_srgb,var(--accent,#2563eb)_18%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]'
+    'wsh-pill rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_18%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]'
   const sharePathName =
     'wsh-share-path-name inline-flex max-w-full align-text-bottom text-foreground'
   const codeChip =
@@ -443,24 +443,20 @@
       disabled={submitDisabled}
       onclick={() => void submit()}
     >
-      {submitting ? 'Sharing…' : shareActionLabel}
+      {submitting ? 'Sending…' : shareActionLabel}
     </button>
   {/snippet}
   <p class="wsh-lead m-0 mb-3 text-sm text-[var(--color-muted,#888)]">
-    Read-only access to{' '}
-    <span class={sharePathName} translate="no">
-      <WikiFileName path={wikiShareDisplayPathForFileName} />
-    </span>. Collaborators accept in
-    <strong>Settings → Sharing</strong> while signed in with the invited email.
+    People you invite see this read-only; they can’t edit it.
   </p>
   <section class="wsh-section mb-[18px]" aria-labelledby="wsh-audience-heading">
-    <h3 id="wsh-audience-heading" class={sectionTitle}>People with access</h3>
+    <h3 id="wsh-audience-heading" class={sectionTitle}>Who has access</h3>
     {#if audienceLoading}
       <p class={mutedText}>Loading…</p>
     {:else if audienceFetchError}
       <p class={errBase} role="alert">{audienceFetchError}</p>
     {:else if audienceRows.length === 0}
-      <p class={mutedText}>Only you — no collaborators yet.</p>
+      <p class={mutedText}>Just you so far.</p>
     {:else}
       <ul
         class="wsh-audience-list m-0 flex max-h-[220px] list-none flex-col gap-2 overflow-y-auto p-0"
@@ -474,15 +470,15 @@
                 >{row.granteeEmail}</span
               >
               {#if audienceStatus(row) === 'active'}
-                <span class={pillBase}>Active</span>
+                <span class={pillBase}>Has access</span>
               {:else if audienceStatus(row) === 'expired'}
                 <span
-                  class="wsh-pill wsh-pill-warn bg-[color-mix(in_srgb,var(--danger,#c44)_16%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--danger,#c44)]"
+                  class="wsh-pill wsh-pill-warn rounded-full bg-[color-mix(in_srgb,var(--danger,#c44)_16%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--danger,#c44)]"
                 >Invite expired</span>
               {:else}
                 <span
-                  class="wsh-pill wsh-pill-pending bg-[color-mix(in_srgb,var(--accent,#2563eb)_14%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]"
-                >Pending</span>
+                  class="wsh-pill wsh-pill-pending rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_14%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]"
+                >Invite sent</span>
               {/if}
             </div>
             <button
@@ -501,9 +497,9 @@
     {/if}
   </section>
 
-  <h3 class="{sectionTitle} wsh-invite-heading mt-1">Invite more people</h3>
+  <h3 class="{sectionTitle} wsh-invite-heading mt-1">Invite someone</h3>
   <label class="wsh-label mb-1.5 block text-xs font-semibold" for="wsh-grantees">
-    By handle (e.g. <code class={codeChip}>@cirne</code>) or email
+    @username or email (e.g. <code class={codeChip}>@alex</code>)
   </label>
   <div class="wsh-field relative">
     <div
@@ -541,7 +537,7 @@
         type="text"
         autocomplete="off"
         spellcheck="false"
-        placeholder={selected.length === 0 ? '@handle or name@example.com' : ''}
+        placeholder={selected.length === 0 ? '@username or you@example.com' : ''}
         bind:this={inputEl}
         bind:value={inputValue}
         oninput={onInput}
@@ -582,7 +578,7 @@
             <span
               class="wsh-suggest-email overflow-hidden whitespace-nowrap text-ellipsis text-xs text-muted"
             >
-              {s.primaryEmail ?? 'No connected email'}
+              {s.primaryEmail ?? 'No email on file'}
             </span>
           </button>
         {/each}
@@ -591,7 +587,7 @@
   </div>
   {#if selected.some((g) => !g.email)}
     <p class="wsh-hint wsh-hint-warn mt-2 text-[13px] text-[var(--danger,#b42318)]">
-      Selected users without a connected email cannot receive invites yet.
+      Add an email to their workspace before they can receive invites.
     </p>
   {/if}
   {#if Object.keys(perGranteeErrors).length > 0}
@@ -609,7 +605,7 @@
 <ConfirmDialog
   open={revokeTarget !== null}
   titleId="wiki-share-revoke-title"
-  title="Remove access?"
+  title="Stop sharing?"
   confirmVariant="danger"
   confirmLabel="Remove"
   cancelLabel="Cancel"
@@ -620,15 +616,15 @@
 >
   <p class="wsh-revoke-lead m-0 mb-2 text-sm leading-snug">
     {#if targetKind === 'dir'}
-      They lose read-only access to this folder and everything inside it under{' '}
+      They won’t be able to view this folder or anything inside{' '}
       <span class={sharePathName} translate="no">
         <WikiFileName path={wikiShareDisplayPathForFileName} />
       </span>.
     {:else}
-      They lose read-only access to{' '}
+      They won’t be able to view{' '}
       <span class={sharePathName} translate="no">
-        <WikiFileName path={wikiShareDisplayPathForFileName} />.
-      </span>
+        <WikiFileName path={wikiShareDisplayPathForFileName} />
+      </span>.
     {/if}
   </p>
   {#if revokeTarget}

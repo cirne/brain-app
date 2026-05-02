@@ -297,7 +297,7 @@
   {/if}
 
   <div class="input-row flex w-full min-w-0">
-    <div class="input-shell flex flex-1 min-w-0 flex-col min-h-[42px] overflow-hidden border border-border bg-surface focus-within:border-accent">
+    <div class="input-shell flex flex-1 min-w-0 flex-col min-h-[42px] overflow-hidden rounded-lg border border-border bg-surface focus-within:border-accent">
       {#if queuedMessages.length > 0}
         <div
           class="queued-list mb-0.5 flex flex-col gap-1.5 min-w-0 px-2.5 pt-[3px]"
@@ -381,7 +381,7 @@
           {:else if showVoiceEntry && onVoiceEntry && !input.trim()}
             <button
               type="button"
-              class={cn(sendBtnBase, 'voice-right-btn bg-surface-3 text-muted hover:enabled:bg-surface-2 hover:enabled:text-foreground active:enabled:[filter:brightness(0.97)]')}
+              class={cn(sendBtnBase, 'voice-right-btn')}
               disabled={voiceEntryDisabled}
               onclick={() => onVoiceEntry()}
               title="Voice input"

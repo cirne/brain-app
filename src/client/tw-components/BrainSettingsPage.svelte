@@ -392,7 +392,7 @@
     'settings-share-wiki-link m-0 inline-flex min-w-0 max-w-full cursor-pointer items-center border-none bg-transparent p-0 text-left text-inherit [font:inherit] hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]'
   const shareMeta = 'settings-share-meta text-xs text-muted'
   const sharePillBase =
-    'settings-share-pill ml-[0.35rem] inline-block bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-1.5 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-accent'
+    'settings-share-pill ml-[0.35rem] inline-block rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-1.5 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-accent'
   const sharePillMuted =
     'settings-share-pill-muted !bg-surface-3 !text-muted'
   const shareActions =
@@ -551,7 +551,7 @@
               >
                 {#if isDefaultSend}
                   <span
-                    class="hub-source-pill hub-source-pill--send whitespace-nowrap border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-[color-mix(in_srgb,var(--accent)_92%,var(--text))]"
+                    class="hub-source-pill hub-source-pill--send whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-[color-mix(in_srgb,var(--accent)_92%,var(--text))]"
                     title="Default mailbox for sending"
                   >
                     Default send
@@ -559,7 +559,7 @@
                 {/if}
                 {#if isHidden}
                   <span
-                    class="hub-source-pill hub-source-pill--hidden whitespace-nowrap border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-muted"
+                    class="hub-source-pill hub-source-pill--hidden whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-muted"
                     title="Excluded from default searches"
                   >
                     Hidden from search
