@@ -151,7 +151,10 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         Type.Array(Type.String(), { description: 'events / configure_source: IDs to sync or filter by' }),
       ),
       default_calendar_ids: Type.Optional(
-        Type.Array(Type.String(), { description: 'configure_source: IDs to show by default' }),
+        Type.Array(Type.String(), {
+          description:
+            'configure_source: Which calendar ids are the default day-view for ripmail (**required when `calendar_ids` has more than one id** — you pick explicitly; omit only when syncing a single calendar).',
+        }),
       ),
       title: Type.Optional(Type.String({ description: 'create_event: required title; update_event: optional new title' })),
       calendar_id: Type.Optional(
@@ -394,10 +397,17 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
         if (!params.source || !params.calendar_ids) {
           throw new Error('source and calendar_ids are required for op=configure_source')
         }
+        const calIds = params.calendar_ids.map((id) => id.trim()).filter(Boolean)
+        const defs = (params.default_calendar_ids ?? []).map((id) => id.trim()).filter(Boolean)
+        if (calIds.length > 1 && defs.length === 0) {
+          throw new Error(
+            'op=configure_source: when `calendar_ids` lists more than one calendar, pass `default_calendar_ids` with the ids the user chose for default day-view (ripmail `sources edit --default-calendar`). Decide from list_calendars + context—do not omit.',
+          )
+        }
         const rm = ripmailBin()
-        const ids = params.calendar_ids.map((id) => `--calendar ${JSON.stringify(id)}`).join(' ')
-        const defaultIds = params.default_calendar_ids?.length
-          ? ' ' + params.default_calendar_ids.map((id) => `--default-calendar ${JSON.stringify(id)}`).join(' ')
+        const ids = calIds.map((id) => `--calendar ${JSON.stringify(id)}`).join(' ')
+        const defaultIds = defs.length
+          ? ' ' + defs.map((id) => `--default-calendar ${JSON.stringify(id)}`).join(' ')
           : ''
         const cmd = `${rm} sources edit ${JSON.stringify(params.source)} ${ids}${defaultIds} --json`
         const { stdout } = await execRipmailAsync(cmd, { timeout: 15000 })
@@ -406,7 +416,7 @@ export function createCalendarTool(agentTimeZone: string, options?: CreateCalend
           content: [
             {
               type: 'text' as const,
-              text: `Source ${params.source} updated with ${params.calendar_ids.length} calendar(s). Re-index started in the background.`,
+              text: `Source ${params.source} updated with ${calIds.length} calendar(s). Re-index started in the background.`,
             },
           ],
           details: JSON.parse(stdout),

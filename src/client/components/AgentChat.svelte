@@ -52,7 +52,7 @@
   let {
     context = { type: 'none' } as SurfaceContext,
     conversationHidden = false,
-    /** When true, agent tools do not auto-open the right detail panel (wiki from write/edit, `open`, **`read_mail_message`** / **`read_indexed_file`**, **`draft_email`** overlay, …). */
+    /** When true, agent tools do not auto-open the right detail panel (wiki from write/edit, **`open`**, **`draft_email`** overlay, …). */
     suppressAgentDetailAutoOpen = false,
     onOpenWiki,
     onOpenFile,
@@ -150,7 +150,7 @@
       _preview: Extract<ContentCardPreview, { kind: 'mail_search_hits' }>,
       _sourceId: string,
     ) => void
-    /** LLM `open` / **`read_mail_message`** / **`read_indexed_file`** — fired from SSE tool_start */
+    /** LLM `open` — fired from SSE `tool_start` */
     onOpenFromAgent?: (
       _target: { type: string; path?: string; id?: string; date?: string; source?: string },
       _source: AgentOpenSource,

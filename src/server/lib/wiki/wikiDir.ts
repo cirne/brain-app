@@ -10,10 +10,9 @@ export const wikiDir = () => wikiContentDir()
 export const skillsDir = () => skillsDataDir()
 
 /**
- * Remove all wiki files and subdirs (dev hard-reset). Recreates an empty wiki content root.
+ * Remove all wiki files and subdirs under `contentRoot` (dev reset). Leaves an empty root dir (creates nothing).
  */
-export async function wipeWikiContent(): Promise<void> {
-  const contentRoot = wikiDir()
+export async function wipeWikiContentAt(contentRoot: string): Promise<void> {
   if (!existsSync(contentRoot)) return
 
   const entries = await readdir(contentRoot, { withFileTypes: true })
@@ -21,6 +20,13 @@ export async function wipeWikiContent(): Promise<void> {
     if (ent.name === '.git') continue
     await rm(join(contentRoot, ent.name), { recursive: true, force: true })
   }
+}
+
+/**
+ * Remove all wiki files and subdirs (dev hard-reset). Recreates an empty wiki content root.
+ */
+export async function wipeWikiContent(): Promise<void> {
+  await wipeWikiContentAt(wikiDir())
 }
 
 /** Root profile file — preserved by {@link wipeWikiContentExceptMeMd}. */

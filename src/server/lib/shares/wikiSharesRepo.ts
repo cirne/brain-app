@@ -205,6 +205,13 @@ export function revokeShare(params: { shareId: string; ownerId: string; db?: Dat
   return true
 }
 
+/** Dev tenant reset: remove every wiki_shares row for this vault owner (tenant user id). */
+export function deleteWikiSharesForOwner(ownerId: string, db?: Database.Database): number {
+  const d = db ?? getBrainGlobalDb()
+  const r = d.prepare(`DELETE FROM wiki_shares WHERE owner_id = ?`).run(ownerId)
+  return typeof r.changes === 'number' ? r.changes : 0
+}
+
 /** True if `wikiRelPath` is allowed by this share row (directory subtree or exact file). */
 export function granteeShareCoversWikiPath(row: WikiShareRow, wikiRelPath: string): boolean {
   const rel = wikiRelPath.trim().replace(/^\/+/, '')

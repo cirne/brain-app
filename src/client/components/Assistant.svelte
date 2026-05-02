@@ -899,7 +899,7 @@
     }
   })
 
-  /** LLM `open` / **`read_mail_message`** / **`read_indexed_file`** — navigate on tool_start. Mobile: only `open` opens the panel; mail/file reads stay preview-only. */
+  /** LLM `open` — navigate on tool_start. Mail / indexed reads are preview-only until the user opens them or the model uses `open`. */
   function onOpenFromAgent(
     target: { type: string; path?: string; id?: string; date?: string; source?: string },
     source: AgentOpenSource,

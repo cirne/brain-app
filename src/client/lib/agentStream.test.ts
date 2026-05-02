@@ -270,7 +270,7 @@ describe('consumeAgentChatStream', () => {
     expect(onOpenFromAgent).not.toHaveBeenCalled()
   })
 
-  it('calls onOpenFromAgent for open and read_mail_message when suppressAgentDetailAutoOpen is false', async () => {
+  it('calls onOpenFromAgent for open but not read_mail_message when suppressAgentDetailAutoOpen is false', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: '', parts: [] },
@@ -294,9 +294,8 @@ describe('consumeAgentChatStream', () => {
       touchMessages: () => {},
       scrollToBottom: () => {},
     })
-    expect(onOpenFromAgent).toHaveBeenCalledTimes(2)
-    expect(onOpenFromAgent).toHaveBeenNthCalledWith(1, { type: 'wiki', path: 'ideas/x.md' }, 'open')
-    expect(onOpenFromAgent).toHaveBeenNthCalledWith(2, { type: 'email', id: 'thread-1' }, 'read_mail_message')
+    expect(onOpenFromAgent).toHaveBeenCalledTimes(1)
+    expect(onOpenFromAgent).toHaveBeenCalledWith({ type: 'wiki', path: 'ideas/x.md' }, 'open')
   })
 
   it('calls onOpenDraftFromAgent on draft_email tool_end when detail auto-open allowed', async () => {
@@ -695,7 +694,7 @@ describe('consumeAgentChatStream', () => {
     expect(messages[1].parts).toHaveLength(1)
   })
 
-  it('handles read_indexed_file with filesystem path (opens as file)', async () => {
+  it('read_indexed_file with filesystem path does not call onOpenFromAgent', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: '', parts: [] },
@@ -717,10 +716,16 @@ describe('consumeAgentChatStream', () => {
       touchMessages: () => {},
       scrollToBottom: () => {},
     })
-    expect(onOpenFromAgent).toHaveBeenCalledWith({ type: 'file', path: '/Users/test/mail.eml' }, 'read_indexed_file')
+    expect(onOpenFromAgent).not.toHaveBeenCalled()
+    expect(messages[1].parts).toHaveLength(1)
+    const p = messages[1].parts![0]
+    expect(p.type).toBe('tool')
+    if (p.type !== 'tool') throw new Error('expected tool part')
+    expect(p.toolCall.name).toBe('read_indexed_file')
+    expect((p.toolCall.args as { id?: string }).id).toBe('/Users/test/mail.eml')
   })
 
-  it('handles read_indexed_file with Drive id (opens indexed-file, not email)', async () => {
+  it('read_indexed_file with Drive id does not call onOpenFromAgent', async () => {
     const messages: ChatMessage[] = [
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: '', parts: [] },
@@ -742,10 +747,12 @@ describe('consumeAgentChatStream', () => {
       touchMessages: () => {},
       scrollToBottom: () => {},
     })
-    expect(onOpenFromAgent).toHaveBeenCalledWith(
-      { type: 'indexed-file', id: '1aEUa2RqJabc', source: 'user-drive' },
-      'read_indexed_file',
-    )
+    expect(onOpenFromAgent).not.toHaveBeenCalled()
+    const p = messages[1].parts![0]
+    expect(p.type).toBe('tool')
+    if (p.type !== 'tool') throw new Error('expected tool part')
+    expect((p.toolCall.args as { id?: string; source?: string }).id).toBe('1aEUa2RqJabc')
+    expect((p.toolCall.args as { source?: string }).source).toBe('user-drive')
   })
 
   it('calls onFinishConversation when finish_conversation tool ends successfully', async () => {

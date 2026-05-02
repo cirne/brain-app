@@ -6,6 +6,7 @@ import { closeBrainGlobalDbForTests, getBrainGlobalDb } from '@server/lib/global
 import {
   acceptShare,
   createShare,
+  deleteWikiSharesForOwner,
   getShareByToken,
   granteeCanReadOwnerWikiPath,
   listSharesForGrantee,
@@ -102,6 +103,18 @@ describe('wikiSharesRepo', () => {
       }),
     ).toBe(false)
     expect(listSharesForOwner(ownerId)).toHaveLength(0)
+  })
+
+  it('deleteWikiSharesForOwner removes all rows for owner only', () => {
+    const o1 = 'usr_aaaaaaaaaaaaaaaaaaaaaa'
+    const o2 = 'usr_bbbbbbbbbbbbbbbbbbbbbb'
+    createShare({ ownerId: o1, granteeEmail: 'a@a.com', pathPrefix: 'x' })
+    createShare({ ownerId: o1, granteeEmail: 'b@b.com', pathPrefix: 'y' })
+    createShare({ ownerId: o2, granteeEmail: 'c@c.com', pathPrefix: 'z' })
+    expect(deleteWikiSharesForOwner(o1)).toBe(2)
+    expect(listSharesForOwner(o1)).toHaveLength(0)
+    expect(listSharesForOwner(o2)).toHaveLength(1)
+    expect(deleteWikiSharesForOwner(o1)).toBe(0)
   })
 
   it('acceptShare fails after TTL', () => {

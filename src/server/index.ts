@@ -29,6 +29,8 @@ import { registerPeriodicSyncAndShutdown } from './lifecycle/periodicSyncAndShut
 import { registerApiRoutes } from './registerApiRoutes.js'
 import { isDevRuntime } from '@server/lib/platform/isDevRuntime.js'
 
+import { registerDevTenantResetRoutes } from './routes/devTenantReset.js'
+
 loadDotEnv()
 setPromptsRoot(fileURLToPath(new URL('./prompts', import.meta.url)))
 
@@ -84,6 +86,10 @@ app.get('/logout', async (c) => {
   }
   return c.redirect(safeLogoutRedirectPath(c.req.query('next')), 302)
 })
+
+if (isDev) {
+  registerDevTenantResetRoutes(app)
+}
 
 app.use('/api/*', tenantMiddleware)
 app.use('/api/*', newRelicBrainContextMiddleware())
@@ -172,7 +178,12 @@ async function start() {
             return ''
           }
         })()
-        if (req.url?.startsWith('/api/') || (req.method === 'GET' && pathname === '/logout')) {
+        const devResetPath = pathname === '/reset' || pathname === '/hard-reset'
+        const useHono =
+          Boolean(req.url?.startsWith('/api/')) ||
+          (req.method === 'GET' && pathname === '/logout') ||
+          (process.env.NODE_ENV !== 'production' && devResetPath)
+        if (useHono) {
           honoHandler(req, res)
         } else {
           vite.middlewares(req, res, () => {

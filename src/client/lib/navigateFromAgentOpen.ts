@@ -10,9 +10,9 @@ export type AgentOpenTarget = {
 export type AgentOpenSource = 'open' | 'read_mail_message' | 'read_indexed_file'
 
 /**
- * Navigate wiki / inbox / calendar when the agent uses `open` or when **`read_mail_message`** / **`read_indexed_file`** mirrors email/file open on desktop.
- * When `isMobile` is true (viewport) **or** the UI is using slide-over detail (narrow chat workspace),
- * only the explicit `open` tool opens the detail panel; other tools stay as in-chat previews until the user opens them.
+ * Navigate wiki / inbox / calendar when the agent uses **`open`** (streamed `tool_start`, when routed here).
+ * **`read_mail_message`** / **`read_indexed_file`** do not call this from the SSE stream — preview in chat; user or **`open`** opens the panel.
+ * When `isMobile` is true (viewport) **or** the UI uses slide-over detail (narrow workspace), **`open`** alone opens the detail panel from the stream.
  */
 export function navigateFromAgentOpen(
   target: AgentOpenTarget,

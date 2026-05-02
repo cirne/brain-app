@@ -111,11 +111,11 @@ const TOOL_REGISTRY: Record<string, ToolRegistryPatch> = {
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.search_index,
   },
   read_mail_message: {
-    chat: { autoOpen: true },
+    /** Mail stays as in-chat preview; user opens the panel via the tool card / explicit `open`. */
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.read_mail_message,
   },
   read_indexed_file: {
-    chat: { autoOpen: true },
+    /** Indexed/path reads stay as in-chat preview; user opens the panel via the tool card / explicit `open`. */
     onboardingActivityInFlight: ONBOARDING_ACTIVITY.read_indexed_file,
   },
   list_inbox: {

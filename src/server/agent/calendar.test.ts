@@ -100,15 +100,33 @@ describe('calendar tool', () => {
     expect(execRipmailAsync).toHaveBeenCalledWith(expect.stringContaining('calendar list-calendars --json --source "src1"'), expect.any(Object))
   })
 
-  it('op=configure_source calls ripmail sources edit --calendar', async () => {
+  it('op=configure_source rejects multiple calendar_ids without default_calendar_ids', async () => {
+    const { createAgentTools } = await import('./tools.js')
+    const tools = createAgentTools(wikiDir)
+    const tool = tools.find((t) => t.name === 'calendar')!
+
+    await expect(
+      tool.execute('c3', { op: 'configure_source', source: 'src1', calendar_ids: ['c1', 'c2'] }),
+    ).rejects.toThrow(/default_calendar_ids/)
+  })
+
+  it('op=configure_source calls ripmail sources edit with explicit default calendars', async () => {
     const { createAgentTools } = await import('./tools.js')
     const tools = createAgentTools(wikiDir)
     const tool = tools.find((t) => t.name === 'calendar')!
 
     vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok": true}', stderr: '' })
 
-    const result = await tool.execute('c3', { op: 'configure_source', source: 'src1', calendar_ids: ['c1', 'c2'] })
-    expect(execRipmailAsync).toHaveBeenCalledWith(expect.stringContaining('sources edit "src1" --calendar "c1" --calendar "c2" --json'), expect.any(Object))
+    const result = await tool.execute('c3', {
+      op: 'configure_source',
+      source: 'src1',
+      calendar_ids: ['c1', 'c2'],
+      default_calendar_ids: ['c1'],
+    })
+    expect(execRipmailAsync).toHaveBeenCalledWith(
+      expect.stringContaining('sources edit "src1" --calendar "c1" --calendar "c2" --default-calendar "c1"'),
+      expect.any(Object),
+    )
     expect(toolResultFirstText(result)).toContain('Source src1 updated')
   })
 
@@ -136,25 +154,6 @@ describe('calendar tool', () => {
 
     await tool.execute('c-filter', { op: 'events', start: '2026-04-20', end: '2026-04-20', calendar_ids: ['cal1'] })
     expect(getCalendarEventsFromRipmail).toHaveBeenCalledWith({ start: '2026-04-20', end: '2026-04-20', calendarIds: ['cal1'] })
-  })
-
-  it('op=configure_source supports default_calendar_ids', async () => {
-    const { createAgentTools } = await import('./tools.js')
-    const tools = createAgentTools(wikiDir)
-    const tool = tools.find((t) => t.name === 'calendar')!
-
-    vi.mocked(execRipmailAsync).mockResolvedValue({ stdout: '{"ok": true}', stderr: '' })
-
-    await tool.execute('c-def', {
-      op: 'configure_source',
-      source: 'src1',
-      calendar_ids: ['c1', 'c2'],
-      default_calendar_ids: ['c1']
-    })
-    expect(execRipmailAsync).toHaveBeenCalledWith(
-      expect.stringContaining('sources edit "src1" --calendar "c1" --calendar "c2" --default-calendar "c1" --json'),
-      expect.any(Object)
-    )
   })
 
   it('op=update_event forwards compound event_id and title to ripmail', async () => {

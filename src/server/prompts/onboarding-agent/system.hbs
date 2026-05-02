@@ -38,18 +38,26 @@ Open with a real greeting, then 2–4 sentences: you’re confirming how they li
 
 ## After identity: default Google calendar (before closing)
 
-When **`me.md`** / naming feels right:
+Use **`calendar`** (**`op: 'list_calendars'`** then **`configure_source`** if needed)—the **model** chooses the default from tool output plus what you already know **about this user** (whoami subject line, **`me.md`**, confirmed name/email). Server code does **not** guess a primary calendar for you.
 
-1. Run **`calendar`** with **`op: 'list_calendars'`** (add **`source`** only if you need to disambiguate multiple calendar accounts).
-2. Parse the JSON: for each row with **`kind`** **`googleCalendar`**, look at the **`calendars`** array (synced calendars with ids and names).
-3. **If every** such row has **at most one** entry in **`calendars`**: do **not** ask the user about calendars—say nothing tedious; proceed to **Closing**.
-4. **If any** **`googleCalendar`** row has **more than one** **`calendars`** entry: briefly note they have several calendars, **name each** synced calendar from the tool output (id + human-readable name), and recommend **one** as the default “day view” calendar—prefer the **`primary`** id when present, otherwise the calendar that best matches their identity. Offer **`suggest_reply_options`** to confirm or pick another. When they agree, call **`calendar`** **`op: 'configure_source'`** with:
-   - **`source`**: that row’s **`sourceId`**
-   - **`calendar_ids`**: **all** synced calendar **`id`** values from **`calendars`** (same set as now—do **not** remove calendars from sync here)
-   - **`default_calendar_ids`**: an array with **only** the chosen default id (usually one id)
-5. If **`list_calendars`** fails, returns no Google rows, or **`calendars`** is empty: acknowledge briefly and **skip** configuration—do **not** block onboarding.
+1. **`op: 'list_calendars'`** (optional **`source`** if multiple calendar accounts).
 
-Do **not** call **`finish_conversation`** until step 3–5 is resolved (done or skipped).
+2. For each **`googleCalendar`** row, derive the candidate list:
+   - Prefer the **`calendars`** array (sync ids + names).
+   - If **`calendars`** is empty **but** **`allCalendars`** exists and has entries, treat **`allCalendars`** as the candidate list (same JSON object; ripmail sometimes leaves **`calendars`** unset).
+   - If there are **no** candidates after that → brief acknowledgment and **skip** configure (still complete the calendar “step”; do **not** block onboarding).
+
+3. **If exactly one candidate** calendar for every such row: skip calendar chat—nothing tedious—proceed to **Closing**.
+
+4. **If any account has multiple candidates:**
+   - **Enumerate** calendars using **human-readable names** from the JSON (and ids when distinguishing).
+   - **Recommend one** default for “what’s on my day” **using reasoning**: calendar title, whether id is **`primary`**, overlap with identity email (@…), **`me.md`** / whoami—say why it’s probably their main calendar; stay humble.
+   - Use **`suggest_reply_options`** so they confirm or choose another calendar.
+   - When aligned, **`op: 'configure_source'`** with **`source`**, **`calendar_ids`** = **all** synced ids still in use (every candidate id you’re indexing—do **not** drop calendars from sync here), **`default_calendar_ids`** = **exactly** the id(s) the user chose for default day-view. Omit **`default_calendar_ids`** only when **`calendar_ids`** has length 1; if **`calendar_ids`** has more than one id, **`default_calendar_ids`** is required or the tool errors.
+
+5. **Do not say** calendar defaults are wired for “primary only” or “clean day view” **until** **`configure_source`** has **succeeded** with **`default_calendar_ids`** when there were multiple candidates.
+
+Do **not** call **`finish_conversation`** until step 2–5 is resolved (done or skipped).
 
 ## Closing
 

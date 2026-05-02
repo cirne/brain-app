@@ -1,7 +1,6 @@
 import type { ChatMessage, ToolPart } from './agentUtils.js'
 import { coerceLlmUsageSnapshot } from './agentUtils.js'
 import { getToolDefinitionCore } from './tools/registryCore.js'
-import { isFilesystemAbsolutePath } from './fsPath.js'
 import { wikiPathForReadToolArg } from './cards/contentCards.js'
 import type { AgentOpenSource } from './navigateFromAgentOpen.js'
 import { emit } from './app/appEvents.js'
@@ -63,7 +62,8 @@ export type ConsumeAgentChatStreamOptions = {
   msgIdx: number
   /**
    * When true, skip agent-driven **opening** of the right detail panel: wiki from `write`/`edit`,
-   * navigation from `open` / **`read_mail_message`** / **`read_indexed_file`**, and opening the draft overlay from **`draft_email`** on `tool_end`.
+   * navigation from **`open`**, plus opening the draft overlay from **`draft_email`** on `tool_end`.
+   * **`read_mail_message`** / **`read_indexed_file`** stay in-chat previews only (`registryCore`).
    * Transcript still updates; `onWriteStreaming` / `onEditStreaming` still run when the session is active.
    */
   suppressAgentDetailAutoOpen: boolean
@@ -285,51 +285,6 @@ export async function consumeAgentChatStream(
               if (data.name === 'open' && data.args?.target && onOpenFromAgent && !openedFromAgentByToolId.has(data.id)) {
                 openedFromAgentByToolId.add(data.id)
                 if (allowAgentDetailOpen() && policy.autoOpen) onOpenFromAgent(data.args.target, 'open')
-              }
-              if (
-                data.name === 'read_mail_message' &&
-                typeof data.args?.id === 'string' &&
-                onOpenFromAgent &&
-                !openedFromAgentByToolId.has(data.id)
-              ) {
-                openedFromAgentByToolId.add(data.id)
-                if (allowAgentDetailOpen() && policy.autoOpen) {
-                  const rid = String(data.args.id).trim()
-                  if (isFilesystemAbsolutePath(rid)) {
-                    onOpenFromAgent({ type: 'file', path: rid }, 'read_mail_message')
-                  } else {
-                    onOpenFromAgent({ type: 'email', id: rid }, 'read_mail_message')
-                  }
-                }
-              }
-              if (
-                data.name === 'read_indexed_file' &&
-                typeof data.args?.id === 'string' &&
-                onOpenFromAgent &&
-                !openedFromAgentByToolId.has(data.id)
-              ) {
-                openedFromAgentByToolId.add(data.id)
-                if (allowAgentDetailOpen() && policy.autoOpen) {
-                  const rid = String(data.args.id).trim()
-                  const src =
-                    data.args != null &&
-                    typeof data.args === 'object' &&
-                    typeof (data.args as { source?: unknown }).source === 'string'
-                      ? (data.args as { source: string }).source.trim()
-                      : undefined
-                  if (isFilesystemAbsolutePath(rid)) {
-                    onOpenFromAgent({ type: 'file', path: rid }, 'read_indexed_file')
-                  } else {
-                    onOpenFromAgent(
-                      {
-                        type: 'indexed-file',
-                        id: rid,
-                        ...(src ? { source: src } : {}),
-                      },
-                      'read_indexed_file',
-                    )
-                  }
-                }
               }
               if (
                 (data.name === 'write' || data.name === 'edit') &&
