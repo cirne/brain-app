@@ -6,7 +6,7 @@ export type EmailDraftHeaderActions = {
   onSave: () => void | Promise<void>
   onSend: () => void | Promise<void>
   saveState: 'idle' | 'saving' | 'saved' | 'error'
-  sendState: 'idle' | 'sending' | 'sent' | 'error'
+  sendState: 'idle' | 'sending' | 'error'
 }
 
 export type RegisterEmailDraftHeader = (_state: EmailDraftHeaderActions | null) => void

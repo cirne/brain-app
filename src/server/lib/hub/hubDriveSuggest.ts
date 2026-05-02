@@ -13,8 +13,10 @@ export type DriveFolderSuggestion = {
   include: boolean
 }
 
+const MAX_IGNORE_GLOBS = 80
+
 export type DriveSuggestResult =
-  | { ok: true; suggestions: DriveFolderSuggestion[]; ignoreGlobs: string[] }
+  | { ok: true; suggestions: DriveFolderSuggestion[]; ignoreGlobs: string[]; ignoreSummary: string }
   | { ok: false; error: string }
 
 const SYSTEM_PROMPT = `You are helping configure a personal AI assistant called Braintunnel.
@@ -30,14 +32,17 @@ Skip these types of folders:
 - Temporary downloads, trash-like folders
 - App data, system folders
 
-Also suggest useful ignore glob patterns for Drive file names (e.g. *.tmp, ~$*, etc.).
+Also suggest useful ignore glob patterns for Drive file names (e.g. *.tmp, ~$*, media extensions). Keep ignoreGlobs to at most ${MAX_IGNORE_GLOBS} entries — broad patterns preferred over exhaustive lists.
+
+Add "ignoreSummary": one short plain-language sentence for end users explaining what kinds of files will be skipped when those patterns apply (no technical glob syntax).
 
 Respond ONLY with valid JSON matching this exact shape:
 {
   "suggested": [
     { "id": "<folder id>", "name": "<folder name>", "reason": "<1 sentence why>", "include": true or false }
   ],
-  "ignoreGlobs": ["*.tmp", "~$*"]
+  "ignoreGlobs": ["*.tmp", "~$*"],
+  "ignoreSummary": "<one short user-facing sentence, e.g. Skips temporary files, Office locks, unfinished downloads, archives, and common media>"
 }
 
 Every input folder must appear in the output "suggested" array. Set "include" to true for folders to index, false for ones to skip.`
@@ -52,7 +57,7 @@ function buildUserPrompt(folders: HubBrowseFolderRow[]): string {
 function parseSuggestions(
   text: string,
   folders: HubBrowseFolderRow[],
-): { suggestions: DriveFolderSuggestion[]; ignoreGlobs: string[] } | null {
+): { suggestions: DriveFolderSuggestion[]; ignoreGlobs: string[]; ignoreSummary: string } | null {
   // Strip markdown code fences if present
   const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
   let parsed: unknown
@@ -76,10 +81,13 @@ function parseSuggestions(
     if (!id || !knownIds.has(id)) continue
     suggestions.push({ id, name: name || id, reason, include })
   }
-  const ignoreGlobs = Array.isArray(p.ignoreGlobs)
+  let ignoreGlobs = Array.isArray(p.ignoreGlobs)
     ? (p.ignoreGlobs as unknown[]).filter((x): x is string => typeof x === 'string')
     : []
-  return { suggestions, ignoreGlobs }
+  ignoreGlobs = ignoreGlobs.slice(0, MAX_IGNORE_GLOBS)
+  const rawSummary = typeof p.ignoreSummary === 'string' ? p.ignoreSummary.trim() : ''
+  const ignoreSummary = rawSummary
+  return { suggestions, ignoreGlobs, ignoreSummary }
 }
 
 export async function suggestDriveFolders(sourceId: string): Promise<DriveSuggestResult> {
@@ -90,7 +98,7 @@ export async function suggestDriveFolders(sourceId: string): Promise<DriveSugges
   if (!browsed.ok) return { ok: false, error: `Could not list Drive folders: ${browsed.error}` }
   const folders = browsed.folders
   if (folders.length === 0) {
-    return { ok: true, suggestions: [], ignoreGlobs: [] }
+    return { ok: true, suggestions: [], ignoreGlobs: [], ignoreSummary: '' }
   }
 
   const provider = (process.env.LLM_PROVIDER ?? DEFAULT_PROVIDER) as KnownProvider
@@ -127,7 +135,12 @@ export async function suggestDriveFolders(sourceId: string): Promise<DriveSugges
     const parsed = parseSuggestions(text, folders)
     if (!parsed) return { ok: false, error: 'Could not parse LLM response' }
 
-    return { ok: true, suggestions: parsed.suggestions, ignoreGlobs: parsed.ignoreGlobs }
+    return {
+      ok: true,
+      suggestions: parsed.suggestions,
+      ignoreGlobs: parsed.ignoreGlobs,
+      ignoreSummary: parsed.ignoreSummary,
+    }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }

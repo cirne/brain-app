@@ -252,7 +252,12 @@ hub.post('/sources/suggest-drive-folders', async (c) => {
   if (!r.ok) {
     return c.json({ ok: false as const, error: r.error }, 400)
   }
-  return c.json({ ok: true as const, suggestions: r.suggestions, ignoreGlobs: r.ignoreGlobs })
+  return c.json({
+    ok: true as const,
+    suggestions: r.suggestions,
+    ignoreGlobs: r.ignoreGlobs,
+    ignoreSummary: r.ignoreSummary,
+  })
 })
 
 export default hub

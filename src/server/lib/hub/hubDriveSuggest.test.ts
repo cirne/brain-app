@@ -36,8 +36,12 @@ function browseFoldersOutput() {
   return ripmailOk(JSON.stringify({ folders: FOLDERS }))
 }
 
-function llmJsonResponse(suggested: object[], ignoreGlobs: string[]) {
-  const json = JSON.stringify({ suggested, ignoreGlobs })
+function llmJsonResponse(suggested: object[], ignoreGlobs: string[], ignoreSummary = '') {
+  const json = JSON.stringify({
+    suggested,
+    ignoreGlobs,
+    ...(ignoreSummary ? { ignoreSummary } : {}),
+  })
   return {
     stopReason: 'end_turn',
     content: [{ type: 'text', text: json }],
@@ -60,6 +64,7 @@ describe('suggestDriveFolders', () => {
           { id: 'f3', name: 'Notes', reason: 'Personal notes', include: true },
         ],
         ['*.tmp', '~$*'],
+        'Skip temp files and Office lock files.',
       ) as never,
     )
 
@@ -72,6 +77,7 @@ describe('suggestDriveFolders', () => {
     expect(result.suggestions.find((s) => s.id === 'f2')?.include).toBe(false)
     expect(result.suggestions.find((s) => s.id === 'f3')?.include).toBe(true)
     expect(result.ignoreGlobs).toEqual(['*.tmp', '~$*'])
+    expect(result.ignoreSummary).toBe('Skip temp files and Office lock files.')
   })
 
   it('returns empty suggestions when Drive has no folders', async () => {
@@ -82,6 +88,7 @@ describe('suggestDriveFolders', () => {
     if (!result.ok) return
     expect(result.suggestions).toHaveLength(0)
     expect(result.ignoreGlobs).toHaveLength(0)
+    expect(result.ignoreSummary).toBe('')
   })
 
   it('returns ok:false when browse-folders fails', async () => {
@@ -122,11 +129,44 @@ describe('suggestDriveFolders', () => {
     expect(result.suggestions.map((s) => s.id)).toContain('f1')
   })
 
+  it('treats missing ignoreSummary as empty string', async () => {
+    vi.mocked(runRipmailArgv).mockResolvedValue(browseFoldersOutput())
+    vi.mocked(completeSimple).mockResolvedValue(
+      llmJsonResponse([{ id: 'f1', name: 'Projects', reason: 'Work', include: true }], ['*.bak']) as never,
+    )
+
+    const result = await suggestDriveFolders('drive_x')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.ignoreSummary).toBe('')
+  })
+
+  it('caps ignoreGlobs returned from the LLM', async () => {
+    vi.mocked(runRipmailArgv).mockResolvedValue(browseFoldersOutput())
+    const many = Array.from({ length: 100 }, (_, i) => `pat${i}*`)
+    vi.mocked(completeSimple).mockResolvedValue(
+      llmJsonResponse(
+        [
+          { id: 'f1', name: 'Projects', reason: 'Work', include: true },
+          { id: 'f2', name: 'Photos', reason: 'Media', include: false },
+          { id: 'f3', name: 'Notes', reason: 'Notes', include: true },
+        ],
+        many,
+      ) as never,
+    )
+
+    const result = await suggestDriveFolders('drive_x')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.ignoreGlobs.length).toBe(80)
+  })
+
   it('handles LLM response wrapped in markdown code fences', async () => {
     vi.mocked(runRipmailArgv).mockResolvedValue(browseFoldersOutput())
     const raw = JSON.stringify({
       suggested: [{ id: 'f1', name: 'Projects', reason: 'Work docs', include: true }],
       ignoreGlobs: [],
+      ignoreSummary: '',
     })
     vi.mocked(completeSimple).mockResolvedValue({
       stopReason: 'end_turn',

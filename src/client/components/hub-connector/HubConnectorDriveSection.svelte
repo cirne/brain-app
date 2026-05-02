@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    Check,
     ChevronDown,
     ChevronRight,
     Folder,
@@ -25,6 +26,10 @@
   }
 
   let { sourceId, fileSource, includeSharedWithMe, onSaved }: Props = $props()
+
+  /** Plain-language skips when the model returns globs but no summary. */
+  const DRIVE_SKIP_FALLBACK_SUMMARY =
+    'Applying also adds skips for temporary files, Office lock files, unfinished downloads, backups, archives, and common audio and video.'
 
   // ---------- draft state ----------
 
@@ -183,6 +188,8 @@
   let suggestErr = $state<string | null>(null)
   let suggestions = $state<DriveFolderSuggestion[]>([])
   let suggestionGlobs = $state<string[]>([])
+  /** Human sentence from POST / sources/suggest-drive-folders */
+  let suggestionSummary = $state('')
   let suggestSelected = $state<Set<string>>(new Set())
   let suggestOpen = $state(false)
 
@@ -200,11 +207,13 @@
         ok?: boolean
         suggestions?: DriveFolderSuggestion[]
         ignoreGlobs?: string[]
+        ignoreSummary?: string
         error?: string
       }
       if (!res.ok || !j.ok) throw new Error(j.error || 'Suggestions failed')
       suggestions = Array.isArray(j.suggestions) ? j.suggestions : []
       suggestionGlobs = Array.isArray(j.ignoreGlobs) ? j.ignoreGlobs : []
+      suggestionSummary = typeof j.ignoreSummary === 'string' ? j.ignoreSummary : ''
       // Pre-select folders the LLM recommends including
       suggestSelected = new Set(suggestions.filter((s) => s.include).map((s) => s.id))
       suggestOpen = true
@@ -269,6 +278,16 @@
   }
 
   const selectedCount = $derived([...suggestSelected].filter((id) => !roots.some((r) => r.id === id)).length)
+
+  const suggestionGlobsPending = $derived(suggestionGlobs.filter((g) => !ignoreGlobs.includes(g)))
+  const canApplySuggestions = $derived(selectedCount > 0 || suggestionGlobsPending.length > 0)
+
+  const driveSuggestHumanSkipsLine = $derived.by(() => {
+    const trimmed = suggestionSummary.trim()
+    if (trimmed) return trimmed
+    if (suggestionGlobsPending.length > 0) return DRIVE_SKIP_FALLBACK_SUMMARY
+    return ''
+  })
 </script>
 
 <section class="drive-section" aria-labelledby="drive-folders-heading">
@@ -380,7 +399,7 @@
     <div class="drive-suggest-panel">
       <div class="drive-suggest-header">
         <Sparkles size={14} aria-hidden="true" />
-        <span class="drive-suggest-title">AI Suggestions</span>
+        <span class="drive-suggest-title">Suggested folders</span>
         <button
           type="button"
           class="hub-icon-btn drive-suggest-close"
@@ -397,18 +416,27 @@
           {#each suggestions as s (s.id)}
             {@const checked = suggestSelected.has(s.id)}
             {@const alreadyAdded = roots.some((r) => r.id === s.id)}
-            <li class="drive-suggest-row" class:drive-suggest-row--skip={!checked}>
-              <label class="drive-suggest-label">
+            <li
+              class="drive-suggest-row"
+              class:drive-suggest-row--skip={!alreadyAdded && !checked}
+              class:drive-suggest-row--inactive={alreadyAdded}
+            >
+              <label class="drive-suggest-label" class:drive-suggest-label--inactive={alreadyAdded}>
                 <input
                   type="checkbox"
                   class="drive-suggest-sr-input"
                   checked={checked}
                   disabled={alreadyAdded}
+                  aria-label={alreadyAdded
+                    ? `${s.name}, already in your folders`
+                    : `${checked ? 'Deselect' : 'Select'} ${s.name}`}
                   onchange={() => toggleSuggestion(s.id)}
                 />
                 <span class="drive-suggest-check" aria-hidden="true">
                   {#if alreadyAdded}
-                    <span class="drive-suggest-added">Already added</span>
+                    <span class="drive-suggest-marker drive-suggest-marker--added">
+                      <Check size={12} aria-hidden="true" strokeWidth={2.5} />
+                    </span>
                   {:else if checked}
                     <span class="drive-suggest-marker drive-suggest-marker--on">✓</span>
                   {:else}
@@ -418,7 +446,7 @@
                 <span class="drive-suggest-info">
                   <span class="drive-suggest-folder-name">{s.name}</span>
                   {#if s.reason}
-                    <span class="drive-suggest-reason">— {s.reason}</span>
+                    <span class="drive-suggest-reason">{s.reason}</span>
                   {/if}
                 </span>
               </label>
@@ -426,22 +454,41 @@
           {/each}
         </ul>
         {#if suggestionGlobs.length > 0}
-          <p class="drive-suggest-globs">
-            Suggested ignore patterns: <code>{suggestionGlobs.join(', ')}</code>
-          </p>
+          {#if suggestionGlobsPending.length > 0}
+            {#if driveSuggestHumanSkipsLine}
+              <p class="drive-suggest-hint">{driveSuggestHumanSkipsLine}</p>
+            {/if}
+            <details class="drive-suggest-details">
+              <summary class="drive-suggest-details-summary">Technical patterns (optional)</summary>
+              <p class="drive-suggest-details-note">
+                These are merged into <strong>Ignore patterns</strong> under Advanced when you apply.
+              </p>
+              <pre class="drive-suggest-patterns">{suggestionGlobs.join('\n')}</pre>
+            </details>
+          {:else}
+            <p class="drive-suggest-hint-muted">Suggested file skips are already in your ignore list.</p>
+          {/if}
         {/if}
         <div class="drive-suggest-footer">
           <button
             type="button"
             class="hub-dialog-btn hub-dialog-btn-primary drive-action-btn"
-            disabled={saveBusy || selectedCount === 0}
+            disabled={saveBusy || !canApplySuggestions}
             onclick={() => void applySuggestions()}
           >
             {#if saveBusy}
               <RefreshCw size={14} aria-hidden="true" class="drive-spin" />
               Applying…
             {:else}
-              Apply{selectedCount > 0 ? ` ${selectedCount} folder${selectedCount !== 1 ? 's' : ''}` : ''}
+              {#if selectedCount > 0 && suggestionGlobsPending.length > 0}
+                Apply · {selectedCount} folder{selectedCount !== 1 ? 's' : ''} and file skips
+              {:else if selectedCount > 0}
+                Apply {selectedCount} folder{selectedCount !== 1 ? 's' : ''}
+              {:else if suggestionGlobsPending.length > 0}
+                Apply file skips
+              {:else}
+                Apply
+              {/if}
             {/if}
           </button>
           <button
@@ -795,11 +842,19 @@
     opacity: 0.6;
   }
 
+  .drive-suggest-row--inactive {
+    opacity: 0.95;
+  }
+
   .drive-suggest-label {
     display: flex;
     align-items: flex-start;
     gap: 0.55rem;
     cursor: pointer;
+  }
+
+  .drive-suggest-label--inactive {
+    cursor: default;
   }
 
   .drive-suggest-sr-input {
@@ -828,7 +883,7 @@
     justify-content: center;
     width: 1.25rem;
     height: 1.25rem;
-    border-radius: 50%;
+    border-radius: 4px;
     box-sizing: border-box;
     font-size: 0.75rem;
   }
@@ -836,16 +891,17 @@
   .drive-suggest-marker--on {
     background: var(--accent, #6366f1);
     color: white;
+    border-radius: 4px;
   }
 
   .drive-suggest-marker--off {
     border: 2px solid color-mix(in srgb, var(--text) 26%, transparent);
   }
 
-  .drive-suggest-added {
-    font-size: 0.7rem;
+  .drive-suggest-marker--added {
+    background: color-mix(in srgb, var(--text) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
     color: var(--text-2);
-    white-space: nowrap;
   }
 
   .drive-suggest-info {
@@ -866,15 +922,59 @@
     line-height: 1.35;
   }
 
-  .drive-suggest-globs {
+  .drive-suggest-hint {
     margin: 0;
     font-size: 0.8rem;
     color: var(--text-2);
+    line-height: 1.42;
   }
 
-  .drive-suggest-globs code {
+  .drive-suggest-hint-muted {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-2);
+    line-height: 1.42;
+    font-style: italic;
+  }
+
+  .drive-suggest-details {
+    font-size: 0.78rem;
+    color: var(--text-2);
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    padding: 0.35rem 0.5rem;
+    background: color-mix(in srgb, var(--bg) 85%, var(--text));
+  }
+
+  .drive-suggest-details-summary {
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text);
+    user-select: none;
+    list-style-position: outside;
+    padding-inline: 0.1rem;
+  }
+
+  .drive-suggest-details-note {
+    margin: 0.35rem 0 0;
+    font-size: 0.76rem;
+    line-height: 1.38;
+    color: var(--text-2);
+  }
+
+  .drive-suggest-patterns {
+    margin: 0.45rem 0 0;
+    padding: 0.35rem 0.45rem;
     font-family: var(--font-mono, monospace);
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 9rem;
+    overflow: auto;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--bg-2, var(--bg)) 94%, var(--text));
+    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
   }
 
   .drive-suggest-footer {
