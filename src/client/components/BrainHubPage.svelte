@@ -5,7 +5,8 @@
   import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import { subscribe } from '@client/lib/app/appEvents.js'
-  import { wikiPathParentDir } from '@client/lib/wikiPathDisplay.js'
+  import { wikiVaultPathDisplayName } from '@client/lib/wikiFileNameLabels.js'
+  import WikiFileName from './WikiFileName.svelte'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import HubSourceRowBody from './HubSourceRowBody.svelte'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
@@ -49,11 +50,6 @@
 
   const wikiPageCount = $derived(wikiDoc != null ? wikiDoc.pageCount : docCount)
 
-  function wikiPathBasename(rel: string): string {
-    const parts = rel.replace(/\\/g, '/').split('/').filter(Boolean)
-    return parts[parts.length - 1] ?? rel
-  }
-
   async function fetchWikiRecentEditsList(): Promise<{ path: string; date: string }[]> {
     try {
       const histRes = await fetch('/api/wiki/edit-history?limit=5')
@@ -96,7 +92,7 @@
   const wikiHubSub = $derived.by(() => {
     if (!wikiDoc) return 'Loading status…'
     const last = wikiDoc.lastWikiPath?.trim()
-    const lastLine = last ? `Last: ${wikiPathBasename(last)}` : null
+    const lastLine = last ? `Last: ${wikiVaultPathDisplayName(last)}` : null
 
     switch (wikiPhase) {
       case 'starting':
@@ -366,19 +362,18 @@
           <div class="wiki-recent-block" aria-label="Recent wiki edits">
             <p class="wiki-recent-label">Recent edits</p>
             {#each wikiRecentEdits as f (f.path)}
-              {@const parentDir = wikiPathParentDir(f.path)}
               <button
                 type="button"
                 class="link-item hub-source-row wiki-recent-row"
                 onclick={() => onHubNavigate({ type: 'wiki', path: f.path })}
               >
                 <div class="link-info wiki-recent-row-main">
-                  <HubSourceRowBody
-                    title={wikiPathBasename(f.path)}
-                    subtitle={parentDir ?? 'Wiki root'}
-                  >
+                  <HubSourceRowBody subtitle="">
                     {#snippet icon()}
-                      <FileText size={16} />
+                      <FileText size={16} aria-hidden="true" />
+                    {/snippet}
+                    {#snippet titleContent()}
+                      <WikiFileName path={f.path} />
                     {/snippet}
                   </HubSourceRowBody>
                 </div>

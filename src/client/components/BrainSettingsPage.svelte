@@ -29,7 +29,12 @@
   } from '@client/lib/chatToolDisplayPreference.js'
   import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
   import ConfirmDialog from './ConfirmDialog.svelte'
+  import WikiShareDialog from './WikiShareDialog.svelte'
+  import WikiFileName from './WikiFileName.svelte'
   import HubSourceRowBody from './HubSourceRowBody.svelte'
+  import { wikiShareVaultPathForWikiFileName } from '@client/lib/wikiPathDisplay.js'
+  import { wikiVaultPathDisplayName } from '@client/lib/wikiFileNameLabels.js'
+  import { MY_WIKI_URL_SEGMENT } from '@client/lib/wikiDirListModel.js'
   import {
     sourceKindLabel,
     type HubRipmailSourceRow,
@@ -67,6 +72,9 @@
   let shareLoadError = $state<string | null>(null)
   let shareAcceptBusyId = $state<string | null>(null)
   let shareRevokeBusyId = $state<string | null>(null)
+  let manageShareOpen = $state(false)
+  let manageSharePathPrefix = $state('')
+  let manageShareTargetKind = $state<'dir' | 'file'>('dir')
 
   function onChatToolDisplayPrefChange(mode: ChatToolDisplayMode) {
     chatToolDisplayMode = mode
@@ -241,10 +249,51 @@
     })
   }
 
-  function sharePathLabel(row: WikiShareApiRow): string {
-    const p = row.pathPrefix.trim().replace(/\\/g, '/')
-    if (row.targetKind === 'file') return p
-    return p.endsWith('/') ? p.slice(0, -1) || '(wiki root)' : p
+  function openManageOwnedShare(row: WikiShareApiRow) {
+    manageSharePathPrefix = row.pathPrefix
+    manageShareTargetKind = row.targetKind
+    manageShareOpen = true
+  }
+
+  function closeManageOwnedShare() {
+    manageShareOpen = false
+  }
+
+  function sharePathForFileName(row: WikiShareApiRow): string {
+    return wikiShareVaultPathForWikiFileName({
+      pathPrefix: row.pathPrefix,
+      targetKind: row.targetKind,
+    })
+  }
+
+  function normalizeShareRowPathPrefix(row: WikiShareApiRow): string {
+    return row.pathPrefix.trim().replace(/^\/+/, '').replace(/\\/g, '/').replace(/\/+/g, '/')
+  }
+
+  /** Open the owner’s vault wiki for an outgoing share row (Settings detail / SlideOver). */
+  function openOwnedShareInPanel(row: WikiShareApiRow): void {
+    const p = normalizeShareRowPathPrefix(row)
+    if (row.targetKind === 'file') {
+      onSettingsNavigate({ type: 'wiki', path: p })
+      return
+    }
+    const dir = p.replace(/\/+$/, '')
+    onSettingsNavigate({
+      type: 'wiki-dir',
+      path: dir.length > 0 ? dir : MY_WIKI_URL_SEGMENT,
+    })
+  }
+
+  function shareRowOpenWikiLabel(row: WikiShareApiRow): string {
+    const head = wikiVaultPathDisplayName(sharePathForFileName(row))
+    return row.targetKind === 'file' ? `Open page: ${head}` : `Open folder: ${head}`
+  }
+
+  /** Open another user’s shared path (incoming / invitation preview). */
+  function shareIncomingOpenWikiLabel(row: WikiShareApiRow): string {
+    const head = wikiVaultPathDisplayName(sharePathForFileName(row))
+    const kind = row.targetKind === 'file' ? 'page' : 'folder'
+    return `Open shared ${kind} (@${row.ownerHandle}): ${head}`
   }
 
   onMount(() => {
@@ -489,7 +538,20 @@
             {#each sharePending as row (row.id)}
               <li class="settings-share-row">
                 <div class="settings-share-main">
-                  <span class="settings-share-path" translate="no"><code>{sharePathLabel(row)}</code></span>
+                  <span class="settings-share-path" translate="no">
+                    {#if onNavigateToSharedWiki}
+                      <button
+                        type="button"
+                        class="settings-share-wiki-link"
+                        onclick={() => openReceivedShare(row)}
+                        aria-label={shareIncomingOpenWikiLabel(row)}
+                      >
+                        <WikiFileName path={sharePathForFileName(row)} />
+                      </button>
+                    {:else}
+                      <WikiFileName path={sharePathForFileName(row)} />
+                    {/if}
+                  </span>
                   <span class="settings-share-meta">From @{row.ownerHandle} · {row.granteeEmail}</span>
                 </div>
                 <button
@@ -515,7 +577,20 @@
             {#each shareReceived as row (row.id)}
               <li class="settings-share-row">
                 <div class="settings-share-main">
-                  <span class="settings-share-path" translate="no"><code>{sharePathLabel(row)}</code></span>
+                  <span class="settings-share-path" translate="no">
+                    {#if onNavigateToSharedWiki}
+                      <button
+                        type="button"
+                        class="settings-share-wiki-link"
+                        onclick={() => openReceivedShare(row)}
+                        aria-label={shareIncomingOpenWikiLabel(row)}
+                      >
+                        <WikiFileName path={sharePathForFileName(row)} />
+                      </button>
+                    {:else}
+                      <WikiFileName path={sharePathForFileName(row)} />
+                    {/if}
+                  </span>
                   <span class="settings-share-meta">@{row.ownerHandle}</span>
                 </div>
                 <button type="button" class="settings-share-btn" onclick={() => openReceivedShare(row)}>
@@ -536,7 +611,16 @@
             {#each shareOwned as row (row.id)}
               <li class="settings-share-row">
                 <div class="settings-share-main">
-                  <span class="settings-share-path" translate="no"><code>{sharePathLabel(row)}</code></span>
+                  <span class="settings-share-path" translate="no">
+                    <button
+                      type="button"
+                      class="settings-share-wiki-link"
+                      onclick={() => openOwnedShareInPanel(row)}
+                      aria-label={shareRowOpenWikiLabel(row)}
+                    >
+                      <WikiFileName path={sharePathForFileName(row)} />
+                    </button>
+                  </span>
                   <span class="settings-share-meta">
                     → {row.granteeEmail}
                     {#if row.granteeId}
@@ -546,20 +630,37 @@
                     {/if}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  class="settings-share-btn settings-share-btn-danger"
-                  disabled={shareRevokeBusyId !== null}
-                  onclick={() => void revokeOwnedShare(row)}
-                >
-                  {shareRevokeBusyId === row.id ? 'Revoking…' : 'Revoke'}
-                </button>
+                <div class="settings-share-actions">
+                  <button
+                    type="button"
+                    class="settings-share-btn"
+                    onclick={() => openManageOwnedShare(row)}
+                  >
+                    Manage
+                  </button>
+                  <button
+                    type="button"
+                    class="settings-share-btn settings-share-btn-danger"
+                    disabled={shareRevokeBusyId !== null}
+                    onclick={() => void revokeOwnedShare(row)}
+                  >
+                    {shareRevokeBusyId === row.id ? 'Revoking…' : 'Revoke'}
+                  </button>
+                </div>
               </li>
             {/each}
           </ul>
         {/if}
       </div>
     </section>
+
+    <WikiShareDialog
+      open={manageShareOpen}
+      pathPrefix={manageSharePathPrefix}
+      targetKind={manageShareTargetKind}
+      onDismiss={closeManageOwnedShare}
+      onSharesChanged={() => void loadWikiShares()}
+    />
 
     <section class="settings-section" aria-labelledby="settings-chat-prefs-heading">
       <div class="section-header">
@@ -950,9 +1051,43 @@
     min-width: 0;
   }
 
-  .settings-share-path code {
+  .settings-share-path {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
     font-size: 0.8125rem;
-    word-break: break-all;
+  }
+
+  .settings-share-wiki-link {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+
+  .settings-share-wiki-link:hover {
+    color: var(--accent);
+  }
+
+  .settings-share-wiki-link:hover :global(.wfn-name),
+  .settings-share-wiki-link:hover :global(.wfn-folder) {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .settings-share-wiki-link:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    outline-offset: 2px;
   }
 
   .settings-share-meta {
@@ -976,6 +1111,15 @@
   .settings-share-pill-muted {
     background: var(--bg-3);
     color: var(--text-2);
+  }
+
+  .settings-share-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    flex-shrink: 0;
   }
 
   .settings-share-btn {

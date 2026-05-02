@@ -327,4 +327,126 @@ describe('BrainSettingsPage.svelte', () => {
     expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument()
     expect(screen.getByText(/@alice/i)).toBeInTheDocument()
   })
+
+  it('Sharing owned row Manage opens WikiShare dialog for that path', async () => {
+    const ownedFileRow = {
+      id: 'wsh_own_file',
+      ownerId: 'usr_me',
+      ownerHandle: 'me',
+      granteeEmail: 'cirne@gamaliel.ai',
+      granteeId: null as string | null,
+      pathPrefix: 'travel/virginia-trip-2026.md',
+      targetKind: 'file' as const,
+      createdAtMs: Date.now(),
+      acceptedAtMs: null,
+      revokedAtMs: null,
+    }
+    vi.spyOn(wikiSharesClient, 'fetchWikiSharesList').mockResolvedValue({
+      owned: [ownedFileRow],
+      received: [],
+      pendingReceived: [],
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const u = requestUrlString(input)
+        const method = (init?.method ?? 'GET').toUpperCase()
+        const pathname = new URL(u, 'http://localhost.test').pathname
+        const wikiSharesListGet = pathname === '/api/wiki-shares' && method === 'GET'
+
+        if (u.includes('/api/hub/sources/mail-prefs')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
+              { status: 200 },
+            ),
+          )
+        }
+        if (u.includes('/api/hub/sources')) {
+          return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
+        }
+        if (wikiSharesListGet) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ owned: [ownedFileRow], received: [], pendingReceived: [] }), {
+              status: 200,
+            }),
+          )
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }) as unknown as typeof fetch,
+    )
+
+    render(BrainSettingsPage, {
+      props: { onSettingsNavigate: vi.fn() },
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Manage' })).toBeInTheDocument()
+    })
+    await fireEvent.click(screen.getByRole('button', { name: 'Manage' }))
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: 'Share wiki page' })).toBeInTheDocument()
+      expect(screen.getByText('People with access')).toBeInTheDocument()
+    })
+  })
+
+  it('What you’ve shared title navigates to local wiki file in settings overlay', async () => {
+    const ownedFileRow = {
+      id: 'wsh_own_nav',
+      ownerId: 'usr_me',
+      ownerHandle: 'me',
+      granteeEmail: 'peer@example.com',
+      granteeId: 'usr_peer' as string | null,
+      pathPrefix: 'travel/virginia-trip-2026.md',
+      targetKind: 'file' as const,
+      createdAtMs: Date.now(),
+      acceptedAtMs: Date.now(),
+      revokedAtMs: null,
+    }
+    vi.spyOn(wikiSharesClient, 'fetchWikiSharesList').mockResolvedValue({
+      owned: [ownedFileRow],
+      received: [],
+      pendingReceived: [],
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const u = requestUrlString(input)
+        const method = (init?.method ?? 'GET').toUpperCase()
+        const pathname = new URL(u, 'http://localhost.test').pathname
+        const wikiSharesListGet = pathname === '/api/wiki-shares' && method === 'GET'
+        if (u.includes('/api/hub/sources/mail-prefs')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
+              { status: 200 },
+            ),
+          )
+        }
+        if (u.includes('/api/hub/sources')) {
+          return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
+        }
+        if (wikiSharesListGet) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ owned: [ownedFileRow], received: [], pendingReceived: [] }), {
+              status: 200,
+            }),
+          )
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }) as unknown as typeof fetch,
+    )
+
+    const onSettingsNavigate = vi.fn()
+    render(BrainSettingsPage, {
+      props: { onSettingsNavigate, onNavigateToSharedWiki: vi.fn() },
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^open page:/i })).toBeInTheDocument()
+    })
+    await fireEvent.click(screen.getByRole('button', { name: /^open page:/i }))
+    expect(onSettingsNavigate).toHaveBeenCalledWith({
+      type: 'wiki',
+      path: 'travel/virginia-trip-2026.md',
+    })
+  })
 })

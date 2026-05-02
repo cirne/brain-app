@@ -32,32 +32,61 @@
     panelClass,
   }: Props = $props()
 
-  function onWindowKeydown(e: KeyboardEvent) {
-    if (!open) return
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      onDismiss()
+  /** Non-null while `{#if open}` — synced with `.showModal()` for top-layer stacking above split panes. */
+  let dialogEl = $state<HTMLDialogElement | null>(null)
+
+  $effect(() => {
+    const el = dialogEl
+    if (!el || !open) return
+
+    function openModal() {
+      if (typeof el.showModal === 'function') {
+        try {
+          el.showModal()
+          return
+        } catch {
+          /* allow without transient user gesture in strict hosts */
+        }
+      }
+      el.setAttribute('open', '')
     }
+
+    if (!el.open) openModal()
+  })
+
+  function onDialogCancel(e: Event) {
+    e.preventDefault()
+    onDismiss()
+  }
+
+  function onBackdropClick() {
+    onDismiss()
+  }
+
+  function onPanelClick(e: MouseEvent) {
+    e.stopPropagation()
   }
 </script>
 
-<svelte:window onkeydown={onWindowKeydown} />
-
 {#if open}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div
-    class="cd-backdrop"
-    onclick={onDismiss}
-    role="presentation"
+  <!--
+    Native `<dialog>` + showModal(): browser top layer, above sibling stacking contexts (e.g. chat vs detail pane).
+    See https://developer.mozilla.org/en-US/docs/Web/API/HTMLDialogElement/showModal
+  -->
+  <dialog
+    bind:this={dialogEl}
+    class="cd-modal-shell"
+    aria-modal="true"
+    aria-labelledby={titleId}
+    oncancel={onDialogCancel}
   >
-    <div
-      class={['cd-panel', panelClass].filter(Boolean).join(' ')}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      tabindex="-1"
-      onclick={(e) => e.stopPropagation()}
-    >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="cd-backdrop" role="presentation" onclick={onBackdropClick}></div>
+
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class={['cd-panel', panelClass].filter(Boolean).join(' ')} onclick={onPanelClick}>
       <h2 id={titleId} class="cd-title">{title}</h2>
       <div class="cd-body">
         {@render children()}
@@ -80,26 +109,50 @@
         {/if}
       </div>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 <style>
-  /* Token-based (no Tailwind) so the modal always matches app chrome in any host / scan order. */
-  .cd-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 400;
+  .cd-modal-shell {
+    margin: 0;
+    padding: 1rem;
+    border: none;
+    max-width: none;
+    max-height: none;
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    max-height: 100vh;
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+    background: transparent;
+    position: fixed;
+    inset: 0;
+  }
+
+  /* Top-layer dimming (modal); covers the viewport including high-z split panes */
+  .cd-modal-shell::backdrop {
     background: rgba(0, 0, 0, 0.45);
-    padding: 1rem;
-    box-sizing: border-box;
+    pointer-events: none;
+  }
+
+  /* Click target “outside” the card (transparent; ::backdrop receives no pointer events above some browsers) */
+  .cd-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    cursor: pointer;
   }
 
   .cd-panel {
+    position: relative;
+    z-index: 1;
     width: 100%;
     max-width: 22rem;
+    cursor: auto;
     border-radius: 10px;
     border: 1px solid var(--border);
     background: var(--bg);
@@ -150,7 +203,10 @@
     border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
-    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+    transition:
+      background 0.1s ease,
+      border-color 0.1s ease,
+      color 0.1s ease;
   }
 
   .cd-btn:hover {
@@ -193,7 +249,10 @@
     border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
-    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+    transition:
+      background 0.1s ease,
+      border-color 0.1s ease,
+      color 0.1s ease;
   }
 
   .cd-panel :global(button.cd-btn--primary) {

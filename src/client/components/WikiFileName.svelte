@@ -2,6 +2,7 @@
   import { BookOpen, User } from 'lucide-svelte'
   import { getDirIcon, SpecialFileIcon } from '@client/lib/dirIcons.js'
   import { isWikiRootIndexPath } from '@client/lib/wikiPathDisplay.js'
+  import { wikiVaultPathDisplayName } from '@client/lib/wikiFileNameLabels.js'
 
   let { path, unsaved = false }: { path: string; unsaved?: boolean } = $props()
 
@@ -20,18 +21,7 @@
   // _ prefix marks system/special pages (but not _index files with a folder)
   const isSpecial = $derived(name.startsWith('_') && !(isIndex && folder))
 
-  // Display: strip leading _, convert hyphen-case to Title Case
-  const displayName = $derived.by(() => {
-    if (isIndex && folder) {
-      // _index.md or index.md in a folder → show folder name (last segment)
-      const seg = folderKey.split('/').pop() || folderKey
-      return seg.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-    }
-    if (isWikiRootIndexPath(path)) return 'My Wiki'
-    if (isIndex) return 'Index'
-    const base = isSpecial ? name.slice(1) : name
-    return base.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-  })
+  const displayName = $derived(wikiVaultPathDisplayName(path))
 
   let IconComponent = $state<import('svelte').ComponentType<any> | null>(null)
 
