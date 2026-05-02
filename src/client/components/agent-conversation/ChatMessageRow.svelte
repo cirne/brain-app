@@ -48,12 +48,20 @@
   )
 </script>
 
-<div class="message {msg.role}">
+<div
+  class={[
+    'message mb-5 box-border w-full min-w-0 max-w-[min(800px,100%)]',
+    msg.role,
+    msg.role === 'user' && 'border-l-2 border-border pl-2.5 opacity-70',
+  ]}
+>
   {#if msg.role === 'user'}
-    <div class="msg-label">You</div>
-    <div class="msg-content user-content">{msg.content}</div>
+    <div class="msg-label mb-1 text-[11px] font-semibold tracking-[0.05em] text-muted uppercase">You</div>
+    <div class="msg-content user-content whitespace-pre-wrap text-sm leading-[1.5] text-foreground max-md:text-base">
+      {msg.content}
+    </div>
   {:else}
-    <div class="msg-label">Assistant</div>
+    <div class="msg-label mb-1 text-[11px] font-semibold tracking-[0.05em] text-muted uppercase">Assistant</div>
 
     {#each msg.parts ?? [] as part, j (j)}
       {#if part.type === 'tool' && getToolUiPolicy(part.toolCall.name).showInChat}
@@ -76,54 +84,13 @@
     {/each}
 
     {#if showPreTextThinking}
-      <div class="msg-content thinking-block" role="status" aria-label="Assistant is working">
+      <div
+        class="msg-content thinking-block flex min-h-[1.1em] items-center text-muted"
+        role="status"
+        aria-label="Assistant is working"
+      >
         <StreamingBusyDots />
       </div>
     {/if}
   {/if}
 </div>
-
-<style>
-  .message {
-    margin-bottom: 20px;
-    max-width: min(800px, 100%);
-    min-width: 0;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .message.user {
-    border-left: 2px solid var(--border);
-    padding-left: 10px;
-    opacity: 0.7;
-  }
-
-  .msg-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-2);
-    margin-bottom: 4px;
-  }
-
-  .user-content {
-    color: var(--text);
-    white-space: pre-wrap;
-    font-size: 14px;
-    line-height: 1.5;
-  }
-
-  @media (max-width: 768px) {
-    .user-content {
-      font-size: 1rem;
-    }
-  }
-
-  .thinking-block {
-    display: flex;
-    align-items: center;
-    color: var(--text-2);
-    min-height: 1.1em;
-  }
-</style>

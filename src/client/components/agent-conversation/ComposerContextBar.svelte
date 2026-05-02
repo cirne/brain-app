@@ -19,22 +19,29 @@
   } = $props()
 
   const show = $derived(files.length > 0 || choices.length > 0)
+
+  const chipClass =
+    'composer-context-chip inline-flex max-w-full items-center gap-[0.35rem] rounded-full border border-border px-[0.55rem] py-[0.2rem] font-[inherit] text-xs leading-[1.25] transition-[border-color,background,box-shadow] duration-[180ms] ease-in-out disabled:cursor-not-allowed disabled:opacity-[0.55] max-md:min-h-11 max-md:gap-[0.45rem] max-md:px-3 max-md:py-[0.35rem] max-md:text-sm max-md:leading-[1.3]'
 </script>
 
 {#if show}
   <div
-    class="composer-context-bar"
+    class="composer-context-bar relative min-h-0 shrink-0 bg-[color-mix(in_srgb,var(--bg-2,#111)_30%,transparent)] px-3 pt-0 pb-2 pointer-events-auto max-md:pb-2.5"
     role="toolbar"
     aria-label="Referenced pages and suggested replies"
     data-testid="composer-context-bar"
   >
     {#if files.length > 0}
-      <div class="composer-context-bar__refs-wrap">
-        <div class="composer-context-bar__refs" role="group" aria-label="Referenced pages">
+      <div class="composer-context-bar__refs-wrap overflow-hidden">
+        <div
+          class="composer-context-bar__refs flex max-w-full flex-nowrap items-center gap-x-2 gap-y-1.5 overflow-x-auto [scrollbar-width:none] [-webkit-overflow-scrolling:touch] max-md:gap-x-2.5 max-md:gap-y-2"
+          role="group"
+          aria-label="Referenced pages"
+        >
           {#each files as path (path)}
             <button
               type="button"
-              class="composer-context-chip composer-context-chip--doc"
+              class={[chipClass, 'composer-context-chip--doc shrink-0 bg-surface-3 text-inherit']}
               onclick={() => onOpenWiki?.(path)}
             >
               <WikiFileName {path} />
@@ -45,20 +52,36 @@
     {/if}
 
     {#if choices.length > 0}
-      <div class="composer-context-bar__actions" role="group" aria-label="Suggested replies">
+      <div
+        class={[
+          'composer-context-bar__actions flex max-w-full flex-wrap items-center gap-x-2 gap-y-1.5 max-md:gap-x-2.5 max-md:gap-y-2',
+          files.length > 0 && 'mt-1.5',
+        ]}
+        role="group"
+        aria-label="Suggested replies"
+      >
         {#each choices as c, idx (c.id ?? `${idx}-${c.label}`)}
           <button
             type="button"
-            class="composer-context-chip composer-context-chip--action"
+            class={[chipClass, 'composer-context-chip--action bg-accent-dim']}
             disabled={choicesDisabled || !onChoice}
             onclick={() => onChoice?.(c)}
           >
-            <span class="composer-context-chip__label">{c.label}</span>
-            <span class="composer-context-chip__icon-slot" aria-hidden="true">
-              <span class="composer-context-chip__icon composer-context-chip__icon--arrow">
+            <span class="composer-context-chip__label min-w-0 max-w-56 overflow-hidden text-ellipsis whitespace-nowrap">
+              {c.label}
+            </span>
+            <span
+              class="composer-context-chip__icon-slot relative h-[var(--composer-context-icon-size,12px)] w-[var(--composer-context-icon-size,12px)] shrink-0 max-md:[--composer-context-icon-size:14px]"
+              aria-hidden="true"
+            >
+              <span
+                class="composer-context-chip__icon composer-context-chip__icon--arrow pointer-events-none absolute inset-0 inline-flex items-center justify-center opacity-60 transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.34,1.2,0.64,1)]"
+              >
                 <ArrowRight size={12} strokeWidth={2.5} />
               </span>
-              <span class="composer-context-chip__icon composer-context-chip__icon--sparkle">
+              <span
+                class="composer-context-chip__icon composer-context-chip__icon--sparkle pointer-events-none absolute inset-0 inline-flex scale-[0.88] items-center justify-center opacity-0 transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.34,1.2,0.64,1)]"
+              >
                 <Sparkles size={12} strokeWidth={2.25} />
               </span>
             </span>
@@ -70,35 +93,12 @@
 {/if}
 
 <style>
-  .composer-context-bar {
-    /* Positioned by the .context-bar-overlay wrapper in AgentChat; this element fills that box */
-    position: relative;
-    flex-shrink: 0;
-    background: color-mix(in srgb, var(--bg-2, #111) 30%, transparent);
-    /* Match `AgentInput` .input-area horizontal padding (12px) so chips align with the shell */
-    padding: 0 12px 0.5rem;
-    min-height: 0;
-    pointer-events: auto;
-  }
-
-  .composer-context-bar__refs-wrap {
-    overflow: hidden;
-  }
-
   /**
    * Fade the right edge of the refs row (alpha mask), not a solid overlay — avoids wrong
    * theme colors: `--color-background` / `--color-surface-1` are not defined in style.css,
    * so the old gradient fell through to `#111` and looked black in light mode.
    */
   .composer-context-bar__refs {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 0.375rem 0.5rem;
-    max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
     -webkit-mask-image: linear-gradient(
       to right,
       #000 0%,
@@ -112,47 +112,6 @@
     display: none;
   }
 
-  .composer-context-bar__actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.375rem 0.5rem;
-    max-width: 100%;
-  }
-
-  .composer-context-bar__actions:not(:first-child) {
-    margin-top: 0.375rem;
-  }
-
-  .composer-context-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    max-width: 100%;
-    border-radius: 9999px;
-    border: 1px solid var(--color-border, #333);
-    padding: 0.2rem 0.55rem;
-    font: inherit;
-    font-size: 0.75rem;
-    line-height: 1.25;
-    cursor: pointer;
-    transition:
-      border-color 0.18s ease,
-      background 0.18s ease,
-      box-shadow 0.18s ease;
-  }
-
-  .composer-context-chip:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-  }
-
-  .composer-context-chip--doc {
-    background: var(--color-surface-3, #2a2a2a);
-    color: inherit;
-    flex-shrink: 0;
-  }
-
   /** Doc chips: hover = ring/outline only so they stay visually distinct from accent-filled actions. */
   .composer-context-chip--doc:hover:not(:disabled) {
     background: var(--color-surface-3, #2a2a2a);
@@ -163,7 +122,6 @@
   }
 
   .composer-context-chip--action {
-    background: var(--color-accent-dim, rgba(100, 200, 255, 0.1));
     border-color: color-mix(in srgb, var(--color-accent, #6cf) 35%, var(--color-border, #333));
   }
 
@@ -172,42 +130,13 @@
     background: color-mix(in srgb, var(--color-accent-dim, rgba(100, 200, 255, 0.15)) 100%, transparent);
   }
 
-  /**
-   * Single fixed box: arrow by default, sparkle on hover/focus — same footprint so the chip width
-   * does not change.
-   */
-  .composer-context-chip__icon-slot {
-    position: relative;
-    flex-shrink: 0;
-    width: var(--composer-context-icon-size, 12px);
-    height: var(--composer-context-icon-size, 12px);
-  }
-
-  .composer-context-chip__icon {
-    position: absolute;
-    inset: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    transition:
-      opacity 0.2s ease,
-      transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
-  }
-
   .composer-context-chip__icon :global(svg) {
     display: block;
     width: 100%;
     height: 100%;
   }
 
-  .composer-context-chip__icon--arrow {
-    opacity: 0.6;
-  }
-
   .composer-context-chip__icon--sparkle {
-    opacity: 0;
-    transform: scale(0.88);
     color: color-mix(in srgb, var(--color-accent, #6cf) 75%, var(--color-foreground, #fff));
     filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent, #6cf) 35%, transparent));
   }
@@ -244,35 +173,4 @@
     }
   }
 
-  .composer-context-chip__label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 14rem;
-  }
-
-  /* Finger-sized targets on small viewports only (matches `--tab-h` / mobile :root tweaks in style.css). */
-  @media (max-width: 768px) {
-    .composer-context-bar {
-      padding-bottom: 0.625rem;
-    }
-
-    .composer-context-bar__refs,
-    .composer-context-bar__actions {
-      gap: 0.5rem 0.625rem;
-    }
-
-    .composer-context-chip {
-      min-height: 44px;
-      padding: 0.35rem 0.75rem;
-      font-size: 0.875rem;
-      line-height: 1.3;
-      gap: 0.45rem;
-    }
-
-    .composer-context-chip__icon-slot {
-      --composer-context-icon-size: 14px;
-    }
-  }
 </style>
