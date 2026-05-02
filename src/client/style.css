@@ -4,10 +4,56 @@
 @import "./styles/onboarding/onboardingActivityTranscript.css";
 @import "./styles/onboarding/OnboardingView.css";
 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/*
+ * Cascade: unlayered rules override @layer utilities (Tailwind). Keep foundation
+ * resets in @layer base so spacing/typography utilities win — see docs/architecture/tailwind-migration.md §§2–3.
+ */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body, #app {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+  }
+
+  button {
+    cursor: pointer;
+    font: inherit;
+    border: none;
+    background: none;
+    color: inherit;
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-2);
+  }
 }
 
 /* Light mode (default) */
@@ -58,47 +104,6 @@
   }
 }
 
-html, body, #app {
-  height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  overflow: hidden;
-}
-
-button {
-  cursor: pointer;
-  font: inherit;
-  border: none;
-  background: none;
-  color: inherit;
-}
-
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-2);
-}
-
 /* Sync icon (top nav + slide-over) — single animation */
 @keyframes spin-sync {
   from { transform: rotate(0deg); }
@@ -127,20 +132,23 @@ svg.sync-spinning {
   }
 }
 
-/**
- * Transcript scroll: main assistant + onboarding profiling/seeding (shared padding + column width).
- */
-.chat-transcript-scroll {
-  box-sizing: border-box;
-  padding: var(--chat-transcript-pt) var(--chat-transcript-px) var(--chat-transcript-pb);
-}
+@layer components {
+  /**
+   * Transcript scroll: main assistant + onboarding profiling/seeding (shared padding + column width).
+   * Layered so utilities can win on descendant nodes — tailwind-migration.md § “Global CSS layering”.
+   */
+  .chat-transcript-scroll {
+    box-sizing: border-box;
+    padding: var(--chat-transcript-pt) var(--chat-transcript-px) var(--chat-transcript-pb);
+  }
 
-@media (min-width: 768px) {
-  .split:not(.has-detail) .chat-transcript-scroll {
-    max-width: var(--chat-column-max);
-    margin-left: auto;
-    margin-right: auto;
-    width: 100%;
+  @media (min-width: 768px) {
+    .split:not(.has-detail) .chat-transcript-scroll {
+      max-width: var(--chat-column-max);
+      margin-left: auto;
+      margin-right: auto;
+      width: 100%;
+    }
   }
 }
 

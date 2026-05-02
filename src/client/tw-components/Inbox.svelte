@@ -622,7 +622,7 @@
 
       {:else}
         <div
-          class="thread-body flex-[0_0_auto] overflow-visible p-4 [padding-bottom:calc(1rem+env(safe-area-inset-bottom,0px))]"
+          class="thread-body flex-[0_0_auto] overflow-visible p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
         >
           {#if threadLoading}
             <p class="loading text-sm text-muted">Loading...</p>
@@ -630,7 +630,7 @@
             <p class="thread-error m-0 text-sm leading-snug text-danger" role="alert">{threadLoadError}</p>
           {:else if threadContent}
             <div
-              class="thread-meta mb-4 flex flex-col gap-1 border-b border-border pb-4"
+              class="thread-meta mb-4 flex flex-col gap-1 rounded-lg bg-surface-2 px-4 py-3"
               aria-label="Message headers"
             >
               {#each emailHeadersForDisplay(threadContent.headers) as row (row.key)}
