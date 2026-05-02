@@ -49,22 +49,39 @@ export function vaultPathHasOutgoingShare(
   wikiRelPath: string,
   owned: readonly WikiOwnedShareRef[] | null | undefined,
 ): boolean {
-  if (!owned?.length) return false
-  for (const o of owned) {
-    const tk = o.targetKind ?? 'dir'
-    if (wikiShareCoversVaultPath(wikiRelPath, o.pathPrefix, tk)) return true
-  }
-  return false
+  return countOutgoingSharesForVaultPath(wikiRelPath, owned) > 0
 }
 
-/** Canonical URL segment for the virtual “My Wiki” folder (`/wiki/my-wiki/…`). */
-export const MY_WIKI_URL_SEGMENT = 'my-wiki'
+/**
+ * Number of outgoing share rows covering `wikiRelPath` (`GET /api/wiki` emits one owned ref per grantee row).
+ */
+export function countOutgoingSharesForVaultPath(
+  wikiRelPath: string,
+  owned: readonly WikiOwnedShareRef[] | null | undefined,
+): number {
+  if (!owned?.length) return 0
+  let n = 0
+  for (const o of owned) {
+    const tk = o.targetKind ?? 'dir'
+    if (wikiShareCoversVaultPath(wikiRelPath, o.pathPrefix, tk)) n += 1
+  }
+  return n
+}
+
+/** Canonical URL segment for the personal vault in unified browse (`/wiki/me/…`); legacy `my-wiki` still parses. */
+export const MY_WIKI_URL_SEGMENT = 'me'
 
 /** Virtual folder label at wiki browser root (local vault lives under this). */
 export const MY_WIKI_SEGMENT = 'My Wiki'
 
-/** @deprecated Agent virtual paths still use this string; browser UI uses `@handle` mounts. */
+/** Legacy browse root label; migrated to `@handle/…` paths. */
 export const SHARED_WITH_ME_SEGMENT = 'Shared with me'
+
+const LEGACY_MY_WIKI_URL_SEGMENT = 'my-wiki'
+
+function isPersonalBrowseRootSegment(seg: string): boolean {
+  return seg === MY_WIKI_URL_SEGMENT || seg === LEGACY_MY_WIKI_URL_SEGMENT || seg === MY_WIKI_SEGMENT
+}
 
 export type WikiDirListEntry =
   | { kind: 'my-wiki-root'; path: string; label: string }
@@ -110,14 +127,72 @@ export function normalizeWikiDirPath(dirPath: string | undefined): string {
 export function vaultRelativeDirFromWikiBrowseDir(dirPath: string | undefined): string | undefined {
   const d = normalizeWikiDirPath(dirPath)
   if (!d) return undefined
-  if (d === MY_WIKI_URL_SEGMENT || d === MY_WIKI_SEGMENT) return undefined
-  if (d.startsWith(`${MY_WIKI_URL_SEGMENT}/`)) {
-    return d.slice(MY_WIKI_URL_SEGMENT.length + 1) || undefined
-  }
-  if (d.startsWith(`${MY_WIKI_SEGMENT}/`)) {
-    return d.slice(MY_WIKI_SEGMENT.length + 1) || undefined
+  if (isPersonalBrowseRootSegment(d)) return undefined
+  const first = d.split('/')[0] ?? ''
+  if (isPersonalBrowseRootSegment(first)) {
+    return d.slice(first.length + 1) || undefined
   }
   return d || undefined
+}
+
+/**
+ * Parse unified browse paths (`me/…`, `@owner/…`) into vault-relative paths for API + overlays.
+ * Bare `me` / `my-wiki` / `My Wiki` map to empty vaultRelPath (vault root listing).
+ */
+export function parseUnifiedWikiBrowsePath(p: string): { shareHandle?: string; vaultRelPath: string } {
+  const t = normalizeWikiDirPath(p.replace(/^\.\/+/, ''))
+  if (!t) return { vaultRelPath: '' }
+  const parts = t.split('/').filter(Boolean)
+  const first = parts[0] ?? ''
+  if (first.startsWith('@')) {
+    const handle = first.slice(1).trim()
+    return { shareHandle: handle || undefined, vaultRelPath: parts.slice(1).join('/') }
+  }
+  if (isPersonalBrowseRootSegment(first)) {
+    return { vaultRelPath: parts.slice(1).join('/') }
+  }
+  return { vaultRelPath: t }
+}
+
+/**
+ * When listing a child of the current wiki-dir/wiki overlay, build a unified `me/…` or `@owner/…` path for navigation.
+ */
+export function mergeWikiBrowseChildPath(
+  parent: { type: string; path?: string; shareHandle?: string } | null | undefined,
+  child: string | undefined,
+): string | undefined {
+  if (child === undefined) return undefined
+  const c = child.trim()
+  if (!c) return ''
+  if (c.startsWith('@') || c.startsWith('me/') || c === 'me') return c
+  if (!parent || parent.type !== 'wiki-dir') return c
+  const sh = parent.shareHandle?.trim().replace(/^@+/, '')
+  if (sh) return `@${sh}/${c}`
+  const pp = normalizeWikiDirPath(parent.path ?? '')
+  if (pp === 'me' || pp === LEGACY_MY_WIKI_URL_SEGMENT || pp === MY_WIKI_SEGMENT || pp.startsWith('me/')) {
+    if (pp === 'me' || pp === LEGACY_MY_WIKI_URL_SEGMENT || pp === MY_WIKI_SEGMENT) return `me/${c}`
+    return `${pp}/${c}`
+  }
+  if (pp.startsWith(`${LEGACY_MY_WIKI_URL_SEGMENT}/`)) {
+    return `me/${pp.slice(LEGACY_MY_WIKI_URL_SEGMENT.length + 1)}/${c}`
+  }
+  return c
+}
+
+/** Prefix owner-relative list rows when browsing a share so clicks use `@handle/…` paths. */
+export function withUnifiedPeerPrefixOnListEntries(
+  entries: readonly WikiDirListEntry[],
+  shareHandle: string,
+): WikiDirListEntry[] {
+  const h = shareHandle.replace(/^@/, '').trim()
+  if (!h) return [...entries]
+  const pre = `@${h}/`
+  return entries.map((e) => {
+    if (e.kind === 'dir' || e.kind === 'file') {
+      return { ...e, path: `${pre}${e.path}` }
+    }
+    return e
+  })
 }
 
 function displayLabelForShare(pathPrefix: string, targetKind: 'dir' | 'file'): string {
@@ -218,6 +293,9 @@ export function listWikiDirChildrenWithShares(
   let dir = normalizeWikiDirPath(dirPath)
   if (dir === SHARED_WITH_ME_SEGMENT || dir.startsWith(`${SHARED_WITH_ME_SEGMENT}/`)) {
     dir = migrateLegacySharedWithMeDirPath(dirPath ?? '')
+  }
+  if (dir === LEGACY_MY_WIKI_URL_SEGMENT || dir.startsWith(`${LEGACY_MY_WIKI_URL_SEGMENT}/`)) {
+    dir = dir === LEGACY_MY_WIKI_URL_SEGMENT ? 'me' : `me/${dir.slice(LEGACY_MY_WIKI_URL_SEGMENT.length + 1)}`
   }
 
   if (!received?.length) {

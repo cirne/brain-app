@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono'
 import { networkInterfaces, platform } from 'node:os'
 import { unlink } from 'node:fs/promises'
 import { join } from 'node:path'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import {
   readOnboardingStateDoc,
   setOnboardingState,
@@ -15,6 +15,7 @@ import { appendTurn, ensureSessionStub } from '@server/lib/chat/chatStorage.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { startTunnel, stopTunnel, getActiveTunnelUrl } from '@server/lib/platform/tunnelManager.js'
 import { streamAgentSseResponse, streamFinishConversationShortcutSse } from '@server/lib/chat/streamAgentSse.js'
+import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { isBrainFinishConversationSubmit } from '@shared/finishConversationShortcut.js'
 import {
   buildInterviewKickoffUserMessage,
@@ -41,7 +42,6 @@ import { isAppleLocalIntegrationEnvironment } from '@server/lib/apple/appleLocal
 import { lookupTenantBySession } from '@server/lib/tenant/tenantRegistry.js'
 import { BRAIN_SESSION_COOKIE } from '@server/lib/vault/vaultCookie.js'
 import { getCookie } from 'hono/cookie'
-import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { isHandleConfirmedForTenant } from '@server/lib/tenant/handleMeta.js'
 
 const onboarding = new Hono()
@@ -408,7 +408,8 @@ onboarding.post('/interview', async (c) => {
   }
 
   return streamAgentSseResponse(c, agent, promptMessage, {
-    wikiDirForDiffs: wikiDir(),
+    wikiDirForDiffs: wikiToolsDir(),
+    granteeTenantId: tryGetTenantContext()?.tenantUserId,
     announceSessionId: sessionId,
     agentKind: 'onboarding_interview',
     onTurnComplete: persist,

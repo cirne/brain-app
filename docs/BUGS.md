@@ -41,6 +41,7 @@ User feedback **#10** (`ripmail archive`, leading-dash `Message-ID`): **[BUG-039
 | BUG-037 | Wizard/setup omit LLM provider + models | Only OpenAI surfaced; multi-provider `llm` in config needs onboarding. See [bugs/BUG-037-wizard-llm-provider-selection.md](bugs/BUG-037-wizard-llm-provider-selection.md). |
 | BUG-038 | Wizard exits on bad IMAP password (no retry) | Typo trap; should re-prompt in credential loop. See [bugs/BUG-038-wizard-bad-password-exits-instead-of-retry.md](bugs/BUG-038-wizard-bad-password-exits-instead-of-retry.md). |
 | BUG-039 | `archive`: leading-dash `Message-ID` parsed as CLI flags | Clap/`getopt` treats `-…` operands as flags. See [bugs/BUG-039-archive-leading-dash-message-id-parsed-as-cli-flag.md](bugs/BUG-039-archive-leading-dash-message-id-parsed-as-cli-flag.md). |
+| BUG-040 | Chat / slide-over: shared wiki doc from agent does not open reliably | Agent returns `@handle/…`; overlay can desync **vault-relative path** vs **`shareHandle`**, so **Wiki** hits personal `/api/wiki/…` (404) or duplicated handle on shared URL (403). Fix: **one unified path** in overlay per [OPP-091](opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md); **remove** brittle dual-path `loadFiles` → `files.find` `$effect` in `Wiki.svelte`. See [bugs/BUG-040-wiki-chat-overlay-shared-doc-open-fails.md](bugs/BUG-040-wiki-chat-overlay-shared-doc-open-fails.md). |
 
 ## Fixed (archived)
 

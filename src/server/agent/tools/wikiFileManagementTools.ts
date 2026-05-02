@@ -4,11 +4,12 @@ import { mkdir, rename, stat, unlink } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import {
   appendWikiEditRecord,
-  coerceWikiToolRelativePath,
   resolveSafeWikiPath,
   assertAgentWikiWriteUsesSubdirectory,
   resolveWikiPathForCreate,
 } from '../agentToolPolicy.js'
+import { coerceWikiToolRelativePath } from '@server/lib/wiki/wikiEditHistory.js'
+import { wikiToolRelTouchesPeerProjection } from '@server/agent/tools/wikiScopedFsTools.js'
 
 export function createWikiFileManagementTools(wikiDir: string) {
   const moveFile = defineTool({
@@ -17,12 +18,15 @@ export function createWikiFileManagementTools(wikiDir: string) {
     description:
       'Move or rename a file under the wiki root (same scope as read/write). Creates missing parent directories for the destination. Fails if the destination path already exists.',
     parameters: Type.Object({
-      from: Type.String({ description: 'Source path relative to wiki root (e.g. ideas/old.md)' }),
-      to: Type.String({ description: 'Destination path relative to wiki root (e.g. ideas/new.md)' }),
+      from: Type.String({ description: 'Source path relative to wiki root (e.g. me/ideas/old.md)' }),
+      to: Type.String({ description: 'Destination path relative to wiki root (e.g. me/ideas/new.md)' }),
     }),
     async execute(_toolCallId: string, params: { from: string; to: string }) {
       const fromRel = coerceWikiToolRelativePath(wikiDir, params.from)
       const toCoerced = coerceWikiToolRelativePath(wikiDir, params.to)
+      if (wikiToolRelTouchesPeerProjection(fromRel) || wikiToolRelTouchesPeerProjection(toCoerced)) {
+        throw new Error('Cannot move files into or out of shared wiki projection (read-only).')
+      }
       let toRes: { path: string; normalizedFrom: string | null }
       try {
         toRes = resolveWikiPathForCreate(wikiDir, toCoerced)
@@ -75,19 +79,22 @@ export function createWikiFileManagementTools(wikiDir: string) {
     label: 'Delete file',
     description: 'Permanently delete a file under the wiki root (same scope as read/write).',
     parameters: Type.Object({
-      path: Type.String({ description: 'Path relative to wiki root (e.g. scratch/draft.md)' }),
+      path: Type.String({ description: 'Path relative to wiki root (e.g. me/scratch/draft.md)' }),
     }),
     async execute(_toolCallId: string, params: { path: string }) {
-      const abs = resolveSafeWikiPath(wikiDir, params.path)
+      const rel = coerceWikiToolRelativePath(wikiDir, params.path)
+      if (wikiToolRelTouchesPeerProjection(rel)) {
+        throw new Error('Cannot delete files inside shared wiki projection (read-only).')
+      }
+      const abs = resolveSafeWikiPath(wikiDir, rel)
       await unlink(abs)
-      await appendWikiEditRecord(wikiDir, 'delete', params.path).catch(() => {})
+      await appendWikiEditRecord(wikiDir, 'delete', rel).catch(() => {})
       return {
-        content: [{ type: 'text' as const, text: `Deleted ${params.path}` }],
-        details: { path: params.path },
+        content: [{ type: 'text' as const, text: `Deleted ${rel}` }],
+        details: { path: rel },
       }
     },
   })
-
 
   return { moveFile, deleteFile }
 }

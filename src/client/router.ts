@@ -250,6 +250,7 @@ function buildWikiPrimaryUrl(
   if (overlay.type === 'wiki-dir') {
     const p = overlay.path?.trim()
     if (!p) return '/wiki/'
+    if (p === 'me') return '/wiki/me/'
     return `/wiki/${encodeWikiPrimaryPathSegments(p)}/`
   }
   const p = overlay.path?.trim()
@@ -270,6 +271,23 @@ function parseWikiPrimaryPathname(
   const decoded = wikiRest.map((s) => safeDecodePathSegment(s))
 
   const first = decoded[0] ?? ''
+  if (first === 'me' || first === 'my-wiki') {
+    const relSegs = decoded.slice(1)
+    const relPath = relSegs.join('/')
+    const lastSeg = relSegs[relSegs.length - 1] ?? ''
+
+    if (relSegs.length === 0) {
+      return { wikiActive: true, overlay: { type: 'wiki-dir', path: 'me' } }
+    }
+
+    const isFile = lastSeg.endsWith('.md') && !pathnameEndsWithSlash
+    if (isFile) {
+      return { wikiActive: true, overlay: { type: 'wiki', path: relPath } }
+    }
+
+    const dirPath = relPath.replace(/\/+$/g, '') || undefined
+    return { wikiActive: true, overlay: { type: 'wiki-dir', path: dirPath } }
+  }
   if (first.startsWith('@')) {
     const shareHandle = first.slice(1).trim()
     if (!shareHandle) {
@@ -524,7 +542,7 @@ export function parseRoute(href: string = location.href): Route {
     return settingsParsed
   }
 
-  if (seg1 === 'wiki') {
+  if (seg1 === 'wiki' || seg1 === 'wikis') {
     const pathParts = url.pathname.split('/').filter(Boolean)
     const wikiRest = pathParts.slice(1)
 

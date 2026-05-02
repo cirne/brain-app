@@ -44,7 +44,7 @@ const TOOL_DISPLAY_LABELS: Record<string, string> = {
   edit: 'Edit file',
   write: 'Write file',
   grep: 'Search in wiki',
-  find: 'Find wiki file',
+  find: 'Find wiki files (glob)',
   move_file: 'Move file',
   delete_file: 'Delete file',
   search_index: 'Search index',

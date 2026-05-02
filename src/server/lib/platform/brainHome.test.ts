@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtemp, mkdir, writeFile, rm, readdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -20,6 +20,26 @@ afterEach(async () => {
   delete process.env.BRAIN_HOME
   if (savedWikiRoot === undefined) delete process.env.BRAIN_WIKI_ROOT
   else process.env.BRAIN_WIKI_ROOT = savedWikiRoot
+})
+
+describe('brainWikiParentRoot', () => {
+  let bh: string
+  beforeEach(async () => {
+    bh = await mkdtemp(join(tmpdir(), 'brain-wiki-parent-'))
+    process.env.BRAIN_HOME = bh
+  })
+  afterEach(async () => {
+    await rm(bh, { recursive: true, force: true }).catch(() => {})
+    delete process.env.BRAIN_HOME
+    delete process.env.BRAIN_WIKI_ROOT
+    vi.resetModules()
+  })
+
+  it('uses BRAIN_WIKI_ROOT when set (eval isolated vault)', async () => {
+    process.env.BRAIN_WIKI_ROOT = join(bh, 'case-vault')
+    const { brainWikiParentRoot } = await import('@server/lib/platform/brainHome.js')
+    expect(brainWikiParentRoot()).toBe(join(bh, 'case-vault'))
+  })
 })
 
 describe('wipeBrainHomeContents', () => {

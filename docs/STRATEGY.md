@@ -56,7 +56,7 @@ The product manifestation of **network + trust** is **brain-to-brain**: bilatera
 
 **Email as analogy:** federation, identity-bearing addresses, and **value that grows with who else participates**. Brain-to-brain aims for similarly **network-shaped** upside with **much higher-bandwidth coordination** delegated to agents — while keeping sovereignty visible.
 
-Detailed sequencing and milestones: **[IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md)** (first concrete step: **[OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)**).
+Detailed sequencing and milestones: **[IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md)** (Phase 1: **[OPP-064](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** / [archive](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md); **`wikis/`** layout **[OPP-091](opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md)**).
 
 ---
 

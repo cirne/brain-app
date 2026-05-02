@@ -284,6 +284,31 @@ describe('AppTopNav.svelte', () => {
       expect(screen.getByText('@testuser')).toBeInTheDocument()
     })
 
+    it('adds pending-invite marker class on handle when shareInviteBadge', () => {
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          hostedHandlePill: 'testuser',
+          onOpenSettings: vi.fn(),
+          shareInviteBadge: true,
+        },
+      })
+      expect(screen.getByRole('button', { name: /@testuser/i })).toHaveClass('nav-hosted-handle--badge')
+    })
+
+    it('forwards shareInviteBadge to hub widget when handle pill is hidden on mobile', () => {
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          isMobile: true,
+          hostedHandlePill: 'testuser',
+          onOpenSettings: vi.fn(),
+          shareInviteBadge: true,
+        },
+      })
+      expect(screen.getByTestId('brain-hub-widget-stub')).toHaveAttribute('data-share-invite-badge', '1')
+    })
+
     it('hides handle pill when hostedHandlePill not provided', () => {
       render(AppTopNav, {
         props: { ...baseProps, onOpenSettings: vi.fn() },

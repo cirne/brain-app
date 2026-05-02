@@ -14,6 +14,8 @@
     children: Snippet
     /** When set, replaces the default Cancel/Confirm row. Backdrop click and Escape still call `onDismiss`. */
     actions?: Snippet
+    /** Extra class on `.cd-panel` (e.g. width presets from the parent). */
+    panelClass?: string
   }
 
   let {
@@ -27,6 +29,7 @@
     onConfirm,
     children,
     actions,
+    panelClass,
   }: Props = $props()
 
   function onWindowKeydown(e: KeyboardEvent) {
@@ -48,7 +51,7 @@
     role="presentation"
   >
     <div
-      class="cd-panel"
+      class={['cd-panel', panelClass].filter(Boolean).join(' ')}
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -164,8 +167,22 @@
     background: color-mix(in srgb, var(--danger) 22%, var(--bg));
   }
 
-  /* Custom `actions` snippets may render plain buttons from the parent; match chrome. */
-  .cd-actions :global(button) {
+  .cd-btn--primary {
+    border-color: transparent;
+    background: var(--accent);
+    color: #fff;
+    transition:
+      background 0.1s ease,
+      border-color 0.1s ease,
+      filter 0.1s ease;
+  }
+
+  .cd-btn--primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  /* Buttons with `.cd-btn` may render in `.cd-body` (e.g. per-row copy) or `.cd-actions`. */
+  .cd-panel :global(button.cd-btn) {
     cursor: pointer;
     font: inherit;
     font-size: 0.75rem;
@@ -179,7 +196,26 @@
     transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
   }
 
-  .cd-actions :global(button:hover) {
+  .cd-panel :global(button.cd-btn--primary) {
+    border-color: transparent;
+    background: var(--accent);
+    color: #fff;
+    transition:
+      background 0.1s ease,
+      border-color 0.1s ease,
+      filter 0.1s ease;
+  }
+
+  .cd-panel :global(button.cd-btn--primary:hover:not(:disabled)) {
+    filter: brightness(1.08);
+  }
+
+  .cd-panel :global(button.cd-btn:not(.cd-btn--primary):not(.cd-btn--danger):hover:not(:disabled)) {
     background: var(--bg-2);
+  }
+
+  .cd-panel :global(button.cd-btn:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

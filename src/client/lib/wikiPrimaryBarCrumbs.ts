@@ -44,7 +44,7 @@ export function wikiPrimaryCrumbsForDir(dirPath: string | undefined): WikiPrimar
   return out
 }
 
-/** Wiki → My Wiki → folders → page (`/wiki/my-wiki/…` paths use {@link MY_WIKI_URL_SEGMENT}). */
+/** Wiki → My Wiki → folders → page (`/wiki/me/…` paths use {@link MY_WIKI_URL_SEGMENT}). */
 export function wikiPrimaryCrumbsForMyWikiFile(ownerRelPath: string): WikiPrimaryCrumb[] {
   const urlBase = MY_WIKI_URL_SEGMENT
   const labelBase = MY_WIKI_SEGMENT

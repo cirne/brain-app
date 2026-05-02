@@ -6,16 +6,16 @@
     FileText,
     Folder,
     FolderSymlink,
-    Share2,
     Users,
   } from 'lucide-svelte'
   import type { SurfaceContext } from '@client/router.js'
   import {
+    countOutgoingSharesForVaultPath,
     listWikiDirChildrenWithShares,
     normalizeWikiDirPath,
     isSharedNamespacePath,
-    vaultPathHasOutgoingShare,
     vaultRelativeDirFromWikiBrowseDir,
+    withUnifiedPeerPrefixOnListEntries,
     type WikiDirListEntry,
     type WikiFileRow,
     type WikiOwnedShareRef,
@@ -69,12 +69,21 @@
   let shareDialogPrefix = $state('')
   let shareDialogTargetKind = $state<'dir' | 'file'>('dir')
 
-  const entries = $derived(
-    listWikiDirChildrenWithShares(files, dirPathProp, sharedMode ? null : receivedShares),
-  )
+  const entries = $derived.by((): WikiDirListEntry[] => {
+    const base = listWikiDirChildrenWithShares(files, dirPathProp, sharedMode ? null : receivedShares)
+    if (!sharedMode) return base
+    const sh = shareHandle?.trim()
+    return sh ? withUnifiedPeerPrefixOnListEntries(base, sh) : base
+  })
 
   const canShareCurrentDir = $derived(
     Boolean(!sharedMode && dirPath.trim() && !isSharedNamespacePath(dirPath)),
+  )
+
+  const shareAudienceVaultPath = $derived(vaultRelativeDirFromWikiBrowseDir(dirPathProp) ?? '')
+
+  const dirShareAudienceCount = $derived(
+    countOutgoingSharesForVaultPath(shareAudienceVaultPath, ownedShares),
   )
 
   const registerWikiHeader = getContext<SetWikiSlideHeader | undefined>(WIKI_SLIDE_HEADER)
@@ -92,6 +101,8 @@
         shareDialogOpen = true
       },
       shareTargetLabel: dirPath.trim() || undefined,
+      shareAudienceCount:
+        canShareCurrentDir && dirShareAudienceCount > 0 ? dirShareAudienceCount : undefined,
       sharedIncoming: sharedMode,
     })
     return () => registerWikiHeader?.(null)
@@ -148,14 +159,24 @@
       if (entry.kind === 'dir') return 'Shared folder'
       if (entry.kind === 'file') return 'Shared page'
     }
-    if (entry.kind === 'dir') return entryHasOutgoingShare(entry) ? 'Sharing' : 'Folder'
-    return entryHasOutgoingShare(entry) ? 'Sharing' : 'Page'
+    if (entry.kind === 'dir') return 'Folder'
+    return 'Page'
   }
 
   function entryHasOutgoingShare(entry: WikiDirListEntry): boolean {
     if (sharedMode) return false
     if (entry.kind !== 'dir' && entry.kind !== 'file') return false
-    return vaultPathHasOutgoingShare(entry.path, ownedShares)
+    return countOutgoingSharesForVaultPath(entry.path, ownedShares) > 0
+  }
+
+  function entryOutgoingAudienceCount(entry: WikiDirListEntry): number {
+    if (sharedMode) return 0
+    if (entry.kind !== 'dir' && entry.kind !== 'file') return 0
+    return countOutgoingSharesForVaultPath(entry.path, ownedShares)
+  }
+
+  function formatShareAudienceBadge(n: number): string {
+    return n > 9 ? '9+' : `${n}`
   }
 
   /** Synthetic rows or items listed while browsing someone else's wiki (`shareHandle` / legacy share). */
@@ -229,6 +250,7 @@
     onDismiss={() => {
       shareDialogOpen = false
     }}
+    onSharesChanged={() => void loadFiles()}
   />
   <div class="wiki-dir-inner">
     {#if loading}
@@ -262,27 +284,24 @@
                 {:else if entryIsShared(entry)}
                   <FileSymlink size={18} />
                 {:else if entry.kind === 'dir'}
-                  <span class="wiki-dir-icon-cluster">
-                    <Folder size={18} />
-                    {#if entryHasOutgoingShare(entry)}
-                      <span class="wiki-dir-outgoing-badge" title="You are sharing this folder">
-                        <Share2 size={11} strokeWidth={2.5} />
-                      </span>
-                    {/if}
-                  </span>
+                  <Folder size={18} />
                 {:else}
-                  <span class="wiki-dir-icon-cluster">
-                    <FileText size={18} />
-                    {#if entryHasOutgoingShare(entry)}
-                      <span class="wiki-dir-outgoing-badge" title="You are sharing this page">
-                        <Share2 size={11} strokeWidth={2.5} />
-                      </span>
-                    {/if}
-                  </span>
+                  <FileText size={18} />
                 {/if}
               </span>
               <span class="wiki-dir-label">{entry.label}</span>
-              <span class="wiki-dir-meta">{metaForEntry(entry)}</span>
+              <span class="wiki-dir-meta">
+                {metaForEntry(entry)}
+                {#if entryOutgoingAudienceCount(entry) > 0}
+                  <span
+                    class="wiki-dir-share-count"
+                    title={`Shared with ${entryOutgoingAudienceCount(entry)} people`}
+                    aria-label={`Shared with ${entryOutgoingAudienceCount(entry)} people`}
+                  >
+                    {formatShareAudienceBadge(entryOutgoingAudienceCount(entry))}
+                  </span>
+                {/if}
+              </span>
               <span class="wiki-dir-chevron" aria-hidden="true"><ChevronRight size={18} /></span>
             </button>
           </li>
@@ -367,31 +386,6 @@
     color: var(--accent);
   }
 
-  .wiki-dir-icon-cluster {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .wiki-dir-outgoing-badge {
-    position: absolute;
-    right: -7px;
-    bottom: -5px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--bg-elevated, var(--bg)) 92%, transparent);
-    color: color-mix(in srgb, var(--accent) 85%, var(--text-2));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--border) 55%, transparent);
-  }
-
-  .wiki-dir-row--outgoing:hover .wiki-dir-outgoing-badge {
-    color: var(--accent);
-  }
-
   .wiki-dir-label {
     font-weight: 600;
     min-width: 0;
@@ -403,6 +397,26 @@
     color: var(--text-3);
     white-space: nowrap;
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .wiki-dir-share-count {
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent, #4a90d9) 22%, transparent);
+    color: color-mix(in srgb, var(--accent, #4a90d9) 88%, var(--text));
+    box-sizing: border-box;
   }
 
   .wiki-dir-chevron {

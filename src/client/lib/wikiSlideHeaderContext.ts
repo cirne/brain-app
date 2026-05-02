@@ -13,6 +13,8 @@ export type WikiSlideHeaderState = {
   onOpenShare?: () => void
   /** Short label for the share target (path snippet). */
   shareTargetLabel?: string
+  /** Grantee rows covering this path (`GET /api/wiki` owns); omit or 0 to hide badge. */
+  shareAudienceCount?: number
   /** Viewing someone else's wiki via share — hide outgoing share affordances. */
   sharedIncoming?: boolean
 }

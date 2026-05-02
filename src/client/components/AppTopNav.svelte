@@ -23,6 +23,8 @@
      * Omitted in the top bar on narrow viewports; use the top Settings control instead.
      */
     hostedHandlePill?: string
+    /** Pending wiki share invites — dot on handle (desktop) and on the hub widget. */
+    shareInviteBadge?: boolean
     /** Hosted and desktop: opens Settings (`/settings`). */
     onOpenSettings?: () => void
     /** Wiki vault root (`index.md` / resolved landing) — optional; hidden when omitted (e.g. onboarding). */
@@ -42,6 +44,7 @@
     onNewChat,
     isEmptyChat = false,
     hostedHandlePill,
+    shareInviteBadge = false,
     onOpenSettings,
     onWikiHome,
   }: Props = $props()
@@ -145,13 +148,17 @@
         <button
           type="button"
           class="nav-hosted-handle"
+          class:nav-hosted-handle--badge={shareInviteBadge}
           onclick={onOpenSettings}
           title="Workspace settings"
         >
           @{hostedHandlePill}
         </button>
       {/if}
-      <BrainHubWidget onOpen={onOpenHub} />
+      <BrainHubWidget
+        onOpen={onOpenHub}
+        shareInviteBadge={shareInviteBadge && (!!isMobile || !hostedHandlePill)}
+      />
       {#if syncErrors.length > 0}
         <button class="sync-error-badge" onclick={onToggleSyncErrors} title="Show sync errors">!</button>
         {#if showSyncErrors}
@@ -457,6 +464,22 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .nav-hosted-handle--badge {
+    position: relative;
+    padding-right: 14px;
+  }
+
+  .nav-hosted-handle--badge::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
   }
 
   .sync-error-badge {

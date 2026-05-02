@@ -69,11 +69,11 @@ describe('wikiPrimaryCrumbs shared / My Wiki', () => {
     ])
   })
 
-  it('My Wiki file: Wiki → My Wiki → folders → page (`my-wiki` URL segment)', () => {
+  it('My Wiki file: Wiki → My Wiki → folders → page (`me` URL segment)', () => {
     expect(wikiPrimaryCrumbsForMyWikiFile('people/adam.md')).toEqual([
       { kind: 'wiki-root-link' },
-      { kind: 'folder-link', path: 'my-wiki', label: 'My Wiki' },
-      { kind: 'folder-link', path: 'my-wiki/people', label: 'people' },
+      { kind: 'folder-link', path: 'me', label: 'My Wiki' },
+      { kind: 'folder-link', path: 'me/people', label: 'people' },
       { kind: 'tail', label: 'adam' },
     ])
   })

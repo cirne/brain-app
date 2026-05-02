@@ -28,7 +28,9 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 || [tailwind-migration.md](./tailwind-migration.md) | Completing Tailwind: already in build; 68 components still use BEM `<style>` blocks |
 || [calendar-write-path.md](./calendar-write-path.md) | Calendar writes: subprocess limitations; direct Google Calendar API as alternative for mutations |
 || [agent-session-store.md](./agent-session-store.md) | Agent session Map: in-memory design, vault session race, horizontal-scale limits |
-| [wiki-sharing.md](./wiki-sharing.md) | **OPP-064 Phase 1:** read-only wiki directory shares (`brain-global.sqlite`, `/api/wiki-shares`, `/api/wiki/shared/...`) |
+| [wiki-share-acl-and-projection-sync.md](./wiki-share-acl-and-projection-sync.md) | **ADR:** **`wiki_shares` ↔ `wikis/` symlink** ordering (grant **DB→FS**, revoke **FS→DB**); **fail-safe:** ambiguous failures → less grantee visibility, never more; reconcile; [OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md) |
+| [wiki-sharing.md](./wiki-sharing.md) | **OPP-064** Phase 1 (archived spec) + **OPP-091** **`wikis/me`** layout — read-only wiki shares; companion to ADR above |
+
 | [wiki-read-vs-read-email.md](./wiki-read-vs-read-email.md) | ADR: wiki file tools vs `read_mail_message` / `read_indexed_file` |
 | [wiki-vs-managed-memory-honcho.md](./wiki-vs-managed-memory-honcho.md) | Recorded consideration: wiki-first memory vs Honcho (or similar); **not for now** |
 | [external-data-sources.md](./external-data-sources.md) | Unified corpus: local FTS query layer, `sources[]` kinds (mail, localDir, cloud files, SaaS docs), sync vs query split, contentless file indexing, MCP as optional sync aid — **Google Drive:** [OPP-045](../opportunities/OPP-045-google-drive.md) |

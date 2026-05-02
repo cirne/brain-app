@@ -43,6 +43,7 @@ import type {
 } from './streamAgentSseTypes.js'
 import { toolResultText } from './streamAgentSseTypes.js'
 import { shapeReadEmailStreamDetails } from './toolStreamAdapters.js'
+import { rewriteOpenToolArgsIfNeeded } from './rewriteAgentOpenWikiPath.js'
 
 /** Mutable turn fields shared across subscribe handlers. */
 export interface StreamAgentSseTurnRefs {
@@ -56,6 +57,8 @@ export interface StreamAgentSseTurnRefs {
 export interface StreamAgentSseHandlerDeps {
   stream: { writeSSE: (args: { event: string; data: string }) => Promise<unknown> }
   wikiDirForDiffs: string
+  /** When set, **`open`** wiki targets are rewritten to `{ shareHandle, path }` for the client (`shared-by-handle`). */
+  granteeTenantId?: string
   assistantState: AssistantTurnState
   editBeforeSnapshot: Map<string, string>
   refs: StreamAgentSseTurnRefs
@@ -125,7 +128,10 @@ export async function handleStreamToolExecutionStart(
 ): Promise<void> {
   const id = te.toolCallId
   const name = te.toolName
-  const args = te.args
+  const args =
+    name === 'open' && te.args != null
+      ? rewriteOpenToolArgsIfNeeded(deps.wikiDirForDiffs, te.args)
+      : te.args
   recordToolCallStart(id)
   beginToolCallSegment(name, id)
   applyToolStart(deps.assistantState, { id, name, args, done: false })
@@ -162,6 +168,7 @@ export async function handleStreamToolExecutionStart(
     }),
   })
 }
+
 
 async function resolveToolEndDetails(
   ev: { type: 'tool_execution_end' } & ToolExecutionEndPayload,

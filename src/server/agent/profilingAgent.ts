@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import Handlebars from 'handlebars'
 import type { Agent } from '@mariozechner/pi-agent-core'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { ripmailBin } from '@server/lib/onboarding/onboardingMailStatus.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ensureUserPeoplePageSkeleton } from '@server/lib/wiki/userPeoplePage.js'
@@ -135,7 +135,7 @@ export async function getOrCreateProfilingAgent(sessionId: string, options: { ti
   } else {
     console.log('[brain-app] onboarding profiling: whoami (unparsed JSON — subject rules use raw block only)')
   }
-  const agent = createOnboardingAgent(buildProfilingSystemPrompt(tz, whoami, whoamiSubject, userPeoplePage), staging, {
+  const agent = createOnboardingAgent(buildProfilingSystemPrompt(tz, whoami, whoamiSubject, userPeoplePage), wikiToolsDir(), {
     variant: 'profiling',
     timezone: options.timezone,
   })

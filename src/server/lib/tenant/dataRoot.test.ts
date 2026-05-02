@@ -36,8 +36,8 @@ describe('dataRoot', () => {
     const tid = 'tenant-uuid-1'
     const home = ensureTenantHomeDir(tid)
     expect(home).toBe(join(base, tid))
-    expect(brainLayoutWikiDir(home)).toBe(join(home, 'wiki'))
-    expect(existsSync(join(home, 'wiki'))).toBe(true)
+    expect(brainLayoutWikiDir(home)).toBe(join(home, 'wikis', 'me'))
+    expect(existsSync(join(home, 'wikis', 'me'))).toBe(true)
     expect(existsSync(join(home, 'ripmail'))).toBe(true)
     expect(existsSync(join(home, 'var'))).toBe(true)
     rmSync(base, { recursive: true, force: true })

@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pLimit from 'p-limit'
 import { addLlmUsage, isZeroUsage, type LlmUsageSnapshot } from '@server/lib/llm/llmUsage.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import {
   getEffectiveLlmModelForEval,
   getEffectiveLlmProviderForEval,
@@ -109,7 +110,10 @@ export async function runLlmJsonlEvalMain<TTask extends { id: string }>(
   const caseResults: RunAgentEvalCaseResult[] = await Promise.all(
     tasks.map(t =>
       limit(async () => {
-        const r = await runCase(t)
+        const r = await runWithTenantContextAsync(
+          { tenantUserId: '_single', workspaceHandle: '_single', homeDir: brain },
+          async () => runCase(t),
+        )
         const status = r.ok ? 'ok' : 'FAIL'
         console.log(`${logPrefix} ${status}  ${formatCaseLogLine(r)}`)
         return r

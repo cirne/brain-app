@@ -26,6 +26,7 @@ function minimalShell(overrides: Partial<AssistantShellState> = {}): AssistantSh
     detailPaneFullscreen: false,
     isMobile: false,
     workspaceColumnWidth: 0,
+    pendingWikiShareInvitesCount: 0,
     ...overrides,
   }
   return base as AssistantShellState

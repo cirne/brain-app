@@ -6,13 +6,20 @@ import { readPrimaryRipmailImapEmail } from '@server/lib/platform/googleOAuth.js
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import {
   acceptShare,
+  acceptShareById,
   createShare,
+  getShareById,
   getShareByToken,
+  listPendingInvitesForGranteeEmail,
   listSharesForGrantee,
   listSharesForOwner,
   revokeShare,
   type WikiShareRow,
 } from '@server/lib/shares/wikiSharesRepo.js'
+import {
+  removeWikiShareProjectionForShare,
+  syncWikiShareProjectionsForGrantee,
+} from '@server/lib/shares/wikiShareProjection.js'
 import { sendWikiShareInviteEmail } from '@server/lib/shares/shareInviteEmail.js'
 import {
   InvalidWorkspaceHandleError,
@@ -49,6 +56,25 @@ async function toApiShare(row: WikiShareRow): Promise<WikiShareApi> {
   }
 }
 
+/** Wiki path URL after accept (`ownerDisplay` = confirmed handle or owner id). */
+export function wikiUrlForAcceptedShare(origin: string, row: WikiShareRow, ownerDisplay: string): string {
+  const handleSeg = encodeURIComponent(ownerDisplay.trim())
+  const encRel = (rel: string) =>
+    rel
+      .split('/')
+      .filter(Boolean)
+      .map((p) => encodeURIComponent(p))
+      .join('/')
+  if (row.target_kind === 'file') {
+    const rel = row.path_prefix.trim()
+    return `${origin}/wikis/@${handleSeg}/${encRel(rel)}`
+  }
+  const dirPath = row.path_prefix.replace(/\/$/, '') || ''
+  return dirPath
+    ? `${origin}/wikis/@${handleSeg}/${encRel(dirPath)}/`
+    : `${origin}/wikis/@${handleSeg}/`
+}
+
 const wikiShares = new Hono()
 
 /** POST /api/wiki-shares — owner creates invite */
@@ -59,6 +85,8 @@ wikiShares.post('/', async (c) => {
     granteeEmail?: unknown
     granteeHandle?: unknown
     targetKind?: unknown
+    /** When true, send an optional Hub deep-link notification via ripmail (default: off). */
+    notifyByEmail?: unknown
   }
   try {
     body = await c.req.json()
@@ -123,12 +151,18 @@ wikiShares.post('/', async (c) => {
     const origin = new URL(c.req.url).origin
     const inviteUrl = `${origin}/api/wiki-shares/accept/${encodeURIComponent(row.invite_token)}`
     const ownerHandle = ctx.workspaceHandle
-    const { sent: emailSent } = await sendWikiShareInviteEmail({
-      granteeEmail: row.grantee_email,
-      inviteUrl,
-      pathPrefix: row.path_prefix,
-      ownerHandle,
-    })
+    const notifyByEmail = body.notifyByEmail === true
+    let emailSent = false
+    if (notifyByEmail) {
+      const hubUrl = `${origin}/hub#sharing`
+      const { sent } = await sendWikiShareInviteEmail({
+        granteeEmail: row.grantee_email,
+        hubUrl,
+        pathPrefix: row.path_prefix,
+        ownerHandle,
+      })
+      emailSent = sent
+    }
     const api = await toApiShare(row)
     return c.json({
       ...api,
@@ -151,20 +185,81 @@ wikiShares.post('/', async (c) => {
   }
 })
 
-/** GET /api/wiki-shares — list owned + received */
+/** GET /api/wiki-shares — list owned + received + pending (by primary mailbox email) */
 wikiShares.get('/', async (c) => {
   const ctx = getTenantContext()
   const ownedRows = listSharesForOwner(ctx.tenantUserId)
   const receivedRows = listSharesForGrantee(ctx.tenantUserId)
   const owned = await Promise.all(ownedRows.map((r) => toApiShare(r)))
   const received = await Promise.all(receivedRows.map((r) => toApiShare(r)))
-  return c.json({ owned, received })
+  const mailboxEmail =
+    (await readPrimaryRipmailImapEmail(ripmailHomeForBrain()))?.trim().toLowerCase() ?? ''
+  const pendingRows = mailboxEmail ? listPendingInvitesForGranteeEmail(mailboxEmail) : []
+  const pendingReceived = await Promise.all(pendingRows.map((r) => toApiShare(r)))
+  return c.json({ owned, received, pendingReceived })
+})
+
+/** POST /api/wiki-shares/:id/accept — grantee accepts in-app (JSON; same rules as token accept) */
+wikiShares.post('/:id/accept', async (c) => {
+  const ctx = getTenantContext()
+  const shareId = c.req.param('id')
+  const email =
+    (await readPrimaryRipmailImapEmail(ripmailHomeForBrain()))?.trim().toLowerCase() ?? ''
+  if (!email) {
+    return c.json(
+      {
+        error: 'mailbox_email_unknown',
+        message: 'Connect Gmail (ripmail) so your workspace email is known, then accept from Hub.',
+      },
+      400,
+    )
+  }
+  const updated = acceptShareById({
+    shareId,
+    granteeId: ctx.tenantUserId,
+    granteeEmail: email,
+  })
+  if (!updated) {
+    return c.json(
+      {
+        error: 'accept_failed',
+        message: 'Invite expired, revoked, wrong account, or email does not match the invite.',
+      },
+      400,
+    )
+  }
+  void syncWikiShareProjectionsForGrantee(ctx.tenantUserId).catch(() => {})
+  const origin = new URL(c.req.url).origin
+  const ownerMeta = await readHandleMeta(tenantHomeDir(updated.owner_id))
+  const ownerDisplay = (ownerMeta?.handle ?? updated.owner_id).trim()
+  const wikiUrl = wikiUrlForAcceptedShare(origin, updated, ownerDisplay)
+  return c.json({
+    ok: true as const,
+    ownerId: updated.owner_id,
+    ownerHandle: ownerDisplay,
+    pathPrefix: updated.path_prefix,
+    targetKind: updated.target_kind,
+    wikiUrl,
+  })
 })
 
 /** DELETE /api/wiki-shares/:id — owner revokes */
 wikiShares.delete('/:id', async (c) => {
   const ctx = getTenantContext()
   const id = c.req.param('id')
+  const row = getShareById(id)
+  if (!row || row.owner_id !== ctx.tenantUserId) {
+    return c.json({ error: 'not_found_or_forbidden' }, 404)
+  }
+  if (row.grantee_id) {
+    const projectionOk = await removeWikiShareProjectionForShare({
+      granteeTenantUserId: row.grantee_id,
+      share: row,
+    })
+    if (!projectionOk) {
+      return c.json({ error: 'revoke_projection_failed', message: 'Could not remove grantee filesystem link.' }, 500)
+    }
+  }
   const ok = revokeShare({ shareId: id, ownerId: ctx.tenantUserId })
   if (!ok) return c.json({ error: 'not_found_or_forbidden' }, 404)
   return c.json({ ok: true })
@@ -200,26 +295,11 @@ wikiShares.get('/accept/:token', async (c) => {
       400,
     )
   }
+  void syncWikiShareProjectionsForGrantee(ctx.tenantUserId).catch(() => {})
   const origin = new URL(c.req.url).origin
   const ownerMeta = await readHandleMeta(tenantHomeDir(updated.owner_id))
-  const handleSeg = encodeURIComponent((ownerMeta?.handle ?? updated.owner_id).trim())
-  const encRel = (rel: string) =>
-    rel
-      .split('/')
-      .filter(Boolean)
-      .map((p) => encodeURIComponent(p))
-      .join('/')
-
-  let loc: string
-  if (updated.target_kind === 'file') {
-    const rel = updated.path_prefix.trim()
-    loc = `${origin}/wiki/@${handleSeg}/${encRel(rel)}`
-  } else {
-    const dirPath = updated.path_prefix.replace(/\/$/, '') || ''
-    loc = dirPath
-      ? `${origin}/wiki/@${handleSeg}/${encRel(dirPath)}/`
-      : `${origin}/wiki/@${handleSeg}/`
-  }
+  const ownerDisplay = (ownerMeta?.handle ?? updated.owner_id).trim()
+  const loc = wikiUrlForAcceptedShare(origin, updated, ownerDisplay)
   return c.redirect(loc, 302)
 })
 

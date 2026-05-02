@@ -8,9 +8,11 @@
 
   type Props = {
     onOpen: () => void
+    /** Wiki share invitations pending for this account (shown when handle pill is hidden or on mobile). */
+    shareInviteBadge?: boolean
   }
 
-  let { onOpen }: Props = $props()
+  let { onOpen, shareInviteBadge = false }: Props = $props()
 
   let docCount = $state<number | null>(null)
   let wikiDoc = $state<BackgroundAgentDoc | null>(null)
@@ -60,6 +62,7 @@
   type="button"
   class="hub-widget"
   class:active={showActive}
+  class:hub-widget--share-pending={shareInviteBadge}
   onclick={onOpen}
   title={showActive ? `${activeLabel} (Click for Braintunnel Hub)` : 'Braintunnel Hub'}
 >
@@ -73,6 +76,7 @@
 
 <style>
   .hub-widget {
+    position: relative;
     height: 100%;
     padding: 0 12px;
     display: flex;
@@ -85,6 +89,17 @@
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
+  }
+
+  .hub-widget--share-pending::after {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
   }
 
   .hub-widget:hover {

@@ -10,6 +10,7 @@ describe('renderPromptTemplate', () => {
       multiTenant: true,
     })
     expect(s).toContain('**Hosted workspace:**')
+    expect(s).toContain('Wiki `find` vs `grep`')
     expect(s).toContain('list_recent_messages')
   })
 
