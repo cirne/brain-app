@@ -7,8 +7,12 @@ Strangler-fig destination for the Tailwind-first refactor tracked in
 
 - One Tailwind-first replacement per legacy `src/client/components/...` file.
 - Path alias: `@tw-components/...` (mirrors `@components/...`).
-- Internal imports between migrated components MUST use `@tw-components/...`,
-  not `@components/...`. The two trees should not call into each other.
+- **End state:** internal imports between migrated components use `@tw-components/...`.
+- **During migration:** a `@tw-components` file may temporarily import a not-yet-migrated
+  child from `@components/...`. Mark these with `// TODO(tw): switch to @tw-components when migrated`.
+  We will sweep these once the migration is complete.
+- Test files stay alongside the **legacy** `@components/...` source until the final flip.
+  The legacy tree is untouched, so existing tests keep passing throughout the migration.
 - Prefer Tailwind utilities for layout, spacing, color, typography, and
   responsive behavior. Use `cn()` from `@client/lib/cn.js` for dynamic
   class strings.
