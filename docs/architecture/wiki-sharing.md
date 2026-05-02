@@ -1,6 +1,6 @@
 # Wiki directory sharing (OPP-064 Phase 1 + OPP-091 follow-on)
 
-Read-only **directory-level** wiki shares: an owner invites a collaborator by **email**; the grantee accepts an invite URL; the grantee browses the owner’s subtree in-app. **ACL is database-backed** — markdown front matter is **not** used for enforcement (see [Rejected: front matter ACL](#rejected-front-matter-as-acl-source-of-truth)).
+Read-only **directory-level** wiki shares: an owner invites a collaborator by **email** or **@handle**; the grantee accepts in **Settings → Sharing** (primary mailbox must match the invite); the grantee browses the owner’s subtree in-app. **ACL is database-backed** — markdown front matter is **not** used for enforcement (see [Rejected: front matter ACL](#rejected-front-matter-as-acl-source-of-truth)).
 
 **Phase 1 (stub):** [OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) · **`wikis/` namespace (active):** [OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md) · **Projection ↔ DB sync (ADR):** [wiki-share-acl-and-projection-sync.md](./wiki-share-acl-and-projection-sync.md) · **Idea / sequencing:** [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md)
 
@@ -57,10 +57,10 @@ Created at runtime with `CREATE TABLE IF NOT EXISTS` (no migration runner).
 
 | Method   | Path                             | Notes                                                                                                                                                                  |
 | -------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST`   | `/api/wiki-shares`               | Body `{ pathPrefix, granteeEmail }`. Returns `inviteUrl`, `emailSent` (best-effort ripmail send).                                                                      |
-| `GET`    | `/api/wiki-shares`               | `{ owned, received }` — camelCase rows + `ownerHandle` from `handle-meta.json`.                                                                                        |
+| `POST`   | `/api/wiki-shares`               | Body `{ pathPrefix, granteeEmail \| granteeHandle, targetKind? }`. Returns created row (camelCase API shape).                                                         |
+| `GET`    | `/api/wiki-shares`               | `{ owned, received, pendingReceived }` — camelCase rows + `ownerHandle` from `handle-meta.json`.                                                                       |
+| `POST`   | `/api/wiki-shares/:id/accept`    | Grantee accepts in-app (vault session). Matches **primary ripmail IMAP email** to `grantee_email`. Returns `ok`, `wikiUrl`, owner/path metadata.                       |
 | `DELETE` | `/api/wiki-shares/:id`           | Owner revokes (`revoked_at_ms`).                                                                                                                                       |
-| `GET`    | `/api/wiki-shares/accept/:token` | Requires tenant + **vault** session. Matches **primary ripmail IMAP email** to `grantee_email`. Redirects to `/wiki?panel=wiki-dir&path=…&shareOwner=…&sharePrefix=…`. |
 
 
 ### Local vault list + share hints

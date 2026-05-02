@@ -1250,6 +1250,16 @@
     if (shell.isMobile) shell.sidebarOpen = false
   }
 
+  function openSettingsSharing() {
+    openSettings()
+    if (typeof window === 'undefined') return
+    requestAnimationFrame(() => {
+      const base = window.location.pathname + window.location.search
+      history.replaceState(null, '', `${base}#sharing`)
+      document.getElementById('settings-sharing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
   function openHubActivity() {
     navigateShell({ hubActive: true, wikiActive: false, settingsActive: false })
     shell.route = parseRoute()
@@ -1320,6 +1330,7 @@
     hostedHandlePill={shell.hostedHandleNav}
     shareInviteBadge={shell.pendingWikiShareInvitesCount > 0}
     onOpenSettings={openSettings}
+    onOpenSharing={openSettingsSharing}
   />
 
     <div class="app-main-row">
@@ -1537,7 +1548,6 @@
             <BrainHubPage
               onHubNavigate={navigateFromHub}
               onOpenSettings={openSettings}
-              onNavigateToSharedWiki={onNavigateToSharedWikiFromHub}
             />
           </div>
           {#if
@@ -1588,6 +1598,7 @@
               selectedHubSourceId={shell.route.overlay?.type === 'hub-source'
                 ? shell.route.overlay.id
                 : undefined}
+              onNavigateToSharedWiki={onNavigateToSharedWikiFromHub}
             />
           </div>
           {#if

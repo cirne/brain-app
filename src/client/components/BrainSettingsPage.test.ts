@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@client/test/render.js'
 import BrainSettingsPage from './BrainSettingsPage.svelte'
+import * as wikiSharesClient from '@client/lib/wikiSharesClient.js'
+
+function requestUrlString(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input
+  if (input instanceof URL) return input.href
+  return input.url
+}
 
 vi.mock('@client/lib/vaultClient.js', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@client/lib/vaultClient.js')>()
@@ -25,8 +32,8 @@ vi.mock('@client/lib/app/appEvents.js', () => ({
 }))
 
 function defaultFetchHandler(): typeof fetch {
-  return vi.fn((url: RequestInfo) => {
-    const u = String(url)
+  return vi.fn((url: RequestInfo | URL) => {
+    const u = requestUrlString(url)
     if (u.includes('/api/hub/sources/mail-prefs')) {
       return Promise.resolve(
         new Response(
@@ -45,6 +52,14 @@ function defaultFetchHandler(): typeof fetch {
     if (u.includes('/api/hub/sources')) {
       return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
     }
+    if (u.includes('/api/wiki-shares')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ owned: [], received: [], pendingReceived: [] }),
+          { status: 200 },
+        ),
+      )
+    }
     return Promise.resolve(new Response('not found', { status: 404 }))
   }) as unknown as typeof fetch
 }
@@ -56,6 +71,7 @@ describe('BrainSettingsPage.svelte', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
     if (typeof window !== 'undefined') {
       window.history.replaceState(null, '', '/settings')
     }
@@ -262,5 +278,53 @@ describe('BrainSettingsPage.svelte', () => {
     await waitFor(() => {
       expect(screen.getByText('Google Drive')).toBeInTheDocument()
     })
+  })
+
+  it('Sharing section lists pending invitations with Accept', async () => {
+    vi.spyOn(wikiSharesClient, 'fetchWikiSharesList').mockResolvedValue({
+      owned: [],
+      received: [],
+      pendingReceived: [
+        {
+          id: 'wsh_pend',
+          ownerId: 'usr_alice',
+          ownerHandle: 'alice',
+          granteeEmail: 'me@example.com',
+          granteeId: null,
+          pathPrefix: 'notes/',
+          targetKind: 'dir',
+          createdAtMs: Date.now(),
+          acceptedAtMs: null,
+          revokedAtMs: null,
+        },
+      ],
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: RequestInfo | URL) => {
+        const u = requestUrlString(url)
+        if (u.includes('/api/hub/sources/mail-prefs')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ ok: true, mailboxes: [], defaultSendSource: null }),
+              { status: 200 },
+            ),
+          )
+        }
+        if (u.includes('/api/hub/sources')) {
+          return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }) as unknown as typeof fetch,
+    )
+    render(BrainSettingsPage, {
+      props: { onSettingsNavigate: vi.fn(), onNavigateToSharedWiki: vi.fn() },
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Sharing' })).toBeInTheDocument()
+    })
+    expect(screen.getByText('Invitations')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument()
+    expect(screen.getByText(/@alice/i)).toBeInTheDocument()
   })
 })

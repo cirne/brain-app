@@ -1,6 +1,5 @@
 <script lang="ts">
   import ConfirmDialog from './ConfirmDialog.svelte'
-  import { copyToClipboard } from '@client/lib/clipboard.js'
   import { wikiShareCoversVaultPath } from '@client/lib/wikiDirListModel.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import { tick } from 'svelte'
@@ -52,12 +51,6 @@
     displayName?: string
   }
 
-  type CreatedInvite = {
-    grantee: SelectedGrantee
-    inviteUrl: string
-    emailSent: boolean
-  }
-
   let inputValue = $state('')
   let selected = $state<SelectedGrantee[]>([])
   let suggestions = $state<DirectoryEntry[]>([])
@@ -68,14 +61,9 @@
   let submitting = $state(false)
   let errorMsg = $state('')
   let perGranteeErrors = $state<Record<string, string>>({})
-  let createdInvites = $state<CreatedInvite[]>([])
 
   let inputEl: HTMLInputElement | undefined = $state()
   let searchToken = 0
-
-  /** Which invite key showed “Copied” on the matching control (footer uses same key when only one invite). */
-  let copiedForKey = $state<string | null>(null)
-  let copyFeedbackTimer: ReturnType<typeof setTimeout> | undefined
 
   let audienceRows = $state<WikiAudienceRow[]>([])
   let audienceLoading = $state(false)
@@ -83,9 +71,6 @@
   let revokeTarget = $state<WikiAudienceRow | null>(null)
   let revokingId = $state<string | null>(null)
   let audienceFetchToken = 0
-
-  /** Optional ripmail notification with Hub deep link (off by default). */
-  let notifyByEmail = $state(false)
 
   const dialogTitle = $derived(targetKind === 'file' ? 'Share wiki page' : 'Share wiki folder')
 
@@ -109,13 +94,6 @@
     submitting = false
     errorMsg = ''
     perGranteeErrors = {}
-    createdInvites = []
-    copiedForKey = null
-    if (copyFeedbackTimer !== undefined) {
-      clearTimeout(copyFeedbackTimer)
-      copyFeedbackTimer = undefined
-    }
-    notifyByEmail = false
     void pathPrefix
     void targetKind
     void reloadAudienceShares()
@@ -200,25 +178,6 @@
     } finally {
       revokingId = null
     }
-  }
-
-  function flashCopied(key: string): void {
-    if (copyFeedbackTimer !== undefined) clearTimeout(copyFeedbackTimer)
-    copiedForKey = key
-    copyFeedbackTimer = setTimeout(() => {
-      copiedForKey = null
-      copyFeedbackTimer = undefined
-    }, 2000)
-  }
-
-  async function copyInviteUrl(inv: CreatedInvite): Promise<void> {
-    const ok = await copyToClipboard(inv.inviteUrl)
-    if (ok) flashCopied(inv.grantee.key)
-  }
-
-  async function copySingleInviteFromFooter(): Promise<void> {
-    const inv = createdInvites[0]
-    if (inv) await copyInviteUrl(inv)
   }
 
   function looksLikeEmail(value: string): boolean {
@@ -382,7 +341,6 @@
   async function submit(): Promise<void> {
     errorMsg = ''
     perGranteeErrors = {}
-    createdInvites = []
     if (selected.length === 0) {
       const trimmed = inputValue.trim()
       if (trimmed) commitTyped()
@@ -392,14 +350,13 @@
       }
     }
     submitting = true
-    const successes: CreatedInvite[] = []
     const errors: Record<string, string> = {}
+    let anySuccess = false
     try {
       for (const g of selected) {
         const body: Record<string, unknown> = { pathPrefix, targetKind }
         if (g.handle) body.granteeHandle = g.handle
         else body.granteeEmail = g.email
-        if (notifyByEmail) body.notifyByEmail = true
         try {
           const res = await fetch('/api/wiki-shares', {
             method: 'POST',
@@ -409,25 +366,22 @@
           const j = (await res.json().catch(() => ({}))) as {
             error?: string
             message?: string
-            inviteUrl?: string
-            emailSent?: boolean
+            id?: string
           }
-          if (!res.ok || typeof j.inviteUrl !== 'string') {
+          if (!res.ok || typeof j.id !== 'string') {
             errors[g.key] = j.message ?? j.error ?? 'Request failed'
             continue
           }
-          successes.push({
-            grantee: g,
-            inviteUrl: j.inviteUrl,
-            emailSent: Boolean(j.emailSent),
-          })
+          anySuccess = true
         } catch {
           errors[g.key] = 'Network error'
         }
       }
-      createdInvites = successes
       perGranteeErrors = errors
-      if (successes.length > 0) {
+      if (anySuccess) {
+        selected = []
+        inputValue = ''
+        suggestOpen = false
         await reloadAudienceShares()
         onSharesChanged?.()
         emit({ type: 'wiki-shares-changed' })
@@ -465,202 +419,145 @@
   onConfirm={() => {}}
 >
   {#snippet actions()}
-    {#if createdInvites.length === 1}
-      <button type="button" class="cd-btn" onclick={() => onDismiss()}>Done</button>
-      <button
-        type="button"
-        class="cd-btn cd-btn--primary"
-        onclick={() => void copySingleInviteFromFooter()}
-      >
-        {copiedForKey === createdInvites[0]?.grantee.key ? 'Copied' : 'Copy legacy link'}
-      </button>
-    {:else if createdInvites.length > 1}
-      <button type="button" class="cd-btn" onclick={() => onDismiss()}>Done</button>
-    {:else}
-      <button type="button" class="cd-btn" onclick={() => onDismiss()}>Cancel</button>
-      <button
-        type="button"
-        class="cd-btn cd-btn--primary"
-        disabled={submitDisabled}
-        onclick={() => void submit()}
-      >
-        {submitting ? 'Sharing…' : shareActionLabel}
-      </button>
-    {/if}
+    <button type="button" class="cd-btn" onclick={() => onDismiss()}>Cancel</button>
+    <button
+      type="button"
+      class="cd-btn cd-btn--primary"
+      disabled={submitDisabled}
+      onclick={() => void submit()}
+    >
+      {submitting ? 'Sharing…' : shareActionLabel}
+    </button>
   {/snippet}
   <p class="wsh-lead">
     Read-only access to <code class="wsh-code">{pathPrefix}</code>. Collaborators accept in
-    <strong>Brain Hub → Sharing</strong> while signed in with the invited email (no need to open a link from email).
+    <strong>Settings → Sharing</strong> while signed in with the invited email.
   </p>
-    {#if createdInvites.length > 0}
-      <ul class="wsh-invite-list">
-        {#each createdInvites as inv (inv.grantee.key)}
-          <li class="wsh-invite">
-            <div class="wsh-invite-head">
-              <span class="wsh-invite-target">
-                {inv.grantee.handle ? `@${inv.grantee.handle}` : inv.grantee.email}
-              </span>
-              {#if inv.emailSent}
-                <span class="wsh-pill">Reminder emailed</span>
+  <section class="wsh-section" aria-labelledby="wsh-audience-heading">
+    <h3 id="wsh-audience-heading" class="wsh-section-title">People with access</h3>
+    {#if audienceLoading}
+      <p class="wsh-muted">Loading…</p>
+    {:else if audienceFetchError}
+      <p class="wsh-err" role="alert">{audienceFetchError}</p>
+    {:else if audienceRows.length === 0}
+      <p class="wsh-muted">Only you — no collaborators yet.</p>
+    {:else}
+      <ul class="wsh-audience-list">
+        {#each audienceRows as row (row.id)}
+          <li class="wsh-audience-row">
+            <div class="wsh-audience-main">
+              <span class="wsh-audience-email">{row.granteeEmail}</span>
+              {#if audienceStatus(row) === 'active'}
+                <span class="wsh-pill">Active</span>
+              {:else if audienceStatus(row) === 'expired'}
+                <span class="wsh-pill wsh-pill-warn">Invite expired</span>
               {:else}
-                <span class="wsh-pill wsh-pill-muted">In-app invite</span>
+                <span class="wsh-pill wsh-pill-pending">Pending</span>
               {/if}
             </div>
-            <div class="wsh-invite-hint">
-              They’ll see this under <strong>Brain Hub → Sharing</strong>.
-            </div>
-            <div class="wsh-invite-url-row">
-              <button
-                type="button"
-                class="cd-btn wsh-legacy-link-btn"
-                onclick={() => void copyInviteUrl(inv)}
-              >
-                {copiedForKey === inv.grantee.key ? 'Copied' : 'Copy legacy link'}
-              </button>
-              <span class="wsh-legacy-caption">For troubleshooting only</span>
-            </div>
+            <button
+              type="button"
+              class="cd-btn wsh-remove-btn"
+              disabled={revokingId === row.id}
+              onclick={() => {
+                revokeTarget = row
+              }}
+            >
+              {revokingId === row.id ? 'Removing…' : 'Remove'}
+            </button>
           </li>
         {/each}
       </ul>
-      {#if Object.keys(perGranteeErrors).length > 0}
-        <p class="wsh-hint">Some invites could not be created:</p>
-        <ul class="wsh-err-list">
-          {#each Object.entries(perGranteeErrors) as [key, msg] (key)}
-            <li class="wsh-err">{key}: {msg}</li>
-          {/each}
-        </ul>
-      {/if}
-    {:else}
-      <section class="wsh-section" aria-labelledby="wsh-audience-heading">
-        <h3 id="wsh-audience-heading" class="wsh-section-title">People with access</h3>
-        {#if audienceLoading}
-          <p class="wsh-muted">Loading…</p>
-        {:else if audienceFetchError}
-          <p class="wsh-err" role="alert">{audienceFetchError}</p>
-        {:else if audienceRows.length === 0}
-          <p class="wsh-muted">Only you — no collaborators yet.</p>
-        {:else}
-          <ul class="wsh-audience-list">
-            {#each audienceRows as row (row.id)}
-              <li class="wsh-audience-row">
-                <div class="wsh-audience-main">
-                  <span class="wsh-audience-email">{row.granteeEmail}</span>
-                  {#if audienceStatus(row) === 'active'}
-                    <span class="wsh-pill">Active</span>
-                  {:else if audienceStatus(row) === 'expired'}
-                    <span class="wsh-pill wsh-pill-warn">Invite expired</span>
-                  {:else}
-                    <span class="wsh-pill wsh-pill-pending">Pending</span>
-                  {/if}
-                </div>
-                <button
-                  type="button"
-                  class="cd-btn wsh-remove-btn"
-                  disabled={revokingId === row.id}
-                  onclick={() => {
-                    revokeTarget = row
-                  }}
-                >
-                  {revokingId === row.id ? 'Removing…' : 'Remove'}
-                </button>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
-
-      <h3 class="wsh-section-title wsh-invite-heading">Invite more people</h3>
-      <label class="wsh-label" for="wsh-grantees">
-        By handle (e.g. <code>@cirne</code>) or email
-      </label>
-      <div class="wsh-field">
-        <div class="wsh-chips">
-          {#each selected as g (g.key)}
-            <span
-              class="wsh-chip"
-              class:wsh-chip-warn={!g.email}
-              title={tooltipFor(g)}
-            >
-              <span class="wsh-chip-label">
-                {g.handle ? `@${g.handle}` : g.email}
-              </span>
-              {#if g.displayName || g.email}
-                <span class="wsh-chip-meta">
-                  {g.displayName ?? ''}{g.displayName && g.email ? ' · ' : ''}{g.email ?? ''}
-                </span>
-              {/if}
-              <button
-                type="button"
-                class="wsh-chip-x"
-                aria-label={`Remove ${g.handle ? '@' + g.handle : g.email}`}
-                onclick={() => removeChip(g.key)}
-              >×</button>
-            </span>
-          {/each}
-          <input
-            id="wsh-grantees"
-            class="wsh-chip-input"
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder={selected.length === 0 ? '@handle or name@example.com' : ''}
-            bind:this={inputEl}
-            bind:value={inputValue}
-            oninput={onInput}
-            onkeydown={onKeydown}
-            onpaste={onPaste}
-            disabled={submitting}
-          />
-        </div>
-        {#if suggestOpen && (suggestions.length > 0 || suggestLoading)}
-          <div class="wsh-suggest" role="listbox">
-            {#if suggestLoading && suggestions.length === 0}
-              <div class="wsh-suggest-empty">Searching…</div>
-            {/if}
-            {#each suggestions as s, i (s.userId)}
-              <button
-                type="button"
-                role="option"
-                aria-selected={i === suggestIndex}
-                class="wsh-suggest-item"
-                class:selected={i === suggestIndex}
-                onmousedown={(e) => {
-                  e.preventDefault()
-                  selectFromDirectory(s)
-                }}
-              >
-                <span class="wsh-suggest-handle">@{s.handle}</span>
-                {#if s.displayName}
-                  <span class="wsh-suggest-name">{s.displayName}</span>
-                {/if}
-                <span class="wsh-suggest-email">
-                  {s.primaryEmail ?? 'No connected email'}
-                </span>
-              </button>
-            {/each}
-          </div>
-        {/if}
-      </div>
-      {#if selected.some((g) => !g.email)}
-        <p class="wsh-hint wsh-hint-warn">
-          Selected users without a connected email cannot receive invites yet.
-        </p>
-      {/if}
-      {#if Object.keys(perGranteeErrors).length > 0}
-        <ul class="wsh-err-list">
-          {#each Object.entries(perGranteeErrors) as [key, msg] (key)}
-            <li class="wsh-err">{key}: {msg}</li>
-          {/each}
-        </ul>
-      {/if}
-      <label class="wsh-notify-row">
-        <input type="checkbox" bind:checked={notifyByEmail} disabled={submitting} />
-        <span>Optional: send an email reminder with a link to Brain Hub (requires ripmail).</span>
-      </label>
-      {#if errorMsg}
-        <p class="wsh-err" role="alert">{errorMsg}</p>
-      {/if}
     {/if}
+  </section>
+
+  <h3 class="wsh-section-title wsh-invite-heading">Invite more people</h3>
+  <label class="wsh-label" for="wsh-grantees">
+    By handle (e.g. <code>@cirne</code>) or email
+  </label>
+  <div class="wsh-field">
+    <div class="wsh-chips">
+      {#each selected as g (g.key)}
+        <span
+          class="wsh-chip"
+          class:wsh-chip-warn={!g.email}
+          title={tooltipFor(g)}
+        >
+          <span class="wsh-chip-label">
+            {g.handle ? `@${g.handle}` : g.email}
+          </span>
+          {#if g.displayName || g.email}
+            <span class="wsh-chip-meta">
+              {g.displayName ?? ''}{g.displayName && g.email ? ' · ' : ''}{g.email ?? ''}
+            </span>
+          {/if}
+          <button
+            type="button"
+            class="wsh-chip-x"
+            aria-label={`Remove ${g.handle ? '@' + g.handle : g.email}`}
+            onclick={() => removeChip(g.key)}
+          >×</button>
+        </span>
+      {/each}
+      <input
+        id="wsh-grantees"
+        class="wsh-chip-input"
+        type="text"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder={selected.length === 0 ? '@handle or name@example.com' : ''}
+        bind:this={inputEl}
+        bind:value={inputValue}
+        oninput={onInput}
+        onkeydown={onKeydown}
+        onpaste={onPaste}
+        disabled={submitting}
+      />
+    </div>
+    {#if suggestOpen && (suggestions.length > 0 || suggestLoading)}
+      <div class="wsh-suggest" role="listbox">
+        {#if suggestLoading && suggestions.length === 0}
+          <div class="wsh-suggest-empty">Searching…</div>
+        {/if}
+        {#each suggestions as s, i (s.userId)}
+          <button
+            type="button"
+            role="option"
+            aria-selected={i === suggestIndex}
+            class="wsh-suggest-item"
+            class:selected={i === suggestIndex}
+            onmousedown={(e) => {
+              e.preventDefault()
+              selectFromDirectory(s)
+            }}
+          >
+            <span class="wsh-suggest-handle">@{s.handle}</span>
+            {#if s.displayName}
+              <span class="wsh-suggest-name">{s.displayName}</span>
+            {/if}
+            <span class="wsh-suggest-email">
+              {s.primaryEmail ?? 'No connected email'}
+            </span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </div>
+  {#if selected.some((g) => !g.email)}
+    <p class="wsh-hint wsh-hint-warn">
+      Selected users without a connected email cannot receive invites yet.
+    </p>
+  {/if}
+  {#if Object.keys(perGranteeErrors).length > 0}
+    <ul class="wsh-err-list">
+      {#each Object.entries(perGranteeErrors) as [key, msg] (key)}
+        <li class="wsh-err">{key}: {msg}</li>
+      {/each}
+    </ul>
+  {/if}
+  {#if errorMsg}
+    <p class="wsh-err" role="alert">{errorMsg}</p>
+  {/if}
 </ConfirmDialog>
 
 <ConfirmDialog
@@ -918,65 +815,11 @@
   .wsh-err-list .wsh-err {
     margin: 4px 0 0;
   }
-  .wsh-invite-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .wsh-invite-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 4px;
-  }
-  .wsh-invite-url-row {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .wsh-invite-hint {
-    font-size: 13px;
-    color: var(--text-2, #666);
-    margin-top: 8px;
-  }
-  .wsh-legacy-link-btn {
-    font-size: 12px;
-  }
-  .wsh-legacy-caption {
-    font-size: 11px;
-    color: var(--text-2, #888);
-    align-self: center;
-  }
-  .wsh-notify-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    margin-top: 12px;
-    font-size: 13px;
-    color: var(--text-2, #666);
-    cursor: pointer;
-  }
-  .wsh-notify-row input {
-    margin-top: 3px;
-  }
-  .wsh-invite-target {
-    font-weight: 600;
-    font-size: 13px;
-  }
   .wsh-pill {
     font-size: 11px;
     padding: 2px 6px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--accent, #2563eb) 18%, transparent);
     color: var(--accent, #2563eb);
-  }
-  .wsh-pill-muted {
-    background: var(--color-surface-2, rgba(0, 0, 0, 0.08));
-    color: var(--text-2, #666);
   }
 </style>

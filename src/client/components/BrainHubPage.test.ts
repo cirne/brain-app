@@ -101,14 +101,6 @@ describe('BrainHubPage.svelte (Activity)', () => {
     })
   })
 
-  it('shows Sharing section on Brain Hub', async () => {
-    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /^sharing$/i })).toBeInTheDocument()
-    })
-  })
-
   it('shows Search index section with aggregate summary when sources exist', async () => {
     vi.stubGlobal(
       'fetch',

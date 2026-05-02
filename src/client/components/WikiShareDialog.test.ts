@@ -2,14 +2,30 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import WikiShareDialog from './WikiShareDialog.svelte'
 import { render, fireEvent, screen, waitFor } from '@client/test/render.js'
 
+function apiRow(overrides: Partial<Record<string, unknown>>) {
+  return {
+    id: 'wsh_test123456789012',
+    ownerId: 'usr_owner',
+    ownerHandle: 'owner',
+    granteeEmail: 'friend@example.com',
+    granteeId: null,
+    pathPrefix: 'trips/',
+    targetKind: 'dir' as const,
+    createdAtMs: Date.now(),
+    acceptedAtMs: null,
+    revokedAtMs: null,
+    ...overrides,
+  }
+}
+
 describe('WikiShareDialog.svelte', () => {
   beforeEach(() => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      if (url.includes('/api/wiki-shares') && !url.includes('/accept/')) {
+      if (url.includes('/api/wiki-shares') && !url.includes('/accept')) {
         return {
           ok: true,
-          json: async () => ({ owned: [], received: [] }),
+          json: async () => ({ owned: [], received: [], pendingReceived: [] }),
         } as Response
       }
       return {
@@ -17,11 +33,6 @@ describe('WikiShareDialog.svelte', () => {
         json: async () => ({ results: [] }),
       } as Response
     }) as typeof fetch
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: vi.fn().mockResolvedValue(undefined) },
-      configurable: true,
-    })
-    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
   })
 
   it('uses Share Page label for file targets', () => {
@@ -37,30 +48,26 @@ describe('WikiShareDialog.svelte', () => {
     expect(screen.getByRole('button', { name: /share page/i })).toBeInTheDocument()
   })
 
-  it('shares with a typed email and shows the invite link', async () => {
+  it('shares with a typed email, clears input, and reloads audience with pending row', async () => {
     let capturedBody = ''
+    const row = apiRow({ granteeEmail: 'friend@example.com' })
+    let listOwned: unknown[] = []
+
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       const method = init?.method ?? 'GET'
-      if (
-        urlStr.includes('/api/wiki-shares') &&
-        !urlStr.includes('/accept/') &&
-        method === 'GET'
-      ) {
-        return new Response(JSON.stringify({ owned: [], received: [] }), { status: 200 })
+      if (urlStr.includes('/api/wiki-shares') && method === 'GET') {
+        return new Response(JSON.stringify({ owned: listOwned, received: [], pendingReceived: [] }), {
+          status: 200,
+        })
       }
       if (urlStr.includes('/api/account/workspace-handles')) {
         return new Response(JSON.stringify({ results: [] }), { status: 200 })
       }
       expect(method).toBe('POST')
       capturedBody = (init?.body as string) ?? ''
-      return new Response(
-        JSON.stringify({
-          inviteUrl: 'https://x.example/api/wiki-shares/accept/abc',
-          emailSent: false,
-        }),
-        { status: 200 },
-      )
+      listOwned = [row]
+      return new Response(JSON.stringify(row), { status: 200 })
     }) as typeof fetch
 
     render(WikiShareDialog, {
@@ -78,27 +85,34 @@ describe('WikiShareDialog.svelte', () => {
     await fireEvent.click(screen.getByRole('button', { name: /share folder/i }))
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /copy legacy link/i }).length).toBeGreaterThan(0)
+      expect(capturedBody).toContain('"granteeEmail":"friend@example.com"')
     })
 
-    await fireEvent.click(screen.getAllByRole('button', { name: /copy legacy link/i })[0]!)
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      'https://x.example/api/wiki-shares/accept/abc',
-    )
-    expect(capturedBody).toContain('"granteeEmail":"friend@example.com"')
+    await waitFor(() => {
+      expect(screen.getByText('friend@example.com')).toBeInTheDocument()
+      expect(screen.getByText(/pending/i)).toBeInTheDocument()
+    })
+
+    const inputAfter = screen.getByPlaceholderText('@handle or name@example.com') as HTMLInputElement
+    expect(inputAfter.value).toBe('')
+    expect(screen.queryByRole('button', { name: /copy legacy link/i })).not.toBeInTheDocument()
   })
 
   it('autocompletes a handle and POSTs granteeHandle', async () => {
     let capturedBody = ''
+    const row = apiRow({
+      granteeEmail: 'cirne@example.com',
+      granteeHandle: 'cirne',
+    })
+    let listOwned: unknown[] = []
+
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       const method = init?.method ?? 'GET'
-      if (
-        urlStr.includes('/api/wiki-shares') &&
-        !urlStr.includes('/accept/') &&
-        method === 'GET'
-      ) {
-        return new Response(JSON.stringify({ owned: [], received: [] }), { status: 200 })
+      if (urlStr.includes('/api/wiki-shares') && method === 'GET') {
+        return new Response(JSON.stringify({ owned: listOwned, received: [], pendingReceived: [] }), {
+          status: 200,
+        })
       }
       if (urlStr.includes('/api/account/workspace-handles')) {
         expect(urlStr).toMatch(/\/api\/account\/workspace-handles\?q=cir/)
@@ -117,16 +131,9 @@ describe('WikiShareDialog.svelte', () => {
         )
       }
       expect(method).toBe('POST')
-      expect(urlStr).toContain('/api/wiki-shares')
       capturedBody = (init?.body as string) ?? ''
-      return new Response(
-        JSON.stringify({
-          inviteUrl: 'https://x.example/api/wiki-shares/accept/cirne-token',
-          emailSent: true,
-          granteeHandle: 'cirne',
-        }),
-        { status: 200 },
-      )
+      listOwned = [row]
+      return new Response(JSON.stringify(row), { status: 200 })
     }) as typeof fetch
 
     render(WikiShareDialog, {
@@ -150,47 +157,36 @@ describe('WikiShareDialog.svelte', () => {
     expect(screen.getByLabelText(/Remove @cirne/i)).toBeInTheDocument()
     expect(screen.getAllByText(/cirne@example\.com/).length).toBeGreaterThan(0)
 
-    await fireEvent.click(screen.getByRole('checkbox'))
-
     await fireEvent.click(screen.getByRole('button', { name: /share folder/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/Reminder emailed/i)).toBeInTheDocument()
+      const parsed = JSON.parse(capturedBody) as { granteeHandle?: string; granteeEmail?: string }
+      expect(parsed.granteeHandle).toBe('cirne')
+      expect(parsed.granteeEmail).toBeUndefined()
     })
-    const parsed = JSON.parse(capturedBody) as { granteeHandle?: string; granteeEmail?: string; notifyByEmail?: boolean }
-    expect(parsed.granteeHandle).toBe('cirne')
-    expect(parsed.granteeEmail).toBeUndefined()
-    expect(parsed.notifyByEmail).toBe(true)
+
+    await waitFor(() => {
+      expect(screen.getByText('cirne@example.com')).toBeInTheDocument()
+    })
   })
 
   it('submits multiple grantees in one click and reports per-grantee errors', async () => {
-    const inviteCalls: Array<{ body: string; status: number; payload: unknown }> = [
-      {
-        body: '',
-        status: 200,
-        payload: {
-          inviteUrl: 'https://x.example/api/wiki-shares/accept/sterling-token',
-          emailSent: false,
-          granteeHandle: 'sterling',
-        },
-      },
-      {
-        body: '',
-        status: 400,
-        payload: { error: 'handle_has_no_email', message: '@donna has not connected an email account yet.' },
-      },
-    ]
+    const sterlingRow = apiRow({
+      id: 'wsh_ster',
+      granteeEmail: 'sterling@example.com',
+      granteeHandle: 'sterling',
+    })
+    let listOwned: unknown[] = []
     let inviteIdx = 0
+
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       const method = init?.method ?? 'GET'
 
-      if (
-        urlStr.includes('/api/wiki-shares') &&
-        !urlStr.includes('/accept/') &&
-        method === 'GET'
-      ) {
-        return new Response(JSON.stringify({ owned: [], received: [] }), { status: 200 })
+      if (urlStr.includes('/api/wiki-shares') && method === 'GET') {
+        return new Response(JSON.stringify({ owned: listOwned, received: [], pendingReceived: [] }), {
+          status: 200,
+        })
       }
 
       if (urlStr.includes('/api/account/workspace-handles')) {
@@ -221,10 +217,17 @@ describe('WikiShareDialog.svelte', () => {
       }
 
       expect(method).toBe('POST')
-      const c = inviteCalls[inviteIdx]!
-      c.body = (init?.body as string) ?? ''
+      const body = (init?.body as string) ?? ''
+      const parsed = JSON.parse(body) as { granteeHandle?: string }
       inviteIdx += 1
-      return new Response(JSON.stringify(c.payload), { status: c.status })
+      if (parsed.granteeHandle === 'sterling') {
+        listOwned = [sterlingRow]
+        return new Response(JSON.stringify(sterlingRow), { status: 200 })
+      }
+      return new Response(
+        JSON.stringify({ error: 'handle_has_no_email', message: '@donna has not connected an email account yet.' }),
+        { status: 400 },
+      )
     }) as typeof fetch
 
     render(WikiShareDialog, {
@@ -256,63 +259,12 @@ describe('WikiShareDialog.svelte', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /copy legacy link/i }).length).toBeGreaterThan(0)
+      expect(screen.getByText(/@donna.*not connected/i)).toBeInTheDocument()
     })
-  })
-
-  it('shows per-row Copy legacy link when two invites succeed', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText },
-      configurable: true,
-    })
-
-    let postN = 0
-    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      const method = init?.method ?? 'GET'
-
-      if (
-        urlStr.includes('/api/wiki-shares') &&
-        !urlStr.includes('/accept/') &&
-        method === 'GET'
-      ) {
-        return new Response(JSON.stringify({ owned: [], received: [] }), { status: 200 })
-      }
-
-      expect(method).toBe('POST')
-      postN += 1
-      const url =
-        postN === 1
-          ? 'https://x.example/a'
-          : postN === 2
-            ? 'https://x.example/b'
-            : 'https://x.example/error'
-      return new Response(JSON.stringify({ inviteUrl: url, emailSent: false }), { status: 200 })
-    }) as typeof fetch
-
-    render(WikiShareDialog, {
-      props: {
-        open: true,
-        pathPrefix: 'trips/',
-        targetKind: 'dir',
-        onDismiss: vi.fn(),
-      },
-    })
-
-    const input = screen.getByPlaceholderText('@handle or name@example.com')
-    await fireEvent.input(input, { target: { value: 'a@x.com' } })
-    await fireEvent.keyDown(input, { key: 'Enter' })
-    await fireEvent.input(input, { target: { value: 'b@y.com' } })
-    await fireEvent.keyDown(input, { key: 'Enter' })
-    await fireEvent.click(screen.getByRole('button', { name: /share folder/i }))
-
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /^copy legacy link$/i })).toHaveLength(2)
+      expect(screen.getByText('sterling@example.com')).toBeInTheDocument()
     })
-
-    await fireEvent.click(screen.getAllByRole('button', { name: /^copy legacy link$/i })[0]!)
-    expect(writeText).toHaveBeenCalledWith('https://x.example/a')
+    expect(inviteIdx).toBe(2)
   })
 
   it('disables submit when a selected handle has no connected email', async () => {
@@ -320,12 +272,8 @@ describe('WikiShareDialog.svelte', () => {
       const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       const method = init?.method ?? 'GET'
 
-      if (
-        urlStr.includes('/api/wiki-shares') &&
-        !urlStr.includes('/accept/') &&
-        method === 'GET'
-      ) {
-        return new Response(JSON.stringify({ owned: [], received: [] }), { status: 200 })
+      if (urlStr.includes('/api/wiki-shares') && method === 'GET') {
+        return new Response(JSON.stringify({ owned: [], received: [], pendingReceived: [] }), { status: 200 })
       }
 
       expect(urlStr).toContain('/api/account/workspace-handles')
@@ -378,13 +326,9 @@ describe('WikiShareDialog.svelte', () => {
         return new Response(JSON.stringify({ ok: true }), { status: 200 })
       }
 
-      if (
-        urlStr.includes('/api/wiki-shares') &&
-        !urlStr.includes('/accept/') &&
-        method === 'GET'
-      ) {
+      if (urlStr.includes('/api/wiki-shares') && method === 'GET') {
         const owns = revoked ? [] : [row]
-        return new Response(JSON.stringify({ owned: owns, received: [] }), { status: 200 })
+        return new Response(JSON.stringify({ owned: owns, received: [], pendingReceived: [] }), { status: 200 })
       }
 
       return new Response(JSON.stringify({ error: 'unexpected' }), { status: 500 })

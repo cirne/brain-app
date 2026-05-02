@@ -12,9 +12,11 @@
     Trash2,
     MessageSquare,
     Link2,
+    Share2,
   } from 'lucide-svelte'
   import type { NavigateOptions, Overlay } from '@client/router.js'
-  import { subscribe } from '@client/lib/app/appEvents.js'
+  import { subscribe, emit } from '@client/lib/app/appEvents.js'
+  import { fetchWikiSharesList, type WikiShareApiRow } from '@client/lib/wikiSharesClient.js'
   import {
     fetchVaultStatus,
     postVaultDeleteAllData,
@@ -37,9 +39,16 @@
     onSettingsNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
     /** When settings detail shows this hub connection (`overlay.type === 'hub-source'`), highlight its row. */
     selectedHubSourceId?: string
+    /** After accepting a share, open the shared wiki in the main shell. */
+    onNavigateToSharedWiki?: (_p: {
+      ownerId: string
+      ownerHandle: string
+      pathPrefix: string
+      targetKind: 'dir' | 'file'
+    }) => void
   }
 
-  let { onSettingsNavigate, selectedHubSourceId }: Props = $props()
+  let { onSettingsNavigate, selectedHubSourceId, onNavigateToSharedWiki }: Props = $props()
 
   let hubSources = $state<HubRipmailSourceRow[]>([])
   let hubSourcesError = $state<string | null>(null)
@@ -51,6 +60,13 @@
   let accountBusy = $state(false)
   let deleteAllConfirmOpen = $state(false)
   let chatToolDisplayMode = $state<ChatToolDisplayMode>(readChatToolDisplayPreference())
+
+  let shareOwned = $state<WikiShareApiRow[]>([])
+  let shareReceived = $state<WikiShareApiRow[]>([])
+  let sharePending = $state<WikiShareApiRow[]>([])
+  let shareLoadError = $state<string | null>(null)
+  let shareAcceptBusyId = $state<string | null>(null)
+  let shareRevokeBusyId = $state<string | null>(null)
 
   function onChatToolDisplayPrefChange(mode: ChatToolDisplayMode) {
     chatToolDisplayMode = mode
@@ -144,6 +160,93 @@
     window.location.assign('/api/oauth/google/link/start')
   }
 
+  async function loadWikiShares() {
+    shareLoadError = null
+    try {
+      const data = await fetchWikiSharesList()
+      if (!data) {
+        shareLoadError = 'Could not load sharing.'
+        return
+      }
+      shareOwned = data.owned ?? []
+      shareReceived = data.received ?? []
+      sharePending = data.pendingReceived ?? []
+    } catch {
+      shareLoadError = 'Could not load sharing.'
+    }
+  }
+
+  function scrollSettingsSharingHash() {
+    if (typeof location === 'undefined' || location.hash !== '#sharing') return
+    queueMicrotask(() => {
+      document
+        .getElementById('settings-sharing')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
+  async function acceptPendingShare(row: WikiShareApiRow) {
+    if (shareAcceptBusyId) return
+    shareAcceptBusyId = row.id
+    try {
+      const res = await fetch(`/api/wiki-shares/${encodeURIComponent(row.id)}/accept`, { method: 'POST' })
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        ownerId?: string
+        ownerHandle?: string
+        pathPrefix?: string
+        targetKind?: 'dir' | 'file'
+        error?: string
+        message?: string
+      }
+      if (!res.ok || !j.ok || typeof j.ownerId !== 'string') {
+        shareLoadError = j.message ?? j.error ?? 'Could not accept invite.'
+        return
+      }
+      onNavigateToSharedWiki?.({
+        ownerId: j.ownerId,
+        ownerHandle: typeof j.ownerHandle === 'string' ? j.ownerHandle : row.ownerHandle,
+        pathPrefix: typeof j.pathPrefix === 'string' ? j.pathPrefix : row.pathPrefix,
+        targetKind: j.targetKind === 'file' ? 'file' : 'dir',
+      })
+      await loadWikiShares()
+      emit({ type: 'wiki-shares-changed' })
+    } finally {
+      shareAcceptBusyId = null
+    }
+  }
+
+  async function revokeOwnedShare(row: WikiShareApiRow) {
+    if (shareRevokeBusyId) return
+    shareRevokeBusyId = row.id
+    try {
+      const res = await fetch(`/api/wiki-shares/${encodeURIComponent(row.id)}`, { method: 'DELETE' })
+      if (!res.ok) {
+        shareLoadError = 'Could not revoke share.'
+        return
+      }
+      await loadWikiShares()
+      emit({ type: 'wiki-shares-changed' })
+    } finally {
+      shareRevokeBusyId = null
+    }
+  }
+
+  function openReceivedShare(row: WikiShareApiRow) {
+    onNavigateToSharedWiki?.({
+      ownerId: row.ownerId,
+      ownerHandle: row.ownerHandle,
+      pathPrefix: row.pathPrefix,
+      targetKind: row.targetKind,
+    })
+  }
+
+  function sharePathLabel(row: WikiShareApiRow): string {
+    const p = row.pathPrefix.trim().replace(/\\/g, '/')
+    if (row.targetKind === 'file') return p
+    return p.endsWith('/') ? p.slice(0, -1) || '(wiki root)' : p
+  }
+
   onMount(() => {
     void fetchVaultStatus()
       .then((v) => {
@@ -165,9 +268,18 @@
       })
     consumeAddAccountQuery()
     void fetchData()
-    return subscribe((e) => {
+    void loadWikiShares()
+    scrollSettingsSharingHash()
+    const onHashChange = () => scrollSettingsSharingHash()
+    window.addEventListener('hashchange', onHashChange)
+    const unsub = subscribe((e) => {
       if (e.type === 'hub:sources-changed' || e.type === 'sync:completed') void fetchData()
+      if (e.type === 'wiki-shares-changed') void loadWikiShares()
     })
+    return () => {
+      window.removeEventListener('hashchange', onHashChange)
+      unsub()
+    }
   })
 
   async function onLogout() {
@@ -354,6 +466,98 @@
           </div>
           <ChevronRight size={16} aria-hidden="true" />
         </button>
+      </div>
+    </section>
+
+    <section id="settings-sharing" class="settings-section" aria-labelledby="settings-sharing-heading">
+      <div class="section-header">
+        <Share2 size={18} />
+        <h2 id="settings-sharing-heading">Sharing</h2>
+      </div>
+      <p class="section-lead">
+        Accept read-only wiki invites from others and manage what you have shared. Invites match your
+        <strong>primary mailbox email</strong> from Connections above.
+      </p>
+      {#if shareLoadError}
+        <p class="empty-msg settings-sharing-err" role="alert">{shareLoadError}</p>
+      {/if}
+
+      {#if sharePending.length > 0}
+        <div class="settings-share-block">
+          <h3 class="settings-share-subhead">Invitations</h3>
+          <ul class="settings-share-list">
+            {#each sharePending as row (row.id)}
+              <li class="settings-share-row">
+                <div class="settings-share-main">
+                  <span class="settings-share-path" translate="no"><code>{sharePathLabel(row)}</code></span>
+                  <span class="settings-share-meta">From @{row.ownerHandle} · {row.granteeEmail}</span>
+                </div>
+                <button
+                  type="button"
+                  class="settings-share-btn settings-share-btn-primary"
+                  disabled={shareAcceptBusyId !== null}
+                  onclick={() => void acceptPendingShare(row)}
+                >
+                  {shareAcceptBusyId === row.id ? 'Accepting…' : 'Accept'}
+                </button>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+
+      <div class="settings-share-block">
+        <h3 class="settings-share-subhead">Shared with you</h3>
+        {#if shareReceived.length === 0}
+          <p class="empty-msg settings-share-empty">No active shared wikis yet.</p>
+        {:else}
+          <ul class="settings-share-list">
+            {#each shareReceived as row (row.id)}
+              <li class="settings-share-row">
+                <div class="settings-share-main">
+                  <span class="settings-share-path" translate="no"><code>{sharePathLabel(row)}</code></span>
+                  <span class="settings-share-meta">@{row.ownerHandle}</span>
+                </div>
+                <button type="button" class="settings-share-btn" onclick={() => openReceivedShare(row)}>
+                  Open
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+
+      <div class="settings-share-block">
+        <h3 class="settings-share-subhead">What you’ve shared</h3>
+        {#if shareOwned.length === 0}
+          <p class="empty-msg settings-share-empty">You have not shared any wiki paths yet.</p>
+        {:else}
+          <ul class="settings-share-list">
+            {#each shareOwned as row (row.id)}
+              <li class="settings-share-row">
+                <div class="settings-share-main">
+                  <span class="settings-share-path" translate="no"><code>{sharePathLabel(row)}</code></span>
+                  <span class="settings-share-meta">
+                    → {row.granteeEmail}
+                    {#if row.granteeId}
+                      <span class="settings-share-pill">Active</span>
+                    {:else}
+                      <span class="settings-share-pill settings-share-pill-muted">Pending</span>
+                    {/if}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  class="settings-share-btn settings-share-btn-danger"
+                  disabled={shareRevokeBusyId !== null}
+                  onclick={() => void revokeOwnedShare(row)}
+                >
+                  {shareRevokeBusyId === row.id ? 'Revoking…' : 'Revoke'}
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </div>
     </section>
 
@@ -697,6 +901,127 @@
 
   .settings-sources-err {
     cursor: help;
+  }
+
+  .settings-sharing-err {
+    color: var(--text);
+  }
+
+  .settings-share-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .settings-share-subhead {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--text-2);
+    text-transform: uppercase;
+  }
+
+  .settings-share-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .settings-share-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+    background: var(--bg-2);
+  }
+
+  .settings-share-main {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .settings-share-path code {
+    font-size: 0.8125rem;
+    word-break: break-all;
+  }
+
+  .settings-share-meta {
+    font-size: 0.75rem;
+    color: var(--text-2);
+  }
+
+  .settings-share-pill {
+    display: inline-block;
+    margin-left: 0.35rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .settings-share-pill-muted {
+    background: var(--bg-3);
+    color: var(--text-2);
+  }
+
+  .settings-share-btn {
+    flex-shrink: 0;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+
+  .settings-share-btn:hover:not(:disabled) {
+    background: var(--bg);
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  }
+
+  .settings-share-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .settings-share-btn-primary {
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg-2));
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    color: var(--text);
+  }
+
+  .settings-share-btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 24%, var(--bg-2));
+  }
+
+  .settings-share-btn-danger {
+    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+    color: var(--danger);
+  }
+
+  .settings-share-btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger) 10%, var(--bg-2));
+  }
+
+  .settings-share-empty {
+    padding: 0.5rem 0;
   }
 
   @media (max-width: 767px) {
