@@ -1,19 +1,20 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { fly, slide } from 'svelte/transition'
-  import Search from './Search.svelte'
-  import AppTopNav from './AppTopNav.svelte'
-  import BrainHubPage from './BrainHubPage.svelte'
-  import BrainSettingsPage from './BrainSettingsPage.svelte'
-  import Wiki from './Wiki.svelte'
-  import WikiDirList from './WikiDirList.svelte'
-  import WikiPrimaryShell from './WikiPrimaryShell.svelte'
-  import UnifiedChatComposer from './UnifiedChatComposer.svelte'
-  import AssistantSlideOver from './AssistantSlideOver.svelte'
-  import AgentChat from './AgentChat.svelte'
-  import ChatHistory from './ChatHistory.svelte'
-  import ChatHistoryPage from './ChatHistoryPage.svelte'
-  import WorkspaceSplit from './WorkspaceSplit.svelte'
+  import { cn } from '@client/lib/cn.js'
+  import Search from '@components/Search.svelte'
+  import AppTopNav from '@components/AppTopNav.svelte'
+  import BrainHubPage from '@components/BrainHubPage.svelte'
+  import BrainSettingsPage from '@components/BrainSettingsPage.svelte'
+  import Wiki from '@components/Wiki.svelte'
+  import WikiDirList from '@components/WikiDirList.svelte'
+  import WikiPrimaryShell from '@components/WikiPrimaryShell.svelte'
+  import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
+  import AssistantSlideOver from '@components/AssistantSlideOver.svelte'
+  import AgentChat from '@components/AgentChat.svelte'
+  import ChatHistory from '@components/ChatHistory.svelte'
+  import ChatHistoryPage from '@components/ChatHistoryPage.svelte'
+  import WorkspaceSplit from '@components/WorkspaceSplit.svelte'
   import {
     parseRoute,
     readTailFromCache,
@@ -53,11 +54,11 @@
     type WikiPrimaryCrumb,
   } from '@client/lib/wikiPrimaryBarCrumbs.js'
   import {
-  MY_WIKI_SEGMENT,
-  MY_WIKI_URL_SEGMENT,
-  mergeWikiBrowseChildPath,
-  parseUnifiedWikiBrowsePath,
-} from '@client/lib/wikiDirListModel.js'
+    MY_WIKI_SEGMENT,
+    MY_WIKI_URL_SEGMENT,
+    mergeWikiBrowseChildPath,
+    parseUnifiedWikiBrowsePath,
+  } from '@client/lib/wikiDirListModel.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
@@ -82,14 +83,24 @@
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
   import { wikiPrimaryChatMessageOrNull } from '@client/lib/wikiPrimaryChatSend.js'
-  import { emptyAssistantRefs } from './assistantShellRefs.js'
   import type { WikiSlideHeaderRegistration, WikiSlideHeaderState } from '@client/lib/wikiSlideHeaderContext.js'
   import { Pencil, Save, Share2 } from 'lucide-svelte'
+
+  /**
+   * `bind:this` targets — kept separate from shell state so refs stay obvious.
+   * Inlined here so `AssistantSlideOver` / `WorkspaceSplit` types attach to these instances directly.
+   */
+  type AssistantRefsState = {
+    agentChat?: AgentChat
+    mobileSlideOver?: AssistantSlideOver
+    workspaceSplit?: WorkspaceSplit
+    chatHistory?: { refresh: (_opts?: { background?: boolean }) => Promise<void> }
+  }
 
   /** Route bar, sync, overlays, and layout — one factory instead of a wall of `let` declarations. */
   let shell = $state(createAssistantShellState())
   /** `bind:this` targets for AgentChat / WorkspaceSplit / slide stack / history list. */
-  let refs = $state(emptyAssistantRefs())
+  let refs = $state<AssistantRefsState>({})
 
   /** Wiki-primary slide header registration (edit / share) when wiki is the main surface. */
   let wikiPrimaryHdr = $state<WikiSlideHeaderRegistration | null>(null)
@@ -200,7 +211,7 @@
     shell.route = parseRoute()
   }
 
-  /** Invalidates in-flight `loadSession` when the bar’s `/c/:id` changes again (back/forward). */
+  /** Invalidates in-flight `loadSession` when the bar's `/c/:id` changes again (back/forward). */
   let urlSessionSyncGen = 0
 
   /**
@@ -1145,7 +1156,7 @@
     return registerWikiFileListRefetch(fetchWikiDockWikiFiles)
   })
 
-  /** Empty-state “your wiki” → same help as Hub (`HubWikiAboutPanel` in SlideOver / mobile stack). */
+  /** Empty-state "your wiki" → same help as Hub (`HubWikiAboutPanel` in SlideOver / mobile stack). */
   function openHubWikiAbout() {
     const onHubLike = shell.route.hubActive === true || shell.route.settingsActive === true
     navigateShell({
@@ -1301,6 +1312,9 @@
     }
   }
 
+  /** Shared icon-button recipe for the wiki primary bar (Edit / Save / Share). */
+  const wikiPrimaryIconBtn =
+    'wiki-primary-icon-btn inline-flex items-center justify-center p-1.5 border-0 bg-transparent text-muted cursor-pointer transition-colors enabled:hover:text-accent enabled:hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] disabled:opacity-45 disabled:cursor-not-allowed'
 </script>
 
 {#if shell.showSearch}
@@ -1312,8 +1326,8 @@
   />
 {/if}
 
-<div class="app">
-    <AppTopNav
+<div class="app flex h-full flex-col">
+  <AppTopNav
     isMobile={shell.isMobile}
     sidebarOpen={shell.sidebarOpen}
     onToggleSidebar={toggleSidebar}
@@ -1333,23 +1347,27 @@
     onOpenSharing={openSettingsSharing}
   />
 
-    <div class="app-main-row">
+  <div class="app-main-row relative flex min-h-0 flex-1">
     {#if shell.sidebarOpen}
       {#if shell.isMobile}
         <div
-          class="sidebar-backdrop"
+          class="sidebar-backdrop fixed inset-x-0 bottom-0 z-[199] bg-black/40 [top:var(--tab-h)]"
           role="presentation"
           aria-hidden="true"
           onclick={() => { shell.sidebarOpen = false }}
         ></div>
       {/if}
       <aside
-        class="history-sidebar history-sidebar--slide"
+        class={cn(
+          'history-sidebar history-sidebar--slide flex min-h-0 flex-col border-r border-border bg-surface-2',
+          'md:relative md:shrink-0 md:w-sidebar-history md:max-w-[min(var(--sidebar-history-w),92vw)] md:self-stretch',
+          'max-md:fixed max-md:left-0 max-md:bottom-0 max-md:z-[200] max-md:w-sidebar-history-mobile max-md:max-w-full max-md:[top:var(--tab-h)]',
+        )}
         in:historySidebarTransition={{ mobile: shell.isMobile, reduce: shell.reduceSidebarMotion }}
         out:historySidebarTransition={{ mobile: shell.isMobile, reduce: shell.reduceSidebarMotion }}
       >
-        <div class="rail-inner">
-          <div class="rail-panel rail-panel--chat">
+        <div class="rail-inner flex min-h-0 flex-1 flex-col">
+          <div class="rail-panel rail-panel--chat flex min-h-0 flex-1 flex-col">
             <ChatHistory
               bind:this={refs.chatHistory}
               activeSessionId={sessionHighlightId}
@@ -1366,689 +1384,419 @@
       </aside>
     {/if}
 
-    <div class="workspace-column" bind:clientWidth={shell.workspaceColumnWidth}>
-  <WorkspaceSplit
-    bind:this={refs.workspaceSplit}
-    workspaceColumnWidthPx={shell.workspaceColumnWidth}
-    bind:detailFullscreen={shell.detailPaneFullscreen}
-    hasDetail={
-      !shell.route.wikiActive &&
-      !!shell.route.overlay &&
-      shell.route.overlay.type !== 'hub' &&
-      shell.route.overlay.type !== 'chat-history'
-    }
-    desktopDetailOpen={
-      !shell.route.wikiActive &&
-      !!shell.route.overlay &&
-      shell.route.overlay.type !== 'hub' &&
-      shell.route.overlay.type !== 'chat-history' &&
-      useDesktopSplitDetail
-    }
-    onNavigateClear={closeOverlayImmediate}
-  >
-    {#snippet chat()}
-      {#if shell.route.overlay?.type === 'chat-history'}
-        <div class="hub-container">
-          <div class="hub-scroll">
-            <ChatHistoryPage
-              activeSessionId={sessionHighlightId}
-              streamingSessionIds={shell.streamingSessionIds}
-              onSelectSession={selectChatSession}
-              onNewChat={historyNewChat}
-            />
-          </div>
-        </div>
-      {:else if shell.route.wikiActive && shell.route.overlay && (shell.route.overlay.type === 'wiki' || shell.route.overlay.type === 'wiki-dir')}
-        <div class="hub-container">
-          <WikiPrimaryShell bind:wikiHdrRef={wikiPrimaryHdr}>
-            {#snippet bar()}
-              <div class="wiki-primary-bar">
-                <nav class="wiki-primary-crumbs" aria-label="Wiki location">
-                  {#each wikiPrimaryBarCrumbs as crumb, i (i)}
-                    {#if i > 0}<span class="wiki-primary-crumb-sep" aria-hidden="true">/</span>{/if}
-                    {#if crumb.kind === 'wiki-root-link'}
-                      <button
-                        type="button"
-                        class="wiki-primary-crumb-btn"
-                        onclick={() => openWikiDir(undefined)}
-                      >Wiki</button>
-                    {:else if crumb.kind === 'folder-link'}
-                      <button
-                        type="button"
-                        class="wiki-primary-crumb-btn"
-                        onclick={() => openWikiDir(crumb.path)}
-                      >{crumb.label}</button>
-                    {:else}
-                      <span class="wiki-primary-crumb-current">{crumb.label}</span>
-                    {/if}
-                  {/each}
-                </nav>
-                <div class="wiki-primary-actions" role="toolbar" aria-label="Wiki actions">
-                  {#if wikiPrimaryHdr?.current?.sharedIncoming}
-                    <span class="wiki-primary-pill">Read-only</span>
-                  {/if}
-                  {#if wikiPrimaryHdr?.current?.canShare && wikiPrimaryHdr.current.onOpenShare}
-                    <button
-                      type="button"
-                      class="wiki-primary-icon-btn wiki-share-header-btn"
-                      onclick={() => wikiPrimaryHdr?.current?.onOpenShare?.()}
-                      title={wikiPrimaryShareTitle(wikiPrimaryHdr.current)}
-                      aria-label={wikiPrimaryShareAria(wikiPrimaryHdr.current)}
-                    >
-                      <span class="wiki-share-header-inner">
-                        <Share2 size={17} strokeWidth={2} aria-hidden="true" />
-                        {#if (wikiPrimaryHdr.current.shareAudienceCount ?? 0) > 0}
-                          <span class="wiki-share-header-badge" aria-hidden="true">
-                            {wikiShareAudienceBadgePrimary(wikiPrimaryHdr.current.shareAudienceCount)}
-                          </span>
+    <div class="workspace-column flex min-h-0 min-w-0 flex-1 flex-col" bind:clientWidth={shell.workspaceColumnWidth}>
+      <WorkspaceSplit
+        bind:this={refs.workspaceSplit}
+        workspaceColumnWidthPx={shell.workspaceColumnWidth}
+        bind:detailFullscreen={shell.detailPaneFullscreen}
+        hasDetail={
+          !shell.route.wikiActive &&
+          !!shell.route.overlay &&
+          shell.route.overlay.type !== 'hub' &&
+          shell.route.overlay.type !== 'chat-history'
+        }
+        desktopDetailOpen={
+          !shell.route.wikiActive &&
+          !!shell.route.overlay &&
+          shell.route.overlay.type !== 'hub' &&
+          shell.route.overlay.type !== 'chat-history' &&
+          useDesktopSplitDetail
+        }
+        onNavigateClear={closeOverlayImmediate}
+      >
+        {#snippet chat()}
+          {#if shell.route.overlay?.type === 'chat-history'}
+            <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+                <ChatHistoryPage
+                  activeSessionId={sessionHighlightId}
+                  streamingSessionIds={shell.streamingSessionIds}
+                  onSelectSession={selectChatSession}
+                  onNewChat={historyNewChat}
+                />
+              </div>
+            </div>
+          {:else if shell.route.wikiActive && shell.route.overlay && (shell.route.overlay.type === 'wiki' || shell.route.overlay.type === 'wiki-dir')}
+            <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              <WikiPrimaryShell bind:wikiHdrRef={wikiPrimaryHdr}>
+                {#snippet bar()}
+                  <div class="wiki-primary-bar flex shrink-0 items-center justify-between gap-2.5 border-b border-border bg-surface-2 px-2.5 py-1.5">
+                    <nav class="wiki-primary-crumbs flex min-w-0 flex-1 flex-wrap items-center gap-0.5 text-[13px] font-medium text-muted" aria-label="Wiki location">
+                      {#each wikiPrimaryBarCrumbs as crumb, i (i)}
+                        {#if i > 0}<span class="wiki-primary-crumb-sep shrink-0 select-none opacity-45" aria-hidden="true">/</span>{/if}
+                        {#if crumb.kind === 'wiki-root-link'}
+                          <button
+                            type="button"
+                            class="wiki-primary-crumb-btn -mx-0.5 -my-1 max-w-full shrink-0 cursor-pointer border-0 bg-transparent px-0.5 py-1 font-medium text-accent underline underline-offset-2 hover:text-foreground"
+                            onclick={() => openWikiDir(undefined)}
+                          >Wiki</button>
+                        {:else if crumb.kind === 'folder-link'}
+                          <button
+                            type="button"
+                            class="wiki-primary-crumb-btn -mx-0.5 -my-1 max-w-full shrink-0 cursor-pointer border-0 bg-transparent px-0.5 py-1 font-medium text-accent underline underline-offset-2 hover:text-foreground"
+                            onclick={() => openWikiDir(crumb.path)}
+                          >{crumb.label}</button>
+                        {:else}
+                          <span class="wiki-primary-crumb-current min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-foreground">{crumb.label}</span>
                         {/if}
-                      </span>
-                    </button>
-                  {/if}
-                  {#if shell.route.overlay.type === 'wiki' && wikiPrimaryHdr?.current}
-                    {#if wikiPrimaryHdr.current.saveState === 'saving'}
-                      <span class="wiki-save-hint" role="status">Saving…</span>
-                    {:else if wikiPrimaryHdr.current.saveState === 'saved'}
-                      <span class="wiki-save-hint" role="status">Saved</span>
-                    {:else if wikiPrimaryHdr.current.saveState === 'error'}
-                      <span class="wiki-save-hint wiki-save-err" role="status">Save failed</span>
-                    {/if}
-                    <button
-                      type="button"
-                      class="wiki-edit-btn wiki-primary-icon-btn"
-                      class:active={wikiPrimaryHdr.current.pageMode === 'edit'}
-                      disabled={!wikiPrimaryHdr.current.canEdit}
-                      onclick={() =>
-                        wikiPrimaryHdr?.current?.setPageMode(
-                          wikiPrimaryHdr.current.pageMode === 'edit' ? 'view' : 'edit',
-                        )}
-                      title={wikiPrimaryHdr.current.pageMode === 'edit' ? 'View' : 'Edit'}
-                      aria-label={wikiPrimaryHdr.current.pageMode === 'edit' ? 'Switch to view mode' : 'Switch to edit mode'}
-                    >
-                      {#if wikiPrimaryHdr.current.pageMode === 'edit'}
-                        <Save size={15} strokeWidth={2} aria-hidden="true" />
-                      {:else}
-                        <Pencil size={15} strokeWidth={2} aria-hidden="true" />
+                      {/each}
+                    </nav>
+                    <div class="wiki-primary-actions flex shrink-0 items-center gap-2" role="toolbar" aria-label="Wiki actions">
+                      {#if wikiPrimaryHdr?.current?.sharedIncoming}
+                        <span class="wiki-primary-pill text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--text-3,var(--text-2))]">Read-only</span>
                       {/if}
-                    </button>
-                  {/if}
-                </div>
-              </div>
-            {/snippet}
-            {#snippet children()}
-              <div class="wiki-primary-main">
-                <div class="hub-scroll wiki-primary-scroll">
-                  {#if shell.route.overlay.type === 'wiki'}
-                    <Wiki
-                      initialPath={shell.route.overlay.path}
-                      shareOwner={shell.route.overlay.shareOwner}
-                      sharePrefix={shell.route.overlay.sharePrefix}
-                      shareHandle={shell.route.overlay.shareHandle}
-                      refreshKey={shell.wikiRefreshKey}
-                      streamingWrite={shell.wikiWriteStreaming}
-                      streamingEdit={shell.wikiEditStreaming}
-                      onNavigate={(path) => onWikiNavigate(path)}
-                      onNavigateToDir={openWikiDir}
-                      onContextChange={setContext}
-                    />
-                  {:else}
-                    <WikiDirList
-                      dirPath={shell.route.overlay.path}
-                      shareOwner={shell.route.overlay.shareOwner}
-                      sharePrefix={shell.route.overlay.sharePrefix}
-                      shareHandle={shell.route.overlay.shareHandle}
-                      refreshKey={shell.wikiRefreshKey}
-                      onOpenFile={(path) => onWikiNavigate(path)}
-                      onOpenDir={(path) => openWikiDir(path)}
-                      onOpenSharedDir={(p) =>
-                        openSharedWiki({
-                          ownerId: p.ownerId,
-                          pathPrefix: p.sharePrefix,
-                          ownerHandle: p.ownerHandle,
-                        })}
-                      onOpenSharedFile={(p) =>
-                        openSharedWikiFile({
-                          ownerId: p.ownerId,
-                          filePath: p.sharePrefix,
-                          ownerHandle: p.ownerHandle,
-                        })}
-                      onContextChange={setContext}
-                    />
-                  {/if}
-                </div>
-                <div class="wiki-primary-composer-dock">
-                  <div class="wiki-primary-composer-stack">
-                    <UnifiedChatComposer
-                      bind:this={wikiDockComposerRef}
-                      transparentSurround={true}
-                      voiceEligible={wikiDockVoiceEligible}
-                      sessionResetKey={wikiDockComposerSessionKey}
-                      placeholder={wikiDockPlaceholder}
-                      streaming={false}
-                      queuedMessages={[]}
-                      wikiFiles={wikiDockWikiFiles}
-                      skills={wikiDockSkills}
-                      onSend={(t) => void wikiPrimaryComposeSend(t)}
-                      onDraftChange={(d) => {
-                        wikiDockDraft = d
-                      }}
-                      onTranscribe={onWikiDockVoiceTranscribe}
-                      onRequestFocusText={() => void wikiDockComposerRef?.focus()}
-                      hearReplies={wikiDockHearReplies}
-                    />
+                      {#if wikiPrimaryHdr?.current?.canShare && wikiPrimaryHdr.current.onOpenShare}
+                        <button
+                          type="button"
+                          class={cn(wikiPrimaryIconBtn, 'wiki-share-header-btn')}
+                          onclick={() => wikiPrimaryHdr?.current?.onOpenShare?.()}
+                          title={wikiPrimaryShareTitle(wikiPrimaryHdr.current)}
+                          aria-label={wikiPrimaryShareAria(wikiPrimaryHdr.current)}
+                        >
+                          <span class="wiki-share-header-inner relative inline-flex items-center justify-center">
+                            <Share2 size={17} strokeWidth={2} aria-hidden="true" />
+                            {#if (wikiPrimaryHdr.current.shareAudienceCount ?? 0) > 0}
+                              <span class="wiki-share-header-badge absolute -top-1 -right-2 box-border inline-block min-w-[16px] h-4 bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
+                                {wikiShareAudienceBadgePrimary(wikiPrimaryHdr.current.shareAudienceCount)}
+                              </span>
+                            {/if}
+                          </span>
+                        </button>
+                      {/if}
+                      {#if shell.route.overlay.type === 'wiki' && wikiPrimaryHdr?.current}
+                        {#if wikiPrimaryHdr.current.saveState === 'saving'}
+                          <span class="wiki-save-hint text-xs font-semibold text-accent" role="status">Saving…</span>
+                        {:else if wikiPrimaryHdr.current.saveState === 'saved'}
+                          <span class="wiki-save-hint text-xs font-semibold text-accent" role="status">Saved</span>
+                        {:else if wikiPrimaryHdr.current.saveState === 'error'}
+                          <span class="wiki-save-hint wiki-save-err text-xs font-semibold text-[var(--text-3,var(--text-2))]" role="status">Save failed</span>
+                        {/if}
+                        <button
+                          type="button"
+                          class={cn(
+                            'wiki-edit-btn',
+                            wikiPrimaryIconBtn,
+                            wikiPrimaryHdr.current.pageMode === 'edit' && 'active enabled:text-accent',
+                          )}
+                          disabled={!wikiPrimaryHdr.current.canEdit}
+                          onclick={() =>
+                            wikiPrimaryHdr?.current?.setPageMode(
+                              wikiPrimaryHdr.current.pageMode === 'edit' ? 'view' : 'edit',
+                            )}
+                          title={wikiPrimaryHdr.current.pageMode === 'edit' ? 'View' : 'Edit'}
+                          aria-label={wikiPrimaryHdr.current.pageMode === 'edit' ? 'Switch to view mode' : 'Switch to edit mode'}
+                        >
+                          {#if wikiPrimaryHdr.current.pageMode === 'edit'}
+                            <Save size={15} strokeWidth={2} aria-hidden="true" />
+                          {:else}
+                            <Pencil size={15} strokeWidth={2} aria-hidden="true" />
+                          {/if}
+                        </button>
+                      {/if}
+                    </div>
                   </div>
-                </div>
+                {/snippet}
+                {#snippet children()}
+                  <div class="wiki-primary-main flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <div class="hub-scroll wiki-primary-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+                      {#if shell.route.overlay.type === 'wiki'}
+                        <Wiki
+                          initialPath={shell.route.overlay.path}
+                          shareOwner={shell.route.overlay.shareOwner}
+                          sharePrefix={shell.route.overlay.sharePrefix}
+                          shareHandle={shell.route.overlay.shareHandle}
+                          refreshKey={shell.wikiRefreshKey}
+                          streamingWrite={shell.wikiWriteStreaming}
+                          streamingEdit={shell.wikiEditStreaming}
+                          onNavigate={(path) => onWikiNavigate(path)}
+                          onNavigateToDir={openWikiDir}
+                          onContextChange={setContext}
+                        />
+                      {:else}
+                        <WikiDirList
+                          dirPath={shell.route.overlay.path}
+                          shareOwner={shell.route.overlay.shareOwner}
+                          sharePrefix={shell.route.overlay.sharePrefix}
+                          shareHandle={shell.route.overlay.shareHandle}
+                          refreshKey={shell.wikiRefreshKey}
+                          onOpenFile={(path) => onWikiNavigate(path)}
+                          onOpenDir={(path) => openWikiDir(path)}
+                          onOpenSharedDir={(p) =>
+                            openSharedWiki({
+                              ownerId: p.ownerId,
+                              pathPrefix: p.sharePrefix,
+                              ownerHandle: p.ownerHandle,
+                            })}
+                          onOpenSharedFile={(p) =>
+                            openSharedWikiFile({
+                              ownerId: p.ownerId,
+                              filePath: p.sharePrefix,
+                              ownerHandle: p.ownerHandle,
+                            })}
+                          onContextChange={setContext}
+                        />
+                      {/if}
+                    </div>
+                    <div class="wiki-primary-composer-dock shrink-0 bg-surface [padding-bottom:env(safe-area-inset-bottom,0px)]">
+                      <div class="wiki-primary-composer-stack mx-auto box-border w-full max-w-chat px-[clamp(12px,3vw,40px)] pb-3 pt-2 md:px-[clamp(16px,4%,40px)]">
+                        <UnifiedChatComposer
+                          bind:this={wikiDockComposerRef}
+                          transparentSurround={true}
+                          voiceEligible={wikiDockVoiceEligible}
+                          sessionResetKey={wikiDockComposerSessionKey}
+                          placeholder={wikiDockPlaceholder}
+                          streaming={false}
+                          queuedMessages={[]}
+                          wikiFiles={wikiDockWikiFiles}
+                          skills={wikiDockSkills}
+                          onSend={(t) => void wikiPrimaryComposeSend(t)}
+                          onDraftChange={(d) => {
+                            wikiDockDraft = d
+                          }}
+                          onTranscribe={onWikiDockVoiceTranscribe}
+                          onRequestFocusText={() => void wikiDockComposerRef?.focus()}
+                          hearReplies={wikiDockHearReplies}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                {/snippet}
+              </WikiPrimaryShell>
+            </div>
+          {:else if shell.route.hubActive || shell.route.overlay?.type === 'hub'}
+            <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+                <BrainHubPage
+                  onHubNavigate={navigateFromHub}
+                  onOpenSettings={openSettings}
+                />
               </div>
-            {/snippet}
-          </WikiPrimaryShell>
-        </div>
-      {:else if shell.route.hubActive || shell.route.overlay?.type === 'hub'}
-        <div class="hub-container">
-          <div class="hub-scroll">
-            <BrainHubPage
-              onHubNavigate={navigateFromHub}
-              onOpenSettings={openSettings}
-            />
-          </div>
+              {#if
+                !useDesktopSplitDetail &&
+                shell.route.overlay &&
+                shell.route.overlay.type !== 'hub' &&
+                shell.route.overlay.type !== 'chat-history'
+              }
+                <div class="mobile-detail-layer absolute inset-0 z-10 flex min-h-0 flex-col">
+                  <AssistantSlideOver
+                    bind:this={refs.mobileSlideOver}
+                    variant="mobile"
+                    overlay={shell.route.overlay}
+                    surfaceContext={shell.agentContext}
+                    wikiRefreshKey={shell.wikiRefreshKey}
+                    calendarRefreshKey={shell.calendarRefreshKey}
+                    inboxTargetId={shell.inboxTargetId}
+                    mailSearchResults={activeMailSearchResults}
+                    wikiStreamingWrite={shell.wikiWriteStreaming}
+                    wikiStreamingEdit={shell.wikiEditStreaming}
+                    onWikiNavigate={onWikiNavigate}
+                    onWikiDirNavigate={openWikiDir}
+                    onOpenSharedWiki={openSharedWiki}
+                    onOpenSharedWikiFile={openSharedWikiFile}
+                    onInboxNavigate={onInboxNavigateSlide}
+                    onContextChange={setContext}
+                    onOpenSearch={() => { shell.showSearch = true }}
+                    onSummarizeInbox={onSummarizeInbox}
+                    onCalendarResetToToday={resetCalendarToToday}
+                    onCalendarNavigate={switchToCalendar}
+                    toolOnOpenFile={openFileDoc}
+                    toolOnOpenIndexedFile={openIndexedFileDoc}
+                    toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+                    toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
+                    toolOnOpenFullInbox={openFullInboxFromChat}
+                    toolOnOpenMessageThread={openMessageThreadFromChat}
+                    onOpenWikiAbout={openHubWikiAbout}
+                    onClose={closeOverlay}
+                  />
+                </div>
+              {/if}
+            </div>
+          {:else if shell.route.settingsActive}
+            <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+                <BrainSettingsPage
+                  onSettingsNavigate={navigateFromSettings}
+                  selectedHubSourceId={shell.route.overlay?.type === 'hub-source'
+                    ? shell.route.overlay.id
+                    : undefined}
+                  onNavigateToSharedWiki={onNavigateToSharedWikiFromHub}
+                />
+              </div>
+              {#if
+                !useDesktopSplitDetail &&
+                shell.route.overlay &&
+                shell.route.overlay.type !== 'hub' &&
+                shell.route.overlay.type !== 'chat-history'
+              }
+                <div class="mobile-detail-layer absolute inset-0 z-10 flex min-h-0 flex-col">
+                  <AssistantSlideOver
+                    bind:this={refs.mobileSlideOver}
+                    variant="mobile"
+                    overlay={shell.route.overlay}
+                    surfaceContext={shell.agentContext}
+                    wikiRefreshKey={shell.wikiRefreshKey}
+                    calendarRefreshKey={shell.calendarRefreshKey}
+                    inboxTargetId={shell.inboxTargetId}
+                    mailSearchResults={activeMailSearchResults}
+                    wikiStreamingWrite={shell.wikiWriteStreaming}
+                    wikiStreamingEdit={shell.wikiEditStreaming}
+                    onWikiNavigate={onWikiNavigate}
+                    onWikiDirNavigate={openWikiDir}
+                    onOpenSharedWiki={openSharedWiki}
+                    onOpenSharedWikiFile={openSharedWikiFile}
+                    onInboxNavigate={onInboxNavigateSlide}
+                    onContextChange={setContext}
+                    onOpenSearch={() => { shell.showSearch = true }}
+                    onSummarizeInbox={onSummarizeInbox}
+                    onCalendarResetToToday={resetCalendarToToday}
+                    onCalendarNavigate={switchToCalendar}
+                    toolOnOpenFile={openFileDoc}
+                    toolOnOpenIndexedFile={openIndexedFileDoc}
+                    toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+                    toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
+                    toolOnOpenFullInbox={openFullInboxFromChat}
+                    toolOnOpenMessageThread={openMessageThreadFromChat}
+                    onOpenWikiAbout={openHubWikiAbout}
+                    onClose={closeOverlay}
+                  />
+                </div>
+              {/if}
+            </div>
+          {:else}
+            <AgentChat
+              bind:this={refs.agentChat}
+              context={shell.agentContext}
+              conversationHidden={!!shell.route.overlay && !useDesktopSplitDetail}
+              hideInput={
+                shell.isMobile &&
+                !useDesktopSplitDetail &&
+                !!shell.route.overlay &&
+                shell.route.overlay.type !== 'hub' &&
+                shell.route.overlay.type !== 'chat-history' &&
+                !overlaySupportsMobileChatBridge(shell.route.overlay)
+              }
+              mobileSlideCoversTranscriptOnly={
+                shell.isMobile &&
+                !useDesktopSplitDetail &&
+                !!shell.route.overlay &&
+                shell.route.overlay.type !== 'hub' &&
+                shell.route.overlay.type !== 'chat-history' &&
+                overlaySupportsMobileChatBridge(shell.route.overlay)
+              }
+              hidePaneContextChip={!!shell.route.overlay && useDesktopSplitDetail}
+              suppressAgentDetailAutoOpen={!useDesktopSplitDetail}
+              onOpenWiki={openWikiDoc}
+              onOpenFile={openFileDoc}
+              onOpenIndexedFile={openIndexedFileDoc}
+              onOpenEmail={openEmailFromChat}
+              onOpenDraft={openEmailDraftFromChat}
+              onOpenFullInbox={openFullInboxFromChat}
+              onOpenMessageThread={openMessageThreadFromChat}
+              onSwitchToCalendar={switchToCalendar}
+              onOpenMailSearchResults={openMailSearchResultsFromChat}
+              onOpenFromAgent={onOpenFromAgent}
+              onOpenDraftFromAgent={openEmailDraftFromChat}
+              onNewChat={closeOverlay}
+              onUserInitiatedNewChat={historyNewChat}
+              onOpenWikiAbout={() => navigateWikiPrimary()}
+              onAfterDeleteChat={historyNewChat}
+              onUserSendMessage={closeOverlayOnUserSend}
+              onSessionChange={onSessionChangeFromAgent}
+              onStreamingSessionsChange={(ids) => { shell.streamingSessionIds = ids }}
+              onWriteStreaming={onWriteStreaming}
+              onEditStreaming={onEditStreaming}
+            >
+              {#snippet mobileDetail()}
+                {#if
+                  shell.route.overlay &&
+                  shell.route.overlay.type !== 'hub' &&
+                  shell.route.overlay.type !== 'chat-history'
+                }
+                  <AssistantSlideOver
+                    bind:this={refs.mobileSlideOver}
+                    variant="mobile"
+                    overlay={shell.route.overlay}
+                    surfaceContext={shell.agentContext}
+                    wikiRefreshKey={shell.wikiRefreshKey}
+                    calendarRefreshKey={shell.calendarRefreshKey}
+                    inboxTargetId={shell.inboxTargetId}
+                    mailSearchResults={activeMailSearchResults}
+                    wikiStreamingWrite={shell.wikiWriteStreaming}
+                    wikiStreamingEdit={shell.wikiEditStreaming}
+                    onWikiNavigate={onWikiNavigate}
+                    onWikiDirNavigate={openWikiDir}
+                    onOpenSharedWiki={openSharedWiki}
+                    onOpenSharedWikiFile={openSharedWikiFile}
+                    onInboxNavigate={onInboxNavigateSlide}
+                    onContextChange={setContext}
+                    onOpenSearch={() => { shell.showSearch = true }}
+                    onSummarizeInbox={onSummarizeInbox}
+                    onCalendarResetToToday={resetCalendarToToday}
+                    onCalendarNavigate={switchToCalendar}
+                    toolOnOpenFile={openFileDoc}
+                    toolOnOpenIndexedFile={openIndexedFileDoc}
+                    toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+                    toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
+                    toolOnOpenFullInbox={openFullInboxFromChat}
+                    toolOnOpenMessageThread={openMessageThreadFromChat}
+                    onOpenWikiAbout={openHubWikiAbout}
+                    onClose={closeOverlay}
+                  />
+                {/if}
+              {/snippet}
+            </AgentChat>
+          {/if}
+        {/snippet}
+        {#snippet desktopDetail()}
           {#if
-            !useDesktopSplitDetail &&
             shell.route.overlay &&
             shell.route.overlay.type !== 'hub' &&
             shell.route.overlay.type !== 'chat-history'
           }
-            <div class="mobile-detail-layer">
-              <AssistantSlideOver
-                bind:this={refs.mobileSlideOver}
-                variant="mobile"
-                overlay={shell.route.overlay}
-                surfaceContext={shell.agentContext}
-                wikiRefreshKey={shell.wikiRefreshKey}
-                calendarRefreshKey={shell.calendarRefreshKey}
-                inboxTargetId={shell.inboxTargetId}
-                mailSearchResults={activeMailSearchResults}
-                wikiStreamingWrite={shell.wikiWriteStreaming}
-                wikiStreamingEdit={shell.wikiEditStreaming}
-                onWikiNavigate={onWikiNavigate}
-                onWikiDirNavigate={openWikiDir}
-                onOpenSharedWiki={openSharedWiki}
-                onOpenSharedWikiFile={openSharedWikiFile}
-                onInboxNavigate={onInboxNavigateSlide}
-                onContextChange={setContext}
-                onOpenSearch={() => { shell.showSearch = true }}
-                onSummarizeInbox={onSummarizeInbox}
-                onCalendarResetToToday={resetCalendarToToday}
-                onCalendarNavigate={switchToCalendar}
-                toolOnOpenFile={openFileDoc}
-                toolOnOpenIndexedFile={openIndexedFileDoc}
-                toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
-                toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
-                toolOnOpenFullInbox={openFullInboxFromChat}
-                toolOnOpenMessageThread={openMessageThreadFromChat}
-                onOpenWikiAbout={openHubWikiAbout}
-                onClose={closeOverlay}
-              />
-            </div>
-          {/if}
-        </div>
-      {:else if shell.route.settingsActive}
-        <div class="hub-container">
-          <div class="hub-scroll">
-            <BrainSettingsPage
-              onSettingsNavigate={navigateFromSettings}
-              selectedHubSourceId={shell.route.overlay?.type === 'hub-source'
-                ? shell.route.overlay.id
-                : undefined}
-              onNavigateToSharedWiki={onNavigateToSharedWikiFromHub}
+            <AssistantSlideOver
+              variant="desktop"
+              overlay={shell.route.overlay}
+              surfaceContext={shell.agentContext}
+              wikiRefreshKey={shell.wikiRefreshKey}
+              calendarRefreshKey={shell.calendarRefreshKey}
+              inboxTargetId={shell.inboxTargetId}
+              mailSearchResults={activeMailSearchResults}
+              wikiStreamingWrite={shell.wikiWriteStreaming}
+              wikiStreamingEdit={shell.wikiEditStreaming}
+              onWikiNavigate={onWikiNavigate}
+              onWikiDirNavigate={openWikiDir}
+              onOpenSharedWiki={openSharedWiki}
+              onOpenSharedWikiFile={openSharedWikiFile}
+              onInboxNavigate={onInboxNavigateSlide}
+              onContextChange={setContext}
+              onOpenSearch={() => { shell.showSearch = true }}
+              onSummarizeInbox={onSummarizeInbox}
+              onCalendarResetToToday={resetCalendarToToday}
+              onCalendarNavigate={switchToCalendar}
+              toolOnOpenFile={openFileDoc}
+              toolOnOpenIndexedFile={openIndexedFileDoc}
+              toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
+              toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
+              toolOnOpenFullInbox={openFullInboxFromChat}
+              toolOnOpenMessageThread={openMessageThreadFromChat}
+              onOpenWikiAbout={openHubWikiAbout}
+              onClose={closeOverlay}
+              detailFullscreen={shell.detailPaneFullscreen}
+              onToggleFullscreen={() => refs.workspaceSplit?.toggleDetailFullscreen()}
             />
-          </div>
-          {#if
-            !useDesktopSplitDetail &&
-            shell.route.overlay &&
-            shell.route.overlay.type !== 'hub' &&
-            shell.route.overlay.type !== 'chat-history'
-          }
-            <div class="mobile-detail-layer">
-              <AssistantSlideOver
-                bind:this={refs.mobileSlideOver}
-                variant="mobile"
-                overlay={shell.route.overlay}
-                surfaceContext={shell.agentContext}
-                wikiRefreshKey={shell.wikiRefreshKey}
-                calendarRefreshKey={shell.calendarRefreshKey}
-                inboxTargetId={shell.inboxTargetId}
-                mailSearchResults={activeMailSearchResults}
-                wikiStreamingWrite={shell.wikiWriteStreaming}
-                wikiStreamingEdit={shell.wikiEditStreaming}
-                onWikiNavigate={onWikiNavigate}
-                onWikiDirNavigate={openWikiDir}
-                onOpenSharedWiki={openSharedWiki}
-                onOpenSharedWikiFile={openSharedWikiFile}
-                onInboxNavigate={onInboxNavigateSlide}
-                onContextChange={setContext}
-                onOpenSearch={() => { shell.showSearch = true }}
-                onSummarizeInbox={onSummarizeInbox}
-                onCalendarResetToToday={resetCalendarToToday}
-                onCalendarNavigate={switchToCalendar}
-                toolOnOpenFile={openFileDoc}
-                toolOnOpenIndexedFile={openIndexedFileDoc}
-                toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
-                toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
-                toolOnOpenFullInbox={openFullInboxFromChat}
-                toolOnOpenMessageThread={openMessageThreadFromChat}
-                onOpenWikiAbout={openHubWikiAbout}
-                onClose={closeOverlay}
-              />
-            </div>
           {/if}
-        </div>
-      {:else}
-        <AgentChat
-          bind:this={refs.agentChat}
-          context={shell.agentContext}
-          conversationHidden={!!shell.route.overlay && !useDesktopSplitDetail}
-          hideInput={
-            shell.isMobile &&
-            !useDesktopSplitDetail &&
-            !!shell.route.overlay &&
-            shell.route.overlay.type !== 'hub' &&
-            shell.route.overlay.type !== 'chat-history' &&
-            !overlaySupportsMobileChatBridge(shell.route.overlay)
-          }
-          mobileSlideCoversTranscriptOnly={
-            shell.isMobile &&
-            !useDesktopSplitDetail &&
-            !!shell.route.overlay &&
-            shell.route.overlay.type !== 'hub' &&
-            shell.route.overlay.type !== 'chat-history' &&
-            overlaySupportsMobileChatBridge(shell.route.overlay)
-          }
-          hidePaneContextChip={!!shell.route.overlay && useDesktopSplitDetail}
-          suppressAgentDetailAutoOpen={!useDesktopSplitDetail}
-          onOpenWiki={openWikiDoc}
-          onOpenFile={openFileDoc}
-          onOpenIndexedFile={openIndexedFileDoc}
-          onOpenEmail={openEmailFromChat}
-          onOpenDraft={openEmailDraftFromChat}
-          onOpenFullInbox={openFullInboxFromChat}
-          onOpenMessageThread={openMessageThreadFromChat}
-          onSwitchToCalendar={switchToCalendar}
-          onOpenMailSearchResults={openMailSearchResultsFromChat}
-          onOpenFromAgent={onOpenFromAgent}
-          onOpenDraftFromAgent={openEmailDraftFromChat}
-          onNewChat={closeOverlay}
-          onUserInitiatedNewChat={historyNewChat}
-          onOpenWikiAbout={() => navigateWikiPrimary()}
-          onAfterDeleteChat={historyNewChat}
-          onUserSendMessage={closeOverlayOnUserSend}
-          onSessionChange={onSessionChangeFromAgent}
-          onStreamingSessionsChange={(ids) => { shell.streamingSessionIds = ids }}
-          onWriteStreaming={onWriteStreaming}
-          onEditStreaming={onEditStreaming}
-        >
-          {#snippet mobileDetail()}
-            {#if
-              shell.route.overlay &&
-              shell.route.overlay.type !== 'hub' &&
-              shell.route.overlay.type !== 'chat-history'
-            }
-              <AssistantSlideOver
-                bind:this={refs.mobileSlideOver}
-                variant="mobile"
-                overlay={shell.route.overlay}
-                surfaceContext={shell.agentContext}
-                wikiRefreshKey={shell.wikiRefreshKey}
-                calendarRefreshKey={shell.calendarRefreshKey}
-                inboxTargetId={shell.inboxTargetId}
-                mailSearchResults={activeMailSearchResults}
-                wikiStreamingWrite={shell.wikiWriteStreaming}
-                wikiStreamingEdit={shell.wikiEditStreaming}
-                onWikiNavigate={onWikiNavigate}
-                onWikiDirNavigate={openWikiDir}
-                onOpenSharedWiki={openSharedWiki}
-                onOpenSharedWikiFile={openSharedWikiFile}
-                onInboxNavigate={onInboxNavigateSlide}
-                onContextChange={setContext}
-                onOpenSearch={() => { shell.showSearch = true }}
-                onSummarizeInbox={onSummarizeInbox}
-                onCalendarResetToToday={resetCalendarToToday}
-                onCalendarNavigate={switchToCalendar}
-                toolOnOpenFile={openFileDoc}
-                toolOnOpenIndexedFile={openIndexedFileDoc}
-                toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
-                toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
-                toolOnOpenFullInbox={openFullInboxFromChat}
-                toolOnOpenMessageThread={openMessageThreadFromChat}
-                onOpenWikiAbout={openHubWikiAbout}
-                onClose={closeOverlay}
-              />
-            {/if}
-          {/snippet}
-        </AgentChat>
-      {/if}
-    {/snippet}
-    {#snippet desktopDetail()}
-      {#if
-        shell.route.overlay &&
-        shell.route.overlay.type !== 'hub' &&
-        shell.route.overlay.type !== 'chat-history'
-      }
-        <AssistantSlideOver
-          variant="desktop"
-          overlay={shell.route.overlay}
-          surfaceContext={shell.agentContext}
-          wikiRefreshKey={shell.wikiRefreshKey}
-          calendarRefreshKey={shell.calendarRefreshKey}
-          inboxTargetId={shell.inboxTargetId}
-          mailSearchResults={activeMailSearchResults}
-          wikiStreamingWrite={shell.wikiWriteStreaming}
-          wikiStreamingEdit={shell.wikiEditStreaming}
-          onWikiNavigate={onWikiNavigate}
-          onWikiDirNavigate={openWikiDir}
-          onOpenSharedWiki={openSharedWiki}
-          onOpenSharedWikiFile={openSharedWikiFile}
-          onInboxNavigate={onInboxNavigateSlide}
-          onContextChange={setContext}
-          onOpenSearch={() => { shell.showSearch = true }}
-          onSummarizeInbox={onSummarizeInbox}
-          onCalendarResetToToday={resetCalendarToToday}
-          onCalendarNavigate={switchToCalendar}
-          toolOnOpenFile={openFileDoc}
-          toolOnOpenIndexedFile={openIndexedFileDoc}
-          toolOnOpenEmail={(i, s, f) => openEmailFromSearch(i, s ?? '', f ?? '')}
-          toolOnOpenDraft={(id, subj) => openEmailDraftFromChat(id, subj)}
-          toolOnOpenFullInbox={openFullInboxFromChat}
-          toolOnOpenMessageThread={openMessageThreadFromChat}
-          onOpenWikiAbout={openHubWikiAbout}
-          onClose={closeOverlay}
-          detailFullscreen={shell.detailPaneFullscreen}
-          onToggleFullscreen={() => refs.workspaceSplit?.toggleDetailFullscreen()}
-        />
-      {/if}
-    {/snippet}
-  </WorkspaceSplit>
+        {/snippet}
+      </WorkspaceSplit>
     </div>
   </div>
 </div>
 
 <style>
-  .app {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
-
-  .app-main-row {
-    flex: 1;
-    display: flex;
-    min-height: 0;
-    position: relative;
-  }
-
-  .workspace-column {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Scroll in .hub-scroll keeps this pane viewport-sized so the mobile slide-over (absolute inset 0) is not scrolled away with long hub content. */
-  .hub-container {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .hub-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  .wiki-primary-bar {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 6px 10px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-2);
-  }
-
-  .wiki-primary-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-
-  .wiki-primary-pill {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-3);
-  }
-
-  .wiki-primary-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px;
-    border: none;
-background: transparent;
-    color: var(--text-2);
-    cursor: pointer;
-  }
-
-  .wiki-share-header-inner {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .wiki-share-header-badge {
-    position: absolute;
-    top: -4px;
-    right: -8px;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    box-sizing: border-box;
-    font-size: 10px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 16px;
-    text-align: center;
-background: var(--accent, #4a90d9);
-    color: var(--bg-pill-on-accent, var(--bg, #fff));
-  }
-
-  .wiki-primary-icon-btn:hover:not(:disabled) {
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-  }
-
-  .wiki-primary-icon-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  .wiki-save-hint {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--accent);
-  }
-
-  .wiki-save-err {
-    color: var(--text-3);
-  }
-
-  .wiki-edit-btn.wiki-primary-icon-btn.active {
-    color: var(--accent);
-  }
-
-  .wiki-primary-crumbs {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 2px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-2);
-  }
-
-  .wiki-primary-crumb-sep {
-    opacity: 0.45;
-    user-select: none;
-    flex-shrink: 0;
-  }
-
-  .wiki-primary-crumb-btn {
-    padding: 4px 2px;
-    margin: -4px -2px;
-    border: none;
-    background: none;
-    color: var(--accent);
-    font: inherit;
-    font-weight: 500;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    flex-shrink: 0;
-    max-width: 100%;
-  }
-
-  .wiki-primary-crumb-btn:hover {
-    color: var(--text);
-  }
-
-  .wiki-primary-crumb-current {
-    color: var(--text);
-    font-weight: 600;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .wiki-primary-main {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .wiki-primary-scroll {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .wiki-primary-composer-dock {
-    flex-shrink: 0;
-    background: var(--bg);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .wiki-primary-composer-stack {
-    max-width: var(--chat-column-max);
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    box-sizing: border-box;
-    padding: 8px clamp(12px, 3vw, 40px) 12px;
-  }
-
-  @media (min-width: 768px) {
-    .wiki-primary-composer-stack {
-      padding-left: clamp(16px, 4%, 40px);
-      padding-right: clamp(16px, 4%, 40px);
-    }
-  }
-
-  .mobile-detail-layer {
-    position: absolute;
-    inset: 0;
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-
+  /* Hub / settings mobile overlays: fill layer and strip slide-over chrome (scoped; do not put
+     `:global(...)` inside Tailwind class strings — that emits invalid selectors into globals.css.) */
   .mobile-detail-layer :global(.slide-over) {
     border-left: none;
     flex: 1;
     min-height: 0;
-  }
-
-  .history-sidebar {
-    min-height: 0;
-  }
-
-  .rail-inner {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .rail-panel {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /**
-   * Desktop: in-flow flex child; enter/exit via `slide` (axis x) so width animates and the workspace reflows.
-   * Mobile: fixed overlay above content (with backdrop); enter/exit via `fly` (transform).
-   */
-  .history-sidebar--slide {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    border-right: 1px solid var(--border);
-    background: var(--bg-2);
-  }
-
-  @media (min-width: 768px) {
-    .history-sidebar--slide {
-      position: relative;
-      flex-shrink: 0;
-      width: var(--sidebar-history-w);
-      max-width: min(var(--sidebar-history-w), 92vw);
-      align-self: stretch;
-    }
-  }
-
-  @media (max-width: 767px) {
-    .history-sidebar--slide {
-      position: fixed;
-      left: 0;
-      top: var(--tab-h);
-      bottom: 0;
-      width: var(--sidebar-history-mobile-w);
-      max-width: 100%;
-      z-index: 200;
-    }
-  }
-
-  .sidebar-backdrop {
-    position: fixed;
-    left: 0;
-    right: 0;
-    top: var(--tab-h);
-    bottom: 0;
-    z-index: 199;
-    background: rgba(0, 0, 0, 0.4);
   }
 </style>

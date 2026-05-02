@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getContext, onMount, tick, untrack } from 'svelte'
   import { Archive, Forward, Reply, Search, Sparkles } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { navigate, parseRoute, readTailFromCache, type Overlay, type SurfaceContext } from '@client/router.js'
   import { emailHeadersForDisplay } from '@client/lib/inboxHeaders.js'
@@ -122,7 +123,6 @@
   let orphanThreadMeta = $state<{ subject: string; from: string } | null>(null)
   let error = $state<string | null>(null)
 
-  // Compose state
   let composeMode = $state<'reply' | 'forward' | null>(null)
   let composeEmailId = $state<string | null>(null)
   let composeInstruction = $state('')
@@ -148,7 +148,6 @@
     headerExpanded = { ...headerExpanded, [key]: !headerExpanded[key] }
   }
 
-  // Contact autocomplete
   let contacts = $state<Contact[]>([])
   let contactsLoaded = $state(false)
 
@@ -358,7 +357,6 @@
         threadContent = blank === -1
           ? { headers: '', body: text }
           : { headers: text.slice(0, blank), body: text.slice(blank + 2) }
-        // Update context with body now that it's loaded (cap at 4000 chars)
         onContextChange?.({ type: 'email', threadId: email.id, subject: email.subject, from: email.from, body: threadContent.body.slice(0, 4000) })
       } else {
         if (threadOpenLatest.isStale(token)) return
@@ -514,17 +512,19 @@
   })
 </script>
 
-<div class="inbox">
+<div class="inbox flex h-full min-h-0 flex-col">
   {#if !selectedThread}
-    <header class="inbox-header">
-      <span class="title">Inbox</span>
-      <div class="header-actions">
+    <header
+      class="inbox-header flex shrink-0 items-center justify-between border-b border-border bg-surface-2 px-4 py-3"
+    >
+      <span class="title text-sm font-semibold">Inbox</span>
+      <div class="header-actions flex items-center gap-2">
         {#if error}
-          <span class="error-badge">{error}</span>
+          <span class="error-badge text-[11px] text-danger">{error}</span>
         {/if}
         {#if onSummarizeInbox}
           <button
-            class="summarize-btn"
+            class="summarize-btn inline-flex items-center gap-1.5 border border-border bg-surface-3 px-2.5 py-1 text-[13px] text-foreground enabled:hover:border-accent-dim enabled:hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"
             type="button"
             onclick={summarizeInbox}
             disabled={!!error || inboxListLoading}
@@ -534,7 +534,11 @@
             Summarize
           </button>
         {/if}
-        <button class="sync-btn" onclick={sync} disabled={syncing}>
+        <button
+          class="sync-btn border border-accent-dim px-2.5 py-1 text-[13px] text-accent disabled:opacity-50"
+          onclick={sync}
+          disabled={syncing}
+        >
           {syncing ? 'Syncing...' : 'Refresh'}
         </button>
       </div>
@@ -542,33 +546,46 @@
   {/if}
 
   {#if selectedThread}
-    <div class="thread-view">
+    <div class="thread-view relative flex min-h-0 flex-1 flex-col overflow-auto">
       {#if composeMode}
-        <div class="compose-panel">
-          <div class="compose-label">{composeMode === 'reply' ? 'Reply' : 'Forward'}</div>
+        <div
+          class="compose-panel flex flex-1 flex-col gap-3 overflow-y-auto p-4"
+        >
+          <div
+            class="compose-label text-xs font-semibold uppercase tracking-[0.05em] text-muted"
+          >
+            {composeMode === 'reply' ? 'Reply' : 'Forward'}
+          </div>
 
           {#if composeMode === 'forward'}
-            <div class="compose-field">
+            <div class="compose-field flex flex-col gap-1">
               <!-- svelte-ignore a11y_label_has_associated_control -->
-              <label class="field-label">To</label>
-              <div class="to-wrap">
+              <label class="field-label text-xs text-muted">To</label>
+              <div class="to-wrap relative">
                 <input
-                  class="to-input"
+                  class="to-input w-full border border-border bg-surface-3 px-2.5 py-2 text-[13px] text-foreground focus:border-accent focus:outline-none"
                   type="text"
                   bind:value={composeTo}
                   placeholder="recipient@example.com"
                   autocomplete="off"
                 />
                 {#if filteredContacts.length > 0}
-                  <ul class="contact-suggestions">
-                    {#each filteredContacts as contact}
+                  <ul
+                    class="contact-suggestions absolute inset-x-0 top-full z-10 max-h-[200px] list-none overflow-y-auto border border-t-0 border-border bg-surface-2"
+                  >
+                    {#each filteredContacts as contact (contact.primaryAddress)}
                       <li>
                         <button
-                          class="contact-option"
+                          class="contact-option flex w-full items-baseline gap-2 px-2.5 py-2 text-left hover:bg-surface-3"
                           onmousedown={() => { composeTo = contact.primaryAddress }}
                         >
-                          <span class="contact-name">{contact.firstname} {contact.lastname}</span>
-                          <span class="contact-addr">{contact.primaryAddress}</span>
+                          <span class="contact-name whitespace-nowrap text-[13px] text-foreground"
+                            >{contact.firstname} {contact.lastname}</span
+                          >
+                          <span
+                            class="contact-addr overflow-hidden whitespace-nowrap text-ellipsis text-[11px] text-muted"
+                            >{contact.primaryAddress}</span
+                          >
                         </button>
                       </li>
                     {/each}
@@ -579,7 +596,7 @@
           {/if}
 
           <textarea
-            class="compose-textarea"
+            class="compose-textarea min-h-[100px] flex-1 resize-y border border-border bg-surface-3 p-2.5 text-[13px] leading-normal text-foreground [font-family:inherit] focus:border-accent focus:outline-none"
             bind:value={composeInstruction}
             placeholder={composeMode === 'reply'
               ? 'Brief instructions for the reply...'
@@ -588,13 +605,13 @@
           ></textarea>
 
           {#if composeError}
-            <p class="compose-error">{composeError}</p>
+            <p class="compose-error text-xs text-danger">{composeError}</p>
           {/if}
 
-          <div class="compose-footer">
-            <button class="cancel-btn" onclick={cancelCompose}>Cancel</button>
+          <div class="compose-footer flex justify-end gap-2">
+            <button class="cancel-btn px-3 py-1.5 text-[13px] text-muted hover:text-foreground" onclick={cancelCompose}>Cancel</button>
             <button
-              class="draft-btn"
+              class="draft-btn border border-accent-dim px-3.5 py-1.5 text-[13px] text-accent disabled:cursor-default disabled:opacity-50"
               onclick={createDraft}
               disabled={composing || !composeInstruction.trim() || (composeMode === 'forward' && !composeTo.trim())}
             >
@@ -604,26 +621,42 @@
         </div>
 
       {:else}
-        <div class="thread-body">
+        <div
+          class="thread-body flex-[0_0_auto] overflow-visible p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        >
           {#if threadLoading}
-            <p class="loading">Loading...</p>
+            <p class="loading text-sm text-muted">Loading...</p>
           {:else if threadLoadError}
-            <p class="thread-error" role="alert">{threadLoadError}</p>
+            <p class="thread-error m-0 text-sm leading-snug text-danger" role="alert">{threadLoadError}</p>
           {:else if threadContent}
-            <div class="thread-meta" aria-label="Message headers">
+            <div
+              class="thread-meta mb-4 flex flex-col gap-1 rounded-lg bg-surface-2 px-4 py-3"
+              aria-label="Message headers"
+            >
               {#each emailHeadersForDisplay(threadContent.headers) as row (row.key)}
-                <div class="thread-meta-row">
-                  <span class="thread-meta-label">{row.label}</span>
-                  <div class="thread-meta-value-wrap">
+                <div
+                  class="thread-meta-row grid grid-cols-[76px_minmax(0,1fr)] items-start gap-x-3.5 gap-y-1 text-[13px] leading-snug max-[480px]:grid-cols-1 max-[480px]:gap-y-[2px]"
+                >
+                  <span
+                    class="thread-meta-label pt-px text-[11px] font-semibold uppercase tracking-[0.04em] text-muted max-[480px]:pt-0"
+                    >{row.label}</span
+                  >
+                  <div
+                    class="thread-meta-value-wrap flex min-w-0 flex-col items-start gap-1"
+                  >
                     <span
                       use:headerValueRef={row.key}
-                      class="thread-meta-value"
-                      class:thread-meta-value-clamped={!headerExpanded[row.key]}
-                    >{row.value}</span>
+                      class={cn(
+                        'thread-meta-value text-foreground [word-break:break-word]',
+                        !headerExpanded[row.key] &&
+                          'thread-meta-value-clamped overflow-hidden [-webkit-box-orient:vertical] [-webkit-line-clamp:3] [display:-webkit-box]',
+                      )}
+                      >{row.value}</span
+                    >
                     {#if headerOverflow[row.key]}
                       <button
                         type="button"
-                        class="thread-meta-toggle"
+                        class="thread-meta-toggle m-0 shrink-0 cursor-pointer border-none bg-none p-0 text-[11px] font-medium text-accent underline [font:inherit] [text-underline-offset:2px] hover:text-foreground"
                         aria-expanded={Boolean(headerExpanded[row.key])}
                         onclick={() => toggleHeaderRow(row.key)}
                       >
@@ -636,7 +669,7 @@
             </div>
             {#key selectedThread}
               <iframe
-                class="thread-body-iframe"
+                class="thread-body-iframe block min-h-[80px] w-full overflow-hidden border-none bg-surface [color-scheme:light_dark]"
                 title="Email message body"
                 sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                 srcdoc={threadIframeSrcdoc}
@@ -644,46 +677,71 @@
               ></iframe>
             {/key}
           {:else}
-            <p class="loading">Failed to load message.</p>
+            <p class="loading text-sm text-muted">Failed to load message.</p>
           {/if}
         </div>
       {/if}
     </div>
 
   {:else}
-    <ul class="email-list">
+    <ul class="email-list flex-1 list-none overflow-y-auto">
       {#if inboxListLoading}
-        <li class="list-loading">
-          <p class="loading">Loading…</p>
+        <li class="list-loading px-8 py-12 text-center">
+          <p class="loading m-0 text-sm text-muted">Loading…</p>
         </li>
       {:else}
         {#each emails as email (email.id)}
-          <li class="email-item" class:unread={!email.read}>
-            <button class="email-body" onclick={() => openThread(email)}>
-              <span class="from">{email.from}</span>
-              <span class="subject">{email.subject}</span>
-              <span class="date">{formatDate(email.date)}</span>
+          <li
+            class={cn(
+              'email-item flex items-center border-b border-border',
+              !email.read && 'unread [&_.from]:font-semibold [&_.from]:text-foreground [&_.subject]:font-semibold [&_.subject]:text-foreground',
+            )}
+          >
+            <button
+              class="email-body grid flex-1 grid-cols-[minmax(100px,180px)_1fr_auto] items-center gap-2 overflow-hidden px-4 py-3 text-left max-md:grid-cols-1 max-md:gap-[2px]"
+              onclick={() => openThread(email)}
+            >
+              <span class="from overflow-hidden whitespace-nowrap text-ellipsis text-[13px] text-muted">{email.from}</span>
+              <span class="subject overflow-hidden whitespace-nowrap text-ellipsis text-[13px] text-muted">{email.subject}</span>
+              <span class="date whitespace-nowrap text-xs text-muted max-md:hidden">{formatDate(email.date)}</span>
             </button>
-            <div class="email-actions">
-              <button class="action-icon-btn" onclick={() => startCompose('reply', email)} title="Reply">
+            <div class="email-actions flex shrink-0 items-center">
+              <button
+                class="action-icon-btn px-2 py-3 text-muted hover:text-foreground max-md:px-1.5 max-md:py-2.5"
+                onclick={() => startCompose('reply', email)}
+                title="Reply"
+              >
                 <Reply size={14} />
               </button>
-              <button class="action-icon-btn" onclick={() => startCompose('forward', email)} title="Forward">
+              <button
+                class="action-icon-btn px-2 py-3 text-muted hover:text-foreground max-md:px-1.5 max-md:py-2.5"
+                onclick={() => startCompose('forward', email)}
+                title="Forward"
+              >
                 <Forward size={14} />
               </button>
-              <button class="archive-btn" onclick={() => archive(email.id)} title="Archive">
+              <button
+                class="archive-btn pb-3 pl-2 pr-4 pt-3 text-muted hover:text-foreground"
+                onclick={() => archive(email.id)}
+                title="Archive"
+              >
                 <Archive size={16} />
               </button>
             </div>
           </li>
         {:else}
-          <li class="empty">
+          <li
+            class="empty flex flex-col items-center gap-4 px-8 py-12 text-center text-sm text-muted"
+          >
             {#if error}
               Inbox unavailable — ripmail may not be configured.
             {:else}
-              <span class="empty-label">No messages</span>
+              <span class="empty-label text-muted">No messages</span>
               {#if onOpenSearch}
-                <button class="search-cta" onclick={onOpenSearch}>
+                <button
+                  class="search-cta flex items-center gap-[7px] border border-accent-dim px-5 py-2.5 text-sm text-accent active:opacity-70"
+                  onclick={onOpenSearch}
+                >
                   <Search size={14} strokeWidth={2} aria-hidden="true" />
                   Search emails
                 </button>
@@ -695,250 +753,3 @@
     </ul>
   {/if}
 </div>
-
-<style>
-  .inbox {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-  }
-
-  .inbox-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-2);
-    flex-shrink: 0;
-  }
-  .title { font-weight: 600; font-size: 14px; }
-  .header-actions { display: flex; align-items: center; gap: 8px; }
-  .error-badge { font-size: 11px; color: var(--danger); }
-
-  .summarize-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: var(--text);
-    padding: 4px 10px;
-    border: 1px solid var(--border);
-background: var(--bg-3);
-  }
-  .summarize-btn:hover:not(:disabled) {
-    border-color: var(--accent-dim);
-    color: var(--accent);
-  }
-  .summarize-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-
-  .sync-btn {
-    font-size: 13px; color: var(--accent);
-    padding: 4px 10px; border: 1px solid var(--accent-dim);}
-  .sync-btn:disabled { opacity: 0.5; }
-
-  /* Email list */
-  .email-list { list-style: none; overflow-y: auto; flex: 1; }
-
-  .list-loading {
-    padding: 48px 32px;
-    text-align: center;
-  }
-  .list-loading .loading { margin: 0; }
-
-  .email-item { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
-  .email-item.unread .from, .email-item.unread .subject { font-weight: 600; color: var(--text); }
-
-  .email-body {
-    flex: 1; display: grid;
-    grid-template-columns: minmax(100px, 180px) 1fr auto;
-    gap: 8px; align-items: center;
-    padding: 12px 16px; text-align: left; overflow: hidden;
-  }
-
-  .from, .subject {
-    font-size: 13px; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; color: var(--text-2);
-  }
-  .date { font-size: 12px; color: var(--text-2); white-space: nowrap; }
-
-  .email-actions { display: flex; align-items: center; flex-shrink: 0; }
-  .action-icon-btn { padding: 12px 8px; color: var(--text-2); }
-  .action-icon-btn:hover { color: var(--text); }
-  .archive-btn { padding: 12px 16px 12px 8px; color: var(--text-2); }
-  .archive-btn:hover { color: var(--text); }
-
-  .empty {
-    padding: 48px 32px;
-    text-align: center;
-    color: var(--text-2);
-    font-size: 14px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-  }
-  .empty-label { color: var(--text-2); }
-  .search-cta {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 14px;
-    color: var(--accent);
-    padding: 10px 20px;
-    border: 1px solid var(--accent-dim);
-}
-  .search-cta:active { opacity: 0.7; }
-
-  /* Thread view */
-  .thread-view {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: auto;
-    position: relative;
-    min-height: 0;
-  }
-
-  .thread-body {
-    flex: 0 0 auto;
-    overflow: visible;
-    padding: 16px;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  }
-  .loading { color: var(--text-2); font-size: 14px; }
-  .thread-error {
-    color: var(--danger);
-    font-size: 14px;
-    line-height: 1.45;
-    margin: 0;
-  }
-  .thread-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding-bottom: 16px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid var(--border);
-  }
-  .thread-meta-row {
-    display: grid;
-    grid-template-columns: 76px minmax(0, 1fr);
-    gap: 4px 14px;
-    align-items: start;
-    font-size: 13px;
-    line-height: 1.35;
-  }
-  .thread-meta-label {
-    font-weight: 600;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-2);
-    padding-top: 1px;
-  }
-  .thread-meta-value-wrap {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-  .thread-meta-value {
-    color: var(--text);
-    word-break: break-word;
-  }
-  .thread-meta-value-clamped {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
-  }
-  .thread-meta-toggle {
-    flex-shrink: 0;
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: none;
-    font: inherit;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--accent);
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-  .thread-meta-toggle:hover {
-    color: var(--text);
-  }
-  @media (max-width: 480px) {
-    .thread-meta-row {
-      grid-template-columns: 1fr;
-      gap: 2px;
-    }
-    .thread-meta-label {
-      padding-top: 0;
-    }
-  }
-  .thread-body-iframe {
-    display: block;
-    width: 100%;
-    min-height: 80px;
-    border: none;
-background: var(--bg);
-    color-scheme: light dark;
-    overflow: hidden;
-  }
-
-  /* Compose panel */
-  .compose-panel {
-    flex: 1; display: flex; flex-direction: column; gap: 12px;
-    padding: 16px; overflow-y: auto;
-  }
-  .compose-label { font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.05em; }
-
-  .compose-field { display: flex; flex-direction: column; gap: 4px; }
-  .field-label { font-size: 12px; color: var(--text-2); }
-  .to-wrap { position: relative; }
-  .to-input {
-    width: 100%; padding: 8px 10px; font-size: 13px;
-    background: var(--bg-3); border: 1px solid var(--border);color: var(--text);
-  }
-  .to-input:focus { outline: none; border-color: var(--accent); }
-
-  .contact-suggestions {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 10;
-    background: var(--bg-2); border: 1px solid var(--border); border-top: none;
-list-style: none; max-height: 200px; overflow-y: auto;
-  }
-  .contact-option {
-    width: 100%; padding: 8px 10px; text-align: left;
-    display: flex; align-items: baseline; gap: 8px;
-  }
-  .contact-option:hover { background: var(--bg-3); }
-  .contact-name { font-size: 13px; color: var(--text); white-space: nowrap; }
-  .contact-addr { font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  .compose-textarea {
-    flex: 1; min-height: 100px; padding: 10px; font-size: 13px; line-height: 1.5;
-    background: var(--bg-3); border: 1px solid var(--border);color: var(--text); resize: vertical; font-family: inherit;
-  }
-  .compose-textarea:focus { outline: none; border-color: var(--accent); }
-
-  .compose-error { font-size: 12px; color: var(--danger); }
-
-  .compose-footer { display: flex; justify-content: flex-end; gap: 8px; }
-  .cancel-btn { font-size: 13px; color: var(--text-2); padding: 6px 12px; }
-  .cancel-btn:hover { color: var(--text); }
-  .draft-btn {
-    font-size: 13px; color: var(--accent);
-    padding: 6px 14px; border: 1px solid var(--accent-dim);}
-  .draft-btn:disabled { opacity: 0.5; cursor: default; }
-
-  @media (max-width: 768px) {
-    .email-body { grid-template-columns: 1fr; gap: 2px; }
-    .date { display: none; }
-    .action-icon-btn { padding: 10px 6px; }
-  }
-</style>

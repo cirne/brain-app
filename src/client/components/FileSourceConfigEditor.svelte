@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ChevronRight, FolderPlus, Trash2 } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
 
   export type HubFileSourceRoot = {
     id: string
@@ -159,40 +160,53 @@
   }
 
   const driveNeedsFolders = $derived(sourceKind === 'googleDrive' && draft.roots.length === 0)
+
+  /** Hub button recipes (mirrors hub panels). */
+  const hubBtn =
+    'hub-dialog-btn inline-flex cursor-pointer items-center justify-center gap-[0.35rem] border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
+  const hubBtnPrimary =
+    'hub-dialog-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.06)]'
+  const hubBtnSecondary =
+    'hub-dialog-btn-secondary border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground hover:not-disabled:bg-surface-2'
 </script>
 
-<div class="fs-editor">
+<div class="fs-editor mt-2 flex flex-col gap-3">
   {#if driveNeedsFolders}
-    <p class="fs-editor-warn" role="alert">
+    <p
+      class="fs-editor-warn m-0 bg-[color-mix(in_srgb,orange_18%,transparent)] px-[0.65rem] py-2 text-sm"
+      role="alert"
+    >
       No Drive folders selected — add at least one folder before syncing (entire-Drive sync is disabled).
     </p>
   {/if}
   {#if saveErr}
-    <p class="fs-editor-err" role="alert">{saveErr}</p>
+    <p class="fs-editor-err m-0 text-sm text-[var(--color-danger,#c23)]" role="alert">{saveErr}</p>
   {/if}
   {#if browserErr}
-    <p class="fs-editor-err" role="alert">{browserErr}</p>
+    <p class="fs-editor-err m-0 text-sm text-[var(--color-danger,#c23)]" role="alert">{browserErr}</p>
   {/if}
 
   <div class="fs-editor-roots">
-    <div class="fs-editor-roots-head">
-      <span class="fs-editor-label">Indexed folders</span>
-      <button type="button" class="hub-dialog-btn hub-dialog-btn-secondary fs-btn" onclick={openBrowser}>
+    <div class="fs-editor-roots-head flex flex-wrap items-center justify-between gap-2">
+      <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">Indexed folders</span>
+      <button type="button" class={cn(hubBtn, hubBtnSecondary, 'fs-btn inline-flex items-center gap-[0.35rem]')} onclick={openBrowser}>
         <FolderPlus size={16} aria-hidden="true" />
         Add folder…
       </button>
     </div>
     {#if draft.roots.length === 0}
-      <p class="fs-editor-empty">None yet — use “Add folder…”.</p>
+      <p class="fs-editor-empty m-0 text-sm opacity-80">None yet — use “Add folder…”.</p>
     {:else}
-      <ul class="fs-root-list">
+      <ul class="fs-root-list m-0 flex list-none flex-col gap-2 p-0">
         {#each draft.roots as r, i (r.id + i)}
-          <li class="fs-root-row">
-            <div class="fs-root-main">
-              <span class="fs-root-name">{r.name}</span>
-              <code class="hub-source-code fs-root-id">{r.id}</code>
+          <li
+            class="fs-root-row grid grid-cols-[1fr_auto_auto] items-center gap-2 bg-[color-mix(in_srgb,var(--color-fg,#ccc)_6%,transparent)] px-2 py-[0.45rem]"
+          >
+            <div class="fs-root-main flex min-w-0 flex-col gap-[0.15rem]">
+              <span class="fs-root-name text-[0.9rem] font-semibold">{r.name}</span>
+              <code class="hub-source-code fs-root-id text-[0.7rem] [word-break:break-all]">{r.id}</code>
             </div>
-            <label class="fs-rec-label">
+            <label class="fs-rec-label flex items-center gap-[0.35rem] whitespace-nowrap text-[0.8rem]">
               <input
                 type="checkbox"
                 checked={r.recursive}
@@ -202,7 +216,7 @@
             </label>
             <button
               type="button"
-              class="hub-icon-btn fs-remove"
+              class="hub-icon-btn fs-remove justify-self-end"
               aria-label="Remove folder"
               onclick={() => removeRoot(i)}
             >
@@ -215,39 +229,51 @@
   </div>
 
   {#if browserOpen}
-    <div class="fs-browser" role="dialog" aria-label="Pick folder">
-      <div class="fs-browser-head">
+    <div
+      class="fs-browser border border-[color-mix(in_srgb,var(--color-fg,#ccc)_18%,transparent)] bg-[color-mix(in_srgb,var(--color-fg,#ccc)_4%,transparent)] p-2"
+      role="dialog"
+      aria-label="Pick folder"
+    >
+      <div class="fs-browser-head mb-[0.35rem] flex flex-wrap items-center gap-[0.35rem]">
         <button
           type="button"
-          class="hub-dialog-btn hub-dialog-btn-secondary"
+          class={cn(hubBtn, hubBtnSecondary)}
           onclick={browserUp}
           disabled={browserStack.length === 0}
         >
           Up
         </button>
-        <span class="fs-breadcrumb">
+        <span
+          class="fs-breadcrumb inline-flex min-w-0 flex-1 flex-wrap items-center gap-[0.15rem] text-[0.8rem] opacity-90"
+        >
           {#each browserStack as seg, i (seg.id + i)}
             <ChevronRight size={14} class="fs-bc-sep" aria-hidden="true" />
             <span>{seg.name}</span>
           {/each}
         </span>
-        <button type="button" class="hub-dialog-btn hub-dialog-btn-secondary" onclick={() => (browserOpen = false)}>
+        <button type="button" class={cn(hubBtn, hubBtnSecondary)} onclick={() => (browserOpen = false)}>
           Close
         </button>
       </div>
       {#if browserLoading}
-        <p class="fs-editor-note">Loading…</p>
+        <p class="fs-editor-note my-1 text-sm opacity-85">Loading…</p>
       {:else if browserFolders.length === 0}
-        <p class="fs-editor-note">No subfolders here.</p>
+        <p class="fs-editor-note my-1 text-sm opacity-85">No subfolders here.</p>
       {:else}
-        <ul class="fs-browser-list">
+        <ul class="fs-browser-list m-0 list-none p-0">
           {#each browserFolders as f (f.id)}
-            <li class="fs-browser-row">
-              <button type="button" class="fs-browser-name" onclick={() => browserEnter(f)}>
+            <li
+              class="fs-browser-row flex items-center justify-between gap-[0.35rem] border-b border-[color-mix(in_srgb,var(--color-fg,#ccc)_8%,transparent)] py-1 last:border-b-0"
+            >
+              <button
+                type="button"
+                class="fs-browser-name flex-1 cursor-pointer border-none bg-none p-1 text-left text-inherit [font:inherit] hover:bg-[color-mix(in_srgb,var(--color-fg,#ccc)_8%,transparent)]"
+                onclick={() => browserEnter(f)}
+              >
                 {f.name}
-                {#if f.hasChildren}<span class="fs-has-kids">▸</span>{/if}
+                {#if f.hasChildren}<span class="fs-has-kids ml-1 opacity-60">▸</span>{/if}
               </button>
-              <button type="button" class="hub-dialog-btn hub-dialog-btn-primary fs-pick" onclick={() => pickFolder(f)}>
+              <button type="button" class={cn(hubBtn, hubBtnPrimary, 'fs-pick shrink-0 px-[0.55rem] py-[0.2rem] text-[0.8rem]')} onclick={() => pickFolder(f)}>
                 Add
               </button>
             </li>
@@ -257,8 +283,8 @@
     </div>
   {/if}
 
-  <label class="fs-field">
-    <span class="fs-editor-label">Max file bytes</span>
+  <label class="fs-field flex flex-col gap-1">
+    <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">Max file bytes</span>
     <input
       type="number"
       class="hub-source-input"
@@ -273,7 +299,7 @@
   </label>
 
   {#if sourceKind === 'localDir'}
-    <label class="fs-check">
+    <label class="fs-check flex items-center gap-[0.4rem] text-sm">
       <input type="checkbox" bind:checked={draft.respectGitignore} />
       Respect .gitignore
     </label>
@@ -281,194 +307,32 @@
 
   <button
     type="button"
-    class="hub-dialog-btn hub-dialog-btn-secondary fs-globs-toggle"
+    class={cn(hubBtn, hubBtnSecondary, 'fs-globs-toggle self-start')}
     onclick={() => (globsOpen = !globsOpen)}
   >
     {globsOpen ? 'Hide' : 'Edit'} include / ignore patterns
   </button>
   {#if globsOpen}
-    <label class="fs-field">
-      <span class="fs-editor-label">Include globs (one per line, optional)</span>
+    <label class="fs-field flex flex-col gap-1">
+      <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">Include globs (one per line, optional)</span>
       <textarea class="hub-source-textarea" rows="3" bind:value={includeText}></textarea>
     </label>
-    <label class="fs-field">
-      <span class="fs-editor-label">Ignore globs (one per line)</span>
+    <label class="fs-field flex flex-col gap-1">
+      <span class="fs-editor-label text-xs font-semibold uppercase tracking-[0.03em] opacity-85">Ignore globs (one per line)</span>
       <textarea class="hub-source-textarea" rows="3" bind:value={ignoreText}></textarea>
     </label>
   {/if}
 
-  <div class="fs-editor-actions">
-    <button type="button" class="hub-dialog-btn hub-dialog-btn-primary" disabled={saveBusy} onclick={() => void save()}>
+  <div class="fs-editor-actions mt-1">
+    <button type="button" class={cn(hubBtn, hubBtnPrimary)} disabled={saveBusy} onclick={() => void save()}>
       {saveBusy ? 'Saving…' : 'Save file source settings'}
     </button>
   </div>
 </div>
 
 <style>
-  .fs-editor {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 0.5rem;
-  }
-  .fs-editor-warn {
-    margin: 0;
-    padding: 0.5rem 0.65rem;
-background: color-mix(in srgb, orange 18%, transparent);
-    font-size: 0.875rem;
-  }
-  .fs-editor-err {
-    margin: 0;
-    color: var(--color-danger, #c23);
-    font-size: 0.875rem;
-  }
-  .fs-editor-note {
-    margin: 0.25rem 0;
-    font-size: 0.875rem;
-    opacity: 0.85;
-  }
-  .fs-editor-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    opacity: 0.85;
-  }
-  .fs-editor-roots-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-  .fs-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-  .fs-editor-empty {
-    margin: 0;
-    font-size: 0.875rem;
-    opacity: 0.8;
-  }
-  .fs-root-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .fs-root-row {
-    display: grid;
-    grid-template-columns: 1fr auto auto;
-    gap: 0.5rem;
-    align-items: center;
-    padding: 0.45rem 0.5rem;
-background: color-mix(in srgb, var(--color-fg, #ccc) 6%, transparent);
-  }
-  .fs-root-main {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    min-width: 0;
-  }
-  .fs-root-name {
-    font-weight: 600;
-    font-size: 0.9rem;
-  }
-  .fs-root-id {
-    font-size: 0.7rem;
-    word-break: break-all;
-  }
-  .fs-rec-label {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.8rem;
-    white-space: nowrap;
-  }
-  .fs-remove {
-    justify-self: end;
-  }
-  .fs-browser {
-    border: 1px solid color-mix(in srgb, var(--color-fg, #ccc) 18%, transparent);
-padding: 0.5rem;
-    background: color-mix(in srgb, var(--color-fg, #ccc) 4%, transparent);
-  }
-  .fs-browser-head {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.35rem;
-  }
-  .fs-breadcrumb {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.15rem;
-    flex: 1;
-    font-size: 0.8rem;
-    opacity: 0.9;
-    min-width: 0;
-    flex-wrap: wrap;
-  }
+  /* Lucide icon class — must escape Svelte's scoped CSS so the icon class still applies. */
   :global(.fs-bc-sep) {
     opacity: 0.45;
-  }
-  .fs-browser-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .fs-browser-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.35rem;
-    padding: 0.25rem 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-fg, #ccc) 8%, transparent);
-  }
-  .fs-browser-row:last-child {
-    border-bottom: none;
-  }
-  .fs-browser-name {
-    flex: 1;
-    text-align: left;
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    font: inherit;
-    padding: 0.2rem;
-}
-  .fs-browser-name:hover {
-    background: color-mix(in srgb, var(--color-fg, #ccc) 8%, transparent);
-  }
-  .fs-has-kids {
-    margin-left: 0.25rem;
-    opacity: 0.6;
-  }
-  .fs-pick {
-    flex-shrink: 0;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.8rem;
-  }
-  .fs-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-  .fs-check {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.875rem;
-  }
-  .fs-globs-toggle {
-    align-self: flex-start;
-  }
-  .fs-editor-actions {
-    margin-top: 0.25rem;
   }
 </style>

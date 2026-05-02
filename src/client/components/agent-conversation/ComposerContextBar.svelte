@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ArrowRight, Sparkles } from 'lucide-svelte'
-  import WikiFileName from '../WikiFileName.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
   import { cn } from '@client/lib/cn.js'
   import type { QuickReplyChoice } from '@client/lib/tools/suggestReplyChoices.js'
 
@@ -95,9 +95,7 @@
 
 <style>
   /**
-   * Fade the right edge of the refs row (alpha mask), not a solid overlay — avoids wrong
-   * theme colors: `--color-background` / `--color-surface-1` are not defined in style.css,
-   * so the old gradient fell through to `#111` and looked black in light mode.
+   * Fade the right edge of the refs row (alpha mask), not a solid overlay.
    */
   .composer-context-bar__refs {
     -webkit-mask-image: linear-gradient(
@@ -113,7 +111,6 @@
     display: none;
   }
 
-  /** Doc chips: hover = ring/outline only so they stay visually distinct from accent-filled actions. */
   .composer-context-chip--doc:hover:not(:disabled) {
     background: var(--color-surface-3, #2a2a2a);
     border-color: var(--color-accent, #6cf);
@@ -153,18 +150,10 @@
   }
 
   @keyframes composer-context-sparkle-nudge {
-    0% {
-      transform: scale(0.92) rotate(-6deg);
-    }
-    40% {
-      transform: scale(1.06) rotate(4deg);
-    }
-    70% {
-      transform: scale(0.98) rotate(-2deg);
-    }
-    100% {
-      transform: scale(1) rotate(0deg);
-    }
+    0%   { transform: scale(0.92) rotate(-6deg); }
+    40%  { transform: scale(1.06) rotate(4deg); }
+    70%  { transform: scale(0.98) rotate(-2deg); }
+    100% { transform: scale(1) rotate(0deg); }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -173,5 +162,4 @@
       transform: scale(1);
     }
   }
-
 </style>

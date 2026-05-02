@@ -1,5 +1,5 @@
 <script lang="ts">
-  import WikiFileName from '../WikiFileName.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
 
   let {
     paths,

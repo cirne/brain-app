@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
-  import WikiPageCountIndicator from './WikiPageCountIndicator.svelte'
+  import WikiPageCountIndicator from '@components/WikiPageCountIndicator.svelte'
   import { subscribe } from '@client/lib/app/appEvents.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
@@ -58,8 +59,10 @@
 
 <button
   type="button"
-  class="hub-widget"
-  class:active={showActive}
+  class={cn(
+    'hub-widget relative flex h-full cursor-pointer items-center gap-2 border-none bg-transparent px-3 text-[13px] font-medium text-muted transition-colors duration-150 hover:bg-surface-3 hover:text-foreground',
+    showActive && 'active text-accent',
+  )}
   onclick={onOpen}
   title={showActive ? `${activeLabel} (Click for Braintunnel Hub)` : 'Braintunnel Hub'}
 >
@@ -70,30 +73,3 @@
     hubControl
   />
 </button>
-
-<style>
-  .hub-widget {
-    position: relative;
-    height: 100%;
-    padding: 0 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-2);
-    transition: color 0.15s, background 0.15s;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-  }
-
-  .hub-widget:hover {
-    color: var(--text);
-    background: var(--bg-3);
-  }
-
-  .hub-widget.active {
-    color: var(--accent);
-  }
-</style>

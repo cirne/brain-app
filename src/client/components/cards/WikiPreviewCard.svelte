@@ -1,6 +1,6 @@
 <script lang="ts">
-  import StreamingAgentMarkdown from '../agent-conversation/StreamingAgentMarkdown.svelte'
-  import WikiFileName from '../WikiFileName.svelte'
+  import StreamingAgentMarkdown from '@components/agent-conversation/StreamingAgentMarkdown.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
   import { stripFrontMatter, takeFirstLines, WIKI_PREVIEW_MAX_LINES } from '@client/lib/markdown.js'
   import '../../styles/agent-conversation/toolWriteLink.css'
 
@@ -42,12 +42,17 @@
   }
 </script>
 
-<div class="wiki-tool-preview-card">
-  <button type="button" class="tool-write-link wiki-preview-file-link" onclick={() => onOpen()} aria-label="Open doc: {path}">
+<div class="wiki-tool-preview-card mt-1 min-w-0 max-w-full">
+  <button
+    type="button"
+    class="tool-write-link wiki-preview-file-link mb-1.5 flex w-full min-w-0 max-w-full flex-wrap items-baseline gap-[0.35em] text-left text-[11px] text-muted"
+    onclick={() => onOpen()}
+    aria-label="Open doc: {path}"
+  >
     <WikiFileName {path} />
   </button>
   <div
-    class="wiki-tool-preview-body"
+    class="wiki-tool-preview-body m-0 min-w-0 cursor-pointer border-t border-border pt-2 text-left outline-none focus-visible:[box-shadow:inset_2px_0_0_var(--accent),inset_-2px_0_0_var(--accent)] [&_.wiki-tool-preview-md]:block [&_.wiki-tool-preview-md]:max-h-[120px] [&_.wiki-tool-preview-md]:overflow-hidden [&_.wiki-tool-preview-md]:text-[13px] [&_.wiki-tool-preview-md]:leading-[1.45] [&_.wiki-tool-preview-md]:text-muted [&_.wiki-tool-preview-md_a]:cursor-pointer"
     role="button"
     tabindex="0"
     aria-label="Open wiki preview for {path}"
@@ -57,54 +62,3 @@
     <StreamingAgentMarkdown class="wiki-tool-preview-md" content={mdContent} />
   </div>
 </div>
-
-<style>
-  .wiki-tool-preview-card {
-    margin: 4px 0 0;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .wiki-preview-file-link {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.35em;
-    margin-bottom: 6px;
-    font-size: 11px;
-    color: var(--text-2);
-    text-align: left;
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .wiki-tool-preview-body {
-    margin: 0;
-    padding: 8px 0 0;
-    border-top: 1px solid var(--border);
-    cursor: pointer;
-    text-align: left;
-    outline: none;
-    min-width: 0;
-  }
-
-  .wiki-tool-preview-body:focus-visible {
-box-shadow:
-      inset 2px 0 0 var(--accent),
-      inset -2px 0 0 var(--accent);
-  }
-
-  .wiki-tool-preview-body :global(.wiki-tool-preview-md) {
-    display: block;
-    max-height: 120px;
-    overflow: hidden;
-    font-size: 13px;
-    line-height: 1.45;
-    color: var(--text-2);
-  }
-
-  .wiki-tool-preview-body :global(.wiki-tool-preview-md a) {
-    cursor: pointer;
-  }
-</style>

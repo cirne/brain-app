@@ -20,20 +20,21 @@
     Share2,
     X,
   } from 'lucide-svelte'
-  import Wiki from '../Wiki.svelte'
-  import WikiDirList from '../WikiDirList.svelte'
-  import FileViewer from '../FileViewer.svelte'
-  import IndexedFileViewer from '../IndexedFileViewer.svelte'
-  import Inbox from '../Inbox.svelte'
-  import Calendar from '../Calendar.svelte'
-  import MessageThread from '../MessageThread.svelte'
-  import MailSearchResultsPanel from '../MailSearchResultsPanel.svelte'
-  import YourWikiDetail from '../YourWikiDetail.svelte'
-  import HubConnectorSourcePanel from '../hub-connector/HubConnectorSourcePanel.svelte'
-  import HubWikiAboutPanel from '../HubWikiAboutPanel.svelte'
-  import WikiFileName from '../WikiFileName.svelte'
-  import EmailDraftEditor from '../EmailDraftEditor.svelte'
-  import PaneL2Header from '../PaneL2Header.svelte'
+  import Wiki from '@components/Wiki.svelte'
+  import WikiDirList from '@components/WikiDirList.svelte'
+  import FileViewer from '@components/FileViewer.svelte'
+  import IndexedFileViewer from '@components/IndexedFileViewer.svelte'
+  import Inbox from '@components/Inbox.svelte'
+  import Calendar from '@components/Calendar.svelte'
+  import MessageThread from '@components/MessageThread.svelte'
+  import MailSearchResultsPanel from '@components/MailSearchResultsPanel.svelte'
+  import YourWikiDetail from '@components/YourWikiDetail.svelte'
+  import HubConnectorSourcePanel from '@components/hub-connector/HubConnectorSourcePanel.svelte'
+  import HubWikiAboutPanel from '@components/HubWikiAboutPanel.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
+  import EmailDraftEditor from '@components/EmailDraftEditor.svelte'
+  import PaneL2Header from '@components/PaneL2Header.svelte'
+  import { cn } from '@client/lib/cn.js'
   import type { Overlay, SurfaceContext } from '@client/lib/router.js'
   import type { MailSearchResultsState } from '@client/lib/assistantShellModel.js'
   import { createSlideHeaderRegistration } from '@client/lib/slideHeaderContextRegistration.svelte.js'
@@ -96,7 +97,7 @@
     mailSearchResults?: MailSearchResultsState | null
     /** Live agent `write` stream — markdown body for `path` (wiki pane). */
     wikiStreamingWrite?: { path: string; body: string } | null
-    /** Live agent `edit` stream — show “Editing…” for `path` (wiki pane). */
+    /** Live agent `edit` stream — show "Editing…" for `path` (wiki pane). */
     wikiStreamingEdit?: { path: string; toolId: string } | null
     onWikiNavigate: (_path: string | undefined) => void
     /** Open wiki folder browser (`/wiki-dir/…`). */
@@ -109,7 +110,7 @@
     /** Inbox list: open search, summarize. Thread Reply/Forward/Archive live in the L2 header. */
     onOpenSearch?: () => void
     onSummarizeInbox?: (_message: string) => void
-    /** Calendar “Today”: jump to this week + clear `event=` in URL. */
+    /** Calendar "Today": jump to this week + clear `event=` in URL. */
     onCalendarResetToToday?: () => void
     /** `?panel=calendar&date=&event=` — same contract as App `switchToCalendar`. */
     onCalendarNavigate?: (_date: string, _eventId?: string) => void
@@ -218,15 +219,27 @@
     }
     onBackOrHeaderClose()
   }
+
+  // Tailwind utility shortcuts
+  const headerIconBtnBase =
+    'inline-flex h-7 w-7 max-md:h-10 max-md:w-10 shrink-0 items-center justify-center border-none bg-transparent text-muted transition-colors disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5'
+
+  const wikiEditBtn =
+    'wiki-edit-btn flex h-8 w-8 max-md:h-10 max-md:w-10 shrink-0 items-center justify-center text-muted transition-colors disabled:cursor-default disabled:opacity-35 hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5'
+
+  const inboxThreadHeaderBtn =
+    'inbox-thread-header-btn inline-flex h-8 w-8 max-md:h-10 max-md:w-10 shrink-0 items-center justify-center border-none bg-transparent text-muted outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-45 focus-visible:bg-surface-3 focus-visible:text-foreground hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5'
 </script>
 
 <div
   bind:this={mobile.rootEl}
   bind:clientWidth={mobile.panelW}
-  class="slide-over"
-  class:mobile-slide={mobilePanel}
-  class:slide-anim={mobilePanel && mobile.transitionEnabled}
-  class:dragging={mobilePanel && mobile.swipeState === 'dragging'}
+  class={cn(
+    'slide-over flex h-full min-h-0 flex-col bg-surface border-l border-border',
+    mobilePanel && 'mobile-slide [will-change:transform] [touch-action:pan-y] [overscroll-behavior-x:contain] [--pane-header-h:52px] [--pane-header-px:16px] [&_.pane-l2-header]:[column-gap:0.75rem]',
+    mobilePanel && mobile.transitionEnabled && 'slide-anim',
+    mobilePanel && mobile.swipeState === 'dragging' && 'dragging',
+  )}
   data-overlay={overlay.type}
   style:transform={mobilePanel ? `translateX(${mobile.slidePx}px)` : undefined}
   ontransitionend={mobile.onPanelTransitionEnd}
@@ -235,7 +248,11 @@
     {#snippet left()}
       <button
         type="button"
-        class="back-btn"
+        class={cn(
+          'back-btn inline-flex shrink-0 items-center gap-1 px-2 py-1 text-[13px] text-accent md:hidden',
+          'hover:bg-accent-dim',
+          mobilePanel && 'text-[15px] px-2.5 py-1.5 [&_svg]:h-[22px] [&_svg]:w-[22px]',
+        )}
         onclick={headerDismiss}
         aria-label={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Back'}
       >
@@ -248,19 +265,26 @@
     {/snippet}
     {#snippet center()}
       {#if overlay.type === 'calendar' && calendarHdr.current}
-        <div class="cal-week-inline" aria-label="Week navigation">
+        <div class="cal-week-inline flex flex-1 min-w-0 items-center justify-center gap-2" aria-label="Week navigation">
           <button
             type="button"
-            class="cal-nav-btn"
+            class={cn(
+              'cal-nav-btn flex h-7 w-7 max-md:h-10 max-md:w-10 max-md:text-lg shrink-0 items-center justify-center text-base text-muted hover:bg-surface-3 hover:text-foreground',
+            )}
             onclick={calendarHdr.current.prevWeek}
             aria-label="Previous week"
           >
             &#8592;
           </button>
-          <span class="cal-week-label">{calendarHdr.current.weekLabel}</span>
+          <span class={cn(
+            'cal-week-label min-w-0 truncate text-center text-[13px] font-semibold text-foreground',
+            mobilePanel && 'text-[15px]',
+          )}>{calendarHdr.current.weekLabel}</span>
           <button
             type="button"
-            class="cal-nav-btn"
+            class={cn(
+              'cal-nav-btn flex h-7 w-7 max-md:h-10 max-md:w-10 max-md:text-lg shrink-0 items-center justify-center text-base text-muted hover:bg-surface-3 hover:text-foreground',
+            )}
             onclick={calendarHdr.current.nextWeek}
             aria-label="Next week"
           >
@@ -269,43 +293,48 @@
         </div>
       {:else}
         <span
-          class="slide-title"
-          class:slide-title-wiki={Boolean(
-            (overlay.type === 'wiki' && overlay.path) ||
+          class={cn(
+            'slide-title flex-1 min-w-0 text-xs font-semibold uppercase tracking-wider text-muted',
+            ((overlay.type === 'wiki' && overlay.path) ||
               overlay.type === 'wiki-dir' ||
               (overlay.type === 'file' && overlay.path) ||
               (overlay.type === 'indexed-file' && indexedFileHeaderTitle) ||
               (overlay.type === 'email' && emailHeaderTitle) ||
               (overlay.type === 'email-draft' && emailDraftHeaderTitle) ||
               overlay.type === 'mail-search' ||
-              (overlay.type === 'messages' && messagesHeaderTitle),
+              (overlay.type === 'messages' && messagesHeaderTitle))
+              && 'slide-title-wiki normal-case font-normal tracking-normal',
+            mobilePanel && 'text-sm',
           )}
         >
           {#if overlay.type === 'wiki' && overlay.path}
             {@const wikiPageSegs = wikiPageBreadcrumbSegments(overlay.path)}
             <span
-              class="wiki-dir-breadcrumb"
+              class={cn(
+                'wiki-dir-breadcrumb flex flex-wrap items-center min-w-0 gap-x-1 gap-y-0 leading-snug',
+                mobilePanel ? 'text-[15px]' : 'text-[13px]',
+              )}
               role="navigation"
               aria-label="Wiki page path"
             >
               {#if wikiPageSegs.length === 0}
-                <span class="wiki-breadcrumb-seg wiki-breadcrumb-seg--current">My Wiki</span>
+                <span class="wiki-breadcrumb-seg wiki-breadcrumb-seg--current text-foreground font-medium cursor-default">My Wiki</span>
               {:else}
                 <button
                   type="button"
-                  class="wiki-breadcrumb-seg"
+                  class="wiki-breadcrumb-seg inline max-w-full overflow-hidden text-ellipsis whitespace-nowrap border-none bg-transparent p-0 m-0 normal-case tracking-normal text-accent hover:underline cursor-pointer"
                   onclick={() => onWikiDirNavigate?.(undefined)}
                 >My Wiki</button>
                 {#each wikiPageSegs as seg, i (i)}
-                  <span class="wiki-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="wiki-breadcrumb-sep text-muted font-normal select-none" aria-hidden="true">/</span>
                   {#if i < wikiPageSegs.length - 1}
                     <button
                       type="button"
-                      class="wiki-breadcrumb-seg"
+                      class="wiki-breadcrumb-seg inline max-w-full overflow-hidden text-ellipsis whitespace-nowrap border-none bg-transparent p-0 m-0 normal-case tracking-normal text-accent hover:underline cursor-pointer"
                       onclick={() => onWikiDirNavigate?.(wikiDirPathPrefix(wikiPageSegs, i))}
                     >{wikiBreadcrumbLabel(seg)}</button>
                   {:else}
-                    <span class="wiki-breadcrumb-seg wiki-breadcrumb-seg--current">{wikiBreadcrumbLabel(seg)}</span>
+                    <span class="wiki-breadcrumb-seg wiki-breadcrumb-seg--current text-foreground font-medium cursor-default">{wikiBreadcrumbLabel(seg)}</span>
                   {/if}
                 {/each}
               {/if}
@@ -313,28 +342,31 @@
           {:else if overlay.type === 'wiki-dir'}
             {@const wikiDirSegs = parseWikiDirSegments(overlay.path)}
             <span
-              class="wiki-dir-breadcrumb"
+              class={cn(
+                'wiki-dir-breadcrumb flex flex-wrap items-center min-w-0 gap-x-1 gap-y-0 leading-snug',
+                mobilePanel ? 'text-[15px]' : 'text-[13px]',
+              )}
               role="navigation"
               aria-label="Wiki folder path"
             >
               {#if wikiDirSegs.length === 0}
-                <span class="wiki-breadcrumb-seg wiki-breadcrumb-seg--current">My Wiki</span>
+                <span class="wiki-breadcrumb-seg wiki-breadcrumb-seg--current text-foreground font-medium cursor-default">My Wiki</span>
               {:else}
                 <button
                   type="button"
-                  class="wiki-breadcrumb-seg"
+                  class="wiki-breadcrumb-seg inline max-w-full overflow-hidden text-ellipsis whitespace-nowrap border-none bg-transparent p-0 m-0 normal-case tracking-normal text-accent hover:underline cursor-pointer"
                   onclick={() => onWikiDirNavigate?.(undefined)}
                 >My Wiki</button>
                 {#each wikiDirSegs as seg, i (i)}
-                  <span class="wiki-breadcrumb-sep" aria-hidden="true">/</span>
+                  <span class="wiki-breadcrumb-sep text-muted font-normal select-none" aria-hidden="true">/</span>
                   {#if i < wikiDirSegs.length - 1}
                     <button
                       type="button"
-                      class="wiki-breadcrumb-seg"
+                      class="wiki-breadcrumb-seg inline max-w-full overflow-hidden text-ellipsis whitespace-nowrap border-none bg-transparent p-0 m-0 normal-case tracking-normal text-accent hover:underline cursor-pointer"
                       onclick={() => onWikiDirNavigate?.(wikiDirPathPrefix(wikiDirSegs, i))}
                     >{seg}</button>
                   {:else}
-                    <span class="wiki-breadcrumb-seg wiki-breadcrumb-seg--current">{seg}</span>
+                    <span class="wiki-breadcrumb-seg wiki-breadcrumb-seg--current text-foreground font-medium cursor-default">{seg}</span>
                   {/if}
                 {/each}
               {/if}
@@ -342,30 +374,34 @@
           {:else if overlay.type === 'file' && overlay.path}
             <WikiFileName path={overlay.path} />
           {:else if overlay.type === 'indexed-file' && overlay.id && indexedFileHeaderTitle}
-            <span class="slide-title-email">
-              <FileText size={14} strokeWidth={2} aria-hidden="true" />
-              <span class="slide-title-email-text">{indexedFileHeaderTitle}</span>
+            <span class="slide-title-email flex flex-1 min-w-0 items-center gap-2 overflow-hidden">
+              <FileText size={mobilePanel ? 20 : 14} strokeWidth={2} aria-hidden="true" class="shrink-0 text-muted" />
+              <span class={cn('slide-title-email-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-foreground', mobilePanel ? 'text-[15px]' : 'text-[13px]')}>{indexedFileHeaderTitle}</span>
             </span>
           {:else if overlay.type === 'email' && emailHeaderTitle}
-            <span class="slide-title-email">
-              <Mail size={14} strokeWidth={2} aria-hidden="true" />
-              <span class="slide-title-email-text">{emailHeaderTitle}</span>
+            <span class="slide-title-email flex flex-1 min-w-0 items-center gap-2 overflow-hidden">
+              <Mail size={mobilePanel ? 20 : 14} strokeWidth={2} aria-hidden="true" class="shrink-0 text-muted" />
+              <span class={cn('slide-title-email-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-foreground', mobilePanel ? 'text-[15px]' : 'text-[13px]')}>{emailHeaderTitle}</span>
             </span>
           {:else if overlay.type === 'email-draft' && emailDraftHeaderTitle}
-            <span class="slide-title-email">
-              <Mail size={14} strokeWidth={2} aria-hidden="true" />
-              <span class="slide-title-email-text">{emailDraftHeaderTitle}</span>
+            <span class="slide-title-email flex flex-1 min-w-0 items-center gap-2 overflow-hidden">
+              <Mail size={mobilePanel ? 20 : 14} strokeWidth={2} aria-hidden="true" class="shrink-0 text-muted" />
+              <span class={cn('slide-title-email-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-foreground', mobilePanel ? 'text-[15px]' : 'text-[13px]')}>{emailDraftHeaderTitle}</span>
             </span>
           {:else if overlay.type === 'messages' && messagesHeaderTitle}
-            <span class="slide-title-email">
-              <MessageSquare size={14} strokeWidth={2} aria-hidden="true" />
-              <span class="slide-title-email-text">{messagesHeaderTitle}</span>
+            <span class="slide-title-email flex flex-1 min-w-0 items-center gap-2 overflow-hidden">
+              <MessageSquare size={mobilePanel ? 20 : 14} strokeWidth={2} aria-hidden="true" class="shrink-0 text-muted" />
+              <span class={cn('slide-title-email-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-foreground', mobilePanel ? 'text-[15px]' : 'text-[13px]')}>{messagesHeaderTitle}</span>
             </span>
           {:else if overlay.type === 'your-wiki' && yourWikiHdr.current?.doc}
-            <div class="your-wiki-header-center">
+            <div class="your-wiki-header-center flex flex-1 min-w-0 items-center gap-3">
               <span class="slide-title">{titleForOverlay(overlay)}</span>
-              <div class="your-wiki-status-inline">
-                <span class="phase-pill-mini" class:active={['starting', 'enriching', 'cleaning'].includes(yourWikiHdr.current.doc.phase)}>
+              <div class="your-wiki-status-inline flex shrink-0 items-center gap-2">
+                <span class={cn(
+                  'phase-pill-mini whitespace-nowrap bg-surface-3 px-1.5 py-px text-[9px] font-extrabold uppercase tracking-wider text-muted',
+                  mobilePanel && 'text-[10px] px-1.5 py-0.5',
+                  ['starting', 'enriching', 'cleaning'].includes(yourWikiHdr.current.doc.phase) && 'bg-accent text-white',
+                )}>
                   {yourWikiHdr.current.doc.phase === 'starting' ? 'Starting' :
                    yourWikiHdr.current.doc.phase === 'enriching' ? 'Enriching' :
                    yourWikiHdr.current.doc.phase === 'cleaning' ? 'Cleaning up' :
@@ -374,12 +410,16 @@
                    'Idle'}
                 </span>
                 {#if yourWikiHdr.current.doc.pageCount > 0}
-                  <span class="page-count-mini">{yourWikiHdr.current.doc.pageCount} pages</span>
+                  <span class={cn('page-count-mini whitespace-nowrap text-muted [font-variant-numeric:tabular-nums]', mobilePanel ? 'text-xs' : 'text-[11px]')}>{yourWikiHdr.current.doc.pageCount} pages</span>
                 {/if}
               </div>
             </div>
           {:else if overlay.type === 'hub-source'}
-            <span class="slide-title slide-title-hub-source">
+            <span class={cn(
+              'slide-title slide-title-hub-source whitespace-nowrap overflow-hidden text-ellipsis normal-case font-bold text-foreground',
+              mobilePanel ? 'text-base' : 'text-[15px]',
+              '[letter-spacing:-0.02em]',
+            )}>
               {hubSourceHdr.current?.title?.trim() ? hubSourceHdr.current.title : titleForOverlay(overlay)}
             </span>
           {:else}
@@ -390,11 +430,11 @@
     {/snippet}
     {#snippet right()}
       {#if overlay.type === 'your-wiki' && yourWikiHdr.current}
-        <div class="your-wiki-header-actions">
+        <div class="your-wiki-header-actions mr-1 flex items-center gap-1">
           {#if ['starting', 'enriching', 'cleaning', 'idle'].includes(yourWikiHdr.current.doc?.phase ?? '') && yourWikiHdr.current.doc?.phase !== 'paused'}
             <button
               type="button"
-              class="header-action-btn"
+              class={cn('header-action-btn flex h-7 w-7 max-md:h-10 max-md:w-10 items-center justify-center text-muted transition-colors hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5')}
               disabled={yourWikiHdr.current.actionBusy}
               onclick={yourWikiHdr.current.pause}
               title="Pause the wiki loop"
@@ -404,7 +444,7 @@
           {:else if yourWikiHdr.current.doc?.phase === 'paused' || yourWikiHdr.current.doc?.phase === 'error'}
             <button
               type="button"
-              class="header-action-btn header-action-btn-primary"
+              class={cn('header-action-btn header-action-btn-primary flex h-7 w-7 max-md:h-10 max-md:w-10 items-center justify-center text-accent transition-colors hover:enabled:bg-accent-dim hover:enabled:text-accent [&_svg]:max-md:h-5 [&_svg]:max-md:w-5')}
               disabled={yourWikiHdr.current.actionBusy}
               onclick={yourWikiHdr.current.resume}
               title="Resume the wiki loop"
@@ -417,7 +457,7 @@
       {#if overlay.type === 'calendar' && calendarHdr.current}
         <button
           type="button"
-          class="cal-header-icon-btn"
+          class={cn('cal-header-icon-btn', headerIconBtnBase)}
           onclick={calendarHdr.current.goToday}
           disabled={calendarHdr.current.headerBusy}
           title="Today"
@@ -427,13 +467,13 @@
         </button>
         <button
           type="button"
-          class="cal-header-icon-btn"
+          class={cn('cal-header-icon-btn', headerIconBtnBase)}
           onclick={calendarHdr.current.refreshCalendars}
           disabled={calendarHdr.current.headerBusy}
           title="Refresh calendars"
           aria-label="Refresh calendars"
         >
-          <span class:cal-refresh-spin={calendarHdr.current.headerBusy}>
+          <span class={calendarHdr.current.headerBusy ? 'cal-refresh-spin' : ''}>
             <RefreshCw size={18} strokeWidth={2} aria-hidden="true" />
           </span>
         </button>
@@ -441,14 +481,14 @@
       {#if overlay.type === 'hub-source' && hubSourceHdr.current}
         <button
           type="button"
-          class="cal-header-icon-btn"
+          class={cn('cal-header-icon-btn', headerIconBtnBase)}
           disabled={hubSourceHdr.current.refreshDisabled}
           title={hubSourceHdr.current.refreshTitle ?? 'Refresh index'}
           aria-label="Refresh index"
           aria-busy={hubSourceHdr.current.refreshSpinning ? 'true' : undefined}
           onclick={() => hubSourceHdr.current?.onRefresh()}
         >
-          <span class:cal-refresh-spin={hubSourceHdr.current.refreshSpinning}>
+          <span class={hubSourceHdr.current.refreshSpinning ? 'cal-refresh-spin' : ''}>
             <RefreshCw
               size={18}
               strokeWidth={2}
@@ -460,19 +500,19 @@
       {/if}
       {#if (overlay.type === 'wiki' || overlay.type === 'wiki-dir') && wikiHdr.current}
         {#if wikiHdr.current.sharedIncoming}
-          <span class="wiki-save-hint" role="status">Read-only</span>
+          <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Read-only</span>
         {:else if wikiHdr.current.canShare && wikiHdr.current.onOpenShare}
           <button
             type="button"
-            class="wiki-edit-btn wiki-share-header-btn"
+            class={cn(wikiEditBtn, 'wiki-share-header-btn')}
             onclick={() => wikiHdr.current?.onOpenShare?.()}
             title={wikiSlideShareTitle(wikiHdr.current)}
             aria-label={wikiSlideShareAria(wikiHdr.current)}
           >
-            <span class="wiki-share-header-inner">
+            <span class="wiki-share-header-inner relative inline-flex h-full w-full items-center justify-center">
               <Share2 size={15} strokeWidth={2} aria-hidden="true" />
               {#if (wikiHdr.current.shareAudienceCount ?? 0) > 0}
-                <span class="wiki-share-header-badge" aria-hidden="true">
+                <span class="wiki-share-header-badge absolute -top-[5px] -right-[9px] box-border inline-block min-w-[16px] h-4 bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
                   {wikiShareAudienceBadge(wikiHdr.current.shareAudienceCount)}
                 </span>
               {/if}
@@ -482,16 +522,18 @@
       {/if}
       {#if overlay.type === 'wiki' && wikiHdr.current}
         {#if wikiHdr.current.saveState === 'saving'}
-          <span class="wiki-save-hint" role="status">Saving…</span>
+          <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Saving…</span>
         {:else if wikiHdr.current.saveState === 'saved'}
-          <span class="wiki-save-hint" role="status">Saved</span>
+          <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Saved</span>
         {:else if wikiHdr.current.saveState === 'error'}
-          <span class="wiki-save-hint wiki-save-err" role="status">Save failed</span>
+          <span class={cn('wiki-save-hint wiki-save-err shrink-0 text-[var(--danger,#c44)]', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Save failed</span>
         {/if}
         <button
           type="button"
-          class="wiki-edit-btn"
-          class:active={wikiHdr.current.pageMode === 'edit'}
+          class={cn(
+            wikiEditBtn,
+            wikiHdr.current.pageMode === 'edit' && 'active text-accent',
+          )}
           disabled={!wikiHdr.current.canEdit}
           onclick={() => wikiHdr.current?.setPageMode(wikiHdr.current.pageMode === 'edit' ? 'view' : 'edit')}
           title={wikiHdr.current.pageMode === 'edit' ? 'View' : 'Edit'}
@@ -505,10 +547,10 @@
         </button>
       {/if}
       {#if overlay.type === 'email' && inboxHdr.current}
-        <div class="inbox-thread-header-actions" role="toolbar" aria-label="Thread actions">
+        <div class="inbox-thread-header-actions flex shrink-0 items-center gap-0.5" role="toolbar" aria-label="Thread actions">
           <button
             type="button"
-            class="inbox-thread-header-btn"
+            class={inboxThreadHeaderBtn}
             onclick={() => inboxHdr.current?.onReply()}
             title="Reply"
             aria-label="Reply"
@@ -517,7 +559,7 @@
           </button>
           <button
             type="button"
-            class="inbox-thread-header-btn"
+            class={inboxThreadHeaderBtn}
             onclick={() => inboxHdr.current?.onForward()}
             title="Forward"
             aria-label="Forward"
@@ -526,7 +568,7 @@
           </button>
           <button
             type="button"
-            class="inbox-thread-header-btn"
+            class={inboxThreadHeaderBtn}
             onclick={() => inboxHdr.current?.onArchive()}
             title="Archive"
             aria-label="Archive thread"
@@ -536,17 +578,17 @@
         </div>
       {/if}
       {#if overlay.type === 'email-draft' && emailDraftHdr.current}
-        <div class="inbox-thread-header-actions" role="toolbar" aria-label="Draft actions">
+        <div class="inbox-thread-header-actions flex shrink-0 items-center gap-0.5" role="toolbar" aria-label="Draft actions">
           {#if emailDraftHdr.current.saveState === 'saving'}
-            <span class="wiki-save-hint" role="status">Saving…</span>
+            <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Saving…</span>
           {:else if emailDraftHdr.current.saveState === 'saved'}
-            <span class="wiki-save-hint" role="status">Saved</span>
+            <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Saved</span>
           {:else if emailDraftHdr.current.saveState === 'error'}
-            <span class="wiki-save-hint wiki-save-err" role="status">Save failed</span>
+            <span class={cn('wiki-save-hint wiki-save-err shrink-0 text-[var(--danger,#c44)]', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Save failed</span>
           {/if}
           <button
             type="button"
-            class="inbox-thread-header-btn"
+            class={inboxThreadHeaderBtn}
             onclick={() => void emailDraftHdr.current?.onSave()}
             disabled={
               emailDraftHdr.current.sendState === 'sending' ||
@@ -565,7 +607,7 @@
           </button>
           <button
             type="button"
-            class="inbox-thread-header-btn"
+            class={inboxThreadHeaderBtn}
             onclick={() => void emailDraftHdr.current?.onSend()}
             disabled={
               emailDraftHdr.current.sendState === 'sending' ||
@@ -587,7 +629,7 @@
       {#if !mobilePanel && onToggleFullscreen}
         <button
           type="button"
-          class="fullscreen-btn-desktop"
+          class="fullscreen-btn-desktop hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center border-none bg-transparent text-muted outline-none transition-colors focus-visible:bg-surface-3 focus-visible:text-foreground hover:enabled:bg-surface-3 hover:enabled:text-foreground"
           onclick={onToggleFullscreen}
           title={detailFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
           aria-label={detailFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
@@ -601,7 +643,7 @@
       {/if}
       <button
         type="button"
-        class="close-btn-desktop"
+        class="close-btn-desktop hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center border-none bg-transparent text-muted transition-colors hover:text-foreground"
         onclick={headerDismiss}
         aria-label={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Close panel'}
         title={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Close'}
@@ -611,7 +653,7 @@
     {/snippet}
   </PaneL2Header>
   <div
-    class="slide-body"
+    class="slide-body flex min-h-0 flex-1 flex-col overflow-hidden"
     bind:this={mobile.slideBodyEl}
     role={mobilePanel ? 'region' : undefined}
     aria-label={mobilePanel ? 'Detail content' : undefined}
@@ -714,266 +756,12 @@
 </div>
 
 <style>
-  .slide-over {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    background: var(--bg);
-    border-left: 1px solid var(--border);
-  }
-
-  .slide-over.mobile-slide {
-    will-change: transform;
-    touch-action: pan-y;
-    overscroll-behavior-x: contain;
-    /* L2 (PaneL2Header): roomier bar + type; --pane-header-* flow into height + inline padding */
-    --pane-header-h: 52px;
-    --pane-header-px: 16px;
-  }
-
-  .slide-over.mobile-slide :global(.pane-l2-header) {
-    column-gap: 0.75rem;
-  }
-
-  .slide-over.mobile-slide .back-btn {
-    font-size: 15px;
-    padding: 6px 10px;
-  }
-  .slide-over.mobile-slide .back-btn :global(svg) {
-    width: 22px;
-    height: 22px;
-  }
-
-  .slide-over.mobile-slide .slide-title {
-    font-size: 14px;
-  }
-  .slide-over.mobile-slide .slide-title.slide-title-hub-source {
-    font-size: 16px;
-  }
-
-  .slide-over.mobile-slide .slide-title.slide-title-wiki :global(.wfn-title-row) {
-    font-size: 15px;
-  }
-  .slide-over.mobile-slide .slide-title.slide-title-wiki :global(.wiki-dir-breadcrumb) {
-    font-size: 15px;
-  }
-
-  .slide-over.mobile-slide .slide-title-email-text {
-    font-size: 15px;
-  }
-  .slide-over.mobile-slide .slide-title-email :global(svg) {
-    width: 20px;
-    height: 20px;
-  }
-
-  .slide-over.mobile-slide .cal-week-label {
-    font-size: 15px;
-  }
-  .slide-over.mobile-slide .cal-nav-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
-}
-  .slide-over.mobile-slide .cal-header-icon-btn {
-    width: 40px;
-    height: 40px;
-}
-  .slide-over.mobile-slide .cal-header-icon-btn :global(svg) {
-    width: 20px;
-    height: 20px;
-  }
-
-  .slide-over.mobile-slide .header-action-btn {
-    width: 40px;
-    height: 40px;
-}
-  .slide-over.mobile-slide .header-action-btn :global(svg) {
-    width: 20px;
-    height: 20px;
-  }
-
-  .slide-over.mobile-slide .wiki-edit-btn {
-    width: 40px;
-    height: 40px;
-}
-  .slide-over.mobile-slide .wiki-edit-btn :global(svg) {
-    width: 20px;
-    height: 20px;
-  }
-
-  .slide-over.mobile-slide .inbox-thread-header-btn {
-    width: 40px;
-    height: 40px;
-}
-  .slide-over.mobile-slide .inbox-thread-header-btn :global(svg) {
-    width: 20px;
-    height: 20px;
-  }
-
-  .slide-over.mobile-slide .wiki-save-hint {
-    font-size: 13px;
-  }
-
-  .slide-over.mobile-slide .your-wiki-header-center {
-    gap: 10px;
-  }
-  .slide-over.mobile-slide .phase-pill-mini {
-    font-size: 10px;
-    padding: 2px 6px;
-  }
-  .slide-over.mobile-slide .page-count-mini {
-    font-size: 12px;
-  }
-
+  /* Mobile slide animation: not expressible with Tailwind utilities (state-driven transitions). */
   .slide-over.mobile-slide.slide-anim:not(.dragging) {
     transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  .back-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 13px;
-    color: var(--accent);
-    padding: 4px 8px;
-flex-shrink: 0;
-  }
-
-  .close-btn-desktop {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-    color: var(--text-2);
-    border: none;
-background: transparent;
-    transition: color 0.15s;
-  }
-
-  .inbox-thread-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    flex-shrink: 0;
-  }
-
-  .inbox-thread-header-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-    color: var(--text-2);
-    border: none;
-background: transparent;
-    outline: none;
-    transition: color 0.15s, background 0.15s;
-  }
-
-  .inbox-thread-header-btn:focus:not(:focus-visible) {
-    background: transparent;
-    color: var(--text-2);
-  }
-
-  .inbox-thread-header-btn:focus-visible {
-    color: var(--text);
-    background: var(--bg-3);
-  }
-
-  .inbox-thread-header-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  .fullscreen-btn-desktop {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-    color: var(--text-2);
-    border: none;
-background: transparent;
-    outline: none;
-    transition: color 0.15s, background 0.15s;
-  }
-
-  .fullscreen-btn-desktop:focus:not(:focus-visible) {
-    background: transparent;
-    color: var(--text-2);
-  }
-
-  .fullscreen-btn-desktop:focus-visible {
-    color: var(--text);
-    background: var(--bg-3);
-  }
-
-  @media (min-width: 768px) {
-    .back-btn {
-      display: none;
-    }
-    .fullscreen-btn-desktop {
-      display: inline-flex;
-    }
-    .close-btn-desktop {
-      display: inline-flex;
-    }
-  }
-
-  .cal-week-inline {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .cal-week-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    min-width: 0;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .cal-nav-btn {
-    width: 28px;
-    height: 28px;
-    flex-shrink: 0;
-font-size: 16px;
-    color: var(--text-2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .cal-header-icon-btn {
-    width: 28px;
-    height: 28px;
-    flex-shrink: 0;
-border: none;
-    background: transparent;
-    color: var(--text-2);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
-
-  .cal-header-icon-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
+  /* Refresh-spin keyframes (reused for inline refresh icons in the header). */
   .cal-refresh-spin :global(svg) {
     animation: cal-refresh-spin 0.8s linear infinite;
   }
@@ -984,257 +772,7 @@ border: none;
     }
   }
 
-  .slide-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-2);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .slide-title.slide-title-wiki {
-    text-transform: none;
-    letter-spacing: normal;
-    font-weight: normal;
-  }
-
-  .slide-title.slide-title-hub-source {
-    text-transform: none;
-    letter-spacing: -0.02em;
-    font-weight: 700;
-    font-size: 15px;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .slide-title.slide-title-wiki :global(.wfn-title-row) {
-    font-size: 13px;
-    color: var(--text);
-  }
-
-  .slide-title.slide-title-wiki :global(.wiki-dir-breadcrumb) {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0 4px;
-    min-width: 0;
-    font-size: 13px;
-    line-height: 1.35;
-  }
-
-  .slide-title.slide-title-wiki :global(.wiki-breadcrumb-sep) {
-    color: var(--text-2);
-    font-weight: 400;
-    user-select: none;
-  }
-
-  .slide-title.slide-title-wiki :global(.wiki-breadcrumb-seg) {
-    display: inline;
-    max-width: 100%;
-    font: inherit;
-    text-align: inherit;
-    text-transform: none;
-    letter-spacing: normal;
-    color: var(--accent);
-    background: none;
-    border: none;
-    padding: 0;
-    margin: 0;
-    cursor: pointer;
-    text-decoration: none;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .slide-title.slide-title-wiki :global(.wiki-breadcrumb-seg--current) {
-    color: var(--text);
-    cursor: default;
-    font-weight: 500;
-  }
-
-  .slide-title-email {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    flex: 1;
-    overflow: hidden;
-  }
-  .slide-title-email :global(svg) {
-    flex-shrink: 0;
-    color: var(--text-2);
-  }
-  .slide-title-email-text {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .your-wiki-header-center {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .your-wiki-status-inline {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-
-  .phase-pill-mini {
-    font-size: 9px;
-    font-weight: 800;
-    padding: 1px 5px;
-text-transform: uppercase;
-    letter-spacing: 0.03em;
-    background: var(--bg-3);
-    color: var(--text-2);
-    white-space: nowrap;
-  }
-
-  .phase-pill-mini.active {
-    background: var(--accent);
-    color: white;
-  }
-
-  .page-count-mini {
-    font-size: 11px;
-    color: var(--text-2);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-
-  .your-wiki-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-right: 4px;
-  }
-
-  .header-action-btn {
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-2);
-transition: all 0.15s;
-  }
-
-  .header-action-btn-primary {
-    color: var(--accent);
-  }
-
-  .wiki-edit-btn {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-2);
-flex-shrink: 0;
-    transition: color 0.15s, background 0.15s;
-  }
-  .wiki-edit-btn:disabled { opacity: 0.35; cursor: default; }
-  .wiki-edit-btn.active { color: var(--accent); }
-
-  .wiki-share-header-inner {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-  }
-
-  .wiki-share-header-badge {
-    position: absolute;
-    top: -5px;
-    right: -9px;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    box-sizing: border-box;
-    font-size: 10px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 16px;
-    text-align: center;
-background: var(--accent, #4a90d9);
-    color: var(--bg-pill-on-accent, var(--bg, #fff));
-  }
-
-  @media (hover: hover) {
-    .back-btn:hover {
-      background: var(--accent-dim);
-    }
-    .close-btn-desktop:hover {
-      color: var(--text);
-    }
-    .inbox-thread-header-btn:hover:not(:disabled) {
-      color: var(--text);
-      background: var(--bg-3);
-    }
-    .fullscreen-btn-desktop:hover:not(:disabled) {
-      color: var(--text);
-      background: var(--bg-3);
-    }
-    .cal-nav-btn:hover {
-      color: var(--text);
-      background: var(--bg-3);
-    }
-    .cal-header-icon-btn:hover:not(:disabled) {
-      color: var(--text);
-      background: var(--bg-3);
-    }
-    .slide-title.slide-title-wiki
-      :global(.wiki-breadcrumb-seg:hover:not(.wiki-breadcrumb-seg--current)) {
-      text-decoration: underline;
-    }
-    .header-action-btn:hover:not(:disabled) {
-      color: var(--text);
-      background: var(--bg-3);
-    }
-    .header-action-btn-primary:hover:not(:disabled) {
-      background: var(--accent-dim);
-      color: var(--accent);
-    }
-    .wiki-edit-btn:hover:not(:disabled) {
-      color: var(--text);
-      background: var(--bg-3);
-    }
-  }
-
-  .wiki-save-hint {
-    font-size: 12px;
-    color: var(--text-2);
-    flex-shrink: 0;
-  }
-  .wiki-save-err {
-    color: var(--danger, #c44);
-  }
-
-  .slide-body {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
+  /* Per-pane height fill for the body content (deep `:global` selectors). */
   .slide-body :global(.wiki),
   .slide-body :global(.inbox),
   .slide-body :global(.calendar),
@@ -1243,5 +781,10 @@ background: var(--accent, #4a90d9);
   .slide-body :global(.hub-connector-source) {
     flex: 1;
     min-height: 0;
+  }
+
+  /* Wiki page-name row inherits header sizing in mobile L2 bar. */
+  .slide-over.mobile-slide :global(.wfn-title-row) {
+    font-size: 15px;
   }
 </style>

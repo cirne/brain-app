@@ -4,7 +4,7 @@
    */
   import { getContext, onMount } from 'svelte'
   import { Loader2 } from 'lucide-svelte'
-  import TipTapMarkdownEditor from './TipTapMarkdownEditor.svelte'
+  import TipTapMarkdownEditor from '@components/TipTapMarkdownEditor.svelte'
   import { subscribe, emit } from '@client/lib/app/appEvents.js'
   import type { SurfaceContext } from '@client/router.js'
   import {
@@ -219,53 +219,94 @@
     })
     return unsub
   })
+
+  const metaInputClass =
+    'meta-input box-border min-h-[30px] w-full min-w-0 border border-[color-mix(in_srgb,var(--border)_85%,transparent)] bg-surface px-2 py-[5px] text-[13px] leading-snug text-foreground [font-family:inherit] focus:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus:outline-none focus:[box-shadow:0_0_0_1px_color-mix(in_srgb,var(--accent)_25%,transparent)] placeholder:text-[color-mix(in_srgb,var(--text-2)_65%,transparent)]'
+
+  const metaKeyClass =
+    'meta-key m-0 self-center pr-0.5 text-right text-[11px] font-semibold uppercase leading-tight tracking-[0.04em] text-muted'
+
+  const metaRowClass =
+    'meta-row box-border grid min-h-8 grid-cols-[3.75rem_minmax(0,1fr)] items-center gap-x-[0.65rem] gap-y-2 px-0 py-[3px]'
 </script>
 
-<div class="email-draft-editor" data-testid="email-draft-editor">
+<div
+  class="email-draft-editor box-border flex min-h-0 flex-1 flex-col px-3 pb-3 pt-0"
+  data-testid="email-draft-editor"
+>
   {#if loading}
-    <div class="draft-loading">
+    <div class="draft-loading flex items-center gap-2.5 p-6 text-muted">
       <Loader2 size={22} class="spin" aria-hidden="true" />
       <span>Loading draft…</span>
     </div>
   {:else if loadError}
-    <p class="draft-load-error" role="alert">{loadError}</p>
+    <p class="draft-load-error m-0 mb-2 shrink-0 px-0.5 text-[13px] text-[var(--danger,#c62828)]" role="alert">{loadError}</p>
   {:else}
-    <div class="draft-meta" aria-label="Draft recipients and subject">
-      <div class="meta-row">
-        <label class="meta-key" for="email-draft-to">To</label>
+    <div
+      class="draft-meta mb-1.5 flex shrink-0 flex-col gap-0 border-b border-[color-mix(in_srgb,var(--border)_70%,transparent)] pb-2"
+      aria-label="Draft recipients and subject"
+    >
+      <div class={metaRowClass}>
+        <label class={metaKeyClass} for="email-draft-to">To</label>
         <input
           id="email-draft-to"
-          class="meta-input"
+          class={metaInputClass}
           type="text"
           bind:value={toLine}
           autocomplete="off"
           placeholder="Recipients"
         />
       </div>
-      <div class="meta-row">
-        <label class="meta-key" for="email-draft-subject">Subject</label>
-        <input id="email-draft-subject" class="meta-input" type="text" bind:value={subject} autocomplete="off" placeholder="Subject" />
+      <div class={metaRowClass}>
+        <label class={metaKeyClass} for="email-draft-subject">Subject</label>
+        <input
+          id="email-draft-subject"
+          class={metaInputClass}
+          type="text"
+          bind:value={subject}
+          autocomplete="off"
+          placeholder="Subject"
+        />
       </div>
-      <details class="meta-cc-bcc" bind:open={ccBccOpen}>
-        <summary class="meta-cc-bcc-summary">Cc · Bcc</summary>
-        <div class="meta-row meta-row--nested">
-          <label class="meta-key" for="email-draft-cc">Cc</label>
-          <input id="email-draft-cc" class="meta-input" type="text" bind:value={ccLine} autocomplete="off" placeholder="Optional" />
+      <details class="meta-cc-bcc m-0 border-none p-0" bind:open={ccBccOpen}>
+        <summary
+          class="meta-cc-bcc-summary cursor-pointer select-none list-none pb-1.5 pl-[calc(3.75rem+0.65rem)] pr-0 pt-[5px] text-[11px] font-semibold tracking-[0.03em] text-muted transition-colors duration-100 hover:text-foreground"
+        >Cc · Bcc</summary>
+        <div class="{metaRowClass} meta-row--nested pl-0 [.meta-cc-bcc_&:first-of-type]:pt-0.5">
+          <label class={metaKeyClass} for="email-draft-cc">Cc</label>
+          <input
+            id="email-draft-cc"
+            class={metaInputClass}
+            type="text"
+            bind:value={ccLine}
+            autocomplete="off"
+            placeholder="Optional"
+          />
         </div>
-        <div class="meta-row meta-row--nested">
-          <label class="meta-key" for="email-draft-bcc">Bcc</label>
-          <input id="email-draft-bcc" class="meta-input" type="text" bind:value={bccLine} autocomplete="off" placeholder="Optional" />
+        <div class="{metaRowClass} meta-row--nested pl-0">
+          <label class={metaKeyClass} for="email-draft-bcc">Bcc</label>
+          <input
+            id="email-draft-bcc"
+            class={metaInputClass}
+            type="text"
+            bind:value={bccLine}
+            autocomplete="off"
+            placeholder="Optional"
+          />
         </div>
       </details>
     </div>
 
     {#if actionError}
-      <p class="draft-action-error" role="alert">{actionError}</p>
+      <p
+        class="draft-action-error m-0 mb-2 shrink-0 px-0.5 text-[13px] text-[var(--danger,#c62828)]"
+        role="alert"
+      >{actionError}</p>
     {/if}
 
-    <div class="draft-body-scroll">
+    <div class="draft-body-scroll flex min-h-0 flex-1 flex-col overflow-hidden">
       {#key editorKey}
-        <div class="draft-editor-wrap">
+        <div class="draft-editor-wrap flex min-h-0 flex-1 flex-col overflow-hidden">
           <TipTapMarkdownEditor
             bind:this={mdEditor}
             initialMarkdown={bodyMd}
@@ -279,23 +320,7 @@
 </div>
 
 <style>
-  .email-draft-editor {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    padding: 0 12px 12px;
-    box-sizing: border-box;
-  }
-
-  .draft-loading {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 24px;
-    color: var(--text-2);
-  }
-
+  /* Spinner uses the lucide `class="spin"` prop (not Tailwind-mergeable) plus a custom keyframe. */
   .draft-loading :global(.spin) {
     animation: spin 0.85s linear infinite;
   }
@@ -306,98 +331,12 @@
     }
   }
 
-  .draft-load-error,
-  .draft-action-error {
-    color: var(--danger, #c62828);
-    margin: 0 0 8px;
-    padding: 0 2px;
-    font-size: 13px;
-    flex-shrink: 0;
-  }
-
-  .draft-meta {
-    flex-shrink: 0;
-    padding: 0 0 8px;
-    margin-bottom: 6px;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .meta-row {
-    display: grid;
-    grid-template-columns: 3.75rem minmax(0, 1fr);
-    align-items: center;
-    gap: 0.5rem 0.65rem;
-    min-height: 2rem;
-    padding: 3px 0;
-    box-sizing: border-box;
-  }
-
-  .meta-row--nested {
-    padding-left: 0;
-  }
-
-  .meta-key {
-    margin: 0;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text-2);
-    text-align: right;
-    line-height: 1.2;
-    align-self: center;
-    padding-right: 2px;
-  }
-
-  .meta-input {
-    font-family: inherit;
-    font-size: 13px;
-    line-height: 1.35;
-    padding: 5px 8px;
-    min-height: 30px;
-    box-sizing: border-box;
-    border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
-background: var(--bg);
-    color: var(--text);
-    width: 100%;
-    min-width: 0;
-  }
-
-  .meta-input:focus {
-    outline: none;
-    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
-  }
-
-  .meta-input::placeholder {
-    color: color-mix(in srgb, var(--text-2) 65%, transparent);
-  }
-
-  .meta-cc-bcc {
-    margin: 0;
-    padding: 0;
-    border: none;
-  }
-
-  .meta-cc-bcc-summary {
-    list-style: none;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    color: var(--text-2);
-    padding: 5px 0 6px calc(3.75rem + 0.65rem);
-    user-select: none;
-    transition: color 0.12s ease;
-  }
-
+  /* Hide native disclosure marker — Tailwind cannot reliably target ::-webkit-details-marker. */
   .meta-cc-bcc-summary::-webkit-details-marker {
     display: none;
   }
 
+  /* Inline “▸” affordance via an ::before pseudo (rotates when open). */
   .meta-cc-bcc-summary::before {
     content: '';
     display: inline-block;
@@ -415,29 +354,4 @@ background: var(--bg);
   .meta-cc-bcc[open] > .meta-cc-bcc-summary::before {
     transform: rotate(45deg) translateY(-0.05em);
   }
-
-  .meta-cc-bcc-summary:hover {
-    color: var(--text);
-  }
-
-  .meta-cc-bcc .meta-row--nested:first-of-type {
-    padding-top: 2px;
-  }
-
-  .draft-body-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .draft-editor-wrap {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
 </style>

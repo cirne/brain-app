@@ -1,10 +1,11 @@
 <script lang="ts">
   import { Check, RefreshCw } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
 
   import type {
     CalendarPickerCalendar,
     CalendarPickerLoadResult,
-  } from './calendarPickerTypes.js'
+  } from '@client/lib/calendar/calendarPickerTypes.js'
 
   type Props = {
     /** Change this value to trigger a reload (e.g. hub source id). */
@@ -131,50 +132,58 @@
   })
 </script>
 
-<div class="cal-picker-root">
+<div class="cal-picker-root box-border w-full">
   {#if loading && calendars.length === 0}
-    <p class="cal-picker-note" role="status">{loadingMessage}</p>
+    <p class="cal-picker-note m-0 text-[0.8125rem] leading-[1.45] text-muted" role="status">{loadingMessage}</p>
   {:else if loadError}
-    <p class="cal-picker-err" role="alert">{loadError}</p>
+    <p class="cal-picker-err mt-[0.35rem] text-[0.8125rem] leading-[1.4] text-danger" role="alert">{loadError}</p>
   {:else if calendars.length === 0}
-    <p class="cal-picker-note">{emptyMessage}</p>
+    <p class="cal-picker-note m-0 text-[0.8125rem] leading-[1.45] text-muted">{emptyMessage}</p>
   {:else}
     {#if hint}
-      <p class="cal-picker-hint">{hint}</p>
+      <p class="cal-picker-hint mb-2 mt-0 text-[0.8125rem] leading-[1.45] text-muted">{hint}</p>
     {/if}
 
-    <ul class="cal-picker-list" role="list">
+    <ul class="cal-picker-list m-0 flex w-full list-none flex-col gap-[0.4rem] p-0" role="list">
       {#each calendars as cal, i (cal.id)}
         {@const checked = selected.has(cal.id)}
         {@const isLocked = checked && selected.size <= minSelected}
         {@const hex = cal.color?.trim() ?? ''}
         {@const inputId = rowInputId(i)}
-        <li class="cal-picker-li">
+        <li class="cal-picker-li relative m-0 w-full min-w-0 p-0">
           <input
             id={inputId}
             type="checkbox"
-            class="cal-picker-sr-input"
-            checked={checked}
+            class="cal-picker-sr-input absolute m-[-1px] h-px w-px overflow-hidden whitespace-nowrap border-0 p-0 [clip:rect(0,0,0,0)]"
+            {checked}
             disabled={isLocked}
             title={isLocked ? `At least ${minSelected} calendar(s) must stay selected` : undefined}
             onchange={() => toggle(cal.id)}
           />
           <label
             for={inputId}
-            class="cal-picker-row"
-            class:cal-picker-row--tinted={hex !== ''}
+            class={cn(
+              'cal-picker-row m-0 box-border flex min-h-[2.35rem] w-full cursor-pointer items-center justify-between gap-[0.65rem] border border-[color-mix(in_srgb,var(--border)_88%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_94%,var(--text))] p-[0.4rem_0.65rem] outline-none',
+              hex !== '' && 'cal-picker-row--tinted',
+            )}
             style={hex !== '' ? `--cal-picker-accent: ${hex};` : undefined}
           >
-            <span class="cal-picker-label-block">
-              <span class="cal-picker-name">{cal.name}</span>
+            <span class="cal-picker-label-block flex min-h-[1.2rem] min-w-0 flex-1 items-center">
+              <span
+                class="cal-picker-name block w-full overflow-hidden text-ellipsis whitespace-nowrap text-[0.9375rem] font-semibold leading-[1.28] tracking-[-0.015em] text-foreground"
+              >{cal.name}</span>
             </span>
-            <span class="cal-picker-marker-track" aria-hidden="true">
+            <span class="cal-picker-marker-track flex h-7 w-7 shrink-0 items-center justify-center" aria-hidden="true">
               {#if checked}
-                <span class="cal-picker-marker cal-picker-marker--on">
+                <span
+                  class="cal-picker-marker cal-picker-marker--on box-border inline-flex h-6 w-6 items-center justify-center border-none text-white [background:linear-gradient(145deg,color-mix(in_srgb,var(--accent)_92%,white),var(--accent))] [box-shadow:0_1px_2px_color-mix(in_srgb,var(--text)_22%,transparent),inset_0_1px_0_color-mix(in_srgb,white_35%,transparent)]"
+                >
                   <Check size={12} strokeWidth={2.5} aria-hidden="true" />
                 </span>
               {:else}
-                <span class="cal-picker-marker cal-picker-marker--off"></span>
+                <span
+                  class="cal-picker-marker cal-picker-marker--off box-border inline-flex h-6 w-6 items-center justify-center border-2 border-[color-mix(in_srgb,var(--text)_26%,transparent)] bg-[color-mix(in_srgb,var(--bg)_55%,transparent)]"
+                ></span>
               {/if}
             </span>
           </label>
@@ -183,13 +192,13 @@
     </ul>
 
     {#if saveError}
-      <p class="cal-picker-err" role="alert">{saveError}</p>
+      <p class="cal-picker-err mt-[0.35rem] text-[0.8125rem] leading-[1.4] text-danger" role="alert">{saveError}</p>
     {/if}
 
-    <div class="cal-picker-actions">
+    <div class="cal-picker-actions mt-[0.35rem] flex items-center gap-3">
       <button
         type="button"
-        class="cal-picker-save {primaryButtonClass}"
+        class={cn('cal-picker-save', primaryButtonClass)}
         disabled={!dirty || saving}
         onclick={() => void commit()}
       >
@@ -201,92 +210,22 @@
         {/if}
       </button>
       {#if savedAt && !dirty}
-        <span class="cal-picker-saved">Saved</span>
+        <span class="cal-picker-saved text-[0.8125rem] text-muted">Saved</span>
       {/if}
     </div>
   {/if}
 </div>
 
 <style>
-  .cal-picker-root {
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .cal-picker-hint {
-    margin: 0 0 0.5rem;
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    line-height: 1.45;
-  }
-
-  .cal-picker-note {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    line-height: 1.45;
-  }
-
-  .cal-picker-err {
-    margin: 0.35rem 0 0;
-    font-size: 0.8125rem;
-    color: var(--danger, #e11d48);
-    line-height: 1.4;
-  }
-
-  .cal-picker-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    width: 100%;
-  }
-
-  .cal-picker-li {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    min-width: 0;
-  }
-
-  /* Checkbox sits outside the visual row so the label is a single flex row without sr quirks */
-  .cal-picker-sr-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border-width: 0;
-  }
-
-  .cal-picker-li {
-    position: relative;
-  }
-
-  .cal-picker-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.65rem;
-    width: 100%;
-    min-height: 2.35rem;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0.4rem 0.65rem;
-border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-    background: color-mix(in srgb, var(--bg-2, var(--bg)) 94%, var(--text));
-    cursor: pointer;
-    outline: none;
-  }
-
+  /* Tints/outlines that depend on cross-element :has() / pseudo-class state. */
   .cal-picker-li:has(.cal-picker-sr-input:focus-visible) .cal-picker-row {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+
+  .cal-picker-li:has(.cal-picker-sr-input:disabled) .cal-picker-row {
+    opacity: 0.92;
+    cursor: not-allowed;
   }
 
   .cal-picker-row--tinted {
@@ -302,80 +241,12 @@ border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
     }
   }
 
-  .cal-picker-li:has(.cal-picker-sr-input:disabled) .cal-picker-row {
-    opacity: 0.92;
-    cursor: not-allowed;
-  }
-
-  .cal-picker-label-block {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    min-height: 1.2rem;
-  }
-
-  .cal-picker-name {
-    display: block;
-    width: 100%;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    line-height: 1.28;
-    letter-spacing: -0.015em;
-    color: var(--text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .cal-picker-marker-track {
-    flex-shrink: 0;
-    width: 1.75rem;
-    height: 1.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .cal-picker-marker {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-box-sizing: border-box;
-  }
-
-  .cal-picker-marker--on {
-    background: linear-gradient(
-      145deg,
-      color-mix(in srgb, var(--accent) 92%, white),
-      var(--accent)
-    );
-    color: white;
-    border: none;
-    box-shadow:
-      0 1px 2px color-mix(in srgb, var(--text) 22%, transparent),
-      inset 0 1px 0 color-mix(in srgb, white 35%, transparent);
-  }
-
-  .cal-picker-marker--off {
-    border: 2px solid color-mix(in srgb, var(--text) 26%, transparent);
-    background: color-mix(in srgb, var(--bg) 55%, transparent);
-  }
-
   .cal-picker-row--tinted .cal-picker-marker--off {
     border-color: color-mix(in srgb, var(--cal-picker-accent) 45%, var(--text));
     background: color-mix(in srgb, var(--cal-picker-accent) 12%, var(--bg));
   }
 
-  .cal-picker-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-top: 0.35rem;
-  }
-
+  /* Default Save button styling (only applied when no `hub-dialog-btn` class wins). */
   .cal-picker-save:not(:global(.hub-dialog-btn)) {
     font-size: 0.8125rem;
     font-weight: 600;
@@ -396,10 +267,5 @@ border: none;
 
   .cal-picker-save:not(:global(.hub-dialog-btn)):not(:disabled):hover {
     filter: brightness(1.06);
-  }
-
-  .cal-picker-saved {
-    font-size: 0.8125rem;
-    color: var(--text-2);
   }
 </style>

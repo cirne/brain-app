@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte'
   import { Keyboard, Loader2 } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import { formatRecordingDuration } from '@client/lib/voicePanelFormat.js'
   import { VoiceTapRecorder, type VoiceTapPhase } from '@client/lib/voiceTapCapture.js'
-  import VoiceActionButtons from './VoiceActionButtons.svelte'
-  import VoicePrimaryButton from './VoicePrimaryButton.svelte'
-  import RecordingWaveformIndicator from './RecordingWaveformIndicator.svelte'
+  import VoiceActionButtons from '@components/VoiceActionButtons.svelte'
+  import VoicePrimaryButton from '@components/VoicePrimaryButton.svelte'
+  import RecordingWaveformIndicator from '@components/RecordingWaveformIndicator.svelte'
 
   let {
     disabled = false,
@@ -65,11 +66,11 @@
       return
     }
     const start = recordingStartMs
-    const tick = () => {
+    const tickFn = () => {
       elapsedSec = Math.floor((Date.now() - start) / 1000)
     }
-    tick()
-    const id = setInterval(tick, 250)
+    tickFn()
+    const id = setInterval(tickFn, 250)
     return () => clearInterval(id)
   })
 
@@ -150,29 +151,60 @@
 
   const showActions = $derived(phase === 'recording' || phase === 'arming')
   const actionsBusy = $derived(phase === 'transcribing' || disabled)
+
+  /** Container variants share base layout; layout-specific tweaks below. */
+  const containerBase =
+    'chat-voice-panel box-border flex min-h-[80px] shrink-0 flex-col justify-center'
+  const containerByLayout = $derived.by(() => {
+    if (layout === 'fixed') {
+      return 'chat-voice-panel--fixed fixed inset-x-0 z-20 border-t border-[var(--border-1,rgba(255,255,255,0.08))] bg-[color-mix(in_srgb,var(--bg-2)_88%,transparent)] [bottom:env(safe-area-inset-bottom,0px)] [backdrop-filter:blur(12px)] [-webkit-backdrop-filter:blur(12px)] motion-reduce:bg-surface-2 motion-reduce:[backdrop-filter:none] motion-reduce:[-webkit-backdrop-filter:none]'
+    }
+    if (layout === 'inline') {
+      return 'chat-voice-panel--inline relative z-[1] mt-1 mb-0.5 w-full border-t border-[var(--border-1,rgba(255,255,255,0.08))] bg-[color-mix(in_srgb,var(--bg-2)_92%,transparent)] motion-reduce:bg-surface-2'
+    }
+    return 'chat-voice-panel--composer-flow relative z-[1] m-0 min-h-[56px] w-full border-none bg-surface-2 p-0 motion-reduce:bg-surface-2'
+  })
 </script>
 
 <div
-  class="chat-voice-panel"
-  class:chat-voice-panel--fixed={layout === 'fixed'}
-  class:chat-voice-panel--inline={layout === 'inline'}
-  class:chat-voice-panel--composer-flow={layout === 'composer-flow'}
+  class={cn(containerBase, containerByLayout)}
   role="toolbar"
   aria-label="Voice input"
 >
-  <div class="chat-voice-panel-inner">
-    <div class="chat-voice-left">
+  <div
+    class={cn(
+      'chat-voice-panel-inner flex min-h-0 w-full flex-1 flex-row items-stretch',
+      layout === 'composer-flow' && 'flex-row',
+    )}
+  >
+    <div
+      class={cn(
+        'chat-voice-left flex max-w-[48%] min-w-0 flex-[0_1_auto] items-center',
+        layout === 'composer-flow' && 'justify-start',
+      )}
+    >
       {#if phase === 'transcribing'}
-        <div class="chat-voice-processing" role="status" aria-live="polite" aria-atomic="true">
-          <span class="chat-voice-processing-spin" aria-hidden="true">
+        <div
+          class={cn(
+            'chat-voice-processing flex min-w-0 items-center gap-2.5 pr-2 [animation:chat-voice-processing-in_180ms_ease-out] motion-reduce:[animation:none]',
+            '[padding-left:max(12px,env(safe-area-inset-left,0px))]',
+          )}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <span
+            class="chat-voice-processing-spin flex shrink-0 text-[var(--accent,#6366f1)] [animation:chat-voice-spin_0.85s_linear_infinite] motion-reduce:[animation:none]"
+            aria-hidden="true"
+          >
             <Loader2 size={20} strokeWidth={2} />
           </span>
-          <span class="chat-voice-processing-text">Transcribing…</span>
+          <span class="chat-voice-processing-text whitespace-nowrap text-[13px] font-medium tracking-[0.02em] text-muted">Transcribing…</span>
         </div>
       {:else if layout === 'composer-flow' && phase === 'idle' && onExitVoiceMode}
         <button
           type="button"
-          class="voice-exit-keyboard"
+          class="voice-exit-keyboard inline-flex h-11 min-w-[44px] cursor-pointer items-center justify-center border border-border bg-surface-3 p-0 text-muted transition-colors duration-150 [-webkit-tap-highlight-color:transparent] hover:bg-surface hover:text-foreground active:[filter:brightness(0.97)] [margin-left:max(8px,env(safe-area-inset-left,0px))]"
           onclick={() => onExitVoiceMode()}
           aria-label="Type with keyboard"
           title="Keyboard"
@@ -188,10 +220,10 @@
         />
       {/if}
     </div>
-    <div class="chat-voice-center">
+    <div class="chat-voice-center flex flex-1 min-w-0 items-center justify-center px-1.5">
       {#if showTimer}
         <span
-          class="chat-voice-timer"
+          class="chat-voice-timer text-[11px] font-semibold leading-none tracking-[0.04em] text-foreground tabular-nums [font-feature-settings:'tnum'_1]"
           aria-live="polite"
           aria-label={`Recording length ${timerLabel}`}
         >
@@ -199,11 +231,20 @@
         </span>
       {/if}
     </div>
-    <div class="chat-voice-primary-col">
+    <div
+      class={cn(
+        'chat-voice-primary-col flex min-w-[30%] max-w-[46%] shrink-0 flex-row items-center justify-end gap-2.5 pl-1',
+        layout === 'composer-flow' &&
+          'justify-end pl-1 [padding-right:max(10px,env(safe-area-inset-right,0px))]',
+      )}
+    >
       {#if phase === 'recording'}
         <RecordingWaveformIndicator />
       {:else if layout === 'composer-flow'}
-        <div class="voice-waveform-placeholder" aria-hidden="true"></div>
+        <div
+          class="voice-waveform-placeholder pointer-events-none invisible box-border h-9 min-w-[44px] w-[44px] shrink-0 px-0.5"
+          aria-hidden="true"
+        ></div>
       {/if}
       <VoicePrimaryButton
         {phase}
@@ -215,180 +256,12 @@
     </div>
   </div>
   {#if errorHint}
-    <p class="chat-voice-err" role="status">{errorHint}</p>
+    <p class="chat-voice-err m-0 px-3 pb-1 text-center text-[11px] leading-tight text-muted" role="status">{errorHint}</p>
   {/if}
 </div>
 
 <style>
-  .chat-voice-panel {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    box-sizing: border-box;
-    min-height: 80px;
-    flex-shrink: 0;
-  }
-
-  .chat-voice-panel--fixed {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: env(safe-area-inset-bottom, 0px);
-    z-index: 20;
-    background: color-mix(in srgb, var(--bg-2) 88%, transparent);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-top: 1px solid var(--border-1, rgba(255, 255, 255, 0.08));
-    padding-bottom: 0;
-  }
-
-  .chat-voice-panel--inline {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    margin-top: 4px;
-    margin-bottom: 2px;
-    border-top: 1px solid var(--border-1, rgba(255, 255, 255, 0.08));
-    background: color-mix(in srgb, var(--bg-2) 92%, transparent);
-}
-
-  .chat-voice-panel--composer-flow {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    min-height: 56px;
-    margin: 0;
-    padding: 0;
-    background: var(--bg-2);
-    border: none;
-}
-
-  /*
-   * Composer stack: the primary tap/send control sits on the RIGHT (same lane as text-mode
-   * send/mic) so it does not jump when switching modes; secondary actions (cancel/restart,
-   * keyboard) sit on the left.
-   */
-  .chat-voice-panel--composer-flow .chat-voice-panel-inner {
-    flex-direction: row;
-  }
-
-  .chat-voice-panel--composer-flow .chat-voice-primary-col {
-    justify-content: flex-end;
-    flex-direction: row;
-    padding-right: max(10px, env(safe-area-inset-right, 0px));
-    padding-left: 4px;
-  }
-
-  .voice-waveform-placeholder {
-    flex-shrink: 0;
-    box-sizing: border-box;
-    min-width: 44px;
-    width: 44px;
-    height: 36px;
-    padding: 0 2px;
-    visibility: hidden;
-    pointer-events: none;
-  }
-
-  .chat-voice-panel--composer-flow .chat-voice-left {
-    justify-content: flex-start;
-  }
-
-  .chat-voice-panel--composer-flow .voice-exit-keyboard {
-    margin-left: max(8px, env(safe-area-inset-left, 0px));
-    margin-right: 0;
-  }
-
-  .chat-voice-panel--composer-flow .chat-voice-processing {
-    padding-left: max(12px, env(safe-area-inset-left, 0px));
-    padding-right: 8px;
-  }
-
-  .chat-voice-panel--composer-flow :global(.voice-actions) {
-    transform: translateX(-8px);
-  }
-
-  .chat-voice-panel--composer-flow :global(.voice-actions--show) {
-    transform: translateX(0);
-    padding-left: max(10px, env(safe-area-inset-left, 0px));
-    padding-right: 0;
-  }
-
-  .voice-exit-keyboard {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 44px;
-    height: 44px;
-    margin-left: max(8px, env(safe-area-inset-left, 0px));
-    padding: 0;
-    border: 1px solid var(--border);
-background: var(--bg-3);
-    color: var(--text-2);
-    cursor: pointer;
-    transition:
-      background 0.15s,
-      color 0.15s;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  @media (hover: hover) {
-    .voice-exit-keyboard:hover {
-      background: var(--bg);
-      color: var(--text);
-    }
-  }
-
-  .voice-exit-keyboard:active {
-    filter: brightness(0.97);
-  }
-
-  .chat-voice-panel-inner {
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    flex: 1;
-    min-height: 0;
-    width: 100%;
-  }
-
-  .chat-voice-left {
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: 48%;
-    display: flex;
-    align-items: center;
-  }
-
-  .chat-voice-center {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 6px;
-  }
-
-  .chat-voice-timer {
-    font-size: 11px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.04em;
-    color: var(--text);
-    line-height: 1;
-    font-feature-settings: 'tnum' 1;
-  }
-
-  .chat-voice-processing {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    padding-left: max(12px, env(safe-area-inset-left, 0px));
-    padding-right: 8px;
-    animation: chat-voice-processing-in 180ms ease-out;
-  }
-
+  /* Keyframes referenced by Tailwind arbitrary `animation` utilities above. */
   @keyframes chat-voice-processing-in {
     from {
       opacity: 0;
@@ -400,71 +273,20 @@ background: var(--bg-3);
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .chat-voice-processing {
-      animation: none;
-    }
-  }
-
-  .chat-voice-processing-spin {
-    display: flex;
-    flex-shrink: 0;
-    color: var(--accent, #6366f1);
-    animation: chat-voice-spin 0.85s linear infinite;
-  }
-
   @keyframes chat-voice-spin {
     to {
       transform: rotate(360deg);
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .chat-voice-processing-spin {
-      animation: none;
-    }
+  /* Layout-scoped child overrides on already-rendered child components. */
+  .chat-voice-panel--composer-flow :global(.voice-actions) {
+    transform: translateX(-8px);
   }
 
-  .chat-voice-processing-text {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-2);
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-  }
-
-  .chat-voice-primary-col {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    flex-shrink: 0;
-    min-width: 30%;
-    max-width: 46%;
-    padding-left: 4px;
-  }
-
-  .chat-voice-err {
-    margin: 0;
-    padding: 0 12px 4px;
-    font-size: 11px;
-    color: var(--text-2);
-    text-align: center;
-    line-height: 1.25;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .chat-voice-panel--fixed {
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-      background: var(--bg-2);
-    }
-    .chat-voice-panel--inline {
-      background: var(--bg-2);
-    }
-    .chat-voice-panel--composer-flow {
-      background: var(--bg-2);
-    }
+  .chat-voice-panel--composer-flow :global(.voice-actions--show) {
+    transform: translateX(0);
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: 0;
   }
 </style>

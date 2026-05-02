@@ -15,7 +15,6 @@ export default defineConfig({
     alias: {
       '@client': join(repoRoot, 'src/client'),
       '@components': join(repoRoot, 'src/client/components'),
-      '@tw-components': join(repoRoot, 'src/client/tw-components'),
       '@shared': join(repoRoot, 'src/shared'),
     },
   },

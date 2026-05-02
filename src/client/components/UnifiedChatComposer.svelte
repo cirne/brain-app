@@ -1,8 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import type { SkillMenuItem } from '@client/lib/agentUtils.js'
-  import AgentInput from './AgentInput.svelte'
-  import ChatVoicePanel from './ChatVoicePanel.svelte'
+  import AgentInput from '@components/AgentInput.svelte'
+  import ChatVoicePanel from '@components/ChatVoicePanel.svelte'
 
   type ComposerMode = 'text' | 'voice'
 
@@ -88,9 +88,9 @@
   }
 </script>
 
-<div class="unified-chat-composer">
-  <div class="composer-input-row">
-    <div class="composer-input-shell">
+<div class="unified-chat-composer flex w-full min-w-0 flex-col">
+  <div class="composer-input-row flex w-full min-w-0 box-border shrink-0 flex-row items-start pb-1.5">
+    <div class="composer-input-shell flex-1 min-w-0">
       {#if voiceEligible && composerMode === 'voice'}
         <ChatVoicePanel
           layout="composer-flow"
@@ -122,28 +122,3 @@
     </div>
   </div>
 </div>
-
-<style>
-  .unified-chat-composer {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    width: 100%;
-  }
-
-  .composer-input-row {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    min-width: 0;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 0 0 6px;
-    flex-shrink: 0;
-  }
-
-  .composer-input-shell {
-    flex: 1;
-    min-width: 0;
-  }
-</style>

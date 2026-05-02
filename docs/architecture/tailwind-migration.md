@@ -6,19 +6,18 @@
 
 ## Current state
 
-As of April 2026:
-
-- **68 of 129 Svelte components** contain inline `<style>` blocks with BEM-style class names (e.g. `hub-source-meta`, `hub-connector-title`, `agent-conversation-tool-call`).
-- **8 standalone CSS files** under `src/client/styles/` (~1,585 lines total): onboarding, markdown rendering, agent streaming, wiki, search.
+- **Product Svelte** lives in a **single** Tailwind-first tree: [`src/client/components/README.md`](../../src/client/components/README.md).
+- Some components still carry **small scoped `<style>`** blocks or BEM-style **hook** class names alongside utilities; shrinking those further is ongoing hygiene, not a parallel legacy tree.
+- **Standalone CSS files** under `src/client/styles/` (onboarding, markdown rendering, agent streaming, wiki, search) remain for content and third-party surfaces that cannot carry utility classes on every node.
 - **Global `src/client/style.css`**: `:root` tokens, **`@layer base` / `@layer components`** resets and semantic globals, typography — imports Tailwind first, then layered app rules.
 
-The hybrid state means new components can use Tailwind utilities while old ones use scoped class names, but the two systems don't compose cleanly (e.g. a Tailwind `dark:` variant can't reach inside a scoped block).
+**Caveat:** mixing deep scoped rules with utilities on the **same** node can still produce surprising cascade winners—use DevTools **Computed** when spacing or type “ignores” Tailwind (see pitfalls below).
 
 ---
 
-## Why urgency matters
+## Why ongoing discipline matters
 
-Every new component added in the BEM pattern increases future migration cost. At ~130 components the migration is a 1–2 week effort with careful per-screen QA. At 250+ components it becomes a multi-week project requiring a dedicated pass. The window to do it cheaply is while the component count is still low.
+Heavy **scoped `<style>`** surfaces still increase the cost of **theme tweaks, dark mode, and a11y** passes. Prefer utilities and hooks first; reserve scoped CSS for exceptions (see pitfalls below).
 
 ---
 
@@ -107,11 +106,11 @@ Example: a **column flex** child with **`align-items: stretch`** (default) and `
 
 **Mitigation:** `self-center`, a wrapper, or explicit width + margin recipe—see **`AgentChat` composer column** (split + `composer-stack`). Verify in Computed after changes.
 
-### 5. Temporary parity: legacy-shaped scoped CSS
+### 5. Short-term scoped CSS on complex rails
 
-When matching **legacy `components/`** behavior quickly (e.g. **chat history rail**), a **scoped block that mirrors legacy** can be legitimate **short-term parity**, not an admission that Tailwind can’t own spacing forever.
+For dense rails (e.g. **chat history**), a **small scoped block** can be a legitimate **short-term** way to match an existing layout before utilities fully own every property.
 
-**Follow-up:** Re-express layout with utilities (or **`@apply`**) **incrementally**, confirming each step in Computed — see [tw-components README](../../src/client/tw-components/README.md).
+**Follow-up:** Re-express layout with utilities (or **`@apply`**) **incrementally**, confirming each step in Computed — see [components README](../../src/client/components/README.md).
 
 ### OPPORTUNITIES vs architecture
 

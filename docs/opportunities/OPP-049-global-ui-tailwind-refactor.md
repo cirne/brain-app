@@ -1,6 +1,8 @@
 # OPP-049: Global UI refactor — Tailwind-first stylesheet
 
-**Status:** Proposed (long-running epic).
+**Status:** **Completed (main merge).** The strangler `tw-components/` tree is promoted to the sole [`src/client/components/`](../../src/client/components/); imports use `@components/…`. Further work (tokens, `@theme`, pruning remaining scoped CSS) continues as normal product hygiene—see [tailwind-migration](../architecture/tailwind-migration.md).
+
+**Previous:** Proposed (long-running epic).
 
 **Execution model:** Treat as a **dedicated branch** effort; use a **large, capable model** for breadth across the Svelte client (many files, style archaeology). **No rush**—optimize for **consistency and test coverage** over a single big bang.
 

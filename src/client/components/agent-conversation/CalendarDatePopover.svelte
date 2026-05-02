@@ -1,5 +1,5 @@
 <script lang="ts">
-  import DayEvents from '../DayEvents.svelte'
+  import DayEvents from '@components/DayEvents.svelte'
 
   let {
     date,
@@ -23,9 +23,7 @@
   onmouseenter={onKeep}
   onmouseleave={onStartClose}
 >
-  <div
-    class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted [font-variant:normal]"
-  >
+  <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted [font-variant:normal]">
     {new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',

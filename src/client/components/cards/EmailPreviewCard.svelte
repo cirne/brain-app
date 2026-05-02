@@ -16,79 +16,24 @@
 
 <button
   type="button"
-  class="email-tool-preview"
+  class="email-tool-preview group mt-1 flex min-w-0 max-w-full cursor-pointer items-start gap-2 border-none bg-transparent py-1 text-left font-[inherit] text-[inherit]"
   onclick={onOpen}
   aria-label="Open email thread: {subject}"
 >
-  <span class="email-tool-lead" aria-hidden="true">
+  <span class="email-tool-lead mt-px shrink-0 text-muted" aria-hidden="true">
     <Mail size={14} />
   </span>
-  <span class="email-tool-body">
-    <span class="email-tool-subject">{subject}</span>
+  <span class="email-tool-body flex min-w-0 flex-col gap-1">
+    <span
+      class="email-tool-subject truncate text-[13px] font-semibold group-hover:text-accent"
+    >{subject}</span>
     {#if from}
-      <span class="email-tool-from">{from}</span>
+      <span class="email-tool-from text-[11px] text-muted">{from}</span>
     {/if}
     {#if snippet}
-      <span class="email-tool-snippet">{snippet}</span>
+      <span
+        class="email-tool-snippet text-xs leading-[1.4] text-muted overflow-hidden [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]"
+      >{snippet}</span>
     {/if}
   </span>
 </button>
-
-<style>
-  .email-tool-preview {
-    display: flex;
-    gap: 8px;
-    align-items: flex-start;
-    width: 100%;
-    max-width: 100%;
-    margin: 4px 0 0;
-    padding: 4px 0;
-    border: none;
-    background: transparent;
-    font: inherit;
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-    min-width: 0;
-  }
-
-  .email-tool-preview:hover .email-tool-subject {
-    color: var(--accent);
-  }
-
-  .email-tool-lead {
-    flex-shrink: 0;
-    color: var(--text-2);
-    margin-top: 1px;
-  }
-
-  .email-tool-body {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  .email-tool-subject {
-    font-size: 13px;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .email-tool-from {
-    font-size: 11px;
-    color: var(--text-2);
-  }
-
-  .email-tool-snippet {
-    font-size: 12px;
-    line-height: 1.4;
-    color: var(--text-2);
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-</style>

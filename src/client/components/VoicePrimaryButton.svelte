@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ArrowUp, Loader2, Mic } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import type { VoiceTapPhase } from '@client/lib/voiceTapCapture.js'
 
   let {
@@ -27,36 +28,51 @@
   }
 </script>
 
-<div class="voice-primary-hit">
+<div
+  class="voice-primary-hit box-border flex h-full min-w-[33%] items-center justify-end [padding-right:max(12px,env(safe-area-inset-right,0px))]"
+>
   <button
     type="button"
-    class="voice-primary"
-    class:voice-primary--rest={phase === 'idle' || phase === 'arming'}
-    class:voice-primary--rec={phase === 'recording'}
-    class:voice-primary--busy={phase === 'transcribing'}
-    class:voice-primary--gated={holdGated}
+    class={cn(
+      'voice-primary relative flex h-[52px] w-[52px] shrink-0 cursor-pointer items-center justify-center border-none p-0 text-white touch-manipulation select-none [-webkit-tap-highlight-color:transparent] [box-shadow:0_2px_10px_rgba(0,0,0,0.2)] [transition:background-color_200ms_ease,box-shadow_200ms_ease] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-accent active:enabled:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-55 disabled:transform-none',
+      (phase === 'idle' || phase === 'arming') && 'voice-primary--rest bg-[var(--accent,#6366f1)]',
+      phase === 'recording' &&
+        'voice-primary--rec bg-[var(--accent,#6366f1)] [box-shadow:0_2px_10px_color-mix(in_srgb,var(--accent,#6366f1)_40%,rgba(0,0,0,0.15))]',
+      phase === 'transcribing' && 'voice-primary--busy',
+      holdGated && 'voice-primary--gated disabled:opacity-45',
+    )}
     disabled={blocked || phase === 'arming' || phase === 'transcribing'}
     aria-busy={phase === 'transcribing'}
     aria-label={ariaPrimary()}
     onclick={() => void onPrimary()}
   >
-    <span class="voice-primary-pulse" aria-hidden="true" data-active={phase === 'recording'} data-key={pulseKey}
+    <span
+      class="voice-primary-pulse pointer-events-none absolute inset-0 opacity-0"
+      aria-hidden="true"
+      data-active={phase === 'recording'}
+      data-key={pulseKey}
     ></span>
-    <span class="voice-primary-icons">
+    <span class="voice-primary-icons relative grid h-full w-full place-items-center text-white">
       {#if phase === 'transcribing'}
-        <span class="voice-primary-icon-layer voice-primary-icon-layer--show">
+        <span
+          class="voice-primary-icon-layer voice-primary-icon-layer--show grid place-items-center opacity-100 transition-opacity duration-150 [filter:drop-shadow(0_1px_1px_rgba(0,0,0,0.15))] [grid-area:1/1]"
+        >
           <Loader2 size={26} strokeWidth={2} aria-hidden="true" />
         </span>
       {:else}
         <span
-          class="voice-primary-icon-layer"
-          class:voice-primary-icon-layer--show={phase === 'idle' || phase === 'arming'}
+          class={cn(
+            'voice-primary-icon-layer grid place-items-center opacity-0 transition-opacity duration-150 [filter:drop-shadow(0_1px_1px_rgba(0,0,0,0.15))] [grid-area:1/1]',
+            (phase === 'idle' || phase === 'arming') && 'voice-primary-icon-layer--show opacity-100',
+          )}
         >
           <Mic size={26} strokeWidth={2} aria-hidden="true" />
         </span>
         <span
-          class="voice-primary-icon-layer voice-primary-send-wrap"
-          class:voice-primary-icon-layer--show={phase === 'recording'}
+          class={cn(
+            'voice-primary-icon-layer voice-primary-send-wrap grid place-items-center opacity-0 transition-opacity duration-150 [filter:drop-shadow(0_1px_1px_rgba(0,0,0,0.15))] [grid-area:1/1] [&_svg]:block',
+            phase === 'recording' && 'voice-primary-icon-layer--show opacity-100',
+          )}
         >
           <ArrowUp size={22} strokeWidth={2.5} aria-hidden="true" />
         </span>
@@ -66,99 +82,7 @@
 </div>
 
 <style>
-  .voice-primary-hit {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    min-width: 33%;
-    height: 100%;
-    padding-right: max(12px, env(safe-area-inset-right, 0px));
-    box-sizing: border-box;
-  }
-
-  .voice-primary {
-    position: relative;
-    display: flex;
-    width: 52px;
-    height: 52px;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: none;
-cursor: pointer;
-    color: #fff;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    transition:
-      background-color 200ms ease,
-      box-shadow 200ms ease;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    user-select: none;
-  }
-
-  .voice-primary--rest {
-    background: var(--accent, #6366f1);
-  }
-
-  .voice-primary--rec {
-    /* Match text Send (AgentInput .send-btn): commit / outbound, not “stop” */
-    background: var(--accent, #6366f1);
-    box-shadow: 0 2px 10px color-mix(in srgb, var(--accent, #6366f1) 40%, rgba(0, 0, 0, 0.15));
-  }
-
-  .voice-primary:not(:disabled):active {
-    transform: scale(0.96);
-  }
-
-  .voice-primary:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  .voice-primary--gated:disabled {
-    opacity: 0.45;
-  }
-
-  .voice-primary:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 3px;
-  }
-
-  .voice-primary-icons {
-    position: relative;
-    display: grid;
-    place-items: center;
-    width: 100%;
-    height: 100%;
-    color: #fff;
-  }
-
-  .voice-primary-icon-layer {
-    grid-area: 1 / 1;
-    display: grid;
-    place-items: center;
-    opacity: 0;
-    transition: opacity 150ms ease;
-    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
-  }
-
-  .voice-primary-icon-layer--show {
-    opacity: 1;
-  }
-
-  .voice-primary-send-wrap :global(svg) {
-    display: block;
-  }
-
-  .voice-primary-pulse {
-    position: absolute;
-    inset: 0;
-pointer-events: none;
-    opacity: 0;
-  }
-
+  /* Pseudo-element animation for the active pulse ring. */
   .voice-primary-pulse[data-active='true']::after {
     content: '';
     position: absolute;

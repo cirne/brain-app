@@ -18,10 +18,11 @@ describe('touch hover policy (CSS)', () => {
     expect(src).toContain('.ch-row-delete')
   })
 
-  it('ChatHistoryPage gates chat row hovers', () => {
+  it('ChatHistoryPage keeps touch-visible delete affordances and row hover styles', () => {
     const path = join(dirname(fileURLToPath(import.meta.url)), '../components/ChatHistoryPage.svelte')
     const src = readFileSync(path, 'utf8')
-    expect(src).toContain('@media (hover: hover)')
-    expect(src).toContain('.chp-row:hover')
+    expect(src).toContain('[@media(hover:none)]')
+    expect(src).toContain('hover:bg-surface-3')
+    expect(src).toContain('chp-row-delete')
   })
 })

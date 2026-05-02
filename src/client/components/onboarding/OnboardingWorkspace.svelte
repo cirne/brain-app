@@ -5,14 +5,14 @@
    */
   import { onMount } from 'svelte'
   import { countSeedEligibleWikiPages } from '@client/lib/onboarding/seedWikiPageCount.js'
-  import Search from '../Search.svelte'
-  import AppTopNav from '../AppTopNav.svelte'
-  import SlideOver from '../shell/SlideOver.svelte'
-  import AgentChat from '../AgentChat.svelte'
-  import AgentConversation from '../agent-conversation/AgentConversation.svelte'
+  import Search from '@components/Search.svelte'
+  import AppTopNav from '@components/AppTopNav.svelte'
+  import SlideOver from '@components/shell/SlideOver.svelte'
+  import AgentChat from '@components/AgentChat.svelte'
+  import AgentConversation from '@components/agent-conversation/AgentConversation.svelte'
   import OnboardingProfilingView from './OnboardingProfilingView.svelte'
   import OnboardingSeedingView from './OnboardingSeedingView.svelte'
-  import WorkspaceSplit from '../WorkspaceSplit.svelte'
+  import WorkspaceSplit from '@components/WorkspaceSplit.svelte'
   import {
     parseRoute,
     navigate,
@@ -109,7 +109,9 @@
       const hist = (await histRes.json()) as { files?: { path: string; date: string }[] }
       const lastDocPath = hist.files?.[0]?.path ?? null
       onSeedWikiActivity?.({ pageCount, lastDocPath })
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   async function handleWorkspaceStreamFinished() {
@@ -123,14 +125,18 @@
 
   onMount(() => {
     const mq = window.matchMedia('(max-width: 767px)')
-    const syncMobile = () => { isMobile = mq.matches }
+    const syncMobile = () => {
+      isMobile = mq.matches
+    }
     syncMobile()
     mq.addEventListener('change', syncMobile)
 
     if (chatEndpoint === '/api/onboarding/seed') {
       void refreshSeedWikiStatus()
     }
-    const onPopState = () => { route = parseRoute() }
+    const onPopState = () => {
+      route = parseRoute()
+    }
     window.addEventListener('popstate', onPopState)
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && route.overlay) {
@@ -165,8 +171,7 @@
 
   function obChatSession(): Pick<Route, 'sessionId'> {
     const sid =
-      route.sessionId ??
-      (route.sessionTail ? readTailFromCache(route.sessionTail) : undefined)
+      route.sessionId ?? (route.sessionTail ? readTailFromCache(route.sessionTail) : undefined)
     return sid ? { sessionId: sid } : {}
   }
 
@@ -402,26 +407,40 @@
 
 {#if showSearch}
   <Search
-    onOpenWiki={(path) => { openWikiDoc(path); showSearch = false }}
-    onOpenEmail={(id, subject, from) => { openEmailFromSearch(id, subject, from); showSearch = false }}
-    onClose={() => { showSearch = false }}
+    onOpenWiki={(path) => {
+      openWikiDoc(path)
+      showSearch = false
+    }}
+    onOpenEmail={(id, subject, from) => {
+      openEmailFromSearch(id, subject, from)
+      showSearch = false
+    }}
+    onClose={() => {
+      showSearch = false
+    }}
   />
 {/if}
 
-<div class="onboarding-workspace">
+<div class="onboarding-workspace flex h-full min-h-0 flex-1 flex-col">
   <AppTopNav
     showChatHistoryButton={false}
     {isMobile}
     onToggleSidebar={noopSidebar}
     {syncErrors}
     {showSyncErrors}
-    onOpenSearch={() => { showSearch = true }}
-    onToggleSyncErrors={() => { showSyncErrors = !showSyncErrors }}
+    onOpenSearch={() => {
+      showSearch = true
+    }}
+    onToggleSyncErrors={() => {
+      showSyncErrors = !showSyncErrors
+    }}
     onOpenHub={() => {}}
-    onNewChat={() => { agentChat?.newChat() }}
+    onNewChat={() => {
+      agentChat?.newChat()
+    }}
   />
 
-  <div class="ob-ws-main" bind:clientWidth={workspaceColumnWidth}>
+  <div class="ob-ws-main flex min-h-0 flex-1 flex-col" bind:clientWidth={workspaceColumnWidth}>
     <WorkspaceSplit
       bind:this={workspaceSplit}
       workspaceColumnWidthPx={workspaceColumnWidth}
@@ -435,45 +454,37 @@
           bind:this={agentChat}
           context={agentContext}
           conversationHidden={!!route.overlay && !useDesktopSplitDetail}
-          hideInput={
-            hideComposerForActivity ||
+          hideInput={hideComposerForActivity ||
             (isMobile &&
               !useDesktopSplitDetail &&
               !!route.overlay &&
-              !overlaySupportsMobileChatBridge(route.overlay))
-          }
-          mobileSlideCoversTranscriptOnly={
-            !hideComposerForActivity &&
+              !overlaySupportsMobileChatBridge(route.overlay))}
+          mobileSlideCoversTranscriptOnly={!hideComposerForActivity &&
             isMobile &&
             !useDesktopSplitDetail &&
             !!route.overlay &&
-            overlaySupportsMobileChatBridge(route.overlay)
-          }
+            overlaySupportsMobileChatBridge(route.overlay)}
           hidePaneContextChip={!!route.overlay && useDesktopSplitDetail}
-          suppressAgentDetailAutoOpen={
-            suppressAgentDetailAutoOpen || !useDesktopSplitDetail || hideComposerForActivity
-          }
+          suppressAgentDetailAutoOpen={suppressAgentDetailAutoOpen ||
+            !useDesktopSplitDetail ||
+            hideComposerForActivity}
           {multiTenant}
           {inputPlaceholder}
           autoSendInterviewKickoffHidden={chatEndpoint === '/api/onboarding/interview'}
-          conversationView={
-            chatEndpoint === '/api/onboarding/profile'
-              ? OnboardingProfilingView
-              : chatEndpoint === '/api/onboarding/seed'
-                ? OnboardingSeedingView
-                : AgentConversation
-          }
-          streamingBusyLabel={
-            useOnboardingActivity
-              ? chatEndpoint === '/api/onboarding/interview'
-                ? 'Welcome…'
-                : isProfiling
-                  ? 'Profiling…'
-                  : isSeedingWiki
-                    ? 'Seeding wiki…'
-                    : 'Working…'
-              : ''
-          }
+          conversationView={chatEndpoint === '/api/onboarding/profile'
+            ? OnboardingProfilingView
+            : chatEndpoint === '/api/onboarding/seed'
+              ? OnboardingSeedingView
+              : AgentConversation}
+          streamingBusyLabel={useOnboardingActivity
+            ? chatEndpoint === '/api/onboarding/interview'
+              ? 'Welcome…'
+              : isProfiling
+                ? 'Profiling…'
+                : isSeedingWiki
+                  ? 'Seeding wiki…'
+                  : 'Working…'
+            : ''}
           {chatEndpoint}
           {autoSendMessage}
           streamingWritePreview={wikiWriteStreaming}
@@ -487,19 +498,20 @@
           onOpenFullInbox={openFullInboxFromChat}
           onOpenMessageThread={openMessageThreadFromChat}
           onSwitchToCalendar={switchToCalendar}
-          onOpenFromAgent={onOpenFromAgent}
+          {onOpenFromAgent}
           onOpenDraftFromAgent={openEmailDraftFromChat}
           onNewChat={closeOverlay}
-          onUserInitiatedNewChat={() => { agentChat?.newChat() }}
-          onConversationFinishedByAgent={
-            chatEndpoint === '/api/onboarding/interview' && onAgentFinishInterview
-              ? () => void onAgentFinishInterview()
-              : undefined
-          }
+          onUserInitiatedNewChat={() => {
+            agentChat?.newChat()
+          }}
+          onConversationFinishedByAgent={chatEndpoint === '/api/onboarding/interview' &&
+          onAgentFinishInterview
+            ? () => void onAgentFinishInterview()
+            : undefined}
           onOpenWikiAbout={() => openWikiDoc()}
           onUserSendMessage={closeOverlayOnUserSend}
-          onWriteStreaming={onWriteStreaming}
-          onEditStreaming={onEditStreaming}
+          {onWriteStreaming}
+          {onEditStreaming}
         >
           {#snippet mobileDetail()}
             {#if route.overlay}
@@ -507,17 +519,19 @@
                 bind:this={mobileSlideOver}
                 overlay={route.overlay}
                 surfaceContext={agentContext}
-                wikiRefreshKey={wikiRefreshKey}
-                calendarRefreshKey={calendarRefreshKey}
-                inboxTargetId={inboxTargetId}
+                {wikiRefreshKey}
+                {calendarRefreshKey}
+                {inboxTargetId}
                 wikiStreamingWrite={wikiWriteStreaming}
                 wikiStreamingEdit={wikiEditStreaming}
-                onWikiNavigate={onWikiNavigate}
+                {onWikiNavigate}
                 onWikiDirNavigate={openWikiDir}
                 onInboxNavigate={onInboxNavigateSlide}
                 onContextChange={setContext}
-                onOpenSearch={() => { showSearch = true }}
-                onSummarizeInbox={onSummarizeInbox}
+                onOpenSearch={() => {
+                  showSearch = true
+                }}
+                {onSummarizeInbox}
                 onCalendarResetToToday={resetCalendarToToday}
                 onCalendarNavigate={switchToCalendar}
                 toolOnOpenFile={openFileDoc}
@@ -538,17 +552,19 @@
           <SlideOver
             overlay={route.overlay}
             surfaceContext={agentContext}
-            wikiRefreshKey={wikiRefreshKey}
-            calendarRefreshKey={calendarRefreshKey}
-            inboxTargetId={inboxTargetId}
+            {wikiRefreshKey}
+            {calendarRefreshKey}
+            {inboxTargetId}
             wikiStreamingWrite={wikiWriteStreaming}
             wikiStreamingEdit={wikiEditStreaming}
-            onWikiNavigate={onWikiNavigate}
+            {onWikiNavigate}
             onWikiDirNavigate={openWikiDir}
             onInboxNavigate={onInboxNavigateSlide}
             onContextChange={setContext}
-            onOpenSearch={() => { showSearch = true }}
-            onSummarizeInbox={onSummarizeInbox}
+            onOpenSearch={() => {
+              showSearch = true
+            }}
+            {onSummarizeInbox}
             onCalendarResetToToday={resetCalendarToToday}
             onCalendarNavigate={switchToCalendar}
             toolOnOpenFile={openFileDoc}
@@ -565,22 +581,4 @@
       {/snippet}
     </WorkspaceSplit>
   </div>
-
 </div>
-
-<style>
-  .onboarding-workspace {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    height: 100%;
-  }
-
-  .ob-ws-main {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-</style>

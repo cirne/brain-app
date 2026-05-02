@@ -1,6 +1,7 @@
 <script lang="ts">
-  import WikiFileName from '../WikiFileName.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
   import { unifiedDiffChangedLinesOnly } from '@client/lib/cards/editDiffDisplay.js'
+  import { cn } from '@client/lib/cn.js'
   import '../../styles/agent-conversation/toolWriteLink.css'
 
   let {
@@ -16,68 +17,26 @@
   const changedLines = $derived(unifiedDiffChangedLinesOnly(unified))
 </script>
 
-<div class="edit-diff-preview">
-  <button type="button" class="tool-write-link edit-diff-open" onclick={onOpen} aria-label="Open wiki: {path}">
+<div class="edit-diff-preview mt-1 min-w-0 max-w-full">
+  <button
+    type="button"
+    class="tool-write-link edit-diff-open mb-1.5 flex w-full min-w-0 max-w-full flex-wrap items-baseline gap-[0.35em] text-left text-[11px] text-muted"
+    onclick={onOpen}
+    aria-label="Open wiki: {path}"
+  >
     <WikiFileName {path} />
   </button>
-  <div class="edit-diff-lines">
+  <div
+    class="edit-diff-lines m-0 max-h-[220px] overflow-auto border-t border-border pt-2 font-mono text-[11px] leading-[1.45] text-muted"
+  >
     {#each changedLines as line}
       <div
-        class="edit-diff-line"
-        class:edit-diff-add={line.startsWith('+')}
-        class:edit-diff-remove={line.startsWith('-')}
+        class={cn(
+          'edit-diff-line whitespace-pre-wrap break-words border-l-2 border-transparent pl-1',
+          line.startsWith('+') && 'edit-diff-add border-l-success text-foreground',
+          line.startsWith('-') && 'edit-diff-remove border-l-danger text-foreground',
+        )}
       >{line}</div>
     {/each}
   </div>
 </div>
-
-<style>
-  .edit-diff-preview {
-    margin: 4px 0 0;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .edit-diff-open {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.35em;
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    font-size: 11px;
-    color: var(--text-2);
-    margin-bottom: 6px;
-    text-align: left;
-  }
-
-  .edit-diff-lines {
-    margin: 0;
-    padding: 8px 0 0;
-    border-top: 1px solid var(--border);
-    font-size: 11px;
-    line-height: 1.45;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    max-height: 220px;
-    overflow: auto;
-    color: var(--text-2);
-  }
-
-  .edit-diff-line {
-    white-space: pre-wrap;
-    word-break: break-word;
-    padding: 0 0 0 4px;
-    border-left: 2px solid transparent;
-  }
-
-  .edit-diff-line.edit-diff-add {
-    border-left-color: var(--success);
-    color: var(--text);
-  }
-
-  .edit-diff-line.edit-diff-remove {
-    border-left-color: var(--danger);
-    color: var(--text);
-  }
-</style>

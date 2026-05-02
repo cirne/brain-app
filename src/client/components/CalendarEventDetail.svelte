@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { CalendarEvent } from './DayEvents.svelte'
-  import WikiFileName from './WikiFileName.svelte'
+  // Re-export the shared event type from the (already-ported) DayEvents location.
+  import type { CalendarEvent } from '@components/DayEvents.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
   import { formatDate } from '@client/lib/formatDate.js'
   import {
     formatCalendarEventWhen,
@@ -74,7 +75,6 @@
     relatedEmails = []
     relatedPeople = []
 
-    // Extract meeting IDs from description + location URLs
     const allText = [ev.description ?? '', ev.location ?? ''].join('\n')
     const meetingIds = extractMeetingIds(allText)
 
@@ -124,30 +124,34 @@
     if (n && a) return `${n} · ${a}`
     return n ?? a ?? 'Contact'
   }
+
+  /** Card-like related-row button shared between people, messages, and wiki blocks. */
+  const relatedBtnBase =
+    'm-0 flex w-full cursor-pointer flex-col items-start gap-[2px] border border-border bg-surface-2 px-2.5 py-2 text-left text-inherit [font:inherit] transition-colors duration-150 hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] hover:bg-surface-3'
 </script>
 
-  <article class="ced">
-  <h2 class="ced-title">{event.title}</h2>
+<article class="ced max-w-[560px] px-1 pb-4 pt-1">
+  <h2 class="ced-title m-0 mb-2.5 text-lg font-semibold leading-tight text-foreground">{event.title}</h2>
   <p
-    class="ced-badge"
+    class="ced-badge mb-4 mt-0 inline-block bg-[var(--custom-bg,var(--bg-3))] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--custom-text,var(--text-2))]"
     data-source={event.source}
     style={event.color ? `--custom-bg: color-mix(in srgb, ${event.color} 22%, var(--bg-3)); --custom-text: var(--text);` : ''}
   >
     {calendarSourceLabel(event.source)}
   </p>
 
-  <dl class="ced-dl">
-    <div class="ced-row">
-      <dt>When</dt>
-      <dd>{formatCalendarEventWhen(event)}</dd>
+  <dl class="ced-dl m-0 flex flex-col gap-[14px]">
+    <div class="ced-row m-0 grid grid-cols-[88px_1fr] items-start gap-x-[14px] gap-y-2.5">
+      <dt class="m-0 text-xs font-semibold uppercase tracking-[0.04em] text-muted">When</dt>
+      <dd class="m-0 text-sm leading-snug text-foreground">{formatCalendarEventWhen(event)}</dd>
     </div>
     {#if event.location?.trim()}
-      <div class="ced-row">
-        <dt>Where</dt>
-        <dd>
+      <div class="ced-row m-0 grid grid-cols-[88px_1fr] items-start gap-x-[14px] gap-y-2.5">
+        <dt class="m-0 text-xs font-semibold uppercase tracking-[0.04em] text-muted">Where</dt>
+        <dd class="m-0 text-sm leading-snug text-foreground">
           {#if locationIsUrl}
             <a
-              class="ced-link"
+              class="ced-link text-accent underline [text-underline-offset:2px] [word-break:break-all] hover:text-foreground"
               href={event.location!.trim()}
               target="_blank"
               rel="noopener noreferrer"
@@ -159,13 +163,18 @@
       </div>
     {/if}
     {#if linkUrls.length > 0}
-      <div class="ced-row ced-links-row">
-        <dt>Links</dt>
-        <dd>
-          <ul class="ced-link-list">
+      <div class="ced-row ced-links-row m-0 grid grid-cols-[88px_1fr] items-start gap-x-[14px] gap-y-2.5">
+        <dt class="m-0 text-xs font-semibold uppercase tracking-[0.04em] text-muted">Links</dt>
+        <dd class="m-0 text-sm leading-snug text-foreground">
+          <ul class="ced-link-list m-0 pl-[1.1em] text-[13px] [&>li]:my-1">
             {#each linkUrls as href (href)}
               <li>
-                <a class="ced-link" {href} target="_blank" rel="noopener noreferrer">{href}</a>
+                <a
+                  class="ced-link text-accent underline [text-underline-offset:2px] [word-break:break-all] hover:text-foreground"
+                  {href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >{href}</a>
               </li>
             {/each}
           </ul>
@@ -173,40 +182,42 @@
       </div>
     {/if}
     {#if notesPlain}
-      <div class="ced-row ced-notes">
-        <dt>Notes</dt>
-        <dd class="ced-desc">{notesPlain}</dd>
+      <div class="ced-row ced-notes m-0 grid grid-cols-[88px_1fr] items-start gap-x-[14px] gap-y-2.5">
+        <dt class="m-0 pt-0.5 text-xs font-semibold uppercase tracking-[0.04em] text-muted">Notes</dt>
+        <dd
+          class="ced-desc m-0 whitespace-pre-wrap text-[13px] leading-snug text-muted [word-break:break-word]"
+        >{notesPlain}</dd>
       </div>
     {/if}
   </dl>
 
   {#if hasRelated}
-    <section class="ced-related" aria-label="Related context">
-      <h3 class="ced-related-title">Related context</h3>
-      <p class="ced-related-hint">Related notes and messages from your wiki and inbox.</p>
+    <section class="ced-related mt-[22px] border-t border-border pt-4" aria-label="Related context">
+      <h3 class="ced-related-title m-0 mb-1.5 text-[13px] font-semibold uppercase tracking-[0.04em] text-foreground">Related context</h3>
+      <p class="ced-related-hint m-0 mb-3 text-[11px] leading-tight text-muted">Related notes and messages from your wiki and inbox.</p>
 
       {#if relatedLoading}
-        <p class="ced-related-muted">Loading…</p>
+        <p class="ced-related-muted m-0 text-xs text-muted">Loading…</p>
       {:else if relatedError}
-        <p class="ced-related-err">{relatedError}</p>
+        <p class="ced-related-err m-0 text-xs text-[#f87171]">{relatedError}</p>
       {:else}
         {#if relatedPeople.length > 0}
-          <div class="ced-block">
-            <div class="ced-block-label">Contacts</div>
-            <ul class="ced-mini-list">
+          <div class="ced-block mb-3.5 last:mb-0">
+            <div class="ced-block-label mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">Contacts</div>
+            <ul class="ced-mini-list m-0 flex list-none flex-col gap-2 p-0">
               {#each relatedPeople as p, i (p.primaryAddress ?? i)}
                 <li>
                   {#if p.wikiPath && onOpenWiki}
                     <button
                       type="button"
-                      class="ced-person-btn"
+                      class="ced-person-btn {relatedBtnBase} [&_.wfn-title-row]:text-[13px]"
                       onclick={() => onOpenWiki(p.wikiPath!)}
                     >
                       <WikiFileName path={p.wikiPath} />
-                      <span class="ced-person-email">{p.primaryAddress}</span>
+                      <span class="ced-person-email text-[11px] text-muted">{p.primaryAddress}</span>
                     </button>
                   {:else}
-                    <span class="ced-mini-item">{personLabel(p)}</span>
+                    <span class="ced-mini-item text-[13px] leading-tight text-foreground">{personLabel(p)}</span>
                   {/if}
                 </li>
               {/each}
@@ -215,25 +226,27 @@
         {/if}
 
         {#if relatedEmails.length > 0}
-          <div class="ced-block">
-            <div class="ced-block-label">Messages</div>
-            <ul class="ced-mini-list">
+          <div class="ced-block mb-3.5 last:mb-0">
+            <div class="ced-block-label mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">Messages</div>
+            <ul class="ced-mini-list m-0 flex list-none flex-col gap-2 p-0">
               {#each relatedEmails as m (m.id)}
                 <li>
                   {#if onOpenEmail}
                     <button
                       type="button"
-                      class="ced-msg-btn"
+                      class="ced-msg-btn {relatedBtnBase}"
                       onclick={() => onOpenEmail(m.id, m.subject, m.from)}
                     >
-                      <span class="ced-msg-subj">{m.subject}</span>
-                      <span class="ced-msg-meta">{m.from} · {formatDate(m.date)}</span>
+                      <span class="ced-msg-subj text-[13px] font-semibold text-foreground">{m.subject}</span>
+                      <span class="ced-msg-meta text-[11px] text-muted">{m.from} · {formatDate(m.date)}</span>
                       {#if m.snippet}
-                        <span class="ced-msg-snippet">{m.snippet}</span>
+                        <span
+                          class="ced-msg-snippet overflow-hidden text-[11px] leading-snug text-muted [-webkit-box-orient:vertical] [-webkit-line-clamp:2] [display:-webkit-box]"
+                        >{m.snippet}</span>
                       {/if}
                     </button>
                   {:else}
-                    <span class="ced-msg-subj">{m.subject}</span>
+                    <span class="ced-msg-subj text-[13px] font-semibold text-foreground">{m.subject}</span>
                   {/if}
                 </li>
               {/each}
@@ -242,16 +255,22 @@
         {/if}
 
         {#if relatedWiki.length > 0}
-          <div class="ced-block">
-            <div class="ced-block-label">Docs</div>
-            <ul class="ced-mini-list">
+          <div class="ced-block mb-3.5 last:mb-0">
+            <div class="ced-block-label mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">Docs</div>
+            <ul class="ced-mini-list m-0 flex list-none flex-col gap-2 p-0">
               {#each relatedWiki as w (w.path)}
                 <li>
                   {#if onOpenWiki}
-                    <button type="button" class="ced-wiki-btn" onclick={() => onOpenWiki(w.path)}>
+                    <button
+                      type="button"
+                      class="ced-wiki-btn {relatedBtnBase} [&_.wfn-title-row]:text-[13px]"
+                      onclick={() => onOpenWiki(w.path)}
+                    >
                       <WikiFileName path={w.path} />
                       {#if w.excerpt}
-                        <span class="ced-wiki-excerpt">{w.excerpt}</span>
+                        <span
+                          class="ced-wiki-excerpt overflow-hidden text-[11px] leading-snug text-muted [-webkit-box-orient:vertical] [-webkit-line-clamp:2] [display:-webkit-box]"
+                        >{w.excerpt}</span>
                       {/if}
                     </button>
                   {:else}
@@ -264,7 +283,7 @@
         {/if}
 
         {#if !relatedLoading && relatedPeople.length === 0 && relatedEmails.length === 0 && relatedWiki.length === 0}
-          <p class="ced-related-muted">No matching contacts or search hits for this title.</p>
+          <p class="ced-related-muted m-0 text-xs text-muted">No matching contacts or search hits for this title.</p>
         {/if}
       {/if}
     </section>
@@ -272,31 +291,7 @@
 </article>
 
 <style>
-  .ced {
-    padding: 4px 4px 16px;
-    max-width: 560px;
-  }
-
-  .ced-title {
-    margin: 0 0 10px;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text);
-    line-height: 1.3;
-  }
-
-  .ced-badge {
-    display: inline-block;
-    margin: 0 0 16px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 4px 10px;
-background: var(--custom-bg, var(--bg-3));
-    color: var(--custom-text, var(--text-2));
-  }
-
+  /* Travel/personal source-specific tints depend on `data-source` attribute selectors. */
   .ced-badge[data-source='travel'] {
     background: var(--custom-bg, color-mix(in srgb, #f59e0b 22%, var(--bg-3)));
     color: var(--custom-text, var(--text));
@@ -305,223 +300,5 @@ background: var(--custom-bg, var(--bg-3));
   .ced-badge[data-source='personal'] {
     background: var(--custom-bg, color-mix(in srgb, var(--accent) 18%, var(--bg-3)));
     color: var(--custom-text, var(--text));
-  }
-
-  .ced-dl {
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .ced-row {
-    margin: 0;
-    display: grid;
-    grid-template-columns: 88px 1fr;
-    gap: 10px 14px;
-    align-items: start;
-  }
-
-  .ced-row dt {
-    margin: 0;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-2);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .ced-row dd {
-    margin: 0;
-    font-size: 14px;
-    line-height: 1.45;
-    color: var(--text);
-  }
-
-  .ced-notes dt {
-    padding-top: 2px;
-  }
-
-  .ced-desc {
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 13px;
-    color: var(--text-2);
-  }
-
-  .ced-link {
-    color: var(--accent);
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    word-break: break-all;
-  }
-
-  .ced-link:hover {
-    color: var(--text);
-  }
-
-  .ced-link-list {
-    margin: 0;
-    padding-left: 1.1em;
-    font-size: 13px;
-  }
-
-  .ced-link-list li {
-    margin: 4px 0;
-  }
-
-  .ced-related {
-    margin-top: 22px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-  }
-
-  .ced-related-title {
-    margin: 0 0 6px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .ced-related-hint {
-    margin: 0 0 12px;
-    font-size: 11px;
-    line-height: 1.4;
-    color: var(--text-2);
-  }
-
-  .ced-related-muted,
-  .ced-related-err {
-    margin: 0;
-    font-size: 12px;
-    color: var(--text-2);
-  }
-
-  .ced-related-err {
-    color: #f87171;
-  }
-
-  .ced-block {
-    margin-bottom: 14px;
-  }
-
-  .ced-block:last-child {
-    margin-bottom: 0;
-  }
-
-  .ced-block-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-2);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 6px;
-  }
-
-  .ced-mini-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .ced-mini-item {
-    font-size: 13px;
-    color: var(--text);
-    line-height: 1.35;
-  }
-
-  .ced-person-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    width: 100%;
-    margin: 0;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-background: var(--bg-2);
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-  }
-
-  .ced-person-btn:hover {
-    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-    background: var(--bg-3);
-  }
-
-  .ced-person-btn :global(.wfn-title-row) {
-    font-size: 13px;
-  }
-
-  .ced-person-email {
-    font-size: 11px;
-    color: var(--text-2);
-  }
-
-  .ced-msg-btn,
-  .ced-wiki-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    width: 100%;
-    margin: 0;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-background: var(--bg-2);
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-  }
-
-  .ced-msg-btn:hover,
-  .ced-wiki-btn:hover {
-    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-    background: var(--bg-3);
-  }
-
-  .ced-msg-subj {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .ced-msg-meta {
-    font-size: 11px;
-    color: var(--text-2);
-  }
-
-  .ced-msg-snippet {
-    font-size: 11px;
-    color: var(--text-2);
-    line-height: 1.35;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .ced-wiki-btn :global(.wfn-title-row) {
-    font-size: 13px;
-  }
-
-  .ced-wiki-excerpt {
-    font-size: 11px;
-    color: var(--text-2);
-    line-height: 1.35;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
   }
 </style>

@@ -33,10 +33,8 @@
   let datePopover = $state<{ date: string; x: number; y: number } | null>(null)
   let datePopoverTimer: ReturnType<typeof setTimeout> | null = null
 
-  /** When true, new assistant content auto-scrolls the viewport (until the user scrolls up). BUG-007. */
   let followOutput = $state(true)
 
-  /** Temporarily ignore scroll events during programmatic scrolls to prevent followOutput from toggling off. */
   let ignoreScrollEvents = false
 
   let reduceMotion = $state(false)
@@ -74,7 +72,6 @@
     followOutput = computePinnedToBottom(messagesEl)
   }
 
-  /** Unconditional scroll + resume follow mode (load session, stream finished, user just sent). */
   export function scrollToBottom() {
     ignoreScrollEvents = true
     void tick().then(() => {
@@ -92,7 +89,6 @@
     })
   }
 
-  /** Stream deltas: only scroll if the user has not scrolled away to read history. */
   export function scrollToBottomIfFollowing() {
     if (!followOutput) return
     ignoreScrollEvents = true
@@ -272,8 +268,7 @@
   }
 
   @keyframes jump-live-pulse {
-    0%,
-    100% {
+    0%, 100% {
       opacity: 1;
       box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
     }

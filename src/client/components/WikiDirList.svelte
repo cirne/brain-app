@@ -8,6 +8,7 @@
     FolderSymlink,
     Users,
   } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import type { SurfaceContext } from '@client/router.js'
   import {
     countOutgoingSharesForVaultPath,
@@ -21,7 +22,7 @@
     type WikiOwnedShareRef,
     type WikiReceivedShareRow,
   } from '@client/lib/wikiDirListModel.js'
-  import WikiShareDialog from './WikiShareDialog.svelte'
+  import WikiShareDialog from '@components/WikiShareDialog.svelte'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
   import { WIKI_SLIDE_HEADER, type SetWikiSlideHeader } from '@client/lib/wikiSlideHeaderContext.js'
 
@@ -242,7 +243,7 @@
   })
 </script>
 
-<div class="wiki-dir">
+<div class="wiki-dir flex min-h-0 flex-1 flex-col overflow-hidden">
   <WikiShareDialog
     open={shareDialogOpen}
     pathPrefix={shareDialogPrefix}
@@ -252,27 +253,37 @@
     }}
     onSharesChanged={() => void loadFiles()}
   />
-  <div class="wiki-dir-inner">
+  <div
+    class="wiki-dir-inner mx-auto box-border w-full max-w-chat min-h-0 flex-1 overflow-y-auto px-[clamp(1rem,4%,2.5rem)] py-6"
+  >
     {#if loading}
-      <p class="status">Loading…</p>
+      <p class="status m-0 text-sm text-muted">Loading…</p>
     {:else if loadError}
-      <p class="status status-err">Could not load wiki file list.</p>
+      <p class="status status-err m-0 text-sm text-[var(--text-3,var(--text-2))]">Could not load wiki file list.</p>
     {:else if entries.length === 0}
-      <p class="status">No pages in this folder.</p>
+      <p class="status m-0 text-sm text-muted">No pages in this folder.</p>
     {:else}
-      <ul class="wiki-dir-list" aria-label={dirPath ? `Pages in ${dirPath}` : 'Wiki pages'}>
+      <ul
+        class="wiki-dir-list m-0 flex list-none flex-col gap-0 p-0"
+        aria-label={dirPath ? `Pages in ${dirPath}` : 'Wiki pages'}
+      >
         {#each entries as entry (`${entry.kind}:${'path' in entry ? entry.path : entry.kind}`)}
           <li>
             <button
               type="button"
-              class="wiki-dir-row"
-              class:wiki-dir-row--shared={entryIsShared(entry)}
-              class:wiki-dir-row--outgoing={entryHasOutgoingShare(entry)}
+              class={cn(
+                'wiki-dir-row group grid w-full cursor-pointer grid-cols-[auto_1fr_auto_auto] items-center gap-x-3.5 gap-y-3 border-0 border-b border-[color-mix(in_srgb,var(--border)_45%,transparent)] bg-transparent px-0 py-3 text-left text-foreground text-[0.9375rem] transition-[padding-left,color] duration-150 hover:pl-1 hover:text-accent',
+                entryIsShared(entry) && 'wiki-dir-row--shared',
+                entryHasOutgoingShare(entry) && 'wiki-dir-row--outgoing',
+              )}
               onclick={() => onEntryClick(entry)}
             >
               <span
-                class="wiki-dir-icon"
-                class:wiki-dir-icon--shared={entryIsShared(entry)}
+                class={cn(
+                  'wiki-dir-icon flex shrink-0 text-muted',
+                  entryIsShared(entry) &&
+                    'wiki-dir-icon--shared text-[color-mix(in_srgb,var(--accent)_82%,var(--text-2))] group-hover:text-accent',
+                )}
                 aria-hidden="true"
               >
                 {#if entry.kind === 'my-wiki-root'}
@@ -289,12 +300,16 @@
                   <FileText size={18} />
                 {/if}
               </span>
-              <span class="wiki-dir-label">{entry.label}</span>
-              <span class="wiki-dir-meta">
+              <span class="wiki-dir-label min-w-0 font-semibold [word-break:break-word]"
+                >{entry.label}</span
+              >
+              <span
+                class="wiki-dir-meta inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-[0.8125rem] text-[var(--text-3,var(--text-2))]"
+              >
                 {metaForEntry(entry)}
                 {#if entryOutgoingAudienceCount(entry) > 0}
                   <span
-                    class="wiki-dir-share-count"
+                    class="wiki-dir-share-count box-border inline-flex h-5 min-w-5 items-center justify-center bg-[color-mix(in_srgb,var(--accent,#4a90d9)_22%,transparent)] px-[5px] text-[0.6875rem] font-semibold leading-none text-[color-mix(in_srgb,var(--accent,#4a90d9)_88%,var(--text))] [font-variant-numeric:tabular-nums]"
                     title={`Shared with ${entryOutgoingAudienceCount(entry)} people`}
                     aria-label={`Shared with ${entryOutgoingAudienceCount(entry)} people`}
                   >
@@ -302,7 +317,10 @@
                   </span>
                 {/if}
               </span>
-              <span class="wiki-dir-chevron" aria-hidden="true"><ChevronRight size={18} /></span>
+              <span
+                class="wiki-dir-chevron flex shrink-0 text-[var(--text-3,var(--text-2))] group-hover:text-accent"
+                aria-hidden="true"
+              ><ChevronRight size={18} /></span>
             </button>
           </li>
         {/each}
@@ -310,121 +328,3 @@
     {/if}
   </div>
 </div>
-
-<style>
-  .wiki-dir {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .wiki-dir-inner {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-    padding: 24px clamp(16px, 4%, 40px);
-    max-width: var(--chat-column-max);
-    width: 100%;
-    margin: 0 auto;
-    box-sizing: border-box;
-  }
-
-  .status {
-    margin: 0;
-    font-size: 14px;
-    color: var(--text-2);
-  }
-
-  .status-err {
-    color: var(--text-3);
-  }
-
-  .wiki-dir-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .wiki-dir-row {
-    display: grid;
-    grid-template-columns: auto 1fr auto auto;
-    align-items: center;
-    gap: 12px 14px;
-    width: 100%;
-    padding: 12px 0;
-    border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-    cursor: pointer;
-    font-size: 0.9375rem;
-    transition: padding-left 0.15s ease, color 0.12s;
-  }
-
-  .wiki-dir-row:hover {
-    padding-left: 4px;
-    color: var(--accent);
-  }
-
-  .wiki-dir-icon {
-    display: flex;
-    color: var(--text-2);
-    flex-shrink: 0;
-  }
-
-  .wiki-dir-icon--shared {
-    color: color-mix(in srgb, var(--accent) 82%, var(--text-2));
-  }
-
-  .wiki-dir-row--shared:hover .wiki-dir-icon--shared {
-    color: var(--accent);
-  }
-
-  .wiki-dir-label {
-    font-weight: 600;
-    min-width: 0;
-    word-break: break-word;
-  }
-
-  .wiki-dir-meta {
-    font-size: 0.8125rem;
-    color: var(--text-3);
-    white-space: nowrap;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .wiki-dir-share-count {
-    min-width: 1.25rem;
-    height: 1.25rem;
-    padding: 0 5px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-background: color-mix(in srgb, var(--accent, #4a90d9) 22%, transparent);
-    color: color-mix(in srgb, var(--accent, #4a90d9) 88%, var(--text));
-    box-sizing: border-box;
-  }
-
-  .wiki-dir-chevron {
-    flex-shrink: 0;
-    color: var(--text-3);
-    display: flex;
-  }
-
-  .wiki-dir-row:hover .wiki-dir-chevron {
-    color: var(--accent);
-  }
-</style>

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import CsvSpreadsheetTable from './CsvSpreadsheetTable.svelte'
+  import { cn } from '@client/lib/cn.js'
+  import CsvSpreadsheetTable from '@components/CsvSpreadsheetTable.svelte'
   import { parseSpreadsheetFromText, spreadsheetDelimiterForPath } from '@client/lib/csvSpreadsheet.js'
 
   let {
@@ -36,27 +37,37 @@
   })
 </script>
 
-<div class="sheet-wrap">
-  <div class="sheet-body">
+<div class="sheet-wrap flex min-h-0 flex-1 flex-col gap-0">
+  <div class="sheet-body flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
     {#if 'error' in activeGrid}
-      <p class="parse-err" role="alert">{activeGrid.error}</p>
-      <pre class="fallback">{text}</pre>
+      <p class="parse-err m-0 mb-2 text-sm text-[var(--error,#c44)]" role="alert">{activeGrid.error}</p>
+      <pre
+        class="fallback m-0 whitespace-pre-wrap [word-break:break-word] text-[0.85rem] leading-normal [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace]"
+      >{text}</pre>
     {:else if activeGrid.headers.length === 0}
-      <p class="muted">Empty file</p>
+      <p class="muted text-[0.9rem] text-muted">Empty file</p>
     {:else}
       <CsvSpreadsheetTable headers={activeGrid.headers} rows={activeGrid.rows} />
     {/if}
   </div>
 
   {#if parsed.mode === 'multi' && parsed.sheets.length > 1}
-    <div class="sheet-tabs-scroll">
-      <div class="sheet-tabs" role="tablist" aria-label="Workbook sheets">
+    <div
+      class="sheet-tabs-scroll mt-2 max-w-full shrink-0 overflow-x-auto overflow-y-hidden border-t border-[var(--border,#ccc)] bg-[var(--bg-2,#e8e8ea)] [-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable]"
+    >
+      <div
+        class="sheet-tabs inline-flex min-h-[26px] w-max max-w-none flex-row flex-nowrap items-stretch gap-0"
+        role="tablist"
+        aria-label="Workbook sheets"
+      >
         {#each parsed.sheets as sh, i (sh.name + i)}
           <button
             type="button"
             role="tab"
-            class="sheet-tab"
-            class:active={selectedSheet === i}
+            class={cn(
+              'sheet-tab m-0 shrink-0 cursor-pointer whitespace-nowrap border-none border-r border-[var(--border,#c8c8cc)] px-2 py-1 text-[0.6875rem] leading-tight text-[var(--text-2,#555)] [background:rgba(0,0,0,0.04)] last:border-r-0 hover:[background:rgba(0,0,0,0.07)] hover:text-[var(--text,#111)]',
+              selectedSheet === i && 'active bg-[var(--bg,#fff)] text-[var(--text,#111)] font-semibold',
+            )}
             aria-selected={selectedSheet === i}
             onclick={() => { selectedSheet = i }}
           >
@@ -67,85 +78,3 @@
     </div>
   {/if}
 </div>
-
-<style>
-  .sheet-wrap {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    flex: 1;
-    gap: 0;
-  }
-  .sheet-body {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .sheet-tabs-scroll {
-    flex-shrink: 0;
-    max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    margin-top: 8px;
-    padding-top: 0;
-    border-top: 1px solid var(--border, #ccc);
-    background: var(--bg-2, #e8e8ea);
-    -webkit-overflow-scrolling: touch;
-    scrollbar-gutter: stable;
-  }
-  .sheet-tabs {
-    display: inline-flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    align-items: stretch;
-    gap: 0;
-    width: max-content;
-    max-width: none;
-    min-height: 26px;
-  }
-  .sheet-tab {
-    flex-shrink: 0;
-    margin: 0;
-    border: none;
-border-right: 1px solid var(--border, #c8c8cc);
-    padding: 4px 8px;
-    font-size: 0.6875rem;
-    line-height: 1.2;
-    cursor: pointer;
-    white-space: nowrap;
-    color: var(--text-2, #555);
-    background: rgba(0, 0, 0, 0.04);
-  }
-  .sheet-tab:last-child {
-    border-right: none;
-  }
-  .sheet-tab:hover {
-    background: rgba(0, 0, 0, 0.07);
-    color: var(--text, #111);
-  }
-  .sheet-tab.active {
-    background: var(--bg, #fff);
-    color: var(--text, #111);
-    font-weight: 600;
-  }
-  .muted {
-    color: var(--muted, #888);
-    font-size: 0.9rem;
-  }
-  .parse-err {
-    margin: 0 0 8px;
-    color: var(--error, #c44);
-    font-size: 0.875rem;
-  }
-  .fallback {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 0.85rem;
-    line-height: 1.45;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  }
-</style>

@@ -1,19 +1,21 @@
-<div class="hub-wiki-about">
-  <div class="hub-wiki-about-inner">
-    <p class="hub-wiki-about-lead">
+<div class="hub-wiki-about min-h-0 flex-1 overflow-auto px-5 pb-7 pt-4">
+  <div class="hub-wiki-about-inner flex max-w-[36rem] flex-col gap-4 [&_p]:m-0 [&_p]:text-[0.9375rem] [&_p]:leading-[1.55] [&_p]:text-foreground">
+    <p class="hub-wiki-about-lead text-base leading-[1.55] text-foreground">
       Your <strong>wiki</strong> is a private set of Markdown pages in <strong>your vault</strong>, stored with your
       account. Braintunnel keeps it growing and tidy automatically—so answers stay grounded in <em>your</em> world, not
       a generic model guess.
     </p>
 
-    <h3 class="hub-wiki-about-h">How the continuous loop works</h3>
+    <h3 class="hub-wiki-about-h mt-1 text-[0.8125rem] font-bold uppercase tracking-[0.05em] text-muted">How the continuous loop works</h3>
     <p>
       The <strong>Your Wiki</strong> loop runs in the background. Each lap has two phases:
     </p>
-    <ul class="hub-wiki-about-list">
+    <ul
+      class="hub-wiki-about-list m-0 flex flex-col gap-[0.65rem] pl-[1.15rem] text-[0.9375rem] leading-[1.5] text-foreground [&_li]:pl-[0.15rem]"
+    >
       <li>
         <strong>Enriching</strong> — adds and deepens pages (people, projects, interests) from your mail, profile,
-        and public sources. Pages are cross-linked with <span class="kbd">[[wikilinks]]</span>.
+        and public sources. Pages are cross-linked with <span class="kbd border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-[0.35em] py-[0.08em] text-[0.85em] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">[[wikilinks]]</span>.
       </li>
       <li>
         <strong>Cleaning up</strong> — fixes broken links, checks orphan pages, and updates the index so
@@ -25,7 +27,7 @@
       <strong>Your Wiki</strong> card in Braintunnel Hub before running again.
     </p>
 
-    <h3 class="hub-wiki-about-h">Sources vs. wiki</h3>
+    <h3 class="hub-wiki-about-h mt-1 text-[0.8125rem] font-bold uppercase tracking-[0.05em] text-muted">Sources vs. wiki</h3>
     <p>
       Raw material lives in the things you connect: email, documents and folders, calendar, and (when available)
       Messages. Braintunnel searches those directly. The wiki is different — it is your
@@ -33,8 +35,10 @@
       time it becomes richer and more accurate without duplicating every raw message.
     </p>
 
-    <h3 class="hub-wiki-about-h">You're in control</h3>
-    <ul class="hub-wiki-about-list">
+    <h3 class="hub-wiki-about-h mt-1 text-[0.8125rem] font-bold uppercase tracking-[0.05em] text-muted">You're in control</h3>
+    <ul
+      class="hub-wiki-about-list m-0 flex flex-col gap-[0.65rem] pl-[1.15rem] text-[0.9375rem] leading-[1.5] text-foreground [&_li]:pl-[0.15rem]"
+    >
       <li>
         <strong>Vault.</strong> Your vault is protected by the password you set at setup—you unlock it when you use
         Braintunnel.
@@ -48,85 +52,16 @@
         around them.
       </li>
       <li>
-        <strong>Move around quickly.</strong> Mention a page with <span class="kbd">@</span> to open it from chat, or
+        <strong>Move around quickly.</strong> Mention a page with <span class="kbd border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-[0.35em] py-[0.08em] text-[0.85em] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">@</span> to open it from chat, or
         search when you know the name but not the path.
       </li>
     </ul>
 
-    <p class="hub-wiki-about-foot">
+    <p
+      class="hub-wiki-about-foot mt-1 border-t border-[color-mix(in_srgb,var(--border)_55%,transparent)] pt-4 !text-[0.875rem] !leading-[1.5] !text-muted"
+    >
       Think of the wiki as the map of what matters to you: the distilled picture Braintunnel uses alongside live search
       so help stays personal, consistent, and yours.
     </p>
   </div>
 </div>
-
-<style>
-  .hub-wiki-about {
-    padding: 1rem 1.25rem 1.75rem;
-    min-height: 0;
-    flex: 1;
-    overflow: auto;
-  }
-
-  .hub-wiki-about-inner {
-    max-width: 36rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .hub-wiki-about-lead {
-    margin: 0;
-    font-size: 1rem;
-    line-height: 1.55;
-    color: var(--text);
-  }
-
-  .hub-wiki-about-h {
-    margin: 0.25rem 0 0;
-    font-size: 0.8125rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-2);
-  }
-
-  .hub-wiki-about p {
-    margin: 0;
-    font-size: 0.9375rem;
-    line-height: 1.55;
-    color: var(--text);
-  }
-
-  .hub-wiki-about-list {
-    margin: 0;
-    padding-left: 1.15rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    font-size: 0.9375rem;
-    line-height: 1.5;
-    color: var(--text);
-  }
-
-  .hub-wiki-about-list li {
-    padding-left: 0.15rem;
-  }
-
-  .kbd {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-    font-size: 0.85em;
-    padding: 0.08em 0.35em;
-background: var(--bg-3);
-    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  }
-
-  .hub-wiki-about-foot {
-    margin-top: 0.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-    font-size: 0.875rem !important;
-    color: var(--text-2) !important;
-    line-height: 1.5 !important;
-  }
-</style>

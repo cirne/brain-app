@@ -1,5 +1,6 @@
 <script lang="ts">
   import { MessageSquare } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
 
   type PreviewMsg = {
     sent_at_unix: number
@@ -49,123 +50,39 @@
 
 <button
   type="button"
-  class="message-thread-preview"
+  class="message-thread-preview group mt-1 block w-full min-w-0 max-w-full cursor-pointer border-none bg-transparent px-0 py-1 text-left font-[inherit] text-[inherit]"
   onclick={onOpen}
   aria-label="Open message thread: {displayChat}"
 >
-  <div class="message-thread-row">
+  <div class="message-thread-row flex min-w-0 items-center gap-2">
     <MessageSquare size={14} aria-hidden="true" />
-    <span class="message-thread-chat">{displayChat}</span>
+    <span class="message-thread-chat min-w-0 truncate text-[13px] font-semibold group-hover:text-accent">{displayChat}</span>
   </div>
   {#if person.length > 0}
-    <div class="message-thread-person">{person.join(' · ')}</div>
+    <div class="message-thread-person mt-1 text-[11px] text-muted">{person.join(' · ')}</div>
   {/if}
   {#if snippet}
-    <p class="message-thread-snippet">{snippet}</p>
+    <p class="message-thread-snippet mt-2 text-xs leading-[1.4] text-muted">{snippet}</p>
   {/if}
   {#if total > 0 || returnedCount > 0}
-    <div class="message-thread-meta">{returnedCount} shown · {total} in window</div>
+    <div class="message-thread-meta mt-1.5 text-[11px] text-muted">{returnedCount} shown · {total} in window</div>
   {/if}
   {#if tail.length > 0}
-    <div class="message-thread-lines" aria-hidden="true">
+    <div
+      class="message-thread-lines mt-2 flex max-h-[140px] flex-col gap-1 overflow-hidden border-t border-[color-mix(in_srgb,var(--border)_55%,transparent)] pt-1.5"
+      aria-hidden="true"
+    >
       {#each tail as row, i (`${row.sent_at_unix}-${i}`)}
-        <div class="message-line" class:me={row.is_from_me}>
-          <span class="message-line-text">{bubblePreviewText(row.text)}</span>
-          <span class="message-line-time">{timeLabel(row.sent_at_unix)}</span>
+        <div
+          class={cn(
+            'message-line flex max-w-full flex-col items-start gap-[2px] text-xs leading-[1.35] text-muted',
+            row.is_from_me && 'me items-end text-foreground',
+          )}
+        >
+          <span class="message-line-text break-words">{bubblePreviewText(row.text)}</span>
+          <span class="message-line-time text-[10px] text-muted">{timeLabel(row.sent_at_unix)}</span>
         </div>
       {/each}
     </div>
   {/if}
 </button>
-
-<style>
-  .message-thread-preview {
-    margin: 4px 0 0;
-    padding: 4px 0;
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    text-align: left;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-    border: none;
-    background: transparent;
-    min-width: 0;
-  }
-
-  .message-thread-preview:hover .message-thread-chat {
-    color: var(--accent);
-  }
-
-  .message-thread-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-  }
-
-  .message-thread-chat {
-    font-size: 13px;
-    font-weight: 600;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .message-thread-person {
-    font-size: 11px;
-    color: var(--text-2);
-    margin-top: 4px;
-  }
-
-  .message-thread-snippet {
-    margin: 8px 0 0;
-    font-size: 12px;
-    line-height: 1.4;
-    color: var(--text-2);
-  }
-
-  .message-thread-meta {
-    margin-top: 6px;
-    font-size: 11px;
-    color: var(--text-2);
-  }
-
-  .message-thread-lines {
-    margin-top: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-height: 140px;
-    overflow: hidden;
-    padding-top: 6px;
-    border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-  }
-
-  .message-line {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    max-width: 100%;
-    font-size: 12px;
-    line-height: 1.35;
-    color: var(--text-2);
-  }
-
-  .message-line.me {
-    align-items: flex-end;
-    color: var(--text);
-  }
-
-  .message-line-text {
-    word-break: break-word;
-  }
-
-  .message-line-time {
-    font-size: 10px;
-    color: var(--text-2);
-  }
-</style>

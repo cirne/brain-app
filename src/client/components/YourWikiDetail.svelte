@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount, getContext } from 'svelte'
   import { Sparkles, Pause, Play, RefreshCw } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
-  import BackgroundAgentPanel from './statusBar/BackgroundAgentPanel.svelte'
+  import BackgroundAgentPanel from '@components/statusBar/BackgroundAgentPanel.svelte'
   import { YOUR_WIKI_HEADER, type RegisterYourWikiHeader } from '@client/lib/yourWikiHeaderContext.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
   import { postYourWikiPause, postYourWikiResume } from '@client/lib/yourWikiLoopApi.js'
@@ -120,25 +121,51 @@
     })
     return () => registerHeader(null)
   })
+
+  const actionBtnBase =
+    'action-btn inline-flex cursor-pointer items-center gap-[0.3rem] border border-transparent px-[0.7rem] py-[0.3rem] text-[0.8125rem] font-semibold transition-[background,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-55'
+  const actionBtnPrimary =
+    'action-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white enabled:hover:[filter:brightness(1.07)]'
+  const actionBtnSecondary =
+    'action-btn-secondary border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground enabled:hover:bg-surface-2'
+  const actionBtnGhost =
+    'action-btn-ghost border-transparent bg-transparent text-muted enabled:hover:bg-surface-2 enabled:hover:text-foreground'
+
+  const phasePillBase =
+    'phase-pill bg-surface-3 px-2 py-[2px] text-[0.625rem] font-extrabold uppercase tracking-[0.05em] text-muted'
 </script>
 
 <div
-  class="your-wiki-detail"
+  class={cn(
+    'your-wiki-detail flex min-h-0 flex-1 flex-col gap-5 overflow-auto px-5 pb-6 pt-4',
+    hideSectionLead && 'your-wiki-detail--embed gap-4 px-4 pb-4 pt-3',
+    shrinkToContent && 'your-wiki-detail--tight flex-[0_1_auto] self-stretch overflow-visible',
+  )}
   bind:this={detailScrollRoot}
-  class:your-wiki-detail--embed={hideSectionLead}
-  class:your-wiki-detail--tight={shrinkToContent}
 >
   {#if !hideSectionLead}
-    <p class="section-lead">
+    <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-snug text-muted">
       Your Wiki improves continuously in the background—enriching pages from your mail and profile, then cleaning up
       links and structure. Pause it any time; resume starts a fresh lap.
     </p>
   {/if}
 
   {#if doc}
-    <div class="status-row" class:status-row--no-actions={!showLoopControls}>
-      <div class="status-info">
-        <span class="phase-pill" class:active={isActive} class:paused={isPaused} class:idle={isIdle}>
+    <div
+      class={cn(
+        'status-row flex flex-wrap items-center justify-between gap-3',
+        !showLoopControls && 'status-row--no-actions justify-start',
+      )}
+    >
+      <div class="status-info flex flex-wrap items-center gap-2">
+        <span
+          class={cn(
+            phasePillBase,
+            isActive && 'active bg-accent text-white',
+            isPaused && 'paused bg-[color-mix(in_srgb,var(--text-2)_22%,var(--bg-3))] text-foreground',
+            isIdle && 'idle bg-surface-3 text-muted',
+          )}
+        >
           {phase === 'starting' ? 'Starting' :
            phase === 'enriching' ? 'Enriching' :
            phase === 'cleaning' ? 'Cleaning up' :
@@ -147,15 +174,17 @@
            'Idle'}
         </span>
         {#if doc.pageCount > 0}
-          <span class="page-count">{doc.pageCount} pages</span>
+          <span class="page-count text-[0.8125rem] text-muted [font-variant-numeric:tabular-nums]"
+            >{doc.pageCount} pages</span
+          >
         {/if}
       </div>
       {#if showLoopControls}
-        <div class="actions">
+        <div class="actions flex flex-wrap items-center gap-2">
           {#if isActive || (isIdle && !isPaused)}
             <button
               type="button"
-              class="action-btn action-btn-secondary"
+              class="{actionBtnBase} {actionBtnSecondary}"
               disabled={actionBusy}
               onclick={pause}
               title="Pause the wiki loop"
@@ -166,7 +195,7 @@
           {:else if isPaused || phase === 'error'}
             <button
               type="button"
-              class="action-btn action-btn-primary"
+              class="{actionBtnBase} {actionBtnPrimary}"
               disabled={actionBusy}
               onclick={resume}
               title="Resume the wiki loop (starts a new lap)"
@@ -178,7 +207,7 @@
           {#if isIdle && !isPaused}
             <button
               type="button"
-              class="action-btn action-btn-ghost"
+              class="{actionBtnBase} {actionBtnGhost}"
               disabled={actionBusy}
               onclick={runLap}
               title="Start a lap now"
@@ -191,15 +220,17 @@
       {/if}
     </div>
 
-    <p class="phase-description">
+    <p class="phase-description m-0 max-w-[40rem] text-sm leading-snug text-muted">
       {statusNarrative}
     </p>
   {:else}
-    <p class="phase-description">Loading…</p>
+    <p class="phase-description m-0 max-w-[40rem] text-sm leading-snug text-muted">Loading…</p>
   {/if}
 
-  <div class="activity-section">
-    <div class="activity-label">
+  <div class="activity-section flex flex-col gap-2">
+    <div
+      class="activity-label flex items-center gap-1.5 border-b border-border pb-2 text-xs font-bold uppercase tracking-[0.07em] text-muted"
+    >
       <Sparkles size={14} aria-hidden="true" />
       Steps
     </div>
@@ -218,167 +249,3 @@
     />
   </div>
 </div>
-
-<style>
-  .your-wiki-detail {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    padding: 1rem 1.25rem 1.5rem;
-    min-height: 0;
-    flex: 1;
-    overflow: auto;
-  }
-
-  .section-lead {
-    margin: 0;
-    font-size: 0.9375rem;
-    color: var(--text-2);
-    line-height: 1.45;
-    max-width: 40rem;
-  }
-
-  .status-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
-
-  .status-row--no-actions {
-    justify-content: flex-start;
-  }
-
-  .your-wiki-detail--embed {
-    padding: 0.75rem 1rem 1rem;
-    gap: 1rem;
-  }
-
-  .your-wiki-detail--tight {
-    flex: 0 1 auto;
-    align-self: stretch;
-    /* Parent panel owns vertical scroll (e.g. seeding interstitial max-height). */
-    overflow: visible;
-  }
-
-  .status-info {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .phase-pill {
-    font-size: 0.625rem;
-    font-weight: 800;
-    padding: 2px 8px;
-text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: var(--bg-3);
-    color: var(--text-2);
-  }
-
-  .phase-pill.active {
-    background: var(--accent);
-    color: white;
-  }
-
-  .phase-pill.paused {
-    background: color-mix(in srgb, var(--text-2) 22%, var(--bg-3));
-    color: var(--text);
-  }
-
-  .phase-pill.idle {
-    background: var(--bg-3);
-    color: var(--text-2);
-  }
-
-  .page-count {
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    padding: 0.3rem 0.7rem;
-cursor: pointer;
-    border: 1px solid transparent;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-  }
-
-  .action-btn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .action-btn-primary {
-    background: var(--accent);
-    color: white;
-    border-color: color-mix(in srgb, var(--accent) 80%, black);
-  }
-
-  .action-btn-primary:hover:not(:disabled) {
-    filter: brightness(1.07);
-  }
-
-  .action-btn-secondary {
-    background: transparent;
-    color: var(--text);
-    border-color: color-mix(in srgb, var(--border) 80%, transparent);
-  }
-
-  .action-btn-secondary:hover:not(:disabled) {
-    background: var(--bg-2);
-  }
-
-  .action-btn-ghost {
-    background: transparent;
-    color: var(--text-2);
-    border-color: transparent;
-  }
-
-  .action-btn-ghost:hover:not(:disabled) {
-    color: var(--text);
-    background: var(--bg-2);
-  }
-
-  .phase-description {
-    margin: 0;
-    font-size: 0.875rem;
-    color: var(--text-2);
-    line-height: 1.4;
-    max-width: 40rem;
-  }
-
-  .activity-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .activity-label {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--text-2);
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border);
-  }
-</style>

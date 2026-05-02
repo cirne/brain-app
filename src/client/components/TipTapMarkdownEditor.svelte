@@ -7,6 +7,7 @@
   import { Editor } from '@tiptap/core'
   import StarterKit from '@tiptap/starter-kit'
   import TurndownService from 'turndown'
+  import { cn } from '@client/lib/cn.js'
   import { splitYamlFrontMatter, joinYamlFrontMatter, renderMarkdownBody } from '@client/lib/markdown.js'
   import '../styles/wiki/wikiMarkdown.css'
 
@@ -176,48 +177,23 @@
   })
 </script>
 
-<div class="tiptap-md-root" class:tiptap-md-root-disabled={disabled}>
-  <div class="tiptap-md-scroll">
-    <div class="tiptap-md-inner">
-      <div class="tiptap-md-mount" bind:this={mountEl}></div>
+<div
+  class={cn(
+    'tiptap-md-root flex min-h-0 flex-1 flex-col overflow-hidden',
+    disabled && 'tiptap-md-root-disabled pointer-events-none opacity-65',
+  )}
+>
+  <div class="tiptap-md-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch]">
+    <div
+      class="tiptap-md-inner box-border w-full max-w-chat px-[clamp(1rem,4%,2.5rem)] pb-5 pt-4 mx-auto"
+    >
+      <div class="tiptap-md-mount min-h-[12rem]" bind:this={mountEl}></div>
     </div>
   </div>
 </div>
 
 <style>
-  .tiptap-md-root {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .tiptap-md-root-disabled {
-    opacity: 0.65;
-    pointer-events: none;
-  }
-
-  .tiptap-md-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .tiptap-md-inner {
-    max-width: var(--chat-column-max);
-    width: 100%;
-    margin-inline: auto;
-    box-sizing: border-box;
-    padding: 1rem clamp(1rem, 4%, 2.5rem) 1.25rem;
-  }
-
-  .tiptap-md-mount {
-    min-height: 12rem;
-  }
-
+  /* TipTap injects an editor div with class `wiki-md`; ensure usable min-height. */
   .tiptap-md-root :global(.wiki-md) {
     min-height: 11rem;
   }

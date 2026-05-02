@@ -10,90 +10,48 @@
   } = $props()
 </script>
 
-<div class="sheet-root">
-  <div class="sheet-scroll" role="region" aria-label="Spreadsheet preview">
-    <table class="sheet">
+<div class="sheet-root flex min-h-0 flex-1 flex-col gap-2">
+  <div
+    class="sheet-scroll min-h-[120px] flex-1 overflow-auto border border-[var(--border,#ccc)] bg-[var(--bg-elevated,var(--bg,#fff))]"
+    role="region"
+    aria-label="Spreadsheet preview"
+  >
+    <table
+      class="sheet whitespace-nowrap text-[0.8125rem] leading-snug [border-collapse:separate] [border-spacing:0] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace]"
+    >
       <thead>
         <tr>
           {#each headers as h, i (i)}
-            <th scope="col">{h}</th>
+            <th
+              scope="col"
+              class="sticky top-0 z-[1] border-b border-r border-[var(--border,#999)] bg-[var(--sheet-header-bg,#e8e8ea)] px-2.5 py-1.5 text-left font-semibold text-[var(--fg,#111)] [box-shadow:0_1px_0_var(--border,#999)]"
+            >{h}</th>
           {/each}
         </tr>
       </thead>
       <tbody>
         {#each rows as row, ri (ri)}
-          <tr class:stripe={ri % 2 === 1}>
+          <tr class={ri % 2 === 1 ? 'stripe' : ''}>
             {#each headers as _, ci (ci)}
               {@const cell = row[ci] ?? ''}
-              <td class:numeric={isSpreadsheetNumericCell(cell)}>{cell}</td>
+              <td
+                class="max-w-[28rem] overflow-hidden text-ellipsis border-b border-r border-[var(--sheet-cell-border,#ddd)] bg-[var(--bg-elevated,var(--bg,#fff))] px-2.5 py-1 align-top text-left {isSpreadsheetNumericCell(cell) ? 'numeric text-right' : ''}"
+              >{cell}</td>
             {/each}
           </tr>
         {/each}
       </tbody>
     </table>
   </div>
-  <p class="meta">{rows.length} data row{rows.length === 1 ? '' : 's'} · {headers.length} column{headers.length === 1 ? '' : 's'}</p>
+  <p class="meta m-0 text-xs text-muted">{rows.length} data row{rows.length === 1 ? '' : 's'} · {headers.length} column{headers.length === 1 ? '' : 's'}</p>
 </div>
 
 <style>
-  .sheet-root {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    flex: 1;
-    gap: 8px;
-  }
-  .sheet-scroll {
-    flex: 1;
-    min-height: 120px;
-    overflow: auto;
-    border: 1px solid var(--border, #ccc);
-background: var(--bg-elevated, var(--bg, #fff));
-  }
-  .sheet {
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: 0.8125rem;
-    line-height: 1.35;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    white-space: nowrap;
-  }
-  .sheet thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--sheet-header-bg, #e8e8ea);
-    color: var(--fg, #111);
-    font-weight: 600;
-    text-align: left;
-    padding: 6px 10px;
-    border-right: 1px solid var(--border, #c8c8cc);
-    border-bottom: 1px solid var(--border, #999);
-    box-shadow: 0 1px 0 var(--border, #999);
-  }
-  .sheet tbody td {
-    padding: 4px 10px;
-    border-right: 1px solid var(--sheet-cell-border, #ddd);
-    border-bottom: 1px solid var(--sheet-cell-border, #ddd);
-    background: var(--bg-elevated, var(--bg, #fff));
-    max-width: 28rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: top;
-    text-align: left;
-  }
-  .sheet tbody td.numeric {
-    text-align: right;
-  }
+  /* Stripe + hover row styling — sibling state requires scoped selectors. */
   .sheet tbody tr.stripe td {
     background: var(--sheet-stripe, rgba(0, 0, 0, 0.03));
   }
   .sheet tbody tr:hover td {
     background: var(--sheet-hover, rgba(80, 120, 200, 0.08));
-  }
-  .meta {
-    margin: 0;
-    font-size: 0.75rem;
-    color: var(--muted, #888);
   }
 </style>

@@ -9,6 +9,7 @@
     Sparkles,
     X,
   } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import type { HubSourceDetailFileSource } from '@client/lib/hub/hubRipmailSource.js'
 
   type DriveFolderSuggestion = {
@@ -50,10 +51,8 @@
   let maxFileMb = $state(10)
   let sharedWithMe = $state(false)
 
-  // Advanced section open/close
   let advancedOpen = $state(false)
 
-  // Text for globs textarea
   let ignoreText = $state('')
   let advancedDirty = $state(false)
 
@@ -214,7 +213,6 @@
       suggestions = Array.isArray(j.suggestions) ? j.suggestions : []
       suggestionGlobs = Array.isArray(j.ignoreGlobs) ? j.ignoreGlobs : []
       suggestionSummary = typeof j.ignoreSummary === 'string' ? j.ignoreSummary : ''
-      // Pre-select folders the LLM recommends including
       suggestSelected = new Set(suggestions.filter((s) => s.include).map((s) => s.id))
       suggestOpen = true
     } catch (e) {
@@ -232,12 +230,10 @@
   }
 
   async function applySuggestions() {
-    // Merge suggested folders (not already in roots) that are selected
     const toAdd = suggestions
       .filter((s) => suggestSelected.has(s.id) && !roots.some((r) => r.id === s.id))
       .map((s) => ({ id: s.id, name: s.name, recursive: true }))
     const next = [...roots, ...toAdd]
-    // Merge globs: add suggestion globs not already present
     const mergedGlobs = [
       ...ignoreGlobs,
       ...suggestionGlobs.filter((g) => !ignoreGlobs.includes(g)),
@@ -288,24 +284,45 @@
     if (suggestionGlobsPending.length > 0) return DRIVE_SKIP_FALLBACK_SUMMARY
     return ''
   })
+
+  /** Inlined dialog button styles — avoids relying on `:global()` rules from the parent panel. */
+  const hubDialogBtnBase =
+    'hub-dialog-btn cursor-pointer border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
+  const hubDialogBtnPrimary =
+    'hub-dialog-btn-primary bg-accent text-white border-[color-mix(in_srgb,var(--accent)_80%,black)] hover:not-disabled:brightness-[1.06]'
+  const hubDialogBtnSecondary =
+    'hub-dialog-btn-secondary bg-transparent text-foreground border-[color-mix(in_srgb,var(--border)_80%,transparent)] hover:not-disabled:bg-surface-2'
+
+  const driveCtaBtn = 'drive-cta-btn inline-flex items-center gap-[0.4rem]'
+  const driveActionBtn = 'drive-action-btn inline-flex items-center gap-[0.35rem] text-[0.8125rem]'
+
+  const hubIconBtn =
+    'hub-icon-btn cursor-pointer bg-transparent border-none p-1 inline-flex items-center justify-center text-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed'
+
+  const driveErr = 'drive-err m-0 text-[0.8125rem] text-danger'
+  const driveHeading =
+    'drive-heading m-0 text-xs font-semibold uppercase tracking-[0.03em] opacity-85'
 </script>
 
-<section class="drive-section" aria-labelledby="drive-folders-heading">
-  <h2 id="drive-folders-heading" class="drive-heading">Folders</h2>
+<section
+  class="drive-section mt-1 flex flex-col gap-[0.6rem]"
+  aria-labelledby="drive-folders-heading"
+>
+  <h2 id="drive-folders-heading" class={driveHeading}>Folders</h2>
 
   {#if saveErr}
-    <p class="drive-err" role="alert">{saveErr}</p>
+    <p class={driveErr} role="alert">{saveErr}</p>
   {/if}
 
-  <!-- ── Empty state ── -->
+  <!-- Empty state -->
   {#if roots.length === 0 && !suggestOpen && !browserOpen}
-    <p class="drive-empty-hint">
+    <p class="drive-empty-hint m-0 text-[0.8125rem] leading-[1.45] text-muted">
       Choose which Drive folders Braintunnel indexes. Braintunnel requires at least one folder.
     </p>
-    <div class="drive-empty-ctas">
+    <div class="drive-empty-ctas flex flex-wrap gap-2">
       <button
         type="button"
-        class="hub-dialog-btn hub-dialog-btn-primary drive-cta-btn"
+        class={cn(hubDialogBtnBase, hubDialogBtnPrimary, driveCtaBtn)}
         disabled={suggestBusy}
         onclick={() => void loadSuggestions()}
       >
@@ -319,7 +336,7 @@
       </button>
       <button
         type="button"
-        class="hub-dialog-btn hub-dialog-btn-secondary drive-cta-btn"
+        class={cn(hubDialogBtnBase, hubDialogBtnSecondary, driveCtaBtn)}
         onclick={openBrowser}
       >
         <Folder size={15} aria-hidden="true" />
@@ -327,30 +344,36 @@
       </button>
     </div>
     {#if suggestErr}
-      <p class="drive-err" role="alert">{suggestErr}</p>
+      <p class={driveErr} role="alert">{suggestErr}</p>
     {/if}
-
   {:else}
-    <!-- ── Folder cards ── -->
+    <!-- Folder cards -->
     {#if roots.length > 0}
-      <ul class="drive-folder-list" role="list">
+      <ul class="drive-folder-list m-0 flex list-none flex-col gap-[0.4rem] p-0" role="list">
         {#each roots as root, i (root.id)}
-          <li class="drive-folder-card">
-            <span class="drive-folder-icon" aria-hidden="true">
+          <li
+            class="drive-folder-card box-border flex min-h-11 items-center gap-2 border border-[color-mix(in_srgb,var(--border)_88%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_94%,var(--text))] px-3 py-[0.55rem]"
+          >
+            <span class="drive-folder-icon flex shrink-0 items-center text-muted" aria-hidden="true">
               <Folder size={16} />
             </span>
-            <span class="drive-folder-name">{root.name}</span>
-            <label class="drive-subfolder-toggle" title="Include subfolders">
+            <span
+              class="drive-folder-name min-w-0 flex-1 truncate text-[0.9375rem] font-semibold tracking-[-0.015em]"
+            >{root.name}</span>
+            <label
+              class="drive-subfolder-toggle flex shrink-0 cursor-pointer items-center gap-[0.3rem]"
+              title="Include subfolders"
+            >
               <input
                 type="checkbox"
                 checked={root.recursive}
                 onchange={(e) => setRecursive(i, (e.currentTarget as HTMLInputElement).checked)}
               />
-              <span class="drive-subfolder-label">Subfolders</span>
+              <span class="drive-subfolder-label whitespace-nowrap text-xs text-muted">Subfolders</span>
             </label>
             <button
               type="button"
-              class="hub-icon-btn drive-remove-btn"
+              class={cn(hubIconBtn, 'drive-remove-btn shrink-0 hover:text-danger')}
               aria-label="Remove {root.name}"
               disabled={saveBusy}
               onclick={() => removeRoot(i)}
@@ -362,12 +385,12 @@
       </ul>
     {/if}
 
-    <!-- ── Add folder / Suggest row ── -->
+    <!-- Add folder / Suggest row -->
     {#if !browserOpen && !suggestOpen}
-      <div class="drive-actions-row">
+      <div class="drive-actions-row flex flex-wrap gap-2">
         <button
           type="button"
-          class="hub-dialog-btn hub-dialog-btn-secondary drive-action-btn"
+          class={cn(hubDialogBtnBase, hubDialogBtnSecondary, driveActionBtn)}
           onclick={openBrowser}
         >
           <FolderOpen size={14} aria-hidden="true" />
@@ -375,7 +398,7 @@
         </button>
         <button
           type="button"
-          class="hub-dialog-btn hub-dialog-btn-secondary drive-action-btn"
+          class={cn(hubDialogBtnBase, hubDialogBtnSecondary, driveActionBtn)}
           disabled={suggestBusy}
           onclick={() => void loadSuggestions()}
         >
@@ -389,20 +412,22 @@
         </button>
       </div>
       {#if suggestErr}
-        <p class="drive-err" role="alert">{suggestErr}</p>
+        <p class={driveErr} role="alert">{suggestErr}</p>
       {/if}
     {/if}
   {/if}
 
-  <!-- ── AI suggestion panel ── -->
+  <!-- AI suggestion panel -->
   {#if suggestOpen}
-    <div class="drive-suggest-panel">
-      <div class="drive-suggest-header">
+    <div
+      class="drive-suggest-panel flex flex-col gap-2 border border-[color-mix(in_srgb,var(--accent,#6366f1)_30%,var(--border))] bg-[color-mix(in_srgb,var(--accent,#6366f1)_5%,var(--bg))] px-3 py-[0.65rem]"
+    >
+      <div class="drive-suggest-header flex items-center gap-[0.4rem] text-accent">
         <Sparkles size={14} aria-hidden="true" />
-        <span class="drive-suggest-title">Suggested folders</span>
+        <span class="drive-suggest-title flex-1 text-[0.8125rem] font-semibold">Suggested folders</span>
         <button
           type="button"
-          class="hub-icon-btn drive-suggest-close"
+          class={cn(hubIconBtn, 'drive-suggest-close')}
           aria-label="Dismiss suggestions"
           onclick={() => (suggestOpen = false)}
         >
@@ -410,43 +435,64 @@
         </button>
       </div>
       {#if suggestions.length === 0}
-        <p class="drive-suggest-empty">No folders found in your Drive to suggest.</p>
+        <p class="drive-suggest-empty m-0 text-[0.8125rem] text-muted">
+          No folders found in your Drive to suggest.
+        </p>
       {:else}
-        <ul class="drive-suggest-list" role="list">
+        <ul
+          class="drive-suggest-list m-0 flex list-none flex-col gap-[0.35rem] p-0"
+          role="list"
+        >
           {#each suggestions as s (s.id)}
             {@const checked = suggestSelected.has(s.id)}
             {@const alreadyAdded = roots.some((r) => r.id === s.id)}
             <li
-              class="drive-suggest-row"
-              class:drive-suggest-row--skip={!alreadyAdded && !checked}
-              class:drive-suggest-row--inactive={alreadyAdded}
+              class={cn(
+                'drive-suggest-row border-b border-[color-mix(in_srgb,var(--border)_60%,transparent)] py-[0.35rem] last:border-b-0',
+                !alreadyAdded && !checked && 'drive-suggest-row--skip opacity-60',
+                alreadyAdded && 'drive-suggest-row--inactive opacity-95',
+              )}
             >
-              <label class="drive-suggest-label" class:drive-suggest-label--inactive={alreadyAdded}>
+              <label
+                class={cn(
+                  'drive-suggest-label flex cursor-pointer items-start gap-[0.55rem]',
+                  alreadyAdded && 'drive-suggest-label--inactive cursor-default',
+                )}
+              >
                 <input
                   type="checkbox"
-                  class="drive-suggest-sr-input"
-                  checked={checked}
+                  class="drive-suggest-sr-input absolute h-px w-px overflow-hidden whitespace-nowrap border-0 [clip:rect(0_0_0_0)]"
+                  {checked}
                   disabled={alreadyAdded}
                   aria-label={alreadyAdded
                     ? `${s.name}, already in your folders`
                     : `${checked ? 'Deselect' : 'Select'} ${s.name}`}
                   onchange={() => toggleSuggestion(s.id)}
                 />
-                <span class="drive-suggest-check" aria-hidden="true">
+                <span
+                  class="drive-suggest-check mt-[0.1rem] flex h-5 w-5 shrink-0 items-center justify-center"
+                  aria-hidden="true"
+                >
                   {#if alreadyAdded}
-                    <span class="drive-suggest-marker drive-suggest-marker--added">
+                    <span
+                      class="drive-suggest-marker drive-suggest-marker--added box-border inline-flex h-5 w-5 items-center justify-center text-xs border border-[color-mix(in_srgb,var(--border)_92%,transparent)] bg-[color-mix(in_srgb,var(--text)_10%,transparent)] text-muted"
+                    >
                       <Check size={12} aria-hidden="true" strokeWidth={2.5} />
                     </span>
                   {:else if checked}
-                    <span class="drive-suggest-marker drive-suggest-marker--on">✓</span>
+                    <span
+                      class="drive-suggest-marker drive-suggest-marker--on box-border inline-flex h-5 w-5 items-center justify-center bg-accent text-white text-xs"
+                    >✓</span>
                   {:else}
-                    <span class="drive-suggest-marker drive-suggest-marker--off"></span>
+                    <span
+                      class="drive-suggest-marker drive-suggest-marker--off box-border inline-flex h-5 w-5 items-center justify-center border-2 border-[color-mix(in_srgb,var(--text)_26%,transparent)]"
+                    ></span>
                   {/if}
                 </span>
-                <span class="drive-suggest-info">
-                  <span class="drive-suggest-folder-name">{s.name}</span>
+                <span class="drive-suggest-info flex min-w-0 flex-col gap-[0.1rem]">
+                  <span class="drive-suggest-folder-name text-[0.9rem] font-semibold">{s.name}</span>
                   {#if s.reason}
-                    <span class="drive-suggest-reason">{s.reason}</span>
+                    <span class="drive-suggest-reason text-[0.8rem] leading-[1.35] text-muted">{s.reason}</span>
                   {/if}
                 </span>
               </label>
@@ -456,44 +502,56 @@
         {#if suggestionGlobs.length > 0}
           {#if suggestionGlobsPending.length > 0}
             {#if driveSuggestHumanSkipsLine}
-              <p class="drive-suggest-hint">{driveSuggestHumanSkipsLine}</p>
+              <p class="drive-suggest-hint m-0 text-[0.8rem] leading-[1.42] text-muted">
+                {driveSuggestHumanSkipsLine}
+              </p>
             {/if}
-            <details class="drive-suggest-details">
-              <summary class="drive-suggest-details-summary">Technical patterns (optional)</summary>
-              <p class="drive-suggest-details-note">
+            <details
+              class="drive-suggest-details border border-[color-mix(in_srgb,var(--border)_82%,transparent)] bg-[color-mix(in_srgb,var(--bg)_85%,var(--text))] px-2 py-[0.35rem] text-[0.78rem] text-muted"
+            >
+              <summary
+                class="drive-suggest-details-summary cursor-pointer select-none px-[0.1rem] font-medium text-foreground"
+              >
+                Technical patterns (optional)
+              </summary>
+              <p
+                class="drive-suggest-details-note mt-[0.35rem] text-[0.76rem] leading-[1.38] text-muted"
+              >
                 These are merged into <strong>Ignore patterns</strong> under Advanced when you apply.
               </p>
-              <pre class="drive-suggest-patterns">{suggestionGlobs.join('\n')}</pre>
+              <pre
+                class="drive-suggest-patterns mt-[0.45rem] max-h-36 overflow-auto whitespace-pre-wrap break-all border border-[color-mix(in_srgb,var(--border)_75%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_94%,var(--text))] px-[0.45rem] py-[0.35rem] font-mono text-[0.7rem] leading-[1.35]"
+              >{suggestionGlobs.join('\n')}</pre>
             </details>
           {:else}
-            <p class="drive-suggest-hint-muted">Suggested file skips are already in your ignore list.</p>
+            <p class="drive-suggest-hint-muted m-0 text-[0.8rem] italic leading-[1.42] text-muted">
+              Suggested file skips are already in your ignore list.
+            </p>
           {/if}
         {/if}
-        <div class="drive-suggest-footer">
+        <div class="drive-suggest-footer flex flex-wrap gap-2">
           <button
             type="button"
-            class="hub-dialog-btn hub-dialog-btn-primary drive-action-btn"
+            class={cn(hubDialogBtnBase, hubDialogBtnPrimary, driveActionBtn)}
             disabled={saveBusy || !canApplySuggestions}
             onclick={() => void applySuggestions()}
           >
             {#if saveBusy}
               <RefreshCw size={14} aria-hidden="true" class="drive-spin" />
               Applying…
+            {:else if selectedCount > 0 && suggestionGlobsPending.length > 0}
+              Apply · {selectedCount} folder{selectedCount !== 1 ? 's' : ''} and file skips
+            {:else if selectedCount > 0}
+              Apply {selectedCount} folder{selectedCount !== 1 ? 's' : ''}
+            {:else if suggestionGlobsPending.length > 0}
+              Apply file skips
             {:else}
-              {#if selectedCount > 0 && suggestionGlobsPending.length > 0}
-                Apply · {selectedCount} folder{selectedCount !== 1 ? 's' : ''} and file skips
-              {:else if selectedCount > 0}
-                Apply {selectedCount} folder{selectedCount !== 1 ? 's' : ''}
-              {:else if suggestionGlobsPending.length > 0}
-                Apply file skips
-              {:else}
-                Apply
-              {/if}
+              Apply
             {/if}
           </button>
           <button
             type="button"
-            class="hub-dialog-btn hub-dialog-btn-secondary drive-action-btn"
+            class={cn(hubDialogBtnBase, hubDialogBtnSecondary, driveActionBtn)}
             onclick={() => (suggestOpen = false)}
           >
             Dismiss
@@ -503,14 +561,18 @@
     </div>
   {/if}
 
-  <!-- ── Inline folder browser ── -->
+  <!-- Inline folder browser -->
   {#if browserOpen}
-    <div class="drive-browser">
-      <div class="drive-browser-head">
-        <span class="drive-browser-breadcrumb">
+    <div
+      class="drive-browser flex flex-col gap-[0.4rem] border border-[color-mix(in_srgb,var(--border)_75%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_80%,var(--bg))] px-3 py-[0.6rem]"
+    >
+      <div class="drive-browser-head flex items-center gap-[0.4rem]">
+        <span
+          class="drive-browser-breadcrumb inline-flex min-w-0 flex-1 flex-wrap items-center gap-[0.1rem]"
+        >
           <button
             type="button"
-            class="drive-bc-seg drive-bc-root"
+            class="drive-bc-seg drive-bc-root cursor-pointer border-none bg-transparent px-[0.2rem] py-[0.1rem] text-[0.8rem] font-semibold text-muted hover:bg-[color-mix(in_srgb,var(--accent,#6366f1)_10%,transparent)]"
             onclick={() => { browserStack = []; void loadBrowser(undefined) }}
           >
             My Drive
@@ -519,7 +581,7 @@
             <ChevronRight size={13} class="drive-bc-sep" aria-hidden="true" />
             <button
               type="button"
-              class="drive-bc-seg"
+              class="drive-bc-seg cursor-pointer border-none bg-transparent px-[0.2rem] py-[0.1rem] text-[0.8rem] font-semibold text-accent hover:bg-[color-mix(in_srgb,var(--accent,#6366f1)_10%,transparent)]"
               onclick={() => {
                 const next = browserStack.slice(0, i + 1)
                 browserStack = next
@@ -530,7 +592,7 @@
         </span>
         <button
           type="button"
-          class="hub-icon-btn drive-browser-close"
+          class={cn(hubIconBtn, 'drive-browser-close shrink-0')}
           aria-label="Close folder browser"
           onclick={() => (browserOpen = false)}
         >
@@ -539,19 +601,21 @@
       </div>
 
       {#if browserLoading}
-        <p class="drive-browser-note">Loading…</p>
+        <p class="drive-browser-note m-0 text-[0.8125rem] text-muted">Loading…</p>
       {:else if browserErr}
-        <p class="drive-err" role="alert">{browserErr}</p>
+        <p class={driveErr} role="alert">{browserErr}</p>
       {:else if browserFolders.length === 0}
-        <p class="drive-browser-note">No subfolders here.</p>
+        <p class="drive-browser-note m-0 text-[0.8125rem] text-muted">No subfolders here.</p>
       {:else}
-        <ul class="drive-browser-list">
+        <ul class="drive-browser-list m-0 list-none p-0">
           {#each browserFolders as f (f.id)}
             {@const alreadyAdded = roots.some((r) => r.id === f.id)}
-            <li class="drive-browser-row">
+            <li
+              class="drive-browser-row flex items-center gap-[0.4rem] border-b border-[color-mix(in_srgb,var(--border)_50%,transparent)] py-1 last:border-b-0"
+            >
               <button
                 type="button"
-                class="drive-browser-name"
+                class="drive-browser-name flex flex-1 items-center gap-[0.35rem] border-none bg-transparent px-[0.3rem] py-[0.2rem] text-left text-sm text-inherit hover:enabled:bg-[color-mix(in_srgb,var(--text)_6%,transparent)] disabled:cursor-default"
                 disabled={!f.hasChildren}
                 onclick={() => browserEnter(f)}
               >
@@ -563,9 +627,11 @@
               </button>
               <button
                 type="button"
-                class="hub-dialog-btn drive-browser-add"
-                class:hub-dialog-btn-primary={!alreadyAdded}
-                class:hub-dialog-btn-secondary={alreadyAdded}
+                class={cn(
+                  hubDialogBtnBase,
+                  alreadyAdded ? hubDialogBtnSecondary : hubDialogBtnPrimary,
+                  'drive-browser-add shrink-0 px-[0.55rem] py-[0.2rem] text-[0.8rem]',
+                )}
                 disabled={alreadyAdded || saveBusy}
                 onclick={() => addFolder(f)}
               >
@@ -579,7 +645,11 @@
       {#if browserStack.length > 0}
         <button
           type="button"
-          class="hub-dialog-btn hub-dialog-btn-secondary drive-browser-up"
+          class={cn(
+            hubDialogBtnBase,
+            hubDialogBtnSecondary,
+            'drive-browser-up mt-1 self-start text-[0.8rem]',
+          )}
           onclick={browserUp}
         >
           ← Up
@@ -588,12 +658,14 @@
     </div>
   {/if}
 
-  <!-- ── Advanced settings ── -->
+  <!-- Advanced settings -->
   {#if roots.length > 0 || advancedOpen}
-    <div class="drive-advanced">
+    <div
+      class="drive-advanced mt-1 flex flex-col border-t border-[color-mix(in_srgb,var(--border)_60%,transparent)] pt-2"
+    >
       <button
         type="button"
-        class="drive-advanced-toggle"
+        class="drive-advanced-toggle inline-flex cursor-pointer items-center gap-[0.3rem] self-start border-none bg-transparent p-0 text-[0.8125rem] font-semibold text-muted hover:text-foreground"
         onclick={() => (advancedOpen = !advancedOpen)}
         aria-expanded={advancedOpen}
       >
@@ -606,28 +678,39 @@
       </button>
 
       {#if advancedOpen}
-        <div class="drive-advanced-body">
+        <div class="drive-advanced-body mt-[0.6rem] flex flex-col gap-[0.6rem]">
           <!-- Shared with me toggle -->
-          <div class="drive-adv-row">
-            <span class="drive-adv-label">Shared with me</span>
+          <div class="drive-adv-row flex items-center justify-between gap-2">
+            <span class="drive-adv-label text-[0.8rem] font-medium text-muted">Shared with me</span>
             <button
               type="button"
-              class="drive-toggle"
-              class:drive-toggle--on={sharedWithMe}
+              class={cn(
+                'drive-toggle relative h-5 w-9 shrink-0 cursor-pointer border-none p-0 transition-colors duration-150',
+                sharedWithMe
+                  ? 'drive-toggle--on bg-accent'
+                  : 'bg-[color-mix(in_srgb,var(--text)_18%,transparent)]',
+              )}
               role="switch"
               aria-checked={sharedWithMe}
               aria-label="Shared with me"
               onclick={() => void toggleSharedWithMe()}
             >
-              <span class="drive-toggle-thumb"></span>
+              <span
+                class={cn(
+                  'drive-toggle-thumb absolute left-[0.15rem] top-[0.15rem] h-[0.95rem] w-[0.95rem] bg-white shadow-[0_1px_2px_rgb(0_0_0/18%)] transition-transform duration-150',
+                  sharedWithMe && 'translate-x-4',
+                )}
+              ></span>
             </button>
           </div>
 
           <!-- Ignore patterns -->
-          <label class="drive-adv-field">
-            <span class="drive-adv-label">Ignore patterns (one per line)</span>
+          <label class="drive-adv-field flex flex-col gap-1">
+            <span class="drive-adv-label text-[0.8rem] font-medium text-muted">
+              Ignore patterns (one per line)
+            </span>
             <textarea
-              class="hub-source-textarea drive-adv-textarea"
+              class="hub-source-textarea drive-adv-textarea resize-y border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-2 py-1.5 text-[0.8rem] text-foreground"
               rows={3}
               value={ignoreText}
               oninput={onIgnoreTextInput}
@@ -636,11 +719,13 @@
           </label>
 
           <!-- Max file size -->
-          <label class="drive-adv-field">
-            <span class="drive-adv-label">Max file size (MB)</span>
+          <label class="drive-adv-field flex flex-col gap-1">
+            <span class="drive-adv-label text-[0.8rem] font-medium text-muted">
+              Max file size (MB)
+            </span>
             <input
               type="number"
-              class="hub-source-input drive-adv-input"
+              class="hub-source-input drive-adv-input max-w-28 border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-2 py-1.5 text-sm text-foreground"
               min={1}
               step={1}
               value={maxFileMb}
@@ -649,10 +734,10 @@
           </label>
 
           {#if advancedDirty}
-            <div class="drive-adv-save-row">
+            <div class="drive-adv-save-row flex">
               <button
                 type="button"
-                class="hub-dialog-btn hub-dialog-btn-primary drive-action-btn"
+                class={cn(hubDialogBtnBase, hubDialogBtnPrimary, driveActionBtn)}
                 disabled={saveBusy}
                 onclick={() => void saveAdvanced()}
               >
@@ -667,415 +752,10 @@
 </section>
 
 <style>
-  .drive-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    margin-top: 0.25rem;
-  }
-
-  .drive-heading {
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    opacity: 0.85;
-    margin: 0;
-  }
-
-  .drive-err {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: var(--danger, #e11d48);
-  }
-
-  /* ── Empty state ── */
-  .drive-empty-hint {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    line-height: 1.45;
-  }
-
-  .drive-empty-ctas {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .drive-cta-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-
-  /* ── Folder cards ── */
-  .drive-folder-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-
-  .drive-folder-card {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.55rem 0.75rem;
-border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-    background: color-mix(in srgb, var(--bg-2, var(--bg)) 94%, var(--text));
-    min-height: 2.75rem;
-    box-sizing: border-box;
-  }
-
-  .drive-folder-icon {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    color: var(--text-2);
-  }
-
-  .drive-folder-name {
-    flex: 1;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    letter-spacing: -0.015em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
-
-  .drive-subfolder-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    flex-shrink: 0;
-    cursor: pointer;
-  }
-
-  .drive-subfolder-label {
-    font-size: 0.75rem;
-    color: var(--text-2);
-    white-space: nowrap;
-  }
-
-  .drive-remove-btn {
-    flex-shrink: 0;
-    color: var(--text-2);
-  }
-
-  .drive-remove-btn:hover {
-    color: var(--danger, #e11d48);
-  }
-
-  /* ── Action buttons row ── */
-  .drive-actions-row {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .drive-action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.8125rem;
-  }
-
-  /* ── AI suggestions panel ── */
-  .drive-suggest-panel {
-    border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 30%, var(--border));
-padding: 0.65rem 0.75rem;
-    background: color-mix(in srgb, var(--accent, #6366f1) 5%, var(--bg));
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .drive-suggest-header {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--accent, #6366f1);
-  }
-
-  .drive-suggest-title {
-    flex: 1;
-    font-size: 0.8125rem;
-    font-weight: 600;
-  }
-
-  .drive-suggest-close {
-    color: var(--text-2);
-  }
-
-  .drive-suggest-empty {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: var(--text-2);
-  }
-
-  .drive-suggest-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .drive-suggest-row {
-    padding: 0.35rem 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  }
-
-  .drive-suggest-row:last-child {
-    border-bottom: none;
-  }
-
-  .drive-suggest-row--skip {
-    opacity: 0.6;
-  }
-
-  .drive-suggest-row--inactive {
-    opacity: 0.95;
-  }
-
-  .drive-suggest-label {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.55rem;
-    cursor: pointer;
-  }
-
-  .drive-suggest-label--inactive {
-    cursor: default;
-  }
-
-  .drive-suggest-sr-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  .drive-suggest-check {
-    flex-shrink: 0;
-    width: 1.25rem;
-    height: 1.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 0.1rem;
-  }
-
-  .drive-suggest-marker {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
-box-sizing: border-box;
-    font-size: 0.75rem;
-  }
-
-  .drive-suggest-marker--on {
-    background: var(--accent, #6366f1);
-    color: white;
-}
-
-  .drive-suggest-marker--off {
-    border: 2px solid color-mix(in srgb, var(--text) 26%, transparent);
-  }
-
-  .drive-suggest-marker--added {
-    background: color-mix(in srgb, var(--text) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-    color: var(--text-2);
-  }
-
-  .drive-suggest-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    min-width: 0;
-  }
-
-  .drive-suggest-folder-name {
-    font-size: 0.9rem;
-    font-weight: 600;
-  }
-
-  .drive-suggest-reason {
-    font-size: 0.8rem;
-    color: var(--text-2);
-    line-height: 1.35;
-  }
-
-  .drive-suggest-hint {
-    margin: 0;
-    font-size: 0.8rem;
-    color: var(--text-2);
-    line-height: 1.42;
-  }
-
-  .drive-suggest-hint-muted {
-    margin: 0;
-    font-size: 0.8rem;
-    color: var(--text-2);
-    line-height: 1.42;
-    font-style: italic;
-  }
-
-  .drive-suggest-details {
-    font-size: 0.78rem;
-    color: var(--text-2);
-border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-    padding: 0.35rem 0.5rem;
-    background: color-mix(in srgb, var(--bg) 85%, var(--text));
-  }
-
-  .drive-suggest-details-summary {
-    cursor: pointer;
-    font-weight: 500;
-    color: var(--text);
-    user-select: none;
-    list-style-position: outside;
-    padding-inline: 0.1rem;
-  }
-
-  .drive-suggest-details-note {
-    margin: 0.35rem 0 0;
-    font-size: 0.76rem;
-    line-height: 1.38;
-    color: var(--text-2);
-  }
-
-  .drive-suggest-patterns {
-    margin: 0.45rem 0 0;
-    padding: 0.35rem 0.45rem;
-    font-family: var(--font-mono, monospace);
-    font-size: 0.7rem;
-    line-height: 1.35;
-    white-space: pre-wrap;
-    word-break: break-all;
-    max-height: 9rem;
-    overflow: auto;
-background: color-mix(in srgb, var(--bg-2, var(--bg)) 94%, var(--text));
-    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-  }
-
-  .drive-suggest-footer {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  /* ── Folder browser ── */
-  .drive-browser {
-    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-padding: 0.6rem 0.75rem;
-    background: color-mix(in srgb, var(--bg-2, var(--bg)) 80%, var(--bg));
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-
-  .drive-browser-head {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-
-  .drive-browser-breadcrumb {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.1rem;
-    flex-wrap: wrap;
-    min-width: 0;
-  }
-
-  .drive-bc-seg {
-    background: none;
-    border: none;
-    color: var(--accent, #6366f1);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.8rem;
-    font-weight: 600;
-    padding: 0.1rem 0.2rem;
-}
-
-  .drive-bc-seg:hover {
-    background: color-mix(in srgb, var(--accent, #6366f1) 10%, transparent);
-  }
-
-  .drive-bc-root {
-    color: var(--text-2);
-  }
-
+  /* Lucide icon classes used via the component's `class` prop are global by nature. */
   :global(.drive-bc-sep) {
     opacity: 0.45;
     flex-shrink: 0;
-  }
-
-  .drive-browser-close {
-    flex-shrink: 0;
-    color: var(--text-2);
-  }
-
-  .drive-browser-note {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: var(--text-2);
-  }
-
-  .drive-browser-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .drive-browser-row {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.25rem 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-  }
-
-  .drive-browser-row:last-child {
-    border-bottom: none;
-  }
-
-  .drive-browser-name {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.875rem;
-    padding: 0.2rem 0.3rem;
-text-align: left;
-  }
-
-  .drive-browser-name:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--text) 6%, transparent);
-  }
-
-  .drive-browser-name:disabled {
-    cursor: default;
   }
 
   :global(.drive-browser-folder-icon) {
@@ -1089,119 +769,7 @@ text-align: left;
     margin-left: auto;
   }
 
-  .drive-browser-add {
-    flex-shrink: 0;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.8rem;
-  }
-
-  .drive-browser-up {
-    align-self: flex-start;
-    font-size: 0.8rem;
-    margin-top: 0.25rem;
-  }
-
-  /* ── Advanced settings ── */
-  .drive-advanced {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-    padding-top: 0.5rem;
-    margin-top: 0.25rem;
-  }
-
-  .drive-advanced-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    background: none;
-    border: none;
-    color: var(--text-2);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    padding: 0;
-    align-self: flex-start;
-  }
-
-  .drive-advanced-toggle:hover {
-    color: var(--text);
-  }
-
-  .drive-advanced-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    margin-top: 0.6rem;
-  }
-
-  .drive-adv-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
-  .drive-adv-label {
-    font-size: 0.8rem;
-    color: var(--text-2);
-    font-weight: 500;
-  }
-
-  .drive-adv-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .drive-adv-textarea {
-    font-size: 0.8rem;
-    resize: vertical;
-  }
-
-  .drive-adv-input {
-    max-width: 7rem;
-  }
-
-  .drive-adv-save-row {
-    display: flex;
-  }
-
-  /* ── Toggle switch ── */
-  .drive-toggle {
-    position: relative;
-    width: 2.25rem;
-    height: 1.25rem;
-border: none;
-    cursor: pointer;
-    padding: 0;
-    background: color-mix(in srgb, var(--text) 18%, transparent);
-    transition: background 0.15s;
-    flex-shrink: 0;
-  }
-
-  .drive-toggle--on {
-    background: var(--accent, #6366f1);
-  }
-
-  .drive-toggle-thumb {
-    position: absolute;
-    top: 0.15rem;
-    left: 0.15rem;
-    width: 0.95rem;
-    height: 0.95rem;
-background: white;
-    transition: transform 0.15s;
-    box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
-  }
-
-  .drive-toggle--on .drive-toggle-thumb {
-    transform: translateX(1rem);
-  }
-
-  /* ── Spinner animation ── */
+  /* Spinner — referenced via `class="drive-spin"` on Lucide RefreshCw inside this file. */
   :global(.drive-spin) {
     animation: drive-spin 1s linear infinite;
   }

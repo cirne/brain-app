@@ -2,9 +2,10 @@
   import { getContext } from 'svelte'
   import { Loader2 } from 'lucide-svelte'
   import { mount, unmount } from 'svelte'
-  import WikiFileName from './WikiFileName.svelte'
-  import TipTapMarkdownEditor from './TipTapMarkdownEditor.svelte'
-  import WikiShareDialog from './WikiShareDialog.svelte'
+  import { cn } from '@client/lib/cn.js'
+  import WikiFileName from '@components/WikiFileName.svelte'
+  import TipTapMarkdownEditor from '@components/TipTapMarkdownEditor.svelte'
+  import WikiShareDialog from '@components/WikiShareDialog.svelte'
   import {
     encodeWikiPathSegmentsForUrl,
     normalizeWikiPathForMatch,
@@ -327,7 +328,6 @@
     let instances: ReturnType<typeof mount>[] = []
 
     function run() {
-      // Clean up previous mounts
       for (const inst of instances) unmount(inst)
       instances = []
 
@@ -338,7 +338,6 @@
       }
     }
 
-    // Run on initial mount and whenever content changes (via $effect in template)
     run()
 
     return {
@@ -407,7 +406,7 @@
   })
 </script>
 
-<div class="wiki">
+<div class="wiki flex min-h-0 flex-col overflow-hidden h-full">
   <WikiShareDialog
     open={shareDialogOpen}
     pathPrefix={selected ?? ''}
@@ -417,10 +416,15 @@
     }}
     onSharesChanged={() => void loadFiles()}
   />
-  <div class="content-area" class:content-area-edit={pageMode === 'edit' && canEdit}>
+  <div
+    class={cn(
+      'content-area min-h-0 min-w-0 flex-1 overflow-y-auto max-md:overflow-x-hidden',
+      pageMode === 'edit' && canEdit && 'content-area-edit flex flex-col overflow-hidden',
+    )}
+  >
     {#if pageMode === 'edit' && canEdit}
       {#key selected}
-        <div class="wiki-edit-wrap">
+        <div class="wiki-edit-wrap flex min-h-0 flex-1 flex-col">
           <TipTapMarkdownEditor
             bind:this={wikiEditor}
             initialMarkdown={rawMarkdown}
@@ -433,17 +437,27 @@
     {:else}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-      <article class="viewer wiki-md" onclick={handleContentClick} use:upgradeWikiLinks={content}>
+      <article
+        class="viewer wiki-md mx-auto box-border w-full max-w-chat px-[clamp(1rem,4%,2.5rem)] py-6 max-md:p-4"
+        onclick={handleContentClick}
+        use:upgradeWikiLinks={content}
+      >
         {#if loading}
-          <p class="status">Loading...</p>
+          <p class="status text-sm text-muted">Loading...</p>
         {:else if streamingWrite && selected && pathsMatchForStream(streamingWrite.path, selected) && streamingWrite.body}
-          <p class="stream-label" role="status">Agent is writing…</p>
+          <p class="stream-label m-0 mb-3 text-xs font-semibold text-accent" role="status">Agent is writing…</p>
           <!-- eslint-disable-next-line svelte/no-at-html-tags -->
           <div class="markdown">{@html renderMarkdown(streamingWrite.body.slice(0, 50000))}</div>
         {:else}
           {#if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
-            <p class="stream-label stream-editing" role="status">
-              <span class="stream-spin" aria-hidden="true">
+            <p
+              class="stream-label stream-editing m-0 mb-3 flex items-center gap-2 text-xs font-semibold text-accent"
+              role="status"
+            >
+              <span
+                class="stream-spin inline-flex shrink-0 animate-[wiki-stream-spin_1s_linear_infinite] items-center [line-height:0]"
+                aria-hidden="true"
+              >
                 <Loader2 size={12} strokeWidth={2.5} />
               </span>
               Editing…
@@ -451,18 +465,23 @@
           {/if}
           {#if content}
             {#if Object.keys(meta).length > 0}
-              <div class="page-meta">
+              <div
+                class="page-meta mb-[1.2em] flex flex-wrap items-center gap-1 text-[11px] text-muted"
+              >
                 {#if meta.updated}<span class="meta-date">{formatDate(meta.updated)}</span>{/if}
-                {#if meta.updated && meta.tags}<span class="meta-sep">·</span>{/if}
-                {#if meta.tags}{#each parseTags(meta.tags) as tag}<span class="meta-tag">{tag}</span>{/each}{/if}
+                {#if meta.updated && meta.tags}<span class="meta-sep opacity-50">·</span>{/if}
+                {#if meta.tags}{#each parseTags(meta.tags) as tag (tag)}<span
+                      class="meta-tag bg-surface-3 px-1.5 py-px text-[11px]"
+                      >{tag}</span
+                    >{/each}{/if}
               </div>
             {/if}
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             {@html content}
           {:else if streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)}
-            <p class="status">Loading current page…</p>
+            <p class="status text-sm text-muted">Loading current page…</p>
           {:else}
-            <p class="status">No page selected</p>
+            <p class="status text-sm text-muted">No page selected</p>
           {/if}
         {/if}
       </article>
@@ -471,69 +490,7 @@
 </div>
 
 <style>
-  .wiki { display: flex; flex-direction: column; height: 100%; overflow: hidden; min-height: 0; }
-
-  /* ── content ─────────────────────────────────────────────── */
-  .content-area { flex: 1; overflow-y: auto; min-width: 0; min-height: 0; }
-
-  .content-area-edit {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .wiki-edit-wrap {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .viewer {
-    max-width: var(--chat-column-max);
-    width: 100%;
-    margin: 0 auto;
-    padding: 24px clamp(16px, 4%, 40px);
-    box-sizing: border-box;
-  }
-
-  .status { color: var(--text-2); font-size: 14px; }
-
-  .stream-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--accent);
-    margin: 0 0 12px;
-  }
-  .stream-editing {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .stream-spin {
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-    line-height: 0;
-    animation: wiki-stream-spin 1s linear infinite;
-  }
   @keyframes wiki-stream-spin {
     to { transform: rotate(360deg); }
-  }
-  .page-meta {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-bottom: 1.2em;
-    font-size: 11px;
-    color: var(--text-2);
-  }
-  .meta-sep { opacity: 0.5; }
-  .meta-tag { background: var(--bg-3);padding: 1px 6px; font-size: 11px; }
-
-  @media (max-width: 768px) {
-    .viewer { padding: 16px; }
-    .content-area { overflow-x: hidden; }
   }
 </style>

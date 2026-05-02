@@ -9,7 +9,6 @@ const root = dirname(fileURLToPath(import.meta.url))
 const resolveAlias = {
   '@client': join(root, 'src/client'),
   '@components': join(root, 'src/client/components'),
-  '@tw-components': join(root, 'src/client/tw-components'),
   '@server': join(root, 'src/server'),
   '@shared': join(root, 'src/shared'),
 }
@@ -29,10 +28,7 @@ export default defineConfig({
         test: {
           name: 'client',
           /** jsdom only for Svelte components; keep `src/client/lib/*.test.ts` on Node. */
-          include: [
-            'src/client/components/**/*.test.ts',
-            'src/client/tw-components/**/*.test.ts',
-          ],
+          include: ['src/client/components/**/*.test.ts'],
           environment: 'jsdom',
           setupFiles: [join(root, 'src/client/test/setup.ts')],
         },
@@ -46,7 +42,6 @@ export default defineConfig({
             'node_modules',
             'src/server/evals/**',
             'src/client/components/**/*.test.ts',
-            'src/client/tw-components/**/*.test.ts',
           ],
           environment: 'node',
           setupFiles: [
