@@ -38,9 +38,7 @@
     }
   }
 
-  const showModal = $derived(
-    gateApplies && checked && granted === false && !restarting,
-  )
+  const showModal = $derived(gateApplies && checked && granted === false && !restarting)
 
   onMount(() => {
     if (!gateApplies) return
@@ -95,10 +93,17 @@
 </script>
 
 {#if gateApplies && !checked}
-  <div class="fda-loading">Checking permissions…</div>
+  <div class="fda-loading p-8 text-center text-[0.95rem] text-muted">Checking permissions…</div>
 {:else if showModal}
-  <div class="fda-overlay" role="dialog" aria-modal="true" aria-labelledby="fda-title">
-    <div class="fda-modal">
+  <div
+    class="fda-overlay fixed inset-0 z-[9999] flex items-center justify-center p-4 backdrop-blur-md bg-[color-mix(in_srgb,var(--bg)_88%,transparent)]"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="fda-title"
+  >
+    <div
+      class="fda-modal flex max-h-[min(90vh,720px)] flex-col overflow-y-auto bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+    >
       <OnboardingHeroShell>
         <span class="ob-kicker">Privacy</span>
         <h1 id="fda-title" class="ob-headline">Allow Full Disk Access</h1>
@@ -106,16 +111,28 @@
           macOS needs this permission so Braintunnel can read Mail, Messages, and your files on this Mac—what makes the
           assistant personal to you. <strong>That information stays on your Mac.</strong>
         </p>
-        <ol class="fda-steps">
+        <ol
+          class="fda-steps mx-auto mt-5 max-w-[22rem] list-decimal pl-5 text-left text-[0.9375rem] leading-[1.55] text-muted"
+        >
           <li>Click <strong>Open System Settings</strong> below.</li>
           <li>Turn on <strong>Braintunnel</strong> under Full Disk Access.</li>
           <li>Return here — we’ll detect the change and restart the app.</li>
         </ol>
         <div class="ob-cta-group">
-          <button type="button" class="ob-btn-primary ob-btn-block" onclick={() => void onOpenSettings()}>
+          <button
+            type="button"
+            class="ob-btn-primary ob-btn-block"
+            onclick={() => void onOpenSettings()}
+          >
             Open System Settings
           </button>
-          <button type="button" class="fda-btn-secondary" onclick={() => void onQuit()}>Quit</button>
+          <button
+            type="button"
+            class="fda-btn-secondary cursor-pointer border-none bg-transparent text-[0.9375rem] text-muted underline underline-offset-[3px] hover:text-foreground"
+            onclick={() => void onQuit()}
+          >
+            Quit
+          </button>
         </div>
       </OnboardingHeroShell>
     </div>
@@ -124,68 +141,10 @@
   {@render children()}
 {/if}
 {#if toast}
-  <div class="fda-toast" role="status">{toast}</div>
+  <div
+    class="fda-toast fixed bottom-6 left-1/2 z-[10000] -translate-x-1/2 bg-surface-2 px-5 py-[0.65rem] text-[0.9rem] text-foreground shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
+    role="status"
+  >
+    {toast}
+  </div>
 {/if}
-
-<style>
-  .fda-loading {
-    padding: 2rem;
-    text-align: center;
-    color: var(--muted, #888);
-    font-size: 0.95rem;
-  }
-  .fda-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: color-mix(in srgb, var(--bg, #0a0a0a) 88%, transparent);
-    backdrop-filter: blur(6px);
-    padding: 1rem;
-  }
-  .fda-modal {
-    display: flex;
-    flex-direction: column;
-    max-height: min(90vh, 720px);
-    overflow-y: auto;
-    border-radius: 1rem;
-    background: var(--bg, #0f0f0f);
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-  }
-  .fda-steps {
-    margin: 1.25rem auto 0;
-    padding-left: 1.25rem;
-    max-width: 22rem;
-    text-align: left;
-    font-size: 0.9375rem;
-    line-height: 1.55;
-    color: var(--text-2);
-  }
-  .fda-btn-secondary {
-    background: transparent;
-    border: none;
-    color: var(--text-2);
-    font-size: 0.9375rem;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-  .fda-btn-secondary:hover {
-    color: var(--text);
-  }
-  .fda-toast {
-    position: fixed;
-    bottom: 1.5rem;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10000;
-    padding: 0.65rem 1.25rem;
-    border-radius: 0.5rem;
-    background: var(--bg-2, #1a1a1a);
-    color: var(--text);
-    font-size: 0.9rem;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-  }
-</style>

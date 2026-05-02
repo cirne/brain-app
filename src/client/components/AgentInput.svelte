@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { ArrowUp, List, MessageSquarePlus, Mic, Square } from 'lucide-svelte'
-  import WikiFileName from './WikiFileName.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
+  import { cn } from '@client/lib/cn.js'
   import type { SkillMenuItem } from '@client/lib/agentUtils.js'
   import { handleTextareaCursorKeys } from '@client/lib/agentInputCursor.js'
 
@@ -19,7 +20,7 @@
     /** Mobile doc slide-over dock: no gray bar behind the field; only the bordered input shows. */
     transparentSurround = false,
     /**
-     * When set, a “new chat” control is integrated on the left inside the bordered field (like send on the right).
+     * When set, a "new chat" control is integrated on the left inside the bordered field (like send on the right).
      */
     onNewChat = undefined as (() => void) | undefined,
     /** Tap mic to open the voice panel; lead rail left of the textarea. */
@@ -242,62 +243,89 @@
     const cb = onDraftChange
     if (cb) cb(input)
   })
+
+  // Shared button styles (preserve legacy class hooks for tests / external selectors).
+  const sendBtnBase =
+    'send-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] border-none bg-accent text-white p-0 disabled:cursor-not-allowed disabled:opacity-40'
 </script>
 
-<div class="input-area" class:input-area--transparent={transparentSurround}>
+<div class={cn(
+  /* Match transcript horizontal gutter so empty-state copy lines up with the composer shell */
+  'input-area relative shrink-0 px-[length:var(--chat-transcript-px)] py-1.5',
+  transparentSurround ? 'input-area--transparent bg-transparent' : 'bg-surface',
+)}>
   {#if showSlash}
-    <div class="mention-dropdown slash-dropdown" role="listbox">
+    <div
+      class="mention-dropdown slash-dropdown absolute bottom-full left-3 right-3 z-[3] mb-1 max-h-[200px] overflow-y-auto border border-border bg-surface-3 [box-shadow:0_-4px_12px_rgba(0,0,0,0.3)]"
+      role="listbox"
+    >
       {#each filteredSkills() as skill, i}
         <button
           type="button"
-          class="mention-item slash-item"
-          class:selected={i === selectedSlash}
+          class={cn(
+            'mention-item slash-item flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-[13px] text-foreground hover:bg-accent-dim hover:text-accent',
+            i === selectedSlash && 'selected bg-accent-dim text-accent',
+          )}
           onmousedown={(e) => { e.preventDefault(); insertSlash(skill.slug) }}
         >
-          <span class="slash-slash">/{skill.slug}</span>
-          <span class="slash-label">{skill.label}</span>
+          <span class="slash-slash shrink-0 font-semibold text-accent">/{skill.slug}</span>
+          <span class="slash-label shrink-0 text-xs text-foreground">{skill.label}</span>
         </button>
       {:else}
-        <div class="mention-empty">No matching skills</div>
+        <div class="mention-empty px-3 py-2 text-xs text-muted">No matching skills</div>
       {/each}
     </div>
   {/if}
   {#if showMentions}
-    <div class="mention-dropdown">
+    <div
+      class="mention-dropdown absolute bottom-full left-3 right-3 z-[3] mb-1 max-h-[200px] overflow-y-auto border border-border bg-surface-3 [box-shadow:0_-4px_12px_rgba(0,0,0,0.3)]"
+    >
       {#each filteredMentions() as file, i}
         <button
-          class="mention-item"
-          class:selected={i === selectedMention}
+          class={cn(
+            'mention-item block w-full px-3 py-1.5 text-left text-[13px] text-foreground hover:bg-accent-dim hover:text-accent',
+            i === selectedMention && 'selected bg-accent-dim text-accent',
+          )}
           onmousedown={(e) => { e.preventDefault(); insertMention(file) }}
         >
           <WikiFileName path={file} />
         </button>
       {:else}
-        <div class="mention-empty">No matching files</div>
+        <div class="mention-empty px-3 py-2 text-xs text-muted">No matching files</div>
       {/each}
     </div>
   {/if}
 
-  <div class="input-row">
-    <div class="input-shell">
+  <div class="input-row flex w-full min-w-0">
+    <div class="input-shell flex flex-1 min-w-0 flex-col min-h-[42px] overflow-hidden rounded-lg border border-border bg-surface focus-within:border-accent">
       {#if queuedMessages.length > 0}
-        <div class="queued-list" role="list" aria-label="Messages queued to send when assistant finishes">
+        <div
+          class="queued-list mb-0.5 flex flex-col gap-1.5 min-w-0 px-2.5 pt-[3px]"
+          role="list"
+          aria-label="Messages queued to send when assistant finishes"
+        >
           {#each queuedMessages as message, i (i)}
-            <div class="queued-hint" role="listitem" title={message}>
-              <span class="queued-icon" aria-hidden="true">
+            <div
+              class="queued-hint flex items-start gap-1.5 min-w-0 px-0.5 pb-1.5 text-xs leading-snug text-muted"
+              role="listitem"
+              title={message}
+            >
+              <span class="queued-icon shrink-0 mt-px text-accent opacity-95" aria-hidden="true">
                 <List size={14} strokeWidth={2.25} />
               </span>
-              <span class="queued-text">{message}</span>
+              <span
+                class="queued-text min-w-0 flex-1 overflow-hidden [-webkit-box-orient:vertical] [-webkit-line-clamp:3] [display:-webkit-box] [word-break:break-word]"
+              >{message}</span>
             </div>
           {/each}
         </div>
       {/if}
-      <div class="input-composer">
+      <div class="input-composer flex flex-1 min-w-0 flex-row items-stretch min-h-[40px]">
         {#if onNewChat}
-          <div class="lead-actions" role="group" aria-label="Start new chat">
+          <div class="lead-actions flex shrink-0 flex-row items-stretch self-stretch" role="group" aria-label="Start new chat">
             <button
               type="button"
-              class="new-chat-btn"
+              class="new-chat-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] p-0 border-none border-r border-r-border bg-surface text-muted transition-colors hover:bg-surface-3 hover:text-foreground active:[filter:brightness(0.97)]"
               onclick={() => onNewChat()}
               title="New chat (⌘N)"
               aria-label="New chat"
@@ -307,11 +335,13 @@
           </div>
         {/if}
         <div
-          class="input-shell-inner"
-          class:input-shell-inner--with-lead={!!onNewChat}
+          class={cn(
+            'input-shell-inner flex flex-1 min-w-0 items-center py-1 pr-2 pl-3',
+            onNewChat && 'input-shell-inner--with-lead pl-2.5',
+          )}
         >
           <textarea
-            class="chat-textarea"
+            class="chat-textarea w-full flex-1 box-border min-w-0 min-h-[40px] max-h-[min(480px,55vh)] resize-none border-none bg-transparent px-1 py-2.5 text-base leading-normal text-foreground [overflow-x:hidden] [overflow-y:hidden] placeholder:text-muted placeholder:opacity-80 focus:outline-none disabled:opacity-60"
             bind:this={inputEl}
             bind:value={input}
             oninput={handleInput}
@@ -321,14 +351,26 @@
             {disabled}
           ></textarea>
         </div>
-        <div class="send-actions" class:send-actions--streaming={streaming} role="group" aria-label={streaming ? 'Queue or stop assistant' : 'Send message'}>
+        <div
+          class={cn(
+            'send-actions flex shrink-0 flex-row items-stretch self-stretch',
+            streaming && 'send-actions--streaming [&_.stop-btn]:border-r [&_.stop-btn]:border-r-white/25',
+          )}
+          role="group"
+          aria-label={streaming ? 'Queue or stop assistant' : 'Send message'}
+        >
           {#if streaming}
-            <button type="button" class="send-btn stop-btn" onclick={() => onStop?.()} aria-label="Stop">
+            <button
+              type="button"
+              class={cn(sendBtnBase, 'stop-btn bg-muted hover:[filter:brightness(1.1)]')}
+              onclick={() => onStop?.()}
+              aria-label="Stop"
+            >
               <Square size={12} fill="currentColor" strokeWidth={0} aria-hidden="true" />
             </button>
             <button
               type="button"
-              class="send-btn"
+              class={sendBtnBase}
               onclick={submit}
               disabled={disabled || !input.trim()}
               title="Queue message (sends when assistant finishes)"
@@ -339,7 +381,7 @@
           {:else if showVoiceEntry && onVoiceEntry && !input.trim()}
             <button
               type="button"
-              class="send-btn voice-right-btn"
+              class={cn(sendBtnBase, 'voice-right-btn')}
               disabled={voiceEntryDisabled}
               onclick={() => onVoiceEntry()}
               title="Voice input"
@@ -350,7 +392,7 @@
           {:else}
             <button
               type="button"
-              class="send-btn"
+              class={sendBtnBase}
               onclick={submit}
               disabled={disabled || !input.trim()}
               aria-label="Send message"
@@ -365,275 +407,10 @@
 </div>
 
 <style>
-  .input-area {
-    position: relative;
-    padding: 6px 12px;
-    background: var(--bg-2);
-    flex-shrink: 0;
-  }
-
-  .input-area--transparent {
-    background: transparent;
-  }
-
-  .mention-dropdown {
-    position: absolute;
-    bottom: 100%;
-    left: 12px;
-    right: 12px;
-    z-index: 3;
-    max-height: 200px;
-    overflow-y: auto;
-    background: var(--bg-3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    margin-bottom: 4px;
-    box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
-  }
-
-  .mention-item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 6px 12px;
-    font-size: 13px;
-    color: var(--text);
-  }
-  .mention-item:hover, .mention-item.selected { background: var(--accent-dim); color: var(--accent); }
-  .mention-empty { padding: 8px 12px; font-size: 12px; color: var(--text-2); }
-
-  .slash-item {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-  .slash-slash {
-    font-weight: 600;
-    color: var(--accent);
-    flex-shrink: 0;
-  }
-  .slash-label {
-    font-size: 12px;
-    color: var(--text);
-    flex-shrink: 0;
-  }
-
-  .input-row {
-    display: flex;
-    min-width: 0;
-    width: 100%;
-  }
-
-  .queued-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 2px;
-    min-width: 0;
-    padding: 3px 10px 0;
-  }
-
-  .queued-hint {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    font-size: 12px;
-    line-height: 1.35;
-    color: var(--text-2);
-    padding: 0 2px 6px 2px;
-    min-width: 0;
-  }
-
-  .queued-icon {
-    flex-shrink: 0;
-    margin-top: 1px;
-    color: var(--accent);
-    opacity: 0.95;
-  }
-
-  .queued-text {
-    min-width: 0;
-    flex: 1;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
-    word-break: break-word;
-  }
-
-  .input-shell {
-    flex: 1;
-    min-width: 0;
-    min-height: 42px;
-    padding: 0;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--bg);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .input-shell:focus-within {
-    border-color: var(--accent);
-  }
-
-  .input-composer {
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    flex: 1;
-    min-width: 0;
-    min-height: 40px;
-  }
-
-  .lead-actions {
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    align-self: stretch;
-    flex-shrink: 0;
-  }
-
-  .new-chat-btn {
-    --new-chat-r: 9px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    align-self: stretch;
-    min-width: 48px;
-    width: 48px;
-    padding: 0;
-    border: none;
-    border-right: 1px solid var(--border);
-    border-radius: var(--new-chat-r) 0 0 var(--new-chat-r);
-    background: var(--bg);
-    color: var(--text-2);
-    flex-shrink: 0;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-  }
-
-  @media (hover: hover) {
-    .new-chat-btn:hover {
-      background: var(--bg-3);
-      color: var(--text);
-    }
-  }
-
-  .new-chat-btn:active {
-    filter: brightness(0.97);
-  }
-
-  /* Same rail geometry as .send-btn; used when mic replaces send on the right when no text is typed. */
-  .voice-right-btn {
-    background: var(--bg-3);
-    color: var(--text-2);
-  }
-
-  @media (hover: hover) {
-    .voice-right-btn:not(:disabled):hover {
-      background: var(--bg-2);
-      color: var(--text);
-    }
-  }
-
-  .voice-right-btn:active:not(:disabled) {
-    filter: brightness(0.97);
-  }
-
-  .input-shell-inner {
-    display: flex;
-    flex: 1;
-    min-width: 0;
-    padding: 3px 6px 3px 10px;
-    align-items: flex-start;
-  }
-
-  .input-shell-inner--with-lead {
-    padding-left: 8px;
-  }
-
-  .chat-textarea {
-    flex: 1;
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    resize: none;
-    border: none;
-    border-radius: 0;
-    padding: 8px 2px 5px 2px;
-    font: inherit;
-    font-size: 16px;
-    line-height: 1.4;
-    background: transparent;
-    color: var(--text);
-    min-height: 38px;
-    max-height: min(480px, 55vh);
-    overflow-x: hidden;
-    overflow-y: hidden;
-  }
-
-  /* Long placeholders stay on one line; full hint still available as native tooltip via title on wrapper if needed later. */
+  /* Match legacy ellipsis for long placeholders; avoid quirky `display` on ::placeholder (breaks baseline in some engines). */
   .chat-textarea::placeholder {
-    display: block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .chat-textarea:focus {
-    outline: none;
-  }
-
-  .chat-textarea:disabled {
-    opacity: 0.6;
-  }
-
-  .send-btn {
-    --send-btn-outer-r: 9px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    align-self: stretch;
-    min-width: 48px;
-    width: 48px;
-    padding: 0;
-    border: none;
-    border-radius: 0 var(--send-btn-outer-r) var(--send-btn-outer-r) 0;
-    background: var(--accent);
-    color: white;
-    flex-shrink: 0;
-    cursor: pointer;
-  }
-
-  .send-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .send-actions {
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    align-self: stretch;
-    flex-shrink: 0;
-  }
-
-  .send-actions .send-btn {
-    width: 48px;
-    min-width: 48px;
-  }
-
-  .send-actions--streaming .stop-btn {
-    border-radius: 0;
-    border-right: 1px solid rgba(255, 255, 255, 0.25);
-  }
-
-  .stop-btn {
-    background: var(--text-2);
-  }
-  .stop-btn:hover {
-    filter: brightness(1.1);
   }
 </style>

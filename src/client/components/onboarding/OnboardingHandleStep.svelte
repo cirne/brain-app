@@ -123,7 +123,9 @@
   })
 </script>
 
-<div class="onboarding flex h-full min-h-0 w-full flex-col bg-[var(--bg)] text-[var(--text)] onboarding-wide">
+<div
+  class="onboarding onboarding-wide flex h-full min-h-0 w-full flex-col bg-[var(--bg)] text-[var(--text)]"
+>
   <OnboardingHeroShell>
     <span class="ob-kicker">Braintunnel</span>
     <h1 class="ob-headline">Choose your handle</h1>
@@ -135,14 +137,26 @@
       <p class="ob-error" role="alert">{bootError}</p>
     {/if}
 
-    <div class="ob-handle-field">
-      <label class="ob-handle-label" for="ob-handle-input">Handle</label>
-      <div class="ob-handle-input-row">
-        <span class="ob-handle-at" aria-hidden="true">@</span>
+    <div class="ob-handle-field mx-auto mt-5 w-full max-w-[22rem] text-left">
+      <label
+        class="ob-handle-label mb-1.5 block text-xs font-semibold tracking-wider text-[var(--muted)]"
+        for="ob-handle-input"
+      >
+        Handle
+      </label>
+      <div
+        class="ob-handle-input-row flex items-center gap-[0.15rem] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5"
+      >
+        <span
+          class="ob-handle-at font-mono font-semibold text-[var(--muted)] select-none"
+          aria-hidden="true"
+        >
+          @
+        </span>
         <input
           id="ob-handle-input"
           type="text"
-          class="ob-handle-input"
+          class="ob-handle-input min-w-0 flex-1 border-none bg-transparent font-mono text-base text-[var(--text)] outline-none"
           autocomplete="username"
           spellcheck="false"
           bind:value={handleInput}
@@ -155,11 +169,21 @@
         />
       </div>
       {#if availabilityHint}
-        <p class="ob-handle-hint ob-error" role="status">{availabilityHint}</p>
+        <p class="ob-handle-hint ob-error mt-[0.45rem] text-[0.8125rem] leading-snug" role="status">
+          {availabilityHint}
+        </p>
       {:else if checking}
-        <p class="ob-handle-hint ob-muted">Checking availability…</p>
+        <p
+          class="ob-handle-hint ob-muted mt-[0.45rem] text-[0.8125rem] leading-snug text-[var(--muted)]"
+        >
+          Checking availability…
+        </p>
       {:else}
-        <p class="ob-handle-hint ob-muted">Lowercase letters, numbers, hyphens. 3–32 characters.</p>
+        <p
+          class="ob-handle-hint ob-muted mt-[0.45rem] text-[0.8125rem] leading-snug text-[var(--muted)]"
+        >
+          Lowercase letters, numbers, hyphens. 3–32 characters.
+        </p>
       {/if}
     </div>
 
@@ -181,61 +205,3 @@
     </div>
   </OnboardingHeroShell>
 </div>
-
-<style>
-  .ob-handle-field {
-    margin-top: 1.25rem;
-    text-align: left;
-    width: 100%;
-    max-width: 22rem;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .ob-handle-label {
-    display: block;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--muted);
-    margin-bottom: 0.35rem;
-  }
-
-  .ob-handle-input-row {
-    display: flex;
-    align-items: center;
-    gap: 0.15rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    padding: 0.35rem 0.65rem;
-  }
-
-  .ob-handle-at {
-    font-family: ui-monospace, monospace;
-    font-weight: 600;
-    color: var(--muted);
-    user-select: none;
-  }
-
-  .ob-handle-input {
-    flex: 1;
-    min-width: 0;
-    border: none;
-    background: transparent;
-    font-family: ui-monospace, monospace;
-    font-size: 1rem;
-    color: var(--text);
-    outline: none;
-  }
-
-  .ob-handle-hint {
-    margin-top: 0.45rem;
-    font-size: 0.8125rem;
-    line-height: 1.35;
-  }
-
-  .ob-muted {
-    color: var(--muted);
-  }
-</style>

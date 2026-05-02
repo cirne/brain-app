@@ -172,21 +172,21 @@
         >
           <p class="font-medium">Provisioning demo data…</p>
           {#if seedInfo?.status === 'running'}
-            <p class="mt-2 text-muted-foreground">
+            <p class="mt-2 text-muted">
               Phase: {seedInfo.phase} · started {new Date(seedInfo.startedAt).toLocaleTimeString()}
               {#if elapsedSec != null}
                 · elapsed {elapsedSec}s
               {/if}
             </p>
           {:else if seedInfo?.status === 'failed'}
-            <p class="mt-2 text-destructive">{seedInfo.message}</p>
+            <p class="mt-2 text-danger">{seedInfo.message}</p>
           {:else}
-            <p class="mt-2 text-muted-foreground">Starting…</p>
+            <p class="mt-2 text-muted">Starting…</p>
           {/if}
           {#if statusPollError}
-            <p class="mt-2 text-xs text-destructive">{statusPollError}</p>
+            <p class="mt-2 text-xs text-danger">{statusPollError}</p>
           {/if}
-          <p class="mt-3 text-xs text-muted-foreground">
+          <p class="mt-3 text-xs text-muted">
             Next status check in {nextCheckInSec}s (every {POLL_MS / 1000}s).
           </p>
         </div>
@@ -206,14 +206,18 @@
           disabled={busy || seeding}
         />
         {#if errorMsg}
-          <p class="text-sm text-destructive">{errorMsg}</p>
+          <p class="text-sm text-danger">{errorMsg}</p>
         {/if}
-        <button type="submit" class="ob-btn-primary w-full" disabled={busy || !secret.trim()}>
+        <button
+          type="submit"
+          class="ob-btn-primary w-full"
+          disabled={busy || !secret.trim()}
+        >
           {seeding ? 'Working…' : busy ? 'Please wait…' : 'Continue'}
         </button>
       </form>
 
-      <p class="ob-lead mt-4 text-xs text-muted-foreground">
+      <p class="ob-lead mt-4 text-xs text-muted">
         This workspace is seeded from the public Enron email dataset (roughly 1998–2001). You sign in as chief of
         staff to Enron chairman Ken Lay. For background on the corpus, see
         <a
@@ -226,7 +230,7 @@
         </a>
         .
       </p>
-      <p class="ob-lead mt-3 text-xs text-muted-foreground">
+      <p class="ob-lead mt-3 text-xs text-muted">
         To wipe the tenant and rebuild from the corpus, use
         <button
           type="button"
@@ -238,7 +242,7 @@
         </button>
         (opens a GET URL that includes your secret in the query).
       </p>
-      <p class="ob-lead mt-6 text-xs text-muted-foreground">
+      <p class="ob-lead mt-6 text-xs text-muted">
         <a href="/" class="underline">Back to sign-in</a>
       </p>
     </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
-  import ConfirmDialog from './ConfirmDialog.svelte'
-  import WikiFileName from './WikiFileName.svelte'
+  import ConfirmDialog from '@components/ConfirmDialog.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
+  import { cn } from '@client/lib/cn.js'
   import { wikiShareCoversVaultPath } from '@client/lib/wikiDirListModel.js'
   import { wikiShareVaultPathForWikiFileName } from '@client/lib/wikiPathDisplay.js'
   import { emit } from '@client/lib/app/appEvents.js'
@@ -74,9 +75,9 @@
   let revokingId = $state<string | null>(null)
   let audienceFetchToken = 0
 
-  const dialogTitle = $derived(targetKind === 'file' ? 'Share wiki page' : 'Share wiki folder')
+  const dialogTitle = $derived(targetKind === 'file' ? 'Share this page' : 'Share this folder')
 
-  const shareActionLabel = $derived(targetKind === 'file' ? 'Share Page' : 'Share Folder')
+  const shareActionLabel = 'Send invites'
 
   const wikiShareDisplayPathForFileName = $derived(
     wikiShareVaultPathForWikiFileName({ pathPrefix, targetKind }),
@@ -141,7 +142,7 @@
       const j = (await res.json().catch(() => ({}))) as { owned?: unknown }
       if (t !== audienceFetchToken) return
       if (!res.ok) {
-        audienceFetchError = 'Could not load who has access.'
+        audienceFetchError = 'Couldn’t load this list.'
         audienceRows = []
         return
       }
@@ -151,7 +152,7 @@
       audienceRows = parsed.filter((r) => wikiShareCoversVaultPath(vp, r.pathPrefix, r.targetKind))
     } catch {
       if (t !== audienceFetchToken) return
-      audienceFetchError = 'Could not load who has access.'
+      audienceFetchError = 'Couldn’t load this list.'
       audienceRows = []
     } finally {
       if (t === audienceFetchToken) audienceLoading = false
@@ -174,7 +175,7 @@
     try {
       const res = await fetch(`/api/wiki-shares/${encodeURIComponent(row.id)}`, { method: 'DELETE' })
       if (!res.ok) {
-        audienceFetchError = 'Could not remove access.'
+        audienceFetchError = 'Couldn’t remove access.'
         return
       }
       revokeTarget = null
@@ -264,7 +265,7 @@
     }
     perGranteeErrors = {
       ...perGranteeErrors,
-      [`@${handle}`]: 'Pick a user from the list.',
+      [`@${handle}`]: 'Choose someone from the list.',
     }
   }
 
@@ -351,7 +352,7 @@
       const trimmed = inputValue.trim()
       if (trimmed) commitTyped()
       if (selected.length === 0) {
-        errorMsg = 'Add at least one collaborator.'
+        errorMsg = 'Add someone to invite.'
         return
       }
     }
@@ -410,12 +411,22 @@
     if (g.email) lines.push(g.email)
     return lines.join('\n')
   }
+
+  const sectionTitle = 'wsh-section-title m-0 mb-2 text-[13px] font-semibold text-foreground'
+  const mutedText = 'wsh-muted m-0 text-[13px] text-muted'
+  const errBase = 'wsh-err m-0 mt-2 text-[13px] text-[var(--danger,#b42318)]'
+  const pillBase =
+    'wsh-pill rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_18%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]'
+  const sharePathName =
+    'wsh-share-path-name inline-flex max-w-full align-text-bottom text-foreground'
+  const codeChip =
+    'wsh-code bg-[var(--color-surface-2,rgba(0,0,0,0.06))] px-1.5 py-px text-[13px]'
 </script>
 
 <ConfirmDialog
   {open}
   titleId="wiki-share-main-title"
-  panelClass="wiki-share-cd-panel"
+  panelclass="wiki-share-cd-panel w-[90vw] max-w-[600px]"
   title={dialogTitle}
   confirmLabel="OK"
   cancelLabel="Cancel"
@@ -432,41 +443,47 @@
       disabled={submitDisabled}
       onclick={() => void submit()}
     >
-      {submitting ? 'Sharing…' : shareActionLabel}
+      {submitting ? 'Sending…' : shareActionLabel}
     </button>
   {/snippet}
-  <p class="wsh-lead">
-    Read-only access to{' '}
-    <span class="wsh-share-path-name" translate="no">
-      <WikiFileName path={wikiShareDisplayPathForFileName} />
-    </span>. Collaborators accept in
-    <strong>Settings → Sharing</strong> while signed in with the invited email.
+  <p class="wsh-lead m-0 mb-3 text-sm text-[var(--color-muted,#888)]">
+    People you invite see this read-only; they can’t edit it.
   </p>
-  <section class="wsh-section" aria-labelledby="wsh-audience-heading">
-    <h3 id="wsh-audience-heading" class="wsh-section-title">People with access</h3>
+  <section class="wsh-section mb-[18px]" aria-labelledby="wsh-audience-heading">
+    <h3 id="wsh-audience-heading" class={sectionTitle}>Who has access</h3>
     {#if audienceLoading}
-      <p class="wsh-muted">Loading…</p>
+      <p class={mutedText}>Loading…</p>
     {:else if audienceFetchError}
-      <p class="wsh-err" role="alert">{audienceFetchError}</p>
+      <p class={errBase} role="alert">{audienceFetchError}</p>
     {:else if audienceRows.length === 0}
-      <p class="wsh-muted">Only you — no collaborators yet.</p>
+      <p class={mutedText}>Just you so far.</p>
     {:else}
-      <ul class="wsh-audience-list">
+      <ul
+        class="wsh-audience-list m-0 flex max-h-[220px] list-none flex-col gap-2 overflow-y-auto p-0"
+      >
         {#each audienceRows as row (row.id)}
-          <li class="wsh-audience-row">
-            <div class="wsh-audience-main">
-              <span class="wsh-audience-email">{row.granteeEmail}</span>
+          <li
+            class="wsh-audience-row flex items-center justify-between gap-2.5 border border-[var(--color-border,#ccc)] bg-[var(--bg,#fff)] px-2.5 py-2"
+          >
+            <div class="wsh-audience-main flex min-w-0 flex-col items-start gap-1">
+              <span class="wsh-audience-email text-[13px] font-semibold [word-break:break-all]"
+                >{row.granteeEmail}</span
+              >
               {#if audienceStatus(row) === 'active'}
-                <span class="wsh-pill">Active</span>
+                <span class={pillBase}>Has access</span>
               {:else if audienceStatus(row) === 'expired'}
-                <span class="wsh-pill wsh-pill-warn">Invite expired</span>
+                <span
+                  class="wsh-pill wsh-pill-warn rounded-full bg-[color-mix(in_srgb,var(--danger,#c44)_16%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--danger,#c44)]"
+                >Invite expired</span>
               {:else}
-                <span class="wsh-pill wsh-pill-pending">Pending</span>
+                <span
+                  class="wsh-pill wsh-pill-pending rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_14%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]"
+                >Invite sent</span>
               {/if}
             </div>
             <button
               type="button"
-              class="cd-btn wsh-remove-btn"
+              class="cd-btn wsh-remove-btn shrink-0 !text-xs"
               disabled={revokingId === row.id}
               onclick={() => {
                 revokeTarget = row
@@ -480,29 +497,35 @@
     {/if}
   </section>
 
-  <h3 class="wsh-section-title wsh-invite-heading">Invite more people</h3>
-  <label class="wsh-label" for="wsh-grantees">
-    By handle (e.g. <code class="wsh-code">@cirne</code>) or email
+  <h3 class="{sectionTitle} wsh-invite-heading mt-1">Invite someone</h3>
+  <label class="wsh-label mb-1.5 block text-xs font-semibold" for="wsh-grantees">
+    @username or email (e.g. <code class={codeChip}>@alex</code>)
   </label>
-  <div class="wsh-field">
-    <div class="wsh-chips">
+  <div class="wsh-field relative">
+    <div
+      class="wsh-chips box-border flex w-full min-h-[38px] flex-wrap items-center gap-1.5 border border-[var(--color-border,#ccc)] bg-[var(--bg,#fff)] px-2 py-1.5"
+    >
       {#each selected as g (g.key)}
         <span
-          class="wsh-chip"
-          class:wsh-chip-warn={!g.email}
+          class={cn(
+            'wsh-chip inline-flex max-w-full items-baseline gap-1.5 bg-[color-mix(in_srgb,var(--accent,#2563eb)_12%,transparent)] py-[3px] pl-2 pr-1.5 text-xs leading-snug text-foreground',
+            !g.email && 'wsh-chip-warn bg-[color-mix(in_srgb,var(--danger,#b42318)_14%,transparent)]',
+          )}
           title={tooltipFor(g)}
         >
-          <span class="wsh-chip-label">
+          <span class="wsh-chip-label font-semibold">
             {g.handle ? `@${g.handle}` : g.email}
           </span>
           {#if g.displayName || g.email}
-            <span class="wsh-chip-meta">
+            <span
+              class="wsh-chip-meta max-w-[220px] overflow-hidden whitespace-nowrap text-ellipsis text-[11px] text-muted"
+            >
               {g.displayName ?? ''}{g.displayName && g.email ? ' · ' : ''}{g.email ?? ''}
             </span>
           {/if}
           <button
             type="button"
-            class="wsh-chip-x"
+            class="wsh-chip-x cursor-pointer border-none bg-transparent px-0.5 text-sm leading-none text-inherit"
             aria-label={`Remove ${g.handle ? '@' + g.handle : g.email}`}
             onclick={() => removeChip(g.key)}
           >×</button>
@@ -510,11 +533,11 @@
       {/each}
       <input
         id="wsh-grantees"
-        class="wsh-chip-input"
+        class="wsh-chip-input min-w-[140px] flex-1 border-none bg-transparent px-0.5 py-1 text-[13px] text-inherit [font:inherit] focus:outline-none"
         type="text"
         autocomplete="off"
         spellcheck="false"
-        placeholder={selected.length === 0 ? '@handle or name@example.com' : ''}
+        placeholder={selected.length === 0 ? '@username or you@example.com' : ''}
         bind:this={inputEl}
         bind:value={inputValue}
         oninput={onInput}
@@ -524,28 +547,38 @@
       />
     </div>
     {#if suggestOpen && (suggestions.length > 0 || suggestLoading)}
-      <div class="wsh-suggest" role="listbox">
+      <div
+        class="wsh-suggest absolute inset-x-0 top-full z-10 mt-1 max-h-[220px] overflow-y-auto border border-[var(--color-border,#ccc)] bg-[var(--bg-3,#fff)] shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
+        role="listbox"
+      >
         {#if suggestLoading && suggestions.length === 0}
-          <div class="wsh-suggest-empty">Searching…</div>
+          <div class="wsh-suggest-empty px-2.5 py-2 text-xs text-muted">Searching…</div>
         {/if}
         {#each suggestions as s, i (s.userId)}
           <button
             type="button"
             role="option"
             aria-selected={i === suggestIndex}
-            class="wsh-suggest-item"
-            class:selected={i === suggestIndex}
+            class={cn(
+              'wsh-suggest-item grid w-full cursor-pointer grid-cols-[auto_1fr_auto] items-baseline gap-x-2 border-none bg-transparent px-2.5 py-1.5 text-left text-inherit [font:inherit] hover:bg-[var(--accent-dim,rgba(37,99,235,0.12))]',
+              i === suggestIndex && 'selected bg-[var(--accent-dim,rgba(37,99,235,0.12))]',
+            )}
             onmousedown={(e) => {
               e.preventDefault()
               selectFromDirectory(s)
             }}
           >
-            <span class="wsh-suggest-handle">@{s.handle}</span>
+            <span class="wsh-suggest-handle text-[13px] font-semibold">@{s.handle}</span>
             {#if s.displayName}
-              <span class="wsh-suggest-name">{s.displayName}</span>
+              <span
+                class="wsh-suggest-name overflow-hidden whitespace-nowrap text-ellipsis text-[13px] text-foreground"
+                >{s.displayName}</span
+              >
             {/if}
-            <span class="wsh-suggest-email">
-              {s.primaryEmail ?? 'No connected email'}
+            <span
+              class="wsh-suggest-email overflow-hidden whitespace-nowrap text-ellipsis text-xs text-muted"
+            >
+              {s.primaryEmail ?? 'No email on file'}
             </span>
           </button>
         {/each}
@@ -553,26 +586,26 @@
     {/if}
   </div>
   {#if selected.some((g) => !g.email)}
-    <p class="wsh-hint wsh-hint-warn">
-      Selected users without a connected email cannot receive invites yet.
+    <p class="wsh-hint wsh-hint-warn mt-2 text-[13px] text-[var(--danger,#b42318)]">
+      Add an email to their workspace before they can receive invites.
     </p>
   {/if}
   {#if Object.keys(perGranteeErrors).length > 0}
-    <ul class="wsh-err-list">
+    <ul class="wsh-err-list m-0 mt-2 list-none p-0">
       {#each Object.entries(perGranteeErrors) as [key, msg] (key)}
-        <li class="wsh-err">{key}: {msg}</li>
+        <li class="{errBase} mt-1">{key}: {msg}</li>
       {/each}
     </ul>
   {/if}
   {#if errorMsg}
-    <p class="wsh-err" role="alert">{errorMsg}</p>
+    <p class={errBase} role="alert">{errorMsg}</p>
   {/if}
 </ConfirmDialog>
 
 <ConfirmDialog
   open={revokeTarget !== null}
   titleId="wiki-share-revoke-title"
-  title="Remove access?"
+  title="Stop sharing?"
   confirmVariant="danger"
   confirmLabel="Remove"
   cancelLabel="Cancel"
@@ -581,265 +614,22 @@
   }}
   onConfirm={() => void runRevokeAccess()}
 >
-  <p class="wsh-revoke-lead">
+  <p class="wsh-revoke-lead m-0 mb-2 text-sm leading-snug">
     {#if targetKind === 'dir'}
-      They lose read-only access to this folder and everything inside it under{' '}
-      <span class="wsh-share-path-name" translate="no">
+      They won’t be able to view this folder or anything inside{' '}
+      <span class={sharePathName} translate="no">
         <WikiFileName path={wikiShareDisplayPathForFileName} />
       </span>.
     {:else}
-      They lose read-only access to{' '}
-      <span class="wsh-share-path-name" translate="no">
-        <WikiFileName path={wikiShareDisplayPathForFileName} />.
-      </span>
+      They won’t be able to view{' '}
+      <span class={sharePathName} translate="no">
+        <WikiFileName path={wikiShareDisplayPathForFileName} />
+      </span>.
     {/if}
   </p>
   {#if revokeTarget}
-    <p class="wsh-revoke-detail"><strong>{revokeTarget.granteeEmail}</strong></p>
+    <p class="wsh-revoke-detail m-0 text-[13px] text-muted">
+      <strong>{revokeTarget.granteeEmail}</strong>
+    </p>
   {/if}
 </ConfirmDialog>
-
-<style>
-  :global(.cd-panel.wiki-share-cd-panel) {
-    width: 90vw;
-    max-width: 600px;
-  }
-  .wsh-lead {
-    margin: 0 0 12px;
-    font-size: 14px;
-    color: var(--color-muted, #888);
-  }
-  .wsh-share-path-name {
-    display: inline-flex;
-    vertical-align: text-bottom;
-    max-width: 100%;
-    color: var(--text, inherit);
-  }
-  .wsh-code {
-    font-size: 13px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: var(--color-surface-2, rgba(0, 0, 0, 0.06));
-  }
-  .wsh-section {
-    margin-bottom: 18px;
-  }
-  .wsh-section-title {
-    margin: 0 0 8px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text, inherit);
-  }
-  .wsh-invite-heading {
-    margin-top: 4px;
-  }
-  .wsh-muted {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-2, #666);
-  }
-  .wsh-audience-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 220px;
-    overflow-y: auto;
-  }
-  .wsh-audience-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--color-border, #ccc);
-    background: var(--bg, #fff);
-  }
-  .wsh-audience-main {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    min-width: 0;
-  }
-  .wsh-audience-email {
-    font-size: 13px;
-    font-weight: 600;
-    word-break: break-all;
-  }
-  .wsh-remove-btn {
-    flex-shrink: 0;
-    font-size: 12px !important;
-  }
-  .wsh-pill-warn {
-    background: color-mix(in srgb, var(--danger, #c44) 16%, transparent);
-    color: var(--danger, #c44);
-  }
-  .wsh-pill-pending {
-    background: color-mix(in srgb, var(--accent, #2563eb) 14%, transparent);
-    color: var(--accent, #2563eb);
-  }
-  .wsh-revoke-lead {
-    margin: 0 0 8px;
-    font-size: 14px;
-    line-height: 1.45;
-  }
-  .wsh-revoke-detail {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-2, #666);
-  }
-  .wsh-label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    margin-bottom: 6px;
-  }
-  .wsh-field {
-    position: relative;
-  }
-  .wsh-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--color-border, #ccc);
-    background: var(--bg, #fff);
-    min-height: 38px;
-  }
-  .wsh-chip {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    max-width: 100%;
-    padding: 3px 6px 3px 8px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent, #2563eb) 12%, transparent);
-    color: var(--text, inherit);
-    font-size: 12px;
-    line-height: 1.3;
-  }
-  .wsh-chip-warn {
-    background: color-mix(in srgb, var(--danger, #b42318) 14%, transparent);
-  }
-  .wsh-chip-label {
-    font-weight: 600;
-  }
-  .wsh-chip-meta {
-    color: var(--text-2, #666);
-    font-size: 11px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 220px;
-  }
-  .wsh-chip-x {
-    border: none;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    font-size: 14px;
-    line-height: 1;
-    padding: 0 2px;
-  }
-  .wsh-chip-input {
-    flex: 1;
-    min-width: 140px;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: 13px;
-    padding: 4px 2px;
-  }
-  .wsh-suggest {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
-    margin-top: 4px;
-    z-index: 10;
-    max-height: 220px;
-    overflow-y: auto;
-    background: var(--bg-3, #fff);
-    border: 1px solid var(--color-border, #ccc);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
-  .wsh-suggest-item {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    column-gap: 8px;
-    align-items: baseline;
-    width: 100%;
-    text-align: left;
-    background: transparent;
-    border: none;
-    padding: 6px 10px;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-  }
-  .wsh-suggest-item.selected,
-  .wsh-suggest-item:hover {
-    background: var(--accent-dim, rgba(37, 99, 235, 0.12));
-  }
-  .wsh-suggest-handle {
-    font-weight: 600;
-    font-size: 13px;
-  }
-  .wsh-suggest-name {
-    font-size: 13px;
-    color: var(--text, inherit);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .wsh-suggest-email {
-    font-size: 12px;
-    color: var(--text-2, #666);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .wsh-suggest-empty {
-    padding: 8px 10px;
-    font-size: 12px;
-    color: var(--text-2, #666);
-  }
-  .wsh-hint {
-    margin: 8px 0 0;
-    font-size: 13px;
-  }
-  .wsh-hint-warn {
-    color: var(--danger, #b42318);
-  }
-  .wsh-err {
-    margin: 8px 0 0;
-    font-size: 13px;
-    color: var(--danger, #b42318);
-  }
-  .wsh-err-list {
-    list-style: none;
-    padding: 0;
-    margin: 8px 0 0;
-  }
-  .wsh-err-list .wsh-err {
-    margin: 4px 0 0;
-  }
-  .wsh-pill {
-    font-size: 11px;
-    padding: 2px 6px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent, #2563eb) 18%, transparent);
-    color: var(--accent, #2563eb);
-  }
-</style>

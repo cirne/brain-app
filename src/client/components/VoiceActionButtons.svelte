@@ -1,5 +1,6 @@
 <script lang="ts">
   import { RotateCcw, X } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
 
   let {
     visible = false,
@@ -12,13 +13,23 @@
     onRestart: () => void | Promise<void>
     onCancel: () => void
   } = $props()
+
+  const chipBase =
+    'voice-chip voice-chip--icon-only box-border inline-flex h-10 w-10 min-w-[40px] cursor-pointer items-center justify-center whitespace-nowrap border border-[var(--border-1,rgba(0,0,0,0.12))] bg-[color-mix(in_srgb,var(--bg-elevated,var(--bg))_92%,transparent)] p-0 text-foreground touch-manipulation [-webkit-tap-highlight-color:transparent] [box-shadow:0_1px_2px_rgba(0,0,0,0.06)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:enabled:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40'
 </script>
 
-<div class="voice-actions" class:voice-actions--show={visible} aria-hidden={!visible}>
+<div
+  class={cn(
+    'voice-actions flex min-w-0 max-w-0 flex-nowrap items-center justify-start gap-2 overflow-hidden pl-0 opacity-0 [transform:translateX(-8px)] [transition:max-width_120ms_ease-in,opacity_120ms_ease-in,transform_120ms_ease-in,padding_120ms_ease-in] pointer-events-none',
+    visible &&
+      'voice-actions--show max-w-[320px] opacity-100 [transform:translateX(0)] pointer-events-auto [padding-left:max(10px,env(safe-area-inset-left,0px))] [transition:max-width_180ms_ease-out,opacity_180ms_ease-out,transform_180ms_ease-out,padding_180ms_ease-out]',
+  )}
+  aria-hidden={!visible}
+>
   <!-- Order: Cancel, then Restart (left → right) -->
   <button
     type="button"
-    class="voice-chip voice-chip--ghost voice-chip--icon-only"
+    class={cn(chipBase, 'voice-chip--ghost border-transparent bg-transparent font-medium text-muted [box-shadow:none]')}
     disabled={disabled || !visible}
     aria-label="Cancel recording"
     onclick={onCancel}
@@ -27,7 +38,7 @@
   </button>
   <button
     type="button"
-    class="voice-chip voice-chip--icon-only"
+    class={chipBase}
     disabled={disabled || !visible}
     aria-label="Restart recording"
     onclick={() => void onRestart()}
@@ -37,89 +48,7 @@
 </div>
 
 <style>
-  .voice-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    flex-wrap: nowrap;
-    gap: 8px;
-    min-width: 0;
-    max-width: 0;
-    padding-left: 0;
-    overflow: hidden;
-    opacity: 0;
-    transform: translateX(-8px);
-    pointer-events: none;
-    transition:
-      max-width 120ms ease-in,
-      opacity 120ms ease-in,
-      transform 120ms ease-in,
-      padding 120ms ease-in;
-  }
-
-  .voice-actions--show {
-    max-width: 320px;
-    padding-left: max(10px, env(safe-area-inset-left, 0px));
-    opacity: 1;
-    transform: translateX(0);
-    pointer-events: auto;
-    transition:
-      max-width 180ms ease-out,
-      opacity 180ms ease-out,
-      transform 180ms ease-out,
-      padding 180ms ease-out;
-  }
-
-  .voice-chip--icon-only {
-    gap: 0;
-    min-width: 40px;
-    width: 40px;
-    padding: 0;
-  }
-
-  .voice-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-height: 40px;
-    padding: 0 12px;
-    border-radius: 9999px;
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: var(--text);
-    background: color-mix(in srgb, var(--bg-elevated, var(--bg)) 92%, transparent);
-    border: 1px solid var(--border-1, rgba(0, 0, 0, 0.12));
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    box-sizing: border-box;
-    white-space: nowrap;
-  }
-
-  .voice-chip--ghost {
-    background: transparent;
-    box-shadow: none;
-    font-weight: 500;
-    color: var(--text-2);
-  }
-
-  .voice-chip:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .voice-chip:not(:disabled):active {
-    transform: scale(0.97);
-  }
-
-  .voice-chip:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-
+  /* Lucide icon class — must escape Svelte's scoped CSS so the icon class still applies. */
   :global(.voice-chip-ic) {
     flex-shrink: 0;
     opacity: 0.9;

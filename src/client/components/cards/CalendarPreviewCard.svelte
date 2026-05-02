@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Calendar } from 'lucide-svelte'
   import { localYmdFromDate, localYmdFromIsoInstant } from '@client/lib/calendarLocalYmd.js'
-  import DayEvents from '../DayEvents.svelte'
+  import DayEvents from '@components/DayEvents.svelte'
   import type { CalendarEventLite } from '@client/lib/cards/contentCards.js'
 
   let {
@@ -9,7 +9,6 @@
     end,
     events,
     onOpenCalendar,
-    /** Opens the calendar panel focused on a specific event (right pane / slide-over). */
     onOpenCalendarEvent,
   }: {
     start: string
@@ -19,7 +18,6 @@
     onOpenCalendarEvent?: (_date: string, _eventId: string) => void
   } = $props()
 
-  /** Events whose start (date part) falls on `day` (YYYY-MM-DD), or all-day spanning. */
   function eventsForDay(day: string): CalendarEventLite[] {
     return events.filter((e) => {
       if (e.allDay) {
@@ -29,7 +27,6 @@
     })
   }
 
-  /** Generate array of YYYY-MM-DD strings from start to end (inclusive). */
   function getDatesInRange(s: string, e: string): string[] {
     const dates: string[] = []
     const cur = new Date(s + 'T00:00:00')
@@ -48,9 +45,8 @@
 
   const allDates = $derived(getDatesInRange(start, end))
 
-  /** Days that have at least one event. */
   const daysWithEvents = $derived(
-    allDates.map((d) => ({ date: d, events: eventsForDay(d) })).filter((d) => d.events.length > 0)
+    allDates.map((d) => ({ date: d, events: eventsForDay(d) })).filter((d) => d.events.length > 0),
   )
 
   const MAX_DAYS = 5
@@ -58,26 +54,24 @@
   const hiddenCount = $derived(Math.max(0, daysWithEvents.length - MAX_DAYS))
 </script>
 
-<div class="calendar-tool-preview">
-  <div class="calendar-tool-head">
+<div class="calendar-tool-preview mt-1 min-w-0 max-w-full">
+  <div class="calendar-tool-head mb-2 flex flex-wrap items-center gap-2 text-muted">
     <Calendar size={14} strokeWidth={2} aria-hidden="true" />
-    <span class="calendar-tool-title">Calendar</span>
-    <span class="calendar-tool-meta">{start}{#if end !== start} – {end}{/if}</span>
+    <span class="calendar-tool-title text-xs font-semibold uppercase tracking-wide">Calendar</span>
+    <span class="calendar-tool-meta ml-auto text-[11px] opacity-85">{start}{#if end !== start} – {end}{/if}</span>
   </div>
 
   {#if daysWithEvents.length === 0}
-    <p class="calendar-tool-empty">No events in this range.</p>
+    <p class="calendar-tool-empty mb-1.5 text-xs text-muted">No events in this range.</p>
   {:else}
-    <div class="calendar-days-list">
+    <div class="calendar-days-list flex flex-col gap-2.5">
       {#each displayDays as day (day.date)}
-        <div class="day-group">
+        <div class="day-group flex flex-col gap-1">
           <button
             type="button"
-            class="day-header"
+            class="day-header cursor-pointer border-none bg-transparent p-0 text-left text-[11px] font-semibold uppercase tracking-wide text-accent hover:underline"
             onclick={() => onOpenCalendar?.(day.date)}
-          >
-            {formatDayHeader(day.date)}
-          </button>
+          >{formatDayHeader(day.date)}</button>
           <DayEvents
             date={day.date}
             events={day.events}
@@ -89,100 +83,15 @@
       {/each}
     </div>
     {#if hiddenCount > 0}
-      <p class="calendar-tool-more">+ {hiddenCount} more {hiddenCount === 1 ? 'day' : 'days'} with events</p>
+      <p class="calendar-tool-more mt-2 text-[11px] text-muted">+ {hiddenCount} more {hiddenCount === 1 ? 'day' : 'days'} with events</p>
     {/if}
   {/if}
 
   {#if onOpenCalendar}
-    <button type="button" class="calendar-tool-full" onclick={() => onOpenCalendar(start)}>
-      Open calendar
-    </button>
+    <button
+      type="button"
+      class="calendar-tool-full mt-2 cursor-pointer border-none bg-transparent p-0 text-left text-xs font-semibold text-accent hover:underline"
+      onclick={() => onOpenCalendar(start)}
+    >Open calendar</button>
   {/if}
 </div>
-
-<style>
-  .calendar-tool-preview {
-    margin: 4px 0 0;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .calendar-tool-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-    color: var(--text-2);
-    flex-wrap: wrap;
-  }
-
-  .calendar-tool-title {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .calendar-tool-meta {
-    font-size: 11px;
-    margin-left: auto;
-    opacity: 0.85;
-  }
-
-  .calendar-tool-empty {
-    margin: 0 0 6px;
-    font-size: 12px;
-    color: var(--text-2);
-  }
-
-  .calendar-days-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .day-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .day-header {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border: none;
-    background: none;
-    padding: 0;
-    cursor: pointer;
-    text-align: left;
-  }
-
-  .day-header:hover {
-    text-decoration: underline;
-  }
-
-  .calendar-tool-more {
-    margin: 8px 0 0;
-    font-size: 11px;
-    color: var(--text-2);
-  }
-
-  .calendar-tool-full {
-    margin-top: 8px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--accent);
-    cursor: pointer;
-    text-align: left;
-  }
-
-  .calendar-tool-full:hover {
-    text-decoration: underline;
-  }
-</style>

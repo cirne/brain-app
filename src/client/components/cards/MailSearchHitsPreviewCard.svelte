@@ -48,140 +48,52 @@
   }
 </script>
 
-<div class="mail-search-preview">
-  <div class="mail-search-query" title={queryLine}>{queryLine}</div>
+<div class="mail-search-preview mt-1 min-w-0 max-w-full">
+  <div
+    class="mail-search-query mb-1.5 font-mono text-[11px] leading-[1.35] text-muted [overflow-wrap:anywhere]"
+    title={queryLine}
+  >{queryLine}</div>
   {#if rows.length === 0}
-    <p class="mail-search-empty">No matching emails or indexed files.</p>
+    <p class="mail-search-empty m-0 text-xs text-muted">No matching emails or indexed files.</p>
   {:else}
-    <ul class="mail-search-list" role="list">
+    <ul class="mail-search-list m-0 flex list-none flex-col gap-0 p-0" role="list">
       {#each rows as row (row.id)}
-        <li>
+        <li
+          class="[&:not(:first-child)>button]:mt-1.5 [&:not(:first-child)>button]:border-t [&:not(:first-child)>button]:border-[color-mix(in_srgb,var(--border)_65%,transparent)] [&:not(:first-child)>button]:pt-2.5"
+        >
           <button
             type="button"
-            class="mail-search-row"
+            class="mail-search-row group flex w-full min-w-0 cursor-pointer flex-col items-stretch gap-[3px] border-none bg-transparent px-0 py-1 text-left font-[inherit] text-[inherit] [--mail-hit-gutter:18px]"
             onclick={() => openRow(row)}
           >
-            <span class="mail-search-title-line">
-              <span class="mail-search-icon" aria-hidden="true">
+            <span class="mail-search-title-line flex min-w-0 items-center gap-1.5">
+              <span class="mail-search-icon inline-flex shrink-0 text-muted" aria-hidden="true">
                 {#if searchHitIsIndexedFile(row, searchSource)}
                   <FileText size={12} />
                 {:else}
                   <Mail size={12} />
                 {/if}
               </span>
-              <span class="mail-search-subject">{row.subject || '(No subject)'}</span>
+              <span
+                class="mail-search-subject flex-1 min-w-0 truncate text-xs font-semibold leading-[1.3] group-hover:text-accent"
+              >{row.subject || '(No subject)'}</span>
             </span>
             {#if primaryLine(row)}
-              <span class="mail-search-from">{primaryLine(row)}</span>
+              <span
+                class="mail-search-from text-[11px] leading-[1.35] text-muted break-words [overflow-wrap:anywhere] [padding-inline-start:var(--mail-hit-gutter)]"
+              >{primaryLine(row)}</span>
             {/if}
             {#if searchHitSnippetLine(row)}
-              <span class="mail-search-snippet">{searchHitSnippetLine(row)}</span>
+              <span
+                class="mail-search-snippet text-[11px] leading-[1.35] text-muted overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] [overflow-wrap:anywhere] [padding-inline-start:var(--mail-hit-gutter)]"
+              >{searchHitSnippetLine(row)}</span>
             {/if}
           </button>
         </li>
       {/each}
     </ul>
     {#if more > 0}
-      <p class="mail-search-more">+{more} more</p>
+      <p class="mail-search-more mt-1.5 text-[11px] text-muted">+{more} more</p>
     {/if}
   {/if}
 </div>
-
-<style>
-  .mail-search-preview {
-    margin: 4px 0 0;
-    min-width: 0;
-    max-width: 100%;
-  }
-  .mail-search-query {
-    font-size: 11px;
-    line-height: 1.35;
-    color: var(--text-2);
-    margin-bottom: 6px;
-    overflow-wrap: anywhere;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  }
-  .mail-search-empty {
-    margin: 0;
-    font-size: 12px;
-    color: var(--text-2);
-  }
-  .mail-search-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-  .mail-search-list li:not(:first-child) .mail-search-row {
-    margin-top: 6px;
-    padding-top: 10px;
-    border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
-  }
-  /* Icon 12px + gap 6px — indent meta/snippet so they never share a row with the title (mobile-safe). */
-  .mail-search-row {
-    --mail-hit-gutter: calc(12px + 6px);
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 3px;
-    width: 100%;
-    text-align: left;
-    font: inherit;
-    color: inherit;
-    background: transparent;
-    border: none;
-    padding: 4px 0;
-    cursor: pointer;
-    min-width: 0;
-  }
-  .mail-search-title-line {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-  }
-  .mail-search-row:hover .mail-search-subject {
-    color: var(--accent);
-  }
-  .mail-search-icon {
-    flex-shrink: 0;
-    display: inline-flex;
-    color: var(--text-2);
-  }
-  .mail-search-subject {
-    flex: 1;
-    min-width: 0;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.3;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .mail-search-from {
-    padding-inline-start: var(--mail-hit-gutter);
-    font-size: 11px;
-    line-height: 1.35;
-    color: var(--text-2);
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-  .mail-search-snippet {
-    padding-inline-start: var(--mail-hit-gutter);
-    font-size: 11px;
-    line-height: 1.35;
-    color: var(--text-2);
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    overflow-wrap: anywhere;
-  }
-  .mail-search-more {
-    margin: 6px 0 0;
-    font-size: 11px;
-    color: var(--text-2);
-  }
-</style>

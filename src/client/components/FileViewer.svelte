@@ -1,5 +1,6 @@
 <script lang="ts">
-  import CsvSpreadsheetView from './CsvSpreadsheetView.svelte'
+  import { cn } from '@client/lib/cn.js'
+  import CsvSpreadsheetView from '@components/CsvSpreadsheetView.svelte'
   import { fileViewerKindForPath } from '@client/lib/fileViewerKind.js'
   import type { SurfaceContext } from '@client/router.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
@@ -63,57 +64,27 @@
       if (!fileLoadLatest.isStale(token)) loading = false
     }
   }
+
+  const isSpreadsheetMode = $derived(useSpreadsheetViewer && !loading && !err)
 </script>
 
-<div class="file-view" class:spreadsheet-mode={useSpreadsheetViewer && !loading && !err}>
+<div
+  class={cn(
+    'file-view box-border flex h-full min-h-0 min-w-0 flex-col px-4 py-3',
+    isSpreadsheetMode ? 'spreadsheet-mode overflow-hidden' : 'overflow-auto',
+  )}
+>
   {#if loading}
-    <p class="muted">Loading…</p>
+    <p class="muted text-[0.9rem] text-muted">Loading…</p>
   {:else if err}
-    <p class="err">{err}</p>
+    <p class="err text-[0.9rem] text-[var(--error,#c44)]">{err}</p>
   {:else if useSpreadsheetViewer}
     <CsvSpreadsheetView text={bodyText} path={pathForViewer} />
   {:else}
-    <div class="pre-wrap">
-      <pre class="body">{bodyText}</pre>
+    <div class="pre-wrap min-h-0 flex-1 overflow-auto">
+      <pre
+        class="body m-0 whitespace-pre-wrap [word-break:break-word] text-[0.85rem] leading-normal [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace]"
+      >{bodyText}</pre>
     </div>
   {/if}
 </div>
-
-<style>
-  .file-view {
-    height: 100%;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    padding: 12px 16px;
-    box-sizing: border-box;
-  }
-  .file-view.spreadsheet-mode {
-    overflow: hidden;
-  }
-  .file-view:not(.spreadsheet-mode) {
-    overflow: auto;
-  }
-  .pre-wrap {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-  }
-  .muted {
-    color: var(--muted, #888);
-    font-size: 0.9rem;
-  }
-  .err {
-    color: var(--error, #c44);
-    font-size: 0.9rem;
-  }
-  .body {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 0.85rem;
-    line-height: 1.45;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  }
-</style>

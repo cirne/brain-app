@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { Sparkles } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
-  import BackgroundAgentPanel from './statusBar/BackgroundAgentPanel.svelte'
+  import BackgroundAgentPanel from '@components/statusBar/BackgroundAgentPanel.svelte'
   import { backgroundAgentsFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
 
   type Props = {
@@ -87,18 +88,35 @@
       agents = list
     })
   })
+
+  /** Hub action button recipe (used in expansion controls). */
+  const hubBtn =
+    'hub-dialog-btn inline-flex cursor-pointer items-center gap-[0.35rem] border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
+  const hubBtnPrimary =
+    'hub-dialog-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.06)]'
+  const hubBtnSecondary =
+    'hub-dialog-btn-secondary border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground hover:not-disabled:bg-surface-2'
+
+  function statusPillClass(status: string): string {
+    return cn(
+      'status-pill bg-surface-3 px-2 py-[2px] text-[0.625rem] font-extrabold uppercase tracking-[0.05em] text-muted',
+      status === 'running' && 'bg-accent text-white',
+      status === 'queued' && 'bg-[color-mix(in_srgb,var(--accent)_55%,var(--bg-3))] text-foreground',
+      status === 'paused' && 'bg-[color-mix(in_srgb,var(--text-2)_22%,var(--bg-3))] text-foreground',
+    )
+  }
 </script>
 
-<div class="hub-bg-agents-detail">
-  <p class="section-lead">
+<div class="hub-bg-agents-detail flex min-h-0 flex-1 flex-col gap-6 overflow-auto px-5 pb-6 pt-4">
+  <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-snug text-muted">
     Wiki expansion fills and updates your vault using your profile, indexed mail, optional Messages (when
     available), and public web research when that improves accuracy. Use a full pass for a broad overview or a continue
     pass to deepen or fix gaps after mail syncs.
   </p>
-  <div class="expansion-actions" role="group" aria-label="Wiki expansion">
+  <div class="expansion-actions flex flex-wrap items-center gap-2" role="group" aria-label="Wiki expansion">
     <button
       type="button"
-      class="hub-dialog-btn hub-dialog-btn-primary"
+      class={cn(hubBtn, hubBtnPrimary)}
       disabled={expansionBlocked || expansionLoading !== null}
       onclick={() => void startWikiExpansion('full')}
     >
@@ -107,7 +125,7 @@
     </button>
     <button
       type="button"
-      class="hub-dialog-btn hub-dialog-btn-secondary"
+      class={cn(hubBtn, hubBtnSecondary)}
       disabled={expansionBlocked || expansionLoading !== null}
       onclick={() => void startWikiExpansion('continue')}
     >
@@ -115,22 +133,22 @@
     </button>
   </div>
   {#if expansionBlocked}
-    <p class="expansion-hint" role="status">
+    <p class="expansion-hint m-0 max-w-[40rem] text-[0.8125rem] leading-tight text-muted" role="status">
       A run is already in progress — you can follow it in the activity log below. When it finishes, you can start
       another pass.
     </p>
   {/if}
-  <div class="agents-list">
+  <div class="agents-list flex flex-col">
     {#if listAgents.length > 0}
       {#each listAgents as agent (agent.id)}
-        <div class="agent-item-container">
-          <div class="agent-summary">
-            <div class="agent-info">
-              <span class="status-pill {agent.status}">{agent.status}</span>
-              <span class="agent-label">{agent.label || 'Wiki Expansion'}</span>
+        <div class="agent-item-container flex flex-col gap-4 border-b border-border py-5">
+          <div class="agent-summary flex items-center justify-between">
+            <div class="agent-info flex items-center gap-3">
+              <span class={statusPillClass(agent.status)}>{agent.status}</span>
+              <span class="agent-label text-base font-semibold">{agent.label || 'Wiki Expansion'}</span>
             </div>
             {#if agent.pageCount > 0}
-              <span class="page-count">{agent.pageCount} pages</span>
+              <span class="page-count text-sm tabular-nums text-muted">{agent.pageCount} pages</span>
             {/if}
           </div>
           {#if ['running', 'queued', 'paused'].includes(agent.status)}
@@ -149,7 +167,7 @@
         </div>
       {/each}
     {:else}
-      <p class="empty-msg">
+      <p class="empty-msg m-0 py-4 text-[0.9375rem] text-muted">
         {#if agents.some((a) => a.status === 'completed')}
           No wiki expansion run in progress. Start a full or continue pass above when you want another pass.
         {:else}
@@ -159,148 +177,3 @@
     {/if}
   </div>
 </div>
-
-<style>
-  .hub-bg-agents-detail {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: 1rem 1.25rem 1.5rem;
-    min-height: 0;
-    flex: 1;
-    overflow: auto;
-  }
-
-  .section-lead {
-    margin: 0;
-    font-size: 0.9375rem;
-    color: var(--text-2);
-    line-height: 1.45;
-    max-width: 40rem;
-  }
-
-  .expansion-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .expansion-actions .hub-dialog-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .expansion-hint {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    line-height: 1.4;
-    max-width: 40rem;
-  }
-
-  .agents-list {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .agent-item-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1.25rem 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .agent-summary {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .agent-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .status-pill {
-    font-size: 0.625rem;
-    font-weight: 800;
-    padding: 2px 8px;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: var(--bg-3);
-    color: var(--text-2);
-  }
-
-  .status-pill.running {
-    background: var(--accent);
-    color: white;
-  }
-
-  .status-pill.queued {
-    background: color-mix(in srgb, var(--accent) 55%, var(--bg-3));
-    color: var(--text);
-  }
-
-  .status-pill.paused {
-    background: color-mix(in srgb, var(--text-2) 22%, var(--bg-3));
-    color: var(--text);
-  }
-
-  .agent-label {
-    font-size: 1rem;
-    font-weight: 600;
-  }
-
-  .page-count {
-    font-size: 0.875rem;
-    color: var(--text-2);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .hub-dialog-btn {
-    font-size: 0.875rem;
-    font-weight: 600;
-    padding: 0.45rem 0.9rem;
-    border-radius: 8px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-  }
-
-  .hub-dialog-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .hub-dialog-btn-secondary {
-    background: transparent;
-    color: var(--text);
-    border-color: color-mix(in srgb, var(--border) 80%, transparent);
-  }
-
-  .hub-dialog-btn-secondary:hover:not(:disabled) {
-    background: var(--bg-2);
-  }
-
-  .hub-dialog-btn-primary {
-    background: var(--accent);
-    color: white;
-    border-color: color-mix(in srgb, var(--accent) 80%, black);
-  }
-
-  .hub-dialog-btn-primary:hover:not(:disabled) {
-    filter: brightness(1.06);
-  }
-
-  .empty-msg {
-    margin: 0;
-    font-size: 0.9375rem;
-    color: var(--text-2);
-    padding: 1rem 0;
-  }
-</style>

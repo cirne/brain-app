@@ -19,6 +19,7 @@
   import { readHearRepliesPreference, writeHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
+  import { cn } from '@client/lib/cn.js'
 
   function notifyChatSessionsChanged() {
     emit({ type: 'chat:sessions-changed' })
@@ -37,15 +38,15 @@
   import { shiftQueuedFollowUp } from '@client/lib/agentFollowUpQueue.js'
   import { isBrainFinishConversationSubmit } from '@shared/finishConversationShortcut.js'
   import { Trash2, Volume2, VolumeX } from 'lucide-svelte'
-  import AgentConversation from './agent-conversation/AgentConversation.svelte'
-  import ComposerContextBar from './agent-conversation/ComposerContextBar.svelte'
+  import AgentConversation from '@components/agent-conversation/AgentConversation.svelte'
+  import ComposerContextBar from '@components/agent-conversation/ComposerContextBar.svelte'
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
   import { applyVoiceTranscriptToChat } from '@client/lib/voiceTranscribeRouting.js'
-  import UnifiedChatComposer from './UnifiedChatComposer.svelte'
-  import WikiFileName from './WikiFileName.svelte'
-  import PaneL2Header from './PaneL2Header.svelte'
-  import ConversationTokenMeter from './ConversationTokenMeter.svelte'
-  import ConfirmDialog from './ConfirmDialog.svelte'
+  import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
+  import PaneL2Header from '@components/PaneL2Header.svelte'
+  import ConversationTokenMeter from '@components/ConversationTokenMeter.svelte'
+  import ConfirmDialog from '@components/ConfirmDialog.svelte'
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
   import type { AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
@@ -795,25 +796,31 @@
     }
   }
 
+  const iconBtnClass =
+    'inline-flex shrink-0 items-center justify-center p-1 text-muted opacity-100 transition-colors duration-150 hover:bg-surface-3 hover:text-foreground max-md:min-h-11 max-md:min-w-11 max-md:p-0 max-md:[&_svg]:h-5 max-md:[&_svg]:w-5 [&_svg]:shrink-0'
 </script>
 
-<div class="agent-chat">
+<div class="agent-chat flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden bg-surface">
   <div
-    class="chat-body"
+    class="chat-body relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden"
     style:--composer-context-overlap-pad={showComposerContextBar && contextBarActualHeight > 0
       ? `${contextBarActualHeight}px`
       : '0'}
   >
-    <div class="chat-top">
+    <div class="chat-top relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
     {#if !centerEmptyInPane}
     <!-- Always in flex flow — prevents height jump when overlay opens/closes -->
     <div inert={conversationHidden || undefined}>
       <PaneL2Header>
         {#snippet center()}
-          <div class="header-left">
+          <div class="header-left flex min-w-0 items-center gap-2 overflow-hidden">
             <span
-              class="chat-title"
-              class:custom-title={!!chatTitle}
+              class={cn(
+                'chat-title text-[11px] font-semibold uppercase leading-none tracking-[0.06em] text-muted',
+                chatTitle
+                  ? 'custom-title min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap normal-case tracking-[0.02em]'
+                  : 'shrink-0',
+              )}
               aria-label={streaming &&
               !(streamingBusyLabel ?? '').trim() &&
               !(chatTitle ?? '').trim()
@@ -832,23 +839,29 @@
             </span>
             {#if !hidePaneContextChip}
               {#if context.type === 'wiki'}
-                <span class="context-chip"><WikiFileName path={context.path} /></span>
+                <span class="context-chip overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-muted opacity-80"
+                  ><WikiFileName path={context.path} /></span>
               {:else if context.type === 'file'}
-                <span class="context-chip"><WikiFileName path={context.path} /></span>
+                <span class="context-chip overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-muted opacity-80"
+                  ><WikiFileName path={context.path} /></span>
               {:else if contextChip}
-                <span class="context-chip">{contextChip}</span>
+                <span class="context-chip overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-muted opacity-80"
+                  >{contextChip}</span>
               {/if}
             {/if}
           </div>
         {/snippet}
         {#snippet right()}
           {@const hearRepliesOn = sessions.get(displayedSessionId)?.hearReplies === true}
-          <div class="pane-header-actions">
+          <div class="pane-header-actions flex min-w-0 shrink-0 items-center justify-end gap-0.5 me-1 max-md:gap-1.5">
             <ConversationTokenMeter totalTokens={conversationTokenTotal} />
             <button
               type="button"
-              class="hear-replies-header-btn"
-              class:hear-replies-header-btn--on={hearRepliesOn}
+              class={cn(
+                'hear-replies-header-btn',
+                iconBtnClass,
+                hearRepliesOn && 'hear-replies-header-btn--on text-accent hover:text-accent',
+              )}
               aria-pressed={hearRepliesOn}
               title="Assistant speaks replies (text-to-speech)"
               aria-label={hearRepliesOn
@@ -865,7 +878,7 @@
             {#if messages.length > 0}
               <button
                 type="button"
-                class="delete-chat-btn"
+                class={cn('delete-chat-btn', iconBtnClass)}
                 onclick={requestDeleteCurrentChat}
                 title="Delete chat"
                 aria-label="Delete chat"
@@ -880,14 +893,22 @@
     {/if}
 
     <div
-      class="mid-outer"
-      class:mid-outer--empty={centerEmptyInPane}
-      class:mid-outer--bridge-slide={bridgeSlideLayout}
+      class={cn(
+        'mid-outer flex min-h-0 min-w-0 flex-1 flex-col',
+        centerEmptyInPane && 'mid-outer--empty justify-center',
+        bridgeSlideLayout && 'mid-outer--bridge-slide bg-surface',
+      )}
     >
     <!-- Always mounted so it is visible behind the overlay during the slide-out animation -->
     {#if bridgeSlideLayout}
-      <div class="transcript-slide-stack">
-        <div class="mid" inert={conversationHidden || undefined}>
+      <div class="transcript-slide-stack relative flex min-h-0 min-w-0 flex-1 flex-col">
+        <div
+          class={cn(
+            'mid relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden',
+            centerEmptyInPane && 'flex-[0_1_auto] min-h-0',
+          )}
+          inert={conversationHidden || undefined}
+        >
           <ConversationView
             bind:this={conversationEl}
             {messages}
@@ -908,13 +929,19 @@
           />
         </div>
         {#if mobileDetail}
-          <div class="mobile-detail-layer mobile-detail-layer--over-transcript">
+          <div class="mobile-detail-layer mobile-detail-layer--over-transcript absolute inset-0 z-10 flex min-h-0 flex-col">
             {@render mobileDetail()}
           </div>
         {/if}
       </div>
     {:else}
-      <div class="mid" inert={conversationHidden || undefined}>
+      <div
+        class={cn(
+          'mid relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden',
+          centerEmptyInPane && 'flex-[0_1_auto] min-h-0',
+        )}
+        inert={conversationHidden || undefined}
+      >
         <ConversationView
           bind:this={conversationEl}
           {messages}
@@ -937,8 +964,16 @@
     {/if}
 
     {#if !hideInput}
-      <div class="composer-stack" class:composer-stack--bridge-dock={bridgeSlideLayout}>
-        <div bind:this={contextBarWrapEl} class="context-bar-overlay">
+      <div
+        class={cn(
+          'composer-stack relative flex shrink-0 flex-col max-md:pb-[env(safe-area-inset-bottom,0px)]',
+          bridgeSlideLayout && 'composer-stack--bridge-dock bg-surface',
+        )}
+      >
+        <div
+          bind:this={contextBarWrapEl}
+          class="context-bar-overlay pointer-events-none absolute inset-x-0 bottom-full z-[2]"
+        >
           <ComposerContextBar
             files={contextBarFiles}
             choices={contextBarChoices}
@@ -976,7 +1011,7 @@
     </div>
 
     {#if conversationHidden && mobileDetail && !bridgeSlideLayout}
-      <div class="mobile-detail-layer mobile-detail-layer--full">
+      <div class="mobile-detail-layer mobile-detail-layer--full absolute inset-0 z-10 flex min-h-0 flex-col">
         {@render mobileDetail()}
       </div>
     {/if}
@@ -993,261 +1028,37 @@
     onDismiss={cancelDeleteCurrentChat}
     onConfirm={() => void confirmDeleteCurrentChat()}
   >
-    {#snippet children()}
-      {#if pendingDelete}
-        <p>This will permanently remove "{pendingDelete.label}".</p>
-      {/if}
-    {/snippet}
+    {#if pendingDelete}
+      <p>This will permanently remove "{pendingDelete.label}".</p>
+    {/if}
   </ConfirmDialog>
 </div>
 
 <style>
-  .agent-chat {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    background: var(--bg-2);
-    min-height: 0;
-    min-width: 0;
-    overflow-x: hidden;
-  }
-
-  .chat-body {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    overflow-x: hidden;
-  }
-
-  .chat-top {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .mid-outer {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .mid-outer--empty {
-    justify-content: center;
-  }
-
-  .mid-outer--empty .mid {
-    flex: 0 1 auto;
-    min-height: 0;
-  }
-
-  .mid-outer--bridge-slide {
-    min-height: 0;
-    /* Column uses --bg-2; paint this stack like the document surface so the dock is not a grey bar */
-    background: var(--bg);
-  }
-
-  .transcript-slide-stack {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-  }
-
-  .composer-stack {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-  }
-
-  /** Floats the context bar above the composer, overlaying the bottom of the transcript. */
-  .context-bar-overlay {
-    position: absolute;
-    bottom: 100%;
-    left: 0;
-    right: 0;
-    z-index: 2;
-    pointer-events: none;
-  }
-
-  /** Re-enable pointer events for the chips themselves. */
+  /* Re-enable pointer events for the chips themselves (overlay is pointer-events:none). */
   .context-bar-overlay :global(.composer-context-bar) {
     pointer-events: auto;
   }
 
-  .composer-stack--bridge-dock {
-    /* Same surface as .mid-outer--bridge-slide (overrides any inherited --bg-2) */
-    background: var(--bg);
-  }
-
-  @media (max-width: 767px) {
-    .composer-stack {
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-    }
-  }
-
-  /* Same width as .conversation when chat is full-width (no detail split) */
-  @media (min-width: 768px) {
-    :global(.split:not(.has-detail)) .composer-stack {
-      max-width: var(--chat-column-max);
-      margin-left: auto;
-      margin-right: auto;
-      width: 100%;
-    }
-  }
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .chat-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-2);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    flex-shrink: 0;
-  }
-  .chat-title.custom-title {
-    text-transform: none;
-    letter-spacing: 0.02em;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .context-chip {
-    font-size: 11px;
-    color: var(--text-2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    opacity: 0.8;
-  }
-
-  /* Match SlideOver `.your-wiki-header-actions`: inset from the L2 right edge. */
-  .pane-header-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 2px;
-    flex-shrink: 0;
-    min-width: 0;
-    margin-inline-end: 4px;
-  }
-
-  .hear-replies-header-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    border-radius: 4px;
-    flex-shrink: 0;
-    color: var(--text-2);
-    opacity: 1;
-    transition: color 0.15s, background 0.15s;
-  }
-  .hear-replies-header-btn :global(svg) {
-    flex-shrink: 0;
-  }
-  .hear-replies-header-btn--on {
-    color: var(--accent);
-  }
-
-  .delete-chat-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    border-radius: 4px;
-    flex-shrink: 0;
-    color: var(--text-2);
-    opacity: 1;
-    transition: color 0.15s, background 0.15s;
-  }
-  .delete-chat-btn :global(svg) {
-    flex-shrink: 0;
-  }
-
-  @media (hover: hover) {
-    .hear-replies-header-btn:hover {
-      color: var(--text);
-      background: var(--bg-3);
-    }
-    .hear-replies-header-btn--on:hover {
-      color: var(--accent);
-    }
-    .delete-chat-btn:hover {
-      color: var(--text);
-      background: var(--bg-3);
-    }
-  }
-
-  /* Tap-friendly targets (iOS 44pt minimum); default compact on desktop. */
-  @media (max-width: 767px) {
-    .pane-header-actions {
-      gap: 6px;
-    }
-    .hear-replies-header-btn,
-    .delete-chat-btn {
-      min-width: 44px;
-      min-height: 44px;
-      padding: 0;
-    }
-    .hear-replies-header-btn :global(svg),
-    .delete-chat-btn :global(svg) {
-      width: 20px;
-      height: 20px;
-    }
-  }
-
-  .mid {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow-x: hidden;
-    position: relative;
-  }
-
-  .mobile-detail-layer {
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-
-  .mobile-detail-layer--over-transcript {
-    position: absolute;
-    inset: 0;
-  }
-
-  .mobile-detail-layer--full {
-    position: absolute;
-    inset: 0;
-  }
-
+  /* Slide-over inside `.mobile-detail-layer` should not paint a left border and must fill the layer. */
   .mobile-detail-layer :global(.slide-over) {
     border-left: none;
     flex: 1;
     min-height: 0;
+  }
+
+  /**
+   * Match legacy `components/AgentChat`: column width + horizontal centering.
+   * Tailwind `mx-auto` on a flex item is defeated by `align-items: stretch` on the column parent;
+   * use plain CSS so the composer lines up with `.chat-transcript-scroll` (see `style.css`).
+   */
+  @media (min-width: 768px) {
+    :global(.split:not(.has-detail)) .composer-stack {
+      box-sizing: border-box;
+      width: 100%;
+      max-width: var(--chat-column-max);
+      margin-left: auto;
+      margin-right: auto;
+    }
   }
 </style>

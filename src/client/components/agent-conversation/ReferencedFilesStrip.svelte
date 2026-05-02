@@ -1,5 +1,5 @@
 <script lang="ts">
-  import WikiFileName from '../WikiFileName.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
 
   let {
     paths,
@@ -15,7 +15,7 @@
   <div class="flex flex-wrap gap-1.5">
     {#each paths as path}
       <button
-        class="inline-flex items-center rounded-full border border-border bg-surface-3 px-2.5 py-1 text-xs transition-[border-color,background] duration-150 [font:inherit] hover:border-accent hover:bg-accent-dim hover:[&_.wfn-name]:text-accent hover:[&_.wfn-folder]:text-accent hover:[&_.wfn-folder]:opacity-70"
+        class="inline-flex items-center border border-border bg-surface-3 px-2.5 py-1 text-xs transition-[border-color,background] duration-150 [font:inherit] hover:border-accent hover:bg-accent-dim hover:[&_.wfn-name]:text-accent hover:[&_.wfn-folder]:text-accent hover:[&_.wfn-folder]:opacity-70"
         onclick={() => onOpenWiki?.(path)}
       >
         <WikiFileName {path} />

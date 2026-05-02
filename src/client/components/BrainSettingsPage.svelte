@@ -14,6 +14,7 @@
     Link2,
     Share2,
   } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import { subscribe, emit } from '@client/lib/app/appEvents.js'
   import { fetchWikiSharesList, type WikiShareApiRow } from '@client/lib/wikiSharesClient.js'
@@ -28,10 +29,10 @@
     type ChatToolDisplayMode,
   } from '@client/lib/chatToolDisplayPreference.js'
   import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
-  import ConfirmDialog from './ConfirmDialog.svelte'
-  import WikiShareDialog from './WikiShareDialog.svelte'
-  import WikiFileName from './WikiFileName.svelte'
-  import HubSourceRowBody from './HubSourceRowBody.svelte'
+  import ConfirmDialog from '@components/ConfirmDialog.svelte'
+  import WikiShareDialog from '@components/WikiShareDialog.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
+  import HubSourceRowBody from '@components/HubSourceRowBody.svelte'
   import { wikiShareVaultPathForWikiFileName } from '@client/lib/wikiPathDisplay.js'
   import { wikiVaultPathDisplayName } from '@client/lib/wikiFileNameLabels.js'
   import { MY_WIKI_URL_SEGMENT } from '@client/lib/wikiDirListModel.js'
@@ -364,48 +365,100 @@
       accountBusy = false
     }
   }
+
+  /** Section header. */
+  const sectionHeaderBase =
+    'section-header flex items-center gap-3 border-b border-border pb-3 text-foreground'
+  /**
+   * Settings link rows. Border-1 transparent gives stable row height; only the color changes
+   * on selection/focus so the fill sits flush with the row.
+   */
+  const linkItemBase =
+    'link-item flex cursor-pointer items-center justify-between border border-transparent border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] bg-transparent p-2 text-left text-foreground transition-[padding,color,background,border-color] duration-150 focus-visible:!border-accent focus-visible:bg-accent-dim focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-55'
+  const linkItemSelected =
+    'link-item--selected !border-[color-mix(in_srgb,var(--accent)_45%,transparent)] !bg-accent-dim focus-visible:!border-accent'
+
+  /** Sharing block primitives. */
+  const shareSubhead =
+    'settings-share-subhead m-0 text-[0.8125rem] font-bold uppercase tracking-[0.02em] text-muted'
+  const shareList = 'settings-share-list m-0 flex list-none flex-col gap-2 p-0'
+  const shareRow =
+    'settings-share-row flex items-center justify-between gap-3 border border-[color-mix(in_srgb,var(--border)_85%,transparent)] bg-surface-2 px-3 py-[0.65rem]'
+  const shareMain =
+    'settings-share-main flex min-w-0 flex-col items-start gap-1'
+  const sharePath =
+    'settings-share-path inline-flex min-w-0 max-w-full items-center text-[0.8125rem]'
+  const shareWikiLink =
+    'settings-share-wiki-link m-0 inline-flex min-w-0 max-w-full cursor-pointer items-center border-none bg-transparent p-0 text-left text-inherit [font:inherit] hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]'
+  const shareMeta = 'settings-share-meta text-xs text-muted'
+  const sharePillBase =
+    'settings-share-pill ml-[0.35rem] inline-block rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-1.5 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-accent'
+  const sharePillMuted =
+    'settings-share-pill-muted !bg-surface-3 !text-muted'
+  const shareActions =
+    'settings-share-actions flex flex-wrap shrink-0 items-center justify-end gap-2'
+  const shareBtn =
+    'settings-share-btn shrink-0 cursor-pointer border border-border bg-surface-3 px-[0.65rem] py-[0.35rem] text-[0.8125rem] font-semibold text-foreground transition-[background,border-color] duration-150 hover:enabled:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] hover:enabled:bg-surface disabled:cursor-not-allowed disabled:opacity-55'
+  const shareBtnPrimary =
+    'settings-share-btn-primary !border-[color-mix(in_srgb,var(--accent)_45%,transparent)] !bg-[color-mix(in_srgb,var(--accent)_16%,var(--bg-2))] !text-foreground hover:enabled:!bg-[color-mix(in_srgb,var(--accent)_24%,var(--bg-2))]'
+  const shareBtnDanger =
+    'settings-share-btn-danger !border-[color-mix(in_srgb,var(--danger)_40%,transparent)] !text-danger hover:enabled:!bg-[color-mix(in_srgb,var(--danger)_10%,var(--bg-2))]'
 </script>
 
-<div class="settings-page">
-  <header class="settings-header">
+<div
+  class="settings-page mx-auto flex w-full max-w-[900px] flex-col gap-8 px-8 py-10 text-foreground max-md:px-4 max-md:py-6"
+>
+  <header class="settings-header flex flex-col gap-3 border-b border-border pb-4">
     <div class="settings-title-block">
-      <h1>Settings</h1>
-      <p class="settings-subtitle">Your workspace, connections, and preferences.</p>
+      <h1 class="m-0 text-[2rem] font-extrabold tracking-[-0.02em]">Settings</h1>
+      <p class="settings-subtitle m-0 mt-2 max-w-[36rem] text-[0.9375rem] leading-[1.45] text-muted">
+        Your workspace, connections, and preferences.
+      </p>
       {#if hostedWorkspaceHandle}
-        <p class="settings-handle" translate="no">@{hostedWorkspaceHandle}</p>
+        <p
+          class="settings-handle m-0 mt-[0.35rem] font-mono text-[0.9375rem] text-muted"
+          translate="no"
+        >@{hostedWorkspaceHandle}</p>
       {/if}
     </div>
   </header>
 
   {#if addAccountBanner}
     <div
-      class="settings-banner"
-      class:settings-banner--err={addAccountBanner.kind === 'err'}
+      class={cn(
+        'settings-banner relative m-0 border bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg-2))] border-[color-mix(in_srgb,var(--accent)_35%,transparent)] py-3 pl-4 pr-10 text-[0.9375rem] text-foreground',
+        addAccountBanner.kind === 'err' &&
+          'settings-banner--err border-[color-mix(in_srgb,var(--danger)_40%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,var(--bg-2))]',
+      )}
       role={addAccountBanner.kind === 'err' ? 'alert' : 'status'}
     >
       {addAccountBanner.message}
       <button
         type="button"
-        class="settings-banner-dismiss"
+        class="settings-banner-dismiss absolute right-2 top-[0.35rem] cursor-pointer border-none bg-transparent px-[0.4rem] py-[0.15rem] text-xl leading-none text-muted hover:text-foreground"
         aria-label="Dismiss"
         onclick={() => (addAccountBanner = null)}
       >×</button>
     </div>
   {/if}
 
-  <div class="settings-grid">
-    <section class="settings-section" aria-labelledby="settings-account-heading" aria-busy={accountBusy}>
-      <div class="section-header">
+  <div class="settings-grid grid grid-cols-1 gap-14">
+    <section
+      class="settings-section flex flex-col gap-6"
+      aria-labelledby="settings-account-heading"
+      aria-busy={accountBusy}
+    >
+      <div class={sectionHeaderBase}>
         <User size={18} />
-        <h2 id="settings-account-heading">Account</h2>
+        <h2 id="settings-account-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Account</h2>
       </div>
-      <div class="links-list">
+      <div class="links-list flex flex-col">
         <button
           type="button"
-          class="link-item"
+          class={linkItemBase}
           onclick={() => onSettingsNavigate({ type: 'wiki', path: 'me.md' })}
         >
-          <div class="link-info">
+          <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
             <User size={16} />
             <span>Your profile</span>
           </div>
@@ -413,8 +466,8 @@
         </button>
 
         {#if multiTenant}
-          <button type="button" class="link-item" onclick={onLogout} disabled={accountBusy}>
-            <div class="link-info">
+          <button type="button" class={linkItemBase} onclick={onLogout} disabled={accountBusy}>
+            <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
               <LogOut size={16} />
               <span>Sign out</span>
             </div>
@@ -422,16 +475,19 @@
           </button>
           <button
             type="button"
-            class="link-item"
+            class={linkItemBase}
             onclick={openDeleteAllConfirm}
             disabled={accountBusy}
           >
-            <div class="link-info">
-              <span class="settings-delete-wrap" aria-hidden="true"><Trash2 size={16} /></span>
+            <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
+              <span
+                class="settings-delete-wrap flex shrink-0 text-danger [&_svg]:stroke-current"
+                aria-hidden="true"
+              ><Trash2 size={16} /></span>
               <span>Delete all my data</span>
             </div>
-            <div class="link-status">
-              <span class="status-sub">Removes wiki, index, chats</span>
+            <div class="link-status flex flex-col items-end gap-px">
+              <span class="status-sub text-xs text-muted">Removes wiki, index, chats</span>
             </div>
             <ChevronRight size={16} />
           </button>
@@ -439,20 +495,20 @@
       </div>
     </section>
 
-    <section class="settings-section" aria-labelledby="settings-sources-heading">
-      <div class="section-header">
+    <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-sources-heading">
+      <div class={sectionHeaderBase}>
         <Link2 size={18} />
-        <h2 id="settings-sources-heading">Connections</h2>
+        <h2 id="settings-sources-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Connections</h2>
       </div>
-      <p class="section-lead">
+      <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
         Mailboxes, calendars, and folders wired into Braintunnel. Open a row to change indexing, default send, or remove
         a connection.
       </p>
-      <div class="links-list">
+      <div class="links-list flex flex-col">
         {#if hubSourcesError}
-          <p class="empty-msg settings-sources-err" title={hubSourcesError}>Could not load sources.</p>
+          <p class="empty-msg settings-sources-err m-0 cursor-help py-4 text-[0.9375rem] text-muted" title={hubSourcesError}>Could not load sources.</p>
         {:else if orderedHubSources.length === 0}
-          <p class="empty-msg">
+          <p class="empty-msg m-0 py-4 text-[0.9375rem] text-muted">
             {#if multiTenant}
               No sources yet. Connect mail or add calendars below.
             {:else}
@@ -466,12 +522,15 @@
             {@const isHidden = isMail && mailHiddenFromDefault.has(s.id)}
             <button
               type="button"
-              class="link-item hub-source-row"
-              class:link-item--selected={selectedHubSourceId === s.id}
+              class={cn(
+                linkItemBase,
+                'hub-source-row',
+                selectedHubSourceId === s.id && linkItemSelected,
+              )}
               aria-current={selectedHubSourceId === s.id ? 'true' : undefined}
               onclick={() => onSettingsNavigate({ type: 'hub-source', id: s.id })}
             >
-              <div class="link-info">
+              <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
                 <HubSourceRowBody title={s.displayName} subtitle={sourceRowSecondary(s)}>
                   {#snippet icon()}
                     {#if s.kind === 'localDir'}
@@ -486,14 +545,23 @@
                   {/snippet}
                 </HubSourceRowBody>
               </div>
-              <div class="hub-source-row-flags" aria-hidden={!isMail}>
+              <div
+                class="hub-source-row-flags mr-2 inline-flex shrink-0 items-center gap-1.5"
+                aria-hidden={!isMail}
+              >
                 {#if isDefaultSend}
-                  <span class="hub-source-pill hub-source-pill--send" title="Default mailbox for sending">
+                  <span
+                    class="hub-source-pill hub-source-pill--send whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-[color-mix(in_srgb,var(--accent)_92%,var(--text))]"
+                    title="Default mailbox for sending"
+                  >
                     Default send
                   </span>
                 {/if}
                 {#if isHidden}
-                  <span class="hub-source-pill hub-source-pill--hidden" title="Excluded from default searches">
+                  <span
+                    class="hub-source-pill hub-source-pill--hidden whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-muted"
+                    title="Excluded from default searches"
+                  >
                     Hidden from search
                   </span>
                 {/if}
@@ -502,8 +570,8 @@
             </button>
           {/each}
         {/if}
-        <button type="button" class="link-item hub-source-row" onclick={startAddAnotherGmail}>
-          <div class="link-info">
+        <button type="button" class={cn(linkItemBase, 'hub-source-row')} onclick={startAddAnotherGmail}>
+          <div class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium">
             <HubSourceRowBody
               title="Add another Gmail account"
               subtitle="Search and send from a second mailbox in the same workspace"
@@ -518,31 +586,35 @@
       </div>
     </section>
 
-    <section id="settings-sharing" class="settings-section" aria-labelledby="settings-sharing-heading">
-      <div class="section-header">
+    <section
+      id="settings-sharing"
+      class="settings-section flex flex-col gap-6"
+      aria-labelledby="settings-sharing-heading"
+    >
+      <div class={sectionHeaderBase}>
         <Share2 size={18} />
-        <h2 id="settings-sharing-heading">Sharing</h2>
+        <h2 id="settings-sharing-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Sharing</h2>
       </div>
-      <p class="section-lead">
+      <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
         Accept read-only wiki invites from others and manage what you have shared. Invites match your
         <strong>primary mailbox email</strong> from Connections above.
       </p>
       {#if shareLoadError}
-        <p class="empty-msg settings-sharing-err" role="alert">{shareLoadError}</p>
+        <p class="empty-msg settings-sharing-err m-0 py-4 text-[0.9375rem] text-foreground" role="alert">{shareLoadError}</p>
       {/if}
 
       {#if sharePending.length > 0}
-        <div class="settings-share-block">
-          <h3 class="settings-share-subhead">Invitations</h3>
-          <ul class="settings-share-list">
+        <div class="settings-share-block flex flex-col gap-3">
+          <h3 class={shareSubhead}>Invitations</h3>
+          <ul class={shareList}>
             {#each sharePending as row (row.id)}
-              <li class="settings-share-row">
-                <div class="settings-share-main">
-                  <span class="settings-share-path" translate="no">
+              <li class={shareRow}>
+                <div class={shareMain}>
+                  <span class={sharePath} translate="no">
                     {#if onNavigateToSharedWiki}
                       <button
                         type="button"
-                        class="settings-share-wiki-link"
+                        class={shareWikiLink}
                         onclick={() => openReceivedShare(row)}
                         aria-label={shareIncomingOpenWikiLabel(row)}
                       >
@@ -552,11 +624,11 @@
                       <WikiFileName path={sharePathForFileName(row)} />
                     {/if}
                   </span>
-                  <span class="settings-share-meta">From @{row.ownerHandle} · {row.granteeEmail}</span>
+                  <span class={shareMeta}>From @{row.ownerHandle} · {row.granteeEmail}</span>
                 </div>
                 <button
                   type="button"
-                  class="settings-share-btn settings-share-btn-primary"
+                  class={cn(shareBtn, shareBtnPrimary)}
                   disabled={shareAcceptBusyId !== null}
                   onclick={() => void acceptPendingShare(row)}
                 >
@@ -568,20 +640,20 @@
         </div>
       {/if}
 
-      <div class="settings-share-block">
-        <h3 class="settings-share-subhead">Shared with you</h3>
+      <div class="settings-share-block flex flex-col gap-3">
+        <h3 class={shareSubhead}>Shared with you</h3>
         {#if shareReceived.length === 0}
-          <p class="empty-msg settings-share-empty">No active shared wikis yet.</p>
+          <p class="empty-msg settings-share-empty m-0 py-2 text-[0.9375rem] text-muted">No active shared wikis yet.</p>
         {:else}
-          <ul class="settings-share-list">
+          <ul class={shareList}>
             {#each shareReceived as row (row.id)}
-              <li class="settings-share-row">
-                <div class="settings-share-main">
-                  <span class="settings-share-path" translate="no">
+              <li class={shareRow}>
+                <div class={shareMain}>
+                  <span class={sharePath} translate="no">
                     {#if onNavigateToSharedWiki}
                       <button
                         type="button"
-                        class="settings-share-wiki-link"
+                        class={shareWikiLink}
                         onclick={() => openReceivedShare(row)}
                         aria-label={shareIncomingOpenWikiLabel(row)}
                       >
@@ -591,9 +663,9 @@
                       <WikiFileName path={sharePathForFileName(row)} />
                     {/if}
                   </span>
-                  <span class="settings-share-meta">@{row.ownerHandle}</span>
+                  <span class={shareMeta}>@{row.ownerHandle}</span>
                 </div>
-                <button type="button" class="settings-share-btn" onclick={() => openReceivedShare(row)}>
+                <button type="button" class={shareBtn} onclick={() => openReceivedShare(row)}>
                   Open
                 </button>
               </li>
@@ -602,45 +674,45 @@
         {/if}
       </div>
 
-      <div class="settings-share-block">
-        <h3 class="settings-share-subhead">What you’ve shared</h3>
+      <div class="settings-share-block flex flex-col gap-3">
+        <h3 class={shareSubhead}>What you’ve shared</h3>
         {#if shareOwned.length === 0}
-          <p class="empty-msg settings-share-empty">You have not shared any wiki paths yet.</p>
+          <p class="empty-msg settings-share-empty m-0 py-2 text-[0.9375rem] text-muted">You have not shared any wiki paths yet.</p>
         {:else}
-          <ul class="settings-share-list">
+          <ul class={shareList}>
             {#each shareOwned as row (row.id)}
-              <li class="settings-share-row">
-                <div class="settings-share-main">
-                  <span class="settings-share-path" translate="no">
+              <li class={shareRow}>
+                <div class={shareMain}>
+                  <span class={sharePath} translate="no">
                     <button
                       type="button"
-                      class="settings-share-wiki-link"
+                      class={shareWikiLink}
                       onclick={() => openOwnedShareInPanel(row)}
                       aria-label={shareRowOpenWikiLabel(row)}
                     >
                       <WikiFileName path={sharePathForFileName(row)} />
                     </button>
                   </span>
-                  <span class="settings-share-meta">
+                  <span class={shareMeta}>
                     → {row.granteeEmail}
                     {#if row.granteeId}
-                      <span class="settings-share-pill">Active</span>
+                      <span class={sharePillBase}>Active</span>
                     {:else}
-                      <span class="settings-share-pill settings-share-pill-muted">Pending</span>
+                      <span class={cn(sharePillBase, sharePillMuted)}>Pending</span>
                     {/if}
                   </span>
                 </div>
-                <div class="settings-share-actions">
+                <div class={shareActions}>
                   <button
                     type="button"
-                    class="settings-share-btn"
+                    class={shareBtn}
                     onclick={() => openManageOwnedShare(row)}
                   >
                     Manage
                   </button>
                   <button
                     type="button"
-                    class="settings-share-btn settings-share-btn-danger"
+                    class={cn(shareBtn, shareBtnDanger)}
                     disabled={shareRevokeBusyId !== null}
                     onclick={() => void revokeOwnedShare(row)}
                   >
@@ -662,43 +734,45 @@
       onSharesChanged={() => void loadWikiShares()}
     />
 
-    <section class="settings-section" aria-labelledby="settings-chat-prefs-heading">
-      <div class="section-header">
+    <section class="settings-section flex flex-col gap-6" aria-labelledby="settings-chat-prefs-heading">
+      <div class={sectionHeaderBase}>
         <MessageSquare size={18} />
-        <h2 id="settings-chat-prefs-heading">Chat</h2>
+        <h2 id="settings-chat-prefs-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Chat</h2>
       </div>
-      <p class="section-lead" id="settings-chat-tool-display-desc">
+      <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted" id="settings-chat-tool-display-desc">
         How assistant tool use appears in your message history.
       </p>
       <div
-        class="settings-chat-pref-section"
+        class="settings-chat-pref-section flex flex-col gap-[0.6rem]"
         role="radiogroup"
         aria-labelledby="settings-chat-tool-display-desc"
       >
-        <label class="settings-chat-pref-row">
+        <label class="settings-chat-pref-row flex cursor-pointer items-start gap-[0.6rem] py-[0.45rem]">
           <input
             type="radio"
             name="settings-chat-tool-display"
             value="compact"
+            class="mt-[0.2rem] shrink-0 accent-accent"
             checked={chatToolDisplayMode === 'compact'}
             onchange={() => onChatToolDisplayPrefChange('compact')}
           />
-          <span class="settings-chat-pref-text">
-            <span class="settings-chat-pref-title">Compact</span>
-            <span class="settings-chat-pref-sub">One-line summary per tool in the transcript.</span>
+          <span class="settings-chat-pref-text flex flex-col gap-[0.15rem]">
+            <span class="settings-chat-pref-title text-sm font-semibold leading-[1.3] text-foreground">Compact</span>
+            <span class="settings-chat-pref-sub text-[0.8125rem] leading-[1.4] text-muted">One-line summary per tool in the transcript.</span>
           </span>
         </label>
-        <label class="settings-chat-pref-row">
+        <label class="settings-chat-pref-row flex cursor-pointer items-start gap-[0.6rem] py-[0.45rem]">
           <input
             type="radio"
             name="settings-chat-tool-display"
             value="detailed"
+            class="mt-[0.2rem] shrink-0 accent-accent"
             checked={chatToolDisplayMode === 'detailed'}
             onchange={() => onChatToolDisplayPrefChange('detailed')}
           />
-          <span class="settings-chat-pref-text">
-            <span class="settings-chat-pref-title">Detailed</span>
-            <span class="settings-chat-pref-sub">
+          <span class="settings-chat-pref-text flex flex-col gap-[0.15rem]">
+            <span class="settings-chat-pref-title text-sm font-semibold leading-[1.3] text-foreground">Detailed</span>
+            <span class="settings-chat-pref-sub text-[0.8125rem] leading-[1.4] text-muted">
               Expandable arguments, results, and previews inline for each tool.
             </span>
           </span>
@@ -720,457 +794,23 @@
   }}
   onConfirm={() => void executeDeleteAllData()}
 >
-  {#snippet children()}
-    <p>
-      This permanently removes your wiki, chats, and profile from Braintunnel, plus the search library Braintunnel built
-      from your mail and other sources. You can't undo it.
-    </p>
-    <p>
-      Your email accounts stay as they are: Braintunnel doesn't change or delete messages at your provider, and you can
-      keep using mail the same way you do today.
-    </p>
-  {/snippet}
+  <p>
+    This permanently removes your wiki, chats, and profile from Braintunnel, plus the search library Braintunnel built
+    from your mail and other sources. You can't undo it.
+  </p>
+  <p>
+    Your email accounts stay as they are: Braintunnel doesn't change or delete messages at your provider, and you can
+    keep using mail the same way you do today.
+  </p>
 </ConfirmDialog>
 
 <style>
-  .settings-page {
-    padding: 2.5rem 2rem;
-    max-width: 900px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-    color: var(--text);
-  }
-
-  .settings-header {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .settings-title-block h1 {
-    margin: 0;
-    font-size: 2rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-  }
-
-  .settings-subtitle {
-    margin: 0.5rem 0 0;
-    font-size: 0.9375rem;
-    line-height: 1.45;
-    color: var(--text-2);
-    max-width: 36rem;
-  }
-
-  .settings-handle {
-    margin: 0.35rem 0 0;
-    font-size: 0.9375rem;
-    font-family: ui-monospace, monospace;
-    color: var(--text-2);
-  }
-
-  .settings-banner {
-    margin: 0;
-    padding: 0.75rem 2.5rem 0.75rem 1rem;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--accent) 14%, var(--bg-2));
-    color: var(--text);
-    font-size: 0.9375rem;
-    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-    position: relative;
-  }
-
-  .settings-banner--err {
-    background: color-mix(in srgb, var(--danger) 12%, var(--bg-2));
-    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
-    color: var(--text);
-  }
-
-  .settings-banner-dismiss {
-    position: absolute;
-    top: 0.35rem;
-    right: 0.5rem;
-    background: transparent;
-    border: none;
-    color: var(--text-2);
-    cursor: pointer;
-    font-size: 1.25rem;
-    line-height: 1;
-    padding: 0.15rem 0.4rem;
-    border-radius: 6px;
-  }
-
-  .settings-banner-dismiss:hover {
-    color: var(--text);
-  }
-
-  .settings-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 3.5rem;
-  }
-
-  .settings-section {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--text);
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 0.9375rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-  }
-
-  .section-lead {
-    margin: 0;
-    font-size: 0.9375rem;
-    color: var(--text-2);
-    line-height: 1.45;
-    max-width: 40rem;
-  }
-
-  .settings-chat-pref-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-
-  .settings-chat-pref-row {
-    display: flex;
-    gap: 0.6rem;
-    align-items: flex-start;
-    padding: 0.45rem 0;
-    cursor: pointer;
-  }
-
-  .settings-chat-pref-row input[type='radio'] {
-    margin-top: 0.2rem;
-    flex-shrink: 0;
-    accent-color: var(--accent);
-  }
-
-  .settings-chat-pref-text {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .settings-chat-pref-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--text);
-    line-height: 1.3;
-  }
-
-  .settings-chat-pref-sub {
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    line-height: 1.4;
-  }
-
-  .hub-source-row-flags {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-    margin-right: 8px;
-  }
-
-  .hub-source-pill {
-    font-size: 0.625rem;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 999px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-  }
-
-  .hub-source-pill--send {
-    background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
-    color: color-mix(in srgb, var(--accent) 92%, var(--text));
-    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  }
-
-  .hub-source-pill--hidden {
-    background: var(--bg-3);
-    color: var(--text-2);
-    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  }
-
-  .links-list {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .link-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem;
-    background: transparent;
-    /* Uniform border keeps row height stable; color shows selection/focus flush with fill */
-    border: 1px solid transparent;
-    border-bottom-color: color-mix(in srgb, var(--border) 40%, transparent);
-    color: var(--text);
-    cursor: pointer;
-    text-align: left;
-    transition:
-      padding-left 0.2s ease,
-      color 0.15s,
-      background 0.12s ease,
-      border-color 0.12s ease;
-  }
-
-  .link-item:focus-visible:not(:disabled) {
-    background: var(--accent-dim);
-    outline: none;
-    border-color: var(--accent);
-    border-bottom-color: var(--accent);
-  }
-
-  /** Matches open hub-source detail (`selectedHubSourceId`) — not focus-only. */
-  .link-item.link-item--selected:not(:disabled) {
-    background: var(--accent-dim);
-    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-    border-bottom-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  }
-
-  .link-item.link-item--selected:not(:disabled):focus-visible {
-    border-color: var(--accent);
-    border-bottom-color: var(--accent);
-  }
-
-  .link-item:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .link-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex: 1;
-    min-width: 0;
-    font-size: 0.9375rem;
-    font-weight: 500;
-  }
-
-  .link-status {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-  }
-
-  .status-sub {
-    font-size: 0.75rem;
-    color: var(--text-2);
-  }
-
-  .settings-delete-wrap {
-    display: flex;
-    flex-shrink: 0;
-    color: var(--danger);
-  }
-
-  .settings-delete-wrap :global(svg) {
-    stroke: currentColor;
-  }
-
-  .empty-msg {
-    margin: 0;
-    font-size: 0.9375rem;
-    color: var(--text-2);
-    padding: 1rem 0;
-  }
-
-  .settings-sources-err {
-    cursor: help;
-  }
-
-  .settings-sharing-err {
-    color: var(--text);
-  }
-
-  .settings-share-block {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .settings-share-subhead {
-    margin: 0;
-    font-size: 0.8125rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: var(--text-2);
-    text-transform: uppercase;
-  }
-
-  .settings-share-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .settings-share-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.65rem 0.75rem;
-    border-radius: 8px;
-    border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
-    background: var(--bg-2);
-  }
-
-  .settings-share-main {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
-    min-width: 0;
-  }
-
-  .settings-share-path {
-    display: inline-flex;
-    align-items: center;
-    min-width: 0;
-    max-width: 100%;
-    font-size: 0.8125rem;
-  }
-
-  .settings-share-wiki-link {
-    display: inline-flex;
-    align-items: center;
-    min-width: 0;
-    max-width: 100%;
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: transparent;
-    font: inherit;
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-    border-radius: 4px;
-  }
-
-  .settings-share-wiki-link:hover {
-    color: var(--accent);
-  }
-
-  .settings-share-wiki-link:hover :global(.wfn-name),
-  .settings-share-wiki-link:hover :global(.wfn-folder) {
+  /* Hover underline on the WikiFileName name/folder when its outer share-link button is hovered.
+     `:global(...)` targets are required because `wfn-name` / `wfn-folder` are emitted from the
+     child `WikiFileName` component. */
+  :global(.settings-share-wiki-link:hover .wfn-name),
+  :global(.settings-share-wiki-link:hover .wfn-folder) {
     text-decoration: underline;
     text-underline-offset: 2px;
-  }
-
-  .settings-share-wiki-link:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
-    outline-offset: 2px;
-  }
-
-  .settings-share-meta {
-    font-size: 0.75rem;
-    color: var(--text-2);
-  }
-
-  .settings-share-pill {
-    display: inline-block;
-    margin-left: 0.35rem;
-    font-size: 0.625rem;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .settings-share-pill-muted {
-    background: var(--bg-3);
-    color: var(--text-2);
-  }
-
-  .settings-share-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    flex-shrink: 0;
-  }
-
-  .settings-share-btn {
-    flex-shrink: 0;
-    padding: 0.35rem 0.65rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--bg-3);
-    color: var(--text);
-    cursor: pointer;
-    transition: background 0.12s, border-color 0.12s;
-  }
-
-  .settings-share-btn:hover:not(:disabled) {
-    background: var(--bg);
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  }
-
-  .settings-share-btn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .settings-share-btn-primary {
-    background: color-mix(in srgb, var(--accent) 16%, var(--bg-2));
-    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-    color: var(--text);
-  }
-
-  .settings-share-btn-primary:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--accent) 24%, var(--bg-2));
-  }
-
-  .settings-share-btn-danger {
-    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
-    color: var(--danger);
-  }
-
-  .settings-share-btn-danger:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--danger) 10%, var(--bg-2));
-  }
-
-  .settings-share-empty {
-    padding: 0.5rem 0;
-  }
-
-  @media (max-width: 767px) {
-    .settings-page {
-      padding: 1.5rem 1rem;
-    }
   }
 </style>

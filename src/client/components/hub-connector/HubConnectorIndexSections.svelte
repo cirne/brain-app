@@ -1,8 +1,9 @@
 <script lang="ts">
   import { RefreshCw } from 'lucide-svelte'
-  import FileSourceConfigEditor from '../FileSourceConfigEditor.svelte'
-  import HubConnectorCalendarSection from './HubConnectorCalendarSection.svelte'
-  import HubConnectorDriveSection from './HubConnectorDriveSection.svelte'
+  import { cn } from '@client/lib/cn.js'
+  import FileSourceConfigEditor from '@components/FileSourceConfigEditor.svelte'
+  import HubConnectorCalendarSection from '@components/hub-connector/HubConnectorCalendarSection.svelte'
+  import HubConnectorDriveSection from '@components/hub-connector/HubConnectorDriveSection.svelte'
   import {
     formatRelativeDate,
     type HubSourceDetailOk,
@@ -32,22 +33,35 @@
   }: Props = $props()
 
   const isGoogleCalendar = $derived(sourceDetail?.kind === 'googleCalendar')
+
+  const hubDialogBtnBase =
+    'hub-dialog-btn cursor-pointer border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
+  const hubDialogBtnPrimary =
+    'hub-dialog-btn-primary bg-accent text-white border-[color-mix(in_srgb,var(--accent)_80%,black)] hover:not-disabled:brightness-[1.06]'
+  const hubSourceSyncBtn = 'hub-source-sync-btn inline-flex items-center gap-[0.4rem]'
+
+  const sectionDivider =
+    'border-t border-[color-mix(in_srgb,var(--border)_50%,transparent)] pt-[0.85rem]'
+  const errClass = 'hub-source-status-err m-0 text-[0.8125rem] leading-[1.45] text-danger'
+  const indexLineClass =
+    'hub-source-index-line m-0 mb-1 flex flex-wrap items-center gap-x-[0.45rem] gap-y-[0.35rem] text-[0.8125rem] leading-[1.5] text-muted'
+  const indexLineSep = 'hub-source-index-line-sep opacity-45 select-none font-normal'
 </script>
 
 {#if sourceDetailError}
-  <section class="hub-source-status-section">
-    <p class="hub-source-status-err" role="alert">{sourceDetailError}</p>
+  <section class={cn('hub-source-status-section flex flex-col gap-[0.65rem]', sectionDivider)}>
+    <p class={errClass} role="alert">{sourceDetailError}</p>
   </section>
 {:else if sourceDetail}
   {#if sourceDetail.status}
     {@const st = sourceDetail.status}
-    <p class="hub-source-index-line" role="status">
+    <p class={indexLineClass} role="status">
       {#if isGoogleCalendar}
         <span>{st.calendarEventRows.toLocaleString()} events</span>
       {:else}
         <span>{st.documentIndexRows.toLocaleString()} documents</span>
       {/if}
-      <span class="hub-source-index-line-sep" aria-hidden="true">·</span>
+      <span class={indexLineSep} aria-hidden="true">·</span>
       <span>Last synced {formatRelativeDate(st.lastSyncedAt)}</span>
     </p>
   {/if}
@@ -77,26 +91,39 @@
   {/if}
 
   {#if sourceDetail.icsUrl}
-    <p class="hub-ics-line">
-      <span class="hub-ics-label">Feed</span>
-      <span class="hub-ics-url" title={sourceDetail.icsUrl}>{sourceDetail.icsUrl}</span>
+    <p class="hub-ics-line m-0 flex flex-col gap-[0.2rem] text-[0.8125rem] leading-[1.4] text-muted">
+      <span
+        class="hub-ics-label text-[0.6875rem] font-semibold uppercase tracking-[0.05em] text-muted"
+      >Feed</span>
+      <span
+        class="hub-ics-url break-all text-[0.78rem] text-foreground [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]"
+        title={sourceDetail.icsUrl}
+      >{sourceDetail.icsUrl}</span>
     </p>
   {/if}
 
   {#if sourceDetail.statusError}
-    <p class="hub-source-status-err" role="alert">{sourceDetail.statusError}</p>
+    <p class={errClass} role="alert">{sourceDetail.statusError}</p>
   {/if}
 
   {#if showInlineRefresh}
-    <div class="hub-source-sync-buttons hub-source-sync-buttons--inline">
+    <div
+      class="hub-source-sync-buttons hub-source-sync-buttons--inline mt-[0.35rem] flex flex-wrap gap-2"
+    >
       <button
         type="button"
-        class="hub-dialog-btn hub-dialog-btn-primary hub-source-sync-btn"
+        class={cn(hubDialogBtnBase, hubDialogBtnPrimary, hubSourceSyncBtn)}
         disabled={sourceSyncAction !== null || indexRefreshPending || driveSyncBlocked}
-        title={driveSyncBlocked ? 'Add at least one Drive folder in the list above before syncing' : undefined}
+        title={driveSyncBlocked
+          ? 'Add at least one Drive folder in the list above before syncing'
+          : undefined}
         onclick={onRefresh}
       >
-        <RefreshCw size={16} aria-hidden="true" class={indexRefreshPending ? 'hub-refresh-working' : ''} />
+        <RefreshCw
+          size={16}
+          aria-hidden="true"
+          class={indexRefreshPending ? 'hub-refresh-working' : ''}
+        />
         {sourceSyncAction === 'refresh'
           ? 'Starting…'
           : indexRefreshPending
@@ -106,3 +133,16 @@
     </div>
   {/if}
 {/if}
+
+<style>
+  /* Keyframe reused by the RefreshCw icon class while a background refresh is pending. */
+  :global(.hub-refresh-working) {
+    animation: hub-refresh-spin 0.85s linear infinite;
+  }
+
+  @keyframes hub-refresh-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+</style>

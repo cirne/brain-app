@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { Loader2, MessageSquare, Search, Trash2 } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
   import {
@@ -10,7 +11,7 @@
     formatChatSessionsFetchError,
   } from '@client/lib/chatHistorySessions.js'
   import type { ChatSessionListItem } from '@client/lib/chatSessionTypes.js'
-  import ConfirmDialog from './ConfirmDialog.svelte'
+  import ConfirmDialog from '@components/ConfirmDialog.svelte'
 
   const emptyStreaming = new Set<string>()
 
@@ -142,15 +143,15 @@
   })
 </script>
 
-<div class="chp">
-  <div class="chp-search">
-    <label class="chp-search-label" for="chp-search-input">Search chats</label>
-    <div class="chp-search-inner">
+<div class="chp flex h-full min-h-0 flex-col bg-surface-2">
+  <div class="chp-search shrink-0 px-3 pt-2.5 pb-2 border-b border-border">
+    <label class="chp-search-label block mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted" for="chp-search-input">Search chats</label>
+    <div class="chp-search-inner flex items-center gap-2 px-2.5 py-2 border border-border bg-surface-3">
       <Search class="chp-search-icon" size={16} strokeWidth={2} aria-hidden="true" />
       <input
         id="chp-search-input"
         type="search"
-        class="chp-input"
+        class="chp-input flex-1 min-w-0 border-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted placeholder:opacity-70"
         placeholder="Filter"
         bind:value={searchQuery}
         autocomplete="off"
@@ -159,15 +160,15 @@
     </div>
   </div>
 
-  <div class="chp-list">
+  <div class="chp-list flex-1 min-h-0 overflow-y-auto px-2 pt-1.5 pb-3">
     {#if loading}
-      <div class="chp-muted">Loading…</div>
+      <div class="chp-muted px-2 py-3 text-[13px] text-muted">Loading…</div>
     {:else if error}
-      <div class="chp-error">{error}</div>
+      <div class="chp-error chp-muted px-2 py-3 text-[13px] text-danger">{error}</div>
     {:else if sessions.length === 0}
-      <div class="chp-muted">No chats yet.</div>
+      <div class="chp-muted px-2 py-3 text-[13px] text-muted">No chats yet.</div>
     {:else if filtered.length === 0}
-      <div class="chp-muted">No chats match your search.</div>
+      <div class="chp-muted px-2 py-3 text-[13px] text-muted">No chats match your search.</div>
     {:else}
       {#each filtered as s (s.sessionId)}
         {@const agentWorking = chatRowShowsAgentWorking(
@@ -175,8 +176,10 @@
           streamingSessionIds,
         )}
         <div
-          class="chp-row"
-          class:active={activeSessionId === s.sessionId}
+          class={cn(
+            'chp-row group/chprow flex w-full items-start gap-2 px-2 py-[9px] mb-0.5 text-left text-foreground cursor-pointer transition-colors hover:bg-surface-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:[outline-offset:1px]',
+            activeSessionId === s.sessionId && 'active bg-accent-dim outline outline-1 outline-accent',
+          )}
           role="button"
           tabindex="0"
           onclick={() => rowClick(s.sessionId, s.title ?? undefined)}
@@ -188,8 +191,10 @@
           }}
         >
           <span
-            class="chp-row-icon"
-            class:chp-row-icon--working={agentWorking}
+            class={cn(
+              'chp-row-icon flex shrink-0 items-center justify-center w-[18px] h-[18px] mt-px text-accent opacity-80',
+              agentWorking && 'chp-row-icon--working opacity-95',
+            )}
             aria-hidden="true"
           >
             {#if agentWorking}
@@ -198,18 +203,18 @@
               <MessageSquare size={14} strokeWidth={2} />
             {/if}
           </span>
-          <div class="chp-row-main">
-            <div class="chp-row-title">
+          <div class="chp-row-main flex-1 min-w-0">
+            <div class="chp-row-title text-[13px] leading-snug font-medium overflow-hidden text-ellipsis [-webkit-line-clamp:2] [-webkit-box-orient:vertical] [display:-webkit-box]">
               {s.title?.trim() || s.preview?.trim() || 'New chat'}
             </div>
             {#if s.preview?.trim() && s.title?.trim() && s.preview.trim() !== s.title.trim()}
-              <div class="chp-row-preview">{s.preview}</div>
+              <div class="chp-row-preview mt-[3px] overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-muted">{s.preview}</div>
             {/if}
           </div>
-          <time class="chp-row-time" datetime={s.updatedAt}>{formatWhen(s.updatedAt)}</time>
+          <time class="chp-row-time shrink-0 mt-px text-[11px] text-muted opacity-80 whitespace-nowrap" datetime={s.updatedAt}>{formatWhen(s.updatedAt)}</time>
           <button
             type="button"
-            class="chp-row-delete"
+            class="chp-row-delete shrink-0 p-1 text-muted opacity-0 transition-[opacity,color,background] [@media(hover:none)]:opacity-100 group-hover/chprow:opacity-100 hover:!text-danger hover:!bg-[rgba(224,92,92,0.12)]"
             title="Delete chat"
             aria-label="Delete chat"
             onclick={(e) => requestDelete(e, s)}
@@ -240,171 +245,11 @@
 </div>
 
 <style>
-  .chp {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    background: var(--bg-2);
-  }
-
-  .chp-search {
-    flex-shrink: 0;
-    padding: 10px 12px 8px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .chp-search-label {
-    display: block;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-2);
-    margin-bottom: 6px;
-  }
-
-  .chp-search-inner {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--bg-3);
-  }
-
+  /* Search icon is rendered via the lucide `class` prop, so it lands outside the scoped CSS scope.
+     Keep it as a `:global` rule so the visual styling matches the legacy component. */
   :global(.chp-search-icon) {
     flex-shrink: 0;
     color: var(--text-2);
     opacity: 0.75;
-  }
-
-  .chp-input {
-    flex: 1;
-    min-width: 0;
-    border: none;
-    background: transparent;
-    color: var(--text);
-    font-size: 13px;
-    outline: none;
-  }
-  .chp-input::placeholder {
-    color: var(--text-2);
-    opacity: 0.7;
-  }
-
-  .chp-list {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 6px 8px 12px;
-  }
-
-  .chp-muted,
-  .chp-error {
-    padding: 12px 8px;
-    font-size: 13px;
-    color: var(--text-2);
-  }
-  .chp-error {
-    color: var(--danger);
-  }
-
-  .chp-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    width: 100%;
-    text-align: left;
-    padding: 9px 8px;
-    border-radius: 8px;
-    margin-bottom: 2px;
-    color: var(--text);
-    cursor: pointer;
-    transition: background 0.12s;
-  }
-  .chp-row:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-  }
-  .chp-row.active {
-    background: var(--accent-dim);
-    outline: 1px solid var(--accent);
-  }
-
-  .chp-row-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 18px;
-    height: 18px;
-    margin-top: 1px;
-    color: var(--accent);
-    opacity: 0.8;
-  }
-  .chp-row-icon--working {
-    opacity: 0.95;
-  }
-
-  .chp-row-main {
-    flex: 1;
-    min-width: 0;
-  }
-  .chp-row-title {
-    font-size: 13px;
-    line-height: 1.35;
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-  }
-  .chp-row-preview {
-    font-size: 11px;
-    color: var(--text-2);
-    margin-top: 3px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .chp-row-time {
-    flex-shrink: 0;
-    font-size: 11px;
-    color: var(--text-2);
-    opacity: 0.8;
-    white-space: nowrap;
-    margin-top: 1px;
-  }
-  .chp-row-delete {
-    flex-shrink: 0;
-    padding: 4px;
-    border-radius: 4px;
-    color: var(--text-2);
-    opacity: 0;
-    transition: opacity 0.12s, color 0.12s, background 0.12s;
-  }
-
-  @media (hover: none) {
-    .chp-row-delete {
-      opacity: 1;
-    }
-  }
-
-  @media (hover: hover) {
-    .chp-row:hover {
-      background: var(--bg-3);
-    }
-
-    .chp-row:hover .chp-row-delete {
-      opacity: 1;
-    }
-
-    .chp-row-delete:hover {
-      color: var(--danger);
-      background: rgba(224, 92, 92, 0.12);
-    }
   }
 </style>

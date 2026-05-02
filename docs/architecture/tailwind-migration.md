@@ -6,23 +6,36 @@
 
 ## Current state
 
-As of April 2026:
+- **Product Svelte** lives in a **single** Tailwind-first tree: [`src/client/components/README.md`](../../src/client/components/README.md).
+- Some components still carry **small scoped `<style>`** blocks or BEM-style **hook** class names alongside utilities; shrinking those further is ongoing hygiene, not a parallel legacy tree.
+- **Standalone CSS files** under `src/client/styles/` (onboarding, markdown rendering, agent streaming, wiki, search) remain for content and third-party surfaces that cannot carry utility classes on every node.
+- **Global `src/client/style.css`**: `:root` tokens, **`@layer base` / `@layer components`** resets and semantic globals, typography — imports Tailwind first, then layered app rules.
 
-- **68 of 129 Svelte components** contain inline `<style>` blocks with BEM-style class names (e.g. `hub-source-meta`, `hub-connector-title`, `agent-conversation-tool-call`).
-- **8 standalone CSS files** under `src/client/styles/` (~1,585 lines total): onboarding, markdown rendering, agent streaming, wiki, search.
-- **Global `src/client/style.css`** (~169 lines): CSS custom properties (`:root` tokens), resets, typography — already imports Tailwind.
-
-The hybrid state means new components can use Tailwind utilities while old ones use scoped class names, but the two systems don't compose cleanly (e.g. a Tailwind `dark:` variant can't reach inside a scoped block).
+**Caveat:** mixing deep scoped rules with utilities on the **same** node can still produce surprising cascade winners—use DevTools **Computed** when spacing or type “ignores” Tailwind (see pitfalls below).
 
 ---
 
-## Why urgency matters
+## Why ongoing discipline matters
 
-Every new component added in the BEM pattern increases future migration cost. At ~130 components the migration is a 1–2 week effort with careful per-screen QA. At 250+ components it becomes a multi-week project requiring a dedicated pass. The window to do it cheaply is while the component count is still low.
+Heavy **scoped `<style>`** surfaces still increase the cost of **theme tweaks, dark mode, and a11y** passes. Prefer utilities and hooks first; reserve scoped CSS for exceptions (see pitfalls below).
 
 ---
 
 ## Approach
+
+### Shared utility conventions
+
+- Prefer Tailwind utilities for layout, spacing, typography, color, borders, and responsive behavior.
+- Use the semantic tokens exported from `src/client/style.css` / `@theme` (`bg-surface`, `bg-surface-2`, `text-foreground`, `text-muted`, `border-border`, `max-w-chat`, etc.) before reaching for raw `var(--...)` chains.
+- Use `cn()` from `src/client/lib/cn.ts` for reusable or dynamic Tailwind class strings. It accepts the same object/array/string shapes as Svelte's `class` attribute and runs `tailwind-merge` so later conflicting utilities win predictably.
+- Keep existing semantic/BEM class names when tests, JS hooks, or complex scoped selectors still need them; treat those names as hooks, not as the primary styling layer.
+
+### Responsive policy
+
+- Use Tailwind's `md:` and `max-md:` variants for the standard workspace breakpoint instead of component-scoped `@media (min-width: 768px)` / `@media (max-width: 768px)` blocks.
+- Keep global breakpoint-driven CSS variables in `src/client/style.css` when they are true app-level tokens (for example touch-oriented `--tab-h` tweaks).
+- Use container queries for layouts whose behavior depends on pane width rather than viewport width.
+- Keep JS media queries aligned with `WORKSPACE_DESKTOP_SPLIT_MIN_PX` in `src/client/lib/app/workspaceLayout.ts`.
 
 ### CSS custom properties — keep
 
@@ -47,6 +60,62 @@ Prioritize by component size and touch frequency:
 1. New components — always Tailwind.
 2. Components undergoing feature work — migrate `<style>` as part of the PR.
 3. Batch cleanup passes — one subsystem at a time (hub-connector, agent-conversation, onboarding).
+
+---
+
+## Pitfalls: when utilities “don’t apply” (cascade & layout)
+
+Tailwind **is** generating the classes; if padding, margin, or font-size **look** ignored, something else is winning or the layout pattern fights the utility. Document this so we don’t confuse “Tailwind is broken” with “we need one source of truth per property.”
+
+### 1. Inspect the winner (required habit)
+
+In DevTools → **Computed**, click the property (e.g. `padding-left`). The **cascade** pane shows **which rule applied**. If it’s not the utility, note the file/selector and fix **that** conflict (don’t stack more utilities blindly).
+
+### 2. CSS layers (Tailwind v4)
+
+Tailwind utilities normally live in **`@layer utilities`**. **Unlayered** rules elsewhere in `style.css` or other global CSS can override layered utilities **without** obviously higher specificity.
+
+**Mitigation:** Prefer keeping app-wide rules in **`@layer base`** / **`@layer components`** (or aligned with Tailwind’s layering), or ensure global rules don’t set the same properties you expect utilities to own on those nodes.
+
+### Global CSS layering (`src/client/style.css`)
+
+[`src/client/style.css`](../../src/client/style.css) follows this convention:
+
+| Layer | Contents |
+|-------|----------|
+| **`@layer base`** | Universal reset (`*` / `::before` / `::after`), `:root` + dark `:root`, `html` / `body` / `#app`, `button`, `a`, scrollbar pseudo-elements, sync `@keyframes` / helper classes and mobile `:root` variable tweaks |
+| **`@layer components`** | Semantic app classes whose properties **overlap** Tailwind spacing / width (currently **`.chat-transcript-scroll`** and its split-pane max-width rule) |
+
+**Standalone CSS** pulled in beside Tailwind (`styles/search/*.css`, `styles/onboarding/*.css`) is imported **into a named layer**:
+
+`@import "./styles/..." layer(base)` or `layer(components)` so those files are not **unlayered** surprises.
+
+Utilities should express **pane gutters** (`ChatHistory` **`.ch-scroll`**, inbox **`.thread-body`**) directly on the element when possible — **scoped** rules on the same node still beat a single utility (see §3).
+
+**Later cleanup:** Preflight already sets **`box-sizing: border-box`** on `*`. Full removal of **`margin` / `padding` zero on `*`** vs Preflight duplication is intentionally conservative until regressions have been eyeballed (onboarding, assistant transcript, inbox thread).
+
+### 3. Svelte scoped `<style>` specificity
+
+A scoped rule like `.ch-scroll.svelte-xxx` targets **two classes** on the element. If it sets the same property as a **single** utility (e.g. `.px-4`), the scoped rule **often wins**. Mixing “semantic class + Tailwind utilities” on the same node without checking Computed is a common footgun.
+
+**Mitigation:** Either (a) don’t set that property in scoped CSS, (b) move spacing to utilities only, or (c) use **`@apply`** inside scoped CSS so values still come from the theme with one clear owner.
+
+### 4. Flexbox and `margin: auto`
+
+Example: a **column flex** child with **`align-items: stretch`** (default) and `margin-left/right: auto` may **not** center the way you expect; cross-axis stretch can interact badly with percentage widths.
+
+**Mitigation:** `self-center`, a wrapper, or explicit width + margin recipe—see **`AgentChat` composer column** (split + `composer-stack`). Verify in Computed after changes.
+
+### 5. Short-term scoped CSS on complex rails
+
+For dense rails (e.g. **chat history**), a **small scoped block** can be a legitimate **short-term** way to match an existing layout before utilities fully own every property.
+
+**Follow-up:** Re-express layout with utilities (or **`@apply`**) **incrementally**, confirming each step in Computed — see [components README](../../src/client/components/README.md).
+
+### OPPORTUNITIES vs architecture
+
+- **`docs/opportunities/`** — track **work items** (e.g. [OPP-049](../opportunities/OPP-049-global-ui-tailwind-refactor.md)), not cascade debugging recipes.
+- **`docs/architecture/tailwind-migration.md`** (this file) — **how we migrate** and **how we debug** when styling surprises us.
 
 ---
 

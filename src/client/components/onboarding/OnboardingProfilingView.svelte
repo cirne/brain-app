@@ -3,15 +3,21 @@
    * Onboarding profile build: activity + referenced paths/mail; streamed `me.md` at bottom as assistant message.
    */
   import { Mail, User } from 'lucide-svelte'
-  import type { AgentConversationViewProps, ConversationScrollApi } from '@client/lib/agentConversationViewTypes.js'
-  import WikiFileName from '../WikiFileName.svelte'
-  import StreamingAgentMarkdown from '../agent-conversation/StreamingAgentMarkdown.svelte'
+  import type {
+    AgentConversationViewProps,
+    ConversationScrollApi,
+  } from '@client/lib/agentConversationViewTypes.js'
+  import WikiFileName from '@components/WikiFileName.svelte'
+  import StreamingAgentMarkdown from '@components/agent-conversation/StreamingAgentMarkdown.svelte'
   import { STREAMING_AGENT_MD_MAX } from '@client/lib/agent-conversation/streamingAgentMarkdown.js'
   import { getToolIcon } from '@client/lib/toolIcons.js'
   import { getToolUiPolicy } from '@client/lib/agentUtils.js'
   import OnboardingActivityTranscriptShell from './OnboardingActivityTranscriptShell.svelte'
   import OnboardingLocalWikiLead from './OnboardingLocalWikiLead.svelte'
-  import { profilingLeadCopy, profilingLeadCopyMultiTenant } from '@client/lib/onboarding/onboardingLeadCopy.js'
+  import {
+    profilingLeadCopy,
+    profilingLeadCopyMultiTenant,
+  } from '@client/lib/onboarding/onboardingLeadCopy.js'
   import {
     buildProfilingTranscriptEvents,
     extractLastMeMdWriteContent,
@@ -59,7 +65,7 @@
 
   const lastToolIcon = $derived(lastTool ? getToolIcon(lastTool.name) : null)
   const lastToolLabel = $derived(
-    lastTool ? getToolUiPolicy(lastTool.name).label ?? lastTool.name : '',
+    lastTool ? (getToolUiPolicy(lastTool.name).label ?? lastTool.name) : '',
   )
 
   export function scrollToBottom() {

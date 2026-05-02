@@ -53,8 +53,7 @@
   width: 2.5rem;
   height: 2.5rem;
   margin-bottom: 1rem;
-  border-radius: 10px;
-  display: flex;
+display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bg-3);
@@ -84,8 +83,7 @@
 }
 .ob-input {
   padding: 0.6rem 0.75rem;
-  border-radius: 8px;
-  border: 1px solid var(--border, #333);
+border: 1px solid var(--border, #333);
   background: var(--bg-2, #1a1a1a);
   color: var(--text, #eee);
   font-size: 1rem;
@@ -121,8 +119,7 @@
   min-width: 10.5rem;
   padding: 0.75rem 1.25rem;
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  font-size: 0.9375rem;
+font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--text);
@@ -159,8 +156,7 @@
   gap: 0.5rem;
   padding: 0.8125rem 2rem;
   border: none;
-  border-radius: 0.75rem;
-  font-size: 0.9375rem;
+font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: #fff;
@@ -196,8 +192,7 @@
   height: 1rem;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
-  border-radius: 50%;
-  animation: ob-spin 0.6s linear infinite;
+animation: ob-spin 0.6s linear infinite;
 }
 @keyframes ob-spin {
   to {

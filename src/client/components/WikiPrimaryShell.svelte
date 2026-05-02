@@ -22,16 +22,7 @@
   })
 </script>
 
-<div class="wiki-primary-shell">
+<div class="wiki-primary-shell flex min-h-0 flex-1 flex-col">
   {@render bar()}
   {@render children()}
 </div>
-
-<style>
-  .wiki-primary-shell {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-  }
-</style>

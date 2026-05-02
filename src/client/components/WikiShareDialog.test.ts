@@ -45,7 +45,7 @@ describe('WikiShareDialog.svelte', () => {
       },
     })
 
-    expect(screen.getByRole('button', { name: /share page/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /send invites/i })).toBeInTheDocument()
   })
 
   it('shares with a typed email, clears input, and reloads audience with pending row', async () => {
@@ -79,10 +79,10 @@ describe('WikiShareDialog.svelte', () => {
       },
     })
 
-    const input = screen.getByPlaceholderText('@handle or name@example.com')
+    const input = screen.getByPlaceholderText('@username or you@example.com')
     await fireEvent.input(input, { target: { value: 'friend@example.com' } })
     await fireEvent.keyDown(input, { key: 'Enter' })
-    await fireEvent.click(screen.getByRole('button', { name: /share folder/i }))
+    await fireEvent.click(screen.getByRole('button', { name: /send invites/i }))
 
     await waitFor(() => {
       expect(capturedBody).toContain('"granteeEmail":"friend@example.com"')
@@ -90,10 +90,10 @@ describe('WikiShareDialog.svelte', () => {
 
     await waitFor(() => {
       expect(screen.getByText('friend@example.com')).toBeInTheDocument()
-      expect(screen.getByText(/pending/i)).toBeInTheDocument()
+      expect(screen.getByText(/invite sent/i)).toBeInTheDocument()
     })
 
-    const inputAfter = screen.getByPlaceholderText('@handle or name@example.com') as HTMLInputElement
+    const inputAfter = screen.getByPlaceholderText('@username or you@example.com') as HTMLInputElement
     expect(inputAfter.value).toBe('')
     expect(screen.queryByRole('button', { name: /copy legacy link/i })).not.toBeInTheDocument()
   })
@@ -145,7 +145,7 @@ describe('WikiShareDialog.svelte', () => {
       },
     })
 
-    const input = screen.getByPlaceholderText('@handle or name@example.com')
+    const input = screen.getByPlaceholderText('@username or you@example.com')
     await fireEvent.input(input, { target: { value: '@cir' } })
 
     await waitFor(() => {
@@ -157,7 +157,7 @@ describe('WikiShareDialog.svelte', () => {
     expect(screen.getByLabelText(/Remove @cirne/i)).toBeInTheDocument()
     expect(screen.getAllByText(/cirne@example\.com/).length).toBeGreaterThan(0)
 
-    await fireEvent.click(screen.getByRole('button', { name: /share folder/i }))
+    await fireEvent.click(screen.getByRole('button', { name: /send invites/i }))
 
     await waitFor(() => {
       const parsed = JSON.parse(capturedBody) as { granteeHandle?: string; granteeEmail?: string }
@@ -239,7 +239,7 @@ describe('WikiShareDialog.svelte', () => {
       },
     })
 
-    const input = screen.getByPlaceholderText('@handle or name@example.com')
+    const input = screen.getByPlaceholderText('@username or you@example.com')
 
     await fireEvent.input(input, { target: { value: '@ster' } })
     await waitFor(() => screen.getByRole('option', { name: /@sterling/ }))
@@ -252,10 +252,10 @@ describe('WikiShareDialog.svelte', () => {
     expect(screen.getByText('@sterling')).toBeInTheDocument()
     expect(screen.getByText('@donna')).toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('button', { name: /share folder/i }))
+    await fireEvent.click(screen.getByRole('button', { name: /send invites/i }))
 
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: /sharing…/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /sending…/i })).not.toBeInTheDocument()
     })
 
     await waitFor(() => {
@@ -292,14 +292,14 @@ describe('WikiShareDialog.svelte', () => {
       },
     })
 
-    const input = screen.getByPlaceholderText('@handle or name@example.com')
+    const input = screen.getByPlaceholderText('@username or you@example.com')
     await fireEvent.input(input, { target: { value: '@new' } })
     await waitFor(() => screen.getByRole('option', { name: /@newcomer/ }))
     await fireEvent.keyDown(input, { key: 'Enter' })
 
-    const submitBtn = screen.getByRole('button', { name: /share folder/i })
+    const submitBtn = screen.getByRole('button', { name: /send invites/i })
     expect(submitBtn).toBeDisabled()
-    expect(screen.getByText(/cannot receive invites yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/before they can receive invites/i)).toBeInTheDocument()
   })
 
   it('revokes a grantee and calls onSharesChanged', async () => {
@@ -347,12 +347,12 @@ describe('WikiShareDialog.svelte', () => {
     })
     await fireEvent.click(screen.getAllByRole('button', { name: /^remove$/i })[0]!)
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /remove access/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /stop sharing/i })).toBeInTheDocument()
     })
     await fireEvent.click(screen.getAllByRole('button', { name: /^remove$/i })[1]!)
     await waitFor(() => {
       expect(onSharesChanged).toHaveBeenCalled()
-      expect(screen.getByText(/only you/i)).toBeInTheDocument()
+      expect(screen.getByText(/just you/i)).toBeInTheDocument()
     })
   })
 })

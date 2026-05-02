@@ -1,5 +1,6 @@
 <script lang="ts">
   import { BookOpen, User } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import { getDirIcon, SpecialFileIcon } from '@client/lib/dirIcons.js'
   import { isWikiRootIndexPath } from '@client/lib/wikiPathDisplay.js'
   import { wikiVaultPathDisplayName } from '@client/lib/wikiFileNameLabels.js'
@@ -16,9 +17,7 @@
   const folderKey = $derived(folder.replace(/\/$/, ''))
 
   const isIndex = $derived(name === '_index' || name.toLowerCase() === 'index')
-  /** Root user profile — same convention as main agent (me.md at wiki root). */
   const isUserProfileMe = $derived(path === 'me.md')
-  // _ prefix marks system/special pages (but not _index files with a folder)
   const isSpecial = $derived(name.startsWith('_') && !(isIndex && folder))
 
   const displayName = $derived(wikiVaultPathDisplayName(path))
@@ -32,8 +31,10 @@
 </script>
 
 <span
-  class="wfn-title-row inline-flex min-w-0 items-center gap-1.5 overflow-hidden [font:inherit]"
-  class:opacity-90={unsaved}
+  class={cn(
+    'wfn-title-row inline-flex min-w-0 items-center gap-1.5 overflow-hidden [font:inherit]',
+    unsaved && 'opacity-90',
+  )}
 >
   {#if isUserProfileMe}
     <span class="wfn-lead-icon text-accent opacity-85" title="Profile (me.md)">
@@ -55,7 +56,7 @@
     {:else}
       <span
         class="wfn-folder min-w-0 shrink overflow-hidden text-[0.9em] text-ellipsis text-muted/65 [white-space:nowrap]"
-        >{folder}</span>
+      >{folder}</span>
     {/if}
   {/if}<span class="wfn-name shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">{displayName}</span>
 </span>

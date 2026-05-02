@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack, getContext } from 'svelte'
+  import { cn } from '@client/lib/cn.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import {
@@ -12,9 +13,9 @@
     type HubMailStatusOk,
     type HubSourceDetailOk,
   } from '@client/lib/hub/hubRipmailSource.js'
-  import HubConnectorIndexSections from './HubConnectorIndexSections.svelte'
-  import HubConnectorMailSections from './HubConnectorMailSections.svelte'
-  import HubConnectorSourceMeta from './HubConnectorSourceMeta.svelte'
+  import HubConnectorIndexSections from '@components/hub-connector/HubConnectorIndexSections.svelte'
+  import HubConnectorMailSections from '@components/hub-connector/HubConnectorMailSections.svelte'
+  import HubConnectorSourceMeta from '@components/hub-connector/HubConnectorSourceMeta.svelte'
 
   type Props = {
     sourceId: string | undefined
@@ -456,22 +457,29 @@
     })
     return () => registerHubHeader(null)
   })
+
+  const hubDialogBtnBase =
+    'hub-dialog-btn cursor-pointer border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
+  const hubDialogBtnDanger =
+    'hub-dialog-btn-danger bg-[color-mix(in_srgb,var(--danger)_14%,var(--bg))] text-danger border-[color-mix(in_srgb,var(--danger)_40%,transparent)] hover:not-disabled:bg-[color-mix(in_srgb,var(--danger)_24%,var(--bg))]'
 </script>
 
-<div class="hub-connector-source">
+<div class="hub-connector-source min-h-0 flex-1 overflow-auto px-5 pb-6 pt-4">
   {#if loadError}
-    <p class="hub-connector-err" role="alert">{loadError}</p>
+    <p class="hub-connector-err m-0 text-[0.9375rem] leading-[1.45] text-danger" role="alert">
+      {loadError}
+    </p>
   {:else if source}
-    <div class="hub-connector-inner">
+    <div class="hub-connector-inner flex flex-col gap-4">
       <HubConnectorSourceMeta {source} />
       {#if !isMailSourceKind(source.kind)}
         <HubConnectorIndexSections
-          sourceDetailError={sourceDetailError}
-          sourceDetail={sourceDetail}
-          driveSyncBlocked={driveSyncBlocked}
-          sourceSyncAction={sourceSyncAction}
-          indexRefreshPending={indexRefreshPending}
-          showInlineRefresh={showInlineRefresh}
+          {sourceDetailError}
+          {sourceDetail}
+          {driveSyncBlocked}
+          {sourceSyncAction}
+          {indexRefreshPending}
+          {showInlineRefresh}
           onRefresh={() => void hubSourceRefresh()}
           onReloadDetail={() => void loadSourceDetail({ keepPreviousDetail: false })}
         />
@@ -479,26 +487,28 @@
       {#if source.kind === 'imap' || source.kind === 'applemail'}
         <HubConnectorMailSections
           mailKind={source.kind}
-          mailStatus={mailStatus}
-          mailStatusLoading={mailStatusLoading}
-          mailStatusError={mailStatusError}
-          includedInDefault={includedInDefault}
-          isDefaultSend={isDefaultSend}
-          prefsBusy={prefsBusy}
-          prefsError={prefsError}
+          {mailStatus}
+          {mailStatusLoading}
+          {mailStatusError}
+          {includedInDefault}
+          {isDefaultSend}
+          {prefsBusy}
+          {prefsError}
           bind:backfillWindow
-          sourceSyncAction={sourceSyncAction}
-          showInlineRefresh={showInlineRefresh}
+          {sourceSyncAction}
+          {showInlineRefresh}
           onToggleIncludedInDefault={() => void toggleIncludedInDefault()}
           onSetDefaultSend={(checked) => void setDefaultSend(checked)}
           onRefresh={() => void hubSourceRefresh()}
           onBackfill={() => void hubSourceBackfill()}
         />
       {/if}
-      <div class="hub-connector-footer">
+      <div
+        class="hub-connector-footer mt-1 flex flex-wrap justify-end gap-2 border-t border-[color-mix(in_srgb,var(--border)_50%,transparent)] pt-4"
+      >
         <button
           type="button"
-          class="hub-dialog-btn hub-dialog-btn-danger"
+          class={cn(hubDialogBtnBase, hubDialogBtnDanger)}
           disabled={removingSource}
           onclick={() => void confirmRemoveSource()}
         >
@@ -507,340 +517,8 @@
       </div>
     </div>
   {:else}
-    <p class="hub-connector-loading" role="status">Loading…</p>
+    <p class="hub-connector-loading m-0 text-[0.9375rem] leading-[1.45] text-muted" role="status">
+      Loading…
+    </p>
   {/if}
 </div>
-
-<style>
-  .hub-connector-source {
-    padding: 1rem 1.25rem 1.5rem;
-    min-height: 0;
-    flex: 1;
-    overflow: auto;
-  }
-
-  .hub-connector-loading,
-  .hub-connector-err {
-    margin: 0;
-    font-size: 0.9375rem;
-    color: var(--text-2);
-    line-height: 1.45;
-  }
-
-  .hub-connector-err {
-    color: var(--danger);
-  }
-
-  .hub-connector-inner {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .hub-connector-source :global(.hub-source-meta-compact) {
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .hub-connector-source :global(.hub-source-kind-line) {
-    margin: 0;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--text-2);
-    line-height: 1.35;
-  }
-
-  .hub-connector-source :global(.hub-source-path-line) {
-    margin: 0;
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: var(--text-2);
-    word-break: break-word;
-  }
-
-  .hub-connector-source :global(.hub-source-index-line) {
-    margin: 0 0 0.25rem;
-    font-size: 0.8125rem;
-    line-height: 1.5;
-    color: var(--text-2);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.35rem 0.45rem;
-  }
-
-  .hub-connector-source :global(.hub-source-index-line-sep) {
-    opacity: 0.45;
-    user-select: none;
-    font-weight: 400;
-  }
-
-  .hub-connector-source :global(.hub-drive-pref-line) {
-    margin: 0;
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: var(--text-2);
-  }
-
-  .hub-connector-source :global(.hub-drive-pref-val) {
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .hub-connector-source :global(.hub-ics-line) {
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    font-size: 0.8125rem;
-    line-height: 1.4;
-    color: var(--text-2);
-  }
-
-  .hub-connector-source :global(.hub-ics-label) {
-    font-weight: 600;
-    color: var(--text-2);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-size: 0.6875rem;
-  }
-
-  .hub-connector-source :global(.hub-ics-url) {
-    font-family:
-      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-    font-size: 0.78rem;
-    word-break: break-all;
-    color: var(--text);
-  }
-
-  .hub-connector-source :global(.hub-source-sync-buttons--inline) {
-    margin-top: 0.35rem;
-  }
-
-  .hub-connector-source :global(.hub-source-status-section) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    padding: 0.85rem 0 0;
-    border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-  }
-
-  .hub-connector-source :global(.hub-source-prefs-section) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    padding: 0.85rem 0 0;
-    border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-  }
-
-  .hub-connector-source :global(.hub-source-pref-row) {
-    display: flex;
-    gap: 0.6rem;
-    align-items: flex-start;
-    padding: 0.45rem 0;
-    cursor: pointer;
-  }
-
-  .hub-connector-source :global(.hub-source-pref-row input[type='checkbox']) {
-    margin-top: 0.2rem;
-    flex-shrink: 0;
-    accent-color: var(--accent);
-  }
-
-  .hub-connector-source :global(.hub-source-pref-text) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .hub-connector-source :global(.hub-source-pref-title) {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--text);
-    line-height: 1.3;
-  }
-
-  .hub-connector-source :global(.hub-source-pref-sub) {
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    line-height: 1.4;
-  }
-
-  .hub-connector-source :global(.hub-source-status-heading) {
-    margin: 0;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-2);
-  }
-
-  .hub-connector-source :global(.hub-source-status-note) {
-    margin: 0;
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: var(--text-2);
-  }
-
-  .hub-connector-source :global(.hub-source-status-note--active) {
-    color: var(--accent);
-    font-weight: 600;
-  }
-
-  :global(.hub-refresh-working) {
-    animation: hub-refresh-spin 0.85s linear infinite;
-  }
-
-  @keyframes hub-refresh-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  .hub-connector-source :global(.hub-source-status-err) {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: var(--danger);
-    line-height: 1.45;
-  }
-
-  .hub-connector-source :global(.hub-source-status-warn) {
-    margin: 0;
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: var(--text);
-    background: var(--bg-2);
-    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-    padding: 0.5rem 0.65rem;
-    border-radius: 8px;
-  }
-
-  .hub-connector-source :global(.hub-source-code) {
-    font-family:
-      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-    font-size: 0.8em;
-  }
-
-  .hub-connector-source :global(.hub-source-id) {
-    font-family:
-      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-    font-size: 0.8125rem;
-    color: var(--text-2);
-  }
-
-  .hub-connector-source :global(.hub-source-path) {
-    font-size: 0.8125rem;
-    line-height: 1.35;
-  }
-
-  .hub-connector-source :global(.hub-source-mail-sync) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding: 0.85rem 0 0;
-    border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-  }
-
-  .hub-connector-source :global(.hub-source-sync-lead) {
-    margin: 0;
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: var(--text-2);
-  }
-
-  .hub-connector-source :global(.hub-source-sync-controls) {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem 1rem;
-  }
-
-  .hub-connector-source :global(.hub-backfill-label) {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--text-2);
-  }
-
-  .hub-connector-source :global(.hub-backfill-select) {
-    font-size: 0.875rem;
-    padding: 0.35rem 0.6rem;
-    border-radius: 8px;
-    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-    background: var(--bg);
-    color: var(--text);
-    min-width: 9rem;
-    cursor: pointer;
-  }
-
-  .hub-connector-source :global(.hub-source-sync-buttons) {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .hub-connector-source :global(.hub-source-sync-btn) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-
-  .hub-connector-footer {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    margin-top: 0.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-  }
-
-  .hub-connector-source :global(.hub-dialog-btn) {
-    font-size: 0.875rem;
-    font-weight: 600;
-    padding: 0.45rem 0.9rem;
-    border-radius: 8px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition:
-      background 0.15s,
-      color 0.15s,
-      border-color 0.15s;
-  }
-
-  .hub-connector-source :global(.hub-dialog-btn:disabled) {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .hub-connector-source :global(.hub-dialog-btn-secondary) {
-    background: transparent;
-    color: var(--text);
-    border-color: color-mix(in srgb, var(--border) 80%, transparent);
-  }
-
-  .hub-connector-source :global(.hub-dialog-btn-secondary:hover:not(:disabled)) {
-    background: var(--bg-2);
-  }
-
-  .hub-connector-source :global(.hub-dialog-btn-danger) {
-    background: color-mix(in srgb, var(--danger) 14%, var(--bg));
-    color: var(--danger);
-    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
-  }
-
-  .hub-connector-source :global(.hub-dialog-btn-danger:hover:not(:disabled)) {
-    background: color-mix(in srgb, var(--danger) 24%, var(--bg));
-  }
-
-  .hub-connector-source :global(.hub-dialog-btn-primary) {
-    background: var(--accent);
-    color: white;
-    border-color: color-mix(in srgb, var(--accent) 80%, black);
-  }
-
-  .hub-connector-source :global(.hub-dialog-btn-primary:hover:not(:disabled)) {
-    filter: brightness(1.06);
-  }
-</style>

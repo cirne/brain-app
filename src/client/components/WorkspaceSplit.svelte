@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import type { Snippet } from 'svelte'
+  import { cn } from '@client/lib/cn.js'
   import {
     detailPanelHalfWidth,
     nextPanelWidthAfterDrag,
@@ -222,36 +223,48 @@
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
   }
-
 </script>
 
-<div class="workspace">
+<div class="workspace relative flex min-h-0 flex-1 flex-col">
   <div
     bind:this={splitEl}
-    class="split"
-    class:has-detail={hasDetail}
-    class:detail-fullscreen={detailFullscreen && desktopDetailOpen}
+    class={cn(
+      'split relative flex min-h-0 flex-1',
+      hasDetail && 'has-detail',
+      detailFullscreen && desktopDetailOpen && 'detail-fullscreen',
+    )}
   >
-    <section class="chat-pane" class:chat-pane-hidden={detailFullscreen && desktopDetailOpen}>
+    <section class={cn(
+      'chat-pane z-0 flex min-w-0 min-h-0 flex-1 flex-col',
+      detailFullscreen && desktopDetailOpen && 'chat-pane-hidden basis-0 grow-0 w-0 min-w-0 overflow-hidden opacity-0 pointer-events-none',
+    )}>
       {@render chat()}
     </section>
 
     {#if desktopDetailOpen}
       <section
-        class="detail-pane"
-        class:resizing={detailPanelResizing}
-        class:detail-pane-fullscreen={detailFullscreen}
+        class={cn(
+          'detail-pane relative z-[1] flex shrink-0 min-w-0 flex-col overflow-hidden',
+          detailPanelResizing && 'resizing',
+          detailFullscreen && 'detail-pane-fullscreen flex-1 min-w-0 max-w-none',
+        )}
         style:width={detailFullscreen ? undefined : `${detailVisibleW}px`}
       >
         {#if !detailFullscreen}
           <button
             type="button"
-            class="detail-resize-handle"
+            class="detail-resize-handle absolute left-0 top-0 bottom-0 -ml-2 z-[3] flex w-4 cursor-col-resize items-center justify-center border-none bg-transparent p-0 [touch-action:none]"
             aria-label="Resize detail panel"
             title="Drag to resize"
             onpointerdown={onDetailResizePointerDown}
           >
-            <span class="detail-resize-grip" aria-hidden="true"></span>
+            <span
+              class={cn(
+                'detail-resize-grip h-[30px] w-2 transition-opacity',
+                detailPanelResizing ? 'opacity-100' : 'opacity-45',
+              )}
+              aria-hidden="true"
+            ></span>
           </button>
         {/if}
         {@render desktopDetail()}
@@ -261,63 +274,9 @@
 </div>
 
 <style>
-  .workspace {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    position: relative;
-  }
-
-  .split {
-    flex: 1;
-    display: flex;
-    min-height: 0;
-    position: relative;
-  }
-
-  .chat-pane {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    z-index: 0;
-  }
-
-  .detail-pane {
-    position: relative;
-    z-index: 1;
-    flex-shrink: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .detail-resize-handle {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 16px;
-    margin-left: -8px;
-    z-index: 3;
-    cursor: col-resize;
-    touch-action: none;
-    border: none;
-    padding: 0;
-    background: transparent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
+  /* Resize-grip surface uses background-color + a layered repeating gradient + inset shadows that
+     don't translate to Tailwind utilities cleanly. */
   .detail-resize-grip {
-    width: 8px;
-    height: 30px;
-    border-radius: 4px;
-    opacity: 0.45;
     background-color: var(--text-2);
     background-image: repeating-linear-gradient(
       180deg,
@@ -327,25 +286,5 @@
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.22),
       inset 0 -1px 0 rgba(0, 0, 0, 0.12);
-  }
-
-  .detail-pane.resizing .detail-resize-grip {
-    opacity: 1;
-  }
-
-  /* Desktop fullscreen: hide chat column; detail fills workspace */
-  .split.detail-fullscreen .chat-pane-hidden {
-    flex: 0 0 0;
-    width: 0;
-    min-width: 0;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .split.detail-fullscreen .detail-pane-fullscreen {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: none;
   }
 </style>

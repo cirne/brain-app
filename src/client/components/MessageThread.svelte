@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { cn } from '@client/lib/cn.js'
   import type { SurfaceContext } from '@client/router.js'
   import { FDA_GATE_OPEN_EVENT } from '@client/lib/onboarding/fdaGateKeys.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
@@ -111,114 +112,51 @@
   }
 </script>
 
-<div class="message-thread-panel">
+<div
+  class="message-thread-panel flex min-h-0 flex-1 flex-col overflow-y-auto px-3.5 pb-5 pt-3"
+>
   {#if !initialChat?.trim()}
-    <p class="status">Open a thread from the agent (get_message_thread) to view messages here.</p>
+    <p class="status m-0 text-[13px] text-muted">Open a thread from the agent (get_message_thread) to view messages here.</p>
   {:else if loading}
-    <p class="status">Loading messages…</p>
+    <p class="status m-0 text-[13px] text-muted">Loading messages…</p>
   {:else if errorText}
-    <p class="status error">{errorText}</p>
+    <p class="status error m-0 text-[13px] text-[var(--danger,#f87171)]">{errorText}</p>
     {#if fullDiskAccessHint}
-      <p class="status fda-hint">
-        <button type="button" class="fda-grant-link" onclick={openFdaGateFromHint}>Grant Full Disk Access…</button>
+      <p class="status fda-hint m-0 mt-3 text-[13px] text-muted">
+        <button
+          type="button"
+          class="fda-grant-link cursor-pointer border-none bg-none p-0 text-accent underline [text-underline-offset:3px] [font:inherit] hover:[filter:brightness(1.1)]"
+          onclick={openFdaGateFromHint}
+        >Grant Full Disk Access…</button>
       </p>
     {/if}
   {:else if messages.length === 0}
-    <p class="status">No messages in the current time window.</p>
+    <p class="status m-0 text-[13px] text-muted">No messages in the current time window.</p>
   {:else}
-    <div class="thread-meta">
+    <div class="thread-meta mb-3">
       {#if total > messages.length}
-        <span class="meta-count">{messages.length} loaded · {total} in range</span>
+        <span class="meta-count text-[11px] text-muted">{messages.length} loaded · {total} in range</span>
       {:else}
-        <span class="meta-count">{messages.length} messages</span>
+        <span class="meta-count text-[11px] text-muted">{messages.length} messages</span>
       {/if}
     </div>
-    <div class="bubble-list">
+    <div class="bubble-list flex flex-col gap-3">
       {#each messages as row, i (`${row.sent_at_unix}-${i}`)}
-        <div class="msg-wrap" class:me={row.is_from_me}>
-          <div class="msg-meta">{timeLabel(row.sent_at_unix)}{#if !row.is_from_me && row.is_read === false}<span class="unread"> · Unread</span>{/if}</div>
-          <div class="bubble">{row.text || ' '}</div>
+        <div
+          class={cn(
+            'msg-wrap flex max-w-full flex-col items-start',
+            row.is_from_me && 'me items-end',
+          )}
+        >
+          <div class="msg-meta mb-1 px-1.5 text-[10px] text-muted">{timeLabel(row.sent_at_unix)}{#if !row.is_from_me && row.is_read === false}<span class="unread text-accent"> · Unread</span>{/if}</div>
+          <div
+            class={cn(
+              'bubble max-w-[min(92%,520px)] whitespace-pre-wrap [word-break:break-word] bg-surface-2 px-3 py-2 text-sm leading-snug text-foreground',
+              row.is_from_me && 'bg-accent-dim',
+            )}
+          >{row.text || ' '}</div>
         </div>
       {/each}
     </div>
   {/if}
 </div>
-
-<style>
-  .message-thread-panel {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 12px 14px 20px;
-    display: flex;
-    flex-direction: column;
-  }
-  .status {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-2);
-  }
-  .status.error {
-    color: var(--danger, #f87171);
-  }
-  .fda-hint {
-    margin-top: 0.75rem;
-  }
-  .fda-grant-link {
-    background: none;
-    border: none;
-    padding: 0;
-    font: inherit;
-    color: var(--accent);
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-  .fda-grant-link:hover {
-    filter: brightness(1.1);
-  }
-  .thread-meta {
-    margin-bottom: 12px;
-  }
-  .meta-count {
-    font-size: 11px;
-    color: var(--text-2);
-  }
-  .bubble-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .msg-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    max-width: 100%;
-  }
-  .msg-wrap.me {
-    align-items: flex-end;
-  }
-  .msg-meta {
-    font-size: 10px;
-    color: var(--text-2);
-    margin-bottom: 4px;
-    padding: 0 6px;
-  }
-  .unread {
-    color: var(--accent);
-  }
-  .bubble {
-    font-size: 14px;
-    line-height: 1.45;
-    padding: 8px 12px;
-    border-radius: 14px;
-    background: var(--bg-2);
-    color: var(--text);
-    max-width: min(92%, 520px);
-    word-break: break-word;
-    white-space: pre-wrap;
-  }
-  .msg-wrap.me .bubble {
-    background: var(--accent-dim);
-  }
-</style>

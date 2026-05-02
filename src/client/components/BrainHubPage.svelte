@@ -1,14 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { RefreshCw, ChevronRight, BookOpen, FileText, Radio, Pause, Play } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import { subscribe } from '@client/lib/app/appEvents.js'
   import { wikiVaultPathDisplayName } from '@client/lib/wikiFileNameLabels.js'
-  import WikiFileName from './WikiFileName.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
-  import HubSourceRowBody from './HubSourceRowBody.svelte'
+  import HubSourceRowBody from '@components/HubSourceRowBody.svelte'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
   import { postYourWikiPause, postYourWikiResume } from '@client/lib/yourWikiLoopApi.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
@@ -272,46 +273,80 @@
       wikiActionBusy = false
     }
   }
+
+  /** Section header (icon + h2 + optional trailing slot). */
+  const sectionHeaderBase =
+    'section-header flex items-center gap-3 border-b border-border pb-3 text-foreground'
+  /** Hub link rows: shared visual recipe (chevron + hover affordance). */
+  const linkItemBase =
+    'link-item flex cursor-pointer items-center justify-between border-0 border-b border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] bg-transparent py-2 text-left text-foreground transition-[padding,color] duration-150 hover:not-disabled:not-[.static]:not-[.disabled]:pl-1 hover:not-disabled:not-[.static]:not-[.disabled]:text-accent'
+  /** Wiki loop pill buttons (Pause / Resume). */
+  const wikiLoopBtn =
+    'wiki-loop-btn inline-flex cursor-pointer items-center gap-[0.3rem] border border-transparent px-[0.7rem] py-[0.3rem] text-[0.8125rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55'
+  const wikiLoopBtnPrimary =
+    'wiki-loop-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.07)]'
+  const wikiLoopBtnSecondary =
+    'wiki-loop-btn-secondary border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground hover:not-disabled:bg-surface-2'
 </script>
 
-<div class="hub-page">
-  <header class="hub-header">
+<div
+  class="hub-page mx-auto flex w-full max-w-[900px] flex-col gap-12 px-8 py-10 text-foreground max-md:px-4 max-md:py-6"
+>
+  <header class="hub-header border-b border-border pb-4">
     <div class="hub-header-content">
-      <h1>Activity</h1>
-      <div class="hub-header-deck" class:hub-header-deck--hosted={!!hostedWorkspaceHandle}>
+      <h1 class="m-0 text-[2rem] font-extrabold tracking-[-0.02em]">Activity</h1>
+      <div
+        class={cn(
+          'hub-header-deck mt-2',
+          !!hostedWorkspaceHandle && 'hub-header-deck--hosted flex flex-col gap-[0.3rem]',
+        )}
+      >
         {#if hostedWorkspaceHandle}
-          <p class="hub-handle-line" translate="no">@{hostedWorkspaceHandle}</p>
+          <p
+            class="hub-handle-line m-0 font-mono text-[0.9375rem] font-medium tracking-[0.02em] text-muted"
+            translate="no"
+          >@{hostedWorkspaceHandle}</p>
         {/if}
       </div>
     </div>
   </header>
 
-  <div class="hub-grid">
-    <section class="hub-section your-wiki-section" aria-label="Your Wiki">
-      <div class="section-header section-header-wiki">
+  <div class="hub-grid grid grid-cols-1 gap-14">
+    <section class="hub-section your-wiki-section flex flex-col gap-6" aria-label="Your Wiki">
+      <div class={cn(sectionHeaderBase, 'section-header-wiki')}>
         <BookOpen size={18} />
-        <h2>Your Wiki</h2>
+        <h2 class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Your Wiki</h2>
         <span
-          class="wiki-header-metrics"
+          class="wiki-header-metrics ml-auto flex shrink-0 items-baseline gap-2"
           aria-live="polite"
           aria-label={wikiPageCount != null ? `${wikiPageCount} pages` : 'Page count loading'}
         >
-          <span class="wiki-header-count" aria-hidden="true">{wikiPageCount ?? '—'}</span>
-          <span class="wiki-header-count-label" aria-hidden="true">pages</span>
+          <span
+            class="wiki-header-count text-[1.25rem] font-bold tracking-[-0.01em] tabular-nums text-foreground"
+            aria-hidden="true"
+          >{wikiPageCount ?? '—'}</span>
+          <span
+            class="wiki-header-count-label text-xs font-semibold uppercase tracking-[0.05em] text-muted"
+            aria-hidden="true"
+          >pages</span>
         </span>
       </div>
-      <p class="section-lead">
+      <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
         Your wiki connects pages in your vault into one place for synthesized knowledge—threading context from email
         and other sources so it grows more useful over time. Braintunnel refines it in the background; pause or resume
         anytime with the controls below, or open the row for the full activity log.
       </p>
       {#if wikiDoc && wikiPhase}
-        <div class="wiki-loop-toolbar" role="group" aria-label="Background wiki updates">
-          <div class="wiki-loop-toolbar-actions">
+        <div
+          class="wiki-loop-toolbar -mt-1 mb-[0.35rem] flex flex-wrap items-center"
+          role="group"
+          aria-label="Background wiki updates"
+        >
+          <div class="wiki-loop-toolbar-actions flex flex-wrap items-center gap-2">
             {#if wikiIsActive || (wikiIsIdle && !wikiIsPaused)}
               <button
                 type="button"
-                class="wiki-loop-btn wiki-loop-btn-secondary"
+                class={cn(wikiLoopBtn, wikiLoopBtnSecondary)}
                 disabled={wikiActionBusy}
                 onclick={() => void wikiPause()}
                 title="Pause background wiki updates"
@@ -322,7 +357,7 @@
             {:else if wikiIsPaused || wikiPhase === 'error'}
               <button
                 type="button"
-                class="wiki-loop-btn wiki-loop-btn-primary"
+                class={cn(wikiLoopBtn, wikiLoopBtnPrimary)}
                 disabled={wikiActionBusy}
                 onclick={() => void wikiResume()}
                 title="Resume background wiki updates"
@@ -334,13 +369,15 @@
           </div>
         </div>
       {/if}
-      <div class="links-list">
+      <div class="links-list flex flex-col">
         <button
           type="button"
-          class="link-item hub-source-row"
+          class={cn(linkItemBase, 'hub-source-row')}
           onclick={() => onHubNavigate({ type: 'your-wiki' })}
         >
-          <div class="link-info">
+          <div
+            class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium"
+          >
             <HubSourceRowBody title={wikiHubTitle} subtitle={wikiHubSub}>
               {#snippet icon()}
                 {#if wikiIsActive}
@@ -352,22 +389,34 @@
             </HubSourceRowBody>
           </div>
           {#if wikiIsPaused}
-            <div class="link-status">
-              <span class="status-pill paused">Paused</span>
+            <div class="link-status flex flex-col items-end gap-px">
+              <span
+                class="status-pill paused bg-[color-mix(in_srgb,var(--text-2)_22%,var(--bg-3))] px-2 py-px text-[0.625rem] font-extrabold uppercase tracking-[0.05em] text-foreground"
+              >Paused</span>
             </div>
           {/if}
           <ChevronRight size={16} aria-hidden="true" />
         </button>
         {#if wikiRecentReady && wikiRecentEdits.length > 0}
-          <div class="wiki-recent-block" aria-label="Recent wiki edits">
-            <p class="wiki-recent-label">Recent edits</p>
+          <div
+            class="wiki-recent-block mt-[0.35rem] flex flex-col border-t border-t-[color-mix(in_srgb,var(--border)_40%,transparent)] pt-3"
+            aria-label="Recent wiki edits"
+          >
+            <p
+              class="wiki-recent-label mb-[0.35rem] mt-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted"
+            >Recent edits</p>
             {#each wikiRecentEdits as f (f.path)}
               <button
                 type="button"
-                class="link-item hub-source-row wiki-recent-row"
+                class={cn(
+                  linkItemBase,
+                  'hub-source-row wiki-recent-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-[0.45rem]',
+                )}
                 onclick={() => onHubNavigate({ type: 'wiki', path: f.path })}
               >
-                <div class="link-info wiki-recent-row-main">
+                <div
+                  class="link-info wiki-recent-row-main flex min-w-0 items-center gap-3 text-[0.9375rem] font-medium"
+                >
                   <HubSourceRowBody subtitle="">
                     {#snippet icon()}
                       <FileText size={16} aria-hidden="true" />
@@ -377,30 +426,34 @@
                     {/snippet}
                   </HubSourceRowBody>
                 </div>
-                <div class="wiki-recent-row-meta">
-                  <span class="status-sub wiki-recent-time">{formatRelativeDate(f.date)}</span>
+                <div class="wiki-recent-row-meta inline-flex shrink-0 items-center justify-end gap-2">
+                  <span
+                    class="status-sub wiki-recent-time whitespace-nowrap text-xs text-muted"
+                  >{formatRelativeDate(f.date)}</span>
                   <ChevronRight size={16} aria-hidden="true" />
                 </div>
               </button>
             {/each}
           </div>
         {:else if wikiRecentReady}
-          <p class="empty-msg wiki-recent-empty">No recent edits recorded yet.</p>
+          <p
+            class="empty-msg wiki-recent-empty mt-2 border-t border-t-[color-mix(in_srgb,var(--border)_40%,transparent)] px-0 pb-0 pt-[0.65rem] text-[0.8125rem] text-muted"
+          >No recent edits recorded yet.</p>
         {/if}
       </div>
     </section>
 
-    <section class="hub-section search-index-section" aria-labelledby="hub-index-heading">
-      <div class="section-header">
+    <section class="hub-section search-index-section flex flex-col gap-6" aria-labelledby="hub-index-heading">
+      <div class={sectionHeaderBase}>
         <Radio size={18} />
-        <h2 id="hub-index-heading">Search index</h2>
+        <h2 id="hub-index-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Search index</h2>
       </div>
-      <p class="section-lead">
+      <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
         Braintunnel indexes your email, calendars, and other connected sources for instant access and lightning-fast
         search while you work in chat. Add or manage data sources in
         <a
           href="/settings"
-          class="section-lead-strong section-lead-settings-link"
+          class="section-lead-strong section-lead-settings-link cursor-pointer font-[650] text-foreground underline decoration-[color-mix(in_srgb,var(--text)_40%,transparent)] underline-offset-2 hover:decoration-[var(--text)]"
           onclick={(e) => {
             if (onOpenSettings) {
               e.preventDefault()
@@ -412,34 +465,40 @@
         </a>
         .
       </p>
-      <div class="index-status-strip" role="status" aria-live="polite">
+      <div
+        class="index-status-strip flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] pb-[0.85rem] pt-[0.65rem] text-[0.8125rem] text-muted"
+        role="status"
+        aria-live="polite"
+      >
         {#if mailStatus?.statusError}
-          <span class="index-status-err" title={mailStatus.statusError}>Mail index status unavailable</span>
+          <span class="index-status-err cursor-help text-[var(--text-3)]" title={mailStatus.statusError}>Mail index status unavailable</span>
         {:else if mailStatus}
-          <span class="index-status-primary"
+          <span class="index-status-primary font-semibold text-foreground"
             >{mailStatus.indexedTotal != null ? mailStatus.indexedTotal : '—'} messages in index</span
           >
           {#if mailStatus.syncRunning}
-            <span class="status-sub status-syncing">
-              <span class="sync-dot" aria-hidden="true"></span>
+            <span class="status-sub status-syncing inline-flex items-center gap-1.5 font-semibold text-accent">
+              <span class="sync-dot h-1.5 w-1.5 shrink-0 bg-accent" aria-hidden="true"></span>
               Syncing{formatSyncLockAge(mailStatus.syncLockAgeMs)}…
             </span>
           {:else if mailStatus.lastSyncedAt}
-            <span class="status-sub">Last synced {formatRelativeDate(mailStatus.lastSyncedAt)}</span>
+            <span class="status-sub text-xs text-muted">Last synced {formatRelativeDate(mailStatus.lastSyncedAt)}</span>
           {:else if mailStatus.configured}
-            <span class="status-sub">No sync time yet</span>
+            <span class="status-sub text-xs text-muted">No sync time yet</span>
           {/if}
         {:else}
-          <span class="status-sub">Loading index status…</span>
+          <span class="status-sub text-xs text-muted">Loading index status…</span>
         {/if}
       </div>
       {#if hubSourcesError}
-        <p class="empty-msg hub-sources-err" title={hubSourcesError}>Could not load connection summary.</p>
+        <p class="empty-msg hub-sources-err m-0 cursor-help py-4 text-[0.9375rem] text-muted" title={hubSourcesError}>Could not load connection summary.</p>
       {:else if orderedHubSources.length === 0}
-        <p class="empty-msg">No connections yet. Add mail or calendars in Settings.</p>
+        <p class="empty-msg m-0 py-4 text-[0.9375rem] text-muted">No connections yet. Add mail or calendars in Settings.</p>
       {:else}
-        <p class="index-feed-summary" aria-live="polite">
-          <span class="index-feed-summary-label">Feeding this index:</span>
+        <p class="index-feed-summary m-0 px-0 pt-[0.35rem] text-[0.9375rem] leading-[1.45] text-foreground" aria-live="polite">
+          <span
+            class="index-feed-summary-label mb-[0.35rem] block text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted"
+          >Feeding this index:</span>
           {indexFeedSummary}
         </p>
       {/if}
@@ -448,291 +507,14 @@
 </div>
 
 <style>
-  .hub-page {
-    padding: 2.5rem 2rem;
-    max-width: 900px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 3rem;
-    color: var(--text);
-  }
-
-  .hub-header {
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  h1 {
-    margin: 0;
-    font-size: 2rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-  }
-
-  .hub-header-deck {
-    margin: 0.5rem 0 0;
-  }
-
-  .hub-header-deck--hosted {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-
-  .hub-handle-line {
-    margin: 0;
-    font-size: 0.9375rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-weight: 500;
-    color: var(--text-2);
-    letter-spacing: 0.02em;
-  }
-
-  .hub-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 3.5rem;
-  }
-
-  .wiki-recent-block {
-    display: flex;
-    flex-direction: column;
-    margin-top: 0.35rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
-  }
-
-  .wiki-recent-label {
-    margin: 0 0 0.35rem;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-2);
-  }
-
-  .wiki-recent-row {
-    padding-top: 0.45rem;
-    padding-bottom: 0.45rem;
-  }
-
-  .wiki-recent-row-main {
-    min-width: 0;
-  }
-
-  .wiki-recent-row-meta {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-
-  .wiki-recent-time {
-    font-size: 0.75rem;
-    color: var(--text-2);
-    white-space: nowrap;
-  }
-
-  .wiki-recent-empty {
-    margin-top: 0.5rem;
-    padding: 0.65rem 0 0;
-    border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
-    font-size: 0.8125rem;
-  }
-
-  .hub-section {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
+  /* Reach into lucide SVG inside HubSourceRowBody for the spin animation. */
   :global(.spin-icon) {
-    animation: spin 2s linear infinite;
+    animation: hub-spin 2s linear infinite;
   }
 
-  @keyframes spin {
+  @keyframes hub-spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
-  }
-
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--text);
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 0.9375rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-  }
-
-  .section-header-wiki .wiki-header-metrics {
-    margin-left: auto;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-
-  .wiki-header-count {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text);
-    letter-spacing: -0.01em;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .wiki-header-count-label {
-    font-size: 0.75rem;
-    color: var(--text-2);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .wiki-loop-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    margin: -0.25rem 0 0.35rem;
-  }
-
-  .wiki-loop-toolbar-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    align-items: center;
-  }
-
-  .wiki-loop-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    padding: 0.3rem 0.7rem;
-    border-radius: 6px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: background 0.15s, color 0.15s, border-color 0.15s, filter 0.15s;
-  }
-
-  .wiki-loop-btn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .wiki-loop-btn-primary {
-    background: var(--accent);
-    color: white;
-    border-color: color-mix(in srgb, var(--accent) 80%, black);
-  }
-
-  .wiki-loop-btn-primary:hover:not(:disabled) {
-    filter: brightness(1.07);
-  }
-
-  .wiki-loop-btn-secondary {
-    background: transparent;
-    color: var(--text);
-    border-color: color-mix(in srgb, var(--border) 80%, transparent);
-  }
-
-  .wiki-loop-btn-secondary:hover:not(:disabled) {
-    background: var(--bg-2);
-  }
-
-  .links-list {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .link-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
-    color: var(--text);
-    cursor: pointer;
-    text-align: left;
-    transition: padding-left 0.2s ease, color 0.15s;
-  }
-
-  .link-item:hover:not(.static):not(.disabled):not(:disabled) {
-    padding-left: 4px;
-    color: var(--accent);
-  }
-
-  .link-item.wiki-recent-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    column-gap: 1rem;
-  }
-
-  .link-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex: 1;
-    min-width: 0;
-    font-size: 0.9375rem;
-    font-weight: 500;
-  }
-
-  .status-pill {
-    font-size: 0.625rem;
-    font-weight: 800;
-    padding: 2px 8px;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: var(--bg-3);
-    color: var(--text-2);
-  }
-
-  .status-pill.paused {
-    background: color-mix(in srgb, var(--text-2) 22%, var(--bg-3));
-    color: var(--text);
-  }
-
-  .link-status {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-  }
-
-  .status-sub {
-    font-size: 0.75rem;
-    color: var(--text-2);
-  }
-
-  .status-syncing {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--accent);
-    font-weight: 600;
-  }
-
-  .sync-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
-    flex-shrink: 0;
-    animation: hub-sync-pulse 1.2s ease-in-out infinite;
   }
 
   @keyframes hub-sync-pulse {
@@ -747,83 +529,14 @@
     }
   }
 
-  .section-lead {
-    margin: 0;
-    font-size: 0.9375rem;
-    color: var(--text-2);
-    line-height: 1.45;
-    max-width: 40rem;
+  .sync-dot {
+    animation: hub-sync-pulse 1.2s ease-in-out infinite;
   }
 
-  .section-lead-strong {
-    font-weight: 650;
-    color: var(--text);
-  }
-
-  .section-lead-settings-link {
-    text-decoration: underline;
-    text-decoration-color: color-mix(in srgb, var(--text) 40%, transparent);
-    text-underline-offset: 2px;
-    cursor: pointer;
-  }
-
-  .section-lead-settings-link:hover {
-    text-decoration-color: var(--text);
-  }
-
-  .index-status-strip {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem 1rem;
-    padding: 0.65rem 0 0.85rem;
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
-  }
-
-  .index-status-primary {
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .index-status-err {
-    color: var(--text-3);
-    cursor: help;
-  }
-
-  .hub-sources-err {
-    cursor: help;
-  }
-
-  .empty-msg {
-    margin: 0;
-    font-size: 0.9375rem;
-    color: var(--text-2);
-    padding: 1rem 0;
-  }
-
-  .index-feed-summary {
-    margin: 0;
-    padding: 0.35rem 0 0;
-    font-size: 0.9375rem;
-    line-height: 1.45;
-    color: var(--text);
-  }
-
-  .index-feed-summary-label {
-    display: block;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-2);
-    margin-bottom: 0.35rem;
-  }
-
-  @media (max-width: 767px) {
-    .hub-page {
-      padding: 1.5rem 1rem;
+  @media (prefers-reduced-motion: reduce) {
+    :global(.spin-icon),
+    .sync-dot {
+      animation: none;
     }
   }
 </style>

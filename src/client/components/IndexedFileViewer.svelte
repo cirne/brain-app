@@ -1,5 +1,5 @@
 <script lang="ts">
-  import CsvSpreadsheetView from './CsvSpreadsheetView.svelte'
+  import CsvSpreadsheetView from '@components/CsvSpreadsheetView.svelte'
   import { renderMarkdownBody } from '@client/lib/markdown.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import type { SurfaceContext } from '@client/router.js'
@@ -100,51 +100,29 @@
   }
 </script>
 
-<div class="indexed-file-view">
+<div
+  class="indexed-file-view box-border flex h-full min-h-0 min-w-0 flex-col overflow-auto px-4 py-3"
+>
   {#if loading}
-    <p class="muted">Loading…</p>
+    <p class="muted text-[0.9rem] text-muted">Loading…</p>
   {:else if err}
-    <p class="err">{err}</p>
+    <p class="err text-[0.9rem] text-[var(--error,#c44)]">{err}</p>
   {:else if useSpreadsheetViewer}
     <CsvSpreadsheetView text={body} path={spreadsheetPathForViewer} />
   {:else}
-    <div class="md-wrap">
+    <div class="md-wrap min-h-0 flex-1 text-[0.9rem] leading-normal [overflow-wrap:anywhere]">
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -->
       {@html renderMarkdownBody(body)}
     </div>
   {/if}
 </div>
 
 <style>
-  .indexed-file-view {
-    height: 100%;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    padding: 12px 16px;
-    box-sizing: border-box;
-    overflow: auto;
-  }
-  .muted {
-    color: var(--muted, #888);
-    font-size: 0.9rem;
-  }
-  .err {
-    color: var(--error, #c44);
-    font-size: 0.9rem;
-  }
-  .md-wrap {
-    flex: 1;
-    min-height: 0;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    overflow-wrap: anywhere;
-  }
+  /* Markdown <pre> blocks rendered from server HTML need scoped overrides. */
   .md-wrap :global(pre) {
     overflow-x: auto;
     padding: 8px;
-    border-radius: 6px;
-    background: var(--code-bg, rgba(0, 0, 0, 0.06));
+background: var(--code-bg, rgba(0, 0, 0, 0.06));
     font-size: 0.82rem;
   }
 </style>

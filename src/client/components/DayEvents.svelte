@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { cn } from '@client/lib/cn.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import { localYmdFromDate, localYmdFromIsoInstant } from '@client/lib/calendarLocalYmd.js'
 
@@ -18,12 +19,6 @@
     color?: string
   }
 
-  /**
-   * Compact, reusable event list for a single day.
-   * - Pass `events` if already loaded (e.g. from a week fetch) to skip the API call.
-   * - Omit `events` to auto-fetch from /api/calendar for the given `date`.
-   * - `onEventOpen` vs `onEventSelect` only affects click routing and optional hover styling, not layout.
-   */
   let {
     date,
     events: propEvents,
@@ -54,7 +49,6 @@
     else onEventSelect?.(e)
   }
 
-  // Only fetch when no events are provided externally
   $effect(() => {
     if (propEvents === undefined) {
       fetchForDate(date)
@@ -95,13 +89,11 @@
     return new Date(e.end) < now
   }
 
-  /** Split events into all-day and timed for this specific date. */
   const { allDay, timed } = $derived.by(() => {
     const allDayArr: CalendarEvent[] = []
     const timedArr: CalendarEvent[] = []
     for (const e of events) {
       if (e.allDay) {
-        // show on all days in [start, end) — DTEND is exclusive
         if (e.start <= date && e.end > date) allDayArr.push(e)
       } else {
         if (localYmdFromIsoInstant(e.start) === date) timedArr.push(e)
@@ -114,14 +106,14 @@
     if (propEvents === undefined) fetchForDate(date)
   })
   const colors = [
-    '#3b82f6', // blue
-    '#ef4444', // red
-    '#10b981', // emerald
-    '#f59e0b', // amber
-    '#8b5cf6', // violet
-    '#ec4899', // pink
-    '#06b6d4', // cyan
-    '#f97316', // orange
+    '#3b82f6',
+    '#ef4444',
+    '#10b981',
+    '#f59e0b',
+    '#8b5cf6',
+    '#ec4899',
+    '#06b6d4',
+    '#f97316',
   ]
 
   function getColorForSource(e: CalendarEvent): string {
@@ -132,189 +124,93 @@
     }
     return colors[Math.abs(hash) % colors.length]
   }
+
+  /** Shared hover/focus styles + base layout for the compact-hit button + non-interactive list item. */
+  const baseRow = 'de-event flex items-baseline gap-[5px] px-[7px] py-[3px] text-xs leading-[1.4]'
+  const travelBg =
+    'travel border-l-2 border-l-[var(--accent,#f59e0b)] bg-[var(--custom-bg,color-mix(in_srgb,#f59e0b_15%,transparent))]'
+  const personalBg =
+    'personal border-l-2 border-l-[var(--accent)] bg-[var(--custom-bg,color-mix(in_srgb,var(--accent)_10%,transparent))]'
+  const interactiveBg =
+    'de-compact-hit w-full cursor-pointer border-none p-0 px-[7px] py-[3px] text-left font-[inherit] text-[inherit] hover:brightness-[1.06] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
+  const previewHover =
+    'de-preview-hover hover:brightness-[1.08] hover:[box-shadow:inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_28%,transparent)]'
 </script>
 
-<ul class="de-list">
+<ul class="de-list m-0 flex list-none flex-col gap-[3px] p-0">
   {#each allDay as e (e.id)}
     {@const eventColor = e.color || getColorForSource(e)}
     {#if interactive}
-      <li class="de-li-compact">
+      <li class="de-li-compact m-0 list-none p-0">
         <button
           type="button"
-          class="de-event travel de-compact-hit"
+          class={cn(
+            baseRow,
+            interactiveBg,
+            travelBg,
+            !!onEventOpen && previewHover,
+            isPast(e) && 'past opacity-45',
+            selectedEventId === e.id && 'de-selected outline outline-2 outline-offset-1 outline-accent',
+          )}
           style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 15%, transparent);"
-          class:de-preview-hover={!!onEventOpen}
-          class:past={isPast(e)}
-          class:de-selected={selectedEventId === e.id}
           aria-label={onEventOpen ? `Open ${e.title} in calendar` : `View details: ${e.title}`}
           title={e.location ?? ''}
           onclick={() => handleEventClick(e)}
         >
-          <span class="de-icon" aria-hidden="true">✈</span>
-          <span class="de-title">{e.title}</span>
+          <span class="de-icon shrink-0 text-[11px]" aria-hidden="true">✈</span>
+          <span class="de-title flex-1 truncate font-medium text-foreground">{e.title}</span>
         </button>
       </li>
     {:else}
       <li
-        class="de-event travel"
+        class={cn(baseRow, travelBg, isPast(e) && 'past opacity-45')}
         style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 15%, transparent);"
-        class:past={isPast(e)}
         title={e.location ?? ''}
       >
-        <span class="de-icon">✈</span>
-        <span class="de-title">{e.title}</span>
+        <span class="de-icon shrink-0 text-[11px]">✈</span>
+        <span class="de-title flex-1 truncate font-medium text-foreground">{e.title}</span>
       </li>
     {/if}
   {/each}
   {#each timed as e (e.id)}
     {@const eventColor = e.color || getColorForSource(e)}
     {#if interactive}
-      <li class="de-li-compact">
+      <li class="de-li-compact m-0 list-none p-0">
         <button
           type="button"
-          class="de-event personal de-compact-hit"
+          class={cn(
+            baseRow,
+            interactiveBg,
+            personalBg,
+            !!onEventOpen && previewHover,
+            isPast(e) && 'past opacity-45',
+            selectedEventId === e.id && 'de-selected outline outline-2 outline-offset-1 outline-accent',
+          )}
           style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 10%, transparent);"
-          class:de-preview-hover={!!onEventOpen}
-          class:past={isPast(e)}
-          class:de-selected={selectedEventId === e.id}
           aria-label={onEventOpen ? `Open ${e.title} in calendar` : `View details: ${e.title}`}
           title={[formatTimeRange(e), e.location, e.description].filter(Boolean).join(' · ')}
           onclick={() => handleEventClick(e)}
         >
-          <span class="de-time">{formatTime(e.start)}</span>
-          <span class="de-title">{e.title}</span>
-          {#if e.location}<span class="de-loc">{e.location}</span>{/if}
+          <span class="de-time min-w-[65px] shrink-0 text-[11px] tabular-nums text-muted">{formatTime(e.start)}</span>
+          <span class="de-title flex-1 truncate font-medium text-foreground">{e.title}</span>
+          {#if e.location}<span class="de-loc max-w-[100px] shrink-0 truncate text-[10px] text-muted">{e.location}</span>{/if}
         </button>
       </li>
     {:else}
       <li
-        class="de-event personal"
+        class={cn(
+          baseRow,
+          personalBg,
+          isPast(e) && 'past opacity-45',
+          selectedEventId === e.id && 'de-selected outline outline-2 outline-offset-1 outline-accent',
+        )}
         style="--accent: {eventColor}; --custom-bg: color-mix(in srgb, {eventColor} 10%, transparent);"
-        class:past={isPast(e)}
-        class:de-selected={selectedEventId === e.id}
         title={[e.location, e.description].filter(Boolean).join(' · ')}
       >
-        <span class="de-time">{formatTime(e.start)}</span>
-        <span class="de-title">{e.title}</span>
-        {#if e.location}<span class="de-loc">{e.location}</span>{/if}
+        <span class="de-time min-w-[65px] shrink-0 text-[11px] tabular-nums text-muted">{formatTime(e.start)}</span>
+        <span class="de-title flex-1 truncate font-medium text-foreground">{e.title}</span>
+        {#if e.location}<span class="de-loc max-w-[100px] shrink-0 truncate text-[10px] text-muted">{e.location}</span>{/if}
       </li>
     {/if}
   {/each}
 </ul>
-
-<style>
-  .de-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-
-  .de-event {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
-    padding: 3px 7px;
-    border-radius: 3px;
-    font-size: 12px;
-    line-height: 1.4;
-  }
-
-  .de-event.travel {
-    background: var(--custom-bg, color-mix(in srgb, #f59e0b 15%, transparent));
-    border-left: 2px solid var(--accent, #f59e0b);
-  }
-
-  .de-event.personal {
-    background: var(--custom-bg, color-mix(in srgb, var(--accent) 10%, transparent));
-    border-left: 2px solid var(--accent);
-  }
-
-  .de-event.past {
-    opacity: 0.45;
-  }
-
-  .de-event.de-selected {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-  }
-
-  .de-icon {
-    font-size: 11px;
-    flex-shrink: 0;
-  }
-
-  .de-time {
-    font-size: 11px;
-    color: var(--text-2);
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
-    min-width: 65px;
-  }
-
-  .de-title {
-    color: var(--text);
-    font-weight: 500;
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .de-loc {
-    font-size: 10px;
-    color: var(--text-2);
-    flex-shrink: 0;
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .de-li-compact {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  button.de-compact-hit {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
-    width: 100%;
-    margin: 0;
-    padding: 3px 7px;
-    border: none;
-    border-radius: 3px;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-    color: inherit;
-  }
-
-  button.de-compact-hit.de-event.travel {
-    background: var(--custom-bg, color-mix(in srgb, #f59e0b 15%, transparent));
-    border-left: 2px solid var(--accent, #f59e0b);
-  }
-
-  button.de-compact-hit.de-event.personal {
-    background: var(--custom-bg, color-mix(in srgb, var(--accent) 10%, transparent));
-    border-left: 2px solid var(--accent);
-  }
-
-  button.de-compact-hit:hover {
-    filter: brightness(1.06);
-  }
-
-  button.de-compact-hit.de-preview-hover:hover {
-    filter: brightness(1.08);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
-  }
-
-  button.de-compact-hit:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-  }
-</style>

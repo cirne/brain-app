@@ -24,6 +24,7 @@
   import { resizeMainWindowToBrowserLikeWorkArea } from '@client/lib/desktop/browserLikeWindow.js'
   import { isTauriRuntime } from '@client/lib/desktop/isTauriRuntime.js'
   import { ArrowRight } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import OnboardingHeroShell from './OnboardingHeroShell.svelte'
   import OnboardingHandleStep from './OnboardingHandleStep.svelte'
   interface Props {
@@ -459,12 +460,13 @@
     indexingAdvanceError = null
     await onComplete()
   }
-
 </script>
 
 <div
-  class="onboarding flex h-full min-h-0 w-full flex-col bg-[var(--bg)] text-[var(--text)]"
-  class:onboarding-wide={state !== 'onboarding-agent'}
+  class={cn(
+    'onboarding flex h-full min-h-0 w-full flex-col bg-[var(--bg)] text-[var(--text)]',
+    state !== 'onboarding-agent' && 'onboarding-wide',
+  )}
 >
   {#if state === 'onboarding-agent'}
     <div class="flex min-h-0 flex-1 flex-col">
@@ -489,21 +491,21 @@
     </div>
   {:else if multiTenant && state === 'confirming-handle'}
     <OnboardingHandleStep
-      refreshStatus={refreshStatus}
+      {refreshStatus}
       onComplete={async () => {
         await refreshStatus()
         await load()
       }}
     />
   {:else}
-  <div class="onboarding-main onboarding-main-scroll flex min-h-0 flex-1 flex-col">
-    {#if state === 'not-started' && !mailHydrated}
-      <OnboardingHeroShell>
-        <span class="ob-kicker">Braintunnel</span>
-        <p class="ob-lead text-[var(--muted)]" role="status" aria-live="polite">Loading setup…</p>
-      </OnboardingHeroShell>
-    {:else if state === 'not-started' && !mail.configured}
-      <OnboardingHeroShell>
+    <div class="onboarding-main onboarding-main-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {#if state === 'not-started' && !mailHydrated}
+        <OnboardingHeroShell>
+          <span class="ob-kicker">Braintunnel</span>
+          <p class="ob-lead text-[var(--muted)]" role="status" aria-live="polite">Loading setup…</p>
+        </OnboardingHeroShell>
+      {:else if state === 'not-started' && !mail.configured}
+        <OnboardingHeroShell>
           <span class="ob-kicker">Braintunnel</span>
           {#if multiTenant}
             <h1 class="ob-headline">Your assistant</h1>
@@ -535,7 +537,12 @@
             {#if setupError}
               <p class="ob-error">{setupError}</p>
             {/if}
-            <div class="ob-provider-row" class:ob-provider-row--single={!appleLocalIntegrationsAvailable}>
+            <div
+              class={cn(
+                'ob-provider-row',
+                !appleLocalIntegrationsAvailable && 'ob-provider-row--single',
+              )}
+            >
               {#if appleLocalIntegrationsAvailable}
                 <button
                   type="button"
@@ -583,10 +590,9 @@
               {/if}
             </p>
           </div>
-      </OnboardingHeroShell>
-
-    {:else if state === 'not-started' && mail.configured && setupError}
-      <OnboardingHeroShell>
+        </OnboardingHeroShell>
+      {:else if state === 'not-started' && mail.configured && setupError}
+        <OnboardingHeroShell>
           <span class="ob-kicker">Braintunnel</span>
           <h1 class="ob-headline">Couldn’t start indexing</h1>
           <p class="ob-error">{setupError}</p>
@@ -605,10 +611,9 @@
               {/if}
             </button>
           </div>
-      </OnboardingHeroShell>
-
-    {:else if showIndexingHero}
-      <OnboardingHeroShell indexing ariaBusy="true">
+        </OnboardingHeroShell>
+      {:else if showIndexingHero}
+        <OnboardingHeroShell indexing ariaBusy="true">
           <div class="ob-indexing-fixed">
             <div class="ob-indexing-visual" aria-hidden="true">
               <span class="ob-indexing-orbit"></span>
@@ -623,7 +628,10 @@
           </div>
           <div class="ob-indexing-status-slot" aria-live="polite">
             {#if !indexingHasFirstMessage}
-              <div class="ob-indexing-progress-bar ob-indexing-progress-bar--indeterminate" aria-hidden="true"></div>
+              <div
+                class="ob-indexing-progress-bar ob-indexing-progress-bar--indeterminate"
+                aria-hidden="true"
+              ></div>
             {:else}
               <div
                 class="ob-indexing-progress-block ob-indexing-progress-block--determinate"
@@ -633,13 +641,18 @@
                 aria-valuemax="100"
                 aria-valuenow={Math.round(indexingProgressPercent)}
               >
-                <div class="ob-indexing-progress-bar ob-indexing-progress-bar--determinate" aria-hidden="true">
+                <div
+                  class="ob-indexing-progress-bar ob-indexing-progress-bar--determinate"
+                  aria-hidden="true"
+                >
                   <div
                     class="ob-indexing-progress-fill"
                     style:width="{indexingProgressPercent}%"
                   ></div>
                 </div>
-                <p class="ob-indexing-progress-fraction" aria-hidden="true">{indexingProgressLabel}</p>
+                <p class="ob-indexing-progress-fraction" aria-hidden="true">
+                  {indexingProgressLabel}
+                </p>
               </div>
             {/if}
             {#if showStaleLockResumeButton}
@@ -686,9 +699,8 @@
               <p class="ob-error ob-indexing-mail-error">{mail.statusError}</p>
             {/if}
           </div>
-      </OnboardingHeroShell>
-
-    {/if}
-  </div>
+        </OnboardingHeroShell>
+      {/if}
+    </div>
   {/if}
 </div>

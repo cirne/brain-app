@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import { cn } from '@client/lib/cn.js'
 
   type Props = {
     open: boolean
@@ -40,15 +41,15 @@
     if (!el || !open) return
 
     function openModal() {
-      if (typeof el.showModal === 'function') {
+      if (typeof el!.showModal === 'function') {
         try {
-          el.showModal()
+          el!.showModal()
           return
         } catch {
           /* allow without transient user gesture in strict hosts */
         }
       }
-      el.setAttribute('open', '')
+      el!.setAttribute('open', '')
     }
 
     if (!el.open) openModal()
@@ -66,6 +67,11 @@
   function onPanelClick(e: MouseEvent) {
     e.stopPropagation()
   }
+
+  const btnBase =
+    'cd-btn cursor-pointer border border-border bg-surface-3 px-3 py-[0.4rem] text-xs font-medium leading-tight text-foreground transition-colors hover:bg-surface-2 [font:inherit] disabled:cursor-not-allowed disabled:opacity-50'
+  const btnDanger =
+    'cd-btn--danger border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] bg-[color-mix(in_srgb,var(--danger)_12%,var(--bg))] text-danger hover:bg-[color-mix(in_srgb,var(--danger)_22%,var(--bg))]'
 </script>
 
 {#if open}
@@ -75,33 +81,42 @@
   -->
   <dialog
     bind:this={dialogEl}
-    class="cd-modal-shell"
+    class="cd-modal-shell fixed inset-0 m-0 box-border flex h-full max-h-screen w-full max-w-screen items-center justify-center overflow-hidden border-none bg-transparent p-4"
     aria-modal="true"
     aria-labelledby={titleId}
     oncancel={onDialogCancel}
   >
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="cd-backdrop" role="presentation" onclick={onBackdropClick}></div>
+    <div
+      class="cd-backdrop absolute inset-0 z-0 cursor-pointer"
+      role="presentation"
+      onclick={onBackdropClick}
+    ></div>
 
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class={['cd-panel', panelClass].filter(Boolean).join(' ')} onclick={onPanelClick}>
-      <h2 id={titleId} class="cd-title">{title}</h2>
-      <div class="cd-body">
+    <div
+      class={cn(
+        'cd-panel relative z-[1] box-border w-full max-w-[22rem] cursor-auto border border-border bg-surface px-4 pt-4 pb-3 [box-shadow:0_12px_40px_rgba(0,0,0,0.25)]',
+        panelClass,
+      )}
+      onclick={onPanelClick}
+    >
+      <h2 id={titleId} class="cd-title m-0 mb-[0.4rem] text-sm font-semibold leading-tight text-foreground">{title}</h2>
+      <div class="cd-body mb-[0.9rem] mt-0 text-xs leading-snug text-muted [overflow-wrap:anywhere] [&>p+p]:mt-2 [&>p]:m-0">
         {@render children()}
       </div>
-      <div class="cd-actions">
+      <div class="cd-actions flex flex-wrap justify-end gap-[0.4rem]">
         {#if actions}
           {@render actions()}
         {:else}
-          <button type="button" class="cd-btn" onclick={onDismiss}>
+          <button type="button" class={btnBase} onclick={onDismiss}>
             {cancelLabel}
           </button>
           <button
             type="button"
-            class="cd-btn"
-            class:cd-btn--danger={confirmVariant === 'danger'}
+            class={cn(btnBase, confirmVariant === 'danger' && btnDanger)}
             onclick={() => onConfirm()}
           >
             {confirmLabel}
@@ -113,131 +128,13 @@
 {/if}
 
 <style>
-  .cd-modal-shell {
-    margin: 0;
-    padding: 1rem;
-    border: none;
-    max-width: none;
-    max-height: none;
-    width: 100%;
-    height: 100%;
-    max-width: 100vw;
-    max-height: 100vh;
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    background: transparent;
-    position: fixed;
-    inset: 0;
-  }
-
-  /* Top-layer dimming (modal); covers the viewport including high-z split panes */
+  /* Top-layer dimming (modal); covers the viewport including high-z split panes. */
   .cd-modal-shell::backdrop {
     background: rgba(0, 0, 0, 0.45);
     pointer-events: none;
   }
 
-  /* Click target “outside” the card (transparent; ::backdrop receives no pointer events above some browsers) */
-  .cd-backdrop {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    cursor: pointer;
-  }
-
-  .cd-panel {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 22rem;
-    cursor: auto;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
-    padding: 1rem 1rem 0.75rem;
-    box-sizing: border-box;
-  }
-
-  .cd-title {
-    margin: 0 0 0.4rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    line-height: 1.3;
-    color: var(--text);
-  }
-
-  .cd-body {
-    margin: 0 0 0.9rem;
-    font-size: 0.75rem;
-    line-height: 1.4;
-    color: var(--text-2);
-    word-break: break-word;
-  }
-
-  .cd-body :global(p) {
-    margin: 0;
-  }
-
-  .cd-body :global(p + p) {
-    margin-top: 0.5rem;
-  }
-
-  .cd-actions {
-    display: flex;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .cd-btn {
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.75rem;
-    font-weight: 500;
-    line-height: 1.2;
-    padding: 0.4rem 0.75rem;
-    border-radius: 0.375rem;
-    border: 1px solid var(--border);
-    background: var(--bg-3);
-    color: var(--text);
-    transition:
-      background 0.1s ease,
-      border-color 0.1s ease,
-      color 0.1s ease;
-  }
-
-  .cd-btn:hover {
-    background: var(--bg-2);
-  }
-
-  .cd-btn--danger {
-    border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
-    background: color-mix(in srgb, var(--danger) 12%, var(--bg));
-    color: var(--danger);
-  }
-
-  .cd-btn--danger:hover {
-    background: color-mix(in srgb, var(--danger) 22%, var(--bg));
-  }
-
-  .cd-btn--primary {
-    border-color: transparent;
-    background: var(--accent);
-    color: #fff;
-    transition:
-      background 0.1s ease,
-      border-color 0.1s ease,
-      filter 0.1s ease;
-  }
-
-  .cd-btn--primary:hover:not(:disabled) {
-    filter: brightness(1.08);
-  }
-
-  /* Buttons with `.cd-btn` may render in `.cd-body` (e.g. per-row copy) or `.cd-actions`. */
+  /* Style buttons rendered inside the dialog body / actions snippet by their semantic class names. */
   .cd-panel :global(button.cd-btn) {
     cursor: pointer;
     font: inherit;
@@ -245,14 +142,10 @@
     font-weight: 500;
     line-height: 1.2;
     padding: 0.4rem 0.75rem;
-    border-radius: 0.375rem;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
-    transition:
-      background 0.1s ease,
-      border-color 0.1s ease,
-      color 0.1s ease;
+    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
   }
 
   .cd-panel :global(button.cd-btn--primary) {

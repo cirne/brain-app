@@ -3,21 +3,11 @@
    * Rich preview for `product_feedback` op=draft: rendered markdown with feedback issue
    * front matter (type badge + title); avoids showing raw tool output in a pre block.
    */
-  import StreamingAgentMarkdown from '../agent-conversation/StreamingAgentMarkdown.svelte'
+  import StreamingAgentMarkdown from '@components/agent-conversation/StreamingAgentMarkdown.svelte'
 
   let { markdown }: { markdown: string } = $props()
 </script>
 
-<div class="feedback-draft-preview" role="region" aria-label="Feedback draft">
+<div class="feedback-draft-preview min-w-0 [&_.feedback-draft-md]:text-[13px]" role="region" aria-label="Feedback draft">
   <StreamingAgentMarkdown class="feedback-draft-md" content={markdown} />
 </div>
-
-<style>
-  .feedback-draft-preview {
-    min-width: 0;
-  }
-
-  :global(.feedback-draft-preview .feedback-draft-md) {
-    font-size: 13px;
-  }
-</style>

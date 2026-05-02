@@ -3,7 +3,7 @@
    * TipTap editor for onboarding profile draft (YAML front matter preserved).
    * Persists to disk only when the parent calls {@link flushSave} (Looks Good), not on each keystroke.
    */
-  import TipTapMarkdownEditor from '../TipTapMarkdownEditor.svelte'
+  import TipTapMarkdownEditor from '@components/TipTapMarkdownEditor.svelte'
 
   interface Props {
     initialMarkdown?: string
@@ -31,9 +31,9 @@
 <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
   <TipTapMarkdownEditor
     bind:this={inner}
-    initialMarkdown={initialMarkdown}
-    disabled={disabled}
+    {initialMarkdown}
+    {disabled}
     autoPersist={false}
-    onPersist={onPersist}
+    {onPersist}
   />
 </div>

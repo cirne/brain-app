@@ -1,7 +1,8 @@
 <script lang="ts">
   import { getContext, onMount } from 'svelte'
-  import DayEvents, { type CalendarEvent } from './DayEvents.svelte'
-  import CalendarEventDetail from './CalendarEventDetail.svelte'
+  import { cn } from '@client/lib/cn.js'
+  import DayEvents, { type CalendarEvent } from '@components/DayEvents.svelte'
+  import CalendarEventDetail from '@components/CalendarEventDetail.svelte'
 
   import type { SurfaceContext } from '@client/router.js'
   import {
@@ -95,7 +96,6 @@
     }
   })
 
-  // Jump to initialDate when it changes (e.g. navigating from chat)
   $effect(() => {
     if (initialDate) {
       weekStart = sundayOf(new Date(initialDate + 'T12:00:00'))
@@ -217,33 +217,54 @@
   onMount(() => { loadEvents() })
 </script>
 
-<div class="calendar">
+<div class="calendar flex h-full flex-col overflow-hidden">
   {#if !configured && !loading}
-    <div class="empty-state">
+    <div
+      class="empty-state flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center text-muted"
+    >
       {#if sourcesConfigured}
-        <p>No calendar data yet.</p>
-        <button class="sync-btn" onclick={() => { void refreshCalendarSources() }}>↻ Sync now</button>
+        <p class="m-0 text-sm">No calendar data yet.</p>
+        <button
+          class="sync-btn cursor-pointer border border-border bg-surface-3 px-4 py-1.5 text-[13px] text-foreground hover:border-accent hover:text-accent"
+          onclick={() => { void refreshCalendarSources() }}
+        >↻ Sync now</button>
       {:else}
-        <p>No calendar configured.</p>
-        <p class="hint">
-          Connect Gmail (calendar is included) or add a calendar source under ripmail — see onboarding and <code>ripmail
-            sources</code>.
+        <p class="m-0 text-sm">No calendar configured.</p>
+        <p class="hint m-0 max-w-[320px] text-xs leading-[1.5]">
+          Connect Gmail (calendar is included) or add a calendar source under ripmail — see onboarding and <code
+            class="font-mono text-accent"
+          >ripmail sources</code>.
         </p>
       {/if}
     </div>
   {:else if detailEvent}
-    <div class="detail-drill">
-      <div class="detail-drill-body">
+    <div class="detail-drill flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div class="detail-drill-body min-h-0 flex-1 overflow-y-auto px-3.5 pb-6 pt-3">
         <CalendarEventDetail event={detailEvent} {onOpenWiki} {onOpenEmail} />
       </div>
     </div>
   {:else}
-    <div class="days">
-      {#each days as { date, ymd }}
-        <div class="day" class:today={ymd === todayYMD} class:linked={ymd === initialDate}>
-          <div class="day-header">
-            <span class="day-label" class:today-label={ymd === todayYMD}>{formatDayHeader(date)}</span>
-            {#if ymd === todayYMD}<span class="today-badge">today</span>{/if}
+    <div class="days flex-1 overflow-y-auto py-2">
+      {#each days as { date, ymd } (ymd)}
+        <div
+          class={cn(
+            'day border-b border-border px-3.5 py-2.5',
+            ymd === todayYMD && 'today bg-[color-mix(in_srgb,var(--accent)_5%,transparent)]',
+            ymd === initialDate && 'linked border-l-2 border-l-accent bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]',
+          )}
+        >
+          <div class="day-header mb-1.5 flex items-center gap-2">
+            <span
+              class={cn(
+                'day-label text-[13px] font-semibold uppercase tracking-[0.04em] text-muted',
+                ymd === todayYMD && 'today-label !text-accent',
+              )}
+            >{formatDayHeader(date)}</span>
+            {#if ymd === todayYMD}
+              <span
+                class="today-badge bg-accent px-1.5 py-px text-[10px] font-semibold uppercase tracking-[0.04em] text-white"
+              >today</span>
+            {/if}
           </div>
           <DayEvents
             date={ymd}
@@ -256,102 +277,3 @@
     </div>
   {/if}
 </div>
-
-<style>
-  .calendar {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .days {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px 0;
-  }
-
-  .day {
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .day.today {
-    background: color-mix(in srgb, var(--accent) 5%, transparent);
-  }
-
-  .day.linked {
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
-    border-left: 2px solid var(--accent);
-  }
-
-  .day-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-  }
-
-  .day-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-2);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .day-label.today-label { color: var(--accent); }
-
-  .today-badge {
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 10px;
-    background: var(--accent);
-    color: #fff;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .empty-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 40px 24px;
-    text-align: center;
-    color: var(--text-2);
-  }
-
-  .empty-state p { margin: 0; font-size: 14px; }
-  .empty-state .hint { font-size: 12px; max-width: 320px; line-height: 1.5; }
-  .empty-state code { color: var(--accent); font-family: monospace; }
-
-  .sync-btn {
-    font-size: 13px;
-    padding: 6px 16px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    color: var(--text);
-    background: var(--bg-3);
-    cursor: pointer;
-  }
-  .sync-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-  .detail-drill {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .detail-drill-body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 12px 14px 24px;
-  }
-</style>

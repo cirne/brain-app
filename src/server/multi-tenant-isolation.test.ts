@@ -14,7 +14,9 @@ describe('multi-tenant isolation (Phase 3)', () => {
   let dataRoot: string
 
   afterEach(() => {
-    if (dataRoot) rmSync(dataRoot, { recursive: true, force: true })
+    if (dataRoot) {
+      rmSync(dataRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 })
+    }
     if (prevRoot === undefined) delete process.env.BRAIN_DATA_ROOT
     else process.env.BRAIN_DATA_ROOT = prevRoot
   })

@@ -3,6 +3,7 @@
   import { fly } from 'svelte/transition'
   import { ChevronDown } from 'lucide-svelte'
   import { computePinnedToBottom } from '@client/lib/scrollPin.js'
+  import { cn } from '@client/lib/cn.js'
   import type { AgentConversationViewProps } from '@client/lib/agentConversationViewTypes.js'
   import ConversationEmptyState from './ConversationEmptyState.svelte'
   import ChatMessageRow from './ChatMessageRow.svelte'
@@ -28,14 +29,12 @@
     toolDisplayMode = 'compact',
   }: AgentConversationViewProps = $props()
 
-  let messagesEl: HTMLElement
+  let messagesEl: HTMLElement | null = null
   let datePopover = $state<{ date: string; x: number; y: number } | null>(null)
   let datePopoverTimer: ReturnType<typeof setTimeout> | null = null
 
-  /** When true, new assistant content auto-scrolls the viewport (until the user scrolls up). BUG-007. */
   let followOutput = $state(true)
 
-  /** Temporarily ignore scroll events during programmatic scrolls to prevent followOutput from toggling off. */
   let ignoreScrollEvents = false
 
   let reduceMotion = $state(false)
@@ -61,12 +60,18 @@
 
   const jumpTransitionMs = $derived(reduceMotion ? 0 : 200)
 
+  function captureMessagesEl(element: HTMLElement) {
+    messagesEl = element
+    return () => {
+      if (messagesEl === element) messagesEl = null
+    }
+  }
+
   function syncFollowFromScroll() {
     if (!messagesEl || ignoreScrollEvents) return
     followOutput = computePinnedToBottom(messagesEl)
   }
 
-  /** Unconditional scroll + resume follow mode (load session, stream finished, user just sent). */
   export function scrollToBottom() {
     ignoreScrollEvents = true
     void tick().then(() => {
@@ -84,7 +89,6 @@
     })
   }
 
-  /** Stream deltas: only scroll if the user has not scrolled away to read history. */
   export function scrollToBottomIfFollowing() {
     if (!followOutput) return
     ignoreScrollEvents = true
@@ -157,12 +161,23 @@
   }
 </script>
 
-<div class="conversation-shell" data-conversation-state={messages.length === 0 ? 'empty' : 'active'}>
+<div
+  class={cn(
+    'conversation-shell relative flex min-w-0 flex-1 flex-col overflow-x-hidden',
+    messages.length === 0 ? 'min-h-[auto] flex-[0_1_auto]' : 'min-h-0',
+  )}
+  data-conversation-state={messages.length === 0 ? 'empty' : 'active'}
+>
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_mouse_events_have_key_events -->
   <div
-    class="conversation chat-transcript-scroll"
-    bind:this={messagesEl}
+    class={cn(
+      'conversation chat-transcript-scroll min-w-0 overflow-x-hidden pb-[var(--composer-context-overlap-pad,0)]',
+      messages.length === 0
+        ? 'min-h-[auto] max-h-none flex-[0_1_auto] overflow-y-clip'
+        : 'min-h-0 flex-1 overflow-y-auto',
+    )}
+    {@attach captureMessagesEl}
     onscroll={syncFollowFromScroll}
     onclick={handleMessagesClick}
     onkeydown={handleMessagesKeydown}
@@ -204,22 +219,27 @@
 
   {#if showJumpToLatest}
     <div
-      class="jump-anchor"
+      class="jump-anchor pointer-events-none absolute right-0 bottom-2.5 left-0 z-[3] flex justify-center md:[.split:not(.has-detail)_&]:mx-auto md:[.split:not(.has-detail)_&]:max-w-chat"
       in:fly={{ y: 10, duration: jumpTransitionMs }}
       out:fly={{ y: 8, duration: Math.min(jumpTransitionMs, 160) }}
     >
       <button
         type="button"
-        class="jump-to-latest"
-        class:streaming={streaming}
+        class={cn(
+          'jump-to-latest pointer-events-auto inline-flex items-center gap-1.5 border border-border bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] py-[9px] pr-4 pl-3.5 text-xs font-semibold tracking-[0.04em] text-foreground uppercase shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.1)] backdrop-blur-[10px] transition-[transform,box-shadow,border-color] duration-[180ms] ease-in-out [-webkit-backdrop-filter:blur(10px)] hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_12px_28px_rgba(0,0,0,0.12)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:translate-y-0 motion-reduce:hover:translate-y-0 dark:bg-[color-mix(in_srgb,var(--bg-3)_92%,transparent)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_10px_28px_rgba(0,0,0,0.45)]',
+          streaming && 'streaming border-[color-mix(in_srgb,var(--accent)_28%,var(--border))]',
+        )}
         aria-label={streaming ? 'Jump to latest, reply in progress' : 'Jump to latest messages'}
         onclick={() => scrollToBottom()}
       >
         {#if streaming}
-          <span class="live-pulse" aria-hidden="true"></span>
+          <span
+            class="live-pulse h-[7px] w-[7px] shrink-0 bg-accent shadow-[0_0_0_0_color-mix(in_srgb,var(--accent)_45%,transparent)]"
+            aria-hidden="true"
+          ></span>
         {/if}
-        <ChevronDown size={16} strokeWidth={2.25} class="jump-chevron" aria-hidden="true" />
-        <span class="jump-text">Latest</span>
+        <ChevronDown size={16} strokeWidth={2.25} class="jump-chevron shrink-0 opacity-85" aria-hidden="true" />
+        <span class="jump-text leading-none">Latest</span>
       </button>
     </div>
   {/if}
@@ -236,130 +256,7 @@
 {/if}
 
 <style>
-  .conversation-shell {
-    position: relative;
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow-x: hidden;
-  }
-
-  .conversation-shell[data-conversation-state='empty'] {
-    flex: 0 1 auto;
-    min-height: auto;
-  }
-
-  .conversation {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    /* Room for `ComposerContextBar` when it overlays the bottom of the transcript (AgentChat) */
-    padding-bottom: var(--composer-context-overlap-pad, 0);
-  }
-
-  /*
-   * Empty thread: no inner scrollport. Do not use overflow-y: visible here: with overflow-x: hidden,
-   * CSS resolves the other axis to auto, which recreates a scrollbar (same for the shell’s child).
-   * clip avoids a scroll container while still clipping rare horizontal bleed.
-   */
-  .conversation-shell[data-conversation-state='empty'] .conversation {
-    flex: 0 1 auto;
-    min-height: auto;
-    max-height: none;
-    overflow-x: hidden;
-    overflow-y: clip;
-  }
-
-  @media (min-width: 768px) {
-    :global(.split:not(.has-detail)) .jump-anchor {
-      max-width: var(--chat-column-max);
-      margin-left: auto;
-      margin-right: auto;
-    }
-  }
-
-  .jump-anchor {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 10px;
-    display: flex;
-    justify-content: center;
-    pointer-events: none;
-    z-index: 3;
-  }
-
-  .jump-to-latest {
-    pointer-events: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 9px 16px 9px 14px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text);
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--border);
-    box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 8px 24px rgba(0, 0, 0, 0.1);
-    transition:
-      transform 0.18s ease,
-      box-shadow 0.18s ease,
-      border-color 0.18s ease;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .jump-to-latest {
-      background: color-mix(in srgb, var(--bg-3) 92%, transparent);
-      box-shadow:
-        0 2px 4px rgba(0, 0, 0, 0.2),
-        0 10px 28px rgba(0, 0, 0, 0.45);
-    }
-  }
-
-  .jump-to-latest:hover {
-    transform: translateY(-1px);
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-    box-shadow:
-      0 4px 8px rgba(0, 0, 0, 0.06),
-      0 12px 28px rgba(0, 0, 0, 0.12);
-  }
-
-  .jump-to-latest:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-
-  .jump-to-latest:active {
-    transform: translateY(0);
-  }
-
-  .jump-to-latest.streaming {
-    border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
-  }
-
-  .jump-to-latest :global(.jump-chevron) {
-    flex-shrink: 0;
-    opacity: 0.85;
-  }
-
   .live-pulse {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: var(--accent);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
     animation: jump-live-pulse 1.8s ease-in-out infinite;
   }
 
@@ -368,14 +265,10 @@
       animation: none;
       opacity: 1;
     }
-    .jump-to-latest:hover {
-      transform: none;
-    }
   }
 
   @keyframes jump-live-pulse {
-    0%,
-    100% {
+    0%, 100% {
       opacity: 1;
       box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
     }
@@ -383,9 +276,5 @@
       opacity: 0.75;
       box-shadow: 0 0 0 6px transparent;
     }
-  }
-
-  .jump-text {
-    line-height: 1;
   }
 </style>

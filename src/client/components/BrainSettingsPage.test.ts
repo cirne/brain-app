@@ -384,8 +384,8 @@ describe('BrainSettingsPage.svelte', () => {
     })
     await fireEvent.click(screen.getByRole('button', { name: 'Manage' }))
     await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 2, name: 'Share wiki page' })).toBeInTheDocument()
-      expect(screen.getByText('People with access')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 2, name: 'Share this page' })).toBeInTheDocument()
+      expect(screen.getByText('Who has access')).toBeInTheDocument()
     })
   })
 

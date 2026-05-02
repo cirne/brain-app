@@ -10,13 +10,13 @@ describe('HubSourceRowBody', () => {
   it('defines the shared grid layout in one place', () => {
     const src = readFileSync(join(comp, 'HubSourceRowBody.svelte'), 'utf8')
     expect(src).toContain('hub-source-row-body')
-    expect(src).toContain('grid-template-columns: auto 1fr')
-    expect(src).toMatch(/@render\s+icon\(\)/)
+    expect(src).toContain('grid-cols-[auto_1fr]')
+    expect(src).toContain('{@render icon()}')
   })
 
   it('BrainHubPage uses the component instead of inline source-folder-text', () => {
     const hub = readFileSync(join(comp, 'BrainHubPage.svelte'), 'utf8')
-    expect(hub).toContain("import HubSourceRowBody from './HubSourceRowBody.svelte'")
+    expect(hub).toContain("import HubSourceRowBody from '@components/HubSourceRowBody.svelte'")
     expect(hub).toContain('<HubSourceRowBody')
     expect(hub).not.toContain('class="source-folder-text"')
   })

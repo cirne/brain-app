@@ -38,8 +38,8 @@ describe('UnifiedChatComposer', () => {
   it('wiki primary composer dock has no top border (flush with content above)', () => {
     const p = join(dirname(fileURLToPath(import.meta.url)), 'Assistant.svelte')
     const src = readFileSync(p, 'utf8')
-    const m = src.match(/\.wiki-primary-composer-dock\s*\{[^}]*\}/)
+    const m = src.match(/class="wiki-primary-composer-dock[^"]*"/)
     expect(m).toBeTruthy()
-    expect(m![0]).not.toContain('border-top')
+    expect(m![0]).not.toContain('border')
   })
 })

@@ -3,13 +3,23 @@
    * Wiki seeding onboarding: progress rows + wiki chips; shares scroll behavior with profiling view.
    */
   import { Check, Mail } from 'lucide-svelte'
-  import type { AgentConversationViewProps, ConversationScrollApi } from '@client/lib/agentConversationViewTypes.js'
-  import WikiFileName from '../WikiFileName.svelte'
-  import StreamingAgentMarkdown from '../agent-conversation/StreamingAgentMarkdown.svelte'
+  import type {
+    AgentConversationViewProps,
+    ConversationScrollApi,
+  } from '@client/lib/agentConversationViewTypes.js'
+  import WikiFileName from '@components/WikiFileName.svelte'
+  import StreamingAgentMarkdown from '@components/agent-conversation/StreamingAgentMarkdown.svelte'
   import OnboardingActivityTranscriptShell from './OnboardingActivityTranscriptShell.svelte'
   import OnboardingLocalWikiLead from './OnboardingLocalWikiLead.svelte'
-  import { wikiBuildoutLeadCopy, wikiBuildoutLeadCopyMultiTenant } from '@client/lib/onboarding/onboardingLeadCopy.js'
-  import { buildSeedingProgressUi, extractProfilingResources, onboardingActivityLine } from '@client/lib/onboarding/profilingResources.js'
+  import {
+    wikiBuildoutLeadCopy,
+    wikiBuildoutLeadCopyMultiTenant,
+  } from '@client/lib/onboarding/onboardingLeadCopy.js'
+  import {
+    buildSeedingProgressUi,
+    extractProfilingResources,
+    onboardingActivityLine,
+  } from '@client/lib/onboarding/profilingResources.js'
 
   let {
     messages,
@@ -123,7 +133,11 @@
           {/each}
           {#if seedingProgress.planning}
             {@const prow = seedingProgress.planning}
-            <li class="ob-seed-progress-row ob-seed-progress-row--current" role="status" aria-live="polite">
+            <li
+              class="ob-seed-progress-row ob-seed-progress-row--current"
+              role="status"
+              aria-live="polite"
+            >
               <span class="ob-seed-progress-pulse-wrap" aria-hidden="true">
                 <span class="ob-prof-pulse" class:ob-prof-pulse--still={reduceMotion}></span>
               </span>

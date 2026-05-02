@@ -98,4 +98,21 @@ describe('ChatHistory.svelte', () => {
       expect(del).toHaveBeenCalled()
     })
   })
+
+  it('separates Chats from Recents with a distinct section landmark', async () => {
+    mockedFetchSessions.mockResolvedValue([])
+
+    render(ChatHistory, {
+      props: {
+        ...chatHistoryTestProps(),
+        onWikiHome: vi.fn(),
+      },
+    })
+
+    await screen.findByRole('heading', { name: /^chats$/i })
+    const recentsHeading = screen.getByRole('heading', { name: /^recents$/i })
+    const section = recentsHeading.closest('.ch-group--recents')
+    expect(section).toBeTruthy()
+    expect(section?.className).toMatch(/ch-group--recents/)
+  })
 })

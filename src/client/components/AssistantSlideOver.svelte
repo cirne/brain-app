@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ComponentProps } from 'svelte'
-  import SlideOver from './shell/SlideOver.svelte'
+  import SlideOver from '@components/shell/SlideOver.svelte'
 
   type SlideOverProps = ComponentProps<typeof SlideOver>
   type Props = Omit<SlideOverProps, 'mobilePanel'> & {

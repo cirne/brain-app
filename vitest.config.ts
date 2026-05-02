@@ -38,7 +38,11 @@ export default defineConfig({
         test: {
           name: 'server',
           include: ['src/**/*.test.ts'],
-          exclude: ['node_modules', 'src/server/evals/**', 'src/client/components/**/*.test.ts'],
+          exclude: [
+            'node_modules',
+            'src/server/evals/**',
+            'src/client/components/**/*.test.ts',
+          ],
           environment: 'node',
           setupFiles: [
             join(root, 'src/server/test/brainTestEnv.ts'),

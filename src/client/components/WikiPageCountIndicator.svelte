@@ -4,6 +4,7 @@
    * Used in BrainHubWidget and onboarding copy that explains the same indicator.
    */
   import { BookOpen, LayoutGrid } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
 
   type Props = {
     /** Page count from Your Wiki doc or `/api/wiki` list length. */
@@ -27,84 +28,54 @@
     size = 'default',
     hubControl = false,
   }: Props = $props()
+
+  const isLg = $derived(size === 'lg')
 </script>
 
 <div
-  class="wiki-page-count-indicator"
-  class:wiki-page-count-indicator--lg={size === 'lg'}
+  class={cn(
+    'wiki-page-count-indicator inline-flex items-center font-medium',
+    isLg
+      ? 'wiki-page-count-indicator--lg gap-2.5 text-[1.25rem] text-accent [&_.wpc-book]:text-accent'
+      : 'gap-2 text-[13px] text-inherit',
+  )}
   role="img"
   aria-label={count != null
     ? `${count} page${count === 1 ? '' : 's'} in wiki${showPulse ? ', background activity' : ''}`
     : 'Wiki page count loading'}
 >
   {#if showPulse}
-    <div class="pulse-container">
-      <span class="pulse-dot" class:running={pulseAnimating}></span>
+    <div
+      class={cn(
+        'pulse-container flex items-center justify-center',
+        isLg ? 'h-[18px] w-[18px]' : 'h-[14px] w-[14px]',
+      )}
+    >
+      <span
+        class={cn(
+          'pulse-dot bg-accent',
+          isLg ? 'h-2.5 w-2.5' : 'h-2 w-2',
+          pulseAnimating && 'running',
+        )}
+      ></span>
     </div>
   {:else if hubControl}
-    <LayoutGrid class="wpc-book" size={size === 'lg' ? 20 : 15} strokeWidth={2} aria-hidden="true" />
+    <LayoutGrid class="wpc-book" size={isLg ? 20 : 15} strokeWidth={2} aria-hidden="true" />
   {:else}
-    <BookOpen class="wpc-book" size={size === 'lg' ? 20 : 15} strokeWidth={2} aria-hidden="true" />
+    <BookOpen class="wpc-book" size={isLg ? 20 : 15} strokeWidth={2} aria-hidden="true" />
   {/if}
   {#if count !== null}
-    <span class="wpc-count">{count}</span>
+    <span
+      class={cn(
+        'wpc-count tabular-nums',
+        isLg && 'text-[1.35rem] font-semibold',
+      )}
+    >{count}</span>
   {/if}
 </div>
 
 <style>
-  .wiki-page-count-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: inherit;
-    font-size: 13px;
-    font-weight: 500;
-  }
-
-  .wiki-page-count-indicator--lg {
-    gap: 10px;
-    font-size: 1.25rem;
-    color: var(--accent);
-  }
-
-  :global(.wiki-page-count-indicator--lg .wpc-book) {
-    color: var(--accent);
-  }
-
-  .wpc-count {
-    font-variant-numeric: tabular-nums;
-  }
-
-  .wiki-page-count-indicator--lg .wpc-count {
-    font-size: 1.35rem;
-    font-weight: 600;
-  }
-
-  .pulse-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-  }
-
-  .wiki-page-count-indicator--lg .pulse-container {
-    width: 18px;
-    height: 18px;
-  }
-
-  .pulse-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-
-  .wiki-page-count-indicator--lg .pulse-dot {
-    width: 10px;
-    height: 10px;
-  }
-
+  /* Keyframe-driven pulse stays scoped (Tailwind keyframes can't easily express the box-shadow ring). */
   .pulse-dot.running {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
     animation: wpc-pulse 2s infinite;

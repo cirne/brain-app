@@ -129,7 +129,7 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 
 | Topic                                                       | Doc                                                                        |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Tailwind in the build alongside legacy BEM `<style>` blocks | [architecture/tailwind-migration.md](architecture/tailwind-migration.md)   |
+- **Tailwind in the build; Tailwind-first components** | [architecture/tailwind-migration.md](architecture/tailwind-migration.md)   |
 | Calendar writes: subprocess vs direct Google Calendar API   | [architecture/calendar-write-path.md](architecture/calendar-write-path.md) |
 
 

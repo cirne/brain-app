@@ -1,5 +1,5 @@
 <script lang="ts">
-  import WikiFileName from './WikiFileName.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
 
   let {
     dirty = [],
@@ -27,14 +27,16 @@
 
 {#if dirty.length > 0}
   {#if showSectionLabels}
-    <div class="wfl-section unsaved-label">Unsaved</div>
+    <div
+      class="wfl-section unsaved-label border-b border-border px-3 pb-[3px] pt-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted"
+    >Unsaved</div>
   {/if}
-  {#each dirty as path}
+  {#each dirty as path (path)}
     <button
-      class="wfl-item wfl-item--unsaved"
+      class="wfl-item wfl-item--unsaved box-border grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-2 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-surface-2 [&:hover_.wfn-folder]:text-accent [&:hover_.wfn-folder]:opacity-70 [&:hover_.wfn-name]:text-accent [&_.wfn-title-row]:overflow-hidden [&_.wfn-title-row]:text-xs [&_.wfn-title-row]:text-foreground"
       onmousedown={(e) => { e.preventDefault(); onOpen(path) }}
     >
-      <span class="wfl-meta dot">●</span>
+      <span class="wfl-meta dot box-border justify-self-start whitespace-nowrap p-1 text-[8px] leading-none text-[#e8a020]">●</span>
       <WikiFileName {path} unsaved={true} />
     </button>
   {/each}
@@ -42,65 +44,17 @@
 
 {#if showRecent && recent.length > 0}
   {#if showSectionLabels && dirty.length > 0}
-    <div class="wfl-section">Recent</div>
+    <div
+      class="wfl-section border-b border-border px-3 pb-[3px] pt-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted"
+    >Recent</div>
   {/if}
-  {#each recent as file}
+  {#each recent as file (file.path)}
     <button
-      class="wfl-item"
+      class="wfl-item box-border grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-2 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-surface-2 [&:hover_.wfn-folder]:text-accent [&:hover_.wfn-folder]:opacity-70 [&:hover_.wfn-name]:text-accent [&_.wfn-title-row]:overflow-hidden [&_.wfn-title-row]:text-xs [&_.wfn-title-row]:text-foreground"
       onmousedown={(e) => { e.preventDefault(); onOpen(file.path) }}
     >
-      <span class="wfl-meta">{fmt(file.date)}</span>
+      <span class="wfl-meta box-border justify-self-start whitespace-nowrap p-1 text-[11px] text-muted">{fmt(file.date)}</span>
       <WikiFileName path={file.path} />
     </button>
   {/each}
 {/if}
-
-<style>
-  .wfl-section {
-    padding: 4px 12px 3px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-2);
-    border-bottom: 1px solid var(--border);
-  }
-  .wfl-item {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    text-align: left;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
-    box-sizing: border-box;
-  }
-  .wfl-item:last-child { border-bottom: none; }
-  .wfl-item:hover { background: var(--bg-2); }
-  .wfl-item:hover :global(.wfn-name) { color: var(--accent); }
-  .wfl-item:hover :global(.wfn-folder) { color: var(--accent); opacity: 0.7; }
-
-
-  .wfl-meta {
-    box-sizing: border-box;
-    padding: 4px;
-    font-size: 11px;
-    color: var(--text-2);
-    white-space: nowrap;
-    justify-self: start;
-  }
-
-  .wfl-meta.dot {
-    color: #e8a020;
-    font-size: 8px;
-    line-height: 1;
-  }
-
-  .wfl-item :global(.wfn-title-row) {
-    font-size: 12px;
-    color: var(--text);
-    overflow: hidden;
-  }
-</style>

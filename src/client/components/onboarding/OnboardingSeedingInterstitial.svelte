@@ -10,7 +10,7 @@
   import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
   import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
-  import YourWikiDetail from '../YourWikiDetail.svelte'
+  import YourWikiDetail from '@components/YourWikiDetail.svelte'
   import { ONBOARDING_SEEDING_MIN_DWELL_MS } from '@client/lib/onboarding/seedConstants.js'
 
   type Props = {
@@ -83,10 +83,15 @@
   })
 </script>
 
-<section class="seed-screen" aria-labelledby="seed-title">
+<section
+  class="seed-screen flex min-h-0 w-full flex-1 flex-col gap-4 box-border px-5 pt-5 pb-[max(1rem,env(safe-area-inset-bottom,0px))] min-[900px]:flex-row min-[900px]:items-stretch min-[900px]:gap-8 min-[900px]:px-6 min-[900px]:pt-5 min-[900px]:pb-6"
+  aria-labelledby="seed-title"
+>
   <!-- Left / main: education + CTA -->
-  <div class="seed-content">
-    <div class="seed-text">
+  <div
+    class="seed-content flex min-h-0 flex-1 flex-col gap-6 max-[899px]:justify-between min-[900px]:flex-none min-[900px]:basis-[min(22rem,36%)] min-[900px]:max-w-[26rem]"
+  >
+    <div class="seed-text flex flex-col">
       <span class="ob-kicker">Braintunnel</span>
       <h1 id="seed-title" class="ob-headline">We're building your wiki</h1>
       <p class="ob-lead">
@@ -95,7 +100,9 @@
         Braintunnel lasting context—people, projects, and what you've already written—so you don't
         start from zero every chat.
       </p>
-      <ul class="seed-tips">
+      <ul
+        class="seed-tips mt-5 ml-[1.1rem] flex list-disc flex-col gap-1.5 text-[0.9rem] leading-[1.55] text-foreground/80 [&>li]:pl-[0.2rem]"
+      >
         <li>Ask for <strong>a new page</strong> for a person, project, or idea.</li>
         <li>
           Say <strong>"Research this and add it to the wiki,"</strong> then edit the page if you
@@ -105,11 +112,15 @@
       </ul>
     </div>
 
-    <div class="seed-footer">
+    <div class="seed-footer flex shrink-0 flex-col items-start gap-3">
       {#if errorText}
         <p class="ob-error" role="alert">{errorText}</p>
       {/if}
-      <p class="seed-dwell" role="status" aria-live="polite">
+      <p
+        class="seed-dwell m-0 min-h-[1.2em] text-[0.8125rem] text-muted"
+        role="status"
+        aria-live="polite"
+      >
         {#if !canContinue}
           A few more seconds to let the first pages land…
         {:else}
@@ -118,7 +129,7 @@
       </p>
       <button
         type="button"
-        class="ob-btn-primary seed-cta"
+        class="ob-btn-primary seed-cta justify-center max-[899px]:w-full"
         disabled={!canContinue || continueBusy}
         onclick={() => onContinue()}
       >
@@ -133,9 +144,17 @@
     </div>
   </div>
 
-  <!-- Right: live hub view (desktop only, hidden on mobile via CSS) -->
-  <div class="seed-hub" bind:this={seedPanelEl} aria-label="Your Wiki">
-    <p class="seed-hub-label">Your Wiki</p>
+  <!-- Right: live hub view (desktop only, hidden on mobile via Tailwind) -->
+  <div
+    class="seed-hub hidden min-[900px]:flex min-[900px]:basis-0 min-[900px]:flex-1 min-[900px]:flex-col min-[900px]:self-stretch min-[900px]:min-w-0 min-[900px]:min-h-0 min-[900px]:overflow-auto min-[900px]:border min-[900px]:border-border min-[900px]:bg-surface-2"
+    bind:this={seedPanelEl}
+    aria-label="Your Wiki"
+  >
+    <p
+      class="seed-hub-label m-0 shrink-0 border-b border-border px-4 pt-[0.6rem] pb-[0.4rem] text-[0.6875rem] font-bold tracking-[0.07em] text-muted uppercase"
+    >
+      Your Wiki
+    </p>
     <YourWikiDetail
       hideSectionLead
       showLoopControls={false}
@@ -146,170 +165,36 @@
     />
   </div>
 
-  <!-- Mobile status strip (hidden on desktop via CSS) -->
-  <div class="seed-bar" role="status" aria-live="polite">
+  <!-- Mobile status strip (hidden on desktop via Tailwind) -->
+  <div
+    class="seed-bar flex min-w-0 shrink-0 items-center gap-2 overflow-hidden border border-border bg-surface-2 px-3.5 py-[0.6rem] min-[900px]:hidden"
+    role="status"
+    aria-live="polite"
+  >
     {#if isLive}
       <span class="seed-bar-pulse" aria-hidden="true"></span>
     {/if}
-    <span class="seed-bar-text">{mobileStatus}</span>
+    <span
+      class="seed-bar-text min-w-0 flex-1 overflow-hidden text-[0.8125rem] text-foreground/80 text-ellipsis whitespace-nowrap"
+    >
+      {mobileStatus}
+    </span>
     {#if wikiDoc?.pageCount}
-      <span class="seed-bar-count">{wikiDoc.pageCount} pages</span>
+      <span
+        class="seed-bar-count shrink-0 text-xs text-muted whitespace-nowrap [font-variant-numeric:tabular-nums]"
+      >
+        {wikiDoc.pageCount} pages
+      </span>
     {/if}
   </div>
 </section>
 
 <style>
-  .seed-screen {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    width: 100%;
-    padding: 1.25rem 1.25rem max(1rem, env(safe-area-inset-bottom, 0px));
-    box-sizing: border-box;
-    gap: 1rem;
-  }
-
-  @media (min-width: 900px) {
-    .seed-screen {
-      flex-direction: row;
-      padding: 1.25rem 1.5rem 1.5rem;
-      /* Match the main column’s height so the right “Your Wiki” panel fills the viewport. */
-      align-items: stretch;
-      gap: 2rem;
-    }
-  }
-
-  /* Left column: fills height on mobile, fixed width on desktop */
-  .seed-content {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    gap: 1.5rem;
-  }
-
-  @media (max-width: 899px) {
-    .seed-content {
-      justify-content: space-between;
-    }
-  }
-
-  @media (min-width: 900px) {
-    .seed-content {
-      flex: 0 0 min(22rem, 36%);
-      max-width: 26rem;
-    }
-  }
-
-  .seed-text {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .seed-tips {
-    margin: 1.25rem 0 0 1.1rem;
-    padding: 0;
-    list-style: disc;
-    font-size: 0.9rem;
-    line-height: 1.55;
-    color: var(--text-2);
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-
-  .seed-tips li {
-    padding-left: 0.2rem;
-  }
-
-  .seed-footer {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-    flex-shrink: 0;
-  }
-
-  .seed-dwell {
-    font-size: 0.8125rem;
-    color: var(--text-3, var(--text-2));
-    margin: 0;
-    min-height: 1.2em;
-  }
-
-  .seed-cta {
-    justify-content: center;
-  }
-
-  @media (max-width: 899px) {
-    .seed-cta {
-      width: 100%;
-    }
-  }
-
-  /* Right hub panel: desktop only */
-  .seed-hub {
-    display: none;
-  }
-
-  @media (min-width: 900px) {
-    .seed-hub {
-      display: flex;
-      flex-direction: column;
-      flex: 1 1 0;
-      align-self: stretch;
-      min-width: 0;
-      min-height: 0;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--bg-2);
-      /* One scrollport for the whole column; tail-follow targets this node. */
-      overflow: auto;
-    }
-  }
-
-  .seed-hub-label {
-    flex-shrink: 0;
-    margin: 0;
-    padding: 0.6rem 1rem 0.4rem;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    color: var(--text-3, var(--text-2));
-    border-bottom: 1px solid var(--border);
-  }
-
-  :global(.seed-hub .your-wiki-detail) {
-    border-radius: 0;
-  }
-
-  /* Mobile status strip: single row at bottom, desktop hidden */
-  .seed-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 0.875rem;
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    flex-shrink: 0;
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  @media (min-width: 900px) {
-    .seed-bar {
-      display: none;
-    }
-  }
-
+  /* Pulse animation cannot be expressed cleanly with utility classes — stays scoped here. */
   .seed-bar-pulse {
     width: 6px;
     height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
+flex-shrink: 0;
     background: var(--accent);
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
     animation: seed-bar-pulse 1.8s ease-in-out infinite;
@@ -331,23 +216,5 @@
       opacity: 0.75;
       box-shadow: 0 0 0 4px transparent;
     }
-  }
-
-  .seed-bar-text {
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .seed-bar-count {
-    font-size: 0.75rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-3, var(--text-2));
-    flex-shrink: 0;
-    white-space: nowrap;
   }
 </style>

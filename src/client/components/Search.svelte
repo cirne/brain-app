@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { BookOpen, Mail, X, Search } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import { formatDate } from '@client/lib/formatDate.js'
-  import WikiFileName from './WikiFileName.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
 
   type WikiResult = { type: 'wiki'; path: string; score: number; excerpt: string }
@@ -26,7 +27,7 @@
   let loading = $state(false)
   let highlightIndex = $state(-1)
   let inputEl: HTMLInputElement
-  let resultsEl: HTMLDivElement | undefined
+  let resultsEl: HTMLDivElement | undefined = $state()
 
   let debounceTimer: ReturnType<typeof setTimeout>
 
@@ -124,82 +125,128 @@
 
 </script>
 
-<div class="overlay-root">
-  <button type="button" class="search-backdrop" aria-label="Close search" onclick={onClose}></button>
-  <div class="search-panel" role="dialog" aria-modal="true" aria-label="Search" tabindex="-1">
-    <div class="header">
-    <Search size={16} class="search-icon" />
-    <input
-      bind:this={inputEl}
-      bind:value={query}
-      class="input"
-      placeholder="Search your docs and emails..."
-      autocomplete="off"
-      autocorrect="off"
-      spellcheck="false"
-      type="search"
-      onkeydown={handleSearchInputKeydown}
-    />
-    {#if loading}
-      <span class="spinner" aria-hidden="true"></span>
-    {:else if query}
-      <button class="clear-btn" onclick={() => { query = ''; inputEl?.focus() }} aria-label="Clear">
-        <X size={16} />
-      </button>
-    {/if}
-    <button class="close-btn" onclick={onClose}>Cancel</button>
+<div
+  class="overlay-root fixed inset-0 z-[500] flex flex-col overflow-hidden md:items-center md:justify-start md:pt-20"
+>
+  <button
+    type="button"
+    class="search-backdrop absolute inset-0 z-0 m-0 block appearance-none border-none bg-surface p-0 [cursor:default] md:bg-black/50"
+    aria-label="Close search"
+    onclick={onClose}
+  ></button>
+  <div
+    class="search-panel relative z-[1] flex min-h-0 flex-1 flex-col self-stretch overflow-hidden md:max-h-[calc(100vh-80px)] md:w-[560px] md:flex-[0_1_auto] md:self-center"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Search"
+    tabindex="-1"
+  >
+    <div
+      class="header flex shrink-0 items-center gap-2 border-b border-border bg-surface-2 px-3 py-2.5"
+    >
+      <Search size={16} class="search-icon" />
+      <input
+        bind:this={inputEl}
+        bind:value={query}
+        class="input min-w-0 flex-1 border-none bg-transparent py-1 text-base text-foreground focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+        placeholder="Search your docs and emails..."
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+        type="search"
+        onkeydown={handleSearchInputKeydown}
+      />
+      {#if loading}
+        <span
+          class="spinner h-4 w-4 shrink-0 animate-[spin_0.6s_linear_infinite] border-2 border-border [border-top-color:var(--accent)]"
+          aria-hidden="true"
+        ></span>
+      {:else if query}
+        <button
+          class="clear-btn flex shrink-0 items-center p-1 text-muted hover:text-foreground"
+          onclick={() => { query = ''; inputEl?.focus() }}
+          aria-label="Clear"
+        >
+          <X size={16} />
+        </button>
+      {/if}
+      <button
+        class="close-btn shrink-0 whitespace-nowrap py-1 pl-2 pr-0 text-sm text-accent"
+        onclick={onClose}
+      >Cancel</button>
     </div>
 
-    <div class="results" bind:this={resultsEl}>
+    <div
+      class="results flex-1 overflow-y-auto [-webkit-overflow-scrolling:touch] md:max-h-[480px] md:border md:border-t-0 md:border-border md:bg-surface md:[box-shadow:0_8px_32px_rgba(0,0,0,0.4)]"
+      bind:this={resultsEl}
+    >
     {#if !query.trim()}
-      <div class="search-empty">
-        <p class="hint">Search your docs and emails</p>
+      <div class="search-empty flex flex-col items-center gap-3 px-5 pb-10 pt-8">
+        <p class="hint m-0 p-0 text-center text-sm text-muted">Search your docs and emails</p>
         {#if onWikiHome}
-          <button type="button" class="wiki-home-cmd" onclick={() => { onWikiHome(); onClose() }}>
+          <button
+            type="button"
+            class="wiki-home-cmd inline-flex items-center justify-center gap-2 border border-border bg-surface-3 px-3.5 py-2 text-sm text-foreground hover:bg-surface-2"
+            onclick={() => { onWikiHome(); onClose() }}
+          >
             <BookOpen size={16} strokeWidth={2} aria-hidden="true" />
             <span>Wiki home</span>
           </button>
         {/if}
       </div>
     {:else if !loading && results.length === 0}
-      <p class="hint">No results for "{query}"</p>
+      <p class="hint px-5 py-10 text-center text-sm text-muted">No results for "{query}"</p>
     {:else}
       {#each results as result, i (result.type === 'wiki' ? result.path : result.id)}
         {#if result.type === 'wiki'}
           <button
             type="button"
-            class="result"
-            class:result-highlight={highlightIndex === i}
+            class={cn(
+              'result block min-h-[52px] w-full border-b border-border px-4 py-3 text-left active:bg-surface-3',
+              highlightIndex === i && 'result-highlight bg-surface-3',
+            )}
             data-result-index={i}
             onclick={() => { onOpenWiki(result.path); onClose() }}
           >
-            <span class="result-body">
-              <span class="result-title wiki-result-title">
+            <span class="result-body flex min-w-0 flex-1 flex-col gap-[2px]">
+              <span
+                class="result-title wiki-result-title block min-w-0 overflow-hidden whitespace-nowrap text-ellipsis text-sm text-foreground [&_.wfn-title-row]:max-w-full"
+              >
                 <WikiFileName path={result.path} />
               </span>
               {#if result.excerpt}
-                <span class="result-snippet wiki-result-excerpt">{result.excerpt}</span>
+                <span
+                  class="result-snippet wiki-result-excerpt mt-0 overflow-hidden text-xs leading-snug text-muted [-webkit-box-orient:vertical] [-webkit-line-clamp:2] [display:-webkit-box]"
+                >{result.excerpt}</span>
               {/if}
             </span>
           </button>
         {:else}
           <button
             type="button"
-            class="result"
-            class:result-highlight={highlightIndex === i}
+            class={cn(
+              'result block min-h-[52px] w-full border-b border-border px-4 py-3 text-left active:bg-surface-3',
+              highlightIndex === i && 'result-highlight bg-surface-3',
+            )}
             data-result-index={i}
             onclick={() => { onOpenEmail(result.id, result.subject, result.from); onClose() }}
           >
-            <span class="result-body">
-              <span class="email-result-title wfn-title-row">
+            <span class="result-body flex min-w-0 flex-1 flex-col gap-[2px]">
+              <span class="email-result-title wfn-title-row w-full max-w-full">
                 <span class="wfn-lead-icon" aria-hidden="true">
                   <Mail size={12} />
                 </span>
-                <span class="email-subject">{result.subject}</span>
+                <span
+                  class="email-subject min-w-0 flex-1 overflow-hidden whitespace-nowrap text-ellipsis text-sm text-foreground"
+                >{result.subject}</span>
               </span>
-              <span class="result-meta">{result.from} · {formatDate(result.date)}</span>
+              <span
+                class="result-meta overflow-hidden whitespace-nowrap text-ellipsis text-xs text-muted"
+              >{result.from} · {formatDate(result.date)}</span>
               {#if result.snippet}
-                <span class="result-snippet">{result.snippet}</span>
+                <span
+                  class="result-snippet mt-0.5 overflow-hidden text-xs leading-snug text-muted [-webkit-box-orient:vertical] [-webkit-line-clamp:2] [display:-webkit-box]"
+                >{result.snippet}</span>
               {/if}
             </span>
           </button>
@@ -213,248 +260,9 @@
 <style>
   @import '../styles/search/wfnLeadIcon.css';
 
-  .overlay-root {
-    position: fixed;
-    inset: 0;
-    z-index: 500;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .search-backdrop {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: var(--bg);
-    cursor: default;
-    display: block;
-    appearance: none;
-  }
-
-  .search-panel {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    align-self: stretch;
-  }
-
-  .header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-2);
-    flex-shrink: 0;
-  }
-
+  /* `class` prop on lucide icon components is not Tailwind-mergeable; keep as :global. */
   :global(.search-icon) {
     color: var(--text-2);
     flex-shrink: 0;
-  }
-
-  .input {
-    flex: 1;
-    font-size: 16px;
-    background: transparent;
-    border: none;
-    color: var(--text);
-    min-width: 0;
-    padding: 4px 0;
-  }
-  .input:focus { outline: none; }
-  .input::-webkit-search-cancel-button { display: none; }
-
-  .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-    flex-shrink: 0;
-  }
-
-  .clear-btn {
-    color: var(--text-2);
-    display: flex;
-    align-items: center;
-    padding: 4px;
-    flex-shrink: 0;
-  }
-  .clear-btn:hover { color: var(--text); }
-
-  .close-btn {
-    font-size: 14px;
-    color: var(--accent);
-    padding: 4px 0 4px 8px;
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
-
-  .results {
-    flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .search-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    padding: 32px 20px 40px;
-  }
-
-  .search-empty .hint {
-    padding: 0;
-    text-align: center;
-    color: var(--text-2);
-    font-size: 14px;
-  }
-
-  .wiki-home-cmd {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 8px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--bg-3);
-    color: var(--text);
-    font-size: 14px;
-  }
-
-  .wiki-home-cmd:hover {
-    background: var(--bg-2);
-  }
-
-  .hint {
-    padding: 40px 20px;
-    text-align: center;
-    color: var(--text-2);
-    font-size: 14px;
-  }
-
-  .result {
-    display: block;
-    width: 100%;
-    padding: 12px 16px;
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-    min-height: 52px;
-  }
-  .result:active { background: var(--bg-3); }
-
-  .result.result-highlight {
-    background: var(--bg-3);
-  }
-
-  .result-body {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .result-title {
-    font-size: 14px;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .wiki-result-title {
-    display: block;
-    min-width: 0;
-  }
-
-  .wiki-result-title :global(.wfn-title-row) {
-    max-width: 100%;
-  }
-
-  .email-result-title {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .email-subject {
-    font-size: 14px;
-    color: var(--text);
-    min-width: 0;
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .wiki-result-excerpt {
-    margin-top: 0;
-  }
-
-  .result-meta {
-    font-size: 12px;
-    color: var(--text-2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .result-snippet {
-    font-size: 12px;
-    color: var(--text-2);
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    line-height: 1.4;
-    margin-top: 2px;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  @media (min-width: 768px) {
-    .overlay-root {
-      align-items: center;
-      justify-content: flex-start;
-      padding-top: 80px;
-    }
-
-    .search-backdrop {
-      background: rgba(0, 0, 0, 0.5);
-    }
-
-    .search-panel {
-      align-self: center;
-      width: 560px;
-      flex: 0 1 auto;
-      max-height: calc(100vh - 80px);
-    }
-
-    .header {
-      border-radius: 10px 10px 0 0;
-    }
-
-    .results {
-      max-height: 480px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-top: none;
-      border-radius: 0 0 10px 10px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    }
   }
 </style>

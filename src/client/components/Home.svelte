@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import DayEvents from './DayEvents.svelte'
-  import WikiFileList from './WikiFileList.svelte'
+  import DayEvents from '@components/DayEvents.svelte'
+  import WikiFileList from '@components/WikiFileList.svelte'
+  import { cn } from '@client/lib/cn.js'
   import { subscribe } from '@client/lib/app/appEvents.js'
   import { formatDate } from '@client/lib/formatDate.js'
 
@@ -53,38 +54,51 @@
 
   const unreadCount = $derived(inboxItems.filter((m: InboxItem) => !m.read).length)
 
+  const cardCls = 'card border border-border bg-surface-2 px-4 py-3.5'
+  const sectionTitleCls = 'section-title m-0 mb-2.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted'
+  const mutedCls = 'muted text-xs text-muted opacity-70'
 </script>
 
-<div class="home">
-  <div class="home-inner">
-    <h1 class="date-heading">{todayLabel}</h1>
+<div class="home h-full overflow-y-auto px-4 pb-10 pt-6">
+  <div class="home-inner mx-auto flex max-w-[560px] flex-col gap-4">
+    <h1 class="date-heading m-0 mb-1 text-lg font-semibold text-foreground">{todayLabel}</h1>
 
     <!-- Today's calendar -->
-    <section class="card">
-      <h2 class="section-title">Today</h2>
+    <section class={cardCls}>
+      <h2 class={sectionTitleCls}>Today</h2>
       <DayEvents date={today} />
     </section>
 
     <!-- Inbox summary -->
-    <section class="card">
-      <h2 class="section-title">
+    <section class={cardCls}>
+      <h2 class={sectionTitleCls}>
         Inbox
         {#if unreadCount > 0}
-          <span class="badge">{unreadCount} unread</span>
+          <span class="badge bg-accent px-[7px] py-px text-[10px] font-semibold normal-case tracking-normal text-white">{unreadCount} unread</span>
         {/if}
       </h2>
       {#if inboxLoading}
-        <div class="muted">Loading…</div>
+        <div class={mutedCls}>Loading…</div>
       {:else if inboxItems.length === 0}
-        <div class="muted">No messages</div>
+        <div class={mutedCls}>No messages</div>
       {:else}
-        <ul class="item-list">
+        <ul class="item-list m-0 flex list-none flex-col gap-0.5 p-0">
           {#each inboxItems.slice(0, 5) as msg (msg.id)}
             <li>
-              <button class="inbox-item" class:unread={!msg.read} onclick={() => onOpenInbox(msg.id)}>
-                <span class="inbox-from">{msg.from}</span>
-                <span class="inbox-subject">{msg.subject}</span>
-                <span class="inbox-date">{formatDate(msg.date)}</span>
+              <button
+                class={cn(
+                  'inbox-item grid w-full grid-cols-[minmax(0,130px)_1fr_auto] items-baseline gap-2 cursor-pointer px-1.5 py-[5px] text-left text-xs text-muted',
+                  !msg.read && 'unread bg-[color-mix(in_srgb,var(--accent)_6%,transparent)] text-foreground hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]',
+                  msg.read && 'hover:bg-surface-3',
+                )}
+                onclick={() => onOpenInbox(msg.id)}
+              >
+                <span class={cn(
+                  'inbox-from overflow-hidden text-ellipsis whitespace-nowrap font-medium text-inherit',
+                  !msg.read && 'text-accent',
+                )}>{msg.from}</span>
+                <span class="inbox-subject overflow-hidden text-ellipsis whitespace-nowrap">{msg.subject}</span>
+                <span class="inbox-date shrink-0 whitespace-nowrap text-[11px] text-muted">{formatDate(msg.date)}</span>
               </button>
             </li>
           {/each}
@@ -93,10 +107,10 @@
     </section>
 
     <!-- Recent doc changes -->
-    <section class="card card--files">
-      <h2 class="section-title">Docs</h2>
+    <section class={cn(cardCls, 'card--files px-0 pb-0 pt-3.5 overflow-hidden')}>
+      <h2 class={cn(sectionTitleCls, 'px-4 pb-2.5')}>Docs</h2>
       {#if dirty.length === 0 && recent.length === 0}
-        <div class="muted">No recent changes</div>
+        <div class={cn(mutedCls, 'px-4 pb-3.5')}>No recent changes</div>
       {:else}
         <WikiFileList {dirty} {recent} onOpen={onOpenWiki} showSectionLabels={dirty.length > 0} />
       {/if}
@@ -104,135 +118,3 @@
 
   </div>
 </div>
-
-<style>
-  .home {
-    height: 100%;
-    overflow-y: auto;
-    padding: 24px 16px 40px;
-  }
-
-  .home-inner {
-    max-width: 560px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .date-heading {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text);
-    margin: 0 0 4px;
-  }
-
-  /* ── cards ────────────────────────────────────────────────── */
-
-  .card {
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px 16px;
-  }
-
-  .section-title {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-2);
-    margin: 0 0 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .badge {
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: none;
-    letter-spacing: 0;
-    background: var(--accent);
-    color: #fff;
-    border-radius: 10px;
-    padding: 1px 7px;
-  }
-
-  .muted {
-    font-size: 12px;
-    color: var(--text-2);
-    opacity: 0.7;
-  }
-
-  /* ── inbox items ──────────────────────────────────────────── */
-
-  .item-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .inbox-item {
-    display: grid;
-    grid-template-columns: minmax(0, 130px) 1fr auto;
-    gap: 8px;
-    align-items: baseline;
-    width: 100%;
-    text-align: left;
-    cursor: pointer;
-    padding: 5px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    color: var(--text-2);
-  }
-
-  .inbox-item.unread {
-    color: var(--text);
-    background: color-mix(in srgb, var(--accent) 6%, transparent);
-  }
-
-  @media (hover: hover) {
-    .inbox-item:hover {
-      background: var(--bg-3);
-    }
-    .inbox-item.unread:hover {
-      background: color-mix(in srgb, var(--accent) 12%, transparent);
-    }
-  }
-
-  .inbox-from {
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: inherit;
-  }
-
-  .inbox-item.unread .inbox-from { color: var(--accent); }
-
-  .inbox-subject {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .inbox-date {
-    font-size: 11px;
-    color: var(--text-2);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  /* docs file list — flush to card edges, WikiFileList handles item styling */
-  .card--files {
-    padding: 14px 0 0;
-    overflow: hidden;
-  }
-  .card--files .section-title { padding: 0 16px 10px; }
-  .card--files .muted { padding: 0 16px 14px; }
-
-</style>

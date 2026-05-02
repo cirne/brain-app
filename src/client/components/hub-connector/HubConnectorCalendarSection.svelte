@@ -1,9 +1,9 @@
 <script lang="ts">
-  import CalendarPicker from '../calendar/CalendarPicker.svelte'
+  import CalendarPicker from '@components/calendar/CalendarPicker.svelte'
   import type {
     CalendarPickerCalendar,
     CalendarPickerLoadResult,
-  } from '../calendar/calendarPickerTypes.js'
+  } from '@client/lib/calendar/calendarPickerTypes.js'
 
   type Props = {
     sourceId: string
@@ -46,8 +46,16 @@
   }
 </script>
 
-<section class="hub-source-status-section" aria-labelledby="hub-cal-heading">
-  <h2 id="hub-cal-heading" class="hub-source-status-heading">Calendars</h2>
+<section
+  class="hub-source-status-section flex flex-col gap-[0.65rem] border-t border-[color-mix(in_srgb,var(--border)_50%,transparent)] pt-[0.85rem]"
+  aria-labelledby="hub-cal-heading"
+>
+  <h2
+    id="hub-cal-heading"
+    class="hub-source-status-heading m-0 text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted"
+  >
+    Calendars
+  </h2>
 
   <CalendarPicker
     reloadKey={sourceId}
@@ -55,7 +63,7 @@
     save={saveHubCalendars}
     fallbackConfiguredIds={configuredIds}
     onSaved={() => onSaved()}
-    primaryButtonClass="hub-dialog-btn hub-dialog-btn-primary hub-source-sync-btn"
-    savingIconClass="hub-refresh-working"
+    primaryButtonclass="hub-dialog-btn hub-dialog-btn-primary hub-source-sync-btn"
+    savingIconclass="hub-refresh-working"
   />
 </section>

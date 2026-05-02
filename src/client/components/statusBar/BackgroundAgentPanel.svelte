@@ -1,13 +1,14 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { fly } from 'svelte/transition'
+  import { cn } from '@client/lib/cn.js'
   import type {
     BackgroundAgentDoc,
     BackgroundTimelineEvent,
     LlmUsageSnapshot,
   } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import type { ToolCall } from '@client/lib/agentUtils.js'
-  import ToolCallBlock from '../agent-conversation/ToolCallBlock.svelte'
+  import ToolCallBlock from '@components/agent-conversation/ToolCallBlock.svelte'
   import { ChevronDown, Play } from 'lucide-svelte'
   import { computePinnedToBottom } from '@client/lib/scrollPin.js'
   import { backgroundAgentsFromEvents, yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
@@ -307,47 +308,107 @@
       actionBusy = false
     }
   }
+
+  // Shared style fragments — keeps both branches (hub embed + standalone) visually identical.
+  const mutedClass = 'bg-panel-muted m-0 text-sm text-muted'
+  const statusLineClass =
+    'bg-panel-status-line m-0 whitespace-pre-wrap break-words text-[0.8125rem] leading-[1.45] text-muted'
+  const usageLineClass =
+    'bg-panel-usage-line m-0 text-xs leading-[1.4] text-muted [font-variant-numeric:tabular-nums]'
+  const errorClass = 'bg-panel-error m-0 text-sm text-danger'
+  const sectionLabel =
+    'bg-panel-section-label mt-[0.35rem] text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted'
+  const timelineClass =
+    'bg-panel-timeline m-0 flex min-w-0 list-none flex-col gap-[0.65rem] p-0'
+  const timelineItemClass =
+    'bg-timeline-item grid min-w-0 grid-cols-[4.25rem_minmax(0,1fr)] items-start gap-x-2 gap-y-[0.4rem]'
+  const timelineTimeClass =
+    'bg-timeline-time whitespace-nowrap pt-[0.2rem] text-[0.6875rem] text-muted [font-variant-numeric:tabular-nums]'
+  const timelineToolClass = 'bg-timeline-tool min-w-0'
+  const activityListClass =
+    'bg-panel-activity m-0 min-w-0 list-none border border-border bg-[color-mix(in_srgb,var(--bg-2)_88%,var(--bg))] px-[0.65rem] py-2 text-[0.8125rem] leading-[1.45]'
+  const activityLineClass =
+    'bg-panel-activity-line py-[0.15rem] [&+&]:border-t [&+&]:border-[color-mix(in_srgb,var(--border)_55%,transparent)]'
+  const verbClass = 'bg-panel-verb mr-[0.35rem] font-semibold text-foreground'
+  const detailInlineClass =
+    'bg-panel-detail-inline text-xs text-muted [font-family:ui-monospace,monospace]'
+  const fallbackLineClass =
+    'bg-panel-activity-fallback whitespace-pre-wrap break-words py-[0.15rem] text-xs text-muted [font-family:ui-monospace,monospace] [&+&]:border-t [&+&]:border-[color-mix(in_srgb,var(--border)_55%,transparent)]'
+
+  const jumpAnchorBase =
+    'bg-jump-anchor pointer-events-none z-[3] flex justify-center'
+  const jumpAnchorOverlay = 'absolute inset-x-0 bottom-[10px]'
+  const jumpAnchorEmbed =
+    'bg-jump-anchor--embed sticky inset-x-0 bottom-3 mt-[0.35rem] pb-[0.15rem]'
+  const jumpButton =
+    'bg-jump-to-latest pointer-events-auto inline-flex cursor-pointer items-center gap-[6px] border border-border bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] py-[9px] pl-[14px] pr-[16px] text-xs font-semibold uppercase tracking-[0.04em] text-foreground shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.1)] transition-[transform,box-shadow,border-color] duration-[180ms] [backdrop-filter:blur(10px)] [-webkit-backdrop-filter:blur(10px)] hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 motion-reduce:hover:translate-y-0 dark:bg-[color-mix(in_srgb,var(--bg-3)_92%,transparent)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_10px_28px_rgba(0,0,0,0.45)]'
+  const jumpButtonStreaming =
+    'streaming border-[color-mix(in_srgb,var(--accent)_28%,var(--border))]'
+  const livePulseClass =
+    'bg-live-pulse h-[7px] w-[7px] shrink-0 bg-accent shadow-[0_0_0_0_color-mix(in_srgb,var(--accent)_45%,transparent)] [animation:bg-jump-live-pulse_1.8s_ease-in-out_infinite] motion-reduce:[animation:none]'
+  const jumpTextClass = 'bg-jump-text leading-none'
+
+  const pillClass =
+    'bg-panel-pill inline-flex items-center border border-border bg-[color-mix(in_srgb,var(--bg-2)_90%,var(--border))] px-2 py-[0.15rem] text-xs font-semibold capitalize text-foreground'
+  const countClass =
+    'bg-panel-count text-[0.8125rem] text-muted [font-variant-numeric:tabular-nums]'
+  const countUsageClass = 'bg-panel-count--usage min-w-0'
+
+  const pausedNoticeClass =
+    'bg-panel-paused-notice mt-2 flex items-center justify-between gap-3 border-t border-border py-3'
+  const resumeBtnClass =
+    'bg-panel-resume-btn inline-flex cursor-pointer items-center gap-[6px] border-0 bg-accent px-[14px] py-[6px] text-xs font-semibold text-white transition-[filter] duration-150 hover:not-disabled:brightness-110 disabled:cursor-not-allowed disabled:opacity-50'
+
+  const bgPanelBtnClass =
+    'bg-panel-btn cursor-pointer border border-border bg-surface-2 px-[0.85rem] py-[0.45rem] text-[0.8125rem] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45'
+  const bgPanelBtnPrimary =
+    'bg-panel-btn-primary border-transparent bg-accent text-white'
 </script>
 
-<div class="bg-panel" class:bg-panel--hub-embed={embedInHubDetail}>
+<div
+  class={cn(
+    'bg-panel flex h-full min-h-0 flex-col bg-surface text-foreground',
+    embedInHubDetail && 'bg-panel--hub-embed h-auto min-h-0 flex-[0_1_auto] bg-transparent',
+  )}
+>
   {#if embedInHubDetail}
-    <div class="bg-panel-hub-flow">
+    <div class="bg-panel-hub-flow flex min-w-0 flex-col gap-[0.65rem] pt-[0.15rem]">
       {#if loadError}
-        <p class="bg-panel-muted" role="status">{loadError}</p>
+        <p class={mutedClass} role="status">{loadError}</p>
       {:else if !agent}
-        <p class="bg-panel-muted" role="status">No active wiki expansion.</p>
+        <p class={mutedClass} role="status">No active wiki expansion.</p>
       {:else}
         {#if agent.detail?.trim() && !embedDuplicateParentChrome}
-          <p class="bg-panel-status-line" aria-live="polite">{agent.detail.trim()}</p>
+          <p class={statusLineClass} aria-live="polite">{agent.detail.trim()}</p>
         {/if}
 
         {#if usageHudLine}
-          <p class="bg-panel-usage-line" aria-live="polite">{usageHudLine}</p>
+          <p class={usageLineClass} aria-live="polite">{usageHudLine}</p>
         {/if}
 
         {#if agent.error}
-          <p class="bg-panel-error" role="alert">{agent.error}</p>
+          <p class={errorClass} role="alert">{agent.error}</p>
         {/if}
 
         {#if timelineSorted.length > 0}
           {#if !embedDuplicateParentChrome}
-            <div class="bg-panel-section-label">Steps</div>
+            <div class={sectionLabel}>Steps</div>
           {/if}
-          <ul class="bg-panel-timeline" aria-label="Steps in order, oldest first">
+          <ul class={timelineClass} aria-label="Steps in order, oldest first">
             {#each timelineSorted as ev, i (ev.at + ev.toolName + i)}
-              <li class="bg-timeline-item">
-                <span class="bg-timeline-time">{formatTimelineTime(ev.at)}</span>
-                <div class="bg-timeline-tool">
+              <li class={timelineItemClass}>
+                <span class={timelineTimeClass}>{formatTimelineTime(ev.at)}</span>
+                <div class={timelineToolClass}>
                   <ToolCallBlock
                     toolCall={toToolCall(ev, i)}
-                    onOpenWiki={onOpenWiki}
-                    onOpenFile={onOpenFile}
-                    onOpenIndexedFile={onOpenIndexedFile}
-                    onOpenEmail={onOpenEmail}
-                    onOpenDraft={onOpenDraft}
-                    onOpenFullInbox={onOpenFullInbox}
-                    onSwitchToCalendar={onSwitchToCalendar}
-                    onOpenMessageThread={onOpenMessageThread}
+                    {onOpenWiki}
+                    {onOpenFile}
+                    {onOpenIndexedFile}
+                    {onOpenEmail}
+                    {onOpenDraft}
+                    {onOpenFullInbox}
+                    {onSwitchToCalendar}
+                    {onOpenMessageThread}
                   />
                 </div>
               </li>
@@ -355,64 +416,68 @@
           </ul>
         {:else if agent.logEntries && agent.logEntries.length > 0}
           {#if !embedDuplicateParentChrome}
-            <div class="bg-panel-section-label">Steps</div>
+            <div class={sectionLabel}>Steps</div>
           {/if}
-          <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
-            {#each agent.logEntries as entry}
-              <li class="bg-panel-activity-line">
-                <span class="bg-panel-verb">{entry.verb}</span>
+          <ul class={activityListClass} aria-label="Expansion activity (legacy)">
+            {#each agent.logEntries as entry, i (i)}
+              <li class={activityLineClass}>
+                <span class={verbClass}>{entry.verb}</span>
                 {#if entry.detail.trim()}
-                  <span class="bg-panel-detail-inline">{entry.detail}</span>
+                  <span class={detailInlineClass}>{entry.detail}</span>
                 {/if}
               </li>
             {/each}
           </ul>
         {:else if agent.logLines && agent.logLines.length > 0}
           {#if !embedDuplicateParentChrome}
-            <div class="bg-panel-section-label">Steps</div>
+            <div class={sectionLabel}>Steps</div>
           {/if}
-          <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
-            {#each agent.logLines as line}
-              <li class="bg-panel-activity-line bg-panel-activity-fallback">{line}</li>
+          <ul class={activityListClass} aria-label="Expansion activity (legacy)">
+            {#each agent.logLines as line, i (i)}
+              <li class={fallbackLineClass}>{line}</li>
             {/each}
           </ul>
         {:else}
           {#if !embedDuplicateParentChrome}
-            <div class="bg-panel-section-label">Steps</div>
+            <div class={sectionLabel}>Steps</div>
           {/if}
-          <p class="bg-panel-muted" role="status">
+          <p class={mutedClass} role="status">
             No steps yet. The assistant may be planning; completed work will appear here.
           </p>
         {/if}
 
         {#if showJumpToLatest}
           <div
-            class="bg-jump-anchor bg-jump-anchor--embed"
+            class={cn(jumpAnchorBase, jumpAnchorEmbed)}
             in:fly={{ y: 10, duration: jumpTransitionMs }}
             out:fly={{ y: 8, duration: Math.min(jumpTransitionMs, 160) }}
           >
             <button
               type="button"
-              class="bg-jump-to-latest"
-              class:streaming={agentIsLive}
+              class={cn(jumpButton, agentIsLive && jumpButtonStreaming)}
               aria-label="Jump to latest activity"
               onclick={() => scrollToBottom()}
             >
               {#if agentIsLive}
-                <span class="bg-live-pulse" aria-hidden="true"></span>
+                <span class={livePulseClass} aria-hidden="true"></span>
               {/if}
-              <ChevronDown size={16} strokeWidth={2.25} class="bg-jump-chevron" aria-hidden="true" />
-              <span class="bg-jump-text">Latest</span>
+              <ChevronDown
+                size={16}
+                strokeWidth={2.25}
+                class="bg-jump-chevron"
+                aria-hidden="true"
+              />
+              <span class={jumpTextClass}>Latest</span>
             </button>
           </div>
         {/if}
 
         {#if agent.status === 'paused'}
-          <div class="bg-panel-paused-notice">
-            <p>Pausing wiki expansion and maintenance.</p>
+          <div class={pausedNoticeClass}>
+            <p class="m-0 text-[13px] text-muted">Pausing wiki expansion and maintenance.</p>
             <button
               type="button"
-              class="bg-panel-resume-btn"
+              class={resumeBtnClass}
               disabled={actionBusy}
               onclick={resumeAgent}
             >
@@ -424,83 +489,84 @@
       {/if}
     </div>
   {:else}
-    <div class="bg-panel-shell">
+    <div class="bg-panel-shell relative flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
-        class="bg-panel-scroll"
+        class="bg-panel-scroll flex min-h-0 flex-1 flex-col gap-[0.65rem] overflow-auto px-4 pb-4 pt-3"
         bind:this={scrollEl}
         onscroll={syncFollowFromScroll}
       >
         {#if loadError}
-          <p class="bg-panel-muted" role="status">{loadError}</p>
-      {:else if !agent}
-        <p class="bg-panel-muted" role="status">No active wiki expansion.</p>
-      {:else}
-        {#if !embedInHubDetail}
-          <div class="bg-panel-summary">
-            <span class="bg-panel-pill">{statusLabel(agent.status)}</span>
-            {#if agent.pageCount > 0}
-              <span class="bg-panel-count" aria-label="Pages created">{agent.pageCount} pages</span>
-            {/if}
-            {#if usageHudLine}
-              <span class="bg-panel-count bg-panel-count--usage" aria-label="Model token usage estimate"
-                >{usageHudLine}</span
-              >
-            {/if}
-          </div>
-        {/if}
+          <p class={mutedClass} role="status">{loadError}</p>
+        {:else if !agent}
+          <p class={mutedClass} role="status">No active wiki expansion.</p>
+        {:else}
+          {#if !embedInHubDetail}
+            <div class="bg-panel-summary flex flex-wrap items-center gap-2">
+              <span class={pillClass}>{statusLabel(agent.status)}</span>
+              {#if agent.pageCount > 0}
+                <span class={countClass} aria-label="Pages created">{agent.pageCount} pages</span>
+              {/if}
+              {#if usageHudLine}
+                <span
+                  class={cn(countClass, countUsageClass)}
+                  aria-label="Model token usage estimate"
+                >{usageHudLine}</span>
+              {/if}
+            </div>
+          {/if}
 
-        {#if agent.detail?.trim()}
-            <p class="bg-panel-status-line" aria-live="polite">{agent.detail.trim()}</p>
+          {#if agent.detail?.trim()}
+            <p class={statusLineClass} aria-live="polite">{agent.detail.trim()}</p>
           {/if}
 
           {#if agent.error}
-            <p class="bg-panel-error" role="alert">{agent.error}</p>
+            <p class={errorClass} role="alert">{agent.error}</p>
           {/if}
 
           {#if timelineSorted.length > 0}
-            <div class="bg-panel-section-label">Steps</div>
-            <ul class="bg-panel-timeline" aria-label="Steps in order, oldest first">
+            <div class={sectionLabel}>Steps</div>
+            <ul class={timelineClass} aria-label="Steps in order, oldest first">
               {#each timelineSorted as ev, i (ev.at + ev.toolName + i)}
-                <li class="bg-timeline-item">
-                  <span class="bg-timeline-time">{formatTimelineTime(ev.at)}</span>
-                  <div class="bg-timeline-tool">
+                <li class={timelineItemClass}>
+                  <span class={timelineTimeClass}>{formatTimelineTime(ev.at)}</span>
+                  <div class={timelineToolClass}>
                     <ToolCallBlock
                       toolCall={toToolCall(ev, i)}
-                      onOpenWiki={onOpenWiki}
-                      onOpenFile={onOpenFile}
-                      onOpenIndexedFile={onOpenIndexedFile}
-                      onOpenEmail={onOpenEmail}
-                      onOpenDraft={onOpenDraft}
-                      onOpenFullInbox={onOpenFullInbox}
-                      onSwitchToCalendar={onSwitchToCalendar}
-                      onOpenMessageThread={onOpenMessageThread}
+                      {onOpenWiki}
+                      {onOpenFile}
+                      {onOpenIndexedFile}
+                      {onOpenEmail}
+                      {onOpenDraft}
+                      {onOpenFullInbox}
+                      {onSwitchToCalendar}
+                      {onOpenMessageThread}
                     />
                   </div>
                 </li>
               {/each}
             </ul>
           {:else if agent.logEntries && agent.logEntries.length > 0}
-            <div class="bg-panel-section-label">Steps</div>
-            <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
-              {#each agent.logEntries as entry}
-                <li class="bg-panel-activity-line">
-                  <span class="bg-panel-verb">{entry.verb}</span>
+            <div class={sectionLabel}>Steps</div>
+            <ul class={activityListClass} aria-label="Expansion activity (legacy)">
+              {#each agent.logEntries as entry, i (i)}
+                <li class={activityLineClass}>
+                  <span class={verbClass}>{entry.verb}</span>
                   {#if entry.detail.trim()}
-                    <span class="bg-panel-detail-inline">{entry.detail}</span>
+                    <span class={detailInlineClass}>{entry.detail}</span>
                   {/if}
                 </li>
               {/each}
             </ul>
           {:else if agent.logLines && agent.logLines.length > 0}
-            <div class="bg-panel-section-label">Steps</div>
-            <ul class="bg-panel-activity" aria-label="Expansion activity (legacy)">
-              {#each agent.logLines as line}
-                <li class="bg-panel-activity-line bg-panel-activity-fallback">{line}</li>
+            <div class={sectionLabel}>Steps</div>
+            <ul class={activityListClass} aria-label="Expansion activity (legacy)">
+              {#each agent.logLines as line, i (i)}
+                <li class={fallbackLineClass}>{line}</li>
               {/each}
             </ul>
           {:else}
-            <div class="bg-panel-section-label">Steps</div>
-            <p class="bg-panel-muted" role="status">
+            <div class={sectionLabel}>Steps</div>
+            <p class={mutedClass} role="status">
               No steps yet. The assistant may be planning; completed work will appear here.
             </p>
           {/if}
@@ -509,33 +575,39 @@
 
       {#if showJumpToLatest && !embedInHubDetail}
         <div
-          class="bg-jump-anchor"
+          class={cn(jumpAnchorBase, jumpAnchorOverlay)}
           in:fly={{ y: 10, duration: jumpTransitionMs }}
           out:fly={{ y: 8, duration: Math.min(jumpTransitionMs, 160) }}
         >
           <button
             type="button"
-            class="bg-jump-to-latest"
-            class:streaming={agentIsLive}
+            class={cn(jumpButton, agentIsLive && jumpButtonStreaming)}
             aria-label="Jump to latest activity"
             onclick={() => scrollToBottom()}
           >
             {#if agentIsLive}
-              <span class="bg-live-pulse" aria-hidden="true"></span>
+              <span class={livePulseClass} aria-hidden="true"></span>
             {/if}
-            <ChevronDown size={16} strokeWidth={2.25} class="bg-jump-chevron" aria-hidden="true" />
-            <span class="bg-jump-text">Latest</span>
+            <ChevronDown
+              size={16}
+              strokeWidth={2.25}
+              class="bg-jump-chevron"
+              aria-hidden="true"
+            />
+            <span class={jumpTextClass}>Latest</span>
           </button>
         </div>
       {/if}
     </div>
 
-  {#if !embedInHubDetail && agent && (agent.status === 'running' || agent.status === 'queued' || agent.status === 'paused')}
-    <div class="bg-panel-footer">
+    {#if !embedInHubDetail && agent && (agent.status === 'running' || agent.status === 'queued' || agent.status === 'paused')}
+      <div
+        class="bg-panel-footer flex shrink-0 justify-end gap-2 border-t border-border bg-[color-mix(in_srgb,var(--bg)_92%,var(--border))] px-4 py-[0.65rem]"
+      >
         {#if agent.status === 'running' || agent.status === 'queued'}
           <button
             type="button"
-            class="bg-panel-btn"
+            class={bgPanelBtnClass}
             onclick={pauseAgent}
             disabled={actionBusy || !effectiveId}
           >
@@ -544,7 +616,7 @@
         {:else if agent.status === 'paused'}
           <button
             type="button"
-            class="bg-panel-btn bg-panel-btn-primary"
+            class={cn(bgPanelBtnClass, bgPanelBtnPrimary)}
             onclick={resumeAgent}
             disabled={actionBusy || !effectiveId}
           >
@@ -557,147 +629,13 @@
 </div>
 
 <style>
-  .bg-panel {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    background: var(--bg);
-    color: var(--text);
+  /* Lucide chevron icon class is set via the component's `class` prop and needs `:global` reach. */
+  :global(.bg-jump-chevron) {
+    flex-shrink: 0;
+    opacity: 0.85;
   }
 
-  .bg-panel--hub-embed {
-    height: auto;
-    min-height: 0;
-    flex: 0 1 auto;
-    background: transparent;
-  }
-
-  .bg-panel-hub-flow {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    padding: 0.15rem 0 0;
-    min-width: 0;
-  }
-
-  .bg-panel-shell {
-    position: relative;
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .bg-panel-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: 0.75rem 1rem 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-  }
-
-  .bg-panel-muted {
-    margin: 0;
-    font-size: 0.875rem;
-    color: var(--text-2);
-  }
-
-  .bg-panel-summary {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .bg-panel-pill {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.15rem 0.5rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg-2) 90%, var(--border));
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: capitalize;
-    color: var(--text);
-  }
-
-  .bg-panel-count {
-    font-size: 0.8125rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-2);
-  }
-
-  .bg-panel-count--usage {
-    min-width: 0;
-  }
-
-  .bg-panel-usage-line {
-    margin: 0;
-    font-size: 0.75rem;
-    line-height: 1.4;
-    color: var(--text-2);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .bg-panel-status-line {
-    margin: 0;
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: var(--text-2);
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-
-  .bg-panel-error {
-    margin: 0;
-    font-size: 0.875rem;
-    color: var(--danger, #e05c5c);
-  }
-
-  .bg-panel-section-label {
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-2);
-    margin-top: 0.35rem;
-  }
-
-  .bg-panel-timeline {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    min-width: 0;
-  }
-
-  .bg-timeline-item {
-    display: grid;
-    grid-template-columns: 4.25rem minmax(0, 1fr);
-    gap: 0.4rem 0.5rem;
-    align-items: start;
-    min-width: 0;
-  }
-
-  .bg-timeline-time {
-    font-size: 0.6875rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-2);
-    padding-top: 0.2rem;
-    white-space: nowrap;
-  }
-
-  .bg-timeline-tool {
-    min-width: 0;
-  }
-
+  /* Tool-call subcomponent renders `.tool-part` deep in the tree; collapse default margins inline. */
   .bg-timeline-tool :global(.tool-part) {
     margin: 0;
   }
@@ -705,168 +643,7 @@
     margin-top: 0;
   }
 
-  .bg-panel-activity {
-    margin: 0;
-    padding: 0.5rem 0.65rem;
-    list-style: none;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg-2) 88%, var(--bg));
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    min-width: 0;
-  }
-
-  .bg-panel-activity-line {
-    padding: 0.15rem 0;
-  }
-  .bg-panel-activity-line + .bg-panel-activity-line {
-    border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-  }
-
-  .bg-panel-verb {
-    font-weight: 600;
-    color: var(--text);
-    margin-right: 0.35rem;
-  }
-
-  .bg-panel-detail-inline {
-    color: var(--text-2);
-    font-family: ui-monospace, monospace;
-    font-size: 0.75rem;
-  }
-
-  .bg-panel-activity-fallback {
-    font-family: ui-monospace, monospace;
-    font-size: 0.75rem;
-    white-space: pre-wrap;
-    word-break: break-word;
-    color: var(--text-2);
-  }
-
-  .bg-panel-footer {
-    flex-shrink: 0;
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    padding: 0.65rem 1rem;
-    border-top: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg) 92%, var(--border));
-  }
-
-  .bg-panel-btn {
-    padding: 0.45rem 0.85rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
-    background: var(--bg-2);
-    color: var(--text);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .bg-panel-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-  .bg-panel-btn-primary {
-    background: var(--accent);
-    color: #fff;
-    border-color: transparent;
-  }
-
-  .bg-jump-anchor {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 10px;
-    display: flex;
-    justify-content: center;
-    pointer-events: none;
-    z-index: 3;
-  }
-
-  .bg-jump-anchor--embed {
-    position: sticky;
-    bottom: 0.75rem;
-    left: 0;
-    right: 0;
-    margin-top: 0.35rem;
-    padding-bottom: 0.15rem;
-  }
-
-  .bg-jump-to-latest {
-    pointer-events: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 9px 16px 9px 14px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text);
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--border);
-    box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.04),
-      0 8px 24px rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    transition:
-      transform 0.18s ease,
-      box-shadow 0.18s ease,
-      border-color 0.18s ease;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .bg-jump-to-latest {
-      background: color-mix(in srgb, var(--bg-3) 92%, transparent);
-      box-shadow:
-        0 2px 4px rgba(0, 0, 0, 0.2),
-        0 10px 28px rgba(0, 0, 0, 0.45);
-    }
-  }
-
-  .bg-jump-to-latest:hover {
-    transform: translateY(-1px);
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  }
-
-  .bg-jump-to-latest:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-
-  .bg-jump-to-latest.streaming {
-    border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
-  }
-
-  .bg-jump-to-latest :global(.bg-jump-chevron) {
-    flex-shrink: 0;
-    opacity: 0.85;
-  }
-
-  .bg-live-pulse {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: var(--accent);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
-    animation: bg-jump-live-pulse 1.8s ease-in-out infinite;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .bg-live-pulse {
-      animation: none;
-    }
-    .bg-jump-to-latest:hover {
-      transform: none;
-    }
-  }
-
+  /* Live indicator pulse — keyframes only (referenced from a Tailwind arbitrary `animation:` utility). */
   @keyframes bg-jump-live-pulse {
     0%,
     100% {
@@ -877,49 +654,5 @@
       opacity: 0.75;
       box-shadow: 0 0 0 6px transparent;
     }
-  }
-
-  .bg-jump-text {
-    line-height: 1;
-  }
-
-  .bg-panel-paused-notice {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 0;
-    margin-top: 8px;
-    border-top: 1px solid var(--border);
-  }
-
-  .bg-panel-paused-notice p {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-2);
-  }
-
-  .bg-panel-resume-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    background: var(--accent);
-    color: white;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    border: none;
-    cursor: pointer;
-    transition: filter 0.15s;
-  }
-
-  .bg-panel-resume-btn:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-
-  .bg-panel-resume-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 </style>

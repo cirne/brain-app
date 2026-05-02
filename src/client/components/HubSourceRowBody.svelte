@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import { cn } from '@client/lib/cn.js'
 
   let {
     title = '',
@@ -16,73 +17,40 @@
     subtitleContent?: Snippet
     icon: Snippet
   } = $props()
+
+  const singleMain = $derived(titleContent !== undefined && subtitleContent === undefined && subtitle === '')
 </script>
 
-<div class="hub-source-row-body" class:single-main={titleContent !== undefined && subtitleContent === undefined && subtitle === ''}>
-  <span class="hub-source-icon-wrap" aria-hidden="true">
+<div
+  class={cn(
+    'hub-source-row-body grid min-w-0 flex-1 grid-cols-[auto_1fr] grid-rows-[auto_auto] items-center gap-x-3 gap-y-[2px]',
+    singleMain && 'single-main gap-y-0',
+  )}
+>
+  <span
+    class="hub-source-icon-wrap inline-flex shrink-0 items-center justify-center self-center text-muted [grid-column:1] [grid-row:1]"
+    aria-hidden="true"
+  >
     {@render icon()}
   </span>
   {#if titleContent}
-    <span class="source-folder-name">
+    <span
+      class="source-folder-name min-w-0 text-[0.9375rem] font-medium leading-tight text-foreground [grid-column:2] [grid-row:1]"
+    >
       {@render titleContent()}
     </span>
   {:else}
-    <span class="source-folder-name">{title}</span>
+    <span
+      class="source-folder-name min-w-0 text-[0.9375rem] font-medium leading-tight text-foreground [grid-column:2] [grid-row:1]"
+    >{title}</span>
   {/if}
   {#if subtitleContent}
-    <span class="source-folder-path">{@render subtitleContent()}</span>
+    <span
+      class="source-folder-path min-w-0 text-[0.8125rem] leading-snug text-muted [overflow-wrap:anywhere] [word-break:break-word] [grid-column:2] [grid-row:2]"
+    >{@render subtitleContent()}</span>
   {:else if subtitle !== ''}
-    <span class="source-folder-path">{subtitle}</span>
+    <span
+      class="source-folder-path min-w-0 text-[0.8125rem] leading-snug text-muted [overflow-wrap:anywhere] [word-break:break-word] [grid-column:2] [grid-row:2]"
+    >{subtitle}</span>
   {/if}
 </div>
-
-<style>
-  .hub-source-row-body {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    column-gap: 12px;
-    row-gap: 2px;
-    flex: 1;
-    min-width: 0;
-    align-items: center;
-  }
-
-  .hub-source-row-body.single-main {
-    row-gap: 0;
-    align-items: center;
-  }
-
-  .hub-source-icon-wrap {
-    grid-column: 1;
-    grid-row: 1;
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-2);
-  }
-
-  .single-main .hub-source-icon-wrap {
-    align-self: center;
-  }
-
-  .source-folder-name {
-    grid-column: 2;
-    grid-row: 1;
-    min-width: 0;
-    font-size: 0.9375rem;
-    font-weight: 500;
-    color: var(--text);
-    line-height: 1.25;
-  }
-
-  .source-folder-path {
-    grid-column: 2;
-    grid-row: 2;
-    min-width: 0;
-    font-size: 0.8125rem;
-    color: var(--text-2);
-    word-break: break-word;
-    line-height: 1.35;
-  }
-</style>

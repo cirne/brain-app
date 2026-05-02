@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { BookOpen, Loader2, MessageSquare, Mail, Trash2, Plus } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
   import { chatRowShowsAgentWorking } from '@client/lib/chatHistoryStreamingIndicator.js'
   import { labelForDeleteChatDialog } from '@client/lib/chatHistoryDelete.js'
   import {
@@ -14,8 +15,8 @@
     removeFromNavHistory,
     type NavHistoryItem,
   } from '@client/lib/navHistory.js'
-  import WikiFileName from './WikiFileName.svelte'
-  import ConfirmDialog from './ConfirmDialog.svelte'
+  import WikiFileName from '@components/WikiFileName.svelte'
+  import ConfirmDialog from '@components/ConfirmDialog.svelte'
   import type { ChatSessionListItem } from '@client/lib/chatSessionTypes.js'
 
   const emptyStreamingIds = new Set<string>()
@@ -187,8 +188,7 @@
 {#snippet navRow(item: NavRowItem)}
   {@const agentWorking = chatRowShowsAgentWorking(item, streamingSessionIds)}
   <div
-    class="ch-row"
-    class:active={item.type === 'chat' && activeSessionId === item.sessionId}
+    class={cn('ch-row', item.type === 'chat' && activeSessionId === item.sessionId && 'active')}
     role="button"
     tabindex="0"
     onclick={() => handleItemClick(item)}
@@ -205,10 +205,12 @@
       </span>
     {:else}
       <span
-        class="ch-row-icon"
-        class:ch-row-icon--chat={item.type === 'chat'}
-        class:ch-row-icon--email={item.type === 'email'}
-        class:ch-row-icon--working={agentWorking}
+        class={cn(
+          'ch-row-icon',
+          item.type === 'chat' && 'ch-row-icon--chat',
+          item.type === 'email' && 'ch-row-icon--email',
+          agentWorking && 'ch-row-icon--working',
+        )}
       >
         {#if item.type === 'chat'}
           {#if agentWorking}
@@ -251,9 +253,11 @@
         {#if chatItems.length === 0}
           <div class="ch-muted ch-muted--section">No chats yet.</div>
         {:else}
-          {#each chatItems as item (item.id)}
-            {@render navRow(item)}
-          {/each}
+          <div class="ch-row-list">
+            {#each chatItems as item (item.id)}
+              {@render navRow(item)}
+            {/each}
+          </div>
           {#if hasMoreChats && onOpenAllChats}
             <button type="button" class="ch-view-all" onclick={() => onOpenAllChats()}>
               View all chats…
@@ -273,9 +277,11 @@
         {#if recentItems.length === 0}
           <div class="ch-muted ch-muted--section">No recent documents or email.</div>
         {:else}
-          {#each recentItems as item (item.id)}
-            {@render navRow(item)}
-          {/each}
+          <div class="ch-row-list">
+            {#each recentItems as item (item.id)}
+              {@render navRow(item)}
+            {/each}
+          </div>
         {/if}
       </section>
     {/if}
@@ -301,9 +307,8 @@
 
 <style>
   /**
-   * Rail typography + row touch layout: set tokens on `.chat-history` and only
-   * override those variables in `@media` — rules stay single-path (no parallel
-   * exhaustive blocks per element).
+   * Same model as legacy `components/ChatHistory.svelte`: component-scoped CSS drives
+   * rail padding/gaps/fonts so layout does not depend on Tailwind emitting utilities.
    */
   .chat-history {
     --ch-fs-new-chat: 0.75rem;
@@ -311,11 +316,12 @@
     --ch-fs-error: 0.6875rem;
     --ch-fs-group-label: 0.625rem;
     --ch-fs-view-all: 0.6875rem;
-    --ch-fs-row-title: 0.75rem;
+    --ch-fs-row-title: 0.6875rem;
     --ch-fs-row-time: 0.625rem;
-    --ch-lh-row-title: 1.3;
-    --ch-row-pad: 5px 6px;
+    --ch-lh-row-title: 1.32;
+    --ch-row-pad: 6px 8px;
     --ch-row-min-h: 0;
+    --ch-row-gap: 0;
     --ch-icon-w: 16px;
     --ch-wfn-icon-w: 14px;
 
@@ -323,8 +329,9 @@
     flex-direction: column;
     height: 100%;
     min-height: 0;
-    padding-top: 8px;
+    padding-top: 10px;
     background: var(--bg-2);
+    box-sizing: border-box;
   }
 
   @media (max-width: 768px) {
@@ -334,57 +341,44 @@
       --ch-fs-error: 0.75rem;
       --ch-fs-group-label: 0.6875rem;
       --ch-fs-view-all: 0.75rem;
-      /* Aligned with AppTopNav / tab row body on small screens (18px) */
       --ch-fs-row-title: 1.125rem;
       --ch-fs-row-time: 0.875rem;
       --ch-lh-row-title: 1.35;
       --ch-row-pad: 8px 8px;
       --ch-row-min-h: 44px;
+      --ch-row-gap: 0;
       --ch-icon-w: 20px;
       --ch-wfn-icon-w: 16px;
     }
-  }
-
-  /* Full rail width like `.ch-row`; icon + label left-aligned */
-  .new-chat-btn,
-  .wiki-home-btn {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 6px;
-    box-sizing: border-box;
-    width: 100%;
-    margin: 0 0 8px;
-    padding: 7px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--bg-3);
-    color: var(--text);
-    font-size: var(--ch-fs-new-chat);
-    font-weight: 500;
-    transition: background 0.15s, border-color 0.15s;
   }
 
   .ch-scroll {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 0 6px 10px;
+    padding: 0 0 14px;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 768px) {
+    .ch-scroll {
+      padding: 0 0 12px;
+    }
   }
 
   .ch-muted {
-    padding: 10px;
+    padding: 10px 2px;
     font-size: var(--ch-fs-muted);
     color: var(--text-2);
   }
 
   .ch-muted--section {
-    padding: 6px 6px 8px;
+    padding: 6px 2px 8px;
     font-style: italic;
   }
 
   .ch-error {
-    padding: 10px;
+    padding: 10px 2px;
     font-size: var(--ch-fs-error);
     color: var(--danger);
   }
@@ -395,11 +389,12 @@
 
   .ch-group--chats {
     margin-top: 2px;
+    padding-bottom: 20px;
   }
 
   .ch-group--recents {
-    margin-top: 14px;
-    padding-top: 10px;
+    margin-top: 4px;
+    padding-top: 14px;
     border-top: 1px solid var(--border);
   }
 
@@ -408,18 +403,36 @@
     font-size: var(--ch-fs-group-label);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     color: var(--text-2);
-    padding: 2px 6px 6px;
+    padding: 2px 2px 8px;
+  }
+
+  .new-chat-btn,
+  .wiki-home-btn {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0 0 8px;
+    padding: 7px 10px;
+border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text);
+    font-size: var(--ch-fs-new-chat);
+    font-weight: 500;
+    transition: background 0.15s, border-color 0.15s;
+    cursor: pointer;
   }
 
   .ch-view-all {
     display: block;
-    width: calc(100% - 4px);
-    margin: 4px 2px 0;
+    width: 100%;
+    margin: 6px 0 0;
     padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px dashed var(--border);
+border: 1px dashed var(--border);
     background: transparent;
     color: var(--accent);
     font-size: var(--ch-fs-view-all);
@@ -427,10 +440,18 @@
     text-align: left;
     cursor: pointer;
     transition: background 0.12s, border-color 0.12s;
+    box-sizing: border-box;
   }
+
   .ch-view-all:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
+  }
+
+  .ch-row-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ch-row-gap);
   }
 
   .ch-row {
@@ -442,16 +463,17 @@
     min-height: var(--ch-row-min-h);
     padding: var(--ch-row-pad);
     box-sizing: border-box;
-    border-radius: 6px;
-    margin-bottom: 1px;
+    margin: 0;
     color: var(--text);
     cursor: pointer;
     transition: background 0.12s;
   }
+
   .ch-row:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
   }
+
   .ch-row.active {
     background: var(--accent-dim);
     outline: 1px solid var(--accent);
@@ -511,6 +533,8 @@
   }
 
   .ch-row-time {
+    margin-inline-start: 2px;
+    margin-inline-end: 6px;
     font-size: var(--ch-fs-row-time);
     color: var(--text-2);
     flex-shrink: 0;
@@ -520,13 +544,14 @@
   .ch-row-delete {
     flex-shrink: 0;
     padding: 3px;
-    border-radius: 4px;
+    border: none;
+background: transparent;
     color: var(--text-2);
+    cursor: pointer;
     opacity: 0;
     transition: opacity 0.12s, color 0.12s, background 0.12s;
   }
 
-  /* Touch: first tap must activate the row, not a synthetic :hover; show delete without hover. */
   @media (hover: none) {
     .ch-row-delete {
       opacity: 1;
@@ -554,10 +579,11 @@
     }
 
     .ch-row:hover .ch-row-delete {
-      opacity: 1;
+      opacity: 0.45;
     }
 
     .ch-row-delete:hover {
+      opacity: 1 !important;
       color: var(--danger);
       background: rgba(224, 92, 92, 0.12);
     }
