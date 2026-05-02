@@ -9,11 +9,9 @@
 
   type Props = {
     onOpen: () => void
-    /** Wiki share invitations pending for this account (shown when handle pill is hidden or on mobile). */
-    shareInviteBadge?: boolean
   }
 
-  let { onOpen, shareInviteBadge = false }: Props = $props()
+  let { onOpen }: Props = $props()
 
   let docCount = $state<number | null>(null)
   let wikiDoc = $state<BackgroundAgentDoc | null>(null)
@@ -64,7 +62,6 @@
   class={cn(
     'hub-widget relative flex h-full cursor-pointer items-center gap-2 border-none bg-transparent px-3 text-[13px] font-medium text-muted transition-colors duration-150 hover:bg-surface-3 hover:text-foreground',
     showActive && 'active text-accent',
-    shareInviteBadge && 'hub-widget--share-pending',
   )}
   onclick={onOpen}
   title={showActive ? `${activeLabel} (Click for Braintunnel Hub)` : 'Braintunnel Hub'}
@@ -76,17 +73,3 @@
     hubControl
   />
 </button>
-
-<style>
-  /* Pseudo-element badge — keep scoped (Tailwind ::after with positioned dot is awkward inline). */
-  .hub-widget--share-pending::after {
-    content: '';
-    position: absolute;
-    top: 8px;
-    right: 10px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-</style>
