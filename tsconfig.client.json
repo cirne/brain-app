@@ -12,6 +12,7 @@
     "paths": {
       "@client/*": ["src/client/*"],
       "@components/*": ["src/client/components/*"],
+      "@tw-components/*": ["src/client/tw-components/*"],
       "@shared/*": ["src/shared/*"]
     }
   },
