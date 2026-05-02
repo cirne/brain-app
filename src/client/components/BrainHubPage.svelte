@@ -618,8 +618,7 @@
     font-size: 0.8125rem;
     font-weight: 600;
     padding: 0.3rem 0.7rem;
-    border-radius: 6px;
-    cursor: pointer;
+cursor: pointer;
     border: 1px solid transparent;
     transition: background 0.15s, color 0.15s, border-color 0.15s, filter 0.15s;
   }
@@ -694,8 +693,7 @@
     font-size: 0.625rem;
     font-weight: 800;
     padding: 2px 8px;
-    border-radius: 4px;
-    text-transform: uppercase;
+text-transform: uppercase;
     letter-spacing: 0.05em;
     background: var(--bg-3);
     color: var(--text-2);
@@ -729,8 +727,7 @@
   .sync-dot {
     width: 6px;
     height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
+background: var(--accent);
     flex-shrink: 0;
     animation: hub-sync-pulse 1.2s ease-in-out infinite;
   }

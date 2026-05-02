@@ -225,7 +225,7 @@
       {#if sourcesConfigured}
         <p class="m-0 text-sm">No calendar data yet.</p>
         <button
-          class="sync-btn cursor-pointer rounded-md border border-border bg-surface-3 px-4 py-1.5 text-[13px] text-foreground hover:border-accent hover:text-accent"
+          class="sync-btn cursor-pointer border border-border bg-surface-3 px-4 py-1.5 text-[13px] text-foreground hover:border-accent hover:text-accent"
           onclick={() => { void refreshCalendarSources() }}
         >↻ Sync now</button>
       {:else}
@@ -262,7 +262,7 @@
             >{formatDayHeader(date)}</span>
             {#if ymd === todayYMD}
               <span
-                class="today-badge rounded-[10px] bg-accent px-1.5 py-px text-[10px] font-semibold uppercase tracking-[0.04em] text-white"
+                class="today-badge bg-accent px-1.5 py-px text-[10px] font-semibold uppercase tracking-[0.04em] text-white"
               >today</span>
             {/if}
           </div>

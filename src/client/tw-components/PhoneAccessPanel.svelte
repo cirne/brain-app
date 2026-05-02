@@ -180,14 +180,14 @@
   )
 
   const toggleBtnBase =
-    'flex w-full items-center rounded-xl border border-border bg-surface-2 p-3 px-4 text-left transition-all duration-200 hover:not-disabled:border-accent hover:not-disabled:bg-surface-3'
+    'flex w-full items-center border border-border bg-surface-2 p-3 px-4 text-left transition-all duration-200 hover:not-disabled:border-accent hover:not-disabled:bg-surface-3'
 </script>
 
 <div
   class="phone-access-panel flex h-full flex-col items-center overflow-y-auto bg-surface px-6 py-8 text-foreground"
 >
   <div class="panel-content flex w-full max-w-[320px] flex-col items-center text-center">
-    <div class="header-icon mb-6 rounded-full bg-accent-dim p-6 text-accent">
+    <div class="header-icon mb-6 bg-accent-dim p-6 text-accent">
       <Smartphone size={48} strokeWidth={1.5} />
     </div>
 
@@ -216,13 +216,13 @@
         </div>
         <div
           class={cn(
-            'switch relative h-5 w-9 rounded-[10px] bg-[var(--bg-4)] transition-colors duration-200',
+            'switch relative h-5 w-9 bg-[var(--bg-4)] transition-colors duration-200',
             remoteAccessEnabled && 'on bg-accent',
           )}
         >
           <div
             class={cn(
-              'knob absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform duration-200',
+              'knob absolute left-0.5 top-0.5 h-4 w-4 bg-white transition-transform duration-200',
               remoteAccessEnabled && 'translate-x-4',
             )}
           ></div>
@@ -252,13 +252,13 @@
           </div>
           <div
             class={cn(
-              'switch relative h-5 w-9 rounded-[10px] bg-[var(--bg-4)] transition-colors duration-200',
+              'switch relative h-5 w-9 bg-[var(--bg-4)] transition-colors duration-200',
               allowLanDirectAccess && 'on bg-accent',
             )}
           >
             <div
               class={cn(
-                'knob absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform duration-200',
+                'knob absolute left-0.5 top-0.5 h-4 w-4 bg-white transition-transform duration-200',
                 allowLanDirectAccess && 'translate-x-4',
               )}
             ></div>
@@ -283,16 +283,16 @@
     {:else if !qrCodeDataUrl || (remoteAccessEnabled && !networkInfo?.tunnelUrl && isToggling)}
       <div class="loading flex flex-col items-center gap-4 py-12 text-muted">
         <div
-          class="spinner h-6 w-6 rounded-full border-2 border-border [border-top-color:var(--accent)] [animation:spin_0.8s_linear_infinite]"
+          class="spinner h-6 w-6 border-2 border-border [border-top-color:var(--accent)] [animation:spin_0.8s_linear_infinite]"
         ></div>
         <p>{remoteAccessEnabled && !networkInfo?.tunnelUrl && isToggling ? 'Setting up a secure endpoint...' : 'Generating QR code...'}</p>
       </div>
     {:else}
-      <div class="qr-container mb-8 rounded-xl bg-white p-4 [box-shadow:0_4px_20px_rgba(0,0,0,0.1)]">
+      <div class="qr-container mb-8 bg-white p-4 [box-shadow:0_4px_20px_rgba(0,0,0,0.1)]">
         <img class="block h-60 w-60" src={qrCodeDataUrl} alt="QR Code for Phone Access" />
       </div>
 
-      <div class="info-box mb-6 flex w-full flex-col gap-4 rounded-lg bg-surface-2 p-4 text-left [&_svg]:mt-0.5 [&_svg]:shrink-0">
+      <div class="info-box mb-6 flex w-full flex-col gap-4 bg-surface-2 p-4 text-left [&_svg]:mt-0.5 [&_svg]:shrink-0">
         {#if networkInfo?.tunnelUrl}
           <div class="info-item flex gap-3 text-[0.8125rem] leading-tight text-muted">
             <ExternalLink size={16} />
@@ -311,11 +311,11 @@
       </div>
 
       <div
-        class="url-copy-box mt-auto flex w-full items-center rounded-md border border-border bg-surface-3 py-0.5 pl-3 pr-0.5"
+        class="url-copy-box mt-auto flex w-full items-center border border-border bg-surface-3 py-0.5 pl-3 pr-0.5"
       >
         <div class="url-text flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted [font-family:var(--font-mono)]">{primaryUrl}</div>
         <button
-          class="copy-btn flex h-8 w-8 items-center justify-center rounded text-muted transition-colors duration-150 hover:bg-[var(--bg-4)] hover:text-foreground"
+          class="copy-btn flex h-8 w-8 items-center justify-center text-muted transition-colors duration-150 hover:bg-[var(--bg-4)] hover:text-foreground"
           onclick={() => copyToClipboard(primaryUrl)}
           title="Copy local URL"
         >
@@ -330,7 +330,7 @@
       {#if remoteAccessEnabled && networkInfo?.tunnelUrl}
         <div class="reset-link-container mt-4 flex w-full justify-center">
           <button
-            class="reset-link-btn flex cursor-pointer items-center gap-1.5 rounded border-none bg-transparent px-2 py-1 text-xs text-[var(--text-3,#666)] transition-colors duration-200 hover:not-disabled:bg-surface-2 hover:not-disabled:text-muted disabled:cursor-not-allowed disabled:opacity-50"
+            class="reset-link-btn flex cursor-pointer items-center gap-1.5 border-none bg-transparent px-2 py-1 text-xs text-[var(--text-3,#666)] transition-colors duration-200 hover:not-disabled:bg-surface-2 hover:not-disabled:text-muted disabled:cursor-not-allowed disabled:opacity-50"
             onclick={resetMagicLink}
             disabled={isResetting}
           >

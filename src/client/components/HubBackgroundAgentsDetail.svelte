@@ -229,8 +229,7 @@
     font-size: 0.625rem;
     font-weight: 800;
     padding: 2px 8px;
-    border-radius: 4px;
-    text-transform: uppercase;
+text-transform: uppercase;
     letter-spacing: 0.05em;
     background: var(--bg-3);
     color: var(--text-2);
@@ -266,8 +265,7 @@
     font-size: 0.875rem;
     font-weight: 600;
     padding: 0.45rem 0.9rem;
-    border-radius: 8px;
-    cursor: pointer;
+cursor: pointer;
     border: 1px solid transparent;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
   }

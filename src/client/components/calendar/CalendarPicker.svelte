@@ -278,8 +278,7 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0.4rem 0.65rem;
-    border-radius: 10px;
-    border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
     background: color-mix(in srgb, var(--bg-2, var(--bg)) 94%, var(--text));
     cursor: pointer;
     outline: none;
@@ -344,8 +343,7 @@
     justify-content: center;
     width: 1.5rem;
     height: 1.5rem;
-    border-radius: 999px;
-    box-sizing: border-box;
+box-sizing: border-box;
   }
 
   .cal-picker-marker--on {
@@ -382,8 +380,7 @@
     font-size: 0.8125rem;
     font-weight: 600;
     padding: 0.45rem 0.85rem;
-    border-radius: 8px;
-    border: none;
+border: none;
     cursor: pointer;
     background: var(--accent);
     color: white;

@@ -329,8 +329,7 @@
     color: var(--accent);
     background: var(--accent-dim);
     padding: 1.5rem;
-    border-radius: 50%;
-  }
+}
 
   h3 {
     margin: 0 0 1rem;
@@ -357,8 +356,7 @@
     padding: 0.75rem 1rem;
     background: var(--bg-2);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    transition: all 0.2s;
+transition: all 0.2s;
     text-align: left;
   }
 
@@ -384,8 +382,7 @@
     padding: 0.75rem 1rem;
     background: var(--bg-2);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    transition: all 0.2s;
+transition: all 0.2s;
     text-align: left;
   }
 
@@ -436,8 +433,7 @@
     width: 36px;
     height: 20px;
     background: var(--bg-4);
-    border-radius: 10px;
-    position: relative;
+position: relative;
     transition: background 0.2s;
   }
 
@@ -449,8 +445,7 @@
     width: 16px;
     height: 16px;
     background: white;
-    border-radius: 50%;
-    position: absolute;
+position: absolute;
     top: 2px;
     left: 2px;
     transition: transform 0.2s;
@@ -463,8 +458,7 @@
   .qr-container {
     background: white;
     padding: 1rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     margin-bottom: 2rem;
   }
 
@@ -482,8 +476,7 @@
     text-align: left;
     background: var(--bg-2);
     padding: 1rem;
-    border-radius: 8px;
-    margin-bottom: 1.5rem;
+margin-bottom: 1.5rem;
   }
 
   .info-item {
@@ -505,8 +498,7 @@
     width: 100%;
     background: var(--bg-3);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 2px 2px 2px 12px;
+padding: 2px 2px 2px 12px;
     margin-top: auto;
   }
 
@@ -527,8 +519,7 @@
     border: none;
     cursor: pointer;
     padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.2s;
+transition: all 0.2s;
   }
 
   .reset-link-btn:hover:not(:disabled) {
@@ -561,8 +552,7 @@
     justify-content: center;
     width: 32px;
     height: 32px;
-    border-radius: 4px;
-    color: var(--text-2);
+color: var(--text-2);
     transition: background 0.15s, color 0.15s;
   }
 
@@ -585,8 +575,7 @@
     height: 24px;
     border: 2px solid var(--border);
     border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+animation: spin 0.8s linear infinite;
   }
 
   @keyframes spin {

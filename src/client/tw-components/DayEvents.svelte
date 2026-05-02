@@ -126,7 +126,7 @@
   }
 
   /** Shared hover/focus styles + base layout for the compact-hit button + non-interactive list item. */
-  const baseRow = 'de-event flex items-baseline gap-[5px] rounded-[3px] px-[7px] py-[3px] text-xs leading-[1.4]'
+  const baseRow = 'de-event flex items-baseline gap-[5px] px-[7px] py-[3px] text-xs leading-[1.4]'
   const travelBg =
     'travel border-l-2 border-l-[var(--accent,#f59e0b)] bg-[var(--custom-bg,color-mix(in_srgb,#f59e0b_15%,transparent))]'
   const personalBg =

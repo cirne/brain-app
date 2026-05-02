@@ -163,7 +163,7 @@
 
   /** Hub button recipes (mirrors hub panels). */
   const hubBtn =
-    'hub-dialog-btn inline-flex cursor-pointer items-center justify-center gap-[0.35rem] rounded-lg border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
+    'hub-dialog-btn inline-flex cursor-pointer items-center justify-center gap-[0.35rem] border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
   const hubBtnPrimary =
     'hub-dialog-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.06)]'
   const hubBtnSecondary =
@@ -173,7 +173,7 @@
 <div class="fs-editor mt-2 flex flex-col gap-3">
   {#if driveNeedsFolders}
     <p
-      class="fs-editor-warn m-0 rounded-md bg-[color-mix(in_srgb,orange_18%,transparent)] px-[0.65rem] py-2 text-sm"
+      class="fs-editor-warn m-0 bg-[color-mix(in_srgb,orange_18%,transparent)] px-[0.65rem] py-2 text-sm"
       role="alert"
     >
       No Drive folders selected — add at least one folder before syncing (entire-Drive sync is disabled).
@@ -200,7 +200,7 @@
       <ul class="fs-root-list m-0 flex list-none flex-col gap-2 p-0">
         {#each draft.roots as r, i (r.id + i)}
           <li
-            class="fs-root-row grid grid-cols-[1fr_auto_auto] items-center gap-2 rounded-md bg-[color-mix(in_srgb,var(--color-fg,#ccc)_6%,transparent)] px-2 py-[0.45rem]"
+            class="fs-root-row grid grid-cols-[1fr_auto_auto] items-center gap-2 bg-[color-mix(in_srgb,var(--color-fg,#ccc)_6%,transparent)] px-2 py-[0.45rem]"
           >
             <div class="fs-root-main flex min-w-0 flex-col gap-[0.15rem]">
               <span class="fs-root-name text-[0.9rem] font-semibold">{r.name}</span>
@@ -230,7 +230,7 @@
 
   {#if browserOpen}
     <div
-      class="fs-browser rounded-lg border border-[color-mix(in_srgb,var(--color-fg,#ccc)_18%,transparent)] bg-[color-mix(in_srgb,var(--color-fg,#ccc)_4%,transparent)] p-2"
+      class="fs-browser border border-[color-mix(in_srgb,var(--color-fg,#ccc)_18%,transparent)] bg-[color-mix(in_srgb,var(--color-fg,#ccc)_4%,transparent)] p-2"
       role="dialog"
       aria-label="Pick folder"
     >
@@ -267,7 +267,7 @@
             >
               <button
                 type="button"
-                class="fs-browser-name flex-1 cursor-pointer rounded border-none bg-none p-1 text-left text-inherit [font:inherit] hover:bg-[color-mix(in_srgb,var(--color-fg,#ccc)_8%,transparent)]"
+                class="fs-browser-name flex-1 cursor-pointer border-none bg-none p-1 text-left text-inherit [font:inherit] hover:bg-[color-mix(in_srgb,var(--color-fg,#ccc)_8%,transparent)]"
                 onclick={() => browserEnter(f)}
               >
                 {f.name}

@@ -146,7 +146,7 @@
 <div class="chp flex h-full min-h-0 flex-col bg-surface-2">
   <div class="chp-search shrink-0 px-3 pt-2.5 pb-2 border-b border-border">
     <label class="chp-search-label block mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted" for="chp-search-input">Search chats</label>
-    <div class="chp-search-inner flex items-center gap-2 px-2.5 py-2 rounded-lg border border-border bg-surface-3">
+    <div class="chp-search-inner flex items-center gap-2 px-2.5 py-2 border border-border bg-surface-3">
       <Search class="chp-search-icon" size={16} strokeWidth={2} aria-hidden="true" />
       <input
         id="chp-search-input"
@@ -177,7 +177,7 @@
         )}
         <div
           class={cn(
-            'chp-row group/chprow flex w-full items-start gap-2 px-2 py-[9px] rounded-lg mb-0.5 text-left text-foreground cursor-pointer transition-colors hover:bg-surface-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:[outline-offset:1px]',
+            'chp-row group/chprow flex w-full items-start gap-2 px-2 py-[9px] mb-0.5 text-left text-foreground cursor-pointer transition-colors hover:bg-surface-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:[outline-offset:1px]',
             activeSessionId === s.sessionId && 'active bg-accent-dim outline outline-1 outline-accent',
           )}
           role="button"
@@ -214,7 +214,7 @@
           <time class="chp-row-time shrink-0 mt-px text-[11px] text-muted opacity-80 whitespace-nowrap" datetime={s.updatedAt}>{formatWhen(s.updatedAt)}</time>
           <button
             type="button"
-            class="chp-row-delete shrink-0 p-1 rounded text-muted opacity-0 transition-[opacity,color,background] [@media(hover:none)]:opacity-100 group-hover/chprow:opacity-100 hover:!text-danger hover:!bg-[rgba(224,92,92,0.12)]"
+            class="chp-row-delete shrink-0 p-1 text-muted opacity-0 transition-[opacity,color,background] [@media(hover:none)]:opacity-100 group-hover/chprow:opacity-100 hover:!text-danger hover:!bg-[rgba(224,92,92,0.12)]"
             title="Delete chat"
             aria-label="Delete chat"
             onclick={(e) => requestDelete(e, s)}

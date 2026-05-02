@@ -471,7 +471,7 @@
                 {#if meta.updated}<span class="meta-date">{formatDate(meta.updated)}</span>{/if}
                 {#if meta.updated && meta.tags}<span class="meta-sep opacity-50">·</span>{/if}
                 {#if meta.tags}{#each parseTags(meta.tags) as tag (tag)}<span
-                      class="meta-tag rounded-sm bg-surface-3 px-1.5 py-px text-[11px]"
+                      class="meta-tag bg-surface-3 px-1.5 py-px text-[11px]"
                       >{tag}</span
                     >{/each}{/if}
               </div>

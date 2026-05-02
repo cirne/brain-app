@@ -90,8 +90,7 @@
   }
 
   .wiki-tool-preview-body:focus-visible {
-    border-radius: 2px;
-    box-shadow:
+box-shadow:
       inset 2px 0 0 var(--accent),
       inset -2px 0 0 var(--accent);
   }

@@ -250,8 +250,7 @@
     margin-bottom: 2px;
     border-top: 1px solid var(--border-1, rgba(255, 255, 255, 0.08));
     background: color-mix(in srgb, var(--bg-2) 92%, transparent);
-    border-radius: 0;
-  }
+}
 
   .chat-voice-panel--composer-flow {
     position: relative;
@@ -262,8 +261,7 @@
     padding: 0;
     background: var(--bg-2);
     border: none;
-    border-radius: 0;
-  }
+}
 
   /*
    * Composer stack: the primary tap/send control sits on the RIGHT (same lane as text-mode
@@ -325,8 +323,7 @@
     margin-left: max(8px, env(safe-area-inset-left, 0px));
     padding: 0;
     border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--bg-3);
+background: var(--bg-3);
     color: var(--text-2);
     cursor: pointer;
     transition:

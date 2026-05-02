@@ -67,14 +67,12 @@
   background: var(--bg-3);
   font-size: 0.88em;
   padding: 0.1em 0.35em;
-  border-radius: 0.25rem;
 }
 
 :is(.wiki-md, .streaming-agent-md) pre {
   margin: 0.5em 0;
   padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  background: var(--bg-3);
+background: var(--bg-3);
   overflow-x: auto;
   font-size: 0.84rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -134,8 +132,7 @@
   letter-spacing: 0.02em;
   text-transform: uppercase;
   padding: 0.2em 0.55em;
-  border-radius: 4px;
-  line-height: 1.2;
+line-height: 1.2;
 }
 
 :is(.wiki-md, .streaming-agent-md) .md-fm-type--bug {

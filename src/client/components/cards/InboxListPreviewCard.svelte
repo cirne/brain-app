@@ -262,8 +262,7 @@
     height: 14px;
     border: 2px solid var(--border);
     border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: inbox-spin 0.7s linear infinite;
+animation: inbox-spin 0.7s linear infinite;
   }
 
   @keyframes inbox-spin {

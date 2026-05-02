@@ -1315,7 +1315,7 @@
 
   /** Shared icon-button recipe for the wiki primary bar (Edit / Save / Share). */
   const wikiPrimaryIconBtn =
-    'wiki-primary-icon-btn inline-flex items-center justify-center p-1.5 border-0 rounded-md bg-transparent text-muted cursor-pointer transition-colors enabled:hover:text-accent enabled:hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] disabled:opacity-45 disabled:cursor-not-allowed'
+    'wiki-primary-icon-btn inline-flex items-center justify-center p-1.5 border-0 bg-transparent text-muted cursor-pointer transition-colors enabled:hover:text-accent enabled:hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] disabled:opacity-45 disabled:cursor-not-allowed'
 </script>
 
 {#if shell.showSearch}
@@ -1457,7 +1457,7 @@
                           <span class="wiki-share-header-inner relative inline-flex items-center justify-center">
                             <Share2 size={17} strokeWidth={2} aria-hidden="true" />
                             {#if (wikiPrimaryHdr.current.shareAudienceCount ?? 0) > 0}
-                              <span class="wiki-share-header-badge absolute -top-1 -right-2 box-border inline-block min-w-[16px] h-4 rounded-full bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
+                              <span class="wiki-share-header-badge absolute -top-1 -right-2 box-border inline-block min-w-[16px] h-4 bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
                                 {wikiShareAudienceBadgePrimary(wikiPrimaryHdr.current.shareAudienceCount)}
                               </span>
                             {/if}

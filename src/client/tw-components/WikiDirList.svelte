@@ -309,7 +309,7 @@
                 {metaForEntry(entry)}
                 {#if entryOutgoingAudienceCount(entry) > 0}
                   <span
-                    class="wiki-dir-share-count box-border inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--accent,#4a90d9)_22%,transparent)] px-[5px] text-[0.6875rem] font-semibold leading-none text-[color-mix(in_srgb,var(--accent,#4a90d9)_88%,var(--text))] [font-variant-numeric:tabular-nums]"
+                    class="wiki-dir-share-count box-border inline-flex h-5 min-w-5 items-center justify-center bg-[color-mix(in_srgb,var(--accent,#4a90d9)_22%,transparent)] px-[5px] text-[0.6875rem] font-semibold leading-none text-[color-mix(in_srgb,var(--accent,#4a90d9)_88%,var(--text))] [font-variant-numeric:tabular-nums]"
                     title={`Shared with ${entryOutgoingAudienceCount(entry)} people`}
                     aria-label={`Shared with ${entryOutgoingAudienceCount(entry)} people`}
                   >

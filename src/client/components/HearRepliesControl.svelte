@@ -89,8 +89,7 @@
     position: relative;
     width: 3.125rem;
     height: 1.875rem;
-    border-radius: 100px;
-    background: color-mix(in srgb, var(--text) 20%, var(--bg-2));
+background: color-mix(in srgb, var(--text) 20%, var(--bg-2));
     transition: background 0.2s ease;
   }
   .hear-replies-input:checked + .hear-replies-track {
@@ -107,8 +106,7 @@
     left: 0.125rem;
     width: 1.625rem;
     height: 1.625rem;
-    border-radius: 50%;
-    background: #fff;
+background: #fff;
     box-shadow:
       0 0.125rem 0.25rem rgba(0, 0, 0, 0.12),
       0 0.125rem 0.0625rem rgba(0, 0, 0, 0.08);

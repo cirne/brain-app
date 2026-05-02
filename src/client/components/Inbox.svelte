@@ -725,8 +725,7 @@
     color: var(--text);
     padding: 4px 10px;
     border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg-3);
+background: var(--bg-3);
   }
   .summarize-btn:hover:not(:disabled) {
     border-color: var(--accent-dim);
@@ -736,8 +735,7 @@
 
   .sync-btn {
     font-size: 13px; color: var(--accent);
-    padding: 4px 10px; border: 1px solid var(--accent-dim); border-radius: 4px;
-  }
+    padding: 4px 10px; border: 1px solid var(--accent-dim);}
   .sync-btn:disabled { opacity: 0.5; }
 
   /* Email list */
@@ -790,8 +788,7 @@
     color: var(--accent);
     padding: 10px 20px;
     border: 1px solid var(--accent-dim);
-    border-radius: 8px;
-  }
+}
   .search-cta:active { opacity: 0.7; }
 
   /* Thread view */
@@ -889,8 +886,7 @@
     width: 100%;
     min-height: 80px;
     border: none;
-    border-radius: 4px;
-    background: var(--bg);
+background: var(--bg);
     color-scheme: light dark;
     overflow: hidden;
   }
@@ -907,14 +903,14 @@
   .to-wrap { position: relative; }
   .to-input {
     width: 100%; padding: 8px 10px; font-size: 13px;
-    background: var(--bg-3); border: 1px solid var(--border); border-radius: 4px; color: var(--text);
+    background: var(--bg-3); border: 1px solid var(--border);color: var(--text);
   }
   .to-input:focus { outline: none; border-color: var(--accent); }
 
   .contact-suggestions {
     position: absolute; top: 100%; left: 0; right: 0; z-index: 10;
     background: var(--bg-2); border: 1px solid var(--border); border-top: none;
-    border-radius: 0 0 4px 4px; list-style: none; max-height: 200px; overflow-y: auto;
+list-style: none; max-height: 200px; overflow-y: auto;
   }
   .contact-option {
     width: 100%; padding: 8px 10px; text-align: left;
@@ -926,8 +922,7 @@
 
   .compose-textarea {
     flex: 1; min-height: 100px; padding: 10px; font-size: 13px; line-height: 1.5;
-    background: var(--bg-3); border: 1px solid var(--border); border-radius: 4px;
-    color: var(--text); resize: vertical; font-family: inherit;
+    background: var(--bg-3); border: 1px solid var(--border);color: var(--text); resize: vertical; font-family: inherit;
   }
   .compose-textarea:focus { outline: none; border-color: var(--accent); }
 
@@ -938,8 +933,7 @@
   .cancel-btn:hover { color: var(--text); }
   .draft-btn {
     font-size: 13px; color: var(--accent);
-    padding: 6px 14px; border: 1px solid var(--accent-dim); border-radius: 4px;
-  }
+    padding: 6px 14px; border: 1px solid var(--accent-dim);}
   .draft-btn:disabled { opacity: 0.5; cursor: default; }
 
   @media (max-width: 768px) {

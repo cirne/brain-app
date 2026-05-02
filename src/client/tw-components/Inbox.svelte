@@ -524,7 +524,7 @@
         {/if}
         {#if onSummarizeInbox}
           <button
-            class="summarize-btn inline-flex items-center gap-1.5 rounded border border-border bg-surface-3 px-2.5 py-1 text-[13px] text-foreground enabled:hover:border-accent-dim enabled:hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"
+            class="summarize-btn inline-flex items-center gap-1.5 border border-border bg-surface-3 px-2.5 py-1 text-[13px] text-foreground enabled:hover:border-accent-dim enabled:hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"
             type="button"
             onclick={summarizeInbox}
             disabled={!!error || inboxListLoading}
@@ -535,7 +535,7 @@
           </button>
         {/if}
         <button
-          class="sync-btn rounded border border-accent-dim px-2.5 py-1 text-[13px] text-accent disabled:opacity-50"
+          class="sync-btn border border-accent-dim px-2.5 py-1 text-[13px] text-accent disabled:opacity-50"
           onclick={sync}
           disabled={syncing}
         >
@@ -563,7 +563,7 @@
               <label class="field-label text-xs text-muted">To</label>
               <div class="to-wrap relative">
                 <input
-                  class="to-input w-full rounded border border-border bg-surface-3 px-2.5 py-2 text-[13px] text-foreground focus:border-accent focus:outline-none"
+                  class="to-input w-full border border-border bg-surface-3 px-2.5 py-2 text-[13px] text-foreground focus:border-accent focus:outline-none"
                   type="text"
                   bind:value={composeTo}
                   placeholder="recipient@example.com"
@@ -571,7 +571,7 @@
                 />
                 {#if filteredContacts.length > 0}
                   <ul
-                    class="contact-suggestions absolute inset-x-0 top-full z-10 max-h-[200px] list-none overflow-y-auto rounded-b border border-t-0 border-border bg-surface-2"
+                    class="contact-suggestions absolute inset-x-0 top-full z-10 max-h-[200px] list-none overflow-y-auto border border-t-0 border-border bg-surface-2"
                   >
                     {#each filteredContacts as contact (contact.primaryAddress)}
                       <li>
@@ -596,7 +596,7 @@
           {/if}
 
           <textarea
-            class="compose-textarea min-h-[100px] flex-1 resize-y rounded border border-border bg-surface-3 p-2.5 text-[13px] leading-normal text-foreground [font-family:inherit] focus:border-accent focus:outline-none"
+            class="compose-textarea min-h-[100px] flex-1 resize-y border border-border bg-surface-3 p-2.5 text-[13px] leading-normal text-foreground [font-family:inherit] focus:border-accent focus:outline-none"
             bind:value={composeInstruction}
             placeholder={composeMode === 'reply'
               ? 'Brief instructions for the reply...'
@@ -611,7 +611,7 @@
           <div class="compose-footer flex justify-end gap-2">
             <button class="cancel-btn px-3 py-1.5 text-[13px] text-muted hover:text-foreground" onclick={cancelCompose}>Cancel</button>
             <button
-              class="draft-btn rounded border border-accent-dim px-3.5 py-1.5 text-[13px] text-accent disabled:cursor-default disabled:opacity-50"
+              class="draft-btn border border-accent-dim px-3.5 py-1.5 text-[13px] text-accent disabled:cursor-default disabled:opacity-50"
               onclick={createDraft}
               disabled={composing || !composeInstruction.trim() || (composeMode === 'forward' && !composeTo.trim())}
             >
@@ -669,7 +669,7 @@
             </div>
             {#key selectedThread}
               <iframe
-                class="thread-body-iframe block min-h-[80px] w-full overflow-hidden rounded border-none bg-surface [color-scheme:light_dark]"
+                class="thread-body-iframe block min-h-[80px] w-full overflow-hidden border-none bg-surface [color-scheme:light_dark]"
                 title="Email message body"
                 sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                 srcdoc={threadIframeSrcdoc}
@@ -739,7 +739,7 @@
               <span class="empty-label text-muted">No messages</span>
               {#if onOpenSearch}
                 <button
-                  class="search-cta flex items-center gap-[7px] rounded-lg border border-accent-dim px-5 py-2.5 text-sm text-accent active:opacity-70"
+                  class="search-cta flex items-center gap-[7px] border border-accent-dim px-5 py-2.5 text-sm text-accent active:opacity-70"
                   onclick={onOpenSearch}
                 >
                   <Search size={14} strokeWidth={2} aria-hidden="true" />

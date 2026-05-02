@@ -278,8 +278,7 @@
     height: 16px;
     border: 2px solid var(--border);
     border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
+animation: spin 0.6s linear infinite;
     flex-shrink: 0;
   }
 
@@ -327,8 +326,7 @@
     justify-content: center;
     gap: 8px;
     padding: 8px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
     font-size: 14px;
@@ -445,16 +443,14 @@
     }
 
     .header {
-      border-radius: 10px 10px 0 0;
-    }
+}
 
     .results {
       max-height: 480px;
       background: var(--bg);
       border: 1px solid var(--border);
       border-top: none;
-      border-radius: 0 0 10px 10px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     }
   }
 </style>

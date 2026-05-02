@@ -22,7 +22,7 @@
   const show = $derived(files.length > 0 || choices.length > 0)
 
   const chipClass =
-    'composer-context-chip inline-flex max-w-full items-center gap-[0.35rem] rounded-full border border-border px-[0.55rem] py-[0.2rem] font-[inherit] text-xs leading-[1.25] transition-[border-color,background,box-shadow] duration-[180ms] ease-in-out disabled:cursor-not-allowed disabled:opacity-[0.55] max-md:min-h-11 max-md:gap-[0.45rem] max-md:px-3 max-md:py-[0.35rem] max-md:text-sm max-md:leading-[1.3]'
+    'composer-context-chip inline-flex max-w-full items-center gap-[0.35rem] border border-border px-[0.55rem] py-[0.2rem] font-[inherit] text-xs leading-[1.25] transition-[border-color,background,box-shadow] duration-[180ms] ease-in-out disabled:cursor-not-allowed disabled:opacity-[0.55] max-md:min-h-11 max-md:gap-[0.45rem] max-md:px-3 max-md:py-[0.35rem] max-md:text-sm max-md:leading-[1.3]'
 </script>
 
 {#if show}

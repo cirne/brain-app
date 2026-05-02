@@ -163,8 +163,7 @@
     margin: 0;
     padding: 6px 14px;
     border: none;
-    border-radius: 0;
-    background: transparent;
+background: transparent;
     color: inherit;
     font: inherit;
     text-align: left;

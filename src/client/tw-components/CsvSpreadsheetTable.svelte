@@ -12,7 +12,7 @@
 
 <div class="sheet-root flex min-h-0 flex-1 flex-col gap-2">
   <div
-    class="sheet-scroll min-h-[120px] flex-1 overflow-auto rounded-md border border-[var(--border,#ccc)] bg-[var(--bg-elevated,var(--bg,#fff))]"
+    class="sheet-scroll min-h-[120px] flex-1 overflow-auto border border-[var(--border,#ccc)] bg-[var(--bg-elevated,var(--bg,#fff))]"
     role="region"
     aria-label="Spreadsheet preview"
   >

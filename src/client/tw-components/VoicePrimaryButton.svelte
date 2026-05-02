@@ -34,7 +34,7 @@
   <button
     type="button"
     class={cn(
-      'voice-primary relative flex h-[52px] w-[52px] shrink-0 cursor-pointer items-center justify-center rounded-full border-none p-0 text-white touch-manipulation select-none [-webkit-tap-highlight-color:transparent] [box-shadow:0_2px_10px_rgba(0,0,0,0.2)] [transition:background-color_200ms_ease,box-shadow_200ms_ease] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-accent active:enabled:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-55 disabled:transform-none',
+      'voice-primary relative flex h-[52px] w-[52px] shrink-0 cursor-pointer items-center justify-center border-none p-0 text-white touch-manipulation select-none [-webkit-tap-highlight-color:transparent] [box-shadow:0_2px_10px_rgba(0,0,0,0.2)] [transition:background-color_200ms_ease,box-shadow_200ms_ease] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-accent active:enabled:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-55 disabled:transform-none',
       (phase === 'idle' || phase === 'arming') && 'voice-primary--rest bg-[var(--accent,#6366f1)]',
       phase === 'recording' &&
         'voice-primary--rec bg-[var(--accent,#6366f1)] [box-shadow:0_2px_10px_color-mix(in_srgb,var(--accent,#6366f1)_40%,rgba(0,0,0,0.15))]',
@@ -47,7 +47,7 @@
     onclick={() => void onPrimary()}
   >
     <span
-      class="voice-primary-pulse pointer-events-none absolute inset-0 rounded-full opacity-0"
+      class="voice-primary-pulse pointer-events-none absolute inset-0 opacity-0"
       aria-hidden="true"
       data-active={phase === 'recording'}
       data-key={pulseKey}
@@ -87,8 +87,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    border-radius: 50%;
-    border: 2px solid color-mix(in srgb, var(--accent, #6366f1) 35%, transparent);
+border: 2px solid color-mix(in srgb, var(--accent, #6366f1) 35%, transparent);
     animation: voice-pulse-ring 1.4s ease-out infinite;
   }
 

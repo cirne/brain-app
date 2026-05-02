@@ -102,7 +102,7 @@
     aria-labelledby="fda-title"
   >
     <div
-      class="fda-modal flex max-h-[min(90vh,720px)] flex-col overflow-y-auto rounded-2xl bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+      class="fda-modal flex max-h-[min(90vh,720px)] flex-col overflow-y-auto bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
     >
       <OnboardingHeroShell>
         <span class="ob-kicker">Privacy</span>
@@ -142,7 +142,7 @@
 {/if}
 {#if toast}
   <div
-    class="fda-toast fixed bottom-6 left-1/2 z-[10000] -translate-x-1/2 rounded-lg bg-surface-2 px-5 py-[0.65rem] text-[0.9rem] text-foreground shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
+    class="fda-toast fixed bottom-6 left-1/2 z-[10000] -translate-x-1/2 bg-surface-2 px-5 py-[0.65rem] text-[0.9rem] text-foreground shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
     role="status"
   >
     {toast}

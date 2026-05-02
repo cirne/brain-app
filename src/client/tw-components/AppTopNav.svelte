@@ -66,7 +66,7 @@
 
   /** Shared icon-button recipe used across the action row. */
   const iconBtn =
-    'inline-flex h-full w-10 min-w-10 items-center justify-center gap-0 rounded-md border-none bg-transparent p-0 text-muted transition-colors duration-150 [box-sizing:border-box] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent hover:bg-surface-3 hover:text-foreground'
+    'inline-flex h-full w-10 min-w-10 items-center justify-center gap-0 border-none bg-transparent p-0 text-muted transition-colors duration-150 [box-sizing:border-box] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent hover:bg-surface-3 hover:text-foreground'
   const iconBtnLabeled = 'w-auto gap-1.5 px-2.5'
   const navActionLabel =
     'nav-action-label whitespace-nowrap text-[13px] font-semibold tracking-[0.02em] text-inherit max-md:text-base'
@@ -93,7 +93,7 @@
         </div>
         <button
           type="button"
-          class="nav-sidebar-close flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted transition-colors duration-150 hover:bg-surface-3 hover:text-foreground max-md:h-10 max-md:w-10 [&_svg]:max-md:h-5 [&_svg]:max-md:w-5"
+          class="nav-sidebar-close flex h-9 w-9 shrink-0 items-center justify-center text-muted transition-colors duration-150 hover:bg-surface-3 hover:text-foreground max-md:h-10 max-md:w-10 [&_svg]:max-md:h-5 [&_svg]:max-md:w-5"
           onclick={onToggleSidebar}
           title="Close sidebar"
           aria-label="Close sidebar"
@@ -200,7 +200,7 @@
         <button
           type="button"
           class={cn(
-            'nav-hosted-handle ml-2 mr-1.5 max-w-[9rem] cursor-pointer self-center overflow-hidden truncate whitespace-nowrap rounded-md border-none bg-transparent px-2 py-1 font-mono text-xs font-medium text-muted hover:bg-surface-3 hover:text-foreground',
+            'nav-hosted-handle ml-2 mr-1.5 max-w-[9rem] cursor-pointer self-center overflow-hidden truncate whitespace-nowrap border-none bg-transparent px-2 py-1 font-mono text-xs font-medium text-muted hover:bg-surface-3 hover:text-foreground',
             shareInviteBadge && 'nav-hosted-handle--badge relative pr-3.5',
           )}
           onclick={handleSettingsClick}
@@ -212,13 +212,13 @@
       <BrainHubWidget onOpen={onOpenHub} />
       {#if syncErrors.length > 0}
         <button
-          class="sync-error-badge absolute right-1 top-1 flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-full bg-[#e74c3c] text-[9px] font-bold leading-none text-white hover:bg-[#c0392b]"
+          class="sync-error-badge absolute right-1 top-1 flex h-3.5 w-3.5 cursor-pointer items-center justify-center bg-[#e74c3c] text-[9px] font-bold leading-none text-white hover:bg-[#c0392b]"
           onclick={onToggleSyncErrors}
           title="Show sync errors"
         >!</button>
         {#if showSyncErrors}
           <div
-            class="sync-error-popup absolute right-0 top-[calc(100%+4px)] z-[200] min-w-[220px] overflow-hidden rounded-md border border-[#e74c3c] bg-surface-3 [box-shadow:0_4px_12px_rgba(0,0,0,0.4)]"
+            class="sync-error-popup absolute right-0 top-[calc(100%+4px)] z-[200] min-w-[220px] overflow-hidden border border-[#e74c3c] bg-surface-3 [box-shadow:0_4px_12px_rgba(0,0,0,0.4)]"
           >
             <div
               class="sync-error-title border-b border-border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#e74c3c]"
@@ -247,8 +247,7 @@
     right: 6px;
     width: 6px;
     height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
+background: var(--accent);
   }
 
   .settings-nav-btn--badge::after {
@@ -258,8 +257,7 @@
     right: 6px;
     width: 6px;
     height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
+background: var(--accent);
   }
 
   /* Mobile labeled Settings button: nudge dot to keep it clear of the text. */

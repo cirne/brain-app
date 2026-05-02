@@ -15,7 +15,7 @@
   } = $props()
 
   const chipBase =
-    'voice-chip voice-chip--icon-only box-border inline-flex h-10 w-10 min-w-[40px] cursor-pointer items-center justify-center whitespace-nowrap rounded-full border border-[var(--border-1,rgba(0,0,0,0.12))] bg-[color-mix(in_srgb,var(--bg-elevated,var(--bg))_92%,transparent)] p-0 text-foreground touch-manipulation [-webkit-tap-highlight-color:transparent] [box-shadow:0_1px_2px_rgba(0,0,0,0.06)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:enabled:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40'
+    'voice-chip voice-chip--icon-only box-border inline-flex h-10 w-10 min-w-[40px] cursor-pointer items-center justify-center whitespace-nowrap border border-[var(--border-1,rgba(0,0,0,0.12))] bg-[color-mix(in_srgb,var(--bg-elevated,var(--bg))_92%,transparent)] p-0 text-foreground touch-manipulation [-webkit-tap-highlight-color:transparent] [box-shadow:0_1px_2px_rgba(0,0,0,0.06)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:enabled:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40'
 </script>
 
 <div

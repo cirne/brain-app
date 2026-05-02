@@ -91,7 +91,7 @@
 
   /** Hub action button recipe (used in expansion controls). */
   const hubBtn =
-    'hub-dialog-btn inline-flex cursor-pointer items-center gap-[0.35rem] rounded-lg border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
+    'hub-dialog-btn inline-flex cursor-pointer items-center gap-[0.35rem] border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
   const hubBtnPrimary =
     'hub-dialog-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.06)]'
   const hubBtnSecondary =
@@ -99,7 +99,7 @@
 
   function statusPillClass(status: string): string {
     return cn(
-      'status-pill rounded bg-surface-3 px-2 py-[2px] text-[0.625rem] font-extrabold uppercase tracking-[0.05em] text-muted',
+      'status-pill bg-surface-3 px-2 py-[2px] text-[0.625rem] font-extrabold uppercase tracking-[0.05em] text-muted',
       status === 'running' && 'bg-accent text-white',
       status === 'queued' && 'bg-[color-mix(in_srgb,var(--accent)_55%,var(--bg-3))] text-foreground',
       status === 'paused' && 'bg-[color-mix(in_srgb,var(--text-2)_22%,var(--bg-3))] text-foreground',

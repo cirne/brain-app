@@ -143,8 +143,7 @@
   .md-wrap :global(pre) {
     overflow-x: auto;
     padding: 8px;
-    border-radius: 6px;
-    background: var(--code-bg, rgba(0, 0, 0, 0.06));
+background: var(--code-bg, rgba(0, 0, 0, 0.06));
     font-size: 0.82rem;
   }
 </style>

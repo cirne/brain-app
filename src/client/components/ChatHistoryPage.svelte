@@ -269,8 +269,7 @@
     align-items: center;
     gap: 8px;
     padding: 8px 10px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     background: var(--bg-3);
   }
 
@@ -318,8 +317,7 @@
     width: 100%;
     text-align: left;
     padding: 9px 8px;
-    border-radius: 8px;
-    margin-bottom: 2px;
+margin-bottom: 2px;
     color: var(--text);
     cursor: pointer;
     transition: background 0.12s;
@@ -381,8 +379,7 @@
   .chp-row-delete {
     flex-shrink: 0;
     padding: 4px;
-    border-radius: 4px;
-    color: var(--text-2);
+color: var(--text-2);
     opacity: 0;
     transition: opacity 0.12s, color 0.12s, background 0.12s;
   }

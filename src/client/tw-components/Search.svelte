@@ -142,7 +142,7 @@
     tabindex="-1"
   >
     <div
-      class="header flex shrink-0 items-center gap-2 border-b border-border bg-surface-2 px-3 py-2.5 md:rounded-t-[10px]"
+      class="header flex shrink-0 items-center gap-2 border-b border-border bg-surface-2 px-3 py-2.5"
     >
       <Search size={16} class="search-icon" />
       <input
@@ -158,7 +158,7 @@
       />
       {#if loading}
         <span
-          class="spinner h-4 w-4 shrink-0 animate-[spin_0.6s_linear_infinite] rounded-full border-2 border-border [border-top-color:var(--accent)]"
+          class="spinner h-4 w-4 shrink-0 animate-[spin_0.6s_linear_infinite] border-2 border-border [border-top-color:var(--accent)]"
           aria-hidden="true"
         ></span>
       {:else if query}
@@ -177,7 +177,7 @@
     </div>
 
     <div
-      class="results flex-1 overflow-y-auto [-webkit-overflow-scrolling:touch] md:max-h-[480px] md:rounded-b-[10px] md:border md:border-t-0 md:border-border md:bg-surface md:[box-shadow:0_8px_32px_rgba(0,0,0,0.4)]"
+      class="results flex-1 overflow-y-auto [-webkit-overflow-scrolling:touch] md:max-h-[480px] md:border md:border-t-0 md:border-border md:bg-surface md:[box-shadow:0_8px_32px_rgba(0,0,0,0.4)]"
       bind:this={resultsEl}
     >
     {#if !query.trim()}
@@ -186,7 +186,7 @@
         {#if onWikiHome}
           <button
             type="button"
-            class="wiki-home-cmd inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface-3 px-3.5 py-2 text-sm text-foreground hover:bg-surface-2"
+            class="wiki-home-cmd inline-flex items-center justify-center gap-2 border border-border bg-surface-3 px-3.5 py-2 text-sm text-foreground hover:bg-surface-2"
             onclick={() => { onWikiHome(); onClose() }}
           >
             <BookOpen size={16} strokeWidth={2} aria-hidden="true" />

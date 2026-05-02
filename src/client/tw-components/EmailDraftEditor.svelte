@@ -221,7 +221,7 @@
   })
 
   const metaInputClass =
-    'meta-input box-border min-h-[30px] w-full min-w-0 rounded-[5px] border border-[color-mix(in_srgb,var(--border)_85%,transparent)] bg-surface px-2 py-[5px] text-[13px] leading-snug text-foreground [font-family:inherit] focus:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus:outline-none focus:[box-shadow:0_0_0_1px_color-mix(in_srgb,var(--accent)_25%,transparent)] placeholder:text-[color-mix(in_srgb,var(--text-2)_65%,transparent)]'
+    'meta-input box-border min-h-[30px] w-full min-w-0 border border-[color-mix(in_srgb,var(--border)_85%,transparent)] bg-surface px-2 py-[5px] text-[13px] leading-snug text-foreground [font-family:inherit] focus:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus:outline-none focus:[box-shadow:0_0_0_1px_color-mix(in_srgb,var(--accent)_25%,transparent)] placeholder:text-[color-mix(in_srgb,var(--text-2)_65%,transparent)]'
 
   const metaKeyClass =
     'meta-key m-0 self-center pr-0.5 text-right text-[11px] font-semibold uppercase leading-tight tracking-[0.04em] text-muted'

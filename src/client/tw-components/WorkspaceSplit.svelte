@@ -260,7 +260,7 @@
           >
             <span
               class={cn(
-                'detail-resize-grip h-[30px] w-2 rounded transition-opacity',
+                'detail-resize-grip h-[30px] w-2 transition-opacity',
                 detailPanelResizing ? 'opacity-100' : 'opacity-45',
               )}
               aria-hidden="true"

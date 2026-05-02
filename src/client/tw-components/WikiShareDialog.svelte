@@ -416,17 +416,17 @@
   const mutedText = 'wsh-muted m-0 text-[13px] text-muted'
   const errBase = 'wsh-err m-0 mt-2 text-[13px] text-[var(--danger,#b42318)]'
   const pillBase =
-    'wsh-pill rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_18%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]'
+    'wsh-pill bg-[color-mix(in_srgb,var(--accent,#2563eb)_18%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]'
   const sharePathName =
     'wsh-share-path-name inline-flex max-w-full align-text-bottom text-foreground'
   const codeChip =
-    'wsh-code rounded bg-[var(--color-surface-2,rgba(0,0,0,0.06))] px-1.5 py-px text-[13px]'
+    'wsh-code bg-[var(--color-surface-2,rgba(0,0,0,0.06))] px-1.5 py-px text-[13px]'
 </script>
 
 <ConfirmDialog
   {open}
   titleId="wiki-share-main-title"
-  panelClass="wiki-share-cd-panel w-[90vw] max-w-[600px]"
+  panelclass="wiki-share-cd-panel w-[90vw] max-w-[600px]"
   title={dialogTitle}
   confirmLabel="OK"
   cancelLabel="Cancel"
@@ -467,7 +467,7 @@
       >
         {#each audienceRows as row (row.id)}
           <li
-            class="wsh-audience-row flex items-center justify-between gap-2.5 rounded-md border border-[var(--color-border,#ccc)] bg-[var(--bg,#fff)] px-2.5 py-2"
+            class="wsh-audience-row flex items-center justify-between gap-2.5 border border-[var(--color-border,#ccc)] bg-[var(--bg,#fff)] px-2.5 py-2"
           >
             <div class="wsh-audience-main flex min-w-0 flex-col items-start gap-1">
               <span class="wsh-audience-email text-[13px] font-semibold [word-break:break-all]"
@@ -477,11 +477,11 @@
                 <span class={pillBase}>Active</span>
               {:else if audienceStatus(row) === 'expired'}
                 <span
-                  class="wsh-pill wsh-pill-warn rounded-full bg-[color-mix(in_srgb,var(--danger,#c44)_16%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--danger,#c44)]"
+                  class="wsh-pill wsh-pill-warn bg-[color-mix(in_srgb,var(--danger,#c44)_16%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--danger,#c44)]"
                 >Invite expired</span>
               {:else}
                 <span
-                  class="wsh-pill wsh-pill-pending rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_14%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]"
+                  class="wsh-pill wsh-pill-pending bg-[color-mix(in_srgb,var(--accent,#2563eb)_14%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]"
                 >Pending</span>
               {/if}
             </div>
@@ -507,12 +507,12 @@
   </label>
   <div class="wsh-field relative">
     <div
-      class="wsh-chips box-border flex w-full min-h-[38px] flex-wrap items-center gap-1.5 rounded-md border border-[var(--color-border,#ccc)] bg-[var(--bg,#fff)] px-2 py-1.5"
+      class="wsh-chips box-border flex w-full min-h-[38px] flex-wrap items-center gap-1.5 border border-[var(--color-border,#ccc)] bg-[var(--bg,#fff)] px-2 py-1.5"
     >
       {#each selected as g (g.key)}
         <span
           class={cn(
-            'wsh-chip inline-flex max-w-full items-baseline gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_12%,transparent)] py-[3px] pl-2 pr-1.5 text-xs leading-snug text-foreground',
+            'wsh-chip inline-flex max-w-full items-baseline gap-1.5 bg-[color-mix(in_srgb,var(--accent,#2563eb)_12%,transparent)] py-[3px] pl-2 pr-1.5 text-xs leading-snug text-foreground',
             !g.email && 'wsh-chip-warn bg-[color-mix(in_srgb,var(--danger,#b42318)_14%,transparent)]',
           )}
           title={tooltipFor(g)}
@@ -552,7 +552,7 @@
     </div>
     {#if suggestOpen && (suggestions.length > 0 || suggestLoading)}
       <div
-        class="wsh-suggest absolute inset-x-0 top-full z-10 mt-1 max-h-[220px] overflow-y-auto rounded-md border border-[var(--color-border,#ccc)] bg-[var(--bg-3,#fff)] shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
+        class="wsh-suggest absolute inset-x-0 top-full z-10 mt-1 max-h-[220px] overflow-y-auto border border-[var(--color-border,#ccc)] bg-[var(--bg-3,#fff)] shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
         role="listbox"
       >
         {#if suggestLoading && suggestions.length === 0}

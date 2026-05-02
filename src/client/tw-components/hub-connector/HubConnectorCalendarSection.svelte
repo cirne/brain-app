@@ -64,7 +64,7 @@
     save={saveHubCalendars}
     fallbackConfiguredIds={configuredIds}
     onSaved={() => onSaved()}
-    primaryButtonClass="hub-dialog-btn hub-dialog-btn-primary hub-source-sync-btn"
-    savingIconClass="hub-refresh-working"
+    primaryButtonclass="hub-dialog-btn hub-dialog-btn-primary hub-source-sync-btn"
+    savingIconclass="hub-refresh-working"
   />
 </section>

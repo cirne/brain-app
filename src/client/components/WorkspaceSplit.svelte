@@ -316,8 +316,7 @@
   .detail-resize-grip {
     width: 8px;
     height: 30px;
-    border-radius: 4px;
-    opacity: 0.45;
+opacity: 0.45;
     background-color: var(--text-2);
     background-image: repeating-linear-gradient(
       180deg,

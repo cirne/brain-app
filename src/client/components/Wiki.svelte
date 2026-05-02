@@ -530,7 +530,7 @@
     color: var(--text-2);
   }
   .meta-sep { opacity: 0.5; }
-  .meta-tag { background: var(--bg-3); border-radius: 3px; padding: 1px 6px; font-size: 11px; }
+  .meta-tag { background: var(--bg-3);padding: 1px 6px; font-size: 11px; }
 
   @media (max-width: 768px) {
     .viewer { padding: 16px; }

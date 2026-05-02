@@ -293,8 +293,7 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     padding: 4px 10px;
-    border-radius: 999px;
-    background: var(--custom-bg, var(--bg-3));
+background: var(--custom-bg, var(--bg-3));
     color: var(--custom-text, var(--text-2));
   }
 
@@ -445,8 +444,7 @@
     margin: 0;
     padding: 8px 10px;
     border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-2);
+background: var(--bg-2);
     color: inherit;
     font: inherit;
     text-align: left;
@@ -478,8 +476,7 @@
     margin: 0;
     padding: 8px 10px;
     border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-2);
+background: var(--bg-2);
     color: inherit;
     font: inherit;
     text-align: left;

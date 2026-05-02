@@ -84,8 +84,7 @@
     gap: 6px;
     min-height: 40px;
     padding: 0 12px;
-    border-radius: 9999px;
-    font-size: 14px;
+font-size: 14px;
     font-weight: 600;
     letter-spacing: 0.01em;
     color: var(--text);

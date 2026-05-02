@@ -222,13 +222,13 @@
 
   // Tailwind utility shortcuts
   const headerIconBtnBase =
-    'inline-flex h-7 w-7 max-md:h-10 max-md:w-10 max-md:rounded-md shrink-0 items-center justify-center rounded border-none bg-transparent text-muted transition-colors disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5'
+    'inline-flex h-7 w-7 max-md:h-10 max-md:w-10 shrink-0 items-center justify-center border-none bg-transparent text-muted transition-colors disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5'
 
   const wikiEditBtn =
-    'wiki-edit-btn flex h-8 w-8 max-md:h-10 max-md:w-10 max-md:rounded-lg shrink-0 items-center justify-center rounded-md text-muted transition-colors disabled:cursor-default disabled:opacity-35 hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5'
+    'wiki-edit-btn flex h-8 w-8 max-md:h-10 max-md:w-10 shrink-0 items-center justify-center text-muted transition-colors disabled:cursor-default disabled:opacity-35 hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5'
 
   const inboxThreadHeaderBtn =
-    'inbox-thread-header-btn inline-flex h-8 w-8 max-md:h-10 max-md:w-10 max-md:rounded-lg shrink-0 items-center justify-center rounded-md border-none bg-transparent text-muted outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-45 focus-visible:bg-surface-3 focus-visible:text-foreground hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5'
+    'inbox-thread-header-btn inline-flex h-8 w-8 max-md:h-10 max-md:w-10 shrink-0 items-center justify-center border-none bg-transparent text-muted outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-45 focus-visible:bg-surface-3 focus-visible:text-foreground hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5'
 </script>
 
 <div
@@ -249,7 +249,7 @@
       <button
         type="button"
         class={cn(
-          'back-btn inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[13px] text-accent md:hidden',
+          'back-btn inline-flex shrink-0 items-center gap-1 px-2 py-1 text-[13px] text-accent md:hidden',
           'hover:bg-accent-dim',
           mobilePanel && 'text-[15px] px-2.5 py-1.5 [&_svg]:h-[22px] [&_svg]:w-[22px]',
         )}
@@ -269,7 +269,7 @@
           <button
             type="button"
             class={cn(
-              'cal-nav-btn flex h-7 w-7 max-md:h-10 max-md:w-10 max-md:text-lg max-md:rounded-md shrink-0 items-center justify-center rounded text-base text-muted hover:bg-surface-3 hover:text-foreground',
+              'cal-nav-btn flex h-7 w-7 max-md:h-10 max-md:w-10 max-md:text-lg shrink-0 items-center justify-center text-base text-muted hover:bg-surface-3 hover:text-foreground',
             )}
             onclick={calendarHdr.current.prevWeek}
             aria-label="Previous week"
@@ -283,7 +283,7 @@
           <button
             type="button"
             class={cn(
-              'cal-nav-btn flex h-7 w-7 max-md:h-10 max-md:w-10 max-md:text-lg max-md:rounded-md shrink-0 items-center justify-center rounded text-base text-muted hover:bg-surface-3 hover:text-foreground',
+              'cal-nav-btn flex h-7 w-7 max-md:h-10 max-md:w-10 max-md:text-lg shrink-0 items-center justify-center text-base text-muted hover:bg-surface-3 hover:text-foreground',
             )}
             onclick={calendarHdr.current.nextWeek}
             aria-label="Next week"
@@ -398,7 +398,7 @@
               <span class="slide-title">{titleForOverlay(overlay)}</span>
               <div class="your-wiki-status-inline flex shrink-0 items-center gap-2">
                 <span class={cn(
-                  'phase-pill-mini whitespace-nowrap rounded-[3px] bg-surface-3 px-1.5 py-px text-[9px] font-extrabold uppercase tracking-wider text-muted',
+                  'phase-pill-mini whitespace-nowrap bg-surface-3 px-1.5 py-px text-[9px] font-extrabold uppercase tracking-wider text-muted',
                   mobilePanel && 'text-[10px] px-1.5 py-0.5',
                   ['starting', 'enriching', 'cleaning'].includes(yourWikiHdr.current.doc.phase) && 'bg-accent text-white',
                 )}>
@@ -434,7 +434,7 @@
           {#if ['starting', 'enriching', 'cleaning', 'idle'].includes(yourWikiHdr.current.doc?.phase ?? '') && yourWikiHdr.current.doc?.phase !== 'paused'}
             <button
               type="button"
-              class={cn('header-action-btn flex h-7 w-7 max-md:h-10 max-md:w-10 max-md:rounded-lg items-center justify-center rounded-md text-muted transition-colors hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5')}
+              class={cn('header-action-btn flex h-7 w-7 max-md:h-10 max-md:w-10 items-center justify-center text-muted transition-colors hover:enabled:bg-surface-3 hover:enabled:text-foreground [&_svg]:max-md:h-5 [&_svg]:max-md:w-5')}
               disabled={yourWikiHdr.current.actionBusy}
               onclick={yourWikiHdr.current.pause}
               title="Pause the wiki loop"
@@ -444,7 +444,7 @@
           {:else if yourWikiHdr.current.doc?.phase === 'paused' || yourWikiHdr.current.doc?.phase === 'error'}
             <button
               type="button"
-              class={cn('header-action-btn header-action-btn-primary flex h-7 w-7 max-md:h-10 max-md:w-10 max-md:rounded-lg items-center justify-center rounded-md text-accent transition-colors hover:enabled:bg-accent-dim hover:enabled:text-accent [&_svg]:max-md:h-5 [&_svg]:max-md:w-5')}
+              class={cn('header-action-btn header-action-btn-primary flex h-7 w-7 max-md:h-10 max-md:w-10 items-center justify-center text-accent transition-colors hover:enabled:bg-accent-dim hover:enabled:text-accent [&_svg]:max-md:h-5 [&_svg]:max-md:w-5')}
               disabled={yourWikiHdr.current.actionBusy}
               onclick={yourWikiHdr.current.resume}
               title="Resume the wiki loop"
@@ -512,7 +512,7 @@
             <span class="wiki-share-header-inner relative inline-flex h-full w-full items-center justify-center">
               <Share2 size={15} strokeWidth={2} aria-hidden="true" />
               {#if (wikiHdr.current.shareAudienceCount ?? 0) > 0}
-                <span class="wiki-share-header-badge absolute -top-[5px] -right-[9px] box-border inline-block min-w-[16px] h-4 rounded-full bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
+                <span class="wiki-share-header-badge absolute -top-[5px] -right-[9px] box-border inline-block min-w-[16px] h-4 bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
                   {wikiShareAudienceBadge(wikiHdr.current.shareAudienceCount)}
                 </span>
               {/if}
@@ -629,7 +629,7 @@
       {#if !mobilePanel && onToggleFullscreen}
         <button
           type="button"
-          class="fullscreen-btn-desktop hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-none bg-transparent text-muted outline-none transition-colors focus-visible:bg-surface-3 focus-visible:text-foreground hover:enabled:bg-surface-3 hover:enabled:text-foreground"
+          class="fullscreen-btn-desktop hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center border-none bg-transparent text-muted outline-none transition-colors focus-visible:bg-surface-3 focus-visible:text-foreground hover:enabled:bg-surface-3 hover:enabled:text-foreground"
           onclick={onToggleFullscreen}
           title={detailFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
           aria-label={detailFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
@@ -643,7 +643,7 @@
       {/if}
       <button
         type="button"
-        class="close-btn-desktop hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-none bg-transparent text-muted transition-colors hover:text-foreground"
+        class="close-btn-desktop hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center border-none bg-transparent text-muted transition-colors hover:text-foreground"
         onclick={headerDismiss}
         aria-label={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Close panel'}
         title={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Close'}

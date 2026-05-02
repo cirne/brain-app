@@ -62,8 +62,7 @@
   .indexed-file-badge {
     font-size: 10px;
     padding: 1px 6px;
-    border-radius: 4px;
-    background: var(--chip-bg, rgba(0, 0, 0, 0.06));
+background: var(--chip-bg, rgba(0, 0, 0, 0.06));
     color: var(--text-2);
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }

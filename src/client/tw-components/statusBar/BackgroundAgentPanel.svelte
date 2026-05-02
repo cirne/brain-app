@@ -326,7 +326,7 @@
     'bg-timeline-time whitespace-nowrap pt-[0.2rem] text-[0.6875rem] text-muted [font-variant-numeric:tabular-nums]'
   const timelineToolClass = 'bg-timeline-tool min-w-0'
   const activityListClass =
-    'bg-panel-activity m-0 min-w-0 list-none rounded-lg border border-border bg-[color-mix(in_srgb,var(--bg-2)_88%,var(--bg))] px-[0.65rem] py-2 text-[0.8125rem] leading-[1.45]'
+    'bg-panel-activity m-0 min-w-0 list-none border border-border bg-[color-mix(in_srgb,var(--bg-2)_88%,var(--bg))] px-[0.65rem] py-2 text-[0.8125rem] leading-[1.45]'
   const activityLineClass =
     'bg-panel-activity-line py-[0.15rem] [&+&]:border-t [&+&]:border-[color-mix(in_srgb,var(--border)_55%,transparent)]'
   const verbClass = 'bg-panel-verb mr-[0.35rem] font-semibold text-foreground'
@@ -341,15 +341,15 @@
   const jumpAnchorEmbed =
     'bg-jump-anchor--embed sticky inset-x-0 bottom-3 mt-[0.35rem] pb-[0.15rem]'
   const jumpButton =
-    'bg-jump-to-latest pointer-events-auto inline-flex cursor-pointer items-center gap-[6px] rounded-full border border-border bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] py-[9px] pl-[14px] pr-[16px] text-xs font-semibold uppercase tracking-[0.04em] text-foreground shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.1)] transition-[transform,box-shadow,border-color] duration-[180ms] [backdrop-filter:blur(10px)] [-webkit-backdrop-filter:blur(10px)] hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 motion-reduce:hover:translate-y-0 dark:bg-[color-mix(in_srgb,var(--bg-3)_92%,transparent)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_10px_28px_rgba(0,0,0,0.45)]'
+    'bg-jump-to-latest pointer-events-auto inline-flex cursor-pointer items-center gap-[6px] border border-border bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] py-[9px] pl-[14px] pr-[16px] text-xs font-semibold uppercase tracking-[0.04em] text-foreground shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.1)] transition-[transform,box-shadow,border-color] duration-[180ms] [backdrop-filter:blur(10px)] [-webkit-backdrop-filter:blur(10px)] hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 motion-reduce:hover:translate-y-0 dark:bg-[color-mix(in_srgb,var(--bg-3)_92%,transparent)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_10px_28px_rgba(0,0,0,0.45)]'
   const jumpButtonStreaming =
     'streaming border-[color-mix(in_srgb,var(--accent)_28%,var(--border))]'
   const livePulseClass =
-    'bg-live-pulse h-[7px] w-[7px] shrink-0 rounded-full bg-accent shadow-[0_0_0_0_color-mix(in_srgb,var(--accent)_45%,transparent)] [animation:bg-jump-live-pulse_1.8s_ease-in-out_infinite] motion-reduce:[animation:none]'
+    'bg-live-pulse h-[7px] w-[7px] shrink-0 bg-accent shadow-[0_0_0_0_color-mix(in_srgb,var(--accent)_45%,transparent)] [animation:bg-jump-live-pulse_1.8s_ease-in-out_infinite] motion-reduce:[animation:none]'
   const jumpTextClass = 'bg-jump-text leading-none'
 
   const pillClass =
-    'bg-panel-pill inline-flex items-center rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-2)_90%,var(--border))] px-2 py-[0.15rem] text-xs font-semibold capitalize text-foreground'
+    'bg-panel-pill inline-flex items-center border border-border bg-[color-mix(in_srgb,var(--bg-2)_90%,var(--border))] px-2 py-[0.15rem] text-xs font-semibold capitalize text-foreground'
   const countClass =
     'bg-panel-count text-[0.8125rem] text-muted [font-variant-numeric:tabular-nums]'
   const countUsageClass = 'bg-panel-count--usage min-w-0'
@@ -357,10 +357,10 @@
   const pausedNoticeClass =
     'bg-panel-paused-notice mt-2 flex items-center justify-between gap-3 border-t border-border py-3'
   const resumeBtnClass =
-    'bg-panel-resume-btn inline-flex cursor-pointer items-center gap-[6px] rounded-md border-0 bg-accent px-[14px] py-[6px] text-xs font-semibold text-white transition-[filter] duration-150 hover:not-disabled:brightness-110 disabled:cursor-not-allowed disabled:opacity-50'
+    'bg-panel-resume-btn inline-flex cursor-pointer items-center gap-[6px] border-0 bg-accent px-[14px] py-[6px] text-xs font-semibold text-white transition-[filter] duration-150 hover:not-disabled:brightness-110 disabled:cursor-not-allowed disabled:opacity-50'
 
   const bgPanelBtnClass =
-    'bg-panel-btn cursor-pointer rounded-lg border border-border bg-surface-2 px-[0.85rem] py-[0.45rem] text-[0.8125rem] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45'
+    'bg-panel-btn cursor-pointer border border-border bg-surface-2 px-[0.85rem] py-[0.45rem] text-[0.8125rem] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45'
   const bgPanelBtnPrimary =
     'bg-panel-btn-primary border-transparent bg-accent text-white'
 </script>

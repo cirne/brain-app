@@ -548,8 +548,7 @@
     gap: 0.6rem;
     align-items: flex-start;
     padding: 0.65rem 0.75rem;
-    border-radius: 8px;
-    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
   }
 
   .ham-callout--warn {
@@ -600,8 +599,7 @@
 
   .ham-disclosure {
     border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-    border-radius: 8px;
-    background: var(--bg-2);
+background: var(--bg-2);
     overflow: hidden;
   }
 
@@ -651,8 +649,7 @@
 
   .ham-setup {
     padding: 0.85rem 0.9rem;
-    border-radius: 8px;
-    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
     background: color-mix(in srgb, var(--accent) 10%, var(--bg-2));
   }
 
@@ -673,8 +670,7 @@
     font-size: 0.75rem;
     line-height: 1.4;
     border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-    border-radius: 6px;
-    background: var(--bg);
+background: var(--bg);
     color: var(--text);
     resize: vertical;
     min-height: 4rem;
@@ -712,8 +708,7 @@
     box-sizing: border-box;
     font-size: 0.875rem;
     padding: 0.4rem 0.55rem;
-    border-radius: 8px;
-    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     background: var(--bg);
     color: var(--text);
   }
@@ -732,8 +727,7 @@
     flex-direction: column;
     gap: 0.65rem;
     padding: 0.75rem 0.85rem;
-    border-radius: 8px;
-    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     background: var(--bg-2);
   }
 
@@ -800,8 +794,7 @@
     font-size: 0.875rem;
     font-weight: 600;
     padding: 0.45rem 0.9rem;
-    border-radius: 8px;
-    cursor: pointer;
+cursor: pointer;
     border: 1px solid transparent;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
     display: inline-flex;

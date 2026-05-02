@@ -714,8 +714,7 @@
     background: var(--bg-2);
     border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
     padding: 0.5rem 0.65rem;
-    border-radius: 8px;
-  }
+}
 
   .hub-connector-source :global(.hub-source-code) {
     font-family:
@@ -766,8 +765,7 @@
   .hub-connector-source :global(.hub-backfill-select) {
     font-size: 0.875rem;
     padding: 0.35rem 0.6rem;
-    border-radius: 8px;
-    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     background: var(--bg);
     color: var(--text);
     min-width: 9rem;
@@ -800,8 +798,7 @@
     font-size: 0.875rem;
     font-weight: 600;
     padding: 0.45rem 0.9rem;
-    border-radius: 8px;
-    cursor: pointer;
+cursor: pointer;
     border: 1px solid transparent;
     transition:
       background 0.15s,

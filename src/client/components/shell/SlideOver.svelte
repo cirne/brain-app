@@ -774,13 +774,11 @@
     width: 40px;
     height: 40px;
     font-size: 18px;
-    border-radius: 6px;
-  }
+}
   .slide-over.mobile-slide .cal-header-icon-btn {
     width: 40px;
     height: 40px;
-    border-radius: 6px;
-  }
+}
   .slide-over.mobile-slide .cal-header-icon-btn :global(svg) {
     width: 20px;
     height: 20px;
@@ -789,8 +787,7 @@
   .slide-over.mobile-slide .header-action-btn {
     width: 40px;
     height: 40px;
-    border-radius: 8px;
-  }
+}
   .slide-over.mobile-slide .header-action-btn :global(svg) {
     width: 20px;
     height: 20px;
@@ -799,8 +796,7 @@
   .slide-over.mobile-slide .wiki-edit-btn {
     width: 40px;
     height: 40px;
-    border-radius: 8px;
-  }
+}
   .slide-over.mobile-slide .wiki-edit-btn :global(svg) {
     width: 20px;
     height: 20px;
@@ -809,8 +805,7 @@
   .slide-over.mobile-slide .inbox-thread-header-btn {
     width: 40px;
     height: 40px;
-    border-radius: 8px;
-  }
+}
   .slide-over.mobile-slide .inbox-thread-header-btn :global(svg) {
     width: 20px;
     height: 20px;
@@ -842,8 +837,7 @@
     font-size: 13px;
     color: var(--accent);
     padding: 4px 8px;
-    border-radius: 6px;
-    flex-shrink: 0;
+flex-shrink: 0;
   }
 
   .close-btn-desktop {
@@ -855,8 +849,7 @@
     flex-shrink: 0;
     color: var(--text-2);
     border: none;
-    border-radius: 6px;
-    background: transparent;
+background: transparent;
     transition: color 0.15s;
   }
 
@@ -876,8 +869,7 @@
     flex-shrink: 0;
     color: var(--text-2);
     border: none;
-    border-radius: 6px;
-    background: transparent;
+background: transparent;
     outline: none;
     transition: color 0.15s, background 0.15s;
   }
@@ -906,8 +898,7 @@
     flex-shrink: 0;
     color: var(--text-2);
     border: none;
-    border-radius: 6px;
-    background: transparent;
+background: transparent;
     outline: none;
     transition: color 0.15s, background 0.15s;
   }
@@ -958,8 +949,7 @@
     width: 28px;
     height: 28px;
     flex-shrink: 0;
-    border-radius: 4px;
-    font-size: 16px;
+font-size: 16px;
     color: var(--text-2);
     display: flex;
     align-items: center;
@@ -970,8 +960,7 @@
     width: 28px;
     height: 28px;
     flex-shrink: 0;
-    border-radius: 4px;
-    border: none;
+border: none;
     background: transparent;
     color: var(--text-2);
     display: inline-flex;
@@ -1109,8 +1098,7 @@
     font-size: 9px;
     font-weight: 800;
     padding: 1px 5px;
-    border-radius: 3px;
-    text-transform: uppercase;
+text-transform: uppercase;
     letter-spacing: 0.03em;
     background: var(--bg-3);
     color: var(--text-2);
@@ -1143,8 +1131,7 @@
     align-items: center;
     justify-content: center;
     color: var(--text-2);
-    border-radius: 6px;
-    transition: all 0.15s;
+transition: all 0.15s;
   }
 
   .header-action-btn-primary {
@@ -1158,8 +1145,7 @@
     align-items: center;
     justify-content: center;
     color: var(--text-2);
-    border-radius: 6px;
-    flex-shrink: 0;
+flex-shrink: 0;
     transition: color 0.15s, background 0.15s;
   }
   .wiki-edit-btn:disabled { opacity: 0.35; cursor: default; }
@@ -1187,8 +1173,7 @@
     font-variant-numeric: tabular-nums;
     line-height: 16px;
     text-align: center;
-    border-radius: 999px;
-    background: var(--accent, #4a90d9);
+background: var(--accent, #4a90d9);
     color: var(--bg-pill-on-accent, var(--bg, #fff));
   }
 

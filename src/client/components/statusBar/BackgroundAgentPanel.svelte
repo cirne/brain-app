@@ -617,8 +617,7 @@
     display: inline-flex;
     align-items: center;
     padding: 0.15rem 0.5rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     background: color-mix(in srgb, var(--bg-2) 90%, var(--border));
     font-size: 0.75rem;
     font-weight: 600;
@@ -709,8 +708,7 @@
     margin: 0;
     padding: 0.5rem 0.65rem;
     list-style: none;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     background: color-mix(in srgb, var(--bg-2) 88%, var(--bg));
     font-size: 0.8125rem;
     line-height: 1.45;
@@ -756,8 +754,7 @@
 
   .bg-panel-btn {
     padding: 0.45rem 0.85rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     background: var(--bg-2);
     color: var(--text);
     font-size: 0.8125rem;
@@ -800,8 +797,7 @@
     align-items: center;
     gap: 6px;
     padding: 9px 16px 9px 14px;
-    border-radius: 999px;
-    font-size: 12px;
+font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -851,8 +847,7 @@
   .bg-live-pulse {
     width: 7px;
     height: 7px;
-    border-radius: 50%;
-    flex-shrink: 0;
+flex-shrink: 0;
     background: var(--accent);
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
     animation: bg-jump-live-pulse 1.8s ease-in-out infinite;
@@ -906,8 +901,7 @@
     padding: 6px 14px;
     background: var(--accent);
     color: white;
-    border-radius: 6px;
-    font-size: 12px;
+font-size: 12px;
     font-weight: 600;
     border: none;
     cursor: pointer;

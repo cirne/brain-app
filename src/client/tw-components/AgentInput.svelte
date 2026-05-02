@@ -246,7 +246,7 @@
 
   // Shared button styles (preserve legacy class hooks for tests / external selectors).
   const sendBtnBase =
-    'send-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] border-none bg-accent text-white p-0 rounded-r-xl disabled:cursor-not-allowed disabled:opacity-40'
+    'send-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] border-none bg-accent text-white p-0 disabled:cursor-not-allowed disabled:opacity-40'
 </script>
 
 <div class={cn(
@@ -256,7 +256,7 @@
 )}>
   {#if showSlash}
     <div
-      class="mention-dropdown slash-dropdown absolute bottom-full left-3 right-3 z-[3] mb-1 max-h-[200px] overflow-y-auto rounded-md border border-border bg-surface-3 [box-shadow:0_-4px_12px_rgba(0,0,0,0.3)]"
+      class="mention-dropdown slash-dropdown absolute bottom-full left-3 right-3 z-[3] mb-1 max-h-[200px] overflow-y-auto border border-border bg-surface-3 [box-shadow:0_-4px_12px_rgba(0,0,0,0.3)]"
       role="listbox"
     >
       {#each filteredSkills() as skill, i}
@@ -278,7 +278,7 @@
   {/if}
   {#if showMentions}
     <div
-      class="mention-dropdown absolute bottom-full left-3 right-3 z-[3] mb-1 max-h-[200px] overflow-y-auto rounded-md border border-border bg-surface-3 [box-shadow:0_-4px_12px_rgba(0,0,0,0.3)]"
+      class="mention-dropdown absolute bottom-full left-3 right-3 z-[3] mb-1 max-h-[200px] overflow-y-auto border border-border bg-surface-3 [box-shadow:0_-4px_12px_rgba(0,0,0,0.3)]"
     >
       {#each filteredMentions() as file, i}
         <button
@@ -297,7 +297,7 @@
   {/if}
 
   <div class="input-row flex w-full min-w-0">
-    <div class="input-shell flex flex-1 min-w-0 flex-col min-h-[42px] overflow-hidden rounded-xl border border-border bg-surface focus-within:border-accent">
+    <div class="input-shell flex flex-1 min-w-0 flex-col min-h-[42px] overflow-hidden border border-border bg-surface focus-within:border-accent">
       {#if queuedMessages.length > 0}
         <div
           class="queued-list mb-0.5 flex flex-col gap-1.5 min-w-0 px-2.5 pt-[3px]"
@@ -325,7 +325,7 @@
           <div class="lead-actions flex shrink-0 flex-row items-stretch self-stretch" role="group" aria-label="Start new chat">
             <button
               type="button"
-              class="new-chat-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] p-0 border-none border-r border-r-border rounded-l-xl bg-surface text-muted transition-colors hover:bg-surface-3 hover:text-foreground active:[filter:brightness(0.97)]"
+              class="new-chat-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] p-0 border-none border-r border-r-border bg-surface text-muted transition-colors hover:bg-surface-3 hover:text-foreground active:[filter:brightness(0.97)]"
               onclick={() => onNewChat()}
               title="New chat (⌘N)"
               aria-label="New chat"
@@ -341,7 +341,7 @@
           )}
         >
           <textarea
-            class="chat-textarea w-full flex-1 box-border min-w-0 min-h-[40px] max-h-[min(480px,55vh)] resize-none rounded-none border-none bg-transparent px-1 py-2.5 text-base leading-normal text-foreground [overflow-x:hidden] [overflow-y:hidden] placeholder:text-muted placeholder:opacity-80 focus:outline-none disabled:opacity-60"
+            class="chat-textarea w-full flex-1 box-border min-w-0 min-h-[40px] max-h-[min(480px,55vh)] resize-none border-none bg-transparent px-1 py-2.5 text-base leading-normal text-foreground [overflow-x:hidden] [overflow-y:hidden] placeholder:text-muted placeholder:opacity-80 focus:outline-none disabled:opacity-60"
             bind:this={inputEl}
             bind:value={input}
             oninput={handleInput}
@@ -354,7 +354,7 @@
         <div
           class={cn(
             'send-actions flex shrink-0 flex-row items-stretch self-stretch',
-            streaming && 'send-actions--streaming [&_.stop-btn]:rounded-none [&_.stop-btn]:border-r [&_.stop-btn]:border-r-white/25',
+            streaming && 'send-actions--streaming [&_.stop-btn]:border-r [&_.stop-btn]:border-r-white/25',
           )}
           role="group"
           aria-label={streaming ? 'Queue or stop assistant' : 'Send message'}

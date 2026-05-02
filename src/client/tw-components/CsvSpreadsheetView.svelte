@@ -65,7 +65,7 @@
             type="button"
             role="tab"
             class={cn(
-              'sheet-tab m-0 shrink-0 cursor-pointer whitespace-nowrap rounded-none border-none border-r border-[var(--border,#c8c8cc)] px-2 py-1 text-[0.6875rem] leading-tight text-[var(--text-2,#555)] [background:rgba(0,0,0,0.04)] last:border-r-0 hover:[background:rgba(0,0,0,0.07)] hover:text-[var(--text,#111)]',
+              'sheet-tab m-0 shrink-0 cursor-pointer whitespace-nowrap border-none border-r border-[var(--border,#c8c8cc)] px-2 py-1 text-[0.6875rem] leading-tight text-[var(--text-2,#555)] [background:rgba(0,0,0,0.04)] last:border-r-0 hover:[background:rgba(0,0,0,0.07)] hover:text-[var(--text,#111)]',
               selectedSheet === i && 'active bg-[var(--bg,#fff)] text-[var(--text,#111)] font-semibold',
             )}
             aria-selected={selectedSheet === i}

@@ -110,8 +110,7 @@
     flex-shrink: 0;
     margin: 0;
     border: none;
-    border-radius: 0;
-    border-right: 1px solid var(--border, #c8c8cc);
+border-right: 1px solid var(--border, #c8c8cc);
     padding: 4px 8px;
     font-size: 0.6875rem;
     line-height: 1.2;

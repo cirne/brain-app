@@ -1841,8 +1841,7 @@
     justify-content: center;
     padding: 6px;
     border: none;
-    border-radius: 6px;
-    background: transparent;
+background: transparent;
     color: var(--text-2);
     cursor: pointer;
   }
@@ -1867,8 +1866,7 @@
     font-variant-numeric: tabular-nums;
     line-height: 16px;
     text-align: center;
-    border-radius: 999px;
-    background: var(--accent, #4a90d9);
+background: var(--accent, #4a90d9);
     color: var(--bg-pill-on-accent, var(--bg, #fff));
   }
 

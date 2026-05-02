@@ -15,7 +15,7 @@
     >
       <li>
         <strong>Enriching</strong> — adds and deepens pages (people, projects, interests) from your mail, profile,
-        and public sources. Pages are cross-linked with <span class="kbd rounded border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-[0.35em] py-[0.08em] text-[0.85em] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">[[wikilinks]]</span>.
+        and public sources. Pages are cross-linked with <span class="kbd border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-[0.35em] py-[0.08em] text-[0.85em] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">[[wikilinks]]</span>.
       </li>
       <li>
         <strong>Cleaning up</strong> — fixes broken links, checks orphan pages, and updates the index so
@@ -52,7 +52,7 @@
         around them.
       </li>
       <li>
-        <strong>Move around quickly.</strong> Mention a page with <span class="kbd rounded border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-[0.35em] py-[0.08em] text-[0.85em] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">@</span> to open it from chat, or
+        <strong>Move around quickly.</strong> Mention a page with <span class="kbd border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-[0.35em] py-[0.08em] text-[0.85em] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">@</span> to open it from chat, or
         search when you know the name but not the path.
       </li>
     </ul>

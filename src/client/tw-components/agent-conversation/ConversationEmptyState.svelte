@@ -19,12 +19,12 @@
   >
     <p>Ask anything about your docs, email, or calendar.</p>
     <p class="mt-1.5 text-xs opacity-70">
-      Use <kbd class="rounded border border-border bg-surface-3 px-1.5 py-px font-[inherit] text-xs">@</kbd> to reference docs
+      Use <kbd class="border border-border bg-surface-3 px-1.5 py-px font-[inherit] text-xs">@</kbd> to reference docs
       in{' '}
       {#if onOpenWikiAbout}
         <button
           type="button"
-          class="wiki-about-link m-0 cursor-pointer border-none bg-transparent p-0 font-[inherit] text-[inherit] leading-[inherit] text-accent underline underline-offset-2 [text-decoration-color:color-mix(in_srgb,var(--accent)_35%,transparent)] hover:[text-decoration-color:var(--accent)] focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          class="wiki-about-link m-0 cursor-pointer border-none bg-transparent p-0 font-[inherit] text-[inherit] leading-[inherit] text-accent underline underline-offset-2 [text-decoration-color:color-mix(in_srgb,var(--accent)_35%,transparent)] hover:[text-decoration-color:var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           onclick={onOpenWikiAbout}
         >your wiki</button>.
       {:else}

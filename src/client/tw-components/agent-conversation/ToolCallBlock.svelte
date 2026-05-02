@@ -136,7 +136,7 @@
         <button
           type="button"
           class={cn(
-            'tool-call tool-compact tool-compact--drilldown group m-0 box-border flex w-full min-w-0 max-w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded border-none bg-transparent p-1 text-left text-[13px] leading-[1.45] font-[inherit] text-[inherit]',
+            'tool-call tool-compact tool-compact--drilldown group m-0 box-border flex w-full min-w-0 max-w-full cursor-pointer items-center gap-1.5 overflow-hidden border-none bg-transparent p-1 text-left text-[13px] leading-[1.45] font-[inherit] text-[inherit]',
             toolCall.isError && 'error',
           )}
           onclick={openDrilldown}
@@ -148,20 +148,20 @@
             {@render summaryBody(true)}
           </span>
           <span
-            class="tool-compact-pill inline-flex shrink-0 items-center justify-center self-center rounded-full border border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-[color-mix(in_srgb,var(--border)_35%,transparent)] p-1 leading-none text-muted group-hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] group-hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] group-hover:text-accent group-focus-visible:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] group-focus-visible:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] group-focus-visible:text-accent group-hover:[&~_*_.tool-name]:text-accent"
+            class="tool-compact-pill inline-flex shrink-0 items-center justify-center self-center border border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-[color-mix(in_srgb,var(--border)_35%,transparent)] p-1 leading-none text-muted group-hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] group-hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] group-hover:text-accent group-focus-visible:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] group-focus-visible:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] group-focus-visible:text-accent group-hover:[&~_*_.tool-name]:text-accent"
             aria-hidden="true"
           >
             <ChevronRight size={14} strokeWidth={2.25} aria-hidden="true" />
           </span>
         </button>
       {:else}
-        <div class={cn('tool-call tool-compact m-0 box-border flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden rounded p-1 text-[13px] leading-[1.45]', toolCall.isError && 'error')}>
+        <div class={cn('tool-call tool-compact m-0 box-border flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden p-1 text-[13px] leading-[1.45]', toolCall.isError && 'error')}>
           {@render toolGlyph(!!toolCall.isError)}
           {@render summaryBody(false)}
         </div>
       {/if}
     {:else}
-      <details class={cn('tool-call m-0 min-w-0 max-w-full overflow-hidden rounded text-[13px] [&>summary]:flex [&>summary]:cursor-pointer [&>summary]:select-none [&>summary]:items-start [&>summary]:gap-1.5 [&>summary]:p-1 [&>summary]:leading-[1.45] [&>summary]:list-none [&>summary]:[list-style:none] [&>summary::-webkit-details-marker]:hidden', toolCall.isError && 'error')} open={false}>
+      <details class={cn('tool-call m-0 min-w-0 max-w-full overflow-hidden text-[13px] [&>summary]:flex [&>summary]:cursor-pointer [&>summary]:select-none [&>summary]:items-start [&>summary]:gap-1.5 [&>summary]:p-1 [&>summary]:leading-[1.45] [&>summary]:list-none [&>summary]:[list-style:none] [&>summary::-webkit-details-marker]:hidden', toolCall.isError && 'error')} open={false}>
         <summary>
           {@render toolGlyph(!!toolCall.isError)}
           {@render summaryBody(false)}
@@ -174,7 +174,7 @@
         {/if}
       </details>
       {#if preview}
-        <div class="tool-content-preview-shell box-border min-w-0 max-w-full rounded-md border border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-surface px-3 py-2.5">
+        <div class="tool-content-preview-shell box-border min-w-0 max-w-full border border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-surface px-3 py-2.5">
           <ContentPreviewCards
             {preview}
             {onOpenWiki}
@@ -192,7 +192,7 @@
   </div>
 {:else}
   <div class="tool-part m-0 mt-1 mb-3 flex min-w-0 max-w-full flex-col gap-2.5" role="status">
-    <div class="tool-call tool-pending m-0 flex items-start gap-1.5 overflow-hidden rounded p-0.5 px-1 text-[13px] opacity-90">
+    <div class="tool-call tool-pending m-0 flex items-start gap-1.5 overflow-hidden p-0.5 px-1 text-[13px] opacity-90">
       {@render toolGlyph(false)}
       {#if pendingFromArgs?.mode === 'move'}
         <div class="tool-pending-move tool-pending-label flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-[0.35em] [animation:tool-pending-pulse_1.2s_ease-in-out_infinite]">

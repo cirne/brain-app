@@ -17,7 +17,7 @@
 </script>
 
 <div
-  class="date-popover fixed z-[100] min-w-60 max-w-80 rounded-lg border border-border bg-surface-3 p-2.5 px-3 shadow-[0_8px_24px_rgba(0,0,0,0.4)] [font:inherit]"
+  class="date-popover fixed z-[100] min-w-60 max-w-80 border border-border bg-surface-3 p-2.5 px-3 shadow-[0_8px_24px_rgba(0,0,0,0.4)] [font:inherit]"
   role="tooltip"
   style="left: {x}px; top: {y}px"
   onmouseenter={onKeep}

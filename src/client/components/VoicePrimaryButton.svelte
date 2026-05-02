@@ -86,8 +86,7 @@
     justify-content: center;
     padding: 0;
     border: none;
-    border-radius: 50%;
-    cursor: pointer;
+cursor: pointer;
     color: #fff;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     transition:
@@ -156,8 +155,7 @@
   .voice-primary-pulse {
     position: absolute;
     inset: 0;
-    border-radius: 50%;
-    pointer-events: none;
+pointer-events: none;
     opacity: 0;
   }
 
@@ -165,8 +163,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    border-radius: 50%;
-    border: 2px solid color-mix(in srgb, var(--accent, #6366f1) 35%, transparent);
+border: 2px solid color-mix(in srgb, var(--accent, #6366f1) 35%, transparent);
     animation: voice-pulse-ring 1.4s ease-out infinite;
   }
 

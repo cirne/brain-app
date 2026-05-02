@@ -205,8 +205,7 @@
     display: flex;
     align-items: center;
     gap: 0.15rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     background: var(--surface);
     padding: 0.35rem 0.65rem;
   }

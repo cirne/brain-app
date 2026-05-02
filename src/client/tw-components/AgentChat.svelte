@@ -797,7 +797,7 @@
   }
 
   const iconBtnClass =
-    'inline-flex shrink-0 items-center justify-center rounded p-1 text-muted opacity-100 transition-colors duration-150 hover:bg-surface-3 hover:text-foreground max-md:min-h-11 max-md:min-w-11 max-md:p-0 max-md:[&_svg]:h-5 max-md:[&_svg]:w-5 [&_svg]:shrink-0'
+    'inline-flex shrink-0 items-center justify-center p-1 text-muted opacity-100 transition-colors duration-150 hover:bg-surface-3 hover:text-foreground max-md:min-h-11 max-md:min-w-11 max-md:p-0 max-md:[&_svg]:h-5 max-md:[&_svg]:w-5 [&_svg]:shrink-0'
 </script>
 
 <div class="agent-chat flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden bg-surface">

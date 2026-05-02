@@ -29,8 +29,7 @@
   .voice-waveform-bar {
     width: 3px;
     height: 8px;
-    border-radius: 1px;
-    background: color-mix(in srgb, var(--accent, #6366f1) 75%, var(--text) 25%);
+background: color-mix(in srgb, var(--accent, #6366f1) 75%, var(--text) 25%);
     opacity: 0.55;
     transform-origin: center bottom;
     animation: voice-waveform-bob 0.55s ease-in-out infinite alternate;

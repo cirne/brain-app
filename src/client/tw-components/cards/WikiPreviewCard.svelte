@@ -52,7 +52,7 @@
     <WikiFileName {path} />
   </button>
   <div
-    class="wiki-tool-preview-body m-0 min-w-0 cursor-pointer border-t border-border pt-2 text-left outline-none focus-visible:rounded-sm focus-visible:[box-shadow:inset_2px_0_0_var(--accent),inset_-2px_0_0_var(--accent)] [&_.wiki-tool-preview-md]:block [&_.wiki-tool-preview-md]:max-h-[120px] [&_.wiki-tool-preview-md]:overflow-hidden [&_.wiki-tool-preview-md]:text-[13px] [&_.wiki-tool-preview-md]:leading-[1.45] [&_.wiki-tool-preview-md]:text-muted [&_.wiki-tool-preview-md_a]:cursor-pointer"
+    class="wiki-tool-preview-body m-0 min-w-0 cursor-pointer border-t border-border pt-2 text-left outline-none focus-visible:[box-shadow:inset_2px_0_0_var(--accent),inset_-2px_0_0_var(--accent)] [&_.wiki-tool-preview-md]:block [&_.wiki-tool-preview-md]:max-h-[120px] [&_.wiki-tool-preview-md]:overflow-hidden [&_.wiki-tool-preview-md]:text-[13px] [&_.wiki-tool-preview-md]:leading-[1.45] [&_.wiki-tool-preview-md]:text-muted [&_.wiki-tool-preview-md_a]:cursor-pointer"
     role="button"
     tabindex="0"
     aria-label="Open wiki preview for {path}"

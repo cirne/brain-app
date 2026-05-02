@@ -30,10 +30,10 @@
         onchange={(e) => toggleHearReplies((e.currentTarget as HTMLInputElement).checked)}
       />
       <span
-        class="hear-replies-track relative h-[1.875rem] w-[3.125rem] rounded-[100px] bg-[color-mix(in_srgb,var(--text)_20%,var(--bg-2))] transition-[background] duration-200"
+        class="hear-replies-track relative h-[1.875rem] w-[3.125rem] bg-[color-mix(in_srgb,var(--text)_20%,var(--bg-2))] transition-[background] duration-200"
         aria-hidden="true"
       >
-        <span class="hear-replies-thumb absolute left-0.5 top-0.5 h-[1.625rem] w-[1.625rem] rounded-full bg-white [box-shadow:0_0.125rem_0.25rem_rgba(0,0,0,0.12),0_0.125rem_0.0625rem_rgba(0,0,0,0.08)] [transition:transform_0.22s_cubic-bezier(0.4,0,0.2,1)]"></span>
+        <span class="hear-replies-thumb absolute left-0.5 top-0.5 h-[1.625rem] w-[1.625rem] bg-white [box-shadow:0_0.125rem_0.25rem_rgba(0,0,0,0.12),0_0.125rem_0.0625rem_rgba(0,0,0,0.08)] [transition:transform_0.22s_cubic-bezier(0.4,0,0.2,1)]"></span>
       </span>
     </span>
   </label>

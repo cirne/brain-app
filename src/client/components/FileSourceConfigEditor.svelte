@@ -314,8 +314,7 @@
   .fs-editor-warn {
     margin: 0;
     padding: 0.5rem 0.65rem;
-    border-radius: 6px;
-    background: color-mix(in srgb, orange 18%, transparent);
+background: color-mix(in srgb, orange 18%, transparent);
     font-size: 0.875rem;
   }
   .fs-editor-err {
@@ -366,8 +365,7 @@
     gap: 0.5rem;
     align-items: center;
     padding: 0.45rem 0.5rem;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--color-fg, #ccc) 6%, transparent);
+background: color-mix(in srgb, var(--color-fg, #ccc) 6%, transparent);
   }
   .fs-root-main {
     display: flex;
@@ -395,8 +393,7 @@
   }
   .fs-browser {
     border: 1px solid color-mix(in srgb, var(--color-fg, #ccc) 18%, transparent);
-    border-radius: 8px;
-    padding: 0.5rem;
+padding: 0.5rem;
     background: color-mix(in srgb, var(--color-fg, #ccc) 4%, transparent);
   }
   .fs-browser-head {
@@ -444,8 +441,7 @@
     cursor: pointer;
     font: inherit;
     padding: 0.2rem;
-    border-radius: 4px;
-  }
+}
   .fs-browser-name:hover {
     background: color-mix(in srgb, var(--color-fg, #ccc) 8%, transparent);
   }

@@ -724,8 +724,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.55rem 0.75rem;
-    border-radius: 10px;
-    border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
     background: color-mix(in srgb, var(--bg-2, var(--bg)) 94%, var(--text));
     min-height: 2.75rem;
     box-sizing: border-box;
@@ -789,8 +788,7 @@
   /* ── AI suggestions panel ── */
   .drive-suggest-panel {
     border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 30%, var(--border));
-    border-radius: 10px;
-    padding: 0.65rem 0.75rem;
+padding: 0.65rem 0.75rem;
     background: color-mix(in srgb, var(--accent, #6366f1) 5%, var(--bg));
     display: flex;
     flex-direction: column;
@@ -883,16 +881,14 @@
     justify-content: center;
     width: 1.25rem;
     height: 1.25rem;
-    border-radius: 4px;
-    box-sizing: border-box;
+box-sizing: border-box;
     font-size: 0.75rem;
   }
 
   .drive-suggest-marker--on {
     background: var(--accent, #6366f1);
     color: white;
-    border-radius: 4px;
-  }
+}
 
   .drive-suggest-marker--off {
     border: 2px solid color-mix(in srgb, var(--text) 26%, transparent);
@@ -940,8 +936,7 @@
   .drive-suggest-details {
     font-size: 0.78rem;
     color: var(--text-2);
-    border-radius: 8px;
-    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
     padding: 0.35rem 0.5rem;
     background: color-mix(in srgb, var(--bg) 85%, var(--text));
   }
@@ -972,8 +967,7 @@
     word-break: break-all;
     max-height: 9rem;
     overflow: auto;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--bg-2, var(--bg)) 94%, var(--text));
+background: color-mix(in srgb, var(--bg-2, var(--bg)) 94%, var(--text));
     border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
   }
 
@@ -986,8 +980,7 @@
   /* ── Folder browser ── */
   .drive-browser {
     border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-    border-radius: 10px;
-    padding: 0.6rem 0.75rem;
+padding: 0.6rem 0.75rem;
     background: color-mix(in srgb, var(--bg-2, var(--bg)) 80%, var(--bg));
     display: flex;
     flex-direction: column;
@@ -1018,8 +1011,7 @@
     font-size: 0.8rem;
     font-weight: 600;
     padding: 0.1rem 0.2rem;
-    border-radius: 4px;
-  }
+}
 
   .drive-bc-seg:hover {
     background: color-mix(in srgb, var(--accent, #6366f1) 10%, transparent);
@@ -1075,8 +1067,7 @@
     font: inherit;
     font-size: 0.875rem;
     padding: 0.2rem 0.3rem;
-    border-radius: 5px;
-    text-align: left;
+text-align: left;
   }
 
   .drive-browser-name:hover:not(:disabled) {
@@ -1183,8 +1174,7 @@
     position: relative;
     width: 2.25rem;
     height: 1.25rem;
-    border-radius: 999px;
-    border: none;
+border: none;
     cursor: pointer;
     padding: 0;
     background: color-mix(in srgb, var(--text) 18%, transparent);
@@ -1202,8 +1192,7 @@
     left: 0.15rem;
     width: 0.95rem;
     height: 0.95rem;
-    border-radius: 50%;
-    background: white;
+background: white;
     transition: transform 0.15s;
     box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
   }

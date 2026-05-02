@@ -415,7 +415,7 @@
 <ConfirmDialog
   {open}
   titleId="wiki-share-main-title"
-  panelClass="wiki-share-cd-panel"
+  panelclass="wiki-share-cd-panel"
   title={dialogTitle}
   confirmLabel="OK"
   cancelLabel="Cancel"
@@ -618,8 +618,7 @@
   .wsh-code {
     font-size: 13px;
     padding: 2px 6px;
-    border-radius: 4px;
-    background: var(--color-surface-2, rgba(0, 0, 0, 0.06));
+background: var(--color-surface-2, rgba(0, 0, 0, 0.06));
   }
   .wsh-section {
     margin-bottom: 18px;
@@ -654,8 +653,7 @@
     justify-content: space-between;
     gap: 10px;
     padding: 8px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--color-border, #ccc);
+border: 1px solid var(--color-border, #ccc);
     background: var(--bg, #fff);
   }
   .wsh-audience-main {
@@ -709,8 +707,7 @@
     width: 100%;
     box-sizing: border-box;
     padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--color-border, #ccc);
+border: 1px solid var(--color-border, #ccc);
     background: var(--bg, #fff);
     min-height: 38px;
   }
@@ -720,8 +717,7 @@
     gap: 6px;
     max-width: 100%;
     padding: 3px 6px 3px 8px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent, #2563eb) 12%, transparent);
+background: color-mix(in srgb, var(--accent, #2563eb) 12%, transparent);
     color: var(--text, inherit);
     font-size: 12px;
     line-height: 1.3;
@@ -771,8 +767,7 @@
     overflow-y: auto;
     background: var(--bg-3, #fff);
     border: 1px solid var(--color-border, #ccc);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
   .wsh-suggest-item {
     display: grid;
@@ -838,8 +833,7 @@
   .wsh-pill {
     font-size: 11px;
     padding: 2px 6px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent, #2563eb) 18%, transparent);
+background: color-mix(in srgb, var(--accent, #2563eb) 18%, transparent);
     color: var(--accent, #2563eb);
   }
 </style>

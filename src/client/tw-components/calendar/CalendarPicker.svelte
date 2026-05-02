@@ -164,7 +164,7 @@
           <label
             for={inputId}
             class={cn(
-              'cal-picker-row m-0 box-border flex min-h-[2.35rem] w-full cursor-pointer items-center justify-between gap-[0.65rem] rounded-[10px] border border-[color-mix(in_srgb,var(--border)_88%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_94%,var(--text))] p-[0.4rem_0.65rem] outline-none',
+              'cal-picker-row m-0 box-border flex min-h-[2.35rem] w-full cursor-pointer items-center justify-between gap-[0.65rem] border border-[color-mix(in_srgb,var(--border)_88%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_94%,var(--text))] p-[0.4rem_0.65rem] outline-none',
               hex !== '' && 'cal-picker-row--tinted',
             )}
             style={hex !== '' ? `--cal-picker-accent: ${hex};` : undefined}
@@ -177,13 +177,13 @@
             <span class="cal-picker-marker-track flex h-7 w-7 shrink-0 items-center justify-center" aria-hidden="true">
               {#if checked}
                 <span
-                  class="cal-picker-marker cal-picker-marker--on box-border inline-flex h-6 w-6 items-center justify-center rounded-full border-none text-white [background:linear-gradient(145deg,color-mix(in_srgb,var(--accent)_92%,white),var(--accent))] [box-shadow:0_1px_2px_color-mix(in_srgb,var(--text)_22%,transparent),inset_0_1px_0_color-mix(in_srgb,white_35%,transparent)]"
+                  class="cal-picker-marker cal-picker-marker--on box-border inline-flex h-6 w-6 items-center justify-center border-none text-white [background:linear-gradient(145deg,color-mix(in_srgb,var(--accent)_92%,white),var(--accent))] [box-shadow:0_1px_2px_color-mix(in_srgb,var(--text)_22%,transparent),inset_0_1px_0_color-mix(in_srgb,white_35%,transparent)]"
                 >
                   <Check size={12} strokeWidth={2.5} aria-hidden="true" />
                 </span>
               {:else}
                 <span
-                  class="cal-picker-marker cal-picker-marker--off box-border inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-[color-mix(in_srgb,var(--text)_26%,transparent)] bg-[color-mix(in_srgb,var(--bg)_55%,transparent)]"
+                  class="cal-picker-marker cal-picker-marker--off box-border inline-flex h-6 w-6 items-center justify-center border-2 border-[color-mix(in_srgb,var(--text)_26%,transparent)] bg-[color-mix(in_srgb,var(--bg)_55%,transparent)]"
                 ></span>
               {/if}
             </span>
@@ -252,8 +252,7 @@
     font-size: 0.8125rem;
     font-weight: 600;
     padding: 0.45rem 0.85rem;
-    border-radius: 8px;
-    border: none;
+border: none;
     cursor: pointer;
     background: var(--accent);
     color: white;

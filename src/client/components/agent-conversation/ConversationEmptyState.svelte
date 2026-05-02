@@ -19,7 +19,7 @@
   <div class="w-full text-center">
     <p>Ask anything about your docs, email, or calendar.</p>
     <p class="text-xs opacity-70">
-      Use <kbd class="rounded border border-border bg-surface-3 px-1.5 py-px font-inherit text-xs">@</kbd> to reference
+      Use <kbd class="border border-border bg-surface-3 px-1.5 py-px font-inherit text-xs">@</kbd> to reference
       docs in{' '}
       {#if onOpenWikiAbout}
         <button type="button" class="wiki-about-link" onclick={onOpenWikiAbout}>your wiki</button>.
@@ -51,6 +51,5 @@
   .wiki-about-link:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: 2px;
-  }
+}
 </style>

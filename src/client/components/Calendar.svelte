@@ -305,8 +305,7 @@
   .today-badge {
     font-size: 10px;
     padding: 1px 6px;
-    border-radius: 10px;
-    background: var(--accent);
+background: var(--accent);
     color: #fff;
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -332,8 +331,7 @@
   .sync-btn {
     font-size: 13px;
     padding: 6px 16px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     color: var(--text);
     background: var(--bg-3);
     cursor: pointer;

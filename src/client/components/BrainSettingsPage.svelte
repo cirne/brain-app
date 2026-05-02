@@ -776,8 +776,7 @@
   .settings-banner {
     margin: 0;
     padding: 0.75rem 2.5rem 0.75rem 1rem;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--accent) 14%, var(--bg-2));
+background: color-mix(in srgb, var(--accent) 14%, var(--bg-2));
     color: var(--text);
     font-size: 0.9375rem;
     border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
@@ -801,8 +800,7 @@
     font-size: 1.25rem;
     line-height: 1;
     padding: 0.15rem 0.4rem;
-    border-radius: 6px;
-  }
+}
 
   .settings-banner-dismiss:hover {
     color: var(--text);
@@ -895,8 +893,7 @@
     font-size: 0.625rem;
     font-weight: 700;
     padding: 2px 8px;
-    border-radius: 999px;
-    text-transform: uppercase;
+text-transform: uppercase;
     letter-spacing: 0.04em;
     white-space: nowrap;
   }
@@ -1038,8 +1035,7 @@
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.65rem 0.75rem;
-    border-radius: 8px;
-    border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
     background: var(--bg-2);
   }
 
@@ -1072,8 +1068,7 @@
     color: inherit;
     text-align: left;
     cursor: pointer;
-    border-radius: 4px;
-  }
+}
 
   .settings-share-wiki-link:hover {
     color: var(--accent);
@@ -1101,8 +1096,7 @@
     font-size: 0.625rem;
     font-weight: 700;
     padding: 2px 6px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
+background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
     color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -1127,8 +1121,7 @@
     padding: 0.35rem 0.65rem;
     font-size: 0.8125rem;
     font-weight: 600;
-    border-radius: 6px;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
     cursor: pointer;

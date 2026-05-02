@@ -15,8 +15,7 @@
     display: block;
     width: 5px;
     height: 5px;
-    border-radius: 50%;
-    background: currentColor;
+background: currentColor;
     animation: streaming-busy-dot 1.1s ease-in-out infinite;
   }
 

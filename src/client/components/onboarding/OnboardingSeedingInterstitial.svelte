@@ -262,8 +262,7 @@
       min-width: 0;
       min-height: 0;
       border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--bg-2);
+background: var(--bg-2);
       /* One scrollport for the whole column; tail-follow targets this node. */
       overflow: auto;
     }
@@ -282,8 +281,7 @@
   }
 
   :global(.seed-hub .your-wiki-detail) {
-    border-radius: 0;
-  }
+}
 
   /* Mobile status strip: single row at bottom, desktop hidden */
   .seed-bar {
@@ -293,8 +291,7 @@
     padding: 0.6rem 0.875rem;
     background: var(--bg-2);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    flex-shrink: 0;
+flex-shrink: 0;
     min-width: 0;
     overflow: hidden;
   }
@@ -308,8 +305,7 @@
   .seed-bar-pulse {
     width: 6px;
     height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
+flex-shrink: 0;
     background: var(--accent);
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
     animation: seed-bar-pulse 1.8s ease-in-out infinite;

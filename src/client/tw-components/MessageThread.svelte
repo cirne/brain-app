@@ -151,7 +151,7 @@
           <div class="msg-meta mb-1 px-1.5 text-[10px] text-muted">{timeLabel(row.sent_at_unix)}{#if !row.is_from_me && row.is_read === false}<span class="unread text-accent"> · Unread</span>{/if}</div>
           <div
             class={cn(
-              'bubble max-w-[min(92%,520px)] whitespace-pre-wrap [word-break:break-word] rounded-2xl bg-surface-2 px-3 py-2 text-sm leading-snug text-foreground',
+              'bubble max-w-[min(92%,520px)] whitespace-pre-wrap [word-break:break-word] bg-surface-2 px-3 py-2 text-sm leading-snug text-foreground',
               row.is_from_me && 'bg-accent-dim',
             )}
           >{row.text || ' '}</div>

@@ -150,8 +150,7 @@
     flex-direction: column;
     max-height: min(90vh, 720px);
     overflow-y: auto;
-    border-radius: 1rem;
-    background: var(--bg, #0f0f0f);
+background: var(--bg, #0f0f0f);
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
   }
   .fda-steps {
@@ -182,8 +181,7 @@
     transform: translateX(-50%);
     z-index: 10000;
     padding: 0.65rem 1.25rem;
-    border-radius: 0.5rem;
-    background: var(--bg-2, #1a1a1a);
+background: var(--bg-2, #1a1a1a);
     color: var(--text);
     font-size: 0.9rem;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);

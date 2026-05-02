@@ -383,22 +383,22 @@
     'settings-share-subhead m-0 text-[0.8125rem] font-bold uppercase tracking-[0.02em] text-muted'
   const shareList = 'settings-share-list m-0 flex list-none flex-col gap-2 p-0'
   const shareRow =
-    'settings-share-row flex items-center justify-between gap-3 rounded-lg border border-[color-mix(in_srgb,var(--border)_85%,transparent)] bg-surface-2 px-3 py-[0.65rem]'
+    'settings-share-row flex items-center justify-between gap-3 border border-[color-mix(in_srgb,var(--border)_85%,transparent)] bg-surface-2 px-3 py-[0.65rem]'
   const shareMain =
     'settings-share-main flex min-w-0 flex-col items-start gap-1'
   const sharePath =
     'settings-share-path inline-flex min-w-0 max-w-full items-center text-[0.8125rem]'
   const shareWikiLink =
-    'settings-share-wiki-link m-0 inline-flex min-w-0 max-w-full cursor-pointer items-center rounded-[4px] border-none bg-transparent p-0 text-left text-inherit [font:inherit] hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]'
+    'settings-share-wiki-link m-0 inline-flex min-w-0 max-w-full cursor-pointer items-center border-none bg-transparent p-0 text-left text-inherit [font:inherit] hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]'
   const shareMeta = 'settings-share-meta text-xs text-muted'
   const sharePillBase =
-    'settings-share-pill ml-[0.35rem] inline-block rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-1.5 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-accent'
+    'settings-share-pill ml-[0.35rem] inline-block bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-1.5 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-accent'
   const sharePillMuted =
     'settings-share-pill-muted !bg-surface-3 !text-muted'
   const shareActions =
     'settings-share-actions flex flex-wrap shrink-0 items-center justify-end gap-2'
   const shareBtn =
-    'settings-share-btn shrink-0 cursor-pointer rounded-md border border-border bg-surface-3 px-[0.65rem] py-[0.35rem] text-[0.8125rem] font-semibold text-foreground transition-[background,border-color] duration-150 hover:enabled:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] hover:enabled:bg-surface disabled:cursor-not-allowed disabled:opacity-55'
+    'settings-share-btn shrink-0 cursor-pointer border border-border bg-surface-3 px-[0.65rem] py-[0.35rem] text-[0.8125rem] font-semibold text-foreground transition-[background,border-color] duration-150 hover:enabled:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] hover:enabled:bg-surface disabled:cursor-not-allowed disabled:opacity-55'
   const shareBtnPrimary =
     'settings-share-btn-primary !border-[color-mix(in_srgb,var(--accent)_45%,transparent)] !bg-[color-mix(in_srgb,var(--accent)_16%,var(--bg-2))] !text-foreground hover:enabled:!bg-[color-mix(in_srgb,var(--accent)_24%,var(--bg-2))]'
   const shareBtnDanger =
@@ -426,7 +426,7 @@
   {#if addAccountBanner}
     <div
       class={cn(
-        'settings-banner relative m-0 rounded-lg border bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg-2))] border-[color-mix(in_srgb,var(--accent)_35%,transparent)] py-3 pl-4 pr-10 text-[0.9375rem] text-foreground',
+        'settings-banner relative m-0 border bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg-2))] border-[color-mix(in_srgb,var(--accent)_35%,transparent)] py-3 pl-4 pr-10 text-[0.9375rem] text-foreground',
         addAccountBanner.kind === 'err' &&
           'settings-banner--err border-[color-mix(in_srgb,var(--danger)_40%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,var(--bg-2))]',
       )}
@@ -435,7 +435,7 @@
       {addAccountBanner.message}
       <button
         type="button"
-        class="settings-banner-dismiss absolute right-2 top-[0.35rem] cursor-pointer rounded-md border-none bg-transparent px-[0.4rem] py-[0.15rem] text-xl leading-none text-muted hover:text-foreground"
+        class="settings-banner-dismiss absolute right-2 top-[0.35rem] cursor-pointer border-none bg-transparent px-[0.4rem] py-[0.15rem] text-xl leading-none text-muted hover:text-foreground"
         aria-label="Dismiss"
         onclick={() => (addAccountBanner = null)}
       >×</button>
@@ -551,7 +551,7 @@
               >
                 {#if isDefaultSend}
                   <span
-                    class="hub-source-pill hub-source-pill--send whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-[color-mix(in_srgb,var(--accent)_92%,var(--text))]"
+                    class="hub-source-pill hub-source-pill--send whitespace-nowrap border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-2))] px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-[color-mix(in_srgb,var(--accent)_92%,var(--text))]"
                     title="Default mailbox for sending"
                   >
                     Default send
@@ -559,7 +559,7 @@
                 {/if}
                 {#if isHidden}
                   <span
-                    class="hub-source-pill hub-source-pill--hidden whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-muted"
+                    class="hub-source-pill hub-source-pill--hidden whitespace-nowrap border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-surface-3 px-2 py-px text-[0.625rem] font-bold uppercase tracking-[0.04em] text-muted"
                     title="Excluded from default searches"
                   >
                     Hidden from search

@@ -117,8 +117,7 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     font-size: 0.85em;
     padding: 0.08em 0.35em;
-    border-radius: 4px;
-    background: var(--bg-3);
+background: var(--bg-3);
     border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   }
 

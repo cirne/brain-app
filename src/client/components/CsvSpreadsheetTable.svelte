@@ -48,8 +48,7 @@
     min-height: 120px;
     overflow: auto;
     border: 1px solid var(--border, #ccc);
-    border-radius: 6px;
-    background: var(--bg-elevated, var(--bg, #fff));
+background: var(--bg-elevated, var(--bg, #fff));
   }
   .sheet {
     border-collapse: separate;

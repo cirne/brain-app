@@ -413,8 +413,7 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     line-height: 1;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent, #4a90d9) 22%, transparent);
+background: color-mix(in srgb, var(--accent, #4a90d9) 22%, transparent);
     color: color-mix(in srgb, var(--accent, #4a90d9) 88%, var(--text));
     box-sizing: border-box;
   }

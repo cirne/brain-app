@@ -360,8 +360,7 @@
     min-height: 30px;
     box-sizing: border-box;
     border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
-    border-radius: 5px;
-    background: var(--bg);
+background: var(--bg);
     color: var(--text);
     width: 100%;
     min-width: 0;

@@ -146,7 +146,7 @@
 
   <!-- Right: live hub view (desktop only, hidden on mobile via Tailwind) -->
   <div
-    class="seed-hub hidden min-[900px]:flex min-[900px]:basis-0 min-[900px]:flex-1 min-[900px]:flex-col min-[900px]:self-stretch min-[900px]:min-w-0 min-[900px]:min-h-0 min-[900px]:overflow-auto min-[900px]:rounded-xl min-[900px]:border min-[900px]:border-border min-[900px]:bg-surface-2"
+    class="seed-hub hidden min-[900px]:flex min-[900px]:basis-0 min-[900px]:flex-1 min-[900px]:flex-col min-[900px]:self-stretch min-[900px]:min-w-0 min-[900px]:min-h-0 min-[900px]:overflow-auto min-[900px]:border min-[900px]:border-border min-[900px]:bg-surface-2"
     bind:this={seedPanelEl}
     aria-label="Your Wiki"
   >
@@ -167,7 +167,7 @@
 
   <!-- Mobile status strip (hidden on desktop via Tailwind) -->
   <div
-    class="seed-bar flex min-w-0 shrink-0 items-center gap-2 overflow-hidden rounded-lg border border-border bg-surface-2 px-3.5 py-[0.6rem] min-[900px]:hidden"
+    class="seed-bar flex min-w-0 shrink-0 items-center gap-2 overflow-hidden border border-border bg-surface-2 px-3.5 py-[0.6rem] min-[900px]:hidden"
     role="status"
     aria-live="polite"
   >
@@ -194,8 +194,7 @@
   .seed-bar-pulse {
     width: 6px;
     height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
+flex-shrink: 0;
     background: var(--accent);
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
     animation: seed-bar-pulse 1.8s ease-in-out infinite;
@@ -217,10 +216,5 @@
       opacity: 0.75;
       box-shadow: 0 0 0 4px transparent;
     }
-  }
-
-  /* Embedded YourWikiDetail border-radius reset — needs :global to reach inside the child component. */
-  :global(.seed-hub .your-wiki-detail) {
-    border-radius: 0;
   }
 </style>

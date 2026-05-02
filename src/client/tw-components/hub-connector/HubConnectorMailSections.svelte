@@ -47,7 +47,7 @@
 
   /** Shared dialog button look — inlined so tw-components don't depend on legacy `:global()` rules. */
   const hubDialogBtnBase =
-    'hub-dialog-btn cursor-pointer rounded-lg border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
+    'hub-dialog-btn cursor-pointer border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
   const hubDialogBtnPrimary =
     'hub-dialog-btn-primary bg-accent text-white border-[color-mix(in_srgb,var(--accent)_80%,black)] hover:not-disabled:brightness-[1.06]'
   const hubDialogBtnSecondary =
@@ -62,7 +62,7 @@
   const noteActive = 'hub-source-status-note--active text-accent font-semibold'
   const errClass = 'hub-source-status-err m-0 text-[0.8125rem] leading-[1.45] text-danger'
   const warnClass =
-    'hub-source-status-warn m-0 text-[0.8125rem] leading-[1.45] text-foreground bg-surface-2 border border-[color-mix(in_srgb,var(--border)_75%,transparent)] rounded-lg px-[0.65rem] py-2'
+    'hub-source-status-warn m-0 text-[0.8125rem] leading-[1.45] text-foreground bg-surface-2 border border-[color-mix(in_srgb,var(--border)_75%,transparent)] px-[0.65rem] py-2'
   const indexLineClass =
     'hub-source-index-line m-0 mb-1 flex flex-wrap items-center gap-x-[0.45rem] gap-y-[0.35rem] text-[0.8125rem] leading-[1.5] text-muted'
   const indexLineSep = 'hub-source-index-line-sep opacity-45 select-none font-normal'
@@ -188,7 +188,7 @@
     </label>
     <select
       id="hub-panel-backfill-since"
-      class="hub-backfill-select min-w-36 cursor-pointer rounded-lg border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-[0.6rem] py-[0.35rem] text-sm text-foreground"
+      class="hub-backfill-select min-w-36 cursor-pointer border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-[0.6rem] py-[0.35rem] text-sm text-foreground"
       bind:value={backfillWindow}
     >
       {#each HUB_MAIL_BACKFILL_WINDOW_OPTIONS as opt (opt.value)}

@@ -132,8 +132,7 @@
   .card {
     background: var(--bg-2);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px 16px;
+padding: 14px 16px;
   }
 
   .section-title {
@@ -155,8 +154,7 @@
     letter-spacing: 0;
     background: var(--accent);
     color: #fff;
-    border-radius: 10px;
-    padding: 1px 7px;
+padding: 1px 7px;
   }
 
   .muted {
@@ -185,8 +183,7 @@
     text-align: left;
     cursor: pointer;
     padding: 5px 6px;
-    border-radius: 4px;
-    font-size: 12px;
+font-size: 12px;
     color: var(--text-2);
   }
 

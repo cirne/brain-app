@@ -160,9 +160,9 @@
       return 'chat-voice-panel--fixed fixed inset-x-0 z-20 border-t border-[var(--border-1,rgba(255,255,255,0.08))] bg-[color-mix(in_srgb,var(--bg-2)_88%,transparent)] [bottom:env(safe-area-inset-bottom,0px)] [backdrop-filter:blur(12px)] [-webkit-backdrop-filter:blur(12px)] motion-reduce:bg-surface-2 motion-reduce:[backdrop-filter:none] motion-reduce:[-webkit-backdrop-filter:none]'
     }
     if (layout === 'inline') {
-      return 'chat-voice-panel--inline relative z-[1] mt-1 mb-0.5 w-full rounded-none border-t border-[var(--border-1,rgba(255,255,255,0.08))] bg-[color-mix(in_srgb,var(--bg-2)_92%,transparent)] motion-reduce:bg-surface-2'
+      return 'chat-voice-panel--inline relative z-[1] mt-1 mb-0.5 w-full border-t border-[var(--border-1,rgba(255,255,255,0.08))] bg-[color-mix(in_srgb,var(--bg-2)_92%,transparent)] motion-reduce:bg-surface-2'
     }
-    return 'chat-voice-panel--composer-flow relative z-[1] m-0 min-h-[56px] w-full rounded-none border-none bg-surface-2 p-0 motion-reduce:bg-surface-2'
+    return 'chat-voice-panel--composer-flow relative z-[1] m-0 min-h-[56px] w-full border-none bg-surface-2 p-0 motion-reduce:bg-surface-2'
   })
 </script>
 
@@ -204,7 +204,7 @@
       {:else if layout === 'composer-flow' && phase === 'idle' && onExitVoiceMode}
         <button
           type="button"
-          class="voice-exit-keyboard inline-flex h-11 min-w-[44px] cursor-pointer items-center justify-center rounded-[10px] border border-border bg-surface-3 p-0 text-muted transition-colors duration-150 [-webkit-tap-highlight-color:transparent] hover:bg-surface hover:text-foreground active:[filter:brightness(0.97)] [margin-left:max(8px,env(safe-area-inset-left,0px))]"
+          class="voice-exit-keyboard inline-flex h-11 min-w-[44px] cursor-pointer items-center justify-center border border-border bg-surface-3 p-0 text-muted transition-colors duration-150 [-webkit-tap-highlight-color:transparent] hover:bg-surface hover:text-foreground active:[filter:brightness(0.97)] [margin-left:max(8px,env(safe-area-inset-left,0px))]"
           onclick={() => onExitVoiceMode()}
           aria-label="Type with keyboard"
           title="Keyboard"

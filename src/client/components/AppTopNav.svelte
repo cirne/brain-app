@@ -252,8 +252,7 @@
     flex-shrink: 0;
     width: 36px;
     height: 36px;
-    border-radius: 6px;
-    color: var(--text-2);
+color: var(--text-2);
     transition: color 0.15s, background 0.15s;
   }
 
@@ -320,8 +319,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    border-radius: 6px;
-    border: none;
+border: none;
     background: transparent;
     color: var(--text-2);
     flex-shrink: 0;
@@ -392,8 +390,7 @@
     padding: 0;
     box-sizing: border-box;
     border: none;
-    border-radius: 6px;
-    background: transparent;
+background: transparent;
     color: var(--text-2);
     cursor: pointer;
     transition:
@@ -420,8 +417,7 @@
     right: 6px;
     width: 6px;
     height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
+background: var(--accent);
   }
 
   @media (max-width: 768px) {
@@ -482,8 +478,7 @@
     align-self: center;
     margin: 0 6px 0 8px;
     padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 12px;
+font-size: 12px;
     font-family: ui-monospace, monospace;
     font-weight: 500;
     color: var(--text-2);
@@ -508,8 +503,7 @@
     right: 6px;
     width: 6px;
     height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
+background: var(--accent);
   }
 
   .sync-error-badge {
@@ -518,8 +512,7 @@
     right: 4px;
     width: 14px;
     height: 14px;
-    border-radius: 50%;
-    background: #e74c3c;
+background: #e74c3c;
     color: white;
     font-size: 9px;
     font-weight: 700;
@@ -537,8 +530,7 @@
     min-width: 220px;
     background: var(--bg-3);
     border: 1px solid #e74c3c;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     z-index: 200;
     overflow: hidden;
   }

@@ -251,7 +251,7 @@
 
   /** Hub button recipes (mirrors HubBackgroundAgentsDetail / HubConnectorSourcePanel). */
   const hubBtn =
-    'hub-dialog-btn inline-flex cursor-pointer items-center justify-center gap-[0.35rem] rounded-lg border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
+    'hub-dialog-btn inline-flex cursor-pointer items-center justify-center gap-[0.35rem] border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
   const hubBtnPrimary =
     'hub-dialog-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.06)]'
   const hubBtnSecondary =
@@ -295,7 +295,7 @@
       </p>
       {#if fdaGranted === false}
         <div
-          class="ham-callout ham-callout--warn flex items-start gap-[0.6rem] rounded-lg border border-[color-mix(in_srgb,var(--danger)_35%,transparent)] bg-[color-mix(in_srgb,var(--danger)_8%,var(--bg-2))] px-3 py-[0.65rem]"
+          class="ham-callout ham-callout--warn flex items-start gap-[0.6rem] border border-[color-mix(in_srgb,var(--danger)_35%,transparent)] bg-[color-mix(in_srgb,var(--danger)_8%,var(--bg-2))] px-3 py-[0.65rem]"
           role="status"
         >
           <span class="ham-callout-icon mt-[0.05rem] flex shrink-0 items-center justify-center text-danger" aria-hidden="true">
@@ -312,7 +312,7 @@
         </div>
       {:else if fdaGranted === true}
         <div
-          class="ham-callout ham-callout--ok flex items-start gap-[0.6rem] rounded-lg border border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-2))] px-3 py-[0.65rem]"
+          class="ham-callout ham-callout--ok flex items-start gap-[0.6rem] border border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-2))] px-3 py-[0.65rem]"
           role="status"
         >
           <span class="ham-callout-icon ham-callout-icon--ok mt-[0.05rem] flex shrink-0 items-center justify-center text-accent" aria-hidden="true">
@@ -324,7 +324,7 @@
     </section>
 
     <details
-      class="ham-disclosure overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface-2 [&[open]>summary]:border-b [&[open]>summary]:border-[color-mix(in_srgb,var(--border)_60%,transparent)]"
+      class="ham-disclosure overflow-hidden border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface-2 [&[open]>summary]:border-b [&[open]>summary]:border-[color-mix(in_srgb,var(--border)_60%,transparent)]"
       bind:open={detailsOpen}
     >
       <summary
@@ -352,14 +352,14 @@
     {/if}
 
     {#if setupCode}
-      <div class="ham-setup rounded-lg border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-2))] px-[0.9rem] py-[0.85rem]">
+      <div class="ham-setup border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-2))] px-[0.9rem] py-[0.85rem]">
         <p class="ham-setup-title m-0 text-sm font-semibold text-foreground">Next step on this Mac</p>
         <p class="ham-p ham-p--muted m-0 text-[0.8125rem] leading-tight text-muted">
           Paste this one-time code into the Braintunnel Mac helper when it asks. It is only shown here once—copy it now
           if you still need it.
         </p>
         <textarea
-          class="ham-code mt-2 block min-h-[4rem] w-full resize-y rounded-md border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-[0.6rem] py-2 text-xs leading-tight text-foreground [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]"
+          class="ham-code mt-2 block min-h-[4rem] w-full resize-y border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-[0.6rem] py-2 text-xs leading-tight text-foreground [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]"
           readonly
           rows={4}
           bind:value={setupCode}
@@ -386,7 +386,7 @@
       </button>
 
       <details
-        class="ham-disclosure ham-disclosure--nested overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface [&[open]>summary]:border-b [&[open]>summary]:border-[color-mix(in_srgb,var(--border)_60%,transparent)]"
+        class="ham-disclosure ham-disclosure--nested overflow-hidden border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface [&[open]>summary]:border-b [&[open]>summary]:border-[color-mix(in_srgb,var(--border)_60%,transparent)]"
         bind:open={advancedOpen}
       >
         <summary
@@ -405,7 +405,7 @@
           <label class="ham-label mb-[0.35rem] block text-xs font-semibold text-muted" for="ham-optional-name">Name (optional)</label>
           <input
             id="ham-optional-name"
-            class="ham-input box-border w-full rounded-lg border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-[0.55rem] py-[0.4rem] text-sm text-foreground"
+            class="ham-input box-border w-full border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-[0.55rem] py-[0.4rem] text-sm text-foreground"
             type="text"
             maxlength={120}
             autocomplete="off"
@@ -431,7 +431,7 @@
         <ul class="ham-device-list m-0 flex list-none flex-col gap-2 p-0">
           {#each devices as device (device.id)}
             <li
-              class="ham-device flex flex-col gap-[0.65rem] rounded-lg border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface-2 px-[0.85rem] py-3 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between"
+              class="ham-device flex flex-col gap-[0.65rem] border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface-2 px-[0.85rem] py-3 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between"
             >
               <div class="ham-device-main flex min-w-0 items-start gap-[0.55rem]">
                 <span class="ham-device-icon mt-[0.1rem] flex shrink-0 items-center justify-center text-muted" aria-hidden="true"><Smartphone size={18} /></span>

@@ -287,7 +287,7 @@
 
   /** Inlined dialog button styles — tw-components don't depend on legacy `:global()` from the panel. */
   const hubDialogBtnBase =
-    'hub-dialog-btn cursor-pointer rounded-lg border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
+    'hub-dialog-btn cursor-pointer border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
   const hubDialogBtnPrimary =
     'hub-dialog-btn-primary bg-accent text-white border-[color-mix(in_srgb,var(--accent)_80%,black)] hover:not-disabled:brightness-[1.06]'
   const hubDialogBtnSecondary =
@@ -352,7 +352,7 @@
       <ul class="drive-folder-list m-0 flex list-none flex-col gap-[0.4rem] p-0" role="list">
         {#each roots as root, i (root.id)}
           <li
-            class="drive-folder-card box-border flex min-h-11 items-center gap-2 rounded-[10px] border border-[color-mix(in_srgb,var(--border)_88%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_94%,var(--text))] px-3 py-[0.55rem]"
+            class="drive-folder-card box-border flex min-h-11 items-center gap-2 border border-[color-mix(in_srgb,var(--border)_88%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_94%,var(--text))] px-3 py-[0.55rem]"
           >
             <span class="drive-folder-icon flex shrink-0 items-center text-muted" aria-hidden="true">
               <Folder size={16} />
@@ -420,7 +420,7 @@
   <!-- AI suggestion panel -->
   {#if suggestOpen}
     <div
-      class="drive-suggest-panel flex flex-col gap-2 rounded-[10px] border border-[color-mix(in_srgb,var(--accent,#6366f1)_30%,var(--border))] bg-[color-mix(in_srgb,var(--accent,#6366f1)_5%,var(--bg))] px-3 py-[0.65rem]"
+      class="drive-suggest-panel flex flex-col gap-2 border border-[color-mix(in_srgb,var(--accent,#6366f1)_30%,var(--border))] bg-[color-mix(in_srgb,var(--accent,#6366f1)_5%,var(--bg))] px-3 py-[0.65rem]"
     >
       <div class="drive-suggest-header flex items-center gap-[0.4rem] text-accent">
         <Sparkles size={14} aria-hidden="true" />
@@ -475,17 +475,17 @@
                 >
                   {#if alreadyAdded}
                     <span
-                      class="drive-suggest-marker drive-suggest-marker--added box-border inline-flex h-5 w-5 items-center justify-center rounded text-xs border border-[color-mix(in_srgb,var(--border)_92%,transparent)] bg-[color-mix(in_srgb,var(--text)_10%,transparent)] text-muted"
+                      class="drive-suggest-marker drive-suggest-marker--added box-border inline-flex h-5 w-5 items-center justify-center text-xs border border-[color-mix(in_srgb,var(--border)_92%,transparent)] bg-[color-mix(in_srgb,var(--text)_10%,transparent)] text-muted"
                     >
                       <Check size={12} aria-hidden="true" strokeWidth={2.5} />
                     </span>
                   {:else if checked}
                     <span
-                      class="drive-suggest-marker drive-suggest-marker--on box-border inline-flex h-5 w-5 items-center justify-center rounded bg-accent text-white text-xs"
+                      class="drive-suggest-marker drive-suggest-marker--on box-border inline-flex h-5 w-5 items-center justify-center bg-accent text-white text-xs"
                     >✓</span>
                   {:else}
                     <span
-                      class="drive-suggest-marker drive-suggest-marker--off box-border inline-flex h-5 w-5 items-center justify-center rounded border-2 border-[color-mix(in_srgb,var(--text)_26%,transparent)]"
+                      class="drive-suggest-marker drive-suggest-marker--off box-border inline-flex h-5 w-5 items-center justify-center border-2 border-[color-mix(in_srgb,var(--text)_26%,transparent)]"
                     ></span>
                   {/if}
                 </span>
@@ -507,7 +507,7 @@
               </p>
             {/if}
             <details
-              class="drive-suggest-details rounded-lg border border-[color-mix(in_srgb,var(--border)_82%,transparent)] bg-[color-mix(in_srgb,var(--bg)_85%,var(--text))] px-2 py-[0.35rem] text-[0.78rem] text-muted"
+              class="drive-suggest-details border border-[color-mix(in_srgb,var(--border)_82%,transparent)] bg-[color-mix(in_srgb,var(--bg)_85%,var(--text))] px-2 py-[0.35rem] text-[0.78rem] text-muted"
             >
               <summary
                 class="drive-suggest-details-summary cursor-pointer select-none px-[0.1rem] font-medium text-foreground"
@@ -520,7 +520,7 @@
                 These are merged into <strong>Ignore patterns</strong> under Advanced when you apply.
               </p>
               <pre
-                class="drive-suggest-patterns mt-[0.45rem] max-h-36 overflow-auto whitespace-pre-wrap break-all rounded-md border border-[color-mix(in_srgb,var(--border)_75%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_94%,var(--text))] px-[0.45rem] py-[0.35rem] font-mono text-[0.7rem] leading-[1.35]"
+                class="drive-suggest-patterns mt-[0.45rem] max-h-36 overflow-auto whitespace-pre-wrap break-all border border-[color-mix(in_srgb,var(--border)_75%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_94%,var(--text))] px-[0.45rem] py-[0.35rem] font-mono text-[0.7rem] leading-[1.35]"
               >{suggestionGlobs.join('\n')}</pre>
             </details>
           {:else}
@@ -564,7 +564,7 @@
   <!-- Inline folder browser -->
   {#if browserOpen}
     <div
-      class="drive-browser flex flex-col gap-[0.4rem] rounded-[10px] border border-[color-mix(in_srgb,var(--border)_75%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_80%,var(--bg))] px-3 py-[0.6rem]"
+      class="drive-browser flex flex-col gap-[0.4rem] border border-[color-mix(in_srgb,var(--border)_75%,transparent)] bg-[color-mix(in_srgb,var(--bg-2,var(--bg))_80%,var(--bg))] px-3 py-[0.6rem]"
     >
       <div class="drive-browser-head flex items-center gap-[0.4rem]">
         <span
@@ -572,7 +572,7 @@
         >
           <button
             type="button"
-            class="drive-bc-seg drive-bc-root cursor-pointer rounded border-none bg-transparent px-[0.2rem] py-[0.1rem] text-[0.8rem] font-semibold text-muted hover:bg-[color-mix(in_srgb,var(--accent,#6366f1)_10%,transparent)]"
+            class="drive-bc-seg drive-bc-root cursor-pointer border-none bg-transparent px-[0.2rem] py-[0.1rem] text-[0.8rem] font-semibold text-muted hover:bg-[color-mix(in_srgb,var(--accent,#6366f1)_10%,transparent)]"
             onclick={() => { browserStack = []; void loadBrowser(undefined) }}
           >
             My Drive
@@ -581,7 +581,7 @@
             <ChevronRight size={13} class="drive-bc-sep" aria-hidden="true" />
             <button
               type="button"
-              class="drive-bc-seg cursor-pointer rounded border-none bg-transparent px-[0.2rem] py-[0.1rem] text-[0.8rem] font-semibold text-accent hover:bg-[color-mix(in_srgb,var(--accent,#6366f1)_10%,transparent)]"
+              class="drive-bc-seg cursor-pointer border-none bg-transparent px-[0.2rem] py-[0.1rem] text-[0.8rem] font-semibold text-accent hover:bg-[color-mix(in_srgb,var(--accent,#6366f1)_10%,transparent)]"
               onclick={() => {
                 const next = browserStack.slice(0, i + 1)
                 browserStack = next
@@ -615,7 +615,7 @@
             >
               <button
                 type="button"
-                class="drive-browser-name flex flex-1 items-center gap-[0.35rem] rounded border-none bg-transparent px-[0.3rem] py-[0.2rem] text-left text-sm text-inherit hover:enabled:bg-[color-mix(in_srgb,var(--text)_6%,transparent)] disabled:cursor-default"
+                class="drive-browser-name flex flex-1 items-center gap-[0.35rem] border-none bg-transparent px-[0.3rem] py-[0.2rem] text-left text-sm text-inherit hover:enabled:bg-[color-mix(in_srgb,var(--text)_6%,transparent)] disabled:cursor-default"
                 disabled={!f.hasChildren}
                 onclick={() => browserEnter(f)}
               >
@@ -685,7 +685,7 @@
             <button
               type="button"
               class={cn(
-                'drive-toggle relative h-5 w-9 shrink-0 cursor-pointer rounded-full border-none p-0 transition-colors duration-150',
+                'drive-toggle relative h-5 w-9 shrink-0 cursor-pointer border-none p-0 transition-colors duration-150',
                 sharedWithMe
                   ? 'drive-toggle--on bg-accent'
                   : 'bg-[color-mix(in_srgb,var(--text)_18%,transparent)]',
@@ -697,7 +697,7 @@
             >
               <span
                 class={cn(
-                  'drive-toggle-thumb absolute left-[0.15rem] top-[0.15rem] h-[0.95rem] w-[0.95rem] rounded-full bg-white shadow-[0_1px_2px_rgb(0_0_0/18%)] transition-transform duration-150',
+                  'drive-toggle-thumb absolute left-[0.15rem] top-[0.15rem] h-[0.95rem] w-[0.95rem] bg-white shadow-[0_1px_2px_rgb(0_0_0/18%)] transition-transform duration-150',
                   sharedWithMe && 'translate-x-4',
                 )}
               ></span>
@@ -710,7 +710,7 @@
               Ignore patterns (one per line)
             </span>
             <textarea
-              class="hub-source-textarea drive-adv-textarea resize-y rounded-md border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-2 py-1.5 text-[0.8rem] text-foreground"
+              class="hub-source-textarea drive-adv-textarea resize-y border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-2 py-1.5 text-[0.8rem] text-foreground"
               rows={3}
               value={ignoreText}
               oninput={onIgnoreTextInput}
@@ -725,7 +725,7 @@
             </span>
             <input
               type="number"
-              class="hub-source-input drive-adv-input max-w-28 rounded-md border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-2 py-1.5 text-sm text-foreground"
+              class="hub-source-input drive-adv-input max-w-28 border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-surface px-2 py-1.5 text-sm text-foreground"
               min={1}
               step={1}
               value={maxFileMb}

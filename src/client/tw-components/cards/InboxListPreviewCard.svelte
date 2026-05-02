@@ -103,7 +103,7 @@
             onclick={() => void archive(row.id)}
           >
             {#if archivingId === row.id}
-              <span class="row-archive-spin h-3.5 w-3.5 rounded-full border-2 border-border border-t-accent" aria-hidden="true"></span>
+              <span class="row-archive-spin h-3.5 w-3.5 border-2 border-border border-t-accent" aria-hidden="true"></span>
             {:else}
               <Archive size={15} strokeWidth={2} aria-hidden="true" />
             {/if}

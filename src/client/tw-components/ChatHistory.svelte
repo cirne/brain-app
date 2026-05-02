@@ -321,7 +321,7 @@
     --ch-lh-row-title: 1.32;
     --ch-row-pad: 6px 8px;
     --ch-row-min-h: 0;
-    --ch-row-gap: 5px;
+    --ch-row-gap: 0;
     --ch-icon-w: 16px;
     --ch-wfn-icon-w: 14px;
 
@@ -346,7 +346,7 @@
       --ch-lh-row-title: 1.35;
       --ch-row-pad: 8px 8px;
       --ch-row-min-h: 44px;
-      --ch-row-gap: 6px;
+      --ch-row-gap: 0;
       --ch-icon-w: 20px;
       --ch-wfn-icon-w: 16px;
     }
@@ -356,14 +356,13 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    /* Horizontal inset — must live in scoped CSS so it always wins */
-    padding: 0 14px 14px;
+    padding: 0 0 14px;
     box-sizing: border-box;
   }
 
   @media (max-width: 768px) {
     .ch-scroll {
-      padding: 0 12px 12px;
+      padding: 0 0 12px;
     }
   }
 
@@ -419,8 +418,7 @@
     width: 100%;
     margin: 0 0 8px;
     padding: 7px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
     font-size: var(--ch-fs-new-chat);
@@ -431,11 +429,10 @@
 
   .ch-view-all {
     display: block;
-    width: calc(100% - 4px);
-    margin: 6px 2px 0;
+    width: 100%;
+    margin: 6px 0 0;
     padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px dashed var(--border);
+border: 1px dashed var(--border);
     background: transparent;
     color: var(--accent);
     font-size: var(--ch-fs-view-all);
@@ -466,7 +463,6 @@
     min-height: var(--ch-row-min-h);
     padding: var(--ch-row-pad);
     box-sizing: border-box;
-    border-radius: 6px;
     margin: 0;
     color: var(--text);
     cursor: pointer;
@@ -549,8 +545,7 @@
     flex-shrink: 0;
     padding: 3px;
     border: none;
-    border-radius: 4px;
-    background: transparent;
+background: transparent;
     color: var(--text-2);
     cursor: pointer;
     opacity: 0;

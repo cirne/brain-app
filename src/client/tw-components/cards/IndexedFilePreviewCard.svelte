@@ -29,7 +29,7 @@
       >{title}</span>
       {#if sourceKind}
         <span
-          class="indexed-file-badge rounded bg-[var(--chip-bg,rgba(0,0,0,0.06))] px-1.5 py-px font-mono text-[10px] text-muted"
+          class="indexed-file-badge bg-[var(--chip-bg,rgba(0,0,0,0.06))] px-1.5 py-px font-mono text-[10px] text-muted"
         >{sourceKind}</span>
       {/if}
     </span>

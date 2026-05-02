@@ -211,8 +211,7 @@
     font-size: 14px;
     line-height: 1.45;
     padding: 8px 12px;
-    border-radius: 14px;
-    background: var(--bg-2);
+background: var(--bg-2);
     color: var(--text);
     max-width: min(92%, 520px);
     word-break: break-word;

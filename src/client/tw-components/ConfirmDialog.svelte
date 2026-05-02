@@ -69,7 +69,7 @@
   }
 
   const btnBase =
-    'cd-btn cursor-pointer rounded-md border border-border bg-surface-3 px-3 py-[0.4rem] text-xs font-medium leading-tight text-foreground transition-colors hover:bg-surface-2 [font:inherit] disabled:cursor-not-allowed disabled:opacity-50'
+    'cd-btn cursor-pointer border border-border bg-surface-3 px-3 py-[0.4rem] text-xs font-medium leading-tight text-foreground transition-colors hover:bg-surface-2 [font:inherit] disabled:cursor-not-allowed disabled:opacity-50'
   const btnDanger =
     'cd-btn--danger border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] bg-[color-mix(in_srgb,var(--danger)_12%,var(--bg))] text-danger hover:bg-[color-mix(in_srgb,var(--danger)_22%,var(--bg))]'
 </script>
@@ -98,7 +98,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class={cn(
-        'cd-panel relative z-[1] box-border w-full max-w-[22rem] cursor-auto rounded-[10px] border border-border bg-surface px-4 pt-4 pb-3 [box-shadow:0_12px_40px_rgba(0,0,0,0.25)]',
+        'cd-panel relative z-[1] box-border w-full max-w-[22rem] cursor-auto border border-border bg-surface px-4 pt-4 pb-3 [box-shadow:0_12px_40px_rgba(0,0,0,0.25)]',
         panelClass,
       )}
       onclick={onPanelClick}
@@ -142,8 +142,7 @@
     font-weight: 500;
     line-height: 1.2;
     padding: 0.4rem 0.75rem;
-    border-radius: 0.375rem;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
     transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;

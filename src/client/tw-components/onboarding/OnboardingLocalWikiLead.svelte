@@ -10,7 +10,7 @@
   aria-labelledby={hideTitle ? undefined : 'ob-local-wiki-title'}
 >
   <div
-    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-border bg-surface-3 text-accent [font:inherit]"
+    class="flex h-10 w-10 shrink-0 items-center justify-center border border-border bg-surface-3 text-accent [font:inherit]"
     aria-hidden="true"
   >
     <Lock size={20} strokeWidth={2} />

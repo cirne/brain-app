@@ -96,8 +96,7 @@
   .pulse-dot {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
-    background: var(--accent);
+background: var(--accent);
   }
 
   .wiki-page-count-indicator--lg .pulse-dot {

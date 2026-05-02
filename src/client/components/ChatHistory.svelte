@@ -356,8 +356,7 @@
     width: 100%;
     margin: 0 0 8px;
     padding: 7px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
+border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
     font-size: var(--ch-fs-new-chat);
@@ -369,7 +368,7 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 0 6px 10px;
+    padding: 0 0 10px;
   }
 
   .ch-muted {
@@ -415,11 +414,10 @@
 
   .ch-view-all {
     display: block;
-    width: calc(100% - 4px);
-    margin: 4px 2px 0;
+    width: 100%;
+    margin: 4px 0 0;
     padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px dashed var(--border);
+border: 1px dashed var(--border);
     background: transparent;
     color: var(--accent);
     font-size: var(--ch-fs-view-all);
@@ -442,8 +440,7 @@
     min-height: var(--ch-row-min-h);
     padding: var(--ch-row-pad);
     box-sizing: border-box;
-    border-radius: 6px;
-    margin-bottom: 1px;
+    margin: 0;
     color: var(--text);
     cursor: pointer;
     transition: background 0.12s;
@@ -520,8 +517,7 @@
   .ch-row-delete {
     flex-shrink: 0;
     padding: 3px;
-    border-radius: 4px;
-    color: var(--text-2);
+color: var(--text-2);
     opacity: 0;
     transition: opacity 0.12s, color 0.12s, background 0.12s;
   }

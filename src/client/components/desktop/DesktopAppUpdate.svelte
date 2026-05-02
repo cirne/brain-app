@@ -39,7 +39,7 @@
 
 {#if pending}
   <div
-    class="fixed bottom-3 right-3 z-[20000] flex max-w-[min(100vw-1.5rem,420px)] flex-wrap items-center gap-2.5 rounded-[10px] bg-[var(--panel,#1e1e1e)] p-2.5 px-3.5 text-sm text-[var(--text,#eee)] shadow-[0_4px_24px_rgba(0,0,0,0.4)] [font:inherit]"
+    class="fixed bottom-3 right-3 z-[20000] flex max-w-[min(100vw-1.5rem,420px)] flex-wrap items-center gap-2.5 bg-[var(--panel,#1e1e1e)] p-2.5 px-3.5 text-sm text-[var(--text,#eee)] shadow-[0_4px_24px_rgba(0,0,0,0.4)] [font:inherit]"
     role="status"
     aria-live="polite"
   >
@@ -48,7 +48,7 @@
     </span>
     <button
       type="button"
-      class="shrink-0 cursor-pointer rounded-md border border-border bg-surface-2 px-3 py-1.5 text-xs text-inherit [font:inherit] [background:var(--button-bg,#2a2a2a)] [border-color:var(--border,#444)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+      class="shrink-0 cursor-pointer border border-border bg-surface-2 px-3 py-1.5 text-xs text-inherit [font:inherit] [background:var(--button-bg,#2a2a2a)] [border-color:var(--border,#444)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={busy}
       onclick={installAndRelaunch}
     >

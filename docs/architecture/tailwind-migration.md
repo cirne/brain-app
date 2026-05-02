@@ -10,7 +10,7 @@ As of April 2026:
 
 - **68 of 129 Svelte components** contain inline `<style>` blocks with BEM-style class names (e.g. `hub-source-meta`, `hub-connector-title`, `agent-conversation-tool-call`).
 - **8 standalone CSS files** under `src/client/styles/` (~1,585 lines total): onboarding, markdown rendering, agent streaming, wiki, search.
-- **Global `src/client/style.css`** (~169 lines): CSS custom properties (`:root` tokens), resets, typography — already imports Tailwind.
+- **Global `src/client/style.css`**: `:root` tokens, **`@layer base` / `@layer components`** resets and semantic globals, typography — imports Tailwind first, then layered app rules.
 
 The hybrid state means new components can use Tailwind utilities while old ones use scoped class names, but the two systems don't compose cleanly (e.g. a Tailwind `dark:` variant can't reach inside a scoped block).
 
@@ -77,6 +77,23 @@ In DevTools → **Computed**, click the property (e.g. `padding-left`). The **ca
 Tailwind utilities normally live in **`@layer utilities`**. **Unlayered** rules elsewhere in `style.css` or other global CSS can override layered utilities **without** obviously higher specificity.
 
 **Mitigation:** Prefer keeping app-wide rules in **`@layer base`** / **`@layer components`** (or aligned with Tailwind’s layering), or ensure global rules don’t set the same properties you expect utilities to own on those nodes.
+
+### Global CSS layering (`src/client/style.css`)
+
+[`src/client/style.css`](../../src/client/style.css) follows this convention:
+
+| Layer | Contents |
+|-------|----------|
+| **`@layer base`** | Universal reset (`*` / `::before` / `::after`), `:root` + dark `:root`, `html` / `body` / `#app`, `button`, `a`, scrollbar pseudo-elements, sync `@keyframes` / helper classes and mobile `:root` variable tweaks |
+| **`@layer components`** | Semantic app classes whose properties **overlap** Tailwind spacing / width (currently **`.chat-transcript-scroll`** and its split-pane max-width rule) |
+
+**Standalone CSS** pulled in beside Tailwind (`styles/search/*.css`, `styles/onboarding/*.css`) is imported **into a named layer**:
+
+`@import "./styles/..." layer(base)` or `layer(components)` so those files are not **unlayered** surprises.
+
+Utilities should express **pane gutters** (`ChatHistory` **`.ch-scroll`**, inbox **`.thread-body`**) directly on the element when possible — **scoped** rules on the same node still beat a single utility (see §3).
+
+**Later cleanup:** Preflight already sets **`box-sizing: border-box`** on `*`. Full removal of **`margin` / `padding` zero on `*`** vs Preflight duplication is intentionally conservative until regressions have been eyeballed (onboarding, assistant transcript, inbox thread).
 
 ### 3. Svelte scoped `<style>` specificity
 

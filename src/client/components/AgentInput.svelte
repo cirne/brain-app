@@ -386,8 +386,7 @@
     overflow-y: auto;
     background: var(--bg-3);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    margin-bottom: 4px;
+margin-bottom: 4px;
     box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
   }
 
@@ -467,8 +466,7 @@
     min-height: 42px;
     padding: 0;
     border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--bg);
+background: var(--bg);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -506,8 +504,7 @@
     padding: 0;
     border: none;
     border-right: 1px solid var(--border);
-    border-radius: var(--new-chat-r) 0 0 var(--new-chat-r);
-    background: var(--bg);
+background: var(--bg);
     color: var(--text-2);
     flex-shrink: 0;
     cursor: pointer;
@@ -561,8 +558,7 @@
     box-sizing: border-box;
     resize: none;
     border: none;
-    border-radius: 0;
-    padding: 8px 2px 5px 2px;
+padding: 8px 2px 5px 2px;
     font: inherit;
     font-size: 16px;
     line-height: 1.4;
@@ -600,8 +596,7 @@
     width: 48px;
     padding: 0;
     border: none;
-    border-radius: 0 var(--send-btn-outer-r) var(--send-btn-outer-r) 0;
-    background: var(--accent);
+background: var(--accent);
     color: white;
     flex-shrink: 0;
     cursor: pointer;
@@ -626,8 +621,7 @@
   }
 
   .send-actions--streaming .stop-btn {
-    border-radius: 0;
-    border-right: 1px solid rgba(255, 255, 255, 0.25);
+border-right: 1px solid rgba(255, 255, 255, 0.25);
   }
 
   .stop-btn {

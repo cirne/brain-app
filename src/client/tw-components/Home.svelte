@@ -54,7 +54,7 @@
 
   const unreadCount = $derived(inboxItems.filter((m: InboxItem) => !m.read).length)
 
-  const cardCls = 'card rounded-lg border border-border bg-surface-2 px-4 py-3.5'
+  const cardCls = 'card border border-border bg-surface-2 px-4 py-3.5'
   const sectionTitleCls = 'section-title m-0 mb-2.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted'
   const mutedCls = 'muted text-xs text-muted opacity-70'
 </script>
@@ -74,7 +74,7 @@
       <h2 class={sectionTitleCls}>
         Inbox
         {#if unreadCount > 0}
-          <span class="badge rounded-[10px] bg-accent px-[7px] py-px text-[10px] font-semibold normal-case tracking-normal text-white">{unreadCount} unread</span>
+          <span class="badge bg-accent px-[7px] py-px text-[10px] font-semibold normal-case tracking-normal text-white">{unreadCount} unread</span>
         {/if}
       </h2>
       {#if inboxLoading}
@@ -87,7 +87,7 @@
             <li>
               <button
                 class={cn(
-                  'inbox-item grid w-full grid-cols-[minmax(0,130px)_1fr_auto] items-baseline gap-2 cursor-pointer rounded px-1.5 py-[5px] text-left text-xs text-muted',
+                  'inbox-item grid w-full grid-cols-[minmax(0,130px)_1fr_auto] items-baseline gap-2 cursor-pointer px-1.5 py-[5px] text-left text-xs text-muted',
                   !msg.read && 'unread bg-[color-mix(in_srgb,var(--accent)_6%,transparent)] text-foreground hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]',
                   msg.read && 'hover:bg-surface-3',
                 )}

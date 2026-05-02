@@ -1158,8 +1158,7 @@
     align-items: center;
     justify-content: center;
     padding: 4px;
-    border-radius: 4px;
-    flex-shrink: 0;
+flex-shrink: 0;
     color: var(--text-2);
     opacity: 1;
     transition: color 0.15s, background 0.15s;
@@ -1176,8 +1175,7 @@
     align-items: center;
     justify-content: center;
     padding: 4px;
-    border-radius: 4px;
-    flex-shrink: 0;
+flex-shrink: 0;
     color: var(--text-2);
     opacity: 1;
     transition: color 0.15s, background 0.15s;

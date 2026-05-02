@@ -217,8 +217,7 @@
     align-items: baseline;
     gap: 5px;
     padding: 3px 7px;
-    border-radius: 3px;
-    font-size: 12px;
+font-size: 12px;
     line-height: 1.4;
   }
 
@@ -287,8 +286,7 @@
     margin: 0;
     padding: 3px 7px;
     border: none;
-    border-radius: 3px;
-    font: inherit;
+font: inherit;
     text-align: left;
     cursor: pointer;
     color: inherit;

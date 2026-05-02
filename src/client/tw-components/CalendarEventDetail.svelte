@@ -127,13 +127,13 @@
 
   /** Card-like related-row button shared between people, messages, and wiki blocks. */
   const relatedBtnBase =
-    'm-0 flex w-full cursor-pointer flex-col items-start gap-[2px] rounded-md border border-border bg-surface-2 px-2.5 py-2 text-left text-inherit [font:inherit] transition-colors duration-150 hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] hover:bg-surface-3'
+    'm-0 flex w-full cursor-pointer flex-col items-start gap-[2px] border border-border bg-surface-2 px-2.5 py-2 text-left text-inherit [font:inherit] transition-colors duration-150 hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] hover:bg-surface-3'
 </script>
 
 <article class="ced max-w-[560px] px-1 pb-4 pt-1">
   <h2 class="ced-title m-0 mb-2.5 text-lg font-semibold leading-tight text-foreground">{event.title}</h2>
   <p
-    class="ced-badge mb-4 mt-0 inline-block rounded-full bg-[var(--custom-bg,var(--bg-3))] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--custom-text,var(--text-2))]"
+    class="ced-badge mb-4 mt-0 inline-block bg-[var(--custom-bg,var(--bg-3))] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--custom-text,var(--text-2))]"
     data-source={event.source}
     style={event.color ? `--custom-bg: color-mix(in srgb, ${event.color} 22%, var(--bg-3)); --custom-text: var(--text);` : ''}
   >

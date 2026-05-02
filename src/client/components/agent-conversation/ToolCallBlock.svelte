@@ -316,8 +316,7 @@
   .tool-content-preview-shell {
     background: var(--bg);
     border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-    border-radius: 6px;
-    padding: 10px 12px;
+padding: 10px 12px;
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
@@ -325,8 +324,7 @@
 
   .tool-call {
     margin: 0;
-    border-radius: 4px;
-    font-size: 13px;
+font-size: 13px;
     overflow: hidden;
     min-width: 0;
     max-width: 100%;
@@ -396,8 +394,7 @@
     justify-content: center;
     line-height: 1;
     padding: 4px;
-    border-radius: 999px;
-    color: var(--text-2);
+color: var(--text-2);
     background: color-mix(in srgb, var(--border) 35%, transparent);
     border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   }
