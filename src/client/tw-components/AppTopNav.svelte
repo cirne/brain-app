@@ -80,7 +80,7 @@
       class={cn(
         'nav-left flex min-h-full shrink-0 items-center justify-between gap-2 bg-surface-2 [box-sizing:border-box]',
         navOpen
-          ? 'nav-left--wide w-sidebar-history min-w-sidebar-history px-2.5 max-md:w-sidebar-history-mobile max-md:min-w-sidebar-history-mobile'
+          ? 'nav-left--wide w-sidebar-history min-w-sidebar-history px-3 max-md:w-sidebar-history-mobile max-md:min-w-sidebar-history-mobile'
           : 'nav-left--collapsed w-auto min-w-10 px-1.5',
       )}
     >

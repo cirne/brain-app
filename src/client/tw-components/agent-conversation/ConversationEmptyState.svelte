@@ -13,12 +13,14 @@
   } = $props()
 </script>
 
-<div class="box-border flex flex-col items-stretch justify-center gap-2 pb-2 text-sm text-muted">
-  <div class="w-full text-center">
+<div class="box-border flex w-full justify-center pb-2">
+  <div
+    class="max-w-md text-balance text-center text-sm leading-relaxed text-muted px-[length:var(--chat-transcript-px)]"
+  >
     <p>Ask anything about your docs, email, or calendar.</p>
-    <p class="text-xs opacity-70">
-      Use <kbd class="rounded border border-border bg-surface-3 px-1.5 py-px font-[inherit] text-xs">@</kbd> to reference
-      docs in{' '}
+    <p class="mt-1.5 text-xs opacity-70">
+      Use <kbd class="rounded border border-border bg-surface-3 px-1.5 py-px font-[inherit] text-xs">@</kbd> to reference docs
+      in{' '}
       {#if onOpenWikiAbout}
         <button
           type="button"

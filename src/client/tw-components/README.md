@@ -16,10 +16,16 @@ Strangler-fig destination for the Tailwind-first refactor tracked in
 - Prefer Tailwind utilities for layout, spacing, color, typography, and
   responsive behavior. Use `cn()` from `@client/lib/cn.js` for dynamic
   class strings.
+- If utilities **look ignored** on a node (padding, margin, font-size): use
+  DevTools **Computed → cascade** to see what wins — often **scoped Svelte CSS**,
+  **unlayered globals**, or **flex + `margin: auto`** — not missing Tailwind output.
+  See **[`docs/architecture/tailwind-migration.md`](../../../docs/architecture/tailwind-migration.md)** (section **Pitfalls: when utilities “don’t apply”**).
 - Keep scoped `<style>` blocks only for:
   - keyframes / `prefers-reduced-motion` exceptions
   - masks, scrollbar pseudo-elements, deep `:global` selectors
   - third-party widget overrides (TipTap, lucide internals, etc.)
+  - **Short-term legacy parity** for a screen (e.g. dense rails); plan to fold
+    spacing back into utilities or `@apply` once cascade is understood.
 - Preserve the legacy class names that tests assert (`composer-context-bar__refs`,
   `chat-pane`, `mobile-slide`, etc.) as hooks, even when they no longer carry style.
 - Preserve public props/events. Migration changes styling, not contracts.

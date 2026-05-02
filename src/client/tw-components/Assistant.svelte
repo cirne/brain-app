@@ -1578,7 +1578,7 @@
                 shell.route.overlay.type !== 'hub' &&
                 shell.route.overlay.type !== 'chat-history'
               }
-                <div class="mobile-detail-layer absolute inset-0 z-10 flex min-h-0 flex-col [&_:global(.slide-over)]:flex-1 [&_:global(.slide-over)]:min-h-0 [&_:global(.slide-over)]:border-l-0">
+                <div class="mobile-detail-layer absolute inset-0 z-10 flex min-h-0 flex-col">
                   <AssistantSlideOver
                     bind:this={refs.mobileSlideOver}
                     variant="mobile"
@@ -1629,7 +1629,7 @@
                 shell.route.overlay.type !== 'hub' &&
                 shell.route.overlay.type !== 'chat-history'
               }
-                <div class="mobile-detail-layer absolute inset-0 z-10 flex min-h-0 flex-col [&_:global(.slide-over)]:flex-1 [&_:global(.slide-over)]:min-h-0 [&_:global(.slide-over)]:border-l-0">
+                <div class="mobile-detail-layer absolute inset-0 z-10 flex min-h-0 flex-col">
                   <AssistantSlideOver
                     bind:this={refs.mobileSlideOver}
                     variant="mobile"
@@ -1791,3 +1791,13 @@
     </div>
   </div>
 </div>
+
+<style>
+  /* Hub / settings mobile overlays: fill layer and strip slide-over chrome (scoped; do not put
+     `:global(...)` inside Tailwind class strings — that emits invalid selectors into globals.css.) */
+  .mobile-detail-layer :global(.slide-over) {
+    border-left: none;
+    flex: 1;
+    min-height: 0;
+  }
+</style>

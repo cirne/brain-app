@@ -800,7 +800,7 @@
     'inline-flex shrink-0 items-center justify-center rounded p-1 text-muted opacity-100 transition-colors duration-150 hover:bg-surface-3 hover:text-foreground max-md:min-h-11 max-md:min-w-11 max-md:p-0 max-md:[&_svg]:h-5 max-md:[&_svg]:w-5 [&_svg]:shrink-0'
 </script>
 
-<div class="agent-chat flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden bg-surface-2">
+<div class="agent-chat flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden bg-surface">
   <div
     class="chat-body relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden"
     style:--composer-context-overlap-pad={showComposerContextBar && contextBarActualHeight > 0
@@ -966,7 +966,7 @@
     {#if !hideInput}
       <div
         class={cn(
-          'composer-stack relative flex shrink-0 flex-col max-md:pb-[env(safe-area-inset-bottom,0px)] md:[.split:not(.has-detail)_&]:mx-auto md:[.split:not(.has-detail)_&]:w-full md:[.split:not(.has-detail)_&]:max-w-chat',
+          'composer-stack relative flex shrink-0 flex-col max-md:pb-[env(safe-area-inset-bottom,0px)]',
           bridgeSlideLayout && 'composer-stack--bridge-dock bg-surface',
         )}
       >
@@ -1045,5 +1045,20 @@
     border-left: none;
     flex: 1;
     min-height: 0;
+  }
+
+  /**
+   * Match legacy `components/AgentChat`: column width + horizontal centering.
+   * Tailwind `mx-auto` on a flex item is defeated by `align-items: stretch` on the column parent;
+   * use plain CSS so the composer lines up with `.chat-transcript-scroll` (see `style.css`).
+   */
+  @media (min-width: 768px) {
+    :global(.split:not(.has-detail)) .composer-stack {
+      box-sizing: border-box;
+      width: 100%;
+      max-width: var(--chat-column-max);
+      margin-left: auto;
+      margin-right: auto;
+    }
   }
 </style>

@@ -246,12 +246,13 @@
 
   // Shared button styles (preserve legacy class hooks for tests / external selectors).
   const sendBtnBase =
-    'send-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] border-none bg-accent text-white p-0 rounded-r-[9px] disabled:cursor-not-allowed disabled:opacity-40'
+    'send-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] border-none bg-accent text-white p-0 rounded-r-xl disabled:cursor-not-allowed disabled:opacity-40'
 </script>
 
 <div class={cn(
-  'input-area relative shrink-0 px-3 py-1.5',
-  transparentSurround ? 'input-area--transparent bg-transparent' : 'bg-surface-2',
+  /* Match transcript horizontal gutter so empty-state copy lines up with the composer shell */
+  'input-area relative shrink-0 px-[length:var(--chat-transcript-px)] py-1.5',
+  transparentSurround ? 'input-area--transparent bg-transparent' : 'bg-surface',
 )}>
   {#if showSlash}
     <div
@@ -296,7 +297,7 @@
   {/if}
 
   <div class="input-row flex w-full min-w-0">
-    <div class="input-shell flex flex-1 min-w-0 flex-col min-h-[42px] overflow-hidden rounded-[10px] border border-border bg-surface focus-within:border-accent">
+    <div class="input-shell flex flex-1 min-w-0 flex-col min-h-[42px] overflow-hidden rounded-xl border border-border bg-surface focus-within:border-accent">
       {#if queuedMessages.length > 0}
         <div
           class="queued-list mb-0.5 flex flex-col gap-1.5 min-w-0 px-2.5 pt-[3px]"
@@ -324,7 +325,7 @@
           <div class="lead-actions flex shrink-0 flex-row items-stretch self-stretch" role="group" aria-label="Start new chat">
             <button
               type="button"
-              class="new-chat-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] p-0 border-none border-r border-r-border rounded-l-[9px] bg-surface text-muted transition-colors hover:bg-surface-3 hover:text-foreground active:[filter:brightness(0.97)]"
+              class="new-chat-btn inline-flex shrink-0 cursor-pointer items-center justify-center self-stretch min-w-[48px] w-[48px] p-0 border-none border-r border-r-border rounded-l-xl bg-surface text-muted transition-colors hover:bg-surface-3 hover:text-foreground active:[filter:brightness(0.97)]"
               onclick={() => onNewChat()}
               title="New chat (⌘N)"
               aria-label="New chat"
@@ -335,12 +336,12 @@
         {/if}
         <div
           class={cn(
-            'input-shell-inner flex flex-1 min-w-0 items-start py-[3px] pr-1.5 pl-2.5',
-            onNewChat && 'input-shell-inner--with-lead pl-2',
+            'input-shell-inner flex flex-1 min-w-0 items-center py-1 pr-2 pl-3',
+            onNewChat && 'input-shell-inner--with-lead pl-2.5',
           )}
         >
           <textarea
-            class="chat-textarea w-full flex-1 box-border min-w-0 min-h-[38px] max-h-[min(480px,55vh)] resize-none rounded-none border-none bg-transparent px-0.5 pt-2 pb-[5px] text-base leading-[1.4] text-foreground [overflow-x:hidden] [overflow-y:hidden] [&::placeholder]:block [&::placeholder]:overflow-hidden [&::placeholder]:text-ellipsis [&::placeholder]:whitespace-nowrap focus:outline-none disabled:opacity-60"
+            class="chat-textarea w-full flex-1 box-border min-w-0 min-h-[40px] max-h-[min(480px,55vh)] resize-none rounded-none border-none bg-transparent px-1 py-2.5 text-base leading-normal text-foreground [overflow-x:hidden] [overflow-y:hidden] placeholder:text-muted placeholder:opacity-80 focus:outline-none disabled:opacity-60"
             bind:this={inputEl}
             bind:value={input}
             oninput={handleInput}
@@ -404,3 +405,12 @@
     </div>
   </div>
 </div>
+
+<style>
+  /* Match legacy ellipsis for long placeholders; avoid quirky `display` on ::placeholder (breaks baseline in some engines). */
+  .chat-textarea::placeholder {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>

@@ -183,19 +183,12 @@
       }
     })
   })
-
-  // Shared button styles (preserve legacy class hooks).
-  const railBtnCls =
-    'flex w-full items-center justify-start gap-1.5 box-border mb-2 px-2.5 py-[7px] rounded-md border border-border bg-surface-3 text-foreground font-medium transition-colors text-[var(--ch-fs-new-chat)] hover:bg-surface hover:border-muted'
 </script>
 
 {#snippet navRow(item: NavRowItem)}
   {@const agentWorking = chatRowShowsAgentWorking(item, streamingSessionIds)}
   <div
-    class={cn(
-      'ch-row group/chrow relative flex w-full items-center gap-1.5 box-border [padding:var(--ch-row-pad)] min-h-[var(--ch-row-min-h)] rounded-md mb-px text-left text-foreground cursor-pointer transition-colors hover:bg-surface-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:[outline-offset:1px]',
-      item.type === 'chat' && activeSessionId === item.sessionId && 'active bg-accent-dim outline outline-1 outline-accent',
-    )}
+    class={cn('ch-row', item.type === 'chat' && activeSessionId === item.sessionId && 'active')}
     role="button"
     tabindex="0"
     onclick={() => handleItemClick(item)}
@@ -207,18 +200,16 @@
     }}
   >
     {#if item.type === 'doc' && item.path}
-      <span
-        class="ch-row-doc flex-1 min-w-0 overflow-hidden [&_.wfn-title-row]:text-[var(--ch-fs-row-title)] [&_.wfn-title-row]:leading-[var(--ch-lh-row-title)] [&_.wfn-lead-icon]:w-[var(--ch-wfn-icon-w)] [&_.wfn-name]:text-foreground group-hover/chrow:[&_.wfn-name]:text-accent"
-      >
+      <span class="ch-row-doc">
         <WikiFileName path={item.path} />
       </span>
     {:else}
       <span
         class={cn(
-          'ch-row-icon flex shrink-0 items-center justify-center w-[var(--ch-icon-w)] text-muted opacity-60',
-          item.type === 'chat' && 'ch-row-icon--chat text-accent opacity-75',
-          item.type === 'email' && 'ch-row-icon--email text-muted opacity-65',
-          agentWorking && 'ch-row-icon--working opacity-90',
+          'ch-row-icon',
+          item.type === 'chat' && 'ch-row-icon--chat',
+          item.type === 'email' && 'ch-row-icon--email',
+          agentWorking && 'ch-row-icon--working',
         )}
       >
         {#if item.type === 'chat'}
@@ -231,12 +222,12 @@
           <Mail size={12} strokeWidth={2} aria-hidden="true" />
         {/if}
       </span>
-      <span class="ch-row-title flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--ch-fs-row-title)] leading-[var(--ch-lh-row-title)]">{item.title}</span>
+      <span class="ch-row-title">{item.title}</span>
     {/if}
-    <span class="ch-row-time shrink-0 text-[var(--ch-fs-row-time)] text-muted opacity-70">{shortTime(item.timestamp)}</span>
+    <span class="ch-row-time">{shortTime(item.timestamp)}</span>
     <button
       type="button"
-      class="ch-row-delete shrink-0 p-[3px] rounded text-muted opacity-0 transition-[opacity,color,background] [@media(hover:none)]:opacity-100 group-hover/chrow:opacity-100 hover:!text-danger hover:!bg-[rgba(224,92,92,0.12)]"
+      class="ch-row-delete"
       title={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
       aria-label={item.type === 'chat' ? 'Delete chat' : 'Remove from history'}
       onclick={(e) => requestDelete(e, item)}
@@ -246,51 +237,51 @@
   </div>
 {/snippet}
 
-<div class="chat-history flex h-full min-h-0 flex-col bg-surface-2 pt-2">
-  <div class="ch-scroll flex-1 min-h-0 overflow-y-auto px-1.5 pb-2.5">
+<div class="chat-history">
+  <div class="ch-scroll">
     {#if loading}
-      <div class="ch-muted p-2.5 text-[var(--ch-fs-muted)] text-muted">Loading…</div>
+      <div class="ch-muted">Loading…</div>
     {:else if error}
-      <div class="ch-error p-2.5 text-[var(--ch-fs-error)] text-danger">{error}</div>
+      <div class="ch-error">{error}</div>
     {:else}
-      <section class="ch-group ch-group--chats m-0 mt-0.5" aria-labelledby="ch-heading-chats">
-        <h2 class="ch-group-label m-0 px-1.5 pb-1.5 pt-0.5 text-[var(--ch-fs-group-label)] font-semibold uppercase tracking-wider text-muted" id="ch-heading-chats">Chats</h2>
-        <button type="button" class={cn('new-chat-btn', railBtnCls)} onclick={() => onNewChat()}>
+      <section class="ch-group ch-group--chats" aria-labelledby="ch-heading-chats">
+        <h2 class="ch-group-label" id="ch-heading-chats">Chats</h2>
+        <button type="button" class="new-chat-btn" onclick={() => onNewChat()}>
           <Plus size={14} strokeWidth={2.5} aria-hidden="true" />
           <span>New chat</span>
         </button>
         {#if chatItems.length === 0}
-          <div class="ch-muted ch-muted--section px-1.5 pb-2 pt-1.5 italic text-[var(--ch-fs-muted)] text-muted">No chats yet.</div>
+          <div class="ch-muted ch-muted--section">No chats yet.</div>
         {:else}
-          {#each chatItems as item (item.id)}
-            {@render navRow(item)}
-          {/each}
+          <div class="ch-row-list">
+            {#each chatItems as item (item.id)}
+              {@render navRow(item)}
+            {/each}
+          </div>
           {#if hasMoreChats && onOpenAllChats}
-            <button
-              type="button"
-              class="ch-view-all block w-[calc(100%-4px)] mx-0.5 mt-1 px-2 py-1.5 rounded-md border border-dashed border-border bg-transparent text-[var(--ch-fs-view-all)] font-medium text-accent text-left cursor-pointer transition-[background,border-color] hover:bg-surface-3 hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:[outline-offset:1px]"
-              onclick={() => onOpenAllChats()}
-            >
+            <button type="button" class="ch-view-all" onclick={() => onOpenAllChats()}>
               View all chats…
             </button>
           {/if}
         {/if}
       </section>
 
-      <section class="ch-group ch-group--recents mt-3.5 pt-2.5 border-t border-border" aria-labelledby="ch-heading-recents">
-        <h2 class="ch-group-label m-0 px-1.5 pb-1.5 pt-0.5 text-[var(--ch-fs-group-label)] font-semibold uppercase tracking-wider text-muted" id="ch-heading-recents">Recents</h2>
+      <section class="ch-group ch-group--recents" aria-labelledby="ch-heading-recents">
+        <h2 class="ch-group-label" id="ch-heading-recents">Recents</h2>
         {#if onWikiHome}
-          <button type="button" class={cn('wiki-home-btn', railBtnCls)} onclick={() => onWikiHome()}>
+          <button type="button" class="wiki-home-btn" onclick={() => onWikiHome()}>
             <BookOpen size={14} strokeWidth={2.5} aria-hidden="true" />
             <span>Wiki home</span>
           </button>
         {/if}
         {#if recentItems.length === 0}
-          <div class="ch-muted ch-muted--section px-1.5 pb-2 pt-1.5 italic text-[var(--ch-fs-muted)] text-muted">No recent documents or email.</div>
+          <div class="ch-muted ch-muted--section">No recent documents or email.</div>
         {:else}
-          {#each recentItems as item (item.id)}
-            {@render navRow(item)}
-          {/each}
+          <div class="ch-row-list">
+            {#each recentItems as item (item.id)}
+              {@render navRow(item)}
+            {/each}
+          </div>
         {/if}
       </section>
     {/if}
@@ -315,21 +306,32 @@
 </div>
 
 <style>
-  /* Rail typography + row touch layout: tokens live on `.chat-history` and only the workspace
-     breakpoint (max-md) overrides them. Tailwind utilities consume them via `text-[var(--…)]`. */
+  /**
+   * Same model as legacy `components/ChatHistory.svelte`: component-scoped CSS drives
+   * rail padding/gaps/fonts so layout does not depend on Tailwind emitting utilities.
+   */
   .chat-history {
     --ch-fs-new-chat: 0.75rem;
     --ch-fs-muted: 0.75rem;
     --ch-fs-error: 0.6875rem;
     --ch-fs-group-label: 0.625rem;
     --ch-fs-view-all: 0.6875rem;
-    --ch-fs-row-title: 0.75rem;
+    --ch-fs-row-title: 0.6875rem;
     --ch-fs-row-time: 0.625rem;
-    --ch-lh-row-title: 1.3;
-    --ch-row-pad: 5px 6px;
+    --ch-lh-row-title: 1.32;
+    --ch-row-pad: 6px 8px;
     --ch-row-min-h: 0;
+    --ch-row-gap: 5px;
     --ch-icon-w: 16px;
     --ch-wfn-icon-w: 14px;
+
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    padding-top: 10px;
+    background: var(--bg-2);
+    box-sizing: border-box;
   }
 
   @media (max-width: 768px) {
@@ -339,14 +341,256 @@
       --ch-fs-error: 0.75rem;
       --ch-fs-group-label: 0.6875rem;
       --ch-fs-view-all: 0.75rem;
-      /* Aligned with AppTopNav / tab row body on small screens (18px) */
       --ch-fs-row-title: 1.125rem;
       --ch-fs-row-time: 0.875rem;
       --ch-lh-row-title: 1.35;
       --ch-row-pad: 8px 8px;
       --ch-row-min-h: 44px;
+      --ch-row-gap: 6px;
       --ch-icon-w: 20px;
       --ch-wfn-icon-w: 16px;
+    }
+  }
+
+  .ch-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    /* Horizontal inset — must live in scoped CSS so it always wins */
+    padding: 0 14px 14px;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 768px) {
+    .ch-scroll {
+      padding: 0 12px 12px;
+    }
+  }
+
+  .ch-muted {
+    padding: 10px 2px;
+    font-size: var(--ch-fs-muted);
+    color: var(--text-2);
+  }
+
+  .ch-muted--section {
+    padding: 6px 2px 8px;
+    font-style: italic;
+  }
+
+  .ch-error {
+    padding: 10px 2px;
+    font-size: var(--ch-fs-error);
+    color: var(--danger);
+  }
+
+  .ch-group {
+    margin: 0;
+  }
+
+  .ch-group--chats {
+    margin-top: 2px;
+    padding-bottom: 20px;
+  }
+
+  .ch-group--recents {
+    margin-top: 4px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ch-group-label {
+    margin: 0;
+    font-size: var(--ch-fs-group-label);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-2);
+    padding: 2px 2px 8px;
+  }
+
+  .new-chat-btn,
+  .wiki-home-btn {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0 0 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text);
+    font-size: var(--ch-fs-new-chat);
+    font-weight: 500;
+    transition: background 0.15s, border-color 0.15s;
+    cursor: pointer;
+  }
+
+  .ch-view-all {
+    display: block;
+    width: calc(100% - 4px);
+    margin: 6px 2px 0;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--accent);
+    font-size: var(--ch-fs-view-all);
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    box-sizing: border-box;
+  }
+
+  .ch-view-all:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .ch-row-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ch-row-gap);
+  }
+
+  .ch-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    text-align: left;
+    min-height: var(--ch-row-min-h);
+    padding: var(--ch-row-pad);
+    box-sizing: border-box;
+    border-radius: 6px;
+    margin: 0;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+
+  .ch-row:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .ch-row.active {
+    background: var(--accent-dim);
+    outline: 1px solid var(--accent);
+  }
+
+  .ch-row-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: var(--ch-icon-w);
+    color: var(--text-2);
+    opacity: 0.6;
+  }
+
+  .ch-row-icon--chat {
+    color: var(--accent);
+    opacity: 0.75;
+  }
+
+  .ch-row-icon--working {
+    opacity: 0.9;
+  }
+
+  .ch-row-icon--email {
+    color: var(--text-2);
+    opacity: 0.65;
+  }
+
+  .ch-row-doc {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .ch-row-doc :global(.wfn-title-row) {
+    font-size: var(--ch-fs-row-title);
+    line-height: var(--ch-lh-row-title);
+  }
+
+  .ch-row-doc :global(.wfn-lead-icon) {
+    width: var(--ch-wfn-icon-w);
+  }
+
+  .ch-row-doc :global(.wfn-name) {
+    color: var(--text);
+  }
+
+  .ch-row-title {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--ch-fs-row-title);
+    line-height: var(--ch-lh-row-title);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ch-row-time {
+    margin-inline-start: 2px;
+    margin-inline-end: 6px;
+    font-size: var(--ch-fs-row-time);
+    color: var(--text-2);
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  .ch-row-delete {
+    flex-shrink: 0;
+    padding: 3px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s, color 0.12s, background 0.12s;
+  }
+
+  @media (hover: none) {
+    .ch-row-delete {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: hover) {
+    .new-chat-btn:hover,
+    .wiki-home-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-2);
+    }
+
+    .ch-view-all:hover {
+      background: var(--bg-3);
+      border-color: var(--text-2);
+    }
+
+    .ch-row:hover {
+      background: var(--bg-3);
+    }
+
+    .ch-row:hover .ch-row-doc :global(.wfn-name) {
+      color: var(--accent);
+    }
+
+    .ch-row:hover .ch-row-delete {
+      opacity: 0.45;
+    }
+
+    .ch-row-delete:hover {
+      opacity: 1 !important;
+      color: var(--danger);
+      background: rgba(224, 92, 92, 0.12);
     }
   }
 </style>

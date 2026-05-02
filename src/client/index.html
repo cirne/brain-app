@@ -7,7 +7,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#0f0f0f" />
     <title>Braintunnel</title>
-    <link rel="stylesheet" href="/style.css" />
+    <!-- Styles are imported from `main.ts`; a raw <link> to `/style.css` breaks in dev
+         because Vite serves that URL as JS (HMR), not CSS, so browsers apply nothing. -->
   </head>
   <body>
     <div id="app"></div>

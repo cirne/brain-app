@@ -64,6 +64,45 @@ Prioritize by component size and touch frequency:
 
 ---
 
+## Pitfalls: when utilities “don’t apply” (cascade & layout)
+
+Tailwind **is** generating the classes; if padding, margin, or font-size **look** ignored, something else is winning or the layout pattern fights the utility. Document this so we don’t confuse “Tailwind is broken” with “we need one source of truth per property.”
+
+### 1. Inspect the winner (required habit)
+
+In DevTools → **Computed**, click the property (e.g. `padding-left`). The **cascade** pane shows **which rule applied**. If it’s not the utility, note the file/selector and fix **that** conflict (don’t stack more utilities blindly).
+
+### 2. CSS layers (Tailwind v4)
+
+Tailwind utilities normally live in **`@layer utilities`**. **Unlayered** rules elsewhere in `style.css` or other global CSS can override layered utilities **without** obviously higher specificity.
+
+**Mitigation:** Prefer keeping app-wide rules in **`@layer base`** / **`@layer components`** (or aligned with Tailwind’s layering), or ensure global rules don’t set the same properties you expect utilities to own on those nodes.
+
+### 3. Svelte scoped `<style>` specificity
+
+A scoped rule like `.ch-scroll.svelte-xxx` targets **two classes** on the element. If it sets the same property as a **single** utility (e.g. `.px-4`), the scoped rule **often wins**. Mixing “semantic class + Tailwind utilities” on the same node without checking Computed is a common footgun.
+
+**Mitigation:** Either (a) don’t set that property in scoped CSS, (b) move spacing to utilities only, or (c) use **`@apply`** inside scoped CSS so values still come from the theme with one clear owner.
+
+### 4. Flexbox and `margin: auto`
+
+Example: a **column flex** child with **`align-items: stretch`** (default) and `margin-left/right: auto` may **not** center the way you expect; cross-axis stretch can interact badly with percentage widths.
+
+**Mitigation:** `self-center`, a wrapper, or explicit width + margin recipe—see **`AgentChat` composer column** (split + `composer-stack`). Verify in Computed after changes.
+
+### 5. Temporary parity: legacy-shaped scoped CSS
+
+When matching **legacy `components/`** behavior quickly (e.g. **chat history rail**), a **scoped block that mirrors legacy** can be legitimate **short-term parity**, not an admission that Tailwind can’t own spacing forever.
+
+**Follow-up:** Re-express layout with utilities (or **`@apply`**) **incrementally**, confirming each step in Computed — see [tw-components README](../../src/client/tw-components/README.md).
+
+### OPPORTUNITIES vs architecture
+
+- **`docs/opportunities/`** — track **work items** (e.g. [OPP-049](../opportunities/OPP-049-global-ui-tailwind-refactor.md)), not cascade debugging recipes.
+- **`docs/architecture/tailwind-migration.md`** (this file) — **how we migrate** and **how we debug** when styling surprises us.
+
+---
+
 ## What not to do
 
 - Don't use `@apply` to recreate BEM class names in Tailwind. That defeats the point.
