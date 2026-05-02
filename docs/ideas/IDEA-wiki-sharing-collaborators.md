@@ -1,6 +1,6 @@
 # Idea: Brain-to-brain collaboration
 
-**Status:** Active — **[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** Phase 1 **shipped** (read-only wiki directory sharing, email invite; see [wiki-sharing.md](../architecture/wiki-sharing.md)). The broader peer-to-peer vision, protocol, identity, and public-brain layer are sequenced below as future milestones.  
+**Status:** Active — **[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** Phase 1 **shipped** — full spec **[archived](../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** (read-only wiki directory sharing, email invite; see [wiki-sharing.md](../architecture/wiki-sharing.md)). **Unified `wikis/` layout + tooling:** **[OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md)**. The broader peer-to-peer vision, protocol, identity, and public-brain layer are sequenced below as future milestones.  
 **Index:** [IDEAS.md](../IDEAS.md)
 
 **Why it matters:** Moat, network-effect reasoning, competitive framing, trust posture, and the email analogy live in **[STRATEGY.md](../STRATEGY.md)** (single source). This doc is the product and sequencing spec.
@@ -199,8 +199,8 @@ Should feel like **code review**, not a social feed — clear, accountable, reve
 4. **Handle format:** Global uniqueness vs display-name + key fingerprint; revocation/rotation UX.
 5. **LLM-as-judge policy model:** Does auto-approval require a separate policy model with signed scope definitions the judge may not exceed?
 6. **Offline/degraded behavior:** Minimum behavior when a peer brain is unreachable.
-7. **Agent scope enforcement:** When the grantee's assistant runs, its tools must respect only the granted subtree on the owner's wiki. Deferred — OPP-064 covers human browser access only; agent-tool scoping is a follow-on aligned with the policy layer (M1/M2).
-8. **Read-only vs indexing:** Grantee search stays scoped to their own vault (OPP-064); widening to shared search is a separate grant.
+7. **Agent scope enforcement:** Grantee assistants must only see granted subtrees — interim projection + coercion ship today; **`wikis/`** unified root + symlink-only projection → **[OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md)**.
+8. **Read-only vs indexing:** Grantee **vault FTS** stays own-vault (Phase 1); markdown **`grep`**/**`find`** traverse projection; widening shared **search_index** is a separate grant.
 
 ---
 
@@ -258,7 +258,8 @@ A natural question for write access and audit: **one Git repository per user** f
 
 ## References
 
-- **[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** — First concrete step: read-only directory invite, email-as-identity, server-mediated access.
+- **[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** — Phase 1: read-only directory invite, email-as-identity, server-mediated access — **[archived spec](../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)**.
+- **[OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md)** — Unified **`wikis/`** filesystem for my vault + share peers; simplify tool roots.
 - [STRATEGY.md](../STRATEGY.md) — Competitive landscape, segmented focus, brain-to-brain moats (network + trust), email analogy.
 - [VISION.md](../VISION.md) — Product narrative for personalization compounding ("what it is").
 - [OPP-034](../opportunities/OPP-034-wiki-snapshots-and-point-in-time-restore.md) — Wiki snapshots; relevant to write access and audit (follow-on OPPs).

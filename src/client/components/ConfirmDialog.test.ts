@@ -16,8 +16,24 @@ describe('ConfirmDialog.svelte', () => {
       },
     })
 
-    expect(screen.getByRole('dialog', { name: 'Remove item?' })).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog', { name: 'Remove item?' })
+    expect(dialog).toBeInTheDocument()
+    expect(dialog).toHaveClass('cd-panel')
     expect(screen.getByText('This cannot be undone.')).toBeInTheDocument()
+  })
+
+  it('applies optional panelClass on the dialog panel', () => {
+    render(ConfirmDialogHarness, {
+      props: {
+        open: true,
+        title: 'T',
+        panelClass: 'extra-panel-mod',
+        onDismiss: vi.fn(),
+        onConfirm: vi.fn(),
+      },
+    })
+
+    expect(screen.getByRole('dialog')).toHaveClass('cd-panel', 'extra-panel-mod')
   })
 
   it('does not render when closed', () => {

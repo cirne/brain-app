@@ -20,7 +20,12 @@
   } from '@client/lib/wikiSlideHeaderContext.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import type { SurfaceContext } from '@client/router.js'
-  import type { WikiFileRow } from '@client/lib/wikiDirListModel.js'
+  import {
+    countOutgoingSharesForVaultPath,
+    parseUnifiedWikiBrowsePath,
+    type WikiFileRow,
+    type WikiOwnedShareRef,
+  } from '@client/lib/wikiDirListModel.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
 
@@ -55,15 +60,19 @@
     onContextChange?: (_ctx: SurfaceContext) => void
   } = $props()
 
+  const routeBrowseParse = $derived(parseUnifiedWikiBrowsePath((initialPath ?? '').trim().replace(/^\.\/+/, '')))
+  const effectiveShareHandle = $derived(
+    (shareHandle?.trim() || routeBrowseParse.shareHandle?.trim() || '').replace(/^@+/, ''),
+  )
   const sharedMode = $derived(
     Boolean(
-      shareHandle?.trim() ||
+      effectiveShareHandle ||
         (shareOwner?.trim() && sharePrefix?.trim()),
     ),
   )
 
   function wikiFileUrl(rel: string): string {
-    const sh = shareHandle?.trim()
+    const sh = effectiveShareHandle.trim()
     if (sh && sharedMode) {
       return `/api/wiki/shared-by-handle/${encodeURIComponent(sh)}/${encodeWikiPathSegmentsForUrl(rel)}`
     }
@@ -82,6 +91,8 @@
   }
 
   let files = $state<WikiFile[]>([])
+  /** Grant rows from `GET /api/wiki` (own wiki only) — one ref per collaborator. */
+  let ownedShares = $state<WikiOwnedShareRef[]>([])
   let selected = $state<string | null>(null)
   let content = $state<string>('')
   let rawMarkdown = $state('')
@@ -111,6 +122,10 @@
     Boolean(selected && pageLoadedOk && !streamBusy && !loading && !sharedMode && selected.endsWith('.md')),
   )
 
+  const shareAudienceCount = $derived(
+    selected && !sharedMode ? countOutgoingSharesForVaultPath(selected, ownedShares) : 0,
+  )
+
   const registerWikiHeader = getContext<SetWikiSlideHeader | undefined>(WIKI_SLIDE_HEADER)
   $effect(() => {
     registerWikiHeader?.({
@@ -123,13 +138,14 @@
         shareDialogOpen = true
       },
       shareTargetLabel: selected ?? undefined,
+      shareAudienceCount: shareAudienceCount > 0 ? shareAudienceCount : undefined,
       sharedIncoming: sharedMode,
     })
     return () => registerWikiHeader?.(null)
   })
 
   async function loadFiles() {
-    const sh = shareHandle?.trim()
+    const sh = effectiveShareHandle.trim()
     const so = shareOwner?.trim()
     const sp = sharePrefix?.trim()
     let listUrl = '/api/wiki'
@@ -148,7 +164,10 @@
     } catch {
       data = null
     }
-    files = parseWikiListApiBody(data).files
+    const parsed = parseWikiListApiBody(data)
+    files = parsed.files
+    ownedShares =
+      !sharedMode && listUrl === '/api/wiki' ? parsed.shares.owned : []
   }
 
   async function refreshRenderedFromServer() {
@@ -212,7 +231,8 @@
     loading = true
     pageMode = 'view'
     try {
-      const res = await fetch(wikiFileUrl(path), { signal })
+      const url = wikiFileUrl(path)
+      const res = await fetch(url, { signal })
       if (wikiPageLatest.isStale(token)) return
       if (!res.ok) {
         meta = {}
@@ -333,6 +353,9 @@
   /** Tracks the previous `refreshKey` to detect external refreshes (e.g. agent edits). */
   const prevRefreshKeyRef = { current: 0 }
 
+  /** Path + shared-by-handle context — same path can mean vault vs shared API; must re-open when context catches up. */
+  const prevWikiLoadIdentityRef = { current: '' }
+
   $effect(() => {
     const currentRefreshKey = refreshKey
     void shareOwner
@@ -340,7 +363,18 @@
     void shareHandle
     const refreshKeyChanged = currentRefreshKey !== prevRefreshKeyRef.current
     prevRefreshKeyRef.current = currentRefreshKey
-    const pathFromRoute = initialPath
+    const pathFromRoute = (initialPath ?? '').trim()
+    const listKeyParse = parseUnifiedWikiBrowsePath(pathFromRoute.replace(/^\.\/+/, ''))
+    const vaultRelForList =
+      listKeyParse.vaultRelPath.trim().length > 0 ? listKeyParse.vaultRelPath : pathFromRoute
+    const loadIdentity = [
+      pathFromRoute,
+      shareHandle?.trim() ?? '',
+      shareOwner?.trim() ?? '',
+      sharePrefix?.trim() ?? '',
+    ].join('\0')
+    const loadIdentityChanged = loadIdentity !== prevWikiLoadIdentityRef.current
+    prevWikiLoadIdentityRef.current = loadIdentity
     const serial = ++wikiLoadSerial
 
     void (async () => {
@@ -348,15 +382,17 @@
       if (serial !== wikiLoadSerial) return
 
       if (pathFromRoute) {
-        const match = files.find(f => f.path === pathFromRoute)
+        const match = files.find(
+          (f) => f.path === vaultRelForList || f.path === pathFromRoute,
+        )
         if (match) {
-          if (match.path !== selected) {
+          if (match.path !== selected || loadIdentityChanged) {
             void openFile(match.path)
           } else if (refreshKeyChanged && pageMode !== 'edit') {
             void refreshRenderedFromServer()
           }
-        } else if (pathFromRoute !== selected) {
-          void openFile(pathFromRoute)
+        } else if (vaultRelForList !== selected || loadIdentityChanged) {
+          void openFile(vaultRelForList || pathFromRoute)
         } else if (refreshKeyChanged && pageMode !== 'edit') {
           void refreshRenderedFromServer()
         }
@@ -379,6 +415,7 @@
     onDismiss={() => {
       shareDialogOpen = false
     }}
+    onSharesChanged={() => void loadFiles()}
   />
   <div class="content-area" class:content-area-edit={pageMode === 'edit' && canEdit}>
     {#if pageMode === 'edit' && canEdit}

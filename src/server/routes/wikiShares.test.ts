@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import wikiSharesRoute from './wikiShares.js'
+import { sendWikiShareInviteEmail } from '@server/lib/shares/shareInviteEmail.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
@@ -124,7 +125,7 @@ describe('/api/wiki-shares', () => {
     })
     expect(acc.status).toBe(302)
     const loc = acc.headers.get('location') ?? ''
-    expect(loc).toContain('/wiki/@owner-handle/trips/')
+    expect(loc).toContain('/wikis/@owner-handle/trips/')
 
     const row = getShareByToken(decodeURIComponent(token))
     expect(row?.grantee_id).toBe(granteeId)
@@ -241,5 +242,132 @@ describe('/api/wiki-shares', () => {
     expect(res.status).toBe(400)
     const j = (await res.json()) as { error: string }
     expect(j.error).toBe('grantee_conflict')
+  })
+
+  it('GET list includes pendingReceived for grantee mailbox before accept', async () => {
+    const ownerId = 'usr_aa111111111111111111'
+    const granteeId = 'usr_bb222222222222222222'
+    const ownerSid = await sessionFor(ownerId, 'owner-pend')
+    await registerSessionTenant(ownerSid, ownerId)
+
+    const wiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(wiki, 'trips'), { recursive: true })
+
+    const granteeSid = await sessionFor(granteeId, 'grantee-pend')
+    await registerSessionTenant(granteeSid, granteeId)
+    const rip = brainLayoutRipmailDir(tenantHomeDir(granteeId))
+    await mkdir(rip, { recursive: true })
+    await writeFile(
+      join(rip, 'config.json'),
+      JSON.stringify({
+        sources: [
+          {
+            id: 'mb',
+            kind: 'imap',
+            email: 'pendgrantee@example.com',
+            imap: { host: 'imap.gmail.com', port: 993 },
+            imapAuth: 'googleOAuth',
+          },
+        ],
+      }),
+      'utf-8',
+    )
+
+    const app = mountWikiShares()
+    const post = await app.request('http://localhost/api/wiki-shares', {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pathPrefix: 'trips/', granteeEmail: 'pendgrantee@example.com' }),
+    })
+    expect(post.status).toBe(200)
+    const created = (await post.json()) as { id: string }
+
+    const listG = await app.request('http://localhost/api/wiki-shares', {
+      headers: { Cookie: `brain_session=${granteeSid}` },
+    })
+    expect(listG.status).toBe(200)
+    const lg = (await listG.json()) as { pendingReceived: { id: string; ownerHandle: string }[] }
+    expect(lg.pendingReceived).toHaveLength(1)
+    expect(lg.pendingReceived[0].id).toBe(created.id)
+    expect(lg.pendingReceived[0].ownerHandle).toBe('owner-pend')
+  })
+
+  it('POST /:id/accept returns JSON with wikiUrl', async () => {
+    const ownerId = 'usr_cc333333333333333333'
+    const granteeId = 'usr_dd444444444444444444'
+    const ownerSid = await sessionFor(ownerId, 'owner-postacc')
+    await registerSessionTenant(ownerSid, ownerId)
+
+    const wiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(wiki, 'trips'), { recursive: true })
+
+    const granteeSid = await sessionFor(granteeId, 'grantee-postacc')
+    await registerSessionTenant(granteeSid, granteeId)
+    const rip = brainLayoutRipmailDir(tenantHomeDir(granteeId))
+    await mkdir(rip, { recursive: true })
+    await writeFile(
+      join(rip, 'config.json'),
+      JSON.stringify({
+        sources: [
+          {
+            id: 'mb',
+            kind: 'imap',
+            email: 'postacc@example.com',
+            imap: { host: 'imap.gmail.com', port: 993 },
+            imapAuth: 'googleOAuth',
+          },
+        ],
+      }),
+      'utf-8',
+    )
+
+    const app = mountWikiShares()
+    const post = await app.request('http://localhost/api/wiki-shares', {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pathPrefix: 'trips/', granteeEmail: 'postacc@example.com' }),
+    })
+    const created = (await post.json()) as { id: string }
+
+    const acc = await app.request(`http://localhost/api/wiki-shares/${encodeURIComponent(created.id)}/accept`, {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${granteeSid}` },
+    })
+    expect(acc.status).toBe(200)
+    const j = (await acc.json()) as { ok: boolean; wikiUrl: string; ownerHandle: string; ownerId: string }
+    expect(j.ok).toBe(true)
+    expect(j.ownerId).toBe(ownerId)
+    expect(j.wikiUrl).toContain('/wikis/@owner-postacc/trips/')
+    expect(j.ownerHandle).toBe('owner-postacc')
+  })
+
+  it('POST create calls notify email only when notifyByEmail is true', async () => {
+    const ownerId = 'usr_ee555555555555555555'
+    const ownerSid = await sessionFor(ownerId, 'owner-notify')
+    await registerSessionTenant(ownerSid, ownerId)
+    const wiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(wiki, 'trips'), { recursive: true })
+
+    const app = mountWikiShares()
+    const postNo = await app.request('http://localhost/api/wiki-shares', {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pathPrefix: 'trips/', granteeEmail: 'g@example.com' }),
+    })
+    expect(postNo.status).toBe(200)
+    expect(vi.mocked(sendWikiShareInviteEmail)).not.toHaveBeenCalled()
+
+    const postYes = await app.request('http://localhost/api/wiki-shares', {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pathPrefix: 'trips/',
+        granteeEmail: 'h@example.com',
+        notifyByEmail: true,
+      }),
+    })
+    expect(postYes.status).toBe(200)
+    expect(vi.mocked(sendWikiShareInviteEmail)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(sendWikiShareInviteEmail).mock.calls[0][0].hubUrl).toContain('/hub#sharing')
   })
 })

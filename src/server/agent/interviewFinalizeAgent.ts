@@ -5,7 +5,7 @@ import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'
 import { createFinalizeAgent } from './agentFactory.js'
 import { collectAgentPromptMetrics } from '@server/evals/harness/collectAgentPromptMetrics.js'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 
 /**
  * Flatten stored chat messages into a text block for the finalize LLM (no large tool payloads).
@@ -63,7 +63,7 @@ export async function runInterviewFinalize(options: { sessionId: string; timezon
     transcript: new Handlebars.SafeString(transcript),
   })
 
-  const root = wikiDir()
+  const root = wikiToolsDir()
   const agent = createFinalizeAgent(systemPrompt, root)
   // OPP-054: polish me.md after interview (may already be edited in-chat). Finalize sets confidence, fills gaps.
   await collectAgentPromptMetrics(
@@ -71,7 +71,7 @@ export async function runInterviewFinalize(options: { sessionId: string; timezon
     'Finalize onboarding: read wiki/me.md, polish per system prompt (confidence, transcript gaps). Ground in whoami.',
     {
       timezone: tz,
-      wikiDir: root,
+      wikiDir: wikiDir(),
       diagnosticsAgentKind: 'interview_finalize',
       diagnosticsSessionId: sessionId,
     },

@@ -161,6 +161,57 @@ export function listSharesForGrantee(granteeId: string, db?: Database.Database):
   return rows.map((r) => rowFromStmt(r)).filter((x): x is WikiShareRow => x !== null)
 }
 
+/** Pending invites for this mailbox: not revoked, not accepted, still within invite TTL. */
+export function listPendingInvitesForGranteeEmail(granteeEmail: string, db?: Database.Database): WikiShareRow[] {
+  const d = db ?? getBrainGlobalDb()
+  const ge = normalizeEmail(granteeEmail)
+  if (!ge.includes('@')) return []
+  const minCreated = Date.now() - WIKI_SHARE_INVITE_TTL_MS
+  const rows = d
+    .prepare(
+      `SELECT * FROM wiki_shares
+       WHERE grantee_email = ? AND revoked_at_ms IS NULL AND accepted_at_ms IS NULL AND created_at_ms >= ?
+       ORDER BY created_at_ms DESC`,
+    )
+    .all(ge, minCreated)
+  return rows.map((r) => rowFromStmt(r)).filter((x): x is WikiShareRow => x !== null)
+}
+
+/**
+ * Shared accept rules for token and in-app acceptance. Updates `grantee_id` + `accepted_at_ms` when allowed.
+ */
+function applyGranteeAcceptToRow(params: {
+  row: WikiShareRow
+  granteeId: string
+  granteeEmail: string
+  db: Database.Database
+}): WikiShareRow | null {
+  const { row, granteeId, granteeEmail, db } = params
+  if (row.revoked_at_ms != null) return null
+  const ge = normalizeEmail(granteeEmail)
+  if (normalizeEmail(row.grantee_email) !== ge) {
+    return null
+  }
+  const now = Date.now()
+  if (now - row.created_at_ms > WIKI_SHARE_INVITE_TTL_MS) {
+    return null
+  }
+  if (row.accepted_at_ms != null && row.grantee_id === granteeId) {
+    return row
+  }
+  if (row.accepted_at_ms != null && row.grantee_id && row.grantee_id !== granteeId) {
+    return null
+  }
+  db.prepare(
+    `UPDATE wiki_shares SET grantee_id = @grantee_id, accepted_at_ms = @accepted_at_ms WHERE id = @id`,
+  ).run({
+    id: row.id,
+    grantee_id: granteeId,
+    accepted_at_ms: now,
+  })
+  return getShareById(row.id, db)
+}
+
 export function acceptShare(params: {
   token: string
   granteeId: string
@@ -170,29 +221,29 @@ export function acceptShare(params: {
   const d = params.db ?? getBrainGlobalDb()
   const row = getShareByToken(params.token, d)
   if (!row) return null
-  if (row.revoked_at_ms != null) return null
-  const ge = normalizeEmail(params.granteeEmail)
-  if (normalizeEmail(row.grantee_email) !== ge) {
-    return null
-  }
-  const now = Date.now()
-  if (now - row.created_at_ms > WIKI_SHARE_INVITE_TTL_MS) {
-    return null
-  }
-  if (row.accepted_at_ms != null && row.grantee_id === params.granteeId) {
-    return row
-  }
-  if (row.accepted_at_ms != null && row.grantee_id && row.grantee_id !== params.granteeId) {
-    return null
-  }
-  d.prepare(
-    `UPDATE wiki_shares SET grantee_id = @grantee_id, accepted_at_ms = @accepted_at_ms WHERE id = @id`,
-  ).run({
-    id: row.id,
-    grantee_id: params.granteeId,
-    accepted_at_ms: now,
+  return applyGranteeAcceptToRow({
+    row,
+    granteeId: params.granteeId,
+    granteeEmail: params.granteeEmail,
+    db: d,
   })
-  return getShareById(row.id, d)
+}
+
+export function acceptShareById(params: {
+  shareId: string
+  granteeId: string
+  granteeEmail: string
+  db?: Database.Database
+}): WikiShareRow | null {
+  const d = params.db ?? getBrainGlobalDb()
+  const row = getShareById(params.shareId, d)
+  if (!row) return null
+  return applyGranteeAcceptToRow({
+    row,
+    granteeId: params.granteeId,
+    granteeEmail: params.granteeEmail,
+    db: d,
+  })
 }
 
 export function revokeShare(params: { shareId: string; ownerId: string; db?: Database.Database }): boolean {

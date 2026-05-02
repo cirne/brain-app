@@ -13,6 +13,7 @@
     bodyText = 'Test body',
     useCustomActions = false,
     onExtra = () => {},
+    panelClass,
   }: {
     open: boolean
     title: string
@@ -25,6 +26,7 @@
     bodyText?: string
     useCustomActions?: boolean
     onExtra?: () => void
+    panelClass?: string
   } = $props()
 </script>
 
@@ -38,12 +40,13 @@
     {confirmVariant}
     {onDismiss}
     {onConfirm}
+    {panelClass}
   >
     {#snippet children()}
       <p>{bodyText}</p>
     {/snippet}
     {#snippet actions()}
-      <button type="button" onclick={onExtra}>Extra</button>
+      <button type="button" class="cd-btn" onclick={onExtra}>Extra</button>
     {/snippet}
   </ConfirmDialog>
 {:else}
@@ -56,6 +59,7 @@
     {confirmVariant}
     {onDismiss}
     {onConfirm}
+    {panelClass}
   >
     {#snippet children()}
       <p>{bodyText}</p>

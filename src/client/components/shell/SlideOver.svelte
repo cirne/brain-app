@@ -71,6 +71,21 @@
   } from '@client/lib/hubSourceSlideHeaderContext.js'
   import { parseWikiDirSegments, wikiDirPathPrefix } from '@client/lib/wikiDirBreadcrumb.js'
 
+  function wikiShareAudienceBadge(n: number | undefined): string {
+    const c = n ?? 0
+    return c > 9 ? '9+' : `${c}`
+  }
+
+  function wikiSlideShareTitle(hdr: WikiSlideHeaderState): string {
+    const n = hdr.shareAudienceCount ?? 0
+    return n > 0 ? `Shared with ${n} people — manage access` : 'Share'
+  }
+
+  function wikiSlideShareAria(hdr: WikiSlideHeaderState): string {
+    const n = hdr.shareAudienceCount ?? 0
+    return n > 0 ? `Shared with ${n} people; manage access.` : 'Share'
+  }
+
   type Props = {
     overlay: Overlay
     /** From App — used for email subject in header when a thread is open. */
@@ -449,12 +464,19 @@
         {:else if wikiHdr.current.canShare && wikiHdr.current.onOpenShare}
           <button
             type="button"
-            class="wiki-edit-btn"
+            class="wiki-edit-btn wiki-share-header-btn"
             onclick={() => wikiHdr.current?.onOpenShare?.()}
-            title="Share"
-            aria-label="Share"
+            title={wikiSlideShareTitle(wikiHdr.current)}
+            aria-label={wikiSlideShareAria(wikiHdr.current)}
           >
-            <Share2 size={15} strokeWidth={2} aria-hidden="true" />
+            <span class="wiki-share-header-inner">
+              <Share2 size={15} strokeWidth={2} aria-hidden="true" />
+              {#if (wikiHdr.current.shareAudienceCount ?? 0) > 0}
+                <span class="wiki-share-header-badge" aria-hidden="true">
+                  {wikiShareAudienceBadge(wikiHdr.current.shareAudienceCount)}
+                </span>
+              {/if}
+            </span>
           </button>
         {/if}
       {/if}
@@ -1142,6 +1164,33 @@
   }
   .wiki-edit-btn:disabled { opacity: 0.35; cursor: default; }
   .wiki-edit-btn.active { color: var(--accent); }
+
+  .wiki-share-header-inner {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  .wiki-share-header-badge {
+    position: absolute;
+    top: -5px;
+    right: -9px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 16px;
+    text-align: center;
+    border-radius: 999px;
+    background: var(--accent, #4a90d9);
+    color: var(--bg-pill-on-accent, var(--bg, #fff));
+  }
 
   @media (hover: hover) {
     .back-btn:hover {

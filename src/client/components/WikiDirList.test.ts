@@ -120,7 +120,7 @@ describe('WikiDirList.svelte', () => {
     expect(container.querySelectorAll('.wiki-dir-row--shared').length).toBe(2)
   })
 
-  it('shows outgoing share badge when owned share covers a folder', async () => {
+  it('shows outgoing share audience count on rows when shares cover subtree', async () => {
     globalThis.fetch = vi.fn(async () => {
       return {
         ok: true,
@@ -137,7 +137,7 @@ describe('WikiDirList.svelte', () => {
       } as Response
     }) as typeof fetch
 
-    const { container } = render(WikiDirList, {
+    render(WikiDirList, {
       props: { onOpenFile: vi.fn(), onOpenDir: vi.fn() },
     })
 
@@ -145,7 +145,36 @@ describe('WikiDirList.svelte', () => {
       expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
     })
 
-    expect(container.querySelectorAll('.wiki-dir-outgoing-badge').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Sharing').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText(/Shared with 1 people/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ideas/i })).toBeTruthy()
+  })
+
+  it('shows audience badge count when duplicate grant rows share the same prefix', async () => {
+    globalThis.fetch = vi.fn(async () => {
+      return {
+        ok: true,
+        json: async () =>
+          wikiApiEnvelope([{ path: 'trips/beach.md', name: 'beach' }], {
+            owned: [
+              { pathPrefix: 'trips/', targetKind: 'dir' },
+              { pathPrefix: 'trips/', targetKind: 'dir' },
+            ],
+          }),
+      } as Response
+    }) as typeof fetch
+
+    render(WikiDirList, {
+      props: {
+        dirPath: 'me/trips',
+        onOpenFile: vi.fn(),
+        onOpenDir: vi.fn(),
+      },
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
+    })
+
+    expect(screen.getByLabelText(/Shared with 2 people/i)).toBeInTheDocument()
   })
 })

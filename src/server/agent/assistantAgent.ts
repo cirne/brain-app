@@ -6,7 +6,7 @@ import Handlebars from 'handlebars'
 import { createAgentTools } from './tools.js'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { wikiDir as getWikiDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir as getWikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { chainLlmOnPayloadNoThinking } from '@server/lib/llm/llmOnPayloadChain.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 import { formatSkillLibrarySection } from '@server/lib/llm/skillRegistry.js'
@@ -76,8 +76,10 @@ function firstChatPromptSection(includeLocalMessageCapabilities: boolean): strin
 export interface SessionOptions {
   /** Pre-injected file context for file-grounded chat */
   context?: string
-  /** Override wiki directory */
+  /** Override personal vault directory (`wikis/me/`) for prompts / profile files */
   wikiDir?: string
+  /** Override unified `wikis/` tool root (default: {@link wikiToolsDir}) */
+  wikiToolsRoot?: string
   /** IANA timezone from the browser client (e.g. "America/Chicago") */
   timezone?: string
   /** First assistant turn after onboarding — extra prompt guidance (OPP-018). */
@@ -103,9 +105,10 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
     /* ignore — new Agent without history */
   }
 
-  const wikiDir = options.wikiDir ?? getWikiDir()
+  const personalVault = options.wikiDir ?? getWikiDir()
+  const toolsRoot = options.wikiToolsRoot ?? wikiToolsDir()
   const localMessagesEnabled = areLocalMessageToolsEnabled()
-  const tools = createAgentTools(wikiDir, {
+  const tools = createAgentTools(toolsRoot, {
     includeLocalMessageTools: localMessagesEnabled,
     timezone: options.timezone,
   })
@@ -128,7 +131,7 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
     tz,
     utcOffset,
   })
-  let systemPrompt = `${buildBaseSystemPrompt(localMessagesEnabled, wikiDir)}
+  let systemPrompt = `${buildBaseSystemPrompt(localMessagesEnabled, personalVault)}
 
 ${dateTimeBlock}`
 

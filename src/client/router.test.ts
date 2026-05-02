@@ -316,6 +316,13 @@ describe('parseRoute your-wiki / hub', () => {
 })
 
 describe('parseRoute /wiki primary', () => {
+  it('parses /wikis/me/ideas/file.md as local wiki doc (vault path after me/)', () => {
+    expect(parseRoute('http://localhost/wikis/me/ideas/file.md')).toEqual({
+      wikiActive: true,
+      overlay: { type: 'wiki', path: 'ideas/file.md' },
+    })
+  })
+
   it('parses /wiki as wiki-dir hub (file list + shares)', () => {
     expect(parseRoute('http://localhost/wiki')).toEqual({
       wikiActive: true,
@@ -327,10 +334,10 @@ describe('parseRoute /wiki primary', () => {
     })
   })
 
-  it('parses /wiki/my-wiki/ as local wiki folder browser', () => {
+  it('parses /wiki/my-wiki/ as local wiki folder browser (aliases to me)', () => {
     expect(parseRoute('http://localhost/wiki/my-wiki/')).toEqual({
       wikiActive: true,
-      overlay: { type: 'wiki-dir', path: 'my-wiki' },
+      overlay: { type: 'wiki-dir', path: 'me' },
     })
   })
 

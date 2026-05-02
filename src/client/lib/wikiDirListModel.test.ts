@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest'
 import {
   MY_WIKI_SEGMENT,
   MY_WIKI_URL_SEGMENT,
+  countOutgoingSharesForVaultPath,
   listWikiDirChildren,
   listWikiDirChildrenWithShares,
+  mergeWikiBrowseChildPath,
   migrateLegacySharedWithMeDirPath,
   normalizeWikiDirPath,
+  parseUnifiedWikiBrowsePath,
   vaultPathHasOutgoingShare,
   wikiPathUnderSharePrefix,
   wikiShareCoversVaultPath,
@@ -27,6 +30,62 @@ const received = [
     targetKind: 'dir' as const,
   },
 ]
+
+describe('mergeWikiBrowseChildPath', () => {
+  const sharedDirOverlay = { type: 'wiki-dir' as const, shareHandle: 'cirne' }
+
+  it('prefixes @handle when browsing a share and opening an owner-relative folder', () => {
+    expect(mergeWikiBrowseChildPath(sharedDirOverlay, 'travel')).toBe('@cirne/travel')
+  })
+
+  it('prefixes deeper owner-relative paths', () => {
+    expect(mergeWikiBrowseChildPath(sharedDirOverlay, 'travel/europe.md')).toBe('@cirne/travel/europe.md')
+  })
+
+  it('does not double-wrap paths that already use @handle', () => {
+    expect(mergeWikiBrowseChildPath(sharedDirOverlay, '@cirne/travel')).toBe('@cirne/travel')
+  })
+
+  it('returns undefined when child omitted', () => {
+    expect(mergeWikiBrowseChildPath(sharedDirOverlay, undefined)).toBeUndefined()
+  })
+
+  it('returns empty when child blank', () => {
+    expect(mergeWikiBrowseChildPath(sharedDirOverlay, '   ')).toBe('')
+  })
+
+  it('no-op when parent is not wiki-dir', () => {
+    expect(mergeWikiBrowseChildPath({ type: 'wiki', shareHandle: 'cirne' }, 'travel')).toBe('travel')
+  })
+
+  it('no-op when wiki-dir has no shareHandle', () => {
+    expect(mergeWikiBrowseChildPath({ type: 'wiki-dir' }, 'travel')).toBe('travel')
+  })
+
+  it('prefixes me/ when browsing personal me/ root', () => {
+    expect(mergeWikiBrowseChildPath({ type: 'wiki-dir', path: 'me' }, 'trips')).toBe('me/trips')
+  })
+
+  it('does not prepend on local me/… paths already unified', () => {
+    expect(mergeWikiBrowseChildPath(sharedDirOverlay, MY_WIKI_URL_SEGMENT)).toBe(MY_WIKI_URL_SEGMENT)
+    expect(mergeWikiBrowseChildPath(sharedDirOverlay, `${MY_WIKI_URL_SEGMENT}/trips`)).toBe(
+      `${MY_WIKI_URL_SEGMENT}/trips`,
+    )
+  })
+})
+
+describe('parseUnifiedWikiBrowsePath', () => {
+  it('strips me/ prefix', () => {
+    expect(parseUnifiedWikiBrowsePath('me/ideas/x.md')).toEqual({ vaultRelPath: 'ideas/x.md' })
+  })
+
+  it('parses @peer paths', () => {
+    expect(parseUnifiedWikiBrowsePath('@alice/trips/a.md')).toEqual({
+      shareHandle: 'alice',
+      vaultRelPath: 'trips/a.md',
+    })
+  })
+})
 
 describe('normalizeWikiDirPath', () => {
   it('trims slashes', () => {
@@ -54,6 +113,17 @@ describe('wikiShareCoversVaultPath / outgoing detection', () => {
     expect(vaultPathHasOutgoingShare('ideas/x.md', [{ pathPrefix: 'topics/', targetKind: 'dir' }])).toBe(
       false,
     )
+  })
+
+  it('countOutgoingSharesForVaultPath counts each matching grant row', () => {
+    const owned = [
+      { pathPrefix: 'topics/', targetKind: 'dir' as const },
+      { pathPrefix: 'topics/', targetKind: 'dir' as const },
+      { pathPrefix: 'ideas/note.md', targetKind: 'file' as const },
+    ]
+    expect(countOutgoingSharesForVaultPath('topics/a.md', owned)).toBe(2)
+    expect(countOutgoingSharesForVaultPath('ideas/note.md', owned)).toBe(1)
+    expect(countOutgoingSharesForVaultPath('ideas/x.md', owned)).toBe(0)
   })
 })
 

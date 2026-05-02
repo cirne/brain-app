@@ -5,10 +5,12 @@ import { tmpdir } from 'node:os'
 import { closeBrainGlobalDbForTests, getBrainGlobalDb } from '@server/lib/global/brainGlobalDb.js'
 import {
   acceptShare,
+  acceptShareById,
   createShare,
   deleteWikiSharesForOwner,
   getShareByToken,
   granteeCanReadOwnerWikiPath,
+  listPendingInvitesForGranteeEmail,
   listSharesForGrantee,
   listSharesForOwner,
   normalizeWikiSharePathPrefix,
@@ -143,5 +145,92 @@ describe('wikiSharesRepo', () => {
     })
     expect(getShareByToken(row.invite_token)?.id).toBe(row.id)
     expect(getShareByToken('nope')).toBeNull()
+  })
+
+  it('listPendingInvitesForGranteeEmail lists non-accepted invites for email within TTL', () => {
+    const ownerId = 'usr_pendingown1111111111'
+    const row = createShare({
+      ownerId,
+      granteeEmail: 'Pending@Example.com',
+      pathPrefix: 'trips',
+    })
+    const pending = listPendingInvitesForGranteeEmail('pending@example.com')
+    expect(pending.map((r) => r.id)).toEqual([row.id])
+
+    expect(listPendingInvitesForGranteeEmail('other@example.com')).toHaveLength(0)
+
+    acceptShare({ token: row.invite_token, granteeId: 'usr_grantee111111111111', granteeEmail: 'pending@example.com' })
+    expect(listPendingInvitesForGranteeEmail('pending@example.com')).toHaveLength(0)
+
+    const row2 = createShare({
+      ownerId,
+      granteeEmail: 'Pending@Example.com',
+      pathPrefix: 'ideas',
+    })
+    revokeShare({ shareId: row2.id, ownerId })
+    expect(listPendingInvitesForGranteeEmail('pending@example.com')).toHaveLength(0)
+
+    const row3 = createShare({
+      ownerId,
+      granteeEmail: 'ttl@example.com',
+      pathPrefix: 'x',
+    })
+    const db = getBrainGlobalDb()
+    const old = Date.now() - WIKI_SHARE_INVITE_TTL_MS - 60_000
+    db.prepare(`UPDATE wiki_shares SET created_at_ms = ? WHERE id = ?`).run(old, row3.id)
+    expect(listPendingInvitesForGranteeEmail('ttl@example.com')).toHaveLength(0)
+  })
+
+  it('acceptShareById matches acceptShare token behavior', () => {
+    const ownerId = 'usr_acceptid111111111111'
+    const granteeId = 'usr_acceptid222222222222'
+    const row = createShare({
+      ownerId,
+      granteeEmail: 'byid@example.com',
+      pathPrefix: 'x',
+    })
+    const out = acceptShareById({
+      shareId: row.id,
+      granteeId,
+      granteeEmail: 'byid@example.com',
+    })
+    expect(out?.grantee_id).toBe(granteeId)
+    expect(listSharesForGrantee(granteeId)).toHaveLength(1)
+
+    const row2 = createShare({
+      ownerId,
+      granteeEmail: 'byid@example.com',
+      pathPrefix: 'y',
+    })
+    expect(
+      acceptShareById({
+        shareId: row2.id,
+        granteeId,
+        granteeEmail: 'wrong@example.com',
+      }),
+    ).toBeNull()
+
+    expect(revokeShare({ shareId: row2.id, ownerId })).toBe(true)
+    expect(
+      acceptShareById({
+        shareId: row2.id,
+        granteeId: 'usr_other333333333333',
+        granteeEmail: 'byid@example.com',
+      }),
+    ).toBeNull()
+  })
+
+  it('acceptShareById is idempotent for same grantee', () => {
+    const ownerId = 'usr_idemp11111111111111'
+    const granteeId = 'usr_idemp22222222222222'
+    const row = createShare({
+      ownerId,
+      granteeEmail: 'idem@example.com',
+      pathPrefix: 'z',
+    })
+    const first = acceptShareById({ shareId: row.id, granteeId, granteeEmail: 'idem@example.com' })
+    const second = acceptShareById({ shareId: row.id, granteeId, granteeEmail: 'idem@example.com' })
+    expect(second?.grantee_id).toBe(granteeId)
+    expect(second?.accepted_at_ms).toBe(first?.accepted_at_ms)
   })
 })

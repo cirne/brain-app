@@ -105,7 +105,7 @@ describe('ToolCallBlock.svelte', () => {
       })
       render(ToolCallBlock, { props: { toolCall } })
 
-      expect(screen.getByText(/Find wiki file…/)).toBeInTheDocument()
+      expect(screen.getByText(/Find wiki files \(glob\)…/)).toBeInTheDocument()
       expect(screen.getByText(/\*\.md/)).toBeInTheDocument()
     })
 

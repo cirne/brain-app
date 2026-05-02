@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ensurePromptsRoot } from '@server/lib/prompts/registry.js'
+import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { runLlmJsonlEvalMain, getEvalRepoRoot } from './harness/runLlmJsonlEval.js'
 import { loadWikiV1TasksFromFile } from './harness/loadJsonlEvalTasks.js'
 import { runWikiAgentEvalCase } from './harness/runWikiAgentEvalCase.js'
@@ -107,9 +108,14 @@ export async function runWikiV1SubprocessWorker(): Promise<number> {
 
   const task = tasks[0]!
   try {
-    await seedEnronEvalWiki()
-    const result = await runWikiAgentEvalCase(task)
-    writeFileSync(reportPath, JSON.stringify(result), 'utf-8')
+    await runWithTenantContextAsync(
+      { tenantUserId: '_single', workspaceHandle: '_single', homeDir: brain },
+      async () => {
+        await seedEnronEvalWiki()
+        const result = await runWikiAgentEvalCase(task)
+        writeFileSync(reportPath, JSON.stringify(result), 'utf-8')
+      },
+    )
     return 0
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)

@@ -44,3 +44,8 @@ export function getTenantContext(): TenantContext {
 export function tenantContextExists(): boolean {
   return storage.getStore() !== undefined
 }
+
+/** Stable grantee key for wiki-scoped FS tools when AsyncLocalStorage has no tenant (unit tests / offline agents). */
+export function wikiToolsGranteeTenantIdOrSingle(): string {
+  return storage.getStore()?.tenantUserId ?? '_single'
+}

@@ -1,6 +1,6 @@
 import Handlebars from 'handlebars'
 import type { Agent } from '@mariozechner/pi-agent-core'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { fetchRipmailWhoamiForProfiling, parseWhoamiProfileSubject } from './profilingAgent.js'
 import { createOnboardingAgent, resolveOnboardingSessionTimezone } from './agentFactory.js'
@@ -65,8 +65,7 @@ export async function getOrCreateOnboardingInterviewAgent(
   const ripmailWhoami = await fetchRipmailWhoamiForProfiling()
   const tz = resolveOnboardingSessionTimezone('interview', options.timezone)
   const systemPrompt = buildOnboardingInterviewSystemPrompt(tz, ripmailWhoami)
-  const wikiRoot = wikiDir()
-  const agent = createOnboardingAgent(systemPrompt, wikiRoot, {
+  const agent = createOnboardingAgent(systemPrompt, wikiToolsDir(), {
     variant: 'interview',
     timezone: options.timezone,
   })

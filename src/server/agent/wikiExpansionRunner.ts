@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { listWikiFiles } from '@server/lib/wiki/wikiFiles.js'
 import {
   markWikiBuildoutFirstPassDone,
@@ -622,7 +622,7 @@ export async function runCleanupInvocation(
   const contextPrefix = await buildExpansionContextPrefix(wikiRoot)
   const tz = options.timezone ?? 'UTC'
   const systemPrompt = buildCleanupSystemPrompt(tz)
-  const agent = createCleanupAgent(systemPrompt, wikiRoot)
+  const agent = createCleanupAgent(systemPrompt, wikiToolsDir())
   cleanupSessions.set(sessionId, agent)
 
   const trigger = options.trigger

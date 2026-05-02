@@ -2,20 +2,21 @@ import { execRipmailAsync, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/r
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
 
 /**
- * Best-effort: compose + send invite via ripmail. Never throws; returns `{ sent: false }` on any failure.
+ * Best-effort: compose + send optional notification via ripmail (Hub-first; no token link).
+ * Never throws; returns `{ sent: false }` on any failure.
  */
 export async function sendWikiShareInviteEmail(params: {
   granteeEmail: string
-  inviteUrl: string
+  hubUrl: string
   pathPrefix: string
   ownerHandle: string
 }): Promise<{ sent: boolean }> {
   try {
     const instruction =
-      `Wiki share invite from ${params.ownerHandle}\n\n` +
-      `Accept this invite (use the Google account for ${params.granteeEmail}):\n\n` +
-      `${params.inviteUrl}\n\n` +
-      `Shared directory: ${params.pathPrefix}\n`
+      `Wiki share from ${params.ownerHandle}\n\n` +
+      `Sign in to Braintunnel with ${params.granteeEmail}, then open Brain Hub → Sharing (or this link) to accept:\n\n` +
+      `${params.hubUrl}\n\n` +
+      `Shared path: ${params.pathPrefix}\n`
     const { stdout } = await execRipmailAsync(
       `${ripmailBin()} draft new --to ${JSON.stringify(params.granteeEmail)} --instruction ${JSON.stringify(instruction)} --with-body --json`,
       { timeout: RIPMAIL_SEND_TIMEOUT_MS },

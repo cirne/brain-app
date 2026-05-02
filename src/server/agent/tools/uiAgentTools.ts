@@ -61,7 +61,16 @@ export function createUiAgentTools(wikiDir: string) {
       target: Type.Union([
         Type.Object({
           type: Type.Literal('wiki'),
-          path: Type.String({ description: 'Wiki path relative to wiki root (e.g. ideas/foo.md)' }),
+          path: Type.String({
+            description:
+              'Wiki path: `me/ideas/foo.md` or `@theirHandle/shared/path.md`. For pages a **collaborator shared**, use `@theirHandle/…` so the app opens their read-only tree. If you only have a path relative to their vault (e.g. from `find` / `grep`), include the `@handle/` prefix. Bare paths like `travel/plan.md` are rewritten to `me/…` or `@peer/…` when that is unambiguous on disk.',
+          }),
+          shareHandle: Type.Optional(
+            Type.String({
+              description:
+                'Rarely set manually. Incoming shares are opened via `shared-by-handle` when the shell knows the collaborator handle.',
+            }),
+          ),
         }),
         Type.Object({
           type: Type.Literal('file'),
@@ -84,24 +93,25 @@ export function createUiAgentTools(wikiDir: string) {
       _toolCallId: string,
       params: {
         target:
-          | { type: 'wiki'; path: string }
+          | { type: 'wiki'; path: string; shareHandle?: string }
           | { type: 'file'; path: string }
           | { type: 'email'; id: string }
           | { type: 'calendar'; date: string }
       },
     ) {
       const t = params.target
-      const text =
-        t.type === 'wiki'
-          ? `Opening wiki: ${t.path}`
-          : t.type === 'file'
-            ? `Opening file: ${t.path}`
-            : t.type === 'email'
-              ? `Opening email: ${t.id}`
-              : (() => {
-                  const dow = weekdayLongForUtcYmd(t.date)
-                  return dow ? `Opening calendar: ${t.date} (${dow})` : `Opening calendar: ${t.date}`
-                })()
+      let text: string
+      if (t.type === 'wiki') {
+        const sh = typeof t.shareHandle === 'string' ? t.shareHandle.trim().replace(/^@+/, '').trim() : ''
+        text = sh.length > 0 ? `Opening wiki: @${sh}/${t.path}` : `Opening wiki: ${t.path}`
+      } else if (t.type === 'file') {
+        text = `Opening file: ${t.path}`
+      } else if (t.type === 'email') {
+        text = `Opening email: ${t.id}`
+      } else {
+        const dow = weekdayLongForUtcYmd(t.date)
+        text = dow ? `Opening calendar: ${t.date} (${dow})` : `Opening calendar: ${t.date}`
+      }
       return {
         content: [{ type: 'text' as const, text }],
         details: { target: t },

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { getOrCreateSession, deleteSession } from '../agent/index.js'
 import { readFile } from 'node:fs/promises'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { safeWikiRelativePath } from '@server/lib/wiki/wikiEditDiff.js'
 import {
   PathEscapeError,
@@ -32,6 +32,7 @@ import {
 } from '@server/lib/llm/slashSkill.js'
 import { buildHearRepliesPromptMessages } from '@server/lib/llm/hearRepliesPrompt.js'
 import { runWithSkillRequestContextAsync } from '@server/lib/llm/skillRequestContext.js'
+import { wikiToolsGranteeTenantIdOrSingle } from '@server/lib/tenant/tenantContext.js'
 
 /**
  * Invisible user turn for the model when the client opens first chat after onboarding (no user bubble).
@@ -231,7 +232,8 @@ chat.post('/', async (c) => {
       { selection: selectionForSkill, openFile: openFileForSkill },
       async () =>
         await streamAgentSseResponse(c, agent, rawMessage ?? message, {
-          wikiDirForDiffs: wikiDir(),
+          wikiDirForDiffs: wikiToolsDir(),
+          granteeTenantId: wikiToolsGranteeTenantIdOrSingle(),
           announceSessionId: sessionId,
           agentKind: 'chat_skill',
           promptMessages,
@@ -253,7 +255,8 @@ chat.post('/', async (c) => {
     { selection: selectionForSkill, openFile: openFileForSkill },
     async () =>
       await streamAgentSseResponse(c, agent, rawMessage ?? message, {
-        wikiDirForDiffs: wikiDir(),
+        wikiDirForDiffs: wikiToolsDir(),
+        granteeTenantId: wikiToolsGranteeTenantIdOrSingle(),
         announceSessionId: sessionId,
         agentKind: 'chat',
         promptMessages: mainPromptMessages,

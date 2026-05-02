@@ -24,6 +24,7 @@ import { appendWikiEditRecord, readRecentWikiEdits } from '@server/lib/wiki/wiki
 import { resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
 import { syncWikiFromDisk } from '@server/lib/platform/syncAll.js'
 import { searchWikiMarkdownPaths } from '@server/lib/wiki/wikiMarkdownContentSearch.js'
+import { syncWikiShareProjectionsForGrantee } from '@server/lib/shares/wikiShareProjection.js'
 
 const wiki = new Hono()
 
@@ -36,6 +37,7 @@ wiki.get('/', async (c) => {
   if (!ctx) {
     return c.json({ files, shares: { owned: [], received: [] } })
   }
+  void syncWikiShareProjectionsForGrantee(ctx.tenantUserId).catch(() => {})
   const shares = await buildWikiListShareEnvelope(ctx.tenantUserId)
   return c.json({ files, shares })
 })

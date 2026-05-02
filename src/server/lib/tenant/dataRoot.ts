@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, renameSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   brainLayoutCacheDir,
@@ -8,7 +8,6 @@ import {
   brainLayoutRipmailDir,
   brainLayoutSkillsDir,
   brainLayoutVarDir,
-  brainLayoutWikiDir,
 } from '@server/lib/platform/brainLayout.js'
 
 /**
@@ -32,10 +31,44 @@ export function tenantHomeDir(tenantUserId: string): string {
   return join(dataRoot(), tenantUserId)
 }
 
+/**
+ * One-time layout: legacy `wiki/` → `wikis/me/`, then remove old `.brain-share-mount/` under me.
+ * Idempotent. Does not migrate share projection links (DB reconcile rec creates `wikis/@peer/`).
+ */
+export function migrateWikiToWikisMe(tenantHome: string): void {
+  /** Physical paths only — do not use {@link brainLayoutWikisDir} (test legacy shim may alias `wiki/`). */
+  const wikis = join(tenantHome, 'wikis')
+  const me = join(wikis, 'me')
+  const legacyWiki = join(tenantHome, 'wiki')
+
+  const scrubOldMountUnderMe = () => {
+    const oldMount = join(me, '.brain-share-mount')
+    if (existsSync(oldMount)) {
+      rmSync(oldMount, { recursive: true, force: true })
+    }
+  }
+
+  if (existsSync(me)) {
+    if (existsSync(legacyWiki)) {
+      rmSync(legacyWiki, { recursive: true, force: true })
+    }
+    scrubOldMountUnderMe()
+    return
+  }
+
+  mkdirSync(wikis, { recursive: true })
+  if (existsSync(legacyWiki)) {
+    renameSync(legacyWiki, me)
+  } else {
+    mkdirSync(me, { recursive: true })
+  }
+  scrubOldMountUnderMe()
+}
+
 /** Create tenant tree matching {@link shared/brain-layout.json} under `tenantUserId` (`usr_…`). */
 export function ensureTenantHomeDir(tenantUserId: string): string {
   const root = tenantHomeDir(tenantUserId)
-  mkdirSync(brainLayoutWikiDir(root), { recursive: true })
+  migrateWikiToWikisMe(root)
   mkdirSync(brainLayoutSkillsDir(root), { recursive: true })
   mkdirSync(brainLayoutChatsDir(root), { recursive: true })
   mkdirSync(brainLayoutRipmailDir(root), { recursive: true })

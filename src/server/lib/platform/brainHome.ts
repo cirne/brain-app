@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 import { readdir, rm } from 'node:fs/promises'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
@@ -10,10 +10,12 @@ import {
   brainLayoutSkillsDir,
   brainLayoutWikiDir,
   brainLayoutWikiEditsPath,
+  brainLayoutWikisDir,
 } from './brainLayout.js'
 
 /**
  * Local durable root for the current request (tenant home from AsyncLocalStorage).
+ * Wiki filesystem may be rooted at {@link brainWikiParentRoot} when `BRAIN_WIKI_ROOT` is set (wiki eval).
  */
 export function brainHome(): string {
   const ctx = tryGetTenantContext()
@@ -26,8 +28,13 @@ export function brainHome(): string {
   throw new Error('tenant_context_required')
 }
 
-/** Parent directory of the `wiki/` segment (`$tenant/wiki`). */
+/**
+ * Parent directory for wiki layout (`wikis/me/`, …): normal tenant home, or **`BRAIN_WIKI_ROOT`**
+ * when set (JSONL wiki eval — isolated vault while ripmail stays under {@link brainHome}).
+ */
 export function brainWikiParentRoot(): string {
+  const alt = process.env.BRAIN_WIKI_ROOT?.trim()
+  if (alt) return resolve(alt)
   return brainHome()
 }
 
@@ -46,6 +53,11 @@ export async function wipeBrainHomeContents(): Promise<void> {
 
 export function wikiContentDir(): string {
   return brainLayoutWikiDir(brainWikiParentRoot())
+}
+
+/** Unified wiki tool root (`wikis/`) — includes `me/` and `@peer/` projections. */
+export function wikiToolsRootDir(): string {
+  return brainLayoutWikisDir(brainWikiParentRoot())
 }
 
 export function skillsDataDir(): string {

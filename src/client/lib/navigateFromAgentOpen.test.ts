@@ -93,9 +93,21 @@ describe('navigateFromAgentOpen', () => {
     expect(ctx.openIndexedFileDoc).toHaveBeenCalledWith('driveFile1', 'mailbox-drive')
   })
 
-  it('opens calendar day on desktop (open)', () => {
+  it('opens shared wiki doc when path uses unified @handle prefix', () => {
     const ctx = desktopCtx()
-    navigateFromAgentOpen({ type: 'calendar', date: '2026-01-02' }, ctx)
-    expect(ctx.switchToCalendar).toHaveBeenCalledWith('2026-01-02')
+    navigateFromAgentOpen({ type: 'wiki', path: '@alice/trips/x.md' }, ctx)
+    expect(ctx.openWikiDoc).toHaveBeenCalledWith('@alice/trips/x.md')
+  })
+
+  it('opens local wiki doc when path uses me/ prefix', () => {
+    const ctx = desktopCtx()
+    navigateFromAgentOpen({ type: 'wiki', path: 'me/ideas/x.md' }, ctx)
+    expect(ctx.openWikiDoc).toHaveBeenCalledWith('me/ideas/x.md')
+  })
+
+  it('combines legacy shareHandle with path into unified @handle/ path', () => {
+    const ctx = desktopCtx()
+    navigateFromAgentOpen({ type: 'wiki', path: 'solo.md', shareHandle: 'bob' }, ctx)
+    expect(ctx.openWikiDoc).toHaveBeenCalledWith('@bob/solo.md')
   })
 })
