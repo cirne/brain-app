@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowRight, Sparkles } from 'lucide-svelte'
   import WikiFileName from '../WikiFileName.svelte'
+  import { cn } from '@client/lib/cn.js'
   import type { QuickReplyChoice } from '@client/lib/tools/suggestReplyChoices.js'
 
   let {
@@ -41,7 +42,7 @@
           {#each files as path (path)}
             <button
               type="button"
-              class={[chipClass, 'composer-context-chip--doc shrink-0 bg-surface-3 text-inherit']}
+              class={cn(chipClass, 'composer-context-chip--doc shrink-0 bg-surface-3 text-inherit')}
               onclick={() => onOpenWiki?.(path)}
             >
               <WikiFileName {path} />
@@ -53,17 +54,17 @@
 
     {#if choices.length > 0}
       <div
-        class={[
+        class={cn(
           'composer-context-bar__actions flex max-w-full flex-wrap items-center gap-x-2 gap-y-1.5 max-md:gap-x-2.5 max-md:gap-y-2',
           files.length > 0 && 'mt-1.5',
-        ]}
+        )}
         role="group"
         aria-label="Suggested replies"
       >
         {#each choices as c, idx (c.id ?? `${idx}-${c.label}`)}
           <button
             type="button"
-            class={[chipClass, 'composer-context-chip--action bg-accent-dim']}
+            class={cn(chipClass, 'composer-context-chip--action bg-accent-dim')}
             disabled={choicesDisabled || !onChoice}
             onclick={() => onChoice?.(c)}
           >

@@ -24,6 +24,20 @@ Every new component added in the BEM pattern increases future migration cost. At
 
 ## Approach
 
+### Shared utility conventions
+
+- Prefer Tailwind utilities for layout, spacing, typography, color, borders, and responsive behavior.
+- Use the semantic tokens exported from `src/client/style.css` / `@theme` (`bg-surface`, `bg-surface-2`, `text-foreground`, `text-muted`, `border-border`, `max-w-chat`, etc.) before reaching for raw `var(--...)` chains.
+- Use `cn()` from `src/client/lib/cn.ts` for reusable or dynamic Tailwind class strings. It accepts the same object/array/string shapes as Svelte's `class` attribute and runs `tailwind-merge` so later conflicting utilities win predictably.
+- Keep existing semantic/BEM class names when tests, JS hooks, or complex scoped selectors still need them; treat those names as hooks, not as the primary styling layer.
+
+### Responsive policy
+
+- Use Tailwind's `md:` and `max-md:` variants for the standard workspace breakpoint instead of component-scoped `@media (min-width: 768px)` / `@media (max-width: 768px)` blocks.
+- Keep global breakpoint-driven CSS variables in `src/client/style.css` when they are true app-level tokens (for example touch-oriented `--tab-h` tweaks).
+- Use container queries for layouts whose behavior depends on pane width rather than viewport width.
+- Keep JS media queries aligned with `WORKSPACE_DESKTOP_SPLIT_MIN_PX` in `src/client/lib/app/workspaceLayout.ts`.
+
 ### CSS custom properties — keep
 
 The `:root` token layer (`--color-bg`, `--color-text`, `--radius-md`, etc.) in `style.css` is the right abstraction. These tokens let Tailwind utilities reference design system values and support future theming. Map Tailwind's `theme.extend` to these tokens rather than replacing them.
