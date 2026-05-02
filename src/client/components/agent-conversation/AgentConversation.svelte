@@ -3,6 +3,7 @@
   import { fly } from 'svelte/transition'
   import { ChevronDown } from 'lucide-svelte'
   import { computePinnedToBottom } from '@client/lib/scrollPin.js'
+  import { cn } from '@client/lib/cn.js'
   import type { AgentConversationViewProps } from '@client/lib/agentConversationViewTypes.js'
   import ConversationEmptyState from './ConversationEmptyState.svelte'
   import ChatMessageRow from './ChatMessageRow.svelte'
@@ -165,21 +166,21 @@
 </script>
 
 <div
-  class={[
+  class={cn(
     'conversation-shell relative flex min-w-0 flex-1 flex-col overflow-x-hidden',
     messages.length === 0 ? 'min-h-[auto] flex-[0_1_auto]' : 'min-h-0',
-  ]}
+  )}
   data-conversation-state={messages.length === 0 ? 'empty' : 'active'}
 >
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_mouse_events_have_key_events -->
   <div
-    class={[
+    class={cn(
       'conversation chat-transcript-scroll min-w-0 overflow-x-hidden pb-[var(--composer-context-overlap-pad,0)]',
       messages.length === 0
         ? 'min-h-[auto] max-h-none flex-[0_1_auto] overflow-y-clip'
         : 'min-h-0 flex-1 overflow-y-auto',
-    ]}
+    )}
     {@attach captureMessagesEl}
     onscroll={syncFollowFromScroll}
     onclick={handleMessagesClick}
@@ -228,10 +229,10 @@
     >
       <button
         type="button"
-        class={[
+        class={cn(
           'jump-to-latest pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] py-[9px] pr-4 pl-3.5 text-xs font-semibold tracking-[0.04em] text-foreground uppercase shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.1)] backdrop-blur-[10px] transition-[transform,box-shadow,border-color] duration-[180ms] ease-in-out [-webkit-backdrop-filter:blur(10px)] hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_12px_28px_rgba(0,0,0,0.12)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:translate-y-0 motion-reduce:hover:translate-y-0 dark:bg-[color-mix(in_srgb,var(--bg-3)_92%,transparent)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_10px_28px_rgba(0,0,0,0.45)]',
           streaming && 'streaming border-[color-mix(in_srgb,var(--accent)_28%,var(--border))]',
-        ]}
+        )}
         aria-label={streaming ? 'Jump to latest, reply in progress' : 'Jump to latest messages'}
         onclick={() => scrollToBottom()}
       >
