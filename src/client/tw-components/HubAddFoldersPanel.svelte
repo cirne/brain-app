@@ -1,6 +1,5 @@
 <script lang="ts">
-  // TODO(tw): switch to @tw-components when migrated
-  import AgentChat from '@components/AgentChat.svelte'
+  import AgentChat from '@tw-components/AgentChat.svelte'
 
   /**
    * Leading `/files` invokes the public `skills/files/SKILL.md` turn (see POST /api/chat slash handling)

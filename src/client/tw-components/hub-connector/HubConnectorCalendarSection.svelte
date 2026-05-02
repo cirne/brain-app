@@ -1,6 +1,5 @@
 <script lang="ts">
-  // TODO(tw): switch to @tw-components when migrated
-  import CalendarPicker from '@components/calendar/CalendarPicker.svelte'
+  import CalendarPicker from '@tw-components/calendar/CalendarPicker.svelte'
   // TODO(tw): switch to @tw-components when migrated
   import type {
     CalendarPickerCalendar,

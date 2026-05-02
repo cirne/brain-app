@@ -1,8 +1,7 @@
 <script lang="ts">
   import { RefreshCw } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
-  // TODO(tw): switch to @tw-components when migrated
-  import FileSourceConfigEditor from '@components/FileSourceConfigEditor.svelte'
+  import FileSourceConfigEditor from '@tw-components/FileSourceConfigEditor.svelte'
   import HubConnectorCalendarSection from '@tw-components/hub-connector/HubConnectorCalendarSection.svelte'
   import HubConnectorDriveSection from '@tw-components/hub-connector/HubConnectorDriveSection.svelte'
   import {

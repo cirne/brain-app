@@ -3,8 +3,7 @@
   import { Sparkles } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
-  // TODO(tw): switch to @tw-components when migrated
-  import BackgroundAgentPanel from '@components/statusBar/BackgroundAgentPanel.svelte'
+  import BackgroundAgentPanel from '@tw-components/statusBar/BackgroundAgentPanel.svelte'
   import { backgroundAgentsFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
 
   type Props = {

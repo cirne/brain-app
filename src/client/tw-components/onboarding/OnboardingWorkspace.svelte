@@ -5,20 +5,14 @@
    */
   import { onMount } from 'svelte'
   import { countSeedEligibleWikiPages } from '@client/lib/onboarding/seedWikiPageCount.js'
-  // TODO(tw): switch to @tw-components when migrated
-  import Search from '@components/Search.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import AppTopNav from '@components/AppTopNav.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import SlideOver from '@components/shell/SlideOver.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import AgentChat from '@components/AgentChat.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import AgentConversation from '@components/agent-conversation/AgentConversation.svelte'
+  import Search from '@tw-components/Search.svelte'
+  import AppTopNav from '@tw-components/AppTopNav.svelte'
+  import SlideOver from '@tw-components/shell/SlideOver.svelte'
+  import AgentChat from '@tw-components/AgentChat.svelte'
+  import AgentConversation from '@tw-components/agent-conversation/AgentConversation.svelte'
   import OnboardingProfilingView from './OnboardingProfilingView.svelte'
   import OnboardingSeedingView from './OnboardingSeedingView.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import WorkspaceSplit from '@components/WorkspaceSplit.svelte'
+  import WorkspaceSplit from '@tw-components/WorkspaceSplit.svelte'
   import {
     parseRoute,
     navigate,
