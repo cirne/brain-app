@@ -20,26 +20,19 @@
     Share2,
     X,
   } from 'lucide-svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import Wiki from '@components/Wiki.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import WikiDirList from '@components/WikiDirList.svelte'
+  import Wiki from '@tw-components/Wiki.svelte'
+  import WikiDirList from '@tw-components/WikiDirList.svelte'
   import FileViewer from '@tw-components/FileViewer.svelte'
   import IndexedFileViewer from '@tw-components/IndexedFileViewer.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import Inbox from '@components/Inbox.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import Calendar from '@components/Calendar.svelte'
+  import Inbox from '@tw-components/Inbox.svelte'
+  import Calendar from '@tw-components/Calendar.svelte'
   import MessageThread from '@tw-components/MessageThread.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import MailSearchResultsPanel from '@components/MailSearchResultsPanel.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import YourWikiDetail from '@components/YourWikiDetail.svelte'
+  import MailSearchResultsPanel from '@tw-components/MailSearchResultsPanel.svelte'
+  import YourWikiDetail from '@tw-components/YourWikiDetail.svelte'
   import HubConnectorSourcePanel from '@tw-components/hub-connector/HubConnectorSourcePanel.svelte'
   import HubWikiAboutPanel from '@tw-components/HubWikiAboutPanel.svelte'
   import WikiFileName from '@tw-components/WikiFileName.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import EmailDraftEditor from '@components/EmailDraftEditor.svelte'
+  import EmailDraftEditor from '@tw-components/EmailDraftEditor.svelte'
   import PaneL2Header from '@tw-components/PaneL2Header.svelte'
   import { cn } from '@client/lib/cn.js'
   import type { Overlay, SurfaceContext } from '@client/lib/router.js'

@@ -11,8 +11,7 @@
   import WikiPrimaryShell from '@tw-components/WikiPrimaryShell.svelte'
   import UnifiedChatComposer from '@tw-components/UnifiedChatComposer.svelte'
   import AssistantSlideOver from '@tw-components/AssistantSlideOver.svelte'
-  // TODO(tw): switch to @tw-components when migrated
-  import AgentChat from '@components/AgentChat.svelte'
+  import AgentChat from '@tw-components/AgentChat.svelte'
   import ChatHistory from '@tw-components/ChatHistory.svelte'
   import ChatHistoryPage from '@tw-components/ChatHistoryPage.svelte'
   import WorkspaceSplit from '@tw-components/WorkspaceSplit.svelte'

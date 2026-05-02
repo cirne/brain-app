@@ -10,8 +10,7 @@
   import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
   import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
-  // TODO(tw): switch to @tw-components when migrated
-  import YourWikiDetail from '@components/YourWikiDetail.svelte'
+  import YourWikiDetail from '@tw-components/YourWikiDetail.svelte'
   import { ONBOARDING_SEEDING_MIN_DWELL_MS } from '@client/lib/onboarding/seedConstants.js'
 
   type Props = {

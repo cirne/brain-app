@@ -3,8 +3,7 @@
    * TipTap editor for onboarding profile draft (YAML front matter preserved).
    * Persists to disk only when the parent calls {@link flushSave} (Looks Good), not on each keystroke.
    */
-  // TODO(tw): switch to @tw-components when migrated
-  import TipTapMarkdownEditor from '@components/TipTapMarkdownEditor.svelte'
+  import TipTapMarkdownEditor from '@tw-components/TipTapMarkdownEditor.svelte'
 
   interface Props {
     initialMarkdown?: string
