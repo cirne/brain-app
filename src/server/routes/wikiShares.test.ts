@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { Hono } from 'hono'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import wikiSharesRoute from './wikiShares.js'
-import { sendWikiShareInviteEmail } from '@server/lib/shares/shareInviteEmail.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
 import { vaultGateMiddleware } from '@server/lib/vault/vaultGate.js'
 import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
@@ -15,11 +14,7 @@ import { writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { googleIdentityKey } from '@server/lib/tenant/googleIdentityWorkspace.js'
 import { brainLayoutRipmailDir, brainLayoutWikiDir } from '@server/lib/platform/brainLayout.js'
 import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
-import { getShareByToken } from '@server/lib/shares/wikiSharesRepo.js'
-
-vi.mock('@server/lib/shares/shareInviteEmail.js', () => ({
-  sendWikiShareInviteEmail: vi.fn().mockResolvedValue({ sent: false }),
-}))
+import { getShareById } from '@server/lib/shares/wikiSharesRepo.js'
 
 function mountWikiShares(): Hono {
   const app = new Hono()
@@ -51,7 +46,6 @@ describe('/api/wiki-shares', () => {
     if (prevRoot !== undefined) process.env.BRAIN_DATA_ROOT = prevRoot
     if (prevGlobal !== undefined) process.env.BRAIN_GLOBAL_SQLITE_PATH = prevGlobal
     await rm(root, { recursive: true, force: true })
-    vi.clearAllMocks()
   })
 
   async function sessionFor(uid: string, handle: string): Promise<string> {
@@ -69,7 +63,7 @@ describe('/api/wiki-shares', () => {
     )
   }
 
-  it('POST create, GET list, DELETE revoke, GET accept redirects', async () => {
+  it('POST create, GET list, POST accept by id, DELETE revoke', async () => {
     const ownerId = 'usr_10101010101010101010'
     const granteeId = 'usr_20202020202020202020'
     const ownerSid = await sessionFor(ownerId, 'owner-handle')
@@ -106,9 +100,9 @@ describe('/api/wiki-shares', () => {
       body: JSON.stringify({ pathPrefix: 'trips/', granteeEmail: 'grantee@example.com' }),
     })
     expect(post.status).toBe(200)
-    const created = (await post.json()) as { id: string; inviteUrl: string; emailSent: boolean }
-    expect(created.inviteUrl).toContain('/api/wiki-shares/accept/')
-    expect(created.emailSent).toBe(false)
+    const created = (await post.json()) as { id: string; granteeEmail: string }
+    expect(created.granteeEmail).toBe('grantee@example.com')
+    expect(created.id.length).toBeGreaterThan(5)
 
     const listOwner = await app.request('http://localhost/api/wiki-shares', {
       headers: { Cookie: `brain_session=${ownerSid}` },
@@ -117,17 +111,16 @@ describe('/api/wiki-shares', () => {
     const lo = (await listOwner.json()) as { owned: { id: string }[] }
     expect(lo.owned).toHaveLength(1)
 
-    const token = created.inviteUrl.split('/accept/')[1] ?? ''
-    expect(token.length).toBeGreaterThan(5)
-
-    const acc = await app.request(`http://localhost/api/wiki-shares/accept/${encodeURIComponent(token)}`, {
+    const acc = await app.request(`http://localhost/api/wiki-shares/${encodeURIComponent(created.id)}/accept`, {
+      method: 'POST',
       headers: { Cookie: `brain_session=${granteeSid}` },
     })
-    expect(acc.status).toBe(302)
-    const loc = acc.headers.get('location') ?? ''
-    expect(loc).toContain('/wikis/@owner-handle/trips/')
+    expect(acc.status).toBe(200)
+    const accBody = (await acc.json()) as { ok: boolean; wikiUrl: string }
+    expect(accBody.ok).toBe(true)
+    expect(accBody.wikiUrl).toContain('/wikis/@owner-handle/trips/')
 
-    const row = getShareByToken(decodeURIComponent(token))
+    const row = getShareById(created.id)
     expect(row?.grantee_id).toBe(granteeId)
 
     const del = await app.request(`http://localhost/api/wiki-shares/${created.id}`, {
@@ -182,11 +175,9 @@ describe('/api/wiki-shares', () => {
     const created = (await post.json()) as {
       granteeEmail: string
       granteeHandle?: string
-      inviteUrl: string
     }
     expect(created.granteeEmail).toBe('sterling@example.com')
     expect(created.granteeHandle).toBe('sterling')
-    expect(created.inviteUrl).toContain('/api/wiki-shares/accept/')
   })
 
   it('POST returns 400 when handle is unknown', async () => {
@@ -341,33 +332,17 @@ describe('/api/wiki-shares', () => {
     expect(j.ownerHandle).toBe('owner-postacc')
   })
 
-  it('POST create calls notify email only when notifyByEmail is true', async () => {
-    const ownerId = 'usr_ee555555555555555555'
-    const ownerSid = await sessionFor(ownerId, 'owner-notify')
+  it('GET token accept route is removed (404)', async () => {
+    const ownerId = 'usr_ff666666666666666666'
+    const ownerSid = await sessionFor(ownerId, 'owner-no-token')
     await registerSessionTenant(ownerSid, ownerId)
     const wiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
     await mkdir(join(wiki, 'trips'), { recursive: true })
 
     const app = mountWikiShares()
-    const postNo = await app.request('http://localhost/api/wiki-shares', {
-      method: 'POST',
-      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pathPrefix: 'trips/', granteeEmail: 'g@example.com' }),
+    const res = await app.request('http://localhost/api/wiki-shares/accept/some-opaque-token', {
+      headers: { Cookie: `brain_session=${ownerSid}` },
     })
-    expect(postNo.status).toBe(200)
-    expect(vi.mocked(sendWikiShareInviteEmail)).not.toHaveBeenCalled()
-
-    const postYes = await app.request('http://localhost/api/wiki-shares', {
-      method: 'POST',
-      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pathPrefix: 'trips/',
-        granteeEmail: 'h@example.com',
-        notifyByEmail: true,
-      }),
-    })
-    expect(postYes.status).toBe(200)
-    expect(vi.mocked(sendWikiShareInviteEmail)).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(sendWikiShareInviteEmail).mock.calls[0][0].hubUrl).toContain('/hub#sharing')
+    expect(res.status).toBe(404)
   })
 })

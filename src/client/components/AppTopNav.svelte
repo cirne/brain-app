@@ -23,10 +23,12 @@
      * Omitted in the top bar on narrow viewports; use the top Settings control instead.
      */
     hostedHandlePill?: string
-    /** Pending wiki share invites — dot on handle (desktop) and on the hub widget. */
+    /** Pending wiki share invites — dot on Settings / @handle when set; opens Sharing with badge. */
     shareInviteBadge?: boolean
     /** Hosted and desktop: opens Settings (`/settings`). */
     onOpenSettings?: () => void
+    /** When pending invites exist, opens Settings scrolled to Sharing (`#sharing`). */
+    onOpenSharing?: () => void
     /** Wiki vault root (`index.md` / resolved landing) — optional; hidden when omitted (e.g. onboarding). */
     onWikiHome?: () => void
   }
@@ -46,6 +48,7 @@
     hostedHandlePill,
     shareInviteBadge = false,
     onOpenSettings,
+    onOpenSharing,
     onWikiHome,
   }: Props = $props()
 
@@ -134,7 +137,11 @@
           type="button"
           class="settings-nav-btn"
           class:settings-nav-btn--labeled={!isMobile}
-          onclick={onOpenSettings}
+          class:settings-nav-btn--badge={shareInviteBadge}
+          onclick={() => {
+            if (shareInviteBadge && onOpenSharing) onOpenSharing()
+            else onOpenSettings?.()
+          }}
           title="Settings"
           aria-label={isMobile ? 'Settings' : undefined}
         >
@@ -149,16 +156,16 @@
           type="button"
           class="nav-hosted-handle"
           class:nav-hosted-handle--badge={shareInviteBadge}
-          onclick={onOpenSettings}
+          onclick={() => {
+            if (shareInviteBadge && onOpenSharing) onOpenSharing()
+            else onOpenSettings?.()
+          }}
           title="Workspace settings"
         >
           @{hostedHandlePill}
         </button>
       {/if}
-      <BrainHubWidget
-        onOpen={onOpenHub}
-        shareInviteBadge={shareInviteBadge && (!!isMobile || !hostedHandlePill)}
-      />
+      <BrainHubWidget onOpen={onOpenHub} />
       {#if syncErrors.length > 0}
         <button class="sync-error-badge" onclick={onToggleSyncErrors} title="Show sync errors">!</button>
         {#if showSyncErrors}
@@ -399,6 +406,29 @@
     width: auto;
     min-width: 40px;
     padding: 0 10px;
+  }
+
+  .settings-nav-btn--badge {
+    position: relative;
+    padding-right: 14px;
+  }
+
+  .settings-nav-btn--badge::after {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  @media (max-width: 768px) {
+    .settings-nav-btn--badge.settings-nav-btn--labeled::after {
+      top: 8px;
+      right: 10px;
+    }
   }
 
   .settings-nav-btn:hover {

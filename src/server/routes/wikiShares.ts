@@ -5,11 +5,9 @@ import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { readPrimaryRipmailImapEmail } from '@server/lib/platform/googleOAuth.js'
 import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
 import {
-  acceptShare,
   acceptShareById,
   createShare,
   getShareById,
-  getShareByToken,
   listPendingInvitesForGranteeEmail,
   listSharesForGrantee,
   listSharesForOwner,
@@ -20,7 +18,6 @@ import {
   removeWikiShareProjectionForShare,
   syncWikiShareProjectionsForGrantee,
 } from '@server/lib/shares/wikiShareProjection.js'
-import { sendWikiShareInviteEmail } from '@server/lib/shares/shareInviteEmail.js'
 import {
   InvalidWorkspaceHandleError,
   parseWorkspaceHandle,
@@ -85,8 +82,6 @@ wikiShares.post('/', async (c) => {
     granteeEmail?: unknown
     granteeHandle?: unknown
     targetKind?: unknown
-    /** When true, send an optional Hub deep-link notification via ripmail (default: off). */
-    notifyByEmail?: unknown
   }
   try {
     body = await c.req.json()
@@ -148,26 +143,9 @@ wikiShares.post('/', async (c) => {
       pathPrefix,
       ...(targetKind ? { targetKind } : {}),
     })
-    const origin = new URL(c.req.url).origin
-    const inviteUrl = `${origin}/api/wiki-shares/accept/${encodeURIComponent(row.invite_token)}`
-    const ownerHandle = ctx.workspaceHandle
-    const notifyByEmail = body.notifyByEmail === true
-    let emailSent = false
-    if (notifyByEmail) {
-      const hubUrl = `${origin}/hub#sharing`
-      const { sent } = await sendWikiShareInviteEmail({
-        granteeEmail: row.grantee_email,
-        hubUrl,
-        pathPrefix: row.path_prefix,
-        ownerHandle,
-      })
-      emailSent = sent
-    }
     const api = await toApiShare(row)
     return c.json({
       ...api,
-      inviteUrl,
-      emailSent,
       ...(resolvedHandle ? { granteeHandle: resolvedHandle } : {}),
     })
   } catch (e) {
@@ -209,7 +187,7 @@ wikiShares.post('/:id/accept', async (c) => {
     return c.json(
       {
         error: 'mailbox_email_unknown',
-        message: 'Connect Gmail (ripmail) so your workspace email is known, then accept from Hub.',
+        message: 'Connect Gmail (ripmail) so your workspace email is known, then accept in Settings.',
       },
       400,
     )
@@ -263,44 +241,6 @@ wikiShares.delete('/:id', async (c) => {
   const ok = revokeShare({ shareId: id, ownerId: ctx.tenantUserId })
   if (!ok) return c.json({ error: 'not_found_or_forbidden' }, 404)
   return c.json({ ok: true })
-})
-
-/** GET /api/wiki-shares/accept/:token — grantee accepts (vault + tenant required) */
-wikiShares.get('/accept/:token', async (c) => {
-  const ctx = getTenantContext()
-  const token = c.req.param('token')
-  const rowPre = getShareByToken(token)
-  if (!rowPre || rowPre.revoked_at_ms != null) {
-    return c.json({ error: 'invalid_or_revoked_token' }, 400)
-  }
-  const email =
-    (await readPrimaryRipmailImapEmail(ripmailHomeForBrain()))?.trim().toLowerCase() ?? ''
-  if (!email) {
-    return c.json(
-      {
-        error: 'mailbox_email_unknown',
-        message: 'Connect Gmail (ripmail) so your workspace email is known, then open the invite link again.',
-      },
-      400,
-    )
-  }
-  const updated = acceptShare({
-    token,
-    granteeId: ctx.tenantUserId,
-    granteeEmail: email,
-  })
-  if (!updated) {
-    return c.json(
-      { error: 'accept_failed', message: 'Token expired, wrong account, or email does not match the invite.' },
-      400,
-    )
-  }
-  void syncWikiShareProjectionsForGrantee(ctx.tenantUserId).catch(() => {})
-  const origin = new URL(c.req.url).origin
-  const ownerMeta = await readHandleMeta(tenantHomeDir(updated.owner_id))
-  const ownerDisplay = (ownerMeta?.handle ?? updated.owner_id).trim()
-  const loc = wikiUrlForAcceptedShare(origin, updated, ownerDisplay)
-  return c.redirect(loc, 302)
 })
 
 export default wikiShares
