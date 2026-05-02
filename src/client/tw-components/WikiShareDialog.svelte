@@ -1,8 +1,9 @@
 <script lang="ts">
   import ConfirmDialog from '@tw-components/ConfirmDialog.svelte'
+  import WikiFileName from '@tw-components/WikiFileName.svelte'
   import { cn } from '@client/lib/cn.js'
-  import { copyToClipboard } from '@client/lib/clipboard.js'
   import { wikiShareCoversVaultPath } from '@client/lib/wikiDirListModel.js'
+  import { wikiShareVaultPathForWikiFileName } from '@client/lib/wikiPathDisplay.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import { tick } from 'svelte'
 
@@ -53,12 +54,6 @@
     displayName?: string
   }
 
-  type CreatedInvite = {
-    grantee: SelectedGrantee
-    inviteUrl: string
-    emailSent: boolean
-  }
-
   let inputValue = $state('')
   let selected = $state<SelectedGrantee[]>([])
   let suggestions = $state<DirectoryEntry[]>([])
@@ -69,14 +64,9 @@
   let submitting = $state(false)
   let errorMsg = $state('')
   let perGranteeErrors = $state<Record<string, string>>({})
-  let createdInvites = $state<CreatedInvite[]>([])
 
   let inputEl: HTMLInputElement | undefined = $state()
   let searchToken = 0
-
-  /** Which invite key showed “Copied” on the matching control (footer uses same key when only one invite). */
-  let copiedForKey = $state<string | null>(null)
-  let copyFeedbackTimer: ReturnType<typeof setTimeout> | undefined
 
   let audienceRows = $state<WikiAudienceRow[]>([])
   let audienceLoading = $state(false)
@@ -85,12 +75,13 @@
   let revokingId = $state<string | null>(null)
   let audienceFetchToken = 0
 
-  /** Optional ripmail notification with Hub deep link (off by default). */
-  let notifyByEmail = $state(false)
-
   const dialogTitle = $derived(targetKind === 'file' ? 'Share wiki page' : 'Share wiki folder')
 
   const shareActionLabel = $derived(targetKind === 'file' ? 'Share Page' : 'Share Folder')
+
+  const wikiShareDisplayPathForFileName = $derived(
+    wikiShareVaultPathForWikiFileName({ pathPrefix, targetKind }),
+  )
 
   $effect(() => {
     if (!open) {
@@ -110,13 +101,6 @@
     submitting = false
     errorMsg = ''
     perGranteeErrors = {}
-    createdInvites = []
-    copiedForKey = null
-    if (copyFeedbackTimer !== undefined) {
-      clearTimeout(copyFeedbackTimer)
-      copyFeedbackTimer = undefined
-    }
-    notifyByEmail = false
     void pathPrefix
     void targetKind
     void reloadAudienceShares()
@@ -201,25 +185,6 @@
     } finally {
       revokingId = null
     }
-  }
-
-  function flashCopied(key: string): void {
-    if (copyFeedbackTimer !== undefined) clearTimeout(copyFeedbackTimer)
-    copiedForKey = key
-    copyFeedbackTimer = setTimeout(() => {
-      copiedForKey = null
-      copyFeedbackTimer = undefined
-    }, 2000)
-  }
-
-  async function copyInviteUrl(inv: CreatedInvite): Promise<void> {
-    const ok = await copyToClipboard(inv.inviteUrl)
-    if (ok) flashCopied(inv.grantee.key)
-  }
-
-  async function copySingleInviteFromFooter(): Promise<void> {
-    const inv = createdInvites[0]
-    if (inv) await copyInviteUrl(inv)
   }
 
   function looksLikeEmail(value: string): boolean {
@@ -383,7 +348,6 @@
   async function submit(): Promise<void> {
     errorMsg = ''
     perGranteeErrors = {}
-    createdInvites = []
     if (selected.length === 0) {
       const trimmed = inputValue.trim()
       if (trimmed) commitTyped()
@@ -393,14 +357,13 @@
       }
     }
     submitting = true
-    const successes: CreatedInvite[] = []
     const errors: Record<string, string> = {}
+    let anySuccess = false
     try {
       for (const g of selected) {
         const body: Record<string, unknown> = { pathPrefix, targetKind }
         if (g.handle) body.granteeHandle = g.handle
         else body.granteeEmail = g.email
-        if (notifyByEmail) body.notifyByEmail = true
         try {
           const res = await fetch('/api/wiki-shares', {
             method: 'POST',
@@ -410,25 +373,22 @@
           const j = (await res.json().catch(() => ({}))) as {
             error?: string
             message?: string
-            inviteUrl?: string
-            emailSent?: boolean
+            id?: string
           }
-          if (!res.ok || typeof j.inviteUrl !== 'string') {
+          if (!res.ok || typeof j.id !== 'string') {
             errors[g.key] = j.message ?? j.error ?? 'Request failed'
             continue
           }
-          successes.push({
-            grantee: g,
-            inviteUrl: j.inviteUrl,
-            emailSent: Boolean(j.emailSent),
-          })
+          anySuccess = true
         } catch {
           errors[g.key] = 'Network error'
         }
       }
-      createdInvites = successes
       perGranteeErrors = errors
-      if (successes.length > 0) {
+      if (anySuccess) {
+        selected = []
+        inputValue = ''
+        suggestOpen = false
         await reloadAudienceShares()
         onSharesChanged?.()
         emit({ type: 'wiki-shares-changed' })
@@ -452,14 +412,15 @@
     return lines.join('\n')
   }
 
-  const codeChip =
-    'wsh-code rounded bg-[var(--color-surface-2,rgba(0,0,0,0.06))] px-1.5 py-px text-[13px]'
-
   const sectionTitle = 'wsh-section-title m-0 mb-2 text-[13px] font-semibold text-foreground'
   const mutedText = 'wsh-muted m-0 text-[13px] text-muted'
   const errBase = 'wsh-err m-0 mt-2 text-[13px] text-[var(--danger,#b42318)]'
   const pillBase =
     'wsh-pill rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_18%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]'
+  const sharePathName =
+    'wsh-share-path-name inline-flex max-w-full align-text-bottom text-foreground'
+  const codeChip =
+    'wsh-code rounded bg-[var(--color-surface-2,rgba(0,0,0,0.06))] px-1.5 py-px text-[13px]'
 </script>
 
 <ConfirmDialog
@@ -475,239 +436,174 @@
   onConfirm={() => {}}
 >
   {#snippet actions()}
-    {#if createdInvites.length === 1}
-      <button type="button" class="cd-btn" onclick={() => onDismiss()}>Done</button>
-      <button
-        type="button"
-        class="cd-btn cd-btn--primary"
-        onclick={() => void copySingleInviteFromFooter()}
-      >
-        {copiedForKey === createdInvites[0]?.grantee.key ? 'Copied' : 'Copy legacy link'}
-      </button>
-    {:else if createdInvites.length > 1}
-      <button type="button" class="cd-btn" onclick={() => onDismiss()}>Done</button>
-    {:else}
-      <button type="button" class="cd-btn" onclick={() => onDismiss()}>Cancel</button>
-      <button
-        type="button"
-        class="cd-btn cd-btn--primary"
-        disabled={submitDisabled}
-        onclick={() => void submit()}
-      >
-        {submitting ? 'Sharing…' : shareActionLabel}
-      </button>
-    {/if}
+    <button type="button" class="cd-btn" onclick={() => onDismiss()}>Cancel</button>
+    <button
+      type="button"
+      class="cd-btn cd-btn--primary"
+      disabled={submitDisabled}
+      onclick={() => void submit()}
+    >
+      {submitting ? 'Sharing…' : shareActionLabel}
+    </button>
   {/snippet}
   <p class="wsh-lead m-0 mb-3 text-sm text-[var(--color-muted,#888)]">
-    Read-only access to <code class={codeChip}>{pathPrefix}</code>. Collaborators accept in
-    <strong>Brain Hub → Sharing</strong> while signed in with the invited email (no need to open a link from email).
+    Read-only access to{' '}
+    <span class={sharePathName} translate="no">
+      <WikiFileName path={wikiShareDisplayPathForFileName} />
+    </span>. Collaborators accept in
+    <strong>Settings → Sharing</strong> while signed in with the invited email.
   </p>
-    {#if createdInvites.length > 0}
-      <ul class="wsh-invite-list m-0 flex list-none flex-col gap-2.5 p-0">
-        {#each createdInvites as inv (inv.grantee.key)}
-          <li class="wsh-invite">
-            <div class="wsh-invite-head mb-1 flex items-center justify-between gap-2">
-              <span class="wsh-invite-target text-[13px] font-semibold">
-                {inv.grantee.handle ? `@${inv.grantee.handle}` : inv.grantee.email}
-              </span>
-              {#if inv.emailSent}
-                <span class={pillBase}>Reminder emailed</span>
+  <section class="wsh-section mb-[18px]" aria-labelledby="wsh-audience-heading">
+    <h3 id="wsh-audience-heading" class={sectionTitle}>People with access</h3>
+    {#if audienceLoading}
+      <p class={mutedText}>Loading…</p>
+    {:else if audienceFetchError}
+      <p class={errBase} role="alert">{audienceFetchError}</p>
+    {:else if audienceRows.length === 0}
+      <p class={mutedText}>Only you — no collaborators yet.</p>
+    {:else}
+      <ul
+        class="wsh-audience-list m-0 flex max-h-[220px] list-none flex-col gap-2 overflow-y-auto p-0"
+      >
+        {#each audienceRows as row (row.id)}
+          <li
+            class="wsh-audience-row flex items-center justify-between gap-2.5 rounded-md border border-[var(--color-border,#ccc)] bg-[var(--bg,#fff)] px-2.5 py-2"
+          >
+            <div class="wsh-audience-main flex min-w-0 flex-col items-start gap-1">
+              <span class="wsh-audience-email text-[13px] font-semibold [word-break:break-all]"
+                >{row.granteeEmail}</span
+              >
+              {#if audienceStatus(row) === 'active'}
+                <span class={pillBase}>Active</span>
+              {:else if audienceStatus(row) === 'expired'}
+                <span
+                  class="wsh-pill wsh-pill-warn rounded-full bg-[color-mix(in_srgb,var(--danger,#c44)_16%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--danger,#c44)]"
+                >Invite expired</span>
               {:else}
                 <span
-                  class="wsh-pill wsh-pill-muted rounded-full bg-[var(--color-surface-2,rgba(0,0,0,0.08))] px-1.5 py-[2px] text-[11px] text-muted"
-                >In-app invite</span>
+                  class="wsh-pill wsh-pill-pending rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_14%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]"
+                >Pending</span>
               {/if}
             </div>
-            <div class="wsh-invite-hint mt-2 text-[13px] text-muted">
-              They’ll see this under <strong>Brain Hub → Sharing</strong>.
-            </div>
-            <div class="wsh-invite-url-row flex flex-row items-start gap-2.5">
-              <button
-                type="button"
-                class="cd-btn wsh-legacy-link-btn text-xs"
-                onclick={() => void copyInviteUrl(inv)}
-              >
-                {copiedForKey === inv.grantee.key ? 'Copied' : 'Copy legacy link'}
-              </button>
-              <span class="wsh-legacy-caption self-center text-[11px] text-[var(--text-2,#888)]"
-                >For troubleshooting only</span
-              >
-            </div>
+            <button
+              type="button"
+              class="cd-btn wsh-remove-btn shrink-0 !text-xs"
+              disabled={revokingId === row.id}
+              onclick={() => {
+                revokeTarget = row
+              }}
+            >
+              {revokingId === row.id ? 'Removing…' : 'Remove'}
+            </button>
           </li>
         {/each}
       </ul>
-      {#if Object.keys(perGranteeErrors).length > 0}
-        <p class="wsh-hint mt-2 text-[13px]">Some invites could not be created:</p>
-        <ul class="wsh-err-list m-0 mt-2 list-none p-0">
-          {#each Object.entries(perGranteeErrors) as [key, msg] (key)}
-            <li class="{errBase} mt-1">{key}: {msg}</li>
-          {/each}
-        </ul>
-      {/if}
-    {:else}
-      <section class="wsh-section mb-[18px]" aria-labelledby="wsh-audience-heading">
-        <h3 id="wsh-audience-heading" class={sectionTitle}>People with access</h3>
-        {#if audienceLoading}
-          <p class={mutedText}>Loading…</p>
-        {:else if audienceFetchError}
-          <p class={errBase} role="alert">{audienceFetchError}</p>
-        {:else if audienceRows.length === 0}
-          <p class={mutedText}>Only you — no collaborators yet.</p>
-        {:else}
-          <ul
-            class="wsh-audience-list m-0 flex max-h-[220px] list-none flex-col gap-2 overflow-y-auto p-0"
-          >
-            {#each audienceRows as row (row.id)}
-              <li
-                class="wsh-audience-row flex items-center justify-between gap-2.5 rounded-md border border-[var(--color-border,#ccc)] bg-[var(--bg,#fff)] px-2.5 py-2"
-              >
-                <div class="wsh-audience-main flex min-w-0 flex-col items-start gap-1">
-                  <span class="wsh-audience-email text-[13px] font-semibold [word-break:break-all]"
-                    >{row.granteeEmail}</span
-                  >
-                  {#if audienceStatus(row) === 'active'}
-                    <span class={pillBase}>Active</span>
-                  {:else if audienceStatus(row) === 'expired'}
-                    <span
-                      class="wsh-pill wsh-pill-warn rounded-full bg-[color-mix(in_srgb,var(--danger,#c44)_16%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--danger,#c44)]"
-                    >Invite expired</span>
-                  {:else}
-                    <span
-                      class="wsh-pill wsh-pill-pending rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_14%,transparent)] px-1.5 py-[2px] text-[11px] text-[var(--accent,#2563eb)]"
-                    >Pending</span>
-                  {/if}
-                </div>
-                <button
-                  type="button"
-                  class="cd-btn wsh-remove-btn shrink-0 !text-xs"
-                  disabled={revokingId === row.id}
-                  onclick={() => {
-                    revokeTarget = row
-                  }}
-                >
-                  {revokingId === row.id ? 'Removing…' : 'Remove'}
-                </button>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
-
-      <h3 class="{sectionTitle} wsh-invite-heading mt-1">Invite more people</h3>
-      <label class="wsh-label mb-1.5 block text-xs font-semibold" for="wsh-grantees">
-        By handle (e.g. <code>@cirne</code>) or email
-      </label>
-      <div class="wsh-field relative">
-        <div
-          class="wsh-chips box-border flex w-full min-h-[38px] flex-wrap items-center gap-1.5 rounded-md border border-[var(--color-border,#ccc)] bg-[var(--bg,#fff)] px-2 py-1.5"
-        >
-          {#each selected as g (g.key)}
-            <span
-              class={cn(
-                'wsh-chip inline-flex max-w-full items-baseline gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_12%,transparent)] py-[3px] pl-2 pr-1.5 text-xs leading-snug text-foreground',
-                !g.email && 'wsh-chip-warn bg-[color-mix(in_srgb,var(--danger,#b42318)_14%,transparent)]',
-              )}
-              title={tooltipFor(g)}
-            >
-              <span class="wsh-chip-label font-semibold">
-                {g.handle ? `@${g.handle}` : g.email}
-              </span>
-              {#if g.displayName || g.email}
-                <span
-                  class="wsh-chip-meta max-w-[220px] overflow-hidden whitespace-nowrap text-ellipsis text-[11px] text-muted"
-                >
-                  {g.displayName ?? ''}{g.displayName && g.email ? ' · ' : ''}{g.email ?? ''}
-                </span>
-              {/if}
-              <button
-                type="button"
-                class="wsh-chip-x cursor-pointer border-none bg-transparent px-0.5 text-sm leading-none text-inherit"
-                aria-label={`Remove ${g.handle ? '@' + g.handle : g.email}`}
-                onclick={() => removeChip(g.key)}
-              >×</button>
-            </span>
-          {/each}
-          <input
-            id="wsh-grantees"
-            class="wsh-chip-input min-w-[140px] flex-1 border-none bg-transparent px-0.5 py-1 text-[13px] text-inherit [font:inherit] focus:outline-none"
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder={selected.length === 0 ? '@handle or name@example.com' : ''}
-            bind:this={inputEl}
-            bind:value={inputValue}
-            oninput={onInput}
-            onkeydown={onKeydown}
-            onpaste={onPaste}
-            disabled={submitting}
-          />
-        </div>
-        {#if suggestOpen && (suggestions.length > 0 || suggestLoading)}
-          <div
-            class="wsh-suggest absolute inset-x-0 top-full z-10 mt-1 max-h-[220px] overflow-y-auto rounded-md border border-[var(--color-border,#ccc)] bg-[var(--bg-3,#fff)] shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
-            role="listbox"
-          >
-            {#if suggestLoading && suggestions.length === 0}
-              <div class="wsh-suggest-empty px-2.5 py-2 text-xs text-muted">Searching…</div>
-            {/if}
-            {#each suggestions as s, i (s.userId)}
-              <button
-                type="button"
-                role="option"
-                aria-selected={i === suggestIndex}
-                class={cn(
-                  'wsh-suggest-item grid w-full cursor-pointer grid-cols-[auto_1fr_auto] items-baseline gap-x-2 border-none bg-transparent px-2.5 py-1.5 text-left text-inherit [font:inherit] hover:bg-[var(--accent-dim,rgba(37,99,235,0.12))]',
-                  i === suggestIndex && 'selected bg-[var(--accent-dim,rgba(37,99,235,0.12))]',
-                )}
-                onmousedown={(e) => {
-                  e.preventDefault()
-                  selectFromDirectory(s)
-                }}
-              >
-                <span class="wsh-suggest-handle text-[13px] font-semibold">@{s.handle}</span>
-                {#if s.displayName}
-                  <span
-                    class="wsh-suggest-name overflow-hidden whitespace-nowrap text-ellipsis text-[13px] text-foreground"
-                    >{s.displayName}</span
-                  >
-                {/if}
-                <span
-                  class="wsh-suggest-email overflow-hidden whitespace-nowrap text-ellipsis text-xs text-muted"
-                >
-                  {s.primaryEmail ?? 'No connected email'}
-                </span>
-              </button>
-            {/each}
-          </div>
-        {/if}
-      </div>
-      {#if selected.some((g) => !g.email)}
-        <p class="wsh-hint wsh-hint-warn mt-2 text-[13px] text-[var(--danger,#b42318)]">
-          Selected users without a connected email cannot receive invites yet.
-        </p>
-      {/if}
-      {#if Object.keys(perGranteeErrors).length > 0}
-        <ul class="wsh-err-list m-0 mt-2 list-none p-0">
-          {#each Object.entries(perGranteeErrors) as [key, msg] (key)}
-            <li class="{errBase} mt-1">{key}: {msg}</li>
-          {/each}
-        </ul>
-      {/if}
-      <label
-        class="wsh-notify-row mt-3 flex cursor-pointer items-start gap-2 text-[13px] text-muted"
-      >
-        <input
-          type="checkbox"
-          class="mt-[3px]"
-          bind:checked={notifyByEmail}
-          disabled={submitting}
-        />
-        <span>Optional: send an email reminder with a link to Brain Hub (requires ripmail).</span>
-      </label>
-      {#if errorMsg}
-        <p class={errBase} role="alert">{errorMsg}</p>
-      {/if}
     {/if}
+  </section>
+
+  <h3 class="{sectionTitle} wsh-invite-heading mt-1">Invite more people</h3>
+  <label class="wsh-label mb-1.5 block text-xs font-semibold" for="wsh-grantees">
+    By handle (e.g. <code class={codeChip}>@cirne</code>) or email
+  </label>
+  <div class="wsh-field relative">
+    <div
+      class="wsh-chips box-border flex w-full min-h-[38px] flex-wrap items-center gap-1.5 rounded-md border border-[var(--color-border,#ccc)] bg-[var(--bg,#fff)] px-2 py-1.5"
+    >
+      {#each selected as g (g.key)}
+        <span
+          class={cn(
+            'wsh-chip inline-flex max-w-full items-baseline gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--accent,#2563eb)_12%,transparent)] py-[3px] pl-2 pr-1.5 text-xs leading-snug text-foreground',
+            !g.email && 'wsh-chip-warn bg-[color-mix(in_srgb,var(--danger,#b42318)_14%,transparent)]',
+          )}
+          title={tooltipFor(g)}
+        >
+          <span class="wsh-chip-label font-semibold">
+            {g.handle ? `@${g.handle}` : g.email}
+          </span>
+          {#if g.displayName || g.email}
+            <span
+              class="wsh-chip-meta max-w-[220px] overflow-hidden whitespace-nowrap text-ellipsis text-[11px] text-muted"
+            >
+              {g.displayName ?? ''}{g.displayName && g.email ? ' · ' : ''}{g.email ?? ''}
+            </span>
+          {/if}
+          <button
+            type="button"
+            class="wsh-chip-x cursor-pointer border-none bg-transparent px-0.5 text-sm leading-none text-inherit"
+            aria-label={`Remove ${g.handle ? '@' + g.handle : g.email}`}
+            onclick={() => removeChip(g.key)}
+          >×</button>
+        </span>
+      {/each}
+      <input
+        id="wsh-grantees"
+        class="wsh-chip-input min-w-[140px] flex-1 border-none bg-transparent px-0.5 py-1 text-[13px] text-inherit [font:inherit] focus:outline-none"
+        type="text"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder={selected.length === 0 ? '@handle or name@example.com' : ''}
+        bind:this={inputEl}
+        bind:value={inputValue}
+        oninput={onInput}
+        onkeydown={onKeydown}
+        onpaste={onPaste}
+        disabled={submitting}
+      />
+    </div>
+    {#if suggestOpen && (suggestions.length > 0 || suggestLoading)}
+      <div
+        class="wsh-suggest absolute inset-x-0 top-full z-10 mt-1 max-h-[220px] overflow-y-auto rounded-md border border-[var(--color-border,#ccc)] bg-[var(--bg-3,#fff)] shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
+        role="listbox"
+      >
+        {#if suggestLoading && suggestions.length === 0}
+          <div class="wsh-suggest-empty px-2.5 py-2 text-xs text-muted">Searching…</div>
+        {/if}
+        {#each suggestions as s, i (s.userId)}
+          <button
+            type="button"
+            role="option"
+            aria-selected={i === suggestIndex}
+            class={cn(
+              'wsh-suggest-item grid w-full cursor-pointer grid-cols-[auto_1fr_auto] items-baseline gap-x-2 border-none bg-transparent px-2.5 py-1.5 text-left text-inherit [font:inherit] hover:bg-[var(--accent-dim,rgba(37,99,235,0.12))]',
+              i === suggestIndex && 'selected bg-[var(--accent-dim,rgba(37,99,235,0.12))]',
+            )}
+            onmousedown={(e) => {
+              e.preventDefault()
+              selectFromDirectory(s)
+            }}
+          >
+            <span class="wsh-suggest-handle text-[13px] font-semibold">@{s.handle}</span>
+            {#if s.displayName}
+              <span
+                class="wsh-suggest-name overflow-hidden whitespace-nowrap text-ellipsis text-[13px] text-foreground"
+                >{s.displayName}</span
+              >
+            {/if}
+            <span
+              class="wsh-suggest-email overflow-hidden whitespace-nowrap text-ellipsis text-xs text-muted"
+            >
+              {s.primaryEmail ?? 'No connected email'}
+            </span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </div>
+  {#if selected.some((g) => !g.email)}
+    <p class="wsh-hint wsh-hint-warn mt-2 text-[13px] text-[var(--danger,#b42318)]">
+      Selected users without a connected email cannot receive invites yet.
+    </p>
+  {/if}
+  {#if Object.keys(perGranteeErrors).length > 0}
+    <ul class="wsh-err-list m-0 mt-2 list-none p-0">
+      {#each Object.entries(perGranteeErrors) as [key, msg] (key)}
+        <li class="{errBase} mt-1">{key}: {msg}</li>
+      {/each}
+    </ul>
+  {/if}
+  {#if errorMsg}
+    <p class={errBase} role="alert">{errorMsg}</p>
+  {/if}
 </ConfirmDialog>
 
 <ConfirmDialog
@@ -724,10 +620,15 @@
 >
   <p class="wsh-revoke-lead m-0 mb-2 text-sm leading-snug">
     {#if targetKind === 'dir'}
-      They lose read-only access to this folder and everything inside it under <code
-        class={codeChip}>{pathPrefix}</code>.
+      They lose read-only access to this folder and everything inside it under{' '}
+      <span class={sharePathName} translate="no">
+        <WikiFileName path={wikiShareDisplayPathForFileName} />
+      </span>.
     {:else}
-      They lose read-only access to <code class={codeChip}>{pathPrefix}</code>.
+      They lose read-only access to{' '}
+      <span class={sharePathName} translate="no">
+        <WikiFileName path={wikiShareDisplayPathForFileName} />.
+      </span>
     {/if}
   </p>
   {#if revokeTarget}
