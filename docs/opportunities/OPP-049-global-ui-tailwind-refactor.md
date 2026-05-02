@@ -1,6 +1,6 @@
 # OPP-049: Global UI refactor — Tailwind-first stylesheet
 
-**Status:** **Completed (main merge).** The strangler `tw-components/` tree is promoted to the sole [`src/client/components/`](../../src/client/components/); imports use `@components/…`. Further work (tokens, `@theme`, pruning remaining scoped CSS) continues as normal product hygiene—see [tailwind-migration](../architecture/tailwind-migration.md).
+**Status:** **Shipped (2026-05-02).** The strangler `tw-components/` tree is folded into the sole [`src/client/components/`](../../src/client/components/); imports use `@components/…`. Further work (tokens, `@theme`, pruning remaining scoped CSS) is normal product hygiene—see [tailwind-migration](../architecture/tailwind-migration.md).
 
 **Previous:** Proposed (long-running epic).
 

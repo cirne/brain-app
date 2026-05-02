@@ -2,7 +2,7 @@
 
 **Status:** Proposed — **exploration / spike**. Decide after a time-boxed trial whether to adopt, park, or archive.
 
-**Depends on:** [OPP-049](OPP-049-global-ui-tailwind-refactor.md) — treat as **done for tree consolidation**; substantive DESIGN.md work should still wait until **tokens / `@theme`** in `style.css` are stable enough that a written spec matches the real stylesheet.
+**Depends on:** [OPP-049](OPP-049-global-ui-tailwind-refactor.md) — **shipped (2026-05-02)** for component-tree consolidation; substantive DESIGN.md work should still wait until **tokens / `@theme`** in `style.css` are stable enough that a written spec matches the real stylesheet.
 
 ## Summary
 
@@ -29,7 +29,6 @@ Time-box **~0.5–2 dev days**:
 ## Non-goals (for this OPP unless exploration upgrades it)
 
 - **Mandatory** redesign of every component’s CSS.
-- **Blocking** [OPP-049](OPP-049-global-ui-tailwind-refactor.md) — sibling effort; **defer** DESIGN.md substantive work behind token consolidation.
 - Replacing **`style.css`** or Tailwind outright.
 
 ## Risks / notes
