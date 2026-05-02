@@ -16,14 +16,16 @@ describe('computePeerLinkPath', () => {
     expect(computePeerLinkPath('@alice', share)).toBe('@alice/trips')
   })
 
-  it('file share', () => {
+  it('file share preserves directory structure', () => {
     const share = {
       id: 'wsh_y',
       owner_id: 'usr_o',
       path_prefix: 'notes/x.md',
       target_kind: 'file',
     } as WikiShareRow
-    expect(computePeerLinkPath('@bob', share)).toBe('@bob/x.md')
+    // File shares preserve owner's directory structure under @handle/
+    // Only the file itself is a symlink; parent dirs are regular directories
+    expect(computePeerLinkPath('@bob', share)).toBe('@bob/notes/x.md')
   })
 })
 

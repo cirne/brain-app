@@ -25,13 +25,16 @@ export function ownerWikiAbsTargetForShare(share: WikiShareRow): string | null {
   return abs
 }
 
-/** Path segments under `wikis/@peer/` for the symlink (e.g. `['trips','virginia']` or `['notes.md']`). */
+/**
+ * Path segments under `wikis/@peer/` for the symlink.
+ *
+ * For **file shares**: preserves owner's directory structure (e.g. `travel/foo.md` → `['travel', 'foo.md']`).
+ * The projection creates parent dirs as regular directories and only the file is a symlink.
+ *
+ * For **directory shares**: returns the directory path (e.g. `travel/` → `['travel']`).
+ * TBD: directory shares may need different handling.
+ */
 export function peerSymlinkRelSegmentsUnderOwnerShare(share: WikiShareRow): string[] {
-  if (share.target_kind === 'file') {
-    const name = share.path_prefix.trim().replace(/^[/\\]+/, '').replace(/\\/g, '/')
-    const baseName = name.includes('/') ? name.split('/').pop()! : name
-    return baseName ? [baseName] : []
-  }
   const pre = share.path_prefix.trim().replace(/[/\\]+$/, '').replace(/^[/\\]+/, '').replace(/\\/g, '/')
   return pre ? pre.split('/').filter(Boolean) : []
 }

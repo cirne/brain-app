@@ -22,6 +22,7 @@ import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { joinToolResultText } from '@server/agent/agentTestUtils.js'
 import { computePeerLinkPath } from '@server/lib/shares/wikiShareTargetPaths.js'
 import type { WikiShareRow } from '@server/lib/shares/wikiSharesRepo.js'
+import { rewriteOpenToolArgsIfNeeded } from '@server/lib/chat/rewriteAgentOpenWikiPath.js'
 
 describe('wiki share projection (wikis/@peer/)', () => {
   let tmp: string
@@ -192,6 +193,90 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const { existsSync } = await import('node:fs')
     expect(existsSync(join(home, 'wiki'))).toBe(false)
     expect(await readFile(join(home, 'wikis', 'me', 'a.md'), 'utf-8')).toBe('x')
+  })
+
+  it('agent find discovers shared doc under @handle/, open rewrites path for client', async () => {
+    const { ownerId, granteeId } = await tenantPair()
+    await writeFile(
+      join(tenantHomeDir(ownerId), HANDLE_META_FILENAME),
+      JSON.stringify({
+        userId: ownerId,
+        handle: 'cirne',
+        confirmedAt: new Date().toISOString(),
+      }),
+      'utf-8',
+    )
+    const ownerWiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(ownerWiki, 'travel'), { recursive: true })
+    await writeFile(join(ownerWiki, 'travel', 'virginia-trip-2026.md'), '# Virginia Trip\n\nPlanning notes.', 'utf-8')
+    const row = createShare({ ownerId, granteeEmail: 'grantee@test.com', pathPrefix: 'travel/' })
+    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'grantee@test.com' })
+
+    await syncWikiShareProjectionsForGrantee(granteeId)
+
+    const granteeWikisRoot = brainLayoutWikisDir(tenantHomeDir(granteeId))
+
+    await runWithTenantContextAsync(
+      { tenantUserId: granteeId, workspaceHandle: '_', homeDir: tenantHomeDir(granteeId) },
+      async () => {
+        const tools = createAgentTools(granteeWikisRoot, {
+          onlyToolNames: ['find', 'read', 'open'],
+          includeLocalMessageTools: false,
+        })
+        const findTool = tools.find((t) => t.name === 'find')!
+        const readTool = tools.find((t) => t.name === 'read')!
+        const openTool = tools.find((t) => t.name === 'open')!
+
+        const findResult = await findTool.execute('find-1', { pattern: '*virginia*.md' })
+        const findText = joinToolResultText(findResult)
+        expect(findText).toMatch(/@cirne\/travel\/virginia-trip-2026\.md/)
+
+        const foundPath = '@cirne/travel/virginia-trip-2026.md'
+        const readResult = await readTool.execute('read-1', { path: foundPath })
+        expect(joinToolResultText(readResult)).toContain('Virginia Trip')
+
+        const openArgs = { target: { type: 'wiki' as const, path: foundPath } }
+        const rewrittenArgs = rewriteOpenToolArgsIfNeeded(granteeWikisRoot, openArgs)
+        const rewrittenTarget = (rewrittenArgs as { target: { type: string; path: string } }).target
+        expect(rewrittenTarget.path).toBe('@cirne/travel/virginia-trip-2026.md')
+        expect(rewrittenTarget.type).toBe('wiki')
+
+        const openResult = await openTool.execute('open-1', openArgs)
+        expect(joinToolResultText(openResult)).toContain('Opening wiki')
+
+        deleteWikiSharesForOwner(ownerId)
+      },
+    )
+  })
+
+  it('agent find on bare path not in me/ rewrites to @handle/ when unambiguous', async () => {
+    const { ownerId, granteeId } = await tenantPair()
+    await writeFile(
+      join(tenantHomeDir(ownerId), HANDLE_META_FILENAME),
+      JSON.stringify({
+        userId: ownerId,
+        handle: 'cirne',
+        confirmedAt: new Date().toISOString(),
+      }),
+      'utf-8',
+    )
+    const ownerWiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(ownerWiki, 'travel'), { recursive: true })
+    await writeFile(join(ownerWiki, 'travel', 'trip.md'), 'SHARED', 'utf-8')
+    const row = createShare({ ownerId, granteeEmail: 'g@g.com', pathPrefix: 'travel/' })
+    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'g@g.com' })
+    await syncWikiShareProjectionsForGrantee(granteeId)
+
+    const granteeWikisRoot = brainLayoutWikisDir(tenantHomeDir(granteeId))
+    const granteeWikiMe = join(granteeWikisRoot, 'me')
+    await mkdir(granteeWikiMe, { recursive: true })
+
+    const openArgs = { target: { type: 'wiki' as const, path: 'travel/trip.md' } }
+    const rewrittenArgs = rewriteOpenToolArgsIfNeeded(granteeWikisRoot, openArgs)
+    const rewrittenTarget = (rewrittenArgs as { target: { type: string; path: string } }).target
+    expect(rewrittenTarget.path).toBe('@cirne/travel/trip.md')
+
+    deleteWikiSharesForOwner(ownerId)
   })
 
 })

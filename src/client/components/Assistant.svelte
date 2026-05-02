@@ -117,7 +117,7 @@
     shareHandle?: string
   } {
     const o = shell.route.overlay
-    if (!shell.route.wikiActive || !o) return {}
+    if (!o) return {}
     if (o.type !== 'wiki' && o.type !== 'wiki-dir') return {}
     const out: {
       shareOwner?: string
@@ -126,7 +126,11 @@
     } = {}
     const so = o.shareOwner?.trim()
     const sp = o.sharePrefix?.trim()
-    const sh = o.shareHandle?.trim()
+    let sh = o.shareHandle?.trim()
+    if (!sh && o.path) {
+      const parsed = parseUnifiedWikiBrowsePath(o.path)
+      sh = parsed.shareHandle?.trim()
+    }
     if (so) out.shareOwner = so
     if (sp) out.sharePrefix = sp
     if (sh) out.shareHandle = sh
