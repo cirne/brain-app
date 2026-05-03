@@ -609,7 +609,7 @@
           {/if}
 
           <div class="compose-footer flex justify-end gap-2">
-            <button class="cancel-btn px-3 py-1.5 text-[13px] text-muted hover:text-foreground" onclick={cancelCompose}>Cancel</button>
+            <button class="cancel-btn rounded-md px-3 py-1.5 text-[13px] text-muted hover:text-foreground" onclick={cancelCompose}>Cancel</button>
             <button
               class="draft-btn border border-accent-dim px-3.5 py-1.5 text-[13px] text-accent disabled:cursor-default disabled:opacity-50"
               onclick={createDraft}

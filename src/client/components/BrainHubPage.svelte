@@ -282,7 +282,7 @@
     'link-item flex cursor-pointer items-center justify-between border-0 border-b border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] bg-transparent py-2 text-left text-foreground transition-[padding,color] duration-150 hover:not-disabled:not-[.static]:not-[.disabled]:pl-1 hover:not-disabled:not-[.static]:not-[.disabled]:text-accent'
   /** Wiki loop pill buttons (Pause / Resume). */
   const wikiLoopBtn =
-    'wiki-loop-btn inline-flex cursor-pointer items-center gap-[0.3rem] border border-transparent px-[0.7rem] py-[0.3rem] text-[0.8125rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55'
+    'wiki-loop-btn inline-flex cursor-pointer items-center gap-[0.3rem] rounded-md border border-transparent px-[0.7rem] py-[0.3rem] text-[0.8125rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55'
   const wikiLoopBtnPrimary =
     'wiki-loop-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.07)]'
   const wikiLoopBtnSecondary =

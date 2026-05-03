@@ -357,10 +357,10 @@
   const pausedNoticeClass =
     'bg-panel-paused-notice mt-2 flex items-center justify-between gap-3 border-t border-border py-3'
   const resumeBtnClass =
-    'bg-panel-resume-btn inline-flex cursor-pointer items-center gap-[6px] border-0 bg-accent px-[14px] py-[6px] text-xs font-semibold text-white transition-[filter] duration-150 hover:not-disabled:brightness-110 disabled:cursor-not-allowed disabled:opacity-50'
+    'bg-panel-resume-btn inline-flex cursor-pointer items-center gap-[6px] rounded-md border-0 bg-accent px-[14px] py-[6px] text-xs font-semibold text-white transition-[filter] duration-150 hover:not-disabled:brightness-110 disabled:cursor-not-allowed disabled:opacity-50'
 
   const bgPanelBtnClass =
-    'bg-panel-btn cursor-pointer border border-border bg-surface-2 px-[0.85rem] py-[0.45rem] text-[0.8125rem] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45'
+    'bg-panel-btn cursor-pointer rounded-md border border-border bg-surface-2 px-[0.85rem] py-[0.45rem] text-[0.8125rem] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45'
   const bgPanelBtnPrimary =
     'bg-panel-btn-primary border-transparent bg-accent text-white'
 </script>

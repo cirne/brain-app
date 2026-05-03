@@ -398,7 +398,7 @@
   const shareActions =
     'settings-share-actions flex flex-wrap shrink-0 items-center justify-end gap-2'
   const shareBtn =
-    'settings-share-btn shrink-0 cursor-pointer border border-border bg-surface-3 px-[0.65rem] py-[0.35rem] text-[0.8125rem] font-semibold text-foreground transition-[background,border-color] duration-150 hover:enabled:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] hover:enabled:bg-surface disabled:cursor-not-allowed disabled:opacity-55'
+    'settings-share-btn shrink-0 cursor-pointer rounded-md border border-border bg-surface-3 px-[0.65rem] py-[0.35rem] text-[0.8125rem] font-semibold text-foreground transition-[background,border-color] duration-150 hover:enabled:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] hover:enabled:bg-surface disabled:cursor-not-allowed disabled:opacity-55'
   const shareBtnPrimary =
     'settings-share-btn-primary !border-[color-mix(in_srgb,var(--accent)_45%,transparent)] !bg-[color-mix(in_srgb,var(--accent)_16%,var(--bg-2))] !text-foreground hover:enabled:!bg-[color-mix(in_srgb,var(--accent)_24%,var(--bg-2))]'
   const shareBtnDanger =

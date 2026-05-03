@@ -330,7 +330,7 @@
       {#if remoteAccessEnabled && networkInfo?.tunnelUrl}
         <div class="reset-link-container mt-4 flex w-full justify-center">
           <button
-            class="reset-link-btn flex cursor-pointer items-center gap-1.5 border-none bg-transparent px-2 py-1 text-xs text-[var(--text-3,#666)] transition-colors duration-200 hover:not-disabled:bg-surface-2 hover:not-disabled:text-muted disabled:cursor-not-allowed disabled:opacity-50"
+            class="reset-link-btn flex cursor-pointer items-center gap-1.5 rounded-md border-none bg-transparent px-2 py-1 text-xs text-[var(--text-3,#666)] transition-colors duration-200 hover:not-disabled:bg-surface-2 hover:not-disabled:text-muted disabled:cursor-not-allowed disabled:opacity-50"
             onclick={resetMagicLink}
             disabled={isResetting}
           >

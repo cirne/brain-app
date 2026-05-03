@@ -426,7 +426,7 @@
 <ConfirmDialog
   {open}
   titleId="wiki-share-main-title"
-  panelclass="wiki-share-cd-panel w-[90vw] max-w-[600px]"
+  panelClass="wiki-share-cd-panel w-[90vw] max-w-[600px]"
   title={dialogTitle}
   confirmLabel="OK"
   cancelLabel="Cancel"

@@ -418,6 +418,7 @@
     width: 100%;
     margin: 0 0 8px;
     padding: 7px 10px;
+    border-radius: 0.375rem;
 border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
@@ -432,6 +433,7 @@ border: 1px solid var(--border);
     width: 100%;
     margin: 6px 0 0;
     padding: 6px 8px;
+    border-radius: 0.375rem;
 border: 1px dashed var(--border);
     background: transparent;
     color: var(--accent);

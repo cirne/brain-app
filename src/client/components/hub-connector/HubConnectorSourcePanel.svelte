@@ -459,7 +459,7 @@
   })
 
   const hubDialogBtnBase =
-    'hub-dialog-btn cursor-pointer border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
+    'hub-dialog-btn cursor-pointer rounded-md border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-[background-color,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-60'
   const hubDialogBtnDanger =
     'hub-dialog-btn-danger bg-[color-mix(in_srgb,var(--danger)_14%,var(--bg))] text-danger border-[color-mix(in_srgb,var(--danger)_40%,transparent)] hover:not-disabled:bg-[color-mix(in_srgb,var(--danger)_24%,var(--bg))]'
 </script>

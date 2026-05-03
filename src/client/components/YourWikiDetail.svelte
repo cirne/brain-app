@@ -123,7 +123,7 @@
   })
 
   const actionBtnBase =
-    'action-btn inline-flex cursor-pointer items-center gap-[0.3rem] border border-transparent px-[0.7rem] py-[0.3rem] text-[0.8125rem] font-semibold transition-[background,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-55'
+    'action-btn inline-flex cursor-pointer items-center gap-[0.3rem] rounded-md border border-transparent px-[0.7rem] py-[0.3rem] text-[0.8125rem] font-semibold transition-[background,color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-55'
   const actionBtnPrimary =
     'action-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white enabled:hover:[filter:brightness(1.07)]'
   const actionBtnSecondary =

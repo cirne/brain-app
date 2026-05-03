@@ -186,7 +186,7 @@
         {#if onWikiHome}
           <button
             type="button"
-            class="wiki-home-cmd inline-flex items-center justify-center gap-2 border border-border bg-surface-3 px-3.5 py-2 text-sm text-foreground hover:bg-surface-2"
+            class="wiki-home-cmd inline-flex items-center justify-center gap-2 rounded-md border border-border bg-surface-3 px-3.5 py-2 text-sm text-foreground hover:bg-surface-2"
             onclick={() => { onWikiHome(); onClose() }}
           >
             <BookOpen size={16} strokeWidth={2} aria-hidden="true" />

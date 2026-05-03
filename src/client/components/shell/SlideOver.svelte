@@ -512,7 +512,7 @@
             <span class="wiki-share-header-inner relative inline-flex h-full w-full items-center justify-center">
               <Share2 size={15} strokeWidth={2} aria-hidden="true" />
               {#if (wikiHdr.current.shareAudienceCount ?? 0) > 0}
-                <span class="wiki-share-header-badge absolute -top-[5px] -right-[9px] box-border inline-block min-w-[16px] h-4 bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
+                <span class="wiki-share-header-badge absolute -top-[5px] -right-[9px] box-border inline-block min-w-[16px] rounded-full h-4 bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
                   {wikiShareAudienceBadge(wikiHdr.current.shareAudienceCount)}
                 </span>
               {/if}

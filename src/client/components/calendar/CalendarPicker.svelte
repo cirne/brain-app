@@ -198,7 +198,7 @@
     <div class="cal-picker-actions mt-[0.35rem] flex items-center gap-3">
       <button
         type="button"
-        class={cn('cal-picker-save', primaryButtonClass)}
+        class={cn('cal-picker-save rounded-md', primaryButtonClass)}
         disabled={!dirty || saving}
         onclick={() => void commit()}
       >
@@ -251,6 +251,7 @@
     font-size: 0.8125rem;
     font-weight: 600;
     padding: 0.45rem 0.85rem;
+    border-radius: 0.375rem;
 border: none;
     cursor: pointer;
     background: var(--accent);

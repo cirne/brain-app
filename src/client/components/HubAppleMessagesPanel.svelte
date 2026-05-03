@@ -251,7 +251,7 @@
 
   /** Hub button recipes (mirrors HubBackgroundAgentsDetail / HubConnectorSourcePanel). */
   const hubBtn =
-    'hub-dialog-btn inline-flex cursor-pointer items-center justify-center gap-[0.35rem] border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
+    'hub-dialog-btn inline-flex cursor-pointer items-center justify-center gap-[0.35rem] rounded-md border border-transparent px-[0.9rem] py-[0.45rem] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60'
   const hubBtnPrimary =
     'hub-dialog-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.06)]'
   const hubBtnSecondary =

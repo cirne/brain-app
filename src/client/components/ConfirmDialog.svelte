@@ -69,7 +69,7 @@
   }
 
   const btnBase =
-    'cd-btn cursor-pointer border border-border bg-surface-3 px-3 py-[0.4rem] text-xs font-medium leading-tight text-foreground transition-colors hover:bg-surface-2 [font:inherit] disabled:cursor-not-allowed disabled:opacity-50'
+    'cd-btn cursor-pointer rounded-md border border-border bg-surface-3 px-3 py-[0.4rem] text-xs font-medium leading-tight text-foreground transition-colors hover:bg-surface-2 [font:inherit] disabled:cursor-not-allowed disabled:opacity-50'
   const btnDanger =
     'cd-btn--danger border-[color-mix(in_srgb,var(--danger)_45%,var(--border))] bg-[color-mix(in_srgb,var(--danger)_12%,var(--bg))] text-danger hover:bg-[color-mix(in_srgb,var(--danger)_22%,var(--bg))]'
 </script>
@@ -142,6 +142,7 @@
     font-weight: 500;
     line-height: 1.2;
     padding: 0.4rem 0.75rem;
+    border-radius: 0.375rem;
 border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text);
