@@ -47,7 +47,8 @@
 .ob-indexing-orbit {
   position: absolute;
   inset: 0;
-border: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
   animation: ob-indexing-orbit-spin 2.8s linear infinite;
 }
 
@@ -61,7 +62,8 @@ border: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
 .ob-indexing-core {
   position: absolute;
   inset: 32%;
-background: color-mix(in srgb, var(--accent) 50%, var(--bg));
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 50%, var(--bg));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
   animation: ob-indexing-core-pulse 1.85s ease-in-out infinite;
 }

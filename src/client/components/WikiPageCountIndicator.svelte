@@ -53,7 +53,7 @@
     >
       <span
         class={cn(
-          'pulse-dot bg-accent',
+          'pulse-dot rounded-full bg-accent',
           isLg ? 'h-2.5 w-2.5' : 'h-2 w-2',
           pulseAnimating && 'running',
         )}

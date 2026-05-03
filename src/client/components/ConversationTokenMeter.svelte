@@ -56,7 +56,13 @@
   title={titleText}
   aria-label={titleText}
 >
-  <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" class="token-meter-svg block">
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 20 20"
+    aria-hidden="true"
+    class="token-meter-svg block shrink-0 rounded-full"
+  >
     <g transform="translate(10 10) rotate(-90)">
       <circle
         r={R}
