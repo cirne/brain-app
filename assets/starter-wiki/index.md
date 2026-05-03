@@ -1,4 +1,4 @@
-<!-- brain: starter-wiki -->
+
 
 # Home
 
@@ -9,12 +9,16 @@ Your wiki hub — browse linked pages below. **[[me]]** is your **short profile*
 
 ## Browse
 
-- **[[people/index]]** — people you track
-- **[[projects/index]]** — active work
-- **[[topics/index]]** — durable themes and reference-style notes
-- **[[notes/index]]** — quick captures *(clean up often)*
-- **[[travel/index]]** — trips and logistics *(archive when done)*
+Vault areas live in folders below — open them from the Wiki Explorer, or deep-link notes you care about:
+
+- **people/** — people you track
+- **projects/** — active work
+- **topics/** — durable themes and reference-style notes
+- **notes/** — quick captures *(clean up often)*
+- **travel/** — trips and logistics *(archive when done)*
+
+Each folder ships a `**template.md`** describing the shape of notes there.
 
 ## Directories
 
-Add bullets here as your vault grows — each bullet should use a working **[[wikilink]]** to a page or folder hub.
+Add bullets here as your vault grows — each bullet should use a working **[[wikilink]]** to a page you want one-click access to from home.

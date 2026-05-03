@@ -6,6 +6,7 @@ import {
   normalizeWikiPathSegment,
   normalizeWikiRelPathForNaming,
   resolveWikiPathForCreate,
+  formatWikiKebabNormalizedFromNote,
 } from './wikiPathNaming.js'
 
 describe('wikiPathNaming', () => {
@@ -29,6 +30,12 @@ describe('wikiPathNaming', () => {
     } finally {
       rmSync(wiki, { recursive: true, force: true })
     }
+  })
+
+  it('formatWikiKebabNormalizedFromNote matches write/move tool copy', () => {
+    expect(formatWikiKebabNormalizedFromNote('ideas/a-b.md', 'Ideas/A B.md')).toBe(
+      '\n\nSaved as `ideas/a-b.md` (normalized from requested `Ideas/A B.md`).',
+    )
   })
 
   it('resolveWikiPathForCreate keeps legacy path when file exists at coerced path', () => {

@@ -61,3 +61,8 @@ export function resolveWikiPathForCreate(
   }
   return { path: canonical, normalizedFrom: null }
 }
+
+/** LLM-facing note when the on-disk wiki path was kebab-normalized from the agent's request (write, move destination, etc.). */
+export function formatWikiKebabNormalizedFromNote(canonicalPath: string, normalizedFrom: string): string {
+  return `\n\nSaved as \`${canonicalPath}\` (normalized from requested \`${normalizedFrom}\`).`
+}

@@ -21,11 +21,25 @@ import { brainLayoutWikiDir, brainLayoutWikisDir } from '@server/lib/platform/br
 import { HANDLE_META_FILENAME } from '@server/lib/tenant/handleMeta.js'
 import { createAgentTools } from '@server/agent/tools.js'
 import { createWikiScopedPiTools } from '@server/agent/tools/wikiScopedFsTools.js'
+import { createWikiFileManagementTools } from '@server/agent/tools/wikiFileManagementTools.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { joinToolResultText } from '@server/agent/agentTestUtils.js'
 import { computePeerLinkPath } from '@server/lib/shares/wikiShareTargetPaths.js'
 import type { WikiShareRow } from '@server/lib/shares/wikiSharesRepo.js'
 import { rewriteOpenToolArgsIfNeeded } from '@server/lib/chat/rewriteAgentOpenWikiPath.js'
+
+/** Invoke `move_file` in tests — `ToolDefinition.execute` is typed with extra pi-coding-agent args callers never provide at runtime here. */
+function executeMoveDirect(
+  tool: ReturnType<typeof createWikiFileManagementTools>['moveFile'],
+  toolCallId: string,
+  params: { from: string; to: string },
+) {
+  const run = tool.execute as (
+    toolCallId: string,
+    params: { from: string; to: string },
+  ) => Promise<AgentToolResult<unknown>>
+  return run(toolCallId, params)
+}
 
 describe('wiki share projection (wikis/@peer/)', () => {
   let tmp: string
@@ -455,6 +469,48 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const text = joinToolResultText(res as AgentToolResult<unknown>)
     expect(text).toMatch(/WARNING:/i)
     expect(text).toContain('peer@example.com')
+
+    deleteWikiSharesForOwner(ownerId)
+  })
+
+  it('move_file appends WARNING when destination is under accepted outgoing dir share', async () => {
+    const { ownerId, granteeId } = await tenantPair()
+    const ow = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(ow, 'private'), { recursive: true })
+    await mkdir(join(ow, 'trips'), { recursive: true })
+    await writeFile(join(ow, 'private', 'draft.md'), '# d', 'utf-8')
+    const row = createShare({ ownerId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'peer@example.com' })
+
+    const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
+    const { moveFile } = createWikiFileManagementTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
+    const res = await executeMoveDirect(moveFile, 'm-share', {
+      from: 'me/private/draft.md',
+      to: 'me/trips/from-private.md',
+    })
+    const text = joinToolResultText(res as AgentToolResult<unknown>)
+    expect(text).toMatch(/WARNING:/i)
+    expect(text).toContain('peer@example.com')
+
+    deleteWikiSharesForOwner(ownerId)
+  })
+
+  it('move_file omits WARNING when destination is outside shared prefixes', async () => {
+    const { ownerId, granteeId } = await tenantPair()
+    const ow = brainLayoutWikiDir(tenantHomeDir(ownerId))
+    await mkdir(join(ow, 'private'), { recursive: true })
+    await mkdir(join(ow, 'archive'), { recursive: true })
+    await writeFile(join(ow, 'private', 'draft.md'), '# d', 'utf-8')
+    const row = createShare({ ownerId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'peer@example.com' })
+
+    const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
+    const { moveFile } = createWikiFileManagementTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
+    const res = await executeMoveDirect(moveFile, 'm-private', {
+      from: 'me/private/draft.md',
+      to: 'me/archive/draft.md',
+    })
+    expect(joinToolResultText(res as AgentToolResult<unknown>)).not.toMatch(/WARNING:/i)
 
     deleteWikiSharesForOwner(ownerId)
   })

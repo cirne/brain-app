@@ -9,9 +9,19 @@ import {
   resolveWikiPathForCreate,
 } from '../agentToolPolicy.js'
 import { coerceWikiToolRelativePath } from '@server/lib/wiki/wikiEditHistory.js'
-import { wikiToolRelTouchesPeerProjection } from '@server/agent/tools/wikiScopedFsTools.js'
+import {
+  wikiToolRelTouchesPeerProjection,
+  vaultRelPathFromMeToolPath,
+  buildWikiWriteShareVisibilityHint,
+} from '@server/agent/tools/wikiScopedFsTools.js'
+import { formatWikiKebabNormalizedFromNote } from '@server/lib/wiki/wikiPathNaming.js'
 
-export function createWikiFileManagementTools(wikiDir: string) {
+export type WikiFileManagementToolsOptions = {
+  /** When set, **`move_file`** appends the same outgoing-share WARNING as **`write`** / **`edit`** for destinations under `me/` covered by an accepted share. */
+  wikiWriteShareHintOwnerId?: string
+}
+
+export function createWikiFileManagementTools(wikiDir: string, options?: WikiFileManagementToolsOptions) {
   const moveFile = defineTool({
     name: 'move_file',
     label: 'Move file',
@@ -58,10 +68,19 @@ export function createWikiFileManagementTools(wikiDir: string) {
       await mkdir(dirname(toAbs), { recursive: true })
       await rename(fromAbs, toAbs)
       await appendWikiEditRecord(wikiDir, 'move', toRes.path, { fromPath: fromRel }).catch(() => {})
-      let text = `Moved ${fromRel} → ${toRes.path}`
+      const tailNotes: string[] = []
       if (toRes.normalizedFrom) {
-        text += ` (destination normalized from requested \`${toRes.normalizedFrom}\`)`
+        tailNotes.push(formatWikiKebabNormalizedFromNote(toRes.path, toRes.normalizedFrom))
       }
+      const vaultRel = vaultRelPathFromMeToolPath(toRes.path)
+      const shareHint =
+        vaultRel != null && options?.wikiWriteShareHintOwnerId
+          ? buildWikiWriteShareVisibilityHint(options.wikiWriteShareHintOwnerId, vaultRel)
+          : null
+      if (shareHint) tailNotes.push(shareHint)
+
+      let text = `Moved ${fromRel} → ${toRes.path}`
+      text += tailNotes.join('')
       return {
         content: [
           {

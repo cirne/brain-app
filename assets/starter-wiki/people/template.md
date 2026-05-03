@@ -8,7 +8,7 @@ Use this shape for `**people/<slug>.md**`. **Ground facts in mail, messages, or 
 
 ## Relationship / context
 
-- **How you know them:** *(evidence-backed — aligns with **Family** / **Friends** / **Coworkers** / **Colleagues** on `[[people/index]]`.)*
+- **How you know them:** *(evidence-backed — use consistent **Family** / **Friends** / **Coworkers** / **Colleagues** labels here and across your people pages.)*
 - **What you coordinate on:** *(projects, domains — link to `[[projects/…]]` or `[[topics/…]]` when useful.)*
 
 ## Contact / identifiers

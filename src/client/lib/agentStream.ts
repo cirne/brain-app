@@ -213,7 +213,9 @@ export async function consumeAgentChatStream(
             if (parts.length === 0 || blob.size === 0) {
               continue
             }
-            void playBrainTtsBlob(blob).catch(() => {})
+            void playBrainTtsBlob(blob, {
+              continuePlayback: () => isActiveSession() && isHearRepliesEnabled(),
+            }).catch(() => {})
             continue
           }
         }

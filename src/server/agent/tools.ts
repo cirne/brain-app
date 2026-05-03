@@ -50,7 +50,7 @@ export interface CreateAgentToolsOptions {
    */
   calendarAllowedOps?: readonly string[]
   /**
-   * When set, **`write`** appends a share-visibility hint for paths under outgoing accepted shares.
+   * When set, **`write`**, **`edit`**, and **`move_file`** append a share-visibility hint for paths under outgoing accepted shares.
    * Defaults to current {@link tryGetTenantContext} tenant when omitted (chat under tenant middleware).
    */
   wikiWriteShareHintOwnerId?: string
@@ -78,7 +78,9 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     ...(wikiWriteShareHintOwnerId !== undefined ? { wikiWriteShareHintOwnerId } : {}),
   })
 
-  const { moveFile, deleteFile } = createWikiFileManagementTools(wikiDir)
+  const { moveFile, deleteFile } = createWikiFileManagementTools(wikiDir, {
+    ...(wikiWriteShareHintOwnerId !== undefined ? { wikiWriteShareHintOwnerId } : {}),
+  })
 
   const {
     searchIndex,

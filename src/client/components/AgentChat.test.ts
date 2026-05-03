@@ -15,9 +15,13 @@ vi.mock('./agent-conversation/AgentConversation.svelte', () => import('./test-st
 vi.mock('@client/lib/wikiFileListRefetch.js', () => ({
   registerWikiFileListRefetch: vi.fn(() => vi.fn()),
 }))
-vi.mock('@client/lib/brainTtsAudio.js', () => ({
-  ensureBrainTtsAutoplayInUserGesture: vi.fn().mockResolvedValue(undefined),
-}))
+vi.mock('@client/lib/brainTtsAudio.js', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@client/lib/brainTtsAudio.js')>()
+  return {
+    ...mod,
+    ensureBrainTtsAutoplayInUserGesture: vi.fn().mockResolvedValue(undefined),
+  }
+})
 vi.mock('@client/lib/pressToTalkEnabled.js', () => ({
   isPressToTalkEnabled: vi.fn(() => false),
 }))

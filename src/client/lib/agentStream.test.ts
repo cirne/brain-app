@@ -7,6 +7,7 @@ import * as appEvents from './app/appEvents.js'
 vi.mock('./brainTtsAudio.js', () => ({
   playBrainTtsBlob: vi.fn().mockResolvedValue(undefined),
   primeBrainTtsFromUserGesture: vi.fn(),
+  stopBrainTtsPlayback: vi.fn(),
 }))
 
 vi.mock('./app/appEvents.js', () => ({
@@ -417,6 +418,44 @@ describe('consumeAgentChatStream', () => {
     expect(vi.mocked(playBrainTtsBlob)).toHaveBeenCalled()
     const arg = vi.mocked(playBrainTtsBlob).mock.calls[0]![0] as Blob
     expect(arg).toBeInstanceOf(Blob)
+    const opts = vi.mocked(playBrainTtsBlob).mock.calls[0]![1] as { continuePlayback?: () => boolean }
+    expect(opts?.continuePlayback).toBeTypeOf('function')
+  })
+
+  it('passes continuePlayback that tracks isActiveSession and isHearRepliesEnabled', async () => {
+    vi.mocked(playBrainTtsBlob).mockClear()
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', parts: [] },
+    ]
+    let active = true
+    let hear = true
+    const b64a = btoa(String.fromCharCode(255, 251, 144))
+    const res = sseResponse([
+      'event: tts_chunk\n',
+      `data: {"id":"s1","b64":"${b64a}"}\n\n`,
+      'event: tts_done\n',
+      'data: {"id":"s1","format":"mp3"}\n\n',
+    ])
+    await consumeAgentChatStream(res, {
+      getMessages: () => messages,
+      msgIdx: 1,
+      suppressAgentDetailAutoOpen: false,
+      isActiveSession: () => active,
+      isHearRepliesEnabled: () => hear,
+      setSessionId: () => {},
+      setChatTitle: () => {},
+      touchMessages: () => {},
+      scrollToBottom: () => {},
+    })
+    expect(vi.mocked(playBrainTtsBlob)).toHaveBeenCalled()
+    const opts = vi.mocked(playBrainTtsBlob).mock.calls[0]![1] as { continuePlayback: () => boolean }
+    expect(opts.continuePlayback()).toBe(true)
+    active = false
+    expect(opts.continuePlayback()).toBe(false)
+    active = true
+    hear = false
+    expect(opts.continuePlayback()).toBe(false)
   })
 
   it('completes without throwing on tts_error (no TTS play)', async () => {

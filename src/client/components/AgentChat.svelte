@@ -14,7 +14,7 @@
   } from '@client/lib/agentUtils.js'
   import { extractLatestSuggestReplyChoices } from '@client/lib/tools/suggestReplyChoices.js'
   import { emit, subscribe as subscribeAppEvents } from '@client/lib/app/appEvents.js'
-  import { ensureBrainTtsAutoplayInUserGesture } from '@client/lib/brainTtsAudio.js'
+  import { ensureBrainTtsAutoplayInUserGesture, stopBrainTtsPlayback } from '@client/lib/brainTtsAudio.js'
   import { readChatToolDisplayPreference } from '@client/lib/chatToolDisplayPreference.js'
   import { readHearRepliesPreference, writeHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
@@ -258,6 +258,15 @@
   const init = initialSessionsAndDisplay()
   let sessions = $state(init.sessions)
   let displayedSessionId = $state(init.displayed)
+  let prevDisplayedSession: string | null | undefined = undefined
+  /** Stop any in-flight assistant TTS when switching threads so stale blobs don’t stack on the shared AudioContext. */
+  $effect(() => {
+    const id = displayedSessionId
+    if (prevDisplayedSession !== undefined && prevDisplayedSession !== id) {
+      stopBrainTtsPlayback()
+    }
+    prevDisplayedSession = id
+  })
   let toolDisplayMode = $state(readChatToolDisplayPreference())
 
   const sessionLoadLatest = createAsyncLatest({ abortPrevious: true })
@@ -536,6 +545,7 @@
   function stopChat() {
     const id = displayedSessionId
     if (!id) return
+    stopBrainTtsPlayback()
     sessions.get(id)?.abortController?.abort()
   }
 
@@ -564,6 +574,10 @@
       const prev = st.pendingQueuedMessages ?? []
       sessions = touchSessionImmutable(sessions, id, { pendingQueuedMessages: [...prev, t] })
       return
+    }
+
+    if (displayedSessionId === id) {
+      stopBrainTtsPlayback()
     }
 
     const streamKey = id
@@ -759,6 +773,9 @@
       void ensureBrainTtsAutoplayInUserGesture()
     }
     const next = !cur
+    if (next === false) {
+      stopBrainTtsPlayback()
+    }
     writeHearRepliesPreference(next)
     sessions = touchSessionImmutable(sessions, id, { hearReplies: next })
   }

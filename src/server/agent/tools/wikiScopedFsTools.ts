@@ -17,7 +17,7 @@ import {
 } from '@mariozechner/pi-coding-agent'
 import { appendWikiEditRecord, coerceWikiToolRelativePath } from '@server/lib/wiki/wikiEditHistory.js'
 import { assertAgentWikiWriteUsesSubdirectory } from '@server/lib/wiki/wikiAgentWritePolicy.js'
-import { resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
+import { formatWikiKebabNormalizedFromNote, resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
 import { wikiFindGlobAbsolutePaths } from '@server/lib/wiki/wikiFindGlob.js'
 import { executeWikiSymlinkAwareGrep } from '@server/agent/tools/wikiSymlinkAwareGrep.js'
 import { WIKIS_ME_SEGMENT } from '@server/lib/platform/brainLayout.js'
@@ -184,7 +184,7 @@ export function createWikiScopedPiTools(
 
       const tailNotes: string[] = []
       if (normFrom) {
-        tailNotes.push(`\n\nSaved as \`${path}\` (normalized from requested \`${normFrom}\`).`)
+        tailNotes.push(formatWikiKebabNormalizedFromNote(path, normFrom))
       }
       const vaultRel = vaultRelPathFromMeToolPath(path)
       const shareHint =
