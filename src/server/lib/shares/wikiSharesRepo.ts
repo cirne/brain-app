@@ -9,8 +9,10 @@ export type WikiShareTargetKind = 'dir' | 'file'
 export type WikiShareRow = {
   id: string
   owner_id: string
-  grantee_email: string
-  grantee_id: string | null
+  /** Invited tenant id (`usr_…`); set when the invite is created. */
+  grantee_id: string
+  /** Optional denormalized mailbox hint for owner UI (may be null, e.g. invite by handle only). */
+  grantee_email: string | null
   path_prefix: string
   /** `dir` = subtree under path_prefix (trailing `/`); `file` = single .md at path_prefix */
   target_kind: WikiShareTargetKind
@@ -26,7 +28,7 @@ function rowFromStmt(r: unknown): WikiShareRow | null {
   if (
     typeof o.id !== 'string' ||
     typeof o.owner_id !== 'string' ||
-    typeof o.grantee_email !== 'string' ||
+    typeof o.grantee_id !== 'string' ||
     typeof o.path_prefix !== 'string' ||
     typeof o.invite_token !== 'string' ||
     typeof o.created_at_ms !== 'number'
@@ -34,11 +36,12 @@ function rowFromStmt(r: unknown): WikiShareRow | null {
     return null
   }
   const tk = o.target_kind === 'file' ? 'file' : 'dir'
+  const ge = o.grantee_email
   return {
     id: o.id,
     owner_id: o.owner_id,
-    grantee_email: o.grantee_email,
-    grantee_id: typeof o.grantee_id === 'string' && o.grantee_id.length > 0 ? o.grantee_id : null,
+    grantee_id: o.grantee_id,
+    grantee_email: typeof ge === 'string' && ge.length > 0 ? ge : null,
     path_prefix: o.path_prefix,
     target_kind: tk,
     invite_token: o.invite_token,
@@ -89,7 +92,9 @@ function newToken(): string {
 
 export function createShare(params: {
   ownerId: string
-  granteeEmail: string
+  granteeId: string
+  /** Optional display / owner UI hint. */
+  granteeEmail?: string | null
   pathPrefix: string
   /** Default `dir` — share a folder subtree; `file` shares one `.md` page. */
   targetKind?: WikiShareTargetKind
@@ -99,20 +104,32 @@ export function createShare(params: {
   const kind: WikiShareTargetKind = params.targetKind === 'file' ? 'file' : 'dir'
   const path_prefix =
     kind === 'file' ? normalizeWikiShareFilePath(params.pathPrefix) : normalizeWikiSharePathPrefix(params.pathPrefix)
-  const grantee_email = normalizeEmail(params.granteeEmail)
-  if (!grantee_email.includes('@')) {
-    throw new Error('grantee_email_invalid')
+  const grantee_id = params.granteeId.trim()
+  if (!grantee_id) {
+    throw new Error('grantee_id_required')
+  }
+  if (grantee_id === params.ownerId) {
+    throw new Error('grantee_is_owner')
+  }
+  let grantee_email: string | null = null
+  if (params.granteeEmail != null && String(params.granteeEmail).trim() !== '') {
+    const ge = normalizeEmail(String(params.granteeEmail))
+    if (!ge.includes('@')) {
+      throw new Error('grantee_email_invalid')
+    }
+    grantee_email = ge
   }
   const id = newId()
   const invite_token = newToken()
   const created_at_ms = Date.now()
   db.prepare(
     `INSERT INTO wiki_shares (
-      id, owner_id, grantee_email, grantee_id, path_prefix, target_kind, invite_token, created_at_ms, accepted_at_ms, revoked_at_ms
-    ) VALUES (@id, @owner_id, @grantee_email, NULL, @path_prefix, @target_kind, @invite_token, @created_at_ms, NULL, NULL)`,
+      id, owner_id, grantee_id, grantee_email, path_prefix, target_kind, invite_token, created_at_ms, accepted_at_ms, revoked_at_ms
+    ) VALUES (@id, @owner_id, @grantee_id, @grantee_email, @path_prefix, @target_kind, @invite_token, @created_at_ms, NULL, NULL)`,
   ).run({
     id,
     owner_id: params.ownerId,
+    grantee_id,
     grantee_email,
     path_prefix,
     target_kind: kind,
@@ -161,87 +178,59 @@ export function listSharesForGrantee(granteeId: string, db?: Database.Database):
   return rows.map((r) => rowFromStmt(r)).filter((x): x is WikiShareRow => x !== null)
 }
 
-/** Pending invites for this mailbox: not revoked, not accepted, still within invite TTL. */
-export function listPendingInvitesForGranteeEmail(granteeEmail: string, db?: Database.Database): WikiShareRow[] {
+/** Pending invites for this tenant: not revoked, not accepted, still within invite TTL. */
+export function listPendingInvitesForGrantee(granteeId: string, db?: Database.Database): WikiShareRow[] {
   const d = db ?? getBrainGlobalDb()
-  const ge = normalizeEmail(granteeEmail)
-  if (!ge.includes('@')) return []
+  const gid = granteeId.trim()
+  if (!gid) return []
   const minCreated = Date.now() - WIKI_SHARE_INVITE_TTL_MS
   const rows = d
     .prepare(
       `SELECT * FROM wiki_shares
-       WHERE grantee_email = ? AND revoked_at_ms IS NULL AND accepted_at_ms IS NULL AND created_at_ms >= ?
+       WHERE grantee_id = ? AND revoked_at_ms IS NULL AND accepted_at_ms IS NULL AND created_at_ms >= ?
        ORDER BY created_at_ms DESC`,
     )
-    .all(ge, minCreated)
+    .all(gid, minCreated)
   return rows.map((r) => rowFromStmt(r)).filter((x): x is WikiShareRow => x !== null)
 }
 
 /**
- * Shared accept rules for token and in-app acceptance. Updates `grantee_id` + `accepted_at_ms` when allowed.
+ * Shared accept rules for token and in-app acceptance. Sets `accepted_at_ms` when the signed-in
+ * tenant matches the invited `grantee_id`.
  */
-function applyGranteeAcceptToRow(params: {
-  row: WikiShareRow
-  granteeId: string
-  granteeEmail: string
-  db: Database.Database
-}): WikiShareRow | null {
-  const { row, granteeId, granteeEmail, db } = params
+function applyGranteeAcceptToRow(params: { row: WikiShareRow; granteeId: string; db: Database.Database }): WikiShareRow | null {
+  const { row, granteeId, db } = params
   if (row.revoked_at_ms != null) return null
-  const ge = normalizeEmail(granteeEmail)
-  if (normalizeEmail(row.grantee_email) !== ge) {
-    return null
-  }
+  if (row.grantee_id !== granteeId) return null
   const now = Date.now()
   if (now - row.created_at_ms > WIKI_SHARE_INVITE_TTL_MS) {
     return null
   }
-  if (row.accepted_at_ms != null && row.grantee_id === granteeId) {
+  if (row.accepted_at_ms != null) {
     return row
   }
-  if (row.accepted_at_ms != null && row.grantee_id && row.grantee_id !== granteeId) {
-    return null
-  }
-  db.prepare(
-    `UPDATE wiki_shares SET grantee_id = @grantee_id, accepted_at_ms = @accepted_at_ms WHERE id = @id`,
-  ).run({
-    id: row.id,
-    grantee_id: granteeId,
-    accepted_at_ms: now,
-  })
+  db.prepare(`UPDATE wiki_shares SET accepted_at_ms = ? WHERE id = ?`).run(now, row.id)
   return getShareById(row.id, db)
 }
 
-export function acceptShare(params: {
-  token: string
-  granteeId: string
-  granteeEmail: string
-  db?: Database.Database
-}): WikiShareRow | null {
+export function acceptShare(params: { token: string; granteeId: string; db?: Database.Database }): WikiShareRow | null {
   const d = params.db ?? getBrainGlobalDb()
   const row = getShareByToken(params.token, d)
   if (!row) return null
   return applyGranteeAcceptToRow({
     row,
     granteeId: params.granteeId,
-    granteeEmail: params.granteeEmail,
     db: d,
   })
 }
 
-export function acceptShareById(params: {
-  shareId: string
-  granteeId: string
-  granteeEmail: string
-  db?: Database.Database
-}): WikiShareRow | null {
+export function acceptShareById(params: { shareId: string; granteeId: string; db?: Database.Database }): WikiShareRow | null {
   const d = params.db ?? getBrainGlobalDb()
   const row = getShareById(params.shareId, d)
   if (!row) return null
   return applyGranteeAcceptToRow({
     row,
     granteeId: params.granteeId,
-    granteeEmail: params.granteeEmail,
     db: d,
   })
 }
@@ -306,7 +295,7 @@ export function granteeCanReadOwnerWikiPath(params: {
     const row: WikiShareRow = {
       id: '',
       owner_id: params.ownerId,
-      grantee_email: '',
+      grantee_email: null,
       grantee_id: params.granteeId,
       path_prefix: r.path_prefix,
       target_kind: r.target_kind === 'file' ? 'file' : 'dir',

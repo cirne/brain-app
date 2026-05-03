@@ -1,14 +1,12 @@
 import { Hono } from 'hono'
 import { getTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
-import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
-import { readPrimaryRipmailImapEmail } from '@server/lib/platform/googleOAuth.js'
-import { ripmailHomeForBrain } from '@server/lib/platform/brainHome.js'
+import { isValidUserId, readHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import {
   acceptShareById,
   createShare,
   getShareById,
-  listPendingInvitesForGranteeEmail,
+  listPendingInvitesForGrantee,
   listSharesForGrantee,
   listSharesForOwner,
   revokeShare,
@@ -22,14 +20,17 @@ import {
   InvalidWorkspaceHandleError,
   parseWorkspaceHandle,
 } from '@server/lib/tenant/workspaceHandle.js'
-import { resolveConfirmedHandle } from '@server/lib/tenant/workspaceHandleDirectory.js'
+import {
+  resolveConfirmedHandle,
+  resolveUserIdByPrimaryEmail,
+} from '@server/lib/tenant/workspaceHandleDirectory.js'
 
 export type WikiShareApi = {
   id: string
   ownerId: string
   ownerHandle: string
-  granteeEmail: string
-  granteeId: string | null
+  granteeEmail: string | null
+  granteeId: string
   pathPrefix: string
   targetKind: 'dir' | 'file'
   createdAtMs: number
@@ -74,13 +75,14 @@ export function wikiUrlForAcceptedShare(origin: string, row: WikiShareRow, owner
 
 const wikiShares = new Hono()
 
-/** POST /api/wiki-shares — owner creates invite */
+/** POST /api/wiki-shares — owner creates invite (grantee identified by tenant id) */
 wikiShares.post('/', async (c) => {
   const ctx = getTenantContext()
   let body: {
     pathPrefix?: unknown
     granteeEmail?: unknown
     granteeHandle?: unknown
+    granteeUserId?: unknown
     targetKind?: unknown
   }
   try {
@@ -91,24 +93,45 @@ wikiShares.post('/', async (c) => {
   const pathPrefix = typeof body.pathPrefix === 'string' ? body.pathPrefix : ''
   const granteeEmailRaw = typeof body.granteeEmail === 'string' ? body.granteeEmail.trim() : ''
   const granteeHandleRaw = typeof body.granteeHandle === 'string' ? body.granteeHandle.trim() : ''
+  const granteeUserIdRaw = typeof body.granteeUserId === 'string' ? body.granteeUserId.trim() : ''
   const targetKind =
     body.targetKind === 'file' ? ('file' as const) : body.targetKind === 'dir' ? ('dir' as const) : undefined
   if (!pathPrefix.trim()) {
     return c.json({ error: 'pathPrefix_required' }, 400)
   }
-  if (!granteeEmailRaw && !granteeHandleRaw) {
-    return c.json({ error: 'grantee_required', message: 'Provide a handle or email.' }, 400)
+  const modes = [granteeEmailRaw, granteeHandleRaw, granteeUserIdRaw].filter((s) => s.length > 0)
+  if (modes.length === 0) {
+    return c.json({ error: 'grantee_required', message: 'Provide granteeUserId, handle, or email.' }, 400)
   }
-  if (granteeEmailRaw && granteeHandleRaw) {
+  if (modes.length > 1) {
     return c.json(
-      { error: 'grantee_conflict', message: 'Provide either a handle or email, not both.' },
+      { error: 'grantee_conflict', message: 'Provide only one of granteeUserId, handle, or email.' },
       400,
     )
   }
 
-  let granteeEmail = granteeEmailRaw
+  let granteeId: string
+  let granteeEmail: string | null = null
   let resolvedHandle: string | undefined
-  if (granteeHandleRaw) {
+
+  if (granteeUserIdRaw) {
+    if (!isValidUserId(granteeUserIdRaw)) {
+      return c.json({ error: 'invalid_grantee_user_id', message: 'Invalid grantee user id.' }, 400)
+    }
+    if (granteeUserIdRaw === ctx.tenantUserId) {
+      return c.json({ error: 'grantee_is_owner', message: 'You cannot share with yourself.' }, 400)
+    }
+    const home = tenantHomeDir(granteeUserIdRaw)
+    const meta = await readHandleMeta(home)
+    if (!meta || typeof meta.confirmedAt !== 'string' || meta.confirmedAt.length === 0) {
+      return c.json(
+        { error: 'grantee_not_found', message: 'No confirmed workspace for that user id.' },
+        400,
+      )
+    }
+    granteeId = granteeUserIdRaw
+    resolvedHandle = meta.handle
+  } else if (granteeHandleRaw) {
     let normalized: string
     try {
       normalized = parseWorkspaceHandle(granteeHandleRaw.replace(/^@/, ''))
@@ -116,29 +139,38 @@ wikiShares.post('/', async (c) => {
       const msg = e instanceof InvalidWorkspaceHandleError ? e.message : 'Invalid handle.'
       return c.json({ error: 'invalid_handle', message: msg }, 400)
     }
-    const entry = await resolveConfirmedHandle({
+    const dirEntry = await resolveConfirmedHandle({
       handle: normalized,
       excludeUserId: ctx.tenantUserId,
     })
-    if (!entry) {
+    if (!dirEntry) {
       return c.json({ error: 'handle_not_found', message: `No Braintunnel user @${normalized}.` }, 400)
     }
-    if (!entry.primaryEmail) {
+    granteeId = dirEntry.userId
+    granteeEmail = dirEntry.primaryEmail
+    resolvedHandle = dirEntry.handle
+  } else {
+    const resolved = await resolveUserIdByPrimaryEmail({
+      email: granteeEmailRaw,
+      excludeUserId: ctx.tenantUserId,
+    })
+    if (!resolved) {
       return c.json(
         {
-          error: 'handle_has_no_email',
-          message: `@${entry.handle} has not connected an email account yet.`,
+          error: 'grantee_not_found',
+          message: 'No Braintunnel user has that mailbox as their primary email.',
         },
         400,
       )
     }
-    granteeEmail = entry.primaryEmail
-    resolvedHandle = entry.handle
+    granteeId = resolved
+    granteeEmail = granteeEmailRaw.toLowerCase()
   }
 
   try {
     const row = createShare({
       ownerId: ctx.tenantUserId,
+      granteeId,
       granteeEmail,
       pathPrefix,
       ...(targetKind ? { targetKind } : {}),
@@ -155,7 +187,9 @@ wikiShares.post('/', async (c) => {
       msg === 'path_prefix_invalid' ||
       msg === 'grantee_email_invalid' ||
       msg === 'path_invalid' ||
-      msg === 'path_must_be_md'
+      msg === 'path_must_be_md' ||
+      msg === 'grantee_id_required' ||
+      msg === 'grantee_is_owner'
     ) {
       return c.json({ error: msg }, 400)
     }
@@ -163,45 +197,31 @@ wikiShares.post('/', async (c) => {
   }
 })
 
-/** GET /api/wiki-shares — list owned + received + pending (by primary mailbox email) */
+/** GET /api/wiki-shares — list owned + received + pending (for signed-in tenant id) */
 wikiShares.get('/', async (c) => {
   const ctx = getTenantContext()
   const ownedRows = listSharesForOwner(ctx.tenantUserId)
   const receivedRows = listSharesForGrantee(ctx.tenantUserId)
   const owned = await Promise.all(ownedRows.map((r) => toApiShare(r)))
   const received = await Promise.all(receivedRows.map((r) => toApiShare(r)))
-  const mailboxEmail =
-    (await readPrimaryRipmailImapEmail(ripmailHomeForBrain()))?.trim().toLowerCase() ?? ''
-  const pendingRows = mailboxEmail ? listPendingInvitesForGranteeEmail(mailboxEmail) : []
+  const pendingRows = listPendingInvitesForGrantee(ctx.tenantUserId)
   const pendingReceived = await Promise.all(pendingRows.map((r) => toApiShare(r)))
   return c.json({ owned, received, pendingReceived })
 })
 
-/** POST /api/wiki-shares/:id/accept — grantee accepts in-app (JSON; same rules as token accept) */
+/** POST /api/wiki-shares/:id/accept — grantee accepts in-app (signed-in tenant must match invited grantee_id) */
 wikiShares.post('/:id/accept', async (c) => {
   const ctx = getTenantContext()
   const shareId = c.req.param('id')
-  const email =
-    (await readPrimaryRipmailImapEmail(ripmailHomeForBrain()))?.trim().toLowerCase() ?? ''
-  if (!email) {
-    return c.json(
-      {
-        error: 'mailbox_email_unknown',
-        message: 'Connect Gmail (ripmail) so your workspace email is known, then accept in Settings.',
-      },
-      400,
-    )
-  }
   const updated = acceptShareById({
     shareId,
     granteeId: ctx.tenantUserId,
-    granteeEmail: email,
   })
   if (!updated) {
     return c.json(
       {
         error: 'accept_failed',
-        message: 'Invite expired, revoked, wrong account, or email does not match the invite.',
+        message: 'Invite expired, revoked, or this account is not the invited workspace.',
       },
       400,
     )
@@ -229,14 +249,12 @@ wikiShares.delete('/:id', async (c) => {
   if (!row || row.owner_id !== ctx.tenantUserId) {
     return c.json({ error: 'not_found_or_forbidden' }, 404)
   }
-  if (row.grantee_id) {
-    const projectionOk = await removeWikiShareProjectionForShare({
-      granteeTenantUserId: row.grantee_id,
-      share: row,
-    })
-    if (!projectionOk) {
-      return c.json({ error: 'revoke_projection_failed', message: 'Could not remove grantee filesystem link.' }, 500)
-    }
+  const projectionOk = await removeWikiShareProjectionForShare({
+    granteeTenantUserId: row.grantee_id,
+    share: row,
+  })
+  if (!projectionOk) {
+    return c.json({ error: 'revoke_projection_failed', message: 'Could not remove grantee filesystem link.' }, 500)
   }
   const ok = revokeShare({ shareId: id, ownerId: ctx.tenantUserId })
   if (!ok) return c.json({ error: 'not_found_or_forbidden' }, 404)

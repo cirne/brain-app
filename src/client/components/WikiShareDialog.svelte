@@ -28,8 +28,8 @@
 
   type WikiAudienceRow = {
     id: string
-    granteeEmail: string
-    granteeId: string | null
+    granteeEmail: string | null
+    granteeId: string
     pathPrefix: string
     targetKind: 'dir' | 'file'
     acceptedAtMs: number | null
@@ -46,6 +46,8 @@
   type SelectedGrantee = {
     /** Stable key for the chip list. */
     key: string
+    /** Tenant id when picked from the workspace directory (preferred for POST). */
+    userId?: string
     /** When known, the @-handle (preferred for POST). */
     handle?: string
     /** Resolved email (always present for handle picks; equals raw input for typed emails). */
@@ -115,17 +117,19 @@
   function parseAudienceRow(x: unknown): WikiAudienceRow | null {
     if (!x || typeof x !== 'object') return null
     const o = x as Record<string, unknown>
-    if (typeof o.id !== 'string' || typeof o.granteeEmail !== 'string' || typeof o.pathPrefix !== 'string') {
+    if (typeof o.id !== 'string' || typeof o.pathPrefix !== 'string' || typeof o.granteeId !== 'string' || !o.granteeId) {
       return null
     }
+    const geRaw = o.granteeEmail
+    if (geRaw != null && typeof geRaw !== 'string') return null
     const cre = o.createdAtMs
     const acc = o.acceptedAtMs
     if (typeof cre !== 'number') return null
     const tk = o.targetKind === 'file' ? ('file' as const) : ('dir' as const)
     return {
       id: o.id,
-      granteeEmail: o.granteeEmail,
-      granteeId: typeof o.granteeId === 'string' && o.granteeId ? o.granteeId : null,
+      granteeEmail: geRaw === null || geRaw === undefined ? null : geRaw,
+      granteeId: o.granteeId,
       pathPrefix: o.pathPrefix,
       targetKind: tk,
       acceptedAtMs: typeof acc === 'number' ? acc : null,
@@ -277,6 +281,7 @@
     }
     const grantee: SelectedGrantee = {
       key: `@${entry.handle.toLowerCase()}`,
+      userId: entry.userId,
       handle: entry.handle,
       email: entry.primaryEmail ?? '',
       ...(entry.displayName ? { displayName: entry.displayName } : {}),
@@ -362,7 +367,8 @@
     try {
       for (const g of selected) {
         const body: Record<string, unknown> = { pathPrefix, targetKind }
-        if (g.handle) body.granteeHandle = g.handle
+        if (g.userId) body.granteeUserId = g.userId
+        else if (g.handle) body.granteeHandle = g.handle
         else body.granteeEmail = g.email
         try {
           const res = await fetch('/api/wiki-shares', {
@@ -401,7 +407,7 @@
   const submitDisabled = $derived(
     submitting ||
       (selected.length === 0 && inputValue.trim().length === 0) ||
-      selected.some((g) => !g.email),
+      selected.some((g) => !g.userId && (!g.email || !g.email.includes('@'))),
   )
 
   function tooltipFor(g: SelectedGrantee): string {
@@ -467,7 +473,7 @@
           >
             <div class="wsh-audience-main flex min-w-0 flex-col items-start gap-1">
               <span class="wsh-audience-email text-[13px] font-semibold [word-break:break-all]"
-                >{row.granteeEmail}</span
+                >{row.granteeEmail ?? row.granteeId}</span
               >
               {#if audienceStatus(row) === 'active'}
                 <span class={pillBase}>Has access</span>
@@ -509,7 +515,7 @@
         <span
           class={cn(
             'wsh-chip inline-flex max-w-full items-baseline gap-1.5 bg-[color-mix(in_srgb,var(--accent,#2563eb)_12%,transparent)] py-[3px] pl-2 pr-1.5 text-xs leading-snug text-foreground',
-            !g.email && 'wsh-chip-warn bg-[color-mix(in_srgb,var(--danger,#b42318)_14%,transparent)]',
+            !g.userId && !g.email && 'wsh-chip-warn bg-[color-mix(in_srgb,var(--danger,#b42318)_14%,transparent)]',
           )}
           title={tooltipFor(g)}
         >
@@ -585,11 +591,6 @@
       </div>
     {/if}
   </div>
-  {#if selected.some((g) => !g.email)}
-    <p class="wsh-hint wsh-hint-warn mt-2 text-[13px] text-[var(--danger,#b42318)]">
-      Add an email to their workspace before they can receive invites.
-    </p>
-  {/if}
   {#if Object.keys(perGranteeErrors).length > 0}
     <ul class="wsh-err-list m-0 mt-2 list-none p-0">
       {#each Object.entries(perGranteeErrors) as [key, msg] (key)}
@@ -629,7 +630,7 @@
   </p>
   {#if revokeTarget}
     <p class="wsh-revoke-detail m-0 text-[13px] text-muted">
-      <strong>{revokeTarget.granteeEmail}</strong>
+      <strong>{revokeTarget.granteeEmail ?? revokeTarget.granteeId}</strong>
     </p>
   {/if}
 </ConfirmDialog>

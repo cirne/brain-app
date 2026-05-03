@@ -3,8 +3,8 @@ export type WikiShareApiRow = {
   id: string
   ownerId: string
   ownerHandle: string
-  granteeEmail: string
-  granteeId: string | null
+  granteeEmail: string | null
+  granteeId: string
   pathPrefix: string
   targetKind: 'dir' | 'file'
   createdAtMs: number

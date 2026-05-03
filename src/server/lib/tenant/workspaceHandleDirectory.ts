@@ -90,6 +90,32 @@ export async function searchWorkspaceHandleDirectory(params: {
 }
 
 /**
+ * Find a confirmed tenant whose primary mailbox (linked mailboxes or ripmail config) matches `email`
+ * (case-insensitive). If multiple tenants share the same primary, the first match in directory order wins.
+ */
+export async function resolveUserIdByPrimaryEmail(params: {
+  email: string
+  excludeUserId?: string
+}): Promise<string | null> {
+  const normalized = params.email.trim().toLowerCase()
+  if (!normalized.includes('@')) return null
+  const root = dataRoot()
+  let names: string[]
+  try {
+    names = await readdir(root)
+  } catch {
+    return null
+  }
+  for (const name of names) {
+    if (!isValidUserId(name)) continue
+    if (params.excludeUserId && name === params.excludeUserId) continue
+    const primary = await resolvePrimaryEmail(join(root, name))
+    if (primary && primary.toLowerCase() === normalized) return name
+  }
+  return null
+}
+
+/**
  * Resolve a single confirmed handle (exact, case-insensitive) to a full directory entry.
  * Returns null when no confirmed tenant owns the handle.
  */

@@ -49,8 +49,8 @@ describe('wikiScopedFsTools share hints', () => {
       const granteeId = `usr_${'g'.repeat(20)}`
       await mkdir(tenantHomeDir(ownerId), { recursive: true })
       migrateWikiToWikisMe(tenantHomeDir(ownerId))
-      const row = createShare({ ownerId, granteeEmail: 'p@p.com', pathPrefix: 'trips/' })
-      acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'p@p.com' })
+      const row = createShare({ ownerId, granteeId, granteeEmail: 'p@p.com', pathPrefix: 'trips/' })
+      acceptShare({ token: row.invite_token, granteeId })
       const hint = buildWikiWriteShareVisibilityHint(ownerId, 'trips/new.md')
       expect(hint).toBeTruthy()
       expect(hint).toContain('WARNING')
@@ -60,8 +60,9 @@ describe('wikiScopedFsTools share hints', () => {
 
     it('returns null when no accepted share covers the path', async () => {
       const ownerId = `usr_${'n'.repeat(20)}`
+      const granteeId = `usr_${'h'.repeat(20)}`
       await mkdir(tenantHomeDir(ownerId), { recursive: true })
-      createShare({ ownerId, granteeEmail: 'p@p.com', pathPrefix: 'trips/' })
+      createShare({ ownerId, granteeId, granteeEmail: 'p@p.com', pathPrefix: 'trips/' })
       expect(buildWikiWriteShareVisibilityHint(ownerId, 'private/x.md')).toBeNull()
       deleteWikiSharesForOwner(ownerId)
     })

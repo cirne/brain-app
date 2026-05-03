@@ -1,6 +1,8 @@
 # Wiki directory sharing (OPP-064 Phase 1 + OPP-091 follow-on)
 
-Read-only **directory-level** wiki shares: an owner invites a collaborator by **email** or **@handle**; the grantee accepts in **Settings → Sharing** (primary mailbox must match the invite); the grantee browses the owner’s subtree in-app. **ACL is database-backed** — markdown front matter is **not** used for enforcement (see [Rejected: front matter ACL](#rejected-front-matter-as-acl-source-of-truth)).
+Read-only **directory-level** wiki shares: an owner invites a collaborator by **`granteeUserId`**, **@handle**, or **email** (email is resolved to a tenant id); the **invited tenant id** is stored on the row. The grantee accepts in **Settings → Sharing**; acceptance requires a **signed-in workspace session** matching that invited id (no mailbox gate). **ACL is database-backed** — markdown front matter is **not** used for enforcement (see [Rejected: front matter ACL](#rejected-front-matter-as-acl-source-of-truth)).
+
+The global file **`brain-global.sqlite`** includes a **`brain_global_schema`** table with a **version** row. When the code’s schema version (`BRAIN_GLOBAL_SCHEMA_VERSION` in [`brainGlobalDb.ts`](../../src/server/lib/global/brainGlobalDb.ts)) does not match the file, the server **deletes and recreates** the database (no `ALTER TABLE` migrations for this store yet).
 
 **Phase 1 (stub):** [OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md) · **`wikis/` namespace (active):** [OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md) · **Projection ↔ DB sync (ADR):** [wiki-share-acl-and-projection-sync.md](./wiki-share-acl-and-projection-sync.md) · **Idea / sequencing:** [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md)
 
@@ -21,7 +23,7 @@ Risk concentrates in **reconciliation when ACL or paths change** (revoke, prefix
 
 | Store               | Path                                           | Contents                                                                                           |
 | ------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Cross-tenant SQLite | `$BRAIN_DATA_ROOT/.global/brain-global.sqlite` | `wiki_shares` table (first consumer of this file; `tenant-registry.json` migration is a follow-on) |
+| Cross-tenant SQLite | `$BRAIN_DATA_ROOT/.global/brain-global.sqlite` | **`brain_global_schema`** (singleton version) + **`wiki_shares`** ACL table |
 | Owner wiki files    | `$BRAIN_DATA_ROOT/<ownerUserId>/wikis/me/`     | Personal vault markdown                                                                                 |
 | Grantee inbound share projection | `$BRAIN_DATA_ROOT/<granteeUserId>/wikis/@<handle>/…` | **App-managed** symlinks into the owner’s allowed prefix only ([`wikiShareProjection.ts`](../../src/server/lib/shares/wikiShareProjection.ts))                                                                          |
 
@@ -32,15 +34,15 @@ Risk concentrates in **reconciliation when ACL or paths change** (revoke, prefix
 
 ## `wiki_shares` schema
 
-Created at runtime with `CREATE TABLE IF NOT EXISTS` (no migration runner).
+Applied when the global DB is (re)created (`initBrainGlobalSchema` in [`brainGlobalDb.ts`](../../src/server/lib/global/brainGlobalDb.ts)). Older files are **wiped** when the schema version bumps — see [Data layout](#data-layout).
 
 
 | Column                                               | Purpose                                                       |
 | ---------------------------------------------------- | ------------------------------------------------------------- |
 | `id`                                                 | Primary key (`wsh_` + random hex)                             |
 | `owner_id`                                           | Owner tenant id (`usr_…`)                                     |
-| `grantee_email`                                      | Invited email, lowercased                                     |
-| `grantee_id`                                         | Set when invite accepted                                      |
+| `grantee_id`                                         | **Invited** grantee tenant id (`usr_…`), set at invite creation |
+| `grantee_email`                                      | Optional hint for owner UI (may be null), lowercased when present |
 | `path_prefix`                                        | Vault-relative prefix: directory shares end with `/`; file shares are a single `*.md` path      |
 | `target_kind`                                        | `dir` (subtree) or `file` (one markdown file) — API **`targetKind`** on create                 |
 | `invite_token`                                       | Opaque token in accept URL                                    |
@@ -58,9 +60,9 @@ Created at runtime with `CREATE TABLE IF NOT EXISTS` (no migration runner).
 
 | Method   | Path                             | Notes                                                                                                                                                                  |
 | -------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST`   | `/api/wiki-shares`               | Body `{ pathPrefix, granteeEmail \| granteeHandle, targetKind? }`. Returns created row (camelCase API shape).                                                         |
-| `GET`    | `/api/wiki-shares`               | `{ owned, received, pendingReceived }` — camelCase rows + `ownerHandle` from `handle-meta.json`.                                                                       |
-| `POST`   | `/api/wiki-shares/:id/accept`    | Grantee accepts in-app (vault session). Matches **primary ripmail IMAP email** to `grantee_email`. Returns `ok`, `wikiUrl`, owner/path metadata.                       |
+| `POST`   | `/api/wiki-shares`               | Body `{ pathPrefix, granteeUserId \| granteeEmail \| granteeHandle, targetKind? }` — exactly one grantee selector. Returns created row (camelCase API shape).                                                         |
+| `GET`    | `/api/wiki-shares`               | `{ owned, received, pendingReceived }` — camelCase rows + `ownerHandle` from `handle-meta.json`. **`pendingReceived`** is keyed by invited **grantee id** (signed-in tenant).                                                                       |
+| `POST`   | `/api/wiki-shares/:id/accept`    | Grantee accepts in-app (vault session). Requires **signed-in tenant** to match row **`grantee_id`**. Returns `ok`, `wikiUrl`, owner/path metadata.                       |
 | `DELETE` | `/api/wiki-shares/:id`           | Owner revokes (`revoked_at_ms`).                                                                                                                                       |
 
 
@@ -90,8 +92,8 @@ Created at runtime with `CREATE TABLE IF NOT EXISTS` (no migration runner).
 
 ## Security notes
 
-- **Email match on accept:** uses `readPrimaryRipmailImapEmail` (first IMAP source in ripmail `config.json`). If unknown, accept returns **400** with `mailbox_email_unknown`.
-- **Agent tool root** is **`wikis/`** (`me/` + `@handle/`). **`grep`** / **`find`** / **`read`** follow symlink projections. **`edit`** / **`write`** / **`move_file`** / **`delete_file`** under **`@…`** fail (read-only). When the signed-in tenant has an **accepted** outgoing share whose prefix covers a **`write`** target under `me/…`, the tool result includes a **WARNING** naming the grantee mailbox(es) so the LLM can confirm visibility with the user ([`wikiScopedFsTools.ts`](../../src/server/agent/tools/wikiScopedFsTools.ts)).
+- **Accept gate:** in-app accept requires the **vault session tenant** to equal the row’s **`grantee_id`** (invite TTL + not revoked still apply).
+- **Agent tool root** is **`wikis/`** (`me/` + `@handle/`). **`grep`** / **`find`** / **`read`** follow symlink projections. **`edit`** / **`write`** / **`move_file`** / **`delete_file`** under **`@…`** fail (read-only). When the signed-in tenant has an **accepted** outgoing share whose prefix covers a **`write`** target under `me/…`, the tool result includes a **WARNING** naming the grantee id (and optionally mailbox hint from **`grantee_email`**) so the LLM can confirm visibility with the user ([`wikiScopedFsTools.ts`](../../src/server/agent/tools/wikiScopedFsTools.ts)).
 
 ### Design posture (maintainability)
 

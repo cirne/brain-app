@@ -11,7 +11,7 @@ import {
   getShareByToken,
   granteeCanReadOwnerWikiPath,
   granteeShareCoversWikiPath,
-  listPendingInvitesForGranteeEmail,
+  listPendingInvitesForGrantee,
   listSharesForGrantee,
   listSharesForOwner,
   normalizeWikiSharePathPrefix,
@@ -49,10 +49,12 @@ describe('wikiSharesRepo', () => {
     const granteeId = 'usr_22222222222222222222'
     const row = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'Alice@Example.com',
       pathPrefix: 'trips',
     })
     expect(row.grantee_email).toBe('alice@example.com')
+    expect(row.grantee_id).toBe(granteeId)
     expect(row.path_prefix).toBe('trips/')
     expect(row.invite_token.length).toBeGreaterThan(10)
 
@@ -62,7 +64,6 @@ describe('wikiSharesRepo', () => {
     const accepted = acceptShare({
       token: row.invite_token,
       granteeId,
-      granteeEmail: 'alice@example.com',
     })
     expect(accepted?.grantee_id).toBe(granteeId)
     expect(accepted?.accepted_at_ms).toBeTypeOf('number')
@@ -91,13 +92,13 @@ describe('wikiSharesRepo', () => {
     const granteeId = 'usr_44444444444444444444'
     const row = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'b@b.com',
       pathPrefix: 'a/',
     })
     acceptShare({
       token: row.invite_token,
       granteeId,
-      granteeEmail: 'b@b.com',
     })
     expect(revokeShare({ shareId: row.id, ownerId })).toBe(true)
     expect(
@@ -113,9 +114,12 @@ describe('wikiSharesRepo', () => {
   it('deleteWikiSharesForOwner removes all rows for owner only', () => {
     const o1 = 'usr_aaaaaaaaaaaaaaaaaaaaaa'
     const o2 = 'usr_bbbbbbbbbbbbbbbbbbbbbb'
-    createShare({ ownerId: o1, granteeEmail: 'a@a.com', pathPrefix: 'x' })
-    createShare({ ownerId: o1, granteeEmail: 'b@b.com', pathPrefix: 'y' })
-    createShare({ ownerId: o2, granteeEmail: 'c@c.com', pathPrefix: 'z' })
+    const g1 = 'usr_g1111111111111111111'
+    const g2 = 'usr_g2222222222222222222'
+    const g3 = 'usr_g3333333333333333333'
+    createShare({ ownerId: o1, granteeId: g1, granteeEmail: 'a@a.com', pathPrefix: 'x' })
+    createShare({ ownerId: o1, granteeId: g2, granteeEmail: 'b@b.com', pathPrefix: 'y' })
+    createShare({ ownerId: o2, granteeId: g3, granteeEmail: 'c@c.com', pathPrefix: 'z' })
     expect(deleteWikiSharesForOwner(o1)).toBe(2)
     expect(listSharesForOwner(o1)).toHaveLength(0)
     expect(listSharesForOwner(o2)).toHaveLength(1)
@@ -123,8 +127,10 @@ describe('wikiSharesRepo', () => {
   })
 
   it('acceptShare fails after TTL', () => {
+    const granteeId = 'usr_66666666666666666666'
     const row = createShare({
       ownerId: 'usr_55555555555555555555',
+      granteeId,
       granteeEmail: 'c@c.com',
       pathPrefix: 'x',
     })
@@ -134,15 +140,16 @@ describe('wikiSharesRepo', () => {
 
     const out = acceptShare({
       token: row.invite_token,
-      granteeId: 'usr_66666666666666666666',
-      granteeEmail: 'c@c.com',
+      granteeId,
     })
     expect(out).toBeNull()
   })
 
   it('getShareByToken returns row', () => {
+    const granteeId = 'usr_dddddddddddddddddddd'
     const row = createShare({
       ownerId: 'usr_77777777777777777777',
+      granteeId,
       granteeEmail: 'd@d.com',
       pathPrefix: 'p',
     })
@@ -150,66 +157,72 @@ describe('wikiSharesRepo', () => {
     expect(getShareByToken('nope')).toBeNull()
   })
 
-  it('listPendingInvitesForGranteeEmail lists non-accepted invites for email within TTL', () => {
+  it('listPendingInvitesForGrantee lists non-accepted invites for grantee id within TTL', () => {
     const ownerId = 'usr_pendingown1111111111'
+    const granteeId = 'usr_grantee111111111111'
     const row = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'Pending@Example.com',
       pathPrefix: 'trips',
     })
-    const pending = listPendingInvitesForGranteeEmail('pending@example.com')
+    const pending = listPendingInvitesForGrantee(granteeId)
     expect(pending.map((r) => r.id)).toEqual([row.id])
 
-    expect(listPendingInvitesForGranteeEmail('other@example.com')).toHaveLength(0)
+    expect(listPendingInvitesForGrantee('usr_other999999999999')).toHaveLength(0)
 
-    acceptShare({ token: row.invite_token, granteeId: 'usr_grantee111111111111', granteeEmail: 'pending@example.com' })
-    expect(listPendingInvitesForGranteeEmail('pending@example.com')).toHaveLength(0)
+    acceptShare({ token: row.invite_token, granteeId })
+    expect(listPendingInvitesForGrantee(granteeId)).toHaveLength(0)
 
     const row2 = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'Pending@Example.com',
       pathPrefix: 'ideas',
     })
     revokeShare({ shareId: row2.id, ownerId })
-    expect(listPendingInvitesForGranteeEmail('pending@example.com')).toHaveLength(0)
+    expect(listPendingInvitesForGrantee(granteeId)).toHaveLength(0)
 
+    const granteeTtl = 'usr_ttlgranteeeeeeeeee'
     const row3 = createShare({
       ownerId,
+      granteeId: granteeTtl,
       granteeEmail: 'ttl@example.com',
       pathPrefix: 'x',
     })
     const db = getBrainGlobalDb()
     const old = Date.now() - WIKI_SHARE_INVITE_TTL_MS - 60_000
     db.prepare(`UPDATE wiki_shares SET created_at_ms = ? WHERE id = ?`).run(old, row3.id)
-    expect(listPendingInvitesForGranteeEmail('ttl@example.com')).toHaveLength(0)
+    expect(listPendingInvitesForGrantee(granteeTtl)).toHaveLength(0)
   })
 
   it('acceptShareById matches acceptShare token behavior', () => {
     const ownerId = 'usr_acceptid111111111111'
     const granteeId = 'usr_acceptid222222222222'
+    const wrongGrantee = 'usr_wronggggggggggggggg'
     const row = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'byid@example.com',
       pathPrefix: 'x',
     })
     const out = acceptShareById({
       shareId: row.id,
       granteeId,
-      granteeEmail: 'byid@example.com',
     })
     expect(out?.grantee_id).toBe(granteeId)
     expect(listSharesForGrantee(granteeId)).toHaveLength(1)
 
     const row2 = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'byid@example.com',
       pathPrefix: 'y',
     })
     expect(
       acceptShareById({
         shareId: row2.id,
-        granteeId,
-        granteeEmail: 'wrong@example.com',
+        granteeId: wrongGrantee,
       }),
     ).toBeNull()
 
@@ -217,8 +230,7 @@ describe('wikiSharesRepo', () => {
     expect(
       acceptShareById({
         shareId: row2.id,
-        granteeId: 'usr_other333333333333',
-        granteeEmail: 'byid@example.com',
+        granteeId,
       }),
     ).toBeNull()
   })
@@ -228,11 +240,12 @@ describe('wikiSharesRepo', () => {
     const granteeId = 'usr_idemp22222222222222'
     const row = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'idem@example.com',
       pathPrefix: 'z',
     })
-    const first = acceptShareById({ shareId: row.id, granteeId, granteeEmail: 'idem@example.com' })
-    const second = acceptShareById({ shareId: row.id, granteeId, granteeEmail: 'idem@example.com' })
+    const first = acceptShareById({ shareId: row.id, granteeId })
+    const second = acceptShareById({ shareId: row.id, granteeId })
     expect(second?.grantee_id).toBe(granteeId)
     expect(second?.accepted_at_ms).toBe(first?.accepted_at_ms)
   })
@@ -262,7 +275,7 @@ describe('wikiSharesRepo', () => {
       return {
         id: '',
         owner_id: 'o',
-        grantee_email: '',
+        grantee_email: null,
         grantee_id: 'g',
         path_prefix: prefix,
         target_kind: 'dir',
@@ -295,10 +308,10 @@ describe('wikiSharesRepo', () => {
   it('granteeCanReadOwnerWikiPath ORs multiple accepted shares', () => {
     const ownerId = 'usr_orrrrrrrrrrrrrrrrrrr'
     const granteeId = 'usr_or222222222222222222'
-    const a = createShare({ ownerId, granteeEmail: 'or@x.com', pathPrefix: 'a/' })
-    const b = createShare({ ownerId, granteeEmail: 'or@x.com', pathPrefix: 'b/' })
-    acceptShare({ token: a.invite_token, granteeId, granteeEmail: 'or@x.com' })
-    acceptShare({ token: b.invite_token, granteeId, granteeEmail: 'or@x.com' })
+    const a = createShare({ ownerId, granteeId, granteeEmail: 'or@x.com', pathPrefix: 'a/' })
+    const b = createShare({ ownerId, granteeId, granteeEmail: 'or@x.com', pathPrefix: 'b/' })
+    acceptShare({ token: a.invite_token, granteeId })
+    acceptShare({ token: b.invite_token, granteeId })
     expect(granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: 'a/x.md' })).toBe(true)
     expect(granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: 'b/y.md' })).toBe(true)
     expect(granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: 'c/z.md' })).toBe(false)
@@ -307,7 +320,7 @@ describe('wikiSharesRepo', () => {
   it('pending invite does not grant read', () => {
     const ownerId = 'usr_pendrd11111111111111'
     const granteeId = 'usr_pendrd22222222222222'
-    createShare({ ownerId, granteeEmail: 'pend@x.com', pathPrefix: 'pub/' })
+    createShare({ ownerId, granteeId, granteeEmail: 'pend@x.com', pathPrefix: 'pub/' })
     expect(
       granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: 'pub/x.md' }),
     ).toBe(false)
@@ -318,11 +331,12 @@ describe('wikiSharesRepo', () => {
     const granteeId = 'usr_fileacl2222222222222'
     const row = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'f@f.com',
       targetKind: 'file',
       pathPrefix: 'notes/special.md',
     })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'f@f.com' })
+    acceptShare({ token: row.invite_token, granteeId })
     expect(
       granteeCanReadOwnerWikiPath({ granteeId, ownerId, wikiRelPath: 'notes/special.md' }),
     ).toBe(true)

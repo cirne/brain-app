@@ -102,8 +102,9 @@ describe('/api/wiki-shares', () => {
       body: JSON.stringify({ pathPrefix: 'trips/', granteeEmail: 'grantee@example.com' }),
     })
     expect(post.status).toBe(200)
-    const created = (await post.json()) as { id: string; granteeEmail: string }
+    const created = (await post.json()) as { id: string; granteeEmail: string | null; granteeId: string }
     expect(created.granteeEmail).toBe('grantee@example.com')
+    expect(created.granteeId).toBe(granteeId)
     expect(created.id.length).toBeGreaterThan(5)
 
     const listOwner = await app.request('http://localhost/api/wiki-shares', {
@@ -198,7 +199,7 @@ describe('/api/wiki-shares', () => {
     expect(j.error).toBe('handle_not_found')
   })
 
-  it('POST returns 400 when handle resolves but tenant has no email yet', async () => {
+  it('POST resolves granteeHandle without requiring a connected mailbox', async () => {
     const ownerId = 'usr_60606060606060606060'
     const granteeId = 'usr_70707070707070707070'
     const ownerSid = await sessionFor(ownerId, 'owner-h4')
@@ -212,12 +213,14 @@ describe('/api/wiki-shares', () => {
       headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ pathPrefix: 'trips/', granteeHandle: 'newcomer' }),
     })
-    expect(res.status).toBe(400)
-    const j = (await res.json()) as { error: string }
-    expect(j.error).toBe('handle_has_no_email')
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { granteeId: string; granteeEmail: string | null; granteeHandle?: string }
+    expect(j.granteeId).toBe(granteeId)
+    expect(j.granteeEmail).toBeNull()
+    expect(j.granteeHandle).toBe('newcomer')
   })
 
-  it('POST rejects when both granteeEmail and granteeHandle are provided', async () => {
+  it('POST rejects when more than one grantee selector is provided', async () => {
     const ownerId = 'usr_80808080808080808080'
     const ownerSid = await sessionFor(ownerId, 'owner-h5')
     await registerSessionTenant(ownerSid, ownerId)
@@ -237,7 +240,26 @@ describe('/api/wiki-shares', () => {
     expect(j.error).toBe('grantee_conflict')
   })
 
-  it('GET list includes pendingReceived for grantee mailbox before accept', async () => {
+  it('POST accepts granteeUserId for a confirmed tenant', async () => {
+    const ownerId = 'usr_uuuuuuuuuuuuuuuuuuuu'
+    const granteeId = 'usr_vvvvvvvvvvvvvvvvvvvv'
+    const ownerSid = await sessionFor(ownerId, 'owner-by-uid')
+    await registerSessionTenant(ownerSid, ownerId)
+    await sessionFor(granteeId, 'target-peer')
+
+    const app = mountWikiShares()
+    const res = await app.request('http://localhost/api/wiki-shares', {
+      method: 'POST',
+      headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pathPrefix: 'trips/', granteeUserId: granteeId }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { granteeId: string; granteeHandle?: string }
+    expect(j.granteeId).toBe(granteeId)
+    expect(j.granteeHandle).toBe('target-peer')
+  })
+
+  it('GET list includes pendingReceived by invited tenant id before accept', async () => {
     const ownerId = 'usr_aa111111111111111111'
     const granteeId = 'usr_bb222222222222222222'
     const ownerSid = await sessionFor(ownerId, 'owner-pend')
@@ -248,29 +270,12 @@ describe('/api/wiki-shares', () => {
 
     const granteeSid = await sessionFor(granteeId, 'grantee-pend')
     await registerSessionTenant(granteeSid, granteeId)
-    const rip = brainLayoutRipmailDir(tenantHomeDir(granteeId))
-    await mkdir(rip, { recursive: true })
-    await writeFile(
-      join(rip, 'config.json'),
-      JSON.stringify({
-        sources: [
-          {
-            id: 'mb',
-            kind: 'imap',
-            email: 'pendgrantee@example.com',
-            imap: { host: 'imap.gmail.com', port: 993 },
-            imapAuth: 'googleOAuth',
-          },
-        ],
-      }),
-      'utf-8',
-    )
 
     const app = mountWikiShares()
     const post = await app.request('http://localhost/api/wiki-shares', {
       method: 'POST',
       headers: { Cookie: `brain_session=${ownerSid}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pathPrefix: 'trips/', granteeEmail: 'pendgrantee@example.com' }),
+      body: JSON.stringify({ pathPrefix: 'trips/', granteeHandle: 'grantee-pend' }),
     })
     expect(post.status).toBe(200)
     const created = (await post.json()) as { id: string }

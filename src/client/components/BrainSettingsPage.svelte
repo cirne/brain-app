@@ -596,8 +596,8 @@
         <h2 id="settings-sharing-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Sharing</h2>
       </div>
       <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
-        Accept read-only wiki invites from others and manage what you have shared. Invites match your
-        <strong>primary mailbox email</strong> from Connections above.
+        Accept read-only wiki invites from others and manage what you have shared. Invites are tied to
+        your <strong>workspace account</strong> (not your mailbox).
       </p>
       {#if shareLoadError}
         <p class="empty-msg settings-sharing-err m-0 py-4 text-[0.9375rem] text-foreground" role="alert">{shareLoadError}</p>
@@ -624,7 +624,7 @@
                       <WikiFileName path={sharePathForFileName(row)} />
                     {/if}
                   </span>
-                  <span class={shareMeta}>From @{row.ownerHandle} · {row.granteeEmail}</span>
+                  <span class={shareMeta}>From @{row.ownerHandle}</span>
                 </div>
                 <button
                   type="button"
@@ -694,8 +694,8 @@
                     </button>
                   </span>
                   <span class={shareMeta}>
-                    → {row.granteeEmail}
-                    {#if row.granteeId}
+                    → {row.granteeEmail ?? row.granteeId}
+                    {#if row.acceptedAtMs != null}
                       <span class={sharePillBase}>Active</span>
                     {:else}
                       <span class={cn(sharePillBase, sharePillMuted)}>Pending</span>

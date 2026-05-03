@@ -78,14 +78,11 @@ describe('/api/wiki/shared', () => {
 
     const share = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'g@g.com',
       pathPrefix: 'trips',
     })
-    acceptShare({
-      token: share.invite_token,
-      granteeId,
-      granteeEmail: 'g@g.com',
-    })
+    acceptShare({ token: share.invite_token, granteeId })
 
     const app = mountWikiMt()
     const list = await app.request(
@@ -129,14 +126,11 @@ describe('/api/wiki/shared', () => {
 
     const share = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'grantee@example.com',
       pathPrefix: 'trips/',
     })
-    acceptShare({
-      token: share.invite_token,
-      granteeId,
-      granteeEmail: 'grantee@example.com',
-    })
+    acceptShare({ token: share.invite_token, granteeId })
 
     const app = mountWikiMt()
     const listAll = await app.request(`http://localhost/api/wiki/shared-by-handle/carol`, {
@@ -178,10 +172,11 @@ describe('/api/wiki/shared', () => {
 
     const share = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 't@t.com',
       pathPrefix: 'trips',
     })
-    acceptShare({ token: share.invite_token, granteeId, granteeEmail: 't@t.com' })
+    acceptShare({ token: share.invite_token, granteeId })
 
     const app = mountWikiMt()
     const traversal = await app.request(
@@ -205,10 +200,11 @@ describe('/api/wiki/shared', () => {
 
     const share = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'rev@x.com',
       pathPrefix: 'shared',
     })
-    acceptShare({ token: share.invite_token, granteeId, granteeEmail: 'rev@x.com' })
+    acceptShare({ token: share.invite_token, granteeId })
     revokeShare({ shareId: share.id, ownerId })
 
     const app = mountWikiMt()
@@ -238,10 +234,11 @@ describe('/api/wiki/shared', () => {
 
     const share = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'pr@x.com',
       pathPrefix: 'alpha',
     })
-    acceptShare({ token: share.invite_token, granteeId, granteeEmail: 'pr@x.com' })
+    acceptShare({ token: share.invite_token, granteeId })
 
     const app = mountWikiMt()
     const list = await app.request(
@@ -268,10 +265,11 @@ describe('/api/wiki/shared', () => {
 
     const share = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'wo@x.com',
       pathPrefix: 'd',
     })
-    acceptShare({ token: share.invite_token, granteeId, granteeEmail: 'wo@x.com' })
+    acceptShare({ token: share.invite_token, granteeId })
 
     const app = mountWikiMt()
     const read = await app.request(`http://localhost/api/wiki/shared/${otherOwner}/d/f.md`, {
@@ -293,10 +291,11 @@ describe('/api/wiki/shared', () => {
     await writeFile(join(wiki, 'q', 'z.md'), 'z', 'utf-8')
     const share = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'nh@x.com',
       pathPrefix: 'q',
     })
-    acceptShare({ token: share.invite_token, granteeId, granteeEmail: 'nh@x.com' })
+    acceptShare({ token: share.invite_token, granteeId })
 
     const app = mountWikiMt()
     const list = await app.request(`http://localhost/api/wiki/shared-by-handle/nobody-with-this-handle`, {
@@ -343,16 +342,18 @@ describe('/api/wiki/shared', () => {
 
     const shA = createShare({
       ownerId: ownerAlpha,
+      granteeId,
       granteeEmail: 'dup@x.com',
       pathPrefix: 'from-alpha',
     })
     const shB = createShare({
       ownerId: ownerBeta,
+      granteeId,
       granteeEmail: 'dup@x.com',
       pathPrefix: 'from-beta',
     })
-    acceptShare({ token: shA.invite_token, granteeId, granteeEmail: 'dup@x.com' })
-    acceptShare({ token: shB.invite_token, granteeId, granteeEmail: 'dup@x.com' })
+    acceptShare({ token: shA.invite_token, granteeId })
+    acceptShare({ token: shB.invite_token, granteeId })
 
     const app = mountWikiMt()
     const list = await app.request(`http://localhost/api/wiki/shared-by-handle/duphandle`, {

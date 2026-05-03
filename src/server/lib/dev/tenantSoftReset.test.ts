@@ -54,6 +54,7 @@ describe('tenantSoftReset', () => {
 
     createShare({
       ownerId: tenantUserId,
+      granteeId: 'usr_softreset_grantee00000',
       granteeEmail: 'gr@g.com',
       pathPrefix: 'topics',
     })

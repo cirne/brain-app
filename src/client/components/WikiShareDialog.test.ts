@@ -8,7 +8,7 @@ function apiRow(overrides: Partial<Record<string, unknown>>) {
     ownerId: 'usr_owner',
     ownerHandle: 'owner',
     granteeEmail: 'friend@example.com',
-    granteeId: null,
+    granteeId: 'usr_friend_default',
     pathPrefix: 'trips/',
     targetKind: 'dir' as const,
     createdAtMs: Date.now(),
@@ -160,8 +160,13 @@ describe('WikiShareDialog.svelte', () => {
     await fireEvent.click(screen.getByRole('button', { name: /send invites/i }))
 
     await waitFor(() => {
-      const parsed = JSON.parse(capturedBody) as { granteeHandle?: string; granteeEmail?: string }
-      expect(parsed.granteeHandle).toBe('cirne')
+      const parsed = JSON.parse(capturedBody) as {
+        granteeUserId?: string
+        granteeHandle?: string
+        granteeEmail?: string
+      }
+      expect(parsed.granteeUserId).toBe('usr_aaaa')
+      expect(parsed.granteeHandle).toBeUndefined()
       expect(parsed.granteeEmail).toBeUndefined()
     })
 
@@ -173,6 +178,7 @@ describe('WikiShareDialog.svelte', () => {
   it('submits multiple grantees in one click and reports per-grantee errors', async () => {
     const sterlingRow = apiRow({
       id: 'wsh_ster',
+      granteeId: 'usr_s',
       granteeEmail: 'sterling@example.com',
       granteeHandle: 'sterling',
     })
@@ -218,16 +224,23 @@ describe('WikiShareDialog.svelte', () => {
 
       expect(method).toBe('POST')
       const body = (init?.body as string) ?? ''
-      const parsed = JSON.parse(body) as { granteeHandle?: string }
+      const parsed = JSON.parse(body) as { granteeUserId?: string }
       inviteIdx += 1
-      if (parsed.granteeHandle === 'sterling') {
+      if (parsed.granteeUserId === 'usr_s') {
         listOwned = [sterlingRow]
         return new Response(JSON.stringify(sterlingRow), { status: 200 })
       }
-      return new Response(
-        JSON.stringify({ error: 'handle_has_no_email', message: '@donna has not connected an email account yet.' }),
-        { status: 400 },
-      )
+      if (parsed.granteeUserId === 'usr_d') {
+        const donnaRow = apiRow({
+          id: 'wsh_donn',
+          granteeId: 'usr_d',
+          granteeEmail: null,
+          granteeHandle: 'donna',
+        })
+        listOwned = [sterlingRow, donnaRow]
+        return new Response(JSON.stringify(donnaRow), { status: 200 })
+      }
+      return new Response(JSON.stringify({ error: 'unexpected' }), { status: 500 })
     }) as typeof fetch
 
     render(WikiShareDialog, {
@@ -259,7 +272,7 @@ describe('WikiShareDialog.svelte', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText(/@donna.*not connected/i)).toBeInTheDocument()
+      expect(screen.queryByText(/@donna.*not connected/i)).not.toBeInTheDocument()
     })
     await waitFor(() => {
       expect(screen.getByText('sterling@example.com')).toBeInTheDocument()
@@ -267,7 +280,7 @@ describe('WikiShareDialog.svelte', () => {
     expect(inviteIdx).toBe(2)
   })
 
-  it('disables submit when a selected handle has no connected email', async () => {
+  it('allows invite when directory entry has no primary email (user id is enough)', async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       const method = init?.method ?? 'GET'
@@ -298,8 +311,7 @@ describe('WikiShareDialog.svelte', () => {
     await fireEvent.keyDown(input, { key: 'Enter' })
 
     const submitBtn = screen.getByRole('button', { name: /send invites/i })
-    expect(submitBtn).toBeDisabled()
-    expect(screen.getByText(/before they can receive invites/i)).toBeInTheDocument()
+    expect(submitBtn).not.toBeDisabled()
   })
 
   it('revokes a grantee and calls onSharesChanged', async () => {
@@ -309,7 +321,7 @@ describe('WikiShareDialog.svelte', () => {
       ownerId: 'usr_me',
       ownerHandle: 'me',
       granteeEmail: 'friend@example.com',
-      granteeId: null as string | null,
+      granteeId: 'usr_friend_rev',
       pathPrefix: 'trips/',
       targetKind: 'dir' as const,
       createdAtMs: Date.now(),

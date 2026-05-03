@@ -30,7 +30,7 @@ export type AssistantShellState = {
   detailPaneFullscreen: boolean
   isMobile: boolean
   workspaceColumnWidth: number
-  /** Pending wiki share invites for the signed-in mailbox (from `GET /api/wiki-shares`). */
+  /** Pending wiki share invites addressed to the signed-in workspace (from `GET /api/wiki-shares`). */
   pendingWikiShareInvitesCount: number
 }
 

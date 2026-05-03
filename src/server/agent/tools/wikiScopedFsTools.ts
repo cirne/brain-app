@@ -72,7 +72,7 @@ export function buildWikiWriteShareVisibilityHint(ownerId: string, vaultRelPath:
   const rows = listSharesForOwner(ownerId).filter((r) => r.grantee_id != null && r.accepted_at_ms != null)
   const matching = rows.filter((r) => granteeShareCoversWikiPath(r, vaultRelPath))
   if (matching.length === 0) return null
-  const who = matching.map((r) => r.grantee_email).join(', ')
+  const who = matching.map((r) => r.grantee_email ?? r.grantee_id).join(', ')
   return `\n\nWARNING: This path is covered by an active wiki share to ${who}. New or updated content may be visible to those recipients. Confirm this is intended.`
 }
 

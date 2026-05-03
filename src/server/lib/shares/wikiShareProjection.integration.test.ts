@@ -89,11 +89,12 @@ describe('wiki share projection (wikis/@peer/)', () => {
     await writeFile(join(ow, 'notes.md'), 'NOTE', 'utf-8')
     const row = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'z@z.com',
       targetKind: 'file',
       pathPrefix: 'notes.md',
     })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    acceptShare({ token: row.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
     const linkPath = join(brainLayoutWikisDir(tenantHomeDir(granteeId)), '@alice', 'notes.md')
     expect((await readlink(linkPath)).replace(/\\/g, '/')).toMatch(/notes\.md$/)
@@ -102,8 +103,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
   it('creates symlink at wikis/@alice/trips for directory share', async () => {
     const { ownerId, granteeId } = await tenantPair()
-    const row = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
     const linkPath = join(brainLayoutWikisDir(tenantHomeDir(granteeId)), '@alice', 'trips')
     const target = await readlink(linkPath)
@@ -128,8 +129,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const ow = brainLayoutWikiDir(tenantHomeDir(ownerId))
     await mkdir(join(ow, 'x'), { recursive: true })
     await writeFile(join(ow, 'x', 'f.md'), 'hi', 'utf-8')
-    const row = createShare({ ownerId, granteeEmail: 'q@q.com', pathPrefix: 'x/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'q@q.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'q@q.com', pathPrefix: 'x/' })
+    acceptShare({ token: row.invite_token, granteeId })
 
     await syncWikiShareProjectionsForGrantee(granteeId)
 
@@ -158,8 +159,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
   it('removeWikiShareProjectionForShare runs before revoke invariant', async () => {
     const { ownerId, granteeId } = await tenantPair()
-    const row = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
     const linkPath = join(brainLayoutWikisDir(tenantHomeDir(granteeId)), '@alice', 'trips')
     expect(await readlink(linkPath)).toBeTruthy()
@@ -190,8 +191,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
   it('reconcile restores deleted symlink', async () => {
     const { ownerId, granteeId } = await tenantPair()
-    const row = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
     const linkPath = join(brainLayoutWikisDir(tenantHomeDir(granteeId)), '@alice', 'trips')
     await rm(linkPath, { force: true })
@@ -226,8 +227,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const ownerWiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
     await mkdir(join(ownerWiki, 'travel'), { recursive: true })
     await writeFile(join(ownerWiki, 'travel', 'virginia-trip-2026.md'), '# Virginia Trip\n\nPlanning notes.', 'utf-8')
-    const row = createShare({ ownerId, granteeEmail: 'grantee@test.com', pathPrefix: 'travel/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'grantee@test.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'grantee@test.com', pathPrefix: 'travel/' })
+    acceptShare({ token: row.invite_token, granteeId })
 
     await syncWikiShareProjectionsForGrantee(granteeId)
 
@@ -274,13 +275,14 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
     const fileShare = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'z@z.com',
       targetKind: 'file',
       pathPrefix: 'a/b/c.md',
     })
-    acceptShare({ token: fileShare.invite_token, granteeId, granteeEmail: 'z@z.com' })
-    const dirShare = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'a/b/' })
-    acceptShare({ token: dirShare.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    acceptShare({ token: fileShare.invite_token, granteeId })
+    const dirShare = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'a/b/' })
+    acceptShare({ token: dirShare.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
 
     const wikis = brainLayoutWikisDir(tenantHomeDir(granteeId))
@@ -297,11 +299,12 @@ describe('wiki share projection (wikis/@peer/)', () => {
     await writeFile(join(ow, 'solo.md'), 'SOLO', 'utf-8')
     const fileShare = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'z@z.com',
       targetKind: 'file',
       pathPrefix: 'solo.md',
     })
-    acceptShare({ token: fileShare.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    acceptShare({ token: fileShare.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
 
     const ok = await removeWikiShareProjectionForShare({
@@ -322,13 +325,14 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
     const fileShare = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'z@z.com',
       targetKind: 'file',
       pathPrefix: 'a/b/c.md',
     })
-    acceptShare({ token: fileShare.invite_token, granteeId, granteeEmail: 'z@z.com' })
-    const dirShare = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'a/b/' })
-    acceptShare({ token: dirShare.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    acceptShare({ token: fileShare.invite_token, granteeId })
+    const dirShare = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'a/b/' })
+    acceptShare({ token: dirShare.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
 
     const ok = await removeWikiShareProjectionForShare({
@@ -350,15 +354,16 @@ describe('wiki share projection (wikis/@peer/)', () => {
     await mkdir(join(ow, 'a', 'b'), { recursive: true })
     await writeFile(join(ow, 'a', 'b', 'c.md'), 'FC', 'utf-8')
 
-    const dirShare = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'a/b/' })
-    acceptShare({ token: dirShare.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const dirShare = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'a/b/' })
+    acceptShare({ token: dirShare.invite_token, granteeId })
     const fileShare = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'z@z.com',
       targetKind: 'file',
       pathPrefix: 'a/b/c.md',
     })
-    acceptShare({ token: fileShare.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    acceptShare({ token: fileShare.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
 
     const wikis = brainLayoutWikisDir(tenantHomeDir(granteeId))
@@ -378,13 +383,14 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
     const fileShare = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'z@z.com',
       targetKind: 'file',
       pathPrefix: 'a/b/c.md',
     })
-    acceptShare({ token: fileShare.invite_token, granteeId, granteeEmail: 'z@z.com' })
-    const dirShare = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'a/b/' })
-    acceptShare({ token: dirShare.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    acceptShare({ token: fileShare.invite_token, granteeId })
+    const dirShare = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'a/b/' })
+    acceptShare({ token: dirShare.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
 
     revokeShare({ shareId: fileShare.id, ownerId })
@@ -404,13 +410,14 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
     const fileShare = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'z@z.com',
       targetKind: 'file',
       pathPrefix: 'a/b/c.md',
     })
-    acceptShare({ token: fileShare.invite_token, granteeId, granteeEmail: 'z@z.com' })
-    const dirShare = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'a/b/' })
-    acceptShare({ token: dirShare.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    acceptShare({ token: fileShare.invite_token, granteeId })
+    const dirShare = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'a/b/' })
+    acceptShare({ token: dirShare.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
 
     const linkPath = join(brainLayoutWikisDir(tenantHomeDir(granteeId)), '@alice', 'a', 'b')
@@ -423,8 +430,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
   it('owner deletes shared subtree; sync does not throw', async () => {
     const { ownerId, granteeId } = await tenantPair()
-    const row = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
     const ow = brainLayoutWikiDir(tenantHomeDir(ownerId))
     await rm(join(ow, 'trips'), { recursive: true, force: true })
@@ -434,8 +441,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
   it('accept then revoke before first sync leaves no @peer on grantee', async () => {
     const { ownerId, granteeId } = await tenantPair()
-    const row = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
     revokeShare({ shareId: row.id, ownerId })
     await syncWikiShareProjectionsForGrantee(granteeId)
     const { existsSync } = await import('node:fs')
@@ -444,8 +451,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
   it('reconcile removes projection after DB revoke though unlink was never run', async () => {
     const { ownerId, granteeId } = await tenantPair()
-    const row = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
     const wikis = brainLayoutWikisDir(tenantHomeDir(granteeId))
     expect(await readlink(join(wikis, '@alice', 'trips'))).toBeTruthy()
@@ -460,8 +467,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const { ownerId, granteeId } = await tenantPair()
     const ow = brainLayoutWikiDir(tenantHomeDir(ownerId))
     await mkdir(join(ow, 'trips'), { recursive: true })
-    const row = createShare({ ownerId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'peer@example.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
 
     const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
     const { write } = createWikiScopedPiTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
@@ -479,8 +486,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
     await mkdir(join(ow, 'private'), { recursive: true })
     await mkdir(join(ow, 'trips'), { recursive: true })
     await writeFile(join(ow, 'private', 'draft.md'), '# d', 'utf-8')
-    const row = createShare({ ownerId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'peer@example.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
 
     const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
     const { moveFile } = createWikiFileManagementTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
@@ -501,8 +508,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
     await mkdir(join(ow, 'private'), { recursive: true })
     await mkdir(join(ow, 'archive'), { recursive: true })
     await writeFile(join(ow, 'private', 'draft.md'), '# d', 'utf-8')
-    const row = createShare({ ownerId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'peer@example.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
 
     const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
     const { moveFile } = createWikiFileManagementTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
@@ -519,8 +526,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const { ownerId, granteeId } = await tenantPair()
     const ow = brainLayoutWikiDir(tenantHomeDir(ownerId))
     await mkdir(join(ow, 'private'), { recursive: true })
-    const row = createShare({ ownerId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'peer@example.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
 
     const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
     const { write } = createWikiScopedPiTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
@@ -537,11 +544,12 @@ describe('wiki share projection (wikis/@peer/)', () => {
     await writeFile(join(ow, 'trips', 'plan.md'), 'old', 'utf-8')
     const row = createShare({
       ownerId,
+      granteeId,
       granteeEmail: 'f@f.com',
       targetKind: 'file',
       pathPrefix: 'trips/plan.md',
     })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'f@f.com' })
+    acceptShare({ token: row.invite_token, granteeId })
 
     const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
     const { write } = createWikiScopedPiTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
@@ -557,8 +565,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const ow = brainLayoutWikiDir(tenantHomeDir(ownerId))
     await mkdir(join(ow, 'x'), { recursive: true })
     await writeFile(join(ow, 'x', 'f.md'), 'h', 'utf-8')
-    const row = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'x/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'x/' })
+    acceptShare({ token: row.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
 
     const granteeWikis = brainLayoutWikisDir(tenantHomeDir(granteeId))
@@ -584,8 +592,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const ownerWiki = brainLayoutWikiDir(tenantHomeDir(ownerId))
     await mkdir(join(ownerWiki, 'travel'), { recursive: true })
     await writeFile(join(ownerWiki, 'travel', 'trip.md'), 'SHARED', 'utf-8')
-    const row = createShare({ ownerId, granteeEmail: 'g@g.com', pathPrefix: 'travel/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'g@g.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'g@g.com', pathPrefix: 'travel/' })
+    acceptShare({ token: row.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
 
     const granteeWikisRoot = brainLayoutWikisDir(tenantHomeDir(granteeId))
@@ -602,8 +610,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
   it('reconcile removes junk files under @peer after sync runs twice', async () => {
     const { ownerId, granteeId } = await tenantPair()
-    const row = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
     const peerRoot = join(brainLayoutWikisDir(tenantHomeDir(granteeId)), '@alice')
     const junk = join(peerRoot, 'user-added-junk.txt')
@@ -620,10 +628,10 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const { ownerId, granteeId, ow } = await tenantPair()
     await mkdir(join(ow, 'ideas'), { recursive: true })
     await writeFile(join(ow, 'ideas', 'n.md'), 'idea', 'utf-8')
-    const tripsRow = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
-    const ideasRow = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'ideas/' })
-    acceptShare({ token: tripsRow.invite_token, granteeId, granteeEmail: 'z@z.com' })
-    acceptShare({ token: ideasRow.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const tripsRow = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
+    const ideasRow = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'ideas/' })
+    acceptShare({ token: tripsRow.invite_token, granteeId })
+    acceptShare({ token: ideasRow.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
     const peer = join(brainLayoutWikisDir(tenantHomeDir(granteeId)), '@alice')
     expect(await readlink(join(peer, 'trips'))).toBeTruthy()
@@ -639,8 +647,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
   it('second sync recreates directory share symlink after manual unlink', async () => {
     const { ownerId, granteeId } = await tenantPair()
-    const row = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
     const linkPath = join(brainLayoutWikisDir(tenantHomeDir(granteeId)), '@alice', 'trips')
     expect((await readlink(linkPath)).length).toBeGreaterThan(0)
@@ -655,8 +663,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const ow = brainLayoutWikiDir(tenantHomeDir(ownerId))
     await mkdir(join(ow, 'gone'), { recursive: true })
     await writeFile(join(ow, 'gone', 'x.md'), 'bye', 'utf-8')
-    const row = createShare({ ownerId, granteeEmail: 'z@z.com', pathPrefix: 'gone/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'z@z.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'z@z.com', pathPrefix: 'gone/' })
+    acceptShare({ token: row.invite_token, granteeId })
     await syncWikiShareProjectionsForGrantee(granteeId)
     await rm(join(ow, 'gone', 'x.md'), { force: true })
 
@@ -672,8 +680,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const ow = brainLayoutWikiDir(tenantHomeDir(ownerId))
     await mkdir(join(ow, 'trips'), { recursive: true })
     await writeFile(join(ow, 'trips', 'e.md'), 'old', 'utf-8')
-    const row = createShare({ ownerId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
-    acceptShare({ token: row.invite_token, granteeId, granteeEmail: 'peer@example.com' })
+    const row = createShare({ ownerId, granteeId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
+    acceptShare({ token: row.invite_token, granteeId })
 
     const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
     const { edit } = createWikiScopedPiTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
