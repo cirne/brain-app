@@ -9,13 +9,13 @@ import { describe, it, expect } from 'vitest'
  * Row delete affordances use `@media (hover: none)` to stay visible when hover-reveal is unavailable.
  */
 describe('touch hover policy (CSS)', () => {
-  it('ChatHistory gates row/delete hovers and reveals delete on touch', () => {
+  it('ChatHistory keeps touch-visible delete affordances and row hover styles', () => {
     const path = join(dirname(fileURLToPath(import.meta.url)), '../components/ChatHistory.svelte')
     const src = readFileSync(path, 'utf8')
-    expect(src).toContain('@media (hover: hover)')
-    expect(src).toContain('@media (hover: none)')
-    expect(src).toContain('.ch-row:hover')
-    expect(src).toContain('.ch-row-delete')
+    expect(src).toContain('[@media(hover:none)]')
+    expect(src).toContain('hover:bg-surface-3')
+    expect(src).toContain('ch-row-delete')
+    expect(src).toContain('group/chrow')
   })
 
   it('ChatHistoryPage keeps touch-visible delete affordances and row hover styles', () => {
