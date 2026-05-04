@@ -19,7 +19,9 @@
   >
     <p>Ask anything about your docs, email, or calendar.</p>
     <p class="mt-1.5 text-xs opacity-70">
-      Use <kbd class="border border-border bg-surface-3 px-1.5 py-px font-[inherit] text-xs">@</kbd> to reference docs
+      Use <kbd
+        class="inline-flex size-5 items-center justify-center rounded-xl border border-border bg-surface-3 p-0 font-[inherit] text-xs leading-none"
+      >@</kbd> to reference docs
       in{' '}
       {#if onOpenWikiAbout}
         <button

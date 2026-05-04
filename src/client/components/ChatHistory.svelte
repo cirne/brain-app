@@ -419,12 +419,11 @@
     margin: 0 0 8px;
     padding: 7px 10px;
     border-radius: 0.375rem;
-border: 1px solid var(--border);
-    background: var(--bg-3);
+    background: transparent;
     color: var(--text);
     font-size: var(--ch-fs-new-chat);
     font-weight: 500;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background 0.12s;
     cursor: pointer;
   }
 
@@ -563,8 +562,7 @@ background: transparent;
   @media (hover: hover) {
     .new-chat-btn:hover,
     .wiki-home-btn:hover {
-      background: var(--bg);
-      border-color: var(--text-2);
+      background: var(--bg-3);
     }
 
     .ch-view-all:hover {
