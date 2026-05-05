@@ -39,7 +39,7 @@ We leverage the OS Page Cache and modern cloud block storage to provide a high-p
 
 ## Tenant Isolation & Security Guardrails
 
-**Deeper FS / agent isolation strategies** (micro-VM, POSIX UID, Landlock, directory FDs, `Workspace` jail) and the link to the open critical path-sandbox bug are in **[tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md)** ([BUG-012](../bugs/BUG-012-agent-tool-path-sandbox-escape.md)).
+**Deeper FS / agent isolation strategies** (micro-VM, POSIX UID, Landlock, directory FDs, `Workspace` jail) and historical path-jailing notes are in **[tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md)** ([BUG-012 (archived)](../bugs/archive/BUG-012-agent-tool-path-sandbox-escape.md)).
 
 While **hosted multi-tenant** mode does **not** use the desktop **vault password** verifier (authentication is **Google OAuth + session cookie**), we still enforce tenant isolation through "Defense in Depth" guardrails:
 
@@ -62,3 +62,5 @@ Moving `ripmail` or the Wiki to a remote database (Postgres/S3) would introduce:
 - **Network Latency:** Every query would incur a round-trip, killing the "instant" feel of the UI.
 - **Architectural Complexity:** We would lose the simplicity of the local-first codebase.
 - **Migration Risk:** Managing a single massive schema for all users is a significant operational burden compared to thousands of independent, small SQLite files.
+
+**For a full defense of the directory-per-tenant model with trade-offs and objections addressed, see [per-tenant-storage-defense.md](./per-tenant-storage-defense.md).**

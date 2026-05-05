@@ -28,6 +28,7 @@
   import { cn } from '@client/lib/cn.js'
   import { splitYamlFrontMatter, joinYamlFrontMatter, renderMarkdownBody } from '@client/lib/markdown.js'
   import { wikiLinkRefFromAnchor } from '@client/lib/wikiPageHtml.js'
+  import { floatingBlockMenuShouldShow } from '@client/lib/tiptapFloatingMenuVisibility.js'
   import '../styles/wiki/wikiMarkdown.css'
 
   const turndown = new TurndownService({
@@ -243,6 +244,7 @@
               flip: true,
               shift: true,
             },
+            shouldShow: ({ editor: ed2, view }) => floatingBlockMenuShouldShow(ed2, view),
           }),
         ],
         content: '<p></p>',

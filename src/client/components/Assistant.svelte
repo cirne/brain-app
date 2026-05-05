@@ -47,6 +47,7 @@
     runSyncOrQueueFollowUp
       } from '@client/lib/app/debouncedWikiSync.js'
   import { wikiPathForReadToolArg } from '@client/lib/cards/contentCards.js'
+  import { wikiMarkdownBasenameDisplayTitle } from '@client/lib/wikiDirBreadcrumb.js'
   import {
     wikiPrimaryCrumbsForDir,
     wikiPrimaryCrumbsForFile,
@@ -1161,7 +1162,7 @@
       shell.wikiEditStreaming = null
       shell.inboxTargetId = undefined
       if (o.type === 'wiki' && o.path) {
-        const title = o.path.replace(/\.md$/i, '').split('/').pop() ?? o.path
+        const title = wikiMarkdownBasenameDisplayTitle(o.path)
         shell.agentContext = { type: 'wiki', path: o.path, title }
       } else if (o.type === 'wiki-dir') {
         const dirPath = o.path?.trim() ?? ''

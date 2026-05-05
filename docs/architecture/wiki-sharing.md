@@ -149,7 +149,7 @@ Grantees have **materialized paths** under `wiki/<wikiShareMount>/` so `grep` / 
 
 - **Single contiguous prefix (Phase 1 scope)** favors **one symlink per accepted share** at the granted subtree (or single-file leaf) rather than arbitrary subsets — disjoint roots remain future complexity.
 - **Symlinks store path strings**, not FDs — **renames inside** the shared directory typically **do not** break a **directory-level** link to that prefix; **renaming the granted root** or per-file links imply **repair** / resync (`syncWikiShareProjectionsForGrantee`).
-- **Symlinks must be created only by the app** after policy validation — never rely on arbitrary user-created symlinks for authorization ([tenant filesystem isolation](./tenant-filesystem-isolation.md), [BUG-012](../bugs/BUG-012-agent-tool-path-sandbox-escape.md)).
+- **Symlinks must be created only by the app** after policy validation — never rely on arbitrary user-created symlinks for authorization ([tenant filesystem isolation](./tenant-filesystem-isolation.md), [BUG-012 (archived)](../bugs/archive/BUG-012-agent-tool-path-sandbox-escape.md)).
 
 Layout ergonomics are **not** the security boundary: **every read stays authorized** against policy even through projections (“defense in depth”).
 

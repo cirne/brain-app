@@ -1,5 +1,7 @@
 # BUG-026: Search index — Mac agent / iMessage setup feels developer-centric; needs data-source parity and guided panel UX
 
+**Status:** Archived (2026-05-05). Hub / Mac agent UX polish deferred; content remains a product reference.
+
 ## Summary
 
 On the **local / desktop** Search index (Hub) experience, **Apple Messages via Mac agent** is isolated under **“Connected devices”** while **mail, calendar, and folders** live in the main **data sources** list above. The **Add Mac agent** flow exposes **tokens and optional labels** in a way that reads like **internal admin tooling**, not a consumer product. Non-technical users should not need to understand **access tokens**, **copy/paste setup**, or **one-time secrets** as primary concepts.
@@ -62,7 +64,7 @@ On the **local / desktop** Search index (Hub) experience, **Apple Messages via M
 ## Related
 
 - Search index / Hub UI (e.g. **BrainHubPage**, sources list, **Connected devices**).
-- **BUG-004** (archived): Full Disk Access detection and onboarding — reuse **probe + deep link** patterns where relevant.
+- **BUG-004** (archived): Full Disk Access detection and onboarding — reuse **probe + deep link** patterns where relevant. See [`./BUG-004-full-disk-access-detection-and-onboarding.md`](./BUG-004-full-disk-access-detection-and-onboarding.md).
 - **Add folders** flow — **reference UX** for **overlay / right panel** and **non-modal** depth.
 
 ## User feedback

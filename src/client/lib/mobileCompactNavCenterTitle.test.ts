@@ -21,7 +21,7 @@ describe('mobileCompactNavCenterTitle', () => {
         undefined,
         null,
       ),
-    ).toBe('boys trip 2026')
+    ).toBe('Boys Trip 2026')
   })
 
   it('prefers chat title when no overlay', () => {

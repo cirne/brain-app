@@ -10,14 +10,14 @@ export type WikiPrimaryCrumb =
   | { kind: 'folder-link'; path: string; label: string }
   | { kind: 'tail'; label: string }
 
-/** Wiki file path → crumbs ending with page title (`.md` stripped from the last segment). */
+/** Wiki file path → crumbs ending with the filename as stored (including `.md`). */
 export function wikiPrimaryCrumbsForFile(relPath: string): WikiPrimaryCrumb[] {
   const trimmed = relPath.trim()
   if (!trimmed) return [{ kind: 'tail', label: 'Wiki' }]
   const parts = trimmed.split('/').filter(Boolean)
   const lastPart = parts[parts.length - 1] ?? ''
   const folderParts = parts.slice(0, -1)
-  const pageLabel = lastPart.replace(/\.md$/i, '')
+  const pageLabel = lastPart
   const out: WikiPrimaryCrumb[] = [{ kind: 'wiki-root-link' }]
   for (let i = 0; i < folderParts.length; i++) {
     const label = folderParts[i]!
@@ -55,7 +55,7 @@ export function wikiPrimaryCrumbsForMyWikiFile(ownerRelPath: string): WikiPrimar
   const parts = trimmed.split('/').filter(Boolean)
   const lastPart = parts[parts.length - 1] ?? ''
   const folderParts = parts.slice(0, -1)
-  const pageLabel = lastPart.replace(/\.md$/i, '')
+  const pageLabel = lastPart
   const out: WikiPrimaryCrumb[] = [
     { kind: 'wiki-root-link' },
     { kind: 'folder-link', path: urlBase, label: labelBase },
@@ -97,7 +97,7 @@ export function wikiPrimaryCrumbsForSharedFile(handleRaw: string, ownerRelPath: 
   const parts = trimmed.split('/').filter(Boolean)
   const lastPart = parts[parts.length - 1] ?? ''
   const folderParts = parts.slice(0, -1)
-  const pageLabel = lastPart.replace(/\.md$/i, '')
+  const pageLabel = lastPart
   const out: WikiPrimaryCrumb[] = [{ kind: 'wiki-root-link' }, { kind: 'folder-link', path: at, label: at }]
   for (let i = 0; i < folderParts.length; i++) {
     const subPath = `${at}/${folderParts.slice(0, i + 1).join('/')}`

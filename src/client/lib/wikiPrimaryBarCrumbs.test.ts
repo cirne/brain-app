@@ -12,18 +12,18 @@ describe('wikiPrimaryCrumbsForFile', () => {
     expect(wikiPrimaryCrumbsForFile('  ')).toEqual([{ kind: 'tail', label: 'Wiki' }])
   })
 
-  it('top-level file: Wiki → filename', () => {
+  it('top-level file: Wiki → filename.md', () => {
     expect(wikiPrimaryCrumbsForFile('note.md')).toEqual([
       { kind: 'wiki-root-link' },
-      { kind: 'tail', label: 'note' },
+      { kind: 'tail', label: 'note.md' },
     ])
   })
 
-  it('nested file: Wiki → folder → page stem', () => {
+  it('nested file: Wiki → folder → page filename', () => {
     expect(wikiPrimaryCrumbsForFile('people/index.md')).toEqual([
       { kind: 'wiki-root-link' },
       { kind: 'folder-link', path: 'people', label: 'people' },
-      { kind: 'tail', label: 'index' },
+      { kind: 'tail', label: 'index.md' },
     ])
   })
 
@@ -33,7 +33,7 @@ describe('wikiPrimaryCrumbsForFile', () => {
       { kind: 'folder-link', path: 'a', label: 'a' },
       { kind: 'folder-link', path: 'a/b', label: 'b' },
       { kind: 'folder-link', path: 'a/b/c', label: 'c' },
-      { kind: 'tail', label: 'Page' },
+      { kind: 'tail', label: 'Page.md' },
     ])
   })
 })
@@ -65,7 +65,7 @@ describe('wikiPrimaryCrumbs shared / My Wiki', () => {
       { kind: 'wiki-root-link' },
       { kind: 'folder-link', path: '@cirne', label: '@cirne' },
       { kind: 'folder-link', path: '@cirne/travel', label: 'travel' },
-      { kind: 'tail', label: 'trip' },
+      { kind: 'tail', label: 'trip.md' },
     ])
   })
 
@@ -74,7 +74,7 @@ describe('wikiPrimaryCrumbs shared / My Wiki', () => {
       { kind: 'wiki-root-link' },
       { kind: 'folder-link', path: 'me', label: 'My Wiki' },
       { kind: 'folder-link', path: 'me/people', label: 'people' },
-      { kind: 'tail', label: 'adam' },
+      { kind: 'tail', label: 'adam.md' },
     ])
   })
 })

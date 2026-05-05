@@ -1,5 +1,7 @@
 # BUG-008: First-time mail indexing — long silence, needs earlier “still working” + detail
 
+**Status:** Archived (2026-05-05). First-index UX / asymmetry investigation deprioritized; re-file if user reports resurge.
+
 ## Summary
 
 On **first indexing** (especially on a **new machine**), copying mail from Apple Mail into Brain can take **many minutes** with **little UI feedback** for a long stretch. Users cannot tell whether work is progressing or the app is hung. We should surface **reassurance and/or concrete status much sooner** (on the order of **5–10 seconds** after indexing starts, not only after multi-minute thresholds).
@@ -12,13 +14,15 @@ On a **separate test machine** that is **very fast on paper** (CPU/GPU/SSD), **f
 
 We need to **understand why** the same app + hard-reset mental model yields **fast** on one Mac and **slow** on another. Likely factors to compare (not exhaustive):
 
-| Dimension | Why it might differ |
-| --------- | ------------------- |
-| **Apple Mail / `Envelope Index` / store** | Different mailbox size, account count, or whether Mail.app has **ever** fully warmed / compacted databases on that Mac. |
-| **First access vs warm caches** | Dev machine may have **repeatedly** opened Mail or Brain; test machine’s first read of large SQLite under `~/Library/Mail` can stall longer than CPU speed suggests. |
-| **`BRAIN_HOME` / ripmail data** | Hard reset clears Brain’s copy, not necessarily the **same** ripmail sync scope if accounts or `RIPMAIL_HOME` paths differ between machines. |
-| **Full Disk Access / sandbox** | TCC, permissions, or first-time prompts can serialize or block work differently across machines. |
-| **Network / IMAP** | If sync path touches network, one machine’s accounts or latency profile may dominate (even if UI says “copying from Apple Mail”). |
+
+| Dimension                                 | Why it might differ                                                                                                                                                  |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Apple Mail / `Envelope Index` / store** | Different mailbox size, account count, or whether Mail.app has **ever** fully warmed / compacted databases on that Mac.                                              |
+| **First access vs warm caches**           | Dev machine may have **repeatedly** opened Mail or Brain; test machine’s first read of large SQLite under `~/Library/Mail` can stall longer than CPU speed suggests. |
+| `**BRAIN_HOME` / ripmail data**           | Hard reset clears Brain’s copy, not necessarily the **same** ripmail sync scope if accounts or `RIPMAIL_HOME` paths differ between machines.                         |
+| **Full Disk Access / sandbox**            | TCC, permissions, or first-time prompts can serialize or block work differently across machines.                                                                     |
+| **Network / IMAP**                        | If sync path touches network, one machine’s accounts or latency profile may dominate (even if UI says “copying from Apple Mail”).                                    |
+
 
 Until this is explained, treat **“hard reset was fast on my machine”** as **non-diagnostic** for first-time UX on other Macs.
 
@@ -47,12 +51,14 @@ In `src/client/lib/onboarding/Onboarding.svelte`, `indexingElapsedLine` is **nul
 
 ## Fix direction
 
-| Area | Direction |
-| ---- | --------- |
-| **Copy / timing** | Lower the threshold for the **first** reassurance line (e.g. show a neutral “Still indexing…” after **5–10s**; keep or adjust the existing “first batch can take a few minutes” message for the **2+ minute** band). |
-| **Tick granularity** | If using wall-clock derived lines, tick **more often** in the first minute (e.g. 1–5s) so the line can appear without waiting for a 15s interval boundary. |
-| **Progress** | If the server or ripmail can expose **safe, non-noisy** progress (e.g. phase, message count, “connected”), surface it on this screen; fall back to time-based copy if not. |
-| **Diagnostics** | Optional dev-only or “Copy debug info” for support: last sync error, ripmail version, rough timing—only if product wants it. |
+
+| Area                 | Direction                                                                                                                                                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Copy / timing**    | Lower the threshold for the **first** reassurance line (e.g. show a neutral “Still indexing…” after **5–10s**; keep or adjust the existing “first batch can take a few minutes” message for the **2+ minute** band). |
+| **Tick granularity** | If using wall-clock derived lines, tick **more often** in the first minute (e.g. 1–5s) so the line can appear without waiting for a 15s interval boundary.                                                           |
+| **Progress**         | If the server or ripmail can expose **safe, non-noisy** progress (e.g. phase, message count, “connected”), surface it on this screen; fall back to time-based copy if not.                                           |
+| **Diagnostics**      | Optional dev-only or “Copy debug info” for support: last sync error, ripmail version, rough timing—only if product wants it.                                                                                         |
+
 
 ## Verification
 
@@ -63,4 +69,4 @@ In `src/client/lib/onboarding/Onboarding.svelte`, `indexingElapsedLine` is **nul
 
 - `src/client/lib/onboarding/Onboarding.svelte` — `indexingElapsedLine`, `indexingStartedAt`, polling `loadMailOnly`
 - `src/server/lib/ripmailStatusParse.ts` — long-wait messaging for ripmail status strings
-- **`docs/BUGS.md`** — if root cause is purely in the CLI/indexer, file or cross-link bugs there (`ripmail/docs/BUGS.md` redirects to it)
+- `**docs/BUGS.md`** — if root cause is purely in the CLI/indexer, file or cross-link bugs there (`ripmail/docs/BUGS.md` redirects to it)

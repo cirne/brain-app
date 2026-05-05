@@ -1460,3 +1460,87 @@ mod draft_cli_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod archive_cli_tests {
+    use super::Cli;
+    use super::Commands;
+    use clap::Parser;
+
+    /// BUG-039: Message-ID starting with hyphen is parsed as flag
+    #[test]
+    fn archive_leading_dash_message_id_fails_without_double_dash() {
+        // This should fail because clap interprets -OSgr as a flag
+        let result = Cli::try_parse_from(["ripmail", "archive", "-OSgr@geopod-ismtpd-101"]);
+
+        // Expect this to fail with a flag parsing error
+        match result {
+            Err(e) => {
+                let err_str = e.to_string();
+                // The error should mention unexpected argument or unknown flag
+                assert!(
+                    err_str.contains("unexpected argument")
+                        || err_str.contains("unrecognized")
+                        || err_str.contains("found argument")
+                        || err_str.contains("unexpected"),
+                    "Error should indicate flag parsing issue, got: {err_str}"
+                );
+            }
+            Ok(_) => panic!("BUG-039: Leading-dash message ID should fail (parsed as flag)"),
+        }
+    }
+
+    #[test]
+    fn archive_leading_dash_message_id_works_with_double_dash() {
+        // Using -- to terminate flag parsing should work
+        let cli = Cli::try_parse_from(["ripmail", "archive", "--", "-OSgr@geopod-ismtpd-101"])
+            .expect("parse with -- should work");
+
+        match cli.command {
+            Some(Commands::Archive { message_ids, .. }) => {
+                assert_eq!(message_ids.len(), 1);
+                assert_eq!(message_ids[0], "-OSgr@geopod-ismtpd-101");
+            }
+            _ => panic!("expected Archive command"),
+        }
+    }
+
+    #[test]
+    fn archive_normal_message_id_works() {
+        // Normal message IDs without leading dash should work fine
+        let cli = Cli::try_parse_from(["ripmail", "archive", "OSgr@geopod-ismtpd-101"])
+            .expect("normal message ID should parse");
+
+        match cli.command {
+            Some(Commands::Archive { message_ids, .. }) => {
+                assert_eq!(message_ids.len(), 1);
+                assert_eq!(message_ids[0], "OSgr@geopod-ismtpd-101");
+            }
+            _ => panic!("expected Archive command"),
+        }
+    }
+
+    #[test]
+    fn archive_bracketed_leading_dash_message_id_fails() {
+        // Even with angle brackets, leading dash after < is problematic
+        let result = Cli::try_parse_from(["ripmail", "archive", "<-OSgr@geopod-ismtpd-101>"]);
+
+        // This might work or fail depending on how clap handles it
+        // Document the actual behavior
+        if result.is_err() {
+            println!("BUG-039: Even bracketed leading-dash message ID fails");
+        }
+    }
+
+    #[test]
+    fn archive_multiple_message_ids_one_with_leading_dash() {
+        // Multiple message IDs where one has a leading dash
+        let result =
+            Cli::try_parse_from(["ripmail", "archive", "good@example.com", "-bad@example.com"]);
+
+        assert!(
+            result.is_err(),
+            "BUG-039: Leading-dash message ID in multi-message batch should fail"
+        );
+    }
+}

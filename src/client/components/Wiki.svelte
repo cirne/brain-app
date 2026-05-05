@@ -14,6 +14,7 @@
     wikiLinkRefFromAnchor,
   } from '@client/lib/wikiPageHtml.js'
   import { wikiPathForReadToolArg } from '@client/lib/cards/contentCards.js'
+  import { wikiMarkdownBasenameDisplayTitle } from '@client/lib/wikiDirBreadcrumb.js'
   import { renderMarkdown } from '@client/lib/markdown.js'
   import '../styles/wiki/wikiMarkdown.css'
   import {
@@ -246,7 +247,7 @@
         content = ''
         rawMarkdown = ''
         pageLoadedOk = false
-        const title = path.replace(/\.md$/, '').split('/').pop() ?? path
+        const title = wikiMarkdownBasenameDisplayTitle(path)
         onContextChange?.({ type: 'wiki', path, title })
         return
       }
@@ -256,7 +257,7 @@
       content = transformWikiPageHtml(data.html)
       rawMarkdown = data.raw ?? ''
       pageLoadedOk = true
-      const title = meta.title ?? path.replace(/\.md$/, '').split('/').pop() ?? path
+      const title = wikiMarkdownBasenameDisplayTitle(path)
       onContextChange?.({ type: 'wiki', path, title })
     } catch (e) {
       if (wikiPageLatest.isStale(token) || isAbortError(e)) return
@@ -264,7 +265,7 @@
       content = ''
       rawMarkdown = ''
       pageLoadedOk = false
-      const title = path.replace(/\.md$/, '').split('/').pop() ?? path
+      const title = wikiMarkdownBasenameDisplayTitle(path)
       onContextChange?.({ type: 'wiki', path, title })
     } finally {
       if (!wikiPageLatest.isStale(token)) loading = false

@@ -40,7 +40,7 @@ This matches the mental model: **you unlock Brain, then you configure connectors
 | [OPP-008](./OPP-008-tunnel-qr-phone-access.md)                   | Tunnel + QR; pairing tokens vs long-lived secrets — session cookies after vault unlock should compose with QR flows.                             |
 | [OPP-023](archive/OPP-023-local-https-loopback-hardening.md) (archived) / [OPP-036](OPP-036-trust-surface-and-local-tls-finish.md) | Core **HTTPS** to embedded server is **shipped**; follow-on **trust** / ATS polish: [OPP-036](OPP-036-trust-surface-and-local-tls-finish.md). |
 | `[runtime-and-routes.md](../architecture/runtime-and-routes.md)` | Documents bundled listen address and current IP allowlist.                                                                                       |
-| [BUG-003](../bugs/BUG-003-native-mac-app-ship-blockers.md)       | Embedded secrets / env inheritance — vault material must live in **user data**, not only build-time embed.                                       |
+| [BUG-003 (archived)](../bugs/archive/BUG-003-native-mac-app-ship-blockers.md)       | Embedded secrets / env inheritance — vault material must live in **user data**, not only build-time embed.                                       |
 
 
 ## Implementation notes (sketch)

@@ -594,5 +594,4 @@ function parseFrontmatter(raw: string): { meta: Record<string, string>; body: st
   return { meta, body: match[2] }
 }
 
-
 export default wiki

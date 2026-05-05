@@ -54,7 +54,7 @@ The prompt should say **wiki first** as an orientation step, not as a stopping r
 - **`read_indexed_file` filesystem branch:** only paths under the current tenant’s allowlist — `BRAIN_HOME`, ripmail home, wiki content directory, and configured `localDir` / `icsFile` roots from `ripmail sources list` — see [`agentPathPolicy.ts`](../../src/server/lib/agentPathPolicy.ts). Indexed **`messageId`** values resolve via ripmail without treating them as arbitrary disk paths.
 - **`GET /api/files/read`:** same allowlist as `read_indexed_file` for filesystem paths (all deployment modes).
 
-Details and remaining OS-level gaps: [BUG-012](../bugs/BUG-012-agent-tool-path-sandbox-escape.md).
+Details and remaining OS-level gaps: [tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md); historical **[BUG-012 (archived)](../bugs/archive/BUG-012-agent-tool-path-sandbox-escape.md)**.
 
 ---
 

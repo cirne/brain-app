@@ -6,23 +6,25 @@
 
 ## Status
 
-**Open (app layer mitigated, 2026-04)** — in-process path jailing and tests are in place for the main agent and HTTP file read surfaces. **OS-level tenant isolation** (see [tenant filesystem isolation](../architecture/tenant-filesystem-isolation.md)) is still out of scope for this bug; a **Node RCE** or similar would bypass app-only checks.
+**Archived (2026-05-05).** App-layer path jailing and tests remain in tree for the main agent and HTTP file read surfaces. **OS-level tenant isolation** and non-app threats are tracked at the architecture level ([tenant filesystem isolation](../../architecture/tenant-filesystem-isolation.md)); this ticket is **no longer an active backlog row** — open a new security bug for concrete escapes.
 
 ## Progress (app layer)
 
-| Area | State |
-| ---- | ----- |
-| **Shared allowlist** | [`src/server/lib/resolveTenantSafePath.ts`](../../src/server/lib/resolveTenantSafePath.ts) — `normalizePathThroughExistingAncestors` (macOS `/var` vs `/private/var` for non-existent leaves), `isAbsolutePathAllowedUnderRoots`, `isPathStrictlyInsideOrEqual`. |
-| **Policy module** | [`src/server/lib/agentPathPolicy.ts`](../../src/server/lib/agentPathPolicy.ts) — `read_indexed_file` path allowlist = tenant `BRAIN_HOME` + `ripmail` home + `wiki` content dir + `localDir` / `icsFile` paths from `ripmail sources list --json`; `manage_sources` add/edit blocks paths that overlap **sibling** tenant dirs under `BRAIN_DATA_ROOT` and (in MT) paths under the data root that are not in the read allowlist. |
-| **`read_mail_message` / `read_indexed_file`** | **`read_indexed_file`:** filesystem-like `id` values are checked before `ripmail read`. **`read_mail_message`:** RFC Message-ID arguments only (no path branch). |
-| **`manage_sources`** | Path validated before CLI spawn. |
-| **Wiki / pi tools** | [`coerceWikiToolRelativePath`](../../src/server/lib/wikiEditHistory.ts) + wrapped `read` / `edit` / `write` / `grep` / `find` in [`tools.ts`](../../src/server/agent/tools.ts) so pi’s `resolveToCwd` cannot accept raw host absolutes outside `wikiDir`. Upstream [`path-utils`](https://github.com/mariozechner/pi-coding-agent) still resolves absolute paths as-is; our wrapper prevents that class of escape. |
-| **`GET /api/files/read`** | Uses the same allowlist as agent reads in **all** modes (no longer MT-only). |
-| **Tests** | [`agentPathPolicy.test.ts`](../../src/server/lib/agentPathPolicy.test.ts), [`readEmailPathPolicy.test.ts`](../../src/server/agent/readEmailPathPolicy.test.ts), [`manageSources.test.ts`](../../src/server/agent/manageSources.test.ts) (incl. MT sibling), extended [`resolveTenantSafePath.test.ts`](../../src/server/lib/resolveTenantSafePath.test.ts). |
+
+| Area                                          | State                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Shared allowlist**                          | `[src/server/lib/resolveTenantSafePath.ts](../../src/server/lib/resolveTenantSafePath.ts)` — `normalizePathThroughExistingAncestors` (macOS `/var` vs `/private/var` for non-existent leaves), `isAbsolutePathAllowedUnderRoots`, `isPathStrictlyInsideOrEqual`.                                                                                                                                                                 |
+| **Policy module**                             | `[src/server/lib/agentPathPolicy.ts](../../src/server/lib/agentPathPolicy.ts)` — `read_indexed_file` path allowlist = tenant `BRAIN_HOME` + `ripmail` home + `wiki` content dir + `localDir` / `icsFile` paths from `ripmail sources list --json`; `manage_sources` add/edit blocks paths that overlap **sibling** tenant dirs under `BRAIN_DATA_ROOT` and (in MT) paths under the data root that are not in the read allowlist. |
+| `**read_mail_message` / `read_indexed_file`** | `**read_indexed_file`:** filesystem-like `id` values are checked before `ripmail read`. `**read_mail_message`:** RFC Message-ID arguments only (no path branch).                                                                                                                                                                                                                                                                 |
+| `**manage_sources`**                          | Path validated before CLI spawn.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Wiki / pi tools**                           | `[coerceWikiToolRelativePath](../../src/server/lib/wikiEditHistory.ts)` + wrapped `read` / `edit` / `write` / `grep` / `find` in `[tools.ts](../../src/server/agent/tools.ts)` so pi’s `resolveToCwd` cannot accept raw host absolutes outside `wikiDir`. Upstream `[path-utils](https://github.com/mariozechner/pi-coding-agent)` still resolves absolute paths as-is; our wrapper prevents that class of escape.               |
+| `**GET /api/files/read`**                     | Uses the same allowlist as agent reads in **all** modes (no longer MT-only).                                                                                                                                                                                                                                                                                                                                                     |
+| **Tests**                                     | `[agentPathPolicy.test.ts](../../src/server/lib/agentPathPolicy.test.ts)`, `[readEmailPathPolicy.test.ts](../../src/server/agent/readEmailPathPolicy.test.ts)`, `[manageSources.test.ts](../../src/server/agent/manageSources.test.ts)` (incl. MT sibling), extended `[resolveTenantSafePath.test.ts](../../src/server/lib/resolveTenantSafePath.test.ts)`.                                                                      |
+
 
 ### Still open / later
 
-- **Kernel / VM / UID / Landlock** isolation for high-density hosted Brain ([architecture doc](../architecture/tenant-filesystem-isolation.md)).
+- **Kernel / VM / UID / Landlock** isolation for high-density hosted Brain ([architecture doc](../../architecture/tenant-filesystem-isolation.md)).
 - **Symlink hardening** for wiki-only `resolveSafeWikiPath` if a wiki path links outside the vault (optional `realpath` proof).
 - **Operational:** indexed-folder allowlist requires a successful `ripmail sources list` subprocess when rejecting paths outside brain/ripmail/wiki (acceptable tradeoff).
 
@@ -39,9 +41,10 @@ It is not limited to a malicious *human* user: **prompt injection** via synced e
 
 ## Evidence in codebase (snapshot before mitigation; see **Progress** above for current code)
 
+
 | Area                                                 | Concern                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `read_indexed_file` (filesystem branch)                                           | Documented to accept **indexed file/Drive `messageId`** or “**a file by absolute path (tilde paths OK)**” and passes eligible ids through to `ripmail read` — historically lacked checks that arbitrary paths stay under the current `RIPMAIL_HOME` / `BRAIN_HOME` / configured sources (`src/server/agent/tools.ts`). **Mitigated:** allowlist enforcement in agent path policy.                                                                                                                                                                        |
+| `read_indexed_file` (filesystem branch)              | Documented to accept **indexed file/Drive `messageId`** or “**a file by absolute path (tilde paths OK)**” and passes eligible ids through to `ripmail read` — historically lacked checks that arbitrary paths stay under the current `RIPMAIL_HOME` / `BRAIN_HOME` / configured sources (`src/server/agent/tools.ts`). **Mitigated:** allowlist enforcement in agent path policy.                                         |
 | `manage_sources`                                     | `op=add` / `op=edit` take `**path: absolute path or ~`** — same class of issue for registering or editing folder sources.                                                                                                                                                                                                                                                                                                 |
 | Wiki file tools from `@mariozechner/pi-coding-agent` | `createReadTool`, `createFindTool`, etc. are scoped with a `wikiDir` string. **If** the upstream implementation uses standard path joins (e.g. `path.resolve(wikiDir, userPath)`), a **path argument that is already absolute** can reset the base and escape the wiki root (Node: `path.resolve('/wiki', '/etc/passwd')` → `/etc/passwd`). **Confirm upstream behavior;** if unguarded, this is a direct sandbox escape. |
 | Custom tools using `resolveSafeWikiPath`             | `move_file` / `delete_file` and wiki edit history use `**resolveSafeWikiPath`** in `src/server/lib/wikiEditHistory.ts`, which **rejects** traversals outside `wikiDir` — **good pattern** to generalize.                                                                                                                                                                                                                  |
@@ -86,7 +89,7 @@ It is not limited to a malicious *human* user: **prompt injection** via synced e
 ### 5. Multi-tenant product stance
 
 - If hosted or shared **Brain** is a goal, document that **in-process path checks + pi** are **insufficient** as the only layer; at least one of **(4)** or **strict per-tenant subprocess with FS namespaces** is required for a strong guarantee.
-- Consider **failing closed**: disable `read_indexed_file` for filesystem paths in multi-tenant mode until re-rooted; keep **`read_mail_message`** Message-ID-only.
+- Consider **failing closed**: disable `read_indexed_file` for filesystem paths in multi-tenant mode until re-rooted; keep `**read_mail_message`** Message-ID-only.
 
 ## Recommended next steps (engineering)
 
@@ -98,8 +101,7 @@ It is not limited to a malicious *human* user: **prompt injection** via synced e
 
 ## Related docs
 
-- [Tenant filesystem isolation (architecture)](../architecture/tenant-filesystem-isolation.md) — layered strategies (kernel, process, app) that close or bound this class of failure; complements the fix directions below.
-- [Wiki read vs indexed mail/files](../architecture/wiki-read-vs-read-email.md) — intentional split between wiki-relative tools and **`read_mail_message` / `read_indexed_file`**; the security contract for “where files may live” should be made explicit and enforced.
-- [OPP-012: Brain home data layout](../opportunities/OPP-012-brain-home-data-layout.md), [OPP-024: Split brain data](../opportunities/OPP-024-split-brain-data-synced-wiki-local-ripmail.md) — data roots.
+- [Tenant filesystem isolation (architecture)](../../architecture/tenant-filesystem-isolation.md) — layered strategies (kernel, process, app) that close or bound this class of failure; complements the fix directions below.
+- [Wiki read vs indexed mail/files](../../architecture/wiki-read-vs-read-email.md) — intentional split between wiki-relative tools and `**read_mail_message` / `read_indexed_file`**; the security contract for “where files may live” should be made explicit and enforced.
+- [OPP-012: Brain home data layout](../../opportunities/OPP-012-brain-home-data-layout.md), [OPP-024: Split brain data](../../opportunities/OPP-024-split-brain-data-synced-wiki-local-ripmail.md) — data roots.
 - `src/server/lib/dataRoot.ts` — `BRAIN_DATA_ROOT`, `tenantHomeDir`.
-

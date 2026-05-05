@@ -1,7 +1,7 @@
 # BUG-025: New Relic Pino logs not linked to APM entity
 
-**Status:** Open (deferred)  
-**Priority:** P3 (observability debt)  
+**Status:** Archived (2026-05-05). P3 observability debt deferred; infra log collection still available without APM entity link.  
+**Priority:** P3 (historical)  
 **Filed:** 2026-04-27
 
 ## Summary

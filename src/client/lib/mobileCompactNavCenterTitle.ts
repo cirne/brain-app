@@ -1,5 +1,6 @@
 import { isNewChat } from '@client/lib/assistantShellNavigation.js'
 import type { Route, SurfaceContext } from '@client/router.js'
+import { wikiMarkdownBasenameDisplayTitle } from '@client/lib/wikiDirBreadcrumb.js'
 
 export type MobileCompactNavRoutePick = Pick<
   Route,
@@ -35,8 +36,7 @@ export function mobileCompactNavCenterTitle(
 
   if (overlay.type === 'wiki' && overlay.path) {
     if (ctx.type === 'wiki' && ctx.path === overlay.path && ctx.title.trim()) return ctx.title.trim()
-    const base = overlay.path.replace(/^.*\//, '').replace(/\.md$/i, '') || overlay.path
-    return base.replace(/-/g, ' ')
+    return wikiMarkdownBasenameDisplayTitle(overlay.path)
   }
   if (overlay.type === 'wiki-dir') {
     if (ctx.type === 'wiki-dir' && ctx.title.trim()) return ctx.title.trim()

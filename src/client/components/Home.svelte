@@ -35,7 +35,7 @@
   async function loadInbox() {
     inboxLoading = true
     try {
-      const res = await fetch('/api/inbox').catch(() => null)
+      const res = await fetch('/api/inbox', { credentials: 'include' }).catch(() => null)
       inboxItems = res?.ok ? await res.json() : []
     } finally {
       inboxLoading = false

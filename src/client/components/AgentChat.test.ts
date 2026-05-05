@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { tick } from 'svelte'
 import AgentChat from './AgentChat.svelte'
+import AgentChatWikiBridgeHarness from './test-stubs/AgentChatWikiBridgeHarness.svelte'
 import { render, fireEvent, screen, waitFor, within } from '@client/test/render.js'
 import {
   agentChatPostHandler,
@@ -795,6 +796,14 @@ describe('AgentChat.svelte', () => {
       render(AgentChat, { props: { context: { type: 'none' } } })
       await tick()
       expect(screen.getByRole('switch', { name: /audio conversation/i })).toBeInTheDocument()
+    })
+
+    it('does not render audio conversation toggle in wiki mobile bridge overlay (empty thread)', async () => {
+      stubFetchForAgentChat()
+      render(AgentChatWikiBridgeHarness)
+      await tick()
+      expect(screen.getByTestId('wiki-bridge-overlay-stub')).toBeInTheDocument()
+      expect(screen.queryByRole('switch', { name: /audio conversation/i })).not.toBeInTheDocument()
     })
 
     it('toggle is not rendered once messages exist', async () => {

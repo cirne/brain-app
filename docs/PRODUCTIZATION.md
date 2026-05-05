@@ -44,6 +44,8 @@ A user signs up with their Google account, approves email and calendar access, a
 
 **Related (app state):** Durable **app** data — chat history, settings, and other metadata the product owns — is separate from the wiki backing store above. A plausible pattern is **local SQLite per tenant** with **periodic backup of the database file to tenant-scoped object storage**, so state survives deploys and restarts alongside other per-tenant blobs. Schema and scope are TBD. See [ARCHITECTURE.md](./ARCHITECTURE.md#future-durable-app-state-sqlite).
 
+**Architectural foundation:** The **directory-per-tenant** model (wiki files, ripmail SQLite, chat history, preferences all under `$BRAIN_DATA_ROOT/<usr_…>/`) is unconventional for SaaS but foundational to our desktop/cloud single-codebase strategy. For full rationale and defense, see [architecture/per-tenant-storage-defense.md](architecture/per-tenant-storage-defense.md).
+
 ---
 
 ### 3. Authentication

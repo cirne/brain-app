@@ -1,6 +1,6 @@
 # BUG-029: First-run setup — `/welcome` URL, vault-root `assistant.md`, calendar listing
 
-**Status:** Open (fix in progress / verify after ship)
+**Status:** Archived (2026-05-05). `/welcome` / `assistant.md` / calendar-list slice deferred from active index; verify in code or track under a future OPP.
 
 **Summary**
 
@@ -19,6 +19,6 @@ First-time guided setup had several rough edges: browser landed on OAuth interme
 - `src/server/lib/wiki/wikiAgentWritePolicy.ts`
 - `src/server/prompts/onboarding-agent/system.hbs`
 
-**Related:** [BUG-014](BUG-014-setup-flow-per-stage-urls-and-naming.md), [BUG-027](BUG-027-calendar-create-event-empty-list-rejects-source.md)
+**Related:** [BUG-014](./BUG-014-setup-flow-per-stage-urls-and-naming.md), [BUG-027](../BUG-027-calendar-create-event-empty-list-rejects-source.md)
 
 **Tags:** hosted, first-run, OAuth, wiki, calendar

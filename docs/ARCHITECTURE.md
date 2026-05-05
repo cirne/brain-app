@@ -41,7 +41,7 @@ Why the product exists, how we talk about it, and collaboration ideas — not ro
 | Product vision (wiki + inbox narrative)     | [VISION.md](VISION.md)                                                               |
 | Strategy: segments and moats                | [STRATEGY.md](STRATEGY.md)                                                           |
 | Karpathy *LLM Wiki* (wiki half of the idea) | [karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md)                               |
-| Wiki sharing / brain-to-brain collaborators | [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) · **Phase 1 shipped:** [architecture/wiki-sharing.md](architecture/wiki-sharing.md) ([OPP-064 stub](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md), [archived spec](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)) · **Layout follow-on:** [OPP-091](opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md) |
+| Wiki sharing / brain-to-brain collaborators | [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) · **Phase 1 shipped:** [architecture/wiki-sharing.md](architecture/wiki-sharing.md) ([OPP-064 stub](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md), [archived spec](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)) · **Layout follow-on:** [OPP-091](opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) |
 | Hosted cloud v1 scope (Phase 0 parity)      | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md)       |
 
 
@@ -55,6 +55,7 @@ Deployment topology, isolation, staging, and formal security posture.
 | Topic                                                           | Doc                                                                                                |
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Desktop vs cloud deployment models                              | [architecture/deployment-models.md](architecture/deployment-models.md)                             |
+| **Directory-per-tenant storage (ADR, defense)**                 | [architecture/per-tenant-storage-defense.md](architecture/per-tenant-storage-defense.md)           |
 | Multi-tenant cloud architecture (NAS, isolation)                | [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) |
 | Tenant filesystem isolation (BUG-012, kernel + app)             | [architecture/tenant-filesystem-isolation.md](architecture/tenant-filesystem-isolation.md)         |
 | **Staging deploy** (DigitalOcean droplet, registry, Watchtower) | [DEPLOYMENT.md](./DEPLOYMENT.md)                                                                   |

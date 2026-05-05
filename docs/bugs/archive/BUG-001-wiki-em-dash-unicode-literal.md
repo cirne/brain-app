@@ -1,6 +1,6 @@
 # BUG-001: Escaped em dash and unwanted em dashes in docs
 
-**Status:** Open
+**Status:** Archived (2026-05-05). Typographic / rendering hygiene; no longer prioritized as an active bug (re-file if it blocks shipping copy).
 
 ## Symptom
 

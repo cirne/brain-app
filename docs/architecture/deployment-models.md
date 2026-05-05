@@ -64,3 +64,5 @@ While they start as separate instances, we anticipate a need for:
 
 ## Conclusion
 We will maintain a single codebase that can be packaged as a **Tauri Desktop app** or a **Multi-tenant Cloud container**. The core logic (Hono + Svelte + pi-agent-core) remains identical; only the storage and authentication layers adapt to the environment.
+
+**The directory-per-tenant storage model is foundational to this strategy.** For rationale, trade-offs, and defense against conventional SaaS patterns, see [per-tenant-storage-defense.md](./per-tenant-storage-defense.md).

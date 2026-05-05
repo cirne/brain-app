@@ -41,13 +41,13 @@ If **`ripmail index: messages≈0`** but mail was synced before: often **FDA off
 
 ## Gotchas from tracked bugs / packaging
 
-### BUG-003 ([docs/bugs/BUG-003-native-mac-app-ship-blockers.md](../../../docs/bugs/BUG-003-native-mac-app-ship-blockers.md))
+### BUG-003 ([docs/bugs/archive/BUG-003-native-mac-app-ship-blockers.md](../../../docs/bugs/archive/BUG-003-native-mac-app-ship-blockers.md)) — archived
 
 - **GUI apps do not inherit shell env** (`~/.zshrc`, etc.). Keys that “work in Terminal” may be missing for **Braintunnel.app** unless embedded at build (`BRAIN_EMBED_MASTER_KEY` + allowlisted secrets) or set another documented way.
 - **Iteration:** Prefer **`npm run desktop:dev`** or **`npm run dev`** for API/UI; reserve **`npm run desktop:build`** / **`tauri build`** for release-style verification. Changing spawn/env/logging: often **`cargo`** in `desktop/` without a full product bundle.
 - **Before any Node command:** **`nvm use`** at repo root (see **[AGENTS.md](../../../AGENTS.md)**) — wrong Node breaks native addons and server-bundle contents.
 
-### BUG-009 ([docs/bugs/BUG-009-desktop-webview-wrong-port.md](../../../docs/bugs/BUG-009-desktop-webview-wrong-port.md)) — open
+### BUG-009 ([docs/bugs/archive/BUG-009-desktop-webview-wrong-port.md](../../../docs/bugs/archive/BUG-009-desktop-webview-wrong-port.md)) — archived
 
 - If loopback port **18473** (or the start of the native range) is **already taken** (another session/user/process), the webview can show **404** or the **wrong origin**.
 - Server prints **`BRAIN_LISTEN_PORT=<port>`**; Rust parses child stdout — verify in **`node-server.log`** that the port matches **`Braintunnel bundled server listening on 127.0.0.1:…`** in Rust logs.
@@ -59,7 +59,7 @@ If **`ripmail index: messages≈0`** but mail was synced before: often **FDA off
 - After toggling FDA, **relaunch** may be required for TCC to apply.
 - Rust logs **`[fda]`**; Node logs FDA probe — cross-check both if “Mail unreadable” persists.
 
-### BUG-008 ([docs/bugs/BUG-008-first-mail-indexing-feedback.md](../../../docs/bugs/BUG-008-first-mail-indexing-feedback.md))
+### BUG-008 ([docs/bugs/archive/BUG-008-first-mail-indexing-feedback.md](../../../docs/bugs/archive/BUG-008-first-mail-indexing-feedback.md)) — archived
 
 - First-time mail indexing can feel **hung** with little UI feedback — not always a deadlock; check server logs and ripmail activity.
 
@@ -77,7 +77,7 @@ If **`ripmail index: messages≈0`** but mail was synced before: often **FDA off
 ## Related repo docs
 
 - **[AGENTS.md](../../../AGENTS.md)** — `desktop:*` commands, `nvm`, `BRAIN_HOME`, `RIPMAIL_HOME`, `desktop:clean-data`
-- **[docs/bugs/BUG-003-native-mac-app-ship-blockers.md](../../../docs/bugs/BUG-003-native-mac-app-ship-blockers.md)** — ship blockers + DX
+- **[docs/bugs/archive/BUG-003-native-mac-app-ship-blockers.md](../../../docs/bugs/archive/BUG-003-native-mac-app-ship-blockers.md)** — ship blockers + DX (archived)
 - **[docs/architecture/runtime-and-routes.md](../../../docs/architecture/runtime-and-routes.md)** — bundled port range, `BRAIN_BUNDLED_NATIVE`, Tailscale note
 
 ## Agent workflow (short)

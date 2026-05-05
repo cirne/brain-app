@@ -1,8 +1,8 @@
 # BUG-014: Per-stage setup URLs, deep-link guards, OAuth return target, and user-visible naming (not "onboarding")
 
-**Status:** Open
+**Status:** Archived (2026-05-05). Per-stage setup URLs, guards, OAuth return targets, and user-visible “onboarding” naming deferred; revive as an OPP or new bug when first-run IA is scheduled.
 
-**Related:** [BUG-029](BUG-029-onboarding-welcome-url-assistant-md-calendar-list.md) (`/welcome`, `assistant.md`, calendar list UX — overlaps this bug).
+**Related:** [BUG-029](./BUG-029-onboarding-welcome-url-assistant-md-calendar-list.md) (`/welcome`, `assistant.md`, calendar list UX — overlaps this bug).
 
 **Summary**
 
@@ -29,25 +29,21 @@ const completeHtml = `<!DOCTYPE html>
 (Citation is abbreviated with `...` for the bug doc; see source file for the full template.)
 
 - The client **setup** experience is largely driven by **in-memory / API state** on one route, not a stable per-stage path for every state (vault, mail, profiling, profile review, etc.).
-
 - Users and support may see the word **"onboarding"** in the UI and URLs, which reads as product/engineering jargon.
 
 **Expected**
 
-1. **Route map**  
-   - Each **public setup stage** has a **canonical path** (and optionally a short internal alias during migration with 301/redirect from old paths).  
-   - Stages should align with **onboarding state machine** (see `onboardingState` / client `Onboarding.svelte` flow), including edge cases (e.g. mail indexing vs state race called out in code comments).
-
-2. **Guards**  
-   - If the user **opens a URL for a later stage** than their saved progress allows, the app **redirects** to the **furthest allowed stage** (or a single "resume" path that then redirects once—either is fine as long as behavior is consistent).  
-   - If they open an **earlier** stage, product decision: allow (retry) vs redirect forward—**document the rule**; default suggestion is **allow backward navigation** for recovery unless a stage is strictly one-time.
-
-3. **OAuth**  
-   - After Google redirects to the app’s OAuth **browser** success/failure page, the next navigation should be **`replace()` (or 302) to the setup stage URL** that matches “mail connected, continue from here” (or failure stage), not always the same string.
-
-4. **Naming**  
-   - **User-visible:** replace "onboarding" in **labels, titles, and URL paths** with agreed product copy (single glossary entry in this bug or a one-line `docs/architecture/…` note when implemented).  
-   - **Code:** optional phased rename; **minimum** is **routes and UI** users see. API path `/api/onboarding/...` can stay or get a versioned alias—call out in implementation notes.
+1. **Route map**
+  - Each **public setup stage** has a **canonical path** (and optionally a short internal alias during migration with 301/redirect from old paths).  
+  - Stages should align with **onboarding state machine** (see `onboardingState` / client `Onboarding.svelte` flow), including edge cases (e.g. mail indexing vs state race called out in code comments).
+2. **Guards**
+  - If the user **opens a URL for a later stage** than their saved progress allows, the app **redirects** to the **furthest allowed stage** (or a single "resume" path that then redirects once—either is fine as long as behavior is consistent).  
+  - If they open an **earlier** stage, product decision: allow (retry) vs redirect forward—**document the rule**; default suggestion is **allow backward navigation** for recovery unless a stage is strictly one-time.
+3. **OAuth**
+  - After Google redirects to the app’s OAuth **browser** success/failure page, the next navigation should be `**replace()` (or 302) to the setup stage URL** that matches “mail connected, continue from here” (or failure stage), not always the same string.
+4. **Naming**
+  - **User-visible:** replace "onboarding" in **labels, titles, and URL paths** with agreed product copy (single glossary entry in this bug or a one-line `docs/architecture/…` note when implemented).  
+  - **Code:** optional phased rename; **minimum** is **routes and UI** users see. API path `/api/onboarding/...` can stay or get a versioned alias—call out in implementation notes.
 
 **Non-goals (unless bundled)**
 
@@ -57,6 +53,7 @@ const completeHtml = `<!DOCTYPE html>
 
 **Related**
 
-- OPP-058 ([runtime-and-routes.md](architecture/runtime-and-routes.md)): chat **`/c` / `/c/:sessionId`**, hub **`/hub`**, overlays **`?panel=`** — OAuth **callback** paths stay `/api/oauth/...`.
+- OPP-058 ([runtime-and-routes.md](architecture/runtime-and-routes.md)): chat `**/c` / `/c/:sessionId`**, hub `**/hub**`, overlays `**?panel=**` — OAuth **callback** paths stay `/api/oauth/...`.
 - OPP-042 and other first-run / network docs if they mention onboarding URLs—update when this ships.  
-- BUG-010 (post-setup first-chat kickoff) may interact with "resume" and deep links; coordinate tests.
+- [BUG-010](./BUG-010-first-chat-kickoff-missing-after-onboarding.md) (post-setup first-chat kickoff; archived) may interact with "resume" and deep links; coordinate tests.
+

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { parseWikiDirSegments, wikiDirPathPrefix } from './wikiDirBreadcrumb.js'
+import {
+  parseWikiDirSegments,
+  wikiDirPathPrefix,
+  wikiMarkdownBasenameDisplayTitle,
+} from './wikiDirBreadcrumb.js'
 
 describe('parseWikiDirSegments', () => {
   it('returns [] for undefined', () => {
@@ -22,5 +26,19 @@ describe('wikiDirPathPrefix', () => {
     expect(wikiDirPathPrefix(s, 0)).toBe('foo')
     expect(wikiDirPathPrefix(s, 1)).toBe('foo/bar')
     expect(wikiDirPathPrefix(s, 2)).toBe('foo/bar/baz')
+  })
+})
+
+describe('wikiMarkdownBasenameDisplayTitle', () => {
+  it('titleizes kebab-case basename', () => {
+    expect(wikiMarkdownBasenameDisplayTitle('travel/boys-trip-2026.md')).toBe('Boys Trip 2026')
+  })
+
+  it('titleizes each word for space-separated stems', () => {
+    expect(wikiMarkdownBasenameDisplayTitle('folder/Boys Trip 2026.md')).toBe('Boys Trip 2026')
+  })
+
+  it('strips leading underscore', () => {
+    expect(wikiMarkdownBasenameDisplayTitle('_draft-note.md')).toBe('Draft Note')
   })
 })

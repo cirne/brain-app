@@ -10,7 +10,7 @@
 
 **Status: Epic — closed for the current scale target (2026-04-22).** **Phases 0–2, 5, and 6 are complete** (April 2026). **Public staging:** `**https://staging.braintunnel.ai`** — TLS at the edge, **Sign in with Google**, onboarding (mail sync can take a while on first run), and **automatic wiki build** validated with friendly testers. The Brain container still listens on **port 4000** inside the stack; users hit **HTTPS** on the public hostname. Durable state uses a **fixed Docker named volume** (`brain_data` → `/brain-data` via `BRAIN_DATA_ROOT` in `[docker-compose.do.yml](../../../docker-compose.do.yml)`) so **image pulls, container restarts, and recreate** are **non-destructive** to wiki, vault, ripmail, and chats.
 
-**Next focus (epic remainder) — deferred:** **Phase 3–4** as needed for **scale, isolation guarantees, and product identity** beyond the current staging slice — see milestones below. **Path jailing / [BUG-012](../../bugs/BUG-012-agent-tool-path-sandbox-escape.md)** and deeper abuse controls stay on the normal security backlog. Advanced storage topics (WAL tuning, Litestream, snapshot playbooks) remain **out of scope** until needed.
+**Next focus (epic remainder) — deferred:** **Phase 3–4** as needed for **scale, isolation guarantees, and product identity** beyond the current staging slice — see milestones below. **Path jailing** (historical **[BUG-012 (archived)](../../bugs/archive/BUG-012-agent-tool-path-sandbox-escape.md)**) and deeper abuse controls stay part of security posture. Advanced storage topics (WAL tuning, Litestream, snapshot playbooks) remain **out of scope** until needed.
 
 **Intent:** Sequence milestones from **today** (single-tenant desktop and dev server, `[BRAIN_HOME](../OPP-012-brain-home-data-layout.md)` + [layout JSON](../../../shared/brain-layout.json)) to a **Linux container** deployment on **DigitalOcean** that is **usable by test users** in a **relatively secure** way: **Google** as the identity and mail/calendar connector, **per-tenant durable disk** (survive image updates and reboots), and a **vault password** layered on top for unlock semantics and future mobile access—without pretending we ship **macOS-only** integrations (Full Disk Access, iMessage, bundled loopback OAuth) in this slice.
 
@@ -184,7 +184,7 @@ Use when bringing up **another** public origin (e.g. production):
 - Threat modeling pass on **agent tools** (path arguments, file reads, search) under multi-tenant load.
 - Optional: IP allowlists, invite-only signup, or OAuth allowlisting for first cohort.
 
-**Exit criteria:** Staging cohort can use `**https://staging.braintunnel.ai`** end-to-end without blocking gaps for the intended test surface. **Known follow-ons** stay tracked explicitly: **[BUG-012](../../bugs/BUG-012-agent-tool-path-sandbox-escape.md)** (path sandbox / cross-tenant tool args), deeper rate limits and observability as traffic grows, and [OPP-022](../OPP-022-google-oauth-app-verification.md) when leaving Google test-user caps.
+**Exit criteria:** Staging cohort can use `**https://staging.braintunnel.ai`** end-to-end without blocking gaps for the intended test surface. **Known follow-ons** include app-layer path policy vs **kernel-level** isolation ([tenant-filesystem-isolation.md](../../architecture/tenant-filesystem-isolation.md); historical **[BUG-012](../../bugs/archive/BUG-012-agent-tool-path-sandbox-escape.md)** narrative), deeper rate limits and observability as traffic grows, and [OPP-022](../OPP-022-google-oauth-app-verification.md) when leaving Google test-user caps.
 
 ---
 

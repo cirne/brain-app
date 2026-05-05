@@ -172,9 +172,9 @@
   async function fetchData() {
     try {
       const [wikiRes, mailRes, sourcesRes] = await Promise.all([
-        fetch('/api/wiki'),
-        fetch('/api/inbox/mail-sync-status'),
-        fetch('/api/hub/sources'),
+        fetch('/api/wiki', { credentials: 'include' }),
+        fetch('/api/inbox/mail-sync-status', { credentials: 'include' }),
+        fetch('/api/hub/sources', { credentials: 'include' }),
       ])
 
       if (wikiRes.ok) {

@@ -1,18 +1,8 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import SlideOver from './SlideOver.svelte'
 import { render, screen, fireEvent } from '@client/test/render.js'
 import type { Overlay, SurfaceContext } from '@client/router.js'
 import type { ComponentProps } from 'svelte'
-
-class MockResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-beforeAll(() => {
-  vi.stubGlobal('ResizeObserver', MockResizeObserver)
-})
 
 vi.mock('../Wiki.svelte', () => import('../test-stubs/WikiStub.svelte'))
 vi.mock('../WikiDirList.svelte', () => import('../test-stubs/WikiDirListStub.svelte'))
@@ -50,6 +40,15 @@ function baseProps(overrides: Partial<SlideOverProps> = {}): SlideOverProps {
 describe('SlideOver.svelte', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    // Mock ResizeObserver for CollapsibleBreadcrumb
+    global.ResizeObserver = class ResizeObserver {
+      observe = vi.fn()
+      unobserve = vi.fn()
+      disconnect = vi.fn()
+      constructor(_callback: ResizeObserverCallback) {
+        // no-op
+      }
+    } as any
   })
 
   it('renders with wiki overlay', () => {
@@ -67,7 +66,7 @@ describe('SlideOver.svelte', () => {
     const nav = screen.getByRole('navigation', { name: /wiki page path/i })
     expect(nav).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'My Wiki' })).toBeInTheDocument()
-    expect(screen.getByText('Travel.md')).toBeInTheDocument()
+    expect(screen.getByText('travel.md')).toBeInTheDocument()
   })
 
   it('nested index.md shows directory link plus filename crumb', () => {
@@ -76,7 +75,19 @@ describe('SlideOver.svelte', () => {
 
     expect(screen.getByRole('button', { name: 'My Wiki' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Projects' })).toBeInTheDocument()
-    expect(screen.getByText('Index.md')).toBeInTheDocument()
+    expect(screen.getByText('index.md')).toBeInTheDocument()
+  })
+
+  it('renders filename with .md extension in breadcrumb', () => {
+    const props = baseProps({ overlay: { type: 'wiki', path: 'boys-trip-2026/Boys Trip 2026.md' } })
+    render(SlideOver, { props })
+
+    const nav = screen.getByRole('navigation', { name: /wiki page path/i })
+    expect(nav).toBeInTheDocument()
+    // Folder breadcrumb segment (clickable, titleized without .md)
+    expect(screen.getByRole('button', { name: 'Boys Trip 2026' })).toBeInTheDocument()
+    // Current file segment (not clickable, shown as span with .md extension)
+    expect(screen.getByText('Boys Trip 2026.md')).toBeInTheDocument()
   })
 
   it('renders with email overlay', () => {
@@ -189,7 +200,7 @@ describe('SlideOver.svelte', () => {
     })
     render(SlideOver, { props })
 
-    expect(screen.getByRole('navigation', { name: /wiki folder path/i })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /wiki page path/i })).toBeInTheDocument()
     expect(screen.getByText('My Wiki')).toBeInTheDocument()
   })
 
@@ -199,7 +210,7 @@ describe('SlideOver.svelte', () => {
     })
     render(SlideOver, { props })
 
-    const nav = screen.getByRole('navigation', { name: /wiki folder path/i })
+    const nav = screen.getByRole('navigation', { name: /wiki page path/i })
     expect(nav).toBeInTheDocument()
     expect(screen.getByText('My Wiki')).toBeInTheDocument()
   })

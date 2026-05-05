@@ -1,6 +1,6 @@
 # BUG-016: Staging (braintunnel-staging) not using block storage for `BRAIN_DATA_ROOT`
 
-**Status:** Open.
+**Status:** Archived (2026-05-05). Staging volume/compose truthfulness deferred as active bug; ops runbook still applies — re-open if disk layout regresses.
 
 **Severity:** **High (P1)** — tenant data and ripmail home trees grow on the **Droplet root disk**; the **100 GiB** attached volume is underused or **not** the path the app actually uses. Fills the wrong disk, slower replace/rebuild story, and **data is not** on the volume you attach for durability.
 

@@ -9,6 +9,8 @@ Brain-app overview and index: **[../ARCHITECTURE.md](../ARCHITECTURE.md)**. Prod
 | [runtime-and-routes.md](./runtime-and-routes.md) | Hono + Vite, `/api/*` map, auth, bundled listen address + Tailscale allowlist, periodic sync; SPA **`/c`**, **`/hub`**, **`?panel=`** overlays ([OPP-058](../opportunities/OPP-058-spa-url-main-pane-vs-overlay-query.md)) |
 | [client-async-latest.md](./client-async-latest.md) | Svelte: `createAsyncLatest` — overlapping fetches must not clobber detail panes (agent nav, rapid clicks) |
 | [cloud-hosted-v1-scope.md](./cloud-hosted-v1-scope.md) | Hosted Linux v1: API/SPA parity matrix, wiki-on-volume decision, OAuth redirect gap ([OPP-041](../opportunities/archive/OPP-041-hosted-cloud-epic-docker-digitalocean.md) Phase 0; [stub](../opportunities/OPP-041-hosted-cloud-epic-docker-digitalocean.md)) |
+| [deployment-models.md](./deployment-models.md) | **ADR:** Desktop vs cloud deployment; single codebase, two storage/auth layers; "both" strategy |
+| [per-tenant-storage-defense.md](./per-tenant-storage-defense.md) | **ADR:** Directory-per-tenant storage (unconventional SaaS model); rationale, trade-offs, objections |
 | [multi-tenant-cloud-architecture.md](./multi-tenant-cloud-architecture.md) | Cell-based hosted Brain: one tenant / one home, NAS, scaling phases, guardrails |
 | [tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md) | Tenant FS isolation (micro-VM, POSIX UID, namespaces/Landlock, dir-FD caps, Workspace jail); **BUG-012** |
 | [../DEPLOYMENT.md](../DEPLOYMENT.md) | **Staging deploy today:** Cloudflare `braintunnel.io`, DO droplet `braintunnel-staging`, registry + Watchtower, OAuth test-user cap, SSH-only host access |

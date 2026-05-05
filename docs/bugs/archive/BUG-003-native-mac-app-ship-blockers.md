@@ -1,5 +1,7 @@
 # BUG-003: Native macOS app (Tauri) — ship blockers for a zero-config, FDA-only install
 
+**Status:** Archived (2026-05-05). Remaining DMG / observability / iteration pain deferred; re-open or file a new bug when native ship is again a focus.
+
 ## Summary
 
 We can produce a **Braintunnel.app** / **DMG**, but several issues block a **shareable image** that a user with **no developer setup** can run successfully after granting **Full Disk Access (FDA)** and related macOS permissions. This bug tracks those gaps and the **developer experience** problems that make diagnosing them slow.
@@ -52,13 +54,13 @@ Ship a **shareable** **DMG/app** such that a user can:
 ## Fix direction (high level)
 
 
-| Area    | Direction                                                                                                                 |
-| ------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Startup | Keep **listen-first**; never `process.exit` from optional checks before bind.                                             |
-| Secrets | Production path: embedded allowlist + master key **or** user-provided keys with clear UI; avoid “works in terminal only.” |
-| Logs    | File sink for Node + pointer in unified log; optional in-app diagnostics.                                                 |
-| DX      | Prefer `**npm run desktop:dev**` / `**npm run dev**` for iteration; reserve `**npm run desktop:build**` for release checks.                   |
-| FDA     | Re-test onboarding **Connect Apple Mail** / ripmail paths once the app stays up reliably.                                 |
+| Area    | Direction                                                                                                                   |
+| ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Startup | Keep **listen-first**; never `process.exit` from optional checks before bind.                                               |
+| Secrets | Production path: embedded allowlist + master key **or** user-provided keys with clear UI; avoid “works in terminal only.”   |
+| Logs    | File sink for Node + pointer in unified log; optional in-app diagnostics.                                                   |
+| DX      | Prefer `**npm run desktop:dev`** / `**npm run dev**` for iteration; reserve `**npm run desktop:build**` for release checks. |
+| FDA     | Re-test onboarding **Connect Apple Mail** / ripmail paths once the app stays up reliably.                                   |
 
 
 ## Related

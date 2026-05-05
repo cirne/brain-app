@@ -38,6 +38,7 @@
   import WikiFileName from '@components/WikiFileName.svelte'
   import EmailDraftEditor from '@components/EmailDraftEditor.svelte'
   import PaneL2Header from '@components/PaneL2Header.svelte'
+  import CollapsibleBreadcrumb from '@components/CollapsibleBreadcrumb.svelte'
   import AnchoredActionMenu from './AnchoredActionMenu.svelte'
   import AnchoredMenuRow from './AnchoredMenuRow.svelte'
   import { cn } from '@client/lib/cn.js'
@@ -262,7 +263,7 @@
   class={cn(
     'slide-over flex h-full min-h-0 flex-col bg-surface border-l border-border',
     mobilePanel &&
-      'mobile-slide [will-change:transform] [touch-action:pan-y] [overscroll-behavior-x:contain] [--pane-header-h:52px] [--pane-header-px:12px] [&_.pane-l2-header]:[column-gap:0.5rem]',
+      'mobile-slide [will-change:transform] [touch-action:pan-y] [overscroll-behavior-x:contain] [--pane-header-h:52px] [--pane-header-px:4px] [&_.pane-l2-header]:[column-gap:0.25rem]',
     mobilePanel && mobile.transitionEnabled && 'slide-anim',
     mobilePanel && mobile.swipeState === 'dragging' && 'dragging',
   )}
@@ -275,10 +276,10 @@
       <button
         type="button"
         class={cn(
-          'back-btn inline-flex shrink-0 items-center gap-1 px-2 py-1 text-[13px] text-accent md:hidden',
+          'back-btn inline-flex shrink-0 items-center gap-1 px-0 py-1 text-[13px] text-accent md:hidden',
           'hover:bg-accent-dim',
           mobilePanel &&
-            'min-h-11 min-w-11 justify-center px-1 py-0 text-[15px] [&_svg]:h-[22px] [&_svg]:w-[22px]',
+            'min-h-11 min-w-11 justify-center py-0 text-[15px] [&_svg]:h-[22px] [&_svg]:w-[22px]',
         )}
         onclick={headerDismiss}
         aria-label={overlay.type === 'email-draft' && emailDraftHdr.current ? 'Discard draft' : 'Back'}
@@ -336,114 +337,34 @@
         >
           {#if overlay.type === 'wiki' && overlay.path}
             {@const wikiPageSegs = wikiPageBreadcrumbSegments(overlay.path)}
-            {@const wikiBcInteractive = cn(
-              'wiki-breadcrumb-seg inline border-none bg-transparent p-0 m-0 normal-case tracking-normal text-accent hover:underline cursor-pointer',
-              mobilePanel ? 'shrink-0 whitespace-nowrap' : 'max-w-full overflow-hidden text-ellipsis whitespace-nowrap',
-            )}
-            {@const wikiBcCurrent = cn(
-              'wiki-breadcrumb-seg wiki-breadcrumb-seg--current text-foreground font-medium cursor-default',
-              mobilePanel ? 'shrink-0 whitespace-nowrap' : '',
-            )}
-            <span
-              class={cn(
-                mobilePanel &&
-                  'block min-w-0 w-full overflow-x-auto overflow-y-hidden [-webkit-overflow-scrolling:touch]',
-              )}
-              role="presentation"
-            >
-              <span
-                class={cn(
-                  'wiki-dir-breadcrumb items-center gap-x-1 gap-y-0 leading-snug',
-                  mobilePanel
-                    ? 'inline-flex w-max max-w-none flex-nowrap text-[15px]'
-                    : 'flex flex-wrap min-w-0 text-[13px]',
-                )}
-                role="navigation"
-                aria-label="Wiki page path"
-              >
-                {#if wikiPageSegs.length === 0}
-                  <span class={wikiBcCurrent}>My Wiki</span>
-                {:else}
-                  <button type="button" class={wikiBcInteractive} onclick={() => onWikiDirNavigate?.(undefined)}>
-                    My Wiki
-                  </button>
-                  {#each wikiPageSegs as seg, i (i)}
-                    <span
-                      class={cn(
-                        'wiki-breadcrumb-sep text-muted font-normal select-none',
-                        mobilePanel && 'shrink-0',
-                      )}
-                      aria-hidden="true">/</span>
-                    {#if i < wikiPageSegs.length - 1}
-                      <button
-                        type="button"
-                        class={wikiBcInteractive}
-                        onclick={() => onWikiDirNavigate?.(wikiDirPathPrefix(wikiPageSegs, i))}
-                      >
-                        {wikiBreadcrumbLabel(seg)}
-                      </button>
-                    {:else}
-                      <span class={wikiBcCurrent}>{wikiBreadcrumbLabel(seg)}</span>
-                    {/if}
-                  {/each}
-                {/if}
-              </span>
-            </span>
+            {@const breadcrumbItems = [
+              {
+                label: 'My Wiki',
+                onClick: wikiPageSegs.length > 0 ? () => onWikiDirNavigate?.(undefined) : undefined,
+                isCurrent: wikiPageSegs.length === 0,
+              },
+              ...wikiPageSegs.map((seg, i) => ({
+                label: i === wikiPageSegs.length - 1 ? seg : wikiBreadcrumbLabel(seg),
+                onClick: i < wikiPageSegs.length - 1 ? () => onWikiDirNavigate?.(wikiDirPathPrefix(wikiPageSegs, i)) : undefined,
+                isCurrent: i === wikiPageSegs.length - 1,
+              })),
+            ]}
+            <CollapsibleBreadcrumb items={breadcrumbItems} {mobilePanel} />
           {:else if overlay.type === 'wiki-dir'}
             {@const wikiDirSegs = parseWikiDirSegments(overlay.path)}
-            {@const wikiBcInteractiveDir = cn(
-              'wiki-breadcrumb-seg inline border-none bg-transparent p-0 m-0 normal-case tracking-normal text-accent hover:underline cursor-pointer',
-              mobilePanel ? 'shrink-0 whitespace-nowrap' : 'max-w-full overflow-hidden text-ellipsis whitespace-nowrap',
-            )}
-            {@const wikiBcCurrentDir = cn(
-              'wiki-breadcrumb-seg wiki-breadcrumb-seg--current text-foreground font-medium cursor-default',
-              mobilePanel ? 'shrink-0 whitespace-nowrap' : '',
-            )}
-            <span
-              class={cn(
-                mobilePanel &&
-                  'block min-w-0 w-full overflow-x-auto overflow-y-hidden [-webkit-overflow-scrolling:touch]',
-              )}
-              role="presentation"
-            >
-              <span
-                class={cn(
-                  'wiki-dir-breadcrumb items-center gap-x-1 gap-y-0 leading-snug',
-                  mobilePanel
-                    ? 'inline-flex w-max max-w-none flex-nowrap text-[15px]'
-                    : 'flex flex-wrap min-w-0 text-[13px]',
-                )}
-                role="navigation"
-                aria-label="Wiki folder path"
-              >
-                {#if wikiDirSegs.length === 0}
-                  <span class={wikiBcCurrentDir}>My Wiki</span>
-                {:else}
-                  <button type="button" class={wikiBcInteractiveDir} onclick={() => onWikiDirNavigate?.(undefined)}>
-                    My Wiki
-                  </button>
-                  {#each wikiDirSegs as seg, i (i)}
-                    <span
-                      class={cn(
-                        'wiki-breadcrumb-sep text-muted font-normal select-none',
-                        mobilePanel && 'shrink-0',
-                      )}
-                      aria-hidden="true">/</span>
-                    {#if i < wikiDirSegs.length - 1}
-                      <button
-                        type="button"
-                        class={wikiBcInteractiveDir}
-                        onclick={() => onWikiDirNavigate?.(wikiDirPathPrefix(wikiDirSegs, i))}
-                      >
-                        {seg}
-                      </button>
-                    {:else}
-                      <span class={wikiBcCurrentDir}>{seg}</span>
-                    {/if}
-                  {/each}
-                {/if}
-              </span>
-            </span>
+            {@const breadcrumbItems = [
+              {
+                label: 'My Wiki',
+                onClick: wikiDirSegs.length > 0 ? () => onWikiDirNavigate?.(undefined) : undefined,
+                isCurrent: wikiDirSegs.length === 0,
+              },
+              ...wikiDirSegs.map((seg, i) => ({
+                label: seg,
+                onClick: i < wikiDirSegs.length - 1 ? () => onWikiDirNavigate?.(wikiDirPathPrefix(wikiDirSegs, i)) : undefined,
+                isCurrent: i === wikiDirSegs.length - 1,
+              })),
+            ]}
+            <CollapsibleBreadcrumb items={breadcrumbItems} {mobilePanel} />
           {:else if overlay.type === 'file' && overlay.path}
             <WikiFileName path={overlay.path} />
           {:else if overlay.type === 'indexed-file' && overlay.id && indexedFileHeaderTitle}

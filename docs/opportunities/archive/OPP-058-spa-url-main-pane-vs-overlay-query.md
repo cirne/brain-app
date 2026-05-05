@@ -8,7 +8,7 @@
 
 **Status:** Implemented (see [runtime-and-routes.md](../../architecture/runtime-and-routes.md); `?panel=` + payload keys in [`src/client/router.ts`](../../../src/client/router.ts))  
 **Tags:** `routing` · `spa` · `ux` · `deep-linking` · `shell`  
-**Related:** [runtime-and-routes.md](../../architecture/runtime-and-routes.md) (current behavior + direction sketch); [`src/client/router.ts`](../../../src/client/router.ts); [OPP-056](../OPP-056-email-draft-overlay-markdown-editor.md) (overlay surface consistency); [archive/OPP-027](./OPP-027-wiki-nav-indicator-and-activity-surface.md) (agent detail URL parity question); [cloud-hosted-v1-scope.md](../../architecture/cloud-hosted-v1-scope.md) (SPA parity matrix); [BUG-014](../../bugs/BUG-014-setup-flow-per-stage-urls-and-naming.md) (setup flows + OAuth return targets — must remain coherent after routing changes)
+**Related:** [runtime-and-routes.md](../../architecture/runtime-and-routes.md) (current behavior + direction sketch); [`src/client/router.ts`](../../../src/client/router.ts); [OPP-056](../OPP-056-email-draft-overlay-markdown-editor.md) (overlay surface consistency); [archive/OPP-027](./OPP-027-wiki-nav-indicator-and-activity-surface.md) (agent detail URL parity question); [cloud-hosted-v1-scope.md](../../architecture/cloud-hosted-v1-scope.md) (SPA parity matrix); [BUG-014 (archived)](../../bugs/archive/BUG-014-setup-flow-per-stage-urls-and-naming.md) (setup flows + OAuth return targets — must remain coherent after routing changes)
 
 ---
 
@@ -33,7 +33,7 @@ That yields an inconsistent **mental model**, weak **share/bookmark** semantics 
 
 ## Proposed direction
 
-1. **Pathname = primary surface** — e.g. **`/c/:sessionId`** (or agreed prefix) for chat transcripts, **`/hub`** (and minimal nested segments only if required for hub-only full-page flows) for Brain Hub, with explicit rules for onboarding/demo/full-page flows that must remain dedicated paths ([BUG-014](../../bugs/BUG-014-setup-flow-per-stage-urls-and-naming.md)).
+1. **Pathname = primary surface** — e.g. **`/c/:sessionId`** (or agreed prefix) for chat transcripts, **`/hub`** (and minimal nested segments only if required for hub-only full-page flows) for Brain Hub, with explicit rules for onboarding/demo/full-page flows that must remain dedicated paths ([BUG-014 (archived)](../../bugs/archive/BUG-014-setup-flow-per-stage-urls-and-naming.md)).
 2. **Search params = overlay** — a **single structured convention** (either one compound param or a **small fixed set** of names) that selects overlay **kind** + **payload** (wiki path, mail id, calendar date/event, hub inspector, draft id, etc.).
 3. **Round-trip and normalization** — `parseRoute` and `routeToUrl` stay the single authority; **no duplicate ad-hoc URL parsing** in shell components.
 
@@ -52,7 +52,7 @@ Exact parameter names and encoding (flat vs nested, wiki path encoding, backward
 ## Validation criteria (must pass before merge)
 
 - **`router.test.ts`** covers **parse ↔ serialize round-trip** for every supported **`Route` variant** (including hub-active vs chat-base), with cases for **special characters** in wiki paths and **opaque mail/message ids** (mirror today’s `encodeWikiPathSegmentsForUrl` / inbox id concerns).
-- **No regressions** in **OAuth / setup return URLs**: documented flows in [BUG-014](../../bugs/BUG-014-setup-flow-per-stage-urls-and-naming.md) and [google-oauth.md](../../google-oauth.md) remain valid or are **explicitly updated** in the same change.
+- **No regressions** in **OAuth / setup return URLs**: documented flows in [BUG-014 (archived)](../../bugs/archive/BUG-014-setup-flow-per-stage-urls-and-naming.md) and [google-oauth.md](../../google-oauth.md) remain valid or are **explicitly updated** in the same change.
 - **[cloud-hosted-v1-scope.md](../../architecture/cloud-hosted-v1-scope.md)** SPA parity table **updated** to describe the new paths (or pointer to this OPP + runtime-and-routes).
 - **[runtime-and-routes.md](../../architecture/runtime-and-routes.md)** updated so “direction under consideration” becomes **implemented** or **superseded by OPP-058** (remove stale guesswork after ship).
 

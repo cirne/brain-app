@@ -181,7 +181,7 @@
 
   async function load() {
     try {
-      const res = await fetch('/api/inbox')
+      const res = await fetch('/api/inbox', { credentials: 'include' })
       if (res.ok) {
         emails = await res.json()
         error = null
@@ -199,7 +199,7 @@
   async function sync() {
     syncing = true
     try {
-      await fetch('/api/inbox/sync', { method: 'POST' })
+      await fetch('/api/inbox/sync', { method: 'POST', credentials: 'include' })
       await load()
     } catch {
       error = 'Sync failed'
@@ -226,7 +226,7 @@
 
   async function archive(id: string) {
     try {
-      const res = await fetch(`/api/inbox/${encodeURIComponent(id)}/archive`, { method: 'POST' })
+      const res = await fetch(`/api/inbox/${encodeURIComponent(id)}/archive`, { method: 'POST', credentials: 'include' })
       if (!res.ok) return
       emails = emails.filter(e => e.id !== id)
       if (selectedThread === id) { selectedThread = null; threadContent = null }
@@ -241,7 +241,7 @@
   }
 
   async function markRead(id: string) {
-    await fetch(`/api/inbox/${encodeURIComponent(id)}/read`, { method: 'POST' })
+    await fetch(`/api/inbox/${encodeURIComponent(id)}/read`, { method: 'POST', credentials: 'include' })
     emails = emails.map(e => e.id === id ? { ...e, read: true } : e)
   }
 
@@ -265,7 +265,7 @@
     for (const d of delayMs) {
       if (d > 0) await new Promise((r) => setTimeout(r, d))
       if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
-      last = await fetch(url, { signal })
+      last = await fetch(url, { signal, credentials: 'include' })
       if (last.ok || last.status !== 404) return last
     }
     return last!
@@ -378,7 +378,7 @@
   async function loadContacts() {
     if (contactsLoaded) return
     try {
-      const res = await fetch('/api/inbox/who')
+      const res = await fetch('/api/inbox/who', { credentials: 'include' })
       if (res.ok) contacts = await res.json()
       contactsLoaded = true
     } catch { /* ignore */ }
@@ -424,6 +424,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        credentials: 'include',
       })
       const data = await res.json()
       if (!res.ok || data.error) {

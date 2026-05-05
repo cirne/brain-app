@@ -1036,7 +1036,7 @@
           onRequestFocusText={() => void focusAgentTextarea(0)}
           hearReplies={hearRepliesForChatComposer}
         />
-        {#if centerEmptyInPane}
+        {#if centerEmptyInPane && !bridgeSlideLayout}
           <div class="audio-conv-toggle-row md:hidden flex items-center justify-center pb-3 pt-1">
             <button
               type="button"

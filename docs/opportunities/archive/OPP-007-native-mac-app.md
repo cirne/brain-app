@@ -2,7 +2,7 @@
 
 **Status: Implemented (archived).** A basic macOS app bundle is in place: Tauri **Braintunnel.app** (product name; some older text below may say `Brain.app` — same bundle), DMG flow, and `npm run desktop:*` packaging (Node + server bundle + `ripmail` in `server-bundle/`). The text below is the original opportunity write-up, kept for historical reference and deeper roadmap notes (permissions, Tailscale, polish).
 
-**Follow-ups:** Remaining ship or UX polish may still be tracked in [BUG-003](../../bugs/BUG-003-native-mac-app-ship-blockers.md). Remote access patterns include [OPP-008](../OPP-008-tunnel-qr-phone-access.md) (tunnel + QR) vs Tailscale as described below.
+**Follow-ups:** Remaining ship or UX polish may still be tracked in [BUG-003 (archived)](../../bugs/archive/BUG-003-native-mac-app-ship-blockers.md). Remote access patterns include [OPP-008](../OPP-008-tunnel-qr-phone-access.md) (tunnel + QR) vs Tailscale as described below.
 
 ---
 
@@ -335,7 +335,7 @@ Phase 2: Windows if there's demand
 
 ## Blocking bug (packaging ship readiness) — historical
 
-At writing, a **shareable, zero-config** install (user grants **Full Disk Access** and gets a working app without developer setup) was **not** fully done. **Update:** basic **Braintunnel.app** / **DMG** packaging shipped; remaining items are tracked in **[BUG-003](../../bugs/BUG-003-native-mac-app-ship-blockers.md)**.
+At writing, a **shareable, zero-config** install (user grants **Full Disk Access** and gets a working app without developer setup) was **not** fully done. **Update:** basic **Braintunnel.app** / **DMG** packaging shipped; remaining items are tracked in **[BUG-003 (archived)](../../bugs/archive/BUG-003-native-mac-app-ship-blockers.md)**.
 
 ## Open questions
 

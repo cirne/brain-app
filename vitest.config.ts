@@ -27,8 +27,14 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'client',
-          /** jsdom only for Svelte components; keep `src/client/lib/*.test.ts` on Node. */
-          include: ['src/client/components/**/*.test.ts'],
+          /**
+           * jsdom for Svelte components and TipTap-heavy unit tests; keep other `src/client/lib/*.test.ts`
+           * on Node (server project).
+           */
+          include: [
+            'src/client/components/**/*.test.ts',
+            'src/client/lib/tiptapFloatingMenuVisibility.test.ts',
+          ],
           environment: 'jsdom',
           setupFiles: [join(root, 'src/client/test/setup.ts')],
         },
@@ -42,6 +48,7 @@ export default defineConfig({
             'node_modules',
             'src/server/evals/**',
             'src/client/components/**/*.test.ts',
+            'src/client/lib/tiptapFloatingMenuVisibility.test.ts',
           ],
           environment: 'node',
           setupFiles: [
