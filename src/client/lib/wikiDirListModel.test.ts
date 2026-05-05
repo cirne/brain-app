@@ -15,10 +15,10 @@ import {
 } from './wikiDirListModel.js'
 
 const files = [
-  { path: 'me.md', name: 'me' },
-  { path: 'people/adam.md', name: 'adam' },
-  { path: 'people/team/bob.md', name: 'bob' },
-  { path: 'ideas/x.md', name: 'x' },
+  { path: 'me/me.md', name: 'me' },
+  { path: 'me/people/adam.md', name: 'adam' },
+  { path: 'me/people/team/bob.md', name: 'bob' },
+  { path: 'me/ideas/x.md', name: 'x' },
 ]
 
 const received = [
@@ -124,6 +124,7 @@ describe('wikiShareCoversVaultPath / outgoing detection', () => {
     expect(countOutgoingSharesForVaultPath('topics/a.md', owned)).toBe(2)
     expect(countOutgoingSharesForVaultPath('ideas/note.md', owned)).toBe(1)
     expect(countOutgoingSharesForVaultPath('ideas/x.md', owned)).toBe(0)
+    expect(countOutgoingSharesForVaultPath('me/topics/a.md', owned)).toBe(2)
   })
 })
 
@@ -139,13 +140,13 @@ describe('listWikiDirChildren', () => {
   it('lists root files and top-level dirs', () => {
     const r = listWikiDirChildren(files, undefined)
     expect(r.filter((e) => e.kind === 'dir').map((e) => e.label)).toEqual(['ideas', 'people'])
-    expect(r.filter((e) => e.kind === 'file').map((e) => e.path)).toEqual(['me.md'])
+    expect(r.filter((e) => e.kind === 'file').map((e) => e.path)).toEqual(['me/me.md'])
   })
 
   it('lists files and subdirs inside a folder', () => {
     const r = listWikiDirChildren(files, 'people')
-    expect(r.find((e) => e.kind === 'file' && e.path === 'people/adam.md')).toBeTruthy()
-    expect(r.find((e) => e.kind === 'dir' && e.path === 'people/team')).toBeTruthy()
+    expect(r.find((e) => e.kind === 'file' && e.path === 'me/people/adam.md')).toBeTruthy()
+    expect(r.find((e) => e.kind === 'dir' && e.path === 'me/people/team')).toBeTruthy()
   })
 })
 
@@ -159,7 +160,7 @@ describe('listWikiDirChildrenWithShares', () => {
 
   it('inside My Wiki lists local subtree only', () => {
     const r = listWikiDirChildrenWithShares(files, MY_WIKI_SEGMENT, received)
-    expect(r.find((e) => e.path === 'ideas')).toBeTruthy()
+    expect(r.find((e) => e.path === 'me/ideas')).toBeTruthy()
     expect(r.find((e) => e.kind === 'shared-owner')).toBeUndefined()
   })
 
@@ -171,7 +172,7 @@ describe('listWikiDirChildrenWithShares', () => {
 
   it('with no shares, my-wiki virtual path lists vault root', () => {
     const r = listWikiDirChildrenWithShares(files, MY_WIKI_URL_SEGMENT, [])
-    expect(r.find((e) => e.path === 'ideas')).toBeTruthy()
-    expect(r.find((e) => e.path === 'people')).toBeTruthy()
+    expect(r.find((e) => e.path === 'me/ideas')).toBeTruthy()
+    expect(r.find((e) => e.path === 'me/people')).toBeTruthy()
   })
 })

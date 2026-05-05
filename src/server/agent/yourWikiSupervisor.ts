@@ -13,7 +13,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { brainHome } from '@server/lib/platform/brainHome.js'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { listWikiFiles } from '@server/lib/wiki/wikiFiles.js'
 import {
   appendTimelineEvent,
@@ -110,7 +110,7 @@ async function savePersistedState(state: PersistedState): Promise<void> {
  */
 async function loadOrCreateDoc(): Promise<BackgroundRunDoc> {
   const existing = await readBackgroundRun(YOUR_WIKI_DOC_ID)
-  const dir = wikiDir()
+  const dir = wikiToolsDir()
   const paths = await listWikiFiles(dir)
   const actualPageCount = paths.length
 
@@ -480,7 +480,7 @@ export function requestLapNow(): void {
 /** Return the current supervisor doc for the API, or a default "not yet started" shape. */
 export async function getYourWikiDoc(): Promise<BackgroundRunDoc> {
   const doc = await readBackgroundRun(YOUR_WIKI_DOC_ID)
-  const dir = wikiDir()
+  const dir = wikiToolsDir()
   const paths = await listWikiFiles(dir)
   const actualPageCount = paths.length
 

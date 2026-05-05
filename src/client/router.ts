@@ -225,6 +225,36 @@ export function encodeWikiPrimaryPathSegments(relPath: string): string {
     .join('/')
 }
 
+/**
+ * Personal wiki paths are `me/…` relative to `wikis/`. Normalize legacy vault-only paths from URLs/query.
+ */
+export function toUnifiedPersonalWikiPath(path: string | undefined): string | undefined {
+  const p = path?.trim()
+  if (!p) return undefined
+  if (p === 'me' || p.startsWith('me/')) return p
+  if (p.startsWith('@')) return p
+  return `me/${p}`
+}
+
+function wikiOverlaySharing(opts: {
+  shareHandle?: string
+  shareOwner?: string
+  sharePrefix?: string
+}): boolean {
+  return Boolean(opts.shareHandle?.trim() || opts.shareOwner?.trim() || opts.sharePrefix?.trim())
+}
+
+/** Normalize `panel=wiki` / `panel=wiki-dir` path query segments when not in legacy shared overlays. */
+export function normalizeWikiOverlayQueryPath(
+  path: string | undefined,
+  opts: { shareHandle?: string; shareOwner?: string; sharePrefix?: string },
+): string | undefined {
+  const p = path?.trim()
+  if (!p) return undefined
+  if (wikiOverlaySharing(opts)) return p
+  return toUnifiedPersonalWikiPath(p)
+}
+
 function wikiOverlayUsesLegacyShareQuery(o: Overlay): boolean {
   if (o.type !== 'wiki' && o.type !== 'wiki-dir') return false
   const hasLegacy = Boolean(o.shareOwner?.trim() || o.sharePrefix?.trim())
@@ -248,19 +278,30 @@ function buildWikiPrimaryUrl(
     return `${base}/${encodeWikiPrimaryPathSegments(p)}`
   }
   if (overlay.type === 'wiki-dir') {
-    const p = overlay.path?.trim()
-    if (!p) return '/wiki/'
-    if (p === 'me') return '/wiki/me/'
-    return `/wiki/${encodeWikiPrimaryPathSegments(p)}/`
+    const raw = overlay.path?.trim()
+    if (!raw) return '/wiki/'
+    const u = toUnifiedPersonalWikiPath(raw) ?? raw
+    if (u === 'me') return '/wiki/me/'
+    if (u.startsWith('me/')) {
+      const rest = u.slice(3).replace(/\/+$/g, '')
+      return rest ? `/wiki/me/${encodeWikiPrimaryPathSegments(rest)}/` : '/wiki/me/'
+    }
+    return `/wiki/me/${encodeWikiPrimaryPathSegments(u.replace(/\/+$/g, ''))}/`
   }
-  const p = overlay.path?.trim()
+  const raw = overlay.path?.trim()
   /** Bare pathname `/wiki` is the wiki-dir hub; keep empty wiki reader addressable via `?panel=wiki`. */
-  if (!p) return '/wiki?panel=wiki'
-  return `/wiki/${encodeWikiPrimaryPathSegments(p)}`
+  if (!raw) return '/wiki?panel=wiki'
+  const u = toUnifiedPersonalWikiPath(raw) ?? raw
+  if (u.startsWith('@')) return `/wiki/${encodeWikiPrimaryPathSegments(u)}`
+  if (u === 'me') return '/wiki/me/'
+  if (u.startsWith('me/')) {
+    return `/wiki/me/${encodeWikiPrimaryPathSegments(u.slice(3))}`
+  }
+  return `/wiki/me/${encodeWikiPrimaryPathSegments(u)}`
 }
 
 /**
- * Path segments after `wiki` (`['people','a.md']`, `['@cirne','travel']`, …), already split on `/`.
+ * Path segments after `wiki` / `wikis` (`['me','ideas','a.md']`, `['@cirne','travel']`, …), split on `/`.
  */
 function parseWikiPrimaryPathname(
   href: string,
@@ -273,19 +314,20 @@ function parseWikiPrimaryPathname(
   const first = decoded[0] ?? ''
   if (first === 'me' || first === 'my-wiki') {
     const relSegs = decoded.slice(1)
-    const relPath = relSegs.join('/')
+    const vaultRel = relSegs.join('/')
     const lastSeg = relSegs[relSegs.length - 1] ?? ''
 
     if (relSegs.length === 0) {
       return { wikiActive: true, overlay: { type: 'wiki-dir', path: 'me' } }
     }
 
+    const unifiedPath = `me/${vaultRel}`
     const isFile = lastSeg.endsWith('.md') && !pathnameEndsWithSlash
     if (isFile) {
-      return { wikiActive: true, overlay: { type: 'wiki', path: relPath } }
+      return { wikiActive: true, overlay: { type: 'wiki', path: unifiedPath } }
     }
 
-    const dirPath = relPath.replace(/\/+$/g, '') || undefined
+    const dirPath = unifiedPath.replace(/\/+$/g, '') || undefined
     return { wikiActive: true, overlay: { type: 'wiki-dir', path: dirPath } }
   }
   if (first.startsWith('@')) {
@@ -318,14 +360,15 @@ function parseWikiPrimaryPathname(
   }
 
   const relPath = decoded.join('/')
-  const lastSeg = decoded[decoded.length - 1] ?? ''
+  const unifiedPersonal = toUnifiedPersonalWikiPath(relPath) ?? relPath
+  const lastSeg = unifiedPersonal.split('/').pop() ?? ''
 
   const isFile = lastSeg.endsWith('.md') && !pathnameEndsWithSlash
   if (isFile) {
-    return { wikiActive: true, overlay: { type: 'wiki', path: relPath } }
+    return { wikiActive: true, overlay: { type: 'wiki', path: unifiedPersonal } }
   }
 
-  const dirPath = relPath.replace(/\/+$/g, '') || undefined
+  const dirPath = unifiedPersonal.replace(/\/+$/g, '') || undefined
   return {
     wikiActive: true,
     overlay: { type: 'wiki-dir', path: dirPath },
@@ -339,18 +382,22 @@ function overlayToSearchParams(overlay: Overlay): URLSearchParams {
   }
   q.set(PANEL, overlay.type)
   switch (overlay.type) {
-    case 'wiki':
-      if (overlay.path) q.set('path', overlay.path)
+    case 'wiki': {
+      const normalized = normalizeWikiOverlayQueryPath(overlay.path, overlay)
+      if (normalized) q.set('path', normalized)
       if (overlay.shareOwner) q.set('shareOwner', overlay.shareOwner)
       if (overlay.sharePrefix) q.set('sharePrefix', overlay.sharePrefix)
       if (overlay.shareHandle) q.set('shareHandle', overlay.shareHandle)
       break
-    case 'wiki-dir':
-      if (overlay.path) q.set('path', overlay.path)
+    }
+    case 'wiki-dir': {
+      const normalized = normalizeWikiOverlayQueryPath(overlay.path, overlay)
+      if (normalized) q.set('path', normalized)
       if (overlay.shareOwner) q.set('shareOwner', overlay.shareOwner)
       if (overlay.sharePrefix) q.set('sharePrefix', overlay.sharePrefix)
       if (overlay.shareHandle) q.set('shareHandle', overlay.shareHandle)
       break
+    }
     case 'file':
       if (overlay.path) q.set('file', overlay.path)
       break
@@ -389,10 +436,11 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
   if (!panel) return undefined
   switch (panel) {
     case 'wiki': {
-      const path = sp.get('path')?.trim() || undefined
+      const pathRaw = sp.get('path')?.trim() || undefined
       const shareOwner = sp.get('shareOwner')?.trim() || undefined
       const sharePrefix = sp.get('sharePrefix')?.trim() || undefined
       const shareHandle = sp.get('shareHandle')?.trim() || undefined
+      const path = normalizeWikiOverlayQueryPath(pathRaw, { shareOwner, sharePrefix, shareHandle })
       const extra = {
         ...(shareOwner ? { shareOwner } : {}),
         ...(sharePrefix ? { sharePrefix } : {}),
@@ -401,10 +449,11 @@ function overlayFromSearchParams(sp: URLSearchParams): Overlay | undefined {
       return path ? { type: 'wiki', path, ...extra } : { type: 'wiki', ...extra }
     }
     case 'wiki-dir': {
-      const path = sp.get('path')?.trim() || undefined
+      const pathRaw = sp.get('path')?.trim() || undefined
       const shareOwner = sp.get('shareOwner')?.trim() || undefined
       const sharePrefix = sp.get('sharePrefix')?.trim() || undefined
       const shareHandle = sp.get('shareHandle')?.trim() || undefined
+      const path = normalizeWikiOverlayQueryPath(pathRaw, { shareOwner, sharePrefix, shareHandle })
       const extra = {
         ...(shareOwner ? { shareOwner } : {}),
         ...(sharePrefix ? { sharePrefix } : {}),
@@ -554,9 +603,14 @@ export function parseRoute(href: string = location.href): Route {
     const panel = sp.get(PANEL)?.trim()
     const shareHandleOnly = sp.get('shareHandle')?.trim() || undefined
     if (panel === 'wiki-dir') {
-      const path = sp.get('path')?.trim() || undefined
+      const pathRaw = sp.get('path')?.trim() || undefined
       const shareOwner = sp.get('shareOwner')?.trim() || undefined
       const sharePrefix = sp.get('sharePrefix')?.trim() || undefined
+      const path = normalizeWikiOverlayQueryPath(pathRaw, {
+        shareOwner,
+        sharePrefix,
+        shareHandle: shareHandleOnly,
+      })
       const base = path ? { type: 'wiki-dir' as const, path } : { type: 'wiki-dir' as const }
       const extra = {
         ...(shareOwner ? { shareOwner } : {}),
@@ -569,9 +623,14 @@ export function parseRoute(href: string = location.href): Route {
       }
     }
     if (panel === 'wiki') {
-      const path = sp.get('path')?.trim() || undefined
+      const pathRaw = sp.get('path')?.trim() || undefined
       const shareOwner = sp.get('shareOwner')?.trim() || undefined
       const sharePrefix = sp.get('sharePrefix')?.trim() || undefined
+      const path = normalizeWikiOverlayQueryPath(pathRaw, {
+        shareOwner,
+        sharePrefix,
+        shareHandle: shareHandleOnly,
+      })
       const base = path ? { type: 'wiki' as const, path } : { type: 'wiki' as const }
       const extra = {
         ...(shareOwner ? { shareOwner } : {}),
@@ -583,9 +642,14 @@ export function parseRoute(href: string = location.href): Route {
         overlay: { ...base, ...extra },
       }
     }
-    const pathOnly = sp.get('path')?.trim()
+    const pathOnlyRaw = sp.get('path')?.trim()
     const shareOwnerOnly = sp.get('shareOwner')?.trim() || undefined
     const sharePrefixOnly = sp.get('sharePrefix')?.trim() || undefined
+    const pathOnly = normalizeWikiOverlayQueryPath(pathOnlyRaw, {
+      shareOwner: shareOwnerOnly,
+      sharePrefix: sharePrefixOnly,
+      shareHandle: shareHandleOnly,
+    })
     if (pathOnly) {
       return {
         wikiActive: true,

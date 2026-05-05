@@ -28,8 +28,8 @@ describe('WikiDirList.svelte', () => {
         ok: true,
         json: async () =>
           wikiApiEnvelope([
-            { path: 'ideas/note.md', name: 'note.md' },
-            { path: 'me.md', name: 'me.md' },
+            { path: 'me/ideas/note.md', name: 'note.md' },
+            { path: 'me/me.md', name: 'me.md' },
           ]),
       } as Response
     }) as typeof fetch
@@ -48,10 +48,10 @@ describe('WikiDirList.svelte', () => {
     })
 
     await fireEvent.click(screen.getByRole('button', { name: /ideas/i }))
-    expect(onOpenDir).toHaveBeenCalledWith('ideas')
+    expect(onOpenDir).toHaveBeenCalledWith('me/ideas')
 
     await fireEvent.click(screen.getByRole('button', { name: /me\.md/i }))
-    expect(onOpenFile).toHaveBeenCalledWith('me.md')
+    expect(onOpenFile).toHaveBeenCalledWith('me/me.md')
   })
 
   it('uses shared indicators for @handle rows at the wiki hub', async () => {
@@ -59,7 +59,7 @@ describe('WikiDirList.svelte', () => {
       return {
         ok: true,
         json: async () =>
-          wikiApiEnvelope([{ path: 'ideas/note.md', name: 'note' }], {
+          wikiApiEnvelope([{ path: 'me/ideas/note.md', name: 'note' }], {
             received: [
               {
                 id: 'wsh_1',
@@ -97,8 +97,8 @@ describe('WikiDirList.svelte', () => {
         return {
           ok: true,
           json: async () => [
-            { path: 'trips/beach.md', name: 'beach' },
-            { path: 'readme.md', name: 'readme' },
+            { path: 'me/trips/beach.md', name: 'beach' },
+            { path: 'me/readme.md', name: 'readme' },
           ],
         } as Response
       }
@@ -127,8 +127,8 @@ describe('WikiDirList.svelte', () => {
         json: async () =>
           wikiApiEnvelope(
             [
-              { path: 'ideas/note.md', name: 'note' },
-              { path: 'topics/a.md', name: 'a' },
+              { path: 'me/ideas/note.md', name: 'note' },
+              { path: 'me/topics/a.md', name: 'a' },
             ],
             {
               owned: [{ pathPrefix: 'ideas/', targetKind: 'dir' }],
@@ -154,7 +154,7 @@ describe('WikiDirList.svelte', () => {
       return {
         ok: true,
         json: async () =>
-          wikiApiEnvelope([{ path: 'trips/beach.md', name: 'beach' }], {
+          wikiApiEnvelope([{ path: 'me/trips/beach.md', name: 'beach' }], {
             owned: [
               { pathPrefix: 'trips/', targetKind: 'dir' },
               { pathPrefix: 'trips/', targetKind: 'dir' },

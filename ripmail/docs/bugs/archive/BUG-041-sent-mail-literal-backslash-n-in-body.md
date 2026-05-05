@@ -8,12 +8,12 @@
 
 ## Resolution (2026-04-08)
 
-- **`normalize_smtp_plain_body`** in [`src/send/smtp_send.rs`](../../../src/send/smtp_send.rs) runs on the plain text before MIME build: interprets JSON/shell-style escapes `\n`, `\r`, `\t`, and `\\` so common literal two-character sequences become real newlines. Trailing `\` and unknown escapes after `\` are preserved.
+- `**normalize_smtp_plain_body`** in `[src/send/smtp_send.rs](../../../src/send/smtp_send.rs)` runs on the plain text before MIME build: interprets JSON/shell-style escapes `\n`, `\r`, `\t`, and `\\` so common literal two-character sequences become real newlines. Trailing `\` and unknown escapes after `\` are preserved.
 - Unit tests in the same module cover typical and edge cases (including `\\n` remaining visible when double-escaped in source).
 
 ## Follow-on: quoted-printable must not undo real newlines (2026-04-10)
 
-An attempt to fix paragraph breaks by manipulating newlines **without** fixing QP soft-wrap could surface a different failure: recipients saw `CLI.A second` with no blank line because **`=\r\n` soft breaks** merged lines across a sentence boundary. That is **orthogonal** to BUG-041: normalization turns literal `\n` into U+000A first; the MIME layer must then preserve those boundaries when using quoted-printable.
+An attempt to fix paragraph breaks by manipulating newlines **without** fixing QP soft-wrap could surface a different failure: recipients saw `CLI.A second` with no blank line because `**=\r\n` soft breaks** merged lines across a sentence boundary. That is **orthogonal** to BUG-041: normalization turns literal `\n` into U+000A first; the MIME layer must then preserve those boundaries when using quoted-printable.
 
 **Regression coverage (do not drop when touching send/MIME):**
 
@@ -58,3 +58,4 @@ Relevant pipeline:
 - `src/send/smtp_send.rs` — `normalize_smtp_plain_body`, `send_simple_message`
 - `src/send/draft_body.rs` — `draft_markdown_to_plain_text`
 - `src/send/mod.rs` — `send_draft_by_id`
+

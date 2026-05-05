@@ -285,12 +285,16 @@ describe('extractMentionedFiles', () => {
     expect(extractMentionedFiles('just a regular message')).toEqual([])
   })
 
-  it('extracts a single @mention', () => {
-    expect(extractMentionedFiles('look at @projects/alpha.md please')).toEqual(['projects/alpha.md'])
+  it('extracts a single @me mention', () => {
+    expect(extractMentionedFiles('look at @me/projects/alpha.md please')).toEqual(['me/projects/alpha.md'])
   })
 
-  it('extracts multiple @mentions', () => {
-    expect(extractMentionedFiles('@a.md and @b/c.md')).toEqual(['a.md', 'b/c.md'])
+  it('extracts multiple @me mentions', () => {
+    expect(extractMentionedFiles('@me/a.md and @me/b/c.md')).toEqual(['me/a.md', 'me/b/c.md'])
+  })
+
+  it('preserves @ for peer handle paths', () => {
+    expect(extractMentionedFiles('see @alice/shared/note.md')).toEqual(['@alice/shared/note.md'])
   })
 
   it('ignores @mentions without .md extension', () => {
@@ -332,13 +336,13 @@ describe('buildChatBody', () => {
 
   it('appends mentioned files to context on first message', () => {
     const body = buildChatBody({
-      message: 'check @projects/alpha.md',
+      message: 'check @me/projects/alpha.md',
       sessionId: null,
       context: noContext,
-      mentionedFiles: ['projects/alpha.md'],
+      mentionedFiles: ['me/projects/alpha.md'],
       isFirstMessage: true,
     })
-    expect(body.context as string).toContain('projects/alpha.md')
+    expect(body.context as string).toContain('me/projects/alpha.md')
   })
 
   it('omits context field entirely when type is none and no mentions', () => {

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { getOrCreateSession, deleteSession } from '../agent/index.js'
 import { readFile } from 'node:fs/promises'
-import { wikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { safeWikiRelativePath } from '@server/lib/wiki/wikiEditDiff.js'
 import {
   PathEscapeError,
@@ -157,7 +157,7 @@ chat.post('/', async (c) => {
   if (typeof context === 'string') {
     fileContext = context
   } else if (context?.files?.length) {
-    const wikiRoot = wikiDir()
+    const wikiRoot = wikiToolsDir()
     const safeRelPaths: string[] = []
     for (const filePath of context.files) {
       if (typeof filePath !== 'string') {

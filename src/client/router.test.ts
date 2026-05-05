@@ -158,14 +158,14 @@ describe('parseRoute', () => {
   it('parses wiki overlay via panel on /c', () => {
     expect(parseRoute('http://localhost/c?panel=wiki')).toEqual({ overlay: { type: 'wiki' } })
     expect(parseRoute('http://localhost/c?panel=wiki&path=folder/file.md')).toEqual({
-      overlay: { type: 'wiki', path: 'folder/file.md' },
+      overlay: { type: 'wiki', path: 'me/folder/file.md' },
     })
   })
 
   it('parses path-based /wiki/folder/file.md as local wiki doc', () => {
     expect(parseRoute('http://localhost/wiki/folder/file.md')).toEqual({
       wikiActive: true,
-      overlay: { type: 'wiki', path: 'folder/file.md' },
+      overlay: { type: 'wiki', path: 'me/folder/file.md' },
     })
   })
 
@@ -178,7 +178,7 @@ describe('parseRoute', () => {
 
   it('parses wiki-dir via panel', () => {
     expect(parseRoute('http://localhost/c?panel=wiki-dir&path=people/nested')).toEqual({
-      overlay: { type: 'wiki-dir', path: 'people/nested' },
+      overlay: { type: 'wiki-dir', path: 'me/people/nested' },
     })
   })
 
@@ -316,10 +316,10 @@ describe('parseRoute your-wiki / hub', () => {
 })
 
 describe('parseRoute /wiki primary', () => {
-  it('parses /wikis/me/ideas/file.md as local wiki doc (vault path after me/)', () => {
+  it('parses /wikis/me/ideas/file.md as unified wiki path under me/', () => {
     expect(parseRoute('http://localhost/wikis/me/ideas/file.md')).toEqual({
       wikiActive: true,
-      overlay: { type: 'wiki', path: 'ideas/file.md' },
+      overlay: { type: 'wiki', path: 'me/ideas/file.md' },
     })
   })
 
@@ -344,21 +344,21 @@ describe('parseRoute /wiki primary', () => {
   it('parses /wiki?path= as wiki doc', () => {
     expect(parseRoute('http://localhost/wiki?path=ideas%2Fnote.md')).toEqual({
       wikiActive: true,
-      overlay: { type: 'wiki', path: 'ideas/note.md' },
+      overlay: { type: 'wiki', path: 'me/ideas/note.md' },
     })
   })
 
   it('parses panel=wiki with path', () => {
     expect(parseRoute('http://localhost/wiki?panel=wiki&path=x.md')).toEqual({
       wikiActive: true,
-      overlay: { type: 'wiki', path: 'x.md' },
+      overlay: { type: 'wiki', path: 'me/x.md' },
     })
   })
 
   it('parses wiki-dir on /wiki', () => {
     expect(parseRoute('http://localhost/wiki?panel=wiki-dir&path=people')).toEqual({
       wikiActive: true,
-      overlay: { type: 'wiki-dir', path: 'people' },
+      overlay: { type: 'wiki-dir', path: 'me/people' },
     })
   })
 })
@@ -420,25 +420,25 @@ describe('routeToUrl', () => {
 
   it('wiki with path', () => {
     expect(routeToUrl({ overlay: { type: 'wiki', path: 'ideas/foo.md' } })).toBe(
-      '/c?panel=wiki&path=ideas%2Ffoo.md',
+      '/c?panel=wiki&path=me%2Fideas%2Ffoo.md',
     )
   })
 
   it('wiki with space in path', () => {
     expect(routeToUrl({ overlay: { type: 'wiki', path: 'ideas/my note.md' } })).toBe(
-      '/c?panel=wiki&path=ideas%2Fmy+note.md',
+      '/c?panel=wiki&path=me%2Fideas%2Fmy+note.md',
     )
   })
 
   it('wiki-dir with path', () => {
     expect(routeToUrl({ overlay: { type: 'wiki-dir', path: 'people/notes' } })).toBe(
-      '/c?panel=wiki-dir&path=people%2Fnotes',
+      '/c?panel=wiki-dir&path=me%2Fpeople%2Fnotes',
     )
   })
 
   it('hub with wiki-dir overlay', () => {
     expect(routeToUrl({ hubActive: true, overlay: { type: 'wiki-dir', path: 'people' } })).toBe(
-      '/hub?panel=wiki-dir&path=people',
+      '/hub?panel=wiki-dir&path=me%2Fpeople',
     )
   })
 
@@ -520,11 +520,11 @@ describe('routeToUrl', () => {
   })
 
   it('wiki primary with path uses path segments', () => {
-    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki', path: 'a/b.md' } })).toBe('/wiki/a/b.md')
+    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki', path: 'a/b.md' } })).toBe('/wiki/me/a/b.md')
   })
 
   it('wiki-dir on primary uses trailing slash', () => {
-    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki-dir', path: 'people' } })).toBe('/wiki/people/')
+    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki-dir', path: 'people' } })).toBe('/wiki/me/people/')
   })
 
   it('wiki-dir hub without path uses /wiki/', () => {
@@ -560,8 +560,8 @@ describe('round-trip: routeToUrl → parseRoute', () => {
   const cases: Route[] = [
     {},
     { overlay: { type: 'wiki' } },
-    { overlay: { type: 'wiki', path: 'ideas/my note.md' } },
-    { overlay: { type: 'wiki-dir', path: 'people/sub' } },
+    { overlay: { type: 'wiki', path: 'me/ideas/my note.md' } },
+    { overlay: { type: 'wiki-dir', path: 'me/people/sub' } },
     { overlay: { type: 'file' as const } },
     { overlay: { type: 'file' as const, path: '/Users/foo/bar.txt' } },
     { overlay: { type: 'email' as const } },
@@ -593,8 +593,8 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { overlay: { type: 'hub-wiki-about' as const } },
     { hubActive: true, overlay: { type: 'chat-history' } },
     { wikiActive: true, overlay: { type: 'wiki' as const } },
-    { wikiActive: true, overlay: { type: 'wiki' as const, path: 'ideas/note.md' } },
-    { wikiActive: true, overlay: { type: 'wiki-dir' as const, path: 'people/sub' } },
+    { wikiActive: true, overlay: { type: 'wiki' as const, path: 'me/ideas/note.md' } },
+    { wikiActive: true, overlay: { type: 'wiki-dir' as const, path: 'me/people/sub' } },
   ]
 
   for (const route of cases) {
@@ -614,7 +614,7 @@ describe('round-trip: routeToUrl → parseRoute', () => {
 
   it('round-trips UUID chat + overlay when tail is primed', () => {
     primeChatSessionTail(uuid)
-    const r = { sessionId: uuid, overlay: { type: 'wiki' as const, path: 'x.md' } }
+    const r = { sessionId: uuid, overlay: { type: 'wiki' as const, path: 'me/x.md' } }
     const url = `http://localhost${routeToUrl(r)}`
     expect(parseRoute(url)).toEqual(r)
   })
@@ -680,11 +680,11 @@ describe('contextToString', () => {
   it('formats wiki context with path and title', () => {
     const ctx: SurfaceContext = {
       type: 'wiki',
-      path: 'projects/alpha.md',
+      path: 'me/projects/alpha.md',
       title: 'Project Alpha',
     }
     const s = contextToString(ctx)!
-    expect(s).toContain('projects/alpha.md')
+    expect(s).toContain('me/projects/alpha.md')
     expect(s).toContain('Project Alpha')
   })
 

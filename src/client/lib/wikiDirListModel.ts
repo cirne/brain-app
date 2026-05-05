@@ -60,10 +60,11 @@ export function countOutgoingSharesForVaultPath(
   owned: readonly WikiOwnedShareRef[] | null | undefined,
 ): number {
   if (!owned?.length) return 0
+  const vaultRel = vaultRelativeFromUnifiedWikiPath(wikiRelPath)
   let n = 0
   for (const o of owned) {
     const tk = o.targetKind ?? 'dir'
-    if (wikiShareCoversVaultPath(wikiRelPath, o.pathPrefix, tk)) n += 1
+    if (wikiShareCoversVaultPath(vaultRel, o.pathPrefix, tk)) n += 1
   }
   return n
 }
@@ -118,6 +119,13 @@ export type WikiDirListEntry =
 export function normalizeWikiDirPath(dirPath: string | undefined): string {
   if (!dirPath?.trim()) return ''
   return dirPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').replace(/\/+/g, '/')
+}
+
+/** Strip leading `me/` for paths under the personal vault (`ideas/x.md`); otherwise unchanged (`@alice/x.md`). */
+export function vaultRelativeFromUnifiedWikiPath(unifiedPath: string): string {
+  const p = unifiedPath.trim().replace(/^\/+/, '').replace(/\\/g, '/')
+  if (p.startsWith('me/')) return p.slice(3)
+  return p
 }
 
 /**
@@ -225,6 +233,23 @@ export function migrateLegacySharedWithMeDirPath(dirPath: string): string {
 }
 
 /**
+ * Wiki-dir browse path → unified tree directory key without trailing slash (`me`, `me/ideas`, `@alice/trips`).
+ */
+export function browseDirToUnifiedWikiTreeDir(dirPath: string | undefined): string {
+  let d = normalizeWikiDirPath(dirPath ?? '')
+  if (d === SHARED_WITH_ME_SEGMENT || d.startsWith(`${SHARED_WITH_ME_SEGMENT}/`)) {
+    d = migrateLegacySharedWithMeDirPath(dirPath ?? '')
+  }
+  if (d === LEGACY_MY_WIKI_URL_SEGMENT || d.startsWith(`${LEGACY_MY_WIKI_URL_SEGMENT}/`)) {
+    d = d === LEGACY_MY_WIKI_URL_SEGMENT ? 'me' : `me/${d.slice(LEGACY_MY_WIKI_URL_SEGMENT.length + 1)}`
+  }
+  if (!d || d === MY_WIKI_SEGMENT || d === MY_WIKI_URL_SEGMENT) return 'me'
+  if (d.startsWith('@')) return d
+  if (d.startsWith('me/') || d === 'me') return d === 'me' ? 'me' : d
+  return `me/${d}`
+}
+
+/**
  * Whether `dirPath` is under a peer `@handle` shared mount or legacy Shared-with-me paths.
  */
 export function isSharedNamespacePath(dirPath: string | undefined): boolean {
@@ -248,8 +273,8 @@ export function sharedRowPath(ownerHandle: string, shareId: string): string {
  * that contain at least one descendant file (local wiki only).
  */
 export function listWikiDirChildren(files: readonly WikiFileRow[], dirPath: string | undefined): WikiDirListEntry[] {
-  const dir = normalizeWikiDirPath(dirPath)
-  const prefix = dir ? `${dir}/` : ''
+  const treeDir = browseDirToUnifiedWikiTreeDir(dirPath)
+  const prefix = treeDir === 'me' ? 'me/' : `${treeDir}/`
   const dirs = new Map<string, string>()
   const filesOut: WikiDirListEntry[] = []
 
@@ -299,7 +324,7 @@ export function listWikiDirChildrenWithShares(
   }
 
   if (!received?.length) {
-    return listWikiDirChildren(files, vaultRelativeDirFromWikiBrowseDir(dir || undefined))
+    return listWikiDirChildren(files, dir || undefined)
   }
 
   if (dir === '') {
@@ -329,20 +354,6 @@ export function listWikiDirChildrenWithShares(
       }
     })
     return [myWiki, ...ownerRows]
-  }
-
-  if (dir === MY_WIKI_SEGMENT || dir === MY_WIKI_URL_SEGMENT) {
-    return listWikiDirChildren(files, undefined)
-  }
-
-  if (dir.startsWith(`${MY_WIKI_SEGMENT}/`)) {
-    const suffix = dir.slice(MY_WIKI_SEGMENT.length + 1)
-    return listWikiDirChildren(files, suffix || undefined)
-  }
-
-  if (dir.startsWith(`${MY_WIKI_URL_SEGMENT}/`)) {
-    const suffix = dir.slice(MY_WIKI_URL_SEGMENT.length + 1)
-    return listWikiDirChildren(files, suffix || undefined)
   }
 
   return listWikiDirChildren(files, dir || undefined)

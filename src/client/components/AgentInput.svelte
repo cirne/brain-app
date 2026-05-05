@@ -119,7 +119,8 @@
   function insertMention(path: string) {
     const before = input.slice(0, mentionStart)
     const after = input.slice(mentionStart + mentionFilter.length + 1)
-    input = `${before}@${path} ${after}`
+    const token = `@${path.replace(/^@+/, '')}`
+    input = `${before}${token} ${after}`
     showMentions = false
     inputEl?.focus()
   }

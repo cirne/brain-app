@@ -96,7 +96,7 @@ describe('AgentInput.svelte', () => {
   describe('@mention menu', () => {
     it('shows mention menu for @ and inserts path on pick', async () => {
       const props = agentInputTestProps({
-        wikiFiles: ['people/alice.md', 'ideas/note.md'],
+        wikiFiles: ['me/people/alice.md', 'me/ideas/note.md'],
       })
       render(AgentInput, { props })
 
@@ -106,12 +106,12 @@ describe('AgentInput.svelte', () => {
       const opt = await screen.findByRole('button', { name: /alice/i })
       await fireEvent.mouseDown(opt)
 
-      expect((ta as HTMLTextAreaElement).value).toContain('@people/alice.md')
+      expect((ta as HTMLTextAreaElement).value).toContain('@me/people/alice.md')
     })
 
     it('navigates mention menu with arrow keys', async () => {
       const props = agentInputTestProps({
-        wikiFiles: ['people/alice.md', 'people/bob.md', 'people/carol.md'],
+        wikiFiles: ['me/people/alice.md', 'me/people/bob.md', 'me/people/carol.md'],
       })
       render(AgentInput, { props })
 
@@ -125,12 +125,12 @@ describe('AgentInput.svelte', () => {
       await fireEvent.keyDown(ta, { key: 'ArrowUp' })
       await fireEvent.keyDown(ta, { key: 'Enter' })
 
-      expect((ta as HTMLTextAreaElement).value).toContain('@people/bob.md')
+      expect((ta as HTMLTextAreaElement).value).toContain('@me/people/bob.md')
     })
 
     it('selects mention with Tab key', async () => {
       const props = agentInputTestProps({
-        wikiFiles: ['people/alice.md'],
+        wikiFiles: ['me/people/alice.md'],
       })
       render(AgentInput, { props })
 
@@ -140,12 +140,12 @@ describe('AgentInput.svelte', () => {
       await screen.findByRole('button', { name: /alice/i })
       await fireEvent.keyDown(ta, { key: 'Tab' })
 
-      expect((ta as HTMLTextAreaElement).value).toContain('@people/alice.md')
+      expect((ta as HTMLTextAreaElement).value).toContain('@me/people/alice.md')
     })
 
     it('closes mention menu on Escape', async () => {
       const props = agentInputTestProps({
-        wikiFiles: ['people/alice.md'],
+        wikiFiles: ['me/people/alice.md'],
       })
       render(AgentInput, { props })
 
@@ -160,7 +160,7 @@ describe('AgentInput.svelte', () => {
 
     it('shows "No matching files" when filter has no results', async () => {
       const props = agentInputTestProps({
-        wikiFiles: ['people/alice.md'],
+        wikiFiles: ['me/people/alice.md'],
       })
       render(AgentInput, { props })
 
@@ -172,7 +172,7 @@ describe('AgentInput.svelte', () => {
 
     it('hides mention menu when @ is followed by space', async () => {
       const props = agentInputTestProps({
-        wikiFiles: ['people/alice.md'],
+        wikiFiles: ['me/people/alice.md'],
       })
       render(AgentInput, { props })
 

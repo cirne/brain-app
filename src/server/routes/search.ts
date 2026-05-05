@@ -3,7 +3,7 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { join, relative, basename } from 'node:path'
 import { readFile } from 'node:fs/promises'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { buildWikiExcerpt } from '@server/lib/wiki/wikiSearchExcerpt.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
@@ -19,7 +19,7 @@ search.get('/', async (c) => {
   const q = c.req.query('q')?.trim()
   if (!q) return c.json({ results: [] })
 
-  const dir = wikiDir()
+  const dir = wikiToolsDir()
   const qLower = q.toLowerCase()
 
   const [wikiResult, emailResult] = await Promise.allSettled([

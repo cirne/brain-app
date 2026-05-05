@@ -131,9 +131,30 @@ export function extractReferencedFiles(messages: ChatMessage[]): string[] {
   return files
 }
 
-/** Extract @path/to/file.md mentions from a message string. */
+/**
+ * Extract wiki paths from @-mentions. Personal vault uses `@me/...`; shared uses `@handle/...`.
+ * Must not strip the inner `@` for peer handles.
+ */
 export function extractMentionedFiles(text: string): string[] {
-  return [...text.matchAll(/@([\w/.-]+\.md)/g)].map(m => m[1])
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const m of text.matchAll(/@(me\/[\w./-]+\.md\b)/g)) {
+    const p = m[1]
+    if (!seen.has(p)) {
+      seen.add(p)
+      out.push(p)
+    }
+  }
+  for (const m of text.matchAll(/@([\w.-]+\/[\w./-]+\.md\b)/g)) {
+    const p = m[1]
+    if (p.startsWith('me/')) continue
+    const full = `@${p}`
+    if (!seen.has(full)) {
+      seen.add(full)
+      out.push(full)
+    }
+  }
+  return out
 }
 
 /** Build the POST /api/chat request body. Context and mentioned files are only

@@ -18,8 +18,8 @@
 
 ## Scope (suggested)
 
-1. **`ripmail wizard`** — extend **shared settings** (and first-run where applicable) with an LLM subsection: provider (`openai` / `anthropic` / `ollama`), conditional prompts for keys, optional `baseUrl` for Ollama, optional `fastModel` / `defaultModel` or “use defaults” for OpenAI/Anthropic.
-2. **`ripmail setup`** — non-interactive flags aligned with [OPP-046 archived § Setup / Wizard Integration](../opportunities/archive/OPP-046-llm-provider-flexibility.md) (e.g. `--llm-provider`, `--anthropic-key`, `--ollama-base-url`, optional model overrides).
+1. `**ripmail wizard`** — extend **shared settings** (and first-run where applicable) with an LLM subsection: provider (`openai` / `anthropic` / `ollama`), conditional prompts for keys, optional `baseUrl` for Ollama, optional `fastModel` / `defaultModel` or “use defaults” for OpenAI/Anthropic.
+2. `**ripmail setup`** — non-interactive flags aligned with [OPP-046 archived § Setup / Wizard Integration](../opportunities/archive/OPP-046-llm-provider-flexibility.md) (e.g. `--llm-provider`, `--anthropic-key`, `--ollama-base-url`, optional model overrides).
 3. **Write path** — merge into `config.json` `llm` and `~/.ripmail/.env` using existing `resolve_llm` / validation helpers where possible (same validation as `validate_openai_key` for Anthropic if we add `validate_anthropic_key`).
 
 ---

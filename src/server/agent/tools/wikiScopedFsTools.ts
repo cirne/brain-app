@@ -16,6 +16,7 @@ import {
   createFindTool,
 } from '@mariozechner/pi-coding-agent'
 import { appendWikiEditRecord, coerceWikiToolRelativePath } from '@server/lib/wiki/wikiEditHistory.js'
+import { sanitizeWikiFilesystemToolError } from '@server/lib/wiki/wikiToolFsErrors.js'
 import { assertAgentWikiWriteUsesSubdirectory } from '@server/lib/wiki/wikiAgentWritePolicy.js'
 import { formatWikiKebabNormalizedFromNote, resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
 import { wikiFindGlobAbsolutePaths } from '@server/lib/wiki/wikiFindGlob.js'
@@ -86,7 +87,7 @@ export function createWikiScopedPiTools(
       const abs = resolve(trimmed)
       const rel = relative(wikiDir, abs)
       if (rel.startsWith('..') || rel === '') {
-        throw new Error(`Path escapes wiki root: ${trimmed}`)
+        throw new Error('Path escapes wiki tool root')
       }
       return rel.split(/[/\\]/).join('/')
     }
@@ -115,7 +116,11 @@ export function createWikiScopedPiTools(
     ...readToolInner,
     async execute(toolCallId: string, params: { path: string; offset?: number; limit?: number }) {
       const path = await granteePath(params.path)
-      return readToolInner.execute(toolCallId, { ...params, path })
+      try {
+        return await readToolInner.execute(toolCallId, { ...params, path })
+      } catch (e) {
+        throw sanitizeWikiFilesystemToolError(path, e)
+      }
     },
   }
   const editToolInner = createEditTool(wikiDir)
@@ -128,7 +133,12 @@ export function createWikiScopedPiTools(
       const path = await granteePath(params.path)
       assertWritable(path, 'edit')
       const next = { ...params, path }
-      const result = await editToolInner.execute(toolCallId, next)
+      let result
+      try {
+        result = await editToolInner.execute(toolCallId, next)
+      } catch (e) {
+        throw sanitizeWikiFilesystemToolError(path, e)
+      }
       await appendWikiEditRecord(wikiDir, 'edit', path).catch(() => {})
 
       const vaultRel = vaultRelPathFromMeToolPath(path)
@@ -176,9 +186,14 @@ export function createWikiScopedPiTools(
         }
       }
       const next = { ...params, path }
-      const result = (await writeToolInner.execute(toolCallId, next)) as {
+      let result: {
         content: { type: 'text'; text: string }[]
         details?: unknown
+      }
+      try {
+        result = (await writeToolInner.execute(toolCallId, next)) as typeof result
+      } catch (e) {
+        throw sanitizeWikiFilesystemToolError(path, e)
       }
       await appendWikiEditRecord(wikiDir, 'write', path).catch(() => {})
 
@@ -268,14 +283,19 @@ export function createWikiScopedPiTools(
         params.path !== undefined ? mergeFindPathParam(params.path, await granteePath(params.path)) : params.path
       const { case_sensitive, ...piParams } = params
       void case_sensitive
-      return wikiFindCaseSensitiveAls.run(caseSensitive, () =>
-        findToolInner.execute(
-          toolCallId,
-          { ...piParams, path: pathResolved },
-          signal,
-          ...(rest as never[]),
-        ),
-      )
+      const displayPath = typeof pathResolved === 'string' ? pathResolved : '.'
+      try {
+        return await wikiFindCaseSensitiveAls.run(caseSensitive, () =>
+          findToolInner.execute(
+            toolCallId,
+            { ...piParams, path: pathResolved },
+            signal,
+            ...(rest as never[]),
+          ),
+        )
+      } catch (e) {
+        throw sanitizeWikiFilesystemToolError(displayPath, e)
+      }
     },
   }
 
@@ -300,7 +320,11 @@ export function createWikiScopedPiTools(
       void rest
       const pathResolved = params.path !== undefined ? await granteePath(params.path) : undefined
       const ignoreCase = params.ignoreCase !== false
-      return executeWikiSymlinkAwareGrep(wikiDir, { ...params, ignoreCase, path: pathResolved }, signal)
+      try {
+        return await executeWikiSymlinkAwareGrep(wikiDir, { ...params, ignoreCase, path: pathResolved }, signal)
+      } catch (e) {
+        throw sanitizeWikiFilesystemToolError(pathResolved ?? '.', e)
+      }
     },
   }
 

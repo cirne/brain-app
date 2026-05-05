@@ -18,7 +18,7 @@ import {
   type WikiShareRow,
 } from '@server/lib/shares/wikiSharesRepo.js'
 import { resolveShareOwnerIdForGranteeHandle } from '@server/lib/shares/wikiShareByHandle.js'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { listWikiFiles, recentWikiFilesByMtime } from '@server/lib/wiki/wikiFiles.js'
 import { appendWikiEditRecord, readRecentWikiEdits } from '@server/lib/wiki/wikiEditHistory.js'
 import { resolveWikiPathForCreate } from '@server/lib/wiki/wikiPathNaming.js'
@@ -28,9 +28,27 @@ import { syncWikiShareProjectionsForGrantee } from '@server/lib/shares/wikiShare
 
 const wiki = new Hono()
 
-// GET /api/wiki — list vault markdown files + share hints for this tenant (single round trip)
+function wikiRoots(): { tools: string; vault: string } {
+  return { tools: resolve(wikiToolsDir()), vault: resolve(wikiDir()) }
+}
+
+/** Legacy `_log.md` paths are vault-relative; map to unified `wikis/`-relative paths. */
+function logBodyRefToWikisRelative(ref: string): string {
+  let p = ref.trim().replace(/\\/g, '/')
+  if (p.startsWith('wiki/')) p = p.slice(5)
+  const withMd = p.endsWith('.md') ? p : `${p}.md`
+  if (withMd.startsWith('me/') || withMd.startsWith('@')) return withMd
+  return `me/${withMd}`
+}
+
+function isPersonalWikiMutationPath(rel: string): boolean {
+  const n = rel.trim().replace(/\\/g, '/').replace(/^\/+/, '')
+  return n.startsWith('me/')
+}
+
+// GET /api/wiki — list markdown files under unified `wikis/` + share hints for this tenant (single round trip)
 wiki.get('/', async (c) => {
-  const dir = wikiDir()
+  const { tools: dir } = wikiRoots()
   const paths = await listWikiFiles(dir)
   const files = paths.map((p) => ({ path: p, name: basename(p, '.md') }))
   const ctx = tryGetTenantContext()
@@ -44,7 +62,7 @@ wiki.get('/', async (c) => {
 
 // POST /api/wiki — create a new .md (optional body markdown; default empty stub)
 wiki.post('/', async (c) => {
-  const dir = resolve(wikiDir())
+  const { tools: dir } = wikiRoots()
   let body: { path?: unknown; markdown?: unknown }
   try {
     body = await c.req.json()
@@ -54,6 +72,9 @@ wiki.post('/', async (c) => {
   const rel = typeof body.path === 'string' ? body.path.trim() : ''
   if (!rel || !rel.endsWith('.md')) {
     return c.json({ error: 'Expected { path: string } ending in .md' }, 400)
+  }
+  if (!isPersonalWikiMutationPath(rel)) {
+    return c.json({ error: 'Path must start with me/ (personal vault)' }, 400)
   }
   if (rel.includes('..') || rel.startsWith('/')) {
     return c.json({ error: 'Invalid path' }, 400)
@@ -89,7 +110,7 @@ wiki.post('/', async (c) => {
     return c.json({ error: 'Create failed' }, 500)
   }
   try {
-    await appendWikiEditRecord(wikiDir(), 'write', outPath, { source: 'user' })
+    await appendWikiEditRecord(dir, 'write', outPath, { source: 'user' })
   } catch {
     /* best-effort log */
   }
@@ -101,7 +122,7 @@ wiki.get('/search', async (c) => {
   const q = c.req.query('q')
   if (!q) return c.json([])
 
-  const dir = wikiDir()
+  const { tools: dir } = wikiRoots()
   try {
     const paths = await searchWikiMarkdownPaths(dir, q)
     return c.json(paths)
@@ -121,12 +142,12 @@ wiki.post('/sync', async (c) => {
 // Canonical structured wiki mutation log is `var/wiki-edits.jsonl` (see wikiEditHistory); new work should not rely on `_log.md`.
 wiki.get('/log', async (c) => {
   const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10), 50)
-  const dir = wikiDir()
-  const logPath = join(dir, '_log.md')
+  const { tools, vault } = wikiRoots()
+  const logPath = join(vault, '_log.md')
   try {
     const [raw, allFiles] = await Promise.all([
       readFile(logPath, 'utf-8'),
-      listWikiFiles(dir),
+      listWikiFiles(tools),
     ])
     const existingFiles = new Set(allFiles)
     const entries: { date: string; type: string; description: string; files: string[] }[] = []
@@ -150,7 +171,7 @@ wiki.get('/log', async (c) => {
         if (p.endsWith('/')) continue  // skip bare directory paths
         // Strip leading wiki/ prefix that some log entries include
         if (p.startsWith('wiki/')) p = p.slice(5)
-        const normalized = p.endsWith('.md') ? p : p + '.md'
+        const normalized = logBodyRefToWikisRelative(p)
         if (!seen.has(normalized) && existingFiles.has(normalized)) {
           seen.add(normalized)
           files.push(normalized)
@@ -177,7 +198,7 @@ wiki.get('/edit-history', async (c) => {
 wiki.get('/recent', async (c) => {
   try {
     const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10), 50)
-    const dir = wikiDir()
+    const { tools: dir } = wikiRoots()
     const files = await recentWikiFilesByMtime(dir, limit)
     return c.json({ files })
   } catch {
@@ -395,7 +416,7 @@ wiki.get('/dir-icon/:dir', async (c) => {
 
 // POST /api/wiki/move — rename/move a page (JSON { from, to } relative to wiki root)
 wiki.post('/move', async (c) => {
-  const dir = resolve(wikiDir())
+  const { tools: dir } = wikiRoots()
   let body: { from?: unknown; to?: unknown }
   try {
     body = await c.req.json()
@@ -406,6 +427,9 @@ wiki.post('/move', async (c) => {
   const to = typeof body.to === 'string' ? body.to.trim() : ''
   if (!from.endsWith('.md') || !to.endsWith('.md')) {
     return c.json({ error: 'Expected { from, to } as .md paths' }, 400)
+  }
+  if (!isPersonalWikiMutationPath(from) || !isPersonalWikiMutationPath(to)) {
+    return c.json({ error: 'Paths must start with me/' }, 400)
   }
   if (from.includes('..') || to.includes('..')) {
     return c.json({ error: 'Invalid path' }, 400)
@@ -442,7 +466,7 @@ wiki.post('/move', async (c) => {
     return c.json({ error: 'Move failed' }, 500)
   }
   try {
-    await appendWikiEditRecord(wikiDir(), 'move', toRes.path, { fromPath: from, source: 'user' })
+    await appendWikiEditRecord(dir, 'move', toRes.path, { fromPath: from, source: 'user' })
   } catch {
     /* best-effort */
   }
@@ -455,10 +479,13 @@ wiki.post('/move', async (c) => {
 
 // DELETE /api/wiki/:path — remove a markdown file
 wiki.delete('/:path{.+}', async (c) => {
-  const dir = resolve(wikiDir())
+  const { tools: dir } = wikiRoots()
   const filePath = c.req.param('path')
   if (!filePath.endsWith('.md')) {
     return c.json({ error: 'Only .md files can be deleted' }, 400)
+  }
+  if (!isPersonalWikiMutationPath(filePath)) {
+    return c.json({ error: 'Path must start with me/' }, 400)
   }
   const fullPath = resolve(join(dir, filePath))
   if (!fullPath.startsWith(dir + '/')) {
@@ -470,7 +497,7 @@ wiki.delete('/:path{.+}', async (c) => {
     return c.json({ error: 'Not found or delete failed' }, 404)
   }
   try {
-    await appendWikiEditRecord(wikiDir(), 'delete', filePath, { source: 'user' })
+    await appendWikiEditRecord(dir, 'delete', filePath, { source: 'user' })
   } catch {
     /* best-effort */
   }
@@ -479,7 +506,7 @@ wiki.delete('/:path{.+}', async (c) => {
 
 // PATCH /api/wiki/:path — save full markdown file (including YAML front matter)
 wiki.patch('/:path{.+}', async (c) => {
-  const dir = resolve(wikiDir())
+  const { tools: dir } = wikiRoots()
   const filePath = c.req.param('path')
   let outPath = filePath
   let fullPath = resolve(join(dir, filePath))
@@ -495,6 +522,10 @@ wiki.patch('/:path{.+}', async (c) => {
   }
   if (typeof body.markdown !== 'string') {
     return c.json({ error: 'Expected { markdown: string }' }, 400)
+  }
+
+  if (!isPersonalWikiMutationPath(filePath)) {
+    return c.json({ error: 'Path must start with me/' }, 400)
   }
 
   let normalizedFrom: string | undefined
@@ -528,7 +559,7 @@ wiki.patch('/:path{.+}', async (c) => {
 // GET /api/wiki/:path — read and render a specific page
 // IMPORTANT: this catch-all route must be registered AFTER specific routes above
 wiki.get('/:path{.+}', async (c) => {
-  const dir = resolve(wikiDir())
+  const { tools: dir } = wikiRoots()
   const filePath = c.req.param('path')
   const fullPath = resolve(join(dir, filePath))
 

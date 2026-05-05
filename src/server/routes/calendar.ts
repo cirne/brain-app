@@ -5,7 +5,7 @@ import { join, relative } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { getCalendarEvents, type CalendarEvent } from '@server/lib/calendar/calendarCache.js'
 import { syncCalendarSourcesRipmail, syncInboxRipmail } from '@server/lib/platform/syncAll.js'
-import { wikiDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 import { buildWikiExcerpt } from '@server/lib/wiki/wikiSearchExcerpt.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailBin } from '@server/lib/ripmail/ripmailBin.js'
@@ -77,7 +77,7 @@ async function searchEmails(query: string, limit: number): Promise<EmailHit[]> {
 }
 
 async function searchWiki(query: string, limit: number): Promise<WikiHit[]> {
-  const dir = wikiDir()
+  const dir = wikiToolsDir()
   try {
     const { stdout } = await execAsync(
       `grep -r --include="*.md" --exclude="_log.md" -ilc ${JSON.stringify(query)} ${JSON.stringify(dir)} 2>/dev/null || true`,
@@ -112,7 +112,7 @@ async function searchWiki(query: string, limit: number): Promise<WikiHit[]> {
 /** Try to find a wiki page for a person by name (e.g. "Kirsten Cirne" → people/kirsten-cirne.md). */
 async function findPersonWikiPageByName(name: string | undefined): Promise<string | undefined> {
   if (!name?.trim()) return undefined
-  const dir = wikiDir()
+  const dir = wikiToolsDir()
   try {
     const { stdout } = await execAsync(
       `find ${JSON.stringify(dir)} -iname ${JSON.stringify(`*${name.trim().replace(/\s+/g, '*')}*.md`)} -type f 2>/dev/null | head -5`,
@@ -140,7 +140,7 @@ function pickPreferredWikiPath(dir: string, absPaths: string[]): string | undefi
  * 2) glob *localpart*.md (e.g. dwilcox → …/dwilcox.md)
  */
 async function findPersonWikiPageByEmail(email: string): Promise<string | undefined> {
-  const dir = wikiDir()
+  const dir = wikiToolsDir()
   const lower = email.toLowerCase().trim()
   try {
     const { stdout } = await execAsync(
