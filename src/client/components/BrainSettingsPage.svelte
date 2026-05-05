@@ -17,7 +17,11 @@
   import { cn } from '@client/lib/cn.js'
   import type { NavigateOptions, Overlay } from '@client/router.js'
   import { subscribe, emit } from '@client/lib/app/appEvents.js'
-  import { fetchWikiSharesList, type WikiShareApiRow } from '@client/lib/wikiSharesClient.js'
+  import {
+    fetchWikiSharesList,
+    wikiShareGranteeLabel,
+    type WikiShareApiRow,
+  } from '@client/lib/wikiSharesClient.js'
   import {
     fetchVaultStatus,
     postVaultDeleteAllData,
@@ -694,7 +698,7 @@
                     </button>
                   </span>
                   <span class={shareMeta}>
-                    → {row.granteeEmail ?? row.granteeId}
+                    → {wikiShareGranteeLabel(row)}
                     {#if row.acceptedAtMs != null}
                       <span class={sharePillBase}>Active</span>
                     {:else}

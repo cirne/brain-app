@@ -80,6 +80,7 @@
     mobileOverflowMenuShowsChatSessionActions,
     shouldReplaceWikiOverlay
       } from '@client/lib/assistantShellNavigation.js'
+  import { tryDismissTipTapFloatingMenuFromEscape } from '@client/lib/tiptapFloatingMenuEscape.js'
   import { waitUntilDefinedOrMaxTicks } from '@client/lib/async/waitUntilReady.js'
   import { alignShellWithBareChatRoute, createAssistantShellState, createShellNavigate } from '@client/lib/assistant/shell.js'
   import {
@@ -511,6 +512,10 @@
     }
     window.addEventListener('popstate', onPopState)
     const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && tryDismissTipTapFloatingMenuFromEscape()) {
+        e.preventDefault()
+        return
+      }
       if (e.key === 'Escape' && shell.route.zone === 'wiki') {
         e.preventDefault()
         closeWikiPrimary()

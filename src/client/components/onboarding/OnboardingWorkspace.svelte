@@ -24,6 +24,7 @@
   import { runParallelSyncs } from '@client/lib/app/syncAllServices.js'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
   import { matchGlobalShortcut } from '@client/lib/app/globalShortcuts.js'
+  import { tryDismissTipTapFloatingMenuFromEscape } from '@client/lib/tiptapFloatingMenuEscape.js'
   import { wikiPathForReadToolArg } from '@client/lib/cards/contentCards.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
@@ -139,6 +140,10 @@
     }
     window.addEventListener('popstate', onPopState)
     const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && tryDismissTipTapFloatingMenuFromEscape()) {
+        e.preventDefault()
+        return
+      }
       if (e.key === 'Escape' && route.overlay) {
         e.preventDefault()
         if (slideOverCloseAnimated) slideOverCloseAnimated.closeAnimated()

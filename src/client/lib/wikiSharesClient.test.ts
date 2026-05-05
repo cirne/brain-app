@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fetchWikiSharesList } from './wikiSharesClient.js'
+import { fetchWikiSharesList, wikiShareGranteeLabel } from './wikiSharesClient.js'
 
 describe('wikiSharesClient', () => {
   const origFetch = globalThis.fetch
@@ -39,5 +39,22 @@ describe('wikiSharesClient', () => {
       vi.fn(() => Promise.resolve({ ok: false } as Response)),
     )
     expect(await fetchWikiSharesList()).toBeNull()
+  })
+
+  it('wikiShareGranteeLabel prefers handle, then email, then id', () => {
+    expect(
+      wikiShareGranteeLabel({
+        granteeHandle: 'alex',
+        granteeEmail: 'a@example.com',
+        granteeId: 'usr_x',
+      }),
+    ).toBe('@alex')
+    expect(
+      wikiShareGranteeLabel({
+        granteeEmail: 'a@example.com',
+        granteeId: 'usr_x',
+      }),
+    ).toBe('a@example.com')
+    expect(wikiShareGranteeLabel({ granteeEmail: null, granteeId: 'usr_z' })).toBe('usr_z')
   })
 })

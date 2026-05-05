@@ -34,6 +34,7 @@ export default defineConfig({
           include: [
             'src/client/components/**/*.test.ts',
             'src/client/lib/tiptapFloatingMenuVisibility.test.ts',
+            'src/client/lib/tiptapFloatingMenuEscape.test.ts',
           ],
           environment: 'jsdom',
           setupFiles: [join(root, 'src/client/test/setup.ts')],
@@ -49,6 +50,7 @@ export default defineConfig({
             'src/server/evals/**',
             'src/client/components/**/*.test.ts',
             'src/client/lib/tiptapFloatingMenuVisibility.test.ts',
+            'src/client/lib/tiptapFloatingMenuEscape.test.ts',
           ],
           environment: 'node',
           setupFiles: [

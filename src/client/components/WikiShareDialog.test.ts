@@ -171,7 +171,8 @@ describe('WikiShareDialog.svelte', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('cirne@example.com')).toBeInTheDocument()
+      expect(screen.getByText('@cirne')).toBeInTheDocument()
+      expect(screen.getByText(/invite sent/i)).toBeInTheDocument()
     })
   })
 
@@ -275,7 +276,10 @@ describe('WikiShareDialog.svelte', () => {
       expect(screen.queryByText(/@donna.*not connected/i)).not.toBeInTheDocument()
     })
     await waitFor(() => {
-      expect(screen.getByText('sterling@example.com')).toBeInTheDocument()
+      expect(screen.getByText('@sterling')).toBeInTheDocument()
+    })
+    await waitFor(() => {
+      expect(screen.getByText('@donna')).toBeInTheDocument()
     })
     expect(inviteIdx).toBe(2)
   })
@@ -366,5 +370,89 @@ describe('WikiShareDialog.svelte', () => {
       expect(onSharesChanged).toHaveBeenCalled()
       expect(screen.getByText(/just you/i)).toBeInTheDocument()
     })
+  })
+
+  it('calls onDismiss after Send invites when every invite succeeds', async () => {
+    const onDismiss = vi.fn()
+    const row = apiRow({ granteeEmail: 'solo@example.com' })
+    let listOwned: unknown[] = []
+
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const method = init?.method ?? 'GET'
+      if (urlStr.includes('/api/wiki-shares') && method === 'GET') {
+        return new Response(JSON.stringify({ owned: listOwned, received: [], pendingReceived: [] }), {
+          status: 200,
+        })
+      }
+      listOwned = [row]
+      return new Response(JSON.stringify(row), { status: 200 })
+    }) as typeof fetch
+
+    render(WikiShareDialog, {
+      props: {
+        open: true,
+        pathPrefix: 'trips/',
+        targetKind: 'dir',
+        onDismiss,
+      },
+    })
+
+    const input = screen.getByPlaceholderText('@username or you@example.com')
+    await fireEvent.input(input, { target: { value: 'solo@example.com' } })
+    await fireEvent.keyDown(input, { key: 'Enter' })
+    await fireEvent.click(screen.getByRole('button', { name: /send invites/i }))
+
+    await waitFor(() => {
+      expect(onDismiss).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('does not dismiss when some invites fail', async () => {
+    const onDismiss = vi.fn()
+    let listOwned: unknown[] = []
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const method = init?.method ?? 'GET'
+
+      if (urlStr.includes('/api/wiki-shares') && method === 'GET') {
+        return new Response(JSON.stringify({ owned: listOwned, received: [], pendingReceived: [] }), {
+          status: 200,
+        })
+      }
+
+      const body = (init?.body as string) ?? ''
+      const parsed = JSON.parse(body) as { granteeEmail?: string }
+      if (parsed.granteeEmail === 'good@example.com') {
+        const okRow = apiRow({ id: 'wsh_good', granteeEmail: 'good@example.com' })
+        listOwned = [okRow]
+        return new Response(JSON.stringify(okRow), { status: 200 })
+      }
+      return new Response(JSON.stringify({ error: 'oops', message: 'No' }), { status: 400 })
+    }) as typeof fetch
+
+    render(WikiShareDialog, {
+      props: {
+        open: true,
+        pathPrefix: 'trips/',
+        targetKind: 'dir',
+        onDismiss,
+      },
+    })
+
+    const input = screen.getByPlaceholderText('@username or you@example.com')
+    await fireEvent.input(input, { target: { value: 'good@example.com' } })
+    await fireEvent.keyDown(input, { key: 'Enter' })
+    await fireEvent.input(input, { target: { value: 'bad@example.com' } })
+    await fireEvent.keyDown(input, { key: 'Enter' })
+    await fireEvent.click(screen.getByRole('button', { name: /send invites/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /share this folder/i })).toBeInTheDocument()
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /sending…/i })).not.toBeInTheDocument()
+    })
+    expect(onDismiss).not.toHaveBeenCalled()
   })
 })

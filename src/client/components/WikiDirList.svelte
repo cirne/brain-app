@@ -152,32 +152,10 @@
     }
   }
 
-  function metaForEntry(entry: WikiDirListEntry): string {
-    if (entry.kind === 'my-wiki-root') return 'Local'
-    if (entry.kind === 'shared-owner') return 'Shared wiki'
-    if (entry.kind === 'shared-dir' || entry.kind === 'shared-file') return 'Shared'
-    if (sharedMode) {
-      if (entry.kind === 'dir') return 'Shared folder'
-      if (entry.kind === 'file') return 'Shared page'
-    }
-    if (entry.kind === 'dir') return 'Folder'
-    return 'Page'
-  }
-
   function entryHasOutgoingShare(entry: WikiDirListEntry): boolean {
     if (sharedMode) return false
     if (entry.kind !== 'dir' && entry.kind !== 'file') return false
     return countOutgoingSharesForVaultPath(entry.path, ownedShares) > 0
-  }
-
-  function entryOutgoingAudienceCount(entry: WikiDirListEntry): number {
-    if (sharedMode) return 0
-    if (entry.kind !== 'dir' && entry.kind !== 'file') return 0
-    return countOutgoingSharesForVaultPath(entry.path, ownedShares)
-  }
-
-  function formatShareAudienceBadge(n: number): string {
-    return n > 9 ? '9+' : `${n}`
   }
 
   /** Synthetic rows or items listed while browsing someone else's wiki (`shareHandle` / legacy share). */
@@ -272,7 +250,7 @@
             <button
               type="button"
               class={cn(
-                'wiki-dir-row group grid w-full cursor-pointer grid-cols-[auto_1fr_auto_auto] items-center gap-x-3.5 gap-y-3 border-0 border-b border-[color-mix(in_srgb,var(--border)_45%,transparent)] bg-transparent px-0 py-3 text-left text-foreground text-[0.9375rem] transition-[padding-left,color] duration-150 hover:pl-1 hover:text-accent',
+                'wiki-dir-row group grid w-full cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-x-3.5 gap-y-3 border-0 border-b border-[color-mix(in_srgb,var(--border)_45%,transparent)] bg-transparent px-0 py-3 text-left text-foreground text-[0.9375rem] transition-colors duration-150 hover:bg-surface-2 hover:text-accent',
                 entryIsShared(entry) && 'wiki-dir-row--shared',
                 entryHasOutgoingShare(entry) && 'wiki-dir-row--outgoing',
               )}
@@ -294,6 +272,10 @@
                   <FolderSymlink size={18} />
                 {:else if entryIsShared(entry)}
                   <FileSymlink size={18} />
+                {:else if entryHasOutgoingShare(entry) && entry.kind === 'dir'}
+                  <FolderSymlink size={18} />
+                {:else if entryHasOutgoingShare(entry) && entry.kind === 'file'}
+                  <FileSymlink size={18} />
                 {:else if entry.kind === 'dir'}
                   <Folder size={18} />
                 {:else}
@@ -303,20 +285,6 @@
               <span class="wiki-dir-label min-w-0 font-semibold [word-break:break-word]"
                 >{entry.label}</span
               >
-              <span
-                class="wiki-dir-meta inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-[0.8125rem] text-[var(--text-3,var(--text-2))]"
-              >
-                {metaForEntry(entry)}
-                {#if entryOutgoingAudienceCount(entry) > 0}
-                  <span
-                    class="wiki-dir-share-count box-border inline-flex h-5 min-w-5 items-center justify-center bg-[color-mix(in_srgb,var(--accent,#4a90d9)_22%,transparent)] px-[5px] text-[0.6875rem] font-semibold leading-none text-[color-mix(in_srgb,var(--accent,#4a90d9)_88%,var(--text))] [font-variant-numeric:tabular-nums]"
-                    title={`Shared with ${entryOutgoingAudienceCount(entry)} people`}
-                    aria-label={`Shared with ${entryOutgoingAudienceCount(entry)} people`}
-                  >
-                    {formatShareAudienceBadge(entryOutgoingAudienceCount(entry))}
-                  </span>
-                {/if}
-              </span>
               <span
                 class="wiki-dir-chevron flex shrink-0 text-[var(--text-3,var(--text-2))] group-hover:text-accent"
                 aria-hidden="true"

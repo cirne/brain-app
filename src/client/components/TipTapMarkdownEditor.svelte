@@ -29,6 +29,10 @@
   import { splitYamlFrontMatter, joinYamlFrontMatter, renderMarkdownBody } from '@client/lib/markdown.js'
   import { wikiLinkRefFromAnchor } from '@client/lib/wikiPageHtml.js'
   import { floatingBlockMenuShouldShow } from '@client/lib/tiptapFloatingMenuVisibility.js'
+  import {
+    brainFloatingMenuPluginKey,
+    registerTipTapFloatingMenuEscapeTracking,
+  } from '@client/lib/tiptapFloatingMenuEscape.js'
   import '../styles/wiki/wikiMarkdown.css'
 
   const turndown = new TurndownService({
@@ -186,6 +190,7 @@
   onMount(() => {
     let cancelled = false
     let mounted: Editor | null = null
+    let unregisterFloatingMenuEscape: (() => void) | undefined
 
     void (async () => {
       await tick()
@@ -234,6 +239,7 @@
             },
           }),
           FloatingMenu.configure({
+            pluginKey: brainFloatingMenuPluginKey,
             element: floatingMenuEl,
             appendTo: appendMenusToBody,
             updateDelay: 80,
@@ -282,6 +288,7 @@
 
       mounted.mount(mountEl)
       editor = mounted
+      unregisterFloatingMenuEscape = registerTipTapFloatingMenuEscapeTracking(mounted, mountEl)
 
       const start = initialMarkdown
       lastImported = start
@@ -290,6 +297,8 @@
 
     return () => {
       cancelled = true
+      unregisterFloatingMenuEscape?.()
+      unregisterFloatingMenuEscape = undefined
       if (saveTimer) clearTimeout(saveTimer)
       mounted?.destroy()
       mounted = null
@@ -330,7 +339,11 @@
     <div
       class="tiptap-md-inner box-border w-full max-w-chat px-[clamp(1rem,4%,2.5rem)] pb-5 pt-4 mx-auto"
     >
-      <div class="tiptap-md-mount min-h-[12rem]" bind:this={mountEl}></div>
+      <div
+        class="tiptap-md-mount min-h-[12rem]"
+        data-tiptap-md-mount
+        bind:this={mountEl}
+      ></div>
     </div>
   </div>
 

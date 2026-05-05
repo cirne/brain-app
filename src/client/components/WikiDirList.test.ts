@@ -87,7 +87,6 @@ describe('WikiDirList.svelte', () => {
     const sharedRows = container.querySelectorAll('.wiki-dir-row--shared')
     expect(sharedRows.length).toBe(1)
     expect(screen.getByRole('button', { name: /@alice/i })).toBeTruthy()
-    expect(screen.getByText('Shared wiki')).toBeInTheDocument()
   })
 
   it('uses shared folder/page icons when browsing a shared wiki by handle', async () => {
@@ -120,7 +119,7 @@ describe('WikiDirList.svelte', () => {
     expect(container.querySelectorAll('.wiki-dir-row--shared').length).toBe(2)
   })
 
-  it('shows outgoing share audience count on rows when shares cover subtree', async () => {
+  it('uses symlink icon for entries with outgoing shares', async () => {
     globalThis.fetch = vi.fn(async () => {
       return {
         ok: true,
@@ -137,7 +136,7 @@ describe('WikiDirList.svelte', () => {
       } as Response
     }) as typeof fetch
 
-    render(WikiDirList, {
+    const { container } = render(WikiDirList, {
       props: { onOpenFile: vi.fn(), onOpenDir: vi.fn() },
     })
 
@@ -145,11 +144,11 @@ describe('WikiDirList.svelte', () => {
       expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
     })
 
-    expect(screen.getByLabelText(/Shared with 1 people/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /ideas/i })).toBeTruthy()
+    const ideasRow = screen.getByRole('button', { name: /ideas/i })
+    expect(ideasRow.classList.contains('wiki-dir-row--outgoing')).toBe(true)
   })
 
-  it('shows audience badge count when duplicate grant rows share the same prefix', async () => {
+  it('uses symlink icon when duplicate grant rows share the same prefix', async () => {
     globalThis.fetch = vi.fn(async () => {
       return {
         ok: true,
@@ -175,6 +174,7 @@ describe('WikiDirList.svelte', () => {
       expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
     })
 
-    expect(screen.getByLabelText(/Shared with 2 people/i)).toBeInTheDocument()
+    const beachRow = screen.getByRole('button', { name: /beach/i })
+    expect(beachRow.classList.contains('wiki-dir-row--outgoing')).toBe(true)
   })
 })

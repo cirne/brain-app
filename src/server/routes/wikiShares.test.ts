@@ -102,17 +102,26 @@ describe('/api/wiki-shares', () => {
       body: JSON.stringify({ pathPrefix: 'trips/', granteeEmail: 'grantee@example.com' }),
     })
     expect(post.status).toBe(200)
-    const created = (await post.json()) as { id: string; granteeEmail: string | null; granteeId: string }
+    const created = (await post.json()) as {
+      id: string
+      granteeEmail: string | null
+      granteeId: string
+      granteeHandle?: string
+    }
     expect(created.granteeEmail).toBe('grantee@example.com')
     expect(created.granteeId).toBe(granteeId)
+    expect(created.granteeHandle).toBe('grantee-handle')
     expect(created.id.length).toBeGreaterThan(5)
 
     const listOwner = await app.request('http://localhost/api/wiki-shares', {
       headers: { Cookie: `brain_session=${ownerSid}` },
     })
     expect(listOwner.status).toBe(200)
-    const lo = (await listOwner.json()) as { owned: { id: string }[] }
+    const lo = (await listOwner.json()) as {
+      owned: { id: string; granteeHandle?: string }[]
+    }
     expect(lo.owned).toHaveLength(1)
+    expect(lo.owned[0]!.granteeHandle).toBe('grantee-handle')
 
     const acc = await app.request(`http://localhost/api/wiki-shares/${encodeURIComponent(created.id)}/accept`, {
       method: 'POST',

@@ -31,6 +31,8 @@ export type WikiShareApi = {
   ownerHandle: string
   granteeEmail: string | null
   granteeId: string
+  /** Present when the grantee workspace has a confirmed handle (owner UI). */
+  granteeHandle?: string
   pathPrefix: string
   targetKind: 'dir' | 'file'
   createdAtMs: number
@@ -39,13 +41,20 @@ export type WikiShareApi = {
 }
 
 async function toApiShare(row: WikiShareRow): Promise<WikiShareApi> {
-  const meta = await readHandleMeta(tenantHomeDir(row.owner_id))
+  const ownerHome = tenantHomeDir(row.owner_id)
+  const granteeHome = tenantHomeDir(row.grantee_id)
+  const [meta, granteeMeta] = await Promise.all([readHandleMeta(ownerHome), readHandleMeta(granteeHome)])
+  const granteeHandle =
+    granteeMeta && typeof granteeMeta.confirmedAt === 'string' && granteeMeta.confirmedAt.length > 0
+      ? granteeMeta.handle
+      : undefined
   return {
     id: row.id,
     ownerId: row.owner_id,
     ownerHandle: meta?.handle ?? row.owner_id,
     granteeEmail: row.grantee_email,
     granteeId: row.grantee_id,
+    ...(granteeHandle ? { granteeHandle } : {}),
     pathPrefix: row.path_prefix,
     targetKind: row.target_kind,
     createdAtMs: row.created_at_ms,
@@ -112,7 +121,6 @@ wikiShares.post('/', async (c) => {
 
   let granteeId: string
   let granteeEmail: string | null = null
-  let resolvedHandle: string | undefined
 
   if (granteeUserIdRaw) {
     if (!isValidUserId(granteeUserIdRaw)) {
@@ -130,7 +138,6 @@ wikiShares.post('/', async (c) => {
       )
     }
     granteeId = granteeUserIdRaw
-    resolvedHandle = meta.handle
   } else if (granteeHandleRaw) {
     let normalized: string
     try {
@@ -148,7 +155,6 @@ wikiShares.post('/', async (c) => {
     }
     granteeId = dirEntry.userId
     granteeEmail = dirEntry.primaryEmail
-    resolvedHandle = dirEntry.handle
   } else {
     const resolved = await resolveUserIdByPrimaryEmail({
       email: granteeEmailRaw,
@@ -176,10 +182,7 @@ wikiShares.post('/', async (c) => {
       ...(targetKind ? { targetKind } : {}),
     })
     const api = await toApiShare(row)
-    return c.json({
-      ...api,
-      ...(resolvedHandle ? { granteeHandle: resolvedHandle } : {}),
-    })
+    return c.json(api)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'create_failed'
     if (

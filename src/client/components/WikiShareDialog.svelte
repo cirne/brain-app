@@ -3,6 +3,7 @@
   import WikiFileName from '@components/WikiFileName.svelte'
   import { cn } from '@client/lib/cn.js'
   import { wikiShareCoversVaultPath } from '@client/lib/wikiDirListModel.js'
+  import { wikiShareGranteeLabel } from '@client/lib/wikiSharesClient.js'
   import { wikiShareVaultPathForWikiFileName } from '@client/lib/wikiPathDisplay.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import { tick } from 'svelte'
@@ -30,6 +31,7 @@
     id: string
     granteeEmail: string | null
     granteeId: string
+    granteeHandle?: string
     pathPrefix: string
     targetKind: 'dir' | 'file'
     acceptedAtMs: number | null
@@ -126,10 +128,14 @@
     const acc = o.acceptedAtMs
     if (typeof cre !== 'number') return null
     const tk = o.targetKind === 'file' ? ('file' as const) : ('dir' as const)
+    const ghRaw = o.granteeHandle
+    const granteeHandle =
+      typeof ghRaw === 'string' && ghRaw.trim() ? ghRaw.trim() : undefined
     return {
       id: o.id,
       granteeEmail: geRaw === null || geRaw === undefined ? null : geRaw,
       granteeId: o.granteeId,
+      ...(granteeHandle ? { granteeHandle } : {}),
       pathPrefix: o.pathPrefix,
       targetKind: tk,
       acceptedAtMs: typeof acc === 'number' ? acc : null,
@@ -364,6 +370,7 @@
     submitting = true
     const errors: Record<string, string> = {}
     let anySuccess = false
+    const inviteBatchSize = selected.length
     try {
       for (const g of selected) {
         const body: Record<string, unknown> = { pathPrefix, targetKind }
@@ -391,6 +398,8 @@
         }
       }
       perGranteeErrors = errors
+      const allInvitesSucceeded =
+        inviteBatchSize > 0 && Object.keys(errors).length === 0 && anySuccess
       if (anySuccess) {
         selected = []
         inputValue = ''
@@ -398,6 +407,9 @@
         await reloadAudienceShares()
         onSharesChanged?.()
         emit({ type: 'wiki-shares-changed' })
+      }
+      if (allInvitesSucceeded) {
+        onDismiss()
       }
     } finally {
       submitting = false
@@ -473,7 +485,7 @@
           >
             <div class="wsh-audience-main flex min-w-0 flex-col items-start gap-1">
               <span class="wsh-audience-email text-[13px] font-semibold [word-break:break-all]"
-                >{row.granteeEmail ?? row.granteeId}</span
+                >{wikiShareGranteeLabel(row)}</span
               >
               {#if audienceStatus(row) === 'active'}
                 <span class={pillBase}>Has access</span>
@@ -630,7 +642,7 @@
   </p>
   {#if revokeTarget}
     <p class="wsh-revoke-detail m-0 text-[13px] text-muted">
-      <strong>{revokeTarget.granteeEmail ?? revokeTarget.granteeId}</strong>
+      <strong>{wikiShareGranteeLabel(revokeTarget)}</strong>
     </p>
   {/if}
 </ConfirmDialog>
