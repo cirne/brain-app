@@ -2,17 +2,7 @@
   /**
    * Stub for BrainHubWidget in jsdom tests (avoids onMount fetch + event subscriptions).
    */
-  type Props = {
-    onOpen: () => void
-  }
-  let { onOpen }: Props = $props()
+  let { onOpen }: { onOpen: () => void } = $props()
 </script>
 
-<button
-  type="button"
-  data-testid="brain-hub-widget-stub"
-  onclick={onOpen}
-  title="Braintunnel Hub"
->
-  Hub
-</button>
+<button type="button" data-testid="brain-hub-widget-stub" onclick={onOpen}>Hub</button>

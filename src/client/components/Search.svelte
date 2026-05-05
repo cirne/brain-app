@@ -158,7 +158,7 @@
       />
       {#if loading}
         <span
-          class="spinner h-4 w-4 shrink-0 animate-[spin_0.6s_linear_infinite] border-2 border-border [border-top-color:var(--accent)]"
+          class="spinner h-4 w-4 shrink-0 rounded-full animate-[spin_0.6s_linear_infinite] border-2 border-border [border-top-color:var(--accent)]"
           aria-hidden="true"
         ></span>
       {:else if query}

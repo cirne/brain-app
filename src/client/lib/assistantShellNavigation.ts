@@ -1,16 +1,16 @@
 import { overlaySupportsMobileChatBridge } from '@client/lib/mobileDetailChatOverlay.js'
 import { isUuidSessionId } from '@client/router.js'
-import type { Overlay, Route } from '@client/router.js'
+import type { Overlay, Route, RouteZone } from '@client/router.js'
 
 /**
- * Grey out nav “New chat” only on the idle `/c` slate: no slug in the path, no detail `?panel=…`,
- * and no session id in the bar (empty transcript alone must not disable it).
+ * True when on an idle new chat slate: no session, no overlay, bare `/c`.
+ * Used for disabling "New chat" button and hiding "Delete chat" (nothing to delete).
  */
-export function shouldDisableTopNavNewChat(
+export function isNewChat(
   route: Route,
   effectiveChatSessionId: string | null | undefined,
 ): boolean {
-  if (route.wikiActive === true || route.hubActive === true || route.settingsActive === true) return false
+  if (route.zone !== undefined) return false
   if (effectiveChatSessionId) return false
   if (route.sessionId ?? route.sessionTail) return false
   if (route.overlay) return false
@@ -41,9 +41,7 @@ export function chatSessionPatch(
   route: Route,
   effectiveSessionId?: string | null,
 ): Pick<Route, 'sessionId' | 'sessionTail'> {
-  if (route.hubActive) return {}
-  if (route.settingsActive) return {}
-  if (route.wikiActive) return {}
+  if (route.zone !== undefined) return {}
   const id = effectiveSessionId ?? route.sessionId
   if (id) return { sessionId: id }
   if (route.sessionTail) return { sessionTail: route.sessionTail }
@@ -65,7 +63,7 @@ export function hubActiveForOpenOverlay(
   isMobile: boolean,
 ): boolean {
   if (isMobile && overlaySupportsMobileChatBridge(overlay)) return false
-  return Boolean(route.hubActive || route.settingsActive || route.overlay?.type === 'hub')
+  return Boolean(route.zone === 'hub' || route.zone === 'settings' || route.overlay?.type === 'hub')
 }
 
 /**
@@ -76,11 +74,22 @@ export function closeOverlayStrategy(
   useDesktopSplitDetail: boolean,
 ): CloseOverlayStrategy {
   if (!route.overlay) return 'none'
-  if (route.wikiActive) return 'immediate'
+  if (route.zone === 'wiki') return 'immediate'
   const t = route.overlay.type
   if (t === 'hub' || t === 'chat-history') return 'immediate'
   if (useDesktopSplitDetail) return 'animated_desktop'
   return 'immediate'
+}
+
+/**
+ * Mobile ⋯ overflow: session-scoped chat actions (hear replies, delete chat) belong on the
+ * primary **chat** column (`/c`…), not when Hub, Settings, or wiki-first is the primary surface,
+ * nor on the full-screen chat-history list.
+ */
+export function mobileOverflowMenuShowsChatSessionActions(route: Route): boolean {
+  if (route.zone !== undefined) return false
+  if (route.overlay?.type === 'chat-history') return false
+  return true
 }
 
 /** Local calendar day string for “today” navigation. */

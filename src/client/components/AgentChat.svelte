@@ -1029,6 +1029,40 @@
           onRequestFocusText={() => void focusAgentTextarea(0)}
           hearReplies={hearRepliesForChatComposer}
         />
+        {#if centerEmptyInPane}
+          <div class="audio-conv-toggle-row md:hidden flex items-center justify-center pb-3 pt-1">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={hearRepliesForChatComposer}
+              aria-label="Audio conversation"
+              class={cn(
+                'audio-conv-toggle inline-flex items-center gap-2.5 rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150',
+                hearRepliesForChatComposer
+                  ? 'bg-accent/10 text-accent'
+                  : 'bg-surface-3 text-muted hover:text-foreground',
+              )}
+              onclick={toggleHearRepliesFromHeader}
+            >
+              <Volume2 size={15} strokeWidth={2} aria-hidden="true" />
+              <span>Audio conversation</span>
+              <span
+                class={cn(
+                  'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
+                  hearRepliesForChatComposer ? 'bg-accent' : 'bg-muted/30',
+                )}
+                aria-hidden="true"
+              >
+                <span
+                  class={cn(
+                    'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
+                    hearRepliesForChatComposer ? 'translate-x-4' : 'translate-x-0',
+                  )}
+                ></span>
+              </span>
+            </button>
+          </div>
+        {/if}
       </div>
     {/if}
 

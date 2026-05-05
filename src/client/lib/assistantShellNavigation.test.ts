@@ -5,7 +5,8 @@ import {
   formatLocalDateYmd,
   hubActiveForOpenOverlay,
   isStaleAgentSessionVersusChatBar,
-  shouldDisableTopNavNewChat,
+  mobileOverflowMenuShowsChatSessionActions,
+  isNewChat,
   shouldReplaceWikiOverlay,
 } from './assistantShellNavigation.js'
 import type { Overlay, Route } from '@client/router.js'
@@ -15,14 +16,14 @@ function makeRoute(partial: Partial<Route> = {}): Route {
 }
 
 describe('assistantShellNavigation', () => {
-  describe('shouldDisableTopNavNewChat', () => {
+  describe('isNewChat', () => {
     it('is true only on bare chat route (idle /c)', () => {
-      expect(shouldDisableTopNavNewChat(makeRoute({}), null)).toBe(true)
+      expect(isNewChat(makeRoute({}), null)).toBe(true)
     })
 
     it('is false when a session slug is in the route', () => {
       expect(
-        shouldDisableTopNavNewChat(
+        isNewChat(
           makeRoute({ sessionTail: '550e8400e29b' }),
           null,
         ),
@@ -30,12 +31,12 @@ describe('assistantShellNavigation', () => {
     })
 
     it('is false when effective chat session id is set', () => {
-      expect(shouldDisableTopNavNewChat(makeRoute({}), 'uuid-session')).toBe(false)
+      expect(isNewChat(makeRoute({}), 'uuid-session')).toBe(false)
     })
 
     it('is false with any detail overlay (e.g. wiki on /c)', () => {
       expect(
-        shouldDisableTopNavNewChat(
+        isNewChat(
           makeRoute({ overlay: { type: 'wiki', path: 'a.md' } }),
           null,
         ),
@@ -43,47 +44,69 @@ describe('assistantShellNavigation', () => {
     })
 
     it('is false when wiki, hub, or settings is the primary surface', () => {
-      expect(shouldDisableTopNavNewChat(makeRoute({ wikiActive: true }), null)).toBe(false)
-      expect(shouldDisableTopNavNewChat(makeRoute({ hubActive: true }), null)).toBe(false)
-      expect(shouldDisableTopNavNewChat(makeRoute({ settingsActive: true }), null)).toBe(false)
+      expect(isNewChat(makeRoute({ zone: 'wiki' }), null)).toBe(false)
+      expect(isNewChat(makeRoute({ zone: 'hub' }), null)).toBe(false)
+      expect(isNewChat(makeRoute({ zone: 'settings' }), null)).toBe(false)
     })
   })
 
   describe('chatSessionPatch', () => {
     it('returns empty when settings active', () => {
-      expect(chatSessionPatch(makeRoute({ settingsActive: true, sessionId: 's1' }))).toEqual({})
+      expect(chatSessionPatch(makeRoute({ zone: 'settings', sessionId: 's1' }))).toEqual({})
     })
 
     it('returns empty when hub active', () => {
-      expect(chatSessionPatch(makeRoute({ hubActive: true, sessionId: 's1' }))).toEqual({})
+      expect(chatSessionPatch(makeRoute({ zone: 'hub', sessionId: 's1' }))).toEqual({})
     })
 
     it('returns empty when wiki primary', () => {
       expect(
-        chatSessionPatch(makeRoute({ wikiActive: true, sessionId: 's1' })),
+        chatSessionPatch(makeRoute({ zone: 'wiki', sessionId: 's1' })),
       ).toEqual({})
     })
 
     it('preserves sessionId when not hub', () => {
-      expect(chatSessionPatch(makeRoute({ hubActive: false, sessionId: 's1' }))).toEqual({
+      expect(chatSessionPatch(makeRoute({ sessionId: 's1' }))).toEqual({
         sessionId: 's1',
       })
     })
 
     it('uses effective session id when route has not resolved yet', () => {
       expect(
-        chatSessionPatch(makeRoute({ hubActive: false, sessionTail: 'abc' }), 'full-uuid'),
+        chatSessionPatch(makeRoute({ sessionTail: 'abc' }), 'full-uuid'),
       ).toEqual({ sessionId: 'full-uuid' })
     })
 
     it('omits session fields when unset', () => {
-      expect(chatSessionPatch(makeRoute({ hubActive: false }))).toEqual({})
+      expect(chatSessionPatch(makeRoute({ }))).toEqual({})
     })
 
     it('preserves sessionTail when session id not resolved yet', () => {
       expect(
-        chatSessionPatch(makeRoute({ hubActive: false, sessionTail: '550e8400e29b' }), undefined),
+        chatSessionPatch(makeRoute({ sessionTail: '550e8400e29b' }), undefined),
       ).toEqual({ sessionTail: '550e8400e29b' })
+    })
+  })
+
+  describe('mobileOverflowMenuShowsChatSessionActions', () => {
+    it('is false for hub, settings, wiki primary, or chat-history overlay', () => {
+      expect(mobileOverflowMenuShowsChatSessionActions(makeRoute({ zone: 'hub' }))).toBe(false)
+      expect(mobileOverflowMenuShowsChatSessionActions(makeRoute({ zone: 'settings' }))).toBe(false)
+      expect(mobileOverflowMenuShowsChatSessionActions(makeRoute({ zone: 'wiki' }))).toBe(false)
+      expect(
+        mobileOverflowMenuShowsChatSessionActions(
+          makeRoute({ overlay: { type: 'chat-history' } }),
+        ),
+      ).toBe(false)
+    })
+
+    it('is true on bare or overlayed chat column', () => {
+      expect(mobileOverflowMenuShowsChatSessionActions(makeRoute({}))).toBe(true)
+      expect(
+        mobileOverflowMenuShowsChatSessionActions(
+          makeRoute({ overlay: { type: 'wiki', path: 'a.md' } }),
+        ),
+      ).toBe(true)
     })
   })
 
@@ -91,21 +114,21 @@ describe('assistantShellNavigation', () => {
     it('is true for wiki overlays', () => {
       expect(
         shouldReplaceWikiOverlay(
-          makeRoute({ hubActive: false, overlay: { type: 'wiki', path: 'a.md' } }),
+          makeRoute({ overlay: { type: 'wiki', path: 'a.md' } }),
         ),
       ).toBe(true)
       expect(
         shouldReplaceWikiOverlay(
-          makeRoute({ hubActive: false, overlay: { type: 'wiki-dir', path: 'x' } }),
+          makeRoute({ overlay: { type: 'wiki-dir', path: 'x' } }),
         ),
       ).toBe(true)
     })
 
     it('is false otherwise', () => {
-      expect(shouldReplaceWikiOverlay(makeRoute({ hubActive: false }))).toBe(false)
+      expect(shouldReplaceWikiOverlay(makeRoute({ }))).toBe(false)
       expect(
         shouldReplaceWikiOverlay(
-          makeRoute({ hubActive: false, overlay: { type: 'email', id: '1' } }),
+          makeRoute({ overlay: { type: 'email', id: '1' } }),
         ),
       ).toBe(false)
     })
@@ -113,25 +136,25 @@ describe('assistantShellNavigation', () => {
 
   describe('hubActiveForOpenOverlay', () => {
     it('is false on mobile for chat-bridge overlays', () => {
-      const r = makeRoute({ hubActive: true, overlay: { type: 'hub' } })
+      const r = makeRoute({ zone: 'hub', overlay: { type: 'hub' } })
       const wiki: Overlay = { type: 'wiki', path: 'p.md' }
       expect(hubActiveForOpenOverlay(r, wiki, true)).toBe(false)
     })
 
     it('follows hub route when not mobile bridge case', () => {
-      const r = makeRoute({ hubActive: true })
+      const r = makeRoute({ zone: 'hub' })
       const cal: Overlay = { type: 'calendar', date: '2024-01-01' }
       expect(hubActiveForOpenOverlay(r, cal, true)).toBe(true)
     })
 
     it('follows settings route when not mobile bridge case', () => {
-      const r = makeRoute({ settingsActive: true })
+      const r = makeRoute({ zone: 'settings' })
       const cal: Overlay = { type: 'calendar', date: '2024-01-01' }
       expect(hubActiveForOpenOverlay(r, cal, true)).toBe(true)
     })
 
     it('is true when hub overlay open even if hubActive false', () => {
-      const r = makeRoute({ hubActive: false, overlay: { type: 'hub' } })
+      const r = makeRoute({ overlay: { type: 'hub' } })
       const wiki: Overlay = { type: 'wiki', path: 'p.md' }
       expect(hubActiveForOpenOverlay(r, wiki, false)).toBe(true)
     })
@@ -139,14 +162,14 @@ describe('assistantShellNavigation', () => {
 
   describe('closeOverlayStrategy', () => {
     it('returns none when no overlay', () => {
-      expect(closeOverlayStrategy(makeRoute({ hubActive: false }), true)).toBe('none')
+      expect(closeOverlayStrategy(makeRoute({ }), true)).toBe('none')
     })
 
     it('is immediate for wiki primary surface (not split detail animation)', () => {
       expect(
         closeOverlayStrategy(
           makeRoute({
-            wikiActive: true,
+            zone: 'wiki',
             overlay: { type: 'wiki', path: 'a.md' },
           }),
           true,
@@ -156,11 +179,11 @@ describe('assistantShellNavigation', () => {
 
     it('immediate for hub and chat-history', () => {
       expect(
-        closeOverlayStrategy(makeRoute({ hubActive: true, overlay: { type: 'hub' } }), true),
+        closeOverlayStrategy(makeRoute({ zone: 'hub', overlay: { type: 'hub' } }), true),
       ).toBe('immediate')
       expect(
         closeOverlayStrategy(
-          makeRoute({ hubActive: false, overlay: { type: 'chat-history' } }),
+          makeRoute({ overlay: { type: 'chat-history' } }),
           true,
         ),
       ).toBe('immediate')
@@ -169,7 +192,7 @@ describe('assistantShellNavigation', () => {
     it('animated_desktop when split detail and not hub-style overlay', () => {
       expect(
         closeOverlayStrategy(
-          makeRoute({ hubActive: false, overlay: { type: 'wiki', path: 'a.md' } }),
+          makeRoute({ overlay: { type: 'wiki', path: 'a.md' } }),
           true,
         ),
       ).toBe('animated_desktop')
@@ -178,7 +201,7 @@ describe('assistantShellNavigation', () => {
     it('immediate when not split detail', () => {
       expect(
         closeOverlayStrategy(
-          makeRoute({ hubActive: false, overlay: { type: 'wiki', path: 'a.md' } }),
+          makeRoute({ overlay: { type: 'wiki', path: 'a.md' } }),
           false,
         ),
       ).toBe('immediate')

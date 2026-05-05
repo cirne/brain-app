@@ -164,14 +164,14 @@ describe('parseRoute', () => {
 
   it('parses path-based /wiki/folder/file.md as local wiki doc', () => {
     expect(parseRoute('http://localhost/wiki/folder/file.md')).toEqual({
-      wikiActive: true,
+      zone: 'wiki',
       overlay: { type: 'wiki', path: 'me/folder/file.md' },
     })
   })
 
   it('parses /wiki/@handle/owner/rel.md as shared wiki doc', () => {
     expect(parseRoute('http://localhost/wiki/%40cirne/travel/trip.md')).toEqual({
-      wikiActive: true,
+      zone: 'wiki',
       overlay: { type: 'wiki', path: 'travel/trip.md', shareHandle: 'cirne' },
     })
   })
@@ -285,7 +285,7 @@ describe('parseRoute chat history', () => {
 
   it('parses chat-history on /hub', () => {
     expect(parseRoute('http://localhost/hub?panel=chat-history')).toEqual({
-      hubActive: true,
+      zone: 'hub',
       overlay: { type: 'chat-history' },
     })
   })
@@ -300,13 +300,13 @@ describe('parseRoute your-wiki / hub', () => {
 
   it('parses /hub as hub main', () => {
     expect(parseRoute('http://localhost/hub')).toEqual({
-      hubActive: true,
+      zone: 'hub',
     })
   })
 
   it('parses /settings as settings main', () => {
     expect(parseRoute('http://localhost/settings')).toEqual({
-      settingsActive: true,
+      zone: 'settings',
     })
   })
 
@@ -318,46 +318,46 @@ describe('parseRoute your-wiki / hub', () => {
 describe('parseRoute /wiki primary', () => {
   it('parses /wikis/me/ideas/file.md as unified wiki path under me/', () => {
     expect(parseRoute('http://localhost/wikis/me/ideas/file.md')).toEqual({
-      wikiActive: true,
+      zone: 'wiki',
       overlay: { type: 'wiki', path: 'me/ideas/file.md' },
     })
   })
 
   it('parses /wiki as wiki-dir hub (file list + shares)', () => {
     expect(parseRoute('http://localhost/wiki')).toEqual({
-      wikiActive: true,
+      zone: 'wiki',
       overlay: { type: 'wiki-dir' },
     })
     expect(parseRoute('http://localhost/wiki/')).toEqual({
-      wikiActive: true,
+      zone: 'wiki',
       overlay: { type: 'wiki-dir' },
     })
   })
 
   it('parses /wiki/my-wiki/ as local wiki folder browser (aliases to me)', () => {
     expect(parseRoute('http://localhost/wiki/my-wiki/')).toEqual({
-      wikiActive: true,
+      zone: 'wiki',
       overlay: { type: 'wiki-dir', path: 'me' },
     })
   })
 
   it('parses /wiki?path= as wiki doc', () => {
     expect(parseRoute('http://localhost/wiki?path=ideas%2Fnote.md')).toEqual({
-      wikiActive: true,
+      zone: 'wiki',
       overlay: { type: 'wiki', path: 'me/ideas/note.md' },
     })
   })
 
   it('parses panel=wiki with path', () => {
     expect(parseRoute('http://localhost/wiki?panel=wiki&path=x.md')).toEqual({
-      wikiActive: true,
+      zone: 'wiki',
       overlay: { type: 'wiki', path: 'me/x.md' },
     })
   })
 
   it('parses wiki-dir on /wiki', () => {
     expect(parseRoute('http://localhost/wiki?panel=wiki-dir&path=people')).toEqual({
-      wikiActive: true,
+      zone: 'wiki',
       overlay: { type: 'wiki-dir', path: 'me/people' },
     })
   })
@@ -372,14 +372,14 @@ describe('parseRoute hub-source', () => {
 
   it('parses hub-source with id', () => {
     expect(parseRoute('http://localhost/hub?panel=hub-source&id=src-1')).toEqual({
-      hubActive: true,
+      zone: 'hub',
       overlay: { type: 'hub-source', id: 'src-1' },
     })
   })
 
   it('parses hub-source with id on /settings', () => {
     expect(parseRoute('http://localhost/settings?panel=hub-source&id=src-1')).toEqual({
-      settingsActive: true,
+      zone: 'settings',
       overlay: { type: 'hub-source', id: 'src-1' },
     })
   })
@@ -437,7 +437,7 @@ describe('routeToUrl', () => {
   })
 
   it('hub with wiki-dir overlay', () => {
-    expect(routeToUrl({ hubActive: true, overlay: { type: 'wiki-dir', path: 'people' } })).toBe(
+    expect(routeToUrl({ zone: 'hub', overlay: { type: 'wiki-dir', path: 'people' } })).toBe(
       '/hub?panel=wiki-dir&path=me%2Fpeople',
     )
   })
@@ -497,45 +497,45 @@ describe('routeToUrl', () => {
   })
 
   it('chat-history on hub', () => {
-    expect(routeToUrl({ hubActive: true, overlay: { type: 'chat-history' } })).toBe(
+    expect(routeToUrl({ zone: 'hub', overlay: { type: 'chat-history' } })).toBe(
       '/hub?panel=chat-history',
     )
   })
 
   it('hub returns /hub', () => {
-    expect(routeToUrl({ hubActive: true })).toBe('/hub')
-    expect(routeToUrl({ hubActive: true, overlay: { type: 'hub' } })).toBe('/hub')
+    expect(routeToUrl({ zone: 'hub' })).toBe('/hub')
+    expect(routeToUrl({ zone: 'hub', overlay: { type: 'hub' } })).toBe('/hub')
   })
 
   it('settings returns /settings', () => {
-    expect(routeToUrl({ settingsActive: true })).toBe('/settings')
-    expect(routeToUrl({ settingsActive: true, overlay: { type: 'hub' } })).toBe('/settings')
-    expect(routeToUrl({ settingsActive: true, overlay: { type: 'hub-source', id: 'x' } })).toBe(
+    expect(routeToUrl({ zone: 'settings' })).toBe('/settings')
+    expect(routeToUrl({ zone: 'settings', overlay: { type: 'hub' } })).toBe('/settings')
+    expect(routeToUrl({ zone: 'settings', overlay: { type: 'hub-source', id: 'x' } })).toBe(
       '/settings?panel=hub-source&id=x',
     )
   })
 
   it('wiki primary empty reader uses panel=wiki (bare /wiki is wiki-dir hub)', () => {
-    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki' } })).toBe('/wiki?panel=wiki')
+    expect(routeToUrl({ zone: 'wiki', overlay: { type: 'wiki' } })).toBe('/wiki?panel=wiki')
   })
 
   it('wiki primary with path uses path segments', () => {
-    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki', path: 'a/b.md' } })).toBe('/wiki/me/a/b.md')
+    expect(routeToUrl({ zone: 'wiki', overlay: { type: 'wiki', path: 'a/b.md' } })).toBe('/wiki/me/a/b.md')
   })
 
   it('wiki-dir on primary uses trailing slash', () => {
-    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki-dir', path: 'people' } })).toBe('/wiki/me/people/')
+    expect(routeToUrl({ zone: 'wiki', overlay: { type: 'wiki-dir', path: 'people' } })).toBe('/wiki/me/people/')
   })
 
   it('wiki-dir hub without path uses /wiki/', () => {
-    expect(routeToUrl({ wikiActive: true, overlay: { type: 'wiki-dir' } })).toBe('/wiki/')
+    expect(routeToUrl({ zone: 'wiki', overlay: { type: 'wiki-dir' } })).toBe('/wiki/')
   })
 
   it('hub-wiki-about', () => {
     expect(routeToUrl({ overlay: { type: 'hub-wiki-about' } })).toBe(
       '/c?panel=hub-wiki-about',
     )
-    expect(routeToUrl({ hubActive: true, overlay: { type: 'hub-wiki-about' } })).toBe(
+    expect(routeToUrl({ zone: 'hub', overlay: { type: 'hub-wiki-about' } })).toBe(
       '/hub?panel=hub-wiki-about',
     )
   })
@@ -585,16 +585,16 @@ describe('round-trip: routeToUrl → parseRoute', () => {
     { flow: 'restart-seed' as const },
     { flow: 'first-chat' as const },
     { flow: 'enron-demo' as const },
-    { hubActive: true },
-    { hubActive: true, overlay: { type: 'hub-wiki-about' as const } },
-    { settingsActive: true },
-    { settingsActive: true, overlay: { type: 'hub-wiki-about' as const } },
-    { settingsActive: true, overlay: { type: 'hub-source', id: 'src-x' } },
+    { zone: 'hub' },
+    { zone: 'hub', overlay: { type: 'hub-wiki-about' as const } },
+    { zone: 'settings' },
+    { zone: 'settings', overlay: { type: 'hub-wiki-about' as const } },
+    { zone: 'settings', overlay: { type: 'hub-source', id: 'src-x' } },
     { overlay: { type: 'hub-wiki-about' as const } },
-    { hubActive: true, overlay: { type: 'chat-history' } },
-    { wikiActive: true, overlay: { type: 'wiki' as const } },
-    { wikiActive: true, overlay: { type: 'wiki' as const, path: 'me/ideas/note.md' } },
-    { wikiActive: true, overlay: { type: 'wiki-dir' as const, path: 'me/people/sub' } },
+    { zone: 'hub', overlay: { type: 'chat-history' } },
+    { zone: 'wiki', overlay: { type: 'wiki' as const } },
+    { zone: 'wiki', overlay: { type: 'wiki' as const, path: 'me/ideas/note.md' } },
+    { zone: 'wiki', overlay: { type: 'wiki-dir' as const, path: 'me/people/sub' } },
   ]
 
   for (const route of cases) {

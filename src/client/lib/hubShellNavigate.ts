@@ -21,8 +21,8 @@ export function applyHubDetailNavigation(
   }
   navigate(
     hubActive
-      ? { hubActive: true, wikiActive: false, settingsActive: false, overlay }
-      : { hubActive: false, wikiActive: false, settingsActive: false, sessionId: route.sessionId, overlay },
+      ? { zone: 'hub' as const, overlay }
+      : { sessionId: route.sessionId, overlay },
     effectiveOpts,
   )
 }
@@ -45,11 +45,8 @@ export function applySettingsDetailNavigation(
   }
   navigate(
     settingsColumnActive
-      ? { settingsActive: true, hubActive: false, wikiActive: false, overlay }
+      ? { zone: 'settings' as const, overlay }
       : {
-          settingsActive: false,
-          hubActive: false,
-          wikiActive: false,
           sessionId: route.sessionId,
           overlay,
         },

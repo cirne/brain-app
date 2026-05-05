@@ -176,7 +176,7 @@
   }
 
   function closeOverlayImmediate() {
-    navigate({ hubActive: false, ...obChatSession() }, { replace: true })
+    navigate({ ...obChatSession() }, { replace: true })
     route = parseRoute()
     agentContext = { type: 'chat' }
     inboxTargetId = undefined
@@ -208,7 +208,7 @@
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = wikiOverlayReplace()
     navigate(
-      { hubActive: false, ...obChatSession(), overlay },
+      {...obChatSession(), overlay },
       replace ? { replace: true } : undefined,
     )
     route = parseRoute()
@@ -218,7 +218,7 @@
     const overlay: Overlay = path ? { type: 'wiki', path } : { type: 'wiki' }
     const replace = wikiOverlayReplace()
     navigate(
-      { hubActive: false, ...obChatSession(), overlay },
+      {...obChatSession(), overlay },
       replace ? { replace: true } : undefined,
     )
     route = parseRoute()
@@ -229,26 +229,25 @@
     const overlay: Overlay = trimmed ? { type: 'wiki-dir', path: trimmed } : { type: 'wiki-dir' }
     const replace = wikiOverlayReplace()
     navigate(
-      { hubActive: false, ...obChatSession(), overlay },
+      {...obChatSession(), overlay },
       replace ? { replace: true } : undefined,
     )
     route = parseRoute()
   }
 
   function openFileDoc(path: string) {
-    navigate({ hubActive: false, ...obChatSession(), overlay: { type: 'file', path } })
+    navigate({...obChatSession(), overlay: { type: 'file', path } })
     route = parseRoute()
   }
 
   function onInboxNavigateSlide(id: string | undefined) {
     const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
-    navigate({ hubActive: false, ...obChatSession(), overlay })
+    navigate({...obChatSession(), overlay })
     route = parseRoute()
   }
 
   function switchToCalendar(date: string, eventId?: string) {
     navigate({
-      hubActive: false,
       ...obChatSession(),
       overlay: { type: 'calendar', date, ...(eventId ? { eventId } : {}) },
     })
@@ -272,13 +271,13 @@
   }
 
   function openHubWikiAbout() {
-    navigate({ hubActive: false, ...obChatSession(), overlay: { type: 'hub-wiki-about' } })
+    navigate({...obChatSession(), overlay: { type: 'hub-wiki-about' } })
     route = parseRoute()
   }
 
   function openEmailFromSearch(id: string, subject: string, from: string) {
     inboxTargetId = id
-    navigate({ hubActive: false, ...obChatSession(), overlay: { type: 'email', id } })
+    navigate({...obChatSession(), overlay: { type: 'email', id } })
     route = parseRoute()
     agentContext = { type: 'email', threadId: id, subject, from }
   }
@@ -289,7 +288,6 @@
 
   function openEmailDraftFromChat(draftId: string, subject?: string) {
     navigate({
-      hubActive: false,
       ...obChatSession(),
       overlay: { type: 'email-draft', id: draftId },
     })
@@ -305,13 +303,12 @@
 
   function openFullInboxFromChat() {
     inboxTargetId = undefined
-    navigate({ hubActive: false, ...obChatSession(), overlay: { type: 'email' } })
+    navigate({...obChatSession(), overlay: { type: 'email' } })
     route = parseRoute()
   }
 
   function openMessageThreadFromChat(canonicalChat: string, displayLabel: string) {
     navigate({
-      hubActive: false,
       ...obChatSession(),
       overlay: { type: 'messages', chat: canonicalChat },
     })

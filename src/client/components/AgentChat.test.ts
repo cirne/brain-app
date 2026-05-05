@@ -785,6 +785,68 @@ describe('AgentChat.svelte', () => {
     })
   })
 
+  describe('mobile audio conversation toggle (empty chat)', () => {
+    it('renders the audio conversation toggle when chat is empty', async () => {
+      stubFetchForAgentChat()
+      render(AgentChat, { props: { context: { type: 'none' } } })
+      await tick()
+      expect(screen.getByRole('switch', { name: /audio conversation/i })).toBeInTheDocument()
+    })
+
+    it('toggle is not rendered once messages exist', async () => {
+      const post = vi.fn(() =>
+        Promise.resolve(
+          new Response(new ReadableStream(), {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          }),
+        ),
+      )
+      stubFetchForAgentChat({ extra: [agentChatPostHandler(post)] })
+      render(AgentChat, { props: { context: { type: 'none' }, onUserInitiatedNewChat: vi.fn() } })
+      await tick()
+
+      const ta = screen.getByRole('textbox')
+      await fireEvent.input(ta, { target: { value: 'Hi' } })
+      await fireEvent.keyDown(ta, { key: 'Enter', shiftKey: false })
+
+      await waitFor(() => expect(post).toHaveBeenCalled())
+      await tick()
+
+      expect(screen.queryByRole('switch', { name: /audio conversation/i })).not.toBeInTheDocument()
+    })
+
+    it('toggle starts unchecked (hearReplies off by default)', async () => {
+      stubFetchForAgentChat()
+      render(AgentChat, { props: { context: { type: 'none' } } })
+      await tick()
+      const toggle = screen.getByRole('switch', { name: /audio conversation/i })
+      expect(toggle.getAttribute('aria-checked')).toBe('false')
+    })
+
+    it('clicking the toggle turns hearReplies on (aria-checked becomes true)', async () => {
+      stubFetchForAgentChat()
+      render(AgentChat, { props: { context: { type: 'none' } } })
+      await tick()
+      const toggle = screen.getByRole('switch', { name: /audio conversation/i })
+      await fireEvent.click(toggle)
+      await tick()
+      expect(toggle.getAttribute('aria-checked')).toBe('true')
+    })
+
+    it('clicking the toggle twice returns hearReplies to off', async () => {
+      stubFetchForAgentChat()
+      render(AgentChat, { props: { context: { type: 'none' } } })
+      await tick()
+      const toggle = screen.getByRole('switch', { name: /audio conversation/i })
+      await fireEvent.click(toggle)
+      await tick()
+      await fireEvent.click(toggle)
+      await tick()
+      expect(toggle.getAttribute('aria-checked')).toBe('false')
+    })
+  })
+
   describe('voice panel layout (source contract)', () => {
     it('voice eligibility follows press-to-talk only (not viewport width)', () => {
       const path = join(dirname(fileURLToPath(import.meta.url)), 'AgentChat.svelte')

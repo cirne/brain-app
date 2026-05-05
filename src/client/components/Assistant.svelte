@@ -22,6 +22,7 @@
     rememberChatTail,
     routeToUrl,
     type Route,
+    type RouteZone,
     type SurfaceContext,
     type Overlay,
     type NavigateOptions,
@@ -29,8 +30,8 @@
   import {
     CHAT_HISTORY_PAGE_LIST_LIMIT,
     CHAT_HISTORY_SIDEBAR_FETCH_LIMIT,
-    fetchChatSessionListDeduped,
-  } from '@client/lib/chatHistorySessions.js'
+    fetchChatSessionListDeduped
+      } from '@client/lib/chatHistorySessions.js'
   import { matchSessionIdByFlatPrefix } from '@client/lib/chatSessionTailResolve.js'
   import { applyHubDetailNavigation, applySettingsDetailNavigation } from '@client/lib/hubShellNavigate.js'
   import { overlaySupportsMobileChatBridge } from '@client/lib/mobileDetailChatOverlay.js'
@@ -43,8 +44,8 @@
     cancelPendingDebouncedWikiSync,
     onWikiMutatedForAutoSync,
     registerDebouncedWikiSyncRunner,
-    runSyncOrQueueFollowUp,
-  } from '@client/lib/app/debouncedWikiSync.js'
+    runSyncOrQueueFollowUp
+      } from '@client/lib/app/debouncedWikiSync.js'
   import { wikiPathForReadToolArg } from '@client/lib/cards/contentCards.js'
   import {
     wikiPrimaryCrumbsForDir,
@@ -53,14 +54,14 @@
     wikiPrimaryCrumbsForMyWikiFile,
     wikiPrimaryCrumbsForSharedDir,
     wikiPrimaryCrumbsForSharedFile,
-    type WikiPrimaryCrumb,
-  } from '@client/lib/wikiPrimaryBarCrumbs.js'
+    type WikiPrimaryCrumb
+      } from '@client/lib/wikiPrimaryBarCrumbs.js'
   import {
     MY_WIKI_SEGMENT,
     MY_WIKI_URL_SEGMENT,
     mergeWikiBrowseChildPath,
-    parseUnifiedWikiBrowsePath,
-  } from '@client/lib/wikiDirListModel.js'
+    parseUnifiedWikiBrowsePath
+      } from '@client/lib/wikiDirListModel.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
   import { navigateFromAgentOpen, type AgentOpenSource } from '@client/lib/navigateFromAgentOpen.js'
   import { WORKSPACE_DESKTOP_SPLIT_MIN_PX } from '@client/lib/app/workspaceLayout.js'
@@ -73,16 +74,17 @@
     closeOverlayStrategy,
     formatLocalDateYmd,
     hubActiveForOpenOverlay as hubActiveForOpenOverlayFromRoute,
+    isNewChat,
     isStaleAgentSessionVersusChatBar,
-    shouldDisableTopNavNewChat,
-    shouldReplaceWikiOverlay,
-  } from '@client/lib/assistantShellNavigation.js'
+    mobileOverflowMenuShowsChatSessionActions,
+    shouldReplaceWikiOverlay
+      } from '@client/lib/assistantShellNavigation.js'
   import { waitUntilDefinedOrMaxTicks } from '@client/lib/async/waitUntilReady.js'
   import { alignShellWithBareChatRoute, createAssistantShellState, createShellNavigate } from '@client/lib/assistant/shell.js'
   import {
     nextMobileWikiOverlayStack,
-    popMobileWikiOverlayStack,
-  } from '@client/lib/mobileWikiOverlayNav.js'
+    popMobileWikiOverlayStack
+      } from '@client/lib/mobileWikiOverlayNav.js'
   import { contextPlaceholder, type SkillMenuItem } from '@client/lib/agentUtils.js'
   import { applyVoiceTranscriptToChat } from '@client/lib/voiceTranscribeRouting.js'
   import { readHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
@@ -97,8 +99,8 @@
     Settings,
     Share2,
     Trash2,
-    Volume2,
-  } from 'lucide-svelte'
+    Volume2
+      } from 'lucide-svelte'
 
   /**
    * `bind:this` targets — kept separate from shell state so refs stay obvious.
@@ -143,23 +145,23 @@
     shell.route = parseRoute()
     shell.mobileWikiOverlayStack = nextMobileWikiOverlayStack({
       isMobile: shell.isMobile,
-      wikiPrimaryActive: shell.route.wikiActive === true,
+      wikiPrimaryActive: shell.route.zone === 'wiki',
       suppressMutation: shell.suppressMobileWikiStackMutation,
       prevOverlay,
       nextOverlay: shell.route.overlay,
-      priorStack: shell.mobileWikiOverlayStack,
-    })
+      priorStack: shell.mobileWikiOverlayStack
+      })
   }
 
   function syncMobileWikiStackFromHubSettings(prevOverlay: Overlay | undefined) {
     shell.mobileWikiOverlayStack = nextMobileWikiOverlayStack({
       isMobile: shell.isMobile,
-      wikiPrimaryActive: shell.route.wikiActive === true,
+      wikiPrimaryActive: shell.route.zone === 'wiki',
       suppressMutation: shell.suppressMobileWikiStackMutation,
       prevOverlay,
       nextOverlay: shell.route.overlay,
-      priorStack: shell.mobileWikiOverlayStack,
-    })
+      priorStack: shell.mobileWikiOverlayStack
+      })
   }
 
   /** Mobile chat-column wiki overlay: ◀ pops one in-doc step before closing (see OPP-092). */
@@ -185,12 +187,9 @@
       const flags = routeSurfaceFlagsForOverlay(overlay)
       navigateShellInner(
         {
-          overlay,
-          wikiActive: false,
-          hubActive: flags.hubActive,
-          settingsActive: flags.settingsActive,
-          ...(flags.useChatSession ? chatSessionPart() : {}),
-        },
+          overlay, zone: flags.zone,
+          ...(flags.useChatSession ? chatSessionPart() : {})
+      },
         optsWithBarTitle(),
       )
       shell.route = parseRoute()
@@ -236,22 +235,19 @@
       path: dirPath,
       shareOwner: p.ownerId,
       sharePrefix,
-      ...(handle ? { shareHandle: handle } : {}),
-    }
-    if (shell.route.wikiActive) {
+      ...(handle ? { shareHandle: handle } : {})
+      }
+    if (shell.route.zone === 'wiki') {
       const replace = shouldReplaceWikiOverlay(shell.route)
-      navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
+      navigateShell({ zone: 'wiki', overlay }, replace ? { replace: true } : undefined)
     } else {
       const replace = wikiOverlayReplace()
       const flags = routeSurfaceFlagsForOverlay(overlay)
       navigateShell(
         {
-          overlay,
-          wikiActive: false,
-          hubActive: flags.hubActive,
-          settingsActive: flags.settingsActive,
-          ...(flags.useChatSession ? chatSessionPart() : {}),
-        },
+          overlay, zone: flags.zone,
+          ...(flags.useChatSession ? chatSessionPart() : {})
+      },
         replace ? { replace: true } : undefined,
       )
     }
@@ -267,22 +263,19 @@
       path,
       shareOwner: p.ownerId,
       sharePrefix: path,
-      ...(handle ? { shareHandle: handle } : {}),
-    }
-    if (shell.route.wikiActive) {
+      ...(handle ? { shareHandle: handle } : {})
+      }
+    if (shell.route.zone === 'wiki') {
       const replace = shouldReplaceWikiOverlay(shell.route)
-      navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
+      navigateShell({ zone: 'wiki', overlay }, replace ? { replace: true } : undefined)
     } else {
       const replace = wikiOverlayReplace()
       const flags = routeSurfaceFlagsForOverlay(overlay)
       navigateShell(
         {
-          overlay,
-          wikiActive: false,
-          hubActive: flags.hubActive,
-          settingsActive: flags.settingsActive,
-          ...(flags.useChatSession ? chatSessionPart() : {}),
-        },
+          overlay, zone: flags.zone,
+          ...(flags.useChatSession ? chatSessionPart() : {})
+      },
         replace ? { replace: true } : undefined,
       )
     }
@@ -312,11 +305,12 @@
   })
 
   /** Disable New chat only on bare `/c` (no slug, no `?panel=`), not merely when the transcript is empty. */
-  const topNavNewChatDisabled = $derived(shouldDisableTopNavNewChat(shell.route, effectiveChatSessionId))
+  const topNavNewChatDisabled = $derived(isNewChat(shell.route, effectiveChatSessionId))
+  const isNewChatWithNothingToDelete = $derived(isNewChat(shell.route, effectiveChatSessionId))
 
   /** Primary wiki pane header: Wiki / folders / page (see `wiki-primary-bar`). */
   const wikiPrimaryBarCrumbs = $derived.by((): WikiPrimaryCrumb[] => {
-    if (!shell.route.wikiActive) return []
+    if (shell.route.zone !== 'wiki') return []
     const o = shell.route.overlay
     if (!o || (o.type !== 'wiki' && o.type !== 'wiki-dir')) return []
     const sh = o.shareHandle?.trim()
@@ -359,7 +353,7 @@
 
   /** Bare `/wiki` hub lists My Wiki + shares; with no received shares, redirect to `/wiki/me/`. */
   $effect(() => {
-    if (!shell.route.wikiActive) return
+    if (shell.route.zone !== 'wiki') return
     const o = shell.route.overlay
     if (!o || o.type !== 'wiki-dir') return
     if (o.path?.trim() || o.shareHandle?.trim() || o.shareOwner?.trim()) return
@@ -371,7 +365,7 @@
         const received = parseWikiListApiBody(await res.json()).shares.received
         if (cancelled || received.length > 0) return
         navigateShell(
-          { wikiActive: true, overlay: { type: 'wiki-dir', path: MY_WIKI_URL_SEGMENT } },
+          { zone: 'wiki', overlay: { type: 'wiki-dir', path: MY_WIKI_URL_SEGMENT } },
           { replace: true },
         )
         shell.route = parseRoute()
@@ -458,13 +452,13 @@
         Math.round((typeof window !== 'undefined' ? window.innerWidth : 400) * 0.9)
       return fly(node, {
         x: reduce ? 0 : -w,
-        duration: reduce ? 0 : SIDEBAR_TRANSITION_MS,
+        duration: reduce ? 0 : SIDEBAR_TRANSITION_MS
       })
     }
     return slide(node, {
       axis: 'x',
-      duration: reduce ? 0 : SIDEBAR_TRANSITION_MS,
-    })
+      duration: reduce ? 0 : SIDEBAR_TRANSITION_MS
+      })
   }
 
   onMount(() => {
@@ -515,7 +509,7 @@
     }
     window.addEventListener('popstate', onPopState)
     const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && shell.route.wikiActive) {
+      if (e.key === 'Escape' && shell.route.zone === 'wiki') {
         e.preventDefault()
         closeWikiPrimary()
         return
@@ -566,7 +560,7 @@
       const chat = await waitUntilDefinedOrMaxTicks({
         get: () => refs.agentChat,
         tick,
-        maxIterations: 16,
+        maxIterations: 16
       })
       if (chat) {
         try {
@@ -613,7 +607,7 @@
 
   function closeWikiPrimary() {
     navigateShell(
-      { wikiActive: false, hubActive: false, settingsActive: false, ...chatSessionPart() },
+      { ...chatSessionPart() },
       { replace: true },
     )
     shell.route = parseRoute()
@@ -621,17 +615,17 @@
   }
 
   function closeOverlayImmediate() {
-    if (shell.route.wikiActive) {
+    if (shell.route.zone === 'wiki') {
       closeWikiPrimary()
       return
     }
-    if (shell.route.settingsActive) {
-      navigateShell({ settingsActive: true, wikiActive: false, hubActive: false }, { replace: true })
-    } else if (shell.route.hubActive) {
-      navigateShell({ hubActive: true, wikiActive: false, settingsActive: false }, { replace: true })
+    if (shell.route.zone === 'settings') {
+      navigateShell({ zone: 'settings' as RouteZone }, { replace: true })
+    } else if (shell.route.zone === 'hub') {
+      navigateShell({ zone: 'hub' as RouteZone }, { replace: true })
     } else {
       navigateShell(
-        { hubActive: false, wikiActive: false, settingsActive: false, ...chatSessionPart() },
+        { ...chatSessionPart() },
         { replace: true },
       )
     }
@@ -648,18 +642,17 @@
    * from chat, attach session id and use the chat column.
    */
   function routeSurfaceFlagsForOverlay(overlay: Overlay): {
-    hubActive: boolean
-    settingsActive: boolean
+    zone: RouteZone | undefined
     useChatSession: boolean
   } {
     const stayOnSurface = hubActiveForOpenOverlay(overlay)
     if (!stayOnSurface) {
-      return { hubActive: false, settingsActive: false, useChatSession: true }
+      return { zone: undefined, useChatSession: true }
     }
-    if (shell.route.settingsActive === true) {
-      return { hubActive: false, settingsActive: true, useChatSession: false }
+    if (shell.route.zone === 'settings') {
+      return { zone: 'settings', useChatSession: false }
     }
-    return { hubActive: true, settingsActive: false, useChatSession: false }
+    return { zone: 'hub', useChatSession: false }
   }
 
   function closeOverlay() {
@@ -681,7 +674,7 @@
     shell.chatIsEmpty = false
     if (!useDesktopSplitDetail && shell.route.overlay) {
       navigateShell(
-        { hubActive: false, wikiActive: false, settingsActive: false, ...chatSessionPart() },
+        { ...chatSessionPart() },
         { replace: true },
       )
       shell.route = parseRoute()
@@ -696,15 +689,15 @@
   function navigateWikiPrimary(path?: string) {
     const shareOpts = wikiShareOptsFromRoute()
     const overlay: Overlay = path ? { type: 'wiki', path, ...shareOpts } : { type: 'wiki-dir', ...shareOpts }
-    const replace = shell.route.wikiActive && shouldReplaceWikiOverlay(shell.route)
-    navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
+    const replace = shell.route.zone === 'wiki' && shouldReplaceWikiOverlay(shell.route)
+    navigateShell({ zone: 'wiki', overlay }, replace ? { replace: true } : undefined)
     shell.route = parseRoute()
     if (path) {
       void addToNavHistory({
         id: makeNavHistoryId('doc', path),
         type: 'doc',
         title: path,
-        path,
+        path
       })
     }
   }
@@ -717,11 +710,8 @@
     const flags = routeSurfaceFlagsForOverlay(overlay)
     navigateShell(
       {
-        overlay,
-        wikiActive: false,
-        hubActive: flags.hubActive,
-        settingsActive: flags.settingsActive,
-        ...(flags.useChatSession ? chatSessionPart() : {}),
+        overlay, zone: flags.zone,
+        ...(flags.useChatSession ? chatSessionPart() : {})
       },
       replace ? { replace: true } : undefined,
     )
@@ -731,7 +721,7 @@
         id: makeNavHistoryId('doc', p),
         type: 'doc',
         title: p,
-        path: p,
+        path: p
       })
     }
   }
@@ -764,11 +754,11 @@
       !sh &&
       (extra.shareOwner?.trim() || extra.sharePrefix?.trim())
         ? { shareOwner: extra.shareOwner, sharePrefix: extra.sharePrefix }
-        : {}),
-    }
-    if (shell.route.wikiActive) {
+        : {})
+      }
+    if (shell.route.zone === 'wiki') {
       const replace = shouldReplaceWikiOverlay(shell.route)
-      navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
+      navigateShell({ zone: 'wiki', overlay }, replace ? { replace: true } : undefined)
       shell.route = parseRoute()
       return
     }
@@ -776,11 +766,8 @@
     const flags = routeSurfaceFlagsForOverlay(overlay)
     navigateShell(
       {
-        overlay,
-        wikiActive: false,
-        hubActive: flags.hubActive,
-        settingsActive: flags.settingsActive,
-        ...(flags.useChatSession ? chatSessionPart() : {}),
+        overlay, zone: flags.zone,
+        ...(flags.useChatSession ? chatSessionPart() : {})
       },
       replace ? { replace: true } : undefined,
     )
@@ -799,7 +786,7 @@
       return {
         type: 'wiki-dir',
         ...(ownerDir ? { path: ownerDir } : {}),
-        shareHandle: parsed.shareHandle,
+        shareHandle: parsed.shareHandle
       }
     }
     let path = parsed.vaultRelPath.replace(/\/+$/, '') || undefined
@@ -812,9 +799,9 @@
     const parent = o?.type === 'wiki-dir' ? o : null
     const merged = mergeWikiBrowseChildPath(parent, dirPath) ?? dirPath
     const overlay = overlayForWikiDirNavigate(merged)
-    if (shell.route.wikiActive) {
+    if (shell.route.zone === 'wiki') {
       const replace = shouldReplaceWikiOverlay(shell.route)
-      navigateShell({ wikiActive: true, overlay }, replace ? { replace: true } : undefined)
+      navigateShell({ zone: 'wiki', overlay }, replace ? { replace: true } : undefined)
       shell.route = parseRoute()
       return
     }
@@ -822,11 +809,8 @@
     const flags = routeSurfaceFlagsForOverlay(overlay)
     navigateShell(
       {
-        overlay,
-        wikiActive: false,
-        hubActive: flags.hubActive,
-        settingsActive: flags.settingsActive,
-        ...(flags.useChatSession ? chatSessionPart() : {}),
+        overlay, zone: flags.zone,
+        ...(flags.useChatSession ? chatSessionPart() : {})
       },
       replace ? { replace: true } : undefined,
     )
@@ -836,67 +820,56 @@
   function openFileDoc(path: string) {
     const flags = routeSurfaceFlagsForOverlay({ type: 'file', path })
     navigateShell({
-      wikiActive: false,
-      overlay: { type: 'file', path },
-      hubActive: flags.hubActive,
-      settingsActive: flags.settingsActive,
-      ...(flags.useChatSession ? chatSessionPart() : {}),
-    })
+      overlay: { type: 'file', path }, zone: flags.zone,
+      ...(flags.useChatSession ? chatSessionPart() : {})
+      })
     shell.route = parseRoute()
     void addToNavHistory({
       id: makeNavHistoryId('doc', `file:${path}`),
       type: 'doc',
       title: path,
-      path,
-    })
+      path
+      })
   }
 
   function openIndexedFileDoc(id: string, source?: string) {
     const overlay: Overlay = {
       type: 'indexed-file',
       id,
-      ...(source?.trim() ? { source: source.trim() } : {}),
-    }
+      ...(source?.trim() ? { source: source.trim() } : {})
+      }
     const flags = routeSurfaceFlagsForOverlay(overlay)
     navigateShell({
-      wikiActive: false,
-      overlay,
-      hubActive: flags.hubActive,
-      settingsActive: flags.settingsActive,
-      ...(flags.useChatSession ? chatSessionPart() : {}),
-    })
+      overlay, zone: flags.zone,
+      ...(flags.useChatSession ? chatSessionPart() : {})
+      })
     shell.route = parseRoute()
     shell.agentContext = {
       type: 'indexed-file',
       id,
       title: '(loading)',
       sourceKind: '',
-      ...(source?.trim() ? { source: source.trim() } : {}),
-    }
+      ...(source?.trim() ? { source: source.trim() } : {})
+      }
   }
 
   function onInboxNavigateSlide(id: string | undefined) {
     const overlay: Overlay = id ? { type: 'email', id } : { type: 'email' }
     const flags = routeSurfaceFlagsForOverlay(overlay)
     const nextRoute: Route = flags.useChatSession
-      ? { hubActive: false, settingsActive: false, wikiActive: false, ...chatSessionPart(), overlay }
+      ? { ...chatSessionPart(), overlay }
       : {
-          hubActive: flags.hubActive,
-          settingsActive: flags.settingsActive,
-          wikiActive: false,
+          zone: flags.zone,
           overlay,
-        }
+      }
     const nextUrl = routeToUrl(nextRoute, optsWithBarTitle())
     if (typeof location !== 'undefined' && nextUrl === `${location.pathname}${location.search}`) {
       return
     }
     navigateShell({
-      wikiActive: false,
-      overlay,
-      hubActive: flags.hubActive,
-      settingsActive: flags.settingsActive,
-      ...(flags.useChatSession ? chatSessionPart() : {}),
-    })
+      overlay, zone: flags.zone,
+      ...(flags.useChatSession ? chatSessionPart() : {})
+      })
     shell.route = parseRoute()
   }
 
@@ -904,12 +877,9 @@
     const overlay: Overlay = { type: 'calendar', date, ...(eventId ? { eventId } : {}) }
     const flags = routeSurfaceFlagsForOverlay(overlay)
     navigateShell({
-      wikiActive: false,
-      overlay,
-      hubActive: flags.hubActive,
-      settingsActive: flags.settingsActive,
-      ...(flags.useChatSession ? chatSessionPart() : {}),
-    })
+      overlay, zone: flags.zone,
+      ...(flags.useChatSession ? chatSessionPart() : {})
+      })
     shell.route = parseRoute()
     shell.agentContext = { type: 'calendar', date, ...(eventId ? { eventId } : {}) }
   }
@@ -934,12 +904,9 @@
     shell.inboxTargetId = id
     const flags = routeSurfaceFlagsForOverlay({ type: 'email', id })
     navigateShell({
-      wikiActive: false,
-      overlay: { type: 'email', id },
-      hubActive: flags.hubActive,
-      settingsActive: flags.settingsActive,
-      ...(flags.useChatSession ? chatSessionPart() : {}),
-    })
+      overlay: { type: 'email', id }, zone: flags.zone,
+      ...(flags.useChatSession ? chatSessionPart() : {})
+      })
     shell.route = parseRoute()
     shell.agentContext = { type: 'email', threadId: id, subject, from }
     if (id && subject.trim()) {
@@ -954,31 +921,25 @@
   function openEmailDraftFromChat(draftId: string, subject?: string) {
     const flags = routeSurfaceFlagsForOverlay({ type: 'email-draft', id: draftId })
     navigateShell({
-      wikiActive: false,
-      overlay: { type: 'email-draft', id: draftId },
-      hubActive: flags.hubActive,
-      settingsActive: flags.settingsActive,
-      ...(flags.useChatSession ? chatSessionPart() : {}),
-    })
+      overlay: { type: 'email-draft', id: draftId }, zone: flags.zone,
+      ...(flags.useChatSession ? chatSessionPart() : {})
+      })
     shell.route = parseRoute()
     shell.agentContext = {
       type: 'email-draft',
       draftId,
       subject: subject?.trim() || '(loading)',
       toLine: '',
-      bodyPreview: '',
-    }
+      bodyPreview: ''
+      }
   }
 
   function openFullInboxFromChat() {
     shell.inboxTargetId = undefined
     navigateShell({
-      wikiActive: false,
-      hubActive: false,
-      settingsActive: false,
       ...chatSessionPart(),
-      overlay: { type: 'email' },
-    })
+      overlay: { type: 'email' }
+      })
     shell.route = parseRoute()
   }
 
@@ -988,12 +949,9 @@
     const overlay: Overlay = { type: 'mail-search', id, query: preview.queryLine }
     const flags = routeSurfaceFlagsForOverlay(overlay)
     navigateShell({
-      wikiActive: false,
-      overlay,
-      hubActive: flags.hubActive,
-      settingsActive: flags.settingsActive,
-      ...(flags.useChatSession ? chatSessionPart() : {}),
-    })
+      overlay, zone: flags.zone,
+      ...(flags.useChatSession ? chatSessionPart() : {})
+      })
     shell.route = parseRoute()
     shell.agentContext = { type: 'mail-search', query: preview.queryLine }
   }
@@ -1002,12 +960,9 @@
     const overlay: Overlay = { type: 'messages', chat: canonicalChat }
     const flags = routeSurfaceFlagsForOverlay(overlay)
     navigateShell({
-      wikiActive: false,
-      overlay,
-      hubActive: flags.hubActive,
-      settingsActive: flags.settingsActive,
-      ...(flags.useChatSession ? chatSessionPart() : {}),
-    })
+      overlay, zone: flags.zone,
+      ...(flags.useChatSession ? chatSessionPart() : {})
+      })
     shell.route = parseRoute()
     shell.agentContext = { type: 'messages', chat: canonicalChat, displayLabel }
   }
@@ -1015,13 +970,13 @@
   /** Brain Hub rows → same detail stack as chat (`SlideOver` + `Overlay`). */
   function navigateFromHub(overlay: Overlay, opts?: NavigateOptions) {
     const prevOverlay = shell.route.overlay
-    const hubActive = !shell.isMobile || !overlaySupportsMobileChatBridge(overlay)
+    const hubActiveForNav = !shell.isMobile || !overlaySupportsMobileChatBridge(overlay)
     const routeForNav: Route = {
       ...shell.route,
       sessionId: effectiveChatSessionId ?? shell.route.sessionId,
-      sessionTail: undefined,
-    }
-    applyHubDetailNavigation(routeForNav, overlay, optsWithBarTitle(opts), hubActive)
+      sessionTail: undefined
+      }
+    applyHubDetailNavigation(routeForNav, overlay, optsWithBarTitle(opts), hubActiveForNav)
     shell.route = parseRoute()
     syncMobileWikiStackFromHubSettings(prevOverlay)
     if (overlay.type === 'wiki' && overlay.path) {
@@ -1029,7 +984,7 @@
         id: makeNavHistoryId('doc', overlay.path),
         type: 'doc',
         title: overlay.path,
-        path: overlay.path,
+        path: overlay.path
       })
     }
   }
@@ -1041,8 +996,8 @@
     const routeForNav: Route = {
       ...shell.route,
       sessionId: effectiveChatSessionId ?? shell.route.sessionId,
-      sessionTail: undefined,
-    }
+      sessionTail: undefined
+      }
     applySettingsDetailNavigation(routeForNav, overlay, optsWithBarTitle(opts), settingsColumnActive)
     shell.route = parseRoute()
     syncMobileWikiStackFromHubSettings(prevOverlay)
@@ -1051,7 +1006,7 @@
         id: makeNavHistoryId('doc', overlay.path),
         type: 'doc',
         title: overlay.path,
-        path: overlay.path,
+        path: overlay.path
       })
     }
   }
@@ -1077,8 +1032,8 @@
       openFileDoc: (path) => openFileDoc(path),
       openIndexedFileDoc: (fid, src) => openIndexedFileDoc(fid, src),
       openEmailFromSearch,
-      switchToCalendar,
-    })
+      switchToCalendar
+      })
   }
 
   async function performFullSync(): Promise<void> {
@@ -1108,14 +1063,14 @@
 
   async function selectChatSession(id: string, title?: string) {
     shell.chatTitleForUrl = title?.trim() ? title.trim() : null
-    navigateShell({ hubActive: false, wikiActive: false, settingsActive: false, sessionId: id }, { replace: true })
+    navigateShell({ sessionId: id }, { replace: true })
     shell.route = parseRoute()
     alignShellWithBareChatRoute(shell)
     const chat = await waitUntilDefinedOrMaxTicks({
       get: () => refs.agentChat,
       tick,
-      maxIterations: 16,
-    })
+      maxIterations: 16
+      })
     if (chat) await chat.loadSession(id)
     shell.chatIsEmpty = false
     if (shell.isMobile) shell.sidebarOpen = false
@@ -1133,7 +1088,7 @@
 
   function historyNewChat() {
     shell.chatTitleForUrl = null
-    navigateShell({ hubActive: false, wikiActive: false, settingsActive: false }, { replace: true })
+    navigateShell({ }, { replace: true })
     shell.route = parseRoute()
     alignShellWithBareChatRoute(shell)
     refs.agentChat?.newChat()
@@ -1194,10 +1149,7 @@
     shell.chatTitleForUrl = null
     navigateShell(
       {
-        hubActive: false,
-        settingsActive: false,
-        wikiActive: false,
-        ...(keepDetailForSplit ? { overlay: o } : {}),
+        ...(keepDetailForSplit ? { overlay: o } : {})
       },
       { replace: true },
     )
@@ -1226,13 +1178,13 @@
     const chat = await waitUntilDefinedOrMaxTicks({
       get: () => refs.agentChat,
       tick,
-      maxIterations: 48,
-    })
+      maxIterations: 48
+      })
     if (chat) await chat.newChatWithMessage(t, { skipOverlayClose: true })
   }
 
   $effect(() => {
-    if (!shell.route.wikiActive) return
+    if (shell.route.zone !== 'wiki') return
     void fetchWikiDockWikiFiles()
     void fetchWikiDockSkills()
     return registerWikiFileListRefetch(fetchWikiDockWikiFiles)
@@ -1240,26 +1192,22 @@
 
   /** Empty-state "your wiki" → same help as Hub (`HubWikiAboutPanel` in SlideOver / mobile stack). */
   function openHubWikiAbout() {
-    const onHubLike = shell.route.hubActive === true || shell.route.settingsActive === true
+    const onHubLike = shell.route.zone === 'hub' || shell.route.zone === 'settings'
     navigateShell({
-      wikiActive: false,
       overlay: { type: 'hub-wiki-about' },
-      hubActive: shell.route.hubActive === true,
-      settingsActive: shell.route.settingsActive === true,
-      ...(onHubLike ? {} : chatSessionPart()),
-    })
+      zone: (shell.route.zone === 'hub' || shell.route.zone === 'settings') ? shell.route.zone : undefined,
+      ...(onHubLike ? {} : chatSessionPart())
+      })
     shell.route = parseRoute()
   }
 
   function openChatHistoryPage() {
-    const onHubLike = shell.route.hubActive === true || shell.route.settingsActive === true
+    const onHubLike = shell.route.zone === 'hub' || shell.route.zone === 'settings'
     navigateShell({
-      wikiActive: false,
       overlay: { type: 'chat-history' },
-      hubActive: shell.route.hubActive === true,
-      settingsActive: shell.route.settingsActive === true,
-      ...(onHubLike ? {} : chatSessionPart()),
-    })
+      zone: (shell.route.zone === 'hub' || shell.route.zone === 'settings') ? shell.route.zone : undefined,
+      ...(onHubLike ? {} : chatSessionPart())
+      })
     shell.route = parseRoute()
   }
 
@@ -1278,23 +1226,21 @@
     }
     if (
       shell.route.flow ||
-      shell.route.hubActive === true ||
-      shell.route.settingsActive === true ||
-      shell.route.wikiActive === true
+      shell.route.zone === 'hub' ||
+      shell.route.zone === 'settings' ||
+      shell.route.zone === 'wiki'
     )
       return
     const navRoute: Route = {
-      hubActive: false,
-      settingsActive: false,
       sessionId: id,
-      overlay: shell.route.overlay,
-    }
+      overlay: shell.route.overlay
+      }
     const nextUrl = routeToUrl(navRoute, optsWithBarTitle())
     if (typeof location !== 'undefined' && nextUrl === `${location.pathname}${location.search}`) {
       return
     }
     navigateShell(
-      { hubActive: false, settingsActive: false, sessionId: id, overlay: shell.route.overlay },
+      { sessionId: id, overlay: shell.route.overlay },
       { replace: true },
     )
     shell.route = parseRoute()
@@ -1304,9 +1250,9 @@
     const sid = effectiveChatSessionId
     const onChat =
       !shell.route.flow &&
-      shell.route.hubActive !== true &&
-      shell.route.settingsActive !== true &&
-      shell.route.wikiActive !== true &&
+      shell.route.zone !== 'hub' &&
+      shell.route.zone !== 'settings' &&
+      shell.route.zone !== 'wiki' &&
       shell.route.overlay?.type !== 'hub'
     if (!onChat || !sid) {
       return
@@ -1320,7 +1266,7 @@
         get: () => refs.agentChat,
         tick,
         maxIterations: 16,
-        shouldAbort: () => gen !== urlSessionSyncGen,
+        shouldAbort: () => gen !== urlSessionSyncGen
       })
       if (gen !== urlSessionSyncGen) return
       if (chat) await chat.loadSession(sid)
@@ -1338,7 +1284,7 @@
   }
 
   function openSettings() {
-    navigateShell({ settingsActive: true, wikiActive: false, hubActive: false })
+    navigateShell({ zone: 'settings' as RouteZone })
     shell.route = parseRoute()
     if (shell.isMobile) shell.sidebarOpen = false
   }
@@ -1354,7 +1300,7 @@
   }
 
   function openHubActivity() {
-    navigateShell({ hubActive: true, wikiActive: false, settingsActive: false })
+    navigateShell({ zone: 'hub' as RouteZone })
     shell.route = parseRoute()
     if (shell.isMobile) shell.sidebarOpen = false
     void refreshPendingWikiShareInvitesBadge()
@@ -1399,12 +1345,13 @@
     'wiki-primary-icon-btn inline-flex items-center justify-center p-1.5 border-0 bg-transparent text-muted cursor-pointer transition-colors enabled:hover:text-accent enabled:hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] disabled:opacity-45 disabled:cursor-not-allowed'
 
   /** Mobile chat/hub/settings columns: compact L1 per OPP-092 (wiki-primary keeps labeled icons). */
-  const appMobileNavCompact = $derived(shell.isMobile && shell.route.wikiActive !== true)
+  const appMobileNavCompact = $derived(shell.isMobile && shell.route.zone !== 'wiki')
   const appMobileNavCenterTitle = $derived(
     appMobileNavCompact
-      ? mobileCompactNavCenterTitle(shell.route.overlay, shell.agentContext, shell.chatTitleForUrl)
+      ? mobileCompactNavCenterTitle(shell.route, shell.agentContext, shell.chatTitleForUrl, effectiveChatSessionId)
       : undefined,
   )
+  const showMobileOverflowChatSessionActions = $derived(mobileOverflowMenuShowsChatSessionActions(shell.route))
 </script>
 
 {#if shell.showSearch}
@@ -1462,31 +1409,32 @@
         <LayoutGrid size={18} strokeWidth={2} aria-hidden="true" />
       {/snippet}
     </AnchoredMenuRow>
-    <AnchoredMenuRow
-      label="Toggle hear replies"
-      onclick={() => {
-        refs.agentChat?.toggleHearRepliesFromHeader()
-        dismiss()
-      }}
-    >
-      {#snippet leading()}
-        <Volume2 size={18} strokeWidth={2} aria-hidden="true" />
-      {/snippet}
-    </AnchoredMenuRow>
-    <AnchoredMenuRow
-      label="Delete chat"
-      onclick={() => {
-        refs.agentChat?.requestDeleteCurrentChat()
-        dismiss()
-      }}
-    >
-      {#snippet leading()}
-        <Trash2 size={18} strokeWidth={2} aria-hidden="true" />
-      {/snippet}
-    </AnchoredMenuRow>
-    <p class="m-0 px-4 py-2 text-xs leading-snug text-muted">
-      Conversation tokens (approx.): {refs.agentChat?.getConversationTokenMeterTotal?.() ?? 0}
-    </p>
+    {#if showMobileOverflowChatSessionActions}
+      <AnchoredMenuRow
+        label="Audio Conversation"
+        onclick={() => {
+          refs.agentChat?.toggleHearRepliesFromHeader()
+          dismiss()
+        }}
+      >
+        {#snippet leading()}
+          <Volume2 size={18} strokeWidth={2} aria-hidden="true" />
+        {/snippet}
+      </AnchoredMenuRow>
+      {#if !isNewChatWithNothingToDelete}
+        <AnchoredMenuRow
+          label="Delete chat"
+          onclick={() => {
+            refs.agentChat?.requestDeleteCurrentChat()
+            dismiss()
+          }}
+        >
+          {#snippet leading()}
+            <Trash2 size={18} strokeWidth={2} aria-hidden="true" />
+          {/snippet}
+        </AnchoredMenuRow>
+      {/if}
+    {/if}
   {/snippet}
   <AppTopNav
     isMobile={shell.isMobile}
@@ -1555,13 +1503,13 @@
         workspaceColumnWidthPx={shell.workspaceColumnWidth}
         bind:detailFullscreen={shell.detailPaneFullscreen}
         hasDetail={
-          !shell.route.wikiActive &&
+          shell.route.zone !== 'wiki' &&
           !!shell.route.overlay &&
           shell.route.overlay.type !== 'hub' &&
           shell.route.overlay.type !== 'chat-history'
         }
         desktopDetailOpen={
-          !shell.route.wikiActive &&
+          shell.route.zone !== 'wiki' &&
           !!shell.route.overlay &&
           shell.route.overlay.type !== 'hub' &&
           shell.route.overlay.type !== 'chat-history' &&
@@ -1581,7 +1529,7 @@
                 />
               </div>
             </div>
-          {:else if shell.route.wikiActive && shell.route.overlay && (shell.route.overlay.type === 'wiki' || shell.route.overlay.type === 'wiki-dir')}
+          {:else if shell.route.zone === 'wiki' && shell.route.overlay && (shell.route.overlay.type === 'wiki' || shell.route.overlay.type === 'wiki-dir')}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
               <WikiPrimaryShell bind:wikiHdrRef={wikiPrimaryHdr}>
                 {#snippet bar()}
@@ -1669,14 +1617,14 @@
                             openSharedWiki({
                               ownerId: p.ownerId,
                               pathPrefix: p.sharePrefix,
-                              ownerHandle: p.ownerHandle,
-                            })}
+                              ownerHandle: p.ownerHandle
+      })}
                           onOpenSharedFile={(p) =>
                             openSharedWikiFile({
                               ownerId: p.ownerId,
                               filePath: p.sharePrefix,
-                              ownerHandle: p.ownerHandle,
-                            })}
+                              ownerHandle: p.ownerHandle
+      })}
                           onContextChange={setContext}
                         />
                       {/if}
@@ -1707,7 +1655,7 @@
                 {/snippet}
               </WikiPrimaryShell>
             </div>
-          {:else if shell.route.hubActive || shell.route.overlay?.type === 'hub'}
+          {:else if shell.route.zone === 'hub' || shell.route.overlay?.type === 'hub'}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
               <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
                 <BrainHubPage
@@ -1756,7 +1704,7 @@
                 </div>
               {/if}
             </div>
-          {:else if shell.route.settingsActive}
+          {:else if shell.route.zone === 'settings'}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
               <div class="hub-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
                 <BrainSettingsPage

@@ -20,12 +20,25 @@ describe('AppTopNav.svelte', () => {
   })
 
   describe('basic rendering', () => {
-    it('renders nav element with search and hub buttons', () => {
+    it('renders nav element with search and hub buttons on desktop', () => {
       render(AppTopNav, { props: baseProps })
 
       expect(screen.getByRole('navigation')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument()
       expect(screen.getByTestId('brain-hub-widget-stub')).toBeInTheDocument()
+    })
+
+    it('hides hub widget on mobile', () => {
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          onWikiHome: vi.fn(),
+          onNewChat: vi.fn(),
+          isEmptyChat: false,
+          isMobile: true,
+        },
+      })
+      expect(screen.queryByTestId('brain-hub-widget-stub')).not.toBeInTheDocument()
     })
 
     it('shows Braintunnel brand when sidebar is collapsed', () => {
@@ -42,6 +55,7 @@ describe('AppTopNav.svelte', () => {
           onNewChat: vi.fn(),
           onWikiHome,
           isEmptyChat: false,
+          isMobile: false,
         },
       })
       const search = screen.getByRole('button', { name: 'Search' })
@@ -404,6 +418,37 @@ describe('AppTopNav.svelte', () => {
       })
       expect(screen.getByText('@acme')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /^settings$/i })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('mobile compact nav center title', () => {
+    it('renders center title as clickable button when mobile compact nav is active', () => {
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          isMobile: true,
+          mobileCenterTitle: 'Braintunnel',
+          mobileOverflow: () => {},
+        },
+      })
+      const title = screen.getByRole('button', { name: 'Braintunnel - Open sidebar' })
+      expect(title).toHaveTextContent('Braintunnel')
+    })
+
+    it('calls onToggleSidebar when mobile center title is clicked', async () => {
+      const onToggleSidebar = vi.fn()
+      render(AppTopNav, {
+        props: {
+          ...baseProps,
+          onToggleSidebar,
+          isMobile: true,
+          mobileCenterTitle: 'Chat',
+          mobileOverflow: () => {},
+        },
+      })
+      const title = screen.getByRole('button', { name: 'Chat - Open sidebar' })
+      await fireEvent.click(title)
+      expect(onToggleSidebar).toHaveBeenCalledTimes(1)
     })
   })
 })

@@ -31,6 +31,12 @@ describe('Search.svelte', () => {
     expect(screen.getByText(/Search your docs and emails/i)).toBeInTheDocument()
 
     const input = screen.getByPlaceholderText(/Search your docs and emails/i)
+    await fireEvent.input(input, { target: { value: 'loading-spinner-shape' } })
+    const spin = document.querySelector('.spinner')
+    expect(spin).toBeTruthy()
+    expect(spin).toHaveClass('rounded-full')
+    await fireEvent.input(input, { target: { value: '' } })
+
     await fireEvent.input(input, { target: { value: 'hello' } })
 
     expect(mockFetch).not.toHaveBeenCalled()

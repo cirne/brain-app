@@ -1,15 +1,37 @@
-import type { Overlay, SurfaceContext } from '@client/router.js'
+import { isNewChat } from '@client/lib/assistantShellNavigation.js'
+import type { Route, SurfaceContext } from '@client/router.js'
+
+export type MobileCompactNavRoutePick = Pick<
+  Route,
+  'zone' | 'sessionId' | 'sessionTail' | 'overlay'
+>
+
+function compactNavFallbackTitle(
+  route: MobileCompactNavRoutePick,
+  effectiveChatSessionId: string | null | undefined,
+  chatTitle: string | undefined,
+): string {
+  if (route.zone === 'settings') return 'Settings'
+  if (route.zone === 'hub') return 'Braintunnel Hub'
+  const t = chatTitle?.trim()
+  if (t) return t
+  if (isNewChat(route, effectiveChatSessionId)) return 'Braintunnel'
+  return 'Chat'
+}
 
 /**
  * OPP-092 mobile L1 center title on chat-bridge routes: prefer the foreground overlay
  * (wiki doc, folder, mail, …) over `chatTitleForUrl`, which is often empty while a panel is open.
  */
 export function mobileCompactNavCenterTitle(
-  overlay: Overlay | undefined,
+  route: MobileCompactNavRoutePick,
   ctx: SurfaceContext,
   chatTitleForUrl: string | undefined,
+  effectiveChatSessionId: string | null | undefined,
 ): string {
-  if (!overlay) return chatTitleForUrl?.trim() || 'Chat'
+  const overlay = route.overlay
+
+  if (!overlay) return compactNavFallbackTitle(route, effectiveChatSessionId, chatTitleForUrl)
 
   if (overlay.type === 'wiki' && overlay.path) {
     if (ctx.type === 'wiki' && ctx.path === overlay.path && ctx.title.trim()) return ctx.title.trim()
@@ -44,5 +66,5 @@ export function mobileCompactNavCenterTitle(
     return `Calendar · ${ctx.date}`
   }
 
-  return chatTitleForUrl?.trim() || 'Chat'
+  return compactNavFallbackTitle(route, effectiveChatSessionId, chatTitleForUrl)
 }

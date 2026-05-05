@@ -33,8 +33,8 @@
     const sid =
       r.sessionId ?? (r.sessionTail ? readTailFromCache(r.sessionTail) : undefined)
     navigate({
-      hubActive: r.hubActive === true,
-      ...(r.hubActive ? {} : sid ? { sessionId: sid } : {}),
+      zone: r.zone === 'hub' ? r.zone : undefined,
+      ...(r.zone === 'hub' ? {} : sid ? { sessionId: sid } : {}),
       overlay,
     })
   }
@@ -44,8 +44,8 @@
     const sid =
       r.sessionId ?? (r.sessionTail ? readTailFromCache(r.sessionTail) : undefined)
     navigate({
-      hubActive: r.hubActive === true,
-      ...(r.hubActive ? {} : sid ? { sessionId: sid } : {}),
+      zone: r.zone === 'hub' ? r.zone : undefined,
+      ...(r.zone === 'hub' ? {} : sid ? { sessionId: sid } : {}),
       overlay,
     })
   }

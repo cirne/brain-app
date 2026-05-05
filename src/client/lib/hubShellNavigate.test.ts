@@ -21,7 +21,7 @@ describe('applyHubDetailNavigation', () => {
     const route: Route = {}
     applyHubDetailNavigation(route, { type: 'wiki', path: 'a.md' })
     expect(vi.mocked(navigate)).toHaveBeenCalledWith(
-      { overlay: { type: 'wiki', path: 'a.md' }, hubActive: true, wikiActive: false, settingsActive: false },
+      { overlay: { type: 'wiki', path: 'a.md' }, zone: 'hub' },
       undefined,
     )
   })
@@ -32,9 +32,6 @@ describe('applyHubDetailNavigation', () => {
     expect(vi.mocked(navigate)).toHaveBeenCalledWith(
       {
         overlay: { type: 'wiki', path: 'a.md' },
-        hubActive: false,
-        wikiActive: false,
-        settingsActive: false,
         sessionId: undefined,
       },
       undefined,
@@ -53,9 +50,7 @@ describe('applySettingsDetailNavigation', () => {
     expect(vi.mocked(navigate)).toHaveBeenCalledWith(
       {
         overlay: { type: 'hub-source', id: 'a' },
-        settingsActive: true,
-        hubActive: false,
-        wikiActive: false,
+        zone: 'settings',
       },
       undefined,
     )
@@ -67,9 +62,6 @@ describe('applySettingsDetailNavigation', () => {
     expect(vi.mocked(navigate)).toHaveBeenCalledWith(
       {
         overlay: { type: 'wiki', path: 'a.md' },
-        settingsActive: false,
-        hubActive: false,
-        wikiActive: false,
         sessionId: undefined,
       },
       undefined,

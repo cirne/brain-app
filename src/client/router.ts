@@ -36,6 +36,9 @@ export type Overlay =
     }
   | { type: 'chat-history' }
 
+/** Primary surface of the current route. Absent (or `undefined`) means the default chat column (`/c`). */
+export type RouteZone = 'hub' | 'settings' | 'wiki'
+
 /**
  * Chat-first shell: optional detail overlay in `?panel=` (+ payload); base path is `/c` or `/c/{slug}--{tail}`;
  * Brain Hub primary surface is `/hub`. OAuth `/api/oauth/*` callback paths are unchanged (server).
@@ -50,12 +53,12 @@ export type Route = {
   sessionTail?: string
   overlay?: Overlay
   flow?: 'welcome' | 'hard-reset' | 'restart-seed' | 'first-chat' | 'enron-demo'
-  /** True when primary surface is Brain Hub (`/hub`). */
-  hubActive?: boolean
-  /** True when primary surface is Settings (`/settings`). */
-  settingsActive?: boolean
-  /** True when primary surface is wiki-first (`/wiki/...` path URLs or legacy `?path=`). */
-  wikiActive?: boolean
+  /**
+   * Primary surface when not the default chat column.
+   * `'hub'` → `/hub`, `'settings'` → `/settings`, `'wiki'` → `/wiki/…`.
+   * Absent means chat (`/c`).
+   */
+  zone?: RouteZone
 }
 
 export type SurfaceContext =
@@ -306,7 +309,7 @@ function buildWikiPrimaryUrl(
 function parseWikiPrimaryPathname(
   href: string,
   wikiRest: string[],
-): { wikiActive: true; overlay: Overlay } {
+): { zone: 'wiki'; overlay: Overlay } {
   const url = new URL(href, 'http://localhost')
   const pathnameEndsWithSlash = url.pathname.endsWith('/')
   const decoded = wikiRest.map((s) => safeDecodePathSegment(s))
@@ -318,22 +321,22 @@ function parseWikiPrimaryPathname(
     const lastSeg = relSegs[relSegs.length - 1] ?? ''
 
     if (relSegs.length === 0) {
-      return { wikiActive: true, overlay: { type: 'wiki-dir', path: 'me' } }
+      return { zone: 'wiki', overlay: { type: 'wiki-dir', path: 'me' } }
     }
 
     const unifiedPath = `me/${vaultRel}`
     const isFile = lastSeg.endsWith('.md') && !pathnameEndsWithSlash
     if (isFile) {
-      return { wikiActive: true, overlay: { type: 'wiki', path: unifiedPath } }
+      return { zone: 'wiki', overlay: { type: 'wiki', path: unifiedPath } }
     }
 
     const dirPath = unifiedPath.replace(/\/+$/g, '') || undefined
-    return { wikiActive: true, overlay: { type: 'wiki-dir', path: dirPath } }
+    return { zone: 'wiki', overlay: { type: 'wiki-dir', path: dirPath } }
   }
   if (first.startsWith('@')) {
     const shareHandle = first.slice(1).trim()
     if (!shareHandle) {
-      return { wikiActive: true, overlay: { type: 'wiki' } }
+      return { zone: 'wiki', overlay: { type: 'wiki' } }
     }
 
     const relSegs = decoded.slice(1)
@@ -341,20 +344,20 @@ function parseWikiPrimaryPathname(
     const lastSeg = relSegs[relSegs.length - 1] ?? ''
 
     if (relSegs.length === 0) {
-      return { wikiActive: true, overlay: { type: 'wiki-dir', shareHandle } }
+      return { zone: 'wiki', overlay: { type: 'wiki-dir', shareHandle } }
     }
 
     const isFile = lastSeg.endsWith('.md') && !pathnameEndsWithSlash
     if (isFile) {
       return {
-        wikiActive: true,
+        zone: 'wiki',
         overlay: { type: 'wiki', path: relPath, shareHandle },
       }
     }
 
     const dirPath = relPath.replace(/\/+$/g, '') || undefined
     return {
-      wikiActive: true,
+      zone: 'wiki',
       overlay: { type: 'wiki-dir', path: dirPath, shareHandle },
     }
   }
@@ -365,12 +368,12 @@ function parseWikiPrimaryPathname(
 
   const isFile = lastSeg.endsWith('.md') && !pathnameEndsWithSlash
   if (isFile) {
-    return { wikiActive: true, overlay: { type: 'wiki', path: unifiedPersonal } }
+    return { zone: 'wiki', overlay: { type: 'wiki', path: unifiedPersonal } }
   }
 
   const dirPath = unifiedPersonal.replace(/\/+$/g, '') || undefined
   return {
-    wikiActive: true,
+    zone: 'wiki',
     overlay: { type: 'wiki-dir', path: dirPath },
   }
 }
@@ -518,9 +521,9 @@ function hubRouteFromSearch(href: string): Route | null {
   }
   const overlay = overlayFromSearchParams(url.searchParams)
   if (!overlay) {
-    return { hubActive: true }
+    return { zone: 'hub' }
   }
-  return { hubActive: true, overlay }
+  return { zone: 'hub', overlay }
 }
 
 function settingsRouteFromSearch(href: string): Route | null {
@@ -530,9 +533,9 @@ function settingsRouteFromSearch(href: string): Route | null {
   }
   const overlay = overlayFromSearchParams(url.searchParams)
   if (!overlay) {
-    return { settingsActive: true }
+    return { zone: 'settings' }
   }
-  return { settingsActive: true, overlay }
+  return { zone: 'settings', overlay }
 }
 
 export type RouteUrlOpts = {
@@ -618,7 +621,7 @@ export function parseRoute(href: string = location.href): Route {
         ...(shareHandleOnly ? { shareHandle: shareHandleOnly } : {}),
       }
       return {
-        wikiActive: true,
+        zone: 'wiki',
         overlay: { ...base, ...extra },
       }
     }
@@ -638,7 +641,7 @@ export function parseRoute(href: string = location.href): Route {
         ...(shareHandleOnly ? { shareHandle: shareHandleOnly } : {}),
       }
       return {
-        wikiActive: true,
+        zone: 'wiki',
         overlay: { ...base, ...extra },
       }
     }
@@ -652,7 +655,7 @@ export function parseRoute(href: string = location.href): Route {
     })
     if (pathOnly) {
       return {
-        wikiActive: true,
+        zone: 'wiki',
         overlay: {
           type: 'wiki',
           path: pathOnly,
@@ -664,7 +667,7 @@ export function parseRoute(href: string = location.href): Route {
     }
     if (shareOwnerOnly) {
       return {
-        wikiActive: true,
+        zone: 'wiki',
         overlay: {
           type: 'wiki',
           shareOwner: shareOwnerOnly,
@@ -675,11 +678,11 @@ export function parseRoute(href: string = location.href): Route {
     }
     if (shareHandleOnly) {
       return {
-        wikiActive: true,
+        zone: 'wiki',
         overlay: { type: 'wiki-dir', shareHandle: shareHandleOnly },
       }
     }
-    return { wikiActive: true, overlay: { type: 'wiki-dir' } }
+    return { zone: 'wiki', overlay: { type: 'wiki-dir' } }
   }
 
   if (seg1 === 'c') {
@@ -708,10 +711,10 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
   if (route.flow === 'first-chat') return '/first-chat'
   if (route.flow === 'enron-demo') return '/demo'
 
-  const wikiActive = route.wikiActive === true
+  const zone = route.zone
   const o = route.overlay
 
-  if (wikiActive) {
+  if (zone === 'wiki') {
     if (!o) {
       return '/wiki'
     }
@@ -732,9 +735,7 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
     return qs ? `/wiki?${qs}` : '/wiki'
   }
 
-  const hubActive = route.hubActive === true
-
-  if (hubActive) {
+  if (zone === 'hub') {
     if (!o || o.type === 'hub') {
       return '/hub'
     }
@@ -743,9 +744,7 @@ export function routeToUrl(route: Route, urlOpts?: RouteUrlOpts): string {
     return qs ? `/hub?${qs}` : '/hub'
   }
 
-  const settingsActive = route.settingsActive === true
-
-  if (settingsActive) {
+  if (zone === 'settings') {
     if (!o || o.type === 'hub') {
       return '/settings'
     }

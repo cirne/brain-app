@@ -24,6 +24,7 @@
     showSyncErrors: boolean
     onOpenSearch: () => void
     onToggleSyncErrors: () => void
+    /** Opens Braintunnel Hub (desktop top nav only; mobile uses overflow “Brain Hub”). */
     onOpenHub: () => void
     /** L1 “New” — same flow as sidebar / ⌘N (e.g. `historyNewChat`). */
     onNewChat?: () => void
@@ -150,10 +151,12 @@
     )}
   >
     {#if mobileCompactNav && mobileCenterTitle}
-      <span
-        class="mobile-nav-title min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[0.02em] text-foreground"
-        title={mobileCenterTitle}
-      >{mobileCenterTitle}</span>
+      <button
+        type="button"
+        class="mobile-nav-title min-w-0 flex-1 truncate border-none bg-transparent p-0 text-left text-[15px] font-semibold tracking-[0.02em] text-foreground cursor-pointer"
+        onclick={showChatHistoryButton ? onToggleSidebar : undefined}
+        aria-label={showChatHistoryButton ? `${mobileCenterTitle} - Open sidebar` : mobileCenterTitle}
+      >{mobileCenterTitle}</button>
     {:else if showCenterBrand}
       <span class="brand-name text-[15px] font-semibold tracking-[0.02em] text-foreground max-md:text-lg">Braintunnel</span>
     {/if}
@@ -287,7 +290,9 @@
           @{hostedHandlePill}
         </button>
       {/if}
-      <BrainHubWidget onOpen={onOpenHub} />
+      {#if !isMobile}
+        <BrainHubWidget onOpen={onOpenHub} />
+      {/if}
       {#if syncErrors.length > 0}
         <button
           class="sync-error-badge absolute right-1 top-1 flex h-3.5 w-3.5 cursor-pointer items-center justify-center bg-[#e74c3c] text-[9px] font-bold leading-none text-white hover:bg-[#c0392b]"
@@ -363,28 +368,7 @@ background: var(--accent);
     }
   }
 
-  /* Mobile sizing for sub-elements rendered inside the hub widget (`:global` reach). */
   :global(.sync-wrap) :global(.hub-widget) {
     font-size: inherit;
-  }
-  @media (max-width: 768px) {
-    :global(.sync-wrap) :global(.hub-widget) {
-      font-size: 18px;
-    }
-    :global(.sync-wrap) :global(.wiki-page-count-indicator) {
-      font-size: 18px;
-    }
-    :global(.sync-wrap) :global(.pulse-container) {
-      width: 16px;
-      height: 16px;
-    }
-    :global(.sync-wrap) :global(.pulse-dot) {
-      width: 9px;
-      height: 9px;
-    }
-    :global(.sync-wrap) :global(svg.wpc-book) {
-      width: 18px;
-      height: 18px;
-    }
   }
 </style>
