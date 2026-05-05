@@ -137,6 +137,8 @@
      * `interviewKickoff` on `POST /api/onboarding/interview` so the server prepends fresh `ripmail whoami`.
      */
     autoSendInterviewKickoffHidden = false,
+    /** Fires whenever the displayed session's hearReplies flag changes (for parent UI like overflow menus). */
+    onHearRepliesChange = undefined as ((_on: boolean) => void) | undefined,
   }: {
     context?: SurfaceContext
     conversationHidden?: boolean
@@ -195,6 +197,7 @@
     multiTenant?: boolean
     mobileSlideCoversTranscriptOnly?: boolean
     autoSendInterviewKickoffHidden?: boolean
+    onHearRepliesChange?: (_on: boolean) => void
   } = $props()
 
   /** Slide-over only over transcript; composer stays visible (mobile chat bridge). */
@@ -337,6 +340,10 @@
       return true
     }
     return row.hearReplies === true
+  })
+
+  $effect(() => {
+    onHearRepliesChange?.(hearRepliesForChatComposer)
   })
 
   /** Survives pending → server session id migration; keeps UnifiedChatComposer voice mode across SSE `session`. */
@@ -1037,10 +1044,8 @@
               aria-checked={hearRepliesForChatComposer}
               aria-label="Audio conversation"
               class={cn(
-                'audio-conv-toggle inline-flex items-center gap-2.5 rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150',
-                hearRepliesForChatComposer
-                  ? 'bg-accent/10 text-accent'
-                  : 'bg-surface-3 text-muted hover:text-foreground',
+                'audio-conv-toggle inline-flex items-center gap-2.5 rounded-full', 
+                'px-4 py-2 text-md transition-colors duration-150'
               )}
               onclick={toggleHearRepliesFromHeader}
             >

@@ -786,6 +786,10 @@ describe('AgentChat.svelte', () => {
   })
 
   describe('mobile audio conversation toggle (empty chat)', () => {
+    beforeEach(() => {
+      localStorage.clear()
+    })
+
     it('renders the audio conversation toggle when chat is empty', async () => {
       stubFetchForAgentChat()
       render(AgentChat, { props: { context: { type: 'none' } } })
@@ -840,10 +844,9 @@ describe('AgentChat.svelte', () => {
       await tick()
       const toggle = screen.getByRole('switch', { name: /audio conversation/i })
       await fireEvent.click(toggle)
-      await tick()
+      await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
       await fireEvent.click(toggle)
-      await tick()
-      expect(toggle.getAttribute('aria-checked')).toBe('false')
+      await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
     })
   })
 

@@ -99,7 +99,8 @@
     Settings,
     Share2,
     Trash2,
-    Volume2
+    Volume2,
+    VolumeX
       } from 'lucide-svelte'
 
   /**
@@ -1344,6 +1345,9 @@
   const wikiPrimaryIconBtn =
     'wiki-primary-icon-btn inline-flex items-center justify-center p-1.5 border-0 bg-transparent text-muted cursor-pointer transition-colors enabled:hover:text-accent enabled:hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] disabled:opacity-45 disabled:cursor-not-allowed'
 
+  /** Tracks the current chat's hearReplies state for the mobile overflow menu label/icon. */
+  let chatHearReplies = $state(false)
+
   /** Mobile chat/hub/settings columns: compact L1 per OPP-092 (wiki-primary keeps labeled icons). */
   const appMobileNavCompact = $derived(shell.isMobile && shell.route.zone !== 'wiki')
   const appMobileNavCenterTitle = $derived(
@@ -1411,14 +1415,18 @@
     </AnchoredMenuRow>
     {#if showMobileOverflowChatSessionActions}
       <AnchoredMenuRow
-        label="Audio Conversation"
+        label={chatHearReplies ? 'Turn audio off' : 'Turn audio on'}
         onclick={() => {
           refs.agentChat?.toggleHearRepliesFromHeader()
           dismiss()
         }}
       >
         {#snippet leading()}
-          <Volume2 size={18} strokeWidth={2} aria-hidden="true" />
+          {#if chatHearReplies}
+            <VolumeX size={18} strokeWidth={2} aria-hidden="true" />
+          {:else}
+            <Volume2 size={18} strokeWidth={2} aria-hidden="true" />
+          {/if}
         {/snippet}
       </AnchoredMenuRow>
       {#if !isNewChatWithNothingToDelete}
@@ -1800,6 +1808,7 @@
               onStreamingSessionsChange={(ids) => { shell.streamingSessionIds = ids }}
               onWriteStreaming={onWriteStreaming}
               onEditStreaming={onEditStreaming}
+              onHearRepliesChange={(on) => { chatHearReplies = on }}
             >
               {#snippet mobileDetail()}
                 {#if
