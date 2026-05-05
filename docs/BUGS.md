@@ -29,6 +29,7 @@ User feedback **#10** (`ripmail archive`, leading-dash `Message-ID`): **[BUG-039
 | BUG-036 | `stats`: misleading threads/people counts | Threads ≈ messages; people always 0. See [bugs/BUG-036-stats-inaccurate-threads-and-people.md](bugs/BUG-036-stats-inaccurate-threads-and-people.md). |
 | BUG-037 | Wizard/setup omit LLM provider + models | Only OpenAI surfaced; multi-provider `llm` in config needs onboarding. See [bugs/BUG-037-wizard-llm-provider-selection.md](bugs/BUG-037-wizard-llm-provider-selection.md). |
 | BUG-038 | Wizard exits on bad IMAP password (no retry) | Typo trap; should re-prompt in credential loop. See [bugs/BUG-038-wizard-bad-password-exits-instead-of-retry.md](bugs/BUG-038-wizard-bad-password-exits-instead-of-retry.md). |
+| BUG-044 | Wiki: primary crumbs not collapsing | **Open.** `CollapsibleBreadcrumb` fails to prolapse into a dropdown when space is tight; segments stay in a row and shrink. See [bugs/BUG-044-wiki-primary-crumbs-not-collapsing.md](bugs/BUG-044-wiki-primary-crumbs-not-collapsing.md). |
 
 ## Fixed (archived)
 

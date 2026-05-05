@@ -36,6 +36,10 @@
   $effect(() => {
     if (!containerEl) return
 
+    // Depend on items so SPA navigations (new path text / lengths) re-run collapse logic without full reload.
+    void items.length
+    void items.map((i) => `${i.label}\u001f${i.isCurrent ? 1 : 0}`).join('\u001e')
+
     const checkOverflow = () => {
       if (!containerEl) return
       const hasOverflow = containerEl.scrollWidth > containerEl.clientWidth
@@ -43,6 +47,8 @@
     }
 
     checkOverflow()
+    queueMicrotask(checkOverflow)
+
     const resizeObserver = new ResizeObserver(checkOverflow)
     resizeObserver.observe(containerEl)
 
@@ -108,18 +114,27 @@
     }
   }
 
+  /**
+   * Desktop row is flex-nowrap: parent segments must not shrink (readable navigation).
+   * The **tail** absorbs shortage via ellipsis — otherwise prefixes look like `W..` / `My …`.
+   */
   const breadcrumbInteractive = $derived(
     cn(
-      'wiki-breadcrumb-seg inline border-none bg-transparent p-0 m-0 normal-case tracking-normal text-accent hover:underline cursor-pointer',
-      mobilePanel ? 'shrink-0 whitespace-nowrap' : 'max-w-full overflow-hidden text-ellipsis whitespace-nowrap',
+      'wiki-breadcrumb-seg inline-flex items-center border-none bg-transparent p-0 m-0 normal-case tracking-normal text-accent hover:underline cursor-pointer shrink-0 whitespace-nowrap',
     ),
   )
 
   const breadcrumbCurrent = $derived(
     cn(
       'wiki-breadcrumb-seg wiki-breadcrumb-seg--current text-foreground font-medium cursor-default',
-      mobilePanel ? 'shrink-0 whitespace-nowrap' : '',
+      mobilePanel
+        ? 'shrink-0 whitespace-nowrap'
+        : 'min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap',
     ),
+  )
+
+  const breadcrumbSep = $derived(
+    cn('wiki-breadcrumb-sep shrink-0 text-muted font-normal select-none'),
   )
 
   const currentItem = $derived(items[items.length - 1])
@@ -133,12 +148,12 @@
 <div class="collapsible-breadcrumb-wrapper relative flex min-w-0 flex-1 items-center">
   {#if isOverflowing && hasCollapsibleItems}
     <!-- Collapsed view with dropdown trigger -->
-    <div class="flex items-center gap-1">
+    <div class="flex min-w-0 flex-1 items-center gap-1">
       <button
         bind:this={dropdownButtonEl}
         type="button"
         class={cn(
-          'breadcrumb-collapse-btn inline-flex items-center gap-0.5 border-none bg-transparent p-0 m-0 text-accent hover:bg-surface-3 transition-colors',
+          'breadcrumb-collapse-btn inline-flex shrink-0 items-center gap-0.5 border-none bg-transparent p-0 m-0 text-accent hover:bg-surface-3 transition-colors',
           mobilePanel ? 'text-[15px]' : 'text-[13px]',
         )}
         onclick={() => {
@@ -155,13 +170,7 @@
         />
         <span class={mobilePanel ? 'text-[15px]' : 'text-[13px]'}>…</span>
       </button>
-      <span
-        class={cn(
-          'wiki-breadcrumb-sep text-muted font-normal select-none',
-          mobilePanel && 'shrink-0',
-        )}
-        aria-hidden="true">/</span
-      >
+      <span class={breadcrumbSep} aria-hidden="true">/</span>
       {#if currentItem}
         <span class={breadcrumbCurrent}>{currentItem.label}</span>
       {/if}
@@ -175,7 +184,7 @@
           'wiki-dir-breadcrumb items-center gap-x-1 gap-y-0 leading-snug',
           mobilePanel
             ? 'inline-flex w-max max-w-none flex-nowrap text-[15px]'
-            : 'flex flex-nowrap min-w-0 text-[13px]',
+            : 'flex min-w-0 flex-1 flex-nowrap text-[13px]',
         )}
         role="navigation"
         aria-label="Wiki page path"
@@ -185,13 +194,7 @@
         {:else}
           {#each items as item, i (i)}
             {#if i > 0}
-              <span
-                class={cn(
-                  'wiki-breadcrumb-sep text-muted font-normal select-none',
-                  mobilePanel && 'shrink-0',
-                )}
-                aria-hidden="true">/</span
-              >
+              <span class={breadcrumbSep} aria-hidden="true">/</span>
             {/if}
             {#if item.isCurrent}
               <span class={breadcrumbCurrent}>{item.label}</span>

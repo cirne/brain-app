@@ -75,12 +75,29 @@ describe('CollapsibleBreadcrumb', () => {
 
   it('applies mobile panel styling when mobilePanel prop is true', () => {
     const items = [{ label: 'Test', isCurrent: true }]
-    const { container } = render(CollapsibleBreadcrumb, {
+    render(CollapsibleBreadcrumb, {
       props: { items, mobilePanel: true },
     })
     
     // Check for mobile-specific classes
     const breadcrumbText = screen.getByText('Test')
     expect(breadcrumbText.className).toContain('shrink-0')
+  })
+
+  it('keeps prefix segments from shrinking on desktop; tail truncates', () => {
+    const items = [
+      { label: 'Wiki', onClick: vi.fn(), isCurrent: false },
+      { label: 'palau-fall-presidents-conference-2026.md', isCurrent: true },
+    ]
+    render(CollapsibleBreadcrumb, { props: { items } })
+
+    const wikiBtn = screen.getByRole('button', { name: 'Wiki' })
+    expect(wikiBtn.className).toContain('shrink-0')
+    expect(wikiBtn.className).not.toContain('max-w-full')
+
+    const tail = screen.getByText('palau-fall-presidents-conference-2026.md')
+    expect(tail.className).toContain('min-w-0')
+    expect(tail.className).toContain('flex-1')
+    expect(tail.className).toContain('text-ellipsis')
   })
 })

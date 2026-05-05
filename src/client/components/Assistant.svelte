@@ -57,6 +57,7 @@
     wikiPrimaryCrumbsForSharedFile,
     type WikiPrimaryCrumb
       } from '@client/lib/wikiPrimaryBarCrumbs.js'
+  import WikiPrimaryBarCrumbs from '@components/WikiPrimaryBarCrumbs.svelte'
   import {
     MY_WIKI_SEGMENT,
     MY_WIKI_URL_SEGMENT,
@@ -1548,26 +1549,7 @@
               <WikiPrimaryShell bind:wikiHdrRef={wikiPrimaryHdr}>
                 {#snippet bar()}
                   <div class="wiki-primary-bar flex shrink-0 items-center justify-between gap-2.5 border-b border-border bg-surface-2 px-2.5 py-1.5">
-                    <nav class="wiki-primary-crumbs flex min-w-0 flex-1 flex-wrap items-center gap-0.5 text-[13px] font-medium text-muted" aria-label="Wiki location">
-                      {#each wikiPrimaryBarCrumbs as crumb, i (i)}
-                        {#if i > 0}<span class="wiki-primary-crumb-sep shrink-0 select-none opacity-45" aria-hidden="true">/</span>{/if}
-                        {#if crumb.kind === 'wiki-root-link'}
-                          <button
-                            type="button"
-                            class="wiki-primary-crumb-btn -mx-0.5 -my-1 max-w-full shrink-0 cursor-pointer border-0 bg-transparent px-0.5 py-1 font-medium text-accent underline underline-offset-2 hover:text-foreground"
-                            onclick={() => openWikiDir(undefined)}
-                          >Wiki</button>
-                        {:else if crumb.kind === 'folder-link'}
-                          <button
-                            type="button"
-                            class="wiki-primary-crumb-btn -mx-0.5 -my-1 max-w-full shrink-0 cursor-pointer border-0 bg-transparent px-0.5 py-1 font-medium text-accent underline underline-offset-2 hover:text-foreground"
-                            onclick={() => openWikiDir(crumb.path)}
-                          >{crumb.label}</button>
-                        {:else}
-                          <span class="wiki-primary-crumb-current min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-foreground">{crumb.label}</span>
-                        {/if}
-                      {/each}
-                    </nav>
+                    <WikiPrimaryBarCrumbs crumbs={wikiPrimaryBarCrumbs} onOpenWikiDir={openWikiDir} />
                     <div class="wiki-primary-actions flex shrink-0 items-center gap-2" role="toolbar" aria-label="Wiki actions">
                       {#if wikiPrimaryHdr?.current?.sharedIncoming}
                         <span class="wiki-primary-pill text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--text-3,var(--text-2))]">Read-only</span>
