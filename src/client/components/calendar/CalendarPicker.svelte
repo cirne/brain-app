@@ -24,10 +24,6 @@
     hint?: string
     emptyMessage?: string
     loadingMessage?: string
-    /** Extra classes on the Save button (e.g. hub-dialog-btn …). */
-    primaryButtonClass?: string
-    /** Class on RefreshCw while saving (e.g. hub spin utility). */
-    savingIconClass?: string
     onSaved?: () => void
   }
 
@@ -37,11 +33,9 @@
     save,
     fallbackConfiguredIds = null,
     minSelected = 1,
-    hint = 'Your calendars stay updated automatically. Choose which ones Braintunnel shows first in your schedule and when you chat about your calendar.',
+    hint = 'Your calendars stay updated automatically. Choose which ones Braintunnel shows first in your schedule and when you chat about your calendar. Changes save as soon as you toggle a calendar.',
     emptyMessage = 'No calendars found yet. Try refreshing once your calendar account has connected.',
     loadingMessage = 'Loading calendars…',
-    primaryButtonClass = '',
-    savingIconClass = '',
     onSaved,
   }: Props = $props()
 
@@ -58,6 +52,8 @@
   let saveError = $state<string | null>(null)
   let savedAt = $state<number | null>(null)
   let dirty = $state(false)
+  /** When true, run persist again after the in-flight save finishes (latest selection wins). */
+  let persistQueued = $state(false)
 
   function rowInputId(index: number): string {
     return `${pickerScope}-cal-${index}`
@@ -97,21 +93,12 @@
     }
   }
 
-  function toggle(id: string) {
-    const next = new Set(selected)
-    if (next.has(id)) {
-      if (next.size <= minSelected) return
-      next.delete(id)
-    } else {
-      next.add(id)
+  async function persistSelection() {
+    if (loading) return
+    if (saving) {
+      persistQueued = true
+      return
     }
-    selected = next
-    dirty = true
-    saveError = null
-  }
-
-  async function commit() {
-    if (!dirty || saving) return
     saving = true
     saveError = null
     try {
@@ -123,7 +110,25 @@
       saveError = e instanceof Error ? e.message : 'Could not save'
     } finally {
       saving = false
+      if (persistQueued) {
+        persistQueued = false
+        void persistSelection()
+      }
     }
+  }
+
+  function toggle(id: string) {
+    const next = new Set(selected)
+    if (next.has(id)) {
+      if (next.size <= minSelected) return
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    selected = next
+    dirty = true
+    saveError = null
+    void persistSelection()
   }
 
   $effect(() => {
@@ -195,22 +200,15 @@
       <p class="cal-picker-err mt-[0.35rem] text-[0.8125rem] leading-[1.4] text-danger" role="alert">{saveError}</p>
     {/if}
 
-    <div class="cal-picker-actions mt-[0.35rem] flex items-center gap-3">
-      <button
-        type="button"
-        class={cn('cal-picker-save rounded-md', primaryButtonClass)}
-        disabled={!dirty || saving}
-        onclick={() => void commit()}
-      >
-        {#if saving}
-          <RefreshCw size={14} aria-hidden="true" class={savingIconClass} />
-          Saving…
-        {:else}
-          Save
-        {/if}
-      </button>
-      {#if savedAt && !dirty}
-        <span class="cal-picker-saved text-[0.8125rem] text-muted">Saved</span>
+    <div
+      class="cal-picker-status mt-[0.35rem] flex min-h-[1.35rem] items-center gap-2 text-[0.8125rem] text-muted"
+      aria-live="polite"
+    >
+      {#if saving}
+        <RefreshCw size={14} aria-hidden="true" class="cal-picker-saving-spin shrink-0" />
+        <span>Saving…</span>
+      {:else if savedAt && !dirty && !saveError}
+        <span class="cal-picker-saved">Saved</span>
       {/if}
     </div>
   {/if}
@@ -246,27 +244,13 @@
     background: color-mix(in srgb, var(--cal-picker-accent) 12%, var(--bg));
   }
 
-  /* Default Save button styling (only applied when no `hub-dialog-btn` class wins). */
-  .cal-picker-save:not(:global(.hub-dialog-btn)) {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    padding: 0.45rem 0.85rem;
-    border-radius: 0.375rem;
-border: none;
-    cursor: pointer;
-    background: var(--accent);
-    color: white;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
+  .cal-picker-saving-spin {
+    animation: cal-picker-spin 0.85s linear infinite;
   }
 
-  .cal-picker-save:not(:global(.hub-dialog-btn)):disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .cal-picker-save:not(:global(.hub-dialog-btn)):not(:disabled):hover {
-    filter: brightness(1.06);
+  @keyframes cal-picker-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>

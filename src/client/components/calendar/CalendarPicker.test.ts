@@ -43,7 +43,7 @@ describe('CalendarPicker.svelte', () => {
     expect(document.querySelectorAll('.cal-picker-marker--off')).toHaveLength(1)
   })
 
-  it('calls save with selected ids when Save succeeds', async () => {
+  it('calls save automatically when toggling a calendar', async () => {
     const load = vi.fn().mockResolvedValue({
       allCalendars: [
         { id: 'c1', name: 'One', color: '#111' },
@@ -65,17 +65,12 @@ describe('CalendarPicker.svelte', () => {
 
     screen.getByRole('checkbox', { name: /Two/i }).click()
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^Save$/i })).not.toBeDisabled()
-    })
-
-    screen.getByRole('button', { name: /^Save$/i }).click()
-
     await waitFor(() => expect(save).toHaveBeenCalled())
     const ids = save.mock.calls[0]?.[0] as string[]
     expect(ids).toHaveLength(2)
     expect(ids).toEqual(expect.arrayContaining(['c1', 'c2']))
     expect(container.querySelector('.cal-picker-saved')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^Save$/i })).not.toBeInTheDocument()
   })
 
   it('lists calendars sorted alphabetically by display name', async () => {

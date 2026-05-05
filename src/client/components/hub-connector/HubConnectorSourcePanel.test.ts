@@ -393,4 +393,109 @@ describe('HubConnectorSourcePanel.svelte preferences', () => {
     })
     expect(refresh.getAttribute('title') ?? '').toMatch(/folder/i)
   })
+
+  it('after saving Google Calendar picker, keeps detail mounted while detail reload is in flight', async () => {
+    let detailHits = 0
+    let releaseSecondDetail: ((value?: void | PromiseLike<void>) => void) | undefined
+    const secondDetailGate = new Promise<void>((resolve) => {
+      releaseSecondDetail = resolve
+    })
+
+    const calendarDetail = {
+      ok: true,
+      id: 'gcal1',
+      kind: 'googleCalendar',
+      displayName: 'you@gmail.com',
+      path: null,
+      email: 'you@gmail.com',
+      label: null,
+      oauthSourceId: 'mb1',
+      fileSource: null,
+      includeSharedWithMe: false,
+      calendarIds: ['cal-a'],
+      icsUrl: null,
+      status: {
+        documentIndexRows: 0,
+        calendarEventRows: 10,
+        lastSyncedAt: '2026-04-30T12:00:00Z',
+      },
+    }
+
+    vi.stubGlobal(
+      'fetch',
+      makeFetch(async (url, init) => {
+        const u = String(url)
+        const method = init?.method ?? 'GET'
+        if (
+          (u.endsWith('/api/hub/sources') || u.includes('/api/hub/sources?')) &&
+          method === 'GET'
+        ) {
+          return new Response(
+            JSON.stringify({
+              sources: [
+                {
+                  id: 'gcal1',
+                  kind: 'googleCalendar',
+                  displayName: 'you@gmail.com',
+                  path: null,
+                },
+              ],
+            }),
+            { status: 200 },
+          )
+        }
+        if (u.includes('/api/hub/sources/detail')) {
+          detailHits += 1
+          if (detailHits === 1) {
+            return new Response(JSON.stringify(calendarDetail), { status: 200 })
+          }
+          await secondDetailGate
+          return new Response(
+            JSON.stringify({
+              ...calendarDetail,
+              calendarIds: ['cal-a', 'cal-b'],
+            }),
+            { status: 200 },
+          )
+        }
+        if (u.includes('/api/hub/sources/calendars')) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              allCalendars: [
+                { id: 'cal-a', name: 'Alpha', color: '#111' },
+                { id: 'cal-b', name: 'Beta', color: '#222' },
+              ],
+              configuredIds: ['cal-a'],
+            }),
+            { status: 200 },
+          )
+        }
+        if (method === 'POST' && u.includes('/api/hub/sources/update-calendar-ids')) {
+          return new Response(JSON.stringify({ ok: true }), { status: 200 })
+        }
+        return new Response('not found', { status: 404 })
+      }),
+    )
+
+    render(HubConnectorSourcePanel, { props: { sourceId: 'gcal1', onClose: () => {} } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /^Calendars$/i })).toBeInTheDocument()
+    })
+    const betaCheckbox = await screen.findByRole('checkbox', { name: /Beta/i })
+
+    await fireEvent.click(betaCheckbox)
+
+    await waitFor(() => {
+      expect(detailHits).toBe(2)
+    })
+
+    expect(screen.getByRole('heading', { name: /^Calendars$/i })).toBeInTheDocument()
+
+    releaseSecondDetail?.()
+    await waitFor(() => {
+      expect(screen.getByText('Saved')).toBeInTheDocument()
+    })
+  })
 })

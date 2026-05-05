@@ -349,6 +349,33 @@ export async function updateIncludeSharedWithMe(
 export type HubCalendarRow = { id: string; name: string; color?: string }
 
 /**
+ * Ripmail may store `calendar_ids: ["primary"]` while `list-calendars` enumerates API ids
+ * (Google: primary calendar id is usually the account email, not the literal `primary`).
+ * Map configured ids so Hub UI checkboxes match `allCalendars` rows.
+ */
+export function resolveConfiguredCalendarIdsForPicker(
+  configuredIds: string[],
+  allCalendars: HubCalendarRow[],
+  sourceEmail?: string | null,
+): string[] {
+  const listIds = new Set(allCalendars.map((c) => c.id))
+  const email = sourceEmail?.trim() ?? ''
+  return configuredIds.map((raw) => {
+    const id = raw.trim()
+    if (id !== 'primary') return id
+    if (listIds.has('primary')) return 'primary'
+    if (email.includes('@')) {
+      const hit = allCalendars.find(
+        (c) => c.id === email || c.id.toLowerCase() === email.toLowerCase(),
+      )
+      if (hit) return hit.id
+    }
+    if (allCalendars.length === 1) return allCalendars[0].id
+    return id
+  })
+}
+
+/**
  * Returns all available calendars (from `allCalendars`) and currently configured calendar IDs
  * for a `googleCalendar` source, by calling `ripmail calendar list-calendars --source <id> --json`.
  */
@@ -367,6 +394,7 @@ export async function getHubRipmailCalendarsForSource(sourceId: string): Promise
     const parsed = JSON.parse(stdout) as {
       calendars?: Array<{
         sourceId?: string
+        email?: string
         calendars?: Array<{ id: string; name?: string; color?: string }>
         allCalendars?: Array<{ id: string; name?: string; color?: string }>
       }>
@@ -379,6 +407,8 @@ export async function getHubRipmailCalendarsForSource(sourceId: string): Promise
     const rawConfigured = Array.isArray(row.calendars) ? row.calendars : []
     const source = rawAll.length > 0 ? rawAll : rawConfigured
 
+    const sourceEmail = typeof row.email === 'string' ? row.email : null
+
     const allCalendars: HubCalendarRow[] = source
       .filter((c) => c.id?.trim())
       .map((c) => ({
@@ -389,9 +419,11 @@ export async function getHubRipmailCalendarsForSource(sourceId: string): Promise
           : {}),
       }))
 
-    const configuredIds = rawConfigured
+    const rawConfiguredIds = rawConfigured
       .filter((c) => c.id?.trim())
       .map((c) => c.id.trim())
+
+    const configuredIds = resolveConfiguredCalendarIdsForPicker(rawConfiguredIds, allCalendars, sourceEmail)
 
     return { ok: true, allCalendars, configuredIds }
   } catch (e) {
@@ -407,11 +439,14 @@ export async function updateHubRipmailCalendarIds(
   const trimmed = sourceId?.trim()
   if (!trimmed) return { ok: false, error: 'id required' }
   if (!calendarIds.length) return { ok: false, error: 'at least one calendar ID required' }
+  const calFlags = calendarIds.flatMap((id) => ['--calendar', id])
+  /** Match agent `configure_source`: default day-view scope uses `defaultCalendars` when set. */
+  const defFlags = calendarIds.flatMap((id) => ['--default-calendar', id])
   try {
-    await runRipmailArgv(
-      ['sources', 'edit', trimmed, ...calendarIds.flatMap((id) => ['--calendar', id]), '--json'],
-      { timeoutMs: 30_000, label: 'sources-edit-calendar-ids' },
-    )
+    await runRipmailArgv(['sources', 'edit', trimmed, ...calFlags, ...defFlags, '--json'], {
+      timeoutMs: 30_000,
+      label: 'sources-edit-calendar-ids',
+    })
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }

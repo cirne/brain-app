@@ -382,6 +382,43 @@ describe('hub routes', () => {
       '--json',
     ])
   })
+
+  it('POST /sources/update-calendar-ids passes --calendar and --default-calendar for each id', async () => {
+    vi.mocked(runRipmailArgv).mockResolvedValue({
+      stdout: '{"ok":true,"id":"gcal1"}',
+      stderr: '',
+      code: 0,
+      signal: null,
+      durationMs: 1,
+      timedOut: false,
+      pid: 1,
+    })
+    const app = new Hono()
+    app.route('/api/hub', hubRoute)
+    const res = await app.request('http://localhost/api/hub/sources/update-calendar-ids', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'gcal1', calendarIds: ['cal_a', 'cal_b'] }),
+    })
+    expect(res.status).toBe(200)
+    const j = (await res.json()) as { ok: boolean }
+    expect(j.ok).toBe(true)
+    expect(vi.mocked(runRipmailArgv).mock.calls[0]?.[0]).toEqual([
+      'sources',
+      'edit',
+      'gcal1',
+      '--calendar',
+      'cal_a',
+      '--calendar',
+      'cal_b',
+      '--default-calendar',
+      'cal_a',
+      '--default-calendar',
+      'cal_b',
+      '--json',
+    ])
+    expect(spawnRipmailRefreshSource).toHaveBeenCalledWith('gcal1')
+  })
 })
 
 describe('hub mail-prefs (visibility + default send)', () => {

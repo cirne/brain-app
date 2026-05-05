@@ -481,7 +481,7 @@
           {indexRefreshPending}
           {showInlineRefresh}
           onRefresh={() => void hubSourceRefresh()}
-          onReloadDetail={() => void loadSourceDetail({ keepPreviousDetail: false })}
+          onReloadDetail={() => void loadSourceDetail({ keepPreviousDetail: true })}
         />
       {/if}
       {#if source.kind === 'imap' || source.kind === 'applemail'}
