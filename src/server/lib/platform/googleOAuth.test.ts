@@ -287,6 +287,38 @@ describe('upsertRipmailGoogleCalendarSource', () => {
     expect(gcal!.oauthSourceId).toBe('a_gmail_com')
     expect(gcal!.calendarIds).toEqual(['primary'])
   })
+
+  it('preserves calendarIds and defaultCalendars when OAuth upsert runs again (sign-in must not reset Hub selection)', async () => {
+    await upsertRipmailConfig(home, 'a_gmail_com', 'a@gmail.com')
+    await upsertRipmailGoogleCalendarSource(home, 'a_gmail_com', 'a@gmail.com')
+    const path = join(home, 'config.json')
+    let raw = await readFile(path, 'utf8')
+    const parsed = JSON.parse(raw) as {
+      sources: Array<Record<string, unknown>>
+    }
+    const gcalIdx = parsed.sources.findIndex((s) => s.kind === 'googleCalendar')
+    expect(gcalIdx).toBeGreaterThanOrEqual(0)
+    parsed.sources[gcalIdx] = {
+      ...parsed.sources[gcalIdx],
+      calendarIds: ['cal_a', 'cal_b'],
+      defaultCalendars: ['cal_a'],
+    }
+    await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8')
+
+    await upsertRipmailGoogleCalendarSource(home, 'a_gmail_com', 'a@gmail.com')
+
+    raw = await readFile(path, 'utf8')
+    const j = JSON.parse(raw) as {
+      sources: Array<{
+        kind: string
+        calendarIds?: string[]
+        defaultCalendars?: string[]
+      }>
+    }
+    const gcal = j.sources.find((s) => s.kind === 'googleCalendar')
+    expect(gcal?.calendarIds).toEqual(['cal_a', 'cal_b'])
+    expect(gcal?.defaultCalendars).toEqual(['cal_a'])
+  })
 })
 
 describe('upsertRipmailGoogleDriveSource', () => {

@@ -308,6 +308,8 @@ export type RipmailGoogleCalendarSourceEntry = {
   email: string
   oauthSourceId: string
   calendarIds?: string[]
+  /** Ripmail `defaultCalendars`: default day-view subset (agent `configure_source`). */
+  defaultCalendars?: string[]
 }
 
 /** `config.json` entry for `googleDrive` (same OAuth tokens as `oauthSourceId` mailbox). */
@@ -432,18 +434,34 @@ export async function upsertRipmailGoogleCalendarSource(
   }
 
   const calId = `${mailboxId}-gcal`
-  const entry: RipmailGoogleCalendarSourceEntry = {
-    id: calId,
-    kind: 'googleCalendar',
-    email: email.trim(),
-    oauthSourceId: mailboxId,
-    calendarIds: ['primary'],
-  }
 
   const sources = [...(cfg.sources ?? [])] as Array<
     RipmailSourceEntry | RipmailGoogleCalendarSourceEntry
   >
   const idx = sources.findIndex((s) => s.id === calId)
+  const prev =
+    idx >= 0 && sources[idx]?.kind === 'googleCalendar'
+      ? (sources[idx] as RipmailGoogleCalendarSourceEntry)
+      : undefined
+
+  /** Do not reset Hub/agent calendar selection on every Google OAuth callback (sign-in re-runs this). */
+  const preservedIds = (prev?.calendarIds ?? []).map((id) => id.trim()).filter(Boolean)
+  const calendarIds = preservedIds.length > 0 ? preservedIds : ['primary']
+
+  const entry: RipmailGoogleCalendarSourceEntry = {
+    id: calId,
+    kind: 'googleCalendar',
+    email: email.trim(),
+    oauthSourceId: mailboxId,
+    calendarIds,
+  }
+  const preservedDefaults = (prev?.defaultCalendars ?? [])
+    .map((id) => id.trim())
+    .filter(Boolean)
+  if (preservedDefaults.length > 0) {
+    entry.defaultCalendars = preservedDefaults
+  }
+
   if (idx >= 0) {
     sources[idx] = entry
   } else {
