@@ -121,6 +121,8 @@
      * header already shows the same context.
      */
     hidePaneContextChip = false,
+    /** Mobile OPP-092: hide chat `PaneL2Header` while a foreground overlay covers the chat column. */
+    suppressMobileChatL2Header = false,
     /** When set, overrides {@link contextPlaceholder} for the composer hint. */
     inputPlaceholder = undefined as string | undefined,
     /** Hosted multi-tenant: profiling transcript uses alternate privacy lead copy. */
@@ -188,6 +190,7 @@
     streamingBusyLabel?: string
     streamingWritePreview?: { path: string; body: string } | null
     hidePaneContextChip?: boolean
+    suppressMobileChatL2Header?: boolean
     inputPlaceholder?: string
     multiTenant?: boolean
     mobileSlideCoversTranscriptOnly?: boolean
@@ -291,6 +294,10 @@
 
   const contextBarFiles = $derived(extractReferencedFiles(messages))
   const conversationTokenTotal = $derived(sumAssistantUsageTotalTokens(messages))
+
+  export function getConversationTokenMeterTotal(): number {
+    return conversationTokenTotal
+  }
   const contextBarChoices = $derived(extractLatestSuggestReplyChoices(messages, streaming))
   const showComposerContextBar = $derived(
     contextBarFiles.length > 0 || contextBarChoices.length > 0,
@@ -765,7 +772,7 @@
     return headerFallbackTitle
   }
 
-  function toggleHearRepliesFromHeader() {
+  export function toggleHearRepliesFromHeader() {
     const id = displayedSessionId
     if (!id) return
     const cur = sessions.get(id)?.hearReplies ?? false
@@ -780,7 +787,7 @@
     sessions = touchSessionImmutable(sessions, id, { hearReplies: next })
   }
 
-  function requestDeleteCurrentChat() {
+  export function requestDeleteCurrentChat() {
     if (messages.length === 0) return
     pendingDelete = {
       serverId: sessions.get(displayedSessionId)?.sessionId ?? null,
@@ -825,7 +832,7 @@
       : '0'}
   >
     <div class="chat-top relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-    {#if !centerEmptyInPane}
+    {#if !centerEmptyInPane && !suppressMobileChatL2Header}
     <!-- Always in flex flow — prevents height jump when overlay opens/closes -->
     <div inert={conversationHidden || undefined}>
       <PaneL2Header>

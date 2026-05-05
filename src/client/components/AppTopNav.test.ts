@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AppTopNav from './AppTopNav.svelte'
+import AppTopNavMobileOverflowHarness from './test-stubs/AppTopNavMobileOverflowHarness.svelte'
 import { render, fireEvent, screen } from '@client/test/render.js'
 
 vi.mock('./BrainHubWidget.svelte', () => import('./test-stubs/BrainHubWidgetStub.svelte'))
@@ -382,6 +383,14 @@ describe('AppTopNav.svelte', () => {
       })
       await fireEvent.click(screen.getByRole('button', { name: /^settings$/i }))
       expect(onOpenSettings).toHaveBeenCalledTimes(1)
+    })
+
+    it('opens anchored overflow menu from ⋯ on mobile compact layout', async () => {
+      render(AppTopNavMobileOverflowHarness)
+
+      await fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+      expect(screen.getByRole('menu', { name: 'More actions' })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Test row' })).toBeInTheDocument()
     })
 
     it('does not show separate Settings label next to Wiki when hosted handle is present (desktop)', () => {

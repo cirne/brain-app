@@ -6,12 +6,17 @@ import {
 } from './agentPanelWidth.js'
 
 describe('workspaceSplitBasisPx', () => {
-  it('prefers bounded workspace column over measured split when column is known', () => {
+  it('uses the smaller of workspace column and measured split when both are known', () => {
     expect(workspaceSplitBasisPx(920, 2000)).toBe(920)
+    expect(workspaceSplitBasisPx(2000, 920)).toBe(920)
   })
 
   it('falls back to measured split when workspace column binding is unset', () => {
     expect(workspaceSplitBasisPx(0, 1100)).toBe(1100)
+  })
+
+  it('falls back to workspace column when measured split is not available yet', () => {
+    expect(workspaceSplitBasisPx(840, 0)).toBe(840)
   })
 
   it('treats non-positive workspace column same as unset', () => {

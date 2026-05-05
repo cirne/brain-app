@@ -11,6 +11,7 @@
   import WikiPrimaryShell from '@components/WikiPrimaryShell.svelte'
   import UnifiedChatComposer from '@components/UnifiedChatComposer.svelte'
   import AssistantSlideOver from '@components/AssistantSlideOver.svelte'
+  import AnchoredMenuRow from '@components/shell/AnchoredMenuRow.svelte'
   import AgentChat from '@components/AgentChat.svelte'
   import ChatHistory from '@components/ChatHistory.svelte'
   import ChatHistoryPage from '@components/ChatHistoryPage.svelte'
@@ -33,6 +34,7 @@
   import { matchSessionIdByFlatPrefix } from '@client/lib/chatSessionTailResolve.js'
   import { applyHubDetailNavigation, applySettingsDetailNavigation } from '@client/lib/hubShellNavigate.js'
   import { overlaySupportsMobileChatBridge } from '@client/lib/mobileDetailChatOverlay.js'
+  import { mobileCompactNavCenterTitle } from '@client/lib/mobileCompactNavCenterTitle.js'
   import { runParallelSyncs } from '@client/lib/app/syncAllServices.js'
   import { matchGlobalShortcut } from '@client/lib/app/globalShortcuts.js'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
@@ -77,6 +79,10 @@
   } from '@client/lib/assistantShellNavigation.js'
   import { waitUntilDefinedOrMaxTicks } from '@client/lib/async/waitUntilReady.js'
   import { alignShellWithBareChatRoute, createAssistantShellState, createShellNavigate } from '@client/lib/assistant/shell.js'
+  import {
+    nextMobileWikiOverlayStack,
+    popMobileWikiOverlayStack,
+  } from '@client/lib/mobileWikiOverlayNav.js'
   import { contextPlaceholder, type SkillMenuItem } from '@client/lib/agentUtils.js'
   import { applyVoiceTranscriptToChat } from '@client/lib/voiceTranscribeRouting.js'
   import { readHearRepliesPreference } from '@client/lib/hearRepliesPreference.js'
@@ -84,7 +90,15 @@
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
   import { wikiPrimaryChatMessageOrNull } from '@client/lib/wikiPrimaryChatSend.js'
   import type { WikiSlideHeaderRegistration, WikiSlideHeaderState } from '@client/lib/wikiSlideHeaderContext.js'
-  import { Pencil, Save, Share2 } from 'lucide-svelte'
+  import {
+    BookOpen,
+    LayoutGrid,
+    Search as SearchIcon,
+    Settings,
+    Share2,
+    Trash2,
+    Volume2,
+  } from 'lucide-svelte'
 
   /**
    * `bind:this` targets — kept separate from shell state so refs stay obvious.
@@ -120,7 +134,71 @@
     return n > 0 ? `Shared with ${n} people; manage access.` : 'Share'
   }
 
-  const { navigateShell, optsWithBarTitle } = createShellNavigate(() => shell.chatTitleForUrl)
+  const { navigateShell: navigateShellInner, optsWithBarTitle } = createShellNavigate(() => shell.chatTitleForUrl)
+
+  /** Updates {@link shell.route} and mobile wiki overlay depth stack after each shell navigation. */
+  function navigateShell(target: Route, opts?: NavigateOptions) {
+    const prevOverlay = shell.route.overlay
+    navigateShellInner(target, opts)
+    shell.route = parseRoute()
+    shell.mobileWikiOverlayStack = nextMobileWikiOverlayStack({
+      isMobile: shell.isMobile,
+      wikiPrimaryActive: shell.route.wikiActive === true,
+      suppressMutation: shell.suppressMobileWikiStackMutation,
+      prevOverlay,
+      nextOverlay: shell.route.overlay,
+      priorStack: shell.mobileWikiOverlayStack,
+    })
+  }
+
+  function syncMobileWikiStackFromHubSettings(prevOverlay: Overlay | undefined) {
+    shell.mobileWikiOverlayStack = nextMobileWikiOverlayStack({
+      isMobile: shell.isMobile,
+      wikiPrimaryActive: shell.route.wikiActive === true,
+      suppressMutation: shell.suppressMobileWikiStackMutation,
+      prevOverlay,
+      nextOverlay: shell.route.overlay,
+      priorStack: shell.mobileWikiOverlayStack,
+    })
+  }
+
+  /** Mobile chat-column wiki overlay: ◀ pops one in-doc step before closing (see OPP-092). */
+  function mobileWikiOverlayBack() {
+    const o = shell.route.overlay
+    if (!(shell.isMobile && o?.type === 'wiki')) {
+      if (slideOverCloseAnimated) void refs.mobileSlideOver?.closeAnimated()
+      else closeOverlay()
+      return
+    }
+    const popped = popMobileWikiOverlayStack(shell.mobileWikiOverlayStack)
+    if (popped.navigateToPath == null) {
+      shell.mobileWikiOverlayStack = []
+      if (slideOverCloseAnimated) void refs.mobileSlideOver?.closeAnimated()
+      else closeOverlay()
+      return
+    }
+    try {
+      shell.suppressMobileWikiStackMutation = true
+      shell.mobileWikiOverlayStack = popped.nextStack
+      const extra = wikiShareOptsFromRoute()
+      const overlay: Overlay = { type: 'wiki', path: popped.navigateToPath, ...extra }
+      const flags = routeSurfaceFlagsForOverlay(overlay)
+      navigateShellInner(
+        {
+          overlay,
+          wikiActive: false,
+          hubActive: flags.hubActive,
+          settingsActive: flags.settingsActive,
+          ...(flags.useChatSession ? chatSessionPart() : {}),
+        },
+        optsWithBarTitle(),
+      )
+      shell.route = parseRoute()
+      shell.mobileWikiOverlayStack = popped.nextStack
+    } finally {
+      shell.suppressMobileWikiStackMutation = false
+    }
+  }
 
   function wikiShareOptsFromRoute(): {
     shareOwner?: string
@@ -936,6 +1014,7 @@
 
   /** Brain Hub rows → same detail stack as chat (`SlideOver` + `Overlay`). */
   function navigateFromHub(overlay: Overlay, opts?: NavigateOptions) {
+    const prevOverlay = shell.route.overlay
     const hubActive = !shell.isMobile || !overlaySupportsMobileChatBridge(overlay)
     const routeForNav: Route = {
       ...shell.route,
@@ -944,6 +1023,7 @@
     }
     applyHubDetailNavigation(routeForNav, overlay, optsWithBarTitle(opts), hubActive)
     shell.route = parseRoute()
+    syncMobileWikiStackFromHubSettings(prevOverlay)
     if (overlay.type === 'wiki' && overlay.path) {
       void addToNavHistory({
         id: makeNavHistoryId('doc', overlay.path),
@@ -956,6 +1036,7 @@
 
   /** Settings (data sources) rows → same `SlideOver` stack under `/settings`. */
   function navigateFromSettings(overlay: Overlay, opts?: NavigateOptions) {
+    const prevOverlay = shell.route.overlay
     const settingsColumnActive = !shell.isMobile || !overlaySupportsMobileChatBridge(overlay)
     const routeForNav: Route = {
       ...shell.route,
@@ -964,6 +1045,7 @@
     }
     applySettingsDetailNavigation(routeForNav, overlay, optsWithBarTitle(opts), settingsColumnActive)
     shell.route = parseRoute()
+    syncMobileWikiStackFromHubSettings(prevOverlay)
     if (overlay.type === 'wiki' && overlay.path) {
       void addToNavHistory({
         id: makeNavHistoryId('doc', overlay.path),
@@ -1312,9 +1394,17 @@
     }
   }
 
-  /** Shared icon-button recipe for the wiki primary bar (Edit / Save / Share). */
+  /** Shared icon-button recipe for the wiki primary bar (Share only — editing is always-on TipTap in `Wiki.svelte`). */
   const wikiPrimaryIconBtn =
     'wiki-primary-icon-btn inline-flex items-center justify-center p-1.5 border-0 bg-transparent text-muted cursor-pointer transition-colors enabled:hover:text-accent enabled:hover:bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] disabled:opacity-45 disabled:cursor-not-allowed'
+
+  /** Mobile chat/hub/settings columns: compact L1 per OPP-092 (wiki-primary keeps labeled icons). */
+  const appMobileNavCompact = $derived(shell.isMobile && shell.route.wikiActive !== true)
+  const appMobileNavCenterTitle = $derived(
+    appMobileNavCompact
+      ? mobileCompactNavCenterTitle(shell.route.overlay, shell.agentContext, shell.chatTitleForUrl)
+      : undefined,
+  )
 </script>
 
 {#if shell.showSearch}
@@ -1327,6 +1417,77 @@
 {/if}
 
 <div class="app flex h-full flex-col">
+  {#snippet mobileNavOverflowMenu({ dismiss })}
+    <AnchoredMenuRow
+      label="Search"
+      onclick={() => {
+        shell.showSearch = true
+        dismiss()
+      }}
+    >
+      {#snippet leading()}
+        <SearchIcon size={18} strokeWidth={2} aria-hidden="true" />
+      {/snippet}
+    </AnchoredMenuRow>
+    <AnchoredMenuRow
+      label="Wiki home"
+      onclick={() => {
+        navigateWikiPrimary()
+        dismiss()
+      }}
+    >
+      {#snippet leading()}
+        <BookOpen size={18} strokeWidth={2} aria-hidden="true" />
+      {/snippet}
+    </AnchoredMenuRow>
+    <AnchoredMenuRow
+      label="Settings"
+      onclick={() => {
+        openSettings()
+        dismiss()
+      }}
+    >
+      {#snippet leading()}
+        <Settings size={18} strokeWidth={2} aria-hidden="true" />
+      {/snippet}
+    </AnchoredMenuRow>
+    <AnchoredMenuRow
+      label="Brain Hub"
+      onclick={() => {
+        openHubActivity()
+        dismiss()
+      }}
+    >
+      {#snippet leading()}
+        <LayoutGrid size={18} strokeWidth={2} aria-hidden="true" />
+      {/snippet}
+    </AnchoredMenuRow>
+    <AnchoredMenuRow
+      label="Toggle hear replies"
+      onclick={() => {
+        refs.agentChat?.toggleHearRepliesFromHeader()
+        dismiss()
+      }}
+    >
+      {#snippet leading()}
+        <Volume2 size={18} strokeWidth={2} aria-hidden="true" />
+      {/snippet}
+    </AnchoredMenuRow>
+    <AnchoredMenuRow
+      label="Delete chat"
+      onclick={() => {
+        refs.agentChat?.requestDeleteCurrentChat()
+        dismiss()
+      }}
+    >
+      {#snippet leading()}
+        <Trash2 size={18} strokeWidth={2} aria-hidden="true" />
+      {/snippet}
+    </AnchoredMenuRow>
+    <p class="m-0 px-4 py-2 text-xs leading-snug text-muted">
+      Conversation tokens (approx.): {refs.agentChat?.getConversationTokenMeterTotal?.() ?? 0}
+    </p>
+  {/snippet}
   <AppTopNav
     isMobile={shell.isMobile}
     sidebarOpen={shell.sidebarOpen}
@@ -1345,6 +1506,10 @@
     shareInviteBadge={shell.pendingWikiShareInvitesCount > 0}
     onOpenSettings={openSettings}
     onOpenSharing={openSettingsSharing}
+    mobileCenterTitle={appMobileNavCenterTitle}
+    mobileOverflow={appMobileNavCompact ? mobileNavOverflowMenu : undefined}
+    mobileOverflowAlert={appMobileNavCompact &&
+      (shell.syncErrors.length > 0 || shell.pendingWikiShareInvitesCount > 0)}
   />
 
   <div class="app-main-row relative flex min-h-0 flex-1">
@@ -1471,27 +1636,6 @@
                         {:else if wikiPrimaryHdr.current.saveState === 'error'}
                           <span class="wiki-save-hint wiki-save-err text-xs font-semibold text-[var(--text-3,var(--text-2))]" role="status">Save failed</span>
                         {/if}
-                        <button
-                          type="button"
-                          class={cn(
-                            'wiki-edit-btn',
-                            wikiPrimaryIconBtn,
-                            wikiPrimaryHdr.current.pageMode === 'edit' && 'active enabled:text-accent',
-                          )}
-                          disabled={!wikiPrimaryHdr.current.canEdit}
-                          onclick={() =>
-                            wikiPrimaryHdr?.current?.setPageMode(
-                              wikiPrimaryHdr.current.pageMode === 'edit' ? 'view' : 'edit',
-                            )}
-                          title={wikiPrimaryHdr.current.pageMode === 'edit' ? 'View' : 'Edit'}
-                          aria-label={wikiPrimaryHdr.current.pageMode === 'edit' ? 'Switch to view mode' : 'Switch to edit mode'}
-                        >
-                          {#if wikiPrimaryHdr.current.pageMode === 'edit'}
-                            <Save size={15} strokeWidth={2} aria-hidden="true" />
-                          {:else}
-                            <Pencil size={15} strokeWidth={2} aria-hidden="true" />
-                          {/if}
-                        </button>
                       {/if}
                     </div>
                   </div>
@@ -1606,6 +1750,7 @@
                     toolOnOpenFullInbox={openFullInboxFromChat}
                     toolOnOpenMessageThread={openMessageThreadFromChat}
                     onOpenWikiAbout={openHubWikiAbout}
+                    onMobileWikiOverlayBack={mobileWikiOverlayBack}
                     onClose={closeOverlay}
                   />
                 </div>
@@ -1657,6 +1802,7 @@
                     toolOnOpenFullInbox={openFullInboxFromChat}
                     toolOnOpenMessageThread={openMessageThreadFromChat}
                     onOpenWikiAbout={openHubWikiAbout}
+                    onMobileWikiOverlayBack={mobileWikiOverlayBack}
                     onClose={closeOverlay}
                   />
                 </div>
@@ -1667,6 +1813,7 @@
               bind:this={refs.agentChat}
               context={shell.agentContext}
               conversationHidden={!!shell.route.overlay && !useDesktopSplitDetail}
+              suppressMobileChatL2Header={shell.isMobile && !!shell.route.overlay && !useDesktopSplitDetail}
               hideInput={
                 shell.isMobile &&
                 !useDesktopSplitDetail &&
@@ -1740,6 +1887,7 @@
                     toolOnOpenFullInbox={openFullInboxFromChat}
                     toolOnOpenMessageThread={openMessageThreadFromChat}
                     onOpenWikiAbout={openHubWikiAbout}
+                    onMobileWikiOverlayBack={mobileWikiOverlayBack}
                     onClose={closeOverlay}
                   />
                 {/if}

@@ -1,7 +1,17 @@
 <script lang="ts">
-  import { BookOpen, BrainCircuit, MessageSquarePlus, Search, X, Settings } from 'lucide-svelte'
+  import type { Snippet } from 'svelte'
+  import {
+    BookOpen,
+    BrainCircuit,
+    EllipsisVertical,
+    MessageSquarePlus,
+    Search,
+    Settings,
+    X,
+  } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import BrainHubWidget from '@components/BrainHubWidget.svelte'
+  import AnchoredActionMenu from '@components/shell/AnchoredActionMenu.svelte'
 
   type Props = {
     /** When false, hides the chat history control (e.g. onboarding uses the same top bar without history). */
@@ -32,6 +42,12 @@
     onOpenSharing?: () => void
     /** Wiki vault root (`index.md` / resolved landing) — optional; hidden when omitted (e.g. onboarding). */
     onWikiHome?: () => void
+    /** Mobile-only (OPP-092): truncated chat title between brand and actions. */
+    mobileCenterTitle?: string
+    /** Mobile-only overflow sheet rows — receives `dismiss` to close the sheet after each action. */
+    mobileOverflow?: Snippet<[{ dismiss: () => void }]>
+    /** Accent dot on the ⋯ button (sync errors, invites, etc.). */
+    mobileOverflowAlert?: boolean
   }
 
   let {
@@ -51,12 +67,20 @@
     onOpenSettings,
     onOpenSharing,
     onWikiHome,
+    mobileCenterTitle,
+    mobileOverflow,
+    mobileOverflowAlert = false,
   }: Props = $props()
 
   /** Sidebar open (wide header + list): desktop or mobile. */
   const navOpen = $derived(sidebarOpen)
   /** Center title only when there is no left nav (e.g. onboarding); otherwise title lives in the sidebar control. */
   const showCenterBrand = $derived(!showChatHistoryButton)
+
+  const mobileCompactNav = $derived(Boolean(isMobile && mobileOverflow))
+
+  let overflowOpen = $state(false)
+  let overflowTriggerEl = $state<HTMLButtonElement | null>(null)
 
   /** Routes click: pending invite → Sharing, otherwise plain Settings. */
   function handleSettingsClick() {
@@ -109,9 +133,11 @@
           aria-label="Open sidebar"
         >
           <BrainCircuit size={18} strokeWidth={2} aria-hidden="true" />
-          <span
-            class="nav-brand-title min-w-0 overflow-hidden truncate whitespace-nowrap text-[15px] font-semibold tracking-[0.02em] max-md:text-lg"
-          >Braintunnel</span>
+          {#if !mobileCompactNav}
+            <span
+              class="nav-brand-title min-w-0 overflow-hidden truncate whitespace-nowrap text-[15px] font-semibold tracking-[0.02em] max-md:text-lg"
+            >Braintunnel</span>
+          {/if}
         </button>
       {/if}
     </div>
@@ -119,81 +145,133 @@
   <div
     class={cn(
       'brand flex min-w-0 flex-1 items-center px-3.5',
-      !showCenterBrand && 'brand--silent pointer-events-none',
+      !showCenterBrand && !mobileCompactNav && 'brand--silent pointer-events-none',
+      mobileCompactNav && 'min-w-0 px-2',
     )}
   >
-    {#if showCenterBrand}
+    {#if mobileCompactNav && mobileCenterTitle}
+      <span
+        class="mobile-nav-title min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[0.02em] text-foreground"
+        title={mobileCenterTitle}
+      >{mobileCenterTitle}</span>
+    {:else if showCenterBrand}
       <span class="brand-name text-[15px] font-semibold tracking-[0.02em] text-foreground max-md:text-lg">Braintunnel</span>
     {/if}
   </div>
   <div class="nav-actions flex shrink-0 items-stretch gap-0.5 pl-2" aria-label="Top actions">
-    <div class="search-wrap flex shrink-0 items-center">
-      <button
-        class={cn(iconBtn, '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]')}
-        onclick={onOpenSearch}
-        title="Search (⌘K)"
-        aria-label="Search"
-      >
-        <Search size={15} strokeWidth={2} aria-hidden="true" />
-      </button>
-    </div>
-    {#if onWikiHome}
-      <div class="wiki-home-wrap flex shrink-0 items-center">
+    {#if !mobileCompactNav}
+      <div class="search-wrap flex shrink-0 items-center">
         <button
-          type="button"
-          class={cn(
-            iconBtn,
-            '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]',
-            !isMobile && cn('wiki-home-btn--labeled', iconBtnLabeled),
-          )}
-          onclick={onWikiHome}
-          title="Wiki home (⌘⇧H)"
-          aria-label={isMobile ? 'Wiki home' : undefined}
+          class={cn(iconBtn, '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]')}
+          onclick={onOpenSearch}
+          title="Search (⌘K)"
+          aria-label="Search"
         >
-          <BookOpen size={15} strokeWidth={2} aria-hidden="true" />
-          {#if !isMobile}<span class={navActionLabel}>Wiki</span>{/if}
+          <Search size={15} strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
-    {/if}
-    {#if onNewChat}
-      <div class="new-wrap flex shrink-0 items-center">
-        <button
-          type="button"
-          class={cn(
-            iconBtn,
-            'disabled:cursor-not-allowed disabled:opacity-45',
-            '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]',
-            !isMobile && cn('new-nav-btn--labeled', iconBtnLabeled),
-            isMobile && 'max-md:h-9 max-md:min-h-9',
-          )}
-          disabled={isEmptyChat}
-          onclick={onNewChat}
-          title={isEmptyChat ? 'Already in new chat' : 'New chat (⌘N)'}
-          aria-label={isEmptyChat ? 'New conversation (already empty)' : isMobile ? 'New conversation' : undefined}
-        >
-          <MessageSquarePlus size={15} strokeWidth={2.25} aria-hidden="true" />
-          {#if !isMobile}<span class={navActionLabel}>Chat</span>{/if}
-        </button>
-      </div>
-    {/if}
-    {#if onOpenSettings && (isMobile || !hostedHandlePill)}
-      <div class="settings-wrap flex shrink-0 items-center">
-        <button
-          type="button"
-          class={cn(
-            iconBtn,
-            '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]',
-            !isMobile && cn('settings-nav-btn--labeled', iconBtnLabeled),
-            shareInviteBadge && 'settings-nav-btn--badge relative pr-3.5',
-          )}
-          onclick={handleSettingsClick}
-          title="Settings"
-          aria-label={isMobile ? 'Settings' : undefined}
-        >
-          <Settings size={15} strokeWidth={2} aria-hidden="true" />
-          {#if !isMobile}<span class={navActionLabel}>Settings</span>{/if}
-        </button>
-      </div>
+      {#if onWikiHome}
+        <div class="wiki-home-wrap flex shrink-0 items-center">
+          <button
+            type="button"
+            class={cn(
+              iconBtn,
+              '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]',
+              !isMobile && cn('wiki-home-btn--labeled', iconBtnLabeled),
+            )}
+            onclick={onWikiHome}
+            title="Wiki home (⌘⇧H)"
+            aria-label={isMobile ? 'Wiki home' : undefined}
+          >
+            <BookOpen size={15} strokeWidth={2} aria-hidden="true" />
+            {#if !isMobile}<span class={navActionLabel}>Wiki</span>{/if}
+          </button>
+        </div>
+      {/if}
+      {#if onNewChat}
+        <div class="new-wrap flex shrink-0 items-center">
+          <button
+            type="button"
+            class={cn(
+              iconBtn,
+              'disabled:cursor-not-allowed disabled:opacity-45',
+              '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]',
+              !isMobile && cn('new-nav-btn--labeled', iconBtnLabeled),
+              isMobile && 'max-md:h-9 max-md:min-h-9',
+            )}
+            disabled={isEmptyChat}
+            onclick={onNewChat}
+            title={isEmptyChat ? 'Already in new chat' : 'New chat (⌘N)'}
+            aria-label={isEmptyChat ? 'New conversation (already empty)' : isMobile ? 'New conversation' : undefined}
+          >
+            <MessageSquarePlus size={15} strokeWidth={2.25} aria-hidden="true" />
+            {#if !isMobile}<span class={navActionLabel}>Chat</span>{/if}
+          </button>
+        </div>
+      {/if}
+      {#if onOpenSettings && (isMobile || !hostedHandlePill)}
+        <div class="settings-wrap flex shrink-0 items-center">
+          <button
+            type="button"
+            class={cn(
+              iconBtn,
+              '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]',
+              !isMobile && cn('settings-nav-btn--labeled', iconBtnLabeled),
+              shareInviteBadge && 'settings-nav-btn--badge relative pr-3.5',
+            )}
+            onclick={handleSettingsClick}
+            title="Settings"
+            aria-label={isMobile ? 'Settings' : undefined}
+          >
+            <Settings size={15} strokeWidth={2} aria-hidden="true" />
+            {#if !isMobile}<span class={navActionLabel}>Settings</span>{/if}
+          </button>
+        </div>
+      {/if}
+    {:else}
+      {#if onNewChat}
+        <div class="new-wrap flex shrink-0 items-center">
+          <button
+            type="button"
+            class={cn(
+              iconBtn,
+              'disabled:cursor-not-allowed disabled:opacity-45',
+              '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]',
+              'max-md:h-9 max-md:min-h-9',
+            )}
+            disabled={isEmptyChat}
+            onclick={onNewChat}
+            title={isEmptyChat ? 'Already in new chat' : 'New chat (⌘N)'}
+            aria-label={isEmptyChat ? 'New conversation (already empty)' : 'New conversation'}
+          >
+            <MessageSquarePlus size={15} strokeWidth={2.25} aria-hidden="true" />
+          </button>
+        </div>
+      {/if}
+      {#if mobileOverflow}
+        <div class="relative flex shrink-0 items-center">
+          <button
+            bind:this={overflowTriggerEl}
+            type="button"
+            class={cn(iconBtn, 'relative max-md:h-9 max-md:min-h-9', '[&_svg]:max-md:h-[18px] [&_svg]:max-md:w-[18px]')}
+            onclick={() => {
+              overflowOpen = !overflowOpen
+            }}
+            title="More actions"
+            aria-label="More actions"
+            aria-expanded={overflowOpen}
+            aria-haspopup="menu"
+          >
+            <EllipsisVertical size={18} strokeWidth={2} aria-hidden="true" />
+            {#if mobileOverflowAlert}
+              <span
+                class="pointer-events-none absolute right-1 top-1 h-2 w-2 rounded-full bg-[#e74c3c]"
+                aria-hidden="true"
+              ></span>
+            {/if}
+          </button>
+        </div>
+      {/if}
     {/if}
     <div class="sync-wrap relative flex shrink-0 items-stretch">
       {#if hostedHandlePill && onOpenSettings && !isMobile}
@@ -234,6 +312,23 @@
     </div>
   </div>
 </nav>
+
+{#if mobileCompactNav && mobileOverflow}
+  <AnchoredActionMenu
+    open={overflowOpen}
+    anchorEl={overflowTriggerEl}
+    menuLabel="More actions"
+    onDismiss={() => {
+      overflowOpen = false
+    }}
+  >
+    {#snippet children()}
+      {@render mobileOverflow({ dismiss: () => {
+        overflowOpen = false
+      } })}
+    {/snippet}
+  </AnchoredActionMenu>
+{/if}
 
 <style>
   /*

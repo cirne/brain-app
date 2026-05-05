@@ -3,6 +3,7 @@ import { execFile as execFileCallback } from 'node:child_process'
 import { promisify } from 'node:util'
 import { readFile } from 'node:fs/promises'
 import { wikiVaultGlobViaWalk } from '@server/lib/wiki/wikiVaultSymlinkGlob.js'
+import { applyWikiGrepProvenanceAnnotations } from '@server/lib/wiki/wikiToolProvenance.js'
 
 const execFile = promisify(execFileCallback)
 const GREP_MAX_LINE_CHARS = 2000
@@ -119,6 +120,8 @@ export async function executeWikiSymlinkAwareGrep(
   if (signal?.aborted) throw new Error('Operation aborted')
 
   const searchAbs = resolveSearchAbs(wikiDir, params.path)
+  const toolsRootAbs = path.resolve(wikiDir)
+  const annotate = (text: string) => applyWikiGrepProvenanceAnnotations(toolsRootAbs, searchAbs, text)
   const ctx = Math.max(0, params.context ?? 0)
   const limit = Math.max(1, params.limit ?? 100)
 
@@ -150,7 +153,7 @@ export async function executeWikiSymlinkAwareGrep(
     const clipped = all.slice(0, Math.max(limit * 20, limit + 50))
     const text =
       clipped.length === 0 ? 'No matches found' : `${clipped.join('\n')}${all.length > clipped.length ? `\n\n[truncated output]` : ''}`
-    return { content: [{ type: 'text', text }] }
+    return { content: [{ type: 'text', text: annotate(text) }] }
   } catch (err: unknown) {
     if (signal?.aborted) throw new Error('Operation aborted', { cause: err })
     const oe = err as { code?: number; stdout?: string; stderr?: string; message?: string }
@@ -158,10 +161,10 @@ export async function executeWikiSymlinkAwareGrep(
     if ((oe.code === 1 || oe.code === undefined) && outStr.length > 0) {
       const all = outStr.replace(/\r\n/g, '\n').split('\n').filter((l) => l.length > 0)
       const clipped = all.slice(0, Math.max(limit * 20, limit + 50))
-      return { content: [{ type: 'text', text: clipped.join('\n') }] }
+      return { content: [{ type: 'text', text: annotate(clipped.join('\n')) }] }
     }
     if (oe.code === 1 && outStr.length === 0) {
-      return { content: [{ type: 'text', text: 'No matches found' }] }
+      return { content: [{ type: 'text', text: annotate('No matches found') }] }
     }
 
     const naive = await naiveGrepFiles({
@@ -186,6 +189,6 @@ export async function executeWikiSymlinkAwareGrep(
 
     const details =
       naive.matchLimitReached === true ? { matchLimitReached: limit } satisfies { matchLimitReached: number } : undefined
-    return { content: [{ type: 'text', text: naive.text }], details }
+    return { content: [{ type: 'text', text: annotate(naive.text) }], details }
   }
 }

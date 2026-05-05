@@ -4,6 +4,7 @@ import {
   normalizeWikiPathForMatch,
   resolveWikiLinkToFilePath,
   transformWikiPageHtml,
+  wikiLinkRefFromAnchor,
 } from './wikiPageHtml.js'
 
 describe('encodeWikiPathSegmentsForUrl', () => {
@@ -14,6 +15,38 @@ describe('encodeWikiPathSegmentsForUrl', () => {
 
   it('encodes special characters inside each segment', () => {
     expect(encodeWikiPathSegmentsForUrl('ideas/weird name.md')).toBe('ideas/weird%20name.md')
+  })
+})
+
+describe('wikiLinkRefFromAnchor', () => {
+  function anchor(attrs: Record<string, string>, textContent = ''): HTMLAnchorElement {
+    const map = new Map(Object.entries(attrs))
+    return {
+      getAttribute(name: string) {
+        return map.get(name) ?? null
+      },
+      textContent,
+    } as HTMLAnchorElement
+  }
+
+  it('reads data-wiki', () => {
+    const a = anchor({ 'data-wiki': 'ideas/foo.md', href: '#' })
+    expect(wikiLinkRefFromAnchor(a)).toBe('ideas/foo.md')
+  })
+
+  it('reads relative wiki href', () => {
+    const a = anchor({ href: 'people/bob.md' })
+    expect(wikiLinkRefFromAnchor(a)).toBe('people/bob.md')
+  })
+
+  it('returns null for https links', () => {
+    const a = anchor({ href: 'https://example.com' })
+    expect(wikiLinkRefFromAnchor(a)).toBeNull()
+  })
+
+  it('infers from label when href is hash-only', () => {
+    const a = anchor({ href: '#' }, 'some slug-title')
+    expect(wikiLinkRefFromAnchor(a)).toBe('some-slug-title.md')
   })
 })
 

@@ -1,11 +1,17 @@
 /**
- * Basis width for the chat↔detail split (counts for default 50% and drag bounds).
- * Prefer `bind:clientWidth` on the main workspace column (area beside the history sidebar);
- * fallback to `.split`’s measured width when that binding has not fired yet (~0).
+ * Basis width for the chat↔detail split (default 50/50 and drag bounds).
+ * Combines `bind:clientWidth` on the workspace column with `.split`’s measured width:
+ * use the **smaller positive** value so a stale or mistaken column width (e.g. viewport-wide)
+ * cannot reserve half the screen for the detail pane while the rail still consumes space.
+ * If only one side is known, use that; if neither, 0.
  */
 export function workspaceSplitBasisPx(workspaceColumnPx: number, measuredSplitPx: number): number {
-  if (workspaceColumnPx > 0) return workspaceColumnPx
-  return measuredSplitPx
+  const col = workspaceColumnPx > 0 ? workspaceColumnPx : null
+  const meas = measuredSplitPx > 0 ? measuredSplitPx : null
+  if (col != null && meas != null) return Math.min(col, meas)
+  if (meas != null) return meas
+  if (col != null) return col
+  return 0
 }
 
 /** Half of the chat+detail split width (detail pane default when opened). */

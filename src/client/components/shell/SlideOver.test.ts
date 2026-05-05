@@ -311,6 +311,18 @@ describe('SlideOver.svelte', () => {
       const slideOver = container.querySelector('.slide-over')
       expect(slideOver).not.toHaveClass('mobile-slide')
     })
+
+    it('opens anchored page-actions menu from wiki overflow on mobile', async () => {
+      const props = baseProps({
+        overlay: { type: 'wiki', path: 'travel/trip.md' },
+        mobilePanel: true,
+      })
+      render(SlideOver, { props })
+
+      await fireEvent.click(screen.getByRole('button', { name: /more wiki actions/i }))
+      expect(screen.getByRole('menu', { name: /page actions/i })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: /^copy link$/i })).toBeInTheDocument()
+    })
   })
 
   describe('data-overlay attribute', () => {

@@ -5,6 +5,7 @@
   type SlideOverProps = ComponentProps<typeof SlideOver>
   type Props = Omit<SlideOverProps, 'mobilePanel'> & {
     variant: 'mobile' | 'desktop'
+    onMobileWikiOverlayBack?: SlideOverProps['onMobileWikiOverlayBack']
   }
 
   let {
@@ -37,6 +38,7 @@
     toolOnOpenFullInbox,
     toolOnOpenMessageThread,
     onOpenWikiAbout,
+    onMobileWikiOverlayBack,
   }: Props = $props()
 
   let slide = $state<{ closeAnimated: () => void } | undefined>()
@@ -77,4 +79,5 @@
   {toolOnOpenFullInbox}
   {toolOnOpenMessageThread}
   {onOpenWikiAbout}
+  onMobileWikiOverlayBack={variant === 'mobile' ? onMobileWikiOverlayBack : undefined}
 />

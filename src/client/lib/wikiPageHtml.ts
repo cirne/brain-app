@@ -35,6 +35,41 @@ function wikiBasenameNormalized(ref: string): string {
  * Full paths match as today; bare slugs (e.g. `matt-shandera`) also resolve when
  * exactly one file ends with that slug (e.g. `people/matt-shandera.md`).
  */
+/**
+ * Resolve a wiki vault reference string from a clicked `<a>` (viewer + TipTap).
+ * Returns null when the anchor looks like an external/protocol link with no wiki ref.
+ */
+export function wikiLinkRefFromAnchor(a: HTMLAnchorElement): string | null {
+  let ref = a.getAttribute('data-wiki')?.trim() ?? ''
+  if (!ref) {
+    const href = (a.getAttribute('href') ?? '').trim()
+    if (
+      href &&
+      href !== '#' &&
+      !/^https?:\/\//i.test(href) &&
+      !/^mailto:/i.test(href) &&
+      !/^wiki:/i.test(href) &&
+      !/^date:/i.test(href) &&
+      !href.includes('://')
+    ) {
+      const pathOnly = href.split('#')[0].replace(/^\//, '').replace(/^\.\//, '')
+      if (pathOnly) ref = wikiPathForReadToolArg(pathOnly)
+    }
+  }
+  if (!ref) {
+    const href = (a.getAttribute('href') ?? '').trim()
+    if (href === '#' || href === '') {
+      const label = a.textContent?.trim() ?? ''
+      if (label) {
+        ref = wikiPathForReadToolArg(
+          label.includes('/') ? label : label.toLowerCase().replace(/\s+/g, '-'),
+        )
+      }
+    }
+  }
+  return ref || null
+}
+
 export function resolveWikiLinkToFilePath(
   link: string,
   files: readonly { path: string }[],

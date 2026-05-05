@@ -195,7 +195,7 @@
   {@const agentWorking = chatRowShowsAgentWorking(item, streamingSessionIds)}
   <div
     class={cn(
-      'ch-row group/chrow box-border m-0 flex w-full cursor-pointer items-center gap-1.5 px-2 py-1.5 text-left text-foreground transition-colors max-md:min-h-11 max-md:px-2 max-md:py-2',
+      'ch-row group/chrow box-border m-0 flex w-full cursor-pointer items-center gap-1.5 px-1.5 py-1 text-left text-foreground transition-colors max-md:min-h-11 max-md:px-1.5 max-md:py-1.5',
       'hover:bg-surface-3 hover:[&_.wfn-name]:text-accent',
       'focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:[outline-offset:1px]',
       item.type === 'chat' && activeSessionId === item.sessionId && 'active bg-accent-dim outline outline-1 outline-accent',

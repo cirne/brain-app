@@ -11,6 +11,7 @@
     normalizeWikiPathForMatch,
     resolveWikiLinkToFilePath,
     transformWikiPageHtml,
+    wikiLinkRefFromAnchor,
   } from '@client/lib/wikiPageHtml.js'
   import { wikiPathForReadToolArg } from '@client/lib/cards/contentCards.js'
   import { renderMarkdown } from '@client/lib/markdown.js'
@@ -101,7 +102,6 @@
   let loading = $state(false)
   /** Last open succeeded (file exists); enables Edit. */
   let pageLoadedOk = $state(false)
-  let pageMode = $state<'view' | 'edit'>('view')
   type SaveState = 'idle' | 'saving' | 'saved' | 'error'
   let saveState = $state<SaveState>('idle')
   let wikiEditor = $state<{ flushSave: () => Promise<void> } | null>(null)
@@ -123,6 +123,16 @@
     Boolean(selected && pageLoadedOk && !streamBusy && !loading && !sharedMode && selected.endsWith('.md')),
   )
 
+  /** Own-vault markdown: TipTap WYSIWYG except during agent streaming into this path (viewer shows stream). */
+  const showTipTapEditor = $derived(
+    !sharedMode &&
+      Boolean(selected?.toLowerCase().endsWith('.md')) &&
+      pageLoadedOk &&
+      !loading &&
+      !(streamingWrite && selected && pathsMatchForStream(streamingWrite.path, selected)) &&
+      !(streamingEdit && selected && pathsMatchForStream(streamingEdit.path, selected)),
+  )
+
   const shareAudienceCount = $derived(
     selected && !sharedMode ? countOutgoingSharesForVaultPath(selected, ownedShares) : 0,
   )
@@ -130,10 +140,15 @@
   const registerWikiHeader = getContext<SetWikiSlideHeader | undefined>(WIKI_SLIDE_HEADER)
   $effect(() => {
     registerWikiHeader?.({
-      pageMode,
+      pageMode: showTipTapEditor && canEdit ? 'edit' : 'view',
       canEdit,
       saveState,
-      setPageMode: (m: 'view' | 'edit') => void setPageMode(m),
+      setPageMode: async () => {
+        /* View/edit toggle removed — always-on TipTap when editable (OPP-092 WYSIWYG). */
+      },
+      flushSavingMarkdown: async () => {
+        await wikiEditor?.flushSave()
+      },
       canShare: canSharePage,
       onOpenShare: () => {
         shareDialogOpen = true
@@ -214,23 +229,14 @@
     }
   }
 
-  async function setPageMode(mode: 'view' | 'edit') {
-    if (mode === 'view' && pageMode === 'edit') {
-      await wikiEditor?.flushSave()
-      await refreshRenderedFromServer()
-    }
-    pageMode = mode
-  }
-
   async function openFile(path: string) {
-    if (pageMode === 'edit' && wikiEditor) {
+    if (wikiEditor) {
       await wikiEditor.flushSave()
     }
     const { token, signal } = wikiPageLatest.begin()
     selected = path
     onNavigate?.(path)
     loading = true
-    pageMode = 'view'
     try {
       const url = wikiFileUrl(path)
       const res = await fetch(url, { signal })
@@ -265,10 +271,6 @@
     }
   }
 
-  $effect(() => {
-    if (streamBusy) pageMode = 'view'
-  })
-
   /** Clicks on link text often set `event.target` to a Text node — it has no `.closest()`. */
   function handleContentClick(e: MouseEvent) {
     const start =
@@ -280,33 +282,7 @@
 
     e.preventDefault()
 
-    let ref = a.getAttribute('data-wiki')?.trim() ?? ''
-    if (!ref) {
-      const href = (a.getAttribute('href') ?? '').trim()
-      if (
-        href &&
-        href !== '#' &&
-        !/^https?:\/\//i.test(href) &&
-        !/^mailto:/i.test(href) &&
-        !/^wiki:/i.test(href) &&
-        !/^date:/i.test(href) &&
-        !href.includes('://')
-      ) {
-        const pathOnly = href.split('#')[0].replace(/^\//, '').replace(/^\.\//, '')
-        if (pathOnly) ref = wikiPathForReadToolArg(pathOnly)
-      }
-    }
-    if (!ref) {
-      const href = (a.getAttribute('href') ?? '').trim()
-      if (href === '#' || href === '') {
-        const label = a.textContent?.trim() ?? ''
-        if (label) {
-          ref = wikiPathForReadToolArg(
-            label.includes('/') ? label : label.toLowerCase().replace(/\s+/g, '-'),
-          )
-        }
-      }
-    }
+    const ref = wikiLinkRefFromAnchor(a)
     if (!ref) return
 
     const path = resolveWikiLinkToFilePath(ref, files)
@@ -387,18 +363,18 @@
         if (match) {
           if (match.path !== selected || loadIdentityChanged) {
             void openFile(match.path)
-          } else if (refreshKeyChanged && pageMode !== 'edit') {
+          } else if (refreshKeyChanged && !showTipTapEditor) {
             void refreshRenderedFromServer()
           }
         } else if (vaultRelForList !== selected || loadIdentityChanged) {
           void openFile(vaultRelForList || pathFromRoute)
-        } else if (refreshKeyChanged && pageMode !== 'edit') {
+        } else if (refreshKeyChanged && !showTipTapEditor) {
           void refreshRenderedFromServer()
         }
         return
       }
 
-      if (selected && pageMode !== 'edit') {
+      if (selected && !showTipTapEditor) {
         void openFile(selected)
         return
       }
@@ -419,10 +395,10 @@
   <div
     class={cn(
       'content-area min-h-0 min-w-0 flex-1 overflow-y-auto max-md:overflow-x-hidden',
-      pageMode === 'edit' && canEdit && 'content-area-edit flex flex-col overflow-hidden',
+      showTipTapEditor && canEdit && 'content-area-edit flex flex-col overflow-hidden',
     )}
   >
-    {#if pageMode === 'edit' && canEdit}
+    {#if showTipTapEditor && canEdit}
       {#key selected}
         <div class="wiki-edit-wrap flex min-h-0 flex-1 flex-col">
           <TipTapMarkdownEditor
@@ -431,6 +407,10 @@
             disabled={loading || streamBusy}
             autoPersist={false}
             onPersist={persistWikiMarkdown}
+            onWikiLinkNavigate={(ref) => {
+              const path = resolveWikiLinkToFilePath(ref, files)
+              if (path) void openFile(path)
+            }}
           />
         </div>
       {/key}

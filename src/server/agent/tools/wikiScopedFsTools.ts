@@ -23,6 +23,10 @@ import { wikiFindGlobAbsolutePaths } from '@server/lib/wiki/wikiFindGlob.js'
 import { executeWikiSymlinkAwareGrep } from '@server/agent/tools/wikiSymlinkAwareGrep.js'
 import { WIKIS_ME_SEGMENT } from '@server/lib/platform/brainLayout.js'
 import {
+  applyWikiFindProvenanceAnnotations,
+  sharedWikiReadSourceBanner,
+} from '@server/lib/wiki/wikiToolProvenance.js'
+import {
   granteeShareCoversWikiPath,
   listSharesForOwner,
 } from '@server/lib/shares/wikiSharesRepo.js'
@@ -117,7 +121,17 @@ export function createWikiScopedPiTools(
     async execute(toolCallId: string, params: { path: string; offset?: number; limit?: number }) {
       const path = await granteePath(params.path)
       try {
-        return await readToolInner.execute(toolCallId, { ...params, path })
+        const result = await readToolInner.execute(toolCallId, { ...params, path })
+        const banner = sharedWikiReadSourceBanner(path)
+        if (!banner) return result
+        const out = result as { content: { type: string; text: string }[] }
+        if (!Array.isArray(out.content) || out.content.length === 0) return result
+        return {
+          ...out,
+          content: out.content.map((c, i) =>
+            i === 0 && c.type === 'text' ? { ...c, text: `${banner}\n\n${c.text}` } : c,
+          ),
+        }
       } catch (e) {
         throw sanitizeWikiFilesystemToolError(path, e)
       }
@@ -269,7 +283,7 @@ export function createWikiScopedPiTools(
   const find = {
     ...findToolInner,
     description:
-      'List files by path/filename glob under the wiki tool root (your me/ vault and @handle/ shared projections). pattern must be a glob with * / ** / ? — not natural-language search. For phrases inside markdown, call grep.',
+      'List files by path/filename glob under the wiki tool root (your me/ vault and @handle/ shared projections). pattern must be a glob with * / ** / ? — not natural-language search. For phrases inside markdown, call grep. When results include paths under @handle/, each line is prefixed with [shared:@handle]; me/ paths show [vault:me] in those results; mixed sets include a one-line summary.',
     promptSnippet: 'Glob-match wiki file paths; use grep for text inside files',
     parameters: findParametersWiki,
     async execute(
@@ -285,7 +299,7 @@ export function createWikiScopedPiTools(
       void case_sensitive
       const displayPath = typeof pathResolved === 'string' ? pathResolved : '.'
       try {
-        return await wikiFindCaseSensitiveAls.run(caseSensitive, () =>
+        const raw = await wikiFindCaseSensitiveAls.run(caseSensitive, () =>
           findToolInner.execute(
             toolCallId,
             { ...piParams, path: pathResolved },
@@ -293,6 +307,24 @@ export function createWikiScopedPiTools(
             ...(rest as never[]),
           ),
         )
+        const firstText = raw.content?.[0]
+        if (
+          firstText &&
+          firstText.type === 'text' &&
+          typeof firstText.text === 'string' &&
+          firstText.text
+        ) {
+          const nextText = applyWikiFindProvenanceAnnotations(firstText.text)
+          if (nextText !== firstText.text) {
+            return {
+              ...raw,
+              content: raw.content.map((c, i) =>
+                i === 0 && c.type === 'text' ? { ...c, text: nextText } : c,
+              ),
+            }
+          }
+        }
+        return raw
       } catch (e) {
         throw sanitizeWikiFilesystemToolError(displayPath, e)
       }

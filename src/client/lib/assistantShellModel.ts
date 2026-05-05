@@ -32,6 +32,13 @@ export type AssistantShellState = {
   workspaceColumnWidth: number
   /** Pending wiki share invites addressed to the signed-in workspace (from `GET /api/wiki-shares`). */
   pendingWikiShareInvitesCount: number
+  /**
+   * Mobile chat-column wiki overlay: stack of unified wiki paths for depth-aware ◀ before closing.
+   * Desktop and wiki-primary surfaces ignore this.
+   */
+  mobileWikiOverlayStack: string[]
+  /** When true, next wiki overlay navigation must not mutate {@link mobileWikiOverlayStack} (programmatic back-pop). */
+  suppressMobileWikiStackMutation: boolean
 }
 
 /**
@@ -45,6 +52,8 @@ export function alignShellWithBareChatRoute(shell: AssistantShellState): void {
   shell.mailSearchResults = {}
   shell.wikiWriteStreaming = null
   shell.wikiEditStreaming = null
+  shell.mobileWikiOverlayStack = []
+  shell.suppressMobileWikiStackMutation = false
 }
 
 export function createAssistantShellState(): AssistantShellState {
@@ -72,5 +81,7 @@ export function createAssistantShellState(): AssistantShellState {
     isMobile: false,
     workspaceColumnWidth: 0,
     pendingWikiShareInvitesCount: 0,
+    mobileWikiOverlayStack: [],
+    suppressMobileWikiStackMutation: false,
   }
 }

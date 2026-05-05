@@ -4,10 +4,13 @@ import type { SlideHeaderRegistration } from '@client/lib/slideHeaderContextRegi
 export const WIKI_SLIDE_HEADER = Symbol('wikiSlideHeader')
 
 export type WikiSlideHeaderState = {
+  /** Legacy mode split — prefer always-on TipTap when {@link canEdit}; persisted via TipTap persist hooks. */
   pageMode: 'view' | 'edit'
   canEdit: boolean
   saveState: 'idle' | 'saving' | 'saved' | 'error'
-  setPageMode: (_mode: 'view' | 'edit') => void
+  setPageMode: (_mode: 'view' | 'edit') => void | Promise<void>
+  /** Flush pending editor markdown (own vault TipTap); no-op when not editing in TipTap. */
+  flushSavingMarkdown?: () => Promise<void>
   /** Invite others to read this folder or page (own wiki only). */
   canShare?: boolean
   onOpenShare?: () => void

@@ -29,11 +29,11 @@ describe('Wiki.svelte', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('Hello')).toBeInTheDocument()
+      expect(screen.getByTestId('tiptap-editor-stub')).toHaveTextContent('# Hello')
     })
   })
 
-  it('PATCHes markdown when leaving edit mode (flushSave)', async () => {
+  it('PATCHes markdown via flushSavingMarkdown (always-on TipTap flush)', async () => {
     const files = createWikiList(['ideas/note.md'])
     const path = 'ideas/note.md'
 
@@ -59,13 +59,11 @@ describe('Wiki.svelte', () => {
       expect(wikiHeaderRef.current?.canEdit).toBe(true)
     })
 
-    wikiHeaderRef.current!.setPageMode('edit')
-
     await waitFor(() => {
       expect(screen.getByTestId('tiptap-editor-stub')).toBeInTheDocument()
     })
 
-    await wikiHeaderRef.current!.setPageMode('view')
+    await wikiHeaderRef.current!.flushSavingMarkdown?.()
 
     await waitFor(() => {
       expect(patch).toHaveBeenCalled()

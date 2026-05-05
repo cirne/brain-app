@@ -9,4 +9,5 @@
   data-testid="slide-over-props-stub"
   data-mobile-panel={props.mobilePanel ?? false}
   data-detail-fullscreen={props.detailFullscreen ?? false}
+  data-on-mobile-wiki-overlay-back={props.onMobileWikiOverlayBack ? 'true' : 'false'}
 ></div>
