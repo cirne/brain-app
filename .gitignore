@@ -27,3 +27,5 @@ desktop/binaries/ripmail-*
 desktop/src-tauri/bin/cloudflared-*
 desktop/resources/server-bundle/
 *.log
+# Claude Code / local assistant config (e.g. settings.local.json)
+.claude/
