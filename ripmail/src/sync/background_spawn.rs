@@ -5,13 +5,47 @@ use std::process::Stdio;
 
 use std::collections::HashMap;
 
-use crate::config::{resolve_mailbox_spec, Config, MailboxImapAuthKind};
+use crate::config::{resolve_mailbox_spec, Config, MailboxImapAuthKind, ResolvedMailbox};
 use crate::db;
 use crate::status::print_status_text;
 use crate::sync::{
     connect_imap_for_resolved_mailbox, is_sync_lock_held, read_sync_lock_row_optional,
     sync_log_path, SyncKind,
 };
+
+/// Which mailbox to validate before spawning a background `backfill --foreground` child.
+///
+/// Non-mail sources (calendar, ICS, localDir, Google Drive) are skipped for IMAP precondition
+/// checks; only [`ResolvedMailbox::is_mail`] targets need `imap_user` / OAuth probing.
+fn mailbox_for_background_imap_probe<'a>(
+    resolved: &'a [ResolvedMailbox],
+    mailbox_filter: Option<&str>,
+) -> Result<Option<&'a ResolvedMailbox>, Box<dyn std::error::Error>> {
+    if resolved.is_empty() {
+        return Err("No mailboxes configured. Run `ripmail setup`.".into());
+    }
+    Ok(
+        if let Some(spec) = mailbox_filter.map(str::trim).filter(|s| !s.is_empty()) {
+            let mb = resolve_mailbox_spec(resolved, spec).ok_or_else(|| {
+                format!(
+                    "Unknown mailbox {spec:?}. Configured: {}",
+                    resolved
+                        .iter()
+                        .map(|x| x.email.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            })?;
+            if mb.is_mail() {
+                Some(mb)
+            } else {
+                None
+            }
+        } else {
+            resolved.iter().find(|m| m.is_mail())
+        },
+    )
+}
 
 fn imap_probe_session(
     cfg: &Config,
@@ -21,21 +55,8 @@ fn imap_probe_session(
     let env_file = crate::config::read_ripmail_env_file(home);
     let process_env: HashMap<String, String> = std::env::vars().collect();
 
-    let mb = if let Some(spec) = mailbox.map(str::trim).filter(|s| !s.is_empty()) {
-        resolve_mailbox_spec(cfg.resolved_mailboxes(), spec).ok_or_else(|| {
-            format!(
-                "Unknown mailbox {spec:?}. Configured: {}",
-                cfg.resolved_mailboxes()
-                    .iter()
-                    .map(|x| x.email.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        })?
-    } else {
-        cfg.resolved_mailboxes()
-            .first()
-            .ok_or_else(|| "No mailboxes configured. Run `ripmail setup`.".to_string())?
+    let Some(mb) = mailbox_for_background_imap_probe(cfg.resolved_mailboxes(), mailbox)? else {
+        return Ok(());
     };
 
     if mb.apple_mail_root.is_some() {
@@ -168,4 +189,127 @@ pub fn spawn_sync_background_detached(
         println!("When messages appear, try: ripmail search \"invoice\"  |  ripmail who \"name\"");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod background_imap_probe_tests {
+    use super::mailbox_for_background_imap_probe;
+    use crate::config::{
+        CalendarSourceResolved, MailboxImapAuthKind, ResolvedMailbox, ResolvedSource, SourceKind,
+    };
+    use std::path::PathBuf;
+
+    fn base_maildir_stub() -> PathBuf {
+        PathBuf::from("/tmp/ripmail-probe-test-maildir-stub")
+    }
+
+    fn ics_subscription(id: &str) -> ResolvedMailbox {
+        ResolvedSource {
+            id: id.to_string(),
+            kind: SourceKind::IcsSubscription,
+            email: String::new(),
+            imap_host: String::new(),
+            imap_port: 993,
+            imap_user: String::new(),
+            imap_aliases: Vec::new(),
+            imap_password: String::new(),
+            imap_auth: MailboxImapAuthKind::AppPassword,
+            include_in_default: true,
+            maildir_path: base_maildir_stub().join(id),
+            apple_mail_root: None,
+            file_source: None,
+            calendar: Some(CalendarSourceResolved::IcsUrl {
+                url: "https://example.invalid/cal.ics".into(),
+            }),
+            google_drive: None,
+        }
+    }
+
+    fn google_calendar_stub(id: &str, email: &str) -> ResolvedMailbox {
+        ResolvedSource {
+            id: id.to_string(),
+            kind: SourceKind::GoogleCalendar,
+            email: email.to_string(),
+            imap_host: String::new(),
+            imap_port: 993,
+            imap_user: email.to_string(),
+            imap_aliases: Vec::new(),
+            imap_password: String::new(),
+            imap_auth: MailboxImapAuthKind::GoogleOAuth,
+            include_in_default: true,
+            maildir_path: base_maildir_stub().join(id),
+            apple_mail_root: None,
+            file_source: None,
+            calendar: Some(CalendarSourceResolved::Google {
+                email: email.to_string(),
+                calendar_ids: vec!["primary".into()],
+                token_mailbox_id: id.to_string(),
+            }),
+            google_drive: None,
+        }
+    }
+
+    fn imap_mailbox_stub(id: &str, email: &str) -> ResolvedMailbox {
+        ResolvedSource {
+            id: id.to_string(),
+            kind: SourceKind::Imap,
+            email: email.to_string(),
+            imap_host: "imap.gmail.com".into(),
+            imap_port: 993,
+            imap_user: email.to_string(),
+            imap_aliases: Vec::new(),
+            imap_password: String::new(),
+            imap_auth: MailboxImapAuthKind::GoogleOAuth,
+            include_in_default: true,
+            maildir_path: base_maildir_stub().join(id),
+            apple_mail_root: None,
+            file_source: None,
+            calendar: None,
+            google_drive: None,
+        }
+    }
+
+    #[test]
+    fn picker_skips_calendar_and_ics_to_find_first_imap_when_unfiltered() {
+        let resolved = vec![
+            ics_subscription("ics1"),
+            google_calendar_stub("cal1", "cal@example.com"),
+            imap_mailbox_stub("mb1", "user@gmail.com"),
+        ];
+        let picked = mailbox_for_background_imap_probe(&resolved, None)
+            .expect("pick")
+            .expect("Imap mailbox expected");
+        assert_eq!(picked.id, "mb1");
+        assert_eq!(picked.imap_user, "user@gmail.com");
+    }
+
+    #[test]
+    fn picker_calendar_only_returns_none_when_unfiltered() {
+        let resolved = vec![
+            ics_subscription("ics1"),
+            google_calendar_stub("cal1", "c@example.com"),
+        ];
+        assert!(mailbox_for_background_imap_probe(&resolved, None)
+            .expect("pick ok")
+            .is_none());
+    }
+
+    #[test]
+    fn picker_explicit_calendar_resolves_but_skips_imap_validation() {
+        let resolved = vec![
+            imap_mailbox_stub("mb1", "user@gmail.com"),
+            ics_subscription("ics1"),
+        ];
+        let picked =
+            mailbox_for_background_imap_probe(&resolved, Some("ics1")).expect("resolve ics ok");
+        assert!(
+            picked.is_none(),
+            "calendar/ICS `--source` should not trigger IMAP probe"
+        );
+    }
+
+    #[test]
+    fn picker_empty_config_errors() {
+        assert!(mailbox_for_background_imap_probe(&[], None).is_err());
+    }
 }

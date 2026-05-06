@@ -251,7 +251,7 @@ mod tests {
         let paths = vec![cur.join("good.eml"), cur.join("bad.eml")];
         let m = min_trustworthy_index_date_in_maildir(&paths);
         assert!(m.is_some());
-        let good = parse_index_message(&fs::read(&cur.join("good.eml")).unwrap());
+        let good = parse_index_message(&fs::read(cur.join("good.eml")).unwrap());
         // Batch min is the 1997 message only.
         assert_eq!(m.as_deref(), Some(good.date.as_str()));
         let _ = fs::remove_dir_all(&tmp);

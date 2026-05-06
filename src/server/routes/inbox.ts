@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os'
 import { Hono } from 'hono'
 import { extractDraftEdits } from '@server/lib/llm/draftExtract.js'
 import { buildDraftEditFlags } from '../agent/tools.js'
-import { syncInboxRipmail } from '@server/lib/platform/syncAll.js'
+import { syncInboxRipmail, syncInboxRipmailOnboarding } from '@server/lib/platform/syncAll.js'
+import { readOnboardingStateDoc } from '@server/lib/onboarding/onboardingState.js'
 import { flattenInboxFromRipmailData } from '@shared/ripmailInboxFlatten.js'
 import { execRipmailAsync, execRipmailArgv, RIPMAIL_SEND_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
 import { ripmailReadExecOptions } from '@server/lib/ripmail/ripmailReadExec.js'
@@ -52,12 +53,15 @@ inbox.get('/', async (c) => {
   }
 })
 
-// POST /api/inbox/sync — kick ripmail refresh (can run up to RIPMAIL_REFRESH_TIMEOUT_MS).
-// Respond immediately so UIs (onboarding, inbox) are not blocked for the full refresh window.
-inbox.post('/sync', (c) => {
-  void syncInboxRipmail(undefined).then((result) => {
+// POST /api/inbox/sync — kick ripmail (`refresh` vs onboarding 30d backfill); fire-and-forget.
+// Respond immediately so UIs (onboarding, inbox) can poll mail status while ripmail runs.
+inbox.post('/sync', async (c) => {
+  const doc = await readOnboardingStateDoc()
+  const isOnboardingSlice = doc.state === 'not-started' || doc.state === 'indexing'
+  const syncFn = isOnboardingSlice ? syncInboxRipmailOnboarding : syncInboxRipmail
+  void syncFn(undefined).then((result) => {
     if (!result.ok) {
-      console.error('[inbox/sync] ripmail refresh failed:', result.error ?? 'inbox sync failed')
+      console.error('[inbox/sync] ripmail sync failed:', result.error ?? 'inbox sync failed')
     }
   })
   return c.json({ ok: true })

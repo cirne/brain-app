@@ -35,6 +35,7 @@ import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '@shared/onboardingProfileTh
 import { enrichAppleMailSetupError } from '@server/lib/apple/appleMailSetupHints.js'
 import { getFdaProbeDetail, isFdaGranted } from '@server/lib/apple/fdaProbe.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
+import { runRipmailBackfillForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
 import { writeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
 import { oauthRedirectListenPort } from '@server/lib/platform/brainHttpPort.js'
@@ -195,6 +196,11 @@ onboarding.patch('/state', async (c) => {
   }
   try {
     const doc = await setOnboardingState(next)
+    if (next === 'onboarding-agent' && cur.state !== 'onboarding-agent') {
+      void runRipmailBackfillForBrain(['1y']).catch((e) =>
+        console.error('[onboarding/state] background backfill 1y failed:', e),
+      )
+    }
     return c.json({ ok: true, state: doc.state })
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : 'invalid transition' }, 400)

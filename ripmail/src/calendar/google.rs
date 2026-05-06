@@ -354,7 +354,7 @@ mod parse_google_event_tests {
         assert_eq!(ids.len(), 2);
         assert_eq!(names.get("cal1").map(|s| s.as_str()), Some("One"));
         assert_eq!(colors.get("cal1").map(|s| s.as_str()), Some("#111111"));
-        assert!(colors.get("cal2").is_none());
+        assert!(!colors.contains_key("cal2"));
     }
 }
 

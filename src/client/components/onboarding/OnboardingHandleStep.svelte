@@ -164,6 +164,9 @@
             bootError = null
             queueAvailabilityCheck()
           }}
+          onkeydown={(e) => {
+            if (e.key === 'Enter' && canSubmit) void confirm()
+          }}
           disabled={busy}
           maxlength="32"
         />

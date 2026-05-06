@@ -2239,25 +2239,27 @@ mod tests {
     fn sources_edit_google_calendar_ids() {
         let tmp = tempfile::tempdir().unwrap();
         let home = tmp.path();
-        let mut cfg = ConfigJson::default();
-        cfg.sources = Some(vec![SourceConfigJson {
-            id: "gcal".into(),
-            kind: SourceKind::GoogleCalendar,
-            email: "a@b.com".into(),
-            label: None,
-            imap: None,
-            imap_auth: None,
-            search: None,
-            identity: None,
-            apple_mail_path: None,
-            path: None,
-            file_source: None,
-            include_shared_with_me: false,
-            oauth_source_id: None,
-            calendar_ids: Some(vec!["primary".into()]),
-            default_calendars: None,
-            ics_url: None,
-        }]);
+        let cfg = ConfigJson {
+            sources: Some(vec![SourceConfigJson {
+                id: "gcal".into(),
+                kind: SourceKind::GoogleCalendar,
+                email: "a@b.com".into(),
+                label: None,
+                imap: None,
+                imap_auth: None,
+                search: None,
+                identity: None,
+                apple_mail_path: None,
+                path: None,
+                file_source: None,
+                include_shared_with_me: false,
+                oauth_source_id: None,
+                calendar_ids: Some(vec!["primary".into()]),
+                default_calendars: None,
+                ics_url: None,
+            }]),
+            ..Default::default()
+        };
         write_config_json(home, &cfg).unwrap();
 
         // Simulate SourcesCmd::Edit logic

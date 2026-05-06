@@ -5,7 +5,11 @@ import { ripmailHomeForBrain } from './brainHome.js'
 import { getHubRipmailSourcesList } from '@server/lib/hub/hubRipmailSources.js'
 import { ensureGoogleOAuthImapSiblingSources } from './googleOAuth.js'
 import { RipmailTimeoutError, RIPMAIL_REFRESH_TIMEOUT_MS } from '@server/lib/ripmail/ripmailRun.js'
-import { runRipmailHeavyArgv, runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
+import {
+  runRipmailHeavyArgv,
+  runRipmailRefreshForBrain,
+  runRipmailBackfillForBrain,
+} from '@server/lib/ripmail/ripmailHeavySpawn.js'
 
 export interface SyncComponentResult {
   ok: boolean
@@ -79,6 +83,23 @@ export async function syncInboxRipmail(signal?: AbortSignal): Promise<SyncCompon
   } catch (e) {
     const detail = formatExecError(e)
     console.error('[brain-app] ripmail refresh failed:', detail)
+    return { ok: false, error: detail }
+  }
+}
+
+/** First onboarding pass: bounded window backfill (~30 days) vs full `refresh` defaultSince (~1y). See OPP-093. */
+export async function syncInboxRipmailOnboarding(signal?: AbortSignal): Promise<SyncComponentResult> {
+  try {
+    await ensureGoogleOAuthImapSiblingSources(ripmailHomeForBrain())
+  } catch (e) {
+    console.error('[brain-app] ensureGoogleOAuthImapSiblingSources (onboarding sync):', e)
+  }
+  try {
+    await runRipmailBackfillForBrain(['30d'], signal)
+    return { ok: true }
+  } catch (e) {
+    const detail = formatExecError(e)
+    console.error('[brain-app] ripmail backfill 30d (onboarding) failed:', detail)
     return { ok: false, error: detail }
   }
 }

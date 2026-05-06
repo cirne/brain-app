@@ -581,7 +581,7 @@ INSERT INTO CalendarItem (
         assert_eq!(e.summary.as_deref(), Some("Test event"));
         assert_eq!(e.calendar_id, "1");
         assert_eq!(e.calendar_name.as_deref(), Some("Home"));
-        assert_eq!(e.all_day, false);
+        assert!(!e.all_day);
         assert_eq!(e.status.as_deref(), Some("confirmed"));
         assert_eq!(e.start_at, CORE_DATA_EPOCH_UNIX_OFFSET_SECS + 1_000_000);
         assert_eq!(e.timezone.as_deref(), Some("America/Los_Angeles"));
