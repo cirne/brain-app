@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync: vi.fn(),
   runRipmailArgv: vi.fn(),
+  RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
 }))
 
 vi.mock('@mariozechner/pi-ai', () => ({

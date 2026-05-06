@@ -15,6 +15,20 @@ pub struct SyncFileLogger {
     file: Mutex<std::fs::File>,
 }
 
+impl Clone for SyncFileLogger {
+    fn clone(&self) -> Self {
+        let file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)
+            .unwrap_or_else(|e| panic!("sync log reopen {}: {e}", self.path.display()));
+        Self {
+            path: self.path.clone(),
+            file: Mutex::new(file),
+        }
+    }
+}
+
 impl SyncFileLogger {
     pub fn open(ripmail_home: &Path) -> std::io::Result<Self> {
         let dir = ripmail_home.join("logs");

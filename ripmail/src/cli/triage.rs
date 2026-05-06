@@ -205,9 +205,13 @@ pub(crate) fn print_sync_foreground_metrics(r: &SyncResult) {
     println!("Sync log: {}", r.log_path);
 }
 
-/// Calendar / ICS connectors are quick; IMAP backfill can run for a long time. Config order often
-/// lists Gmail before `googleCalendar`, which meant a full-history mail sync blocked calendar
-/// indexing until IMAP finished — users saw empty `calendar_events` indefinitely.
+/// Calendar / ICS connectors can finish before a long IMAP backfill — config order often listed
+/// Gmail before `googleCalendar`, so we reorder sources accordingly.
+///
+/// Each configured source syncs on its **own OS thread** with its **own** `rusqlite::Connection`
+/// (foreground `refresh`/`backfill` in this module). SQLite uses WAL plus a busy handler; there is
+/// **no ripmail-global insert mutex**. Concurrent writers are serialized by SQLite, not by a shared
+/// `std::sync::Mutex` wrapper in-process.
 fn prioritize_calendar_sources_first(mailboxes: Vec<ResolvedMailbox>) -> Vec<ResolvedMailbox> {
     let mut cal = Vec::new();
     let mut rest = Vec::new();
@@ -394,8 +398,8 @@ pub(crate) fn run_sync_foreground_backfill(
                     {
                         return Err(format!("ripmail: skipping {} (shutdown/timeout)", mb.id));
                     }
-                    // Each thread opens its own connection. SQLite WAL serialises concurrent writers
-                    // automatically; the 15-second busy_timeout handles transient contention.
+                    // Each thread opens its own DB connection (`db::open_file`). WAL + SQLite’s writer
+                    // lock coordinate concurrent inserts; busy_timeout absorbs short contention — no separate global insert mutex in ripmail.
                     let mut conn = db::open_file(&db_path)
                         .map_err(|e| format!("{}: open_file: {e}", mb.id))?;
                     let result = if mb.calendar.is_some() {
@@ -572,8 +576,8 @@ pub(crate) fn run_sync_foreground_refresh(
                     {
                         return Err(format!("ripmail: skipping {} (shutdown/timeout)", mb.id));
                     }
-                    // Each thread opens its own connection. SQLite WAL serialises concurrent writers
-                    // automatically; the 15-second busy_timeout handles transient contention.
+                    // Each thread opens its own DB connection (`db::open_file`). WAL + SQLite’s writer
+                    // lock coordinate concurrent inserts; busy_timeout absorbs short contention — no separate global insert mutex in ripmail.
                     let mut conn = db::open_file(&db_path)
                         .map_err(|e| format!("{}: open_file: {e}", mb.id))?;
                     let result = if mb.calendar.is_some() {

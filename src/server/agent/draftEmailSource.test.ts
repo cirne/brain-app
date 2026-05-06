@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync: vi.fn(),
   RIPMAIL_SEND_TIMEOUT_MS: 30000,
+  RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
 }))
 
 vi.mock('@server/lib/ripmail/ripmailBin.js', () => ({

@@ -5,6 +5,7 @@ vi.mock('@server/lib/ripmail/ripmailBin.js', () => ({
 }))
 vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync: vi.fn(),
+  RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
 }))
 
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'

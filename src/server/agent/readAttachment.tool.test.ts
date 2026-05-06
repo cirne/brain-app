@@ -15,6 +15,7 @@ const execRipmailAsync = vi.fn()
 vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync,
   RIPMAIL_SEND_TIMEOUT_MS: 600000,
+  RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
 }))
 
 import { toolResultFirstText } from './agentTestUtils.js'

@@ -19,6 +19,7 @@ vi.mock('@server/lib/calendar/calendarRipmail.js', async (importOriginal) => {
 vi.mock('@server/lib/ripmail/ripmailRun.js', () => ({
   execRipmailAsync: vi.fn(),
   ripmailProcessEnv: vi.fn(() => ({})),
+  RIPMAIL_BACKFILL_TIMEOUT_MS: 2 * 60 * 60 * 1000,
 }))
 
 vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', () => ({

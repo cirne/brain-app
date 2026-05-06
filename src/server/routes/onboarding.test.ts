@@ -53,6 +53,7 @@ vi.mock('../agent/yourWikiSupervisor.js', async (importOriginal) => {
   }
 })
 
+import * as ripmailHeavySpawn from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import onboardingRoute from './onboarding.js'
 import * as onboardingMailStatus from '@server/lib/onboarding/onboardingMailStatus.js'
 import { tenantMiddleware } from '@server/lib/tenant/tenantMiddleware.js'
@@ -547,6 +548,9 @@ describe('onboarding routes', () => {
     })
 
     it('allows transition while ripmail backfill lane still runs (phase 2 queued behind ripmail chain)', async () => {
+      const waitIdleSpy = vi
+        .spyOn(ripmailHeavySpawn, 'waitForRipmailBackfillLaneIdle')
+        .mockResolvedValue(undefined)
       vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
         configured: true,
         indexedTotal: 520,
@@ -561,18 +565,24 @@ describe('onboarding routes', () => {
         pendingBackfill: false,
         staleMailSyncLock: false,
       })
-      const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
-      await setOnboardingState('indexing')
-      const app = new Hono()
-      app.route('/api/onboarding', onboardingRoute)
-      const res = await app.request('http://localhost/api/onboarding/state', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: 'onboarding-agent' }),
-      })
-      expect(res.status).toBe(200)
-      expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledTimes(1)
-      expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledWith(['1y'])
+      try {
+        const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
+        await setOnboardingState('indexing')
+        const app = new Hono()
+        app.route('/api/onboarding', onboardingRoute)
+        const res = await app.request('http://localhost/api/onboarding/state', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state: 'onboarding-agent' }),
+        })
+        expect(res.status).toBe(200)
+        await vi.waitFor(() => {
+          expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledTimes(1)
+        })
+        expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledWith(['1y'])
+      } finally {
+        waitIdleSpy.mockRestore()
+      }
     })
 
     it('PATCH success is not blocked when background 1y backfill rejects', async () => {

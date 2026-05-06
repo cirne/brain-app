@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono'
 import { networkInterfaces, platform } from 'node:os'
-import { unlink } from 'node:fs/promises'
+import { readFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import {
@@ -11,7 +11,7 @@ import {
   onboardingDataDir,
   type OnboardingMachineState,
 } from '@server/lib/onboarding/onboardingState.js'
-import { appendTurn, ensureSessionStub } from '@server/lib/chat/chatStorage.js'
+import { appendTurn, chatDataDir, ensureSessionStub } from '@server/lib/chat/chatStorage.js'
 import type { ChatMessage } from '@server/lib/chat/chatTypes.js'
 import { startTunnel, stopTunnel, getActiveTunnelUrl } from '@server/lib/platform/tunnelManager.js'
 import { streamAgentSseResponse, streamFinishConversationShortcutSse } from '@server/lib/chat/streamAgentSse.js'
@@ -37,7 +37,10 @@ import { kickWikiSupervisorIfIndexedGatePasses } from '@server/lib/backgroundTas
 import { enrichAppleMailSetupError } from '@server/lib/apple/appleMailSetupHints.js'
 import { getFdaProbeDetail, isFdaGranted } from '@server/lib/apple/fdaProbe.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
-import { runRipmailBackfillForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
+import {
+  runRipmailBackfillForBrain,
+  waitForRipmailBackfillLaneIdle,
+} from '@server/lib/ripmail/ripmailHeavySpawn.js'
 import { readOnboardingPreferences, saveOnboardingPreferences, type OnboardingPreferences } from '@server/lib/onboarding/onboardingPreferences.js'
 import { writeFirstChatPending } from '@server/lib/onboarding/firstChatPending.js'
 import { oauthRedirectListenPort } from '@server/lib/platform/brainHttpPort.js'
@@ -163,8 +166,44 @@ onboarding.patch('/state', async (c) => {
     return c.json({ error: 'state or action: reset required' }, 400)
   }
   const cur = await readOnboardingStateDoc()
+  let diskStateRaw: string | undefined
+  try {
+    const raw = await readFile(join(chatDataDir(), 'onboarding.json'), 'utf-8')
+    const p = JSON.parse(raw) as { state?: unknown }
+    diskStateRaw = typeof p.state === 'string' ? p.state : undefined
+  } catch {
+    diskStateRaw = undefined
+  }
+  // #region agent log
+  fetch('http://127.0.0.1:7345/ingest/01c512da-5ae1-4b8e-b712-eb2ef7ac6800', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8cfbd6' },
+    body: JSON.stringify({
+      sessionId: '8cfbd6',
+      hypothesisId: 'H1',
+      location: 'onboarding.ts:PATCH/state',
+      message: 'onboarding patch state after read',
+      data: { diskStateRaw, resolvedCurState: cur.state, next },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {})
+  // #endregion
   // Finished users: additional mail accounts sync via Hub/inbox — do not advance the onboarding machine.
   if (cur.state === 'done' && next !== 'done' && next !== 'not-started') {
+    // #region agent log
+    fetch('http://127.0.0.1:7345/ingest/01c512da-5ae1-4b8e-b712-eb2ef7ac6800', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8cfbd6' },
+      body: JSON.stringify({
+        sessionId: '8cfbd6',
+        hypothesisId: 'H3',
+        location: 'onboarding.ts:PATCH/state',
+        message: 'blocked: onboarding already done',
+        data: { next },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
     return c.json(
       {
         error:
@@ -178,6 +217,20 @@ onboarding.patch('/state', async (c) => {
   if (ctxMt && !(await isHandleConfirmedForTenant(ctxMt.homeDir))) {
     const blocked: OnboardingMachineState[] = ['indexing', 'onboarding-agent', 'done']
     if (blocked.includes(next)) {
+      // #region agent log
+      fetch('http://127.0.0.1:7345/ingest/01c512da-5ae1-4b8e-b712-eb2ef7ac6800', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8cfbd6' },
+        body: JSON.stringify({
+          sessionId: '8cfbd6',
+          hypothesisId: 'H3',
+          location: 'onboarding.ts:PATCH/state',
+          message: 'blocked: handle not confirmed',
+          data: { next },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
       return c.json(
         { error: 'Confirm your Braintunnel handle in onboarding before continuing.' },
         400,
@@ -188,6 +241,20 @@ onboarding.patch('/state', async (c) => {
     const mail = await getOnboardingMailStatus()
     const n = Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0)
     if (n < ONBOARDING_PROFILE_INDEX_MANUAL_MIN) {
+      // #region agent log
+      fetch('http://127.0.0.1:7345/ingest/01c512da-5ae1-4b8e-b712-eb2ef7ac6800', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8cfbd6' },
+        body: JSON.stringify({
+          sessionId: '8cfbd6',
+          hypothesisId: 'H3',
+          location: 'onboarding.ts:PATCH/state',
+          message: 'blocked: below indexing threshold',
+          data: { n, min: ONBOARDING_PROFILE_INDEX_MANUAL_MIN, backfillRunning: mail.backfillRunning },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
       return c.json(
         {
           error: `We need at least ${ONBOARDING_PROFILE_INDEX_MANUAL_MIN.toLocaleString()} messages indexed before building your profile. Keep this window open while we download more, or try again in a few minutes.`,
@@ -205,7 +272,28 @@ onboarding.patch('/state', async (c) => {
     if (next === 'done' && cur.state !== 'done') {
       void notifyOnboardingInterviewDone()
     }
-    if (next === 'onboarding-agent' && cur.state !== 'onboarding-agent') {
+    const phase2Eligible = next === 'onboarding-agent' && cur.state !== 'onboarding-agent'
+    // #region agent log
+    fetch('http://127.0.0.1:7345/ingest/01c512da-5ae1-4b8e-b712-eb2ef7ac6800', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8cfbd6' },
+      body: JSON.stringify({
+        sessionId: '8cfbd6',
+        hypothesisId: 'H2',
+        location: 'onboarding.ts:PATCH/state',
+        message: 'phase2 1y gate evaluation',
+        data: {
+          phase2Eligible,
+          next,
+          curState: cur.state,
+          diskStateRaw,
+          persistedState: doc.state,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+    if (phase2Eligible) {
       const rmHome = ripmailHomePath()
       const syncLog = join(rmHome, 'logs', 'sync.log')
       console.log(
@@ -215,9 +303,47 @@ onboarding.patch('/state', async (c) => {
           syncLog,
         },
       )
-      void runRipmailBackfillForBrain(['1y']).catch((e) =>
-        console.error('[onboarding/state] background backfill 1y failed:', e),
-      )
+      void (async () => {
+        try {
+          await waitForRipmailBackfillLaneIdle()
+          const r = await runRipmailBackfillForBrain(['1y'])
+          // #region agent log
+          fetch('http://127.0.0.1:7345/ingest/01c512da-5ae1-4b8e-b712-eb2ef7ac6800', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8cfbd6' },
+            body: JSON.stringify({
+              sessionId: '8cfbd6',
+              hypothesisId: 'H4',
+              location: 'onboarding.ts:PATCH/state',
+              message: 'backfill 1y subprocess settled',
+              data: {
+                code: r.code,
+                timedOut: r.timedOut,
+                durationMs: r.durationMs,
+                stderrChars: r.stderr?.length ?? 0,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
+        } catch (e) {
+          console.error('[onboarding/state] background backfill 1y failed:', e)
+          // #region agent log
+          fetch('http://127.0.0.1:7345/ingest/01c512da-5ae1-4b8e-b712-eb2ef7ac6800', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8cfbd6' },
+            body: JSON.stringify({
+              sessionId: '8cfbd6',
+              hypothesisId: 'H4',
+              location: 'onboarding.ts:PATCH/state',
+              message: 'backfill 1y promise rejected',
+              data: { err: e instanceof Error ? e.message : String(e) },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
+        }
+      })()
     }
     return c.json({ ok: true, state: doc.state })
   } catch (e) {
