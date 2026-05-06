@@ -29,6 +29,8 @@ function stubFetchForOnboardingAgent() {
             lastSyncedAt: null,
             dateRange: { from: null, to: null },
             syncRunning: false,
+            refreshRunning: false,
+            backfillRunning: false,
             syncLockAgeMs: null,
             ftsReady: null,
             messageAvailableForProgress: null,

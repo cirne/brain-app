@@ -71,6 +71,9 @@
   const indexingProgressLabel = $derived.by(() => {
     const d = mailIndexedCount
     if (d < 1) return ''
+    if (d >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED && mail.backfillRunning) {
+      return `${d.toLocaleString()} indexed — wrapping up sync`
+    }
     if (d >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED) {
       return `${d.toLocaleString()} messages indexed`
     }
@@ -79,12 +82,29 @@
   const indexingProgressAriaText = $derived.by(() => {
     const d = mailIndexedCount
     if (d < 1) return 'Preparing to download messages'
+    if (d >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED && mail.backfillRunning) {
+      return `${d.toLocaleString()} messages indexed; finishing first mail sync`
+    }
     if (d >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED) {
       return `${d.toLocaleString()} messages indexed, ready to continue`
     }
     return `${d.toLocaleString()} of ${ONBOARDING_PROFILE_INDEX_AUTOPROCEED.toLocaleString()} messages toward continuing`
   })
-  const canAutoProceedToInterview = $derived(mailIndexedCount >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED)
+  const canAutoProceedToInterview = $derived(
+    mailIndexedCount >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED && !mail.backfillRunning,
+  )
+
+  /** Reassurance when the bar is “full” but background ~30d backfill is still running. */
+  const indexingBackfillFinishingCopy = $derived.by(() => {
+    if (
+      mailIndexedCount < ONBOARDING_PROFILE_INDEX_AUTOPROCEED ||
+      !mail.backfillRunning ||
+      mail.staleMailSyncLock ||
+      !!mail.indexingHint
+    )
+      return null
+    return 'Almost there — finishing the rest of your first mail sync.'
+  })
   async function loadMailOnly() {
     const next = await fetchOnboardingMailStatus()
     if (next) mail = next
@@ -188,16 +208,27 @@
   let interviewAutoAdvanceInFlight = $state(false)
   /** Indexed count when auto-advance last got 4xx; retry only after mail progress (or manual continue). */
   let interviewAutoAdvanceLastFailedAtCount = $state<number | null>(null)
+  /** Last PATCH failure’s server JSON `code` (e.g. backfill still running), for auto-advance retry gating. */
+  let interviewAutoAdvanceLastFailedPatchCode = $state<string | undefined>(undefined)
 
   $effect(() => {
     if (state === 'onboarding-agent' || state === 'done') {
       interviewAutoAdvanceLastFailedAtCount = null
+      interviewAutoAdvanceLastFailedPatchCode = undefined
     }
   })
 
   $effect(() => {
     if (!canAutoProceedToInterview || busy || interviewAutoAdvanceInFlight) return
-    if (!shouldRetryProfilingAutoAdvance(mailIndexedCount, interviewAutoAdvanceLastFailedAtCount)) return
+    if (
+      !shouldRetryProfilingAutoAdvance(
+        mailIndexedCount,
+        interviewAutoAdvanceLastFailedAtCount,
+        interviewAutoAdvanceLastFailedPatchCode,
+        mail.backfillRunning,
+      )
+    )
+      return
     const fromNotStarted = state === 'not-started' && mail.configured
     if (state !== 'indexing' && !fromNotStarted) return
 
@@ -209,9 +240,18 @@
         }
         await patchState('onboarding-agent')
         interviewAutoAdvanceLastFailedAtCount = null
+        interviewAutoAdvanceLastFailedPatchCode = undefined
       } catch (e) {
         indexingAdvanceError = e instanceof Error ? e.message : String(e)
         interviewAutoAdvanceLastFailedAtCount = mailIndexedCount
+        const patchCode =
+          typeof e === 'object' &&
+          e !== null &&
+          'code' in e &&
+          typeof (e as { code?: unknown }).code === 'string'
+            ? (e as { code: string }).code
+            : undefined
+        interviewAutoAdvanceLastFailedPatchCode = patchCode
       } finally {
         interviewAutoAdvanceInFlight = false
       }
@@ -275,6 +315,7 @@
   async function proceedToInterviewEarly() {
     indexingAdvanceError = null
     interviewAutoAdvanceLastFailedAtCount = null
+    interviewAutoAdvanceLastFailedPatchCode = undefined
     busy = true
     await tick()
     try {
@@ -672,6 +713,8 @@
                   {/if}
                 </button>
               </div>
+            {:else if indexingBackfillFinishingCopy}
+              <p class="ob-indexing-calm">{indexingBackfillFinishingCopy}</p>
             {:else if indexingCalmStatus}
               <p class="ob-indexing-calm">{indexingCalmStatus}</p>
             {/if}

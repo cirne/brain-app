@@ -4,7 +4,6 @@
 
   /**
    * Portal dropdown to document.body to escape SlideOver's transform stacking context.
-   * Similar to AnchoredActionMenu.
    */
   function portalToBody(host: HTMLElement) {
     globalThis.document.body.appendChild(host)
@@ -27,37 +26,9 @@
     rootLabel?: string
   } = $props()
 
-  let containerEl = $state<HTMLElement | null>(null)
-  let isOverflowing = $state(false)
   let dropdownOpen = $state(false)
   let dropdownButtonEl = $state<HTMLButtonElement | null>(null)
 
-  // Check if content overflows
-  $effect(() => {
-    if (!containerEl) return
-
-    // Depend on items so SPA navigations (new path text / lengths) re-run collapse logic without full reload.
-    void items.length
-    void items.map((i) => `${i.label}\u001f${i.isCurrent ? 1 : 0}`).join('\u001e')
-
-    const checkOverflow = () => {
-      if (!containerEl) return
-      const hasOverflow = containerEl.scrollWidth > containerEl.clientWidth
-      isOverflowing = hasOverflow
-    }
-
-    checkOverflow()
-    queueMicrotask(checkOverflow)
-
-    const resizeObserver = new ResizeObserver(checkOverflow)
-    resizeObserver.observe(containerEl)
-
-    return () => {
-      resizeObserver.disconnect()
-    }
-  })
-
-  // Calculate dropdown position relative to button
   const dropdownStyle = $derived.by(() => {
     if (!dropdownOpen || !dropdownButtonEl || typeof globalThis.window === 'undefined') return ''
     const r = dropdownButtonEl.getBoundingClientRect()
@@ -79,13 +50,10 @@
   }
 
   function handleItemClick(item: BreadcrumbItem) {
-    if (item.onClick) {
-      item.onClick()
-    }
+    item.onClick?.()
     closeDropdown()
   }
 
-  // Close dropdown when clicking outside
   $effect(() => {
     if (!dropdownOpen) return
 
@@ -105,7 +73,6 @@
     }
   })
 
-  // Close on Escape
   function onWindowKeydown(e: KeyboardEvent) {
     if (!dropdownOpen) return
     if (e.key === 'Escape') {
@@ -114,10 +81,6 @@
     }
   }
 
-  /**
-   * Desktop row is flex-nowrap: parent segments must not shrink (readable navigation).
-   * The **tail** absorbs shortage via ellipsis — otherwise prefixes look like `W..` / `My …`.
-   */
   const breadcrumbInteractive = $derived(
     cn(
       'wiki-breadcrumb-seg inline-flex items-center border-none bg-transparent p-0 m-0 normal-case tracking-normal text-accent hover:underline cursor-pointer shrink-0 whitespace-nowrap',
@@ -137,18 +100,27 @@
     cn('wiki-breadcrumb-sep shrink-0 text-muted font-normal select-none'),
   )
 
+  const navClass = $derived(
+    cn(
+      'flex min-w-0 flex-1 items-center gap-1 overflow-hidden text-left',
+      mobilePanel ? 'text-[15px]' : 'text-[13px]',
+    ),
+  )
+
   const currentItem = $derived(items[items.length - 1])
-  const hasCollapsibleItems = $derived(items.length > 1)
-  // Dropdown shows path hierarchy without the current item (it's already visible in collapsed view)
+  const hasHierarchy = $derived(items.length > 1)
   const dropdownItems = $derived(items.slice(0, -1))
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} />
 
 <div class="collapsible-breadcrumb-wrapper relative flex min-w-0 flex-1 items-center">
-  {#if isOverflowing && hasCollapsibleItems}
-    <!-- Collapsed view with dropdown trigger -->
-    <div class="flex min-w-0 flex-1 items-center gap-1">
+  {#if items.length === 0}
+    <div role="navigation" aria-label="Wiki page path" class={navClass}>
+      <span class={breadcrumbCurrent}>{rootLabel}</span>
+    </div>
+  {:else if hasHierarchy}
+    <div role="navigation" aria-label="Wiki page path" class={navClass}>
       <button
         bind:this={dropdownButtonEl}
         type="button"
@@ -163,60 +135,36 @@
         aria-expanded={dropdownOpen}
         aria-haspopup="menu"
       >
-        <FolderOpen
-          size={mobilePanel ? 16 : 14}
-          strokeWidth={2}
-          aria-hidden="true"
-        />
-        <span class={mobilePanel ? 'text-[15px]' : 'text-[13px]'}>…</span>
+        <FolderOpen size={mobilePanel ? 16 : 14} strokeWidth={2} aria-hidden="true" />
       </button>
       <span class={breadcrumbSep} aria-hidden="true">/</span>
       {#if currentItem}
-        <span class={breadcrumbCurrent}>{currentItem.label}</span>
+        {#if currentItem.isCurrent}
+          <span class={breadcrumbCurrent}>{currentItem.label}</span>
+        {:else}
+          <button type="button" class={breadcrumbInteractive} onclick={currentItem.onClick}>
+            {currentItem.label}
+          </button>
+        {/if}
       {/if}
     </div>
-
   {:else}
-    <!-- Full breadcrumb view -->
-    <div bind:this={containerEl} class="flex min-w-0 flex-1 items-center overflow-hidden">
-      <span
-        class={cn(
-          'wiki-dir-breadcrumb items-center gap-x-1 gap-y-0 leading-snug',
-          mobilePanel
-            ? 'inline-flex w-max max-w-none flex-nowrap text-[15px]'
-            : 'flex min-w-0 flex-1 flex-nowrap text-[13px]',
-        )}
-        role="navigation"
-        aria-label="Wiki page path"
-      >
-        {#if items.length === 0}
-          <span class={breadcrumbCurrent}>{rootLabel}</span>
-        {:else}
-          {#each items as item, i (i)}
-            {#if i > 0}
-              <span class={breadcrumbSep} aria-hidden="true">/</span>
-            {/if}
-            {#if item.isCurrent}
-              <span class={breadcrumbCurrent}>{item.label}</span>
-            {:else}
-              <button type="button" class={breadcrumbInteractive} onclick={item.onClick}>
-                {item.label}
-              </button>
-            {/if}
-          {/each}
-        {/if}
-      </span>
+    {@const only = items[0]!}
+    <div role="navigation" aria-label="Wiki page path" class={navClass}>
+      {#if only.isCurrent}
+        <span class={breadcrumbCurrent}>{only.label}</span>
+      {:else}
+        <button type="button" class={breadcrumbInteractive} onclick={only.onClick}>{only.label}</button>
+      {/if}
     </div>
   {/if}
 </div>
 
-<!-- Portal dropdown to body to escape SlideOver transform stacking context -->
 {#if dropdownOpen && dropdownButtonEl}
   <div
     class="breadcrumb-dropdown-portal pointer-events-none fixed inset-0 z-[520]"
     {@attach portalToBody}
   >
-    <!-- Capture backdrop: closes dropdown -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div

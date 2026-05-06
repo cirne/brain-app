@@ -1,24 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/svelte'
 import WikiPrimaryBarCrumbs from './WikiPrimaryBarCrumbs.svelte'
 
 describe('WikiPrimaryBarCrumbs.svelte', () => {
-  beforeEach(() => {
-    globalThis.ResizeObserver = class ResizeObserver {
-      observe = vi.fn()
-      unobserve = vi.fn()
-      disconnect = vi.fn()
-      constructor(_callback: ResizeObserverCallback) {
-        // no-op
-      }
-    } as typeof ResizeObserver
-  })
+  const openPathMenu = () => screen.getByRole('button', { name: /show full path/i })
 
-  afterEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('maps crumbs and forwards Wiki root to openWikiDir(undefined)', async () => {
+  it('maps crumbs and forwards Wiki root and folders via hierarchy menu', async () => {
     const onOpenWikiDir = vi.fn()
     render(WikiPrimaryBarCrumbs, {
       props: {
@@ -31,12 +18,14 @@ describe('WikiPrimaryBarCrumbs.svelte', () => {
       },
     })
 
-    await fireEvent.click(screen.getByText('Wiki'))
+    expect(screen.getByText('page.md').tagName).not.toBe('BUTTON')
+
+    await fireEvent.click(openPathMenu())
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Wiki' }))
     expect(onOpenWikiDir).toHaveBeenCalledWith(undefined)
 
-    await fireEvent.click(screen.getByText('travel'))
+    await fireEvent.click(openPathMenu())
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'travel' }))
     expect(onOpenWikiDir).toHaveBeenCalledWith('me/travel')
-
-    expect(screen.getByText('page.md').tagName).not.toBe('BUTTON')
   })
 })

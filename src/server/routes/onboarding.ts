@@ -31,7 +31,10 @@ import {
   ripmailBin,
   ripmailHomePath,
 } from '@server/lib/onboarding/onboardingMailStatus.js'
-import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '@shared/onboardingProfileThresholds.js'
+import {
+  ONBOARDING_BACKFILL_STILL_RUNNING_CODE,
+  ONBOARDING_PROFILE_INDEX_MANUAL_MIN,
+} from '@shared/onboardingProfileThresholds.js'
 import { enrichAppleMailSetupError } from '@server/lib/apple/appleMailSetupHints.js'
 import { getFdaProbeDetail, isFdaGranted } from '@server/lib/apple/fdaProbe.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
@@ -193,10 +196,29 @@ onboarding.patch('/state', async (c) => {
         400,
       )
     }
+    if (mail.backfillRunning) {
+      return c.json(
+        {
+          error:
+            'Initial mail download is still running. This page will continue automatically when it finishes — keep the app open.',
+          code: ONBOARDING_BACKFILL_STILL_RUNNING_CODE,
+        },
+        400,
+      )
+    }
   }
   try {
     const doc = await setOnboardingState(next)
     if (next === 'onboarding-agent' && cur.state !== 'onboarding-agent') {
+      const rmHome = ripmailHomePath()
+      const syncLog = join(rmHome, 'logs', 'sync.log')
+      console.log(
+        '[onboarding/state] Started ~1y historical mail backfill (OPP-093 phase 2). Watch progress:',
+        {
+          ripmailHome: rmHome,
+          syncLog,
+        },
+      )
       void runRipmailBackfillForBrain(['1y']).catch((e) =>
         console.error('[onboarding/state] background backfill 1y failed:', e),
       )

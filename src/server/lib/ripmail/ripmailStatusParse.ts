@@ -8,6 +8,10 @@ export type ParsedRipmailStatus = {
   dateRange: { from: string | null; to: string | null }
   /** True when a live sync holds the lock (not stale DB “running” with no process). */
   syncRunning: boolean
+  /** Refresh lane only (`sync.refresh` or legacy flat `sync`). */
+  refreshRunning: boolean
+  /** Backfill lane only (`sync.backfill`); false when the JSON has no backfill lane. */
+  backfillRunning: boolean
   /** Age of the sync lock in ms (`sync.refresh.lockAgeMs` / backfill); useful when message count is still zero. */
   syncLockAgeMs: number | null
   /** Same as indexed row count (`search.indexedMessages` / `ftsReady` in JSON). */
@@ -217,6 +221,8 @@ export function parseRipmailStatusJson(stdout: string): ParsedRipmailStatus | nu
         to: readStrOrNull(refresh.latestSyncedDate),
       },
       syncRunning,
+      refreshRunning,
+      backfillRunning,
       syncLockAgeMs: lockAge,
       ftsReady: indexedCount,
       staleLockInDb: stale,
@@ -237,6 +243,8 @@ export function buildRipmailStatusLogSnapshot(
   | {
       statusParse: 'ok'
       syncRunning: boolean
+      refreshRunning: boolean
+      backfillRunning: boolean
       lockAgeMs: number | null
       indexed: number | null
       pendingBackfill: boolean
@@ -252,6 +260,8 @@ export function buildRipmailStatusLogSnapshot(
   return {
     statusParse: 'ok' as const,
     syncRunning: p.syncRunning,
+    refreshRunning: p.refreshRunning,
+    backfillRunning: p.backfillRunning,
     lockAgeMs: p.syncLockAgeMs,
     indexed: p.indexedTotal ?? p.ftsReady ?? null,
     pendingBackfill: p.pendingRefresh,

@@ -18,6 +18,10 @@ export type OnboardingMailStatusPayload = {
   lastSyncedAt: string | null
   dateRange: { from: string | null; to: string | null }
   syncRunning: boolean
+  /** `sync.refresh` lane only (nested or legacy flat). */
+  refreshRunning: boolean
+  /** `sync.backfill` lane running; absent lane → always false from parse. */
+  backfillRunning: boolean
   /** From `ripmail status --json` `sync.lockAgeMs` — how long the current sync has held the lock. */
   syncLockAgeMs: number | null
   ftsReady: number | null
@@ -67,6 +71,8 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
     lastSyncedAt: null,
     dateRange: { from: null, to: null },
     syncRunning: false,
+    refreshRunning: false,
+    backfillRunning: false,
     syncLockAgeMs: null,
     ftsReady: null,
     messageAvailableForProgress: null,
@@ -150,6 +156,8 @@ export async function getOnboardingMailStatus(): Promise<OnboardingMailStatusPay
         lastSyncedAt: parsed.lastSyncedAt,
         dateRange: parsed.dateRange,
         syncRunning: parsed.syncRunning,
+        refreshRunning: parsed.refreshRunning,
+        backfillRunning: parsed.backfillRunning,
         syncLockAgeMs: parsed.syncLockAgeMs,
         ftsReady: parsed.ftsReady,
         messageAvailableForProgress: parsed.messageAvailableForProgress,

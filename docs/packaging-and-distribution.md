@@ -1,6 +1,6 @@
 # Packaging and distribution trade-offs
 
-This doc compares **how Braintunnel is delivered** (cloud vs native desktop) and what that implies for **onboarding, updates, data access, and security**. It complements [PRODUCTIZATION.md](./PRODUCTIZATION.md) (multi-tenant product blockers) and [VISION.md](./VISION.md) (product arc).
+This doc compares **how Braintunnel is delivered** (cloud vs native desktop) and what that implies for **onboarding, updates, data access, and security**. Persisted onboarding states and mail phased sync (**[architecture/onboarding-state-machine.md](architecture/onboarding-state-machine.md)**). Complements [PRODUCTIZATION.md](./PRODUCTIZATION.md) (multi-tenant product blockers) and [VISION.md](./VISION.md) (product arc).
 
 It is a decision aid, not a commitment: both paths can be valid at different horizons.
 
@@ -11,7 +11,7 @@ It is a decision aid, not a commitment: both paths can be valid at different hor
 
 | Dimension                      | Cloud (multi-tenant)                                                                                   | Native desktop (local-first)                                                                        |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| **First-run / onboarding**     | Open a URL; **Sign in with Google** (and similar)—low friction for many users                          | Install binary; **macOS permissions** (FDA, folders); optional OAuth for Gmail/Calendar             |
+| **First-run / onboarding**     | Open a URL; **Sign in with Google** (and similar)—low friction for many users (see **[onboarding-state-machine.md](architecture/onboarding-state-machine.md)**)                          | Install binary; **macOS permissions** (FDA, folders); optional OAuth for Gmail/Calendar             |
 | **Updates**                    | **Fast, uniform**—deploy and everyone gets fixes on next session                                       | **Slower, uneven**—auto-updater + users who lag; plan support for old builds                        |
 | **Reach & clients**            | **Any device** with a browser                                                                          | **Per-OS** packaging (macOS first; Windows later); **feature matrix** (e.g. no iMessage on Windows) |
 | **Gmail / Google Calendar**    | **Strong fit**—OAuth and APIs match the “five-minute setup” story                                      | Same cloud APIs **plus** optional local mail/calendar depth                                         |

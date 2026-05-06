@@ -224,6 +224,8 @@ Given: accepted `wiki/me.md` + confirmed category list.
 
 ## Onboarding state machine
 
+**Historical (pre–OPP-054):** the diagram below described the shipped OPP-006 flow. **Current persisted states and transitions** (plus mail phased sync): **[architecture/onboarding-state-machine.md](../../architecture/onboarding-state-machine.md)**.
+
 ```
 idle → indexing → profiling → reviewing-profile → confirming-categories → seeding → done
 ```

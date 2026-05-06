@@ -108,4 +108,4 @@ Cloud agents usually run **single-tenant** `npm run dev` without `BRAIN_DATA_ROO
 
 ## Full documentation
 
-For the complete development guide (including native macOS app, ripmail, and Rust), see **[AGENTS.md](./AGENTS.md)**.
+For the complete development guide (including native macOS app, ripmail, and Rust), see **[AGENTS.md](./AGENTS.md)**. **Onboarding states and first-time mail sync:** [docs/architecture/onboarding-state-machine.md](./docs/architecture/onboarding-state-machine.md).

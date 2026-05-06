@@ -51,6 +51,7 @@ import {
   registerIdentityWorkspace,
   registerSessionTenant,
 } from '@server/lib/tenant/tenantRegistry.js'
+import { ONBOARDING_BACKFILL_STILL_RUNNING_CODE } from '@shared/onboardingProfileThresholds.js'
 import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { generateUserId, writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
@@ -422,6 +423,8 @@ describe('onboarding routes', () => {
         lastSyncedAt: null,
         dateRange: { from: null, to: null },
         syncRunning: false,
+        refreshRunning: false,
+        backfillRunning: false,
         syncLockAgeMs: null,
         ftsReady: 100,
         messageAvailableForProgress: 1000,
@@ -448,6 +451,8 @@ describe('onboarding routes', () => {
         lastSyncedAt: null,
         dateRange: { from: null, to: null },
         syncRunning: false,
+        refreshRunning: false,
+        backfillRunning: false,
         syncLockAgeMs: null,
         ftsReady: null,
         messageAvailableForProgress: 500,
@@ -470,6 +475,37 @@ describe('onboarding routes', () => {
       expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledWith(['1y'])
     })
 
+    it('returns 400 when indexed enough but ripmail backfill is still running', async () => {
+      vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
+        configured: true,
+        indexedTotal: 220,
+        lastSyncedAt: null,
+        dateRange: { from: null, to: null },
+        syncRunning: true,
+        refreshRunning: false,
+        backfillRunning: true,
+        syncLockAgeMs: 9000,
+        ftsReady: 220,
+        messageAvailableForProgress: null,
+        pendingBackfill: false,
+        staleMailSyncLock: false,
+      })
+      const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
+      await setOnboardingState('indexing')
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/state', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'onboarding-agent' }),
+      })
+      expect(res.status).toBe(400)
+      expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).not.toHaveBeenCalled()
+      const body = (await res.json()) as { code?: string; error?: string }
+      expect(body.code).toBe(ONBOARDING_BACKFILL_STILL_RUNNING_CODE)
+      expect(body.error?.toLowerCase()).toContain('still running')
+    })
+
     it('PATCH success is not blocked when background 1y backfill rejects', async () => {
       ripmailHeavySpawnMocks.runRipmailBackfillForBrain.mockImplementation(() =>
         Promise.reject(new Error('backfill failed')),
@@ -481,6 +517,8 @@ describe('onboarding routes', () => {
         lastSyncedAt: null,
         dateRange: { from: null, to: null },
         syncRunning: false,
+        refreshRunning: false,
+        backfillRunning: false,
         syncLockAgeMs: null,
         ftsReady: null,
         messageAvailableForProgress: 500,

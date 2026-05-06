@@ -31,8 +31,8 @@ When Apple’s **`chat.db`** is readable, the server exposes iMessage/SMS tools 
 
 ## Onboarding
 
-[`onboarding.ts`](../../src/server/routes/onboarding.ts) coordinates mail setup, staging wiki, and polling — not a separate product stack, but part of the same Hono app.
+**Persisted onboarding states**, mail indexing phases (**30d → interview → 1y backfill**), and API overview: **[onboarding-state-machine.md](./onboarding-state-machine.md)**. [`onboarding.ts`](../../src/server/routes/onboarding.ts) coordinates mail setup, wiki staging, and polling — not a separate product stack, but part of the same Hono app.
 
 ---
 
-*See also: [runtime-and-routes.md](./runtime-and-routes.md) · [configuration.md](./configuration.md)*
+*See also: [runtime-and-routes.md](./runtime-and-routes.md) · [configuration.md](./configuration.md) · [onboarding-state-machine.md](./onboarding-state-machine.md)*

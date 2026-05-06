@@ -1,6 +1,6 @@
 # Personal wiki — product concept
 
-This document is the **user-facing mental model** for what Braintunnel stores in markdown under `WIKI_DIR`: why we call it a **wiki**, how it powers personalization, and how **onboarding** should introduce it. It complements [VISION.md](../VISION.md) (direction) and [OPP-006: Email-bootstrap onboarding](../opportunities/OPP-006-email-bootstrap-onboarding.md) (flow).
+This document is the **user-facing mental model** for what Braintunnel stores in markdown under `WIKI_DIR`: why we call it a **wiki**, how it powers personalization, and how **onboarding** should introduce it. It complements [VISION.md](../VISION.md) (direction); implementation states and mail phases → [architecture/onboarding-state-machine.md](../architecture/onboarding-state-machine.md); product roots → [OPP-006 (archived)](../opportunities/archive/OPP-006-email-bootstrap-onboarding.md) (historic flow narrative).
 
 ---
 
@@ -86,6 +86,7 @@ User-editable recipes ([OPP-010](../opportunities/OPP-010-user-skills.md)) shoul
 ## References
 
 - [VISION.md](../VISION.md) — second brain, compounding value
-- [OPP-006: Email-bootstrap onboarding](../opportunities/OPP-006-email-bootstrap-onboarding.md) — concrete steps
+- [Onboarding state machine](../architecture/onboarding-state-machine.md) — persisted states and first-time mail phases (implementation)
+- [OPP-006: Email-bootstrap onboarding (archived)](../opportunities/archive/OPP-006-email-bootstrap-onboarding.md) — product roots of the `/onboarding` flow
 - [OPP-011: User skills strategy](../opportunities/OPP-011-user-skills-strategy.md) — `/wiki` and NL-first skills
 - [IDEA Wiki sharing with collaborators](../ideas/IDEA-wiki-sharing-collaborators.md) — future optional sharing of wiki subtrees (see “Collaboration (future)” above)

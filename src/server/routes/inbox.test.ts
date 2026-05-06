@@ -125,6 +125,8 @@ describe('GET /api/inbox/mail-sync-status', () => {
       lastSyncedAt: null,
       dateRange: { from: null, to: null },
       syncRunning: false,
+      refreshRunning: false,
+      backfillRunning: false,
       syncLockAgeMs: null,
       ftsReady: 7,
       messageAvailableForProgress: null,

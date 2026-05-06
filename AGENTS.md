@@ -40,7 +40,7 @@ See `/Users/cirne/brain/wiki/ideas/brain-in-the-cloud.md` for the full product s
 - [docs/VISION.md](docs/VISION.md) — product vision and personalization narrative (not positioning/moats)
 - [docs/karpathy-llm-wiki-post.md](docs/karpathy-llm-wiki-post.md) — Karpathy *LLM Wiki* (wiki half of the product idea; [gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f))
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, key patterns, configuration overview (brain-app)
-- [docs/architecture/](docs/architecture/) — ADRs and recorded considerations (indexed in [README](docs/architecture/README.md)); ripmail crate: `[ripmail/docs/ARCHITECTURE.md](ripmail/docs/ARCHITECTURE.md)`
+- [docs/architecture/](docs/architecture/) — ADRs and recorded considerations (indexed in [README](docs/architecture/README.md)); **onboarding states + mail phases:** [docs/architecture/onboarding-state-machine.md](docs/architecture/onboarding-state-machine.md); ripmail crate: `[ripmail/docs/ARCHITECTURE.md](ripmail/docs/ARCHITECTURE.md)`
 - [docs/digitalocean.md](docs/digitalocean.md) — DigitalOcean CLI (`doctl`): teams, API tokens, named contexts, BrainTunnel helper script
 - [docs/newrelic.md](docs/newrelic.md) — New Relic account, entity GUIDs, Node agent wiring, custom events (`ToolCall`); NRQL recipes in `.cursor/skills/newrelic/`
 - [docs/BUGS.md](docs/BUGS.md) — known bugs (active + archived)

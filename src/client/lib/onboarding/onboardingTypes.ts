@@ -9,6 +9,9 @@ export type OnboardingMailStatus = {
   lastSyncedAt: string | null
   dateRange: { from: string | null; to: string | null }
   syncRunning: boolean
+  refreshRunning: boolean
+  /** True while ripmail reports the backfill lane active (`sync.backfill`). */
+  backfillRunning: boolean
   syncLockAgeMs: number | null
   ftsReady: number | null
   /** Denominator for mail download progress (e.g. mailbox row count or sync target). */
@@ -29,6 +32,8 @@ export function emptyOnboardingMail(): OnboardingMailStatus {
     lastSyncedAt: null,
     dateRange: { from: null, to: null },
     syncRunning: false,
+    refreshRunning: false,
+    backfillRunning: false,
     syncLockAgeMs: null,
     ftsReady: null,
     messageAvailableForProgress: null,

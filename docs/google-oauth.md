@@ -68,5 +68,6 @@ Staging context (caps, ~100-user testing mode): [DEPLOYMENT.md — Google Cloud 
 
 ## Related
 
+- [architecture/onboarding-state-machine.md](architecture/onboarding-state-machine.md) — first-run onboarding persisted states + where Gmail OAuth sits in routing (`/welcome`, `/api/oauth/google/*`)
 - [docs/architecture/configuration.md](architecture/configuration.md) — `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`
 - [OPP-019](opportunities/OPP-019-gmail-first-class-brain.md) — product context

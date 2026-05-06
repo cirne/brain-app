@@ -71,7 +71,7 @@ How the unified server behaves, how the client is exercised in tests, and enviro
 
 | Topic                                                                    | Doc                                                                        |
 | ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| HTTP routing, auth, periodic sync, native ports; SPA routes and overlays | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md)   |
+| HTTP routing, auth, periodic sync, native ports; SPA routes and overlays | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md) · **Onboarding states + mail phases:** [architecture/onboarding-state-machine.md](architecture/onboarding-state-machine.md)   |
 | Environment variables and config surface                                 | [architecture/configuration.md](architecture/configuration.md)             |
 | Svelte component tests (Vitest, Testing Library)                         | [component-testing.md](component-testing.md)                               |
 | Client UI: latest-wins async / overlapping `fetch`                       | [architecture/client-async-latest.md](architecture/client-async-latest.md) |
@@ -102,6 +102,7 @@ On-disk layout, integrations, evaluations, and the Rust inbox implementation.
 | Topic                                                                         | Doc                                                                                                                               |
 | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `$BRAIN_HOME` layout, wiki vs sync no-op, calendar ICS, starter wiki          | [architecture/data-and-sync.md](architecture/data-and-sync.md)                                                                    |
+| **First-run onboarding** (persisted states, phased mail sync, `/api/onboarding`) | [architecture/onboarding-state-machine.md](architecture/onboarding-state-machine.md)                                            |
 | Ripmail subprocess, unified search, files API, optional iMessage              | [architecture/integrations.md](architecture/integrations.md)                                                                      |
 | Wiki `read` vs indexed mail/files (`read_mail_message` / `read_indexed_file`) | [architecture/wiki-read-vs-read-email.md](architecture/wiki-read-vs-read-email.md)                                                |
 | External corpus (Drive, SaaS docs, local-first index)                         | [architecture/external-data-sources.md](architecture/external-data-sources.md) · [OPP-045](opportunities/OPP-045-google-drive.md) |

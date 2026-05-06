@@ -17,7 +17,7 @@ Typical directories under `BRAIN_HOME`:
 | `cache/` | `wiki-dir-icons.json` and other small JSON caches |
 | `var/` | `wiki-edits.jsonl` (agent wiki edit log) |
 
-Onboarding staging and `onboarding.json` live under **`chats/onboarding/`** (inside the chats dir), not under `var/`.
+Onboarding machine state **`onboarding.json`** lives at **`chats/onboarding.json`** (root of the chats dir, `chatDataDir()`). Adjunct files may use **`chats/onboarding/`** (e.g. wiki buildout state). **`var/`** is not used for onboarding. **Persisted states, transitions, and first-time mail sync phases:** [onboarding-state-machine.md](./onboarding-state-machine.md).
 
 ## Wiki
 

@@ -1,7 +1,7 @@
 # OPP-054: Guided Onboarding Agent (Replaces First Chat)
 
 **Status:** Active — **important note (2026-04-30):** The **important people phase (Phase 5) was removed** as part of [OPP-066 (archived)](archive/OPP-066-chat-first-wiki-organic-growth-experiment.md) (chat-first wiki). People pages now grow organically through chat use and WikiBuilder enrichment — not onboarding. The onboarding interview currently runs as **identity-only** (~2–3 min: confirm name, write `me.md`). Calendar and inbox-rules phases remain deferred. The five-phase structure in this doc is partially superseded; see [the-wiki-question.md](../the-wiki-question.md) and [archived OPP-066](archive/OPP-066-chat-first-wiki-organic-growth-experiment.md).  
-**Related:** [OPP-006 (archived)](../opportunities/archive/OPP-006-email-bootstrap-onboarding.md), [OPP-018 (archived)](../opportunities/archive/OPP-018-first-chat-post-onboarding.md), [OPP-028](OPP-028-named-assistant-identity-and-living-avatar.md), [OPP-060](OPP-060-starter-wiki-templates-and-agent-authoring.md) (starter wiki templates — align `me.md` / vault init timing), [ripmail OPP-047](OPP-084-adaptive-rules-learning-agent.md)
+**Related:** **[Onboarding implementation (states, mail gates)](../architecture/onboarding-state-machine.md)** · [OPP-093](OPP-093-phased-onboarding-sync.md) (phased first sync) · [OPP-006 (archived)](archive/OPP-006-email-bootstrap-onboarding.md), [OPP-018 (archived)](archive/OPP-018-first-chat-post-onboarding.md), [OPP-028](OPP-028-named-assistant-identity-and-living-avatar.md), [OPP-060](OPP-060-starter-wiki-templates-and-agent-authoring.md) (starter wiki templates — align `me.md` / vault init timing), [OPP-084](OPP-084-adaptive-rules-learning-agent.md) *(ex–ripmail OPP-047)*
 
 ---
 
@@ -43,7 +43,7 @@ After the interview, `**me.md` is authored once** from confirmed answers + matur
 
 ## The guided onboarding agent
 
-This agent runs once the `**onboarding-agent`** state is entered **after** the corpus threshold is met — see state machine below. Wiki **seeding continues in parallel** throughout; indexing also continues afterward. This flow **replaces** the first chat entirely and immediately precedes the user’s first open-ended session with the main agent.
+This agent runs once the `**onboarding-agent`** state is entered **after** the corpus threshold is met — see **[docs/architecture/onboarding-state-machine.md](../architecture/onboarding-state-machine.md)**. Wiki **seeding continues in parallel** throughout; indexing also continues afterward. This flow **replaces** the first chat entirely and immediately precedes the user’s first open-ended session with the main agent.
 
 It is a **structured interview** (five phases plus a silent finalize step), delivered as a flowing conversation with suggested actions — quick-select chips where appropriate, always with free-text correction. Each phase stays short.
 
@@ -182,26 +182,18 @@ The onboarding thread is **preserved** so the user can scroll back to what was c
 
 ## Onboarding state machine changes
 
-The existing OPP-006 state machine:
+**Canonical documentation** (persisted states, transitions, mail phase 1/2, API map): **[docs/architecture/onboarding-state-machine.md](../architecture/onboarding-state-machine.md)**.
 
-```
-idle → indexing → profiling → reviewing-profile → confirming-categories → seeding → done
-```
+OPP-006-era **disk states** were replaced by the machine in that doc (`not-started`, `indexing`, `onboarding-agent`, `done`, plus hosted `confirming-handle`). Legacy values are **read-mapped** on load (see `onboardingState.ts`).
 
-Proposed new state machine:
+**Product intent (unchanged):** enter the guided agent only after a **minimal indexed corpus** (~200 messages; `ONBOARDING_PROFILE_INDEX_MANUAL_MIN`); **first `me.md`** after interview per above. **Concurrent:** wiki seeding / indexing continue in the background — not a blocking “build wiki first” gate in chat.
 
-```
-idle → indexing → (corpus gate ~200 msgs) → onboarding-agent → finalize (me.md + wiki refresh) → done
-```
+Key changes vs old profiling flow:
 
-Concurrent: **seeding** runs in the **background** from early indexing onward (and continues after handoff), not as a chat-blocking “build your wiki first” gate.
-
-Key changes:
-
-- **No `me.md` write** during profiling — the interview supplies the first user-validated profile pass toward `me.md`.
-- `**reviewing-profile` / `confirming-categories`** — remove or collapse into server-side defaults so they don't block entering onboarding.
-- `**onboarding-agent**` — five-phase interview, entered when the **indexed corpus threshold** (~200 messages, tune with telemetry) is met — not contingent on wiki completion.
-- `**finalize`** — author `wiki/me.md` for the **first time** and **trigger or schedule** a **wiki refresh or rebuild** so pages align with calendar, inbox rules, and confirmed important people.
+- **No `me.md` write** during silent profiling — the interview supplies the first user-validated profile pass toward `me.md`.
+- **`reviewing-profile` / `confirming-categories`** — removed or collapsed into server-side defaults so they don’t block entering onboarding.
+- **`onboarding-agent`** — structured interview, entered when corpus + **backfill-idle** gates are satisfied (see architecture doc).
+- **Finalize** — author `wiki/me.md` for the **first time** and trigger or schedule wiki refresh/rebuild so pages align with settings the user confirmed.
 
 The seeding agent’s upfront “approve categories?” prompts should stay **non-blocking** (toast/status). Deep wiki research prompts belong in **main chat**, not here.
 

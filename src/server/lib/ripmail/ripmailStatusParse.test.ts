@@ -119,6 +119,8 @@ describe('parseRipmailStatusJson', () => {
     expect(p!.dateRange.from).toBeNull()
     expect(p!.dateRange.to).toBeNull()
     expect(p!.syncRunning).toBe(false)
+    expect(p!.refreshRunning).toBe(false)
+    expect(p!.backfillRunning).toBe(false)
     expect(p!.syncLockAgeMs).toBeNull()
     expect(p!.ftsReady).toBe(0)
     expect(p!.messageAvailableForProgress).toBeNull()
@@ -130,8 +132,10 @@ describe('parseRipmailStatusJson', () => {
     expect(p!.lastSyncedAt).toBe('2026-04-15T12:00:00.000Z')
     expect(p!.dateRange.from).toBe('2024-01-01')
     expect(p!.dateRange.to).toBe('2026-04-14')
-    expect(p!.syncRunning).toBe(true)
     expect(p!.ftsReady).toBe(1)
+    expect(p!.syncRunning).toBe(true)
+    expect(p!.refreshRunning).toBe(true)
+    expect(p!.backfillRunning).toBe(false)
     expect(p!.messageAvailableForProgress).toBe(42)
   })
 
@@ -140,6 +144,8 @@ describe('parseRipmailStatusJson', () => {
     expect(p).not.toBeNull()
     expect(p!.indexedTotal).toBe(9030)
     expect(p!.syncRunning).toBe(true)
+    expect(p!.refreshRunning).toBe(true)
+    expect(p!.backfillRunning).toBe(false)
     expect(p!.syncLockAgeMs).toBeNull()
     expect(p!.ftsReady).toBe(9030)
     expect(p!.messageAvailableForProgress).toBe(9030)
@@ -202,6 +208,8 @@ describe('parseRipmailStatusJson', () => {
     expect(p).not.toBeNull()
     expect(p!.syncLockAgeMs).toBe(125000)
     expect(p!.syncRunning).toBe(true)
+    expect(p!.refreshRunning).toBe(true)
+    expect(p!.backfillRunning).toBe(false)
     expect(computeIndexingActionHint(p!)).toBeNull()
     expect(computeIndexingUserHint(p!)).toContain('stay at zero')
     expect(computeIndexingUserHint(p!, { mailProvider: 'google' })).toContain('first connection')
@@ -212,6 +220,8 @@ describe('parseRipmailStatusJson', () => {
     const p = parseRipmailStatusJson(staleLockFixture)
     expect(p).not.toBeNull()
     expect(p!.syncRunning).toBe(false)
+    expect(p!.refreshRunning).toBe(false)
+    expect(p!.backfillRunning).toBe(false)
     expect(p!.staleLockInDb).toBe(true)
     expect(computeIndexingActionHint(p!)).toBe('A previous mail sync stopped unexpectedly.')
     expect(computeIndexingUserHint(p!)).toContain('Refresh the page')
@@ -221,8 +231,39 @@ describe('parseRipmailStatusJson', () => {
     const p = parseRipmailStatusJson(needsBackfillIdleFixture)
     expect(p).not.toBeNull()
     expect(p!.pendingRefresh).toBe(true)
+    expect(p!.refreshRunning).toBe(false)
+    expect(p!.backfillRunning).toBe(false)
     expect(computeIndexingActionHint(p!)).toBeNull()
     expect(computeIndexingUserHint(p!)).toContain('starting')
+  })
+
+  it('parses nested sync.refresh idle and sync.backfill running', () => {
+    const raw = `{
+      "sync": {
+        "staleLockInDb": false,
+        "initialSyncHangSuspected": false,
+        "refresh": {
+          "isRunning": false,
+          "lockHeldByLiveProcess": false,
+          "lastSyncAt": "2026-04-01T00:00:00.000Z"
+        },
+        "backfill": {
+          "isRunning": true,
+          "lockHeldByLiveProcess": true,
+          "lockAgeMs": 8000,
+          "lastSyncAt": null
+        }
+      },
+      "search": { "indexedMessages": 250, "ftsReady": 250 },
+      "mailboxes": []
+    }`
+    const p = parseRipmailStatusJson(raw)
+    expect(p).not.toBeNull()
+    expect(p!.indexedTotal).toBe(250)
+    expect(p!.refreshRunning).toBe(false)
+    expect(p!.backfillRunning).toBe(true)
+    expect(p!.syncRunning).toBe(true)
+    expect(p!.syncLockAgeMs).toBe(8000)
   })
 
   it('returns null for invalid JSON', () => {
@@ -253,6 +294,8 @@ describe('buildRipmailStatusLogSnapshot', () => {
     expect(s.statusParse).toBe('ok')
     if (s.statusParse !== 'ok') return
     expect(s.syncRunning).toBe(true)
+    expect(s.refreshRunning).toBe(true)
+    expect(s.backfillRunning).toBe(false)
     expect(s.indexed).toBe(1)
     expect(s.lastSyncAt).toBe('2026-04-15T12:00:00.000Z')
   })

@@ -22,7 +22,7 @@ Entry: [`src/server/index.ts`](../../src/server/index.ts).
 | `/api/messages` | Alias mount for the same iMessage router |
 | `/api/skills` | Slash skills / skill assets under `$BRAIN_HOME/skills` |
 | `/api/issues` | **Feedback** issue queue: in multi-tenant mode, the embed key reads the **global** store (`$BRAIN_DATA_ROOT/.global/issues/`); with a user session, `GET` is that workspace’s `issues/`. `POST` submit and `product_feedback` also mirror to **`wiki/feedback/issue-<id>.md`**. `Authorization: Bearer` + `BRAIN_EMBED_MASTER_KEY` for operator triage (trusted callers) — [AGENTS.md](../../AGENTS.md) (OPP-048) |
-| `/api/onboarding` | Onboarding flow, ripmail setup hints |
+| `/api/onboarding` | Persisted onboarding state, mail indexing poll, Gmail/Apple setup — **[onboarding state machine](./onboarding-state-machine.md)** |
 | `/api/auth/demo` | **Multi-tenant + `BRAIN_ENRON_DEMO_SECRET`:** `POST …/enron` mints session; `GET …/enron/seed-status` polls lazy seed — [enron-demo-tenant.md](./enron-demo-tenant.md) |
 | `/api/background` | Background agent run history and control (wiki expansion) |
 | `/api/events` | **SSE** (`GET /`) — live `your_wiki` + `background_agents` snapshots and push for Hub (see [`hubEvents.ts`](../../src/server/routes/hubEvents.ts)) |
@@ -39,7 +39,7 @@ Canonical implementation: [`src/client/router.ts`](../../src/client/router.ts) (
 | `/c` | **Chat** main pane; no server session id in the URL bar |
 | `/c/:segment` | **Chat** with a server session only as **`{slug}--{12hex}`** — slug from title (cosmetic); **`12hex`** is the first 12 hex digits of the UUID (flat form). Resolve to full id via `sessionStorage` cache + session list prefix match; older bookmark shapes are intentionally not supported. |
 | `/hub` | **Brain Hub** main pane |
-| `/welcome`, `/onboarding` (alias) | First-run / setup flow |
+| `/welcome`, `/onboarding` (alias) | First-run / setup flow — persisted states and mail phased sync → [onboarding-state-machine.md](architecture/onboarding-state-machine.md) |
 | `/hard-reset`, `/restart-seed`, `/first-chat` | Dev / one-shot flows |
 | `/demo` | Secret-gated Enron demo (`BRAIN_ENRON_DEMO_SECRET`) |
 

@@ -65,8 +65,10 @@ export async function patchOnboardingState(next: string): Promise<void> {
     }),
   })
   if (!res.ok) {
-    const e = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(e.error ?? res.statusText)
+    const e = (await res.json().catch(() => ({}))) as { error?: string; code?: string }
+    const err = new Error(e.error ?? res.statusText) as Error & { code?: string | undefined }
+    if (e.code) err.code = e.code
+    throw err
   }
 }
 
