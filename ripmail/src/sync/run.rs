@@ -1,6 +1,6 @@
 //! IMAP sync engine (`run_sync`) — mirrors `src/sync/index.ts` `runSync`.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 use std::sync::mpsc;
 use std::sync::Arc;
@@ -26,27 +26,83 @@ use super::transport::{FetchedMessage, ImapStatusData, SyncImapTransport};
 use super::windows::{forward_uid_range, oldest_message_date_for_folder};
 use super::write_maildir_message;
 
-const BATCH_SIZE_FORWARD: usize = 50;
-const BATCH_SIZE_BACKWARD: usize = 50;
-/// Concurrent IMAP sessions used only for UID FETCH (after SEARCH on the primary session). Ingest + SQLite stay single-threaded.
-const PARALLEL_IMAP_FETCH_CONNECTIONS: usize = 6;
+const BATCH_SIZE_FORWARD_DEFAULT: usize = 50;
+const BATCH_SIZE_BACKWARD_DEFAULT: usize = 100;
+/// Default concurrent IMAP sessions for UID FETCH (override with `RIPMAIL_SYNC_FETCH_PARALLEL`).
+const PARALLEL_IMAP_FETCH_CONNECTIONS_DEFAULT: usize = 8;
+/// Extra batches allowed in the pipeline beyond `n_workers` (FETCH completes while ingest drains).
+const FETCH_PIPELINE_EXTRA_BATCHES_DEFAULT: usize = 8;
+
 const NEW_MESSAGE_IDS_CAP: usize = 50;
 
 /// Extra IMAP connections for parallel [`UID FETCH`](https://www.rfc-editor.org/rfc/rfc3501#section-6.4.8) (Gmail allows multiple `EXAMINE` sessions).
 type ParallelImapConnect =
     Arc<dyn Fn() -> Result<Session<imap::Connection>, RunSyncError> + Send + Sync>;
 
+/// Parsed `RIPMAIL_SYNC_FETCH_PARALLEL`: 1–32 inclusive, else default.
+pub(crate) fn effective_parallel_fetch_connections() -> usize {
+    std::env::var("RIPMAIL_SYNC_FETCH_PARALLEL")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .filter(|&n| (1..=32).contains(&n))
+        .unwrap_or(PARALLEL_IMAP_FETCH_CONNECTIONS_DEFAULT)
+}
+
+fn effective_batch_sizes(direction: SyncDirection) -> usize {
+    let env_backward = std::env::var("RIPMAIL_SYNC_FETCH_BATCH_BACKWARD")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .filter(|&n| (1..=500).contains(&n));
+    let env_forward = std::env::var("RIPMAIL_SYNC_FETCH_BATCH_FORWARD")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .filter(|&n| (1..=500).contains(&n));
+
+    match direction {
+        SyncDirection::Forward => env_forward.unwrap_or(BATCH_SIZE_FORWARD_DEFAULT),
+        SyncDirection::Backward => env_backward.unwrap_or(BATCH_SIZE_BACKWARD_DEFAULT),
+    }
+}
+
+fn effective_fetch_pipeline_extra() -> usize {
+    std::env::var("RIPMAIL_SYNC_FETCH_PIPELINE_EXTRA")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .filter(|&n| n <= 64)
+        .unwrap_or(FETCH_PIPELINE_EXTRA_BATCHES_DEFAULT)
+}
+
+fn max_parallel_pipeline_slots_with_extra(n_workers: usize, extra: usize) -> usize {
+    let configured = n_workers.saturating_add(extra);
+    // Headroom beyond n_workers so out-of-order FETCH completions can buffer without capping dispatch at n_workers.
+    configured.max(n_workers.saturating_mul(2))
+}
+
+fn max_parallel_pipeline_slots(n_workers: usize) -> usize {
+    max_parallel_pipeline_slots_with_extra(n_workers, effective_fetch_pipeline_extra())
+}
+
+struct FetchCompletion {
+    slot: usize,
+    batch_index: usize,
+    payload: Result<(Vec<FetchedMessage>, u128), RunSyncError>,
+}
+
 struct ImapFetchWorkerHandle {
     task_tx: mpsc::SyncSender<Option<(usize, Vec<u32>)>>,
-    result_rx: mpsc::Receiver<Result<(usize, Vec<FetchedMessage>), RunSyncError>>,
     boot_rx: mpsc::Receiver<Result<(), RunSyncError>>,
     join: Option<std::thread::JoinHandle<()>>,
 }
 
 impl ImapFetchWorkerHandle {
-    fn spawn(connector: ParallelImapConnect, folder: String, logger: SyncFileLogger) -> Self {
-        let (task_tx, task_rx) = mpsc::sync_channel::<Option<(usize, Vec<u32>)>>(1);
-        let (result_tx, result_rx) = mpsc::sync_channel(1);
+    fn spawn(
+        slot: usize,
+        connector: ParallelImapConnect,
+        folder: String,
+        logger: SyncFileLogger,
+        complete_tx: mpsc::SyncSender<FetchCompletion>,
+    ) -> Self {
+        let (task_tx, task_rx) = mpsc::sync_channel::<Option<(usize, Vec<u32>)>>(2);
         let (boot_tx, boot_rx) = mpsc::sync_channel(1);
         let join = std::thread::spawn(move || {
             let mut session = match connector() {
@@ -73,22 +129,26 @@ impl ImapFetchWorkerHandle {
                     .map(|u| u.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
-                match uid_fetch_with_retries(&mut transp, &uid_csv, &logger, uids.len()) {
-                    Ok(fetched) => {
-                        if result_tx.send(Ok((batch_index, fetched))).is_err() {
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        let _ = result_tx.send(Err(e));
-                        break;
-                    }
+                let t_fetch = Instant::now();
+                let payload =
+                    match uid_fetch_with_retries(&mut transp, &uid_csv, &logger, uids.len()) {
+                        Ok(fetched) => Ok((fetched, t_fetch.elapsed().as_millis())),
+                        Err(e) => Err(e),
+                    };
+                if complete_tx
+                    .send(FetchCompletion {
+                        slot,
+                        batch_index,
+                        payload,
+                    })
+                    .is_err()
+                {
+                    break;
                 }
             }
         });
         Self {
             task_tx,
-            result_rx,
             boot_rx,
             join: Some(join),
         }
@@ -110,23 +170,31 @@ fn spawn_parallel_imap_fetch_pool(
     connector: ParallelImapConnect,
     folder: &str,
     logger: &SyncFileLogger,
-) -> Result<Vec<ImapFetchWorkerHandle>, RunSyncError> {
+) -> Result<(Vec<ImapFetchWorkerHandle>, mpsc::Receiver<FetchCompletion>), RunSyncError> {
+    let cap = max_parallel_pipeline_slots(n_workers)
+        .saturating_mul(2)
+        .max(32);
+    let (complete_tx, complete_rx) = mpsc::sync_channel::<FetchCompletion>(cap);
+
     let folder = folder.to_string();
     let mut handles = Vec::with_capacity(n_workers);
-    for _ in 0..n_workers {
+    for slot in 0..n_workers {
         handles.push(ImapFetchWorkerHandle::spawn(
+            slot,
             Arc::clone(&connector),
             folder.clone(),
             logger.clone(),
+            complete_tx.clone(),
         ));
     }
+    drop(complete_tx);
     for h in &handles {
         if let Err(e) = h.wait_boot() {
             shutdown_parallel_imap_fetch_pool(handles);
             return Err(e);
         }
     }
-    Ok(handles)
+    Ok((handles, complete_rx))
 }
 
 fn shutdown_parallel_imap_fetch_pool(mut handles: Vec<ImapFetchWorkerHandle>) {
@@ -415,6 +483,8 @@ enum RunSyncPreAcquire {
 }
 
 /// Parse + persist messages from one UID FETCH result; checkpoints `sync_state.last_uid`.
+///
+/// Runs one SQLite transaction per batch. Logs `Sync UID batch timings` when `fetch_wall_ms` is set.
 #[allow(clippy::too_many_arguments)]
 fn apply_fetched_uid_batch(
     options: &SyncOptions,
@@ -436,6 +506,7 @@ fn apply_fetched_uid_batch(
     earliest_date: &mut Option<String>,
     latest_date: &mut Option<String>,
     new_message_ids: &mut Vec<String>,
+    fetch_wall_ms: Option<u128>,
 ) -> Result<(), RunSyncError> {
     progress_line(
         options,
@@ -461,72 +532,88 @@ fn apply_fetched_uid_batch(
         logger.debug("UID FETCH batch", Some(&b));
     }
 
-    for msg in fetched {
-        *messages_fetched += 1;
-        *bytes_downloaded += msg.raw.len() as u64;
+    let t_ingest = Instant::now();
+    {
+        let tx = conn.transaction()?;
+        for msg in fetched {
+            *messages_fetched += 1;
+            *bytes_downloaded += msg.raw.len() as u64;
 
-        if label_excluded(&msg.labels, exclude_lower) {
-            continue;
-        }
-
-        let mut parsed = parse_raw_message(&msg.raw);
-
-        let dup: Option<i32> = conn
-            .query_row(
-                "SELECT 1 FROM messages WHERE message_id = ?1",
-                [&parsed.message_id],
-                |row| row.get(0),
-            )
-            .optional()?;
-        if dup.is_some() {
-            continue;
-        }
-
-        let basename = maildir_basename(msg.uid, &parsed.message_id);
-        let cur = maildir_path.join("cur");
-        let written = write_maildir_message(&cur, &basename, &msg.raw, &msg.labels)?;
-        let labels_json = serde_json::to_string(&msg.labels).unwrap_or_else(|_| "[]".into());
-
-        let inserted = persist_message(
-            conn,
-            &mut parsed,
-            imap_folder,
-            mailbox_id,
-            msg.uid as i64,
-            &labels_json,
-            &written.relative_raw_path,
-        )?;
-        if inserted {
-            *synced += 1;
-            persist_attachments_from_parsed(
-                conn,
-                &parsed.message_id,
-                &parsed.attachments,
-                maildir_path,
-            )?;
-            if new_message_ids.len() < NEW_MESSAGE_IDS_CAP {
-                new_message_ids.push(parsed.message_id.clone());
+            if label_excluded(&msg.labels, exclude_lower) {
+                continue;
             }
-            let d = &parsed.date;
-            *earliest_date = Some(match earliest_date.as_ref() {
-                Some(e) if e.as_str() < d.as_str() => e.clone(),
-                _ => d.clone(),
-            });
-            *latest_date = Some(match latest_date.as_ref() {
-                Some(l) if l.as_str() > d.as_str() => l.clone(),
-                _ => d.clone(),
-            });
+
+            let mut parsed = parse_raw_message(&msg.raw);
+
+            let dup: Option<i32> = tx
+                .query_row(
+                    "SELECT 1 FROM messages WHERE message_id = ?1",
+                    [&parsed.message_id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if dup.is_some() {
+                continue;
+            }
+
+            let basename = maildir_basename(msg.uid, &parsed.message_id);
+            let cur = maildir_path.join("cur");
+            let written = write_maildir_message(&cur, &basename, &msg.raw, &msg.labels)?;
+            let labels_json = serde_json::to_string(&msg.labels).unwrap_or_else(|_| "[]".into());
+
+            let inserted = persist_message(
+                &tx,
+                &mut parsed,
+                imap_folder,
+                mailbox_id,
+                msg.uid as i64,
+                &labels_json,
+                &written.relative_raw_path,
+            )?;
+            if inserted {
+                *synced += 1;
+                persist_attachments_from_parsed(
+                    &tx,
+                    &parsed.message_id,
+                    &parsed.attachments,
+                    maildir_path,
+                )?;
+                if new_message_ids.len() < NEW_MESSAGE_IDS_CAP {
+                    new_message_ids.push(parsed.message_id.clone());
+                }
+                let d = &parsed.date;
+                *earliest_date = Some(match earliest_date.as_ref() {
+                    Some(e) if e.as_str() < d.as_str() => e.clone(),
+                    _ => d.clone(),
+                });
+                *latest_date = Some(match latest_date.as_ref() {
+                    Some(l) if l.as_str() > d.as_str() => l.clone(),
+                    _ => d.clone(),
+                });
+            }
         }
+
+        let batch_max = *chunk.iter().max().unwrap_or(&0);
+        if batch_max > *checkpoint_uid {
+            *checkpoint_uid = batch_max;
+            tx.execute(
+                "INSERT OR REPLACE INTO sync_state (source_id, folder, uidvalidity, last_uid) VALUES (?1, ?2, ?3, ?4)",
+                params![mailbox_id, imap_folder, uidvalidity as i64, *checkpoint_uid as i64],
+            )?;
+        }
+        tx.commit()?;
+    }
+    let ingest_wall_ms = t_ingest.elapsed().as_millis();
+    if let Some(fw) = fetch_wall_ms {
+        let timing = serde_json::json!({
+            "batch": batch_index_one_based,
+            "fetchWaitMs": fw,
+            "ingestMs": ingest_wall_ms,
+        })
+        .to_string();
+        logger.info("Sync UID batch timings", Some(&timing));
     }
 
-    let batch_max = *chunk.iter().max().unwrap_or(&0);
-    if batch_max > *checkpoint_uid {
-        *checkpoint_uid = batch_max;
-        conn.execute(
-            "INSERT OR REPLACE INTO sync_state (source_id, folder, uidvalidity, last_uid) VALUES (?1, ?2, ?3, ?4)",
-            params![mailbox_id, imap_folder, uidvalidity as i64, *checkpoint_uid as i64],
-        )?;
-    }
     Ok(())
 }
 
@@ -811,10 +898,7 @@ fn run_sync_imap_phase(
         &format!("Downloading {} message(s)…", uids.len()),
     );
 
-    let batch_size = match options.direction {
-        SyncDirection::Forward => BATCH_SIZE_FORWARD,
-        SyncDirection::Backward => BATCH_SIZE_BACKWARD,
-    };
+    let batch_size = effective_batch_sizes(options.direction);
 
     let mut synced = 0u32;
     let mut messages_fetched = 0u32;
@@ -832,7 +916,11 @@ fn run_sync_imap_phase(
     let total_batches = chunks_vec.len();
 
     if let Some(connector_arc) = parallel_imap_connector {
-        let n_workers = PARALLEL_IMAP_FETCH_CONNECTIONS.min(total_batches).max(1);
+        let n_workers = effective_parallel_fetch_connections()
+            .min(total_batches)
+            .max(1);
+        let max_pipeline = max_parallel_pipeline_slots(n_workers);
+
         logger.info(
             "IMAP parallel UID FETCH",
             Some(
@@ -840,73 +928,85 @@ fn run_sync_imap_phase(
                     "sessions": n_workers,
                     "batchSize": batch_size,
                     "batches": total_batches,
+                    "maxPipelineSlots": max_pipeline,
                 })
                 .to_string(),
             ),
         );
 
-        let fetch_pool =
+        let (fetch_pool, complete_rx) =
             spawn_parallel_imap_fetch_pool(n_workers, connector_arc, imap_folder, logger)?;
 
-        let mut wave_start = 0usize;
+        let mut next_consume = 0usize;
+        let mut next_dispatch = 0usize;
+        let mut pending: BTreeMap<usize, (Vec<FetchedMessage>, u128)> = BTreeMap::new();
+        let mut worker_idle = vec![true; n_workers];
+        let mut in_flight = 0usize;
+
         let download_result = (|| -> Result<(), RunSyncError> {
-            while wave_start < total_batches {
+            while next_consume < total_batches || in_flight > 0 {
                 if crate::runtime_limits::shutdown_requested() {
                     return Err(RunSyncError::Interrupted);
                 }
                 if crate::runtime_limits::wall_clock_expired() {
                     return Err(RunSyncError::WallClockLimit);
                 }
-                let wave_len = (total_batches - wave_start).min(n_workers);
-                for (slot, worker) in fetch_pool.iter().take(wave_len).enumerate() {
-                    let bi = wave_start + slot;
-                    worker
+
+                while next_dispatch < total_batches
+                    && next_dispatch.saturating_sub(next_consume) < max_pipeline
+                {
+                    let Some(slot) = worker_idle.iter().position(|&x| x) else {
+                        break;
+                    };
+                    worker_idle[slot] = false;
+                    let bi = next_dispatch;
+                    fetch_pool[slot]
                         .task_tx
                         .send(Some((bi, chunks_vec[bi].clone())))
                         .map_err(|_| {
                             RunSyncError::Imap("parallel UID FETCH task send failed".into())
                         })?;
+                    next_dispatch += 1;
+                    in_flight += 1;
                 }
-                for (slot, worker) in fetch_pool.iter().take(wave_len).enumerate() {
-                    let bi = wave_start + slot;
-                    match worker.result_rx.recv() {
-                        Ok(Ok((recv_bi, fetched))) => {
-                            if recv_bi != bi {
-                                return Err(RunSyncError::Imap(format!(
-                                    "parallel fetch batch mismatch (expected bi={bi} got recv_bi={recv_bi})"
-                                )));
-                            }
-                            apply_fetched_uid_batch(
-                                options,
-                                logger,
-                                conn,
-                                maildir_path,
-                                exclude_lower,
-                                &chunks_vec[bi],
-                                fetched,
-                                imap_folder,
-                                mailbox_id,
-                                uidvalidity,
-                                bi + 1,
-                                total_batches,
-                                &mut checkpoint_uid,
-                                &mut synced,
-                                &mut messages_fetched,
-                                &mut bytes_downloaded,
-                                &mut earliest_date,
-                                &mut latest_date,
-                                &mut new_message_ids,
-                            )?;
-                        }
-                        Ok(Err(e)) => return Err(e),
-                        Err(_) => {
-                            return Err(RunSyncError::Imap(
-                                "parallel UID FETCH result channel closed".into(),
-                            ))
-                        }
-                    }
+
+                if next_consume >= total_batches && in_flight == 0 {
+                    break;
                 }
-                wave_start += wave_len;
+
+                let done = complete_rx.recv().map_err(|_| {
+                    RunSyncError::Imap("parallel UID FETCH completion channel closed".into())
+                })?;
+                worker_idle[done.slot] = true;
+                in_flight -= 1;
+                let (messages, fw) = done.payload?;
+                pending.insert(done.batch_index, (messages, fw));
+
+                while let Some((messages, fw)) = pending.remove(&next_consume) {
+                    apply_fetched_uid_batch(
+                        options,
+                        logger,
+                        conn,
+                        maildir_path,
+                        exclude_lower,
+                        &chunks_vec[next_consume],
+                        messages,
+                        imap_folder,
+                        mailbox_id,
+                        uidvalidity,
+                        next_consume + 1,
+                        total_batches,
+                        &mut checkpoint_uid,
+                        &mut synced,
+                        &mut messages_fetched,
+                        &mut bytes_downloaded,
+                        &mut earliest_date,
+                        &mut latest_date,
+                        &mut new_message_ids,
+                        Some(fw),
+                    )?;
+                    next_consume += 1;
+                }
             }
             Ok(())
         })();
@@ -934,7 +1034,9 @@ fn run_sync_imap_phase(
                 .map(|u| u.to_string())
                 .collect::<Vec<_>>()
                 .join(",");
+            let t_fetch = Instant::now();
             let fetched = uid_fetch_with_retries(transport, &uid_csv, logger, chunk.len())?;
+            let fetch_ms = t_fetch.elapsed().as_millis();
             apply_fetched_uid_batch(
                 options,
                 logger,
@@ -955,6 +1057,7 @@ fn run_sync_imap_phase(
                 &mut earliest_date,
                 &mut latest_date,
                 &mut new_message_ids,
+                Some(fetch_ms),
             )?;
         }
     }
@@ -1254,5 +1357,105 @@ mod resolve_sync_mailbox_tests {
             resolve_sync_folder_for_host("Archive", "mail.privateemail.com"),
             "Archive"
         );
+    }
+}
+
+#[cfg(test)]
+mod fetch_pipeline_scheduler_tests {
+    //! Invariants for the parallel UID FETCH pipeline (ordered checkpoint ingest + bounded prefetch).
+
+    use std::collections::{BTreeMap, BTreeSet};
+
+    use super::max_parallel_pipeline_slots_with_extra;
+
+    #[test]
+    fn pipeline_slots_floor_is_twice_worker_count_without_extra() {
+        assert_eq!(max_parallel_pipeline_slots_with_extra(1, 0), 2);
+        assert_eq!(max_parallel_pipeline_slots_with_extra(3, 0), 6);
+        assert_eq!(max_parallel_pipeline_slots_with_extra(8, 0), 16);
+    }
+
+    #[test]
+    fn pipeline_slots_adds_extra_when_above_twice_workers() {
+        assert_eq!(max_parallel_pipeline_slots_with_extra(3, 10), 13);
+        assert_eq!(max_parallel_pipeline_slots_with_extra(8, 16), 24);
+    }
+
+    fn simulate_wave(
+        total_batches: usize,
+        n_workers: usize,
+        max_pipeline: usize,
+        completion_order: &[usize],
+    ) {
+        let mut next_consume = 0usize;
+        let mut next_dispatch = 0usize;
+        let mut pending: BTreeMap<usize, ()> = BTreeMap::new();
+        let mut worker_idle = vec![true; n_workers];
+        let mut in_flight = 0usize;
+        let mut active: Vec<Option<usize>> = vec![None; n_workers];
+        let mut active_set: BTreeSet<usize> = BTreeSet::new();
+
+        let mut ci = 0usize;
+        while next_consume < total_batches || in_flight > 0 {
+            while next_dispatch < total_batches
+                && next_dispatch.saturating_sub(next_consume) < max_pipeline
+            {
+                let Some(slot) = worker_idle.iter().position(|&x| x) else {
+                    break;
+                };
+                worker_idle[slot] = false;
+                let bi = next_dispatch;
+                active[slot] = Some(bi);
+                active_set.insert(bi);
+                next_dispatch += 1;
+                in_flight += 1;
+            }
+
+            assert!(
+                in_flight <= n_workers,
+                "in_flight={in_flight} workers={n_workers}"
+            );
+
+            if next_consume >= total_batches && in_flight == 0 {
+                break;
+            }
+
+            assert!(ci < completion_order.len(), "completion_order too short");
+            let bi = completion_order[ci];
+            ci += 1;
+            assert!(
+                active_set.remove(&bi),
+                "completed batch {bi} that was not in flight"
+            );
+            let slot = (0..n_workers)
+                .find(|&s| active[s] == Some(bi))
+                .expect("slot for batch");
+            worker_idle[slot] = true;
+            active[slot] = None;
+            in_flight -= 1;
+
+            pending.insert(bi, ());
+            while pending.remove(&next_consume).is_some() {
+                next_consume += 1;
+            }
+        }
+
+        assert_eq!(next_consume, total_batches, "did not consume all batches");
+        assert_eq!(ci, completion_order.len());
+    }
+
+    #[test]
+    fn out_of_order_completion_drains_in_batch_index_order() {
+        simulate_wave(6, 3, 12, &[1, 2, 0, 4, 3, 5]);
+    }
+
+    #[test]
+    fn reverse_completion_order_still_finishes() {
+        simulate_wave(5, 2, 10, &[1, 0, 3, 2, 4]);
+    }
+
+    #[test]
+    fn single_worker_strict_pipeline() {
+        simulate_wave(4, 1, 4, &[0, 1, 2, 3]);
     }
 }
