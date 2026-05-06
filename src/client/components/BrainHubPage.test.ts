@@ -290,6 +290,71 @@ describe('BrainHubPage.svelte (Activity)', () => {
     expect(onOpenSettings).toHaveBeenCalledTimes(1)
   })
 
+  it('disables Sync mail now while background mail sync is running', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: RequestInfo) => {
+        const u = String(url)
+        if (u.includes('/api/wiki/edit-history') || u.includes('/api/wiki/recent')) {
+          return Promise.resolve(new Response(JSON.stringify({ files: [] }), { status: 200 }))
+        }
+        if (u.includes('/api/wiki') && !u.includes('edit-history') && !u.includes('recent')) {
+          return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
+        }
+        if (u.includes('/api/background-status')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify(
+                mockBackgroundStatus({
+                  mail: {
+                    indexedTotal: 10,
+                    ftsReady: 10,
+                    messageAvailableForProgress: 10,
+                    configured: true,
+                    dateRange: { from: null, to: null },
+                    phase1Complete: true,
+                    phase2Complete: true,
+                    syncRunning: true,
+                    backfillRunning: false,
+                    backfillPhase: null,
+                    refreshRunning: false,
+                    lastSyncedAt: '2026-01-01T00:00:00.000Z',
+                    syncLockAgeMs: null,
+                    pendingBackfill: false,
+                    staleMailSyncLock: false,
+                  },
+                }),
+              ),
+              { status: 200, headers: { 'Content-Type': 'application/json' } },
+            ),
+          )
+        }
+        if (u.includes('/api/hub/sources/detail')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ ok: false, error: 'not used' }), { status: 200 }),
+          )
+        }
+        if (u.includes('/api/hub/sources')) {
+          return Promise.resolve(new Response(JSON.stringify({ sources: [] }), { status: 200 }))
+        }
+        if (u.includes('/api/wiki-shares')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ owned: [], received: [], pendingReceived: [] }), { status: 200 }),
+          )
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }) as unknown as typeof fetch,
+    )
+
+    render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
+
+    await waitFor(() => {
+      const btn = screen.getByRole('button', { name: /sync mail now/i })
+      expect(btn).toBeDisabled()
+      expect(btn).toHaveAttribute('aria-busy', 'true')
+    })
+  })
+
   it('shows Pause when wiki loop is active and POSTs /api/your-wiki/pause on click', async () => {
     hubStoreTest.setWikiDoc({
       id: 'your-wiki',

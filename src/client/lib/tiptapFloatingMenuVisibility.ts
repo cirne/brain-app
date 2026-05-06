@@ -2,19 +2,30 @@ import type { Editor } from '@tiptap/core'
 import type { EditorView } from '@tiptap/pm/view'
 
 /**
- * Visibility for TipTap {@link FloatingMenu}: show the block (“+”) menu only when the view has
- * focus, selection is collapsed, and the caret sits in a truly empty paragraph—not inside code
- * blocks or blockquotes. Mirrors TipTap’s default guards (`hasFocus`, `empty`, `isEditable`) while
- * narrowing which empty blocks qualify (plain `paragraph` only).
+ * Visibility for TipTap {@link FloatingMenu}.
+ *
+ * Matches `@tiptap/extension-floating-menu` defaults: only **root-depth** empty text blocks
+ * (`$anchor.depth === 1`). Without that, every empty `paragraph` — including inside lists — qualifies,
+ * which makes the “+ Blocks” menu appear constantly on mobile.
+ *
+ * Additional guards: plain `paragraph` only, not code block / blockquote (same as before).
  */
 export function floatingBlockMenuShouldShow(editor: Editor, view: EditorView): boolean {
-  const state = editor.state
-  const { selection } = state
-  if (!view.hasFocus() || !selection.empty || !editor.isEditable) return false
-
+  const { selection } = editor.state
   const { $anchor } = selection
   const node = $anchor.parent
-  if (node.type.name !== 'paragraph' || node.content.size > 0) return false
-  if (editor.isActive('codeBlock') || editor.isActive('blockquote')) return false
-  return true
+
+  let failedAt: string | null = null
+  if (!view.hasFocus()) failedAt = 'noFocus'
+  else if (!selection.empty) failedAt = 'selectionNotEmpty'
+  else if (!editor.isEditable) failedAt = 'notEditable'
+  else if ($anchor.depth !== 1) failedAt = 'notRootDepth'
+  else if (node.type.name !== 'paragraph') failedAt = `parent:${node.type.name}`
+  else if (node.content.size > 0) failedAt = 'paragraphNotEmpty'
+  else if (editor.isActive('codeBlock')) failedAt = 'codeBlock'
+  else if (editor.isActive('blockquote')) failedAt = 'blockquote'
+
+  const result = failedAt === null
+
+  return result
 }

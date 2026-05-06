@@ -75,22 +75,6 @@ export async function runRipmailHeavyArgv(
 ): Promise<RipmailRunResult> {
   const home = ripmailHomeForBrain()
   const ck = coalesceKey(home, argv)
-  if (argv.includes('backfill')) {
-    // #region agent log
-    fetch('http://127.0.0.1:7345/ingest/01c512da-5ae1-4b8e-b712-eb2ef7ac6800', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8cfbd6' },
-      body: JSON.stringify({
-        sessionId: '8cfbd6',
-        hypothesisId: 'H5',
-        location: 'ripmailHeavySpawn.ts:runRipmailHeavyArgv',
-        message: 'ripmail heavy argv scheduled (chained)',
-        data: { label: options.label ?? 'heavy', argvTail: argv.filter((a) => a !== '--timeout' && !/^\d+$/.test(a)).slice(0, 12) },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
-  }
 
   const prev = chainTail.get(home) ?? Promise.resolve()
   const work = prev.catch(() => {}).then(async () => {

@@ -52,6 +52,16 @@
     onOpenSettings,
   }: Props = $props()
 
+  /** Matches “Your wiki” row: category icon when idle, same activity spinner when background mail work is running. */
+  const mailBackgroundActive = $derived(
+    Boolean(
+      mailStatus &&
+        (mailStatus.syncRunning ||
+          mailStatus.refreshRunning ||
+          mailStatus.backfillRunning),
+    ),
+  )
+
   const wikiBtnBase =
     'inline-flex cursor-pointer items-center gap-[0.3rem] rounded-md border px-[0.65rem] py-[0.3rem] text-[0.8125rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55'
   const wikiBtnPrimary =
@@ -107,7 +117,16 @@
       class="flex flex-col gap-2 border-b border-[color-mix(in_srgb,var(--border)_35%,transparent)] py-3 first:pt-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
     >
       <div class="flex min-w-0 flex-1 gap-3">
-        <Mail size={18} class={rowIconClass} aria-hidden="true" />
+        {#if mailBackgroundActive}
+          <RefreshCw
+            size={18}
+            class="spin-icon mt-0.5 shrink-0 text-accent"
+            aria-hidden="true"
+            title="Mail index is updating"
+          />
+        {:else}
+          <Mail size={18} class={rowIconClass} aria-hidden="true" />
+        {/if}
         <div class="min-w-0 flex-1">
           <p class="m-0 text-[0.8125rem] font-semibold text-foreground">Mail index</p>
           {#if mailLoading && !mailStatus}
@@ -146,6 +165,7 @@
             type="button"
             class="{wikiBtnBase} {wikiBtnSecondary} max-sm:w-full max-sm:justify-center"
             disabled={syncBusy}
+            aria-busy={syncBusy ? true : undefined}
             onclick={() => void onSyncNow()}
           >
             <RefreshCw size={14} class={cn(syncBusy && 'animate-spin')} aria-hidden="true" />
@@ -161,7 +181,12 @@
     >
       <div class="flex min-w-0 flex-1 gap-3">
         {#if wikiIsActive}
-          <RefreshCw size={18} class="spin-icon mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+          <RefreshCw
+            size={18}
+            class="spin-icon mt-0.5 shrink-0 text-accent"
+            aria-hidden="true"
+            title="Wiki background updates running"
+          />
         {:else}
           <BookOpen size={18} class={rowIconClass} aria-hidden="true" />
         {/if}

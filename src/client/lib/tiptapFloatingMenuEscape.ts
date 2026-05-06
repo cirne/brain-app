@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import { PluginKey } from '@tiptap/pm/state'
+import { floatingBlockMenuShouldShow } from './tiptapFloatingMenuVisibility.js'
 
 const MOUNT_SELECTOR = '[data-tiptap-md-mount]'
 
@@ -15,14 +16,45 @@ const mountToEditor = new WeakMap<HTMLElement, Editor>()
 /** Editor that last received TipTap focus — used when Escape fires while focus is on the floating menu. */
 let lastFocusedTipTapEditor: Editor | null = null
 
+type MobileBlockMenuDismiss = () => boolean
+
+const mobileBlockMenuDismissers: MobileBlockMenuDismiss[] = []
+
+/** Registers a handler tried before TipTap FloatingMenu `hide` meta (narrow viewports use a manual long-press block menu). */
+export function registerTipTapMobileBlockMenuEscape(dismiss: MobileBlockMenuDismiss): () => void {
+  mobileBlockMenuDismissers.push(dismiss)
+  return () => {
+    const i = mobileBlockMenuDismissers.indexOf(dismiss)
+    if (i >= 0) mobileBlockMenuDismissers.splice(i, 1)
+  }
+}
+
 export function tipTapFloatingBlockMenuVisibleInDom(): boolean {
   for (const el of document.querySelectorAll('.tiptap-floating-menu')) {
     if (!(el instanceof HTMLElement)) continue
-    if (el.style.visibility === 'visible') return true
     const cs = getComputedStyle(el)
-    if (cs.visibility === 'visible' && cs.opacity !== '0') return true
+    if (cs.display === 'none') continue
+    const op = parseFloat(cs.opacity)
+    if (Number.isFinite(op) && op === 0) continue
+    if (el.style.visibility === 'visible') return true
+    if (cs.visibility === 'visible') return true
+    const r = el.getBoundingClientRect()
+    if (r.width > 4 && r.height > 4 && cs.visibility !== 'hidden') return true
   }
   return false
+}
+
+/**
+ * TipTap's FloatingMenu can leave the block menu visible when `shouldShow` is already false (often on
+ * mobile). Force-hide via the plugin meta so DOM matches {@link floatingBlockMenuShouldShow}.
+ *
+ * **Do not** gate on {@link tipTapFloatingBlockMenuVisibleInDom}: iOS/WebKit often reports visibility
+ * differently than desktop, so we'd skip `hide` while the menu is still on screen.
+ */
+export function hideStaleBrainFloatingBlockMenu(editor: Editor): void {
+  if (editor.isDestroyed) return
+  if (floatingBlockMenuShouldShow(editor, editor.view)) return
+  editor.view.dispatch(editor.state.tr.setMeta(brainFloatingMenuPluginKey, 'hide'))
 }
 
 /**
@@ -67,6 +99,9 @@ function resolveEditorForFloatingMenuDismiss(): Editor | null {
  * true so global Escape handling can skip closing the slide-over overlay.
  */
 export function tryDismissTipTapFloatingMenuFromEscape(): boolean {
+  for (let i = mobileBlockMenuDismissers.length - 1; i >= 0; i--) {
+    if (mobileBlockMenuDismissers[i]!()) return true
+  }
   if (!tipTapFloatingBlockMenuVisibleInDom()) return false
   const editor = resolveEditorForFloatingMenuDismiss()
   if (!editor) return false

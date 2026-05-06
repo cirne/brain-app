@@ -57,6 +57,37 @@ describe('floatingBlockMenuShouldShow', () => {
     expect(floatingBlockMenuShouldShow(editor, editor.view)).toBe(false)
   })
 
+  it('is false for an empty paragraph inside a bullet list (TipTap default: root depth only)', () => {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const editor = new Editor({
+      element: el,
+      extensions: [StarterKit.configure({ heading: { levels: [1, 2, 3] } })],
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'bulletList',
+            content: [
+              {
+                type: 'listItem',
+                content: [{ type: 'paragraph' }],
+              },
+            ],
+          },
+        ],
+      },
+    })
+    cleanups.push(() => {
+      editor.destroy()
+      el.remove()
+    })
+    editor.chain().focus('start').run()
+    ;(editor.view.dom as HTMLElement).focus()
+    expect(editor.state.selection.$anchor.depth).not.toBe(1)
+    expect(floatingBlockMenuShouldShow(editor, editor.view)).toBe(false)
+  })
+
   it('is false inside a code block', () => {
     const { editor, cleanup } = mountEditor('<pre><code>x</code></pre>')
     cleanups.push(cleanup)

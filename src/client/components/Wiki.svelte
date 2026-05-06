@@ -97,8 +97,14 @@
   /** Grant rows from `GET /api/wiki` (own wiki only) — one ref per collaborator. */
   let ownedShares = $state<WikiOwnedShareRef[]>([])
   let selected = $state<string | null>(null)
+  /** Bumped when Wiki loads or clears page markdown from the server so TipTap re-imports even if the string equals `lastImported`. */
+  let wikiMarkdownSyncEpoch = $state(0)
   let content = $state<string>('')
   let rawMarkdown = $state('')
+  function setWikiRawMarkdown(next: string) {
+    rawMarkdown = next
+    wikiMarkdownSyncEpoch++
+  }
   let meta = $state<Record<string, string>>({})
   let loading = $state(false)
   /** Last open succeeded (file exists); enables Edit. */
@@ -199,7 +205,7 @@
       if (wikiPageLatest.isStale(token)) return
       meta = data.meta ?? {}
       content = transformWikiPageHtml(data.html)
-      rawMarkdown = data.raw ?? ''
+      setWikiRawMarkdown(data.raw ?? '')
     } catch (e) {
       if (!wikiPageLatest.isStale(token) && !isAbortError(e)) throw e
     }
@@ -245,7 +251,7 @@
       if (!res.ok) {
         meta = {}
         content = ''
-        rawMarkdown = ''
+        setWikiRawMarkdown('')
         pageLoadedOk = false
         const title = wikiMarkdownBasenameDisplayTitle(path)
         onContextChange?.({ type: 'wiki', path, title })
@@ -255,7 +261,7 @@
       if (wikiPageLatest.isStale(token)) return
       meta = data.meta ?? {}
       content = transformWikiPageHtml(data.html)
-      rawMarkdown = data.raw ?? ''
+      setWikiRawMarkdown(data.raw ?? '')
       pageLoadedOk = true
       const title = wikiMarkdownBasenameDisplayTitle(path)
       onContextChange?.({ type: 'wiki', path, title })
@@ -263,7 +269,7 @@
       if (wikiPageLatest.isStale(token) || isAbortError(e)) return
       meta = {}
       content = ''
-      rawMarkdown = ''
+      setWikiRawMarkdown('')
       pageLoadedOk = false
       const title = wikiMarkdownBasenameDisplayTitle(path)
       onContextChange?.({ type: 'wiki', path, title })
@@ -405,6 +411,7 @@
           <TipTapMarkdownEditor
             bind:this={wikiEditor}
             initialMarkdown={rawMarkdown}
+            markdownSyncEpoch={wikiMarkdownSyncEpoch}
             disabled={loading || streamBusy}
             autoPersist={false}
             onPersist={persistWikiMarkdown}

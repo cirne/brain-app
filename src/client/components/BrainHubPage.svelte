@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { RefreshCw, ChevronRight, BookOpen, FileText } from 'lucide-svelte'
+  import { RefreshCw, ChevronRight, BookOpen } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
@@ -242,7 +242,7 @@
   }
 
   async function syncMailNow() {
-    if (syncKickBusy) return
+    if (syncKickBusy || mailStatus?.syncRunning) return
     syncKickBusy = true
     try {
       await fetch('/api/inbox/sync', { method: 'POST', credentials: 'include' })
@@ -383,7 +383,7 @@
       onWikiUpdateNow={runWikiBackgroundUpdateNow}
       onPause={wikiPause}
       onResume={wikiResume}
-      syncBusy={syncKickBusy}
+      syncBusy={syncKickBusy || Boolean(mailStatus?.syncRunning)}
       wikiUpdateBusy={wikiBackgroundUpdateBusy}
       wikiActionBusy={wikiActionBusy}
       indexFeedSummary={indexFeedSummary}
@@ -428,9 +428,9 @@
             <HubSourceRowBody title="Open wiki background log" subtitle="Tool steps, timing, and errors">
               {#snippet icon()}
                 {#if wikiIsActive}
-                  <RefreshCw size={16} class="spin-icon" aria-hidden="true" />
+                  <RefreshCw size={16} class={cn('spin-icon shrink-0 text-accent')} aria-hidden="true" />
                 {:else}
-                  <BookOpen size={16} aria-hidden="true" />
+                  <BookOpen size={16} class="shrink-0 text-muted" aria-hidden="true" />
                 {/if}
               {/snippet}
             </HubSourceRowBody>
@@ -466,9 +466,6 @@
                   class="link-info wiki-recent-row-main flex min-w-0 items-center gap-3 text-[0.9375rem] font-medium"
                 >
                   <HubSourceRowBody subtitle="">
-                    {#snippet icon()}
-                      <FileText size={16} aria-hidden="true" />
-                    {/snippet}
                     {#snippet titleContent()}
                       <WikiFileName path={f.path} />
                     {/snippet}

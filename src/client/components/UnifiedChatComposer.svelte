@@ -89,7 +89,7 @@
 </script>
 
 <div class="unified-chat-composer flex w-full min-w-0 flex-col">
-  <div class="composer-input-row flex w-full min-w-0 box-border shrink-0 flex-row items-start pb-1.5">
+  <div class="composer-input-row flex w-full min-w-0 box-border shrink-0 flex-row items-start pb-0.5">
     <div class="composer-input-shell flex-1 min-w-0">
       {#if voiceEligible && composerMode === 'voice'}
         <ChatVoicePanel

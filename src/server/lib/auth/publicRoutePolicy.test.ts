@@ -24,5 +24,4 @@ describe('publicRoutePolicy', () => {
     expect(shouldSuppressAccessLogForApiPath(ENRON_DEMO_SEED_STATUS_PATH)).toBe(true)
     expect(shouldSuppressAccessLogForApiPath('/api/chat')).toBe(false)
   })
-
 })

@@ -3,7 +3,9 @@ import StarterKit from '@tiptap/starter-kit'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   brainFloatingMenuPluginKey,
+  hideStaleBrainFloatingBlockMenu,
   registerTipTapFloatingMenuEscapeTracking,
+  registerTipTapMobileBlockMenuEscape,
   tipTapFloatingBlockMenuVisibleInDom,
   tryDismissTipTapFloatingMenuFromEscape,
 } from './tiptapFloatingMenuEscape.js'
@@ -48,7 +50,17 @@ describe('tipTapFloatingMenuEscape', () => {
     expect(tipTapFloatingBlockMenuVisibleInDom()).toBe(true)
   })
 
-  it('tryDismissTipTapFloatingMenuFromEscape dispatches hide meta when menu is visible and editor is resolved', () => {
+  it('tryDismissTipTapFloatingMenuFromEscape invokes mobile dismissers before plugin hide', () => {
+    const dismiss = vi.fn().mockReturnValue(true)
+    const unreg = registerTipTapMobileBlockMenuEscape(dismiss)
+    cleanups.push(unreg)
+    expect(tryDismissTipTapFloatingMenuFromEscape()).toBe(true)
+    expect(dismiss).toHaveBeenCalledTimes(1)
+  })
+
+  it('tryDismissTipTapFloatingMenuFromEscape falls through to plugin hide when mobile dismissers return false', () => {
+    const unregMobile = registerTipTapMobileBlockMenuEscape(() => false)
+    cleanups.push(unregMobile)
     const { editor, mountEl, cleanup } = mountEditor('<p></p>')
     cleanups.push(cleanup)
     const unreg = registerTipTapFloatingMenuEscapeTracking(editor, mountEl)
@@ -99,5 +111,46 @@ describe('tipTapFloatingMenuEscape', () => {
     cleanups.push(unreg)
     ;(editor.view.dom as HTMLElement).focus()
     expect(tryDismissTipTapFloatingMenuFromEscape()).toBe(false)
+  })
+
+  it('hideStaleBrainFloatingBlockMenu dispatches hide when caret is in non-empty paragraph', () => {
+    const { editor, cleanup } = mountEditor('<p>hello world</p>')
+    cleanups.push(cleanup)
+    editor.chain().focus('start').setTextSelection(3).run()
+    ;(editor.view.dom as HTMLElement).focus()
+
+    const dispatchSpy = vi.spyOn(editor.view, 'dispatch')
+    hideStaleBrainFloatingBlockMenu(editor)
+    expect(dispatchSpy).toHaveBeenCalledTimes(1)
+    const tr = dispatchSpy.mock.calls[0]![0]
+    expect(tr.getMeta(brainFloatingMenuPluginKey)).toBe('hide')
+  })
+
+  it('hideStaleBrainFloatingBlockMenu does nothing when menu is visible but block menu should show', () => {
+    const { editor, cleanup } = mountEditor('<p></p>')
+    cleanups.push(cleanup)
+    editor.chain().focus('start').run()
+    ;(editor.view.dom as HTMLElement).focus()
+
+    const menu = document.createElement('div')
+    menu.className = 'tiptap-floating-menu test-float-menu'
+    menu.style.visibility = 'visible'
+    document.body.appendChild(menu)
+
+    const dispatchSpy = vi.spyOn(editor.view, 'dispatch')
+    hideStaleBrainFloatingBlockMenu(editor)
+    expect(dispatchSpy).not.toHaveBeenCalled()
+  })
+
+  it('hideStaleBrainFloatingBlockMenu dispatches hide even when no menu element is in the DOM', () => {
+    const { editor, cleanup } = mountEditor('<p>hello</p>')
+    cleanups.push(cleanup)
+    editor.chain().focus('start').run()
+    ;(editor.view.dom as HTMLElement).focus()
+
+    const dispatchSpy = vi.spyOn(editor.view, 'dispatch')
+    hideStaleBrainFloatingBlockMenu(editor)
+    expect(dispatchSpy).toHaveBeenCalledTimes(1)
+    expect(dispatchSpy.mock.calls[0]![0].getMeta(brainFloatingMenuPluginKey)).toBe('hide')
   })
 })

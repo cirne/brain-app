@@ -1,11 +1,12 @@
 <script lang="ts">
   /**
    * TipTap markdown editor (marked → HTML in, turndown → markdown out).
-   * Notion-like UX: placeholder, floating block menu on empty lines, bubble formatting on selection.
+   * Notion-like UX: placeholder, floating block menu on empty lines on desktop; on narrow viewports
+   * the same block menu opens on long-press in the editor. Bubble formatting on selection everywhere.
    * YAML front matter is preserved in the serialized markdown string.
    */
   import { onMount, tick, untrack } from 'svelte'
-  import { Editor } from '@tiptap/core'
+  import { Editor, type ChainedCommands } from '@tiptap/core'
   import StarterKit from '@tiptap/starter-kit'
   import BubbleMenu from '@tiptap/extension-bubble-menu'
   import FloatingMenu from '@tiptap/extension-floating-menu'
@@ -28,11 +29,12 @@
   import { cn } from '@client/lib/cn.js'
   import { splitYamlFrontMatter, joinYamlFrontMatter, renderMarkdownBody } from '@client/lib/markdown.js'
   import { wikiLinkRefFromAnchor } from '@client/lib/wikiPageHtml.js'
-  import { floatingBlockMenuShouldShow } from '@client/lib/tiptapFloatingMenuVisibility.js'
   import {
     brainFloatingMenuPluginKey,
     registerTipTapFloatingMenuEscapeTracking,
+    registerTipTapMobileBlockMenuEscape,
   } from '@client/lib/tiptapFloatingMenuEscape.js'
+  import { floatingBlockMenuShouldShow } from '@client/lib/tiptapFloatingMenuVisibility.js'
   import '../styles/wiki/wikiMarkdown.css'
 
   const turndown = new TurndownService({
@@ -62,6 +64,8 @@
 
   interface Props {
     initialMarkdown?: string
+    /** Bumped by Wiki when server-loaded `rawMarkdown` changes so the editor re-imports the same path after navigation/order quirks. */
+    markdownSyncEpoch?: number
     disabled?: boolean
     /**
      * When true (default), debounced save on edit. When false, only {@link flushSave} invokes `onPersist`.
@@ -71,17 +75,30 @@
     onPersist?: (_markdown: string) => Promise<void>
     /** Own wiki: follow `data-wiki` / internal links on click (vault navigation). */
     onWikiLinkNavigate?: (_wikiRef: string) => void
+    /**
+     * When set, forces the block-type FloatingMenu on or off. When unset, it is off for
+     * `(max-width: 767px)` (same breakpoint as shell `isMobile`).
+     */
+    floatingBlockMenu?: boolean
   }
 
   type WikiNavigateCb = NonNullable<Props['onWikiLinkNavigate']>
 
   let {
     initialMarkdown = '',
+    markdownSyncEpoch = 0,
     disabled = false,
     autoPersist = true,
     onPersist,
     onWikiLinkNavigate,
+    floatingBlockMenu: floatingBlockMenuProp,
   }: Props = $props()
+
+  const floatingBlockMenuEnabled = $derived.by(() => {
+    if (floatingBlockMenuProp !== undefined) return floatingBlockMenuProp
+    if (typeof window === 'undefined') return true
+    return !window.matchMedia('(max-width: 767px)').matches
+  })
 
   /**
    * Link navigation runs from TipTap `onMount` handler — avoid `$effect` writing locals from props
@@ -93,9 +110,13 @@
   })
 
   let mountEl = $state<HTMLDivElement | undefined>()
+  let scrollAreaEl = $state<HTMLDivElement | undefined>()
   let bubbleMenuEl = $state<HTMLDivElement | undefined>()
   let floatingMenuEl = $state<HTMLDivElement | undefined>()
   let editor = $state<Editor | null>(null)
+  /** Narrow viewport: manually positioned block menu after long-press (no TipTap FloatingMenu). */
+  let mobileBlockMenuOpen = $state(false)
+  let mobileBlockMenuPos = $state({ left: 0, top: 0 })
   /** Bumps on TipTap selection/doc updates so bubble toolbar `aria-pressed` stays in sync. */
   let chromeRev = $state(0)
 
@@ -113,7 +134,6 @@
     }
   })
   let frontMatterCache = $state<string | null>(null)
-  let lastImported = $state('')
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   let syncingFromProp = false
@@ -187,14 +207,31 @@
     e.preventDefault()
   }
 
+  function blockMenuItem(run: () => void) {
+    run()
+    if (!floatingBlockMenuEnabled) mobileBlockMenuOpen = false
+  }
+
+  /** Block menu actions (desktop FloatingMenu + mobile long-press sheet). */
+  function blockMenuChain(apply: (_chain: ChainedCommands) => ChainedCommands) {
+    blockMenuItem(() => {
+      const ed = editor
+      if (!ed) return
+      apply(ed.chain().focus()).run()
+    })
+  }
+
   onMount(() => {
     let cancelled = false
     let mounted: Editor | null = null
     let unregisterFloatingMenuEscape: (() => void) | undefined
+    let unregisterMobileEscape: (() => void) | undefined
+    let removeTouchLongPress: (() => void) | undefined
 
     void (async () => {
       await tick()
       if (cancelled || !mountEl || !bubbleMenuEl || !floatingMenuEl) return
+      const showFloatingBlockMenu = floatingBlockMenuEnabled
 
       const appendMenusToBody = () =>
         typeof document !== 'undefined' ? document.body : mountEl!.parentElement!
@@ -217,7 +254,9 @@
               if (node.type.name === 'heading') {
                 return 'Heading'
               }
-              return "Write, or use + for headings & lists"
+              return showFloatingBlockMenu
+                ? "Write, or use + for headings & lists"
+                : 'Write (long-press for blocks, or select text to format)'
             },
             showOnlyCurrent: true,
           }),
@@ -238,20 +277,24 @@
               return true
             },
           }),
-          FloatingMenu.configure({
-            pluginKey: brainFloatingMenuPluginKey,
-            element: floatingMenuEl,
-            appendTo: appendMenusToBody,
-            updateDelay: 80,
-            options: {
-              strategy: 'fixed',
-              placement: 'left-start',
-              offset: { mainAxis: 0, crossAxis: -4 },
-              flip: true,
-              shift: true,
-            },
-            shouldShow: ({ editor: ed2, view }) => floatingBlockMenuShouldShow(ed2, view),
-          }),
+          ...(showFloatingBlockMenu
+            ? [
+                FloatingMenu.configure({
+                  pluginKey: brainFloatingMenuPluginKey,
+                  element: floatingMenuEl!,
+                  appendTo: appendMenusToBody,
+                  updateDelay: 80,
+                  options: {
+                    strategy: 'fixed',
+                    placement: 'left-start',
+                    offset: { mainAxis: 0, crossAxis: -4 },
+                    flip: true,
+                    shift: true,
+                  },
+                  shouldShow: ({ editor: ed2, view }) => floatingBlockMenuShouldShow(ed2, view),
+                }),
+              ]
+            : []),
         ],
         content: '<p></p>',
         editorProps: {
@@ -288,17 +331,91 @@
 
       mounted.mount(mountEl)
       editor = mounted
-      unregisterFloatingMenuEscape = registerTipTapFloatingMenuEscapeTracking(mounted, mountEl)
+      if (showFloatingBlockMenu) {
+        unregisterFloatingMenuEscape = registerTipTapFloatingMenuEscapeTracking(mounted, mountEl)
+      } else {
+        unregisterMobileEscape = registerTipTapMobileBlockMenuEscape(() => {
+          if (!mobileBlockMenuOpen) return false
+          mobileBlockMenuOpen = false
+          return true
+        })
 
-      const start = initialMarkdown
-      lastImported = start
-      applyMarkdownToEditor(start)
+        const dom = mounted.view.dom
+        const LONG_MS = 480
+        const MOVE_PX = 14
+        let longPressTimer: ReturnType<typeof setTimeout> | null = null
+        let startX = 0
+        let startY = 0
+
+        const clearLongPressTimer = () => {
+          if (longPressTimer) {
+            clearTimeout(longPressTimer)
+            longPressTimer = null
+          }
+        }
+
+        const openMobileBlockMenuAt = (clientX: number, clientY: number) => {
+          if (cancelled || !mounted || mounted.isDestroyed || !mounted.isEditable) return
+          const coords = mounted.view.posAtCoords({ left: clientX, top: clientY })
+          if (!coords) return
+          mounted.chain().focus().setTextSelection(coords.pos).run()
+          chromeRev++
+          const pad = 10
+          const estW = 240
+          const estH = 340
+          let left = Math.min(clientX, window.innerWidth - estW - pad)
+          let top = Math.min(clientY, window.innerHeight - estH - pad)
+          left = Math.max(pad, left)
+          top = Math.max(pad, top)
+          mobileBlockMenuOpen = true
+          mobileBlockMenuPos = { left, top }
+        }
+
+        const onTouchStart = (e: TouchEvent) => {
+          if (!mounted || !mounted.isEditable || e.touches.length !== 1) return
+          const n = e.target
+          if (!(n instanceof Node) || !dom.contains(n)) return
+          const t = e.touches[0]!
+          startX = t.clientX
+          startY = t.clientY
+          clearLongPressTimer()
+          longPressTimer = setTimeout(() => {
+            longPressTimer = null
+            openMobileBlockMenuAt(startX, startY)
+          }, LONG_MS)
+        }
+
+        const onTouchMove = (e: TouchEvent) => {
+          if (!longPressTimer || e.touches.length !== 1) return
+          const t = e.touches[0]!
+          if (Math.hypot(t.clientX - startX, t.clientY - startY) > MOVE_PX) clearLongPressTimer()
+        }
+
+        const onTouchEndOrCancel = () => clearLongPressTimer()
+
+        dom.addEventListener('touchstart', onTouchStart, { passive: true })
+        dom.addEventListener('touchmove', onTouchMove, { passive: true })
+        dom.addEventListener('touchend', onTouchEndOrCancel)
+        dom.addEventListener('touchcancel', onTouchEndOrCancel)
+
+        removeTouchLongPress = () => {
+          clearLongPressTimer()
+          dom.removeEventListener('touchstart', onTouchStart)
+          dom.removeEventListener('touchmove', onTouchMove)
+          dom.removeEventListener('touchend', onTouchEndOrCancel)
+          dom.removeEventListener('touchcancel', onTouchEndOrCancel)
+        }
+      }
     })()
 
     return () => {
       cancelled = true
       unregisterFloatingMenuEscape?.()
       unregisterFloatingMenuEscape = undefined
+      unregisterMobileEscape?.()
+      unregisterMobileEscape = undefined
+      removeTouchLongPress?.()
+      removeTouchLongPress = undefined
       if (saveTimer) clearTimeout(saveTimer)
       mounted?.destroy()
       mounted = null
@@ -306,15 +423,13 @@
     }
   })
 
-  /** Only track `editor` + `initialMarkdown`; comparing/updating `lastImported` runs inside `untrack` so writes don't retrigger this effect. */
+  /** Sync TipTap doc whenever markdown text or parent epoch changes (epoch forces reload after open/refresh). */
   $effect(() => {
     const ed = editor
     const md = initialMarkdown
+    void markdownSyncEpoch
     if (!ed) return
     untrack(() => {
-      const li = lastImported
-      if (md === li) return
-      lastImported = md
       applyMarkdownToEditor(md)
     })
   })
@@ -327,6 +442,30 @@
     if (ed.isEditable === want) return
     ed.setEditable(want)
   })
+
+  /** Dismiss manual mobile block menu on outside tap (capturing). */
+  $effect(() => {
+    if (!mobileBlockMenuOpen || floatingBlockMenuEnabled) return
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target
+      if (t instanceof Element && t.closest('.tiptap-mobile-block-menu')) return
+      mobileBlockMenuOpen = false
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    return () => document.removeEventListener('pointerdown', onPointerDown, true)
+  })
+
+  /** Long-press menu should not drift while scrolling the note. */
+  $effect(() => {
+    if (!mobileBlockMenuOpen) return
+    const el = scrollAreaEl
+    if (!el) return
+    const onScroll = () => {
+      mobileBlockMenuOpen = false
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  })
 </script>
 
 <div
@@ -335,7 +474,10 @@
     disabled && 'tiptap-md-root-disabled pointer-events-none opacity-65',
   )}
 >
-  <div class="tiptap-md-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch]">
+  <div
+    class="tiptap-md-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch]"
+    bind:this={scrollAreaEl}
+  >
     <div
       class="tiptap-md-inner box-border w-full max-w-chat px-[clamp(1rem,4%,2.5rem)] pb-5 pt-4 mx-auto"
     >
@@ -402,10 +544,19 @@
 
     <div
       bind:this={floatingMenuEl}
-      class="tiptap-surface-menu tiptap-floating-menu flex flex-col gap-0.5 rounded-lg border border-border bg-surface-2 p-1 shadow-lg"
+      class={cn(
+        'tiptap-surface-menu tiptap-floating-menu tiptap-mobile-block-menu flex flex-col gap-0.5 rounded-lg border border-border bg-surface-2 p-1 shadow-lg',
+        mobileBlockMenuOpen && !floatingBlockMenuEnabled && 'tiptap-mobile-block-menu-open',
+      )}
       role="menu"
       aria-label="Turn into"
       onmousedown={menuMouseDown}
+      style:left={mobileBlockMenuOpen && !floatingBlockMenuEnabled
+        ? `${mobileBlockMenuPos.left}px`
+        : undefined}
+      style:top={mobileBlockMenuOpen && !floatingBlockMenuEnabled
+        ? `${mobileBlockMenuPos.top}px`
+        : undefined}
     >
       {#if editor}
       <div
@@ -418,7 +569,7 @@
         type="button"
         class="tiptap-menu-btn flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-foreground hover:bg-surface-3"
         role="menuitem"
-        onclick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+        onclick={() => blockMenuChain((c) => c.toggleHeading({ level: 1 }))}
       >
         <Heading1 size={15} strokeWidth={2} class="shrink-0 text-muted" />
         Heading 1
@@ -427,7 +578,7 @@
         type="button"
         class="tiptap-menu-btn flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-foreground hover:bg-surface-3"
         role="menuitem"
-        onclick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+        onclick={() => blockMenuChain((c) => c.toggleHeading({ level: 2 }))}
       >
         <Heading2 size={15} strokeWidth={2} class="shrink-0 text-muted" />
         Heading 2
@@ -436,7 +587,7 @@
         type="button"
         class="tiptap-menu-btn flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-foreground hover:bg-surface-3"
         role="menuitem"
-        onclick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
+        onclick={() => blockMenuChain((c) => c.toggleHeading({ level: 3 }))}
       >
         <Heading3 size={15} strokeWidth={2} class="shrink-0 text-muted" />
         Heading 3
@@ -445,7 +596,7 @@
         type="button"
         class="tiptap-menu-btn flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-foreground hover:bg-surface-3"
         role="menuitem"
-        onclick={() => editor?.chain().focus().toggleBulletList().run()}
+        onclick={() => blockMenuChain((c) => c.toggleBulletList())}
       >
         <List size={15} strokeWidth={2} class="shrink-0 text-muted" />
         Bullet list
@@ -454,7 +605,7 @@
         type="button"
         class="tiptap-menu-btn flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-foreground hover:bg-surface-3"
         role="menuitem"
-        onclick={() => editor?.chain().focus().toggleOrderedList().run()}
+        onclick={() => blockMenuChain((c) => c.toggleOrderedList())}
       >
         <ListOrdered size={15} strokeWidth={2} class="shrink-0 text-muted" />
         Numbered list
@@ -463,7 +614,7 @@
         type="button"
         class="tiptap-menu-btn flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-foreground hover:bg-surface-3"
         role="menuitem"
-        onclick={() => editor?.chain().focus().toggleBlockquote().run()}
+        onclick={() => blockMenuChain((c) => c.toggleBlockquote())}
       >
         <Quote size={15} strokeWidth={2} class="shrink-0 text-muted" />
         Quote
@@ -472,7 +623,7 @@
         type="button"
         class="tiptap-menu-btn flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-foreground hover:bg-surface-3"
         role="menuitem"
-        onclick={() => editor?.chain().focus().toggleCodeBlock().run()}
+        onclick={() => blockMenuChain((c) => c.toggleCodeBlock())}
       >
         <Code2 size={15} strokeWidth={2} class="shrink-0 text-muted" />
         Code block
@@ -481,7 +632,7 @@
         type="button"
         class="tiptap-menu-btn flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-foreground hover:bg-surface-3"
         role="menuitem"
-        onclick={() => editor?.chain().focus().setHorizontalRule().run()}
+        onclick={() => blockMenuChain((c) => c.setHorizontalRule())}
       >
         <Minus size={15} strokeWidth={2} class="shrink-0 text-muted" />
         Divider
@@ -519,5 +670,14 @@
   :global(.tiptap-surface-menu.tiptap-floating-menu) {
     visibility: hidden;
     z-index: 80;
+  }
+
+  /* Narrow viewport: long-press block menu uses fixed coords from inline top/left */
+  :global(.tiptap-floating-menu.tiptap-mobile-block-menu-open) {
+    position: fixed !important;
+    visibility: visible !important;
+    pointer-events: auto;
+    z-index: 90;
+    transform: none !important;
   }
 </style>

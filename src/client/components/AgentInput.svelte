@@ -174,8 +174,6 @@
     }
   }
 
-  const TEXTAREA_MIN_H = 38
-
   /** Cap growth so the composer does not eat the whole viewport; page can scroll instead of inner textarea scroll. */
   function textareaMaxHeightPx(): number {
     if (typeof window === 'undefined') return 480
@@ -185,7 +183,7 @@
   function autoResize(el: HTMLTextAreaElement) {
     el.style.height = 'auto'
     const cap = textareaMaxHeightPx()
-    const next = Math.max(TEXTAREA_MIN_H, Math.min(el.scrollHeight, cap))
+    const next = Math.min(el.scrollHeight, cap)
     el.style.height = `${next}px`
   }
 
@@ -251,8 +249,7 @@
 </script>
 
 <div class={cn(
-  /* Match transcript horizontal gutter so empty-state copy lines up with the composer shell */
-  'input-area relative shrink-0 px-[length:var(--chat-transcript-px)] py-1.5',
+  'input-area relative shrink-0 px-0 py-1.5',
   transparentSurround ? 'input-area--transparent bg-transparent' : 'bg-surface',
 )}>
   {#if showSlash}
@@ -298,7 +295,7 @@
   {/if}
 
   <div class="input-row flex w-full min-w-0">
-    <div class="input-shell flex flex-1 min-w-0 flex-col min-h-[42px] overflow-hidden rounded-lg border border-border bg-surface focus-within:border-accent">
+    <div class="input-shell flex flex-1 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-surface focus-within:border-accent">
       {#if queuedMessages.length > 0}
         <div
           class="queued-list mb-0.5 flex flex-col gap-1.5 min-w-0 px-2.5 pt-[3px]"
@@ -321,7 +318,7 @@
           {/each}
         </div>
       {/if}
-      <div class="input-composer flex flex-1 min-w-0 flex-row items-stretch min-h-[40px]">
+      <div class="input-composer flex flex-1 min-w-0 flex-row items-stretch">
         {#if onNewChat}
           <div class="lead-actions flex shrink-0 flex-row items-stretch self-stretch" role="group" aria-label="Start new chat">
             <button
@@ -337,12 +334,12 @@
         {/if}
         <div
           class={cn(
-            'input-shell-inner flex flex-1 min-w-0 items-center py-1 pr-2 pl-3',
-            onNewChat && 'input-shell-inner--with-lead pl-2.5',
+            'input-shell-inner flex flex-1 min-w-0 items-center py-1 pr-2 pl-2',
+            onNewChat && 'input-shell-inner--with-lead pl-2',
           )}
         >
           <textarea
-            class="chat-textarea w-full flex-1 box-border min-w-0 min-h-[40px] max-h-[min(480px,55vh)] resize-none border-none bg-transparent px-1 py-2.5 text-base leading-normal text-foreground [overflow-x:hidden] [overflow-y:hidden] placeholder:text-muted placeholder:opacity-80 focus:outline-none disabled:opacity-60"
+            class="chat-textarea w-full py-1 flex-1 box-border min-w-0 max-h-[min(480px,55vh)] resize-none border-none bg-transparent px-1 py-0 text-base leading-normal text-foreground [overflow-x:hidden] [overflow-y:hidden] placeholder:text-muted placeholder:opacity-80 focus:outline-none disabled:opacity-60"
             bind:this={inputEl}
             bind:value={input}
             oninput={handleInput}
