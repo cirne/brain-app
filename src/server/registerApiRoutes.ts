@@ -9,6 +9,7 @@ import calendarRoute from './routes/calendar.js'
 import searchRoute from './routes/search.js'
 import imessageRoute from './routes/imessage.js'
 import onboardingRoute from './routes/onboarding.js'
+import backgroundStatusRoute from './routes/backgroundStatus.js'
 import backgroundRoute from './routes/background.js'
 import yourWikiRoute from './routes/yourWiki.js'
 import gmailOAuthRoute from './routes/gmailOAuth.js'
@@ -45,6 +46,7 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   app.route('/api/imessage', imessageRoute)
   app.route('/api/messages', imessageRoute)
   app.route('/api/onboarding', onboardingRoute)
+  app.route('/api/background-status', backgroundStatusRoute)
   app.route('/api/hub', hubRoute)
   app.route('/api/events', hubEventsRoute)
   app.route('/api/background', backgroundRoute)

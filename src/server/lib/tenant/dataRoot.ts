@@ -1,5 +1,6 @@
 import process from 'node:process'
 import { existsSync, mkdirSync, renameSync, rmSync } from 'node:fs'
+import { readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   brainLayoutCacheDir,
@@ -24,6 +25,20 @@ export function dataRoot(): string {
 
 export function globalDir(): string {
   return join(dataRoot(), '.global')
+}
+
+/**
+ * Dev hard-reset: remove every direct child of `BRAIN_DATA_ROOT` (same idea as `rm -rf ./data/*`).
+ * The root directory stays; all tenant trees and `.global/` go. No-op when `BRAIN_DATA_ROOT` is unset
+ * (legacy single-home tests).
+ */
+export async function wipeBrainDataRootContents(): Promise<void> {
+  const r = process.env.BRAIN_DATA_ROOT?.trim()
+  if (!r || !existsSync(r)) return
+  const entries = await readdir(r, { withFileTypes: true })
+  for (const ent of entries) {
+    await rm(join(r, ent.name), { recursive: true, force: true })
+  }
 }
 
 /** Tenant data lives under `BRAIN_DATA_ROOT/<tenantUserId>/` where `tenantUserId` is `usr_…`. Display handle lives in `handle-meta.json`. */

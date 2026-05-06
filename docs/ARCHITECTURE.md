@@ -40,6 +40,8 @@ Why the product exists, how we talk about it, and collaboration ideas — not ro
 | ------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Product vision (wiki + inbox narrative)     | [VISION.md](VISION.md)                                                               |
 | Strategy: segments and moats                | [STRATEGY.md](STRATEGY.md)                                                           |
+| Open: narrow JTBD + category-label analysis (May 2026) | [the-product-question.md](the-product-question.md)                        |
+| Open: is the wiki worth maintaining?        | [the-wiki-question.md](the-wiki-question.md)                                         |
 | Karpathy *LLM Wiki* (wiki half of the idea) | [karpathy-llm-wiki-post.md](karpathy-llm-wiki-post.md)                               |
 | Wiki sharing / brain-to-brain collaborators | [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) · **Phase 1 shipped:** [architecture/wiki-sharing.md](architecture/wiki-sharing.md) ([OPP-064 stub](opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md), [archived spec](opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)) · **Layout follow-on:** [OPP-091](opportunities/archive/OPP-091-wiki-unified-namespace-sharing-projection.md) |
 | Hosted cloud v1 scope (Phase 0 parity)      | [architecture/cloud-hosted-v1-scope.md](architecture/cloud-hosted-v1-scope.md)       |
@@ -150,6 +152,7 @@ Limits, split stores, unfinished migrations, or deferred directions — overlap 
 
 - **Single user, single process** — no separate API server; sessions are in-memory with chat history persisted under `$BRAIN_HOME` (see [chat-history-sqlite.md](architecture/chat-history-sqlite.md) for the planned SQLite migration).
 - **Wiki is files** — agent tools from `@mariozechner/pi-coding-agent` are scoped to the wiki directory; brain-app does **not** auto-run git on the wiki (sync hook is a no-op for wiki).
+  - **Bootstrap then maintenance** — after enough indexed mail, a **one-shot wiki bootstrap** may create bounded first-draft stubs ([OPP-095](opportunities/OPP-095-wiki-first-draft-bootstrap.md)); the **Your Wiki** supervisor then runs deepen-only laps ([architecture/background-task-orchestration.md](architecture/background-task-orchestration.md)).
   - **Email and index via ripmail** — subprocess CLI, `RIPMAIL_HOME` under Brain by default.
   - **UI Shell** — Svelte 5 SPA. The top-nav **Brain Hub widget** replaces legacy status bars and sync buttons, providing a single entry point to **Brain Hub** (`/hub`) for administration and system health.
   - **LLM** — `@mariozechner/pi-ai`, configured via env (see configuration doc). **Local MLX (Qwen on Apple Silicon):** [local-mlx-llm.md](architecture/local-mlx-llm.md).

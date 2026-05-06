@@ -78,7 +78,10 @@ export interface SessionOptions {
   context?: string
   /** Override personal vault directory (`wikis/me/`) for prompts / profile files */
   wikiDir?: string
-  /** Override unified `wikis/` tool root (default: {@link wikiToolsDir}) */
+  /**
+   * Override unified `wikis/` root used for find/grep + physical path joins (defaults to {@link wikiToolsDir}).
+   * Almost always leave unset — tools and prompts assume one personal vault root + optional collaborator `@handle/` trees.
+   */
   wikiToolsRoot?: string
   /** IANA timezone from the browser client (e.g. "America/Chicago") */
   timezone?: string
@@ -106,11 +109,11 @@ export async function getOrCreateSession(sessionId: string, options: SessionOpti
   }
 
   const personalVault = options.wikiDir ?? getWikiDir()
-  const toolsRoot = options.wikiToolsRoot ?? wikiToolsDir()
   const localMessagesEnabled = areLocalMessageToolsEnabled()
-  const tools = createAgentTools(toolsRoot, {
+  const tools = createAgentTools(personalVault, {
     includeLocalMessageTools: localMessagesEnabled,
     timezone: options.timezone,
+    unifiedWikiRoot: options.wikiToolsRoot ?? wikiToolsDir(),
   })
 
   // Build system prompt with local date/time in the user's timezone

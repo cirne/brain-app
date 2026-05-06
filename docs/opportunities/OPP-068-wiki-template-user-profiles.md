@@ -40,7 +40,7 @@ This keeps onboarding personal without requiring the user to self-identify upfro
 
 - Makes the wiki feel **immediately relevant** rather than blank.
 - Reduces the "what do I put here?" friction in the first session.
-- Sets up good folder structure for the buildout agent ([OPP-067](OPP-067-wiki-buildout-agent-no-new-pages.md)) to populate — it will have semantically sensible containers to fill.
+- Sets up good folder structure for the buildout agent ([archived OPP-067](archive/OPP-067-wiki-buildout-agent-no-new-pages.md)) to populate — it will have semantically sensible containers to fill.
 - Cheap to extend: adding a new profile is just a JSON/YAML definition + a few stub Markdown templates.
 
 ## Constraints / notes

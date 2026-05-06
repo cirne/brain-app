@@ -19,7 +19,7 @@ export const ONBOARDING_OMIT_TOOL_NAMES = ONBOARDING_BASE_OMIT
 /**
  * Single place for onboarding **session IANA timezone**: system prompts and `createAgentTools` calendar enrichment.
  * - **`interview`:** use client-provided TZ when present; otherwise the host default (historic behavior).
- * - **`profiling` / `buildout`:** client TZ when present; otherwise **UTC**.
+ * - **`profiling` / `buildout` / `bootstrap`:** client TZ when present; otherwise **UTC**.
  */
 export function resolveOnboardingSessionTimezone(
   variant: OnboardingAgentToolVariant,
@@ -50,6 +50,7 @@ export type CreateOnboardingAgentOptions = {
   /**
    * `profiling` omits web/video tools on top of the shared onboarding base.
    * `interview` — OPP-054 guided onboarding (allowlisted tools).
+   * `bootstrap` — OPP-095 first-draft wiki (**`write`** allowed for bounded new pages once).
    * Default: `buildout`.
    */
   variant?: OnboardingAgentToolVariant

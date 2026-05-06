@@ -67,7 +67,10 @@ inbox.post('/sync', async (c) => {
   return c.json({ ok: true })
 })
 
-/** Global ripmail sync snapshot (all accounts). Hub and post-onboarding UI use this — not onboarding-only. */
+/**
+ * Global ripmail sync snapshot (all accounts).
+ * Prefer **`GET /api/background-status`** for Hub — includes milestones + wiki supervisor slice (OPP-094).
+ */
 inbox.get('/mail-sync-status', async (c) => {
   return c.json(await getOnboardingMailStatus())
 })

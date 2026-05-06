@@ -1,6 +1,6 @@
 import type { Agent } from '@mariozechner/pi-agent-core'
 import Handlebars from 'handlebars'
-import { wikiDir as getWikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { areLocalMessageToolsEnabled } from '@server/lib/apple/imessageDb.js'
 import { renderPromptTemplate } from '@server/lib/prompts/render.js'
 import { buildDateContext, createOnboardingAgent, resolveOnboardingSessionTimezone } from './agentFactory.js'
@@ -93,7 +93,7 @@ export async function getOrCreateWikiBuildoutAgent(
   if (existing) return existing
 
   const tz = resolveOnboardingSessionTimezone('buildout', options.timezone)
-  const wiki = getWikiDir()
+  const wiki = wikiDir()
   const userPeoplePage = await ensureWikiVaultScaffoldForBuildout(wiki)
   const localMessagesAvailable = areLocalMessageToolsEnabled()
   const isFirstBuildoutRun = options.isFirstBuildoutRun ?? true
@@ -102,7 +102,7 @@ export async function getOrCreateWikiBuildoutAgent(
       localMessagesAvailable,
       isFirstBuildoutRun,
     }),
-    wikiToolsDir(),
+    wiki,
     { variant: 'buildout', timezone: options.timezone },
   )
   buildoutSessions.set(sessionId, agent)

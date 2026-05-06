@@ -7,7 +7,7 @@ import { clearAllWikiBuildoutSessions } from '@server/agent/wikiBuildoutAgent.js
 import { executeTenantSoftReset } from '@server/lib/dev/tenantSoftReset.js'
 import { deleteWikiSharesForOwner } from '@server/lib/shares/wikiSharesRepo.js'
 import { hardResetOnboardingArtifacts } from '@server/lib/onboarding/onboardingState.js'
-import { ensureTenantHomeDir, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
+import { tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 import { readHandleMeta } from '@server/lib/tenant/handleMeta.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { lookupTenantBySession } from '@server/lib/tenant/tenantRegistry.js'
@@ -98,13 +98,15 @@ async function handleHardReset(c: Context): Promise<Response> {
 
     deleteWikiSharesForOwner(tenantUserId)
     await hardResetOnboardingArtifacts()
-    ensureTenantHomeDir(tenantUserId)
+    /** Wipe already removed every `usr_*` and `.global`. Do not recreate the old tenant dir here —
+     *  the registry is gone, so the next OAuth run would provision a second `usr_*` and strand this one. */
 
     clearBrainSessionCookie(c)
     return jsonOrRedirectAfterBrowserGet(c, {
       ok: true,
       mode: 'hard',
-      message: 'Tenant data wiped including ripmail and sessions. Session cookie cleared — sign in again.',
+      message:
+        'All data under BRAIN_DATA_ROOT removed (every tenant + .global). Session cookie cleared — sign in again.',
     })
   })
 }

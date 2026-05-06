@@ -134,14 +134,16 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
     await syncWikiShareProjectionsForGrantee(granteeId)
 
+    const granteeVault = brainLayoutWikiDir(tenantHomeDir(granteeId))
     const wikisRoot = brainLayoutWikisDir(tenantHomeDir(granteeId))
 
     await runWithTenantContextAsync(
       { tenantUserId: granteeId, workspaceHandle: '_', homeDir: tenantHomeDir(granteeId) },
       async () => {
-        const tools = createAgentTools(wikisRoot, {
+        const tools = createAgentTools(granteeVault, {
           onlyToolNames: ['read', 'edit'],
           includeLocalMessageTools: false,
+          unifiedWikiRoot: wikisRoot,
         })
         const read = tools.find((t) => t.name === 'read')!
         const rr = await read.execute('tid', { path: '@carol/x/f.md' })
@@ -232,14 +234,16 @@ describe('wiki share projection (wikis/@peer/)', () => {
 
     await syncWikiShareProjectionsForGrantee(granteeId)
 
+    const granteeVault = brainLayoutWikiDir(tenantHomeDir(granteeId))
     const granteeWikisRoot = brainLayoutWikisDir(tenantHomeDir(granteeId))
 
     await runWithTenantContextAsync(
       { tenantUserId: granteeId, workspaceHandle: '_', homeDir: tenantHomeDir(granteeId) },
       async () => {
-        const tools = createAgentTools(granteeWikisRoot, {
+        const tools = createAgentTools(granteeVault, {
           onlyToolNames: ['find', 'read', 'open'],
           includeLocalMessageTools: false,
+          unifiedWikiRoot: granteeWikisRoot,
         })
         const findTool = tools.find((t) => t.name === 'find')!
         const readTool = tools.find((t) => t.name === 'read')!
@@ -254,7 +258,7 @@ describe('wiki share projection (wikis/@peer/)', () => {
         expect(joinToolResultText(readResult)).toContain('Virginia Trip')
 
         const openArgs = { target: { type: 'wiki' as const, path: foundPath } }
-        const rewrittenArgs = rewriteOpenToolArgsIfNeeded(granteeWikisRoot, openArgs)
+        const rewrittenArgs = rewriteOpenToolArgsIfNeeded(granteeVault, openArgs)
         const rewrittenTarget = (rewrittenArgs as { target: { type: string; path: string } }).target
         expect(rewrittenTarget.path).toBe('@cirne/travel/virginia-trip-2026.md')
         expect(rewrittenTarget.type).toBe('wiki')
@@ -471,8 +475,11 @@ describe('wiki share projection (wikis/@peer/)', () => {
     acceptShare({ token: row.invite_token, granteeId })
 
     const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
-    const { write } = createWikiScopedPiTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
-    const res = await write.execute('w1', { path: 'me/trips/newdoc.md', content: '# Hello' })
+    const { write } = createWikiScopedPiTools(ow, {
+      wikiWriteShareHintOwnerId: ownerId,
+      unifiedWikiRoot: ownerWikis,
+    })
+    const res = await write.execute('w1', { path: 'trips/newdoc.md', content: '# Hello' })
     const text = joinToolResultText(res as AgentToolResult<unknown>)
     expect(text).toMatch(/WARNING:/i)
     expect(text).toContain('peer@example.com')
@@ -489,11 +496,10 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const row = createShare({ ownerId, granteeId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
     acceptShare({ token: row.invite_token, granteeId })
 
-    const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
-    const { moveFile } = createWikiFileManagementTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
+    const { moveFile } = createWikiFileManagementTools(ow, { wikiWriteShareHintOwnerId: ownerId })
     const res = await executeMoveDirect(moveFile, 'm-share', {
-      from: 'me/private/draft.md',
-      to: 'me/trips/from-private.md',
+      from: 'private/draft.md',
+      to: 'trips/from-private.md',
     })
     const text = joinToolResultText(res as AgentToolResult<unknown>)
     expect(text).toMatch(/WARNING:/i)
@@ -511,11 +517,10 @@ describe('wiki share projection (wikis/@peer/)', () => {
     const row = createShare({ ownerId, granteeId, granteeEmail: 'peer@example.com', pathPrefix: 'trips/' })
     acceptShare({ token: row.invite_token, granteeId })
 
-    const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
-    const { moveFile } = createWikiFileManagementTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
+    const { moveFile } = createWikiFileManagementTools(ow, { wikiWriteShareHintOwnerId: ownerId })
     const res = await executeMoveDirect(moveFile, 'm-private', {
-      from: 'me/private/draft.md',
-      to: 'me/archive/draft.md',
+      from: 'private/draft.md',
+      to: 'archive/draft.md',
     })
     expect(joinToolResultText(res as AgentToolResult<unknown>)).not.toMatch(/WARNING:/i)
 
@@ -530,8 +535,11 @@ describe('wiki share projection (wikis/@peer/)', () => {
     acceptShare({ token: row.invite_token, granteeId })
 
     const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
-    const { write } = createWikiScopedPiTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
-    const res = await write.execute('w2', { path: 'me/private/x.md', content: 'x' })
+    const { write } = createWikiScopedPiTools(ow, {
+      wikiWriteShareHintOwnerId: ownerId,
+      unifiedWikiRoot: ownerWikis,
+    })
+    const res = await write.execute('w2', { path: 'private/x.md', content: 'x' })
     expect(joinToolResultText(res as AgentToolResult<unknown>)).not.toMatch(/WARNING:/i)
 
     deleteWikiSharesForOwner(ownerId)
@@ -552,8 +560,11 @@ describe('wiki share projection (wikis/@peer/)', () => {
     acceptShare({ token: row.invite_token, granteeId })
 
     const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
-    const { write } = createWikiScopedPiTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
-    const res = await write.execute('w3', { path: 'me/trips/plan.md', content: '# replaced' })
+    const { write } = createWikiScopedPiTools(ow, {
+      wikiWriteShareHintOwnerId: ownerId,
+      unifiedWikiRoot: ownerWikis,
+    })
+    const res = await write.execute('w3', { path: 'trips/plan.md', content: '# replaced' })
     expect(joinToolResultText(res as AgentToolResult<unknown>)).toMatch(/WARNING:/i)
     expect(joinToolResultText(res as AgentToolResult<unknown>)).toContain('f@f.com')
 
@@ -570,7 +581,11 @@ describe('wiki share projection (wikis/@peer/)', () => {
     await syncWikiShareProjectionsForGrantee(granteeId)
 
     const granteeWikis = brainLayoutWikisDir(tenantHomeDir(granteeId))
-    const { write } = createWikiScopedPiTools(granteeWikis, { wikiWriteShareHintOwnerId: granteeId })
+    const granteeVault = brainLayoutWikiDir(tenantHomeDir(granteeId))
+    const { write } = createWikiScopedPiTools(granteeVault, {
+      wikiWriteShareHintOwnerId: granteeId,
+      unifiedWikiRoot: granteeWikis,
+    })
     await expect(write.execute('wx', { path: '@alice/x/nope.md', content: 'x' })).rejects.toThrow(
       /read-only|projection|Cannot write/i,
     )
@@ -669,7 +684,8 @@ describe('wiki share projection (wikis/@peer/)', () => {
     await rm(join(ow, 'gone', 'x.md'), { force: true })
 
     const granteeWikis = brainLayoutWikisDir(tenantHomeDir(granteeId))
-    const { read } = createWikiScopedPiTools(granteeWikis)
+    const granteeVault = brainLayoutWikiDir(tenantHomeDir(granteeId))
+    const { read } = createWikiScopedPiTools(granteeVault, { unifiedWikiRoot: granteeWikis })
     await expect(read.execute('r1', { path: '@alice/gone/x.md' })).rejects.toThrow(/ENOENT|no such file|not found/i)
 
     deleteWikiSharesForOwner(ownerId)
@@ -684,9 +700,12 @@ describe('wiki share projection (wikis/@peer/)', () => {
     acceptShare({ token: row.invite_token, granteeId })
 
     const ownerWikis = brainLayoutWikisDir(tenantHomeDir(ownerId))
-    const { edit } = createWikiScopedPiTools(ownerWikis, { wikiWriteShareHintOwnerId: ownerId })
+    const { edit } = createWikiScopedPiTools(ow, {
+      wikiWriteShareHintOwnerId: ownerId,
+      unifiedWikiRoot: ownerWikis,
+    })
     const res = await edit.execute('e1', {
-      path: 'me/trips/e.md',
+      path: 'trips/e.md',
       edits: [{ oldText: 'old', newText: 'new' }],
     })
     const text = joinToolResultText(res as AgentToolResult<unknown>)

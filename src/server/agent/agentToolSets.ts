@@ -155,7 +155,7 @@ export function mergeOmitToolNames(...lists: readonly (readonly string[])[]): re
   return out
 }
 
-export type OnboardingAgentToolVariant = 'buildout' | 'profiling' | 'interview'
+export type OnboardingAgentToolVariant = 'buildout' | 'bootstrap' | 'profiling' | 'interview'
 
 /**
  * Guided onboarding interview: mail + wiki + calendar list/configure only (see `calendarAllowedOps` in createAgentTools).

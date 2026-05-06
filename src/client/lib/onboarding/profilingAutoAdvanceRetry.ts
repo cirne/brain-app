@@ -1,20 +1,12 @@
-import { ONBOARDING_BACKFILL_STILL_RUNNING_CODE } from '@shared/onboardingProfileThresholds.js'
-
 /**
- * After PATCH profiling returns 4xx, the onboarding auto-advance effect must not immediately retry
- * with unchanged mail stats — that hammers the server and freezes the UI. Retry only when indexed
- * count increased, after a backfill-busy rejection once `mail.backfillRunning` clears, or on manual retry.
+ * After PATCH onboarding state returns 4xx, the auto-advance effect must not immediately retry
+ * with unchanged mail stats — that hammers the server. Retry only when indexed count increased,
+ * or after manual retry clears {@link interviewAutoAdvanceLastFailedAtCount} / succeeds.
  */
 export function shouldRetryProfilingAutoAdvance(
   mailIndexedCount: number,
   lastFailedAtIndexedCount: number | null,
-  lastFailedPatchCode: string | undefined,
-  mailBackfillRunningNow: boolean,
 ): boolean {
   if (lastFailedAtIndexedCount === null) return true
-  if (mailIndexedCount > lastFailedAtIndexedCount) return true
-  return (
-    lastFailedPatchCode === ONBOARDING_BACKFILL_STILL_RUNNING_CODE &&
-    !mailBackfillRunningNow
-  )
+  return mailIndexedCount > lastFailedAtIndexedCount
 }

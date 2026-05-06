@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono'
 import { networkInterfaces, platform } from 'node:os'
 import { unlink } from 'node:fs/promises'
 import { join } from 'node:path'
-import { wikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import {
   readOnboardingStateDoc,
   setOnboardingState,
@@ -31,10 +31,9 @@ import {
   ripmailBin,
   ripmailHomePath,
 } from '@server/lib/onboarding/onboardingMailStatus.js'
-import {
-  ONBOARDING_BACKFILL_STILL_RUNNING_CODE,
-  ONBOARDING_PROFILE_INDEX_MANUAL_MIN,
-} from '@shared/onboardingProfileThresholds.js'
+import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '@shared/onboardingProfileThresholds.js'
+import { notifyOnboardingInterviewDone } from '@server/lib/backgroundTasks/orchestrator.js'
+import { kickWikiSupervisorIfIndexedGatePasses } from '@server/lib/backgroundTasks/wikiKickAfterOnboardingDone.js'
 import { enrichAppleMailSetupError } from '@server/lib/apple/appleMailSetupHints.js'
 import { getFdaProbeDetail, isFdaGranted } from '@server/lib/apple/fdaProbe.js'
 import { execRipmailAsync } from '@server/lib/ripmail/ripmailRun.js'
@@ -196,24 +195,21 @@ onboarding.patch('/state', async (c) => {
         400,
       )
     }
+    /** Interview does not wait for phase‑1 backfill to finish. Phase‑2 `backfill 1y` is chained after any in-flight backfill (same ripmail home) and does not cancel phase‑1. */
     if (mail.backfillRunning) {
-      return c.json(
-        {
-          error:
-            'Initial mail download is still running. This page will continue automatically when it finishes — keep the app open.',
-          code: ONBOARDING_BACKFILL_STILL_RUNNING_CODE,
-        },
-        400,
-      )
+      console.log('[onboarding/state] indexing → onboarding-agent while backfill lane active — continuing (phase 2 queued behind ripmail chain)')
     }
   }
   try {
     const doc = await setOnboardingState(next)
+    if (next === 'done' && cur.state !== 'done') {
+      void notifyOnboardingInterviewDone()
+    }
     if (next === 'onboarding-agent' && cur.state !== 'onboarding-agent') {
       const rmHome = ripmailHomePath()
       const syncLog = join(rmHome, 'logs', 'sync.log')
       console.log(
-        '[onboarding/state] Started ~1y historical mail backfill (OPP-093 phase 2). Watch progress:',
+        '[onboarding/state] Queue ~1y historical mail backfill (OPP-093 phase 2); ripmail serializes per home — does not interrupt phase‑1 backfill. Watch progress:',
         {
           ripmailHome: rmHome,
           syncLog,
@@ -240,6 +236,7 @@ async function jsonMailStatus() {
 onboarding.get('/mail', async (c) => {
   const doc = await readOnboardingStateDoc()
   const payload = await jsonMailStatus()
+  void kickWikiSupervisorIfIndexedGatePasses()
   if (doc.state === 'done') {
     return c.json({ ...payload, onboardingFlowActive: false })
   }
@@ -436,7 +433,7 @@ onboarding.post('/interview', async (c) => {
   }
 
   return streamAgentSseResponse(c, agent, promptMessage, {
-    wikiDirForDiffs: wikiToolsDir(),
+    wikiDirForDiffs: wikiDir(),
     granteeTenantId: tryGetTenantContext()?.tenantUserId,
     announceSessionId: sessionId,
     agentKind: 'onboarding_interview',
@@ -466,6 +463,7 @@ onboarding.post('/finalize', async (c) => {
     await ensureWikiVaultScaffoldForBuildout(wikiDir())
     await writeFirstChatPending()
     await setOnboardingState('done')
+    void notifyOnboardingInterviewDone()
     return c.json({ ok: true as const, state: 'done' })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

@@ -15,6 +15,12 @@ describe('WikiFileName.svelte', () => {
     expect(screen.getByText('My Wiki')).toBeInTheDocument()
   })
 
+  it('shows index.md with folder affordance for nested folder index', () => {
+    render(WikiFileName, { props: { path: 'me/index.md' } })
+    expect(screen.getByTitle('me/')).toBeInTheDocument()
+    expect(screen.getByText('index.md')).toBeInTheDocument()
+  })
+
   it('shows folder icon and title-cased name for known dirs', () => {
     render(WikiFileName, { props: { path: 'ideas/some-topic.md' } })
     expect(screen.getByTitle('ideas/')).toBeInTheDocument()

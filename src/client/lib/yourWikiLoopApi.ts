@@ -14,3 +14,11 @@ export function postYourWikiResume(): Promise<Response> {
     body: JSON.stringify(yourWikiResumeTimezonePayload()),
   })
 }
+
+export function postYourWikiRunLap(): Promise<Response> {
+  return fetch('/api/your-wiki/run-lap', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(yourWikiResumeTimezonePayload()),
+  })
+}

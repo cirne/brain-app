@@ -70,6 +70,15 @@ describe('rewriteOpenWikiTargetForUnifiedTree', () => {
     expect(rewriteOpenWikiTargetForUnifiedTree(base, t)).toEqual(t)
   })
 
+  it('accepts vault root (wikis/me) same as unified wikis/ root', async () => {
+    await layoutMeOnly()
+    const vault = join(base, 'me')
+    const out = rewriteOpenWikiTargetForUnifiedTree(vault, { type: 'wiki', path: 'travel/va.md' }) as {
+      path: string
+    }
+    expect(out.path).toBe('me/travel/va.md')
+  })
+
   it('rewrites full open args', async () => {
     await layoutPeerOnly()
     const args = { target: { type: 'wiki', path: 'travel/va.md' } }

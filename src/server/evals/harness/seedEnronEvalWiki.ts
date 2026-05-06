@@ -6,7 +6,7 @@ import { ensureWikiVaultScaffoldForBuildout } from '@server/lib/wiki/wikiVaultSc
 import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { getEvalRepoRoot } from './runLlmJsonlEval.js'
 
-/** Pre-created stubs so wiki buildout evals use **edit** only (OPP-067 deepen-only). */
+/** Pre-created stubs so wiki buildout evals use **edit** only (archived OPP-067 deepen-only). */
 const EVAL_BUILDOUT_STUBS: Record<string, string> = {
   'topics/eval-wiki-smoke.md': '## Chat capture\n\n(eval stub)\n',
   'people/richard-shapiro.md': '## Chat capture\n\n(stub)\n',

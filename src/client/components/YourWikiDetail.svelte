@@ -6,7 +6,7 @@
   import BackgroundAgentPanel from '@components/statusBar/BackgroundAgentPanel.svelte'
   import { YOUR_WIKI_HEADER, type RegisterYourWikiHeader } from '@client/lib/yourWikiHeaderContext.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
-  import { postYourWikiPause, postYourWikiResume } from '@client/lib/yourWikiLoopApi.js'
+  import { postYourWikiPause, postYourWikiResume, postYourWikiRunLap } from '@client/lib/yourWikiLoopApi.js'
   import { yourWikiNarrativeLine } from '@client/lib/yourWikiNarrative.js'
 
   type Props = {
@@ -21,7 +21,7 @@
     /** When true, omit the intro paragraph (e.g. onboarding already explains Your Wiki on the left). */
     hideSectionLead?: boolean
     /**
-     * When false, omit pause / resume / run-lap (e.g. onboarding split view—activity only).
+     * When false, omit pause / resume / run background update (e.g. onboarding split view—activity only).
      * Hub / SlideOver keep default `true`.
      */
     showLoopControls?: boolean
@@ -90,15 +90,11 @@
     }
   }
 
-  async function runLap() {
+  async function runBackgroundUpdate() {
     if (actionBusy) return
     actionBusy = true
     try {
-      await fetch('/api/your-wiki/run-lap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-      })
+      await postYourWikiRunLap()
     } finally {
       actionBusy = false
     }
@@ -146,7 +142,7 @@
   {#if !hideSectionLead}
     <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-snug text-muted">
       Your Wiki improves continuously in the background—enriching pages from your mail and profile, then cleaning up
-      links and structure. Pause it any time; resume starts a fresh lap.
+      links and structure. Pause anytime; when you resume, the next background pass starts fresh.
     </p>
   {/if}
 
@@ -187,7 +183,7 @@
               class="{actionBtnBase} {actionBtnSecondary}"
               disabled={actionBusy}
               onclick={pause}
-              title="Pause the wiki loop"
+              title="Pause background wiki updates"
             >
               <Pause size={14} aria-hidden="true" />
               Pause
@@ -198,7 +194,7 @@
               class="{actionBtnBase} {actionBtnPrimary}"
               disabled={actionBusy}
               onclick={resume}
-              title="Resume the wiki loop (starts a new lap)"
+              title="Resume background wiki updates (starts the next pass)"
             >
               <Play size={14} aria-hidden="true" />
               Resume
@@ -209,11 +205,11 @@
               type="button"
               class="{actionBtnBase} {actionBtnGhost}"
               disabled={actionBusy}
-              onclick={runLap}
-              title="Start a lap now"
+              onclick={runBackgroundUpdate}
+              title="Run a background wiki refresh now"
             >
               <RefreshCw size={14} aria-hidden="true" />
-              Run a lap now
+              Update wiki now
             </button>
           {/if}
         </div>

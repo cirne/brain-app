@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { dataRoot, ensureTenantHomeDir, globalDir, tenantHomeDir } from './dataRoot.js'
+import { dataRoot, ensureTenantHomeDir, globalDir, tenantHomeDir, wipeBrainDataRootContents } from './dataRoot.js'
 import { brainLayoutWikiDir } from '@server/lib/platform/brainLayout.js'
 
 describe('dataRoot', () => {
@@ -27,6 +27,25 @@ describe('dataRoot', () => {
     expect(tenantHomeDir('abc')).toBe(join(root, 'abc'))
     expect(globalDir()).toBe(join(root, '.global'))
     expect(dataRoot()).toBe(root)
+  })
+
+  it('wipeBrainDataRootContents removes every top-level child (tenants and dot dirs)', async () => {
+    const base = join(tmpdir(), `brain-root-wipe-${Date.now()}`)
+    process.env.BRAIN_DATA_ROOT = base
+    mkdirSync(base, { recursive: true })
+    mkdirSync(join(base, '.global', 'nested'), { recursive: true })
+    writeFileSync(join(base, '.global', 'x.txt'), 'a')
+    mkdirSync(join(base, 'usr_foo'), { recursive: true })
+    writeFileSync(join(base, 'usr_foo', 'stay.txt'), 'b')
+
+    await wipeBrainDataRootContents()
+
+    expect(existsSync(join(base, '.global'))).toBe(false)
+    expect(existsSync(join(base, 'usr_foo'))).toBe(false)
+    const { readdir } = await import('node:fs/promises')
+    expect(await readdir(base)).toEqual([])
+
+    rmSync(base, { recursive: true, force: true })
   })
 
   it('ensureTenantHomeDir creates layout directories', () => {

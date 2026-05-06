@@ -3,6 +3,61 @@ import { render, screen, waitFor, fireEvent } from '@client/test/render.js'
 import { fetchVaultStatus } from '@client/lib/vaultClient.js'
 import type { BackgroundAgentDoc } from '@client/lib/statusBar/backgroundAgentTypes.js'
 import BrainHubPage from './BrainHubPage.svelte'
+import type { BackgroundStatusResponse } from '@shared/backgroundStatus.js'
+
+function mockBackgroundStatus(overrides: Partial<BackgroundStatusResponse> = {}): BackgroundStatusResponse {
+  const base: BackgroundStatusResponse = {
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    onboardingFlowActive: false,
+    mail: {
+      indexedTotal: 0,
+      ftsReady: 0,
+      messageAvailableForProgress: null,
+      configured: false,
+      dateRange: { from: null, to: null },
+      phase1Complete: false,
+      phase2Complete: false,
+      syncRunning: false,
+      backfillRunning: false,
+      backfillPhase: null,
+      refreshRunning: false,
+      lastSyncedAt: null,
+      syncLockAgeMs: null,
+      pendingBackfill: false,
+      staleMailSyncLock: false,
+    },
+    wiki: {
+      status: 'idle',
+      phase: 'idle',
+      pageCount: 0,
+      currentLap: 0,
+      detail: 'Not yet started',
+      lastRunAt: null,
+      autoStartEligible: false,
+      bootstrap: {
+        status: 'completed',
+        completedAt: '2026-01-01T00:00:00.000Z',
+        stats: { peopleCreated: 0, projectsCreated: 0, topicsCreated: 0, travelCreated: 0 },
+      },
+    },
+    onboarding: {
+      state: 'done',
+      wikiMeExists: false,
+      milestones: {
+        interviewReady: false,
+        wikiReady: false,
+        fullySynced: false,
+      },
+    },
+  }
+  return {
+    ...base,
+    ...overrides,
+    mail: { ...base.mail, ...overrides.mail },
+    wiki: { ...base.wiki, ...overrides.wiki },
+    onboarding: { ...base.onboarding, ...overrides.onboarding },
+  }
+}
 
 const hubStoreTest = vi.hoisted(() => {
   let wikiDoc: BackgroundAgentDoc | null = null
@@ -42,6 +97,18 @@ vi.mock('@client/lib/hubEvents/hubEventsStores.js', () => ({
   yourWikiDocFromEvents: hubStoreTest.yourWikiDocFromEvents,
 }))
 
+/** Minimal EventSource so Hub can open `/api/events`. */
+class StubEventSource {
+  url: string
+  constructor(url: string) {
+    this.url = url
+  }
+
+  close(): void {}
+
+  addEventListener(): void {}
+}
+
 function defaultFetchHandler(): typeof fetch {
   return vi.fn((url: RequestInfo) => {
     const u = String(url)
@@ -54,9 +121,12 @@ function defaultFetchHandler(): typeof fetch {
     if (u.includes('/api/wiki') && !u.includes('edit-history') && !u.includes('recent')) {
       return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
     }
-    if (u.includes('/api/inbox/mail-sync-status')) {
+    if (u.includes('/api/background-status')) {
       return Promise.resolve(
-        new Response(JSON.stringify({ indexedTotal: 0, configured: false }), { status: 200 }),
+        new Response(JSON.stringify(mockBackgroundStatus()), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
       )
     }
     if (u.includes('/api/hub/sources/detail')) {
@@ -80,6 +150,7 @@ function defaultFetchHandler(): typeof fetch {
 
 describe('BrainHubPage.svelte (Activity)', () => {
   beforeEach(() => {
+    vi.stubGlobal('EventSource', StubEventSource)
     vi.stubGlobal('fetch', defaultFetchHandler())
   })
 
@@ -101,7 +172,33 @@ describe('BrainHubPage.svelte (Activity)', () => {
     })
   })
 
-  it('shows Search index section with aggregate summary when sources exist', async () => {
+  it('polls /api/background-status while Hub stays mounted', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const fetchMock = vi.fn(defaultFetchHandler())
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
+
+      await waitFor(() => {
+        const n = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/api/background-status')).length
+        expect(n).toBeGreaterThanOrEqual(1)
+      })
+
+      const countBefore = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/api/background-status')).length
+
+      await vi.advanceTimersByTimeAsync(4000)
+
+      await waitFor(() => {
+        const n = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/api/background-status')).length
+        expect(n).toBeGreaterThan(countBefore)
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows connected sources summary in overview when sources exist', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: RequestInfo) => {
@@ -112,9 +209,32 @@ describe('BrainHubPage.svelte (Activity)', () => {
         if (u.includes('/api/wiki') && !u.includes('edit-history') && !u.includes('recent')) {
           return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
         }
-        if (u.includes('/api/inbox/mail-sync-status')) {
+        if (u.includes('/api/background-status')) {
           return Promise.resolve(
-            new Response(JSON.stringify({ indexedTotal: 2, configured: true }), { status: 200 }),
+            new Response(
+              JSON.stringify(
+                mockBackgroundStatus({
+                  mail: {
+                    indexedTotal: 2,
+                    ftsReady: 2,
+                    messageAvailableForProgress: 2,
+                    configured: true,
+                    dateRange: { from: null, to: null },
+                    phase1Complete: true,
+                    phase2Complete: true,
+                    syncRunning: false,
+                    backfillRunning: false,
+                    backfillPhase: null,
+                    refreshRunning: false,
+                    lastSyncedAt: null,
+                    syncLockAgeMs: null,
+                    pendingBackfill: false,
+                    staleMailSyncLock: false,
+                  },
+                }),
+              ),
+              { status: 200, headers: { 'Content-Type': 'application/json' } },
+            ),
           )
         }
         if (u.includes('/api/hub/sources/detail')) {
@@ -151,24 +271,22 @@ describe('BrainHubPage.svelte (Activity)', () => {
     render(BrainHubPage, { props: { onHubNavigate: vi.fn() } })
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /^search index$/i })).toBeInTheDocument()
-      expect(screen.getByText(/Feeding this index/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 2, name: /what.*running/i })).toBeInTheDocument()
+      expect(screen.getByText(/Connected sources/i)).toBeInTheDocument()
       expect(screen.getByText(/1 mailbox/i)).toBeInTheDocument()
     })
     expect(screen.queryByRole('button', { name: /Add another Gmail account/i })).not.toBeInTheDocument()
   })
 
-  it('Settings in Search index lead is a link that calls onOpenSettings when wired', async () => {
+  it('Manage in Settings invokes onOpenSettings when wired', async () => {
     const onOpenSettings = vi.fn()
     render(BrainHubPage, { props: { onHubNavigate: vi.fn(), onOpenSettings } })
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /^search index$/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 2, name: /what.*running/i })).toBeInTheDocument()
     })
 
-    const link = screen.getByRole('link', { name: /^settings$/i })
-    expect(link).toHaveAttribute('href', '/settings')
-    await fireEvent.click(link)
+    await fireEvent.click(screen.getByRole('button', { name: /manage in settings/i }))
     expect(onOpenSettings).toHaveBeenCalledTimes(1)
   })
 

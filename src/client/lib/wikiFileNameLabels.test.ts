@@ -6,8 +6,9 @@ describe('wikiVaultPathDisplayName', () => {
     expect(wikiVaultPathDisplayName('ideas/some-topic.md')).toBe('Some Topic')
   })
 
-  it('uses folder segment for nested index paths', () => {
-    expect(wikiVaultPathDisplayName('areas/notes/_index.md')).toBe('Notes')
+  it('uses stored filename for nested index paths', () => {
+    expect(wikiVaultPathDisplayName('areas/notes/_index.md')).toBe('_index.md')
+    expect(wikiVaultPathDisplayName('me/index.md')).toBe('index.md')
   })
 
   it('handles vault root index', () => {

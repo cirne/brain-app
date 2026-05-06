@@ -1,0 +1,268 @@
+<script lang="ts">
+  import { Mail, BookOpen, Cable, RefreshCw, Pause, Play, Loader2 } from 'lucide-svelte'
+  import { cn } from '@client/lib/cn.js'
+  import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
+  import type { YourWikiPhase } from '@shared/backgroundStatus.js'
+
+  type Props = {
+    mailStatus: OnboardingMailStatus | null
+    mailLoading: boolean
+    wikiTitle: string
+    wikiSubtitle: string
+    wikiPhase: YourWikiPhase | undefined
+    wikiIsActive: boolean
+    wikiIsPaused: boolean
+    wikiIsIdle: boolean
+    /** When true, wiki row shows pause / resume / update controls. */
+    showWikiControls: boolean
+    onSyncNow?: () => void | Promise<void>
+    onWikiUpdateNow?: () => void | Promise<void>
+    onPause?: () => void | Promise<void>
+    onResume?: () => void | Promise<void>
+    syncBusy?: boolean
+    wikiUpdateBusy?: boolean
+    wikiActionBusy?: boolean
+    indexFeedSummary: string
+    sourcesEmpty: boolean
+    sourcesError: string | null
+    /** Settings navigation (SPA when callback set). */
+    onOpenSettings?: () => void
+  }
+
+  let {
+    mailStatus,
+    mailLoading,
+    wikiTitle,
+    wikiSubtitle,
+    wikiPhase: _wikiPhase,
+    wikiIsActive,
+    wikiIsPaused,
+    wikiIsIdle,
+    showWikiControls,
+    onSyncNow,
+    onWikiUpdateNow,
+    onPause,
+    onResume,
+    syncBusy = false,
+    wikiUpdateBusy = false,
+    wikiActionBusy = false,
+    indexFeedSummary,
+    sourcesEmpty,
+    sourcesError,
+    onOpenSettings,
+  }: Props = $props()
+
+  const wikiBtnBase =
+    'inline-flex cursor-pointer items-center gap-[0.3rem] rounded-md border px-[0.65rem] py-[0.3rem] text-[0.8125rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55'
+  const wikiBtnPrimary =
+    'border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.07)]'
+  const wikiBtnSecondary =
+    'border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground hover:not-disabled:bg-surface-3'
+  const wikiBtnGhost =
+    'border-transparent bg-transparent text-muted hover:not-disabled:bg-surface-3 hover:not-disabled:text-foreground'
+
+  const rowIconClass = 'mt-0.5 shrink-0 text-muted'
+
+  function formatSyncLockAge(ms: number | null): string {
+    if (ms == null || ms < 60_000) return ''
+    const m = Math.floor(ms / 60_000)
+    if (m < 60) return ` · ${m}m`
+    const h = Math.floor(m / 60)
+    return ` · ${h}h`
+  }
+
+  function formatRelativeDate(iso: string): string {
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return iso
+    const now = new Date()
+    const diffMs = now.getTime() - d.getTime()
+    const diffSec = Math.floor(diffMs / 1000)
+    const diffMin = Math.floor(diffSec / 60)
+    const diffHour = Math.floor(diffMin / 60)
+    const diffDay = Math.floor(diffHour / 24)
+
+    if (diffSec < 60) return 'just now'
+    if (diffMin < 60) return `${diffMin}m ago`
+    if (diffHour < 24) return `${diffHour}h ago`
+    if (diffDay === 1) return 'yesterday'
+    if (diffDay < 7) return `${diffDay}d ago`
+    return d.toLocaleDateString()
+  }
+</script>
+
+<section
+  class="hub-overview rounded-lg border border-border bg-[color-mix(in_srgb,var(--surface-2)_88%,transparent)] p-4 shadow-[0_1px_6px_rgba(0,0,0,0.04)]"
+  aria-labelledby="hub-overview-heading"
+>
+  <h2
+    id="hub-overview-heading"
+    class="m-0 border-b border-[color-mix(in_srgb,var(--border)_45%,transparent)] pb-3 text-[0.9375rem] font-bold tracking-[0.02em] text-foreground"
+  >
+    What’s running
+  </h2>
+
+  <div class="mt-4 flex flex-col gap-0">
+    <!-- Mail -->
+    <div
+      class="flex flex-col gap-2 border-b border-[color-mix(in_srgb,var(--border)_35%,transparent)] py-3 first:pt-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+    >
+      <div class="flex min-w-0 flex-1 gap-3">
+        <Mail size={18} class={rowIconClass} aria-hidden="true" />
+        <div class="min-w-0 flex-1">
+          <p class="m-0 text-[0.8125rem] font-semibold text-foreground">Mail index</p>
+          {#if mailLoading && !mailStatus}
+            <p class="mt-0.5 m-0 flex items-center gap-1.5 text-[0.8125rem] text-muted">
+              <Loader2 size={14} class="shrink-0 animate-spin" aria-hidden="true" />
+              Loading…
+            </p>
+          {:else if mailStatus?.statusError}
+            <p class="mt-0.5 m-0 text-[0.8125rem] text-[var(--text-3)]" title={mailStatus.statusError}>
+              Status unavailable
+            </p>
+          {:else if mailStatus}
+            <p class="mt-0.5 m-0 text-[0.8125rem] leading-snug text-muted">
+              <span class="tabular-nums font-semibold text-foreground"
+                >{mailStatus.indexedTotal != null ? mailStatus.indexedTotal : '—'}</span
+              >
+              messages indexed
+              {#if mailStatus.syncRunning}
+                <span class="font-semibold text-accent">
+                  · Syncing{formatSyncLockAge(mailStatus.syncLockAgeMs)}…</span
+                >
+              {:else if mailStatus.lastSyncedAt}
+                <span> · Last synced {formatRelativeDate(mailStatus.lastSyncedAt)}</span>
+              {:else if mailStatus.configured}
+                <span> · No sync time yet</span>
+              {/if}
+            </p>
+          {:else}
+            <p class="mt-0.5 m-0 text-[0.8125rem] text-muted">Loading…</p>
+          {/if}
+        </div>
+      </div>
+      {#if onSyncNow}
+        <div class="flex shrink-0 justify-end sm:pt-0.5">
+          <button
+            type="button"
+            class="{wikiBtnBase} {wikiBtnSecondary} max-sm:w-full max-sm:justify-center"
+            disabled={syncBusy}
+            onclick={() => void onSyncNow()}
+          >
+            <RefreshCw size={14} class={cn(syncBusy && 'animate-spin')} aria-hidden="true" />
+            Sync mail now
+          </button>
+        </div>
+      {/if}
+    </div>
+
+    <!-- Wiki -->
+    <div
+      class="flex flex-col gap-2 border-b border-[color-mix(in_srgb,var(--border)_35%,transparent)] py-3 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+    >
+      <div class="flex min-w-0 flex-1 gap-3">
+        {#if wikiIsActive}
+          <RefreshCw size={18} class="spin-icon mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+        {:else}
+          <BookOpen size={18} class={rowIconClass} aria-hidden="true" />
+        {/if}
+        <div class="min-w-0 flex-1">
+          <p class="m-0 text-[0.8125rem] font-semibold text-foreground">Your wiki</p>
+          <p class="mt-0.5 m-0 text-[0.9375rem] font-medium leading-snug text-foreground">{wikiTitle}</p>
+          <p class="mt-0.5 m-0 line-clamp-2 text-[0.8125rem] leading-snug text-muted">{wikiSubtitle}</p>
+        </div>
+      </div>
+      {#if showWikiControls && (onPause || onResume || onWikiUpdateNow)}
+        <div
+          class="flex shrink-0 flex-wrap items-center justify-end gap-2 max-sm:w-full max-sm:justify-stretch [&>button]:max-sm:flex-1"
+          role="group"
+          aria-label="Wiki background updates"
+        >
+          {#if wikiIsActive || (wikiIsIdle && !wikiIsPaused)}
+            <button
+              type="button"
+              class="{wikiBtnBase} {wikiBtnSecondary}"
+              disabled={wikiActionBusy}
+              onclick={() => void onPause?.()}
+              title="Pause background wiki updates"
+            >
+              <Pause size={14} aria-hidden="true" />
+              Pause
+            </button>
+          {:else if wikiIsPaused || _wikiPhase === 'error'}
+            <button
+              type="button"
+              class="{wikiBtnBase} {wikiBtnPrimary}"
+              disabled={wikiActionBusy}
+              onclick={() => void onResume?.()}
+              title="Resume background wiki updates"
+            >
+              <Play size={14} aria-hidden="true" />
+              Resume
+            </button>
+          {/if}
+          {#if wikiIsIdle && !wikiIsPaused && onWikiUpdateNow}
+            <button
+              type="button"
+              class="{wikiBtnBase} {wikiBtnGhost}"
+              disabled={wikiActionBusy || wikiUpdateBusy}
+              onclick={() => void onWikiUpdateNow()}
+              title="Run a background wiki refresh now"
+            >
+              <RefreshCw size={14} class={cn(wikiUpdateBusy && 'animate-spin')} aria-hidden="true" />
+              Update wiki now
+            </button>
+          {/if}
+        </div>
+      {/if}
+    </div>
+
+    <!-- Sources -->
+    <div class="flex flex-col gap-1 py-3 pt-4">
+      <div class="flex min-w-0 flex-1 gap-3">
+        <Cable size={18} class={rowIconClass} aria-hidden="true" />
+        <div class="min-w-0 flex-1">
+          <p class="m-0 text-[0.8125rem] font-semibold text-foreground">Connected sources</p>
+          {#if sourcesError}
+            <p class="mt-0.5 m-0 cursor-help text-[0.8125rem] text-[var(--text-3)]" title={sourcesError}>
+              Could not load summary.
+            </p>
+          {:else if sourcesEmpty}
+            <p class="mt-0.5 m-0 text-[0.8125rem] text-muted">
+              None yet — add mail or calendars so search and your wiki have material to work with.
+            </p>
+          {:else}
+            <p class="mt-0.5 m-0 text-[0.8125rem] leading-snug text-muted">{indexFeedSummary}</p>
+          {/if}
+          {#if onOpenSettings}
+            <button
+              type="button"
+              class="hub-overview-settings mt-2 inline-flex cursor-pointer border-0 bg-transparent p-0 text-[0.8125rem] font-semibold text-accent underline decoration-[color-mix(in_srgb,var(--accent)_45%,transparent)] underline-offset-[0.12em] hover:decoration-[var(--accent)]"
+              onclick={() => onOpenSettings()}
+            >
+              Manage in Settings
+            </button>
+          {/if}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  :global(.hub-overview .spin-icon) {
+    animation: hub-overview-spin 2s linear infinite;
+  }
+  @keyframes hub-overview-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(.hub-overview .spin-icon) {
+      animation: none;
+    }
+  }
+</style>

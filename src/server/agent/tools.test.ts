@@ -33,14 +33,14 @@ import {
 import { joinToolResultText, toolResultFirstText } from './agentTestUtils.js'
 import { runRipmailRefreshForBrain } from '@server/lib/ripmail/ripmailHeavySpawn.js'
 
-// Shared fixture: $BRAIN_HOME/wiki
+// Shared fixture: $BRAIN_HOME/wikis/me (vault root)
 let brainHome: string
 let wikiDir: string
 
 beforeEach(async () => {
   brainHome = await mkdtemp(join(tmpdir(), 'tools-test-'))
   process.env.BRAIN_HOME = brainHome
-  wikiDir = join(brainHome, 'wiki')
+  wikiDir = join(brainHome, 'wikis', 'me')
   vi.mocked(getCalendarEventsFromRipmail).mockResolvedValue({
     events: [],
     meta: { sourcesConfigured: false, ripmail: '' },

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-/** Pages shorter than this (word count) in typed folders are deepen candidates. Tune via OPP-067. */
+/** Pages shorter than this (word count) in typed folders are deepen candidates. Tune via archived OPP-067. */
 export const THIN_PAGE_MAX_WORDS = 120
 
 /** If `## Chat capture` is present and the page is still under this word count, prioritize deepening. */

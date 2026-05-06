@@ -58,6 +58,8 @@ export interface BackgroundRunDoc {
   idleReason?: string
   /** Your Wiki supervisor: consecutive laps with zero wiki changes */
   consecutiveNoOpLaps?: number
+  /** Your Wiki supervisor: last pre-lap mail refresh timed out or failed (lap still ran). */
+  lapMailSyncIncomplete?: boolean
   /** LLM usage for the most recently completed `agent.prompt()` in this run (enrich or cleanup pass). */
   usageLastInvocation?: LlmUsageSnapshot
   /** Running sum of `usageLastInvocation` across all completed invocations for this run id. */

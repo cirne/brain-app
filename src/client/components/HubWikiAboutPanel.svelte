@@ -6,9 +6,11 @@
       a generic model guess.
     </p>
 
-    <h3 class="hub-wiki-about-h mt-1 text-[0.8125rem] font-bold uppercase tracking-[0.05em] text-muted">How the continuous loop works</h3>
+    <h3 class="hub-wiki-about-h mt-1 text-[0.8125rem] font-bold uppercase tracking-[0.05em] text-muted">
+      How automatic updates work
+    </h3>
     <p>
-      The <strong>Your Wiki</strong> loop runs in the background. Each lap has two phases:
+      The <strong>Your Wiki</strong> background worker runs on its own schedule. Each time it wakes up it does two things:
     </p>
     <ul
       class="hub-wiki-about-list m-0 flex flex-col gap-[0.65rem] pl-[1.15rem] text-[0.9375rem] leading-[1.5] text-foreground [&_li]:pl-[0.15rem]"
@@ -23,8 +25,8 @@
       </li>
     </ul>
     <p>
-      When the wiki looks up-to-date, the loop backs off and waits for new mail or a manual nudge from the
-      <strong>Your Wiki</strong> card in Braintunnel Hub before running again.
+      When everything looks fresh, Braintunnel backs off until there’s new mail—or you tap
+      <strong>Update wiki now</strong> on the Activity page.
     </p>
 
     <h3 class="hub-wiki-about-h mt-1 text-[0.8125rem] font-bold uppercase tracking-[0.05em] text-muted">Sources vs. wiki</h3>
@@ -44,8 +46,8 @@
         Braintunnel.
       </li>
       <li>
-        <strong>Pause / Resume.</strong> Open "Your Wiki" from Braintunnel Hub to pause the loop any time.
-        Resume always starts a fresh lap.
+        <strong>Pause / Resume.</strong> Pause anytime from Activity or the wiki detail pane.
+        Resume always starts the next scheduled pass cleanly.
       </li>
       <li>
         <strong>Edit yourself.</strong> Open pages from hub or chat. The loop picks up your edits and works

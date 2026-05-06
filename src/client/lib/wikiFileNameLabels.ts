@@ -15,16 +15,14 @@ export function wikiVaultPathDisplayName(path: string): string {
   const slash = clean.lastIndexOf('/')
   const folder = slash < 0 ? '' : clean.slice(0, slash + 1)
   const name = slash < 0 ? clean : clean.slice(slash + 1)
-  const folderKey = folder.replace(/\/$/, '')
   const isIndex = name === '_index' || name.toLowerCase() === 'index'
   const isSpecial = name.startsWith('_') && !(isIndex && folder)
 
-  if (isIndex && folder) {
-    const seg = folderKey.split('/').pop() || folderKey
-    return titleCaseSegment(seg)
-  }
   if (isWikiRootIndexPath(normalized)) return 'My Wiki'
-  if (isIndex) return 'Index'
+  if (isIndex) {
+    const i = normalized.lastIndexOf('/')
+    return i < 0 ? 'My Wiki' : normalized.slice(i + 1)
+  }
   const base = isSpecial ? name.slice(1) : name
   return titleCaseSegment(base)
 }

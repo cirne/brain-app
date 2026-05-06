@@ -7,6 +7,7 @@ import { createWebAgentTools } from './tools/webAgentTools.js'
 import { createUiAgentTools } from './tools/uiAgentTools.js'
 import { createLocalMessageTools } from './tools/localMessageTools.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
+import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 
 export { normalizePhoneDigits, phoneToFlexibleGrepPattern } from '@server/lib/apple/imessagePhone.js'
 export {
@@ -41,7 +42,7 @@ export interface CreateAgentToolsOptions {
   /** IANA timezone for calendar agent enrichment (e.g. from chat client). */
   timezone?: string
   /**
-   * When `forbidden`, **`write`** rejects targets that do not already exist on disk (wiki buildout — OPP-067).
+   * When `forbidden`, **`write`** rejects targets that do not already exist on disk (wiki buildout — archived OPP-067).
    * @default 'allowed'
    */
   wikiWriteCreates?: WikiWriteCreatesPolicy
@@ -54,6 +55,11 @@ export interface CreateAgentToolsOptions {
    * Defaults to current {@link tryGetTenantContext} tenant when omitted (chat under tenant middleware).
    */
   wikiWriteShareHintOwnerId?: string
+  /**
+   * Unified `wikis/` root for find/grep (defaults to {@link wikiToolsDir}).
+   * {@link createWikiScopedPiTools} uses this alongside vault-relative read/write/edit paths.
+   */
+  unifiedWikiRoot?: string
 }
 
 function resolveIncludeLocalMessageTools(options?: CreateAgentToolsOptions): boolean {
@@ -73,9 +79,11 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
   const agentTimeZone = options?.timezone?.trim() || 'UTC'
   const wikiWriteShareHintOwnerId =
     options?.wikiWriteShareHintOwnerId ?? tryGetTenantContext()?.tenantUserId
+  const unifiedWikiRoot = options?.unifiedWikiRoot ?? wikiToolsDir()
   const { read, edit, write, grep, find } = createWikiScopedPiTools(wikiDir, {
     wikiWriteCreates: options?.wikiWriteCreates ?? 'allowed',
     ...(wikiWriteShareHintOwnerId !== undefined ? { wikiWriteShareHintOwnerId } : {}),
+    unifiedWikiRoot,
   })
 
   const { moveFile, deleteFile } = createWikiFileManagementTools(wikiDir, {

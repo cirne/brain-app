@@ -36,9 +36,21 @@ const ripmailHeavySpawnMocks = vi.hoisted(() => ({
   }),
 }))
 
+const yourWikiMocks = vi.hoisted(() => ({
+  ensureYourWikiRunning: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('@server/lib/ripmail/ripmailHeavySpawn.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@server/lib/ripmail/ripmailHeavySpawn.js')>()
   return { ...actual, runRipmailBackfillForBrain: ripmailHeavySpawnMocks.runRipmailBackfillForBrain }
+})
+
+vi.mock('../agent/yourWikiSupervisor.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../agent/yourWikiSupervisor.js')>()
+  return {
+    ...actual,
+    ensureYourWikiRunning: yourWikiMocks.ensureYourWikiRunning,
+  }
 })
 
 import onboardingRoute from './onboarding.js'
@@ -51,7 +63,6 @@ import {
   registerIdentityWorkspace,
   registerSessionTenant,
 } from '@server/lib/tenant/tenantRegistry.js'
-import { ONBOARDING_BACKFILL_STILL_RUNNING_CODE } from '@shared/onboardingProfileThresholds.js'
 import { createVaultSession } from '@server/lib/vault/vaultSessionStore.js'
 import { runWithTenantContextAsync } from '@server/lib/tenant/tenantContext.js'
 import { generateUserId, writeHandleMeta } from '@server/lib/tenant/handleMeta.js'
@@ -210,8 +221,32 @@ describe('onboarding routes', () => {
     expect(res.status).toBe(400)
   })
 
+  const mailPayloadLow = {
+    configured: true,
+    indexedTotal: 400,
+    lastSyncedAt: null as string | null,
+    dateRange: { from: null as string | null, to: null as string | null },
+    syncRunning: false,
+    refreshRunning: false,
+    backfillRunning: false,
+    syncLockAgeMs: null as number | null,
+    ftsReady: 400,
+    messageAvailableForProgress: 400,
+    pendingBackfill: false,
+    staleMailSyncLock: false,
+  }
+
+  const mailPayloadWikiReady = {
+    ...mailPayloadLow,
+    indexedTotal: 1500,
+    ftsReady: 1500,
+    messageAvailableForProgress: 1500,
+  }
+
   it('POST /finalize runs finalize and marks done', async () => {
     interviewFinalizeMocks.runInterviewFinalize.mockClear()
+    yourWikiMocks.ensureYourWikiRunning.mockClear()
+    const mailSpy = vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue(mailPayloadLow)
     const { setOnboardingState, readOnboardingStateDoc } = await import('@server/lib/onboarding/onboardingState.js')
     const sessionId = '550e8400-e29b-41d4-a716-446655440001'
     await setOnboardingState('indexing')
@@ -233,6 +268,42 @@ describe('onboarding routes', () => {
       sessionId,
       timezone: 'America/Chicago',
     })
+    await vi.waitFor(() => {
+      expect(yourWikiMocks.ensureYourWikiRunning).not.toHaveBeenCalled()
+    })
+    mailSpy.mockRestore()
+  })
+
+  it('POST /finalize kicks wiki supervisor when indexed count passes wiki-ready gate', async () => {
+    interviewFinalizeMocks.runInterviewFinalize.mockClear()
+    yourWikiMocks.ensureYourWikiRunning.mockClear()
+    const mailSpy = vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue(mailPayloadWikiReady)
+    const bootstrapSpy = vi.spyOn(await import('@server/lib/onboarding/onboardingState.js'), 'readWikiBootstrapState')
+    bootstrapSpy.mockResolvedValue({
+      status: 'completed',
+      version: 1,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      completedAt: '2026-01-01T00:00:00.000Z',
+      stats: { peopleCreated: 0, projectsCreated: 0, topicsCreated: 0, travelCreated: 0 },
+    })
+    const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
+    const sessionId = '550e8400-e29b-41d4-a716-446655440002'
+    await setOnboardingState('indexing')
+    await setOnboardingState('onboarding-agent')
+
+    const app = new Hono()
+    app.route('/api/onboarding', onboardingRoute)
+    const res = await app.request('http://localhost/api/onboarding/finalize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, timezone: 'UTC' }),
+    })
+    expect(res.status).toBe(200)
+    await vi.waitFor(() => {
+      expect(yourWikiMocks.ensureYourWikiRunning).toHaveBeenCalledTimes(1)
+    })
+    mailSpy.mockRestore()
+    bootstrapSpy.mockRestore()
   })
 
   it('POST /setup-mail returns 500 with error when ripmail exits non-zero', async () => {
@@ -447,7 +518,7 @@ describe('onboarding routes', () => {
     it('allows transition at or above minimum indexed count', async () => {
       vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
         configured: true,
-        indexedTotal: 200,
+        indexedTotal: 500,
         lastSyncedAt: null,
         dateRange: { from: null, to: null },
         syncRunning: false,
@@ -475,17 +546,17 @@ describe('onboarding routes', () => {
       expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledWith(['1y'])
     })
 
-    it('returns 400 when indexed enough but ripmail backfill is still running', async () => {
+    it('allows transition while ripmail backfill lane still runs (phase 2 queued behind ripmail chain)', async () => {
       vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
         configured: true,
-        indexedTotal: 220,
+        indexedTotal: 520,
         lastSyncedAt: null,
         dateRange: { from: null, to: null },
         syncRunning: true,
         refreshRunning: false,
         backfillRunning: true,
         syncLockAgeMs: 9000,
-        ftsReady: 220,
+        ftsReady: 520,
         messageAvailableForProgress: null,
         pendingBackfill: false,
         staleMailSyncLock: false,
@@ -499,11 +570,9 @@ describe('onboarding routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ state: 'onboarding-agent' }),
       })
-      expect(res.status).toBe(400)
-      expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).not.toHaveBeenCalled()
-      const body = (await res.json()) as { code?: string; error?: string }
-      expect(body.code).toBe(ONBOARDING_BACKFILL_STILL_RUNNING_CODE)
-      expect(body.error?.toLowerCase()).toContain('still running')
+      expect(res.status).toBe(200)
+      expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledTimes(1)
+      expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledWith(['1y'])
     })
 
     it('PATCH success is not blocked when background 1y backfill rejects', async () => {
@@ -513,7 +582,7 @@ describe('onboarding routes', () => {
       const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
         configured: true,
-        indexedTotal: 200,
+        indexedTotal: 500,
         lastSyncedAt: null,
         dateRange: { from: null, to: null },
         syncRunning: false,

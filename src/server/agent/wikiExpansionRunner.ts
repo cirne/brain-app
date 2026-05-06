@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { AgentMessage } from '@mariozechner/pi-agent-core'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { wikiDir, wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { listWikiFiles } from '@server/lib/wiki/wikiFiles.js'
 import {
   markWikiBuildoutFirstPassDone,
@@ -52,7 +52,7 @@ import {
 } from './wikiBuildoutAgent.js'
 import { buildDateContext, createCleanupAgent } from './agentFactory.js'
 
-/** Tail size for \`wiki-edits.jsonl\` injection into enrich laps (OPP-067). */
+/** Tail size for \`wiki-edits.jsonl\` injection into enrich laps (archived OPP-067). */
 export const WIKI_DEEPEN_RECENT_EDITS_LIMIT = 35
 
 /** Max paths in the merged **Deepen this lap** list. */
@@ -209,7 +209,7 @@ function safeDetails(d: unknown): unknown {
 
 /**
  * Read me.md, assistant.md, vault manifest, recent `wiki-edits.jsonl` paths, and thin-page candidates
- * for enrich (buildout) laps — OPP-067 deepen-only queue injection.
+ * for enrich (buildout) laps — archived OPP-067 deepen-only queue injection.
  *
  * `syncNote` is an optional note about recent mail sync freshness (added for laps 2+). It is
  * kept deliberately minimal to avoid recency bias — we inform the agent that data is fresh
@@ -290,8 +290,8 @@ export async function buildExpansionContextPrefix(wikiRoot: string, syncNote?: s
   return `[Injected context for this expansion pass — use this instead of trying to read me.md / assistant.md via tools]\n\n${parts.join('\n\n')}\n\n---\n\n`
 }
 
-interface AttachRunTrackerNrOptions {
-  source: 'wikiExpansion' | 'wikiCleanup'
+export interface AttachRunTrackerNrOptions {
+  source: 'wikiExpansion' | 'wikiCleanup' | 'wikiBootstrap'
   backgroundRunId: string
   workspaceHandle?: string
   /** When set, must match {@link attachAgentDiagnosticsCollector} so NR and JSONL share one id */
@@ -299,7 +299,7 @@ interface AttachRunTrackerNrOptions {
 }
 
 /** Tracks write/edit tool call activity and updates a BackgroundRunDoc in place. */
-function attachRunTracker(
+export function attachWikiBackgroundRunTracker(
   agent: { subscribe: (cb: (event: Record<string, unknown>) => void | Promise<void>) => () => void },
   doc: BackgroundRunDoc,
   wikiRoot: string,
@@ -327,7 +327,7 @@ function attachRunTracker(
   const sseMaxChars = 4000
   const turnLlm: LlmTurnTelemetry = {
     agentTurnId,
-    source: nrOpts.source,
+    source: nrOpts.source === 'wikiBootstrap' ? 'wiki_bootstrap' : nrOpts.source,
     agentKind,
     correlation: {
       backgroundRunId: nrOpts.backgroundRunId,
@@ -520,7 +520,7 @@ export function pauseWikiExpansionRun(runId: string): void {
 
 /**
  * Run a single enrich (wiki expansion / deepen) invocation. Injects profile, manifest,
- * `wiki-edits.jsonl` tail, thin-page candidates, and merged priority queue (OPP-067).
+ * `wiki-edits.jsonl` tail, thin-page candidates, and merged priority queue (archived OPP-067).
  * `syncNote` is a brief, recency-bias-avoiding note when mail was refreshed before this lap.
  * Returns wiki page create/edit counts and the vault-relative paths touched (writes/edits — cleanup anchor export).
  */
@@ -558,7 +558,7 @@ export async function runEnrichInvocation(
     source: 'wiki_enrich',
     backgroundRunId: runId,
   })
-  const { unsubscribe, getChangeCount, getChangedFiles } = attachRunTracker(agent, doc, wikiRoot, {
+  const { unsubscribe, getChangeCount, getChangedFiles } = attachWikiBackgroundRunTracker(agent, doc, wikiRoot, {
     source: 'wikiExpansion',
     backgroundRunId: runId,
     workspaceHandle: ws,
@@ -622,7 +622,7 @@ export async function runCleanupInvocation(
   const contextPrefix = await buildExpansionContextPrefix(wikiRoot)
   const tz = options.timezone ?? 'UTC'
   const systemPrompt = buildCleanupSystemPrompt(tz)
-  const agent = createCleanupAgent(systemPrompt, wikiToolsDir())
+  const agent = createCleanupAgent(systemPrompt, wikiDir())
   cleanupSessions.set(sessionId, agent)
 
   const trigger = options.trigger
@@ -656,7 +656,7 @@ export async function runCleanupInvocation(
   })
 
   const ws = tryGetTenantContext()?.workspaceHandle
-  const { unsubscribe, getChangeCount, getChangedFiles, getTelemetry } = attachRunTracker(agent, doc, wikiRoot, {
+  const { unsubscribe, getChangeCount, getChangedFiles, getTelemetry } = attachWikiBackgroundRunTracker(agent, doc, wikiRoot, {
     source: 'wikiCleanup',
     backgroundRunId: runId,
     workspaceHandle: ws,

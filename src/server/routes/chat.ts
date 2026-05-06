@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { getOrCreateSession, deleteSession } from '../agent/index.js'
 import { readFile } from 'node:fs/promises'
-import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { safeWikiRelativePath } from '@server/lib/wiki/wikiEditDiff.js'
 import {
   PathEscapeError,
@@ -157,7 +157,7 @@ chat.post('/', async (c) => {
   if (typeof context === 'string') {
     fileContext = context
   } else if (context?.files?.length) {
-    const wikiRoot = wikiToolsDir()
+    const wikiRoot = wikiDir()
     const safeRelPaths: string[] = []
     for (const filePath of context.files) {
       if (typeof filePath !== 'string') {
@@ -232,7 +232,7 @@ chat.post('/', async (c) => {
       { selection: selectionForSkill, openFile: openFileForSkill },
       async () =>
         await streamAgentSseResponse(c, agent, rawMessage ?? message, {
-          wikiDirForDiffs: wikiToolsDir(),
+          wikiDirForDiffs: wikiDir(),
           granteeTenantId: wikiToolsGranteeTenantIdOrSingle(),
           announceSessionId: sessionId,
           agentKind: 'chat_skill',
@@ -255,7 +255,7 @@ chat.post('/', async (c) => {
     { selection: selectionForSkill, openFile: openFileForSkill },
     async () =>
       await streamAgentSseResponse(c, agent, rawMessage ?? message, {
-        wikiDirForDiffs: wikiToolsDir(),
+        wikiDirForDiffs: wikiDir(),
         granteeTenantId: wikiToolsGranteeTenantIdOrSingle(),
         announceSessionId: sessionId,
         agentKind: 'chat',

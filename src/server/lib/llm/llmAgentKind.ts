@@ -20,6 +20,8 @@ export const LLM_AGENT_KINDS = [
   'wiki_enrichment',
   /** Background Your Wiki cleanup / lint pass (wiki background runner, cleanup). */
   'wiki_cleanup',
+  /** One-shot wiki first-draft bootstrap (OPP-095); may write new entity pages once. */
+  'wiki_bootstrap',
 ] as const
 
 export type LlmAgentKind = (typeof LLM_AGENT_KINDS)[number]
@@ -28,7 +30,10 @@ export function isLlmAgentKind(s: string): s is LlmAgentKind {
   return (LLM_AGENT_KINDS as readonly string[]).includes(s)
 }
 
-export function agentKindForWikiSource(source: 'wikiExpansion' | 'wikiCleanup'): LlmAgentKind {
+export function agentKindForWikiSource(
+  source: 'wikiExpansion' | 'wikiCleanup' | 'wikiBootstrap',
+): LlmAgentKind {
   if (source === 'wikiExpansion') return 'wiki_enrichment'
-  return 'wiki_cleanup'
+  if (source === 'wikiCleanup') return 'wiki_cleanup'
+  return 'wiki_bootstrap'
 }

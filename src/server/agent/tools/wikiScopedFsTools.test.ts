@@ -7,6 +7,7 @@ import { closeBrainGlobalDbForTests } from '@server/lib/global/brainGlobalDb.js'
 import {
   vaultRelPathFromMeToolPath,
   buildWikiWriteShareVisibilityHint,
+  toPiCodingAgentFsRelPath,
 } from './wikiScopedFsTools.js'
 import {
   acceptShare,
@@ -16,10 +17,17 @@ import {
 import { migrateWikiToWikisMe, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 
 describe('wikiScopedFsTools share hints', () => {
-  it('vaultRelPathFromMeToolPath strips me/ prefix', () => {
+  it('toPiCodingAgentFsRelPath preserves @peer dirs for pi-coding-agent path resolution', () => {
+    expect(toPiCodingAgentFsRelPath('@alice/trips/x.md')).toBe('./@alice/trips/x.md')
+    expect(toPiCodingAgentFsRelPath('me/notes/a.md')).toBe('me/notes/a.md')
+    expect(toPiCodingAgentFsRelPath('.')).toBe('.')
+  })
+
+  it('vaultRelPathFromMeToolPath accepts vault-relative paths and legacy me/…', () => {
     expect(vaultRelPathFromMeToolPath('me/trips/a.md')).toBe('trips/a.md')
     expect(vaultRelPathFromMeToolPath('./me/foo/bar.md')).toBe('foo/bar.md')
     expect(vaultRelPathFromMeToolPath('me')).toBe('')
+    expect(vaultRelPathFromMeToolPath('trips/a.md')).toBe('trips/a.md')
     expect(vaultRelPathFromMeToolPath('@alice/x.md')).toBeNull()
   })
 

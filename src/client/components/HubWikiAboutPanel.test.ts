@@ -9,7 +9,7 @@ describe('HubWikiAboutPanel.svelte', () => {
     expect(
       container.querySelector('.hub-wiki-about-lead')?.textContent ?? '',
     ).toMatch(/private set of Markdown pages/i)
-    expect(screen.getByRole('heading', { name: /How the continuous loop works/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /How automatic updates work/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /Sources vs\. wiki/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /You're in control/i })).toBeInTheDocument()
   })

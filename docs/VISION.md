@@ -30,7 +30,7 @@ Many general-purpose assistants are powerful but generic. Every session starts c
 
 Generic assistants are also error-prone precisely because they're generic — they fill in gaps with plausible-sounding guesses rather than facts from your actual life. A personalized assistant with access to your real data makes fewer mistakes and requires less hand-holding.
 
-The number one use case people actually want from an LLM assistant is: *help me manage my life*. Not write code in the abstract, not explain concepts in a vacuum — help me with my specific emails, my specific calendar, my specific projects, my specific people. That use case demands personalization. Brain-app is what happens when you build for that use case from the start instead of bolting it on. **Who we compete against, which segments we avoid or pursue, and how we think about moats** live in **[STRATEGY.md](./STRATEGY.md)**.
+The number one use case people actually want from an LLM assistant is: *help me manage my life*. Not write code in the abstract, not explain concepts in a vacuum — help me with my specific emails, my specific calendar, my specific projects, my specific people. That use case demands personalization. Brain-app is what happens when you build for that use case from the start instead of bolting it on. **Who we compete against, which segments we avoid or pursue, and how we think about moats** live in **[STRATEGY.md](./STRATEGY.md)** — with a critical reading of the **"AI executive assistant"** category label and alternative framings in **[the-product-question.md](./the-product-question.md)**.
 
 ---
 

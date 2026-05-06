@@ -13,7 +13,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { brainHome } from '@server/lib/platform/brainHome.js'
-import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
+import { wikiDir } from '@server/lib/wiki/wikiDir.js'
 import { listWikiFiles } from '@server/lib/wiki/wikiFiles.js'
 import {
   appendTimelineEvent,
@@ -66,6 +66,32 @@ let wikiSupervisorShutdownRequested = false
 /** AbortController for the in-lap `refreshMailAndWait` call (can run up to 90s). */
 let wikiLapSyncAbort: AbortController | null = null
 
+/** Outer-loop crashes (single process): bounded auto-restart with backoff. */
+let supervisorOuterCrashStreak = 0
+let supervisorCrashRestartTimer: ReturnType<WikiSupervisorClock['setTimeout']> | null = null
+const MAX_SUPERVISOR_AUTO_RESTARTS = 3
+
+function cancelSupervisorCrashRestart(): void {
+  const clock = getWikiSupervisorClock()
+  if (supervisorCrashRestartTimer !== null) {
+    clock.clearTimeout(supervisorCrashRestartTimer)
+    supervisorCrashRestartTimer = null
+  }
+}
+
+function scheduleSupervisorCrashRestart(timezone?: string): void {
+  const clock = getWikiSupervisorClock()
+  if (isPaused || wikiSupervisorShutdownRequested) return
+  if (supervisorOuterCrashStreak > MAX_SUPERVISOR_AUTO_RESTARTS) return
+  cancelSupervisorCrashRestart()
+  const delayMs = Math.min(60_000, 5000 * supervisorOuterCrashStreak)
+  supervisorCrashRestartTimer = clock.setTimeout(() => {
+    supervisorCrashRestartTimer = null
+    if (isPaused || wikiSupervisorShutdownRequested || loopRunning) return
+    kickSupervisorLoop(timezone, tryGetTenantContext() ?? null)
+  }, delayMs) as ReturnType<typeof setTimeout>
+}
+
 // ─── Persisted pause state ───────────────────────────────────────────────────
 
 interface PersistedState {
@@ -110,7 +136,7 @@ async function savePersistedState(state: PersistedState): Promise<void> {
  */
 async function loadOrCreateDoc(): Promise<BackgroundRunDoc> {
   const existing = await readBackgroundRun(YOUR_WIKI_DOC_ID)
-  const dir = wikiToolsDir()
+  const dir = wikiDir()
   const paths = await listWikiFiles(dir)
   const actualPageCount = paths.length
 
@@ -216,6 +242,7 @@ export function prepareWikiSupervisorShutdown(): void {
   wikiLapSyncAbort?.abort()
   wikiLapSyncAbort = null
   cancelBackoff()
+  cancelSupervisorCrashRestart()
   pauseWikiExpansionRun(YOUR_WIKI_DOC_ID)
   pauseCleanupSession(YOUR_WIKI_DOC_ID)
 }
@@ -280,7 +307,10 @@ async function supervisorLoop(timezone?: string): Promise<void> {
       const isFirstLap = lap === 1 && (doc.phase === 'starting' || doc.phase === undefined)
       await setPhase(doc, isFirstLap ? 'starting' : 'enriching', lap, isFirstLap ? 'Starting your first pages…' : `Enriching · Lap ${lap}…`)
 
-      touchRun(doc, { consecutiveNoOpLaps })
+      touchRun(doc, {
+        consecutiveNoOpLaps,
+        ...(isFirstLap ? { lapMailSyncIncomplete: false } : {}),
+      })
       await writeBackgroundRun(doc)
 
       // Refresh mail index before every lap except the initial build-out.
@@ -295,13 +325,26 @@ async function supervisorLoop(timezone?: string): Promise<void> {
         const syncResult = await refreshMailAndWait(90_000, wikiLapSyncAbort.signal)
         wikiLapSyncAbort = null
         if (syncResult.ok) {
+          touchRun(doc, { lapMailSyncIncomplete: false })
           syncNote =
             'Mail and calendar sources were synced immediately before this lap. ' +
             'Your tools (search_index, read_mail_message, read_indexed_file, find_person) reflect recently indexed content. ' +
             'Prioritize **new high-signal coverage** (people, projects, deserving topics) revealed by these updates—not extra thin topic stubs. ' +
             'Use **edit** for surgical factual corrections if existing pages are now proven wrong or stale, ' +
             'and balance new material with coherence rather than only summarizing recent events.'
+        } else {
+          const timedOut = syncResult.timedOut === true
+          touchRun(doc, {
+            lapMailSyncIncomplete: true,
+            detail: timedOut
+              ? 'Mail refresh timed out — continuing lap with existing index.'
+              : `Mail refresh failed — continuing lap. (${syncResult.error ?? 'unknown'})`,
+          })
+          syncNote = timedOut
+            ? 'Mail refresh timed out before this lap; the search index may be slightly stale. Prefer surgical edits and verify important facts with tools.'
+            : 'Mail refresh failed before this lap; use tools carefully and prefer factual corrections over broad new stubs.'
         }
+        await writeBackgroundRun(doc)
       }
 
       if (supervisorStopping()) break
@@ -338,6 +381,7 @@ async function supervisorLoop(timezone?: string): Promise<void> {
         consecutiveNoOpLaps = 0
       }
       touchRun(doc, { consecutiveNoOpLaps })
+      supervisorOuterCrashStreak = 0
 
       if (consecutiveNoOpLaps >= IDLE_AFTER_NO_OP_LAPS) {
         // Go idle; wake on trigger
@@ -385,14 +429,19 @@ async function supervisorLoop(timezone?: string): Promise<void> {
     }
   } catch (e) {
     console.error('[your-wiki] supervisor loop error:', e)
+    supervisorOuterCrashStreak++
+    const msg = e instanceof Error ? e.message : String(e)
     try {
       const doc = await loadOrCreateDoc()
-      const msg = e instanceof Error ? e.message : String(e)
       touchRun(doc, { phase: 'error', status: 'error', detail: msg, error: msg })
       await writeBackgroundRun(doc)
     } catch {
       /* ignore secondary error */
     }
+    void import('@server/lib/backgroundTasks/orchestrator.js')
+      .then(({ recordWikiSupervisorOuterLoopFailure }) => recordWikiSupervisorOuterLoopFailure(msg))
+      .catch(() => {})
+    scheduleSupervisorCrashRestart(timezone)
   } finally {
     loopRunning = false
   }
@@ -480,7 +529,7 @@ export function requestLapNow(): void {
 /** Return the current supervisor doc for the API, or a default "not yet started" shape. */
 export async function getYourWikiDoc(): Promise<BackgroundRunDoc> {
   const doc = await readBackgroundRun(YOUR_WIKI_DOC_ID)
-  const dir = wikiToolsDir()
+  const dir = wikiDir()
   const paths = await listWikiFiles(dir)
   const actualPageCount = paths.length
 

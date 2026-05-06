@@ -12,12 +12,13 @@ import {
 } from './wikiToolProvenance.js'
 
 describe('wikiToolProvenance', () => {
-  it('classifyWikiToolsRelPath distinguishes me, shared, other', () => {
+  it('classifyWikiToolsRelPath distinguishes vault vs shared', () => {
     expect(classifyWikiToolsRelPath('me/travel/a.md')).toEqual({ scope: 'me', handle: null })
+    expect(classifyWikiToolsRelPath('travel/a.md')).toEqual({ scope: 'me', handle: null })
     expect(classifyWikiToolsRelPath('./me/ideas/x.md')).toEqual({ scope: 'me', handle: null })
+    expect(classifyWikiToolsRelPath('people/x.md')).toEqual({ scope: 'me', handle: null })
     expect(classifyWikiToolsRelPath('@alice/shared/x.md')).toEqual({ scope: 'shared', handle: 'alice' })
     expect(classifyWikiToolsRelPath('./@bob/y.md')).toEqual({ scope: 'shared', handle: 'bob' })
-    expect(classifyWikiToolsRelPath('orphan.md')).toEqual({ scope: 'other', handle: null })
   })
 
   it('normalizeWikiToolsRelPath strips ./', () => {
@@ -42,18 +43,16 @@ describe('wikiToolProvenance', () => {
     expect(grepFilePartToToolsRel(tools, search, 'plan.md')).toBe('me/travel/plan.md')
   })
 
-  it('applyWikiFindProvenanceAnnotations leaves me-only lists unchanged', () => {
+  it('applyWikiFindProvenanceAnnotations strips me/ for vault-only lists', () => {
     const raw = 'me/a.md\nme/b.md'
-    expect(applyWikiFindProvenanceAnnotations(raw)).toBe(raw)
+    expect(applyWikiFindProvenanceAnnotations(raw)).toBe('a.md\nb.md')
   })
 
   it('applyWikiFindProvenanceAnnotations tags shared paths and prepends mixed summary', () => {
     const raw = 'me/a.md\n@peer/trip.md'
     const out = applyWikiFindProvenanceAnnotations(raw)
     expect(out).toContain('Wiki search:')
-    expect(out).toContain('me/')
-    expect(out).toContain('@peer')
-    expect(out).toContain('[vault:me] me/a.md')
+    expect(out).toContain('[vault:me] a.md')
     expect(out).toContain('[shared:@peer] @peer/trip.md')
   })
 
@@ -64,10 +63,10 @@ describe('wikiToolProvenance', () => {
     expect(out.indexOf('[vault:me]')).toBeLessThan(out.indexOf('[1000 results'))
   })
 
-  it('applyWikiGrepProvenanceAnnotations leaves me-only hits unchanged', () => {
+  it('applyWikiGrepProvenanceAnnotations rewrites me/ paths to vault-relative when me-only', () => {
     const root = '/w'
     const raw = 'me/a.md:1:hello world'
-    expect(applyWikiGrepProvenanceAnnotations(root, root, raw)).toBe(raw)
+    expect(applyWikiGrepProvenanceAnnotations(root, root, raw)).toBe('a.md:1:hello world')
   })
 
   it('applyWikiGrepProvenanceAnnotations tags shared rg lines and mixed summary', () => {
@@ -75,7 +74,7 @@ describe('wikiToolProvenance', () => {
     const raw = 'me/a.md:1:in mine\n@bob/theirs.md:2:secret EVAL_PEER_TOK\n'
     const out = applyWikiGrepProvenanceAnnotations(root, root, raw.trimEnd())
     expect(out).toContain('Wiki search:')
-    expect(out).toContain('[vault:me] me/a.md:1:in mine')
+    expect(out).toContain('[vault:me] a.md:1:in mine')
     expect(out).toContain('[shared:@bob] @bob/theirs.md:2:secret EVAL_PEER_TOK')
   })
 
@@ -88,8 +87,9 @@ describe('wikiToolProvenance', () => {
     expect(out).toContain('notes.md:1:EVAL_IN_SHARED_SUBTREE_ONLY')
   })
 
-  it('sharedWikiReadSourceBanner is null for me paths', () => {
+  it('sharedWikiReadSourceBanner is null for vault paths', () => {
     expect(sharedWikiReadSourceBanner('me/x.md')).toBeNull()
+    expect(sharedWikiReadSourceBanner('people/x.md')).toBeNull()
   })
 
   it('sharedWikiReadSourceBanner for shared paths', () => {

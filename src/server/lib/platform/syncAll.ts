@@ -136,7 +136,7 @@ export async function refreshMailAndWait(
     return { ok: true }
   } catch (e) {
     if (e instanceof RipmailTimeoutError) {
-      return { ok: true, timedOut: true }
+      return { ok: false, timedOut: true, error: 'refresh timed out' }
     }
     return { ok: false, error: formatExecError(e) }
   }

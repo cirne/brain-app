@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { RefreshCw, ChevronRight, BookOpen, FileText, Radio, Pause, Play } from 'lucide-svelte'
+  import { RefreshCw, ChevronRight, BookOpen, FileText } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import type { OnboardingMailStatus } from '@client/lib/onboarding/onboardingTypes.js'
@@ -11,8 +11,15 @@
   import { fetchVaultStatus } from '@client/lib/vaultClient.js'
   import HubSourceRowBody from '@components/HubSourceRowBody.svelte'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
-  import { postYourWikiPause, postYourWikiResume } from '@client/lib/yourWikiLoopApi.js'
+  import { postYourWikiPause, postYourWikiResume, postYourWikiRunLap } from '@client/lib/yourWikiLoopApi.js'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
+  import type { BackgroundStatusResponse } from '@shared/backgroundStatus.js'
+  import { onboardingMailStatusFromBackground } from '@client/lib/hub/backgroundStatusMap.js'
+  import HubActivityOverview from '@components/hub/HubActivityOverview.svelte'
+  import { startHubEventsConnection } from '@client/lib/hubEvents/hubEventsClient.js'
+
+  /** Background snapshot read from `/api/background-status` — poll while Hub is open. */
+  const HUB_BACKGROUND_STATUS_POLL_MS = 4000
 
   type HubRipmailSourceRow = {
     id: string
@@ -23,7 +30,7 @@
 
   type Props = {
     onHubNavigate: (_overlay: Overlay, _opts?: NavigateOptions) => void
-    /** Opens Settings primary column (`/settings`); when set, click uses SPA navigation. */
+    /** Opens Settings primary column (`/settings`); when set, Manage uses SPA navigation. */
     onOpenSettings?: () => void
   }
 
@@ -38,6 +45,9 @@
   let wikiRecentReady = $state(false)
   let hostedWorkspaceHandle = $state<string | undefined>(undefined)
   let wikiActionBusy = $state(false)
+  let backgroundStatusLoading = $state(true)
+  let syncKickBusy = $state(false)
+  let wikiBackgroundUpdateBusy = $state(false)
 
   const wikiPhase = $derived(wikiDoc?.phase as YourWikiPhase | undefined)
   const wikiIsActive = $derived(
@@ -103,11 +113,11 @@
         if ((wikiDoc.detail ?? '').includes('Sync')) return wikiDoc.detail ?? 'Preparing sources…'
         return 'Looking for pages to improve'
       case 'cleaning':
-        return lastLine ?? 'Cleaning up from the last pass'
+        return lastLine ?? 'Cleaning up links and orphaned pages'
       case 'paused':
-        return lastLine ?? 'Press Resume when you want background updates again'
+        return lastLine ?? 'Tap Resume when you want background updates again'
       case 'error': {
-        const msg = (wikiDoc.error ?? wikiDoc.detail ?? 'Open for details').trim()
+        const msg = (wikiDoc.error ?? wikiDoc.detail ?? 'Open details for more').trim()
         return msg.length > 140 ? `${msg.slice(0, 137)}…` : msg
       }
       case 'idle':
@@ -146,7 +156,40 @@
     }),
   )
 
-  /** Aggregate counts for Activity — avoids duplicating the per-connection list from Settings. */
+  function applyBackgroundStatusPayload(bg: BackgroundStatusResponse): void {
+    mailStatus = onboardingMailStatusFromBackground(bg.mail)
+    if (wikiDoc == null && bg.wiki) {
+      wikiDoc = {
+        id: 'your-wiki',
+        kind: 'your-wiki',
+        status: bg.wiki.status,
+        label: 'Your Wiki',
+        detail: bg.wiki.detail,
+        pageCount: bg.wiki.pageCount,
+        logLines: [],
+        logEntries: [],
+        timeline: [],
+        startedAt: bg.wiki.lastRunAt ?? bg.updatedAt,
+        updatedAt: bg.wiki.lastRunAt ?? bg.updatedAt,
+        phase: bg.wiki.phase,
+        lap: bg.wiki.currentLap,
+        error: bg.wiki.error,
+      }
+    }
+  }
+
+  async function refreshBackgroundStatusPoll(): Promise<void> {
+    try {
+      const bgRes = await fetch('/api/background-status', { credentials: 'include' })
+      if (!bgRes.ok) return
+      const bg = (await bgRes.json()) as BackgroundStatusResponse
+      applyBackgroundStatusPayload(bg)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Summary line for connected sources row in the overview card. */
   const indexFeedSummary = $derived.by(() => {
     let mail = 0
     let cal = 0
@@ -170,18 +213,19 @@
   })
 
   async function fetchData() {
+    backgroundStatusLoading = true
     try {
-      const [wikiRes, mailRes, sourcesRes] = await Promise.all([
+      const [wikiRes, bgRes, sourcesRes] = await Promise.all([
         fetch('/api/wiki', { credentials: 'include' }),
-        fetch('/api/inbox/mail-sync-status', { credentials: 'include' }),
+        fetch('/api/background-status', { credentials: 'include' }),
         fetch('/api/hub/sources', { credentials: 'include' }),
       ])
 
       if (wikiRes.ok) {
         docCount = parseWikiListApiBody(await wikiRes.json()).files.length
       }
-      if (mailRes.ok) {
-        mailStatus = await mailRes.json()
+      if (bgRes.ok) {
+        applyBackgroundStatusPayload((await bgRes.json()) as BackgroundStatusResponse)
       }
       if (sourcesRes.ok) {
         const j = (await sourcesRes.json()) as { sources?: HubRipmailSourceRow[]; error?: string }
@@ -193,6 +237,29 @@
       /* ignore */
     } finally {
       wikiRecentReady = true
+      backgroundStatusLoading = false
+    }
+  }
+
+  async function syncMailNow() {
+    if (syncKickBusy) return
+    syncKickBusy = true
+    try {
+      await fetch('/api/inbox/sync', { method: 'POST', credentials: 'include' })
+      await fetchData()
+    } finally {
+      syncKickBusy = false
+    }
+  }
+
+  async function runWikiBackgroundUpdateNow() {
+    if (wikiBackgroundUpdateBusy) return
+    wikiBackgroundUpdateBusy = true
+    try {
+      await postYourWikiRunLap()
+      await fetchData()
+    } finally {
+      wikiBackgroundUpdateBusy = false
     }
   }
 
@@ -214,6 +281,10 @@
         hostedWorkspaceHandle = undefined
       })
     void fetchData()
+    const pollTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      void refreshBackgroundStatusPoll()
+    }, HUB_BACKGROUND_STATUS_POLL_MS)
     const unsubEvents = subscribe((e) => {
       if (e.type === 'hub:sources-changed' || e.type === 'wiki:mutated' || e.type === 'sync:completed') {
         void fetchData()
@@ -222,9 +293,12 @@
     const unsubWikiStore = yourWikiDocFromEvents.subscribe((doc) => {
       if (doc) wikiDoc = doc
     })
+    const stopHubEvents = startHubEventsConnection()
     return () => {
+      clearInterval(pollTimer)
       unsubEvents()
       unsubWikiStore()
+      stopHubEvents()
     }
   })
 
@@ -244,14 +318,6 @@
     if (diffDay === 1) return 'Yesterday'
     if (diffDay < 7) return `${diffDay}d ago`
     return d.toLocaleDateString()
-  }
-
-  function formatSyncLockAge(ms: number | null): string {
-    if (ms == null || ms < 60_000) return ''
-    const m = Math.floor(ms / 60_000)
-    if (m < 60) return ` · ${m}m`
-    const h = Math.floor(m / 60)
-    return ` · ${h}h`
   }
 
   async function wikiPause() {
@@ -274,19 +340,10 @@
     }
   }
 
-  /** Section header (icon + h2 + optional trailing slot). */
   const sectionHeaderBase =
     'section-header flex items-center gap-3 border-b border-border pb-3 text-foreground'
-  /** Hub link rows: shared visual recipe (chevron + hover affordance). */
   const linkItemBase =
     'link-item flex cursor-pointer items-center justify-between border-0 border-b border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] bg-transparent py-2 text-left text-foreground transition-[padding,color] duration-150 hover:not-disabled:not-[.static]:not-[.disabled]:pl-1 hover:not-disabled:not-[.static]:not-[.disabled]:text-accent'
-  /** Wiki loop pill buttons (Pause / Resume). */
-  const wikiLoopBtn =
-    'wiki-loop-btn inline-flex cursor-pointer items-center gap-[0.3rem] rounded-md border border-transparent px-[0.7rem] py-[0.3rem] text-[0.8125rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55'
-  const wikiLoopBtnPrimary =
-    'wiki-loop-btn-primary border-[color-mix(in_srgb,var(--accent)_80%,black)] bg-accent text-white hover:not-disabled:[filter:brightness(1.07)]'
-  const wikiLoopBtnSecondary =
-    'wiki-loop-btn-secondary border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent text-foreground hover:not-disabled:bg-surface-2'
 </script>
 
 <div
@@ -311,11 +368,34 @@
     </div>
   </header>
 
-  <div class="hub-grid grid grid-cols-1 gap-14">
-    <section class="hub-section your-wiki-section flex flex-col gap-6" aria-label="Your Wiki">
+  <div class="hub-grid flex flex-col gap-10">
+    <HubActivityOverview
+      mailStatus={mailStatus}
+      mailLoading={backgroundStatusLoading}
+      wikiTitle={wikiHubTitle}
+      wikiSubtitle={wikiHubSub}
+      wikiPhase={wikiPhase}
+      wikiIsActive={wikiIsActive}
+      wikiIsPaused={wikiIsPaused}
+      wikiIsIdle={wikiIsIdle}
+      showWikiControls={Boolean(wikiDoc && wikiPhase != null)}
+      onSyncNow={syncMailNow}
+      onWikiUpdateNow={runWikiBackgroundUpdateNow}
+      onPause={wikiPause}
+      onResume={wikiResume}
+      syncBusy={syncKickBusy}
+      wikiUpdateBusy={wikiBackgroundUpdateBusy}
+      wikiActionBusy={wikiActionBusy}
+      indexFeedSummary={indexFeedSummary}
+      sourcesEmpty={orderedHubSources.length === 0}
+      sourcesError={hubSourcesError}
+      onOpenSettings={onOpenSettings}
+    />
+
+    <section class="hub-section your-wiki-section flex flex-col gap-5" aria-label="Wiki activity">
       <div class={cn(sectionHeaderBase, 'section-header-wiki')}>
         <BookOpen size={18} />
-        <h2 class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Your Wiki</h2>
+        <h2 class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Wiki activity</h2>
         <span
           class="wiki-header-metrics ml-auto flex shrink-0 items-baseline gap-2"
           aria-live="polite"
@@ -331,44 +411,11 @@
           >pages</span>
         </span>
       </div>
+
       <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
-        Your wiki connects pages in your vault into one place for synthesized knowledge—threading context from email
-        and other sources so it grows more useful over time. Braintunnel refines it in the background; pause or resume
-        anytime with the controls below, or open the row for the full activity log.
+        Peek at pages the background job touched recently—or open the full log to see each step.
       </p>
-      {#if wikiDoc && wikiPhase}
-        <div
-          class="wiki-loop-toolbar -mt-1 mb-[0.35rem] flex flex-wrap items-center"
-          role="group"
-          aria-label="Background wiki updates"
-        >
-          <div class="wiki-loop-toolbar-actions flex flex-wrap items-center gap-2">
-            {#if wikiIsActive || (wikiIsIdle && !wikiIsPaused)}
-              <button
-                type="button"
-                class={cn(wikiLoopBtn, wikiLoopBtnSecondary)}
-                disabled={wikiActionBusy}
-                onclick={() => void wikiPause()}
-                title="Pause background wiki updates"
-              >
-                <Pause size={14} aria-hidden="true" />
-                Pause
-              </button>
-            {:else if wikiIsPaused || wikiPhase === 'error'}
-              <button
-                type="button"
-                class={cn(wikiLoopBtn, wikiLoopBtnPrimary)}
-                disabled={wikiActionBusy}
-                onclick={() => void wikiResume()}
-                title="Resume background wiki updates"
-              >
-                <Play size={14} aria-hidden="true" />
-                Resume
-              </button>
-            {/if}
-          </div>
-        </div>
-      {/if}
+
       <div class="links-list flex flex-col">
         <button
           type="button"
@@ -378,7 +425,7 @@
           <div
             class="link-info flex min-w-0 flex-1 items-center gap-3 text-[0.9375rem] font-medium"
           >
-            <HubSourceRowBody title={wikiHubTitle} subtitle={wikiHubSub}>
+            <HubSourceRowBody title="Open wiki background log" subtitle="Tool steps, timing, and errors">
               {#snippet icon()}
                 {#if wikiIsActive}
                   <RefreshCw size={16} class="spin-icon" aria-hidden="true" />
@@ -397,6 +444,7 @@
           {/if}
           <ChevronRight size={16} aria-hidden="true" />
         </button>
+
         {#if wikiRecentReady && wikiRecentEdits.length > 0}
           <div
             class="wiki-recent-block mt-[0.35rem] flex flex-col border-t border-t-[color-mix(in_srgb,var(--border)_40%,transparent)] pt-3"
@@ -442,100 +490,25 @@
         {/if}
       </div>
     </section>
-
-    <section class="hub-section search-index-section flex flex-col gap-6" aria-labelledby="hub-index-heading">
-      <div class={sectionHeaderBase}>
-        <Radio size={18} />
-        <h2 id="hub-index-heading" class="m-0 text-[0.9375rem] font-bold tracking-[0.02em]">Search index</h2>
-      </div>
-      <p class="section-lead m-0 max-w-[40rem] text-[0.9375rem] leading-[1.45] text-muted">
-        Braintunnel indexes your email, calendars, and other connected sources for instant access and lightning-fast
-        search while you work in chat. Add or manage data sources in
-        <a
-          href="/settings"
-          class="section-lead-strong section-lead-settings-link cursor-pointer font-[650] text-foreground underline decoration-[color-mix(in_srgb,var(--text)_40%,transparent)] underline-offset-2 hover:decoration-[var(--text)]"
-          onclick={(e) => {
-            if (onOpenSettings) {
-              e.preventDefault()
-              onOpenSettings()
-            }
-          }}
-        >
-          Settings
-        </a>
-        .
-      </p>
-      <div
-        class="index-status-strip flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-b-[color-mix(in_srgb,var(--border)_40%,transparent)] pb-[0.85rem] pt-[0.65rem] text-[0.8125rem] text-muted"
-        role="status"
-        aria-live="polite"
-      >
-        {#if mailStatus?.statusError}
-          <span class="index-status-err cursor-help text-[var(--text-3)]" title={mailStatus.statusError}>Mail index status unavailable</span>
-        {:else if mailStatus}
-          <span class="index-status-primary font-semibold text-foreground"
-            >{mailStatus.indexedTotal != null ? mailStatus.indexedTotal : '—'} messages in index</span
-          >
-          {#if mailStatus.syncRunning}
-            <span class="status-sub status-syncing inline-flex items-center gap-1.5 font-semibold text-accent">
-              <span class="sync-dot h-1.5 w-1.5 shrink-0 bg-accent" aria-hidden="true"></span>
-              Syncing{formatSyncLockAge(mailStatus.syncLockAgeMs)}…
-            </span>
-          {:else if mailStatus.lastSyncedAt}
-            <span class="status-sub text-xs text-muted">Last synced {formatRelativeDate(mailStatus.lastSyncedAt)}</span>
-          {:else if mailStatus.configured}
-            <span class="status-sub text-xs text-muted">No sync time yet</span>
-          {/if}
-        {:else}
-          <span class="status-sub text-xs text-muted">Loading index status…</span>
-        {/if}
-      </div>
-      {#if hubSourcesError}
-        <p class="empty-msg hub-sources-err m-0 cursor-help py-4 text-[0.9375rem] text-muted" title={hubSourcesError}>Could not load connection summary.</p>
-      {:else if orderedHubSources.length === 0}
-        <p class="empty-msg m-0 py-4 text-[0.9375rem] text-muted">No connections yet. Add mail or calendars in Settings.</p>
-      {:else}
-        <p class="index-feed-summary m-0 px-0 pt-[0.35rem] text-[0.9375rem] leading-[1.45] text-foreground" aria-live="polite">
-          <span
-            class="index-feed-summary-label mb-[0.35rem] block text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted"
-          >Feeding this index:</span>
-          {indexFeedSummary}
-        </p>
-      {/if}
-    </section>
   </div>
 </div>
 
 <style>
-  /* Reach into lucide SVG inside HubSourceRowBody for the spin animation. */
   :global(.spin-icon) {
     animation: hub-spin 2s linear infinite;
   }
 
   @keyframes hub-spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
-  @keyframes hub-sync-pulse {
-    0%,
-    100% {
-      opacity: 0.35;
-      transform: scale(0.92);
+    from {
+      transform: rotate(0deg);
     }
-    50% {
-      opacity: 1;
-      transform: scale(1);
+    to {
+      transform: rotate(360deg);
     }
-  }
-
-  .sync-dot {
-    animation: hub-sync-pulse 1.2s ease-in-out infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    :global(.spin-icon),
-    .sync-dot {
+    :global(.spin-icon) {
       animation: none;
     }
   }

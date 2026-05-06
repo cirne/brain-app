@@ -2,7 +2,7 @@
 
 **Status:** Initial thoughts — hypotheses, not commitments. Treat as a central place we refine over time.
 
-This document is the **single source of truth** for go-to-market, competitive positioning, and moats. **[VISION.md](VISION.md)** stays the narrative of *what Braintunnel is* and why personalization matters at the human level.
+This document is the **single source of truth** for go-to-market, competitive positioning, and moats. **[VISION.md](VISION.md)** stays the narrative of *what Braintunnel is* and why personalization matters at the human level. Open analysis of which **job-to-be-done** and **category label** to adopt — including a critical reading of the "AI executive assistant" framing against the May-2026 competitive landscape — lives in **[the-product-question.md](the-product-question.md)** (companion to [the-wiki-question.md](the-wiki-question.md)).
 
 ---
 
@@ -66,6 +66,8 @@ Detailed sequencing and milestones: **[IDEA-wiki-sharing-collaborators.md](ideas
 | Doc                                                                                  | Purpose                                                                 |
 | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
 | [VISION.md](VISION.md)                                                               | What the product feels like and why personalization compounding matters |
+| [the-product-question.md](the-product-question.md)                                   | Open analysis: narrow JTBD, category-label traps (AI EA), and alternative framings against the 2026 landscape |
+| [the-wiki-question.md](the-wiki-question.md)                                         | Open analysis: is the maintained wiki worth its cost vs ripmail-only?   |
 | [PRODUCTIZATION.md](PRODUCTIZATION.md)                                               | Blockers/tradeoffs to multi-user productization                         |
 | [SECURITY.md](SECURITY.md)                                                           | Security architecture and risk register                                 |
 | [ideas/IDEA-wiki-sharing-collaborators.md](ideas/IDEA-wiki-sharing-collaborators.md) | Brain-to-brain product + sequencing                                     |

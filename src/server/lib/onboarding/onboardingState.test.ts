@@ -152,4 +152,24 @@ describe('onboardingState', () => {
     await clearOnboardingStaging()
     expect(await readWikiBuildoutIsFirstRun()).toBe(true)
   })
+
+  it('clearOnboardingStaging removes wiki-bootstrap.json when present', async () => {
+    const {
+      clearOnboardingStaging,
+      wikiBootstrapStatePath,
+      readWikiBootstrapState,
+      markWikiBootstrapComplete,
+    } = await import('@server/lib/onboarding/onboardingState.js')
+    await mkdir(join(chatDir(), 'onboarding'), { recursive: true })
+    await markWikiBootstrapComplete({
+      peopleCreated: 1,
+      projectsCreated: 0,
+      topicsCreated: 0,
+      travelCreated: 0,
+    })
+    expect(await readWikiBootstrapState()).toMatchObject({ status: 'completed' })
+    await clearOnboardingStaging()
+    const { access } = await import('node:fs/promises')
+    await expect(access(wikiBootstrapStatePath())).rejects.toMatchObject({ code: 'ENOENT' })
+  })
 })
