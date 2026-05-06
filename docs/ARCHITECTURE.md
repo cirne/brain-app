@@ -58,7 +58,8 @@ Deployment topology, isolation, staging, and formal security posture.
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Desktop vs cloud deployment models                              | [architecture/deployment-models.md](architecture/deployment-models.md)                             |
 | **Directory-per-tenant storage (ADR, defense)**                 | [architecture/per-tenant-storage-defense.md](architecture/per-tenant-storage-defense.md)           |
-| Multi-tenant cloud architecture (NAS, isolation)                | [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) |
+| **Multi-tenant cloud architecture (S3 + local, locks)**          | [architecture/multi-tenant-cloud-architecture.md](architecture/multi-tenant-cloud-architecture.md) |
+| **Cloud tenant lifecycle (S3 backup, transitions, recovery)**   | [architecture/cloud-tenant-lifecycle.md](architecture/cloud-tenant-lifecycle.md) · **[OPP-096](opportunities/OPP-096-cloud-tenant-lifecycle-s3-orchestration.md)** |
 | Tenant filesystem isolation (BUG-012, kernel + app)             | [architecture/tenant-filesystem-isolation.md](architecture/tenant-filesystem-isolation.md)         |
 | **Staging deploy** (DigitalOcean droplet, registry, Watchtower) | [DEPLOYMENT.md](./DEPLOYMENT.md)                                                                   |
 | **Security architecture and risk register**                     | [SECURITY.md](./SECURITY.md)                                                                       |

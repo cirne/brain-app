@@ -1,6 +1,8 @@
 # OPP-050: Hosted wiki backup (cloud backup for staging)
 
-**Status:** Proposed — implement before ~25 active users.
+**Status:** Superseded by [OPP-096](OPP-096-cloud-tenant-lifecycle-s3-orchestration.md) — May 2026
+
+**Note:** The "wiki-only, exclude ripmail" principle from this OPP is correct and carried forward into OPP-096. However, the implementation strategy has changed from **nightly encrypted tarball** to **write-through S3 on every edit** (real-time protection) plus periodic full snapshots. See [cloud-tenant-lifecycle.md](../architecture/cloud-tenant-lifecycle.md) for current design.
 
 ## Summary
 
@@ -48,7 +50,9 @@ The risk a backup strategy must address:
 | Attacker who gains DO account access | **No** — they can access the backup store too; encryption of backup content helps |
 | Ransomware on host | Partially — only if backup store is out-of-band |
 
-## Recommended approach: encrypted tarball to DO Spaces
+## Original approach: encrypted tarball to DO Spaces
+
+**Note:** This section describes the original proposal (nightly encrypted backups). **Current strategy** (OPP-096) uses **write-through S3** (every wiki edit → immediate S3 PUT) for real-time protection, plus periodic full snapshots for disaster recovery. The "wiki-only" principle and encryption approach are still valid.
 
 DO Spaces (S3-compatible object storage) in the same region as the droplet is the simplest operational fit — already inside the Braintunnel DO team, no new vendor to manage. The key difference from a volume snapshot is that the content is **encrypted before upload**, so the object store holds ciphertext, not plaintext Markdown.
 

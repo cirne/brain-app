@@ -1,10 +1,10 @@
 # Multi-Tenant Cloud Architecture
 
-**Status:** Implementation Strategy — April 2026
+**Status:** Architecture Decision — May 2026
 
 ## Overview
 
-To support a cloud-hosted version of Brain, we will adopt a **Cell-based, Local-First** architecture. Instead of moving to a traditional centralized database (Postgres/RDS), we will maintain the "One Tenant = One Home Directory" model used on the desktop, but scaled horizontally in a cloud environment. On disk, each tenant home is **`BRAIN_DATA_ROOT/<tenantUserId>/`** with `tenantUserId` of the form `usr_` + 20 lowercase alphanumerics; the **workspace handle** (URL-safe slug) is stored in **`handle-meta.json`**, not as the directory name. (Fixture exception: [Enron demo tenant](./enron-demo-tenant.md) uses a fixed id for seeded mail.)
+To support a cloud-hosted version of Brain, we adopt a **Cell-based, Local-First** architecture with **S3 as source of truth**. Instead of moving to a traditional centralized database (Postgres/RDS) or relying on network-attached storage (NFS/EBS), we maintain the "One Tenant = One Home Directory" model used on the desktop, but with **container-local storage** during active sessions and **S3 for durability**. On disk, each tenant home is **`BRAIN_DATA_ROOT/<tenantUserId>/`** with `tenantUserId` of the form `usr_` + 20 lowercase alphanumerics; the **workspace handle** (URL-safe slug) is stored in **`handle-meta.json`**, not as the directory name. (Fixture exception: [Enron demo tenant](./enron-demo-tenant.md) uses a fixed id for seeded mail.)
 
 ### Bootstrap identity (hosted)
 
@@ -14,28 +14,78 @@ See [google-oauth.md](../google-oauth.md#multi-tenant-hosted-brain_data_root).
 
 ## Core Principles
 
-1. **One Tenant, One Home:** Every user (tenant) has a dedicated `$BRAIN_HOME` directory.
-2. **Decoupled Storage:** We use **Network-Attached Block Storage** (e.g., AWS EBS, GCP Persistent Disk) to hold tenant data, ensuring it survives container restarts or host failures.
-3. **No Container-Level Resiliency:** We do not attempt to replicate live state across multiple containers for a single tenant. A specific tenant maps to a specific container instance at any given time.
-4. **Uber-Container Scaling:** Initially, a single "Uber-Container" will host multiple tenants. As we scale, we will move to a "One Pod per Tenant" or "One Container per N Tenants" model.
+1. **One Tenant, One Container:** Every active tenant maps to exactly one container with exclusive access enforced via distributed locks (DynamoDB or Redis).
+2. **Container-Local Hot Storage:** During active sessions, tenant data lives on fast local SSD (ephemeral or node-local volumes) for microsecond SQLite access.
+3. **S3 as Source of Truth:** Durable storage lives in S3. On startup, containers download snapshots; on shutdown/transition, they upload.
+4. **Infrequent Transitions:** Containers run for hours or days; tenant moves are planned events with 60–90 second user-visible downtime.
+5. **Write-Through Critical Data:** Wiki edits go immediately to S3 (the only truly irreplaceable data). DB metadata checkpointed periodically. Maildir recoverable from Gmail IMAP.
+6. **Data Sovereignty:** Tenant = portable directory tree. Users can migrate between cloud/desktop/intranet, bring their own S3 bucket, or export to any filesystem. Compute and storage are separable; lock-in is architectural anti-pattern.
 
-## Storage Strategy: Network-Attached Storage (NAS)
+**Full lifecycle details** (startup, runtime, transitions, locks, crash recovery) are documented in **[cloud-tenant-lifecycle.md](./cloud-tenant-lifecycle.md)**.
 
-We leverage the OS Page Cache and modern cloud block storage to provide a high-performance experience without the complexity of a distributed database.
+## Storage Strategy: S3 + Container-Local
 
-### Performance & Caching
+We use **local SSD for hot data** during sessions and **S3 for durable backups**, avoiding the latency and complexity of network-attached block storage (NFS, EBS multi-attach) or continuous distributed replication.
 
-- **Reads:** The Linux kernel's **Page Cache** will naturally bring "hot" SQLite pages and Wiki files into the container's RAM. For active users, read latency will be near-local (nanoseconds/microseconds).
-- **Writes:** Background sync (Ripmail) is the primary source of writes. Network latency (milliseconds) is acceptable for these background tasks.
-- **SQLite WAL Mode:** We use Write-Ahead Logging to ensure that background sync writes do not block foreground user reads.
+### Why Not NFS or Network Block Storage?
 
-### Resiliency & Backups
+**SQLite on NFS is problematic:**
+- High latency for random B-tree reads (network round-trips)
+- Locking complexity (POSIX locks over NFS are fragile)
+- Page cache on NFS client helps reads, but queries still hit network for uncommitted data
 
-- **Volume Snapshots:** We rely on cloud-provider-level snapshots of the block storage for disaster recovery. These are crash-consistent and extremely efficient.
-- **Total Loss Recovery:** If a node or container is lost, the orchestrator simply attaches the tenant's persistent volume to a new container.
-- **Off-site Insurance:** For "Region-Down" scenarios, we use tools like **Litestream** (for SQLite) or **S3 Sync** (for files) to stream deltas to a different geographic region.
+**Our tenant data profile** (from staging):
+- Median SQLite DB: **236 MB** (95th percentile: 641 MB)
+- Median maildir: **950 MB** (95th percentile: 2.6 GB)
+- Median wiki: **5 MB**
 
-**Self-host / B2B (idea):** For **one instance per customer** (e.g. SMB, VM + block volume + snapshots), the product expectation may treat **mail corpus + wiki** as the primary durables and **search indices** as **rebuildable** from mail; see [IDEA: Enterprise self-hosted Braintunnel](../ideas/IDEA-enterprise-self-hosted-braintunnel.md).
+**With container-local storage:**
+- SQLite reads: **microseconds** (local SSD)
+- Wiki edits: **sub-second** (local write + async S3 PUT)
+- Cold-start penalty: **10–40 seconds** to download snapshot from S3 (acceptable for "sign in" flow)
+
+### Performance During Active Use
+
+- **SQLite queries:** Local SSD (same speed as desktop app)
+- **Wiki reads:** Local filesystem (instant)
+- **Wiki writes:** Local + async S3 PUT (100ms background, non-blocking)
+- **Maildir access:** Local (ripmail reads `.eml` files at disk speed)
+
+No network latency for hot-path queries. **Same performance as desktop** during active sessions.
+
+### Durability & Backups
+
+**Write-through wiki** (critical data):
+- Every wiki edit → immediate `PUT s3://brain-data/<tenant>/wiki/<path>.md`
+- User's knowledge base always safe, even if container crashes
+- Cost: negligible (~10 PUTs/day/tenant × $0.000005 = $0.00005/day)
+
+**Periodic DB checkpoints** (metadata):
+- Every 5 minutes: `VACUUM INTO` → S3 snapshot
+- SQLite backup is **641 MB max**, takes ~2 seconds to create, ~5 seconds to upload
+- Lose at most 5 minutes of draft emails or archive flags on crash
+- Cost: ~$0.012/day/tenant (288 uploads × 641 MB)
+
+**Maildir recovery** (not backed up frequently):
+- Maildir is a **cache of Gmail IMAP** (recoverable, not irreplaceable)
+- On crash: `ripmail refresh` re-syncs from Gmail (10–20 minutes, background)
+- Avoids backing up 2.6 GB every 5 minutes (would be 400 GB/day upload per tenant)
+
+**Full snapshots on transition**:
+- When tenant moves containers (load balancing, maintenance): tar entire `BRAIN_HOME` → S3
+- Download on new container startup
+- Happens infrequently (hours/days), user offline during 60–90s transition
+
+**S3 retention:**
+- DB checkpoints: last 12 (1 hour) + daily for 7 days
+- Full snapshots: last 3 + daily for 7 days
+- Wiki files: indefinite (source of truth)
+
+**Cost estimate** (100 tenants): ~$145/month S3 + $0.22/month DynamoDB locks = **$145/month total**
+
+**Self-host / B2B:** Directory-per-tenant enables **per-customer deployment** (VPC, intranet, air-gapped) using the same codebase and directory structure as cloud. Tenant snapshots (S3 tarballs) are the deployment unit—no schema migrations, no vendor-specific export formats. See [IDEA: Enterprise self-hosted Braintunnel](../ideas/IDEA-enterprise-self-hosted-braintunnel.md).
+
+**Data sovereignty detail** (portability, BYO S3, encryption, positioning): [cloud-tenant-lifecycle.md § Data Sovereignty and Portability](./cloud-tenant-lifecycle.md#data-sovereignty-and-portability).
 
 ## Tenant Isolation & Security Guardrails
 
@@ -47,20 +97,44 @@ While **hosted multi-tenant** mode does **not** use the desktop **vault password
 2. **Explicit CLI Arguments:** Subprocesses like `ripmail` must receive their home directory via mandatory CLI flags (e.g., `--home`) rather than inheriting environment variables, preventing accidental leakage.
 3. **Path Sandboxing (Jailing):** Every tool entry point must use a mandatory `resolve + relative` check. Any path from an Agent (untrusted input) that attempts to escape the tenant's home directory via `..` traversal must be blocked at the common code layer.
 4. **Async Context Isolation:** Use `AsyncLocalStorage` to ensure that tenant-specific metadata (ID, home path) is tethered to the asynchronous execution flow of a request, preventing race conditions from swapping tenant state.
-5. **Cloud Encryption at Rest:** Leveraging provider-native encryption for all block storage volumes.
+5. **Exclusive Access via Distributed Locks:** DynamoDB (or Redis/Consul) conditional writes enforce that only one container can access a tenant's data at any time. Prevents concurrent access races and data corruption.
+6. **S3 Encryption at Rest:** All S3 buckets use server-side encryption (SSE-S3 or SSE-KMS). Wiki and DB snapshots encrypted on S3.
 
 ## Scaling Roadmap
 
-- **Phase 1 (The Uber-Container):** A single Node.js process managing multiple tenant instances in-memory. Suitable for the first ~100-500 users.
-- **Phase 2 (Multiplexing):** A lightweight routing layer (Load Balancer / Proxy) that routes requests to specific containers based on a `tenant_id` in the URL or Header.
-- **Phase 3 (Cellular Isolation):** Moving to dedicated micro-containers or pods for high-value or high-usage tenants.
+- **Phase 1 (Uber-Container, current):** A single Node.js process managing multiple tenant instances in-memory. Suitable for ~10–50 users (current staging scale). Tenant data on shared volume, no lock coordination yet.
+- **Phase 2 (Lock-based Exclusive Access):** Introduce DynamoDB locks. One tenant per container enforced. Container-local storage + S3 backup/restore. Suitable for ~50–500 users.
+- **Phase 3 (Automated Transitions):** Load balancer routes tenants to least-loaded containers. Automated backup/restore on transitions. Horizontal scaling by adding containers.
+- **Phase 4 (Cellular Isolation):** Dedicated containers or micro-VMs for high-value tenants. Per-tenant resource limits (CPU, RAM). Suitable for enterprise/B2B.
 
-## Rationale: Why not a Remote Database?
+**Current implementation status:** Phase 1 complete (staging). Phase 2 design documented in [cloud-tenant-lifecycle.md](./cloud-tenant-lifecycle.md); implementation tracked in [OPP-096](../opportunities/OPP-096-cloud-tenant-lifecycle-s3-orchestration.md).
 
-Moving `ripmail` or the Wiki to a remote database (Postgres/S3) would introduce:
+## Rationale: Why S3 + Local, Not NFS or Remote DB?
 
-- **Network Latency:** Every query would incur a round-trip, killing the "instant" feel of the UI.
-- **Architectural Complexity:** We would lose the simplicity of the local-first codebase.
-- **Migration Risk:** Managing a single massive schema for all users is a significant operational burden compared to thousands of independent, small SQLite files.
+**Why not NFS/network block storage?**
+- SQLite on NFS: high latency, locking issues, corruption risk
+- Our tenants are small (~1–3 GB); downloading from S3 is fast (10–40s)
+- S3 is cheaper ($0.023/GB/month vs. $0.10/GB/month for EBS)
+- S3 gives versioning, lifecycle policies, cross-region replication for free
+
+**Why not Postgres/centralized DB?**
+- Network latency: every query incurs round-trip (milliseconds vs. microseconds)
+- Architectural complexity: managing one massive schema vs. thousands of small SQLite files
+- Migration risk: schema changes affect all tenants simultaneously
+- Lose desktop compatibility: desktop app cannot share Postgres instance
+
+**Why not persistent volumes per tenant?**
+- At 100 tenants: $26/month (volumes) vs. $6/month (S3) for maildir alone
+- Volume attach/detach adds orchestration complexity
+- S3 snapshots are simpler (just tar + upload)
 
 **For a full defense of the directory-per-tenant model with trade-offs and objections addressed, see [per-tenant-storage-defense.md](./per-tenant-storage-defense.md).**
+
+## Related Docs
+
+- **[cloud-tenant-lifecycle.md](./cloud-tenant-lifecycle.md)** — Full lifecycle: startup, runtime, transitions, locks, crash recovery (implementation details)
+- [deployment-models.md](./deployment-models.md) — Desktop vs. cloud strategic positioning
+- [per-tenant-storage-defense.md](./per-tenant-storage-defense.md) — Why directory-per-tenant (philosophical defense)
+- [tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md) — Security isolation strategies
+- [OPP-096](../opportunities/OPP-096-cloud-tenant-lifecycle-s3-orchestration.md) — Implementation tracking
+- [OPP-050](../opportunities/OPP-050-hosted-wiki-backup.md) — Wiki-only backup (predecessor/subset)

@@ -57,8 +57,8 @@ See [tenant-filesystem-isolation.md](./tenant-filesystem-isolation.md) and [SECU
 Export, backup, retention, and **deletion** become **filesystem operations** with a clear narrative: one tenant ≈ one tree. 
 
 - **GDPR-style right to deletion:** remove the directory.
-- **Backup:** snapshot the volume or `rsync` the tree.
-- **Migration:** copy the directory (cloud → desktop, desktop → team appliance, tenant transfer between hosts).
+- **Backup:** S3 snapshot (`tar cf` → S3 PUT) or write-through wiki (S3 real-time). See [cloud-tenant-lifecycle.md](./cloud-tenant-lifecycle.md) for current S3-based strategy.
+- **Migration:** copy the directory (cloud → desktop via S3 snapshot, desktop → cloud via S3 upload, tenant transfer between hosts).
 - **Forensics / support:** inspect one user's state without touching others.
 
 This is particularly valuable for **data sovereignty** narratives and **compliance** stories, even before we are enterprise-ready. It keeps the product **conceptually aligned** with local-first principles where "your data" is a tangible, bounded artifact.
@@ -84,7 +84,26 @@ A future direction is **team-level or customer-hosted deployment** ([PRODUCTIZAT
 - Small business buys a VM, runs Braintunnel for 5–50 users, **owns the data**.
 - Team deploys on-premises or in their own cloud account for **data sovereignty**.
 
-Per-tenant directories map naturally to **per-customer deployment** with snapshot-based backups and **air-gapped** stories. The hosted SaaS pattern (shared pool, centralized DB) optimizes for **lowest ops cost per user at massive scale**; we are optimizing for **data sovereignty and portability** as a first-class product value while still hosting many users on shared infrastructure via volume orchestration.
+Per-tenant directories map naturally to **per-customer deployment** with snapshot-based backups and **air-gapped** stories. The hosted SaaS pattern (shared pool, centralized DB) optimizes for **lowest ops cost per user at massive scale**; we are optimizing for **data sovereignty and portability** as a first-class product value while still hosting many users on shared infrastructure via S3 orchestration.
+
+## Data Sovereignty as Product Value
+
+**Directory-per-tenant enables true data sovereignty:**
+
+1. **Cloud ↔ Desktop portability** — download S3 snapshot → extract to `BRAIN_HOME` on desktop; or upload desktop backup → restore in cloud. Same SQLite files, same markdown, same directory structure. No vendor lock-in.
+
+2. **Bring-your-own storage backend** — advanced users can point to their own S3-compatible bucket (AWS, Backblaze B2, Wasabi, MinIO on-prem). Braintunnel never sees plaintext if client-side encrypted. We provide the compute/agent runtime; user controls where data lives at rest.
+
+3. **Self-hosted / intranet deployment** — one directory tree = one deployment unit. Enterprise can run Braintunnel in their VPC/intranet with no data leaving their infrastructure. Same code, same layout, different compute/storage location.
+
+4. **Clear exit path** — if user wants to leave, they get a **tarball of their directory**. No export wizards, no "download as CSV" limitations, no vendor-controlled format. It's their mail index, their wiki, their data—portable to any system that can mount a filesystem.
+
+**Contrast with conventional SaaS:**
+- Traditional SaaS: data in vendor's Postgres forever; export is vendor-mediated (if it exists at all)
+- End-to-end encrypted SaaS: data encrypted, but still locked to vendor's infrastructure and API surface
+- **Braintunnel:** tenant = portable directory tree; compute and storage are separable; user can migrate between our cloud, their desktop, their intranet, or their own S3 bucket
+
+This is **not** about avoiding SaaS hosting—it's about **user choice**. We host for convenience; users can migrate for privacy, compliance, or preference. The architecture makes both viable.
 
 ### 7. Ripmail as a concrete constraint
 
