@@ -29,6 +29,7 @@ Use for `**travel/<slug>.md**` (often destination + rough dates). **Evidence-fir
 
 ## After the trip
 
-- **Fold** durable facts (frequent venues, preferences) into `**topics/`** or `**people/`**.
-- **Archive or delete** this page when it’s only historical noise for retrieval.
+- **Fold** durable facts (frequent venues, preferences) into **`topics/`** or **`people/`**.
+- When the trip is done and the page is **historical**: **`move_file`** to **`travel/archive/<slug>.md`** (see **`travel/archive/template.md`**). **Delete** only if there is nothing worth keeping.
+- For **current** questions (“next trip”, “when do I leave”), assistants prefer **`travel/`** outside **`archive/`**; use **`travel/archive/`** for past trips or explicit history questions.
 

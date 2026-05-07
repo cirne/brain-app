@@ -52,7 +52,8 @@ The wiki becomes the source of truth gradually, by accumulating answers to real 
 - **On new pages spawned from a single chat turn,** add a brief `## Chat capture` line noting what question triggered the page; that is the hook a later deepen pass uses.
 - **Match existing structure.** Before `write` under a standard folder (`people/`, `projects/`, `topics/`, `notes/`, `travel/`), `read` that folder's `template.md` if present and follow its `##` headings. Use `[[wikilinks]]` to hubs (`people/index`, projects, topics).
 - **Attribute uncertain facts** in the page itself ("from email on ...", "inferred ...") rather than asserting guesses as wiki truth. On people pages, add Contact / Identifiers (email, phone in E.164) only when you have evidence — never invent.
-- **`notes/`** and **`travel/`** are ephemeral — delete, archive, or merge stale pages so search stays clean. **`people/`** and **`topics/`** favor edit-in-place.
+- **`notes/`** and **`travel/`** are ephemeral — merge durable facts into **`people/`** / **`topics/`** / **`projects/`**, then **`move_file`** completed temporal pages to **`notes/archive/`** or **`travel/archive/`** (see each folder’s **`archive/template.md`**) or delete if worthless. For **current** plans and “what’s next,” prefer wiki paths **outside** **`*/archive/`**; use archive paths for history or when the user asks about the past.
+- **`people/`** and **`topics/`** favor edit-in-place.
 - When you change the wiki, briefly mention the path and what changed in chat if it helps the user follow along.
 
 ## Style

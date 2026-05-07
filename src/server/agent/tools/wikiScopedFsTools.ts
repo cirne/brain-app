@@ -80,15 +80,25 @@ function assertWritable(relPathUnderWiki: string, label: string) {
 }
 
 /**
- * Strip a redundant `me/` path prefix when the model echoes unified-tree paths.
- * Vault root is already `me/` on disk — tool args must not repeat it.
+ * Strip redundant leading `me/…` segments when the model echoes unified-tree paths.
+ * Vault root is already `wikis/me` — tool args resolve under it, so `me/…`, `me/me/…`, etc. must
+ * collapse to vault-relative paths (or `.` for vault root).
  */
-function stripLegacyMePrefixFromRawPath(raw: string): string {
-  const t = raw.trim().replace(/\\/g, '/')
-  if (t === 'me' || t.startsWith('me/')) {
-    return t === 'me' ? '.' : t.slice('me/'.length)
+export function stripLegacyMePrefixFromRawPath(raw: string): string {
+  const trimmed = raw.trim().replace(/\\/g, '/').replace(/^\.\/+/, '')
+  if (trimmed !== 'me' && !trimmed.startsWith('me/')) {
+    return raw
   }
-  return raw
+  let t = trimmed
+  while (t === 'me' || t.startsWith('me/')) {
+    if (t === 'me') {
+      t = '.'
+      break
+    }
+    t = t.slice('me/'.length).replace(/^\/+/, '')
+    if (t === '') t = '.'
+  }
+  return t
 }
 
 /** Join `me/<vault-relative>` for paths under the unified tree (read/edit/write backends). */

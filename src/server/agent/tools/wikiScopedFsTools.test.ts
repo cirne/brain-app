@@ -8,6 +8,7 @@ import {
   vaultRelPathFromMeToolPath,
   buildWikiWriteShareVisibilityHint,
   toPiCodingAgentFsRelPath,
+  stripLegacyMePrefixFromRawPath,
 } from './wikiScopedFsTools.js'
 import {
   acceptShare,
@@ -17,6 +18,22 @@ import {
 import { migrateWikiToWikisMe, tenantHomeDir } from '@server/lib/tenant/dataRoot.js'
 
 describe('wikiScopedFsTools share hints', () => {
+  it('stripLegacyMePrefixFromRawPath removes one redundant me/ prefix', () => {
+    expect(stripLegacyMePrefixFromRawPath('me/travel/a.md')).toBe('travel/a.md')
+    expect(stripLegacyMePrefixFromRawPath('me')).toBe('.')
+  })
+
+  it('stripLegacyMePrefixFromRawPath removes repeated me/me/… (double namespace mistake)', () => {
+    expect(stripLegacyMePrefixFromRawPath('me/me/travel/a.md')).toBe('travel/a.md')
+    expect(stripLegacyMePrefixFromRawPath('me/me/me/notes.md')).toBe('notes.md')
+    expect(stripLegacyMePrefixFromRawPath('./me/me/travel/a.md')).toBe('travel/a.md')
+  })
+
+  it('stripLegacyMePrefixFromRawPath leaves non-me paths unchanged (preserves raw)', () => {
+    expect(stripLegacyMePrefixFromRawPath('travel/a.md')).toBe('travel/a.md')
+    expect(stripLegacyMePrefixFromRawPath('  travel/a.md')).toBe('  travel/a.md')
+  })
+
   it('toPiCodingAgentFsRelPath preserves @peer dirs for pi-coding-agent path resolution', () => {
     expect(toPiCodingAgentFsRelPath('@alice/trips/x.md')).toBe('./@alice/trips/x.md')
     expect(toPiCodingAgentFsRelPath('me/notes/a.md')).toBe('me/notes/a.md')

@@ -30,6 +30,8 @@ describe('ensureStarterWikiSeed', () => {
     expect(existsSync(join(dir, 'index.md'))).toBe(true)
     expect(existsSync(join(dir, 'people/template.md'))).toBe(true)
     expect(existsSync(join(dir, 'travel/template.md'))).toBe(true)
+    expect(existsSync(join(dir, 'travel/archive/template.md'))).toBe(true)
+    expect(existsSync(join(dir, 'notes/archive/template.md'))).toBe(true)
     expect(existsSync(join(dir, 'me.md'))).toBe(true)
     const meRaw = await readFile(join(dir, 'me.md'), 'utf-8')
     expect(meRaw).toContain('injected into every chat')

@@ -16,4 +16,4 @@ Use for **`notes/<slug>.md`** or dated captures. **Ephemeral by default** — fo
 
 ## Cleanup
 
-- When superseded: **delete** this file or replace with one line pointing to the durable page.
+- When superseded: **delete**, replace with one line pointing to the durable page, or **`move_file`** to **`notes/archive/<slug>.md`** if you want to keep the capture (see **`notes/archive/template.md`**). Fix **`[[wikilinks]]`** from **`[[index]]`** or parents after a move.

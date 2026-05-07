@@ -11,6 +11,7 @@ describe('renderPromptTemplate', () => {
     })
     expect(s).toContain('**Hosted workspace:**')
     expect(s).toContain('The newest dated source normally wins.')
+    expect(s).toContain('travel/archive/')
     expect(s).toContain('list_recent_messages')
   })
 

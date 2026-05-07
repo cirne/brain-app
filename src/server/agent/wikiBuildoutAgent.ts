@@ -19,7 +19,7 @@ export function buildWikiBuildoutFirstRunScopeNote(): string {
     '- **Root:** `index.md` (nav hub), `me.md` (short profile / assistant context), `assistant.md` if present. Wiki tool mutations append to structured **`wiki-edits.jsonl`** under **`$BRAIN_HOME/var/`** (server-side — not a markdown file you edit).',
     '- **Typed folders** — each includes a **`template.md`** describing the intended shape of pages in that folder. Read **`template.md`** before **`edit`**ing pages in that folder; use it as a scaffold, not a rigid format.',
     '- **Folders** — there is **no** per-folder `index.md` in the starter; use **`template.md`** in each typed area for shape. Keep **vault-root `index.md`** useful with **`[[wikilinks]]`** when your tree grows.',
-    '- **Scope:** People live under `people/`, initiatives under `projects/`, themes under `topics/`, scratch under `notes/`, trips under `travel/`. You **only `edit`** existing files — **chat** creates new entity pages.',
+    '- **Scope:** People live under `people/`, initiatives under `projects/`, themes under `topics/`, scratch under `notes/`, trips under `travel/`. Completed temporal pages may live under `travel/archive/` and `notes/archive/` (each has **`archive/template.md`**). You **only `edit`** existing files — **chat** creates new entity pages.',
     '- Do **not** add new top-level vault areas or mint new markdown paths; refresh and deepen what already exists.',
   ].join('\n')
 }
@@ -29,6 +29,7 @@ export function buildWikiBuildoutReturningScopeNote(): string {
   return [
     'This is a **later** enrichment pass. Each run’s user message includes **injected context**: profile, assistant charter, **vault manifest**, **recent wiki edits** (from `wiki-edits.jsonl`), and **thin-page candidates** — **start from that queue**, then the manifest.',
     '- **`edit` only** for markdown pages. Do **not** **`write`** new entity files; match section style and filenames already on disk.',
+    '- Markdown under **`*/archive/`** is historical — verify with sources before treating it as current.',
     '- Keep **vault-root `index.md`** useful with **`[[wikilinks]]`** when your **`edit`**s change the tree meaningfully.',
   ].join('\n')
 }

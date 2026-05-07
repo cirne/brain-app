@@ -40,7 +40,7 @@ A **structured travel digest** for an **upcoming trip** (next trip the user name
 8. **Gaps and risks** — Missing confirmation, no hotel for last night, visa, return COVID rules if still relevant, daylight savings at destination.
 
 9. **Finish (required)** — End every trip sheet by **persisting** it to the vault wiki, then **opening** that page in the app.
-   - Use **`write`** to create a page (e.g. `travel/<destination>.md` or `trips/<year>-<place>.md`) or **`edit`** if a page for this trip already exists.
+   - Use **`write`** to create a page under **`travel/<slug>.md`** (see **`travel/template.md`**) or **`edit`** if a page for this trip already exists. When the trip is over and the page is only historical, **`move_file`** to **`travel/archive/<slug>.md`** (see **`travel/archive/template.md`**).
    - Save the **full** digest as markdown in that file (all sections below).
    - Then call **`open`** with `target: { "type": "wiki", "path": "<the path you just wrote or edited>" }` so the user sees the trip sheet in the wiki pane. Only skip if the user clearly asked for chat-only and no saved document.
 

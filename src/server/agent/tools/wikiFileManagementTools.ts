@@ -13,6 +13,7 @@ import {
   wikiToolRelTouchesPeerProjection,
   vaultRelPathFromMeToolPath,
   buildWikiWriteShareVisibilityHint,
+  stripLegacyMePrefixFromRawPath,
 } from '@server/agent/tools/wikiScopedFsTools.js'
 import { formatWikiKebabNormalizedFromNote } from '@server/lib/wiki/wikiPathNaming.js'
 
@@ -28,12 +29,18 @@ export function createWikiFileManagementTools(wikiDir: string, options?: WikiFil
     description:
       'Move or rename a file under the wiki root (same scope as read/write). Creates missing parent directories for the destination. Fails if the destination path already exists.',
     parameters: Type.Object({
-      from: Type.String({ description: 'Source path relative to wiki root (e.g. me/ideas/old.md)' }),
-      to: Type.String({ description: 'Destination path relative to wiki root (e.g. me/ideas/new.md)' }),
+      from: Type.String({
+        description:
+          'Source path: vault-relative (e.g. ideas/old.md, travel/note.md). Redundant me/ prefix is accepted (same as read/write).',
+      }),
+      to: Type.String({
+        description:
+          'Destination path: same rules as from. Missing parent dirs are created for the destination.',
+      }),
     }),
     async execute(_toolCallId: string, params: { from: string; to: string }) {
-      const fromRel = coerceWikiToolRelativePath(wikiDir, params.from)
-      const toCoerced = coerceWikiToolRelativePath(wikiDir, params.to)
+      const fromRel = coerceWikiToolRelativePath(wikiDir, stripLegacyMePrefixFromRawPath(params.from))
+      const toCoerced = coerceWikiToolRelativePath(wikiDir, stripLegacyMePrefixFromRawPath(params.to))
       if (wikiToolRelTouchesPeerProjection(fromRel) || wikiToolRelTouchesPeerProjection(toCoerced)) {
         throw new Error('Cannot move files into or out of shared wiki projection (read-only).')
       }
@@ -98,10 +105,13 @@ export function createWikiFileManagementTools(wikiDir: string, options?: WikiFil
     label: 'Delete file',
     description: 'Permanently delete a file under the wiki root (same scope as read/write).',
     parameters: Type.Object({
-      path: Type.String({ description: 'Path relative to wiki root (e.g. me/scratch/draft.md)' }),
+      path: Type.String({
+        description:
+          'Vault-relative path (e.g. scratch/draft.md). Redundant me/ prefix is accepted (same as read/write).',
+      }),
     }),
     async execute(_toolCallId: string, params: { path: string }) {
-      const rel = coerceWikiToolRelativePath(wikiDir, params.path)
+      const rel = coerceWikiToolRelativePath(wikiDir, stripLegacyMePrefixFromRawPath(params.path))
       if (wikiToolRelTouchesPeerProjection(rel)) {
         throw new Error('Cannot delete files inside shared wiki projection (read-only).')
       }

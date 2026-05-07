@@ -73,7 +73,7 @@ You are **adding** a module: one clear responsibility per file, wikilinks as “
 1. **Map** — List pages in scope; note staleness when inferable.
 2. **Classify** — Obsolete, duplicate, orphan, merge candidate, oversized, or keep.
 3. **DRY** — Pick a **canonical** page; merge content; stub+link losers when appropriate.
-4. **Structure** — Fix orphans with `[[wikilinks]]` from indexes/parents; fix paths when wrong; normalize stray markdown `[label](path.md)` cross-page links to `[[path]]`.
+4. **Structure** — Fix orphans with `[[wikilinks]]` from indexes/parents; fix paths when wrong; normalize stray markdown `[label](path.md)` cross-page links to `[[path]]`. For stale **temporal** pages (old trips, superseded meeting scratch), prefer **`move_file`** to **`travel/archive/`** or **`notes/archive/`** (read that folder’s **`archive/template.md`**) before delete; after moves, fix inbound **`[[wikilinks]]`** from **`[[index]]`** or hub pages.
 5. **Apply** — **Execute** non-destructive fixes: merges, links, moves/stubs your tools support.
 6. **Safety** — **Ask first** before permanent deletion, **bulk delete**, or anything that loses history without archive. Never mass-delete without explicit user approval.
 7. **Report** — Brief summary of changes and anything needing a human decision.

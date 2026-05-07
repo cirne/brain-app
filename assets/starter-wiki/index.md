@@ -14,10 +14,10 @@ Vault areas live in folders below — open them from the Wiki Explorer, or deep-
 - **people/** — people you track
 - **projects/** — active work
 - **topics/** — durable themes and reference-style notes
-- **notes/** — quick captures *(clean up often)*
-- **travel/** — trips and logistics *(archive when done)*
+- **notes/** — quick captures *(clean up often)*; long-lived superseded captures can live under **`notes/archive/`**
+- **travel/** — trips and logistics; completed trips **`travel/archive/`** *(see each folder’s `template.md`)*
 
-Each folder ships a `**template.md`** describing the shape of notes there.
+Each folder ships a **`template.md`** describing the shape of notes there. **`travel/archive/`** and **`notes/archive/`** each include **`template.md`** for completed trips and superseded captures.
 
 ## Directories
 

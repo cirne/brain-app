@@ -998,6 +998,23 @@ fi
       expect(rec.fromPath).toBe('ideas/foo.md')
     })
 
+    it('move_file accepts redundant me/ prefix on paths (vault root is already me/)', async () => {
+      const { mkdir, writeFile, access } = await import('node:fs/promises')
+      await mkdir(join(wikiDir, 'travel', 'archive'), { recursive: true })
+      await writeFile(join(wikiDir, 'travel', 'vb.md'), '# VB\n')
+      const { createAgentTools } = await import('./tools.js')
+      const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
+      const move = tools.find((t) => t.name === 'move_file')!
+      const result = await move.execute('mv-me-prefix', {
+        from: 'me/travel/vb.md',
+        to: 'me/travel/archive/vb.md',
+      })
+      expect(toolResultFirstText(result)).toContain('travel/vb.md')
+      expect(toolResultFirstText(result)).toContain('travel/archive/vb.md')
+      await expect(access(join(wikiDir, 'travel', 'archive', 'vb.md'))).resolves.toBeUndefined()
+      await expect(access(join(wikiDir, 'travel', 'vb.md'))).rejects.toMatchObject({ code: 'ENOENT' })
+    })
+
     it('move_file kebab-normalizes the destination', async () => {
       const { createAgentTools } = await import('./tools.js')
       const tools = createAgentTools(wikiDir, { includeLocalMessageTools: true })
