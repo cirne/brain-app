@@ -7,6 +7,9 @@ use crate::cli::util::ripmail_home_path;
 use crate::cli::CliResult;
 use ripmail::calendar::{apple_calendar_sync_available, run_calendar_sync};
 use ripmail::config::CalendarSourceResolved;
+use ripmail::sync::gmail_api_refresh::{
+    bootstrap_gmail_history_if_missing, GmailApiRefreshContext,
+};
 use ripmail::{
     build_review_json, connect_imap_for_resolved_mailbox, count_indexed_messages_simple_window,
     count_unarchived_messages_by_mailbox, db, google_oauth_credentials_present, inbox_json_hints,
@@ -268,6 +271,7 @@ fn merge_sync_runs(
             messages_per_minute: 0.0,
             log_path,
             early_exit: None,
+            gmail_api_partial: None,
             new_message_ids: None,
             mailboxes: None,
         };
@@ -278,11 +282,15 @@ fn merge_sync_runs(
     let mut duration_ms = 0u64;
     let mut new_ids: Vec<String> = Vec::new();
     let mut early_exit = None;
+    let mut gmail_api_partial = None;
     for r in runs {
         synced += r.synced;
         messages_fetched += r.messages_fetched;
         bytes_downloaded += r.bytes_downloaded;
         duration_ms += r.duration_ms;
+        if r.gmail_api_partial == Some(true) {
+            gmail_api_partial = Some(true);
+        }
         if let Some(e) = r.early_exit {
             early_exit = Some(e);
         }
@@ -314,6 +322,7 @@ fn merge_sync_runs(
         messages_per_minute: msg_per_min,
         log_path,
         early_exit,
+        gmail_api_partial,
         new_message_ids: if new_ids.is_empty() {
             None
         } else {
@@ -460,6 +469,7 @@ pub(crate) fn run_sync_foreground_backfill(
                             &maildir_path,
                             &exclude_labels,
                             &opts,
+                            None,
                             move || {
                                 connect_imap_for_resolved_mailbox(
                                     &home_c,
@@ -650,6 +660,13 @@ pub(crate) fn run_sync_foreground_refresh(
                             progress_stderr,
                             verbose,
                         };
+                        let gmail_ctx = GmailApiRefreshContext {
+                            home: home.clone(),
+                            env_file: env_file_c.clone(),
+                            process_env: process_env_c.clone(),
+                            imap_host: mb_owned.imap_host.clone(),
+                            imap_auth: mb_owned.imap_auth,
+                        };
                         let r = ripmail::run_sync_with_parallel_imap_connect(
                             &mut conn,
                             &logger,
@@ -658,6 +675,7 @@ pub(crate) fn run_sync_foreground_refresh(
                             &maildir_path,
                             &exclude_labels,
                             &opts,
+                            Some(&gmail_ctx),
                             move || {
                                 connect_imap_for_resolved_mailbox(
                                     &home_c,
@@ -668,7 +686,19 @@ pub(crate) fn run_sync_foreground_refresh(
                             },
                         )
                         .map_err(|e| e.to_string())?;
-                        if progress_stderr {
+                        bootstrap_gmail_history_if_missing(
+                            &mut conn,
+                            home.as_path(),
+                            &mb.id,
+                            &imap_folder,
+                            mb.imap_host.as_str(),
+                            mb.imap_auth,
+                            &env_file,
+                            &process_env,
+                            &logger,
+                        )
+                        .map_err(|e| e.to_string())?;
+                        if progress_stderr && r.gmail_api_partial != Some(true) {
                             eprintln!("ripmail: Connected.");
                         }
                         r

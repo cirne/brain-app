@@ -82,6 +82,7 @@ pub const SCHEMA: &str = r#"
     folder       TEXT NOT NULL,
     uidvalidity  INTEGER NOT NULL,
     last_uid     INTEGER NOT NULL DEFAULT 0,
+    gmail_history_id TEXT,
     PRIMARY KEY (source_id, folder)
   );
 
@@ -333,6 +334,7 @@ mod tests {
         assert!(SCHEMA.contains("document_index_fts"));
         assert!(SCHEMA.contains("source_id"));
         assert!(SCHEMA.contains("PRIMARY KEY (source_id, folder)"));
+        assert!(SCHEMA.contains("gmail_history_id"));
         assert!(SCHEMA.contains("source_sync_meta"));
         assert!(SCHEMA.contains("calendar_events"));
         assert!(SCHEMA.contains("calendar_sync_state"));

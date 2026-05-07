@@ -279,6 +279,7 @@ pub fn run_local_dir_sync(
         messages_per_minute: 0.0,
         log_path: String::new(),
         early_exit: None,
+        gmail_api_partial: None,
         new_message_ids: None,
         mailboxes: None,
     })

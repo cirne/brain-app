@@ -250,6 +250,8 @@ pub struct SyncResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub early_exit: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub gmail_api_partial: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub new_message_ids: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mailboxes: Option<Vec<SyncMailboxSummary>>,
@@ -266,6 +268,7 @@ impl SyncResult {
             messages_per_minute: 0.0,
             log_path,
             early_exit: None,
+            gmail_api_partial: None,
             new_message_ids: None,
             mailboxes: None,
         }
@@ -439,6 +442,10 @@ fn log_sync_metrics(logger: &SyncFileLogger, r: &SyncResult) {
     logger.info("Sync metrics", Some(&metrics_line));
     let finished = serde_json::json!({ "outcome": "ok", "success": true }).to_string();
     logger.info("Sync run finished", Some(&finished));
+}
+
+pub(crate) fn log_sync_metrics_public(logger: &SyncFileLogger, r: &SyncResult) {
+    log_sync_metrics(logger, r);
 }
 
 fn format_bytes_u64(n: u64) -> String {
@@ -1101,6 +1108,7 @@ fn run_sync_imap_phase(
         messages_per_minute: msg_per_min,
         log_path: log_path_str.clone(),
         early_exit: None,
+        gmail_api_partial: None,
         new_message_ids: if new_message_ids.is_empty() {
             None
         } else {
@@ -1175,6 +1183,9 @@ pub fn run_sync<T: SyncImapTransport>(
 }
 
 /// Same as [`run_sync`], but overlaps TCP/TLS connect with SQLite lock acquisition (foreground paths).
+///
+/// When `gmail_api_refresh` is set for an OAuth Gmail mailbox, attempts Gmail REST partial sync first
+/// (`history.list`); on success releases the lock without opening IMAP.
 #[allow(clippy::too_many_arguments)]
 pub fn run_sync_with_parallel_imap_connect<F>(
     conn: &mut Connection,
@@ -1184,6 +1195,7 @@ pub fn run_sync_with_parallel_imap_connect<F>(
     maildir_path: &Path,
     exclude_labels: &[String],
     options: &SyncOptions,
+    gmail_api_refresh: Option<&super::gmail_api_refresh::GmailApiRefreshContext>,
     connect: F,
 ) -> Result<SyncResult, RunSyncError>
 where
@@ -1210,25 +1222,46 @@ where
         RunSyncPreAcquire::AcquireLock(p) => p,
     };
 
+    let lock_result = acquire_lock(conn, pid, options.kind)?;
+    if !lock_result.acquired {
+        logger.info("Could not acquire sync lock", None);
+        let duration_ms = start.elapsed().as_millis() as u64;
+        return Ok(SyncResult::empty(duration_ms, prelude.log_path_str.clone()));
+    }
+    if lock_result.taken_over {
+        logger.info("Recovered stale sync lock", None);
+    }
+
+    if let Some(ctx) = gmail_api_refresh {
+        use super::gmail_api_refresh::{try_gmail_api_incremental_refresh, GmailApiAttempt};
+        match try_gmail_api_incremental_refresh(
+            conn,
+            logger,
+            ctx,
+            mailbox_id,
+            imap_folder,
+            maildir_path,
+            &prelude.exclude_lower,
+            options,
+            start,
+            &prelude.log_path_str,
+            pid,
+        ) {
+            Ok(GmailApiAttempt::Completed(r)) => return Ok(r),
+            Ok(GmailApiAttempt::Skipped | GmailApiAttempt::Fallback) => {}
+            Err(e) => {
+                let _ = release_lock(conn, Some(pid), options.kind);
+                return Err(e);
+            }
+        }
+    }
+
     let (tx, rx) = mpsc::sync_channel(1);
     {
         let c = Arc::clone(&connect);
         std::thread::spawn(move || {
             let _ = tx.send(c());
         });
-    }
-
-    let lock_result = acquire_lock(conn, pid, options.kind)?;
-    if !lock_result.acquired {
-        logger.info("Could not acquire sync lock", None);
-        // Drop the receiver only: do not `recv()` — we are not going to use the session, and waiting
-        // here would block on a slow/hung IMAP connect even though this run will not sync.
-        drop(rx);
-        let duration_ms = start.elapsed().as_millis() as u64;
-        return Ok(SyncResult::empty(duration_ms, prelude.log_path_str.clone()));
-    }
-    if lock_result.taken_over {
-        logger.info("Recovered stale sync lock", None);
     }
 
     let connect_result = match rx.recv_timeout(crate::runtime_limits::imap_connect_timeout()) {
@@ -1241,6 +1274,7 @@ where
             ));
         }
         Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+            let _ = release_lock(conn, Some(pid), options.kind);
             return Err(RunSyncError::Imap(
                 "IMAP connect thread disconnected".into(),
             ));

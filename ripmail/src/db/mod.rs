@@ -731,6 +731,15 @@ pub fn apply_schema(conn: &Connection) -> Result<(), DbError> {
         conn.execute_batch("ALTER TABLE messages ADD COLUMN category TEXT;")?;
     }
 
+    let mut sync_stmt = conn.prepare("PRAGMA table_info(sync_state)")?;
+    let sync_cols: Vec<String> = sync_stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .collect();
+    if !sync_cols.iter().any(|c| c == "gmail_history_id") {
+        conn.execute_batch("ALTER TABLE sync_state ADD COLUMN gmail_history_id TEXT;")?;
+    }
+
     Ok(())
 }
 

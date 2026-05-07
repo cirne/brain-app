@@ -777,6 +777,7 @@ fn run_applemail_sync_inner(
         messages_per_minute: msg_per_min,
         log_path,
         early_exit: None,
+        gmail_api_partial: None,
         new_message_ids: if new_ids.is_empty() {
             None
         } else {

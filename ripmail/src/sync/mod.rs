@@ -3,6 +3,7 @@
 pub mod background_spawn;
 pub mod error;
 pub mod fetch_timeout;
+pub mod gmail_api_refresh;
 pub mod imap_date;
 pub mod ingest_date;
 pub mod maildir;

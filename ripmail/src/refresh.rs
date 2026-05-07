@@ -971,6 +971,7 @@ mod inbox_json_hints_tests {
             messages_per_minute: 0.0,
             log_path: "/tmp/ripmail-sync.log".to_string(),
             early_exit: None,
+            gmail_api_partial: None,
             new_message_ids: None,
             mailboxes: None,
         }

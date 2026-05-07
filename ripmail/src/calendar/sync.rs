@@ -128,6 +128,7 @@ pub fn run_calendar_sync(
                 messages_per_minute: 0.0,
                 log_path,
                 early_exit: None,
+                gmail_api_partial: None,
                 new_message_ids: None,
                 mailboxes: None,
             })
