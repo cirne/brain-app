@@ -183,6 +183,7 @@
   })
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/ChatHistory.svelte', '#1')
     return subscribe((e) => {
       if (e.type === 'chat:sessions-changed' || e.type === 'nav:recents-changed') {
         void refresh({ background: true })

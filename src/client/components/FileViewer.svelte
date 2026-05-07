@@ -35,6 +35,7 @@
   }
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/FileViewer.svelte', '#1')
     if (initialPath) void load(initialPath)
   })
 

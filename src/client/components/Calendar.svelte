@@ -1,14 +1,11 @@
 <script lang="ts">
-  import { getContext, onMount } from 'svelte'
+  import { onDestroy, onMount, untrack } from 'svelte'
   import { cn } from '@client/lib/cn.js'
   import DayEvents, { type CalendarEvent } from '@components/DayEvents.svelte'
   import CalendarEventDetail from '@components/CalendarEventDetail.svelte'
 
   import type { SurfaceContext } from '@client/router.js'
-  import {
-    CALENDAR_SLIDE_HEADER,
-    type SetCalendarSlideHeader,
-  } from '@client/lib/calendarSlideHeaderContext.js'
+  import { getCalendarSlideHeaderCell } from '@client/lib/calendarSlideHeaderContext.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import { localYmdFromDate } from '@client/lib/calendarLocalYmd.js'
 
@@ -109,7 +106,8 @@
     loadEvents()
     const now = new Date()
     const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    onContextChange?.({ type: 'calendar', date: localDate })
+    /** Parent prop callback identity may change every render — invoke under `untrack` so we never subscribe to it. */
+    untrack(() => onContextChange?.({ type: 'calendar', date: localDate }))
   })
 
   function sundayOf(d: Date): Date {
@@ -197,21 +195,39 @@
 
   const configured = $derived(sourcesConfigured || !!fetchedAt.ripmail || events.length > 0)
 
-  const registerCalendarHeader = getContext<SetCalendarSlideHeader | undefined>(CALENDAR_SLIDE_HEADER)
+  const calendarHeaderCell = getCalendarSlideHeaderCell()
 
-  $effect(() => {
-    if (!registerCalendarHeader) return
-    registerCalendarHeader({
+  /** Stable refresh handler — referenced inside the cell payload + L2 button. */
+  function refreshCalendarsFromHeader() {
+    void refreshCalendarSources()
+  }
+
+  /**
+   * Claim the calendar header cell once with stable handler identities. Reactive scalars
+   * (weekLabel, headerBusy) flow through the `$effect` below via `patch`. The initial reads
+   * here are wrapped in `untrack` so Svelte does not warn about capturing initial values.
+   * See BUG-047.
+   */
+  const calendarHeaderCtrl = calendarHeaderCell?.claim(
+    untrack(() => ({
       weekLabel: weekLabel(),
       prevWeek,
       nextWeek,
       goToday,
-      refreshCalendars: () => {
-        void refreshCalendarSources()
-      },
+      refreshCalendars: refreshCalendarsFromHeader,
+      headerBusy: loading,
+    })),
+  )
+
+  $effect(() => {
+    calendarHeaderCtrl?.patch({
+      weekLabel: weekLabel(),
       headerBusy: loading,
     })
-    return () => registerCalendarHeader(null)
+  })
+
+  onDestroy(() => {
+    calendarHeaderCtrl?.clear()
   })
 
   onMount(() => { loadEvents() })

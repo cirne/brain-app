@@ -48,11 +48,13 @@
   let inputRef = $state<ReturnType<typeof AgentInput> | undefined>(undefined)
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/UnifiedChatComposer.svelte', '#1')
     void sessionResetKey
     composerMode = 'text'
   })
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/UnifiedChatComposer.svelte', '#2')
     if (!voiceEligible && composerMode === 'voice') {
       composerMode = 'text'
     }

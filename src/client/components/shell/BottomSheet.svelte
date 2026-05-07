@@ -24,6 +24,7 @@
   let dialogEl = $state<HTMLDialogElement | null>(null)
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/shell/BottomSheet.svelte', '#1')
     const el = dialogEl
     if (!el || !open) return
 

@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import EmailDraftEditor from './EmailDraftEditor.svelte'
 import { render, screen, fireEvent, waitFor } from '@client/test/render.js'
+import {
+  EMAIL_DRAFT_HEADER,
+  type EmailDraftHeaderCell,
+  type EmailDraftHeaderActions,
+} from '@client/lib/emailDraftSlideHeaderContext.js'
+import { makeSlideHeaderCell } from '@client/lib/slideHeaderContextRegistration.svelte.js'
 
 vi.mock('./TipTapMarkdownEditor.svelte', () => import('./test-stubs/TipTapMarkdownEditorStub.svelte'))
 
@@ -100,6 +106,38 @@ describe('EmailDraftEditor.svelte', () => {
       expect(calls.filter((m) => m === 'PATCH').length).toBeGreaterThanOrEqual(1)
       expect(calls.filter((m) => m === 'POST').length).toBeGreaterThanOrEqual(1)
     })
+  })
+
+  it('claims the email draft header cell once and keeps stable handler refs across saves', async () => {
+    mountFetchHandlers()
+
+    const cell: EmailDraftHeaderCell = makeSlideHeaderCell<EmailDraftHeaderActions>()
+    const context = new Map<symbol, EmailDraftHeaderCell>([[EMAIL_DRAFT_HEADER, cell]])
+
+    const { component } = render(EmailDraftEditor, {
+      props: { draftId: 'd1' },
+      context,
+    } as unknown as Parameters<typeof render>[1])
+
+    await waitFor(() => {
+      expect(cell.claimed).toBe(true)
+    })
+
+    expect(cell.current?.saveState).toBe('idle')
+    expect(cell.current?.sendState).toBe('idle')
+    const onSaveRef = cell.current?.onSave
+    const onSendRef = cell.current?.onSend
+    const onDiscardRef = cell.current?.onDiscard
+    expect(typeof onSaveRef).toBe('function')
+
+    await component.saveDraft()
+
+    // After save, the cell still has the same handler identities — only `saveState` patches.
+    await waitFor(() => {
+      expect(cell.current?.onSave).toBe(onSaveRef)
+    })
+    expect(cell.current?.onSend).toBe(onSendRef)
+    expect(cell.current?.onDiscard).toBe(onDiscardRef)
   })
 
   it('calls onClosePanel after send succeeds', async () => {

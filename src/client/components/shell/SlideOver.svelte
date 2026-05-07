@@ -44,7 +44,7 @@
   import { cn } from '@client/lib/cn.js'
   import type { Overlay, SurfaceContext } from '@client/lib/router.js'
   import type { MailSearchResultsState } from '@client/lib/assistantShellModel.js'
-  import { createSlideHeaderRegistration } from '@client/lib/slideHeaderContextRegistration.svelte.js'
+  import { createSlideHeaderCell } from '@client/lib/slideHeaderContextRegistration.svelte.js'
   import { createSlideOverMobilePanel } from '@client/lib/slideOverMobilePanel.svelte.js'
   import {
     emailDraftTitleForSlideOver,
@@ -217,17 +217,19 @@
   const messagesHeaderTitle = $derived(messagesTitleForSlideOver(overlay, surfaceContext))
   const indexedFileHeaderTitle = $derived(indexedFileTitleForSlideOver(overlay, surfaceContext))
 
-  const calendarHdr = createSlideHeaderRegistration<CalendarSlideHeaderState>(CALENDAR_SLIDE_HEADER)
-  const wikiHdr = createSlideHeaderRegistration<WikiSlideHeaderState>(WIKI_SLIDE_HEADER)
-  /** SlideOver L2 header must depend on registration bumps — `wikiHdr.current` alone may not invalidate parent templates after child `register()` updates. */
-  const wikiSlideHeader = $derived.by(() => {
-    wikiHdr.updateSeq
-    return wikiHdr.current
-  })
-  const yourWikiHdr = createSlideHeaderRegistration<YourWikiHeaderState>(YOUR_WIKI_HEADER)
-  const inboxHdr = createSlideHeaderRegistration<InboxThreadHeaderActions>(INBOX_THREAD_HEADER)
-  const emailDraftHdr = createSlideHeaderRegistration<EmailDraftHeaderActions>(EMAIL_DRAFT_HEADER)
-  const hubSourceHdr = createSlideHeaderRegistration<HubSourceSlideHeaderState>(HUB_SOURCE_SLIDE_HEADER)
+  /**
+   * Header cells for each overlay type. Children claim a cell during setup, mutate scalar
+   * fields via the controller, and clear on destroy. The cells are stable reactive objects
+   * — no `register(snapshot)` flush loop, no `updateSeq`, no per-payload equality.
+   * See {@link createSlideHeaderCell} and BUG-047.
+   */
+  const calendarHdr = createSlideHeaderCell<CalendarSlideHeaderState>(CALENDAR_SLIDE_HEADER)
+  const wikiHdr = createSlideHeaderCell<WikiSlideHeaderState>(WIKI_SLIDE_HEADER)
+  const wikiSlideHeader = $derived(wikiHdr.current)
+  const yourWikiHdr = createSlideHeaderCell<YourWikiHeaderState>(YOUR_WIKI_HEADER)
+  const inboxHdr = createSlideHeaderCell<InboxThreadHeaderActions>(INBOX_THREAD_HEADER)
+  const emailDraftHdr = createSlideHeaderCell<EmailDraftHeaderActions>(EMAIL_DRAFT_HEADER)
+  const hubSourceHdr = createSlideHeaderCell<HubSourceSlideHeaderState>(HUB_SOURCE_SLIDE_HEADER)
 
   /** Back / desktop X: draft uses editor discard (return to thread when applicable). */
   function headerDismiss() {

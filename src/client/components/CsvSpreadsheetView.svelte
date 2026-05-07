@@ -24,6 +24,7 @@
   })
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/CsvSpreadsheetView.svelte', '#1')
     void text
     void path
     selectedSheet = 0

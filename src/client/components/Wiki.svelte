@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext, untrack } from 'svelte'
+  import { onDestroy, untrack } from 'svelte'
   import { Loader2 } from 'lucide-svelte'
   import { mount, unmount } from 'svelte'
   import { cn } from '@client/lib/cn.js'
@@ -17,10 +17,7 @@
   import { wikiMarkdownBasenameDisplayTitle } from '@client/lib/wikiDirBreadcrumb.js'
   import { renderMarkdown } from '@client/lib/markdown.js'
   import '../styles/wiki/wikiMarkdown.css'
-  import {
-    WIKI_SLIDE_HEADER,
-    type SetWikiSlideHeader,
-  } from '@client/lib/wikiSlideHeaderContext.js'
+  import { getWikiSlideHeaderCell } from '@client/lib/wikiSlideHeaderContext.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import type { SurfaceContext } from '@client/router.js'
   import {
@@ -147,36 +144,54 @@
     selected && !sharedMode ? countOutgoingSharesForVaultPath(selected, ownedShares) : 0,
   )
 
-  const registerWikiHeader = getContext<SetWikiSlideHeader | undefined>(WIKI_SLIDE_HEADER)
+  const wikiHeaderCell = getWikiSlideHeaderCell()
 
-  /** Snapshot for `/wiki/` primary chrome (share / saving). Stored on shell via context — no registration handle or `updateSeq`. */
-  const wikiHeaderPayload = $derived.by(() => {
-    void ownedShares
-    return {
-      pageMode: showTipTapEditor && canEdit ? ('edit' as const) : ('view' as const),
-      canEdit,
-      saveState,
-      setPageMode: async () => {
-        /* View/edit toggle removed — always-on TipTap when editable (OPP-092 WYSIWYG). */
-      },
-      flushSavingMarkdown: async () => {
-        await wikiEditor?.flushSave()
-      },
-      canShare: canSharePage,
-      onOpenShare: () => {
-        shareDialogOpen = true
-      },
-      shareTargetLabel: selected ?? undefined,
-      shareAudienceCount: shareAudienceCount > 0 ? shareAudienceCount : undefined,
-      sharedIncoming: sharedMode,
-    }
+  async function wikiSlideSetPageModeNoop(_mode: 'view' | 'edit') {
+    /* always-on TipTap when editable — legacy hook */
+  }
+
+  function wikiSlideOpenShare() {
+    shareDialogOpen = true
+  }
+
+  async function wikiSlideFlushSavingMarkdown() {
+    await wikiEditor?.flushSave()
+  }
+
+  /**
+   * Claim the wiki header cell once during setup with stable handler identities.
+   * Reactive scalar fields (saveState, canEdit, …) are pushed through `patch` from a single
+   * `$effect` below — no fresh-payload churn, no equality shim. See BUG-047.
+   */
+  const wikiHeaderCtrl = wikiHeaderCell?.claim({
+    pageMode: 'view',
+    canEdit: false,
+    saveState: 'idle',
+    setPageMode: wikiSlideSetPageModeNoop,
+    flushSavingMarkdown: wikiSlideFlushSavingMarkdown,
+    canShare: false,
+    onOpenShare: wikiSlideOpenShare,
+    shareTargetLabel: undefined,
+    shareAudienceCount: undefined,
+    sharedIncoming: false,
   })
 
   $effect(() => {
-    registerWikiHeader?.(wikiHeaderPayload)
-    return () => {
-      registerWikiHeader?.(null)
-    }
+    if (!wikiHeaderCtrl) return
+    void ownedShares
+    wikiHeaderCtrl.patch({
+      pageMode: showTipTapEditor && canEdit ? 'edit' : 'view',
+      canEdit,
+      saveState,
+      canShare: canSharePage,
+      shareTargetLabel: selected ?? undefined,
+      shareAudienceCount: shareAudienceCount > 0 ? shareAudienceCount : undefined,
+      sharedIncoming: sharedMode,
+    })
+  })
+
+  onDestroy(() => {
+    wikiHeaderCtrl?.clear()
   })
 
   async function loadFiles() {

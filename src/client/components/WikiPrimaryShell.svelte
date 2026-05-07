@@ -1,8 +1,7 @@
 <script lang="ts">
-  /* `$bindable` + context setter propagate to Assistant; eslint cannot trace cross-component writes. */
-  /* eslint-disable no-useless-assignment */
+  /* `$bindable` mirrors `wikiHdr.current` for Assistant wiki-primary bar chrome. */
   import type { Snippet } from 'svelte'
-  import { setContext } from 'svelte'
+  import { createSlideHeaderCell } from '@client/lib/slideHeaderContextRegistration.svelte.js'
   import {
     WIKI_SLIDE_HEADER,
     type WikiSlideHeaderState,
@@ -15,12 +14,15 @@
   }: {
     bar: Snippet
     children: Snippet
-    /** Own-vault / shared wiki L2 chrome (share, save hints, read-only badge). Mirrors tests’ `(s) => { ref.current = s }`. */
+    /** Own-vault / shared wiki L2 chrome (share, save hints, read-only badge). Updated from header cell snapshot. */
     wikiSlideHeader?: WikiSlideHeaderState | null
   } = $props()
 
-  setContext(WIKI_SLIDE_HEADER, (next: WikiSlideHeaderState | null) => {
-    wikiSlideHeader = next
+  const wikiHdr = createSlideHeaderCell<WikiSlideHeaderState>(WIKI_SLIDE_HEADER)
+
+  $effect(() => {
+    const next = wikiHdr.current
+    if (!Object.is(wikiSlideHeader, next)) wikiSlideHeader = next
   })
 </script>
 

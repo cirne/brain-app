@@ -113,12 +113,14 @@
   }
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/WorkspaceSplit.svelte', '#1')
     if (!desktopDetailOpen) {
       pendingHalfWidthOnOpen = true
     }
   })
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/WorkspaceSplit.svelte', '#2')
     if (typeof window === 'undefined') return
     const mq = window.matchMedia('(max-width: 767px)')
     const onMq = () => {
@@ -130,11 +132,13 @@
   })
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/WorkspaceSplit.svelte', '#3')
     void workspaceColumnWidthPx
     syncDetailWidthToSplit()
   })
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/WorkspaceSplit.svelte', '#4')
     const el = splitEl
     if (!el || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver(() => {
@@ -148,6 +152,7 @@
   })
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/WorkspaceSplit.svelte', '#5')
     if (!desktopDetailOpen) {
       detailFullscreen = false
       cancelWidthAnim()

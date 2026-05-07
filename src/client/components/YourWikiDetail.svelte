@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount, getContext } from 'svelte'
+  import { onDestroy, onMount, untrack } from 'svelte'
   import { Sparkles, Pause, Play, RefreshCw } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import type { BackgroundAgentDoc, YourWikiPhase } from '@client/lib/statusBar/backgroundAgentTypes.js'
   import BackgroundAgentPanel from '@components/statusBar/BackgroundAgentPanel.svelte'
-  import { YOUR_WIKI_HEADER, type RegisterYourWikiHeader } from '@client/lib/yourWikiHeaderContext.js'
+  import { getYourWikiHeaderCell } from '@client/lib/yourWikiHeaderContext.js'
   import { yourWikiDocFromEvents } from '@client/lib/hubEvents/hubEventsStores.js'
   import { postYourWikiPause, postYourWikiResume, postYourWikiRunLap } from '@client/lib/yourWikiLoopApi.js'
   import { yourWikiNarrativeLine } from '@client/lib/yourWikiNarrative.js'
@@ -106,16 +106,31 @@
     })
   })
 
-  const registerHeader = getContext<RegisterYourWikiHeader | undefined>(YOUR_WIKI_HEADER)
-  $effect(() => {
-    if (!registerHeader) return
-    registerHeader({
+  const yourWikiHeaderCell = getYourWikiHeaderCell()
+
+  /**
+   * Claim once with stable `pause` / `resume` handlers. Reactive scalars (`doc`, `actionBusy`)
+   * are pushed via `patch` in the effect below. Initial reads are wrapped in `untrack` so
+   * Svelte does not warn about capturing initial values. See BUG-047.
+   */
+  const yourWikiHeaderCtrl = yourWikiHeaderCell?.claim(
+    untrack(() => ({
       doc,
       actionBusy,
       pause,
       resume,
+    })),
+  )
+
+  $effect(() => {
+    yourWikiHeaderCtrl?.patch({
+      doc,
+      actionBusy,
     })
-    return () => registerHeader(null)
+  })
+
+  onDestroy(() => {
+    yourWikiHeaderCtrl?.clear()
   })
 
   const actionBtnBase =

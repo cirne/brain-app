@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext } from 'svelte'
+  import { onDestroy, untrack } from 'svelte'
   import {
     ChevronRight,
     FileSymlink,
@@ -24,7 +24,7 @@
   } from '@client/lib/wikiDirListModel.js'
   import WikiShareDialog from '@components/WikiShareDialog.svelte'
   import { parseWikiListApiBody } from '@client/lib/wikiFileListResponse.js'
-  import { WIKI_SLIDE_HEADER, type SetWikiSlideHeader } from '@client/lib/wikiSlideHeaderContext.js'
+  import { getWikiSlideHeaderCell } from '@client/lib/wikiSlideHeaderContext.js'
 
   let {
     dirPath: dirPathProp,
@@ -87,34 +87,46 @@
     countOutgoingSharesForVaultPath(shareAudienceVaultPath, ownedShares),
   )
 
-  const registerWikiHeader = getContext<SetWikiSlideHeader | undefined>(WIKI_SLIDE_HEADER)
+  const wikiHeaderCell = getWikiSlideHeaderCell()
 
-  const wikiDirHeaderPayload = $derived.by(() => {
+  function wikiDirSlideSetPageModeNoop() {
+    /* view-only directory list */
+  }
+
+  function wikiDirSlideOpenShare() {
+    shareDialogTargetKind = 'dir'
+    const rel = vaultRelativeDirFromWikiBrowseDir(dirPathProp)
+    shareDialogPrefix = rel ? `${rel}/` : ''
+    shareDialogOpen = true
+  }
+
+  /**
+   * Claim the wiki header cell once with stable handler identities. Reactive scalar fields
+   * (canShare, share label, audience count, …) are pushed through `patch` from a single
+   * `$effect` below — no fresh-payload churn. See BUG-047.
+   */
+  const wikiHeaderCtrl = wikiHeaderCell?.claim({
+    pageMode: 'view',
+    canEdit: false,
+    saveState: 'idle',
+    setPageMode: wikiDirSlideSetPageModeNoop,
+    canShare: false,
+    onOpenShare: wikiDirSlideOpenShare,
+    shareTargetLabel: undefined,
+    shareAudienceCount: undefined,
+    sharedIncoming: false,
+  })
+
+  $effect(() => {
+    if (!wikiHeaderCtrl) return
     void ownedShares
-    return {
-      pageMode: 'view' as const,
-      canEdit: false,
-      saveState: 'idle' as const,
-      setPageMode: () => {},
+    wikiHeaderCtrl.patch({
       canShare: canShareCurrentDir,
-      onOpenShare: () => {
-        shareDialogTargetKind = 'dir'
-        const rel = vaultRelativeDirFromWikiBrowseDir(dirPathProp)
-        shareDialogPrefix = rel ? `${rel}/` : ''
-        shareDialogOpen = true
-      },
       shareTargetLabel: dirPath.trim() || undefined,
       shareAudienceCount:
         canShareCurrentDir && dirShareAudienceCount > 0 ? dirShareAudienceCount : undefined,
       sharedIncoming: sharedMode,
-    }
-  })
-
-  $effect(() => {
-    registerWikiHeader?.(wikiDirHeaderPayload)
-    return () => {
-      registerWikiHeader?.(null)
-    }
+    })
   })
 
   async function loadFiles() {
@@ -223,9 +235,14 @@
   })
 
   $effect(() => {
-    const label = dirPath ? (dirPath.split('/').pop() ?? dirPath) : 'Wiki'
-    onContextChange?.({ type: 'wiki-dir', path: dirPath, title: label })
-    return () => onContextChange?.({ type: 'none' })
+    const d = dirPath
+    const label = d ? (d.split('/').pop() ?? d) : 'Wiki'
+    untrack(() => onContextChange?.({ type: 'wiki-dir', path: d, title: label }))
+  })
+
+  onDestroy(() => {
+    wikiHeaderCtrl?.clear()
+    untrack(() => onContextChange?.({ type: 'none' }))
   })
 </script>
 

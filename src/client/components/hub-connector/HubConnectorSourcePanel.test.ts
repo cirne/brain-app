@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@client/test/render.js'
 import HubConnectorSourcePanel from './HubConnectorSourcePanel.svelte'
+import {
+  HUB_SOURCE_SLIDE_HEADER,
+  type HubSourceSlideHeaderCell,
+  type HubSourceSlideHeaderState,
+} from '@client/lib/hubSourceSlideHeaderContext.js'
+import { makeSlideHeaderCell } from '@client/lib/slideHeaderContextRegistration.svelte.js'
 
 vi.mock('@client/lib/app/appEvents.js', () => ({
   emit: vi.fn(),
@@ -59,6 +65,49 @@ describe('HubConnectorSourcePanel.svelte preferences', () => {
       { status: 200 },
     )
   }
+
+  it('claims the hub-source slide header cell with a stable refresh handler', async () => {
+    const prefsState = {
+      defaultSendSource: null as string | null,
+      mailboxes: [{ id: 'work_x', email: 'work@example.com', includeInDefault: true }],
+    }
+    vi.stubGlobal(
+      'fetch',
+      makeFetch(async (url) => {
+        const u = String(url)
+        if (u.endsWith('/api/hub/sources') || u.includes('/api/hub/sources?')) {
+          return sourcesResponse()
+        }
+        if (u.includes('/api/hub/sources/mail-prefs')) {
+          return new Response(JSON.stringify({ ok: true, ...prefsState }), { status: 200 })
+        }
+        const r = commonGet(u)
+        if (r) return r
+        return new Response('not found', { status: 404 })
+      }),
+    )
+
+    const cell: HubSourceSlideHeaderCell = makeSlideHeaderCell<HubSourceSlideHeaderState>()
+    const context = new Map<symbol, HubSourceSlideHeaderCell>([[HUB_SOURCE_SLIDE_HEADER, cell]])
+
+    render(HubConnectorSourcePanel, {
+      props: { sourceId: 'work_x', onClose: () => {} },
+      context,
+    } as unknown as Parameters<typeof render>[1])
+
+    await waitFor(() => {
+      expect(cell.claimed).toBe(true)
+    })
+
+    expect(cell.current?.title).toBe('work@example.com')
+    expect(typeof cell.current?.onRefresh).toBe('function')
+    const refreshRef = cell.current?.onRefresh
+
+    // After background polling fires (mail-status), the cell should still hold the same
+    // refresh handler — patches must not rebuild handler refs.
+    await new Promise((r) => setTimeout(r, 30))
+    expect(cell.current?.onRefresh).toBe(refreshRef)
+  })
 
   it('renders the two preference toggles for IMAP sources only', async () => {
     let prefsState: {

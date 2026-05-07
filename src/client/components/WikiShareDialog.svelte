@@ -88,6 +88,7 @@
   )
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/WikiShareDialog.svelte', '#1')
     if (!open) {
       audienceFetchToken += 1
       audienceRows = []

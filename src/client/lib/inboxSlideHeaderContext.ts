@@ -1,4 +1,7 @@
-/** SlideOver sets this; Inbox registers Reply / Forward / Archive for the L2 header. */
+import { getContext } from 'svelte'
+import type { SlideHeaderCell } from '@client/lib/slideHeaderContextRegistration.svelte.js'
+
+/** SlideOver sets this; Inbox claims Reply / Forward / Archive for the L2 header. */
 export const INBOX_THREAD_HEADER = Symbol('inboxThreadHeader')
 
 export type InboxThreadHeaderActions = {
@@ -7,4 +10,8 @@ export type InboxThreadHeaderActions = {
   onArchive: () => void
 }
 
-export type RegisterInboxThreadHeader = (_state: InboxThreadHeaderActions | null) => void
+export type InboxThreadHeaderCell = SlideHeaderCell<InboxThreadHeaderActions>
+
+export function getInboxThreadHeaderCell(): InboxThreadHeaderCell | undefined {
+  return getContext<InboxThreadHeaderCell | undefined>(INBOX_THREAD_HEADER)
+}

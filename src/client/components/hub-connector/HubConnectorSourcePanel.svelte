@@ -1,12 +1,9 @@
 <script lang="ts">
-  import { untrack, getContext } from 'svelte'
+  import { onDestroy, untrack } from 'svelte'
   import { cn } from '@client/lib/cn.js'
   import { emit } from '@client/lib/app/appEvents.js'
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
-  import {
-    HUB_SOURCE_SLIDE_HEADER,
-    type RegisterHubSourceSlideHeader,
-  } from '@client/lib/hubSourceSlideHeaderContext.js'
+  import { getHubSourceSlideHeaderCell } from '@client/lib/hubSourceSlideHeaderContext.js'
   import {
     isMailSourceKind,
     type HubRipmailSourceRow,
@@ -53,8 +50,13 @@
   const hubSourceMailLatest = createAsyncLatest({ abortPrevious: true })
   const hubSourceDetailLatest = createAsyncLatest({ abortPrevious: true })
 
-  const registerHubHeader = getContext<RegisterHubSourceSlideHeader | undefined>(HUB_SOURCE_SLIDE_HEADER)
-  const showInlineRefresh = $derived(registerHubHeader === undefined)
+  const hubSourceHeaderCell = getHubSourceSlideHeaderCell()
+  const showInlineRefresh = $derived(hubSourceHeaderCell === undefined)
+
+  /** Stable refresh handler — function declarations are hoisted; identity is constant. */
+  function hubSourceHeaderRefresh() {
+    void hubSourceRefresh()
+  }
 
   const INDEX_REFRESH_MAX_MS = 15 * 60 * 1000
 
@@ -437,25 +439,46 @@
       (sourceDetail.fileSource == null || sourceDetail.fileSource.roots.length === 0),
   )
 
+  /**
+   * Hub source header is only visible once the source row has loaded. We claim/release the
+   * cell as `source` flips between null and present, with a stable `onRefresh` handler.
+   * Reactive scalars (title, busy/disabled) flow via `patch`. See BUG-047.
+   */
+  let hubSourceHeaderCtrl:
+    | ReturnType<NonNullable<typeof hubSourceHeaderCell>['claim']>
+    | null = null
+
   $effect(() => {
-    if (!registerHubHeader) return
+    if (!hubSourceHeaderCell) return
     const src = source
     if (!src) {
-      registerHubHeader(null)
+      if (hubSourceHeaderCtrl) {
+        hubSourceHeaderCtrl.clear()
+        hubSourceHeaderCtrl = null
+      }
       return
     }
     const mail = isMailSourceKind(src.kind)
     const blocked = !mail && driveSyncBlocked
-    registerHubHeader({
+    const next = {
       title: src.displayName,
-      onRefresh: () => void hubSourceRefresh(),
+      onRefresh: hubSourceHeaderRefresh,
       refreshDisabled: Boolean(sourceSyncAction) || blocked,
       refreshSpinning: Boolean(sourceSyncAction === 'refresh' || (!mail && indexRefreshPending)),
       refreshTitle: blocked
         ? 'Add at least one Drive folder in the list below before syncing'
         : undefined,
-    })
-    return () => registerHubHeader(null)
+    }
+    if (!hubSourceHeaderCtrl?.isOwner) {
+      hubSourceHeaderCtrl = hubSourceHeaderCell.claim(next)
+    } else {
+      hubSourceHeaderCtrl.patch(next)
+    }
+  })
+
+  onDestroy(() => {
+    hubSourceHeaderCtrl?.clear()
+    hubSourceHeaderCtrl = null
   })
 
   const hubDialogBtnBase =

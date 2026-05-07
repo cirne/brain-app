@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick, type Component, type Snippet } from 'svelte'
+  import { onMount, tick, untrack, type Component, type Snippet } from 'svelte'
   import { type SurfaceContext } from '@client/router.js'
   import type { AgentConversationViewProps, ConversationScrollApi } from '@client/lib/agentConversationViewTypes.js'
   import type { ContentCardPreview } from '@client/lib/cards/contentCards.js'
@@ -343,7 +343,8 @@
   })
 
   $effect(() => {
-    onHearRepliesChange?.(hearRepliesForChatComposer)
+    const on = hearRepliesForChatComposer
+    untrack(() => onHearRepliesChange?.(on))
   })
 
   /** Survives pending → server session id migration; keeps UnifiedChatComposer voice mode across SSE `session`. */
@@ -355,7 +356,8 @@
   })
 
   $effect(() => {
-    onStreamingChange?.(streaming)
+    const s = streaming
+    untrack(() => onStreamingChange?.(s))
   })
 
   let lastStreamingSessionsKey = ''

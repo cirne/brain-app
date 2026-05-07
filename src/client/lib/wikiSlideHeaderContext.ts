@@ -1,6 +1,7 @@
-import type { SlideHeaderRegistration } from '@client/lib/slideHeaderContextRegistration.svelte.js'
+import { getContext } from 'svelte'
+import type { SlideHeaderCell } from '@client/lib/slideHeaderContextRegistration.svelte.js'
 
-/** SlideOver sets this; Wiki registers edit-mode controls for the L2 header. */
+/** SlideOver sets this; Wiki / WikiDirList claim and update header fields. */
 export const WIKI_SLIDE_HEADER = Symbol('wikiSlideHeader')
 
 export type WikiSlideHeaderState = {
@@ -22,7 +23,9 @@ export type WikiSlideHeaderState = {
   sharedIncoming?: boolean
 }
 
-/** Registration handle for wiki-primary header actions (see {@link createSlideHeaderRegistration}). */
-export type WikiSlideHeaderRegistration = SlideHeaderRegistration<WikiSlideHeaderState>
+export type WikiSlideHeaderCell = SlideHeaderCell<WikiSlideHeaderState>
 
-export type SetWikiSlideHeader = (_state: WikiSlideHeaderState | null) => void
+/** Typed `getContext` helper — returns `undefined` when not mounted inside SlideOver. */
+export function getWikiSlideHeaderCell(): WikiSlideHeaderCell | undefined {
+  return getContext<WikiSlideHeaderCell | undefined>(WIKI_SLIDE_HEADER)
+}

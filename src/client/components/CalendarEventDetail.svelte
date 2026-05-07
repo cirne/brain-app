@@ -68,6 +68,7 @@
   const relatedContextLatest = createAsyncLatest({ abortPrevious: true })
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/CalendarEventDetail.svelte', '#1')
     const ev = event
     const { token, signal } = relatedContextLatest.begin()
     relatedError = null

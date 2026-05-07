@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext, onMount, tick, untrack } from 'svelte'
+  import { onDestroy, onMount, tick, untrack } from 'svelte'
   import { Archive, Forward, Reply, Search, Sparkles } from 'lucide-svelte'
   import { cn } from '@client/lib/cn.js'
   import { emit, subscribe } from '@client/lib/app/appEvents.js'
@@ -9,10 +9,7 @@
   import { createAsyncLatest, isAbortError } from '@client/lib/asyncLatest.js'
   import { emailBodyToIframeSrcdoc } from '@client/lib/mailBodyDisplay.js'
   import { locationShowsEmailThread } from '@client/lib/inboxEmailLocation.js'
-  import {
-    INBOX_THREAD_HEADER,
-    type RegisterInboxThreadHeader,
-  } from '@client/lib/inboxSlideHeaderContext.js'
+  import { getInboxThreadHeaderCell } from '@client/lib/inboxSlideHeaderContext.js'
 
   type Email = {
     id: string
@@ -405,6 +402,18 @@
     if (action === 'forward') loadContacts()
   }
 
+  /** Stable references for slide header registration — avoids new object literals on spurious effect flushes (prod `effect_update_depth_exceeded`). */
+  function inboxSlideOverReply() {
+    startComposeFromThread('reply')
+  }
+  function inboxSlideOverForward() {
+    startComposeFromThread('forward')
+  }
+  function inboxSlideOverArchive() {
+    const cur = selectedThread
+    if (cur) void archive(cur)
+  }
+
   function cancelCompose() {
     composeMode = null
     composeEmailId = null
@@ -489,27 +498,35 @@
     })
   })
 
-  const registerInboxThreadHeader = getContext<RegisterInboxThreadHeader | undefined>(
-    INBOX_THREAD_HEADER,
-  )
+  const inboxThreadHeaderCell = getInboxThreadHeaderCell()
 
-  /** Reply / Forward / Archive in SlideOver L2 header (icon-only). */
+  /**
+   * Inbox thread header is only present while a real thread is open and not composing.
+   * We claim/release the cell as the thread visibility flips, with stable named handlers
+   * — no fresh-object churn for unrelated state. See BUG-047.
+   */
+  const showInboxThreadHeader = $derived(Boolean(selectedThread && !composeMode))
+  let inboxThreadHeaderCtrl: ReturnType<NonNullable<typeof inboxThreadHeaderCell>['claim']> | null = null
+
   $effect(() => {
-    if (!registerInboxThreadHeader) return
-    const showToolbar = Boolean(selectedThread && !composeMode)
-    if (showToolbar) {
-      registerInboxThreadHeader({
-        onReply: () => startComposeFromThread('reply'),
-        onForward: () => startComposeFromThread('forward'),
-        onArchive: () => {
-          const cur = selectedThread
-          if (cur) void archive(cur)
-        },
-      })
-    } else {
-      registerInboxThreadHeader(null)
+    if (!inboxThreadHeaderCell) return
+    if (showInboxThreadHeader) {
+      if (!inboxThreadHeaderCtrl?.isOwner) {
+        inboxThreadHeaderCtrl = inboxThreadHeaderCell.claim({
+          onReply: inboxSlideOverReply,
+          onForward: inboxSlideOverForward,
+          onArchive: inboxSlideOverArchive,
+        })
+      }
+    } else if (inboxThreadHeaderCtrl) {
+      inboxThreadHeaderCtrl.clear()
+      inboxThreadHeaderCtrl = null
     }
-    return () => registerInboxThreadHeader(null)
+  })
+
+  onDestroy(() => {
+    inboxThreadHeaderCtrl?.clear()
+    inboxThreadHeaderCtrl = null
   })
 </script>
 

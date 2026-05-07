@@ -188,6 +188,7 @@
   }
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/AgentInput.svelte', '#1')
     void input
     void placeholder
     void queuedMessages.length
@@ -239,6 +240,7 @@
   })
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/AgentInput.svelte', '#2')
     const cb = onDraftChange
     if (cb) cb(input)
   })

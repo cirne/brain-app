@@ -675,6 +675,27 @@ describe('AgentChat.svelte', () => {
       })
     })
 
+    it('does not re-invoke onHearRepliesChange when only the callback reference changes', async () => {
+      stubFetchForAgentChat()
+
+      const first = vi.fn()
+      const second = vi.fn()
+      const { rerender } = render(AgentChat, {
+        props: { context: { type: 'none' }, onHearRepliesChange: first },
+      })
+      await tick()
+      const n = first.mock.calls.length
+      expect(n).toBeGreaterThanOrEqual(1)
+
+      rerender({
+        props: { context: { type: 'none' }, onHearRepliesChange: second },
+      })
+      await tick()
+
+      expect(first.mock.calls.length).toBe(n)
+      expect(second.mock.calls.length).toBe(0)
+    })
+
     it('calls onStreamFinished when done event is received', async () => {
       const post = vi.fn(() =>
         Promise.resolve(

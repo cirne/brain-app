@@ -115,6 +115,7 @@
 
   /** Live doc from `/api/events` SSE — Your Wiki vs wiki-expansion run by `id`. */
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/statusBar/BackgroundAgentPanel.svelte', '#1')
     void id
     const unsubYour = yourWikiDocFromEvents.subscribe((d) => {
       const useYourWiki = id === undefined || id === 'your-wiki'
@@ -204,6 +205,7 @@
   }
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/statusBar/BackgroundAgentPanel.svelte', '#2')
     if (embedInHubDetail && !embedScrollParent) return
     void effectiveId
     void embedScrollParent
@@ -212,6 +214,7 @@
   })
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/statusBar/BackgroundAgentPanel.svelte', '#3')
     if (embedInHubDetail && !embedScrollParent) return
     void timelineSorted.length
     void agent?.detail
@@ -226,6 +229,7 @@
   })
 
   $effect(() => {
+    console.log('[effect-debug]', 'src/client/components/statusBar/BackgroundAgentPanel.svelte', '#4')
     if (!embedInHubDetail) return
     const el = embedScrollParent
     if (!el) return

@@ -1,4 +1,7 @@
-/** SlideOver sets this; Calendar registers week nav controls for the L2 header. */
+import { getContext } from 'svelte'
+import type { SlideHeaderCell } from '@client/lib/slideHeaderContextRegistration.svelte.js'
+
+/** SlideOver sets this; Calendar claims and updates week nav controls. */
 export const CALENDAR_SLIDE_HEADER = Symbol('calendarSlideHeader')
 
 export type CalendarSlideHeaderState = {
@@ -12,4 +15,8 @@ export type CalendarSlideHeaderState = {
   headerBusy: boolean
 }
 
-export type SetCalendarSlideHeader = (_state: CalendarSlideHeaderState | null) => void
+export type CalendarSlideHeaderCell = SlideHeaderCell<CalendarSlideHeaderState>
+
+export function getCalendarSlideHeaderCell(): CalendarSlideHeaderCell | undefined {
+  return getContext<CalendarSlideHeaderCell | undefined>(CALENDAR_SLIDE_HEADER)
+}

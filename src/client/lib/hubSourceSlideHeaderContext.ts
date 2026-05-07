@@ -1,5 +1,7 @@
-/** SlideOver L2 header state for hub connector source detail (`overlay.type === 'hub-source'`). */
+import { getContext } from 'svelte'
+import type { SlideHeaderCell } from '@client/lib/slideHeaderContextRegistration.svelte.js'
 
+/** SlideOver L2 header state for hub connector source detail (`overlay.type === 'hub-source'`). */
 export interface HubSourceSlideHeaderState {
   title: string
   onRefresh: () => void
@@ -11,4 +13,8 @@ export interface HubSourceSlideHeaderState {
 
 export const HUB_SOURCE_SLIDE_HEADER = Symbol('HUB_SOURCE_SLIDE_HEADER')
 
-export type RegisterHubSourceSlideHeader = (state: HubSourceSlideHeaderState | null) => void
+export type HubSourceSlideHeaderCell = SlideHeaderCell<HubSourceSlideHeaderState>
+
+export function getHubSourceSlideHeaderCell(): HubSourceSlideHeaderCell | undefined {
+  return getContext<HubSourceSlideHeaderCell | undefined>(HUB_SOURCE_SLIDE_HEADER)
+}

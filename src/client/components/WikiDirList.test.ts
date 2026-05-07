@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import WikiDirList from './WikiDirList.svelte'
 import { render, fireEvent, screen, waitFor } from '@client/test/render.js'
+import { createWikiSlideHeaderContext } from '@client/test/helpers/index.js'
 
 function wikiApiEnvelope(files: { path: string; name: string }[], shares?: {
   owned?: { pathPrefix: string; targetKind: 'dir' | 'file' }[]
@@ -146,6 +147,49 @@ describe('WikiDirList.svelte', () => {
 
     const ideasRow = screen.getByRole('button', { name: /ideas/i })
     expect(ideasRow.classList.contains('wiki-dir-row--outgoing')).toBe(true)
+  })
+
+  it('claims the wiki slide header cell with stable handler refs (no fresh-payload churn)', async () => {
+    const { context, cell, ref } = createWikiSlideHeaderContext()
+
+    const onContextChange = vi.fn()
+    const { rerender } = render(WikiDirList, {
+      props: {
+        dirPath: 'me/trips',
+        onOpenFile: vi.fn(),
+        onOpenDir: vi.fn(),
+        onContextChange,
+      },
+      context,
+    } as unknown as Parameters<typeof render>[1])
+
+    await waitFor(() => {
+      expect(ref.current).not.toBeNull()
+    })
+
+    expect(cell.claimed).toBe(true)
+    expect(ref.current?.canShare).toBe(true)
+    expect(ref.current?.shareTargetLabel).toBe('me/trips')
+    expect(ref.current?.sharedIncoming).toBe(false)
+    const onOpenShareRef = ref.current?.onOpenShare
+    const setPageModeRef = ref.current?.setPageMode
+    expect(typeof onOpenShareRef).toBe('function')
+
+    // Re-render with a *new* `onContextChange` reference. Header handler identities must stay
+    // stable across renders — the cell is claimed once during setup and only ever patched.
+    const onContextChange2 = vi.fn()
+    rerender({
+      dirPath: 'me/trips',
+      onOpenFile: vi.fn(),
+      onOpenDir: vi.fn(),
+      onContextChange: onContextChange2,
+    })
+
+    await waitFor(() => {
+      expect(cell.claimed).toBe(true)
+    })
+    expect(ref.current?.onOpenShare).toBe(onOpenShareRef)
+    expect(ref.current?.setPageMode).toBe(setPageModeRef)
   })
 
   it('uses symlink icon when duplicate grant rows share the same prefix', async () => {

@@ -2,15 +2,12 @@
   /**
    * Ripmail draft: metadata fields + shared Markdown editor; PATCH saves literal body via draft rewrite.
    */
-  import { getContext, onMount } from 'svelte'
+  import { onDestroy, onMount } from 'svelte'
   import { Loader2 } from 'lucide-svelte'
   import TipTapMarkdownEditor from '@components/TipTapMarkdownEditor.svelte'
   import { subscribe, emit } from '@client/lib/app/appEvents.js'
   import type { SurfaceContext } from '@client/router.js'
-  import {
-    EMAIL_DRAFT_HEADER,
-    type RegisterEmailDraftHeader,
-  } from '@client/lib/emailDraftSlideHeaderContext.js'
+  import { getEmailDraftHeaderCell } from '@client/lib/emailDraftSlideHeaderContext.js'
   import '../styles/wiki/wikiMarkdown.css'
 
   type DraftJson = {
@@ -52,7 +49,15 @@
   /** Expanded Cc/Bcc block; opens automatically when draft has Cc or Bcc. */
   let ccBccOpen = $state(false)
 
-  const registerEmailDraftHeader = getContext<RegisterEmailDraftHeader | undefined>(EMAIL_DRAFT_HEADER)
+  const emailDraftHeaderCell = getEmailDraftHeaderCell()
+
+  /** Stable handlers for the header — function declarations below are hoisted; identities don't change. */
+  function emailDraftHeaderSave() {
+    void saveDraft()
+  }
+  function emailDraftHeaderSend() {
+    void sendDraft()
+  }
 
   function addrsToLine(v: string[] | undefined): string {
     return Array.isArray(v) ? v.join(', ') : ''
@@ -195,19 +200,40 @@
     void loadDraft()
   })
 
+  /**
+   * Claim/release the draft header cell as the editor moves in/out of a usable state.
+   * Stable handlers (`discard`, `emailDraftHeaderSave`, `emailDraftHeaderSend`) are passed
+   * once at claim time; reactive scalars (`saveState`, `sendState`) flow via `patch`.
+   * See BUG-047.
+   */
+  let emailDraftHeaderCtrl:
+    | ReturnType<NonNullable<typeof emailDraftHeaderCell>['claim']>
+    | null = null
+  const emailDraftHeaderShouldShow = $derived(!loading && !loadError)
+
   $effect(() => {
-    if (loading || loadError) {
-      registerEmailDraftHeader?.(null)
-      return () => registerEmailDraftHeader?.(null)
+    if (!emailDraftHeaderCell) return
+    if (emailDraftHeaderShouldShow) {
+      if (!emailDraftHeaderCtrl?.isOwner) {
+        emailDraftHeaderCtrl = emailDraftHeaderCell.claim({
+          onDiscard: discard,
+          onSave: emailDraftHeaderSave,
+          onSend: emailDraftHeaderSend,
+          saveState,
+          sendState,
+        })
+      } else {
+        emailDraftHeaderCtrl.patch({ saveState, sendState })
+      }
+    } else if (emailDraftHeaderCtrl) {
+      emailDraftHeaderCtrl.clear()
+      emailDraftHeaderCtrl = null
     }
-    registerEmailDraftHeader?.({
-      onDiscard: discard,
-      onSave: () => void saveDraft(),
-      onSend: () => void sendDraft(),
-      saveState,
-      sendState,
-    })
-    return () => registerEmailDraftHeader?.(null)
+  })
+
+  onDestroy(() => {
+    emailDraftHeaderCtrl?.clear()
+    emailDraftHeaderCtrl = null
   })
 
   onMount(() => {
