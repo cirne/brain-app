@@ -49,13 +49,8 @@
   import { wikiPathForReadToolArg } from '@client/lib/cards/contentCards.js'
   import { wikiMarkdownBasenameDisplayTitle } from '@client/lib/wikiDirBreadcrumb.js'
   import {
-    wikiPrimaryCrumbsForDir,
-    wikiPrimaryCrumbsForFile,
-    wikiPrimaryCrumbsForMyWikiDir,
-    wikiPrimaryCrumbsForMyWikiFile,
-    wikiPrimaryCrumbsForSharedDir,
-    wikiPrimaryCrumbsForSharedFile,
-    type WikiPrimaryCrumb
+    wikiPrimaryCrumbsForOverlay,
+    type WikiPrimaryCrumb,
       } from '@client/lib/wikiPrimaryBarCrumbs.js'
   import WikiPrimaryBarCrumbs from '@components/WikiPrimaryBarCrumbs.svelte'
   import {
@@ -94,6 +89,7 @@
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
   import { wikiPrimaryChatMessageOrNull } from '@client/lib/wikiPrimaryChatSend.js'
+  import { overlayForWikiPrimaryShortcut } from '@client/lib/wikiPrimaryShortcutOverlay.js'
   import type { WikiSlideHeaderState } from '@client/lib/wikiSlideHeaderContext.js'
   import {
     BookOpen,
@@ -317,42 +313,7 @@
     if (shell.route.zone !== 'wiki') return []
     const o = shell.route.overlay
     if (!o || (o.type !== 'wiki' && o.type !== 'wiki-dir')) return []
-    const sh = o.shareHandle?.trim()
-    if (sh) {
-      return o.type === 'wiki'
-        ? wikiPrimaryCrumbsForSharedFile(sh, o.path?.trim() ?? '')
-        : wikiPrimaryCrumbsForSharedDir(sh, o.path)
-    }
-    const p = o.path?.trim() ?? ''
-    if (
-      p === MY_WIKI_SEGMENT ||
-      p.startsWith(`${MY_WIKI_SEGMENT}/`) ||
-      p === MY_WIKI_URL_SEGMENT ||
-      p.startsWith(`${MY_WIKI_URL_SEGMENT}/`) ||
-      p === 'my-wiki' ||
-      p.startsWith('my-wiki/') ||
-      p === 'me' ||
-      p.startsWith('me/')
-    ) {
-      const localRel =
-        p === MY_WIKI_SEGMENT || p === MY_WIKI_URL_SEGMENT || p === 'my-wiki' || p === 'me'
-          ? ''
-          : p.startsWith(`${MY_WIKI_URL_SEGMENT}/`)
-            ? p.slice(MY_WIKI_URL_SEGMENT.length + 1)
-            : p.startsWith('my-wiki/')
-              ? p.slice('my-wiki/'.length)
-              : p.startsWith(`${MY_WIKI_SEGMENT}/`)
-                ? p.slice(MY_WIKI_SEGMENT.length + 1)
-                : p.startsWith('me/')
-                  ? p.slice('me/'.length)
-                  : ''
-      return o.type === 'wiki'
-        ? wikiPrimaryCrumbsForMyWikiFile(localRel)
-        : wikiPrimaryCrumbsForMyWikiDir(localRel || undefined)
-    }
-    return o.type === 'wiki'
-      ? wikiPrimaryCrumbsForFile(o.path?.trim() ?? '')
-      : wikiPrimaryCrumbsForDir(o.path)
+    return wikiPrimaryCrumbsForOverlay(o)
   })
 
   /** Bare `/wiki` hub lists My Wiki + shares; with no received shares, redirect to `/wiki/me/`. */
@@ -696,17 +657,17 @@
   }
 
   function navigateWikiPrimary(path?: string) {
-    const shareOpts = wikiShareOptsFromRoute()
-    const overlay: Overlay = path ? { type: 'wiki', path, ...shareOpts } : { type: 'wiki-dir', ...shareOpts }
+    const overlay = overlayForWikiPrimaryShortcut(path, wikiShareOptsFromRoute())
     const replace = shell.route.zone === 'wiki' && shouldReplaceWikiOverlay(shell.route)
     navigateShell({ zone: 'wiki', overlay }, replace ? { replace: true } : undefined)
     shell.route = parseRoute()
-    if (path) {
+    const docPath = path?.trim()
+    if (docPath) {
       void addToNavHistory({
-        id: makeNavHistoryId('doc', path),
+        id: makeNavHistoryId('doc', docPath),
         type: 'doc',
-        title: path,
-        path
+        title: docPath,
+        path: docPath
       })
     }
   }

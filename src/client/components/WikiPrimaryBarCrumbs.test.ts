@@ -5,12 +5,12 @@ import WikiPrimaryBarCrumbs from './WikiPrimaryBarCrumbs.svelte'
 describe('WikiPrimaryBarCrumbs.svelte', () => {
   const openPathMenu = () => screen.getByRole('button', { name: /show full path/i })
 
-  it('maps crumbs and forwards Wiki root and folders via hierarchy menu', async () => {
+  it('maps crumbs and forwards My Wiki + folders via hierarchy menu', async () => {
     const onOpenWikiDir = vi.fn()
     render(WikiPrimaryBarCrumbs, {
       props: {
         crumbs: [
-          { kind: 'wiki-root-link' },
+          { kind: 'folder-link', path: 'me', label: 'My Wiki' },
           { kind: 'folder-link', path: 'me/travel', label: 'travel' },
           { kind: 'tail', label: 'page.md' },
         ],
@@ -21,11 +21,11 @@ describe('WikiPrimaryBarCrumbs.svelte', () => {
     expect(screen.getByText('page.md').tagName).not.toBe('BUTTON')
 
     await fireEvent.click(openPathMenu())
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Wiki' }))
-    expect(onOpenWikiDir).toHaveBeenCalledWith(undefined)
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'My Wiki' }))
+    expect(onOpenWikiDir).toHaveBeenCalledWith('me')
 
     await fireEvent.click(openPathMenu())
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'travel' }))
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Travel' }))
     expect(onOpenWikiDir).toHaveBeenCalledWith('me/travel')
   })
 })

@@ -3,6 +3,8 @@ import {
   wikiPrimaryCrumbsForDir,
   wikiPrimaryCrumbsForFile,
   wikiPrimaryCrumbsForMyWikiFile,
+  wikiPrimaryCrumbsForOverlay,
+  wikiPrimaryCrumbMenuIcon,
   wikiPrimaryCrumbsForSharedFile,
 } from './wikiPrimaryBarCrumbs.js'
 
@@ -60,21 +62,53 @@ describe('wikiPrimaryCrumbsForDir', () => {
 })
 
 describe('wikiPrimaryCrumbs shared / My Wiki', () => {
-  it('shared file: Wiki → @handle → folders → page', () => {
+  it('shared file: @handle → folders → page', () => {
     expect(wikiPrimaryCrumbsForSharedFile('cirne', 'travel/trip.md')).toEqual([
-      { kind: 'wiki-root-link' },
       { kind: 'folder-link', path: '@cirne', label: '@cirne' },
       { kind: 'folder-link', path: '@cirne/travel', label: 'travel' },
       { kind: 'tail', label: 'trip.md' },
     ])
   })
 
-  it('My Wiki file: Wiki → My Wiki → folders → page (`me` URL segment)', () => {
+  it('My Wiki file: My Wiki → folders → page (`me` URL segment)', () => {
     expect(wikiPrimaryCrumbsForMyWikiFile('people/adam.md')).toEqual([
-      { kind: 'wiki-root-link' },
       { kind: 'folder-link', path: 'me', label: 'My Wiki' },
       { kind: 'folder-link', path: 'me/people', label: 'people' },
       { kind: 'tail', label: 'adam.md' },
     ])
+  })
+})
+
+describe('wikiPrimaryCrumbsForOverlay', () => {
+  it('maps personal unified reader path (no wiki hub crumb)', () => {
+    expect(
+      wikiPrimaryCrumbsForOverlay({ type: 'wiki', path: 'me/people/joshua-cano.md' }),
+    ).toEqual([
+      { kind: 'folder-link', path: 'me', label: 'My Wiki' },
+      { kind: 'folder-link', path: 'me/people', label: 'people' },
+      { kind: 'tail', label: 'joshua-cano.md' },
+    ])
+  })
+
+  it('vault-relative reader path uses vault crumbs', () => {
+    expect(wikiPrimaryCrumbsForOverlay({ type: 'wiki', path: 'travel.md' })).toEqual([
+      { kind: 'wiki-root-link' },
+      { kind: 'tail', label: 'travel.md' },
+    ])
+  })
+})
+
+describe('wikiPrimaryCrumbMenuIcon', () => {
+  it('maps browse roots and nested dirs', () => {
+    expect(wikiPrimaryCrumbMenuIcon({ kind: 'wiki-root-link' })).toEqual({ kind: 'book-open' })
+    expect(wikiPrimaryCrumbMenuIcon({ kind: 'folder-link', path: 'me', label: 'My Wiki' })).toEqual({
+      kind: 'book-open',
+    })
+    expect(wikiPrimaryCrumbMenuIcon({ kind: 'folder-link', path: '@alice', label: '@alice' })).toEqual({
+      kind: 'users',
+    })
+    expect(
+      wikiPrimaryCrumbMenuIcon({ kind: 'folder-link', path: 'me/people', label: 'people' }),
+    ).toEqual({ kind: 'dir', key: 'people' })
   })
 })

@@ -9,6 +9,7 @@ import {
   migrateLegacySharedWithMeDirPath,
   normalizeWikiDirPath,
   parseUnifiedWikiBrowsePath,
+  wikiBrowseFolderDirIconKey,
   vaultPathHasOutgoingShare,
   wikiPathUnderSharePrefix,
   wikiShareCoversVaultPath,
@@ -84,6 +85,15 @@ describe('parseUnifiedWikiBrowsePath', () => {
       shareHandle: 'alice',
       vaultRelPath: 'trips/a.md',
     })
+  })
+})
+
+describe('wikiBrowseFolderDirIconKey', () => {
+  it('returns vault-relative tail for personal and shared browse folders', () => {
+    expect(wikiBrowseFolderDirIconKey('me')).toBeUndefined()
+    expect(wikiBrowseFolderDirIconKey('me/people')).toBe('people')
+    expect(wikiBrowseFolderDirIconKey('@alice')).toBeUndefined()
+    expect(wikiBrowseFolderDirIconKey('@alice/trips')).toBe('trips')
   })
 })
 

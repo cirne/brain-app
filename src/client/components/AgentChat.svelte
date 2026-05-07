@@ -927,7 +927,7 @@
 
     <div
       class={cn(
-        'mid-outer box-border flex min-h-0 min-w-0 flex-1 flex-col px-[length:var(--chat-transcript-px)]',
+        'mid-outer box-border flex min-h-0 min-w-0 flex-1 flex-col',
         centerEmptyInPane && 'mid-outer--empty justify-center',
         bridgeSlideLayout && 'mid-outer--bridge-slide bg-surface',
       )}

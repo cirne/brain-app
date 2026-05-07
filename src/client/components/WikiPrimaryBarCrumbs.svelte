@@ -1,6 +1,10 @@
 <script lang="ts">
   import CollapsibleBreadcrumb from '@components/CollapsibleBreadcrumb.svelte'
-  import type { WikiPrimaryCrumb } from '@client/lib/wikiPrimaryBarCrumbs.js'
+  import {
+    formatWikiPrimaryCrumbLabel,
+    wikiPrimaryCrumbMenuIcon,
+    type WikiPrimaryCrumb,
+  } from '@client/lib/wikiPrimaryBarCrumbs.js'
 
   /** Navigate to wiki directory; omit path for vault root. */
   type OpenWikiDir = (_path?: string) => void
@@ -17,20 +21,22 @@
     crumbs.map((crumb) => {
       if (crumb.kind === 'wiki-root-link') {
         return {
-          label: 'Wiki',
+          label: formatWikiPrimaryCrumbLabel(crumb),
           onClick: () => onOpenWikiDir(undefined),
           isCurrent: false,
+          menuIcon: wikiPrimaryCrumbMenuIcon(crumb),
         }
       }
       if (crumb.kind === 'folder-link') {
         return {
-          label: crumb.label,
+          label: formatWikiPrimaryCrumbLabel(crumb),
           onClick: () => onOpenWikiDir(crumb.path),
           isCurrent: false,
+          menuIcon: wikiPrimaryCrumbMenuIcon(crumb),
         }
       }
       return {
-        label: crumb.label,
+        label: formatWikiPrimaryCrumbLabel(crumb),
         onClick: undefined,
         isCurrent: true,
       }

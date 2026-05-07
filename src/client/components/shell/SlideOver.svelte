@@ -77,7 +77,14 @@
     HUB_SOURCE_SLIDE_HEADER,
     type HubSourceSlideHeaderState,
   } from '@client/lib/hubSourceSlideHeaderContext.js'
-  import { parseWikiDirSegments, wikiDirPathPrefix } from '@client/lib/wikiDirBreadcrumb.js'
+  import { wikiDirPathPrefix } from '@client/lib/wikiDirBreadcrumb.js'
+  import {
+    formatWikiPrimaryCrumbLabel,
+    wikiPrimaryCrumbsForOverlay,
+    wikiPrimaryCrumbMenuIcon,
+    type WikiBreadcrumbMenuIcon,
+    type WikiOverlayForCrumbs,
+  } from '@client/lib/wikiPrimaryBarCrumbs.js'
 
   function wikiShareAudienceBadge(n: number | undefined): string {
     const c = n ?? 0
@@ -204,12 +211,36 @@
     return [...dirSegs, fileName]
   }
 
-  function wikiBreadcrumbLabel(segment: string): string {
-    const base = segment.startsWith('_') ? segment.slice(1) : segment
-    return base
-      .split('-')
-      .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
-      .join(' ')
+  function wikiSlideOverBreadcrumbItems(o: WikiOverlayForCrumbs): Array<{
+    label: string
+    onClick?: () => void
+    isCurrent: boolean
+    menuIcon?: WikiBreadcrumbMenuIcon
+  }> {
+    const crumbs = wikiPrimaryCrumbsForOverlay(o)
+    return crumbs.map((crumb) => {
+      if (crumb.kind === 'wiki-root-link') {
+        return {
+          label: formatWikiPrimaryCrumbLabel(crumb),
+          onClick: () => onWikiDirNavigate?.(undefined),
+          isCurrent: false,
+          menuIcon: wikiPrimaryCrumbMenuIcon(crumb),
+        }
+      }
+      if (crumb.kind === 'folder-link') {
+        return {
+          label: formatWikiPrimaryCrumbLabel(crumb),
+          onClick: () => onWikiDirNavigate?.(crumb.path),
+          isCurrent: false,
+          menuIcon: wikiPrimaryCrumbMenuIcon(crumb),
+        }
+      }
+      return {
+        label: formatWikiPrimaryCrumbLabel(crumb),
+        onClick: undefined,
+        isCurrent: true,
+      }
+    })
   }
 
   const emailHeaderTitle = $derived(emailThreadTitleForSlideOver(overlay, surfaceContext))
@@ -343,34 +374,18 @@
           )}
         >
           {#if overlay.type === 'wiki' && overlay.path}
-            {@const wikiPageSegs = wikiPageBreadcrumbSegments(overlay.path)}
-            {@const breadcrumbItems = [
-              {
-                label: 'My Wiki',
-                onClick: wikiPageSegs.length > 0 ? () => onWikiDirNavigate?.(undefined) : undefined,
-                isCurrent: wikiPageSegs.length === 0,
-              },
-              ...wikiPageSegs.map((seg, i) => ({
-                label: i === wikiPageSegs.length - 1 ? seg : wikiBreadcrumbLabel(seg),
-                onClick: i < wikiPageSegs.length - 1 ? () => onWikiDirNavigate?.(wikiDirPathPrefix(wikiPageSegs, i)) : undefined,
-                isCurrent: i === wikiPageSegs.length - 1,
-              })),
-            ]}
+            {@const breadcrumbItems = wikiSlideOverBreadcrumbItems({
+              type: 'wiki',
+              path: overlay.path,
+              ...(overlay.shareHandle?.trim() ? { shareHandle: overlay.shareHandle } : {}),
+            })}
             <CollapsibleBreadcrumb items={breadcrumbItems} {mobilePanel} />
           {:else if overlay.type === 'wiki-dir'}
-            {@const wikiDirSegs = parseWikiDirSegments(overlay.path)}
-            {@const breadcrumbItems = [
-              {
-                label: 'My Wiki',
-                onClick: wikiDirSegs.length > 0 ? () => onWikiDirNavigate?.(undefined) : undefined,
-                isCurrent: wikiDirSegs.length === 0,
-              },
-              ...wikiDirSegs.map((seg, i) => ({
-                label: seg,
-                onClick: i < wikiDirSegs.length - 1 ? () => onWikiDirNavigate?.(wikiDirPathPrefix(wikiDirSegs, i)) : undefined,
-                isCurrent: i === wikiDirSegs.length - 1,
-              })),
-            ]}
+            {@const breadcrumbItems = wikiSlideOverBreadcrumbItems({
+              type: 'wiki-dir',
+              path: overlay.path,
+              ...(overlay.shareHandle?.trim() ? { shareHandle: overlay.shareHandle } : {}),
+            })}
             <CollapsibleBreadcrumb items={breadcrumbItems} {mobilePanel} />
           {:else if overlay.type === 'file' && overlay.path}
             <WikiFileName path={overlay.path} />

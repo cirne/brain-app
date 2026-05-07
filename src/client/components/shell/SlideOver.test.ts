@@ -58,17 +58,17 @@ describe('SlideOver.svelte', () => {
     expect(screen.getByRole('button', { name: /close panel/i })).toBeInTheDocument()
   })
 
-  it('renders wiki page breadcrumbs from My Wiki root', async () => {
+  it('renders wiki page breadcrumbs from wiki root', async () => {
     const props = baseProps({ overlay: { type: 'wiki', path: 'travel.md' } })
     render(SlideOver, { props })
 
     const nav = screen.getByRole('navigation', { name: /wiki page path/i })
     expect(nav).toBeInTheDocument()
     expect(screen.getByText('travel.md')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'My Wiki' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Wiki' })).not.toBeInTheDocument()
 
     await fireEvent.click(screen.getByRole('button', { name: /show full path/i }))
-    expect(screen.getByRole('menuitem', { name: 'My Wiki' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Wiki' })).toBeInTheDocument()
   })
 
   it('nested index.md shows directory link plus filename crumb', async () => {
@@ -77,7 +77,7 @@ describe('SlideOver.svelte', () => {
 
     expect(screen.getByText('index.md')).toBeInTheDocument()
     await fireEvent.click(screen.getByRole('button', { name: /show full path/i }))
-    expect(screen.getByRole('menuitem', { name: 'My Wiki' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Wiki' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Projects' })).toBeInTheDocument()
   })
 
@@ -88,10 +88,46 @@ describe('SlideOver.svelte', () => {
     const nav = screen.getByRole('navigation', { name: /wiki page path/i })
     expect(nav).toBeInTheDocument()
     await fireEvent.click(screen.getByRole('button', { name: /show full path/i }))
-    expect(screen.getByRole('menuitem', { name: 'My Wiki' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Wiki' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Boys Trip 2026' })).toBeInTheDocument()
 
     expect(screen.getByText('Boys Trip 2026.md')).toBeInTheDocument()
+  })
+
+  it('personal unified path: My Wiki and People navigate under me/', async () => {
+    const onWikiDirNavigate = vi.fn()
+    const props = baseProps({
+      overlay: { type: 'wiki', path: 'me/people/joshua-cano.md' },
+      onWikiDirNavigate,
+    })
+    render(SlideOver, { props })
+
+    await fireEvent.click(screen.getByRole('button', { name: /show full path/i }))
+    expect(screen.queryByRole('menuitem', { name: 'Wiki' })).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'My Wiki' }))
+    expect(onWikiDirNavigate).toHaveBeenLastCalledWith('me')
+
+    await fireEvent.click(screen.getByRole('button', { name: /show full path/i }))
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'People' }))
+    expect(onWikiDirNavigate).toHaveBeenLastCalledWith('me/people')
+  })
+
+  it('shared wiki path lists @handle then folder in dropdown', async () => {
+    const props = baseProps({
+      overlay: { type: 'wiki', path: 'people/x.md', shareHandle: 'alice' },
+    })
+    render(SlideOver, { props })
+
+    await fireEvent.click(screen.getByRole('button', { name: /show full path/i }))
+    expect(screen.getByRole('menuitem', { name: '@alice' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'People' })).toBeInTheDocument()
+  })
+
+  it('renders wiki-dir at personal browse root as My Wiki without folder menu', () => {
+    const props = baseProps({ overlay: { type: 'wiki-dir', path: 'me' } })
+    render(SlideOver, { props })
+    expect(screen.queryByRole('button', { name: /show full path/i })).not.toBeInTheDocument()
+    expect(screen.getByText('My Wiki')).toBeInTheDocument()
   })
 
   it('renders with email overlay', () => {
@@ -207,12 +243,12 @@ describe('SlideOver.svelte', () => {
     expect(screen.getByRole('navigation', { name: /wiki page path/i })).toBeInTheDocument()
 
     await fireEvent.click(screen.getByRole('button', { name: /show full path/i }))
-    expect(screen.getByRole('menuitem', { name: 'My Wiki' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Wiki' })).toBeInTheDocument()
 
     expect(screen.getByText('subdir')).toBeInTheDocument()
   })
 
-  it('renders wiki-dir with root path showing only "My Wiki"', () => {
+  it('renders wiki-dir hub (no path) as wiki root label', () => {
     const props = baseProps({
       overlay: { type: 'wiki-dir', path: undefined },
     })
@@ -220,7 +256,7 @@ describe('SlideOver.svelte', () => {
 
     const nav = screen.getByRole('navigation', { name: /wiki page path/i })
     expect(nav).toBeInTheDocument()
-    expect(screen.getByText('My Wiki')).toBeInTheDocument()
+    expect(screen.getByText('Wiki')).toBeInTheDocument()
   })
 
   describe('close behavior', () => {

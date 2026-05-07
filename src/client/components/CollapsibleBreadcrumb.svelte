@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { FolderOpen } from 'lucide-svelte'
+  import { BookOpen, File, FolderOpen, Users } from 'lucide-svelte'
+  import WikiBreadcrumbMenuDirIcon from '@components/WikiBreadcrumbMenuDirIcon.svelte'
   import { cn } from '@client/lib/cn.js'
+  import type { WikiBreadcrumbMenuIcon } from '@client/lib/wikiPrimaryBarCrumbs.js'
 
   /**
    * Portal dropdown to document.body to escape SlideOver's transform stacking context.
@@ -14,6 +16,8 @@
     label: string
     onClick?: () => void
     isCurrent?: boolean
+    /** Dropdown row icon ({@link WikiFileName}-style); omit for legacy callers — defaults to File. */
+    menuIcon?: WikiBreadcrumbMenuIcon
   }
 
   let {
@@ -184,14 +188,39 @@
         <button
           type="button"
           class={cn(
-            'w-full text-left py-2 hover:bg-surface-3 transition-colors whitespace-nowrap overflow-hidden text-ellipsis border-none bg-transparent text-foreground',
+            'w-full flex items-center gap-2 text-left py-2 hover:bg-surface-3 transition-colors border-none bg-transparent text-foreground',
             mobilePanel ? 'text-[15px]' : 'text-[13px]',
           )}
-          style:padding-left={`${12 + i * 16}px`}
+          style:padding-left={`${8 + i * 16}px`}
+          style:padding-right="10px"
           onclick={() => handleItemClick(item)}
           role="menuitem"
         >
-          {item.label}
+          {#if item.menuIcon?.kind === 'book-open'}
+            <BookOpen
+              size={mobilePanel ? 16 : 14}
+              strokeWidth={2}
+              class="shrink-0 text-muted opacity-85"
+              aria-hidden="true"
+            />
+          {:else if item.menuIcon?.kind === 'users'}
+            <Users
+              size={mobilePanel ? 16 : 14}
+              strokeWidth={2}
+              class="shrink-0 text-muted opacity-85"
+              aria-hidden="true"
+            />
+          {:else if item.menuIcon?.kind === 'dir'}
+            <WikiBreadcrumbMenuDirIcon dirKey={item.menuIcon.key} size={mobilePanel ? 16 : 14} />
+          {:else}
+            <File
+              size={mobilePanel ? 16 : 14}
+              strokeWidth={2}
+              class="shrink-0 text-muted"
+              aria-hidden="true"
+            />
+          {/if}
+          <span class="min-w-0 flex-1 truncate">{item.label}</span>
         </button>
       {/each}
     </div>

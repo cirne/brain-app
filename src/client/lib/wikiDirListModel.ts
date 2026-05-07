@@ -165,6 +165,15 @@ export function parseUnifiedWikiBrowsePath(p: string): { shareHandle?: string; v
 }
 
 /**
+ * Vault-relative folder key for {@link getDirIcon} (`people`, `travel/europe`, …).
+ * Empty when `unifiedFolderPath` is only a browse root (`me`, `@alice`).
+ */
+export function wikiBrowseFolderDirIconKey(unifiedFolderPath: string): string | undefined {
+  const v = parseUnifiedWikiBrowsePath(unifiedFolderPath.trim()).vaultRelPath.trim()
+  return v || undefined
+}
+
+/**
  * When listing a child of the current wiki-dir/wiki overlay, build a unified `me/…` or `@owner/…` path for navigation.
  */
 export function mergeWikiBrowseChildPath(

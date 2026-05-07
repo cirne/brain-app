@@ -12,8 +12,8 @@ describe('CollapsibleBreadcrumb', () => {
 
   it('uses compact row: folder trigger plus current leaf when path has hierarchy', async () => {
     const items = [
-      { label: 'My Wiki', onClick: vi.fn(), isCurrent: false },
-      { label: 'Projects', onClick: vi.fn(), isCurrent: false },
+      { label: 'My Wiki', onClick: vi.fn(), isCurrent: false, menuIcon: { kind: 'book-open' as const } },
+      { label: 'Projects', onClick: vi.fn(), isCurrent: false, menuIcon: { kind: 'dir' as const, key: 'projects' } },
       { label: 'README.md', isCurrent: true },
     ]
     render(CollapsibleBreadcrumb, { props: { items } })
@@ -23,7 +23,9 @@ describe('CollapsibleBreadcrumb', () => {
     expect(screen.queryByRole('button', { name: 'Projects' })).toBeNull()
 
     await fireEvent.click(openPathMenu())
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'My Wiki' }))
+    const row = screen.getByRole('menuitem', { name: 'My Wiki' })
+    expect(row.querySelector('svg')).toBeTruthy()
+    await fireEvent.click(row)
     expect(items[0]!.onClick).toHaveBeenCalledOnce()
 
     await fireEvent.click(openPathMenu())
