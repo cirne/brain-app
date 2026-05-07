@@ -86,7 +86,7 @@
   class="onboarding-activity-transcript flex min-h-0 min-w-0 flex-1 flex-col bg-surface-2 [font:inherit]"
 >
   <div
-    class="onboarding-activity-scroll chat-transcript-scroll min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden [font:inherit]"
+    class="onboarding-activity-scroll chat-transcript-scroll box-border min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden px-[length:var(--chat-transcript-px)] [font:inherit]"
     bind:this={messagesEl}
     onscroll={syncFollowFromScroll}
   >

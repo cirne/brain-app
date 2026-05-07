@@ -925,7 +925,7 @@
 
     <div
       class={cn(
-        'mid-outer flex min-h-0 min-w-0 flex-1 flex-col',
+        'mid-outer box-border flex min-h-0 min-w-0 flex-1 flex-col px-[length:var(--chat-transcript-px)]',
         centerEmptyInPane && 'mid-outer--empty justify-center',
         bridgeSlideLayout && 'mid-outer--bridge-slide bg-surface',
       )}
@@ -1113,7 +1113,7 @@
   /**
    * Match legacy `components/AgentChat`: column width + horizontal centering.
    * Tailwind `mx-auto` on a flex item is defeated by `align-items: stretch` on the column parent;
-   * use plain CSS so the composer lines up with `.chat-transcript-scroll` (see `style.css`).
+   * use plain CSS so the composer lines up with the transcript column (see `style.css` + `.mid-outer` horizontal inset).
    */
   @media (min-width: 768px) {
     :global(.split:not(.has-detail)) .composer-stack {

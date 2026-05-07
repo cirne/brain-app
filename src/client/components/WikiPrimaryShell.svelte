@@ -1,24 +1,26 @@
 <script lang="ts">
-  /* Svelte $bindable() + $effect.pre parent sync; eslint cannot see cross-component reads. */
+  /* `$bindable` + context setter propagate to Assistant; eslint cannot trace cross-component writes. */
   /* eslint-disable no-useless-assignment */
   import type { Snippet } from 'svelte'
-  import { createSlideHeaderRegistration } from '@client/lib/slideHeaderContextRegistration.svelte.js'
-  import { WIKI_SLIDE_HEADER } from '@client/lib/wikiSlideHeaderContext.js'
-  import type { WikiSlideHeaderRegistration } from '@client/lib/wikiSlideHeaderContext.js'
+  import { setContext } from 'svelte'
+  import {
+    WIKI_SLIDE_HEADER,
+    type WikiSlideHeaderState,
+  } from '@client/lib/wikiSlideHeaderContext.js'
 
   let {
     bar,
     children,
-    wikiHdrRef = $bindable<WikiSlideHeaderRegistration | null>(null),
+    wikiSlideHeader = $bindable<WikiSlideHeaderState | null>(null),
   }: {
     bar: Snippet
     children: Snippet
-    wikiHdrRef?: WikiSlideHeaderRegistration | null
+    /** Own-vault / shared wiki L2 chrome (share, save hints, read-only badge). Mirrors tests’ `(s) => { ref.current = s }`. */
+    wikiSlideHeader?: WikiSlideHeaderState | null
   } = $props()
 
-  const wikiHdr: WikiSlideHeaderRegistration = createSlideHeaderRegistration(WIKI_SLIDE_HEADER)
-  $effect.pre(() => {
-    wikiHdrRef = wikiHdr
+  setContext(WIKI_SLIDE_HEADER, (next: WikiSlideHeaderState | null) => {
+    wikiSlideHeader = next
   })
 </script>
 

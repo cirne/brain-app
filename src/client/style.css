@@ -81,7 +81,7 @@
   --sidebar-history-mobile-w: 90vw;
   /** Chat-only (no detail pane): centered readable column — matches conversation + composer */
   --chat-column-max: 680px;
-  /** `chat-transcript-scroll`: inset + space below L2 / transcript chrome (shared with main chat). */
+  /** `chat-transcript-scroll`: vertical padding for transcript; horizontal inset is from parent (e.g. `.mid-outer` in AgentChat). */
   --chat-transcript-px: 16px;
   --chat-transcript-pt: 1.25rem;
   --chat-transcript-pb: 20px;
@@ -134,12 +134,13 @@ svg.sync-spinning {
 
 @layer components {
   /**
-   * Transcript scroll: main assistant + onboarding profiling/seeding (shared padding + column width).
-   * Layered so utilities can win on descendant nodes — tailwind-migration.md § “Global CSS layering”.
+   * Transcript scroll: vertical rhythm + column width. Horizontal inset for main chat comes from
+   * `AgentChat` `.mid-outer` (lines up composer + transcript). Onboarding shells add `px` via utilities.
    */
   .chat-transcript-scroll {
     box-sizing: border-box;
-    padding: var(--chat-transcript-pt) var(--chat-transcript-px) var(--chat-transcript-pb);
+    padding-top: var(--chat-transcript-pt);
+    padding-bottom: var(--chat-transcript-pb);
   }
 
   @media (min-width: 768px) {

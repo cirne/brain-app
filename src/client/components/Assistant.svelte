@@ -94,7 +94,7 @@
   import { isPressToTalkEnabled } from '@client/lib/pressToTalkEnabled.js'
   import { registerWikiFileListRefetch } from '@client/lib/wikiFileListRefetch.js'
   import { wikiPrimaryChatMessageOrNull } from '@client/lib/wikiPrimaryChatSend.js'
-  import type { WikiSlideHeaderRegistration, WikiSlideHeaderState } from '@client/lib/wikiSlideHeaderContext.js'
+  import type { WikiSlideHeaderState } from '@client/lib/wikiSlideHeaderContext.js'
   import {
     BookOpen,
     LayoutGrid,
@@ -122,14 +122,8 @@
   /** `bind:this` targets for AgentChat / WorkspaceSplit / slide stack / history list. */
   let refs = $state<AssistantRefsState>({})
 
-  /** Wiki-primary slide header registration (edit / share) when wiki is the main surface. */
-  let wikiPrimaryHdr = $state<WikiSlideHeaderRegistration | null>(null)
-  const wikiPrimaryHeaderUi = $derived.by(() => {
-    const h = wikiPrimaryHdr
-    if (!h) return null
-    void h.updateSeq
-    return h.current
-  })
+  /** Wiki-primary bar chrome pushed from {@link WikiPrimaryShell} (no slide registration / `updateSeq`). */
+  let wikiPrimarySlideHeader = $state<WikiSlideHeaderState | null>(null)
 
   function wikiShareAudienceBadgePrimary(n: number | undefined): string {
     const c = n ?? 0
@@ -1553,38 +1547,38 @@
             </div>
           {:else if shell.route.zone === 'wiki' && shell.route.overlay && (shell.route.overlay.type === 'wiki' || shell.route.overlay.type === 'wiki-dir')}
             <div class="hub-container relative flex min-h-0 flex-1 flex-col overflow-hidden">
-              <WikiPrimaryShell bind:wikiHdrRef={wikiPrimaryHdr}>
+              <WikiPrimaryShell bind:wikiSlideHeader={wikiPrimarySlideHeader}>
                 {#snippet bar()}
                   <div class="wiki-primary-bar flex shrink-0 items-center justify-between gap-2.5 border-b border-border bg-surface-2 px-2.5 py-1.5">
                     <WikiPrimaryBarCrumbs crumbs={wikiPrimaryBarCrumbs} onOpenWikiDir={openWikiDir} />
                     <div class="wiki-primary-actions flex shrink-0 items-center gap-2" role="toolbar" aria-label="Wiki actions">
-                      {#if wikiPrimaryHeaderUi?.sharedIncoming}
+                      {#if wikiPrimarySlideHeader?.sharedIncoming}
                         <span class="wiki-primary-pill text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--text-3,var(--text-2))]">Read-only</span>
                       {/if}
-                      {#if wikiPrimaryHeaderUi?.canShare && wikiPrimaryHeaderUi.onOpenShare}
+                      {#if wikiPrimarySlideHeader?.canShare && wikiPrimarySlideHeader.onOpenShare}
                         <button
                           type="button"
                           class={cn(wikiPrimaryIconBtn, 'wiki-share-header-btn')}
-                          onclick={() => wikiPrimaryHeaderUi?.onOpenShare?.()}
-                          title={wikiPrimaryShareTitle(wikiPrimaryHeaderUi)}
-                          aria-label={wikiPrimaryShareAria(wikiPrimaryHeaderUi)}
+                          onclick={() => wikiPrimarySlideHeader?.onOpenShare?.()}
+                          title={wikiPrimaryShareTitle(wikiPrimarySlideHeader)}
+                          aria-label={wikiPrimaryShareAria(wikiPrimarySlideHeader)}
                         >
                           <span class="wiki-share-header-inner relative inline-flex items-center justify-center">
                             <Share2 size={17} strokeWidth={2} aria-hidden="true" />
-                            {#if (wikiPrimaryHeaderUi.shareAudienceCount ?? 0) > 0}
+                            {#if (wikiPrimarySlideHeader.shareAudienceCount ?? 0) > 0}
                               <span class="wiki-share-header-badge absolute -top-1 -right-2 box-border inline-block min-w-[16px] rounded-full h-4 bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
-                                {wikiShareAudienceBadgePrimary(wikiPrimaryHeaderUi.shareAudienceCount)}
+                                {wikiShareAudienceBadgePrimary(wikiPrimarySlideHeader.shareAudienceCount)}
                               </span>
                             {/if}
                           </span>
                         </button>
                       {/if}
-                      {#if shell.route.overlay.type === 'wiki' && wikiPrimaryHeaderUi}
-                        {#if wikiPrimaryHeaderUi.saveState === 'saving'}
+                      {#if shell.route.overlay.type === 'wiki' && wikiPrimarySlideHeader}
+                        {#if wikiPrimarySlideHeader.saveState === 'saving'}
                           <span class="wiki-save-hint text-xs font-semibold text-accent" role="status">Saving…</span>
-                        {:else if wikiPrimaryHeaderUi.saveState === 'saved'}
+                        {:else if wikiPrimarySlideHeader.saveState === 'saved'}
                           <span class="wiki-save-hint text-xs font-semibold text-accent" role="status">Saved</span>
-                        {:else if wikiPrimaryHeaderUi.saveState === 'error'}
+                        {:else if wikiPrimarySlideHeader.saveState === 'error'}
                           <span class="wiki-save-hint wiki-save-err text-xs font-semibold text-[var(--text-3,var(--text-2))]" role="status">Save failed</span>
                         {/if}
                       {/if}

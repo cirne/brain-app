@@ -22,6 +22,8 @@ export default defineConfig({
   build: {
     outDir: '../../dist/client',
     emptyOutDir: true,
+    /** Set `BRAIN_CLIENT_SOURCEMAP=1` when building to debug prod bundles in the browser (`npm run build:client:map`). */
+    sourcemap: process.env.BRAIN_CLIENT_SOURCEMAP === '1',
   },
   server: {
     port: 5173,

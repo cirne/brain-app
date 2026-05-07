@@ -148,10 +148,12 @@
   )
 
   const registerWikiHeader = getContext<SetWikiSlideHeader | undefined>(WIKI_SLIDE_HEADER)
-  $effect(() => {
+
+  /** Snapshot for `/wiki/` primary chrome (share / saving). Stored on shell via context — no registration handle or `updateSeq`. */
+  const wikiHeaderPayload = $derived.by(() => {
     void ownedShares
-    registerWikiHeader?.({
-      pageMode: showTipTapEditor && canEdit ? 'edit' : 'view',
+    return {
+      pageMode: showTipTapEditor && canEdit ? ('edit' as const) : ('view' as const),
       canEdit,
       saveState,
       setPageMode: async () => {
@@ -167,8 +169,14 @@
       shareTargetLabel: selected ?? undefined,
       shareAudienceCount: shareAudienceCount > 0 ? shareAudienceCount : undefined,
       sharedIncoming: sharedMode,
-    })
-    return () => registerWikiHeader?.(null)
+    }
+  })
+
+  $effect(() => {
+    registerWikiHeader?.(wikiHeaderPayload)
+    return () => {
+      registerWikiHeader?.(null)
+    }
   })
 
   async function loadFiles() {

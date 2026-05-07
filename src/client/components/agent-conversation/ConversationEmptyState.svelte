@@ -15,7 +15,7 @@
 
 <div class="box-border flex w-full justify-center pb-2">
   <div
-    class="max-w-md text-balance text-center text-sm leading-relaxed text-muted px-[length:var(--chat-transcript-px)]"
+    class="max-w-md text-balance text-center text-sm leading-relaxed text-muted"
   >
     <p>Ask anything about your docs, email, or calendar.</p>
     <p class="mt-1.5 text-xs opacity-70">

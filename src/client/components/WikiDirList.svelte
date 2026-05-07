@@ -88,11 +88,13 @@
   )
 
   const registerWikiHeader = getContext<SetWikiSlideHeader | undefined>(WIKI_SLIDE_HEADER)
-  $effect(() => {
-    registerWikiHeader?.({
-      pageMode: 'view',
+
+  const wikiDirHeaderPayload = $derived.by(() => {
+    void ownedShares
+    return {
+      pageMode: 'view' as const,
       canEdit: false,
-      saveState: 'idle',
+      saveState: 'idle' as const,
       setPageMode: () => {},
       canShare: canShareCurrentDir,
       onOpenShare: () => {
@@ -105,8 +107,14 @@
       shareAudienceCount:
         canShareCurrentDir && dirShareAudienceCount > 0 ? dirShareAudienceCount : undefined,
       sharedIncoming: sharedMode,
-    })
-    return () => registerWikiHeader?.(null)
+    }
+  })
+
+  $effect(() => {
+    registerWikiHeader?.(wikiDirHeaderPayload)
+    return () => {
+      registerWikiHeader?.(null)
+    }
   })
 
   async function loadFiles() {

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const repoRoot = join(__dirname, '..')
 
-function defaultWorkspaceRipmailBin() {
+export function defaultWorkspaceRipmailBin() {
   try {
     const meta = JSON.parse(
       execSync('cargo metadata --format-version 1 --no-deps', {
