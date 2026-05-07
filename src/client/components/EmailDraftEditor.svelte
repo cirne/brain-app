@@ -204,7 +204,7 @@
    * Claim/release the draft header cell as the editor moves in/out of a usable state.
    * Stable handlers (`discard`, `emailDraftHeaderSave`, `emailDraftHeaderSend`) are passed
    * once at claim time; reactive scalars (`saveState`, `sendState`) flow via `patch`.
-   * See BUG-047.
+   * See archived BUG-047 (effect depth / slide headers).
    */
   let emailDraftHeaderCtrl:
     | ReturnType<NonNullable<typeof emailDraftHeaderCell>['claim']>

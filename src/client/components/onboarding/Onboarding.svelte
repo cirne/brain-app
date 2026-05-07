@@ -135,7 +135,6 @@
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/Onboarding.svelte', '#1')
     if (state !== 'not-started' && state !== 'indexing') return
     const t = setInterval(() => {
       void loadMailOnly()
@@ -171,7 +170,6 @@
   /** Stops a tight loop when PATCH not-started→indexing keeps returning 4xx. */
   let alignIndexingPatchFailed = $state(false)
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/Onboarding.svelte', '#2')
     if (setupError) {
       alignIndexingStateInitiated = false
       alignIndexingPatchFailed = false
@@ -205,14 +203,12 @@
   /** Indexed count when auto-advance last got 4xx; retry only after mail progress (or manual continue). */
   let interviewAutoAdvanceLastFailedAtCount = $state<number | null>(null)
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/Onboarding.svelte', '#3')
     if (state === 'onboarding-agent' || state === 'done') {
       interviewAutoAdvanceLastFailedAtCount = null
     }
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/Onboarding.svelte', '#4')
     if (!canAutoProceedToInterview || busy || interviewAutoAdvanceInFlight) return
     if (
       !shouldRetryProfilingAutoAdvance(mailIndexedCount, interviewAutoAdvanceLastFailedAtCount)
@@ -239,7 +235,6 @@
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/Onboarding.svelte', '#5')
     if (!ONBOARDING_LARGE_WINDOW_STATES.has(state)) {
       onboardingLargeWindowApplied = false
       return
@@ -335,13 +330,11 @@
    */
   let mailConnectedIndexingAutoStarted = $state(false)
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/Onboarding.svelte', '#6')
     if (!mail.configured) {
       mailConnectedIndexingAutoStarted = false
     }
   })
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/Onboarding.svelte', '#7')
     if (
       !shouldKickOnboardingInboxSync({
         state,
@@ -363,7 +356,6 @@
   }
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/Onboarding.svelte', '#8')
     if (state !== 'not-started') {
       clearGoogleOauthTauriPoll()
       googleOauthBrowserWait = false

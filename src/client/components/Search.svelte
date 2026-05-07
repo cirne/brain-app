@@ -34,13 +34,11 @@
   const searchLatest = createAsyncLatest({ abortPrevious: true })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/Search.svelte', '#1')
     void results
     highlightIndex = -1
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/Search.svelte', '#2')
     const idx = highlightIndex
     if (idx < 0 || !resultsEl) return
     queueMicrotask(() => {
@@ -98,7 +96,6 @@
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/Search.svelte', '#3')
     const q = query
     clearTimeout(debounceTimer)
     if (!q.trim()) {

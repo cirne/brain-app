@@ -3,7 +3,7 @@ import { setContext } from 'svelte'
 /**
  * Header cell shared between {@link SlideOver} and the pane that owns the header state.
  *
- * Design (BUG-047):
+ * Design (archived BUG-047 — effect depth / slide headers):
  * - The parent (SlideOver) owns one stable reactive cell per overlay/header type.
  * - Children {@link SlideHeaderCell.claim} the cell once during setup and receive a
  *   {@link SlideHeaderController} bound to that owner token.

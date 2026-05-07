@@ -53,7 +53,6 @@
 
   /** Already-onboarded users may land on `/welcome` after sign-in; send them to the main app. */
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/App.svelte', '#1')
     if (!appReady || onboardingStatus == null || onboardingStatus.state !== 'done') return
     if (route.flow !== 'welcome') return
     if (import.meta.env.DEV && typeof location !== 'undefined' && isReplayOnboardingWelcomeSearch(location.search)) {
@@ -68,7 +67,6 @@
    * shows again without deleting `./data`. Plain `/welcome` still redirects to `/c` when state is `done`.
    */
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/App.svelte', '#2')
     if (!import.meta.env.DEV || !appReady || route.flow !== 'welcome') return
     if (typeof location === 'undefined' || !isReplayOnboardingWelcomeSearch(location.search)) return
     if (replayOnboardingDevLock) return

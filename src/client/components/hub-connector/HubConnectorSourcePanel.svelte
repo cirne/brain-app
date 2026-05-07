@@ -442,7 +442,7 @@
   /**
    * Hub source header is only visible once the source row has loaded. We claim/release the
    * cell as `source` flips between null and present, with a stable `onRefresh` handler.
-   * Reactive scalars (title, busy/disabled) flow via `patch`. See BUG-047.
+   * Reactive scalars (title, busy/disabled) flow via `patch`. See archived BUG-047 (effect depth / slide headers).
    */
   let hubSourceHeaderCtrl:
     | ReturnType<NonNullable<typeof hubSourceHeaderCell>['claim']>

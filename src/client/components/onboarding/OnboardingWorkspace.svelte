@@ -322,7 +322,6 @@
   }
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/OnboardingWorkspace.svelte', '#1')
     if (!isSeedingWiki) return
     const t = setInterval(() => {
       void refreshSeedWikiStatus()
@@ -331,7 +330,6 @@
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/OnboardingWorkspace.svelte', '#2')
     return subscribe((e) => {
       if (e.type === 'wiki:mutated') {
         wikiRefreshKey++
@@ -344,7 +342,6 @@
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/OnboardingWorkspace.svelte', '#3')
     const o = route.overlay
     if (o?.type === 'messages' && o.chat) {
       if (agentContext.type !== 'messages' || agentContext.chat !== o.chat) {

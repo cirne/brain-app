@@ -66,7 +66,6 @@
   let ignoreText = $state('')
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/FileSourceConfigEditor.svelte', '#1')
     includeText = draft.includeGlobs.join('\n')
     ignoreText = draft.ignoreGlobs.join('\n')
   })

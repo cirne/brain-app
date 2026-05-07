@@ -24,7 +24,6 @@
   const POLL_MS = 5000
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/EnronDemoLogin.svelte', '#1')
     if (!seeding) {
       seedUiTick = 0
       return

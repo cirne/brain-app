@@ -43,7 +43,6 @@
   let recorder: VoiceTapRecorder | null = null
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/ChatVoicePanel.svelte', '#1')
     if (phase === 'recording') {
       if (recordingStartMs === null) {
         recordingStartMs = Date.now()
@@ -54,7 +53,6 @@
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/ChatVoicePanel.svelte', '#2')
     if (phase === 'arming') {
       elapsedSec = 0
     }
@@ -64,7 +62,6 @@
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/ChatVoicePanel.svelte', '#3')
     if (phase !== 'recording' || recordingStartMs === null) {
       return
     }
@@ -114,12 +111,10 @@
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/ChatVoicePanel.svelte', '#4')
     recorder?.setHearReplies(hearReplies)
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/ChatVoicePanel.svelte', '#5')
     recorder?.setHoldGated(holdGated)
   })
 

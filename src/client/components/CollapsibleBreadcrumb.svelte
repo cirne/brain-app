@@ -55,7 +55,6 @@
   }
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/CollapsibleBreadcrumb.svelte', '#1')
     if (!dropdownOpen) return
 
     const handleClickOutside = (e: MouseEvent) => {

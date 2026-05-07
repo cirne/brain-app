@@ -103,7 +103,7 @@
   /**
    * Claim the wiki header cell once with stable handler identities. Reactive scalar fields
    * (canShare, share label, audience count, …) are pushed through `patch` from a single
-   * `$effect` below — no fresh-payload churn. See BUG-047.
+   * `$effect` below — no fresh-payload churn. See archived BUG-047 (effect depth / slide headers).
    */
   const wikiHeaderCtrl = wikiHeaderCell?.claim({
     pageMode: 'view',

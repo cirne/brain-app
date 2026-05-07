@@ -425,7 +425,6 @@
 
   /** Sync TipTap doc whenever markdown text or parent epoch changes (epoch forces reload after open/refresh). */
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/TipTapMarkdownEditor.svelte', '#1')
     const ed = editor
     const md = initialMarkdown
     void markdownSyncEpoch
@@ -437,7 +436,6 @@
 
   /** TipTap fires `onUpdate` on every `setEditable`; guard avoids `$effect` ↔ `onUpdate` ping-pong (infinite flush depth). */
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/TipTapMarkdownEditor.svelte', '#2')
     const ed = editor
     if (!ed) return
     const want = !disabled
@@ -447,7 +445,6 @@
 
   /** Dismiss manual mobile block menu on outside tap (capturing). */
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/TipTapMarkdownEditor.svelte', '#3')
     if (!mobileBlockMenuOpen || floatingBlockMenuEnabled) return
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target
@@ -460,7 +457,6 @@
 
   /** Long-press menu should not drift while scrolling the note. */
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/TipTapMarkdownEditor.svelte', '#4')
     if (!mobileBlockMenuOpen) return
     const el = scrollAreaEl
     if (!el) return

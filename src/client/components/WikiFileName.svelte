@@ -25,7 +25,6 @@
   let IconComponent = $state<import('svelte').ComponentType<any> | null>(null)
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/WikiFileName.svelte', '#1')
     if (!folderKey) { IconComponent = null; return }
     IconComponent = getDirIcon(folderKey, (icon) => { IconComponent = icon })
   })

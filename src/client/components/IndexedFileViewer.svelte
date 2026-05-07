@@ -42,7 +42,6 @@
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/IndexedFileViewer.svelte', '#1')
     const raw = id?.trim()
     if (raw) void load(raw)
   })

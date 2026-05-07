@@ -503,7 +503,7 @@
   /**
    * Inbox thread header is only present while a real thread is open and not composing.
    * We claim/release the cell as the thread visibility flips, with stable named handlers
-   * — no fresh-object churn for unrelated state. See BUG-047.
+   * — no fresh-object churn for unrelated state. See archived BUG-047 (effect depth / slide headers).
    */
   const showInboxThreadHeader = $derived(Boolean(selectedThread && !composeMode))
   let inboxThreadHeaderCtrl: ReturnType<NonNullable<typeof inboxThreadHeaderCell>['claim']> | null = null

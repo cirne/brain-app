@@ -50,7 +50,6 @@
   })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/onboarding/FullDiskAccessGate.svelte', '#1')
     if (!polling || !gateApplies) return
     let cancelled = false
     const tick = async () => {

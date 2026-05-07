@@ -132,7 +132,6 @@
   }
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/calendar/CalendarPicker.svelte', '#1')
     reloadKey
     void loadCalendars()
   })

@@ -111,7 +111,7 @@
   /**
    * Claim once with stable `pause` / `resume` handlers. Reactive scalars (`doc`, `actionBusy`)
    * are pushed via `patch` in the effect below. Initial reads are wrapped in `untrack` so
-   * Svelte does not warn about capturing initial values. See BUG-047.
+   * Svelte does not warn about capturing initial values. See archived BUG-047 (effect depth / slide headers).
    */
   const yourWikiHeaderCtrl = yourWikiHeaderCell?.claim(
     untrack(() => ({

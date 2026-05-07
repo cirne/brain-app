@@ -29,7 +29,6 @@ export function createSlideOverMobilePanel(options: CreateSlideOverMobilePanelOp
   }
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/lib/slideOverMobilePanel.svelte.ts', '#1')
     if (!getMobilePanel() || enterStarted) return
     const w = effectiveW()
     if (w <= 0) return

@@ -30,7 +30,6 @@
   const threadFetchLatest = createAsyncLatest({ abortPrevious: true })
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/MessageThread.svelte', '#1')
     if (!initialChat?.trim()) {
       threadFetchLatest.begin()
       loading = false

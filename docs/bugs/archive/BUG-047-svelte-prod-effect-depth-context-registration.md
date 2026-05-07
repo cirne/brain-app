@@ -1,16 +1,22 @@
 # BUG-047: Svelte 5 `effect_update_depth_exceeded` — slide header registration & parent callbacks (prod-heavy)
 
-**Status:** Partially mitigated (wiki slide path + inbox thread header + registration `equals`). **Likely still present** in other `$effect` + context / callback combos — audit below.
+**Status:** Fixed / closed (2026-05-07)
 
-**Symptoms**
+## Historical summary
 
-- Console: `https://svelte.dev/e/effect_update_depth_exceeded` (`infinite_loop_guard` in minified bundle).
-- Often **only reproducible in production / `npm run build` preview**, not in `npm run dev` (timing / batching differs).
-- `[effect-debug]` logs (if enabled) show **one effect id spamming** hundreds of times in one synchronous flush (e.g. `WikiDirList.svelte #1`, previously `Inbox.svelte #3`).
+Production-primary loops from **fresh slide-header payload literals** (inline handlers) bumping `updateSeq`, plus **`$effect`** paths that subscribed to **unstable parent callbacks** (`onContextChange`, hear-replies toggles, etc.). Symptoms matched [`effect_update_depth_exceeded`](https://svelte.dev/e/effect_update_depth_exceeded) / minified `infinite_loop_guard`, often only after `npm run build` preview.
+
+## Fix / closure
+
+- **Stable registrations:** semantic **`equals`** on wiki slide headers (`wikiSlideHeaderPayloadEquals`), memoized payloads, stable handler identities (`Inbox`, `WikiDirList`, `Wiki`, calendar/email hubs, etc.).
+- **`untrack`** where effects must invoke parent callbacks without subscribing to changing function refs (`WikiDirList` wiki-dir publish pattern; hear-replies propagation).
+- **Instrumentation:** temporary `$effect` console tagging used during diagnosis **removed** from shipped client sources.
+
+Residual risk follows normal guidelines below when adding new **`register*Header`** or **`onContextChange`** effects.
 
 ---
 
-## Failing patterns (anti-patterns)
+## Reference: failing patterns (anti-patterns)
 
 ### 1. Registering a **new object literal** on every effect / derived run
 
@@ -76,26 +82,20 @@ Example: `AgentChat.svelte` calling `onHearRepliesChange?.(value)` while also **
 
 ---
 
-## Why production is worse
+## Reference: why production was worse
 
 - Stricter / different effect scheduling and batching vs dev HMR.
-- Minified stacks obscure source; use temporary `[effect-debug]` logs keyed by file + effect ordinal to see which effect spams.
+- Minified stacks obscure source; diagnosis used short-lived tagged `$effect` logs (removed from sources when closing this ticket).
 
 ---
 
-## Follow-up audit (likely same class of bug)
+## Ongoing hygiene (new header / context effects)
 
-Search for:
+When adding **`register*Header`**, **`getContext` + `$effect`**, or **`onContextChange`** publishers:
 
-- `register*Header` / `getContext` + `$effect` + object literal.
-- `$effect` that invokes **`onContextChange`**, **`onSessionChange`**, or other props without `untrack`.
-- `$derived.by` returning objects with **inline** `() =>` handlers for anything registered or compared by reference.
-
-**Known call sites to review**
-
-- `EmailDraftEditor.svelte` — registers draft header with changing `saveState` / `sendState` (may be OK; watch for new object every run with same state).
-- `Calendar.svelte`, `HubConnectorSourcePanel.svelte`, `YourWikiDetail.svelte`, other `createSlideHeaderRegistration` consumers.
-- Any new slide / L2 header registration.
+- Avoid **new object literals** with **inline** `() =>` handlers every run for registered payloads.
+- Prefer **`untrack`** for parent prop invocation when the callback identity must not be a dependency.
+- Consider **`equals`** on registration where semantic equality beats reference equality.
 
 ---
 

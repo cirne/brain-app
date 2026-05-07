@@ -50,7 +50,6 @@
   }
 
   $effect(() => {
-    console.log('[effect-debug]', 'src/client/components/DayEvents.svelte', '#1')
     if (propEvents === undefined) {
       fetchForDate(date)
     }

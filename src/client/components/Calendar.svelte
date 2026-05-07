@@ -206,7 +206,7 @@
    * Claim the calendar header cell once with stable handler identities. Reactive scalars
    * (weekLabel, headerBusy) flow through the `$effect` below via `patch`. The initial reads
    * here are wrapped in `untrack` so Svelte does not warn about capturing initial values.
-   * See BUG-047.
+   * See archived BUG-047 (effect depth / slide headers).
    */
   const calendarHeaderCtrl = calendarHeaderCell?.claim(
     untrack(() => ({
