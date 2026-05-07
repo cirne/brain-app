@@ -71,3 +71,4 @@ brain-app runs a **bundled release** `ripmail` from **`desktop:bundle-server`** 
 
 - **[`ripmail/docs/RELEASING.md`](../../../ripmail/docs/RELEASING.md)** — shipping binaries / tags
 - Desktop + **`RIPMAIL_HOME`**: **[`.agents/skills/desktop/SKILL.md`](../desktop/SKILL.md)**
+- **Tail / inspect `sync.log` under `./data`:** [`ripmail-sync-logs`](../ripmail-sync-logs/SKILL.md)
