@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext } from 'svelte'
+  import { getContext, untrack } from 'svelte'
   import { Loader2 } from 'lucide-svelte'
   import { mount, unmount } from 'svelte'
   import { cn } from '@client/lib/cn.js'
@@ -377,11 +377,19 @@
     }
     const serial = ++wikiLoadSerial
 
+    /**
+     * `loadFiles()` assigns a new `files` array every time. If this `$effect` reads `files` / `selected` /
+     * `showTipTapEditor` as tracked deps (including after `await`), each list refresh re-enters the effect and
+     * can hit `effect_update_depth_exceeded`. Same pattern as Inbox open-thread effect — read navigation state
+     * only inside `untrack()`.
+     */
     void (async () => {
       await loadFiles()
       if (serial !== wikiLoadSerial) return
 
-      if (pathFromRoute) {
+      untrack(() => {
+        if (!pathFromRoute) return
+
         const match = files.find(
           (f) => f.path === vaultRelForList || f.path === pathFromRoute,
         )
@@ -396,8 +404,7 @@
         } else if (refreshKeyChanged && !showTipTapEditor) {
           void refreshRenderedFromServer()
         }
-        return
-      }
+      })
     })()
   })
 </script>
