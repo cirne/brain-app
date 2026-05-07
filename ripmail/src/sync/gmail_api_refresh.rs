@@ -34,31 +34,12 @@ pub struct GmailApiRefreshContext {
 
 #[derive(Debug)]
 pub enum GmailApiAttempt {
-    /// API path not applicable or env forces IMAP — caller continues with IMAP (lock held).
+    /// API path not applicable — caller continues with IMAP (lock held).
     Skipped,
     /// History unavailable / HTTP error — caller continues with IMAP (lock held).
     Fallback,
     /// Incremental sync finished — lock released, metrics logged.
     Completed(SyncResult),
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum GmailRefreshEnv {
-    Auto,
-    ApiOnly,
-    ImapOnly,
-}
-
-fn gmail_refresh_env_mode() -> GmailRefreshEnv {
-    match std::env::var("RIPMAIL_GMAIL_REFRESH")
-        .ok()
-        .as_deref()
-        .map(str::trim)
-    {
-        Some(s) if s.eq_ignore_ascii_case("imap") => GmailRefreshEnv::ImapOnly,
-        Some(s) if s.eq_ignore_ascii_case("api") => GmailRefreshEnv::ApiOnly,
-        _ => GmailRefreshEnv::Auto,
-    }
 }
 
 fn maildir_basename(uid: u32, message_id: &str) -> String {
@@ -346,10 +327,6 @@ pub fn try_gmail_api_incremental_refresh(
 ) -> Result<GmailApiAttempt, crate::sync::error::RunSyncError> {
     use crate::sync::error::RunSyncError;
 
-    let env_mode = gmail_refresh_env_mode();
-    if matches!(env_mode, GmailRefreshEnv::ImapOnly) {
-        return Ok(GmailApiAttempt::Skipped);
-    }
     if !should_send_via_gmail_api(ctx.imap_host.as_str(), ctx.imap_auth) {
         return Ok(GmailApiAttempt::Skipped);
     }

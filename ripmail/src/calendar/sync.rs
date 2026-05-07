@@ -15,6 +15,7 @@ use super::db::{self, upsert_event, upsert_source_registry};
 use super::google::sync_google_calendars;
 use super::ics::parse_ics_to_rows;
 
+#[allow(clippy::too_many_arguments)]
 pub fn run_calendar_sync(
     conn: &mut Connection,
     home: &Path,
@@ -23,6 +24,7 @@ pub fn run_calendar_sync(
     process_env: &HashMap<String, String>,
     logger: &SyncFileLogger,
     progress_stderr: bool,
+    force_calendar_full: bool,
 ) -> Result<SyncResult, Box<dyn std::error::Error>> {
     let started = Instant::now();
     let Some(cal) = mb.calendar.as_ref() else {
@@ -64,6 +66,8 @@ pub fn run_calendar_sync(
                     token_mailbox_id,
                     env_file,
                     process_env,
+                    force_calendar_full,
+                    logger,
                 )?;
                 // Do not overwrite `sources[].calendarIds` from Google's full calendar list.
                 // Sync already pulls every calendarList entry into the index; `calendarIds` is the

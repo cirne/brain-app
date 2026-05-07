@@ -74,7 +74,7 @@ How the unified server behaves, how the client is exercised in tests, and enviro
 
 | Topic                                                                    | Doc                                                                        |
 | ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| HTTP routing, auth, periodic sync, native ports; SPA routes and overlays | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md) · **Onboarding states + mail phases:** [architecture/onboarding-state-machine.md](architecture/onboarding-state-machine.md)   |
+| HTTP routing, auth, background sync & supervisor model, native ports; SPA routes and overlays | [architecture/runtime-and-routes.md](architecture/runtime-and-routes.md) · **[background-sync-and-supervisor-scaling.md](architecture/background-sync-and-supervisor-scaling.md)** · **Onboarding states + mail phases:** [architecture/onboarding-state-machine.md](architecture/onboarding-state-machine.md)   |
 | Environment variables and config surface                                 | [architecture/configuration.md](architecture/configuration.md)             |
 | Svelte component tests (Vitest, Testing Library)                         | [component-testing.md](component-testing.md)                               |
 | Client UI: latest-wins async / overlapping `fetch`                       | [architecture/client-async-latest.md](architecture/client-async-latest.md) |

@@ -421,6 +421,7 @@ pub(crate) fn run_sync_foreground_backfill(
                             &process_env,
                             &logger,
                             true,
+                            false,
                         )
                         .map_err(|e| e.to_string())?
                     } else if mb.kind == SourceKind::LocalDir {
@@ -602,6 +603,7 @@ pub(crate) fn run_sync_foreground_refresh(
                             &process_env,
                             &logger,
                             progress_stderr,
+                            force,
                         )
                         .map_err(|e| e.to_string())?
                     } else if mb.kind == SourceKind::LocalDir {

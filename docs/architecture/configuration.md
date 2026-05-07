@@ -24,7 +24,7 @@ Authoritative inline comments for a minimal dev setup: [`.env.example`](../../.e
 | `ANTHROPIC_API_KEY` | — | Required when using Anthropic for the agent |
 | `EXA_API_KEY` | — | `web_search` tool |
 | `SUPADATA_API_KEY` | — | `fetch_page`, YouTube tools |
-| `SYNC_INTERVAL_SECONDS` | `300` | Interval for `runFullSync` timer (**disabled when `BRAIN_DATA_ROOT` is set** until per-tenant background sync exists) |
+| `SYNC_INTERVAL_SECONDS` | `300` (`getSyncIntervalMs`) | **Reserved:** parsed in [`syncAll.ts`](../../src/server/lib/platform/syncAll.ts); **no** server `setInterval` consumes it today — see **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)** |
 | `BRAIN_ENRON_DEMO_SECRET` | — | **Hosted/demo only:** any non-empty value enables `POST /api/auth/demo/enron`, `GET /api/auth/demo/enron/seed-status`, and the `/demo` page (no link from hosted Google sign-in). Bearer must match (timing-safe). See [enron-demo-tenant.md](./enron-demo-tenant.md). |
 | `BRAIN_ENRON_DEMO_TENANT_ID` | `usr_enrondemo00000000001` | Fixed demo tenant directory under `BRAIN_DATA_ROOT`; override for tests. |
 | `EVAL_ENRON_TAR` | — | Optional: path to `enron_mail_20150507.tar.gz`. If unset, **`npm run eval:build`** and **`npm run brain:seed-enron-demo`** download once (SHA-checked) to **`data-eval/.cache/enron/enron_mail_20150507.tar.gz`** (or lazy-seed checks that path before `tmpdir`). |

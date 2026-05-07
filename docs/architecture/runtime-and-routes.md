@@ -90,9 +90,13 @@ Implementation: [`bundledNativeClientAllowlist.ts`](../../src/server/lib/bundled
 
 The server stores a vault password verifier under `$BRAIN_HOME/var/` (`vault-verifier.json`). After unlock, an **HttpOnly session cookie** (`brain_session`) gates **`/api/*`** except bootstrap routes (`/api/vault/*`, `GET /api/onboarding/status` before a vault exists, Gmail OAuth callbacks, **Enron demo mint** paths when enabled — handler enforces Bearer secret — and dev-only `POST /api/dev/hard-reset` … in non-production).
 
-## Periodic background work
+## Background mail sync and shutdown hooks
 
-On server start and on a timer (default **300 s**, override `SYNC_INTERVAL_SECONDS`), the server runs [`runFullSync()`](../../src/server/lib/syncAll.ts): wiki no-op, detached `ripmail refresh`, and calendar ICS fetch when URLs are set. The same full sync runs on graceful shutdown (SIGINT/SIGTERM). **Manual sync** is triggered from the **Brain Hub** (`/hub`).
+The server does **not** register a global timer that calls [`runFullSync()`](../../src/server/lib/platform/syncAll.ts) on an interval. **`SYNC_INTERVAL_SECONDS`** / **`getSyncIntervalMs()`** exist for operators or future wiring but are **unused** by `src/server/index.ts` today.
+
+**`ripmail refresh`** (and related paths) run when **HTTP handlers, agent tools, Your Wiki laps, or `sync-cli`** invoke them — see **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)** and **[background-task-orchestration.md](./background-task-orchestration.md)**.
+
+**Graceful shutdown** (SIGINT/SIGTERM) tears down tunnels, prepares the wiki supervisor, and terminates tracked ripmail children via [`registerPeriodicSyncAndShutdown`](../../src/server/lifecycle/periodicSyncAndShutdown.ts) (name is historical; it does **not** schedule periodic sync). **Manual sync** remains available from the **Brain Hub** (`POST /api/inbox/sync` / calendar routes).
 
 ---
 

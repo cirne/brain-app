@@ -38,6 +38,39 @@ pub fn delete_source_events(conn: &Connection, source_id: &str) -> rusqlite::Res
     )
 }
 
+/// Remove indexed events for one Google (or other) calendar within a source — used for full resync
+/// of that calendar without wiping sibling calendars on the same source.
+pub fn delete_events_for_source_calendar(
+    conn: &Connection,
+    source_id: &str,
+    calendar_id: &str,
+) -> rusqlite::Result<usize> {
+    conn.execute(
+        "DELETE FROM calendar_events WHERE source_id = ?1 AND calendar_id = ?2",
+        params![source_id, calendar_id],
+    )
+}
+
+/// Delete a single event row by provider instance id (`uid` — for Google incremental `cancelled` rows).
+pub fn delete_event_by_uid(
+    conn: &Connection,
+    source_id: &str,
+    uid: &str,
+) -> rusqlite::Result<usize> {
+    conn.execute(
+        "DELETE FROM calendar_events WHERE source_id = ?1 AND uid = ?2",
+        params![source_id, uid],
+    )
+}
+
+/// Clear persisted Google `nextSyncToken` rows for a source (e.g. `ripmail refresh --force`).
+pub fn clear_sync_tokens_for_source(conn: &Connection, source_id: &str) -> rusqlite::Result<usize> {
+    conn.execute(
+        "DELETE FROM calendar_sync_state WHERE source_id = ?1",
+        [source_id],
+    )
+}
+
 /// Insert or replace one row (fires FTS triggers).
 pub fn upsert_event(conn: &Connection, row: &CalendarEventRow) -> rusqlite::Result<()> {
     let synced_at = row.synced_at.unwrap_or_else(now_unix);
@@ -612,6 +645,41 @@ mod tests {
 
         let ids = search_events_fts(&conn, "standup", Some("s1"), None, None, 10).unwrap();
         assert_eq!(ids.len(), 1);
+    }
+
+    #[test]
+    fn delete_events_for_source_calendar_targets_one_calendar() {
+        let conn = mem_with_schema();
+        let mut a = sample_row("s1", "u1", "A", 1000, 1100);
+        a.calendar_id = "cal_a".into();
+        let mut b = sample_row("s1", "u2", "B", 1000, 1100);
+        b.calendar_id = "cal_b".into();
+        upsert_event(&conn, &a).unwrap();
+        upsert_event(&conn, &b).unwrap();
+
+        let n = delete_events_for_source_calendar(&conn, "s1", "cal_a").unwrap();
+        assert_eq!(n, 1);
+        assert_eq!(count_events_for_source(&conn, "s1").unwrap(), 1);
+    }
+
+    #[test]
+    fn delete_event_by_uid_targets_row() {
+        let conn = mem_with_schema();
+        let a = sample_row("s1", "uid_x", "X", 1000, 1100);
+        upsert_event(&conn, &a).unwrap();
+        let n = delete_event_by_uid(&conn, "s1", "uid_x").unwrap();
+        assert_eq!(n, 1);
+        assert_eq!(count_events_for_source(&conn, "s1").unwrap(), 0);
+    }
+
+    #[test]
+    fn clear_sync_tokens_for_source_removes_all_tokens() {
+        let conn = mem_with_schema();
+        set_sync_token(&conn, "s1", "cal_a", Some("tok1")).unwrap();
+        set_sync_token(&conn, "s1", "cal_b", Some("tok2")).unwrap();
+        let n = clear_sync_tokens_for_source(&conn, "s1").unwrap();
+        assert_eq!(n, 2);
+        assert!(get_sync_token(&conn, "s1", "cal_a").unwrap().is_none());
     }
 
     #[test]

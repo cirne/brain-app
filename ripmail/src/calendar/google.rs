@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use chrono::{Days, Duration, NaiveDate, TimeZone, Utc};
 use regex::Regex;
@@ -10,8 +10,9 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 
 use crate::oauth::ensure_google_access_token;
+use crate::sync::sync_log::SyncFileLogger;
 
-use super::db::{self, delete_source_events, upsert_event};
+use super::db;
 use super::model::CalendarEventRow;
 
 type SyncResult = Result<
@@ -129,16 +130,204 @@ fn parse_google_time(v: &Value) -> Option<(bool, i64, i64, Option<String>)> {
     Some((false, st.timestamp(), et.timestamp(), tz))
 }
 
+fn sanitize_calendar_url_for_log(url: &str) -> String {
+    let Some(pos) = url.find("syncToken=") else {
+        return url.to_string();
+    };
+    let after_eq = pos + "syncToken=".len();
+    let tail = &url[after_eq..];
+    let token_len = tail.find('&').unwrap_or(tail.len());
+    let mut out = String::with_capacity(url.len());
+    out.push_str(&url[..after_eq]);
+    out.push_str("REDACTED");
+    out.push_str(&url[after_eq + token_len..]);
+    out
+}
+
+fn err_is_gcal_410(e: &dyn std::error::Error) -> bool {
+    e.to_string().contains("gcal_410")
+}
+
+fn gcal_full_list_url(
+    cal_id: &str,
+    time_min: &str,
+    time_max: &str,
+    page_token: Option<&str>,
+) -> String {
+    let cid_enc = urlencoding::encode(cal_id);
+    // Do not use `orderBy`: Google's API omits `nextSyncToken` when `orderBy` is set, so we would
+    // never persist a sync checkpoint for incremental refresh (see Calendar events.list docs).
+    let mut url = format!(
+        "{GCAL_EVENTS}/{cid_enc}/events?singleEvents=true&maxResults=250&timeMin={}&timeMax={}",
+        urlencoding::encode(time_min),
+        urlencoding::encode(time_max),
+    );
+    if let Some(p) = page_token {
+        url.push_str("&pageToken=");
+        url.push_str(&urlencoding::encode(p));
+    }
+    url
+}
+
+fn gcal_incremental_list_url(cal_id: &str, sync_token: &str, page_token: Option<&str>) -> String {
+    let cid_enc = urlencoding::encode(cal_id);
+    let mut url = format!(
+        "{GCAL_EVENTS}/{cid_enc}/events?singleEvents=true&maxResults=250&showDeleted=true&syncToken={}",
+        urlencoding::encode(sync_token),
+    );
+    if let Some(p) = page_token {
+        url.push_str("&pageToken=");
+        url.push_str(&urlencoding::encode(p));
+    }
+    url
+}
+
+fn apply_google_list_items(
+    tx: &rusqlite::Transaction<'_>,
+    items: &[Value],
+    cal_id: &str,
+    source_id: &str,
+    calendar_color: Option<&str>,
+    calendar_names: &HashMap<String, String>,
+    apply_cancellations: bool,
+) -> rusqlite::Result<u32> {
+    let mut n = 0u32;
+    for item in items {
+        if item.get("status").and_then(|s| s.as_str()) == Some("cancelled") {
+            if apply_cancellations {
+                if let Some(uid) = item.get("id").and_then(|s| s.as_str()) {
+                    db::delete_event_by_uid(tx, source_id, uid)?;
+                    n += 1;
+                }
+            }
+            continue;
+        }
+        if let Some(mut row) = parse_google_event(cal_id, source_id, item, calendar_color) {
+            if let Some(name) = calendar_names.get(cal_id) {
+                row.calendar_name = Some(name.clone());
+            }
+            db::upsert_event(tx, &row)?;
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn sync_google_calendar_full(
+    tx: &rusqlite::Transaction<'_>,
+    auth: &str,
+    source_id: &str,
+    cal_id: &str,
+    calendar_color: Option<&str>,
+    calendar_names: &HashMap<String, String>,
+    time_min: &str,
+    time_max: &str,
+) -> Result<(u32, u32), Box<dyn std::error::Error>> {
+    let mut page_token: Option<String> = None;
+    let mut count: u32 = 0;
+    let mut pages: u32 = 0;
+
+    loop {
+        pages += 1;
+        let url = gcal_full_list_url(cal_id, time_min, time_max, page_token.as_deref());
+        let val = fetch_json(auth, &url)?;
+        if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
+            count += apply_google_list_items(
+                tx,
+                items,
+                cal_id,
+                source_id,
+                calendar_color,
+                calendar_names,
+                false,
+            )?;
+        }
+        let next_sync = val
+            .get("nextSyncToken")
+            .and_then(|s| s.as_str())
+            .map(String::from);
+        page_token = val
+            .get("nextPageToken")
+            .and_then(|s| s.as_str())
+            .filter(|s| !s.is_empty())
+            .map(String::from);
+
+        if page_token.is_none() {
+            if let Some(ref ns) = next_sync {
+                db::set_sync_token(tx, source_id, cal_id, Some(ns.as_str()))?;
+            }
+            break;
+        }
+    }
+    Ok((count, pages))
+}
+
+fn sync_google_calendar_incremental(
+    tx: &rusqlite::Transaction<'_>,
+    auth: &str,
+    source_id: &str,
+    cal_id: &str,
+    calendar_color: Option<&str>,
+    calendar_names: &HashMap<String, String>,
+    sync_token: &str,
+) -> Result<(u32, u32), Box<dyn std::error::Error>> {
+    let mut page_token: Option<String> = None;
+    let mut count: u32 = 0;
+    let mut pages: u32 = 0;
+
+    loop {
+        pages += 1;
+        let url = gcal_incremental_list_url(cal_id, sync_token, page_token.as_deref());
+        let val = fetch_json(auth, &url)?;
+        if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
+            count += apply_google_list_items(
+                tx,
+                items,
+                cal_id,
+                source_id,
+                calendar_color,
+                calendar_names,
+                true,
+            )?;
+        }
+        let next_sync = val
+            .get("nextSyncToken")
+            .and_then(|s| s.as_str())
+            .map(String::from);
+        page_token = val
+            .get("nextPageToken")
+            .and_then(|s| s.as_str())
+            .filter(|s| !s.is_empty())
+            .map(String::from);
+
+        if page_token.is_none() {
+            if let Some(ref ns) = next_sync {
+                db::set_sync_token(tx, source_id, cal_id, Some(ns.as_str()))?;
+            }
+            break;
+        }
+    }
+    Ok((count, pages))
+}
+
 fn fetch_json(auth: &str, url: &str) -> Result<Value, Box<dyn std::error::Error>> {
-    eprintln!("ripmail: fetching calendar JSON from {}", url);
-    let resp = ureq::get(url)
+    eprintln!(
+        "ripmail: fetching calendar JSON from {}",
+        sanitize_calendar_url_for_log(url)
+    );
+    let resp = match ureq::get(url)
         .set("Authorization", &format!("Bearer {auth}"))
-        .call()?;
+        .call()
+    {
+        Ok(r) => r,
+        Err(ureq::Error::Status(410, _)) => {
+            return Err("gcal_410_sync_token".into());
+        }
+        Err(e) => return Err(e.into()),
+    };
     let status = resp.status();
     let body = resp.into_string().unwrap_or_default();
-    if status == 410 {
-        return Err("gcal_410_sync_token".into());
-    }
     if !(200..300).contains(&status) {
         eprintln!("ripmail: Google Calendar API error {}: {}", status, body);
         return Err(format!("Google Calendar API HTTP {status}: {body}").into());
@@ -197,6 +386,7 @@ pub fn fetch_google_calendar_names_api(
     Ok((HashMap::new(), HashMap::new()))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn sync_google_calendars(
     conn: &mut rusqlite::Connection,
     home: &Path,
@@ -205,6 +395,8 @@ pub fn sync_google_calendars(
     token_mailbox_id: &str,
     env_file: &HashMap<String, String>,
     process_env: &HashMap<String, String>,
+    force_full: bool,
+    logger: &SyncFileLogger,
 ) -> SyncResult {
     let token = ensure_google_access_token(home, token_mailbox_id, env_file, process_env).map_err(
         |e| {
@@ -233,69 +425,89 @@ pub fn sync_google_calendars(
     };
 
     let tx = conn.transaction()?;
-    delete_source_events(&tx, source_id)?;
+    if force_full {
+        db::clear_sync_tokens_for_source(&tx, source_id)?;
+    }
+
     let mut count: u32 = 0;
     let time_min = (Utc::now() - Duration::days(365 * 2)).to_rfc3339();
     let time_max = (Utc::now() + Duration::days(365 * 3)).to_rfc3339();
 
     for cal_id in &sync_calendar_ids {
+        let cal_started = Instant::now();
         let calendar_color = calendar_colors.get(cal_id).map(|s| s.as_str());
-        let cid_enc = urlencoding::encode(cal_id);
-        let mut page_token: Option<String> = None;
 
-        loop {
-            let mut url = format!(
-                "{GCAL_EVENTS}/{cid_enc}/events?singleEvents=true&maxResults=250&orderBy=startTime&timeMin={}&timeMax={}",
-                urlencoding::encode(&time_min),
-                urlencoding::encode(&time_max),
-            );
-            if let Some(ref p) = page_token {
-                url.push_str("&pageToken=");
-                url.push_str(&urlencoding::encode(p));
-            }
+        let token_row = db::get_sync_token(&tx, source_id, cal_id)?;
+        let try_incremental =
+            !force_full && token_row.as_ref().map(|s| !s.is_empty()).unwrap_or(false);
 
-            let val = match fetch_json(&token, &url) {
-                Ok(v) => v,
-                Err(e) => {
-                    let s = e.to_string();
-                    if s.contains("gcal_410") {
-                        db::clear_sync_token(&tx, source_id, cal_id)?;
-                    }
-                    eprintln!("ripmail: skipping calendar {cal_id} due to error: {e}");
-                    break; // Skip this calendar and continue with others
+        let sync_outcome = if try_incremental {
+            let st = token_row.as_deref().expect("try_incremental implies token");
+            match sync_google_calendar_incremental(
+                &tx,
+                &token,
+                source_id,
+                cal_id,
+                calendar_color,
+                &calendar_names,
+                st,
+            ) {
+                Ok(r) => Ok(("gcal_incremental", r.0, r.1)),
+                Err(e) if err_is_gcal_410(&*e) => {
+                    db::clear_sync_token(&tx, source_id, cal_id)?;
+                    db::delete_events_for_source_calendar(&tx, source_id, cal_id)?;
+                    logger.info(
+                        &format!(
+                            "Google Calendar gcal_410_retry_full (source_id={} calendar_id={})",
+                            source_id, cal_id
+                        ),
+                        None,
+                    );
+                    sync_google_calendar_full(
+                        &tx,
+                        &token,
+                        source_id,
+                        cal_id,
+                        calendar_color,
+                        &calendar_names,
+                        &time_min,
+                        &time_max,
+                    )
+                    .map(|r| ("gcal_full", r.0, r.1))
                 }
-            };
-
-            if let Some(items) = val.get("items").and_then(|i| i.as_array()) {
-                for item in items {
-                    if let Some(mut row) =
-                        parse_google_event(cal_id, source_id, item, calendar_color)
-                    {
-                        if let Some(n) = calendar_names.get(cal_id) {
-                            row.calendar_name = Some(n.clone());
-                        }
-                        upsert_event(&tx, &row)?;
-                        count += 1;
-                    }
-                }
+                Err(e) => Err(e),
             }
-            let next_sync = val
-                .get("nextSyncToken")
-                .and_then(|s| s.as_str())
-                .map(String::from);
-            page_token = val
-                .get("nextPageToken")
-                .and_then(|s| s.as_str())
-                .filter(|s| !s.is_empty())
-                .map(String::from);
+        } else {
+            db::delete_events_for_source_calendar(&tx, source_id, cal_id)?;
+            sync_google_calendar_full(
+                &tx,
+                &token,
+                source_id,
+                cal_id,
+                calendar_color,
+                &calendar_names,
+                &time_min,
+                &time_max,
+            )
+            .map(|r| ("gcal_full", r.0, r.1))
+        };
 
-            if page_token.is_none() {
-                if let Some(ref ns) = next_sync {
-                    db::set_sync_token(&tx, source_id, cal_id, Some(ns.as_str()))?;
-                }
-                break;
+        let (mode_label, n, pages) = match sync_outcome {
+            Ok(x) => x,
+            Err(e) => {
+                eprintln!("ripmail: skipping calendar {cal_id} due to error: {e}");
+                continue;
             }
-        }
+        };
+
+        count += n;
+        let duration_ms = cal_started.elapsed().as_millis() as u64;
+        logger.info(
+            &format!(
+                "Google Calendar {mode_label} (source_id={source_id} calendar_id={cal_id} pages={pages} mutations={n} duration_ms={duration_ms})"
+            ),
+            None,
+        );
     }
 
     tx.commit()?;
@@ -355,6 +567,70 @@ mod parse_google_event_tests {
         assert_eq!(names.get("cal1").map(|s| s.as_str()), Some("One"));
         assert_eq!(colors.get("cal1").map(|s| s.as_str()), Some("#111111"));
         assert!(!colors.contains_key("cal2"));
+    }
+
+    #[test]
+    fn gcal_incremental_url_shape() {
+        let u = gcal_incremental_list_url("primary", "tok=value", None);
+        assert!(u.contains("showDeleted=true"));
+        assert!(!u.contains("orderBy="));
+        assert!(!u.contains("timeMin="));
+        assert!(u.contains("syncToken="));
+    }
+
+    #[test]
+    fn gcal_full_url_shape() {
+        let u = gcal_full_list_url(
+            "primary",
+            "2020-01-01T00:00:00Z",
+            "2030-01-01T00:00:00Z",
+            None,
+        );
+        assert!(
+            !u.contains("orderBy="),
+            "orderBy prevents nextSyncToken from Google on full list"
+        );
+        assert!(u.contains("timeMin="));
+        assert!(u.contains("timeMax="));
+        assert!(!u.contains("syncToken="));
+    }
+
+    #[test]
+    fn sanitize_calendar_url_for_log_redacts_sync_token() {
+        let u = "https://example.com/x?syncToken=SECRET&foo=1";
+        let s = sanitize_calendar_url_for_log(u);
+        assert!(s.contains("REDACTED"));
+        assert!(!s.contains("SECRET"));
+    }
+
+    #[test]
+    fn apply_google_list_items_deletes_cancelled_when_incremental() {
+        use std::collections::HashMap;
+
+        use crate::calendar::db as cal_db;
+        use crate::calendar::model::CalendarEventRow;
+        use crate::db::apply_schema;
+
+        let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+        apply_schema(&conn).unwrap();
+        let mut row = CalendarEventRow::default();
+        row.source_id = "src1".into();
+        row.source_kind = "googleCalendar".into();
+        row.calendar_id = "cal_a".into();
+        row.uid = "evt_del".into();
+        row.summary = Some("gone".into());
+        row.start_at = 100;
+        row.end_at = 200;
+        cal_db::upsert_event(&conn, &row).unwrap();
+        assert_eq!(cal_db::count_events_for_source(&conn, "src1").unwrap(), 1);
+
+        let tx = conn.transaction().unwrap();
+        let items = vec![json!({"id": "evt_del", "status": "cancelled"})];
+        let n = apply_google_list_items(&tx, &items, "cal_a", "src1", None, &HashMap::new(), true)
+            .unwrap();
+        assert_eq!(n, 1);
+        tx.commit().unwrap();
+        assert_eq!(cal_db::count_events_for_source(&conn, "src1").unwrap(), 0);
     }
 }
 

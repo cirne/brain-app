@@ -2,6 +2,8 @@
 
 Holistic view for **mail indexing**, **onboarding milestones**, **wiki first-draft bootstrap** ([OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md)), and **Your Wiki** supervisor — implemented for [OPP-094](../opportunities/OPP-094-holistic-onboarding-background-task-orchestration.md).
 
+**Process model / scaling:** what triggers **`ripmail refresh`**, Hub polling vs mail work, **one supervisor loop per Node process**, and multi-tenant caveats — **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)**.
+
 ## HTTP
 
 | Route | Role |
@@ -43,4 +45,4 @@ Holistic view for **mail indexing**, **onboarding milestones**, **wiki first-dra
 | Hub wiki status stale until Assistant opens | Ensure **`startHubEventsConnection()`** runs on Hub (opens `/api/events`). |
 | “Stale mail context” on wiki row | Last pre-lap **`ripmail refresh`** timed out or failed — safe to run **Sync mail now** from Hub or retry a lap. |
 
-See also: **[onboarding-state-machine.md](./onboarding-state-machine.md)** (phased mail + state gates).
+See also: **[onboarding-state-machine.md](./onboarding-state-machine.md)** (phased mail + state gates) · **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)** (mail triggers, single supervisor loop, multi-tenant).

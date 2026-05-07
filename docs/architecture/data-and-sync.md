@@ -21,7 +21,7 @@ Onboarding machine state **`onboarding.json`** lives at **`chats/onboarding.json
 
 ## Wiki
 
-The agent’s file tools are **scoped to the wiki directory** only (relative paths). Wiki content is **plain files**; users may keep a `.git` folder manually, but **brain-app does not run git commit/push** or remote sync. [`syncWikiFromDisk()`](../../src/server/lib/syncAll.ts) is intentionally a **no-op** (success) so periodic sync and `POST /api/wiki/sync` stay uniform across components.
+The agent’s file tools are **scoped to the wiki directory** only (relative paths). Wiki content is **plain files**; users may keep a `.git` folder manually, but **brain-app does not run git commit/push** or remote sync. [`syncWikiFromDisk()`](../../src/server/lib/platform/syncAll.ts) is intentionally a **no-op** (success) so `runFullSync` / `POST /api/wiki/sync` stay uniform across components.
 
 **Wiki sharing:** **Read-only** subtree invites (**[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** Phase 1 stub / **[archive](../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)**, [**wiki-sharing.md**](./wiki-sharing.md)); layout + tool roots → **[OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md)**. Read-write remains future. See [IDEA: Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md) and [PRODUCTIZATION](../PRODUCTIZATION.md).
 
@@ -35,7 +35,7 @@ Product framing: [product/personal-wiki.md](../product/personal-wiki.md).
 
 ## Ripmail sync
 
-`runFullSync` kicks off **`ripmail refresh`** detached (non-blocking). Email sync details live in [`ripmail/docs/ARCHITECTURE.md`](../../ripmail/docs/ARCHITECTURE.md).
+[`runFullSync()`](../../src/server/lib/platform/syncAll.ts) runs **`syncWikiFromDisk()`** (no-op) and **`syncInboxRipmail()`**, which **`await`** **`ripmail refresh`** via the single-flight subprocess helpers (timeout-bounded; not a detached parent that ignores exit). **`SYNC_INTERVAL_SECONDS`** is defined alongside but **not** wired to a server periodic timer. Triggers, Your Wiki pre-lap refresh, and multi-tenant scaling — **[background-sync-and-supervisor-scaling.md](./background-sync-and-supervisor-scaling.md)**. Email sync details live in [`ripmail/docs/ARCHITECTURE.md`](../../ripmail/docs/ARCHITECTURE.md) and [`ripmail/docs/SYNC.md`](../../ripmail/docs/SYNC.md).
 
 ---
 
