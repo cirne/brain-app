@@ -359,15 +359,25 @@ fn read_multiple_messages_text_has_batch_separator() {
 #[test]
 fn rebuild_index_from_maildir() {
     let dir = tempdir().unwrap();
-    let maildir = dir.path().join("maildir/cur");
-    fs::create_dir_all(&maildir).unwrap();
+    let home = dir.path();
+    let maildir_cur = home.join("data/maildir/cur");
+    fs::create_dir_all(&maildir_cur).unwrap();
     let eml = b"From: inv@x.com\r\nSubject: inv\r\nMessage-ID: <inv1@test>\r\nDate: Tue, 2 Jan 2024 12:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: text/plain\r\n\r\ninvoice total 99";
-    fs::write(maildir.join("a.eml"), eml).unwrap();
+    fs::write(maildir_cur.join("a.eml"), eml).unwrap();
 
-    let db_path = dir.path().join("ripmail.db");
+    let db_path = home.join("ripmail.db");
     let mut conn = db::open_file(&db_path).unwrap();
-    let n = rebuild_from_maildir(&mut conn, &dir.path().join("maildir")).unwrap();
+    let n = rebuild_from_maildir(&mut conn, &home.join("data/maildir"), home).unwrap();
     assert!(n >= 1);
+    let raw_path: String = conn
+        .query_row(
+            "SELECT raw_path FROM messages WHERE message_id = '<inv1@test>'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(raw_path, "data/maildir/cur/a.eml");
+
     let set = search_with_meta(
         &conn,
         &SearchOptions {
@@ -383,8 +393,9 @@ fn rebuild_index_from_maildir() {
 #[test]
 fn parallel_rebuild_correct() {
     let dir = tempdir().unwrap();
-    let maildir = dir.path().join("m/cur");
-    fs::create_dir_all(&maildir).unwrap();
+    let home = dir.path();
+    let maildir_cur = home.join("data/maildir/cur");
+    fs::create_dir_all(&maildir_cur).unwrap();
     for i in 0..50 {
         let eml = format!(
             "From: u{i}@t.com\r\n\
@@ -405,13 +416,13 @@ Content-Disposition: attachment; filename=\"f{i}.txt\"\r\n\
 payload-{i}\r\n\
 --b{i}--\r\n"
         );
-        fs::write(maildir.join(format!("{i}.eml")), eml.as_bytes()).unwrap();
+        fs::write(maildir_cur.join(format!("{i}.eml")), eml.as_bytes()).unwrap();
     }
 
     let mut c1 = open_memory().unwrap();
-    rebuild_from_maildir(&mut c1, &dir.path().join("m")).unwrap();
+    rebuild_from_maildir(&mut c1, &home.join("data/maildir"), home).unwrap();
     let mut c2 = open_memory().unwrap();
-    rebuild_from_maildir_sequential(&mut c2, &dir.path().join("m")).unwrap();
+    rebuild_from_maildir_sequential(&mut c2, &home.join("data/maildir"), home).unwrap();
 
     fn ids(conn: &rusqlite::Connection) -> HashSet<String> {
         let mut stmt = conn.prepare("SELECT message_id FROM messages").unwrap();

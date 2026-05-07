@@ -389,19 +389,24 @@ export function buildDraftEditFlags(params: {
   remove_bcc?: string[]
 }): string {
   const parts: string[] = []
-  const flag = (name: string, values?: string[]) => {
+  // For --to/--cc/--bcc: join with commas (ripmail expects single comma-separated value)
+  const flagCsv = (name: string, values?: string[]) => {
+    if (values?.length) parts.push(`${name} ${JSON.stringify(values.join(','))}`)
+  }
+  // For --add-*/--remove-*: repeat flag for each value (ripmail uses ArgAction::Append)
+  const flagRepeat = (name: string, values?: string[]) => {
     if (values?.length) for (const v of values) parts.push(`${name} ${JSON.stringify(v)}`)
   }
   if (params.subject) parts.push(`--subject ${JSON.stringify(params.subject)}`)
-  flag('--to', params.to)
-  flag('--cc', params.cc)
-  flag('--bcc', params.bcc)
-  flag('--add-to', params.add_to)
-  flag('--add-cc', params.add_cc)
-  flag('--add-bcc', params.add_bcc)
-  flag('--remove-to', params.remove_to)
-  flag('--remove-cc', params.remove_cc)
-  flag('--remove-bcc', params.remove_bcc)
+  flagCsv('--to', params.to)
+  flagCsv('--cc', params.cc)
+  flagCsv('--bcc', params.bcc)
+  flagRepeat('--add-to', params.add_to)
+  flagRepeat('--add-cc', params.add_cc)
+  flagRepeat('--add-bcc', params.add_bcc)
+  flagRepeat('--remove-to', params.remove_to)
+  flagRepeat('--remove-cc', params.remove_cc)
+  flagRepeat('--remove-bcc', params.remove_bcc)
   return parts.length ? parts.join(' ') + ' ' : ''
 }
 

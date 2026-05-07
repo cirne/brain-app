@@ -26,13 +26,9 @@
     referenceTokens?: number
   } = $props()
 
-  const R = 7.5
-  const C = 2 * Math.PI * R
-
   const ringFrac = $derived(
     referenceTokens > 0 ? Math.min(1, Math.max(0, totalTokens / referenceTokens)) : 0,
   )
-  const dashMain = $derived(ringFrac * C)
   const pctRounded = $derived(
     referenceTokens > 0 ? Math.min(100, Math.round((totalTokens / referenceTokens) * 100)) : 0,
   )
@@ -56,34 +52,14 @@
   title={titleText}
   aria-label={titleText}
 >
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 20 20"
+  <span
+    class={cn(
+      'token-meter-ring block h-5 w-5 shrink-0 rounded-full',
+      ringHigh && 'token-meter-ring--high',
+    )}
+    style="--ring-frac: {ringFrac};"
     aria-hidden="true"
-    class="token-meter-svg block shrink-0 rounded-full"
-  >
-    <g transform="translate(10 10) rotate(-90)">
-      <circle
-        r={R}
-        fill="none"
-        class="token-meter-track stroke-[var(--bg-3,#2a2a2e)]"
-        stroke-width="2.25"
-        stroke-linecap="round"
-      />
-      <circle
-        r={R}
-        fill="none"
-        class={cn(
-          'token-meter-fill stroke-accent',
-          ringHigh && 'token-meter-fill--high stroke-[var(--danger,#e05c5c)]',
-        )}
-        stroke-width="2.25"
-        stroke-linecap="round"
-        stroke-dasharray={`${dashMain} ${C}`}
-      />
-    </g>
-  </svg>
+  ></span>
   {#if showCount}
     <span
       class="token-meter-count whitespace-nowrap text-[10px] font-semibold leading-none tracking-[0.02em] text-muted"
@@ -91,3 +67,31 @@
     >{abbrevCount}</span>
   {/if}
 </span>
+
+<style>
+  .token-meter-ring {
+    background: conic-gradient(
+      from -90deg,
+      var(--token-meter-fill, var(--accent)) calc(var(--ring-frac, 0) * 360deg),
+      var(--bg-3, #2a2a2e) 0
+    );
+    -webkit-mask: radial-gradient(
+      farthest-side,
+      transparent 63.5%,
+      #000 63.75%,
+      #000 86%,
+      transparent 86.25%
+    );
+    mask: radial-gradient(
+      farthest-side,
+      transparent 63.5%,
+      #000 63.75%,
+      #000 86%,
+      transparent 86.25%
+    );
+  }
+
+  .token-meter-ring--high {
+    --token-meter-fill: var(--danger, #e05c5c);
+  }
+</style>

@@ -547,7 +547,7 @@
   {/if}
 
   {#if selectedThread}
-    <div class="thread-view relative flex min-h-0 flex-1 flex-col overflow-auto">
+    <div class="thread-view relative m-2 flex min-h-0 flex-1 flex-col overflow-auto">
       {#if composeMode}
         <div
           class="compose-panel flex flex-1 flex-col gap-3 overflow-y-auto p-4"

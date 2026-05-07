@@ -28,6 +28,30 @@ fn infer_mailbox_id_from_maildir_root(maildir_root: &Path) -> String {
     }
     String::new()
 }
+
+/// Persist `messages.raw_path` relative to `ripmail_home` (Brain: tenant `…/ripmail`), so lookups join
+/// against [`crate::mail_read::resolve_raw_path`] without cwd-dependent prefixes.
+fn raw_path_for_sqlite_store(ripmail_home: &Path, eml_path: &Path) -> String {
+    fn as_slash_rel(rel: &Path) -> String {
+        rel.iter()
+            .filter_map(|p| p.to_str())
+            .collect::<Vec<_>>()
+            .join("/")
+    }
+
+    let home_c = fs::canonicalize(ripmail_home).unwrap_or_else(|_| ripmail_home.to_path_buf());
+    let eml_c = fs::canonicalize(eml_path).unwrap_or_else(|_| eml_path.to_path_buf());
+    if let Ok(rel) = eml_c.strip_prefix(&home_c) {
+        return as_slash_rel(rel);
+    }
+    match eml_path.strip_prefix(ripmail_home) {
+        Ok(rel) => as_slash_rel(rel),
+        Err(_) => panic!(
+            "rebuild-index: eml {:?} must be under RIPMAIL_HOME {:?}",
+            eml_path, ripmail_home
+        ),
+    }
+}
 const DEFAULT_QUEUE_MULTIPLIER: usize = 2;
 const PROGRESS_INTERVAL: Duration = Duration::from_secs(3);
 
@@ -92,7 +116,12 @@ fn collect_eml_paths(root: &Path) -> Vec<PathBuf> {
 }
 
 /// Clear indexed mail (keeps schema); then re-import every `.eml` under `maildir_root`.
-pub fn rebuild_from_maildir(conn: &mut Connection, maildir_root: &Path) -> rusqlite::Result<usize> {
+/// `ripmail_home` is the configured `$RIPMAIL_HOME`; every stored `raw_path` is relative to it.
+pub fn rebuild_from_maildir(
+    conn: &mut Connection,
+    maildir_root: &Path,
+    ripmail_home: &Path,
+) -> rusqlite::Result<usize> {
     let mailbox_id = infer_mailbox_id_from_maildir_root(maildir_root);
     let paths = collect_eml_paths(maildir_root);
     let total_paths = paths.len();
@@ -139,18 +168,18 @@ pub fn rebuild_from_maildir(conn: &mut Connection, maildir_root: &Path) -> rusql
             pending.insert(work.ordinal, work);
             while let Some(work) = pending.remove(&next_expected) {
                 if let Some(mut parsed) = work.parsed {
-                    let raw_s = work.path.to_string_lossy();
+                    let raw_sqlite = raw_path_for_sqlite_store(ripmail_home, &work.path);
                     if apply_rebuild_index_date_normalization(
                         &mut parsed,
                         batch_floor.as_deref(),
-                        raw_s.as_ref(),
+                        raw_sqlite.as_str(),
                     ) && writer.persist_message(
                         &parsed,
                         DEFAULT_IMAP_FOLDER,
                         mailbox_id.as_str(),
                         next_uid,
                         "[]",
-                        raw_s.as_ref(),
+                        raw_sqlite.as_str(),
                     )? {
                         persist_attachments_from_parsed(
                             &tx,
@@ -178,6 +207,7 @@ pub fn rebuild_from_maildir(conn: &mut Connection, maildir_root: &Path) -> rusql
 pub fn rebuild_from_maildir_sequential(
     conn: &mut Connection,
     maildir_root: &Path,
+    ripmail_home: &Path,
 ) -> rusqlite::Result<usize> {
     let mailbox_id = infer_mailbox_id_from_maildir_root(maildir_root);
     let paths = collect_eml_paths(maildir_root);
@@ -200,17 +230,19 @@ pub fn rebuild_from_maildir_sequential(
             continue;
         };
         let mut p = parse_raw_message(&bytes);
-        let raw_s = path.to_string_lossy();
-        if apply_rebuild_index_date_normalization(&mut p, batch_floor.as_deref(), raw_s.as_ref())
-            && writer.persist_message(
-                &p,
-                DEFAULT_IMAP_FOLDER,
-                mailbox_id.as_str(),
-                next_uid,
-                "[]",
-                raw_s.as_ref(),
-            )?
-        {
+        let raw_sqlite = raw_path_for_sqlite_store(ripmail_home, path);
+        if apply_rebuild_index_date_normalization(
+            &mut p,
+            batch_floor.as_deref(),
+            raw_sqlite.as_str(),
+        ) && writer.persist_message(
+            &p,
+            DEFAULT_IMAP_FOLDER,
+            mailbox_id.as_str(),
+            next_uid,
+            "[]",
+            raw_sqlite.as_str(),
+        )? {
             persist_attachments_from_parsed(&tx, &p.message_id, &p.attachments, maildir_root)?;
             n += 1;
         }

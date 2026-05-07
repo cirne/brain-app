@@ -219,6 +219,11 @@
 
   const calendarHdr = createSlideHeaderRegistration<CalendarSlideHeaderState>(CALENDAR_SLIDE_HEADER)
   const wikiHdr = createSlideHeaderRegistration<WikiSlideHeaderState>(WIKI_SLIDE_HEADER)
+  /** SlideOver L2 header must depend on registration bumps — `wikiHdr.current` alone may not invalidate parent templates after child `register()` updates. */
+  const wikiSlideHeader = $derived.by(() => {
+    wikiHdr.updateSeq
+    return wikiHdr.current
+  })
   const yourWikiHdr = createSlideHeaderRegistration<YourWikiHeaderState>(YOUR_WIKI_HEADER)
   const inboxHdr = createSlideHeaderRegistration<InboxThreadHeaderActions>(INBOX_THREAD_HEADER)
   const emailDraftHdr = createSlideHeaderRegistration<EmailDraftHeaderActions>(EMAIL_DRAFT_HEADER)
@@ -492,34 +497,34 @@
           </span>
         </button>
       {/if}
-      {#if (overlay.type === 'wiki' || overlay.type === 'wiki-dir') && wikiHdr.current}
-        {#if wikiHdr.current.sharedIncoming}
+      {#if (overlay.type === 'wiki' || overlay.type === 'wiki-dir') && wikiSlideHeader}
+        {#if wikiSlideHeader.sharedIncoming}
           <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Read-only</span>
-        {:else if wikiHdr.current.canShare && wikiHdr.current.onOpenShare && !mobilePanel}
+        {:else if wikiSlideHeader.canShare && wikiSlideHeader.onOpenShare && !mobilePanel}
           <button
             type="button"
             class={cn(wikiEditBtn, 'wiki-share-header-btn')}
-            onclick={() => wikiHdr.current?.onOpenShare?.()}
-            title={wikiSlideShareTitle(wikiHdr.current)}
-            aria-label={wikiSlideShareAria(wikiHdr.current)}
+            onclick={() => wikiSlideHeader?.onOpenShare?.()}
+            title={wikiSlideShareTitle(wikiSlideHeader)}
+            aria-label={wikiSlideShareAria(wikiSlideHeader)}
           >
             <span class="wiki-share-header-inner relative inline-flex h-full w-full items-center justify-center">
               <Share2 size={15} strokeWidth={2} aria-hidden="true" />
-              {#if (wikiHdr.current.shareAudienceCount ?? 0) > 0}
+              {#if (wikiSlideHeader.shareAudienceCount ?? 0) > 0}
                 <span class="wiki-share-header-badge absolute -top-[5px] -right-[9px] box-border inline-block min-w-[16px] rounded-full h-4 bg-accent px-1 text-center text-[10px] font-bold leading-4 text-[var(--bg-pill-on-accent,var(--bg,#fff))] [font-variant-numeric:tabular-nums]" aria-hidden="true">
-                  {wikiShareAudienceBadge(wikiHdr.current.shareAudienceCount)}
+                  {wikiShareAudienceBadge(wikiSlideHeader.shareAudienceCount)}
                 </span>
               {/if}
             </span>
           </button>
         {/if}
       {/if}
-      {#if overlay.type === 'wiki' && wikiHdr.current}
-        {#if wikiHdr.current.saveState === 'saving'}
+      {#if overlay.type === 'wiki' && wikiSlideHeader}
+        {#if wikiSlideHeader.saveState === 'saving'}
           <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Saving…</span>
-        {:else if wikiHdr.current.saveState === 'saved'}
+        {:else if wikiSlideHeader.saveState === 'saved'}
           <span class={cn('wiki-save-hint shrink-0 text-muted', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Saved</span>
-        {:else if wikiHdr.current.saveState === 'error'}
+        {:else if wikiSlideHeader.saveState === 'error'}
           <span class={cn('wiki-save-hint wiki-save-err shrink-0 text-[var(--danger,#c44)]', mobilePanel ? 'text-[13px]' : 'text-xs')} role="status">Save failed</span>
         {/if}
       {/if}
@@ -655,13 +660,13 @@
       }}
     >
       {#snippet children()}
-        {#if wikiHdr.current?.sharedIncoming}
+        {#if wikiSlideHeader?.sharedIncoming}
           <p class="m-0 px-4 py-2 text-xs text-muted">Read-only shared wiki.</p>
-        {:else if wikiHdr.current?.canShare && wikiHdr.current?.onOpenShare}
+        {:else if wikiSlideHeader?.canShare && wikiSlideHeader?.onOpenShare}
           <AnchoredMenuRow
             label="Share…"
             onclick={() => {
-              wikiHdr.current?.onOpenShare?.()
+              wikiSlideHeader?.onOpenShare?.()
               wikiMobileMoreOpen = false
             }}
           >

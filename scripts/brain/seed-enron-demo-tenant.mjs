@@ -21,6 +21,8 @@
  * Flags:
  *   --force — remove existing tenant dir and rebuild from tarball
  *
+ * Local dev (same `./data` as `npm run dev`): `npm run brain:seed-enron-demo:dev` (sets `BRAIN_DATA_ROOT=./data`).
+ *
  * If ripmail.db already exists and --force is not passed, exits 0 without changes.
  */
 import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'

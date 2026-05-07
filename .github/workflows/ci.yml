@@ -32,6 +32,9 @@ jobs:
       - name: Lint, typecheck, test
         run: npm run ci
 
+      - name: Enron ripmail E2E Vitest (skips without data-eval corpus)
+        run: npm run test:e2e:enron
+
       - name: Coverage summary
         if: always()
         run: |

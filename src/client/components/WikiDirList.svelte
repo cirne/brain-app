@@ -229,7 +229,7 @@
     onDismiss={() => {
       shareDialogOpen = false
     }}
-    onSharesChanged={() => void loadFiles()}
+    onSharesChanged={loadFiles}
   />
   <div
     class="wiki-dir-inner mx-auto box-border w-full max-w-chat min-h-0 flex-1 overflow-y-auto px-[clamp(1rem,4%,2.5rem)] py-6"

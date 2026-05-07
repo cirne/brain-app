@@ -20,6 +20,8 @@ data-eval/
 # Local wiki tree (markdown); not part of this app repo
 /wiki/
 coverage/
+playwright-report/
+test-results/
 target/
 # Linux ripmail ELF staged for Docker COPY (npm run docker:ripmail:build)
 .docker/linux-ripmail/

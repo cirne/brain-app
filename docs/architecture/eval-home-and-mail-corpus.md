@@ -2,6 +2,8 @@
 
 **Status:** Living document — update as eval tooling, corpora, or ripmail indexing rules change.
 
+> **Scope:** This document describes the **LLM / harness eval home** (`./data-eval/brain`, `BRAIN_HOME` for `npm run eval:run`). For **user testing and browser automation** against Enron inside normal multi-tenant storage (`$BRAIN_DATA_ROOT`), Bearer mint, and `/demo`, see [enron-demo-tenant.md](./enron-demo-tenant.md) and [`tests/e2e/README.md`](../../tests/e2e/README.md).
+
 **User-facing how-to:** [`../../eval/README.md`](../../eval/README.md) (commands, env vars).  
 **Broader eval research:** [`../wiki-and-agent-evaluation.md`](../wiki-and-agent-evaluation.md).
 

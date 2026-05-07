@@ -467,6 +467,7 @@ fn maybe_rebuild_stale_db(path: &Path) -> Result<(), DbError> {
     }
 
     let maildir_root = crate::layout_migrate::infer_maildir_root_for_db_path(path);
+    let ripmail_home = crate::layout_migrate::ripmail_home_from_db_path(path);
     println!(
         "Detected schema drift (db version {version}, code version {SCHEMA_VERSION}). Rebuilding the local index from maildir cache now; this can take a while..."
     );
@@ -492,16 +493,11 @@ fn maybe_rebuild_stale_db(path: &Path) -> Result<(), DbError> {
     }
 
     let mut conn = open_file_current_schema(&temp_path)?;
-    let _ = crate::rebuild_index::rebuild_from_maildir(&mut conn, &maildir_root)?;
+    let _ = crate::rebuild_index::rebuild_from_maildir(&mut conn, &maildir_root, &ripmail_home)?;
     restore_sync_metadata(&conn, &checkpoints, &summary)?;
     restore_inbox_state(&conn, &inbox)?;
-    let ripmail_home = path
-        .parent()
-        .and_then(|p| p.parent())
-        .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| PathBuf::from("."));
     let cfg = crate::config::load_config(crate::config::LoadConfigOptions {
-        home: Some(ripmail_home),
+        home: Some(ripmail_home.clone()),
         env: None,
     });
     if let Ok(rt) = tokio::runtime::Builder::new_current_thread()

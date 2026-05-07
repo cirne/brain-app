@@ -141,13 +141,6 @@
     }
   }
 
-  /** Full wipe + corpus re-ingest (GET with secret in query). Avoid sharing the URL; it may appear in logs. */
-  function openReseedUrl() {
-    const s = secret.trim()
-    if (!s) return
-    window.location.assign(`/api/auth/demo/enron/reseed?secret=${encodeURIComponent(s)}`)
-  }
-
   onMount(() => {
     return () => stopPoll()
   })
@@ -229,18 +222,6 @@
           Carnegie Mellon’s Enron email dataset
         </a>
         .
-      </p>
-      <p class="ob-lead mt-3 text-xs text-muted">
-        To wipe the tenant and rebuild from the corpus, use
-        <button
-          type="button"
-          class="mx-0.5 underline"
-          disabled={busy || seeding || !secret.trim()}
-          onclick={openReseedUrl}
-        >
-          reset demo data
-        </button>
-        (opens a GET URL that includes your secret in the query).
       </p>
       <p class="ob-lead mt-6 text-xs text-muted">
         <a href="/" class="underline">Back to sign-in</a>

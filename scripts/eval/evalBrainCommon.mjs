@@ -4,7 +4,7 @@
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 /**
  * @param {string} filePath
@@ -64,8 +64,11 @@ export function writeRipmailEvalFixture(ripHome, m) {
  * @param {{ ripHome: string, brain: string }} paths
  */
 export function runRebuildIndex(ripmailBin, { ripHome, brain }) {
+  const homeAbs = resolve(ripHome)
+  const brainAbs = resolve(brain)
   const r = spawnSync(ripmailBin, ['rebuild-index'], {
-    env: { ...process.env, RIPMAIL_HOME: ripHome, BRAIN_HOME: brain },
+    env: { ...process.env, RIPMAIL_HOME: homeAbs, BRAIN_HOME: brainAbs },
+    cwd: homeAbs,
     stdio: 'inherit',
   })
   if (r.status !== 0) {

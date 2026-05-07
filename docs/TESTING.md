@@ -37,6 +37,10 @@ This document outlines workflows that are difficult to automate due to browser i
   3. Verify that the process doesn't hang or crash during long-running batch fetches.
   4. Check `RIPMAIL_HOME/logs/sync-*.log` for any "UID FETCH batch failed" warnings.
 
+## Enron demo tenant (no Google OAuth)
+
+For **automated browser or API testing** with the public Enron `kean-s` fixture under **the same `./data` tree as `npm run dev`**, set **`BRAIN_ENRON_DEMO_SECRET` in `.env`**, run **`npm run brain:seed-enron-demo:dev`** once (or lazy-seed via first Bearer mint), then use `POST /api/auth/demo/enron` or **`npm run test:e2e:playwright`** with **`npm run dev`** on **:3000** — see [architecture/enron-demo-tenant.md](architecture/enron-demo-tenant.md) and [`tests/e2e/README.md`](../tests/e2e/README.md). For **ripmail-only** checks against the eval index (`data-eval/brain`), run `npm run test:e2e:enron` after `npm run eval:build`.
+
 ## UI and Agentic Workflows
 
 ### 5. Agent Tool Execution

@@ -21,6 +21,15 @@ Use `--force` to re-extract and reindex. Stamp: `data-eval/.enron-kean-stamp.jso
 
 **Hosted / Docker:** the same ingest pipeline seeds a **fixed multi-tenant demo workspace** (`BRAIN_DATA_ROOT`, Bearer mint, optional lazy download). See [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
 
+### Related: end-to-end testing (not LLM eval)
+
+| Command | What it exercises |
+|---------|-------------------|
+| `npm run test:e2e:enron` | Deterministic **ripmail** CLI against **`data-eval/brain`** (skips if `eval:build` not run). Config: [`vitest.enron-e2e.config.ts`](../vitest.enron-e2e.config.ts). |
+| `npm run test:e2e:playwright` | **Demo tenant** in **`./data`** with **`npm run dev`** (default **:3000**): Bearer mint, cookie, load `/`. Repo `.env` (or CI env) for secret. See [`tests/e2e/README.md`](../tests/e2e/README.md). |
+
+**Eval home** (`data-eval/brain`) stays isolated from dev **`data/`** and from the **demo tenant directory** under `$BRAIN_DATA_ROOT`; see the comparison table in [docs/architecture/enron-demo-tenant.md](../docs/architecture/enron-demo-tenant.md).
+
 ## `npm run eval:run`
 
 One script runs the **whole eval pipeline** (same `BRAIN_HOME` as below):

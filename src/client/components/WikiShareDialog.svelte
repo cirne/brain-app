@@ -21,7 +21,7 @@
     targetKind: 'dir' | 'file'
     onDismiss: () => void
     /** Refresh wiki list hints / badges after share mutations */
-    onSharesChanged?: () => void
+    onSharesChanged?: () => void | Promise<void>
   } = $props()
 
   /** Mirrors server wikiSharesRepo.WIKI_SHARE_INVITE_TTL_MS — keep in sync manually. */
@@ -190,7 +190,7 @@
       }
       revokeTarget = null
       await reloadAudienceShares()
-      onSharesChanged?.()
+      if (onSharesChanged) await Promise.resolve(onSharesChanged())
       emit({ type: 'wiki-shares-changed' })
     } finally {
       revokingId = null
@@ -405,7 +405,7 @@
         inputValue = ''
         suggestOpen = false
         await reloadAudienceShares()
-        onSharesChanged?.()
+        if (onSharesChanged) await Promise.resolve(onSharesChanged())
         emit({ type: 'wiki-shares-changed' })
       }
       if (allInvitesSucceeded) {

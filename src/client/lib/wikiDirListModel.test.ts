@@ -106,6 +106,18 @@ describe('wikiShareCoversVaultPath / outgoing detection', () => {
     expect(wikiShareCoversVaultPath('ideas/other.md', 'ideas/note.md', 'file')).toBe(false)
   })
 
+  it('file share matches when list path and stored pathPrefix both use me/… (header badge)', () => {
+    expect(wikiShareCoversVaultPath('ideas/note.md', 'me/ideas/note.md', 'file')).toBe(true)
+    expect(countOutgoingSharesForVaultPath('me/ideas/note.md', [{ pathPrefix: 'me/ideas/note.md', targetKind: 'file' }])).toBe(
+      1,
+    )
+  })
+
+  it('directory share matches when stored pathPrefix uses me/…', () => {
+    const owned = [{ pathPrefix: 'me/topics/', targetKind: 'dir' as const }]
+    expect(countOutgoingSharesForVaultPath('me/topics/a.md', owned)).toBe(1)
+  })
+
   it('vaultPathHasOutgoingShare aggregates owned shares', () => {
     expect(
       vaultPathHasOutgoingShare('topics/a.md', [{ pathPrefix: 'topics/', targetKind: 'dir' }]),

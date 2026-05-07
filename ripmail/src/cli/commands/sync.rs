@@ -263,7 +263,7 @@ pub(crate) fn run_stats(json: bool) -> CliResult {
 pub(crate) fn run_rebuild_index() -> CliResult {
     let cfg = load_cfg();
     let mut conn = db::open_file(cfg.db_path())?;
-    let count = rebuild_from_maildir(&mut conn, cfg.maildir_path())?;
+    let count = rebuild_from_maildir(&mut conn, cfg.maildir_path(), &cfg.ripmail_home)?;
     println!(
         "Reindexed {count} messages from {}",
         cfg.maildir_path().display()

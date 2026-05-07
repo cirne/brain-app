@@ -19,7 +19,7 @@
 | Task file | `eval/tasks/enron-v1.jsonl` | 16 agent prompts + expectations (LLM eval) |
 | Output | `data-eval/eval-runs/*.json` | Per-model pass rate, tokens, cost |
 
-**Gap:** No non-LLM automated tests exercise the Enron index. Cloud agents have no access path. Hosted flows assume **Google OAuth** for tenant binding, so demos and browser automation cannot yet impersonate a realistic mail+wiki user without OAuth.
+**Gap (narrowing):** Deterministic ripmail E2E (`npm run test:e2e:enron`) and Playwright against the demo tenant (`npm run test:e2e:playwright`) now exist; CI artifact + cloud-agent download path remain Phase 2. Hosted flows still assume **Google OAuth** for non-demo tenants.
 
 ---
 
@@ -183,10 +183,11 @@ Each user gets a separate `RIPMAIL_HOME` under `data-eval/`. Tests verify:
 - [x] Short Playwright recipe documented (Bearer + `POST /api/auth/demo/enron`; poll seed-status) — [enron-demo-tenant.md](../architecture/enron-demo-tenant.md)
 
 ### Phase 1 (MVP)
-- [ ] `npm run test:e2e:enron` runs vitest against `data-eval/brain/ripmail/ripmail.db`
-- [ ] At least 5 test cases covering search, read, who, attachment
-- [ ] Tests skip gracefully when corpus not built (no CI failure on fresh clone)
-- [ ] Document in `eval/README.md`
+- [x] `npm run test:e2e:enron` runs Vitest (`vitest.enron-e2e.config.ts`) against `data-eval/brain` via ripmail CLI (`src/server/evals/e2e/enronRipmail.test.ts`)
+- [x] At least 5 test cases covering search, read, who, attachment list, inbox
+- [x] Tests skip gracefully when corpus not built (no CI failure on fresh clone)
+- [x] Document in `eval/README.md` + cross-links in [enron-demo-tenant.md](../architecture/enron-demo-tenant.md) / [eval-home-and-mail-corpus.md](../architecture/eval-home-and-mail-corpus.md)
+- [x] Playwright suite: [`tests/e2e/`](../../tests/e2e/), `npm run test:e2e:playwright` — against **`npm run dev`** (**`./data`**, `:3000`); seed with `npm run brain:seed-enron-demo:dev` or Bearer lazy-seed; demo secret via `.env` or CI env
 
 ### Phase 2
 - [ ] CI workflow publishes `enron-kean-eval-*.tar.gz` to GitHub Releases

@@ -2,6 +2,23 @@
 
 **OPP-051 Phase 0.** Multi-tenant deployments (`BRAIN_DATA_ROOT` set) can expose a **fixed** demo workspace backed by the public Enron `kean-s` mailbox (same ingest pipeline as `npm run eval:build`). This gives **Google OAuth–free** sessions for manual QA, staging, Docker, and automation—without weakening vault or tenant middleware globally.
 
+## Demo tenant vs eval harness
+
+Use this page for **hosted-style testing**: a real tenant directory under `$BRAIN_DATA_ROOT/<tenantUserId>/`, Bearer mint, `/demo`, and Playwright. For **LLM agent evals** (`npm run eval:run`, JSONL suites), use the isolated **eval home** only — see [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md) and [eval/README.md](../../eval/README.md).
+
+| | **Demo tenant** | **Eval harness** |
+|---|------------------|------------------|
+| **Purpose** | Manual QA, browser automation, user testing | LLM benchmarks, harness Vitest, JSONL runs |
+| **Data location** | `$BRAIN_DATA_ROOT/<usr_…>/` (default `usr_enrondemo00000000001`) | `./data-eval/brain` (`BRAIN_HOME`) |
+| **Auth** | `BRAIN_ENRON_DEMO_SECRET` → `POST /api/auth/demo/enron` or `/demo` | N/A (tools read `data-eval/brain` directly) |
+| **Docs / tests** | This file; [`tests/e2e/README.md`](../../tests/e2e/README.md), `npm run test:e2e:playwright` | [eval-home-and-mail-corpus.md](./eval-home-and-mail-corpus.md); `npm run test:e2e:enron` (ripmail CLI against eval home) |
+
+The tarball cache **`data-eval/.cache/enron/`** is shared when downloading the CMU corpus; that does **not** mean the demo tenant lives under `data-eval/` — live mail + SQLite for the demo workspace are under **`BRAIN_DATA_ROOT`**.
+
+## Playwright E2E (repo)
+
+Automated browser/API tests live under [`tests/e2e/`](../../tests/e2e/). Run **`npm run dev`** on the usual port (**3000**) against **`./data`** (same as local multi-tenant dev), seed the demo tenant into that tree (`npm run brain:seed-enron-demo:dev`), then `npm run test:e2e:playwright`. No separate data directory or server layout — see [`tests/e2e/README.md`](../../tests/e2e/README.md).
+
 ## When it is available
 
 | Requirement | Notes |
@@ -39,7 +56,16 @@ Poll **`GET /api/auth/demo/enron/seed-status`** with the same `Authorization` he
 
 ### C. Pre-seed on disk (fast first login)
 
-Avoid first-hit download + ingest (15–40+ minutes) by building the tenant **before** first browser visit:
+Avoid first-hit download + ingest (15–40+ minutes) by building the tenant **before** first browser visit.
+
+**Local dev** (`npm run dev` already uses `./data`):
+
+```sh
+npm run brain:seed-enron-demo:dev
+# optional: npm run brain:seed-enron-demo:dev -- --force
+```
+
+Equivalent with an explicit root:
 
 ```sh
 export BRAIN_DATA_ROOT=/path/to/multitenant-root   # e.g. ./data or /brain-data

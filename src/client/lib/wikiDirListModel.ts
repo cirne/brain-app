@@ -36,12 +36,14 @@ export function wikiShareCoversVaultPath(
   pathPrefix: string,
   targetKind: 'dir' | 'file',
 ): boolean {
-  const rel = wikiRelPath.trim().replace(/^\/+/, '')
+  const rel = vaultRelativeFromUnifiedWikiPath(wikiRelPath.trim().replace(/^\/+/, ''))
   if (targetKind === 'file') {
-    const fp = pathPrefix.trim().replace(/^\/+/, '')
+    const fp = vaultRelativeFromUnifiedWikiPath(pathPrefix.trim().replace(/^\/+/, ''))
     return rel === fp
   }
-  return wikiPathUnderSharePrefix(rel, pathPrefix)
+  let pre = vaultRelativeFromUnifiedWikiPath(pathPrefix.trim().replace(/^\/+/, ''))
+  if (!pre.endsWith('/')) pre = `${pre}/`
+  return wikiPathUnderSharePrefix(rel, pre)
 }
 
 /** True if this vault-relative path is included in any of your outgoing shares. */

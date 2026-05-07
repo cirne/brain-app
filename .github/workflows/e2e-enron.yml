@@ -1,0 +1,110 @@
+# Enron-focused E2E: Vitest + ripmail CLI (skipped without corpus) and Playwright against ./data + port 3000 (same layout as npm run dev).
+
+name: E2E Enron
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tests/e2e/**'
+      - 'playwright.config.ts'
+      - 'vitest.enron-e2e.config.ts'
+      - 'src/server/evals/e2e/**'
+      - 'src/server/routes/demoEnronAuth.ts'
+      - 'src/server/lib/auth/enronDemo*.ts'
+      - '.github/workflows/e2e-enron.yml'
+
+env:
+  BRAIN_ENRON_DEMO_CI_SECRET: ci-enron-playwright-demo-secret-32b
+
+jobs:
+  enron-ripmail-vitest:
+    name: Enron ripmail (data-eval) Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build ripmail (release)
+        run: cargo build -p ripmail --release
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - run: npm ci
+
+      - name: npm run test:e2e:enron
+        run: npm run test:e2e:enron
+        env:
+          RIPMAIL_BIN: ${{ github.workspace }}/target/release/ripmail
+
+  playwright-enron-demo:
+    name: Playwright (Enron demo tenant)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: cargo build -p ripmail --release
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/cache@v4
+        with:
+          path: data-eval/.cache/enron
+          key: enron-cmu-tar-${{ hashFiles('eval/fixtures/enron-kean-manifest.json') }}
+
+      - name: Seed Enron demo tenant under ./data (same layout as npm run dev)
+        run: npm run brain:seed-enron-demo
+        env:
+          BRAIN_DATA_ROOT: ${{ github.workspace }}/data
+          RIPMAIL_BIN: ${{ github.workspace }}/target/release/ripmail
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Start Brain dev server
+        run: |
+          set -eu
+          export BRAIN_DATA_ROOT="${GITHUB_WORKSPACE}/data"
+          export BRAIN_ENRON_DEMO_SECRET="${BRAIN_ENRON_DEMO_CI_SECRET}"
+          export RIPMAIL_BIN="${GITHUB_WORKSPACE}/target/release/ripmail"
+          export PORT=3000
+          export NODE_ENV=development
+          nohup npx tsx --tsconfig tsconfig.server.json src/server/index.ts > "${GITHUB_WORKSPACE}/brain-e2e.log" 2>&1 &
+          echo $! > "${GITHUB_WORKSPACE}/brain-e2e.pid"
+          for i in $(seq 1 90); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" \
+              "http://127.0.0.1:3000/api/auth/demo/enron/seed-status" \
+              -H "Authorization: Bearer ${BRAIN_ENRON_DEMO_SECRET}" || true)
+            if [ "$code" = "200" ]; then
+              echo "Server up (seed-status HTTP ${code})"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "--- brain log ---"
+          cat "${GITHUB_WORKSPACE}/brain-e2e.log" || true
+          exit 1
+
+      - name: npm run test:e2e:playwright
+        run: npm run test:e2e:playwright
+        env:
+          BRAIN_ENRON_DEMO_SECRET: ${{ env.BRAIN_ENRON_DEMO_CI_SECRET }}
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f brain-e2e.pid ]; then kill "$(cat brain-e2e.pid)" 2>/dev/null || true; fi

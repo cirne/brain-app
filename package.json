@@ -40,7 +40,10 @@
     "docker:build:arm64": "DOCKER_PLATFORM=linux/arm64 npm run docker:ripmail:build && docker buildx build --platform linux/arm64 -f Dockerfile -t brain-app:arm64-local --load .",
     "eval:build": "node scripts/eval/build-enron-kean.mjs",
     "brain:seed-enron-demo": "node scripts/brain/seed-enron-demo-tenant.mjs",
+    "brain:seed-enron-demo:dev": "BRAIN_DATA_ROOT=./data node scripts/brain/seed-enron-demo-tenant.mjs",
     "eval:run": "BRAIN_DATA_ROOT=./data node scripts/eval-run.mjs",
+    "test:e2e:enron": "vitest run -c vitest.enron-e2e.config.ts",
+    "test:e2e:playwright": "playwright test",
     "issues:list": "node scripts/issues-http.mjs list",
     "issues:fetch": "node scripts/issues-http.mjs fetch"
   },
@@ -71,6 +74,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.59.1",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tailwindcss/vite": "^4.2.4",
     "@tauri-apps/api": "^2.11.0",

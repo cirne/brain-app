@@ -146,6 +146,7 @@
 
   const registerWikiHeader = getContext<SetWikiSlideHeader | undefined>(WIKI_SLIDE_HEADER)
   $effect(() => {
+    void ownedShares
     registerWikiHeader?.({
       pageMode: showTipTapEditor && canEdit ? 'edit' : 'view',
       canEdit,
@@ -397,7 +398,7 @@
     onDismiss={() => {
       shareDialogOpen = false
     }}
-    onSharesChanged={() => void loadFiles()}
+    onSharesChanged={loadFiles}
   />
   <div
     class={cn(
