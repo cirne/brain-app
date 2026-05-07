@@ -103,6 +103,22 @@ describe('AgentConversation.svelte', () => {
 
       expect(screen.queryByTestId('conversation-empty-state')).not.toBeInTheDocument()
     })
+
+    it('wraps transcript content in a horizontally padded inner layer (scrollbar stays on scrollport)', () => {
+      render(AgentConversation, {
+        props: {
+          messages: [createUserMessage('Hello')],
+          streaming: false,
+        },
+      })
+
+      const scroll = document.querySelector('.conversation.chat-transcript-scroll')
+      expect(scroll).toBeTruthy()
+      const inner = scroll!.querySelector('.chat-transcript-inner')
+      expect(inner).toBeTruthy()
+      expect(inner).toHaveClass('px-[length:var(--chat-transcript-px)]')
+      expect(inner!.contains(screen.getByTestId('chat-message-row'))).toBe(true)
+    })
   })
 
   describe('message rendering', () => {

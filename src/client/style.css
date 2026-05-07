@@ -81,7 +81,7 @@
   --sidebar-history-mobile-w: 90vw;
   /** Chat-only (no detail pane): centered readable column — matches conversation + composer */
   --chat-column-max: 680px;
-  /** `chat-transcript-scroll`: vertical padding for transcript; horizontal inset is from parent (e.g. `.mid-outer` in AgentChat). */
+  /** `chat-transcript-scroll`: vertical padding for transcript; horizontal inset is `.chat-transcript-inner` in AgentConversation (scrollbar stays on the scrollport edge). */
   --chat-transcript-px: 16px;
   --chat-transcript-pt: 1.25rem;
   --chat-transcript-pb: 20px;
@@ -134,8 +134,8 @@ svg.sync-spinning {
 
 @layer components {
   /**
-   * Transcript scroll: vertical rhythm + column width. Horizontal inset for main chat comes from
-   * `AgentChat` `.mid-outer` (lines up composer + transcript). Onboarding shells add `px` via utilities.
+   * Transcript scroll: vertical rhythm + column width. Horizontal padding for message bodies lives on
+   * `.chat-transcript-inner` inside AgentConversation. Onboarding shells may add `px` on the scroll node.
    */
   .chat-transcript-scroll {
     box-sizing: border-box;

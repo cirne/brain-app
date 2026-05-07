@@ -184,37 +184,39 @@
     onmouseover={handleMessagesMouseOver}
     onmouseout={handleMessagesMouseOut}
   >
-    {#if messages.length === 0}
-      {#if empty}
-        {@render empty()}
-      {:else}
-        <ConversationEmptyState
+    <div class="chat-transcript-inner min-w-0 px-[length:var(--chat-transcript-px)]">
+      {#if messages.length === 0}
+        {#if empty}
+          {@render empty()}
+        {:else}
+          <ConversationEmptyState
+            {onOpenEmail}
+            {onOpenFullInbox}
+            {onSwitchToCalendar}
+            {onOpenWikiAbout}
+          />
+        {/if}
+      {/if}
+
+      {#each messages as msg, i (i)}
+        <ChatMessageRow
+          {msg}
+          {streaming}
+          isLastMessage={i === messages.length - 1}
+          isLastAssistantInThread={i === lastAssistantIndex}
+          {toolDisplayMode}
+          {onOpenWiki}
+          {onOpenFile}
+          {onOpenIndexedFile}
           {onOpenEmail}
+          {onOpenDraft}
           {onOpenFullInbox}
           {onSwitchToCalendar}
-          {onOpenWikiAbout}
+          {onOpenMessageThread}
+          {onOpenMailSearchResults}
         />
-      {/if}
-    {/if}
-
-    {#each messages as msg, i (i)}
-      <ChatMessageRow
-        {msg}
-        {streaming}
-        isLastMessage={i === messages.length - 1}
-        isLastAssistantInThread={i === lastAssistantIndex}
-        {toolDisplayMode}
-        {onOpenWiki}
-        {onOpenFile}
-        {onOpenIndexedFile}
-        {onOpenEmail}
-        {onOpenDraft}
-        {onOpenFullInbox}
-        {onSwitchToCalendar}
-        {onOpenMessageThread}
-        {onOpenMailSearchResults}
-      />
-    {/each}
+      {/each}
+    </div>
   </div>
 
   {#if showJumpToLatest}
