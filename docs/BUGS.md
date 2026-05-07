@@ -29,6 +29,7 @@ User feedback **#10** (`ripmail archive`, leading-dash `Message-ID`): **[BUG-039
 | BUG-036 | `stats`: misleading threads/people counts | Threads ≈ messages; people always 0. See [bugs/BUG-036-stats-inaccurate-threads-and-people.md](bugs/BUG-036-stats-inaccurate-threads-and-people.md). |
 | BUG-037 | Wizard/setup omit LLM provider + models | Only OpenAI surfaced; multi-provider `llm` in config needs onboarding. See [bugs/BUG-037-wizard-llm-provider-selection.md](bugs/BUG-037-wizard-llm-provider-selection.md). |
 | BUG-038 | Wizard exits on bad IMAP password (no retry) | Typo trap; should re-prompt in credential loop. See [bugs/BUG-038-wizard-bad-password-exits-instead-of-retry.md](bugs/BUG-038-wizard-bad-password-exits-instead-of-retry.md). |
+| BUG-046 | Wiki: unify shared reads into general **`GET /api/wiki/:path`** (**open**) | **Tracking.** Eliminate parallel **`shared-by-handle`** / **`shared/:ownerId`** read endpoints by resolving **`me/`** vs **`@handle/`** inside the existing catch-all reader with minimal diff; aliases/redirect optional. Tracks [OPP-091](opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md). See [bugs/BUG-046-wiki-unify-general-read-route-for-shared-peer-paths.md](bugs/BUG-046-wiki-unify-general-read-route-for-shared-peer-paths.md). |
 
 ## Fixed (archived)
 

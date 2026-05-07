@@ -117,6 +117,9 @@
   /** Supersedes in-flight page GETs (open + server refresh) so rapid nav cannot mix HTML. */
   const wikiPageLatest = createAsyncLatest({ abortPrevious: true })
 
+  /** Only `openFile` bumps this; supersedes `loading` clearing when stale `wikiPageLatest` masks a superseded-open (e.g. refresh aborts fetch). */
+  let wikiOpenLoadingGeneration = 0
+
   const streamBusy = $derived(
     Boolean(
       (streamingWrite && selected && pathsMatchForStream(streamingWrite.path, selected)) ||
@@ -207,6 +210,7 @@
       meta = data.meta ?? {}
       content = transformWikiPageHtml(data.html)
       setWikiRawMarkdown(data.raw ?? '')
+      pageLoadedOk = true
     } catch (e) {
       if (!wikiPageLatest.isStale(token) && !isAbortError(e)) throw e
     }
@@ -242,6 +246,8 @@
       await wikiEditor.flushSave()
     }
     const { token, signal } = wikiPageLatest.begin()
+    wikiOpenLoadingGeneration += 1
+    const myLoadingGeneration = wikiOpenLoadingGeneration
     selected = path
     onNavigate?.(path)
     loading = true
@@ -275,7 +281,7 @@
       const title = wikiMarkdownBasenameDisplayTitle(path)
       onContextChange?.({ type: 'wiki', path, title })
     } finally {
-      if (!wikiPageLatest.isStale(token)) loading = false
+      if (myLoadingGeneration === wikiOpenLoadingGeneration) loading = false
     }
   }
 
@@ -358,6 +364,17 @@
     ].join('\0')
     const loadIdentityChanged = loadIdentity !== prevWikiLoadIdentityRef.current
     prevWikiLoadIdentityRef.current = loadIdentity
+    /** `{ type:'wiki' }` with no path (vault landing): drop stale doc selection so loaders do not flap with `$effect`/`showTipTapEditor` / `loading` (effect_update_depth_exceeded). */
+    if (!pathFromRoute && selected !== null) {
+      wikiPageLatest.begin()
+      wikiOpenLoadingGeneration += 1
+      loading = false
+      selected = null
+      content = ''
+      setWikiRawMarkdown('')
+      meta = {}
+      pageLoadedOk = false
+    }
     const serial = ++wikiLoadSerial
 
     void (async () => {
@@ -379,11 +396,6 @@
         } else if (refreshKeyChanged && !showTipTapEditor) {
           void refreshRenderedFromServer()
         }
-        return
-      }
-
-      if (selected && !showTipTapEditor) {
-        void openFile(selected)
         return
       }
     })()
