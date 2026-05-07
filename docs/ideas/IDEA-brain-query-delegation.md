@@ -16,6 +16,7 @@ Instead of emailing Donna and waiting hours, you say:
 Your brain delegates a natural-language research task to Donna's brain. Donna's brain has full access to her email, wiki, and calendar — it synthesizes an answer the way a human assistant would. Before the answer leaves Donna's instance, a **privacy filter pass** reviews the draft and removes or redacts anything that violates Donna's privacy policy. The filtered answer comes back to your agent in seconds.
 
 **Key properties:**
+
 - Data never moves — only a synthesized, filtered answer crosses the boundary
 - Donna's LLM operates on Donna's full context (not just shared wiki files)
 - The privacy filter is the trust mechanism, not a human approval step
@@ -62,15 +63,18 @@ This is "strong instructions," not cryptographic guarantees. The honest trade-of
 ## Trust and consent model
 
 **Before any query can reach Donna:**
+
 - Donna must have you in her allow list (opt-in, not opt-out)
 - The simplest form: "allow any Braintunnel user whose wiki I already share with" — reuses the OPP-064 connection graph
 - Explicit per-contact grants are the longer-term form
 
 **Does Donna see the query?**
+
 - A query log in Hub: who asked, what they asked, what was returned — visible to Donna after the fact
 - Initially no notification (async, fire-and-forget); notifications come later
 
 **Human approval as an option:**
+
 - Some users may want to approve every outbound answer before it's sent — especially early
 - Others may trust the filter and prefer fully automatic
 - This is a Hub setting per connection: "auto-respond" vs "require my approval"
@@ -94,6 +98,7 @@ This is "strong instructions," not cryptographic guarantees. The honest trade-of
 Because both users are on the same hosted instance (same server), routing is trivial — no peer discovery, no cryptographic handshake needed for Phase 0.
 
 **Phase 0 — hosted-only, same server:**
+
 1. `POST /api/brain-query` endpoint: `{ fromHandle, query }` — requires `fromHandle` to be in the receiving tenant's allow list
 2. Scoped "answering agent" runs with the receiving tenant's context + privacy system prompt
 3. Configurable privacy policy text field in Hub settings (with default)
@@ -103,11 +108,13 @@ Because both users are on the same hosted instance (same server), routing is tri
 This can be prototyped entirely within the existing codebase — no new identity infrastructure, no peer discovery, just a new API route and a scoped agent run.
 
 **Phase 1 — cross-instance:**
+
 - Requires handle resolution (endpoint URL for `@handle`)
 - HTTPS inter-instance request with signed payloads
 - Builds on the handle registry / endpoint discovery from IDEA-wiki-sharing-collaborators M1
 
 **Phase 2 — richer privacy controls:**
+
 - Per-topic policies ("never share construction budget details")
 - Hard block lists (specific people, projects, date ranges)
 - Privacy policy versioning and audit
@@ -117,17 +124,11 @@ This can be prototyped entirely within the existing codebase — no new identity
 ## Open questions
 
 1. **Prompt injection via query text.** The incoming query is untrusted input from another user's LLM. It must be treated as user-level input, sandboxed from the receiving system prompt and tool access. How strictly do we enforce this in Phase 0?
-
 2. **Answer quality vs. privacy filter tension.** A strong filter may strip so much that the answer is useless. How do we tune the default rules for useful answers while remaining genuinely protective? Probably requires empirical tuning with real queries.
-
 3. **Async delivery.** If Donna's instance is offline (desktop app closed), the query queues. What's the delivery mechanism — polling, push notification, email summary? Phase 0 can require both users to be online (cloud-hosted, always-on tenants).
-
 4. **Multi-hop.** "Ask Donna, and if she mentions the contractor, pull in what Sarah knows about them." Powerful but opens recursive delegation and potential data-exfiltration amplification. Likely blocked by default; opt-in later.
-
 5. **Fan-out queries.** "Who in my network knows about X?" requires querying multiple connected brains simultaneously. Rate limiting, result aggregation, and cost (LLM calls per query × N brains) need thought.
-
 6. **Abuse prevention.** A connected peer could craft adversarial queries to probe what data Donna has ("do you have any emails mentioning project Y with a dollar amount over $1M?"). The privacy filter is a defense, but a structured capability-limited query API (instead of open NL) is stronger. Tradeoff: NL is the whole point.
-
 7. **Relationship to human approval path.** Does "human approval required" and "LLM filter auto-respond" need to coexist as settings, or should early versions force human approval until trust is established?
 
 ---

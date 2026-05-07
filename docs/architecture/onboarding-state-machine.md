@@ -27,6 +27,7 @@
 - Mail polling payload / ripmail JSON parse: [`src/server/lib/onboarding/onboardingMailStatus.ts`](../../src/server/lib/onboarding/onboardingMailStatus.ts), [`src/server/lib/ripmail/ripmailStatusParse.ts`](../../src/server/lib/ripmail/ripmailStatusParse.ts) (`refreshRunning` vs `backfillRunning`)  
 - Client: [`src/client/components/onboarding/Onboarding.svelte`](../../src/client/components/onboarding/Onboarding.svelte)  
 - Thresholds: [`src/shared/onboardingProfileThresholds.ts`](../../src/shared/onboardingProfileThresholds.ts) (`ONBOARDING_PROFILE_INDEX_MANUAL_MIN` **500**, `WIKI_BUILDOUT_MIN_MESSAGES` **1000**; legacy constant **`ONBOARDING_BACKFILL_STILL_RUNNING_CODE`** retained only for stale references)
+- Small-inbox auto-advance gate: [`src/shared/onboardingMailGate.ts`](../../src/shared/onboardingMailGate.ts) (`isOnboardingInitialMailSyncComplete`, `canAdvanceToOnboardingAgent`)
 - Unified Hub status: [`GET /api/background-status`](./background-task-orchestration.md)
 
 HTTP surface summary: [`runtime-and-routes.md`](runtime-and-routes.md) (`/api/onboarding/*`). Component tests involving onboarding UI: [component-testing.md](../component-testing.md).
@@ -91,7 +92,9 @@ Table form (canonical `canTransition` in `onboardingState.ts`):
 2. **Mail setup** — Apple or Google path completes; ripmail `config.json` exists under tenant `ripmail/` home.  
 3. **Enter `indexing`** — Client PATCHes `indexing` when appropriate; **POST `/api/inbox/sync`** is kicked (see below).  
 4. **Phase 1 mail (OPP-093)** — While onboarding dispatch applies, sync runs **`ripmail backfill 30d`** in the **background** (detached); the UI **polls** GET `/api/onboarding/mail` (→ `getOnboardingMailStatus` / `ripmail status --json`).  
-5. **Advance to `onboarding-agent`** — When **indexed count ≥** `ONBOARDING_PROFILE_INDEX_MANUAL_MIN` (**500**), client auto-PATCHes (or user retries). Server rechecks the same gate **only** (does **not** wait for `backfillRunning === false`). Phase **1** backfill (**30d**) keeps running to completion; it is **not** cancelled by advancing to interview.  
+5. **Advance to `onboarding-agent`** — Either path advances:
+   - **Threshold path:** indexed count **≥** `ONBOARDING_PROFILE_INDEX_MANUAL_MIN` (**500**). Client auto-PATCHes (or user retries). Server rechecks the same threshold; it does **not** wait for `backfillRunning === false`. Phase **1** backfill (**30d**) keeps running to completion; it is **not** cancelled by advancing to interview.
+   - **Small-inbox path:** indexed count is below **500** **but** the initial mail sync has fully drained — `configured && lastSyncedAt && !syncRunning && !backfillRunning && !refreshRunning && !pendingBackfill && !staleMailSyncLock && !indexingHint` (see `isOnboardingInitialMailSyncComplete`). Without this, brand‑new accounts with only a handful of messages would be stuck on the indexing hero forever (e.g. "37 / 500" with nothing more to fetch). Both client auto-advance and server PATCH gate accept this case.
 6. **Phase 2 mail** — On transition **`indexing` → `onboarding-agent`**, server enqueues **`ripmail backfill 1y`** in the **background**. Ripmail **chains** heavy jobs per home so **1y runs after** the active **30d** lane finishes rather than preempting it.  
 7. **Interview + finalize** — OPP-054; then **`done`** (`POST /finalize` / **`PATCH` → `done`**).  
 8. **Wiki first-draft bootstrap + Your Wiki supervisor** — When indexed ≥ **`WIKI_BUILDOUT_MIN_MESSAGES`** (**1000**) **and** mail is configured, **`kickWikiSupervisorIfIndexedGatePasses`** runs on **`GET /api/onboarding/mail`** and **`GET /api/background-status`** (often **during** indexing or interview — **before** step 7). **`notifyOnboardingInterviewDone`** also invokes it after finalize (**idempotent**). See **[OPP-095](../opportunities/OPP-095-wiki-first-draft-bootstrap.md)**:
@@ -126,7 +129,7 @@ Onboarding **phase 1** intentionally starts **backfill 30d**, not a full default
 | Route | Role |
 | ----- | ---- |
 | **GET `/api/onboarding/status`** | Persisted `state` + `wikiMeExists`; may override to `confirming-handle` when hosted handle not confirmed. |
-| **PATCH `/api/onboarding/state`** | Validates transition; **`indexing` → `onboarding-agent`**: min indexed messages only; on success kicks **backfill 1y** (queued behind any active backfill for that ripmail home). |
+| **PATCH `/api/onboarding/state`** | Validates transition; **`indexing` → `onboarding-agent`**: min indexed messages **or** small-inbox initial-sync-complete (see step 5 / `canAdvanceToOnboardingAgent`); on success kicks **backfill 1y** (queued behind any active backfill for that ripmail home). |
 | **GET `/api/onboarding/mail`** | Lightweight poll: `indexedTotal`, `ftsReady`, **`backfillRunning`**, `syncRunning`, hints, etc. |
 | **POST `/api/inbox/sync`** | If onboarding state implies first-pass indexing, **`syncInboxRipmailOnboarding`** (else normal inbox refresh). |
 

@@ -21,6 +21,7 @@
     emptyOnboardingMail,
     type OnboardingMailStatus,
   } from '@client/lib/onboarding/onboardingTypes.js'
+  import { isOnboardingInitialMailSyncComplete } from '@shared/onboardingMailGate.js'
   import { resizeMainWindowToBrowserLikeWorkArea } from '@client/lib/desktop/browserLikeWindow.js'
   import { isTauriRuntime } from '@client/lib/desktop/isTauriRuntime.js'
   import { ArrowRight } from 'lucide-svelte'
@@ -84,8 +85,14 @@
     }
     return `${d.toLocaleString()} of ${ONBOARDING_PROFILE_INDEX_AUTOPROCEED.toLocaleString()} messages toward continuing`
   })
+  /**
+   * Small-inbox path: even when indexed count is below the auto-proceed threshold, advance
+   * once the initial mail sync has finished with nothing pending. Otherwise users with tiny
+   * mailboxes (a fresh Gmail with a few dozen messages) would be stuck on the indexing hero.
+   */
+  const initialMailSyncComplete = $derived(isOnboardingInitialMailSyncComplete(mail))
   const canAutoProceedToInterview = $derived(
-    mailIndexedCount >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED,
+    mailIndexedCount >= ONBOARDING_PROFILE_INDEX_AUTOPROCEED || initialMailSyncComplete,
   )
 
   /** Optional reassurance: initial backfill may still run while we advance to interview (does not block). */

@@ -46,6 +46,8 @@ CREATE TABLE wiki_stale (x TEXT);
       name: string
     }[]
     expect(tables.some((t) => t.name === 'wiki_shares')).toBe(true)
+    expect(tables.some((t) => t.name === 'brain_query_grants')).toBe(true)
+    expect(tables.some((t) => t.name === 'brain_query_log')).toBe(true)
     expect(tables.some((t) => t.name === 'wiki_stale')).toBe(false)
 
     await rm(dir, { recursive: true, force: true })

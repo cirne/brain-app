@@ -35,6 +35,7 @@
   import { clearBrainClientStorage } from '@client/lib/brainClientStorage.js'
   import ConfirmDialog from '@components/ConfirmDialog.svelte'
   import WikiShareDialog from '@components/WikiShareDialog.svelte'
+  import BrainQuerySettingsSection from '@components/BrainQuerySettingsSection.svelte'
   import WikiFileName from '@components/WikiFileName.svelte'
   import HubSourceRowBody from '@components/HubSourceRowBody.svelte'
   import { wikiShareVaultPathForWikiFileName } from '@client/lib/wikiPathDisplay.js'
@@ -728,6 +729,8 @@
           </ul>
         {/if}
       </div>
+
+      <BrainQuerySettingsSection />
     </section>
 
     <WikiShareDialog

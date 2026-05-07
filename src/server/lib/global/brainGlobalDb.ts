@@ -6,10 +6,10 @@ import { globalDir } from '@server/lib/tenant/dataRoot.js'
 /**
  * Bump when `brain-global.sqlite` layout changes. Older files are deleted and recreated (no ALTER migrations).
  */
-export const BRAIN_GLOBAL_SCHEMA_VERSION = 2
+export const BRAIN_GLOBAL_SCHEMA_VERSION = 3
 
 /**
- * Cross-tenant metadata (wiki shares ACL; tenant-registry migration later).
+ * Cross-tenant metadata (wiki shares ACL, brain-query delegation grants + log; tenant-registry migration later).
  * Override path in tests via `BRAIN_GLOBAL_SQLITE_PATH`.
  */
 export function brainGlobalSqlitePath(): string {
@@ -29,7 +29,7 @@ export function readBrainGlobalSchemaVersion(db: Database.Database): number | nu
   }
 }
 
-/** Full schema for a fresh global DB (version row + wiki_shares). */
+/** Full schema for a fresh global DB (version row + wiki_shares + brain-query delegation ACL/log). */
 export function initBrainGlobalSchema(db: Database.Database): void {
   db.transaction(() => {
     db.exec(`
@@ -55,6 +55,33 @@ CREATE TABLE wiki_shares (
 CREATE INDEX idx_wiki_shares_owner ON wiki_shares(owner_id);
 CREATE INDEX idx_wiki_shares_grantee ON wiki_shares(grantee_id);
 CREATE INDEX idx_wiki_shares_token ON wiki_shares(invite_token);
+CREATE TABLE brain_query_grants (
+  id              TEXT PRIMARY KEY,
+  owner_id        TEXT NOT NULL,
+  asker_id        TEXT NOT NULL,
+  privacy_policy  TEXT NOT NULL,
+  created_at_ms   INTEGER NOT NULL,
+  updated_at_ms   INTEGER NOT NULL,
+  revoked_at_ms   INTEGER,
+  UNIQUE(owner_id, asker_id)
+);
+CREATE INDEX idx_brain_query_grants_owner ON brain_query_grants(owner_id);
+CREATE INDEX idx_brain_query_grants_asker ON brain_query_grants(asker_id);
+CREATE TABLE brain_query_log (
+  id              TEXT PRIMARY KEY,
+  owner_id        TEXT NOT NULL,
+  asker_id        TEXT NOT NULL,
+  question        TEXT NOT NULL,
+  draft_answer    TEXT,
+  final_answer    TEXT,
+  filter_notes    TEXT,
+  status          TEXT NOT NULL,
+  created_at_ms   INTEGER NOT NULL,
+  duration_ms     INTEGER
+);
+CREATE INDEX idx_brain_query_log_owner ON brain_query_log(owner_id);
+CREATE INDEX idx_brain_query_log_asker ON brain_query_log(asker_id);
+CREATE INDEX idx_brain_query_log_created ON brain_query_log(created_at_ms);
 `)
   })()
 }

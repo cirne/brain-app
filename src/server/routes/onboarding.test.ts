@@ -585,6 +585,69 @@ describe('onboarding routes', () => {
       }
     })
 
+    it('allows transition for a small inbox once initial mail sync has fully drained (below threshold)', async () => {
+      vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
+        configured: true,
+        indexedTotal: 37,
+        lastSyncedAt: '2026-05-07T18:00:00.000Z',
+        dateRange: { from: null, to: null },
+        syncRunning: false,
+        refreshRunning: false,
+        backfillRunning: false,
+        syncLockAgeMs: null,
+        ftsReady: 37,
+        messageAvailableForProgress: 37,
+        pendingBackfill: false,
+        staleMailSyncLock: false,
+        indexingHint: null,
+      })
+      const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
+      await setOnboardingState('indexing')
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/state', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'onboarding-agent' }),
+      })
+      expect(res.status).toBe(200)
+      const j = (await res.json()) as { state: string }
+      expect(j.state).toBe('onboarding-agent')
+      // Phase-2 backfill 1y still queued.
+      await vi.waitFor(() => {
+        expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).toHaveBeenCalledWith(['1y'])
+      })
+    })
+
+    it('still blocks below threshold when initial sync has not finished (lastSyncedAt null)', async () => {
+      vi.spyOn(onboardingMailStatus, 'getOnboardingMailStatus').mockResolvedValue({
+        configured: true,
+        indexedTotal: 37,
+        lastSyncedAt: null,
+        dateRange: { from: null, to: null },
+        syncRunning: false,
+        refreshRunning: false,
+        backfillRunning: false,
+        syncLockAgeMs: null,
+        ftsReady: 37,
+        messageAvailableForProgress: 37,
+        pendingBackfill: false,
+        staleMailSyncLock: false,
+        indexingHint: null,
+      })
+      const { setOnboardingState } = await import('@server/lib/onboarding/onboardingState.js')
+      await setOnboardingState('indexing')
+      const app = new Hono()
+      app.route('/api/onboarding', onboardingRoute)
+      const res = await app.request('http://localhost/api/onboarding/state', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'onboarding-agent' }),
+      })
+      expect(res.status).toBe(400)
+      expect(ripmailHeavySpawnMocks.runRipmailBackfillForBrain).not.toHaveBeenCalled()
+    })
+
     it('PATCH success is not blocked when background 1y backfill rejects', async () => {
       ripmailHeavySpawnMocks.runRipmailBackfillForBrain.mockImplementation(() =>
         Promise.reject(new Error('backfill failed')),

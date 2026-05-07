@@ -6,6 +6,7 @@ import { createCalendarTool } from './tools/calendarTools.js'
 import { createWebAgentTools } from './tools/webAgentTools.js'
 import { createUiAgentTools } from './tools/uiAgentTools.js'
 import { createLocalMessageTools } from './tools/localMessageTools.js'
+import { createBrainQueryTool } from './tools/brainQueryTool.js'
 import { tryGetTenantContext } from '@server/lib/tenant/tenantContext.js'
 import { wikiToolsDir } from '@server/lib/wiki/wikiDir.js'
 
@@ -125,6 +126,8 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
 
   const { listRecentMessagesTool, getMessageThreadTool, searchMessagesTool } = createLocalMessageTools(wikiDir)
 
+  const askBrain = createBrainQueryTool()
+
   const tools = [
     read,
     edit,
@@ -159,6 +162,7 @@ export function createAgentTools(wikiDir: string, options?: CreateAgentToolsOpti
     rememberPreference,
     loadSkill,
     suggestReplyOptions,
+    askBrain,
     searchMessagesTool,
     ...(includeLocalMessages ? [listRecentMessagesTool, getMessageThreadTool] : []),
   ]

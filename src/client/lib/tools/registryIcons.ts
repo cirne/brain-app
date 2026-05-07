@@ -20,6 +20,7 @@ import {
   MessageSquare,
   ListChecks,
   CircleCheck,
+  Users,
 } from 'lucide-svelte'
 import type { Component } from 'svelte'
 
@@ -59,4 +60,5 @@ export const TOOL_ICONS = {
   archive_emails: Mail,
   suggest_reply_options: ListChecks,
   finish_conversation: CircleCheck,
+  ask_brain: Users,
 } as unknown as Record<string, Component>

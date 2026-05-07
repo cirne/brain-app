@@ -43,6 +43,7 @@ export const ALL_AGENT_TOOL_NAMES = [
   'get_message_thread',
   'search_messages',
   'suggest_reply_options',
+  'ask_brain',
 ] as const
 
 export type AgentToolName = (typeof ALL_AGENT_TOOL_NAMES)[number]
@@ -67,6 +68,8 @@ export const TOOL_GROUPS = {
   ] as const satisfies readonly AgentToolName[],
   skills: ['load_skill'] as const satisfies readonly AgentToolName[],
   localMessages: ['list_recent_messages', 'get_message_thread'] as const satisfies readonly AgentToolName[],
+  /** Cross-tenant query when peer has granted access (Phase 0 POC). */
+  brainQuery: ['ask_brain'] as const satisfies readonly AgentToolName[],
   /** Hosted iMessage text index (when local chat.db tools are off). */
   hostedMessages: ['search_messages'] as const satisfies readonly AgentToolName[],
 } as const
@@ -92,6 +95,7 @@ export const ONBOARDING_BASE_OMIT: readonly AgentToolName[] = [
   'refresh_sources',
   'load_skill',
   'suggest_reply_options',
+  'ask_brain',
 ]
 
 /**

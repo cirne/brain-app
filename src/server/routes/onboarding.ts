@@ -32,6 +32,7 @@ import {
   ripmailHomePath,
 } from '@server/lib/onboarding/onboardingMailStatus.js'
 import { ONBOARDING_PROFILE_INDEX_MANUAL_MIN } from '@shared/onboardingProfileThresholds.js'
+import { isOnboardingInitialMailSyncComplete } from '@shared/onboardingMailGate.js'
 import { notifyOnboardingInterviewDone } from '@server/lib/backgroundTasks/orchestrator.js'
 import { kickWikiSupervisorIfIndexedGatePasses } from '@server/lib/backgroundTasks/wikiKickAfterOnboardingDone.js'
 import { enrichAppleMailSetupError } from '@server/lib/apple/appleMailSetupHints.js'
@@ -190,12 +191,23 @@ onboarding.patch('/state', async (c) => {
   if (cur.state === 'indexing' && next === 'onboarding-agent') {
     const mail = await getOnboardingMailStatus()
     const n = Math.max(mail.indexedTotal ?? 0, mail.ftsReady ?? 0)
-    if (n < ONBOARDING_PROFILE_INDEX_MANUAL_MIN) {
+    /**
+     * Small-inbox auto-advance: when the initial mail sync has completed and there is nothing
+     * pending, accept the transition even if `n` is below the manual minimum — otherwise users
+     * with tiny mailboxes (e.g. brand-new accounts) would be stuck on the indexing hero forever.
+     */
+    const initialSyncComplete = isOnboardingInitialMailSyncComplete(mail)
+    if (n < ONBOARDING_PROFILE_INDEX_MANUAL_MIN && !initialSyncComplete) {
       return c.json(
         {
           error: `We need at least ${ONBOARDING_PROFILE_INDEX_MANUAL_MIN.toLocaleString()} messages indexed before building your profile. Keep this window open while we download more, or try again in a few minutes.`,
         },
         400,
+      )
+    }
+    if (initialSyncComplete && n < ONBOARDING_PROFILE_INDEX_MANUAL_MIN) {
+      console.log(
+        `[onboarding/state] indexing → onboarding-agent below manual minimum (${n} < ${ONBOARDING_PROFILE_INDEX_MANUAL_MIN}); initial mail sync complete with nothing pending — small-inbox auto-advance.`,
       )
     }
     /** Interview does not wait for phase‑1 backfill to finish. Phase‑2 `backfill 1y` is chained after any in-flight backfill (same ripmail home) and does not cancel phase‑1. */

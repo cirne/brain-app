@@ -3,6 +3,7 @@ import chatRoute from './routes/chat.js'
 import skillsRoute from './routes/skills.js'
 import wikiRoute from './routes/wiki.js'
 import wikiSharesRoute from './routes/wikiShares.js'
+import brainQueryRoute from './routes/brainQuery.js'
 import filesRoute from './routes/files.js'
 import inboxRoute from './routes/inbox.js'
 import calendarRoute from './routes/calendar.js'
@@ -39,6 +40,7 @@ export function registerApiRoutes(app: Hono, options: { isDev: boolean }): void 
   app.route('/api/issues', issuesRoute)
   app.route('/api/wiki', wikiRoute)
   app.route('/api/wiki-shares', wikiSharesRoute)
+  app.route('/api/brain-query', brainQueryRoute)
   app.route('/api/files', filesRoute)
   app.route('/api/inbox', inboxRoute)
   app.route('/api/calendar', calendarRoute)
