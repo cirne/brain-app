@@ -1,9 +1,26 @@
 # Idea: Brain-query delegation (LLM-to-LLM fast path)
 
-**Status:** Backlog — no OPP yet  
+**Status:** Active — **Phase 0 (hosted)** shipped in code; follow-on UX and product bets tracked in **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)**  
 **Index:** [IDEAS.md](../IDEAS.md)
 
-**Related:** [IDEA-wiki-sharing-collaborators.md](IDEA-wiki-sharing-collaborators.md) (broader brain-to-brain vision, M2+ sequencing, security model, protocol)
+**Specs:** [brain-query-delegation.md](../architecture/brain-query-delegation.md) (API, manual acceptance) · **[brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)** (draft — layered policies: capabilities, hard predicates, soft fragments) · **Tool:** `ask_brain` · **Settings:** Sharing → Brain queries (skeletal UI today)
+
+**Related:** [IDEA-wiki-sharing-collaborators.md](IDEA-wiki-sharing-collaborators.md) (directory sharing, protocol). **Strategic tension:** wiki/file sharing adds a lot of projection and mental surface area; brain-to-brain **query + per-connection policy** may be the better long-term bet for collaboration—see [§ Wiki sharing vs brain-query](#wiki-sharing-vs-brain-query).
+
+---
+
+## Where we are now (2026-05)
+
+**Shipped (Phase 0, same instance):**
+
+- **Brain-to-brain query** from user A’s chat via the **`ask_brain`** tool: resolve `@handle`, enforce **`brain_query_grants`** in global DB, run a **read-only research** pass in user B’s tenant, then a **privacy-filter** pass using B’s **per-connection freeform policy** (seeded default, owner-editable).
+- **Audit log** (`brain_query_log`) with owner vs asker views; draft vs filtered answer visible to the owner only.
+
+**Admin / Hub UI:**
+
+- **Skeletal.** Grants (create / list / edit policy / revoke) and log tables exist under Settings → Sharing → Brain queries, but the experience needs substantial product and engineering work—navigation, mobile, empty states, drill-down, and trust copy. That work is **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)**.
+
+**Not done yet (unchanged from earlier roadmap):** cross-instance routing, notifications, human-approval mode, layered policy/presets ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)) — see [Experiment path](#experiment-path-fast-start) below.
 
 ---
 
@@ -13,13 +30,15 @@ Instead of emailing Donna and waiting hours, you say:
 
 > "Ask Donna what the latest is with the construction project."
 
-Your brain delegates a natural-language research task to Donna's brain. Donna's brain has full access to her email, wiki, and calendar — it synthesizes an answer the way a human assistant would. Before the answer leaves Donna's instance, a **privacy filter pass** reviews the draft and removes or redacts anything that violates Donna's privacy policy. The filtered answer comes back to your agent in seconds.
+Your brain delegates a natural-language research task to Donna's brain. Donna's brain runs a **research pass** using **owner-context tools** (mail, wiki, calendar—today governed by a **read-only tool allowlist** and tenant isolation). Before the answer leaves Donna's instance, a **privacy filter pass** reviews the draft against Donna's **per-connection policy** and rewrites or redacts. The filtered answer comes back to your agent in seconds.
+
+**Evolving enforcement:** Phase 0 relies on **tool allowlisting + a single privacy-policy textarea** per grant. Long-term, **hard predicates** (wiki paths, Ripmail-aligned mail filters) and **structured presets / ALLOW–DISALLOW fragments** tighten what data can enter research at all—see [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md).
 
 **Key properties:**
 
 - Data never moves — only a synthesized, filtered answer crosses the boundary
-- Donna's LLM operates on Donna's full context (not just shared wiki files)
-- The privacy filter is the trust mechanism, not a human approval step
+- Donna's research pass uses **owner-context** mail/wiki/calendar tooling—not limited to pre-shared wiki files alone—**subject to evolving grant policy** ([brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md); Phase 0: read-only allowlist + textarea instructions)
+- The privacy filter is the trust mechanism, not a human approval step (approval modes may coexist later)
 - Far faster and higher-bandwidth than email; far more powerful than file sharing
 
 ---
@@ -41,10 +60,10 @@ For *informational queries* ("what's the latest on X"), this is strictly more po
 
 The answering LLM runs in two passes:
 
-1. **Research pass:** scoped agent with Donna's full context answers the query, citing email threads, wiki notes, calendar events as needed — full synthesis, no filter yet
-2. **Privacy filter pass:** second LLM call reviews the draft answer against Donna's privacy policy and rewrites it, removing or redacting violations
+1. **Research pass:** scoped agent with **owner-context tools** (mail, wiki, calendar per policy and Phase 0 allowlist) answers the query—full synthesis within that envelope, **no outbound filter yet**
+2. **Privacy filter pass:** second LLM call reviews the draft answer against Donna's **privacy policy for this connection** (Phase 0: plain-text instructions assembled into the filter prompt; future: preset + ALLOW/DISALLOW fragments per [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)) and rewrites it, removing or redacting violations
 
-Donna's privacy policy is plain text she can customize, with a strong default:
+Donna's privacy policy is **editable text** today (strong default below). Future UX may assemble it from **library fragments** without changing the honesty that this layer is **instruction-bound**, not cryptographic.
 
 ```
 Default privacy policy:
@@ -64,9 +83,19 @@ This is "strong instructions," not cryptographic guarantees. The honest trade-of
 
 **Before any query can reach Donna:**
 
-- Donna must have you in her allow list (opt-in, not opt-out)
-- The simplest form: "allow any Braintunnel user whose wiki I already share with" — reuses the OPP-064 connection graph
-- Explicit per-contact grants are the longer-term form
+- Donna must have you in her **explicit grant** (`brain_query_grants`: one row per owner + asker, with **privacy policy** text today; structured presets and predicates per [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) later). Phase 0 does **not** infer grants from wiki shares; consent is opt-in per collaborator.
+
+**Product question (open):** Directory **wiki sharing** (projection, invites, shared subtrees) is a separate, heavier subsystem. For many “what’s the status of X?” flows, **brain-query** may be enough. We should decide whether to **keep investing in document sharing**, **narrow** it (e.g. rare export-only cases), or **deprioritize** it in favor of making brain-to-brain **query + policy + audit** excellent and easy to reason about. Security and UX energy may go further on the latter path.
+
+### Wiki sharing vs brain-query
+
+| | Wiki / directory sharing | Brain-query delegation |
+| --- | --- | --- |
+| Unit | Tree of files | Natural-language question |
+| Mental model | “They see a copy of my folder” | “They can ask; answers are filtered by my policy” |
+| Implementation | Projection, paths, symlinks, invites | Grants table, tenant switch, two-pass LLM |
+
+If the product thesis shifts to **“just make B2B work well and securely,”** wiki sharing becomes a candidate for reduction or retirement—not a decision made in this doc, but the tradeoff is now visible in the shipped Phase 0.
 
 **Does Donna see the query?**
 
@@ -97,15 +126,15 @@ This is "strong instructions," not cryptographic guarantees. The honest trade-of
 
 Because both users are on the same hosted instance (same server), routing is trivial — no peer discovery, no cryptographic handshake needed for Phase 0.
 
-**Phase 0 — hosted-only, same server:**
+**Phase 0 — hosted-only, same server:** **Done (MVP).**
 
-1. `POST /api/brain-query` endpoint: `{ fromHandle, query }` — requires `fromHandle` to be in the receiving tenant's allow list
-2. Scoped "answering agent" runs with the receiving tenant's context + privacy system prompt
-3. Configurable privacy policy text field in Hub settings (with default)
-4. Query log in Hub (sender and receiver both see their side)
-5. Main agent on initiating side recognizes "ask @handle ..." patterns and dispatches
+1. **`POST /api/brain-query`** (+ grant CRUD, log API) — asker authenticated; active **grant** required (`owner_id`, `asker_id`).
+2. **Research + filter** — tenant-scoped answering agent (read-only tool allowlist) + second pass with connection **privacy_policy**.
+3. **Per-connection policy** — stored on the grant, default text seeded on create.
+4. **Query log** — owner / asker roles; draft vs final delineation in UI for owner.
+5. **`ask_brain`** tool on the initiating side; NL “ask @handle …” still depends on the main model choosing the tool.
 
-This can be prototyped entirely within the existing codebase — no new identity infrastructure, no peer discovery, just a new API route and a scoped agent run.
+**Remaining for Phase 0 “complete” in a product sense:** **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)** (Hub / Settings UX), optional copy and discoverability improvements so users understand grants and audit without reading architecture docs.
 
 **Phase 1 — cross-instance:**
 
@@ -113,17 +142,16 @@ This can be prototyped entirely within the existing codebase — no new identity
 - HTTPS inter-instance request with signed payloads
 - Builds on the handle registry / endpoint discovery from IDEA-wiki-sharing-collaborators M1
 
-**Phase 2 — richer privacy controls:**
+**Phase 2 — richer access controls:**
 
-- Per-topic policies ("never share construction budget details")
-- Hard block lists (specific people, projects, date ranges)
-- Privacy policy versioning and audit
+- Implementation follows **[brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md):** capability bundles, **hard** wiki/mail predicates (Ripmail search-shaped where possible, enforced on search **and** fetch-by-id), **soft** ALLOW/DISALLOW fragments with **facets** and precedence, preset/library/grant composition, optional Ripmail-side filtering, versioning/audit as product requires.
+- Human approval mode (per connection) remains compatible—policy narrows what drafts may contain before approval.
 
 ---
 
 ## Open questions
 
-1. **Prompt injection via query text.** The incoming query is untrusted input from another user's LLM. It must be treated as user-level input, sandboxed from the receiving system prompt and tool access. How strictly do we enforce this in Phase 0?
+1. **Prompt injection via query text.** The incoming query is untrusted input from another user's LLM. It must be treated as user-level input, sandboxed from the receiving system prompt and tool access. **Phase 0:** wrapped delimiter block + read-only research tool allowlist (see [brain-query-delegation.md](../architecture/brain-query-delegation.md)); residual risk remains.
 2. **Answer quality vs. privacy filter tension.** A strong filter may strip so much that the answer is useless. How do we tune the default rules for useful answers while remaining genuinely protective? Probably requires empirical tuning with real queries.
 3. **Async delivery.** If Donna's instance is offline (desktop app closed), the query queues. What's the delivery mechanism — polling, push notification, email summary? Phase 0 can require both users to be online (cloud-hosted, always-on tenants).
 4. **Multi-hop.** "Ask Donna, and if she mentions the contractor, pull in what Sarah knows about them." Powerful but opens recursive delegation and potential data-exfiltration amplification. Likely blocked by default; opt-in later.

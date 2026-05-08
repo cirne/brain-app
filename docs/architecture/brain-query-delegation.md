@@ -2,11 +2,13 @@
 
 Cross-tenant **natural-language Q&A** with a **database ACL** and **two-pass** answering (research in the owner’s tenant → privacy filter → outbound text only).
 
+**Policy model (target architecture):** [brain-to-brain-access-policy.md](./brain-to-brain-access-policy.md) — three layers (capabilities, hard predicates, soft ALLOW/DISALLOW fragments); Phase 0 remains **one privacy-policy textarea** per grant until Hub/preset work ships.
+
 - **Idea / product:** [IDEA-brain-query-delegation.md](../ideas/IDEA-brain-query-delegation.md)
-- **Global DB:** `brain_query_grants` + `brain_query_log` in [`brainGlobalDb.ts`](../../src/server/lib/global/brainGlobalDb.ts) (same file as `wiki_shares`; version bump recreates DB per early-dev rules)
+- **Global DB:** `brain_query_grants` + `brain_query_log` in `[brainGlobalDb.ts](../../src/server/lib/global/brainGlobalDb.ts)` (same file as `wiki_shares`; version bump recreates DB per early-dev rules)
 - **API:** `POST /api/brain-query`, `GET/POST/PATCH/DELETE /api/brain-query/grants`, `GET /api/brain-query/log?role=owner|asker`
-- **Agent tool:** `ask_brain` — see [`brainQueryTool.ts`](../../src/server/agent/tools/brainQueryTool.ts)
-- **Settings UI:** Sharing → **Brain queries** ([`BrainQuerySettingsSection.svelte`](../../src/client/components/BrainQuerySettingsSection.svelte))
+- **Agent tool:** `ask_brain` — see `[brainQueryTool.ts](../../src/server/agent/tools/brainQueryTool.ts)`
+- **Settings UI:** Sharing → **Brain queries** (`[BrainQuerySettingsSection.svelte](../../src/client/components/BrainQuerySettingsSection.svelte)`) — **MVP / skeletal**; product backlog: **[OPP-099](../opportunities/OPP-099-brain-to-brain-admin-hub-ui.md)**
 
 ## Manual acceptance (two browsers)
 
@@ -24,9 +26,9 @@ LLM keys must be configured; each research + filter run uses the configured prov
 As of implementation, the following are covered by unit/integration tests (run `nvm use && npx vitest run`):
 
 - **Grants + log repos:** create/list/revoke/edit, unique `(owner_id, asker_id)`, default policy seed.
-- **`runBrainQuery`:** `denied_no_grant`, revoked grant, happy path with stubbed agents, filter redaction, `filter_blocked`, log rows per outcome.
+- `**runBrainQuery`:** `denied_no_grant`, revoked grant, happy path with stubbed agents, filter redaction, `filter_blocked`, log rows per outcome.
 - **HTTP:** `POST /api/brain-query` and grant/log routes (auth + shape); route tests mock `runBrainQuery`.
-- **`ask_brain` tool:** handle resolution and denial/error text for the calling agent.
-- **Settings UI:** [`BrainQuerySettingsSection.test.ts`](../../src/client/components/BrainQuerySettingsSection.test.ts) (grants + inbound/outbound log views).
+- `**ask_brain` tool:** handle resolution and denial/error text for the calling agent.
+- **Settings UI:** `[BrainQuerySettingsSection.test.ts](../../src/client/components/BrainQuerySettingsSection.test.ts)` (grants + inbound/outbound log views).
 
 The two-browser redaction spot-check (`$47,500` → vague amount in the answer) still depends on running the manual steps above with real mail + LLM.

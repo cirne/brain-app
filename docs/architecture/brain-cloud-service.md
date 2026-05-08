@@ -2,7 +2,7 @@
 
 **Status:** Pre-opportunity. Not yet scoped for implementation. These are architectural thoughts on what a centrally operated service — run by us — might eventually look like, and what it absolutely must not be.
 
-**Related:** **[Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md)** (brain-to-brain vision, sequencing, security model), [OPP-008](../opportunities/OPP-008-tunnel-qr-phone-access.md) (tunnels), [OPP-030](../opportunities/archive/OPP-030-agent-driven-support-bug-to-pr.md) (support/bug pipeline).
+**Related:** **[Brain-to-brain collaboration](../ideas/IDEA-wiki-sharing-collaborators.md)** (brain-to-brain vision, sequencing, security model), **[brain-to-brain-access-policy](./brain-to-brain-access-policy.md)** (draft policy layers for grants and tools), [OPP-008](../opportunities/OPP-008-tunnel-qr-phone-access.md) (tunnels), [OPP-030](../opportunities/archive/OPP-030-agent-driven-support-bug-to-pr.md) (support/bug pipeline).
 
 ---
 

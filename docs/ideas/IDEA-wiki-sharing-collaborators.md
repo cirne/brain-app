@@ -9,7 +9,9 @@
 
 ## The vision in one story
 
-Instead of you emailing Donna for a status report, **your brain asks Donna's brain** for a status report on a scoped topic. Donna's brain prepares a draft from **only the wiki pages, projects, and tools she has pre-authorized** for your connection. **Donna approves** (or edits or denies) the outbound reply. You get a coherent answer without pulling her into manual copy-paste, and Donna retains **sovereignty and visibility** into what left her side.
+Instead of you emailing Donna for a status report, **your brain asks Donna's brain** for a status report on a scoped topic. Depending on the collaboration mode, Donna's brain may prepare that answer from **pre-authorized wiki and mail surfaces** (directory sharing, future hard predicates) and/or via **brain-query delegation** ([IDEA-brain-query-delegation](IDEA-brain-query-delegation.md)) with **privacy-filtered** synthesis. **Donna approves** when the product requires it (some flows auto-filter instead). You get a coherent answer without pulling her into manual copy-paste, and Donna retains **sovereignty and visibility** into what left her side.
+
+**Unified policy direction:** [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) — capabilities, hard resource predicates (wiki paths, Ripmail-shaped mail rules), and soft ALLOW/DISALLOW fragments—applies across wiki shares and brain-query over time.
 
 That single flow implies: **identity**, **connection**, **policy**, **inter-brain request/response**, **approval UX**, **notifications**, and **audit**. All of that is future. The concrete first cut is much simpler.
 
@@ -40,13 +42,13 @@ Beyond wiki sharing, connected brains unlock qualitatively different collaborati
 
 **Scheduling without ping-pong.** "Schedule a meeting with Sterling next week." Your brain queries Sterling's brain for availability, cross-references your calendar, proposes a time, Sterling's brain confirms. No messages exchanged.
 
-**Knowledge queries across brains.** "What did Sterling's team decide about the deployment architecture?" Your brain asks Sterling's brain directly. Sterling's brain searches his wiki within the granted scope and returns an answer. Sterling gets a log entry; you get an answer in seconds.
+**Knowledge queries across brains.** "What did Sterling's team decide about the deployment architecture?" Your brain asks Sterling's brain directly. Answers may come from **wiki within granted scope**, **brain-query** synthesis across mail/wiki/calendar ([IDEA-brain-query-delegation](IDEA-brain-query-delegation.md)), or both—under **[brain-to-brain-access-policy](../architecture/brain-to-brain-access-policy.md)**. Sterling gets a log entry; you get an answer in seconds.
 
 **Collaborative wiki spaces.** Two connected brains share a wiki namespace — a set of pages both agents can read and write. Your brain writes meeting notes; Sterling's brain adds action items. The shared space is a living document two agents maintain together.
 
 **Delegation and task routing.** "Ask Sarah to review this doc." Your brain sends the document to Sarah's brain with a review request. Sarah reviews it (or her brain drafts a review she approves), and the notes come back. Async collaboration with zero email overhead.
 
-**Introductions and network queries.** "Who in my network knows about Kubernetes operators?" Your brain queries brains of people who've granted you query permission. You discover expertise you never knew about — because their brain's wiki captured it over months of usage.
+**Introductions and network queries.** "Who in my network knows about Kubernetes operators?" Your brain queries brains of people who've granted you query permission. You discover expertise captured in **wikis** and surfaced via **cross-brain Q&A** — under explicit grants and policy.
 
 ---
 
@@ -113,12 +115,13 @@ The product needs a **single place** where your brain aggregates: urgent mail, p
 
 ### Connection & policy (relationship-level)
 
-Per peer connection:
-- **Scopes:** wiki paths, tags, projects, calendar surfaces — fine-grained, composable (see permission vocabulary below).
+Per peer connection, policy spans **capabilities**, **hard data predicates** (wiki paths, mail filters), and **soft behavioral fragments**—see **[brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)** (draft SSOT).
+
+- **Scopes:** wiki paths, tags, projects, calendar surfaces — fine-grained where encoded as **layer 2** (deterministic) or **layer 3** (LLM instructions with facets).
 - **Granularity:** e.g. public-facing slice = small curated wiki subset; Donna = broader "family office" projects with stricter gates.
 - **Progressive trust:** start **defensive** (nothing leaves without explicit approval); relax per relationship as users opt in.
 
-Optional **policy profiles** (e.g. principal vs. operator) isolate high-sensitivity contexts (family office, health, finances) from casual connections.
+Optional **policy profiles** (e.g. principal vs. operator) map naturally to **presets** in the architecture doc—reusable bundles rather than one-off prose per peer.
 
 ### Approval workflow (transaction-level)
 
@@ -142,6 +145,8 @@ Should feel like **code review**, not a social feed — clear, accountable, reve
 5. **Revocability.** Cut a connection instantly. Shared keys rotate, cached data purges, access ends immediately.
 
 ### Permission vocabulary
+
+Illustrative **capability labels** (layer 1 in [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md)). Not exhaustive; implementation should follow that doc’s three layers.
 
 | Permission | What it allows |
 | ---------- | -------------- |
@@ -197,7 +202,7 @@ Should feel like **code review**, not a social feed — clear, accountable, reve
 2. **Concurrency and history (write access):** Last-write-wins, explicit merge, CRDT, or lock? Relates to [OPP-034](../opportunities/OPP-034-wiki-snapshots-and-point-in-time-restore.md) and possible git-per-user backing store. Deferred — OPP-064 is read-only.
 3. **Undo / blame:** Per-file revision history, changelog in frontmatter, or append-only audit beside file bytes? Deferred with write access.
 4. **Handle format:** Global uniqueness vs display-name + key fingerprint; revocation/rotation UX.
-5. **LLM-as-judge policy model:** Does auto-approval require a separate policy model with signed scope definitions the judge may not exceed?
+5. **LLM-as-judge policy model:** Does auto-approval require caps the judge may not exceed? **Draft direction:** layered model in [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) (capabilities + hard predicates + soft fragments); signed or versioned presets remain an open product choice.
 6. **Offline/degraded behavior:** Minimum behavior when a peer brain is unreachable.
 7. **Agent scope enforcement:** Grantee assistants must only see granted subtrees — interim projection + coercion ship today; **`wikis/`** unified root + symlink-only projection → **[OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md)**.
 8. **Read-only vs indexing:** Grantee **vault FTS** stays own-vault (Phase 1); markdown **`grep`**/**`find`** traverse projection; widening shared **search_index** is a separate grant.
@@ -258,6 +263,7 @@ A natural question for write access and audit: **one Git repository per user** f
 
 ## References
 
+- [brain-to-brain-access-policy.md](../architecture/brain-to-brain-access-policy.md) — Cross-brain policy layers (capabilities, hard predicates, soft ALLOW/DISALLOW fragments); complements wiki ACL + brain-query grants.
 - **[OPP-064](../opportunities/OPP-064-wiki-directory-sharing-read-only-collaborators.md)** — Phase 1: read-only directory invite, email-as-identity, server-mediated access — **[archived spec](../opportunities/archive/OPP-064-wiki-directory-sharing-read-only-collaborators.md)**.
 - **[OPP-091](../opportunities/OPP-091-wiki-unified-namespace-sharing-projection.md)** — Unified **`wikis/`** filesystem for my vault + share peers; simplify tool roots.
 - [STRATEGY.md](../STRATEGY.md) — Competitive landscape, segmented focus, brain-to-brain moats (network + trust), email analogy.
